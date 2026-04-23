@@ -1,0 +1,451 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum MilestoneTier {
+  SACRAMENT
+  SPIRITUAL
+  PERSONAL
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  OVERDUE
+  ARCHIVED
+}
+
+enum ContentStatus {
+  DRAFT
+  REVIEW
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MediaKind {
+  PHOTO
+  ICON
+  PAINTING
+  ILLUSTRATION
+  STATUE
+  BOOK_COVER
+  FAVICON
+  OTHER
+}
+
+enum ReviewStatus {
+  PENDING
+  AUTO_APPROVED
+  HUMAN_REVIEWED
+  REJECTED
+}
+
+enum TranslationStatus {
+  MACHINE
+  HUMAN_REVIEWED
+  LOCKED
+}
+
+model User {
+  id               String                @id @default(cuid())
+  email            String                @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  role             Role                  @default(USER)
+  emailEncrypted   String?
+  nameEncrypted    String?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  profile          Profile?
+  sessions         Session[]
+  journalEntries   JournalEntry[]
+  savedPrayers     UserSavedPrayer[]
+  savedSaints      UserSavedSaint[]
+  savedApparitions UserSavedApparition[]
+  savedParishes    UserSavedParish[]
+  goals            Goal[]
+  milestones       Milestone[]
+  auditLogs        AdminAuditLog[]       @relation("AuditActor")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Profile {
+  id               String      @id @default(cuid())
+  userId           String      @unique
+  avatarMediaId    String?
+  languageOverride String?
+  theme            String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  avatarMedia      MediaAsset? @relation(fields: [avatarMediaId], references: [id])
+}
+
+model JournalEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  title      String
+  body       String
+  isFavorite Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
+}
+
+model Prayer {
+  id           String              @id @default(cuid())
+  slug         String              @unique
+  defaultTitle String
+  body         String
+  category     String
+  status       ContentStatus       @default(DRAFT)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  translations PrayerTranslation[]
+  savedByUsers UserSavedPrayer[]
+}
+
+model PrayerTranslation {
+  id                String            @id @default(cuid())
+  prayerId          String
+  locale            String
+  title             String
+  body              String
+  translationStatus TranslationStatus @default(MACHINE)
+  translationEngine String?
+  checksum          String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  prayer            Prayer            @relation(fields: [prayerId], references: [id], onDelete: Cascade)
+
+  @@unique([prayerId, locale])
+}
+
+model Saint {
+  id                String             @id @default(cuid())
+  slug              String             @unique
+  canonicalName     String
+  feastDay          String?
+  patronages        String[]
+  biography         String
+  officialPrayer    String?
+  externalSourceKey String?            @unique
+  status            ContentStatus      @default(DRAFT)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  translations      SaintTranslation[]
+  savedByUsers      UserSavedSaint[]
+}
+
+model SaintTranslation {
+  id                String            @id @default(cuid())
+  saintId           String
+  locale            String
+  name              String
+  biography         String
+  officialPrayer    String?
+  translationStatus TranslationStatus @default(MACHINE)
+  translationEngine String?
+  checksum          String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  saint             Saint             @relation(fields: [saintId], references: [id], onDelete: Cascade)
+
+  @@unique([saintId, locale])
+}
+
+model MarianApparition {
+  id                String                        @id @default(cuid())
+  slug              String                        @unique
+  title             String
+  location          String?
+  country           String?
+  approvedStatus    String?
+  summary           String
+  officialPrayer    String?
+  externalSourceKey String?                       @unique
+  status            ContentStatus                 @default(DRAFT)
+  createdAt         DateTime                      @default(now())
+  updatedAt         DateTime                      @updatedAt
+  translations      MarianApparitionTranslation[]
+  savedByUsers      UserSavedApparition[]
+}
+
+model MarianApparitionTranslation {
+  id                String            @id @default(cuid())
+  apparitionId      String
+  locale            String
+  title             String
+  summary           String
+  officialPrayer    String?
+  translationStatus TranslationStatus @default(MACHINE)
+  translationEngine String?
+  checksum          String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  apparition        MarianApparition  @relation(fields: [apparitionId], references: [id], onDelete: Cascade)
+
+  @@unique([apparitionId, locale])
+}
+
+model Parish {
+  id                String            @id @default(cuid())
+  slug              String            @unique
+  name              String
+  address           String?
+  city              String?
+  region            String?
+  country           String?
+  phone             String?
+  email             String?
+  websiteUrl        String?
+  diocese           String?
+  ociaUrl           String?
+  latitude          Float?
+  longitude         Float?
+  externalSourceKey String?
+  sourceHost        String?
+  status            ContentStatus     @default(DRAFT)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  savedByUsers      UserSavedParish[]
+
+  @@unique([name, city, country])
+}
+
+model Goal {
+  id          String              @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  dueDate     DateTime?
+  status      GoalStatus          @default(ACTIVE)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  checklist   GoalChecklistItem[]
+  milestone   Milestone?
+
+  @@index([userId, status])
+}
+
+model GoalChecklistItem {
+  id          String   @id @default(cuid())
+  goalId      String
+  label       String
+  sortOrder   Int
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  goal        Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  @@unique([goalId, sortOrder])
+}
+
+model Milestone {
+  id          String        @id @default(cuid())
+  userId      String
+  goalId      String?       @unique
+  tier        MilestoneTier
+  title       String
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal        Goal?         @relation(fields: [goalId], references: [id])
+
+  @@index([userId, tier])
+}
+
+model UserSavedPrayer {
+  userId    String
+  prayerId  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prayer    Prayer   @relation(fields: [prayerId], references: [id], onDelete: Cascade)
+
+  @@id([userId, prayerId])
+}
+
+model UserSavedSaint {
+  userId    String
+  saintId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  saint     Saint    @relation(fields: [saintId], references: [id], onDelete: Cascade)
+
+  @@id([userId, saintId])
+}
+
+model UserSavedApparition {
+  userId       String
+  apparitionId String
+  createdAt    DateTime         @default(now())
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apparition   MarianApparition @relation(fields: [apparitionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, apparitionId])
+}
+
+model UserSavedParish {
+  userId    String
+  parishId  String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parish    Parish   @relation(fields: [parishId], references: [id], onDelete: Cascade)
+
+  @@id([userId, parishId])
+}
+
+model MediaAsset {
+  id              String            @id @default(cuid())
+  url             String
+  altText         String?
+  kind            MediaKind         @default(OTHER)
+  sourceUrl       String?
+  sourceHost      String?
+  licenseInfo     String?
+  attribution     String?
+  checksum        String?
+  reviewStatus    ReviewStatus      @default(PENDING)
+  confidenceScore Float?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  entityLinks     EntityMediaLink[]
+  profiles        Profile[]
+}
+
+model EntityMediaLink {
+  id           String     @id @default(cuid())
+  entityType   String
+  entityId     String
+  mediaAssetId String
+  isPrimary    Boolean    @default(false)
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+  mediaAsset   MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, mediaAssetId])
+  @@index([entityType, entityId])
+}
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  valueJson Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HomePage {
+  id        String          @id @default(cuid())
+  slug      String          @unique @default("homepage")
+  title     String?
+  status    ContentStatus   @default(DRAFT)
+  version   Int             @default(1)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  blocks    HomePageBlock[]
+}
+
+model HomePageBlock {
+  id         String   @id @default(cuid())
+  pageId     String
+  blockKey   String
+  blockType  String
+  sortOrder  Int
+  configJson Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  page       HomePage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@unique([pageId, blockKey])
+  @@unique([pageId, sortOrder])
+}
+
+model IngestionSource {
+  id              String         @id @default(cuid())
+  name            String
+  host            String         @unique
+  baseUrl         String
+  sourceType      String
+  isOfficial      Boolean        @default(false)
+  rateLimitPerMin Int?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  jobs            IngestionJob[]
+}
+
+model IngestionJob {
+  id           String            @id @default(cuid())
+  sourceId     String
+  jobName      String
+  targetEntity String
+  schedule     String?
+  isActive     Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  source       IngestionSource   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  runs         IngestionJobRun[]
+
+  @@unique([sourceId, jobName])
+}
+
+model IngestionJobRun {
+  id             String       @id @default(cuid())
+  jobId          String
+  startedAt      DateTime
+  finishedAt     DateTime?
+  status         String
+  recordsSeen    Int          @default(0)
+  recordsCreated Int          @default(0)
+  recordsUpdated Int          @default(0)
+  recordsSkipped Int          @default(0)
+  errorMessage   String?
+  createdAt      DateTime     @default(now())
+  job            IngestionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, startedAt])
+}
+
+model AdminAuditLog {
+  id            String   @id @default(cuid())
+  actorUserId   String?
+  actorUsername String?
+  action        String
+  entityType    String
+  entityId      String
+  previousValue Json?
+  newValue      Json?
+  ipAddress     String?
+  userAgent     String?
+  requestId     String?
+  createdAt     DateTime @default(now())
+  actor         User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+}
