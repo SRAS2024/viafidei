@@ -5,6 +5,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { prisma } from "@/lib/db";
 import { PageHero } from "@/components/PageHero";
 import { JournalEditor } from "./JournalEditor";
+import { JournalDeleteButton } from "./JournalDeleteButton";
 
 export default async function JournalPage() {
   const user = await requireUser();
@@ -37,20 +38,27 @@ export default async function JournalPage() {
         ) : (
           entries.map((e) => (
             <article key={e.id} className="vf-card rounded-sm p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="font-display text-2xl">{e.title}</h2>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h2 className="font-display text-2xl text-ink">{e.title}</h2>
                   <p className="vf-eyebrow mt-1">
                     {e.updatedAt.toISOString().slice(0, 10)} {e.isFavorite ? "· ★" : ""}
                   </p>
                 </div>
-                <form method="post" action={`/api/journal/${e.id}/delete`}>
-                  <button className="vf-nav-link" type="submit">
-                    {t("profile.journal.delete")}
-                  </button>
-                </form>
+                <JournalDeleteButton
+                  entryId={e.id}
+                  entryTitle={e.title}
+                  labels={{
+                    delete: t("profile.journal.delete"),
+                    cancel: t("profile.journal.cancel"),
+                    confirmTitle: t("profile.journal.deleteTitle"),
+                    confirmBody: t("profile.journal.deleteBody"),
+                  }}
+                />
               </div>
-              <p className="mt-4 whitespace-pre-wrap font-serif text-ink-soft">{e.body}</p>
+              <p className="mt-4 max-w-reading whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">
+                {e.body}
+              </p>
             </article>
           ))
         )}

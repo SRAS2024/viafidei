@@ -14,9 +14,21 @@
     --ink-soft: #2a2a2a;
     --ink-faint: #4a4a4a;
     --rule: rgba(17, 17, 17, 0.08);
-    --accent-blue: #1f3a8a;
-    --accent-blue-light: #7aa7dc;
-    --accent-gold: #b68d40;
+
+    /* Reserved, semantic accent palette.
+       Red — destructive (delete / remove)
+       Blue — affirmative (save / continue)
+       Gray — neutral (cancel / dismiss)
+       Marian-blue / gold — used only on iconography that calls for it. */
+    --action-blue: #1f3a8a;
+    --action-blue-hover: #162a66;
+    --action-red: #8b1a1a;
+    --action-red-hover: #6f1414;
+    --action-gray: #6b6b6b;
+    --action-gray-hover: #4a4a4a;
+    --marian-blue: #1f3a8a;
+    --marian-blue-light: #7aa7dc;
+    --eucharist-gold: #b68d40;
   }
 
   html {
@@ -87,6 +99,12 @@
     color: var(--ink);
     letter-spacing: -0.005em;
   }
+
+  *:focus-visible {
+    outline: 2px solid var(--action-blue);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
 }
 
 @layer components {
@@ -125,6 +143,10 @@
     font-size: 0.72rem;
     color: var(--ink-soft);
     transition: color 160ms ease;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
   }
 
   .vf-nav-link:hover,
@@ -132,61 +154,132 @@
     color: var(--ink);
   }
 
+  /* ---------- Buttons ---------- */
   .vf-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.7rem 1.5rem;
+    min-height: 2.5rem;
+    padding: 0.65rem 1.4rem;
     font-family: var(--font-sans);
     font-size: 0.78rem;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.2em;
     border-radius: 2px;
-    transition: all 180ms ease;
+    transition: background-color 180ms ease, color 180ms ease,
+      border-color 180ms ease, transform 120ms ease, opacity 180ms ease;
     border: 1px solid transparent;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
   }
 
+  .vf-btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  .vf-btn:disabled,
+  .vf-btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* Primary — affirmative actions: save, continue, submit, sign-in */
   .vf-btn-primary {
-    background: var(--accent-blue);
+    background: var(--action-blue);
     color: #ffffff;
+    border-color: var(--action-blue);
   }
 
-  .vf-btn-primary:hover {
-    background: #162a66;
+  .vf-btn-primary:hover:not(:disabled) {
+    background: var(--action-blue-hover);
+    border-color: var(--action-blue-hover);
   }
 
+  /* Ghost — neutral / cancel / back */
   .vf-btn-ghost {
     background: transparent;
     color: var(--ink);
     border-color: rgba(17, 17, 17, 0.25);
   }
 
-  .vf-btn-ghost:hover {
+  .vf-btn-ghost:hover:not(:disabled) {
     border-color: var(--ink);
+    background: rgba(17, 17, 17, 0.03);
   }
 
+  /* Cancel — explicit gray for cancel / dismiss */
+  .vf-btn-cancel {
+    background: transparent;
+    color: var(--action-gray);
+    border-color: rgba(107, 107, 107, 0.4);
+  }
+
+  .vf-btn-cancel:hover:not(:disabled) {
+    color: var(--action-gray-hover);
+    border-color: var(--action-gray-hover);
+    background: rgba(17, 17, 17, 0.03);
+  }
+
+  /* Danger — destructive actions: delete, remove */
   .vf-btn-danger {
-    background: #8b1a1a;
+    background: var(--action-red);
     color: #ffffff;
+    border-color: var(--action-red);
   }
 
+  .vf-btn-danger:hover:not(:disabled) {
+    background: var(--action-red-hover);
+    border-color: var(--action-red-hover);
+  }
+
+  /* Inline destructive text-link variant — for "Delete" links inside lists */
+  .vf-link-danger {
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--action-red);
+    background: transparent;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    transition: color 160ms ease;
+  }
+
+  .vf-link-danger:hover {
+    color: var(--action-red-hover);
+  }
+
+  /* ---------- Forms ---------- */
   .vf-input {
     width: 100%;
     background: rgba(255, 255, 255, 0.85);
     border: 1px solid rgba(17, 17, 17, 0.2);
-    padding: 0.75rem 0.9rem;
+    padding: 0.7rem 0.9rem;
     font-family: var(--font-sans);
     font-size: 0.95rem;
     color: var(--ink);
     border-radius: 2px;
-    transition: border-color 160ms ease;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .vf-input:hover {
+    border-color: rgba(17, 17, 17, 0.35);
   }
 
   .vf-input:focus {
     outline: none;
-    border-color: var(--accent-blue);
+    border-color: var(--action-blue);
     box-shadow: 0 0 0 3px rgba(31, 58, 138, 0.12);
+  }
+
+  .vf-input:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
   .vf-label {
@@ -199,6 +292,36 @@
     margin-bottom: 0.45rem;
   }
 
+  /* ---------- Header search ---------- */
+  .vf-header-search {
+    border-bottom: 1px solid rgba(17, 17, 17, 0.15);
+    padding: 0.25rem 0;
+    transition: border-color 160ms ease;
+  }
+
+  .vf-header-search:focus-within {
+    border-color: var(--ink);
+  }
+
+  .vf-header-search-input {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    outline: none;
+    padding: 0.25rem 0.1rem;
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+    min-width: 0;
+  }
+
+  .vf-header-search-input::placeholder {
+    color: var(--ink-faint);
+    font-style: italic;
+  }
+
+  /* ---------- Ornament ---------- */
   .vf-ornament {
     display: flex;
     align-items: center;
@@ -223,6 +346,146 @@
     line-height: 0.9;
     padding: 0.25rem 0.6rem 0 0;
     color: var(--ink);
+  }
+
+  /* ---------- Avatar ---------- */
+  .vf-avatar {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 7rem;
+    height: 7rem;
+    border-radius: 9999px;
+    overflow: hidden;
+    border: 1px solid rgba(17, 17, 17, 0.15);
+    background: var(--paper-bright);
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 2.25rem;
+    line-height: 1;
+    user-select: none;
+  }
+
+  .vf-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .vf-avatar-edit {
+    position: absolute;
+    right: 4%;
+    bottom: 4%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    border-radius: 9999px;
+    background: var(--ink);
+    color: #ffffff;
+    border: 2px solid var(--paper-bright);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 180ms ease, transform 180ms ease;
+    cursor: pointer;
+  }
+
+  .vf-avatar:hover .vf-avatar-edit,
+  .vf-avatar:focus-within .vf-avatar-edit {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .vf-avatar-edit:focus-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Tooltip */
+  .vf-tooltip {
+    position: relative;
+  }
+
+  .vf-tooltip[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 0.45rem);
+    transform: translateX(-50%) translateY(2px);
+    background: var(--ink);
+    color: var(--paper-bright);
+    font-family: var(--font-sans);
+    font-size: 0.66rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 0.35rem 0.55rem;
+    border-radius: 2px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+
+  .vf-tooltip:hover::after,
+  .vf-tooltip:focus-visible::after {
+    opacity: 0.96;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ---------- Modal ---------- */
+  .vf-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 10, 10, 0.45);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 50;
+  }
+
+  .vf-modal {
+    width: 100%;
+    max-width: 30rem;
+    background: var(--paper-bright);
+    border: 1px solid rgba(17, 17, 17, 0.1);
+    border-radius: 3px;
+    box-shadow: 0 30px 60px -20px rgba(10, 10, 10, 0.35);
+    padding: 1.75rem;
+    text-align: center;
+  }
+
+  .vf-modal-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    color: var(--ink);
+    margin-bottom: 0.6rem;
+  }
+
+  .vf-modal-body {
+    font-family: var(--font-serif);
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+
+  .vf-modal-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  /* ---------- Sacrament / iconography accents (used sparingly) ---------- */
+  .vf-icon-marian {
+    color: var(--marian-blue);
+  }
+
+  .vf-icon-eucharist {
+    color: var(--eucharist-gold);
   }
 }
 
