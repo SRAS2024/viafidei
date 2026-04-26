@@ -25,11 +25,11 @@ export function JournalEditor({
       <input id="journalTitle" name="title" required className="vf-input" />
       <label className="vf-label mt-4" htmlFor="journalBody">{labels.body}</label>
       <textarea id="journalBody" name="body" rows={6} required className="vf-input" />
-      <div className="mt-5 flex gap-3">
-        <button type="submit" className="vf-btn vf-btn-primary">{labels.save}</button>
-        <button type="button" className="vf-btn vf-btn-ghost" onClick={() => setOpen(false)}>
+      <div className="mt-6 flex items-center justify-between gap-3">
+        <button type="button" className="vf-btn vf-btn-cancel" onClick={() => setOpen(false)}>
           {labels.cancel}
         </button>
+        <button type="submit" className="vf-btn vf-btn-primary">{labels.save}</button>
       </div>
     </form>
   );

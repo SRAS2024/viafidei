@@ -16,16 +16,33 @@ export default async function SettingsPage() {
         <Link href="/profile" className="vf-nav-link">← {t("common.back")}</Link>
       </div>
       <PageHero eyebrow={t("profile.title")} title={t("profile.tab.settings")} />
-      <form method="post" action="/api/settings/locale" className="vf-card mx-auto max-w-md rounded-sm p-6">
-        <label className="vf-label" htmlFor="locale">{t("profile.settings.language")}</label>
+      <form
+        method="post"
+        action="/api/settings/locale"
+        className="vf-card mx-auto max-w-md rounded-sm p-6"
+      >
+        <label className="vf-label" htmlFor="locale">
+          {t("profile.settings.language")}
+        </label>
         <select id="locale" name="locale" className="vf-input">
           <option value="">{t("common.languageAuto")}</option>
           {SUPPORTED_LOCALES.map((loc) => (
-            <option key={loc} value={loc}>{LOCALE_LABELS[loc]}</option>
+            <option key={loc} value={loc}>
+              {LOCALE_LABELS[loc]}
+            </option>
           ))}
         </select>
-        <p className="mt-2 text-xs text-ink-faint">{t("profile.settings.languageHint")}</p>
-        <button type="submit" className="vf-btn vf-btn-primary mt-5">{t("common.save")}</button>
+        <p className="mt-2 text-xs text-ink-faint">
+          {t("profile.settings.languageHint")}
+        </p>
+        <div className="mt-6 flex items-center justify-between gap-3">
+          <Link href="/profile" className="vf-btn vf-btn-cancel">
+            {t("common.cancel")}
+          </Link>
+          <button type="submit" className="vf-btn vf-btn-primary">
+            {t("common.save")}
+          </button>
+        </div>
       </form>
     </div>
   );
