@@ -1,19 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { getTranslator } from "@/lib/i18n/server";
-import { PageHero } from "@/components/PageHero";
+import { listGoalsForUser } from "@/lib/data/profile";
+import { PageHero } from "@/components/ui/PageHero";
 
 export default async function GoalsPage() {
   const user = await requireUser();
   if (!user) redirect("/login?next=/profile/goals");
   const { t } = await getTranslator();
   const now = new Date();
-  const goals = await prisma.goal.findMany({
-    where: { userId: user.id },
-    orderBy: { updatedAt: "desc" },
-  });
+  const goals = await listGoalsForUser(user.id);
   return (
     <div>
       <div className="mb-4">

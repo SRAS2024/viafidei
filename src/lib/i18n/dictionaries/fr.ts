@@ -1,0 +1,46 @@
+import type { Dict } from "./types";
+import { en } from "./en";
+
+export const fr: Dict = {
+  ...en,
+  "brand.tagline": "La Voie de la Foi",
+  "nav.home": "Accueil",
+  "nav.prayers": "Prières",
+  "nav.spiritualLife": "Vie spirituelle",
+  "nav.spiritualGuidance": "Accompagnement",
+  "nav.liturgyHistory": "Liturgie & Histoire",
+  "nav.saints": "Saints & Notre-Dame",
+  "nav.search": "Recherche",
+  "nav.login": "Connexion",
+  "nav.profile": "Profil",
+  "nav.register": "Créer un compte",
+  "nav.logout": "Se déconnecter",
+  "nav.settings": "Paramètres",
+  "home.title": "Un lieu paisible pour prier, apprendre, revenir.",
+  "home.ctaExplore": "Explorer les prières",
+  "home.ctaJoin": "Créer un profil",
+  "auth.signIn": "Connexion",
+  "auth.register": "Créer un compte",
+  "auth.email": "Courriel",
+  "auth.password": "Mot de passe",
+  "auth.passwordConfirm": "Confirmer le mot de passe",
+  "auth.firstName": "Prénom",
+  "auth.lastName": "Nom",
+  "auth.invalid": "Courriel ou mot de passe incorrect.",
+  "auth.adminNotice":
+    "Cette connexion est réservée aux membres. Les administrateurs doivent utiliser le portail dédié.",
+  "admin.loading.greeting": "Bienvenue !",
+  "admin.login.title": "Connexion administrateur",
+  "admin.login.subtitle":
+    "Ce portail est réservé aux administrateurs autorisés. Toutes les actions sont journalisées.",
+  "admin.login.username": "Nom d'utilisateur administrateur",
+  "admin.login.password": "Mot de passe administrateur",
+  "admin.login.submit": "Entrer",
+  "admin.login.invalid": "Identifiants incorrects.",
+  "admin.dashboard.title": "Tableau de bord",
+  "admin.dashboard.subtitle":
+    "Gérez le contenu, les traductions, l'ingestion, les médias et la page d'accueil.",
+  "admin.signOut": "Déconnexion",
+  "admin.welcomeLine": "Vous êtes connecté en tant qu'administrateur.",
+  "common.loading": "Chargement",
+};

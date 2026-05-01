@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin-auth";
-import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
+import { listRecentMedia } from "@/lib/data/media";
 import { AdminSection } from "../_sections/AdminSection";
 
 export default async function AdminMedia() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const rows = await prisma.mediaAsset.findMany({ orderBy: { createdAt: "desc" }, take: 60 });
+  const rows = await listRecentMedia();
   return (
     <AdminSection titleKey="admin.card.media">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

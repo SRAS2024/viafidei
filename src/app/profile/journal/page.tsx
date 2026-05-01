@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
-import { prisma } from "@/lib/db";
-import { PageHero } from "@/components/PageHero";
+import { listJournalEntries } from "@/lib/data/journal";
+import { PageHero } from "@/components/ui/PageHero";
 import { JournalEditor } from "./JournalEditor";
 import { JournalDeleteButton } from "./JournalDeleteButton";
 
@@ -12,10 +12,7 @@ export default async function JournalPage() {
   if (!user) redirect("/login?next=/profile/journal");
   const { t } = await getTranslator();
 
-  const entries = await prisma.journalEntry.findMany({
-    where: { userId: user.id },
-    orderBy: { updatedAt: "desc" },
-  });
+  const entries = await listJournalEntries(user.id);
 
   return (
     <div>

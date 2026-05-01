@@ -1,15 +1,12 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin-auth";
-import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
+import { listRecentAuditLogs } from "@/lib/data/audit-log";
 import { AdminSection } from "../_sections/AdminSection";
 
 export default async function AdminAudit() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const rows = await prisma.adminAuditLog.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
+  const rows = await listRecentAuditLogs();
   return (
     <AdminSection titleKey="admin.card.audit">
       <div className="vf-card rounded-sm">

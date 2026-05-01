@@ -1,0 +1,13 @@
+export * as PrayersRepo from "./prayers";
+export * as SaintsRepo from "./saints";
+export * as ApparitionsRepo from "./apparitions";
+export * as ParishesRepo from "./parishes";
+export * as JournalRepo from "./journal";
+export * as ProfileRepo from "./profile";
+export * as HomepageRepo from "./homepage";
+export * as SiteSettingsRepo from "./site-settings";
+export * as AuditLogRepo from "./audit-log";
+export * as MediaRepo from "./media";
+export * as IngestionRepo from "./ingestion";
+export * as TranslationsRepo from "./translations";
+export * as SearchRepo from "./search";

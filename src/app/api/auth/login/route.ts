@@ -1,7 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { authenticate, loginSchema } from "@/lib/auth";
-import { getSession } from "@/lib/session";
-import { rateLimit, RATE_POLICIES } from "@/lib/rate-limit";
+import { authenticate, loginSchema, getSession } from "@/lib/auth";
+import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
+import { getClientIp } from "@/lib/security/request";
+
+const LOGIN_INVALID = "/login?error=invalid";
+const DEFAULT_NEXT = "/profile";
+
+function safeNext(raw: string | null): string {
+  return raw && raw.startsWith("/") ? raw : DEFAULT_NEXT;
+}
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
@@ -9,22 +16,21 @@ export async function POST(req: NextRequest) {
     email: form.get("email"),
     password: form.get("password"),
   });
-  const next = (form.get("next") as string) || "/profile";
+  const next = safeNext((form.get("next") as string | null) ?? null);
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
   if (!parsed.success) {
-    return NextResponse.redirect(new URL("/login?error=invalid", req.url), 303);
+    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
   }
 
-  const rateKey = `login:${ip}:${parsed.data.email.toLowerCase()}`;
-  const limit = rateLimit(rateKey, RATE_POLICIES.login);
+  const ip = getClientIp(req);
+  const limit = rateLimit(`login:${ip}:${parsed.data.email.toLowerCase()}`, RATE_POLICIES.login);
   if (!limit.ok) {
-    return NextResponse.redirect(new URL("/login?error=invalid", req.url), 303);
+    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
   }
 
   const user = await authenticate(parsed.data.email, parsed.data.password);
   if (!user) {
-    return NextResponse.redirect(new URL("/login?error=invalid", req.url), 303);
+    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
   }
 
   const session = await getSession();
@@ -34,5 +40,5 @@ export async function POST(req: NextRequest) {
   session.role = "USER";
   await session.save();
 
-  return NextResponse.redirect(new URL(next.startsWith("/") ? next : "/profile", req.url), 303);
+  return NextResponse.redirect(new URL(next, req.url), 303);
 }

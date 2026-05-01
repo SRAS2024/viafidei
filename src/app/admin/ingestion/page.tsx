@@ -1,14 +1,12 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin-auth";
-import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
+import { listIngestionSourcesWithLatestRuns } from "@/lib/data/ingestion";
 import { AdminSection } from "../_sections/AdminSection";
 
 export default async function AdminIngestion() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const sources = await prisma.ingestionSource.findMany({
-    include: { jobs: { include: { runs: { orderBy: { startedAt: "desc" }, take: 1 } } } },
-  });
+  const sources = await listIngestionSourcesWithLatestRuns();
   return (
     <AdminSection titleKey="admin.card.ingestion">
       {sources.length === 0 ? (

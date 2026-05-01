@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin-auth";
-import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
+import { listAdminParishes } from "@/lib/data/parishes";
 import { AdminSection } from "../_sections/AdminSection";
 
 export default async function AdminParishes() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const rows = await prisma.parish.findMany({ orderBy: { name: "asc" }, take: 200 });
+  const rows = await listAdminParishes();
   return (
     <AdminSection titleKey="admin.card.parishes">
       <div className="vf-card rounded-sm p-6">

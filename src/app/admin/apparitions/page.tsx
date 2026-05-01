@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin-auth";
-import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
+import { listAdminApparitions } from "@/lib/data/apparitions";
 import { AdminSection } from "../_sections/AdminSection";
 
 export default async function AdminApparitions() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const rows = await prisma.marianApparition.findMany({ orderBy: { title: "asc" } });
+  const rows = await listAdminApparitions();
   return (
     <AdminSection titleKey="admin.card.apparitions">
       <div className="vf-card rounded-sm p-6">

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getTranslator } from "@/lib/i18n/server";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireAdmin } from "@/lib/auth";
 import { AdminLoginForm } from "./AdminLoginForm";
 
 export default async function AdminLogin({

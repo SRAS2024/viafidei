@@ -1,14 +1,13 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin-auth";
-import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
+import { getFaviconSetting } from "@/lib/data/site-settings";
 import { AdminSection } from "../_sections/AdminSection";
 
 export default async function AdminFavicon() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
 
-  const setting = await prisma.siteSetting.findUnique({ where: { key: "favicon" } });
-  const current = setting?.valueJson as { url?: string; altText?: string } | null;
+  const { value: current } = await getFaviconSetting();
 
   return (
     <AdminSection titleKey="admin.card.favicon">
