@@ -14,45 +14,46 @@ export function Logo({ size = 44, className }: LogoProps) {
       aria-label="Via Fidei"
       className={["text-ink", className].filter(Boolean).join(" ")}
     >
-      <g
+      <defs>
+        <clipPath id="vf-cross-clip">
+          <path d="M28 4 Q32 3.4 36 4 L36 23 L60 23 Q60.4 24 60 25 L60 31 Q60.4 32 60 33 L36 33 L36 75 Q36.4 77 36 77.6 Q34 78.4 32 78.4 Q30 78.4 28 77.6 Q27.6 77 28 75 L28 33 L4 33 Q3.6 32 4 31 L4 25 Q3.6 24 4 23 L28 23 Z" />
+        </clipPath>
+        <linearGradient id="vf-cross-shade" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0" />
+          <stop offset="50%" stopColor="currentColor" stopOpacity="0.06" />
+          <stop offset="100%" stopColor="currentColor" stopOpacity="0.18" />
+        </linearGradient>
+      </defs>
+
+      <path
+        d="M28 4 Q32 3.4 36 4 L36 23 L60 23 Q60.4 24 60 25 L60 31 Q60.4 32 60 33 L36 33 L36 75 Q36.4 77 36 77.6 Q34 78.4 32 78.4 Q30 78.4 28 77.6 Q27.6 77 28 75 L28 33 L4 33 Q3.6 32 4 31 L4 25 Q3.6 24 4 23 L28 23 Z"
         fill="none"
         stroke="currentColor"
-        strokeLinecap="round"
+        strokeWidth="1.1"
         strokeLinejoin="round"
-      >
-        <path
-          d="M28.4 4.6 Q27.8 6.6 27.8 9 L27.6 30.5 Q27.5 31.4 27.4 32 L27.4 73.4 Q27.5 75.4 28.5 76.8"
-          strokeWidth="1.1"
-        />
-        <path
-          d="M35.6 4.8 Q36.4 6.8 36.4 9 L36.6 30.5 Q36.6 31.4 36.7 32 L36.7 73.5 Q36.6 75.5 35.6 76.9"
-          strokeWidth="1.1"
-        />
-        <path d="M28.4 4.7 Q32 3.5 35.6 4.8" strokeWidth="1.1" />
-        <path d="M28.5 76.9 Q32 78.2 35.6 76.9" strokeWidth="1.1" />
-        <path
-          d="M5 24.4 Q7.2 23.6 9.6 23.6 L54.4 23.4 Q57 23.4 59 24.2"
-          strokeWidth="1.1"
-        />
-        <path
-          d="M5 32.4 Q7.2 33.4 9.6 33.4 L54.4 33.6 Q57 33.6 59 32.6"
-          strokeWidth="1.1"
-        />
-        <path d="M5 24.5 Q3.6 28.4 5 32.4" strokeWidth="1.1" />
-        <path d="M59 24.3 Q60.4 28.4 59 32.5" strokeWidth="1.1" />
-        <path d="M30 9 Q30.4 18 30 28" strokeWidth="0.45" opacity="0.55" />
-        <path d="M32 12 Q32.6 24 32 35" strokeWidth="0.45" opacity="0.45" />
-        <path d="M34 8 Q34.4 17 34 27" strokeWidth="0.45" opacity="0.5" />
-        <path d="M30.4 38 Q30.8 50 30.2 64" strokeWidth="0.45" opacity="0.5" />
-        <path d="M32.6 40 Q33 54 32.4 68" strokeWidth="0.45" opacity="0.45" />
-        <path d="M34.4 38 Q34.8 52 34.2 66" strokeWidth="0.45" opacity="0.55" />
-        <path d="M9 26 Q22 26.6 36 26.2 Q48 25.9 56 26.4" strokeWidth="0.45" opacity="0.55" />
-        <path d="M9 28.5 Q22 29 36 28.7 Q48 28.4 56 28.9" strokeWidth="0.45" opacity="0.45" />
-        <path d="M9 31 Q22 31.4 36 31.1 Q48 30.8 56 31.3" strokeWidth="0.45" opacity="0.5" />
-        <circle cx="31.6" cy="50" r="0.55" strokeWidth="0.4" opacity="0.55" />
-        <circle cx="33.2" cy="18" r="0.55" strokeWidth="0.4" opacity="0.5" />
-        <circle cx="46" cy="29" r="0.55" strokeWidth="0.4" opacity="0.5" />
-        <circle cx="16" cy="28.4" r="0.45" strokeWidth="0.4" opacity="0.5" />
+        strokeLinecap="round"
+      />
+
+      <g clipPath="url(#vf-cross-clip)">
+        <rect x="0" y="0" width="64" height="80" fill="url(#vf-cross-shade)" />
+        <g fill="none" stroke="currentColor" strokeLinecap="round">
+          <path d="M30 5.5 Q30.4 14 30 22.5" strokeWidth="0.35" opacity="0.45" />
+          <path d="M32 5 Q32.5 14 32 22.5" strokeWidth="0.35" opacity="0.32" />
+          <path d="M34 5.5 Q34.4 14 34 22.5" strokeWidth="0.35" opacity="0.45" />
+
+          <path d="M30 33.5 Q30.4 56 30 76.5" strokeWidth="0.35" opacity="0.45" />
+          <path d="M31.7 33.5 Q32.3 56 31.8 77" strokeWidth="0.35" opacity="0.32" />
+          <path d="M33.6 33.5 Q34 56 33.6 76.5" strokeWidth="0.35" opacity="0.45" />
+
+          <path d="M5 25.4 Q22 26 36 25.7 Q48 25.5 59 25.9" strokeWidth="0.35" opacity="0.45" />
+          <path d="M5 28.2 Q22 28.6 36 28.4 Q48 28.1 59 28.5" strokeWidth="0.35" opacity="0.32" />
+          <path d="M5 30.8 Q22 31.2 36 30.9 Q48 30.6 59 31" strokeWidth="0.35" opacity="0.45" />
+
+          <ellipse cx="32" cy="46" rx="0.7" ry="0.5" strokeWidth="0.35" opacity="0.55" />
+          <ellipse cx="33.2" cy="64" rx="0.6" ry="0.45" strokeWidth="0.35" opacity="0.45" />
+          <ellipse cx="14" cy="28.5" rx="0.55" ry="0.45" strokeWidth="0.35" opacity="0.45" />
+          <ellipse cx="50" cy="28" rx="0.55" ry="0.45" strokeWidth="0.35" opacity="0.45" />
+        </g>
       </g>
     </svg>
   );
