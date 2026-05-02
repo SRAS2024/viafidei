@@ -1,4 +1,5 @@
 import { prisma } from "../db/client";
+import { checkRequiredTables } from "../db/tables";
 import { seedAllContent } from "./seeder";
 
 async function isDbReachable(): Promise<boolean> {
@@ -32,11 +33,22 @@ async function triggerIngestion(): Promise<void> {
 }
 
 export async function runStartupTasks(): Promise<void> {
-  // Brief delay so the HTTP server is fully bound before heavy DB work begins
-  await new Promise((r) => setTimeout(r, 1500));
+  // Brief delay so migrations (run before node server.js) finish committing
+  await new Promise((r) => setTimeout(r, 2000));
 
   if (!(await isDbReachable())) {
     console.warn("[startup] DB unreachable — skipping seed and ingestion");
+    return;
+  }
+
+  // Verify migrations ran — if tables are missing, migrations didn't complete
+  const tableCheck = await checkRequiredTables().catch(() => ({ ok: false, missing: ["unknown"], present: [] }));
+  if (!tableCheck.ok) {
+    console.error(
+      "[startup] required tables missing:",
+      tableCheck.missing,
+      "— ensure 'prisma migrate deploy' ran before starting the server",
+    );
     return;
   }
 
@@ -47,6 +59,7 @@ export async function runStartupTasks(): Promise<void> {
       console.log("[startup] seed complete", JSON.stringify(summary));
     } catch (e) {
       console.error("[startup] seed failed", e instanceof Error ? e.message : e);
+      return;
     }
   } else {
     console.log("[startup] content already present — skipping seed");
