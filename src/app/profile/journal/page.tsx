@@ -6,6 +6,8 @@ import { listJournalEntries } from "@/lib/data/journal";
 import { PageHero } from "@/components/ui/PageHero";
 import { JournalEditor } from "./JournalEditor";
 import { JournalDeleteButton } from "./JournalDeleteButton";
+import { JournalEditButton } from "./JournalEditButton";
+import { JournalFavoriteButton } from "./JournalFavoriteButton";
 
 export default async function JournalPage() {
   const user = await requireUser();
@@ -40,24 +42,42 @@ export default async function JournalPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <h2 className="font-display text-2xl text-ink">{e.title}</h2>
-                  <p className="vf-eyebrow mt-1">
-                    {e.updatedAt.toISOString().slice(0, 10)} {e.isFavorite ? "· ★" : ""}
-                  </p>
+                  <p className="vf-eyebrow mt-1">{e.updatedAt.toISOString().slice(0, 10)}</p>
                 </div>
-                <JournalDeleteButton
-                  entryId={e.id}
-                  entryTitle={e.title}
-                  labels={{
-                    delete: t("profile.journal.delete"),
-                    cancel: t("profile.journal.cancel"),
-                    confirmTitle: t("profile.journal.deleteTitle"),
-                    confirmBody: t("profile.journal.deleteBody"),
-                  }}
-                />
+                <div className="flex shrink-0 items-center gap-3">
+                  <JournalFavoriteButton
+                    entryId={e.id}
+                    isFavorite={e.isFavorite}
+                    favoriteLabel={t("profile.journal.favorite")}
+                    unfavoriteLabel={t("profile.journal.unfavorite")}
+                  />
+                  <JournalDeleteButton
+                    entryId={e.id}
+                    entryTitle={e.title}
+                    labels={{
+                      delete: t("profile.journal.delete"),
+                      cancel: t("profile.journal.cancel"),
+                      confirmTitle: t("profile.journal.deleteTitle"),
+                      confirmBody: t("profile.journal.deleteBody"),
+                    }}
+                  />
+                </div>
               </div>
               <p className="mt-4 max-w-reading whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">
                 {e.body}
               </p>
+              <JournalEditButton
+                entryId={e.id}
+                initialTitle={e.title}
+                initialBody={e.body}
+                labels={{
+                  edit: t("profile.journal.edit"),
+                  title: t("profile.journal.title"),
+                  body: t("profile.journal.body"),
+                  save: t("profile.journal.save"),
+                  cancel: t("profile.journal.cancel"),
+                }}
+              />
             </article>
           ))
         )}

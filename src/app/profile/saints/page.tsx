@@ -4,12 +4,20 @@ import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
 import { listSavedSaintsForUser } from "@/lib/data/saints";
 import { PageHero } from "@/components/ui/PageHero";
+import { RemoveSavedButton } from "@/components/ui/RemoveSavedButton";
 
 export default async function MySaints() {
   const user = await requireUser();
   if (!user) redirect("/login?next=/profile/saints");
   const { t } = await getTranslator();
   const saves = await listSavedSaintsForUser(user.id);
+  const removeLabels = {
+    remove: t("profile.saved.remove"),
+    cancel: t("common.cancel"),
+    removeTitle: t("profile.saved.removeTitle"),
+    removeBody: t("profile.saved.removeBody"),
+  };
+
   return (
     <div>
       <div className="mb-4">
@@ -28,6 +36,14 @@ export default async function MySaints() {
             <article key={s.saintId} className="vf-card rounded-sm p-6">
               <p className="vf-eyebrow">{s.saint.feastDay ?? "—"}</p>
               <h2 className="mt-3 font-display text-2xl">{s.saint.canonicalName}</h2>
+              <div className="mt-4">
+                <RemoveSavedButton
+                  kind="saints"
+                  entityId={s.saintId}
+                  entityTitle={s.saint.canonicalName}
+                  labels={removeLabels}
+                />
+              </div>
             </article>
           ))
         )}

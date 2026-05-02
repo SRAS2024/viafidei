@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedLiturgyEntries } from "@/lib/data/liturgy";
@@ -36,13 +37,15 @@ export default async function LiturgyPage() {
             const title = tr?.title ?? e.title;
             const summary = tr?.summary ?? e.summary;
             return (
-              <article key={e.id} className="vf-card rounded-sm p-8">
-                <p className="vf-eyebrow">{KIND_LABELS[e.kind] ?? "Formation"}</p>
-                <h2 className="mt-3 font-display text-2xl">{title}</h2>
-                {summary ? (
-                  <p className="mt-3 line-clamp-3 font-serif text-sm text-ink-soft">{summary}</p>
-                ) : null}
-              </article>
+              <Link key={e.id} href={`/liturgy-history/${e.slug}`}>
+                <article className="vf-card h-full rounded-sm p-8 transition hover:border-ink/30 hover:-translate-y-0.5">
+                  <p className="vf-eyebrow">{KIND_LABELS[e.kind] ?? "Formation"}</p>
+                  <h2 className="mt-3 font-display text-2xl">{title}</h2>
+                  {summary ? (
+                    <p className="mt-3 line-clamp-3 font-serif text-sm text-ink-soft">{summary}</p>
+                  ) : null}
+                </article>
+              </Link>
             );
           })}
         </div>

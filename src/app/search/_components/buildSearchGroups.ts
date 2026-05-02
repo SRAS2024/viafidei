@@ -12,7 +12,7 @@ export function buildSearchGroups(hits: SearchHits, t: Translator): SearchGroup[
         id: p.id,
         primary: p.defaultTitle,
         secondary: p.category ?? undefined,
-        href: "/prayers",
+        href: `/prayers/${p.slug}`,
       })),
     },
     {
@@ -23,7 +23,7 @@ export function buildSearchGroups(hits: SearchHits, t: Translator): SearchGroup[
         id: s.id,
         primary: s.canonicalName,
         secondary: s.feastDay ?? undefined,
-        href: "/saints",
+        href: `/saints/${s.slug}`,
       })),
     },
     {
@@ -34,7 +34,7 @@ export function buildSearchGroups(hits: SearchHits, t: Translator): SearchGroup[
         id: a.id,
         primary: a.title,
         secondary: a.location ?? undefined,
-        href: "/saints",
+        href: `/saints/${a.slug}`,
       })),
     },
     {
@@ -45,7 +45,40 @@ export function buildSearchGroups(hits: SearchHits, t: Translator): SearchGroup[
         id: p.id,
         primary: p.name,
         secondary: [p.city, p.country].filter(Boolean).join(", "),
-        href: "/spiritual-guidance",
+        href: `/spiritual-guidance/${p.slug}`,
+      })),
+    },
+    {
+      key: "devotions",
+      label: t("search.group.devotions"),
+      count: hits.devotions.length,
+      items: hits.devotions.map((d) => ({
+        id: d.id,
+        primary: d.title,
+        secondary: d.durationMinutes ? `${d.durationMinutes} min` : undefined,
+        href: `/devotions/${d.slug}`,
+      })),
+    },
+    {
+      key: "liturgy",
+      label: t("search.group.liturgy"),
+      count: hits.liturgy.length,
+      items: hits.liturgy.map((e) => ({
+        id: e.id,
+        primary: e.title,
+        secondary: e.summary ?? undefined,
+        href: `/liturgy-history/${e.slug}`,
+      })),
+    },
+    {
+      key: "spiritualLife",
+      label: t("search.group.spiritualLife"),
+      count: hits.spiritualLife.length,
+      items: hits.spiritualLife.map((g) => ({
+        id: g.id,
+        primary: g.title,
+        secondary: g.summary,
+        href: `/spiritual-life/${g.slug}`,
       })),
     },
   ];

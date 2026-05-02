@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedDevotions } from "@/lib/data/devotions";
@@ -27,13 +28,15 @@ export default async function DevotionsPage() {
             const title = tr?.title ?? d.title;
             const summary = tr?.summary ?? d.summary;
             return (
-              <article key={d.id} className="vf-card rounded-sm p-7">
-                {d.durationMinutes ? (
-                  <p className="vf-eyebrow">{d.durationMinutes} min</p>
-                ) : null}
-                <h2 className="mt-3 font-display text-2xl">{title}</h2>
-                <p className="mt-4 line-clamp-4 font-serif text-ink-soft">{summary}</p>
-              </article>
+              <Link key={d.id} href={`/devotions/${d.slug}`}>
+                <article className="vf-card h-full rounded-sm p-7 transition hover:border-ink/30 hover:-translate-y-0.5">
+                  {d.durationMinutes ? (
+                    <p className="vf-eyebrow">{d.durationMinutes} min</p>
+                  ) : null}
+                  <h2 className="mt-3 font-display text-2xl">{title}</h2>
+                  <p className="mt-4 line-clamp-4 font-serif text-ink-soft">{summary}</p>
+                </article>
+              </Link>
             );
           })
         )}

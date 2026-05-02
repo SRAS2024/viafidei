@@ -95,6 +95,9 @@ export function listGoalsForUser(userId: string) {
   return prisma.goal.findMany({
     where: { userId },
     orderBy: { updatedAt: "desc" },
+    include: {
+      checklist: { orderBy: { sortOrder: "asc" } },
+    },
   });
 }
 
