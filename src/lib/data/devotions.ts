@@ -37,3 +37,10 @@ export function listSavedDevotionsForUser(userId: string) {
     orderBy: { createdAt: "desc" },
   });
 }
+
+export function getPublishedDevotionBySlug(slug: string, locale: Locale) {
+  return prisma.devotion.findFirst({
+    where: { slug, status: "PUBLISHED" },
+    include: { translations: { where: { locale } } },
+  });
+}

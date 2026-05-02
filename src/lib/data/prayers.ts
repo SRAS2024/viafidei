@@ -39,3 +39,13 @@ export function listSavedPrayersForUser(userId: string, locale: Locale) {
     orderBy: { createdAt: "desc" },
   });
 }
+
+export function getPublishedPrayerBySlug(slug: string, locale: Locale) {
+  return prisma.prayer.findFirst({
+    where: { slug, status: "PUBLISHED" },
+    include: {
+      translations: { where: { locale } },
+      categoryRel: true,
+    },
+  });
+}
