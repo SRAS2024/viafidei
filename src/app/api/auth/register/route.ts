@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = getClientIp(req);
-  const limit = rateLimit(`register:${ip}`, RATE_POLICIES.register);
+  const limit = await rateLimit(`register:${ip}`, RATE_POLICIES.register, { ipAddress: ip });
   if (!limit.ok) {
     return NextResponse.redirect(new URL("/register?error=exists", req.url), 303);
   }

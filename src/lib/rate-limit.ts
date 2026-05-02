@@ -1,1 +1,9 @@
-export { rateLimit, RATE_POLICIES, type RatePolicy, type RateLimitResult } from "./security";
+export {
+  rateLimit,
+  pruneExpiredRateLimits,
+  RATE_POLICIES,
+  type RatePolicy,
+  type RatePolicyName,
+  type RateLimitResult,
+  type RateLimitContext,
+} from "./security";

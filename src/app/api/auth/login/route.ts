@@ -23,7 +23,11 @@ export async function POST(req: NextRequest) {
   }
 
   const ip = getClientIp(req);
-  const limit = rateLimit(`login:${ip}:${parsed.data.email.toLowerCase()}`, RATE_POLICIES.login);
+  const limit = await rateLimit(
+    `login:${ip}:${parsed.data.email.toLowerCase()}`,
+    RATE_POLICIES.login,
+    { ipAddress: ip },
+  );
   if (!limit.ok) {
     return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
   }

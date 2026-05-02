@@ -19,7 +19,9 @@ export async function POST(req: NextRequest) {
 
   const ip = getClientIp(req);
   const userAgent = getUserAgent(req);
-  const limit = rateLimit(`admin-login:${ip}`, RATE_POLICIES.adminLogin);
+  const limit = await rateLimit(`admin-login:${ip}`, RATE_POLICIES.adminLogin, {
+    ipAddress: ip,
+  });
   if (!limit.ok) {
     return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
   }
