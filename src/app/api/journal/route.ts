@@ -13,7 +13,9 @@ export async function POST(req: NextRequest) {
   const user = await requireUser();
   if (!user) return NextResponse.redirect(new URL("/login", req.url), 303);
 
-  const ok = rateLimit(`journal:${user.id}`, RATE_POLICIES.userWrite);
+  const ok = await rateLimit(`journal:${user.id}`, RATE_POLICIES.userWrite, {
+    userId: user.id,
+  });
   if (!ok.ok) return NextResponse.redirect(new URL("/profile/journal", req.url), 303);
 
   const form = await req.formData();

@@ -601,3 +601,19 @@ model ContentReview {
   @@index([entityType, entityId, createdAt])
   @@index([decision, createdAt])
 }
+
+model RateLimitBucket {
+  id        String   @id @default(cuid())
+  bucketKey String   @unique
+  policy    String
+  count     Int      @default(0)
+  resetAt   DateTime
+  ipAddress String?
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([resetAt])
+  @@index([policy, resetAt])
+  @@index([userId])
+}
