@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
-import { PageHero } from "@/components/PageHero";
+import { PageHero } from "@/components/ui/PageHero";
 import { LOCALE_LABELS, SUPPORTED_LOCALES } from "@/lib/i18n/locales";
 
 export default async function SettingsPage() {

@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireAdmin, writeAudit } from "@/lib/admin-auth";
-import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
+import { writeAudit } from "@/lib/audit";
+import {
+  getFaviconSetting,
+  upsertFaviconSetting,
+} from "@/lib/data/site-settings";
+import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin();
@@ -15,14 +20,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.redirect(new URL("/admin/favicon", req.url), 303);
   }
 
-  const existing = await prisma.siteSetting.findUnique({ where: { key: "favicon" } });
-  const previous = existing?.valueJson ?? null;
-
-  const updated = await prisma.siteSetting.upsert({
-    where: { key: "favicon" },
-    create: { key: "favicon", valueJson: { url, altText } },
-    update: { valueJson: { url, altText } },
-  });
+  const previous = (await getFaviconSetting()).value;
+  const updated = await upsertFaviconSetting({ url, altText });
 
   await writeAudit({
     action: "admin.favicon.update",
@@ -31,8 +30,8 @@ export async function POST(req: NextRequest) {
     previousValue: previous,
     newValue: updated.valueJson,
     actorUsername: admin.username,
-    ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-    userAgent: req.headers.get("user-agent"),
+    ipAddress: getClientIpOrNull(req),
+    userAgent: getUserAgent(req),
   });
 
   return NextResponse.redirect(new URL("/admin/favicon?saved=1", req.url), 303);

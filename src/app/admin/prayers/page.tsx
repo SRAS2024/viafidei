@@ -1,15 +1,12 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin-auth";
-import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
+import { listAdminPrayers } from "@/lib/data/prayers";
 import { AdminSection } from "../_sections/AdminSection";
 
 export default async function AdminPrayers() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const prayers = await prisma.prayer.findMany({
-    orderBy: { updatedAt: "desc" },
-    take: 100,
-  });
+  const prayers = await listAdminPrayers();
   return (
     <AdminSection titleKey="admin.card.prayers">
       <div className="vf-card rounded-sm">

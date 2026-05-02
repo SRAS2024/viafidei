@@ -1,7 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { adminLoginSchema, verifyAdminCredentials, writeAudit } from "@/lib/admin-auth";
-import { getSession } from "@/lib/session";
-import { rateLimit, RATE_POLICIES } from "@/lib/rate-limit";
+import {
+  adminLoginSchema,
+  verifyAdminCredentials,
+  getSession,
+} from "@/lib/auth";
+import { writeAudit } from "@/lib/audit";
+import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
+import { getClientIp, getUserAgent } from "@/lib/security/request";
+
+const LOGIN_INVALID = "/admin/login?error=invalid";
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
@@ -11,13 +18,14 @@ export async function POST(req: NextRequest) {
   });
 
   if (!parsed.success) {
-    return NextResponse.redirect(new URL("/admin/login?error=invalid", req.url), 303);
+    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
   }
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = getClientIp(req);
+  const userAgent = getUserAgent(req);
   const limit = rateLimit(`admin-login:${ip}`, RATE_POLICIES.adminLogin);
   if (!limit.ok) {
-    return NextResponse.redirect(new URL("/admin/login?error=invalid", req.url), 303);
+    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
   }
 
   const ok = verifyAdminCredentials(parsed.data.username, parsed.data.password);
@@ -28,9 +36,9 @@ export async function POST(req: NextRequest) {
       entityId: "admin",
       actorUsername: parsed.data.username,
       ipAddress: ip,
-      userAgent: req.headers.get("user-agent"),
+      userAgent,
     });
-    return NextResponse.redirect(new URL("/admin/login?error=invalid", req.url), 303);
+    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
   }
 
   const session = await getSession();
@@ -45,7 +53,7 @@ export async function POST(req: NextRequest) {
     entityId: "admin",
     actorUsername: parsed.data.username,
     ipAddress: ip,
-    userAgent: req.headers.get("user-agent"),
+    userAgent,
   });
 
   return NextResponse.redirect(new URL("/admin?welcome=1", req.url), 303);

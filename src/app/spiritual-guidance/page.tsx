@@ -1,16 +1,12 @@
 import { getTranslator } from "@/lib/i18n/server";
-import { PageHero } from "@/components/PageHero";
-import { prisma } from "@/lib/db";
+import { PageHero } from "@/components/ui/PageHero";
+import { listPublishedParishes } from "@/lib/data/parishes";
 
 export const metadata = { title: "Spiritual Guidance" };
 
 export default async function GuidancePage() {
   const { t } = await getTranslator();
-  const parishes = await prisma.parish.findMany({
-    where: { status: "PUBLISHED" },
-    orderBy: { name: "asc" },
-    take: 40,
-  });
+  const parishes = await listPublishedParishes();
   return (
     <div>
       <PageHero

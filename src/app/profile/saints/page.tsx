@@ -1,19 +1,15 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { getTranslator } from "@/lib/i18n/server";
-import { PageHero } from "@/components/PageHero";
+import { listSavedSaintsForUser } from "@/lib/data/saints";
+import { PageHero } from "@/components/ui/PageHero";
 
 export default async function MySaints() {
   const user = await requireUser();
   if (!user) redirect("/login?next=/profile/saints");
   const { t } = await getTranslator();
-  const saves = await prisma.userSavedSaint.findMany({
-    where: { userId: user.id },
-    include: { saint: true },
-    orderBy: { createdAt: "desc" },
-  });
+  const saves = await listSavedSaintsForUser(user.id);
   return (
     <div>
       <div className="mb-4">

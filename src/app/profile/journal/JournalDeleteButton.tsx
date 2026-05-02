@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 type Props = {
   entryId: string;

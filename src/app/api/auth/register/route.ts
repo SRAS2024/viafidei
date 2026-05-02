@@ -1,8 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createUser, registerSchema } from "@/lib/auth";
-import { getSession } from "@/lib/session";
-import { rateLimit, RATE_POLICIES } from "@/lib/rate-limit";
-import { prisma } from "@/lib/db";
+import {
+  createUser,
+  registerSchema,
+  findUserByEmail,
+  getSession,
+} from "@/lib/auth";
+import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
+import { getClientIp } from "@/lib/security/request";
+
+function classifyError(parsed: ReturnType<typeof registerSchema.safeParse>): string {
+  if (parsed.success) return "invalid";
+  const issue = parsed.error.issues[0];
+  if (issue?.message === "mismatch") return "mismatch";
+  if (issue?.path.includes("password")) return "weak";
+  return "invalid";
+}
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
@@ -15,25 +27,17 @@ export async function POST(req: NextRequest) {
   });
 
   if (!parsed.success) {
-    const issue = parsed.error.issues[0];
-    const error =
-      issue?.message === "mismatch"
-        ? "mismatch"
-        : issue?.path.includes("password")
-          ? "weak"
-          : "invalid";
+    const error = classifyError(parsed);
     return NextResponse.redirect(new URL(`/register?error=${error}`, req.url), 303);
   }
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  const ip = getClientIp(req);
   const limit = rateLimit(`register:${ip}`, RATE_POLICIES.register);
   if (!limit.ok) {
     return NextResponse.redirect(new URL("/register?error=exists", req.url), 303);
   }
 
-  const existing = await prisma.user.findUnique({
-    where: { email: parsed.data.email.trim().toLowerCase() },
-  });
+  const existing = await findUserByEmail(parsed.data.email);
   if (existing) {
     return NextResponse.redirect(new URL("/register?error=exists", req.url), 303);
   }

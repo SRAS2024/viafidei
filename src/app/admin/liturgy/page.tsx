@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin-auth";
+import { requireAdmin } from "@/lib/auth";
 import { AdminSection } from "../_sections/AdminSection";
 
 export default async function AdminLiturgy() {

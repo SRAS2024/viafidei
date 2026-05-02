@@ -1,20 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { getTranslator } from "@/lib/i18n/server";
-import { PageHero } from "@/components/PageHero";
+import { listSavedPrayersForUser } from "@/lib/data/prayers";
+import { PageHero } from "@/components/ui/PageHero";
 
 export default async function MyPrayers() {
   const user = await requireUser();
   if (!user) redirect("/login?next=/profile/prayers");
   const { t, locale } = await getTranslator();
 
-  const saves = await prisma.userSavedPrayer.findMany({
-    where: { userId: user.id },
-    include: { prayer: { include: { translations: { where: { locale } } } } },
-    orderBy: { createdAt: "desc" },
-  });
+  const saves = await listSavedPrayersForUser(user.id, locale);
 
   return (
     <div>

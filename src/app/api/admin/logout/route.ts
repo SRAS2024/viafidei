@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getSession } from "@/lib/session";
-import { writeAudit } from "@/lib/admin-auth";
+import { getSession } from "@/lib/auth";
+import { writeAudit } from "@/lib/audit";
+import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -10,8 +11,8 @@ export async function POST(req: NextRequest) {
       entityType: "Session",
       entityId: "admin",
       actorUsername: session.userEmail ?? "admin",
-      ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-      userAgent: req.headers.get("user-agent"),
+      ipAddress: getClientIpOrNull(req),
+      userAgent: getUserAgent(req),
     });
   }
   session.destroy();

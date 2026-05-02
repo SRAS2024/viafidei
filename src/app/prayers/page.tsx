@@ -1,29 +1,21 @@
 import { getTranslator } from "@/lib/i18n/server";
-import { PageHero } from "@/components/PageHero";
-import { prisma } from "@/lib/db";
+import { PageHero } from "@/components/ui/PageHero";
+import { listPublishedPrayers } from "@/lib/data/prayers";
 
 export const metadata = { title: "Prayers" };
 
+const PRAYER_CATEGORIES = [
+  "prayers.category.marian",
+  "prayers.category.christ",
+  "prayers.category.angelic",
+  "prayers.category.sacramental",
+  "prayers.category.seasonal",
+  "prayers.category.daily",
+] as const;
+
 export default async function PrayersPage() {
   const { t, locale } = await getTranslator();
-
-  const prayers = await prisma.prayer.findMany({
-    where: { status: "PUBLISHED" },
-    include: {
-      translations: { where: { locale } },
-    },
-    orderBy: { defaultTitle: "asc" },
-    take: 60,
-  });
-
-  const categories = [
-    "prayers.category.marian",
-    "prayers.category.christ",
-    "prayers.category.angelic",
-    "prayers.category.sacramental",
-    "prayers.category.seasonal",
-    "prayers.category.daily",
-  ] as const;
+  const prayers = await listPublishedPrayers(locale);
 
   return (
     <div>
@@ -34,7 +26,7 @@ export default async function PrayersPage() {
       />
 
       <div className="mb-12 flex flex-wrap justify-center gap-2">
-        {categories.map((c) => (
+        {PRAYER_CATEGORIES.map((c) => (
           <span key={c} className="vf-btn vf-btn-ghost !py-2 !px-4 text-[0.65rem]">
             {t(c)}
           </span>

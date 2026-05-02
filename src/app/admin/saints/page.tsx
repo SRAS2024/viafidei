@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/admin-auth";
-import { prisma } from "@/lib/db";
+import { requireAdmin } from "@/lib/auth";
+import { listAdminSaints } from "@/lib/data/saints";
 import { AdminSection } from "../_sections/AdminSection";
 
 export default async function AdminSaints() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const rows = await prisma.saint.findMany({ orderBy: { canonicalName: "asc" }, take: 200 });
+  const rows = await listAdminSaints();
   return (
     <AdminSection titleKey="admin.card.saints">
       <div className="vf-card rounded-sm p-6">
