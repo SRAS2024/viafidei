@@ -56,6 +56,40 @@ enum TranslationStatus {
   LOCKED
 }
 
+enum TagKind {
+  GENERAL
+  LITURGICAL
+  PATRONAGE
+  DEVOTIONAL
+  SEASONAL
+  THEOLOGICAL
+  REGION
+}
+
+enum CategoryScope {
+  PRAYER
+  SAINT
+  APPARITION
+  DEVOTION
+  PARISH
+  LITURGY
+}
+
+enum ReviewDecision {
+  PENDING
+  APPROVED
+  REJECTED
+  REVISION_REQUESTED
+}
+
+enum IngestionRunStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
 model User {
   id               String                @id @default(cuid())
   email            String                @unique
@@ -74,9 +108,11 @@ model User {
   savedSaints      UserSavedSaint[]
   savedApparitions UserSavedApparition[]
   savedParishes    UserSavedParish[]
+  savedDevotions   UserSavedDevotion[]
   goals            Goal[]
   milestones       Milestone[]
   auditLogs        AdminAuditLog[]       @relation("AuditActor")
+  contentReviews   ContentReview[]       @relation("ReviewActor")
 }
 
 model Session {
@@ -117,16 +153,22 @@ model JournalEntry {
 }
 
 model Prayer {
-  id           String              @id @default(cuid())
-  slug         String              @unique
-  defaultTitle String
-  body         String
-  category     String
-  status       ContentStatus       @default(DRAFT)
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-  translations PrayerTranslation[]
-  savedByUsers UserSavedPrayer[]
+  id              String              @id @default(cuid())
+  slug            String              @unique
+  defaultTitle    String
+  body            String
+  category        String
+  categoryId      String?
+  contentChecksum String?
+  status          ContentStatus       @default(DRAFT)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  translations    PrayerTranslation[]
+  savedByUsers    UserSavedPrayer[]
+  categoryRel     Category?           @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([status])
 }
 
 model PrayerTranslation {
@@ -154,11 +196,14 @@ model Saint {
   biography         String
   officialPrayer    String?
   externalSourceKey String?            @unique
+  contentChecksum   String?
   status            ContentStatus      @default(DRAFT)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   translations      SaintTranslation[]
   savedByUsers      UserSavedSaint[]
+
+  @@index([status])
 }
 
 model SaintTranslation {
@@ -188,11 +233,14 @@ model MarianApparition {
   summary           String
   officialPrayer    String?
   externalSourceKey String?                       @unique
+  contentChecksum   String?
   status            ContentStatus                 @default(DRAFT)
   createdAt         DateTime                      @default(now())
   updatedAt         DateTime                      @updatedAt
   translations      MarianApparitionTranslation[]
   savedByUsers      UserSavedApparition[]
+
+  @@index([status])
 }
 
 model MarianApparitionTranslation {
@@ -229,12 +277,14 @@ model Parish {
   longitude         Float?
   externalSourceKey String?
   sourceHost        String?
+  contentChecksum   String?
   status            ContentStatus     @default(DRAFT)
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   savedByUsers      UserSavedParish[]
 
   @@unique([name, city, country])
+  @@index([status])
 }
 
 model Goal {
@@ -267,17 +317,20 @@ model GoalChecklistItem {
 }
 
 model Milestone {
-  id          String        @id @default(cuid())
-  userId      String
-  goalId      String?       @unique
-  tier        MilestoneTier
-  title       String
-  description String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  goal        Goal?         @relation(fields: [goalId], references: [id])
+  id              String        @id @default(cuid())
+  userId          String
+  goalId          String?       @unique
+  tier            MilestoneTier
+  slug            String
+  title           String
+  description     String?
+  contentChecksum String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal            Goal?         @relation(fields: [goalId], references: [id])
 
+  @@unique([userId, slug])
   @@index([userId, tier])
 }
 
@@ -448,4 +501,103 @@ model AdminAuditLog {
   actor         User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([entityType, entityId, createdAt])
+}
+
+model Tag {
+  id        String      @id @default(cuid())
+  slug      String      @unique
+  label     String
+  kind      TagKind     @default(GENERAL)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  entityTags EntityTag[]
+
+  @@index([kind])
+}
+
+model EntityTag {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  tagId      String
+  createdAt  DateTime @default(now())
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, tagId])
+  @@index([entityType, entityId])
+  @@index([tagId])
+}
+
+model Category {
+  id          String        @id @default(cuid())
+  slug        String        @unique
+  label       String
+  scope       CategoryScope
+  sortOrder   Int           @default(0)
+  description String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  prayers     Prayer[]
+
+  @@index([scope, sortOrder])
+}
+
+model Devotion {
+  id                String                @id @default(cuid())
+  slug              String                @unique
+  title             String
+  summary           String
+  practiceText      String?
+  durationMinutes   Int?
+  externalSourceKey String?               @unique
+  contentChecksum   String?
+  status            ContentStatus         @default(DRAFT)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  translations      DevotionTranslation[]
+  savedByUsers      UserSavedDevotion[]
+
+  @@index([status])
+}
+
+model DevotionTranslation {
+  id                String            @id @default(cuid())
+  devotionId        String
+  locale            String
+  title             String
+  summary           String
+  practiceText      String?
+  translationStatus TranslationStatus @default(MACHINE)
+  translationEngine String?
+  checksum          String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  devotion          Devotion          @relation(fields: [devotionId], references: [id], onDelete: Cascade)
+
+  @@unique([devotionId, locale])
+}
+
+model UserSavedDevotion {
+  userId     String
+  devotionId String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  devotion   Devotion @relation(fields: [devotionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, devotionId])
+}
+
+model ContentReview {
+  id               String         @id @default(cuid())
+  entityType       String
+  entityId         String
+  reviewerUserId   String?
+  reviewerUsername String?
+  decision         ReviewDecision @default(PENDING)
+  notes            String?
+  createdAt        DateTime       @default(now())
+  reviewer         User?          @relation("ReviewActor", fields: [reviewerUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([decision, createdAt])
 }

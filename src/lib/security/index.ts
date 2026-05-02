@@ -7,3 +7,4 @@ export {
   type RateLimitResult,
 } from "./rate-limit";
 export { getClientIp, getClientIpOrNull, getUserAgent } from "./request";
+export { isAuthorizedCron, getProvidedCronToken } from "./cron-auth";
