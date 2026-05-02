@@ -27,6 +27,8 @@ const NO_OP_SUMMARY: IngestionRunSummary = {
   recordsCreated: 0,
   recordsUpdated: 0,
   recordsSkipped: 0,
+  recordsFailed: 0,
+  recordsReviewRequired: 0,
   errorMessage: null,
 };
 
@@ -97,7 +99,12 @@ async function runAdapterUnlocked(
           data: {
             finishedAt: new Date(),
             status: "SUCCESS",
-            ...summary,
+            recordsSeen: 0,
+            recordsCreated: 0,
+            recordsUpdated: 0,
+            recordsSkipped: 0,
+            recordsFailed: 0,
+            recordsReviewRequired: 0,
             errorMessage: nextState ? JSON.stringify(nextState) : null,
           },
         });
@@ -107,11 +114,17 @@ async function runAdapterUnlocked(
 
     const { valid, rejected } = sanitize(items);
     const counts = await persistItems(valid, initialStatus);
+
+    // Items that land in REVIEW status count as review-required
+    const reviewRequired = initialStatus === "REVIEW" ? counts.created : 0;
+
     const summary: IngestionRunSummary = {
       recordsSeen: items.length,
       recordsCreated: counts.created,
       recordsUpdated: counts.updated,
       recordsSkipped: counts.skipped + rejected.length,
+      recordsFailed: 0,
+      recordsReviewRequired: reviewRequired,
       errorMessage: rejected.length ? `${rejected.length} items rejected by validation` : null,
     };
 
@@ -125,6 +138,8 @@ async function runAdapterUnlocked(
           recordsCreated: summary.recordsCreated,
           recordsUpdated: summary.recordsUpdated,
           recordsSkipped: summary.recordsSkipped,
+          recordsFailed: summary.recordsFailed,
+          recordsReviewRequired: summary.recordsReviewRequired,
           errorMessage: nextState ? JSON.stringify(nextState) : summary.errorMessage,
         },
       });
@@ -139,10 +154,11 @@ async function runAdapterUnlocked(
         data: {
           finishedAt: new Date(),
           status: "FAILED",
+          recordsFailed: 1,
           errorMessage,
         },
       });
     }
-    return { ...NO_OP_SUMMARY, errorMessage };
+    return { ...NO_OP_SUMMARY, recordsFailed: 1, errorMessage };
   }
 }

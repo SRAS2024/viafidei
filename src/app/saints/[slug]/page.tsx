@@ -38,7 +38,11 @@ export default async function SaintDetailPage({ params }: Props) {
         </div>
 
         <section className="mb-10 text-center">
-          {saint.feastDay ? <p className="vf-eyebrow">{t("saints.feastDay")}: {saint.feastDay}</p> : null}
+          {saint.feastDay ? (
+            <p className="vf-eyebrow">
+              {t("saints.feastDay")}: {saint.feastDay}
+            </p>
+          ) : null}
           <div className="vf-rule mx-auto my-5" />
           <h1 className="font-display text-5xl leading-tight text-ink sm:text-6xl">
             {saint.canonicalName}
@@ -55,7 +59,10 @@ export default async function SaintDetailPage({ params }: Props) {
           <div className="mb-8 flex flex-wrap justify-center gap-2">
             <span className="vf-eyebrow mr-2">{t("saints.patronages")}:</span>
             {saint.patronages.map((p) => (
-              <span key={p} className="rounded-full border border-ink/15 px-3 py-1 font-serif text-sm text-ink-soft">
+              <span
+                key={p}
+                className="rounded-full border border-ink/15 px-3 py-1 font-serif text-sm text-ink-soft"
+              >
                 {p}
               </span>
             ))}
@@ -63,7 +70,9 @@ export default async function SaintDetailPage({ params }: Props) {
         ) : null}
 
         <article className="vf-card rounded-sm p-8">
-          <p className="whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">{biography}</p>
+          <p className="whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">
+            {biography}
+          </p>
         </article>
 
         {saint.officialPrayer ? (
@@ -98,7 +107,10 @@ export default async function SaintDetailPage({ params }: Props) {
 
       <section className="mb-10 text-center">
         {apparition.location ? (
-          <p className="vf-eyebrow">{apparition.location}{apparition.country ? `, ${apparition.country}` : ""}</p>
+          <p className="vf-eyebrow">
+            {apparition.location}
+            {apparition.country ? `, ${apparition.country}` : ""}
+          </p>
         ) : null}
         <div className="vf-rule mx-auto my-5" />
         <h1 className="font-display text-5xl leading-tight text-ink sm:text-6xl">{title}</h1>

@@ -38,9 +38,7 @@ export default async function ParishDetailPage({ params }: Props) {
         {parish.diocese ? <p className="vf-eyebrow">{parish.diocese}</p> : null}
         <div className="vf-rule mx-auto my-5" />
         <h1 className="font-display text-5xl leading-tight text-ink sm:text-6xl">{parish.name}</h1>
-        {location ? (
-          <p className="mt-5 font-serif text-lg text-ink-soft">{location}</p>
-        ) : null}
+        {location ? <p className="mt-5 font-serif text-lg text-ink-soft">{location}</p> : null}
       </section>
 
       {user ? (

@@ -9,7 +9,12 @@ type Props = {
   unfavoriteLabel: string;
 };
 
-export function JournalFavoriteButton({ entryId, isFavorite, favoriteLabel, unfavoriteLabel }: Props) {
+export function JournalFavoriteButton({
+  entryId,
+  isFavorite,
+  favoriteLabel,
+  unfavoriteLabel,
+}: Props) {
   const [fav, setFav] = useState(isFavorite);
   const [pending, startTransition] = useTransition();
 

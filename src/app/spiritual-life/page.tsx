@@ -4,6 +4,7 @@ import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedSpiritualLifeGuides } from "@/lib/data/spiritual-life";
 import { FORMATION_ITEMS, FormationCard } from "./_components";
 
+export const revalidate = 3600;
 export const metadata = { title: "Spiritual Life" };
 
 export default async function SpiritualLifePage() {
@@ -24,9 +25,7 @@ export default async function SpiritualLifePage() {
             const tr = g.translations[0];
             const title = tr?.title ?? g.title;
             const summary = tr?.summary ?? g.summary;
-            const staticItem = FORMATION_ITEMS.find(
-              (item) => item.id === g.kind.toLowerCase(),
-            );
+            const staticItem = FORMATION_ITEMS.find((item) => item.id === g.kind.toLowerCase());
             return (
               <Link key={g.id} href={`/spiritual-life/${g.slug}`}>
                 <article

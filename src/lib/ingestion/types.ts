@@ -107,5 +107,7 @@ export type IngestionRunSummary = {
   recordsCreated: number;
   recordsUpdated: number;
   recordsSkipped: number;
+  recordsFailed: number;
+  recordsReviewRequired: number;
   errorMessage?: string | null;
 };
