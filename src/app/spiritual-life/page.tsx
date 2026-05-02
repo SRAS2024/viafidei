@@ -4,7 +4,7 @@ import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedSpiritualLifeGuides } from "@/lib/data/spiritual-life";
 import { FORMATION_ITEMS, FormationCard } from "./_components";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Spiritual Life" };
 
 export default async function SpiritualLifePage() {

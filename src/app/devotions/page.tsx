@@ -3,7 +3,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedDevotions } from "@/lib/data/devotions";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Devotions" };
 
 export default async function DevotionsPage() {

@@ -3,7 +3,7 @@ import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedParishes } from "@/lib/data/parishes";
 import { ParishList } from "./_components/ParishList";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Spiritual Guidance" };
 
 export default async function GuidancePage() {

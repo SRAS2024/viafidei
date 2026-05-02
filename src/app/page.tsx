@@ -3,7 +3,7 @@ import { listPublishedPrayers } from "@/lib/data/prayers";
 import { HomeHero, HomeMission, HomeQuickLinks, HomeFeatured, HomeNewcomer } from "./_sections";
 import type { FeaturedPrayer } from "./_sections/HomeFeatured";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const { t, locale } = await getTranslator();
