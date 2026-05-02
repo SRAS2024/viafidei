@@ -38,16 +38,19 @@ pipeline that always lands new records in a moderation queue.
 │   ├── schema.prisma          # Postgres schema (users, content, ingestion, audit, rate limits)
 │   ├── migrations/            # Prisma migrations
 │   ├── seed.ts                # `npm run db:seed` entrypoint
-│   └── seeds/                 # Domain seed data (prayers, saints, apparitions, settings)
+│   └── seeds/                 # Domain seed data (prayers, saints, apparitions, devotions,
+│                              #                   parishes, liturgy entries, spiritual-life
+│                              #                   guides, site settings)
 ├── public/                    # Static assets (favicon)
 ├── src/
 │   ├── app/                   # App Router routes
-│   │   ├── (public pages)     # /, /prayers, /saints, /spiritual-life,
+│   │   ├── (public pages)     # /, /prayers, /saints, /devotions, /spiritual-life,
 │   │   │                      # /spiritual-guidance, /liturgy-history, /search,
 │   │   │                      # /login, /register
 │   │   ├── profile/           # /profile, /profile/journal, /goals,
-│   │   │                      # /milestones, /prayers, /saints, /settings
-│   │   ├── admin/             # 12-card admin dashboard (see below)
+│   │   │                      # /milestones, /prayers, /saints, /apparitions,
+│   │   │                      # /devotions, /parishes, /settings
+│   │   ├── admin/             # 13-card admin dashboard (see below)
 │   │   └── api/               # Route handlers (auth, admin, cron, journal,
 │   │                          # settings, health)
 │   ├── components/            # Layout, icons, profile, ui primitives
@@ -101,7 +104,8 @@ dev-only secret), but they are **required** in production — see
 npm run db:push     # applies schema.prisma to a fresh database
 # or, against a database tracked by Prisma migrations:
 npm run db:migrate  # prisma migrate deploy
-npm run db:seed     # loads sample prayers, saints, apparitions, site settings
+npm run db:seed     # loads prayers, saints, apparitions, devotions, parishes,
+                    #        liturgy entries, spiritual-life guides, site settings
 ```
 
 `postinstall` automatically runs `prisma generate`.
@@ -281,7 +285,7 @@ $CRON_SECRET`. The same handler accepts `GET` for platforms that prefer
 
 ## Admin console
 
-`/admin` is locked behind `requireAdmin` and shows twelve sections
+`/admin` is locked behind `requireAdmin` and shows thirteen sections
 (`src/app/admin/_dashboard/cards.ts`):
 
 1. Homepage blocks
@@ -289,13 +293,14 @@ $CRON_SECRET`. The same handler accepts `GET` for platforms that prefer
 3. Saints
 4. Marian apparitions
 5. Parishes
-6. Liturgy history
-7. Translations
-8. Ingestion
-9. Search settings
-10. Media library
-11. Favicon
-12. Audit log
+6. Devotions
+7. Liturgy history
+8. Translations
+9. Ingestion
+10. Search settings
+11. Media library
+12. Favicon
+13. Audit log
 
 Content actions go through `POST /api/admin/content/review` with
 `{ entityType, entityId, action, notes }` where `action` is
