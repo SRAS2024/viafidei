@@ -6,8 +6,10 @@ import { persistApparition } from "./persist-apparition";
 import { persistParish } from "./persist-parish";
 import { persistDevotion } from "./persist-devotion";
 import { applyTagsToEntity } from "./persist-tags";
+import { dedupeBatch } from "./dedup";
 
 export type { PersistOutcome } from "./persist-prayer";
+export { dedupeBatch, normalizeExternalKey } from "./dedup";
 
 export type PersistResult = {
   created: number;
@@ -28,7 +30,9 @@ export async function persistItems(
   initialStatus: ContentStatus,
 ): Promise<PersistResult> {
   const counts = { created: 0, updated: 0, skipped: 0 };
-  for (const item of items) {
+  const deduped = dedupeBatch(items);
+  counts.skipped += items.length - deduped.length;
+  for (const item of deduped) {
     const outcome = await dispatch(item, initialStatus);
     counts[outcome] += 1;
     if (outcome !== "skipped" && item.tagSlugs && item.tagSlugs.length > 0) {

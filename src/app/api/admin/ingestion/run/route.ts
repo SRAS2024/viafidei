@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { runAllActiveJobs, runJobByName } from "@/lib/ingestion/scheduler";
+import { ensureVaticanSchedule } from "@/lib/ingestion/sources";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
 
 const schema = z.object({
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
 
+  await ensureVaticanSchedule();
   const result = parsed.data.jobName
     ? await runJobByName(parsed.data.jobName)
     : await runAllActiveJobs();
