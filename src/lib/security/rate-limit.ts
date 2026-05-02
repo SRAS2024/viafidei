@@ -32,6 +32,22 @@ export type RateLimitResult = {
   resetAt: number;
 };
 
+export function rateLimitHeaders(
+  result: RateLimitResult,
+  policy: RatePolicy,
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    "X-RateLimit-Limit": String(policy.max),
+    "X-RateLimit-Remaining": String(Math.max(0, result.remaining)),
+    "X-RateLimit-Reset": String(Math.ceil(result.resetAt / 1000)),
+  };
+  if (!result.ok) {
+    const retryAfter = Math.max(1, Math.ceil((result.resetAt - Date.now()) / 1000));
+    headers["Retry-After"] = String(retryAfter);
+  }
+  return headers;
+}
+
 export type RateLimitContext = {
   ipAddress?: string | null;
   userId?: string | null;

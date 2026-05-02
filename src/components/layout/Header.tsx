@@ -1,14 +1,28 @@
 import { getTranslator } from "@/lib/i18n/server";
 import { getSession } from "@/lib/auth/session";
+import { logger } from "@/lib/observability";
 import { HeaderBrand } from "./HeaderBrand";
 import { HeaderNav } from "./HeaderNav";
 import { HeaderSearch } from "./HeaderSearch";
 import { HeaderUserMenu } from "./HeaderUserMenu";
 
+async function readAuthState(): Promise<boolean> {
+  try {
+    const session = await getSession();
+    return session.role === "USER" && !!session.userId;
+  } catch (error: unknown) {
+    // iron-session throws when SESSION_SECRET rotates or a cookie is malformed.
+    // The header must still render so navigation never disappears mid-session.
+    logger.warn("header.session.read_failed", {
+      message: error instanceof Error ? error.message : "unknown",
+    });
+    return false;
+  }
+}
+
 export async function Header() {
   const { t, locale } = await getTranslator();
-  const session = await getSession();
-  const isAuthedUser = session.role === "USER" && !!session.userId;
+  const isAuthedUser = await readAuthState();
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-ink/10 bg-paper/85 backdrop-blur-md">
