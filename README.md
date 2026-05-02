@@ -27,6 +27,7 @@ pipeline that always lands new records in a moderation queue.
 | Locale negotiation | `negotiator` + cookie override                               |
 | Container          | Multi-stage `Dockerfile` (deps → builder → runner)           |
 | Deployment         | Railway-ready (`railway.json`, healthcheck on `/api/health`) |
+| Startup            | `instrumentation.ts` auto-seeds an empty DB and schedules in-process Vatican ingestion |
 
 ---
 
@@ -163,11 +164,14 @@ production-strict schema):
 | `TRANSLATION_PROVIDER`, `TRANSLATION_API_KEY` | Machine-translation pipeline                                   |
 | `TRANSLATION_DEFAULT_SOURCE_LOCALE`           | Defaults to `en`                                               |
 | `TRANSLATION_FALLBACK_LOCALE`                 | Defaults to `en`                                               |
-| `CRON_SECRET`                                 | 16+ chars. Required to call `/api/cron/ingest`.                |
+| `CRON_SECRET`                                 | 16+ chars. Required to call `/api/cron/ingest` and to enable the in-process ingestion scheduler. |
 | `INTERNAL_API_TOKEN`                          | Reserved for internal service-to-service calls                 |
 | `INGESTION_USER_AGENT`                        | UA sent during scheduled fetches                               |
 | `INGESTION_HTTP_TIMEOUT_MS`                   | Per-request timeout (ms, default 15000)                        |
 | `INGESTION_INITIAL_STATUS`                    | `DRAFT` or `REVIEW` (default `REVIEW`)                         |
+| `INGESTION_INTERVAL_MS`                       | In-process scheduler tick (default 1800000 = 30 min, min 60000)|
+| `INGESTION_INITIAL_DELAY_MS`                  | Delay before the first ingestion tick (default 300000 = 5 min) |
+| `INGESTION_DISABLED`                          | Set to `true` to disable the in-process ingestion scheduler    |
 
 `getEnv()` validates these with Zod at first access; in production an invalid
 configuration throws, in development it logs a warning and continues.
@@ -269,17 +273,42 @@ Vatican-affiliated hosts, and write items to the moderation queue.
 - New or changed records are persisted with `INGESTION_INITIAL_STATUS`
   (defaulting to `REVIEW`) so nothing fetched goes live until an admin
   approves it through `/admin/ingestion` or `/admin/<entity>`.
-- Trigger from cron: `POST /api/cron/ingest` with `Authorization: Bearer
-$CRON_SECRET`. The same handler accepts `GET` for platforms that prefer
-  it. `maxDuration` is 60s.
-- Trigger ad-hoc from the admin console: `POST /api/admin/ingestion/run`
-  (optional `{ "jobName": "..." }` body). Both routes record an audit entry.
+- **In-process scheduler**: when `CRON_SECRET` is set, the running server
+  schedules itself to call `POST /api/cron/ingest` after
+  `INGESTION_INITIAL_DELAY_MS` (default 5 min) and then every
+  `INGESTION_INTERVAL_MS` (default 30 min). The first tick is deliberately
+  delayed so it never blocks deploy healthchecks. Set `INGESTION_DISABLED=true`
+  to opt out (e.g. when an external cron platform owns the schedule).
+- **External cron**: `POST /api/cron/ingest` with `Authorization: Bearer
+  $CRON_SECRET`. The same handler accepts `GET` for platforms that prefer
+  it. `maxDuration` is 60s. Works with Railway Cron, Vercel Cron, GitHub
+  Actions, etc.
+- **Ad-hoc**: `POST /api/admin/ingestion/run` from the admin console (optional
+  `{ "jobName": "..." }` body). Records an audit entry.
 - Each run also performs scheduled housekeeping: prunes expired
   `RateLimitBucket` rows, expires unused password-reset and email-verification
-  tokens, and flips `ACTIVE` goals past their `dueDate` to `OVERDUE`.
+  tokens, prunes old `IngestionJobRun` and `AdminAuditLog` rows, and flips
+  `ACTIVE` goals past their `dueDate` to `OVERDUE`.
+- A separate `POST /api/internal/cleanup` (also cron-secret authenticated)
+  prunes expired sessions and tokens between ingestion ticks.
 - Source-management endpoints under `/api/admin/sources` allow disabling,
   marking official, recording reliability scores, and reading
   `lastSuccessfulSync` / `lastFailedSync` per host.
+
+## Startup behaviour
+
+When the Node process boots, `src/instrumentation.ts` runs once and:
+
+1. Confirms the database is reachable.
+2. Verifies that `prisma migrate deploy` produced the required tables.
+3. Counts published prayers — if zero, runs the bundled seed
+   (`src/lib/startup/seeder.ts`) to populate prayers, saints, apparitions,
+   devotions, parishes, liturgy entries, spiritual-life guides, and site
+   settings. If the table already has rows the seed is skipped.
+4. Schedules the in-process ingestion ticker described above.
+
+All of this work is fire-and-forget — the HTTP server begins accepting
+requests immediately so Railway / Docker healthchecks never wait on it.
 
 ---
 
@@ -380,21 +409,41 @@ Content actions go through `POST /api/admin/content/review` with
 ### Docker
 
 The `Dockerfile` builds a slim three-stage image (`node:20-bookworm-slim`),
-runs as non-root user `nextjs:nodejs`, exposes `3000`, and on start runs
-`prisma migrate deploy` (falling back to `prisma db push --accept-data-loss`)
-before launching `node server.js`. A `HEALTHCHECK` polls `/api/health`.
+runs as non-root user `nextjs:nodejs`, and exposes `3000`. The container
+entrypoint runs:
+
+```sh
+node node_modules/prisma/build/index.js migrate deploy && node server.js
+```
+
+The Prisma CLI is invoked through its file path (not via `node_modules/.bin/`
+or a global `prisma`) because the Next.js standalone output does not preserve
+the symlinks under `.bin/`. A `HEALTHCHECK` polls `/api/health` after a 60s
+start period; the endpoint reports `migration_required` when expected tables
+are missing so deploys fail fast in that scenario.
 
 ### Railway
 
-`railway.json` builds with the Dockerfile, sets the same start command, and
-points the platform healthcheck at `/api/health` with a 120s timeout and a
-5-retry on-failure restart policy.
+`railway.json` builds with the Dockerfile, uses the same `migrate deploy &&
+server.js` start command, and points the platform healthcheck at
+`/api/health` with a 180s timeout and a 5-retry on-failure restart policy.
+
+### Build behaviour
+
+All public listing pages (`/`, `/prayers`, `/saints`, `/devotions`,
+`/spiritual-life`, `/spiritual-guidance`, `/liturgy-history`) export
+`dynamic = "force-dynamic"`. They are NOT pre-rendered at build time, so
+`next build` never opens a database connection and CI / Docker builds do not
+need access to PostgreSQL. Detail pages under `[slug]` are dynamic by default
+(no `generateStaticParams`).
 
 ### Cron
 
-Schedule a recurring `POST` to `https://<host>/api/cron/ingest` with
-`Authorization: Bearer $CRON_SECRET`. Any cron platform works (Railway,
-Vercel, GitHub Actions, etc.).
+If `CRON_SECRET` is set in the runtime environment, the in-process scheduler
+will call `POST /api/cron/ingest` automatically — no external configuration
+needed. To delegate scheduling to an external platform instead, set
+`INGESTION_DISABLED=true` and configure that platform to POST to
+`https://<host>/api/cron/ingest` with `Authorization: Bearer $CRON_SECRET`.
 
 ---
 
