@@ -29,7 +29,9 @@ export default async function MilestonesPage() {
   return (
     <div>
       <div className="mb-4">
-        <Link href="/profile" className="vf-nav-link">← {t("common.back")}</Link>
+        <Link href="/profile" className="vf-nav-link">
+          ← {t("common.back")}
+        </Link>
       </div>
       <PageHero eyebrow={t("profile.title")} title={t("profile.tab.milestones")} />
       {MILESTONE_TIERS.map((tier) => (

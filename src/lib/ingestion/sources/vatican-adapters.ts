@@ -205,13 +205,7 @@ export function buildVaticanSaintsCrawler(): SourceAdapter {
   });
 }
 
-const APPARITION_PATH_HINTS = [
-  "/apparition",
-  "/marian",
-  "/our-lady-of",
-  "/madonna",
-  "/aparici",
-];
+const APPARITION_PATH_HINTS = ["/apparition", "/marian", "/our-lady-of", "/madonna", "/aparici"];
 
 export function buildVaticanApparitionsCrawler(): SourceAdapter {
   return buildVaticanCrawler({
@@ -251,8 +245,7 @@ export function buildVaticanDevotionsCrawler(): SourceAdapter {
       "https://www.vatican.va/roman_curia/congregations/ccdds/documents/rc_con_ccdds_doc_20020513_vers-direttorio_en.html",
       "https://www.usccb.org/prayer-and-worship/devotions",
     ],
-    linkFilter: (u) =>
-      DEVOTION_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)),
+    linkFilter: (u) => DEVOTION_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)),
     toItem: ({ url, title, description, bodyText }): IngestedDevotion | null => {
       const summary = description || bodyText.slice(0, 600) || "";
       const practiceText = bodyText.length > summary.length ? bodyText : undefined;
@@ -278,11 +271,8 @@ export function buildVaticanParishesCrawler(): SourceAdapter {
     key: "vatican.parishes",
     description: "Discovers parishes from approved Catholic conference directories",
     kind: "parish",
-    indexUrls: [
-      "https://www.usccb.org/find-a-parish",
-    ],
-    linkFilter: (u) =>
-      PARISH_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)),
+    indexUrls: ["https://www.usccb.org/find-a-parish"],
+    linkFilter: (u) => PARISH_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)),
     toItem: ({ url, title, description }): IngestedParish | null => {
       const name = title.split("|")[0]?.trim() ?? title;
       if (!name || name.length < 3) return null;

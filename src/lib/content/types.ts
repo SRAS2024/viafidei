@@ -1,11 +1,6 @@
 import type { ContentStatus, ReviewDecision } from "@prisma/client";
 
-export type ReviewableEntityType =
-  | "Prayer"
-  | "Saint"
-  | "MarianApparition"
-  | "Parish"
-  | "Devotion";
+export type ReviewableEntityType = "Prayer" | "Saint" | "MarianApparition" | "Parish" | "Devotion";
 
 export type ReviewActor = {
   userId?: string | null;

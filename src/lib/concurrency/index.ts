@@ -1,5 +1,1 @@
-export {
-  tryAdvisoryLock,
-  releaseAdvisoryLock,
-  withAdvisoryLock,
-} from "./lock";
+export { tryAdvisoryLock, releaseAdvisoryLock, withAdvisoryLock } from "./lock";

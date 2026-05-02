@@ -1,19 +1,11 @@
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { searchAll } from "@/lib/data/search";
-import {
-  SearchInput,
-  SearchResultGroup,
-  buildSearchGroups,
-} from "./_components";
+import { SearchInput, SearchResultGroup, buildSearchGroups } from "./_components";
 
 export const metadata = { title: "Search" };
 
-export default async function SearchPage({
-  searchParams,
-}: {
-  searchParams: { q?: string };
-}) {
+export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
   const { t } = await getTranslator();
   const q = (searchParams.q ?? "").trim();
 

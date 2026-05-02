@@ -1,12 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
-import {
-  getHomepageWithBlocks,
-  persistHomepageBlocks,
-} from "@/lib/data/homepage";
+import { getHomepageWithBlocks, persistHomepageBlocks } from "@/lib/data/homepage";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { DEFAULT_JSON_BODY_LIMIT_BYTES, jsonError, jsonOk, readJsonBody } from "@/lib/http";
 
 const blockSchema = z.object({
   id: z.string(),
@@ -18,21 +16,26 @@ const blockSchema = z.object({
 
 const payloadSchema = z.object({
   pageId: z.string().min(1),
-  blocks: z.array(blockSchema),
+  blocks: z.array(blockSchema).max(200),
 });
+
+const HOMEPAGE_BODY_LIMIT_BYTES = DEFAULT_JSON_BODY_LIMIT_BYTES * 4;
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin();
-  if (!admin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!admin) return jsonError("unauthorized");
 
-  const body = await req.json();
-  const parsed = payloadSchema.safeParse(body);
+  const body = await readJsonBody(req, { limitBytes: HOMEPAGE_BODY_LIMIT_BYTES });
+  if (!body.ok) {
+    return jsonError(body.reason === "too_large" ? "too_large" : "invalid");
+  }
+  const parsed = payloadSchema.safeParse(body.data);
   if (!parsed.success) {
-    return NextResponse.json({ error: "invalid" }, { status: 400 });
+    return jsonError("invalid", { details: parsed.error.flatten() });
   }
 
   const existing = await getHomepageWithBlocks(parsed.data.pageId);
-  if (!existing) return NextResponse.json({ error: "notfound" }, { status: 404 });
+  if (!existing) return jsonError("not_found");
 
   await persistHomepageBlocks(parsed.data.pageId, parsed.data.blocks);
 
@@ -47,5 +50,5 @@ export async function POST(req: NextRequest) {
     userAgent: getUserAgent(req),
   });
 
-  return NextResponse.json({ ok: true });
+  return jsonOk();
 }

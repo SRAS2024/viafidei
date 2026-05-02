@@ -35,8 +35,7 @@ export async function persistApparition(
         approvedStatus: item.approvedStatus,
         summary: item.summary,
         officialPrayer: item.officialPrayer ?? null,
-        externalSourceKey:
-          item.externalSourceKey ?? existing.externalSourceKey ?? null,
+        externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey ?? null,
         contentChecksum: incomingChecksum,
       },
     });

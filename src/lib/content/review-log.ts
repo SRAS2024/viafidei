@@ -21,11 +21,7 @@ export async function recordReview(args: {
   });
 }
 
-export function listReviewHistory(
-  entityType: ReviewableEntityType,
-  entityId: string,
-  take = 50,
-) {
+export function listReviewHistory(entityType: ReviewableEntityType, entityId: string, take = 50) {
   return prisma.contentReview.findMany({
     where: { entityType, entityId },
     orderBy: { createdAt: "desc" },

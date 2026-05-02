@@ -36,14 +36,7 @@ const CHRIST_KEYWORDS = [
   "via crucis",
   "passion",
 ];
-const ANGELIC_KEYWORDS = [
-  "angel",
-  "guardian angel",
-  "michael",
-  "gabriel",
-  "raphael",
-  "archangel",
-];
+const ANGELIC_KEYWORDS = ["angel", "guardian angel", "michael", "gabriel", "raphael", "archangel"];
 const SACRAMENTAL_KEYWORDS = [
   "baptism",
   "confirmation",
@@ -75,12 +68,7 @@ const DAILY_KEYWORDS = [
   "vespers",
   "examen",
 ];
-const DOMINICAL_KEYWORDS = [
-  "our father",
-  "pater noster",
-  "lord's prayer",
-  "lords prayer",
-];
+const DOMINICAL_KEYWORDS = ["our father", "pater noster", "lord's prayer", "lords prayer"];
 const EUCHARISTIC_KEYWORDS = [
   "anima christi",
   "eucharist",

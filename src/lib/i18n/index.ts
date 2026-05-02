@@ -7,14 +7,5 @@ export {
   normalizeLocale,
   type Locale,
 } from "./locales";
-export {
-  createTranslator,
-  getDictionary,
-  type Translator,
-  type Dict,
-} from "./translator";
-export {
-  getLocale,
-  getTranslator,
-  LOCALE_COOKIE_NAME,
-} from "./server";
+export { createTranslator, getDictionary, type Translator, type Dict } from "./translator";
+export { getLocale, getTranslator, LOCALE_COOKIE_NAME } from "./server";

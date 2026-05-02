@@ -52,7 +52,11 @@
       radial-gradient(circle at 82% 88%, rgba(17, 17, 17, 0.02) 0, transparent 42%),
       url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='320' viewBox='0 0 320 320'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.05 0 0 0 0 0.05 0 0 0 0 0.05 0 0 0 0.06 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
       linear-gradient(180deg, #fcf9f2 0%, #f7f2e6 100%);
-    background-size: auto, auto, 320px 320px, auto;
+    background-size:
+      auto,
+      auto,
+      320px 320px,
+      auto;
     min-height: 100vh;
     position: relative;
   }
@@ -168,8 +172,12 @@
     text-transform: uppercase;
     letter-spacing: 0.2em;
     border-radius: 2px;
-    transition: background-color 180ms ease, color 180ms ease,
-      border-color 180ms ease, transform 120ms ease, opacity 180ms ease;
+    transition:
+      background-color 180ms ease,
+      color 180ms ease,
+      border-color 180ms ease,
+      transform 120ms ease,
+      opacity 180ms ease;
     border: 1px solid transparent;
     cursor: pointer;
     user-select: none;
@@ -264,7 +272,9 @@
     font-size: 0.95rem;
     color: var(--ink);
     border-radius: 2px;
-    transition: border-color 160ms ease, box-shadow 160ms ease;
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
   }
 
   .vf-input:hover {
@@ -388,7 +398,9 @@
     border: 2px solid var(--paper-bright);
     opacity: 0;
     transform: translateY(4px);
-    transition: opacity 180ms ease, transform 180ms ease;
+    transition:
+      opacity 180ms ease,
+      transform 180ms ease;
     cursor: pointer;
   }
 
@@ -425,7 +437,9 @@
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 160ms ease, transform 160ms ease;
+    transition:
+      opacity 160ms ease,
+      transform 160ms ease;
   }
 
   .vf-tooltip:hover::after,

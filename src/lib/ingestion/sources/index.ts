@@ -1,9 +1,4 @@
-export {
-  isApprovedHost,
-  isApprovedUrl,
-  gateUrl,
-  listApprovedHosts,
-} from "./vatican-allowlist";
+export { isApprovedHost, isApprovedUrl, gateUrl, listApprovedHosts } from "./vatican-allowlist";
 export {
   extractApprovedLinks,
   extractDocument,
@@ -28,8 +23,4 @@ export {
   buildAllVaticanCrawlers,
   type VaticanCrawlerOptions,
 } from "./vatican-adapters";
-export {
-  registerVaticanAdapters,
-  ensureVaticanSchedule,
-  hasRegisteredAdapters,
-} from "./bootstrap";
+export { registerVaticanAdapters, ensureVaticanSchedule, hasRegisteredAdapters } from "./bootstrap";

@@ -21,8 +21,4 @@ export {
   requireUser,
   type CreateUserInput,
 } from "./user";
-export {
-  verifyAdminCredentials,
-  requireAdmin,
-  type AdminPrincipal,
-} from "./admin";
+export { verifyAdminCredentials, requireAdmin, type AdminPrincipal } from "./admin";

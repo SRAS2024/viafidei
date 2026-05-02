@@ -9,14 +9,13 @@ export type ProfileCounts = {
 };
 
 export async function getProfileCounts(userId: string): Promise<ProfileCounts> {
-  const [journalCount, prayersSaved, saintsSaved, goalsCount, milestonesCount] =
-    await Promise.all([
-      prisma.journalEntry.count({ where: { userId } }),
-      prisma.userSavedPrayer.count({ where: { userId } }),
-      prisma.userSavedSaint.count({ where: { userId } }),
-      prisma.goal.count({ where: { userId } }),
-      prisma.milestone.count({ where: { userId } }),
-    ]);
+  const [journalCount, prayersSaved, saintsSaved, goalsCount, milestonesCount] = await Promise.all([
+    prisma.journalEntry.count({ where: { userId } }),
+    prisma.userSavedPrayer.count({ where: { userId } }),
+    prisma.userSavedSaint.count({ where: { userId } }),
+    prisma.goal.count({ where: { userId } }),
+    prisma.milestone.count({ where: { userId } }),
+  ]);
   return { journalCount, prayersSaved, saintsSaved, goalsCount, milestonesCount };
 }
 

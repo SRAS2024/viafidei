@@ -13,7 +13,9 @@ export default async function SettingsPage() {
   return (
     <div>
       <div className="mb-4">
-        <Link href="/profile" className="vf-nav-link">← {t("common.back")}</Link>
+        <Link href="/profile" className="vf-nav-link">
+          ← {t("common.back")}
+        </Link>
       </div>
       <PageHero eyebrow={t("profile.title")} title={t("profile.tab.settings")} />
       <form
@@ -32,9 +34,7 @@ export default async function SettingsPage() {
             </option>
           ))}
         </select>
-        <p className="mt-2 text-xs text-ink-faint">
-          {t("profile.settings.languageHint")}
-        </p>
+        <p className="mt-2 text-xs text-ink-faint">{t("profile.settings.languageHint")}</p>
         <div className="mt-6 flex items-center justify-between gap-3">
           <Link href="/profile" className="vf-btn vf-btn-cancel">
             {t("common.cancel")}

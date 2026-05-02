@@ -33,8 +33,7 @@ export async function persistDevotion(
         summary: item.summary,
         practiceText: item.practiceText ?? null,
         durationMinutes: item.durationMinutes ?? null,
-        externalSourceKey:
-          item.externalSourceKey ?? existing.externalSourceKey ?? null,
+        externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey ?? null,
         contentChecksum: incomingChecksum,
       },
     });

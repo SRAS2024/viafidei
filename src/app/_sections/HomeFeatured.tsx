@@ -9,7 +9,13 @@ export const FEATURED_PRAYERS: FeaturedPrayer[] = [
   { title: "Anima Christi", category: "Eucharistic", href: "/prayers" },
 ];
 
-export function HomeFeatured({ t, items = FEATURED_PRAYERS }: { t: Translator; items?: FeaturedPrayer[] }) {
+export function HomeFeatured({
+  t,
+  items = FEATURED_PRAYERS,
+}: {
+  t: Translator;
+  items?: FeaturedPrayer[];
+}) {
   return (
     <section>
       <div className="mb-10 text-center">

@@ -9,11 +9,7 @@ type Props = {
 
 export function SearchInput({ defaultValue, placeholder, ariaLabel, submitLabel }: Props) {
   return (
-    <form
-      method="get"
-      role="search"
-      className="mx-auto mb-12 flex max-w-xl items-center gap-2"
-    >
+    <form method="get" role="search" className="mx-auto mb-12 flex max-w-xl items-center gap-2">
       <div className="vf-card flex w-full items-center gap-2 rounded-sm px-3">
         <SearchIcon className="shrink-0 text-ink-faint" />
         <input

@@ -15,7 +15,9 @@ export default async function MyPrayers() {
   return (
     <div>
       <div className="mb-4">
-        <Link href="/profile" className="vf-nav-link">← {t("common.back")}</Link>
+        <Link href="/profile" className="vf-nav-link">
+          ← {t("common.back")}
+        </Link>
       </div>
       <PageHero eyebrow={t("profile.title")} title={t("profile.tab.prayers")} />
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">

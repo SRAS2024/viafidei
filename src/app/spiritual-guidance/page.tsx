@@ -20,7 +20,8 @@ export default async function GuidancePage() {
       <div className="grid gap-5 md:grid-cols-2">
         {parishes.length === 0 ? (
           <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
-            Parish index will appear here after ingestion from approved official Catholic directories.
+            Parish index will appear here after ingestion from approved official Catholic
+            directories.
           </div>
         ) : (
           parishes.map((p) => (

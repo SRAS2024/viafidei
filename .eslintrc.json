@@ -1,0 +1,29 @@
+{
+  "root": true,
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "TSAsExpression[typeAnnotation.typeName.name='any']",
+        "message": "Avoid `as any`. Use `unknown` and narrow with type guards."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/lib/observability/**",
+        "src/app/error.tsx",
+        "src/app/global-error.tsx",
+        "src/app/admin/error.tsx"
+      ],
+      "rules": { "no-console": "off" }
+    },
+    {
+      "files": ["prisma/seed.ts", "prisma/seeds/**"],
+      "rules": { "no-console": "off" }
+    }
+  ]
+}

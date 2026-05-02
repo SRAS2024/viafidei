@@ -21,9 +21,7 @@ export function SaintsGrid({ saints, feastDayLabel, emptyMessage }: Props) {
             {emptyMessage}
           </div>
         ) : (
-          saints.map((s) => (
-            <SaintCard key={s.id} saint={s} feastDayLabel={feastDayLabel} />
-          ))
+          saints.map((s) => <SaintCard key={s.id} saint={s} feastDayLabel={feastDayLabel} />)
         )}
       </div>
     </section>

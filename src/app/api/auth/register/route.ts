@@ -1,10 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  createUser,
-  registerSchema,
-  findUserByEmail,
-  getSession,
-} from "@/lib/auth";
+import { createUser, registerSchema, findUserByEmail, getSession } from "@/lib/auth";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp } from "@/lib/security/request";
 

@@ -1,11 +1,5 @@
 import { getTranslator } from "@/lib/i18n/server";
-import {
-  HomeHero,
-  HomeMission,
-  HomeQuickLinks,
-  HomeFeatured,
-  HomeNewcomer,
-} from "./_sections";
+import { HomeHero, HomeMission, HomeQuickLinks, HomeFeatured, HomeNewcomer } from "./_sections";
 
 export default async function HomePage() {
   const { t } = await getTranslator();

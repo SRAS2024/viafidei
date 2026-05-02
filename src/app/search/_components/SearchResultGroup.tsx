@@ -45,7 +45,11 @@ function SearchResultRow({ item, query }: { item: SearchResultItem; query: strin
         </p>
         {item.secondary ? <p className="vf-eyebrow mt-1">{item.secondary}</p> : null}
       </div>
-      {item.href ? <span aria-hidden="true" className="text-ink-faint">→</span> : null}
+      {item.href ? (
+        <span aria-hidden="true" className="text-ink-faint">
+          →
+        </span>
+      ) : null}
     </>
   );
 

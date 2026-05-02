@@ -13,15 +13,30 @@ export type SessionData = {
   locale?: string;
 };
 
-const password =
-  process.env.SESSION_SECRET ||
-  process.env.JWT_ACCESS_SECRET ||
-  `${DEV_FALLBACK_SECRET}-session`;
+function isBuildPhase(): boolean {
+  return process.env.NEXT_PHASE === "phase-production-build";
+}
+
+function resolveSessionPassword(): string {
+  const secret = process.env.SESSION_SECRET || process.env.JWT_ACCESS_SECRET;
+  if (secret && secret.length >= 32) return secret;
+  if (process.env.NODE_ENV === "production" && !isBuildPhase()) {
+    throw new Error(
+      "SESSION_SECRET (or JWT_ACCESS_SECRET) must be set to a 32+ character value in production.",
+    );
+  }
+  return `${DEV_FALLBACK_SECRET}-session`;
+}
 
 export const SESSION_COOKIE_NAME = "vf_session";
 
 export const sessionOptions: SessionOptions = {
-  password,
+  // iron-session reads `password` lazily on each call; using a getter defers
+  // the production guard until an actual request is served, so static build
+  // analysis (which sets NODE_ENV=production without secrets) doesn't fail.
+  get password() {
+    return resolveSessionPassword();
+  },
   cookieName: SESSION_COOKIE_NAME,
   cookieOptions: {
     secure: process.env.NODE_ENV === "production",
@@ -29,7 +44,7 @@ export const sessionOptions: SessionOptions = {
     sameSite: "lax",
     path: "/",
   },
-};
+} as SessionOptions;
 
 export async function getSession() {
   return getIronSession<SessionData>(cookies(), sessionOptions);

@@ -6,7 +6,14 @@ export function LoginForm({
   labels,
   next,
 }: {
-  labels: { email: string; password: string; submit: string; forgot: string; show: string; hide: string };
+  labels: {
+    email: string;
+    password: string;
+    submit: string;
+    forgot: string;
+    show: string;
+    hide: string;
+  };
   next?: string;
 }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -32,11 +39,7 @@ export function LoginForm({
           <label htmlFor="password" className="vf-label">
             {labels.password}
           </label>
-          <button
-            type="button"
-            onClick={() => setShowPassword((s) => !s)}
-            className="vf-nav-link"
-          >
+          <button type="button" onClick={() => setShowPassword((s) => !s)} className="vf-nav-link">
             {showPassword ? labels.hide : labels.show}
           </button>
         </div>
@@ -52,7 +55,10 @@ export function LoginForm({
       <button type="submit" className="vf-btn vf-btn-primary mt-2">
         {labels.submit}
       </button>
-      <a href="/forgot-password" className="text-center text-sm text-ink-faint underline-offset-4 hover:underline">
+      <a
+        href="/forgot-password"
+        className="text-center text-sm text-ink-faint underline-offset-4 hover:underline"
+      >
         {labels.forgot}
       </a>
     </form>

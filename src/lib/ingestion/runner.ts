@@ -1,11 +1,7 @@
 import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../db/client";
 import { withAdvisoryLock } from "../concurrency/lock";
-import type {
-  ConditionalState,
-  IngestionRunSummary,
-  SourceAdapter,
-} from "./types";
+import type { ConditionalState, IngestionRunSummary, SourceAdapter } from "./types";
 import { sanitize } from "./validate";
 import { persistItems } from "./persist";
 
@@ -83,7 +79,11 @@ async function runAdapterUnlocked(
 
   try {
     const conditionalState = jobId ? await loadPriorState(jobId) : undefined;
-    const { items, notModified, conditionalState: nextState } = await adapter.fetch({
+    const {
+      items,
+      notModified,
+      conditionalState: nextState,
+    } = await adapter.fetch({
       sourceHost,
       jobName: adapter.key,
       conditionalState,
@@ -112,9 +112,7 @@ async function runAdapterUnlocked(
       recordsCreated: counts.created,
       recordsUpdated: counts.updated,
       recordsSkipped: counts.skipped + rejected.length,
-      errorMessage: rejected.length
-        ? `${rejected.length} items rejected by validation`
-        : null,
+      errorMessage: rejected.length ? `${rejected.length} items rejected by validation` : null,
     };
 
     if (run) {

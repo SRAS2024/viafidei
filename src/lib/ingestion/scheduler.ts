@@ -16,9 +16,7 @@ export type SchedulerSummary = {
   runs: SchedulerJobResult[];
 };
 
-export async function runAllActiveJobs(
-  options: RunnerOptions = {},
-): Promise<SchedulerSummary> {
+export async function runAllActiveJobs(options: RunnerOptions = {}): Promise<SchedulerSummary> {
   const jobs = await prisma.ingestionJob.findMany({
     where: { isActive: true },
     include: { source: true },

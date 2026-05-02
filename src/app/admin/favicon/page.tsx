@@ -14,7 +14,9 @@ export default async function AdminFavicon() {
       <div className="vf-card rounded-sm p-8">
         <form method="post" action="/api/admin/favicon" className="flex flex-col gap-5">
           <div>
-            <label className="vf-label" htmlFor="faviconUrl">Favicon URL</label>
+            <label className="vf-label" htmlFor="faviconUrl">
+              Favicon URL
+            </label>
             <input
               id="faviconUrl"
               name="url"
@@ -29,7 +31,9 @@ export default async function AdminFavicon() {
             </p>
           </div>
           <div>
-            <label className="vf-label" htmlFor="faviconAlt">Alt text</label>
+            <label className="vf-label" htmlFor="faviconAlt">
+              Alt text
+            </label>
             <input
               id="faviconAlt"
               name="altText"

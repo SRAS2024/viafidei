@@ -16,9 +16,7 @@ export default async function LoginPage({
         <p className="vf-eyebrow">{t("nav.login")}</p>
         <div className="vf-rule mx-auto my-5" />
         <h1 className="font-display text-4xl">{t("auth.signIn")}</h1>
-        <p className="mx-auto mt-3 max-w-sm font-serif text-ink-soft">
-          {t("auth.signInSubtitle")}
-        </p>
+        <p className="mx-auto mt-3 max-w-sm font-serif text-ink-soft">{t("auth.signInSubtitle")}</p>
       </div>
 
       <div className="vf-card mt-10 rounded-sm p-8">
@@ -41,7 +39,10 @@ export default async function LoginPage({
       </div>
 
       <p className="mt-6 text-center text-sm text-ink-faint">
-        <Link href="/register" className="underline decoration-ink/30 underline-offset-4 hover:decoration-ink">
+        <Link
+          href="/register"
+          className="underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
+        >
           {t("auth.toRegister")}
         </Link>
       </p>

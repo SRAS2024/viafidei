@@ -11,7 +11,8 @@ export default async function AdminIngestion() {
     <AdminSection titleKey="admin.card.ingestion">
       {sources.length === 0 ? (
         <div className="vf-card rounded-sm p-8 text-center font-serif text-ink-faint">
-          No ingestion sources registered. Configure official Catholic sources in seed or admin tooling.
+          No ingestion sources registered. Configure official Catholic sources in seed or admin
+          tooling.
         </div>
       ) : (
         <div className="flex flex-col gap-4">

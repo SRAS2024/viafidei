@@ -74,8 +74,7 @@ const spiritualLife: Dict = {
 
 const guidance: Dict = {
   "guidance.title": "Spiritual Guidance",
-  "guidance.subtitle":
-    "Find a parish, OCIA cohort, or local Catholic community near you.",
+  "guidance.subtitle": "Find a parish, OCIA cohort, or local Catholic community near you.",
   "guidance.searchPlaceholder": "City, region, or postal code",
 };
 
@@ -175,7 +174,8 @@ const admin: Dict = {
   "admin.login.invalid": "Those credentials do not match.",
   "admin.login.userRedirect": "Looking for the member sign-in? Go to the standard site.",
   "admin.dashboard.title": "Administrator dashboard",
-  "admin.dashboard.subtitle": "Manage content, translations, ingestion, media, and the live homepage.",
+  "admin.dashboard.subtitle":
+    "Manage content, translations, ingestion, media, and the live homepage.",
   "admin.card.prayers": "Prayers",
   "admin.card.saints": "Saints",
   "admin.card.apparitions": "Marian apparitions",
