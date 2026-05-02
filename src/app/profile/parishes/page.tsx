@@ -4,12 +4,19 @@ import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
 import { listSavedParishes } from "@/lib/data/saved";
 import { PageHero } from "@/components/ui/PageHero";
+import { RemoveSavedButton } from "@/components/ui/RemoveSavedButton";
 
 export default async function MyParishes() {
   const user = await requireUser();
   if (!user) redirect("/login?next=/profile/parishes");
   const { t } = await getTranslator();
   const saves = await listSavedParishes(user.id);
+  const removeLabels = {
+    remove: t("profile.saved.remove"),
+    cancel: t("common.cancel"),
+    removeTitle: t("profile.saved.removeTitle"),
+    removeBody: t("profile.saved.removeBody"),
+  };
 
   return (
     <div>
@@ -34,6 +41,14 @@ export default async function MyParishes() {
               {s.parish.diocese ? (
                 <p className="mt-1 font-serif text-sm text-ink-faint">{s.parish.diocese}</p>
               ) : null}
+              <div className="mt-4">
+                <RemoveSavedButton
+                  kind="parishes"
+                  entityId={s.parishId}
+                  entityTitle={s.parish.name}
+                  labels={removeLabels}
+                />
+              </div>
             </article>
           ))
         )}

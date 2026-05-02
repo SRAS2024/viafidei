@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedPrayers } from "@/lib/data/prayers";
@@ -44,11 +45,13 @@ export default async function PrayersPage() {
             const title = tr?.title ?? p.defaultTitle;
             const body = tr?.body ?? p.body;
             return (
-              <article key={p.id} className="vf-card rounded-sm p-7">
-                <p className="vf-eyebrow">{p.category}</p>
-                <h2 className="mt-3 font-display text-2xl">{title}</h2>
-                <p className="mt-4 line-clamp-5 font-serif text-ink-soft">{body}</p>
-              </article>
+              <Link key={p.id} href={`/prayers/${p.slug}`}>
+                <article className="vf-card h-full rounded-sm p-7 transition hover:border-ink/30 hover:-translate-y-0.5">
+                  <p className="vf-eyebrow">{p.category}</p>
+                  <h2 className="mt-3 font-display text-2xl">{title}</h2>
+                  <p className="mt-4 line-clamp-5 font-serif text-ink-soft">{body}</p>
+                </article>
+              </Link>
             );
           })
         )}

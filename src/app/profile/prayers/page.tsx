@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
 import { listSavedPrayersForUser } from "@/lib/data/prayers";
 import { PageHero } from "@/components/ui/PageHero";
+import { RemoveSavedButton } from "@/components/ui/RemoveSavedButton";
 
 export default async function MyPrayers() {
   const user = await requireUser();
@@ -11,6 +12,12 @@ export default async function MyPrayers() {
   const { t, locale } = await getTranslator();
 
   const saves = await listSavedPrayersForUser(user.id, locale);
+  const removeLabels = {
+    remove: t("profile.saved.remove"),
+    cancel: t("common.cancel"),
+    removeTitle: t("profile.saved.removeTitle"),
+    removeBody: t("profile.saved.removeBody"),
+  };
 
   return (
     <div>
@@ -28,13 +35,22 @@ export default async function MyPrayers() {
         ) : (
           saves.map((s) => {
             const tr = s.prayer.translations[0];
+            const title = tr?.title ?? s.prayer.defaultTitle;
             return (
               <article key={s.prayerId} className="vf-card rounded-sm p-6">
                 <p className="vf-eyebrow">{s.prayer.category}</p>
-                <h2 className="mt-3 font-display text-2xl">{tr?.title ?? s.prayer.defaultTitle}</h2>
+                <h2 className="mt-3 font-display text-2xl">{title}</h2>
                 <p className="mt-3 line-clamp-4 font-serif text-sm text-ink-soft">
                   {tr?.body ?? s.prayer.body}
                 </p>
+                <div className="mt-4">
+                  <RemoveSavedButton
+                    kind="prayers"
+                    entityId={s.prayerId}
+                    entityTitle={title}
+                    labels={removeLabels}
+                  />
+                </div>
               </article>
             );
           })
