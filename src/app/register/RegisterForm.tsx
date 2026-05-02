@@ -25,13 +25,27 @@ export function RegisterForm({
           <label htmlFor="firstName" className="vf-label">
             {labels.firstName}
           </label>
-          <input id="firstName" name="firstName" type="text" required className="vf-input" autoComplete="given-name" />
+          <input
+            id="firstName"
+            name="firstName"
+            type="text"
+            required
+            className="vf-input"
+            autoComplete="given-name"
+          />
         </div>
         <div>
           <label htmlFor="lastName" className="vf-label">
             {labels.lastName}
           </label>
-          <input id="lastName" name="lastName" type="text" required className="vf-input" autoComplete="family-name" />
+          <input
+            id="lastName"
+            name="lastName"
+            type="text"
+            required
+            className="vf-input"
+            autoComplete="family-name"
+          />
         </div>
       </div>
 
@@ -39,7 +53,14 @@ export function RegisterForm({
         <label htmlFor="email" className="vf-label">
           {labels.email}
         </label>
-        <input id="email" name="email" type="email" required className="vf-input" autoComplete="email" />
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          className="vf-input"
+          autoComplete="email"
+        />
       </div>
 
       <div>

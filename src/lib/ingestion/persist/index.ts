@@ -36,11 +36,7 @@ export async function persistItems(
     const outcome = await dispatch(item, initialStatus);
     counts[outcome] += 1;
     if (outcome !== "skipped" && item.tagSlugs && item.tagSlugs.length > 0) {
-      await applyTagsToEntity(
-        ENTITY_TYPE_BY_KIND[item.kind],
-        item.slug,
-        item.tagSlugs,
-      );
+      await applyTagsToEntity(ENTITY_TYPE_BY_KIND[item.kind], item.slug, item.tagSlugs);
     }
   }
   return counts;

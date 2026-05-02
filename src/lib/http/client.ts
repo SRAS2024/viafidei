@@ -78,9 +78,7 @@ async function performFetch(
     }
   }
 
-  throw lastError instanceof Error
-    ? lastError
-    : new Error(`Failed to fetch ${url}`);
+  throw lastError instanceof Error ? lastError : new Error(`Failed to fetch ${url}`);
 }
 
 export async function fetchText(

@@ -4,11 +4,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { AdminWelcomeGate } from "./AdminWelcomeGate";
 import { AdminDashboard } from "./AdminDashboard";
 
-export default async function AdminHome({
-  searchParams,
-}: {
-  searchParams: { welcome?: string };
-}) {
+export default async function AdminHome({ searchParams }: { searchParams: { welcome?: string } }) {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
   const { t, locale } = await getTranslator();

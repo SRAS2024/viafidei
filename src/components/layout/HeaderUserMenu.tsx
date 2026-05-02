@@ -10,9 +10,7 @@ type AnonLabels = {
   register: string;
 };
 
-type Props =
-  | { isAuthed: true; labels: AuthedLabels }
-  | { isAuthed: false; labels: AnonLabels };
+type Props = { isAuthed: true; labels: AuthedLabels } | { isAuthed: false; labels: AnonLabels };
 
 export function HeaderUserMenu(props: Props) {
   if (props.isAuthed) {

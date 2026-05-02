@@ -29,11 +29,7 @@ export function AdminLoginForm({
           <label htmlFor="password" className="vf-label">
             {labels.password}
           </label>
-          <button
-            type="button"
-            onClick={() => setShowPassword((s) => !s)}
-            className="vf-nav-link"
-          >
+          <button type="button" onClick={() => setShowPassword((s) => !s)} className="vf-nav-link">
             {showPassword ? labels.hide : labels.show}
           </button>
         </div>

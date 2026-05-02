@@ -4,11 +4,7 @@ import { RegisterForm } from "./RegisterForm";
 
 export const metadata = { title: "Create account" };
 
-export default async function RegisterPage({
-  searchParams,
-}: {
-  searchParams: { error?: string };
-}) {
+export default async function RegisterPage({ searchParams }: { searchParams: { error?: string } }) {
   const { t } = await getTranslator();
 
   const errorMessage =
@@ -52,7 +48,10 @@ export default async function RegisterPage({
       </div>
 
       <p className="mt-6 text-center text-sm text-ink-faint">
-        <Link href="/login" className="underline decoration-ink/30 underline-offset-4 hover:decoration-ink">
+        <Link
+          href="/login"
+          className="underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
+        >
           {t("auth.toLogin")}
         </Link>
       </p>

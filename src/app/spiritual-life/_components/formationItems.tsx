@@ -19,7 +19,12 @@ export const FORMATION_ITEMS: FormationItem[] = [
   { id: "rosary", key: "spiritualLife.rosary", tone: "marian", icon: <RosaryIcon /> },
   { id: "confession", key: "spiritualLife.confession", tone: "ink", icon: <ConfessionIcon /> },
   { id: "adoration", key: "spiritualLife.adoration", tone: "eucharist", icon: <AdorationIcon /> },
-  { id: "consecration", key: "spiritualLife.consecration", tone: "marian", icon: <ConsecrationIcon /> },
+  {
+    id: "consecration",
+    key: "spiritualLife.consecration",
+    tone: "marian",
+    icon: <ConsecrationIcon />,
+  },
   { id: "vocations", key: "spiritualLife.vocations", tone: "ink", icon: <VocationsIcon /> },
 ];
 

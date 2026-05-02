@@ -10,14 +10,7 @@ function canonicalize(item: IngestedItem): string {
   const tags = joinTags(item.tagSlugs);
   switch (item.kind) {
     case "prayer":
-      return [
-        "prayer",
-        item.slug,
-        item.defaultTitle,
-        item.category,
-        item.body,
-        tags,
-      ].join("|");
+      return ["prayer", item.slug, item.defaultTitle, item.category, item.body, tags].join("|");
     case "saint":
       return [
         "saint",

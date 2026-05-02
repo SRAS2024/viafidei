@@ -1,6 +1,1 @@
-export {
-  encryptAtRest,
-  decryptAtRest,
-  emailLookupHash,
-  constantTimeEquals,
-} from "./security";
+export { encryptAtRest, decryptAtRest, emailLookupHash, constantTimeEquals } from "./security";

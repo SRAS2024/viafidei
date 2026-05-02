@@ -1,11 +1,7 @@
 import { recordReview } from "./review-log";
 import { getEntityStatus, setEntityStatus } from "./status-update";
 import { canPublish, canReject, canRequestRevision } from "./transitions";
-import type {
-  ReviewActionOutcome,
-  ReviewActor,
-  ReviewableEntityType,
-} from "./types";
+import type { ReviewActionOutcome, ReviewActor, ReviewableEntityType } from "./types";
 
 type ReviewArgs = {
   entityType: ReviewableEntityType;

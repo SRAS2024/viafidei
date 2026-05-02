@@ -1,18 +1,29 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { isAuthorizedCron } from "@/lib/security/cron-auth";
 import { runAllActiveJobs } from "@/lib/ingestion/scheduler";
 import { ensureVaticanSchedule } from "@/lib/ingestion/sources";
+import { jsonError, jsonOk } from "@/lib/http";
+import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
 // Long-lived cron invocation; allow up to 60s for slow upstreams.
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
+  const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
   if (!isAuthorizedCron(req)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    logger.warn("cron.unauthorized", { route: "/api/cron/ingest", requestId });
+    return jsonError("unauthorized");
   }
+  const started = Date.now();
   await ensureVaticanSchedule();
   const summary = await runAllActiveJobs();
-  return NextResponse.json({ ok: true, summary });
+  logger.info("cron.completed", {
+    route: "/api/cron/ingest",
+    requestId,
+    durationMs: Date.now() - started,
+    summary,
+  });
+  return jsonOk({ summary });
 }
 
 export async function GET(req: NextRequest) {

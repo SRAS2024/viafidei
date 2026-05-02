@@ -20,11 +20,7 @@ export function JournalDeleteButton({ entryId, entryTitle, labels }: Props) {
 
   return (
     <>
-      <button
-        type="button"
-        className="vf-link-danger"
-        onClick={() => setOpen(true)}
-      >
+      <button type="button" className="vf-link-danger" onClick={() => setOpen(true)}>
         {labels.delete}
       </button>
       <form

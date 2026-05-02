@@ -10,8 +10,7 @@ const DEFAULT_BLOCKS = [
     configJson: {
       eyebrow: "Est. MMXXVI · Canonical",
       title: "A quiet place to pray, to learn, and to return.",
-      lede:
-        "Via Fidei is a multilingual Catholic companion — a curated library of prayers, saints, sacramental guidance, liturgical formation, and parish discovery.",
+      lede: "Via Fidei is a multilingual Catholic companion — a curated library of prayers, saints, sacramental guidance, liturgical formation, and parish discovery.",
     },
   },
   {
@@ -19,8 +18,14 @@ const DEFAULT_BLOCKS = [
     blockType: "two-column",
     sortOrder: 1,
     configJson: {
-      left: { title: "Our mission", body: "We make the beauty and precision of the Catholic tradition legible." },
-      right: { title: "What is Catholicism?", body: "The Catholic Church is the community of disciples gathered around Jesus Christ." },
+      left: {
+        title: "Our mission",
+        body: "We make the beauty and precision of the Catholic tradition legible.",
+      },
+      right: {
+        title: "What is Catholicism?",
+        body: "The Catholic Church is the community of disciples gathered around Jesus Christ.",
+      },
     },
   },
 ];

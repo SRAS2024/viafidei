@@ -1,10 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
-import {
-  getFaviconSetting,
-  upsertFaviconSetting,
-} from "@/lib/data/site-settings";
+import { getFaviconSetting, upsertFaviconSetting } from "@/lib/data/site-settings";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
 
 export async function POST(req: NextRequest) {

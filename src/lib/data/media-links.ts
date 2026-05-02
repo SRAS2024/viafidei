@@ -10,10 +10,7 @@ export function listMediaForEntity(entityType: EntityType, entityId: string) {
   });
 }
 
-export async function findPrimaryMediaForEntity(
-  entityType: EntityType,
-  entityId: string,
-) {
+export async function findPrimaryMediaForEntity(entityType: EntityType, entityId: string) {
   return prisma.entityMediaLink.findFirst({
     where: { entityType, entityId, isPrimary: true },
     include: { mediaAsset: true },

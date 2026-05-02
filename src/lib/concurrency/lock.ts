@@ -26,10 +26,7 @@ export async function tryAdvisoryLock(key: string): Promise<boolean> {
 
 export async function releaseAdvisoryLock(key: string): Promise<void> {
   const id = hashKey(key);
-  await prisma.$queryRawUnsafe(
-    `SELECT pg_advisory_unlock($1) AS released`,
-    id,
-  );
+  await prisma.$queryRawUnsafe(`SELECT pg_advisory_unlock($1) AS released`, id);
 }
 
 /**

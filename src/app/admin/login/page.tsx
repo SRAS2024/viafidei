@@ -3,11 +3,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { requireAdmin } from "@/lib/auth";
 import { AdminLoginForm } from "./AdminLoginForm";
 
-export default async function AdminLogin({
-  searchParams,
-}: {
-  searchParams: { error?: string };
-}) {
+export default async function AdminLogin({ searchParams }: { searchParams: { error?: string } }) {
   const existing = await requireAdmin();
   if (existing) redirect("/admin?welcome=1");
   const { t } = await getTranslator();

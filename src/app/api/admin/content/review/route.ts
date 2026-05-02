@@ -1,15 +1,11 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
-import {
-  approveContent,
-  rejectContent,
-  requestRevision,
-  moveToReview,
-} from "@/lib/content/review";
+import { approveContent, rejectContent, requestRevision, moveToReview } from "@/lib/content/review";
 import type { ReviewableEntityType } from "@/lib/content/types";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 
 const ENTITY_TYPES: ReviewableEntityType[] = [
   "Prayer",
@@ -28,14 +24,15 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin();
-  if (!admin) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  if (!admin) return jsonError("unauthorized");
 
-  const body = await req.json().catch(() => null);
-  const parsed = schema.safeParse(body);
+  const body = await readJsonBody(req);
+  if (!body.ok) {
+    return jsonError(body.reason === "too_large" ? "too_large" : "invalid");
+  }
+  const parsed = schema.safeParse(body.data);
   if (!parsed.success) {
-    return NextResponse.json({ error: "invalid" }, { status: 400 });
+    return jsonError("invalid", { details: parsed.error.flatten() });
   }
 
   const args = {
@@ -65,7 +62,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (!outcome.ok) {
-    return NextResponse.json({ error: outcome.reason }, { status: 409 });
+    return jsonError("conflict", { message: outcome.reason });
   }
-  return NextResponse.json({ ok: true, outcome });
+  return jsonOk({ outcome });
 }

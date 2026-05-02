@@ -1,7 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { REQUEST_ID_HEADER, ensureRequestId } from "@/lib/observability";
 
 export function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+  const requestId = ensureRequestId(req.headers.get(REQUEST_ID_HEADER));
+
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set(REQUEST_ID_HEADER, requestId);
+
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  res.headers.set(REQUEST_ID_HEADER, requestId);
 
   const csp = [
     "default-src 'self'",
@@ -19,15 +26,9 @@ export function middleware(req: NextRequest) {
   res.headers.set("X-Frame-Options", "DENY");
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  res.headers.set(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(self), payment=()",
-  );
+  res.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(self), payment=()");
   if (process.env.NODE_ENV === "production") {
-    res.headers.set(
-      "Strict-Transport-Security",
-      "max-age=63072000; includeSubDomains; preload",
-    );
+    res.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   }
 
   return res;
