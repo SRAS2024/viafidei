@@ -5,6 +5,7 @@ import { pruneExpiredTokens } from "@/lib/auth";
 import { runAllActiveJobs } from "@/lib/ingestion/scheduler";
 import { ensureVaticanSchedule } from "@/lib/ingestion/sources";
 import { markOverdueGoals } from "@/lib/data/goals";
+import { pruneOldAuditLogs, pruneOldIngestionRuns } from "@/lib/data/cleanup";
 import { jsonError, jsonOk } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
@@ -20,11 +21,14 @@ export async function POST(req: NextRequest) {
   const started = Date.now();
   await ensureVaticanSchedule();
   const summary = await runAllActiveJobs();
-  const [prunedRateLimits, prunedTokens, overdueGoals] = await Promise.all([
-    pruneExpiredRateLimits(),
-    pruneExpiredTokens(),
-    markOverdueGoals(),
-  ]);
+  const [prunedRateLimits, prunedTokens, overdueGoals, prunedRuns, prunedAudits] =
+    await Promise.all([
+      pruneExpiredRateLimits(),
+      pruneExpiredTokens(),
+      markOverdueGoals(),
+      pruneOldIngestionRuns(),
+      pruneOldAuditLogs(),
+    ]);
   logger.info("cron.completed", {
     route: "/api/cron/ingest",
     requestId,
@@ -33,8 +37,17 @@ export async function POST(req: NextRequest) {
     prunedRateLimits,
     prunedTokens,
     overdueGoals,
+    prunedRuns,
+    prunedAudits,
   });
-  return jsonOk({ summary, prunedRateLimits, prunedTokens, overdueGoals });
+  return jsonOk({
+    summary,
+    prunedRateLimits,
+    prunedTokens,
+    overdueGoals,
+    prunedRuns,
+    prunedAudits,
+  });
 }
 
 export async function GET(req: NextRequest) {

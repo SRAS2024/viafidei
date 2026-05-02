@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { Translator } from "@/lib/i18n/translator";
+import { HeaderNavClient, type NavItem as ClientNavItem } from "./HeaderNavClient";
 
 export type NavItem = { href: string; key: string };
 
@@ -18,16 +18,6 @@ type Props = {
 };
 
 export function HeaderNav({ items = PRIMARY_NAV, t }: Props) {
-  return (
-    <nav
-      aria-label="Primary"
-      className="flex w-full flex-wrap items-center justify-center gap-x-6 gap-y-3 sm:gap-x-7"
-    >
-      {items.map((item) => (
-        <Link key={item.href} href={item.href} className="vf-nav-link">
-          {t(item.key)}
-        </Link>
-      ))}
-    </nav>
-  );
+  const enriched: ClientNavItem[] = items.map((item) => ({ ...item, label: t(item.key) }));
+  return <HeaderNavClient items={enriched} />;
 }
