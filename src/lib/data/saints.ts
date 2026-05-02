@@ -37,3 +37,10 @@ export function listSavedSaintsForUser(userId: string) {
     orderBy: { createdAt: "desc" },
   });
 }
+
+export function getPublishedSaintBySlug(slug: string, locale: Locale) {
+  return prisma.saint.findFirst({
+    where: { slug, status: "PUBLISHED" },
+    include: { translations: { where: { locale } } },
+  });
+}

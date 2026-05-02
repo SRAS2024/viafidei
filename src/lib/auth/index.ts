@@ -22,3 +22,14 @@ export {
   type CreateUserInput,
 } from "./user";
 export { verifyAdminCredentials, requireAdmin, type AdminPrincipal } from "./admin";
+export {
+  issuePasswordResetToken,
+  consumePasswordResetToken,
+  issueEmailVerificationToken,
+  consumeEmailVerificationToken,
+  pruneExpiredTokens,
+  verifyCurrentPassword,
+  type IssuedToken,
+  type ConsumePasswordResetResult,
+  type ConsumeEmailVerificationResult,
+} from "./tokens";

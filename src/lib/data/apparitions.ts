@@ -26,3 +26,10 @@ export function searchApparitions(q: string, take = 10) {
     take,
   });
 }
+
+export function getPublishedApparitionBySlug(slug: string, locale: Locale) {
+  return prisma.marianApparition.findFirst({
+    where: { slug, status: "PUBLISHED" },
+    include: { translations: { where: { locale } } },
+  });
+}

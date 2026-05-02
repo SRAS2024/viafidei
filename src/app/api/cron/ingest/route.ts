@@ -1,8 +1,10 @@
 import { type NextRequest } from "next/server";
 import { isAuthorizedCron } from "@/lib/security/cron-auth";
 import { pruneExpiredRateLimits } from "@/lib/security/rate-limit";
+import { pruneExpiredTokens } from "@/lib/auth";
 import { runAllActiveJobs } from "@/lib/ingestion/scheduler";
 import { ensureVaticanSchedule } from "@/lib/ingestion/sources";
+import { markOverdueGoals } from "@/lib/data/goals";
 import { jsonError, jsonOk } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
@@ -18,15 +20,21 @@ export async function POST(req: NextRequest) {
   const started = Date.now();
   await ensureVaticanSchedule();
   const summary = await runAllActiveJobs();
-  const prunedRateLimits = await pruneExpiredRateLimits();
+  const [prunedRateLimits, prunedTokens, overdueGoals] = await Promise.all([
+    pruneExpiredRateLimits(),
+    pruneExpiredTokens(),
+    markOverdueGoals(),
+  ]);
   logger.info("cron.completed", {
     route: "/api/cron/ingest",
     requestId,
     durationMs: Date.now() - started,
     summary,
     prunedRateLimits,
+    prunedTokens,
+    overdueGoals,
   });
-  return jsonOk({ summary, prunedRateLimits });
+  return jsonOk({ summary, prunedRateLimits, prunedTokens, overdueGoals });
 }
 
 export async function GET(req: NextRequest) {

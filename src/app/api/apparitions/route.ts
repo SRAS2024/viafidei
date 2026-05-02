@@ -1,0 +1,21 @@
+import { type NextRequest } from "next/server";
+import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
+import { getClientIp } from "@/lib/security/request";
+import { jsonError, jsonOk } from "@/lib/http";
+import { listPublishedApparitions, searchApparitions } from "@/lib/data/apparitions";
+import { getLocale } from "@/lib/i18n/server";
+
+export async function GET(req: NextRequest) {
+  const ip = getClientIp(req);
+  const limit = await rateLimit(`pub:apparitions:${ip}`, RATE_POLICIES.publicRead, {
+    ipAddress: ip,
+  });
+  if (!limit.ok) return jsonError("rate_limited");
+
+  const url = new URL(req.url);
+  const q = url.searchParams.get("q")?.trim();
+  const take = Math.min(Number(url.searchParams.get("take")) || 60, 200);
+  const locale = await getLocale();
+  const items = q ? await searchApparitions(q, take) : await listPublishedApparitions(locale, take);
+  return jsonOk({ items, locale });
+}
