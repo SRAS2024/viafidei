@@ -4,7 +4,7 @@ import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedLiturgyEntries } from "@/lib/data/liturgy";
 import { LITURGY_ITEMS } from "./_components/liturgyItems";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Liturgy & History" };
 
 const KIND_LABELS: Record<string, string> = {
