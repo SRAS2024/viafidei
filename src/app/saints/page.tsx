@@ -4,6 +4,7 @@ import { listPublishedSaints } from "@/lib/data/saints";
 import { listPublishedApparitions } from "@/lib/data/apparitions";
 import { SaintsGrid, ApparitionsGrid } from "./_components";
 
+export const revalidate = 3600;
 export const metadata = { title: "Saints & Our Lady" };
 
 export default async function SaintsPage() {

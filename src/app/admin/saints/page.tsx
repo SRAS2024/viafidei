@@ -2,6 +2,14 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { listAdminSaints } from "@/lib/data/saints";
 import { AdminSection } from "../_sections/AdminSection";
+import { AdminStatusButton } from "../_sections/AdminStatusButton";
+
+const STATUS_COLORS: Record<string, string> = {
+  PUBLISHED: "text-green-700",
+  DRAFT: "text-ink-faint",
+  REVIEW: "text-amber-600",
+  ARCHIVED: "text-red-600",
+};
 
 export default async function AdminSaints() {
   const admin = await requireAdmin();
@@ -9,19 +17,58 @@ export default async function AdminSaints() {
   const rows = await listAdminSaints();
   return (
     <AdminSection titleKey="admin.card.saints">
-      <div className="vf-card rounded-sm p-6">
-        {rows.length === 0 ? (
-          <p className="text-center font-serif text-ink-faint">No saints yet.</p>
-        ) : (
-          <ul className="divide-y divide-ink/10">
-            {rows.map((s) => (
-              <li key={s.id} className="flex items-center justify-between py-4 font-serif">
-                <span className="text-lg">{s.canonicalName}</span>
-                <span className="text-sm text-ink-faint">{s.feastDay ?? "—"}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+      <div className="vf-card rounded-sm overflow-x-auto">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="border-b border-ink/10 text-xs uppercase tracking-[0.2em] text-ink-faint">
+              <th className="px-5 py-4">Name</th>
+              <th className="px-5 py-4">Feast Day</th>
+              <th className="px-5 py-4">Status</th>
+              <th className="px-5 py-4">Updated</th>
+              <th className="px-5 py-4">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-5 py-10 text-center font-serif text-ink-faint">
+                  No saints yet. Run the seed script or trigger ingestion.
+                </td>
+              </tr>
+            ) : (
+              rows.map((s) => (
+                <tr key={s.id} className="border-b border-ink/5 font-serif">
+                  <td className="px-5 py-4">
+                    <a
+                      href={`/saints/${s.slug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-lg hover:underline"
+                    >
+                      {s.canonicalName}
+                    </a>
+                  </td>
+                  <td className="px-5 py-4 text-ink-soft">{s.feastDay ?? "—"}</td>
+                  <td
+                    className={`px-5 py-4 font-semibold text-sm ${STATUS_COLORS[s.status] ?? "text-ink-soft"}`}
+                  >
+                    {s.status}
+                  </td>
+                  <td className="px-5 py-4 text-ink-faint">
+                    {s.updatedAt.toISOString().slice(0, 10)}
+                  </td>
+                  <td className="px-5 py-4">
+                    <AdminStatusButton
+                      id={s.id}
+                      currentStatus={s.status}
+                      apiBase="/api/admin/saints"
+                    />
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </AdminSection>
   );

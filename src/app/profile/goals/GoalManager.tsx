@@ -438,7 +438,11 @@ export function GoalManager({ initialGoals, labels }: Props) {
       </div>
 
       {showCreate ? (
-        <CreateForm labels={labels} onCreated={handleCreated} onCancel={() => setShowCreate(false)} />
+        <CreateForm
+          labels={labels}
+          onCreated={handleCreated}
+          onCancel={() => setShowCreate(false)}
+        />
       ) : null}
 
       {goals.length === 0 && !showCreate ? (

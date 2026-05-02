@@ -36,6 +36,8 @@ export async function runAllActiveJobs(options: RunnerOptions = {}): Promise<Sch
           recordsCreated: 0,
           recordsUpdated: 0,
           recordsSkipped: 0,
+          recordsFailed: 0,
+          recordsReviewRequired: 0,
           errorMessage: `No registered adapter for job '${job.jobName}'`,
         },
       });
@@ -76,6 +78,8 @@ export async function runJobByName(
         recordsCreated: 0,
         recordsUpdated: 0,
         recordsSkipped: 0,
+        recordsFailed: 0,
+        recordsReviewRequired: 0,
         errorMessage: `No registered adapter for job '${jobName}'`,
       },
     };

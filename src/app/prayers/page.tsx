@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
-import { listPublishedPrayers } from "@/lib/data/prayers";
+import { listPublishedPrayersPaginated } from "@/lib/data/prayers";
 
+export const revalidate = 3600;
 export const metadata = { title: "Prayers" };
 
 const PRAYER_CATEGORIES = [
@@ -14,9 +15,10 @@ const PRAYER_CATEGORIES = [
   "prayers.category.daily",
 ] as const;
 
-export default async function PrayersPage() {
+export default async function PrayersPage({ searchParams }: { searchParams: { page?: string } }) {
   const { t, locale } = await getTranslator();
-  const prayers = await listPublishedPrayers(locale);
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const { items: prayers, total, totalPages } = await listPublishedPrayersPaginated(locale, page);
 
   return (
     <div>
@@ -33,6 +35,12 @@ export default async function PrayersPage() {
           </span>
         ))}
       </div>
+
+      {total > 0 && (
+        <p className="mb-6 text-center font-serif text-sm text-ink-faint">
+          {total} {total === 1 ? "prayer" : "prayers"}
+        </p>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {prayers.length === 0 ? (
@@ -56,6 +64,24 @@ export default async function PrayersPage() {
           })
         )}
       </div>
+
+      {totalPages > 1 && (
+        <nav className="mt-12 flex items-center justify-center gap-4" aria-label="Pagination">
+          {page > 1 && (
+            <Link href={`/prayers?page=${page - 1}`} className="vf-btn vf-btn-ghost">
+              ← Previous
+            </Link>
+          )}
+          <span className="font-serif text-ink-faint">
+            Page {page} of {totalPages}
+          </span>
+          {page < totalPages && (
+            <Link href={`/prayers?page=${page + 1}`} className="vf-btn vf-btn-ghost">
+              Next →
+            </Link>
+          )}
+        </nav>
+      )}
     </div>
   );
 }

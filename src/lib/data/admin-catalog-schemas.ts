@@ -1,18 +1,24 @@
 import { z } from "zod";
 
+const CONTENT_STATUSES = ["DRAFT", "REVIEW", "PUBLISHED", "ARCHIVED"] as const;
+
 export const prayerCreateSchema = z.object({
   slug: z.string().max(200).nullish(),
   defaultTitle: z.string().min(1).max(200),
   body: z.string().min(1).max(20_000),
+  officialPrayer: z.string().max(20_000).nullish(),
   category: z.string().min(1).max(80),
   categoryId: z.string().max(64).nullish(),
+  status: z.enum(CONTENT_STATUSES).optional(),
 });
 export const prayerUpdateSchema = z.object({
   slug: z.string().max(200).nullish(),
   defaultTitle: z.string().min(1).max(200).optional(),
   body: z.string().min(1).max(20_000).optional(),
+  officialPrayer: z.string().max(20_000).nullish(),
   category: z.string().min(1).max(80).optional(),
   categoryId: z.string().max(64).nullish(),
+  status: z.enum(CONTENT_STATUSES).optional(),
 });
 
 export const saintCreateSchema = z.object({
@@ -22,6 +28,7 @@ export const saintCreateSchema = z.object({
   patronages: z.array(z.string().max(120)).max(40).optional(),
   biography: z.string().min(1).max(40_000),
   officialPrayer: z.string().max(20_000).nullish(),
+  status: z.enum(CONTENT_STATUSES).optional(),
 });
 export const saintUpdateSchema = z.object({
   slug: z.string().max(200).nullish(),
@@ -30,6 +37,7 @@ export const saintUpdateSchema = z.object({
   patronages: z.array(z.string().max(120)).max(40).optional(),
   biography: z.string().min(1).max(40_000).optional(),
   officialPrayer: z.string().max(20_000).nullish(),
+  status: z.enum(CONTENT_STATUSES).optional(),
 });
 
 export const apparitionCreateSchema = z.object({
@@ -40,6 +48,7 @@ export const apparitionCreateSchema = z.object({
   approvedStatus: z.string().max(80).nullish(),
   summary: z.string().min(1).max(20_000),
   officialPrayer: z.string().max(20_000).nullish(),
+  status: z.enum(CONTENT_STATUSES).optional(),
 });
 export const apparitionUpdateSchema = z.object({
   slug: z.string().max(200).nullish(),
@@ -49,6 +58,7 @@ export const apparitionUpdateSchema = z.object({
   approvedStatus: z.string().max(80).nullish(),
   summary: z.string().min(1).max(20_000).optional(),
   officialPrayer: z.string().max(20_000).nullish(),
+  status: z.enum(CONTENT_STATUSES).optional(),
 });
 
 export const devotionCreateSchema = z.object({
@@ -57,6 +67,7 @@ export const devotionCreateSchema = z.object({
   summary: z.string().min(1).max(20_000),
   practiceText: z.string().max(40_000).nullish(),
   durationMinutes: z.number().int().positive().max(1440).nullish(),
+  status: z.enum(CONTENT_STATUSES).optional(),
 });
 export const devotionUpdateSchema = z.object({
   slug: z.string().max(200).nullish(),
@@ -64,6 +75,7 @@ export const devotionUpdateSchema = z.object({
   summary: z.string().min(1).max(20_000).optional(),
   practiceText: z.string().max(40_000).nullish(),
   durationMinutes: z.number().int().positive().max(1440).nullish(),
+  status: z.enum(CONTENT_STATUSES).optional(),
 });
 
 export const parishCreateSchema = z.object({
@@ -80,6 +92,7 @@ export const parishCreateSchema = z.object({
   ociaUrl: z.string().url().max(500).nullish(),
   latitude: z.number().min(-90).max(90).nullish(),
   longitude: z.number().min(-180).max(180).nullish(),
+  status: z.enum(CONTENT_STATUSES).optional(),
 });
 export const parishUpdateSchema = parishCreateSchema.partial();
 
@@ -101,6 +114,7 @@ export const liturgyCreateSchema = z.object({
   title: z.string().min(1).max(200),
   summary: z.string().max(2000).nullish(),
   body: z.string().min(1).max(80_000),
+  status: z.enum(CONTENT_STATUSES).optional(),
 });
 export const liturgyUpdateSchema = liturgyCreateSchema.partial();
 
@@ -123,5 +137,6 @@ export const spiritualLifeCreateSchema = z.object({
   steps: z.unknown().optional(),
   durationDays: z.number().int().positive().max(365).nullish(),
   goalTemplateSlug: z.string().max(120).nullish(),
+  status: z.enum(CONTENT_STATUSES).optional(),
 });
 export const spiritualLifeUpdateSchema = spiritualLifeCreateSchema.partial();

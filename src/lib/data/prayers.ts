@@ -2,6 +2,7 @@ import { prisma } from "../db/client";
 import type { Locale } from "../i18n/locales";
 
 const DEFAULT_TAKE = 60;
+const PAGE_SIZE = 24;
 
 export function listPublishedPrayers(locale: Locale, take = DEFAULT_TAKE) {
   return prisma.prayer.findMany({
@@ -12,7 +13,26 @@ export function listPublishedPrayers(locale: Locale, take = DEFAULT_TAKE) {
   });
 }
 
-export function listAdminPrayers(take = 100) {
+export async function listPublishedPrayersPaginated(
+  locale: Locale,
+  page = 1,
+  pageSize = PAGE_SIZE,
+) {
+  const skip = (page - 1) * pageSize;
+  const [items, total] = await Promise.all([
+    prisma.prayer.findMany({
+      where: { status: "PUBLISHED" },
+      include: { translations: { where: { locale } } },
+      orderBy: { defaultTitle: "asc" },
+      take: pageSize,
+      skip,
+    }),
+    prisma.prayer.count({ where: { status: "PUBLISHED" } }),
+  ]);
+  return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+}
+
+export function listAdminPrayers(take = 200) {
   return prisma.prayer.findMany({
     orderBy: { updatedAt: "desc" },
     take,
@@ -26,6 +46,7 @@ export function searchPrayers(q: string, take = 10) {
       OR: [
         { defaultTitle: { contains: q, mode: "insensitive" } },
         { body: { contains: q, mode: "insensitive" } },
+        { category: { contains: q, mode: "insensitive" } },
       ],
     },
     take,

@@ -211,8 +211,11 @@ model Prayer {
   slug            String              @unique
   defaultTitle    String
   body            String
+  officialPrayer  String?
   category        String
   categoryId      String?
+  externalSourceKey String?           @unique
+  sourceHost      String?
   contentChecksum String?
   status          ContentStatus       @default(DRAFT)
   createdAt       DateTime            @default(now())
@@ -223,6 +226,7 @@ model Prayer {
 
   @@index([categoryId])
   @@index([status])
+  @@index([slug])
 }
 
 model PrayerTranslation {
@@ -531,20 +535,23 @@ model IngestionJob {
 }
 
 model IngestionJobRun {
-  id             String       @id @default(cuid())
-  jobId          String
-  startedAt      DateTime
-  finishedAt     DateTime?
-  status         String
-  recordsSeen    Int          @default(0)
-  recordsCreated Int          @default(0)
-  recordsUpdated Int          @default(0)
-  recordsSkipped Int          @default(0)
-  errorMessage   String?
-  createdAt      DateTime     @default(now())
-  job            IngestionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id                   String       @id @default(cuid())
+  jobId                String
+  startedAt            DateTime
+  finishedAt           DateTime?
+  status               String
+  recordsSeen          Int          @default(0)
+  recordsCreated       Int          @default(0)
+  recordsUpdated       Int          @default(0)
+  recordsSkipped       Int          @default(0)
+  recordsFailed        Int          @default(0)
+  recordsReviewRequired Int         @default(0)
+  errorMessage         String?
+  createdAt            DateTime     @default(now())
+  job                  IngestionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId, startedAt])
+  @@index([status, startedAt])
 }
 
 model AdminAuditLog {

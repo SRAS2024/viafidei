@@ -1,5 +1,10 @@
 import { prisma } from "../db/client";
-import { Prisma, type LiturgyKind, type SpiritualLifeKind } from "@prisma/client";
+import {
+  Prisma,
+  type LiturgyKind,
+  type SpiritualLifeKind,
+  type ContentStatus,
+} from "@prisma/client";
 
 function slugify(input: string | null | undefined): string {
   if (!input) return "";
@@ -19,8 +24,10 @@ export type PrayerInput = {
   slug?: string | null;
   defaultTitle: string;
   body: string;
+  officialPrayer?: string | null;
   category: string;
   categoryId?: string | null;
+  status?: ContentStatus;
 };
 
 export async function createPrayer(input: PrayerInput) {
@@ -32,8 +39,10 @@ export async function createPrayer(input: PrayerInput) {
       slug,
       defaultTitle: input.defaultTitle,
       body: input.body,
+      officialPrayer: input.officialPrayer ?? null,
       category: input.category,
       categoryId: input.categoryId ?? null,
+      status: input.status ?? "DRAFT",
     },
   });
   return { ok: true as const, entity, created: true };
@@ -45,7 +54,9 @@ export async function updatePrayer(id: string, patch: Partial<PrayerInput>) {
   const data: Prisma.PrayerUpdateInput = {};
   if (patch.defaultTitle !== undefined) data.defaultTitle = patch.defaultTitle;
   if (patch.body !== undefined) data.body = patch.body;
+  if (patch.officialPrayer !== undefined) data.officialPrayer = patch.officialPrayer ?? null;
   if (patch.category !== undefined) data.category = patch.category;
+  if (patch.status !== undefined) data.status = patch.status;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -79,6 +90,7 @@ export type SaintInput = {
   patronages?: string[];
   biography: string;
   officialPrayer?: string | null;
+  status?: ContentStatus;
 };
 
 export async function createSaint(input: SaintInput) {
@@ -93,6 +105,7 @@ export async function createSaint(input: SaintInput) {
       patronages: input.patronages ?? [],
       biography: input.biography,
       officialPrayer: input.officialPrayer ?? null,
+      status: input.status ?? "DRAFT",
     },
   });
   return { ok: true as const, entity, created: true };
@@ -107,6 +120,7 @@ export async function updateSaint(id: string, patch: Partial<SaintInput>) {
   if (patch.feastDay !== undefined) data.feastDay = patch.feastDay ?? null;
   if (patch.officialPrayer !== undefined) data.officialPrayer = patch.officialPrayer ?? null;
   if (patch.patronages !== undefined) data.patronages = patch.patronages;
+  if (patch.status !== undefined) data.status = patch.status;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -136,6 +150,7 @@ export type ApparitionInput = {
   approvedStatus?: string | null;
   summary: string;
   officialPrayer?: string | null;
+  status?: ContentStatus;
 };
 
 export async function createApparition(input: ApparitionInput) {
@@ -151,6 +166,7 @@ export async function createApparition(input: ApparitionInput) {
       approvedStatus: input.approvedStatus ?? null,
       summary: input.summary,
       officialPrayer: input.officialPrayer ?? null,
+      status: input.status ?? "DRAFT",
     },
   });
   return { ok: true as const, entity, created: true };
@@ -166,6 +182,7 @@ export async function updateApparition(id: string, patch: Partial<ApparitionInpu
   if (patch.country !== undefined) data.country = patch.country ?? null;
   if (patch.approvedStatus !== undefined) data.approvedStatus = patch.approvedStatus ?? null;
   if (patch.officialPrayer !== undefined) data.officialPrayer = patch.officialPrayer ?? null;
+  if (patch.status !== undefined) data.status = patch.status;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -193,6 +210,7 @@ export type DevotionInput = {
   summary: string;
   practiceText?: string | null;
   durationMinutes?: number | null;
+  status?: ContentStatus;
 };
 
 export async function createDevotion(input: DevotionInput) {
@@ -206,6 +224,7 @@ export async function createDevotion(input: DevotionInput) {
       summary: input.summary,
       practiceText: input.practiceText ?? null,
       durationMinutes: input.durationMinutes ?? null,
+      status: input.status ?? "DRAFT",
     },
   });
   return { ok: true as const, entity, created: true };
@@ -219,6 +238,7 @@ export async function updateDevotion(id: string, patch: Partial<DevotionInput>) 
   if (patch.summary !== undefined) data.summary = patch.summary;
   if (patch.practiceText !== undefined) data.practiceText = patch.practiceText ?? null;
   if (patch.durationMinutes !== undefined) data.durationMinutes = patch.durationMinutes ?? null;
+  if (patch.status !== undefined) data.status = patch.status;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -254,6 +274,7 @@ export type ParishInput = {
   ociaUrl?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  status?: ContentStatus;
 };
 
 export async function createParish(input: ParishInput) {
@@ -277,6 +298,7 @@ export async function createParish(input: ParishInput) {
       ociaUrl: input.ociaUrl ?? null,
       latitude: input.latitude ?? null,
       longitude: input.longitude ?? null,
+      status: input.status ?? "DRAFT",
     },
   });
   return { ok: true as const, entity, created: true };
@@ -304,6 +326,7 @@ export async function updateParish(id: string, patch: Partial<ParishInput>) {
   }
   if (patch.latitude !== undefined) data.latitude = patch.latitude ?? null;
   if (patch.longitude !== undefined) data.longitude = patch.longitude ?? null;
+  if (patch.status !== undefined) data.status = patch.status;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -331,6 +354,7 @@ export type LiturgyInput = {
   title: string;
   summary?: string | null;
   body: string;
+  status?: ContentStatus;
 };
 
 export async function createLiturgy(input: LiturgyInput) {
@@ -344,6 +368,7 @@ export async function createLiturgy(input: LiturgyInput) {
       title: input.title,
       summary: input.summary ?? null,
       body: input.body,
+      status: input.status ?? "DRAFT",
     },
   });
   return { ok: true as const, entity, created: true };
@@ -357,6 +382,7 @@ export async function updateLiturgy(id: string, patch: Partial<LiturgyInput>) {
   if (patch.body !== undefined) data.body = patch.body;
   if (patch.summary !== undefined) data.summary = patch.summary ?? null;
   if (patch.kind !== undefined) data.kind = patch.kind;
+  if (patch.status !== undefined) data.status = patch.status;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -387,6 +413,7 @@ export type SpiritualLifeInput = {
   steps?: unknown;
   durationDays?: number | null;
   goalTemplateSlug?: string | null;
+  status?: ContentStatus;
 };
 
 export async function createSpiritualLifeGuide(input: SpiritualLifeInput) {
@@ -403,6 +430,7 @@ export async function createSpiritualLifeGuide(input: SpiritualLifeInput) {
       steps: (input.steps as Prisma.InputJsonValue) ?? Prisma.JsonNull,
       durationDays: input.durationDays ?? null,
       goalTemplateSlug: input.goalTemplateSlug ?? null,
+      status: input.status ?? "DRAFT",
     },
   });
   return { ok: true as const, entity, created: true };
@@ -418,6 +446,7 @@ export async function updateSpiritualLifeGuide(id: string, patch: Partial<Spirit
   if (patch.kind !== undefined) data.kind = patch.kind;
   if (patch.durationDays !== undefined) data.durationDays = patch.durationDays ?? null;
   if (patch.goalTemplateSlug !== undefined) data.goalTemplateSlug = patch.goalTemplateSlug ?? null;
+  if (patch.status !== undefined) data.status = patch.status;
   if (patch.steps !== undefined) {
     data.steps = (patch.steps as Prisma.InputJsonValue) ?? Prisma.JsonNull;
   }

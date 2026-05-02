@@ -13,7 +13,8 @@ export const LITURGY_ENTRIES: LiturgyEntrySeed[] = [
     slug: "order-of-the-mass",
     kind: "MASS_STRUCTURE",
     title: "Order of the Mass",
-    summary: "The structure of the ordinary form of the Roman Rite Mass, from the Introductory Rites to the Concluding Rite.",
+    summary:
+      "The structure of the ordinary form of the Roman Rite Mass, from the Introductory Rites to the Concluding Rite.",
     body: `The Mass is divided into four principal parts: the Introductory Rites, the Liturgy of the Word, the Liturgy of the Eucharist, and the Concluding Rite.
 
 **Introductory Rites**
@@ -32,7 +33,8 @@ The Blessing and Dismissal send the faithful forth to live the Mass in daily lif
     slug: "the-liturgical-year",
     kind: "LITURGICAL_YEAR",
     title: "The Liturgical Year",
-    summary: "The Church's annual cycle of seasons — Advent, Christmas, Ordinary Time, Lent, and Easter — through which the faithful relive the mysteries of Christ.",
+    summary:
+      "The Church's annual cycle of seasons — Advent, Christmas, Ordinary Time, Lent, and Easter — through which the faithful relive the mysteries of Christ.",
     body: `The liturgical year is the annual cycle by which the Church celebrates and makes present the entire mystery of Christ, from Incarnation to Pentecost.
 
 **Advent** (Four weeks before Christmas)
@@ -60,7 +62,8 @@ The remaining weeks of the year, deepening the faithful in the mystery of Christ
     slug: "sacred-symbolism-glossary",
     kind: "SYMBOLISM",
     title: "Sacred Symbolism in the Catholic Tradition",
-    summary: "An introductory glossary of recurring symbols in Catholic art, architecture, and liturgy.",
+    summary:
+      "An introductory glossary of recurring symbols in Catholic art, architecture, and liturgy.",
     body: `Catholic worship is rich with symbolic language drawn from Scripture, patristic tradition, and centuries of sacred art.
 
 **The Cross**
@@ -91,7 +94,8 @@ Light of Christ dispersing the darkness of sin and death. The Paschal Candle is 
     slug: "rite-of-marriage",
     kind: "MARRIAGE_RITE",
     title: "The Rite of Marriage",
-    summary: "An overview of the Catholic Rite of Marriage — the Sacrament of Matrimony celebrated within or outside Mass.",
+    summary:
+      "An overview of the Catholic Rite of Marriage — the Sacrament of Matrimony celebrated within or outside Mass.",
     body: `The Sacrament of Matrimony is administered by the spouses themselves; the priest (or deacon) acts as the Church's official witness.
 
 **The Order of Celebrating Matrimony within Mass**
@@ -110,7 +114,8 @@ While optional, many parishes include the lighting of a unity candle (symbolisin
     slug: "council-of-nicaea",
     kind: "COUNCIL_TIMELINE",
     title: "The Ecumenical Councils: A Timeline",
-    summary: "From Nicaea I (325 AD) to Vatican II (1962–1965): the twenty-one ecumenical councils that shaped Catholic doctrine.",
+    summary:
+      "From Nicaea I (325 AD) to Vatican II (1962–1965): the twenty-one ecumenical councils that shaped Catholic doctrine.",
     body: `An ecumenical council is a solemn assembly of the world's bishops convened by the Pope to define doctrine, address heresy, or reform discipline. The Catholic Church recognises twenty-one such councils.
 
 **Nicaea I (325)** — Defined the full divinity of Christ against Arianism; produced the Nicene Creed.

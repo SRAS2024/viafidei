@@ -9,10 +9,19 @@ export async function persistPrayer(
   item: IngestedPrayer,
   initialStatus: ContentStatus,
 ): Promise<PersistOutcome> {
-  const existing = await prisma.prayer.findUnique({ where: { slug: item.slug } });
+  // Try by externalSourceKey first (more stable than slug for scraped content)
+  const existing = item.externalSourceKey
+    ? await prisma.prayer.findFirst({
+        where: {
+          OR: [{ externalSourceKey: item.externalSourceKey }, { slug: item.slug }],
+        },
+      })
+    : await prisma.prayer.findUnique({ where: { slug: item.slug } });
+
   const incomingChecksum = computeChecksum(item);
 
   if (existing) {
+    // Curated (PUBLISHED/ARCHIVED) content is protected from automatic overwrites
     if (existing.status === "PUBLISHED" || existing.status === "ARCHIVED") {
       return "skipped";
     }
@@ -23,7 +32,9 @@ export async function persistPrayer(
         defaultTitle: item.defaultTitle,
         category: item.category,
         body: item.body,
+        externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey,
         contentChecksum: incomingChecksum,
+        status: initialStatus,
       },
     });
     return "updated";
@@ -35,6 +46,7 @@ export async function persistPrayer(
       defaultTitle: item.defaultTitle,
       body: item.body,
       category: item.category,
+      externalSourceKey: item.externalSourceKey ?? null,
       contentChecksum: incomingChecksum,
       status: initialStatus,
     },
