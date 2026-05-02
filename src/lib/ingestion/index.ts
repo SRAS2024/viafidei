@@ -34,4 +34,20 @@ export {
   type SchedulerJobResult,
 } from "./scheduler";
 
-export { persistItems, type PersistResult, type PersistOutcome } from "./persist";
+export {
+  persistItems,
+  dedupeBatch,
+  normalizeExternalKey,
+  type PersistResult,
+  type PersistOutcome,
+} from "./persist";
+
+export {
+  registerVaticanAdapters,
+  ensureVaticanSchedule,
+  hasRegisteredAdapters,
+  isApprovedHost,
+  isApprovedUrl,
+  listApprovedHosts,
+  buildAllVaticanCrawlers,
+} from "./sources";

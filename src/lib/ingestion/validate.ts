@@ -1,5 +1,6 @@
 import type { IngestedItem } from "./types";
 import { normalizeSlug } from "./slug";
+import { isApprovedUrl } from "./sources/vatican-allowlist";
 
 const ORIGIN_URL_RE = /^(https?:\/\/|mailto:)/i;
 
@@ -52,7 +53,21 @@ function validateDevotion(item: IngestedItem & { kind: "devotion" }): string | n
   return null;
 }
 
+function validateExternalSourceKey(item: IngestedItem): string | null {
+  const key = item.externalSourceKey;
+  if (!key) return null;
+  // External keys are URLs in the autofill pipeline; if so, the host MUST be
+  // Vatican-approved. Non-URL keys (e.g. legacy seed identifiers) are passed
+  // through.
+  if (/^https?:\/\//i.test(key) && !isApprovedUrl(key)) {
+    return `externalSourceKey '${key}' is not from a Vatican-approved host`;
+  }
+  return null;
+}
+
 export function validateItem(item: IngestedItem): string | null {
+  const sourceError = validateExternalSourceKey(item);
+  if (sourceError) return sourceError;
   switch (item.kind) {
     case "prayer":
       return validatePrayer(item);

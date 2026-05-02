@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isAuthorizedCron } from "@/lib/security/cron-auth";
 import { runAllActiveJobs } from "@/lib/ingestion/scheduler";
+import { ensureVaticanSchedule } from "@/lib/ingestion/sources";
 
 // Long-lived cron invocation; allow up to 60s for slow upstreams.
 export const maxDuration = 60;
@@ -9,6 +10,7 @@ export async function POST(req: NextRequest) {
   if (!isAuthorizedCron(req)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  await ensureVaticanSchedule();
   const summary = await runAllActiveJobs();
   return NextResponse.json({ ok: true, summary });
 }
