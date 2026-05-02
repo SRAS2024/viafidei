@@ -16,7 +16,7 @@ const PATH_FOR_GROUP: Record<Suggestion["group"], string> = {
   saints: "/saints",
   apparitions: "/saints",
   parishes: "/spiritual-guidance",
-  devotions: "/spiritual-life",
+  devotions: "/devotions",
 };
 
 type Props = {

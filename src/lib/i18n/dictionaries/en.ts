@@ -8,6 +8,7 @@ const brand: Dict = {
 const nav: Dict = {
   "nav.home": "Home",
   "nav.prayers": "Prayers",
+  "nav.devotions": "Devotions",
   "nav.spiritualLife": "Spiritual Life",
   "nav.spiritualGuidance": "Spiritual Guidance",
   "nav.liturgyHistory": "Liturgy & History",
@@ -70,6 +71,12 @@ const spiritualLife: Dict = {
   "spiritualLife.consecration": "Consecrations",
   "spiritualLife.vocations": "Vocations",
   "spiritualLife.addGoal": "Add as goal",
+};
+
+const devotions: Dict = {
+  "devotions.title": "Devotions",
+  "devotions.subtitle":
+    "Traditional Catholic devotions — the Rosary, Divine Mercy, the Angelus, novenas, and more.",
 };
 
 const guidance: Dict = {
@@ -136,10 +143,13 @@ const auth: Dict = {
 const profile: Dict = {
   "profile.title": "Profile",
   "profile.tab.prayers": "My Prayers",
+  "profile.tab.saints": "Saints & Our Lady",
+  "profile.tab.apparitions": "Apparitions",
+  "profile.tab.devotions": "Devotions",
+  "profile.tab.parishes": "Parishes",
   "profile.tab.journal": "Journal",
   "profile.tab.milestones": "Milestones",
   "profile.tab.goals": "My Goals",
-  "profile.tab.saints": "Saints & Our Lady",
   "profile.tab.settings": "Settings",
   "profile.journal.newEntry": "New entry",
   "profile.journal.title": "Title",
@@ -180,6 +190,7 @@ const admin: Dict = {
   "admin.card.saints": "Saints",
   "admin.card.apparitions": "Marian apparitions",
   "admin.card.parishes": "Parishes",
+  "admin.card.devotions": "Devotions",
   "admin.card.liturgy": "Liturgy content",
   "admin.card.translations": "Translations",
   "admin.card.ingestion": "Ingestion jobs",
@@ -213,6 +224,7 @@ export const en: Dict = {
   ...nav,
   ...home,
   ...prayers,
+  ...devotions,
   ...spiritualLife,
   ...guidance,
   ...liturgy,

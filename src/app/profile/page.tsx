@@ -16,10 +16,13 @@ export default async function ProfilePage() {
 
   const tabs: ProfileTab[] = [
     { href: "/profile/prayers", key: "profile.tab.prayers", count: counts.prayersSaved },
+    { href: "/profile/saints", key: "profile.tab.saints", count: counts.saintsSaved },
+    { href: "/profile/apparitions", key: "profile.tab.apparitions", count: counts.apparitionsSaved },
+    { href: "/profile/devotions", key: "profile.tab.devotions", count: counts.devotionsSaved },
+    { href: "/profile/parishes", key: "profile.tab.parishes", count: counts.parishesSaved },
     { href: "/profile/journal", key: "profile.tab.journal", count: counts.journalCount },
     { href: "/profile/milestones", key: "profile.tab.milestones", count: counts.milestonesCount },
     { href: "/profile/goals", key: "profile.tab.goals", count: counts.goalsCount },
-    { href: "/profile/saints", key: "profile.tab.saints", count: counts.saintsSaved },
     { href: "/profile/settings", key: "profile.tab.settings" },
   ];
 

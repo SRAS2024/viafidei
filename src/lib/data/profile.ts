@@ -5,6 +5,9 @@ export type ProfileCounts = {
   journalCount: number;
   prayersSaved: number;
   saintsSaved: number;
+  apparitionsSaved: number;
+  parishesSaved: number;
+  devotionsSaved: number;
   goalsCount: number;
   milestonesCount: number;
 };
@@ -57,14 +60,35 @@ export async function setProfileAvatar(userId: string, mediaAssetId: string | nu
 }
 
 export async function getProfileCounts(userId: string): Promise<ProfileCounts> {
-  const [journalCount, prayersSaved, saintsSaved, goalsCount, milestonesCount] = await Promise.all([
+  const [
+    journalCount,
+    prayersSaved,
+    saintsSaved,
+    apparitionsSaved,
+    parishesSaved,
+    devotionsSaved,
+    goalsCount,
+    milestonesCount,
+  ] = await Promise.all([
     prisma.journalEntry.count({ where: { userId } }),
     prisma.userSavedPrayer.count({ where: { userId } }),
     prisma.userSavedSaint.count({ where: { userId } }),
+    prisma.userSavedApparition.count({ where: { userId } }),
+    prisma.userSavedParish.count({ where: { userId } }),
+    prisma.userSavedDevotion.count({ where: { userId } }),
     prisma.goal.count({ where: { userId } }),
     prisma.milestone.count({ where: { userId } }),
   ]);
-  return { journalCount, prayersSaved, saintsSaved, goalsCount, milestonesCount };
+  return {
+    journalCount,
+    prayersSaved,
+    saintsSaved,
+    apparitionsSaved,
+    parishesSaved,
+    devotionsSaved,
+    goalsCount,
+    milestonesCount,
+  };
 }
 
 export function listGoalsForUser(userId: string) {
