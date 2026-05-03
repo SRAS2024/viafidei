@@ -19,9 +19,6 @@ export async function register() {
     });
   } catch (e) {
     // Failing to load the startup module must not block the server from starting.
-    console.error(
-      "[startup] failed to load module",
-      e instanceof Error ? e.message : e,
-    );
+    console.error("[startup] failed to load module", e instanceof Error ? e.message : e);
   }
 }

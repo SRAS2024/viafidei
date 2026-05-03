@@ -14,19 +14,19 @@ pipeline that always lands new records in a moderation queue.
 
 ## Stack
 
-| Area               | Choice                                                       |
-| ------------------ | ------------------------------------------------------------ |
-| Framework          | Next.js `14.2.35` (App Router, `output: "standalone"`)       |
-| Runtime            | Node.js `>= 20`                                              |
-| Language           | TypeScript `5.6` (strict)                                    |
-| UI                 | React `18.3`, Tailwind CSS `3.4`, Framer Motion              |
-| Database           | PostgreSQL via Prisma `5.22`                                 |
-| Sessions           | `iron-session` (encrypted cookie, `vf_session`)              |
-| Password hashing   | `argon2id`                                                   |
-| Validation         | `zod`                                                        |
-| Locale negotiation | `negotiator` + cookie override                               |
-| Container          | Multi-stage `Dockerfile` (deps → builder → runner)           |
-| Deployment         | Railway-ready (`railway.json`, healthcheck on `/api/health`) |
+| Area               | Choice                                                                                 |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| Framework          | Next.js `14.2.35` (App Router, `output: "standalone"`)                                 |
+| Runtime            | Node.js `>= 20`                                                                        |
+| Language           | TypeScript `5.6` (strict)                                                              |
+| UI                 | React `18.3`, Tailwind CSS `3.4`, Framer Motion                                        |
+| Database           | PostgreSQL via Prisma `5.22`                                                           |
+| Sessions           | `iron-session` (encrypted cookie, `vf_session`)                                        |
+| Password hashing   | `argon2id`                                                                             |
+| Validation         | `zod`                                                                                  |
+| Locale negotiation | `negotiator` + cookie override                                                         |
+| Container          | Multi-stage `Dockerfile` (deps → builder → runner)                                     |
+| Deployment         | Railway-ready (`railway.json`, healthcheck on `/api/health`)                           |
 | Startup            | `instrumentation.ts` auto-seeds an empty DB and schedules in-process Vatican ingestion |
 
 ---
@@ -150,28 +150,28 @@ production-strict schema):
 
 ### Optional
 
-| Variable                                      | Purpose                                                        |
-| --------------------------------------------- | -------------------------------------------------------------- |
-| `NODE_ENV`                                    | `development` \| `test` \| `production`                        |
-| `APP_URL`, `CANONICAL_URL`                    | Used for OG / metadata base                                    |
-| `LOG_LEVEL`                                   | `debug` \| `info` \| `warn` \| `error` (default: info in prod) |
-| `JWT_REFRESH_SECRET`                          | Reserved for future refresh-token flow                         |
-| `POSTMARK_SERVER_TOKEN`, `EMAIL_FROM_ADDRESS` | Transactional email (planned wiring)                           |
-| `CLOUDINARY_*`                                | Media uploads                                                  |
-| `REDIS_URL`                                   | Optional cache / queue                                         |
-| `SENTRY_DSN`, `PLAUSIBLE_DOMAIN`              | Monitoring / analytics                                         |
-| `SEARCH_PROVIDER`, `MEILISEARCH_*`            | `postgres` (default) or `meilisearch`                          |
-| `TRANSLATION_PROVIDER`, `TRANSLATION_API_KEY` | Machine-translation pipeline                                   |
-| `TRANSLATION_DEFAULT_SOURCE_LOCALE`           | Defaults to `en`                                               |
-| `TRANSLATION_FALLBACK_LOCALE`                 | Defaults to `en`                                               |
+| Variable                                      | Purpose                                                                                          |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `NODE_ENV`                                    | `development` \| `test` \| `production`                                                          |
+| `APP_URL`, `CANONICAL_URL`                    | Used for OG / metadata base                                                                      |
+| `LOG_LEVEL`                                   | `debug` \| `info` \| `warn` \| `error` (default: info in prod)                                   |
+| `JWT_REFRESH_SECRET`                          | Reserved for future refresh-token flow                                                           |
+| `POSTMARK_SERVER_TOKEN`, `EMAIL_FROM_ADDRESS` | Transactional email (planned wiring)                                                             |
+| `CLOUDINARY_*`                                | Media uploads                                                                                    |
+| `REDIS_URL`                                   | Optional cache / queue                                                                           |
+| `SENTRY_DSN`, `PLAUSIBLE_DOMAIN`              | Monitoring / analytics                                                                           |
+| `SEARCH_PROVIDER`, `MEILISEARCH_*`            | `postgres` (default) or `meilisearch`                                                            |
+| `TRANSLATION_PROVIDER`, `TRANSLATION_API_KEY` | Machine-translation pipeline                                                                     |
+| `TRANSLATION_DEFAULT_SOURCE_LOCALE`           | Defaults to `en`                                                                                 |
+| `TRANSLATION_FALLBACK_LOCALE`                 | Defaults to `en`                                                                                 |
 | `CRON_SECRET`                                 | 16+ chars. Required to call `/api/cron/ingest` and to enable the in-process ingestion scheduler. |
-| `INTERNAL_API_TOKEN`                          | Reserved for internal service-to-service calls                 |
-| `INGESTION_USER_AGENT`                        | UA sent during scheduled fetches                               |
-| `INGESTION_HTTP_TIMEOUT_MS`                   | Per-request timeout (ms, default 15000)                        |
-| `INGESTION_INITIAL_STATUS`                    | `DRAFT` or `REVIEW` (default `REVIEW`)                         |
-| `INGESTION_INTERVAL_MS`                       | In-process scheduler tick (default 1800000 = 30 min, min 60000)|
-| `INGESTION_INITIAL_DELAY_MS`                  | Delay before the first ingestion tick (default 300000 = 5 min) |
-| `INGESTION_DISABLED`                          | Set to `true` to disable the in-process ingestion scheduler    |
+| `INTERNAL_API_TOKEN`                          | Reserved for internal service-to-service calls                                                   |
+| `INGESTION_USER_AGENT`                        | UA sent during scheduled fetches                                                                 |
+| `INGESTION_HTTP_TIMEOUT_MS`                   | Per-request timeout (ms, default 15000)                                                          |
+| `INGESTION_INITIAL_STATUS`                    | `DRAFT` or `REVIEW` (default `REVIEW`)                                                           |
+| `INGESTION_INTERVAL_MS`                       | In-process scheduler tick (default 1800000 = 30 min, min 60000)                                  |
+| `INGESTION_INITIAL_DELAY_MS`                  | Delay before the first ingestion tick (default 300000 = 5 min)                                   |
+| `INGESTION_DISABLED`                          | Set to `true` to disable the in-process ingestion scheduler                                      |
 
 `getEnv()` validates these with Zod at first access; in production an invalid
 configuration throws, in development it logs a warning and continues.
@@ -280,7 +280,7 @@ Vatican-affiliated hosts, and write items to the moderation queue.
   delayed so it never blocks deploy healthchecks. Set `INGESTION_DISABLED=true`
   to opt out (e.g. when an external cron platform owns the schedule).
 - **External cron**: `POST /api/cron/ingest` with `Authorization: Bearer
-  $CRON_SECRET`. The same handler accepts `GET` for platforms that prefer
+$CRON_SECRET`. The same handler accepts `GET` for platforms that prefer
   it. `maxDuration` is 60s. Works with Railway Cron, Vercel Cron, GitHub
   Actions, etc.
 - **Ad-hoc**: `POST /api/admin/ingestion/run` from the admin console (optional
