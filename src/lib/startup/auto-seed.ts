@@ -71,10 +71,7 @@ async function callIngestionEndpoint(): Promise<void> {
       );
     }
   } catch (e) {
-    console.error(
-      "[scheduler] ingestion tick failed",
-      e instanceof Error ? e.message : e,
-    );
+    console.error("[scheduler] ingestion tick failed", e instanceof Error ? e.message : e);
   }
 }
 
