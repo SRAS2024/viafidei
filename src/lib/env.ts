@@ -2,19 +2,27 @@ import { z } from "zod";
 
 const isProd = process.env.NODE_ENV === "production";
 
+// Treat empty strings as undefined. The shipped .env.example lists every
+// optional variable with an empty value; without this, zod validates the
+// empty string against the inner type (e.g. `.url()`) and rejects it.
+const optionalString = (inner: z.ZodTypeAny) =>
+  z.preprocess((v) => (v === "" ? undefined : v), inner.optional());
+
 const baseSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  APP_URL: z.string().url().optional(),
-  CANONICAL_URL: z.string().url().optional(),
+  APP_URL: optionalString(z.string().url()),
+  CANONICAL_URL: optionalString(z.string().url()),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
-  SESSION_SECRET: z.string().min(32).optional(),
-  JWT_ACCESS_SECRET: z.string().min(32).optional(),
-  ADMIN_USERNAME: z.string().min(1).optional(),
-  ADMIN_PASSWORD: z.string().min(12).optional(),
-  CRON_SECRET: z.string().min(16).optional(),
-  INGESTION_USER_AGENT: z.string().optional(),
+  SESSION_SECRET: optionalString(z.string().min(32)),
+  JWT_ACCESS_SECRET: optionalString(z.string().min(32)),
+  ADMIN_USERNAME: optionalString(z.string().min(1)),
+  ADMIN_PASSWORD: optionalString(z.string().min(12)),
+  CRON_SECRET: optionalString(z.string().min(16)),
+  INGESTION_USER_AGENT: optionalString(z.string()),
   INGESTION_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
   INGESTION_INITIAL_STATUS: z.enum(["DRAFT", "REVIEW"]).optional(),
+  POSTMARK_SERVER_TOKEN: optionalString(z.string().min(1)),
+  EMAIL_FROM_ADDRESS: optionalString(z.string().email()),
 });
 
 const productionSchema = baseSchema.superRefine((env, ctx) => {
@@ -60,6 +68,8 @@ function fallbackEnvFromProcess(): Env {
     INGESTION_USER_AGENT: data.INGESTION_USER_AGENT,
     INGESTION_HTTP_TIMEOUT_MS: data.INGESTION_HTTP_TIMEOUT_MS,
     INGESTION_INITIAL_STATUS: data.INGESTION_INITIAL_STATUS,
+    POSTMARK_SERVER_TOKEN: data.POSTMARK_SERVER_TOKEN,
+    EMAIL_FROM_ADDRESS: data.EMAIL_FROM_ADDRESS,
   };
 }
 

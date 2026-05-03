@@ -5,6 +5,7 @@ import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp } from "@/lib/security/request";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
+import { sendPasswordResetEmail } from "@/lib/email";
 
 const schema = z.object({
   email: z.string().email().max(200),
@@ -24,13 +25,23 @@ export async function POST(req: NextRequest) {
   const user = await findUserByEmail(parsed.data.email);
   if (user) {
     const issued = await issuePasswordResetToken(user.id);
-    // The actual email delivery is handled by an external mailer (Postmark) once
-    // wired up; for now, log the token issuance for ops to forward.
     logger.info("auth.password_reset.requested", {
       userId: user.id,
       requestId,
       expiresAt: issued.expiresAt.toISOString(),
     });
+    const result = await sendPasswordResetEmail({
+      to: parsed.data.email,
+      token: issued.token,
+      expiresAt: issued.expiresAt,
+    });
+    if (!result.ok) {
+      logger.error("auth.password_reset.email_failed", {
+        userId: user.id,
+        requestId,
+        reason: result.reason,
+      });
+    }
   }
   // Always return ok to avoid leaking which addresses are registered.
   return jsonOk({ accepted: true });

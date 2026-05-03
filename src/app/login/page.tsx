@@ -7,7 +7,7 @@ export const metadata = { title: "Sign in" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { error?: string; next?: string };
+  searchParams: { error?: string; next?: string; notice?: string };
 }) {
   const { t } = await getTranslator();
   return (
@@ -20,6 +20,14 @@ export default async function LoginPage({
       </div>
 
       <div className="vf-card mt-10 rounded-sm p-8">
+        {searchParams.notice === "password_reset" ? (
+          <p
+            role="status"
+            className="mb-4 rounded-sm border border-ink/20 bg-ink/5 p-3 text-center text-sm text-ink"
+          >
+            {t("auth.login.passwordReset")}
+          </p>
+        ) : null}
         <LoginForm
           labels={{
             email: t("auth.email"),

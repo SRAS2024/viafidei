@@ -146,6 +146,40 @@ const auth: Dict = {
   "auth.mismatch": "Passwords do not match.",
   "auth.weakPassword": "Password must be at least 12 characters.",
   "auth.signOut": "Sign out",
+  "auth.forgot.title": "Forgot password",
+  "auth.forgot.subtitle":
+    "Enter your email and we'll send a link to reset your password if an account exists.",
+  "auth.forgot.submit": "Send reset link",
+  "auth.forgot.success":
+    "If that email matches an account, a password reset link has been sent. Check your inbox.",
+  "auth.forgot.rateLimited": "Too many requests. Please wait a moment and try again.",
+  "auth.forgot.error": "Something went wrong. Please try again.",
+  "auth.forgot.backToLogin": "Back to sign in",
+  "auth.reset.title": "Reset password",
+  "auth.reset.subtitle": "Choose a new password for your account.",
+  "auth.reset.newPassword": "New password",
+  "auth.reset.confirmPassword": "Confirm new password",
+  "auth.reset.submit": "Reset password",
+  "auth.reset.missingToken": "This reset link is missing a token. Request a new one.",
+  "auth.reset.invalidToken": "This reset link is invalid. Request a new one.",
+  "auth.reset.expiredToken": "This reset link has expired. Request a new one.",
+  "auth.reset.usedToken": "This reset link has already been used. Request a new one.",
+  "auth.reset.success": "Your password was reset successfully. You can now sign in.",
+  "auth.login.passwordReset": "Your password was reset successfully. Please sign in.",
+  "auth.verify.title": "Verify email",
+  "auth.verify.checking": "Verifying your email…",
+  "auth.verify.success": "Your email is verified. Thank you!",
+  "auth.verify.missingToken": "This verification link is missing a token.",
+  "auth.verify.invalidToken": "This verification link is invalid.",
+  "auth.verify.expiredToken":
+    "This verification link has expired. Request a new one from your profile.",
+  "auth.verify.usedToken": "This verification link has already been used.",
+  "auth.verify.unverifiedNotice":
+    "Your email is not yet verified. Check your inbox for a verification link.",
+  "auth.verify.resend": "Resend verification email",
+  "auth.verify.resendSent": "Verification email sent. Check your inbox.",
+  "auth.verify.resendRateLimited": "Please wait before requesting another verification email.",
+  "auth.verify.resendError": "Could not send the verification email. Please try again later.",
 };
 
 const profile: Dict = {

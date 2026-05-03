@@ -9,6 +9,7 @@ import { CATHOLIC_RITES, RITE_LABEL_KEYS } from "@/lib/content/rites";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 import { ThemeAppearancePicker } from "./ThemeAppearancePicker";
 import { RitePicker } from "./RitePicker";
+import { UnverifiedEmailNotice } from "@/components/profile/UnverifiedEmailNotice";
 
 export default async function SettingsPage() {
   // Settings is signed-in only — anonymous visitors are bounced to login.
@@ -31,6 +32,17 @@ export default async function SettingsPage() {
       <PageHero eyebrow={t("profile.title")} title={t("profile.tab.settings")} />
 
       <div className="mx-auto flex max-w-2xl flex-col gap-6">
+        {!user.emailVerifiedAt ? (
+          <UnverifiedEmailNotice
+            labels={{
+              notice: t("auth.verify.unverifiedNotice"),
+              resend: t("auth.verify.resend"),
+              sent: t("auth.verify.resendSent"),
+              rateLimited: t("auth.verify.resendRateLimited"),
+              error: t("auth.verify.resendError"),
+            }}
+          />
+        ) : null}
         {/* Profile section */}
         <section className="vf-card rounded-sm p-6">
           <h2 className="font-display text-2xl">{t("profile.settings.section.profile")}</h2>

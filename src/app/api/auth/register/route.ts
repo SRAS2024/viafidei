@@ -1,7 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createUser, registerSchema, findUserByEmail, getSession } from "@/lib/auth";
+import {
+  createUser,
+  registerSchema,
+  findUserByEmail,
+  getSession,
+  issueEmailVerificationToken,
+} from "@/lib/auth";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp } from "@/lib/security/request";
+import { sendEmailVerificationEmail } from "@/lib/email";
+import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
 function classifyError(parsed: ReturnType<typeof registerSchema.safeParse>): string {
   if (parsed.success) return "invalid";
@@ -38,6 +46,34 @@ export async function POST(req: NextRequest) {
   }
 
   const user = await createUser(parsed.data);
+
+  const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
+  try {
+    const issued = await issueEmailVerificationToken(user.id);
+    logger.info("auth.email_verification.requested", {
+      userId: user.id,
+      requestId,
+      expiresAt: issued.expiresAt.toISOString(),
+    });
+    const result = await sendEmailVerificationEmail({
+      to: user.email,
+      token: issued.token,
+      expiresAt: issued.expiresAt,
+    });
+    if (!result.ok) {
+      logger.error("auth.email_verification.email_failed", {
+        userId: user.id,
+        requestId,
+        reason: result.reason,
+      });
+    }
+  } catch (error) {
+    logger.error("auth.email_verification.issue_failed", {
+      userId: user.id,
+      requestId,
+      error,
+    });
+  }
 
   const session = await getSession();
   session.userId = user.id;

@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
 import { getProfileCounts } from "@/lib/data/profile";
 import { ProfileAvatar } from "@/components/profile/ProfileAvatar";
+import { UnverifiedEmailNotice } from "@/components/profile/UnverifiedEmailNotice";
 import { prisma } from "@/lib/db/client";
 
 type ProfileTab = { href: string; key: string; count?: number };
@@ -79,6 +80,19 @@ export default async function ProfilePage() {
 
   return (
     <div>
+      {!user.emailVerifiedAt ? (
+        <div className="mx-auto mb-6 max-w-2xl">
+          <UnverifiedEmailNotice
+            labels={{
+              notice: t("auth.verify.unverifiedNotice"),
+              resend: t("auth.verify.resend"),
+              sent: t("auth.verify.resendSent"),
+              rateLimited: t("auth.verify.resendRateLimited"),
+              error: t("auth.verify.resendError"),
+            }}
+          />
+        </div>
+      ) : null}
       <section className="flex flex-col items-center pt-6 pb-10 text-center">
         <ProfileAvatar
           initials={initials || "VF"}
