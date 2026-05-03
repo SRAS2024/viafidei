@@ -156,6 +156,7 @@ npm run test:integration  # Real-Postgres tests (requires TEST_DATABASE_URL)
 npm run test:e2e          # Playwright (requires `npx playwright install`)
 npm run test:db:setup     # Reset the isolated test DB from migrations
 npm run verify            # typecheck + lint + format:check + test (CI parity)
+npm run verify:full       # verify + integration + e2e + production build
 ```
 
 CI (`.github/workflows/ci.yml`) runs four jobs against Node 20:

@@ -40,6 +40,29 @@ export type Env = z.infer<typeof baseSchema>;
 
 let cached: Env | null = null;
 
+function fallbackEnvFromProcess(): Env {
+  // In non-production, when validation fails we still need a typed object
+  // to keep dev workflows running. Build it explicitly from the looser
+  // base schema so missing optional fields stay `undefined` rather than
+  // pretending `process.env` already matches the parsed shape.
+  const loose = baseSchema.partial().safeParse(process.env);
+  const data = loose.success ? loose.data : {};
+  return {
+    NODE_ENV: data.NODE_ENV ?? "development",
+    APP_URL: data.APP_URL,
+    CANONICAL_URL: data.CANONICAL_URL,
+    DATABASE_URL: data.DATABASE_URL ?? "",
+    SESSION_SECRET: data.SESSION_SECRET,
+    JWT_ACCESS_SECRET: data.JWT_ACCESS_SECRET,
+    ADMIN_USERNAME: data.ADMIN_USERNAME,
+    ADMIN_PASSWORD: data.ADMIN_PASSWORD,
+    CRON_SECRET: data.CRON_SECRET,
+    INGESTION_USER_AGENT: data.INGESTION_USER_AGENT,
+    INGESTION_HTTP_TIMEOUT_MS: data.INGESTION_HTTP_TIMEOUT_MS,
+    INGESTION_INITIAL_STATUS: data.INGESTION_INITIAL_STATUS,
+  };
+}
+
 export function getEnv(): Env {
   if (cached) return cached;
   const parsed = productionSchema.safeParse(process.env);
@@ -53,9 +76,7 @@ export function getEnv(): Env {
     }
     console.warn(`[env] ${message}`);
   }
-  cached =
-    (parsed.success ? parsed.data : (process.env as unknown as Env)) ??
-    (process.env as unknown as Env);
+  cached = parsed.success ? parsed.data : fallbackEnvFromProcess();
   return cached;
 }
 

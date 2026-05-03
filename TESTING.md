@@ -49,6 +49,7 @@ npm run test:integration  # Real-Postgres integration tests (gated).
 npm run test:e2e          # Playwright E2E (requires `npx playwright install`).
 npm run test:db:setup     # Reset the test DB from migrations + seeds.
 npm run verify            # typecheck + lint + format:check + test
+npm run verify:full       # verify + integration + e2e + production build
 ```
 
 ## Coverage thresholds
