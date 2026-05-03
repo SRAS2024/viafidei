@@ -41,12 +41,17 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --chown=nextjs:nodejs scripts/start.sh ./scripts/start.sh
+RUN chmod +x ./scripts/start.sh
 
 USER nextjs
 EXPOSE 3000
+# Hits /api/health/live so the container's healthcheck stays green while a
+# transient database issue would only flip /api/health (the readiness probe).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
-  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" || exit 1
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" || exit 1
 
-# node_modules/.bin/prisma is a symlink not present in the standalone output.
-# Invoke the CLI directly via node. migrate deploy is idempotent — safe to run on every start.
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && node server.js"]
+# scripts/start.sh: waits for the DB, runs migrate deploy (without gating
+# the server start on its outcome), then execs the standalone server so
+# Node owns PID 1 and signals propagate cleanly.
+CMD ["./scripts/start.sh"]
