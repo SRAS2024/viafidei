@@ -4,6 +4,27 @@ import { isApprovedUrl } from "./sources/vatican-allowlist";
 
 const ORIGIN_URL_RE = /^(https?:\/\/|mailto:)/i;
 
+/**
+ * Tables that are protected from any ingestion write. These are user-generated
+ * tables (journals, goals, milestones, saved items, profile data). The
+ * ingestion runner must never persist into these tables; the assertion guards
+ * against accidental misuse if a new adapter is added that broadens the
+ * `kind` union without also extending the persistence layer.
+ */
+const PROTECTED_USER_KINDS: ReadonlySet<string> = new Set([
+  "journal",
+  "journalEntry",
+  "goal",
+  "milestone",
+  "userSavedPrayer",
+  "userSavedSaint",
+  "userSavedApparition",
+  "userSavedParish",
+  "userSavedDevotion",
+  "profile",
+  "user",
+]);
+
 function nonEmpty(value: string | undefined | null): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -66,6 +87,12 @@ function validateExternalSourceKey(item: IngestedItem): string | null {
 }
 
 export function validateItem(item: IngestedItem): string | null {
+  // Guard rail: ingestion must never touch user-generated content tables.
+  // If a future adapter is mistakenly tagged with a user-facing kind, this
+  // check rejects the item before it can reach persistence.
+  if (PROTECTED_USER_KINDS.has((item as { kind: string }).kind)) {
+    return `kind '${(item as { kind: string }).kind}' is protected user-generated content and must not be ingested`;
+  }
   const sourceError = validateExternalSourceKey(item);
   if (sourceError) return sourceError;
   switch (item.kind) {

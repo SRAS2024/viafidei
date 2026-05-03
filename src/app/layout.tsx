@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Header, Footer } from "@/components/layout";
 import { getLocale } from "@/lib/i18n/server";
+import { getThemeCookieValue } from "@/lib/i18n/theme-cookie";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.CANONICAL_URL || "https://viafidei.com"),
@@ -26,8 +27,9 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
+  const theme = await getThemeCookieValue();
   return (
-    <html lang={locale}>
+    <html lang={locale} data-theme={theme}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -38,7 +40,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <Header />
-        <main className="mx-auto max-w-6xl px-6 pt-12 pb-16">{children}</main>
+        <main className="mx-auto max-w-6xl px-4 pt-8 pb-16 sm:px-6 sm:pt-12">{children}</main>
         <Footer />
       </body>
     </html>

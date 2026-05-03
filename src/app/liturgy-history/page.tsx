@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedLiturgyEntries } from "@/lib/data/liturgy";
+import { matchesRite, RITE_LABEL_KEYS } from "@/lib/content/rites";
+import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 import { LITURGY_ITEMS } from "./_components/liturgyItems";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +24,8 @@ const KIND_LABELS: Record<string, string> = {
 export default async function LiturgyPage() {
   const { t, locale } = await getTranslator();
   const entries = await listPublishedLiturgyEntries(locale);
+  const rite = await getRiteCookieValue();
+  const visibleEntries = entries.filter((e) => matchesRite(e.slug, rite));
 
   return (
     <div>
@@ -31,9 +35,13 @@ export default async function LiturgyPage() {
         subtitle={t("liturgy.subtitle")}
       />
 
-      {entries.length > 0 ? (
+      <p className="mb-6 font-serif text-sm text-ink-faint">
+        {t("rite.label")}: <span className="text-ink">{t(RITE_LABEL_KEYS[rite])}</span>
+      </p>
+
+      {visibleEntries.length > 0 ? (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {entries.map((e) => {
+          {visibleEntries.map((e) => {
             const tr = e.translations[0];
             const title = tr?.title ?? e.title;
             const summary = tr?.summary ?? e.summary;

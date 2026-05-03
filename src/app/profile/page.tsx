@@ -4,8 +4,13 @@ import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
 import { getProfileCounts } from "@/lib/data/profile";
 import { ProfileAvatar } from "@/components/profile/ProfileAvatar";
+import { prisma } from "@/lib/db/client";
 
 type ProfileTab = { href: string; key: string; count?: number };
+type ProfileSection = {
+  key: string;
+  tabs: ProfileTab[];
+};
 
 export default async function ProfilePage() {
   const user = await requireUser();
@@ -13,21 +18,61 @@ export default async function ProfilePage() {
   const { t } = await getTranslator();
 
   const counts = await getProfileCounts(user.id);
+  const favoriteJournalCount = await prisma.journalEntry.count({
+    where: { userId: user.id, isFavorite: true },
+  });
 
-  const tabs: ProfileTab[] = [
-    { href: "/profile/prayers", key: "profile.tab.prayers", count: counts.prayersSaved },
-    { href: "/profile/saints", key: "profile.tab.saints", count: counts.saintsSaved },
+  // Sections group user-specific content into clear categories so the page
+  // surfaces what is meaningful — goals, journals, favorites, saved prayers,
+  // saved liturgical content, and saved Catholic learning guides.
+  const sections: ProfileSection[] = [
     {
-      href: "/profile/apparitions",
-      key: "profile.tab.apparitions",
-      count: counts.apparitionsSaved,
+      key: "profile.section.goals",
+      tabs: [
+        { href: "/profile/goals", key: "profile.tab.goals", count: counts.goalsCount },
+        {
+          href: "/profile/milestones",
+          key: "profile.tab.milestones",
+          count: counts.milestonesCount,
+        },
+      ],
     },
-    { href: "/profile/devotions", key: "profile.tab.devotions", count: counts.devotionsSaved },
-    { href: "/profile/parishes", key: "profile.tab.parishes", count: counts.parishesSaved },
-    { href: "/profile/journal", key: "profile.tab.journal", count: counts.journalCount },
-    { href: "/profile/milestones", key: "profile.tab.milestones", count: counts.milestonesCount },
-    { href: "/profile/goals", key: "profile.tab.goals", count: counts.goalsCount },
-    { href: "/profile/settings", key: "profile.tab.settings" },
+    {
+      key: "profile.section.journals",
+      tabs: [{ href: "/profile/journal", key: "profile.tab.journal", count: counts.journalCount }],
+    },
+    {
+      key: "profile.section.favorites",
+      tabs: [
+        {
+          href: "/profile/journal?filter=favorites",
+          key: "profile.tab.favorites",
+          count: favoriteJournalCount,
+        },
+      ],
+    },
+    {
+      key: "profile.section.savedPrayers",
+      tabs: [
+        { href: "/profile/prayers", key: "profile.tab.prayers", count: counts.prayersSaved },
+        { href: "/profile/devotions", key: "profile.tab.devotions", count: counts.devotionsSaved },
+      ],
+    },
+    {
+      key: "profile.section.savedLiturgy",
+      tabs: [
+        { href: "/profile/parishes", key: "profile.tab.parishes", count: counts.parishesSaved },
+        {
+          href: "/profile/apparitions",
+          key: "profile.tab.apparitions",
+          count: counts.apparitionsSaved,
+        },
+      ],
+    },
+    {
+      key: "profile.section.savedLearning",
+      tabs: [{ href: "/profile/saints", key: "profile.tab.saints", count: counts.saintsSaved }],
+    },
   ];
 
   const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`;
@@ -46,18 +91,31 @@ export default async function ProfilePage() {
           {`${user.firstName} ${user.lastName}`}
         </h1>
         <p className="mt-3 font-serif text-ink-soft">{user.email}</p>
+        <Link href="/profile/settings" className="vf-nav-link mt-5">
+          {t("profile.tab.settings")}
+        </Link>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {tabs.map((tab) => (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            className="vf-card flex flex-col rounded-sm p-6 transition hover:border-ink/30"
-          >
-            <p className="vf-eyebrow">{typeof tab.count === "number" ? tab.count : "—"}</p>
-            <h2 className="mt-3 font-display text-2xl">{t(tab.key)}</h2>
-          </Link>
+      <div className="flex flex-col gap-10">
+        {sections.map((section) => (
+          <section key={section.key}>
+            <header className="mb-4 flex items-baseline justify-between gap-3">
+              <h2 className="font-display text-2xl text-ink">{t(section.key)}</h2>
+              <div className="hidden h-px flex-1 bg-ink/10 sm:block" aria-hidden="true" />
+            </header>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {section.tabs.map((tab) => (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className="vf-card flex flex-col rounded-sm p-6 transition hover:border-ink/30"
+                >
+                  <p className="vf-eyebrow">{typeof tab.count === "number" ? tab.count : "—"}</p>
+                  <h3 className="mt-3 font-display text-2xl">{t(tab.key)}</h3>
+                </Link>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
     </div>
