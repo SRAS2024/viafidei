@@ -12,9 +12,9 @@ concurrency:
 
 jobs:
   verify:
-    name: Typecheck, lint, build
+    name: Typecheck, lint, test, build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
       SESSION_SECRET: ci-build-only-32-character-placeholder-value
@@ -40,6 +40,9 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -49,7 +52,113 @@ jobs:
       - name: Format check
         run: npm run format:check
 
+      - name: Test (unit + component)
+        run: npm run test
+
       - name: Build
         run: npm run build
         env:
           NODE_ENV: production
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      # `audit` exits non-zero on any vulnerability at or above the level.
+      # `high` is the minimum bar that must block merges; `moderate` is
+      # treated as advisory below.
+      - name: Audit (high+)
+        run: npm audit --audit-level=high
+
+  integration:
+    name: Integration tests (Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: viafidei_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/viafidei_test
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/viafidei_test
+      SESSION_SECRET: integration-test-only-secret-must-be-32-characters
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations against the test database
+        run: npx prisma migrate deploy
+      - name: Run integration tests
+        run: npm run test:integration
+
+  e2e:
+    name: End-to-end tests (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: viafidei_e2e_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/viafidei_e2e_test
+      E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/viafidei_e2e_test
+      SESSION_SECRET: e2e-test-only-secret-must-be-32-characters-long-x
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apply migrations + seed
+        run: |
+          npx prisma migrate deploy
+          npm run db:seed || true
+      - name: Build
+        run: npm run build
+        env:
+          NODE_ENV: production
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      - name: Run Playwright
+        run: npm run test:e2e
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
