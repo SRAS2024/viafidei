@@ -35,6 +35,31 @@
     color-scheme: light;
   }
 
+  html[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #14130f;
+    --paper-bright: #1c1b17;
+    --ink: #f3eedd;
+    --ink-soft: #d6cfb6;
+    --ink-faint: #9c9580;
+    --rule: rgba(243, 238, 221, 0.12);
+  }
+
+  html[data-theme="dark"] body {
+    background-color: var(--paper);
+    background-image:
+      radial-gradient(circle at 18% 12%, rgba(243, 238, 221, 0.04) 0, transparent 42%),
+      radial-gradient(circle at 82% 88%, rgba(243, 238, 221, 0.03) 0, transparent 42%),
+      linear-gradient(180deg, #15140f 0%, #1a1812 100%);
+    background-size: auto, auto, auto;
+  }
+
+  html[data-theme="dark"] body::before,
+  html[data-theme="dark"] body::after {
+    opacity: 0.18;
+    mix-blend-mode: screen;
+  }
+
   html,
   body {
     background: var(--paper);
@@ -491,6 +516,67 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+  }
+
+  /* ---------- Mobile dropdown menu ---------- */
+  .vf-mobile-menu-toggle {
+    transition:
+      background-color 160ms ease,
+      color 160ms ease;
+    border: 1px solid transparent;
+  }
+
+  .vf-mobile-menu-toggle:hover {
+    background: rgba(17, 17, 17, 0.05);
+  }
+
+  .vf-mobile-menu-toggle[aria-expanded="true"] {
+    background: rgba(17, 17, 17, 0.06);
+    border-color: rgba(17, 17, 17, 0.1);
+  }
+
+  .vf-mobile-menu-link {
+    font-family: var(--font-sans);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.74rem;
+    color: var(--ink-soft);
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease;
+  }
+
+  .vf-mobile-menu-link:hover,
+  .vf-mobile-menu-link:focus-visible {
+    background: rgba(17, 17, 17, 0.04);
+    color: var(--ink);
+  }
+
+  .vf-mobile-menu-link-active {
+    color: var(--ink);
+    background: rgba(17, 17, 17, 0.05);
+  }
+
+  /* Header profile avatar (small, circular, signed-in users) */
+  .vf-header-avatar {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    overflow: hidden;
+    background: #9b9b9b;
+    border: 1px solid rgba(17, 17, 17, 0.12);
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .vf-header-avatar:hover,
+  .vf-header-avatar:focus-visible {
+    border-color: var(--ink);
+    box-shadow: 0 0 0 2px rgba(31, 58, 138, 0.12);
   }
 
   /* ---------- Sacrament / iconography accents (used sparingly) ---------- */

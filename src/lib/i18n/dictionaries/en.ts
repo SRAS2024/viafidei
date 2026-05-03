@@ -19,6 +19,11 @@ const nav: Dict = {
   "nav.register": "Create account",
   "nav.logout": "Sign out",
   "nav.settings": "Settings",
+  "nav.menu.open": "Open menu",
+  "nav.menu.close": "Close menu",
+  "nav.appearance": "Appearance",
+  "nav.appearance.light": "Light mode",
+  "nav.appearance.dark": "Dark mode",
 };
 
 const home: Dict = {
@@ -154,6 +159,16 @@ const profile: Dict = {
   "profile.tab.milestones": "Milestones",
   "profile.tab.goals": "My Goals",
   "profile.tab.settings": "Settings",
+  "profile.tab.favorites": "Favorites",
+  "profile.tab.savedPrayers": "Saved prayers",
+  "profile.tab.savedLiturgy": "Saved liturgical content",
+  "profile.tab.savedLearning": "Saved Catholic learning guides",
+  "profile.section.goals": "Goals",
+  "profile.section.journals": "Journals",
+  "profile.section.favorites": "Favorites",
+  "profile.section.savedPrayers": "Saved prayers",
+  "profile.section.savedLiturgy": "Saved liturgical content",
+  "profile.section.savedLearning": "Saved Catholic learning guides",
   "profile.journal.newEntry": "New entry",
   "profile.journal.editEntry": "Edit entry",
   "profile.journal.title": "Title",
@@ -201,6 +216,35 @@ const profile: Dict = {
   "profile.settings.themeDark": "Dark",
   "profile.settings.themeSystem": "System default",
   "profile.settings.privacy": "Privacy",
+  "profile.settings.section.profile": "Profile",
+  "profile.settings.section.language": "Language",
+  "profile.settings.section.appearance": "Appearance",
+  "profile.settings.section.profile.body":
+    "Update your personal details, photo, and how others see you on Via Fidei.",
+  "profile.settings.section.appearance.body":
+    "Choose how Via Fidei appears for you on this device.",
+  "profile.settings.openProfile": "Open profile page",
+  "profile.settings.signedInOnly": "Settings are only available to signed-in members.",
+  "profile.settings.appearance.light": "Light mode",
+  "profile.settings.appearance.dark": "Dark mode",
+};
+
+const rite: Dict = {
+  "rite.label": "Catholic Rite",
+  "rite.help":
+    "Choose the rite you'd like content displayed for. Pages where rite makes no difference will look the same regardless.",
+  "rite.roman": "Roman (Latin)",
+  "rite.byzantine": "Byzantine",
+  "rite.maronite": "Maronite",
+  "rite.chaldean": "Chaldean",
+  "rite.coptic": "Coptic",
+  "rite.syroMalabar": "Syro-Malabar",
+  "rite.syroMalankara": "Syro-Malankara",
+  "rite.armenian": "Armenian",
+  "rite.ethiopic": "Ethiopic / Ge'ez",
+  "rite.melkite": "Melkite",
+  "rite.ukrainian": "Ukrainian Greek",
+  "rite.ruthenian": "Ruthenian",
 };
 
 const admin: Dict = {
@@ -249,6 +293,7 @@ const admin: Dict = {
 const footer: Dict = {
   "footer.copy": "Via Fidei — a reverent, private Catholic companion.",
   "footer.canonical": "viafidei.com",
+  "footer.copyright": "© 2025 Via Fidei. All rights reserved.",
 };
 
 const common: Dict = {
@@ -284,6 +329,7 @@ export const en: Dict = {
   ...search,
   ...auth,
   ...profile,
+  ...rite,
   ...admin,
   ...footer,
   ...common,

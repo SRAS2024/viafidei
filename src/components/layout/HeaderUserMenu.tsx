@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HeaderProfileIcon } from "./HeaderProfileIcon";
 
 type AuthedLabels = {
   profile: string;
@@ -7,23 +8,25 @@ type AuthedLabels = {
 
 type AnonLabels = {
   login: string;
-  register: string;
 };
 
-type Props = { isAuthed: true; labels: AuthedLabels } | { isAuthed: false; labels: AnonLabels };
+type Props =
+  | {
+      isAuthed: true;
+      labels: AuthedLabels;
+      avatarSrc?: string | null;
+    }
+  | { isAuthed: false; labels: AnonLabels };
 
 export function HeaderUserMenu(props: Props) {
   if (props.isAuthed) {
     return (
-      <div className="flex items-center gap-5">
-        <Link href="/profile" className="vf-nav-link">
-          {props.labels.profile}
-        </Link>
-        <form action="/api/auth/logout" method="post">
-          <button type="submit" className="vf-nav-link">
-            {props.labels.logout}
-          </button>
-        </form>
+      <div className="flex items-center gap-3">
+        <HeaderProfileIcon
+          ariaLabel={props.labels.profile}
+          src={props.avatarSrc ?? null}
+          href="/profile"
+        />
       </div>
     );
   }
@@ -32,9 +35,6 @@ export function HeaderUserMenu(props: Props) {
     <div className="flex items-center gap-5">
       <Link href="/login" className="vf-nav-link">
         {props.labels.login}
-      </Link>
-      <Link href="/register" className="vf-nav-link">
-        {props.labels.register}
       </Link>
     </div>
   );

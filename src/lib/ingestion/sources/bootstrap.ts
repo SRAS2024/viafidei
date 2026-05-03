@@ -119,9 +119,32 @@ export async function ensureVaticanSchedule(): Promise<void> {
 function deriveName(host: string): string {
   if (host.includes("vatican.va")) return "The Holy See";
   if (host.includes("vaticannews.va")) return "Vatican News";
+  if (host.includes("osservatoreromano.va")) return "L'Osservatore Romano";
+  if (host.includes("synod.va") || host.includes("synod2")) return "Synod of Bishops";
+  if (host.includes("dicastery") || host.includes("doctrineoffaith.va")) return "Vatican Dicastery";
+  if (host.includes("vaticanlibrary.va")) return "Vatican Apostolic Library";
+  if (host.includes("vaticanobservatory.va")) return "Vatican Observatory";
+  if (host.includes("vaticanstate.va")) return "Vatican City State";
   if (host.includes("usccb.org")) return "USCCB";
-  if (host.includes("synod.va")) return "Synod of Bishops";
-  if (host.includes("dicastery")) return "Vatican Dicastery";
+  if (host.includes("cccb.ca")) return "CCCB — Canadian Conference of Catholic Bishops";
+  if (host.includes("cbcew.org.uk")) return "CBCEW — England & Wales";
+  if (host.includes("catholicbishops.ie")) return "Irish Catholic Bishops' Conference";
+  if (host.includes("catholic.org.au")) return "Australian Catholic Bishops Conference";
+  if (host.includes("catholic.org.nz")) return "NZ Catholic Bishops Conference";
+  if (host.includes("dbk.de")) return "Deutsche Bischofskonferenz";
+  if (host.includes("conferenciaepiscopal.es")) return "Conferencia Episcopal Española";
+  if (host.includes("chiesacattolica.it")) return "Conferenza Episcopale Italiana";
+  if (host.includes("eglise.catholique.fr")) return "Conférence des évêques de France";
+  if (host.includes("episcopado.pt")) return "Conferência Episcopal Portuguesa";
+  if (host.includes("episkopat.pl")) return "Konferencja Episkopatu Polski";
+  if (host.includes("celam.org")) return "CELAM — Latin American Episcopal Council";
+  if (host.includes("ewtn.com")) return "EWTN — Catholic Reference";
+  if (host.includes("biblegateway.com") || host.includes("biblia.com")) return "Bible reference";
+  if (host.includes("liturgicalcalendar.org")) return "Liturgical Calendar";
+  if (host.includes("ibreviary.com")) return "iBreviary";
+  if (host.includes("universalis.com")) return "Universalis — Liturgy of the Hours";
+  if (host.includes("ccwatershed.org")) return "Corpus Christi Watershed";
+  if (host.includes("icel.org")) return "ICEL — International Commission on English in the Liturgy";
   return host;
 }
 
