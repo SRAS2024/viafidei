@@ -7,11 +7,15 @@ type Props = { params: { slug: string } };
 
 type Step = { order: number; title: string; body: string };
 
+function isStep(value: unknown): value is Step {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as Record<string, unknown>;
+  return typeof candidate.title === "string" && typeof candidate.body === "string";
+}
+
 function parseSteps(raw: unknown): Step[] {
   if (!Array.isArray(raw)) return [];
-  return (raw as unknown[])
-    .filter((s): s is Step => typeof s === "object" && s !== null && "title" in s && "body" in s)
-    .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+  return raw.filter(isStep).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
 }
 
 export async function generateMetadata({ params }: Props) {
