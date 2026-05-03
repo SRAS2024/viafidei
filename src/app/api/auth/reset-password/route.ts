@@ -29,8 +29,7 @@ export async function POST(req: NextRequest) {
   const result = await consumePasswordResetToken(parsed.data.token, parsed.data.password);
   if (!result.ok) {
     if (result.reason === "not_found") return jsonError("not_found");
-    if (result.reason === "expired") return jsonError("invalid", { message: "expired" });
-    if (result.reason === "used") return jsonError("invalid", { message: "used" });
+    return jsonError("invalid", { message: result.reason });
   }
   return jsonOk({ reset: true });
 }

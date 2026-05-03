@@ -9,6 +9,7 @@ import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp } from "@/lib/security/request";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
+import { sendEmailVerificationEmail } from "@/lib/email";
 
 const consumeSchema = z.object({ token: z.string().min(20).max(256) });
 
@@ -41,11 +42,24 @@ export async function PUT(req: NextRequest) {
   });
   if (!limit.ok) return jsonError("rate_limited");
 
+  const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
   const issued = await issueEmailVerificationToken(user.id);
   logger.info("auth.email_verification.requested", {
     userId: user.id,
-    requestId: req.headers.get(REQUEST_ID_HEADER) ?? undefined,
+    requestId,
     expiresAt: issued.expiresAt.toISOString(),
   });
+  const result = await sendEmailVerificationEmail({
+    to: user.email,
+    token: issued.token,
+    expiresAt: issued.expiresAt,
+  });
+  if (!result.ok) {
+    logger.error("auth.email_verification.email_failed", {
+      userId: user.id,
+      requestId,
+      reason: result.reason,
+    });
+  }
   return jsonOk({ requested: true });
 }
