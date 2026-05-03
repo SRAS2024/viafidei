@@ -28,6 +28,9 @@ pipeline that always lands new records in a moderation queue.
 | Container          | Multi-stage `Dockerfile` (deps → builder → runner)                                     |
 | Deployment         | Railway-ready (`railway.json`, healthcheck on `/api/health`)                           |
 | Startup            | `instrumentation.ts` auto-seeds an empty DB and schedules in-process Vatican ingestion |
+| Unit / API tests   | Vitest 2 + v8 coverage (mocked Prisma, Next route handler imports)                     |
+| Component tests    | React Testing Library 15 + jsdom + jest-axe                                            |
+| End-to-end tests   | Playwright (chromium + mobile-chromium) with visual + perf smoke                       |
 
 ---
 
@@ -69,6 +72,25 @@ pipeline that always lands new records in a moderation queue.
 │   │   └── security/          # Rate limit, hashing, crypto, request helpers,
 │   │                          # cron-auth, key resolution
 │   └── middleware.ts          # Request-id + CSP / security headers
+├── tests/                     # Vitest unit + component + API + ingestion + DB tests
+│   ├── auth/                  # Auth module (password, schemas, user, tokens, admin)
+│   ├── api/                   # Route handler tests (mocked Prisma)
+│   ├── components/            # RTL tests with `@vitest-environment jsdom`
+│   ├── db/                    # checkRequiredTables / checkSeedContent
+│   ├── fixtures/              # Factories + mock SourceAdapter / fetch
+│   ├── helpers/               # Prisma + cookie mocks
+│   ├── ingestion/             # validateItem + sanitize boundary tests
+│   ├── integration/           # Real-DB tests, gated behind VITEST_INTEGRATION=1
+│   ├── routes/                # Static route coverage check
+│   ├── security/              # Rate limit DB + memory fallback
+│   └── middleware.test.ts     # Request-id + security headers
+├── e2e/                       # Playwright smoke + visual regression + perf
+├── scripts/
+│   ├── start.sh               # Container entrypoint (migrate deploy → server)
+│   └── test-db.sh             # Reset isolated test DB (refuses prod URLs)
+├── playwright.config.ts       # E2E + visual regression config
+├── vitest.config.ts           # Unit + component test config (coverage thresholds)
+├── TESTING.md                 # Test stack reference (commands, layout, isolation)
 ├── Dockerfile                 # Multi-stage production image
 ├── railway.json               # Railway deploy + healthcheck config
 ├── next.config.js             # standalone output, image hosts, security headers
@@ -122,15 +144,28 @@ npm start           # next start on $PORT (default 3000)
 ### Quality gates
 
 ```bash
-npm run typecheck   # tsc --noEmit
-npm run lint        # next lint (ESLint)
-npm run lint:fix    # next lint --fix
-npm run format      # prettier --write .
+npm run typecheck         # tsc --noEmit
+npm run lint              # next lint (ESLint)
+npm run lint:fix          # next lint --fix
+npm run format            # prettier --write .
 npm run format:check
-npm run verify      # typecheck + lint + format:check (CI parity)
+npm run test              # Vitest: unit + component + API + DB + route tests
+npm run test:watch        # Vitest watch mode
+npm run test:coverage     # Vitest with coverage + threshold gate
+npm run test:integration  # Real-Postgres tests (requires TEST_DATABASE_URL)
+npm run test:e2e          # Playwright (requires `npx playwright install`)
+npm run test:db:setup     # Reset the isolated test DB from migrations
+npm run verify            # typecheck + lint + format:check + test (CI parity)
 ```
 
-CI (`.github/workflows/ci.yml`) runs `verify` plus `next build` against Node 20.
+CI (`.github/workflows/ci.yml`) runs four jobs against Node 20:
+
+1. **verify** — `prisma validate`, typecheck, lint, format check, Vitest, production build
+2. **audit** — `npm audit --audit-level=high`
+3. **integration** — applies migrations to a Postgres service container and runs `tests/integration/**` on PRs and `main`
+4. **e2e** — installs Chromium, runs Playwright, uploads the HTML report (push to `main` only)
+
+See [TESTING.md](TESTING.md) for the full layout, fixtures, and test-DB isolation details.
 
 ---
 
@@ -220,6 +255,38 @@ locale)` with `MACHINE` / `HUMAN_REVIEWED` / `LOCKED` workflow status.
   `passwordReset`, `emailVerification`, `adminLogin`, `adminWrite`,
   `userWrite`, `savedItem`, `goalWrite`, `profileWrite`, `mediaUpload`,
   `search`, `publicRead`, and `ingestionTrigger`.
+
+---
+
+## Testing
+
+The test suite lives under `tests/` (Vitest) and `e2e/` (Playwright). For the
+full reference — fixtures, factories, mock SourceAdapter helpers, test-DB
+isolation guards — see [TESTING.md](TESTING.md). The short version:
+
+- **Unit + component + API + ingestion + DB + route tests** run via
+  `npm run test`. Component tests opt into jsdom via the
+  `@vitest-environment jsdom` doc-comment at the top of the file.
+  Prisma is mocked through `tests/helpers/prisma-mock.ts` so the default
+  test run never touches a real database.
+- **Integration tests** live under `tests/integration/**` and are excluded
+  from the default run. They execute under
+  `VITEST_INTEGRATION=1 npm run test:integration` against
+  `TEST_DATABASE_URL`. Two layers of safety guards (`scripts/test-db.sh`
+  and `tests/setup.integration.ts`) refuse to run if the URL contains
+  `prod`, lacks `test` in the database name, or points off-localhost
+  (override with `TEST_DB_ALLOW_REMOTE=1`).
+- **End-to-end + visual regression + perf smoke** runs via
+  `npm run test:e2e` (Playwright). The `e2e/smoke.spec.ts` suite covers
+  every primary nav route, asserts the header survives tab navigation
+  (regression guard), pins visual snapshots for home / search / login,
+  and verifies `/api/prayers` respects its 200-item server cap.
+- **Coverage thresholds** (`vitest.config.ts`) require 80% lines / 80%
+  functions / 75% branches on the security-critical surface (auth,
+  rate-limit, middleware, DB diagnostics, destructive-confirm UI). The
+  threshold gate fails the build if coverage regresses.
+- **Accessibility smoke** uses `jest-axe` against rendered components
+  (`tests/components/ConfirmDialog.test.tsx`).
 
 ---
 
