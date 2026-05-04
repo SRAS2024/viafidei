@@ -1,5 +1,8 @@
 import crypto from "node:crypto";
 
+// Mirror of the constant inlined in src/lib/auth/session.ts. The two are kept
+// in lockstep deliberately — session.ts cannot import from this file because
+// it would drag node:crypto into the edge-runtime middleware bundle.
 export const DEV_FALLBACK_SECRET = "via-fidei-dev-secret-change-me-please-32b";
 
 function isBuildPhase(): boolean {

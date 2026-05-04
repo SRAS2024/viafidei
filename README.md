@@ -96,11 +96,14 @@ edited blindly:
 │   │   └── api/               # Route handlers (auth, admin, cron, internal,
 │   │                          # journal, settings, health, search)
 │   ├── components/
-│   │   ├── icons/             # Cross, monogram, search, hamburger, profile silhouette
+│   │   ├── icons/             # Cross ornament, Marian monogram, search, hamburger,
+│   │   │                      # user silhouette, spiritual-life icons, logo
 │   │   ├── layout/            # Header, footer, brand, nav, mobile menu, search,
 │   │   │                      # user menu, route error
 │   │   ├── profile/           # Avatar, save button, unverified-email notice
-│   │   └── ui/                # ConfirmDialog, PageHero, RemoveSavedButton
+│   │   └── ui/                # ConfirmDialog, PageHero, RemoveSavedButton,
+│   │                          # AccountRequiredButton, LoginRequiredPopup,
+│   │                          # ExpandablePrayer, ExpandableTimelineEvent
 │   ├── lib/
 │   │   ├── auth/              # Session, password, schemas, user/admin helpers, tokens
 │   │   ├── audit/             # AdminAuditLog writer
@@ -240,19 +243,11 @@ production-strict schema):
 | Variable                                      | Purpose                                                                                          |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `NODE_ENV`                                    | `development` \| `test` \| `production`                                                          |
-| `APP_URL`, `CANONICAL_URL`                    | Used for OG / metadata base                                                                      |
+| `APP_URL`, `CANONICAL_URL`                    | Used for OG / metadata base, sitemap, robots, and email links                                    |
 | `LOG_LEVEL`                                   | `debug` \| `info` \| `warn` \| `error` (default: info in prod)                                   |
-| `JWT_REFRESH_SECRET`                          | Reserved for future refresh-token flow                                                           |
 | `POSTMARK_SERVER_TOKEN`, `EMAIL_FROM_ADDRESS` | Transactional email via Postmark (welcome, password reset, email verification)                   |
-| `CLOUDINARY_*`                                | Media uploads                                                                                    |
-| `REDIS_URL`                                   | Optional cache / queue                                                                           |
-| `SENTRY_DSN`, `PLAUSIBLE_DOMAIN`              | Monitoring / analytics                                                                           |
-| `SEARCH_PROVIDER`, `MEILISEARCH_*`            | `postgres` (default) or `meilisearch`                                                            |
-| `TRANSLATION_PROVIDER`, `TRANSLATION_API_KEY` | Machine-translation pipeline                                                                     |
-| `TRANSLATION_DEFAULT_SOURCE_LOCALE`           | Defaults to `en`                                                                                 |
-| `TRANSLATION_FALLBACK_LOCALE`                 | Defaults to `en`                                                                                 |
+| `SEARCH_PROVIDER`                             | Echoed in `/api/admin/search/reindex` responses. Defaults to `postgres`.                         |
 | `CRON_SECRET`                                 | 16+ chars. Required to call `/api/cron/ingest` and to enable the in-process ingestion scheduler. |
-| `INTERNAL_API_TOKEN`                          | Reserved for internal service-to-service calls                                                   |
 | `INGESTION_USER_AGENT`                        | UA sent during scheduled fetches                                                                 |
 | `INGESTION_HTTP_TIMEOUT_MS`                   | Per-request timeout (ms, default 15000)                                                          |
 | `INGESTION_INITIAL_STATUS`                    | `DRAFT` or `REVIEW` (default `REVIEW`)                                                           |
@@ -465,16 +460,16 @@ requests immediately so Railway / Docker healthchecks never wait on it.
 
 `/admin` shows fourteen sections (`src/app/admin/_dashboard/cards.ts`):
 
-1. Homepage blocks
+1. Homepage mirror editor
 2. Prayers
 3. Saints
 4. Marian apparitions
 5. Parishes
 6. Devotions
-7. Liturgy history
+7. Liturgy content
 8. Translations
-9. Ingestion
-10. Search settings
+9. Ingestion jobs
+10. Search index
 11. Media library
 12. Favicon
 13. Audit log

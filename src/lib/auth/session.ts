@@ -1,6 +1,10 @@
 import { getIronSession, type SessionOptions } from "iron-session";
 import { cookies } from "next/headers";
-import { DEV_FALLBACK_SECRET } from "../security/keys";
+
+// Inlined to keep this module edge-runtime safe — `middleware.ts` imports
+// SESSION_COOKIE_NAME from here, and pulling in anything that touches
+// `node:crypto` would break the middleware bundle.
+const DEV_FALLBACK_SECRET = "via-fidei-dev-secret-change-me-please-32b";
 
 export type UserRole = "USER" | "ADMIN";
 
