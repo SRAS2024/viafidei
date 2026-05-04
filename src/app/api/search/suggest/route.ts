@@ -11,6 +11,11 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const q = url.searchParams.get("q")?.trim() ?? "";
-  const suggestions = await suggest(q);
+  // The client sends `limit` to scope the per-group cap (2 on mobile,
+  // 3 on tablet/desktop). Bound it server-side so a malicious caller can't
+  // pass a huge number and pull a giant payload.
+  const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "", 10);
+  const perGroup = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 6) : 3;
+  const suggestions = await suggest(q, perGroup);
   return jsonOk({ q, suggestions });
 }

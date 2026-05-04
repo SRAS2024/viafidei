@@ -39,18 +39,22 @@ export function HeaderMobileMenu({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    function onClick(event: MouseEvent) {
+    function onPointer(event: PointerEvent | MouseEvent | TouchEvent) {
       if (!wrapperRef.current) return;
-      if (!wrapperRef.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node | null;
+      if (target && wrapperRef.current.contains(target)) return;
+      setOpen(false);
     }
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
     }
-    window.addEventListener("click", onClick);
-    window.addEventListener("keydown", onKey);
+    // pointerdown fires before click on iOS/Android, so the menu closes
+    // reliably even when a tap lands on an SVG child or the document body.
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("click", onClick);
-      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
     };
   }, []);
 
@@ -61,10 +65,19 @@ export function HeaderMobileMenu({
         aria-label={open ? closeLabel : openLabel}
         aria-expanded={open}
         aria-controls="vf-mobile-menu"
-        onClick={() => setOpen((v) => !v)}
-        className="vf-mobile-menu-toggle flex h-10 w-10 items-center justify-center rounded-sm text-ink"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="vf-mobile-menu-toggle relative -mr-2 flex h-12 w-12 items-center justify-center rounded-sm text-ink"
       >
-        {open ? <CloseIcon size={22} /> : <HamburgerIcon size={22} />}
+        {/* Visually centered icon, but a 48x48 hit target that doesn't move
+            its visual position. The pointer-events catch on the button itself,
+            never the SVG children, so taps register accurately at any spot. */}
+        <span aria-hidden="true" className="pointer-events-none flex items-center justify-center">
+          {open ? <CloseIcon size={24} /> : <HamburgerIcon size={24} />}
+        </span>
       </button>
 
       {open ? (
@@ -83,7 +96,7 @@ export function HeaderMobileMenu({
                     role="menuitem"
                     onClick={() => setOpen(false)}
                     aria-current={active ? "page" : undefined}
-                    className={`vf-mobile-menu-link block px-4 py-2.5 ${
+                    className={`vf-mobile-menu-link block px-4 py-3 ${
                       active ? "vf-mobile-menu-link-active" : ""
                     }`}
                   >
@@ -99,7 +112,7 @@ export function HeaderMobileMenu({
                   href="/profile/settings"
                   role="menuitem"
                   onClick={() => setOpen(false)}
-                  className="vf-mobile-menu-link block px-4 py-2.5"
+                  className="vf-mobile-menu-link block px-4 py-3"
                 >
                   {settingsLabel}
                 </Link>
@@ -116,7 +129,7 @@ export function HeaderMobileMenu({
                         href={action.href}
                         role="menuitem"
                         onClick={() => setOpen(false)}
-                        className="vf-mobile-menu-link block px-4 py-2.5"
+                        className="vf-mobile-menu-link block px-4 py-3"
                       >
                         {action.label}
                       </Link>
@@ -127,7 +140,7 @@ export function HeaderMobileMenu({
                         <button
                           type="submit"
                           role="menuitem"
-                          className="vf-mobile-menu-link block w-full px-4 py-2.5 text-left"
+                          className="vf-mobile-menu-link block w-full px-4 py-3 text-left"
                         >
                           {action.label}
                         </button>
@@ -146,7 +159,7 @@ export function HeaderMobileMenu({
                     href={signInItem.href}
                     role="menuitem"
                     onClick={() => setOpen(false)}
-                    className="vf-mobile-menu-link block px-4 py-2.5"
+                    className="vf-mobile-menu-link block px-4 py-3"
                   >
                     {signInItem.label}
                   </Link>

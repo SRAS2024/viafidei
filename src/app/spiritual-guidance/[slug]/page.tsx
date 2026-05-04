@@ -41,11 +41,14 @@ export default async function ParishDetailPage({ params }: Props) {
         {location ? <p className="mt-5 font-serif text-lg text-ink-soft">{location}</p> : null}
       </section>
 
-      {user ? (
-        <div className="mb-10 flex justify-center">
-          <SaveButton kind="parishes" entityId={parish.id} initiallySaved={alreadySaved} />
-        </div>
-      ) : null}
+      <div className="mb-10 flex justify-center">
+        <SaveButton
+          kind="parishes"
+          entityId={parish.id}
+          initiallySaved={alreadySaved}
+          isAuthed={!!user}
+        />
+      </div>
 
       <div className="vf-card rounded-sm p-8">
         <dl className="divide-y divide-ink/10">

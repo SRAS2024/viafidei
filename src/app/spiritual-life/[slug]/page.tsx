@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedSpiritualLifeGuideBySlug } from "@/lib/data/spiritual-life";
+import { resolveGuidePrayers } from "@/lib/data/guide-prayers";
+import { requireUser } from "@/lib/auth";
+import { ExpandablePrayer, AccountRequiredButton } from "@/components/ui";
 
 type Props = { params: { slug: string } };
 
@@ -36,6 +39,8 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
   const summary = tr?.summary ?? guide.summary;
   const bodyText = tr?.bodyText ?? guide.bodyText;
   const steps = parseSteps(tr?.steps ?? guide.steps);
+  const guidePrayers = await resolveGuidePrayers(guide.slug, locale);
+  const user = await requireUser();
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -61,7 +66,7 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
       ) : null}
 
       {steps.length > 0 ? (
-        <section>
+        <section className="mb-10">
           <h2 className="mb-6 font-display text-3xl">Steps</h2>
           <ol className="flex flex-col gap-4">
             {steps.map((step, i) => (
@@ -79,11 +84,29 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
         </section>
       ) : null}
 
+      {guidePrayers.length > 0 ? (
+        <section className="vf-card rounded-sm p-6 sm:p-8">
+          <h2 className="mb-2 font-display text-2xl">Prayers in this guide</h2>
+          <p className="mb-4 font-serif text-sm text-ink-faint">
+            Tap any prayer to read its full text.
+          </p>
+          <div>
+            {guidePrayers.map((p) => (
+              <ExpandablePrayer key={p.slug} title={p.title} body={p.body} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {guide.goalTemplateSlug ? (
         <div className="mt-10 text-center">
-          <button type="button" className="vf-btn vf-btn-primary">
+          <AccountRequiredButton
+            isAuthed={!!user}
+            href="/profile/goals"
+            className="vf-btn vf-btn-primary"
+          >
             {t("spiritualLife.addGoal")}
-          </button>
+          </AccountRequiredButton>
         </div>
       ) : null}
     </div>

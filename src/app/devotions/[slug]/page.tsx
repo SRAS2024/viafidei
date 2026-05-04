@@ -48,11 +48,14 @@ export default async function DevotionDetailPage({ params }: Props) {
         </p>
       </section>
 
-      {user ? (
-        <div className="mb-10 flex justify-center">
-          <SaveButton kind="devotions" entityId={devotion.id} initiallySaved={alreadySaved} />
-        </div>
-      ) : null}
+      <div className="mb-10 flex justify-center">
+        <SaveButton
+          kind="devotions"
+          entityId={devotion.id}
+          initiallySaved={alreadySaved}
+          isAuthed={!!user}
+        />
+      </div>
 
       {practiceText ? (
         <article className="vf-card rounded-sm p-8">

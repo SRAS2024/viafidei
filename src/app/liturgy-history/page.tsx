@@ -39,6 +39,18 @@ export default async function LiturgyPage() {
         {t("rite.label")}: <span className="text-ink">{t(RITE_LABEL_KEYS[rite])}</span>
       </p>
 
+      <Link
+        href="/liturgy-history/timeline"
+        className="mb-8 block vf-card rounded-sm p-6 transition hover:border-ink/30 hover:-translate-y-0.5"
+      >
+        <p className="vf-eyebrow">Timeline</p>
+        <h2 className="mt-2 font-display text-2xl">Complete Church History Timeline →</h2>
+        <p className="mt-2 font-serif text-sm text-ink-soft">
+          From Christ&rsquo;s ministry through 2025 &mdash; every major period, every ecumenical
+          council, with full historical context. Tap to explore.
+        </p>
+      </Link>
+
       {visibleEntries.length > 0 ? (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {visibleEntries.map((e) => {
