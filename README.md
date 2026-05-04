@@ -258,6 +258,24 @@ production-strict schema):
 `getEnv()` validates these with Zod at first access; in production an invalid
 configuration throws, in development it logs a warning and continues.
 
+The list above is the **complete** set of variables the current code reads.
+The app does not require, read, or fall back to any other secret. Local
+development, the test suite, and production deployments all run with this
+exact surface — there are no additional credentials to configure.
+
+### Future optional enhancements
+
+The current app intentionally has no integration with Redis, Sentry,
+Plausible, Meilisearch / OpenSearch, S3-compatible object storage,
+machine-translation providers, or third-party analytics. None of those
+services are wired up, none of them have an env var here, and none of them
+are required for tests, local development, or production deployment. If a
+future contributor adds one, it belongs in a new section here with its own
+`.env.example` entry and documented setup steps. The `SEARCH_PROVIDER`
+variable is recognised purely so `/api/admin/search/reindex` can echo back
+which backend is in use; the only currently supported value is the default
+(`postgres`), and the search panel queries Postgres directly.
+
 ---
 
 ## Internationalization
