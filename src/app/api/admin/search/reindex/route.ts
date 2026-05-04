@@ -13,10 +13,9 @@ export async function POST(req: NextRequest) {
   const limit = await rateLimit(`admin-reindex:${admin.username}`, RATE_POLICIES.adminWrite);
   if (!limit.ok) return jsonError("rate_limited");
 
-  // For the default Postgres provider there is nothing to push; we still run
-  // bookkeeping so admins can use this as a "tidy up" trigger. When a
-  // dedicated search provider (Meilisearch) is wired up, this is the place to
-  // call its reindex API.
+  // The current app queries Postgres directly, so there is no external index
+  // to push to. The reindex endpoint runs the standard housekeeping pass
+  // (expired tokens + rate-limit buckets) and writes an audit entry.
   const [prunedTokens, prunedLimits] = await Promise.all([
     pruneExpiredTokens(),
     pruneExpiredRateLimits(),
