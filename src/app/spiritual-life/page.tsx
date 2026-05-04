@@ -3,13 +3,20 @@ import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedSpiritualLifeGuides } from "@/lib/data/spiritual-life";
 import { FORMATION_ITEMS, FormationCard } from "./_components";
+import { logger } from "@/lib/observability/logger";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Spiritual Life" };
 
 export default async function SpiritualLifePage() {
   const { t, locale } = await getTranslator();
-  const guides = await listPublishedSpiritualLifeGuides(locale);
+  let guides: Awaited<ReturnType<typeof listPublishedSpiritualLifeGuides>> = [];
+  try {
+    guides = await listPublishedSpiritualLifeGuides(locale);
+  } catch (err) {
+    // Fall back to the static formation cards rather than a 500.
+    logger.error("spiritual_life.list_failed", { error: (err as Error).message });
+  }
 
   return (
     <div>

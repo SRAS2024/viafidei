@@ -92,7 +92,7 @@ edited blindly:
 │   │   │                      # /profile/saints, /profile/apparitions,
 │   │   │                      # /profile/devotions, /profile/parishes,
 │   │   │                      # /profile/settings
-│   │   ├── admin/             # 14-card admin dashboard (see below)
+│   │   ├── admin/             # 15-card admin dashboard (see below)
 │   │   └── api/               # Route handlers (auth, admin, cron, internal,
 │   │                          # journal, settings, health, search)
 │   ├── components/
@@ -263,19 +263,6 @@ The app does not require, read, or fall back to any other secret. Local
 development, the test suite, and production deployments all run with this
 exact surface — there are no additional credentials to configure.
 
-### Future optional enhancements
-
-The current app intentionally has no integration with Redis, Sentry,
-Plausible, Meilisearch / OpenSearch, S3-compatible object storage,
-machine-translation providers, or third-party analytics. None of those
-services are wired up, none of them have an env var here, and none of them
-are required for tests, local development, or production deployment. If a
-future contributor adds one, it belongs in a new section here with its own
-`.env.example` entry and documented setup steps. The `SEARCH_PROVIDER`
-variable is recognised purely so `/api/admin/search/reindex` can echo back
-which backend is in use; the only currently supported value is the default
-(`postgres`), and the search panel queries Postgres directly.
-
 ---
 
 ## Internationalization
@@ -406,37 +393,206 @@ can short-circuit unchanged records.
 
 ---
 
-## Ingestion pipeline
+## Reader-facing pages
+
+The public site renders entirely from the catalog tables, with a small
+in-app fallback spine so pages stay alive if a table happens to be
+empty:
+
+- **Spiritual-life guides** (`/spiritual-life`, `/spiritual-life/[slug]`).
+  Each guide loads from `SpiritualLifeGuide`, with steps stored as
+  structured JSON. When a guide references a prayer (e.g. the Rosary
+  guide referencing the Apostles' Creed, the Our Father, the Hail
+  Mary), the page renders an `ExpandablePrayer` block per prayer:
+  collapsed → arrow points right; tapped open → arrow points down and
+  the full prayer body is shown; tapped again → it collapses. Slugs
+  match `Prayer.slug` so the live database wins, with canonical English
+  fallbacks in `src/lib/data/guide-prayers.ts` so a fresh deployment
+  still shows a complete prayer body.
+- **Saints** (`/saints`, `/saints/[slug]`). Each saint page renders the
+  story, historical background, important dates, major contributions,
+  feast day, and patronages by parsing the biography into labelled
+  sections (`src/lib/data/saint-sections.ts`). Either explicit
+  `Story:` / `Historical background:` / `Important dates:` /
+  `Major contributions:` markers in the source biography or a prose
+  heuristic split (year-mention paragraphs become "important dates")
+  power the layout. Pages link to `/admin/sources` for the source
+  ingestion provenance.
+- **Church history timeline** (`/liturgy-history/timeline`). Renders a
+  full chronological timeline from Christ's ministry through 2025: the
+  apostolic age, persecution, legalisation, the Church Fathers, every
+  early ecumenical council, the medieval Church, the Great Schism, the
+  Reformation, the Council of Trent, Vatican I, Vatican II, and modern
+  Church history. All twenty-one ecumenical councils are included with
+  date, location, historical context, key issues addressed, and major
+  outcomes. Each event is collapsed by default; tapping it shows the
+  full body, with the same right-arrow / down-arrow behaviour as the
+  prayer expander. The data comes from `LiturgyEntry` rows of kind
+  `COUNCIL_TIMELINE` plus any slug starting with `church-history-` or
+  `council-`, merged with the in-app fallback spine in
+  `src/lib/data/church-history.ts`.
+- **Liturgy & sacraments** (`/liturgy-history`,
+  `/liturgy-history/[slug]`). Mass structure, the liturgical year,
+  sacred symbols, vestments, marriage / funeral / ordination rites,
+  glossary entries, and general catechetical material. All rendered
+  from `LiturgyEntry`.
+- **Search** (`/search` and the header typeahead). Powered by
+  `searchAll()` and `suggest()` in `src/lib/data/search.ts`. Strict
+  Postgres `contains` matches run alongside fuzzy candidate sets that
+  use 3-letter sliding windows to tolerate single-character typos
+  (`rosery` → "Rosary"); results are scored with a Levenshtein-based
+  similarity so common misspellings of saint names, prayers, or guides
+  still surface a sensible suggestion. The index covers prayers,
+  saints, Marian apparitions, parishes, devotions, liturgy / Church
+  history entries, spiritual-life guides, and parish names. The header
+  typeahead caps suggestions at **2 on mobile** (< 640 px) and **3 on
+  tablet and desktop** (≥ 640 px) — driven live from `matchMedia` and
+  enforced again server-side via the `limit` query param on
+  `/api/search/suggest` so the payload never exceeds what is shown.
+- **Parish finder** (`/spiritual-guidance`,
+  `/spiritual-guidance/[slug]`). Combines manual search and an opt-in
+  device-location lookup via the W3C Geolocation API. Location is
+  asked for once: the user can accept (the answer is persisted to
+  `localStorage` so we don't re-prompt on every visit), decline, or
+  ignore the prompt. When granted, `/api/parishes/near` returns the
+  closest parishes within a 50 km radius using the haversine formula
+  on the published parish set (Postgres handles the `latitude` /
+  `longitude` filter, the application sorts by distance). Manual
+  search by name, city, region, or country always works regardless of
+  location permission. Parishes are populated through the
+  `vatican.parishes` adapter from approved bishops' conference
+  directories; each row carries `name`, `address`, `city`, `region`,
+  `country`, `phone`, `email`, `websiteUrl`, `diocese`, `latitude`,
+  `longitude`, plus the standard ingestion metadata
+  (`externalSourceKey`, `sourceHost`, `contentChecksum`).
+
+---
+
+## Content injection (ingestion) pipeline
 
 Scheduled scrapers register adapters, fetch from a hard-coded allowlist of
-Vatican-affiliated hosts, and write items to the moderation queue.
+approved Catholic sources, and write items to the moderation queue. The
+allowlist is the single point of truth for which hosts may populate doctrine,
+liturgy, Church history, prayers, saints, devotions, guides, or
+catechetical content — anything not on the allowlist is refused at fetch
+time.
 
-- Adapters live under `src/lib/ingestion/sources` and are registered via
-  `registerVaticanAdapters()` / `ensureVaticanSchedule()`.
-- New or changed records are persisted with `INGESTION_INITIAL_STATUS`
-  (defaulting to `REVIEW`) so nothing fetched goes live until an admin
-  approves it through `/admin/ingestion` or `/admin/<entity>`.
-- **In-process scheduler**: when `CRON_SECRET` is set, the running server
+### Approved-source allowlist
+
+The full list lives in `src/lib/ingestion/sources/vatican-allowlist.ts`
+and is rendered for admins at **`/admin/sources`**. It is organised in
+three tiers:
+
+- **Tier 1 — Holy See and Vatican press.** `vatican.va`, `press.vatican.va`,
+  `vaticannews.va`, `osservatoreromano.va`, `synod.va`, every Vatican
+  dicastery (`dicasteryforevangelization.va`, `doctrineoffaith.va`,
+  `dicasterydivineworship.va`, etc.), the Vatican Apostolic Library,
+  the Vatican Observatory, the Vatican Museums, and Vatican City State.
+- **Tier 2 — Conferences of bishops.** USCCB (United States), CCCB
+  (Canada), CBCEW (England & Wales), Irish Bishops, Australian Bishops,
+  New Zealand Bishops, CBCP (Philippines), SACBC (Southern Africa), CBCI
+  (India), DBK (Germany), Conferencia Episcopal Española, CEI
+  (Italy), Église catholique de France, Conferência Episcopal
+  Portuguesa, Konferencja Episkopatu Polski, CELAM, CEM (Mexico), CNBB
+  (Brazil), Argentine Episcopal Conference, Den katolske kirke i Norge,
+  plus major archdioceses (New York, Chicago, Boston, Milwaukee,
+  Westminster, Los Angeles).
+- **Tier 3 — Pontifical institutes and approved Catholic reference.**
+  Pontifical Lateran, Gregorian, and Holy Cross universities;
+  EWTN; Bible Gateway, Biblia.com, Douay-Rheims Bible Online; the
+  Liturgical Calendar service; iBreviary; Universalis (Liturgy of the
+  Hours); Corpus Christi Watershed; ICEL; Magnificat; New Advent
+  (Catholic Encyclopedia); the Christian Classics Ethereal Library
+  (patristic primary sources only).
+
+`isApprovedHost(...)` and `gateUrl(...)` are called at every fetch site so
+a misconfigured adapter cannot accidentally reach an off-list source.
+
+### Adapters and content types
+
+Adapters live under `src/lib/ingestion/sources/vatican-adapters.ts` and are
+registered via `registerVaticanAdapters()` / `ensureVaticanSchedule()`.
+The system has full ingestion support across the app:
+
+| Adapter               | Target table         | Content                                       |
+| --------------------- | -------------------- | --------------------------------------------- |
+| `vatican.prayers`     | `Prayer`             | Liturgical and devotional prayers             |
+| `catholic.prayers`    | `Prayer`             | Bishops' conference prayer catalogues         |
+| `vatican.saints`      | `Saint`              | Saint biographies from the Holy See           |
+| `bishops.saints`      | `Saint`              | Saint biographies from bishops' conferences   |
+| `vatican.apparitions` | `MarianApparition`   | Approved Marian apparitions                   |
+| `vatican.devotions`   | `Devotion`           | Devotions and spiritual practices             |
+| `catholic.devotions`  | `Devotion`           | Conference-republished devotional material    |
+| `vatican.parishes`    | `Parish`             | Parish directories                            |
+| `vatican.teaching`    | `LiturgyEntry`       | Catechism, encyclicals, sacraments, liturgy   |
+| `vatican.history`     | `LiturgyEntry`       | Church history events and ecumenical councils |
+| `vatican.guides`      | `SpiritualLifeGuide` | Spiritual-life guides (rosary, confession, …) |
+
+Each ingested record carries source metadata: `externalSourceKey` (the
+upstream URL — used for duplicate detection), `sourceHost` (parsed from
+the URL), `contentChecksum` (SHA-256 of the canonical content — short-
+circuits unchanged runs), `category` / `kind` for indexing, and a
+`createdAt` / `updatedAt` retrieval timestamp. Curated rows
+(`PUBLISHED` / `ARCHIVED`) are protected from automatic overwrites.
+
+### Validation and review workflow
+
+Every batch is sent through `sanitize()` and `validateItem()` before
+persistence: incomplete records (missing slug, title, or body shorter
+than the kind-specific minimum) are rejected, and any `externalSourceKey`
+that points off-allowlist is rejected. Surviving records land in the
+moderation queue at `INGESTION_INITIAL_STATUS` (defaulting to `REVIEW`)
+so nothing reaches the public site until an admin approves it through
+`/admin/ingestion` or `/admin/<entity>`.
+
+### Scheduling and observability
+
+- **In-process scheduler.** When `CRON_SECRET` is set, the running server
   schedules itself to call `POST /api/cron/ingest` after
   `INGESTION_INITIAL_DELAY_MS` (default 5 min) and then every
-  `INGESTION_INTERVAL_MS` (default 30 min). The first tick is deliberately
-  delayed so it never blocks deploy healthchecks. Set `INGESTION_DISABLED=true`
-  to opt out (e.g. when an external cron platform owns the schedule).
-- **External cron**: `POST /api/cron/ingest` with `Authorization: Bearer
-$CRON_SECRET`. The same handler accepts `GET` for platforms that prefer
-  it. `maxDuration` is 60s. Works with Railway Cron, Vercel Cron, GitHub
-  Actions, etc.
-- **Ad-hoc**: `POST /api/admin/ingestion/run` from the admin console (optional
-  `{ "jobName": "..." }` body). Records an audit entry.
-- Each run also performs scheduled housekeeping: prunes expired
-  `RateLimitBucket` rows, expires unused password-reset and email-verification
-  tokens, prunes old `IngestionJobRun` and `AdminAuditLog` rows, and flips
-  `ACTIVE` goals past their `dueDate` to `OVERDUE`.
-- A separate `POST /api/internal/cleanup` (also cron-secret authenticated)
-  prunes expired sessions and tokens between ingestion ticks.
-- Source-management endpoints under `/api/admin/sources` allow disabling,
-  marking official, recording reliability scores, and reading
-  `lastSuccessfulSync` / `lastFailedSync` per host.
+  `INGESTION_INTERVAL_MS` (default 30 min). The first tick is delayed so
+  it never blocks deploy healthchecks. Set `INGESTION_DISABLED=true` to
+  delegate scheduling to an external platform.
+- **External cron.** `POST /api/cron/ingest` with
+  `Authorization: Bearer $CRON_SECRET`. The same handler accepts `GET`
+  for platforms that prefer it. `maxDuration` is 60s.
+- **Ad-hoc.** `POST /api/admin/ingestion/run` from the admin console.
+  Records an audit entry.
+- **Failure isolation.** A single failing source records an
+  `IngestionJobRun` with status `FAILED` (or `PARTIAL`) and an error
+  message — the rest of the batch keeps running. Adapter fetches are
+  wrapped in try/catch so a 500 from upstream becomes an empty result
+  set rather than a thrown exception.
+- **Logs.** Every run writes to `IngestionJobRun` with `recordsSeen`,
+  `recordsCreated`, `recordsUpdated`, `recordsSkipped`, `recordsFailed`,
+  `recordsReviewRequired`, and `errorMessage`. Source-level rollups are
+  tracked on `IngestionSource.lastSuccessfulSync` /
+  `lastFailedSync` / `reliabilityScore`.
+- **Admin visibility.** `/admin/ingestion` lists registered sources and
+  job activity; `/admin/sources` renders the allowlist next to each
+  source's registration / sync status; `/admin/audit` records every
+  manual trigger. Source-management endpoints under `/api/admin/sources`
+  allow disabling, marking official, recording reliability scores, and
+  reading `lastSuccessfulSync` / `lastFailedSync` per host.
+- **Housekeeping piggyback.** Each ingestion run also prunes expired
+  `RateLimitBucket` rows, expires unused password-reset and email-
+  verification tokens, prunes old `IngestionJobRun` and `AdminAuditLog`
+  rows, and flips `ACTIVE` goals past their `dueDate` to `OVERDUE`. A
+  separate `POST /api/internal/cleanup` (also cron-secret authenticated)
+  prunes expired sessions and tokens between ticks.
+
+### Connecting prayers to guides
+
+`src/lib/data/guide-prayers.ts` maps each spiritual-life guide slug to an
+ordered list of prayer slugs. The detail page renders each one as an
+expandable section using `ExpandablePrayer` — the title shows with a
+right-pointing arrow when collapsed and a down-pointing arrow when
+expanded, with the full prayer text below. Bodies are looked up live in
+the `Prayer` table and fall back to in-app canonical English forms when
+a slug has not yet been ingested. The same component pattern is reused
+for the Church-history timeline at `/liturgy-history/timeline`, where
+`ExpandableTimelineEvent` renders every council and history event with
+the same arrow / collapse behaviour.
 
 ## Startup behaviour
 
@@ -476,7 +632,7 @@ requests immediately so Railway / Docker healthchecks never wait on it.
 - The `/admin` layout sets `robots: { index: false, follow: false }` so no
   admin page (including `/admin/login`) is indexable.
 
-`/admin` shows fourteen sections (`src/app/admin/_dashboard/cards.ts`):
+`/admin` shows fifteen sections (`src/app/admin/_dashboard/cards.ts`):
 
 1. Homepage mirror editor
 2. Prayers
@@ -487,11 +643,12 @@ requests immediately so Railway / Docker healthchecks never wait on it.
 7. Liturgy content
 8. Translations
 9. Ingestion jobs
-10. Search index
-11. Media library
-12. Favicon
-13. Audit log
-14. User accounts
+10. Approved sources (allowlist + per-host sync status)
+11. Search index
+12. Media library
+13. Favicon
+14. Audit log
+15. User accounts
 
 Content review actions go through `POST /api/admin/content/review` with
 `{ entityType, entityId, action, notes }` where `action` is

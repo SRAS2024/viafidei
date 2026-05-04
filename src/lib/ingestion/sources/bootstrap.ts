@@ -53,6 +53,21 @@ const ADAPTER_HOST_MAP: Record<string, { host: string; baseUrl: string; name: st
     baseUrl: "https://www.usccb.org",
     name: "Catholic Prayer Catalog",
   },
+  "vatican.teaching": {
+    host: "vatican.va",
+    baseUrl: "https://www.vatican.va",
+    name: "The Holy See — Catechesis & Liturgy",
+  },
+  "vatican.guides": {
+    host: "usccb.org",
+    baseUrl: "https://www.usccb.org",
+    name: "USCCB — Spiritual Life Guides",
+  },
+  "vatican.history": {
+    host: "vatican.va",
+    baseUrl: "https://www.vatican.va",
+    name: "The Holy See — Church History & Councils",
+  },
 };
 
 const ADAPTER_TARGET_ENTITY: Record<string, string> = {
@@ -64,6 +79,9 @@ const ADAPTER_TARGET_ENTITY: Record<string, string> = {
   "bishops.saints": "Saint",
   "catholic.devotions": "Devotion",
   "catholic.prayers": "Prayer",
+  "vatican.teaching": "LiturgyEntry",
+  "vatican.guides": "SpiritualLifeGuide",
+  "vatican.history": "LiturgyEntry",
 };
 
 let registered = false;

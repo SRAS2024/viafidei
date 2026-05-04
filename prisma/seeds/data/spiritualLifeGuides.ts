@@ -646,4 +646,118 @@ The Rosary is sometimes called "Mary's Psalter" — a way for the unlettered to 
     durationDays: 30,
     goalTemplateSlug: "daily-examen",
   },
+  {
+    slug: "praying-the-divine-mercy-chaplet",
+    kind: "DEVOTION",
+    title: "Praying the Divine Mercy Chaplet",
+    summary:
+      "How to pray the Chaplet of Divine Mercy revealed to Saint Faustina — using ordinary rosary beads.",
+    bodyText: `The Chaplet of Divine Mercy was given to Saint Faustina Kowalska in the 1930s and approved by the Holy See after extensive review. It is prayed on a standard rosary and centres on Christ's passion and his mercy.`,
+    steps: [
+      {
+        order: 1,
+        title: "Begin",
+        body: "Make the Sign of the Cross. Pray one Our Father, one Hail Mary, and the Apostles' Creed.",
+      },
+      {
+        order: 2,
+        title: "On each Our Father bead",
+        body: "Pray: Eternal Father, I offer You the Body and Blood, Soul and Divinity of Your dearly beloved Son, Our Lord Jesus Christ, in atonement for our sins and those of the whole world.",
+      },
+      {
+        order: 3,
+        title: "On each Hail Mary bead",
+        body: "Pray: For the sake of His sorrowful Passion, have mercy on us and on the whole world.",
+      },
+      {
+        order: 4,
+        title: "Repeat for five decades",
+        body: "On the larger and smaller beads of each decade.",
+      },
+      {
+        order: 5,
+        title: "Conclude",
+        body: "Pray three times: Holy God, Holy Mighty One, Holy Immortal One, have mercy on us and on the whole world. Optionally close with: Jesus, I trust in You.",
+      },
+    ],
+    durationDays: 9,
+    goalTemplateSlug: "divine-mercy-novena",
+  },
+  {
+    slug: "novena-to-the-sacred-heart",
+    kind: "DEVOTION",
+    title: "Novena to the Sacred Heart of Jesus",
+    summary:
+      "A nine-day preparation for the Solemnity of the Sacred Heart, devoted to honoring the love of Christ.",
+    bodyText: `Devotion to the Sacred Heart was developed especially through the apparitions to Saint Margaret Mary Alacoque (Paray-le-Monial, 1673–1675). The novena consists of nine days of prayer culminating on or before the Friday after Corpus Christi.`,
+    steps: [
+      {
+        order: 1,
+        title: "Daily prayer",
+        body: "Begin with the Sign of the Cross. Pray the Litany of the Sacred Heart.",
+      },
+      {
+        order: 2,
+        title: "Reflection",
+        body: "Each day meditate on a different aspect of Christ's Sacred Heart — its love, its sorrow, its pierced wound, its institution of the Eucharist.",
+      },
+      {
+        order: 3,
+        title: "Petition",
+        body: "Bring your specific intention before the Lord with confidence in his mercy.",
+      },
+      {
+        order: 4,
+        title: "Anima Christi and Our Father",
+        body: "Conclude each day with the Anima Christi and the Our Father.",
+      },
+      {
+        order: 5,
+        title: "On the ninth day",
+        body: "If possible, attend Mass and receive Holy Communion. Make an act of consecration to the Sacred Heart.",
+      },
+    ],
+    durationDays: 9,
+    goalTemplateSlug: "sacred-heart-novena",
+  },
+  {
+    slug: "preparing-for-mass",
+    kind: "GENERAL",
+    title: "Preparing for Mass",
+    summary:
+      "How to prepare body, mind, and soul before Mass so the celebration becomes a true encounter with Christ.",
+    bodyText: `The Eucharist is the source and summit of Christian life (Lumen Gentium 11). Fruitful participation begins long before the entrance procession.`,
+    steps: [
+      {
+        order: 1,
+        title: "Eucharistic fast",
+        body: "Refrain from food and drink (except water and medicine) for one hour before receiving Holy Communion (CIC 919).",
+      },
+      {
+        order: 2,
+        title: "Read the day's Scripture",
+        body: "Look up the readings the night before or that morning so the Word is already familiar when proclaimed.",
+      },
+      {
+        order: 3,
+        title: "Examine your conscience",
+        body: "Confess any mortal sin before approaching the altar. For lighter faults, the Penitential Rite begins the Mass.",
+      },
+      {
+        order: 4,
+        title: "Arrive early",
+        body: "Aim to be in the pew several minutes before Mass begins. Use the time for quiet prayer and intentional silence.",
+      },
+      {
+        order: 5,
+        title: "Pray with attention",
+        body: "Listen carefully to the prayers and readings. Pray the responses with the assembly, not as a private devotion.",
+      },
+      {
+        order: 6,
+        title: "Make a thanksgiving",
+        body: "After Mass, remain a few moments to make a personal thanksgiving for Holy Communion. Anima Christi is a fitting prayer.",
+      },
+    ],
+  },
 ];

@@ -328,6 +328,7 @@ const admin: Dict = {
   "admin.card.liturgy": "Liturgy content",
   "admin.card.translations": "Translations",
   "admin.card.ingestion": "Ingestion jobs",
+  "admin.card.sources": "Approved sources",
   "admin.card.search": "Search index",
   "admin.card.audit": "Audit log",
   "admin.card.media": "Media library",

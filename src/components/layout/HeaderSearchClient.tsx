@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import { SearchIcon } from "../icons/SearchIcon";
 
 type Suggestion = {
-  group: "prayers" | "saints" | "apparitions" | "parishes" | "devotions";
+  group:
+    | "prayers"
+    | "saints"
+    | "apparitions"
+    | "parishes"
+    | "devotions"
+    | "liturgy"
+    | "spiritualLife";
   id: string;
   slug: string;
   label: string;
@@ -17,6 +24,8 @@ const PATH_FOR_GROUP: Record<Suggestion["group"], string> = {
   apparitions: "/saints",
   parishes: "/spiritual-guidance",
   devotions: "/devotions",
+  liturgy: "/liturgy-history",
+  spiritualLife: "/spiritual-life",
 };
 
 type Props = {

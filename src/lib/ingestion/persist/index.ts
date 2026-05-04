@@ -5,6 +5,8 @@ import { persistSaint } from "./persist-saint";
 import { persistApparition } from "./persist-apparition";
 import { persistParish } from "./persist-parish";
 import { persistDevotion } from "./persist-devotion";
+import { persistLiturgy } from "./persist-liturgy";
+import { persistGuide } from "./persist-guide";
 import { applyTagsToEntity } from "./persist-tags";
 import { dedupeBatch } from "./dedup";
 
@@ -23,6 +25,8 @@ const ENTITY_TYPE_BY_KIND = {
   apparition: "MarianApparition",
   parish: "Parish",
   devotion: "Devotion",
+  liturgy: "LiturgyEntry",
+  guide: "SpiritualLifeGuide",
 } as const;
 
 export async function persistItems(
@@ -54,5 +58,9 @@ function dispatch(item: IngestedItem, status: ContentStatus) {
       return persistParish(item, status);
     case "devotion":
       return persistDevotion(item, status);
+    case "liturgy":
+      return persistLiturgy(item, status);
+    case "guide":
+      return persistGuide(item, status);
   }
 }

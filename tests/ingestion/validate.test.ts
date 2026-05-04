@@ -86,6 +86,75 @@ describe("validateItem", () => {
     const sneaky = { kind: "journal" } as unknown as IngestedItem;
     expect(validateItem(sneaky)).toMatch(/protected user-generated content/);
   });
+
+  it("accepts a well-formed liturgy entry", () => {
+    expect(
+      validateItem({
+        kind: "liturgy",
+        slug: "council-of-nicaea",
+        liturgyKind: "COUNCIL_TIMELINE",
+        title: "First Council of Nicaea",
+        body: "Convoked in 325 AD by Constantine to address the teaching of Arius and to define Christ as consubstantial with the Father.",
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects a liturgy entry with an unknown LiturgyKind", () => {
+    expect(
+      validateItem({
+        kind: "liturgy",
+        slug: "x",
+        // intentionally bad enum value — runtime guard
+        liturgyKind: "NOT_A_THING" as never,
+        title: "x",
+        body: "Some body that is at least 30 characters long for the validator.",
+      }),
+    ).toMatch(/not a recognised LiturgyKind/);
+  });
+
+  it("accepts a well-formed spiritual-life guide", () => {
+    expect(
+      validateItem({
+        kind: "guide",
+        slug: "how-to-pray-the-rosary",
+        guideKind: "ROSARY",
+        title: "How to Pray the Rosary",
+        summary: "A step-by-step guide to praying the Holy Rosary in five decades.",
+        steps: [
+          {
+            order: 1,
+            title: "Sign of the Cross",
+            body: "Begin with the Sign of the Cross.",
+          },
+        ],
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects a guide with an unknown SpiritualLifeKind", () => {
+    expect(
+      validateItem({
+        kind: "guide",
+        slug: "x",
+        guideKind: "NOT_A_KIND" as never,
+        title: "x",
+        summary: "An ordinary summary that is long enough.",
+      }),
+    ).toMatch(/not a recognised SpiritualLifeKind/);
+  });
+
+  it("rejects a guide with non-positive durationDays", () => {
+    expect(
+      validateItem({
+        kind: "guide",
+        slug: "x",
+        guideKind: "GENERAL",
+        title: "x",
+        summary: "An ordinary summary that is long enough.",
+        durationDays: -3,
+      }),
+    ).toMatch(/durationDays/);
+  });
 });
 
 describe("sanitize", () => {

@@ -2,9 +2,12 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedSpiritualLifeGuideBySlug } from "@/lib/data/spiritual-life";
-import { resolveGuidePrayers } from "@/lib/data/guide-prayers";
+import { resolveGuidePrayers, type GuidePrayerEntry } from "@/lib/data/guide-prayers";
 import { requireUser } from "@/lib/auth";
 import { ExpandablePrayer, AccountRequiredButton } from "@/components/ui";
+import { logger } from "@/lib/observability/logger";
+
+export const dynamic = "force-dynamic";
 
 type Props = { params: { slug: string } };
 
@@ -21,9 +24,36 @@ function parseSteps(raw: unknown): Step[] {
   return raw.filter(isStep).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
 }
 
+async function safeGetGuide(slug: string, locale: string) {
+  try {
+    return await getPublishedSpiritualLifeGuideBySlug(slug, locale as never);
+  } catch (err) {
+    logger.error("guide.lookup_failed", { slug, error: (err as Error).message });
+    return null;
+  }
+}
+
+async function safeResolvePrayers(slug: string, locale: string): Promise<GuidePrayerEntry[]> {
+  try {
+    return await resolveGuidePrayers(slug, locale as never);
+  } catch (err) {
+    logger.error("guide.prayer_resolve_failed", { slug, error: (err as Error).message });
+    return [];
+  }
+}
+
+async function safeRequireUser() {
+  try {
+    return await requireUser();
+  } catch (err) {
+    logger.warn("guide.requireUser_failed", { error: (err as Error).message });
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
-  const guide = await getPublishedSpiritualLifeGuideBySlug(params.slug, locale);
+  const guide = await safeGetGuide(params.slug, locale);
   if (!guide) return { title: "Not Found" };
   const tr = guide.translations[0];
   return { title: tr?.title ?? guide.title };
@@ -31,16 +61,16 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function SpiritualLifeDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
-  const guide = await getPublishedSpiritualLifeGuideBySlug(params.slug, locale);
+  const guide = await safeGetGuide(params.slug, locale);
   if (!guide) notFound();
 
   const tr = guide.translations[0];
-  const title = tr?.title ?? guide.title;
-  const summary = tr?.summary ?? guide.summary;
-  const bodyText = tr?.bodyText ?? guide.bodyText;
+  const title = tr?.title ?? guide.title ?? params.slug;
+  const summary = tr?.summary ?? guide.summary ?? "";
+  const bodyText = tr?.bodyText ?? guide.bodyText ?? null;
   const steps = parseSteps(tr?.steps ?? guide.steps);
-  const guidePrayers = await resolveGuidePrayers(guide.slug, locale);
-  const user = await requireUser();
+  const guidePrayers = await safeResolvePrayers(guide.slug, locale);
+  const user = await safeRequireUser();
 
   return (
     <div className="mx-auto max-w-3xl">
