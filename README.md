@@ -4,6 +4,8 @@
 > sacramental guidance, liturgy, and parish discovery — presented with reverence
 > and clarity.
 
+**Live site: [etviafidei.com](https://etviafidei.com)**
+
 Via Fidei is a Next.js 14 application that pairs a public, reader-facing site
 with an authenticated admin console for curating Catholic content. It supports
 twelve locales, persists data in PostgreSQL via Prisma, and ingests material
@@ -48,7 +50,8 @@ edited blindly:
 | Validation         | `zod`                                                                                  |
 | Locale negotiation | `negotiator` + cookie override                                                         |
 | Container          | Multi-stage `Dockerfile` (deps → builder → runner)                                     |
-| Deployment         | Railway-ready (`railway.json`, healthcheck on `/api/health`)                           |
+| Deployment         | Railway-ready (`railway.json`, healthcheck on `/api/health/live`)                      |
+| Email              | Postmark transactional sends (welcome, password reset, email verification)             |
 | Startup            | `instrumentation.ts` auto-seeds an empty DB and schedules in-process Vatican ingestion |
 | Unit / API tests   | Vitest 2 + v8 coverage (mocked Prisma, Next route handler imports)                     |
 | Component tests    | React Testing Library 15 + jsdom + jest-axe                                            |
@@ -67,38 +70,54 @@ edited blindly:
 │   └── seeds/                 # Domain seed data (prayers, saints, apparitions, devotions,
 │                              #                   parishes, liturgy entries, spiritual-life
 │                              #                   guides, site settings)
-├── public/                    # Static assets (favicon)
+├── public/                    # Static assets (favicon, Search Console verification file)
 ├── src/
 │   ├── app/                   # App Router routes
 │   │   ├── (public pages)     # /, /prayers, /saints, /devotions, /spiritual-life,
 │   │   │                      # /spiritual-guidance, /liturgy-history, /search,
-│   │   │                      # /login, /register
-│   │   ├── profile/           # /profile, /profile/journal, /goals,
-│   │   │                      # /milestones, /prayers, /saints, /apparitions,
-│   │   │                      # /devotions, /parishes, /settings
-│   │   ├── admin/             # 13-card admin dashboard (see below)
-│   │   └── api/               # Route handlers (auth, admin, cron, journal,
-│   │                          # settings, health)
-│   ├── components/            # Layout, icons, profile, ui primitives
+│   │   │                      # /login, /register, /forgot-password,
+│   │   │                      # /reset-password, /verify-email, /privacy
+│   │   ├── profile/           # /profile, /profile/journal, /profile/goals,
+│   │   │                      # /profile/milestones, /profile/prayers,
+│   │   │                      # /profile/saints, /profile/apparitions,
+│   │   │                      # /profile/devotions, /profile/parishes,
+│   │   │                      # /profile/settings
+│   │   ├── admin/             # 14-card admin dashboard (see below)
+│   │   └── api/               # Route handlers (auth, admin, cron, internal,
+│   │                          # journal, settings, health, search)
+│   ├── components/
+│   │   ├── icons/             # Cross, monogram, search, hamburger, profile silhouette
+│   │   ├── layout/            # Header, footer, brand, nav, mobile menu, search,
+│   │   │                      # user menu, route error
+│   │   ├── profile/           # Avatar, save button, unverified-email notice
+│   │   └── ui/                # ConfirmDialog, PageHero, RemoveSavedButton
 │   ├── lib/
-│   │   ├── auth/              # Session, password, schemas, user/admin helpers
+│   │   ├── auth/              # Session, password, schemas, user/admin helpers, tokens
 │   │   ├── audit/             # AdminAuditLog writer
 │   │   ├── concurrency/       # Lock helpers
-│   │   ├── content/           # Review workflow (approve/reject/revise/move-to-review)
-│   │   ├── data/              # Per-entity repositories
-│   │   ├── db/                # Shared Prisma client
-│   │   ├── http/              # Fetch client, retries, timeouts, JSON responses
-│   │   ├── i18n/              # 12-locale dictionaries, negotiator, translator
+│   │   ├── content/           # Review workflow + Catholic-rite filtering
+│   │   ├── data/              # Per-entity repositories + admin catalog + goal templates
+│   │   ├── db/                # Prisma client, table diagnostics, init
+│   │   ├── email/             # Postmark client, link builders, templates,
+│   │   │                      # send helpers, locale-aware translations
+│   │   ├── http/              # Fetch client, retries, timeouts, JSON responses,
+│   │   │                      # admin-catalog + saved-item route factories
+│   │   ├── i18n/              # 12-locale dictionaries, negotiator, translator,
+│   │   │                      # locale / theme / rite cookies
 │   │   ├── ingestion/         # Adapters, registry, runner, scheduler, persist
 │   │   ├── observability/     # Structured logger + request-id propagation
-│   │   └── security/          # Rate limit, hashing, crypto, request helpers,
-│   │                          # cron-auth, key resolution
+│   │   ├── security/          # Rate limit, hashing, crypto, request helpers,
+│   │   │                      # cron-auth, key resolution
+│   │   └── startup/           # Auto-seed bootstrap + content seeder
+│   ├── instrumentation.ts     # Next.js startup hook (auto-seed + ingestion schedule)
 │   └── middleware.ts          # Request-id + CSP / security headers
 ├── tests/                     # Vitest unit + component + API + ingestion + DB tests
 │   ├── auth/                  # Auth module (password, schemas, user, tokens, admin)
 │   ├── api/                   # Route handler tests (mocked Prisma)
 │   ├── components/            # RTL tests with `@vitest-environment jsdom`
+│   ├── data/                  # Repository tests (admin-users, etc.)
 │   ├── db/                    # checkRequiredTables / checkSeedContent
+│   ├── email/                 # Postmark client, templates, link builders, send helpers
 │   ├── fixtures/              # Factories + mock SourceAdapter / fetch
 │   ├── helpers/               # Prisma + cookie mocks
 │   ├── ingestion/             # validateItem + sanitize boundary tests
@@ -108,7 +127,7 @@ edited blindly:
 │   └── middleware.test.ts     # Request-id + security headers
 ├── e2e/                       # Playwright smoke + visual regression + perf
 ├── scripts/
-│   ├── start.sh               # Container entrypoint (migrate deploy → server)
+│   ├── start.sh               # Container entrypoint (wait for DB → migrate deploy → exec server)
 │   └── test-db.sh             # Reset isolated test DB (refuses prod URLs)
 ├── playwright.config.ts       # E2E + visual regression config
 ├── vitest.config.ts           # Unit + component test config (coverage thresholds)
@@ -171,7 +190,7 @@ npm run lint              # next lint (ESLint)
 npm run lint:fix          # next lint --fix
 npm run format            # prettier --write .
 npm run format:check
-npm run test              # Vitest: unit + component + API + DB + route tests
+npm run test              # Vitest: unit + component + API + DB + email + data + route tests
 npm run test:watch        # Vitest watch mode
 npm run test:coverage     # Vitest with coverage + threshold gate
 npm run test:integration  # Real-Postgres tests (requires TEST_DATABASE_URL)
@@ -214,7 +233,7 @@ production-strict schema):
 | `APP_URL`, `CANONICAL_URL`                    | Used for OG / metadata base                                                                      |
 | `LOG_LEVEL`                                   | `debug` \| `info` \| `warn` \| `error` (default: info in prod)                                   |
 | `JWT_REFRESH_SECRET`                          | Reserved for future refresh-token flow                                                           |
-| `POSTMARK_SERVER_TOKEN`, `EMAIL_FROM_ADDRESS` | Transactional email (planned wiring)                                                             |
+| `POSTMARK_SERVER_TOKEN`, `EMAIL_FROM_ADDRESS` | Transactional email via Postmark (welcome, password reset, email verification)                   |
 | `CLOUDINARY_*`                                | Media uploads                                                                                    |
 | `REDIS_URL`                                   | Optional cache / queue                                                                           |
 | `SENTRY_DSN`, `PLAUSIBLE_DOMAIN`              | Monitoring / analytics                                                                           |
@@ -249,8 +268,19 @@ Selection order:
 3. `DEFAULT_LOCALE` (`en`).
 
 `POST /api/settings/locale` updates the cookie. Each content entity (prayers,
-saints, apparitions, devotions) has a `*Translation` table keyed by `(entityId,
-locale)` with `MACHINE` / `HUMAN_REVIEWED` / `LOCKED` workflow status.
+saints, apparitions, devotions, liturgy entries, spiritual-life guides) has a
+`*Translation` table keyed by `(entityId, locale)` with `MACHINE` /
+`HUMAN_REVIEWED` / `LOCKED` workflow status.
+
+### Catholic rites
+
+Beyond locale, readers can choose a Catholic rite (`src/lib/content/rites.ts`)
+so liturgical content can be filtered to their tradition. Twelve rites are
+recognised — `roman` (Latin) is the default, with `byzantine`, `maronite`,
+`chaldean`, `coptic`, `syroMalabar`, `syroMalankara`, `armenian`, `ethiopic`,
+`melkite`, `ukrainian`, and `ruthenian`. The `vf_rite` cookie is set via
+`POST /api/settings/rite`. Rite-neutral content is shown to everyone; only
+rite-tagged slugs are filtered out when the reader's selection differs.
 
 ---
 
@@ -387,15 +417,18 @@ $CRON_SECRET`. The same handler accepts `GET` for platforms that prefer
 
 ## Startup behaviour
 
-When the Node process boots, `src/instrumentation.ts` runs once and:
+When the Node process boots, `src/instrumentation.ts` defers to
+`src/lib/startup/auto-seed.ts`, which:
 
 1. Confirms the database is reachable.
 2. Verifies that `prisma migrate deploy` produced the required tables.
-3. Counts published prayers — if zero, runs the bundled seed
-   (`src/lib/startup/seeder.ts`) to populate prayers, saints, apparitions,
-   devotions, parishes, liturgy entries, spiritual-life guides, and site
-   settings. If the table already has rows the seed is skipped.
-4. Schedules the in-process ingestion ticker described above.
+3. Counts published prayers — if zero, runs `seedAllContent()` from
+   `src/lib/startup/seeder.ts` to populate prayers, saints, apparitions,
+   devotions, parishes, liturgy entries, spiritual-life guides, and the
+   default favicon site setting. If the table already has rows the seed is
+   skipped.
+4. Schedules the in-process ingestion ticker described above (only if
+   `CRON_SECRET` is set and `INGESTION_DISABLED` is not `true`).
 
 All of this work is fire-and-forget — the HTTP server begins accepting
 requests immediately so Railway / Docker healthchecks never wait on it.
@@ -404,7 +437,7 @@ requests immediately so Railway / Docker healthchecks never wait on it.
 
 ## Admin console
 
-`/admin` is locked behind `requireAdmin` and shows thirteen sections
+`/admin` is locked behind `requireAdmin` and shows fourteen sections
 (`src/app/admin/_dashboard/cards.ts`):
 
 1. Homepage blocks
@@ -420,10 +453,14 @@ requests immediately so Railway / Docker healthchecks never wait on it.
 11. Media library
 12. Favicon
 13. Audit log
+14. User accounts
 
-Content actions go through `POST /api/admin/content/review` with
+Content review actions go through `POST /api/admin/content/review` with
 `{ entityType, entityId, action, notes }` where `action` is
-`approve` | `reject` | `request-revision` | `move-to-review`.
+`approve` | `reject` | `request-revision` | `move-to-review`. Direct CRUD on
+each catalog entity is exposed under `/api/admin/<entity>` via the
+`makeAdminCatalogIndex` / `makeAdminCatalogItem` factories
+(`src/lib/http/admin-catalog-routes.ts`).
 
 ---
 
@@ -433,7 +470,8 @@ Content actions go through `POST /api/admin/content/review` with
 
 | Method            | Path                                                          | Purpose                                                     |
 | ----------------- | ------------------------------------------------------------- | ----------------------------------------------------------- |
-| GET               | `/api/health`                                                 | Liveness + DB ping (used by Docker / Railway)               |
+| GET               | `/api/health`                                                 | Readiness + DB ping + table / seed diagnostics              |
+| GET               | `/api/health/live`                                            | Liveness probe (no DB touch). Used by Docker / Railway      |
 | POST              | `/api/auth/register`                                          | Create reader account                                       |
 | POST              | `/api/auth/login`                                             | Reader login                                                |
 | POST              | `/api/auth/logout`                                            | Reader logout                                               |
@@ -459,6 +497,8 @@ Content actions go through `POST /api/admin/content/review` with
 | POST              | `/api/goals/[id]/checklist`                                   | Append a checklist item                                     |
 | POST              | `/api/goals/[id]/checklist/reorder`                           | Reorder checklist items                                     |
 | PATCH / DEL       | `/api/goals/[id]/checklist/[itemId]`                          | Edit / delete a checklist item                              |
+| GET               | `/api/goals/templates`                                        | List built-in goal templates (novenas, consecrations, OCIA) |
+| POST              | `/api/goals/from-template`                                    | Instantiate a goal (with checklist) from a template         |
 | GET / POST        | `/api/milestones`                                             | List / create user milestones                               |
 | DELETE            | `/api/milestones/[id]`                                        | Delete a milestone                                          |
 | GET               | `/api/prayers`, `/api/prayers/[slug]`                         | Published prayers list / detail (locale-aware)              |
@@ -472,25 +512,43 @@ Content actions go through `POST /api/admin/content/review` with
 | GET               | `/api/search`                                                 | Unified search across all content types                     |
 | GET               | `/api/search/suggest`                                         | Typeahead suggestions grouped by content type               |
 | POST              | `/api/settings/locale`                                        | Set locale cookie                                           |
+| POST              | `/api/settings/rite`                                          | Set Catholic rite cookie                                    |
 
 ### Admin
 
-| Method       | Path                        | Purpose                                                  |
-| ------------ | --------------------------- | -------------------------------------------------------- |
-| POST         | `/api/admin/login`          | Admin login                                              |
-| POST         | `/api/admin/logout`         | Admin logout                                             |
-| POST         | `/api/admin/content/review` | Approve / reject / revise / move-to-review               |
-| POST         | `/api/admin/ingestion/run`  | Run a single job or all active jobs                      |
-| GET / POST   | `/api/admin/sources`        | List / create ingestion sources                          |
-| GET / PATCH  | `/api/admin/sources/[id]`   | Read / update an ingestion source                        |
-| GET / POST   | `/api/admin/media`          | List / register a media asset (Cloudinary URL)           |
-| GET / DEL    | `/api/admin/media/[id]`     | Read / delete a media asset                              |
-| GET          | `/api/admin/audit`          | Filterable audit log                                     |
-| POST         | `/api/admin/search/reindex` | Trigger reindex / housekeeping                           |
-| GET          | `/api/admin/translations`   | Translation row counts                                   |
-| GET / POST   | `/api/admin/favicon`        | Read / replace favicon asset                             |
-| GET / POST   | `/api/admin/homepage`       | Read / update homepage block config                      |
-| POST (`GET`) | `/api/cron/ingest`          | Run scheduler + housekeeping (cron-secret authenticated) |
+| Method                    | Path                                                | Purpose                                                  |
+| ------------------------- | --------------------------------------------------- | -------------------------------------------------------- |
+| POST                      | `/api/admin/login`                                  | Admin login                                              |
+| POST                      | `/api/admin/logout`                                 | Admin logout                                             |
+| POST                      | `/api/admin/content/review`                         | Approve / reject / revise / move-to-review               |
+| GET / POST                | `/api/admin/prayers`                                | List / create prayers (catalog)                          |
+| PATCH / DELETE            | `/api/admin/prayers/[id]`                           | Update / delete a prayer                                 |
+| GET / POST                | `/api/admin/saints`                                 | List / create saints                                     |
+| PATCH / DELETE            | `/api/admin/saints/[id]`                            | Update / delete a saint                                  |
+| GET / POST                | `/api/admin/apparitions`                            | List / create Marian apparitions                         |
+| PATCH / DELETE            | `/api/admin/apparitions/[id]`                       | Update / delete an apparition                            |
+| GET / POST                | `/api/admin/parishes`                               | List / create parishes                                   |
+| PATCH / DELETE            | `/api/admin/parishes/[id]`                          | Update / delete a parish                                 |
+| GET / POST                | `/api/admin/devotions`                              | List / create devotions                                  |
+| PATCH / DELETE            | `/api/admin/devotions/[id]`                         | Update / delete a devotion                               |
+| GET / POST                | `/api/admin/liturgy`                                | List / create liturgy entries                            |
+| PATCH / DELETE            | `/api/admin/liturgy/[id]`                           | Update / delete a liturgy entry                          |
+| GET / POST                | `/api/admin/spiritual-life`                         | List / create spiritual-life guides                      |
+| PATCH / DELETE            | `/api/admin/spiritual-life/[id]`                    | Update / delete a spiritual-life guide                   |
+| POST                      | `/api/admin/ingestion/run`                          | Run a single job or all active jobs                      |
+| PATCH                     | `/api/admin/ingestion/jobs/[id]`                    | Pause / resume or re-schedule a job                      |
+| GET / POST                | `/api/admin/sources`                                | List / create ingestion sources                          |
+| GET / PATCH               | `/api/admin/sources/[id]`                           | Read / update an ingestion source                        |
+| GET / POST                | `/api/admin/media`                                  | List / register a media asset (Cloudinary URL)           |
+| GET / DELETE              | `/api/admin/media/[id]`                             | Read / delete a media asset                              |
+| GET                       | `/api/admin/users`                                  | Paginated, searchable user listing                       |
+| GET                       | `/api/admin/audit`                                  | Filterable audit log                                     |
+| POST                      | `/api/admin/search/reindex`                         | Trigger reindex / housekeeping                           |
+| GET                       | `/api/admin/translations`                           | Translation row counts                                   |
+| GET / POST                | `/api/admin/favicon`                                | Read / replace favicon asset                             |
+| GET / POST                | `/api/admin/homepage`                               | Read / update homepage block config                      |
+| POST (`GET`)              | `/api/cron/ingest`                                  | Run scheduler + housekeeping (cron-secret authenticated) |
+| POST / GET                | `/api/internal/cleanup`                             | Prune sessions / tokens / rate-limits (cron-secret auth) |
 
 ---
 
@@ -500,23 +558,31 @@ Content actions go through `POST /api/admin/content/review` with
 
 The `Dockerfile` builds a slim three-stage image (`node:20-bookworm-slim`),
 runs as non-root user `nextjs:nodejs`, and exposes `3000`. The container
-entrypoint runs:
+entrypoint is `scripts/start.sh`, which:
 
-```sh
-node node_modules/prisma/build/index.js migrate deploy && node server.js
-```
+1. Probes the database for up to 60s so a slow-starting Postgres service
+   doesn't crash the container.
+2. Runs `prisma migrate deploy`. If the migration fails, the script logs the
+   failure but **still** starts the server so `/api/health` can surface
+   `migration_required` instead of looping the deploy.
+3. `exec`s into `node server.js` so Node owns PID 1 and SIGTERM propagates
+   cleanly on restart.
 
-The Prisma CLI is invoked through its file path (not via `node_modules/.bin/`
-or a global `prisma`) because the Next.js standalone output does not preserve
-the symlinks under `.bin/`. A `HEALTHCHECK` polls `/api/health` after a 60s
-start period; the endpoint reports `migration_required` when expected tables
-are missing so deploys fail fast in that scenario.
+The Prisma CLI is invoked through its file path
+(`node node_modules/prisma/build/index.js`) because the Next.js standalone
+output does not preserve the symlinks under `node_modules/.bin/`.
+
+A `HEALTHCHECK` polls `/api/health/live` after a 60s start period. That
+endpoint deliberately does **not** touch the database — a transient DB blip
+must not flip the container unhealthy. `/api/health` is the readiness /
+diagnostic endpoint and reports `migration_required` when expected tables
+are missing.
 
 ### Railway
 
-`railway.json` builds with the Dockerfile, uses the same `migrate deploy &&
-server.js` start command, and points the platform healthcheck at
-`/api/health` with a 180s timeout and a 5-retry on-failure restart policy.
+`railway.json` builds with the Dockerfile, runs `./scripts/start.sh` as the
+start command, and points the platform healthcheck at `/api/health/live`
+with a 180s timeout and a 5-retry on-failure restart policy.
 
 ### Build behaviour
 
