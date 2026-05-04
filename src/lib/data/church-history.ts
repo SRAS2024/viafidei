@@ -1,5 +1,6 @@
 import type { Locale } from "../i18n/locales";
 import { prisma } from "../db/client";
+import { logger } from "../observability/logger";
 
 /**
  * Church history timeline data.
@@ -593,18 +594,33 @@ const FALLBACK_BY_SLUG = new Map(FALLBACK_EVENTS.map((e) => [e.slug, e]));
  * fields once enough timeline rows exist.
  */
 export async function loadTimeline(locale: Locale): Promise<TimelineEvent[]> {
-  const dbRows = await prisma.liturgyEntry.findMany({
-    where: {
-      status: "PUBLISHED",
-      OR: [
-        { kind: "COUNCIL_TIMELINE" },
-        { slug: { startsWith: "church-history-" } },
-        { slug: { startsWith: "council-" } },
-      ],
-    },
-    include: { translations: { where: { locale } } },
-    orderBy: { title: "asc" },
-  });
+  type Row = Awaited<
+    ReturnType<
+      typeof prisma.liturgyEntry.findMany<{
+        include: { translations: true };
+      }>
+    >
+  >[number];
+  let dbRows: Row[] = [];
+  try {
+    dbRows = await prisma.liturgyEntry.findMany({
+      where: {
+        status: "PUBLISHED",
+        OR: [
+          { kind: "COUNCIL_TIMELINE" },
+          { slug: { startsWith: "church-history-" } },
+          { slug: { startsWith: "council-" } },
+        ],
+      },
+      include: { translations: { where: { locale } } },
+      orderBy: { title: "asc" },
+    });
+  } catch (err) {
+    // If the database is unavailable or the LiturgyEntry table is missing,
+    // we still want a complete timeline rendered from the fallback spine
+    // rather than a 500. The page is critical for SEO and onboarding.
+    logger.error("church_history.timeline_db_failed", { error: (err as Error).message });
+  }
 
   const merged = new Map<string, TimelineEvent>(FALLBACK_BY_SLUG);
 

@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedLiturgyBySlug } from "@/lib/data/liturgy";
+import { logger } from "@/lib/observability/logger";
+
+export const dynamic = "force-dynamic";
 
 type Props = { params: { slug: string } };
 
@@ -17,9 +20,18 @@ const KIND_LABELS: Record<string, string> = {
   GENERAL: "Formation",
 };
 
+async function safeGetEntry(slug: string, locale: string) {
+  try {
+    return await getPublishedLiturgyBySlug(slug, locale as never);
+  } catch (err) {
+    logger.error("liturgy.lookup_failed", { slug, error: (err as Error).message });
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
-  const entry = await getPublishedLiturgyBySlug(params.slug, locale);
+  const entry = await safeGetEntry(params.slug, locale);
   if (!entry) return { title: "Not Found" };
   const tr = entry.translations[0];
   return { title: tr?.title ?? entry.title };
@@ -27,7 +39,7 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function LiturgyDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
-  const entry = await getPublishedLiturgyBySlug(params.slug, locale);
+  const entry = await safeGetEntry(params.slug, locale);
   if (!entry) notFound();
 
   const tr = entry.translations[0];

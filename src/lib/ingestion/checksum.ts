@@ -59,6 +59,29 @@ function canonicalize(item: IngestedItem): string {
         String(item.durationMinutes ?? ""),
         tags,
       ].join("|");
+    case "liturgy":
+      return [
+        "liturgy",
+        item.slug,
+        item.liturgyKind,
+        item.title,
+        item.summary ?? "",
+        item.body,
+        tags,
+      ].join("|");
+    case "guide":
+      return [
+        "guide",
+        item.slug,
+        item.guideKind,
+        item.title,
+        item.summary,
+        item.bodyText ?? "",
+        JSON.stringify(item.steps ?? []),
+        String(item.durationDays ?? ""),
+        item.goalTemplateSlug ?? "",
+        tags,
+      ].join("|");
   }
 }
 

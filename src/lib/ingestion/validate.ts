@@ -74,6 +74,59 @@ function validateDevotion(item: IngestedItem & { kind: "devotion" }): string | n
   return null;
 }
 
+const LITURGY_KINDS = new Set([
+  "MASS_STRUCTURE",
+  "LITURGICAL_YEAR",
+  "SYMBOLISM",
+  "MARRIAGE_RITE",
+  "FUNERAL_RITE",
+  "ORDINATION_RITE",
+  "COUNCIL_TIMELINE",
+  "GLOSSARY",
+  "GENERAL",
+]);
+
+function validateLiturgy(item: IngestedItem & { kind: "liturgy" }): string | null {
+  if (!nonEmpty(item.slug)) return "Liturgy slug is required";
+  if (!nonEmpty(item.title)) return "Liturgy title is required";
+  if (!nonEmpty(item.body)) return "Liturgy body is required";
+  if (item.body.length < 30) return "Liturgy body looks too short";
+  if (!LITURGY_KINDS.has(item.liturgyKind)) {
+    return `Liturgy kind '${item.liturgyKind}' is not a recognised LiturgyKind`;
+  }
+  return null;
+}
+
+const GUIDE_KINDS = new Set([
+  "ROSARY",
+  "CONFESSION",
+  "ADORATION",
+  "DEVOTION",
+  "CONSECRATION",
+  "VOCATION",
+  "GENERAL",
+]);
+
+function validateGuide(item: IngestedItem & { kind: "guide" }): string | null {
+  if (!nonEmpty(item.slug)) return "Guide slug is required";
+  if (!nonEmpty(item.title)) return "Guide title is required";
+  if (!nonEmpty(item.summary)) return "Guide summary is required";
+  if (item.summary.length < 20) return "Guide summary looks too short";
+  if (!GUIDE_KINDS.has(item.guideKind)) {
+    return `Guide kind '${item.guideKind}' is not a recognised SpiritualLifeKind`;
+  }
+  if (item.steps && item.steps.length > 0) {
+    for (const s of item.steps) {
+      if (!nonEmpty(s.title)) return "Guide step title is required";
+      if (!nonEmpty(s.body)) return "Guide step body is required";
+    }
+  }
+  if (item.durationDays !== undefined && item.durationDays <= 0) {
+    return "Guide durationDays must be positive";
+  }
+  return null;
+}
+
 function validateExternalSourceKey(item: IngestedItem): string | null {
   const key = item.externalSourceKey;
   if (!key) return null;
@@ -106,6 +159,10 @@ export function validateItem(item: IngestedItem): string | null {
       return validateParish(item);
     case "devotion":
       return validateDevotion(item);
+    case "liturgy":
+      return validateLiturgy(item);
+    case "guide":
+      return validateGuide(item);
   }
 }
 

@@ -16,7 +16,7 @@ export type SearchHits = {
   spiritualLife: Awaited<ReturnType<typeof searchSpiritualLife>>;
 };
 
-const EMPTY_HITS: SearchHits = {
+export const EMPTY_HITS: SearchHits = {
   prayers: [],
   saints: [],
   apparitions: [],
@@ -114,7 +114,14 @@ function mergeFuzzy<T extends { id: string }>(
   return [...strict, ...extras];
 }
 
-export type SuggestionGroup = "prayers" | "saints" | "apparitions" | "parishes" | "devotions";
+export type SuggestionGroup =
+  | "prayers"
+  | "saints"
+  | "apparitions"
+  | "parishes"
+  | "devotions"
+  | "liturgy"
+  | "spiritualLife";
 
 export type Suggestion = {
   group: SuggestionGroup;
@@ -177,6 +184,22 @@ async function fuzzyCandidatesDevotions(q: string, take: number) {
   });
 }
 
+async function fuzzyCandidatesLiturgy(q: string, take: number) {
+  const where = buildLooseWhere(q, ["title", "summary", "body"]);
+  return prisma.liturgyEntry.findMany({
+    where: { status: "PUBLISHED", ...where },
+    take,
+  });
+}
+
+async function fuzzyCandidatesGuides(q: string, take: number) {
+  const where = buildLooseWhere(q, ["title", "summary", "bodyText"]);
+  return prisma.spiritualLifeGuide.findMany({
+    where: { status: "PUBLISHED", ...where },
+    take,
+  });
+}
+
 /**
  * Build a Prisma where clause that matches if any of the given fields
  * contains either the full query or any 3-letter window of it. The 3-letter
@@ -218,12 +241,14 @@ export async function suggest(q: string, perGroup = 5): Promise<Suggestion[]> {
   if (!q || q.length < 2) return [];
 
   const candidatePool = Math.max(perGroup * 4, 12);
-  const [prayers, saints, apparitions, parishes, devotions] = await Promise.all([
+  const [prayers, saints, apparitions, parishes, devotions, liturgy, guides] = await Promise.all([
     fuzzyCandidatesPrayers(q, candidatePool),
     fuzzyCandidatesSaints(q, candidatePool),
     fuzzyCandidatesApparitions(q, candidatePool),
     fuzzyCandidatesParishes(q, candidatePool),
     fuzzyCandidatesDevotions(q, candidatePool),
+    fuzzyCandidatesLiturgy(q, candidatePool),
+    fuzzyCandidatesGuides(q, candidatePool),
   ]);
 
   const out: Suggestion[] = [];
@@ -270,6 +295,16 @@ export async function suggest(q: string, perGroup = 5): Promise<Suggestion[]> {
     id: d.id,
     slug: d.slug,
     label: d.title,
+  }));
+  pushScored("liturgy", liturgy, (e) => ({
+    id: e.id,
+    slug: e.slug,
+    label: e.title,
+  }));
+  pushScored("spiritualLife", guides, (g) => ({
+    id: g.id,
+    slug: g.slug,
+    label: g.title,
   }));
 
   return out;

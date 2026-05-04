@@ -24,9 +24,14 @@ export const GUIDE_PRAYER_REFERENCES: Record<string, readonly string[]> = {
     "hail-holy-queen",
   ],
   "guide-to-confession": ["act-of-contrition", "anima-christi", "prayer-before-confession"],
-  "eucharistic-adoration": ["anima-christi", "tantum-ergo", "o-salutaris-hostia", "divine-praises"],
-  "consecration-to-jesus-through-mary": ["sub-tuum", "memorare", "salve-regina", "ave-maria"],
-  "discerning-a-vocation": ["litany-of-humility", "suscipe", "prayer-for-vocations"],
+  "eucharistic-adoration-guide": [
+    "anima-christi",
+    "tantum-ergo",
+    "o-salutaris-hostia",
+    "divine-praises",
+  ],
+  "marian-consecration-33-days": ["sub-tuum", "memorare", "salve-regina", "ave-maria"],
+  "discerning-your-vocation": ["litany-of-humility", "suscipe", "prayer-for-vocations"],
   "praying-the-divine-mercy-chaplet": [
     "pater-noster",
     "ave-maria",
@@ -35,11 +40,15 @@ export const GUIDE_PRAYER_REFERENCES: Record<string, readonly string[]> = {
     "divine-mercy-holy-god",
   ],
   "praying-the-liturgy-of-the-hours": ["pater-noster", "gloria-patri", "te-deum"],
-  "praying-with-scripture-lectio-divina": ["pater-noster", "veni-creator-spiritus"],
+  "guide-to-lectio-divina": ["pater-noster", "veni-creator-spiritus"],
   "novena-to-the-sacred-heart": ["sacred-heart-litany", "anima-christi", "pater-noster"],
-  "stations-of-the-cross": ["pater-noster", "ave-maria", "gloria-patri"],
-  "examination-of-conscience": ["act-of-contrition", "anima-christi"],
+  "guide-to-stations-of-the-cross": ["pater-noster", "ave-maria", "gloria-patri"],
+  "general-examination-of-conscience": ["act-of-contrition", "anima-christi"],
   "preparing-for-mass": ["pater-noster", "ave-maria", "anima-christi"],
+  "guide-to-novenas": ["pater-noster", "ave-maria", "gloria-patri"],
+  "the-seven-sacraments-overview": ["apostles-creed", "nicene-creed"],
+  "the-our-father-explained": ["pater-noster"],
+  "guide-to-the-creed": ["apostles-creed", "nicene-creed"],
 };
 
 /**

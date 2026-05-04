@@ -1,7 +1,14 @@
 import { prisma } from "../../db/client";
 import { normalizeSlug } from "../slug";
 
-type EntityType = "Prayer" | "Saint" | "MarianApparition" | "Parish" | "Devotion";
+type EntityType =
+  | "Prayer"
+  | "Saint"
+  | "MarianApparition"
+  | "Parish"
+  | "Devotion"
+  | "LiturgyEntry"
+  | "SpiritualLifeGuide";
 
 async function findEntityIdBySlug(entityType: EntityType, slug: string): Promise<string | null> {
   switch (entityType) {
@@ -23,6 +30,17 @@ async function findEntityIdBySlug(entityType: EntityType, slug: string): Promise
     }
     case "Devotion": {
       const e = await prisma.devotion.findUnique({ where: { slug }, select: { id: true } });
+      return e?.id ?? null;
+    }
+    case "LiturgyEntry": {
+      const e = await prisma.liturgyEntry.findUnique({ where: { slug }, select: { id: true } });
+      return e?.id ?? null;
+    }
+    case "SpiritualLifeGuide": {
+      const e = await prisma.spiritualLifeGuide.findUnique({
+        where: { slug },
+        select: { id: true },
+      });
       return e?.id ?? null;
     }
   }

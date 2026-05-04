@@ -7,14 +7,35 @@ import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
 import { parseSaintBiography } from "@/lib/data/saint-sections";
+import { logger } from "@/lib/observability/logger";
+
+export const dynamic = "force-dynamic";
 
 type Props = { params: { slug: string } };
 
+async function safeGetSaint(slug: string, locale: string) {
+  try {
+    return await getPublishedSaintBySlug(slug, locale as never);
+  } catch (err) {
+    logger.error("saint.lookup_failed", { slug, error: (err as Error).message });
+    return null;
+  }
+}
+
+async function safeGetApparition(slug: string, locale: string) {
+  try {
+    return await getPublishedApparitionBySlug(slug, locale as never);
+  } catch (err) {
+    logger.error("apparition.lookup_failed", { slug, error: (err as Error).message });
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
-  const saint = await getPublishedSaintBySlug(params.slug, locale);
+  const saint = await safeGetSaint(params.slug, locale);
   if (saint) return { title: saint.canonicalName };
-  const apparition = await getPublishedApparitionBySlug(params.slug, locale);
+  const apparition = await safeGetApparition(params.slug, locale);
   if (apparition) return { title: apparition.title };
   return { title: "Not Found" };
 }
@@ -23,7 +44,7 @@ export default async function SaintDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
 
   // Try saint first, then apparition
-  const saint = await getPublishedSaintBySlug(params.slug, locale);
+  const saint = await safeGetSaint(params.slug, locale);
   if (saint) {
     const user = await requireUser();
     const alreadySaved = user ? await isSaved("saint", user.id, saint.id) : false;
@@ -159,7 +180,7 @@ export default async function SaintDetailPage({ params }: Props) {
   }
 
   // Try apparition
-  const apparition = await getPublishedApparitionBySlug(params.slug, locale);
+  const apparition = await safeGetApparition(params.slug, locale);
   if (!apparition) notFound();
 
   const user = await requireUser();

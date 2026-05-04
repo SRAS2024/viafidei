@@ -1,15 +1,23 @@
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
-import { searchAll } from "@/lib/data/search";
+import { searchAll, EMPTY_HITS } from "@/lib/data/search";
 import { SearchInput, SearchResultGroup, buildSearchGroups } from "./_components";
+import { logger } from "@/lib/observability/logger";
 
+export const dynamic = "force-dynamic";
 export const metadata = { title: "Search" };
 
 export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
   const { t } = await getTranslator();
   const q = (searchParams.q ?? "").trim();
 
-  const hits = await searchAll(q);
+  let hits: Awaited<ReturnType<typeof searchAll>>;
+  try {
+    hits = await searchAll(q);
+  } catch (err) {
+    logger.error("search.page_failed", { q, error: (err as Error).message });
+    hits = EMPTY_HITS;
+  }
   const groups = buildSearchGroups(hits, t);
   const total = groups.reduce((acc, g) => acc + g.count, 0);
 

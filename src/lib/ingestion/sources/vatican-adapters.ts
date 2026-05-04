@@ -4,8 +4,10 @@ import type {
   AdapterResult,
   IngestedApparition,
   IngestedDevotion,
+  IngestedGuide,
   IngestedItem,
   IngestedKind,
+  IngestedLiturgy,
   IngestedParish,
   IngestedPrayer,
   IngestedSaint,
@@ -392,6 +394,177 @@ export function buildCatholicPrayersCrawler(): SourceAdapter {
   });
 }
 
+/**
+ * Catechesis / liturgy / Church history / sacrament / council content.
+ *
+ * Most catechetical material from the Holy See and the bishops' conferences
+ * lives on a small number of stable index pages — encyclical landing pages,
+ * Catechism online, the liturgy sections, and the synodal archive. We
+ * narrow the path filter so only those documents become LiturgyEntry rows
+ * (Christ-centred catechesis), and we let the categorize step decide
+ * whether the row's `liturgyKind` is GLOSSARY, COUNCIL_TIMELINE, or GENERAL.
+ */
+const TEACHING_PATH_HINTS = [
+  "/content/catechism",
+  "/archive/cathechism",
+  "/archive/catechism",
+  "/holy_father",
+  "/encyclicals",
+  "/apost_letters",
+  "/apost_exhortations",
+  "/motu_proprio",
+  "/liturgy",
+  "/councils",
+  "/synod",
+  "/liturgical-year",
+  "/sacraments",
+  "/beliefs-and-teachings",
+];
+
+function pickLiturgyKind(input: { url: string; title: string }): IngestedLiturgy["liturgyKind"] {
+  const u = input.url.toLowerCase();
+  const t = input.title.toLowerCase();
+  if (/council|nicaea|trent|vatican\s+i|vatican\s+ii|chalcedon|ephesus/.test(u + t)) {
+    return "COUNCIL_TIMELINE";
+  }
+  if (/marriage|matrimony/.test(u + t)) return "MARRIAGE_RITE";
+  if (/funeral|burial/.test(u + t)) return "FUNERAL_RITE";
+  if (/ordin/.test(u + t)) return "ORDINATION_RITE";
+  if (/liturgical[- ]year|advent|lent|christmas|easter/.test(u + t)) return "LITURGICAL_YEAR";
+  if (/mass|eucharist/.test(u + t)) return "MASS_STRUCTURE";
+  if (/symbol|sign|vestment/.test(u + t)) return "SYMBOLISM";
+  if (/glossary|dictionary|term/.test(u + t)) return "GLOSSARY";
+  return "GENERAL";
+}
+
+export function buildVaticanTeachingCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "vatican.teaching",
+    description:
+      "Catechetical, liturgical, sacramental and council content from the Holy See, USCCB, and bishops' conferences",
+    kind: "liturgy",
+    indexUrls: [
+      "https://www.vatican.va/archive/ENG0015/_INDEX.HTM", // Catechism EN
+      "https://www.vatican.va/holy_father/index.htm",
+      "https://www.vatican.va/roman_curia/congregations/ccdds/index.htm",
+      "https://www.usccb.org/beliefs-and-teachings",
+      "https://www.usccb.org/prayer-and-worship/sacraments-and-sacramentals",
+    ],
+    linkFilter: (u) =>
+      TEACHING_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
+      /catechism|encyclical|liturgy|council|sacrament|teaching/i.test(u.pathname),
+    toItem: ({ url, title, description, bodyText }): IngestedLiturgy | null => {
+      const body = bodyText || description || "";
+      if (body.length < 60) return null;
+      return {
+        kind: "liturgy",
+        slug: buildSlug(title),
+        liturgyKind: pickLiturgyKind({ url, title }),
+        title,
+        summary: description ?? undefined,
+        body,
+        externalSourceKey: urlToExternalKey(url),
+      };
+    },
+  });
+}
+
+/**
+ * Spiritual life guides from approved sources. Most guides on the Vatican
+ * and bishops' conference sites are devotional landing pages: how to pray
+ * the Rosary, how to receive Communion well, preparing for Confirmation.
+ * They map naturally onto SpiritualLifeGuide rows.
+ */
+const GUIDE_PATH_HINTS = [
+  "/how-to",
+  "/guide-to",
+  "/preparing",
+  "/learn",
+  "/spiritual-life",
+  "/prayer-and-worship",
+];
+
+function pickGuideKind(input: { title: string }): IngestedGuide["guideKind"] {
+  const t = input.title.toLowerCase();
+  if (/rosary|rosario/.test(t)) return "ROSARY";
+  if (/confession|reconciliation|penance/.test(t)) return "CONFESSION";
+  if (/adoration|eucharist/.test(t)) return "ADORATION";
+  if (/consecration|marian/.test(t)) return "CONSECRATION";
+  if (/vocation|discern/.test(t)) return "VOCATION";
+  if (/devotion|novena/.test(t)) return "DEVOTION";
+  return "GENERAL";
+}
+
+export function buildVaticanGuidesCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "vatican.guides",
+    description:
+      "Spiritual-life guides (rosary, confession, adoration, consecration, vocation discernment) from approved Catholic sources",
+    kind: "guide",
+    indexUrls: [
+      "https://www.usccb.org/prayer-and-worship",
+      "https://www.cbcew.org.uk/home/our-faith/prayers/",
+    ],
+    linkFilter: (u) =>
+      GUIDE_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
+      /rosary|confession|adoration|consecration|vocation/i.test(u.pathname),
+    toItem: ({ url, title, description, bodyText }): IngestedGuide | null => {
+      const summary = description || bodyText.slice(0, 300) || "";
+      const bodyTextOut = bodyText.length > summary.length ? bodyText : undefined;
+      if (summary.length < 20) return null;
+      return {
+        kind: "guide",
+        slug: buildSlug(title),
+        guideKind: pickGuideKind({ title }),
+        title,
+        summary,
+        bodyText: bodyTextOut,
+        externalSourceKey: urlToExternalKey(url),
+      };
+    },
+  });
+}
+
+/**
+ * Church history events and ecumenical councils, persisted as LiturgyEntry
+ * rows with kind COUNCIL_TIMELINE so they appear in /liturgy-history/timeline.
+ * Index pages here focus on documents the Holy See itself catalogues as
+ * "councils" and historical synthesis pages from bishops' conferences.
+ */
+export function buildVaticanHistoryCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "vatican.history",
+    description:
+      "Church history, ecumenical councils, and synodal archives from approved Catholic sources",
+    kind: "liturgy",
+    indexUrls: [
+      "https://www.vatican.va/archive/hist_councils/index.htm",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/index.htm",
+      "https://www.usccb.org/about/leadership/holy-see/papal-history",
+    ],
+    linkFilter: (u) =>
+      /councils?|synod|history|papacy/i.test(u.pathname) ||
+      /vatican_council|trent|nicaea|chalcedon|lateran|ephesus/i.test(u.pathname),
+    toItem: ({ url, title, description, bodyText }): IngestedLiturgy | null => {
+      const body = bodyText || description || "";
+      if (body.length < 60) return null;
+      const slugBase = buildSlug(title);
+      // History events go under church-history-* by convention so the
+      // timeline loader picks them up.
+      const slug = slugBase.startsWith("council-") ? slugBase : `church-history-${slugBase}`;
+      return {
+        kind: "liturgy",
+        slug,
+        liturgyKind: "COUNCIL_TIMELINE",
+        title,
+        summary: description ?? undefined,
+        body,
+        externalSourceKey: urlToExternalKey(url),
+      };
+    },
+  });
+}
+
 export function buildAllVaticanCrawlers(): SourceAdapter[] {
   return [
     buildVaticanPrayerCrawler(),
@@ -404,5 +577,9 @@ export function buildAllVaticanCrawlers(): SourceAdapter[] {
     buildBishopsConferenceSaintsCrawler(),
     buildCatholicDevotionsCrawler(),
     buildCatholicPrayersCrawler(),
+    // Catechetical / liturgical / sacramental / council / history / guides.
+    buildVaticanTeachingCrawler(),
+    buildVaticanGuidesCrawler(),
+    buildVaticanHistoryCrawler(),
   ];
 }

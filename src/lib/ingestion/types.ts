@@ -1,4 +1,11 @@
-export type IngestedKind = "prayer" | "saint" | "apparition" | "parish" | "devotion";
+export type IngestedKind =
+  | "prayer"
+  | "saint"
+  | "apparition"
+  | "parish"
+  | "devotion"
+  | "liturgy"
+  | "guide";
 
 export type IngestedPrayer = {
   kind: "prayer";
@@ -65,12 +72,65 @@ export type IngestedDevotion = {
   tagSlugs?: string[];
 };
 
+/**
+ * LiturgyEntry kinds covered by ingestion adapters: Mass structure,
+ * liturgical-year material, sacraments, ecumenical councils, Church
+ * history events, glossary terms, and general Catholic teaching topics
+ * all share this content shape and live in the LiturgyEntry table.
+ */
+export type IngestedLiturgyKind =
+  | "MASS_STRUCTURE"
+  | "LITURGICAL_YEAR"
+  | "SYMBOLISM"
+  | "MARRIAGE_RITE"
+  | "FUNERAL_RITE"
+  | "ORDINATION_RITE"
+  | "COUNCIL_TIMELINE"
+  | "GLOSSARY"
+  | "GENERAL";
+
+export type IngestedLiturgy = {
+  kind: "liturgy";
+  slug: string;
+  liturgyKind: IngestedLiturgyKind;
+  title: string;
+  summary?: string;
+  body: string;
+  externalSourceKey?: string;
+  tagSlugs?: string[];
+};
+
+export type IngestedSpiritualLifeKind =
+  | "ROSARY"
+  | "CONFESSION"
+  | "ADORATION"
+  | "DEVOTION"
+  | "CONSECRATION"
+  | "VOCATION"
+  | "GENERAL";
+
+export type IngestedGuide = {
+  kind: "guide";
+  slug: string;
+  guideKind: IngestedSpiritualLifeKind;
+  title: string;
+  summary: string;
+  bodyText?: string;
+  steps?: Array<{ order: number; title: string; body: string }>;
+  durationDays?: number;
+  goalTemplateSlug?: string;
+  externalSourceKey?: string;
+  tagSlugs?: string[];
+};
+
 export type IngestedItem =
   | IngestedPrayer
   | IngestedSaint
   | IngestedApparition
   | IngestedParish
-  | IngestedDevotion;
+  | IngestedDevotion
+  | IngestedLiturgy
+  | IngestedGuide;
 
 export type ConditionalState = {
   etag?: string | null;
