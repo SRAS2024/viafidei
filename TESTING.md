@@ -28,8 +28,12 @@ tests/
   helpers/             # prisma-mock.ts, cookies-mock.ts
   ingestion/           # ingestion validation + mock-source tests
   integration/         # real-DB integration tests (gated)
-  middleware.test.ts   # Next.js middleware
-  routes/              # static route coverage (no DB needed)
+  middleware.test.ts   # Next.js middleware (incl. /admin redirect protection)
+  routes/              # static route coverage:
+                       #   route-coverage.test.ts — every page.tsx URL is reachable
+                       #   admin-routes.test.ts   — /admin login/logout redirects + no legacy admin path refs
+                       #   sitemap.test.ts        — sitemap & robots: published-only, excludes admin/auth pages
+                       #   static-files.test.ts   — Google verification file & single-source sitemap
   security/            # rate-limit
   setup.ts             # shared env stubs
   setup.dom.ts         # jsdom + RTL cleanup
@@ -51,6 +55,30 @@ npm run test:db:setup     # Reset the test DB from migrations + seeds.
 npm run verify            # typecheck + lint + format:check + test
 npm run verify:full       # verify + integration + e2e + production build
 ```
+
+## Admin route, sitemap, and verification-file checks
+
+The route-level tests under `tests/routes/` and `tests/middleware.test.ts`
+together pin down the behavior the SEO and admin-access requirements care
+about. They do not need a database (Prisma is mocked):
+
+- `tests/routes/admin-routes.test.ts` walks the full source tree to confirm no
+  stray references to the legacy admin path exist anywhere, and asserts the
+  admin login route redirects success → `/admin?welcome=1`, failure →
+  `/admin/login?error=invalid`, and logout → `/admin/login`.
+- `tests/middleware.test.ts` asserts unauthenticated requests to `/admin` and
+  `/admin/<section>` are 303-redirected to `/admin/login`, while
+  `/admin/login`, `/api/admin/login`, and `/api/admin/logout` are reachable.
+- `tests/routes/sitemap.test.ts` confirms `/sitemap.xml` includes the public
+  pages and only `PUBLISHED` content rows (with `updatedAt` as `lastmod`),
+  and excludes `/admin`, `/login`, `/register`, `/forgot-password`,
+  `/reset-password`, `/verify-email`, and `/profile`. It also confirms
+  `robots.txt` points at `/sitemap.xml` and disallows `/admin` plus the
+  account routes.
+- `tests/routes/static-files.test.ts` confirms `public/google0292583cfdf40074.html`
+  exists with the body Google's verification protocol requires, and that
+  `public/sitemap.xml` does **not** exist (single source of truth lives at
+  `src/app/sitemap.ts`).
 
 ## Coverage thresholds
 
