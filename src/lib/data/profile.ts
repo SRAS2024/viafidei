@@ -33,11 +33,13 @@ export async function ensureProfile(userId: string) {
 export async function updateProfile(userId: string, input: UpdateProfileInput) {
   await ensureProfile(userId);
   const data: { languageOverride?: string | null; theme?: string | null } = {};
+  let userLanguage: string | undefined;
   if (input.languageOverride !== undefined) {
     if (input.languageOverride === null || input.languageOverride === "") {
       data.languageOverride = null;
     } else if (isSupportedLocale(input.languageOverride)) {
       data.languageOverride = input.languageOverride;
+      userLanguage = input.languageOverride;
     } else {
       return { ok: false as const, reason: "invalid_locale" as const };
     }
@@ -46,6 +48,9 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
     data.theme = input.theme === null || input.theme === "" ? null : input.theme;
   }
   const updated = await prisma.profile.update({ where: { userId }, data });
+  if (userLanguage) {
+    await prisma.user.update({ where: { id: userId }, data: { language: userLanguage } });
+  }
   return { ok: true as const, profile: updated };
 }
 

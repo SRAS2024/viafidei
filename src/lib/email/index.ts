@@ -8,6 +8,18 @@ export { buildPasswordResetLink, buildEmailVerificationLink, getAppBaseUrl } fro
 export {
   renderPasswordResetEmail,
   renderEmailVerificationEmail,
+  renderWelcomeEmail,
+  SITE_NAME,
+  SITE_URL_DEFAULT,
   type RenderedEmail,
+  type WelcomeEmailParams,
+  type PasswordResetParams,
+  type EmailVerificationParams,
 } from "./templates";
-export { sendPasswordResetEmail, sendEmailVerificationEmail } from "./send";
+export {
+  sendPasswordResetEmail,
+  sendEmailVerificationEmail,
+  sendWelcomeEmail,
+  sendAccountEmail,
+} from "./send";
+export { resolveEmailLocale, translateEmail, type EmailLocale } from "./translations";

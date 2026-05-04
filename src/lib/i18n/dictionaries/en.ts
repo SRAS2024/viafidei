@@ -144,7 +144,10 @@ const auth: Dict = {
     "This sign-in is for Via Fidei members only. Administrators must use the dedicated admin portal.",
   "auth.invalid": "Email or password is incorrect.",
   "auth.mismatch": "Passwords do not match.",
-  "auth.weakPassword": "Password must be at least 12 characters.",
+  "auth.weakPassword":
+    "Password must be at least 5 characters and include at least one number and one capital letter.",
+  "auth.passwordRequirements":
+    "Use at least 5 characters, with at least one number and one capital letter.",
   "auth.signOut": "Sign out",
   "auth.forgot.title": "Forgot password",
   "auth.forgot.subtitle":
@@ -180,6 +183,16 @@ const auth: Dict = {
   "auth.verify.resendSent": "Verification email sent. Check your inbox.",
   "auth.verify.resendRateLimited": "Please wait before requesting another verification email.",
   "auth.verify.resendError": "Could not send the verification email. Please try again later.",
+  "auth.verify.alreadyVerified": "Your email is already verified.",
+  "auth.privacyNotice.before": "By selecting create account, you agree to our ",
+  "auth.privacyNotice.linkText": "privacy policy",
+  "auth.privacyNotice.after": ".",
+  "auth.success.created": "Account created. Welcome!",
+  "auth.success.passwordReset": "Password updated. You can now sign in.",
+  "auth.success.verified": "Your email is verified. Thank you!",
+  "auth.error.rateLimited": "Too many requests. Please wait a moment and try again.",
+  "auth.error.exists": "An account already exists for that email.",
+  "auth.error.generic": "Something went wrong. Please try again.",
 };
 
 const profile: Dict = {
@@ -320,14 +333,44 @@ const admin: Dict = {
   "admin.card.media": "Media library",
   "admin.card.homepage": "Homepage mirror editor",
   "admin.card.favicon": "Favicon",
+  "admin.card.users": "User Accounts",
   "admin.signOut": "Sign out of admin",
   "admin.welcomeLine": "You are signed in as the administrator.",
 };
 
 const footer: Dict = {
   "footer.copy": "Via Fidei — a reverent, private Catholic companion.",
-  "footer.canonical": "viafidei.com",
+  "footer.canonical": "etviafidei.com",
   "footer.copyright": "© 2025 Via Fidei. All rights reserved.",
+  "footer.privacy": "Privacy policy",
+};
+
+const privacy: Dict = {
+  "privacy.title": "Privacy policy",
+  "privacy.subtitle": "How Via Fidei handles the information you entrust to us.",
+  "privacy.intro":
+    "Via Fidei is a reverent, private Catholic companion. We treat your information with respect and only collect what we genuinely need to operate the service. This page is written in plain language and is not a legal document.",
+  "privacy.notSold.title": "We do not sell your information",
+  "privacy.notSold.body":
+    "Via Fidei does not sell user information. We do not rent or trade your personal data with advertisers or marketers.",
+  "privacy.notShared.title": "We do not intentionally share your data",
+  "privacy.notShared.body":
+    "We do not intentionally share user data except where it is needed to operate the service, comply with the law, protect Via Fidei and its users, or provide functionality you specifically request.",
+  "privacy.collect.title": "What we collect",
+  "privacy.collect.body":
+    "Via Fidei may collect basic account information including your name, email address, language preference, account creation date, and content you create within the app where applicable.",
+  "privacy.email.title": "Account-related emails",
+  "privacy.email.body":
+    "Via Fidei may send account-related emails for registration, welcome messages, password reset, email verification, security, and other service purposes.",
+  "privacy.processors.title": "Third-party providers",
+  "privacy.processors.body":
+    "Third-party infrastructure providers may process your data as needed for hosting, database storage, email delivery, security, and service operation. We work with vendors that take privacy and security seriously.",
+  "privacy.contact.title": "Contact",
+  "privacy.contact.body":
+    "Questions about this privacy policy can be sent to notifications@viafidei.com.",
+  "privacy.security.title": "A note on security",
+  "privacy.security.body":
+    "We follow common-sense security practices and continually improve them, but no online service can promise absolute security. We will not make promises we cannot keep.",
 };
 
 const common: Dict = {
@@ -366,5 +409,6 @@ export const en: Dict = {
   ...rite,
   ...admin,
   ...footer,
+  ...privacy,
   ...common,
 };

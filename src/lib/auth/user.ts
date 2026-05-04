@@ -1,4 +1,5 @@
 import { prisma } from "../db/client";
+import { DEFAULT_LOCALE, isSupportedLocale, type Locale } from "../i18n/locales";
 import { encryptAtRest } from "../security/crypto";
 import { hashPassword, verifyPassword } from "./password";
 import { getSession } from "./session";
@@ -8,24 +9,32 @@ export type CreateUserInput = {
   lastName: string;
   email: string;
   password: string;
+  language?: string | null;
 };
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+function resolveCreationLocale(input: string | null | undefined): Locale {
+  if (input && isSupportedLocale(input)) return input;
+  return DEFAULT_LOCALE;
+}
+
 export async function createUser(input: CreateUserInput) {
   const passwordHash = await hashPassword(input.password);
   const normalizedEmail = normalizeEmail(input.email);
+  const language = resolveCreationLocale(input.language);
   return prisma.user.create({
     data: {
       firstName: input.firstName,
       lastName: input.lastName,
       email: normalizedEmail,
       passwordHash,
+      language,
       emailEncrypted: encryptAtRest(normalizedEmail),
       nameEncrypted: encryptAtRest(`${input.firstName} ${input.lastName}`),
-      profile: { create: {} },
+      profile: { create: { languageOverride: language } },
     },
   });
 }

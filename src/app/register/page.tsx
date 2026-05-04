@@ -13,8 +13,12 @@ export default async function RegisterPage({ searchParams }: { searchParams: { e
       : searchParams.error === "weak"
         ? t("auth.weakPassword")
         : searchParams.error === "exists"
-          ? t("auth.invalid")
-          : null;
+          ? t("auth.error.exists")
+          : searchParams.error === "rate_limited"
+            ? t("auth.error.rateLimited")
+            : searchParams.error
+              ? t("auth.error.generic")
+              : null;
 
   return (
     <div className="mx-auto max-w-md pt-12">
@@ -35,13 +39,19 @@ export default async function RegisterPage({ searchParams }: { searchParams: { e
             email: t("auth.email"),
             password: t("auth.password"),
             passwordConfirm: t("auth.passwordConfirm"),
+            passwordRequirements: t("auth.passwordRequirements"),
             submit: t("auth.submitRegister"),
             show: t("auth.showPassword"),
             hide: t("auth.hidePassword"),
+            weakPassword: t("auth.weakPassword"),
+            mismatch: t("auth.mismatch"),
+            privacyBefore: t("auth.privacyNotice.before"),
+            privacyLink: t("auth.privacyNotice.linkText"),
+            privacyAfter: t("auth.privacyNotice.after"),
           }}
         />
         {errorMessage ? (
-          <p className="mt-4 text-center text-sm" style={{ color: "#8b1a1a" }}>
+          <p role="alert" className="mt-4 text-center text-sm" style={{ color: "#8b1a1a" }}>
             {errorMessage}
           </p>
         ) : null}

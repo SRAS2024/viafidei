@@ -1,25 +1,63 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
-export function RegisterForm({
-  labels,
-}: {
-  labels: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    passwordConfirm: string;
-    submit: string;
-    show: string;
-    hide: string;
-  };
-}) {
+const PASSWORD_MIN = 5;
+
+export type RegisterFormLabels = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  passwordConfirm: string;
+  passwordRequirements: string;
+  submit: string;
+  show: string;
+  hide: string;
+  weakPassword: string;
+  mismatch: string;
+  privacyBefore: string;
+  privacyLink: string;
+  privacyAfter: string;
+};
+
+function isStrongPassword(value: string): boolean {
+  if (value.length < PASSWORD_MIN) return false;
+  if (!/[0-9]/.test(value)) return false;
+  if (!/[A-Z]/.test(value)) return false;
+  return true;
+}
+
+export function RegisterForm({ labels }: { labels: RegisterFormLabels }) {
   const [showPassword, setShowPassword] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    setClientError(null);
+    const form = event.currentTarget;
+    const password = (form.elements.namedItem("password") as HTMLInputElement | null)?.value ?? "";
+    const passwordConfirm =
+      (form.elements.namedItem("passwordConfirm") as HTMLInputElement | null)?.value ?? "";
+    if (!isStrongPassword(password)) {
+      event.preventDefault();
+      setClientError(labels.weakPassword);
+      return;
+    }
+    if (password !== passwordConfirm) {
+      event.preventDefault();
+      setClientError(labels.mismatch);
+      return;
+    }
+  }
 
   return (
-    <form method="post" action="/api/auth/register" className="flex flex-col gap-5">
+    <form
+      method="post"
+      action="/api/auth/register"
+      className="flex flex-col gap-5"
+      onSubmit={handleSubmit}
+    >
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="firstName" className="vf-label">
@@ -32,6 +70,7 @@ export function RegisterForm({
             required
             className="vf-input"
             autoComplete="given-name"
+            maxLength={80}
           />
         </div>
         <div>
@@ -45,6 +84,7 @@ export function RegisterForm({
             required
             className="vf-input"
             autoComplete="family-name"
+            maxLength={80}
           />
         </div>
       </div>
@@ -60,6 +100,7 @@ export function RegisterForm({
           required
           className="vf-input"
           autoComplete="email"
+          maxLength={200}
         />
       </div>
 
@@ -77,10 +118,15 @@ export function RegisterForm({
           name="password"
           type={showPassword ? "text" : "password"}
           required
-          minLength={12}
+          minLength={PASSWORD_MIN}
+          pattern="(?=.*[A-Z])(?=.*\d).{5,}"
+          aria-describedby="password-requirements"
           className="vf-input"
           autoComplete="new-password"
         />
+        <p id="password-requirements" className="mt-1 font-serif text-xs text-ink-faint">
+          {labels.passwordRequirements}
+        </p>
       </div>
 
       <div>
@@ -92,11 +138,28 @@ export function RegisterForm({
           name="passwordConfirm"
           type={showPassword ? "text" : "password"}
           required
-          minLength={12}
+          minLength={PASSWORD_MIN}
           className="vf-input"
           autoComplete="new-password"
         />
       </div>
+
+      <p className="font-serif text-xs text-ink-faint" data-testid="register-privacy-notice">
+        {labels.privacyBefore}
+        <Link
+          href="/privacy"
+          className="underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
+        >
+          {labels.privacyLink}
+        </Link>
+        {labels.privacyAfter}
+      </p>
+
+      {clientError ? (
+        <p role="alert" className="text-center text-sm" style={{ color: "#8b1a1a" }}>
+          {clientError}
+        </p>
+      ) : null}
 
       <button type="submit" className="vf-btn vf-btn-primary mt-2">
         {labels.submit}

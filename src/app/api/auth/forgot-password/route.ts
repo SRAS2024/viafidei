@@ -24,25 +24,27 @@ export async function POST(req: NextRequest) {
   const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
   const user = await findUserByEmail(parsed.data.email);
   if (user) {
-    const issued = await issuePasswordResetToken(user.id);
-    logger.info("auth.password_reset.requested", {
-      userId: user.id,
-      requestId,
-      expiresAt: issued.expiresAt.toISOString(),
-    });
-    const result = await sendPasswordResetEmail({
-      to: parsed.data.email,
-      token: issued.token,
-      expiresAt: issued.expiresAt,
-    });
-    if (!result.ok) {
-      logger.error("auth.password_reset.email_failed", {
+    try {
+      const issued = await issuePasswordResetToken(user.id);
+      logger.info("auth.password_reset.requested", {
         userId: user.id,
         requestId,
-        reason: result.reason,
+        // Never log the raw token — only the expiration.
+        expiresAt: issued.expiresAt.toISOString(),
+      });
+      await sendPasswordResetEmail({
+        user,
+        token: issued.token,
+        expiresAt: issued.expiresAt,
+      });
+    } catch (error) {
+      logger.error("auth.password_reset.flow_failed", {
+        userId: user.id,
+        requestId,
+        message: error instanceof Error ? error.message : "unknown_error",
       });
     }
   }
-  // Always return ok to avoid leaking which addresses are registered.
+  // Always return the same generic success to avoid leaking which addresses are registered.
   return jsonOk({ accepted: true });
 }

@@ -8,9 +8,11 @@ type Labels = {
   invalid: string;
   expired: string;
   used: string;
+  rateLimited: string;
+  error: string;
 };
 
-type Status = "checking" | "success" | "invalid" | "expired" | "used";
+type Status = "checking" | "success" | "invalid" | "expired" | "used" | "rate_limited" | "error";
 
 export function VerifyEmailClient({ token, labels }: { token: string; labels: Labels }) {
   const [status, setStatus] = useState<Status>("checking");
@@ -37,6 +39,10 @@ export function VerifyEmailClient({ token, labels }: { token: string; labels: La
           setStatus("success");
           return;
         }
+        if (res.status === 429) {
+          setStatus("rate_limited");
+          return;
+        }
         if (data.message === "expired") {
           setStatus("expired");
           return;
@@ -45,9 +51,13 @@ export function VerifyEmailClient({ token, labels }: { token: string; labels: La
           setStatus("used");
           return;
         }
+        if (data.error === "not_found") {
+          setStatus("invalid");
+          return;
+        }
         setStatus("invalid");
       } catch {
-        if (!cancelled) setStatus("invalid");
+        if (!cancelled) setStatus("error");
       }
     })();
     return () => {
@@ -70,7 +80,15 @@ export function VerifyEmailClient({ token, labels }: { token: string; labels: La
     );
   }
   const message =
-    status === "expired" ? labels.expired : status === "used" ? labels.used : labels.invalid;
+    status === "expired"
+      ? labels.expired
+      : status === "used"
+        ? labels.used
+        : status === "rate_limited"
+          ? labels.rateLimited
+          : status === "error"
+            ? labels.error
+            : labels.invalid;
   return (
     <p role="alert" className="text-center text-sm" style={{ color: "#8b1a1a" }}>
       {message}

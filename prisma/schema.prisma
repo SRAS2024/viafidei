@@ -124,6 +124,7 @@ model User {
   emailEncrypted           String?
   nameEncrypted            String?
   emailVerifiedAt          DateTime?
+  language                 String                    @default("en")
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
   profile                  Profile?

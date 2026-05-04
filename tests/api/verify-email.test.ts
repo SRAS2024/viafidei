@@ -5,6 +5,7 @@ const requireUserMock = vi.fn();
 const issueEmailVerificationTokenMock = vi.fn();
 const consumeEmailVerificationTokenMock = vi.fn();
 const sendEmailVerificationEmailMock = vi.fn();
+const userFindUniqueMock = vi.fn();
 
 vi.mock("@/lib/security/rate-limit", async () => {
   const actual = await vi.importActual<typeof import("@/lib/security/rate-limit")>(
@@ -24,6 +25,12 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/email", () => ({
   sendEmailVerificationEmail: (...args: unknown[]) => sendEmailVerificationEmailMock(...args),
+}));
+
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    user: { findUnique: (...args: unknown[]) => userFindUniqueMock(...args) },
+  },
 }));
 
 import { POST, PUT } from "@/app/api/auth/verify-email/route";
@@ -51,6 +58,7 @@ beforeEach(() => {
   issueEmailVerificationTokenMock.mockReset();
   consumeEmailVerificationTokenMock.mockReset();
   sendEmailVerificationEmailMock.mockReset();
+  userFindUniqueMock.mockReset();
   rateLimitMock.mockResolvedValue({ ok: true, remaining: 2, resetAt: Date.now() + 60_000 });
 });
 
@@ -64,7 +72,14 @@ describe("POST /api/auth/verify-email (consume)", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns not_found for unknown token", async () => {
+  it("rejects rate-limited requests", async () => {
+    rateLimitMock.mockResolvedValue({ ok: false, remaining: 0, resetAt: Date.now() });
+    const res = await POST(postRequest({ token: VALID_TOKEN }));
+    expect(res.status).toBe(429);
+    expect(consumeEmailVerificationTokenMock).not.toHaveBeenCalled();
+  });
+
+  it("returns not_found for unknown / invalid token", async () => {
     consumeEmailVerificationTokenMock.mockResolvedValue({ ok: false, reason: "not_found" });
     const res = await POST(postRequest({ token: VALID_TOKEN }));
     expect(res.status).toBe(404);
@@ -102,16 +117,43 @@ describe("PUT /api/auth/verify-email (resend)", () => {
     expect(issueEmailVerificationTokenMock).not.toHaveBeenCalled();
   });
 
+  it("returns conflict for already-verified accounts", async () => {
+    requireUserMock.mockResolvedValue({
+      id: "u1",
+      email: "u@example.com",
+      emailVerifiedAt: new Date(),
+    });
+    const res = await PUT(putRequest());
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { message: string };
+    expect(body.message).toBe("already_verified");
+  });
+
   it("rate limits per user", async () => {
-    requireUserMock.mockResolvedValue({ id: "u1", email: "u@example.com" });
+    requireUserMock.mockResolvedValue({
+      id: "u1",
+      email: "u@example.com",
+      emailVerifiedAt: null,
+    });
     rateLimitMock.mockResolvedValue({ ok: false, remaining: 0, resetAt: Date.now() });
     const res = await PUT(putRequest());
     expect(res.status).toBe(429);
     expect(issueEmailVerificationTokenMock).not.toHaveBeenCalled();
   });
 
-  it("issues a token and sends a verification email", async () => {
-    requireUserMock.mockResolvedValue({ id: "u1", email: "u@example.com" });
+  it("issues a token and sends a verification email in the saved language", async () => {
+    requireUserMock.mockResolvedValue({
+      id: "u1",
+      email: "u@example.com",
+      emailVerifiedAt: null,
+    });
+    userFindUniqueMock.mockResolvedValue({
+      id: "u1",
+      email: "u@example.com",
+      firstName: "Pio",
+      lastName: "Pietrelcina",
+      language: "es",
+    });
     issueEmailVerificationTokenMock.mockResolvedValue({
       token: "raw-verify",
       expiresAt: new Date(Date.now() + 60_000),
@@ -125,8 +167,13 @@ describe("PUT /api/auth/verify-email (resend)", () => {
 
     expect(issueEmailVerificationTokenMock).toHaveBeenCalledWith("u1");
     expect(sendEmailVerificationEmailMock).toHaveBeenCalledTimes(1);
-    const arg = sendEmailVerificationEmailMock.mock.calls[0][0] as { to: string; token: string };
-    expect(arg.to).toBe("u@example.com");
+    const arg = sendEmailVerificationEmailMock.mock.calls[0][0] as {
+      user: { id: string; email: string; language: string };
+      token: string;
+    };
+    expect(arg.user.id).toBe("u1");
+    expect(arg.user.email).toBe("u@example.com");
+    expect(arg.user.language).toBe("es");
     expect(arg.token).toBe("raw-verify");
   });
 });

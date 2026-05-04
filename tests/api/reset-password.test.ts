@@ -13,9 +13,13 @@ vi.mock("@/lib/security/rate-limit", async () => {
   };
 });
 
-vi.mock("@/lib/auth", () => ({
-  consumePasswordResetToken: (...args: unknown[]) => consumePasswordResetTokenMock(...args),
-}));
+vi.mock("@/lib/auth", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/auth/schemas")>("@/lib/auth/schemas");
+  return {
+    ...actual,
+    consumePasswordResetToken: (...args: unknown[]) => consumePasswordResetTokenMock(...args),
+  };
+});
 
 import { POST } from "@/app/api/auth/reset-password/route";
 import type { NextRequest } from "next/server";
@@ -29,7 +33,7 @@ function buildRequest(body: unknown): NextRequest {
 }
 
 const VALID_TOKEN = "a".repeat(40);
-const VALID_PASSWORD = "new-password-very-long-1234";
+const VALID_PASSWORD = "Newp4ss!";
 
 beforeEach(() => {
   rateLimitMock.mockReset();
@@ -64,17 +68,38 @@ describe("POST /api/auth/reset-password", () => {
       }),
     );
     expect(res.status).toBe(400);
-    const body = (await res.json()) as { error: string };
+    const body = (await res.json()) as { error: string; message: string };
     expect(body.error).toBe("invalid");
+    expect(body.message).toBe("mismatch");
     expect(consumePasswordResetTokenMock).not.toHaveBeenCalled();
   });
 
-  it("rejects weak passwords", async () => {
+  it("rejects weak passwords below the minimum length", async () => {
     const res = await POST(
-      buildRequest({ token: VALID_TOKEN, password: "short", passwordConfirm: "short" }),
+      buildRequest({ token: VALID_TOKEN, password: "Aa1", passwordConfirm: "Aa1" }),
     );
     expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; message: string };
+    expect(body.message).toBe("weak");
     expect(consumePasswordResetTokenMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects passwords missing a number", async () => {
+    const res = await POST(
+      buildRequest({ token: VALID_TOKEN, password: "Padre", passwordConfirm: "Padre" }),
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; message: string };
+    expect(body.message).toBe("weak");
+  });
+
+  it("rejects passwords missing a capital letter", async () => {
+    const res = await POST(
+      buildRequest({ token: VALID_TOKEN, password: "padre1", passwordConfirm: "padre1" }),
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; message: string };
+    expect(body.message).toBe("weak");
   });
 
   it("returns not_found when token is unknown", async () => {

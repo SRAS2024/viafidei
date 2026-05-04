@@ -15,6 +15,14 @@ function hashToken(token: string): string {
 
 export type IssuedToken = { token: string; expiresAt: Date };
 
+/**
+ * Re-export the SHA-256 hash so other modules can identify a token by its
+ * hash without ever storing the raw value.
+ */
+export function hashRawToken(rawToken: string): string {
+  return hashToken(rawToken);
+}
+
 export async function issuePasswordResetToken(userId: string): Promise<IssuedToken> {
   const token = generateRawToken();
   const tokenHash = hashToken(token);
@@ -40,6 +48,9 @@ export async function consumePasswordResetToken(
   if (record.expiresAt.getTime() < Date.now()) return { ok: false, reason: "expired" };
 
   const passwordHash = await hashPassword(newPassword);
+  // Atomically: rotate the password hash, mark this token consumed,
+  // invalidate all reset tokens (so a previously issued one cannot be
+  // replayed by a different actor), and revoke every session for the user.
   await prisma.$transaction([
     prisma.user.update({
       where: { id: record.userId },
@@ -47,6 +58,10 @@ export async function consumePasswordResetToken(
     }),
     prisma.passwordResetToken.update({
       where: { id: record.id },
+      data: { usedAt: new Date() },
+    }),
+    prisma.passwordResetToken.updateMany({
+      where: { userId: record.userId, usedAt: null, id: { not: record.id } },
       data: { usedAt: new Date() },
     }),
     prisma.session.deleteMany({ where: { userId: record.userId } }),

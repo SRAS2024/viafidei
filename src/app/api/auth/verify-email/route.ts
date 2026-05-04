@@ -5,6 +5,7 @@ import {
   issueEmailVerificationToken,
   requireUser,
 } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp } from "@/lib/security/request";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
@@ -37,12 +38,30 @@ export async function PUT(req: NextRequest) {
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
 
+  if (user.emailVerifiedAt) {
+    return jsonError("conflict", { message: "already_verified" });
+  }
+
   const limit = await rateLimit(`verify-email-issue:${user.id}`, RATE_POLICIES.emailVerification, {
     userId: user.id,
   });
   if (!limit.ok) return jsonError("rate_limited");
 
   const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
+  // Refresh the language each time so the email is sent in the user's
+  // currently saved language.
+  const fresh = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      language: true,
+    },
+  });
+  if (!fresh) return jsonError("unauthorized");
+
   const issued = await issueEmailVerificationToken(user.id);
   logger.info("auth.email_verification.requested", {
     userId: user.id,
@@ -50,7 +69,7 @@ export async function PUT(req: NextRequest) {
     expiresAt: issued.expiresAt.toISOString(),
   });
   const result = await sendEmailVerificationEmail({
-    to: user.email,
+    user: fresh,
     token: issued.token,
     expiresAt: issued.expiresAt,
   });

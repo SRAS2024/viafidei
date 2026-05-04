@@ -34,6 +34,7 @@ export default async function ResetPasswordPage({
               invalidToken: t("auth.reset.invalidToken"),
               expiredToken: t("auth.reset.expiredToken"),
               usedToken: t("auth.reset.usedToken"),
+              rateLimited: t("auth.forgot.rateLimited"),
               error: t("auth.forgot.error"),
               successRedirectTo: "/login?notice=password_reset",
             }}

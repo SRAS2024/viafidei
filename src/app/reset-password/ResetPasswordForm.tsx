@@ -12,6 +12,7 @@ type Labels = {
   invalidToken: string;
   expiredToken: string;
   usedToken: string;
+  rateLimited: string;
   error: string;
   successRedirectTo: string;
 };
@@ -22,6 +23,15 @@ type Props = {
 };
 
 type State = { kind: "idle" } | { kind: "loading" } | { kind: "error"; message: string };
+
+const PASSWORD_MIN = 5;
+
+function isStrongPassword(value: string): boolean {
+  if (value.length < PASSWORD_MIN) return false;
+  if (!/[0-9]/.test(value)) return false;
+  if (!/[A-Z]/.test(value)) return false;
+  return true;
+}
 
 export function ResetPasswordForm({ token, labels }: Props) {
   const router = useRouter();
@@ -35,7 +45,7 @@ export function ResetPasswordForm({ token, labels }: Props) {
     const passwordConfirm =
       (form.elements.namedItem("passwordConfirm") as HTMLInputElement | null)?.value ?? "";
 
-    if (password.length < 12) {
+    if (!isStrongPassword(password)) {
       setState({ kind: "error", message: labels.weakPassword });
       return;
     }
@@ -60,6 +70,10 @@ export function ResetPasswordForm({ token, labels }: Props) {
         router.push(labels.successRedirectTo);
         return;
       }
+      if (res.status === 429) {
+        setState({ kind: "error", message: labels.rateLimited });
+        return;
+      }
       if (data.error === "not_found") {
         setState({ kind: "error", message: labels.invalidToken });
         return;
@@ -70,6 +84,14 @@ export function ResetPasswordForm({ token, labels }: Props) {
       }
       if (data.message === "used") {
         setState({ kind: "error", message: labels.usedToken });
+        return;
+      }
+      if (data.message === "weak") {
+        setState({ kind: "error", message: labels.weakPassword });
+        return;
+      }
+      if (data.message === "mismatch") {
+        setState({ kind: "error", message: labels.mismatch });
         return;
       }
       setState({ kind: "error", message: labels.error });
@@ -88,7 +110,7 @@ export function ResetPasswordForm({ token, labels }: Props) {
           id="password"
           name="password"
           type="password"
-          minLength={12}
+          minLength={PASSWORD_MIN}
           required
           autoComplete="new-password"
           className="vf-input"
@@ -102,12 +124,13 @@ export function ResetPasswordForm({ token, labels }: Props) {
           id="passwordConfirm"
           name="passwordConfirm"
           type="password"
-          minLength={12}
+          minLength={PASSWORD_MIN}
           required
           autoComplete="new-password"
           className="vf-input"
         />
       </div>
+      <p className="font-serif text-xs text-ink-faint">{labels.weakPassword}</p>
       <button
         type="submit"
         className="vf-btn vf-btn-primary mt-2"
@@ -116,6 +139,11 @@ export function ResetPasswordForm({ token, labels }: Props) {
       >
         {labels.submit}
       </button>
+      {state.kind === "loading" ? (
+        <p role="status" className="text-center font-serif text-sm text-ink-soft">
+          …
+        </p>
+      ) : null}
       {state.kind === "error" ? (
         <p role="alert" className="text-center text-sm" style={{ color: "#8b1a1a" }}>
           {state.message}
