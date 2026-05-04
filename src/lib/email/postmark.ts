@@ -60,6 +60,7 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
       }),
     });
     if (!res.ok) {
+      // Log only the subject and status — never bodies or tokens.
       logger.error("email.delivery_failed", {
         status: res.status,
         subject: input.subject,
@@ -68,7 +69,9 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
     }
     return { ok: true, delivery: "sent" };
   } catch (error) {
-    logger.error("email.delivery_error", { error, subject: input.subject });
+    // Log a sanitized error message — bodies, headers, and tokens are not logged.
+    const message = error instanceof Error ? error.message : "unknown_error";
+    logger.error("email.delivery_error", { message, subject: input.subject });
     return { ok: false, reason: "delivery_failed" };
   }
 }

@@ -65,6 +65,11 @@ describe("route coverage", () => {
     "/spiritual-guidance",
     "/liturgy-history",
     "/admin",
+    "/admin/users",
+    "/forgot-password",
+    "/reset-password",
+    "/verify-email",
+    "/privacy",
   ];
 
   it.each(REQUIRED_STATIC_ROUTES)("required static route %s exists as a page", (route) => {

@@ -10,6 +10,28 @@ twelve locales, persists data in PostgreSQL via Prisma, and ingests material
 from a small allowlist of approved Vatican-affiliated sources through a cron
 pipeline that always lands new records in a moderation queue.
 
+## Site, domain, and email facts
+
+A few infrastructure facts that don't change very often and shouldn't be
+edited blindly:
+
+- **Official site name.** The official website name is **Via Fidei** and is
+  used everywhere in copy, metadata, and templates.
+- **Canonical domain.** The canonical production domain is
+  **`https://etviafidei.com`**. It is the default for `CANONICAL_URL`,
+  metadata, sitemap, robots, and email links.
+- **Google Search Console verification.** The file
+  `public/google0292583cfdf40074.html` is intentionally kept in the public
+  folder. **Do not rename, move, or remove it** — Google revalidates the
+  property by fetching that exact path.
+- **Transactional sender address.** The official transactional sender address
+  is **`notifications@viafidei.com`**. It is the default for
+  `EMAIL_FROM_ADDRESS` and is the only address used for account-related
+  email (welcome, password reset, email verification).
+- **Email DNS records are managed externally.** SPF, DKIM, DMARC, and
+  return-path records live at the DNS provider and authoritatively belong
+  there. **App code must not generate, write, or overwrite DNS records.**
+
 ---
 
 ## Stack

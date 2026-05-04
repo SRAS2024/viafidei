@@ -92,6 +92,7 @@ describe("consumePasswordResetToken", () => {
     });
     prismaMock.user.update.mockResolvedValue({});
     prismaMock.passwordResetToken.update.mockResolvedValue({});
+    prismaMock.passwordResetToken.updateMany.mockResolvedValue({ count: 0 });
     prismaMock.session.deleteMany.mockResolvedValue({ count: 2 });
 
     const result = await consumePasswordResetToken("anything", "rotated-password-1234");
@@ -112,10 +113,20 @@ describe("consumePasswordResetToken", () => {
     };
     expect(tokenUpdateArgs.data.usedAt).toBeInstanceOf(Date);
 
+    // Any other outstanding tokens for this user are also invalidated.
+    expect(prismaMock.passwordResetToken.updateMany).toHaveBeenCalledTimes(1);
+    const updateManyArgs = prismaMock.passwordResetToken.updateMany.mock.calls[0][0] as {
+      where: { userId: string; usedAt: null; id: { not: string } };
+      data: { usedAt: Date };
+    };
+    expect(updateManyArgs.where.userId).toBe("u1");
+    expect(updateManyArgs.where.usedAt).toBe(null);
+    expect(updateManyArgs.data.usedAt).toBeInstanceOf(Date);
+
     // All existing sessions are torn down so old cookies cannot keep working.
     expect(prismaMock.session.deleteMany).toHaveBeenCalledWith({ where: { userId: "u1" } });
 
-    // All three writes happen inside a single transaction.
+    // All four writes happen inside a single transaction.
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
   });
 });

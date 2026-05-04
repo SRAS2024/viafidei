@@ -30,6 +30,8 @@ export default async function VerifyEmailPage({
               invalid: t("auth.verify.invalidToken"),
               expired: t("auth.verify.expiredToken"),
               used: t("auth.verify.usedToken"),
+              rateLimited: t("auth.error.rateLimited"),
+              error: t("auth.error.generic"),
             }}
           />
         ) : (

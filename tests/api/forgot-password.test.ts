@@ -55,14 +55,14 @@ describe("POST /api/auth/forgot-password", () => {
     expect(body.error).toBe("invalid");
   });
 
-  it("returns 429 rate_limited when limiter rejects", async () => {
+  it("returns 429 rate_limited when limiter rejects (forgot password rate limit)", async () => {
     rateLimitMock.mockResolvedValue({ ok: false, remaining: 0, resetAt: Date.now() + 60_000 });
     const res = await POST(buildRequest({ email: "user@example.com" }));
     expect(res.status).toBe(429);
     expect(findUserByEmailMock).not.toHaveBeenCalled();
   });
 
-  it("returns 200 generic success for unknown emails (privacy-safe)", async () => {
+  it("returns the same generic 200 success for unknown emails (privacy-safe)", async () => {
     findUserByEmailMock.mockResolvedValue(null);
     const res = await POST(buildRequest({ email: "ghost@example.com" }));
     expect(res.status).toBe(200);
@@ -72,8 +72,15 @@ describe("POST /api/auth/forgot-password", () => {
     expect(sendPasswordResetEmailMock).not.toHaveBeenCalled();
   });
 
-  it("issues a token and sends an email when the user exists", async () => {
-    findUserByEmailMock.mockResolvedValue({ id: "u1", email: "user@example.com" });
+  it("issues a token and sends a password reset email when the user exists", async () => {
+    const user = {
+      id: "u1",
+      email: "user@example.com",
+      firstName: "Pio",
+      lastName: "P",
+      language: "en",
+    };
+    findUserByEmailMock.mockResolvedValue(user);
     issuePasswordResetTokenMock.mockResolvedValue({
       token: "raw-token-123",
       expiresAt: new Date(Date.now() + 60_000),
@@ -88,15 +95,22 @@ describe("POST /api/auth/forgot-password", () => {
     expect(issuePasswordResetTokenMock).toHaveBeenCalledWith("u1");
     expect(sendPasswordResetEmailMock).toHaveBeenCalledTimes(1);
     const arg = sendPasswordResetEmailMock.mock.calls[0][0] as {
-      to: string;
+      user: { id: string; email: string };
       token: string;
     };
-    expect(arg.to).toBe("user@example.com");
+    expect(arg.user.id).toBe("u1");
+    expect(arg.user.email).toBe("user@example.com");
     expect(arg.token).toBe("raw-token-123");
   });
 
-  it("still returns 200 generic success when email delivery fails", async () => {
-    findUserByEmailMock.mockResolvedValue({ id: "u1", email: "user@example.com" });
+  it("still returns the generic 200 success when email delivery fails (no leak)", async () => {
+    findUserByEmailMock.mockResolvedValue({
+      id: "u1",
+      email: "user@example.com",
+      firstName: "Pio",
+      lastName: "P",
+      language: "en",
+    });
     issuePasswordResetTokenMock.mockResolvedValue({
       token: "raw-token",
       expiresAt: new Date(Date.now() + 60_000),

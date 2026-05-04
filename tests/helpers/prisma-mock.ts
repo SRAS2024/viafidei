@@ -16,6 +16,7 @@ export type PrismaMock = {
     create: Mock;
     findUnique: Mock;
     update: Mock;
+    updateMany: Mock;
     deleteMany: Mock;
   };
   emailVerificationToken: {
@@ -45,6 +46,7 @@ export function createPrismaMock(): PrismaMock {
       create: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       deleteMany: vi.fn(),
     },
     emailVerificationToken: {

@@ -1,11 +1,12 @@
 import type { MetadataRoute } from "next";
 
-const BASE = process.env.CANONICAL_URL || "https://viafidei.com";
+const BASE = process.env.CANONICAL_URL || "https://etviafidei.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const paths = [
     "",
     "/prayers",
+    "/devotions",
     "/spiritual-life",
     "/spiritual-guidance",
     "/liturgy-history",
@@ -13,6 +14,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/search",
     "/login",
     "/register",
+    "/forgot-password",
+    "/privacy",
   ];
   return paths.map((p) => ({
     url: `${BASE}${p}`,

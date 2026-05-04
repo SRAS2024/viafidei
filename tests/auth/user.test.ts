@@ -23,7 +23,7 @@ afterEach(() => {
 });
 
 describe("createUser", () => {
-  it("normalizes email, hashes password, and creates a profile", async () => {
+  it("normalizes email, hashes password, and creates a profile (default English)", async () => {
     prismaMock.user.create.mockImplementation(
       async ({ data }: { data: Record<string, unknown> }) => ({
         id: "u1",
@@ -36,16 +36,53 @@ describe("createUser", () => {
       lastName: "Lisieux",
       email: "  Therese@Example.COM  ",
       password: "littleflower-1897!",
-    })) as { email: string; passwordHash: string; emailEncrypted: string };
+    })) as {
+      email: string;
+      passwordHash: string;
+      emailEncrypted: string;
+      language: string;
+    };
 
     expect(user.email).toBe("therese@example.com");
     expect(user.passwordHash.startsWith("$argon2id$")).toBe(true);
+    expect(user.language).toBe("en");
     // Encrypted-at-rest fields are populated, not echoed back as plaintext.
     expect(user.emailEncrypted).toBeTruthy();
     expect(user.emailEncrypted).not.toBe("therese@example.com");
 
-    const callArgs = prismaMock.user.create.mock.calls[0][0] as { data: { profile: unknown } };
-    expect(callArgs.data.profile).toEqual({ create: {} });
+    const callArgs = prismaMock.user.create.mock.calls[0][0] as {
+      data: { profile: { create: { languageOverride: string } }; language: string };
+    };
+    expect(callArgs.data.profile).toEqual({ create: { languageOverride: "en" } });
+    expect(callArgs.data.language).toBe("en");
+  });
+
+  it("saves the requested language when supported", async () => {
+    prismaMock.user.create.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({ id: "u1", ...data }),
+    );
+    const user = (await createUser({
+      firstName: "Maria",
+      lastName: "Goretti",
+      email: "m@example.com",
+      password: "Newp4ss!",
+      language: "es",
+    })) as { language: string };
+    expect(user.language).toBe("es");
+  });
+
+  it("falls back to English for unsupported language", async () => {
+    prismaMock.user.create.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => ({ id: "u1", ...data }),
+    );
+    const user = (await createUser({
+      firstName: "Maria",
+      lastName: "Goretti",
+      email: "m@example.com",
+      password: "Newp4ss!",
+      language: "klingon",
+    })) as { language: string };
+    expect(user.language).toBe("en");
   });
 });
 

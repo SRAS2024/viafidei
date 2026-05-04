@@ -10,6 +10,11 @@ export function getAppBaseUrl(): string {
   return trimTrailingSlash(base);
 }
 
+export function getCanonicalUrl(): string {
+  const env = getEnv();
+  return trimTrailingSlash(env.CANONICAL_URL ?? "https://etviafidei.com");
+}
+
 export function buildPasswordResetLink(token: string): string {
   const url = new URL("/reset-password", getAppBaseUrl());
   url.searchParams.set("token", token);
