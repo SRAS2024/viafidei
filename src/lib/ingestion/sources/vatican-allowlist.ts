@@ -51,6 +51,13 @@ const APPROVED_HOSTS: readonly string[] = [
   "www.laityfamilylife.va",
   "culturaeducazione.va",
   "www.culturaeducazione.va",
+  "dicasteryeasternchurches.va",
+  "www.dicasteryeasternchurches.va",
+  "dicasterydivineworship.va",
+  "www.dicasterydivineworship.va",
+  "clerus.va",
+  "www.clerus.va",
+  "saintsiervidi.va",
 
   // ── Tier 1 — Vatican-affiliated academic / cultural ──
   "vaticanobservatory.va",
@@ -59,6 +66,8 @@ const APPROVED_HOSTS: readonly string[] = [
   "vaticanstate.va",
   "www.vaticanstate.va",
   "bibliavulgata.va",
+  "museivaticani.va",
+  "www.museivaticani.va",
 
   // ── Tier 2 — Bishops' Conferences (English-speaking) ──
   "usccb.org",
@@ -73,6 +82,12 @@ const APPROVED_HOSTS: readonly string[] = [
   "www.catholic.org.au",
   "catholic.org.nz",
   "www.catholic.org.nz",
+  "cbcp.net",
+  "www.cbcp.net",
+  "sacbc.org.za",
+  "www.sacbc.org.za",
+  "cbcindia.com",
+  "www.cbcindia.com",
 
   // ── Tier 2 — Bishops' Conferences (other languages) ──
   "dbk.de",
@@ -89,6 +104,30 @@ const APPROVED_HOSTS: readonly string[] = [
   "www.episkopat.pl",
   "celam.org",
   "www.celam.org",
+  "cebmexico.org",
+  "www.cebmexico.org",
+  "cnbb.org.br",
+  "www.cnbb.org.br",
+  "episcopadoargentino.cea.org.ar",
+  "www.episcopadoargentino.cea.org.ar",
+  "katolsk.no",
+  "www.katolsk.no",
+
+  // ── Tier 2 — Major archdioceses (with strong English-language catechetical
+  //     content), included for parish-finder and saint biographies ──
+  "archny.org", // Archdiocese of New York
+  "www.archny.org",
+  "archchicago.org",
+  "www.archchicago.org",
+  "rcab.org", // Boston
+  "www.rcab.org",
+  "archmil.org", // Milwaukee
+  "www.archmil.org",
+  "rcdow.org.uk", // Westminster
+  "www.rcdow.org.uk",
+  "rcaola.org", // Los Angeles
+  "lacatholics.org",
+  "www.lacatholics.org",
 
   // ── Tier 2 — Catechism / Bible / liturgical reference (Vatican-republishing) ──
   "ewtn.com",
@@ -97,6 +136,8 @@ const APPROVED_HOSTS: readonly string[] = [
   "www.biblegateway.com",
   "biblia.com",
   "www.biblia.com",
+  "drbo.org", // Douay-Rheims Bible Online
+  "www.drbo.org",
 
   // ── Tier 3 — Liturgical calendars and pontifical institutes ──
   "liturgicalcalendar.org",
@@ -109,6 +150,27 @@ const APPROVED_HOSTS: readonly string[] = [
   "www.ccwatershed.org",
   "icel.org",
   "www.icel.org",
+  "magnificat.net",
+  "www.magnificat.net",
+
+  // ── Tier 3 — Pontifical universities and institutes ──
+  "pul.urbe.it", // Pontifical Lateran University
+  "www.pul.urbe.it",
+  "unigre.it", // Pontifical Gregorian University
+  "www.unigre.it",
+  "santacroce.it", // Pontifical University of the Holy Cross
+  "www.santacroce.it",
+  "pcj.va", // Pontifical Council for the Family etc — *.va already covered, but
+  // include explicitly so the gate function doesn't have to interpret subdomains.
+
+  // ── Tier 3 — Approved Catholic encyclopedic / patristic resources ──
+  // Public-domain Catholic Encyclopedia and patristic texts that are
+  // mirrored from canonical Catholic editions.
+  "newadvent.org",
+  "www.newadvent.org",
+  "ccel.org", // Christian Classics Ethereal Library — only used for
+  // patristic primary sources (Augustine, Aquinas, etc.)
+  "www.ccel.org",
 ] as const;
 
 const APPROVED_HOST_SET = new Set<string>(APPROVED_HOSTS.map((h) => h.toLowerCase()));

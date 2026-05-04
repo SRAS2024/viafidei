@@ -70,3 +70,23 @@ export function getPublishedPrayerBySlug(slug: string, locale: Locale) {
     },
   });
 }
+
+export async function getPublishedPrayersBySlugs(
+  slugs: readonly string[],
+  locale: Locale,
+): Promise<Map<string, { defaultTitle: string; body: string }>> {
+  if (slugs.length === 0) return new Map();
+  const prayers = await prisma.prayer.findMany({
+    where: { slug: { in: [...slugs] }, status: "PUBLISHED" },
+    include: { translations: { where: { locale } } },
+  });
+  const out = new Map<string, { defaultTitle: string; body: string }>();
+  for (const p of prayers) {
+    const tr = p.translations[0];
+    out.set(p.slug, {
+      defaultTitle: tr?.title ?? p.defaultTitle,
+      body: tr?.body ?? p.body,
+    });
+  }
+  return out;
+}

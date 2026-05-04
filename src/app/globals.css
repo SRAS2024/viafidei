@@ -518,12 +518,254 @@
     gap: 0.75rem;
   }
 
+  /* ---------- Expandable sections (prayers in guides + timeline) ---------- */
+  .vf-expandable {
+    border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+  }
+
+  .vf-expandable:last-child {
+    border-bottom: 0;
+  }
+
+  .vf-expandable-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    padding: 0.85rem 0.25rem;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    transition: color 140ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .vf-expandable-trigger:hover,
+  .vf-expandable-trigger:focus-visible {
+    color: var(--action-blue);
+  }
+
+  .vf-expandable-arrow {
+    flex-shrink: 0;
+    color: var(--ink-faint);
+    transition: transform 180ms ease;
+  }
+
+  .vf-expandable-arrow-open {
+    transform: rotate(90deg);
+  }
+
+  .vf-expandable-title {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .vf-expandable-body {
+    padding: 0 0.25rem 1rem 1.7rem;
+    font-family: var(--font-serif);
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--ink-soft);
+  }
+
+  /* Timeline events use the same arrow but with a date label and meta lines. */
+  .vf-timeline-event {
+    border-left: 2px solid rgba(17, 17, 17, 0.1);
+    padding-left: 1rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .vf-timeline-event:hover {
+    border-left-color: var(--action-blue);
+  }
+
+  .vf-timeline-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    padding: 0.85rem 0.25rem 0.85rem 0;
+    cursor: pointer;
+    color: var(--ink);
+    transition: color 140ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .vf-timeline-trigger:hover,
+  .vf-timeline-trigger:focus-visible {
+    color: var(--action-blue);
+  }
+
+  .vf-timeline-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    line-height: 1.25;
+  }
+
+  .vf-timeline-date {
+    font-family: var(--font-sans);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--ink-faint);
+  }
+
+  .vf-timeline-body {
+    padding: 0.25rem 0 1.1rem 1.7rem;
+  }
+
+  .vf-timeline-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    margin-bottom: 0.6rem;
+  }
+
+  .vf-timeline-meta-label {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.66rem;
+    color: var(--ink-faint);
+  }
+
+  .vf-timeline-section {
+    margin-top: 0.7rem;
+  }
+
+  .vf-timeline-section-title {
+    font-family: var(--font-sans);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--ink-faint);
+    margin-bottom: 0.25rem;
+  }
+
+  .vf-timeline-section-body {
+    font-family: var(--font-serif);
+    font-size: 0.98rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- Login-required popup ---------- */
+  .vf-login-popup-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 10, 10, 0.35);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 60;
+  }
+
+  .vf-login-popup {
+    position: relative;
+    width: 100%;
+    max-width: 22rem;
+    background: var(--paper-bright);
+    border: 1px solid rgba(17, 17, 17, 0.1);
+    border-radius: 4px;
+    box-shadow: 0 24px 48px -16px rgba(10, 10, 10, 0.35);
+    padding: 1.1rem 1.25rem 1.6rem;
+    text-align: center;
+  }
+
+  .vf-login-popup-msg {
+    font-family: var(--font-serif);
+    color: var(--ink);
+    font-size: 1rem;
+    line-height: 1.45;
+    margin: 0 0 0.85rem 0;
+  }
+
+  .vf-login-popup-links {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .vf-login-popup-link {
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--action-blue);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 0.35rem 0.25rem;
+  }
+
+  .vf-login-popup-link:hover,
+  .vf-login-popup-link:focus-visible {
+    color: var(--action-blue-hover);
+  }
+
+  .vf-login-popup-sep {
+    color: var(--ink-faint);
+    font-size: 0.85rem;
+  }
+
+  .vf-login-popup-close {
+    position: absolute;
+    bottom: 0.45rem;
+    right: 0.45rem;
+    width: 2rem;
+    height: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--ink-faint);
+    border-radius: 9999px;
+    cursor: pointer;
+    transition:
+      background-color 140ms ease,
+      color 140ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .vf-login-popup-close:hover,
+  .vf-login-popup-close:focus-visible {
+    background: rgba(17, 17, 17, 0.06);
+    color: var(--ink);
+  }
+
   /* ---------- Mobile dropdown menu ---------- */
   .vf-mobile-menu-toggle {
     transition:
       background-color 160ms ease,
       color 160ms ease;
     border: 1px solid transparent;
+    /* Keep tap accurate on iOS/Android — disable native double-tap zoom
+       and the gray tap highlight so the user never feels the icon "missed". */
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Children of the toggle (SVGs, spans) must not intercept pointer events,
+     so a tap anywhere inside the 48x48 button reliably hits the button. */
+  .vf-mobile-menu-toggle > * {
+    pointer-events: none;
   }
 
   .vf-mobile-menu-toggle:hover {

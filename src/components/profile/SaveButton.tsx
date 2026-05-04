@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { LoginRequiredPopup } from "@/components/ui/LoginRequiredPopup";
 
 export type SaveKind = "prayers" | "saints" | "apparitions" | "parishes" | "devotions";
 
@@ -8,11 +9,16 @@ type Props = {
   kind: SaveKind;
   entityId: string;
   initiallySaved: boolean;
+  /** When false, clicking the button opens the login-required popup instead. */
+  isAuthed?: boolean;
   labels?: {
     save?: string;
     saved?: string;
     remove?: string;
     confirmRemove?: string;
+    loginRequired?: string;
+    loginCta?: string;
+    registerCta?: string;
   };
   className?: string;
 };
@@ -22,15 +28,30 @@ const DEFAULT_LABELS = {
   saved: "Saved",
   remove: "Remove",
   confirmRemove: "Remove this from your saved items?",
+  loginRequired: "An account is required to use this feature.",
+  loginCta: "Sign in",
+  registerCta: "Create account",
 };
 
-export function SaveButton({ kind, entityId, initiallySaved, labels, className }: Props) {
+export function SaveButton({
+  kind,
+  entityId,
+  initiallySaved,
+  isAuthed = true,
+  labels,
+  className,
+}: Props) {
   const merged = { ...DEFAULT_LABELS, ...labels };
   const [saved, setSaved] = useState(initiallySaved);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   function toggle() {
+    if (!isAuthed) {
+      setShowLoginPrompt(true);
+      return;
+    }
     setError(null);
     startTransition(async () => {
       try {
@@ -72,6 +93,13 @@ export function SaveButton({ kind, entityId, initiallySaved, labels, className }
         {pending ? "…" : saved ? merged.saved : merged.save}
       </button>
       {error ? <span className="ml-2 text-xs text-liturgical-red">{error}</span> : null}
+      <LoginRequiredPopup
+        open={showLoginPrompt}
+        onClose={() => setShowLoginPrompt(false)}
+        message={merged.loginRequired}
+        loginLabel={merged.loginCta}
+        registerLabel={merged.registerCta}
+      />
     </div>
   );
 }

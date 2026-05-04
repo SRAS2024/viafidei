@@ -38,6 +38,21 @@ const ADAPTER_HOST_MAP: Record<string, { host: string; baseUrl: string; name: st
     baseUrl: "https://www.usccb.org",
     name: "USCCB — Parish Directory",
   },
+  "bishops.saints": {
+    host: "usccb.org",
+    baseUrl: "https://www.usccb.org",
+    name: "Bishops' Conferences — Saints",
+  },
+  "catholic.devotions": {
+    host: "usccb.org",
+    baseUrl: "https://www.usccb.org",
+    name: "Catholic Devotional Content",
+  },
+  "catholic.prayers": {
+    host: "usccb.org",
+    baseUrl: "https://www.usccb.org",
+    name: "Catholic Prayer Catalog",
+  },
 };
 
 const ADAPTER_TARGET_ENTITY: Record<string, string> = {
@@ -46,6 +61,9 @@ const ADAPTER_TARGET_ENTITY: Record<string, string> = {
   "vatican.apparitions": "MarianApparition",
   "vatican.devotions": "Devotion",
   "vatican.parishes": "Parish",
+  "bishops.saints": "Saint",
+  "catholic.devotions": "Devotion",
+  "catholic.prayers": "Prayer",
 };
 
 let registered = false;
@@ -125,12 +143,17 @@ function deriveName(host: string): string {
   if (host.includes("vaticanlibrary.va")) return "Vatican Apostolic Library";
   if (host.includes("vaticanobservatory.va")) return "Vatican Observatory";
   if (host.includes("vaticanstate.va")) return "Vatican City State";
+  if (host.includes("museivaticani.va")) return "Vatican Museums";
+  if (host.includes("clerus.va")) return "Vatican — Congregation for the Clergy";
   if (host.includes("usccb.org")) return "USCCB";
   if (host.includes("cccb.ca")) return "CCCB — Canadian Conference of Catholic Bishops";
   if (host.includes("cbcew.org.uk")) return "CBCEW — England & Wales";
   if (host.includes("catholicbishops.ie")) return "Irish Catholic Bishops' Conference";
   if (host.includes("catholic.org.au")) return "Australian Catholic Bishops Conference";
   if (host.includes("catholic.org.nz")) return "NZ Catholic Bishops Conference";
+  if (host.includes("cbcp.net")) return "CBCP — Philippine Bishops";
+  if (host.includes("sacbc.org.za")) return "SACBC — Southern African Bishops";
+  if (host.includes("cbcindia.com")) return "CBCI — Catholic Bishops' Conference of India";
   if (host.includes("dbk.de")) return "Deutsche Bischofskonferenz";
   if (host.includes("conferenciaepiscopal.es")) return "Conferencia Episcopal Española";
   if (host.includes("chiesacattolica.it")) return "Conferenza Episcopale Italiana";
@@ -138,13 +161,31 @@ function deriveName(host: string): string {
   if (host.includes("episcopado.pt")) return "Conferência Episcopal Portuguesa";
   if (host.includes("episkopat.pl")) return "Konferencja Episkopatu Polski";
   if (host.includes("celam.org")) return "CELAM — Latin American Episcopal Council";
+  if (host.includes("cebmexico.org")) return "CEM — Mexican Episcopal Conference";
+  if (host.includes("cnbb.org.br")) return "CNBB — Brazilian Bishops Conference";
+  if (host.includes("episcopadoargentino")) return "Argentine Episcopal Conference";
+  if (host.includes("katolsk.no")) return "Den katolske kirke i Norge";
+  if (host.includes("archny.org")) return "Archdiocese of New York";
+  if (host.includes("archchicago.org")) return "Archdiocese of Chicago";
+  if (host.includes("rcab.org")) return "Archdiocese of Boston";
+  if (host.includes("archmil.org")) return "Archdiocese of Milwaukee";
+  if (host.includes("rcdow.org.uk")) return "Archdiocese of Westminster";
+  if (host.includes("rcaola.org") || host.includes("lacatholics.org"))
+    return "Archdiocese of Los Angeles";
   if (host.includes("ewtn.com")) return "EWTN — Catholic Reference";
   if (host.includes("biblegateway.com") || host.includes("biblia.com")) return "Bible reference";
+  if (host.includes("drbo.org")) return "Douay-Rheims Bible Online";
   if (host.includes("liturgicalcalendar.org")) return "Liturgical Calendar";
   if (host.includes("ibreviary.com")) return "iBreviary";
   if (host.includes("universalis.com")) return "Universalis — Liturgy of the Hours";
   if (host.includes("ccwatershed.org")) return "Corpus Christi Watershed";
   if (host.includes("icel.org")) return "ICEL — International Commission on English in the Liturgy";
+  if (host.includes("magnificat.net")) return "Magnificat";
+  if (host.includes("pul.urbe.it")) return "Pontifical Lateran University";
+  if (host.includes("unigre.it")) return "Pontifical Gregorian University";
+  if (host.includes("santacroce.it")) return "Pontifical University of the Holy Cross";
+  if (host.includes("newadvent.org")) return "New Advent — Catholic Encyclopedia";
+  if (host.includes("ccel.org")) return "Christian Classics Ethereal Library (Patristic)";
   return host;
 }
 

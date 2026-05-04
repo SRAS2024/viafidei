@@ -24,12 +24,37 @@ type Props = {
   ariaLabel: string;
 };
 
+/**
+ * Caps the number of suggestions visible while the user is typing.
+ *
+ *   mobile  (< 640px): 2 suggestions
+ *   tablet  (≥ 640px): 3 suggestions
+ *   desktop (≥ 1024px): 3 suggestions
+ *
+ * The cap is computed from the `matchMedia` API so the count updates live
+ * if the user rotates / resizes. It also drives the `limit` parameter on
+ * the suggest API call so the server doesn't return more than we display.
+ */
+function useSuggestionLimit(): number {
+  const [limit, setLimit] = useState(3);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mql = window.matchMedia("(min-width: 640px)");
+    const sync = () => setLimit(mql.matches ? 3 : 2);
+    sync();
+    mql.addEventListener?.("change", sync);
+    return () => mql.removeEventListener?.("change", sync);
+  }, []);
+  return limit;
+}
+
 export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLFormElement | null>(null);
+  const limit = useSuggestionLimit();
 
   useEffect(() => {
     const trimmed = q.trim();
@@ -40,9 +65,10 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search/suggest?q=${encodeURIComponent(trimmed)}`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(
+          `/api/search/suggest?q=${encodeURIComponent(trimmed)}&limit=${limit}`,
+          { signal: controller.signal },
+        );
         if (!res.ok) return;
         const data = (await res.json()) as { suggestions?: Suggestion[] };
         if (Array.isArray(data.suggestions)) setSuggestions(data.suggestions);
@@ -54,7 +80,7 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [q]);
+  }, [q, limit]);
 
   useEffect(() => {
     function onClick(event: MouseEvent) {
@@ -71,6 +97,10 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
     setQ("");
     router.push(`${base}/${suggestion.slug}`);
   }
+
+  // Final defensive cap on the client too — the server may have returned
+  // more groups than we want to show on mobile.
+  const visible = suggestions.slice(0, limit);
 
   return (
     <form
@@ -95,12 +125,12 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
         autoComplete="off"
         className="vf-header-search-input"
       />
-      {open && suggestions.length > 0 ? (
+      {open && visible.length > 0 ? (
         <ul
           role="listbox"
           className="absolute left-0 right-0 top-full z-50 mt-1 max-h-80 overflow-auto rounded-md border border-ink/10 bg-paper shadow-paper"
         >
-          {suggestions.map((s) => (
+          {visible.map((s) => (
             <li key={`${s.group}:${s.id}`}>
               <button
                 type="button"

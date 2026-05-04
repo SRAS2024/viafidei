@@ -290,6 +290,108 @@ export function buildVaticanParishesCrawler(): SourceAdapter {
   });
 }
 
+/**
+ * Additional saint-source crawler that pulls Vatican biographies hosted on
+ * Vatican-affiliated and conference-of-bishops sites that publish saint
+ * profiles in English. Runs alongside the primary saints crawler so a single
+ * misconfigured upstream doesn't blank the catalog.
+ */
+export function buildBishopsConferenceSaintsCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "bishops.saints",
+    description: "Saint biographies from approved bishops' conference websites",
+    kind: "saint",
+    indexUrls: [
+      "https://www.usccb.org/prayer-and-worship/liturgical-year/saints",
+      "https://www.cccb.ca/faith-moral-issues/feast-days-saints/",
+      "https://www.cbcew.org.uk/home/our-faith/saints/",
+    ],
+    linkFilter: (u) =>
+      SAINT_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
+      /saint|bless/i.test(u.pathname),
+    toItem: ({ url, title, description, bodyText }): IngestedSaint | null => {
+      const biography = bodyText || description || "";
+      if (biography.length < 80) return null;
+      const canonicalName = title.replace(/\s*[-|–]\s*(USCCB|CCCB|CBCEW).*/i, "").trim();
+      return {
+        kind: "saint",
+        slug: buildSlug(canonicalName),
+        canonicalName,
+        patronages: [],
+        biography,
+        externalSourceKey: urlToExternalKey(url),
+      };
+    },
+  });
+}
+
+/**
+ * Crawler for Catholic devotional content from approved sources beyond the
+ * Vatican's own site — bishops' conferences and liturgical reference sites
+ * republish Vatican-approved devotional material in many languages.
+ */
+export function buildCatholicDevotionsCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "catholic.devotions",
+    description: "Devotional practices from bishops' conferences and approved liturgical sources",
+    kind: "devotion",
+    indexUrls: [
+      "https://www.usccb.org/prayer-and-worship/devotions",
+      "https://www.cbcew.org.uk/home/our-faith/devotions/",
+      "https://www.cccb.ca/faith-moral-issues/devotions/",
+    ],
+    linkFilter: (u) => DEVOTION_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)),
+    toItem: ({ url, title, description, bodyText }): IngestedDevotion | null => {
+      const summary = description || bodyText.slice(0, 600) || "";
+      const practiceText = bodyText.length > summary.length ? bodyText : undefined;
+      if (summary.length < 30) return null;
+      const cat = categorizeDevotion({ title, summary });
+      return {
+        kind: "devotion",
+        slug: buildSlug(title, cat === "general" ? undefined : cat),
+        title,
+        summary,
+        practiceText,
+        externalSourceKey: urlToExternalKey(url),
+        tagSlugs: cat === "general" ? undefined : [cat],
+      };
+    },
+  });
+}
+
+/**
+ * Prayer crawler for additional bishops'-conference republished prayers
+ * (act-of-contrition, novenas, litanies) — gives the catalog more breadth
+ * than the rosary-centric vatican.va tree.
+ */
+export function buildCatholicPrayersCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "catholic.prayers",
+    description: "Prayers from bishops' conferences and approved liturgical reference",
+    kind: "prayer",
+    indexUrls: [
+      "https://www.usccb.org/prayers",
+      "https://www.cbcew.org.uk/home/our-faith/prayers/",
+      "https://www.catholic.org.au/prayer/",
+    ],
+    linkFilter: (u) =>
+      PRAYER_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
+      /prayer|litany|novena/i.test(u.pathname),
+    toItem: ({ url, title, description, bodyText }): IngestedPrayer | null => {
+      const body = bodyText || description || "";
+      if (body.length < 30) return null;
+      return {
+        kind: "prayer",
+        slug: buildSlug(title),
+        defaultTitle: title,
+        category: categorizePrayer({ title, body }),
+        body,
+        externalSourceKey: urlToExternalKey(url),
+      };
+    },
+  });
+}
+
 export function buildAllVaticanCrawlers(): SourceAdapter[] {
   return [
     buildVaticanPrayerCrawler(),
@@ -297,5 +399,10 @@ export function buildAllVaticanCrawlers(): SourceAdapter[] {
     buildVaticanApparitionsCrawler(),
     buildVaticanDevotionsCrawler(),
     buildVaticanParishesCrawler(),
+    // Newer adapters that broaden the catalog — same allowlist, additional
+    // index pages on approved conference-of-bishops and liturgical sites.
+    buildBishopsConferenceSaintsCrawler(),
+    buildCatholicDevotionsCrawler(),
+    buildCatholicPrayersCrawler(),
   ];
 }

@@ -6,6 +6,7 @@ import { getPublishedApparitionBySlug } from "@/lib/data/apparitions";
 import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
+import { parseSaintBiography } from "@/lib/data/saint-sections";
 
 type Props = { params: { slug: string } };
 
@@ -28,6 +29,12 @@ export default async function SaintDetailPage({ params }: Props) {
     const alreadySaved = user ? await isSaved("saint", user.id, saint.id) : false;
     const tr = saint.translations[0];
     const biography = tr?.biography ?? saint.biography;
+    const sections = parseSaintBiography(biography);
+    const hasStructured =
+      sections.story.length > 0 ||
+      sections.background.length > 0 ||
+      sections.importantDates.length > 0 ||
+      sections.contributions.length > 0;
 
     return (
       <div className="mx-auto max-w-3xl">
@@ -49,31 +56,87 @@ export default async function SaintDetailPage({ params }: Props) {
           </h1>
         </section>
 
-        {user ? (
-          <div className="mb-10 flex justify-center">
-            <SaveButton kind="saints" entityId={saint.id} initiallySaved={alreadySaved} />
-          </div>
-        ) : null}
+        <div className="mb-10 flex justify-center">
+          <SaveButton
+            kind="saints"
+            entityId={saint.id}
+            initiallySaved={alreadySaved}
+            isAuthed={!!user}
+          />
+        </div>
 
-        {saint.patronages.length > 0 ? (
-          <div className="mb-8 flex flex-wrap justify-center gap-2">
-            <span className="vf-eyebrow mr-2">{t("saints.patronages")}:</span>
-            {saint.patronages.map((p) => (
-              <span
-                key={p}
-                className="rounded-full border border-ink/15 px-3 py-1 font-serif text-sm text-ink-soft"
-              >
-                {p}
-              </span>
-            ))}
+        {/* At-a-glance metadata: feast day + patronages, surfaced as a clear
+            quick-reference panel rather than buried in the biography prose. */}
+        {(saint.feastDay || saint.patronages.length > 0) && (
+          <div className="mb-8 vf-card rounded-sm p-6">
+            <dl className="grid gap-4 sm:grid-cols-2">
+              {saint.feastDay ? (
+                <div>
+                  <dt className="vf-eyebrow mb-1.5">{t("saints.feastDay")}</dt>
+                  <dd className="font-serif text-ink">{saint.feastDay}</dd>
+                </div>
+              ) : null}
+              {saint.patronages.length > 0 ? (
+                <div>
+                  <dt className="vf-eyebrow mb-1.5">{t("saints.patronages")}</dt>
+                  <dd className="flex flex-wrap gap-1.5">
+                    {saint.patronages.map((p) => (
+                      <span
+                        key={p}
+                        className="rounded-full border border-ink/15 px-2.5 py-0.5 font-serif text-sm text-ink-soft"
+                      >
+                        {p}
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
           </div>
-        ) : null}
+        )}
 
-        <article className="vf-card rounded-sm p-8">
-          <p className="whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">
-            {biography}
-          </p>
-        </article>
+        {hasStructured ? (
+          <div className="flex flex-col gap-6">
+            {sections.story ? (
+              <article className="vf-card rounded-sm p-8">
+                <h2 className="mb-3 font-display text-2xl">Story</h2>
+                <p className="whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">
+                  {sections.story}
+                </p>
+              </article>
+            ) : null}
+            {sections.background ? (
+              <article className="vf-card rounded-sm p-8">
+                <h2 className="mb-3 font-display text-2xl">Historical background</h2>
+                <p className="whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">
+                  {sections.background}
+                </p>
+              </article>
+            ) : null}
+            {sections.importantDates ? (
+              <article className="vf-card rounded-sm p-8">
+                <h2 className="mb-3 font-display text-2xl">Important dates</h2>
+                <p className="whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">
+                  {sections.importantDates}
+                </p>
+              </article>
+            ) : null}
+            {sections.contributions ? (
+              <article className="vf-card rounded-sm p-8">
+                <h2 className="mb-3 font-display text-2xl">Major contributions to the Church</h2>
+                <p className="whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">
+                  {sections.contributions}
+                </p>
+              </article>
+            ) : null}
+          </div>
+        ) : (
+          <article className="vf-card rounded-sm p-8">
+            <p className="whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">
+              {biography}
+            </p>
+          </article>
+        )}
 
         {saint.officialPrayer ? (
           <div className="mt-10 vf-card rounded-sm p-8">
@@ -83,6 +146,14 @@ export default async function SaintDetailPage({ params }: Props) {
             </p>
           </div>
         ) : null}
+
+        <p className="mt-8 text-center font-serif text-xs text-ink-faint">
+          Biography curated from approved Catholic sources via the content ingestion system. See{" "}
+          <Link href="/admin/sources" className="underline">
+            approved sources
+          </Link>{" "}
+          for details.
+        </p>
       </div>
     );
   }
@@ -119,11 +190,14 @@ export default async function SaintDetailPage({ params }: Props) {
         ) : null}
       </section>
 
-      {user ? (
-        <div className="mb-10 flex justify-center">
-          <SaveButton kind="apparitions" entityId={apparition.id} initiallySaved={alreadySaved} />
-        </div>
-      ) : null}
+      <div className="mb-10 flex justify-center">
+        <SaveButton
+          kind="apparitions"
+          entityId={apparition.id}
+          initiallySaved={alreadySaved}
+          isAuthed={!!user}
+        />
+      </div>
 
       <article className="vf-card rounded-sm p-8">
         <p className="whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">{summary}</p>

@@ -42,20 +42,19 @@ export default async function PrayerDetailPage({ params }: Props) {
         <h1 className="font-display text-5xl leading-tight text-ink sm:text-6xl">{title}</h1>
       </section>
 
-      {user ? (
-        <div className="mb-10 flex justify-center">
-          <SaveButton
-            kind="prayers"
-            entityId={prayer.id}
-            initiallySaved={alreadySaved}
-            labels={{
-              save: t("prayers.save"),
-              saved: t("prayers.saved"),
-              remove: t("common.remove"),
-            }}
-          />
-        </div>
-      ) : null}
+      <div className="mb-10 flex justify-center">
+        <SaveButton
+          kind="prayers"
+          entityId={prayer.id}
+          initiallySaved={alreadySaved}
+          isAuthed={!!user}
+          labels={{
+            save: t("prayers.save"),
+            saved: t("prayers.saved"),
+            remove: t("common.remove"),
+          }}
+        />
+      </div>
 
       <article className="vf-card rounded-sm p-8">
         <p className="whitespace-pre-wrap font-serif text-lg leading-loose text-ink-soft">{body}</p>
