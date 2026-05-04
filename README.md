@@ -22,6 +22,16 @@ edited blindly:
 - **Canonical domain.** The canonical production domain is
   **`https://etviafidei.com`**. It is the default for `CANONICAL_URL`,
   metadata, sitemap, robots, and email links.
+- **Admin dashboard.** The admin console is served at **`/admin`** and only
+  at `/admin`. The login screen is at `/admin/login`. Admin credentials are
+  managed exclusively through the existing `ADMIN_USERNAME` / `ADMIN_PASSWORD`
+  server environment variables — there is no admin UI for credential changes.
+- **Sitemap.** The sitemap is served at **`/sitemap.xml`**. There is **one**
+  authoritative source: `src/app/sitemap.ts`. Next's metadata route handler
+  generates the XML dynamically (static public pages plus published-content
+  detail entries pulled from the database with `updatedAt` as `lastmod`).
+  Do not add a static `public/sitemap.xml` — that creates two conflicting
+  sources. Google Search Console fetches `/sitemap.xml`.
 - **Google Search Console verification.** The file
   `public/google0292583cfdf40074.html` is intentionally kept in the public
   folder. **Do not rename, move, or remove it** — Google revalidates the
@@ -437,8 +447,23 @@ requests immediately so Railway / Docker healthchecks never wait on it.
 
 ## Admin console
 
-`/admin` is locked behind `requireAdmin` and shows fourteen sections
-(`src/app/admin/_dashboard/cards.ts`):
+`/admin` is the only admin surface. Protection is layered:
+
+- **Middleware** (`src/middleware.ts`) redirects any unauthenticated request to
+  a path under `/admin` (other than `/admin/login`) back to `/admin/login`
+  with a 303. This is a coarse cookie-presence check so unauthenticated
+  visitors never even render the page.
+- **`requireAdmin()`** (`src/lib/auth/admin.ts`) is called inside every admin
+  page server component and every `/api/admin/...` route handler. It verifies
+  `session.role === "ADMIN"` and is the authoritative authorization check.
+- **`/admin/login`** posts to `POST /api/admin/login`, which redirects to
+  `/admin?welcome=1` on success and `/admin/login?error=invalid` on failure.
+- **`POST /api/admin/logout`** destroys the session and redirects back to
+  `/admin/login`.
+- The `/admin` layout sets `robots: { index: false, follow: false }` so no
+  admin page (including `/admin/login`) is indexable.
+
+`/admin` shows fourteen sections (`src/app/admin/_dashboard/cards.ts`):
 
 1. Homepage blocks
 2. Prayers
@@ -516,39 +541,39 @@ each catalog entity is exposed under `/api/admin/<entity>` via the
 
 ### Admin
 
-| Method                    | Path                                                | Purpose                                                  |
-| ------------------------- | --------------------------------------------------- | -------------------------------------------------------- |
-| POST                      | `/api/admin/login`                                  | Admin login                                              |
-| POST                      | `/api/admin/logout`                                 | Admin logout                                             |
-| POST                      | `/api/admin/content/review`                         | Approve / reject / revise / move-to-review               |
-| GET / POST                | `/api/admin/prayers`                                | List / create prayers (catalog)                          |
-| PATCH / DELETE            | `/api/admin/prayers/[id]`                           | Update / delete a prayer                                 |
-| GET / POST                | `/api/admin/saints`                                 | List / create saints                                     |
-| PATCH / DELETE            | `/api/admin/saints/[id]`                            | Update / delete a saint                                  |
-| GET / POST                | `/api/admin/apparitions`                            | List / create Marian apparitions                         |
-| PATCH / DELETE            | `/api/admin/apparitions/[id]`                       | Update / delete an apparition                            |
-| GET / POST                | `/api/admin/parishes`                               | List / create parishes                                   |
-| PATCH / DELETE            | `/api/admin/parishes/[id]`                          | Update / delete a parish                                 |
-| GET / POST                | `/api/admin/devotions`                              | List / create devotions                                  |
-| PATCH / DELETE            | `/api/admin/devotions/[id]`                         | Update / delete a devotion                               |
-| GET / POST                | `/api/admin/liturgy`                                | List / create liturgy entries                            |
-| PATCH / DELETE            | `/api/admin/liturgy/[id]`                           | Update / delete a liturgy entry                          |
-| GET / POST                | `/api/admin/spiritual-life`                         | List / create spiritual-life guides                      |
-| PATCH / DELETE            | `/api/admin/spiritual-life/[id]`                    | Update / delete a spiritual-life guide                   |
-| POST                      | `/api/admin/ingestion/run`                          | Run a single job or all active jobs                      |
-| PATCH                     | `/api/admin/ingestion/jobs/[id]`                    | Pause / resume or re-schedule a job                      |
-| GET / POST                | `/api/admin/sources`                                | List / create ingestion sources                          |
-| GET / PATCH               | `/api/admin/sources/[id]`                           | Read / update an ingestion source                        |
-| GET / POST                | `/api/admin/media`                                  | List / register a media asset (Cloudinary URL)           |
-| GET / DELETE              | `/api/admin/media/[id]`                             | Read / delete a media asset                              |
-| GET                       | `/api/admin/users`                                  | Paginated, searchable user listing                       |
-| GET                       | `/api/admin/audit`                                  | Filterable audit log                                     |
-| POST                      | `/api/admin/search/reindex`                         | Trigger reindex / housekeeping                           |
-| GET                       | `/api/admin/translations`                           | Translation row counts                                   |
-| GET / POST                | `/api/admin/favicon`                                | Read / replace favicon asset                             |
-| GET / POST                | `/api/admin/homepage`                               | Read / update homepage block config                      |
-| POST (`GET`)              | `/api/cron/ingest`                                  | Run scheduler + housekeeping (cron-secret authenticated) |
-| POST / GET                | `/api/internal/cleanup`                             | Prune sessions / tokens / rate-limits (cron-secret auth) |
+| Method         | Path                             | Purpose                                                  |
+| -------------- | -------------------------------- | -------------------------------------------------------- |
+| POST           | `/api/admin/login`               | Admin login                                              |
+| POST           | `/api/admin/logout`              | Admin logout                                             |
+| POST           | `/api/admin/content/review`      | Approve / reject / revise / move-to-review               |
+| GET / POST     | `/api/admin/prayers`             | List / create prayers (catalog)                          |
+| PATCH / DELETE | `/api/admin/prayers/[id]`        | Update / delete a prayer                                 |
+| GET / POST     | `/api/admin/saints`              | List / create saints                                     |
+| PATCH / DELETE | `/api/admin/saints/[id]`         | Update / delete a saint                                  |
+| GET / POST     | `/api/admin/apparitions`         | List / create Marian apparitions                         |
+| PATCH / DELETE | `/api/admin/apparitions/[id]`    | Update / delete an apparition                            |
+| GET / POST     | `/api/admin/parishes`            | List / create parishes                                   |
+| PATCH / DELETE | `/api/admin/parishes/[id]`       | Update / delete a parish                                 |
+| GET / POST     | `/api/admin/devotions`           | List / create devotions                                  |
+| PATCH / DELETE | `/api/admin/devotions/[id]`      | Update / delete a devotion                               |
+| GET / POST     | `/api/admin/liturgy`             | List / create liturgy entries                            |
+| PATCH / DELETE | `/api/admin/liturgy/[id]`        | Update / delete a liturgy entry                          |
+| GET / POST     | `/api/admin/spiritual-life`      | List / create spiritual-life guides                      |
+| PATCH / DELETE | `/api/admin/spiritual-life/[id]` | Update / delete a spiritual-life guide                   |
+| POST           | `/api/admin/ingestion/run`       | Run a single job or all active jobs                      |
+| PATCH          | `/api/admin/ingestion/jobs/[id]` | Pause / resume or re-schedule a job                      |
+| GET / POST     | `/api/admin/sources`             | List / create ingestion sources                          |
+| GET / PATCH    | `/api/admin/sources/[id]`        | Read / update an ingestion source                        |
+| GET / POST     | `/api/admin/media`               | List / register a media asset (Cloudinary URL)           |
+| GET / DELETE   | `/api/admin/media/[id]`          | Read / delete a media asset                              |
+| GET            | `/api/admin/users`               | Paginated, searchable user listing                       |
+| GET            | `/api/admin/audit`               | Filterable audit log                                     |
+| POST           | `/api/admin/search/reindex`      | Trigger reindex / housekeeping                           |
+| GET            | `/api/admin/translations`        | Translation row counts                                   |
+| GET / POST     | `/api/admin/favicon`             | Read / replace favicon asset                             |
+| GET / POST     | `/api/admin/homepage`            | Read / update homepage block config                      |
+| POST (`GET`)   | `/api/cron/ingest`               | Run scheduler + housekeeping (cron-secret authenticated) |
+| POST / GET     | `/api/internal/cleanup`          | Prune sessions / tokens / rate-limits (cron-secret auth) |
 
 ---
 
