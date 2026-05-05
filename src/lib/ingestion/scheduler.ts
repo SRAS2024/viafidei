@@ -1,4 +1,5 @@
 import { prisma } from "../db/client";
+import { logger } from "../observability/logger";
 import { getAdapter } from "./registry";
 import { runAdapter, type RunnerOptions } from "./runner";
 import type { IngestionRunSummary } from "./types";
@@ -22,10 +23,17 @@ export async function runAllActiveJobs(options: RunnerOptions = {}): Promise<Sch
     include: { source: true },
   });
 
+  logger.info("ingestion.scheduler.start", { totalJobs: jobs.length });
+
   const runs: SchedulerJobResult[] = [];
   for (const job of jobs) {
     const adapter = getAdapter(job.jobName);
     if (!adapter) {
+      logger.warn("ingestion.scheduler.adapter_missing", {
+        jobId: job.id,
+        jobName: job.jobName,
+        sourceHost: job.source.host,
+      });
       runs.push({
         jobId: job.id,
         jobName: job.jobName,
@@ -53,6 +61,23 @@ export async function runAllActiveJobs(options: RunnerOptions = {}): Promise<Sch
     });
   }
 
+  const totals = runs.reduce(
+    (acc, r) => {
+      acc.seen += r.summary.recordsSeen;
+      acc.created += r.summary.recordsCreated;
+      acc.updated += r.summary.recordsUpdated;
+      acc.skipped += r.summary.recordsSkipped;
+      acc.failed += r.summary.recordsFailed;
+      acc.reviewRequired += r.summary.recordsReviewRequired;
+      return acc;
+    },
+    { seen: 0, created: 0, updated: 0, skipped: 0, failed: 0, reviewRequired: 0 },
+  );
+  logger.info("ingestion.scheduler.completed", {
+    totalJobs: jobs.length,
+    ...totals,
+  });
+
   return { totalJobs: jobs.length, runs };
 }
 
@@ -64,10 +89,18 @@ export async function runJobByName(
     where: { jobName, isActive: true },
     include: { source: true },
   });
-  if (!job) return null;
+  if (!job) {
+    logger.warn("ingestion.scheduler.job_not_found", { jobName });
+    return null;
+  }
 
   const adapter = getAdapter(jobName);
   if (!adapter) {
+    logger.warn("ingestion.scheduler.adapter_missing", {
+      jobId: job.id,
+      jobName,
+      sourceHost: job.source.host,
+    });
     return {
       jobId: job.id,
       jobName,

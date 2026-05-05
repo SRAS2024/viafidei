@@ -3,11 +3,12 @@ import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedSaintBySlug } from "@/lib/data/saints";
 import { getPublishedApparitionBySlug } from "@/lib/data/apparitions";
-import { isSaved } from "@/lib/data/saved";
+import { isSaved, type SavedKind } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
 import { parseSaintBiography } from "@/lib/data/saint-sections";
 import { logger } from "@/lib/observability/logger";
+import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ async function safeGetSaint(slug: string, locale: string) {
   try {
     return await getPublishedSaintBySlug(slug, locale as never);
   } catch (err) {
-    logger.error("saint.lookup_failed", { slug, error: (err as Error).message });
+    logPageError({ route: "/saints/[slug]", entityType: "Saint", slug, error: err });
     return null;
   }
 }
@@ -26,8 +27,31 @@ async function safeGetApparition(slug: string, locale: string) {
   try {
     return await getPublishedApparitionBySlug(slug, locale as never);
   } catch (err) {
-    logger.error("apparition.lookup_failed", { slug, error: (err as Error).message });
+    logPageError({
+      route: "/saints/[slug]",
+      entityType: "MarianApparition",
+      slug,
+      error: err,
+    });
     return null;
+  }
+}
+
+async function safeRequireUser() {
+  try {
+    return await requireUser();
+  } catch (err) {
+    logger.warn("saints.requireUser_failed", { error: (err as Error).message });
+    return null;
+  }
+}
+
+async function safeIsSaved(kind: SavedKind, userId: string, entityId: string): Promise<boolean> {
+  try {
+    return await isSaved(kind, userId, entityId);
+  } catch (err) {
+    logger.warn("saints.isSaved_failed", { kind, error: (err as Error).message });
+    return false;
   }
 }
 
@@ -46,8 +70,8 @@ export default async function SaintDetailPage({ params }: Props) {
   // Try saint first, then apparition
   const saint = await safeGetSaint(params.slug, locale);
   if (saint) {
-    const user = await requireUser();
-    const alreadySaved = user ? await isSaved("saint", user.id, saint.id) : false;
+    const user = await safeRequireUser();
+    const alreadySaved = user ? await safeIsSaved("saint", user.id, saint.id) : false;
     const tr = saint.translations[0];
     const biography = tr?.biography ?? saint.biography;
     const sections = parseSaintBiography(biography);
@@ -181,10 +205,17 @@ export default async function SaintDetailPage({ params }: Props) {
 
   // Try apparition
   const apparition = await safeGetApparition(params.slug, locale);
-  if (!apparition) notFound();
+  if (!apparition) {
+    logPageMissingContent({
+      route: "/saints/[slug]",
+      slug: params.slug,
+      reason: "missing_record",
+    });
+    notFound();
+  }
 
-  const user = await requireUser();
-  const alreadySaved = user ? await isSaved("apparition", user.id, apparition.id) : false;
+  const user = await safeRequireUser();
+  const alreadySaved = user ? await safeIsSaved("apparition", user.id, apparition.id) : false;
   const tr = apparition.translations[0];
   const title = tr?.title ?? apparition.title;
   const summary = tr?.summary ?? apparition.summary;

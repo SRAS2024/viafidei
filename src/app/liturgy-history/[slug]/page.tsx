@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedLiturgyBySlug } from "@/lib/data/liturgy";
-import { logger } from "@/lib/observability/logger";
+import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,12 @@ async function safeGetEntry(slug: string, locale: string) {
   try {
     return await getPublishedLiturgyBySlug(slug, locale as never);
   } catch (err) {
-    logger.error("liturgy.lookup_failed", { slug, error: (err as Error).message });
+    logPageError({
+      route: "/liturgy-history/[slug]",
+      entityType: "LiturgyEntry",
+      slug,
+      error: err,
+    });
     return null;
   }
 }
@@ -40,7 +45,15 @@ export async function generateMetadata({ params }: Props) {
 export default async function LiturgyDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
   const entry = await safeGetEntry(params.slug, locale);
-  if (!entry) notFound();
+  if (!entry) {
+    logPageMissingContent({
+      route: "/liturgy-history/[slug]",
+      entityType: "LiturgyEntry",
+      slug: params.slug,
+      reason: "missing_record",
+    });
+    notFound();
+  }
 
   const tr = entry.translations[0];
   const title = tr?.title ?? entry.title;

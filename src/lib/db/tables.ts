@@ -1,9 +1,12 @@
 import { prisma } from "./client";
 
-const REQUIRED_TABLES = [
-  "User",
-  "Session",
-  "Profile",
+/**
+ * Tables that the public site reads from for guides, prayers, saints,
+ * devotions, apparitions, liturgy entries, and parishes. The health check
+ * surfaces this list separately so a deploy that's missing a content table
+ * is reported as `migration_required` instead of crashing the first request.
+ */
+export const PUBLIC_CONTENT_TABLES = [
   "Prayer",
   "Saint",
   "MarianApparition",
@@ -12,16 +15,27 @@ const REQUIRED_TABLES = [
   "LiturgyEntry",
   "SpiritualLifeGuide",
   "DailyLiturgy",
+] as const;
+
+const REQUIRED_TABLES = [
+  "User",
+  "Session",
+  "Profile",
+  ...PUBLIC_CONTENT_TABLES,
   "JournalEntry",
   "Goal",
   "Milestone",
   "RateLimitBucket",
+  "IngestionSource",
+  "IngestionJob",
+  "IngestionJobRun",
 ] as const;
 
 export type TableCheckResult = {
   ok: boolean;
   missing: string[];
   present: string[];
+  publicContentMissing: string[];
 };
 
 export async function checkRequiredTables(): Promise<TableCheckResult> {
@@ -39,7 +53,8 @@ export async function checkRequiredTables(): Promise<TableCheckResult> {
       missing.push(table);
     }
   }
-  return { ok: missing.length === 0, missing, present };
+  const publicContentMissing = PUBLIC_CONTENT_TABLES.filter((t) => !existing.has(t));
+  return { ok: missing.length === 0, missing, present, publicContentMissing };
 }
 
 export async function checkSeedContent(): Promise<{ ok: boolean; counts: Record<string, number> }> {

@@ -35,6 +35,7 @@ export async function persistDevotion(
         durationMinutes: item.durationMinutes ?? null,
         externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey ?? null,
         contentChecksum: incomingChecksum,
+        status: initialStatus,
       },
     });
     return "updated";
