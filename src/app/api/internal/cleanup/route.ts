@@ -43,7 +43,7 @@ async function runCleanup(now: Date) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!isAuthorizedCron(req)) {
+  if (!(await isAuthorizedCron(req))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!isAuthorizedCron(req)) {
+  if (!(await isAuthorizedCron(req))) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

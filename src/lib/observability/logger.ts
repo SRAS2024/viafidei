@@ -1,3 +1,5 @@
+import { appConfig } from "@/lib/config";
+
 type LogLevel = "debug" | "info" | "warn" | "error";
 
 const LEVEL_PRIORITY: Record<LogLevel, number> = {
@@ -8,9 +10,9 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 function configuredMinLevel(): LogLevel {
-  const raw = (process.env.LOG_LEVEL ?? "").toLowerCase();
-  if (raw === "debug" || raw === "info" || raw === "warn" || raw === "error") return raw;
-  return process.env.NODE_ENV === "production" ? "info" : "debug";
+  return process.env.NODE_ENV === "production"
+    ? appConfig.logLevelProduction
+    : appConfig.logLevelDevelopment;
 }
 
 const minPriority = LEVEL_PRIORITY[configuredMinLevel()];

@@ -1,18 +1,15 @@
-import { getEnv } from "@/lib/env";
+import { appConfig } from "@/lib/config";
 
 function trimTrailingSlash(value: string): string {
   return value.endsWith("/") ? value.slice(0, -1) : value;
 }
 
 export function getAppBaseUrl(): string {
-  const env = getEnv();
-  const base = env.APP_URL ?? env.CANONICAL_URL ?? "http://localhost:3000";
-  return trimTrailingSlash(base);
+  return trimTrailingSlash(appConfig.appUrl);
 }
 
 export function getCanonicalUrl(): string {
-  const env = getEnv();
-  return trimTrailingSlash(env.CANONICAL_URL ?? "https://etviafidei.com");
+  return trimTrailingSlash(appConfig.canonicalUrl);
 }
 
 export function buildPasswordResetLink(token: string): string {

@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { requireAdmin, pruneExpiredTokens } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
+import { appConfig } from "@/lib/config";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { pruneExpiredRateLimits } from "@/lib/security/rate-limit";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     newValue: { prunedTokens, prunedLimits },
   });
   return jsonOk({
-    provider: process.env.SEARCH_PROVIDER || "postgres",
+    provider: appConfig.searchProvider,
     prunedTokens,
     prunedLimits,
   });

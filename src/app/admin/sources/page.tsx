@@ -71,8 +71,8 @@ export default async function AdminSourcesPage() {
         {registered.length === 0 ? (
           <div className="vf-card rounded-sm p-8 text-center font-serif text-ink-faint">
             No ingestion sources have been registered yet. They are seeded automatically the first
-            time the in-process ingestion scheduler runs (when CRON_SECRET is set), or you can
-            trigger one manually from the Ingestion admin page.
+            time the in-process ingestion scheduler runs (disabled by default), or you can trigger
+            one manually from the Ingestion admin page.
           </div>
         ) : (
           <div className="flex flex-col gap-3">

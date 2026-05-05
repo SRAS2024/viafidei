@@ -1,7 +1,7 @@
 import { isProduction } from "@/lib/env";
 import { logger } from "@/lib/observability";
 import { buildEmailVerificationLink, buildPasswordResetLink, getAppBaseUrl } from "./links";
-import { isEmailConfigured, sendTransactionalEmail, type SendEmailResult } from "./postmark";
+import { isEmailConfigured, sendTransactionalEmail, type SendEmailResult } from "./resend";
 import {
   renderEmailVerificationEmail,
   renderPasswordResetEmail,
@@ -28,7 +28,7 @@ function localeOf(user: AccountUser): EmailLocale {
 
 /**
  * Reusable sender used by all account email flows. Centralizes:
- *  - delivery (Postmark or skipped in dev)
+ *  - delivery (Resend, or skipped when no provider is configured)
  *  - structured logging
  *  - safe failure semantics (no thrown errors leak to callers)
  */

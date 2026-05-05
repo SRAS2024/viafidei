@@ -20,8 +20,9 @@ edited blindly:
 - **Official site name.** The official website name is **Via Fidei** and is
   used everywhere in copy, metadata, and templates.
 - **Canonical domain.** The canonical production domain is
-  **`https://etviafidei.com`**. It is the default for `CANONICAL_URL`,
-  metadata, sitemap, robots, and email links.
+  **`https://etviafidei.com`**. It is hardcoded in `src/lib/config.ts` and
+  used for metadata, sitemap, robots, and email links — no environment
+  variable required.
 - **Admin dashboard.** The admin console is served at **`/admin`** and only
   at `/admin`. The login screen is at `/admin/login`. Admin credentials are
   managed exclusively through the existing `ADMIN_USERNAME` / `ADMIN_PASSWORD`
@@ -37,9 +38,11 @@ edited blindly:
   folder. **Do not rename, move, or remove it** — Google revalidates the
   property by fetching that exact path.
 - **Transactional sender address.** The official transactional sender address
-  is **`notifications@viafidei.com`**. It is the default for
-  `EMAIL_FROM_ADDRESS` and is the only address used for account-related
-  email (welcome, password reset, email verification).
+  is **`notifications@etviafidei.com`**, hardcoded in `src/lib/config.ts`.
+  It is the only address used for account-related email (welcome, password
+  reset, email verification). Email is delivered via **Resend** when
+  `RESEND_API_KEY` is set; without it, email features are safely skipped
+  and the rest of the auth flow still succeeds.
 - **Email DNS records are managed externally.** SPF, DKIM, DMARC, and
   return-path records live at the DNS provider and authoritatively belong
   there. **App code must not generate, write, or overwrite DNS records.**
@@ -61,7 +64,7 @@ edited blindly:
 | Locale negotiation | `negotiator` + cookie override                                                         |
 | Container          | Multi-stage `Dockerfile` (deps → builder → runner)                                     |
 | Deployment         | Railway-ready (`railway.json`, healthcheck on `/api/health/live`)                      |
-| Email              | Postmark transactional sends (welcome, password reset, email verification)             |
+| Email              | Resend transactional sends (welcome, password reset, email verification)               |
 | Startup            | `instrumentation.ts` auto-seeds an empty DB and schedules in-process Vatican ingestion |
 | Unit / API tests   | Vitest 2 + v8 coverage (mocked Prisma, Next route handler imports)                     |
 | Component tests    | React Testing Library 15 + jsdom + jest-axe                                            |
@@ -111,7 +114,7 @@ edited blindly:
 │   │   ├── content/           # Review workflow + Catholic-rite filtering
 │   │   ├── data/              # Per-entity repositories + admin catalog + goal templates
 │   │   ├── db/                # Prisma client, table diagnostics, init
-│   │   ├── email/             # Postmark client, link builders, templates,
+│   │   ├── email/             # Resend client, link builders, templates,
 │   │   │                      # send helpers, locale-aware translations
 │   │   ├── http/              # Fetch client, retries, timeouts, JSON responses,
 │   │   │                      # admin-catalog + saved-item route factories
@@ -130,7 +133,7 @@ edited blindly:
 │   ├── components/            # RTL tests with `@vitest-environment jsdom`
 │   ├── data/                  # Repository tests (admin-users, etc.)
 │   ├── db/                    # checkRequiredTables / checkSeedContent
-│   ├── email/                 # Postmark client, templates, link builders, send helpers
+│   ├── email/                 # Resend client, templates, link builders, send helpers
 │   ├── fixtures/              # Factories + mock SourceAdapter / fetch
 │   ├── helpers/               # Prisma + cookie mocks
 │   ├── ingestion/             # validateItem + sanitize boundary tests
@@ -226,42 +229,52 @@ See [TESTING.md](TESTING.md) for the full layout, fixtures, and test-DB isolatio
 
 ## Environment
 
-Recognized variables (see `.env.example` and `src/lib/env.ts` for the
-production-strict schema):
+The app deliberately ships with a **minimal** production environment surface.
+Anything that is not a private secret or deployment-specific value lives in
+`src/lib/config.ts` as a hardcoded default.
 
-### Required
+### Required (production)
 
-| Variable         | Notes                                                                                   |
-| ---------------- | --------------------------------------------------------------------------------------- |
-| `DATABASE_URL`   | PostgreSQL connection string                                                            |
-| `SESSION_SECRET` | 32+ chars. Required in production. `JWT_ACCESS_SECRET` (32+) is accepted as a fallback. |
-| `ADMIN_USERNAME` | Required in production                                                                  |
-| `ADMIN_PASSWORD` | Required in production. Must be at least 12 characters.                                 |
+Only these four variables must be set for a production deployment to start:
+
+| Variable         | Notes                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`   | PostgreSQL connection string. Private and deployment-specific.                             |
+| `SESSION_SECRET` | 32+ chars of high-entropy randomness. Encrypts session cookies and derives the cron token. |
+| `ADMIN_USERNAME` | Admin login username.                                                                      |
+| `ADMIN_PASSWORD` | Admin login password. At least 12 characters.                                              |
 
 ### Optional
 
-| Variable                                      | Purpose                                                                                          |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `NODE_ENV`                                    | `development` \| `test` \| `production`                                                          |
-| `APP_URL`, `CANONICAL_URL`                    | Used for OG / metadata base, sitemap, robots, and email links                                    |
-| `LOG_LEVEL`                                   | `debug` \| `info` \| `warn` \| `error` (default: info in prod)                                   |
-| `POSTMARK_SERVER_TOKEN`, `EMAIL_FROM_ADDRESS` | Transactional email via Postmark (welcome, password reset, email verification)                   |
-| `SEARCH_PROVIDER`                             | Echoed in `/api/admin/search/reindex` responses. Defaults to `postgres`.                         |
-| `CRON_SECRET`                                 | 16+ chars. Required to call `/api/cron/ingest` and to enable the in-process ingestion scheduler. |
-| `INGESTION_USER_AGENT`                        | UA sent during scheduled fetches                                                                 |
-| `INGESTION_HTTP_TIMEOUT_MS`                   | Per-request timeout (ms, default 15000)                                                          |
-| `INGESTION_INITIAL_STATUS`                    | `DRAFT` or `REVIEW` (default `REVIEW`)                                                           |
-| `INGESTION_INTERVAL_MS`                       | In-process scheduler tick (default 1800000 = 30 min, min 60000)                                  |
-| `INGESTION_INITIAL_DELAY_MS`                  | Delay before the first ingestion tick (default 300000 = 5 min)                                   |
-| `INGESTION_DISABLED`                          | Set to `true` to disable the in-process ingestion scheduler                                      |
+| Variable         | Purpose                                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `NODE_ENV`       | `development` \| `test` \| `production`                                                                            |
+| `RESEND_API_KEY` | Resend API key. When unset, transactional email is silently skipped — auth flows succeed without delivering email. |
 
 `getEnv()` validates these with Zod at first access; in production an invalid
 configuration throws, in development it logs a warning and continues.
 
-The list above is the **complete** set of variables the current code reads.
-The app does not require, read, or fall back to any other secret. Local
-development, the test suite, and production deployments all run with this
-exact surface — there are no additional credentials to configure.
+### Hardcoded configuration (no environment variables)
+
+The following values are baked into `src/lib/config.ts`. They used to be
+environment variables; they are now safe internal defaults so production
+deployments do not need to set them:
+
+| Setting                             | Hardcoded value                                                         |
+| ----------------------------------- | ----------------------------------------------------------------------- |
+| Canonical / app URL                 | `https://etviafidei.com`                                                |
+| Email sender address                | `notifications@etviafidei.com`                                          |
+| Search provider (echoed by reindex) | `postgres`                                                              |
+| Server port / hostname              | `3000` / `0.0.0.0`                                                      |
+| Logger floor                        | `info` in production, `debug` otherwise                                 |
+| Ingestion HTTP timeout              | 15000 ms                                                                |
+| Ingestion User-Agent                | `ViaFideiBot/1.0 (+https://etviafidei.com/bot; ingestion@viafidei.com)` |
+| Ingestion initial status            | `REVIEW`                                                                |
+| Ingestion scheduler interval        | 30 min (initial delay 5 min)                                            |
+| In-process ingestion scheduler      | **Disabled by default.** Edit `src/lib/config.ts` to enable.            |
+
+The list above is the **complete** runtime surface — there are no additional
+credentials to configure.
 
 ---
 
@@ -362,8 +375,9 @@ isolation guards — see [TESTING.md](TESTING.md). The short version:
   `Permissions-Policy`, and HSTS in production).
 - `next.config.js` re-asserts security headers at the framework level and
   disables `x-powered-by`.
-- `/api/cron/ingest` requires a constant-time match against `CRON_SECRET`
-  via either `Authorization: Bearer <secret>` or `X-Cron-Secret`.
+- `/api/cron/ingest` requires a constant-time match against the per-deployment
+  cron token derived from `SESSION_SECRET` (HMAC-SHA-256 with a domain-separation
+  tag), supplied via `Authorization: Bearer <token>` or `X-Cron-Secret`.
 - Admin actions write to `AdminAuditLog` (`src/lib/audit`).
 
 ---
@@ -541,21 +555,22 @@ Every batch is sent through `sanitize()` and `validateItem()` before
 persistence: incomplete records (missing slug, title, or body shorter
 than the kind-specific minimum) are rejected, and any `externalSourceKey`
 that points off-allowlist is rejected. Surviving records land in the
-moderation queue at `INGESTION_INITIAL_STATUS` (defaulting to `REVIEW`)
+moderation queue at the configured initial status (defaulting to `REVIEW`)
 so nothing reaches the public site until an admin approves it through
 `/admin/ingestion` or `/admin/<entity>`.
 
 ### Scheduling and observability
 
-- **In-process scheduler.** When `CRON_SECRET` is set, the running server
-  schedules itself to call `POST /api/cron/ingest` after
-  `INGESTION_INITIAL_DELAY_MS` (default 5 min) and then every
-  `INGESTION_INTERVAL_MS` (default 30 min). The first tick is delayed so
-  it never blocks deploy healthchecks. Set `INGESTION_DISABLED=true` to
-  delegate scheduling to an external platform.
-- **External cron.** `POST /api/cron/ingest` with
-  `Authorization: Bearer $CRON_SECRET`. The same handler accepts `GET`
-  for platforms that prefer it. `maxDuration` is 60s.
+- **In-process scheduler.** Disabled by default in `src/lib/config.ts`
+  (`ingestion.schedulerDisabled = true`). When enabled in code, the running
+  server schedules itself to call `POST /api/cron/ingest` after the
+  configured initial delay (default 5 min) and then every configured
+  interval (default 30 min). The first tick is delayed so it never blocks
+  deploy healthchecks.
+- **External cron.** `POST /api/cron/ingest` with `Authorization: Bearer
+<token>`, where `<token>` is the cron token derived from `SESSION_SECRET`.
+  The same handler accepts `GET` for platforms that prefer it. `maxDuration`
+  is 60s.
 - **Ad-hoc.** `POST /api/admin/ingestion/run` from the admin console.
   Records an audit entry.
 - **Failure isolation.** A single failing source records an
@@ -633,7 +648,7 @@ nothing renders out of in-memory scraper state. The pipeline is:
      `DRAFT` / `REVIEW`.
 4. **Update** — when an existing draft / review row's checksum changes,
    the persister calls `prisma.<table>.update()` with the full payload
-   and resets `status` to `INGESTION_INITIAL_STATUS` (default `REVIEW`)
+   and resets `status` to the configured initial status (default `REVIEW`)
    so the change re-enters the moderation queue. New rows are created
    with the same status. The runner counts every freshly-created or
    updated row as `recordsReviewRequired` when `initialStatus === REVIEW`.
@@ -708,8 +723,9 @@ When the Node process boots, `src/instrumentation.ts` defers to
    devotions, parishes, liturgy entries, spiritual-life guides, and the
    default favicon site setting. If the table already has rows the seed is
    skipped.
-4. Schedules the in-process ingestion ticker described above (only if
-   `CRON_SECRET` is set and `INGESTION_DISABLED` is not `true`).
+4. Schedules the in-process ingestion ticker described above. The scheduler
+   is disabled by default in `src/lib/config.ts`; flip
+   `ingestion.schedulerDisabled` to `false` to enable it.
 
 All of this work is fire-and-forget — the HTTP server begins accepting
 requests immediately so Railway / Docker healthchecks never wait on it.
@@ -892,11 +908,15 @@ need access to PostgreSQL. Detail pages under `[slug]` are dynamic by default
 
 ### Cron
 
-If `CRON_SECRET` is set in the runtime environment, the in-process scheduler
-will call `POST /api/cron/ingest` automatically — no external configuration
-needed. To delegate scheduling to an external platform instead, set
-`INGESTION_DISABLED=true` and configure that platform to POST to
-`https://<host>/api/cron/ingest` with `Authorization: Bearer $CRON_SECRET`.
+The cron token is derived from `SESSION_SECRET` at runtime — there is no
+separate `CRON_SECRET` environment variable. The in-process scheduler is
+disabled by default; flip `ingestion.schedulerDisabled` to `false` in
+`src/lib/config.ts` to enable it. To delegate scheduling to an external
+platform, configure that platform to POST to
+`https://<host>/api/cron/ingest` with `Authorization: Bearer <token>`,
+where `<token>` is the HMAC-SHA-256 of the domain-separation tag
+`viafidei:cron:v1` keyed by `SESSION_SECRET` (see
+`src/lib/security/cron-auth.ts#deriveCronSecret`).
 
 ---
 

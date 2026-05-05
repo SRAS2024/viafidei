@@ -1,4 +1,5 @@
-import { getEnv, isProduction } from "@/lib/env";
+import { appConfig } from "@/lib/config";
+import { getEnv } from "@/lib/env";
 import { logger } from "@/lib/observability";
 
 export type SendEmailInput = {
@@ -6,7 +7,6 @@ export type SendEmailInput = {
   subject: string;
   textBody: string;
   htmlBody?: string;
-  messageStream?: string;
 };
 
 export type SendEmailResult =
@@ -14,28 +14,34 @@ export type SendEmailResult =
   | { ok: true; delivery: "skipped"; reason: "not_configured" }
   | { ok: false; reason: "not_configured" | "delivery_failed" };
 
-const POSTMARK_ENDPOINT = "https://api.postmarkapp.com/email";
+const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
-type PostmarkConfig = { token: string; from: string };
+type ResendConfig = { apiKey: string; from: string };
 
-function readPostmarkConfig(): PostmarkConfig | null {
+function readResendConfig(): ResendConfig | null {
   const env = getEnv();
-  if (!env.POSTMARK_SERVER_TOKEN || !env.EMAIL_FROM_ADDRESS) return null;
-  return { token: env.POSTMARK_SERVER_TOKEN, from: env.EMAIL_FROM_ADDRESS };
+  if (!env.RESEND_API_KEY) return null;
+  return { apiKey: env.RESEND_API_KEY, from: appConfig.email.fromAddress };
 }
 
 export function isEmailConfigured(): boolean {
-  return readPostmarkConfig() !== null;
+  return readResendConfig() !== null;
 }
 
+/**
+ * Best-effort transactional email delivery via Resend.
+ *
+ * The function never throws. When RESEND_API_KEY is not configured the call
+ * is logged and skipped with `delivery: "skipped"` — this lets reset-password,
+ * welcome, and verification flows degrade gracefully (the rest of the
+ * account flow still succeeds) instead of returning a 500 to the client.
+ */
 export async function sendTransactionalEmail(input: SendEmailInput): Promise<SendEmailResult> {
-  const config = readPostmarkConfig();
+  const config = readResendConfig();
   if (!config) {
-    if (isProduction()) {
-      logger.error("email.not_configured", { subject: input.subject });
-      return { ok: false, reason: "not_configured" };
-    }
-    logger.warn("email.skipped_dev_no_config", {
+    // No provider configured — log and skip cleanly. Auth flows treat this
+    // as a non-fatal outcome.
+    logger.warn("email.skipped_not_configured", {
       to: input.to,
       subject: input.subject,
     });
@@ -43,20 +49,19 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
   }
 
   try {
-    const res = await fetch(POSTMARK_ENDPOINT, {
+    const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        "X-Postmark-Server-Token": config.token,
+        Authorization: `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify({
-        From: config.from,
-        To: input.to,
-        Subject: input.subject,
-        TextBody: input.textBody,
-        HtmlBody: input.htmlBody,
-        MessageStream: input.messageStream ?? "outbound",
+        from: config.from,
+        to: input.to,
+        subject: input.subject,
+        text: input.textBody,
+        html: input.htmlBody,
       }),
     });
     if (!res.ok) {

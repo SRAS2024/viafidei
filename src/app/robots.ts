@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { appConfig } from "@/lib/config";
 
-const BASE = process.env.CANONICAL_URL || "https://etviafidei.com";
+const BASE = appConfig.canonicalUrl;
 
 export default function robots(): MetadataRoute.Robots {
   return {

@@ -1,5 +1,5 @@
-const DEFAULT_UA = "ViaFideiBot/1.0 (+https://etviafidei.com/bot; ingestion@viafidei.com)";
+import { appConfig } from "@/lib/config";
 
 export function getIngestionUserAgent(): string {
-  return process.env.INGESTION_USER_AGENT?.trim() || DEFAULT_UA;
+  return appConfig.ingestion.userAgent;
 }

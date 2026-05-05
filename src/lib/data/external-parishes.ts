@@ -21,6 +21,7 @@
  *     external-listing layout without touching the database.
  */
 
+import { appConfig } from "../config";
 import { logger } from "../observability/logger";
 
 const OVERPASS_ENDPOINTS = [
@@ -31,7 +32,6 @@ const OVERPASS_ENDPOINTS = [
 
 const NOMINATIM_ENDPOINT = "https://nominatim.openstreetmap.org/search";
 
-const DEFAULT_USER_AGENT = "ViaFideiBot/1.0 (+https://etviafidei.com; parish-locator)";
 const REQUEST_TIMEOUT_MS = 12_000;
 
 export type ExternalParish = {
@@ -81,7 +81,7 @@ type NominatimResult = {
 };
 
 function getUserAgent(): string {
-  return process.env.INGESTION_USER_AGENT || DEFAULT_USER_AGENT;
+  return appConfig.ingestion.userAgent;
 }
 
 async function fetchWithTimeout(
