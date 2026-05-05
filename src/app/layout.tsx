@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Header, Footer } from "@/components/layout";
+import { appConfig } from "@/lib/config";
 import { getLocale } from "@/lib/i18n/server";
 import { getThemeCookieValue } from "@/lib/i18n/theme-cookie";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.CANONICAL_URL || "https://etviafidei.com"),
+  metadataBase: new URL(appConfig.canonicalUrl),
   title: {
     default: "Via Fidei · The Way of Faith",
     template: "%s · Via Fidei",
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
     title: "Via Fidei",
     description:
       "A multilingual Catholic companion — prayers, saints, liturgy, and parish discovery.",
-    url: "https://etviafidei.com",
+    url: appConfig.canonicalUrl,
     siteName: "Via Fidei",
     type: "website",
   },

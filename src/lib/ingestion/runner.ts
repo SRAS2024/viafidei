@@ -1,4 +1,5 @@
 import type { ContentStatus } from "@prisma/client";
+import { appConfig } from "../config";
 import { prisma } from "../db/client";
 import { withAdvisoryLock } from "../concurrency/lock";
 import { logger } from "../observability/logger";
@@ -8,9 +9,9 @@ import { persistItems } from "./persist";
 
 export type RunnerOptions = {
   /**
-   * Status assigned to newly-created or revived items. Defaults to the value
-   * of INGESTION_INITIAL_STATUS env var (or REVIEW) so nothing scraped becomes
-   * live without explicit approval.
+   * Status assigned to newly-created or revived items. Defaults to the
+   * configured initial status (REVIEW) so nothing scraped becomes live
+   * without explicit approval.
    */
   initialStatus?: ContentStatus;
   /** When true, skips DB locking. Used by tests. */
@@ -18,9 +19,7 @@ export type RunnerOptions = {
 };
 
 function defaultInitialStatus(): ContentStatus {
-  const raw = process.env.INGESTION_INITIAL_STATUS?.toUpperCase();
-  if (raw === "DRAFT" || raw === "REVIEW") return raw;
-  return "REVIEW";
+  return appConfig.ingestion.initialStatus;
 }
 
 const NO_OP_SUMMARY: IngestionRunSummary = {

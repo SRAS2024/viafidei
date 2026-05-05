@@ -1,10 +1,7 @@
+import { appConfig } from "../config";
 import { prisma } from "../db/client";
 import { checkRequiredTables } from "../db/tables";
 import { seedAllContent } from "./seeder";
-
-const DEFAULT_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
-const DEFAULT_INITIAL_DELAY_MS = 5 * 60 * 1000; // 5 minutes
-const MIN_INTERVAL_MS = 60_000;
 
 let scheduled = false;
 
@@ -46,16 +43,15 @@ async function hasAnyContent(): Promise<boolean> {
  */
 async function hasEmptyContentTable(): Promise<boolean> {
   try {
-    const [prayers, saints, devotions, liturgy, guides, apparitions, parishes] =
-      await Promise.all([
-        prisma.prayer.count({ where: { status: "PUBLISHED" } }),
-        prisma.saint.count({ where: { status: "PUBLISHED" } }),
-        prisma.devotion.count({ where: { status: "PUBLISHED" } }),
-        prisma.liturgyEntry.count({ where: { status: "PUBLISHED" } }),
-        prisma.spiritualLifeGuide.count({ where: { status: "PUBLISHED" } }),
-        prisma.marianApparition.count({ where: { status: "PUBLISHED" } }),
-        prisma.parish.count({ where: { status: "PUBLISHED" } }),
-      ]);
+    const [prayers, saints, devotions, liturgy, guides, apparitions, parishes] = await Promise.all([
+      prisma.prayer.count({ where: { status: "PUBLISHED" } }),
+      prisma.saint.count({ where: { status: "PUBLISHED" } }),
+      prisma.devotion.count({ where: { status: "PUBLISHED" } }),
+      prisma.liturgyEntry.count({ where: { status: "PUBLISHED" } }),
+      prisma.spiritualLifeGuide.count({ where: { status: "PUBLISHED" } }),
+      prisma.marianApparition.count({ where: { status: "PUBLISHED" } }),
+      prisma.parish.count({ where: { status: "PUBLISHED" } }),
+    ]);
     return [prayers, saints, devotions, liturgy, guides, apparitions, parishes].some(
       (c) => c === 0,
     );
@@ -64,33 +60,23 @@ async function hasEmptyContentTable(): Promise<boolean> {
   }
 }
 
-function readEnvMs(name: string, fallback: number, min = 0): number {
-  const raw = process.env[name];
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed < min) return fallback;
-  return parsed;
-}
-
 /**
  * Trigger ingestion by calling the existing /api/cron/ingest endpoint over
  * HTTP. This keeps all the heavy crawler / Prisma transaction code on the
  * regular Next.js server bundle (instead of being pulled into the
  * instrumentation bundle, which has a stricter compile target).
  *
- * Requires CRON_SECRET (>=16 chars) to be set; otherwise scheduling is a
- * no-op and operators must call /api/cron/ingest from an external scheduler.
+ * Uses a SESSION_SECRET-derived bearer so the cron route is protected
+ * without requiring a separate CRON_SECRET deployment variable.
  */
 async function callIngestionEndpoint(): Promise<void> {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || secret.length < 16) {
-    console.warn(
-      "[scheduler] CRON_SECRET unset or <16 chars — skipping in-process ingestion (configure an external cron to POST /api/cron/ingest with the bearer token)",
-    );
+  const { deriveCronSecret } = await import("../security/cron-auth");
+  const secret = await deriveCronSecret();
+  if (!secret) {
+    console.warn("[scheduler] no SESSION_SECRET available — skipping in-process ingestion tick");
     return;
   }
-  const port = process.env.PORT ?? "3000";
-  const url = `http://127.0.0.1:${port}/api/cron/ingest`;
+  const url = `http://127.0.0.1:${appConfig.port}/api/cron/ingest`;
   const startedAt = Date.now();
   try {
     const res = await fetch(url, {
@@ -117,13 +103,13 @@ function scheduleIngestion(): void {
   if (scheduled) return;
   scheduled = true;
 
-  if (process.env.INGESTION_DISABLED === "true") {
-    console.log("[scheduler] INGESTION_DISABLED=true — not scheduling background ingestion");
+  if (appConfig.ingestion.schedulerDisabled) {
+    console.log("[scheduler] in-process ingestion disabled by config — not scheduling");
     return;
   }
 
-  const intervalMs = readEnvMs("INGESTION_INTERVAL_MS", DEFAULT_INTERVAL_MS, MIN_INTERVAL_MS);
-  const initialDelayMs = readEnvMs("INGESTION_INITIAL_DELAY_MS", DEFAULT_INITIAL_DELAY_MS);
+  const intervalMs = appConfig.ingestion.intervalMs;
+  const initialDelayMs = appConfig.ingestion.initialDelayMs;
 
   console.log(
     `[scheduler] background ingestion scheduled — initial ${Math.round(initialDelayMs / 1000)}s, interval ${Math.round(intervalMs / 1000)}s`,

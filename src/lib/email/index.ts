@@ -3,7 +3,7 @@ export {
   isEmailConfigured,
   type SendEmailInput,
   type SendEmailResult,
-} from "./postmark";
+} from "./resend";
 export { buildPasswordResetLink, buildEmailVerificationLink, getAppBaseUrl } from "./links";
 export {
   renderPasswordResetEmail,

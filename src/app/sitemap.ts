@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
+import { appConfig } from "@/lib/config";
 import { prisma } from "@/lib/db/client";
 
-const BASE = process.env.CANONICAL_URL || "https://etviafidei.com";
+const BASE = appConfig.canonicalUrl;
 
 // Static, public, indexable surface. Private/auth/admin pages
 // (/login, /register, /forgot-password, /reset-password, /verify-email,

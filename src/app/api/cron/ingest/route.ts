@@ -14,7 +14,7 @@ export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
-  if (!isAuthorizedCron(req)) {
+  if (!(await isAuthorizedCron(req))) {
     logger.warn("cron.unauthorized", { route: "/api/cron/ingest", requestId });
     return jsonError("unauthorized");
   }

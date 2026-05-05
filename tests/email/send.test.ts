@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const sendTransactionalEmailMock = vi.fn();
 const isEmailConfiguredMock = vi.fn();
 
-vi.mock("@/lib/email/postmark", () => ({
+vi.mock("@/lib/email/resend", () => ({
   sendTransactionalEmail: (...args: unknown[]) => sendTransactionalEmailMock(...args),
   isEmailConfigured: (...args: unknown[]) => isEmailConfiguredMock(...args),
 }));
@@ -34,7 +34,7 @@ const baseUser = {
 };
 
 describe("sendWelcomeEmail", () => {
-  it("renders both html and text bodies and dispatches via Postmark", async () => {
+  it("renders both html and text bodies and dispatches via Resend", async () => {
     const result = await sendWelcomeEmail(baseUser);
     expect(result.ok).toBe(true);
     expect(sendTransactionalEmailMock).toHaveBeenCalledTimes(1);

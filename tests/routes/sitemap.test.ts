@@ -15,9 +15,10 @@ vi.mock("@/lib/db/client", () => ({
 
 import sitemap from "@/app/sitemap";
 import robots from "@/app/robots";
+import { appConfig } from "@/lib/config";
 import { prisma } from "@/lib/db/client";
 
-const BASE = process.env.CANONICAL_URL || "https://etviafidei.com";
+const BASE = appConfig.canonicalUrl;
 
 beforeEach(() => {
   for (const model of Object.values(prisma)) {
