@@ -11,6 +11,7 @@ import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp } from "@/lib/security/request";
 import { sendEmailVerificationEmail, sendWelcomeEmail } from "@/lib/email";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
+import { logApiError } from "@/lib/observability/page-errors";
 import { LOCALE_COOKIE_NAME, LOCALE_COOKIE_OPTIONS } from "@/lib/i18n/cookie";
 import { isSupportedLocale } from "@/lib/i18n/locales";
 import { negotiateLocale } from "@/lib/i18n/negotiate";
@@ -32,6 +33,37 @@ function resolveLocaleFromRequest(req: NextRequest, override?: string | null): s
 
 function redirectWithError(req: NextRequest, code: string): NextResponse {
   return NextResponse.redirect(new URL(`/register?error=${code}`, req.url), 303);
+}
+
+/**
+ * Re-classify a Prisma write error so account-creation failures land in the
+ * logs with a kind that explains *what* schema piece is broken, not just
+ * "create_failed". Anything matching User/Session/Profile/PasswordResetToken/
+ * EmailVerificationToken in a "relation does not exist" or "column does not
+ * exist" error is fatal for sign-up; surfacing that in logs lets the
+ * operator run migrations rather than chase a generic 500.
+ */
+function describeWriteError(error: unknown): {
+  kind: string;
+  table?: string;
+  message: string;
+} {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  const tableRelation = message.match(/relation "([^"]+)" does not exist/i);
+  const columnRelation = message.match(/column "([^"]+)" of relation "([^"]+)" does not exist/i);
+  if (tableRelation) {
+    return { kind: "missing_table", table: tableRelation[1], message };
+  }
+  if (columnRelation) {
+    return { kind: "missing_column", table: columnRelation[2], message };
+  }
+  if (/Unique constraint|already exists/i.test(message)) {
+    return { kind: "unique_violation", message };
+  }
+  if (/ECONN|ETIMEDOUT|connection|too many clients/i.test(message)) {
+    return { kind: "db_connection", message };
+  }
+  return { kind: "db_write_failed", message };
 }
 
 export async function POST(req: NextRequest) {
@@ -60,9 +92,19 @@ export async function POST(req: NextRequest) {
     try {
       existing = await findUserByEmail(parsed.data.email);
     } catch (error) {
+      const detail = describeWriteError(error);
+      logApiError({
+        method: "POST",
+        route: "/api/auth/register",
+        table: detail.table ?? "User",
+        query: "findUserByEmail",
+        error,
+      });
       logger.error("auth.register.lookup_failed", {
         requestId,
-        message: error instanceof Error ? error.message : "unknown_error",
+        kind: detail.kind,
+        table: detail.table,
+        message: detail.message,
       });
       return redirectWithError(req, "server");
     }
@@ -74,17 +116,29 @@ export async function POST(req: NextRequest) {
     try {
       user = await createUser({ ...parsed.data, language });
     } catch (error) {
+      const detail = describeWriteError(error);
+      logApiError({
+        method: "POST",
+        route: "/api/auth/register",
+        table: detail.table ?? "User",
+        query: "createUser",
+        error,
+      });
       logger.error("auth.register.create_failed", {
         requestId,
-        message: error instanceof Error ? error.message : "unknown_error",
+        kind: detail.kind,
+        table: detail.table,
+        message: detail.message,
       });
-      // The most common race-condition: a duplicate email slipped past the
-      // pre-check. Treat both as the user-facing "exists" case so the form
-      // surfaces a useful message rather than a generic server error.
-      const msg = error instanceof Error ? error.message : "";
-      if (/Unique constraint|already exists|email/i.test(msg)) {
+      // Race with a concurrent signup is the most common write error here —
+      // surface it as the user-facing "exists" case so the form gets a useful
+      // message rather than a generic server error.
+      if (detail.kind === "unique_violation") {
         return redirectWithError(req, "exists");
       }
+      // missing_table / missing_column are operator-fixable (run migrations)
+      // but the user can do nothing about them; show the generic server
+      // error and let the structured log carry the diagnosis.
       return redirectWithError(req, "server");
     }
 
@@ -119,10 +173,13 @@ export async function POST(req: NextRequest) {
         expiresAt: issued.expiresAt,
       });
     } catch (error) {
+      const detail = describeWriteError(error);
       logger.error("auth.email_verification.issue_failed", {
         userId: user.id,
         requestId,
-        message: error instanceof Error ? error.message : "unknown_error",
+        kind: detail.kind,
+        table: detail.table,
+        message: detail.message,
       });
     }
 
@@ -135,10 +192,13 @@ export async function POST(req: NextRequest) {
       session.locale = language;
       await session.save();
     } catch (error) {
+      const detail = describeWriteError(error);
       logger.error("auth.register.session_failed", {
         userId: user.id,
         requestId,
-        message: error instanceof Error ? error.message : "unknown_error",
+        kind: detail.kind,
+        table: detail.table ?? "Session",
+        message: detail.message,
       });
       // Account exists but session couldn't be established — send the user
       // to the login page rather than blowing up the request.
@@ -150,6 +210,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.redirect(new URL("/profile", req.url), 303);
   } catch (error) {
+    logApiError({
+      method: "POST",
+      route: "/api/auth/register",
+      error,
+    });
     logger.error("auth.register.unhandled", {
       requestId,
       message: error instanceof Error ? error.message : "unknown_error",

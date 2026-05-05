@@ -10,7 +10,18 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[global-error]", { digest: error.digest, message: error.message });
+    console.error(
+      JSON.stringify({
+        level: "error",
+        msg: "page.global_error",
+        kind: "client_global_boundary",
+        digest: error.digest,
+        route:
+          typeof window !== "undefined" ? window.location.pathname : undefined,
+        error: error.message,
+        stack: error.stack,
+      }),
+    );
   }, [error]);
 
   return (

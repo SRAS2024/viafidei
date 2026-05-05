@@ -9,6 +9,7 @@ export {
   classifyPageError,
   logPageError,
   logPageMissingContent,
+  logApiError,
   type PageFailureKind,
   type PageFailureFields,
 } from "./page-errors";

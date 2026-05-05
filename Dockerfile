@@ -41,8 +41,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --chown=nextjs:nodejs scripts/start.sh ./scripts/start.sh
-RUN chmod +x ./scripts/start.sh
+COPY --chown=nextjs:nodejs scripts/start.sh scripts/validate-db.js ./scripts/
+RUN chmod +x ./scripts/start.sh ./scripts/validate-db.js
 
 USER nextjs
 EXPOSE 3000
@@ -51,7 +51,8 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=5 \
   CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/api/health/live').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))" || exit 1
 
-# scripts/start.sh: waits for the DB, runs migrate deploy (without gating
-# the server start on its outcome), then execs the standalone server so
-# Node owns PID 1 and signals propagate cleanly.
+# scripts/start.sh: waits for the DB, runs migrate deploy (FAIL-FAST: the
+# container exits non-zero if migrations fail), then runs scripts/validate-db.js
+# to confirm tables/columns/migration history are intact, then execs the
+# standalone server so Node owns PID 1 and signals propagate cleanly.
 CMD ["./scripts/start.sh"]

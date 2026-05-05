@@ -21,6 +21,16 @@ function resolveCreationLocale(input: string | null | undefined): Locale {
   return DEFAULT_LOCALE;
 }
 
+/**
+ * Create a User row plus its associated Profile in a single Prisma create.
+ * The nested `profile: { create: ... }` runs both inserts in the same
+ * implicit transaction, so a Profile that fails to write rolls back the
+ * User insert too — there is no half-created user state to clean up later.
+ *
+ * Caller (the /api/auth/register route) is responsible for translating
+ * Prisma errors (missing table, missing column, unique violation, etc.)
+ * into the appropriate HTTP response and structured log lines.
+ */
 export async function createUser(input: CreateUserInput) {
   const passwordHash = await hashPassword(input.password);
   const normalizedEmail = normalizeEmail(input.email);
@@ -36,6 +46,7 @@ export async function createUser(input: CreateUserInput) {
       nameEncrypted: encryptAtRest(`${input.firstName} ${input.lastName}`),
       profile: { create: { languageOverride: language } },
     },
+    include: { profile: true },
   });
 }
 
