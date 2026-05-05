@@ -10,7 +10,19 @@ export default function RootError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[error-boundary]", { digest: error.digest, message: error.message });
+    // Structured log so the line shape matches the server-side logger and
+    // log aggregators can pick out kind/route/digest without a regex.
+    console.error(
+      JSON.stringify({
+        level: "error",
+        msg: "page.render_failed",
+        kind: "client_boundary",
+        digest: error.digest,
+        route:
+          typeof window !== "undefined" ? window.location.pathname : undefined,
+        error: error.message,
+      }),
+    );
   }, [error]);
 
   return (

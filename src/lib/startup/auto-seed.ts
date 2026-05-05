@@ -17,10 +17,48 @@ async function isDbReachable(): Promise<boolean> {
   }
 }
 
-async function hasSeedContent(): Promise<boolean> {
+/**
+ * Returns true when at least one of the public content tables already has a
+ * row — telling us the DB is "stocked" enough that we don't need to re-run
+ * the bulk seeder. The seeder itself is idempotent (every entry is upserted
+ * by slug) so running it again is safe but wastes startup time.
+ */
+async function hasAnyContent(): Promise<boolean> {
   try {
-    const count = await prisma.prayer.count({ where: { status: "PUBLISHED" } });
-    return count > 0;
+    const [prayers, saints, devotions, liturgy, guides, apparitions] = await Promise.all([
+      prisma.prayer.count(),
+      prisma.saint.count(),
+      prisma.devotion.count(),
+      prisma.liturgyEntry.count(),
+      prisma.spiritualLifeGuide.count(),
+      prisma.marianApparition.count(),
+    ]);
+    return prayers + saints + devotions + liturgy + guides + apparitions > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The seeder upserts by slug, so even if some tables are empty and others
+ * are populated, the result is consistent: existing rows stay, missing rows
+ * get created. We always run the seeder if any required table is empty.
+ */
+async function hasEmptyContentTable(): Promise<boolean> {
+  try {
+    const [prayers, saints, devotions, liturgy, guides, apparitions, parishes] =
+      await Promise.all([
+        prisma.prayer.count({ where: { status: "PUBLISHED" } }),
+        prisma.saint.count({ where: { status: "PUBLISHED" } }),
+        prisma.devotion.count({ where: { status: "PUBLISHED" } }),
+        prisma.liturgyEntry.count({ where: { status: "PUBLISHED" } }),
+        prisma.spiritualLifeGuide.count({ where: { status: "PUBLISHED" } }),
+        prisma.marianApparition.count({ where: { status: "PUBLISHED" } }),
+        prisma.parish.count({ where: { status: "PUBLISHED" } }),
+      ]);
+    return [prayers, saints, devotions, liturgy, guides, apparitions, parishes].some(
+      (c) => c === 0,
+    );
   } catch {
     return false;
   }
@@ -114,17 +152,32 @@ export async function runStartupTasks(): Promise<void> {
     ok: false,
     missing: ["unknown"] as string[],
     present: [] as string[],
+    publicContentMissing: [] as string[],
+    columnsMissing: [] as Array<{ table: string; columns: string[] }>,
   }));
   if (!tableCheck.ok) {
     console.error(
       "[startup] required tables missing:",
       tableCheck.missing,
+      "columns missing:",
+      tableCheck.columnsMissing,
       "— ensure 'prisma migrate deploy' ran before starting the server",
     );
     return;
   }
 
-  if (!(await hasSeedContent())) {
+  // Seed when ANY public content table is empty. The seeder uses upsert
+  // keyed on slug so populated tables are unaffected; this just back-fills
+  // tables that didn't get content (e.g. deploy ran during a partial seed).
+  if (await hasEmptyContentTable()) {
+    console.log("[startup] one or more content tables empty — running seeder");
+    try {
+      const summary = await seedAllContent();
+      console.log("[startup] seed complete", JSON.stringify(summary));
+    } catch (e) {
+      console.error("[startup] seed failed", e instanceof Error ? e.message : e);
+    }
+  } else if (!(await hasAnyContent())) {
     console.log("[startup] empty DB detected — running initial seed");
     try {
       const summary = await seedAllContent();
