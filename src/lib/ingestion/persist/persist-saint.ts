@@ -36,6 +36,7 @@ export async function persistSaint(
         officialPrayer: item.officialPrayer ?? null,
         externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey ?? null,
         contentChecksum: incomingChecksum,
+        status: initialStatus,
       },
     });
     return "updated";

@@ -6,6 +6,32 @@ import { vi } from "vitest";
 
 type Mock = ReturnType<typeof vi.fn>;
 
+type Crud = {
+  create: Mock;
+  findFirst: Mock;
+  findUnique: Mock;
+  findMany: Mock;
+  update: Mock;
+  upsert: Mock;
+  delete: Mock;
+  deleteMany: Mock;
+  count: Mock;
+};
+
+function createCrud(): Crud {
+  return {
+    create: vi.fn(),
+    findFirst: vi.fn(),
+    findUnique: vi.fn(),
+    findMany: vi.fn(),
+    update: vi.fn(),
+    upsert: vi.fn(),
+    delete: vi.fn(),
+    deleteMany: vi.fn(),
+    count: vi.fn(),
+  };
+}
+
 export type PrismaMock = {
   user: {
     create: Mock;
@@ -31,6 +57,21 @@ export type PrismaMock = {
   rateLimitBucket: {
     deleteMany: Mock;
   };
+  // Content-side models the ingestion / data layers use. These are all
+  // generic CRUD shapes — tests reach in and program the methods they
+  // care about per case.
+  prayer: Crud;
+  saint: Crud;
+  marianApparition: Crud;
+  parish: Crud;
+  devotion: Crud;
+  liturgyEntry: Crud;
+  spiritualLifeGuide: Crud;
+  ingestionJob: Crud;
+  ingestionJobRun: Crud;
+  ingestionSource: Crud;
+  tag: Crud;
+  entityTag: Crud;
   $transaction: Mock;
   $queryRaw: Mock;
 };
@@ -61,6 +102,18 @@ export function createPrismaMock(): PrismaMock {
     rateLimitBucket: {
       deleteMany: vi.fn(),
     },
+    prayer: createCrud(),
+    saint: createCrud(),
+    marianApparition: createCrud(),
+    parish: createCrud(),
+    devotion: createCrud(),
+    liturgyEntry: createCrud(),
+    spiritualLifeGuide: createCrud(),
+    ingestionJob: createCrud(),
+    ingestionJobRun: createCrud(),
+    ingestionSource: createCrud(),
+    tag: createCrud(),
+    entityTag: createCrud(),
     // Default $transaction implementation just resolves the array of
     // promises so tests that don't override it still get sane behavior.
     $transaction: vi.fn(async (ops: unknown) => {

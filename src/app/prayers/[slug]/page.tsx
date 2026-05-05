@@ -6,6 +6,7 @@ import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
 import { logger } from "@/lib/observability/logger";
+import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ async function safeGetPrayer(slug: string, locale: string) {
   try {
     return await getPublishedPrayerBySlug(slug, locale as never);
   } catch (err) {
-    logger.error("prayer.lookup_failed", { slug, error: (err as Error).message });
+    logPageError({ route: "/prayers/[slug]", entityType: "Prayer", slug, error: err });
     return null;
   }
 }
@@ -49,7 +50,15 @@ export async function generateMetadata({ params }: Props) {
 export default async function PrayerDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
   const prayer = await safeGetPrayer(params.slug, locale);
-  if (!prayer) notFound();
+  if (!prayer) {
+    logPageMissingContent({
+      route: "/prayers/[slug]",
+      entityType: "Prayer",
+      slug: params.slug,
+      reason: "missing_record",
+    });
+    notFound();
+  }
 
   const user = await safeRequireUser();
   const alreadySaved = user ? await safeIsSaved(user.id, prayer.id) : false;

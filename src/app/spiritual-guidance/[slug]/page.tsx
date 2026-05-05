@@ -6,6 +6,7 @@ import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
 import { logger } from "@/lib/observability/logger";
+import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { fetchOsmParishById, type ExternalParish } from "@/lib/data/external-parishes";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,12 @@ async function safeGetParish(slug: string) {
   try {
     return await getPublishedParishBySlug(slug);
   } catch (err) {
-    logger.error("parish.lookup_failed", { slug, error: (err as Error).message });
+    logPageError({
+      route: "/spiritual-guidance/[slug]",
+      entityType: "Parish",
+      slug,
+      error: err,
+    });
     return null;
   }
 }
@@ -67,6 +73,12 @@ export default async function ParishDetailPage({ params }: Props) {
       const external = await safeGetExternalParish(params.slug);
       if (external) return renderExternalParish(external, t);
     }
+    logPageMissingContent({
+      route: "/spiritual-guidance/[slug]",
+      entityType: "Parish",
+      slug: params.slug,
+      reason: "missing_record",
+    });
     notFound();
   }
 

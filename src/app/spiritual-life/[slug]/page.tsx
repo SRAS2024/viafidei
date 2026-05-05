@@ -6,6 +6,7 @@ import { resolveGuidePrayers, type GuidePrayerEntry } from "@/lib/data/guide-pra
 import { requireUser } from "@/lib/auth";
 import { ExpandablePrayer, AccountRequiredButton } from "@/components/ui";
 import { logger } from "@/lib/observability/logger";
+import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,12 @@ async function safeGetGuide(slug: string, locale: string) {
   try {
     return await getPublishedSpiritualLifeGuideBySlug(slug, locale as never);
   } catch (err) {
-    logger.error("guide.lookup_failed", { slug, error: (err as Error).message });
+    logPageError({
+      route: "/spiritual-life/[slug]",
+      entityType: "SpiritualLifeGuide",
+      slug,
+      error: err,
+    });
     return null;
   }
 }
@@ -62,7 +68,15 @@ export async function generateMetadata({ params }: Props) {
 export default async function SpiritualLifeDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
   const guide = await safeGetGuide(params.slug, locale);
-  if (!guide) notFound();
+  if (!guide) {
+    logPageMissingContent({
+      route: "/spiritual-life/[slug]",
+      entityType: "SpiritualLifeGuide",
+      slug: params.slug,
+      reason: "missing_record",
+    });
+    notFound();
+  }
 
   const tr = guide.translations[0];
   const title = tr?.title ?? guide.title ?? params.slug;

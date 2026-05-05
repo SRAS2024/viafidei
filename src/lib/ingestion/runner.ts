@@ -1,6 +1,7 @@
 import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../db/client";
 import { withAdvisoryLock } from "../concurrency/lock";
+import { logger } from "../observability/logger";
 import type { ConditionalState, IngestionRunSummary, SourceAdapter } from "./types";
 import { sanitize } from "./validate";
 import { persistItems } from "./persist";
@@ -32,6 +33,12 @@ const NO_OP_SUMMARY: IngestionRunSummary = {
   errorMessage: null,
 };
 
+/**
+ * Conditional-request state (ETag / Last-Modified) is round-tripped through
+ * the `errorMessage` JSON blob so adapters can short-circuit on 304s without
+ * adding a dedicated column. `loadPriorState` parses the most recent
+ * SUCCESS run's payload back out.
+ */
 async function loadPriorState(jobId: string): Promise<ConditionalState | undefined> {
   const lastSuccess = await prisma.ingestionJobRun.findFirst({
     where: { jobId, status: "SUCCESS" },
@@ -58,6 +65,7 @@ export async function runAdapter(
   if (options.skipLock) return exec();
   const result = await withAdvisoryLock(lockKey, exec);
   if (result) return result;
+  logger.warn("ingestion.run.skipped_locked", { adapter: adapter.key, sourceHost, lockKey });
   return {
     ...NO_OP_SUMMARY,
     errorMessage: `Skipped: another runner holds lock '${lockKey}'`,
@@ -72,6 +80,13 @@ async function runAdapterUnlocked(
 ): Promise<IngestionRunSummary> {
   const initialStatus = options.initialStatus ?? defaultInitialStatus();
   const startedAt = new Date();
+
+  logger.info("ingestion.run.started", {
+    adapter: adapter.key,
+    sourceHost,
+    jobId,
+    initialStatus,
+  });
 
   const run = jobId
     ? await prisma.ingestionJobRun.create({
@@ -109,14 +124,22 @@ async function runAdapterUnlocked(
           },
         });
       }
+      logger.info("ingestion.run.not_modified", {
+        adapter: adapter.key,
+        sourceHost,
+        jobId,
+        durationMs: Date.now() - startedAt.getTime(),
+      });
       return summary;
     }
 
     const { valid, rejected } = sanitize(items);
     const counts = await persistItems(valid, initialStatus);
 
-    // Items that land in REVIEW status count as review-required
-    const reviewRequired = initialStatus === "REVIEW" ? counts.created : 0;
+    // When new + updated rows land in REVIEW status, every persisted row
+    // (created OR updated) requires moderator approval before it appears on
+    // the public site. Skipped rows already lived through their review.
+    const reviewRequired = initialStatus === "REVIEW" ? counts.created + counts.updated : 0;
 
     const summary: IngestionRunSummary = {
       recordsSeen: items.length,
@@ -145,6 +168,22 @@ async function runAdapterUnlocked(
       });
     }
 
+    logger.info("ingestion.run.completed", {
+      adapter: adapter.key,
+      sourceHost,
+      jobId,
+      durationMs: Date.now() - startedAt.getTime(),
+      recordsSeen: summary.recordsSeen,
+      recordsCreated: summary.recordsCreated,
+      recordsUpdated: summary.recordsUpdated,
+      recordsSkipped: summary.recordsSkipped,
+      recordsFailed: summary.recordsFailed,
+      recordsReviewRequired: summary.recordsReviewRequired,
+      published: initialStatus === "PUBLISHED" ? counts.created + counts.updated : 0,
+      rejected: rejected.length,
+      partial: rejected.length > 0,
+    });
+
     return summary;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -159,6 +198,13 @@ async function runAdapterUnlocked(
         },
       });
     }
+    logger.error("ingestion.run.failed", {
+      adapter: adapter.key,
+      sourceHost,
+      jobId,
+      durationMs: Date.now() - startedAt.getTime(),
+      errorMessage,
+    });
     return { ...NO_OP_SUMMARY, recordsFailed: 1, errorMessage };
   }
 }

@@ -48,7 +48,9 @@ export async function persistParish(
         ociaUrl: item.ociaUrl ?? null,
         latitude: item.latitude ?? null,
         longitude: item.longitude ?? null,
+        externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey ?? null,
         contentChecksum: incomingChecksum,
+        status: initialStatus,
       },
     });
     return "updated";

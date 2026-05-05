@@ -49,6 +49,7 @@ export async function GET() {
       ok: false,
       missing: [] as string[],
       present: [] as string[],
+      publicContentMissing: [] as string[],
       error: e instanceof Error ? e.message : "unknown",
     })),
     checkSeedContent().catch((e: unknown) => ({
@@ -58,8 +59,18 @@ export async function GET() {
     })),
   ]);
 
-  const allOk = db.ok && tables.ok;
-  const status = allOk ? "ok" : tables.missing?.length ? "migration_required" : "degraded";
+  // Public content tables are the most important — if any of them are gone,
+  // every public-facing page will 500. Surface that as its own status so an
+  // ops alert can fire on the right symptom.
+  const publicContentOk = (tables.publicContentMissing ?? []).length === 0;
+  const allOk = db.ok && tables.ok && publicContentOk;
+  const status = allOk
+    ? "ok"
+    : !publicContentOk
+      ? "public_content_unavailable"
+      : tables.missing?.length
+        ? "migration_required"
+        : "degraded";
   const httpStatus = allOk ? 200 : 503;
 
   return NextResponse.json(

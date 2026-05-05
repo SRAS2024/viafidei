@@ -5,3 +5,10 @@ export {
   normalizeIncomingRequestId,
   ensureRequestId,
 } from "./request-id";
+export {
+  classifyPageError,
+  logPageError,
+  logPageMissingContent,
+  type PageFailureKind,
+  type PageFailureFields,
+} from "./page-errors";

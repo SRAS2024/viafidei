@@ -594,6 +594,108 @@ for the Church-history timeline at `/liturgy-history/timeline`, where
 `ExpandableTimelineEvent` renders every council and history event with
 the same arrow / collapse behaviour.
 
+### Scrape → database → page contract
+
+Scraped content lives in PostgreSQL the entire time it is on the site —
+nothing renders out of in-memory scraper state. The pipeline is:
+
+1. **Scrape** — `runAdapter()` calls `adapter.fetch()`, gets back a list
+   of `IngestedItem`s, and sends them through `sanitize()` /
+   `validateItem()`. Items missing required fields, with body shorter
+   than the kind-specific minimum, or carrying an off-allowlist
+   `externalSourceKey` are rejected up front.
+2. **Persist** — surviving items go through `persistItems()`, which
+   dispatches to a kind-specific persister (`persist-prayer`,
+   `persist-saint`, `persist-apparition`, `persist-parish`,
+   `persist-devotion`, `persist-liturgy`, `persist-guide`). Each persister
+   writes to its own dedicated table — guides land in
+   `SpiritualLifeGuide`, prayers in `Prayer`, saints in `Saint`,
+   apparitions in `MarianApparition`, parishes in `Parish`, devotions in
+   `Devotion`, liturgy / Church-history / catechetical entries in
+   `LiturgyEntry`. The runner asserts at the type level (and through
+   `validateItem`'s protected-kind list) that ingestion never touches
+   user-generated tables (journal entries, goals, milestones, profile
+   data, saved-item links).
+3. **Dedupe** — duplicates are eliminated at three layers:
+   - `dedupeBatch()` drops in-batch duplicates by normalized
+     `externalSourceKey` (URL canonicalised — fragments, trailing
+     slashes, and `utm_*` parameters stripped) and by normalized slug.
+   - Each persister looks up the existing row by stable identifiers
+     before writing: `externalSourceKey` first (the source URL is the
+     most reliable identity), then `slug`, then a kind-specific
+     fallback (`name + city + country` for parishes). When a match is
+     found, `contentChecksum` (SHA-256 of canonicalised content) is
+     compared — identical checksums short-circuit as `skipped` with no
+     DB write.
+   - `PUBLISHED` and `ARCHIVED` rows are protected: the persister
+     refuses to overwrite curated content. Re-ingesting on top of a
+     published row is a no-op until the admin moves it back to
+     `DRAFT` / `REVIEW`.
+4. **Update** — when an existing draft / review row's checksum changes,
+   the persister calls `prisma.<table>.update()` with the full payload
+   and resets `status` to `INGESTION_INITIAL_STATUS` (default `REVIEW`)
+   so the change re-enters the moderation queue. New rows are created
+   with the same status. The runner counts every freshly-created or
+   updated row as `recordsReviewRequired` when `initialStatus === REVIEW`.
+5. **Read** — public pages call `listPublished*` and `getPublished*BySlug`
+   functions in `src/lib/data/`, which always filter by
+   `{ status: "PUBLISHED" }`. Detail pages wrap the lookup in a `safe*`
+   helper that catches DB errors, classifies them with
+   `classifyPageError()` (missing-table vs. db-connection vs.
+   route-error), logs through `logPageError()` / `logPageMissingContent()`,
+   and falls back to `notFound()` so a missing or unpublished slug returns
+   a 404, never a 500. The `requireUser()` and `isSaved()` calls used by
+   the Save button are wrapped the same way: when no signed-in user is
+   present they short-circuit to `null` / `false` so anonymous traffic
+   sees the page exactly like a signed-in reader (minus the Save button
+   pre-checked state).
+
+Field mapping is one-to-one from `IngestedItem` → DB row → page render.
+The `Prayer` row carries `slug`, `defaultTitle`, `body`, `category`,
+`externalSourceKey`, `sourceHost`, `contentChecksum`, and `status`; the
+detail page reads exactly those fields (plus the locale translation).
+The same pattern applies to every kind — see
+`src/lib/ingestion/persist/persist-*.ts` for the source side and
+`src/lib/data/*.ts` for the read side.
+
+### Persistence after redeploys
+
+Because every record lives in PostgreSQL (not in process memory),
+scraped content survives container restarts and redeploys. The
+auto-seed at boot only seeds when the public-content tables are empty
+and never overwrites existing rows. When the schema changes, run
+`prisma migrate deploy` (the Dockerfile entrypoint does this
+automatically); the health check at `/api/health` reports
+`migration_required` if any required table is missing and a separate
+`public_content_unavailable` status if any of `Prayer` / `Saint` /
+`MarianApparition` / `Parish` / `Devotion` / `LiturgyEntry` /
+`SpiritualLifeGuide` / `DailyLiturgy` are gone — those are the tables
+the public site reads from.
+
+### Logging surface for ingestion runs and page failures
+
+Every adapter run emits structured JSON via `logger`
+(`src/lib/observability/logger.ts`):
+
+- `ingestion.run.started` — adapter, sourceHost, jobId, initialStatus
+- `ingestion.run.not_modified` — emitted on a 304 short-circuit
+- `ingestion.run.completed` — with `recordsSeen`, `recordsCreated`,
+  `recordsUpdated`, `recordsSkipped`, `recordsFailed`,
+  `recordsReviewRequired`, `published`, `rejected`, `partial`,
+  `durationMs`
+- `ingestion.run.failed` — with `errorMessage` and `durationMs`
+- `ingestion.scheduler.start` / `ingestion.scheduler.completed` — totals
+  across all jobs in a tick
+
+The same numbers are persisted to `IngestionJobRun` for historic
+visibility in `/admin/ingestion`. Page-side, every detail page calls
+`logPageMissingContent()` on a missed lookup (with a
+`reason: missing_record | bad_slug | missing_table | db_connection`
+classification) and `logPageError()` on caught exceptions, so an alert
+on `kind=missing_table` points to a missed migration, `kind=db_connection`
+points to the database, and `kind=missing_record` points to either an
+unpublished record or a stale link.
+
 ## Startup behaviour
 
 When the Node process boots, `src/instrumentation.ts` defers to

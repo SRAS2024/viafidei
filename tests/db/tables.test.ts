@@ -22,6 +22,9 @@ const ALL_TABLES = [
   "Goal",
   "Milestone",
   "RateLimitBucket",
+  "IngestionSource",
+  "IngestionJob",
+  "IngestionJobRun",
 ];
 
 beforeEach(() => {
@@ -39,6 +42,7 @@ describe("checkRequiredTables", () => {
     expect(result.ok).toBe(true);
     expect(result.missing).toEqual([]);
     expect(result.present).toHaveLength(ALL_TABLES.length);
+    expect(result.publicContentMissing).toEqual([]);
   });
 
   it("flags individual missing tables (not silently passing)", async () => {
@@ -51,6 +55,7 @@ describe("checkRequiredTables", () => {
     expect(result.ok).toBe(false);
     expect(result.missing.sort()).toEqual(["Goal", "Milestone"]);
     expect(result.present).not.toContain("Goal");
+    expect(result.publicContentMissing).toEqual([]);
   });
 
   it("treats an empty schema (DB exists but no tables) as fully missing", async () => {
@@ -59,6 +64,19 @@ describe("checkRequiredTables", () => {
     expect(result.ok).toBe(false);
     expect(result.missing).toEqual(ALL_TABLES);
     expect(result.present).toEqual([]);
+  });
+
+  it("flags missing public content tables separately from other required tables", async () => {
+    // Drop the Prayer + LiturgyEntry tables — public reads will 500 without
+    // them, so the health check must call this out as its own bucket.
+    prismaMock.$queryRaw.mockResolvedValue(
+      ALL_TABLES.filter((t) => t !== "Prayer" && t !== "LiturgyEntry").map((tablename) => ({
+        tablename,
+      })),
+    );
+    const result = await checkRequiredTables();
+    expect(result.ok).toBe(false);
+    expect(result.publicContentMissing.sort()).toEqual(["LiturgyEntry", "Prayer"]);
   });
 });
 
