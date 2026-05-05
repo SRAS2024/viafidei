@@ -5,12 +5,42 @@ import { getPublishedDevotionBySlug } from "@/lib/data/devotions";
 import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
+import { logger } from "@/lib/observability/logger";
+
+export const dynamic = "force-dynamic";
 
 type Props = { params: { slug: string } };
 
+async function safeGetDevotion(slug: string, locale: string) {
+  try {
+    return await getPublishedDevotionBySlug(slug, locale as never);
+  } catch (err) {
+    logger.error("devotion.lookup_failed", { slug, error: (err as Error).message });
+    return null;
+  }
+}
+
+async function safeRequireUser() {
+  try {
+    return await requireUser();
+  } catch (err) {
+    logger.warn("devotion.requireUser_failed", { error: (err as Error).message });
+    return null;
+  }
+}
+
+async function safeIsSaved(userId: string, devotionId: string): Promise<boolean> {
+  try {
+    return await isSaved("devotion", userId, devotionId);
+  } catch (err) {
+    logger.warn("devotion.isSaved_failed", { error: (err as Error).message });
+    return false;
+  }
+}
+
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
-  const d = await getPublishedDevotionBySlug(params.slug, locale);
+  const d = await safeGetDevotion(params.slug, locale);
   if (!d) return { title: "Not Found" };
   const tr = d.translations[0];
   return { title: tr?.title ?? d.title };
@@ -18,11 +48,11 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function DevotionDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
-  const devotion = await getPublishedDevotionBySlug(params.slug, locale);
+  const devotion = await safeGetDevotion(params.slug, locale);
   if (!devotion) notFound();
 
-  const user = await requireUser();
-  const alreadySaved = user ? await isSaved("devotion", user.id, devotion.id) : false;
+  const user = await safeRequireUser();
+  const alreadySaved = user ? await safeIsSaved(user.id, devotion.id) : false;
 
   const tr = devotion.translations[0];
   const title = tr?.title ?? devotion.title;

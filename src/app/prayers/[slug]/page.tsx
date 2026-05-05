@@ -5,12 +5,42 @@ import { getPublishedPrayerBySlug } from "@/lib/data/prayers";
 import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
+import { logger } from "@/lib/observability/logger";
+
+export const dynamic = "force-dynamic";
 
 type Props = { params: { slug: string } };
 
+async function safeGetPrayer(slug: string, locale: string) {
+  try {
+    return await getPublishedPrayerBySlug(slug, locale as never);
+  } catch (err) {
+    logger.error("prayer.lookup_failed", { slug, error: (err as Error).message });
+    return null;
+  }
+}
+
+async function safeRequireUser() {
+  try {
+    return await requireUser();
+  } catch (err) {
+    logger.warn("prayer.requireUser_failed", { error: (err as Error).message });
+    return null;
+  }
+}
+
+async function safeIsSaved(userId: string, prayerId: string): Promise<boolean> {
+  try {
+    return await isSaved("prayer", userId, prayerId);
+  } catch (err) {
+    logger.warn("prayer.isSaved_failed", { error: (err as Error).message });
+    return false;
+  }
+}
+
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
-  const prayer = await getPublishedPrayerBySlug(params.slug, locale);
+  const prayer = await safeGetPrayer(params.slug, locale);
   if (!prayer) return { title: "Not Found" };
   const tr = prayer.translations[0];
   return { title: tr?.title ?? prayer.defaultTitle };
@@ -18,11 +48,11 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function PrayerDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
-  const prayer = await getPublishedPrayerBySlug(params.slug, locale);
+  const prayer = await safeGetPrayer(params.slug, locale);
   if (!prayer) notFound();
 
-  const user = await requireUser();
-  const alreadySaved = user ? await isSaved("prayer", user.id, prayer.id) : false;
+  const user = await safeRequireUser();
+  const alreadySaved = user ? await safeIsSaved(user.id, prayer.id) : false;
 
   const tr = prayer.translations[0];
   const title = tr?.title ?? prayer.defaultTitle;
