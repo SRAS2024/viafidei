@@ -16,9 +16,11 @@ export default async function RegisterPage({ searchParams }: { searchParams: { e
           ? t("auth.error.exists")
           : searchParams.error === "rate_limited"
             ? t("auth.error.rateLimited")
-            : searchParams.error
+            : searchParams.error === "server"
               ? t("auth.error.generic")
-              : null;
+              : searchParams.error
+                ? t("auth.error.generic")
+                : null;
 
   return (
     <div className="mx-auto max-w-md pt-12">
