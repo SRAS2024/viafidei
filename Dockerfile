@@ -41,6 +41,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+# argon2 ships native bindings under ./prebuilds and resolves them at runtime
+# through node-gyp-build, which the Next.js standalone tracer (NFT) does not
+# follow. next.config.js explicitly traces these in via
+# outputFileTracingIncludes; this redundant copy is a belt-and-suspenders
+# safety net in case the trace ever drops the prebuild directory.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/argon2 ./node_modules/argon2
 COPY --chown=nextjs:nodejs scripts/start.sh scripts/validate-db.js ./scripts/
 RUN chmod +x ./scripts/start.sh ./scripts/validate-db.js
 
