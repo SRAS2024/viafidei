@@ -32,7 +32,7 @@ export const es: Dict = {
   "auth.forgot": "¿Olvidaste tu contraseña?",
   "auth.submitLogin": "Iniciar sesión",
   "auth.submitRegister": "Crear cuenta",
-  "auth.toRegister": "¿No tienes cuenta? Crea una.",
+  "auth.toRegister": "Crear cuenta",
   "auth.toLogin": "¿Ya tienes cuenta? Inicia sesión.",
   "auth.adminNotice":
     "Este inicio de sesión es solo para miembros de Via Fidei. Los administradores deben usar el portal dedicado.",

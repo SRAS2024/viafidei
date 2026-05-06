@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { RegisterForm } from "@/app/register/RegisterForm";
 
 const labels = {
@@ -42,10 +42,43 @@ describe("RegisterForm privacy notice", () => {
     expect(screen.getByLabelText("Re-enter password")).toBeInTheDocument();
   });
 
-  it("includes the password rule hint near the password input", () => {
+  it("does not show the password requirements hint by default", () => {
     render(<RegisterForm labels={labels} />);
-    expect(
-      screen.getByText(/at least 5 characters, with at least one number/i),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(labels.passwordRequirements)).not.toBeInTheDocument();
+  });
+
+  it("shows the password requirements message as a red alert when the password is too weak", () => {
+    render(<RegisterForm labels={labels} />);
+    const password = screen.getByLabelText("Password") as HTMLInputElement;
+    fireEvent.change(password, { target: { value: "weak" } });
+    fireEvent.blur(password);
+    const message = screen.getByText(labels.passwordRequirements);
+    expect(message).toBeInTheDocument();
+    expect(message).toHaveAttribute("role", "alert");
+  });
+
+  it("shows the mismatch message when the two passwords differ", () => {
+    render(<RegisterForm labels={labels} />);
+    const password = screen.getByLabelText("Password") as HTMLInputElement;
+    const confirm = screen.getByLabelText("Re-enter password") as HTMLInputElement;
+    fireEvent.change(password, { target: { value: "Strong1Pass" } });
+    fireEvent.change(confirm, { target: { value: "Different1" } });
+    fireEvent.blur(confirm);
+    const message = screen.getByText(labels.mismatch);
+    expect(message).toBeInTheDocument();
+    expect(message).toHaveAttribute("role", "alert");
+  });
+
+  it("clears the validation message once the password becomes valid", () => {
+    render(<RegisterForm labels={labels} />);
+    const password = screen.getByLabelText("Password") as HTMLInputElement;
+    const confirm = screen.getByLabelText("Re-enter password") as HTMLInputElement;
+    fireEvent.change(password, { target: { value: "weak" } });
+    fireEvent.blur(password);
+    expect(screen.getByText(labels.passwordRequirements)).toBeInTheDocument();
+    fireEvent.change(password, { target: { value: "Strong1Pass" } });
+    fireEvent.change(confirm, { target: { value: "Strong1Pass" } });
+    expect(screen.queryByText(labels.passwordRequirements)).not.toBeInTheDocument();
+    expect(screen.queryByText(labels.mismatch)).not.toBeInTheDocument();
   });
 });

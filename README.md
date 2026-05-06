@@ -38,7 +38,7 @@ edited blindly:
   folder. **Do not rename, move, or remove it** — Google revalidates the
   property by fetching that exact path.
 - **Transactional sender address.** The official transactional sender address
-  is **`notifications@etviafidei.com`**, hardcoded in `src/lib/config.ts`.
+  is **`notifications@viafidei.com`**, hardcoded in `src/lib/config.ts`.
   It is the only address used for account-related email (welcome, password
   reset, email verification). Email is delivered via **Resend** when
   `RESEND_API_KEY` is set; without it, email features are safely skipped
@@ -263,7 +263,7 @@ deployments do not need to set them:
 | Setting                             | Hardcoded value                                                         |
 | ----------------------------------- | ----------------------------------------------------------------------- |
 | Canonical / app URL                 | `https://etviafidei.com`                                                |
-| Email sender address                | `notifications@etviafidei.com`                                          |
+| Email sender address                | `notifications@viafidei.com`                                            |
 | Search provider (echoed by reindex) | `postgres`                                                              |
 | Server port / hostname              | `3000` / `0.0.0.0`                                                      |
 | Logger floor                        | `info` in production, `debug` otherwise                                 |

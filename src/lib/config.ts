@@ -42,8 +42,13 @@ export const appConfig = {
     schedulerDisabled: true,
   },
   email: {
-    /** Transactional sender address. DNS records (SPF/DKIM/DMARC) live at the DNS provider. */
-    fromAddress: "notifications@etviafidei.com",
+    /**
+     * Transactional sender address. The DNS records (SPF/DKIM/DMARC) for
+     * this domain are wired up at the DNS provider — Resend will reject any
+     * `from` that isn't on a verified domain, so this constant must always
+     * match a verified Resend sender.
+     */
+    fromAddress: "notifications@viafidei.com",
     /** Provider name for logs / diagnostics. */
     providerName: "resend" as const,
   },
