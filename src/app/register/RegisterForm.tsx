@@ -29,24 +29,35 @@ function isStrongPassword(value: string): boolean {
   return true;
 }
 
+type ValidationKind = "weak" | "mismatch";
+
+const ERROR_COLOR = "#8b1a1a";
+
 export function RegisterForm({ labels }: { labels: RegisterFormLabels }) {
   const [showPassword, setShowPassword] = useState(false);
-  const [clientError, setClientError] = useState<string | null>(null);
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  // Validation kicks in only after the user has interacted with the password
+  // fields. The requirements message is hidden by default and surfaces only
+  // when a constraint is broken — never as a passive hint.
+  const [touched, setTouched] = useState(false);
+
+  const validation: ValidationKind | null = (() => {
+    if (!touched) return null;
+    if (password.length === 0) return null;
+    if (!isStrongPassword(password)) return "weak";
+    if (passwordConfirm.length > 0 && password !== passwordConfirm) return "mismatch";
+    return null;
+  })();
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    setClientError(null);
-    const form = event.currentTarget;
-    const password = (form.elements.namedItem("password") as HTMLInputElement | null)?.value ?? "";
-    const passwordConfirm =
-      (form.elements.namedItem("passwordConfirm") as HTMLInputElement | null)?.value ?? "";
+    setTouched(true);
     if (!isStrongPassword(password)) {
       event.preventDefault();
-      setClientError(labels.weakPassword);
       return;
     }
     if (password !== passwordConfirm) {
       event.preventDefault();
-      setClientError(labels.mismatch);
       return;
     }
   }
@@ -119,14 +130,24 @@ export function RegisterForm({ labels }: { labels: RegisterFormLabels }) {
           type={showPassword ? "text" : "password"}
           required
           minLength={PASSWORD_MIN}
-          pattern="(?=.*[A-Z])(?=.*\d).{5,}"
-          aria-describedby="password-requirements"
+          aria-describedby={validation === "weak" ? "password-error" : undefined}
+          aria-invalid={validation === "weak"}
           className="vf-input"
           autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onBlur={() => setTouched(true)}
         />
-        <p id="password-requirements" className="mt-1 font-serif text-xs text-ink-faint">
-          {labels.passwordRequirements}
-        </p>
+        {validation === "weak" ? (
+          <p
+            id="password-error"
+            role="alert"
+            className="mt-1 font-serif text-xs"
+            style={{ color: ERROR_COLOR }}
+          >
+            {labels.passwordRequirements}
+          </p>
+        ) : null}
       </div>
 
       <div>
@@ -139,9 +160,24 @@ export function RegisterForm({ labels }: { labels: RegisterFormLabels }) {
           type={showPassword ? "text" : "password"}
           required
           minLength={PASSWORD_MIN}
+          aria-describedby={validation === "mismatch" ? "passwordConfirm-error" : undefined}
+          aria-invalid={validation === "mismatch"}
           className="vf-input"
           autoComplete="new-password"
+          value={passwordConfirm}
+          onChange={(e) => setPasswordConfirm(e.target.value)}
+          onBlur={() => setTouched(true)}
         />
+        {validation === "mismatch" ? (
+          <p
+            id="passwordConfirm-error"
+            role="alert"
+            className="mt-1 font-serif text-xs"
+            style={{ color: ERROR_COLOR }}
+          >
+            {labels.mismatch}
+          </p>
+        ) : null}
       </div>
 
       <p className="font-serif text-xs text-ink-faint" data-testid="register-privacy-notice">
@@ -154,12 +190,6 @@ export function RegisterForm({ labels }: { labels: RegisterFormLabels }) {
         </Link>
         {labels.privacyAfter}
       </p>
-
-      {clientError ? (
-        <p role="alert" className="text-center text-sm" style={{ color: "#8b1a1a" }}>
-          {clientError}
-        </p>
-      ) : null}
 
       <button type="submit" className="vf-btn vf-btn-primary mt-2">
         {labels.submit}

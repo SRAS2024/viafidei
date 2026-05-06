@@ -138,7 +138,7 @@ const auth: Dict = {
   "auth.forgot": "Forgot password?",
   "auth.submitLogin": "Sign in",
   "auth.submitRegister": "Create account",
-  "auth.toRegister": "No account? Create one.",
+  "auth.toRegister": "Create account",
   "auth.toLogin": "Already have an account? Sign in.",
   "auth.adminNotice":
     "This sign-in is for Via Fidei members only. Administrators must use the dedicated admin portal.",
@@ -169,6 +169,7 @@ const auth: Dict = {
   "auth.reset.usedToken": "This reset link has already been used. Request a new one.",
   "auth.reset.success": "Your password was reset successfully. You can now sign in.",
   "auth.login.passwordReset": "Your password was reset successfully. Please sign in.",
+  "auth.login.registered": "Your account was created. Please sign in to continue.",
   "auth.verify.title": "Verify email",
   "auth.verify.checking": "Verifying your email…",
   "auth.verify.success": "Your email is verified. Thank you!",

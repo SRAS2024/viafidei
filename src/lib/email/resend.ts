@@ -28,6 +28,43 @@ export function isEmailConfigured(): boolean {
   return readResendConfig() !== null;
 }
 
+type ResendErrorBody = {
+  name?: string;
+  message?: string;
+  statusCode?: number;
+};
+
+/**
+ * Pull a sanitized failure description out of Resend's JSON error body so
+ * the operator log explains *why* delivery failed (unverified sender,
+ * invalid recipient, bad API key, rate limit, …) instead of just "non-2xx".
+ * Never returns the raw response body — only the keys we know are safe to
+ * log (name + message + statusCode).
+ */
+async function describeResendError(res: Response): Promise<{
+  name: string;
+  message: string;
+  statusCode: number;
+}> {
+  let parsed: ResendErrorBody = {};
+  try {
+    parsed = (await res.json()) as ResendErrorBody;
+  } catch {
+    // Resend returned non-JSON (rare). Fall through to the status-only path.
+  }
+  return {
+    name: typeof parsed.name === "string" ? parsed.name : "unknown",
+    message:
+      typeof parsed.message === "string" && parsed.message.length > 0
+        ? parsed.message
+        : `HTTP ${res.status}`,
+    statusCode:
+      typeof parsed.statusCode === "number" && Number.isFinite(parsed.statusCode)
+        ? parsed.statusCode
+        : res.status,
+  };
+}
+
 /**
  * Best-effort transactional email delivery via Resend.
  *
@@ -35,6 +72,13 @@ export function isEmailConfigured(): boolean {
  * is logged and skipped with `delivery: "skipped"` — this lets reset-password,
  * welcome, and verification flows degrade gracefully (the rest of the
  * account flow still succeeds) instead of returning a 500 to the client.
+ *
+ * On a Resend 4xx/5xx the response JSON is parsed for `name`, `message`, and
+ * `statusCode` (the three fields documented in the Resend error contract) and
+ * those are emitted as a structured log line. Common operator-fixable cases
+ * — a sender domain that has not been verified, an unverified API key, or a
+ * blocked recipient — show up with a clear `name` (e.g. `validation_error`,
+ * `restricted_api_key`) instead of an opaque "delivery_failed".
  */
 export async function sendTransactionalEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const config = readResendConfig();
@@ -65,10 +109,16 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
       }),
     });
     if (!res.ok) {
-      // Log only the subject and status — never bodies or tokens.
+      const detail = await describeResendError(res);
       logger.error("email.delivery_failed", {
         status: res.status,
         subject: input.subject,
+        from: config.from,
+        // `name` is Resend's machine-readable error code (validation_error,
+        // restricted_api_key, …). `message` is the human description.
+        // Neither contains the email body or the API key.
+        errorName: detail.name,
+        errorMessage: detail.message,
       });
       return { ok: false, reason: "delivery_failed" };
     }
@@ -76,7 +126,11 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
   } catch (error) {
     // Log a sanitized error message — bodies, headers, and tokens are not logged.
     const message = error instanceof Error ? error.message : "unknown_error";
-    logger.error("email.delivery_error", { message, subject: input.subject });
+    logger.error("email.delivery_error", {
+      message,
+      subject: input.subject,
+      from: config.from,
+    });
     return { ok: false, reason: "delivery_failed" };
   }
 }
