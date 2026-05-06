@@ -5,12 +5,23 @@ import { getTranslator } from "@/lib/i18n/server";
 import { listSavedSaintsForUser } from "@/lib/data/saints";
 import { PageHero } from "@/components/ui/PageHero";
 import { RemoveSavedButton } from "@/components/ui/RemoveSavedButton";
+import { logPageError } from "@/lib/observability/page-errors";
 
 export default async function MySaints() {
-  const user = await requireUser();
+  let user: Awaited<ReturnType<typeof requireUser>> = null;
+  try {
+    user = await requireUser();
+  } catch (err) {
+    logPageError({ route: "/profile/saints", entityType: "User", error: err });
+  }
   if (!user) redirect("/login?next=/profile/saints");
   const { t } = await getTranslator();
-  const saves = await listSavedSaintsForUser(user.id);
+  let saves: Awaited<ReturnType<typeof listSavedSaintsForUser>> = [];
+  try {
+    saves = await listSavedSaintsForUser(user.id);
+  } catch (err) {
+    logPageError({ route: "/profile/saints", entityType: "UserSavedSaint", error: err });
+  }
   const removeLabels = {
     remove: t("profile.saved.remove"),
     cancel: t("common.cancel"),

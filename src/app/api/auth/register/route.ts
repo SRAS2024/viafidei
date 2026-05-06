@@ -66,18 +66,58 @@ function describeWriteError(error: unknown): {
   return { kind: "db_write_failed", message };
 }
 
+async function readRegisterPayload(req: NextRequest): Promise<
+  | {
+      ok: true;
+      data: {
+        firstName: FormDataEntryValue | null;
+        lastName: FormDataEntryValue | null;
+        email: FormDataEntryValue | null;
+        password: FormDataEntryValue | null;
+        passwordConfirm: FormDataEntryValue | null;
+        language: FormDataEntryValue | null;
+      };
+    }
+  | { ok: false }
+> {
+  // The form posts as application/x-www-form-urlencoded or multipart/form-data;
+  // both are handled by req.formData(). A mistyped Content-Type (most often
+  // application/json from a debugger or third-party client) makes formData()
+  // throw, which we then translate into a user-facing "invalid" error rather
+  // than the generic "server" message.
+  try {
+    const form = await req.formData();
+    return {
+      ok: true,
+      data: {
+        firstName: form.get("firstName"),
+        lastName: form.get("lastName"),
+        email: form.get("email"),
+        password: form.get("password"),
+        passwordConfirm: form.get("passwordConfirm"),
+        language: form.get("language"),
+      },
+    };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
   try {
-    const form = await req.formData();
+    const payload = await readRegisterPayload(req);
+    if (!payload.ok) {
+      logger.warn("auth.register.bad_body", { requestId });
+      return redirectWithError(req, "invalid");
+    }
     const parsed = registerSchema.safeParse({
-      firstName: form.get("firstName"),
-      lastName: form.get("lastName"),
-      email: form.get("email"),
-      password: form.get("password"),
-      passwordConfirm: form.get("passwordConfirm"),
-      language:
-        typeof form.get("language") === "string" ? (form.get("language") as string) : undefined,
+      firstName: payload.data.firstName,
+      lastName: payload.data.lastName,
+      email: payload.data.email,
+      password: payload.data.password,
+      passwordConfirm: payload.data.passwordConfirm,
+      language: typeof payload.data.language === "string" ? payload.data.language : undefined,
     });
 
     if (!parsed.success) {

@@ -5,12 +5,23 @@ import { getTranslator } from "@/lib/i18n/server";
 import { listGoalsForUser } from "@/lib/data/profile";
 import { PageHero } from "@/components/ui/PageHero";
 import { GoalManager } from "./GoalManager";
+import { logPageError } from "@/lib/observability/page-errors";
 
 export default async function GoalsPage() {
-  const user = await requireUser();
+  let user: Awaited<ReturnType<typeof requireUser>> = null;
+  try {
+    user = await requireUser();
+  } catch (err) {
+    logPageError({ route: "/profile/goals", entityType: "User", error: err });
+  }
   if (!user) redirect("/login?next=/profile/goals");
   const { t } = await getTranslator();
-  const goals = await listGoalsForUser(user.id);
+  let goals: Awaited<ReturnType<typeof listGoalsForUser>> = [];
+  try {
+    goals = await listGoalsForUser(user.id);
+  } catch (err) {
+    logPageError({ route: "/profile/goals", entityType: "Goal", error: err });
+  }
 
   const serialized = goals.map((g) => ({
     id: g.id,

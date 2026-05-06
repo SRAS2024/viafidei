@@ -2,13 +2,19 @@ import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedDevotions } from "@/lib/data/devotions";
+import { logPageError } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Devotions" };
 
 export default async function DevotionsPage() {
   const { t, locale } = await getTranslator();
-  const devotions = await listPublishedDevotions(locale);
+  let devotions: Awaited<ReturnType<typeof listPublishedDevotions>> = [];
+  try {
+    devotions = await listPublishedDevotions(locale);
+  } catch (err) {
+    logPageError({ route: "/devotions", entityType: "Devotion", error: err });
+  }
 
   return (
     <div>

@@ -6,15 +6,26 @@ import { listMilestonesForUser } from "@/lib/data/profile";
 import { PageHero } from "@/components/ui/PageHero";
 import { MilestoneCreator } from "./MilestoneCreator";
 import { MilestoneDeleteButton } from "./MilestoneDeleteButton";
+import { logPageError } from "@/lib/observability/page-errors";
 
 const MILESTONE_TIERS = ["SACRAMENT", "SPIRITUAL", "PERSONAL"] as const;
 type Tier = (typeof MILESTONE_TIERS)[number];
 
 export default async function MilestonesPage() {
-  const user = await requireUser();
+  let user: Awaited<ReturnType<typeof requireUser>> = null;
+  try {
+    user = await requireUser();
+  } catch (err) {
+    logPageError({ route: "/profile/milestones", entityType: "User", error: err });
+  }
   if (!user) redirect("/login?next=/profile/milestones");
   const { t } = await getTranslator();
-  const milestones = await listMilestonesForUser(user.id);
+  let milestones: Awaited<ReturnType<typeof listMilestonesForUser>> = [];
+  try {
+    milestones = await listMilestonesForUser(user.id);
+  } catch (err) {
+    logPageError({ route: "/profile/milestones", entityType: "Milestone", error: err });
+  }
   const existingSlugs = milestones.map((m) => m.slug);
 
   const tierLabels: Record<Tier, string> = {

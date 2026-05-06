@@ -8,13 +8,25 @@ import { JournalEditor } from "./JournalEditor";
 import { JournalDeleteButton } from "./JournalDeleteButton";
 import { JournalEditButton } from "./JournalEditButton";
 import { JournalFavoriteButton } from "./JournalFavoriteButton";
+import { logPageError } from "@/lib/observability/page-errors";
 
-export default async function JournalPage() {
-  const user = await requireUser();
+export default async function JournalPage({ searchParams }: { searchParams: { filter?: string } }) {
+  let user: Awaited<ReturnType<typeof requireUser>> = null;
+  try {
+    user = await requireUser();
+  } catch (err) {
+    logPageError({ route: "/profile/journal", entityType: "User", error: err });
+  }
   if (!user) redirect("/login?next=/profile/journal");
   const { t } = await getTranslator();
 
-  const entries = await listJournalEntries(user.id);
+  const favoritesOnly = searchParams.filter === "favorites";
+  let entries: Awaited<ReturnType<typeof listJournalEntries>> = [];
+  try {
+    entries = await listJournalEntries(user.id, { favoritesOnly });
+  } catch (err) {
+    logPageError({ route: "/profile/journal", entityType: "JournalEntry", error: err });
+  }
 
   return (
     <div>

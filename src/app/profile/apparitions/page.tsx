@@ -5,12 +5,27 @@ import { getTranslator } from "@/lib/i18n/server";
 import { listSavedApparitions } from "@/lib/data/saved";
 import { PageHero } from "@/components/ui/PageHero";
 import { RemoveSavedButton } from "@/components/ui/RemoveSavedButton";
+import { logPageError } from "@/lib/observability/page-errors";
 
 export default async function MyApparitions() {
-  const user = await requireUser();
+  let user: Awaited<ReturnType<typeof requireUser>> = null;
+  try {
+    user = await requireUser();
+  } catch (err) {
+    logPageError({ route: "/profile/apparitions", entityType: "User", error: err });
+  }
   if (!user) redirect("/login?next=/profile/apparitions");
   const { t, locale } = await getTranslator();
-  const saves = await listSavedApparitions(user.id, locale);
+  let saves: Awaited<ReturnType<typeof listSavedApparitions>> = [];
+  try {
+    saves = await listSavedApparitions(user.id, locale);
+  } catch (err) {
+    logPageError({
+      route: "/profile/apparitions",
+      entityType: "UserSavedApparition",
+      error: err,
+    });
+  }
   const removeLabels = {
     remove: t("profile.saved.remove"),
     cancel: t("common.cancel"),
