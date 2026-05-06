@@ -8,6 +8,7 @@ import {
   PERIOD_ORDER,
   PERIOD_LABELS,
 } from "@/lib/data/church-history";
+import { logPageError } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
@@ -18,7 +19,12 @@ export const metadata = {
 
 export default async function ChurchHistoryTimelinePage() {
   const { t, locale } = await getTranslator();
-  const events = await loadTimeline(locale);
+  let events: Awaited<ReturnType<typeof loadTimeline>> = [];
+  try {
+    events = await loadTimeline(locale);
+  } catch (err) {
+    logPageError({ route: "/liturgy-history/timeline", entityType: "LiturgyEntry", error: err });
+  }
   const grouped = groupByPeriod(events);
 
   return (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedPrayersPaginated } from "@/lib/data/prayers";
+import { logPageError } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Prayers" };
@@ -18,7 +19,19 @@ const PRAYER_CATEGORIES = [
 export default async function PrayersPage({ searchParams }: { searchParams: { page?: string } }) {
   const { t, locale } = await getTranslator();
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
-  const { items: prayers, total, totalPages } = await listPublishedPrayersPaginated(locale, page);
+  let result: Awaited<ReturnType<typeof listPublishedPrayersPaginated>> = {
+    items: [],
+    total: 0,
+    page,
+    pageSize: 0,
+    totalPages: 0,
+  };
+  try {
+    result = await listPublishedPrayersPaginated(locale, page);
+  } catch (err) {
+    logPageError({ route: "/prayers", entityType: "Prayer", error: err });
+  }
+  const { items: prayers, total, totalPages } = result;
 
   return (
     <div>

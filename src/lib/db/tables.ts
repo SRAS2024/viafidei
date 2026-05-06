@@ -221,10 +221,7 @@ export async function probePublicContentTables(): Promise<{
     ["Devotion", () => prisma.devotion.findFirst({ select: { id: true } })],
     ["Parish", () => prisma.parish.findFirst({ select: { id: true } })],
     ["LiturgyEntry", () => prisma.liturgyEntry.findFirst({ select: { id: true } })],
-    [
-      "SpiritualLifeGuide",
-      () => prisma.spiritualLifeGuide.findFirst({ select: { id: true } }),
-    ],
+    ["SpiritualLifeGuide", () => prisma.spiritualLifeGuide.findFirst({ select: { id: true } })],
     ["DailyLiturgy", () => prisma.dailyLiturgy.findFirst({ select: { id: true } })],
   ];
 

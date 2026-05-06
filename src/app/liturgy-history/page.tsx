@@ -5,6 +5,7 @@ import { listPublishedLiturgyEntries } from "@/lib/data/liturgy";
 import { matchesRite, RITE_LABEL_KEYS } from "@/lib/content/rites";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 import { LITURGY_ITEMS } from "./_components/liturgyItems";
+import { logPageError } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Liturgy & History" };
@@ -23,7 +24,12 @@ const KIND_LABELS: Record<string, string> = {
 
 export default async function LiturgyPage() {
   const { t, locale } = await getTranslator();
-  const entries = await listPublishedLiturgyEntries(locale);
+  let entries: Awaited<ReturnType<typeof listPublishedLiturgyEntries>> = [];
+  try {
+    entries = await listPublishedLiturgyEntries(locale);
+  } catch (err) {
+    logPageError({ route: "/liturgy-history", entityType: "LiturgyEntry", error: err });
+  }
   const rite = await getRiteCookieValue();
   const visibleEntries = entries.filter((e) => matchesRite(e.slug, rite));
 

@@ -3,16 +3,23 @@ import { PageHero } from "@/components/ui/PageHero";
 import { listPublishedSaints } from "@/lib/data/saints";
 import { listPublishedApparitions } from "@/lib/data/apparitions";
 import { SaintsGrid, ApparitionsGrid } from "./_components";
+import { logPageError } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Saints & Our Lady" };
 
 export default async function SaintsPage() {
   const { t, locale } = await getTranslator();
-  const [saints, apparitions] = await Promise.all([
-    listPublishedSaints(locale),
-    listPublishedApparitions(locale),
-  ]);
+  let saints: Awaited<ReturnType<typeof listPublishedSaints>> = [];
+  let apparitions: Awaited<ReturnType<typeof listPublishedApparitions>> = [];
+  try {
+    [saints, apparitions] = await Promise.all([
+      listPublishedSaints(locale),
+      listPublishedApparitions(locale),
+    ]);
+  } catch (err) {
+    logPageError({ route: "/saints", entityType: "Saint", error: err });
+  }
 
   return (
     <div>

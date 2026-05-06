@@ -7,7 +7,15 @@ import { getClientIp, getUserAgent } from "@/lib/security/request";
 const LOGIN_INVALID = "/admin/login?error=invalid";
 
 export async function POST(req: NextRequest) {
-  const form = await req.formData();
+  // formData() throws on an unexpected Content-Type. Treat that the same as
+  // a missing/invalid field so the caller is redirected back with the
+  // standard error rather than triggering the runtime error boundary.
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch {
+    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
+  }
   const parsed = adminLoginSchema.safeParse({
     username: form.get("username"),
     password: form.get("password"),

@@ -5,12 +5,23 @@ import { getTranslator } from "@/lib/i18n/server";
 import { listSavedDevotions } from "@/lib/data/saved";
 import { PageHero } from "@/components/ui/PageHero";
 import { RemoveSavedButton } from "@/components/ui/RemoveSavedButton";
+import { logPageError } from "@/lib/observability/page-errors";
 
 export default async function MyDevotions() {
-  const user = await requireUser();
+  let user: Awaited<ReturnType<typeof requireUser>> = null;
+  try {
+    user = await requireUser();
+  } catch (err) {
+    logPageError({ route: "/profile/devotions", entityType: "User", error: err });
+  }
   if (!user) redirect("/login?next=/profile/devotions");
   const { t, locale } = await getTranslator();
-  const saves = await listSavedDevotions(user.id, locale);
+  let saves: Awaited<ReturnType<typeof listSavedDevotions>> = [];
+  try {
+    saves = await listSavedDevotions(user.id, locale);
+  } catch (err) {
+    logPageError({ route: "/profile/devotions", entityType: "UserSavedDevotion", error: err });
+  }
   const removeLabels = {
     remove: t("profile.saved.remove"),
     cancel: t("common.cancel"),

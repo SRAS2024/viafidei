@@ -18,8 +18,7 @@ export default function RootError({
         msg: "page.render_failed",
         kind: "client_boundary",
         digest: error.digest,
-        route:
-          typeof window !== "undefined" ? window.location.pathname : undefined,
+        route: typeof window !== "undefined" ? window.location.pathname : undefined,
         error: error.message,
       }),
     );

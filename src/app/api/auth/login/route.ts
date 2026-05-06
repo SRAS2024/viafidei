@@ -14,10 +14,25 @@ function safeNext(raw: string | null): string {
   return raw && raw.startsWith("/") ? raw : DEFAULT_NEXT;
 }
 
+async function readLoginForm(req: NextRequest): Promise<FormData | null> {
+  // formData() throws on a mistyped Content-Type (e.g. application/json).
+  // Returning null here lets the caller respond with the same generic
+  // "invalid" redirect rather than crashing into the global catch.
+  try {
+    return await req.formData();
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
   try {
-    const form = await req.formData();
+    const form = await readLoginForm(req);
+    if (!form) {
+      logger.warn("auth.login.bad_body", { requestId });
+      return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
+    }
     const parsed = loginSchema.safeParse({
       email: form.get("email"),
       password: form.get("password"),

@@ -16,8 +16,7 @@ export default function GlobalError({
         msg: "page.global_error",
         kind: "client_global_boundary",
         digest: error.digest,
-        route:
-          typeof window !== "undefined" ? window.location.pathname : undefined,
+        route: typeof window !== "undefined" ? window.location.pathname : undefined,
         error: error.message,
         stack: error.stack,
       }),

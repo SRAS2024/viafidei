@@ -2,10 +2,22 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
-import { getProfileCounts } from "@/lib/data/profile";
+import { getProfileCounts, type ProfileCounts } from "@/lib/data/profile";
 import { ProfileAvatar } from "@/components/profile/ProfileAvatar";
 import { UnverifiedEmailNotice } from "@/components/profile/UnverifiedEmailNotice";
 import { prisma } from "@/lib/db/client";
+import { logPageError } from "@/lib/observability/page-errors";
+
+const EMPTY_COUNTS: ProfileCounts = {
+  journalCount: 0,
+  prayersSaved: 0,
+  saintsSaved: 0,
+  apparitionsSaved: 0,
+  parishesSaved: 0,
+  devotionsSaved: 0,
+  goalsCount: 0,
+  milestonesCount: 0,
+};
 
 type ProfileTab = { href: string; key: string; count?: number };
 type ProfileSection = {
@@ -14,14 +26,25 @@ type ProfileSection = {
 };
 
 export default async function ProfilePage() {
-  const user = await requireUser();
+  let user: Awaited<ReturnType<typeof requireUser>> = null;
+  try {
+    user = await requireUser();
+  } catch (err) {
+    logPageError({ route: "/profile", entityType: "User", error: err });
+  }
   if (!user) redirect("/login?next=/profile");
   const { t } = await getTranslator();
 
-  const counts = await getProfileCounts(user.id);
-  const favoriteJournalCount = await prisma.journalEntry.count({
-    where: { userId: user.id, isFavorite: true },
-  });
+  let counts: ProfileCounts = EMPTY_COUNTS;
+  let favoriteJournalCount = 0;
+  try {
+    [counts, favoriteJournalCount] = await Promise.all([
+      getProfileCounts(user.id),
+      prisma.journalEntry.count({ where: { userId: user.id, isFavorite: true } }),
+    ]);
+  } catch (err) {
+    logPageError({ route: "/profile", entityType: "Profile", error: err });
+  }
 
   // Sections group user-specific content into clear categories so the page
   // surfaces what is meaningful — goals, journals, favorites, saved prayers,

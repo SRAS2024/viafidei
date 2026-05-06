@@ -99,6 +99,24 @@ describe("POST /api/auth/register", () => {
     expect(res.headers.get("location")).toContain("/register?error=invalid");
   });
 
+  it("rejects a JSON body (wrong Content-Type) with the user-facing 'invalid' error", async () => {
+    // formData() throws on application/json; the route should classify it as
+    // a bad form body and redirect to ?error=invalid rather than ?error=server
+    // so the user sees the same field-level message as any other validation failure.
+    const req = new Request("http://localhost/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(validBody),
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": "203.0.113.5",
+      },
+    }) as unknown as NextRequest;
+    const res = await POST(req);
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toContain("/register?error=invalid");
+    expect(createUserMock).not.toHaveBeenCalled();
+  });
+
   it("rejects weak passwords", async () => {
     const res = await POST(
       buildRequest({ ...validBody, password: "weak", passwordConfirm: "weak" }),

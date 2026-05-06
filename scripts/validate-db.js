@@ -109,14 +109,7 @@ const REQUIRED_COLUMNS = {
   Profile: ["id", "userId", "createdAt", "updatedAt"],
   Session: ["id", "userId", "tokenHash", "expiresAt", "createdAt", "updatedAt"],
   PasswordResetToken: ["id", "userId", "tokenHash", "expiresAt", "createdAt", "updatedAt"],
-  EmailVerificationToken: [
-    "id",
-    "userId",
-    "tokenHash",
-    "expiresAt",
-    "createdAt",
-    "updatedAt",
-  ],
+  EmailVerificationToken: ["id", "userId", "tokenHash", "expiresAt", "createdAt", "updatedAt"],
   Prayer: [
     "id",
     "slug",
@@ -130,15 +123,7 @@ const REQUIRED_COLUMNS = {
     "createdAt",
     "updatedAt",
   ],
-  Saint: [
-    "id",
-    "slug",
-    "canonicalName",
-    "biography",
-    "patronages",
-    "status",
-    "externalSourceKey",
-  ],
+  Saint: ["id", "slug", "canonicalName", "biography", "patronages", "status", "externalSourceKey"],
   Devotion: ["id", "slug", "title", "summary", "status", "externalSourceKey"],
   MarianApparition: ["id", "slug", "title", "summary", "status"],
   LiturgyEntry: ["id", "slug", "kind", "title", "body", "status"],
@@ -281,12 +266,12 @@ async function main() {
     const expected = listMigrationDirs();
     const applied = await fetchAppliedMigrations(prisma);
     const appliedNames = new Set(
-      applied.filter((row) => row.finished_at && !row.rolled_back_at).map((row) => row.migration_name),
+      applied
+        .filter((row) => row.finished_at && !row.rolled_back_at)
+        .map((row) => row.migration_name),
     );
     const missing = expected.filter((name) => !appliedNames.has(name));
-    const rolledBack = applied
-      .filter((row) => row.rolled_back_at)
-      .map((row) => row.migration_name);
+    const rolledBack = applied.filter((row) => row.rolled_back_at).map((row) => row.migration_name);
     if (missing.length > 0 || rolledBack.length > 0) {
       failures.push({ stage: "migrations", missing, rolledBack });
       emit("error", { stage: "migrations.missing", missing, rolledBack });

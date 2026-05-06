@@ -93,11 +93,9 @@ export async function GET() {
   // Public content tables drive every public page; if any of them are gone
   // or unreadable, every public-facing page will 500. Surface that as its
   // own status so an ops alert can fire on the right symptom.
-  const publicContentOk =
-    (tables.publicContentMissing ?? []).length === 0 && contentProbe.ok;
+  const publicContentOk = (tables.publicContentMissing ?? []).length === 0 && contentProbe.ok;
   const columnsOk = (tables.columnsMissing ?? []).length === 0;
-  const allOk =
-    db.ok && tables.ok && publicContentOk && columnsOk && migrations.ok && seed.ok;
+  const allOk = db.ok && tables.ok && publicContentOk && columnsOk && migrations.ok && seed.ok;
 
   const status = allOk
     ? "ok"

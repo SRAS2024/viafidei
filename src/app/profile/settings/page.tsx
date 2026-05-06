@@ -10,14 +10,25 @@ import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 import { ThemeAppearancePicker } from "./ThemeAppearancePicker";
 import { RitePicker } from "./RitePicker";
 import { UnverifiedEmailNotice } from "@/components/profile/UnverifiedEmailNotice";
+import { logPageError } from "@/lib/observability/page-errors";
 
 export default async function SettingsPage() {
   // Settings is signed-in only — anonymous visitors are bounced to login.
-  const user = await requireUser();
+  let user: Awaited<ReturnType<typeof requireUser>> = null;
+  try {
+    user = await requireUser();
+  } catch (err) {
+    logPageError({ route: "/profile/settings", entityType: "User", error: err });
+  }
   if (!user) redirect("/login?next=/profile/settings");
   const { t } = await getTranslator();
 
-  const profile = await getProfileForUser(user.id);
+  let profile: Awaited<ReturnType<typeof getProfileForUser>> = null;
+  try {
+    profile = await getProfileForUser(user.id);
+  } catch (err) {
+    logPageError({ route: "/profile/settings", entityType: "Profile", error: err });
+  }
   const initialTheme =
     profile?.theme === "dark" || profile?.theme === "light" ? profile.theme : null;
   const initialRite = await getRiteCookieValue();
