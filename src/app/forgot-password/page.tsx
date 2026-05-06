@@ -23,6 +23,7 @@ export default async function ForgotPasswordPage() {
             email: t("auth.email"),
             submit: t("auth.forgot.submit"),
             success: t("auth.forgot.success"),
+            notFound: t("auth.forgot.notFound"),
             rateLimited: t("auth.forgot.rateLimited"),
             error: t("auth.forgot.error"),
           }}

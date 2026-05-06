@@ -62,17 +62,21 @@ describe("POST /api/auth/forgot-password", () => {
     expect(findUserByEmailMock).not.toHaveBeenCalled();
   });
 
-  it("returns the same generic 200 success for unknown emails (privacy-safe)", async () => {
+  it("returns 404 not_found for emails with no matching account (no token issued)", async () => {
+    // Product decision: surface "no account" explicitly so the user knows
+    // they need to register instead. The per-IP rate limit upstream is the
+    // mitigation for email enumeration, not response-body opacity.
     findUserByEmailMock.mockResolvedValue(null);
     const res = await POST(buildRequest({ email: "ghost@example.com" }));
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; accepted: boolean };
-    expect(body).toEqual({ ok: true, accepted: true });
+    expect(res.status).toBe(404);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe("not_found");
     expect(issuePasswordResetTokenMock).not.toHaveBeenCalled();
     expect(sendPasswordResetEmailMock).not.toHaveBeenCalled();
   });
 
-  it("issues a token and sends a password reset email when the user exists", async () => {
+  it("issues a token, sends a reset email, and returns the typed email back to the caller", async () => {
     const user = {
       id: "u1",
       email: "user@example.com",
@@ -89,8 +93,12 @@ describe("POST /api/auth/forgot-password", () => {
 
     const res = await POST(buildRequest({ email: "user@example.com" }));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; accepted: boolean };
-    expect(body).toEqual({ ok: true, accepted: true });
+    const body = (await res.json()) as {
+      ok: boolean;
+      sent: boolean;
+      email: string;
+    };
+    expect(body).toEqual({ ok: true, sent: true, email: "user@example.com" });
 
     expect(issuePasswordResetTokenMock).toHaveBeenCalledWith("u1");
     expect(sendPasswordResetEmailMock).toHaveBeenCalledTimes(1);
@@ -103,7 +111,10 @@ describe("POST /api/auth/forgot-password", () => {
     expect(arg.token).toBe("raw-token-123");
   });
 
-  it("still returns the generic 200 success when email delivery fails (no leak)", async () => {
+  it("still returns sent: true when email delivery is silently skipped (Resend down)", async () => {
+    // The token is issued; if the delivery layer fails the user must still
+    // see a "sent" result, otherwise an outage on Resend would surface to
+    // them as an "account doesn't exist" error.
     findUserByEmailMock.mockResolvedValue({
       id: "u1",
       email: "user@example.com",
@@ -119,7 +130,9 @@ describe("POST /api/auth/forgot-password", () => {
 
     const res = await POST(buildRequest({ email: "user@example.com" }));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean };
+    const body = (await res.json()) as { ok: boolean; sent: boolean; email: string };
     expect(body.ok).toBe(true);
+    expect(body.sent).toBe(true);
+    expect(body.email).toBe("user@example.com");
   });
 });

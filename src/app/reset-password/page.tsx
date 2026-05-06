@@ -29,6 +29,8 @@ export default async function ResetPasswordPage({
               newPassword: t("auth.reset.newPassword"),
               confirmPassword: t("auth.reset.confirmPassword"),
               submit: t("auth.reset.submit"),
+              successHeading: t("auth.reset.successHeading"),
+              backToLogin: t("auth.reset.backToLogin"),
               weakPassword: t("auth.weakPassword"),
               mismatch: t("auth.mismatch"),
               invalidToken: t("auth.reset.invalidToken"),
@@ -36,7 +38,6 @@ export default async function ResetPasswordPage({
               usedToken: t("auth.reset.usedToken"),
               rateLimited: t("auth.forgot.rateLimited"),
               error: t("auth.forgot.error"),
-              successRedirectTo: "/login?notice=password_reset",
             }}
           />
         ) : (
