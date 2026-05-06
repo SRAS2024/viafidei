@@ -2,6 +2,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { getSession } from "@/lib/auth/session";
 import { logger } from "@/lib/observability";
 import { getProfileForUser } from "@/lib/data/profile";
+import { logoutAction } from "@/app/_actions/auth";
 import { HeaderBrand } from "./HeaderBrand";
 import { HeaderNav, PRIMARY_NAV } from "./HeaderNav";
 import { HeaderSearch } from "./HeaderSearch";
@@ -48,7 +49,11 @@ export async function Header() {
   const authedActions = isAuthed
     ? [
         { type: "link" as const, href: "/profile", label: t("nav.profile") },
-        { type: "form-button" as const, action: "/api/auth/logout", label: t("nav.logout") },
+        // Sign-out goes through a Server Action (not a POST to a route
+        // handler) so the Next.js Router Cache is invalidated as part of
+        // the redirect — without this, the previously-cached "signed in"
+        // Header keeps rendering until the user hard-refreshes.
+        { type: "form-button" as const, action: logoutAction, label: t("nav.logout") },
       ]
     : undefined;
 

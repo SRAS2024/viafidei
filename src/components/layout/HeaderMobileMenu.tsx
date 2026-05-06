@@ -8,7 +8,15 @@ import { CloseIcon, HamburgerIcon } from "../icons/HamburgerIcon";
 export type MobileMenuItem = { href: string; label: string };
 export type MobileMenuAction =
   | { type: "link"; href: string; label: string }
-  | { type: "form-button"; action: string; label: string };
+  | {
+      type: "form-button";
+      // Either a path (legacy POST → route handler) or a Server Action that
+      // does its own redirect + cache revalidation. The latter is the
+      // correct path for sign-out so the Header refreshes without a manual
+      // page reload.
+      action: string | (() => Promise<void> | void);
+      label: string;
+    };
 
 type Props = {
   navItems: MobileMenuItem[];
@@ -134,9 +142,21 @@ export function HeaderMobileMenu({
                         {action.label}
                       </Link>
                     </li>
-                  ) : (
+                  ) : typeof action.action === "string" ? (
                     <li key={action.action}>
                       <form action={action.action} method="post" className="m-0">
+                        <button
+                          type="submit"
+                          role="menuitem"
+                          className="vf-mobile-menu-link block w-full px-4 py-3 text-left"
+                        >
+                          {action.label}
+                        </button>
+                      </form>
+                    </li>
+                  ) : (
+                    <li key={action.label}>
+                      <form action={action.action} className="m-0">
                         <button
                           type="submit"
                           role="menuitem"
