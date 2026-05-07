@@ -337,6 +337,8 @@ const admin: Dict = {
   "admin.card.homepage": "Homepage mirror editor",
   "admin.card.favicon": "Favicon",
   "admin.card.users": "User Accounts",
+  "admin.card.email": "Email diagnostics",
+  "admin.email.title": "Email diagnostics",
   "admin.signOut": "Sign out of admin",
   "admin.welcomeLine": "You are signed in as the administrator.",
 };

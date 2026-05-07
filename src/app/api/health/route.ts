@@ -6,6 +6,8 @@ import {
   checkSeedContent,
   probePublicContentTables,
 } from "@/lib/db/tables";
+import { appConfig } from "@/lib/config";
+import { isEmailConfigured } from "@/lib/email/resend";
 import { logger } from "@/lib/observability/logger";
 
 export const dynamic = "force-dynamic";
@@ -127,6 +129,13 @@ export async function GET() {
     });
   }
 
+  // Email is intentionally NOT part of `allOk` — a missing RESEND_API_KEY
+  // makes account email skip cleanly rather than fail, so the deployment
+  // can still serve traffic. We still surface the status so the operator
+  // knows whether the welcome / password-reset / verification emails will
+  // actually leave the server.
+  const emailConfigured = isEmailConfigured();
+
   return NextResponse.json(
     {
       status,
@@ -138,6 +147,11 @@ export async function GET() {
         tables,
         contentProbe,
         seed,
+        email: {
+          configured: emailConfigured,
+          fromAddress: appConfig.email.fromAddress,
+          provider: appConfig.email.providerName,
+        },
       },
     },
     { status: httpStatus },

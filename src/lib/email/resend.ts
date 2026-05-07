@@ -12,7 +12,16 @@ export type SendEmailInput = {
 export type SendEmailResult =
   | { ok: true; delivery: "sent" }
   | { ok: true; delivery: "skipped"; reason: "not_configured" }
-  | { ok: false; reason: "not_configured" | "delivery_failed" };
+  | {
+      ok: false;
+      reason: "not_configured" | "delivery_failed";
+      // Populated on a Resend 4xx/5xx so the admin diagnostic UI can
+      // render the actual cause (unverified sender, restricted API key,
+      // …) without exposing the raw response or the API key.
+      errorName?: string;
+      errorMessage?: string;
+      statusCode?: number;
+    };
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
@@ -120,7 +129,13 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
         errorName: detail.name,
         errorMessage: detail.message,
       });
-      return { ok: false, reason: "delivery_failed" };
+      return {
+        ok: false,
+        reason: "delivery_failed",
+        errorName: detail.name,
+        errorMessage: detail.message,
+        statusCode: detail.statusCode,
+      };
     }
     return { ok: true, delivery: "sent" };
   } catch (error) {
@@ -131,6 +146,11 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
       subject: input.subject,
       from: config.from,
     });
-    return { ok: false, reason: "delivery_failed" };
+    return {
+      ok: false,
+      reason: "delivery_failed",
+      errorName: "transport_error",
+      errorMessage: message,
+    };
   }
 }
