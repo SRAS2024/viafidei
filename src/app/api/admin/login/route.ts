@@ -1,8 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { adminLoginSchema, verifyAdminCredentials, getSession } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
-import { getClientIp, getUserAgent } from "@/lib/security/request";
+import { getClientIp, getUserAgent, redirectTo } from "@/lib/security/request";
 
 const LOGIN_INVALID = "/admin/login?error=invalid";
 
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   try {
     form = await req.formData();
   } catch {
-    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
+    return redirectTo(req, LOGIN_INVALID);
   }
   const parsed = adminLoginSchema.safeParse({
     username: form.get("username"),
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (!parsed.success) {
-    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
+    return redirectTo(req, LOGIN_INVALID);
   }
 
   const ip = getClientIp(req);
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     ipAddress: ip,
   });
   if (!limit.ok) {
-    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
+    return redirectTo(req, LOGIN_INVALID);
   }
 
   const ok = verifyAdminCredentials(parsed.data.username, parsed.data.password);
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       ipAddress: ip,
       userAgent,
     });
-    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
+    return redirectTo(req, LOGIN_INVALID);
   }
 
   const session = await getSession();
@@ -62,5 +62,5 @@ export async function POST(req: NextRequest) {
     userAgent,
   });
 
-  return NextResponse.redirect(new URL("/admin?welcome=1", req.url), 303);
+  return redirectTo(req, "/admin?welcome=1");
 }

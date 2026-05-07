@@ -43,12 +43,14 @@ export const appConfig = {
   },
   email: {
     /**
-     * Transactional sender address. The DNS records (SPF/DKIM/DMARC) for
-     * this domain are wired up at the DNS provider — Resend will reject any
-     * `from` that isn't on a verified domain, so this constant must always
-     * match a verified Resend sender.
+     * Transactional sender address. Must match a verified Resend domain —
+     * Resend rejects any `from` whose domain hasn't been verified. The
+     * Resend dashboard for this deployment shows etviafidei.com as the
+     * verified domain (DKIM, SPF, DMARC all green); using a different
+     * domain here returns a 422 / validation_error and the user receives
+     * nothing.
      */
-    fromAddress: "notifications@viafidei.com",
+    fromAddress: "notifications@etviafidei.com",
     /** Provider name for logs / diagnostics. */
     providerName: "resend" as const,
   },

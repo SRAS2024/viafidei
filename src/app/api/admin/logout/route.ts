@@ -1,7 +1,7 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
-import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { getClientIpOrNull, getUserAgent, redirectTo } from "@/lib/security/request";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -16,5 +16,5 @@ export async function POST(req: NextRequest) {
     });
   }
   session.destroy();
-  return NextResponse.redirect(new URL("/admin/login", req.url), 303);
+  return redirectTo(req, "/admin/login");
 }

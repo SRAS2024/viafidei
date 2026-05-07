@@ -12,6 +12,50 @@ function isProtectedAdminPath(pathname: string): boolean {
   return true;
 }
 
+/**
+ * Inlined here (instead of imported from @/lib/security/request) so the
+ * middleware bundle stays edge-runtime clean — the helper file imports
+ * NextResponse for its non-middleware redirectTo() helper, which is also
+ * edge-safe but keeping the middleware self-contained avoids future
+ * accidental imports from request.ts that could drag in node-only deps.
+ *
+ * Same logic as `getPublicOrigin` in @/lib/security/request: prefer the
+ * proxy-supplied X-Forwarded-Host / X-Forwarded-Proto, fall back to the
+ * Host header, never echo a local-bind hostname (0.0.0.0:8080,
+ * 127.0.0.1:3000, localhost) — Safari rejects port 8080 over HTTPS with
+ * "Not allowed to use restricted network port", which surfaces as the
+ * mysterious "no access to the port" error users see otherwise.
+ */
+function isLocalBindHost(host: string): boolean {
+  const lower = host.toLowerCase().split(":")[0];
+  return lower === "0.0.0.0" || lower === "127.0.0.1" || lower === "localhost" || lower === "::1";
+}
+
+function stripUpstreamPort(host: string, proto: string): string {
+  if (proto !== "https") return host;
+  if (host.endsWith("]")) return host;
+  const portIdx = host.lastIndexOf(":");
+  if (portIdx <= 0) return host;
+  const port = host.slice(portIdx + 1);
+  if (port === "443") return host;
+  return host.slice(0, portIdx);
+}
+
+function publicOriginForMiddleware(req: NextRequest): string {
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = (req.headers.get("x-forwarded-proto") ?? "").split(",")[0].trim();
+  if (forwardedHost && !isLocalBindHost(forwardedHost)) {
+    const proto = forwardedProto || "https";
+    return `${proto}://${stripUpstreamPort(forwardedHost, proto)}`;
+  }
+  const hostHeader = req.headers.get("host");
+  if (hostHeader && !isLocalBindHost(hostHeader)) {
+    const proto = forwardedProto || (process.env.NODE_ENV === "production" ? "https" : "http");
+    return `${proto}://${stripUpstreamPort(hostHeader, proto)}`;
+  }
+  return req.nextUrl.origin;
+}
+
 export function middleware(req: NextRequest) {
   const requestId = ensureRequestId(req.headers.get(REQUEST_ID_HEADER));
 
@@ -27,7 +71,7 @@ export function middleware(req: NextRequest) {
   if (pathname.startsWith("/admin") && isProtectedAdminPath(pathname)) {
     const hasSession = req.cookies.get(SESSION_COOKIE_NAME);
     if (!hasSession) {
-      const loginUrl = new URL("/admin/login", req.url);
+      const loginUrl = new URL("/admin/login", publicOriginForMiddleware(req));
       return NextResponse.redirect(loginUrl, 303);
     }
   }

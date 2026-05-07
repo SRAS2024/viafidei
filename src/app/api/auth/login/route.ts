@@ -1,8 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { authenticate, loginSchema, getSession } from "@/lib/auth";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
-import { getClientIp } from "@/lib/security/request";
+import { getClientIp, redirectTo } from "@/lib/security/request";
 import { isSupportedLocale } from "@/lib/i18n/locales";
 import { LOCALE_COOKIE_NAME, LOCALE_COOKIE_OPTIONS } from "@/lib/i18n/cookie";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const form = await readLoginForm(req);
     if (!form) {
       logger.warn("auth.login.bad_body", { requestId });
-      return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
+      return redirectTo(req, LOGIN_INVALID);
     }
     const parsed = loginSchema.safeParse({
       email: form.get("email"),
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     const next = safeNext((form.get("next") as string | null) ?? null);
 
     if (!parsed.success) {
-      return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
+      return redirectTo(req, LOGIN_INVALID);
     }
 
     const ip = getClientIp(req);
@@ -50,12 +50,12 @@ export async function POST(req: NextRequest) {
       { ipAddress: ip },
     );
     if (!limit.ok) {
-      return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
+      return redirectTo(req, LOGIN_INVALID);
     }
 
     const user = await authenticate(parsed.data.email, parsed.data.password);
     if (!user) {
-      return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
+      return redirectTo(req, LOGIN_INVALID);
     }
 
     const session = await getSession();
@@ -73,12 +73,12 @@ export async function POST(req: NextRequest) {
       cookies().set(LOCALE_COOKIE_NAME, user.language, LOCALE_COOKIE_OPTIONS);
     }
 
-    return NextResponse.redirect(new URL(next, req.url), 303);
+    return redirectTo(req, next);
   } catch (error) {
     logger.error("auth.login.unhandled", {
       requestId,
       message: error instanceof Error ? error.message : "unknown_error",
     });
-    return NextResponse.redirect(new URL(LOGIN_INVALID, req.url), 303);
+    return redirectTo(req, LOGIN_INVALID);
   }
 }
