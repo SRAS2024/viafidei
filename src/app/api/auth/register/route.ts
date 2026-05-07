@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import {
   createUser,
@@ -8,7 +8,7 @@ import {
   issueEmailVerificationToken,
 } from "@/lib/auth";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
-import { getClientIp } from "@/lib/security/request";
+import { getClientIp, redirectTo } from "@/lib/security/request";
 import { sendEmailVerificationEmail, sendWelcomeEmail } from "@/lib/email";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 import { logApiError } from "@/lib/observability/page-errors";
@@ -31,8 +31,8 @@ function resolveLocaleFromRequest(req: NextRequest, override?: string | null): s
   return negotiateLocale(req.headers.get("accept-language"));
 }
 
-function redirectWithError(req: NextRequest, code: string): NextResponse {
-  return NextResponse.redirect(new URL(`/register?error=${code}`, req.url), 303);
+function redirectWithError(req: NextRequest, code: string) {
+  return redirectTo(req, `/register?error=${code}`);
 }
 
 /**
@@ -242,13 +242,13 @@ export async function POST(req: NextRequest) {
       });
       // Account exists but session couldn't be established — send the user
       // to the login page rather than blowing up the request.
-      return NextResponse.redirect(new URL("/login?registered=1", req.url), 303);
+      return redirectTo(req, "/login?registered=1");
     }
 
     // Persist the chosen locale to the cookie so the next page load uses it.
     cookies().set(LOCALE_COOKIE_NAME, language, LOCALE_COOKIE_OPTIONS);
 
-    return NextResponse.redirect(new URL("/profile", req.url), 303);
+    return redirectTo(req, "/profile");
   } catch (error) {
     logApiError({
       method: "POST",

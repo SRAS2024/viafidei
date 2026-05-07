@@ -1,8 +1,9 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { isSupportedLocale } from "@/lib/i18n/locales";
 import { LOCALE_COOKIE_NAME, LOCALE_COOKIE_OPTIONS } from "@/lib/i18n/cookie";
 import { getSession } from "@/lib/auth/session";
+import { redirectTo } from "@/lib/security/request";
 import { prisma } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
@@ -34,5 +35,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL("/profile/settings", req.url), 303);
+  return redirectTo(req, "/profile/settings");
 }

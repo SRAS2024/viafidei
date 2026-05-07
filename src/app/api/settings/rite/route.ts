@@ -1,7 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { isCatholicRite } from "@/lib/content/rites";
 import { RITE_COOKIE_NAME, RITE_COOKIE_OPTIONS } from "@/lib/i18n/rite-cookie";
+import { redirectTo } from "@/lib/security/request";
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
@@ -13,5 +14,8 @@ export async function POST(req: NextRequest) {
     c.delete(RITE_COOKIE_NAME);
   }
   const next = String(form.get("next") ?? "/profile/settings");
-  return NextResponse.redirect(new URL(next, req.url), 303);
+  // Validate `next` is a safe path so an attacker can't pivot the form
+  // into a redirect to an external host.
+  const safeNext = next.startsWith("/") ? next : "/profile/settings";
+  return redirectTo(req, safeNext);
 }

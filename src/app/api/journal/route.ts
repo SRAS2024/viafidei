@@ -1,7 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
+import { redirectTo } from "@/lib/security/request";
 import {
   countJournalEntries,
   createJournalEntry,
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
   const user = await requireUser();
   if (!user) {
     if (isJsonRequest(req)) return jsonError("unauthorized");
-    return NextResponse.redirect(new URL("/login", req.url), 303);
+    return redirectTo(req, "/login");
   }
 
   const limit = await rateLimit(`journal:${user.id}`, RATE_POLICIES.userWrite, {
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
   });
   if (!limit.ok) {
     if (isJsonRequest(req)) return jsonError("rate_limited");
-    return NextResponse.redirect(new URL("/profile/journal", req.url), 303);
+    return redirectTo(req, "/profile/journal");
   }
 
   if (isJsonRequest(req)) {
@@ -68,12 +69,12 @@ export async function POST(req: NextRequest) {
 
   const form = await req.formData();
   const parsed = createSchema.safeParse({ title: form.get("title"), body: form.get("body") });
-  if (!parsed.success) return NextResponse.redirect(new URL("/profile/journal", req.url), 303);
+  if (!parsed.success) return redirectTo(req, "/profile/journal");
 
   await createJournalEntry({
     userId: user.id,
     title: parsed.data.title,
     body: parsed.data.body,
   });
-  return NextResponse.redirect(new URL("/profile/journal", req.url), 303);
+  return redirectTo(req, "/profile/journal");
 }
