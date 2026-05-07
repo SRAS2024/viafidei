@@ -83,7 +83,7 @@ describe("renderWelcomeEmail", () => {
 });
 
 describe("renderPasswordResetEmail", () => {
-  it("uses the subject 'Password Reset' and includes the reset URL in both bodies", () => {
+  it("uses a descriptive reset subject, mentions the 15-minute TTL, and includes the reset URL in both bodies", () => {
     const url = "https://etviafidei.com/reset-password?token=abc";
     const out = renderPasswordResetEmail({
       firstName: "Pio",
@@ -93,7 +93,9 @@ describe("renderPasswordResetEmail", () => {
       siteUrl: "https://etviafidei.com",
       locale: "en",
     });
-    expect(out.subject).toBe("Password Reset");
+    expect(out.subject).toBe("Reset your Via Fidei password");
+    expect(out.textBody).toContain("15 minutes");
+    expect(out.htmlBody).toContain("15 minutes");
     expect(out.textBody).toContain(url);
     expect(out.htmlBody).toContain(url);
   });

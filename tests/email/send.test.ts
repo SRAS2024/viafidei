@@ -75,7 +75,7 @@ describe("sendPasswordResetEmail (helper)", () => {
       htmlBody: string;
       textBody: string;
     };
-    expect(call.subject).toBe("Password Reset");
+    expect(call.subject).toBe("Reset your Via Fidei password");
     expect(call.htmlBody).toContain("token=raw-token");
     expect(call.textBody).toContain("token=raw-token");
     expect(call.htmlBody).toContain("Reset password for Maria Goretti");

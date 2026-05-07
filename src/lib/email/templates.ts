@@ -211,7 +211,9 @@ export function renderPasswordResetEmail(params: PasswordResetParams): RenderedE
   const intro = t.reset_intro;
   const body = t.reset_body;
   const ctaLabel = t.reset_cta.replace("{name}", params.fullName);
-  const fineprint = t.reset_fineprint.replace("{expiresAt}", params.expiresAt.toUTCString());
+  // The 15-minute TTL is mentioned in the body copy directly; the
+  // fineprint stays focused on "ignore if you didn't request this".
+  const fineprint = t.reset_fineprint;
   const footerLine = t.shared_footerLine;
   const siteLabel = t.shared_siteLabel;
 

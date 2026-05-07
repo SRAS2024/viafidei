@@ -2,7 +2,11 @@ import crypto from "node:crypto";
 import { prisma } from "../db/client";
 import { hashPassword, verifyPassword } from "./password";
 
-const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+// Password reset tokens are short-lived by design — a 15-minute window is
+// long enough for the user to switch tabs, find the email, and click the
+// link, but short enough that an intercepted reset email is no longer a
+// valid attack vector by the time it reaches anyone else.
+const PASSWORD_RESET_TTL_MS = 15 * 60 * 1000;
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
 
 function generateRawToken(): string {

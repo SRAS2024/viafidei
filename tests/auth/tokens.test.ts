@@ -29,15 +29,18 @@ afterEach(() => {
 });
 
 describe("issuePasswordResetToken", () => {
-  it("creates a hashed token row and returns the raw token + expiry ~1h ahead", async () => {
+  it("creates a hashed token row and returns the raw token + expiry ~15min ahead", async () => {
     prismaMock.passwordResetToken.create.mockResolvedValue({});
     const before = Date.now();
     const issued = await issuePasswordResetToken("u1");
     const after = Date.now();
 
     expect(issued.token).toMatch(/^[A-Za-z0-9_-]+$/);
-    expect(issued.expiresAt.getTime() - before).toBeGreaterThanOrEqual(60 * 60 * 1000 - 5);
-    expect(issued.expiresAt.getTime() - after).toBeLessThanOrEqual(60 * 60 * 1000);
+    // 15-minute TTL: short enough that an intercepted email loses
+    // attack value quickly, long enough for the user to find the email
+    // and click the link.
+    expect(issued.expiresAt.getTime() - before).toBeGreaterThanOrEqual(15 * 60 * 1000 - 5);
+    expect(issued.expiresAt.getTime() - after).toBeLessThanOrEqual(15 * 60 * 1000);
 
     const writeArgs = prismaMock.passwordResetToken.create.mock.calls[0][0] as {
       data: { userId: string; tokenHash: string };
