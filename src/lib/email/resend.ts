@@ -1,5 +1,4 @@
 import { appConfig } from "@/lib/config";
-import { getEnv } from "@/lib/env";
 import { logger } from "@/lib/observability";
 
 export type SendEmailInput = {
@@ -27,10 +26,20 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
 type ResendConfig = { apiKey: string; from: string };
 
+/**
+ * Resolve the Resend configuration on every call from `process.env`
+ * directly. Reading it through the cached `getEnv()` validator works in
+ * theory, but in practice we have hit deployments where the env value was
+ * present at runtime but not in the cached snapshot, so any send issued
+ * before the first explicit `getEnv()` call would silently skip. Going
+ * straight to `process.env` removes that timing dependency entirely —
+ * Node refreshes `process.env` on every read and PaaS hosts (Railway,
+ * Vercel) inject env values before the first request is served.
+ */
 function readResendConfig(): ResendConfig | null {
-  const env = getEnv();
-  if (!env.RESEND_API_KEY) return null;
-  return { apiKey: env.RESEND_API_KEY, from: appConfig.email.fromAddress };
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || apiKey.trim().length === 0) return null;
+  return { apiKey, from: appConfig.email.fromAddress };
 }
 
 export function isEmailConfigured(): boolean {

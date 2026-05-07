@@ -37,13 +37,14 @@ const EN: EmailDictionary = {
   welcome_cta: "Open Via Fidei",
   welcome_fineprint:
     "If you did not create this account, you can ignore this email and the address will remain unused.",
-  reset_subject: "Password Reset",
+  reset_subject: "Reset your Via Fidei password",
   reset_heading: "Reset your Via Fidei password",
   reset_intro: "We received a request to reset your password.",
-  reset_body: "Use the secure link below to choose a new password.",
+  reset_body:
+    "Use the secure link below to choose a new password. This single-use link is valid for 15 minutes.",
   reset_cta: "Reset password for {name}",
   reset_fineprint:
-    "This single-use link expires at {expiresAt}. If you did not request a reset, you can ignore this email.",
+    "If you did not request a reset, you can ignore this email — your account is unchanged.",
   verify_subject: "Verify your Via Fidei email",
   verify_heading: "Verify your Via Fidei email",
   verify_intro:
@@ -64,13 +65,14 @@ const ES: EmailDictionary = {
   welcome_cta: "Abrir Via Fidei",
   welcome_fineprint:
     "Si no creaste esta cuenta, puedes ignorar este correo y la dirección permanecerá sin uso.",
-  reset_subject: "Password Reset",
+  reset_subject: "Restablece tu contraseña de Via Fidei",
   reset_heading: "Restablecer tu contraseña de Via Fidei",
   reset_intro: "Recibimos una solicitud para restablecer tu contraseña.",
-  reset_body: "Usa el enlace seguro a continuación para elegir una nueva contraseña.",
+  reset_body:
+    "Usa el enlace seguro a continuación para elegir una nueva contraseña. Este enlace de un solo uso es válido durante 15 minutos.",
   reset_cta: "Reset password for {name}",
   reset_fineprint:
-    "Este enlace de un solo uso expira el {expiresAt}. Si no solicitaste un restablecimiento, puedes ignorar este correo.",
+    "Si no solicitaste un restablecimiento, puedes ignorar este correo — tu cuenta permanece sin cambios.",
   verify_subject: "Verifica tu correo de Via Fidei",
   verify_heading: "Verifica tu correo",
   verify_intro: "Hola {name}, confirma tu dirección de correo para terminar de crear tu cuenta.",
