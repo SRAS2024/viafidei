@@ -125,9 +125,32 @@ function scheduleIngestion(): void {
   if (typeof initialTimer.unref === "function") initialTimer.unref();
 }
 
+/**
+ * Tell the operator at startup whether transactional email is configured.
+ * Without `RESEND_API_KEY`, every welcome / password-reset / verification
+ * send is silently skipped — the user-facing flow still succeeds, but no
+ * message ever leaves the server. Surfacing the configuration state in
+ * the deployment log lets the operator catch the missing key without
+ * having to read code or hit the admin diagnostic page.
+ */
+function logEmailPipelineStatus(): void {
+  const apiKey = process.env.RESEND_API_KEY?.trim() ?? "";
+  if (apiKey.length === 0) {
+    console.warn(
+      "[startup] EMAIL DISABLED — RESEND_API_KEY is not set; welcome / password-reset / verification emails will be skipped (set the env var in your hosting dashboard and redeploy to enable)",
+    );
+    return;
+  }
+  console.log(
+    `[startup] email configured — provider=${appConfig.email.providerName} from=${appConfig.email.fromAddress} apiKey=${apiKey.slice(0, 4)}…(${apiKey.length} chars)`,
+  );
+}
+
 export async function runStartupTasks(): Promise<void> {
   // Brief delay so migrations (run before node server.js) finish committing
   await new Promise((r) => setTimeout(r, 2000));
+
+  logEmailPipelineStatus();
 
   if (!(await isDbReachable())) {
     console.warn("[startup] DB unreachable — skipping seed and ingestion schedule");

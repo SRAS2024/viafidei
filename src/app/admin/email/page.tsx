@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { appConfig } from "@/lib/config";
-import { getEnv } from "@/lib/env";
 import { requireAdmin } from "@/lib/auth";
 import { AdminSection } from "../_sections/AdminSection";
 import { EmailDiagnosticForm } from "./EmailDiagnosticForm";
@@ -11,9 +10,13 @@ export default async function AdminEmailPage() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
 
-  const env = getEnv();
-  const apiKey = env.RESEND_API_KEY ?? "";
-  const configured = apiKey.length > 0;
+  // Read RESEND_API_KEY straight from process.env — the same way the
+  // sender (`src/lib/email/resend.ts`) reads it. Going through the cached
+  // `getEnv()` validator was risking a split-brain where this page
+  // reported "configured" while the sender actually saw it as missing
+  // (or the inverse).
+  const apiKey = process.env.RESEND_API_KEY ?? "";
+  const configured = apiKey.trim().length > 0;
   const apiKeyPreview = configured ? `${apiKey.slice(0, 4)}…(${apiKey.length} chars)` : null;
 
   return (

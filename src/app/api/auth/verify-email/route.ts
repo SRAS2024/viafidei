@@ -78,6 +78,23 @@ export async function PUT(req: NextRequest) {
       userId: user.id,
       requestId,
       reason: result.reason,
+      errorName: result.errorName,
+      errorMessage: result.errorMessage,
+    });
+    return jsonError("server_error", {
+      message: "delivery_failed",
+      details: { reason: result.reason },
+    });
+  }
+  if (result.delivery === "skipped") {
+    logger.error("auth.email_verification.email_skipped", {
+      userId: user.id,
+      requestId,
+      reason: "not_configured",
+    });
+    return jsonError("server_error", {
+      message: "email_not_configured",
+      details: { reason: "not_configured" },
     });
   }
   return jsonOk({ requested: true });

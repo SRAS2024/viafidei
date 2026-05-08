@@ -9,7 +9,11 @@ type Labels = {
   success: string;
   notFound: string;
   rateLimited: string;
+  /** Generic transport / unknown error. */
   error: string;
+  /** Shown when the email pipeline is not configured server-side
+      (RESEND_API_KEY missing, or sender domain rejected). */
+  deliveryFailed: string;
 };
 
 const ERROR_COLOR = "#8b1a1a";
@@ -20,6 +24,7 @@ type Status =
   | { kind: "ok"; email: string }
   | { kind: "not_found" }
   | { kind: "rate_limited" }
+  | { kind: "delivery_failed" }
   | { kind: "error" };
 
 export function ForgotPasswordForm({ labels }: { labels: Labels }) {
@@ -43,6 +48,7 @@ export function ForgotPasswordForm({ labels }: { labels: Labels }) {
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
+        message?: string;
         sent?: boolean;
         email?: string;
       };
@@ -52,6 +58,17 @@ export function ForgotPasswordForm({ labels }: { labels: Labels }) {
       }
       if (data.error === "not_found") {
         setStatus({ kind: "not_found" });
+        return;
+      }
+      // The account exists but the email never reached the recipient
+      // (RESEND_API_KEY missing, sender domain unverified, …). Surface
+      // it so the user knows to contact support instead of refreshing
+      // their inbox forever.
+      if (
+        data.error === "server_error" &&
+        (data.message === "delivery_failed" || data.message === "email_not_configured")
+      ) {
+        setStatus({ kind: "delivery_failed" });
         return;
       }
       setStatus({ kind: "error" });
@@ -115,6 +132,11 @@ export function ForgotPasswordForm({ labels }: { labels: Labels }) {
       {status.kind === "rate_limited" ? (
         <p role="alert" className="text-center text-sm" style={{ color: ERROR_COLOR }}>
           {labels.rateLimited}
+        </p>
+      ) : null}
+      {status.kind === "delivery_failed" ? (
+        <p role="alert" className="text-center text-sm" style={{ color: ERROR_COLOR }}>
+          {labels.deliveryFailed}
         </p>
       ) : null}
       {status.kind === "error" ? (

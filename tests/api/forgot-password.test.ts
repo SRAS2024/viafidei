@@ -111,10 +111,10 @@ describe("POST /api/auth/forgot-password", () => {
     expect(arg.token).toBe("raw-token-123");
   });
 
-  it("still returns sent: true when email delivery is silently skipped (Resend down)", async () => {
-    // The token is issued; if the delivery layer fails the user must still
-    // see a "sent" result, otherwise an outage on Resend would surface to
-    // them as an "account doesn't exist" error.
+  it("returns server_error/delivery_failed when Resend rejects the send", async () => {
+    // Resend rejected the send (e.g. unverified sender domain, restricted
+    // API key). The user MUST see this — silently returning "sent: true"
+    // leaves them watching an empty inbox forever.
     findUserByEmailMock.mockResolvedValue({
       id: "u1",
       email: "user@example.com",
@@ -126,13 +126,53 @@ describe("POST /api/auth/forgot-password", () => {
       token: "raw-token",
       expiresAt: new Date(Date.now() + 60_000),
     });
-    sendPasswordResetEmailMock.mockResolvedValue({ ok: false, reason: "not_configured" });
+    sendPasswordResetEmailMock.mockResolvedValue({
+      ok: false,
+      reason: "delivery_failed",
+      errorName: "validation_error",
+      errorMessage: "Domain not verified",
+    });
 
     const res = await POST(buildRequest({ email: "user@example.com" }));
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { ok: boolean; sent: boolean; email: string };
-    expect(body.ok).toBe(true);
-    expect(body.sent).toBe(true);
-    expect(body.email).toBe("user@example.com");
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as {
+      ok: boolean;
+      error: string;
+      message: string;
+      details?: { reason: string };
+    };
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe("server_error");
+    expect(body.message).toBe("delivery_failed");
+    expect(body.details?.reason).toBe("delivery_failed");
+  });
+
+  it("returns server_error/email_not_configured when RESEND_API_KEY is missing", async () => {
+    // The send was a no-op because Resend isn't configured. The form
+    // surfaces this as "we couldn't send the reset email; contact
+    // support" — much more useful than a misleading "sent" message.
+    findUserByEmailMock.mockResolvedValue({
+      id: "u1",
+      email: "user@example.com",
+      firstName: "Pio",
+      lastName: "P",
+      language: "en",
+    });
+    issuePasswordResetTokenMock.mockResolvedValue({
+      token: "raw-token",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    sendPasswordResetEmailMock.mockResolvedValue({
+      ok: true,
+      delivery: "skipped",
+      reason: "not_configured",
+    });
+
+    const res = await POST(buildRequest({ email: "user@example.com" }));
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { ok: boolean; error: string; message: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe("server_error");
+    expect(body.message).toBe("email_not_configured");
   });
 });
