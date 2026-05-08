@@ -1,18 +1,19 @@
 import Link from "next/link";
+import { readResendApiKey } from "@/lib/email/resend";
 
 /**
  * Prominent red banner shown on /admin when transactional email is not
- * configured. Without RESEND_API_KEY every welcome / password-reset /
+ * configured. Without a Resend API key every welcome / password-reset /
  * verification send is silently skipped — surfacing this at the top of
  * the admin dashboard is the most reliable way to alert the operator.
  *
- * Reads `process.env.RESEND_API_KEY` directly to match the runtime sender
- * in `src/lib/email/resend.ts`; the two MUST agree, otherwise the banner
- * state would lie about what the actual send pipeline sees.
+ * Resolves the API key through the same helper the runtime sender uses
+ * (`readResendApiKey`), which accepts either `RESEND_API_KEY` or
+ * `RESEND`. The two MUST agree, otherwise the banner state would lie
+ * about what the actual send pipeline sees.
  */
 export function EmailNotConfiguredBanner() {
-  const apiKey = process.env.RESEND_API_KEY?.trim() ?? "";
-  if (apiKey.length > 0) return null;
+  if (readResendApiKey() !== null) return null;
 
   return (
     <div
@@ -22,7 +23,8 @@ export function EmailNotConfiguredBanner() {
     >
       <p className="font-bold">Transactional email is disabled</p>
       <p className="mt-1">
-        <code>RESEND_API_KEY</code> is not set on this deployment, so welcome, password-reset, and
+        No Resend API key is set on this deployment (the app reads either{" "}
+        <code>RESEND_API_KEY</code> or <code>RESEND</code>), so welcome, password-reset, and
         email-verification messages are silently skipped — accounts can be created but no email
         reaches the recipient. Set the variable in your hosting dashboard, redeploy, then{" "}
         <Link href="/admin/email" className="underline">

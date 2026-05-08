@@ -27,6 +27,28 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
 type ResendConfig = { apiKey: string; from: string };
 
 /**
+ * Read the Resend API key from `process.env` accepting either of two
+ * variable names:
+ *
+ *   - `RESEND_API_KEY`  — Resend's own documented convention
+ *   - `RESEND`          — short form some operators use; supported here
+ *                         so a deployment that's already configured under
+ *                         the short name keeps working without a rename
+ *
+ * If both are set, the canonical name wins; whichever is returned is
+ * trimmed and verified non-empty. Returns null when neither is set.
+ */
+export function readResendApiKey(): string | null {
+  const candidates = [process.env.RESEND_API_KEY, process.env.RESEND];
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string") continue;
+    const trimmed = candidate.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+  return null;
+}
+
+/**
  * Resolve the Resend configuration on every call from `process.env`
  * directly. Reading it through the cached `getEnv()` validator works in
  * theory, but in practice we have hit deployments where the env value was
@@ -37,8 +59,8 @@ type ResendConfig = { apiKey: string; from: string };
  * Vercel) inject env values before the first request is served.
  */
 function readResendConfig(): ResendConfig | null {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey || apiKey.trim().length === 0) return null;
+  const apiKey = readResendApiKey();
+  if (!apiKey) return null;
   return { apiKey, from: appConfig.email.fromAddress };
 }
 

@@ -127,17 +127,25 @@ function scheduleIngestion(): void {
 
 /**
  * Tell the operator at startup whether transactional email is configured.
- * Without `RESEND_API_KEY`, every welcome / password-reset / verification
+ * Without a Resend API key, every welcome / password-reset / verification
  * send is silently skipped — the user-facing flow still succeeds, but no
  * message ever leaves the server. Surfacing the configuration state in
  * the deployment log lets the operator catch the missing key without
  * having to read code or hit the admin diagnostic page.
+ *
+ * Resolves the key through the same helper the runtime sender uses, so a
+ * deployment that has set either `RESEND_API_KEY` or `RESEND` is reported
+ * the same way.
  */
-function logEmailPipelineStatus(): void {
-  const apiKey = process.env.RESEND_API_KEY?.trim() ?? "";
-  if (apiKey.length === 0) {
+async function logEmailPipelineStatus(): Promise<void> {
+  // Dynamic import so this startup helper stays decoupled from the email
+  // module's load order; auto-seed runs in instrumentation, which Next
+  // boots before request handlers.
+  const { readResendApiKey } = await import("../email/resend");
+  const apiKey = readResendApiKey();
+  if (apiKey === null) {
     console.warn(
-      "[startup] EMAIL DISABLED — RESEND_API_KEY is not set; welcome / password-reset / verification emails will be skipped (set the env var in your hosting dashboard and redeploy to enable)",
+      "[startup] EMAIL DISABLED — neither RESEND_API_KEY nor RESEND is set; welcome / password-reset / verification emails will be skipped (set the env var in your hosting dashboard and redeploy to enable)",
     );
     return;
   }
@@ -150,7 +158,7 @@ export async function runStartupTasks(): Promise<void> {
   // Brief delay so migrations (run before node server.js) finish committing
   await new Promise((r) => setTimeout(r, 2000));
 
-  logEmailPipelineStatus();
+  await logEmailPipelineStatus();
 
   if (!(await isDbReachable())) {
     console.warn("[startup] DB unreachable — skipping seed and ingestion schedule");

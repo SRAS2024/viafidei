@@ -14,11 +14,12 @@ afterEach(() => {
 });
 
 describe("sendTransactionalEmail (Resend)", () => {
-  it("returns delivery=skipped when RESEND_API_KEY is missing — even in production", async () => {
+  it("returns delivery=skipped when neither RESEND_API_KEY nor RESEND is set — even in production", async () => {
     // Email features are intentionally optional. Without an API key, sends
     // are skipped cleanly so account flows do not 500.
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("RESEND_API_KEY", "");
+    vi.stubEnv("RESEND", "");
     const fetchSpy = vi.fn();
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
     const { sendTransactionalEmail } = await import("@/lib/email/resend");
@@ -32,9 +33,10 @@ describe("sendTransactionalEmail (Resend)", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("returns delivery=skipped in development when RESEND_API_KEY missing (no fetch call)", async () => {
+  it("returns delivery=skipped in development when no API key env var is set (no fetch call)", async () => {
     vi.stubEnv("NODE_ENV", "development");
     vi.stubEnv("RESEND_API_KEY", "");
+    vi.stubEnv("RESEND", "");
     const fetchSpy = vi.fn();
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
     const { sendTransactionalEmail } = await import("@/lib/email/resend");
@@ -46,11 +48,48 @@ describe("sendTransactionalEmail (Resend)", () => {
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.delivery).toBe("skipped");
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("accepts the alternate `RESEND` env var name when RESEND_API_KEY is unset", async () => {
+    // Some operators set the env var as just `RESEND` (the short form).
+    // The sender accepts either name so a deployment configured under the
+    // short spelling does not silently skip every send.
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("RESEND_API_KEY", "");
+    vi.stubEnv("RESEND", "re_short_form_key");
+    const fetchSpy = vi.fn(async () => new Response("{}", { status: 200 }));
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+    const { sendTransactionalEmail } = await import("@/lib/email/resend");
+    const result = await sendTransactionalEmail({
+      to: "to@example.com",
+      subject: "s",
+      textBody: "t",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.delivery).toBe("sent");
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers["Authorization"]).toBe("Bearer re_short_form_key");
+  });
+
+  it("prefers RESEND_API_KEY when both are set (canonical name wins)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("RESEND_API_KEY", "re_canonical");
+    vi.stubEnv("RESEND", "re_short");
+    const fetchSpy = vi.fn(async () => new Response("{}", { status: 200 }));
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
+    const { sendTransactionalEmail } = await import("@/lib/email/resend");
+    await sendTransactionalEmail({ to: "to@example.com", subject: "s", textBody: "t" });
+    const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers["Authorization"]).toBe("Bearer re_canonical");
   });
 
   it("posts to Resend when configured and returns delivery=sent on 200", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("RESEND_API_KEY", "test-resend-key");
+    vi.stubEnv("RESEND", "");
     const fetchSpy = vi.fn(async () => new Response("{}", { status: 200 }));
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
     const { sendTransactionalEmail } = await import("@/lib/email/resend");
@@ -79,6 +118,7 @@ describe("sendTransactionalEmail (Resend)", () => {
   it("returns delivery_failed when Resend responds non-2xx", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("RESEND_API_KEY", "test-resend-key");
+    vi.stubEnv("RESEND", "");
     const fetchSpy = vi.fn(async () => new Response("{}", { status: 500 }));
     globalThis.fetch = fetchSpy as unknown as typeof fetch;
     const { sendTransactionalEmail } = await import("@/lib/email/resend");
@@ -99,6 +139,7 @@ describe("sendTransactionalEmail (Resend)", () => {
     // alone — not an opaque "non-2xx".
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("RESEND_API_KEY", "test-resend-key");
+    vi.stubEnv("RESEND", "");
     const errorBody = JSON.stringify({
       name: "validation_error",
       message: "The example.com domain is not verified.",
