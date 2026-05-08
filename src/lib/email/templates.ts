@@ -154,6 +154,14 @@ export type WelcomeEmailParams = {
   fullName: string;
   siteUrl: string;
   locale: EmailLocale;
+  /**
+   * Verification URL embedded in the welcome email's CTA button. This
+   * combines what used to be two separate emails (welcome + verify) into
+   * a single onboarding message — the user sees one email after sign-up
+   * with a "Verify my email" button instead of two near-duplicate
+   * messages arriving back-to-back.
+   */
+  verifyUrl: string;
 };
 
 export function renderWelcomeEmail(params: WelcomeEmailParams): RenderedEmail {
@@ -163,7 +171,10 @@ export function renderWelcomeEmail(params: WelcomeEmailParams): RenderedEmail {
   const requiredMessage = t.welcome_required.replace("{name}", params.fullName);
   const intro = t.welcome_intro;
   const body = requiredMessage;
-  const ctaLabel = t.welcome_cta;
+  // The CTA is the email-verification link. The verification flow is
+  // the part of onboarding that actually requires a click; bundling it
+  // into the welcome message means one email instead of two.
+  const ctaLabel = t.verify_cta;
   const fineprint = t.welcome_fineprint;
   const footerLine = t.shared_footerLine;
   const siteLabel = t.shared_siteLabel;
@@ -174,7 +185,7 @@ export function renderWelcomeEmail(params: WelcomeEmailParams): RenderedEmail {
     intro,
     body,
     ctaLabel,
-    ctaUrl: params.siteUrl,
+    ctaUrl: params.verifyUrl,
     fineprint,
     footerLine,
     siteUrl: params.siteUrl,
@@ -186,7 +197,7 @@ export function renderWelcomeEmail(params: WelcomeEmailParams): RenderedEmail {
     intro,
     body,
     ctaLabel,
-    ctaUrl: params.siteUrl,
+    ctaUrl: params.verifyUrl,
     fineprint,
     footerLine,
     siteUrl: params.siteUrl,

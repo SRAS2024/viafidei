@@ -34,8 +34,14 @@ const baseUser = {
 };
 
 describe("sendWelcomeEmail", () => {
-  it("renders both html and text bodies and dispatches via Resend", async () => {
-    const result = await sendWelcomeEmail(baseUser);
+  const welcomeArgs = (user: typeof baseUser) => ({
+    user,
+    token: "verify-token",
+    expiresAt: new Date("2099-01-01T00:00:00Z"),
+  });
+
+  it("renders both html and text bodies, embeds the verify-email link as the CTA, and dispatches via Resend", async () => {
+    const result = await sendWelcomeEmail(welcomeArgs(baseUser));
     expect(result.ok).toBe(true);
     expect(sendTransactionalEmailMock).toHaveBeenCalledTimes(1);
     const call = sendTransactionalEmailMock.mock.calls[0][0] as {
@@ -48,16 +54,21 @@ describe("sendWelcomeEmail", () => {
     expect(call.subject).toBe("Welcome!");
     expect(call.htmlBody).toContain("Welcome, Maria Goretti. Account creation successful.");
     expect(call.textBody).toContain("Welcome, Maria Goretti. Account creation successful.");
+    // The combined welcome+verify message MUST embed the verification
+    // link — registration no longer sends a second standalone
+    // verification email, so this is the only place the user gets it.
+    expect(call.htmlBody).toContain("/verify-email?token=verify-token");
+    expect(call.textBody).toContain("/verify-email?token=verify-token");
   });
 
   it("uses the saved language for delivery", async () => {
-    await sendWelcomeEmail({ ...baseUser, language: "fr" });
+    await sendWelcomeEmail(welcomeArgs({ ...baseUser, language: "fr" }));
     const call = sendTransactionalEmailMock.mock.calls[0][0] as { htmlBody: string };
     expect(call.htmlBody).toContain("Bienvenue sur Via Fidei");
   });
 
   it("falls back to English for missing language", async () => {
-    await sendWelcomeEmail({ ...baseUser, language: null });
+    await sendWelcomeEmail(welcomeArgs({ ...baseUser, language: null }));
     const call = sendTransactionalEmailMock.mock.calls[0][0] as { htmlBody: string };
     expect(call.htmlBody).toContain("Welcome to Via Fidei");
   });

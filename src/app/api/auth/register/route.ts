@@ -9,7 +9,7 @@ import {
 } from "@/lib/auth";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp, redirectTo } from "@/lib/security/request";
-import { sendEmailVerificationEmail, sendWelcomeEmail } from "@/lib/email";
+import { sendWelcomeEmail } from "@/lib/email";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 import { logApiError } from "@/lib/observability/page-errors";
 import { LOCALE_COOKIE_NAME, LOCALE_COOKIE_OPTIONS } from "@/lib/i18n/cookie";
@@ -182,23 +182,10 @@ export async function POST(req: NextRequest) {
       return redirectWithError(req, "server");
     }
 
-    // Welcome email — fire-and-log; failures must not block account creation.
-    try {
-      const welcomeResult = await sendWelcomeEmail(user);
-      logger.info("auth.welcome.sent", {
-        userId: user.id,
-        requestId,
-        delivery: welcomeResult.ok ? welcomeResult.delivery : "failed",
-      });
-    } catch (error) {
-      logger.error("auth.welcome.send_failed", {
-        userId: user.id,
-        requestId,
-        message: error instanceof Error ? error.message : "unknown_error",
-      });
-    }
-
-    // Email verification token + email.
+    // One onboarding email that welcomes the user AND carries the
+    // email-verification link as its CTA — replaces the previous flow
+    // that sent two near-duplicate messages back-to-back. Failures must
+    // not block account creation.
     try {
       const issued = await issueEmailVerificationToken(user.id);
       logger.info("auth.email_verification.requested", {
@@ -207,14 +194,19 @@ export async function POST(req: NextRequest) {
         // Never log the raw token — only its expiration.
         expiresAt: issued.expiresAt.toISOString(),
       });
-      await sendEmailVerificationEmail({
+      const welcomeResult = await sendWelcomeEmail({
         user,
         token: issued.token,
         expiresAt: issued.expiresAt,
       });
+      logger.info("auth.welcome.sent", {
+        userId: user.id,
+        requestId,
+        delivery: welcomeResult.ok ? welcomeResult.delivery : "failed",
+      });
     } catch (error) {
       const detail = describeWriteError(error);
-      logger.error("auth.email_verification.issue_failed", {
+      logger.error("auth.welcome.send_failed", {
         userId: user.id,
         requestId,
         kind: detail.kind,

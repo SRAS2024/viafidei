@@ -1,9 +1,30 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
+import { LOCALE_COOKIE_NAME } from "@/lib/i18n/cookie";
+import { RITE_COOKIE_NAME } from "@/lib/i18n/rite-cookie";
+import { THEME_COOKIE_NAME } from "@/lib/i18n/theme-cookie";
+
+/**
+ * Cookies that hold the signed-in user's UI preferences (theme, rite,
+ * locale). They live on the browser, not in the session, so without
+ * explicit cleanup they would persist after sign-out — meaning the
+ * next visitor in the same browser inherits the previous user's
+ * dark mode / Catholic rite / language. That's the symptom the
+ * operator reported. Clearing all three on sign-out resets the
+ * browser to a clean default for whoever logs in next (or for the
+ * anonymous post-logout view).
+ */
+function clearUserPreferenceCookies(): void {
+  const c = cookies();
+  c.delete(THEME_COOKIE_NAME);
+  c.delete(RITE_COOKIE_NAME);
+  c.delete(LOCALE_COOKIE_NAME);
+}
 
 /**
  * Sign-out as a Server Action.
@@ -20,12 +41,17 @@ import { writeAudit } from "@/lib/audit";
  * also clears any cached layout segments so deep links rendered after the
  * sign-out reflect the new state.
  *
+ * Also clears the per-browser preference cookies (theme / rite / locale)
+ * so the next visitor in the same browser starts on the app's defaults
+ * instead of inheriting the previous account's choices.
+ *
  * The /api/auth/logout route handler is kept for tests and for any
  * non-form caller that still posts there.
  */
 export async function logoutAction() {
   const session = await getSession();
   session.destroy();
+  clearUserPreferenceCookies();
   revalidatePath("/", "layout");
   redirect("/");
 }
@@ -47,6 +73,7 @@ export async function adminLogoutAction() {
       actorUsername: username,
     });
   }
+  clearUserPreferenceCookies();
   revalidatePath("/", "layout");
   redirect("/admin/login");
 }
