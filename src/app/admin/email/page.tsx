@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { appConfig } from "@/lib/config";
 import { requireAdmin } from "@/lib/auth";
+import { readResendApiKey } from "@/lib/email/resend";
 import { AdminSection } from "../_sections/AdminSection";
 import { EmailDiagnosticForm } from "./EmailDiagnosticForm";
 
@@ -10,14 +11,12 @@ export default async function AdminEmailPage() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
 
-  // Read RESEND_API_KEY straight from process.env — the same way the
-  // sender (`src/lib/email/resend.ts`) reads it. Going through the cached
-  // `getEnv()` validator was risking a split-brain where this page
-  // reported "configured" while the sender actually saw it as missing
-  // (or the inverse).
-  const apiKey = process.env.RESEND_API_KEY ?? "";
-  const configured = apiKey.trim().length > 0;
-  const apiKeyPreview = configured ? `${apiKey.slice(0, 4)}…(${apiKey.length} chars)` : null;
+  // Resolve the API key through the same helper the sender uses, so this
+  // page never reports "configured" while the sender sees it as missing
+  // (or vice versa). The helper accepts either RESEND_API_KEY or RESEND.
+  const apiKey = readResendApiKey();
+  const configured = apiKey !== null;
+  const apiKeyPreview = apiKey ? `${apiKey.slice(0, 4)}…(${apiKey.length} chars)` : null;
 
   return (
     <AdminSection
@@ -37,7 +36,7 @@ export default async function AdminEmailPage() {
               <dd className="font-mono text-xs text-ink">{appConfig.email.fromAddress}</dd>
             </div>
             <div className="flex items-baseline justify-between gap-4">
-              <dt className="text-ink-faint">RESEND_API_KEY</dt>
+              <dt className="text-ink-faint">API key</dt>
               <dd className={configured ? "font-medium text-ink" : "font-medium"}>
                 {configured ? (
                   <span className="font-mono text-xs">{apiKeyPreview}</span>
@@ -49,10 +48,11 @@ export default async function AdminEmailPage() {
           </dl>
           {!configured ? (
             <p className="mt-5 rounded-sm border border-ink/15 bg-ink/5 p-4 font-serif text-sm text-ink-soft">
-              The <code>RESEND_API_KEY</code> environment variable is not set on this deployment.
-              Until it is, every welcome / password-reset / verification send is silently skipped —
-              the user-visible flow still succeeds, but no email actually leaves the server. Set the
-              variable in your hosting dashboard, redeploy, then come back here to send a test.
+              No Resend API key found in either <code>RESEND_API_KEY</code> or <code>RESEND</code>{" "}
+              on this deployment. Until it is, every welcome / password-reset / verification send is
+              silently skipped — the user-visible flow still succeeds, but no email actually leaves
+              the server. Set the variable in your hosting dashboard, redeploy, then come back here
+              to send a test.
             </p>
           ) : null}
         </section>

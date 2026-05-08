@@ -2,22 +2,22 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { appConfig } from "@/lib/config";
 import { requireAdmin } from "@/lib/auth";
-import { sendTransactionalEmail } from "@/lib/email/resend";
+import { readResendApiKey, sendTransactionalEmail } from "@/lib/email/resend";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { logger } from "@/lib/observability";
 
 /**
  * Diagnostic endpoint for the email pipeline. Returns:
- *   - whether RESEND_API_KEY is set in the runtime env
+ *   - whether a Resend API key is set in the runtime env
  *   - the configured `from` address the app would use for a real send
  *   - a redacted preview of the API key (first 4 chars + length)
  * so the operator can confirm the deployed environment matches the Resend
  * account they expect.
  *
- * Reads `process.env.RESEND_API_KEY` directly (not via the cached
- * `getEnv()` validator) so the answer matches what the actual sender in
- * `src/lib/email/resend.ts` sees — they MUST agree, otherwise the
- * diagnostic UI lies to the operator.
+ * Resolves the API key through the same helper the sender uses
+ * (`readResendApiKey`), which accepts either `RESEND_API_KEY` or
+ * `RESEND`. The diagnostic and the actual sender MUST agree; otherwise
+ * this UI lies to the operator.
  *
  * Locked behind requireAdmin so the API key length / sender domain are
  * never exposed publicly. The key itself is never returned in full.
@@ -26,13 +26,12 @@ export async function GET() {
   const admin = await requireAdmin();
   if (!admin) return jsonError("unauthorized");
 
-  const apiKey = process.env.RESEND_API_KEY ?? "";
-  const configured = apiKey.trim().length > 0;
+  const apiKey = readResendApiKey();
   return jsonOk({
-    configured,
+    configured: apiKey !== null,
     fromAddress: appConfig.email.fromAddress,
     provider: appConfig.email.providerName,
-    apiKeyPreview: configured ? `${apiKey.slice(0, 4)}…(${apiKey.length} chars)` : null,
+    apiKeyPreview: apiKey ? `${apiKey.slice(0, 4)}…(${apiKey.length} chars)` : null,
   });
 }
 
