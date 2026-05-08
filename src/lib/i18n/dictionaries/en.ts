@@ -155,6 +155,8 @@ const auth: Dict = {
   "auth.forgot.success": "A password reset email has been sent to {email}.",
   "auth.forgot.notFound": "No accounts found.",
   "auth.forgot.rateLimited": "Too many requests. Please wait a moment and try again.",
+  "auth.forgot.deliveryFailed":
+    "We couldn't send the reset email right now. The email service may not be configured. Please contact support.",
   "auth.forgot.error": "Something went wrong. Please try again.",
   "auth.forgot.backToLogin": "Back to sign in",
   "auth.reset.title": "Reset password",
@@ -184,6 +186,8 @@ const auth: Dict = {
   "auth.verify.resend": "Resend verification email",
   "auth.verify.resendSent": "Verification email sent. Check your inbox.",
   "auth.verify.resendRateLimited": "Please wait before requesting another verification email.",
+  "auth.verify.resendDeliveryFailed":
+    "Email delivery failed. The email service may not be configured. Please contact support.",
   "auth.verify.resendError": "Could not send the verification email. Please try again later.",
   "auth.verify.alreadyVerified": "Your email is already verified.",
   "auth.privacyNotice.before": "By selecting create account, you agree to our ",

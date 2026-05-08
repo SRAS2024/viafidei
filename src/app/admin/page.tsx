@@ -4,6 +4,13 @@ import { getTranslator } from "@/lib/i18n/server";
 import { AdminWelcomeGate } from "./AdminWelcomeGate";
 import { AdminDashboard } from "./AdminDashboard";
 
+// The dashboard renders an email-not-configured banner that depends on
+// `process.env.RESEND_API_KEY`. Without `force-dynamic`, Next.js could
+// render the page once at build time (when the env var has whatever
+// value the build runner had) and serve that snapshot indefinitely —
+// hiding the banner even after the operator sets the key.
+export const dynamic = "force-dynamic";
+
 export default async function AdminHome({ searchParams }: { searchParams: { welcome?: string } }) {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");

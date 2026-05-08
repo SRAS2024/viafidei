@@ -50,6 +50,7 @@ export default async function SettingsPage() {
               resend: t("auth.verify.resend"),
               sent: t("auth.verify.resendSent"),
               rateLimited: t("auth.verify.resendRateLimited"),
+              deliveryFailed: t("auth.verify.resendDeliveryFailed"),
               error: t("auth.verify.resendError"),
             }}
           />

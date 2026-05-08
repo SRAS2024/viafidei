@@ -1,7 +1,6 @@
 import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { appConfig } from "@/lib/config";
-import { getEnv } from "@/lib/env";
 import { requireAdmin } from "@/lib/auth";
 import { sendTransactionalEmail } from "@/lib/email/resend";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
@@ -15,6 +14,11 @@ import { logger } from "@/lib/observability";
  * so the operator can confirm the deployed environment matches the Resend
  * account they expect.
  *
+ * Reads `process.env.RESEND_API_KEY` directly (not via the cached
+ * `getEnv()` validator) so the answer matches what the actual sender in
+ * `src/lib/email/resend.ts` sees — they MUST agree, otherwise the
+ * diagnostic UI lies to the operator.
+ *
  * Locked behind requireAdmin so the API key length / sender domain are
  * never exposed publicly. The key itself is never returned in full.
  */
@@ -22,9 +26,8 @@ export async function GET() {
   const admin = await requireAdmin();
   if (!admin) return jsonError("unauthorized");
 
-  const env = getEnv();
-  const apiKey = env.RESEND_API_KEY ?? "";
-  const configured = apiKey.length > 0;
+  const apiKey = process.env.RESEND_API_KEY ?? "";
+  const configured = apiKey.trim().length > 0;
   return jsonOk({
     configured,
     fromAddress: appConfig.email.fromAddress,

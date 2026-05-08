@@ -54,14 +54,34 @@ export async function POST(req: NextRequest) {
       expiresAt: issued.expiresAt,
     });
     if (!delivery.ok) {
-      // The token was issued but the email never went out. Return the
-      // same `sent: true` shape so we don't reveal a new failure mode to
-      // the caller — but log the reason so the operator can act
-      // (unverified Resend domain, missing API key, …).
+      // The token was issued but the email never went out — surface that
+      // to the caller instead of pretending it succeeded. Otherwise the
+      // user keeps watching an empty inbox and has no way to know
+      // anything is wrong.
       logger.error("auth.password_reset.email_undelivered", {
         userId: user.id,
         requestId,
         reason: delivery.reason,
+        errorName: delivery.errorName,
+        errorMessage: delivery.errorMessage,
+      });
+      return jsonError("server_error", {
+        message: "delivery_failed",
+        details: { reason: delivery.reason },
+      });
+    }
+    if (delivery.delivery === "skipped") {
+      // Provider not configured (RESEND_API_KEY missing). Surface as
+      // "we couldn't send" so the user knows to contact support and
+      // doesn't keep refreshing their inbox.
+      logger.error("auth.password_reset.email_skipped", {
+        userId: user.id,
+        requestId,
+        reason: "not_configured",
+      });
+      return jsonError("server_error", {
+        message: "email_not_configured",
+        details: { reason: "not_configured" },
       });
     }
   } catch (error) {
@@ -70,9 +90,7 @@ export async function POST(req: NextRequest) {
       requestId,
       message: error instanceof Error ? error.message : "unknown_error",
     });
-    // Treat a token-issue failure the same as a successful send from the
-    // caller's perspective — the user shouldn't get stuck in a "no account"
-    // dead-end when their account does exist.
+    return jsonError("server_error", { message: "delivery_failed" });
   }
   return jsonOk({ sent: true, email: user.email });
 }
