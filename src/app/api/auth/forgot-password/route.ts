@@ -27,7 +27,15 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
   const limit = await rateLimit(`forgot:${ip}`, RATE_POLICIES.passwordReset, { ipAddress: ip });
-  if (!limit.ok) return jsonError("rate_limited");
+  if (!limit.ok) {
+    // Tell the caller how long they have to wait so the form can render
+    // a precise message ("try again in N minutes") instead of an opaque
+    // "too many requests".
+    const retryAfterSeconds = Math.max(1, Math.ceil((limit.resetAt - Date.now()) / 1000));
+    return jsonError("rate_limited", {
+      details: { retryAfterSeconds },
+    });
+  }
 
   const body = await readJsonBody(req);
   if (!body.ok) return jsonError("invalid");
@@ -57,7 +65,11 @@ export async function POST(req: NextRequest) {
       // The token was issued but the email never went out — surface that
       // to the caller instead of pretending it succeeded. Otherwise the
       // user keeps watching an empty inbox and has no way to know
-      // anything is wrong.
+      // anything is wrong. We pass through Resend's structured `errorName`
+      // and `errorMessage` (NOT the API key, NOT the email body) so an
+      // operator looking at the network tab can see the actual cause
+      // (validation_error / restricted_api_key / …) without first
+      // signing into the admin diagnostic page.
       logger.error("auth.password_reset.email_undelivered", {
         userId: user.id,
         requestId,
@@ -67,11 +79,16 @@ export async function POST(req: NextRequest) {
       });
       return jsonError("server_error", {
         message: "delivery_failed",
-        details: { reason: delivery.reason },
+        details: {
+          reason: delivery.reason,
+          errorName: delivery.errorName,
+          errorMessage: delivery.errorMessage,
+          statusCode: delivery.statusCode,
+        },
       });
     }
     if (delivery.delivery === "skipped") {
-      // Provider not configured (RESEND_API_KEY missing). Surface as
+      // Provider not configured (no Resend API key). Surface as
       // "we couldn't send" so the user knows to contact support and
       // doesn't keep refreshing their inbox.
       logger.error("auth.password_reset.email_skipped", {

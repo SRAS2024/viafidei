@@ -154,9 +154,11 @@ const auth: Dict = {
   "auth.forgot.submit": "Send reset link",
   "auth.forgot.success": "A password reset email has been sent to {email}.",
   "auth.forgot.notFound": "No accounts found.",
-  "auth.forgot.rateLimited": "Too many requests. Please wait a moment and try again.",
+  "auth.forgot.rateLimited":
+    "Too many password-reset attempts. Please try again in {minutes} minute(s).",
+  "auth.forgot.rateLimitedFallback": "Too many password-reset attempts. Please try again later.",
   "auth.forgot.deliveryFailed":
-    "We couldn't send the reset email right now. The email service may not be configured. Please contact support.",
+    "We couldn't send the reset email. The email service may not be configured correctly. Please contact support or check the admin diagnostic page.",
   "auth.forgot.error": "Something went wrong. Please try again.",
   "auth.forgot.backToLogin": "Back to sign in",
   "auth.reset.title": "Reset password",

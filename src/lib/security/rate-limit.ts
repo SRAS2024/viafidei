@@ -12,7 +12,11 @@ export const RATE_POLICIES = {
   search: { windowMs: 60_000, max: 30 },
   login: { windowMs: 15 * 60_000, max: 5 },
   register: { windowMs: 60 * 60_000, max: 5 },
-  passwordReset: { windowMs: 60 * 60_000, max: 3 },
+  // 5 password-reset attempts per hour per IP. Tight enough to slow
+  // enumeration attacks (the form already returns a different shape for
+  // existing vs. unknown emails), loose enough that testing the flow once
+  // or twice during setup doesn't immediately lock the operator out.
+  passwordReset: { windowMs: 60 * 60_000, max: 5 },
   emailVerification: { windowMs: 60 * 60_000, max: 5 },
   adminLogin: { windowMs: 15 * 60_000, max: 10 },
   userWrite: { windowMs: 60_000, max: 30 },

@@ -8,11 +8,14 @@ type Labels = {
   /** Success template — must contain `{email}` which is replaced with the typed address. */
   success: string;
   notFound: string;
+  /** Rate-limit template — must contain `{minutes}` which is replaced with the wait time. */
   rateLimited: string;
+  /** Fallback rate-limit message (no minutes available). */
+  rateLimitedFallback: string;
   /** Generic transport / unknown error. */
   error: string;
-  /** Shown when the email pipeline is not configured server-side
-      (RESEND_API_KEY missing, or sender domain rejected). */
+  /** Shown when the email pipeline is not configured server-side or
+      Resend rejected the send (unverified domain, restricted key, …). */
   deliveryFailed: string;
 };
 
@@ -23,7 +26,7 @@ type Status =
   | { kind: "loading" }
   | { kind: "ok"; email: string }
   | { kind: "not_found" }
-  | { kind: "rate_limited" }
+  | { kind: "rate_limited"; retryAfterSeconds: number | null }
   | { kind: "delivery_failed" }
   | { kind: "error" };
 
@@ -41,17 +44,21 @@ export function ForgotPasswordForm({ labels }: { labels: Labels }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      if (res.status === 429) {
-        setStatus({ kind: "rate_limited" });
-        return;
-      }
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         message?: string;
         sent?: boolean;
         email?: string;
+        details?: { retryAfterSeconds?: number };
       };
+      if (res.status === 429) {
+        setStatus({
+          kind: "rate_limited",
+          retryAfterSeconds: data.details?.retryAfterSeconds ?? null,
+        });
+        return;
+      }
       if (data.ok && data.sent) {
         setStatus({ kind: "ok", email: data.email ?? email });
         return;
@@ -61,9 +68,9 @@ export function ForgotPasswordForm({ labels }: { labels: Labels }) {
         return;
       }
       // The account exists but the email never reached the recipient
-      // (RESEND_API_KEY missing, sender domain unverified, …). Surface
-      // it so the user knows to contact support instead of refreshing
-      // their inbox forever.
+      // (no Resend API key, sender domain unverified, restricted key, …).
+      // Surface it so the user knows to contact support instead of
+      // refreshing their inbox forever.
       if (
         data.error === "server_error" &&
         (data.message === "delivery_failed" || data.message === "email_not_configured")
@@ -75,6 +82,15 @@ export function ForgotPasswordForm({ labels }: { labels: Labels }) {
     } catch {
       setStatus({ kind: "error" });
     }
+  }
+
+  function rateLimitText(): string {
+    if (status.kind !== "rate_limited") return "";
+    if (status.retryAfterSeconds === null || status.retryAfterSeconds <= 0) {
+      return labels.rateLimitedFallback;
+    }
+    const minutes = Math.max(1, Math.ceil(status.retryAfterSeconds / 60));
+    return labels.rateLimited.replace("{minutes}", String(minutes));
   }
 
   if (status.kind === "ok") {
@@ -131,7 +147,7 @@ export function ForgotPasswordForm({ labels }: { labels: Labels }) {
       </button>
       {status.kind === "rate_limited" ? (
         <p role="alert" className="text-center text-sm" style={{ color: ERROR_COLOR }}>
-          {labels.rateLimited}
+          {rateLimitText()}
         </p>
       ) : null}
       {status.kind === "delivery_failed" ? (
