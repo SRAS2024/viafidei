@@ -15,11 +15,16 @@ describe("renderWelcomeEmail", () => {
       firstName: "Maria",
       fullName: "Maria Goretti",
       siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       locale: "en",
     });
     expect(out.subject).toBe("Welcome!");
     expect(out.textBody).toContain("Welcome, Maria Goretti. Account creation successful.");
     expect(out.htmlBody).toContain("Welcome, Maria Goretti. Account creation successful.");
+    // Welcome email now carries the verify link as its CTA — there is
+    // no longer a separate verification email.
+    expect(out.htmlBody).toContain("https://etviafidei.com/verify-email?token=abc");
+    expect(out.textBody).toContain("https://etviafidei.com/verify-email?token=abc");
   });
 
   it("includes the brand name and site URL link", () => {
@@ -27,6 +32,7 @@ describe("renderWelcomeEmail", () => {
       firstName: "Maria",
       fullName: "Maria Goretti",
       siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       locale: "en",
     });
     expect(out.htmlBody).toContain(SITE_NAME);
@@ -39,6 +45,7 @@ describe("renderWelcomeEmail", () => {
       firstName: "Pio",
       fullName: "Pio Pietrelcina",
       siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       locale: "en",
     });
     expect(out.htmlBody).toMatch(/<html/i);
@@ -51,6 +58,7 @@ describe("renderWelcomeEmail", () => {
       firstName: "<script>",
       fullName: "<script>alert(1)</script>",
       siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       locale: "en",
     });
     expect(out.htmlBody).not.toContain("<script>alert(1)</script>");
@@ -62,6 +70,7 @@ describe("renderWelcomeEmail", () => {
       firstName: "Maria",
       fullName: "Maria Goretti",
       siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       // @ts-expect-error - simulate runtime mistake
       locale: "klingon",
     });
@@ -74,6 +83,7 @@ describe("renderWelcomeEmail", () => {
       firstName: "Maria",
       fullName: "María Goretti",
       siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       locale: "es",
     });
     expect(out.subject).toBe("Welcome!");

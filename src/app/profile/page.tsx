@@ -7,6 +7,7 @@ import { ProfileAvatar } from "@/components/profile/ProfileAvatar";
 import { UnverifiedEmailNotice } from "@/components/profile/UnverifiedEmailNotice";
 import { prisma } from "@/lib/db/client";
 import { logPageError } from "@/lib/observability/page-errors";
+import { logoutAction } from "@/app/_actions/auth";
 
 const EMPTY_COUNTS: ProfileCounts = {
   journalCount: 0,
@@ -132,6 +133,18 @@ export default async function ProfilePage() {
         <Link href="/profile/settings" className="vf-nav-link mt-5">
           {t("profile.tab.settings")}
         </Link>
+        {/*
+          Sign-out is also available in the mobile hamburger menu, but
+          desktop users had no way to sign out without re-using the
+          mobile menu — adding it here puts it within reach on every
+          screen. Server Action so the Router Cache invalidates on the
+          way out (see logoutAction in src/app/_actions/auth.ts).
+        */}
+        <form action={logoutAction} className="mt-3">
+          <button type="submit" className="vf-nav-link">
+            {t("nav.logout")}
+          </button>
+        </form>
       </section>
 
       <div className="flex flex-col gap-10">

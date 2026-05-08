@@ -58,14 +58,41 @@ export async function sendAccountEmail(params: {
   return result;
 }
 
-export async function sendWelcomeEmail(user: AccountUser): Promise<SendEmailResult> {
+/**
+ * Send the single onboarding email that welcomes the user and embeds the
+ * email-verification link as the call-to-action. This replaces the prior
+ * two-email flow (welcome + separate verification). It's used:
+ *   - immediately after registration in /api/auth/register
+ *   - by the "Resend verification email" button on /profile (when the
+ *     account is still unverified)
+ *
+ * The caller passes a freshly issued verification token; the URL is
+ * built here so neither place leaks the raw token outside of email
+ * delivery.
+ */
+export async function sendWelcomeEmail(params: {
+  user: AccountUser;
+  token: string;
+  expiresAt: Date;
+}): Promise<SendEmailResult> {
+  const link = buildEmailVerificationLink(params.token);
   const rendered = renderWelcomeEmail({
-    firstName: user.firstName,
-    fullName: fullNameOf(user),
+    firstName: params.user.firstName,
+    fullName: fullNameOf(params.user),
     siteUrl: getAppBaseUrl(),
-    locale: localeOf(user),
+    locale: localeOf(params.user),
+    verifyUrl: link,
   });
-  return sendAccountEmail({ user, rendered, flow: "welcome" });
+  if (!isProduction() && !isEmailConfigured()) {
+    // Dev-only convenience so local QA can click the verify link from
+    // the console without setting up Resend.
+    logger.warn("auth.welcome.dev_link_logged", {
+      userId: params.user.id,
+      link,
+      expiresAt: params.expiresAt.toISOString(),
+    });
+  }
+  return sendAccountEmail({ user: params.user, rendered, flow: "welcome" });
 }
 
 export async function sendPasswordResetEmail(params: {

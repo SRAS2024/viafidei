@@ -161,20 +161,24 @@ describe("POST /api/auth/register", () => {
     expect(res.headers.get("location")).toContain("error=rate_limited");
   });
 
-  it("creates the user, sends welcome and verification emails, and redirects to /profile", async () => {
+  it("creates the user, sends a single welcome email carrying the verify token, and redirects to /profile", async () => {
     const res = await POST(buildRequest(validBody));
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toContain("/profile");
 
     expect(createUserMock).toHaveBeenCalledTimes(1);
+    // Registration now sends ONE email — a welcome message with the
+    // verification link as its CTA. The standalone verification email
+    // is gone; the resend-from-profile path is the only place
+    // sendEmailVerificationEmail still fires.
     expect(sendWelcomeEmailMock).toHaveBeenCalledTimes(1);
-    expect(sendEmailVerificationEmailMock).toHaveBeenCalledTimes(1);
-    const verifyCall = sendEmailVerificationEmailMock.mock.calls[0][0] as {
+    expect(sendEmailVerificationEmailMock).not.toHaveBeenCalled();
+    const welcomeCall = sendWelcomeEmailMock.mock.calls[0][0] as {
       user: { id: string };
       token: string;
     };
-    expect(verifyCall.user.id).toBe("u1");
-    expect(verifyCall.token).toBe("raw-verify-token");
+    expect(welcomeCall.user.id).toBe("u1");
+    expect(welcomeCall.token).toBe("raw-verify-token");
   });
 
   it("saves the requested language to the user record", async () => {
