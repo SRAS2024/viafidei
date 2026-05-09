@@ -37,7 +37,7 @@ const EN: EmailDictionary = {
   welcome_cta: "Open Via Fidei",
   welcome_fineprint:
     "If you did not create this account, you can ignore this email and the address will remain unused.",
-  reset_subject: "Reset your Via Fidei password",
+  reset_subject: "Password Reset",
   reset_heading: "Reset your Via Fidei password",
   reset_intro: "We received a request to reset your password.",
   reset_body:
@@ -45,7 +45,7 @@ const EN: EmailDictionary = {
   reset_cta: "Reset password for {name}",
   reset_fineprint:
     "If you did not request a reset, you can ignore this email — your account is unchanged.",
-  verify_subject: "Verify your Via Fidei email",
+  verify_subject: "Email Verification",
   verify_heading: "Verify your Via Fidei email",
   verify_intro:
     "Hello {name}, please confirm your email address to finish setting up your account.",
@@ -65,7 +65,7 @@ const ES: EmailDictionary = {
   welcome_cta: "Abrir Via Fidei",
   welcome_fineprint:
     "Si no creaste esta cuenta, puedes ignorar este correo y la dirección permanecerá sin uso.",
-  reset_subject: "Restablece tu contraseña de Via Fidei",
+  reset_subject: "Password Reset",
   reset_heading: "Restablecer tu contraseña de Via Fidei",
   reset_intro: "Recibimos una solicitud para restablecer tu contraseña.",
   reset_body:
@@ -73,7 +73,7 @@ const ES: EmailDictionary = {
   reset_cta: "Reset password for {name}",
   reset_fineprint:
     "Si no solicitaste un restablecimiento, puedes ignorar este correo — tu cuenta permanece sin cambios.",
-  verify_subject: "Verifica tu correo de Via Fidei",
+  verify_subject: "Email Verification",
   verify_heading: "Verifica tu correo",
   verify_intro: "Hola {name}, confirma tu dirección de correo para terminar de crear tu cuenta.",
   verify_body: "Usa el enlace seguro a continuación para verificar tu correo.",
@@ -99,7 +99,7 @@ const FR: EmailDictionary = {
   reset_cta: "Reset password for {name}",
   reset_fineprint:
     "Ce lien à usage unique expire le {expiresAt}. Si vous n'avez pas demandé de réinitialisation, vous pouvez ignorer cet e-mail.",
-  verify_subject: "Vérifiez votre e-mail Via Fidei",
+  verify_subject: "Email Verification",
   verify_heading: "Vérifiez votre e-mail",
   verify_intro:
     "Bonjour {name}, veuillez confirmer votre adresse e-mail pour finaliser votre compte.",
@@ -126,7 +126,7 @@ const IT: EmailDictionary = {
   reset_cta: "Reset password for {name}",
   reset_fineprint:
     "Questo link monouso scade il {expiresAt}. Se non hai richiesto la reimpostazione, puoi ignorare questa email.",
-  verify_subject: "Verifica la tua email Via Fidei",
+  verify_subject: "Email Verification",
   verify_heading: "Verifica la tua email",
   verify_intro: "Ciao {name}, conferma il tuo indirizzo email per completare l'account.",
   verify_body: "Usa il link sicuro qui sotto per verificare la tua email.",
@@ -152,7 +152,7 @@ const DE: EmailDictionary = {
   reset_cta: "Reset password for {name}",
   reset_fineprint:
     "Dieser einmal verwendbare Link läuft am {expiresAt} ab. Wenn du kein Zurücksetzen angefordert hast, kannst du diese E-Mail ignorieren.",
-  verify_subject: "Bestätige deine Via-Fidei-E-Mail",
+  verify_subject: "Email Verification",
   verify_heading: "E-Mail bestätigen",
   verify_intro:
     "Hallo {name}, bitte bestätige deine E-Mail-Adresse, um dein Konto fertigzustellen.",
@@ -179,7 +179,7 @@ const PT: EmailDictionary = {
   reset_cta: "Reset password for {name}",
   reset_fineprint:
     "Este link de uso único expira em {expiresAt}. Se não solicitou a redefinição, pode ignorar este e-mail.",
-  verify_subject: "Verifique seu e-mail do Via Fidei",
+  verify_subject: "Email Verification",
   verify_heading: "Verifique seu e-mail",
   verify_intro: "Olá {name}, confirme seu endereço de e-mail para concluir sua conta.",
   verify_body: "Use o link seguro abaixo para verificar seu e-mail.",
@@ -205,7 +205,7 @@ const PL: EmailDictionary = {
   reset_cta: "Reset password for {name}",
   reset_fineprint:
     "Ten jednorazowy link wygasa {expiresAt}. Jeśli nie prosiłeś o reset, możesz zignorować tę wiadomość.",
-  verify_subject: "Zweryfikuj e-mail Via Fidei",
+  verify_subject: "Email Verification",
   verify_heading: "Zweryfikuj e-mail",
   verify_intro: "Cześć {name}, potwierdź swój adres e-mail, aby zakończyć konfigurację konta.",
   verify_body: "Skorzystaj z bezpiecznego linku poniżej, aby zweryfikować e-mail.",
@@ -231,7 +231,7 @@ const LA: EmailDictionary = {
   reset_cta: "Reset password for {name}",
   reset_fineprint:
     "Hic nexus semel tantum valens ad {expiresAt} expirat. Si non petisti, neglegere potes.",
-  verify_subject: "Inscriptionem electronicam Via Fidei confirma",
+  verify_subject: "Email Verification",
   verify_heading: "Inscriptionem confirma",
   verify_intro: "Salve {name}, inscriptionem tuam confirma ut rationem perficias.",
   verify_body: "Utere tuto nexu infra ad inscriptionem confirmandam.",
@@ -257,7 +257,7 @@ const TL: EmailDictionary = {
   reset_cta: "Reset password for {name}",
   reset_fineprint:
     "Ang single-use na link na ito ay magtatapos sa {expiresAt}. Kung hindi ka humiling ng reset, balewalain ang email.",
-  verify_subject: "I-verify ang iyong email sa Via Fidei",
+  verify_subject: "Email Verification",
   verify_heading: "I-verify ang iyong email",
   verify_intro: "Kumusta {name}, kumpirmahin ang iyong email upang matapos ang account mo.",
   verify_body: "Gamitin ang ligtas na link sa ibaba upang i-verify ang iyong email.",
@@ -283,7 +283,7 @@ const VI: EmailDictionary = {
   reset_cta: "Reset password for {name}",
   reset_fineprint:
     "Liên kết một lần này hết hạn lúc {expiresAt}. Nếu bạn không yêu cầu đặt lại, có thể bỏ qua email.",
-  verify_subject: "Xác minh email Via Fidei",
+  verify_subject: "Email Verification",
   verify_heading: "Xác minh email",
   verify_intro: "Chào {name}, vui lòng xác nhận địa chỉ email để hoàn tất tài khoản.",
   verify_body: "Dùng liên kết an toàn bên dưới để xác minh email.",
@@ -308,7 +308,7 @@ const KO: EmailDictionary = {
   reset_cta: "Reset password for {name}",
   reset_fineprint:
     "이 일회용 링크는 {expiresAt}에 만료됩니다. 요청하지 않으셨다면 이 이메일을 무시하세요.",
-  verify_subject: "Via Fidei 이메일 인증",
+  verify_subject: "Email Verification",
   verify_heading: "이메일 인증",
   verify_intro: "{name}님, 계정을 마무리하려면 이메일 주소를 확인해 주세요.",
   verify_body: "아래의 안전한 링크로 이메일을 인증하세요.",
@@ -332,7 +332,7 @@ const ZH: EmailDictionary = {
   reset_body: "使用下面的安全链接选择新密码。",
   reset_cta: "Reset password for {name}",
   reset_fineprint: "此一次性链接于 {expiresAt} 过期。如果不是您发起的请求,可忽略此邮件。",
-  verify_subject: "验证您的 Via Fidei 邮箱",
+  verify_subject: "Email Verification",
   verify_heading: "验证邮箱",
   verify_intro: "{name},您好,请确认您的电子邮箱地址以完成账户设置。",
   verify_body: "使用下面的安全链接来验证您的邮箱。",

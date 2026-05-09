@@ -103,7 +103,7 @@ describe("renderPasswordResetEmail", () => {
       siteUrl: "https://etviafidei.com",
       locale: "en",
     });
-    expect(out.subject).toBe("Reset your Via Fidei password");
+    expect(out.subject).toBe("Password Reset");
     expect(out.textBody).toContain("15 minutes");
     expect(out.htmlBody).toContain("15 minutes");
     expect(out.textBody).toContain(url);
@@ -164,7 +164,7 @@ describe("renderEmailVerificationEmail", () => {
       siteUrl: "https://etviafidei.com",
       locale: "en",
     });
-    expect(out.subject).toMatch(/verify/i);
+    expect(out.subject).toBe("Email Verification");
     expect(out.textBody).toContain(url);
     expect(out.htmlBody).toContain(url);
   });
