@@ -5,10 +5,35 @@ import { useState } from "react";
 const ERROR_COLOR = "#8b1a1a";
 const SUCCESS_COLOR = "#185c2a";
 
+type TemplateKind = "plain" | "welcome" | "password_reset" | "verify_email";
+
+const TEMPLATE_OPTIONS: Array<{ value: TemplateKind; label: string; description: string }> = [
+  {
+    value: "plain",
+    label: "Plain test",
+    description: "Minimal text-only message. Confirms the API key + verified domain are wired up.",
+  },
+  {
+    value: "welcome",
+    label: "Welcome (combined verify)",
+    description: "Exact welcome+verify email a new user receives at registration.",
+  },
+  {
+    value: "password_reset",
+    label: "Password reset",
+    description: "Exact reset email sent when an existing user requests a new password.",
+  },
+  {
+    value: "verify_email",
+    label: "Verify email (resend)",
+    description: "Exact email sent by the resend-verification button on /profile.",
+  },
+];
+
 type Outcome =
   | { kind: "idle" }
   | { kind: "loading" }
-  | { kind: "sent"; to: string; from: string }
+  | { kind: "sent"; to: string; from: string; template: TemplateKind }
   | { kind: "skipped"; from: string }
   | {
       kind: "failed";
@@ -27,6 +52,7 @@ type Props = {
 
 export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
   const [to, setTo] = useState("");
+  const [template, setTemplate] = useState<TemplateKind>("plain");
   const [outcome, setOutcome] = useState<Outcome>({ kind: "idle" });
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -37,7 +63,7 @@ export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
       const res = await fetch("/api/admin/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to }),
+        body: JSON.stringify({ to, template }),
       });
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -59,9 +85,9 @@ export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
       }
       if (data.ok) {
         if (data.delivery === "sent") {
-          setOutcome({ kind: "sent", to, from: fromAddress });
+          setOutcome({ kind: "sent", to, from: fromAddress, template });
         } else {
-          // delivery === "skipped" — RESEND_API_KEY isn't configured.
+          // delivery === "skipped" — Resend API key isn't configured.
           setOutcome({ kind: "skipped", from: fromAddress });
         }
         return;
@@ -103,6 +129,28 @@ export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
           disabled={!configured || outcome.kind === "loading"}
         />
       </div>
+      <fieldset className="rounded-sm border border-ink/15 p-3">
+        <legend className="px-2 vf-eyebrow">Template</legend>
+        <div className="flex flex-col gap-2">
+          {TEMPLATE_OPTIONS.map((opt) => (
+            <label key={opt.value} className="flex items-start gap-2 font-serif text-sm">
+              <input
+                type="radio"
+                name="template"
+                value={opt.value}
+                checked={template === opt.value}
+                onChange={() => setTemplate(opt.value)}
+                disabled={!configured || outcome.kind === "loading"}
+                className="mt-1"
+              />
+              <span>
+                <span className="font-medium">{opt.label}</span>
+                <span className="block text-xs text-ink-faint">{opt.description}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
       <button
         type="submit"
         className="vf-btn vf-btn-primary"
@@ -118,8 +166,12 @@ export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
           className="rounded-sm border border-ink/15 bg-ink/5 p-3 font-serif text-sm"
           style={{ color: SUCCESS_COLOR }}
         >
-          Sent. Resend accepted a message from <code>{outcome.from}</code> to{" "}
-          <code>{outcome.to}</code>. Check the inbox (and spam folder) within a minute.
+          Sent. Resend accepted the <code>{outcome.template}</code> email from{" "}
+          <code>{outcome.from}</code> to <code>{outcome.to}</code>. Check the inbox AND the spam
+          folder within a minute. If the plain test arrives but the welcome / reset / verify
+          template lands in spam, the issue is your inbox provider&apos;s spam filter, not the app —
+          mark the welcome email as &ldquo;Not Spam&rdquo; once and subsequent ones should reach the
+          inbox.
         </p>
       ) : null}
 
@@ -129,8 +181,9 @@ export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
           className="rounded-sm border border-ink/15 bg-ink/5 p-3 font-serif text-sm"
           style={{ color: ERROR_COLOR }}
         >
-          Skipped. The send was a no-op because <code>RESEND_API_KEY</code> is not set on this
-          deployment. Set it in your hosting dashboard and redeploy.
+          Skipped. The send was a no-op because no Resend API key is set on this deployment. Set
+          either <code>RESEND_API_KEY</code> or <code>RESEND</code> in your hosting dashboard and
+          redeploy.
         </p>
       ) : null}
 

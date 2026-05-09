@@ -51,6 +51,21 @@ export const appConfig = {
      * nothing.
      */
     fromAddress: "notifications@etviafidei.com",
+    /**
+     * Display name used in the `From` header. Inbox providers show this
+     * as the sender column ("Via Fidei" instead of "notifications@…");
+     * a recognizable name materially improves deliverability for new
+     * sender domains because Gmail / Outlook / Apple Mail use the
+     * From-name as a heuristic for legitimacy.
+     */
+    fromName: "Via Fidei",
+    /**
+     * Address that user replies route to. Account-flow emails are
+     * automated, so this points at the same notifications mailbox —
+     * but having ANY Reply-To set makes the message look transactional
+     * rather than bulk-marketing to spam filters.
+     */
+    replyToAddress: "notifications@etviafidei.com",
     /** Provider name for logs / diagnostics. */
     providerName: "resend" as const,
   },

@@ -133,6 +133,13 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
   }
 
   try {
+    // Use a "Display Name <address>" format for the from address so
+    // inbox providers show a recognizable sender column. New sender
+    // domains delivering to Gmail / Outlook / Apple Mail land in spam
+    // far more often when the From column shows a bare email; a
+    // friendly display name is one of the strongest single-knob
+    // deliverability improvements available.
+    const fromHeader = `${appConfig.email.fromName} <${config.from}>`;
     const res = await fetch(RESEND_ENDPOINT, {
       method: "POST",
       headers: {
@@ -141,11 +148,23 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
         Authorization: `Bearer ${config.apiKey}`,
       },
       body: JSON.stringify({
-        from: config.from,
+        from: fromHeader,
         to: input.to,
         subject: input.subject,
         text: input.textBody,
         html: input.htmlBody,
+        // Reply-To set on every transactional message: signals to
+        // mailbox providers that this is a real conversational
+        // message (not bulk marketing), nudging it toward the inbox.
+        reply_to: appConfig.email.replyToAddress,
+        // RFC 8058 List-Unsubscribe-Post + header pair: required by
+        // Gmail / Yahoo for senders that exceed their volume
+        // thresholds, and harmless for senders below them. Setting
+        // them now means the deliverability story scales.
+        headers: {
+          "List-Unsubscribe": `<mailto:${appConfig.email.replyToAddress}?subject=unsubscribe>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        },
       }),
     });
     if (!res.ok) {

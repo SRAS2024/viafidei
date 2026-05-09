@@ -105,13 +105,29 @@ describe("sendTransactionalEmail (Resend)", () => {
     const [, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     const headers = init.headers as Record<string, string>;
     expect(headers["Authorization"]).toBe("Bearer test-resend-key");
-    const body = JSON.parse(init.body as string) as Record<string, string>;
+    const body = JSON.parse(init.body as string) as {
+      from: string;
+      to: string;
+      subject: string;
+      text: string;
+      html?: string;
+      reply_to: string;
+      headers: Record<string, string>;
+    };
     // The from address comes from the hardcoded app config — there is no
-    // EMAIL_FROM_ADDRESS environment variable any more.
-    expect(body.from).toBe("notifications@etviafidei.com");
+    // EMAIL_FROM_ADDRESS environment variable any more. It MUST go out
+    // as "Display Name <address>" so inbox providers show a friendly
+    // sender column; bare emails dramatically increase spam-filter
+    // false positives for new sender domains.
+    expect(body.from).toBe("Via Fidei <notifications@etviafidei.com>");
     expect(body.to).toBe("to@example.com");
     expect(body.subject).toBe("Hello");
     expect(body.text).toBe("Body");
+    // Reply-To and List-Unsubscribe-Post headers ride on every send to
+    // signal "transactional, not bulk" to inbox providers.
+    expect(body.reply_to).toBe("notifications@etviafidei.com");
+    expect(body.headers["List-Unsubscribe"]).toContain("notifications@etviafidei.com");
+    expect(body.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
     expect(body.html).toBe("<p>Body</p>");
   });
 
