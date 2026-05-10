@@ -7,6 +7,7 @@ import { logger } from "@/lib/observability";
 import { AdminSection } from "../_sections/AdminSection";
 import { EmailDiagnosticForm } from "./EmailDiagnosticForm";
 import { EmailSelfTestPanel } from "./EmailSelfTestPanel";
+import { EnsureTablesButton } from "./EnsureTablesButton";
 
 export const dynamic = "force-dynamic";
 
@@ -124,12 +125,13 @@ export default async function AdminEmailPage() {
               className="mt-5 rounded-sm border p-4 font-serif text-sm"
               style={{ borderColor: ERROR_COLOR, color: ERROR_COLOR, backgroundColor: "#fdf6f6" }}
             >
-              <span className="font-bold">This is why the real flows fail.</span> Run{" "}
-              <code>npx prisma migrate deploy</code> against the production database (or{" "}
-              <code>npm run db:validate:email</code> to confirm), then redeploy and re-test from
-              this page.
+              <span className="font-bold">This is why the real flows fail.</span> Click the button
+              below to create any missing tables in-process (idempotent), or run{" "}
+              <code>npx prisma migrate deploy</code> against the production database. Either fixes
+              the contract; the button is faster.
             </p>
           ) : null}
+          <EnsureTablesButton />
         </section>
 
         <section className="vf-card rounded-sm p-6">
