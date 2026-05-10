@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { prisma } from "../db/client";
+import { ensureAccountEmailTables } from "../startup/ensure-email-tables";
 import { hashPassword, verifyPassword } from "./password";
 
 // Password reset tokens are short-lived by design — a 15-minute window is
@@ -27,13 +28,65 @@ export function hashRawToken(rawToken: string): string {
   return hashToken(rawToken);
 }
 
+/**
+ * Process-wide once-per-boot guard for the table-create fallback.
+ * `ensureAccountEmailTables` is itself idempotent (every statement is
+ * `IF NOT EXISTS` or guarded by a pg_constraint check) so calling it
+ * twice is safe — but checking the existence with `pg_tables` on every
+ * token write would be wasteful, so we cache the in-process flag and
+ * skip the SQL on subsequent calls within the same process.
+ */
+let tablesEnsuredInThisProcess = false;
+async function ensureTablesOnce(): Promise<void> {
+  if (tablesEnsuredInThisProcess) return;
+  await ensureAccountEmailTables();
+  tablesEnsuredInThisProcess = true;
+}
+
+/**
+ * Run a Prisma write that targets one of the token tables, transparently
+ * creating the missing schema and retrying once if the first attempt
+ * throws "relation does not exist". This is the request-time safety net
+ * for the case where neither `prisma migrate deploy` nor the
+ * instrumentation-level safety net created the tables — which can
+ * happen on hosting that bypasses scripts/start.sh.
+ *
+ * The retry never loops more than once. If the second attempt still
+ * throws, we re-throw so the caller's structured log line carries the
+ * real error (likely a permission issue: the runtime DB role lacks
+ * CREATE TABLE).
+ */
+async function withTableSelfHeal<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    if (!/relation .* does not exist/i.test(message)) throw error;
+    // Self-heal: create the missing table(s) and retry exactly once.
+    // ensureAccountEmailTables runs every IF-NOT-EXISTS statement so
+    // even if only one of the two token tables was missing this is
+    // safe.
+    await ensureAccountEmailTables();
+    tablesEnsuredInThisProcess = true;
+    return operation();
+  }
+}
+
 export async function issuePasswordResetToken(userId: string): Promise<IssuedToken> {
   const token = generateRawToken();
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
-  await prisma.passwordResetToken.create({
-    data: { userId, tokenHash, expiresAt },
+  await ensureTablesOnce().catch(() => {
+    // Don't throw here — the actual create below will throw with a
+    // more useful error if the schema is broken AND we cannot
+    // create it. Swallowing here means a permission error doesn't
+    // mask itself with the unrelated "ensure failed" message.
   });
+  await withTableSelfHeal(() =>
+    prisma.passwordResetToken.create({
+      data: { userId, tokenHash, expiresAt },
+    }),
+  );
   return { token, expiresAt };
 }
 
@@ -46,7 +99,10 @@ export async function consumePasswordResetToken(
   newPassword: string,
 ): Promise<ConsumePasswordResetResult> {
   const tokenHash = hashToken(rawToken);
-  const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash } });
+  await ensureTablesOnce().catch(() => {});
+  const record = await withTableSelfHeal(() =>
+    prisma.passwordResetToken.findUnique({ where: { tokenHash } }),
+  );
   if (!record) return { ok: false, reason: "not_found" };
   if (record.usedAt) return { ok: false, reason: "used" };
   if (record.expiresAt.getTime() < Date.now()) return { ok: false, reason: "expired" };
@@ -77,9 +133,12 @@ export async function issueEmailVerificationToken(userId: string): Promise<Issue
   const token = generateRawToken();
   const tokenHash = hashToken(token);
   const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
-  await prisma.emailVerificationToken.create({
-    data: { userId, tokenHash, expiresAt },
-  });
+  await ensureTablesOnce().catch(() => {});
+  await withTableSelfHeal(() =>
+    prisma.emailVerificationToken.create({
+      data: { userId, tokenHash, expiresAt },
+    }),
+  );
   return { token, expiresAt };
 }
 
@@ -91,7 +150,10 @@ export async function consumeEmailVerificationToken(
   rawToken: string,
 ): Promise<ConsumeEmailVerificationResult> {
   const tokenHash = hashToken(rawToken);
-  const record = await prisma.emailVerificationToken.findUnique({ where: { tokenHash } });
+  await ensureTablesOnce().catch(() => {});
+  const record = await withTableSelfHeal(() =>
+    prisma.emailVerificationToken.findUnique({ where: { tokenHash } }),
+  );
   if (!record) return { ok: false, reason: "not_found" };
   if (record.usedAt) return { ok: false, reason: "used" };
   if (record.expiresAt.getTime() < Date.now()) return { ok: false, reason: "expired" };
