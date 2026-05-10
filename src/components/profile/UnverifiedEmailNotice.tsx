@@ -35,13 +35,17 @@ export function UnverifiedEmailNotice({ labels }: { labels: Labels }) {
         setStatus("sent");
         return;
       }
-      // Token was issued but no email left the server (RESEND_API_KEY
-      // missing, sender domain unverified, …). Surface that explicitly so
-      // the user knows to contact the operator instead of waiting for an
-      // email that's never going to arrive.
+      // Server-side failure: either the token write failed (missing
+      // table / migration), Resend is not configured, or Resend
+      // rejected the send (sender domain unverified, restricted key,
+      // …). Surface that explicitly so the user knows to contact the
+      // operator instead of waiting for an email that's never going to
+      // arrive.
       if (
         data.error === "server_error" &&
-        (data.message === "delivery_failed" || data.message === "email_not_configured")
+        (data.message === "delivery_failed" ||
+          data.message === "email_not_configured" ||
+          data.message === "token_creation_failed")
       ) {
         setStatus("delivery_failed");
         return;

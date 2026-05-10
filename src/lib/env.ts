@@ -20,12 +20,12 @@ const baseSchema = z.object({
   ADMIN_PASSWORD: optionalString(z.string().min(12)),
   // Optional: when set, the app will attempt to deliver transactional email
   // through Resend. When unset, email features (welcome, password reset,
-  // verification) are safely disabled and never throw. The runtime sender
-  // (`src/lib/email/resend.ts → readResendApiKey`) actually accepts EITHER
-  // `RESEND_API_KEY` or `RESEND` — the alternate spelling some operators
-  // use — so both are listed here. Whichever is set wins.
+  // verification) are safely disabled at the transport layer and the
+  // calling routes surface "email_not_configured" so the user knows
+  // delivery did not happen. Read by `src/lib/email/resend.ts →
+  // readResendApiKey` and by the admin diagnostic — both go through the
+  // same helper so they cannot disagree.
   RESEND_API_KEY: optionalString(z.string().min(1)),
-  RESEND: optionalString(z.string().min(1)),
 });
 
 const productionSchema = baseSchema.superRefine((env, ctx) => {
@@ -63,7 +63,6 @@ function fallbackEnvFromProcess(): Env {
     ADMIN_USERNAME: data.ADMIN_USERNAME,
     ADMIN_PASSWORD: data.ADMIN_PASSWORD,
     RESEND_API_KEY: data.RESEND_API_KEY,
-    RESEND: data.RESEND,
   };
 }
 

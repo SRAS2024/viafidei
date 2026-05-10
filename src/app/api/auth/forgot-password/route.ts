@@ -102,10 +102,22 @@ export async function POST(req: NextRequest) {
       });
     }
   } catch (error) {
+    const message = error instanceof Error ? error.message : "unknown_error";
+    // Translate Prisma's "relation does not exist" / "column does not
+    // exist" into structured kinds so the operator log line names the
+    // missing piece. The user-visible response is still
+    // server_error/delivery_failed because the user has nothing
+    // actionable to do.
+    const kind = /relation .* does not exist/i.test(message)
+      ? "database_table_missing"
+      : /column .* does not exist/i.test(message)
+        ? "database_column_missing"
+        : "flow_error";
     logger.error("auth.password_reset.flow_failed", {
       userId: user.id,
       requestId,
-      message: error instanceof Error ? error.message : "unknown_error",
+      kind,
+      message,
     });
     return jsonError("server_error", { message: "delivery_failed" });
   }

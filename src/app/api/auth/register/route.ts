@@ -185,7 +185,10 @@ export async function POST(req: NextRequest) {
     // One onboarding email that welcomes the user AND carries the
     // email-verification link as its CTA — replaces the previous flow
     // that sent two near-duplicate messages back-to-back. Failures must
-    // not block account creation.
+    // not block account creation, but they MUST be logged loudly enough
+    // for the operator to see — silently returning success would leave
+    // the user with no way to verify their email and no signal that
+    // anything is wrong.
     try {
       const issued = await issueEmailVerificationToken(user.id);
       logger.info("auth.email_verification.requested", {
@@ -199,14 +202,42 @@ export async function POST(req: NextRequest) {
         token: issued.token,
         expiresAt: issued.expiresAt,
       });
-      logger.info("auth.welcome.sent", {
-        userId: user.id,
-        requestId,
-        delivery: welcomeResult.ok ? welcomeResult.delivery : "failed",
-      });
+      if (!welcomeResult.ok) {
+        // Delivery_failed: Resend rejected the send. Surface the
+        // structured error fields (name + message) so the operator
+        // log line names the cause (sender domain unverified,
+        // restricted API key, invalid recipient, …).
+        logger.error("auth.welcome.delivery_failed", {
+          userId: user.id,
+          requestId,
+          reason: welcomeResult.reason,
+          errorName: welcomeResult.errorName,
+          errorMessage: welcomeResult.errorMessage,
+          statusCode: welcomeResult.statusCode,
+        });
+      } else if (welcomeResult.delivery === "skipped") {
+        // RESEND_API_KEY not configured: log loudly so the operator
+        // notices that new accounts are not getting verification
+        // links. Account creation still succeeds.
+        logger.error("auth.welcome.email_not_configured", {
+          userId: user.id,
+          requestId,
+          reason: "RESEND_API_KEY missing",
+        });
+      } else {
+        logger.info("auth.welcome.sent", {
+          userId: user.id,
+          requestId,
+          delivery: welcomeResult.delivery,
+        });
+      }
     } catch (error) {
+      // The token write itself threw — almost always a missing
+      // EmailVerificationToken table or a missing column. Account is
+      // still created; the user can request a fresh verification email
+      // from /profile once the operator runs migrations.
       const detail = describeWriteError(error);
-      logger.error("auth.welcome.send_failed", {
+      logger.error("auth.welcome.token_creation_failed", {
         userId: user.id,
         requestId,
         kind: detail.kind,

@@ -14,9 +14,9 @@
  */
 export const appConfig = {
   /** Public canonical production domain — used for sitemap, robots, OG. */
-  canonicalUrl: "https://etviafidei.com",
+  canonicalUrl: "https://viafidei.com",
   /** Base URL the app advertises to itself (email links, etc.). */
-  appUrl: "https://etviafidei.com",
+  appUrl: "https://viafidei.com",
   /** HTTP port used by the standalone server. */
   port: 3000,
   /** Bind address used by the standalone server. */
@@ -29,7 +29,7 @@ export const appConfig = {
   logLevelDevelopment: "debug" as const,
   ingestion: {
     /** User-Agent sent to upstream sources during scheduled fetches. */
-    userAgent: "ViaFideiBot/1.0 (+https://etviafidei.com/bot; ingestion@viafidei.com)",
+    userAgent: "ViaFideiBot/1.0 (+https://viafidei.com/bot; ingestion@viafidei.com)",
     /** Per-request timeout for outbound HTTP fetches (milliseconds). */
     httpTimeoutMs: 15_000,
     /** Initial status assigned to ingested items. */
@@ -45,12 +45,11 @@ export const appConfig = {
     /**
      * Transactional sender address. Must match a verified Resend domain —
      * Resend rejects any `from` whose domain hasn't been verified. The
-     * Resend dashboard for this deployment shows etviafidei.com as the
-     * verified domain (DKIM, SPF, DMARC all green); using a different
-     * domain here returns a 422 / validation_error and the user receives
-     * nothing.
+     * Resend dashboard for this deployment is configured for viafidei.com
+     * (DKIM, SPF, DMARC verified); using a different domain here returns
+     * a 422 / validation_error and the user receives nothing.
      */
-    fromAddress: "notifications@etviafidei.com",
+    fromAddress: "notifications@viafidei.com",
     /**
      * Display name used in the `From` header. Inbox providers show this
      * as the sender column ("Via Fidei" instead of "notifications@…");
@@ -65,7 +64,7 @@ export const appConfig = {
      * but having ANY Reply-To set makes the message look transactional
      * rather than bulk-marketing to spam filters.
      */
-    replyToAddress: "notifications@etviafidei.com",
+    replyToAddress: "notifications@viafidei.com",
     /** Provider name for logs / diagnostics. */
     providerName: "resend" as const,
   },

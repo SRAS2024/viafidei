@@ -13,7 +13,7 @@ export default async function AdminEmailPage() {
 
   // Resolve the API key through the same helper the sender uses, so this
   // page never reports "configured" while the sender sees it as missing
-  // (or vice versa). The helper accepts either RESEND_API_KEY or RESEND.
+  // (or vice versa). The helper reads `RESEND_API_KEY` from process.env.
   const apiKey = readResendApiKey();
   const configured = apiKey !== null;
   const apiKeyPreview = apiKey ? `${apiKey.slice(0, 4)}…(${apiKey.length} chars)` : null;
@@ -48,11 +48,11 @@ export default async function AdminEmailPage() {
           </dl>
           {!configured ? (
             <p className="mt-5 rounded-sm border border-ink/15 bg-ink/5 p-4 font-serif text-sm text-ink-soft">
-              No Resend API key found in either <code>RESEND_API_KEY</code> or <code>RESEND</code>{" "}
-              on this deployment. Until it is, every welcome / password-reset / verification send is
-              silently skipped — the user-visible flow still succeeds, but no email actually leaves
-              the server. Set the variable in your hosting dashboard, redeploy, then come back here
-              to send a test.
+              No <code>RESEND_API_KEY</code> is set on this deployment. Until it is, every welcome /
+              password-reset / verification send is skipped at the transport layer — the calling
+              route surfaces this as <code>email_not_configured</code> so the user knows delivery
+              did not happen. Set <code>RESEND_API_KEY</code> in your hosting dashboard, redeploy,
+              then come back here to send a test.
             </p>
           ) : null}
         </section>
