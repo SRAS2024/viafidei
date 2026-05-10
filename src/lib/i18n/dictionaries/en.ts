@@ -351,7 +351,7 @@ const admin: Dict = {
 
 const footer: Dict = {
   "footer.copy": "Via Fidei — a reverent, private Catholic companion.",
-  "footer.canonical": "etviafidei.com",
+  "footer.canonical": "viafidei.com",
   "footer.copyright": "© 2025 Via Fidei. All rights reserved.",
   "footer.privacy": "Privacy policy",
 };

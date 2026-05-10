@@ -22,7 +22,9 @@
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
-    "db:seed": "tsx prisma/seed.ts"
+    "db:seed": "tsx prisma/seed.ts",
+    "db:validate": "node scripts/validate-db.js",
+    "db:validate:email": "node scripts/validate-account-email-db.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

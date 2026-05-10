@@ -27,25 +27,18 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
 type ResendConfig = { apiKey: string; from: string };
 
 /**
- * Read the Resend API key from `process.env` accepting either of two
- * variable names:
- *
- *   - `RESEND_API_KEY`  — Resend's own documented convention
- *   - `RESEND`          — short form some operators use; supported here
- *                         so a deployment that's already configured under
- *                         the short name keeps working without a rename
- *
- * If both are set, the canonical name wins; whichever is returned is
- * trimmed and verified non-empty. Returns null when neither is set.
+ * Read the Resend API key from `process.env.RESEND_API_KEY` — the canonical
+ * variable name documented by Resend. The diagnostic page and every
+ * account email flow (welcome, password reset, verification) read the
+ * same value through this helper so they cannot disagree about whether
+ * email is configured. Returns the trimmed key, or null when the variable
+ * is unset or empty.
  */
 export function readResendApiKey(): string | null {
-  const candidates = [process.env.RESEND_API_KEY, process.env.RESEND];
-  for (const candidate of candidates) {
-    if (typeof candidate !== "string") continue;
-    const trimmed = candidate.trim();
-    if (trimmed.length > 0) return trimmed;
-  }
-  return null;
+  const candidate = process.env.RESEND_API_KEY;
+  if (typeof candidate !== "string") return null;
+  const trimmed = candidate.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 /**
@@ -73,6 +66,39 @@ type ResendErrorBody = {
   message?: string;
   statusCode?: number;
 };
+
+/**
+ * Bucket Resend's free-form error names + messages into the four
+ * operator-fixable failure categories that show up in production:
+ *   - `sender_domain_rejected` — the From domain has not been verified
+ *   - `restricted_api_key`     — the key is sandboxed or scoped wrong
+ *   - `invalid_recipient`      — the To address was rejected
+ *   - `other`                  — anything else (network error, throttling)
+ * The category lands in the structured log so a grep finds the bucket
+ * before the operator opens the Resend dashboard.
+ */
+function classifyResendError(name: string, message: string): string {
+  const haystack = `${name} ${message}`.toLowerCase();
+  if (
+    name === "restricted_api_key" ||
+    /restricted\s+api\s+key|api\s+key.*(restricted|invalid|expired)/i.test(haystack)
+  ) {
+    return "restricted_api_key";
+  }
+  if (
+    /domain.*(not\s+verified|unverified|not\s+found)/i.test(haystack) ||
+    /verify.*domain/i.test(haystack)
+  ) {
+    return "sender_domain_rejected";
+  }
+  if (
+    /invalid.*(to|recipient|email)|recipient.*invalid|to.*invalid/i.test(haystack) ||
+    /bounce|rejected.*recipient/i.test(haystack)
+  ) {
+    return "invalid_recipient";
+  }
+  return "other";
+}
 
 /**
  * Pull a sanitized failure description out of Resend's JSON error body so
@@ -124,10 +150,13 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
   const config = readResendConfig();
   if (!config) {
     // No provider configured — log and skip cleanly. Auth flows treat this
-    // as a non-fatal outcome.
+    // as a non-fatal outcome at the transport layer; the calling routes
+    // surface it to the user as `email_not_configured` so they can
+    // contact support instead of staring at an empty inbox.
     logger.warn("email.skipped_not_configured", {
       to: input.to,
       subject: input.subject,
+      reason: "RESEND_API_KEY missing",
     });
     return { ok: true, delivery: "skipped", reason: "not_configured" };
   }
@@ -169,6 +198,11 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
     });
     if (!res.ok) {
       const detail = await describeResendError(res);
+      // Map common Resend error names to operator-readable categories so
+      // the structured log line names the remediation directly: an
+      // unverified sender domain, a restricted API key, or an invalid
+      // recipient address each have different fixes.
+      const category = classifyResendError(detail.name, detail.message);
       logger.error("email.delivery_failed", {
         status: res.status,
         subject: input.subject,
@@ -178,6 +212,7 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
         // Neither contains the email body or the API key.
         errorName: detail.name,
         errorMessage: detail.message,
+        category,
       });
       return {
         ok: false,

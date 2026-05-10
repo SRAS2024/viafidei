@@ -35,27 +35,27 @@ describe("getPublicOrigin", () => {
   it("uses X-Forwarded-Host + X-Forwarded-Proto when both are set", () => {
     const req = makeReq({
       url: "http://0.0.0.0:8080/api/auth/login",
-      forwardedHost: "etviafidei.com",
+      forwardedHost: "viafidei.com",
       forwardedProto: "https",
     });
-    expect(getPublicOrigin(req)).toBe("https://etviafidei.com");
+    expect(getPublicOrigin(req)).toBe("https://viafidei.com");
   });
 
   it("only takes the first comma-separated proto when multiple proxies forwarded it", () => {
     const req = makeReq({
       url: "http://0.0.0.0:8080/x",
-      forwardedHost: "etviafidei.com",
+      forwardedHost: "viafidei.com",
       forwardedProto: "https, http",
     });
-    expect(getPublicOrigin(req)).toBe("https://etviafidei.com");
+    expect(getPublicOrigin(req)).toBe("https://viafidei.com");
   });
 
   it("falls back to the Host header when X-Forwarded-Host is missing", () => {
     const req = makeReq({
       url: "http://0.0.0.0:8080/api/x",
-      host: "etviafidei.com",
+      host: "viafidei.com",
     });
-    expect(getPublicOrigin(req)).toBe("https://etviafidei.com");
+    expect(getPublicOrigin(req)).toBe("https://viafidei.com");
   });
 
   it("ignores X-Forwarded-Host that names a local-bind address", () => {
@@ -65,18 +65,18 @@ describe("getPublicOrigin", () => {
       url: "http://0.0.0.0:8080/api/x",
       forwardedHost: "0.0.0.0:8080",
       forwardedProto: "https",
-      host: "etviafidei.com",
+      host: "viafidei.com",
     });
-    expect(getPublicOrigin(req)).toBe("https://etviafidei.com");
+    expect(getPublicOrigin(req)).toBe("https://viafidei.com");
   });
 
   it("never returns a local-bind hostname when any header has a real one", () => {
     for (const localHost of ["0.0.0.0:8080", "127.0.0.1:3000", "localhost:8080", "[::1]"]) {
       const req = makeReq({
         url: `http://${localHost}/api/x`,
-        host: "etviafidei.com",
+        host: "viafidei.com",
       });
-      expect(getPublicOrigin(req)).toBe("https://etviafidei.com");
+      expect(getPublicOrigin(req)).toBe("https://viafidei.com");
     }
   });
 
@@ -89,8 +89,8 @@ describe("getPublicOrigin", () => {
 
   it("uses http fallback when not in production (Host header present, no X-Forwarded-Proto)", () => {
     vi.stubEnv("NODE_ENV", "development");
-    const req = makeReq({ url: "http://localhost:3000/x", host: "etviafidei.com" });
-    expect(getPublicOrigin(req)).toBe("http://etviafidei.com");
+    const req = makeReq({ url: "http://localhost:3000/x", host: "viafidei.com" });
+    expect(getPublicOrigin(req)).toBe("http://viafidei.com");
   });
 
   it("strips the upstream port from the host when promoting to HTTPS", () => {
@@ -99,19 +99,19 @@ describe("getPublicOrigin", () => {
     // point at non-standard ports (Safari ERR 103, Chrome ERR_UNSAFE_PORT),
     // so the helper must strip 8080 / 3000 / etc. when the scheme is https.
     const req = makeReq({
-      url: "http://etviafidei.com:8080/x",
-      host: "etviafidei.com:8080",
+      url: "http://viafidei.com:8080/x",
+      host: "viafidei.com:8080",
     });
-    expect(getPublicOrigin(req)).toBe("https://etviafidei.com");
+    expect(getPublicOrigin(req)).toBe("https://viafidei.com");
   });
 
   it("preserves explicit port 443 on HTTPS (no-op)", () => {
     const req = makeReq({
       url: "http://x/y",
-      forwardedHost: "etviafidei.com:443",
+      forwardedHost: "viafidei.com:443",
       forwardedProto: "https",
     });
-    expect(getPublicOrigin(req)).toBe("https://etviafidei.com:443");
+    expect(getPublicOrigin(req)).toBe("https://viafidei.com:443");
   });
 
   it("preserves the dev port on HTTP (no scheme upgrade)", () => {
@@ -129,7 +129,7 @@ describe("redirectTo", () => {
   it("issues a 303 to the public origin, not the locally-bound socket", () => {
     const req = makeReq({
       url: "http://0.0.0.0:8080/api/auth/login",
-      forwardedHost: "etviafidei.com",
+      forwardedHost: "viafidei.com",
       forwardedProto: "https",
     });
     const res = redirectTo(req, "/login?error=invalid");
@@ -138,17 +138,17 @@ describe("redirectTo", () => {
     // "https://0.0.0.0:8080/login?error=invalid" — Safari rejects port 8080
     // over HTTPS and surfaces "Not allowed to use restricted network port"
     // (WebKitErrorDomain:103), which is the user-reported bug.
-    expect(res.headers.get("location")).toBe("https://etviafidei.com/login?error=invalid");
+    expect(res.headers.get("location")).toBe("https://viafidei.com/login?error=invalid");
   });
 
   it("supports a custom redirect status", () => {
     const req = makeReq({
       url: "http://x/y",
-      forwardedHost: "etviafidei.com",
+      forwardedHost: "viafidei.com",
       forwardedProto: "https",
     });
     const res = redirectTo(req, "/profile", 302);
     expect(res.status).toBe(302);
-    expect(res.headers.get("location")).toBe("https://etviafidei.com/profile");
+    expect(res.headers.get("location")).toBe("https://viafidei.com/profile");
   });
 });

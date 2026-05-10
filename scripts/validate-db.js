@@ -334,6 +334,49 @@ async function main() {
     }
   }
 
+  // 3b. Account email flow contract — emit a single explicit pass/fail line
+  // for the three pieces the welcome / verification / password-reset flows
+  // depend on: User.emailVerifiedAt, the PasswordResetToken table, and the
+  // EmailVerificationToken table. The bulk column check above covers these
+  // implicitly, but auth migrations regress most often, so a single
+  // dedicated log line here makes it obvious in the deploy output whether
+  // the account email contract is healthy.
+  try {
+    const emailFlowMissing = [];
+    if (!existingTables.has("PasswordResetToken")) {
+      emailFlowMissing.push({ kind: "table", name: "PasswordResetToken" });
+    }
+    if (!existingTables.has("EmailVerificationToken")) {
+      emailFlowMissing.push({ kind: "table", name: "EmailVerificationToken" });
+    }
+    if (existingTables.has("User")) {
+      const userColumns = await fetchColumns(prisma, "User");
+      if (!userColumns.has("emailVerifiedAt")) {
+        emailFlowMissing.push({ kind: "column", name: "User.emailVerifiedAt" });
+      }
+    }
+    if (emailFlowMissing.length > 0) {
+      failures.push({ stage: "email_flow", missing: emailFlowMissing });
+      emit("error", {
+        stage: "email_flow.missing",
+        message:
+          "account email flow is broken — register / verify-email / forgot-password will throw",
+        missing: emailFlowMissing,
+      });
+    } else {
+      emit("info", {
+        stage: "email_flow.ok",
+        message: "User.emailVerifiedAt + PasswordResetToken + EmailVerificationToken present",
+      });
+    }
+  } catch (err) {
+    failures.push({
+      stage: "email_flow",
+      error: err && err.message ? err.message : String(err),
+    });
+    emit("error", { stage: "email_flow.failed", error: err && err.message });
+  }
+
   // 4. content probes — only run if every required content table is present.
   const contentProbeTables = PUBLIC_CONTENT_PROBES.map(([t]) => t);
   const contentTablesMissing = contentProbeTables.filter((t) => !existingTables.has(t));

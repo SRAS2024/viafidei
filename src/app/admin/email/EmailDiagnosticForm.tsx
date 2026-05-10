@@ -5,7 +5,14 @@ import { useState } from "react";
 const ERROR_COLOR = "#8b1a1a";
 const SUCCESS_COLOR = "#185c2a";
 
-type TemplateKind = "plain" | "welcome" | "password_reset" | "verify_email";
+type TemplateKind =
+  | "plain"
+  | "welcome"
+  | "password_reset"
+  | "verify_email"
+  | "full_flow_welcome"
+  | "full_flow_password_reset"
+  | "full_flow_verify_email";
 
 const TEMPLATE_OPTIONS: Array<{ value: TemplateKind; label: string; description: string }> = [
   {
@@ -16,17 +23,37 @@ const TEMPLATE_OPTIONS: Array<{ value: TemplateKind; label: string; description:
   {
     value: "welcome",
     label: "Welcome (combined verify)",
-    description: "Exact welcome+verify email a new user receives at registration.",
+    description:
+      "Exact welcome+verify email a new user receives at registration. Synthetic token — no DB write.",
   },
   {
     value: "password_reset",
     label: "Password reset",
-    description: "Exact reset email sent when an existing user requests a new password.",
+    description:
+      "Exact reset email sent when an existing user requests a new password. Synthetic token.",
   },
   {
     value: "verify_email",
     label: "Verify email (resend)",
-    description: "Exact email sent by the resend-verification button on /profile.",
+    description: "Exact email sent by the resend-verification button on /profile. Synthetic token.",
+  },
+  {
+    value: "full_flow_welcome",
+    label: "Full flow: welcome",
+    description:
+      "End-to-end. Looks up the recipient's account, writes a real EmailVerificationToken, then sends the welcome email. Catches missing-table / missing-column errors that the synthetic templates miss.",
+  },
+  {
+    value: "full_flow_password_reset",
+    label: "Full flow: password reset",
+    description:
+      "End-to-end. Writes a real PasswordResetToken row, then sends the reset email. Recipient must be a real account.",
+  },
+  {
+    value: "full_flow_verify_email",
+    label: "Full flow: verify email",
+    description:
+      "End-to-end. Writes a real EmailVerificationToken row, then sends the verify email. Recipient must be a real account.",
   },
 ];
 
@@ -41,6 +68,8 @@ type Outcome =
       errorName?: string;
       errorMessage?: string;
       statusCode?: number;
+      stage?: string;
+      reason?: string;
     }
   | { kind: "rate_limited" }
   | { kind: "error"; message: string };
@@ -77,6 +106,7 @@ export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
           errorMessage?: string;
           statusCode?: number;
           fromAddress?: string;
+          stage?: string;
         };
       };
       if (res.status === 429) {
@@ -99,6 +129,8 @@ export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
           errorName: data.details.errorName,
           errorMessage: data.details.errorMessage,
           statusCode: data.details.statusCode,
+          stage: data.details.stage,
+          reason: data.details.reason,
         });
         return;
       }
@@ -181,9 +213,8 @@ export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
           className="rounded-sm border border-ink/15 bg-ink/5 p-3 font-serif text-sm"
           style={{ color: ERROR_COLOR }}
         >
-          Skipped. The send was a no-op because no Resend API key is set on this deployment. Set
-          either <code>RESEND_API_KEY</code> or <code>RESEND</code> in your hosting dashboard and
-          redeploy.
+          Skipped. The send was a no-op because <code>RESEND_API_KEY</code> is not set on this
+          deployment. Set it in your hosting dashboard and redeploy.
         </p>
       ) : null}
 
@@ -194,9 +225,27 @@ export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
           style={{ color: ERROR_COLOR }}
         >
           <p>
-            Resend rejected the send from <code>{outcome.from}</code>.
+            {outcome.stage === "user_lookup"
+              ? "Full-flow test could not look up the user account."
+              : outcome.stage === "token_creation"
+                ? "Full-flow test failed before sending — the database token write threw."
+                : `Resend rejected the send from `}
+            {outcome.stage !== "user_lookup" && outcome.stage !== "token_creation" ? (
+              <code>{outcome.from}</code>
+            ) : null}
+            .
           </p>
           <ul className="mt-2 space-y-1 font-mono text-xs">
+            {outcome.stage ? (
+              <li>
+                <span className="opacity-70">stage:</span> {outcome.stage}
+              </li>
+            ) : null}
+            {outcome.reason ? (
+              <li>
+                <span className="opacity-70">reason:</span> {outcome.reason}
+              </li>
+            ) : null}
             {outcome.errorName ? (
               <li>
                 <span className="opacity-70">name:</span> {outcome.errorName}
@@ -214,8 +263,12 @@ export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
             ) : null}
           </ul>
           <p className="mt-2">
-            The most common cause is that the sender domain has not been verified in the Resend
-            dashboard. Add the domain there and confirm the DKIM/SPF records before retrying.
+            {outcome.reason === "database_table_missing" ||
+            outcome.reason === "database_column_missing"
+              ? "Run `prisma migrate deploy` to create the missing schema piece, then retry."
+              : outcome.stage === "user_lookup"
+                ? "Full-flow tests need a real account. Use a recipient email that already has an account on this deployment, or run the synthetic-template variants instead."
+                : "The most common cause is that the sender domain has not been verified in the Resend dashboard. Add the domain there and confirm the DKIM/SPF records before retrying."}
           </p>
         </div>
       ) : null}
