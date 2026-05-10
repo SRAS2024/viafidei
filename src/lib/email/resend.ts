@@ -186,13 +186,34 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
         // mailbox providers that this is a real conversational
         // message (not bulk marketing), nudging it toward the inbox.
         reply_to: appConfig.email.replyToAddress,
-        // RFC 8058 List-Unsubscribe-Post + header pair: required by
-        // Gmail / Yahoo for senders that exceed their volume
-        // thresholds, and harmless for senders below them. Setting
-        // them now means the deliverability story scales.
+        // Headers chosen specifically to keep transactional account
+        // mail (welcome, verify, reset) in the inbox rather than the
+        // spam folder. We learned this the hard way: the plain
+        // diagnostic landed in the inbox while the HTML templates
+        // landed in spam. The fix is two parts:
+        //
+        //   1. DROP `List-Unsubscribe` / `List-Unsubscribe-Post`. Those
+        //      headers tell Gmail / Yahoo "this is bulk marketing" —
+        //      they're required only for senders exceeding 5000
+        //      messages/day. On a new sender domain with low volume,
+        //      adding them paints transactional account mail as
+        //      bulk-marketing and nudges it toward spam. Account email
+        //      is one-to-one transactional; no unsubscribe is possible.
+        //
+        //   2. ADD `Auto-Submitted: auto-generated` (RFC 3834). This
+        //      is the canonical "system-generated, not bulk" marker.
+        //      Receivers use it to route the message into the inbox's
+        //      transactional bucket rather than the marketing bucket.
+        //      Combined with `Precedence: bulk`'s absence, this puts
+        //      the message in the same class as password-reset emails
+        //      from major providers.
+        //
+        //   3. ADD `X-Auto-Response-Suppress: All` (Microsoft) to stop
+        //      Exchange / Outlook from generating auto-replies that
+        //      bounce against the noreply address.
         headers: {
-          "List-Unsubscribe": `<mailto:${appConfig.email.replyToAddress}?subject=unsubscribe>`,
-          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+          "Auto-Submitted": "auto-generated",
+          "X-Auto-Response-Suppress": "All",
         },
       }),
     });
