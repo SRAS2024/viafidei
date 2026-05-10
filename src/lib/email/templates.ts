@@ -52,6 +52,14 @@ type ShellOptions = {
 };
 
 function htmlShell(opts: ShellOptions): string {
+  // CTA renders as a single button. We intentionally do NOT also
+  // display the raw URL as a styled <code> block below the button —
+  // emitting the same URL twice in different formats is a documented
+  // spam signal (link-repetition heuristics on Gmail/Outlook) and was
+  // tracking with our HTML templates landing in spam while the plain
+  // diagnostic landed in the inbox. If users want to copy the link
+  // they can right-click the button (or fall back to the text-body
+  // copy which preserves the URL).
   const cta =
     opts.ctaLabel && opts.ctaUrl
       ? `
@@ -60,9 +68,6 @@ function htmlShell(opts: ShellOptions): string {
              style="display: inline-block; padding: 12px 24px; background: ${COLOR_BUTTON}; color: ${COLOR_BUTTON_TEXT}; text-decoration: none; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; letter-spacing: 0.04em; border-radius: 2px;">
             ${escapeHtml(opts.ctaLabel)}
           </a>
-        </p>
-        <p style="margin: 16px 0 0; font-size: 13px; color: ${COLOR_INK_FAINT}; word-break: break-all;">
-          <code style="font-family: 'SFMono-Regular', Menlo, Consolas, monospace;">${escapeHtml(opts.ctaUrl)}</code>
         </p>`
       : "";
 

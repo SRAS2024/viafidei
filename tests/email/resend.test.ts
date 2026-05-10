@@ -119,11 +119,17 @@ describe("sendTransactionalEmail (Resend)", () => {
     expect(body.to).toBe("to@example.com");
     expect(body.subject).toBe("Hello");
     expect(body.text).toBe("Body");
-    // Reply-To and List-Unsubscribe-Post headers ride on every send to
-    // signal "transactional, not bulk" to inbox providers.
+    // Reply-To rides on every send (signals real conversational mail).
     expect(body.reply_to).toBe("notifications@etviafidei.com");
-    expect(body.headers["List-Unsubscribe"]).toContain("notifications@etviafidei.com");
-    expect(body.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+    // Account-flow mail is one-to-one transactional, not bulk marketing.
+    // It MUST NOT carry List-Unsubscribe / List-Unsubscribe-Post — those
+    // headers nudge low-volume new-sender domains into spam — and it
+    // MUST carry Auto-Submitted: auto-generated so receivers route it
+    // into the transactional bucket rather than the marketing one.
+    expect(body.headers["Auto-Submitted"]).toBe("auto-generated");
+    expect(body.headers["X-Auto-Response-Suppress"]).toBe("All");
+    expect(body.headers["List-Unsubscribe"]).toBeUndefined();
+    expect(body.headers["List-Unsubscribe-Post"]).toBeUndefined();
     expect(body.html).toBe("<p>Body</p>");
   });
 
