@@ -1,6 +1,7 @@
 import { appConfig } from "../config";
 import { prisma } from "../db/client";
 import { checkRequiredTables } from "../db/tables";
+import { ensureAccountEmailTables } from "./ensure-email-tables";
 import { seedAllContent } from "./seeder";
 
 let scheduled = false;
@@ -163,6 +164,31 @@ export async function runStartupTasks(): Promise<void> {
   if (!(await isDbReachable())) {
     console.warn("[startup] DB unreachable — skipping seed and ingestion schedule");
     return;
+  }
+
+  // Belt-and-suspenders for the account email contract. The proper
+  // fix is `prisma migrate deploy` (which scripts/start.sh runs before
+  // node server.js), but if that pipeline is bypassed for any reason
+  // the welcome / verify / forgot-password flows would silently fail
+  // on the first token write. Run the same idempotent SQL the
+  // 0006 migration runs so missing tables are created in-process. No-op
+  // on a healthy database — every statement is `IF NOT EXISTS`.
+  try {
+    const result = await ensureAccountEmailTables();
+    if (result.ok && result.created.length > 0) {
+      console.warn(
+        `[startup] account email tables auto-created (migration was missing): ${result.created.join(", ")}`,
+      );
+    } else if (!result.ok) {
+      console.error(
+        `[startup] could not ensure account email tables — welcome / verify / forgot-password flows may fail: ${result.message ?? "unknown error"}`,
+      );
+    }
+  } catch (e) {
+    console.error(
+      "[startup] ensureAccountEmailTables threw",
+      e instanceof Error ? e.message : String(e),
+    );
   }
 
   const tableCheck = await checkRequiredTables().catch(() => ({

@@ -6,6 +6,8 @@ import { checkAccountEmailDb, type EmailFlowDbCheck } from "@/lib/email/db-healt
 import { logger } from "@/lib/observability";
 import { AdminSection } from "../_sections/AdminSection";
 import { EmailDiagnosticForm } from "./EmailDiagnosticForm";
+import { EmailSelfTestPanel } from "./EmailSelfTestPanel";
+import { EnsureTablesButton } from "./EnsureTablesButton";
 
 export const dynamic = "force-dynamic";
 
@@ -123,12 +125,26 @@ export default async function AdminEmailPage() {
               className="mt-5 rounded-sm border p-4 font-serif text-sm"
               style={{ borderColor: ERROR_COLOR, color: ERROR_COLOR, backgroundColor: "#fdf6f6" }}
             >
-              <span className="font-bold">This is why the real flows fail.</span> Run{" "}
-              <code>npx prisma migrate deploy</code> against the production database (or{" "}
-              <code>npm run db:validate:email</code> to confirm), then redeploy and re-test from
-              this page.
+              <span className="font-bold">This is why the real flows fail.</span> Click the button
+              below to create any missing tables in-process (idempotent), or run{" "}
+              <code>npx prisma migrate deploy</code> against the production database. Either fixes
+              the contract; the button is faster.
             </p>
           ) : null}
+          <EnsureTablesButton />
+        </section>
+
+        <section className="vf-card rounded-sm p-6">
+          <h2 className="font-display text-2xl">End-to-end self-test</h2>
+          <p className="mt-2 font-serif text-sm text-ink-soft">
+            Runs the <em>exact</em> code path the registration / forgot-password / resend-
+            verification routes run, against a throwaway test user this endpoint creates and cleans
+            up. Use this when the templates above send fine but the real user-side flows do not —
+            the first failing step is the answer.
+          </p>
+          <div className="mt-5">
+            <EmailSelfTestPanel />
+          </div>
         </section>
 
         <section className="vf-card rounded-sm p-6">
