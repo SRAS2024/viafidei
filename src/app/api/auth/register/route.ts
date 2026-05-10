@@ -7,6 +7,7 @@ import {
   getSession,
   issueEmailVerificationToken,
 } from "@/lib/auth";
+import { ensureAccountEmailTables } from "@/lib/startup/ensure-email-tables";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp, redirectTo } from "@/lib/security/request";
 import { sendWelcomeEmail } from "@/lib/email";
@@ -106,6 +107,33 @@ async function readRegisterPayload(req: NextRequest): Promise<
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
   try {
+    // Pre-warm the account email schema before anything else. Idempotent
+    // and cheap on a healthy database; on a database that's missing
+    // User.emailVerifiedAt or the token tables this creates them so the
+    // welcome-email step below can succeed without leaving the user with
+    // no verification link. Errors here are logged but never block
+    // registration — the catch in the welcome block will surface the
+    // missing piece via structured logs.
+    try {
+      const ensure = await ensureAccountEmailTables();
+      if (!ensure.ok) {
+        logger.error("auth.register.ensure_email_tables_failed", {
+          requestId,
+          message: ensure.message,
+        });
+      } else if (ensure.created.length > 0) {
+        logger.warn("auth.register.email_tables_auto_created", {
+          requestId,
+          created: ensure.created,
+        });
+      }
+    } catch (e) {
+      logger.error("auth.register.ensure_email_tables_threw", {
+        requestId,
+        message: e instanceof Error ? e.message : "unknown_error",
+      });
+    }
+
     const payload = await readRegisterPayload(req);
     if (!payload.ok) {
       logger.warn("auth.register.bad_body", { requestId });
