@@ -67,13 +67,20 @@ export function ForgotPasswordForm({ labels }: { labels: Labels }) {
         setStatus({ kind: "not_found" });
         return;
       }
-      // The account exists but the email never reached the recipient
-      // (no Resend API key, sender domain unverified, restricted key, …).
-      // Surface it so the user knows to contact support instead of
-      // refreshing their inbox forever.
+      // The account exists but the email never reached the recipient.
+      // Three flavors all map to the same user-visible message:
+      //   - delivery_failed       (Resend rejected the send)
+      //   - email_not_configured  (RESEND_API_KEY missing)
+      //   - token_creation_failed (database table missing — the token
+      //                            row could not even be written, so
+      //                            no email was ever attempted)
+      // The user has nothing actionable to do for any of them; the
+      // operator sees the underlying reason on /admin/email.
       if (
         data.error === "server_error" &&
-        (data.message === "delivery_failed" || data.message === "email_not_configured")
+        (data.message === "delivery_failed" ||
+          data.message === "email_not_configured" ||
+          data.message === "token_creation_failed")
       ) {
         setStatus({ kind: "delivery_failed" });
         return;
