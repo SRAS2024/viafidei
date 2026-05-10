@@ -6,6 +6,7 @@ import { checkAccountEmailDb, type EmailFlowDbCheck } from "@/lib/email/db-healt
 import { logger } from "@/lib/observability";
 import { AdminSection } from "../_sections/AdminSection";
 import { EmailDiagnosticForm } from "./EmailDiagnosticForm";
+import { EmailSelfTestPanel } from "./EmailSelfTestPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +130,19 @@ export default async function AdminEmailPage() {
               this page.
             </p>
           ) : null}
+        </section>
+
+        <section className="vf-card rounded-sm p-6">
+          <h2 className="font-display text-2xl">End-to-end self-test</h2>
+          <p className="mt-2 font-serif text-sm text-ink-soft">
+            Runs the <em>exact</em> code path the registration / forgot-password / resend-
+            verification routes run, against a throwaway test user this endpoint creates and cleans
+            up. Use this when the templates above send fine but the real user-side flows do not —
+            the first failing step is the answer.
+          </p>
+          <div className="mt-5">
+            <EmailSelfTestPanel />
+          </div>
         </section>
 
         <section className="vf-card rounded-sm p-6">
