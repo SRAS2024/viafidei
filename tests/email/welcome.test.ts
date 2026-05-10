@@ -4,8 +4,8 @@ import { renderWelcomeEmail } from "@/lib/email/templates";
 const baseParams = {
   firstName: "Maria",
   fullName: "Maria Goretti",
-  siteUrl: "https://viafidei.com",
-  verifyUrl: "https://viafidei.com/verify-email?token=tkn",
+  siteUrl: "https://etviafidei.com",
+  verifyUrl: "https://etviafidei.com/verify-email?token=tkn",
 } as const;
 
 describe("renderWelcomeEmail (required wording)", () => {
@@ -23,7 +23,7 @@ describe("renderWelcomeEmail (required wording)", () => {
 
   it("includes a link back to Via Fidei in the footer", () => {
     const out = renderWelcomeEmail({ ...baseParams, locale: "en" });
-    expect(out.htmlBody).toContain('href="https://viafidei.com"');
+    expect(out.htmlBody).toContain('href="https://etviafidei.com"');
   });
 
   it("embeds the verify-email link as the CTA (combined welcome + verify flow)", () => {

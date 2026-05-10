@@ -14,8 +14,8 @@ describe("renderWelcomeEmail", () => {
     const out = renderWelcomeEmail({
       firstName: "Maria",
       fullName: "Maria Goretti",
-      siteUrl: "https://viafidei.com",
-      verifyUrl: "https://viafidei.com/verify-email?token=abc",
+      siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       locale: "en",
     });
     expect(out.subject).toBe("Welcome!");
@@ -23,29 +23,29 @@ describe("renderWelcomeEmail", () => {
     expect(out.htmlBody).toContain("Welcome, Maria Goretti. Account creation successful.");
     // Welcome email now carries the verify link as its CTA — there is
     // no longer a separate verification email.
-    expect(out.htmlBody).toContain("https://viafidei.com/verify-email?token=abc");
-    expect(out.textBody).toContain("https://viafidei.com/verify-email?token=abc");
+    expect(out.htmlBody).toContain("https://etviafidei.com/verify-email?token=abc");
+    expect(out.textBody).toContain("https://etviafidei.com/verify-email?token=abc");
   });
 
   it("includes the brand name and site URL link", () => {
     const out = renderWelcomeEmail({
       firstName: "Maria",
       fullName: "Maria Goretti",
-      siteUrl: "https://viafidei.com",
-      verifyUrl: "https://viafidei.com/verify-email?token=abc",
+      siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       locale: "en",
     });
     expect(out.htmlBody).toContain(SITE_NAME);
-    expect(out.htmlBody).toContain("https://viafidei.com");
-    expect(out.textBody).toContain("https://viafidei.com");
+    expect(out.htmlBody).toContain("https://etviafidei.com");
+    expect(out.textBody).toContain("https://etviafidei.com");
   });
 
   it("includes both HTML and text bodies", () => {
     const out = renderWelcomeEmail({
       firstName: "Pio",
       fullName: "Pio Pietrelcina",
-      siteUrl: "https://viafidei.com",
-      verifyUrl: "https://viafidei.com/verify-email?token=abc",
+      siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       locale: "en",
     });
     expect(out.htmlBody).toMatch(/<html/i);
@@ -57,8 +57,8 @@ describe("renderWelcomeEmail", () => {
     const out = renderWelcomeEmail({
       firstName: "<script>",
       fullName: "<script>alert(1)</script>",
-      siteUrl: "https://viafidei.com",
-      verifyUrl: "https://viafidei.com/verify-email?token=abc",
+      siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       locale: "en",
     });
     expect(out.htmlBody).not.toContain("<script>alert(1)</script>");
@@ -69,8 +69,8 @@ describe("renderWelcomeEmail", () => {
     const out = renderWelcomeEmail({
       firstName: "Maria",
       fullName: "Maria Goretti",
-      siteUrl: "https://viafidei.com",
-      verifyUrl: "https://viafidei.com/verify-email?token=abc",
+      siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       // @ts-expect-error - simulate runtime mistake
       locale: "klingon",
     });
@@ -82,8 +82,8 @@ describe("renderWelcomeEmail", () => {
     const out = renderWelcomeEmail({
       firstName: "Maria",
       fullName: "María Goretti",
-      siteUrl: "https://viafidei.com",
-      verifyUrl: "https://viafidei.com/verify-email?token=abc",
+      siteUrl: "https://etviafidei.com",
+      verifyUrl: "https://etviafidei.com/verify-email?token=abc",
       locale: "es",
     });
     expect(out.subject).toBe("Welcome!");
@@ -94,13 +94,13 @@ describe("renderWelcomeEmail", () => {
 
 describe("renderPasswordResetEmail", () => {
   it("uses a descriptive reset subject, mentions the 15-minute TTL, and includes the reset URL in both bodies", () => {
-    const url = "https://viafidei.com/reset-password?token=abc";
+    const url = "https://etviafidei.com/reset-password?token=abc";
     const out = renderPasswordResetEmail({
       firstName: "Pio",
       fullName: "Pio Pietrelcina",
       resetUrl: url,
       expiresAt: FUTURE,
-      siteUrl: "https://viafidei.com",
+      siteUrl: "https://etviafidei.com",
       locale: "en",
     });
     expect(out.subject).toBe("Password Reset");
@@ -111,13 +111,13 @@ describe("renderPasswordResetEmail", () => {
   });
 
   it("uses 'Reset password for [User Name]' as the link text", () => {
-    const url = "https://viafidei.com/reset-password?token=abc";
+    const url = "https://etviafidei.com/reset-password?token=abc";
     const out = renderPasswordResetEmail({
       firstName: "Pio",
       fullName: "Pio Pietrelcina",
       resetUrl: url,
       expiresAt: FUTURE,
-      siteUrl: "https://viafidei.com",
+      siteUrl: "https://etviafidei.com",
       locale: "en",
     });
     expect(out.htmlBody).toContain("Reset password for Pio Pietrelcina");
@@ -125,13 +125,13 @@ describe("renderPasswordResetEmail", () => {
   });
 
   it("html-escapes URLs that contain unsafe characters", () => {
-    const url = "https://viafidei.com/reset-password?token=a&b=<x>";
+    const url = "https://etviafidei.com/reset-password?token=a&b=<x>";
     const out = renderPasswordResetEmail({
       firstName: "Pio",
       fullName: "Pio Pietrelcina",
       resetUrl: url,
       expiresAt: FUTURE,
-      siteUrl: "https://viafidei.com",
+      siteUrl: "https://etviafidei.com",
       locale: "en",
     });
     expect(out.htmlBody).not.toContain("<x>");
@@ -143,9 +143,9 @@ describe("renderPasswordResetEmail", () => {
     const out = renderPasswordResetEmail({
       firstName: "<x>",
       fullName: "<script>alert(1)</script>",
-      resetUrl: "https://viafidei.com/reset-password?token=a",
+      resetUrl: "https://etviafidei.com/reset-password?token=a",
       expiresAt: FUTURE,
-      siteUrl: "https://viafidei.com",
+      siteUrl: "https://etviafidei.com",
       locale: "en",
     });
     expect(out.htmlBody).not.toContain("<script>alert(1)</script>");
@@ -155,13 +155,13 @@ describe("renderPasswordResetEmail", () => {
 
 describe("renderEmailVerificationEmail", () => {
   it("contains the verification URL in both bodies", () => {
-    const url = "https://viafidei.com/verify-email?token=abc";
+    const url = "https://etviafidei.com/verify-email?token=abc";
     const out = renderEmailVerificationEmail({
       firstName: "Pio",
       fullName: "Pio Pietrelcina",
       verifyUrl: url,
       expiresAt: FUTURE,
-      siteUrl: "https://viafidei.com",
+      siteUrl: "https://etviafidei.com",
       locale: "en",
     });
     expect(out.subject).toBe("Email Verification");
@@ -170,26 +170,26 @@ describe("renderEmailVerificationEmail", () => {
   });
 
   it("uses the saved language for the email body", () => {
-    const url = "https://viafidei.com/verify-email?token=abc";
+    const url = "https://etviafidei.com/verify-email?token=abc";
     const out = renderEmailVerificationEmail({
       firstName: "Maria",
       fullName: "Maria Goretti",
       verifyUrl: url,
       expiresAt: FUTURE,
-      siteUrl: "https://viafidei.com",
+      siteUrl: "https://etviafidei.com",
       locale: "fr",
     });
     expect(out.htmlBody).toContain("Vérifiez votre e-mail");
   });
 
   it("falls back to English for unsupported locales", () => {
-    const url = "https://viafidei.com/verify-email?token=abc";
+    const url = "https://etviafidei.com/verify-email?token=abc";
     const out = renderEmailVerificationEmail({
       firstName: "Maria",
       fullName: "Maria Goretti",
       verifyUrl: url,
       expiresAt: FUTURE,
-      siteUrl: "https://viafidei.com",
+      siteUrl: "https://etviafidei.com",
       // @ts-expect-error - simulate runtime mistake
       locale: "klingon",
     });

@@ -1,7 +1,7 @@
 import { translateEmail, type EmailLocale } from "./translations";
 
 export const SITE_NAME = "Via Fidei";
-export const SITE_URL_DEFAULT = "https://viafidei.com";
+export const SITE_URL_DEFAULT = "https://etviafidei.com";
 
 export function escapeHtml(value: string): string {
   return value

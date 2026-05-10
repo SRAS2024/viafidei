@@ -14,9 +14,9 @@
  */
 export const appConfig = {
   /** Public canonical production domain — used for sitemap, robots, OG. */
-  canonicalUrl: "https://viafidei.com",
+  canonicalUrl: "https://etviafidei.com",
   /** Base URL the app advertises to itself (email links, etc.). */
-  appUrl: "https://viafidei.com",
+  appUrl: "https://etviafidei.com",
   /** HTTP port used by the standalone server. */
   port: 3000,
   /** Bind address used by the standalone server. */
@@ -29,7 +29,7 @@ export const appConfig = {
   logLevelDevelopment: "debug" as const,
   ingestion: {
     /** User-Agent sent to upstream sources during scheduled fetches. */
-    userAgent: "ViaFideiBot/1.0 (+https://viafidei.com/bot; ingestion@viafidei.com)",
+    userAgent: "ViaFideiBot/1.0 (+https://etviafidei.com/bot; ingestion@viafidei.com)",
     /** Per-request timeout for outbound HTTP fetches (milliseconds). */
     httpTimeoutMs: 15_000,
     /** Initial status assigned to ingested items. */
@@ -45,11 +45,14 @@ export const appConfig = {
     /**
      * Transactional sender address. Must match a verified Resend domain —
      * Resend rejects any `from` whose domain hasn't been verified. The
-     * Resend dashboard for this deployment is configured for viafidei.com
-     * (DKIM, SPF, DMARC verified); using a different domain here returns
-     * a 422 / validation_error and the user receives nothing.
+     * verified domain on this deployment's Resend account is
+     * `etviafidei.com` (DKIM/SPF/DMARC green); the API key is scoped to
+     * that domain. Using a different domain here returns a 403
+     * `API key not authorized for this domain` and the user receives
+     * nothing — verified empirically when an earlier revision tried
+     * `viafidei.com` and got rejected at the Resend edge.
      */
-    fromAddress: "notifications@viafidei.com",
+    fromAddress: "notifications@etviafidei.com",
     /**
      * Display name used in the `From` header. Inbox providers show this
      * as the sender column ("Via Fidei" instead of "notifications@…");
@@ -64,7 +67,7 @@ export const appConfig = {
      * but having ANY Reply-To set makes the message look transactional
      * rather than bulk-marketing to spam filters.
      */
-    replyToAddress: "notifications@viafidei.com",
+    replyToAddress: "notifications@etviafidei.com",
     /** Provider name for logs / diagnostics. */
     providerName: "resend" as const,
   },

@@ -115,14 +115,14 @@ describe("sendTransactionalEmail (Resend)", () => {
     // "Display Name <address>" so inbox providers show a friendly
     // sender column; bare emails dramatically increase spam-filter
     // false positives for new sender domains.
-    expect(body.from).toBe("Via Fidei <notifications@viafidei.com>");
+    expect(body.from).toBe("Via Fidei <notifications@etviafidei.com>");
     expect(body.to).toBe("to@example.com");
     expect(body.subject).toBe("Hello");
     expect(body.text).toBe("Body");
     // Reply-To and List-Unsubscribe-Post headers ride on every send to
     // signal "transactional, not bulk" to inbox providers.
-    expect(body.reply_to).toBe("notifications@viafidei.com");
-    expect(body.headers["List-Unsubscribe"]).toContain("notifications@viafidei.com");
+    expect(body.reply_to).toBe("notifications@etviafidei.com");
+    expect(body.headers["List-Unsubscribe"]).toContain("notifications@etviafidei.com");
     expect(body.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
     expect(body.html).toBe("<p>Body</p>");
   });
@@ -172,7 +172,7 @@ describe("sendTransactionalEmail (Resend)", () => {
     if (logLine) {
       expect(logLine).toContain('"errorName":"validation_error"');
       expect(logLine).toContain('"errorMessage":"The example.com domain is not verified."');
-      expect(logLine).toContain('"from":"notifications@viafidei.com"');
+      expect(logLine).toContain('"from":"notifications@etviafidei.com"');
       // The structured `category` field maps the free-form Resend name +
       // message into one of four operator-fixable buckets; a sender
       // domain that has not been verified must land in

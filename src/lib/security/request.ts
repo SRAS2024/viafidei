@@ -54,7 +54,7 @@ function isLocalBindHost(host: string): boolean {
  * the public scheme is HTTPS. Browsers reject HTTPS URLs that point at
  * non-443 ports — Safari surfaces "Not allowed to use restricted network
  * port" (WebKitErrorDomain:103) for 8080, Chrome shows ERR_UNSAFE_PORT —
- * so emitting `https://viafidei.com:8080` from a redirect is the same
+ * so emitting `https://etviafidei.com:8080` from a redirect is the same
  * class of bug as emitting `https://0.0.0.0:8080`. The load balancer
  * terminates TLS at 443; the public origin never carries the internal
  * port. Standard HTTPS port (443) and bracketed IPv6 hosts are left
