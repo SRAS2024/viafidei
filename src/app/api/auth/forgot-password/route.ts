@@ -105,12 +105,16 @@ export async function POST(req: NextRequest) {
     const message = error instanceof Error ? error.message : "unknown_error";
     // Translate Prisma's "relation does not exist" / "column does not
     // exist" into structured kinds so the operator log line names the
-    // missing piece. The user-visible response is still
-    // server_error/delivery_failed because the user has nothing
-    // actionable to do.
-    const kind = /relation .* does not exist/i.test(message)
+    // missing piece. The user-visible response carries
+    // `token_creation_failed` (not `delivery_failed`) so the admin can
+    // see in the network tab that this is a database problem, not a
+    // Resend problem — the corresponding banner on /admin/email points
+    // at the missing table.
+    const isMissingTable = /relation .* does not exist/i.test(message);
+    const isMissingColumn = /column .* does not exist/i.test(message);
+    const kind = isMissingTable
       ? "database_table_missing"
-      : /column .* does not exist/i.test(message)
+      : isMissingColumn
         ? "database_column_missing"
         : "flow_error";
     logger.error("auth.password_reset.flow_failed", {
@@ -119,6 +123,12 @@ export async function POST(req: NextRequest) {
       kind,
       message,
     });
+    if (isMissingTable || isMissingColumn) {
+      return jsonError("server_error", {
+        message: "token_creation_failed",
+        details: { reason: kind },
+      });
+    }
     return jsonError("server_error", { message: "delivery_failed" });
   }
   return jsonOk({ sent: true, email: user.email });

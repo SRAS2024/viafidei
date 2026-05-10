@@ -166,7 +166,13 @@ describe("forgot-password — Resend delivery failures are surfaced (never silen
 });
 
 describe("forgot-password — missing database token tables produce clear operator logs", () => {
-  it("logs database_table_missing when issuePasswordResetToken throws a 'relation does not exist' error", async () => {
+  it("logs database_table_missing AND returns token_creation_failed when PasswordResetToken is missing", async () => {
+    // Prior to this contract, a missing PasswordResetToken table produced
+    // a generic `delivery_failed` response — indistinguishable in the
+    // network tab from a Resend rejection. The route now returns
+    // `token_creation_failed` so the admin can see at a glance that this
+    // is a database problem, while the operator log line names the
+    // missing table exactly.
     findUserByEmailMock.mockResolvedValue({
       id: "u1",
       email: "user@example.com",
@@ -183,6 +189,12 @@ describe("forgot-password — missing database token tables produce clear operat
       jsonReq("http://x/api/auth/forgot-password", { email: "user@example.com" }),
     );
     expect(res.status).toBe(500);
+    const body = (await res.json()) as {
+      message: string;
+      details?: { reason?: string };
+    };
+    expect(body.message).toBe("token_creation_failed");
+    expect(body.details?.reason).toBe("database_table_missing");
     const log = errSpy.mock.calls
       .map((c) => String(c[0] ?? ""))
       .find((s) => s.includes('"msg":"auth.password_reset.flow_failed"'));
