@@ -2,7 +2,7 @@ import { prisma } from "../db/client";
 import type { Locale } from "../i18n/locales";
 
 const DEFAULT_TAKE = 60;
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 9;
 
 export function listPublishedPrayers(locale: Locale, take = DEFAULT_TAKE) {
   return prisma.prayer.findMany({

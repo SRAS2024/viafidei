@@ -1,6 +1,8 @@
 import { prisma } from "../db/client";
 import type { Locale } from "../i18n/locales";
 
+const PAGE_SIZE = 9;
+
 export function listPublishedSaints(locale: Locale, take = 60) {
   return prisma.saint.findMany({
     where: { status: "PUBLISHED" },
@@ -8,6 +10,25 @@ export function listPublishedSaints(locale: Locale, take = 60) {
     orderBy: { canonicalName: "asc" },
     take,
   });
+}
+
+export async function listPublishedSaintsPaginated(
+  locale: Locale,
+  page = 1,
+  pageSize = PAGE_SIZE,
+) {
+  const skip = (page - 1) * pageSize;
+  const [items, total] = await Promise.all([
+    prisma.saint.findMany({
+      where: { status: "PUBLISHED" },
+      include: { translations: { where: { locale } } },
+      orderBy: { canonicalName: "asc" },
+      take: pageSize,
+      skip,
+    }),
+    prisma.saint.count({ where: { status: "PUBLISHED" } }),
+  ]);
+  return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 
 export function listAdminSaints(take = 200) {

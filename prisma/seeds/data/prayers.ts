@@ -212,6 +212,12 @@ export const PRAYERS: PrayerSeed[] = [
     body: "Eternal Father, I offer You the Body and Blood, Soul and Divinity of Your dearly beloved Son, Our Lord Jesus Christ, in atonement for our sins and those of the whole world.",
   },
   {
+    slug: "divine-mercy-sorrowful-passion",
+    defaultTitle: "For the sake of His sorrowful Passion",
+    category: "Devotional",
+    body: "For the sake of His sorrowful Passion, have mercy on us and on the whole world.",
+  },
+  {
     slug: "divine-mercy-holy-god",
     defaultTitle: "Holy God (Divine Mercy)",
     category: "Devotional",

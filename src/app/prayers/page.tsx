@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
+import { Pagination } from "@/components/ui/Pagination";
 import { listPublishedPrayersPaginated } from "@/lib/data/prayers";
 import { logPageError } from "@/lib/observability/page-errors";
 
@@ -55,7 +56,7 @@ export default async function PrayersPage({ searchParams }: { searchParams: { pa
         </p>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3">
         {prayers.length === 0 ? (
           <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
             The prayer library will appear here as it is seeded and published.
@@ -78,23 +79,7 @@ export default async function PrayersPage({ searchParams }: { searchParams: { pa
         )}
       </div>
 
-      {totalPages > 1 && (
-        <nav className="mt-12 flex items-center justify-center gap-4" aria-label="Pagination">
-          {page > 1 && (
-            <Link href={`/prayers?page=${page - 1}`} className="vf-btn vf-btn-ghost">
-              ← Previous
-            </Link>
-          )}
-          <span className="font-serif text-ink-faint">
-            Page {page} of {totalPages}
-          </span>
-          {page < totalPages && (
-            <Link href={`/prayers?page=${page + 1}`} className="vf-btn vf-btn-ghost">
-              Next →
-            </Link>
-          )}
-        </nav>
-      )}
+      <Pagination basePath="/prayers" page={page} totalPages={totalPages} />
     </div>
   );
 }

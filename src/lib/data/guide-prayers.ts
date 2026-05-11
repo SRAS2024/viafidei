@@ -2,14 +2,14 @@ import type { Locale } from "../i18n/locales";
 import { getPublishedPrayersBySlugs } from "./prayers";
 
 /**
- * Mapping of guide slug → ordered list of prayer slugs that the guide
- * references in its narrative. The detail page renders each as an
- * expandable section, looking the body up via getPublishedPrayersBySlugs
- * and falling back to FALLBACK_PRAYERS when the prayer is not yet in the
- * database (a fresh deployment, or a content reset).
+ * Mapping of composite-prayer slug → ordered list of prayer slugs that the
+ * parent references in its narrative. Keys include spiritual-life guide
+ * slugs, prayer slugs (composite prayers like the Divine Mercy Chaplet),
+ * and devotion slugs (e.g. holy-rosary).
  *
- * Add new entries here when a guide is updated; the runtime will simply
- * skip slugs that have no body anywhere.
+ * The detail page renders each entry as an expandable section, looking
+ * the body up via getPublishedPrayersBySlugs and falling back to
+ * FALLBACK_PRAYERS when the prayer is not yet in the database.
  */
 export const GUIDE_PRAYER_REFERENCES: Record<string, readonly string[]> = {
   "how-to-pray-the-rosary": [
@@ -37,6 +37,7 @@ export const GUIDE_PRAYER_REFERENCES: Record<string, readonly string[]> = {
     "ave-maria",
     "apostles-creed",
     "divine-mercy-eternal-father",
+    "divine-mercy-sorrowful-passion",
     "divine-mercy-holy-god",
   ],
   "praying-the-liturgy-of-the-hours": ["pater-noster", "gloria-patri", "te-deum"],
@@ -49,6 +50,47 @@ export const GUIDE_PRAYER_REFERENCES: Record<string, readonly string[]> = {
   "the-seven-sacraments-overview": ["apostles-creed", "nicene-creed"],
   "the-our-father-explained": ["pater-noster"],
   "guide-to-the-creed": ["apostles-creed", "nicene-creed"],
+  // Composite prayer entries (rendered on /prayers/[slug])
+  "divine-mercy-chaplet": [
+    "sign-of-the-cross",
+    "pater-noster",
+    "ave-maria",
+    "apostles-creed",
+    "divine-mercy-eternal-father",
+    "divine-mercy-sorrowful-passion",
+    "divine-mercy-holy-god",
+  ],
+  "rosary-mysteries-joyful": [
+    "sign-of-the-cross",
+    "apostles-creed",
+    "pater-noster",
+    "ave-maria",
+    "gloria-patri",
+    "fatima-decade-prayer",
+    "salve-regina",
+  ],
+  // Devotion entries (rendered on /devotions/[slug])
+  "holy-rosary": [
+    "sign-of-the-cross",
+    "apostles-creed",
+    "pater-noster",
+    "ave-maria",
+    "gloria-patri",
+    "fatima-decade-prayer",
+    "salve-regina",
+    "hail-holy-queen",
+  ],
+  "chaplet-of-divine-mercy": [
+    "sign-of-the-cross",
+    "pater-noster",
+    "ave-maria",
+    "apostles-creed",
+    "divine-mercy-eternal-father",
+    "divine-mercy-sorrowful-passion",
+    "divine-mercy-holy-god",
+  ],
+  "stations-of-the-cross": ["sign-of-the-cross", "pater-noster", "ave-maria", "gloria-patri"],
+  angelus: ["ave-maria"],
 };
 
 /**
@@ -136,6 +178,10 @@ const FALLBACK_PRAYERS: Record<string, { defaultTitle: string; body: string }> =
   "divine-mercy-eternal-father": {
     defaultTitle: "Eternal Father (Divine Mercy)",
     body: "Eternal Father, I offer You the Body and Blood, Soul and Divinity of Your dearly beloved Son, Our Lord Jesus Christ, in atonement for our sins and those of the whole world.",
+  },
+  "divine-mercy-sorrowful-passion": {
+    defaultTitle: "For the sake of His sorrowful Passion",
+    body: "For the sake of His sorrowful Passion, have mercy on us and on the whole world.",
   },
   "divine-mercy-holy-god": {
     defaultTitle: "Holy God (Divine Mercy)",

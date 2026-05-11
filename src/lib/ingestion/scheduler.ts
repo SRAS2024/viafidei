@@ -1,8 +1,37 @@
+import { appConfig } from "../config";
 import { prisma } from "../db/client";
 import { logger } from "../observability/logger";
 import { getAdapter } from "./registry";
 import { runAdapter, type RunnerOptions } from "./runner";
 import type { IngestionRunSummary } from "./types";
+
+export type BacklogCounts = {
+  prayers: number;
+  saints: number;
+  parishes: number;
+};
+
+/**
+ * Returns the current published-content counts versus the configured
+ * ingestion backlog targets. Used internally to decide whether the
+ * scheduler should keep ticking aggressively.
+ */
+export async function getBacklogProgress(): Promise<{
+  counts: BacklogCounts;
+  targets: BacklogCounts;
+  metAll: boolean;
+}> {
+  const targets = appConfig.ingestion.targets;
+  const [prayers, saints, parishes] = await Promise.all([
+    prisma.prayer.count(),
+    prisma.saint.count(),
+    prisma.parish.count(),
+  ]);
+  const counts = { prayers, saints, parishes };
+  const metAll =
+    prayers >= targets.prayers && saints >= targets.saints && parishes >= targets.parishes;
+  return { counts, targets, metAll };
+}
 
 export type SchedulerJobResult = {
   jobId: string;
@@ -73,9 +102,11 @@ export async function runAllActiveJobs(options: RunnerOptions = {}): Promise<Sch
     },
     { seen: 0, created: 0, updated: 0, skipped: 0, failed: 0, reviewRequired: 0 },
   );
+  const progress = await getBacklogProgress().catch(() => null);
   logger.info("ingestion.scheduler.completed", {
     totalJobs: jobs.length,
     ...totals,
+    backlog: progress,
   });
 
   return { totalJobs: jobs.length, runs };

@@ -19,7 +19,7 @@ export function ApparitionsGrid({ apparitions, heading, emptyMessage }: Props) {
         <h2 className="font-display text-3xl text-ink">{heading}</h2>
         <div className="vf-rule mx-auto my-5" />
       </div>
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-5 lg:grid-cols-3">
         {apparitions.length === 0 ? (
           <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
             {emptyMessage}

@@ -4,3 +4,4 @@ export { LoginRequiredPopup } from "./LoginRequiredPopup";
 export { AccountRequiredButton } from "./AccountRequiredButton";
 export { ExpandablePrayer } from "./ExpandablePrayer";
 export { ExpandableTimelineEvent } from "./ExpandableTimelineEvent";
+export { Pagination } from "./Pagination";

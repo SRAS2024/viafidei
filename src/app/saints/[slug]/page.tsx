@@ -191,14 +191,6 @@ export default async function SaintDetailPage({ params }: Props) {
             </p>
           </div>
         ) : null}
-
-        <p className="mt-8 text-center font-serif text-xs text-ink-faint">
-          Biography curated from approved Catholic sources via the content ingestion system. See{" "}
-          <Link href="/admin/sources" className="underline">
-            approved sources
-          </Link>{" "}
-          for details.
-        </p>
       </div>
     );
   }
