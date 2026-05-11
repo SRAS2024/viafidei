@@ -9,10 +9,17 @@
     --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 
     --paper: #fbf8f1;
+    --paper-rgb: 251 248 241;
+    --paper-warm-rgb: 245 239 227;
     --paper-bright: #ffffff;
+    --paper-bright-rgb: 255 255 255;
     --ink: #111111;
+    --ink-rgb: 17 17 17;
+    --ink-deep-rgb: 10 10 10;
     --ink-soft: #2a2a2a;
+    --ink-soft-rgb: 42 42 42;
     --ink-faint: #4a4a4a;
+    --ink-faint-rgb: 74 74 74;
     --rule: rgba(17, 17, 17, 0.08);
 
     /* Reserved, semantic accent palette.
@@ -29,6 +36,16 @@
     --marian-blue: #1f3a8a;
     --marian-blue-light: #7aa7dc;
     --eucharist-gold: #b68d40;
+    --liturgical-blue-rgb: 31 58 138;
+    --liturgical-gold-rgb: 182 141 64;
+    --liturgical-red-rgb: 139 26 26;
+
+    /* Shared radii + motion tokens (used by both light and dark themes). */
+    --radius: 8px;
+    --radius-lg: 12px;
+    --radius-pill: 999px;
+    --transition-fast: 0.15s;
+    --transition-normal: 0.2s;
   }
 
   html {
@@ -37,27 +54,111 @@
 
   html[data-theme="dark"] {
     color-scheme: dark;
-    --paper: #14130f;
-    --paper-bright: #1c1b17;
-    --ink: #f3eedd;
-    --ink-soft: #d6cfb6;
-    --ink-faint: #9c9580;
-    --rule: rgba(243, 238, 221, 0.12);
+
+    /* Core surface tokens — remapped to the new sacred-quiet dark palette */
+    --paper: #0a0a0e;
+    --paper-rgb: 10 10 14;
+    --paper-warm-rgb: 17 17 22;
+    --paper-bright: #18181f;
+    --paper-bright-rgb: 24 24 31;
+    --ink: #e8e8ed;
+    --ink-rgb: 232 232 237;
+    --ink-deep-rgb: 255 255 255;
+    --ink-soft: #c5c5cb;
+    --ink-soft-rgb: 197 197 203;
+    --ink-faint: #8a8a99;
+    --ink-faint-rgb: 138 138 153;
+    --rule: rgba(255, 255, 255, 0.07);
+
+    /* Semantic action accents lean into the deep liturgical purple in dark mode */
+    --action-blue: #5b2d8e;
+    --action-blue-hover: #7847a8;
+    --action-red: #c8616f;
+    --action-red-hover: #e07070;
+    --action-gray: #8a8a99;
+    --action-gray-hover: #c5c5cb;
+    --marian-blue: #a88bd4;
+    --marian-blue-light: rgba(168, 139, 212, 0.4);
+    --eucharist-gold: #b68d40;
+    --liturgical-blue-rgb: 91 45 142;
+    --liturgical-gold-rgb: 182 141 64;
+    --liturgical-red-rgb: 224 112 112;
+
+    /* Extended dark-mode design tokens */
+    --bg: #0a0a0e;
+    --bg-secondary: #111116;
+    --bg-modal: #18181f;
+
+    --card-bg: rgba(255, 255, 255, 0.025);
+    --card-bg-hover: rgba(255, 255, 255, 0.05);
+    --surface-soft: rgba(255, 255, 255, 0.02);
+    --surface-subtle: rgba(0, 0, 0, 0.1);
+    --surface-input: rgba(0, 0, 0, 0.18);
+    --surface-code: rgba(0, 0, 0, 0.2);
+
+    --text-main: #e8e8ed;
+    --text-body: rgba(232, 232, 237, 0.92);
+    --text-soft: rgba(232, 232, 237, 0.85);
+    --text-muted: #8a8a99;
+    --text-muted-soft: rgba(138, 138, 153, 0.75);
+    --text-muted-faint: rgba(138, 138, 153, 0.5);
+
+    --border: rgba(255, 255, 255, 0.07);
+    --border-card: rgba(255, 255, 255, 0.06);
+    --border-hover: rgba(255, 255, 255, 0.14);
+    --border-modal: rgba(255, 255, 255, 0.1);
+
+    --accent-purple: #5b2d8e;
+    --accent-purple-link: #a88bd4;
+    --accent-purple-soft: rgba(91, 45, 142, 0.07);
+    --accent-purple-hover: rgba(91, 45, 142, 0.12);
+    --accent-purple-border: rgba(91, 45, 142, 0.2);
+    --accent-purple-border-hover: rgba(91, 45, 142, 0.3);
+    --accent-purple-glow: rgba(91, 45, 142, 0.04);
+    --accent-purple-line: rgba(168, 139, 212, 0.18);
+    --accent-purple-text-soft: rgba(168, 139, 212, 0.65);
+
+    --success-bg: rgba(50, 160, 80, 0.06);
+    --success-border: rgba(50, 160, 80, 0.2);
+    --success-text: #6ccf8a;
+
+    --danger-bg: rgba(200, 50, 50, 0.06);
+    --danger-border: rgba(200, 50, 50, 0.2);
+    --danger-border-hover: rgba(200, 50, 50, 0.35);
+    --danger-text: #e07070;
+
+    --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.2);
+    --modal-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
   }
 
   html[data-theme="dark"] body {
-    background-color: var(--paper);
-    background-image:
-      radial-gradient(circle at 18% 12%, rgba(243, 238, 221, 0.04) 0, transparent 42%),
-      radial-gradient(circle at 82% 88%, rgba(243, 238, 221, 0.03) 0, transparent 42%),
-      linear-gradient(180deg, #15140f 0%, #1a1812 100%);
-    background-size: auto, auto, auto;
+    background-color: var(--bg);
+    /* A single, faint purple radial glow at the top — sacred quiet */
+    background-image: radial-gradient(
+      ellipse 70% 50% at 50% 0%,
+      var(--accent-purple-glow) 0%,
+      transparent 70%
+    );
+    background-size: auto;
   }
 
-  html[data-theme="dark"] body::before,
+  /* Replace the light-mode curved-line ornaments with a matte fractalNoise
+     grain overlay for the dark sacred aesthetic. */
+  html[data-theme="dark"] body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.85 0'/></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+    background-size: 240px 240px;
+    background-repeat: repeat;
+    mix-blend-mode: normal;
+  }
+
   html[data-theme="dark"] body::after {
-    opacity: 0.18;
-    mix-blend-mode: screen;
+    display: none;
   }
 
   html,
@@ -856,6 +957,352 @@
 
   .vf-icon-eucharist {
     color: var(--eucharist-gold);
+  }
+
+  /* ================================================================
+     Dark-mode overrides — sacred, quiet, matte, purple-accented.
+     Light-mode rules above remain unchanged; everything below only
+     applies under html[data-theme="dark"].
+     ================================================================ */
+
+  html[data-theme="dark"] .vf-rule {
+    background: var(--accent-purple-line);
+    opacity: 1;
+  }
+
+  html[data-theme="dark"] .vf-eyebrow {
+    color: var(--text-muted);
+  }
+
+  html[data-theme="dark"] .vf-card {
+    background: var(--card-bg);
+    border-color: var(--border-card);
+    box-shadow: var(--card-shadow);
+    backdrop-filter: none;
+  }
+
+  html[data-theme="dark"] .vf-card:hover {
+    border-color: var(--border-hover);
+  }
+
+  html[data-theme="dark"] .vf-nav-link {
+    color: var(--text-muted);
+    padding: 0.4rem 0.85rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    transition:
+      color var(--transition-normal) ease,
+      background-color var(--transition-normal) ease,
+      border-color var(--transition-normal) ease;
+  }
+
+  html[data-theme="dark"] .vf-nav-link:hover {
+    color: var(--text-main);
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+
+  html[data-theme="dark"] .vf-nav-link[aria-current="page"] {
+    color: var(--text-main);
+    background: var(--accent-purple-soft);
+    border-color: var(--accent-purple-border);
+  }
+
+  /* Buttons — translucent surfaces with thin borders. Primary picks up
+     the soft purple wash. */
+  html[data-theme="dark"] .vf-btn-primary {
+    background: var(--accent-purple-soft);
+    color: var(--text-main);
+    border-color: var(--accent-purple-border);
+  }
+
+  html[data-theme="dark"] .vf-btn-primary:hover:not(:disabled) {
+    background: var(--accent-purple-hover);
+    border-color: var(--accent-purple-border-hover);
+  }
+
+  html[data-theme="dark"] .vf-btn-ghost {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-main);
+    border-color: var(--border);
+  }
+
+  html[data-theme="dark"] .vf-btn-ghost:hover:not(:disabled) {
+    background: var(--card-bg-hover);
+    border-color: var(--border-hover);
+  }
+
+  html[data-theme="dark"] .vf-btn-cancel {
+    background: transparent;
+    color: var(--text-muted);
+    border-color: var(--border);
+  }
+
+  html[data-theme="dark"] .vf-btn-cancel:hover:not(:disabled) {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--border-hover);
+  }
+
+  html[data-theme="dark"] .vf-btn-danger {
+    background: var(--danger-bg);
+    color: var(--danger-text);
+    border-color: var(--danger-border);
+  }
+
+  html[data-theme="dark"] .vf-btn-danger:hover:not(:disabled) {
+    background: var(--danger-bg);
+    border-color: var(--danger-border-hover);
+    color: var(--danger-text);
+  }
+
+  html[data-theme="dark"] .vf-link-danger {
+    color: var(--danger-text);
+  }
+
+  html[data-theme="dark"] .vf-link-danger:hover {
+    color: var(--text-main);
+  }
+
+  /* Forms — dark sunken inputs with a sacred purple focus. */
+  html[data-theme="dark"] .vf-input {
+    background: var(--surface-input);
+    color: var(--text-main);
+    border-color: var(--border);
+  }
+
+  html[data-theme="dark"] .vf-input:hover {
+    border-color: var(--border-hover);
+  }
+
+  html[data-theme="dark"] .vf-input:focus {
+    border-color: rgba(91, 45, 142, 0.25);
+    box-shadow: 0 0 0 3px rgba(91, 45, 142, 0.12);
+  }
+
+  html[data-theme="dark"] .vf-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.6;
+  }
+
+  html[data-theme="dark"] .vf-label {
+    color: var(--text-muted);
+  }
+
+  html[data-theme="dark"] .vf-header-search {
+    border-bottom-color: var(--border);
+  }
+
+  html[data-theme="dark"] .vf-header-search:focus-within {
+    border-bottom-color: var(--text-main);
+  }
+
+  html[data-theme="dark"] .vf-header-search-input {
+    color: var(--text-main);
+  }
+
+  html[data-theme="dark"] .vf-header-search-input::placeholder {
+    color: var(--text-muted);
+  }
+
+  html[data-theme="dark"] .vf-ornament {
+    color: var(--text-muted-faint);
+  }
+
+  html[data-theme="dark"] .vf-drop-cap::first-letter {
+    color: var(--text-main);
+  }
+
+  /* Avatars */
+  html[data-theme="dark"] .vf-avatar {
+    background: var(--surface-soft);
+    border-color: var(--border);
+    color: var(--text-main);
+  }
+
+  html[data-theme="dark"] .vf-avatar-edit {
+    background: var(--accent-purple);
+    border-color: var(--bg-modal);
+    color: var(--text-main);
+  }
+
+  html[data-theme="dark"] .vf-avatar-status-info {
+    color: var(--text-soft);
+  }
+
+  html[data-theme="dark"] .vf-avatar-status-error {
+    color: var(--danger-text);
+  }
+
+  /* Tooltip */
+  html[data-theme="dark"] .vf-tooltip[data-tooltip]::after {
+    background: var(--bg-modal);
+    color: var(--text-main);
+    border: 1px solid var(--border-modal);
+  }
+
+  /* Modal */
+  html[data-theme="dark"] .vf-modal-backdrop {
+    background: rgba(0, 0, 0, 0.75);
+  }
+
+  html[data-theme="dark"] .vf-modal {
+    background: var(--bg-modal);
+    border-color: var(--border-modal);
+    box-shadow: var(--modal-shadow);
+    color: var(--text-main);
+  }
+
+  html[data-theme="dark"] .vf-modal-title {
+    color: var(--text-main);
+  }
+
+  html[data-theme="dark"] .vf-modal-body {
+    color: var(--text-body);
+  }
+
+  /* Expandables + timeline */
+  html[data-theme="dark"] .vf-expandable {
+    border-bottom-color: var(--border-card);
+  }
+
+  html[data-theme="dark"] .vf-expandable-trigger {
+    color: var(--text-main);
+  }
+
+  html[data-theme="dark"] .vf-expandable-trigger:hover,
+  html[data-theme="dark"] .vf-expandable-trigger:focus-visible {
+    color: var(--accent-purple-link);
+  }
+
+  html[data-theme="dark"] .vf-expandable-arrow {
+    color: var(--text-muted);
+  }
+
+  html[data-theme="dark"] .vf-expandable-body {
+    color: var(--text-soft);
+  }
+
+  html[data-theme="dark"] .vf-timeline-event {
+    border-left-color: var(--accent-purple-line);
+  }
+
+  html[data-theme="dark"] .vf-timeline-event:hover {
+    border-left-color: var(--accent-purple-link);
+  }
+
+  html[data-theme="dark"] .vf-timeline-trigger {
+    color: var(--text-main);
+  }
+
+  html[data-theme="dark"] .vf-timeline-trigger:hover,
+  html[data-theme="dark"] .vf-timeline-trigger:focus-visible {
+    color: var(--accent-purple-link);
+  }
+
+  html[data-theme="dark"] .vf-timeline-date,
+  html[data-theme="dark"] .vf-timeline-meta-label,
+  html[data-theme="dark"] .vf-timeline-section-title {
+    color: var(--text-muted);
+  }
+
+  html[data-theme="dark"] .vf-timeline-meta,
+  html[data-theme="dark"] .vf-timeline-section-body {
+    color: var(--text-soft);
+  }
+
+  /* Login-required popup */
+  html[data-theme="dark"] .vf-login-popup-backdrop {
+    background: rgba(0, 0, 0, 0.75);
+  }
+
+  html[data-theme="dark"] .vf-login-popup {
+    background: var(--bg-modal);
+    border-color: var(--border-modal);
+    box-shadow: var(--modal-shadow);
+  }
+
+  html[data-theme="dark"] .vf-login-popup-msg {
+    color: var(--text-main);
+  }
+
+  html[data-theme="dark"] .vf-login-popup-link {
+    color: var(--accent-purple-link);
+  }
+
+  html[data-theme="dark"] .vf-login-popup-link:hover,
+  html[data-theme="dark"] .vf-login-popup-link:focus-visible {
+    color: var(--text-main);
+  }
+
+  html[data-theme="dark"] .vf-login-popup-sep {
+    color: var(--text-muted);
+  }
+
+  html[data-theme="dark"] .vf-login-popup-close {
+    color: var(--text-muted);
+  }
+
+  html[data-theme="dark"] .vf-login-popup-close:hover,
+  html[data-theme="dark"] .vf-login-popup-close:focus-visible {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-main);
+  }
+
+  /* Mobile menu */
+  html[data-theme="dark"] .vf-mobile-menu-toggle:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  html[data-theme="dark"] .vf-mobile-menu-toggle[aria-expanded="true"] {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--border-hover);
+  }
+
+  html[data-theme="dark"] .vf-mobile-menu-link {
+    color: var(--text-soft);
+  }
+
+  html[data-theme="dark"] .vf-mobile-menu-link:hover,
+  html[data-theme="dark"] .vf-mobile-menu-link:focus-visible {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-main);
+  }
+
+  html[data-theme="dark"] .vf-mobile-menu-link-active {
+    color: var(--text-main);
+    background: var(--accent-purple-soft);
+  }
+
+  /* Header avatar */
+  html[data-theme="dark"] .vf-header-avatar {
+    background: var(--surface-soft);
+    border-color: var(--border);
+  }
+
+  html[data-theme="dark"] .vf-header-avatar:hover,
+  html[data-theme="dark"] .vf-header-avatar:focus-visible {
+    border-color: var(--accent-purple-border-hover);
+    box-shadow: 0 0 0 2px rgba(91, 45, 142, 0.18);
+  }
+
+  /* Sacrament accents adopt the purple-link tone in dark mode */
+  html[data-theme="dark"] .vf-icon-marian {
+    color: var(--accent-purple-link);
+  }
+
+  /* Content links inside long-form copy take the soft purple link tone */
+  html[data-theme="dark"] .vf-content a,
+  html[data-theme="dark"] .prose a {
+    color: var(--accent-purple-link);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-color: rgba(168, 139, 212, 0.3);
+  }
+
+  html[data-theme="dark"] .vf-content a:hover,
+  html[data-theme="dark"] .prose a:hover {
+    color: var(--text-main);
+    text-decoration-color: var(--text-main);
   }
 }
 

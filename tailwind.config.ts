@@ -6,15 +6,15 @@ const config: Config = {
     extend: {
       colors: {
         paper: {
-          DEFAULT: "#fbf8f1",
-          warm: "#f5efe3",
-          bright: "#ffffff",
+          DEFAULT: "rgb(var(--paper-rgb) / <alpha-value>)",
+          warm: "rgb(var(--paper-warm-rgb) / <alpha-value>)",
+          bright: "rgb(var(--paper-bright-rgb) / <alpha-value>)",
         },
         ink: {
-          DEFAULT: "#111111",
-          deep: "#0a0a0a",
-          soft: "#2a2a2a",
-          faint: "#4a4a4a",
+          DEFAULT: "rgb(var(--ink-rgb) / <alpha-value>)",
+          deep: "rgb(var(--ink-deep-rgb) / <alpha-value>)",
+          soft: "rgb(var(--ink-soft-rgb) / <alpha-value>)",
+          faint: "rgb(var(--ink-faint-rgb) / <alpha-value>)",
         },
         stone: {
           ash: "#e8e2d4",
@@ -22,10 +22,10 @@ const config: Config = {
           whisper: "#efeadf",
         },
         liturgical: {
-          blue: "#1f3a8a",
+          blue: "rgb(var(--liturgical-blue-rgb) / <alpha-value>)",
           blueLight: "#7aa7dc",
-          gold: "#b68d40",
-          red: "#8b1a1a",
+          gold: "rgb(var(--liturgical-gold-rgb) / <alpha-value>)",
+          red: "rgb(var(--liturgical-red-rgb) / <alpha-value>)",
         },
       },
       fontFamily: {
