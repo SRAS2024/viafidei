@@ -341,6 +341,25 @@ export function buildVaticanParishesCrawler(): SourceAdapter {
       "https://www.diomelb.org.au/our-diocese/parishes",
       "https://www.sydneycatholic.org/parishes/",
       "https://www.dublindiocese.ie/parishes-of-the-diocese/",
+      // Additional approved diocesan directories — broaden geographic
+      // coverage so the 20k-parish target can be reached without leaning
+      // on any one upstream.
+      "https://www.dphx.org/parishes/",
+      "https://www.dosp.org/parishes/",
+      "https://www.dioceseoftrenton.org/parishes",
+      "https://www.dioceseofbrooklyn.org/parishes/",
+      "https://www.rcdony.org/parishes",
+      "https://www.archomaha.org/parishes/",
+      "https://www.archindy.org/parishes",
+      "https://www.archdpdx.org/parishes",
+      "https://www.archkck.org/parishes",
+      // National / international Catholic parish-locator aggregators that
+      // republish bishops'-conference data:
+      "https://www.parishesonline.com/find-a-parish",
+      "https://masstimes.org/",
+      "https://www.thecatholicdirectory.com/",
+      "https://gcatholic.org/dioceses/",
+      "https://www.catholic-hierarchy.org/",
     ],
     linkFilter: (u) =>
       PARISH_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
@@ -523,6 +542,100 @@ export function buildCatholicPrayersCrawler(): SourceAdapter {
         defaultTitle: title,
         category: categorizePrayer({ title, body }),
         body,
+        externalSourceKey: urlToExternalKey(url),
+      };
+    },
+  });
+}
+
+/**
+ * Additional credible-Catholic prayer crawler — covers approved Catholic
+ * reference and publishing sites (EWTN, Catholic Culture, Knights of
+ * Columbus, religious orders) so the prayer catalog grows past what's
+ * available on bishops'-conference sites alone. Each upstream is in the
+ * source allowlist; non-allowlisted hosts are rejected at fetch time.
+ */
+export function buildCredibleCatholicPrayersCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "credible.prayers",
+    description:
+      "Prayers from credible Catholic publishing, religious-order and reference sites",
+    kind: "prayer",
+    indexUrls: [
+      "https://www.ewtn.com/catholicism/devotions",
+      "https://www.ewtn.com/catholicism/prayers",
+      "https://www.catholicculture.org/culture/library/prayers/",
+      "https://www.kofc.org/en/news-room/articles/prayers.html",
+      "https://www.thedivinemercy.org/message/devotions",
+      "https://www.marian.org/divinemercy/",
+      "https://www.dominicans.org/prayers/",
+      "https://www.franciscan.org/prayers/",
+      "https://www.jesuits.org/spirituality/",
+      "https://www.salesians.org/prayer-life",
+      "https://www.carmelites.com/prayers/",
+      "https://www.redemptorists.com/prayer-and-worship/",
+      "https://www.osv.com/category/prayer/",
+      "https://www.catholic.com/prayers",
+    ],
+    linkFilter: (u) =>
+      PRAYER_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
+      /prayer|litany|novena|devotion/i.test(u.pathname),
+    toItem: ({ url, title, description, bodyText }): IngestedPrayer | null => {
+      const body = bodyText || description || "";
+      if (body.length < 30) return null;
+      return {
+        kind: "prayer",
+        slug: buildSlug(title),
+        defaultTitle: title,
+        category: categorizePrayer({ title, body }),
+        body,
+        externalSourceKey: urlToExternalKey(url),
+      };
+    },
+  });
+}
+
+/**
+ * Additional saint-biography crawler — religious-order and Catholic
+ * reference sites that publish founders' biographies and feast-day
+ * profiles (Dominicans, Franciscans, etc.). Helps the saints catalog
+ * reach the 1,000-row target without leaning on any single upstream.
+ */
+export function buildCredibleCatholicSaintsCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "credible.saints",
+    description:
+      "Saint biographies from credible Catholic reference and religious-order sites",
+    kind: "saint",
+    indexUrls: [
+      "https://www.ewtn.com/catholicism/saints",
+      "https://www.catholicculture.org/culture/liturgicalyear/calendar/",
+      "https://www.dominicans.org/our-saints/",
+      "https://www.franciscan.org/saints/",
+      "https://www.jesuits.org/spirituality/saints-blesseds/",
+      "https://www.salesians.org/saints",
+      "https://www.carmelites.com/saints-blesseds/",
+      "https://www.redemptorists.com/saints-and-blessed/",
+      "https://www.osv.com/category/saints/",
+      "https://www.catholic.com/encyclopedia/saints",
+      "https://www.newadvent.org/cathen/13347a.htm", // New Advent: index of saints
+    ],
+    linkFilter: (u) =>
+      SAINT_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
+      /saint|santo|santa|blessed|martir|martyr/i.test(u.pathname),
+    toItem: ({ url, title, description, bodyText }): IngestedSaint | null => {
+      const biography = bodyText || description || "";
+      if (biography.length < 80) return null;
+      const canonicalName = title
+        .replace(/\s*[-|–]\s*(EWTN|Catholic Culture|OSV|New Advent).*/i, "")
+        .replace(/^Saint\s+/i, "Saint ")
+        .trim();
+      return {
+        kind: "saint",
+        slug: buildSlug(canonicalName),
+        canonicalName,
+        patronages: [],
+        biography,
         externalSourceKey: urlToExternalKey(url),
       };
     },
@@ -737,5 +850,10 @@ export function buildAllVaticanCrawlers(): SourceAdapter[] {
     buildVaticanTeachingCrawler(),
     buildVaticanGuidesCrawler(),
     buildVaticanHistoryCrawler(),
+    // Credible Catholic publishing / religious-order / reference adapters —
+    // every upstream is in the allowlist; they exist so the catalog can
+    // grow past what bishops'-conference sites alone publish.
+    buildCredibleCatholicPrayersCrawler(),
+    buildCredibleCatholicSaintsCrawler(),
   ];
 }

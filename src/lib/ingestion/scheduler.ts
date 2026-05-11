@@ -11,15 +11,23 @@ export type BacklogCounts = {
   parishes: number;
 };
 
+export type SchedulerMode = "constant" | "maintenance";
+
 /**
- * Returns the current published-content counts versus the configured
- * ingestion backlog targets. Used internally to decide whether the
- * scheduler should keep ticking aggressively.
+ * Returns the current content counts versus the configured ingestion
+ * backlog targets, and the scheduler mode that should follow.
+ *
+ * - mode `constant`  → at least one target is unmet; keep ticking aggressively.
+ * - mode `maintenance` → all minimums met; ingest only twice per week.
+ *
+ * Used internally to decide both whether to keep ticking and how to size
+ * the next interval. Public pages never expose these numbers.
  */
 export async function getBacklogProgress(): Promise<{
   counts: BacklogCounts;
   targets: BacklogCounts;
   metAll: boolean;
+  mode: SchedulerMode;
 }> {
   const targets = appConfig.ingestion.targets;
   const [prayers, saints, parishes] = await Promise.all([
@@ -30,7 +38,8 @@ export async function getBacklogProgress(): Promise<{
   const counts = { prayers, saints, parishes };
   const metAll =
     prayers >= targets.prayers && saints >= targets.saints && parishes >= targets.parishes;
-  return { counts, targets, metAll };
+  const mode: SchedulerMode = metAll ? "maintenance" : "constant";
+  return { counts, targets, metAll, mode };
 }
 
 export type SchedulerJobResult = {

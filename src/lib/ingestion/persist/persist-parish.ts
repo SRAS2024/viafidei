@@ -4,8 +4,9 @@ import { computeChecksum } from "../checksum";
 import { normalizeSlug } from "../slug";
 import type { IngestedParish } from "../types";
 import type { PersistOutcome } from "./persist-prayer";
+import { normalizeWebsiteIdentity } from "./dedup";
 
-async function findExistingParish(item: IngestedParish) {
+async function findExistingParish(item: IngestedParish, incomingChecksum: string) {
   const bySlug = await prisma.parish.findUnique({ where: { slug: item.slug } });
   if (bySlug) return bySlug;
   if (item.name && item.city && item.country) {
@@ -31,16 +32,38 @@ async function findExistingParish(item: IngestedParish) {
       where: { websiteUrl: item.websiteUrl },
     });
     if (byWebsite) return byWebsite;
+    // Two sources can publish the same parish under slightly different
+    // website spellings (with/without www., trailing slash, scheme). Walk
+    // a small candidate set and compare normalized website identities.
+    const normalizedSite = normalizeWebsiteIdentity(item.websiteUrl);
+    if (normalizedSite) {
+      const websiteCandidates = await prisma.parish.findMany({
+        where: { websiteUrl: { not: null } },
+        take: 200,
+        orderBy: { updatedAt: "desc" },
+      });
+      const match = websiteCandidates.find(
+        (c) => normalizeWebsiteIdentity(c.websiteUrl) === normalizedSite,
+      );
+      if (match) return match;
+    }
   }
+  // Body-level dedup: identical content checksum (same name + address +
+  // website + diocese) means the upstream is republishing the same record.
+  const byChecksum = await prisma.parish.findFirst({
+    where: { contentChecksum: incomingChecksum },
+  });
+  if (byChecksum) return byChecksum;
   // Final guard: catch the same parish where slug / website / external key all
-  // differ but the normalized name + city + country line up. This rolls up
-  // listings that come in slightly different formats from different sources.
+  // differ but the normalized name + city + region/country line up. This rolls
+  // up listings that come in slightly different formats from different sources.
   const normalizedName = normalizeSlug(item.name);
-  if (normalizedName && item.city && item.country) {
+  if (normalizedName && item.city && (item.region || item.country)) {
     const candidates = await prisma.parish.findMany({
       where: {
         city: item.city,
-        country: item.country,
+        ...(item.region ? { region: item.region } : {}),
+        ...(item.country ? { country: item.country } : {}),
       },
       take: 50,
     });
@@ -65,8 +88,8 @@ export async function persistParish(
   item: IngestedParish,
   initialStatus: ContentStatus,
 ): Promise<PersistOutcome> {
-  const existing = await findExistingParish(item);
   const incomingChecksum = computeChecksum(item);
+  const existing = await findExistingParish(item, incomingChecksum);
 
   if (existing) {
     if (existing.status === "PUBLISHED" || existing.status === "ARCHIVED") {

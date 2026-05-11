@@ -68,6 +68,16 @@ const ADAPTER_HOST_MAP: Record<string, { host: string; baseUrl: string; name: st
     baseUrl: "https://www.vatican.va",
     name: "The Holy See — Church History & Councils",
   },
+  "credible.prayers": {
+    host: "ewtn.com",
+    baseUrl: "https://www.ewtn.com",
+    name: "Credible Catholic — Prayers",
+  },
+  "credible.saints": {
+    host: "ewtn.com",
+    baseUrl: "https://www.ewtn.com",
+    name: "Credible Catholic — Saints",
+  },
 };
 
 const ADAPTER_TARGET_ENTITY: Record<string, string> = {
@@ -82,6 +92,8 @@ const ADAPTER_TARGET_ENTITY: Record<string, string> = {
   "vatican.teaching": "LiturgyEntry",
   "vatican.guides": "SpiritualLifeGuide",
   "vatican.history": "LiturgyEntry",
+  "credible.prayers": "Prayer",
+  "credible.saints": "Saint",
 };
 
 let registered = false;
@@ -204,6 +216,48 @@ function deriveName(host: string): string {
   if (host.includes("santacroce.it")) return "Pontifical University of the Holy Cross";
   if (host.includes("newadvent.org")) return "New Advent — Catholic Encyclopedia";
   if (host.includes("ccel.org")) return "Christian Classics Ethereal Library (Patristic)";
+  if (host.includes("thedivinemercy.org") || host.includes("marian.org"))
+    return "Marian Fathers — Divine Mercy";
+  if (host.includes("knightsofcolumbus.org") || host.includes("kofc.org"))
+    return "Knights of Columbus";
+  if (host.includes("dominicans.org")) return "Order of Preachers (Dominicans)";
+  if (host.includes("franciscan.org")) return "Franciscan Friars";
+  if (host.includes("jesuits.org")) return "Society of Jesus (Jesuits)";
+  if (host.includes("salesians.org")) return "Salesians of Don Bosco";
+  if (host.includes("carmelites.com") || host.includes("ocarm.org")) return "Carmelite Order";
+  if (host.includes("redemptorists.com")) return "Congregation of the Most Holy Redeemer";
+  if (host.includes("passionist.org")) return "Passionist Congregation";
+  if (host.includes("benedictine.org")) return "Benedictine Order";
+  if (host.includes("vincentians.org")) return "Congregation of the Mission (Vincentians)";
+  if (host.includes("augustinian.org")) return "Augustinian Order";
+  if (host.includes("fathersofmercy.com")) return "Fathers of Mercy";
+  if (host.includes("ignatius.com")) return "Ignatius Press";
+  if (host.includes("osv.com")) return "Our Sunday Visitor";
+  if (host.includes("tanbooks.com")) return "TAN Books";
+  if (host.includes("sophiainstitute.com")) return "Sophia Institute Press";
+  if (host.includes("scepterpublishers.org")) return "Scepter Publishers";
+  if (host.includes("catholicculture.org")) return "Catholic Culture";
+  if (host.includes("catholicnewsagency.com")) return "Catholic News Agency";
+  if (host.includes("ncregister.com")) return "National Catholic Register";
+  if (host.includes("catholicworldreport.com")) return "Catholic World Report";
+  if (host.includes("thecatholicthing.org")) return "The Catholic Thing";
+  if (host.includes("wordonfire.org")) return "Word on Fire";
+  if (host.includes("ascensionpress.com")) return "Ascension";
+  if (host.includes("catholic.com")) return "Catholic Answers";
+  if (host.includes("dphx.org")) return "Diocese of Phoenix";
+  if (host.includes("dosp.org")) return "Diocese of Saint Petersburg";
+  if (host.includes("dioceseoftrenton.org")) return "Diocese of Trenton";
+  if (host.includes("dioceseofbrooklyn.org")) return "Diocese of Brooklyn";
+  if (host.includes("rcdony.org")) return "Diocese of Ogdensburg";
+  if (host.includes("archomaha.org")) return "Archdiocese of Omaha";
+  if (host.includes("archindy.org")) return "Archdiocese of Indianapolis";
+  if (host.includes("archdpdx.org")) return "Archdiocese of Portland (OR)";
+  if (host.includes("archkck.org")) return "Archdiocese of Kansas City in Kansas";
+  if (host.includes("parishesonline.com")) return "Parishes Online (Catholic locator)";
+  if (host.includes("masstimes.org")) return "Mass-Times Catholic Directory";
+  if (host.includes("thecatholicdirectory.com")) return "The Catholic Directory";
+  if (host.includes("catholic-hierarchy.org")) return "Catholic-Hierarchy.org";
+  if (host.includes("gcatholic.org")) return "GCatholic Registry";
   return host;
 }
 

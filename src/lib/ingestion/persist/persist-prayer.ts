@@ -16,8 +16,12 @@ export async function persistPrayer(
   if (item.externalSourceKey) {
     orMatchers.push({ externalSourceKey: item.externalSourceKey });
   }
+  // Body-level dedup: identical content checksum means same prayer body.
   orMatchers.push({ contentChecksum: incomingChecksum });
   if (normalizedTitle) {
+    // Match a different existing row whose slug was generated from the
+    // same normalized title (covers accent / spacing variants) and whose
+    // displayed title is byte-identical.
     orMatchers.push({ slug: normalizedTitle });
     orMatchers.push({ defaultTitle: item.defaultTitle });
   }
