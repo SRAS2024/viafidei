@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
+import { Pagination } from "@/components/ui/Pagination";
 import { listPublishedLiturgyEntries } from "@/lib/data/liturgy";
 import { matchesRite, RITE_LABEL_KEYS } from "@/lib/content/rites";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
@@ -9,6 +10,8 @@ import { logPageError } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Liturgy & History" };
+
+const PAGE_SIZE = 9;
 
 const KIND_LABELS: Record<string, string> = {
   MASS_STRUCTURE: "Mass",
@@ -22,8 +25,13 @@ const KIND_LABELS: Record<string, string> = {
   GENERAL: "Formation",
 };
 
-export default async function LiturgyPage() {
+export default async function LiturgyPage({
+  searchParams,
+}: {
+  searchParams: { page?: string };
+}) {
   const { t, locale } = await getTranslator();
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   let entries: Awaited<ReturnType<typeof listPublishedLiturgyEntries>> = [];
   try {
     entries = await listPublishedLiturgyEntries(locale);
@@ -31,7 +39,13 @@ export default async function LiturgyPage() {
     logPageError({ route: "/liturgy-history", entityType: "LiturgyEntry", error: err });
   }
   const rite = await getRiteCookieValue();
-  const visibleEntries = entries.filter((e) => matchesRite(e.slug, rite));
+  const filteredEntries = entries.filter((e) => matchesRite(e.slug, rite));
+  const totalPages = Math.max(1, Math.ceil(filteredEntries.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const visibleEntries = filteredEntries.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
 
   return (
     <div>
@@ -58,26 +72,31 @@ export default async function LiturgyPage() {
       </Link>
 
       {visibleEntries.length > 0 ? (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleEntries.map((e) => {
-            const tr = e.translations[0];
-            const title = tr?.title ?? e.title;
-            const summary = tr?.summary ?? e.summary;
-            return (
-              <Link key={e.id} href={`/liturgy-history/${e.slug}`}>
-                <article className="vf-card h-full rounded-sm p-8 transition hover:border-ink/30 hover:-translate-y-0.5">
-                  <p className="vf-eyebrow">{KIND_LABELS[e.kind] ?? "Formation"}</p>
-                  <h2 className="mt-3 font-display text-2xl">{title}</h2>
-                  {summary ? (
-                    <p className="mt-3 line-clamp-3 font-serif text-sm text-ink-soft">{summary}</p>
-                  ) : null}
-                </article>
-              </Link>
-            );
-          })}
-        </div>
+        <>
+          <div className="grid gap-5 lg:grid-cols-3">
+            {visibleEntries.map((e) => {
+              const tr = e.translations[0];
+              const title = tr?.title ?? e.title;
+              const summary = tr?.summary ?? e.summary;
+              return (
+                <Link key={e.id} href={`/liturgy-history/${e.slug}`}>
+                  <article className="vf-card h-full rounded-sm p-8 transition hover:border-ink/30 hover:-translate-y-0.5">
+                    <p className="vf-eyebrow">{KIND_LABELS[e.kind] ?? "Formation"}</p>
+                    <h2 className="mt-3 font-display text-2xl">{title}</h2>
+                    {summary ? (
+                      <p className="mt-3 line-clamp-3 font-serif text-sm text-ink-soft">
+                        {summary}
+                      </p>
+                    ) : null}
+                  </article>
+                </Link>
+              );
+            })}
+          </div>
+          <Pagination basePath="/liturgy-history" page={safePage} totalPages={totalPages} />
+        </>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 lg:grid-cols-3">
           {LITURGY_ITEMS.map((i) => (
             <article key={i.key} className="vf-card rounded-sm p-8">
               <p className="vf-eyebrow">Formation</p>

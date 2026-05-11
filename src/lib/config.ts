@@ -35,11 +35,21 @@ export const appConfig = {
     /** Initial status assigned to ingested items. */
     initialStatus: "REVIEW" as const,
     /** Background scheduler tick interval (ms). */
-    intervalMs: 30 * 60 * 1000,
+    intervalMs: 10 * 60 * 1000,
     /** Delay before the first scheduled tick (ms). */
-    initialDelayMs: 5 * 60 * 1000,
+    initialDelayMs: 2 * 60 * 1000,
     /** When true, the in-process scheduler does not start. */
-    schedulerDisabled: true,
+    schedulerDisabled: false,
+    /**
+     * Backlog targets — when the scheduler runs and the live count is below
+     * any of these thresholds, the runner keeps ticking on a tighter loop.
+     * Public pages never expose these numbers.
+     */
+    targets: {
+      prayers: 300,
+      saints: 1_000,
+      parishes: 20_000,
+    },
   },
   email: {
     /**

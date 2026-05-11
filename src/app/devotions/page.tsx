@@ -1,20 +1,33 @@
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
-import { listPublishedDevotions } from "@/lib/data/devotions";
+import { Pagination } from "@/components/ui/Pagination";
+import { listPublishedDevotionsPaginated } from "@/lib/data/devotions";
 import { logPageError } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Devotions" };
 
-export default async function DevotionsPage() {
+export default async function DevotionsPage({
+  searchParams,
+}: {
+  searchParams: { page?: string };
+}) {
   const { t, locale } = await getTranslator();
-  let devotions: Awaited<ReturnType<typeof listPublishedDevotions>> = [];
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  let result: Awaited<ReturnType<typeof listPublishedDevotionsPaginated>> = {
+    items: [],
+    total: 0,
+    page,
+    pageSize: 0,
+    totalPages: 0,
+  };
   try {
-    devotions = await listPublishedDevotions(locale);
+    result = await listPublishedDevotionsPaginated(locale, page);
   } catch (err) {
     logPageError({ route: "/devotions", entityType: "Devotion", error: err });
   }
+  const { items: devotions, totalPages } = result;
 
   return (
     <div>
@@ -24,7 +37,7 @@ export default async function DevotionsPage() {
         subtitle={t("devotions.subtitle")}
       />
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-3">
         {devotions.length === 0 ? (
           <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
             Devotion library will appear here as it is seeded and published.
@@ -46,6 +59,8 @@ export default async function DevotionsPage() {
           })
         )}
       </div>
+
+      <Pagination basePath="/devotions" page={result.page} totalPages={totalPages} />
     </div>
   );
 }

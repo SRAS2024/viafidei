@@ -4,7 +4,8 @@ import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedSpiritualLifeGuideBySlug } from "@/lib/data/spiritual-life";
 import { resolveGuidePrayers, type GuidePrayerEntry } from "@/lib/data/guide-prayers";
 import { requireUser } from "@/lib/auth";
-import { ExpandablePrayer, AccountRequiredButton } from "@/components/ui";
+import { ExpandablePrayer } from "@/components/ui";
+import { AddGoalButton } from "../_components";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 
@@ -144,13 +145,16 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
 
       {guide.goalTemplateSlug ? (
         <div className="mt-10 text-center">
-          <AccountRequiredButton
+          <AddGoalButton
             isAuthed={!!user}
-            href="/profile/goals"
+            title={title}
+            summary={summary}
+            templateSlug={guide.goalTemplateSlug}
+            steps={steps}
             className="vf-btn vf-btn-primary"
           >
             {t("spiritualLife.addGoal")}
-          </AccountRequiredButton>
+          </AddGoalButton>
         </div>
       ) : null}
     </div>

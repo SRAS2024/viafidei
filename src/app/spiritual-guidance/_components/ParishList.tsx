@@ -26,7 +26,68 @@ type Props = {
 };
 
 const STORAGE_PERMISSION_KEY = "vf-parish-location-permission";
+const PAGE_SIZE = 9;
 type StoredPermission = "granted" | "denied" | "prompt";
+
+function PageButtons({
+  page,
+  totalPages,
+  onSelect,
+}: {
+  page: number;
+  totalPages: number;
+  onSelect: (next: number) => void;
+}) {
+  if (totalPages <= 1) return null;
+  const pages: Array<number | "…"> = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    const left = Math.max(2, page - 1);
+    const right = Math.min(totalPages - 1, page + 1);
+    if (left > 2) pages.push("…");
+    for (let i = left; i <= right; i++) pages.push(i);
+    if (right < totalPages - 1) pages.push("…");
+    pages.push(totalPages);
+  }
+  return (
+    <nav className="mt-8 flex items-center justify-center gap-2" aria-label="Pagination">
+      {pages.map((p, idx) => {
+        if (p === "…") {
+          return (
+            <span
+              key={`gap-${idx}`}
+              aria-hidden="true"
+              className="px-2 font-serif text-sm text-ink-faint"
+            >
+              …
+            </span>
+          );
+        }
+        const isCurrent = p === page;
+        const classes = [
+          "inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-sm border px-3 font-serif text-sm transition",
+          isCurrent
+            ? "border-ink/40 bg-ink/5 text-ink"
+            : "border-ink/15 text-ink-soft hover:border-ink/30 hover:text-ink",
+        ].join(" ");
+        return (
+          <button
+            type="button"
+            key={p}
+            onClick={() => onSelect(p)}
+            className={classes}
+            aria-current={isCurrent ? "page" : undefined}
+            aria-label={`Page ${p}`}
+          >
+            {p}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
 
 function readStoredPermission(): StoredPermission {
   if (typeof window === "undefined") return "prompt";
@@ -71,7 +132,14 @@ export function ParishList({ parishes, placeholder }: Props) {
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [storedPermission, setStoredPermission] = useState<StoredPermission>("prompt");
+  const [searchPage, setSearchPage] = useState(1);
+  const [catalogPage, setCatalogPage] = useState(1);
+  const [nearbyPage, setNearbyPage] = useState(1);
   const lastSearchRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    setSearchPage(1);
+  }, [q]);
 
   // First render: read persisted permission. If previously granted, silently
   // re-use the device location so we don't re-prompt on every visit.
@@ -270,8 +338,8 @@ export function ParishList({ parishes, placeholder }: Props) {
       {showNearby && nearby && nearby.length > 0 ? (
         <section className="mb-10">
           <h2 className="mb-4 font-display text-2xl">Parishes near you</h2>
-          <div className="grid gap-5 md:grid-cols-2">
-            {nearby.map((entry) => (
+          <div className="grid gap-5 lg:grid-cols-3">
+            {nearby.slice((nearbyPage - 1) * PAGE_SIZE, nearbyPage * PAGE_SIZE).map((entry) => (
               <ParishCard
                 key={entry.parish.slug}
                 parish={entry.parish}
@@ -279,41 +347,63 @@ export function ParishList({ parishes, placeholder }: Props) {
               />
             ))}
           </div>
+          <PageButtons
+            page={nearbyPage}
+            totalPages={Math.max(1, Math.ceil(nearby.length / PAGE_SIZE))}
+            onSelect={setNearbyPage}
+          />
         </section>
       ) : null}
 
       {searchResults ? (
-        <div className="grid gap-5 md:grid-cols-2">
-          {searchResults.length === 0 ? (
-            <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
-              {searchingGlobal ? (
-                <p>Searching…</p>
-              ) : (
-                <>
-                  <p>No parishes match your search.</p>
-                  <p className="mt-2 text-xs">
-                    Try a different city, region, or country — the locator searches Catholic
-                    directories worldwide.
-                  </p>
-                </>
-              )}
-            </div>
-          ) : (
-            searchResults.map((p) => <ParishCard key={p.slug} parish={p} />)
-          )}
-        </div>
+        <>
+          <div className="grid gap-5 lg:grid-cols-3">
+            {searchResults.length === 0 ? (
+              <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
+                {searchingGlobal ? (
+                  <p>Searching…</p>
+                ) : (
+                  <>
+                    <p>No parishes match your search.</p>
+                    <p className="mt-2 text-xs">
+                      Try a different city, region, or country.
+                    </p>
+                  </>
+                )}
+              </div>
+            ) : (
+              searchResults
+                .slice((searchPage - 1) * PAGE_SIZE, searchPage * PAGE_SIZE)
+                .map((p) => <ParishCard key={p.slug} parish={p} />)
+            )}
+          </div>
+          <PageButtons
+            page={searchPage}
+            totalPages={Math.max(1, Math.ceil(searchResults.length / PAGE_SIZE))}
+            onSelect={setSearchPage}
+          />
+        </>
       ) : (
-        <div className="grid gap-5 md:grid-cols-2">
-          {parishes.length === 0 ? (
-            <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
-              {coords
-                ? "No parishes found nearby. Try increasing the search radius or searching by city."
-                : "Use your device location, or type a city, region, or country to find parishes worldwide."}
-            </div>
-          ) : (
-            parishes.map((p) => <ParishCard key={p.slug} parish={p} />)
-          )}
-        </div>
+        <>
+          <div className="grid gap-5 lg:grid-cols-3">
+            {parishes.length === 0 ? (
+              <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
+                {coords
+                  ? "No parishes found nearby. Try increasing the search radius or searching by city."
+                  : "Use your device location, or type a city, region, or country to find parishes worldwide."}
+              </div>
+            ) : (
+              parishes
+                .slice((catalogPage - 1) * PAGE_SIZE, catalogPage * PAGE_SIZE)
+                .map((p) => <ParishCard key={p.slug} parish={p} />)
+            )}
+          </div>
+          <PageButtons
+            page={catalogPage}
+            totalPages={Math.max(1, Math.ceil(parishes.length / PAGE_SIZE))}
+            onSelect={setCatalogPage}
+          />
+        </>
       )}
     </>
   );

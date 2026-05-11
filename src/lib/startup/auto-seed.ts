@@ -100,6 +100,22 @@ async function callIngestionEndpoint(): Promise<void> {
   }
 }
 
+async function backlogMet(): Promise<boolean> {
+  try {
+    const { targets } = appConfig.ingestion;
+    const [prayers, saints, parishes] = await Promise.all([
+      prisma.prayer.count(),
+      prisma.saint.count(),
+      prisma.parish.count(),
+    ]);
+    return (
+      prayers >= targets.prayers && saints >= targets.saints && parishes >= targets.parishes
+    );
+  } catch {
+    return true;
+  }
+}
+
 function scheduleIngestion(): void {
   if (scheduled) return;
   scheduled = true;
@@ -109,19 +125,28 @@ function scheduleIngestion(): void {
     return;
   }
 
-  const intervalMs = appConfig.ingestion.intervalMs;
+  const baseIntervalMs = appConfig.ingestion.intervalMs;
   const initialDelayMs = appConfig.ingestion.initialDelayMs;
+  // While the published content backlog is under target, tick four times
+  // faster to fill the database more aggressively.
+  const burstIntervalMs = Math.max(60_000, Math.floor(baseIntervalMs / 4));
 
   console.log(
-    `[scheduler] background ingestion scheduled — initial ${Math.round(initialDelayMs / 1000)}s, interval ${Math.round(intervalMs / 1000)}s`,
+    `[scheduler] background ingestion scheduled — initial ${Math.round(initialDelayMs / 1000)}s, interval ${Math.round(baseIntervalMs / 1000)}s (burst ${Math.round(burstIntervalMs / 1000)}s while below target)`,
   );
 
+  let currentTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const tick = async () => {
+    await callIngestionEndpoint();
+    const met = await backlogMet();
+    const next = met ? baseIntervalMs : burstIntervalMs;
+    currentTimer = setTimeout(tick, next);
+    if (typeof currentTimer.unref === "function") currentTimer.unref();
+  };
+
   const initialTimer = setTimeout(() => {
-    void callIngestionEndpoint();
-    const tickTimer = setInterval(() => {
-      void callIngestionEndpoint();
-    }, intervalMs);
-    if (typeof tickTimer.unref === "function") tickTimer.unref();
+    void tick();
   }, initialDelayMs);
   if (typeof initialTimer.unref === "function") initialTimer.unref();
 }

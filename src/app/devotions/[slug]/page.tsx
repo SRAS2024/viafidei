@@ -2,9 +2,11 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedDevotionBySlug } from "@/lib/data/devotions";
+import { resolveGuidePrayers, type GuidePrayerEntry } from "@/lib/data/guide-prayers";
 import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
+import { ExpandablePrayer } from "@/components/ui";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 
@@ -39,6 +41,15 @@ async function safeIsSaved(userId: string, devotionId: string): Promise<boolean>
   }
 }
 
+async function safeResolveSteps(slug: string, locale: string): Promise<GuidePrayerEntry[]> {
+  try {
+    return await resolveGuidePrayers(slug, locale as never);
+  } catch (err) {
+    logger.warn("devotion.resolve_steps_failed", { slug, error: (err as Error).message });
+    return [];
+  }
+}
+
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
   const d = await safeGetDevotion(params.slug, locale);
@@ -67,6 +78,7 @@ export default async function DevotionDetailPage({ params }: Props) {
   const title = tr?.title ?? devotion.title;
   const summary = tr?.summary ?? devotion.summary;
   const practiceText = tr?.practiceText ?? devotion.practiceText;
+  const steps = await safeResolveSteps(devotion.slug, locale);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -103,6 +115,20 @@ export default async function DevotionDetailPage({ params }: Props) {
             {practiceText}
           </p>
         </article>
+      ) : null}
+
+      {steps.length > 0 ? (
+        <section className="mt-10 vf-card rounded-sm p-6 sm:p-8">
+          <h2 className="mb-2 font-display text-2xl">Prayers in this devotion</h2>
+          <p className="mb-4 font-serif text-sm text-ink-faint">
+            Tap any prayer to read its full text.
+          </p>
+          <div>
+            {steps.map((p) => (
+              <ExpandablePrayer key={p.slug} title={p.title} body={p.body} />
+            ))}
+          </div>
+        </section>
       ) : null}
     </div>
   );

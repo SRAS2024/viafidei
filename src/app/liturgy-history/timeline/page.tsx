@@ -88,14 +88,6 @@ export default async function ChurchHistoryTimelinePage() {
         })}
       </div>
 
-      <p className="mt-10 text-center font-serif text-xs text-ink-faint">
-        Timeline content is curated through the dynamic content injection system from approved
-        Catholic sources (Holy See, conferences of bishops, pontifical institutes). See{" "}
-        <Link href="/admin/sources" className="underline">
-          approved sources
-        </Link>{" "}
-        for the current allowlist.
-      </p>
     </div>
   );
 }

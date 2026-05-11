@@ -1,6 +1,7 @@
 import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { computeChecksum } from "../checksum";
+import { normalizeSlug } from "../slug";
 import type { IngestedSaint } from "../types";
 import type { PersistOutcome } from "./persist-prayer";
 
@@ -11,7 +12,19 @@ async function findExistingSaint(item: IngestedSaint) {
     });
     if (byKey) return byKey;
   }
-  return prisma.saint.findUnique({ where: { slug: item.slug } });
+  const bySlug = await prisma.saint.findUnique({ where: { slug: item.slug } });
+  if (bySlug) return bySlug;
+  // Same person re-encountered with a different slug variant (accents,
+  // spacing, suffixes) — match on the slug-normalized canonical name so
+  // we never insert "saint-anthony-of-padua" twice.
+  const normalized = normalizeSlug(item.canonicalName);
+  if (normalized) {
+    const byName = await prisma.saint.findFirst({
+      where: { OR: [{ slug: normalized }, { canonicalName: item.canonicalName }] },
+    });
+    if (byName) return byName;
+  }
+  return null;
 }
 
 export async function persistSaint(

@@ -1,4 +1,5 @@
 import { prisma } from "../db/client";
+import { getGoalTemplate } from "./goal-templates";
 import type { GoalStatus, MilestoneTier } from "@prisma/client";
 
 export type GoalLookup<T> =
@@ -33,21 +34,44 @@ export async function createGoal(input: {
   templateSlug?: string | null;
   checklist?: { label: string }[];
 }) {
+  // When a templateSlug is supplied without a custom checklist (or with an
+  // empty one) we look the template up and pre-fill the checklist, due date,
+  // and description from it. Callers can still override any of these by
+  // passing their own values.
+  let description = input.description ?? null;
+  let dueDate = input.dueDate ?? null;
+  let checklist = input.checklist;
+  if (input.templateSlug) {
+    const template = getGoalTemplate(input.templateSlug);
+    if (template) {
+      if (!checklist || checklist.length === 0) {
+        checklist = template.checklist.map((label) => ({ label }));
+      }
+      if (!dueDate && template.defaultDurationDays) {
+        dueDate = new Date(Date.now() + template.defaultDurationDays * 24 * 60 * 60 * 1000);
+      }
+      if (!description) {
+        description = template.description;
+      }
+    }
+  }
+
   return prisma.goal.create({
     data: {
       userId: input.userId,
       title: input.title,
-      description: input.description ?? null,
-      dueDate: input.dueDate ?? null,
+      description,
+      dueDate,
       templateSlug: input.templateSlug ?? null,
-      checklist: input.checklist
-        ? {
-            create: input.checklist.map((item, index) => ({
-              label: item.label,
-              sortOrder: index,
-            })),
-          }
-        : undefined,
+      checklist:
+        checklist && checklist.length > 0
+          ? {
+              create: checklist.map((item, index) => ({
+                label: item.label,
+                sortOrder: index,
+              })),
+            }
+          : undefined,
     },
     include: GOAL_INCLUDE,
   });
