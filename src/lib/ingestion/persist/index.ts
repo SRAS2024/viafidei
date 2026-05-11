@@ -11,7 +11,12 @@ import { applyTagsToEntity } from "./persist-tags";
 import { dedupeBatch } from "./dedup";
 
 export type { PersistOutcome } from "./persist-prayer";
-export { dedupeBatch, normalizeExternalKey } from "./dedup";
+export {
+  dedupeBatch,
+  normalizeExternalKey,
+  normalizeWebsiteIdentity,
+  normalizeParishIdentity,
+} from "./dedup";
 
 export type PersistResult = {
   created: number;

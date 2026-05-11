@@ -34,22 +34,32 @@ export const appConfig = {
     httpTimeoutMs: 15_000,
     /** Initial status assigned to ingested items. */
     initialStatus: "REVIEW" as const,
-    /** Background scheduler tick interval (ms). */
+    /** Background scheduler tick interval (ms) while below targets. */
     intervalMs: 10 * 60 * 1000,
     /** Delay before the first scheduled tick (ms). */
     initialDelayMs: 2 * 60 * 1000,
     /** When true, the in-process scheduler does not start. */
     schedulerDisabled: false,
     /**
-     * Backlog targets — when the scheduler runs and the live count is below
-     * any of these thresholds, the runner keeps ticking on a tighter loop.
-     * Public pages never expose these numbers.
+     * Backlog targets. While the database is below ANY of these
+     * thresholds the scheduler stays in `constant` mode and keeps
+     * ticking aggressively. Once all three are met the scheduler
+     * switches to `maintenance` mode and runs the upstream check on
+     * the cadence below. Public pages never expose these numbers.
      */
     targets: {
       prayers: 300,
       saints: 1_000,
       parishes: 20_000,
     },
+    /**
+     * Maintenance-mode cadence: after the targets are met we still
+     * want to catch new credible Catholic content without scraping
+     * constantly. Twice per week (≈84h) is enough to pick up newly
+     * published prayers / saint biographies / parish listings without
+     * unnecessary background activity. Public pages never expose this.
+     */
+    maintenanceIntervalMs: 84 * 60 * 60 * 1000,
   },
   email: {
     /**

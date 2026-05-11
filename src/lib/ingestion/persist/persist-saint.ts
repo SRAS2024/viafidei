@@ -5,7 +5,7 @@ import { normalizeSlug } from "../slug";
 import type { IngestedSaint } from "../types";
 import type { PersistOutcome } from "./persist-prayer";
 
-async function findExistingSaint(item: IngestedSaint) {
+async function findExistingSaint(item: IngestedSaint, incomingChecksum: string) {
   if (item.externalSourceKey) {
     const byKey = await prisma.saint.findUnique({
       where: { externalSourceKey: item.externalSourceKey },
@@ -24,6 +24,12 @@ async function findExistingSaint(item: IngestedSaint) {
     });
     if (byName) return byName;
   }
+  // Body-level dedup: same biography text from two different upstream URLs
+  // produces the same content checksum — collapse them onto one row.
+  const byChecksum = await prisma.saint.findFirst({
+    where: { contentChecksum: incomingChecksum },
+  });
+  if (byChecksum) return byChecksum;
   return null;
 }
 
@@ -31,8 +37,8 @@ export async function persistSaint(
   item: IngestedSaint,
   initialStatus: ContentStatus,
 ): Promise<PersistOutcome> {
-  const existing = await findExistingSaint(item);
   const incomingChecksum = computeChecksum(item);
+  const existing = await findExistingSaint(item, incomingChecksum);
 
   if (existing) {
     if (existing.status === "PUBLISHED" || existing.status === "ARCHIVED") {

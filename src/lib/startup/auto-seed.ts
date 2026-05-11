@@ -116,6 +116,19 @@ async function backlogMet(): Promise<boolean> {
   }
 }
 
+/**
+ * Schedules background ingestion in two modes:
+ *
+ *   - `constant`   — at least one of the prayer / saint / parish targets is
+ *     unmet. The scheduler ticks aggressively (burst interval) so the
+ *     content library fills up without requiring manual uploads.
+ *
+ *   - `maintenance` — all minimums have been reached. The scheduler drops
+ *     to twice-weekly so the catalog stays fresh without unnecessary
+ *     background activity. Each tick still runs every active job — they
+ *     internally short-circuit on ETag/Last-Modified responses and the
+ *     dedup pass discards anything already on file.
+ */
 function scheduleIngestion(): void {
   if (scheduled) return;
   scheduled = true;
@@ -127,12 +140,14 @@ function scheduleIngestion(): void {
 
   const baseIntervalMs = appConfig.ingestion.intervalMs;
   const initialDelayMs = appConfig.ingestion.initialDelayMs;
-  // While the published content backlog is under target, tick four times
-  // faster to fill the database more aggressively.
+  // While the content library is under target, tick four times faster to
+  // fill the database more aggressively (constant mode).
   const burstIntervalMs = Math.max(60_000, Math.floor(baseIntervalMs / 4));
+  // Once targets are reached, switch to a twice-weekly maintenance check.
+  const maintenanceIntervalMs = appConfig.ingestion.maintenanceIntervalMs;
 
   console.log(
-    `[scheduler] background ingestion scheduled — initial ${Math.round(initialDelayMs / 1000)}s, interval ${Math.round(baseIntervalMs / 1000)}s (burst ${Math.round(burstIntervalMs / 1000)}s while below target)`,
+    `[scheduler] background ingestion scheduled — initial ${Math.round(initialDelayMs / 1000)}s, constant-mode interval ${Math.round(burstIntervalMs / 1000)}s, maintenance-mode interval ${Math.round(maintenanceIntervalMs / 3_600_000)}h (≈twice weekly)`,
   );
 
   let currentTimer: ReturnType<typeof setTimeout> | null = null;
@@ -140,7 +155,7 @@ function scheduleIngestion(): void {
   const tick = async () => {
     await callIngestionEndpoint();
     const met = await backlogMet();
-    const next = met ? baseIntervalMs : burstIntervalMs;
+    const next = met ? maintenanceIntervalMs : burstIntervalMs;
     currentTimer = setTimeout(tick, next);
     if (typeof currentTimer.unref === "function") currentTimer.unref();
   };

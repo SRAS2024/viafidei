@@ -37,7 +37,7 @@ export default async function AdminSourcesPage() {
   return (
     <AdminSection
       titleKey="admin.card.sources"
-      subtitle="The complete allowlist of approved Catholic sources used by the content injection system. Anything not on this list is refused at fetch time."
+      subtitle="The complete allowlist of approved Catholic sources used by the ingestion pipeline. Anything not on this list is refused at fetch time."
     >
       <section className="mb-10">
         <h2 className="mb-3 font-display text-2xl">Source allowlist</h2>

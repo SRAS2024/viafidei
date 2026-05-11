@@ -230,6 +230,123 @@ const APPROVED_HOSTS: readonly string[] = [
   "ccel.org", // Christian Classics Ethereal Library — only used for
   // patristic primary sources (Augustine, Aquinas, etc.)
   "www.ccel.org",
+
+  // ── Additional credible Catholic publishing / catechetical sources ──
+  // All have a documented record of orthodox Catholic publishing under
+  // ecclesiastical oversight (imprimatur / nihil obstat policies, or
+  // editorial board accountable to a diocesan ordinary). Each is added
+  // for breadth of public-domain prayer, saint biography, and devotional
+  // material that complements the Vatican and bishops' conference tier.
+  "thedivinemercy.org", // Marians of the Immaculate Conception
+  "www.thedivinemercy.org",
+  "marian.org", // Marian Fathers
+  "www.marian.org",
+  "knightsofcolumbus.org",
+  "www.knightsofcolumbus.org",
+  "kofc.org",
+  "www.kofc.org",
+  "fathersofmercy.com",
+  "www.fathersofmercy.com",
+  "salesians.org",
+  "www.salesians.org",
+  "dominicans.org",
+  "www.dominicans.org",
+  "franciscan.org",
+  "www.franciscan.org",
+  "jesuits.org",
+  "www.jesuits.org",
+  "augustinian.org",
+  "www.augustinian.org",
+  "carmelites.com",
+  "www.carmelites.com",
+  "ocarm.org", // Carmelite Order (O.Carm)
+  "www.ocarm.org",
+  "redemptorists.com",
+  "www.redemptorists.com",
+  "passionist.org",
+  "www.passionist.org",
+  "benedictine.org",
+  "www.benedictine.org",
+  "vincentians.org",
+  "www.vincentians.org",
+  "discalcedcarmelitevocations.com",
+
+  // Vatican-republishing English Bible editions (RSV-CE / NABRE / etc.)
+  // All texts hosted are with the imprimatur of a Catholic ordinary.
+  "biblegateway.com", // already in tier 2, but kept for clarity
+  "bible.usccb.org",
+  // Liturgy & spirituality resources with documented ecclesiastical
+  // approval and a long publishing record:
+  "thecatholicgentleman.com",
+  "www.thecatholicgentleman.com",
+  "catholicgentleman.com",
+  "catholicculture.org",
+  "www.catholicculture.org",
+  "fisheaters.com",
+  "www.fisheaters.com",
+
+  // Major Catholic publishing houses with ecclesiastical approval policies.
+  "ignatius.com", // Ignatius Press
+  "www.ignatius.com",
+  "osv.com", // Our Sunday Visitor
+  "www.osv.com",
+  "tanbooks.com",
+  "www.tanbooks.com",
+  "sophiainstitute.com",
+  "www.sophiainstitute.com",
+  "scepterpublishers.org",
+  "www.scepterpublishers.org",
+
+  // Diocesan & archdiocesan parish directories (expansion for the
+  // 20,000-parish target). Each is the official site of a diocese whose
+  // bishop is in communion with the Holy See; the parish directory
+  // pages are the canonical source for parish names, addresses, and
+  // contact details in that territory.
+  "dphx.org", // Phoenix
+  "www.dphx.org",
+  "dosp.org", // Saint Petersburg
+  "www.dosp.org",
+  "dioceseoftrenton.org",
+  "www.dioceseoftrenton.org",
+  "dioceseofbrooklyn.org",
+  "www.dioceseofbrooklyn.org",
+  "rcdony.org", // Ogdensburg
+  "www.rcdony.org",
+  "archomaha.org",
+  "www.archomaha.org",
+  "archindy.org", // Indianapolis
+  "www.archindy.org",
+  "archdpdx.org", // Portland
+  "www.archdpdx.org",
+  "archkck.org", // Kansas City in Kansas
+  "www.archkck.org",
+  "diocesan.com", // Diocesan Publications parish locator (Catholic dioceses)
+  "www.diocesan.com",
+  "parishesonline.com",
+  "www.parishesonline.com",
+  "masstimes.org", // International Catholic Mass-times directory
+  "www.masstimes.org",
+  "thecatholicdirectory.com",
+  "www.thecatholicdirectory.com",
+  "catholic-hierarchy.org", // Catholic-Hierarchy.org parish/diocese registry
+  "www.catholic-hierarchy.org",
+  "gcatholic.org", // GCatholic.org — diocesan & parish registry
+  "www.gcatholic.org",
+
+  // Bishops' conferences not yet listed (other regions).
+  "vescovi.it", // Italian Bishops' Conference (alt host)
+  "iec.cat", // Conferència Episcopal Tarraconense (Catalan bishops)
+  "www.iec.cat",
+  "cebi.org.br", // Brazilian Catholic biblical center
+  "www.cebi.org.br",
+  "iglesia.cl", // Chilean Catholic Church
+  "www.iglesia.cl",
+  "iglesia.org.bo", // Bolivian Bishops Conference
+  "www.iglesia.org.bo",
+  "iglesia.org.ec", // Ecuador
+  "www.iglesia.org.ec",
+  "iglesia.org.pe", // Peruvian Bishops Conference
+  "www.iglesia.org.pe",
 ] as const;
 
 const APPROVED_HOST_SET = new Set<string>(APPROVED_HOSTS.map((h) => h.toLowerCase()));
