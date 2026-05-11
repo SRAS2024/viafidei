@@ -57,8 +57,30 @@ function validateApparition(item: IngestedItem & { kind: "apparition" }): string
 function validateParish(item: IngestedItem & { kind: "parish" }): string | null {
   if (!nonEmpty(item.slug)) return "Parish slug is required";
   if (!nonEmpty(item.name)) return "Parish name is required";
+  if (item.name.trim().length < 3) return "Parish name looks too short";
+  // Reject obviously-non-Catholic naming. Approved hosts are already gated,
+  // but an archdiocesan site can include cross-traditional listings and we
+  // don't want those landing in the parish table.
+  if (
+    /baptist|methodist|lutheran|presbyterian|orthodox|anglican|episcopal|protestant|mosque|synagogue|temple|hindu|buddhist/i.test(
+      item.name,
+    )
+  ) {
+    return "Parish name suggests a non-Catholic place of worship";
+  }
+  // A bare landing-page title isn't useful for the locator. Reject the
+  // common "Find a parish" / "Parish locator" titles outright.
+  if (/^(find|search|locate|browse|all)\s+(a\s+)?paris/i.test(item.name)) {
+    return "Parish name looks like a navigation page";
+  }
+  if (/locator|directory|listing/i.test(item.name) && item.name.split(/\s+/).length <= 3) {
+    return "Parish name looks like a directory page";
+  }
   if (item.websiteUrl && !ORIGIN_URL_RE.test(item.websiteUrl)) {
     return "Parish websiteUrl must start with http(s):// or mailto:";
+  }
+  if (item.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(item.email)) {
+    return "Parish email is malformed";
   }
   return null;
 }

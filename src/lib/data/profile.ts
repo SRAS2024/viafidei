@@ -1,5 +1,6 @@
 import { prisma } from "../db/client";
 import { isSupportedLocale } from "../i18n/locales";
+import { checksumDataUrl, type AvatarDataUrlOk } from "../media/avatar-data-url";
 
 export type ProfileCounts = {
   journalCount: number;
@@ -62,6 +63,44 @@ export async function setProfileAvatar(userId: string, mediaAssetId: string | nu
     include: { avatarMedia: true },
   });
   return updated;
+}
+
+/**
+ * Persist a user-uploaded, browser-optimized profile photo.
+ *
+ * The image arrives as a self-contained `data:` URL (no upstream URL,
+ * because the user uploaded it from their device). We dedupe on a sha256
+ * checksum so re-uploading the same photo doesn't pile up MediaAsset rows,
+ * and we link the resulting asset to the profile in a single transaction
+ * so the avatar is committed before the route returns — there is no
+ * separate "save" step that the user could forget.
+ */
+export async function setProfileAvatarFromDataUrl(userId: string, validated: AvatarDataUrlOk) {
+  await ensureProfile(userId);
+  const checksum = await checksumDataUrl(validated.dataUrl);
+
+  const profile = await prisma.$transaction(async (tx) => {
+    const existingAsset = await tx.mediaAsset.findFirst({ where: { checksum } });
+    const asset = existingAsset
+      ? existingAsset
+      : await tx.mediaAsset.create({
+          data: {
+            url: validated.dataUrl,
+            kind: "PHOTO",
+            altText: "Profile photo",
+            attribution: "User upload",
+            checksum,
+            reviewStatus: "AUTO_APPROVED",
+          },
+        });
+    return tx.profile.update({
+      where: { userId },
+      data: { avatarMediaId: asset.id },
+      include: { avatarMedia: true },
+    });
+  });
+
+  return { profile };
 }
 
 export async function getProfileCounts(userId: string): Promise<ProfileCounts> {

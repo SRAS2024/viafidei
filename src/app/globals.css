@@ -440,6 +440,34 @@
     transform: translateY(0);
   }
 
+  .vf-avatar-edit:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  .vf-avatar-wrapper {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .vf-avatar-status {
+    font-size: 0.75rem;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  .vf-avatar-status-info {
+    color: var(--ink-soft);
+  }
+
+  .vf-avatar-status-error {
+    color: var(--liturgical-red, #b1361e);
+  }
+
   /* Tooltip */
   .vf-tooltip {
     position: relative;
