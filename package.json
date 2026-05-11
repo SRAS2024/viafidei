@@ -52,7 +52,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "14.2.35",
-    "jest-axe": "^9.0.0",
+    "jest-axe": "^10.0.0",
     "jsdom": "^25.0.1",
     "postcss": "^8.4.49",
     "prettier": "^3.8.3",
