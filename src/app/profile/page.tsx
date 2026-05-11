@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
-import { getProfileCounts, type ProfileCounts } from "@/lib/data/profile";
+import { getProfileCounts, getProfileForUser, type ProfileCounts } from "@/lib/data/profile";
 import { ProfileAvatar } from "@/components/profile/ProfileAvatar";
 import { UnverifiedEmailNotice } from "@/components/profile/UnverifiedEmailNotice";
 import { prisma } from "@/lib/db/client";
@@ -38,14 +38,17 @@ export default async function ProfilePage() {
 
   let counts: ProfileCounts = EMPTY_COUNTS;
   let favoriteJournalCount = 0;
+  let profile: Awaited<ReturnType<typeof getProfileForUser>> = null;
   try {
-    [counts, favoriteJournalCount] = await Promise.all([
+    [counts, favoriteJournalCount, profile] = await Promise.all([
       getProfileCounts(user.id),
       prisma.journalEntry.count({ where: { userId: user.id, isFavorite: true } }),
+      getProfileForUser(user.id),
     ]);
   } catch (err) {
     logPageError({ route: "/profile", entityType: "Profile", error: err });
   }
+  const avatarSrc = profile?.avatarMedia?.url ?? null;
 
   // Sections group user-specific content into clear categories so the page
   // surfaces what is meaningful — goals, journals, favorites, saved prayers,
@@ -121,8 +124,16 @@ export default async function ProfilePage() {
       <section className="flex flex-col items-center pt-6 pb-10 text-center">
         <ProfileAvatar
           initials={initials || "VF"}
+          src={avatarSrc}
           editable
           tooltip={t("profile.avatar.editTooltip")}
+          labels={{
+            saving: t("profile.avatar.saving"),
+            saved: t("profile.avatar.saved"),
+            error: t("profile.avatar.error"),
+            unsupported: t("profile.avatar.unsupported"),
+            tooLarge: t("profile.avatar.tooLarge"),
+          }}
         />
         <p className="vf-eyebrow mt-6">{t("profile.title")}</p>
         <div className="vf-rule mx-auto my-4" />

@@ -35,8 +35,20 @@ type LinkLimit = {
 };
 
 const DEFAULT_LIMIT: LinkLimit = {
-  perRun: 25,
+  perRun: 40,
   maxBodyLength: 12_000,
+};
+
+/**
+ * Higher per-run limit reserved for parish ingestion. Parish directories
+ * publish far more discrete documents than (say) the Vatican prayer index,
+ * and the locator's value is roughly proportional to how many real
+ * parishes we have on file — so we let each run pull more rows than the
+ * conservative default.
+ */
+const PARISH_LIMIT: LinkLimit = {
+  perRun: 120,
+  maxBodyLength: 8_000,
 };
 
 export type VaticanCrawlerOptions<K extends IngestedKind> = {
@@ -156,7 +168,11 @@ export function buildVaticanPrayerCrawler(): SourceAdapter {
     indexUrls: [
       "https://www.vatican.va/special/rosary/index_prayers_en.htm",
       "https://www.vatican.va/special/rosary/index_prayers_la.htm",
+      "https://www.vatican.va/special/rosary/index_prayers_it.htm",
+      "https://www.vatican.va/special/rosary/index_prayers_es.htm",
+      "https://www.vatican.va/roman_curia/congregations/cclergy/documents/index.htm",
       "https://www.usccb.org/prayers",
+      "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers",
     ],
     linkFilter: (u) =>
       PRAYER_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
@@ -185,7 +201,11 @@ export function buildVaticanSaintsCrawler(): SourceAdapter {
     kind: "saint",
     indexUrls: [
       "https://www.vatican.va/news_services/liturgy/saints/index_saints_en.html",
+      "https://www.vatican.va/news_services/liturgy/saints/index_saints_it.html",
+      "https://www.vatican.va/news_services/liturgy/saints/ns_lit_doc_index_saints_en.html",
+      "https://www.vatican.va/news_services/liturgy/2024/documents/index.htm",
       "https://www.usccb.org/prayer-and-worship/liturgical-year/saints",
+      "https://www.usccb.org/prayer-and-worship/liturgical-year/saints/index.cfm",
     ],
     linkFilter: (u) =>
       SAINT_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
@@ -216,7 +236,11 @@ export function buildVaticanApparitionsCrawler(): SourceAdapter {
     kind: "apparition",
     indexUrls: [
       "https://www.vatican.va/roman_curia/congregations/cfaith/index.htm",
+      "https://www.vatican.va/roman_curia/congregations/cfaith/documents/index.htm",
       "https://www.usccb.org/prayer-and-worship/devotions",
+      "https://www.usccb.org/prayer-and-worship/devotions/marian-devotions",
+      "https://www.cbcew.org.uk/home/our-faith/devotions/our-lady/",
+      "https://www.cccb.ca/faith-moral-issues/feast-days-saints/",
     ],
     linkFilter: (u) =>
       APPARITION_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
@@ -245,7 +269,11 @@ export function buildVaticanDevotionsCrawler(): SourceAdapter {
     kind: "devotion",
     indexUrls: [
       "https://www.vatican.va/roman_curia/congregations/ccdds/documents/rc_con_ccdds_doc_20020513_vers-direttorio_en.html",
+      "https://www.vatican.va/roman_curia/congregations/ccdds/documents/index.htm",
       "https://www.usccb.org/prayer-and-worship/devotions",
+      "https://www.usccb.org/prayer-and-worship/devotions/eucharistic-devotion",
+      "https://www.usccb.org/prayer-and-worship/devotions/rosary",
+      "https://www.cbcew.org.uk/home/our-faith/devotions/",
     ],
     linkFilter: (u) => DEVOTION_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)),
     toItem: ({ url, title, description, bodyText }): IngestedDevotion | null => {
@@ -266,30 +294,123 @@ export function buildVaticanDevotionsCrawler(): SourceAdapter {
   });
 }
 
-const PARISH_PATH_HINTS = ["/parish", "/parishes", "/parroquia", "/parrocchia", "/find-a-mass"];
+const PARISH_PATH_HINTS = [
+  "/parish",
+  "/parishes",
+  "/parroquia",
+  "/parrocchia",
+  "/paroisse",
+  "/find-a-mass",
+  "/find-a-church",
+  "/church-finder",
+  "/our-parishes",
+  "/directory",
+];
 
 export function buildVaticanParishesCrawler(): SourceAdapter {
   return buildVaticanCrawler({
     key: "vatican.parishes",
-    description: "Discovers parishes from approved Catholic conference directories",
+    description: "Discovers parishes from approved Catholic conference and diocesan directories",
     kind: "parish",
-    indexUrls: ["https://www.usccb.org/find-a-parish"],
-    linkFilter: (u) => PARISH_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)),
+    // Pull from a diverse set of bishops' conferences and major archdiocesan
+    // directories so the catalog isn't bottlenecked by USCCB alone. Each
+    // archdiocese publishes its own listing pages and the union covers a
+    // wide geographic spread.
+    indexUrls: [
+      "https://www.usccb.org/find-a-parish",
+      "https://www.usccb.org/about/leadership/holy-see/index.cfm",
+      "https://www.cccb.ca/dioceses-and-bishops/",
+      "https://www.cbcew.org.uk/home/about-the-church/dioceses-and-bishops/",
+      "https://www.catholic.org.au/dioceses",
+      "https://www.archny.org/parishes/",
+      "https://www.archchicago.org/parishes",
+      "https://www.rcab.org/find-a-parish/",
+      "https://www.archmil.org/Parishes.htm",
+      "https://www.rcdow.org.uk/diocese/find-a-church/",
+      "https://www.lacatholics.org/parishes/",
+      "https://www.archphila.org/parishes/",
+      "https://www.archatl.com/parishes/",
+      "https://www.archbalt.org/find-a-parish/",
+      "https://www.archstl.org/parishes",
+      "https://www.archden.org/parish-locator/",
+      "https://www.miamiarch.org/Parishes.php",
+      "https://www.archsa.org/parishes-locator",
+      "https://www.sfarchdiocese.org/parishes/",
+      "https://www.seattlearchdiocese.org/find-a-parish/",
+      "https://www.archtoronto.org/find-a-parish/",
+      "https://www.diomelb.org.au/our-diocese/parishes",
+      "https://www.sydneycatholic.org/parishes/",
+      "https://www.dublindiocese.ie/parishes-of-the-diocese/",
+    ],
+    linkFilter: (u) =>
+      PARISH_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
+      /church|cathedral|basilica|saint|st\.|st-/i.test(u.pathname),
     toItem: ({ url, title, description }): IngestedParish | null => {
-      const name = title.split("|")[0]?.trim() ?? title;
+      const name = sanitizeParishName(title);
       if (!name || name.length < 3) return null;
+      // Reject obvious non-parish navigation/landing pages where the title
+      // is a generic phrase like "Find a parish" or "Parish locator".
+      if (/^(find|search|locate|browse|all)\s+(a\s+)?paris/i.test(name)) return null;
+      if (/locator|directory|listing/i.test(name)) return null;
+      const dioceseFromHost = inferDioceseFromHost(url);
       return {
         kind: "parish",
         slug: buildSlug(name),
         name,
         websiteUrl: url,
         externalSourceKey: urlToExternalKey(url),
-        // Fields like address/city are filled later by a structured-source
-        // adapter; we leave them blank here rather than guess.
-        ...(description ? { diocese: description.slice(0, 120) } : {}),
+        ...(dioceseFromHost
+          ? { diocese: dioceseFromHost }
+          : description
+            ? { diocese: description.slice(0, 120) }
+            : {}),
       };
     },
+    limit: PARISH_LIMIT,
   });
+}
+
+/**
+ * Strip common boilerplate from parish-page titles. Many archdiocesan
+ * sites pad titles with their own brand suffix (" | Archdiocese of X"),
+ * which would otherwise distort dedup and search.
+ */
+function sanitizeParishName(rawTitle: string): string {
+  const firstSegment = rawTitle.split(/\s*[|•·–]\s*/)[0]?.trim() ?? rawTitle;
+  return firstSegment
+    .replace(/\s*-\s*Archdiocese.*$/i, "")
+    .replace(/\s*-\s*Diocese of.*$/i, "")
+    .replace(/^(Parish:|Church:)\s*/i, "")
+    .trim();
+}
+
+const HOST_DIOCESE_MAP: ReadonlyArray<{ pattern: RegExp; diocese: string }> = [
+  { pattern: /archny\.org/i, diocese: "Archdiocese of New York" },
+  { pattern: /archchicago\.org/i, diocese: "Archdiocese of Chicago" },
+  { pattern: /rcab\.org/i, diocese: "Archdiocese of Boston" },
+  { pattern: /archmil\.org/i, diocese: "Archdiocese of Milwaukee" },
+  { pattern: /rcdow\.org\.uk/i, diocese: "Archdiocese of Westminster" },
+  { pattern: /lacatholics\.org|rcaola\.org/i, diocese: "Archdiocese of Los Angeles" },
+  { pattern: /archphila\.org/i, diocese: "Archdiocese of Philadelphia" },
+  { pattern: /archatl\.com/i, diocese: "Archdiocese of Atlanta" },
+  { pattern: /archbalt\.org/i, diocese: "Archdiocese of Baltimore" },
+  { pattern: /archstl\.org/i, diocese: "Archdiocese of Saint Louis" },
+  { pattern: /archden\.org/i, diocese: "Archdiocese of Denver" },
+  { pattern: /miamiarch\.org/i, diocese: "Archdiocese of Miami" },
+  { pattern: /archsa\.org/i, diocese: "Archdiocese of San Antonio" },
+  { pattern: /sfarchdiocese\.org/i, diocese: "Archdiocese of San Francisco" },
+  { pattern: /seattlearchdiocese\.org/i, diocese: "Archdiocese of Seattle" },
+  { pattern: /archtoronto\.org/i, diocese: "Archdiocese of Toronto" },
+  { pattern: /diomelb\.org\.au/i, diocese: "Archdiocese of Melbourne" },
+  { pattern: /sydneycatholic\.org/i, diocese: "Archdiocese of Sydney" },
+  { pattern: /dublindiocese\.ie/i, diocese: "Archdiocese of Dublin" },
+];
+
+function inferDioceseFromHost(url: string): string | null {
+  for (const entry of HOST_DIOCESE_MAP) {
+    if (entry.pattern.test(url)) return entry.diocese;
+  }
+  return null;
 }
 
 /**
@@ -307,6 +428,11 @@ export function buildBishopsConferenceSaintsCrawler(): SourceAdapter {
       "https://www.usccb.org/prayer-and-worship/liturgical-year/saints",
       "https://www.cccb.ca/faith-moral-issues/feast-days-saints/",
       "https://www.cbcew.org.uk/home/our-faith/saints/",
+      "https://www.catholic.org.au/saints",
+      "https://www.catholicbishops.ie/saints/",
+      "https://www.archny.org/news/saints",
+      "https://www.rcab.org/news/category/saints/",
+      "https://www.archchicago.org/saints",
     ],
     linkFilter: (u) =>
       SAINT_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
@@ -341,6 +467,11 @@ export function buildCatholicDevotionsCrawler(): SourceAdapter {
       "https://www.usccb.org/prayer-and-worship/devotions",
       "https://www.cbcew.org.uk/home/our-faith/devotions/",
       "https://www.cccb.ca/faith-moral-issues/devotions/",
+      "https://www.catholic.org.au/devotions",
+      "https://www.usccb.org/prayer-and-worship/devotions/eucharistic-devotion",
+      "https://www.usccb.org/prayer-and-worship/devotions/marian-devotions",
+      "https://www.cbcew.org.uk/home/our-faith/devotions/our-lady/",
+      "https://www.cbcew.org.uk/home/our-faith/devotions/eucharistic-devotion/",
     ],
     linkFilter: (u) => DEVOTION_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)),
     toItem: ({ url, title, description, bodyText }): IngestedDevotion | null => {
@@ -375,6 +506,10 @@ export function buildCatholicPrayersCrawler(): SourceAdapter {
       "https://www.usccb.org/prayers",
       "https://www.cbcew.org.uk/home/our-faith/prayers/",
       "https://www.catholic.org.au/prayer/",
+      "https://www.catholicbishops.ie/prayers/",
+      "https://www.cccb.ca/evangelization-catechesis-catholic-education/prayers/",
+      "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers/index.cfm",
+      "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers/prayers-of-catholics.cfm",
     ],
     linkFilter: (u) =>
       PRAYER_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
@@ -445,10 +580,21 @@ export function buildVaticanTeachingCrawler(): SourceAdapter {
     kind: "liturgy",
     indexUrls: [
       "https://www.vatican.va/archive/ENG0015/_INDEX.HTM", // Catechism EN
+      "https://www.vatican.va/archive/ITA0014/_INDEX.HTM", // Catechism IT
+      "https://www.vatican.va/archive/ESL0506/_INDEX.HTM", // Catechism ES
       "https://www.vatican.va/holy_father/index.htm",
+      "https://www.vatican.va/holy_father/francesco/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/francesco/apost_exhortations/index.htm",
       "https://www.vatican.va/roman_curia/congregations/ccdds/index.htm",
+      "https://www.vatican.va/roman_curia/congregations/cfaith/documents/index.htm",
       "https://www.usccb.org/beliefs-and-teachings",
       "https://www.usccb.org/prayer-and-worship/sacraments-and-sacramentals",
+      "https://www.usccb.org/prayer-and-worship/sacraments-and-sacramentals/marriage",
+      "https://www.usccb.org/prayer-and-worship/sacraments-and-sacramentals/baptism",
+      "https://www.usccb.org/prayer-and-worship/sacraments-and-sacramentals/eucharist",
+      "https://www.usccb.org/prayer-and-worship/sacraments-and-sacramentals/penance",
+      "https://www.cbcew.org.uk/home/our-faith/sacraments/",
+      "https://www.cccb.ca/sacraments/",
     ],
     linkFilter: (u) =>
       TEACHING_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
@@ -504,6 +650,11 @@ export function buildVaticanGuidesCrawler(): SourceAdapter {
     indexUrls: [
       "https://www.usccb.org/prayer-and-worship",
       "https://www.cbcew.org.uk/home/our-faith/prayers/",
+      "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/rosaries/index.cfm",
+      "https://www.usccb.org/committees/divine-worship",
+      "https://www.cccb.ca/evangelization-catechesis-catholic-education/",
+      "https://www.catholic.org.au/faith",
+      "https://www.cbcew.org.uk/home/our-faith/the-mass/",
     ],
     linkFilter: (u) =>
       GUIDE_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
@@ -540,7 +691,12 @@ export function buildVaticanHistoryCrawler(): SourceAdapter {
     indexUrls: [
       "https://www.vatican.va/archive/hist_councils/index.htm",
       "https://www.vatican.va/archive/hist_councils/ii_vatican_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/i_vatican_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/trent/index.htm",
+      "https://www.vatican.va/archive/hist_councils/v_lateran_council/index.htm",
+      "https://www.vatican.va/holy_father/index.htm",
       "https://www.usccb.org/about/leadership/holy-see/papal-history",
+      "https://www.usccb.org/about/leadership/holy-see/index.cfm",
     ],
     linkFilter: (u) =>
       /councils?|synod|history|papacy/i.test(u.pathname) ||

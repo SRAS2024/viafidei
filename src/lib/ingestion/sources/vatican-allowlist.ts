@@ -128,6 +128,47 @@ const APPROVED_HOSTS: readonly string[] = [
   "rcaola.org", // Los Angeles
   "lacatholics.org",
   "www.lacatholics.org",
+  // Additional U.S. and global archdioceses with comprehensive parish
+  // directories and catechetical content. All publish in line with
+  // the bishops' conference of their region.
+  "archphila.org", // Philadelphia
+  "www.archphila.org",
+  "archatl.com", // Atlanta
+  "www.archatl.com",
+  "archbalt.org", // Baltimore
+  "www.archbalt.org",
+  "archstl.org", // Saint Louis
+  "www.archstl.org",
+  "archden.org", // Denver
+  "www.archden.org",
+  "dosafl.com", // Diocese of Saint Augustine
+  "www.dosafl.com",
+  "miamiarch.org", // Miami
+  "www.miamiarch.org",
+  "archsa.org", // San Antonio
+  "www.archsa.org",
+  "sfarchdiocese.org", // San Francisco
+  "www.sfarchdiocese.org",
+  "seattlearchdiocese.org",
+  "www.seattlearchdiocese.org",
+  "archtoronto.org", // Archdiocese of Toronto
+  "www.archtoronto.org",
+  "diomelb.org.au", // Melbourne
+  "www.diomelb.org.au",
+  "sydneycatholic.org",
+  "www.sydneycatholic.org",
+  "dublindiocese.ie",
+  "www.dublindiocese.ie",
+  "rcdea.org.uk", // East Anglia
+  "www.rcdea.org.uk",
+  "rcdow.org.uk",
+  "www.rcdow.org.uk",
+  "diocesedeparis.fr",
+  "www.diocesedeparis.fr",
+  "diocesimilano.it",
+  "www.diocesimilano.it",
+  "archimadrid.es",
+  "www.archimadrid.es",
 
   // ── Tier 2 — Catechism / Bible / liturgical reference (Vatican-republishing) ──
   "ewtn.com",
@@ -138,6 +179,24 @@ const APPROVED_HOSTS: readonly string[] = [
   "www.biblia.com",
   "drbo.org", // Douay-Rheims Bible Online
   "www.drbo.org",
+  // Additional well-established Catholic reference, news and devotional
+  // sites that republish content from the Holy See or bishops' conferences.
+  "catholicnewsagency.com",
+  "www.catholicnewsagency.com",
+  "ncregister.com", // National Catholic Register
+  "www.ncregister.com",
+  "catholicworldreport.com",
+  "www.catholicworldreport.com",
+  "thecatholicthing.org",
+  "www.thecatholicthing.org",
+  "wordonfire.org", // Bishop Robert Barron — orthodox Catholic catechesis
+  "www.wordonfire.org",
+  "ascensionpress.com",
+  "www.ascensionpress.com",
+  "catholic.com", // Catholic Answers
+  "www.catholic.com",
+  "praytellblog.com",
+  "www.praytellblog.com",
 
   // ── Tier 3 — Liturgical calendars and pontifical institutes ──
   "liturgicalcalendar.org",

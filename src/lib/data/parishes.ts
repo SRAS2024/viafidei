@@ -19,10 +19,16 @@ export type ParishFilters = {
 export function findPublishedParishes(filters: ParishFilters, take = 40) {
   const where: Prisma.ParishWhereInput = { status: "PUBLISHED" };
   if (filters.q) {
+    // Match against every column a user might type into the search box —
+    // parish name, the city/region they live in, the diocese they belong
+    // to, or a fragment of the postal address (e.g. a ZIP code embedded
+    // in the address string).
     where.OR = [
       { name: { contains: filters.q, mode: "insensitive" } },
       { city: { contains: filters.q, mode: "insensitive" } },
+      { region: { contains: filters.q, mode: "insensitive" } },
       { diocese: { contains: filters.q, mode: "insensitive" } },
+      { address: { contains: filters.q, mode: "insensitive" } },
     ];
   }
   if (filters.city) where.city = { equals: filters.city, mode: "insensitive" };

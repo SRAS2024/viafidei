@@ -295,7 +295,15 @@ function dedupe(parishes: ExternalParish[]): ExternalParish[] {
   return out;
 }
 
-async function geocodeWithNominatim(query: string): Promise<{ lat: number; lon: number } | null> {
+export type Geocoded = {
+  lat: number;
+  lon: number;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+};
+
+export async function geocodeWithNominatim(query: string): Promise<Geocoded | null> {
   const url = new URL(NOMINATIM_ENDPOINT);
   url.searchParams.set("q", query);
   url.searchParams.set("format", "jsonv2");
@@ -315,13 +323,41 @@ async function geocodeWithNominatim(query: string): Promise<{ lat: number; lon: 
     const lat = Number(first.lat);
     const lon = Number(first.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-    return { lat, lon };
+    return {
+      lat,
+      lon,
+      city: first.address?.city ?? first.address?.town ?? first.address?.village ?? null,
+      region: first.address?.state ?? null,
+      country: first.address?.country ?? null,
+    };
   } catch (err) {
     logger.warn("parish.nominatim_failed", {
       error: err instanceof Error ? err.message : String(err),
     });
     return null;
   }
+}
+
+/**
+ * Detect a location-style query (US ZIP, postcode, "City, ST", etc.) so the
+ * parish search can route it through the geocoder + nearby-radius pipeline
+ * rather than the literal name match path that Overpass uses by default.
+ */
+const US_ZIP_RE = /^\s*(\d{5})(?:-\d{4})?\s*$/;
+const UK_POSTCODE_RE = /^\s*[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\s*$/i;
+const CA_POSTCODE_RE = /^\s*[A-Z]\d[A-Z]\s*\d[A-Z]\d\s*$/i;
+const CITY_STATE_RE = /^[\p{L}\s\.\-']{2,},\s*[\p{L}\s]{2,}/u;
+
+export function looksLikeLocationQuery(raw: string): boolean {
+  if (!raw) return false;
+  const trimmed = raw.trim();
+  if (US_ZIP_RE.test(trimmed)) return true;
+  if (UK_POSTCODE_RE.test(trimmed)) return true;
+  if (CA_POSTCODE_RE.test(trimmed)) return true;
+  if (CITY_STATE_RE.test(trimmed)) return true;
+  // "near me" / numeric coordinate pair / lat,lon
+  if (/^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$/.test(trimmed)) return true;
+  return false;
 }
 
 const SLUG_PATTERN = /^osm-(node|way|relation)-(\d+)$/;
