@@ -32,8 +32,17 @@ export const appConfig = {
     userAgent: "ViaFideiBot/1.0 (+https://etviafidei.com/bot; ingestion@viafidei.com)",
     /** Per-request timeout for outbound HTTP fetches (milliseconds). */
     httpTimeoutMs: 15_000,
-    /** Initial status assigned to ingested items. */
-    initialStatus: "REVIEW" as const,
+    /**
+     * Status assigned to ingested items. Items only reach this stage after
+     * passing the allowlist gate (credible Catholic source), the validator
+     * (quality / minimum body length / not a non-Catholic place of worship),
+     * and the dedup pass (already in the DB → skipped). The fill flow is
+     * supposed to grow the public catalog without manual review, so newly
+     * ingested rows are published immediately. Curated rows in PUBLISHED /
+     * ARCHIVED status are still protected from being overwritten — see the
+     * per-kind persisters.
+     */
+    initialStatus: "PUBLISHED" as const,
     /** Background scheduler tick interval (ms) while below targets. */
     intervalMs: 10 * 60 * 1000,
     /** Delay before the first scheduled tick (ms). */

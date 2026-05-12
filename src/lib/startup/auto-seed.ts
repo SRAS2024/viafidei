@@ -62,39 +62,48 @@ async function hasEmptyContentTable(): Promise<boolean> {
 }
 
 /**
- * Trigger ingestion by calling the existing /api/cron/ingest endpoint over
- * HTTP. This keeps all the heavy crawler / Prisma transaction code on the
- * regular Next.js server bundle (instead of being pulled into the
- * instrumentation bundle, which has a stricter compile target).
+ * Run one ingestion tick directly in-process.
  *
- * Uses a SESSION_SECRET-derived bearer so the cron route is protected
- * without requiring a separate CRON_SECRET deployment variable.
+ * Calling the registry → runner pipeline directly (rather than POST'ing
+ * to /api/cron/ingest) means the auto-fill flow works in deployments that
+ * have not configured a SESSION_SECRET — the HTTP indirection would
+ * otherwise fail at the cron-auth gate and the catalog would never grow.
+ * The crawler + Prisma + http-client modules are already loaded by the
+ * time the scheduler runs, so there is no bundle-size penalty either.
  */
-async function callIngestionEndpoint(): Promise<void> {
-  const { deriveCronSecret } = await import("../security/cron-auth");
-  const secret = await deriveCronSecret();
-  if (!secret) {
-    console.warn("[scheduler] no SESSION_SECRET available — skipping in-process ingestion tick");
-    return;
-  }
-  const url = `http://127.0.0.1:${appConfig.port}/api/cron/ingest`;
+async function runIngestionTick(): Promise<void> {
   const startedAt = Date.now();
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { authorization: `Bearer ${secret}` },
-    });
-    if (res.ok) {
-      console.log(
-        "[scheduler] ingestion tick ok",
-        JSON.stringify({ durationMs: Date.now() - startedAt }),
-      );
-    } else {
-      console.warn(
-        "[scheduler] ingestion tick non-2xx",
-        JSON.stringify({ status: res.status, durationMs: Date.now() - startedAt }),
-      );
-    }
+    const [{ ensureVaticanSchedule }, { runAllActiveJobs }, { getBacklogProgress }] =
+      await Promise.all([
+        import("../ingestion/sources/bootstrap"),
+        import("../ingestion/scheduler"),
+        import("../ingestion/scheduler"),
+      ]);
+    await ensureVaticanSchedule();
+    const summary = await runAllActiveJobs();
+    const totals = summary.runs.reduce(
+      (acc, r) => {
+        acc.seen += r.summary.recordsSeen;
+        acc.created += r.summary.recordsCreated;
+        acc.updated += r.summary.recordsUpdated;
+        acc.skipped += r.summary.recordsSkipped;
+        acc.failed += r.summary.recordsFailed;
+        return acc;
+      },
+      { seen: 0, created: 0, updated: 0, skipped: 0, failed: 0 },
+    );
+    const progress = await getBacklogProgress().catch(() => null);
+    console.log(
+      "[scheduler] ingestion tick ok",
+      JSON.stringify({
+        durationMs: Date.now() - startedAt,
+        ...totals,
+        backlog: progress
+          ? { mode: progress.mode, counts: progress.counts, targets: progress.targets }
+          : undefined,
+      }),
+    );
   } catch (e) {
     console.error("[scheduler] ingestion tick failed", e instanceof Error ? e.message : e);
   }
@@ -153,17 +162,30 @@ function scheduleIngestion(): void {
   let currentTimer: ReturnType<typeof setTimeout> | null = null;
 
   const tick = async () => {
-    await callIngestionEndpoint();
+    await runIngestionTick();
     const met = await backlogMet();
     const next = met ? maintenanceIntervalMs : burstIntervalMs;
     currentTimer = setTimeout(tick, next);
     if (typeof currentTimer.unref === "function") currentTimer.unref();
   };
 
-  const initialTimer = setTimeout(() => {
-    void tick();
-  }, initialDelayMs);
-  if (typeof initialTimer.unref === "function") initialTimer.unref();
+  // Kick off the first tick after a short warm-up so migrations and the
+  // seeder finish first, then keep ticking. We deliberately do NOT wait
+  // for an external cron pulse — the in-process scheduler is the
+  // primary driver while the catalog is below target.
+  const firstDelayMs = (async () => {
+    try {
+      return (await backlogMet()) ? maintenanceIntervalMs : initialDelayMs;
+    } catch {
+      return initialDelayMs;
+    }
+  })();
+  void firstDelayMs.then((ms) => {
+    const initialTimer = setTimeout(() => {
+      void tick();
+    }, ms);
+    if (typeof initialTimer.unref === "function") initialTimer.unref();
+  });
 }
 
 /**
