@@ -20,6 +20,36 @@ export type AdminMutationResult<T> =
   | { ok: true; entity: T; created: boolean }
   | { ok: false; reason: "duplicate" | "not_found" | "invalid" };
 
+/**
+ * Auto-publish vs. require-republish rule.
+ *
+ * Auto-ingested content from the credibility allowlist already lands as
+ * PUBLISHED (no admin approval needed). When an admin manually edits a
+ * piece of content via the admin catalog endpoints, the row should drop
+ * back to DRAFT so the admin must explicitly click "Publish" to push the
+ * change live. This avoids accidental publishing of a half-typed edit
+ * and gives the admin one explicit moment to confirm the new copy.
+ *
+ * Returns the status to write:
+ *   - patch.status set       → use it (admin clicked Publish/Archive/Review)
+ *   - patch is status-only   → use it (status flip with no content edit)
+ *   - patch has content edits AND no explicit status → "DRAFT"
+ *
+ * `contentFieldKeys` is the list of keys on the patch that count as
+ * "content" (anything other than `status`). Use Object.keys(patch) to
+ * derive it at the call site so each per-kind update function decides
+ * which fields are editable content.
+ */
+function resolveStatusForUpdate<P extends { status?: ContentStatus }>(
+  patch: P,
+): ContentStatus | undefined {
+  if (patch.status !== undefined) return patch.status;
+  const hasContentEdit = Object.entries(patch).some(
+    ([k, v]) => k !== "status" && v !== undefined,
+  );
+  return hasContentEdit ? "DRAFT" : undefined;
+}
+
 export type PrayerInput = {
   slug?: string | null;
   defaultTitle: string;
@@ -56,7 +86,8 @@ export async function updatePrayer(id: string, patch: Partial<PrayerInput>) {
   if (patch.body !== undefined) data.body = patch.body;
   if (patch.officialPrayer !== undefined) data.officialPrayer = patch.officialPrayer ?? null;
   if (patch.category !== undefined) data.category = patch.category;
-  if (patch.status !== undefined) data.status = patch.status;
+  const resolvedStatus = resolveStatusForUpdate(patch);
+  if (resolvedStatus !== undefined) data.status = resolvedStatus;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -120,7 +151,8 @@ export async function updateSaint(id: string, patch: Partial<SaintInput>) {
   if (patch.feastDay !== undefined) data.feastDay = patch.feastDay ?? null;
   if (patch.officialPrayer !== undefined) data.officialPrayer = patch.officialPrayer ?? null;
   if (patch.patronages !== undefined) data.patronages = patch.patronages;
-  if (patch.status !== undefined) data.status = patch.status;
+  const resolvedStatus = resolveStatusForUpdate(patch);
+  if (resolvedStatus !== undefined) data.status = resolvedStatus;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -182,7 +214,8 @@ export async function updateApparition(id: string, patch: Partial<ApparitionInpu
   if (patch.country !== undefined) data.country = patch.country ?? null;
   if (patch.approvedStatus !== undefined) data.approvedStatus = patch.approvedStatus ?? null;
   if (patch.officialPrayer !== undefined) data.officialPrayer = patch.officialPrayer ?? null;
-  if (patch.status !== undefined) data.status = patch.status;
+  const apparitionStatus = resolveStatusForUpdate(patch);
+  if (apparitionStatus !== undefined) data.status = apparitionStatus;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -238,7 +271,8 @@ export async function updateDevotion(id: string, patch: Partial<DevotionInput>) 
   if (patch.summary !== undefined) data.summary = patch.summary;
   if (patch.practiceText !== undefined) data.practiceText = patch.practiceText ?? null;
   if (patch.durationMinutes !== undefined) data.durationMinutes = patch.durationMinutes ?? null;
-  if (patch.status !== undefined) data.status = patch.status;
+  const devotionStatus = resolveStatusForUpdate(patch);
+  if (devotionStatus !== undefined) data.status = devotionStatus;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -326,7 +360,8 @@ export async function updateParish(id: string, patch: Partial<ParishInput>) {
   }
   if (patch.latitude !== undefined) data.latitude = patch.latitude ?? null;
   if (patch.longitude !== undefined) data.longitude = patch.longitude ?? null;
-  if (patch.status !== undefined) data.status = patch.status;
+  const parishStatus = resolveStatusForUpdate(patch);
+  if (parishStatus !== undefined) data.status = parishStatus;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -382,7 +417,8 @@ export async function updateLiturgy(id: string, patch: Partial<LiturgyInput>) {
   if (patch.body !== undefined) data.body = patch.body;
   if (patch.summary !== undefined) data.summary = patch.summary ?? null;
   if (patch.kind !== undefined) data.kind = patch.kind;
-  if (patch.status !== undefined) data.status = patch.status;
+  const liturgyStatus = resolveStatusForUpdate(patch);
+  if (liturgyStatus !== undefined) data.status = liturgyStatus;
   if (patch.slug !== undefined) {
     const next = slugify(patch.slug);
     if (next && next !== existing.slug) {
@@ -446,7 +482,8 @@ export async function updateSpiritualLifeGuide(id: string, patch: Partial<Spirit
   if (patch.kind !== undefined) data.kind = patch.kind;
   if (patch.durationDays !== undefined) data.durationDays = patch.durationDays ?? null;
   if (patch.goalTemplateSlug !== undefined) data.goalTemplateSlug = patch.goalTemplateSlug ?? null;
-  if (patch.status !== undefined) data.status = patch.status;
+  const guideStatus = resolveStatusForUpdate(patch);
+  if (guideStatus !== undefined) data.status = guideStatus;
   if (patch.steps !== undefined) {
     data.steps = (patch.steps as Prisma.InputJsonValue) ?? Prisma.JsonNull;
   }
