@@ -1,10 +1,16 @@
 import { type NextRequest } from "next/server";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { getProfileForUser, updateProfile } from "@/lib/data/profile";
+import {
+  THEME_COOKIE_NAME,
+  THEME_COOKIE_OPTIONS,
+  isThemePreference,
+} from "@/lib/i18n/theme-cookie";
 import { writeAudit } from "@/lib/audit";
 
 const patchSchema = z.object({
@@ -44,6 +50,19 @@ export async function PATCH(req: NextRequest) {
 
   const result = await updateProfile(user.id, parsed.data);
   if (!result.ok) return jsonError("invalid", { message: result.reason });
+
+  // Keep the browser theme cookie in sync with the saved profile so the
+  // very next request sees the new mode without a separate client-side
+  // write. The client picker also sets the cookie, but we mirror it on
+  // the server so the cookie survives even if the picker's fetch races
+  // with a page reload.
+  if (parsed.data.theme !== undefined) {
+    if (isThemePreference(parsed.data.theme)) {
+      cookies().set(THEME_COOKIE_NAME, parsed.data.theme, THEME_COOKIE_OPTIONS);
+    } else if (parsed.data.theme === null || parsed.data.theme === "") {
+      cookies().delete(THEME_COOKIE_NAME);
+    }
+  }
 
   await writeAudit({
     action: "profile.update",
