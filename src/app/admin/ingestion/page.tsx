@@ -18,12 +18,18 @@ export default async function AdminIngestion() {
       {progress ? (
         <section className="mb-8">
           <h2 className="mb-3 font-display text-2xl">Backlog progress</h2>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {(
               [
                 ["Prayers", progress.counts.prayers, progress.targets.prayers],
                 ["Saints", progress.counts.saints, progress.targets.saints],
                 ["Parishes", progress.counts.parishes, progress.targets.parishes],
+                [
+                  "Church Documents",
+                  progress.counts.churchDocuments,
+                  progress.targets.churchDocuments,
+                ],
+                ["Sacraments", progress.counts.sacraments, progress.targets.sacraments],
               ] as const
             ).map(([label, count, target]) => {
               const pct = Math.min(100, Math.round((count / Math.max(1, target)) * 100));

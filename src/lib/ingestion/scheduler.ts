@@ -9,9 +9,48 @@ export type BacklogCounts = {
   prayers: number;
   saints: number;
   parishes: number;
+  churchDocuments: number;
+  sacraments: number;
 };
 
 export type SchedulerMode = "constant" | "maintenance";
+
+/**
+ * Slug prefixes that identify a LiturgyEntry as a "church document" —
+ * encyclicals, Catechism sections, Code of Canon Law books, and
+ * Vatican Council documents. The encyclical seeds use `encyclical-`;
+ * CCC seeds use `catechism-`; Canon Law seeds use `code-of-canon-law-`;
+ * the Eastern Code is its own row; ingestion-produced Council documents
+ * use `council-` (a slug the history crawler already emits).
+ */
+export const CHURCH_DOCUMENT_SLUG_PREFIXES = [
+  "encyclical-",
+  "catechism-",
+  "code-of-canon-law-",
+  "code-of-canons-of-the-eastern-churches",
+  "council-",
+  "vatican-council-",
+  "synod-",
+];
+
+/** Slug prefixes that identify a SpiritualLifeGuide as a sacrament/consecration. */
+export const SACRAMENT_SLUG_PREFIXES = ["sacrament-", "consecration-"];
+
+function buildPrefixWhere(prefixes: string[]) {
+  return { OR: prefixes.map((p) => ({ slug: { startsWith: p } })) };
+}
+
+async function countChurchDocuments(): Promise<number> {
+  return prisma.liturgyEntry.count({
+    where: buildPrefixWhere(CHURCH_DOCUMENT_SLUG_PREFIXES),
+  });
+}
+
+async function countSacraments(): Promise<number> {
+  return prisma.spiritualLifeGuide.count({
+    where: buildPrefixWhere(SACRAMENT_SLUG_PREFIXES),
+  });
+}
 
 /**
  * Returns the current content counts versus the configured ingestion
@@ -30,14 +69,26 @@ export async function getBacklogProgress(): Promise<{
   mode: SchedulerMode;
 }> {
   const targets = appConfig.ingestion.targets;
-  const [prayers, saints, parishes] = await Promise.all([
+  const [prayers, saints, parishes, churchDocuments, sacraments] = await Promise.all([
     prisma.prayer.count(),
     prisma.saint.count(),
     prisma.parish.count(),
+    countChurchDocuments(),
+    countSacraments(),
   ]);
-  const counts = { prayers, saints, parishes };
+  const counts: BacklogCounts = {
+    prayers,
+    saints,
+    parishes,
+    churchDocuments,
+    sacraments,
+  };
   const metAll =
-    prayers >= targets.prayers && saints >= targets.saints && parishes >= targets.parishes;
+    prayers >= targets.prayers &&
+    saints >= targets.saints &&
+    parishes >= targets.parishes &&
+    churchDocuments >= targets.churchDocuments &&
+    sacraments >= targets.sacraments;
   const mode: SchedulerMode = metAll ? "maintenance" : "constant";
   return { counts, targets, metAll, mode };
 }

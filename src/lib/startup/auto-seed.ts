@@ -108,16 +108,44 @@ async function runIngestionTick(): Promise<void> {
   }
 }
 
+/**
+ * Quick predicate used by the scheduler tick to decide between burst
+ * mode (constant fill) and maintenance mode. Mirrors the shape of
+ * getBacklogProgress() in the scheduler module but is inlined here so
+ * we don't have to import the ingestion subgraph into auto-seed (that
+ * pulls node:crypto into the instrumentation bundle and breaks the
+ * build — see the earlier build-fix commit).
+ */
 async function backlogMet(): Promise<boolean> {
   try {
     const { targets } = appConfig.ingestion;
-    const [prayers, saints, parishes] = await Promise.all([
+    const churchDocPrefixes = [
+      "encyclical-",
+      "catechism-",
+      "code-of-canon-law-",
+      "code-of-canons-of-the-eastern-churches",
+      "council-",
+      "vatican-council-",
+      "synod-",
+    ];
+    const sacramentPrefixes = ["sacrament-", "consecration-"];
+    const [prayers, saints, parishes, churchDocuments, sacraments] = await Promise.all([
       prisma.prayer.count(),
       prisma.saint.count(),
       prisma.parish.count(),
+      prisma.liturgyEntry.count({
+        where: { OR: churchDocPrefixes.map((p) => ({ slug: { startsWith: p } })) },
+      }),
+      prisma.spiritualLifeGuide.count({
+        where: { OR: sacramentPrefixes.map((p) => ({ slug: { startsWith: p } })) },
+      }),
     ]);
     return (
-      prayers >= targets.prayers && saints >= targets.saints && parishes >= targets.parishes
+      prayers >= targets.prayers &&
+      saints >= targets.saints &&
+      parishes >= targets.parishes &&
+      churchDocuments >= targets.churchDocuments &&
+      sacraments >= targets.sacraments
     );
   } catch {
     return true;

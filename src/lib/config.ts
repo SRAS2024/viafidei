@@ -56,14 +56,26 @@ export const appConfig = {
     /**
      * Backlog targets. While the database is below ANY of these
      * thresholds the scheduler stays in `constant` mode and keeps
-     * ticking aggressively. Once all three are met the scheduler
+     * ticking aggressively. Once all of them are met the scheduler
      * switches to `maintenance` mode and runs the upstream check on
      * the cadence below. Public pages never expose these numbers.
+     *
+     * Targets cover five tracked entity buckets:
+     *   - prayers          — Prayer rows
+     *   - saints           — Saint rows
+     *   - parishes         — Parish rows
+     *   - churchDocuments  — LiturgyEntry rows whose slug looks like an
+     *                        encyclical / CCC section / canon law book
+     *                        / Vatican Council document
+     *   - sacraments       — SpiritualLifeGuide rows whose slug starts
+     *                        with `sacrament-` or `consecration-`
      */
     targets: {
-      prayers: 300,
-      saints: 1_000,
-      parishes: 20_000,
+      prayers: 500,
+      saints: 7_000,
+      parishes: 150_000,
+      churchDocuments: 100,
+      sacraments: 7,
     },
     /**
      * Maintenance-mode cadence: after the targets are met we still

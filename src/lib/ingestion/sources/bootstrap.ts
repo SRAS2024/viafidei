@@ -78,6 +78,21 @@ const ADAPTER_HOST_MAP: Record<string, { host: string; baseUrl: string; name: st
     baseUrl: "https://www.ewtn.com",
     name: "Credible Catholic — Saints",
   },
+  "vatican.councils": {
+    host: "vatican.va",
+    baseUrl: "https://www.vatican.va",
+    name: "The Holy See — Ecumenical Councils",
+  },
+  "vatican.catechism": {
+    host: "vatican.va",
+    baseUrl: "https://www.vatican.va",
+    name: "The Holy See — Catechism of the Catholic Church",
+  },
+  "vatican.encyclicals": {
+    host: "vatican.va",
+    baseUrl: "https://www.vatican.va",
+    name: "The Holy See — Papal Encyclicals",
+  },
 };
 
 const ADAPTER_TARGET_ENTITY: Record<string, string> = {
@@ -94,6 +109,9 @@ const ADAPTER_TARGET_ENTITY: Record<string, string> = {
   "vatican.history": "LiturgyEntry",
   "credible.prayers": "Prayer",
   "credible.saints": "Saint",
+  "vatican.councils": "LiturgyEntry",
+  "vatican.catechism": "LiturgyEntry",
+  "vatican.encyclicals": "LiturgyEntry",
 };
 
 let registered = false;

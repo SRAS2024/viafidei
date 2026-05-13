@@ -4,9 +4,11 @@ import { PageHero } from "@/components/ui/PageHero";
 import { ExpandableTimelineEvent } from "@/components/ui";
 import {
   loadTimeline,
+  loadCouncilBuckets,
   groupByPeriod,
   PERIOD_ORDER,
   PERIOD_LABELS,
+  type CouncilBucket,
 } from "@/lib/data/church-history";
 import { logPageError } from "@/lib/observability/page-errors";
 
@@ -20,8 +22,12 @@ export const metadata = {
 export default async function ChurchHistoryTimelinePage() {
   const { t, locale } = await getTranslator();
   let events: Awaited<ReturnType<typeof loadTimeline>> = [];
+  let councilBuckets: CouncilBucket[] = [];
   try {
-    events = await loadTimeline(locale);
+    [events, councilBuckets] = await Promise.all([
+      loadTimeline(locale),
+      loadCouncilBuckets(locale),
+    ]);
   } catch (err) {
     logPageError({ route: "/liturgy-history/timeline", entityType: "LiturgyEntry", error: err });
   }
@@ -61,6 +67,52 @@ export default async function ChurchHistoryTimelinePage() {
           })}
         </ol>
       </nav>
+
+      {councilBuckets.length > 0 ? (
+        <section className="mb-10" id="council-documents">
+          <h2 className="mb-3 font-display text-3xl">Council documents</h2>
+          <p className="mb-4 font-serif text-sm text-ink-soft">
+            The texts of the ecumenical councils, grouped by council. Click a council to expand
+            its documents.
+          </p>
+          <div className="flex flex-col gap-3">
+            {councilBuckets.map((bucket) => (
+              <details
+                key={bucket.key}
+                className="vf-card rounded-sm p-4 [&_summary::-webkit-details-marker]:hidden"
+              >
+                <summary className="flex cursor-pointer items-baseline justify-between gap-3 font-serif text-ink hover:text-ink-soft">
+                  <span>
+                    <span className="font-display text-xl">{bucket.label}</span>
+                    <span className="ml-3 text-sm text-ink-faint">{bucket.year}</span>
+                  </span>
+                  <span className="text-xs text-ink-faint">
+                    {bucket.documents.length} document
+                    {bucket.documents.length === 1 ? "" : "s"}
+                  </span>
+                </summary>
+                <ol className="mt-4 flex flex-col gap-3">
+                  {bucket.documents.map((d) => (
+                    <li key={d.slug} className="border-t border-ink/5 pt-3">
+                      <Link
+                        href={`/liturgy-history/${d.slug}`}
+                        className="font-display text-lg hover:underline"
+                      >
+                        {d.title}
+                      </Link>
+                      {d.body ? (
+                        <p className="mt-1 line-clamp-2 font-serif text-sm text-ink-soft">
+                          {d.body}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="flex flex-col gap-10">
         {PERIOD_ORDER.map((period) => {
