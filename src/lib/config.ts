@@ -45,8 +45,12 @@ export const appConfig = {
     initialStatus: "PUBLISHED" as const,
     /** Background scheduler tick interval (ms) while below targets. */
     intervalMs: 10 * 60 * 1000,
-    /** Delay before the first scheduled tick (ms). */
-    initialDelayMs: 2 * 60 * 1000,
+    /**
+     * Delay before the first scheduled tick (ms). Short enough that the
+     * operator sees the catalog start filling within a minute of deploy,
+     * long enough that migrations and the seeder finish first.
+     */
+    initialDelayMs: 30 * 1000,
     /** When true, the in-process scheduler does not start. */
     schedulerDisabled: false,
     /**

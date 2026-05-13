@@ -9,7 +9,11 @@ import { pruneOldAuditLogs, pruneOldIngestionRuns } from "@/lib/data/cleanup";
 import { jsonError, jsonOk } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
-// Long-lived cron invocation; allow up to 60s for slow upstreams.
+// Long-lived cron invocation; allow up to 60s for slow upstreams. Pinning
+// to the Node runtime is required because the runner imports node:crypto
+// transitively through the Postgres advisory-lock helper — the default
+// edge runtime would refuse the build.
+export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {

@@ -21,4 +21,5 @@ export const DASHBOARD_CARDS: DashboardCard[] = [
   { href: "/admin/audit", labelKey: "admin.card.audit", eyebrow: "XIV." },
   { href: "/admin/users", labelKey: "admin.card.users", eyebrow: "XV." },
   { href: "/admin/email", labelKey: "admin.card.email", eyebrow: "XVI." },
+  { href: "/admin/publish-list", labelKey: "admin.card.publishList", eyebrow: "XVII." },
 ];
