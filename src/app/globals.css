@@ -1304,6 +1304,57 @@
     color: var(--text-main);
     text-decoration-color: var(--text-main);
   }
+
+  /* History timeline slider — restrained, on-brand. Inherits the same
+     ink/paper palette so it reads identically on light + dark modes. */
+  .vf-history-slider {
+    appearance: none;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 9999px;
+    background: rgba(0, 0, 0, 0.1);
+    outline: none;
+    cursor: pointer;
+  }
+  .vf-history-slider:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 4px;
+  }
+  .vf-history-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 18px;
+    width: 18px;
+    border-radius: 50%;
+    background: var(--ink, #1a1a1a);
+    border: 2px solid var(--paper, #fdfaf3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+    transition: transform 0.12s ease;
+  }
+  .vf-history-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+  }
+  .vf-history-slider::-moz-range-thumb {
+    height: 18px;
+    width: 18px;
+    border-radius: 50%;
+    background: var(--ink, #1a1a1a);
+    border: 2px solid var(--paper, #fdfaf3);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    cursor: pointer;
+  }
+  html[data-theme="dark"] .vf-history-slider {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  html[data-theme="dark"] .vf-history-slider::-webkit-slider-thumb {
+    background: var(--text-main, #e7e3d6);
+    border-color: var(--ink, #1a1a1a);
+  }
+  html[data-theme="dark"] .vf-history-slider::-moz-range-thumb {
+    background: var(--text-main, #e7e3d6);
+    border-color: var(--ink, #1a1a1a);
+  }
 }
 
 @layer utilities {
