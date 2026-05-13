@@ -5,6 +5,8 @@ import { Pagination } from "@/components/ui/Pagination";
 import { listPublishedSpiritualLifeGuidesPaginated } from "@/lib/data/spiritual-life";
 import { FORMATION_ITEMS, FormationCard } from "./_components";
 import { logger } from "@/lib/observability/logger";
+import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
+import { filterByRite } from "@/lib/content/rites";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Spiritual Life" };
@@ -28,7 +30,9 @@ export default async function SpiritualLifePage({
   } catch (err) {
     logger.error("spiritual_life.list_failed", { error: (err as Error).message });
   }
-  const { items: guides, totalPages } = result;
+  const rite = await getRiteCookieValue();
+  const guides = filterByRite(result.items, rite);
+  const { totalPages } = result;
 
   return (
     <div>

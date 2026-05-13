@@ -4,6 +4,8 @@ import { PageHero } from "@/components/ui/PageHero";
 import { Pagination } from "@/components/ui/Pagination";
 import { listPublishedPrayersPaginated } from "@/lib/data/prayers";
 import { logPageError } from "@/lib/observability/page-errors";
+import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
+import { filterByRite } from "@/lib/content/rites";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Prayers" };
@@ -32,7 +34,12 @@ export default async function PrayersPage({ searchParams }: { searchParams: { pa
   } catch (err) {
     logPageError({ route: "/prayers", entityType: "Prayer", error: err });
   }
-  const { items: prayers, total, totalPages } = result;
+  // Drop prayers tagged for a different Catholic rite (e.g. a slug
+  // containing "byzantine" when the user is reading the Roman Rite).
+  // Rite-neutral prayers (no marker in the slug) are always kept.
+  const rite = await getRiteCookieValue();
+  const prayers = filterByRite(result.items, rite);
+  const { total, totalPages } = result;
 
   return (
     <div>

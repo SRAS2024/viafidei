@@ -74,7 +74,7 @@ export const appConfig = {
       prayers: 500,
       saints: 7_000,
       parishes: 150_000,
-      churchDocuments: 100,
+      churchDocuments: 1_500,
       sacraments: 7,
     },
     /**
