@@ -4,6 +4,8 @@ import { PageHero } from "@/components/ui/PageHero";
 import { Pagination } from "@/components/ui/Pagination";
 import { listPublishedDevotionsPaginated } from "@/lib/data/devotions";
 import { logPageError } from "@/lib/observability/page-errors";
+import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
+import { filterByRite } from "@/lib/content/rites";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Devotions" };
@@ -27,7 +29,9 @@ export default async function DevotionsPage({
   } catch (err) {
     logPageError({ route: "/devotions", entityType: "Devotion", error: err });
   }
-  const { items: devotions, totalPages } = result;
+  const rite = await getRiteCookieValue();
+  const devotions = filterByRite(result.items, rite);
+  const { totalPages } = result;
 
   return (
     <div>

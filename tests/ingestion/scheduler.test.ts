@@ -76,12 +76,12 @@ describe("getBacklogProgress", () => {
 });
 
 describe("ingestion config targets", () => {
-  it("requires the documented minimums (500 prayers / 7,000 saints / 150,000 parishes / 100 church documents / 7 sacraments)", () => {
+  it("requires the documented minimums (500 prayers / 7,000 saints / 150,000 parishes / 1,500 church documents / 7 sacraments)", () => {
     expect(appConfig.ingestion.targets).toEqual({
       prayers: 500,
       saints: 7_000,
       parishes: 150_000,
-      churchDocuments: 100,
+      churchDocuments: 1_500,
       sacraments: 7,
     });
   });

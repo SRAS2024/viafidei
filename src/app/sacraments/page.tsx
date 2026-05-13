@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { listSacramentGuides } from "@/lib/data/spiritual-life";
+import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
+import { filterByRite } from "@/lib/content/rites";
 import {
   BaptismBadge,
   ConfirmationBadge,
@@ -73,8 +75,16 @@ export default async function SacramentsPage() {
     logger.error("sacraments.list_failed", { error: (err as Error).message });
   }
 
-  const sacraments = orderBySlug(groups.sacraments, SACRAMENT_ORDER);
-  const consecrations = orderBySlug(groups.consecrations, CONSECRATION_ORDER);
+  // Drop sacrament/consecration entries that are explicitly tagged for
+  // another rite (e.g. an Eastern-Catholic chrismation summary would
+  // not surface for a Roman-Rite user). The seven sacraments themselves
+  // are rite-neutral so they always pass through.
+  const rite = await getRiteCookieValue();
+  const sacraments = orderBySlug(filterByRite(groups.sacraments, rite), SACRAMENT_ORDER);
+  const consecrations = orderBySlug(
+    filterByRite(groups.consecrations, rite),
+    CONSECRATION_ORDER,
+  );
 
   return (
     <div>

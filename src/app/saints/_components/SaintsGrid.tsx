@@ -7,9 +7,10 @@ type Props = {
   saints: SaintForCard[];
   feastDayLabel: string;
   emptyMessage: string;
+  patronagesLabel?: string;
 };
 
-export function SaintsGrid({ saints, feastDayLabel, emptyMessage }: Props) {
+export function SaintsGrid({ saints, feastDayLabel, emptyMessage, patronagesLabel }: Props) {
   return (
     <section>
       <div className="vf-ornament mb-8" aria-hidden="true">
@@ -21,7 +22,14 @@ export function SaintsGrid({ saints, feastDayLabel, emptyMessage }: Props) {
             {emptyMessage}
           </div>
         ) : (
-          saints.map((s) => <SaintCard key={s.id} saint={s} feastDayLabel={feastDayLabel} />)
+          saints.map((s) => (
+            <SaintCard
+              key={s.id}
+              saint={s}
+              feastDayLabel={feastDayLabel}
+              patronagesLabel={patronagesLabel}
+            />
+          ))
         )}
       </div>
     </section>

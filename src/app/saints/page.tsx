@@ -94,6 +94,7 @@ export default async function SaintsPage({ searchParams }: Props) {
       <SaintsGrid
         saints={saintsResult.items}
         feastDayLabel={t("saints.feastDay")}
+        patronagesLabel={t("saints.patronages")}
         emptyMessage={
           filter === "our-lady"
             ? "Our Lady entries will appear here as new titles are published."
