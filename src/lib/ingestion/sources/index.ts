@@ -2,6 +2,8 @@ export { isApprovedHost, isApprovedUrl, gateUrl, listApprovedHosts } from "./vat
 export {
   extractApprovedLinks,
   extractDocument,
+  extractSitemapUrls,
+  isSitemapIndex,
   safeUrl,
   type DiscoveredLink,
   type ExtractedDocument,

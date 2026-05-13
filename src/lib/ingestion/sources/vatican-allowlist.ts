@@ -347,6 +347,98 @@ const APPROVED_HOSTS: readonly string[] = [
   "www.iglesia.org.ec",
   "iglesia.org.pe", // Peruvian Bishops Conference
   "www.iglesia.org.pe",
+
+  // ── Additional U.S. archdioceses & dioceses ──
+  "adw.org", // Washington DC
+  "www.adw.org",
+  "aod.org", // Detroit
+  "www.aod.org",
+  "archdioceseofhartford.org",
+  "www.archdioceseofhartford.org",
+  "rcan.org", // Newark
+  "www.rcan.org",
+  "diopitt.org", // Pittsburgh
+  "www.diopitt.org",
+  "dioceseofcleveland.org",
+  "www.dioceseofcleveland.org",
+  "catholicaoc.org", // Cincinnati
+  "www.catholicaoc.org",
+  "archgh.org", // Galveston-Houston
+  "www.archgh.org",
+  "sdcatholic.org", // San Diego
+  "www.sdcatholic.org",
+  "catholichawaii.org",
+  "www.catholichawaii.org",
+  "scd.org", // Sacramento
+  "www.scd.org",
+  "dolr.org", // Little Rock
+  "www.dolr.org",
+  "richmonddiocese.org",
+  "www.richmonddiocese.org",
+  "archdpdx.org", // Portland OR — also listed above; duplicate-safe
+  "www.archdpdx.org",
+  "rcdb.org", // Brooklyn alt
+  "diocesseofcc.org", // Corpus Christi
+  "www.diocesseofcc.org",
+  "raleighdiocese.org",
+  "www.raleighdiocese.org",
+  "dosma.org", // Diocese of Salt Lake City / Springfield-Cape Girardeau (used by several)
+  "www.dosma.org",
+
+  // ── Additional European dioceses / archdioceses ──
+  "erzbistumberlin.de",
+  "www.erzbistumberlin.de",
+  "erzbistum-muenchen.de",
+  "www.erzbistum-muenchen.de",
+  "erzbistum-koeln.de",
+  "www.erzbistum-koeln.de",
+  "kirchen.net", // Erzdiözese Salzburg
+  "www.kirchen.net",
+  "erzdioezese-wien.at",
+  "www.erzdioezese-wien.at",
+  "diecezja.pl", // Polish dioceses portal
+  "www.diecezja.pl",
+  "diecezja.krakow.pl",
+  "www.diecezja.krakow.pl",
+  "diecezja.warszawa.pl",
+  "www.diecezja.warszawa.pl",
+  "kuria.lublin.pl",
+  "www.kuria.lublin.pl",
+
+  // ── Latin American archdioceses ──
+  "arzbaires.org.ar", // Buenos Aires
+  "www.arzbaires.org.ar",
+  "arquisp.org.br", // São Paulo
+  "www.arquisp.org.br",
+  "arqrio.org", // Rio de Janeiro
+  "www.arqrio.org",
+
+  // ── Marian / pilgrimage shrines with official Catholic-authority sites ──
+  "lourdes-france.org",
+  "www.lourdes-france.org",
+  "fatima.pt", // Sanctuary of Fátima
+  "www.fatima.pt",
+  "virgendeguadalupe.org.mx",
+  "www.virgendeguadalupe.org.mx",
+  "basilica.mxv.mx", // Basilica of Guadalupe alt
+  "knock-shrine.ie",
+  "www.knock-shrine.ie",
+  "czestochowa.pl", // Jasna Góra
+  "www.czestochowa.pl",
+  "jasnagora.pl",
+  "www.jasnagora.pl",
+  "lasaletteshrine.org",
+  "www.lasaletteshrine.org",
+
+  // ── Religious orders not yet listed ──
+  "ocist.org", // Cistercians
+  "www.ocist.org",
+  "trappist.net", // Trappists
+  "www.trappist.net",
+  "norbertines.org",
+  "www.norbertines.org",
+  "carmelitefriars.org", // Discalced Carmelite Friars
+  "www.carmelitefriars.org",
 ] as const;
 
 const APPROVED_HOST_SET = new Set<string>(APPROVED_HOSTS.map((h) => h.toLowerCase()));
