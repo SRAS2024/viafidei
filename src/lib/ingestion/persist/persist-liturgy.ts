@@ -27,23 +27,9 @@ export async function persistLiturgy(
   const incomingChecksum = computeChecksum(item);
 
   if (existing) {
-    if (existing.status === "PUBLISHED" || existing.status === "ARCHIVED") {
-      return "skipped";
-    }
-    if (existing.contentChecksum === incomingChecksum) return "skipped";
-    await prisma.liturgyEntry.update({
-      where: { id: existing.id },
-      data: {
-        kind: item.liturgyKind,
-        title: item.title,
-        summary: item.summary ?? null,
-        body: item.body,
-        externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey,
-        contentChecksum: incomingChecksum,
-        status: initialStatus,
-      },
-    });
-    return "updated";
+    // Spec: "only add content if it is not already in the database." Any
+    // existing row is left untouched; ingestion is strictly additive.
+    return "skipped";
   }
 
   await prisma.liturgyEntry.create({

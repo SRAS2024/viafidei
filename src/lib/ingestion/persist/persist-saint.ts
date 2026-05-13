@@ -41,24 +41,10 @@ export async function persistSaint(
   const existing = await findExistingSaint(item, incomingChecksum);
 
   if (existing) {
-    if (existing.status === "PUBLISHED" || existing.status === "ARCHIVED") {
-      return "skipped";
-    }
-    if (existing.contentChecksum === incomingChecksum) return "skipped";
-    await prisma.saint.update({
-      where: { id: existing.id },
-      data: {
-        canonicalName: item.canonicalName,
-        feastDay: item.feastDay ?? null,
-        patronages: item.patronages,
-        biography: item.biography,
-        officialPrayer: item.officialPrayer ?? null,
-        externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey ?? null,
-        contentChecksum: incomingChecksum,
-        status: initialStatus,
-      },
-    });
-    return "updated";
+    // Spec: "only add content if it is not already in the database." Any
+    // existing row — PUBLISHED, ARCHIVED, DRAFT (admin WIP), or REVIEW —
+    // is left untouched; ingestion is strictly additive.
+    return "skipped";
   }
 
   await prisma.saint.create({
