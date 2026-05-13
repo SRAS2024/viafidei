@@ -593,6 +593,83 @@ const FALLBACK_BY_SLUG = new Map(FALLBACK_EVENTS.map((e) => [e.slug, e]));
  * for now. A later schema migration could extend LiturgyEntry with these
  * fields once enough timeline rows exist.
  */
+/**
+ * Group all `council-*` slugged LiturgyEntry rows under the council they
+ * belong to. The slug pattern is `council-<text>` and the title carries
+ * the council name (e.g. "Lumen Gentium — Second Vatican Council"); we
+ * use a coarse keyword match on title + slug to bucket each row under
+ * one of the historically-recognized ecumenical councils.
+ */
+const COUNCIL_BUCKETS: ReadonlyArray<{ key: string; label: string; year: string; match: RegExp }> = [
+  { key: "vat-ii", label: "Second Vatican Council", year: "1962–1965", match: /vatican[\s-]*ii|second\s+vatican|sacrosanctum|lumen[\s-]*gentium|dei[\s-]*verbum|gaudium[\s-]*et[\s-]*spes|unitatis|orientalium|christus[\s-]*dominus|perfectae|optatam|presbyterorum|ad[\s-]*gentes|apostolicam|inter[\s-]*mirifica|gravissimum|nostra[\s-]*aetate|dignitatis[\s-]*humanae/i },
+  { key: "vat-i", label: "First Vatican Council", year: "1869–1870", match: /vatican[\s-]*i|first\s+vatican|pastor[\s-]*aeternus|dei[\s-]*filius/i },
+  { key: "trent", label: "Council of Trent", year: "1545–1563", match: /trent|tridentine/i },
+  { key: "florence", label: "Council of Florence", year: "1431–1449", match: /florence|ferrara/i },
+  { key: "constance", label: "Council of Constance", year: "1414–1418", match: /constance/i },
+  { key: "vienne", label: "Council of Vienne", year: "1311–1312", match: /vienne/i },
+  { key: "lyon", label: "Councils of Lyon", year: "1245 / 1274", match: /lyon|lyons/i },
+  { key: "lateran", label: "Lateran Councils", year: "1123–1517", match: /lateran/i },
+  { key: "constantinople", label: "Councils of Constantinople", year: "381–869/870", match: /constantinople/i },
+  { key: "chalcedon", label: "Council of Chalcedon", year: "451", match: /chalcedon/i },
+  { key: "ephesus", label: "Council of Ephesus", year: "431", match: /ephesus/i },
+  { key: "nicaea", label: "Councils of Nicaea", year: "325 / 787", match: /nicaea|nicene/i },
+];
+
+export type CouncilDocument = {
+  slug: string;
+  title: string;
+  body?: string;
+};
+
+export type CouncilBucket = {
+  key: string;
+  label: string;
+  year: string;
+  documents: CouncilDocument[];
+};
+
+/**
+ * Read every `council-*`-prefixed LiturgyEntry from the database and
+ * bucket them by ecumenical council so the timeline page can render a
+ * "Council documents" expandable list (each council header is a
+ * dropdown; the conciliar documents are the items inside).
+ */
+export async function loadCouncilBuckets(locale: Locale): Promise<CouncilBucket[]> {
+  let rows: Array<{ slug: string; title: string; body: string }>;
+  try {
+    rows = await prisma.liturgyEntry.findMany({
+      where: { status: "PUBLISHED", slug: { startsWith: "council-" } },
+      include: { translations: { where: { locale } } },
+      orderBy: { title: "asc" },
+    }).then((arr) =>
+      arr.map((r) => ({
+        slug: r.slug,
+        title: r.translations[0]?.title ?? r.title,
+        body: r.translations[0]?.body ?? r.body,
+      })),
+    );
+  } catch (err) {
+    logger.warn("church_history.councils_db_failed", { error: (err as Error).message });
+    rows = [];
+  }
+  const buckets: CouncilBucket[] = COUNCIL_BUCKETS.map((b) => ({
+    key: b.key,
+    label: b.label,
+    year: b.year,
+    documents: [],
+  }));
+  const buckByKey = new Map(buckets.map((b) => [b.key, b]));
+  for (const row of rows) {
+    const hit = COUNCIL_BUCKETS.find((b) => b.match.test(row.title) || b.match.test(row.slug));
+    if (!hit) continue;
+    const target = buckByKey.get(hit.key);
+    if (!target) continue;
+    target.documents.push({ slug: row.slug, title: row.title, body: row.body });
+  }
+  // Keep only buckets with at least one document, preserving historical order.
+  return buckets.filter((b) => b.documents.length > 0);
+}
+
 export async function loadTimeline(locale: Locale): Promise<TimelineEvent[]> {
   type Row = Awaited<
     ReturnType<

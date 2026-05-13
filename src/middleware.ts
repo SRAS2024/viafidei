@@ -76,6 +76,12 @@ export function middleware(req: NextRequest) {
     }
   }
 
+  // Expose the path to server components via a request header so the
+  // root layout can suppress the public navigation on /admin routes
+  // without having to import next/navigation in a layout that needs to
+  // stay async-server-component-safe.
+  requestHeaders.set("x-pathname", pathname);
+
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set(REQUEST_ID_HEADER, requestId);
 

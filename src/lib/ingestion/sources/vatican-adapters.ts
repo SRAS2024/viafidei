@@ -1011,6 +1011,171 @@ export function buildVaticanHistoryCrawler(): SourceAdapter {
   });
 }
 
+/**
+ * Dedicated crawler for Vatican Council documents. Walks every council
+ * archive on vatican.va and stores each conciliar document as a
+ * LiturgyEntry with slug prefix `council-` so the admin backlog
+ * counter (Church Documents bucket) picks it up. The slug also lets
+ * the history timeline group documents under their council heading.
+ *
+ * Index pages here are the council root directories plus the per-section
+ * documents pages where actual conciliar texts live (Lumen Gentium,
+ * Sacrosanctum Concilium, etc.).
+ */
+export function buildVaticanCouncilsCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "vatican.councils",
+    description: "Documents of the ecumenical councils (Trent, Vatican I, Vatican II, etc.)",
+    kind: "liturgy",
+    directUrls: [
+      // Vatican II — the four constitutions, nine decrees, three declarations.
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19631204_sacrosanctum-concilium_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19641121_lumen-gentium_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651118_dei-verbum_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651207_gaudium-et-spes_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19641121_unitatis-redintegratio_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19641121_orientalium-ecclesiarum_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651028_christus-dominus_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651028_perfectae-caritatis_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651028_optatam-totius_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651207_presbyterorum-ordinis_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651207_ad-gentes_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19651118_apostolicam-actuositatem_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19641204_inter-mirifica_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decl_19651028_gravissimum-educationis_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decl_19651028_nostra-aetate_en.html",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decl_19651207_dignitatis-humanae_en.html",
+    ],
+    indexUrls: [
+      "https://www.vatican.va/archive/hist_councils/index.htm",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/index.htm",
+      "https://www.vatican.va/archive/hist_councils/i_vatican_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/i_vatican_council/documents/index.htm",
+      "https://www.vatican.va/archive/hist_councils/trent/index.htm",
+      "https://www.vatican.va/archive/hist_councils/v_lateran_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/iv_lateran_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/iii_lateran_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/lyon/index.htm",
+      "https://www.vatican.va/archive/hist_councils/florence/index.htm",
+    ],
+    toItem: ({ url, title, description, bodyText }): IngestedLiturgy | null => {
+      const body = bodyText || description || "";
+      if (body.length < 60) return null;
+      // Council documents share the conciliar URL pattern
+      // /archive/hist_councils/<council>/documents/<doc>_en.html.
+      // Accept anything inside hist_councils OR whose title matches a
+      // known conciliar text.
+      const looksConciliar =
+        /\/archive\/hist_councils\//i.test(url) ||
+        /(lumen gentium|gaudium et spes|sacrosanctum concilium|dei verbum|unitatis|orientalium|christus dominus|perfectae caritatis|optatam totius|presbyterorum|ad gentes|apostolicam|inter mirifica|gravissimum|nostra aetate|dignitatis humanae|council of)/i.test(
+          title,
+        );
+      if (!looksConciliar) return null;
+      const slugBase = buildSlug(title) || buildSlug(url);
+      const slug = slugBase.startsWith("council-") ? slugBase : `council-${slugBase}`;
+      return {
+        kind: "liturgy",
+        slug,
+        liturgyKind: "COUNCIL_TIMELINE",
+        title,
+        summary: description ?? undefined,
+        body,
+        externalSourceKey: urlToExternalKey(url),
+      };
+    },
+  });
+}
+
+/**
+ * Dedicated crawler for the full Catechism of the Catholic Church. The
+ * canonical English text lives at
+ *   https://www.vatican.va/archive/ENG0015/__P[N].HTM
+ * with a paginated structure of hundreds of paragraph-range pages. We
+ * walk the index and let each detail page produce a LiturgyEntry with
+ * slug prefix `catechism-` for the backlog counter.
+ */
+export function buildVaticanCatechismCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "vatican.catechism",
+    description: "The Catechism of the Catholic Church (full text by paragraph range)",
+    kind: "liturgy",
+    indexUrls: [
+      "https://www.vatican.va/archive/ENG0015/_INDEX.HTM", // EN
+      "https://www.vatican.va/archive/ITA0014/_INDEX.HTM", // IT
+      "https://www.vatican.va/archive/ESL0506/_INDEX.HTM", // ES
+      "https://www.vatican.va/archive/compendium_ccc/documents/archive_2005_compendium-ccc_en.html",
+    ],
+    toItem: ({ url, title, description, bodyText }): IngestedLiturgy | null => {
+      const body = bodyText || description || "";
+      if (body.length < 60) return null;
+      // The CCC index links out to per-section pages at /archive/ENG0015/__P*.HTM.
+      // Accept anything in that path.
+      const inCatechism = /\/archive\/(ENG0015|ITA0014|ESL0506|compendium_ccc)\//i.test(url);
+      if (!inCatechism) return null;
+      const slugBase = buildSlug(title) || buildSlug(url);
+      const slug = slugBase.startsWith("catechism-") ? slugBase : `catechism-${slugBase}`;
+      return {
+        kind: "liturgy",
+        slug,
+        liturgyKind: "GLOSSARY",
+        title,
+        summary: description ?? undefined,
+        body,
+        externalSourceKey: urlToExternalKey(url),
+      };
+    },
+  });
+}
+
+/**
+ * Dedicated crawler for papal encyclicals. The Holy See publishes every
+ * encyclical at /holy_father/<pope>/encyclicals/documents/hf_<pope>_<date>_<name>_<lang>.html
+ * — a stable pattern we can recognise from URL alone. Slug prefix
+ * `encyclical-` so the backlog counter picks it up.
+ */
+export function buildVaticanEncyclicalsCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "vatican.encyclicals",
+    description: "Papal encyclicals from the Holy See's archive (every pope)",
+    kind: "liturgy",
+    indexUrls: [
+      "https://www.vatican.va/holy_father/index.htm",
+      // John Paul II encyclical archive
+      "https://www.vatican.va/holy_father/john_paul_ii/encyclicals/index.htm",
+      // Benedict XVI encyclical archive
+      "https://www.vatican.va/holy_father/benedict_xvi/encyclicals/index.htm",
+      // Francis encyclical archive
+      "https://www.vatican.va/holy_father/francesco/encyclicals/index.htm",
+      // Paul VI and Pius XII archives
+      "https://www.vatican.va/holy_father/paul_vi/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/pius_xii/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/pius_xi/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/leo_xiii/encyclicals/index.htm",
+    ],
+    toItem: ({ url, title, description, bodyText }): IngestedLiturgy | null => {
+      const body = bodyText || description || "";
+      if (body.length < 60) return null;
+      // Match the stable encyclicals URL pattern.
+      const isEncyclical =
+        /\/holy_father\/[^/]+\/encyclicals\/documents\/hf_[^/]+_en\.html$/i.test(url) ||
+        /encyclical/i.test(title);
+      if (!isEncyclical) return null;
+      const slugBase = buildSlug(title) || buildSlug(url);
+      const slug = slugBase.startsWith("encyclical-") ? slugBase : `encyclical-${slugBase}`;
+      return {
+        kind: "liturgy",
+        slug,
+        liturgyKind: "GENERAL",
+        title,
+        summary: description ?? undefined,
+        body,
+        externalSourceKey: urlToExternalKey(url),
+      };
+    },
+  });
+}
+
 export function buildAllVaticanCrawlers(): SourceAdapter[] {
   return [
     buildVaticanPrayerCrawler(),
@@ -1032,5 +1197,11 @@ export function buildAllVaticanCrawlers(): SourceAdapter[] {
     // grow past what bishops'-conference sites alone publish.
     buildCredibleCatholicPrayersCrawler(),
     buildCredibleCatholicSaintsCrawler(),
+    // Church-documents bucket: conciliar texts, the full Catechism, and
+    // every encyclical the Holy See archives. Each one stamps a slug
+    // prefix the admin backlog tracker counts under "Church Documents".
+    buildVaticanCouncilsCrawler(),
+    buildVaticanCatechismCrawler(),
+    buildVaticanEncyclicalsCrawler(),
   ];
 }
