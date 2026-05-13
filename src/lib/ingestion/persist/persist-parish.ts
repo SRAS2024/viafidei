@@ -92,32 +92,10 @@ export async function persistParish(
   const existing = await findExistingParish(item, incomingChecksum);
 
   if (existing) {
-    if (existing.status === "PUBLISHED" || existing.status === "ARCHIVED") {
-      return "skipped";
-    }
-    if (existing.contentChecksum === incomingChecksum) return "skipped";
-    await prisma.parish.update({
-      where: { id: existing.id },
-      data: {
-        name: item.name,
-        address: item.address ?? existing.address ?? null,
-        city: item.city ?? existing.city ?? null,
-        region: item.region ?? existing.region ?? null,
-        country: item.country ?? existing.country ?? null,
-        phone: item.phone ?? existing.phone ?? null,
-        email: item.email ?? existing.email ?? null,
-        websiteUrl: item.websiteUrl ?? existing.websiteUrl ?? null,
-        diocese: item.diocese ?? existing.diocese ?? null,
-        ociaUrl: item.ociaUrl ?? existing.ociaUrl ?? null,
-        latitude: item.latitude ?? existing.latitude ?? null,
-        longitude: item.longitude ?? existing.longitude ?? null,
-        externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey ?? null,
-        sourceHost: existing.sourceHost ?? deriveSourceHost(item),
-        contentChecksum: incomingChecksum,
-        status: initialStatus,
-      },
-    });
-    return "updated";
+    // Spec: "only add content if it is not already in the database." Any
+    // existing row — PUBLISHED, ARCHIVED, DRAFT (admin WIP), or REVIEW —
+    // is left untouched; ingestion is strictly additive.
+    return "skipped";
   }
 
   await prisma.parish.create({

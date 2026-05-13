@@ -22,25 +22,9 @@ export async function persistApparition(
   const incomingChecksum = computeChecksum(item);
 
   if (existing) {
-    if (existing.status === "PUBLISHED" || existing.status === "ARCHIVED") {
-      return "skipped";
-    }
-    if (existing.contentChecksum === incomingChecksum) return "skipped";
-    await prisma.marianApparition.update({
-      where: { id: existing.id },
-      data: {
-        title: item.title,
-        location: item.location ?? null,
-        country: item.country ?? null,
-        approvedStatus: item.approvedStatus,
-        summary: item.summary,
-        officialPrayer: item.officialPrayer ?? null,
-        externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey ?? null,
-        contentChecksum: incomingChecksum,
-        status: initialStatus,
-      },
-    });
-    return "updated";
+    // Spec: "only add content if it is not already in the database." Any
+    // existing row is left untouched; ingestion is strictly additive.
+    return "skipped";
   }
 
   await prisma.marianApparition.create({

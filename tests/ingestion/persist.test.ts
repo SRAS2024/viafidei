@@ -115,31 +115,16 @@ describe("persistItems — DB writes", () => {
 });
 
 describe("persistItems — dedupe", () => {
-  it("returns 'skipped' when checksum is identical (no DB update)", async () => {
+  it("skips when any existing row is found (ingestion is strictly additive)", async () => {
     prismaMock.prayer.findFirst.mockResolvedValue({
       id: "existing-id",
       status: "DRAFT",
-      // We can't precompute the checksum without re-running the
-      // canonicalisation logic, so we let the first call create the row
-      // and assert the second is a skip.
+      contentChecksum: "anything",
     });
-
-    // First write: existing row has different checksum, so this updates.
-    prismaMock.prayer.update.mockResolvedValue({});
-    const first = await persistItems([basePrayer], "REVIEW");
-    expect(first).toEqual({ created: 0, updated: 1, skipped: 0 });
-
-    // Second write: returned from DB with the just-stored checksum.
-    const updateCall = prismaMock.prayer.update.mock.calls[0][0];
-    const storedChecksum = updateCall.data.contentChecksum;
-    prismaMock.prayer.findFirst.mockResolvedValue({
-      id: "existing-id",
-      status: "DRAFT",
-      contentChecksum: storedChecksum,
-    });
-    prismaMock.prayer.update.mockClear();
-    const second = await persistItems([basePrayer], "REVIEW");
-    expect(second).toEqual({ created: 0, updated: 0, skipped: 1 });
+    const result = await persistItems([basePrayer], "PUBLISHED");
+    expect(result).toEqual({ created: 0, updated: 0, skipped: 1 });
+    // Ingestion must never UPDATE — it only CREATEs new rows and skips
+    // every existing one (PUBLISHED, ARCHIVED, DRAFT, or REVIEW).
     expect(prismaMock.prayer.update).not.toHaveBeenCalled();
   });
 
@@ -149,7 +134,18 @@ describe("persistItems — dedupe", () => {
       status: "PUBLISHED",
       contentChecksum: "old",
     });
-    const result = await persistItems([basePrayer], "REVIEW");
+    const result = await persistItems([basePrayer], "PUBLISHED");
+    expect(result).toEqual({ created: 0, updated: 0, skipped: 1 });
+    expect(prismaMock.prayer.update).not.toHaveBeenCalled();
+  });
+
+  it("never overwrites DRAFT content either — protects admin WIP", async () => {
+    prismaMock.prayer.findFirst.mockResolvedValue({
+      id: "existing-id",
+      status: "DRAFT",
+      contentChecksum: "old",
+    });
+    const result = await persistItems([basePrayer], "PUBLISHED");
     expect(result).toEqual({ created: 0, updated: 0, skipped: 1 });
     expect(prismaMock.prayer.update).not.toHaveBeenCalled();
   });
@@ -159,26 +155,28 @@ describe("persistItems — dedupe", () => {
     prismaMock.prayer.findUnique.mockResolvedValue(null);
     prismaMock.prayer.create.mockResolvedValue({});
 
-    const result = await persistItems([basePrayer, { ...basePrayer }, basePrayer], "REVIEW");
+    const result = await persistItems([basePrayer, { ...basePrayer }, basePrayer], "PUBLISHED");
 
     // Two duplicates dropped at the dedupe stage; only one create lands.
     expect(result).toEqual({ created: 1, updated: 0, skipped: 2 });
     expect(prismaMock.prayer.create).toHaveBeenCalledTimes(1);
   });
 
-  it("matches existing rows by externalSourceKey even when slug differs", async () => {
+  it("matches existing rows by externalSourceKey even when slug differs (skipped)", async () => {
     // Same upstream URL, different slug: must still resolve to the same
-    // existing row (the URL is the stable identity).
+    // existing row (the URL is the stable identity) and be skipped.
     prismaMock.prayer.findFirst.mockResolvedValue({
       id: "existing-id",
       status: "DRAFT",
       contentChecksum: "old",
     });
-    prismaMock.prayer.update.mockResolvedValue({});
 
-    const result = await persistItems([{ ...basePrayer, slug: "our-father-renamed" }], "REVIEW");
+    const result = await persistItems(
+      [{ ...basePrayer, slug: "our-father-renamed" }],
+      "PUBLISHED",
+    );
 
-    expect(result).toEqual({ created: 0, updated: 1, skipped: 0 });
+    expect(result).toEqual({ created: 0, updated: 0, skipped: 1 });
     // Verify the lookup OR'd by externalSourceKey + slug (so a renamed slug
     // collapses to the same row as the original URL).
     const lookupArgs = prismaMock.prayer.findFirst.mock.calls[0][0];
@@ -191,18 +189,15 @@ describe("persistItems — dedupe", () => {
   });
 });
 
-describe("persistItems — status reset on update", () => {
-  it("sets status to initialStatus on every update so admins re-review changed content", async () => {
-    prismaMock.saint.findUnique.mockResolvedValue({
-      id: "existing-id",
-      status: "DRAFT",
-      contentChecksum: "old",
-    });
-    prismaMock.saint.update.mockResolvedValue({});
+describe("persistItems — new rows always created in initialStatus", () => {
+  it("new prayer landing as PUBLISHED auto-publishes (no admin approval)", async () => {
+    prismaMock.prayer.findFirst.mockResolvedValue(null);
+    prismaMock.prayer.findUnique.mockResolvedValue(null);
+    prismaMock.prayer.create.mockResolvedValue({});
 
-    await persistItems([baseSaint], "REVIEW");
+    await persistItems([basePrayer], "PUBLISHED");
 
-    const args = prismaMock.saint.update.mock.calls[0][0];
-    expect(args.data.status).toBe("REVIEW");
+    const args = prismaMock.prayer.create.mock.calls[0][0];
+    expect(args.data.status).toBe("PUBLISHED");
   });
 });

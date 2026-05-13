@@ -63,26 +63,26 @@ describe("runAdapter — DB writes through to IngestionJobRun", () => {
     expect(updateArgs.data.recordsCreated).toBe(1);
   });
 
-  it("counts both created and updated as review-required when initialStatus=REVIEW", async () => {
+  it("skips any existing row — ingestion never overwrites admin state", async () => {
     prismaMock.ingestionJobRun.create.mockResolvedValue({ id: "run-2" });
     prismaMock.ingestionJobRun.findFirst.mockResolvedValue(null);
     prismaMock.ingestionJobRun.update.mockResolvedValue({});
-    // Existing row, different checksum → updates back to REVIEW.
+    // Existing row in DRAFT (admin WIP). Ingestion must skip it.
     prismaMock.prayer.findFirst.mockResolvedValue({
       id: "x",
       status: "DRAFT",
       contentChecksum: "different",
     });
-    prismaMock.prayer.update.mockResolvedValue({});
 
     const adapter = makeAdapter([item]);
     const summary = await runAdapter(adapter, "job-2", "vatican.va", {
       skipLock: true,
-      initialStatus: "REVIEW",
+      initialStatus: "PUBLISHED",
     });
 
-    expect(summary.recordsUpdated).toBe(1);
-    expect(summary.recordsReviewRequired).toBe(1);
+    expect(summary.recordsUpdated).toBe(0);
+    expect(summary.recordsSkipped).toBeGreaterThanOrEqual(1);
+    expect(prismaMock.prayer.update).not.toHaveBeenCalled();
   });
 
   it("marks the IngestionJobRun FAILED when the adapter throws", async () => {

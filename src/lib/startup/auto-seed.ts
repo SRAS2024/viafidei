@@ -2,6 +2,7 @@ import { appConfig } from "../config";
 import { prisma } from "../db/client";
 import { checkRequiredTables } from "../db/tables";
 import { ensureAccountEmailTables } from "./ensure-email-tables";
+import { promoteIngestedOrphans } from "./promote-ingested";
 import { seedAllContent } from "./seeder";
 
 let scheduled = false;
@@ -292,6 +293,27 @@ export async function runStartupTasks(): Promise<void> {
     }
   } else {
     console.log("[startup] content already present — skipping seed");
+  }
+
+  // Promote any auto-ingested rows that are still stuck in REVIEW status
+  // from previous deploys (when the default initial status was REVIEW).
+  // Now that ingestion auto-publishes, those orphans should be visible to
+  // public users instead of sitting in a moderation queue indefinitely.
+  // Admin-set DRAFT / ARCHIVED rows are intentionally untouched.
+  try {
+    const promoted = await promoteIngestedOrphans();
+    const total = Object.values(promoted).reduce((a, b) => a + b, 0);
+    if (total > 0) {
+      console.log(
+        "[startup] promoted legacy ingestion orphans to PUBLISHED",
+        JSON.stringify(promoted),
+      );
+    }
+  } catch (e) {
+    console.error(
+      "[startup] failed to promote ingestion orphans",
+      e instanceof Error ? e.message : e,
+    );
   }
 
   scheduleIngestion();

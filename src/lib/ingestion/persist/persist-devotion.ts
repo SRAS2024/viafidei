@@ -22,23 +22,9 @@ export async function persistDevotion(
   const incomingChecksum = computeChecksum(item);
 
   if (existing) {
-    if (existing.status === "PUBLISHED" || existing.status === "ARCHIVED") {
-      return "skipped";
-    }
-    if (existing.contentChecksum === incomingChecksum) return "skipped";
-    await prisma.devotion.update({
-      where: { id: existing.id },
-      data: {
-        title: item.title,
-        summary: item.summary,
-        practiceText: item.practiceText ?? null,
-        durationMinutes: item.durationMinutes ?? null,
-        externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey ?? null,
-        contentChecksum: incomingChecksum,
-        status: initialStatus,
-      },
-    });
-    return "updated";
+    // Spec: "only add content if it is not already in the database." Any
+    // existing row is left untouched; ingestion is strictly additive.
+    return "skipped";
   }
 
   await prisma.devotion.create({

@@ -26,26 +26,9 @@ export async function persistGuide(
   const incomingChecksum = computeChecksum(item);
 
   if (existing) {
-    if (existing.status === "PUBLISHED" || existing.status === "ARCHIVED") {
-      return "skipped";
-    }
-    if (existing.contentChecksum === incomingChecksum) return "skipped";
-    await prisma.spiritualLifeGuide.update({
-      where: { id: existing.id },
-      data: {
-        kind: item.guideKind,
-        title: item.title,
-        summary: item.summary,
-        bodyText: item.bodyText ?? null,
-        steps: item.steps ?? undefined,
-        durationDays: item.durationDays ?? null,
-        goalTemplateSlug: item.goalTemplateSlug ?? null,
-        externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey,
-        contentChecksum: incomingChecksum,
-        status: initialStatus,
-      },
-    });
-    return "updated";
+    // Spec: "only add content if it is not already in the database." Any
+    // existing row is left untouched; ingestion is strictly additive.
+    return "skipped";
   }
 
   await prisma.spiritualLifeGuide.create({

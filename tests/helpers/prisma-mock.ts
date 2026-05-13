@@ -12,6 +12,7 @@ type Crud = {
   findUnique: Mock;
   findMany: Mock;
   update: Mock;
+  updateMany: Mock;
   upsert: Mock;
   delete: Mock;
   deleteMany: Mock;
@@ -25,6 +26,7 @@ function createCrud(): Crud {
     findUnique: vi.fn(),
     findMany: vi.fn(),
     update: vi.fn(),
+    updateMany: vi.fn(),
     upsert: vi.fn(),
     delete: vi.fn(),
     deleteMany: vi.fn(),

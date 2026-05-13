@@ -30,23 +30,13 @@ export async function persistPrayer(
   });
 
   if (existing) {
-    // Curated (PUBLISHED/ARCHIVED) content is protected from automatic overwrites
-    if (existing.status === "PUBLISHED" || existing.status === "ARCHIVED") {
-      return "skipped";
-    }
-    if (existing.contentChecksum === incomingChecksum) return "skipped";
-    await prisma.prayer.update({
-      where: { id: existing.id },
-      data: {
-        defaultTitle: item.defaultTitle,
-        category: item.category,
-        body: item.body,
-        externalSourceKey: item.externalSourceKey ?? existing.externalSourceKey,
-        contentChecksum: incomingChecksum,
-        status: initialStatus,
-      },
-    });
-    return "updated";
+    // Spec: "only add content if it is not already in the database."
+    // Any existing row — whether already PUBLISHED, ARCHIVED, DRAFT (admin
+    // WIP), or REVIEW — is left untouched. Ingestion is strictly additive:
+    // it never overwrites a row the admin is or was working on, and it never
+    // re-writes its own previous output (that's what `dedupeBatch` + the
+    // checksum lookup are for).
+    return "skipped";
   }
 
   await prisma.prayer.create({
