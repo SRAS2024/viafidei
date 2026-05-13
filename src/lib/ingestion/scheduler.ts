@@ -11,6 +11,7 @@ export type BacklogCounts = {
   parishes: number;
   churchDocuments: number;
   sacraments: number;
+  consecrations: number;
 };
 
 export type SchedulerMode = "constant" | "maintenance";
@@ -33,8 +34,21 @@ export const CHURCH_DOCUMENT_SLUG_PREFIXES = [
   "synod-",
 ];
 
-/** Slug prefixes that identify a SpiritualLifeGuide as a sacrament/consecration. */
-export const SACRAMENT_SLUG_PREFIXES = ["sacrament-", "consecration-"];
+/**
+ * Slug prefix for the seven Catholic sacraments — Baptism, Confirmation,
+ * Eucharist, Reconciliation, Anointing of the Sick, Holy Orders,
+ * Matrimony. Counted as its own bucket because the Catholic Church
+ * teaches that there are exactly seven; including the consecrations
+ * would inflate the count above the doctrinal number.
+ */
+export const SACRAMENT_SLUG_PREFIXES = ["sacrament-"];
+
+/**
+ * Slug prefix for personal consecrations (Marian, St Joseph, Holy
+ * Family, Sacred Heart). Tracked as a separate bucket so the doctrinal
+ * "seven sacraments" remains exact.
+ */
+export const CONSECRATION_SLUG_PREFIXES = ["consecration-"];
 
 function buildPrefixWhere(prefixes: string[]) {
   return { OR: prefixes.map((p) => ({ slug: { startsWith: p } })) };
@@ -49,6 +63,12 @@ async function countChurchDocuments(): Promise<number> {
 async function countSacraments(): Promise<number> {
   return prisma.spiritualLifeGuide.count({
     where: buildPrefixWhere(SACRAMENT_SLUG_PREFIXES),
+  });
+}
+
+async function countConsecrations(): Promise<number> {
+  return prisma.spiritualLifeGuide.count({
+    where: buildPrefixWhere(CONSECRATION_SLUG_PREFIXES),
   });
 }
 
@@ -69,26 +89,30 @@ export async function getBacklogProgress(): Promise<{
   mode: SchedulerMode;
 }> {
   const targets = appConfig.ingestion.targets;
-  const [prayers, saints, parishes, churchDocuments, sacraments] = await Promise.all([
-    prisma.prayer.count(),
-    prisma.saint.count(),
-    prisma.parish.count(),
-    countChurchDocuments(),
-    countSacraments(),
-  ]);
+  const [prayers, saints, parishes, churchDocuments, sacraments, consecrations] =
+    await Promise.all([
+      prisma.prayer.count(),
+      prisma.saint.count(),
+      prisma.parish.count(),
+      countChurchDocuments(),
+      countSacraments(),
+      countConsecrations(),
+    ]);
   const counts: BacklogCounts = {
     prayers,
     saints,
     parishes,
     churchDocuments,
     sacraments,
+    consecrations,
   };
   const metAll =
     prayers >= targets.prayers &&
     saints >= targets.saints &&
     parishes >= targets.parishes &&
     churchDocuments >= targets.churchDocuments &&
-    sacraments >= targets.sacraments;
+    sacraments >= targets.sacraments &&
+    consecrations >= targets.consecrations;
   const mode: SchedulerMode = metAll ? "maintenance" : "constant";
   return { counts, targets, metAll, mode };
 }

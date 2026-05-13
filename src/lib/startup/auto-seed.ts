@@ -83,24 +83,30 @@ async function backlogMet(): Promise<boolean> {
       "vatican-council-",
       "synod-",
     ];
-    const sacramentPrefixes = ["sacrament-", "consecration-"];
-    const [prayers, saints, parishes, churchDocuments, sacraments] = await Promise.all([
-      prisma.prayer.count(),
-      prisma.saint.count(),
-      prisma.parish.count(),
-      prisma.liturgyEntry.count({
-        where: { OR: churchDocPrefixes.map((p) => ({ slug: { startsWith: p } })) },
-      }),
-      prisma.spiritualLifeGuide.count({
-        where: { OR: sacramentPrefixes.map((p) => ({ slug: { startsWith: p } })) },
-      }),
-    ]);
+    const sacramentPrefixes = ["sacrament-"];
+    const consecrationPrefixes = ["consecration-"];
+    const [prayers, saints, parishes, churchDocuments, sacraments, consecrations] =
+      await Promise.all([
+        prisma.prayer.count(),
+        prisma.saint.count(),
+        prisma.parish.count(),
+        prisma.liturgyEntry.count({
+          where: { OR: churchDocPrefixes.map((p) => ({ slug: { startsWith: p } })) },
+        }),
+        prisma.spiritualLifeGuide.count({
+          where: { OR: sacramentPrefixes.map((p) => ({ slug: { startsWith: p } })) },
+        }),
+        prisma.spiritualLifeGuide.count({
+          where: { OR: consecrationPrefixes.map((p) => ({ slug: { startsWith: p } })) },
+        }),
+      ]);
     return (
       prayers >= targets.prayers &&
       saints >= targets.saints &&
       parishes >= targets.parishes &&
       churchDocuments >= targets.churchDocuments &&
-      sacraments >= targets.sacraments
+      sacraments >= targets.sacraments &&
+      consecrations >= targets.consecrations
     );
   } catch {
     return true;

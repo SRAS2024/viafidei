@@ -76,6 +76,7 @@ export const appConfig = {
       parishes: 150_000,
       churchDocuments: 1_500,
       sacraments: 7,
+      consecrations: 4,
     },
     /**
      * Maintenance-mode cadence: after the targets are met we still

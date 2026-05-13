@@ -790,9 +790,10 @@ five buckets is at or above its minimum (configured in
 | Saints            | 7,000    | `Saint` rows                                                                                       |
 | Parishes          | 150,000  | `Parish` rows                                                                                      |
 | Church Documents  | 1,500    | `LiturgyEntry` rows whose slug starts with `encyclical-`, `catechism-`, `code-of-canon-law-`, `council-`, `vatican-council-`, or `synod-` |
-| Sacraments        | 7        | `SpiritualLifeGuide` rows whose slug starts with `sacrament-` or `consecration-`                  |
+| Sacraments        | 7        | `SpiritualLifeGuide` rows whose slug starts with `sacrament-`. Exactly seven — the doctrinal count of the Sacraments of the Church. |
+| Consecrations     | 4        | `SpiritualLifeGuide` rows whose slug starts with `consecration-` (Marian, Saint Joseph, Holy Family, Sacred Heart). Tracked separately so the Sacraments bucket stays exact. |
 
-Once all five are met the scheduler switches to maintenance mode and
+Once all six are met the scheduler switches to maintenance mode and
 runs the upstream check on a ~84-hour cadence (~twice weekly).
 
 ---
