@@ -13,7 +13,12 @@ import type {
   IngestedSaint,
   SourceAdapter,
 } from "../types";
-import { extractDocument, extractApprovedLinks } from "./discovery";
+import {
+  extractDocument,
+  extractApprovedLinks,
+  extractSitemapUrls,
+  isSitemapIndex,
+} from "./discovery";
 import { gateUrl, isApprovedHost } from "./vatican-allowlist";
 import { buildSlug, categorizeDevotion, categorizePrayer } from "./categorize";
 
@@ -35,7 +40,7 @@ type LinkLimit = {
 };
 
 const DEFAULT_LIMIT: LinkLimit = {
-  perRun: 40,
+  perRun: 80,
   maxBodyLength: 12_000,
 };
 
@@ -47,25 +52,92 @@ const DEFAULT_LIMIT: LinkLimit = {
  * conservative default.
  */
 const PARISH_LIMIT: LinkLimit = {
-  perRun: 120,
+  perRun: 300,
   maxBodyLength: 8_000,
 };
+
+/**
+ * Curated Vatican-canonical prayer URLs. Every one of these is a stable
+ * `vatican.va/.../prayers/...` page that publishes a single prayer text.
+ * Listed by name so we can guarantee a baseline of orthodox prayers per
+ * run even if every index page is unreachable or restructured.
+ */
+const CURATED_VATICAN_PRAYERS = [
+  // Pope John Paul II's classic prayer archive (multilingual).
+  "https://www.vatican.va/special/rosary/documents/hf_jp-ii_pra_19951128_act-cons-totus-tuus_en.html",
+  "https://www.vatican.va/special/rosary/documents/hf_jp-ii_pra_19950416_prayer-totus-tuus_en.html",
+  "https://www.vatican.va/holy_father/john_paul_ii/prayers/documents/hf_jp-ii_19990222_prayer-act-consecration_en.html",
+  // Common prayers republished by USCCB at known stable URLs.
+  "https://www.usccb.org/prayers/our-father",
+  "https://www.usccb.org/prayers/hail-mary",
+  "https://www.usccb.org/prayers/glory-be",
+  "https://www.usccb.org/prayers/apostles-creed",
+  "https://www.usccb.org/prayers/nicene-creed",
+  "https://www.usccb.org/prayers/act-contrition",
+  "https://www.usccb.org/prayers/act-faith",
+  "https://www.usccb.org/prayers/act-hope",
+  "https://www.usccb.org/prayers/act-love",
+  "https://www.usccb.org/prayers/angelus",
+  "https://www.usccb.org/prayers/regina-caeli",
+  "https://www.usccb.org/prayers/come-holy-spirit",
+  "https://www.usccb.org/prayers/divine-praises",
+  "https://www.usccb.org/prayers/grace-before-meals",
+  "https://www.usccb.org/prayers/grace-after-meals",
+  "https://www.usccb.org/prayers/jesus-prayer",
+  "https://www.usccb.org/prayers/litany-loreto",
+  "https://www.usccb.org/prayers/litany-sacred-heart",
+  "https://www.usccb.org/prayers/litany-saint-joseph",
+  "https://www.usccb.org/prayers/magnificat",
+  "https://www.usccb.org/prayers/memorare",
+  "https://www.usccb.org/prayers/morning-offering",
+  "https://www.usccb.org/prayers/prayer-saint-michael",
+  "https://www.usccb.org/prayers/salve-regina",
+  "https://www.usccb.org/prayers/te-deum",
+  "https://www.usccb.org/prayers/veni-creator-spiritus",
+];
+
+/**
+ * Curated saint biography URLs at stable USCCB / Vatican locations.
+ * Used to guarantee a baseline of major-feast saints regardless of
+ * upstream index-page health.
+ */
+const CURATED_SAINTS = [
+  "https://www.usccb.org/prayer-and-worship/liturgical-year/saints",
+  "https://www.vatican.va/news_services/liturgy/saints/2002/ns_lit_doc_20020616_padre-pio_en.html",
+  "https://www.vatican.va/news_services/liturgy/saints/2002/ns_lit_doc_20020731_kateri-tekakwitha_en.html",
+  "https://www.vatican.va/news_services/liturgy/saints/2003/ns_lit_doc_20030504_jose-maria-rubio_en.html",
+];
 
 export type VaticanCrawlerOptions<K extends IngestedKind> = {
   key: string;
   description: string;
   kind: K;
   /**
-   * One or more allowlisted index pages — sitemaps, topic listings, or
-   * curated landing pages on a Vatican-approved host.
+   * Index pages — sitemaps (XML), topic listings, or curated landing
+   * pages. The crawler auto-detects sitemap.xml by Content-Type or root
+   * <urlset> / <sitemapindex> tag and flattens it; otherwise it walks
+   * anchor links.
    */
   indexUrls: string[];
   /**
-   * Optional URL filter applied to discovered links *after* the allowlist
-   * gate. Use to restrict to a single document tree (e.g. only follow
-   * /content/.../prayers/ paths).
+   * Direct canonical URLs that bypass discovery entirely. Use for
+   * well-known stable pages (e.g. the Vatican's "Anima Christi" prayer)
+   * where we don't want to depend on an index page existing.
+   */
+  directUrls?: string[];
+  /**
+   * Optional URL filter applied to discovered links *after* the
+   * allowlist gate. The default is permissive — the per-kind
+   * `toItem` plus the global validator are the real quality gates,
+   * so being too strict here just causes empty runs.
    */
   linkFilter?: (url: URL) => boolean;
+  /**
+   * Hints about what a useful detail page looks like, so we can skip
+   * obvious non-content URLs (login pages, image files, etc.) before
+   * the more expensive fetch.
+   */
+  rejectExtensions?: ReadonlyArray<string>;
   /** How an HTML detail document maps onto the ingested item kind. */
   toItem: (input: {
     url: string;
@@ -77,6 +149,31 @@ export type VaticanCrawlerOptions<K extends IngestedKind> = {
   limit?: Partial<LinkLimit>;
 };
 
+const DEFAULT_REJECT_EXT = [
+  ".pdf",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+  ".zip",
+  ".tar",
+  ".gz",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".svg",
+  ".webp",
+  ".mp3",
+  ".mp4",
+  ".mov",
+  ".css",
+  ".js",
+  ".xml",
+];
+
 function urlToExternalKey(url: string): string {
   return url;
 }
@@ -86,22 +183,67 @@ function isWithinLimit(text: string, limit: LinkLimit): string {
   return text.slice(0, limit.maxBodyLength);
 }
 
-async function fetchHtml(url: string): Promise<string | null> {
+async function fetchBody(url: string): Promise<{ body: string; contentType: string | null } | null> {
   const gated = gateUrl(url);
   if (!gated) return null;
   try {
     const res = await fetchText(gated);
     if (!res.ok || !res.body) return null;
-    return res.body;
+    return { body: res.body, contentType: res.contentType };
   } catch {
     return null;
   }
+}
+
+async function fetchHtml(url: string): Promise<string | null> {
+  const res = await fetchBody(url);
+  return res?.body ?? null;
+}
+
+function pathLooksLikeAsset(pathname: string, rejectExt: ReadonlyArray<string>): boolean {
+  const lower = pathname.toLowerCase();
+  return rejectExt.some((ext) => lower.endsWith(ext));
+}
+
+/**
+ * Read URLs out of one index page. If the response is an XML sitemap
+ * (urlset or sitemapindex) the <loc> values are returned; otherwise
+ * anchor hrefs are extracted from the HTML.
+ *
+ * Sitemap indexes are recursed one level deep — most diocesan sitemaps
+ * follow that shape, and a single level keeps the crawl bounded.
+ */
+async function readIndexPage(indexUrl: string): Promise<string[]> {
+  const res = await fetchBody(indexUrl);
+  if (!res) return [];
+  const looksXml =
+    /\.xml(\?|$)/i.test(indexUrl) ||
+    (res.contentType ?? "").toLowerCase().includes("xml") ||
+    /^\s*<\?xml/i.test(res.body) ||
+    /<(?:urlset|sitemapindex)\b/i.test(res.body);
+  if (looksXml) {
+    if (isSitemapIndex(res.body)) {
+      // Recurse one level: fetch each child sitemap and flatten its URLs.
+      const children = extractSitemapUrls(res.body);
+      const flattened: string[] = [];
+      for (const child of children.slice(0, 10)) {
+        const childRes = await fetchBody(child);
+        if (!childRes) continue;
+        flattened.push(...extractSitemapUrls(childRes.body));
+      }
+      return flattened;
+    }
+    return extractSitemapUrls(res.body);
+  }
+  const links = extractApprovedLinks(res.body, indexUrl);
+  return links.map((l) => l.url);
 }
 
 export function buildVaticanCrawler<K extends IngestedKind>(
   options: VaticanCrawlerOptions<K>,
 ): SourceAdapter {
   const limit: LinkLimit = { ...DEFAULT_LIMIT, ...options.limit };
+  const rejectExt = options.rejectExtensions ?? DEFAULT_REJECT_EXT;
 
   return {
     key: options.key,
@@ -111,41 +253,52 @@ export function buildVaticanCrawler<K extends IngestedKind>(
       const seenUrls = new Set<string>();
       const items: IngestedItem[] = [];
 
+      async function tryUrl(url: string, linkText = ""): Promise<void> {
+        if (items.length >= limit.perRun) return;
+        if (seenUrls.has(url)) return;
+        seenUrls.add(url);
+        let parsed: URL;
+        try {
+          parsed = new URL(url);
+        } catch {
+          return;
+        }
+        if (!isApprovedHost(parsed.host)) return;
+        if (pathLooksLikeAsset(parsed.pathname, rejectExt)) return;
+        if (options.linkFilter && !options.linkFilter(parsed)) return;
+
+        const detailHtml = await fetchHtml(url);
+        if (!detailHtml) return;
+        const doc = extractDocument(detailHtml);
+        const title = doc.title?.trim() ?? linkText.trim();
+        if (!title) return;
+        const bodyText = isWithinLimit(doc.bodyText, limit);
+        const item = options.toItem({
+          url,
+          linkText,
+          title,
+          description: doc.description,
+          bodyText,
+        });
+        if (item) items.push(item);
+      }
+
+      // First: walk every curated direct URL. These don't depend on an
+      // index page being well-structured or live, so they give us a
+      // guaranteed baseline of high-quality content per run.
+      for (const url of options.directUrls ?? []) {
+        if (items.length >= limit.perRun) break;
+        await tryUrl(url);
+      }
+
+      // Then: try each index page. Sitemap-formatted indexes give us
+      // every URL in a clean list; HTML indexes are scraped for anchors.
       for (const indexUrl of options.indexUrls) {
         if (items.length >= limit.perRun) break;
-        const indexHtml = await fetchHtml(indexUrl);
-        if (!indexHtml) continue;
-        const links = extractApprovedLinks(indexHtml, indexUrl);
-        for (const link of links) {
+        const urls = await readIndexPage(indexUrl);
+        for (const url of urls) {
           if (items.length >= limit.perRun) break;
-          if (seenUrls.has(link.url)) continue;
-          seenUrls.add(link.url);
-
-          let parsed: URL;
-          try {
-            parsed = new URL(link.url);
-          } catch {
-            continue;
-          }
-          if (!isApprovedHost(parsed.host)) continue;
-          if (options.linkFilter && !options.linkFilter(parsed)) continue;
-
-          const detailHtml = await fetchHtml(link.url);
-          if (!detailHtml) continue;
-
-          const doc = extractDocument(detailHtml);
-          const title = doc.title?.trim() ?? link.text.trim();
-          if (!title) continue;
-          const bodyText = isWithinLimit(doc.bodyText, limit);
-
-          const item = options.toItem({
-            url: link.url,
-            linkText: link.text,
-            title,
-            description: doc.description,
-            bodyText,
-          });
-          if (item) items.push(item);
+          await tryUrl(url);
         }
       }
 
@@ -158,27 +311,37 @@ export function buildVaticanCrawler<K extends IngestedKind>(
 /* Kind-specific factories                                            */
 /* ------------------------------------------------------------------ */
 
-const PRAYER_PATH_HINTS = ["/prayers/", "/preghiere/", "/oraciones/", "/orationes/"];
-
 export function buildVaticanPrayerCrawler(): SourceAdapter {
   return buildVaticanCrawler({
     key: "vatican.prayers",
     description: "Discovers prayers from approved Vatican sources",
     kind: "prayer",
+    directUrls: CURATED_VATICAN_PRAYERS,
     indexUrls: [
+      // Vatican prayer indexes (Pope archives publish prayers at varied paths).
       "https://www.vatican.va/special/rosary/index_prayers_en.htm",
       "https://www.vatican.va/special/rosary/index_prayers_la.htm",
       "https://www.vatican.va/special/rosary/index_prayers_it.htm",
       "https://www.vatican.va/special/rosary/index_prayers_es.htm",
-      "https://www.vatican.va/roman_curia/congregations/cclergy/documents/index.htm",
+      "https://www.vatican.va/holy_father/index.htm",
+      // USCCB prayer landing pages.
       "https://www.usccb.org/prayers",
       "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers",
+      // Sitemap-first discovery (XML is parsed automatically).
+      "https://www.usccb.org/sitemap.xml",
     ],
-    linkFilter: (u) =>
-      PRAYER_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
-      /prayer/i.test(u.pathname),
     toItem: ({ url, title, description, bodyText }): IngestedPrayer | null => {
       const body = bodyText || description || "";
+      // Only accept pages that look like a prayer: the title or URL mentions
+      // "prayer", "litany", "novena", "act of", "memorare", etc. This is a
+      // cheap content-shape gate that doesn't depend on the upstream URL
+      // path structure (the old linkFilter was too rigid).
+      const looksLikePrayer =
+        /prayer|litany|novena|act of|memorare|hail mary|our father|nicene|apostles|magnificat|te deum|veni|angelus|salve|regina/i.test(
+          title,
+        ) ||
+        /\/prayer|\/litany|\/novena|\/orationes|\/preghiere|\/oraciones/i.test(url);
+      if (!looksLikePrayer) return null;
       if (body.length < 30) return null;
       return {
         kind: "prayer",
@@ -192,29 +355,34 @@ export function buildVaticanPrayerCrawler(): SourceAdapter {
   });
 }
 
-const SAINT_PATH_HINTS = ["/saints/", "/santi/", "/santoral/", "/holy-see/saint"];
-
 export function buildVaticanSaintsCrawler(): SourceAdapter {
   return buildVaticanCrawler({
     key: "vatican.saints",
     description: "Discovers canonized saints from approved Vatican sources",
     kind: "saint",
+    directUrls: CURATED_SAINTS,
     indexUrls: [
       "https://www.vatican.va/news_services/liturgy/saints/index_saints_en.html",
       "https://www.vatican.va/news_services/liturgy/saints/index_saints_it.html",
       "https://www.vatican.va/news_services/liturgy/saints/ns_lit_doc_index_saints_en.html",
       "https://www.vatican.va/news_services/liturgy/2024/documents/index.htm",
+      "https://www.vatican.va/news_services/liturgy/2023/documents/index.htm",
+      "https://www.vatican.va/news_services/liturgy/2022/documents/index.htm",
       "https://www.usccb.org/prayer-and-worship/liturgical-year/saints",
       "https://www.usccb.org/prayer-and-worship/liturgical-year/saints/index.cfm",
+      "https://www.ewtn.com/sitemap.xml",
     ],
-    linkFilter: (u) =>
-      SAINT_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
-      /saint/i.test(u.pathname) ||
-      /santo/i.test(u.pathname),
     toItem: ({ url, title, description, bodyText }): IngestedSaint | null => {
       const biography = bodyText || description || "";
       if (biography.length < 40) return null;
-      const canonicalName = title.replace(/\s*[-|–]\s*Vatican.*/i, "").trim();
+      // Content-shape gate: title or URL must look like a saint biography.
+      const looksLikeSaint =
+        /\b(saint|st\.?|santo|santa|san|blessed|beata|beato|martyr|pope)\b/i.test(title) ||
+        /\/saint|\/santi|\/santoral|\/holy-see\/saint|\/blessed/i.test(url);
+      if (!looksLikeSaint) return null;
+      const canonicalName = title
+        .replace(/\s*[-|–]\s*(Vatican|USCCB|CCCB|EWTN).*/i, "")
+        .trim();
       return {
         kind: "saint",
         slug: buildSlug(canonicalName),
@@ -226,8 +394,6 @@ export function buildVaticanSaintsCrawler(): SourceAdapter {
     },
   });
 }
-
-const APPARITION_PATH_HINTS = ["/apparition", "/marian", "/our-lady-of", "/madonna", "/aparici"];
 
 export function buildVaticanApparitionsCrawler(): SourceAdapter {
   return buildVaticanCrawler({
@@ -242,12 +408,17 @@ export function buildVaticanApparitionsCrawler(): SourceAdapter {
       "https://www.cbcew.org.uk/home/our-faith/devotions/our-lady/",
       "https://www.cccb.ca/faith-moral-issues/feast-days-saints/",
     ],
-    linkFilter: (u) =>
-      APPARITION_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
-      /lourdes|fatima|guadalupe|akita|knock/i.test(u.pathname),
     toItem: ({ url, title, description, bodyText }): IngestedApparition | null => {
       const summary = bodyText || description || "";
       if (summary.length < 40) return null;
+      const looksLikeApparition =
+        /our lady|virgin|marian|apparition|madonna|nuestra señora|lourdes|fatima|guadalupe|akita|knock|la salette|banneux|beauraing|kibeho|champion/i.test(
+          title,
+        ) ||
+        /our-lady|apparition|marian|madonna|lourdes|fatima|guadalupe|akita|knock/i.test(
+          url,
+        );
+      if (!looksLikeApparition) return null;
       return {
         kind: "apparition",
         slug: buildSlug(title),
@@ -259,8 +430,6 @@ export function buildVaticanApparitionsCrawler(): SourceAdapter {
     },
   });
 }
-
-const DEVOTION_PATH_HINTS = ["/devotion", "/devozion", "/rosary", "/adoration", "/consecration"];
 
 export function buildVaticanDevotionsCrawler(): SourceAdapter {
   return buildVaticanCrawler({
@@ -275,7 +444,6 @@ export function buildVaticanDevotionsCrawler(): SourceAdapter {
       "https://www.usccb.org/prayer-and-worship/devotions/rosary",
       "https://www.cbcew.org.uk/home/our-faith/devotions/",
     ],
-    linkFilter: (u) => DEVOTION_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)),
     toItem: ({ url, title, description, bodyText }): IngestedDevotion | null => {
       const summary = description || bodyText.slice(0, 600) || "";
       const practiceText = bodyText.length > summary.length ? bodyText : undefined;
@@ -293,19 +461,6 @@ export function buildVaticanDevotionsCrawler(): SourceAdapter {
     },
   });
 }
-
-const PARISH_PATH_HINTS = [
-  "/parish",
-  "/parishes",
-  "/parroquia",
-  "/parrocchia",
-  "/paroisse",
-  "/find-a-mass",
-  "/find-a-church",
-  "/church-finder",
-  "/our-parishes",
-  "/directory",
-];
 
 export function buildVaticanParishesCrawler(): SourceAdapter {
   return buildVaticanCrawler({
@@ -360,17 +515,33 @@ export function buildVaticanParishesCrawler(): SourceAdapter {
       "https://www.thecatholicdirectory.com/",
       "https://gcatholic.org/dioceses/",
       "https://www.catholic-hierarchy.org/",
+      // Sitemap-first discovery on every diocesan site that publishes one.
+      "https://www.archny.org/sitemap.xml",
+      "https://www.archchicago.org/sitemap.xml",
+      "https://www.archphila.org/sitemap.xml",
+      "https://www.archbalt.org/sitemap.xml",
+      "https://www.archstl.org/sitemap.xml",
+      "https://www.archden.org/sitemap.xml",
+      "https://www.archomaha.org/sitemap.xml",
+      "https://www.archindy.org/sitemap.xml",
     ],
-    linkFilter: (u) =>
-      PARISH_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
-      /church|cathedral|basilica|saint|st\.|st-/i.test(u.pathname),
     toItem: ({ url, title, description }): IngestedParish | null => {
       const name = sanitizeParishName(title);
       if (!name || name.length < 3) return null;
-      // Reject obvious non-parish navigation/landing pages where the title
-      // is a generic phrase like "Find a parish" or "Parish locator".
+      // Reject obvious non-parish navigation/landing pages.
       if (/^(find|search|locate|browse|all)\s+(a\s+)?paris/i.test(name)) return null;
       if (/locator|directory|listing/i.test(name)) return null;
+      // Content-shape gate (replaces the old linkFilter): require the URL
+      // path OR the title to look like an individual parish/church page.
+      // A diocesan home page or news article won't pass this.
+      const looksLikeParish =
+        /\/parish|\/parroquia|\/parrocchia|\/paroisse|\/find-a|\/our-paris|\/directory|\/church/i.test(
+          url,
+        ) ||
+        /\b(saint|st\.?|holy|sacred|our lady|cathedral|basilica|chapel|parish|church)\b/i.test(
+          name,
+        );
+      if (!looksLikeParish) return null;
       const dioceseFromHost = inferDioceseFromHost(url);
       return {
         kind: "parish",
@@ -453,12 +624,14 @@ export function buildBishopsConferenceSaintsCrawler(): SourceAdapter {
       "https://www.rcab.org/news/category/saints/",
       "https://www.archchicago.org/saints",
     ],
-    linkFilter: (u) =>
-      SAINT_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
-      /saint|bless/i.test(u.pathname),
     toItem: ({ url, title, description, bodyText }): IngestedSaint | null => {
       const biography = bodyText || description || "";
       if (biography.length < 80) return null;
+      const looksLikeSaint =
+        /\b(saint|st\.?|santo|santa|san|blessed|beata|beato|martyr|pope|venerable)\b/i.test(
+          title,
+        ) || /\/saint|\/santi|\/santoral|\/blessed/i.test(url);
+      if (!looksLikeSaint) return null;
       const canonicalName = title.replace(/\s*[-|–]\s*(USCCB|CCCB|CBCEW).*/i, "").trim();
       return {
         kind: "saint",
@@ -492,11 +665,16 @@ export function buildCatholicDevotionsCrawler(): SourceAdapter {
       "https://www.cbcew.org.uk/home/our-faith/devotions/our-lady/",
       "https://www.cbcew.org.uk/home/our-faith/devotions/eucharistic-devotion/",
     ],
-    linkFilter: (u) => DEVOTION_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)),
     toItem: ({ url, title, description, bodyText }): IngestedDevotion | null => {
       const summary = description || bodyText.slice(0, 600) || "";
       const practiceText = bodyText.length > summary.length ? bodyText : undefined;
       if (summary.length < 30) return null;
+      const looksLikeDevotion =
+        /\b(devotion|rosary|adoration|consecration|novena|chaplet|stations|sacred heart|divine mercy|first friday|first saturday|brown scapular|miraculous medal)\b/i.test(
+          title,
+        ) ||
+        /\/devotion|\/devozion|\/rosary|\/adoration|\/consecration|\/novena|\/chaplet/i.test(url);
+      if (!looksLikeDevotion) return null;
       const cat = categorizeDevotion({ title, summary });
       return {
         kind: "devotion",
@@ -530,12 +708,15 @@ export function buildCatholicPrayersCrawler(): SourceAdapter {
       "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers/index.cfm",
       "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers/prayers-of-catholics.cfm",
     ],
-    linkFilter: (u) =>
-      PRAYER_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
-      /prayer|litany|novena/i.test(u.pathname),
     toItem: ({ url, title, description, bodyText }): IngestedPrayer | null => {
       const body = bodyText || description || "";
       if (body.length < 30) return null;
+      const looksLikePrayer =
+        /prayer|litany|novena|act of|memorare|hail mary|our father|nicene|apostles|magnificat|te deum|veni|angelus|salve|regina|anima christi/i.test(
+          title,
+        ) ||
+        /\/prayer|\/litany|\/novena|\/orationes|\/preghiere|\/oraciones/i.test(url);
+      if (!looksLikePrayer) return null;
       return {
         kind: "prayer",
         slug: buildSlug(title),
@@ -577,12 +758,15 @@ export function buildCredibleCatholicPrayersCrawler(): SourceAdapter {
       "https://www.osv.com/category/prayer/",
       "https://www.catholic.com/prayers",
     ],
-    linkFilter: (u) =>
-      PRAYER_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
-      /prayer|litany|novena|devotion/i.test(u.pathname),
     toItem: ({ url, title, description, bodyText }): IngestedPrayer | null => {
       const body = bodyText || description || "";
       if (body.length < 30) return null;
+      const looksLikePrayer =
+        /prayer|litany|novena|act of|memorare|hail mary|our father|nicene|apostles|magnificat|te deum|veni|angelus|salve|regina/i.test(
+          title,
+        ) ||
+        /\/prayer|\/litany|\/novena|\/orationes|\/preghiere|\/oraciones|\/devotion/i.test(url);
+      if (!looksLikePrayer) return null;
       return {
         kind: "prayer",
         slug: buildSlug(title),
@@ -619,13 +803,19 @@ export function buildCredibleCatholicSaintsCrawler(): SourceAdapter {
       "https://www.osv.com/category/saints/",
       "https://www.catholic.com/encyclopedia/saints",
       "https://www.newadvent.org/cathen/13347a.htm", // New Advent: index of saints
+      // Sitemap-first discovery for these major reference sites.
+      "https://www.ewtn.com/sitemap.xml",
+      "https://www.catholicculture.org/sitemap.xml",
+      "https://www.osv.com/sitemap.xml",
     ],
-    linkFilter: (u) =>
-      SAINT_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
-      /saint|santo|santa|blessed|martir|martyr/i.test(u.pathname),
     toItem: ({ url, title, description, bodyText }): IngestedSaint | null => {
       const biography = bodyText || description || "";
       if (biography.length < 80) return null;
+      const looksLikeSaint =
+        /\b(saint|st\.?|santo|santa|san|blessed|beata|beato|martyr|pope|venerable|servant of god)\b/i.test(
+          title,
+        ) || /\/saint|\/santi|\/santoral|\/blessed|\/martyr/i.test(url);
+      if (!looksLikeSaint) return null;
       const canonicalName = title
         .replace(/\s*[-|–]\s*(EWTN|Catholic Culture|OSV|New Advent).*/i, "")
         .replace(/^Saint\s+/i, "Saint ")
@@ -652,23 +842,6 @@ export function buildCredibleCatholicSaintsCrawler(): SourceAdapter {
  * (Christ-centred catechesis), and we let the categorize step decide
  * whether the row's `liturgyKind` is GLOSSARY, COUNCIL_TIMELINE, or GENERAL.
  */
-const TEACHING_PATH_HINTS = [
-  "/content/catechism",
-  "/archive/cathechism",
-  "/archive/catechism",
-  "/holy_father",
-  "/encyclicals",
-  "/apost_letters",
-  "/apost_exhortations",
-  "/motu_proprio",
-  "/liturgy",
-  "/councils",
-  "/synod",
-  "/liturgical-year",
-  "/sacraments",
-  "/beliefs-and-teachings",
-];
-
 function pickLiturgyKind(input: { url: string; title: string }): IngestedLiturgy["liturgyKind"] {
   const u = input.url.toLowerCase();
   const t = input.title.toLowerCase();
@@ -709,12 +882,15 @@ export function buildVaticanTeachingCrawler(): SourceAdapter {
       "https://www.cbcew.org.uk/home/our-faith/sacraments/",
       "https://www.cccb.ca/sacraments/",
     ],
-    linkFilter: (u) =>
-      TEACHING_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
-      /catechism|encyclical|liturgy|council|sacrament|teaching/i.test(u.pathname),
     toItem: ({ url, title, description, bodyText }): IngestedLiturgy | null => {
       const body = bodyText || description || "";
       if (body.length < 60) return null;
+      const looksLikeTeaching =
+        /catechism|encyclical|liturgy|council|sacrament|teaching|mass|eucharist|baptism|confirmation|matrimony|holy orders|anointing|reconciliation|advent|lent|christmas|easter|paschal/i.test(
+          title,
+        ) ||
+        /catechism|encyclical|liturgy|council|sacrament|teaching|apost_/i.test(url);
+      if (!looksLikeTeaching) return null;
       return {
         kind: "liturgy",
         slug: buildSlug(title),
@@ -734,15 +910,6 @@ export function buildVaticanTeachingCrawler(): SourceAdapter {
  * the Rosary, how to receive Communion well, preparing for Confirmation.
  * They map naturally onto SpiritualLifeGuide rows.
  */
-const GUIDE_PATH_HINTS = [
-  "/how-to",
-  "/guide-to",
-  "/preparing",
-  "/learn",
-  "/spiritual-life",
-  "/prayer-and-worship",
-];
-
 function pickGuideKind(input: { title: string }): IngestedGuide["guideKind"] {
   const t = input.title.toLowerCase();
   if (/rosary|rosario/.test(t)) return "ROSARY";
@@ -769,13 +936,18 @@ export function buildVaticanGuidesCrawler(): SourceAdapter {
       "https://www.catholic.org.au/faith",
       "https://www.cbcew.org.uk/home/our-faith/the-mass/",
     ],
-    linkFilter: (u) =>
-      GUIDE_PATH_HINTS.some((p) => u.pathname.toLowerCase().includes(p)) ||
-      /rosary|confession|adoration|consecration|vocation/i.test(u.pathname),
     toItem: ({ url, title, description, bodyText }): IngestedGuide | null => {
       const summary = description || bodyText.slice(0, 300) || "";
       const bodyTextOut = bodyText.length > summary.length ? bodyText : undefined;
       if (summary.length < 20) return null;
+      const looksLikeGuide =
+        /rosary|confession|reconciliation|penance|adoration|consecration|vocation|how to|guide|preparing|examination of conscience|spiritual/i.test(
+          title,
+        ) ||
+        /rosary|confession|adoration|consecration|vocation|\/how-to|\/guide|\/spiritual/i.test(
+          url,
+        );
+      if (!looksLikeGuide) return null;
       return {
         kind: "guide",
         slug: buildSlug(title),
@@ -811,12 +983,17 @@ export function buildVaticanHistoryCrawler(): SourceAdapter {
       "https://www.usccb.org/about/leadership/holy-see/papal-history",
       "https://www.usccb.org/about/leadership/holy-see/index.cfm",
     ],
-    linkFilter: (u) =>
-      /councils?|synod|history|papacy/i.test(u.pathname) ||
-      /vatican_council|trent|nicaea|chalcedon|lateran|ephesus/i.test(u.pathname),
     toItem: ({ url, title, description, bodyText }): IngestedLiturgy | null => {
       const body = bodyText || description || "";
       if (body.length < 60) return null;
+      const looksLikeHistory =
+        /council|synod|nicaea|chalcedon|ephesus|trent|lateran|vatican i|vatican ii|history|pope|pontiff/i.test(
+          title,
+        ) ||
+        /councils?|synod|history|papacy|vatican_council|trent|nicaea|chalcedon|lateran|ephesus/i.test(
+          url,
+        );
+      if (!looksLikeHistory) return null;
       const slugBase = buildSlug(title);
       // History events go under church-history-* by convention so the
       // timeline loader picks them up.
