@@ -6,6 +6,7 @@ export type NavItem = { href: string; key: string };
 export const PRIMARY_NAV: NavItem[] = [
   { href: "/", key: "nav.home" },
   { href: "/prayers", key: "nav.prayers" },
+  { href: "/sacraments", key: "nav.sacraments" },
   { href: "/spiritual-life", key: "nav.spiritualLife" },
   { href: "/spiritual-guidance", key: "nav.spiritualGuidance" },
   { href: "/liturgy-history", key: "nav.liturgyHistory" },

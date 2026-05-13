@@ -199,6 +199,111 @@ export const GOAL_TEMPLATES: GoalTemplate[] = [
     category: "fast",
     checklist: ["Choose your weekly Friday penance", "Practice it each Friday", "Pray for graces"],
   },
+
+  // ── Sacrament-completion goals ───────────────────────────────────
+  // One per sacrament. Marking the goal complete unlocks the
+  // corresponding badge on the user's profile. "Already completed"
+  // workflow in the profile UI lets the user date-stamp a sacrament
+  // they received before joining the app.
+
+  {
+    slug: "sacrament-baptism",
+    title: "Receive the Sacrament of Baptism",
+    description:
+      "The first of the seven sacraments and the gateway to the Christian life — receive Baptism in the Catholic Church.",
+    category: "sacrament",
+    checklist: [
+      "Speak with a parish priest about reception",
+      "Begin OCIA / catechumenate if needed",
+      "Choose your baptismal name and godparents",
+      "Receive the Sacrament of Baptism",
+    ],
+  },
+  {
+    slug: "sacrament-confirmation",
+    title: "Receive the Sacrament of Confirmation",
+    description: "Be sealed with the Gift of the Holy Spirit through Confirmation.",
+    category: "sacrament",
+    checklist: [
+      "Attend Confirmation preparation classes",
+      "Choose a Confirmation name (a saint as patron)",
+      "Choose a sponsor in good standing with the Church",
+      "Receive the sacred chrism from the bishop",
+    ],
+  },
+  {
+    slug: "sacrament-first-communion",
+    title: "Receive your First Holy Communion",
+    description:
+      "Receive Jesus Christ — body, blood, soul, and divinity — for the first time in the Most Holy Eucharist.",
+    category: "sacrament",
+    checklist: [
+      "Complete Eucharistic preparation (typically First Confession first)",
+      "Make a good Confession the day or week before",
+      "Approach the altar fasting one hour before Communion",
+      "Receive the Body of Christ with reverence",
+    ],
+  },
+  {
+    slug: "sacrament-matrimony",
+    title: "Receive the Sacrament of Matrimony",
+    description:
+      "Enter the covenant of Christian marriage in the Catholic Church.",
+    category: "sacrament",
+    checklist: [
+      "Engage in formal pre-Cana / marriage preparation",
+      "Complete the parish pre-nuptial inquiry",
+      "Make a good Confession before the wedding day",
+      "Exchange consent before the Church and receive the nuptial blessing",
+    ],
+  },
+  {
+    slug: "sacrament-holy-orders",
+    title: "Receive Holy Orders",
+    description: "Be ordained to the diaconate, presbyterate, or episcopate.",
+    category: "sacrament",
+    checklist: [
+      "Discern vocation under a spiritual director",
+      "Apply to a seminary or religious formation program",
+      "Complete formation (typically 4–7 years)",
+      "Receive Holy Orders through the laying on of hands by the bishop",
+    ],
+  },
+  {
+    slug: "sacrament-anointing-of-the-sick",
+    title: "Receive the Anointing of the Sick",
+    description:
+      "When seriously ill or in danger of death, receive the sacrament of healing and strength.",
+    category: "sacrament",
+    checklist: [
+      "Request a priest from your parish",
+      "Make a confession if able and conscious",
+      "Receive the anointing with the Oil of the Sick",
+      "Receive Viaticum (Holy Communion as food for the journey) if available",
+    ],
+  },
+
+  // ── Holy Family consecration (the existing template already has
+  //     Marian, St. Joseph, and Sacred Heart — this fills the gap)
+  {
+    slug: "consecration-holy-family",
+    title: "Consecration to the Holy Family",
+    description:
+      "Personal and family consecration to Jesus, Mary, and Joseph — the school of holiness for every Christian home.",
+    defaultDurationDays: 9,
+    category: "consecration",
+    checklist: [
+      "Day 1 — Meditate on the Annunciation and Mary's fiat",
+      "Day 2 — Meditate on the Visitation",
+      "Day 3 — Meditate on the Nativity",
+      "Day 4 — Meditate on the Presentation in the Temple",
+      "Day 5 — Meditate on the Flight into Egypt",
+      "Day 6 — Meditate on the hidden life at Nazareth",
+      "Day 7 — Meditate on the Finding of Jesus in the Temple",
+      "Day 8 — Pray the Litany of the Holy Family",
+      "Day 9 — Make the act of consecration as a family",
+    ],
+  },
 ];
 
 export function getGoalTemplate(slug: string): GoalTemplate | null {

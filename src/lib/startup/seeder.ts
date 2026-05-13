@@ -6,7 +6,10 @@ import { APPARITIONS } from "../../../prisma/seeds/data/apparitions";
 import { DEVOTIONS } from "../../../prisma/seeds/data/devotions";
 import { PARISHES } from "../../../prisma/seeds/data/parishes";
 import { LITURGY_ENTRIES } from "../../../prisma/seeds/data/liturgyEntries";
+import { ENCYCLICAL_ENTRIES } from "../../../prisma/seeds/data/encyclicals";
+import { CHURCH_DOCUMENT_ENTRIES } from "../../../prisma/seeds/data/churchDocuments";
 import { SPIRITUAL_LIFE_GUIDES } from "../../../prisma/seeds/data/spiritualLifeGuides";
+import { SACRAMENT_GUIDES } from "../../../prisma/seeds/data/sacraments";
 import { prisma } from "../db/client";
 import { logger } from "../observability/logger";
 
@@ -108,7 +111,10 @@ export async function seedAllContent(): Promise<StartupSeedSummary> {
   }
 
   let liturgyEntries = 0;
-  for (const e of LITURGY_ENTRIES) {
+  // Concatenate base liturgy entries + encyclical seeds + church-document
+  // seeds (CCC sections + Code of Canon Law books). Every row uses the
+  // same LiturgyEntry schema, so the same upsert path handles them all.
+  for (const e of [...LITURGY_ENTRIES, ...ENCYCLICAL_ENTRIES, ...CHURCH_DOCUMENT_ENTRIES]) {
     const ok = await upsertOne("LiturgyEntry", e, () =>
       prisma.liturgyEntry.upsert({
         where: { slug: e.slug },
@@ -120,7 +126,8 @@ export async function seedAllContent(): Promise<StartupSeedSummary> {
   }
 
   let spiritualLifeGuides = 0;
-  for (const g of SPIRITUAL_LIFE_GUIDES) {
+  // Concatenate base guides + the 7 sacraments + 4 personal consecrations.
+  for (const g of [...SPIRITUAL_LIFE_GUIDES, ...SACRAMENT_GUIDES]) {
     const ok = await upsertOne("SpiritualLifeGuide", g, () =>
       prisma.spiritualLifeGuide.upsert({
         where: { slug: g.slug },

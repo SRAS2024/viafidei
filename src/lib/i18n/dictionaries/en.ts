@@ -9,6 +9,7 @@ const nav: Dict = {
   "nav.home": "Home",
   "nav.prayers": "Prayers",
   "nav.devotions": "Devotions",
+  "nav.sacraments": "Sacraments",
   "nav.spiritualLife": "Spiritual Life",
   "nav.spiritualGuidance": "Spiritual Guidance",
   "nav.liturgyHistory": "Liturgy & History",
