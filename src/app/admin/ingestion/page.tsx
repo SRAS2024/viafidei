@@ -30,6 +30,11 @@ export default async function AdminIngestion() {
                   progress.targets.churchDocuments,
                 ],
                 ["Sacraments", progress.counts.sacraments, progress.targets.sacraments],
+                [
+                  "Consecrations",
+                  progress.counts.consecrations,
+                  progress.targets.consecrations,
+                ],
               ] as const
             ).map(([label, count, target]) => {
               const pct = Math.min(100, Math.round((count / Math.max(1, target)) * 100));
