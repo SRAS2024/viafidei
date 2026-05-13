@@ -62,10 +62,46 @@ export async function deriveCronSecret(): Promise<string | null> {
   return bytesToHex(new Uint8Array(sig));
 }
 
+/**
+ * Loopback addresses (127.0.0.0/8 + IPv6 ::1). Requests with these as the
+ * connecting IP can only originate from the same machine — the kernel
+ * routes them through the loopback interface and they never touch the
+ * network. We allow these without a bearer so the in-process startup
+ * scheduler can drive ingestion even when SESSION_SECRET isn't set; an
+ * external caller cannot spoof this because their packets arrive on a
+ * different interface with a different source IP.
+ */
+function isLoopbackAddress(ip: string | null | undefined): boolean {
+  if (!ip) return false;
+  const trimmed = ip.trim().toLowerCase();
+  // IPv6 loopback (with or without zone) and IPv4-mapped IPv6 loopback.
+  if (trimmed === "::1" || trimmed.startsWith("::1%") || trimmed === "::ffff:127.0.0.1") {
+    return true;
+  }
+  // IPv4 127.0.0.0/8.
+  return /^127\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.test(trimmed);
+}
+
+function isLoopbackRequest(req: NextRequest): boolean {
+  // x-forwarded-for is set by reverse proxies for external traffic. If
+  // it's present, the request reached us through a proxy and is not
+  // truly loopback — refuse the loopback fallback so a misconfigured
+  // proxy header can't bypass auth.
+  if (req.headers.get("x-forwarded-for")) return false;
+  if (req.headers.get("x-real-ip")) return false;
+  const direct = req.ip ?? null;
+  return isLoopbackAddress(direct);
+}
+
 export async function isAuthorizedCron(req: NextRequest): Promise<boolean> {
   const expected = await deriveCronSecret();
-  if (!expected) return false;
   const provided = getProvidedCronToken(req);
-  if (!provided) return false;
-  return constantTimeStringEquals(provided, expected);
+  if (expected && provided && constantTimeStringEquals(provided, expected)) {
+    return true;
+  }
+  // Loopback fallback: in-process startup scheduler hits /api/cron/ingest
+  // over HTTP because the heavy runner code must stay out of the Next.js
+  // instrumentation bundle. The kernel guarantees loopback traffic
+  // originated on this machine, so we accept it even without a bearer.
+  return isLoopbackRequest(req);
 }

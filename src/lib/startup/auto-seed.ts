@@ -63,48 +63,46 @@ async function hasEmptyContentTable(): Promise<boolean> {
 }
 
 /**
- * Run one ingestion tick directly in-process.
+ * Run one ingestion tick by POST'ing to the in-process cron route.
  *
- * Calling the registry → runner pipeline directly (rather than POST'ing
- * to /api/cron/ingest) means the auto-fill flow works in deployments that
- * have not configured a SESSION_SECRET — the HTTP indirection would
- * otherwise fail at the cron-auth gate and the catalog would never grow.
- * The crawler + Prisma + http-client modules are already loaded by the
- * time the scheduler runs, so there is no bundle-size penalty either.
+ * Why HTTP indirection rather than calling the runner directly: the runner
+ * pulls in `node:crypto` (via the advisory-lock module), and if `auto-seed`
+ * imported it — even via dynamic import — webpack would trace the
+ * dependency chain into the Next.js instrumentation bundle, which has a
+ * stricter compile target and refuses `node:` schemes. The HTTP hop keeps
+ * that whole subgraph in the regular server bundle.
+ *
+ * Auth: the cron route accepts (a) a SESSION_SECRET-derived bearer, OR
+ * (b) loopback connections from 127.0.0.1 / ::1 — which is what this
+ * fetch produces. The loopback fallback means the auto-fill flow works
+ * on deployments that haven't configured SESSION_SECRET; the route is
+ * still locked down to outside callers (they would need the bearer).
  */
 async function runIngestionTick(): Promise<void> {
   const startedAt = Date.now();
+  const url = `http://127.0.0.1:${appConfig.port}/api/cron/ingest`;
   try {
-    const [{ ensureVaticanSchedule }, { runAllActiveJobs }, { getBacklogProgress }] =
-      await Promise.all([
-        import("../ingestion/sources/bootstrap"),
-        import("../ingestion/scheduler"),
-        import("../ingestion/scheduler"),
-      ]);
-    await ensureVaticanSchedule();
-    const summary = await runAllActiveJobs();
-    const totals = summary.runs.reduce(
-      (acc, r) => {
-        acc.seen += r.summary.recordsSeen;
-        acc.created += r.summary.recordsCreated;
-        acc.updated += r.summary.recordsUpdated;
-        acc.skipped += r.summary.recordsSkipped;
-        acc.failed += r.summary.recordsFailed;
-        return acc;
-      },
-      { seen: 0, created: 0, updated: 0, skipped: 0, failed: 0 },
-    );
-    const progress = await getBacklogProgress().catch(() => null);
-    console.log(
-      "[scheduler] ingestion tick ok",
-      JSON.stringify({
-        durationMs: Date.now() - startedAt,
-        ...totals,
-        backlog: progress
-          ? { mode: progress.mode, counts: progress.counts, targets: progress.targets }
-          : undefined,
-      }),
-    );
+    const headers: Record<string, string> = {};
+    try {
+      const { deriveCronSecret } = await import("../security/cron-auth");
+      const secret = await deriveCronSecret();
+      if (secret) headers.authorization = `Bearer ${secret}`;
+    } catch {
+      // No SESSION_SECRET configured — the loopback fallback in the cron
+      // route will accept this request because it comes from 127.0.0.1.
+    }
+    const res = await fetch(url, { method: "POST", headers });
+    if (res.ok) {
+      console.log(
+        "[scheduler] ingestion tick ok",
+        JSON.stringify({ durationMs: Date.now() - startedAt, status: res.status }),
+      );
+    } else {
+      console.warn(
+        "[scheduler] ingestion tick non-2xx",
+        JSON.stringify({ status: res.status, durationMs: Date.now() - startedAt }),
+      );
+    }
   } catch (e) {
     console.error("[scheduler] ingestion tick failed", e instanceof Error ? e.message : e);
   }
