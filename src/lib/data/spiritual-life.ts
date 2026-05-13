@@ -47,3 +47,25 @@ export function getPublishedSpiritualLifeGuideBySlug(slug: string, locale: Local
     include: { translations: { where: { locale } } },
   });
 }
+
+/**
+ * Return every PUBLISHED guide whose slug begins with `sacrament-` or
+ * `consecration-`. This is the source for the /sacraments tab — both
+ * the seven Sacraments and the four major personal consecrations live
+ * in the SpiritualLifeGuide table under stable namespaced slugs, so we
+ * filter on slug prefix rather than introducing a new schema kind.
+ */
+export async function listSacramentGuides(locale: Locale) {
+  const items = await prisma.spiritualLifeGuide.findMany({
+    where: {
+      status: "PUBLISHED",
+      OR: [{ slug: { startsWith: "sacrament-" } }, { slug: { startsWith: "consecration-" } }],
+    },
+    include: { translations: { where: { locale } } },
+    orderBy: [{ slug: "asc" }],
+  });
+  return {
+    sacraments: items.filter((i) => i.slug.startsWith("sacrament-")),
+    consecrations: items.filter((i) => i.slug.startsWith("consecration-")),
+  };
+}

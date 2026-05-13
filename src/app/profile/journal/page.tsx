@@ -10,6 +10,8 @@ import { JournalEditButton } from "./JournalEditButton";
 import { JournalFavoriteButton } from "./JournalFavoriteButton";
 import { logPageError } from "@/lib/observability/page-errors";
 
+export const dynamic = "force-dynamic";
+
 export default async function JournalPage({ searchParams }: { searchParams: { filter?: string } }) {
   let user: Awaited<ReturnType<typeof requireUser>> = null;
   try {
@@ -63,6 +65,15 @@ export default async function JournalPage({ searchParams }: { searchParams: { fi
                     favoriteLabel={t("profile.journal.favorite")}
                     unfavoriteLabel={t("profile.journal.unfavorite")}
                   />
+                  <a
+                    href={`/api/journal/${e.id}/download`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="vf-btn vf-btn-ghost !py-1 !px-3 text-xs"
+                    aria-label="Download this entry as a PDF"
+                  >
+                    PDF
+                  </a>
                   <JournalDeleteButton
                     entryId={e.id}
                     entryTitle={e.title}

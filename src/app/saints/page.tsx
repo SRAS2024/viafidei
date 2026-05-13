@@ -1,7 +1,11 @@
+import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { Pagination } from "@/components/ui/Pagination";
-import { listPublishedSaintsPaginated } from "@/lib/data/saints";
+import {
+  listPublishedSaintsPaginated,
+  type SaintCategory,
+} from "@/lib/data/saints";
 import { listPublishedApparitionsPaginated } from "@/lib/data/apparitions";
 import { SaintsGrid, ApparitionsGrid } from "./_components";
 import { logPageError } from "@/lib/observability/page-errors";
@@ -10,7 +14,19 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Saints & Our Lady" };
 
 type Props = {
-  searchParams: { page?: string; apparitionsPage?: string };
+  searchParams: { page?: string; apparitionsPage?: string; filter?: string };
+};
+
+const VALID_FILTERS: ReadonlyArray<SaintCategory> = ["saint", "our-lady", "angel"];
+
+function parseFilter(raw: string | undefined): SaintCategory {
+  return VALID_FILTERS.includes(raw as SaintCategory) ? (raw as SaintCategory) : "saint";
+}
+
+const FILTER_LABEL: Record<SaintCategory, string> = {
+  saint: "Saints",
+  "our-lady": "Our Lady",
+  angel: "Angels",
 };
 
 export default async function SaintsPage({ searchParams }: Props) {
@@ -20,6 +36,7 @@ export default async function SaintsPage({ searchParams }: Props) {
     1,
     parseInt(searchParams.apparitionsPage ?? "1", 10) || 1,
   );
+  const filter = parseFilter(searchParams.filter);
 
   let saintsResult: Awaited<ReturnType<typeof listPublishedSaintsPaginated>> = {
     items: [],
@@ -38,7 +55,7 @@ export default async function SaintsPage({ searchParams }: Props) {
 
   try {
     [saintsResult, apparitionsResult] = await Promise.all([
-      listPublishedSaintsPaginated(locale, saintsPage),
+      listPublishedSaintsPaginated(locale, saintsPage, undefined, filter),
       listPublishedApparitionsPaginated(locale, apparitionsPage),
     ]);
   } catch (err) {
@@ -52,10 +69,38 @@ export default async function SaintsPage({ searchParams }: Props) {
         title={t("saints.title")}
         subtitle={t("saints.subtitle")}
       />
+
+      {/* Filter pills: Saints / Our Lady / Angels. Selecting one keeps
+          the apparitions section visible underneath. */}
+      <div className="mb-6 flex justify-center gap-2">
+        {VALID_FILTERS.map((f) => {
+          const active = f === filter;
+          const href = f === "saint" ? "/saints" : `/saints?filter=${f}`;
+          return (
+            <Link
+              key={f}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              className={`vf-btn !py-1 !px-4 text-xs ${
+                active ? "vf-btn-primary" : "vf-btn-ghost"
+              }`}
+            >
+              {FILTER_LABEL[f]}
+            </Link>
+          );
+        })}
+      </div>
+
       <SaintsGrid
         saints={saintsResult.items}
         feastDayLabel={t("saints.feastDay")}
-        emptyMessage="Saints will appear here as new entries are published."
+        emptyMessage={
+          filter === "our-lady"
+            ? "Our Lady entries will appear here as new titles are published."
+            : filter === "angel"
+              ? "Angel entries will appear here as new entries are published."
+              : "Saints will appear here as new entries are published."
+        }
       />
       <Pagination
         basePath="/saints"
@@ -64,6 +109,7 @@ export default async function SaintsPage({ searchParams }: Props) {
         searchParams={{
           apparitionsPage:
             apparitionsPage > 1 ? String(apparitionsPage) : undefined,
+          filter: filter === "saint" ? undefined : filter,
         }}
       />
       <ApparitionsGrid
@@ -78,6 +124,7 @@ export default async function SaintsPage({ searchParams }: Props) {
         pageParam="apparitionsPage"
         searchParams={{
           page: saintsPage > 1 ? String(saintsPage) : undefined,
+          filter: filter === "saint" ? undefined : filter,
         }}
       />
     </div>
