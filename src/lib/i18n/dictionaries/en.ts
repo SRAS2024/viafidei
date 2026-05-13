@@ -349,6 +349,7 @@ const admin: Dict = {
   "admin.card.favicon": "Favicon",
   "admin.card.users": "User Accounts",
   "admin.card.email": "Email diagnostics",
+  "admin.card.publishList": "Publish list",
   "admin.email.title": "Email diagnostics",
   "admin.signOut": "Sign out of admin",
   "admin.welcomeLine": "You are signed in as the administrator.",
