@@ -16,51 +16,6 @@ async function isDbReachable(): Promise<boolean> {
   }
 }
 
-/**
- * Returns true when at least one of the public content tables already has a
- * row — telling us the DB is "stocked" enough that we don't need to re-run
- * the bulk seeder. The seeder itself is idempotent (every entry is upserted
- * by slug) so running it again is safe but wastes startup time.
- */
-async function hasAnyContent(): Promise<boolean> {
-  try {
-    const [prayers, saints, devotions, liturgy, guides, apparitions] = await Promise.all([
-      prisma.prayer.count(),
-      prisma.saint.count(),
-      prisma.devotion.count(),
-      prisma.liturgyEntry.count(),
-      prisma.spiritualLifeGuide.count(),
-      prisma.marianApparition.count(),
-    ]);
-    return prayers + saints + devotions + liturgy + guides + apparitions > 0;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * The seeder upserts by slug, so even if some tables are empty and others
- * are populated, the result is consistent: existing rows stay, missing rows
- * get created. We always run the seeder if any required table is empty.
- */
-async function hasEmptyContentTable(): Promise<boolean> {
-  try {
-    const [prayers, saints, devotions, liturgy, guides, apparitions, parishes] = await Promise.all([
-      prisma.prayer.count({ where: { status: "PUBLISHED" } }),
-      prisma.saint.count({ where: { status: "PUBLISHED" } }),
-      prisma.devotion.count({ where: { status: "PUBLISHED" } }),
-      prisma.liturgyEntry.count({ where: { status: "PUBLISHED" } }),
-      prisma.spiritualLifeGuide.count({ where: { status: "PUBLISHED" } }),
-      prisma.marianApparition.count({ where: { status: "PUBLISHED" } }),
-      prisma.parish.count({ where: { status: "PUBLISHED" } }),
-    ]);
-    return [prayers, saints, devotions, liturgy, guides, apparitions, parishes].some(
-      (c) => c === 0,
-    );
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Run one ingestion tick by POST'ing to the in-process cron route.
@@ -298,27 +253,22 @@ export async function runStartupTasks(): Promise<void> {
     return;
   }
 
-  // Seed when ANY public content table is empty. The seeder uses upsert
-  // keyed on slug so populated tables are unaffected; this just back-fills
-  // tables that didn't get content (e.g. deploy ran during a partial seed).
-  if (await hasEmptyContentTable()) {
-    console.log("[startup] one or more content tables empty — running seeder");
-    try {
-      const summary = await seedAllContent();
-      console.log("[startup] seed complete", JSON.stringify(summary));
-    } catch (e) {
-      console.error("[startup] seed failed", e instanceof Error ? e.message : e);
-    }
-  } else if (!(await hasAnyContent())) {
-    console.log("[startup] empty DB detected — running initial seed");
-    try {
-      const summary = await seedAllContent();
-      console.log("[startup] seed complete", JSON.stringify(summary));
-    } catch (e) {
-      console.error("[startup] seed failed", e instanceof Error ? e.message : e);
-    }
-  } else {
-    console.log("[startup] content already present — skipping seed");
+  // Run the seeder on EVERY boot. The previous guard
+  // (`hasEmptyContentTable`) short-circuited the seed as soon as any
+  // public table had a single row, which meant new seed entries
+  // shipped in later deploys (encyclicals, CCC sections, Canon Law
+  // books, sacraments, rite-history) silently never landed in the DB.
+  //
+  // The seeder is fully idempotent — every entry is an upsert keyed
+  // on `slug`, the `update` clause only forces `status: PUBLISHED`,
+  // and the `create` clause only fires for missing rows. Running it
+  // every boot has zero data impact on populated tables and back-fills
+  // any new content the codebase has added since the last deploy.
+  try {
+    const summary = await seedAllContent();
+    console.log("[startup] seed complete", JSON.stringify(summary));
+  } catch (e) {
+    console.error("[startup] seed failed", e instanceof Error ? e.message : e);
   }
 
   // Promote any auto-ingested rows that are still stuck in REVIEW status
