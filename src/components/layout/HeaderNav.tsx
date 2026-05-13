@@ -9,7 +9,8 @@ export const PRIMARY_NAV: NavItem[] = [
   { href: "/sacraments", key: "nav.sacraments" },
   { href: "/spiritual-life", key: "nav.spiritualLife" },
   { href: "/spiritual-guidance", key: "nav.spiritualGuidance" },
-  { href: "/liturgy-history", key: "nav.liturgyHistory" },
+  { href: "/liturgy", key: "nav.liturgy" },
+  { href: "/history", key: "nav.history" },
   { href: "/saints", key: "nav.saints" },
 ];
 

@@ -9,8 +9,15 @@
 Via Fidei is a Next.js 14 application that pairs a public, reader-facing site
 with an authenticated admin console for curating Catholic content. It supports
 twelve locales, persists data in PostgreSQL via Prisma, and ingests material
-from a small allowlist of approved Vatican-affiliated sources through a cron
-pipeline that always lands new records in a moderation queue.
+from a curated allowlist of credible Catholic sources through a cron pipeline
+that auto-publishes new records (they reach the public site directly) and only
+sends content into a moderation queue when an admin manually edits it.
+
+The public site exposes nine tabs — **Home**, **Prayers**, **Sacraments**,
+**Spiritual Life**, **Spiritual Guidance** (the parish finder), **Liturgy**,
+**History**, **Saints & Our Lady**, and the authenticated **Profile** — plus an
+admin console under `/admin` that operates with its own chrome (the public
+navigation is suppressed automatically on every `/admin` route).
 
 ## Site, domain, and email facts
 
@@ -413,43 +420,58 @@ The public site renders entirely from the catalog tables, with a small
 in-app fallback spine so pages stay alive if a table happens to be
 empty:
 
-- **Spiritual-life guides** (`/spiritual-life`, `/spiritual-life/[slug]`).
-  Each guide loads from `SpiritualLifeGuide`, with steps stored as
-  structured JSON. When a guide references a prayer (e.g. the Rosary
-  guide referencing the Apostles' Creed, the Our Father, the Hail
-  Mary), the page renders an `ExpandablePrayer` block per prayer:
-  collapsed → arrow points right; tapped open → arrow points down and
-  the full prayer body is shown; tapped again → it collapses. Slugs
-  match `Prayer.slug` so the live database wins, with canonical English
-  fallbacks in `src/lib/data/guide-prayers.ts` so a fresh deployment
-  still shows a complete prayer body.
-- **Saints** (`/saints`, `/saints/[slug]`). Each saint page renders the
-  story, historical background, important dates, major contributions,
-  feast day, and patronages by parsing the biography into labelled
-  sections (`src/lib/data/saint-sections.ts`). Either explicit
-  `Story:` / `Historical background:` / `Important dates:` /
-  `Major contributions:` markers in the source biography or a prose
-  heuristic split (year-mention paragraphs become "important dates")
-  power the layout. Pages link to `/admin/sources` for the source
-  ingestion provenance.
-- **Church history timeline** (`/liturgy-history/timeline`). Renders a
-  full chronological timeline from Christ's ministry through 2025: the
-  apostolic age, persecution, legalisation, the Church Fathers, every
-  early ecumenical council, the medieval Church, the Great Schism, the
-  Reformation, the Council of Trent, Vatican I, Vatican II, and modern
-  Church history. All twenty-one ecumenical councils are included with
-  date, location, historical context, key issues addressed, and major
-  outcomes. Each event is collapsed by default; tapping it shows the
-  full body, with the same right-arrow / down-arrow behaviour as the
-  prayer expander. The data comes from `LiturgyEntry` rows of kind
-  `COUNCIL_TIMELINE` plus any slug starting with `church-history-` or
-  `council-`, merged with the in-app fallback spine in
-  `src/lib/data/church-history.ts`.
-- **Liturgy & sacraments** (`/liturgy-history`,
-  `/liturgy-history/[slug]`). Mass structure, the liturgical year,
-  sacred symbols, vestments, marriage / funeral / ordination rites,
-  glossary entries, and general catechetical material. All rendered
-  from `LiturgyEntry`.
+- **Prayers** (`/prayers`, `/prayers/[slug]`). Categorised prayer
+  catalogue with pagination, filtered by the user's selected Catholic
+  rite (rite-neutral prayers always render; rite-tagged prayers from
+  another rite are hidden).
+- **Sacraments** (`/sacraments`, `/sacraments/[slug]`). New dedicated
+  tab. Surfaces the seven sacraments and the four major personal
+  consecrations (Marian de Montfort, St. Joseph, Holy Family, Sacred
+  Heart) as `SpiritualLifeGuide` rows whose slug starts with
+  `sacrament-` or `consecration-`. Each card carries a hand-drawn SVG
+  badge (water-and-shell for Baptism, dove for Confirmation, chalice
+  for the Eucharist, confessional grille for Reconciliation, vial of
+  oil for Anointing of the Sick, chasuble for Holy Orders,
+  interlocking rings for Matrimony, crowned M for Marian
+  consecration, lily + carpenter's square for St Joseph, three
+  radiating hearts for the Holy Family, thorn-wreathed heart for the
+  Sacred Heart).
+- **Spiritual-life guides** (`/spiritual-life`,
+  `/spiritual-life/[slug]`). Each guide loads from
+  `SpiritualLifeGuide`, with steps stored as structured JSON. When a
+  guide references a prayer, the page renders an `ExpandablePrayer`
+  block per prayer.
+- **Saints & Our Lady** (`/saints`, `/saints/[slug]`). The default
+  ordering surfaces the most venerable figures first — Mary, Joseph,
+  the Twelve Apostles in their traditional order, then Mary Magdalene
+  / Stephen / Paul — and falls through to alphabetical for the rest.
+  Three pill filters at the top of the page narrow to **Saints**,
+  **Our Lady**, or **Angels** (e.g. archangels and the named angels).
+  Each saint detail page parses the biography into labelled sections
+  (`src/lib/data/saint-sections.ts`). The list cards now also display
+  each saint's `patronages` so visitors can see at a glance who each
+  is the patron of.
+- **Liturgy** (`/liturgy`). New dedicated tab. Surfaces only true
+  liturgical content from `LiturgyEntry` — the Mass, the liturgical
+  year, the rites of marriage / funerals / ordination, liturgical
+  symbolism, and the glossary. Council documents, encyclicals, the
+  Catechism, and Church history live under **History**.
+- **History** (`/history`). New dedicated tab. Renders an interactive
+  slidable timeline from Christ's ministry (27 AD) through the
+  current year. The user can drag the slider or type a year directly
+  into a numeric input to scrub through the chronology; filter pills
+  along the top let them narrow by **Beginnings**, **Councils**,
+  **Schisms & Reform**, **Doctrine & Magisterium**, or **Modern
+  Era**. Under the slider sits the "Council documents" section —
+  collapsible `<details>` cards for every ecumenical council (Nicaea
+  through Vatican II), each expanding to the conciliar texts the
+  pipeline has ingested. Data merges live `LiturgyEntry` rows of
+  kind `COUNCIL_TIMELINE`, slugs starting with `church-history-`,
+  `council-`, `vatican-council-`, or `synod-`, and the in-app
+  fallback spine in `src/lib/data/church-history.ts`. The legacy
+  `/liturgy-history` index now permanently redirects to `/history`;
+  the per-document detail route `/liturgy-history/[slug]` stays in
+  place for deep-links.
 - **Search** (`/search` and the header typeahead). Powered by
   `searchAll()` and `suggest()` in `src/lib/data/search.ts`. Strict
   Postgres `contains` matches run alongside fuzzy candidate sets that
@@ -528,19 +550,24 @@ Adapters live under `src/lib/ingestion/sources/vatican-adapters.ts` and are
 registered via `registerVaticanAdapters()` / `ensureVaticanSchedule()`.
 The system has full ingestion support across the app:
 
-| Adapter               | Target table         | Content                                       |
-| --------------------- | -------------------- | --------------------------------------------- |
-| `vatican.prayers`     | `Prayer`             | Liturgical and devotional prayers             |
-| `catholic.prayers`    | `Prayer`             | Bishops' conference prayer catalogues         |
-| `vatican.saints`      | `Saint`              | Saint biographies from the Holy See           |
-| `bishops.saints`      | `Saint`              | Saint biographies from bishops' conferences   |
-| `vatican.apparitions` | `MarianApparition`   | Approved Marian apparitions                   |
-| `vatican.devotions`   | `Devotion`           | Devotions and spiritual practices             |
-| `catholic.devotions`  | `Devotion`           | Conference-republished devotional material    |
-| `vatican.parishes`    | `Parish`             | Parish directories                            |
-| `vatican.teaching`    | `LiturgyEntry`       | Catechism, encyclicals, sacraments, liturgy   |
-| `vatican.history`     | `LiturgyEntry`       | Church history events and ecumenical councils |
-| `vatican.guides`      | `SpiritualLifeGuide` | Spiritual-life guides (rosary, confession, …) |
+| Adapter                 | Target table         | Content                                                             |
+| ----------------------- | -------------------- | ------------------------------------------------------------------- |
+| `vatican.prayers`       | `Prayer`             | Liturgical and devotional prayers from the Holy See                 |
+| `catholic.prayers`      | `Prayer`             | Bishops' conference prayer catalogues                               |
+| `credible.prayers`      | `Prayer`             | EWTN / Catholic Culture / KofC / religious order prayer pages       |
+| `vatican.saints`        | `Saint`              | Saint biographies from the Holy See                                 |
+| `bishops.saints`        | `Saint`              | Saint biographies from bishops' conferences                         |
+| `credible.saints`       | `Saint`              | Saint biographies from EWTN, Catholic Culture, New Advent, religious orders |
+| `vatican.apparitions`   | `MarianApparition`   | Approved Marian apparitions                                         |
+| `vatican.devotions`     | `Devotion`           | Devotions and spiritual practices                                   |
+| `catholic.devotions`    | `Devotion`           | Conference-republished devotional material                          |
+| `vatican.parishes`      | `Parish`             | Parish directories                                                  |
+| `vatican.teaching`      | `LiturgyEntry`       | Catechetical / sacramental / liturgical content                     |
+| `vatican.history`       | `LiturgyEntry`       | Church-history events and ecumenical councils                       |
+| `vatican.guides`        | `SpiritualLifeGuide` | Spiritual-life guides (rosary, confession, vocation discernment)    |
+| `vatican.councils`      | `LiturgyEntry`       | Conciliar documents from `/archive/hist_councils/` (slug `council-`) |
+| `vatican.catechism`     | `LiturgyEntry`       | Full Catechism of the Catholic Church (slug `catechism-`)           |
+| `vatican.encyclicals`   | `LiturgyEntry`       | Every papal encyclical archive on vatican.va (slug `encyclical-`)   |
 
 Each ingested record carries source metadata: `externalSourceKey` (the
 upstream URL — used for duplicate detection), `sourceHost` (parsed from
@@ -549,15 +576,26 @@ circuits unchanged runs), `category` / `kind` for indexing, and a
 `createdAt` / `updatedAt` retrieval timestamp. Curated rows
 (`PUBLISHED` / `ARCHIVED`) are protected from automatic overwrites.
 
-### Validation and review workflow
+### Validation and auto-publish workflow
 
 Every batch is sent through `sanitize()` and `validateItem()` before
 persistence: incomplete records (missing slug, title, or body shorter
-than the kind-specific minimum) are rejected, and any `externalSourceKey`
-that points off-allowlist is rejected. Surviving records land in the
-moderation queue at the configured initial status (defaulting to `REVIEW`)
-so nothing reaches the public site until an admin approves it through
-`/admin/ingestion` or `/admin/<entity>`.
+than the kind-specific minimum) are rejected, parish names that look
+non-Catholic (Baptist / Methodist / Lutheran / etc.) are rejected, and
+any `externalSourceKey` that points off-allowlist is rejected.
+
+Surviving records are written with the configured initial status —
+`PUBLISHED`. The pipeline is auto-publishing: content that passes the
+credibility allowlist, the validator, and the dedup pass reaches the
+public site directly, no admin approval required.
+
+Manual edits are the only path that re-introduces a moderation step.
+The seven `update*` functions in `src/lib/data/admin-catalog.ts` use a
+shared `resolveStatusForUpdate()` helper: when an admin edits any
+content field without explicitly choosing a status, the row drops back
+to `DRAFT`. The admin must then click **Publish** on `/admin/publish-list`
+(or on the entity's own admin page) for the change to go live. Status-
+only flips and explicit "Save and Publish" actions are honoured as-is.
 
 ### Scheduling and observability
 
@@ -718,17 +756,44 @@ When the Node process boots, `src/instrumentation.ts` defers to
 
 1. Confirms the database is reachable.
 2. Verifies that `prisma migrate deploy` produced the required tables.
-3. Counts published prayers — if zero, runs `seedAllContent()` from
-   `src/lib/startup/seeder.ts` to populate prayers, saints, apparitions,
-   devotions, parishes, liturgy entries, spiritual-life guides, and the
-   default favicon site setting. If the table already has rows the seed is
-   skipped.
-4. Schedules the in-process ingestion ticker described above. The scheduler
-   is disabled by default in `src/lib/config.ts`; flip
-   `ingestion.schedulerDisabled` to `false` to enable it.
+3. Counts published rows in each public-content table — if any are
+   empty, runs `seedAllContent()` from `src/lib/startup/seeder.ts` to
+   populate them. The seeder writes 7 sacraments + 4 consecrations,
+   50+ papal encyclicals (Mirari Vos → Dilexit Nos), Catechism overview
+   + four parts + key topics, all seven books of the 1983 Code of
+   Canon Law + the Code of Canons of the Eastern Churches, one
+   rite-inception entry per Catholic rite (Roman through Ruthenian),
+   plus the standard prayers / saints / apparitions / devotions /
+   parishes / liturgy entries / guides.
+4. Runs `promoteIngestedOrphans()` — a one-time migration that
+   promotes any legacy `REVIEW`-status rows with an `externalSourceKey`
+   (i.e. created by ingestion before the auto-publish rule) to
+   `PUBLISHED`. Idempotent: a second run touches zero rows.
+5. Schedules the in-process ingestion ticker described above. The
+   scheduler runs constantly while any backlog target is unmet, and
+   drops to a twice-weekly maintenance cadence once every target is
+   met. Initial delay is short (~30 s) so the catalog visibly starts
+   filling within a minute of a fresh deploy.
 
 All of this work is fire-and-forget — the HTTP server begins accepting
 requests immediately so Railway / Docker healthchecks never wait on it.
+
+### Backlog targets
+
+The scheduler stays in constant-fill mode until every one of these
+five buckets is at or above its minimum (configured in
+`src/lib/config.ts`):
+
+| Bucket            | Minimum  | Counts                                                                                             |
+| ----------------- | -------- | -------------------------------------------------------------------------------------------------- |
+| Prayers           | 500      | `Prayer` rows                                                                                      |
+| Saints            | 7,000    | `Saint` rows                                                                                       |
+| Parishes          | 150,000  | `Parish` rows                                                                                      |
+| Church Documents  | 1,500    | `LiturgyEntry` rows whose slug starts with `encyclical-`, `catechism-`, `code-of-canon-law-`, `council-`, `vatican-council-`, or `synod-` |
+| Sacraments        | 7        | `SpiritualLifeGuide` rows whose slug starts with `sacrament-` or `consecration-`                  |
+
+Once all five are met the scheduler switches to maintenance mode and
+runs the upstream check on a ~84-hour cadence (~twice weekly).
 
 ---
 

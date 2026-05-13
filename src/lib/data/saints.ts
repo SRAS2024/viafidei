@@ -80,6 +80,64 @@ export function categorizeSaintByName(canonicalName: string): SaintCategory {
   return "saint";
 }
 
+/**
+ * Canonical "most venerable first" ordering applied to the Saints list
+ * before falling back to alphabetical:
+ *
+ *   1. Our Lady (Blessed Virgin Mary)
+ *   2. Saint Joseph
+ *   3. The Twelve Apostles, in the traditional Western order
+ *   4. Other patriarchs and great evangelists by historical proximity
+ *      to Christ (Mary Magdalene, Stephen, Paul)
+ *
+ * The remaining saints fall through to alphabetical by canonicalName.
+ * The ordering is intentionally pastoral, not dogmatic: it surfaces
+ * the figures most users want at the top of the catalog.
+ */
+const VENERATION_ORDER: ReadonlyArray<RegExp> = [
+  /\b(our\s+lady|blessed\s+virgin|virgin\s+mary|theotokos|madonna|notre\s+dame|nuestra\s+señora)\b/i,
+  /\bsaint\s+joseph\b/i,
+  // Twelve Apostles in the traditional order: Peter, Andrew, James the
+  // Greater, John, Philip, Bartholomew, Thomas, Matthew, James the Less,
+  // Jude (Thaddaeus), Simon the Zealot, Matthias (in place of Judas).
+  /\b(saint\s+)?peter(\s+the\s+apostle)?\b/i,
+  /\b(saint\s+)?andrew(\s+the\s+apostle)?\b/i,
+  /\b(saint\s+)?james\s+the\s+greater\b/i,
+  /\b(saint\s+)?john\s+the\s+(apostle|evangelist|beloved)\b/i,
+  /\b(saint\s+)?philip(\s+the\s+apostle)?\b/i,
+  /\b(saint\s+)?bartholomew\b/i,
+  /\b(saint\s+)?thomas(\s+the\s+apostle)?\b/i,
+  /\b(saint\s+)?matthew(\s+the\s+(apostle|evangelist))?\b/i,
+  /\b(saint\s+)?james\s+(the\s+)?less(er)?\b/i,
+  /\b(saint\s+)?jude(\s+thaddaeus|\s+the\s+apostle)?\b/i,
+  /\b(saint\s+)?simon\s+(the\s+)?zealot\b/i,
+  /\b(saint\s+)?matthias\b/i,
+  // Two great evangelists / first martyrs immediately after the Twelve.
+  /\b(saint\s+)?mary\s+magdalen(e|a)\b/i,
+  /\b(saint\s+)?stephen(\s+the\s+protomartyr)?\b/i,
+  // Match "Saint Paul" / "Paul the Apostle" but NOT "John Paul II" —
+  // the negative lookbehind keeps pope-John-Paul rows out of the
+  // apostolic ranking.
+  /(?<!john\s)\b(saint\s+)?paul(\s+the\s+apostle)?\b/i,
+];
+
+/** Returns the veneration-rank for a saint (lower number = higher rank). */
+export function venerationRank(canonicalName: string): number {
+  for (let i = 0; i < VENERATION_ORDER.length; i++) {
+    if (VENERATION_ORDER[i].test(canonicalName)) return i;
+  }
+  return VENERATION_ORDER.length;
+}
+
+function sortByVeneration<T extends { canonicalName: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const ra = venerationRank(a.canonicalName);
+    const rb = venerationRank(b.canonicalName);
+    if (ra !== rb) return ra - rb;
+    return a.canonicalName.localeCompare(b.canonicalName);
+  });
+}
+
 export async function listPublishedSaintsPaginated(
   locale: Locale,
   page = 1,
@@ -88,16 +146,19 @@ export async function listPublishedSaintsPaginated(
 ) {
   const skip = (page - 1) * pageSize;
   const where = buildCategoryWhere(category);
-  const [items, total] = await Promise.all([
+  // Fetch a broad slice and sort in JS by the canonical veneration order
+  // so Mary, Joseph, the Twelve Apostles, and the great evangelists land
+  // at the top — then page in-memory.
+  const [allItems, total] = await Promise.all([
     prisma.saint.findMany({
       where,
       include: { translations: { where: { locale } } },
       orderBy: { canonicalName: "asc" },
-      take: pageSize,
-      skip,
     }),
     prisma.saint.count({ where }),
   ]);
+  const ordered = sortByVeneration(allItems);
+  const items = ordered.slice(skip, skip + pageSize);
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 

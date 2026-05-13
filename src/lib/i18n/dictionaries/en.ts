@@ -13,6 +13,8 @@ const nav: Dict = {
   "nav.spiritualLife": "Spiritual Life",
   "nav.spiritualGuidance": "Spiritual Guidance",
   "nav.liturgyHistory": "Liturgy & History",
+  "nav.liturgy": "Liturgy",
+  "nav.history": "History",
   "nav.saints": "Saints & Our Lady",
   "nav.search": "Search",
   "nav.login": "Sign in",
