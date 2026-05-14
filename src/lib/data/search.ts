@@ -54,6 +54,115 @@ export function searchSpiritualLife(q: string, take = 10) {
   });
 }
 
+/**
+ * Heuristic content-type intent for a search query. Used by the
+ * /search page to pick which result group renders first when a
+ * query is obviously asking for parishes, saints, or another
+ * specific bucket. Returns `"any"` when nothing tips the balance.
+ *
+ * Detection is intentionally simple:
+ *   • parish — query contains "parish", "church", "diocese",
+ *     a US state code, a country name, or matches a known
+ *     city-like token in our parish table; or it contains a
+ *     comma (e.g. "Boston, MA").
+ *   • saint — starts with "saint", "st.", "st ", "blessed",
+ *     "pope", "bl.", "venerable", "doctor of the church", etc.
+ *   • prayer — contains "prayer", "rosary", "litany", "novena",
+ *     "chaplet", "act of", "hail mary", "our father", "anima
+ *     christi", etc.
+ *   • apparition — contains "our lady of", "apparition",
+ *     "fatima", "lourdes", "guadalupe", "knock", "kibeho".
+ *   • angel — contains "angel", "archangel", "michael",
+ *     "gabriel", "raphael".
+ *   • sacrament / consecration — contains "sacrament",
+ *     "confession", "baptism", "consecration", "matrimony".
+ */
+export type SearchIntent =
+  | "any"
+  | "parish"
+  | "saint"
+  | "prayer"
+  | "apparition"
+  | "angel"
+  | "sacrament";
+
+const US_STATE_TOKENS = new Set([
+  "al",
+  "ak",
+  "az",
+  "ar",
+  "ca",
+  "co",
+  "ct",
+  "de",
+  "fl",
+  "ga",
+  "hi",
+  "id",
+  "il",
+  "in",
+  "ia",
+  "ks",
+  "ky",
+  "la",
+  "me",
+  "md",
+  "ma",
+  "mi",
+  "mn",
+  "ms",
+  "mo",
+  "mt",
+  "ne",
+  "nv",
+  "nh",
+  "nj",
+  "nm",
+  "ny",
+  "nc",
+  "nd",
+  "oh",
+  "ok",
+  "or",
+  "pa",
+  "ri",
+  "sc",
+  "sd",
+  "tn",
+  "tx",
+  "ut",
+  "vt",
+  "va",
+  "wa",
+  "wv",
+  "wi",
+  "wy",
+  "dc",
+]);
+
+export function detectSearchIntent(rawQuery: string): SearchIntent {
+  const q = rawQuery.toLowerCase().trim();
+  if (!q) return "any";
+  // A comma in the query almost always signals "City, State" — that's a
+  // parish lookup.
+  if (q.includes(",")) return "parish";
+  if (/\b(parish|church|cathedral|basilica|chapel|diocese|archdiocese|near\s+me)\b/.test(q))
+    return "parish";
+  const tokens = q.split(/\s+/);
+  if (tokens.length === 1 && tokens[0].length === 2 && US_STATE_TOKENS.has(tokens[0]))
+    return "parish";
+  if (/\b(our\s+lady\s+of|apparition|fatima|lourdes|guadalupe|knock|kibeho|akita|la\s+salette|champion)\b/.test(q))
+    return "apparition";
+  if (/\b(archangel|guardian\s+angel|seraphim|cherubim)\b/.test(q)) return "angel";
+  if (/\b(sacrament|baptism|confession|reconciliation|eucharist|first\s+communion|confirmation|matrimony|holy\s+orders|anointing|consecration)\b/.test(q))
+    return "sacrament";
+  if (/\b(prayer|rosary|litany|novena|chaplet|anima\s+christi|hail\s+mary|our\s+father|memorare|salve\s+regina|tantum\s+ergo|magnificat)\b/.test(q))
+    return "prayer";
+  if (/^(saint|st\.?\s|bl\.?\s|blessed\s|venerable\s|pope\s|doctor\s+of\s+the\s+church)/.test(q))
+    return "saint";
+  return "any";
+}
+
 export async function searchAll(q: string): Promise<SearchHits> {
   if (!q) return EMPTY_HITS;
   // Run the existing strict `contains` searches concurrently with the

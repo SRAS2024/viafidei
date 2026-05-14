@@ -484,6 +484,19 @@ empty:
   `SpiritualLifeGuide`, with steps stored as structured JSON. When a
   guide references a prayer, the page renders an `ExpandablePrayer`
   block per prayer.
+- **Today's Feast Day Saints** — rendered as a section near the
+  bottom of `/` and as a dedicated `/saints/today` page. The
+  homepage section reads the user's local date from
+  `new Date()` in the browser (so the date is in the user's
+  device timezone), fetches the matching saints via
+  `/api/saints/today`, and surfaces up to five names in
+  veneration order with a "See more" link to the full
+  `/saints/today` page. Each name links to the saint's detail
+  page. Feast-day matching is via `feastDayMatchesDate()`
+  (`src/lib/data/saints.ts`) which understands canonical
+  ("August 28"), abbreviated ("Aug 28"), ordinal ("October 1st"),
+  trailing-prose ("January 28 — Doctor of the Church") and
+  multi-feast ("August 4 / 5 (1969 reform)") variants.
 - **Saints & Our Lady** (`/saints`, `/saints/[slug]`). The default
   ordering surfaces the most venerable figures first — Mary, Joseph,
   the Twelve Apostles in their traditional order, then Mary Magdalene
@@ -699,25 +712,48 @@ configured initial status (`PUBLISHED` by default); review-bound
 records are written as `REVIEW`; rejected records are logged and
 counted as skipped.
 
-### Background cleanup pass
+### Background cleanup pass (Ingestion & Data Management)
 
-A `cleanupMiscategorisedContent()` sweep
-(`src/lib/data/cleanup.ts`) runs on every `/api/cron/ingest` tick.
-It inspects every `PUBLISHED` row across all six content tables
-(Prayer, Saint, MarianApparition, Devotion, LiturgyEntry,
-SpiritualLifeGuide) and applies the same lexical heuristics the
-validator uses: rows whose title or body now reads as source
-summary, broadcast schedule, or newsletter blurb — or that fail
-the per-kind length floor / vocabulary check — are flipped to
-`ARCHIVED` so they no longer appear on the public site. Archiving
-(rather than deletion) is deliberate: an admin can review what
-was caught and either re-publish or hard-delete it.
+The admin module `/admin/ingestion` is named **Ingestion & Data
+Management**. It exposes a settings panel at the top of the page
+that controls the automatic cleanup pass:
 
-`archiveDuplicatePrayers()` runs alongside it to catch
-historical artefacts: rows that share the same content checksum
-but landed under different slugs (e.g. from older ingestion
-passes before checksums were enforced). The earliest row stays
-PUBLISHED; the later duplicates are archived.
+- **Automatic cleanup enabled** — master switch. When on (default),
+  the cron job runs `cleanupMiscategorisedContent()`,
+  `archiveDuplicatePrayers()`, and `purgeStaleArchivedContent()`
+  on every tick. When off, the cron job skips those passes so the
+  admin can take manual control of the catalog. The per-row
+  ingestion validator continues to run regardless, so off-allowlist
+  sources and structurally-invalid items are still rejected at the
+  door.
+- **Hard-delete after N days** — how long a row may sit in
+  `ARCHIVED` status before the system permanently removes it.
+  Default 30. Set to 0 to disable hard deletes entirely.
+
+The cleanup pass itself inspects every `PUBLISHED` row across
+seven content tables (Prayer, Saint, MarianApparition, Devotion,
+LiturgyEntry, SpiritualLifeGuide, Parish) and applies the same
+lexical heuristics the validator uses: rows whose title or body
+now reads as source summary, broadcast schedule, or newsletter
+blurb — or that fail the per-kind length floor / vocabulary check
+— are flipped to `ARCHIVED` so they no longer appear on the
+public site. After `hardDeleteAfterDays` days of inactivity,
+`purgeStaleArchivedContent()` permanently deletes the row from
+the database; the per-row persisters still skip on existing
+slug / `externalSourceKey` / checksum lookups, so the same
+upstream URL cannot re-create a deleted bad row even after the
+hard delete frees the dedup keys.
+
+`archiveDuplicatePrayers()` runs alongside the misc-content pass
+to catch historical artefacts: rows that share the same content
+checksum but landed under different slugs (e.g. from older
+ingestion passes before checksums were enforced). The earliest
+row stays PUBLISHED; the later duplicates are archived.
+
+Settings are stored in the `SiteSetting` table under the key
+`data_management` and editable via
+`/api/admin/data-management` (admin-only) and the toggle UI in
+the ingestion admin page.
 
 Manual edits are the only path that re-introduces a moderation step.
 The seven `update*` functions in `src/lib/data/admin-catalog.ts` use a

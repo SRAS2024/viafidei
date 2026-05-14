@@ -215,3 +215,100 @@ export function getPublishedSaintBySlug(slug: string, locale: Locale) {
     include: { translations: { where: { locale } } },
   });
 }
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
+/**
+ * Return `true` when a stored `feastDay` string matches the given
+ * year-month-day in the user's current timezone. Feast-day strings are
+ * stored freeform (e.g. "August 28", "Aug 28", "28 August", "August
+ * 28 — Doctor of the Church") so the matcher is generous about case,
+ * separators, and trailing prose. Multi-feast strings ("August 4 / 5
+ * (1969 reform)") are split on commas, slashes, and semicolons and
+ * matched component-wise.
+ */
+export function feastDayMatchesDate(
+  feastDay: string | null | undefined,
+  month: number,
+  day: number,
+): boolean {
+  if (!feastDay) return false;
+  const monthName = MONTH_NAMES[month - 1];
+  if (!monthName) return false;
+  const monthAbbrev = monthName.slice(0, 3);
+  // Multi-feast strings ("August 4 / 5 (1969 reform)") are tricky:
+  // the second component does not repeat the month name. We split on
+  // commas / slashes / semicolons, then walk the parts left-to-right;
+  // a part without an explicit month inherits the most recent month
+  // we saw.
+  const parts = feastDay.split(/[,/;]/);
+  const dayPattern = new RegExp(`\\b${day}(st|nd|rd|th)?\\b`, "i");
+  let currentMonthMatchesQuery = false;
+  let anyMonthSeen = false;
+  for (const part of parts) {
+    const lower = part.toLowerCase();
+    const partHasAnyMonth = MONTH_NAMES.some((n) => {
+      const lcn = n.toLowerCase();
+      return lower.includes(lcn) || lower.includes(lcn.slice(0, 3));
+    });
+    if (partHasAnyMonth) {
+      anyMonthSeen = true;
+      currentMonthMatchesQuery =
+        lower.includes(monthName.toLowerCase()) ||
+        lower.includes(monthAbbrev.toLowerCase());
+    }
+    // If we have not seen any month yet, this part cannot match.
+    if (!anyMonthSeen) continue;
+    if (currentMonthMatchesQuery && dayPattern.test(lower)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Saints whose feast day falls on the given calendar date. Used by the
+ * homepage "Today's Feast Day Saints" panel and by /saints/today.
+ *
+ * Implementation note: feast-day strings are not stored in a
+ * structured form (month + day columns), so we cannot push the date
+ * match into SQL. We fetch every PUBLISHED saint that mentions the
+ * month name and re-filter in JS for the precise day. The catalog is
+ * small enough that this is fine; if the catalog grows past a few
+ * thousand rows we can split feastDay into structured columns.
+ */
+export async function listSaintsForFeastDate(
+  locale: Locale,
+  month: number,
+  day: number,
+) {
+  const monthName = MONTH_NAMES[month - 1];
+  if (!monthName) return [];
+  const monthAbbrev = monthName.slice(0, 3);
+  const candidates = await prisma.saint.findMany({
+    where: {
+      status: "PUBLISHED",
+      OR: [
+        { feastDay: { contains: monthName, mode: "insensitive" } },
+        { feastDay: { contains: monthAbbrev, mode: "insensitive" } },
+      ],
+    },
+    include: { translations: { where: { locale } } },
+    orderBy: { canonicalName: "asc" },
+  });
+  const matches = candidates.filter((s) => feastDayMatchesDate(s.feastDay, month, day));
+  return sortByVeneration(matches);
+}

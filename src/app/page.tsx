@@ -1,6 +1,13 @@
 import { getTranslator } from "@/lib/i18n/server";
 import { listPublishedPrayers } from "@/lib/data/prayers";
-import { HomeHero, HomeMission, HomeQuickLinks, HomeFeatured, HomeNewcomer } from "./_sections";
+import {
+  HomeHero,
+  HomeMission,
+  HomeQuickLinks,
+  HomeFeatured,
+  HomeNewcomer,
+  HomeToday,
+} from "./_sections";
 import type { FeaturedPrayer } from "./_sections/HomeFeatured";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +33,7 @@ export default async function HomePage() {
       <HomeQuickLinks t={t} />
       <HomeFeatured t={t} items={featuredPrayers} />
       <HomeNewcomer t={t} />
+      <HomeToday />
     </div>
   );
 }

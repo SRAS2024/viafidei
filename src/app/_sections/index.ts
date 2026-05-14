@@ -3,3 +3,4 @@ export { HomeMission } from "./HomeMission";
 export { HomeQuickLinks, QUICK_LINKS, type QuickLink } from "./HomeQuickLinks";
 export { HomeFeatured, type FeaturedPrayer } from "./HomeFeatured";
 export { HomeNewcomer } from "./HomeNewcomer";
+export { HomeToday } from "./HomeToday";

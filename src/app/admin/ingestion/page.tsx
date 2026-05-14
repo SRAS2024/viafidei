@@ -1,20 +1,29 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { listIngestionSourcesWithLatestRuns } from "@/lib/data/ingestion";
+import { getDataManagementSettings } from "@/lib/data/site-settings";
 import { getBacklogProgress } from "@/lib/ingestion/scheduler";
 import { AdminSection } from "../_sections/AdminSection";
 import { ManualIngestRunButton } from "./ManualIngestRunButton";
+import { DataManagementSettings } from "./DataManagementSettings";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminIngestion() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const sources = await listIngestionSourcesWithLatestRuns();
-  const progress = await getBacklogProgress().catch(() => null);
+  const [sources, progress, dataManagement] = await Promise.all([
+    listIngestionSourcesWithLatestRuns(),
+    getBacklogProgress().catch(() => null),
+    getDataManagementSettings(),
+  ]);
 
   return (
     <AdminSection titleKey="admin.card.ingestion">
+      <DataManagementSettings
+        initialAutoCleanupEnabled={dataManagement.autoCleanupEnabled}
+        initialHardDeleteAfterDays={dataManagement.hardDeleteAfterDays}
+      />
       {progress ? (
         <section className="mb-8">
           <h2 className="mb-3 font-display text-2xl">Backlog progress</h2>
