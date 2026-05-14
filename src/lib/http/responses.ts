@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { REQUEST_ID_HEADER } from "@/lib/observability";
 
 export type ApiErrorCode =
   | "unauthorized"
@@ -27,11 +28,22 @@ export function jsonOk<T extends Record<string, unknown>>(data?: T): NextRespons
 
 export function jsonError(
   code: ApiErrorCode,
-  options: { message?: string; details?: unknown; status?: number } = {},
+  options: { message?: string; details?: unknown; status?: number; requestId?: string } = {},
 ): NextResponse {
   const status = options.status ?? STATUS_BY_CODE[code];
   const body: Record<string, unknown> = { ok: false, error: code };
   if (options.message) body.message = options.message;
   if (options.details !== undefined) body.details = options.details;
-  return NextResponse.json(body, { status });
+  // Surface the request id in the body so a user reporting an error can
+  // hand the operator a value that connects directly to the structured
+  // log line for the failed request. Mirror it onto the response header
+  // too so curl / browser network panels show the same id without needing
+  // to parse the body. Safe to expose: the id is generated per request
+  // and carries no PII.
+  if (options.requestId) body.requestId = options.requestId;
+  const init: { status: number; headers?: Record<string, string> } = { status };
+  if (options.requestId) {
+    init.headers = { [REQUEST_ID_HEADER]: options.requestId };
+  }
+  return NextResponse.json(body, init);
 }
