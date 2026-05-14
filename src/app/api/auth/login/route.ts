@@ -13,6 +13,12 @@ import {
 import { getProfileForUser } from "@/lib/data/profile";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
+// Argon2id password verification requires the Node runtime (native binding
+// loaded by node-gyp-build). Pinning the runtime explicitly stops a future
+// edit from accidentally migrating this route to the edge runtime, which
+// would crash on first request.
+export const runtime = "nodejs";
+
 const LOGIN_INVALID = "/login?error=invalid";
 const DEFAULT_NEXT = "/profile";
 
