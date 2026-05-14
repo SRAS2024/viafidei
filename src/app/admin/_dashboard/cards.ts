@@ -18,8 +18,8 @@ export const DASHBOARD_CARDS: DashboardCard[] = [
   { href: "/admin/search", labelKey: "admin.card.search", eyebrow: "XI." },
   { href: "/admin/media", labelKey: "admin.card.media", eyebrow: "XII." },
   { href: "/admin/favicon", labelKey: "admin.card.favicon", eyebrow: "XIII." },
-  { href: "/admin/audit", labelKey: "admin.card.audit", eyebrow: "XIV." },
+  { href: "/admin/logs", labelKey: "admin.card.logs", eyebrow: "XIV." },
   { href: "/admin/users", labelKey: "admin.card.users", eyebrow: "XV." },
-  { href: "/admin/email", labelKey: "admin.card.email", eyebrow: "XVI." },
+  { href: "/admin/diagnostics", labelKey: "admin.card.diagnostics", eyebrow: "XVI." },
   { href: "/admin/publish-list", labelKey: "admin.card.publishList", eyebrow: "XVII." },
 ];

@@ -1,6 +1,10 @@
 import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../db/client";
 import { looksLikeNonContent } from "../ingestion/validate";
+import {
+  recordDataManagementLogs,
+  type DataManagementLogInput,
+} from "./data-management-log";
 
 const DEFAULT_INGESTION_RUN_RETENTION_DAYS = 60;
 const DEFAULT_AUDIT_RETENTION_DAYS = 365;
@@ -108,6 +112,27 @@ async function archiveGuide(id: string) {
  */
 export async function cleanupMiscategorisedContent(): Promise<CleanupSummary> {
   const buckets: CleanupBucket[] = [];
+  const logs: DataManagementLogInput[] = [];
+
+  function reasonFor(opts: {
+    tooShort?: boolean;
+    looksLikeBlurb?: boolean;
+    noPrayerLang?: boolean;
+    noBiog?: boolean;
+    noMarian?: boolean;
+    noDev?: boolean;
+    looksLikeIndex?: boolean;
+  }): string {
+    const parts: string[] = [];
+    if (opts.tooShort) parts.push("body too short");
+    if (opts.looksLikeBlurb) parts.push("matches non-content phrase (source summary / broadcast / newsletter)");
+    if (opts.noPrayerLang) parts.push("no prayer-language markers");
+    if (opts.noBiog) parts.push("no biographical vocabulary");
+    if (opts.noMarian) parts.push("no Marian / apparition vocabulary");
+    if (opts.noDev) parts.push("no devotional-practice vocabulary");
+    if (opts.looksLikeIndex) parts.push("title looks like a navigation index");
+    return parts.join("; ") || "miscategorised";
+  }
 
   // PRAYERS — must have prayer-language vocabulary and a body ≥ 40 chars.
   {
@@ -121,6 +146,12 @@ export async function cleanupMiscategorisedContent(): Promise<CleanupSummary> {
       if (tooShort || noPrayerLang || looksLikeBlurb) {
         await archivePrayer(p.id);
         archived += 1;
+        logs.push({
+          action: "CLEANUP",
+          contentType: "Prayer",
+          contentRef: p.slug ?? p.defaultTitle,
+          reason: reasonFor({ tooShort, looksLikeBlurb, noPrayerLang }),
+        });
       }
     }
     buckets.push({ entity: "Prayer", inspected: items.length, archived });
@@ -135,14 +166,18 @@ export async function cleanupMiscategorisedContent(): Promise<CleanupSummary> {
       const tooShort = (s.biography ?? "").trim().length < 80;
       const noBiog = !SAINT_BIOGRAPHY_RE.test(s.biography ?? "");
       const looksLikeBlurb = looksLikeNonContent(blob);
-      // Saints with a "Catholic Saints" or "Patron Saints" listing name
-      // are navigation pages, not saints.
       const looksLikeIndex = /^(catholic\s+saints?|patron\s+saints?|saints?\s+(directory|list|index))/i.test(
         s.canonicalName,
       );
       if (tooShort || noBiog || looksLikeBlurb || looksLikeIndex) {
         await archiveSaint(s.id);
         archived += 1;
+        logs.push({
+          action: "CLEANUP",
+          contentType: "Saint",
+          contentRef: s.slug ?? s.canonicalName,
+          reason: reasonFor({ tooShort, looksLikeBlurb, noBiog, looksLikeIndex }),
+        });
       }
     }
     buckets.push({ entity: "Saint", inspected: items.length, archived });
@@ -162,6 +197,12 @@ export async function cleanupMiscategorisedContent(): Promise<CleanupSummary> {
       if (tooShort || noMarian || looksLikeBlurb) {
         await archiveApparition(a.id);
         archived += 1;
+        logs.push({
+          action: "CLEANUP",
+          contentType: "MarianApparition",
+          contentRef: a.slug ?? a.title,
+          reason: reasonFor({ tooShort, looksLikeBlurb, noMarian }),
+        });
       }
     }
     buckets.push({ entity: "MarianApparition", inspected: items.length, archived });
@@ -182,6 +223,12 @@ export async function cleanupMiscategorisedContent(): Promise<CleanupSummary> {
       if (tooShort || noDev || looksLikeBlurb) {
         await archiveDevotion(d.id);
         archived += 1;
+        logs.push({
+          action: "CLEANUP",
+          contentType: "Devotion",
+          contentRef: d.slug ?? d.title,
+          reason: reasonFor({ tooShort, looksLikeBlurb, noDev }),
+        });
       }
     }
     buckets.push({ entity: "Devotion", inspected: items.length, archived });
@@ -199,6 +246,12 @@ export async function cleanupMiscategorisedContent(): Promise<CleanupSummary> {
       if (tooShort || looksLikeBlurb) {
         await archiveLiturgy(l.id);
         archived += 1;
+        logs.push({
+          action: "CLEANUP",
+          contentType: "LiturgyEntry",
+          contentRef: l.slug ?? l.title,
+          reason: reasonFor({ tooShort, looksLikeBlurb }),
+        });
       }
     }
     buckets.push({ entity: "LiturgyEntry", inspected: items.length, archived });
@@ -216,10 +269,18 @@ export async function cleanupMiscategorisedContent(): Promise<CleanupSummary> {
       if (tooShort || looksLikeBlurb) {
         await archiveGuide(g.id);
         archived += 1;
+        logs.push({
+          action: "CLEANUP",
+          contentType: "SpiritualLifeGuide",
+          contentRef: g.slug ?? g.title,
+          reason: reasonFor({ tooShort, looksLikeBlurb }),
+        });
       }
     }
     buckets.push({ entity: "SpiritualLifeGuide", inspected: items.length, archived });
   }
+
+  await recordDataManagementLogs(logs);
 
   const totalArchived = buckets.reduce((sum, b) => sum + b.archived, 0);
   return { buckets, totalArchived };
@@ -259,33 +320,71 @@ export async function purgeStaleArchivedContent(
   }
   const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
   const where = { status: "ARCHIVED" as ContentStatus, updatedAt: { lt: cutoff } };
-  const [
-    prayers,
-    saints,
-    apparitions,
-    devotions,
-    liturgyEntries,
-    spiritualLifeGuides,
-  ] = await Promise.all([
-    prisma.prayer.deleteMany({ where }),
-    prisma.saint.deleteMany({ where }),
-    prisma.marianApparition.deleteMany({ where }),
-    prisma.devotion.deleteMany({ where }),
-    prisma.liturgyEntry.deleteMany({ where }),
-    prisma.spiritualLifeGuide.deleteMany({ where }),
-  ]);
-  // Parishes carry their own status enum (no schema separation needed)
-  // and ARCHIVED parishes follow the same rule.
-  const parishes = await prisma.parish.deleteMany({ where });
-  const buckets: HardDeleteSummary["buckets"] = [
-    { entity: "Prayer", deleted: prayers.count },
-    { entity: "Saint", deleted: saints.count },
-    { entity: "MarianApparition", deleted: apparitions.count },
-    { entity: "Devotion", deleted: devotions.count },
-    { entity: "LiturgyEntry", deleted: liturgyEntries.count },
-    { entity: "SpiritualLifeGuide", deleted: spiritualLifeGuides.count },
-    { entity: "Parish", deleted: parishes.count },
-  ];
+
+  // Record one DELETE log per row (with its slug) before each table's
+  // bulk delete. The findMany / deleteMany pair per table is duplicated
+  // intentionally instead of routed through a `tables` array — Prisma's
+  // delegate types are mutually exclusive, so a generic `tables` union
+  // does not type-check cleanly. The verbosity below keeps full type
+  // safety with no `any`.
+  const buckets: HardDeleteSummary["buckets"] = [];
+  const logs: DataManagementLogInput[] = [];
+
+  async function purge<T extends { id: string; slug: string | null }>(
+    entity: string,
+    findMany: (a: { where: typeof where; select: { id: true; slug: true } }) => Promise<T[]>,
+    deleteMany: (a: { where: typeof where }) => Promise<{ count: number }>,
+  ) {
+    const targets = await findMany({ where, select: { id: true, slug: true } });
+    for (const t of targets) {
+      logs.push({
+        action: "DELETE",
+        contentType: entity,
+        contentRef: t.slug ?? t.id,
+        reason: `archived ≥ ${olderThanDays} days`,
+      });
+    }
+    const result = await deleteMany({ where });
+    buckets.push({ entity, deleted: result.count });
+  }
+
+  await purge(
+    "Prayer",
+    prisma.prayer.findMany,
+    prisma.prayer.deleteMany,
+  );
+  await purge(
+    "Saint",
+    prisma.saint.findMany,
+    prisma.saint.deleteMany,
+  );
+  await purge(
+    "MarianApparition",
+    prisma.marianApparition.findMany,
+    prisma.marianApparition.deleteMany,
+  );
+  await purge(
+    "Devotion",
+    prisma.devotion.findMany,
+    prisma.devotion.deleteMany,
+  );
+  await purge(
+    "LiturgyEntry",
+    prisma.liturgyEntry.findMany,
+    prisma.liturgyEntry.deleteMany,
+  );
+  await purge(
+    "SpiritualLifeGuide",
+    prisma.spiritualLifeGuide.findMany,
+    prisma.spiritualLifeGuide.deleteMany,
+  );
+  await purge(
+    "Parish",
+    prisma.parish.findMany,
+    prisma.parish.deleteMany,
+  );
+  await recordDataManagementLogs(logs);
+
   const totalDeleted = buckets.reduce((sum, b) => sum + b.deleted, 0);
   return { buckets, totalDeleted };
 }
@@ -304,6 +403,7 @@ export async function archiveDuplicatePrayers(): Promise<number> {
     having: { contentChecksum: { _count: { gt: 1 } } },
   });
   let archived = 0;
+  const logs: DataManagementLogInput[] = [];
   for (const g of groups) {
     if (!g.contentChecksum) continue;
     const dupes = await prisma.prayer.findMany({
@@ -317,7 +417,14 @@ export async function archiveDuplicatePrayers(): Promise<number> {
         data: { status: "ARCHIVED" as ContentStatus },
       });
       archived += 1;
+      logs.push({
+        action: "DEDUPE",
+        contentType: "Prayer",
+        contentRef: dupes[i].slug ?? dupes[i].defaultTitle,
+        reason: `duplicate of ${dupes[0].slug ?? dupes[0].defaultTitle}`,
+      });
     }
   }
+  await recordDataManagementLogs(logs);
   return archived;
 }

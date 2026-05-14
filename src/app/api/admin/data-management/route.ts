@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
+import { writeAudit } from "@/lib/audit/log";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import {
   getDataManagementSettings,
@@ -38,6 +39,16 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return jsonError("invalid", { details: parsed.error.flatten() });
   }
+  const previous = await getDataManagementSettings();
   await upsertDataManagementSettings(parsed.data);
+  // Log to the Admin actions log so the toggle history is auditable.
+  await writeAudit({
+    action: "data_management.settings.update",
+    entityType: "SiteSetting",
+    entityId: "data_management",
+    previousValue: previous,
+    newValue: parsed.data,
+    actorUsername: admin.username,
+  });
   return jsonOk({ settings: parsed.data });
 }
