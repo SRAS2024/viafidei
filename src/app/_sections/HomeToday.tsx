@@ -114,19 +114,19 @@ export function HomeToday() {
       </p>
       <div className="vf-rule mx-auto my-5" />
       <h2 className="font-display text-xl text-ink sm:text-2xl">
-        Today's Feast Day Saints
+        Today&apos;s Feast Day Saints
       </h2>
 
       <div className="mt-5 min-h-[6rem]">
         {state.kind === "loading" ? (
-          <p className="font-serif text-sm text-ink-faint">Loading the day's saints…</p>
+          <p className="font-serif text-sm text-ink-faint">Loading the day&apos;s saints…</p>
         ) : state.kind === "error" ? (
           <p className="font-serif text-sm text-ink-faint">
-            Could not load today's feast list.
+            Could not load today&apos;s feast list.
           </p>
         ) : state.items.length === 0 ? (
           <p className="font-serif text-sm text-ink-faint">
-            No saints in our catalog match today's feast yet.{" "}
+            No saints in our catalog match today&apos;s feast yet.{" "}
             <Link href="/saints" className="vf-nav-link">
               Browse all saints
             </Link>
