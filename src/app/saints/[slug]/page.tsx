@@ -6,6 +6,7 @@ import { getPublishedApparitionBySlug } from "@/lib/data/apparitions";
 import { isSaved, type SavedKind } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
+import { OfficialSourceLink } from "@/components/ui";
 import { parseSaintBiography } from "@/lib/data/saint-sections";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
@@ -89,16 +90,16 @@ export default async function SaintDetailPage({ params }: Props) {
           </Link>
         </div>
 
-        <section className="mb-10 text-center">
+        <section className="mb-10 px-2 text-center">
+          <h1 className="break-words font-display text-3xl leading-tight text-ink sm:text-5xl md:text-6xl">
+            {saint.canonicalName}
+          </h1>
           {saint.feastDay ? (
-            <p className="vf-eyebrow">
+            <p className="vf-eyebrow mt-4">
               {t("saints.feastDay")}: {saint.feastDay}
             </p>
           ) : null}
           <div className="vf-rule mx-auto my-5" />
-          <h1 className="font-display text-5xl leading-tight text-ink sm:text-6xl">
-            {saint.canonicalName}
-          </h1>
         </section>
 
         <div className="mb-10 flex justify-center">
@@ -191,6 +192,8 @@ export default async function SaintDetailPage({ params }: Props) {
             </p>
           </div>
         ) : null}
+
+        <OfficialSourceLink url={saint.externalSourceKey} />
       </div>
     );
   }
@@ -255,6 +258,8 @@ export default async function SaintDetailPage({ params }: Props) {
           </p>
         </div>
       ) : null}
+
+      <OfficialSourceLink url={apparition.externalSourceKey} />
     </div>
   );
 }

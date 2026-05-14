@@ -4,6 +4,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedSpiritualLifeGuideBySlug } from "@/lib/data/spiritual-life";
 import { getBadgeForGoalSlug } from "@/components/icons/SacramentBadges";
 import { PageHero } from "@/components/ui/PageHero";
+import { OfficialSourceLink } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,7 @@ export default async function SacramentDetailPage({ params }: Props) {
             </Link>
           </div>
         ) : null}
+        <OfficialSourceLink url={guide.externalSourceKey} />
       </div>
     </div>
   );

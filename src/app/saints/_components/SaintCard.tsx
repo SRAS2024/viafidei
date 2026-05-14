@@ -37,12 +37,12 @@ export function SaintCard({
   return (
     <Link href={`/saints/${saint.slug}`}>
       <article className="vf-card flex h-full flex-col rounded-sm p-5 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-6">
-        <p className="vf-eyebrow truncate">
-          {feastDayLabel}: {saint.feastDay ?? "—"}
-        </p>
-        <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">
+        <h2 className="break-words font-display text-xl sm:text-2xl">
           {tr?.name ?? saint.canonicalName}
         </h2>
+        <p className="vf-eyebrow mt-2 truncate">
+          {feastDayLabel}: {saint.feastDay ?? "—"}
+        </p>
         <p className="mt-3 line-clamp-4 font-serif leading-relaxed text-ink-soft">
           {tr?.biography ?? saint.biography}
         </p>

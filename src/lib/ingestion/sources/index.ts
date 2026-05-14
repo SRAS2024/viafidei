@@ -23,6 +23,9 @@ export {
   buildVaticanApparitionsCrawler,
   buildVaticanDevotionsCrawler,
   buildVaticanParishesCrawler,
+  buildVaticanCanonLawCrawler,
+  buildVaticanCatechismCrawler,
+  buildVaticanEncyclicalsCrawler,
   buildAllVaticanCrawlers,
   type VaticanCrawlerOptions,
 } from "./vatican-adapters";

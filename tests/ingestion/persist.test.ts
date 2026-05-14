@@ -139,6 +139,21 @@ describe("persistItems — dedupe", () => {
     expect(prismaMock.prayer.update).not.toHaveBeenCalled();
   });
 
+  it("does not re-ingest a previously archived prayer", async () => {
+    // After the cleanup pass archives a bad row, subsequent ingestion
+    // runs from the same upstream URL must NOT re-create it under a new
+    // slug. The persister's externalSourceKey lookup guards this.
+    prismaMock.prayer.findFirst.mockResolvedValue({
+      id: "archived-id",
+      status: "ARCHIVED",
+      contentChecksum: "old",
+    });
+    const result = await persistItems([basePrayer], "PUBLISHED");
+    expect(result).toEqual({ created: 0, updated: 0, skipped: 1 });
+    expect(prismaMock.prayer.create).not.toHaveBeenCalled();
+    expect(prismaMock.prayer.update).not.toHaveBeenCalled();
+  });
+
   it("never overwrites DRAFT content either — protects admin WIP", async () => {
     prismaMock.prayer.findFirst.mockResolvedValue({
       id: "existing-id",
