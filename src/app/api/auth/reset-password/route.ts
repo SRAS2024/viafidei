@@ -5,6 +5,9 @@ import { getClientIp } from "@/lib/security/request";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
+// Argon2 hash + node:crypto for the token comparison need the Node runtime.
+export const runtime = "nodejs";
+
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
   const limit = await rateLimit(`reset:${ip}`, RATE_POLICIES.passwordReset, { ipAddress: ip });

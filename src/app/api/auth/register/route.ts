@@ -17,6 +17,9 @@ import { LOCALE_COOKIE_NAME, LOCALE_COOKIE_OPTIONS } from "@/lib/i18n/cookie";
 import { isSupportedLocale } from "@/lib/i18n/locales";
 import { negotiateLocale } from "@/lib/i18n/negotiate";
 
+// Argon2 password hash + verification needs the Node runtime.
+export const runtime = "nodejs";
+
 function classifyError(parsed: ReturnType<typeof registerSchema.safeParse>): string {
   if (parsed.success) return "invalid";
   const issue = parsed.error.issues[0];

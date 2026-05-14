@@ -6,6 +6,9 @@ import { LOCALE_COOKIE_NAME } from "@/lib/i18n/cookie";
 import { RITE_COOKIE_NAME } from "@/lib/i18n/rite-cookie";
 import { THEME_COOKIE_NAME } from "@/lib/i18n/theme-cookie";
 
+// iron-session uses node:crypto under the hood; pin Node runtime.
+export const runtime = "nodejs";
+
 export async function POST(req: NextRequest) {
   const session = await getSession();
   session.destroy();

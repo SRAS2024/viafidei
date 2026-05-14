@@ -4,6 +4,9 @@ import { writeAudit } from "@/lib/audit";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp, getUserAgent, redirectTo } from "@/lib/security/request";
 
+// Admin credential verification (timing-safe + iron-session) needs Node.
+export const runtime = "nodejs";
+
 const LOGIN_INVALID = "/admin/login?error=invalid";
 
 export async function POST(req: NextRequest) {

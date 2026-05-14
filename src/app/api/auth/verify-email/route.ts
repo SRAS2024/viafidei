@@ -12,6 +12,9 @@ import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 import { sendEmailVerificationEmail } from "@/lib/email";
 
+// Token issuance + Prisma writes need the Node runtime.
+export const runtime = "nodejs";
+
 const consumeSchema = z.object({ token: z.string().min(20).max(256) });
 
 export async function POST(req: NextRequest) {

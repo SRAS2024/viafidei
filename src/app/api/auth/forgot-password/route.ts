@@ -7,6 +7,9 @@ import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 import { sendPasswordResetEmail } from "@/lib/email";
 
+// Token issuance uses node:crypto for the random + hash; pin Node runtime.
+export const runtime = "nodejs";
+
 const schema = z.object({
   email: z.string().email().max(200),
 });

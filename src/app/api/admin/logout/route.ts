@@ -3,6 +3,9 @@ import { getSession } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { getClientIpOrNull, getUserAgent, redirectTo } from "@/lib/security/request";
 
+// iron-session + Prisma audit write need Node runtime.
+export const runtime = "nodejs";
+
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (session.role === "ADMIN") {
