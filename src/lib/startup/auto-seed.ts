@@ -1,6 +1,7 @@
 import { appConfig } from "../config";
 import { prisma } from "../db/client";
 import { checkRequiredTables } from "../db/tables";
+import { logger } from "../observability/logger";
 import { ensureAccountEmailTables } from "./ensure-email-tables";
 import { promoteIngestedOrphans } from "./promote-ingested";
 import { seedAllContent } from "./seeder";
@@ -48,18 +49,18 @@ async function runIngestionTick(): Promise<void> {
     }
     const res = await fetch(url, { method: "POST", headers });
     if (res.ok) {
-      console.log(
-        "[scheduler] ingestion tick ok",
-        JSON.stringify({ durationMs: Date.now() - startedAt, status: res.status }),
-      );
+      logger.info("scheduler ingestion tick ok", {
+        durationMs: Date.now() - startedAt,
+        status: res.status,
+      });
     } else {
-      console.warn(
-        "[scheduler] ingestion tick non-2xx",
-        JSON.stringify({ status: res.status, durationMs: Date.now() - startedAt }),
-      );
+      logger.warn("scheduler ingestion tick non-2xx", {
+        status: res.status,
+        durationMs: Date.now() - startedAt,
+      });
     }
   } catch (e) {
-    console.error("[scheduler] ingestion tick failed", e instanceof Error ? e.message : e);
+    logger.error("scheduler ingestion tick failed", { error: e });
   }
 }
 
@@ -131,7 +132,7 @@ function scheduleIngestion(): void {
   scheduled = true;
 
   if (appConfig.ingestion.schedulerDisabled) {
-    console.log("[scheduler] in-process ingestion disabled by config — not scheduling");
+    logger.info("scheduler in-process ingestion disabled by config — not scheduling");
     return;
   }
 
@@ -143,9 +144,11 @@ function scheduleIngestion(): void {
   // Once targets are reached, switch to a twice-weekly maintenance check.
   const maintenanceIntervalMs = appConfig.ingestion.maintenanceIntervalMs;
 
-  console.log(
-    `[scheduler] background ingestion scheduled — initial ${Math.round(initialDelayMs / 1000)}s, constant-mode interval ${Math.round(burstIntervalMs / 1000)}s, maintenance-mode interval ${Math.round(maintenanceIntervalMs / 3_600_000)}h (≈twice weekly)`,
-  );
+  logger.info("scheduler background ingestion scheduled", {
+    initialDelayS: Math.round(initialDelayMs / 1000),
+    burstIntervalS: Math.round(burstIntervalMs / 1000),
+    maintenanceIntervalH: Math.round(maintenanceIntervalMs / 3_600_000),
+  });
 
   let currentTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -195,14 +198,17 @@ async function logEmailPipelineStatus(): Promise<void> {
   const { readResendApiKey } = await import("../email/resend");
   const apiKey = readResendApiKey();
   if (apiKey === null) {
-    console.warn(
-      "[startup] EMAIL DISABLED — neither RESEND_API_KEY nor RESEND is set; welcome / password-reset / verification emails will be skipped (set the env var in your hosting dashboard and redeploy to enable)",
+    logger.warn(
+      "startup email disabled — neither RESEND_API_KEY nor RESEND is set; welcome / password-reset / verification emails will be skipped (set the env var in your hosting dashboard and redeploy to enable)",
     );
     return;
   }
-  console.log(
-    `[startup] email configured — provider=${appConfig.email.providerName} from=${appConfig.email.fromAddress} apiKey=${apiKey.slice(0, 4)}…(${apiKey.length} chars)`,
-  );
+  logger.info("startup email configured", {
+    provider: appConfig.email.providerName,
+    from: appConfig.email.fromAddress,
+    apiKeyPrefix: apiKey.slice(0, 4),
+    apiKeyLength: apiKey.length,
+  });
 }
 
 export async function runStartupTasks(): Promise<void> {
@@ -212,7 +218,7 @@ export async function runStartupTasks(): Promise<void> {
   await logEmailPipelineStatus();
 
   if (!(await isDbReachable())) {
-    console.warn("[startup] DB unreachable — skipping seed and ingestion schedule");
+    logger.warn("startup DB unreachable — skipping seed and ingestion schedule");
     return;
   }
 
@@ -226,19 +232,17 @@ export async function runStartupTasks(): Promise<void> {
   try {
     const result = await ensureAccountEmailTables();
     if (result.ok && result.created.length > 0) {
-      console.warn(
-        `[startup] account email tables auto-created (migration was missing): ${result.created.join(", ")}`,
-      );
+      logger.warn("startup account email tables auto-created (migration was missing)", {
+        created: result.created,
+      });
     } else if (!result.ok) {
-      console.error(
-        `[startup] could not ensure account email tables — welcome / verify / forgot-password flows may fail: ${result.message ?? "unknown error"}`,
+      logger.error(
+        "startup could not ensure account email tables — welcome / verify / forgot-password flows may fail",
+        { message: result.message ?? "unknown error" },
       );
     }
   } catch (e) {
-    console.error(
-      "[startup] ensureAccountEmailTables threw",
-      e instanceof Error ? e.message : String(e),
-    );
+    logger.error("startup ensureAccountEmailTables threw", { error: e });
   }
 
   const tableCheck = await checkRequiredTables().catch(() => ({
@@ -249,12 +253,12 @@ export async function runStartupTasks(): Promise<void> {
     columnsMissing: [] as Array<{ table: string; columns: string[] }>,
   }));
   if (!tableCheck.ok) {
-    console.error(
-      "[startup] required tables missing:",
-      tableCheck.missing,
-      "columns missing:",
-      tableCheck.columnsMissing,
-      "— ensure 'prisma migrate deploy' ran before starting the server",
+    logger.error(
+      "startup required tables missing — ensure 'prisma migrate deploy' ran before starting the server",
+      {
+        missing: tableCheck.missing,
+        columnsMissing: tableCheck.columnsMissing,
+      },
     );
     return;
   }
@@ -272,9 +276,9 @@ export async function runStartupTasks(): Promise<void> {
   // any new content the codebase has added since the last deploy.
   try {
     const summary = await seedAllContent();
-    console.log("[startup] seed complete", JSON.stringify(summary));
+    logger.info("startup seed complete", { summary });
   } catch (e) {
-    console.error("[startup] seed failed", e instanceof Error ? e.message : e);
+    logger.error("startup seed failed", { error: e });
   }
 
   // Promote any auto-ingested rows that are still stuck in REVIEW status
@@ -286,16 +290,12 @@ export async function runStartupTasks(): Promise<void> {
     const promoted = await promoteIngestedOrphans();
     const total = Object.values(promoted).reduce((a, b) => a + b, 0);
     if (total > 0) {
-      console.log(
-        "[startup] promoted legacy ingestion orphans to PUBLISHED",
-        JSON.stringify(promoted),
-      );
+      logger.info("startup promoted legacy ingestion orphans to PUBLISHED", {
+        promoted,
+      });
     }
   } catch (e) {
-    console.error(
-      "[startup] failed to promote ingestion orphans",
-      e instanceof Error ? e.message : e,
-    );
+    logger.error("startup failed to promote ingestion orphans", { error: e });
   }
 
   scheduleIngestion();
