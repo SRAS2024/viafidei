@@ -1325,12 +1325,15 @@ This is an honest list of items that are scoped for future polish branches.
 None of them affect day-to-day reader behaviour, and each lands behind the
 same CI gates that protect the rest of the codebase.
 
-- **Major framework bumps not yet applied.** Next.js 14 is the production
-  baseline. Removing the open high-severity advisories will require
-  bumping to Next.js 15+ (the fix is not back-ported to the 14.x line),
-  which makes `cookies()`, `headers()`, `params`, and `searchParams`
-  async and is intentionally deferred to its own branch so the migration
-  diff stays reviewable.
+- **One remaining high-severity advisory on Next.js core.** Three of the
+  four original high-severity items were resolved by an npm `overrides`
+  entry that pulls `glob` forward to the patched 10.5.0+ line (the
+  advisory was in the CLI flag, not the API surface eslint-plugin-next
+  uses). The remaining high-sev item is in Next.js itself (HTTP request
+  deserialization) and is only fixed in Next 15+, which makes
+  `cookies()`, `headers()`, `params`, and `searchParams` async — that
+  migration is intentionally deferred to its own branch so the diff
+  stays reviewable.
 - **Test tooling moderate advisories.** Vitest 2.x and its `esbuild`
   transitive carry moderate-severity advisories. Vitest 3 and 4 are both
   available but represent a multi-major jump for the test layer; the
