@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  categorizePrayer,
-  PRAYER_CATEGORY_ORDER,
-} from "@/lib/ingestion/sources/categorize";
+import { categorizePrayer, PRAYER_CATEGORY_ORDER } from "@/lib/ingestion/sources/categorize";
 
 describe("categorizePrayer", () => {
   it("trusts explicit recognised categories from the seed", () => {
@@ -12,13 +9,9 @@ describe("categorizePrayer", () => {
   });
 
   it("maps legacy aliases onto the canonical bucket", () => {
-    expect(categorizePrayer({ title: "x", body: "", category: "Trinitarian" })).toBe(
-      "Traditional",
-    );
+    expect(categorizePrayer({ title: "x", body: "", category: "Trinitarian" })).toBe("Traditional");
     expect(categorizePrayer({ title: "x", body: "", category: "Creedal" })).toBe("Traditional");
-    expect(categorizePrayer({ title: "x", body: "", category: "Penitential" })).toBe(
-      "Sacramental",
-    );
+    expect(categorizePrayer({ title: "x", body: "", category: "Penitential" })).toBe("Sacramental");
   });
 
   it("classifies Marian prayers by title", () => {
@@ -41,9 +34,9 @@ describe("categorizePrayer", () => {
   });
 
   it("classifies the Lord's Prayer as Dominical", () => {
-    expect(
-      categorizePrayer({ title: "Our Father", body: "Our Father, who art in heaven" }),
-    ).toBe("Dominical");
+    expect(categorizePrayer({ title: "Our Father", body: "Our Father, who art in heaven" })).toBe(
+      "Dominical",
+    );
   });
 
   it("classifies the Angel of God prayer as Angelic", () => {
@@ -53,15 +46,15 @@ describe("categorizePrayer", () => {
   });
 
   it("classifies a Eucharistic prayer correctly", () => {
-    expect(
-      categorizePrayer({ title: "Anima Christi", body: "Soul of Christ, sanctify me" }),
-    ).toBe("Eucharistic");
+    expect(categorizePrayer({ title: "Anima Christi", body: "Soul of Christ, sanctify me" })).toBe(
+      "Eucharistic",
+    );
   });
 
   it("falls back to Traditional rather than Daily for ambiguous prayers", () => {
-    expect(categorizePrayer({ title: "Sign of the Cross", body: "In the name of the Father" })).toBe(
-      "Traditional",
-    );
+    expect(
+      categorizePrayer({ title: "Sign of the Cross", body: "In the name of the Father" }),
+    ).toBe("Traditional");
   });
 
   it("exports the canonical ordering used by the /prayers tabs", () => {

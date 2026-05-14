@@ -92,14 +92,7 @@ export function searchParishes(q: string, take = 10) {
   const trimmed = q.trim();
   if (!trimmed) return Promise.resolve([] as never[]);
   const tokens = trimmed.split(/\s+/).filter((t) => t.length > 0);
-  const fields = [
-    "name",
-    "city",
-    "region",
-    "country",
-    "diocese",
-    "address",
-  ] as const;
+  const fields = ["name", "city", "region", "country", "diocese", "address"] as const;
   // Each token must match at least one field somewhere — that's an AND
   // over tokens, each one being an OR over fields. The single-token
   // case degenerates to the original behaviour.

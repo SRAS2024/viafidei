@@ -290,9 +290,7 @@ function GoalCard({
             </div>
           ) : (
             <>
-              <h2 className="mt-2 break-words font-display text-xl sm:text-2xl">
-                {goal.title}
-              </h2>
+              <h2 className="mt-2 break-words font-display text-xl sm:text-2xl">{goal.title}</h2>
               {goal.description ? (
                 <p className="mt-1 break-words font-serif text-ink-soft">{goal.description}</p>
               ) : null}
@@ -472,10 +470,7 @@ export function GoalManager({ initialGoals, completedCount = 0, labels }: Props)
           {showCreate ? labels.cancel : labels.newGoal}
         </button>
         {completedCount > 0 ? (
-          <a
-            href="/profile/goals/completed"
-            className="vf-btn vf-btn-ghost"
-          >
+          <a href="/profile/goals/completed" className="vf-btn vf-btn-ghost">
             View completed goals ({completedCount})
           </a>
         ) : null}

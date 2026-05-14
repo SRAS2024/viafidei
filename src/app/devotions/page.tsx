@@ -10,11 +10,7 @@ import { filterByRite } from "@/lib/content/rites";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Devotions" };
 
-export default async function DevotionsPage({
-  searchParams,
-}: {
-  searchParams: { page?: string };
-}) {
+export default async function DevotionsPage({ searchParams }: { searchParams: { page?: string } }) {
   const { t, locale } = await getTranslator();
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   let result: Awaited<ReturnType<typeof listPublishedDevotionsPaginated>> = {
@@ -54,9 +50,7 @@ export default async function DevotionsPage({
             return (
               <Link key={d.id} href={`/devotions/${d.slug}`}>
                 <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-7">
-                  {d.durationMinutes ? (
-                    <p className="vf-eyebrow">{d.durationMinutes} min</p>
-                  ) : null}
+                  {d.durationMinutes ? <p className="vf-eyebrow">{d.durationMinutes} min</p> : null}
                   <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{title}</h2>
                   <p className="mt-4 line-clamp-4 font-serif leading-relaxed text-ink-soft">
                     {summary}

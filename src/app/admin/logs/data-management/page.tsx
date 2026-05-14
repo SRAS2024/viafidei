@@ -136,9 +136,7 @@ export default async function DataManagementLogPage({ searchParams }: Props) {
                     {r.createdAt.toISOString().slice(0, 16).replace("T", " ")}
                   </td>
                   <td className="px-4 py-3 sm:px-5">{dataManagementActionLabel(r.action)}</td>
-                  <td className="break-words px-4 py-3 text-ink-soft sm:px-5">
-                    {r.contentType}
-                  </td>
+                  <td className="break-words px-4 py-3 text-ink-soft sm:px-5">{r.contentType}</td>
                   <td className="break-all px-4 py-3 sm:px-5">{r.contentRef ?? "—"}</td>
                   <td className="hidden break-words px-4 py-3 text-ink-faint sm:table-cell sm:px-5">
                     {r.reason ?? "—"}

@@ -44,9 +44,7 @@ function resolveStatusForUpdate<P extends { status?: ContentStatus }>(
   patch: P,
 ): ContentStatus | undefined {
   if (patch.status !== undefined) return patch.status;
-  const hasContentEdit = Object.entries(patch).some(
-    ([k, v]) => k !== "status" && v !== undefined,
-  );
+  const hasContentEdit = Object.entries(patch).some(([k, v]) => k !== "status" && v !== undefined);
   return hasContentEdit ? "DRAFT" : undefined;
 }
 

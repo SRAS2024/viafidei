@@ -57,12 +57,7 @@ export function ProfileBadgeStrip({
         const Badge = getBadgeForGoalSlug(b.templateSlug);
         if (!Badge) return null;
         return (
-          <span
-            key={b.id}
-            title={b.title}
-            aria-label={b.title}
-            className="text-ink"
-          >
+          <span key={b.id} title={b.title} aria-label={b.title} className="text-ink">
             <Badge size={36} />
           </span>
         );

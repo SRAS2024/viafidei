@@ -69,10 +69,7 @@ export default async function CompletedGoalsPage() {
           {goals.map((g) => {
             const checklistDone = g.checklist.filter((c) => c.isCompleted).length;
             return (
-              <article
-                key={g.id}
-                className="vf-card rounded-sm p-5 sm:p-6"
-              >
+              <article key={g.id} className="vf-card rounded-sm p-5 sm:p-6">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="break-words font-display text-xl sm:text-2xl">{g.title}</h2>
                   <p className="vf-eyebrow text-emerald-700">
@@ -92,10 +89,7 @@ export default async function CompletedGoalsPage() {
                     </p>
                     <ul className="mt-2 divide-y divide-ink/5">
                       {g.checklist.map((c) => (
-                        <li
-                          key={c.id}
-                          className="flex items-start gap-3 py-2 font-serif text-sm"
-                        >
+                        <li key={c.id} className="flex items-start gap-3 py-2 font-serif text-sm">
                           <span
                             className={`mt-0.5 inline-block h-4 w-4 shrink-0 rounded-sm border ${
                               c.isCompleted
@@ -106,9 +100,7 @@ export default async function CompletedGoalsPage() {
                           />
                           <span
                             className={
-                              c.isCompleted
-                                ? "text-ink-faint line-through"
-                                : "text-ink-soft"
+                              c.isCompleted ? "text-ink-faint line-through" : "text-ink-soft"
                             }
                           >
                             {c.label}
@@ -133,9 +125,7 @@ export default async function CompletedGoalsPage() {
                         >
                           <div className="flex flex-wrap items-baseline justify-between gap-2">
                             <h3 className="font-display text-base sm:text-lg">{j.title}</h3>
-                            <p className="vf-eyebrow text-ink-faint">
-                              {formatDate(j.createdAt)}
-                            </p>
+                            <p className="vf-eyebrow text-ink-faint">{formatDate(j.createdAt)}</p>
                           </div>
                           <p className="mt-2 whitespace-pre-wrap break-words font-serif text-sm leading-relaxed text-ink-soft">
                             {j.body}

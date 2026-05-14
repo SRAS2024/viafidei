@@ -41,8 +41,7 @@ export function AccountsClientChecks() {
     // Device date + timezone.
     try {
       const now = new Date();
-      const tz =
-        Intl.DateTimeFormat().resolvedOptions().timeZone ?? "(unknown)";
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "(unknown)";
       out.push({
         name: "Device date & timezone",
         status: "ok",
@@ -102,7 +101,8 @@ export function AccountsClientChecks() {
           out.push({
             name: "Geolocation permission",
             status: "info",
-            detail: "Permission state could not be queried (older browser). The parish-near-me lookup still works if the user grants permission when asked.",
+            detail:
+              "Permission state could not be queried (older browser). The parish-near-me lookup still works if the user grants permission when asked.",
           });
           setChecks([...out]);
         });
@@ -110,16 +110,15 @@ export function AccountsClientChecks() {
       out.push({
         name: "Geolocation permission",
         status: "info",
-        detail: "navigator.permissions is unavailable in this browser. Parish-near-me lookup still works if the user grants permission.",
+        detail:
+          "navigator.permissions is unavailable in this browser. Parish-near-me lookup still works if the user grants permission.",
       });
       setChecks(out);
     }
   }, []);
 
   if (checks.length === 0) {
-    return (
-      <p className="mt-4 font-serif text-sm text-ink-faint">Running device-side checks…</p>
-    );
+    return <p className="mt-4 font-serif text-sm text-ink-faint">Running device-side checks…</p>;
   }
 
   return (

@@ -365,9 +365,7 @@ export function ParishList({ parishes, placeholder }: Props) {
                 ) : (
                   <>
                     <p>No parishes match your search.</p>
-                    <p className="mt-2 text-xs">
-                      Try a different city, region, or country.
-                    </p>
+                    <p className="mt-2 text-xs">Try a different city, region, or country.</p>
                   </>
                 )}
               </div>
@@ -417,18 +415,14 @@ function ParishCard({ parish, distanceKm }: { parish: Parish; distanceKm?: numbe
     <Link href={`/spiritual-guidance/${parish.slug}`}>
       <article className="vf-card h-full rounded-sm p-5 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-7">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="min-w-0 break-words font-display text-xl sm:text-2xl">
-            {parish.name}
-          </h3>
+          <h3 className="min-w-0 break-words font-display text-xl sm:text-2xl">{parish.name}</h3>
           {typeof distanceKm === "number" ? (
             <span className="shrink-0 font-serif text-xs text-ink-faint">
               {distanceKm.toFixed(1)} km
             </span>
           ) : null}
         </div>
-        {location ? (
-          <p className="mt-2 break-words font-serif text-ink-soft">{location}</p>
-        ) : null}
+        {location ? <p className="mt-2 break-words font-serif text-ink-soft">{location}</p> : null}
         <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-faint">
           {parish.phone ? <span className="break-all">{parish.phone}</span> : null}
           {parish.websiteUrl ? (

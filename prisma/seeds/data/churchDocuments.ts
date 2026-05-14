@@ -155,7 +155,8 @@ Several books have been substantially updated since 1983:
     slug: "code-of-canon-law-book-2-people-of-god",
     kind: "GENERAL",
     title: "CIC Book II — The People of God",
-    summary: "Rights and obligations of the faithful; the Church's hierarchical and consecrated structures.",
+    summary:
+      "Rights and obligations of the faithful; the Church's hierarchical and consecrated structures.",
     body: `Book II (canons 204–746) treats the Christian faithful — their fundamental rights and obligations — and the hierarchical constitution of the Church: the Roman Pontiff, the College of Bishops, the Synod of Bishops (significantly revised by Episcopalis Communio, 2018), the Roman Curia, particular Churches (dioceses), parishes, and consecrated life.`,
   },
   {

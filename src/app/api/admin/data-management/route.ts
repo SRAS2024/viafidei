@@ -3,10 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit/log";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
-import {
-  getDataManagementSettings,
-  upsertDataManagementSettings,
-} from "@/lib/data/site-settings";
+import { getDataManagementSettings, upsertDataManagementSettings } from "@/lib/data/site-settings";
 
 export const runtime = "nodejs";
 

@@ -183,7 +183,9 @@ function isWithinLimit(text: string, limit: LinkLimit): string {
   return text.slice(0, limit.maxBodyLength);
 }
 
-async function fetchBody(url: string): Promise<{ body: string; contentType: string | null } | null> {
+async function fetchBody(
+  url: string,
+): Promise<{ body: string; contentType: string | null } | null> {
   const gated = gateUrl(url);
   if (!gated) return null;
   try {
@@ -339,8 +341,7 @@ export function buildVaticanPrayerCrawler(): SourceAdapter {
       const looksLikePrayer =
         /prayer|litany|novena|act of|memorare|hail mary|our father|nicene|apostles|magnificat|te deum|veni|angelus|salve|regina/i.test(
           title,
-        ) ||
-        /\/prayer|\/litany|\/novena|\/orationes|\/preghiere|\/oraciones/i.test(url);
+        ) || /\/prayer|\/litany|\/novena|\/orationes|\/preghiere|\/oraciones/i.test(url);
       if (!looksLikePrayer) return null;
       if (body.length < 30) return null;
       return {
@@ -380,9 +381,7 @@ export function buildVaticanSaintsCrawler(): SourceAdapter {
         /\b(saint|st\.?|santo|santa|san|blessed|beata|beato|martyr|pope)\b/i.test(title) ||
         /\/saint|\/santi|\/santoral|\/holy-see\/saint|\/blessed/i.test(url);
       if (!looksLikeSaint) return null;
-      const canonicalName = title
-        .replace(/\s*[-|–]\s*(Vatican|USCCB|CCCB|EWTN).*/i, "")
-        .trim();
+      const canonicalName = title.replace(/\s*[-|–]\s*(Vatican|USCCB|CCCB|EWTN).*/i, "").trim();
       return {
         kind: "saint",
         slug: buildSlug(canonicalName),
@@ -414,10 +413,7 @@ export function buildVaticanApparitionsCrawler(): SourceAdapter {
       const looksLikeApparition =
         /our lady|virgin|marian|apparition|madonna|nuestra señora|lourdes|fatima|guadalupe|akita|knock|la salette|banneux|beauraing|kibeho|champion/i.test(
           title,
-        ) ||
-        /our-lady|apparition|marian|madonna|lourdes|fatima|guadalupe|akita|knock/i.test(
-          url,
-        );
+        ) || /our-lady|apparition|marian|madonna|lourdes|fatima|guadalupe|akita|knock/i.test(url);
       if (!looksLikeApparition) return null;
       return {
         kind: "apparition",
@@ -714,8 +710,7 @@ export function buildCatholicPrayersCrawler(): SourceAdapter {
       const looksLikePrayer =
         /prayer|litany|novena|act of|memorare|hail mary|our father|nicene|apostles|magnificat|te deum|veni|angelus|salve|regina|anima christi/i.test(
           title,
-        ) ||
-        /\/prayer|\/litany|\/novena|\/orationes|\/preghiere|\/oraciones/i.test(url);
+        ) || /\/prayer|\/litany|\/novena|\/orationes|\/preghiere|\/oraciones/i.test(url);
       if (!looksLikePrayer) return null;
       return {
         kind: "prayer",
@@ -739,8 +734,7 @@ export function buildCatholicPrayersCrawler(): SourceAdapter {
 export function buildCredibleCatholicPrayersCrawler(): SourceAdapter {
   return buildVaticanCrawler({
     key: "credible.prayers",
-    description:
-      "Prayers from credible Catholic publishing, religious-order and reference sites",
+    description: "Prayers from credible Catholic publishing, religious-order and reference sites",
     kind: "prayer",
     indexUrls: [
       "https://www.ewtn.com/catholicism/devotions",
@@ -764,8 +758,7 @@ export function buildCredibleCatholicPrayersCrawler(): SourceAdapter {
       const looksLikePrayer =
         /prayer|litany|novena|act of|memorare|hail mary|our father|nicene|apostles|magnificat|te deum|veni|angelus|salve|regina/i.test(
           title,
-        ) ||
-        /\/prayer|\/litany|\/novena|\/orationes|\/preghiere|\/oraciones|\/devotion/i.test(url);
+        ) || /\/prayer|\/litany|\/novena|\/orationes|\/preghiere|\/oraciones|\/devotion/i.test(url);
       if (!looksLikePrayer) return null;
       return {
         kind: "prayer",
@@ -788,8 +781,7 @@ export function buildCredibleCatholicPrayersCrawler(): SourceAdapter {
 export function buildCredibleCatholicSaintsCrawler(): SourceAdapter {
   return buildVaticanCrawler({
     key: "credible.saints",
-    description:
-      "Saint biographies from credible Catholic reference and religious-order sites",
+    description: "Saint biographies from credible Catholic reference and religious-order sites",
     kind: "saint",
     indexUrls: [
       "https://www.ewtn.com/catholicism/saints",
@@ -888,8 +880,7 @@ export function buildVaticanTeachingCrawler(): SourceAdapter {
       const looksLikeTeaching =
         /catechism|encyclical|liturgy|council|sacrament|teaching|mass|eucharist|baptism|confirmation|matrimony|holy orders|anointing|reconciliation|advent|lent|christmas|easter|paschal/i.test(
           title,
-        ) ||
-        /catechism|encyclical|liturgy|council|sacrament|teaching|apost_/i.test(url);
+        ) || /catechism|encyclical|liturgy|council|sacrament|teaching|apost_/i.test(url);
       if (!looksLikeTeaching) return null;
       return {
         kind: "liturgy",
@@ -944,9 +935,7 @@ export function buildVaticanGuidesCrawler(): SourceAdapter {
         /rosary|confession|reconciliation|penance|adoration|consecration|vocation|how to|guide|preparing|examination of conscience|spiritual/i.test(
           title,
         ) ||
-        /rosary|confession|adoration|consecration|vocation|\/how-to|\/guide|\/spiritual/i.test(
-          url,
-        );
+        /rosary|confession|adoration|consecration|vocation|\/how-to|\/guide|\/spiritual/i.test(url);
       if (!looksLikeGuide) return null;
       return {
         kind: "guide",
@@ -1145,7 +1134,8 @@ export function buildVaticanCatechismCrawler(): SourceAdapter {
 export function buildVaticanCanonLawCrawler(): SourceAdapter {
   return buildVaticanCrawler({
     key: "vatican.canonlaw",
-    description: "The full Code of Canon Law (CIC 1983) and Code of Canons of the Eastern Churches (CCEO)",
+    description:
+      "The full Code of Canon Law (CIC 1983) and Code of Canons of the Eastern Churches (CCEO)",
     kind: "liturgy",
     indexUrls: [
       "https://www.vatican.va/archive/cod-iuris-canonici/cic_index_lt.html",
@@ -1163,8 +1153,7 @@ export function buildVaticanCanonLawCrawler(): SourceAdapter {
       if (body.length < 60) return null;
       // Accept any URL inside the canon-law archive or the CCEO archive.
       const inCanonLaw =
-        /\/archive\/cod-iuris-canonici\//i.test(url) ||
-        /\/archive\/ENG1104\//i.test(url);
+        /\/archive\/cod-iuris-canonici\//i.test(url) || /\/archive\/ENG1104\//i.test(url);
       if (!inCanonLaw) return null;
       const slugBase = buildSlug(title) || buildSlug(url);
       const slug = slugBase.startsWith("canon-law-") ? slugBase : `canon-law-${slugBase}`;

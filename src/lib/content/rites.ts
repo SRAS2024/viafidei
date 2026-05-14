@@ -106,9 +106,6 @@ export function matchesRite(slug: string | null | undefined, selected: CatholicR
  * Rite-neutral content (no rite marker in the slug) is always kept; only
  * rite-tagged content from a different rite is filtered out.
  */
-export function filterByRite<T extends { slug: string }>(
-  rows: T[],
-  selected: CatholicRite,
-): T[] {
+export function filterByRite<T extends { slug: string }>(rows: T[], selected: CatholicRite): T[] {
   return rows.filter((r) => matchesRite(r.slug, selected));
 }

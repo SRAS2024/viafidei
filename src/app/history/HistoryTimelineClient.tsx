@@ -44,16 +44,12 @@ function matchesFilter(event: HistoryEvent, filter: HistoryFilterKey): boolean {
   if (filter === "all") return true;
   if (filter === "beginnings") {
     return (
-      event.period === "apostolic" ||
-      event.period === "persecution" ||
-      event.period === "fathers"
+      event.period === "apostolic" || event.period === "persecution" || event.period === "fathers"
     );
   }
   if (filter === "councils") {
     return (
-      /council|nicaea|chalcedon|ephesus|trent|lateran|vatican|constantinople/i.test(
-        event.title,
-      ) ||
+      /council|nicaea|chalcedon|ephesus|trent|lateran|vatican|constantinople/i.test(event.title) ||
       event.slug.startsWith("council-") ||
       event.period === "councils-early" ||
       event.period === "vatican-i" ||

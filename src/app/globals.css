@@ -4,9 +4,9 @@
 
 @layer base {
   :root {
-    --font-serif: "Cormorant Garamond", "EB Garamond", "Georgia", serif;
-    --font-display: "Cormorant Garamond", "EB Garamond", "Georgia", serif;
-    --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-serif: var(--font-serif-loaded), "Cormorant Garamond", "EB Garamond", "Georgia", serif;
+    --font-display: var(--font-serif-loaded), "Cormorant Garamond", "EB Garamond", "Georgia", serif;
+    --font-sans: var(--font-sans-loaded), "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 
     --paper: #fbf8f1;
     --paper-rgb: 251 248 241;

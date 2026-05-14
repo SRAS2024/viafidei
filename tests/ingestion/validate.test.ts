@@ -124,7 +124,8 @@ describe("validateItem", () => {
         kind: "devotion",
         slug: "x",
         title: "Subscribe to our newsletter",
-        summary: "Sign up for our monthly newsletter and receive Catholic updates from our editors.",
+        summary:
+          "Sign up for our monthly newsletter and receive Catholic updates from our editors.",
       }),
     ).toMatch(/source summary|newsletter|Catholic devotional/);
   });
@@ -215,9 +216,9 @@ describe("validateItem", () => {
 
 describe("looksLikeNonContent", () => {
   it("flags broadcast / TV programming copy", () => {
-    expect(
-      looksLikeNonContent("EWTN live television programming runs around the clock."),
-    ).toBe(true);
+    expect(looksLikeNonContent("EWTN live television programming runs around the clock.")).toBe(
+      true,
+    );
   });
 
   it("flags subscribe-to-newsletter copy", () => {
@@ -226,7 +227,9 @@ describe("looksLikeNonContent", () => {
 
   it("flags source bylines like 'Catholic Australia, a work of'", () => {
     expect(
-      looksLikeNonContent("Catholic Australia, a work of the Australian Catholic Bishops Conference."),
+      looksLikeNonContent(
+        "Catholic Australia, a work of the Australian Catholic Bishops Conference.",
+      ),
     ).toBe(true);
   });
 

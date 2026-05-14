@@ -101,8 +101,7 @@ export function PublishListClient() {
 
   async function publishAll() {
     if (rows.length === 0) return;
-    if (!confirm(`Publish all ${rows.length} pending item${rows.length === 1 ? "" : "s"}?`))
-      return;
+    if (!confirm(`Publish all ${rows.length} pending item${rows.length === 1 ? "" : "s"}?`)) return;
     setBusy("all");
     setMessage(null);
     try {
@@ -146,9 +145,7 @@ export function PublishListClient() {
         </p>
       ) : null}
       {error ? (
-        <p className="border-b border-ink/10 px-5 py-2 font-serif text-xs text-red-700">
-          {error}
-        </p>
+        <p className="border-b border-ink/10 px-5 py-2 font-serif text-xs text-red-700">{error}</p>
       ) : null}
 
       <div className="overflow-x-auto">

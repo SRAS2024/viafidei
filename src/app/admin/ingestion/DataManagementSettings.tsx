@@ -52,9 +52,8 @@ export function DataManagementSettings({
     <section className="mb-8 vf-card rounded-sm p-5 sm:p-6">
       <h2 className="font-display text-2xl">Data Management</h2>
       <p className="mt-1 font-serif text-sm text-ink-soft">
-        Automatic content curation: the cron job archives miscategorised
-        rows and permanently deletes long-archived rows. Turn it off if you
-        want to take manual control of the catalog.
+        Automatic content curation: the cron job archives miscategorised rows and permanently
+        deletes long-archived rows. Turn it off if you want to take manual control of the catalog.
       </p>
 
       <div className="mt-5 flex flex-col gap-4">
@@ -70,9 +69,7 @@ export function DataManagementSettings({
             }}
             disabled={pending}
           />
-          <span className="font-serif text-ink">
-            Automatic cleanup enabled
-          </span>
+          <span className="font-serif text-ink">Automatic cleanup enabled</span>
           {autoEnabled ? (
             <span className="vf-eyebrow text-emerald-700">On</span>
           ) : (
@@ -92,9 +89,7 @@ export function DataManagementSettings({
             className="vf-input w-24 py-1 text-sm"
             value={days}
             onChange={(e) => setDays(Number(e.target.value) || 0)}
-            onBlur={() =>
-              save({ autoCleanupEnabled: autoEnabled, hardDeleteAfterDays: days })
-            }
+            onBlur={() => save({ autoCleanupEnabled: autoEnabled, hardDeleteAfterDays: days })}
             disabled={pending || !autoEnabled}
           />
           <span className="font-serif text-sm text-ink-soft">days (0 disables)</span>
@@ -103,9 +98,7 @@ export function DataManagementSettings({
         {error ? (
           <p className="font-serif text-sm text-liturgical-red">{error}</p>
         ) : savedAt ? (
-          <p className="font-serif text-xs text-ink-faint">
-            Saved {savedAt.toLocaleTimeString()}.
-          </p>
+          <p className="font-serif text-xs text-ink-faint">Saved {savedAt.toLocaleTimeString()}.</p>
         ) : null}
       </div>
     </section>

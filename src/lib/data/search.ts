@@ -151,12 +151,24 @@ export function detectSearchIntent(rawQuery: string): SearchIntent {
   const tokens = q.split(/\s+/);
   if (tokens.length === 1 && tokens[0].length === 2 && US_STATE_TOKENS.has(tokens[0]))
     return "parish";
-  if (/\b(our\s+lady\s+of|apparition|fatima|lourdes|guadalupe|knock|kibeho|akita|la\s+salette|champion)\b/.test(q))
+  if (
+    /\b(our\s+lady\s+of|apparition|fatima|lourdes|guadalupe|knock|kibeho|akita|la\s+salette|champion)\b/.test(
+      q,
+    )
+  )
     return "apparition";
   if (/\b(archangel|guardian\s+angel|seraphim|cherubim)\b/.test(q)) return "angel";
-  if (/\b(sacrament|baptism|confession|reconciliation|eucharist|first\s+communion|confirmation|matrimony|holy\s+orders|anointing|consecration)\b/.test(q))
+  if (
+    /\b(sacrament|baptism|confession|reconciliation|eucharist|first\s+communion|confirmation|matrimony|holy\s+orders|anointing|consecration)\b/.test(
+      q,
+    )
+  )
     return "sacrament";
-  if (/\b(prayer|rosary|litany|novena|chaplet|anima\s+christi|hail\s+mary|our\s+father|memorare|salve\s+regina|tantum\s+ergo|magnificat)\b/.test(q))
+  if (
+    /\b(prayer|rosary|litany|novena|chaplet|anima\s+christi|hail\s+mary|our\s+father|memorare|salve\s+regina|tantum\s+ergo|magnificat)\b/.test(
+      q,
+    )
+  )
     return "prayer";
   if (/^(saint|st\.?\s|bl\.?\s|blessed\s|venerable\s|pope\s|doctor\s+of\s+the\s+church)/.test(q))
     return "saint";

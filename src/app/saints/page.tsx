@@ -2,10 +2,7 @@ import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { Pagination } from "@/components/ui/Pagination";
-import {
-  listPublishedSaintsPaginated,
-  type SaintCategory,
-} from "@/lib/data/saints";
+import { listPublishedSaintsPaginated, type SaintCategory } from "@/lib/data/saints";
 import { listPublishedApparitionsPaginated } from "@/lib/data/apparitions";
 import { SaintsGrid, ApparitionsGrid } from "./_components";
 import { logPageError } from "@/lib/observability/page-errors";
@@ -32,10 +29,7 @@ const FILTER_LABEL: Record<SaintCategory, string> = {
 export default async function SaintsPage({ searchParams }: Props) {
   const { t, locale } = await getTranslator();
   const saintsPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
-  const apparitionsPage = Math.max(
-    1,
-    parseInt(searchParams.apparitionsPage ?? "1", 10) || 1,
-  );
+  const apparitionsPage = Math.max(1, parseInt(searchParams.apparitionsPage ?? "1", 10) || 1);
   const filter = parseFilter(searchParams.filter);
 
   let saintsResult: Awaited<ReturnType<typeof listPublishedSaintsPaginated>> = {
@@ -109,8 +103,7 @@ export default async function SaintsPage({ searchParams }: Props) {
         page={saintsResult.page}
         totalPages={saintsResult.totalPages}
         searchParams={{
-          apparitionsPage:
-            apparitionsPage > 1 ? String(apparitionsPage) : undefined,
+          apparitionsPage: apparitionsPage > 1 ? String(apparitionsPage) : undefined,
           filter: filter === "saint" ? undefined : filter,
         }}
       />

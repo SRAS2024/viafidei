@@ -27,11 +27,7 @@ type Props = {
  * patron of. The label is localised via `patronagesLabel`; the card
  * silently hides the patronages line when the array is empty.
  */
-export function SaintCard({
-  saint,
-  feastDayLabel,
-  patronagesLabel = "Patron of",
-}: Props) {
+export function SaintCard({ saint, feastDayLabel, patronagesLabel = "Patron of" }: Props) {
   const tr = saint.translations[0];
   const patronages = saint.patronages ?? [];
   return (

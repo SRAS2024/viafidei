@@ -215,13 +215,16 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label={ariaLabel}
+        role="combobox"
         aria-autocomplete="list"
         aria-expanded={open && flat.length > 0}
+        aria-controls="vf-header-search-listbox"
         autoComplete="off"
         className="vf-header-search-input"
       />
       {open && flat.length > 0 ? (
         <div
+          id="vf-header-search-listbox"
           role="listbox"
           aria-label="Search suggestions"
           className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[28rem] overflow-auto rounded-md border border-ink/10 bg-paper shadow-paper"
@@ -233,9 +236,7 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
               </p>
               <ul>
                 {items.map((s) => {
-                  const flatIndex = flat.findIndex(
-                    (x) => x.group === s.group && x.id === s.id,
-                  );
+                  const flatIndex = flat.findIndex((x) => x.group === s.group && x.id === s.id);
                   const active = flatIndex === activeIndex;
                   return (
                     <li key={`${s.group}:${s.id}`}>

@@ -64,10 +64,9 @@ export function HomeToday() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(
-          `/api/saints/today?month=${month}&day=${day}&take=5`,
-          { cache: "no-store" },
-        );
+        const res = await fetch(`/api/saints/today?month=${month}&day=${day}&take=5`, {
+          cache: "no-store",
+        });
         if (!res.ok) {
           if (!cancelled) setState({ kind: "error" });
           return;
@@ -106,16 +105,11 @@ export function HomeToday() {
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-12 text-center sm:px-6">
       <p className="vf-eyebrow text-ink-faint">Today</p>
-      <p
-        className="mt-2 font-display text-2xl text-ink sm:text-3xl"
-        suppressHydrationWarning
-      >
+      <p className="mt-2 font-display text-2xl text-ink sm:text-3xl" suppressHydrationWarning>
         {dateLabel ?? "Today"}
       </p>
       <div className="vf-rule mx-auto my-5" />
-      <h2 className="font-display text-xl text-ink sm:text-2xl">
-        Today&apos;s Feast Day Saints
-      </h2>
+      <h2 className="font-display text-xl text-ink sm:text-2xl">Today&apos;s Feast Day Saints</h2>
 
       <div className="mt-5 min-h-[6rem]">
         {state.kind === "loading" ? (

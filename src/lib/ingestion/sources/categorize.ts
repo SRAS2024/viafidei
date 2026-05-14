@@ -180,7 +180,11 @@ function matches(haystack: string, needles: string[]): boolean {
  * before broader Christ-centered matching so the Sign of the Cross does
  * not get filed as a Christ-centered prayer.
  */
-export function categorizePrayer(input: { title: string; body?: string; category?: string }): PrayerCategory {
+export function categorizePrayer(input: {
+  title: string;
+  body?: string;
+  category?: string;
+}): PrayerCategory {
   // Trust an explicit category supplied by the seed/ingestion when it
   // is one of the recognised buckets — we only override garbage values.
   if (input.category) {

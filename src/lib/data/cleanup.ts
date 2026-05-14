@@ -1,10 +1,7 @@
 import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../db/client";
 import { looksLikeNonContent } from "../ingestion/validate";
-import {
-  recordDataManagementLogs,
-  type DataManagementLogInput,
-} from "./data-management-log";
+import { recordDataManagementLogs, type DataManagementLogInput } from "./data-management-log";
 
 const DEFAULT_INGESTION_RUN_RETENTION_DAYS = 60;
 const DEFAULT_AUDIT_RETENTION_DAYS = 365;
@@ -125,7 +122,8 @@ export async function cleanupMiscategorisedContent(): Promise<CleanupSummary> {
   }): string {
     const parts: string[] = [];
     if (opts.tooShort) parts.push("body too short");
-    if (opts.looksLikeBlurb) parts.push("matches non-content phrase (source summary / broadcast / newsletter)");
+    if (opts.looksLikeBlurb)
+      parts.push("matches non-content phrase (source summary / broadcast / newsletter)");
     if (opts.noPrayerLang) parts.push("no prayer-language markers");
     if (opts.noBiog) parts.push("no biographical vocabulary");
     if (opts.noMarian) parts.push("no Marian / apparition vocabulary");
@@ -166,9 +164,10 @@ export async function cleanupMiscategorisedContent(): Promise<CleanupSummary> {
       const tooShort = (s.biography ?? "").trim().length < 80;
       const noBiog = !SAINT_BIOGRAPHY_RE.test(s.biography ?? "");
       const looksLikeBlurb = looksLikeNonContent(blob);
-      const looksLikeIndex = /^(catholic\s+saints?|patron\s+saints?|saints?\s+(directory|list|index))/i.test(
-        s.canonicalName,
-      );
+      const looksLikeIndex =
+        /^(catholic\s+saints?|patron\s+saints?|saints?\s+(directory|list|index))/i.test(
+          s.canonicalName,
+        );
       if (tooShort || noBiog || looksLikeBlurb || looksLikeIndex) {
         await archiveSaint(s.id);
         archived += 1;
@@ -190,9 +189,10 @@ export async function cleanupMiscategorisedContent(): Promise<CleanupSummary> {
     for (const a of items) {
       const blob = `${a.title} ${a.summary}`;
       const tooShort = (a.summary ?? "").trim().length < 60;
-      const noMarian = !/\b(mary|our\s+lady|blessed\s+virgin|virgin|madonna|theotokos|nuestra\s+señora|notre\s+dame|appear(ed|ance)|apparition|vision)\b/i.test(
-        a.summary ?? "",
-      );
+      const noMarian =
+        !/\b(mary|our\s+lady|blessed\s+virgin|virgin|madonna|theotokos|nuestra\s+señora|notre\s+dame|appear(ed|ance)|apparition|vision)\b/i.test(
+          a.summary ?? "",
+        );
       const looksLikeBlurb = looksLikeNonContent(blob);
       if (tooShort || noMarian || looksLikeBlurb) {
         await archiveApparition(a.id);
@@ -312,9 +312,7 @@ export type HardDeleteSummary = {
   totalDeleted: number;
 };
 
-export async function purgeStaleArchivedContent(
-  olderThanDays: number,
-): Promise<HardDeleteSummary> {
+export async function purgeStaleArchivedContent(olderThanDays: number): Promise<HardDeleteSummary> {
   if (!Number.isFinite(olderThanDays) || olderThanDays <= 0) {
     return { buckets: [], totalDeleted: 0 };
   }
@@ -348,41 +346,21 @@ export async function purgeStaleArchivedContent(
     buckets.push({ entity, deleted: result.count });
   }
 
-  await purge(
-    "Prayer",
-    prisma.prayer.findMany,
-    prisma.prayer.deleteMany,
-  );
-  await purge(
-    "Saint",
-    prisma.saint.findMany,
-    prisma.saint.deleteMany,
-  );
+  await purge("Prayer", prisma.prayer.findMany, prisma.prayer.deleteMany);
+  await purge("Saint", prisma.saint.findMany, prisma.saint.deleteMany);
   await purge(
     "MarianApparition",
     prisma.marianApparition.findMany,
     prisma.marianApparition.deleteMany,
   );
-  await purge(
-    "Devotion",
-    prisma.devotion.findMany,
-    prisma.devotion.deleteMany,
-  );
-  await purge(
-    "LiturgyEntry",
-    prisma.liturgyEntry.findMany,
-    prisma.liturgyEntry.deleteMany,
-  );
+  await purge("Devotion", prisma.devotion.findMany, prisma.devotion.deleteMany);
+  await purge("LiturgyEntry", prisma.liturgyEntry.findMany, prisma.liturgyEntry.deleteMany);
   await purge(
     "SpiritualLifeGuide",
     prisma.spiritualLifeGuide.findMany,
     prisma.spiritualLifeGuide.deleteMany,
   );
-  await purge(
-    "Parish",
-    prisma.parish.findMany,
-    prisma.parish.deleteMany,
-  );
+  await purge("Parish", prisma.parish.findMany, prisma.parish.deleteMany);
   await recordDataManagementLogs(logs);
 
   const totalDeleted = buckets.reduce((sum, b) => sum + b.deleted, 0);

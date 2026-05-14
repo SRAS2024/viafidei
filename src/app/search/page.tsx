@@ -1,11 +1,6 @@
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
-import {
-  detectSearchIntent,
-  searchAll,
-  type SearchIntent,
-  EMPTY_HITS,
-} from "@/lib/data/search";
+import { detectSearchIntent, searchAll, type SearchIntent, EMPTY_HITS } from "@/lib/data/search";
 import { SearchInput, SearchResultGroup, buildSearchGroups } from "./_components";
 import { logger } from "@/lib/observability/logger";
 

@@ -82,7 +82,9 @@ async function runChecks(): Promise<RouteCheck[]> {
       base: "/sacraments",
       model: "spiritualLifeGuide" as const,
       label: "Sacrament / consecration detail",
-      slugFilter: { OR: [{ slug: { startsWith: "sacrament-" } }, { slug: { startsWith: "consecration-" } }] },
+      slugFilter: {
+        OR: [{ slug: { startsWith: "sacrament-" } }, { slug: { startsWith: "consecration-" } }],
+      },
     },
     {
       area: "Public",
@@ -107,7 +109,9 @@ async function runChecks(): Promise<RouteCheck[]> {
   for (const t of tableChecks) {
     try {
       const where = { status: "PUBLISHED", ...(t.slugFilter ?? {}) } as never;
-      const row = await (prisma[t.model] as { findFirst: (a: unknown) => Promise<{ slug: string } | null> }).findFirst({
+      const row = await (
+        prisma[t.model] as { findFirst: (a: unknown) => Promise<{ slug: string } | null> }
+      ).findFirst({
         where,
         select: { slug: true },
       });
@@ -190,9 +194,7 @@ export default async function SitemapDiagnostics() {
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="break-all font-mono text-xs text-ink-soft">{c.path}</p>
-                    <p className="mt-1 break-words font-serif text-sm text-ink-soft">
-                      {c.detail}
-                    </p>
+                    <p className="mt-1 break-words font-serif text-sm text-ink-soft">{c.detail}</p>
                   </div>
                   {c.status === "ok" && c.path.startsWith("/") ? (
                     <Link href={c.path} className="vf-nav-link text-xs">

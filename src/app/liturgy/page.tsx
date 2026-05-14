@@ -43,8 +43,7 @@ const SECTION_ORDER: Array<{
     id: "symbolism",
     label: "Liturgical Symbolism",
     kinds: ["SYMBOLISM"],
-    description:
-      "Vestments, gestures, vessels, and the symbolic vocabulary of Catholic worship.",
+    description: "Vestments, gestures, vessels, and the symbolic vocabulary of Catholic worship.",
   },
   {
     id: "glossary",
@@ -69,11 +68,7 @@ function isHistoryOrDocument(slug: string): boolean {
   return HISTORY_OR_DOCUMENT_PREFIXES.some((p) => slug.startsWith(p));
 }
 
-export default async function LiturgyPage({
-  searchParams,
-}: {
-  searchParams: { page?: string };
-}) {
+export default async function LiturgyPage({ searchParams }: { searchParams: { page?: string } }) {
   const { t, locale } = await getTranslator();
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
 
@@ -87,9 +82,7 @@ export default async function LiturgyPage({
   // Liturgy tab shows only true liturgy content — Mass, liturgical year,
   // rite of marriage/funeral/ordination, symbolism, glossary. Council
   // documents and historical chronology live in /history.
-  const liturgy = entries.filter(
-    (e) => matchesRite(e.slug, rite) && !isHistoryOrDocument(e.slug),
-  );
+  const liturgy = entries.filter((e) => matchesRite(e.slug, rite) && !isHistoryOrDocument(e.slug));
 
   const sectioned = SECTION_ORDER.map((section) => ({
     section,
@@ -120,9 +113,7 @@ export default async function LiturgyPage({
         <div className="flex flex-col gap-12">
           {sectioned.map(({ section, items }) => (
             <section key={section.id} id={section.id} className="scroll-mt-24">
-              <h2 className="break-words font-display text-2xl sm:text-3xl">
-                {section.label}
-              </h2>
+              <h2 className="break-words font-display text-2xl sm:text-3xl">{section.label}</h2>
               <p className="mt-2 mb-5 max-w-reading font-serif text-sm text-ink-soft">
                 {section.description}
               </p>

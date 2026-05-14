@@ -2,10 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
-import {
-  countCompletedGoalsForUser,
-  listGoalsForUser,
-} from "@/lib/data/profile";
+import { countCompletedGoalsForUser, listGoalsForUser } from "@/lib/data/profile";
 import { PageHero } from "@/components/ui/PageHero";
 import { GoalManager } from "./GoalManager";
 import { logPageError } from "@/lib/observability/page-errors";

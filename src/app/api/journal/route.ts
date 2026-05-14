@@ -74,9 +74,7 @@ export async function POST(req: NextRequest) {
   const parsed = createSchema.safeParse({
     title: form.get("title"),
     body: form.get("body"),
-    ...(typeof goalIdValue === "string" && goalIdValue.length > 0
-      ? { goalId: goalIdValue }
-      : {}),
+    ...(typeof goalIdValue === "string" && goalIdValue.length > 0 ? { goalId: goalIdValue } : {}),
   });
   if (!parsed.success) return redirectTo(req, "/profile/journal");
 

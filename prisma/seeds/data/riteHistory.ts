@@ -25,7 +25,8 @@ The Roman Rite is the largest of the Catholic rites and is the default liturgica
     slug: "church-history-rite-byzantine",
     kind: "COUNCIL_TIMELINE",
     title: "Establishment of the Byzantine Rite (4th century)",
-    summary: "The liturgical tradition of Constantinople, shared by many Eastern Catholic Churches.",
+    summary:
+      "The liturgical tradition of Constantinople, shared by many Eastern Catholic Churches.",
     body: `The Byzantine Rite developed in the 4th century in the city of Constantinople (founded as the new imperial capital in 330 AD by Constantine the Great). Its principal liturgies — the Divine Liturgies of Saint John Chrysostom (c. 397–407) and Saint Basil the Great (c. 370) — became the dominant liturgical form throughout the Eastern Roman Empire.
 
 Several Catholic Churches in full communion with Rome use the Byzantine Rite, including the Ukrainian Greek Catholic Church, the Melkite Greek Catholic Church, the Ruthenian Catholic Church, and others.`,
@@ -43,7 +44,8 @@ The Maronite Rite is a West Syriac liturgy whose anaphora is attributed to Saint
     slug: "church-history-rite-chaldean",
     kind: "COUNCIL_TIMELINE",
     title: "Establishment of the Chaldean Rite (lineage of the Church of the East)",
-    summary: "The East Syriac liturgical tradition; the Chaldean Catholic Church entered communion with Rome in 1552.",
+    summary:
+      "The East Syriac liturgical tradition; the Chaldean Catholic Church entered communion with Rome in 1552.",
     body: `The Chaldean Catholic Church uses the East Syriac liturgical tradition, which descends from the Church of the East with apostolic roots attributed to Saints Thomas, Addai, and Mari. The Chaldean Patriarchate entered into full communion with the Bishop of Rome in 1552, when Patriarch Yohannan Sulaqa was confirmed in Rome by Pope Julius III.
 
 The principal anaphora is the Holy Qurbana of Addai and Mari, one of the most ancient eucharistic prayers in continuous use. The Chaldean Patriarch of Babylon presides from Baghdad, Iraq.`,
@@ -52,7 +54,8 @@ The principal anaphora is the Holy Qurbana of Addai and Mari, one of the most an
     slug: "church-history-rite-coptic",
     kind: "COUNCIL_TIMELINE",
     title: "Establishment of the Coptic Rite (apostolic age in Egypt)",
-    summary: "The Alexandrian liturgical tradition; the Coptic Catholic Church entered communion with Rome in 1741.",
+    summary:
+      "The Alexandrian liturgical tradition; the Coptic Catholic Church entered communion with Rome in 1741.",
     body: `The Coptic Catholic Church uses the Alexandrian (Coptic) Rite, which descends from the Church of Alexandria founded by Saint Mark the Evangelist (c. 42 AD). The Coptic Catholic Patriarchate entered into full communion with the Bishop of Rome in 1741 under Pope Benedict XIV.
 
 The principal anaphoras are those of Saint Mark (also called Saint Cyril), Saint Basil, and Saint Gregory Nazianzen. The Coptic Catholic Patriarch of Alexandria presides from Cairo, Egypt.`,
@@ -79,7 +82,8 @@ The Major Archbishop-Catholicos of Trivandrum presides over the Church from Kera
     slug: "church-history-rite-armenian",
     kind: "COUNCIL_TIMELINE",
     title: "Establishment of the Armenian Rite (4th century)",
-    summary: "The liturgical tradition of the Armenian Catholic Church; entered communion with Rome in 1742.",
+    summary:
+      "The liturgical tradition of the Armenian Catholic Church; entered communion with Rome in 1742.",
     body: `The Armenian liturgical tradition descends from the evangelisation of Armenia by Saint Gregory the Illuminator in 301 AD, making Armenia the first nation to embrace Christianity as a state religion. The Armenian Catholic Church entered into full communion with the Bishop of Rome in 1742 under Pope Benedict XIV.
 
 The principal liturgy is the Holy Patarag attributed to Saint Athanasius. The Catholicos-Patriarch of Cilicia of the Armenians presides from Bzoummar, Lebanon.`,
@@ -88,7 +92,8 @@ The principal liturgy is the Holy Patarag attributed to Saint Athanasius. The Ca
     slug: "church-history-rite-ethiopic",
     kind: "COUNCIL_TIMELINE",
     title: "Establishment of the Ethiopic (Ge'ez) Rite (4th century)",
-    summary: "The Alexandrian liturgical tradition in the Ethiopian and Eritrean Catholic Churches.",
+    summary:
+      "The Alexandrian liturgical tradition in the Ethiopian and Eritrean Catholic Churches.",
     body: `The Ethiopic Rite developed from the evangelisation of the Kingdom of Aksum in the 4th century by Saints Frumentius and Aedesius. The Ethiopian Catholic Church and the Eritrean Catholic Church use this liturgy in the classical Ge'ez language.
 
 The Ethiopian Catholic Metropolitan Archeparchy was established by Pope Pius XII in 1961; the Eritrean Catholic Church was established as a sui iuris Metropolitan Church by Pope Francis in 2015.`,
@@ -115,7 +120,8 @@ The Major Archbishop of Kyiv-Halych presides from Kyiv, Ukraine. The Church endu
     slug: "church-history-rite-ruthenian",
     kind: "COUNCIL_TIMELINE",
     title: "Establishment of the Ruthenian Catholic Church (Union of Uzhhorod, 1646)",
-    summary: "Byzantine-Rite Catholic Church centred in the Carpathian region, in communion with Rome since 1646.",
+    summary:
+      "Byzantine-Rite Catholic Church centred in the Carpathian region, in communion with Rome since 1646.",
     body: `The Ruthenian Catholic Church traces its communion with the Bishop of Rome to the Union of Uzhhorod on 24 April 1646, when 63 Eastern Orthodox priests of the Eparchy of Mukachevo entered into communion with the Catholic Church under terms similar to the earlier Union of Brest.
 
 The Ruthenian Metropolitan See of Pittsburgh (United States) was raised to a Metropolia by Pope Saint John Paul II in 1969. A second Metropolia centred in the Eparchy of Mukachevo (Ukraine) also exists.`,

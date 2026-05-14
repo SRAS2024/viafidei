@@ -1,9 +1,6 @@
 import { prisma } from "../db/client";
 import type { Locale } from "../i18n/locales";
-import {
-  categorizePrayer,
-  type PrayerCategory,
-} from "../ingestion/sources/categorize";
+import { categorizePrayer, type PrayerCategory } from "../ingestion/sources/categorize";
 
 const DEFAULT_TAKE = 60;
 const PAGE_SIZE = 9;
@@ -46,9 +43,7 @@ export async function listPublishedPrayersPaginated(
     include: { translations: { where: { locale } } },
     orderBy: { defaultTitle: "asc" },
   });
-  const filtered = category
-    ? broad.filter((p) => resolvePrayerCategory(p) === category)
-    : broad;
+  const filtered = category ? broad.filter((p) => resolvePrayerCategory(p) === category) : broad;
   const total = filtered.length;
   const items = filtered.slice(skip, skip + pageSize);
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };

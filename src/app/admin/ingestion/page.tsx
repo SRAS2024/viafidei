@@ -85,8 +85,8 @@ export default async function AdminIngestion() {
           <h3 className="font-display text-xl">Manual ingestion run</h3>
           <p className="mt-1 font-serif text-sm text-ink-soft">
             The app runs ingestion automatically on every cron tick. This button is here for
-            troubleshooting only — it acquires the same advisory lock as the cron job, so manual
-            and automatic runs cannot conflict, duplicate content, or override valid content. Each
+            troubleshooting only — it acquires the same advisory lock as the cron job, so manual and
+            automatic runs cannot conflict, duplicate content, or override valid content. Each
             adapter still skips rows that already exist by slug, externalSourceKey, or content
             checksum.
           </p>
