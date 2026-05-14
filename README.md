@@ -79,6 +79,83 @@ edited blindly:
 
 ---
 
+## Engineering highlights
+
+The repository is intentionally scoped as a portfolio-grade reference for the
+kind of trade-offs a small team makes when they want a production-leaning
+Next.js application that is honest about its boundaries. The pieces I
+would call attention to:
+
+- **Ingestion as a first-class subsystem.** A curated allowlist of Vatican,
+  USCCB, and dicastery hosts gates every fetch (`gateUrl` /
+  `isApprovedUrl`). Adapters write through a single persistence layer that
+  enforces content-hash dedupe, source attribution, and per-run summary
+  logs (created / updated / skipped / failed / review-required). The
+  in-process scheduler runs in burst mode while the catalog is below
+  target and drops to a maintenance interval afterward — no external
+  cron service required.
+- **Admin diagnostics designed around troubleshooting.** Diagnostics are
+  split into sections (email, data management, sitemap & links, accounts)
+  and each result carries severity, a timestamp, and a request id so
+  failures can be cross-referenced against the structured log stream.
+  Secrets, database URLs, and token values are explicitly stripped before
+  any value is rendered to the browser.
+- **Security headers and observability baked into middleware.** The
+  edge middleware sets CSP, X-Frame-Options, X-Content-Type-Options,
+  Referrer-Policy, Permissions-Policy, and HSTS (production only), and
+  generates / validates an `X-Request-Id` header for every request so
+  it can ride through every log line.
+- **A strict approved-source posture for ingestion.** Anything not on the
+  Vatican-allowlist is rejected before it reaches the database. The same
+  helper gates outbound fetches so adapters cannot accidentally call an
+  off-list host. Tests exercise the allowlist directly so the boundary
+  cannot regress quietly.
+- **Tooling matches the merge bar.** `npm run verify` is the local
+  short-form gate (typecheck + lint + format:check + unit tests).
+  `npm run verify:full` adds integration + e2e + production build for
+  pre-release runs. CI runs the same checks plus a high-severity audit
+  gate and a moderate-severity advisory job.
+
+## Screenshots
+
+> 📷 _Screenshot placeholders — replace with rendered captures of each
+> surface before publishing. Suggested filenames live under
+> `docs/screenshots/` (gitignored by default; commit only the rendered
+> versions you intend to ship)._
+
+| Surface                          | Image                                                        |
+| -------------------------------- | ------------------------------------------------------------ |
+| Home — public landing            | `docs/screenshots/home.png` _(placeholder)_                  |
+| Saints calendar — today          | `docs/screenshots/saints-today.png` _(placeholder)_          |
+| Prayers index with rite filter   | `docs/screenshots/prayers.png` _(placeholder)_               |
+| Spiritual Guidance parish finder | `docs/screenshots/parish-finder.png` _(placeholder)_         |
+| Admin console — data management  | `docs/screenshots/admin-data-management.png` _(placeholder)_ |
+| Admin diagnostics                | `docs/screenshots/admin-diagnostics.png` _(placeholder)_     |
+
+## Architecture at a glance
+
+```mermaid
+flowchart LR
+    User((Reader)) -->|HTTPS| Edge[Next.js middleware<br/>CSP · request id · auth]
+    Admin((Admin)) -->|HTTPS| Edge
+    Edge --> AppRoutes[App Router pages<br/>+ API route handlers]
+    AppRoutes --> Prisma[Prisma client<br/>singleton]
+    Prisma --> Postgres[(PostgreSQL)]
+    AppRoutes --> Resend[Resend API<br/>welcome / verify / reset]
+    Instrumentation[instrumentation.ts<br/>boot once per process] --> Seeder[Seed +<br/>ensure email tables]
+    Seeder --> Postgres
+    Instrumentation --> Scheduler[In-process scheduler<br/>burst → maintenance]
+    Scheduler -->|POST /api/cron/ingest| AppRoutes
+    AppRoutes -->|gateUrl| Sources{{Approved sources<br/>Vatican · USCCB · CBCEW · …}}
+    Sources --> AppRoutes
+```
+
+The full content lifecycle — ingestion → moderation → publish — is laid
+out in [`## Content injection (ingestion) pipeline`](#content-injection-ingestion-pipeline)
+below.
+
+---
+
 ## Repository layout
 
 ```
@@ -232,12 +309,13 @@ npm run verify            # typecheck + lint + format:check + test (CI parity)
 npm run verify:full       # verify + integration + e2e + production build
 ```
 
-CI (`.github/workflows/ci.yml`) runs four jobs against Node 20:
+CI (`.github/workflows/ci.yml`) runs five jobs on Node 22 LTS:
 
 1. **verify** — `prisma validate`, typecheck, lint, format check, Vitest, production build
-2. **audit** — `npm audit --audit-level=high`
-3. **integration** — applies migrations to a Postgres service container and runs `tests/integration/**` on PRs and `main`
-4. **e2e** — installs Chromium, runs Playwright, uploads the HTML report (push to `main` only)
+2. **audit** — `npm audit --audit-level=high` (high-severity is the merge gate)
+3. **advisories** — `npm audit --audit-level=moderate` (advisory only, non-blocking)
+4. **integration** — applies migrations to a Postgres service container and runs `tests/integration/**` on PRs and `main`
+5. **e2e** — installs Chromium, runs Playwright, uploads the HTML report (push to `main` only)
 
 See [TESTING.md](TESTING.md) for the full layout, fixtures, and test-DB isolation details.
 
@@ -1238,6 +1316,39 @@ where `<token>` is the HMAC-SHA-256 of the domain-separation tag
    validator runs and the catalog-wide passes are skipped.
 5. Logs a structured `cron.completed` event with every counter for
    the Diagnostics page to inspect.
+
+---
+
+## Known limitations and ongoing refinements
+
+This is an honest list of items that are scoped for future polish branches.
+None of them affect day-to-day reader behaviour, and each lands behind the
+same CI gates that protect the rest of the codebase.
+
+- **Major framework bumps not yet applied.** Next.js 14 is the production
+  baseline. Removing the open high-severity advisories will require
+  bumping to Next.js 15+ (the fix is not back-ported to the 14.x line),
+  which makes `cookies()`, `headers()`, `params`, and `searchParams`
+  async and is intentionally deferred to its own branch so the migration
+  diff stays reviewable.
+- **Test tooling moderate advisories.** Vitest 2.x and its `esbuild`
+  transitive carry moderate-severity advisories. Vitest 3 and 4 are both
+  available but represent a multi-major jump for the test layer; the
+  bump is queued for a dedicated branch alongside re-running the full
+  `verify:full` matrix.
+- **ESLint 8 deprecation.** The repository still uses ESLint 8 with the
+  legacy `.eslintrc` config. Moving to ESLint 9 requires migrating to
+  the flat config format and revalidating every rule, including the
+  `next/core-web-vitals` integration. Tracked as a stand-alone migration.
+- **Diagnostics expansion.** The diagnostics admin surface covers email
+  configuration, table availability, ingestion runs, cleanup activity,
+  and recent failures. Additional probes (location-based parish
+  discovery readiness, browser timezone reporting, translation override
+  audit) are scoped for the next diagnostics iteration so the test
+  surface for them lands together with the routes.
+- **Screenshot assets.** The `docs/screenshots/` files are placeholders
+  in the README table. They will be populated when the next visible UI
+  iteration ships so the captures stay current.
 
 ---
 
