@@ -240,7 +240,7 @@ describe("looksLikeNonContent", () => {
 });
 
 describe("sanitize", () => {
-  it("normalizes slugs and partitions into valid + rejected", () => {
+  it("normalizes slugs and partitions into valid + review + rejected", () => {
     const result = sanitize([
       { ...validPrayer, slug: "Our_Father!!" },
       { ...validPrayer, slug: "second-prayer", body: "" },
@@ -248,11 +248,44 @@ describe("sanitize", () => {
     ]);
     expect(result.valid).toHaveLength(2);
     expect(result.rejected).toHaveLength(1);
+    expect(result.review).toHaveLength(0);
     expect(result.valid[0].slug).toBe("our-father");
     expect(result.rejected[0].reason).toMatch(/body/);
   });
 
   it("never throws on an empty input", () => {
-    expect(sanitize([])).toEqual({ valid: [], rejected: [] });
+    expect(sanitize([])).toEqual({ valid: [], review: [], rejected: [] });
+  });
+
+  it("diverts soft (category-heuristic) failures into the review bucket", () => {
+    // Prayer body that is structurally valid (long enough, has a category)
+    // but contains no prayer-language markers. The validator returns a
+    // "prayer language" reason, which classifies as soft.
+    const blurb = {
+      kind: "prayer" as const,
+      slug: "blurb",
+      defaultTitle: "Some Ordinary Title",
+      category: "Daily",
+      body: "This site is maintained by the Australian Catholic Bishops Conference and updated regularly with new posts.",
+    };
+    const result = sanitize([blurb]);
+    expect(result.valid).toHaveLength(0);
+    expect(result.review).toHaveLength(1);
+    expect(result.rejected).toHaveLength(0);
+    expect(result.review[0].reason).toMatch(/prayer language|source summary/i);
+  });
+
+  it("hard-rejects items missing required fields", () => {
+    const result = sanitize([
+      {
+        kind: "saint" as const,
+        slug: "",
+        canonicalName: "",
+        patronages: [],
+        biography: "",
+      },
+    ]);
+    expect(result.rejected).toHaveLength(1);
+    expect(result.review).toHaveLength(0);
   });
 });

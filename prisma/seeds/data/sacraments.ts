@@ -299,6 +299,53 @@ const CONSECRATIONS: SpiritualLifeGuideSeed[] = [
 **The 33-day structure.** The Calloway preparation is divided into ten "Wonders" of Saint Joseph — meditations on his titles such as Son of David, Light of Patriarchs, Just Man, Protector of the Holy Church — combined with daily readings, prayers (including the Litany of Saint Joseph), and reflections. The 33 days culminate in a personal act of consecration on one of seven recommended feast days of Saint Joseph (most commonly 19 March or 1 May).
 
 **Authority and tradition.** Saint Teresa of Ávila wrote: "I took for my advocate and lord the glorious Saint Joseph and earnestly recommended myself to him. I saw clearly that as in this need so in other greater ones … this Father and Lord of mine came to my rescue in better ways than I knew how to ask for." Pope Pius IX's decree Quemadmodum Deus (1870) declared Saint Joseph Patron of the Universal Church. Pope Francis's Patris Corde (2020) gathered the magisterial tradition into a single accessible letter.`,
+    steps: [
+      {
+        order: 1,
+        title: "Days 1–4 — Saint Joseph, son of David",
+        body: "Read Calloway's introduction and the meditation on the first Wonder. Pray the Litany of Saint Joseph and one decade of the Rosary, offered for the grace to know Saint Joseph as your spiritual father.",
+      },
+      {
+        order: 2,
+        title: "Days 5–9 — Light of patriarchs and Spouse of the Mother of God",
+        body: "Meditate on Joseph as the heir to Abraham, Isaac, and Jacob, and as the just spouse of Mary. Daily reading; Litany of Saint Joseph; the prayer 'Hail, Guardian of the Redeemer' from Patris Corde.",
+      },
+      {
+        order: 3,
+        title: "Days 10–14 — Foster father of the Son of God",
+        body: "Meditate on Joseph's hidden fatherhood over Jesus. Daily reading; Litany of Saint Joseph; the Memorare to Saint Joseph; one decade of the Rosary on the Joyful Mysteries.",
+      },
+      {
+        order: 4,
+        title: "Days 15–19 — Diligent protector of Christ and Pillar of families",
+        body: "Meditate on Joseph as protector and provider. Daily reading; Litany of Saint Joseph; an Our Father offered for fathers, husbands, and the protection of family life.",
+      },
+      {
+        order: 5,
+        title: "Days 20–24 — Mirror of patience and Lover of poverty",
+        body: "Meditate on Joseph's hidden, ordinary holiness. Daily reading; Litany of Saint Joseph; the prayer 'To you, O blessed Joseph' (Leo XIII).",
+      },
+      {
+        order: 6,
+        title: "Days 25–29 — Model of workers and Patron of the dying",
+        body: "Meditate on Joseph as patron of work and of a happy death. Daily reading; Litany of Saint Joseph; the prayer for a holy death.",
+      },
+      {
+        order: 7,
+        title: "Days 30–32 — Terror of demons and Protector of the Holy Church",
+        body: "Meditate on Joseph's intercession against evil and his patronage of the universal Church. Daily reading; the Litany; a closing Rosary offered for the Church.",
+      },
+      {
+        order: 8,
+        title: "Day 33 — Vigil of consecration",
+        body: "Make a confession if possible. Read the act of consecration to Saint Joseph aloud, slowly, the night before the feast on which you will consecrate yourself.",
+      },
+      {
+        order: 9,
+        title: "Day 34 — Act of consecration",
+        body: "On the chosen feast of Saint Joseph (commonly 19 March or 1 May), attend Mass and after Communion pray the formal act of consecration, entrusting yourself wholly to Saint Joseph as your spiritual father.",
+      },
+    ],
     durationDays: 33,
     goalTemplateSlug: "consecration-st-joseph",
   },
@@ -316,6 +363,53 @@ const CONSECRATIONS: SpiritualLifeGuideSeed[] = [
 
 **A traditional act of consecration (Pope Leo XIII).**
 "O Jesus, our most loving Redeemer, who having come to enlighten the world with thy teaching and example, didst will to pass the greater part of thy life in humility and subjection to Mary and Joseph in the poor home of Nazareth, thus sanctifying the family destined to be the model of all Christian families, graciously receive our family as it dedicates and consecrates itself to thee this day. Defend us, guard us, and establish among us thy holy fear, true peace, and concord in Christian love, in order that, by living according to the divine pattern of thy Family, we may all attain to eternal happiness. Amen."`,
+    steps: [
+      {
+        order: 1,
+        title: "Day 1 — The Annunciation (Luke 1:26–38)",
+        body: "Read the Gospel passage. Meditate on Mary's fiat. Pray the Angelus and one decade of the Joyful Mysteries.",
+      },
+      {
+        order: 2,
+        title: "Day 2 — The Visitation (Luke 1:39–56)",
+        body: "Read the Gospel passage. Pray the Magnificat with your family. Ask the grace of charity in your household.",
+      },
+      {
+        order: 3,
+        title: "Day 3 — The Nativity (Luke 2:1–20)",
+        body: "Read the Gospel passage. Pray the Glory Be three times in thanksgiving for the gift of family life.",
+      },
+      {
+        order: 4,
+        title: "Day 4 — The Presentation in the Temple (Luke 2:22–38)",
+        body: "Read the Gospel passage. Offer your family to God as Simeon offered the Christ Child. Pray a Nunc Dimittis.",
+      },
+      {
+        order: 5,
+        title: "Day 5 — The Flight into Egypt (Matthew 2:13–23)",
+        body: "Read the Gospel passage. Pray for families who suffer displacement, persecution, or material want.",
+      },
+      {
+        order: 6,
+        title: "Day 6 — The hidden life at Nazareth (Luke 2:39–40, 51–52)",
+        body: "Read the Gospel passage. Meditate on the ordinary holiness of Nazareth. Pray for grace in the daily work of your home.",
+      },
+      {
+        order: 7,
+        title: "Day 7 — The Finding in the Temple (Luke 2:41–52)",
+        body: "Read the Gospel passage. Pray for any family member who has wandered from the faith.",
+      },
+      {
+        order: 8,
+        title: "Day 8 — Litany of the Holy Family",
+        body: "Pray the Litany of the Holy Family of Jesus, Mary, and Joseph. Make any needed confession before the consecration.",
+      },
+      {
+        order: 9,
+        title: "Day 9 — Act of consecration",
+        body: "Gather the household. Pray Pope Leo XIII's act of consecration to the Holy Family aloud together, ideally on the feast of the Holy Family (the Sunday within the Octave of Christmas).",
+      },
+    ],
     durationDays: 9,
     goalTemplateSlug: "consecration-holy-family",
   },
@@ -334,6 +428,53 @@ const CONSECRATIONS: SpiritualLifeGuideSeed[] = [
 **The Enthronement of the Sacred Heart** is the public installation of an image of the Sacred Heart of Jesus in a Catholic home as a reigning King, accompanied by a family act of consecration. Father Mateo Crawley-Boevey, SS.CC., propagated this practice in the early 20th century with the approval of Saint Pius X and Benedict XV.
 
 **Magisterium.** Pope Pius IX extended the Feast of the Sacred Heart to the universal Church in 1856. Pope Leo XIII consecrated the entire human race to the Sacred Heart in 1899 (Annum Sacrum). Pope Pius XII's Haurietis Aquas (1956) is the great encyclical on devotion to the Sacred Heart. Pope Francis released Dilexit Nos on 24 October 2024 to renew the devotion for our time.`,
+    steps: [
+      {
+        order: 1,
+        title: "Day 1 — The Heart of Jesus, sanctuary of mercy",
+        body: "Read the Gospel of the Sacred Heart (John 19:31–37). Pray the Litany of the Sacred Heart. Make a brief examen of any rejection of God's love in your day.",
+      },
+      {
+        order: 2,
+        title: "Day 2 — The Heart of Jesus, formed in the womb of the Virgin Mother",
+        body: "Meditate on the union of Jesus and Mary. Pray one decade of the Rosary (Joyful Mysteries). Reflect on a moment when you experienced Christ's tenderness.",
+      },
+      {
+        order: 3,
+        title: "Day 3 — The Heart of Jesus, of infinite majesty",
+        body: "Meditate on the divinity of Christ. Pray the Te Deum or the Adoro Te Devote. Make an act of adoration before the tabernacle or a crucifix.",
+      },
+      {
+        order: 4,
+        title: "Day 4 — The Heart of Jesus, burning furnace of charity",
+        body: "Meditate on the love of God poured out in the Cross. Pray the Anima Christi. Identify one concrete act of charity to perform today.",
+      },
+      {
+        order: 5,
+        title: "Day 5 — The Heart of Jesus, fount of life and holiness",
+        body: "Meditate on the seven sacraments as wellsprings of the Sacred Heart. Pray a decade of the Sorrowful Mysteries.",
+      },
+      {
+        order: 6,
+        title: "Day 6 — The Heart of Jesus, our peace and reconciliation",
+        body: "Meditate on Christ as Prince of Peace. Make a confession during the novena if you have not done so recently.",
+      },
+      {
+        order: 7,
+        title: "Day 7 — The Heart of Jesus, victim for our sins",
+        body: "Meditate on the sacrificial love of the Cross. Pray the Stations of the Cross or one decade of the Sorrowful Mysteries.",
+      },
+      {
+        order: 8,
+        title: "Day 8 — Holy Hour and confession before the act",
+        body: "If possible make a Holy Hour before the Blessed Sacrament. Confess any unconfessed sins. Read aloud the act of consecration the night before the feast.",
+      },
+      {
+        order: 9,
+        title: "Day 9 — Act of consecration",
+        body: "On the chosen feast (the Solemnity of the Sacred Heart, the First Friday, or another Friday), attend Mass and after Communion pray the act of consecration: 'I give myself and consecrate to the Sacred Heart of our Lord Jesus Christ, my person and my life, my actions, pains and sufferings…'",
+      },
+    ],
     durationDays: 9,
     goalTemplateSlug: "consecration-sacred-heart",
   },

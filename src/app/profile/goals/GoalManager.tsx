@@ -416,10 +416,17 @@ function GoalCard({
 
 type Props = {
   initialGoals: Goal[];
+  /**
+   * Total count of COMPLETED goals across the user's history. Drives
+   * the "View completed goals" link rendered alongside the New goal
+   * button — completed goals themselves live on a dedicated page so
+   * the active list stays short.
+   */
+  completedCount?: number;
   labels: Labels;
 };
 
-export function GoalManager({ initialGoals, labels }: Props) {
+export function GoalManager({ initialGoals, completedCount = 0, labels }: Props) {
   const [goals, setGoals] = useState(initialGoals);
   const [showCreate, setShowCreate] = useState(false);
   const router = useRouter();
@@ -430,6 +437,15 @@ export function GoalManager({ initialGoals, labels }: Props) {
   }
 
   function handleUpdate(updated: Goal) {
+    // A goal flipped to COMPLETED leaves the active list immediately —
+    // it shows up under /profile/goals/completed from now on. Removing
+    // it from local state matches what the next server fetch will
+    // return (listGoalsForUser excludes COMPLETED rows).
+    if (updated.status === "COMPLETED") {
+      setGoals((prev) => prev.filter((g) => g.id !== updated.id));
+      router.refresh();
+      return;
+    }
     setGoals((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
     router.refresh();
   }
@@ -438,12 +454,16 @@ export function GoalManager({ initialGoals, labels }: Props) {
     setGoals((prev) => prev.filter((g) => g.id !== id));
   }
 
+  // Completed goals migrate to /profile/goals/completed where they are
+  // preserved as part of the user's spiritual history. Archived goals
+  // stay collapsed at the bottom of the active list so a user can
+  // un-archive one without leaving the page.
   const active = goals.filter((g) => g.status === "ACTIVE" || g.status === "OVERDUE");
-  const done = goals.filter((g) => g.status === "COMPLETED" || g.status === "ARCHIVED");
+  const archived = goals.filter((g) => g.status === "ARCHIVED");
 
   return (
     <div>
-      <div className="mb-6 flex justify-center">
+      <div className="mb-6 flex flex-wrap justify-center gap-3">
         <button
           type="button"
           className="vf-btn vf-btn-primary"
@@ -451,6 +471,14 @@ export function GoalManager({ initialGoals, labels }: Props) {
         >
           {showCreate ? labels.cancel : labels.newGoal}
         </button>
+        {completedCount > 0 ? (
+          <a
+            href="/profile/goals/completed"
+            className="vf-btn vf-btn-ghost"
+          >
+            View completed goals ({completedCount})
+          </a>
+        ) : null}
       </div>
 
       {showCreate ? (
@@ -461,8 +489,20 @@ export function GoalManager({ initialGoals, labels }: Props) {
         />
       ) : null}
 
-      {goals.length === 0 && !showCreate ? (
-        <p className="text-center font-serif text-ink-faint">No goals yet. Create one above.</p>
+      {active.length === 0 && archived.length === 0 && !showCreate ? (
+        <p className="text-center font-serif text-ink-faint">
+          No active goals. Create one above
+          {completedCount > 0 ? (
+            <>
+              {" "}
+              or revisit your{" "}
+              <a href="/profile/goals/completed" className="vf-nav-link">
+                completed goals
+              </a>
+            </>
+          ) : null}
+          .
+        </p>
       ) : null}
 
       {active.length > 0 ? (
@@ -479,13 +519,13 @@ export function GoalManager({ initialGoals, labels }: Props) {
         </div>
       ) : null}
 
-      {done.length > 0 ? (
+      {archived.length > 0 ? (
         <details className="mt-8">
           <summary className="cursor-pointer font-display text-lg text-ink-faint">
-            Completed &amp; archived ({done.length})
+            Archived ({archived.length})
           </summary>
           <div className="mt-4 flex flex-col gap-4">
-            {done.map((g) => (
+            {archived.map((g) => (
               <GoalCard
                 key={g.id}
                 goal={g}

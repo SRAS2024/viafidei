@@ -338,7 +338,7 @@ export function ParishList({ parishes, placeholder }: Props) {
       {showNearby && nearby && nearby.length > 0 ? (
         <section className="mb-10">
           <h2 className="mb-4 font-display text-2xl">Parishes near you</h2>
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {nearby.slice((nearbyPage - 1) * PAGE_SIZE, nearbyPage * PAGE_SIZE).map((entry) => (
               <ParishCard
                 key={entry.parish.slug}
@@ -357,7 +357,7 @@ export function ParishList({ parishes, placeholder }: Props) {
 
       {searchResults ? (
         <>
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {searchResults.length === 0 ? (
               <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
                 {searchingGlobal ? (
@@ -385,7 +385,7 @@ export function ParishList({ parishes, placeholder }: Props) {
         </>
       ) : (
         <>
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {parishes.length === 0 ? (
               <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
                 {coords
@@ -415,18 +415,22 @@ function ParishCard({ parish, distanceKm }: { parish: Parish; distanceKm?: numbe
     .join(", ");
   return (
     <Link href={`/spiritual-guidance/${parish.slug}`}>
-      <article className="vf-card h-full rounded-sm p-7 transition hover:border-ink/30 hover:-translate-y-0.5">
+      <article className="vf-card h-full rounded-sm p-5 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-7">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="font-display text-2xl">{parish.name}</h3>
+          <h3 className="min-w-0 break-words font-display text-xl sm:text-2xl">
+            {parish.name}
+          </h3>
           {typeof distanceKm === "number" ? (
             <span className="shrink-0 font-serif text-xs text-ink-faint">
               {distanceKm.toFixed(1)} km
             </span>
           ) : null}
         </div>
-        {location ? <p className="mt-2 font-serif text-ink-soft">{location}</p> : null}
-        <div className="mt-3 flex flex-wrap gap-4 text-sm text-ink-faint">
-          {parish.phone ? <span>{parish.phone}</span> : null}
+        {location ? (
+          <p className="mt-2 break-words font-serif text-ink-soft">{location}</p>
+        ) : null}
+        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-faint">
+          {parish.phone ? <span className="break-all">{parish.phone}</span> : null}
           {parish.websiteUrl ? (
             <span className="underline underline-offset-4">Website ↗</span>
           ) : null}
