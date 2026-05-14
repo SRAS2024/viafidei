@@ -10,7 +10,9 @@ import {
   cleanupMiscategorisedContent,
   pruneOldAuditLogs,
   pruneOldIngestionRuns,
+  purgeStaleArchivedContent,
 } from "@/lib/data/cleanup";
+import { getDataManagementSettings } from "@/lib/data/site-settings";
 import { jsonError, jsonOk } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
@@ -30,27 +32,46 @@ export async function POST(req: NextRequest) {
   const started = Date.now();
   await ensureVaticanSchedule();
   const summary = await runAllActiveJobs();
-  const [
-    prunedRateLimits,
-    prunedTokens,
-    overdueGoals,
-    prunedRuns,
-    prunedAudits,
-    miscategorised,
-    duplicatePrayers,
-  ] = await Promise.all([
+
+  // Admin can disable the automatic Data Management sweep via the
+  // site_settings row. When disabled, the ingestion runner still runs
+  // (per-row validation, skip-existing semantics) but the catalog-wide
+  // archive / hard-delete passes are skipped so the admin keeps full
+  // manual control.
+  const dataManagement = await getDataManagementSettings();
+
+  const housekeeping = await Promise.all([
     pruneExpiredRateLimits(),
     pruneExpiredTokens(),
     markOverdueGoals(),
     pruneOldIngestionRuns(),
     pruneOldAuditLogs(),
+  ]);
+  const [prunedRateLimits, prunedTokens, overdueGoals, prunedRuns, prunedAudits] = housekeeping;
+
+  let miscategorised: Awaited<ReturnType<typeof cleanupMiscategorisedContent>> = {
+    buckets: [],
+    totalArchived: 0,
+  };
+  let duplicatePrayers = 0;
+  let purged: Awaited<ReturnType<typeof purgeStaleArchivedContent>> = {
+    buckets: [],
+    totalDeleted: 0,
+  };
+
+  if (dataManagement.autoCleanupEnabled) {
     // Sweep through every published content row and archive anything
     // that looks like a TV listing, source byline, newsletter blurb,
-    // or one-line stub. Quality-over-quantity gate: it is better to
-    // ship fewer correctly-categorised entries than many weak ones.
-    cleanupMiscategorisedContent(),
-    archiveDuplicatePrayers(),
-  ]);
+    // or one-line stub. Then permanently delete anything that has been
+    // archived for long enough (default 30 days) so the catalog stays
+    // lean and the pipeline self-corrects.
+    [miscategorised, duplicatePrayers, purged] = await Promise.all([
+      cleanupMiscategorisedContent(),
+      archiveDuplicatePrayers(),
+      purgeStaleArchivedContent(dataManagement.hardDeleteAfterDays),
+    ]);
+  }
+
   logger.info("cron.completed", {
     route: "/api/cron/ingest",
     requestId,
@@ -61,8 +82,10 @@ export async function POST(req: NextRequest) {
     overdueGoals,
     prunedRuns,
     prunedAudits,
+    autoCleanupEnabled: dataManagement.autoCleanupEnabled,
     miscategorisedArchived: miscategorised.totalArchived,
     duplicatePrayersArchived: duplicatePrayers,
+    hardDeleted: purged.totalDeleted,
   });
   return jsonOk({
     summary,
@@ -71,7 +94,12 @@ export async function POST(req: NextRequest) {
     overdueGoals,
     prunedRuns,
     prunedAudits,
-    cleanup: { miscategorised, duplicatePrayers },
+    dataManagement: {
+      autoCleanupEnabled: dataManagement.autoCleanupEnabled,
+      miscategorised,
+      duplicatePrayers,
+      hardDeleted: purged,
+    },
   });
 }
 

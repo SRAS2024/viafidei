@@ -185,3 +185,30 @@ export function listMilestonesForUser(userId: string) {
     orderBy: [{ tier: "asc" }, { createdAt: "desc" }],
   });
 }
+
+/**
+ * Returns the user's sacrament and consecration badges in display order
+ * — sacraments first, then consecrations, then any other PERSONAL or
+ * SPIRITUAL milestones. Used by the profile header to render the
+ * achievement strip directly under the avatar and name.
+ *
+ * The badge image / icon is resolved from `goal.templateSlug` via
+ * `getBadgeForGoalSlug` on the client; here we just return the
+ * milestone metadata in a serialisable shape.
+ */
+export async function listBadgesForUser(userId: string) {
+  const milestones = await prisma.milestone.findMany({
+    where: { userId },
+    include: { goal: true },
+    orderBy: [{ tier: "asc" }, { createdAt: "asc" }],
+  });
+  return milestones.map((m) => ({
+    id: m.id,
+    title: m.title,
+    description: m.description,
+    tier: m.tier as "SACRAMENT" | "SPIRITUAL" | "PERSONAL",
+    earnedAt: m.createdAt,
+    /** Goal templateSlug (e.g. "sacrament-baptism", "consecration-marian-de-montfort"). */
+    templateSlug: m.goal?.templateSlug ?? null,
+  }));
+}

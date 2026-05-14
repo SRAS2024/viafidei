@@ -77,15 +77,38 @@ export function listAdminParishes(take = 200) {
   return prisma.parish.findMany({ orderBy: { name: "asc" }, take });
 }
 
+/**
+ * Universal parish search. A query string runs against every field a
+ * user might type into the search box: parish name, city, state /
+ * region / province, country, diocese, and street address. The fields
+ * are case-insensitive `contains` matches, so "Boston", "MA",
+ * "Massachusetts", "United States", or "Archdiocese of Boston" all
+ * surface relevant parish rows. Multi-word queries are tokenised so
+ * "saint patrick boston" matches a parish whose name contains
+ * "Patrick" and whose city contains "Boston" (every non-empty token
+ * must hit at least one field).
+ */
 export function searchParishes(q: string, take = 10) {
+  const trimmed = q.trim();
+  if (!trimmed) return Promise.resolve([] as never[]);
+  const tokens = trimmed.split(/\s+/).filter((t) => t.length > 0);
+  const fields = [
+    "name",
+    "city",
+    "region",
+    "country",
+    "diocese",
+    "address",
+  ] as const;
+  // Each token must match at least one field somewhere — that's an AND
+  // over tokens, each one being an OR over fields. The single-token
+  // case degenerates to the original behaviour.
+  const AND = tokens.map((tok) => ({
+    OR: fields.map((f) => ({ [f]: { contains: tok, mode: "insensitive" } })),
+  }));
   return prisma.parish.findMany({
-    where: {
-      status: "PUBLISHED",
-      OR: [
-        { name: { contains: q, mode: "insensitive" } },
-        { city: { contains: q, mode: "insensitive" } },
-      ],
-    },
+    where: { status: "PUBLISHED", AND },
+    orderBy: [{ name: "asc" }],
     take,
   });
 }

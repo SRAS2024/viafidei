@@ -2,8 +2,14 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
-import { getProfileCounts, getProfileForUser, type ProfileCounts } from "@/lib/data/profile";
+import {
+  getProfileCounts,
+  getProfileForUser,
+  listBadgesForUser,
+  type ProfileCounts,
+} from "@/lib/data/profile";
 import { ProfileAvatar } from "@/components/profile/ProfileAvatar";
+import { ProfileBadgeStrip } from "@/components/profile/ProfileBadgeStrip";
 import { UnverifiedEmailNotice } from "@/components/profile/UnverifiedEmailNotice";
 import { prisma } from "@/lib/db/client";
 import { logPageError } from "@/lib/observability/page-errors";
@@ -40,11 +46,13 @@ export default async function ProfilePage() {
   let counts: ProfileCounts = EMPTY_COUNTS;
   let favoriteJournalCount = 0;
   let profile: Awaited<ReturnType<typeof getProfileForUser>> = null;
+  let badges: Awaited<ReturnType<typeof listBadgesForUser>> = [];
   try {
-    [counts, favoriteJournalCount, profile] = await Promise.all([
+    [counts, favoriteJournalCount, profile, badges] = await Promise.all([
       getProfileCounts(user.id),
       prisma.journalEntry.count({ where: { userId: user.id, isFavorite: true } }),
       getProfileForUser(user.id),
+      listBadgesForUser(user.id),
     ]);
   } catch (err) {
     logPageError({ route: "/profile", entityType: "Profile", error: err });
@@ -147,6 +155,13 @@ export default async function ProfilePage() {
           {`${user.firstName} ${user.lastName}`}
         </h1>
         <p className="mt-3 font-serif text-ink-soft">{user.email}</p>
+        <ProfileBadgeStrip
+          badges={badges.map((b) => ({
+            id: b.id,
+            title: b.title,
+            templateSlug: b.templateSlug,
+          }))}
+        />
         <Link href="/profile/settings" className="vf-nav-link mt-5">
           {t("profile.tab.settings")}
         </Link>

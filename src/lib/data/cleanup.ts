@@ -226,6 +226,71 @@ export async function cleanupMiscategorisedContent(): Promise<CleanupSummary> {
 }
 
 /**
+ * Permanently delete content rows that have been ARCHIVED for at least
+ * `olderThanDays` days. This is the Ingestion & Data Management
+ * system's "hard cleanup" pass: after content sits in ARCHIVED long
+ * enough for an admin to have reviewed it, the system removes it from
+ * the database so it cannot be re-ingested under a fresh slug and so
+ * the catalog stays lean.
+ *
+ * Skip rules:
+ *   • Returns `{ deleted: 0 }` for every bucket when `olderThanDays <= 0`
+ *     — that's the documented way to disable the hard-delete pass.
+ *   • Never touches user-generated rows (Journal, Goal, Milestone,
+ *     UserSaved*) — those are protected by schema separation, and the
+ *     Prisma model names listed below are all curated catalog rows.
+ *
+ * Note on dedup keys: when a row is hard-deleted, its
+ * `externalSourceKey` is freed. Adapters that re-fetch the same URL
+ * will recreate the row, but the per-row validator + new cleanup
+ * sweep will catch the same bad shape again on the next pass, so the
+ * pipeline self-corrects without admin intervention.
+ */
+export type HardDeleteSummary = {
+  buckets: Array<{ entity: string; deleted: number }>;
+  totalDeleted: number;
+};
+
+export async function purgeStaleArchivedContent(
+  olderThanDays: number,
+): Promise<HardDeleteSummary> {
+  if (!Number.isFinite(olderThanDays) || olderThanDays <= 0) {
+    return { buckets: [], totalDeleted: 0 };
+  }
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+  const where = { status: "ARCHIVED" as ContentStatus, updatedAt: { lt: cutoff } };
+  const [
+    prayers,
+    saints,
+    apparitions,
+    devotions,
+    liturgyEntries,
+    spiritualLifeGuides,
+  ] = await Promise.all([
+    prisma.prayer.deleteMany({ where }),
+    prisma.saint.deleteMany({ where }),
+    prisma.marianApparition.deleteMany({ where }),
+    prisma.devotion.deleteMany({ where }),
+    prisma.liturgyEntry.deleteMany({ where }),
+    prisma.spiritualLifeGuide.deleteMany({ where }),
+  ]);
+  // Parishes carry their own status enum (no schema separation needed)
+  // and ARCHIVED parishes follow the same rule.
+  const parishes = await prisma.parish.deleteMany({ where });
+  const buckets: HardDeleteSummary["buckets"] = [
+    { entity: "Prayer", deleted: prayers.count },
+    { entity: "Saint", deleted: saints.count },
+    { entity: "MarianApparition", deleted: apparitions.count },
+    { entity: "Devotion", deleted: devotions.count },
+    { entity: "LiturgyEntry", deleted: liturgyEntries.count },
+    { entity: "SpiritualLifeGuide", deleted: spiritualLifeGuides.count },
+    { entity: "Parish", deleted: parishes.count },
+  ];
+  const totalDeleted = buckets.reduce((sum, b) => sum + b.deleted, 0);
+  return { buckets, totalDeleted };
+}
+
+/**
  * Remove exact-duplicate PUBLISHED rows that share the same body text but
  * landed in the catalog under different slugs (a common artefact of older
  * ingestion runs from before content checksums were enforced). We keep

@@ -44,7 +44,13 @@ export function buildSearchGroups(hits: SearchHits, t: Translator): SearchGroup[
       items: hits.parishes.map((p) => ({
         id: p.id,
         primary: p.name,
-        secondary: [p.city, p.country].filter(Boolean).join(", "),
+        // Show city, region, and country (filtered for empties + de-duped)
+        // so users searching by city/state/country see the full location.
+        secondary: Array.from(
+          new Set(
+            [p.city, p.region, p.country].filter((x): x is string => Boolean(x?.trim())),
+          ),
+        ).join(", "),
         href: `/spiritual-guidance/${p.slug}`,
       })),
     },
