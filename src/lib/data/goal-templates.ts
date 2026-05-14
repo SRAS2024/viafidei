@@ -52,14 +52,22 @@ export const GOAL_TEMPLATES: GoalTemplate[] = [
   {
     slug: "monthly-confession",
     title: "Monthly Confession",
-    description: "Receive the sacrament of Confession once a month.",
+    description:
+      "Receive the Sacrament of Confession this month. The goal walks you through the full spiritual practice — preparation, examination of conscience, contrition, the rite itself, absolution, and the follow-up that turns one good confession into a lasting conversion.",
     defaultDurationDays: 30,
     category: "sacrament",
     checklist: [
-      "Make an examination of conscience",
-      "Pray an Act of Contrition",
-      "Receive the sacrament from a priest",
-      "Complete the assigned penance",
+      "Choose a confession time at your parish (or a nearby one) and add it to your calendar",
+      "Set aside 20–30 minutes for an examination of conscience using the Ten Commandments",
+      "Note any mortal sins by kind and approximate number; recall venial sins honestly",
+      "Arouse contrition: sorrow for having offended a good and loving God, not merely fear of punishment",
+      "Make a firm purpose of amendment — name the occasions of sin you will avoid",
+      "Enter the confessional and begin: ‘Bless me, Father, for I have sinned…’",
+      "Confess your sins clearly; listen to the priest's counsel; accept the penance",
+      "Pray the Act of Contrition aloud when invited",
+      "Receive sacramental absolution; answer ‘Amen’",
+      "Complete the assigned penance as soon as practicable",
+      "Give thanks; journal one concrete resolution to live out this week",
     ],
   },
   {

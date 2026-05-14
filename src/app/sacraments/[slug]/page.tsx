@@ -59,7 +59,9 @@ export default async function SacramentDetailPage({ params }: Props) {
           <div className="vf-card rounded-sm p-6 text-center">
             <p className="font-serif text-sm text-ink-soft">
               You can add this {isConsecration ? "consecration" : "sacrament"} as a goal on your
-              profile. When the goal is completed, the badge above is added under your account.
+              profile. The goal will guide you through the preparation, daily readings, and the
+              act of {isConsecration ? "consecration" : "reception"} — and stay in your spiritual
+              history once it is complete.
             </p>
             <Link
               href={`/profile/goals/new?templateSlug=${encodeURIComponent(guide.goalTemplateSlug)}`}

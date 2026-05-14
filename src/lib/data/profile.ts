@@ -10,6 +10,7 @@ export type ProfileCounts = {
   parishesSaved: number;
   devotionsSaved: number;
   goalsCount: number;
+  completedGoalsCount: number;
   milestonesCount: number;
 };
 
@@ -112,6 +113,7 @@ export async function getProfileCounts(userId: string): Promise<ProfileCounts> {
     parishesSaved,
     devotionsSaved,
     goalsCount,
+    completedGoalsCount,
     milestonesCount,
   ] = await Promise.all([
     prisma.journalEntry.count({ where: { userId } }),
@@ -121,6 +123,7 @@ export async function getProfileCounts(userId: string): Promise<ProfileCounts> {
     prisma.userSavedParish.count({ where: { userId } }),
     prisma.userSavedDevotion.count({ where: { userId } }),
     prisma.goal.count({ where: { userId } }),
+    prisma.goal.count({ where: { userId, status: "COMPLETED" } }),
     prisma.milestone.count({ where: { userId } }),
   ]);
   return {
@@ -131,6 +134,7 @@ export async function getProfileCounts(userId: string): Promise<ProfileCounts> {
     parishesSaved,
     devotionsSaved,
     goalsCount,
+    completedGoalsCount,
     milestonesCount,
   };
 }
@@ -143,6 +147,30 @@ export function listGoalsForUser(userId: string) {
       checklist: { orderBy: { sortOrder: "asc" } },
     },
   });
+}
+
+/**
+ * Completed goals as they appear on the profile's "Completed goals"
+ * section. Each row carries the checklist (so the user can revisit what
+ * they actually did) and the journal entries they wrote inside the
+ * goal, ordered by most recent first.
+ *
+ * Completed goals are kept indefinitely — they form the user's
+ * spiritual history alongside the milestones they earned.
+ */
+export function listCompletedGoalsForUser(userId: string) {
+  return prisma.goal.findMany({
+    where: { userId, status: "COMPLETED" },
+    orderBy: { completedAt: "desc" },
+    include: {
+      checklist: { orderBy: { sortOrder: "asc" } },
+      journalEntries: { orderBy: { createdAt: "desc" } },
+    },
+  });
+}
+
+export function countCompletedGoalsForUser(userId: string) {
+  return prisma.goal.count({ where: { userId, status: "COMPLETED" } });
 }
 
 export function listMilestonesForUser(userId: string) {

@@ -89,7 +89,87 @@ const SACRAMENTS: SpiritualLifeGuideSeed[] = [
 
 **Effects.** Reconciliation with God (the principal effect), reconciliation with the Church, remission of the eternal punishment due to mortal sin, remission (at least in part) of temporal punishment, peace of conscience, and an increase of spiritual strength for the Christian battle (CCC §1496).
 
-**Frequency.** Every Catholic is obliged to confess any mortal sin at least once a year, and before receiving Holy Communion if conscious of mortal sin. The faithful are warmly encouraged to confess venial sins also; frequent confession is one of the great means of growth in holiness.`,
+**Frequency.** Every Catholic is obliged to confess any mortal sin at least once a year, and before receiving Holy Communion if conscious of mortal sin. The faithful are warmly encouraged to confess venial sins also; frequent confession is one of the great means of growth in holiness.
+
+## How to Go to Confession — A Step-by-Step Guide
+
+**1. Preparation.** Before entering the confessional, find a quiet place and ask the Holy Spirit to enlighten your conscience. Recall the time since your last confession, the major events and decisions that filled it, and any persistent struggles.
+
+**2. Examination of Conscience.** Slowly review your thoughts, words, deeds, and omissions against the Ten Commandments, the Beatitudes, the precepts of the Church, and the duties of your state in life. A traditional outline:
+
+  • *First Commandment — I am the Lord your God; you shall have no strange gods before me.* Have I given God first place in my life? Have I doubted the faith, dabbled in superstition, neglected prayer or the sacraments?
+  • *Second — You shall not take the name of the Lord your God in vain.* Have I used God's name irreverently? Broken a vow or oath?
+  • *Third — Remember to keep holy the Lord's Day.* Have I deliberately missed Sunday Mass or a Holy Day of Obligation? Have I worked unnecessarily on Sunday or neglected its rest?
+  • *Fourth — Honor your father and mother.* Have I respected, supported, and prayed for my parents, family, lawful superiors? As a parent, have I cared spiritually and materially for those entrusted to me?
+  • *Fifth — You shall not kill.* Have I harmed others in word, thought, or deed? Held hatred or contempt? Driven recklessly? Cooperated in abortion, euthanasia, or grave injustice? Cared for my own life and health?
+  • *Sixth and Ninth — You shall not commit adultery; you shall not covet your neighbour's wife.* Have I sinned against chastity in thought, look, or deed — alone or with another? Consumed pornography? Indulged impurity in conversation or media? Been faithful in marriage?
+  • *Seventh and Tenth — You shall not steal; you shall not covet your neighbour's goods.* Have I taken what is not mine? Cheated in school, work, business, taxes? Damaged property? Failed to make restitution? Indulged envy or greed?
+  • *Eighth — You shall not bear false witness.* Have I lied? Gossiped, slandered, judged rashly? Failed to defend the reputation of others?
+
+**3. Contrition.** True sorrow for sin — not because of consequences but because sin offends a good and loving God — is the essential interior act. *Perfect contrition* is sorrow rooted in love of God; *imperfect contrition* (attrition) is sorrow rooted in fear of just punishment. Both suffice for the sacrament. Make a firm purpose of amendment: a real intention to avoid the sin and the occasions that lead to it.
+
+**4. Entering the Confessional.** You may confess face-to-face or behind a screen — both are valid. Begin: *"Bless me, Father, for I have sinned. It has been [length of time] since my last confession. These are my sins…"*
+
+**5. Confess Your Sins.** Tell your sins clearly and simply. For *mortal sins*, name the sin, its species, and approximate number ("I missed Sunday Mass three times"). Do not minimise; do not exaggerate; do not blame others. For *venial sins*, a general statement is sufficient. If you are uncertain whether a sin is mortal, mention it — the priest is there to help, not to judge.
+
+**6. Counsel and Penance.** The priest may offer guidance and will assign a *penance* — usually prayers, an act of charity, or a small mortification. The penance is part of the *satisfaction* you offer for your sins; it is not a payment, but a real expression of your contrition.
+
+**7. Act of Contrition.** When invited, pray an Act of Contrition aloud:
+
+> *O my God, I am heartily sorry for having offended Thee, and I detest all my sins because of Thy just punishments, but most of all because they offend Thee, my God, who art all-good and deserving of all my love. I firmly resolve, with the help of Thy grace, to sin no more and to avoid the near occasions of sin. Amen.*
+
+**8. Absolution.** The priest extends his hand and prays the formula of absolution: *"God, the Father of mercies, through the death and resurrection of his Son has reconciled the world to himself and sent the Holy Spirit among us for the forgiveness of sins; through the ministry of the Church may God give you pardon and peace, and I absolve you from your sins in the name of the Father, and of the Son, and of the Holy Spirit."* You answer *"Amen."* Your sins are forgiven by Christ himself.
+
+**9. After Confession.** Leave the confessional in peace. Find a quiet place, kneel, and pray the *Te Deum*, the *Magnificat*, or simply give thanks. Complete your penance as soon as practicable. Resolve concrete steps to avoid the occasions of the sins you confessed.
+
+**Spiritual follow-up.** Confession is a moment in a longer conversion. Find a confessor you can return to. Read Scripture daily, frequent the Eucharist, pray a daily examen, and consider regular monthly confession — the spiritual masters describe it as one of the most powerful means of growth in holiness.`,
+    steps: [
+      {
+        order: 1,
+        title: "Preparation",
+        body: "Find a quiet place. Ask the Holy Spirit to enlighten your conscience. Recall the time since your last confession.",
+      },
+      {
+        order: 2,
+        title: "Examination of conscience",
+        body: "Review your thoughts, words, deeds, and omissions against the Ten Commandments, the Beatitudes, and the duties of your state in life.",
+      },
+      {
+        order: 3,
+        title: "Contrition",
+        body: "Arouse true sorrow for sin because sin offends a good and loving God. Make a firm purpose of amendment.",
+      },
+      {
+        order: 4,
+        title: "Enter the confessional",
+        body: "Greet the priest. Make the Sign of the Cross and say: ‘Bless me, Father, for I have sinned. It has been [length of time] since my last confession.’",
+      },
+      {
+        order: 5,
+        title: "Confess your sins",
+        body: "Tell your sins clearly. Name the kind and approximate number of mortal sins. Do not minimise or exaggerate.",
+      },
+      {
+        order: 6,
+        title: "Counsel and penance",
+        body: "Listen to the priest's counsel. Accept the penance he assigns — it is a real expression of your contrition.",
+      },
+      {
+        order: 7,
+        title: "Act of contrition",
+        body: "Pray aloud: ‘O my God, I am heartily sorry for having offended Thee…’",
+      },
+      {
+        order: 8,
+        title: "Absolution",
+        body: "The priest extends his hand and pronounces the words of absolution. Your sins are forgiven by Christ.",
+      },
+      {
+        order: 9,
+        title: "After confession",
+        body: "Leave in peace. Give thanks. Complete your penance as soon as practicable. Resolve concrete steps to avoid the occasions of sin.",
+      },
+    ],
     goalTemplateSlug: "monthly-confession",
   },
   {
@@ -171,9 +251,38 @@ const CONSECRATIONS: SpiritualLifeGuideSeed[] = [
   3. **Days 20–26: Knowledge of the Blessed Virgin Mary.** Meditation on Mary's role in salvation history and her relationship to her Son.
   4. **Days 27–33: Knowledge of Jesus Christ.** Drawing closer to the Sacred Heart of Jesus through the heart of his Mother.
 
+**Daily structure.** Each day of the 33-day preparation traditionally includes: the reading from de Montfort's True Devotion for that day, the Litany of the Holy Spirit (weeks 1–2), the Ave Maris Stella (weeks 3), the Litany of the Blessed Virgin (week 4), the Magnificat, and at least one Rosary (or one of its decades) said with the intention of preparing for the consecration.
+
 **The act of consecration.** Made publicly or privately on a Marian feast (most commonly the Annunciation, the Assumption, the Immaculate Conception, or another solemnity of Our Lady), the consecration is a free and total gift of oneself — body, soul, possessions, and merits — to Jesus through Mary.
 
 **Authority and tradition.** Saint Louis de Montfort was canonized by Pope Pius XII in 1947 and Pope John Paul II adopted his motto Totus Tuus and made the consecration his personal rule of life.`,
+    steps: [
+      {
+        order: 1,
+        title: "Days 1–12 — Spirit of the world",
+        body: "Renunciation of the world's spirit and reflection on Christian conversion. Daily reading from True Devotion; Litany of the Holy Spirit; one decade of the Rosary.",
+      },
+      {
+        order: 2,
+        title: "Days 13–19 — Knowledge of self",
+        body: "Examination of one's own corruption, weakness, and need for grace. Daily reading; Litany of the Holy Spirit; Ave Maris Stella; one decade of the Rosary.",
+      },
+      {
+        order: 3,
+        title: "Days 20–26 — Knowledge of the Blessed Virgin Mary",
+        body: "Meditation on Mary's role in salvation history and her relationship to her Son. Daily reading; Ave Maris Stella; Litany of Loreto; one decade of the Rosary.",
+      },
+      {
+        order: 4,
+        title: "Days 27–33 — Knowledge of Jesus Christ",
+        body: "Drawing closer to the Sacred Heart of Jesus through the heart of his Mother. Daily reading; O Jesu vivens in Maria; Litany of Loreto; one decade of the Rosary.",
+      },
+      {
+        order: 5,
+        title: "Day 34 — The act of consecration",
+        body: "On a Marian feast, attend Mass and after receiving Holy Communion pray the formal act of consecration as a free and total gift of oneself to Jesus through Mary.",
+      },
+    ],
     durationDays: 33,
     goalTemplateSlug: "consecration-de-montfort",
   },

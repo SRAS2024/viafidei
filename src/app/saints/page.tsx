@@ -71,8 +71,9 @@ export default async function SaintsPage({ searchParams }: Props) {
       />
 
       {/* Filter pills: Saints / Our Lady / Angels. Selecting one keeps
-          the apparitions section visible underneath. */}
-      <div className="mb-6 flex justify-center gap-2">
+          the apparitions section visible underneath. The row wraps on
+          narrow screens so the chips never overflow. */}
+      <div className="mb-6 flex flex-wrap justify-center gap-2 px-2">
         {VALID_FILTERS.map((f) => {
           const active = f === filter;
           const href = f === "saint" ? "/saints" : `/saints?filter=${f}`;
@@ -81,7 +82,7 @@ export default async function SaintsPage({ searchParams }: Props) {
               key={f}
               href={href}
               aria-current={active ? "page" : undefined}
-              className={`vf-btn !py-1 !px-4 text-xs ${
+              className={`vf-btn !py-1.5 !px-4 text-xs ${
                 active ? "vf-btn-primary" : "vf-btn-ghost"
               }`}
             >

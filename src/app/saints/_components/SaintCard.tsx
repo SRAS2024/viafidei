@@ -36,16 +36,18 @@ export function SaintCard({
   const patronages = saint.patronages ?? [];
   return (
     <Link href={`/saints/${saint.slug}`}>
-      <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:border-ink/30 hover:-translate-y-0.5">
-        <p className="vf-eyebrow">
+      <article className="vf-card flex h-full flex-col rounded-sm p-5 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-6">
+        <p className="vf-eyebrow truncate">
           {feastDayLabel}: {saint.feastDay ?? "—"}
         </p>
-        <h2 className="mt-3 font-display text-2xl">{tr?.name ?? saint.canonicalName}</h2>
+        <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">
+          {tr?.name ?? saint.canonicalName}
+        </h2>
         <p className="mt-3 line-clamp-4 font-serif leading-relaxed text-ink-soft">
           {tr?.biography ?? saint.biography}
         </p>
         {patronages.length > 0 ? (
-          <p className="mt-4 font-serif text-xs leading-relaxed text-ink-faint">
+          <p className="mt-4 break-words font-serif text-xs leading-relaxed text-ink-faint">
             <span className="font-medium text-ink-soft">{patronagesLabel}:</span>{" "}
             {patronages.join(", ")}
           </p>

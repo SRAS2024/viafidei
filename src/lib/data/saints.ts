@@ -27,6 +27,22 @@ const OUR_LADY_PATTERN =
 const ANGEL_PATTERN =
   /\b(archangels?|angels?|michael(?!\s+the\s+martyr)|gabriel|raphael|guardian\s+angels?|seraphim|cherubim)\b/i;
 
+/**
+ * Build a Prisma `where` clause that returns the right slice for each
+ * Saints-page filter. Filtering is done in two phases:
+ *
+ *   1. Pull a broad PUBLISHED slice from Postgres with a quick
+ *      case-insensitive `contains` match on canonicalName. (Postgres
+ *      cannot run our richer name regex against arbitrary text in a
+ *      portable way, so we keep this layer coarse.)
+ *   2. Re-filter in JS with `categorizeSaintByName` so a row with an
+ *      ambiguous Postgres match (e.g. "Saint Michael the Martyr") is
+ *      kicked out of the angel filter.
+ *
+ * The default "saint" view excludes anything categorised as Our Lady
+ * or as an Angel so those entries do not double-up under the Saints
+ * tab.
+ */
 function buildCategoryWhere(category: SaintCategory | undefined): {
   status: "PUBLISHED";
   AND?: object[];
@@ -34,8 +50,6 @@ function buildCategoryWhere(category: SaintCategory | undefined): {
   if (!category || category === "saint") {
     return { status: "PUBLISHED" };
   }
-  // Postgres regex match (case-insensitive). Prisma exposes `mode: insensitive`
-  // for `contains`; that's enough for our coarse filter.
   if (category === "our-lady") {
     return {
       status: "PUBLISHED",
@@ -49,12 +63,12 @@ function buildCategoryWhere(category: SaintCategory | undefined): {
             { canonicalName: { contains: "Notre Dame", mode: "insensitive" } },
             { canonicalName: { contains: "Theotokos", mode: "insensitive" } },
             { canonicalName: { contains: "Nuestra Señora", mode: "insensitive" } },
+            { canonicalName: { contains: "Mary, Mother", mode: "insensitive" } },
           ],
         },
       ],
     };
   }
-  // angels
   return {
     status: "PUBLISHED",
     AND: [
@@ -149,15 +163,20 @@ export async function listPublishedSaintsPaginated(
   // Fetch a broad slice and sort in JS by the canonical veneration order
   // so Mary, Joseph, the Twelve Apostles, and the great evangelists land
   // at the top — then page in-memory.
-  const [allItems, total] = await Promise.all([
-    prisma.saint.findMany({
-      where,
-      include: { translations: { where: { locale } } },
-      orderBy: { canonicalName: "asc" },
-    }),
-    prisma.saint.count({ where }),
-  ]);
-  const ordered = sortByVeneration(allItems);
+  const broad = await prisma.saint.findMany({
+    where,
+    include: { translations: { where: { locale } } },
+    orderBy: { canonicalName: "asc" },
+  });
+  // The default "Saints" tab is the place for canonised saints. Anyone
+  // who properly belongs under Our Lady or Angels is filtered out here
+  // so the same row never appears in two tabs.
+  const filtered =
+    !category || category === "saint"
+      ? broad.filter((s) => categorizeSaintByName(s.canonicalName) === "saint")
+      : broad.filter((s) => categorizeSaintByName(s.canonicalName) === category);
+  const ordered = sortByVeneration(filtered);
+  const total = ordered.length;
   const items = ordered.slice(skip, skip + pageSize);
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }

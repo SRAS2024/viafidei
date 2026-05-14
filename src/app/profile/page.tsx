@@ -17,6 +17,7 @@ const EMPTY_COUNTS: ProfileCounts = {
   parishesSaved: 0,
   devotionsSaved: 0,
   goalsCount: 0,
+  completedGoalsCount: 0,
   milestonesCount: 0,
 };
 
@@ -58,6 +59,11 @@ export default async function ProfilePage() {
       key: "profile.section.goals",
       tabs: [
         { href: "/profile/goals", key: "profile.tab.goals", count: counts.goalsCount },
+        {
+          href: "/profile/goals/completed",
+          key: "profile.tab.completedGoals",
+          count: counts.completedGoalsCount,
+        },
         {
           href: "/profile/milestones",
           key: "profile.tab.milestones",

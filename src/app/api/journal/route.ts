@@ -16,6 +16,7 @@ const SORTS: JournalSort[] = ["newest", "oldest", "updated", "favorite"];
 const createSchema = z.object({
   title: z.string().min(1).max(200),
   body: z.string().min(1).max(20000),
+  goalId: z.string().min(1).max(64).optional(),
 });
 
 function isJsonRequest(req: NextRequest): boolean {
@@ -35,9 +36,10 @@ export async function GET(req: NextRequest) {
   const take = Math.min(Number(url.searchParams.get("take")) || 50, 200);
   const skip = Math.max(Number(url.searchParams.get("skip")) || 0, 0);
   const favoritesOnly = url.searchParams.get("favoritesOnly") === "1";
+  const goalId = url.searchParams.get("goalId") ?? undefined;
 
   const [entries, total] = await Promise.all([
-    listJournalEntries(user.id, { sort, take, skip, favoritesOnly }),
+    listJournalEntries(user.id, { sort, take, skip, favoritesOnly, goalId }),
     countJournalEntries(user.id),
   ]);
   return jsonOk({ entries, total, sort, take, skip });
@@ -68,13 +70,21 @@ export async function POST(req: NextRequest) {
   }
 
   const form = await req.formData();
-  const parsed = createSchema.safeParse({ title: form.get("title"), body: form.get("body") });
+  const goalIdValue = form.get("goalId");
+  const parsed = createSchema.safeParse({
+    title: form.get("title"),
+    body: form.get("body"),
+    ...(typeof goalIdValue === "string" && goalIdValue.length > 0
+      ? { goalId: goalIdValue }
+      : {}),
+  });
   if (!parsed.success) return redirectTo(req, "/profile/journal");
 
   await createJournalEntry({
     userId: user.id,
     title: parsed.data.title,
     body: parsed.data.body,
+    goalId: parsed.data.goalId ?? null,
   });
   return redirectTo(req, "/profile/journal");
 }

@@ -5,7 +5,12 @@ import { pruneExpiredTokens } from "@/lib/auth";
 import { runAllActiveJobs } from "@/lib/ingestion/scheduler";
 import { ensureVaticanSchedule } from "@/lib/ingestion/sources";
 import { markOverdueGoals } from "@/lib/data/goals";
-import { pruneOldAuditLogs, pruneOldIngestionRuns } from "@/lib/data/cleanup";
+import {
+  archiveDuplicatePrayers,
+  cleanupMiscategorisedContent,
+  pruneOldAuditLogs,
+  pruneOldIngestionRuns,
+} from "@/lib/data/cleanup";
 import { jsonError, jsonOk } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
@@ -25,14 +30,27 @@ export async function POST(req: NextRequest) {
   const started = Date.now();
   await ensureVaticanSchedule();
   const summary = await runAllActiveJobs();
-  const [prunedRateLimits, prunedTokens, overdueGoals, prunedRuns, prunedAudits] =
-    await Promise.all([
-      pruneExpiredRateLimits(),
-      pruneExpiredTokens(),
-      markOverdueGoals(),
-      pruneOldIngestionRuns(),
-      pruneOldAuditLogs(),
-    ]);
+  const [
+    prunedRateLimits,
+    prunedTokens,
+    overdueGoals,
+    prunedRuns,
+    prunedAudits,
+    miscategorised,
+    duplicatePrayers,
+  ] = await Promise.all([
+    pruneExpiredRateLimits(),
+    pruneExpiredTokens(),
+    markOverdueGoals(),
+    pruneOldIngestionRuns(),
+    pruneOldAuditLogs(),
+    // Sweep through every published content row and archive anything
+    // that looks like a TV listing, source byline, newsletter blurb,
+    // or one-line stub. Quality-over-quantity gate: it is better to
+    // ship fewer correctly-categorised entries than many weak ones.
+    cleanupMiscategorisedContent(),
+    archiveDuplicatePrayers(),
+  ]);
   logger.info("cron.completed", {
     route: "/api/cron/ingest",
     requestId,
@@ -43,6 +61,8 @@ export async function POST(req: NextRequest) {
     overdueGoals,
     prunedRuns,
     prunedAudits,
+    miscategorisedArchived: miscategorised.totalArchived,
+    duplicatePrayersArchived: duplicatePrayers,
   });
   return jsonOk({
     summary,
@@ -51,6 +71,7 @@ export async function POST(req: NextRequest) {
     overdueGoals,
     prunedRuns,
     prunedAudits,
+    cleanup: { miscategorised, duplicatePrayers },
   });
 }
 
