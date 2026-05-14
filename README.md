@@ -93,10 +93,15 @@ edited blindly:
 ├── public/                    # Static assets (favicon, Search Console verification file)
 ├── src/
 │   ├── app/                   # App Router routes
-│   │   ├── (public pages)     # /, /prayers, /saints, /devotions, /spiritual-life,
-│   │   │                      # /spiritual-guidance, /liturgy-history, /search,
-│   │   │                      # /login, /register, /forgot-password,
-│   │   │                      # /reset-password, /verify-email, /privacy
+│   │   ├── (public pages)     # /, /prayers, /prayers/[slug], /saints,
+│   │   │                      # /saints/[slug], /saints/today, /devotions,
+│   │   │                      # /devotions/[slug], /sacraments, /sacraments/[slug],
+│   │   │                      # /spiritual-life, /spiritual-life/[slug],
+│   │   │                      # /spiritual-guidance, /spiritual-guidance/[slug],
+│   │   │                      # /liturgy, /liturgy-history, /liturgy-history/[slug],
+│   │   │                      # /history, /search, /login, /register,
+│   │   │                      # /forgot-password, /reset-password, /verify-email,
+│   │   │                      # /privacy
 │   │   ├── profile/           # /profile, /profile/journal, /profile/goals,
 │   │   │                      # /profile/goals/completed (preserved
 │   │   │                      # history of finished goals + their
@@ -105,9 +110,10 @@ edited blindly:
 │   │   │                      # /profile/saints, /profile/apparitions,
 │   │   │                      # /profile/devotions, /profile/parishes,
 │   │   │                      # /profile/settings
-│   │   ├── admin/             # 15-card admin dashboard (see below)
+│   │   ├── admin/             # 17-card admin dashboard (see Admin console section)
 │   │   └── api/               # Route handlers (auth, admin, cron, internal,
-│   │                          # journal, settings, health, search)
+│   │                          # journal, settings, health, search, saints/today,
+│   │                          # data-management, ingestion-status)
 │   ├── components/
 │   │   ├── icons/             # Cross ornament, Marian monogram, search, hamburger,
 │   │   │                      # user silhouette, spiritual-life icons, logo
@@ -419,8 +425,14 @@ The Prisma schema (`prisma/schema.prisma`) defines, among others:
   `MediaAsset`, `EntityMediaLink`.
 - **Pages / settings**: `HomePage`, `HomePageBlock`, `SiteSetting`.
 - **Ops**: `IngestionSource` (with `isActive`, `reliabilityScore`,
-  `lastSuccessfulSync`, `lastFailedSync`), `IngestionJob`, `IngestionJobRun`,
-  `AdminAuditLog`, `RateLimitBucket`.
+  `lastSuccessfulSync`, `lastFailedSync`), `IngestionJob`,
+  `IngestionJobRun`, `AdminAuditLog` (per-user admin actions, with
+  indexes on `(actorUserId, createdAt)` and `(action, createdAt)`),
+  `DataManagementLog` (structured record of every automatic /
+  manually-triggered cleanup action — `action` is one of `ADD`,
+  `UPDATE`, `DELETE`, `REJECT`, `CLEANUP`, `DEDUPE`,
+  `CATEGORY_FIX`, with `contentType`, `contentRef`, `reason`, and
+  `triggeredBy`), `RateLimitBucket`.
 
 Catalog entities all carry a `ContentStatus` (`DRAFT` → `REVIEW` →
 `PUBLISHED` / `ARCHIVED`) plus a `contentChecksum` so the ingestion pipeline
@@ -545,11 +557,19 @@ empty:
   similarity so common misspellings of saint names, prayers, or guides
   still surface a sensible suggestion. The index covers prayers,
   saints, Marian apparitions, parishes, devotions, liturgy / Church
-  history entries, spiritual-life guides, and parish names. The header
-  typeahead caps suggestions at **2 on mobile** (< 640 px) and **3 on
-  tablet and desktop** (≥ 640 px) — driven live from `matchMedia` and
-  enforced again server-side via the `limit` query param on
-  `/api/search/suggest` so the payload never exceeds what is shown.
+  history entries, and spiritual-life guides. `detectSearchIntent()`
+  classifies the query — a "City, State", a parish/church/cathedral/
+  diocese keyword, a US state abbreviation, an "Our Lady of" pattern,
+  an angel reference, a sacrament keyword, a prayer keyword, or a
+  leading saint title — and the `/search` page re-orders the result
+  groups so the intent-matched bucket lands first. Each result row
+  carries a content-type pill (Parish / Saint / Prayer / Apparition /
+  Devotion / Church teaching / Spiritual life) so a mixed list reads
+  cleanly. The header typeahead caps suggestions at **2 on mobile**
+  (< 640 px) and **3 on tablet and desktop** (≥ 640 px) — driven live
+  from `matchMedia` and enforced again server-side via the `limit`
+  query param on `/api/search/suggest` so the payload never exceeds
+  what is shown.
 - **Parish finder** (`/spiritual-guidance`,
   `/spiritual-guidance/[slug]`). Combines manual search and an opt-in
   device-location lookup via the W3C Geolocation API. Location is
@@ -559,13 +579,32 @@ empty:
   closest parishes within a 50 km radius using the haversine formula
   on the published parish set (Postgres handles the `latitude` /
   `longitude` filter, the application sorts by distance). Manual
-  search by name, city, region, or country always works regardless of
-  location permission. Parishes are populated through the
-  `vatican.parishes` adapter from approved bishops' conference
-  directories; each row carries `name`, `address`, `city`, `region`,
-  `country`, `phone`, `email`, `websiteUrl`, `diocese`, `latitude`,
+  parish search via `searchParishes()` (`src/lib/data/parishes.ts`)
+  spans **name, city, region / state / province, country, diocese,
+  and address** with a token-AND-of-field-ORs predicate so
+  "Boston, MA" and "Archdiocese of Boston" both match. Parishes are
+  populated through the `vatican.parishes` adapter from approved
+  bishops' conference directories; each row carries `name`,
+  `address`, `city`, `region`, `country`, `phone`, `email`,
+  `websiteUrl`, `diocese`, `latitude`,
   `longitude`, plus the standard ingestion metadata
   (`externalSourceKey`, `sourceHost`, `contentChecksum`).
+- **Profile** (`/profile` and the sub-pages under it). Avatar +
+  display name + email, followed by a `<ProfileBadgeStrip>` that
+  renders every sacrament / consecration badge the user has earned
+  (sourced from `Milestone` rows via `listBadgesForUser()`; badges
+  persist across logout, login, and refresh; the strip links to
+  `/profile/milestones` for the full history). Below the header
+  the page groups every user-content area into sections —
+  **My Goals** + **Completed Goals** + **Milestones**, **Journal**
+  + **Favorites**, **Saved prayers** + **Saved devotions**, **Saved
+  liturgical content** (parishes, apparitions), **Saved learning**
+  (saints). Each goal card on `/profile/goals` exposes an inline
+  journal panel; completed goals migrate to
+  `/profile/goals/completed` the moment they're finished, where
+  they are preserved indefinitely with their original checklist,
+  completion date, and every journal entry the user wrote inside
+  the goal.
 
 ---
 
@@ -580,9 +619,9 @@ time.
 
 ### Approved-source allowlist
 
-The full list lives in `src/lib/ingestion/sources/vatican-allowlist.ts`
-and is rendered for admins at **`/admin/sources`**. It is organised in
-three tiers:
+The full list (≈350 hosts) lives in
+`src/lib/ingestion/sources/vatican-allowlist.ts` and is rendered for
+admins at **`/admin/sources`**. It is organised in three tiers:
 
 - **Tier 1 — Holy See and Vatican press.** `vatican.va`, `press.vatican.va`,
   `vaticannews.va`, `osservatoreromano.va`, `synod.va`, every Vatican
@@ -1072,7 +1111,8 @@ each catalog entity is exposed under `/api/admin/<entity>` via the
 | GET               | `/api/liturgy`, `/api/liturgy/[slug]`                         | Liturgy/history content                                     |
 | GET               | `/api/spiritual-life`, `/api/spiritual-life/[slug]`           | Spiritual-life guides                                       |
 | GET               | `/api/daily-liturgy`                                          | Today (or `?date=` / `?from=&to=`) daily liturgical content |
-| GET               | `/api/search`                                                 | Unified search across all content types                     |
+| GET               | `/api/saints/today`                                           | Saints whose feast falls on `?month=&day=` (or today UTC)   |
+| GET               | `/api/search`                                                 | Unified search with intent detection                        |
 | GET               | `/api/search/suggest`                                         | Typeahead suggestions grouped by content type               |
 | POST              | `/api/settings/locale`                                        | Set locale cookie                                           |
 | POST              | `/api/settings/rite`                                          | Set Catholic rite cookie                                    |
@@ -1106,11 +1146,18 @@ each catalog entity is exposed under `/api/admin/<entity>` via the
 | GET / DELETE   | `/api/admin/media/[id]`          | Read / delete a media asset                              |
 | GET            | `/api/admin/users`               | Paginated, searchable user listing                       |
 | GET            | `/api/admin/audit`               | Filterable audit log                                     |
+| GET            | `/api/admin/ingestion-status`    | Live snapshot used by the Ingestion admin page (polled)  |
+| GET / POST     | `/api/admin/data-management`     | Read / write Ingestion & Data Management settings        |
+| GET / POST     | `/api/admin/email`               | Email configuration check + send a test message          |
+| POST           | `/api/admin/email/ensure-tables` | Idempotent in-process create of account-email tables     |
+| POST           | `/api/admin/email/self-test`    | End-to-end self-test of welcome / reset / verify flows   |
+| GET            | `/api/admin/publish-list`        | Items currently in REVIEW status across the catalog      |
+| POST           | `/api/admin/publish-list/publish-all` | Bulk-publish every queued REVIEW row                 |
 | POST           | `/api/admin/search/reindex`      | Trigger reindex / housekeeping                           |
 | GET            | `/api/admin/translations`        | Translation row counts                                   |
 | GET / POST     | `/api/admin/favicon`             | Read / replace favicon asset                             |
 | GET / POST     | `/api/admin/homepage`            | Read / update homepage block config                      |
-| POST (`GET`)   | `/api/cron/ingest`               | Run scheduler + housekeeping (cron-secret authenticated) |
+| POST (`GET`)   | `/api/cron/ingest`               | Run scheduler + cleanup pass + housekeeping (cron-secret) |
 | POST / GET     | `/api/internal/cleanup`          | Prune sessions / tokens / rate-limits (cron-secret auth) |
 
 ---
@@ -1149,24 +1196,48 @@ with a 180s timeout and a 5-retry on-failure restart policy.
 
 ### Build behaviour
 
-All public listing pages (`/`, `/prayers`, `/saints`, `/devotions`,
-`/spiritual-life`, `/spiritual-guidance`, `/liturgy-history`) export
+All public listing pages (`/`, `/prayers`, `/saints`, `/saints/today`,
+`/devotions`, `/sacraments`, `/spiritual-life`, `/spiritual-guidance`,
+`/liturgy`, `/liturgy-history`, `/history`, `/search`) export
 `dynamic = "force-dynamic"`. They are NOT pre-rendered at build time, so
 `next build` never opens a database connection and CI / Docker builds do not
 need access to PostgreSQL. Detail pages under `[slug]` are dynamic by default
-(no `generateStaticParams`).
+(no `generateStaticParams`). Admin pages under `/admin/*` and every
+`/api/admin/*` route are also dynamic.
 
 ### Cron
 
 The cron token is derived from `SESSION_SECRET` at runtime — there is no
-separate `CRON_SECRET` environment variable. The in-process scheduler is
-disabled by default; flip `ingestion.schedulerDisabled` to `false` in
-`src/lib/config.ts` to enable it. To delegate scheduling to an external
-platform, configure that platform to POST to
+separate `CRON_SECRET` environment variable. The **in-process scheduler is
+enabled by default** (`ingestion.schedulerDisabled: false` in
+`src/lib/config.ts`) and ticks every 10 minutes while the catalog is
+below target, then every ~84 hours in maintenance mode. To delegate
+scheduling to an external platform, set `ingestion.schedulerDisabled` to
+`true` and configure that platform to POST to
 `https://<host>/api/cron/ingest` with `Authorization: Bearer <token>`,
 where `<token>` is the HMAC-SHA-256 of the domain-separation tag
 `viafidei:cron:v1` keyed by `SESSION_SECRET` (see
 `src/lib/security/cron-auth.ts#deriveCronSecret`).
+
+`/api/cron/ingest` does five things on every tick:
+
+1. Ensures the IngestionSource + IngestionJob rows for every
+   allowlisted host exist.
+2. Runs every active adapter through the shared advisory-lock
+   path (so manual and automatic runs cannot conflict).
+3. Prunes expired rate-limit buckets, expired auth tokens, and
+   marks overdue goals.
+4. When `data_management.autoCleanupEnabled` is true (default), runs
+   `cleanupMiscategorisedContent()` (archive miscategorised rows
+   with a structured `DataManagementLog` reason),
+   `archiveDuplicatePrayers()` (dedupe by checksum), and
+   `purgeStaleArchivedContent(hardDeleteAfterDays)` (permanently
+   delete rows that have been ARCHIVED long enough). When the
+   admin disables auto cleanup via the
+   `/admin/ingestion` settings panel, only the per-row ingestion
+   validator runs and the catalog-wide passes are skipped.
+5. Logs a structured `cron.completed` event with every counter for
+   the Diagnostics page to inspect.
 
 ---
 
