@@ -576,6 +576,28 @@ model AdminAuditLog {
   actor         User?    @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([entityType, entityId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+}
+
+// DataManagementLog records every action performed by the Ingestion
+// & Data Management system. The `action` column is one of: ADD,
+// UPDATE, DELETE, REJECT, CLEANUP, DEDUPE, CATEGORY_FIX. The
+// `contentType` is the catalog table (Prayer, Saint, ...). The
+// `triggeredBy` is "automatic" (cron) or "manual" (admin-triggered).
+model DataManagementLog {
+  id            String   @id @default(cuid())
+  action        String
+  contentType   String
+  contentRef    String?
+  reason        String?
+  triggeredBy   String   @default("automatic")
+  actorUsername String?
+  createdAt     DateTime @default(now())
+
+  @@index([action, createdAt])
+  @@index([contentType, createdAt])
+  @@index([createdAt])
 }
 
 model Tag {

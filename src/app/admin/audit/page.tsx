@@ -1,48 +1,11 @@
-import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
-import { listRecentAuditLogs } from "@/lib/data/audit-log";
-import { AdminSection } from "../_sections/AdminSection";
+import { permanentRedirect } from "next/navigation";
 
-export default async function AdminAudit() {
-  const admin = await requireAdmin();
-  if (!admin) redirect("/admin/login");
-  const rows = await listRecentAuditLogs();
-  return (
-    <AdminSection titleKey="admin.card.audit">
-      <div className="vf-card rounded-sm">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-ink/10 text-xs uppercase tracking-[0.2em] text-ink-faint">
-              <th className="px-5 py-4">When</th>
-              <th className="px-5 py-4">Actor</th>
-              <th className="px-5 py-4">Action</th>
-              <th className="px-5 py-4">Entity</th>
-              <th className="px-5 py-4">IP</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="px-5 py-10 text-center font-serif text-ink-faint">
-                  No audit records yet.
-                </td>
-              </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.id} className="border-b border-ink/5 font-serif">
-                  <td className="px-5 py-3 text-ink-faint">{r.createdAt.toISOString()}</td>
-                  <td className="px-5 py-3">{r.actorUsername ?? "—"}</td>
-                  <td className="px-5 py-3">{r.action}</td>
-                  <td className="px-5 py-3 text-ink-soft">
-                    {r.entityType}:{r.entityId}
-                  </td>
-                  <td className="px-5 py-3 text-ink-faint">{r.ipAddress ?? "—"}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </AdminSection>
-  );
+/**
+ * The standalone audit page moved under the new Logs hub at
+ * /admin/logs. The most-similar destination for inbound bookmarks is
+ * the Account audit log; from there an admin can jump to Admin
+ * actions or Data Management via the in-page nav.
+ */
+export default function AdminAuditLegacyRedirect() {
+  permanentRedirect("/admin/logs/accounts");
 }

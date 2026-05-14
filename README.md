@@ -982,7 +982,7 @@ runs the upstream check on a ~84-hour cadence (~twice weekly).
 - The `/admin` layout sets `robots: { index: false, follow: false }` so no
   admin page (including `/admin/login`) is indexable.
 
-`/admin` shows fifteen sections (`src/app/admin/_dashboard/cards.ts`):
+`/admin` shows seventeen sections (`src/app/admin/_dashboard/cards.ts`):
 
 1. Homepage mirror editor
 2. Prayers
@@ -992,13 +992,31 @@ runs the upstream check on a ~84-hour cadence (~twice weekly).
 6. Devotions
 7. Liturgy content
 8. Translations
-9. Ingestion jobs
+9. **Ingestion & Data Management** — live-polling content counts,
+   24-hour edit overlay per content type, status indicator
+   (Active / Paused / Disabled / Running / Failed), Data Management
+   settings panel (auto-cleanup toggle + hard-delete window), and a
+   safety-rail manual ingestion run button that shares the same
+   advisory lock as the cron job.
 10. Approved sources (allowlist + per-host sync status)
 11. Search index
 12. Media library
 13. Favicon
-14. Audit log
+14. **Logs** — hub for three sub-views: Account audit (per-user
+    actions), Admin actions (homepage edits, content edits, settings,
+    diagnostics, data-management toggles), Data Management (every
+    addition, update, deletion, rejection, archive, dedupe, and
+    category correction performed by the Ingestion & Data Management
+    system, with reason and triggeredBy = automatic | manual).
 15. User accounts
+16. **Diagnostics** — hub for four sub-views: Email (welcome /
+    verify / resend / forgot-password / reset-password flows + self-
+    test), Ingestion & Data Management (validator, cleanup, content
+    counts, recent failures), Sitemap & Link Paths (every static and
+    dynamic route, plus profile and admin paths), Accounts (account
+    tables, saved items, badges, journals, language, today's feast
+    date / timezone, parish location search).
+17. Publish list (REVIEW queue)
 
 Content review actions go through `POST /api/admin/content/review` with
 `{ entityType, entityId, action, notes }` where `action` is

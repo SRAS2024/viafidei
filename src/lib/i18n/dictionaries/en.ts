@@ -348,6 +348,8 @@ const admin: Dict = {
   "admin.card.sources": "Approved sources",
   "admin.card.search": "Search index",
   "admin.card.audit": "Audit log",
+  "admin.card.logs": "Logs",
+  "admin.card.diagnostics": "Diagnostics",
   "admin.card.media": "Media library",
   "admin.card.homepage": "Homepage mirror editor",
   "admin.card.favicon": "Favicon",
