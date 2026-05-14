@@ -88,6 +88,11 @@ const ADAPTER_HOST_MAP: Record<string, { host: string; baseUrl: string; name: st
     baseUrl: "https://www.vatican.va",
     name: "The Holy See — Catechism of the Catholic Church",
   },
+  "vatican.canonlaw": {
+    host: "vatican.va",
+    baseUrl: "https://www.vatican.va",
+    name: "The Holy See — Code of Canon Law (CIC 1983 + CCEO 1990)",
+  },
   "vatican.encyclicals": {
     host: "vatican.va",
     baseUrl: "https://www.vatican.va",
@@ -111,6 +116,7 @@ const ADAPTER_TARGET_ENTITY: Record<string, string> = {
   "credible.saints": "Saint",
   "vatican.councils": "LiturgyEntry",
   "vatican.catechism": "LiturgyEntry",
+  "vatican.canonlaw": "LiturgyEntry",
   "vatican.encyclicals": "LiturgyEntry",
 };
 

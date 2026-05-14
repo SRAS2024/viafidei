@@ -5,3 +5,4 @@ export { AccountRequiredButton } from "./AccountRequiredButton";
 export { ExpandablePrayer } from "./ExpandablePrayer";
 export { ExpandableTimelineEvent } from "./ExpandableTimelineEvent";
 export { Pagination } from "./Pagination";
+export { OfficialSourceLink } from "./OfficialSourceLink";

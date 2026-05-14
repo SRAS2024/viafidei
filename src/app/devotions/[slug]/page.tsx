@@ -6,7 +6,7 @@ import { resolveGuidePrayers, type GuidePrayerEntry } from "@/lib/data/guide-pra
 import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
-import { ExpandablePrayer } from "@/components/ui";
+import { ExpandablePrayer, OfficialSourceLink } from "@/components/ui";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 
@@ -130,6 +130,8 @@ export default async function DevotionDetailPage({ params }: Props) {
           </div>
         </section>
       ) : null}
+
+      <OfficialSourceLink url={devotion.externalSourceKey} />
     </div>
   );
 }

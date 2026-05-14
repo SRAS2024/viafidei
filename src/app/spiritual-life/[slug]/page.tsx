@@ -4,7 +4,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedSpiritualLifeGuideBySlug } from "@/lib/data/spiritual-life";
 import { resolveGuidePrayers, type GuidePrayerEntry } from "@/lib/data/guide-prayers";
 import { requireUser } from "@/lib/auth";
-import { ExpandablePrayer } from "@/components/ui";
+import { ExpandablePrayer, OfficialSourceLink } from "@/components/ui";
 import { AddGoalButton } from "../_components";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
@@ -157,6 +157,8 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
           </AddGoalButton>
         </div>
       ) : null}
+
+      <OfficialSourceLink url={guide.externalSourceKey} />
     </div>
   );
 }

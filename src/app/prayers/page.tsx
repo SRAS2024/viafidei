@@ -13,6 +13,7 @@ import {
   PRAYER_CATEGORY_ORDER,
   type PrayerCategory,
 } from "@/lib/ingestion/sources/categorize";
+import { PrayerFilterDropdown } from "./_components/PrayerFilterDropdown";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Prayers" };
@@ -76,31 +77,17 @@ export default async function PrayersPage({ searchParams }: Props) {
         subtitle={t("prayers.subtitle")}
       />
 
-      <div className="mb-8 flex flex-wrap justify-center gap-2 px-2">
-        <Link
-          href="/prayers"
-          aria-current={filter === undefined ? "page" : undefined}
-          className={`vf-btn !py-1.5 !px-4 text-xs ${
-            filter === undefined ? "vf-btn-primary" : "vf-btn-ghost"
-          }`}
-        >
-          All
-        </Link>
-        {PRAYER_CATEGORY_ORDER.map((c) => {
-          const active = c === filter;
-          return (
-            <Link
-              key={c}
-              href={`/prayers?filter=${encodeURIComponent(c)}`}
-              aria-current={active ? "page" : undefined}
-              className={`vf-btn !py-1.5 !px-4 text-xs ${
-                active ? "vf-btn-primary" : "vf-btn-ghost"
-              }`}
-            >
-              {PRAYER_CATEGORY_LABELS[c]}
-            </Link>
-          );
-        })}
+      <div className="mb-8 flex justify-center px-2">
+        <PrayerFilterDropdown
+          selected={filter ?? null}
+          options={[
+            { value: null, label: "All prayers" },
+            ...PRAYER_CATEGORY_ORDER.map((c) => ({
+              value: c,
+              label: PRAYER_CATEGORY_LABELS[c],
+            })),
+          ]}
+        />
       </div>
 
       {total > 0 && (

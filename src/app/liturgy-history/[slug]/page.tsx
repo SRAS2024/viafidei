@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedLiturgyBySlug } from "@/lib/data/liturgy";
+import { OfficialSourceLink } from "@/components/ui";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
@@ -69,20 +70,26 @@ export default async function LiturgyDetailPage({ params }: Props) {
         </Link>
       </div>
 
-      <section className="mb-10 text-center">
+      <section className="mb-10 px-2 text-center">
         <p className="vf-eyebrow">{kindLabel}</p>
         <div className="vf-rule mx-auto my-5" />
-        <h1 className="font-display text-5xl leading-tight text-ink sm:text-6xl">{title}</h1>
+        <h1 className="break-words font-display text-3xl leading-tight text-ink sm:text-5xl md:text-6xl">
+          {title}
+        </h1>
         {summary ? (
-          <p className="mx-auto mt-5 max-w-reading font-serif text-lg leading-relaxed text-ink-soft">
+          <p className="mx-auto mt-5 max-w-reading font-serif text-base leading-relaxed text-ink-soft sm:text-lg">
             {summary}
           </p>
         ) : null}
       </section>
 
-      <article className="vf-card rounded-sm p-8 prose prose-serif max-w-none">
-        <div className="whitespace-pre-wrap font-serif leading-relaxed text-ink-soft">{body}</div>
+      <article className="vf-card rounded-sm p-6 prose prose-serif max-w-none sm:p-8">
+        <div className="whitespace-pre-wrap break-words font-serif leading-relaxed text-ink-soft">
+          {body}
+        </div>
       </article>
+
+      <OfficialSourceLink url={entry.externalSourceKey} />
     </div>
   );
 }

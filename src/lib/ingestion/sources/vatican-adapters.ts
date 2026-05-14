@@ -1129,6 +1129,59 @@ export function buildVaticanCatechismCrawler(): SourceAdapter {
 }
 
 /**
+ * Dedicated crawler for the full Code of Canon Law (CIC, 1983) and the
+ * Code of Canons of the Eastern Churches (CCEO, 1990). Both codes are
+ * published canonically by the Holy See in stable archive paths:
+ *   • /archive/cod-iuris-canonici/eng/documents/...  (Latin Church, EN)
+ *   • /archive/cod-iuris-canonici/ita/documents/...  (Latin Church, IT)
+ *   • /archive/cod-iuris-canonici/esp/documents/...  (Latin Church, ES)
+ *   • /archive/cod-iuris-canonici/cic_index_lt.html  (Latin original)
+ *   • /archive/ENG1104/_INDEX.HTM                    (CCEO, EN)
+ * We walk the indexes and let each canon-range page produce a LiturgyEntry
+ * with slug prefix `canon-law-` for the backlog counter. Same dedup /
+ * skip-on-existing semantics as every other adapter — archived rows
+ * never get re-ingested.
+ */
+export function buildVaticanCanonLawCrawler(): SourceAdapter {
+  return buildVaticanCrawler({
+    key: "vatican.canonlaw",
+    description: "The full Code of Canon Law (CIC 1983) and Code of Canons of the Eastern Churches (CCEO)",
+    kind: "liturgy",
+    indexUrls: [
+      "https://www.vatican.va/archive/cod-iuris-canonici/cic_index_lt.html",
+      "https://www.vatican.va/archive/cod-iuris-canonici/eng/documents/cic_index_en.html",
+      "https://www.vatican.va/archive/cod-iuris-canonici/ita/documents/cic_index_it.html",
+      "https://www.vatican.va/archive/cod-iuris-canonici/esp/documents/cic_index_sp.html",
+      "https://www.vatican.va/archive/cod-iuris-canonici/fra/documents/cic_index_fr.html",
+      "https://www.vatican.va/archive/cod-iuris-canonici/por/documents/cic_index_po.html",
+      "https://www.vatican.va/archive/cod-iuris-canonici/deu/documents/cic_index_ge.html",
+      // Code of Canons of the Eastern Churches (CCEO, 1990).
+      "https://www.vatican.va/archive/ENG1104/_INDEX.HTM",
+    ],
+    toItem: ({ url, title, description, bodyText }): IngestedLiturgy | null => {
+      const body = bodyText || description || "";
+      if (body.length < 60) return null;
+      // Accept any URL inside the canon-law archive or the CCEO archive.
+      const inCanonLaw =
+        /\/archive\/cod-iuris-canonici\//i.test(url) ||
+        /\/archive\/ENG1104\//i.test(url);
+      if (!inCanonLaw) return null;
+      const slugBase = buildSlug(title) || buildSlug(url);
+      const slug = slugBase.startsWith("canon-law-") ? slugBase : `canon-law-${slugBase}`;
+      return {
+        kind: "liturgy",
+        slug,
+        liturgyKind: "GLOSSARY",
+        title,
+        summary: description ?? undefined,
+        body,
+        externalSourceKey: urlToExternalKey(url),
+      };
+    },
+  });
+}
+
+/**
  * Dedicated crawler for papal encyclicals. The Holy See publishes every
  * encyclical at /holy_father/<pope>/encyclicals/documents/hf_<pope>_<date>_<name>_<lang>.html
  * — a stable pattern we can recognise from URL alone. Slug prefix
@@ -1141,17 +1194,24 @@ export function buildVaticanEncyclicalsCrawler(): SourceAdapter {
     kind: "liturgy",
     indexUrls: [
       "https://www.vatican.va/holy_father/index.htm",
-      // John Paul II encyclical archive
-      "https://www.vatican.va/holy_father/john_paul_ii/encyclicals/index.htm",
-      // Benedict XVI encyclical archive
-      "https://www.vatican.va/holy_father/benedict_xvi/encyclicals/index.htm",
-      // Francis encyclical archive
-      "https://www.vatican.va/holy_father/francesco/encyclicals/index.htm",
-      // Paul VI and Pius XII archives
-      "https://www.vatican.va/holy_father/paul_vi/encyclicals/index.htm",
-      "https://www.vatican.va/holy_father/pius_xii/encyclicals/index.htm",
-      "https://www.vatican.va/holy_father/pius_xi/encyclicals/index.htm",
+      // Every pope from Pius IX (the first to issue an encyclical
+      // archived on vatican.va) through Leo XIV. The Holy See publishes
+      // each pope's encyclicals at the same URL pattern, so adding the
+      // index page is enough — the per-document crawl picks up the
+      // individual encyclicals from the link list.
+      "https://www.vatican.va/holy_father/pius_ix/encyclicals/index.htm",
       "https://www.vatican.va/holy_father/leo_xiii/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/pius_x/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/benedict_xv/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/pius_xi/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/pius_xii/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/john_xxiii/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/paul_vi/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/john_paul_i/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/john_paul_ii/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/benedict_xvi/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/francesco/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/leo_xiv/encyclicals/index.htm",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedLiturgy | null => {
       const body = bodyText || description || "";
@@ -1197,11 +1257,14 @@ export function buildAllVaticanCrawlers(): SourceAdapter[] {
     // grow past what bishops'-conference sites alone publish.
     buildCredibleCatholicPrayersCrawler(),
     buildCredibleCatholicSaintsCrawler(),
-    // Church-documents bucket: conciliar texts, the full Catechism, and
-    // every encyclical the Holy See archives. Each one stamps a slug
-    // prefix the admin backlog tracker counts under "Church Documents".
+    // Church-documents bucket: conciliar texts, the full Catechism, the
+    // full Code of Canon Law (CIC 1983) and Code of Canons of the Eastern
+    // Churches (CCEO 1990), plus every encyclical the Holy See archives.
+    // Each one stamps a slug prefix the admin backlog tracker counts
+    // under "Church Documents".
     buildVaticanCouncilsCrawler(),
     buildVaticanCatechismCrawler(),
+    buildVaticanCanonLawCrawler(),
     buildVaticanEncyclicalsCrawler(),
   ];
 }

@@ -437,20 +437,26 @@ empty:
 - **Prayers** (`/prayers`, `/prayers/[slug]`). Categorised prayer
   catalogue with pagination, filtered by the user's selected Catholic
   rite (rite-neutral prayers always render; rite-tagged prayers from
-  another rite are hidden). A row of category chips at the top filters
-  the grid by canonical Catholic prayer type — **Marian**,
+  another rite are hidden). A single **Filter** dropdown at the top of
+  the grid lists the canonical Catholic prayer types — **Marian**,
   **Christ-centered**, **Angelic**, **Eucharistic**, **Sacramental**,
   **Rosary**, **Chaplets**, **Novenas**, **Litanies**, **Liturgical**,
   **Seasonal**, **Daily**, **Lord's Prayer**, and **Traditional
-  Prayers**. The chips are real query-string filters: the matching
-  category is resolved per-prayer via
-  `resolvePrayerCategory` (`src/lib/data/prayers.ts`), which runs the
-  same `categorizePrayer` heuristic used by the ingestion pipeline
+  Prayers**. The dropdown is used on every breakpoint — mobile and
+  desktop — so the page stays calm even as the catalog grows.
+  Selecting an option is a real server navigation
+  (`?filter=<category>`); the matching category is resolved per-prayer
+  via `resolvePrayerCategory` (`src/lib/data/prayers.ts`), which runs
+  the same `categorizePrayer` heuristic used by the ingestion pipeline
   so the public filter and the seed-time category never disagree.
   Each prayer detail page shows the actual prayer text — pages that
   carry only a source byline (e.g. "Catholic Australia, a work of
   the Australian Catholic Bishops Conference") are now rejected at
-  ingestion and never reach this list.
+  ingestion and never reach this list. At the bottom of every prayer
+  / saint / apparition / devotion / liturgy / sacrament detail page
+  the `<OfficialSourceLink>` component renders a direct link back to
+  the original Holy See / bishops'-conference URL when the row was
+  ingested with an `externalSourceKey`.
 - **Sacraments** (`/sacraments`, `/sacraments/[slug]`). Surfaces the
   seven sacraments and the four major personal consecrations (Marian
   de Montfort, St. Joseph, Holy Family, Sacred Heart) as
@@ -613,7 +619,8 @@ The system has full ingestion support across the app:
 | `vatican.guides`        | `SpiritualLifeGuide` | Spiritual-life guides (rosary, confession, vocation discernment)    |
 | `vatican.councils`      | `LiturgyEntry`       | Conciliar documents from `/archive/hist_councils/` (slug `council-`) |
 | `vatican.catechism`     | `LiturgyEntry`       | Full Catechism of the Catholic Church (slug `catechism-`)           |
-| `vatican.encyclicals`   | `LiturgyEntry`       | Every papal encyclical archive on vatican.va (slug `encyclical-`)   |
+| `vatican.canonlaw`      | `LiturgyEntry`       | Full Code of Canon Law (CIC 1983) and Code of Canons of the Eastern Churches (CCEO 1990) in seven Holy-See languages (slug `canon-law-`) |
+| `vatican.encyclicals`   | `LiturgyEntry`       | Every papal encyclical archive on vatican.va, every pope from Pius IX through Leo XIV (slug `encyclical-`) |
 
 Each ingested record carries source metadata: `externalSourceKey` (the
 upstream URL — used for duplicate detection), `sourceHost` (parsed from
