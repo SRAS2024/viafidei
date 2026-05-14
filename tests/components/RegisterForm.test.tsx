@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { axe } from "jest-axe";
 import { RegisterForm } from "@/app/register/RegisterForm";
 
 const labels = {
@@ -80,5 +81,11 @@ describe("RegisterForm privacy notice", () => {
     fireEvent.change(confirm, { target: { value: "Strong1Pass" } });
     expect(screen.queryByText(labels.passwordRequirements)).not.toBeInTheDocument();
     expect(screen.queryByText(labels.mismatch)).not.toBeInTheDocument();
+  });
+
+  it("has no obvious accessibility violations in its initial render", async () => {
+    const { container } = render(<RegisterForm labels={labels} />);
+    const results = await axe(container);
+    expect(results.violations).toEqual([]);
   });
 });

@@ -4,6 +4,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { axe } from "jest-axe";
 import { ForgotPasswordForm } from "@/app/forgot-password/ForgotPasswordForm";
 
 // The forgot-password form must NEVER show success when the server
@@ -82,5 +83,11 @@ describe("ForgotPasswordForm", () => {
     await submit("ghost@x.test");
     expect(await screen.findByText(LABELS.notFound)).toBeInTheDocument();
     expect(screen.queryByText(/Reset email sent to/)).not.toBeInTheDocument();
+  });
+
+  it("has no obvious accessibility violations in its initial render", async () => {
+    const { container } = render(<ForgotPasswordForm labels={LABELS} />);
+    const results = await axe(container);
+    expect(results.violations).toEqual([]);
   });
 });
