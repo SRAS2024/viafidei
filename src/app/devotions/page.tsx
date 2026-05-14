@@ -41,7 +41,7 @@ export default async function DevotionsPage({
         subtitle={t("devotions.subtitle")}
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {devotions.length === 0 ? (
           <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
             Devotion library will appear here as it is seeded and published.
@@ -53,10 +53,14 @@ export default async function DevotionsPage({
             const summary = tr?.summary ?? d.summary;
             return (
               <Link key={d.id} href={`/devotions/${d.slug}`}>
-                <article className="vf-card h-full rounded-sm p-7 transition hover:border-ink/30 hover:-translate-y-0.5">
-                  {d.durationMinutes ? <p className="vf-eyebrow">{d.durationMinutes} min</p> : null}
-                  <h2 className="mt-3 font-display text-2xl">{title}</h2>
-                  <p className="mt-4 line-clamp-4 font-serif text-ink-soft">{summary}</p>
+                <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-7">
+                  {d.durationMinutes ? (
+                    <p className="vf-eyebrow">{d.durationMinutes} min</p>
+                  ) : null}
+                  <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{title}</h2>
+                  <p className="mt-4 line-clamp-4 font-serif leading-relaxed text-ink-soft">
+                    {summary}
+                  </p>
                 </article>
               </Link>
             );

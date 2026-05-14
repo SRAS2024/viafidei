@@ -98,6 +98,9 @@ edited blindly:
 │   │   │                      # /login, /register, /forgot-password,
 │   │   │                      # /reset-password, /verify-email, /privacy
 │   │   ├── profile/           # /profile, /profile/journal, /profile/goals,
+│   │   │                      # /profile/goals/completed (preserved
+│   │   │                      # history of finished goals + their
+│   │   │                      # checklists and journal entries),
 │   │   │                      # /profile/milestones, /profile/prayers,
 │   │   │                      # /profile/saints, /profile/apparitions,
 │   │   │                      # /profile/devotions, /profile/parishes,
@@ -395,7 +398,14 @@ The Prisma schema (`prisma/schema.prisma`) defines, among others:
 
 - **Identity**: `User`, `Session`, `Profile`, `PasswordResetToken`,
   `EmailVerificationToken`.
-- **User content**: `JournalEntry`, `Goal`, `GoalChecklistItem`, `Milestone`.
+- **User content**: `JournalEntry` (with an optional `goalId` so entries
+  can be attached to a goal and preserved as part of that goal's
+  spiritual history), `Goal` (with a `journalEntries` back-relation
+  and a `status` of `ACTIVE` → `COMPLETED` / `OVERDUE` / `ARCHIVED`),
+  `GoalChecklistItem`, `Milestone`. **Completed goals are never
+  deleted automatically** — they accumulate under the profile's
+  Completed Goals view alongside their original checklist and any
+  journal entries the user wrote inside them.
 - **Catalog**: `Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,
   `LiturgyEntry`, `SpiritualLifeGuide`, `DailyLiturgy`, each with a
   `*Translation` sibling where applicable.
@@ -423,19 +433,42 @@ empty:
 - **Prayers** (`/prayers`, `/prayers/[slug]`). Categorised prayer
   catalogue with pagination, filtered by the user's selected Catholic
   rite (rite-neutral prayers always render; rite-tagged prayers from
-  another rite are hidden).
-- **Sacraments** (`/sacraments`, `/sacraments/[slug]`). New dedicated
-  tab. Surfaces the seven sacraments and the four major personal
-  consecrations (Marian de Montfort, St. Joseph, Holy Family, Sacred
-  Heart) as `SpiritualLifeGuide` rows whose slug starts with
-  `sacrament-` or `consecration-`. Each card carries a hand-drawn SVG
-  badge (water-and-shell for Baptism, dove for Confirmation, chalice
-  for the Eucharist, confessional grille for Reconciliation, vial of
-  oil for Anointing of the Sick, chasuble for Holy Orders,
-  interlocking rings for Matrimony, crowned M for Marian
-  consecration, lily + carpenter's square for St Joseph, three
-  radiating hearts for the Holy Family, thorn-wreathed heart for the
-  Sacred Heart).
+  another rite are hidden). A row of category chips at the top filters
+  the grid by canonical Catholic prayer type — **Marian**,
+  **Christ-centered**, **Angelic**, **Eucharistic**, **Sacramental**,
+  **Rosary**, **Chaplets**, **Novenas**, **Litanies**, **Liturgical**,
+  **Seasonal**, **Daily**, **Lord's Prayer**, and **Traditional
+  Prayers**. The chips are real query-string filters: the matching
+  category is resolved per-prayer via
+  `resolvePrayerCategory` (`src/lib/data/prayers.ts`), which runs the
+  same `categorizePrayer` heuristic used by the ingestion pipeline
+  so the public filter and the seed-time category never disagree.
+  Each prayer detail page shows the actual prayer text — pages that
+  carry only a source byline (e.g. "Catholic Australia, a work of
+  the Australian Catholic Bishops Conference") are now rejected at
+  ingestion and never reach this list.
+- **Sacraments** (`/sacraments`, `/sacraments/[slug]`). Surfaces the
+  seven sacraments and the four major personal consecrations (Marian
+  de Montfort, St. Joseph, Holy Family, Sacred Heart) as
+  `SpiritualLifeGuide` rows whose slug starts with `sacrament-` or
+  `consecration-`. Each card carries a hand-drawn SVG badge
+  (water-and-shell for Baptism, dove for Confirmation, chalice for
+  the Eucharist, confessional grille for Reconciliation, vial of oil
+  for Anointing of the Sick, chasuble for Holy Orders, interlocking
+  rings for Matrimony, crowned M for Marian consecration, lily +
+  carpenter's square for St Joseph, three radiating hearts for the
+  Holy Family, thorn-wreathed heart for the Sacred Heart). The
+  **Reconciliation** card ships with a full Confession guide —
+  preparation, examination of conscience against the Ten
+  Commandments, contrition and firm purpose of amendment, the rite
+  itself (`"Bless me, Father, for I have sinned…"`), the Act of
+  Contrition, absolution, the penance, and the spiritual follow-up.
+  When a user creates a Confession goal (`monthly-confession`), the
+  same nine-step flow is pre-populated as the goal's checklist.
+  Consecrations carry their daily readings and prayers (e.g. the
+  four-week structure of de Montfort's True Devotion) in the
+  guide steps; public copy explains the spiritual purpose of the
+  consecration without claiming a profile-badge reward.
 - **Spiritual-life guides** (`/spiritual-life`,
   `/spiritual-life/[slug]`). Each guide loads from
   `SpiritualLifeGuide`, with steps stored as structured JSON. When a
@@ -447,10 +480,19 @@ empty:
   / Stephen / Paul — and falls through to alphabetical for the rest.
   Three pill filters at the top of the page narrow to **Saints**,
   **Our Lady**, or **Angels** (e.g. archangels and the named angels).
-  Each saint detail page parses the biography into labelled sections
-  (`src/lib/data/saint-sections.ts`). The list cards now also display
-  each saint's `patronages` so visitors can see at a glance who each
-  is the patron of.
+  The filtering is two-phase: Postgres performs a coarse
+  case-insensitive match on `canonicalName`, and the JS
+  `categorizeSaintByName` helper then re-classifies each row so the
+  default **Saints** tab never duplicates entries that belong under
+  **Our Lady** or **Angels**. Marian apparitions render in a separate
+  section underneath with their own pagination. Each saint detail
+  page parses the biography into labelled sections
+  (`src/lib/data/saint-sections.ts`). List cards display the saint's
+  feast day, biography excerpt, and `patronages` so visitors can see
+  at a glance who each is the patron of. The ingestion pipeline now
+  rejects "EWTN live programming" / "Catholic Australia, a work of"
+  / TV-listing pages so unrelated content never lands in the Saints,
+  Our Lady, or Angels buckets.
 - **Liturgy** (`/liturgy`). New dedicated tab. Surfaces only true
   liturgical content from `LiturgyEntry` — the Mass, the liturgical
   year, the rites of marriage / funerals / ordination, liturgical
@@ -579,15 +621,73 @@ circuits unchanged runs), `category` / `kind` for indexing, and a
 ### Validation and auto-publish workflow
 
 Every batch is sent through `sanitize()` and `validateItem()` before
-persistence: incomplete records (missing slug, title, or body shorter
-than the kind-specific minimum) are rejected, parish names that look
-non-Catholic (Baptist / Methodist / Lutheran / etc.) are rejected, and
-any `externalSourceKey` that points off-allowlist is rejected.
+persistence. The validator is intentionally strict — quality over
+quantity is an explicit project priority — and rejects, in addition
+to the obvious schema problems:
+
+- **Source bylines and navigation copy.** Pages that read "Catholic
+  Australia, a work of the Australian Catholic Bishops Conference",
+  "EWTN is the global Catholic Network", "Subscribe to our
+  newsletter", "Donate now", or "404 Not Found" are rejected via a
+  curated set of `NON_CONTENT_PHRASES` regular expressions
+  (`src/lib/ingestion/validate.ts`).
+- **Prayers without prayer language.** A page tagged as a prayer
+  must contain at least one prayer-marker word — `Amen`, `Hail`,
+  `pray`, `Let us pray`, `Lord have mercy`, `Soul of Christ`,
+  `Mother of God`, the `I believe / I confess` family, etc. Pure
+  source-summary text is refused.
+- **Saints without biographical vocabulary.** A page tagged as a
+  saint must contain biographical markers (`Saint`, `Blessed`,
+  `martyr`, `bishop`, `Doctor`, `born`, `died`, `canonized`,
+  `feast`) and must not look like a catalog index
+  ("Catholic Saints", "Patron Saints Directory").
+- **Marian apparitions without Marian vocabulary.** The summary
+  must reference Mary, Our Lady, the Blessed Virgin, an
+  appearance, vision, or apparition — and `approvedStatus`
+  must be one of the canonical Church statuses (`Approved`,
+  `Constat de supernaturalitate`, `Worthy of belief`, etc.).
+- **Devotions without a devotional practice.** A devotion must
+  mention rosary, novena, chaplet, consecration, adoration, the
+  stations of the cross, first Friday / Saturday, the scapular,
+  the Miraculous Medal, or otherwise contain `prayer` /
+  `meditation`.
+- **Length floors per kind.** Prayer body ≥ 40 characters, saint
+  biography ≥ 80, apparition summary ≥ 60, devotion summary ≥ 40,
+  liturgy body ≥ 80, guide summary ≥ 40 — so the public catalog
+  feels consistent and complete rather than a mix of one-line
+  stubs and full entries.
+- **Parish non-Catholic rejection.** Baptist / Methodist /
+  Lutheran / Presbyterian / Orthodox / Anglican / Episcopal /
+  mosque / synagogue / temple / Hindu / Buddhist names are
+  refused; "Find a parish", "Parish locator", and "Parish
+  directory" navigation pages are refused.
+- **Off-allowlist external keys.** Any `externalSourceKey` URL
+  whose host is not in the Vatican allowlist is rejected.
 
 Surviving records are written with the configured initial status —
 `PUBLISHED`. The pipeline is auto-publishing: content that passes the
 credibility allowlist, the validator, and the dedup pass reaches the
 public site directly, no admin approval required.
+
+### Background cleanup pass
+
+A `cleanupMiscategorisedContent()` sweep
+(`src/lib/data/cleanup.ts`) runs on every `/api/cron/ingest` tick.
+It inspects every `PUBLISHED` row across all six content tables
+(Prayer, Saint, MarianApparition, Devotion, LiturgyEntry,
+SpiritualLifeGuide) and applies the same lexical heuristics the
+validator uses: rows whose title or body now reads as source
+summary, broadcast schedule, or newsletter blurb — or that fail
+the per-kind length floor / vocabulary check — are flipped to
+`ARCHIVED` so they no longer appear on the public site. Archiving
+(rather than deletion) is deliberate: an admin can review what
+was caught and either re-publish or hard-delete it.
+
+`archiveDuplicatePrayers()` runs alongside it to catch
+historical artefacts: rows that share the same content checksum
+but landed under different slugs (e.g. from older ingestion
+passes before checksums were enforced). The earliest row stays
+PUBLISHED; the later duplicates are archived.
 
 Manual edits are the only path that re-introduces a moderation step.
 The seven `update*` functions in `src/lib/data/admin-catalog.ts` use a

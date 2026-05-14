@@ -25,8 +25,84 @@ const PROTECTED_USER_KINDS: ReadonlySet<string> = new Set([
   "user",
 ]);
 
+/**
+ * Phrases that almost always mean a scraped page is a navigation, listing,
+ * source-summary, broadcast schedule, or newsletter rather than real
+ * devotional content. Any item whose title or body matches one of these
+ * is rejected before it can land in a content table.
+ */
+const NON_CONTENT_PHRASES: ReadonlyArray<RegExp> = [
+  // Generic site / source descriptions.
+  /\b(catholic\s+australia|catholic\s+answers|catholic\s+culture|catholic\s+news\s+agency|catholic\s+world\s+report|word\s+on\s+fire|ascension\s+press|the\s+catholic\s+thing|ewtn)\s*(,|\.|-|—|is)\s*(a\s+(work|service|publication|website|programme|program|ministry|apostolate)|an?\s+(initiative|outreach))/i,
+  /\bcatholic\s+bishops\s+conference\b.*\b(website|publication|directory)\b/i,
+  /\ba\s+work\s+of\s+the\s+(australian|us|usccb|cccb)\b/i,
+  // TV / radio / livestream descriptions.
+  /\b(ewtn\s+(live|television|radio|tv|programming|broadcast)|live\s+stream(?:ed)?|broadcast\s+schedule|on\s+demand|episode\s+\d+|series\s+overview|television\s+programs?|tv\s+programs?)\b/i,
+  /\b(daily\s+mass\s+broadcast|catholic\s+television|radio\s+ministry)\b/i,
+  // Newsletter / subscribe / event-listing copy.
+  /\b(subscribe\s+to\s+our\s+(newsletter|email|mailing)|sign\s+up\s+for\s+(our\s+)?(newsletter|updates)|monthly\s+newsletter|weekly\s+newsletter|our\s+(newsletter|e-?mail\s+list))\b/i,
+  /\b(event\s+listings?|upcoming\s+events|schedule\s+of\s+events|conference\s+registration|register\s+(now|today)|tickets\s+available)\b/i,
+  // Donation appeals & shop pages.
+  /\b(donate\s+(now|today)|make\s+a\s+donation|donation\s+appeal|gift\s+shop|online\s+store|catholic\s+bookstore|order\s+(now|today)|add\s+to\s+cart)\b/i,
+  // Generic page furniture.
+  /\b(404\s+not\s+found|page\s+not\s+found|access\s+denied|cookies?\s+policy|privacy\s+policy|terms\s+of\s+(use|service)|site\s*map|breadcrumb)\b/i,
+  // Bare article / blog-post stubs.
+  /\b(continue\s+reading|read\s+more|click\s+here\s+to\s+(read|learn)|the\s+article\s+(continues|appears)|excerpt\s+from)\b/i,
+];
+
 function nonEmpty(value: string | undefined | null): boolean {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+/**
+ * Returns true when the given haystack reads like navigation, a source
+ * summary, or broadcast copy rather than real Catholic content. Used to
+ * keep "EWTN is a Catholic television network." style blurbs out of the
+ * prayer, saint, and devotion tables.
+ */
+export function looksLikeNonContent(haystack: string): boolean {
+  return NON_CONTENT_PHRASES.some((re) => re.test(haystack));
+}
+
+const KNOWN_PRAYER_CATEGORIES: ReadonlySet<string> = new Set([
+  "Marian",
+  "Christ",
+  "Christological",
+  "Angelic",
+  "Sacramental",
+  "Seasonal",
+  "Daily",
+  "Dominical",
+  "Eucharistic",
+  "Trinitarian",
+  "Pneumatological",
+  "Theological Virtue",
+  "Liturgical",
+  "Litany",
+  "Rosary",
+  "Chaplet",
+  "Novena",
+  "Devotional",
+  "Penitential",
+  "Creedal",
+  "Traditional",
+]);
+
+const PRAYER_INSTRUCTION_MARKERS: ReadonlyArray<RegExp> = [
+  // Closing word.
+  /\bamen\b/i,
+  // Direct address of God / the saints.
+  /\b(o\s+lord|o\s+god|o\s+jesus|o\s+holy|o\s+mary|o\s+father|o\s+sacred|hail\b|blessed\b|lord\s+have\s+mercy|kyrie|sancte|sanctus|jesus\s+christ|christ\s+have\s+mercy)\b/i,
+  // Petition / praise verbs.
+  /\b(pray|grant|hear|have\s+mercy|deliver\s+us|hallowed|glory\s+be|we\s+beseech|veni|magnificat|deo\s+gratias|sanctify|save\s+me|preserve\s+us|protect\s+us|come\s+holy)\b/i,
+  // Liturgical / catechetical first-person formulas.
+  /\b(let\s+us\s+pray|in\s+the\s+name\s+of\s+the\s+father|i\s+(believe|confess|adore|offer|thank|love)|we\s+(believe|confess|adore|thank))\b/i,
+  // Anima-Christi / Marian-antiphon style direct invocations.
+  /\b((soul|body|blood|water|passion|heart)\s+of\s+christ|mother\s+of\s+(god|mercy)|queen\s+of\s+heaven|king\s+of\s+kings)\b/i,
+];
+
+function looksLikePrayer(body: string): boolean {
+  return PRAYER_INSTRUCTION_MARKERS.some((re) => re.test(body));
 }
 
 function validatePrayer(item: IngestedItem & { kind: "prayer" }): string | null {
@@ -34,23 +110,99 @@ function validatePrayer(item: IngestedItem & { kind: "prayer" }): string | null 
   if (!nonEmpty(item.defaultTitle)) return "Prayer defaultTitle is required";
   if (!nonEmpty(item.category)) return "Prayer category is required";
   if (!nonEmpty(item.body)) return "Prayer body is required";
-  if (item.body.length < 10) return "Prayer body looks too short";
+  // A real prayer carries more than a single-sentence summary; we keep
+  // the lower bound conservative so legitimate brief prayers
+  // (Sign of the Cross, the Glory Be) still pass.
+  if (item.body.trim().length < 40) return "Prayer body looks too short";
+  // The title must not look like a source byline ("Catholic Australia,
+  // a work of the Australian Catholic Bishops Conference") or program
+  // listing.
+  if (looksLikeNonContent(item.defaultTitle) || looksLikeNonContent(item.body)) {
+    return "Prayer looks like a source summary / navigation page, not a real prayer";
+  }
+  // A page that says nothing but "Catholic Australia, a work of the
+  // Australian Catholic Bishops Conference." should never reach the
+  // Prayers table. Require at least one prayer-marker word (Amen,
+  // O Lord, Hail, Glory be, "let us pray", etc.).
+  if (!looksLikePrayer(item.body)) {
+    return "Prayer body does not contain any recognisable prayer language";
+  }
+  // Loose schema: keep ingestion-supplied categories that match the
+  // recognised set, but accept anything truthy for backward compatibility
+  // with legacy seeds.
+  if (item.category.length > 64) return "Prayer category looks unusable";
   return null;
+}
+
+const SAINT_BIOGRAPHY_MARKERS: ReadonlyArray<RegExp> = [
+  /\b(saint|st\.?|blessed|bl\.?|venerable|martyr|virgin|priest|monk|nun|abbot|bishop|pope|doctor\s+of\s+the\s+church)\b/i,
+  /\b(born|died|canon(ized|ised)|beatif(ied|ication)|feast\s+day|patron(ess)?\s+(of|saint))\b/i,
+  /\b(century|in\s+\d{3,4}|\d{3,4}\s*(AD|BC|CE))\b/i,
+];
+
+function looksLikeSaintBiography(text: string): boolean {
+  return SAINT_BIOGRAPHY_MARKERS.some((re) => re.test(text));
 }
 
 function validateSaint(item: IngestedItem & { kind: "saint" }): string | null {
   if (!nonEmpty(item.slug)) return "Saint slug is required";
   if (!nonEmpty(item.canonicalName)) return "Saint canonicalName is required";
   if (!nonEmpty(item.biography)) return "Saint biography is required";
-  if (item.biography.length < 20) return "Saint biography looks too short";
+  // Saint cards in the catalog need enough body to give "a well-rounded
+  // sense of the saint's life" — reject one-line stubs.
+  if (item.biography.trim().length < 80) return "Saint biography looks too short";
+  if (looksLikeNonContent(item.canonicalName) || looksLikeNonContent(item.biography)) {
+    return "Saint looks like a TV program listing / source summary";
+  }
+  // The biography has to actually talk about a holy person. Pages whose
+  // body is just "EWTN is the global Catholic Network" should not land in
+  // the Saint table.
+  if (!looksLikeSaintBiography(item.biography)) {
+    return "Saint biography does not read like a saint biography";
+  }
+  // canonicalName must contain the saint's name; a generic title like
+  // "Catholic Saints" or "Patron Saints" is a navigation page, not a
+  // saint.
+  if (/^(catholic\s+saints?|patron\s+saints?|saints?\s+(directory|list|index))/i.test(item.canonicalName)) {
+    return "Saint canonicalName looks like a directory page";
+  }
   return null;
 }
+
+const APPARITION_APPROVED_STATUSES: ReadonlySet<string> = new Set([
+  "Approved",
+  "Constat de supernaturalitate",
+  "Non constat de supernaturalitate",
+  "Constat de non supernaturalitate",
+  "Worthy of belief",
+  "Devotional approval",
+  "Pending",
+  "Under investigation",
+  "Not approved",
+]);
 
 function validateApparition(item: IngestedItem & { kind: "apparition" }): string | null {
   if (!nonEmpty(item.slug)) return "Apparition slug is required";
   if (!nonEmpty(item.title)) return "Apparition title is required";
   if (!nonEmpty(item.summary)) return "Apparition summary is required";
   if (!nonEmpty(item.approvedStatus)) return "Apparition approvedStatus is required";
+  if (item.summary.trim().length < 60) return "Apparition summary looks too short";
+  if (looksLikeNonContent(item.title) || looksLikeNonContent(item.summary)) {
+    return "Apparition looks like a source summary / page navigation";
+  }
+  // The summary should mention the apparition's particulars — Mary, Our
+  // Lady, the Blessed Virgin, an appearance / vision, or the name of
+  // the seer.
+  if (
+    !/\b(mary|our\s+lady|blessed\s+virgin|virgin|madonna|theotokos|nuestra\s+señora|notre\s+dame|appear(ed|ance)|apparition|vision)\b/i.test(
+      item.summary,
+    )
+  ) {
+    return "Apparition summary does not reference Marian apparition language";
+  }
+  if (!APPARITION_APPROVED_STATUSES.has(item.approvedStatus.trim())) {
+    return `Apparition approvedStatus '${item.approvedStatus}' is not a recognised canonical status`;
+  }
   return null;
 }
 
@@ -58,9 +210,6 @@ function validateParish(item: IngestedItem & { kind: "parish" }): string | null 
   if (!nonEmpty(item.slug)) return "Parish slug is required";
   if (!nonEmpty(item.name)) return "Parish name is required";
   if (item.name.trim().length < 3) return "Parish name looks too short";
-  // Reject obviously-non-Catholic naming. Approved hosts are already gated,
-  // but an archdiocesan site can include cross-traditional listings and we
-  // don't want those landing in the parish table.
   if (
     /baptist|methodist|lutheran|presbyterian|orthodox|anglican|episcopal|protestant|mosque|synagogue|temple|hindu|buddhist/i.test(
       item.name,
@@ -68,8 +217,6 @@ function validateParish(item: IngestedItem & { kind: "parish" }): string | null 
   ) {
     return "Parish name suggests a non-Catholic place of worship";
   }
-  // A bare landing-page title isn't useful for the locator. Reject the
-  // common "Find a parish" / "Parish locator" titles outright.
   if (/^(find|search|locate|browse|all)\s+(a\s+)?paris/i.test(item.name)) {
     return "Parish name looks like a navigation page";
   }
@@ -85,13 +232,26 @@ function validateParish(item: IngestedItem & { kind: "parish" }): string | null 
   return null;
 }
 
+const DEVOTION_MARKERS: ReadonlyArray<RegExp> = [
+  /\b(devotion|rosary|novena|chaplet|consecration|adoration|holy\s+hour|stations\s+of\s+the\s+cross|via\s+crucis|first\s+(friday|saturday)|scapular|brown\s+scapular|miraculous\s+medal)\b/i,
+  /\b(prayer|prayers|meditation|pray)\b/i,
+];
+
 function validateDevotion(item: IngestedItem & { kind: "devotion" }): string | null {
   if (!nonEmpty(item.slug)) return "Devotion slug is required";
   if (!nonEmpty(item.title)) return "Devotion title is required";
   if (!nonEmpty(item.summary)) return "Devotion summary is required";
-  if (item.summary.length < 20) return "Devotion summary looks too short";
+  if (item.summary.trim().length < 40) return "Devotion summary looks too short";
   if (item.durationMinutes !== undefined && item.durationMinutes <= 0) {
     return "Devotion durationMinutes must be positive";
+  }
+  if (looksLikeNonContent(item.title) || looksLikeNonContent(item.summary)) {
+    return "Devotion looks like a source summary / broadcast description";
+  }
+  // The summary needs to talk about a devotional practice; otherwise we
+  // are simply absorbing a generic Catholic-website blurb.
+  if (!DEVOTION_MARKERS.some((re) => re.test(`${item.title} ${item.summary}`))) {
+    return "Devotion does not look like a Catholic devotional practice";
   }
   return null;
 }
@@ -112,9 +272,12 @@ function validateLiturgy(item: IngestedItem & { kind: "liturgy" }): string | nul
   if (!nonEmpty(item.slug)) return "Liturgy slug is required";
   if (!nonEmpty(item.title)) return "Liturgy title is required";
   if (!nonEmpty(item.body)) return "Liturgy body is required";
-  if (item.body.length < 30) return "Liturgy body looks too short";
+  if (item.body.length < 80) return "Liturgy body looks too short";
   if (!LITURGY_KINDS.has(item.liturgyKind)) {
     return `Liturgy kind '${item.liturgyKind}' is not a recognised LiturgyKind`;
+  }
+  if (looksLikeNonContent(item.title) || looksLikeNonContent(item.body)) {
+    return "Liturgy entry looks like a source summary / TV program listing";
   }
   return null;
 }
@@ -133,9 +296,12 @@ function validateGuide(item: IngestedItem & { kind: "guide" }): string | null {
   if (!nonEmpty(item.slug)) return "Guide slug is required";
   if (!nonEmpty(item.title)) return "Guide title is required";
   if (!nonEmpty(item.summary)) return "Guide summary is required";
-  if (item.summary.length < 20) return "Guide summary looks too short";
+  if (item.summary.length < 40) return "Guide summary looks too short";
   if (!GUIDE_KINDS.has(item.guideKind)) {
     return `Guide kind '${item.guideKind}' is not a recognised SpiritualLifeKind`;
+  }
+  if (looksLikeNonContent(item.title) || looksLikeNonContent(item.summary)) {
+    return "Guide looks like a source summary / broadcast description";
   }
   if (item.steps && item.steps.length > 0) {
     for (const s of item.steps) {
@@ -206,3 +372,5 @@ export function sanitize(items: IngestedItem[]): {
   }
   return { valid, rejected };
 }
+
+export { KNOWN_PRAYER_CATEGORIES };

@@ -87,10 +87,12 @@ export default async function PrayerDetailPage({ params }: Props) {
         </Link>
       </div>
 
-      <section className="mb-10 text-center">
+      <section className="mb-10 px-2 text-center">
         <p className="vf-eyebrow">{prayer.category}</p>
         <div className="vf-rule mx-auto my-5" />
-        <h1 className="font-display text-5xl leading-tight text-ink sm:text-6xl">{title}</h1>
+        <h1 className="break-words font-display text-3xl leading-tight text-ink sm:text-5xl md:text-6xl">
+          {title}
+        </h1>
       </section>
 
       <div className="mb-10 flex justify-center">
@@ -107,8 +109,10 @@ export default async function PrayerDetailPage({ params }: Props) {
         />
       </div>
 
-      <article className="vf-card rounded-sm p-8">
-        <p className="whitespace-pre-wrap font-serif text-lg leading-loose text-ink-soft">{body}</p>
+      <article className="vf-card rounded-sm p-6 sm:p-8">
+        <p className="whitespace-pre-wrap break-words font-serif text-base leading-loose text-ink-soft sm:text-lg">
+          {body}
+        </p>
       </article>
 
       {prayer.officialPrayer ? (

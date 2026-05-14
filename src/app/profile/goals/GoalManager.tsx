@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { GoalJournalPanel } from "./GoalJournalPanel";
 
 type ChecklistItem = {
   id: string;
@@ -156,6 +157,7 @@ function GoalCard({
   const [newItem, setNewItem] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [journalOpen, setJournalOpen] = useState(false);
 
   async function patchGoal(body: object) {
     const res = await fetch(`/api/goals/${goal.id}`, {
@@ -248,8 +250,8 @@ function GoalCard({
   }
 
   return (
-    <article className="vf-card rounded-sm p-6">
-      <div className="flex items-start justify-between gap-4">
+    <article className="vf-card rounded-sm p-5 sm:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3 sm:flex-nowrap">
         <div className="min-w-0 flex-1">
           {statusBadge(goal.status, goal.dueDate)}
           {editing ? (
@@ -288,9 +290,11 @@ function GoalCard({
             </div>
           ) : (
             <>
-              <h2 className="mt-2 font-display text-2xl">{goal.title}</h2>
+              <h2 className="mt-2 break-words font-display text-xl sm:text-2xl">
+                {goal.title}
+              </h2>
               {goal.description ? (
-                <p className="mt-1 font-serif text-ink-soft">{goal.description}</p>
+                <p className="mt-1 break-words font-serif text-ink-soft">{goal.description}</p>
               ) : null}
             </>
           )}
@@ -382,6 +386,18 @@ function GoalCard({
           </button>
         </div>
       ) : null}
+
+      <div className="mt-4 flex justify-end">
+        <button
+          type="button"
+          className="vf-nav-link text-xs"
+          onClick={() => setJournalOpen((v) => !v)}
+          aria-expanded={journalOpen}
+        >
+          {journalOpen ? "Hide journal" : "Open journal"}
+        </button>
+      </div>
+      <GoalJournalPanel goalId={goal.id} open={journalOpen} />
 
       <ConfirmDialog
         open={confirmDelete}

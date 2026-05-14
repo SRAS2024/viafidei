@@ -1,21 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { sanitize, validateItem } from "@/lib/ingestion/validate";
+import { sanitize, validateItem, looksLikeNonContent } from "@/lib/ingestion/validate";
 import type { IngestedItem } from "@/lib/ingestion/types";
 
 const validPrayer: IngestedItem = {
   kind: "prayer",
   slug: "our-father",
   defaultTitle: "Our Father",
-  category: "ordinary",
-  body: "Our Father, who art in heaven, hallowed be thy name.",
+  category: "Dominical",
+  body: "Our Father, who art in heaven, hallowed be thy name; thy kingdom come; thy will be done on earth as it is in heaven. Amen.",
 };
 
 const validSaint: IngestedItem = {
   kind: "saint",
   slug: "francis-of-assisi",
-  canonicalName: "Francis of Assisi",
+  canonicalName: "Saint Francis of Assisi",
   patronages: ["animals", "ecology"],
-  biography: "Francis was born in Assisi in 1181 and founded the Franciscan order.",
+  biography:
+    "Saint Francis was born in Assisi in 1181, embraced radical poverty after a conversion in 1206, and founded the Order of Friars Minor. He preached evangelical poverty and received the stigmata two years before his death in 1226.",
 };
 
 describe("validateItem", () => {
@@ -31,8 +32,27 @@ describe("validateItem", () => {
     expect(validateItem({ ...validPrayer, body: "short" })).toMatch(/too short/);
   });
 
+  it("rejects a prayer body that does not contain prayer language", () => {
+    expect(
+      validateItem({
+        ...validPrayer,
+        body: "This is a Catholic website maintained by a publishing house and updated daily.",
+      }),
+    ).toMatch(/prayer language/);
+  });
+
   it("rejects a saint biography that's too short", () => {
-    expect(validateItem({ ...validSaint, biography: "short" })).toMatch(/too short/);
+    expect(validateItem({ ...validSaint, biography: "Short biography." })).toMatch(/too short/);
+  });
+
+  it("rejects a saint biography that reads like a TV listing", () => {
+    expect(
+      validateItem({
+        ...validSaint,
+        biography:
+          "EWTN is the largest religious media network in the world, transmitting via television, radio, online streaming, and other digital programs to households worldwide every single day.",
+      }),
+    ).toMatch(/TV program|source summary|biography/);
   });
 
   it("rejects an apparition missing approvedStatus", () => {
@@ -41,10 +61,37 @@ describe("validateItem", () => {
         kind: "apparition",
         slug: "lourdes",
         title: "Our Lady of Lourdes",
-        summary: "Apparitions to Bernadette in Lourdes, 1858.",
+        summary:
+          "In 1858 the Blessed Virgin appeared to Saint Bernadette Soubirous eighteen times at Massabielle.",
         approvedStatus: "",
       }),
     ).toMatch(/approvedStatus/);
+  });
+
+  it("rejects an apparition with an unrecognised approval status", () => {
+    expect(
+      validateItem({
+        kind: "apparition",
+        slug: "place",
+        title: "Reported apparitions in some place",
+        summary:
+          "In 2024 the Blessed Virgin reportedly appeared and Our Lady spoke to several seers.",
+        approvedStatus: "unverified-blog-claim",
+      }),
+    ).toMatch(/canonical status/);
+  });
+
+  it("rejects an apparition that does not mention Marian language", () => {
+    expect(
+      validateItem({
+        kind: "apparition",
+        slug: "x",
+        title: "Some chapel that exists",
+        summary:
+          "This is a building in a small town that has been operating since the eighteenth century.",
+        approvedStatus: "Approved",
+      }),
+    ).toMatch(/Marian/);
   });
 
   it("rejects a parish website that isn't a real URL", () => {
@@ -64,10 +111,22 @@ describe("validateItem", () => {
         kind: "devotion",
         slug: "rosary",
         title: "Rosary",
-        summary: "The recitation of the Holy Rosary.",
+        summary:
+          "The recitation of the Holy Rosary, a devotion that meditates on the mysteries of Christ.",
         durationMinutes: -1,
       }),
     ).toMatch(/durationMinutes/);
+  });
+
+  it("rejects a devotion that reads like a newsletter blurb", () => {
+    expect(
+      validateItem({
+        kind: "devotion",
+        slug: "x",
+        title: "Subscribe to our newsletter",
+        summary: "Sign up for our monthly newsletter and receive Catholic updates from our editors.",
+      }),
+    ).toMatch(/source summary|newsletter|Catholic devotional/);
   });
 
   it("rejects an externalSourceKey from a non-approved host", () => {
@@ -80,9 +139,6 @@ describe("validateItem", () => {
   });
 
   it("refuses to ingest user-generated kinds (defense in depth)", () => {
-    // Cast through unknown — the union type forbids this at compile time,
-    // but the runtime guard exists exactly for the case where a future
-    // adapter widens the union without updating persistence.
     const sneaky = { kind: "journal" } as unknown as IngestedItem;
     expect(validateItem(sneaky)).toMatch(/protected user-generated content/);
   });
@@ -94,7 +150,7 @@ describe("validateItem", () => {
         slug: "council-of-nicaea",
         liturgyKind: "COUNCIL_TIMELINE",
         title: "First Council of Nicaea",
-        body: "Convoked in 325 AD by Constantine to address the teaching of Arius and to define Christ as consubstantial with the Father.",
+        body: "Convoked in 325 AD by the Emperor Constantine to address the teaching of the priest Arius, the First Council of Nicaea produced the Nicene Creed and defined Christ as consubstantial with the Father.",
       }),
     ).toBeNull();
   });
@@ -104,10 +160,9 @@ describe("validateItem", () => {
       validateItem({
         kind: "liturgy",
         slug: "x",
-        // intentionally bad enum value — runtime guard
         liturgyKind: "NOT_A_THING" as never,
         title: "x",
-        body: "Some body that is at least 30 characters long for the validator.",
+        body: "Some body that is sufficiently long to satisfy the length validator on liturgy bodies, comfortably above eighty characters.",
       }),
     ).toMatch(/not a recognised LiturgyKind/);
   });
@@ -119,7 +174,8 @@ describe("validateItem", () => {
         slug: "how-to-pray-the-rosary",
         guideKind: "ROSARY",
         title: "How to Pray the Rosary",
-        summary: "A step-by-step guide to praying the Holy Rosary in five decades.",
+        summary:
+          "A step-by-step guide to praying the Holy Rosary in five decades, with the Apostles' Creed, Our Father, Hail Mary, and the Glory Be.",
         steps: [
           {
             order: 1,
@@ -138,7 +194,7 @@ describe("validateItem", () => {
         slug: "x",
         guideKind: "NOT_A_KIND" as never,
         title: "x",
-        summary: "An ordinary summary that is long enough.",
+        summary: "An ordinary summary that is long enough to pass the length floor.",
       }),
     ).toMatch(/not a recognised SpiritualLifeKind/);
   });
@@ -149,11 +205,37 @@ describe("validateItem", () => {
         kind: "guide",
         slug: "x",
         guideKind: "GENERAL",
-        title: "x",
-        summary: "An ordinary summary that is long enough.",
+        title: "Some genuine guide",
+        summary: "An ordinary summary that is long enough to satisfy the validator.",
         durationDays: -3,
       }),
     ).toMatch(/durationDays/);
+  });
+});
+
+describe("looksLikeNonContent", () => {
+  it("flags broadcast / TV programming copy", () => {
+    expect(
+      looksLikeNonContent("EWTN live television programming runs around the clock."),
+    ).toBe(true);
+  });
+
+  it("flags subscribe-to-newsletter copy", () => {
+    expect(looksLikeNonContent("Subscribe to our newsletter for weekly Catholic news.")).toBe(true);
+  });
+
+  it("flags source bylines like 'Catholic Australia, a work of'", () => {
+    expect(
+      looksLikeNonContent("Catholic Australia, a work of the Australian Catholic Bishops Conference."),
+    ).toBe(true);
+  });
+
+  it("does not flag real prayer text", () => {
+    expect(
+      looksLikeNonContent(
+        "Our Father, who art in heaven, hallowed be thy name; thy kingdom come; thy will be done.",
+      ),
+    ).toBe(false);
   });
 });
 

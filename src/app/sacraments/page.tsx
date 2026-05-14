@@ -126,13 +126,13 @@ export default async function SacramentsPage() {
             const summary = g.translations[0]?.summary ?? g.summary;
             return (
               <Link key={g.id} href={`/sacraments/${g.slug}`}>
-                <article className="vf-card flex h-full flex-col rounded-sm p-7 transition hover:border-ink/30 hover:-translate-y-0.5">
+                <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-7">
                   {Badge ? (
                     <div className="mb-3 text-ink">
                       <Badge size={48} />
                     </div>
                   ) : null}
-                  <h3 className="font-display text-2xl">{title}</h3>
+                  <h3 className="break-words font-display text-xl sm:text-2xl">{title}</h3>
                   <p className="mt-3 flex-1 font-serif text-sm leading-relaxed text-ink-soft">
                     {summary}
                   </p>
@@ -147,27 +147,28 @@ export default async function SacramentsPage() {
         <section>
           <div className="mb-6 text-center">
             <p className="vf-eyebrow">Personal entrustment</p>
-            <h2 className="mt-2 font-display text-4xl">Consecrations</h2>
+            <h2 className="mt-2 font-display text-3xl sm:text-4xl">Consecrations</h2>
             <p className="mx-auto mt-3 max-w-reading font-serif text-ink-soft">
-              A personal consecration is a free, total entrustment of oneself to Jesus, Mary, Saint
-              Joseph, the Holy Family, or the Sacred Heart. Each completed consecration is added as
-              a badge under your profile.
+              A personal consecration is a free, total entrustment of oneself to Jesus, Mary,
+              Saint Joseph, the Holy Family, or the Sacred Heart. Each consecration here includes
+              its spiritual purpose, the preparation tradition, and the daily readings and prayers
+              that prepare the heart for the act of consecration on the chosen feast day.
             </p>
           </div>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-2">
             {consecrations.map((g) => {
               const Badge = BADGE_FOR_SLUG[g.slug];
               const title = g.translations[0]?.title ?? g.title;
               const summary = g.translations[0]?.summary ?? g.summary;
               return (
                 <Link key={g.id} href={`/sacraments/${g.slug}`}>
-                  <article className="vf-card flex h-full flex-col rounded-sm p-7 transition hover:border-ink/30 hover:-translate-y-0.5">
+                  <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-7">
                     {Badge ? (
                       <div className="mb-3 text-ink">
                         <Badge size={48} />
                       </div>
                     ) : null}
-                    <h3 className="font-display text-2xl">{title}</h3>
+                    <h3 className="break-words font-display text-xl sm:text-2xl">{title}</h3>
                     <p className="mt-3 flex-1 font-serif text-sm leading-relaxed text-ink-soft">
                       {summary}
                     </p>

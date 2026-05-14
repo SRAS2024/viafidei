@@ -1,5 +1,9 @@
 import { prisma } from "../db/client";
 import type { Locale } from "../i18n/locales";
+import {
+  categorizePrayer,
+  type PrayerCategory,
+} from "../ingestion/sources/categorize";
 
 const DEFAULT_TAKE = 60;
 const PAGE_SIZE = 9;
@@ -13,22 +17,40 @@ export function listPublishedPrayers(locale: Locale, take = DEFAULT_TAKE) {
   });
 }
 
+/**
+ * Resolve the canonical PrayerCategory for one Prayer row. Trusts the
+ * stored `category` column when it maps cleanly onto a recognised
+ * bucket; otherwise re-runs the title+body categorizer.
+ */
+export function resolvePrayerCategory(p: {
+  defaultTitle: string;
+  body: string;
+  category: string;
+}): PrayerCategory {
+  return categorizePrayer({ title: p.defaultTitle, body: p.body, category: p.category });
+}
+
 export async function listPublishedPrayersPaginated(
   locale: Locale,
   page = 1,
   pageSize = PAGE_SIZE,
+  category?: PrayerCategory,
 ) {
   const skip = (page - 1) * pageSize;
-  const [items, total] = await Promise.all([
-    prisma.prayer.findMany({
-      where: { status: "PUBLISHED" },
-      include: { translations: { where: { locale } } },
-      orderBy: { defaultTitle: "asc" },
-      take: pageSize,
-      skip,
-    }),
-    prisma.prayer.count({ where: { status: "PUBLISHED" } }),
-  ]);
+  // We do the category resolution in JS so the filter is consistent with
+  // what the public-facing /prayers tab shows. The Prayer.category column
+  // is free-text and frequently disagrees with the actual content of the
+  // prayer, so we re-run the categorizer here.
+  const broad = await prisma.prayer.findMany({
+    where: { status: "PUBLISHED" },
+    include: { translations: { where: { locale } } },
+    orderBy: { defaultTitle: "asc" },
+  });
+  const filtered = category
+    ? broad.filter((p) => resolvePrayerCategory(p) === category)
+    : broad;
+  const total = filtered.length;
+  const items = filtered.slice(skip, skip + pageSize);
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
 

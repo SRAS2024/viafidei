@@ -11,6 +11,12 @@ export type ListJournalOptions = {
   skip?: number;
   sort?: JournalSort;
   favoritesOnly?: boolean;
+  /**
+   * Restrict the result set to journal entries scoped to a single goal.
+   * Used by the per-goal journaling panel and the completed-goals view
+   * on the profile.
+   */
+  goalId?: string;
 };
 
 function orderByForSort(sort: JournalSort): Prisma.JournalEntryOrderByWithRelationInput[] {
@@ -35,10 +41,26 @@ export function listJournalEntries(userId: string, options: ListJournalOptions =
   const skip = Math.max(options.skip ?? 0, 0);
   const sort = options.sort ?? "updated";
   return prisma.journalEntry.findMany({
-    where: { userId, ...(options.favoritesOnly ? { isFavorite: true } : {}) },
+    where: {
+      userId,
+      ...(options.favoritesOnly ? { isFavorite: true } : {}),
+      ...(options.goalId ? { goalId: options.goalId } : {}),
+    },
     orderBy: orderByForSort(sort),
     take,
     skip,
+  });
+}
+
+/**
+ * Convenience helper: fetch every journal entry attached to a single goal,
+ * ordered by most recent first. Used by the goal detail view and the
+ * completed-goals section on the profile.
+ */
+export function listJournalEntriesForGoal(userId: string, goalId: string) {
+  return prisma.journalEntry.findMany({
+    where: { userId, goalId },
+    orderBy: [{ createdAt: "desc" }],
   });
 }
 
@@ -46,8 +68,20 @@ export function countJournalEntries(userId: string) {
   return prisma.journalEntry.count({ where: { userId } });
 }
 
-export function createJournalEntry(input: { userId: string; title: string; body: string }) {
-  return prisma.journalEntry.create({ data: input });
+export function createJournalEntry(input: {
+  userId: string;
+  title: string;
+  body: string;
+  goalId?: string | null;
+}) {
+  return prisma.journalEntry.create({
+    data: {
+      userId: input.userId,
+      title: input.title,
+      body: input.body,
+      goalId: input.goalId ?? null,
+    },
+  });
 }
 
 export type DeleteJournalResult = { ok: true } | { ok: false; reason: "not_found" | "forbidden" };

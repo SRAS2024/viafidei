@@ -216,6 +216,7 @@ const profile: Dict = {
   "profile.tab.journal": "Journal",
   "profile.tab.milestones": "Milestones",
   "profile.tab.goals": "My Goals",
+  "profile.tab.completedGoals": "Completed Goals",
   "profile.tab.settings": "Settings",
   "profile.tab.favorites": "Favorites",
   "profile.tab.savedPrayers": "Saved prayers",

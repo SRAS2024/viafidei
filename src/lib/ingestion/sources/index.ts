@@ -12,6 +12,7 @@ export {
   categorizePrayer,
   categorizeDevotion,
   buildSlug,
+  PRAYER_CATEGORY_ORDER,
   type PrayerCategory,
   type DevotionCategory,
 } from "./categorize";
