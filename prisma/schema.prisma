@@ -115,57 +115,57 @@ enum IngestionRunStatus {
 }
 
 model User {
-  id                       String                    @id @default(cuid())
-  email                    String                    @unique
-  passwordHash             String
-  firstName                String
-  lastName                 String
-  role                     Role                      @default(USER)
-  emailEncrypted           String?
-  nameEncrypted            String?
-  emailVerifiedAt          DateTime?
-  language                 String                    @default("en")
-  createdAt                DateTime                  @default(now())
-  updatedAt                DateTime                  @updatedAt
-  profile                  Profile?
-  sessions                 Session[]
-  journalEntries           JournalEntry[]
-  savedPrayers             UserSavedPrayer[]
-  savedSaints              UserSavedSaint[]
-  savedApparitions         UserSavedApparition[]
-  savedParishes            UserSavedParish[]
-  savedDevotions           UserSavedDevotion[]
-  goals                    Goal[]
-  milestones               Milestone[]
-  passwordResetTokens      PasswordResetToken[]
-  emailVerificationTokens  EmailVerificationToken[]
-  auditLogs                AdminAuditLog[]           @relation("AuditActor")
-  contentReviews           ContentReview[]           @relation("ReviewActor")
+  id                      String                   @id @default(cuid())
+  email                   String                   @unique
+  passwordHash            String
+  firstName               String
+  lastName                String
+  role                    Role                     @default(USER)
+  emailEncrypted          String?
+  nameEncrypted           String?
+  emailVerifiedAt         DateTime?
+  language                String                   @default("en")
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  profile                 Profile?
+  sessions                Session[]
+  journalEntries          JournalEntry[]
+  savedPrayers            UserSavedPrayer[]
+  savedSaints             UserSavedSaint[]
+  savedApparitions        UserSavedApparition[]
+  savedParishes           UserSavedParish[]
+  savedDevotions          UserSavedDevotion[]
+  goals                   Goal[]
+  milestones              Milestone[]
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  auditLogs               AdminAuditLog[]          @relation("AuditActor")
+  contentReviews          ContentReview[]          @relation("ReviewActor")
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
 }
 
 model EmailVerificationToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([expiresAt])
@@ -212,22 +212,22 @@ model JournalEntry {
 }
 
 model Prayer {
-  id              String              @id @default(cuid())
-  slug            String              @unique
-  defaultTitle    String
-  body            String
-  officialPrayer  String?
-  category        String
-  categoryId      String?
-  externalSourceKey String?           @unique
-  sourceHost      String?
-  contentChecksum String?
-  status          ContentStatus       @default(DRAFT)
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  translations    PrayerTranslation[]
-  savedByUsers    UserSavedPrayer[]
-  categoryRel     Category?           @relation(fields: [categoryId], references: [id])
+  id                String              @id @default(cuid())
+  slug              String              @unique
+  defaultTitle      String
+  body              String
+  officialPrayer    String?
+  category          String
+  categoryId        String?
+  externalSourceKey String?             @unique
+  sourceHost        String?
+  contentChecksum   String?
+  status            ContentStatus       @default(DRAFT)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  translations      PrayerTranslation[]
+  savedByUsers      UserSavedPrayer[]
+  categoryRel       Category?           @relation(fields: [categoryId], references: [id])
 
   @@index([categoryId])
   @@index([status])
@@ -508,21 +508,21 @@ model HomePageBlock {
 }
 
 model IngestionSource {
-  id                  String         @id @default(cuid())
-  name                String
-  host                String         @unique
-  baseUrl             String
-  sourceType          String
-  isOfficial          Boolean        @default(false)
-  isActive            Boolean        @default(true)
-  rateLimitPerMin     Int?
-  reliabilityScore    Float?
-  lastSuccessfulSync  DateTime?
-  lastFailedSync      DateTime?
-  notes               String?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  jobs                IngestionJob[]
+  id                 String         @id @default(cuid())
+  name               String
+  host               String         @unique
+  baseUrl            String
+  sourceType         String
+  isOfficial         Boolean        @default(false)
+  isActive           Boolean        @default(true)
+  rateLimitPerMin    Int?
+  reliabilityScore   Float?
+  lastSuccessfulSync DateTime?
+  lastFailedSync     DateTime?
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  jobs               IngestionJob[]
 }
 
 model IngestionJob {
@@ -541,20 +541,20 @@ model IngestionJob {
 }
 
 model IngestionJobRun {
-  id                   String       @id @default(cuid())
-  jobId                String
-  startedAt            DateTime
-  finishedAt           DateTime?
-  status               String
-  recordsSeen          Int          @default(0)
-  recordsCreated       Int          @default(0)
-  recordsUpdated       Int          @default(0)
-  recordsSkipped       Int          @default(0)
-  recordsFailed        Int          @default(0)
-  recordsReviewRequired Int         @default(0)
-  errorMessage         String?
-  createdAt            DateTime     @default(now())
-  job                  IngestionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id                    String       @id @default(cuid())
+  jobId                 String
+  startedAt             DateTime
+  finishedAt            DateTime?
+  status                String
+  recordsSeen           Int          @default(0)
+  recordsCreated        Int          @default(0)
+  recordsUpdated        Int          @default(0)
+  recordsSkipped        Int          @default(0)
+  recordsFailed         Int          @default(0)
+  recordsReviewRequired Int          @default(0)
+  errorMessage          String?
+  createdAt             DateTime     @default(now())
+  job                   IngestionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([jobId, startedAt])
   @@index([status, startedAt])
@@ -601,12 +601,12 @@ model DataManagementLog {
 }
 
 model Tag {
-  id        String      @id @default(cuid())
-  slug      String      @unique
-  label     String
-  kind      TagKind     @default(GENERAL)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id         String      @id @default(cuid())
+  slug       String      @unique
+  label      String
+  kind       TagKind     @default(GENERAL)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
   entityTags EntityTag[]
 
   @@index([kind])
@@ -774,16 +774,16 @@ model SpiritualLifeGuideTranslation {
 }
 
 model DailyLiturgy {
-  id            String        @id @default(cuid())
-  date          DateTime      @unique
-  season        String?
-  rank          String?
-  feastTitle    String?
-  readingsJson  Json?
-  saintsJson    Json?
-  status        ContentStatus @default(DRAFT)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id           String        @id @default(cuid())
+  date         DateTime      @unique
+  season       String?
+  rank         String?
+  feastTitle   String?
+  readingsJson Json?
+  saintsJson   Json?
+  status       ContentStatus @default(DRAFT)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@index([date, status])
 }

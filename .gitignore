@@ -5,6 +5,8 @@ dist
 build
 tsconfig.tsbuildinfo
 coverage
+.turbo
+.cache
 
 .env
 .env.local
@@ -24,3 +26,19 @@ pnpm-debug.log*
 
 # Prisma client output
 node_modules/.prisma
+
+# Playwright
+playwright-report
+test-results
+
+# Vitest
+.vitest-cache
+*.timestamp-*.mjs
+
+# Coverage artifacts
+coverage/**
+.nyc_output
+
+# Local profile data not intended to be committed
+.local
+.tmp
