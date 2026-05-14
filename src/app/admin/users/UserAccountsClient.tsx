@@ -295,10 +295,12 @@ function DeleteUserDialog({
       aria-labelledby="delete-user-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={(e) => {
-        // Click on the backdrop (outside the dialog) cancels — same
-        // behavior as pressing Escape.
         if (e.target === e.currentTarget) onCancel();
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onCancel();
+      }}
+      tabIndex={-1}
     >
       <form
         onSubmit={handleSubmit}

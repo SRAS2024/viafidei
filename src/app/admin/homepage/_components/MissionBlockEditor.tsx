@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import type { HomepageBlock } from "./types";
 
 type Props = {
@@ -15,30 +16,46 @@ function readSide(block: HomepageBlock, side: "left" | "right") {
 export function MissionBlockEditor({ block, onChange }: Props) {
   const left = readSide(block, "left");
   const right = readSide(block, "right");
+  const leftTitleId = useId();
+  const leftBodyId = useId();
+  const rightTitleId = useId();
+  const rightBodyId = useId();
   return (
     <div className="vf-card rounded-sm p-6">
       <h3 className="font-display text-2xl">Mission / Overview</h3>
-      <label className="vf-label mt-4">Left title</label>
+      <label className="vf-label mt-4" htmlFor={leftTitleId}>
+        Left title
+      </label>
       <input
+        id={leftTitleId}
         className="vf-input"
         value={String(left.title ?? "")}
         onChange={(e) => onChange("left.title", e.target.value)}
       />
-      <label className="vf-label mt-4">Left body</label>
+      <label className="vf-label mt-4" htmlFor={leftBodyId}>
+        Left body
+      </label>
       <textarea
+        id={leftBodyId}
         rows={3}
         className="vf-input"
         value={String(left.body ?? "")}
         onChange={(e) => onChange("left.body", e.target.value)}
       />
-      <label className="vf-label mt-4">Right title</label>
+      <label className="vf-label mt-4" htmlFor={rightTitleId}>
+        Right title
+      </label>
       <input
+        id={rightTitleId}
         className="vf-input"
         value={String(right.title ?? "")}
         onChange={(e) => onChange("right.title", e.target.value)}
       />
-      <label className="vf-label mt-4">Right body</label>
+      <label className="vf-label mt-4" htmlFor={rightBodyId}>
+        Right body
+      </label>
       <textarea
+        id={rightBodyId}
         rows={3}
         className="vf-input"
         value={String(right.body ?? "")}

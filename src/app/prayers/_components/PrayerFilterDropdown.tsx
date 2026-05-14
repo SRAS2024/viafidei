@@ -54,7 +54,7 @@ export function PrayerFilterDropdown({ options, selected }: Props) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
+        aria-haspopup="menu"
         aria-expanded={open}
         className="vf-btn vf-btn-ghost inline-flex items-center gap-2 !py-2 !px-4 text-xs"
       >
@@ -68,7 +68,7 @@ export function PrayerFilterDropdown({ options, selected }: Props) {
       </button>
       {open ? (
         <ul
-          role="listbox"
+          aria-label="Filter prayers by category"
           className="absolute top-full z-20 mt-2 max-h-80 w-64 overflow-y-auto rounded-sm border border-ink/15 bg-parchment shadow-lg"
         >
           {options.map((option) => {
@@ -81,8 +81,7 @@ export function PrayerFilterDropdown({ options, selected }: Props) {
               <li key={option.value ?? "__all__"}>
                 <Link
                   href={href}
-                  role="option"
-                  aria-selected={isActive}
+                  aria-current={isActive ? "true" : undefined}
                   onClick={() => setOpen(false)}
                   className={`block px-4 py-2 font-serif text-sm transition ${
                     isActive
