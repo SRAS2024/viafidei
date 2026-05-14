@@ -132,22 +132,41 @@ async function runAdapterUnlocked(
       return summary;
     }
 
-    const { valid, rejected } = sanitize(items);
+    const { valid, review, rejected } = sanitize(items);
+    // Items that pass every check are persisted with the configured
+    // `initialStatus` (PUBLISHED for auto-publish, REVIEW for staged
+    // moderation).
     const counts = await persistItems(valid, initialStatus);
+    // Items that fail a soft (category-heuristic) check are persisted
+    // with `status = REVIEW` so a moderator can decide whether the
+    // content is genuinely Catholic but mis-shaped, or really a
+    // source-summary blurb that should be archived.
+    const reviewCounts =
+      review.length > 0
+        ? await persistItems(
+            review.map((r) => r.item),
+            "REVIEW" as ContentStatus,
+          )
+        : { created: 0, updated: 0, skipped: 0 };
 
-    // When new + updated rows land in REVIEW status, every persisted row
-    // (created OR updated) requires moderator approval before it appears on
-    // the public site. Skipped rows already lived through their review.
-    const reviewRequired = initialStatus === "REVIEW" ? counts.created + counts.updated : 0;
+    // When new + updated rows land in REVIEW status (either because the
+    // configured initialStatus is REVIEW, or because the soft validator
+    // diverted them), every persisted row in that bucket counts toward
+    // the review queue.
+    const directReview = initialStatus === "REVIEW" ? counts.created + counts.updated : 0;
+    const softReview = reviewCounts.created + reviewCounts.updated;
 
     const summary: IngestionRunSummary = {
       recordsSeen: items.length,
-      recordsCreated: counts.created,
-      recordsUpdated: counts.updated,
-      recordsSkipped: counts.skipped + rejected.length,
+      recordsCreated: counts.created + reviewCounts.created,
+      recordsUpdated: counts.updated + reviewCounts.updated,
+      recordsSkipped: counts.skipped + reviewCounts.skipped + rejected.length,
       recordsFailed: 0,
-      recordsReviewRequired: reviewRequired,
-      errorMessage: rejected.length ? `${rejected.length} items rejected by validation` : null,
+      recordsReviewRequired: directReview + softReview,
+      errorMessage:
+        rejected.length || review.length
+          ? `${rejected.length} rejected, ${review.length} sent to review`
+          : null,
     };
 
     if (run) {

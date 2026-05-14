@@ -403,9 +403,13 @@ The Prisma schema (`prisma/schema.prisma`) defines, among others:
   spiritual history), `Goal` (with a `journalEntries` back-relation
   and a `status` of `ACTIVE` → `COMPLETED` / `OVERDUE` / `ARCHIVED`),
   `GoalChecklistItem`, `Milestone`. **Completed goals are never
-  deleted automatically** — they accumulate under the profile's
-  Completed Goals view alongside their original checklist and any
-  journal entries the user wrote inside them.
+  deleted automatically** — they leave the active `/profile/goals`
+  list the moment they are completed and migrate to a dedicated
+  `/profile/goals/completed` page that preserves the original
+  checklist, the completion date, and every journal entry the user
+  wrote inside the goal. Archived goals remain on the active page
+  in a collapsed `<details>` block so they can be un-archived
+  without leaving.
 - **Catalog**: `Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,
   `LiturgyEntry`, `SpiritualLifeGuide`, `DailyLiturgy`, each with a
   `*Translation` sibling where applicable.
@@ -664,10 +668,29 @@ to the obvious schema problems:
 - **Off-allowlist external keys.** Any `externalSourceKey` URL
   whose host is not in the Vatican allowlist is rejected.
 
-Surviving records are written with the configured initial status —
-`PUBLISHED`. The pipeline is auto-publishing: content that passes the
-credibility allowlist, the validator, and the dedup pass reaches the
-public site directly, no admin approval required.
+Validation failures are now classified by **severity**
+(`src/lib/ingestion/validate.ts`):
+
+- **Hard failures** — missing required fields, protected user
+  kinds, off-allowlist sources, malformed URLs/emails, unrecognised
+  enum values. These items are rejected outright and never reach
+  the database.
+- **Soft failures** — items that pass the structural checks but
+  trip one of the category heuristics (a "prayer" without prayer
+  language, a "saint" body that reads like a TV listing, an
+  "apparition" without Marian vocabulary, a body that is too short
+  for the bucket). These items are written to the database with
+  `status = REVIEW` so a moderator can either publish or archive
+  them via `/admin/publish-list`. Soft severity is what enables
+  the system to "grow dynamically" without permanently dropping
+  borderline content that an admin might still want.
+
+`sanitize()` returns three buckets — `valid`, `review`, and
+`rejected` — and the runner persists each set with its proper
+`ContentStatus`. Surviving valid records are written with the
+configured initial status (`PUBLISHED` by default); review-bound
+records are written as `REVIEW`; rejected records are logged and
+counted as skipped.
 
 ### Background cleanup pass
 

@@ -2,7 +2,10 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { getTranslator } from "@/lib/i18n/server";
-import { listGoalsForUser } from "@/lib/data/profile";
+import {
+  countCompletedGoalsForUser,
+  listGoalsForUser,
+} from "@/lib/data/profile";
 import { PageHero } from "@/components/ui/PageHero";
 import { GoalManager } from "./GoalManager";
 import { logPageError } from "@/lib/observability/page-errors";
@@ -17,8 +20,12 @@ export default async function GoalsPage() {
   if (!user) redirect("/login?next=/profile/goals");
   const { t } = await getTranslator();
   let goals: Awaited<ReturnType<typeof listGoalsForUser>> = [];
+  let completedCount = 0;
   try {
-    goals = await listGoalsForUser(user.id);
+    [goals, completedCount] = await Promise.all([
+      listGoalsForUser(user.id),
+      countCompletedGoalsForUser(user.id),
+    ]);
   } catch (err) {
     logPageError({ route: "/profile/goals", entityType: "Goal", error: err });
   }
@@ -47,6 +54,7 @@ export default async function GoalsPage() {
       <PageHero eyebrow={t("profile.title")} title={t("profile.tab.goals")} />
       <GoalManager
         initialGoals={serialized}
+        completedCount={completedCount}
         labels={{
           newGoal: t("profile.goals.new"),
           title: t("profile.goals.title"),

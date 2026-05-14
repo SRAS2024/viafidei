@@ -354,23 +354,77 @@ export function validateItem(item: IngestedItem): string | null {
   }
 }
 
-/** Returns a copy of items with normalized slugs and any invalid items removed. */
+/**
+ * Severity of a validation failure:
+ *
+ *   • `"hard"` — the item is missing required fields, the kind is
+ *     protected, or the source is off-allowlist. These items are
+ *     rejected outright and never reach the database.
+ *   • `"soft"` — the item passes the structural checks but trips one
+ *     of the lexical category heuristics (e.g. a "prayer" body that
+ *     does not contain prayer-language markers, a "saint" biography
+ *     missing the usual biographical vocabulary, an "apparition"
+ *     summary that does not mention Mary / Our Lady / vision). The
+ *     runner writes these to the database with `status = REVIEW` so
+ *     a moderator can decide whether to publish or archive.
+ *
+ * Splitting validation into hard vs soft severities lets the
+ * pipeline grow dynamically (quality-over-quantity) without
+ * permanently dropping borderline content that an admin might still
+ * want.
+ */
+export type ValidationSeverity = "hard" | "soft";
+
+const SOFT_REASON_RE =
+  /(prayer language|biography|TV program|source summary|Marian apparition language|navigation|broadcast description|newsletter|Catholic devotional|directory page|too short|biography looks too short|prayer body looks too short|summary looks too short|apparition summary looks too short|devotion summary looks too short|liturgy body looks too short|guide summary looks too short)/i;
+
+const HARD_REASON_RE =
+  /(slug is required|required|protected user-generated|not from a Vatican-approved host|non-Catholic|websiteUrl|email is malformed|not a recognised|canonical status|approvedStatus|durationMinutes|durationDays)/i;
+
+/**
+ * Classify a validation failure reason. Falls back to "hard" when the
+ * reason text does not match either set so an unknown failure mode is
+ * never silently softened.
+ */
+export function classifySeverity(reason: string): ValidationSeverity {
+  if (HARD_REASON_RE.test(reason)) return "hard";
+  if (SOFT_REASON_RE.test(reason)) return "soft";
+  return "hard";
+}
+
+/**
+ * Returns a copy of `items` partitioned into:
+ *   • `valid` — passes every check; safe to persist with the runner's
+ *     configured `initialStatus`.
+ *   • `review` — passes the structural checks but fails a category
+ *     heuristic. Persisted with `status = REVIEW` so a moderator can
+ *     publish or archive.
+ *   • `rejected` — fails a hard check; never persisted.
+ *
+ * Slugs are normalized on every item before the validator runs.
+ */
 export function sanitize(items: IngestedItem[]): {
   valid: IngestedItem[];
+  review: Array<{ item: IngestedItem; reason: string }>;
   rejected: Array<{ item: IngestedItem; reason: string }>;
 } {
   const valid: IngestedItem[] = [];
+  const review: Array<{ item: IngestedItem; reason: string }> = [];
   const rejected: Array<{ item: IngestedItem; reason: string }> = [];
   for (const item of items) {
     const normalized = { ...item, slug: normalizeSlug(item.slug) };
     const reason = validateItem(normalized);
-    if (reason) {
-      rejected.push({ item, reason });
+    if (!reason) {
+      valid.push(normalized);
       continue;
     }
-    valid.push(normalized);
+    if (classifySeverity(reason) === "soft") {
+      review.push({ item: normalized, reason });
+    } else {
+      rejected.push({ item, reason });
+    }
   }
-  return { valid, rejected };
+  return { valid, review, rejected };
 }
 
 export { KNOWN_PRAYER_CATEGORIES };

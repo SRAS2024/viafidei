@@ -139,9 +139,15 @@ export async function getProfileCounts(userId: string): Promise<ProfileCounts> {
   };
 }
 
+/**
+ * Goals shown on the active /profile/goals page. We exclude COMPLETED
+ * goals here because they live under /profile/goals/completed as part
+ * of the user's preserved spiritual history. Archived goals stay so
+ * the user can un-archive them without leaving the page.
+ */
 export function listGoalsForUser(userId: string) {
   return prisma.goal.findMany({
-    where: { userId },
+    where: { userId, status: { in: ["ACTIVE", "OVERDUE", "ARCHIVED"] } },
     orderBy: { updatedAt: "desc" },
     include: {
       checklist: { orderBy: { sortOrder: "asc" } },

@@ -120,19 +120,23 @@ export default async function LiturgyPage({
         <div className="flex flex-col gap-12">
           {sectioned.map(({ section, items }) => (
             <section key={section.id} id={section.id} className="scroll-mt-24">
-              <h2 className="font-display text-3xl">{section.label}</h2>
+              <h2 className="break-words font-display text-2xl sm:text-3xl">
+                {section.label}
+              </h2>
               <p className="mt-2 mb-5 max-w-reading font-serif text-sm text-ink-soft">
                 {section.description}
               </p>
-              <div className="grid gap-4 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {items.map((e) => {
                   const tr = e.translations[0];
                   return (
                     <Link key={e.id} href={`/liturgy-history/${e.slug}`}>
-                      <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:border-ink/30 hover:-translate-y-0.5">
-                        <h3 className="font-display text-xl">{tr?.title ?? e.title}</h3>
+                      <article className="vf-card flex h-full flex-col rounded-sm p-5 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-6">
+                        <h3 className="break-words font-display text-lg sm:text-xl">
+                          {tr?.title ?? e.title}
+                        </h3>
                         {(tr?.summary ?? e.summary) ? (
-                          <p className="mt-3 line-clamp-4 font-serif text-sm text-ink-soft">
+                          <p className="mt-3 line-clamp-4 font-serif text-sm leading-relaxed text-ink-soft">
                             {tr?.summary ?? e.summary}
                           </p>
                         ) : null}
