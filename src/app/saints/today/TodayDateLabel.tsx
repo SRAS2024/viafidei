@@ -32,9 +32,7 @@ type Props = {
  * to the local date if it differs.
  */
 export function TodayDateLabel({ serverMonth, serverDay }: Props) {
-  const [label, setLabel] = useState<string>(
-    `${MONTH_NAMES[serverMonth - 1] ?? "—"} ${serverDay}`,
-  );
+  const [label, setLabel] = useState<string>(`${MONTH_NAMES[serverMonth - 1] ?? "—"} ${serverDay}`);
 
   useEffect(() => {
     const now = new Date();
@@ -42,10 +40,7 @@ export function TodayDateLabel({ serverMonth, serverDay }: Props) {
   }, []);
 
   return (
-    <p
-      className="mb-8 text-center font-display text-lg text-ink-faint"
-      suppressHydrationWarning
-    >
+    <p className="mb-8 text-center font-display text-lg text-ink-faint" suppressHydrationWarning>
       {label}
     </p>
   );

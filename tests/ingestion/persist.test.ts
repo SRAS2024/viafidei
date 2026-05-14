@@ -186,10 +186,7 @@ describe("persistItems — dedupe", () => {
       contentChecksum: "old",
     });
 
-    const result = await persistItems(
-      [{ ...basePrayer, slug: "our-father-renamed" }],
-      "PUBLISHED",
-    );
+    const result = await persistItems([{ ...basePrayer, slug: "our-father-renamed" }], "PUBLISHED");
 
     expect(result).toEqual({ created: 0, updated: 0, skipped: 1 });
     // Verify the lookup OR'd by externalSourceKey + slug (so a renamed slug

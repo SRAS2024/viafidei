@@ -597,14 +597,14 @@ empty:
   `/profile/milestones` for the full history). Below the header
   the page groups every user-content area into sections —
   **My Goals** + **Completed Goals** + **Milestones**, **Journal**
-  + **Favorites**, **Saved prayers** + **Saved devotions**, **Saved
-  liturgical content** (parishes, apparitions), **Saved learning**
-  (saints). Each goal card on `/profile/goals` exposes an inline
-  journal panel; completed goals migrate to
-  `/profile/goals/completed` the moment they're finished, where
-  they are preserved indefinitely with their original checklist,
-  completion date, and every journal entry the user wrote inside
-  the goal.
+  - **Favorites**, **Saved prayers** + **Saved devotions**, **Saved
+    liturgical content** (parishes, apparitions), **Saved learning**
+    (saints). Each goal card on `/profile/goals` exposes an inline
+    journal panel; completed goals migrate to
+    `/profile/goals/completed` the moment they're finished, where
+    they are preserved indefinitely with their original checklist,
+    completion date, and every journal entry the user wrote inside
+    the goal.
 
 ---
 
@@ -654,25 +654,25 @@ Adapters live under `src/lib/ingestion/sources/vatican-adapters.ts` and are
 registered via `registerVaticanAdapters()` / `ensureVaticanSchedule()`.
 The system has full ingestion support across the app:
 
-| Adapter                 | Target table         | Content                                                             |
-| ----------------------- | -------------------- | ------------------------------------------------------------------- |
-| `vatican.prayers`       | `Prayer`             | Liturgical and devotional prayers from the Holy See                 |
-| `catholic.prayers`      | `Prayer`             | Bishops' conference prayer catalogues                               |
-| `credible.prayers`      | `Prayer`             | EWTN / Catholic Culture / KofC / religious order prayer pages       |
-| `vatican.saints`        | `Saint`              | Saint biographies from the Holy See                                 |
-| `bishops.saints`        | `Saint`              | Saint biographies from bishops' conferences                         |
-| `credible.saints`       | `Saint`              | Saint biographies from EWTN, Catholic Culture, New Advent, religious orders |
-| `vatican.apparitions`   | `MarianApparition`   | Approved Marian apparitions                                         |
-| `vatican.devotions`     | `Devotion`           | Devotions and spiritual practices                                   |
-| `catholic.devotions`    | `Devotion`           | Conference-republished devotional material                          |
-| `vatican.parishes`      | `Parish`             | Parish directories                                                  |
-| `vatican.teaching`      | `LiturgyEntry`       | Catechetical / sacramental / liturgical content                     |
-| `vatican.history`       | `LiturgyEntry`       | Church-history events and ecumenical councils                       |
-| `vatican.guides`        | `SpiritualLifeGuide` | Spiritual-life guides (rosary, confession, vocation discernment)    |
-| `vatican.councils`      | `LiturgyEntry`       | Conciliar documents from `/archive/hist_councils/` (slug `council-`) |
-| `vatican.catechism`     | `LiturgyEntry`       | Full Catechism of the Catholic Church (slug `catechism-`)           |
-| `vatican.canonlaw`      | `LiturgyEntry`       | Full Code of Canon Law (CIC 1983) and Code of Canons of the Eastern Churches (CCEO 1990) in seven Holy-See languages (slug `canon-law-`) |
-| `vatican.encyclicals`   | `LiturgyEntry`       | Every papal encyclical archive on vatican.va, every pope from Pius IX through Leo XIV (slug `encyclical-`) |
+| Adapter               | Target table         | Content                                                                                                                                  |
+| --------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `vatican.prayers`     | `Prayer`             | Liturgical and devotional prayers from the Holy See                                                                                      |
+| `catholic.prayers`    | `Prayer`             | Bishops' conference prayer catalogues                                                                                                    |
+| `credible.prayers`    | `Prayer`             | EWTN / Catholic Culture / KofC / religious order prayer pages                                                                            |
+| `vatican.saints`      | `Saint`              | Saint biographies from the Holy See                                                                                                      |
+| `bishops.saints`      | `Saint`              | Saint biographies from bishops' conferences                                                                                              |
+| `credible.saints`     | `Saint`              | Saint biographies from EWTN, Catholic Culture, New Advent, religious orders                                                              |
+| `vatican.apparitions` | `MarianApparition`   | Approved Marian apparitions                                                                                                              |
+| `vatican.devotions`   | `Devotion`           | Devotions and spiritual practices                                                                                                        |
+| `catholic.devotions`  | `Devotion`           | Conference-republished devotional material                                                                                               |
+| `vatican.parishes`    | `Parish`             | Parish directories                                                                                                                       |
+| `vatican.teaching`    | `LiturgyEntry`       | Catechetical / sacramental / liturgical content                                                                                          |
+| `vatican.history`     | `LiturgyEntry`       | Church-history events and ecumenical councils                                                                                            |
+| `vatican.guides`      | `SpiritualLifeGuide` | Spiritual-life guides (rosary, confession, vocation discernment)                                                                         |
+| `vatican.councils`    | `LiturgyEntry`       | Conciliar documents from `/archive/hist_councils/` (slug `council-`)                                                                     |
+| `vatican.catechism`   | `LiturgyEntry`       | Full Catechism of the Catholic Church (slug `catechism-`)                                                                                |
+| `vatican.canonlaw`    | `LiturgyEntry`       | Full Code of Canon Law (CIC 1983) and Code of Canons of the Eastern Churches (CCEO 1990) in seven Holy-See languages (slug `canon-law-`) |
+| `vatican.encyclicals` | `LiturgyEntry`       | Every papal encyclical archive on vatican.va, every pope from Pius IX through Leo XIV (slug `encyclical-`)                               |
 
 Each ingested record carries source metadata: `externalSourceKey` (the
 upstream URL — used for duplicate detection), `sourceHost` (parsed from
@@ -965,11 +965,11 @@ When the Node process boots, `src/instrumentation.ts` defers to
    empty, runs `seedAllContent()` from `src/lib/startup/seeder.ts` to
    populate them. The seeder writes 7 sacraments + 4 consecrations,
    50+ papal encyclicals (Mirari Vos → Dilexit Nos), Catechism overview
-   + four parts + key topics, all seven books of the 1983 Code of
-   Canon Law + the Code of Canons of the Eastern Churches, one
-   rite-inception entry per Catholic rite (Roman through Ruthenian),
-   plus the standard prayers / saints / apparitions / devotions /
-   parishes / liturgy entries / guides.
+   - four parts + key topics, all seven books of the 1983 Code of
+     Canon Law + the Code of Canons of the Eastern Churches, one
+     rite-inception entry per Catholic rite (Roman through Ruthenian),
+     plus the standard prayers / saints / apparitions / devotions /
+     parishes / liturgy entries / guides.
 4. Runs `promoteIngestedOrphans()` — a one-time migration that
    promotes any legacy `REVIEW`-status rows with an `externalSourceKey`
    (i.e. created by ingestion before the auto-publish rule) to
@@ -989,14 +989,14 @@ The scheduler stays in constant-fill mode until every one of these
 five buckets is at or above its minimum (configured in
 `src/lib/config.ts`):
 
-| Bucket            | Minimum  | Counts                                                                                             |
-| ----------------- | -------- | -------------------------------------------------------------------------------------------------- |
-| Prayers           | 500      | `Prayer` rows                                                                                      |
-| Saints            | 7,000    | `Saint` rows                                                                                       |
-| Parishes          | 150,000  | `Parish` rows                                                                                      |
-| Church Documents  | 1,500    | `LiturgyEntry` rows whose slug starts with `encyclical-`, `catechism-`, `code-of-canon-law-`, `council-`, `vatican-council-`, or `synod-` |
-| Sacraments        | 7        | `SpiritualLifeGuide` rows whose slug starts with `sacrament-`. Exactly seven — the doctrinal count of the Sacraments of the Church. |
-| Consecrations     | 4        | `SpiritualLifeGuide` rows whose slug starts with `consecration-` (Marian, Saint Joseph, Holy Family, Sacred Heart). Tracked separately so the Sacraments bucket stays exact. |
+| Bucket           | Minimum | Counts                                                                                                                                                                       |
+| ---------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Prayers          | 500     | `Prayer` rows                                                                                                                                                                |
+| Saints           | 7,000   | `Saint` rows                                                                                                                                                                 |
+| Parishes         | 150,000 | `Parish` rows                                                                                                                                                                |
+| Church Documents | 1,500   | `LiturgyEntry` rows whose slug starts with `encyclical-`, `catechism-`, `code-of-canon-law-`, `council-`, `vatican-council-`, or `synod-`                                    |
+| Sacraments       | 7       | `SpiritualLifeGuide` rows whose slug starts with `sacrament-`. Exactly seven — the doctrinal count of the Sacraments of the Church.                                          |
+| Consecrations    | 4       | `SpiritualLifeGuide` rows whose slug starts with `consecration-` (Marian, Saint Joseph, Holy Family, Sacred Heart). Tracked separately so the Sacraments bucket stays exact. |
 
 Once all six are met the scheduler switches to maintenance mode and
 runs the upstream check on a ~84-hour cadence (~twice weekly).
@@ -1119,46 +1119,46 @@ each catalog entity is exposed under `/api/admin/<entity>` via the
 
 ### Admin
 
-| Method         | Path                             | Purpose                                                  |
-| -------------- | -------------------------------- | -------------------------------------------------------- |
-| POST           | `/api/admin/login`               | Admin login                                              |
-| POST           | `/api/admin/logout`              | Admin logout                                             |
-| POST           | `/api/admin/content/review`      | Approve / reject / revise / move-to-review               |
-| GET / POST     | `/api/admin/prayers`             | List / create prayers (catalog)                          |
-| PATCH / DELETE | `/api/admin/prayers/[id]`        | Update / delete a prayer                                 |
-| GET / POST     | `/api/admin/saints`              | List / create saints                                     |
-| PATCH / DELETE | `/api/admin/saints/[id]`         | Update / delete a saint                                  |
-| GET / POST     | `/api/admin/apparitions`         | List / create Marian apparitions                         |
-| PATCH / DELETE | `/api/admin/apparitions/[id]`    | Update / delete an apparition                            |
-| GET / POST     | `/api/admin/parishes`            | List / create parishes                                   |
-| PATCH / DELETE | `/api/admin/parishes/[id]`       | Update / delete a parish                                 |
-| GET / POST     | `/api/admin/devotions`           | List / create devotions                                  |
-| PATCH / DELETE | `/api/admin/devotions/[id]`      | Update / delete a devotion                               |
-| GET / POST     | `/api/admin/liturgy`             | List / create liturgy entries                            |
-| PATCH / DELETE | `/api/admin/liturgy/[id]`        | Update / delete a liturgy entry                          |
-| GET / POST     | `/api/admin/spiritual-life`      | List / create spiritual-life guides                      |
-| PATCH / DELETE | `/api/admin/spiritual-life/[id]` | Update / delete a spiritual-life guide                   |
-| POST           | `/api/admin/ingestion/run`       | Run a single job or all active jobs                      |
-| PATCH          | `/api/admin/ingestion/jobs/[id]` | Pause / resume or re-schedule a job                      |
-| GET / POST     | `/api/admin/sources`             | List / create ingestion sources                          |
-| GET / PATCH    | `/api/admin/sources/[id]`        | Read / update an ingestion source                        |
-| GET / POST     | `/api/admin/media`               | List / register a media asset (Cloudinary URL)           |
-| GET / DELETE   | `/api/admin/media/[id]`          | Read / delete a media asset                              |
-| GET            | `/api/admin/users`               | Paginated, searchable user listing                       |
-| GET            | `/api/admin/audit`               | Filterable audit log                                     |
-| GET            | `/api/admin/ingestion-status`    | Live snapshot used by the Ingestion admin page (polled)  |
-| GET / POST     | `/api/admin/data-management`     | Read / write Ingestion & Data Management settings        |
-| GET / POST     | `/api/admin/email`               | Email configuration check + send a test message          |
-| POST           | `/api/admin/email/ensure-tables` | Idempotent in-process create of account-email tables     |
-| POST           | `/api/admin/email/self-test`    | End-to-end self-test of welcome / reset / verify flows   |
-| GET            | `/api/admin/publish-list`        | Items currently in REVIEW status across the catalog      |
-| POST           | `/api/admin/publish-list/publish-all` | Bulk-publish every queued REVIEW row                 |
-| POST           | `/api/admin/search/reindex`      | Trigger reindex / housekeeping                           |
-| GET            | `/api/admin/translations`        | Translation row counts                                   |
-| GET / POST     | `/api/admin/favicon`             | Read / replace favicon asset                             |
-| GET / POST     | `/api/admin/homepage`            | Read / update homepage block config                      |
-| POST (`GET`)   | `/api/cron/ingest`               | Run scheduler + cleanup pass + housekeeping (cron-secret) |
-| POST / GET     | `/api/internal/cleanup`          | Prune sessions / tokens / rate-limits (cron-secret auth) |
+| Method         | Path                                  | Purpose                                                   |
+| -------------- | ------------------------------------- | --------------------------------------------------------- |
+| POST           | `/api/admin/login`                    | Admin login                                               |
+| POST           | `/api/admin/logout`                   | Admin logout                                              |
+| POST           | `/api/admin/content/review`           | Approve / reject / revise / move-to-review                |
+| GET / POST     | `/api/admin/prayers`                  | List / create prayers (catalog)                           |
+| PATCH / DELETE | `/api/admin/prayers/[id]`             | Update / delete a prayer                                  |
+| GET / POST     | `/api/admin/saints`                   | List / create saints                                      |
+| PATCH / DELETE | `/api/admin/saints/[id]`              | Update / delete a saint                                   |
+| GET / POST     | `/api/admin/apparitions`              | List / create Marian apparitions                          |
+| PATCH / DELETE | `/api/admin/apparitions/[id]`         | Update / delete an apparition                             |
+| GET / POST     | `/api/admin/parishes`                 | List / create parishes                                    |
+| PATCH / DELETE | `/api/admin/parishes/[id]`            | Update / delete a parish                                  |
+| GET / POST     | `/api/admin/devotions`                | List / create devotions                                   |
+| PATCH / DELETE | `/api/admin/devotions/[id]`           | Update / delete a devotion                                |
+| GET / POST     | `/api/admin/liturgy`                  | List / create liturgy entries                             |
+| PATCH / DELETE | `/api/admin/liturgy/[id]`             | Update / delete a liturgy entry                           |
+| GET / POST     | `/api/admin/spiritual-life`           | List / create spiritual-life guides                       |
+| PATCH / DELETE | `/api/admin/spiritual-life/[id]`      | Update / delete a spiritual-life guide                    |
+| POST           | `/api/admin/ingestion/run`            | Run a single job or all active jobs                       |
+| PATCH          | `/api/admin/ingestion/jobs/[id]`      | Pause / resume or re-schedule a job                       |
+| GET / POST     | `/api/admin/sources`                  | List / create ingestion sources                           |
+| GET / PATCH    | `/api/admin/sources/[id]`             | Read / update an ingestion source                         |
+| GET / POST     | `/api/admin/media`                    | List / register a media asset (Cloudinary URL)            |
+| GET / DELETE   | `/api/admin/media/[id]`               | Read / delete a media asset                               |
+| GET            | `/api/admin/users`                    | Paginated, searchable user listing                        |
+| GET            | `/api/admin/audit`                    | Filterable audit log                                      |
+| GET            | `/api/admin/ingestion-status`         | Live snapshot used by the Ingestion admin page (polled)   |
+| GET / POST     | `/api/admin/data-management`          | Read / write Ingestion & Data Management settings         |
+| GET / POST     | `/api/admin/email`                    | Email configuration check + send a test message           |
+| POST           | `/api/admin/email/ensure-tables`      | Idempotent in-process create of account-email tables      |
+| POST           | `/api/admin/email/self-test`          | End-to-end self-test of welcome / reset / verify flows    |
+| GET            | `/api/admin/publish-list`             | Items currently in REVIEW status across the catalog       |
+| POST           | `/api/admin/publish-list/publish-all` | Bulk-publish every queued REVIEW row                      |
+| POST           | `/api/admin/search/reindex`           | Trigger reindex / housekeeping                            |
+| GET            | `/api/admin/translations`             | Translation row counts                                    |
+| GET / POST     | `/api/admin/favicon`                  | Read / replace favicon asset                              |
+| GET / POST     | `/api/admin/homepage`                 | Read / update homepage block config                       |
+| POST (`GET`)   | `/api/cron/ingest`                    | Run scheduler + cleanup pass + housekeeping (cron-secret) |
+| POST / GET     | `/api/internal/cleanup`               | Prune sessions / tokens / rate-limits (cron-secret auth)  |
 
 ---
 

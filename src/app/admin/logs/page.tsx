@@ -45,10 +45,9 @@ export default async function AdminLogsHub() {
     >
       <div className="grid gap-4 sm:grid-cols-2">
         {LOG_AREAS.map((area) => {
-          const count =
-            area.href.endsWith("/data-management")
-              ? dataManagementLogCount
-              : accountLogCount;
+          const count = area.href.endsWith("/data-management")
+            ? dataManagementLogCount
+            : accountLogCount;
           return (
             <Link
               key={area.href}

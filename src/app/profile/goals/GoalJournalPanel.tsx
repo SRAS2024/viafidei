@@ -84,8 +84,8 @@ export function GoalJournalPanel({ goalId, initialEntries, open }: Props) {
     <div className="mt-4 rounded-sm border border-ink/10 bg-parchment/40 p-4">
       <p className="vf-eyebrow text-ink-faint">Journal · {entries.length}</p>
       <p className="mt-1 font-serif text-xs text-ink-faint">
-        Record reflections, progress, struggles, graces, and completion notes —
-        kept with this goal in your spiritual history.
+        Record reflections, progress, struggles, graces, and completion notes — kept with this goal
+        in your spiritual history.
       </p>
 
       <div className="mt-3 flex flex-col gap-2">
@@ -104,9 +104,7 @@ export function GoalJournalPanel({ goalId, initialEntries, open }: Props) {
           onChange={(e) => setBody(e.target.value)}
           maxLength={20000}
         />
-        {error ? (
-          <p className="font-serif text-xs text-liturgical-red">{error}</p>
-        ) : null}
+        {error ? <p className="font-serif text-xs text-liturgical-red">{error}</p> : null}
         <div className="flex justify-end">
           <button
             type="button"
@@ -124,10 +122,7 @@ export function GoalJournalPanel({ goalId, initialEntries, open }: Props) {
           {entries.map((entry) => {
             const created = new Date(entry.createdAt);
             return (
-              <div
-                key={entry.id}
-                className="rounded-sm border border-ink/10 bg-parchment p-3"
-              >
+              <div key={entry.id} className="rounded-sm border border-ink/10 bg-parchment p-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h4 className="break-words font-display text-base">{entry.title}</h4>
                   <p className="vf-eyebrow text-ink-faint">

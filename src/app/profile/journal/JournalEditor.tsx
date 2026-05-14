@@ -19,11 +19,7 @@ const TOOLBAR: ToolbarAction[] = [
   { label: "1.", insertBefore: "\n1. ", insertAfter: "", aria: "Numbered list item" },
 ];
 
-function wrapSelection(
-  textarea: HTMLTextAreaElement,
-  insertBefore: string,
-  insertAfter: string,
-) {
+function wrapSelection(textarea: HTMLTextAreaElement, insertBefore: string, insertAfter: string) {
   const start = textarea.selectionStart;
   const end = textarea.selectionEnd;
   const value = textarea.value;

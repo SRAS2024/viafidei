@@ -2,17 +2,11 @@ import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { Pagination } from "@/components/ui/Pagination";
-import {
-  listPublishedPrayersPaginated,
-  resolvePrayerCategory,
-} from "@/lib/data/prayers";
+import { listPublishedPrayersPaginated, resolvePrayerCategory } from "@/lib/data/prayers";
 import { logPageError } from "@/lib/observability/page-errors";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 import { filterByRite } from "@/lib/content/rites";
-import {
-  PRAYER_CATEGORY_ORDER,
-  type PrayerCategory,
-} from "@/lib/ingestion/sources/categorize";
+import { PRAYER_CATEGORY_ORDER, type PrayerCategory } from "@/lib/ingestion/sources/categorize";
 import { PrayerFilterDropdown } from "./_components/PrayerFilterDropdown";
 
 export const dynamic = "force-dynamic";
@@ -114,9 +108,7 @@ export default async function PrayersPage({ searchParams }: Props) {
               <Link key={p.id} href={`/prayers/${p.slug}`}>
                 <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-7">
                   <p className="vf-eyebrow">{PRAYER_CATEGORY_LABELS[resolved]}</p>
-                  <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">
-                    {title}
-                  </h2>
+                  <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{title}</h2>
                   <p className="mt-4 line-clamp-5 font-serif leading-relaxed text-ink-soft">
                     {body}
                   </p>

@@ -79,9 +79,7 @@ function SearchResultRow({
             {typeLabel}
           </span>
         </div>
-        {item.secondary ? (
-          <p className="vf-eyebrow mt-1 break-words">{item.secondary}</p>
-        ) : null}
+        {item.secondary ? <p className="vf-eyebrow mt-1 break-words">{item.secondary}</p> : null}
       </div>
       {item.href ? (
         <span aria-hidden="true" className="shrink-0 text-ink-faint">

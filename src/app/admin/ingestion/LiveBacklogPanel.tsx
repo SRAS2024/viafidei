@@ -203,9 +203,7 @@ export function LiveBacklogPanel({ initialSnapshot }: Props) {
           })}
         </div>
       ) : (
-        <p className="font-serif text-sm text-ink-faint">
-          Backlog progress is unavailable.
-        </p>
+        <p className="font-serif text-sm text-ink-faint">Backlog progress is unavailable.</p>
       )}
 
       {latestRun ? (

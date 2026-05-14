@@ -278,8 +278,7 @@ export const GOAL_TEMPLATES: GoalTemplate[] = [
   {
     slug: "sacrament-matrimony",
     title: "Receive the Sacrament of Matrimony",
-    description:
-      "Enter the covenant of Christian marriage in the Catholic Church.",
+    description: "Enter the covenant of Christian marriage in the Catholic Church.",
     category: "sacrament",
     checklist: [
       "Engage in formal pre-Cana / marriage preparation",

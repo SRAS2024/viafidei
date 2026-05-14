@@ -33,8 +33,7 @@ function parseDate(searchParams: Props["searchParams"]) {
     Number.isInteger(monthRaw) && monthRaw >= 1 && monthRaw <= 12
       ? monthRaw
       : now.getUTCMonth() + 1;
-  const day =
-    Number.isInteger(dayRaw) && dayRaw >= 1 && dayRaw <= 31 ? dayRaw : now.getUTCDate();
+  const day = Number.isInteger(dayRaw) && dayRaw >= 1 && dayRaw <= 31 ? dayRaw : now.getUTCDate();
   return { month, day };
 }
 
@@ -86,9 +85,7 @@ export default async function TodayFeastDayPage({ searchParams }: Props) {
                   className="vf-card block rounded-sm p-5 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-6"
                 >
                   <h2 className="break-words font-display text-xl sm:text-2xl">{name}</h2>
-                  {s.feastDay ? (
-                    <p className="vf-eyebrow mt-1 truncate">{s.feastDay}</p>
-                  ) : null}
+                  {s.feastDay ? <p className="vf-eyebrow mt-1 truncate">{s.feastDay}</p> : null}
                   <p className="mt-3 line-clamp-3 font-serif leading-relaxed text-ink-soft">
                     {biography}
                   </p>

@@ -44,9 +44,7 @@ async function runChecks(): Promise<Check[]> {
           "No IngestionJobRun rows yet. The scheduler creates them on the first cron tick — confirm /api/cron/ingest is wired up on the host.",
       });
     } else {
-      const ageMinutes = Math.round(
-        (Date.now() - lastRun.startedAt.getTime()) / 60000,
-      );
+      const ageMinutes = Math.round((Date.now() - lastRun.startedAt.getTime()) / 60000);
       const status: Check["status"] =
         lastRun.status === "SUCCESS"
           ? "ok"
@@ -133,16 +131,15 @@ async function runChecks(): Promise<Check[]> {
 
   // 5. Content counts by main type.
   try {
-    const [prayers, saints, apparitions, parishes, devotions, liturgy, guides] =
-      await Promise.all([
-        prisma.prayer.count({ where: { status: "PUBLISHED" } }),
-        prisma.saint.count({ where: { status: "PUBLISHED" } }),
-        prisma.marianApparition.count({ where: { status: "PUBLISHED" } }),
-        prisma.parish.count({ where: { status: "PUBLISHED" } }),
-        prisma.devotion.count({ where: { status: "PUBLISHED" } }),
-        prisma.liturgyEntry.count({ where: { status: "PUBLISHED" } }),
-        prisma.spiritualLifeGuide.count({ where: { status: "PUBLISHED" } }),
-      ]);
+    const [prayers, saints, apparitions, parishes, devotions, liturgy, guides] = await Promise.all([
+      prisma.prayer.count({ where: { status: "PUBLISHED" } }),
+      prisma.saint.count({ where: { status: "PUBLISHED" } }),
+      prisma.marianApparition.count({ where: { status: "PUBLISHED" } }),
+      prisma.parish.count({ where: { status: "PUBLISHED" } }),
+      prisma.devotion.count({ where: { status: "PUBLISHED" } }),
+      prisma.liturgyEntry.count({ where: { status: "PUBLISHED" } }),
+      prisma.spiritualLifeGuide.count({ where: { status: "PUBLISHED" } }),
+    ]);
     checks.push({
       name: "Content counts (PUBLISHED)",
       status: "info",

@@ -26,10 +26,7 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   const month = Number(url.searchParams.get("month") ?? now.getUTCMonth() + 1);
   const day = Number(url.searchParams.get("day") ?? now.getUTCDate());
-  const take = Math.min(
-    Math.max(Number(url.searchParams.get("take") ?? 0), 0),
-    50,
-  );
+  const take = Math.min(Math.max(Number(url.searchParams.get("take") ?? 0), 0), 50);
   if (
     !Number.isInteger(month) ||
     !Number.isInteger(day) ||

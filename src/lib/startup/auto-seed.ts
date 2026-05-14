@@ -17,7 +17,6 @@ async function isDbReachable(): Promise<boolean> {
   }
 }
 
-
 /**
  * Run one ingestion tick by POST'ing to the in-process cron route.
  *

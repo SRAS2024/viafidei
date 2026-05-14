@@ -171,11 +171,7 @@ async function runChecks(): Promise<Check[]> {
   // 8. Today's Feast Day Saints — verify the SQL query.
   try {
     const now = new Date();
-    const saints = await listSaintsForFeastDate(
-      "en",
-      now.getUTCMonth() + 1,
-      now.getUTCDate(),
-    );
+    const saints = await listSaintsForFeastDate("en", now.getUTCMonth() + 1, now.getUTCDate());
     checks.push({
       name: "Today's Feast Day Saints (server-side)",
       status: "ok",
@@ -284,9 +280,8 @@ export default async function AccountsDiagnostics() {
       <section className="mt-10">
         <h2 className="font-display text-2xl">Device-side checks</h2>
         <p className="mt-2 font-serif text-sm text-ink-soft">
-          These run in this browser session and confirm the user-facing
-          features (device date / timezone, language preference, location
-          permission) are reachable.
+          These run in this browser session and confirm the user-facing features (device date /
+          timezone, language preference, location permission) are reachable.
         </p>
         <AccountsClientChecks />
       </section>

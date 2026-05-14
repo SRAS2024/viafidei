@@ -58,9 +58,7 @@ const CONSECRATION_ORDER = [
 
 function orderBySlug<T extends { slug: string }>(items: T[], order: string[]): T[] {
   const idx = new Map(order.map((slug, i) => [slug, i]));
-  return [...items].sort(
-    (a, b) => (idx.get(a.slug) ?? 999) - (idx.get(b.slug) ?? 999),
-  );
+  return [...items].sort((a, b) => (idx.get(a.slug) ?? 999) - (idx.get(b.slug) ?? 999));
 }
 
 export default async function SacramentsPage() {
@@ -81,10 +79,7 @@ export default async function SacramentsPage() {
   // are rite-neutral so they always pass through.
   const rite = await getRiteCookieValue();
   const sacraments = orderBySlug(filterByRite(groups.sacraments, rite), SACRAMENT_ORDER);
-  const consecrations = orderBySlug(
-    filterByRite(groups.consecrations, rite),
-    CONSECRATION_ORDER,
-  );
+  const consecrations = orderBySlug(filterByRite(groups.consecrations, rite), CONSECRATION_ORDER);
 
   return (
     <div>
@@ -149,10 +144,10 @@ export default async function SacramentsPage() {
             <p className="vf-eyebrow">Personal entrustment</p>
             <h2 className="mt-2 font-display text-3xl sm:text-4xl">Consecrations</h2>
             <p className="mx-auto mt-3 max-w-reading font-serif text-ink-soft">
-              A personal consecration is a free, total entrustment of oneself to Jesus, Mary,
-              Saint Joseph, the Holy Family, or the Sacred Heart. Each consecration here includes
-              its spiritual purpose, the preparation tradition, and the daily readings and prayers
-              that prepare the heart for the act of consecration on the chosen feast day.
+              A personal consecration is a free, total entrustment of oneself to Jesus, Mary, Saint
+              Joseph, the Holy Family, or the Sacred Heart. Each consecration here includes its
+              spiritual purpose, the preparation tradition, and the daily readings and prayers that
+              prepare the heart for the act of consecration on the chosen feast day.
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2">

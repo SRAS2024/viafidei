@@ -16,10 +16,7 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function SacramentDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
-  if (
-    !params.slug.startsWith("sacrament-") &&
-    !params.slug.startsWith("consecration-")
-  ) {
+  if (!params.slug.startsWith("sacrament-") && !params.slug.startsWith("consecration-")) {
     notFound();
   }
   const guide = await getPublishedSpiritualLifeGuideBySlug(params.slug, locale);
@@ -60,8 +57,8 @@ export default async function SacramentDetailPage({ params }: Props) {
           <div className="vf-card rounded-sm p-6 text-center">
             <p className="font-serif text-sm text-ink-soft">
               You can add this {isConsecration ? "consecration" : "sacrament"} as a goal on your
-              profile. The goal will guide you through the preparation, daily readings, and the
-              act of {isConsecration ? "consecration" : "reception"} — and stay in your spiritual
+              profile. The goal will guide you through the preparation, daily readings, and the act
+              of {isConsecration ? "consecration" : "reception"} — and stay in your spiritual
               history once it is complete.
             </p>
             <Link

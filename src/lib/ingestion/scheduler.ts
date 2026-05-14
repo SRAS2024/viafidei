@@ -89,15 +89,16 @@ export async function getBacklogProgress(): Promise<{
   mode: SchedulerMode;
 }> {
   const targets = appConfig.ingestion.targets;
-  const [prayers, saints, parishes, churchDocuments, sacraments, consecrations] =
-    await Promise.all([
+  const [prayers, saints, parishes, churchDocuments, sacraments, consecrations] = await Promise.all(
+    [
       prisma.prayer.count(),
       prisma.saint.count(),
       prisma.parish.count(),
       countChurchDocuments(),
       countSacraments(),
       countConsecrations(),
-    ]);
+    ],
+  );
   const counts: BacklogCounts = {
     prayers,
     saints,

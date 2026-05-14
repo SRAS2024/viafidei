@@ -63,8 +63,8 @@ export default async function HistoryPage() {
         <section className="mt-14" id="council-documents">
           <h2 className="mb-3 font-display text-3xl">Council documents</h2>
           <p className="mb-4 font-serif text-sm text-ink-soft">
-            The texts of the ecumenical councils, grouped by council. Click a council to expand
-            its documents.
+            The texts of the ecumenical councils, grouped by council. Click a council to expand its
+            documents.
           </p>
           <div className="flex flex-col gap-3">
             {councilBuckets.map((bucket) => (

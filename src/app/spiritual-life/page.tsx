@@ -66,9 +66,7 @@ export default async function SpiritualLifePage({
                     <p className="vf-eyebrow">
                       {g.durationDays ? `${g.durationDays}-day journey` : "Formation"}
                     </p>
-                    <h2 className="mt-3 break-words font-display text-2xl sm:text-3xl">
-                      {title}
-                    </h2>
+                    <h2 className="mt-3 break-words font-display text-2xl sm:text-3xl">{title}</h2>
                     <p className="mt-4 flex-1 line-clamp-3 font-serif leading-relaxed text-ink-soft">
                       {summary}
                     </p>

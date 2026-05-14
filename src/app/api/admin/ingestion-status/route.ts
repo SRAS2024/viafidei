@@ -24,7 +24,7 @@ export async function GET() {
   const [progress, settings, activity24h, latestRun] = await Promise.all([
     getBacklogProgress().catch(() => null),
     getDataManagementSettings(),
-    getRecentActivityByContentType(24).catch(() => ({} as Record<string, number>)),
+    getRecentActivityByContentType(24).catch(() => ({}) as Record<string, number>),
     prisma.ingestionJobRun
       .findFirst({
         orderBy: { startedAt: "desc" },

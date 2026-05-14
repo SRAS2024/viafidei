@@ -21,9 +21,10 @@ export function ManualIngestRunButton({ initialMode }: Props) {
         headers: { "Content-Type": "application/json" },
         body: "{}",
       });
-      const json = (await res.json().catch(() => null)) as
-        | { ok: boolean; result?: { totalJobs?: number } }
-        | null;
+      const json = (await res.json().catch(() => null)) as {
+        ok: boolean;
+        result?: { totalJobs?: number };
+      } | null;
       if (!res.ok || !json?.ok) {
         setError("Run failed. Check the server logs.");
         return;

@@ -30,9 +30,7 @@ export function normalizeExternalKey(input: string | undefined | null): string |
  * "https://www.stmary.org/" and "http://stmary.org" collapse onto the
  * same identity.
  */
-export function normalizeWebsiteIdentity(
-  input: string | undefined | null,
-): string | undefined {
+export function normalizeWebsiteIdentity(input: string | undefined | null): string | undefined {
   if (!input) return undefined;
   const trimmed = input.trim();
   if (!trimmed) return undefined;

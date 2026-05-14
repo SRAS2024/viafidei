@@ -74,9 +74,7 @@ export function AddGoalButton({
       >
         {busy ? "Adding…" : children}
       </button>
-      {error ? (
-        <p className="mt-3 text-center font-serif text-sm text-ink-faint">{error}</p>
-      ) : null}
+      {error ? <p className="mt-3 text-center font-serif text-sm text-ink-faint">{error}</p> : null}
       <LoginRequiredPopup open={showPrompt} onClose={() => setShowPrompt(false)} />
     </>
   );

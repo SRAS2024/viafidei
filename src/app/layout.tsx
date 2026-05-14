@@ -56,11 +56,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const pathname = headers().get("x-pathname") ?? "";
   const isAdminRoute = pathname.startsWith("/admin");
   return (
-    <html
-      lang={locale}
-      data-theme={theme}
-      className={`${cormorant.variable} ${inter.variable}`}
-    >
+    <html lang={locale} data-theme={theme} className={`${cormorant.variable} ${inter.variable}`}>
       <body className="flex min-h-screen flex-col">
         {isAdminRoute ? null : <Header />}
         <main

@@ -236,9 +236,7 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
               </p>
               <ul>
                 {items.map((s) => {
-                  const flatIndex = flat.findIndex(
-                    (x) => x.group === s.group && x.id === s.id,
-                  );
+                  const flatIndex = flat.findIndex((x) => x.group === s.group && x.id === s.id);
                   const active = flatIndex === activeIndex;
                   return (
                     <li key={`${s.group}:${s.id}`}>

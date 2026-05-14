@@ -267,8 +267,7 @@ export function feastDayMatchesDate(
     if (partHasAnyMonth) {
       anyMonthSeen = true;
       currentMonthMatchesQuery =
-        lower.includes(monthName.toLowerCase()) ||
-        lower.includes(monthAbbrev.toLowerCase());
+        lower.includes(monthName.toLowerCase()) || lower.includes(monthAbbrev.toLowerCase());
     }
     // If we have not seen any month yet, this part cannot match.
     if (!anyMonthSeen) continue;
@@ -290,11 +289,7 @@ export function feastDayMatchesDate(
  * small enough that this is fine; if the catalog grows past a few
  * thousand rows we can split feastDay into structured columns.
  */
-export async function listSaintsForFeastDate(
-  locale: Locale,
-  month: number,
-  day: number,
-) {
+export async function listSaintsForFeastDate(locale: Locale, month: number, day: number) {
   const monthName = MONTH_NAMES[month - 1];
   if (!monthName) return [];
   const monthAbbrev = monthName.slice(0, 3);

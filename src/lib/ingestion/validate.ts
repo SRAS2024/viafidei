@@ -163,7 +163,11 @@ function validateSaint(item: IngestedItem & { kind: "saint" }): string | null {
   // canonicalName must contain the saint's name; a generic title like
   // "Catholic Saints" or "Patron Saints" is a navigation page, not a
   // saint.
-  if (/^(catholic\s+saints?|patron\s+saints?|saints?\s+(directory|list|index))/i.test(item.canonicalName)) {
+  if (
+    /^(catholic\s+saints?|patron\s+saints?|saints?\s+(directory|list|index))/i.test(
+      item.canonicalName,
+    )
+  ) {
     return "Saint canonicalName looks like a directory page";
   }
   return null;

@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  DATA_MANAGEMENT_ACTIONS,
-  dataManagementActionLabel,
-} from "@/lib/data/data-management-log";
+import { DATA_MANAGEMENT_ACTIONS, dataManagementActionLabel } from "@/lib/data/data-management-log";
 
 describe("dataManagementActionLabel", () => {
   it("returns a human label for every canonical action", () => {
