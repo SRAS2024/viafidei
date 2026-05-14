@@ -10,6 +10,13 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Single source of truth for the Node major used across every job —
+  # keeps the install steps in sync without scattering version numbers.
+  # Node 22 is the active LTS as of late 2024; Node 20 entered EOL in
+  # April 2026 so all jobs run on the supported line.
+  NODE_VERSION: "22"
+
 jobs:
   verify:
     name: Typecheck, lint, test, build
@@ -24,16 +31,14 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       # Install with the default NODE_ENV so devDependencies (typescript,
       # prettier, eslint, prisma CLI, tailwind, etc.) are present. Setting
-      # NODE_ENV=production at install time would silently skip them, leaving
-      # `tsc` / `prettier` to fall back to whatever happens to be on the
-      # runner's PATH — which is how this job started failing once the
-      # runner shipped a newer TypeScript that errors on the `baseUrl`
-      # deprecation in tsconfig.json.
+      # NODE_ENV=production at install time would silently skip them and
+      # the CLI tools below would fall back to whatever happens to be on
+      # the runner's PATH.
       - name: Install dependencies
         run: npm ci
 
@@ -61,22 +66,41 @@ jobs:
           NODE_ENV: production
 
   audit:
-    name: Dependency audit
+    name: Dependency audit (blocking — high+)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - name: Install dependencies
         run: npm ci
       # `audit` exits non-zero on any vulnerability at or above the level.
-      # `high` is the minimum bar that must block merges; `moderate` is
-      # treated as advisory below.
-      - name: Audit (high+)
+      # High is the minimum bar that must block merges; moderate is
+      # surfaced as advisory in the `advisories` job below.
+      - name: Audit (high+ blocks)
         run: npm audit --audit-level=high
+
+  advisories:
+    name: Dependency advisories (moderate — non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Advisory only: keep visibility on moderate-severity issues without
+    # blocking the merge queue. Flip continue-on-error off if a moderate
+    # advisory ever needs to become a hard gate.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Audit (moderate+ — advisory only)
+        run: npm audit --audit-level=moderate
 
   integration:
     name: Integration tests (Postgres)
@@ -105,7 +129,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
       - name: Apply migrations against the test database
@@ -140,7 +164,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
       - name: Apply migrations + seed

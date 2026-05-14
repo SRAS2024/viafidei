@@ -43,6 +43,12 @@ export function ConfirmDialog({
   const interpolated = entityName ? body.replaceAll("{name}", entityName) : body;
 
   return (
+    // Backdrop dismiss-on-click. Keyboard equivalent is the window-level
+    // Escape listener wired up in the useEffect above, which fires before
+    // any focused descendant can swallow the key — so a duplicate inline
+    // onKeyDown on this element would invoke onCancel twice. The rule is
+    // satisfied by the global listener; the inline disable documents that.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       className="vf-modal-backdrop"
       role="dialog"

@@ -1,15 +1,37 @@
 .git
 .gitignore
+.github
 .next
 node_modules
 npm-debug.log
 Dockerfile
 .dockerignore
 README.md
+LICENSE
+TESTING.md
 .env
 .env.*
+
+# Editor/IDE
 .vscode
 .idea
+
+# Test + coverage output
 coverage
+test-results
+playwright-report
+.nyc_output
+.vitest-cache
+
+# Build output that the final image regenerates from source
 dist
 out
+
+# Test/E2E folders (not needed in the production image)
+e2e
+tests
+TESTING.md
+
+# Editor temp + OS metadata
+.DS_Store
+*.log

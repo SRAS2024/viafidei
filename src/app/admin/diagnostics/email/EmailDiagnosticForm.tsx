@@ -165,14 +165,20 @@ export function EmailDiagnosticForm({ configured, fromAddress }: Props) {
         <legend className="px-2 vf-eyebrow">Template</legend>
         <div className="flex flex-col gap-2">
           {TEMPLATE_OPTIONS.map((opt) => (
-            <label key={opt.value} className="flex items-start gap-2 font-serif text-sm">
+            <label
+              key={opt.value}
+              htmlFor={`tpl-${opt.value}`}
+              className="flex items-start gap-2 font-serif text-sm"
+            >
               <input
+                id={`tpl-${opt.value}`}
                 type="radio"
                 name="template"
                 value={opt.value}
                 checked={template === opt.value}
                 onChange={() => setTemplate(opt.value)}
                 disabled={!configured || outcome.kind === "loading"}
+                aria-label={opt.label}
                 className="mt-1"
               />
               <span>

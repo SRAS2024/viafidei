@@ -12,6 +12,8 @@ export function CrossOrnament({ className }: Props) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      aria-hidden="true"
+      focusable="false"
     >
       <path d="M8 1.5 V 20.5" />
       <path d="M10 1.5 V 20.5" />
@@ -33,6 +35,8 @@ export function SimpleCross({ className }: Props) {
       strokeWidth="1"
       strokeLinecap="round"
       className={className}
+      aria-hidden="true"
+      focusable="false"
     >
       <path d="M8 2 V 20" />
       <path d="M10 2 V 20" />
