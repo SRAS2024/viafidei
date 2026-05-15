@@ -17,6 +17,7 @@ type Crud = {
   delete: Mock;
   deleteMany: Mock;
   count: Mock;
+  aggregate: Mock;
 };
 
 function createCrud(): Crud {
@@ -31,6 +32,7 @@ function createCrud(): Crud {
     delete: vi.fn(),
     deleteMany: vi.fn(),
     count: vi.fn(),
+    aggregate: vi.fn(),
   };
 }
 
@@ -77,7 +79,13 @@ export type PrismaMock = {
   profile: Crud;
   journalEntry: Crud;
   goal: Crud;
+  goalChecklistItem: Crud;
   milestone: Crud;
+  userSavedPrayer: Crud;
+  userSavedSaint: Crud;
+  userSavedApparition: Crud;
+  userSavedParish: Crud;
+  userSavedDevotion: Crud;
   $transaction: Mock;
   $queryRaw: Mock;
 };
@@ -123,7 +131,13 @@ export function createPrismaMock(): PrismaMock {
     profile: createCrud(),
     journalEntry: createCrud(),
     goal: createCrud(),
+    goalChecklistItem: createCrud(),
     milestone: createCrud(),
+    userSavedPrayer: createCrud(),
+    userSavedSaint: createCrud(),
+    userSavedApparition: createCrud(),
+    userSavedParish: createCrud(),
+    userSavedDevotion: createCrud(),
     // Default $transaction implementation just resolves the array of
     // promises so tests that don't override it still get sane behavior.
     $transaction: vi.fn(async (ops: unknown) => {
