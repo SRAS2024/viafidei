@@ -72,6 +72,33 @@ export function AccountsClientChecks() {
       });
     }
 
+    // Translation override behavior. The app's translation strategy is
+    // "manual locale override wins, otherwise device language". This
+    // check reads the vf_locale cookie and reports whether an override
+    // is currently in effect, so the operator can confirm the manual-
+    // override flow without having to leave the diagnostics page.
+    try {
+      const cookieMatch = document.cookie.match(/(?:^|;\s*)vf_locale=([^;]+)/);
+      const override = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+      const docLang = document.documentElement.lang || "(unset)";
+      const matches = override && override === docLang;
+      out.push({
+        name: "Translation override",
+        status: override ? (matches ? "ok" : "warn") : "info",
+        detail: override
+          ? matches
+            ? `Manual override "${override}" is in effect and the document is rendering in that locale.`
+            : `Manual override "${override}" is set in the cookie but the document is rendering as "${docLang}". A refresh should reconcile them.`
+          : `No manual override set — the app is using automatic locale negotiation (Accept-Language → device default). Setting a locale in /profile/settings persists it to the vf_locale cookie and to User.language.`,
+      });
+    } catch (err) {
+      out.push({
+        name: "Translation override",
+        status: "fail",
+        detail: `Could not read translation cookie: ${(err as Error).message}`,
+      });
+    }
+
     // Geolocation permission (read-only).
     if (!("geolocation" in navigator)) {
       out.push({
