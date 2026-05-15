@@ -38,7 +38,7 @@ export type DiagnosticResult = {
   /** Optional friendly explanation: what likely broke + where to look. */
   explanation?: string;
   /** Optional small structured payload — counts, names, prefixes. */
-  evidence?: Record<string, string | number | boolean | null>;
+  evidence?: Record<string, string | number | boolean | null | undefined>;
   /** ISO timestamp of when this check finished running. */
   ranAt: string;
   /** Request id that ties this result to the structured log line. */

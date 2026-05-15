@@ -41,6 +41,7 @@ export type PrismaMock = {
     create: Mock;
     findUnique: Mock;
     update: Mock;
+    count: Mock;
   };
   passwordResetToken: {
     create: Mock;
@@ -57,9 +58,11 @@ export type PrismaMock = {
   };
   session: {
     deleteMany: Mock;
+    count: Mock;
   };
   rateLimitBucket: {
     deleteMany: Mock;
+    count: Mock;
   };
   // Content-side models the ingestion / data layers use. These are all
   // generic CRUD shapes — tests reach in and program the methods they
@@ -74,6 +77,8 @@ export type PrismaMock = {
   ingestionJob: Crud;
   ingestionJobRun: Crud;
   ingestionSource: Crud;
+  dataManagementLog: Crud;
+  adminAuditLog: Crud;
   tag: Crud;
   entityTag: Crud;
   profile: Crud;
@@ -88,6 +93,7 @@ export type PrismaMock = {
   userSavedDevotion: Crud;
   $transaction: Mock;
   $queryRaw: Mock;
+  $queryRawUnsafe: Mock;
 };
 
 export function createPrismaMock(): PrismaMock {
@@ -96,6 +102,7 @@ export function createPrismaMock(): PrismaMock {
       create: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+      count: vi.fn(),
     },
     passwordResetToken: {
       create: vi.fn(),
@@ -112,9 +119,11 @@ export function createPrismaMock(): PrismaMock {
     },
     session: {
       deleteMany: vi.fn(),
+      count: vi.fn(),
     },
     rateLimitBucket: {
       deleteMany: vi.fn(),
+      count: vi.fn(),
     },
     prayer: createCrud(),
     saint: createCrud(),
@@ -126,6 +135,8 @@ export function createPrismaMock(): PrismaMock {
     ingestionJob: createCrud(),
     ingestionJobRun: createCrud(),
     ingestionSource: createCrud(),
+    dataManagementLog: createCrud(),
+    adminAuditLog: createCrud(),
     tag: createCrud(),
     entityTag: createCrud(),
     profile: createCrud(),
@@ -146,6 +157,7 @@ export function createPrismaMock(): PrismaMock {
       return ops;
     }),
     $queryRaw: vi.fn(),
+    $queryRawUnsafe: vi.fn(),
   };
 }
 
