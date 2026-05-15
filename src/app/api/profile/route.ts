@@ -57,10 +57,11 @@ export async function PATCH(req: NextRequest) {
   // the server so the cookie survives even if the picker's fetch races
   // with a page reload.
   if (parsed.data.theme !== undefined) {
+    const cookieStore = await cookies();
     if (isThemePreference(parsed.data.theme)) {
-      cookies().set(THEME_COOKIE_NAME, parsed.data.theme, THEME_COOKIE_OPTIONS);
+      cookieStore.set(THEME_COOKIE_NAME, parsed.data.theme, THEME_COOKIE_OPTIONS);
     } else if (parsed.data.theme === null || parsed.data.theme === "") {
-      cookies().delete(THEME_COOKIE_NAME);
+      cookieStore.delete(THEME_COOKIE_NAME);
     }
   }
 

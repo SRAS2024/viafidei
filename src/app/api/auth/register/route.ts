@@ -28,9 +28,13 @@ function classifyError(parsed: ReturnType<typeof registerSchema.safeParse>): str
   return "invalid";
 }
 
-function resolveLocaleFromRequest(req: NextRequest, override?: string | null): string {
+async function resolveLocaleFromRequest(
+  req: NextRequest,
+  override?: string | null,
+): Promise<string> {
   if (override && isSupportedLocale(override)) return override;
-  const cookie = cookies().get(LOCALE_COOKIE_NAME)?.value;
+  const cookieStore = await cookies();
+  const cookie = cookieStore.get(LOCALE_COOKIE_NAME)?.value;
   if (cookie && isSupportedLocale(cookie)) return cookie;
   return negotiateLocale(req.headers.get("accept-language"));
 }
@@ -181,7 +185,7 @@ export async function POST(req: NextRequest) {
     }
     if (existing) return redirectWithError(req, "exists");
 
-    const language = resolveLocaleFromRequest(req, parsed.data.language);
+    const language = await resolveLocaleFromRequest(req, parsed.data.language);
 
     let user;
     try {
@@ -300,7 +304,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Persist the chosen locale to the cookie so the next page load uses it.
-    cookies().set(LOCALE_COOKIE_NAME, language, LOCALE_COOKIE_OPTIONS);
+    const cookieStore = await cookies();
+    cookieStore.set(LOCALE_COOKIE_NAME, language, LOCALE_COOKIE_OPTIONS);
 
     return redirectTo(req, "/profile");
   } catch (error) {

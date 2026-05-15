@@ -19,8 +19,8 @@ import { THEME_COOKIE_NAME } from "@/lib/i18n/theme-cookie";
  * browser to a clean default for whoever logs in next (or for the
  * anonymous post-logout view).
  */
-function clearUserPreferenceCookies(): void {
-  const c = cookies();
+async function clearUserPreferenceCookies(): Promise<void> {
+  const c = await cookies();
   c.delete(THEME_COOKIE_NAME);
   c.delete(RITE_COOKIE_NAME);
   c.delete(LOCALE_COOKIE_NAME);
@@ -51,7 +51,7 @@ function clearUserPreferenceCookies(): void {
 export async function logoutAction() {
   const session = await getSession();
   session.destroy();
-  clearUserPreferenceCookies();
+  await clearUserPreferenceCookies();
   revalidatePath("/", "layout");
   redirect("/");
 }
@@ -73,7 +73,7 @@ export async function adminLogoutAction() {
       actorUsername: username,
     });
   }
-  clearUserPreferenceCookies();
+  await clearUserPreferenceCookies();
   revalidatePath("/", "layout");
   redirect("/admin/login");
 }

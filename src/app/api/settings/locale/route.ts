@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db";
 export async function POST(req: NextRequest) {
   const form = await req.formData();
   const raw = String(form.get("locale") ?? "");
-  const c = cookies();
+  const c = await cookies();
   if (raw && isSupportedLocale(raw)) {
     c.set(LOCALE_COOKIE_NAME, raw, LOCALE_COOKIE_OPTIONS);
   } else {

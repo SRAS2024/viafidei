@@ -53,7 +53,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // mixed surface is confusing. Suppress the public Header/Footer on
   // any /admin route by reading the x-pathname header the middleware
   // sets on every request.
-  const pathname = headers().get("x-pathname") ?? "";
+  const pathname = (await headers()).get("x-pathname") ?? "";
   const isAdminRoute = pathname.startsWith("/admin");
   return (
     <html lang={locale} data-theme={theme} className={`${cormorant.variable} ${inter.variable}`}>

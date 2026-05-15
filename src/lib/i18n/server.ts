@@ -18,9 +18,11 @@ export { LOCALE_COOKIE_NAME } from "./cookie";
  * stays free of database lookups and remains safe in static rendering.
  */
 export async function getLocale(): Promise<Locale> {
-  const override = cookies().get(LOCALE_COOKIE_NAME)?.value;
+  const cookieStore = await cookies();
+  const override = cookieStore.get(LOCALE_COOKIE_NAME)?.value;
   if (override && isSupportedLocale(override)) return override;
-  return negotiateLocale(headers().get("accept-language"));
+  const headerStore = await headers();
+  return negotiateLocale(headerStore.get("accept-language"));
 }
 
 export async function getTranslator() {

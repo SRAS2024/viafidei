@@ -81,8 +81,9 @@ export async function POST(req: NextRequest) {
     await session.save();
 
     // The signed-in user's saved language overrides any device-language guess.
+    const cookieStore = await cookies();
     if (user.language && isSupportedLocale(user.language)) {
-      cookies().set(LOCALE_COOKIE_NAME, user.language, LOCALE_COOKIE_OPTIONS);
+      cookieStore.set(LOCALE_COOKIE_NAME, user.language, LOCALE_COOKIE_OPTIONS);
     }
 
     // Restore the signed-in user's saved theme to the browser cookie so the
@@ -93,7 +94,7 @@ export async function POST(req: NextRequest) {
     // what they had saved on their profile.
     const profile = await getProfileForUser(user.id).catch(() => null);
     if (profile && isThemePreference(profile.theme)) {
-      cookies().set(THEME_COOKIE_NAME, profile.theme, THEME_COOKIE_OPTIONS);
+      cookieStore.set(THEME_COOKIE_NAME, profile.theme, THEME_COOKIE_OPTIONS);
     }
 
     return redirectTo(req, next);

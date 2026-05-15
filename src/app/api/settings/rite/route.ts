@@ -7,7 +7,7 @@ import { redirectTo } from "@/lib/security/request";
 export async function POST(req: NextRequest) {
   const form = await req.formData();
   const raw = String(form.get("rite") ?? "");
-  const c = cookies();
+  const c = await cookies();
   if (raw && isCatholicRite(raw)) {
     c.set(RITE_COOKIE_NAME, raw, RITE_COOKIE_OPTIONS);
   } else {

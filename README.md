@@ -60,7 +60,7 @@ edited blindly:
 
 | Area               | Choice                                                                                 |
 | ------------------ | -------------------------------------------------------------------------------------- |
-| Framework          | Next.js `14.2.35` (App Router, `output: "standalone"`)                                 |
+| Framework          | Next.js `15.5.18` (App Router, async cookies/headers, `output: "standalone"`)          |
 | Runtime            | Node.js `>= 20`                                                                        |
 | Language           | TypeScript `5.6` (strict)                                                              |
 | UI                 | React `18.3`, Tailwind CSS `3.4`, Framer Motion                                        |
@@ -1325,15 +1325,13 @@ This is an honest list of items that are scoped for future polish branches.
 None of them affect day-to-day reader behaviour, and each lands behind the
 same CI gates that protect the rest of the codebase.
 
-- **One remaining high-severity advisory on Next.js core.** Three of the
-  four original high-severity items were resolved by an npm `overrides`
-  entry that pulls `glob` forward to the patched 10.5.0+ line (the
-  advisory was in the CLI flag, not the API surface eslint-plugin-next
-  uses). The remaining high-sev item is in Next.js itself (HTTP request
-  deserialization) and is only fixed in Next 15+, which makes
-  `cookies()`, `headers()`, `params`, and `searchParams` async — that
-  migration is intentionally deferred to its own branch so the diff
-  stays reviewable.
+- **High-severity advisories cleared.** All four original high-severity
+  items are now resolved. Three were knocked out by an npm `overrides`
+  entry that pulls `glob` forward to the patched 10.5.0+ line, and the
+  fourth (Next.js core HTTP request deserialization) was cleared by
+  bumping Next.js to `15.5.18` and migrating `cookies()` / `headers()`
+  to the async App Router API. `npm audit --audit-level=high` now exits
+  zero and the CI audit gate passes.
 - **Test tooling moderate advisories.** Vitest 2.x and its `esbuild`
   transitive carry moderate-severity advisories. Vitest 3 and 4 are both
   available but represent a multi-major jump for the test layer; the
