@@ -1,9 +1,12 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { appConfig } from "@/lib/config";
 import { requireAdmin } from "@/lib/auth";
 import { readResendApiKey } from "@/lib/email/resend";
 import { checkAccountEmailDb, type EmailFlowDbCheck } from "@/lib/email/db-health";
 import { logger } from "@/lib/observability";
+import { runEmailDiagnostics } from "@/lib/diagnostics";
+import { DiagnosticSectionPanel } from "@/components/diagnostics/DiagnosticSectionPanel";
 import { AdminSection } from "../../_sections/AdminSection";
 import { EmailDiagnosticForm } from "./EmailDiagnosticForm";
 import { EmailSelfTestPanel } from "./EmailSelfTestPanel";
@@ -17,6 +20,13 @@ const ERROR_COLOR = "#8b1a1a";
 export default async function AdminEmailPage() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
+
+  // Backed by the same `runEmailDiagnostics()` function the
+  // `/api/admin/diagnostics/email` route uses — single source of
+  // truth, no duplicated logic. Rendered through DiagnosticSectionPanel
+  // so the page matches every other diagnostic section's
+  // pass / warn / fail / skipped / timestamp / requestId shape.
+  const section = await runEmailDiagnostics();
 
   // Resolve the API key through the same helper the sender uses, so this
   // page never reports "configured" while the sender sees it as missing
@@ -52,9 +62,15 @@ export default async function AdminEmailPage() {
   return (
     <AdminSection
       titleKey="admin.email.title"
-      subtitle="Verify Resend configuration and send a test message to confirm the sender domain is working."
+      subtitle="Verify Resend configuration and send a test message to confirm the sender domain is working. Backed by /api/admin/diagnostics/email."
     >
-      <div className="mx-auto mt-8 flex max-w-2xl flex-col gap-6">
+      <div className="mb-6 flex flex-wrap items-center gap-4">
+        <Link href="/admin/diagnostics" className="vf-nav-link">
+          ← Diagnostics
+        </Link>
+      </div>
+      <div className="mx-auto mt-2 flex max-w-2xl flex-col gap-6">
+        <DiagnosticSectionPanel section={section} />
         <section className="vf-card rounded-sm p-6">
           <h2 className="font-display text-2xl">Configuration</h2>
           <dl className="mt-4 space-y-3 font-serif text-sm">

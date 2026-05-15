@@ -297,6 +297,27 @@ async function runAdapterUnlocked(
         },
       });
     }
+    // Also write a FAIL row to DataManagementLog so the admin log page
+    // explains every run-level failure — not just the per-item REJECT
+    // rows. Without this, an entire scheduler tick that 503s upstream
+    // is invisible to anyone watching /admin/logs/data-management.
+    await recordDataManagementLogs([
+      {
+        action: "FAIL",
+        contentType: "IngestionRun",
+        contentRef: adapter.key,
+        reason: `Run failed: ${errorMessage.slice(0, 240)}`,
+        triggeredBy: options.triggeredBy ?? "automatic",
+        actorUsername: options.actorUsername ?? null,
+      },
+    ]).catch((err) => {
+      logger.warn("ingestion.run.fail_log_failed", {
+        adapter: adapter.key,
+        sourceHost,
+        jobId,
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
+    });
     logger.error("ingestion.run.failed", {
       adapter: adapter.key,
       sourceHost,

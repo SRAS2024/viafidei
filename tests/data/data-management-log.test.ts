@@ -24,6 +24,8 @@ describe("DATA_MANAGEMENT_ACTIONS", () => {
       "CLEANUP",
       "DEDUPE",
       "CATEGORY_FIX",
+      "FAIL",
+      "PURGE",
     ]);
   });
 });
