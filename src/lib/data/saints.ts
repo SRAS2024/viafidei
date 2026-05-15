@@ -216,7 +216,7 @@ export function getPublishedSaintBySlug(slug: string, locale: Locale) {
   });
 }
 
-const MONTH_NAMES = [
+export const MONTH_NAMES = [
   "January",
   "February",
   "March",
@@ -230,6 +230,42 @@ const MONTH_NAMES = [
   "November",
   "December",
 ] as const;
+
+/**
+ * Parse a freeform `feastDay` string into structured `{ month, day }`.
+ * Returns `null` for missing or unrecognisable input. Multi-feast
+ * strings ("August 4 / 5") return the *first* component; the JS-side
+ * `feastDayMatchesDate` still matches every component for runtime
+ * filtering.
+ *
+ * Used by the ingestion runner, admin save handlers, and the migration
+ * backfill so the structured columns stay in sync with the displayed
+ * text.
+ */
+export function parseFeastDayText(
+  text: string | null | undefined,
+): { month: number; day: number } | null {
+  if (!text) return null;
+  const lower = text.toLowerCase();
+  let month: number | null = null;
+  for (let i = 0; i < MONTH_NAMES.length; i++) {
+    const name = MONTH_NAMES[i].toLowerCase();
+    const abbrev = name.slice(0, 3);
+    // Word-boundary match so "march" does not light up "marshalled" and
+    // "may" cannot match the auxiliary verb in surrounding prose.
+    const re = new RegExp(`\\b(${name}|${abbrev})\\b`, "i");
+    if (re.test(lower)) {
+      month = i + 1;
+      break;
+    }
+  }
+  if (month === null) return null;
+  const dayMatch = lower.match(/\b([1-9]|[12][0-9]|3[01])(st|nd|rd|th)?\b/);
+  if (!dayMatch) return null;
+  const day = Number(dayMatch[1]);
+  if (!Number.isInteger(day) || day < 1 || day > 31) return null;
+  return { month, day };
+}
 
 /**
  * Return `true` when a stored `feastDay` string matches the given
@@ -282,28 +318,64 @@ export function feastDayMatchesDate(
  * Saints whose feast day falls on the given calendar date. Used by the
  * homepage "Today's Feast Day Saints" panel and by /saints/today.
  *
- * Implementation note: feast-day strings are not stored in a
- * structured form (month + day columns), so we cannot push the date
- * match into SQL. We fetch every PUBLISHED saint that mentions the
- * month name and re-filter in JS for the precise day. The catalog is
- * small enough that this is fine; if the catalog grows past a few
- * thousand rows we can split feastDay into structured columns.
+ * Match path:
+ *
+ *   1. Structured `feastMonth` / `feastDayOfMonth` columns (added in
+ *      migration 0009). This is the primary index-backed lookup.
+ *   2. Legacy freeform `feastDay` text, re-filtered in JS. Covers any
+ *      row whose backfill could not populate the structured fields
+ *      (e.g. multi-feast strings whose secondary day landed in JS but
+ *      not in the SQL backfill) and rows the admin has manually edited
+ *      but not re-saved through the new structured form yet.
  */
 export async function listSaintsForFeastDate(locale: Locale, month: number, day: number) {
+  if (!Number.isInteger(month) || month < 1 || month > 12) return [];
+  if (!Number.isInteger(day) || day < 1 || day > 31) return [];
+
   const monthName = MONTH_NAMES[month - 1];
-  if (!monthName) return [];
   const monthAbbrev = monthName.slice(0, 3);
-  const candidates = await prisma.saint.findMany({
-    where: {
-      status: "PUBLISHED",
-      OR: [
-        { feastDay: { contains: monthName, mode: "insensitive" } },
-        { feastDay: { contains: monthAbbrev, mode: "insensitive" } },
-      ],
-    },
-    include: { translations: { where: { locale } } },
-    orderBy: { canonicalName: "asc" },
-  });
-  const matches = candidates.filter((s) => feastDayMatchesDate(s.feastDay, month, day));
-  return sortByVeneration(matches);
+
+  const [structured, legacy] = await Promise.all([
+    prisma.saint.findMany({
+      where: {
+        status: "PUBLISHED",
+        feastMonth: month,
+        feastDayOfMonth: day,
+      },
+      include: { translations: { where: { locale } } },
+      orderBy: { canonicalName: "asc" },
+    }),
+    prisma.saint.findMany({
+      where: {
+        status: "PUBLISHED",
+        // Only inspect rows that lack a structured value — anything with
+        // a populated `feastMonth` was already considered by the first
+        // query.
+        OR: [{ feastMonth: null }, { feastDayOfMonth: null }],
+        AND: [
+          {
+            OR: [
+              { feastDay: { contains: monthName, mode: "insensitive" } },
+              { feastDay: { contains: monthAbbrev, mode: "insensitive" } },
+            ],
+          },
+        ],
+      },
+      include: { translations: { where: { locale } } },
+      orderBy: { canonicalName: "asc" },
+    }),
+  ]);
+
+  const legacyMatches = legacy.filter((s) => feastDayMatchesDate(s.feastDay, month, day));
+  // Merge & deduplicate by id (a row could appear in both queries if the
+  // structured fields point at one date and the legacy text mentions
+  // another).
+  const seen = new Set<string>();
+  const merged: typeof structured = [];
+  for (const row of [...structured, ...legacyMatches]) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    merged.push(row);
+  }
+  return sortByVeneration(merged);
 }

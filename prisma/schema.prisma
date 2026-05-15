@@ -255,6 +255,8 @@ model Saint {
   slug              String             @unique
   canonicalName     String
   feastDay          String?
+  feastMonth        Int?
+  feastDayOfMonth   Int?
   patronages        String[]
   biography         String
   officialPrayer    String?
@@ -267,6 +269,7 @@ model Saint {
   savedByUsers      UserSavedSaint[]
 
   @@index([status])
+  @@index([feastMonth, feastDayOfMonth])
 }
 
 model SaintTranslation {

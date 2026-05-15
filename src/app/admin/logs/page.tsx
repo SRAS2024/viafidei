@@ -13,29 +13,41 @@ const LOG_AREAS = [
     title: "Account audit log",
     description:
       "Per-user account actions: edits to user records, profile changes, password resets, role changes — the existing admin audit table.",
+    countKey: "audit" as const,
   },
   {
     href: "/admin/logs/admin",
     eyebrow: "II.",
     title: "Admin actions",
     description:
-      "Changes admins make across the site: homepage edits, content page edits, settings, diagnostics actions, data management toggles, and user account actions.",
+      "Changes admins make across the site: homepage edits, content page edits, settings, diagnostics actions, data-management toggles, and user account actions.",
+    countKey: "audit" as const,
   },
   {
     href: "/admin/logs/data-management",
     eyebrow: "III.",
     title: "Data Management",
     description:
-      "Additions, updates, deletions, rejections, archives, dedupes, and category corrections performed by the Ingestion & Data Management system — with the reason and whether it was automatic or admin-triggered.",
+      "Per-item additions, updates, dedupe-skips, rejections, archives, dedupes, and category corrections performed by the Ingestion & Data Management system — with the reason and whether it was automatic or admin-triggered.",
+    countKey: "dataManagement" as const,
   },
-] as const;
+  {
+    href: "/admin/logs/ingestion",
+    eyebrow: "IV.",
+    title: "Ingestion runs",
+    description:
+      "Every IngestionJobRun: source, job, status, per-run counts (seen / created / updated / skipped / failed), duration, and error message.",
+    countKey: "ingestionRuns" as const,
+  },
+];
 
 export default async function AdminLogsHub() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const [accountLogCount, dataManagementLogCount] = await Promise.all([
+  const [accountLogCount, dataManagementLogCount, ingestionRunCount] = await Promise.all([
     prisma.adminAuditLog.count().catch(() => 0),
     prisma.dataManagementLog.count().catch(() => 0),
+    prisma.ingestionJobRun.count().catch(() => 0),
   ]);
 
   return (
@@ -45,9 +57,12 @@ export default async function AdminLogsHub() {
     >
       <div className="grid gap-4 sm:grid-cols-2">
         {LOG_AREAS.map((area) => {
-          const count = area.href.endsWith("/data-management")
-            ? dataManagementLogCount
-            : accountLogCount;
+          const count =
+            area.countKey === "ingestionRuns"
+              ? ingestionRunCount
+              : area.countKey === "dataManagement"
+                ? dataManagementLogCount
+                : accountLogCount;
           return (
             <Link
               key={area.href}

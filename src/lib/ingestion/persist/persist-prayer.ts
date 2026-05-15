@@ -6,10 +6,24 @@ import type { IngestedPrayer } from "../types";
 
 export type PersistOutcome = "created" | "updated" | "skipped";
 
+/**
+ * Detailed outcome reported back to the runner so it can write
+ * accurate DataManagementLog rows (with the reason for a skip, the
+ * slug that ended up created / updated, and so on).
+ */
+export type PersistOutcomeDetailed = {
+  outcome: PersistOutcome;
+  slug: string;
+  /** Title / display ref for the log row when slug is awkward. */
+  contentRef: string;
+  /** Set when outcome is "skipped" — why the row was left untouched. */
+  reason?: string;
+};
+
 export async function persistPrayer(
   item: IngestedPrayer,
   initialStatus: ContentStatus,
-): Promise<PersistOutcome> {
+): Promise<PersistOutcomeDetailed> {
   const incomingChecksum = computeChecksum(item);
   const normalizedTitle = normalizeSlug(item.defaultTitle);
   const orMatchers: Array<Record<string, unknown>> = [{ slug: item.slug }];
@@ -36,7 +50,15 @@ export async function persistPrayer(
     // it never overwrites a row the admin is or was working on, and it never
     // re-writes its own previous output (that's what `dedupeBatch` + the
     // checksum lookup are for).
-    return "skipped";
+    return {
+      outcome: "skipped",
+      slug: existing.slug,
+      contentRef: existing.slug || existing.defaultTitle,
+      reason:
+        existing.contentChecksum === incomingChecksum
+          ? "duplicate content checksum"
+          : "already in catalog",
+    };
   }
 
   await prisma.prayer.create({
@@ -50,5 +72,9 @@ export async function persistPrayer(
       status: initialStatus,
     },
   });
-  return "created";
+  return {
+    outcome: "created",
+    slug: item.slug,
+    contentRef: item.slug || item.defaultTitle,
+  };
 }

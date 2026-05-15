@@ -8,6 +8,7 @@ type Mock = ReturnType<typeof vi.fn>;
 
 type Crud = {
   create: Mock;
+  createMany: Mock;
   findFirst: Mock;
   findUnique: Mock;
   findMany: Mock;
@@ -18,11 +19,13 @@ type Crud = {
   deleteMany: Mock;
   count: Mock;
   aggregate: Mock;
+  groupBy: Mock;
 };
 
 function createCrud(): Crud {
   return {
     create: vi.fn(),
+    createMany: vi.fn().mockResolvedValue({ count: 0 }),
     findFirst: vi.fn(),
     findUnique: vi.fn(),
     findMany: vi.fn(),
@@ -33,6 +36,7 @@ function createCrud(): Crud {
     deleteMany: vi.fn(),
     count: vi.fn(),
     aggregate: vi.fn(),
+    groupBy: vi.fn().mockResolvedValue([]),
   };
 }
 
@@ -183,4 +187,15 @@ export function resetPrismaMock(): void {
     if (typeof ops === "function") return (ops as (tx: unknown) => unknown)({});
     return ops;
   });
+  // Default `createMany`/`groupBy` to safe empty responses so any code
+  // path that fires-and-forgets a log write (DataManagementLog,
+  // AdminAuditLog) is non-throwing in tests that don't reprogram them.
+  for (const model of Object.values(prismaMock)) {
+    if (model && typeof model === "object" && "createMany" in model) {
+      (model as { createMany: Mock }).createMany.mockResolvedValue({ count: 0 });
+    }
+    if (model && typeof model === "object" && "groupBy" in model) {
+      (model as { groupBy: Mock }).groupBy.mockResolvedValue([]);
+    }
+  }
 }

@@ -2,8 +2,7 @@ import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { computeChecksum } from "../checksum";
 import type { IngestedLiturgy } from "../types";
-
-export type PersistOutcome = "created" | "updated" | "skipped";
+import type { PersistOutcomeDetailed } from "./persist-prayer";
 
 /**
  * Upsert a liturgy / Church-history / council / catechetical entry. Uses
@@ -15,7 +14,7 @@ export type PersistOutcome = "created" | "updated" | "skipped";
 export async function persistLiturgy(
   item: IngestedLiturgy,
   initialStatus: ContentStatus,
-): Promise<PersistOutcome> {
+): Promise<PersistOutcomeDetailed> {
   const existing = item.externalSourceKey
     ? await prisma.liturgyEntry.findFirst({
         where: {
@@ -29,7 +28,15 @@ export async function persistLiturgy(
   if (existing) {
     // Spec: "only add content if it is not already in the database." Any
     // existing row is left untouched; ingestion is strictly additive.
-    return "skipped";
+    return {
+      outcome: "skipped",
+      slug: existing.slug,
+      contentRef: existing.slug || existing.title,
+      reason:
+        existing.contentChecksum === incomingChecksum
+          ? "duplicate content checksum"
+          : "already in catalog",
+    };
   }
 
   await prisma.liturgyEntry.create({
@@ -44,5 +51,9 @@ export async function persistLiturgy(
       status: initialStatus,
     },
   });
-  return "created";
+  return {
+    outcome: "created",
+    slug: item.slug,
+    contentRef: item.slug || item.title,
+  };
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
+import { loadIngestionLiveSnapshot } from "@/lib/diagnostics";
 import { AdminSection } from "../_sections/AdminSection";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ const DIAGNOSTIC_AREAS = [
     eyebrow: "II.",
     title: "Ingestion & Data Management",
     description:
-      "Inspect catalog health: validation pipeline, recent cleanup activity, automatic deletes, content counts, and recent failure details.",
+      "Live status, last successful and failed runs, 24h run counts, content totals, review queue size, and per-action data-management activity.",
   },
   {
     href: "/admin/diagnostics/sitemap",
@@ -34,16 +35,68 @@ const DIAGNOSTIC_AREAS = [
     description:
       "Verify sign-up, sign-in, sign-out, verification, saved items, badges, journaling, language persistence, device-date / timezone, and parish-location lookups.",
   },
+  {
+    href: "/admin/diagnostics/saints",
+    eyebrow: "V.",
+    title: "Homepage — Today's Feast Day Saints",
+    description:
+      "Verify that today's saints exist, are PUBLISHED, have structured feast fields, and are returned by /api/saints/today.",
+  },
 ] as const;
+
+function statusBadgeStyle(status: string): { bg: string; text: string } {
+  switch (status) {
+    case "running":
+    case "active":
+    case "maintenance":
+      return { bg: "bg-emerald-100", text: "text-emerald-800" };
+    case "stale":
+    case "disabled":
+      return { bg: "bg-amber-100", text: "text-amber-800" };
+    case "failing":
+    case "blocked":
+      return { bg: "bg-red-100", text: "text-red-800" };
+    default:
+      return { bg: "bg-stone-100", text: "text-stone-700" };
+  }
+}
 
 export default async function AdminDiagnostics() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
+  const snapshot = await loadIngestionLiveSnapshot().catch(() => null);
+  const badge = snapshot ? statusBadgeStyle(snapshot.status) : null;
+
   return (
     <AdminSection
       titleKey="admin.card.diagnostics"
-      subtitle="One hub for every diagnostic the Via Fidei admin can run. Each area opens its own dedicated page with results, last-run timestamps, and useful failure detail when something breaks."
+      subtitle="One hub for every diagnostic the Via Fidei admin can run. Each area opens its own dedicated page with results, last-run timestamps, request ids, and useful failure detail when something breaks."
     >
+      {snapshot ? (
+        <div className="mb-6 vf-card rounded-sm p-4 sm:p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="font-display text-lg">Ingestion at a glance</h2>
+            {badge ? (
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs uppercase ${badge.bg} ${badge.text}`}
+              >
+                {snapshot.status}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-2 font-serif text-sm text-ink-soft">{snapshot.detail}</p>
+          <div className="mt-3 grid gap-2 font-serif text-xs text-ink-faint sm:grid-cols-3">
+            <span>24h runs: {snapshot.totalRuns24h}</span>
+            <span>24h failures: {snapshot.failedRuns24h}</span>
+            <span>
+              Last success:{" "}
+              {snapshot.lastSuccessAt
+                ? snapshot.lastSuccessAt.slice(0, 16).replace("T", " ")
+                : "never"}
+            </span>
+          </div>
+        </div>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         {DIAGNOSTIC_AREAS.map((area) => (
           <Link

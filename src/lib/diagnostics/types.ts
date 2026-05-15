@@ -53,8 +53,16 @@ export type DiagnosticResult = {
  * `/api/admin/diagnostics` response shape if the routes are later
  * consolidated.
  */
+export type DiagnosticSectionId =
+  | "email"
+  | "data_management"
+  | "ingestion"
+  | "sitemap"
+  | "accounts"
+  | "saints_feast";
+
 export type DiagnosticSection = {
-  id: "email" | "data_management" | "sitemap" | "accounts";
+  id: DiagnosticSectionId;
   label: string;
   /** Overall severity for the section (worst of its results). */
   severity: DiagnosticSeverity;
@@ -133,9 +141,9 @@ export async function runDiagnostic(
  * to attach the result list and compute the overall severity.
  */
 export function startSection(
-  id: DiagnosticSection["id"],
+  id: DiagnosticSectionId,
   label: string,
-): { id: DiagnosticSection["id"]; label: string; requestId: string; startedAt: number } {
+): { id: DiagnosticSectionId; label: string; requestId: string; startedAt: number } {
   return {
     id,
     label,
@@ -145,7 +153,7 @@ export function startSection(
 }
 
 export function finalizeSection(
-  shell: { id: DiagnosticSection["id"]; label: string; requestId: string; startedAt: number },
+  shell: { id: DiagnosticSectionId; label: string; requestId: string; startedAt: number },
   results: DiagnosticResult[],
 ): DiagnosticSection {
   return {
