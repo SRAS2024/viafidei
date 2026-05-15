@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   // this browser starts on the app's defaults instead of inheriting
   // the previous user's theme / rite / language. Same rationale as
   // logoutAction — see src/app/_actions/auth.ts.
-  const c = cookies();
+  const c = await cookies();
   c.delete(THEME_COOKIE_NAME);
   c.delete(RITE_COOKIE_NAME);
   c.delete(LOCALE_COOKIE_NAME);

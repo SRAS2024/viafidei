@@ -26,7 +26,8 @@ export function isThemePreference(input: string | null | undefined): input is Th
 }
 
 export async function getThemeCookieValue(): Promise<ThemePreference> {
-  const raw = cookies().get(THEME_COOKIE_NAME)?.value ?? null;
+  const cookieStore = await cookies();
+  const raw = cookieStore.get(THEME_COOKIE_NAME)?.value ?? null;
   if (isThemePreference(raw)) return raw;
   // Cookie missing or malformed — if the visitor is signed in, fall back
   // to whatever theme they saved on their profile so a stripped cookie

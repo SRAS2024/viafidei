@@ -49,5 +49,7 @@ export const sessionOptions: SessionOptions = {
 } as SessionOptions;
 
 export async function getSession() {
-  return getIronSession<SessionData>(cookies(), sessionOptions);
+  // Next 15 made cookies() async — await before handing the store to
+  // iron-session, which expects the resolved CookieStore.
+  return getIronSession<SessionData>(await cookies(), sessionOptions);
 }

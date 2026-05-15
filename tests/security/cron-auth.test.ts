@@ -3,11 +3,16 @@ import { isAuthorizedCron, deriveCronSecret } from "@/lib/security/cron-auth";
 
 type FakeRequest = {
   headers: { get(name: string): string | null };
-  ip?: string;
+  url: string;
 };
 
 function makeReq(opts: {
   bearer?: string;
+  // `ip` modelled as the source hostname the request URL carries; the
+  // Next 15 cron-auth helper no longer reads req.ip directly (that field
+  // was Vercel-specific and removed in Next 15) and instead derives
+  // loopback from the request URL hostname plus the absence of proxy
+  // headers.
   ip?: string;
   xForwardedFor?: string;
   xRealIp?: string;
@@ -16,13 +21,20 @@ function makeReq(opts: {
   if (opts.bearer) headerMap["authorization"] = `Bearer ${opts.bearer}`;
   if (opts.xForwardedFor) headerMap["x-forwarded-for"] = opts.xForwardedFor;
   if (opts.xRealIp) headerMap["x-real-ip"] = opts.xRealIp;
+  // Build a URL whose hostname matches the requested ip. Bracket IPv6
+  // hostnames (anything containing `:` — covers `::1`, `::ffff:…`, etc.)
+  // as required by URL parsing.
+  const ip = opts.ip ?? "anonymous.invalid";
+  const isIPv6 = ip.includes(":");
+  const hostInUrl = isIPv6 ? `[${ip}]` : ip;
+  const url = `http://${hostInUrl}/api/cron/ingest`;
   return {
     headers: {
       get(name: string) {
         return headerMap[name.toLowerCase()] ?? null;
       },
     },
-    ip: opts.ip,
+    url,
   };
 }
 

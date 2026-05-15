@@ -74,8 +74,15 @@ export async function deriveCronSecret(): Promise<string | null> {
 function isLoopbackAddress(ip: string | null | undefined): boolean {
   if (!ip) return false;
   const trimmed = ip.trim().toLowerCase();
-  // IPv6 loopback (with or without zone) and IPv4-mapped IPv6 loopback.
-  if (trimmed === "::1" || trimmed.startsWith("::1%") || trimmed === "::ffff:127.0.0.1") {
+  // IPv6 loopback (with or without zone) and IPv4-mapped IPv6 loopback —
+  // recognise both the human-typed `::ffff:127.0.0.1` and its canonicalised
+  // form `::ffff:7f00:1` (the Node URL parser normalises to the latter).
+  if (
+    trimmed === "::1" ||
+    trimmed.startsWith("::1%") ||
+    trimmed === "::ffff:127.0.0.1" ||
+    trimmed === "::ffff:7f00:1"
+  ) {
     return true;
   }
   // IPv4 127.0.0.0/8.
@@ -89,8 +96,25 @@ function isLoopbackRequest(req: NextRequest): boolean {
   // proxy header can't bypass auth.
   if (req.headers.get("x-forwarded-for")) return false;
   if (req.headers.get("x-real-ip")) return false;
-  const direct = req.ip ?? null;
-  return isLoopbackAddress(direct);
+  // Next.js 15 removed `req.ip` (it was Vercel-specific). The absence of
+  // proxy-forwarded headers is itself the loopback signal: every public
+  // request on Railway / Vercel / similar hosts arrives with at least one
+  // of the forwarded-for / real-ip headers set, so a request with neither
+  // is one the in-process scheduler issued to 127.0.0.1. As a belt-and-
+  // suspenders check we also look at the URL host — it must point at a
+  // loopback address.
+  let host: string | null = null;
+  try {
+    host = new URL(req.url).hostname || null;
+  } catch {
+    host = null;
+  }
+  // URL parsing wraps IPv6 hostnames in brackets — strip them before
+  // running the loopback regex.
+  if (host && host.startsWith("[") && host.endsWith("]")) {
+    host = host.slice(1, -1);
+  }
+  return isLoopbackAddress(host);
 }
 
 export async function isAuthorizedCron(req: NextRequest): Promise<boolean> {

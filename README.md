@@ -60,7 +60,7 @@ edited blindly:
 
 | Area               | Choice                                                                                 |
 | ------------------ | -------------------------------------------------------------------------------------- |
-| Framework          | Next.js `14.2.35` (App Router, `output: "standalone"`)                                 |
+| Framework          | Next.js `15.5.18` (App Router, async cookies/headers, `output: "standalone"`)          |
 | Runtime            | Node.js `>= 20`                                                                        |
 | Language           | TypeScript `5.6` (strict)                                                              |
 | UI                 | React `18.3`, Tailwind CSS `3.4`, Framer Motion                                        |
@@ -73,7 +73,7 @@ edited blindly:
 | Deployment         | Railway-ready (`railway.json`, healthcheck on `/api/health/live`)                      |
 | Email              | Resend transactional sends (welcome, password reset, email verification)               |
 | Startup            | `instrumentation.ts` auto-seeds an empty DB and schedules in-process Vatican ingestion |
-| Unit / API tests   | Vitest 2 + v8 coverage (mocked Prisma, Next route handler imports)                     |
+| Unit / API tests   | Vitest 3 + v8 coverage (mocked Prisma, Next route handler imports)                     |
 | Component tests    | React Testing Library 15 + jsdom + jest-axe                                            |
 | End-to-end tests   | Playwright (chromium + mobile-chromium) with visual + perf smoke                       |
 
@@ -1325,20 +1325,19 @@ This is an honest list of items that are scoped for future polish branches.
 None of them affect day-to-day reader behaviour, and each lands behind the
 same CI gates that protect the rest of the codebase.
 
-- **One remaining high-severity advisory on Next.js core.** Three of the
-  four original high-severity items were resolved by an npm `overrides`
-  entry that pulls `glob` forward to the patched 10.5.0+ line (the
-  advisory was in the CLI flag, not the API surface eslint-plugin-next
-  uses). The remaining high-sev item is in Next.js itself (HTTP request
-  deserialization) and is only fixed in Next 15+, which makes
-  `cookies()`, `headers()`, `params`, and `searchParams` async — that
-  migration is intentionally deferred to its own branch so the diff
-  stays reviewable.
-- **Test tooling moderate advisories.** Vitest 2.x and its `esbuild`
-  transitive carry moderate-severity advisories. Vitest 3 and 4 are both
-  available but represent a multi-major jump for the test layer; the
-  bump is queued for a dedicated branch alongside re-running the full
-  `verify:full` matrix.
+- **High-severity advisories cleared.** All four original high-severity
+  items are now resolved. Three were knocked out by an npm `overrides`
+  entry that pulls `glob` forward to the patched 10.5.0+ line, and the
+  fourth (Next.js core HTTP request deserialization) was cleared by
+  bumping Next.js to `15.5.18` and migrating `cookies()` / `headers()`
+  to the async App Router API. `npm audit --audit-level=high` now exits
+  zero and the CI audit gate passes.
+- **Most moderate advisories cleared.** Vitest is now on the 3.x line,
+  which removed five of the seven moderate findings from the test
+  chain. The remaining two moderate advisories are upstream of Next.js
+  itself (postcss < 8.5.10 transitively, only triggered at dev-server
+  time) and require Next 16 to fully clear — that bump waits until 16
+  is on a stable release.
 - **ESLint 8 deprecation.** The repository still uses ESLint 8 with the
   legacy `.eslintrc` config. Moving to ESLint 9 requires migrating to
   the flat config format and revalidating every rule, including the
