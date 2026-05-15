@@ -336,10 +336,10 @@ export async function purgeStaleArchivedContent(olderThanDays: number): Promise<
     const targets = await findMany({ where, select: { id: true, slug: true } });
     for (const t of targets) {
       logs.push({
-        action: "DELETE",
+        action: "PURGE",
         contentType: entity,
         contentRef: t.slug ?? t.id,
-        reason: `archived ≥ ${olderThanDays} days`,
+        reason: `archived ≥ ${olderThanDays} days (hard delete)`,
       });
     }
     const result = await deleteMany({ where });

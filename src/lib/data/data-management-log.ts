@@ -13,7 +13,9 @@ export type DataManagementAction =
   | "REJECT"
   | "CLEANUP"
   | "DEDUPE"
-  | "CATEGORY_FIX";
+  | "CATEGORY_FIX"
+  | "FAIL"
+  | "PURGE";
 
 export const DATA_MANAGEMENT_ACTIONS: ReadonlyArray<DataManagementAction> = [
   "ADD",
@@ -23,6 +25,8 @@ export const DATA_MANAGEMENT_ACTIONS: ReadonlyArray<DataManagementAction> = [
   "CLEANUP",
   "DEDUPE",
   "CATEGORY_FIX",
+  "FAIL",
+  "PURGE",
 ];
 
 const ACTION_LABELS: Record<DataManagementAction, string> = {
@@ -31,8 +35,10 @@ const ACTION_LABELS: Record<DataManagementAction, string> = {
   DELETE: "Deleted",
   REJECT: "Rejected",
   CLEANUP: "Archived (cleanup)",
-  DEDUPE: "Archived (duplicate)",
-  CATEGORY_FIX: "Re-categorised",
+  DEDUPE: "Skipped (duplicate / already present)",
+  CATEGORY_FIX: "Re-categorised (sent to review)",
+  FAIL: "Failed (run error)",
+  PURGE: "Purged (hard delete)",
 };
 
 export function dataManagementActionLabel(action: string): string {

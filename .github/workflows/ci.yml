@@ -72,6 +72,7 @@ jobs:
             tests/data/parse-feast-day.test.ts \
             tests/data/list-saints-for-feast-date.test.ts \
             tests/data/feast-day-match.test.ts \
+            tests/data/data-management-log.test.ts \
             tests/diagnostics/ingestion.test.ts \
             tests/diagnostics/saints-feast.test.ts \
             tests/diagnostics/data-management.test.ts \
@@ -82,6 +83,8 @@ jobs:
             tests/components/ManualCleanupRunButton.test.tsx \
             tests/components/ManualIngestRunButton.test.tsx \
             tests/components/HomeToday.test.tsx \
+            tests/components/AdminLogsPages.test.tsx \
+            tests/components/AdminDiagnosticsPages.test.tsx \
             ; do
             if [ ! -f "$f" ]; then
               echo "Missing required diagnostic/log/ingestion/saints-feast test: $f" >&2

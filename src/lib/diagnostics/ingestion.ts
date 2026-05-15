@@ -368,6 +368,54 @@ export async function runIngestionDiagnostics(): Promise<DiagnosticSection> {
 
   results.push(
     await runDiagnostic(
+      "ingestion.counts_24h",
+      "Per-action counts (last 24h)",
+      shell.requestId,
+      async () => {
+        const byAction = await getRecentActivityByAction(24).catch(
+          () => ({}) as Record<string, number>,
+        );
+        // Surface every action category the user listed — created /
+        // updated / skipped / rejected / archived / deleted / failed —
+        // so the diagnostic is self-explanatory even when a category
+        // is zero.
+        const created = byAction.ADD ?? 0;
+        const updated = byAction.UPDATE ?? 0;
+        const skipped = byAction.DEDUPE ?? 0;
+        const rejected = byAction.REJECT ?? 0;
+        const reviewed = byAction.CATEGORY_FIX ?? 0;
+        const archived = byAction.CLEANUP ?? 0;
+        const deleted = byAction.DELETE ?? 0;
+        const purged = byAction.PURGE ?? 0;
+        const failed = byAction.FAIL ?? 0;
+        const total =
+          created + updated + skipped + rejected + reviewed + archived + deleted + purged + failed;
+        return {
+          severity: failed > 0 ? "warn" : "pass",
+          summary: `created ${created} · updated ${updated} · skipped ${skipped} · rejected ${rejected} · sent-to-review ${reviewed} · archived ${archived} · deleted ${deleted} · purged ${purged} · failed ${failed}`,
+          evidence: {
+            created,
+            updated,
+            skipped,
+            rejected,
+            reviewed,
+            archived,
+            deleted,
+            purged,
+            failed,
+            total,
+          },
+          explanation:
+            total === 0
+              ? "No data-management activity in the last 24 hours. See the live status check above to know whether the cron ran, the system is disabled, or every item was a dedupe-skip."
+              : undefined,
+        };
+      },
+    ),
+  );
+
+  results.push(
+    await runDiagnostic(
       "ingestion.data_management_actions_24h",
       "Data Management actions (last 24h)",
       shell.requestId,
