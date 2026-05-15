@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 
 export default function RootError({
   error,
@@ -38,9 +39,9 @@ export default function RootError({
         >
           Try again
         </button>
-        <a href="/" className="rounded-full bg-ink px-5 py-2 text-sm text-paper hover:bg-ink/90">
+        <Link href="/" className="rounded-full bg-ink px-5 py-2 text-sm text-paper hover:bg-ink/90">
           Home
-        </a>
+        </Link>
       </div>
     </div>
   );

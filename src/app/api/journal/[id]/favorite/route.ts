@@ -7,7 +7,8 @@ import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 
 const schema = z.object({ isFavorite: z.boolean() });
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
 
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const parsed = schema.safeParse(body.data);
   if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
-  const result = await setJournalFavorite(params.id, user.id, parsed.data.isFavorite);
+  const result = await setJournalFavorite(id, user.id, parsed.data.isFavorite);
   if (!result.ok) {
     if (result.reason === "not_found") return jsonError("not_found");
     return jsonError("forbidden");

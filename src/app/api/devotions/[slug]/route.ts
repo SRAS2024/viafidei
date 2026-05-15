@@ -7,13 +7,14 @@ import { getLocale } from "@/lib/i18n/server";
 import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 
-export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const ip = getClientIp(req);
   const limit = await rateLimit(`pub:devotion:${ip}`, RATE_POLICIES.publicRead, { ipAddress: ip });
   if (!limit.ok) return jsonError("rate_limited");
 
   const locale = await getLocale();
-  const devotion = await getPublishedDevotionBySlug(params.slug, locale);
+  const devotion = await getPublishedDevotionBySlug(slug, locale);
   if (!devotion) return jsonError("not_found");
 
   const user = await requireUser();

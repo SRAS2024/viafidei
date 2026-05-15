@@ -3,10 +3,15 @@ import { getTranslator } from "@/lib/i18n/server";
 import { requireAdmin } from "@/lib/auth";
 import { AdminLoginForm } from "./AdminLoginForm";
 
-export default async function AdminLogin({ searchParams }: { searchParams: { error?: string } }) {
+export default async function AdminLogin({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const existing = await requireAdmin();
   if (existing) redirect("/admin?welcome=1");
   const { t } = await getTranslator();
+  const { error } = await searchParams;
 
   return (
     <div className="mx-auto max-w-md pt-6">
@@ -27,7 +32,7 @@ export default async function AdminLogin({ searchParams }: { searchParams: { err
             hide: t("auth.hidePassword"),
           }}
         />
-        {searchParams.error === "invalid" ? (
+        {error === "invalid" ? (
           <p className="mt-4 text-center text-sm" style={{ color: "#8b1a1a" }}>
             {t("admin.login.invalid")}
           </p>

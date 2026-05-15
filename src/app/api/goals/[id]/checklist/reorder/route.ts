@@ -7,7 +7,8 @@ import { reorderChecklist } from "@/lib/data/goals";
 
 const schema = z.object({ itemIds: z.array(z.string().min(1).max(64)).min(1).max(50) });
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
 
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const parsed = schema.safeParse(body.data);
   if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
-  const result = await reorderChecklist(user.id, params.id, parsed.data.itemIds);
+  const result = await reorderChecklist(user.id, id, parsed.data.itemIds);
   if (!result.ok) {
     return result.reason === "not_found" ? jsonError("not_found") : jsonError("forbidden");
   }

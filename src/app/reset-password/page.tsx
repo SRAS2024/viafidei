@@ -7,10 +7,11 @@ export const metadata = { title: "Reset password" };
 export default async function ResetPasswordPage({
   searchParams,
 }: {
-  searchParams: { token?: string };
+  searchParams: Promise<{ token?: string }>;
 }) {
   const { t } = await getTranslator();
-  const token = typeof searchParams.token === "string" ? searchParams.token : "";
+  const { token: rawToken } = await searchParams;
+  const token = typeof rawToken === "string" ? rawToken : "";
 
   return (
     <div className="mx-auto max-w-md pt-12">

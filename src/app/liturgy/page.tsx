@@ -68,9 +68,14 @@ function isHistoryOrDocument(slug: string): boolean {
   return HISTORY_OR_DOCUMENT_PREFIXES.some((p) => slug.startsWith(p));
 }
 
-export default async function LiturgyPage({ searchParams }: { searchParams: { page?: string } }) {
+export default async function LiturgyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const { t, locale } = await getTranslator();
-  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
   let entries: Awaited<ReturnType<typeof listPublishedLiturgyEntries>> = [];
   try {

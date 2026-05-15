@@ -13,7 +13,7 @@ import { logPageError, logPageMissingContent } from "@/lib/observability/page-er
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: { slug: string } };
+type Props = { params: Promise<{ slug: string }> };
 
 async function safeGetPrayer(slug: string, locale: string) {
   try {
@@ -53,24 +53,26 @@ async function safeResolveSteps(slug: string, locale: string): Promise<GuidePray
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
-  const prayer = await safeGetPrayer(params.slug, locale);
+  const { slug } = await params;
+  const prayer = await safeGetPrayer(slug, locale);
   if (!prayer) return notFoundMetadataFor("/prayers");
   const tr = prayer.translations[0];
   const title = tr?.title ?? prayer.defaultTitle;
   return buildDetailMetadata({
-    path: `/prayers/${params.slug}`,
+    path: `/prayers/${slug}`,
     title,
   });
 }
 
 export default async function PrayerDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
-  const prayer = await safeGetPrayer(params.slug, locale);
+  const { slug } = await params;
+  const prayer = await safeGetPrayer(slug, locale);
   if (!prayer) {
     logPageMissingContent({
       route: "/prayers/[slug]",
       entityType: "Prayer",
-      slug: params.slug,
+      slug,
       reason: "missing_record",
     });
     notFound();

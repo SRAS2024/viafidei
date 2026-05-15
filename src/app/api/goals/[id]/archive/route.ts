@@ -4,7 +4,8 @@ import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { jsonError, jsonOk } from "@/lib/http";
 import { archiveGoal } from "@/lib/data/goals";
 
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
 
@@ -13,7 +14,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   });
   if (!limit.ok) return jsonError("rate_limited");
 
-  const result = await archiveGoal(user.id, params.id);
+  const result = await archiveGoal(user.id, id);
   if (!result.ok) {
     return result.reason === "not_found" ? jsonError("not_found") : jsonError("forbidden");
   }

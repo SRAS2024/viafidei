@@ -18,15 +18,17 @@ const patchSchema = z.object({
   reliabilityScore: z.number().min(0).max(1).nullish().optional(),
 });
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const admin = await requireAdmin();
   if (!admin) return jsonError("unauthorized");
-  const source = await getIngestionSource(params.id);
+  const source = await getIngestionSource(id);
   if (!source) return jsonError("not_found");
   return jsonOk({ source });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const admin = await requireAdmin();
   if (!admin) return jsonError("unauthorized");
 
@@ -38,14 +40,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const parsed = patchSchema.safeParse(body.data);
   if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
-  const previous = await getIngestionSource(params.id);
-  const result = await updateIngestionSource(params.id, parsed.data);
+  const previous = await getIngestionSource(id);
+  const result = await updateIngestionSource(id, parsed.data);
   if (!result.ok) return jsonError("not_found");
 
   await writeAudit({
     action: "admin.source.update",
     entityType: "IngestionSource",
-    entityId: params.id,
+    entityId: id,
     actorUsername: admin.username,
     ipAddress: getClientIpOrNull(req),
     userAgent: getUserAgent(req),

@@ -12,7 +12,8 @@ const patchSchema = z.object({
   schedule: z.string().max(120).nullish(),
 });
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const admin = await requireAdmin();
   if (!admin) return jsonError("unauthorized");
 
@@ -24,18 +25,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const parsed = patchSchema.safeParse(body.data);
   if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
-  const existing = await prisma.ingestionJob.findUnique({ where: { id: params.id } });
+  const existing = await prisma.ingestionJob.findUnique({ where: { id: id } });
   if (!existing) return jsonError("not_found");
 
   const updated = await prisma.ingestionJob.update({
-    where: { id: params.id },
+    where: { id: id },
     data: parsed.data,
   });
 
   await writeAudit({
     action: "admin.ingestion.job.update",
     entityType: "IngestionJob",
-    entityId: params.id,
+    entityId: id,
     actorUsername: admin.username,
     ipAddress: getClientIpOrNull(req),
     userAgent: getUserAgent(req),

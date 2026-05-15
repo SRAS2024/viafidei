@@ -12,7 +12,11 @@ import { logPageError } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
 
-export default async function JournalPage({ searchParams }: { searchParams: { filter?: string } }) {
+export default async function JournalPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>;
+}) {
   let user: Awaited<ReturnType<typeof requireUser>> = null;
   try {
     user = await requireUser();
@@ -21,8 +25,9 @@ export default async function JournalPage({ searchParams }: { searchParams: { fi
   }
   if (!user) redirect("/login?next=/profile/journal");
   const { t } = await getTranslator();
+  const { filter } = await searchParams;
 
-  const favoritesOnly = searchParams.filter === "favorites";
+  const favoritesOnly = filter === "favorites";
   let entries: Awaited<ReturnType<typeof listJournalEntries>> = [];
   try {
     entries = await listJournalEntries(user.id, { favoritesOnly });

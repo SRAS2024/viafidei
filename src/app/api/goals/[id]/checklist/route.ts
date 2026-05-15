@@ -7,7 +7,8 @@ import { addChecklistItem } from "@/lib/data/goals";
 
 const schema = z.object({ label: z.string().min(1).max(200) });
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
 
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const parsed = schema.safeParse(body.data);
   if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
-  const result = await addChecklistItem(user.id, params.id, parsed.data.label);
+  const result = await addChecklistItem(user.id, id, parsed.data.label);
   if (!result.ok) {
     return result.reason === "not_found" ? jsonError("not_found") : jsonError("forbidden");
   }

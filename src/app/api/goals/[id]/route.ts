@@ -28,15 +28,17 @@ function reasonToStatus(reason: "not_found" | "forbidden") {
   return reason === "not_found" ? jsonError("not_found") : jsonError("forbidden");
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
-  const result = await getGoal(user.id, params.id);
+  const result = await getGoal(user.id, id);
   if (!result.ok) return reasonToStatus(result.reason);
   return jsonOk({ goal: result.goal });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
 
@@ -50,7 +52,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const parsed = patchSchema.safeParse(body.data);
   if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
-  const result = await updateGoal(user.id, params.id, {
+  const result = await updateGoal(user.id, id, {
     title: parsed.data.title,
     description: parsed.data.description ?? undefined,
     dueDate:
@@ -65,7 +67,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return jsonOk({ goal: result.goal });
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
 
@@ -74,7 +77,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   });
   if (!limit.ok) return jsonError("rate_limited");
 
-  const result = await deleteGoal(user.id, params.id);
+  const result = await deleteGoal(user.id, id);
   if (!result.ok) return reasonToStatus(result.reason);
   return jsonOk({ deleted: true });
 }

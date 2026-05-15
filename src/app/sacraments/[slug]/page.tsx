@@ -9,26 +9,28 @@ import { buildDetailMetadata } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: { slug: string } };
+type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props) {
-  const title = params.slug.replace(/^(sacrament|consecration)-/, "").replace(/-/g, " ");
-  return buildDetailMetadata({ path: `/sacraments/${params.slug}`, title });
+  const { slug } = await params;
+  const title = slug.replace(/^(sacrament|consecration)-/, "").replace(/-/g, " ");
+  return buildDetailMetadata({ path: `/sacraments/${slug}`, title });
 }
 
 export default async function SacramentDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
-  if (!params.slug.startsWith("sacrament-") && !params.slug.startsWith("consecration-")) {
+  const { slug } = await params;
+  if (!slug.startsWith("sacrament-") && !slug.startsWith("consecration-")) {
     notFound();
   }
-  const guide = await getPublishedSpiritualLifeGuideBySlug(params.slug, locale);
+  const guide = await getPublishedSpiritualLifeGuideBySlug(slug, locale);
   if (!guide) notFound();
 
   const title = guide.translations[0]?.title ?? guide.title;
   const summary = guide.translations[0]?.summary ?? guide.summary;
   const bodyText = guide.translations[0]?.bodyText ?? guide.bodyText;
   const Badge = getBadgeForGoalSlug(guide.goalTemplateSlug ?? null);
-  const isConsecration = params.slug.startsWith("consecration-");
+  const isConsecration = slug.startsWith("consecration-");
 
   return (
     <div>

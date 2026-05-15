@@ -14,10 +14,11 @@ const patchSchema = z
     message: "no-fields",
   });
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
-  const result = await getJournalEntry(params.id, user.id);
+  const result = await getJournalEntry(id, user.id);
   if (!result.ok) {
     if (result.reason === "not_found") return jsonError("not_found");
     return jsonError("forbidden");
@@ -25,7 +26,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return jsonOk({ entry: result.entry });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
 
@@ -39,7 +41,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const parsed = patchSchema.safeParse(body.data);
   if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
-  const result = await updateJournalEntry(params.id, user.id, parsed.data);
+  const result = await updateJournalEntry(id, user.id, parsed.data);
   if (!result.ok) {
     if (result.reason === "not_found") return jsonError("not_found");
     return jsonError("forbidden");
