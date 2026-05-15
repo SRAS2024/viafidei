@@ -5,6 +5,7 @@ import {
   type SpiritualLifeKind,
   type ContentStatus,
 } from "@prisma/client";
+import { parseFeastDayText } from "./saints";
 
 function slugify(input: string | null | undefined): string {
   if (!input) return "";
@@ -126,11 +127,14 @@ export async function createSaint(input: SaintInput) {
   const slug = (input.slug && slugify(input.slug)) || slugify(input.canonicalName);
   const exists = await prisma.saint.findUnique({ where: { slug } });
   if (exists) return { ok: false as const, reason: "duplicate" as const };
+  const parsed = parseFeastDayText(input.feastDay);
   const entity = await prisma.saint.create({
     data: {
       slug,
       canonicalName: input.canonicalName,
       feastDay: input.feastDay ?? null,
+      feastMonth: parsed?.month ?? null,
+      feastDayOfMonth: parsed?.day ?? null,
       patronages: input.patronages ?? [],
       biography: input.biography,
       officialPrayer: input.officialPrayer ?? null,
@@ -146,7 +150,12 @@ export async function updateSaint(id: string, patch: Partial<SaintInput>) {
   const data: Prisma.SaintUpdateInput = {};
   if (patch.canonicalName !== undefined) data.canonicalName = patch.canonicalName;
   if (patch.biography !== undefined) data.biography = patch.biography;
-  if (patch.feastDay !== undefined) data.feastDay = patch.feastDay ?? null;
+  if (patch.feastDay !== undefined) {
+    data.feastDay = patch.feastDay ?? null;
+    const parsed = parseFeastDayText(patch.feastDay);
+    data.feastMonth = parsed?.month ?? null;
+    data.feastDayOfMonth = parsed?.day ?? null;
+  }
   if (patch.officialPrayer !== undefined) data.officialPrayer = patch.officialPrayer ?? null;
   if (patch.patronages !== undefined) data.patronages = patch.patronages;
   const resolvedStatus = resolveStatusForUpdate(patch);

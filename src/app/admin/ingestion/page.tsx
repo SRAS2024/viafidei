@@ -1,56 +1,62 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { listIngestionSourcesWithLatestRuns } from "@/lib/data/ingestion";
 import { getDataManagementSettings } from "@/lib/data/site-settings";
-import { getRecentActivityByContentType } from "@/lib/data/data-management-log";
+import {
+  getRecentActivityByAction,
+  getRecentActivityByContentType,
+} from "@/lib/data/data-management-log";
+import { loadIngestionLiveSnapshot } from "@/lib/diagnostics";
 import { getBacklogProgress } from "@/lib/ingestion/scheduler";
-import { prisma } from "@/lib/db/client";
 import { AdminSection } from "../_sections/AdminSection";
 import { ManualIngestRunButton } from "./ManualIngestRunButton";
+import { ManualCleanupRunButton } from "./ManualCleanupRunButton";
 import { DataManagementSettings } from "./DataManagementSettings";
 import { LiveBacklogPanel } from "./LiveBacklogPanel";
 
 export const dynamic = "force-dynamic";
 
+function describeZeroActivity(args: {
+  totalRuns24h: number;
+  autoCleanupEnabled: boolean;
+  hardDeleteAfterDays: number;
+  totalActions: number;
+}): string {
+  // We never show a blunt "0 edits in 24h" — every empty state explains
+  // which condition produced it so the admin knows whether to investigate.
+  const { totalRuns24h, autoCleanupEnabled, totalActions } = args;
+  if (!autoCleanupEnabled) {
+    return "0 edits in the last 24h — automatic Data Management is disabled, so only manual admin actions would write to this log.";
+  }
+  if (totalRuns24h === 0) {
+    return "0 edits in the last 24h — no ingestion run ticked in the last 24 hours. Check the cron token / scheduler config.";
+  }
+  if (totalActions === 0) {
+    return `0 edits in the last 24h — ingestion ran ${totalRuns24h} time${totalRuns24h === 1 ? "" : "s"} but every item was deduplicated as already-in-catalog. This is the normal steady state when there is no new upstream content.`;
+  }
+  return `${totalActions} action${totalActions === 1 ? "" : "s"} in the last 24h.`;
+}
+
 export default async function AdminIngestion() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const [sources, progress, dataManagement, activity24h, latestRun] = await Promise.all([
+  const [sources, progress, dataManagement, activity24h, byAction, snapshot] = await Promise.all([
     listIngestionSourcesWithLatestRuns(),
     getBacklogProgress().catch(() => null),
     getDataManagementSettings(),
-    getRecentActivityByContentType(24).catch(() => ({})),
-    prisma.ingestionJobRun
-      .findFirst({
-        orderBy: { startedAt: "desc" },
-        include: { job: { include: { source: true } } },
-      })
-      .catch(() => null),
+    getRecentActivityByContentType(24).catch(() => ({}) as Record<string, number>),
+    getRecentActivityByAction(24).catch(() => ({}) as Record<string, number>),
+    loadIngestionLiveSnapshot().catch(() => null),
   ]);
 
-  // Compute the initial status snapshot for the live panel so the page
-  // is informative on first paint, before the first poll lands.
-  let status: "active" | "paused" | "disabled" | "running" | "failed" | "idle" = "idle";
-  let statusDetail = "No recent activity.";
-  if (!dataManagement.autoCleanupEnabled) {
-    status = "paused";
-    statusDetail =
-      "Automatic Data Management is paused. Per-row ingestion validation still runs; catalog-wide cleanup is on manual control.";
-  } else if (latestRun) {
-    if (latestRun.status === "RUNNING") {
-      status = "running";
-      statusDetail = `${latestRun.job.source.name} → ${latestRun.job.jobName} running since ${latestRun.startedAt.toISOString().slice(0, 16)}.`;
-    } else if (latestRun.status === "FAILED") {
-      status = "failed";
-      statusDetail = `Last run failed: ${latestRun.errorMessage?.slice(0, 200) ?? "no error message recorded"}`;
-    } else if (latestRun.status === "PARTIAL") {
-      status = "active";
-      statusDetail = "Last run partially completed — some items were rejected or sent to review.";
-    } else {
-      status = "active";
-      statusDetail = `Last run ${latestRun.status.toLowerCase()} at ${latestRun.startedAt.toISOString().slice(0, 16)}.`;
-    }
-  }
+  const totalActions = Object.values(byAction).reduce((sum, n) => sum + n, 0);
+  const activitySummary = describeZeroActivity({
+    totalRuns24h: snapshot?.totalRuns24h ?? 0,
+    autoCleanupEnabled: dataManagement.autoCleanupEnabled,
+    hardDeleteAfterDays: dataManagement.hardDeleteAfterDays,
+    totalActions,
+  });
 
   return (
     <AdminSection titleKey="admin.card.ingestion">
@@ -63,38 +69,63 @@ export default async function AdminIngestion() {
           progress: progress ?? null,
           settings: dataManagement,
           activity24h,
-          status,
-          statusDetail,
-          latestRun: latestRun
+          status: snapshot?.status ?? "idle",
+          statusDetail: snapshot?.detail ?? "No recent activity.",
+          latestRun: snapshot?.lastRun
             ? {
-                status: latestRun.status,
-                startedAt: latestRun.startedAt.toISOString(),
-                finishedAt: latestRun.finishedAt?.toISOString() ?? null,
-                recordsCreated: latestRun.recordsCreated,
-                recordsUpdated: latestRun.recordsUpdated,
-                recordsSkipped: latestRun.recordsSkipped,
-                errorMessage: latestRun.errorMessage,
-                jobName: latestRun.job.jobName,
-                sourceName: latestRun.job.source.name,
+                status: snapshot.lastRun.status,
+                startedAt: snapshot.lastRun.startedAt,
+                finishedAt: snapshot.lastRun.finishedAt,
+                recordsCreated: snapshot.lastRun.recordsCreated,
+                recordsUpdated: snapshot.lastRun.recordsUpdated,
+                recordsSkipped: snapshot.lastRun.recordsSkipped,
+                errorMessage: snapshot.lastRun.errorMessage,
+                jobName: snapshot.lastRun.jobName,
+                sourceName: snapshot.lastRun.sourceName,
               }
             : null,
         }}
       />
-      {progress ? (
-        <section className="mb-8 vf-card rounded-sm p-5">
-          <h3 className="font-display text-xl">Manual ingestion run</h3>
+
+      <section className="mb-8 vf-card rounded-sm p-5">
+        <h3 className="font-display text-xl">24-hour activity</h3>
+        <p className="mt-1 font-serif text-sm text-ink-soft">{activitySummary}</p>
+        <p className="mt-1 font-serif text-xs text-ink-faint">
+          See{" "}
+          <Link href="/admin/logs/data-management" className="vf-nav-link">
+            Data Management logs
+          </Link>{" "}
+          for per-item add / update / skip / reject detail, or{" "}
+          <Link href="/admin/logs/ingestion" className="vf-nav-link">
+            Ingestion run logs
+          </Link>{" "}
+          for the per-run picture.
+        </p>
+      </section>
+
+      <section className="mb-8 grid gap-4 sm:grid-cols-2">
+        <div className="vf-card rounded-sm p-5">
+          <h3 className="font-display text-xl">Run ingestion now</h3>
           <p className="mt-1 font-serif text-sm text-ink-soft">
-            The app runs ingestion automatically on every cron tick. This button is here for
-            troubleshooting only — it acquires the same advisory lock as the cron job, so manual and
-            automatic runs cannot conflict, duplicate content, or override valid content. Each
-            adapter still skips rows that already exist by slug, externalSourceKey, or content
-            checksum.
+            Triggers every active ingestion job once. Uses the same advisory lock as the cron job so
+            manual and automatic runs cannot conflict, duplicate content, or override valid content.
           </p>
           <div className="mt-3">
-            <ManualIngestRunButton initialMode={progress.mode} />
+            <ManualIngestRunButton initialMode={progress?.mode ?? "constant"} />
           </div>
-        </section>
-      ) : null}
+        </div>
+        <div className="vf-card rounded-sm p-5">
+          <h3 className="font-display text-xl">Run data cleanup now</h3>
+          <p className="mt-1 font-serif text-sm text-ink-soft">
+            Runs the misc-content archive sweep, duplicate-prayer collapse, and the hard-delete
+            pass. Same logic the cron job runs — safe to run manually whenever you want to see the
+            result immediately.
+          </p>
+          <div className="mt-3">
+            <ManualCleanupRunButton />
+          </div>
+        </div>
+      </section>
 
       <section>
         <h2 className="mb-3 font-display text-2xl">Sources</h2>

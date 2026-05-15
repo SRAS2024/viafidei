@@ -18,7 +18,17 @@ type Progress = {
   mode: string;
 };
 
-type StatusKind = "active" | "paused" | "disabled" | "running" | "failed" | "idle";
+type StatusKind =
+  | "active"
+  | "paused"
+  | "disabled"
+  | "running"
+  | "failed"
+  | "idle"
+  | "maintenance"
+  | "stale"
+  | "blocked"
+  | "failing";
 
 type Snapshot = {
   progress: Progress | null;
@@ -66,6 +76,10 @@ const STATUS_LABEL: Record<StatusKind, string> = {
   running: "Running",
   failed: "Failed",
   idle: "Idle",
+  maintenance: "Maintenance",
+  stale: "Stale",
+  blocked: "Blocked",
+  failing: "Failing",
 };
 
 const STATUS_COLOR: Record<StatusKind, string> = {
@@ -75,6 +89,10 @@ const STATUS_COLOR: Record<StatusKind, string> = {
   running: "#0b4477",
   failed: "#8b1a1a",
   idle: "#3b3f4a",
+  maintenance: "#185c2a",
+  stale: "#9b6b00",
+  blocked: "#8b1a1a",
+  failing: "#8b1a1a",
 };
 
 type Props = {
@@ -195,7 +213,13 @@ export function LiveBacklogPanel({ initialSnapshot }: Props) {
                 </p>
                 <p className="mt-2 text-xs text-ink-faint">
                   {edits === 0
-                    ? "No edits in last 24h"
+                    ? status === "disabled"
+                      ? "0 edits in last 24h · auto-cleanup disabled"
+                      : status === "blocked"
+                        ? "0 edits in last 24h · scheduler blocked"
+                        : status === "stale"
+                          ? "0 edits in last 24h · no recent runs"
+                          : "0 edits in last 24h · no new upstream content (skipped)"
                     : `${edits} edit${edits === 1 ? "" : "s"} in last 24h`}
                 </p>
               </div>

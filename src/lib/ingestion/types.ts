@@ -22,6 +22,10 @@ export type IngestedSaint = {
   slug: string;
   canonicalName: string;
   feastDay?: string;
+  /** Structured feast month (1-12). Derived from `feastDay` when omitted. */
+  feastMonth?: number;
+  /** Structured feast day-of-month (1-31). Derived from `feastDay` when omitted. */
+  feastDayOfMonth?: number;
   patronages: string[];
   biography: string;
   officialPrayer?: string;

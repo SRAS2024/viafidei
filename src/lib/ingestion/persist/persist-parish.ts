@@ -3,7 +3,7 @@ import { prisma } from "../../db/client";
 import { computeChecksum } from "../checksum";
 import { normalizeSlug } from "../slug";
 import type { IngestedParish } from "../types";
-import type { PersistOutcome } from "./persist-prayer";
+import type { PersistOutcomeDetailed } from "./persist-prayer";
 import { normalizeWebsiteIdentity } from "./dedup";
 
 async function findExistingParish(item: IngestedParish, incomingChecksum: string) {
@@ -87,7 +87,7 @@ function deriveSourceHost(item: IngestedParish): string | null {
 export async function persistParish(
   item: IngestedParish,
   initialStatus: ContentStatus,
-): Promise<PersistOutcome> {
+): Promise<PersistOutcomeDetailed> {
   const incomingChecksum = computeChecksum(item);
   const existing = await findExistingParish(item, incomingChecksum);
 
@@ -95,7 +95,15 @@ export async function persistParish(
     // Spec: "only add content if it is not already in the database." Any
     // existing row — PUBLISHED, ARCHIVED, DRAFT (admin WIP), or REVIEW —
     // is left untouched; ingestion is strictly additive.
-    return "skipped";
+    return {
+      outcome: "skipped",
+      slug: existing.slug,
+      contentRef: existing.slug || existing.name,
+      reason:
+        existing.contentChecksum === incomingChecksum
+          ? "duplicate content checksum"
+          : "already in catalog",
+    };
   }
 
   await prisma.parish.create({
@@ -119,5 +127,9 @@ export async function persistParish(
       status: initialStatus,
     },
   });
-  return "created";
+  return {
+    outcome: "created",
+    slug: item.slug,
+    contentRef: item.slug || item.name,
+  };
 }

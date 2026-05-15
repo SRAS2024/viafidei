@@ -1,9 +1,10 @@
 import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../../db/client";
+import { parseFeastDayText } from "../../data/saints";
 import { computeChecksum } from "../checksum";
 import { normalizeSlug } from "../slug";
 import type { IngestedSaint } from "../types";
-import type { PersistOutcome } from "./persist-prayer";
+import type { PersistOutcomeDetailed } from "./persist-prayer";
 
 async function findExistingSaint(item: IngestedSaint, incomingChecksum: string) {
   if (item.externalSourceKey) {
@@ -36,7 +37,7 @@ async function findExistingSaint(item: IngestedSaint, incomingChecksum: string) 
 export async function persistSaint(
   item: IngestedSaint,
   initialStatus: ContentStatus,
-): Promise<PersistOutcome> {
+): Promise<PersistOutcomeDetailed> {
   const incomingChecksum = computeChecksum(item);
   const existing = await findExistingSaint(item, incomingChecksum);
 
@@ -44,14 +45,28 @@ export async function persistSaint(
     // Spec: "only add content if it is not already in the database." Any
     // existing row — PUBLISHED, ARCHIVED, DRAFT (admin WIP), or REVIEW —
     // is left untouched; ingestion is strictly additive.
-    return "skipped";
+    return {
+      outcome: "skipped",
+      slug: existing.slug,
+      contentRef: existing.slug || existing.canonicalName,
+      reason:
+        existing.contentChecksum === incomingChecksum
+          ? "duplicate content checksum"
+          : "already in catalog",
+    };
   }
+
+  const parsed = parseFeastDayText(item.feastDay);
+  const feastMonth = item.feastMonth ?? parsed?.month ?? null;
+  const feastDayOfMonth = item.feastDayOfMonth ?? parsed?.day ?? null;
 
   await prisma.saint.create({
     data: {
       slug: item.slug,
       canonicalName: item.canonicalName,
       feastDay: item.feastDay ?? null,
+      feastMonth,
+      feastDayOfMonth,
       patronages: item.patronages,
       biography: item.biography,
       officialPrayer: item.officialPrayer ?? null,
@@ -60,5 +75,9 @@ export async function persistSaint(
       status: initialStatus,
     },
   });
-  return "created";
+  return {
+    outcome: "created",
+    slug: item.slug,
+    contentRef: item.slug || item.canonicalName,
+  };
 }

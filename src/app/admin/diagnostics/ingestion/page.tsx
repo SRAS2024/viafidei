@@ -1,260 +1,319 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
-import { prisma } from "@/lib/db/client";
-import { getDataManagementSettings } from "@/lib/data/site-settings";
+import {
+  loadIngestionLiveSnapshot,
+  runIngestionDiagnostics,
+  type DiagnosticResult,
+} from "@/lib/diagnostics";
 import {
   getRecentActivityByAction,
   getRecentActivityByContentType,
+  dataManagementActionLabel,
 } from "@/lib/data/data-management-log";
 import { AdminSection } from "../../_sections/AdminSection";
 
 export const dynamic = "force-dynamic";
 
-type Check = {
-  name: string;
-  status: "ok" | "warn" | "fail" | "info";
-  detail: string;
-};
-
-async function runChecks(): Promise<Check[]> {
-  const checks: Check[] = [];
-
-  // 1. Data Management settings — toggle status.
-  const settings = await getDataManagementSettings();
-  checks.push({
-    name: "Auto Data Management",
-    status: settings.autoCleanupEnabled ? "ok" : "warn",
-    detail: settings.autoCleanupEnabled
-      ? `Enabled · hard-delete after ${settings.hardDeleteAfterDays} day(s)`
-      : "Disabled — manual control. Per-row validator still runs on ingestion, but the catalog-wide cleanup sweep is paused.",
-  });
-
-  // 2. Last ingestion run.
-  try {
-    const lastRun = await prisma.ingestionJobRun.findFirst({
-      orderBy: { startedAt: "desc" },
-      include: { job: { include: { source: true } } },
-    });
-    if (!lastRun) {
-      checks.push({
-        name: "Last ingestion run",
-        status: "warn",
-        detail:
-          "No IngestionJobRun rows yet. The scheduler creates them on the first cron tick — confirm /api/cron/ingest is wired up on the host.",
-      });
-    } else {
-      const ageMinutes = Math.round((Date.now() - lastRun.startedAt.getTime()) / 60000);
-      const status: Check["status"] =
-        lastRun.status === "SUCCESS"
-          ? "ok"
-          : lastRun.status === "FAILED"
-            ? "fail"
-            : lastRun.status === "PARTIAL"
-              ? "warn"
-              : "info";
-      const errPart = lastRun.errorMessage ? ` · "${lastRun.errorMessage.slice(0, 200)}"` : "";
-      checks.push({
-        name: "Last ingestion run",
-        status,
-        detail: `${lastRun.job.source.name} → ${lastRun.job.jobName} · ${lastRun.status} · ${ageMinutes} min ago · seen ${lastRun.recordsSeen} / created ${lastRun.recordsCreated} / skipped ${lastRun.recordsSkipped} / failed ${lastRun.recordsFailed}${errPart}`,
-      });
-    }
-  } catch (err) {
-    checks.push({
-      name: "Last ingestion run",
-      status: "fail",
-      detail: `Could not query IngestionJobRun: ${(err as Error).message}`,
-    });
+function statusColor(status: string) {
+  switch (status) {
+    case "pass":
+      return "#185c2a";
+    case "warn":
+      return "#9b6b00";
+    case "fail":
+      return "#8b1a1a";
+    default:
+      return "#3b3f4a";
   }
-
-  // 3. Recent failures in the last 24h.
-  try {
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const failed = await prisma.ingestionJobRun.findMany({
-      where: { startedAt: { gte: cutoff }, status: { in: ["FAILED", "PARTIAL"] } },
-      include: { job: { include: { source: true } } },
-      orderBy: { startedAt: "desc" },
-      take: 5,
-    });
-    if (failed.length === 0) {
-      checks.push({
-        name: "Failures (24h)",
-        status: "ok",
-        detail: "No failed or partial ingestion runs in the last 24 hours.",
-      });
-    } else {
-      for (const f of failed) {
-        checks.push({
-          name: `Failure · ${f.job.jobName}`,
-          status: f.status === "FAILED" ? "fail" : "warn",
-          detail: `${f.startedAt.toISOString().slice(0, 16)} · ${f.job.source.name} · ${f.status} · ${f.errorMessage?.slice(0, 240) ?? "no error message recorded"}`,
-        });
-      }
-    }
-  } catch (err) {
-    checks.push({
-      name: "Failures (24h)",
-      status: "fail",
-      detail: `Could not query IngestionJobRun: ${(err as Error).message}`,
-    });
-  }
-
-  // 4. Recent Data Management activity by action.
-  try {
-    const byAction = await getRecentActivityByAction(24);
-    const total = Object.values(byAction).reduce((sum, n) => sum + n, 0);
-    if (total === 0) {
-      checks.push({
-        name: "Data Management activity (24h)",
-        status: settings.autoCleanupEnabled ? "info" : "warn",
-        detail: settings.autoCleanupEnabled
-          ? "No automatic add / update / delete / cleanup actions in the last 24 hours. This is normal when the catalog is stable; if you expect activity, check the cron logs."
-          : "Cleanup is disabled and there have been no manual data-management actions in the last 24 hours.",
-      });
-    } else {
-      checks.push({
-        name: "Data Management activity (24h)",
-        status: "ok",
-        detail: `${total} action(s): ${Object.entries(byAction)
-          .map(([a, n]) => `${a.toLowerCase()} ${n}`)
-          .join(", ")}`,
-      });
-    }
-  } catch (err) {
-    checks.push({
-      name: "Data Management activity (24h)",
-      status: "fail",
-      detail: `Could not query DataManagementLog: ${(err as Error).message}`,
-    });
-  }
-
-  // 5. Content counts by main type.
-  try {
-    const [prayers, saints, apparitions, parishes, devotions, liturgy, guides] = await Promise.all([
-      prisma.prayer.count({ where: { status: "PUBLISHED" } }),
-      prisma.saint.count({ where: { status: "PUBLISHED" } }),
-      prisma.marianApparition.count({ where: { status: "PUBLISHED" } }),
-      prisma.parish.count({ where: { status: "PUBLISHED" } }),
-      prisma.devotion.count({ where: { status: "PUBLISHED" } }),
-      prisma.liturgyEntry.count({ where: { status: "PUBLISHED" } }),
-      prisma.spiritualLifeGuide.count({ where: { status: "PUBLISHED" } }),
-    ]);
-    checks.push({
-      name: "Content counts (PUBLISHED)",
-      status: "info",
-      detail: `Prayers ${prayers} · Saints ${saints} · Marian apparitions ${apparitions} · Parishes ${parishes} · Devotions ${devotions} · Liturgy ${liturgy} · Spiritual-life guides ${guides}`,
-    });
-  } catch (err) {
-    checks.push({
-      name: "Content counts",
-      status: "fail",
-      detail: `Could not query content tables: ${(err as Error).message}`,
-    });
-  }
-
-  // 6. REVIEW backlog — soft-validated content awaiting moderation.
-  try {
-    const [prayers, saints, apparitions, devotions, liturgy, guides] = await Promise.all([
-      prisma.prayer.count({ where: { status: "REVIEW" } }),
-      prisma.saint.count({ where: { status: "REVIEW" } }),
-      prisma.marianApparition.count({ where: { status: "REVIEW" } }),
-      prisma.devotion.count({ where: { status: "REVIEW" } }),
-      prisma.liturgyEntry.count({ where: { status: "REVIEW" } }),
-      prisma.spiritualLifeGuide.count({ where: { status: "REVIEW" } }),
-    ]);
-    const total = prayers + saints + apparitions + devotions + liturgy + guides;
-    checks.push({
-      name: "Review queue",
-      status: total === 0 ? "ok" : total > 200 ? "warn" : "info",
-      detail:
-        total === 0
-          ? "No content in REVIEW status."
-          : `${total} item(s) awaiting moderation across the catalog. Use /admin/publish-list to triage.`,
-    });
-  } catch (err) {
-    checks.push({
-      name: "Review queue",
-      status: "fail",
-      detail: `Could not query review queue: ${(err as Error).message}`,
-    });
-  }
-
-  return checks;
 }
 
-function statusColor(status: Check["status"]) {
-  return status === "ok"
-    ? "#185c2a"
-    : status === "warn"
-      ? "#9b6b00"
-      : status === "fail"
-        ? "#8b1a1a"
-        : "#3b3f4a";
+function statusGlyph(status: string) {
+  switch (status) {
+    case "pass":
+      return "✓";
+    case "warn":
+      return "!";
+    case "fail":
+      return "✗";
+    default:
+      return "·";
+  }
 }
-function statusGlyph(status: Check["status"]) {
-  return status === "ok" ? "✓" : status === "warn" ? "!" : status === "fail" ? "✗" : "·";
+
+function liveStatusBadge(status: string): { bg: string; text: string; label: string } {
+  switch (status) {
+    case "running":
+      return { bg: "bg-blue-100", text: "text-blue-800", label: "RUNNING" };
+    case "active":
+      return { bg: "bg-emerald-100", text: "text-emerald-800", label: "ACTIVE" };
+    case "maintenance":
+      return { bg: "bg-emerald-100", text: "text-emerald-800", label: "MAINTENANCE" };
+    case "stale":
+      return { bg: "bg-amber-100", text: "text-amber-800", label: "STALE" };
+    case "disabled":
+      return { bg: "bg-amber-100", text: "text-amber-800", label: "DISABLED" };
+    case "blocked":
+      return { bg: "bg-red-100", text: "text-red-800", label: "BLOCKED" };
+    case "failing":
+      return { bg: "bg-red-100", text: "text-red-800", label: "FAILING" };
+    default:
+      return { bg: "bg-stone-100", text: "text-stone-700", label: "IDLE" };
+  }
+}
+
+function ResultCard({ r }: { r: DiagnosticResult }) {
+  return (
+    <li className="vf-card rounded-sm p-4 sm:p-5">
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-xs text-white"
+          style={{ backgroundColor: statusColor(r.severity) }}
+        >
+          {statusGlyph(r.severity)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <p className="break-words font-display text-base text-ink">{r.label}</p>
+            <span
+              className="font-mono text-[0.65rem] uppercase tracking-wide"
+              style={{ color: statusColor(r.severity) }}
+            >
+              {r.severity}
+            </span>
+          </div>
+          <p className="mt-1 break-words font-serif text-sm text-ink-soft">{r.summary}</p>
+          {r.explanation ? (
+            <p className="mt-2 break-words font-serif text-xs text-ink-faint">{r.explanation}</p>
+          ) : null}
+          {r.evidence ? (
+            <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words rounded-sm bg-paper-soft px-2 py-1 font-mono text-xs text-ink-faint">
+              {Object.entries(r.evidence)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join("\n")}
+            </pre>
+          ) : null}
+          <p className="mt-2 font-serif text-xs text-ink-faint">
+            Ran at {new Date(r.ranAt).toISOString().replace("T", " ").slice(0, 19)}
+            {typeof r.durationMs === "number" ? ` · ${r.durationMs}ms` : null} · request id{" "}
+            <span className="font-mono">{r.requestId}</span>
+          </p>
+        </div>
+      </div>
+    </li>
+  );
 }
 
 export default async function IngestionDiagnostics() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const checks = await runChecks();
-  const byContentType = await getRecentActivityByContentType(24).catch(() => ({}));
+  const [section, snapshot, byContentType, byAction] = await Promise.all([
+    runIngestionDiagnostics(),
+    loadIngestionLiveSnapshot().catch(() => null),
+    getRecentActivityByContentType(24).catch(() => ({}) as Record<string, number>),
+    getRecentActivityByAction(24).catch(() => ({}) as Record<string, number>),
+  ]);
+
+  const lr = snapshot?.lastRun;
+  const badge = snapshot ? liveStatusBadge(snapshot.status) : null;
 
   return (
     <AdminSection
       titleKey="admin.card.diagnostics"
-      subtitle="Ingestion & Data Management — verify content validation, cleanup activity, automatic deletes, and recent failure detail."
+      subtitle="Ingestion & Data Management — live status, last successful and failed runs, 24h activity, content totals, review queue, and per-action data-management counts."
     >
       <div className="mb-6 flex flex-wrap items-center gap-4">
         <Link href="/admin/diagnostics" className="vf-nav-link">
           ← Diagnostics
         </Link>
         <Link href="/admin/ingestion" className="vf-nav-link">
-          Open Ingestion & Data Management →
+          Open Ingestion →
+        </Link>
+        <Link href="/admin/logs/ingestion" className="vf-nav-link">
+          Ingestion run logs →
         </Link>
         <Link href="/admin/logs/data-management" className="vf-nav-link">
-          Data Management Logs →
+          Data Management logs →
         </Link>
       </div>
 
-      <h2 className="font-display text-2xl">Ingestion & Data Management</h2>
-      <ul className="mt-4 flex flex-col gap-3">
-        {checks.map((c, idx) => (
-          <li key={idx} className="vf-card rounded-sm p-4 sm:p-5">
-            <div className="flex items-start gap-3">
+      {snapshot ? (
+        <section className="mb-8 vf-card rounded-sm p-5">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h2 className="font-display text-xl">Live status</h2>
+            {badge ? (
               <span
-                aria-hidden="true"
-                className="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-xs text-white"
-                style={{ backgroundColor: statusColor(c.status) }}
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-xs uppercase ${badge.bg} ${badge.text}`}
               >
-                {statusGlyph(c.status)}
+                {badge.label}
               </span>
-              <div className="min-w-0">
-                <p className="break-words font-display text-base text-ink">{c.name}</p>
-                <p className="mt-1 break-words font-serif text-sm text-ink-soft">{c.detail}</p>
-              </div>
+            ) : null}
+          </div>
+          <p className="mt-2 font-serif text-sm text-ink-soft">{snapshot.detail}</p>
+          <dl className="mt-4 grid gap-3 font-serif text-sm sm:grid-cols-2">
+            <div>
+              <dt className="vf-eyebrow text-ink-faint">Auto-cleanup</dt>
+              <dd className="mt-0.5 text-ink">
+                {snapshot.autoCleanupEnabled
+                  ? `Enabled · hard-delete after ${snapshot.hardDeleteAfterDays} day${snapshot.hardDeleteAfterDays === 1 ? "" : "s"}`
+                  : "Disabled — manual control"}
+              </dd>
             </div>
-          </li>
+            <div>
+              <dt className="vf-eyebrow text-ink-faint">Runs in last 24h</dt>
+              <dd className="mt-0.5 text-ink">
+                {snapshot.totalRuns24h} total · {snapshot.failedRuns24h} failed
+              </dd>
+            </div>
+            <div>
+              <dt className="vf-eyebrow text-ink-faint">Last successful run</dt>
+              <dd className="mt-0.5 text-ink">
+                {snapshot.lastSuccessAt
+                  ? snapshot.lastSuccessAt.replace("T", " ").slice(0, 19) + " UTC"
+                  : "never"}
+              </dd>
+            </div>
+            <div>
+              <dt className="vf-eyebrow text-ink-faint">Last failed run</dt>
+              <dd className="mt-0.5 text-ink">
+                {snapshot.lastFailureAt
+                  ? snapshot.lastFailureAt.replace("T", " ").slice(0, 19) + " UTC"
+                  : "no failures recorded"}
+              </dd>
+            </div>
+          </dl>
+          {lr ? (
+            <div className="mt-5 rounded-sm border border-ink/10 p-4">
+              <p className="vf-eyebrow text-ink-faint">Last ingestion run detail</p>
+              <dl className="mt-2 grid gap-2 font-serif text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-ink-faint">Source</dt>
+                  <dd className="text-ink">{lr.sourceName}</dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Job</dt>
+                  <dd className="text-ink">{lr.jobName}</dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Status</dt>
+                  <dd className="text-ink">{lr.status}</dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Started</dt>
+                  <dd className="text-ink">{lr.startedAt.replace("T", " ").slice(0, 19)}</dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Finished</dt>
+                  <dd className="text-ink">
+                    {lr.finishedAt ? lr.finishedAt.replace("T", " ").slice(0, 19) : "still running"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Duration</dt>
+                  <dd className="text-ink">
+                    {typeof lr.durationMs === "number" ? `${lr.durationMs}ms` : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Created</dt>
+                  <dd className="text-ink">{lr.recordsCreated}</dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Updated</dt>
+                  <dd className="text-ink">{lr.recordsUpdated}</dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Skipped</dt>
+                  <dd className="text-ink">{lr.recordsSkipped}</dd>
+                </div>
+                <div>
+                  <dt className="text-ink-faint">Failed</dt>
+                  <dd className={lr.recordsFailed > 0 ? "text-red-700" : "text-ink"}>
+                    {lr.recordsFailed}
+                  </dd>
+                </div>
+                {lr.errorMessage ? (
+                  <div className="sm:col-span-2">
+                    <dt className="text-ink-faint">Error message</dt>
+                    <dd className="break-words font-mono text-xs text-red-700">
+                      {lr.errorMessage.slice(0, 400)}
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      <header className="mb-6 vf-card rounded-sm p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="font-display text-xl">{section.label}</h2>
+          <span
+            className="inline-flex items-center gap-2 font-serif text-sm"
+            style={{ color: statusColor(section.severity) }}
+          >
+            <span
+              aria-hidden="true"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full font-mono text-xs text-white"
+              style={{ backgroundColor: statusColor(section.severity) }}
+            >
+              {statusGlyph(section.severity)}
+            </span>
+            Overall: <span className="font-medium uppercase">{section.severity}</span>
+          </span>
+        </div>
+        <p className="mt-1 font-serif text-xs text-ink-faint">
+          Run at {new Date(section.ranAt).toISOString().replace("T", " ").slice(0, 19)} · request id{" "}
+          <span className="font-mono">{section.requestId}</span>
+        </p>
+      </header>
+
+      <ul className="mt-4 flex flex-col gap-3">
+        {section.results.map((r) => (
+          <ResultCard key={r.id} r={r} />
         ))}
       </ul>
 
-      {Object.keys(byContentType).length > 0 ? (
-        <section className="mt-8 vf-card rounded-sm p-5">
-          <h2 className="font-display text-xl">Activity by content type (24h)</h2>
-          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
-            {Object.entries(byContentType)
-              .sort((a, b) => b[1] - a[1])
-              .map(([type, count]) => (
-                <li key={type} className="flex items-baseline justify-between font-serif text-sm">
-                  <span className="text-ink-soft">{type}</span>
-                  <span className="font-medium text-ink">{count}</span>
-                </li>
-              ))}
-          </ul>
-        </section>
-      ) : null}
+      <section className="mt-8 grid gap-4 sm:grid-cols-2">
+        <div className="vf-card rounded-sm p-5">
+          <h3 className="font-display text-lg">Activity by content type (24h)</h3>
+          {Object.keys(byContentType).length === 0 ? (
+            <p className="mt-3 font-serif text-sm text-ink-faint">
+              No actions recorded yet — see the diagnostic above for whether the cron is running.
+            </p>
+          ) : (
+            <ul className="mt-3 grid gap-2 font-serif text-sm">
+              {Object.entries(byContentType)
+                .sort((a, b) => b[1] - a[1])
+                .map(([type, count]) => (
+                  <li key={type} className="flex items-baseline justify-between">
+                    <span className="text-ink-soft">{type}</span>
+                    <span className="font-medium text-ink">{count}</span>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+        <div className="vf-card rounded-sm p-5">
+          <h3 className="font-display text-lg">Activity by action (24h)</h3>
+          {Object.keys(byAction).length === 0 ? (
+            <p className="mt-3 font-serif text-sm text-ink-faint">No actions recorded yet.</p>
+          ) : (
+            <ul className="mt-3 grid gap-2 font-serif text-sm">
+              {Object.entries(byAction)
+                .sort((a, b) => b[1] - a[1])
+                .map(([action, count]) => (
+                  <li key={action} className="flex items-baseline justify-between">
+                    <span className="text-ink-soft">{dataManagementActionLabel(action)}</span>
+                    <span className="font-medium text-ink">{count}</span>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+      </section>
     </AdminSection>
   );
 }

@@ -2,7 +2,7 @@ import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { computeChecksum } from "../checksum";
 import type { IngestedApparition } from "../types";
-import type { PersistOutcome } from "./persist-prayer";
+import type { PersistOutcomeDetailed } from "./persist-prayer";
 
 async function findExistingApparition(item: IngestedApparition) {
   if (item.externalSourceKey) {
@@ -17,14 +17,19 @@ async function findExistingApparition(item: IngestedApparition) {
 export async function persistApparition(
   item: IngestedApparition,
   initialStatus: ContentStatus,
-): Promise<PersistOutcome> {
+): Promise<PersistOutcomeDetailed> {
   const existing = await findExistingApparition(item);
   const incomingChecksum = computeChecksum(item);
 
   if (existing) {
     // Spec: "only add content if it is not already in the database." Any
     // existing row is left untouched; ingestion is strictly additive.
-    return "skipped";
+    return {
+      outcome: "skipped",
+      slug: existing.slug,
+      contentRef: existing.slug || existing.title,
+      reason: "already in catalog",
+    };
   }
 
   await prisma.marianApparition.create({
@@ -41,5 +46,9 @@ export async function persistApparition(
       status: initialStatus,
     },
   });
-  return "created";
+  return {
+    outcome: "created",
+    slug: item.slug,
+    contentRef: item.slug || item.title,
+  };
 }

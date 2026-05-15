@@ -2,7 +2,7 @@ import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { computeChecksum } from "../checksum";
 import type { IngestedDevotion } from "../types";
-import type { PersistOutcome } from "./persist-prayer";
+import type { PersistOutcomeDetailed } from "./persist-prayer";
 
 async function findExistingDevotion(item: IngestedDevotion) {
   if (item.externalSourceKey) {
@@ -17,14 +17,22 @@ async function findExistingDevotion(item: IngestedDevotion) {
 export async function persistDevotion(
   item: IngestedDevotion,
   initialStatus: ContentStatus,
-): Promise<PersistOutcome> {
+): Promise<PersistOutcomeDetailed> {
   const existing = await findExistingDevotion(item);
   const incomingChecksum = computeChecksum(item);
 
   if (existing) {
     // Spec: "only add content if it is not already in the database." Any
     // existing row is left untouched; ingestion is strictly additive.
-    return "skipped";
+    return {
+      outcome: "skipped",
+      slug: existing.slug,
+      contentRef: existing.slug || existing.title,
+      reason:
+        existing.contentChecksum === incomingChecksum
+          ? "duplicate content checksum"
+          : "already in catalog",
+    };
   }
 
   await prisma.devotion.create({
@@ -39,5 +47,9 @@ export async function persistDevotion(
       status: initialStatus,
     },
   });
-  return "created";
+  return {
+    outcome: "created",
+    slug: item.slug,
+    contentRef: item.slug || item.title,
+  };
 }

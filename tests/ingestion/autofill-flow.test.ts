@@ -41,7 +41,7 @@ describe("auto-fill flow — initialStatus", () => {
       externalSourceKey: "https://www.vatican.va/prayers/anima-christi",
     };
     const result = await persistItems([item], appConfig.ingestion.initialStatus);
-    expect(result).toEqual({ created: 1, updated: 0, skipped: 0 });
+    expect(result).toMatchObject({ created: 1, updated: 0, skipped: 0 });
     const args = prismaMock.prayer.create.mock.calls[0][0];
     expect(args.data.status).toBe("PUBLISHED");
   });
@@ -133,7 +133,7 @@ describe("auto-fill flow — content routes to the right table by kind", () => {
 
     const result = await persistItems(corpus, appConfig.ingestion.initialStatus);
 
-    expect(result).toEqual({ created: 7, updated: 0, skipped: 0 });
+    expect(result).toMatchObject({ created: 7, updated: 0, skipped: 0 });
     // Every model receives exactly one create.
     expect(prismaMock.prayer.create).toHaveBeenCalledTimes(1);
     expect(prismaMock.saint.create).toHaveBeenCalledTimes(1);

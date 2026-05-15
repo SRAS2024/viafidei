@@ -95,11 +95,30 @@ would call attention to:
   target and drops to a maintenance interval afterward — no external
   cron service required.
 - **Admin diagnostics designed around troubleshooting.** Diagnostics are
-  split into sections (email, data management, sitemap & links, accounts)
-  and each result carries severity, a timestamp, and a request id so
-  failures can be cross-referenced against the structured log stream.
-  Secrets, database URLs, and token values are explicitly stripped before
-  any value is rendered to the browser.
+  split into five sections — Email; Ingestion & Data Management; Sitemap
+  & Link Paths; Accounts; and Homepage Saints Feast Day — and each
+  result carries severity (pass / warn / fail / skipped), a timestamp,
+  a request id, and a short explanation so failures can be
+  cross-referenced against the structured log stream. Secrets, database
+  URLs, and token values are explicitly stripped before any value is
+  rendered to the browser. Every diagnostic page is backed by a
+  matching `/api/admin/diagnostics/...` route.
+- **Real per-item Data Management logs.** Every ingestion run writes
+  one DataManagementLog row per accepted, skipped, rejected, or
+  category-fixed item — with the reason, source, job, and triggeredBy
+  flag — so the admin Logs page can answer "why is the count not
+  changing?" precisely instead of showing an unexplained zero.
+- **Ingestion run logs and per-item action logs are both
+  first-class.** `/admin/logs/ingestion` reads from `IngestionJobRun`
+  (per-run picture: source, job, status, counts, duration, error
+  message). `/admin/logs/data-management` reads from
+  `DataManagementLog` (per-item picture: add / update / dedupe /
+  reject / cleanup / category-fix). Each has its own admin page with
+  filtering.
+- **Manual "Run ingestion now" and "Run data cleanup now" buttons.**
+  Both surface clear success or failure feedback inline — counts on
+  success, error message on failure — and write to AdminAuditLog so
+  the action is traceable.
 - **Security headers and observability baked into middleware.** The
   edge middleware sets CSP, X-Frame-Options, X-Content-Type-Options,
   Referrer-Policy, Permissions-Policy, and HSTS (production only), and
@@ -582,11 +601,25 @@ empty:
   `/api/saints/today`, and surfaces up to five names in
   veneration order with a "See more" link to the full
   `/saints/today` page. Each name links to the saint's detail
-  page. Feast-day matching is via `feastDayMatchesDate()`
-  (`src/lib/data/saints.ts`) which understands canonical
-  ("August 28"), abbreviated ("Aug 28"), ordinal ("October 1st"),
-  trailing-prose ("January 28 — Doctor of the Church") and
-  multi-feast ("August 4 / 5 (1969 reform)") variants.
+  page. Feast-day matching is index-backed: the Saint table
+  carries structured `feastMonth` and `feastDayOfMonth` columns
+  (added in migration `0009_saint_feast_month_day`, backfilled
+  from the legacy freeform `feastDay` text), and
+  `listSaintsForFeastDate()` joins those columns first, then
+  falls back to a JS pass over the legacy text using
+  `feastDayMatchesDate()` so any row whose backfill could not
+  populate the structured fields still matches. The matcher
+  understands canonical ("August 28"), abbreviated ("Aug 28"),
+  ordinal ("October 1st"), trailing-prose
+  ("January 28 — Doctor of the Church") and multi-feast
+  ("August 4 / 5 (1969 reform)") variants. `parseFeastDayText()`
+  is the central parser used by both ingestion and admin edits,
+  so the structured columns stay in sync whenever an admin saves
+  a Saint row through the admin catalog.
+  `/api/saints/today` returns a `diagnostic` field (kind:
+  `empty_catalog` / `no_structured_fields` / `no_match_for_date`)
+  when the result list is empty so the admin diagnostic page can
+  pinpoint the cause without guessing.
 - **Saints & Our Lady** (`/saints`, `/saints/[slug]`). The default
   ordering surfaces the most venerable figures first — Mary, Joseph,
   the Twelve Apostles in their traditional order, then Mary Magdalene
@@ -1024,7 +1057,16 @@ Every adapter run emits structured JSON via `logger`
   across all jobs in a tick
 
 The same numbers are persisted to `IngestionJobRun` for historic
-visibility in `/admin/ingestion`. Page-side, every detail page calls
+visibility — surfaced on `/admin/ingestion` (per-source rollup) and
+`/admin/logs/ingestion` (every recorded run, filterable by status and
+job name). For per-item detail, the same run writes one
+`DataManagementLog` row per accepted (ADD), updated (UPDATE),
+dedup-skipped (DEDUPE), hard-rejected (REJECT) or soft-routed
+(CATEGORY_FIX) item — with the reason, source name, job name, and
+`triggeredBy` (automatic vs manual). The Data Management cleanup pass
+adds CLEANUP, additional DEDUPE, and DELETE rows for items it
+archives or hard-deletes. The full timeline is browsable at
+`/admin/logs/data-management`. Page-side, every detail page calls
 `logPageMissingContent()` on a missed lookup (with a
 `reason: missing_record | bad_slug | missing_table | db_connection`
 classification) and `logPageError()` on caught exceptions, so an alert
@@ -1110,29 +1152,40 @@ runs the upstream check on a ~84-hour cadence (~twice weekly).
 7. Liturgy content
 8. Translations
 9. **Ingestion & Data Management** — live-polling content counts,
-   24-hour edit overlay per content type, status indicator
-   (Active / Paused / Disabled / Running / Failed), Data Management
-   settings panel (auto-cleanup toggle + hard-delete window), and a
-   safety-rail manual ingestion run button that shares the same
-   advisory lock as the cron job.
+   24-hour edit overlay per content type (with a precise explanation
+   of "0 edits" — disabled, blocked, stale, or skipped-because-no-new-
+   content), status indicator (Active / Maintenance / Disabled /
+   Blocked / Stale / Running / Failing / Idle), Data Management
+   settings panel (auto-cleanup toggle + hard-delete window), a "Run
+   ingestion now" button, and a "Run data cleanup now" button. Both
+   manual buttons share the same advisory lock as the cron job and
+   report inline success or failure detail.
 10. Approved sources (allowlist + per-host sync status)
 11. Search index
 12. Media library
 13. Favicon
-14. **Logs** — hub for three sub-views: Account audit (per-user
-    actions), Admin actions (homepage edits, content edits, settings,
-    diagnostics, data-management toggles), Data Management (every
-    addition, update, deletion, rejection, archive, dedupe, and
+14. **Logs** — hub for four sub-views: Account audit (per-user
+    actions); Admin actions (homepage edits, content edits, settings,
+    diagnostics, data-management toggles); Data Management (every
+    addition, update, dedupe-skip, rejection, archive, dedupe, and
     category correction performed by the Ingestion & Data Management
-    system, with reason and triggeredBy = automatic | manual).
+    system, with reason and triggeredBy = automatic | manual);
+    Ingestion runs (every IngestionJobRun row: source, job, status,
+    per-run counts, duration, error message, filterable by status
+    and job name).
 15. User accounts
-16. **Diagnostics** — hub for four sub-views: Email (welcome /
-    verify / resend / forgot-password / reset-password flows + self-
-    test), Ingestion & Data Management (validator, cleanup, content
-    counts, recent failures), Sitemap & Link Paths (every static and
-    dynamic route, plus profile and admin paths), Accounts (account
-    tables, saved items, badges, journals, language, today's feast
-    date / timezone, parish location search).
+16. **Diagnostics** — hub for five sub-views, each backed by an
+    `/api/admin/diagnostics/...` route returning a `DiagnosticSection`
+    with severity / timestamp / requestId / explanation per check:
+    Email (welcome / verify / resend / forgot-password / reset-password
+    flows + self-test), Ingestion & Data Management (live status, last
+    successful and failed runs, 24h counts, per-job error messages,
+    review queue, published-content totals), Sitemap & Link Paths
+    (every static and dynamic route, plus profile and admin paths),
+    Accounts (account tables, saved items, badges, journals, language,
+    today's feast date / timezone, parish location search), Homepage —
+    Today's Feast Day Saints (PUBLISHED total, structured-field
+    coverage, today's match, `/api/saints/today` round-trip).
 17. Publish list (REVIEW queue)
 
 Content review actions go through `POST /api/admin/content/review` with
@@ -1197,46 +1250,53 @@ each catalog entity is exposed under `/api/admin/<entity>` via the
 
 ### Admin
 
-| Method         | Path                                  | Purpose                                                   |
-| -------------- | ------------------------------------- | --------------------------------------------------------- |
-| POST           | `/api/admin/login`                    | Admin login                                               |
-| POST           | `/api/admin/logout`                   | Admin logout                                              |
-| POST           | `/api/admin/content/review`           | Approve / reject / revise / move-to-review                |
-| GET / POST     | `/api/admin/prayers`                  | List / create prayers (catalog)                           |
-| PATCH / DELETE | `/api/admin/prayers/[id]`             | Update / delete a prayer                                  |
-| GET / POST     | `/api/admin/saints`                   | List / create saints                                      |
-| PATCH / DELETE | `/api/admin/saints/[id]`              | Update / delete a saint                                   |
-| GET / POST     | `/api/admin/apparitions`              | List / create Marian apparitions                          |
-| PATCH / DELETE | `/api/admin/apparitions/[id]`         | Update / delete an apparition                             |
-| GET / POST     | `/api/admin/parishes`                 | List / create parishes                                    |
-| PATCH / DELETE | `/api/admin/parishes/[id]`            | Update / delete a parish                                  |
-| GET / POST     | `/api/admin/devotions`                | List / create devotions                                   |
-| PATCH / DELETE | `/api/admin/devotions/[id]`           | Update / delete a devotion                                |
-| GET / POST     | `/api/admin/liturgy`                  | List / create liturgy entries                             |
-| PATCH / DELETE | `/api/admin/liturgy/[id]`             | Update / delete a liturgy entry                           |
-| GET / POST     | `/api/admin/spiritual-life`           | List / create spiritual-life guides                       |
-| PATCH / DELETE | `/api/admin/spiritual-life/[id]`      | Update / delete a spiritual-life guide                    |
-| POST           | `/api/admin/ingestion/run`            | Run a single job or all active jobs                       |
-| PATCH          | `/api/admin/ingestion/jobs/[id]`      | Pause / resume or re-schedule a job                       |
-| GET / POST     | `/api/admin/sources`                  | List / create ingestion sources                           |
-| GET / PATCH    | `/api/admin/sources/[id]`             | Read / update an ingestion source                         |
-| GET / POST     | `/api/admin/media`                    | List / register a media asset (Cloudinary URL)            |
-| GET / DELETE   | `/api/admin/media/[id]`               | Read / delete a media asset                               |
-| GET            | `/api/admin/users`                    | Paginated, searchable user listing                        |
-| GET            | `/api/admin/audit`                    | Filterable audit log                                      |
-| GET            | `/api/admin/ingestion-status`         | Live snapshot used by the Ingestion admin page (polled)   |
-| GET / POST     | `/api/admin/data-management`          | Read / write Ingestion & Data Management settings         |
-| GET / POST     | `/api/admin/email`                    | Email configuration check + send a test message           |
-| POST           | `/api/admin/email/ensure-tables`      | Idempotent in-process create of account-email tables      |
-| POST           | `/api/admin/email/self-test`          | End-to-end self-test of welcome / reset / verify flows    |
-| GET            | `/api/admin/publish-list`             | Items currently in REVIEW status across the catalog       |
-| POST           | `/api/admin/publish-list/publish-all` | Bulk-publish every queued REVIEW row                      |
-| POST           | `/api/admin/search/reindex`           | Trigger reindex / housekeeping                            |
-| GET            | `/api/admin/translations`             | Translation row counts                                    |
-| GET / POST     | `/api/admin/favicon`                  | Read / replace favicon asset                              |
-| GET / POST     | `/api/admin/homepage`                 | Read / update homepage block config                       |
-| POST (`GET`)   | `/api/cron/ingest`                    | Run scheduler + cleanup pass + housekeeping (cron-secret) |
-| POST / GET     | `/api/internal/cleanup`               | Prune sessions / tokens / rate-limits (cron-secret auth)  |
+| Method         | Path                                     | Purpose                                                    |
+| -------------- | ---------------------------------------- | ---------------------------------------------------------- |
+| POST           | `/api/admin/login`                       | Admin login                                                |
+| POST           | `/api/admin/logout`                      | Admin logout                                               |
+| POST           | `/api/admin/content/review`              | Approve / reject / revise / move-to-review                 |
+| GET / POST     | `/api/admin/prayers`                     | List / create prayers (catalog)                            |
+| PATCH / DELETE | `/api/admin/prayers/[id]`                | Update / delete a prayer                                   |
+| GET / POST     | `/api/admin/saints`                      | List / create saints                                       |
+| PATCH / DELETE | `/api/admin/saints/[id]`                 | Update / delete a saint                                    |
+| GET / POST     | `/api/admin/apparitions`                 | List / create Marian apparitions                           |
+| PATCH / DELETE | `/api/admin/apparitions/[id]`            | Update / delete an apparition                              |
+| GET / POST     | `/api/admin/parishes`                    | List / create parishes                                     |
+| PATCH / DELETE | `/api/admin/parishes/[id]`               | Update / delete a parish                                   |
+| GET / POST     | `/api/admin/devotions`                   | List / create devotions                                    |
+| PATCH / DELETE | `/api/admin/devotions/[id]`              | Update / delete a devotion                                 |
+| GET / POST     | `/api/admin/liturgy`                     | List / create liturgy entries                              |
+| PATCH / DELETE | `/api/admin/liturgy/[id]`                | Update / delete a liturgy entry                            |
+| GET / POST     | `/api/admin/spiritual-life`              | List / create spiritual-life guides                        |
+| PATCH / DELETE | `/api/admin/spiritual-life/[id]`         | Update / delete a spiritual-life guide                     |
+| POST           | `/api/admin/ingestion/run`               | Run a single job or all active jobs                        |
+| PATCH          | `/api/admin/ingestion/jobs/[id]`         | Pause / resume or re-schedule a job                        |
+| GET / POST     | `/api/admin/sources`                     | List / create ingestion sources                            |
+| GET / PATCH    | `/api/admin/sources/[id]`                | Read / update an ingestion source                          |
+| GET / POST     | `/api/admin/media`                       | List / register a media asset (Cloudinary URL)             |
+| GET / DELETE   | `/api/admin/media/[id]`                  | Read / delete a media asset                                |
+| GET            | `/api/admin/users`                       | Paginated, searchable user listing                         |
+| GET            | `/api/admin/audit`                       | Filterable audit log                                       |
+| GET            | `/api/admin/ingestion-status`            | Live snapshot used by the Ingestion admin page (polled)    |
+| GET / POST     | `/api/admin/data-management`             | Read / write Ingestion & Data Management settings          |
+| POST           | `/api/admin/data-management/cleanup`     | Run the cleanup passes on demand (admin "Run cleanup now") |
+| GET            | `/api/admin/diagnostics/email`           | Email diagnostics section                                  |
+| GET            | `/api/admin/diagnostics/data-management` | Data management diagnostics section + 24h edit counts      |
+| GET            | `/api/admin/diagnostics/ingestion`       | Ingestion diagnostics section + live snapshot              |
+| GET            | `/api/admin/diagnostics/saints-feast`    | Homepage saints feast-day diagnostics section              |
+| GET            | `/api/admin/diagnostics/sitemap`         | Sitemap & link-path diagnostics                            |
+| GET            | `/api/admin/diagnostics/accounts`        | Account diagnostics section                                |
+| GET / POST     | `/api/admin/email`                       | Email configuration check + send a test message            |
+| POST           | `/api/admin/email/ensure-tables`         | Idempotent in-process create of account-email tables       |
+| POST           | `/api/admin/email/self-test`             | End-to-end self-test of welcome / reset / verify flows     |
+| GET            | `/api/admin/publish-list`                | Items currently in REVIEW status across the catalog        |
+| POST           | `/api/admin/publish-list/publish-all`    | Bulk-publish every queued REVIEW row                       |
+| POST           | `/api/admin/search/reindex`              | Trigger reindex / housekeeping                             |
+| GET            | `/api/admin/translations`                | Translation row counts                                     |
+| GET / POST     | `/api/admin/favicon`                     | Read / replace favicon asset                               |
+| GET / POST     | `/api/admin/homepage`                    | Read / update homepage block config                        |
+| POST (`GET`)   | `/api/cron/ingest`                       | Run scheduler + cleanup pass + housekeeping (cron-secret)  |
+| POST / GET     | `/api/internal/cleanup`                  | Prune sessions / tokens / rate-limits (cron-secret auth)   |
 
 ---
 

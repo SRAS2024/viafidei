@@ -74,7 +74,7 @@ describe("persistItems — DB writes", () => {
 
     const result = await persistItems([basePrayer], "REVIEW");
 
-    expect(result).toEqual({ created: 1, updated: 0, skipped: 0 });
+    expect(result).toMatchObject({ created: 1, updated: 0, skipped: 0 });
     expect(prismaMock.prayer.create).toHaveBeenCalledTimes(1);
     const args = prismaMock.prayer.create.mock.calls[0][0];
     expect(args.data).toMatchObject({
@@ -103,7 +103,7 @@ describe("persistItems — DB writes", () => {
 
     const result = await persistItems([baseSaint, baseDevotion, baseLiturgy, baseGuide], "REVIEW");
 
-    expect(result).toEqual({ created: 4, updated: 0, skipped: 0 });
+    expect(result).toMatchObject({ created: 4, updated: 0, skipped: 0 });
     expect(prismaMock.saint.create).toHaveBeenCalledTimes(1);
     expect(prismaMock.devotion.create).toHaveBeenCalledTimes(1);
     expect(prismaMock.liturgyEntry.create).toHaveBeenCalledTimes(1);
@@ -122,7 +122,7 @@ describe("persistItems — dedupe", () => {
       contentChecksum: "anything",
     });
     const result = await persistItems([basePrayer], "PUBLISHED");
-    expect(result).toEqual({ created: 0, updated: 0, skipped: 1 });
+    expect(result).toMatchObject({ created: 0, updated: 0, skipped: 1 });
     // Ingestion must never UPDATE — it only CREATEs new rows and skips
     // every existing one (PUBLISHED, ARCHIVED, DRAFT, or REVIEW).
     expect(prismaMock.prayer.update).not.toHaveBeenCalled();
@@ -135,7 +135,7 @@ describe("persistItems — dedupe", () => {
       contentChecksum: "old",
     });
     const result = await persistItems([basePrayer], "PUBLISHED");
-    expect(result).toEqual({ created: 0, updated: 0, skipped: 1 });
+    expect(result).toMatchObject({ created: 0, updated: 0, skipped: 1 });
     expect(prismaMock.prayer.update).not.toHaveBeenCalled();
   });
 
@@ -149,7 +149,7 @@ describe("persistItems — dedupe", () => {
       contentChecksum: "old",
     });
     const result = await persistItems([basePrayer], "PUBLISHED");
-    expect(result).toEqual({ created: 0, updated: 0, skipped: 1 });
+    expect(result).toMatchObject({ created: 0, updated: 0, skipped: 1 });
     expect(prismaMock.prayer.create).not.toHaveBeenCalled();
     expect(prismaMock.prayer.update).not.toHaveBeenCalled();
   });
@@ -161,7 +161,7 @@ describe("persistItems — dedupe", () => {
       contentChecksum: "old",
     });
     const result = await persistItems([basePrayer], "PUBLISHED");
-    expect(result).toEqual({ created: 0, updated: 0, skipped: 1 });
+    expect(result).toMatchObject({ created: 0, updated: 0, skipped: 1 });
     expect(prismaMock.prayer.update).not.toHaveBeenCalled();
   });
 
@@ -173,7 +173,7 @@ describe("persistItems — dedupe", () => {
     const result = await persistItems([basePrayer, { ...basePrayer }, basePrayer], "PUBLISHED");
 
     // Two duplicates dropped at the dedupe stage; only one create lands.
-    expect(result).toEqual({ created: 1, updated: 0, skipped: 2 });
+    expect(result).toMatchObject({ created: 1, updated: 0, skipped: 2 });
     expect(prismaMock.prayer.create).toHaveBeenCalledTimes(1);
   });
 
@@ -188,7 +188,7 @@ describe("persistItems — dedupe", () => {
 
     const result = await persistItems([{ ...basePrayer, slug: "our-father-renamed" }], "PUBLISHED");
 
-    expect(result).toEqual({ created: 0, updated: 0, skipped: 1 });
+    expect(result).toMatchObject({ created: 0, updated: 0, skipped: 1 });
     // Verify the lookup OR'd by externalSourceKey + slug (so a renamed slug
     // collapses to the same row as the original URL).
     const lookupArgs = prismaMock.prayer.findFirst.mock.calls[0][0];
