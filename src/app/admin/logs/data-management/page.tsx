@@ -11,11 +11,11 @@ import { AdminSection } from "../../_sections/AdminSection";
 export const dynamic = "force-dynamic";
 
 type Props = {
-  searchParams: {
+  searchParams: Promise<{
     action?: string;
     contentType?: string;
     triggeredBy?: string;
-  };
+  }>;
 };
 
 const CONTENT_TYPES = [
@@ -31,18 +31,13 @@ const CONTENT_TYPES = [
 export default async function DataManagementLogPage({ searchParams }: Props) {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const action = (DATA_MANAGEMENT_ACTIONS as ReadonlyArray<string>).includes(
-    searchParams.action ?? "",
-  )
-    ? (searchParams.action as (typeof DATA_MANAGEMENT_ACTIONS)[number])
+  const sp = await searchParams;
+  const action = (DATA_MANAGEMENT_ACTIONS as ReadonlyArray<string>).includes(sp.action ?? "")
+    ? (sp.action as (typeof DATA_MANAGEMENT_ACTIONS)[number])
     : undefined;
-  const contentType = CONTENT_TYPES.includes(searchParams.contentType ?? "")
-    ? searchParams.contentType
-    : undefined;
+  const contentType = CONTENT_TYPES.includes(sp.contentType ?? "") ? sp.contentType : undefined;
   const triggeredBy =
-    searchParams.triggeredBy === "automatic" || searchParams.triggeredBy === "manual"
-      ? searchParams.triggeredBy
-      : undefined;
+    sp.triggeredBy === "automatic" || sp.triggeredBy === "manual" ? sp.triggeredBy : undefined;
   const { items } = await listDataManagementLogs({
     action,
     contentType,

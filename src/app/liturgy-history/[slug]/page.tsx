@@ -8,7 +8,7 @@ import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: { slug: string } };
+type Props = { params: Promise<{ slug: string }> };
 
 const KIND_LABELS: Record<string, string> = {
   MASS_STRUCTURE: "Mass",
@@ -38,23 +38,25 @@ async function safeGetEntry(slug: string, locale: string) {
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
-  const entry = await safeGetEntry(params.slug, locale);
+  const { slug } = await params;
+  const entry = await safeGetEntry(slug, locale);
   if (!entry) return notFoundMetadataFor("/liturgy-history");
   const tr = entry.translations[0];
   return buildDetailMetadata({
-    path: `/liturgy-history/${params.slug}`,
+    path: `/liturgy-history/${slug}`,
     title: tr?.title ?? entry.title,
   });
 }
 
 export default async function LiturgyDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
-  const entry = await safeGetEntry(params.slug, locale);
+  const { slug } = await params;
+  const entry = await safeGetEntry(slug, locale);
   if (!entry) {
     logPageMissingContent({
       route: "/liturgy-history/[slug]",
       entityType: "LiturgyEntry",
-      slug: params.slug,
+      slug,
       reason: "missing_record",
     });
     notFound();

@@ -38,12 +38,13 @@ function parseFilter(raw: string | undefined): PrayerCategory | undefined {
   return PRAYER_CATEGORY_ORDER.find((c) => c === raw);
 }
 
-type Props = { searchParams: { page?: string; filter?: string } };
+type Props = { searchParams: Promise<{ page?: string; filter?: string }> };
 
 export default async function PrayersPage({ searchParams }: Props) {
   const { t, locale } = await getTranslator();
-  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
-  const filter = parseFilter(searchParams.filter);
+  const sp = await searchParams;
+  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const filter = parseFilter(sp.filter);
   let result: Awaited<ReturnType<typeof listPublishedPrayersPaginated>> = {
     items: [],
     total: 0,

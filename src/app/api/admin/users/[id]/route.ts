@@ -41,7 +41,8 @@ const deleteSchema = z.object({
  *     the previousValue (email + name) so the action is traceable
  *     even after the User row is gone.
  */
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const admin = await requireAdmin();
   if (!admin) return jsonError("unauthorized");
 
@@ -63,14 +64,14 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
   if (!passwordOk) {
     logger.warn("admin.user_account.delete_password_invalid", {
       actor: admin.username,
-      targetUserId: params.id,
+      targetUserId: id,
     });
     return jsonError("unauthorized", { message: "password_invalid" });
   }
 
   const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
   const target = await prisma.user.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     select: {
       id: true,
       email: true,

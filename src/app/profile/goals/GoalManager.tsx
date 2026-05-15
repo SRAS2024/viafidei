@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { GoalJournalPanel } from "./GoalJournalPanel";
@@ -470,9 +471,9 @@ export function GoalManager({ initialGoals, completedCount = 0, labels }: Props)
           {showCreate ? labels.cancel : labels.newGoal}
         </button>
         {completedCount > 0 ? (
-          <a href="/profile/goals/completed" className="vf-btn vf-btn-ghost">
+          <Link href="/profile/goals/completed" className="vf-btn vf-btn-ghost">
             View completed goals ({completedCount})
-          </a>
+          </Link>
         ) : null}
       </div>
 
@@ -491,9 +492,9 @@ export function GoalManager({ initialGoals, completedCount = 0, labels }: Props)
             <>
               {" "}
               or revisit your{" "}
-              <a href="/profile/goals/completed" className="vf-nav-link">
+              <Link href="/profile/goals/completed" className="vf-nav-link">
                 completed goals
-              </a>
+              </Link>
             </>
           ) : null}
           .

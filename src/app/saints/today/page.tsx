@@ -23,12 +23,12 @@ const MONTH_NAMES = [
   "December",
 ];
 
-type Props = { searchParams: { month?: string; day?: string } };
+type Props = { searchParams: Promise<{ month?: string; day?: string }> };
 
-function parseDate(searchParams: Props["searchParams"]) {
+function parseDate(sp: { month?: string; day?: string }) {
   const now = new Date();
-  const monthRaw = Number(searchParams.month ?? "");
-  const dayRaw = Number(searchParams.day ?? "");
+  const monthRaw = Number(sp.month ?? "");
+  const dayRaw = Number(sp.day ?? "");
   const month =
     Number.isInteger(monthRaw) && monthRaw >= 1 && monthRaw <= 12
       ? monthRaw
@@ -39,7 +39,8 @@ function parseDate(searchParams: Props["searchParams"]) {
 
 export default async function TodayFeastDayPage({ searchParams }: Props) {
   const { t, locale } = await getTranslator();
-  const { month, day } = parseDate(searchParams);
+  const sp = await searchParams;
+  const { month, day } = parseDate(sp);
 
   let saints: Awaited<ReturnType<typeof listSaintsForFeastDate>> = [];
   try {

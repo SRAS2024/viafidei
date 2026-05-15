@@ -11,14 +11,19 @@ import { AdminDashboard } from "./AdminDashboard";
 // hiding the banner even after the operator sets the key.
 export const dynamic = "force-dynamic";
 
-export default async function AdminHome({ searchParams }: { searchParams: { welcome?: string } }) {
+export default async function AdminHome({
+  searchParams,
+}: {
+  searchParams: Promise<{ welcome?: string }>;
+}) {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
   const { t, locale } = await getTranslator();
+  const { welcome } = await searchParams;
 
   const dashboard = <AdminDashboard t={t} />;
 
-  if (searchParams.welcome === "1") {
+  if (welcome === "1") {
     return (
       <AdminWelcomeGate
         greeting={t("admin.loading.greeting")}

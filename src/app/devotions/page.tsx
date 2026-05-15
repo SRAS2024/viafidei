@@ -10,9 +10,14 @@ import { filterByRite } from "@/lib/content/rites";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Devotions" };
 
-export default async function DevotionsPage({ searchParams }: { searchParams: { page?: string } }) {
+export default async function DevotionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const { t, locale } = await getTranslator();
-  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
   let result: Awaited<ReturnType<typeof listPublishedDevotionsPaginated>> = {
     items: [],
     total: 0,

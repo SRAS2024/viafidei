@@ -14,10 +14,11 @@ export const metadata = { title: "Spiritual Life" };
 export default async function SpiritualLifePage({
   searchParams,
 }: {
-  searchParams: { page?: string };
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { t, locale } = await getTranslator();
-  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const { page: pageParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
   let result: Awaited<ReturnType<typeof listPublishedSpiritualLifeGuidesPaginated>> = {
     items: [],
     total: 0,

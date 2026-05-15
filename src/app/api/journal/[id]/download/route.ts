@@ -13,12 +13,13 @@ import { prisma } from "@/lib/db/client";
  * This route is admin-gated (requireUser) and only ever serves the
  * authenticated user's own journal entries.
  */
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await requireUser();
   if (!user) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const entry = await prisma.journalEntry.findUnique({ where: { id: params.id } });
+  const entry = await prisma.journalEntry.findUnique({ where: { id: id } });
   if (!entry || entry.userId !== user.id) {
     return new Response("Not found", { status: 404 });
   }

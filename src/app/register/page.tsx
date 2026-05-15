@@ -4,21 +4,26 @@ import { RegisterForm } from "./RegisterForm";
 
 export const metadata = { title: "Create account" };
 
-export default async function RegisterPage({ searchParams }: { searchParams: { error?: string } }) {
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { t } = await getTranslator();
+  const { error } = await searchParams;
 
   const errorMessage =
-    searchParams.error === "mismatch"
+    error === "mismatch"
       ? t("auth.mismatch")
-      : searchParams.error === "weak"
+      : error === "weak"
         ? t("auth.weakPassword")
-        : searchParams.error === "exists"
+        : error === "exists"
           ? t("auth.error.exists")
-          : searchParams.error === "rate_limited"
+          : error === "rate_limited"
             ? t("auth.error.rateLimited")
-            : searchParams.error === "server"
+            : error === "server"
               ? t("auth.error.generic")
-              : searchParams.error
+              : error
                 ? t("auth.error.generic")
                 : null;
 

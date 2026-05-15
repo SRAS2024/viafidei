@@ -13,7 +13,7 @@ import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: { slug: string } };
+type Props = { params: Promise<{ slug: string }> };
 
 async function safeGetDevotion(slug: string, locale: string) {
   try {
@@ -53,23 +53,25 @@ async function safeResolveSteps(slug: string, locale: string): Promise<GuidePray
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
-  const d = await safeGetDevotion(params.slug, locale);
+  const { slug } = await params;
+  const d = await safeGetDevotion(slug, locale);
   if (!d) return notFoundMetadataFor("/devotions");
   const tr = d.translations[0];
   return buildDetailMetadata({
-    path: `/devotions/${params.slug}`,
+    path: `/devotions/${slug}`,
     title: tr?.title ?? d.title,
   });
 }
 
 export default async function DevotionDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
-  const devotion = await safeGetDevotion(params.slug, locale);
+  const { slug } = await params;
+  const devotion = await safeGetDevotion(slug, locale);
   if (!devotion) {
     logPageMissingContent({
       route: "/devotions/[slug]",
       entityType: "Devotion",
-      slug: params.slug,
+      slug,
       reason: "missing_record",
     });
     notFound();

@@ -6,12 +6,13 @@ import { getPublishedParishBySlug } from "@/lib/data/parishes";
 import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 
-export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const ip = getClientIp(req);
   const limit = await rateLimit(`pub:parish:${ip}`, RATE_POLICIES.publicRead, { ipAddress: ip });
   if (!limit.ok) return jsonError("rate_limited");
 
-  const parish = await getPublishedParishBySlug(params.slug);
+  const parish = await getPublishedParishBySlug(slug);
   if (!parish) return jsonError("not_found");
 
   const user = await requireUser();

@@ -12,7 +12,7 @@ import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: { slug: string } };
+type Props = { params: Promise<{ slug: string }> };
 
 type Step = { order: number; title: string; body: string };
 
@@ -61,30 +61,32 @@ async function safeRequireUser() {
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
-  const guide = await safeGetGuide(params.slug, locale);
+  const { slug } = await params;
+  const guide = await safeGetGuide(slug, locale);
   if (!guide) return notFoundMetadataFor("/spiritual-life");
   const tr = guide.translations[0];
   return buildDetailMetadata({
-    path: `/spiritual-life/${params.slug}`,
+    path: `/spiritual-life/${slug}`,
     title: tr?.title ?? guide.title,
   });
 }
 
 export default async function SpiritualLifeDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
-  const guide = await safeGetGuide(params.slug, locale);
+  const { slug } = await params;
+  const guide = await safeGetGuide(slug, locale);
   if (!guide) {
     logPageMissingContent({
       route: "/spiritual-life/[slug]",
       entityType: "SpiritualLifeGuide",
-      slug: params.slug,
+      slug,
       reason: "missing_record",
     });
     notFound();
   }
 
   const tr = guide.translations[0];
-  const title = tr?.title ?? guide.title ?? params.slug;
+  const title = tr?.title ?? guide.title ?? slug;
   const summary = tr?.summary ?? guide.summary ?? "";
   const bodyText = tr?.bodyText ?? guide.bodyText ?? null;
   const steps = parseSteps(tr?.steps ?? guide.steps);

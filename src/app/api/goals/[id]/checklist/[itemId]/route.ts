@@ -18,7 +18,7 @@ function asError(reason: "not_found" | "forbidden") {
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string; itemId: string } },
+  { params }: { params: Promise<{ id: string; itemId: string }> },
 ) {
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
@@ -33,14 +33,15 @@ export async function PATCH(
   const parsed = patchSchema.safeParse(body.data);
   if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
-  const result = await updateChecklistItem(user.id, params.id, params.itemId, parsed.data);
+  const { id, itemId } = await params;
+  const result = await updateChecklistItem(user.id, id, itemId, parsed.data);
   if (!result.ok) return asError(result.reason);
   return jsonOk({ item: result.item });
 }
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string; itemId: string } },
+  { params }: { params: Promise<{ id: string; itemId: string }> },
 ) {
   const user = await requireUser();
   if (!user) return jsonError("unauthorized");
@@ -50,7 +51,8 @@ export async function DELETE(
   });
   if (!limit.ok) return jsonError("rate_limited");
 
-  const result = await deleteChecklistItem(user.id, params.id, params.itemId);
+  const { id, itemId } = await params;
+  const result = await deleteChecklistItem(user.id, id, itemId);
   if (!result.ok) return asError(result.reason);
   return jsonOk({ deleted: true });
 }

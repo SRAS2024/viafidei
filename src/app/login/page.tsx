@@ -7,9 +7,15 @@ export const metadata = { title: "Sign in" };
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: { error?: string; next?: string; notice?: string; registered?: string };
+  searchParams: Promise<{
+    error?: string;
+    next?: string;
+    notice?: string;
+    registered?: string;
+  }>;
 }) {
   const { t } = await getTranslator();
+  const sp = await searchParams;
   return (
     <div className="mx-auto max-w-md pt-12">
       <div className="text-center">
@@ -20,7 +26,7 @@ export default async function LoginPage({
       </div>
 
       <div className="vf-card mt-10 rounded-sm p-8">
-        {searchParams.notice === "password_reset" ? (
+        {sp.notice === "password_reset" ? (
           <p
             role="status"
             className="mb-4 rounded-sm border border-ink/20 bg-ink/5 p-3 text-center text-sm text-ink"
@@ -28,7 +34,7 @@ export default async function LoginPage({
             {t("auth.login.passwordReset")}
           </p>
         ) : null}
-        {searchParams.registered === "1" ? (
+        {sp.registered === "1" ? (
           <p
             role="status"
             className="mb-4 rounded-sm border border-ink/20 bg-ink/5 p-3 text-center text-sm text-ink"
@@ -45,9 +51,9 @@ export default async function LoginPage({
             show: t("auth.showPassword"),
             hide: t("auth.hidePassword"),
           }}
-          next={searchParams.next}
+          next={sp.next}
         />
-        {searchParams.error === "invalid" ? (
+        {sp.error === "invalid" ? (
           <p className="mt-4 text-center text-sm text-liturgical-red" style={{ color: "#8b1a1a" }}>
             {t("auth.invalid")}
           </p>

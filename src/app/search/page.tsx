@@ -25,9 +25,14 @@ const INTENT_LABEL: Record<Exclude<SearchIntent, "any">, string> = {
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Search" };
 
-export default async function SearchPage({ searchParams }: { searchParams: { q?: string } }) {
+export default async function SearchPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const { t } = await getTranslator();
-  const q = (searchParams.q ?? "").trim();
+  const { q: rawQ } = await searchParams;
+  const q = (rawQ ?? "").trim();
 
   let hits: Awaited<ReturnType<typeof searchAll>>;
   try {

@@ -7,13 +7,14 @@ import { getLocale } from "@/lib/i18n/server";
 import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 
-export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const ip = getClientIp(req);
   const limit = await rateLimit(`pub:prayer:${ip}`, RATE_POLICIES.publicRead, { ipAddress: ip });
   if (!limit.ok) return jsonError("rate_limited");
 
   const locale = await getLocale();
-  const prayer = await getPublishedPrayerBySlug(params.slug, locale);
+  const prayer = await getPublishedPrayerBySlug(slug, locale);
   if (!prayer) return jsonError("not_found");
 
   const user = await requireUser();

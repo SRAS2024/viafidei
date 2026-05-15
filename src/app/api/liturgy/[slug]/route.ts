@@ -5,7 +5,8 @@ import { jsonError, jsonOk } from "@/lib/http";
 import { getPublishedLiturgyBySlug } from "@/lib/data/liturgy";
 import { getLocale } from "@/lib/i18n/server";
 
-export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const ip = getClientIp(req);
   const limit = await rateLimit(`pub:liturgy-detail:${ip}`, RATE_POLICIES.publicRead, {
     ipAddress: ip,
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
   if (!limit.ok) return jsonError("rate_limited");
 
   const locale = await getLocale();
-  const entry = await getPublishedLiturgyBySlug(params.slug, locale);
+  const entry = await getPublishedLiturgyBySlug(slug, locale);
   if (!entry) return jsonError("not_found");
   return jsonOk({ entry, locale });
 }

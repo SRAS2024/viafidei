@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Saints & Our Lady" };
 
 type Props = {
-  searchParams: { page?: string; apparitionsPage?: string; filter?: string };
+  searchParams: Promise<{ page?: string; apparitionsPage?: string; filter?: string }>;
 };
 
 const VALID_FILTERS: ReadonlyArray<SaintCategory> = ["saint", "our-lady", "angel"];
@@ -28,9 +28,10 @@ const FILTER_LABEL: Record<SaintCategory, string> = {
 
 export default async function SaintsPage({ searchParams }: Props) {
   const { t, locale } = await getTranslator();
-  const saintsPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
-  const apparitionsPage = Math.max(1, parseInt(searchParams.apparitionsPage ?? "1", 10) || 1);
-  const filter = parseFilter(searchParams.filter);
+  const sp = await searchParams;
+  const saintsPage = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
+  const apparitionsPage = Math.max(1, parseInt(sp.apparitionsPage ?? "1", 10) || 1);
+  const filter = parseFilter(sp.filter);
 
   let saintsResult: Awaited<ReturnType<typeof listPublishedSaintsPaginated>> = {
     items: [],

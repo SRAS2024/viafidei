@@ -61,7 +61,7 @@ export function makeAdminCatalogIndex<C extends z.ZodTypeAny, U extends z.ZodTyp
 export function makeAdminCatalogItem<C extends z.ZodTypeAny, U extends z.ZodTypeAny>(
   config: AdminCatalogHandlers<C, U>,
 ) {
-  async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const admin = await requireAdmin();
     if (!admin) return jsonError("unauthorized");
 
@@ -73,7 +73,8 @@ export function makeAdminCatalogItem<C extends z.ZodTypeAny, U extends z.ZodType
     const parsed = config.updateSchema.safeParse(body.data);
     if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
-    const result = await config.update(params.id, parsed.data);
+    const { id } = await params;
+    const result = await config.update(id, parsed.data);
     if (!result.ok) {
       if (result.reason === "not_found") return jsonError("not_found");
       return jsonError("conflict", { message: result.reason });
@@ -81,7 +82,7 @@ export function makeAdminCatalogItem<C extends z.ZodTypeAny, U extends z.ZodType
     await writeAudit({
       action: `admin.${config.entityType.toLowerCase()}.update`,
       entityType: config.entityType,
-      entityId: params.id,
+      entityId: id,
       actorUsername: admin.username,
       ipAddress: getClientIpOrNull(req),
       userAgent: getUserAgent(req),
@@ -90,19 +91,20 @@ export function makeAdminCatalogItem<C extends z.ZodTypeAny, U extends z.ZodType
     return jsonOk({ entity: result.entity });
   }
 
-  async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const admin = await requireAdmin();
     if (!admin) return jsonError("unauthorized");
 
     const limit = await rateLimit(`admin-catalog:${admin.username}`, RATE_POLICIES.adminWrite);
     if (!limit.ok) return jsonError("rate_limited");
 
-    const result = await config.remove(params.id);
+    const { id } = await params;
+    const result = await config.remove(id);
     if (!result.ok) return jsonError("not_found");
     await writeAudit({
       action: `admin.${config.entityType.toLowerCase()}.delete`,
       entityType: config.entityType,
-      entityId: params.id,
+      entityId: id,
       actorUsername: admin.username,
       ipAddress: getClientIpOrNull(req),
       userAgent: getUserAgent(req),

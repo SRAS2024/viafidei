@@ -12,7 +12,7 @@ import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: { slug: string } };
+type Props = { params: Promise<{ slug: string }> };
 
 async function safeGetParish(slug: string) {
   try {
@@ -56,18 +56,19 @@ async function safeGetExternalParish(slug: string): Promise<ExternalParish | nul
 }
 
 export async function generateMetadata({ params }: Props) {
-  const parish = await safeGetParish(params.slug);
+  const { slug } = await params;
+  const parish = await safeGetParish(slug);
   if (parish) {
     return buildDetailMetadata({
-      path: `/spiritual-guidance/${params.slug}`,
+      path: `/spiritual-guidance/${slug}`,
       title: parish.name,
     });
   }
-  if (params.slug.startsWith("osm-")) {
-    const ext = await safeGetExternalParish(params.slug);
+  if (slug.startsWith("osm-")) {
+    const ext = await safeGetExternalParish(slug);
     if (ext) {
       return buildDetailMetadata({
-        path: `/spiritual-guidance/${params.slug}`,
+        path: `/spiritual-guidance/${slug}`,
         title: ext.name,
       });
     }
@@ -77,17 +78,18 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function ParishDetailPage({ params }: Props) {
   const { t } = await getTranslator();
-  const parish = await safeGetParish(params.slug);
+  const { slug } = await params;
+  const parish = await safeGetParish(slug);
 
   if (!parish) {
-    if (params.slug.startsWith("osm-")) {
-      const external = await safeGetExternalParish(params.slug);
+    if (slug.startsWith("osm-")) {
+      const external = await safeGetExternalParish(slug);
       if (external) return renderExternalParish(external, t);
     }
     logPageMissingContent({
       route: "/spiritual-guidance/[slug]",
       entityType: "Parish",
-      slug: params.slug,
+      slug,
       reason: "missing_record",
     });
     notFound();

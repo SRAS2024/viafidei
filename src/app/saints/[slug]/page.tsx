@@ -14,7 +14,7 @@ import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: { slug: string } };
+type Props = { params: Promise<{ slug: string }> };
 
 async function safeGetSaint(slug: string, locale: string) {
   try {
@@ -59,22 +59,24 @@ async function safeIsSaved(kind: SavedKind, userId: string, entityId: string): P
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
-  const saint = await safeGetSaint(params.slug, locale);
+  const { slug } = await params;
+  const saint = await safeGetSaint(slug, locale);
   if (saint) {
-    return buildDetailMetadata({ path: `/saints/${params.slug}`, title: saint.canonicalName });
+    return buildDetailMetadata({ path: `/saints/${slug}`, title: saint.canonicalName });
   }
-  const apparition = await safeGetApparition(params.slug, locale);
+  const apparition = await safeGetApparition(slug, locale);
   if (apparition) {
-    return buildDetailMetadata({ path: `/saints/${params.slug}`, title: apparition.title });
+    return buildDetailMetadata({ path: `/saints/${slug}`, title: apparition.title });
   }
   return notFoundMetadataFor("/saints");
 }
 
 export default async function SaintDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
+  const { slug } = await params;
 
   // Try saint first, then apparition
-  const saint = await safeGetSaint(params.slug, locale);
+  const saint = await safeGetSaint(slug, locale);
   if (saint) {
     const user = await safeRequireUser();
     const alreadySaved = user ? await safeIsSaved("saint", user.id, saint.id) : false;
@@ -204,11 +206,11 @@ export default async function SaintDetailPage({ params }: Props) {
   }
 
   // Try apparition
-  const apparition = await safeGetApparition(params.slug, locale);
+  const apparition = await safeGetApparition(slug, locale);
   if (!apparition) {
     logPageMissingContent({
       route: "/saints/[slug]",
-      slug: params.slug,
+      slug: slug,
       reason: "missing_record",
     });
     notFound();
