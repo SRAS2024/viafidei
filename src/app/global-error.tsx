@@ -21,6 +21,28 @@ export default function GlobalError({
         stack: error.stack,
       }),
     );
+    // Notify the server-side critical-failure endpoint so the operator
+    // gets a Critical Failure email — the global error boundary only
+    // fires when the React tree could not recover, which is a site-
+    // crash-class event by definition.
+    if (typeof window !== "undefined") {
+      try {
+        void fetch("/api/internal/critical-failure", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "client_global_boundary",
+            message: error.message,
+            stack: error.stack,
+            route: window.location.pathname,
+            digest: error.digest,
+          }),
+          keepalive: true,
+        });
+      } catch {
+        // Best-effort; the user is already on an error page.
+      }
+    }
   }, [error]);
 
   return (

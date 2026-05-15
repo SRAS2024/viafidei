@@ -3,6 +3,7 @@ import { adminLoginSchema, verifyAdminCredentials, getSession } from "@/lib/auth
 import { writeAudit } from "@/lib/audit";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp, getUserAgent, redirectTo } from "@/lib/security/request";
+import { reportSecurityEvent } from "@/lib/security/security-events";
 
 // Admin credential verification (timing-safe + iron-session) needs Node.
 export const runtime = "nodejs";
@@ -34,6 +35,16 @@ export async function POST(req: NextRequest) {
     ipAddress: ip,
   });
   if (!limit.ok) {
+    // Repeated admin-login attempts that blow through the rate limit
+    // are an unauthorised access probe by definition — treat as a
+    // security breach so the operator hears about it immediately.
+    void reportSecurityEvent({
+      kind: "admin_login_rate_limited",
+      summary: `Admin login attempts from ${ip ?? "unknown"} exceeded the rate limit (${RATE_POLICIES.adminLogin.max}/15min).`,
+      ipAddress: ip ?? undefined,
+      userAgent: userAgent ?? undefined,
+      route: "/api/admin/login",
+    });
     return redirectTo(req, LOGIN_INVALID);
   }
 

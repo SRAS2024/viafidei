@@ -16,6 +16,7 @@ export type {
 export { normalizeSlug, isSlugUnique } from "./slug";
 export { computeChecksum, checksumString } from "./checksum";
 export { sanitize, validateItem } from "./validate";
+export { formatIngestedItem, formatIngestedItems } from "./format";
 
 export {
   registerAdapter,

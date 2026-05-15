@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "../globals.css";
 import { getLocale, getTranslator } from "@/lib/i18n/server";
+import { SecurityTamperDetector } from "@/components/SecurityTamperDetector";
 
 export const metadata: Metadata = {
   title: "Administrator · Via Fidei",
@@ -12,6 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const { t } = await getTranslator();
   return (
     <div lang={locale} data-admin-surface className="min-h-screen">
+      <SecurityTamperDetector />
       <div className="mx-auto flex max-w-5xl flex-col items-center px-6 pt-10 pb-6">
         <span className="vf-wordmark text-[1.1rem] text-ink">{t("admin.brand")}</span>
         <div className="vf-rule mt-5" />

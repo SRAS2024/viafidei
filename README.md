@@ -47,9 +47,18 @@ edited blindly:
 - **Transactional sender address.** The official transactional sender address
   is **`notifications@etviafidei.com`**, hardcoded in `src/lib/config.ts`.
   It is the only address used for account-related email (welcome, password
-  reset, email verification). Email is delivered via **Resend** when
-  `RESEND_API_KEY` is set; without it, email features are safely skipped
-  and the rest of the auth flow still succeeds.
+  reset, email verification) and operational admin email. Email is delivered
+  via **Resend** when `RESEND_API_KEY` is set; without it, email features
+  are safely skipped and the rest of the auth flow still succeeds.
+- **Operational admin mailbox.** Admin email (the biweekly Content Management
+  Report, the monthly Archive Cleaning Up digest, the monthly Error Report
+  PDF, threshold milestone alerts at 25 / 50 / 75 / 100 percent, Critical
+  Failure pages, Security Breach alerts) is delivered to `ADMIN_EMAIL` —
+  set in the hosting platform's environment dashboard (Railway, Vercel,
+  …). There is **no admin UI for this value** because operational alerts
+  must keep working even if the admin console itself is down. When unset,
+  every admin notification is logged and silently skipped at the transport
+  layer; the rest of the app keeps running.
 - **Email DNS records are managed externally.** SPF, DKIM, DMARC, and
   return-path records live at the DNS provider and authoritatively belong
   there. **App code must not generate, write, or overwrite DNS records.**
@@ -58,24 +67,24 @@ edited blindly:
 
 ## Stack
 
-| Area               | Choice                                                                                 |
-| ------------------ | -------------------------------------------------------------------------------------- |
-| Framework          | Next.js `15.5.18` (App Router, async cookies/headers, `output: "standalone"`)          |
-| Runtime            | Node.js `>= 20`                                                                        |
-| Language           | TypeScript `5.6` (strict)                                                              |
-| UI                 | React `18.3`, Tailwind CSS `3.4`, Framer Motion                                        |
-| Database           | PostgreSQL via Prisma `5.22`                                                           |
-| Sessions           | `iron-session` (encrypted cookie, `vf_session`)                                        |
-| Password hashing   | `argon2id`                                                                             |
-| Validation         | `zod`                                                                                  |
-| Locale negotiation | `negotiator` + cookie override                                                         |
-| Container          | Multi-stage `Dockerfile` (deps → builder → runner)                                     |
-| Deployment         | Railway-ready (`railway.json`, healthcheck on `/api/health/live`)                      |
-| Email              | Resend transactional sends (welcome, password reset, email verification)               |
-| Startup            | `instrumentation.ts` auto-seeds an empty DB and schedules in-process Vatican ingestion |
-| Unit / API tests   | Vitest 3 + v8 coverage (mocked Prisma, Next route handler imports)                     |
-| Component tests    | React Testing Library 15 + jsdom + jest-axe                                            |
-| End-to-end tests   | Playwright (chromium + mobile-chromium) with visual + perf smoke                       |
+| Area               | Choice                                                                                                                                                                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Framework          | Next.js `15.5.18` (App Router, async cookies/headers, `output: "standalone"`)                                                                                                                                                       |
+| Runtime            | Node.js `>= 20`                                                                                                                                                                                                                     |
+| Language           | TypeScript `5.6` (strict)                                                                                                                                                                                                           |
+| UI                 | React `18.3`, Tailwind CSS `3.4`, Framer Motion                                                                                                                                                                                     |
+| Database           | PostgreSQL via Prisma `5.22`                                                                                                                                                                                                        |
+| Sessions           | `iron-session` (encrypted cookie, `vf_session`)                                                                                                                                                                                     |
+| Password hashing   | `argon2id`                                                                                                                                                                                                                          |
+| Validation         | `zod`                                                                                                                                                                                                                               |
+| Locale negotiation | `negotiator` + cookie override                                                                                                                                                                                                      |
+| Container          | Multi-stage `Dockerfile` (deps → builder → runner)                                                                                                                                                                                  |
+| Deployment         | Railway-ready (`railway.json`, healthcheck on `/api/health/live`)                                                                                                                                                                   |
+| Email              | Resend transactional sends — account email (welcome, password reset, verification) and admin email (biweekly report, monthly archive cleanup, monthly Error Report PDF, milestone alerts, Critical Failure / Security Breach pages) |
+| Startup            | `instrumentation.ts` auto-seeds an empty DB and schedules in-process Vatican ingestion                                                                                                                                              |
+| Unit / API tests   | Vitest 3 + v8 coverage (mocked Prisma, Next route handler imports)                                                                                                                                                                  |
+| Component tests    | React Testing Library 15 + jsdom + jest-axe                                                                                                                                                                                         |
+| End-to-end tests   | Playwright (chromium + mobile-chromium) with visual + perf smoke                                                                                                                                                                    |
 
 ---
 
@@ -90,10 +99,29 @@ would call attention to:
   USCCB, and dicastery hosts gates every fetch (`gateUrl` /
   `isApprovedUrl`). Adapters write through a single persistence layer that
   enforces content-hash dedupe, source attribution, and per-run summary
-  logs (created / updated / skipped / failed / review-required). The
-  in-process scheduler runs in burst mode while the catalog is below
-  target and drops to a maintenance interval afterward — no external
-  cron service required.
+  logs (created / updated / skipped / failed / review-required). Every
+  ingested item is run through a per-content-type **formatter**
+  (`src/lib/ingestion/format.ts`) that decodes HTML entities, folds smart
+  quotes to ASCII, and normalises whitespace before validation; the
+  validator then enforces quality, correctness, correct content type, and
+  correct shape per kind. The in-process scheduler runs in burst mode
+  while the catalog is below target and drops to a maintenance interval
+  afterward — no external cron service required.
+- **Operational admin email.** A single dispatcher
+  (`src/lib/data/admin-notifications.ts`) is invoked on every cron tick
+  and emits, on its own cadence, the **Biweekly Admin Report** (Content
+  Management Report table — Content / Added / Edited / Deleted /
+  Archived per content type, with `+N` / `-N` / `0` formatting), the
+  **Monthly Archive Cleaning Up** digest (Content / Archived Deleted on
+  the last day of each month), the **monthly Error Report PDF**
+  (generated in-process by a small zero-dependency PDF builder under
+  `src/lib/email/pdf.ts`), and per-bucket **threshold milestones** at 25
+  / 50 / 75 / 100 percent. **Critical Failure** alerts fire when the
+  global error boundary, an uncaught exception, or an unhandled
+  rejection blows up; **Security Breach** alerts fire on devtools
+  abuse, attempted DOM tampering, CSP violations, and admin-login rate-
+  limit blowouts. All admin emails greet the recipient as `Admin` and
+  share the same paper / serif design system used by the account emails.
 - **Admin diagnostics designed around troubleshooting.** Diagnostics are
   split into five sections — Email; Ingestion & Data Management; Sitemap
   & Link Paths; Accounts; and Homepage Saints Feast Day — and each
@@ -160,13 +188,18 @@ flowchart LR
     Edge --> AppRoutes[App Router pages<br/>+ API route handlers]
     AppRoutes --> Prisma[Prisma client<br/>singleton]
     Prisma --> Postgres[(PostgreSQL)]
-    AppRoutes --> Resend[Resend API<br/>welcome / verify / reset]
+    AppRoutes --> Resend[Resend API<br/>account email + admin email]
+    Resend -.->|ADMIN_EMAIL| AdminMailbox((ADMIN_EMAIL))
     Instrumentation[instrumentation.ts<br/>boot once per process] --> Seeder[Seed +<br/>ensure email tables]
     Seeder --> Postgres
     Instrumentation --> Scheduler[In-process scheduler<br/>burst → maintenance]
     Scheduler -->|POST /api/cron/ingest| AppRoutes
     AppRoutes -->|gateUrl| Sources{{Approved sources<br/>Vatican · USCCB · CBCEW · …}}
     Sources --> AppRoutes
+    AppRoutes --> AdminNotif[dispatchAdminNotifications<br/>biweekly · monthly archive · monthly PDF · milestones]
+    AdminNotif --> Resend
+    AppRoutes --> ErrorLog[(ErrorLog)]
+    ErrorLog --> AdminNotif
 ```
 
 The full content lifecycle — ingestion → moderation → publish — is laid
@@ -216,6 +249,7 @@ below.
 │   │   ├── layout/            # Header, footer, brand, nav, mobile menu, search,
 │   │   │                      # user menu, route error
 │   │   ├── profile/           # Avatar, save button, unverified-email notice
+│   │   ├── SecurityTamperDetector.tsx  # Client-side admin tamper detector
 │   │   └── ui/                # ConfirmDialog, PageHero, RemoveSavedButton,
 │   │                          # AccountRequiredButton, LoginRequiredPopup,
 │   │                          # ExpandablePrayer, ExpandableTimelineEvent
@@ -225,17 +259,25 @@ below.
 │   │   ├── concurrency/       # Lock helpers
 │   │   ├── content/           # Review workflow + Catholic-rite filtering
 │   │   ├── data/              # Per-entity repositories + admin catalog + goal templates
+│   │   │                      # + admin-notifications dispatcher (biweekly /
+│   │   │                      # monthly / milestone / critical / security)
+│   │   │                      # + admin-notification-state tracker (dedup)
+│   │   │                      # + error-log (runtime error capture)
 │   │   ├── db/                # Prisma client, table diagnostics, init
-│   │   ├── email/             # Resend client, link builders, templates,
-│   │   │                      # send helpers, locale-aware translations
+│   │   ├── email/             # Resend client, link builders, account templates,
+│   │   │                      # admin templates + admin-send + zero-dep PDF
+│   │   │                      # generator, send helpers, locale-aware translations
 │   │   ├── http/              # Fetch client, retries, timeouts, JSON responses,
 │   │   │                      # admin-catalog + saved-item route factories
 │   │   ├── i18n/              # 12-locale dictionaries, negotiator, translator,
 │   │   │                      # locale / theme / rite cookies
-│   │   ├── ingestion/         # Adapters, registry, runner, scheduler, persist
+│   │   ├── ingestion/         # Adapters, registry, runner, scheduler, persist,
+│   │   │                      # format (per-kind text normaliser), backlog-prefixes
 │   │   ├── observability/     # Structured logger + request-id propagation
+│   │   │                      # + page-error / api-error → ErrorLog bridge
 │   │   ├── security/          # Rate limit, hashing, crypto, request helpers,
-│   │   │                      # cron-auth, key resolution
+│   │   │                      # cron-auth, key resolution, security-events
+│   │   │                      # (admin Security Breach + ErrorLog dispatcher)
 │   │   └── startup/           # Auto-seed bootstrap + content seeder
 │   ├── instrumentation.ts     # Next.js startup hook (auto-seed + ingestion schedule)
 │   └── middleware.ts          # Request-id + CSP / security headers
@@ -243,12 +285,13 @@ below.
 │   ├── auth/                  # Auth module (password, schemas, user, tokens, admin)
 │   ├── api/                   # Route handler tests (mocked Prisma)
 │   ├── components/            # RTL tests with `@vitest-environment jsdom`
-│   ├── data/                  # Repository tests (admin-users, etc.)
+│   ├── data/                  # Repository tests (admin-users, admin-notifications, etc.)
 │   ├── db/                    # checkRequiredTables / checkSeedContent
-│   ├── email/                 # Resend client, templates, link builders, send helpers
+│   ├── email/                 # Resend client, templates, link builders, send helpers,
+│   │                          # admin templates, admin send, PDF generator
 │   ├── fixtures/              # Factories + mock SourceAdapter / fetch
 │   ├── helpers/               # Prisma + cookie mocks
-│   ├── ingestion/             # validateItem + sanitize boundary tests
+│   ├── ingestion/             # validateItem + sanitize boundary tests, formatter
 │   ├── integration/           # Real-DB tests, gated behind VITEST_INTEGRATION=1
 │   ├── routes/                # Static route coverage check
 │   ├── security/              # Rate limit DB + memory fallback
@@ -359,10 +402,11 @@ Only these four variables must be set for a production deployment to start:
 
 ### Optional
 
-| Variable         | Purpose                                                                                                            |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `NODE_ENV`       | `development` \| `test` \| `production`                                                                            |
-| `RESEND_API_KEY` | Resend API key. When unset, transactional email is silently skipped — auth flows succeed without delivering email. |
+| Variable         | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`       | `development` \| `test` \| `production`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `RESEND_API_KEY` | Resend API key. When unset, transactional email is silently skipped — auth flows succeed without delivering email.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `ADMIN_EMAIL`    | Destination address for operational admin email — biweekly Content Management Report, monthly Archive Cleaning Up digest, monthly Error Report PDF, threshold milestone alerts (25 / 50 / 75 / 100 percent of each content target), Critical Failure alerts, and Security Breach alerts. Set in the hosting platform's environment dashboard (Railway, Vercel, …); there is no admin UI for this value because operational alerts must keep working even if the admin console itself is down. When unset, every admin email is logged and skipped. |
 
 `getEnv()` validates these with Zod at first access; in production an invalid
 configuration throws, in development it logs a warning and continues.
@@ -373,18 +417,21 @@ The following values are baked into `src/lib/config.ts`. They used to be
 environment variables; they are now safe internal defaults so production
 deployments do not need to set them:
 
-| Setting                             | Hardcoded value                                                         |
-| ----------------------------------- | ----------------------------------------------------------------------- |
-| Canonical / app URL                 | `https://etviafidei.com`                                                |
-| Email sender address                | `notifications@etviafidei.com`                                          |
-| Search provider (echoed by reindex) | `postgres`                                                              |
-| Server port / hostname              | `3000` / `0.0.0.0`                                                      |
-| Logger floor                        | `info` in production, `debug` otherwise                                 |
-| Ingestion HTTP timeout              | 15000 ms                                                                |
-| Ingestion User-Agent                | `ViaFideiBot/1.0 (+https://etviafidei.com/bot; ingestion@viafidei.com)` |
-| Ingestion initial status            | `REVIEW`                                                                |
-| Ingestion scheduler interval        | 30 min (initial delay 5 min)                                            |
-| In-process ingestion scheduler      | **Disabled by default.** Edit `src/lib/config.ts` to enable.            |
+| Setting                             | Hardcoded value                                                                                    |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Canonical / app URL                 | `https://etviafidei.com`                                                                           |
+| Email sender address                | `notifications@etviafidei.com`                                                                     |
+| Search provider (echoed by reindex) | `postgres`                                                                                         |
+| Server port / hostname              | `3000` / `0.0.0.0`                                                                                 |
+| Logger floor                        | `info` in production, `debug` otherwise                                                            |
+| Ingestion HTTP timeout              | 15000 ms                                                                                           |
+| Ingestion User-Agent                | `ViaFideiBot/1.0 (+https://etviafidei.com/bot; ingestion@viafidei.com)`                            |
+| Ingestion initial status            | `PUBLISHED` (auto-publish; soft-validator failures are diverted to `REVIEW`)                       |
+| Ingestion scheduler — burst tick    | 2.5 min (1/4 of base 10 min) while any target unmet; initial delay 30 s after deploy               |
+| Ingestion scheduler — maintenance   | ≈ 84 hours (twice per week) once every target is met                                               |
+| Backlog targets                     | 500 prayers · 7 000 saints · 150 000 parishes · 1 500 church docs · 7 sacraments · 4 consecrations |
+| Auto-cleanup of archived rows       | Enabled — archived rows are hard-deleted after 30 days (configurable in site settings)             |
+| In-process ingestion scheduler      | **Enabled by default.** Set `appConfig.ingestion.schedulerDisabled = true` to opt out.             |
 
 The list above is the **complete** runtime surface — there are no additional
 credentials to configure.
@@ -528,8 +575,13 @@ The Prisma schema (`prisma/schema.prisma`) defines, among others:
   `DataManagementLog` (structured record of every automatic /
   manually-triggered cleanup action — `action` is one of `ADD`,
   `UPDATE`, `DELETE`, `REJECT`, `CLEANUP`, `DEDUPE`,
-  `CATEGORY_FIX`, with `contentType`, `contentRef`, `reason`, and
-  `triggeredBy`), `RateLimitBucket`.
+  `CATEGORY_FIX`, `FAIL`, `PURGE`, with `contentType`, `contentRef`,
+  `reason`, and `triggeredBy`), `ErrorLog` (runtime error capture for
+  the monthly Error Report PDF — `source`, `kind`, `message`, `stack`,
+  `route`, `requestId`, `severity` ∈ `warn` / `error` / `critical`),
+  `AdminNotificationState` (per-flow dedup state for the operational
+  email scheduler — biweekly send timestamps, monthly year-month tags,
+  per-bucket milestone thresholds already emailed), `RateLimitBucket`.
 
 Catalog entities all carry a `ContentStatus` (`DRAFT` → `REVIEW` →
 `PUBLISHED` / `ARCHIVED`) plus a `contentChecksum` so the ingestion pipeline
@@ -915,12 +967,28 @@ only flips and explicit "Save and Publish" actions are honoured as-is.
 
 ### Scheduling and observability
 
-- **In-process scheduler.** Disabled by default in `src/lib/config.ts`
-  (`ingestion.schedulerDisabled = true`). When enabled in code, the running
-  server schedules itself to call `POST /api/cron/ingest` after the
-  configured initial delay (default 5 min) and then every configured
-  interval (default 30 min). The first tick is delayed so it never blocks
-  deploy healthchecks.
+- **In-process scheduler.** Enabled by default in `src/lib/config.ts`
+  (`ingestion.schedulerDisabled = false`). The running server schedules
+  itself to call `POST /api/cron/ingest` after the configured initial
+  delay (30 s) and then on a self-adjusting cadence:
+  - **Constant mode** — while at least one of the six backlog targets
+    (500 prayers, 7 000 saints, 150 000 parishes, 1 500 church
+    documents, 7 sacraments, 4 consecrations) is unmet, the scheduler
+    ticks every ~2.5 min (`burstIntervalMs = baseIntervalMs / 4`).
+    Constant mode is the "fast and high quality" loop that grows the
+    catalog continuously until every minimum is reached.
+  - **Maintenance mode** — once **every** target is met, the next tick
+    drops to `maintenanceIntervalMs` (≈ 84 hours, twice per week).
+    Maintenance ticks still run every active job; adapters short-circuit
+    on ETag / Last-Modified 304 responses, so the only writes that
+    happen are genuine upstream updates the runner detects via the
+    content checksum.
+
+  The first-tick delay also adapts: if the targets are already met when
+  the process starts, the first tick fires after `maintenanceIntervalMs`;
+  otherwise it fires after `initialDelayMs` so a fresh deploy starts
+  filling the catalog within seconds.
+
 - **External cron.** `POST /api/cron/ingest` with `Authorization: Bearer
 <token>`, where `<token>` is the cron token derived from `SESSION_SECRET`.
   The same handler accepts `GET` for platforms that prefer it. `maxDuration`
@@ -945,10 +1013,41 @@ only flips and explicit "Save and Publish" actions are honoured as-is.
   reading `lastSuccessfulSync` / `lastFailedSync` per host.
 - **Housekeeping piggyback.** Each ingestion run also prunes expired
   `RateLimitBucket` rows, expires unused password-reset and email-
-  verification tokens, prunes old `IngestionJobRun` and `AdminAuditLog`
-  rows, and flips `ACTIVE` goals past their `dueDate` to `OVERDUE`. A
-  separate `POST /api/internal/cleanup` (also cron-secret authenticated)
-  prunes expired sessions and tokens between ticks.
+  verification tokens, prunes old `IngestionJobRun`, `AdminAuditLog`, and
+  `ErrorLog` rows, and flips `ACTIVE` goals past their `dueDate` to
+  `OVERDUE`. A separate `POST /api/internal/cleanup` (also cron-secret
+  authenticated) prunes expired sessions and tokens between ticks.
+- **Admin notification dispatch.** Every cron tick also calls
+  `dispatchAdminNotifications()` (`src/lib/data/admin-notifications.ts`).
+  Each sub-flow guards its own "is it time?" check, so an off-cadence
+  call is just a few cheap reads:
+  - The **Biweekly Admin Report** fires when ≥ 14 days have elapsed since
+    the last successful send. The body is the **Content Management
+    Report** table — Content / Added / Edited / Deleted / Archived per
+    content type, signed (`+N` / `-N` / `0`).
+  - The **Monthly Archive Cleaning Up** digest fires on the last day of
+    each calendar month (30th in 30-day months, 31st in 31-day months,
+    28th or 29th in February depending on the year). The body is a
+    Content / Archived Deleted table, with `-N` / `0` formatting.
+  - The **monthly Error Report PDF** fires on the same last-day-of-month
+    cadence. The PDF is generated in-process by
+    `src/lib/email/pdf.ts` (a small zero-dependency builder that emits
+    a valid PDF 1.4 document) and shipped as an attachment named
+    `error-report-YYYY-MM.pdf`.
+  - **Threshold milestone alerts** fire once per `(content type,
+threshold)` pair when the live count crosses 25 / 50 / 75 / 100
+    percent of the configured target. State per bucket is stored in
+    `AdminNotificationState` so the same threshold cannot send twice.
+    The 100% alert is the "final minimum threshold reached" email
+    described in the requirements.
+
+  All admin emails greet the recipient as `Admin` and share the same
+  paper / serif design system used by account email. Subjects are
+  spelled exactly as the requirements pin them: **Biweekly Admin
+  Report**, **Monthly Archive Cleaning Up**, **Critical Failure**,
+  **Security Breach**, **Error Report**, plus the per-content-type
+  threshold subjects (`<Content> 25% Threshold Reached` … `<Content>
+Final Threshold Reached`).
 
 ### Connecting prayers to guides
 
@@ -1123,6 +1222,164 @@ runs the upstream check on a ~84-hour cadence (~twice weekly).
 
 ---
 
+## Operational admin email and incident reporting
+
+Operational alerts go to a single mailbox specified by the `ADMIN_EMAIL`
+environment variable (set in the hosting platform's environment
+dashboard — there is no admin UI for this value). All admin email
+shares the same rendering shell as the account email (paper / serif
+aesthetic, cross logo, text + HTML parts), greets the recipient as
+`Admin`, and is dispatched through the same Resend transport.
+`src/lib/email/admin-templates.ts` owns the rendering;
+`src/lib/email/admin-send.ts` owns the per-flow senders;
+`src/lib/data/admin-notifications.ts` owns the cadence + dedup state.
+
+When `ADMIN_EMAIL` is unset, every admin email is logged
+(`admin.email.skipped_no_address`) and skipped at the transport layer;
+the rest of the app keeps running. When `RESEND_API_KEY` is unset,
+admin email is skipped with `admin.email.skipped_no_provider`.
+
+### Email subjects (pinned)
+
+| Flow                          | Subject                                  | Cadence                                                                                             |
+| ----------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Biweekly Admin Report         | `Biweekly Admin Report`                  | Every 14 days                                                                                       |
+| Monthly Archive Cleaning Up   | `Monthly Archive Cleaning Up`            | Last day of each month (30/31/Feb-final)                                                            |
+| Monthly Error Report          | `Error Report`                           | Last day of each month, ships a generated PDF attachment (`error-report-YYYY-MM.pdf`)               |
+| Threshold milestone — partial | `<Content> 25% Threshold Reached` (etc.) | Once per `(content type, threshold)` when the live count crosses 25 / 50 / 75 percent of the target |
+| Threshold milestone — final   | `<Content> Final Threshold Reached`      | Once per content type when the live count first reaches 100% of the target                          |
+| Critical Failure              | `Critical Failure`                       | Immediately on uncaught exception, unhandled rejection, or React global error boundary firing       |
+| Security Breach               | `Security Breach`                        | Immediately (subject to a 5-minute per-(kind, IP, route) dedup) on suspicious activity — see below  |
+
+### Content Management Report (biweekly body)
+
+The Biweekly Admin Report's body is a single section titled
+**Content Management Report** containing one table:
+
+| Content                    | Added | Edited | Deleted | Archived |
+| -------------------------- | ----- | ------ | ------- | -------- |
+| Prayer                     | …     | …      | …       | …        |
+| Saint                      | …     | …      | …       | …        |
+| Marian Apparition          | …     | …      | …       | …        |
+| Devotion                   | …     | …      | …       | …        |
+| Liturgy / Church Document  | …     | …      | …       | …        |
+| Spiritual Life / Sacrament | …     | …      | …       | …        |
+| Parish                     | …     | …      | …       | …        |
+
+Number formatting:
+
+- **Added** — `+N` when N > 0; bare `0` when N = 0.
+- **Edited** — bare integer; bare `0` when N = 0.
+- **Deleted** — `-N` when N > 0; bare `0` when N = 0.
+- **Archived** — bare integer; bare `0` when N = 0.
+
+The numbers are aggregated from `DataManagementLog` over the two-week
+window: `ADD` → Added, `UPDATE` → Edited, `DELETE` + `PURGE` → Deleted,
+`CLEANUP` → Archived.
+
+### Monthly Archive Cleaning Up body
+
+Last-day-of-month digest summarising the hard-delete pass that runs as
+part of `purgeStaleArchivedContent()`. The body is one table:
+
+| Content | Archived Deleted |
+| ------- | ---------------- |
+| Prayer  | …                |
+| …       | …                |
+
+`Archived Deleted` shows `-N` when N > 0 and bare `0` when N = 0.
+Archived rows are hard-deleted after **30 days** (configurable in
+`/admin/ingestion` settings, persisted in `SiteSetting`).
+
+### Monthly Error Report PDF
+
+Errors are captured into the `ErrorLog` table by:
+
+- `logPageError()` and `logApiError()` — every page render failure /
+  API exception is persisted (`source: page|api`, `severity: error`).
+- Process-level handlers in `src/instrumentation.ts` — uncaught
+  exceptions and unhandled rejections (`source: uncaught`,
+  `severity: critical`).
+- React global error boundary — `/api/internal/critical-failure`
+  receives the boundary's POST and writes a `source: global,
+severity: critical` row.
+- `reportSecurityEvent()` — every detected security event is also
+  persisted (`source: security`, `severity: error`) so it appears in
+  the next Error Report.
+
+On the last day of each month, `dispatchAdminNotifications()` reads
+every row from the calendar month, builds a paginated PDF
+(`src/lib/email/pdf.ts` — small zero-dependency PDF 1.4 generator),
+and emails it as `error-report-YYYY-MM.pdf`. `ErrorLog` rows older
+than 90 days are pruned by the regular cleanup pass — by then the
+month they fell in has already shipped its PDF.
+
+### Threshold milestone alerts
+
+Per-bucket counters compared against the configured targets:
+
+| Bucket           | Target  |
+| ---------------- | ------- |
+| Prayers          | 500     |
+| Saints           | 7 000   |
+| Parishes         | 150 000 |
+| Church Documents | 1 500   |
+| Sacraments       | 7       |
+| Consecrations    | 4       |
+
+Each tick computes `count / target × 100` per bucket and emails one
+alert per crossing of 25 / 50 / 75 / 100 percent. Per-bucket dedup
+state is stored under `AdminNotificationState` flow keys
+`milestone:<bucket>` so the same threshold is never re-emailed even if
+the count later drops.
+
+### Critical Failure alerts
+
+Reserved for severe issues only — site-crash-class events that mean
+the application could not complete a request. The triggers are:
+
+- An uncaught exception (`process.on("uncaughtException")` in
+  `src/instrumentation.ts`).
+- An unhandled promise rejection
+  (`process.on("unhandledRejection")`).
+- The React global error boundary firing
+  (`src/app/global-error.tsx` POSTs to
+  `/api/internal/critical-failure`).
+
+Per-request 4xx responses, ordinary validation errors, and upstream
+adapter 5xx do **not** trigger Critical Failure. Those are routine
+errors and are carried in the monthly Error Report PDF instead.
+
+### Security Breach alerts
+
+Triggered on suspicious activity with a 5-minute per-`(kind, IP,
+route)` server-side dedup so a single misbehaving client cannot flood
+the mailbox. The detectors are:
+
+- **Server-side** — admin login attempts that exceed the
+  `adminLogin` rate-limit policy.
+- **Client-side** —
+  `SecurityTamperDetector` (`src/components/SecurityTamperDetector.tsx`,
+  mounted in the admin layout):
+  - Browser developer tools detected as open
+    (`client_devtools_open`).
+  - Unexpected mutation of the admin chrome
+    (`client_dom_tamper`) — the kind of edit a tampering session
+    would attempt before submitting a forged request.
+  - Content-Security-Policy violations
+    (`client_csp_violation`).
+- **Client → server bridge** — `/api/internal/security-event`
+  validates the client's POST, rate-limits per IP, and calls
+  `reportSecurityEvent()`.
+
+`reportSecurityEvent()` writes a row to `ErrorLog` (so it lands in the
+next monthly PDF) and fires a Security Breach email immediately. The
+email subject is exactly `Security Breach` and the body lists the
+event kind, summary, route, IP, user-agent, and any structured detail
+the detector supplied.
+
+---
+
 ## Admin console
 
 `/admin` is the only admin surface. Protection is layered:
@@ -1250,53 +1507,55 @@ each catalog entity is exposed under `/api/admin/<entity>` via the
 
 ### Admin
 
-| Method         | Path                                     | Purpose                                                    |
-| -------------- | ---------------------------------------- | ---------------------------------------------------------- |
-| POST           | `/api/admin/login`                       | Admin login                                                |
-| POST           | `/api/admin/logout`                      | Admin logout                                               |
-| POST           | `/api/admin/content/review`              | Approve / reject / revise / move-to-review                 |
-| GET / POST     | `/api/admin/prayers`                     | List / create prayers (catalog)                            |
-| PATCH / DELETE | `/api/admin/prayers/[id]`                | Update / delete a prayer                                   |
-| GET / POST     | `/api/admin/saints`                      | List / create saints                                       |
-| PATCH / DELETE | `/api/admin/saints/[id]`                 | Update / delete a saint                                    |
-| GET / POST     | `/api/admin/apparitions`                 | List / create Marian apparitions                           |
-| PATCH / DELETE | `/api/admin/apparitions/[id]`            | Update / delete an apparition                              |
-| GET / POST     | `/api/admin/parishes`                    | List / create parishes                                     |
-| PATCH / DELETE | `/api/admin/parishes/[id]`               | Update / delete a parish                                   |
-| GET / POST     | `/api/admin/devotions`                   | List / create devotions                                    |
-| PATCH / DELETE | `/api/admin/devotions/[id]`              | Update / delete a devotion                                 |
-| GET / POST     | `/api/admin/liturgy`                     | List / create liturgy entries                              |
-| PATCH / DELETE | `/api/admin/liturgy/[id]`                | Update / delete a liturgy entry                            |
-| GET / POST     | `/api/admin/spiritual-life`              | List / create spiritual-life guides                        |
-| PATCH / DELETE | `/api/admin/spiritual-life/[id]`         | Update / delete a spiritual-life guide                     |
-| POST           | `/api/admin/ingestion/run`               | Run a single job or all active jobs                        |
-| PATCH          | `/api/admin/ingestion/jobs/[id]`         | Pause / resume or re-schedule a job                        |
-| GET / POST     | `/api/admin/sources`                     | List / create ingestion sources                            |
-| GET / PATCH    | `/api/admin/sources/[id]`                | Read / update an ingestion source                          |
-| GET / POST     | `/api/admin/media`                       | List / register a media asset (Cloudinary URL)             |
-| GET / DELETE   | `/api/admin/media/[id]`                  | Read / delete a media asset                                |
-| GET            | `/api/admin/users`                       | Paginated, searchable user listing                         |
-| GET            | `/api/admin/audit`                       | Filterable audit log                                       |
-| GET            | `/api/admin/ingestion-status`            | Live snapshot used by the Ingestion admin page (polled)    |
-| GET / POST     | `/api/admin/data-management`             | Read / write Ingestion & Data Management settings          |
-| POST           | `/api/admin/data-management/cleanup`     | Run the cleanup passes on demand (admin "Run cleanup now") |
-| GET            | `/api/admin/diagnostics/email`           | Email diagnostics section                                  |
-| GET            | `/api/admin/diagnostics/data-management` | Data management diagnostics section + 24h edit counts      |
-| GET            | `/api/admin/diagnostics/ingestion`       | Ingestion diagnostics section + live snapshot              |
-| GET            | `/api/admin/diagnostics/saints-feast`    | Homepage saints feast-day diagnostics section              |
-| GET            | `/api/admin/diagnostics/sitemap`         | Sitemap & link-path diagnostics                            |
-| GET            | `/api/admin/diagnostics/accounts`        | Account diagnostics section                                |
-| GET / POST     | `/api/admin/email`                       | Email configuration check + send a test message            |
-| POST           | `/api/admin/email/ensure-tables`         | Idempotent in-process create of account-email tables       |
-| POST           | `/api/admin/email/self-test`             | End-to-end self-test of welcome / reset / verify flows     |
-| GET            | `/api/admin/publish-list`                | Items currently in REVIEW status across the catalog        |
-| POST           | `/api/admin/publish-list/publish-all`    | Bulk-publish every queued REVIEW row                       |
-| POST           | `/api/admin/search/reindex`              | Trigger reindex / housekeeping                             |
-| GET            | `/api/admin/translations`                | Translation row counts                                     |
-| GET / POST     | `/api/admin/favicon`                     | Read / replace favicon asset                               |
-| GET / POST     | `/api/admin/homepage`                    | Read / update homepage block config                        |
-| POST (`GET`)   | `/api/cron/ingest`                       | Run scheduler + cleanup pass + housekeeping (cron-secret)  |
-| POST / GET     | `/api/internal/cleanup`                  | Prune sessions / tokens / rate-limits (cron-secret auth)   |
+| Method         | Path                                     | Purpose                                                                                                                                                   |
+| -------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST           | `/api/admin/login`                       | Admin login                                                                                                                                               |
+| POST           | `/api/admin/logout`                      | Admin logout                                                                                                                                              |
+| POST           | `/api/admin/content/review`              | Approve / reject / revise / move-to-review                                                                                                                |
+| GET / POST     | `/api/admin/prayers`                     | List / create prayers (catalog)                                                                                                                           |
+| PATCH / DELETE | `/api/admin/prayers/[id]`                | Update / delete a prayer                                                                                                                                  |
+| GET / POST     | `/api/admin/saints`                      | List / create saints                                                                                                                                      |
+| PATCH / DELETE | `/api/admin/saints/[id]`                 | Update / delete a saint                                                                                                                                   |
+| GET / POST     | `/api/admin/apparitions`                 | List / create Marian apparitions                                                                                                                          |
+| PATCH / DELETE | `/api/admin/apparitions/[id]`            | Update / delete an apparition                                                                                                                             |
+| GET / POST     | `/api/admin/parishes`                    | List / create parishes                                                                                                                                    |
+| PATCH / DELETE | `/api/admin/parishes/[id]`               | Update / delete a parish                                                                                                                                  |
+| GET / POST     | `/api/admin/devotions`                   | List / create devotions                                                                                                                                   |
+| PATCH / DELETE | `/api/admin/devotions/[id]`              | Update / delete a devotion                                                                                                                                |
+| GET / POST     | `/api/admin/liturgy`                     | List / create liturgy entries                                                                                                                             |
+| PATCH / DELETE | `/api/admin/liturgy/[id]`                | Update / delete a liturgy entry                                                                                                                           |
+| GET / POST     | `/api/admin/spiritual-life`              | List / create spiritual-life guides                                                                                                                       |
+| PATCH / DELETE | `/api/admin/spiritual-life/[id]`         | Update / delete a spiritual-life guide                                                                                                                    |
+| POST           | `/api/admin/ingestion/run`               | Run a single job or all active jobs                                                                                                                       |
+| PATCH          | `/api/admin/ingestion/jobs/[id]`         | Pause / resume or re-schedule a job                                                                                                                       |
+| GET / POST     | `/api/admin/sources`                     | List / create ingestion sources                                                                                                                           |
+| GET / PATCH    | `/api/admin/sources/[id]`                | Read / update an ingestion source                                                                                                                         |
+| GET / POST     | `/api/admin/media`                       | List / register a media asset (Cloudinary URL)                                                                                                            |
+| GET / DELETE   | `/api/admin/media/[id]`                  | Read / delete a media asset                                                                                                                               |
+| GET            | `/api/admin/users`                       | Paginated, searchable user listing                                                                                                                        |
+| GET            | `/api/admin/audit`                       | Filterable audit log                                                                                                                                      |
+| GET            | `/api/admin/ingestion-status`            | Live snapshot used by the Ingestion admin page (polled)                                                                                                   |
+| GET / POST     | `/api/admin/data-management`             | Read / write Ingestion & Data Management settings                                                                                                         |
+| POST           | `/api/admin/data-management/cleanup`     | Run the cleanup passes on demand (admin "Run cleanup now")                                                                                                |
+| GET            | `/api/admin/diagnostics/email`           | Email diagnostics section                                                                                                                                 |
+| GET            | `/api/admin/diagnostics/data-management` | Data management diagnostics section + 24h edit counts                                                                                                     |
+| GET            | `/api/admin/diagnostics/ingestion`       | Ingestion diagnostics section + live snapshot                                                                                                             |
+| GET            | `/api/admin/diagnostics/saints-feast`    | Homepage saints feast-day diagnostics section                                                                                                             |
+| GET            | `/api/admin/diagnostics/sitemap`         | Sitemap & link-path diagnostics                                                                                                                           |
+| GET            | `/api/admin/diagnostics/accounts`        | Account diagnostics section                                                                                                                               |
+| GET / POST     | `/api/admin/email`                       | Email configuration check + send a test message                                                                                                           |
+| POST           | `/api/admin/email/ensure-tables`         | Idempotent in-process create of account-email tables                                                                                                      |
+| POST           | `/api/admin/email/self-test`             | End-to-end self-test of welcome / reset / verify flows                                                                                                    |
+| GET            | `/api/admin/publish-list`                | Items currently in REVIEW status across the catalog                                                                                                       |
+| POST           | `/api/admin/publish-list/publish-all`    | Bulk-publish every queued REVIEW row                                                                                                                      |
+| POST           | `/api/admin/search/reindex`              | Trigger reindex / housekeeping                                                                                                                            |
+| GET            | `/api/admin/translations`                | Translation row counts                                                                                                                                    |
+| GET / POST     | `/api/admin/favicon`                     | Read / replace favicon asset                                                                                                                              |
+| GET / POST     | `/api/admin/homepage`                    | Read / update homepage block config                                                                                                                       |
+| POST (`GET`)   | `/api/cron/ingest`                       | Run scheduler + cleanup pass + housekeeping + admin notification dispatch (cron-secret)                                                                   |
+| POST / GET     | `/api/internal/cleanup`                  | Prune sessions / tokens / rate-limits (cron-secret auth)                                                                                                  |
+| POST           | `/api/internal/critical-failure`         | Receive a Critical Failure escalation from the React global error boundary; writes to `ErrorLog` and emails ADMIN_EMAIL                                   |
+| POST           | `/api/internal/security-event`           | Receive a Security Breach signal from the client tamper detector or other client-side detector; writes to `ErrorLog` and emails ADMIN_EMAIL (5-min dedup) |
 
 ---
 
@@ -1357,24 +1616,35 @@ where `<token>` is the HMAC-SHA-256 of the domain-separation tag
 `viafidei:cron:v1` keyed by `SESSION_SECRET` (see
 `src/lib/security/cron-auth.ts#deriveCronSecret`).
 
-`/api/cron/ingest` does five things on every tick:
+`/api/cron/ingest` does six things on every tick:
 
 1. Ensures the IngestionSource + IngestionJob rows for every
    allowlisted host exist.
 2. Runs every active adapter through the shared advisory-lock
-   path (so manual and automatic runs cannot conflict).
-3. Prunes expired rate-limit buckets, expired auth tokens, and
+   path (so manual and automatic runs cannot conflict). The runner
+   passes every fetched item through `formatIngestedItems()` (entity
+   decode, smart-quote folding, whitespace normalisation) before the
+   per-kind validator enforces quality / correctness / shape.
+3. Prunes expired rate-limit buckets, expired auth tokens, old
+   `IngestionJobRun` / `AdminAuditLog` / `ErrorLog` rows, and
    marks overdue goals.
 4. When `data_management.autoCleanupEnabled` is true (default), runs
    `cleanupMiscategorisedContent()` (archive miscategorised rows
    with a structured `DataManagementLog` reason),
    `archiveDuplicatePrayers()` (dedupe by checksum), and
    `purgeStaleArchivedContent(hardDeleteAfterDays)` (permanently
-   delete rows that have been ARCHIVED long enough). When the
-   admin disables auto cleanup via the
-   `/admin/ingestion` settings panel, only the per-row ingestion
-   validator runs and the catalog-wide passes are skipped.
-5. Logs a structured `cron.completed` event with every counter for
+   delete rows that have been ARCHIVED long enough — default 30 days).
+   When the admin disables auto cleanup via the `/admin/ingestion`
+   settings panel, only the per-row ingestion validator runs and the
+   catalog-wide passes are skipped.
+5. Calls `dispatchAdminNotifications()` — emits the **Biweekly Admin
+   Report** when ≥ 14 days since the last send, the **Monthly Archive
+   Cleaning Up** digest + **monthly Error Report PDF** on the last day
+   of every calendar month, and any newly-crossed **threshold
+   milestone** alerts (25 / 50 / 75 / 100 percent per content bucket).
+   Each sub-flow guards its own "is it time?" check so off-cadence
+   ticks are cheap.
+6. Logs a structured `cron.completed` event with every counter for
    the Diagnostics page to inspect.
 
 ---

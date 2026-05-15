@@ -6,6 +6,18 @@ export type SendEmailInput = {
   subject: string;
   textBody: string;
   htmlBody?: string;
+  /**
+   * Optional file attachments. Resend accepts a `content` field that is
+   * a base64-encoded payload for binary attachments (PDFs, etc.). The
+   * monthly Error Report uses this to ship a generated PDF without
+   * needing an S3 bucket or external file host.
+   */
+  attachments?: Array<{
+    filename: string;
+    /** Base64-encoded binary contents. */
+    content: string;
+    contentType?: string;
+  }>;
 };
 
 export type SendEmailResult =
@@ -182,6 +194,15 @@ export async function sendTransactionalEmail(input: SendEmailInput): Promise<Sen
         subject: input.subject,
         text: input.textBody,
         html: input.htmlBody,
+        ...(input.attachments && input.attachments.length > 0
+          ? {
+              attachments: input.attachments.map((a) => ({
+                filename: a.filename,
+                content: a.content,
+                content_type: a.contentType ?? "application/octet-stream",
+              })),
+            }
+          : {}),
         // Reply-To set on every transactional message: signals to
         // mailbox providers that this is a real conversational
         // message (not bulk marketing), nudging it toward the inbox.
