@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
 import { ExpandablePrayer, OfficialSourceLink } from "@/components/ui";
 import { logger } from "@/lib/observability/logger";
+import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 
 export const dynamic = "force-dynamic";
@@ -53,9 +54,13 @@ async function safeResolveSteps(slug: string, locale: string): Promise<GuidePray
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
   const prayer = await safeGetPrayer(params.slug, locale);
-  if (!prayer) return { title: "Not Found" };
+  if (!prayer) return notFoundMetadataFor("/prayers");
   const tr = prayer.translations[0];
-  return { title: tr?.title ?? prayer.defaultTitle };
+  const title = tr?.title ?? prayer.defaultTitle;
+  return buildDetailMetadata({
+    path: `/prayers/${params.slug}`,
+    title,
+  });
 }
 
 export default async function PrayerDetailPage({ params }: Props) {

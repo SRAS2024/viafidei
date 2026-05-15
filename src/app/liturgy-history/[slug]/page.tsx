@@ -4,6 +4,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedLiturgyBySlug } from "@/lib/data/liturgy";
 import { OfficialSourceLink } from "@/components/ui";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
+import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -38,9 +39,12 @@ async function safeGetEntry(slug: string, locale: string) {
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
   const entry = await safeGetEntry(params.slug, locale);
-  if (!entry) return { title: "Not Found" };
+  if (!entry) return notFoundMetadataFor("/liturgy-history");
   const tr = entry.translations[0];
-  return { title: tr?.title ?? entry.title };
+  return buildDetailMetadata({
+    path: `/liturgy-history/${params.slug}`,
+    title: tr?.title ?? entry.title,
+  });
 }
 
 export default async function LiturgyDetailPage({ params }: Props) {

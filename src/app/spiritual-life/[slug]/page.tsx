@@ -8,6 +8,7 @@ import { ExpandablePrayer, OfficialSourceLink } from "@/components/ui";
 import { AddGoalButton } from "../_components";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
+import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -61,9 +62,12 @@ async function safeRequireUser() {
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
   const guide = await safeGetGuide(params.slug, locale);
-  if (!guide) return { title: "Not Found" };
+  if (!guide) return notFoundMetadataFor("/spiritual-life");
   const tr = guide.translations[0];
-  return { title: tr?.title ?? guide.title };
+  return buildDetailMetadata({
+    path: `/spiritual-life/${params.slug}`,
+    title: tr?.title ?? guide.title,
+  });
 }
 
 export default async function SpiritualLifeDetailPage({ params }: Props) {

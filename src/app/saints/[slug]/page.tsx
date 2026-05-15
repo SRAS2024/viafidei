@@ -10,6 +10,7 @@ import { OfficialSourceLink } from "@/components/ui";
 import { parseSaintBiography } from "@/lib/data/saint-sections";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
+import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -59,10 +60,14 @@ async function safeIsSaved(kind: SavedKind, userId: string, entityId: string): P
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
   const saint = await safeGetSaint(params.slug, locale);
-  if (saint) return { title: saint.canonicalName };
+  if (saint) {
+    return buildDetailMetadata({ path: `/saints/${params.slug}`, title: saint.canonicalName });
+  }
   const apparition = await safeGetApparition(params.slug, locale);
-  if (apparition) return { title: apparition.title };
-  return { title: "Not Found" };
+  if (apparition) {
+    return buildDetailMetadata({ path: `/saints/${params.slug}`, title: apparition.title });
+  }
+  return notFoundMetadataFor("/saints");
 }
 
 export default async function SaintDetailPage({ params }: Props) {

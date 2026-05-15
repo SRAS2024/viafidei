@@ -5,13 +5,15 @@ import { getPublishedSpiritualLifeGuideBySlug } from "@/lib/data/spiritual-life"
 import { getBadgeForGoalSlug } from "@/components/icons/SacramentBadges";
 import { PageHero } from "@/components/ui/PageHero";
 import { OfficialSourceLink } from "@/components/ui";
+import { buildDetailMetadata } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: { slug: string } };
 
 export async function generateMetadata({ params }: Props) {
-  return { title: params.slug.replace(/^(sacrament|consecration)-/, "").replace(/-/g, " ") };
+  const title = params.slug.replace(/^(sacrament|consecration)-/, "").replace(/-/g, " ");
+  return buildDetailMetadata({ path: `/sacraments/${params.slug}`, title });
 }
 
 export default async function SacramentDetailPage({ params }: Props) {

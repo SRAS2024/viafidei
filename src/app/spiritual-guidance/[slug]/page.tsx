@@ -8,6 +8,7 @@ import { SaveButton } from "@/components/profile/SaveButton";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { fetchOsmParishById, type ExternalParish } from "@/lib/data/external-parishes";
+import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -56,12 +57,22 @@ async function safeGetExternalParish(slug: string): Promise<ExternalParish | nul
 
 export async function generateMetadata({ params }: Props) {
   const parish = await safeGetParish(params.slug);
-  if (parish) return { title: parish.name };
+  if (parish) {
+    return buildDetailMetadata({
+      path: `/spiritual-guidance/${params.slug}`,
+      title: parish.name,
+    });
+  }
   if (params.slug.startsWith("osm-")) {
     const ext = await safeGetExternalParish(params.slug);
-    if (ext) return { title: ext.name };
+    if (ext) {
+      return buildDetailMetadata({
+        path: `/spiritual-guidance/${params.slug}`,
+        title: ext.name,
+      });
+    }
   }
-  return { title: "Not Found" };
+  return notFoundMetadataFor("/spiritual-guidance");
 }
 
 export default async function ParishDetailPage({ params }: Props) {

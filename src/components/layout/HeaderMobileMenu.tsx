@@ -89,9 +89,9 @@ export function HeaderMobileMenu({
       </button>
 
       {open ? (
-        <div
+        <nav
           id="vf-mobile-menu"
-          role="menu"
+          aria-label="Mobile navigation"
           className="absolute right-0 top-full z-50 mt-2 w-64 rounded-sm border border-ink/10 bg-paper-bright shadow-paper"
         >
           <ul className="flex flex-col py-2">
@@ -101,7 +101,6 @@ export function HeaderMobileMenu({
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    role="menuitem"
                     onClick={() => setOpen(false)}
                     aria-current={active ? "page" : undefined}
                     className={`vf-mobile-menu-link block px-4 py-3 ${
@@ -118,7 +117,6 @@ export function HeaderMobileMenu({
               <li>
                 <Link
                   href="/profile/settings"
-                  role="menuitem"
                   onClick={() => setOpen(false)}
                   className="vf-mobile-menu-link block px-4 py-3"
                 >
@@ -135,7 +133,6 @@ export function HeaderMobileMenu({
                     <li key={action.href}>
                       <Link
                         href={action.href}
-                        role="menuitem"
                         onClick={() => setOpen(false)}
                         className="vf-mobile-menu-link block px-4 py-3"
                       >
@@ -147,7 +144,6 @@ export function HeaderMobileMenu({
                       <form action={action.action} method="post" className="m-0">
                         <button
                           type="submit"
-                          role="menuitem"
                           className="vf-mobile-menu-link block w-full px-4 py-3 text-left"
                         >
                           {action.label}
@@ -159,7 +155,6 @@ export function HeaderMobileMenu({
                       <form action={action.action} className="m-0">
                         <button
                           type="submit"
-                          role="menuitem"
                           className="vf-mobile-menu-link block w-full px-4 py-3 text-left"
                         >
                           {action.label}
@@ -177,7 +172,6 @@ export function HeaderMobileMenu({
                 <li>
                   <Link
                     href={signInItem.href}
-                    role="menuitem"
                     onClick={() => setOpen(false)}
                     className="vf-mobile-menu-link block px-4 py-3"
                   >
@@ -187,7 +181,7 @@ export function HeaderMobileMenu({
               </>
             ) : null}
           </ul>
-        </div>
+        </nav>
       ) : null}
     </div>
   );
