@@ -791,6 +791,43 @@ model DailyLiturgy {
   @@index([date, status])
 }
 
+// ErrorLog captures runtime errors so they can be assembled into the
+// monthly Error Report PDF that is mailed to ADMIN_EMAIL on the last
+// day of every month. Rows older than ~90 days are pruned by the
+// regular cleanup pass so the table cannot grow unbounded.
+model ErrorLog {
+  id           String   @id @default(cuid())
+  occurredAt   DateTime @default(now())
+  // One of: "page", "api", "ingestion", "scheduler", "global", "uncaught".
+  source       String
+  // Short machine-readable kind (e.g. "missing_table", "db_query",
+  // "uncaught_exception"). Mirrors classifyPageError().
+  kind         String
+  message      String
+  stack        String?
+  route        String?
+  requestId    String?
+  // Severity: "error", "warn", "critical". Critical errors also
+  // trigger a Critical Failure email immediately.
+  severity     String   @default("error")
+  context      Json?
+
+  @@index([occurredAt])
+  @@index([severity, occurredAt])
+}
+
+// AdminNotificationState tracks the per-flow state used by the admin
+// notification scheduler (last biweekly send, last monthly send, which
+// threshold milestones have already been emailed for each content
+// type, last archive cleanup window). One row per flow key — the
+// `state` JSON blob carries the per-flow shape.
+model AdminNotificationState {
+  id        String   @id @default(cuid())
+  flow      String   @unique
+  state     Json
+  updatedAt DateTime @updatedAt
+}
+
 model RateLimitBucket {
   id        String   @id @default(cuid())
   bucketKey String   @unique

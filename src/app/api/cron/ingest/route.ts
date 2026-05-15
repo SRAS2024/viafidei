@@ -13,6 +13,8 @@ import {
   purgeStaleArchivedContent,
 } from "@/lib/data/cleanup";
 import { getDataManagementSettings } from "@/lib/data/site-settings";
+import { dispatchAdminNotifications } from "@/lib/data/admin-notifications";
+import { pruneOldErrorLogs } from "@/lib/data/error-log";
 import { jsonError, jsonOk } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
@@ -46,8 +48,10 @@ export async function POST(req: NextRequest) {
     markOverdueGoals(),
     pruneOldIngestionRuns(),
     pruneOldAuditLogs(),
+    pruneOldErrorLogs(),
   ]);
-  const [prunedRateLimits, prunedTokens, overdueGoals, prunedRuns, prunedAudits] = housekeeping;
+  const [prunedRateLimits, prunedTokens, overdueGoals, prunedRuns, prunedAudits, prunedErrors] =
+    housekeeping;
 
   let miscategorised: Awaited<ReturnType<typeof cleanupMiscategorisedContent>> = {
     buckets: [],
@@ -72,6 +76,21 @@ export async function POST(req: NextRequest) {
     ]);
   }
 
+  // Admin notification dispatch — runs after ingestion + cleanup so the
+  // biweekly + monthly digests reflect this tick's activity. Each
+  // sub-flow guards its own "is it time?" check, so an off-cadence call
+  // is just a few cheap reads. The dispatcher additionally fires per-
+  // bucket milestone alerts (25 / 50 / 75 / 100 percent) so an admin
+  // sees the catalog filling up in real time as targets are crossed.
+  const adminNotifications = await dispatchAdminNotifications().catch((e) => {
+    logger.error("cron.admin_notifications_failed", {
+      route: "/api/cron/ingest",
+      requestId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return null;
+  });
+
   logger.info("cron.completed", {
     route: "/api/cron/ingest",
     requestId,
@@ -82,10 +101,24 @@ export async function POST(req: NextRequest) {
     overdueGoals,
     prunedRuns,
     prunedAudits,
+    prunedErrors,
     autoCleanupEnabled: dataManagement.autoCleanupEnabled,
     miscategorisedArchived: miscategorised.totalArchived,
     duplicatePrayersArchived: duplicatePrayers,
     hardDeleted: purged.totalDeleted,
+    adminNotifications: adminNotifications
+      ? {
+          biweeklySent:
+            adminNotifications.biweekly?.ok && adminNotifications.biweekly.delivery === "sent",
+          monthlyArchiveSent:
+            adminNotifications.monthlyArchive?.ok &&
+            adminNotifications.monthlyArchive.delivery === "sent",
+          monthlyErrorReportSent:
+            adminNotifications.monthlyErrorReport?.ok &&
+            adminNotifications.monthlyErrorReport.delivery === "sent",
+          milestonesSent: adminNotifications.milestonesSent.length,
+        }
+      : null,
   });
   return jsonOk({
     summary,
@@ -94,12 +127,14 @@ export async function POST(req: NextRequest) {
     overdueGoals,
     prunedRuns,
     prunedAudits,
+    prunedErrors,
     dataManagement: {
       autoCleanupEnabled: dataManagement.autoCleanupEnabled,
       miscategorised,
       duplicatePrayers,
       hardDeleted: purged,
     },
+    adminNotifications,
   });
 }
 

@@ -23,3 +23,27 @@ export {
   sendAccountEmail,
 } from "./send";
 export { resolveEmailLocale, translateEmail, type EmailLocale } from "./translations";
+export {
+  readAdminEmail,
+  sendBiweeklyAdminReport,
+  sendMonthlyArchiveCleanupReport,
+  sendThresholdMilestoneAlert,
+  sendCriticalFailureAlert,
+  sendSecurityBreachAlert,
+  sendMonthlyErrorReport,
+  type ContentManagementCounts,
+  type AdminSendOutcome,
+} from "./admin-send";
+export {
+  renderAdminEmail,
+  formatAdded,
+  formatDeleted,
+  formatPlain,
+  CONTENT_TYPE_ROWS,
+  type AdminEmailParams,
+  type AdminEmailSection,
+  type AdminTableColumn,
+  type AdminTableRow,
+  type ContentTypeKey,
+} from "./admin-templates";
+export { buildTextPdfBase64 } from "./pdf";

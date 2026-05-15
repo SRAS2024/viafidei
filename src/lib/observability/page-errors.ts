@@ -70,6 +70,16 @@ export function logPageError(fields: PageFailureFields) {
     error: message,
     stack,
   });
+  // Persist a row to ErrorLog so the monthly Error Report PDF includes
+  // every page render failure. Dynamic-imported to keep this module
+  // edge-safe (the data layer transitively imports the Prisma client).
+  void recordIntoErrorLog({
+    source: "page",
+    kind,
+    message,
+    stack,
+    route: fields.route,
+  });
 }
 
 /**
@@ -91,4 +101,31 @@ export function logApiError(fields: PageFailureFields & { method?: string; statu
     error: message,
     stack,
   });
+  void recordIntoErrorLog({
+    source: "api",
+    kind,
+    message,
+    stack,
+    route: fields.route,
+  });
+}
+
+/**
+ * Lazy bridge into the ErrorLog data module. Kept dynamic so this file
+ * can be imported safely from edge / instrumentation contexts without
+ * dragging the Prisma client into those bundles.
+ */
+async function recordIntoErrorLog(input: {
+  source: "page" | "api";
+  kind: string;
+  message: string;
+  stack?: string;
+  route?: string;
+}): Promise<void> {
+  try {
+    const { recordError } = await import("../data/error-log");
+    await recordError(input);
+  } catch {
+    // Best-effort — never throw from the error sink.
+  }
 }

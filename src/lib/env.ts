@@ -26,6 +26,16 @@ const baseSchema = z.object({
   // readResendApiKey` and by the admin diagnostic — both go through the
   // same helper so they cannot disagree.
   RESEND_API_KEY: optionalString(z.string().min(1)),
+  // Optional: destination address for operational admin notifications
+  // (biweekly Content Management Report, monthly archive cleanup digest,
+  // monthly error report PDF, threshold milestone alerts at 25 / 50 / 75
+  // / 100 percent, critical-failure pages, security-breach alerts). When
+  // unset, every admin notification is logged and silently skipped at
+  // the transport layer — the rest of the app keeps running. Set in the
+  // hosting platform's environment dashboard (Railway, Vercel, …); there
+  // is no admin UI for this value because operational alerts must keep
+  // working even if the admin console itself is down.
+  ADMIN_EMAIL: optionalString(z.string().email()),
 });
 
 const productionSchema = baseSchema.superRefine((env, ctx) => {
@@ -63,6 +73,7 @@ function fallbackEnvFromProcess(): Env {
     ADMIN_USERNAME: data.ADMIN_USERNAME,
     ADMIN_PASSWORD: data.ADMIN_PASSWORD,
     RESEND_API_KEY: data.RESEND_API_KEY,
+    ADMIN_EMAIL: data.ADMIN_EMAIL,
   };
 }
 

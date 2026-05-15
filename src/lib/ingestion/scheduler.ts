@@ -4,6 +4,18 @@ import { logger } from "../observability/logger";
 import { getAdapter } from "./registry";
 import { runAdapter, type RunnerOptions } from "./runner";
 import type { IngestionRunSummary } from "./types";
+import {
+  CHURCH_DOCUMENT_SLUG_PREFIXES,
+  CONSECRATION_SLUG_PREFIXES,
+  SACRAMENT_SLUG_PREFIXES,
+} from "./backlog-prefixes";
+
+// Re-export so existing call sites that depend on these constants
+// being available from the scheduler module continue to work. The
+// admin notifications dispatcher imports them from
+// `./backlog-prefixes` directly because the scheduler module pulls
+// `node:crypto` into the bundle through the runner.
+export { CHURCH_DOCUMENT_SLUG_PREFIXES, SACRAMENT_SLUG_PREFIXES, CONSECRATION_SLUG_PREFIXES };
 
 export type BacklogCounts = {
   prayers: number;
@@ -16,41 +28,7 @@ export type BacklogCounts = {
 
 export type SchedulerMode = "constant" | "maintenance";
 
-/**
- * Slug prefixes that identify a LiturgyEntry as a "church document" —
- * encyclicals, Catechism sections, Code of Canon Law books, and
- * Vatican Council documents. The encyclical seeds use `encyclical-`;
- * CCC seeds use `catechism-`; Canon Law seeds use `code-of-canon-law-`;
- * the Eastern Code is its own row; ingestion-produced Council documents
- * use `council-` (a slug the history crawler already emits).
- */
-export const CHURCH_DOCUMENT_SLUG_PREFIXES = [
-  "encyclical-",
-  "catechism-",
-  "code-of-canon-law-",
-  "code-of-canons-of-the-eastern-churches",
-  "council-",
-  "vatican-council-",
-  "synod-",
-];
-
-/**
- * Slug prefix for the seven Catholic sacraments — Baptism, Confirmation,
- * Eucharist, Reconciliation, Anointing of the Sick, Holy Orders,
- * Matrimony. Counted as its own bucket because the Catholic Church
- * teaches that there are exactly seven; including the consecrations
- * would inflate the count above the doctrinal number.
- */
-export const SACRAMENT_SLUG_PREFIXES = ["sacrament-"];
-
-/**
- * Slug prefix for personal consecrations (Marian, St Joseph, Holy
- * Family, Sacred Heart). Tracked as a separate bucket so the doctrinal
- * "seven sacraments" remains exact.
- */
-export const CONSECRATION_SLUG_PREFIXES = ["consecration-"];
-
-function buildPrefixWhere(prefixes: string[]) {
+function buildPrefixWhere(prefixes: readonly string[]) {
   return { OR: prefixes.map((p) => ({ slug: { startsWith: p } })) };
 }
 

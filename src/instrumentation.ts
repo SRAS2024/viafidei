@@ -1,3 +1,39 @@
+/**
+ * Persist a critical-severity ErrorLog row and fire a Critical Failure
+ * admin email. We dynamic-import the data layer because instrumentation
+ * runs before request handlers (and therefore before the regular module
+ * graph is fully wired up); a static import here would force the heavy
+ * Prisma client into the instrumentation bundle and break the build.
+ */
+async function notifyCriticalFailure(params: {
+  kind: string;
+  message: string;
+  stack?: string;
+}): Promise<void> {
+  try {
+    const [{ recordError }, { reportCriticalFailure }] = await Promise.all([
+      import("./lib/data/error-log"),
+      import("./lib/data/admin-notifications"),
+    ]);
+    await Promise.all([
+      recordError({
+        source: "uncaught",
+        kind: params.kind,
+        message: params.message,
+        stack: params.stack,
+        severity: "critical",
+      }),
+      reportCriticalFailure({
+        kind: params.kind,
+        message: params.message,
+        stack: params.stack,
+      }),
+    ]);
+  } catch {
+    // Never throw from the safety net.
+  }
+}
+
 export async function register() {
   // Only run in the Node.js runtime (not edge, not during next build)
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
@@ -5,7 +41,10 @@ export async function register() {
   // Process-level safety net so a stray rejection in background tasks
   // (seeder, scheduled ingestion, HTTP fetches) cannot crash the server.
   // Logged in the same JSON shape as the regular logger so log aggregators
-  // can pick out the kind/route fields uniformly.
+  // can pick out the kind/route fields uniformly. Both handlers also
+  // persist a critical-severity ErrorLog row and fire a Critical Failure
+  // admin email — these are by definition site-crash-class events, which
+  // is the only category the requirements allow as "critical".
   process.on("unhandledRejection", (reason) => {
     const err = reason instanceof Error ? reason : null;
     console.error(
@@ -18,6 +57,11 @@ export async function register() {
         stack: err?.stack,
       }),
     );
+    void notifyCriticalFailure({
+      kind: "unhandled_rejection",
+      message: err ? err.message : String(reason ?? "unknown"),
+      stack: err?.stack,
+    });
   });
 
   process.on("uncaughtException", (err) => {
@@ -31,6 +75,11 @@ export async function register() {
         stack: err.stack,
       }),
     );
+    void notifyCriticalFailure({
+      kind: "uncaught_exception",
+      message: err.message,
+      stack: err.stack,
+    });
   });
 
   try {

@@ -6,6 +6,7 @@ import { withAdvisoryLock } from "../concurrency/lock";
 import { logger } from "../observability/logger";
 import type { ConditionalState, IngestionRunSummary, SourceAdapter } from "./types";
 import { sanitize } from "./validate";
+import { formatIngestedItems } from "./format";
 import { persistItems } from "./persist";
 
 export type RunnerOptions = {
@@ -149,7 +150,15 @@ async function runAdapterUnlocked(
       return summary;
     }
 
-    const { valid, review, rejected } = sanitize(items);
+    // Pre-validation formatter: every ingested item is normalised to the
+    // canonical text shape for its content type (entity-decoded, smart-
+    // quotes folded to ASCII, internal whitespace collapsed, multi-line
+    // bodies trimmed) before the validator + persistence layer see it.
+    // This is the "correct formatting for that specific content type"
+    // step of the ingestion quality gate; by the time we hit `sanitize`
+    // every adapter's output looks the same regardless of source.
+    const formatted = formatIngestedItems(items);
+    const { valid, review, rejected } = sanitize(formatted);
 
     const triggeredBy = options.triggeredBy ?? "automatic";
     const persistOptions = {
