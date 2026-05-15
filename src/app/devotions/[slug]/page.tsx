@@ -9,6 +9,7 @@ import { SaveButton } from "@/components/profile/SaveButton";
 import { ExpandablePrayer, OfficialSourceLink } from "@/components/ui";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
+import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 
 export const dynamic = "force-dynamic";
 
@@ -53,9 +54,12 @@ async function safeResolveSteps(slug: string, locale: string): Promise<GuidePray
 export async function generateMetadata({ params }: Props) {
   const { locale } = await getTranslator();
   const d = await safeGetDevotion(params.slug, locale);
-  if (!d) return { title: "Not Found" };
+  if (!d) return notFoundMetadataFor("/devotions");
   const tr = d.translations[0];
-  return { title: tr?.title ?? d.title };
+  return buildDetailMetadata({
+    path: `/devotions/${params.slug}`,
+    title: tr?.title ?? d.title,
+  });
 }
 
 export default async function DevotionDetailPage({ params }: Props) {
