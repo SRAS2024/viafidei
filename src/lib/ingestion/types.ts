@@ -157,6 +157,15 @@ export type AdapterResult = {
   conditionalState?: ConditionalState;
   /** Upstream returned 304 Not Modified — runner should mark run as no-op. */
   notModified?: boolean;
+  /**
+   * Adapter-driven exhaustion signal. When `true`, the adapter is
+   * telling the planner "there are no more items to fetch from this
+   * source at this cursor". The worker marks the source + cursor as
+   * exhausted; the planner stops re-enqueueing source_ingest jobs for
+   * this source until maintenance mode explicitly requests a
+   * freshness check.
+   */
+  exhausted?: boolean;
 };
 
 export interface SourceAdapter {
