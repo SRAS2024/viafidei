@@ -124,10 +124,41 @@ async function runContentRevalidate(
 ): Promise<DispatchResult> {
   void job;
   try {
-    const summary = await runCatalogJanitor();
+    // Two passes:
+    //   1. catalog janitor — legacy text-shape cleanup (format / clean /
+    //      classify against existing PUBLISHED rows). Repackages noise,
+    //      diverts soft-fails to REVIEW, hard-deletes clear cruft.
+    //   2. strict content QA cleanup — validates every PUBLISHED row
+    //      against its package contract. Flips publicRenderReady +
+    //      isThresholdEligible flags, removes invalid rows from public
+    //      view, hard-deletes wrong-content rows + writes
+    //      RejectedContentLog entries.
+    const { runStrictContentCleanup } = await import("../../content-qa/cleanup");
+    const [janitor, strict] = await Promise.all([
+      runCatalogJanitor().catch((e) => ({
+        error: e instanceof Error ? e.message : String(e),
+        totalRepackaged: 0,
+        totalDivertedToReview: 0,
+        totalHardDeleted: 0,
+        buckets: [],
+      })),
+      runStrictContentCleanup().catch((e) => ({
+        error: e instanceof Error ? e.message : String(e),
+        totalInspected: 0,
+        totalFlaggedReady: 0,
+        totalFlaggedUnready: 0,
+        totalHardDeleted: 0,
+        buckets: [],
+      })),
+    ]);
     return {
       ok: true,
-      errorMessage: `Repackaged ${summary.totalRepackaged}, diverted ${summary.totalDivertedToReview}`,
+      errorMessage:
+        `Repackaged ${janitor.totalRepackaged}, ` +
+        `diverted ${janitor.totalDivertedToReview}, ` +
+        `strict-QA flagged ${strict.totalFlaggedReady} ready, ` +
+        `${strict.totalFlaggedUnready} unready, ` +
+        `${strict.totalHardDeleted} hard-deleted`,
     };
   } catch (e) {
     return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };

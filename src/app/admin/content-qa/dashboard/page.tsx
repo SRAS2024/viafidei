@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { getContentQADashboard } from "@/lib/content-qa";
 import { AdminSection } from "../../_sections/AdminSection";
+import { StrictCleanupButton } from "./StrictCleanupButton";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,9 @@ export default async function ContentQADashboardPage() {
       titleKey="admin.contentQA.title"
       subtitle="Strict content QA — package validation outcomes per content type."
     >
+      <div className="mt-8 flex justify-center">
+        <StrictCleanupButton />
+      </div>
       <div className="mt-8 overflow-x-auto">
         <table className="vf-table w-full text-left font-serif text-sm">
           <thead className="text-xs uppercase tracking-wider text-ink-soft">
