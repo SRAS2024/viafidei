@@ -19,9 +19,16 @@ import {
 } from "@/lib/data/admin-notifications";
 import { pruneOldErrorLogs } from "@/lib/data/error-log";
 import { runCatalogJanitor } from "@/lib/data/catalog-janitor";
-import { recoverStaleJobs } from "@/lib/ingestion/queue/queue";
+import {
+  recoverStaleJobs,
+  enqueueDueIngestionJobs,
+  pruneQueueHistory,
+} from "@/lib/ingestion/queue";
+import { hasHealthyWorker } from "@/lib/ingestion/queue/heartbeat";
 import { runAllIngestionAlerts } from "@/lib/data/ingestion-alerts";
-import { appConfig } from "@/lib/config";
+import { autoEvaluateSourcePauses } from "@/lib/data/source-auto-pause";
+import { appConfig, isDurableQueueEnabled } from "@/lib/config";
+import { reportCriticalFailure } from "@/lib/data/admin-notifications";
 import { jsonError, jsonOk } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
@@ -59,7 +66,33 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const summary = await runAllActiveJobs();
+  // Queue-first vs legacy direct-execution path. The transition flag
+  // `USE_DURABLE_INGESTION_QUEUE` (env or appConfig) controls which
+  // path runs. The new path is plan-only; a separate worker process
+  // dequeues and executes the jobs the planner creates.
+  let summary: Awaited<ReturnType<typeof runAllActiveJobs>> | null = null;
+  let plannerSummary: Awaited<ReturnType<typeof enqueueDueIngestionJobs>> | null = null;
+  if (isDurableQueueEnabled()) {
+    plannerSummary = await enqueueDueIngestionJobs().catch((e) => {
+      logger.error("cron.planner_failed", {
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return null;
+    });
+    // Healthy-worker check: if the planner enqueued work but there
+    // is no live worker heartbeat, fire a critical admin alert.
+    if (plannerSummary && plannerSummary.jobsEnqueued > 0) {
+      const healthy = await hasHealthyWorker().catch(() => false);
+      if (!healthy) {
+        await reportCriticalFailure({
+          kind: "no_worker_alive",
+          message: `Planner enqueued ${plannerSummary.jobsEnqueued} jobs but no worker heartbeat detected.`,
+        }).catch(() => undefined);
+      }
+    }
+  } else {
+    summary = await runAllActiveJobs();
+  }
 
   // Admin can disable the automatic Data Management sweep via the
   // site_settings row. When disabled, the ingestion runner still runs
@@ -193,17 +226,36 @@ export async function POST(req: NextRequest) {
     return { stalledGrowth: 0, sourceFailures: 0, lowQualitySources: 0, reviewQueueLarge: false };
   });
 
+  // Auto-pause sources that have crossed failure/low-quality
+  // thresholds. Each paused source triggers one admin email.
+  const autoPause = await autoEvaluateSourcePauses().catch((e) => {
+    logger.warn("cron.auto_pause_failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return { paused: [] as string[] };
+  });
+
+  // Queue history retention pruner — cheap deleteMany call.
+  const prunedQueueHistory = await pruneQueueHistory().catch(() => ({
+    completed: 0,
+    skipped: 0,
+    failed: 0,
+  }));
+
   logger.info("cron.completed", {
     route: "/api/cron/ingest",
     requestId,
     durationMs: Date.now() - started,
+    queueFirst: isDurableQueueEnabled(),
     summary,
+    plannerSummary,
     prunedRateLimits,
     prunedTokens,
     overdueGoals,
     prunedRuns,
     prunedAudits,
     prunedErrors,
+    prunedQueueHistory,
     staleRecovered,
     mode: backlogProgress?.mode ?? "constant",
     backlogDbError: backlogProgress?.dbError ?? false,
@@ -217,6 +269,7 @@ export async function POST(req: NextRequest) {
       divertedToReview: janitor.totalDivertedToReview,
     },
     alerts,
+    autoPausedSources: autoPause.paused.length,
     adminNotifications: adminNotifications
       ? {
           biweeklySent:
@@ -233,13 +286,16 @@ export async function POST(req: NextRequest) {
       : null,
   });
   return jsonOk({
+    queueFirst: isDurableQueueEnabled(),
     summary,
+    plannerSummary,
     prunedRateLimits,
     prunedTokens,
     overdueGoals,
     prunedRuns,
     prunedAudits,
     prunedErrors,
+    prunedQueueHistory,
     staleRecovered,
     mode: backlogProgress?.mode ?? "constant",
     backlogDbError: backlogProgress?.dbError ?? false,

@@ -1,18 +1,22 @@
 import { randomUUID } from "node:crypto";
+import os from "node:os";
 import { logger } from "../../observability/logger";
-import { getAdapter } from "../registry";
-import { runAdapter, type RunnerOptions } from "../runner";
+import type { RunnerOptions } from "../runner";
 import { recordSourceFreshness } from "../../data/source-health";
 import { isContentTypePaused } from "../../data/content-type-pause";
 import {
   completeJob,
   failJob,
+  isCancelRequested,
   leaseNextJob,
   recoverStaleJobs,
   releaseLease,
   skipJob,
   type QueueJobRow,
 } from "./queue";
+import { recordQueueAudit } from "./audit";
+import { writeHeartbeat, removeHeartbeat } from "./heartbeat";
+import { runJobByKind } from "./dispatch";
 import { prisma } from "../../db/client";
 
 export type WorkerOptions = {
@@ -96,54 +100,49 @@ export async function processNextJob(
     return { processed: true, job, result: "skipped" };
   }
 
-  const adapter = getAdapter(job.jobName);
-  if (!adapter) {
-    await skipJob(job.id, `No registered adapter for job '${job.jobName}'`);
-    logger.warn("ingestion.worker.adapter_missing", {
+  // Cooperative cancellation check immediately after lease.
+  if (await isCancelRequested(job.id)) {
+    await skipJob(job.id, "Canceled by admin before processing");
+    await recordQueueAudit({
       jobQueueId: job.id,
-      jobName: job.jobName,
+      event: "canceled",
+      fromStatus: "running",
+      toStatus: "skipped",
+      reason: "cancel requested",
     });
     return { processed: true, job, result: "skipped" };
   }
 
-  // Resolve the source host the runner expects. Falls back to the
-  // adapter's first entityKind tag when the job row has no source.
-  const sourceHost = job.sourceId
-    ? ((await prisma.ingestionSource.findUnique({ where: { id: job.sourceId } }))?.host ??
-      job.jobName)
-    : job.jobName;
-
+  // Dispatch by jobKind. The dispatcher handles every typed job
+  // kind — source_ingest, source_freshness, archive_cleanup, etc.
   try {
-    const summary = await runAdapter(adapter, job.jobId, sourceHost, {
-      ...options.runnerOptions,
-      triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
-      actorUsername: job.actorUsername ?? null,
-    });
-    if (summary.recordsFailed > 0 && summary.recordsSeen === 0) {
-      // Total fetch failure (upstream returned nothing) — treat as retryable.
-      const err = summary.errorMessage ?? "Upstream returned no records and recorded a failure";
-      const outcome = await failJob(job.id, err);
-      await recordSourceFreshness(job.sourceId, {
-        ok: false,
-        errorMessage: err,
-      }).catch(() => undefined);
-      return { processed: true, job, result: outcome.status === "failed" ? "failed" : "retrying" };
+    const result = await runJobByKind(job);
+    if (!result.ok) {
+      const outcome = await failJob(
+        job.id,
+        result.errorMessage ?? "job dispatcher returned not-ok",
+      );
+      return {
+        processed: true,
+        job,
+        result: outcome.status === "failed" ? "failed" : "retrying",
+      };
     }
-    await completeJob(job.id, summary.errorMessage ?? undefined);
-    await recordSourceFreshness(job.sourceId, {
-      ok: true,
-    }).catch(() => undefined);
+    await completeJob(job.id, result.errorMessage ?? undefined);
     return { processed: true, job, result: "completed" };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const outcome = await failJob(job.id, message);
-    await recordSourceFreshness(job.sourceId, {
-      ok: false,
-      errorMessage: message,
-    }).catch(() => undefined);
+    if (job.sourceId) {
+      await recordSourceFreshness(job.sourceId, {
+        ok: false,
+        errorMessage: message,
+      }).catch(() => undefined);
+    }
     logger.error("ingestion.worker.job_threw", {
       jobQueueId: job.id,
       jobName: job.jobName,
+      jobKind: job.jobKind,
       errorMessage: message,
       outcome: outcome.status,
     });
@@ -170,12 +169,28 @@ export async function runWorkerLoop(
   const workerId = options.workerId ?? `worker-${randomUUID()}`;
   const idleSleep = options.idleSleepMs ?? DEFAULT_IDLE_SLEEP_MS;
   const started = Date.now();
+  const startedAt = new Date(started);
   let processed = 0;
+  let failedCount = 0;
+  let retryCount = 0;
+  const hostname = os.hostname();
   logger.info("ingestion.worker.start", {
     workerId,
     oneShot: !!options.oneShot,
     maxJobs: options.maxJobs ?? null,
+    hostname,
   });
+  await writeHeartbeat({
+    workerId,
+    startedAt,
+    processedCount: 0,
+    failedCount: 0,
+    retryCount: 0,
+    status: "idle",
+    hostname,
+    version: process.env.npm_package_version,
+  }).catch(() => undefined);
+
   let consecutiveEmpty = 0;
   while (true) {
     if (options.maxJobs && processed >= options.maxJobs) break;
@@ -190,14 +205,27 @@ export async function runWorkerLoop(
     if (outcome.processed) {
       consecutiveEmpty = 0;
       processed += 1;
+      if (outcome.result === "failed") failedCount += 1;
+      if (outcome.result === "retrying") retryCount += 1;
       logger.info("ingestion.worker.processed", {
         workerId,
         jobName: outcome.job.jobName,
+        jobKind: outcome.job.jobKind,
         jobQueueId: outcome.job.id,
         result: outcome.result,
         attempts: outcome.job.attempts,
         priority: outcome.job.priority,
       });
+      await writeHeartbeat({
+        workerId,
+        startedAt,
+        processedCount: processed,
+        failedCount,
+        retryCount,
+        currentJobId: null,
+        status: "running",
+        hostname,
+      }).catch(() => undefined);
       continue;
     }
     if (options.oneShot) break;
@@ -206,11 +234,32 @@ export async function runWorkerLoop(
       logger.info("ingestion.worker.idle", { workerId, idleSleepMs: idleSleep });
       consecutiveEmpty = 0;
     }
+    await writeHeartbeat({
+      workerId,
+      startedAt,
+      processedCount: processed,
+      failedCount,
+      retryCount,
+      status: "idle",
+      hostname,
+    }).catch(() => undefined);
     await new Promise((r) => {
       const t = setTimeout(r, idleSleep);
       if (typeof t.unref === "function") t.unref();
     });
   }
+  await writeHeartbeat({
+    workerId,
+    startedAt,
+    processedCount: processed,
+    failedCount,
+    retryCount,
+    status: "stopped",
+    hostname,
+  }).catch(() => undefined);
+  // Best-effort heartbeat removal so the dashboard doesn't show a
+  // permanently-stale worker after a clean shutdown.
+  await removeHeartbeat(workerId).catch(() => undefined);
   const durationMs = Date.now() - started;
   logger.info("ingestion.worker.stop", { workerId, processed, durationMs });
   return { processed, durationMs };

@@ -48,6 +48,7 @@ describe("durable queue — enqueueJob", () => {
     const result = await enqueueJob({
       jobName: "test-adapter",
       contentType: "Prayer",
+      skipValidation: true,
     });
     expect(result.status).toBe("pending");
     expect(prismaMock.ingestionJobQueue.create).toHaveBeenCalled();
@@ -109,6 +110,7 @@ describe("durable queue — enqueueJob", () => {
       jobName: "test-adapter",
       contentType: "Prayer",
       priority: PRIORITY_CONTENT_THRESHOLD_UNMET, // 10 — lower than the existing 200
+      skipValidation: true,
     });
     expect(prismaMock.ingestionJobQueue.create).not.toHaveBeenCalled();
     expect(prismaMock.ingestionJobQueue.update).toHaveBeenCalled();

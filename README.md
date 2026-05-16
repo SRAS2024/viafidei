@@ -1038,6 +1038,85 @@ to `DRAFT`. The admin must then click **Publish** on `/admin/publish-list`
 (or on the entity's own admin page) for the change to go live. Status-
 only flips and explicit "Save and Publish" actions are honoured as-is.
 
+### Queue-first architecture (planner + worker)
+
+Cron plans, worker executes. The cron route at `POST /api/cron/ingest`
+no longer runs ingestion adapters directly. It does five things and
+exits within seconds:
+
+1. Recovers stale leases (`recoverStaleJobs`).
+2. Checks backlog thresholds (DB error → stay in constant mode +
+   fire admin warning).
+3. Calls `enqueueDueIngestionJobs()` — the planner — which walks
+   active `IngestionJob` rows and writes new `IngestionJobQueue`
+   rows at the right priority.
+4. Runs cleanup, queue history retention, archive pruning, and
+   admin notifications.
+5. Returns a summary that includes the planner's outcome.
+
+A separate **worker process** (`npm run worker`) is the only
+execution layer for ingestion. The worker:
+
+- Leases the next queue row using `FOR UPDATE SKIP LOCKED` so
+  multiple workers never claim the same job.
+- Writes a heartbeat row into `WorkerHeartbeat` every iteration so
+  the admin dashboard shows live vs stale workers.
+- Routes the leased row to the matching execution function based
+  on `jobKind` (source_ingest, source_freshness, source_discovery,
+  content_revalidate, archive_cleanup, dedupe_cleanup,
+  sitemap_refresh, report_generate).
+- Validates the payload against the kind-specific Zod schema
+  before executing.
+- Checks `cancelRequestedAt` between batches so an admin can stop
+  a long-running job cooperatively.
+- On graceful SIGTERM/SIGINT, releases active leases and removes
+  its heartbeat so the next worker picks up immediately.
+
+The transition is governed by the env flag
+`USE_DURABLE_INGESTION_QUEUE` (default `true`). When set to `false`,
+the cron route falls back to the legacy `runAllActiveJobs()` direct
+execution path — used only for rollback.
+
+#### Dedup keys
+
+Every planner-enqueued row carries a stable `dedupeKey` of the form
+`ingest|<jobId>|<sourceId>|<adapterKey>|<contentType>|<mode>`. A
+partial unique index (in
+`prisma/migrations/0012_queue_transition/migration.sql`) makes the
+dedupe constraint hard at the database level for active rows
+(`pending` / `running` / `retrying`); completed / failed / skipped
+rows still keep their historical records.
+
+#### Planner summary
+
+The planner returns and the cron route logs:
+
+```json
+{
+  "jobsScanned": 42,
+  "jobsEnqueued": 12,
+  "jobsSkippedAlreadyQueued": 30,
+  "jobsSkippedSourcePaused": 0,
+  "jobsSkippedJobPaused": 0,
+  "jobsSkippedContentTypePaused": 0,
+  "jobsSkippedSourceUnhealthy": 0,
+  "jobsSkippedSourceExhausted": 0,
+  "jobsSkippedDailyCap": 0,
+  "jobsSkippedFillCap": 0,
+  "promotedToConstant": 8,
+  "assignedToMaintenance": 4,
+  "mode": "constant",
+  "dbError": false
+}
+```
+
+#### Worker dashboard
+
+`/admin/ingestion/workers` shows every worker's heartbeat, last
+beat age, processed / retried / failed counts, and the current
+status. Stale workers are listed separately. A red warning fires
+when the queue has pending jobs but no healthy worker exists.
+
 ### Durable ingestion architecture
 
 The ingestion pipeline runs on a **persistent Postgres-backed job

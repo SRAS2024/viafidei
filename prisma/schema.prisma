@@ -568,34 +568,42 @@ model HomePageBlock {
 }
 
 model IngestionSource {
-  id                  String         @id @default(cuid())
-  name                String
-  host                String         @unique
-  baseUrl             String
-  sourceType          String
-  isOfficial          Boolean        @default(false)
-  isActive            Boolean        @default(true)
-  rateLimitPerMin     Int?
-  reliabilityScore    Float?
-  lastSuccessfulSync  DateTime?
-  lastFailedSync      DateTime?
-  lastContentUpdateAt DateTime?
-  lastHttpStatus      Int?
-  lastEtag            String?
-  lastModifiedHeader  String?
-  tier                Int            @default(3)
-  trustLabel          String?
-  healthState         String         @default("active")
-  consecutiveFailures Int            @default(0)
-  lowQualityRatio     Float?
-  pausedAt            DateTime?
-  pausedReason        String?
-  requestSpacingMs    Int?
-  robotsRespect       Boolean        @default(true)
-  notes               String?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  jobs                IngestionJob[]
+  id                       String         @id @default(cuid())
+  name                     String
+  host                     String         @unique
+  baseUrl                  String
+  sourceType               String
+  isOfficial               Boolean        @default(false)
+  isActive                 Boolean        @default(true)
+  rateLimitPerMin          Int?
+  reliabilityScore         Float?
+  lastSuccessfulSync       DateTime?
+  lastFailedSync           DateTime?
+  lastContentUpdateAt      DateTime?
+  lastHttpStatus           Int?
+  lastEtag                 String?
+  lastModifiedHeader       String?
+  tier                     Int            @default(3)
+  trustLabel               String?
+  healthState              String         @default("active")
+  consecutiveFailures      Int            @default(0)
+  lowQualityRatio          Float?
+  pausedAt                 DateTime?
+  pausedReason             String?
+  autoPaused               Boolean        @default(false)
+  autoPausedAt             DateTime?
+  requestSpacingMs         Int?
+  robotsRespect            Boolean        @default(true)
+  estimatedTotalItems      Int?
+  discoveredItems          Int            @default(0)
+  completedItems           Int            @default(0)
+  rejectedItems            Int            @default(0)
+  exhaustedAt              DateTime?
+  lastSourceTierChangeAt   DateTime?
+  notes                    String?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  jobs                     IngestionJob[]
 
   @@index([healthState])
   @@index([tier])
@@ -950,52 +958,62 @@ model RateLimitBucket {
 /// non-interactive ingestion work and adds retries, exponential
 /// backoff, priority, leases, and stale-job recovery.
 model IngestionJobQueue {
-  id              String    @id @default(cuid())
-  sourceId        String?
-  jobId           String?
-  jobName         String
-  contentType     String?
-  status          String    @default("pending")
-  priority        Int       @default(100)
-  attempts        Int       @default(0)
-  maxAttempts     Int       @default(5)
-  runAt           DateTime  @default(now())
-  startedAt       DateTime?
-  finishedAt      DateTime?
-  leaseExpiresAt  DateTime?
-  leasedBy        String?
-  errorMessage    String?
-  lastError       String?
-  payload         Json?
-  triggeredBy     String    @default("automatic")
-  actorUsername   String?
-  sentToReviewAt  DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                String    @id @default(cuid())
+  sourceId          String?
+  jobId             String?
+  jobName           String
+  jobKind           String    @default("source_ingest")
+  contentType       String?
+  status            String    @default("pending")
+  priority          Int       @default(100)
+  attempts          Int       @default(0)
+  maxAttempts       Int       @default(5)
+  runAt             DateTime  @default(now())
+  startedAt         DateTime?
+  finishedAt        DateTime?
+  durationMs        Int?
+  leaseExpiresAt    DateTime?
+  leasedBy          String?
+  dedupeKey         String?
+  errorMessage      String?
+  lastError         String?
+  payload           Json?
+  triggeredBy       String    @default("automatic")
+  actorUsername     String?
+  sentToReviewAt    DateTime?
+  cancelRequestedAt DateTime?
+  cancelReason      String?
+  canceledAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([status, priority, runAt])
   @@index([sourceId])
   @@index([status, leaseExpiresAt])
   @@index([jobName, status])
+  @@index([dedupeKey])
+  @@index([jobKind, status])
 }
 
 /// Per-source / per-adapter / per-content-type cursor so ingestion
 /// can resume from the last successful checkpoint after a restart,
 /// deploy, crash, or timeout.
 model IngestionCursor {
-  id             String   @id @default(cuid())
-  sourceId       String?
-  adapterKey     String
-  contentType    String?
-  cursorKey      String
-  lastPosition   String?
-  lastItemSlug   String?
-  lastFetchedAt  DateTime?
-  itemsProcessed Int      @default(0)
-  completed      Boolean  @default(false)
-  metadata       Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  sourceId             String?
+  adapterKey           String
+  contentType          String?
+  cursorKey            String
+  lastPosition         String?
+  lastItemSlug         String?
+  lastFetchedAt        DateTime?
+  itemsProcessed       Int      @default(0)
+  completed            Boolean  @default(false)
+  exhaustedAt          DateTime?
+  lastFreshnessCheckAt DateTime?
+  metadata             Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   @@unique([adapterKey, cursorKey])
   @@index([sourceId])
@@ -1091,4 +1109,113 @@ model ContentTypePause {
   pausedReason  String?
   actorUsername String?
   updatedAt     DateTime @updatedAt
+}
+
+/// Worker heartbeat — each running worker writes its status here every
+/// ~30s. Used by the admin dashboard to show active vs stale workers
+/// and by the startup-time check that warns when the queue has work
+/// but no worker is alive.
+model WorkerHeartbeat {
+  workerId        String   @id
+  startedAt       DateTime
+  lastHeartbeatAt DateTime @default(now())
+  processedCount  Int      @default(0)
+  failedCount     Int      @default(0)
+  retryCount      Int      @default(0)
+  currentJobId    String?
+  status          String   @default("idle")
+  hostname        String?
+  version         String?
+  metadata        Json?
+
+  @@index([lastHeartbeatAt])
+  @@index([status])
+}
+
+/// One row per URL / feed entry / API record a discovery job finds.
+/// Processing jobs consume `pending` rows and update the status as
+/// they ingest, skip, reject, dedupe, or fail. Decouples discovery
+/// (find what's out there) from processing (turn it into a row).
+model DiscoveredSourceItem {
+  id            String   @id @default(cuid())
+  sourceId      String
+  adapterKey    String
+  contentType   String?
+  externalKey   String
+  sourceUrl     String?
+  discoveredAt  DateTime @default(now())
+  status        String   @default("pending")
+  attempts      Int      @default(0)
+  maxAttempts   Int      @default(5)
+  processedAt   DateTime?
+  contentRef    String?
+  failureReason String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([sourceId, externalKey])
+  @@index([status])
+  @@index([sourceId, status])
+}
+
+/// robots.txt cache. Each domain's robots body lives here with an
+/// expiry — refetched only when the cached row is past expiresAt.
+model RobotsCache {
+  domain     String   @id
+  fetchedAt  DateTime @default(now())
+  expiresAt  DateTime
+  body       String?
+  lastStatus Int?
+
+  @@index([expiresAt])
+}
+
+/// Per-queue-row audit trail. One row per lifecycle event so a forensic
+/// reconstruction of "what happened to this job" is always possible.
+model QueueAuditLog {
+  id            String   @id @default(cuid())
+  jobQueueId    String?
+  event         String
+  fromStatus    String?
+  toStatus      String?
+  actorUsername String?
+  workerId      String?
+  reason        String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([jobQueueId, createdAt])
+  @@index([event, createdAt])
+}
+
+/// Audit row for every source tier change.
+model SourceTierChange {
+  id            String   @id @default(cuid())
+  sourceId      String
+  previousTier  Int?
+  newTier       Int
+  reason        String
+  actorUsername String?
+  createdAt     DateTime @default(now())
+
+  @@index([sourceId, createdAt])
+}
+
+/// Per-day, per-source, per-content-type ingestion counters. Used by
+/// the planner to enforce daily caps and by admin reports to show
+/// daily ingestion volume.
+model DailyIngestionCounter {
+  id          String   @id @default(cuid())
+  day         DateTime @db.Date
+  sourceId    String?
+  contentType String?
+  enqueued    Int      @default(0)
+  processed   Int      @default(0)
+  failed      Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([day, sourceId, contentType])
+  @@index([day])
 }

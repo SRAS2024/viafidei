@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
+import { recordDataManagementLogs } from "@/lib/data/data-management-log";
 import { prisma } from "@/lib/db/client";
 import { enqueueJob, PRIORITY_NORMAL } from "@/lib/ingestion/queue/queue";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
@@ -33,14 +34,35 @@ export async function POST(req: NextRequest) {
   for (const job of jobs) {
     const row = await enqueueJob({
       jobName: job.jobName,
+      jobKind: "source_ingest",
+      dedupeKey: `reprocess:${job.id}:${Date.now()}`,
       sourceId: job.sourceId,
       jobId: job.id,
       contentType: job.targetEntity,
       priority: PRIORITY_NORMAL,
       triggeredBy: "manual",
       actorUsername: admin.username,
+      payload: {
+        sourceId: job.sourceId,
+        adapterKey: job.jobName,
+        contentType: job.targetEntity,
+        mode: "constant" as const,
+      },
     });
     enqueued.push(row.id);
+  }
+
+  if (enqueued.length > 0) {
+    await recordDataManagementLogs([
+      {
+        action: "ADD",
+        contentType: "IngestionQueue",
+        contentRef: parsed.data.sourceId,
+        reason: `Manual source reprocess — enqueued ${enqueued.length} jobs`,
+        triggeredBy: "manual",
+        actorUsername: admin.username,
+      },
+    ]);
   }
 
   await writeAudit({

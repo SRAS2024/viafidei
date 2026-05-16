@@ -26,10 +26,14 @@ export {
   completeJob,
   failJob,
   skipJob,
+  cancelJob,
+  isCancelRequested,
   recoverStaleJobs,
   countQueueByStatus,
   listQueueJobs,
   retryFailedJob,
+  pruneQueueHistory,
+  queueLatencySnapshot,
   countFailedNeedingReview,
   type EnqueueJobInput,
   type QueueJobRow,
@@ -41,6 +45,33 @@ export {
   DEFAULT_LEASE_DURATION_MS,
   DEFAULT_STALE_LEASE_GRACE_MS,
 } from "./queue";
+
+export {
+  JOB_KINDS,
+  PRIORITY_DEFAULTS,
+  JOB_PAYLOAD_SCHEMAS,
+  validatePayload,
+  sanitizePayload,
+  isJobKind,
+  type JobKind,
+  type SourceIngestPayload,
+  type SourceFreshnessPayload,
+  type SourceDiscoveryPayload,
+  type ContentRevalidatePayload,
+} from "./job-kinds";
+
+export { recordQueueAudit, type QueueAuditEvent } from "./audit";
+
+export { enqueueDueIngestionJobs, type PlannerSummary, type PlannerOptions } from "./planner";
+
+export {
+  writeHeartbeat,
+  listWorkerHealth,
+  hasHealthyWorker,
+  removeHeartbeat,
+  type WorkerHealthRow,
+  type WorkerStatus,
+} from "./heartbeat";
 
 export {
   backoffDelayForAttempt,
