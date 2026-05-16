@@ -35,6 +35,7 @@ export {
   type ContentManagementCounts,
   type AdminSendOutcome,
   type IngestionHealthSummary,
+  type ContentQASummary,
   type SourceQualityRow,
 } from "./admin-send";
 export {
