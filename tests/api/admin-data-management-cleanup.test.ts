@@ -6,7 +6,9 @@ vi.mock("@/lib/audit", () => ({ writeAudit: vi.fn() }));
 vi.mock("@/lib/data/cleanup", () => ({
   archiveDuplicatePrayers: vi.fn(),
   cleanupMiscategorisedContent: vi.fn(),
-  purgeStaleArchivedContent: vi.fn(),
+}));
+vi.mock("@/lib/data/archive-cleanup", () => ({
+  purgeArchivedByArchivedAt: vi.fn(),
 }));
 vi.mock("@/lib/data/site-settings", () => ({
   getDataManagementSettings: vi.fn(),
@@ -15,18 +17,15 @@ vi.mock("@/lib/data/site-settings", () => ({
 import { POST } from "@/app/api/admin/data-management/cleanup/route";
 import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
-import {
-  archiveDuplicatePrayers,
-  cleanupMiscategorisedContent,
-  purgeStaleArchivedContent,
-} from "@/lib/data/cleanup";
+import { archiveDuplicatePrayers, cleanupMiscategorisedContent } from "@/lib/data/cleanup";
+import { purgeArchivedByArchivedAt } from "@/lib/data/archive-cleanup";
 import { getDataManagementSettings } from "@/lib/data/site-settings";
 
 const requireAdminMock = vi.mocked(requireAdmin);
 const writeAuditMock = vi.mocked(writeAudit);
 const archiveDuplicateMock = vi.mocked(archiveDuplicatePrayers);
 const cleanupMock = vi.mocked(cleanupMiscategorisedContent);
-const purgeMock = vi.mocked(purgeStaleArchivedContent);
+const purgeMock = vi.mocked(purgeArchivedByArchivedAt);
 const settingsMock = vi.mocked(getDataManagementSettings);
 
 function makeReq() {

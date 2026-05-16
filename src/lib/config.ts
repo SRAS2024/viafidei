@@ -120,14 +120,11 @@ export const appConfig = {
     archiveRetentionDays: 30,
   },
   /**
-   * Queue-first transition flag. When true, the cron route only
-   * plans + enqueues work; a separate worker process executes the
-   * adapters. When false, the legacy `runAllActiveJobs()` direct
-   * execution path still runs. Defaults to true; can be overridden
-   * by `USE_DURABLE_INGESTION_QUEUE=false` for rollout-time fallback.
+   * Durable ingestion queue tunables. The cron route plans + enqueues
+   * via `enqueueDueIngestionJobs()`; a separate worker process
+   * (`npm run worker`) is the only adapter executor.
    */
   ingestionQueue: {
-    enabledByDefault: true,
     completedRetentionDays: 30,
     failedRetentionDays: 90,
     workerStaleAfterMs: 90 * 1000,
@@ -166,14 +163,3 @@ export const appConfig = {
 } as const;
 
 export type AppConfig = typeof appConfig;
-
-/**
- * Read the queue-first transition flag from env (preferred) or fall
- * back to the config default. Defaults to true so the new path is
- * active out of the box.
- */
-export function isDurableQueueEnabled(): boolean {
-  const raw = process.env.USE_DURABLE_INGESTION_QUEUE;
-  if (raw === undefined || raw === "") return appConfig.ingestionQueue.enabledByDefault;
-  return raw === "1" || raw.toLowerCase() === "true";
-}
