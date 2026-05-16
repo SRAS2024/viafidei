@@ -2,8 +2,55 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db/client";
 import { AdminSection } from "../../_sections/AdminSection";
+import { ContentDiff } from "./ContentDiff";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Resolve the current title + body for an entity so the diff viewer
+ * can show before/after. We only fetch the cheap text fields.
+ */
+async function getCurrentEntity(
+  entityType: string,
+  entityId: string,
+): Promise<{ title: string | null; body: string | null }> {
+  try {
+    switch (entityType) {
+      case "Prayer": {
+        const r = await prisma.prayer.findUnique({
+          where: { id: entityId },
+          select: { defaultTitle: true, body: true },
+        });
+        return { title: r?.defaultTitle ?? null, body: r?.body ?? null };
+      }
+      case "Saint": {
+        const r = await prisma.saint.findUnique({
+          where: { id: entityId },
+          select: { canonicalName: true, biography: true },
+        });
+        return { title: r?.canonicalName ?? null, body: r?.biography ?? null };
+      }
+      case "LiturgyEntry": {
+        const r = await prisma.liturgyEntry.findUnique({
+          where: { id: entityId },
+          select: { title: true, body: true },
+        });
+        return { title: r?.title ?? null, body: r?.body ?? null };
+      }
+      case "SpiritualLifeGuide": {
+        const r = await prisma.spiritualLifeGuide.findUnique({
+          where: { id: entityId },
+          select: { title: true, summary: true },
+        });
+        return { title: r?.title ?? null, body: r?.summary ?? null };
+      }
+      default:
+        return { title: null, body: null };
+    }
+  } catch {
+    return { title: null, body: null };
+  }
+}
 
 /**
  * Content change feed. Lists the most recent ContentVersion rows so
@@ -20,6 +67,13 @@ export default async function ContentChangesPage() {
     orderBy: { createdAt: "desc" },
     take: 50,
   });
+  // Resolve current title/body for each entity so the diff viewer can
+  // show before/after. Bounded by the take=50 above so the cost is
+  // proportionate.
+  const currents = await Promise.all(
+    versions.map((v) => getCurrentEntity(v.entityType, v.entityId)),
+  );
+  const currentByVersion = new Map(versions.map((v, i) => [v.id, currents[i]]));
 
   return (
     <AdminSection
@@ -56,16 +110,17 @@ export default async function ContentChangesPage() {
               {v.changeSummary ? (
                 <p className="mt-2 font-serif text-sm text-ink-soft">{v.changeSummary}</p>
               ) : null}
-              {v.previousBody ? (
-                <details className="mt-3">
-                  <summary className="cursor-pointer font-serif text-xs text-ink-soft">
-                    Previous body (excerpt)
-                  </summary>
-                  <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap rounded-sm bg-ink/5 p-3 font-serif text-xs">
-                    {v.previousBody.slice(0, 600)}
-                    {v.previousBody.length > 600 ? "…" : ""}
-                  </pre>
-                </details>
+              <ContentDiff
+                previousTitle={v.previousTitle}
+                previousBody={v.previousBody}
+                currentTitle={currentByVersion.get(v.id)?.title ?? null}
+                currentBody={currentByVersion.get(v.id)?.body ?? null}
+                contentVersionId={v.id}
+              />
+              {v.reviewRequired ? (
+                <div className="mt-3 flex flex-wrap gap-2 font-serif text-xs text-ink-soft">
+                  Action:
+                </div>
               ) : null}
               <div className="mt-3 grid grid-cols-1 gap-1 font-serif text-xs text-ink-faint sm:grid-cols-3">
                 <span>checksum: {v.previousChecksum?.slice(0, 12) ?? "—"}</span>

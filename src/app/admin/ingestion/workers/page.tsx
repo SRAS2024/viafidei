@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { listWorkerHealth } from "@/lib/ingestion/queue/heartbeat";
 import { getQueueHealthSummary } from "@/lib/data/queue-health";
+import { listWorkerMetrics } from "@/lib/data/worker-metrics";
 import { AdminSection } from "../../_sections/AdminSection";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,12 @@ function ms(ageMs: number | null): string {
 export default async function WorkersPage() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const [workers, health] = await Promise.all([listWorkerHealth(), getQueueHealthSummary()]);
+  const [workers, health, metrics] = await Promise.all([
+    listWorkerHealth(),
+    getQueueHealthSummary(),
+    listWorkerMetrics(),
+  ]);
+  const metricsByWorker = new Map(metrics.map((m) => [m.workerId, m]));
 
   const healthy = workers.filter((w) => !w.isStale);
   const stale = workers.filter((w) => w.isStale);
@@ -61,25 +67,40 @@ export default async function WorkersPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {healthy.map((w) => (
-              <div key={w.workerId} className="vf-card rounded-sm p-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-display text-base">{w.workerId}</h3>
-                    <p className="font-serif text-xs text-ink-faint">
-                      status: {w.status} · started {w.startedAt.toISOString().slice(0, 16)}
-                    </p>
-                  </div>
-                  <div className="text-right font-serif text-xs text-ink-faint">
-                    <div>last beat: {ms(w.ageMs)} ago</div>
+            {healthy.map((w) => {
+              const m = metricsByWorker.get(w.workerId);
+              return (
+                <div key={w.workerId} className="vf-card rounded-sm p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      processed: {w.processedCount} · retried: {w.retryCount} · failed:{" "}
-                      {w.failedCount}
+                      <h3 className="font-display text-base">{w.workerId}</h3>
+                      <p className="font-serif text-xs text-ink-faint">
+                        status: {w.status} · started {w.startedAt.toISOString().slice(0, 16)}
+                      </p>
+                    </div>
+                    <div className="text-right font-serif text-xs text-ink-faint">
+                      <div>last beat: {ms(w.ageMs)} ago</div>
+                      <div>
+                        processed: {w.processedCount} · retried: {w.retryCount} · failed:{" "}
+                        {w.failedCount}
+                      </div>
                     </div>
                   </div>
+                  {m ? (
+                    <div className="mt-3 grid grid-cols-2 gap-2 font-serif text-xs text-ink-soft sm:grid-cols-4">
+                      <span>24h processed: {m.processed}</span>
+                      <span>avg duration: {ms(m.avgDurationMs)}</span>
+                      <span>failure rate: {(m.failureRate * 100).toFixed(1)}%</span>
+                      <span>retry rate: {(m.retryRate * 100).toFixed(1)}%</span>
+                      {m.currentJobId ? (
+                        <span className="col-span-2">current: {m.currentJobId}</span>
+                      ) : null}
+                      {m.idleSinceMs != null ? <span>idle for: {ms(m.idleSinceMs)}</span> : null}
+                    </div>
+                  ) : null}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { getQueueDashboard } from "@/lib/data/ingestion-dashboard";
-import { listQueueJobs } from "@/lib/ingestion/queue/queue";
+import { listQueueJobs, queueLatencySnapshot } from "@/lib/ingestion/queue/queue";
+import { prisma } from "@/lib/db/client";
 import { AdminSection } from "../../_sections/AdminSection";
 import { QueueRetryButton } from "./QueueRetryButton";
 import { QueueFilters } from "./QueueFilters";
@@ -22,6 +23,31 @@ export default async function QueuePage() {
   if (!admin) redirect("/admin/login");
   const dashboard = await getQueueDashboard();
   const initialRows = await listQueueJobs({ take: 100 });
+  const latency = await queueLatencySnapshot();
+
+  // "Last planner tick" snapshot: count the rows the planner created
+  // in the past 15 minutes, broken out by priority band so the admin
+  // can see at a glance what the planner is doing.
+  const since = new Date(Date.now() - 15 * 60 * 1000);
+  const recentlyCreated = await prisma.ingestionJobQueue.findMany({
+    where: { createdAt: { gte: since }, triggeredBy: "automatic" },
+    select: { priority: true, jobKind: true, contentType: true },
+  });
+  const plannerByBand = recentlyCreated.reduce(
+    (acc, row) => {
+      const band = row.priority <= 50 ? "constant" : row.priority <= 100 ? "normal" : "maintenance";
+      acc[band] = (acc[band] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+  const plannerByKind = recentlyCreated.reduce(
+    (acc, row) => {
+      acc[row.jobKind] = (acc[row.jobKind] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
 
   return (
     <AdminSection
@@ -39,6 +65,30 @@ export default async function QueuePage() {
             </div>
           ),
         )}
+      </section>
+
+      <section className="mb-8 vf-card rounded-sm p-5">
+        <p className="vf-eyebrow">Planner — last 15 minutes</p>
+        <div className="mt-2 grid grid-cols-2 gap-3 font-serif text-sm text-ink-soft sm:grid-cols-4">
+          <span>enqueued: {recentlyCreated.length}</span>
+          <span>constant priority: {plannerByBand.constant ?? 0}</span>
+          <span>normal priority: {plannerByBand.normal ?? 0}</span>
+          <span>maintenance priority: {plannerByBand.maintenance ?? 0}</span>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-3 font-serif text-xs text-ink-faint">
+          {Object.entries(plannerByKind).map(([kind, count]) => (
+            <span key={kind}>
+              {kind}: {count}
+            </span>
+          ))}
+        </div>
+        <p className="mt-3 font-serif text-xs text-ink-faint">
+          Oldest pending:{" "}
+          {latency.oldestPendingAgeMs == null
+            ? "—"
+            : `${Math.round(latency.oldestPendingAgeMs / 1000)}s`}{" "}
+          · avg wait: {latency.avgWaitMs == null ? "—" : `${Math.round(latency.avgWaitMs / 1000)}s`}
+        </p>
       </section>
 
       <section className="mb-8">
