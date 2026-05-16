@@ -36,6 +36,7 @@ const NON_CONTENT_PHRASES: ReadonlyArray<RegExp> = [
   /\b(catholic\s+australia|catholic\s+answers|catholic\s+culture|catholic\s+news\s+agency|catholic\s+world\s+report|word\s+on\s+fire|ascension\s+press|the\s+catholic\s+thing|ewtn)\s*(,|\.|-|—|is)\s*(a\s+(work|service|publication|website|programme|program|ministry|apostolate)|an?\s+(initiative|outreach))/i,
   /\bcatholic\s+bishops\s+conference\b.*\b(website|publication|directory)\b/i,
   /\ba\s+work\s+of\s+the\s+(australian|us|usccb|cccb)\b/i,
+  /\b(catholic\s+answers|ewtn|word\s+on\s+fire)\s+is\s+a\s+(media|catholic|global)\b/i,
   // TV / radio / livestream descriptions.
   /\b(ewtn\s+(live|television|radio|tv|programming|broadcast)|live\s+stream(?:ed)?|broadcast\s+schedule|on\s+demand|episode\s+\d+|series\s+overview|television\s+programs?|tv\s+programs?)\b/i,
   /\b(daily\s+mass\s+broadcast|catholic\s+television|radio\s+ministry)\b/i,
@@ -48,7 +49,73 @@ const NON_CONTENT_PHRASES: ReadonlyArray<RegExp> = [
   /\b(404\s+not\s+found|page\s+not\s+found|access\s+denied|cookies?\s+policy|privacy\s+policy|terms\s+of\s+(use|service)|site\s*map|breadcrumb)\b/i,
   // Bare article / blog-post stubs.
   /\b(continue\s+reading|read\s+more|click\s+here\s+to\s+(read|learn)|the\s+article\s+(continues|appears)|excerpt\s+from)\b/i,
+  // Browser / accessibility / CMS chrome that snuck into the body.
+  /\b(skip\s+to\s+(main\s+)?content|accessibility\s+(feedback|menu|tools)|toggle\s+(menu|navigation))\b/i,
+  /\b(latest\s+content|featured\s+content|read,?\s*listen,?\s*or\s*watch)\b/i,
+  /\b(honest\s+answers\s+to\s+questions|questions\s+about\s+catholic\s+faith\s+&\s+beliefs)\b/i,
 ];
+
+/**
+ * Title patterns that almost always indicate a brand landing / index /
+ * navigation page rather than a single piece of devotional content.
+ * Used to reject pages like:
+ *   "Catholic Prayers - Prayer to Jesus, Marian, & More | EWTN"
+ *   "Catholic Faith, Beliefs, & Prayers | Catholic Answers"
+ *   "Prayers and Devotions | USCCB"
+ * These are aggregator pages and have no place in a single-prayer or
+ * single-saint row.
+ */
+const LANDING_PAGE_TITLE_PATTERNS: ReadonlyArray<RegExp> = [
+  // Anything containing "& More" before a brand suffix is an index page.
+  /\b&\s*more\b/i,
+  // "Catholic Faith, Beliefs, & Prayers" — generic plural enumeration.
+  /\bcatholic\s+(faith|beliefs|teachings?)\s*[,&]/i,
+  // "Catholic Prayers - X to Y, Z" — list page.
+  /\b(catholic\s+)?prayers?\s*[-–:]\s*prayer\s+(to|for)\b.*[,&]/i,
+  // Bare plural categories with a brand suffix: "Catholic Prayers | EWTN".
+  /^(catholic\s+)?(prayers?|devotions?|saints?|sacraments?|novenas?|litanies?)\s*\|\s*\w/i,
+  // "Prayers and Devotions" style enumerations.
+  /^(prayers?|devotions?|saints?)\s+and\s+(prayers?|devotions?|saints?|sacraments?)/i,
+  // "Index of …" / "Directory of …" / "List of …" pages.
+  /^(index|directory|list|catalog|catalogue|collection)\s+of\s+/i,
+  // "Top N …", "All Catholic …", "Best Catholic …".
+  /^(top\s+\d+|all\s+(catholic\s+)?(prayers?|saints?|devotions?)|best\s+catholic\s+)/i,
+];
+
+/**
+ * Body openers that almost always mean the page is a meta-description
+ * about the content type rather than an actual instance of that
+ * content type. A prayer body that starts with "Devotions are
+ * manifestations of our profound love…" is talking *about* devotion,
+ * it is not itself a prayer. Reject those.
+ */
+const META_DESCRIPTION_OPENERS: ReadonlyArray<RegExp> = [
+  /^\s*(devotions?|prayers?|the\s+rosary|the\s+(hail\s+mary|our\s+father|memorare))\s+(are|is|was|were)\s+/i,
+  /^\s*(catholic\s+answers|ewtn|word\s+on\s+fire|catholic\s+culture|usccb|cccb)\s+(is|was)\s+(a|an|the)\s+/i,
+  /^\s*(this|here)\s+is\s+(a|an)\s+(collection|list|index|directory)\s+of\b/i,
+  /^\s*(below|here)\s+(you\s+will\s+find|are)\s+/i,
+  /^\s*(a|the)\s+(prayer|devotion|practice)\s+(is|was)\s+(a|an|the)\s+/i,
+  /^\s*(skip\s+to\s+(main\s+)?content|accessibility\s+feedback|latest\s+content)/i,
+];
+
+/**
+ * Returns true when the title matches a known landing-page pattern.
+ * Landing pages are aggregator URLs, not individual content rows.
+ */
+export function looksLikeLandingPage(title: string): boolean {
+  if (typeof title !== "string") return false;
+  return LANDING_PAGE_TITLE_PATTERNS.some((re) => re.test(title));
+}
+
+/**
+ * Returns true when the body opens with meta-description language —
+ * i.e. it describes the *category* of content rather than being a
+ * single instance of it.
+ */
+export function looksLikeMetaDescription(body: string): boolean {
+  if (typeof body !== "string") return false;
+  return META_DESCRIPTION_OPENERS.some((re) => re.test(body));
+}
 
 function nonEmpty(value: string | undefined | null): boolean {
   return typeof value === "string" && value.trim().length > 0;
@@ -114,6 +181,16 @@ function validatePrayer(item: IngestedItem & { kind: "prayer" }): string | null 
   // the lower bound conservative so legitimate brief prayers
   // (Sign of the Cross, the Glory Be) still pass.
   if (item.body.trim().length < 40) return "Prayer body looks too short";
+  // Landing / aggregator pages with a brand suffix and "& More" are
+  // never single prayers. Reject outright so the janitor hard-deletes.
+  if (looksLikeLandingPage(item.defaultTitle)) {
+    return "Prayer title looks like a landing or index page, not a single prayer";
+  }
+  // Body that opens with "Devotions are manifestations of…" or "Skip
+  // to main content" is describing the category, not BEING a prayer.
+  if (looksLikeMetaDescription(item.body)) {
+    return "Prayer body reads as meta-description or navigation cruft, not an actual prayer";
+  }
   // The title must not look like a source byline ("Catholic Australia,
   // a work of the Australian Catholic Bishops Conference") or program
   // listing.
@@ -151,6 +228,12 @@ function validateSaint(item: IngestedItem & { kind: "saint" }): string | null {
   // Saint cards in the catalog need enough body to give "a well-rounded
   // sense of the saint's life" — reject one-line stubs.
   if (item.biography.trim().length < 80) return "Saint biography looks too short";
+  if (looksLikeLandingPage(item.canonicalName)) {
+    return "Saint name looks like a landing or index page, not an individual saint";
+  }
+  if (looksLikeMetaDescription(item.biography)) {
+    return "Saint biography reads as meta-description or navigation cruft";
+  }
   if (looksLikeNonContent(item.canonicalName) || looksLikeNonContent(item.biography)) {
     return "Saint looks like a TV program listing / source summary";
   }
@@ -191,6 +274,12 @@ function validateApparition(item: IngestedItem & { kind: "apparition" }): string
   if (!nonEmpty(item.summary)) return "Apparition summary is required";
   if (!nonEmpty(item.approvedStatus)) return "Apparition approvedStatus is required";
   if (item.summary.trim().length < 60) return "Apparition summary looks too short";
+  if (looksLikeLandingPage(item.title)) {
+    return "Apparition title looks like a landing or index page";
+  }
+  if (looksLikeMetaDescription(item.summary)) {
+    return "Apparition summary reads as meta-description or navigation cruft";
+  }
   if (looksLikeNonContent(item.title) || looksLikeNonContent(item.summary)) {
     return "Apparition looks like a source summary / page navigation";
   }
@@ -249,6 +338,12 @@ function validateDevotion(item: IngestedItem & { kind: "devotion" }): string | n
   if (item.durationMinutes !== undefined && item.durationMinutes <= 0) {
     return "Devotion durationMinutes must be positive";
   }
+  if (looksLikeLandingPage(item.title)) {
+    return "Devotion title looks like a landing or index page";
+  }
+  if (looksLikeMetaDescription(item.summary)) {
+    return "Devotion summary reads as meta-description or navigation cruft";
+  }
   if (looksLikeNonContent(item.title) || looksLikeNonContent(item.summary)) {
     return "Devotion looks like a source summary / broadcast description";
   }
@@ -280,6 +375,12 @@ function validateLiturgy(item: IngestedItem & { kind: "liturgy" }): string | nul
   if (!LITURGY_KINDS.has(item.liturgyKind)) {
     return `Liturgy kind '${item.liturgyKind}' is not a recognised LiturgyKind`;
   }
+  if (looksLikeLandingPage(item.title)) {
+    return "Liturgy entry title looks like a landing or index page";
+  }
+  if (looksLikeMetaDescription(item.body)) {
+    return "Liturgy entry body reads as meta-description or navigation cruft";
+  }
   if (looksLikeNonContent(item.title) || looksLikeNonContent(item.body)) {
     return "Liturgy entry looks like a source summary / TV program listing";
   }
@@ -303,6 +404,12 @@ function validateGuide(item: IngestedItem & { kind: "guide" }): string | null {
   if (item.summary.length < 40) return "Guide summary looks too short";
   if (!GUIDE_KINDS.has(item.guideKind)) {
     return `Guide kind '${item.guideKind}' is not a recognised SpiritualLifeKind`;
+  }
+  if (looksLikeLandingPage(item.title)) {
+    return "Guide title looks like a landing or index page";
+  }
+  if (looksLikeMetaDescription(item.summary)) {
+    return "Guide summary reads as meta-description or navigation cruft";
   }
   if (looksLikeNonContent(item.title) || looksLikeNonContent(item.summary)) {
     return "Guide looks like a source summary / broadcast description";
@@ -361,59 +468,83 @@ export function validateItem(item: IngestedItem): string | null {
 /**
  * Severity of a validation failure:
  *
- *   • `"hard"` — the item is missing required fields, the kind is
- *     protected, or the source is off-allowlist. These items are
- *     rejected outright and never reach the database.
- *   • `"soft"` — the item passes the structural checks but trips one
- *     of the lexical category heuristics (e.g. a "prayer" body that
- *     does not contain prayer-language markers, a "saint" biography
- *     missing the usual biographical vocabulary, an "apparition"
- *     summary that does not mention Mary / Our Lady / vision). The
- *     runner writes these to the database with `status = REVIEW` so
- *     a moderator can decide whether to publish or archive.
+ *   • `"noise"` — the item is clearly navigation cruft, a brand
+ *     landing page, or a meta-description about a content category.
+ *     These never have any place in the catalog; the runner hard-
+ *     deletes them with no archive or review entry.
+ *   • `"hard"` — structurally invalid: missing required fields,
+ *     protected kind, or off-allowlist source. Also dropped.
+ *   • `"soft"` — passes structural checks but trips one of the
+ *     lexical category heuristics (a "prayer" body without
+ *     prayer-language markers, a "saint" biography missing
+ *     biographical vocabulary, an "apparition" summary missing
+ *     Marian vocabulary, body too short, etc.). The runner writes
+ *     these to the database with `status = REVIEW` so a moderator
+ *     can decide whether to publish or archive — these are the
+ *     "imperfect but possibly real" rows worth keeping.
  *
- * Splitting validation into hard vs soft severities lets the
- * pipeline grow dynamically (quality-over-quantity) without
- * permanently dropping borderline content that an admin might still
- * want.
+ * Splitting validation into noise / hard / soft severities lets the
+ * pipeline:
+ *   - aggressively delete clearly-non-content items (noise),
+ *   - refuse structurally-impossible items (hard),
+ *   - and preserve borderline real content (soft).
  */
-export type ValidationSeverity = "hard" | "soft";
+export type ValidationSeverity = "noise" | "hard" | "soft";
+
+/**
+ * Reasons that mean "this isn't real content; delete it". Matches the
+ * messages produced by `looksLikeLandingPage()`,
+ * `looksLikeMetaDescription()`, and the broader `looksLikeNonContent()`
+ * detectors when they fire on titles or bodies.
+ */
+const NOISE_REASON_RE =
+  /(landing or index page|meta-description|navigation cruft|TV program listing|source summary|page navigation|broadcast description|directory page|index page)/i;
 
 const SOFT_REASON_RE =
-  /(prayer language|biography|TV program|source summary|Marian apparition language|navigation|broadcast description|newsletter|Catholic devotional|directory page|too short|biography looks too short|prayer body looks too short|summary looks too short|apparition summary looks too short|devotion summary looks too short|liturgy body looks too short|guide summary looks too short)/i;
+  /(prayer language|biography does not read|Marian apparition language|Catholic devotional|too short|looks too short|biography looks too short|prayer body looks too short|summary looks too short|apparition summary looks too short|devotion summary looks too short|liturgy body looks too short|guide summary looks too short)/i;
 
 const HARD_REASON_RE =
   /(slug is required|required|protected user-generated|not from a Vatican-approved host|non-Catholic|websiteUrl|email is malformed|not a recognised|canonical status|approvedStatus|durationMinutes|durationDays)/i;
 
 /**
- * Classify a validation failure reason. Falls back to "hard" when the
- * reason text does not match either set so an unknown failure mode is
- * never silently softened.
+ * Classify a validation failure reason. Order matters: a reason that
+ * mentions both "looks like" and "too short" should be classified as
+ * noise (the looks-like check fires first in the validators), so the
+ * NOISE pattern is tried first.
  */
 export function classifySeverity(reason: string): ValidationSeverity {
+  if (NOISE_REASON_RE.test(reason)) return "noise";
   if (HARD_REASON_RE.test(reason)) return "hard";
   if (SOFT_REASON_RE.test(reason)) return "soft";
   return "hard";
 }
 
 /**
- * Returns a copy of `items` partitioned into:
- *   • `valid` — passes every check; safe to persist with the runner's
- *     configured `initialStatus`.
- *   • `review` — passes the structural checks but fails a category
- *     heuristic. Persisted with `status = REVIEW` so a moderator can
- *     publish or archive.
- *   • `rejected` — fails a hard check; never persisted.
+ * Returns a copy of `items` partitioned into four buckets:
+ *   • `valid`    — passes every check; safe to persist.
+ *   • `review`   — passes the structural checks but fails a category
+ *                  heuristic. Persisted with `status = REVIEW` so a
+ *                  moderator can publish or archive. These are the
+ *                  "imperfect but possibly real" rows worth keeping.
+ *   • `noise`    — clearly non-content (landing pages, navigation
+ *                  cruft, meta-descriptions). The runner hard-deletes
+ *                  these with no review entry. They never had any
+ *                  place in the catalog.
+ *   • `rejected` — structurally invalid (missing required field,
+ *                  off-allowlist source, protected kind). Refused
+ *                  before persistence.
  *
  * Slugs are normalized on every item before the validator runs.
  */
 export function sanitize(items: IngestedItem[]): {
   valid: IngestedItem[];
   review: Array<{ item: IngestedItem; reason: string }>;
+  noise: Array<{ item: IngestedItem; reason: string }>;
   rejected: Array<{ item: IngestedItem; reason: string }>;
 } {
   const valid: IngestedItem[] = [];
   const review: Array<{ item: IngestedItem; reason: string }> = [];
+  const noise: Array<{ item: IngestedItem; reason: string }> = [];
   const rejected: Array<{ item: IngestedItem; reason: string }> = [];
   for (const item of items) {
     const normalized = { ...item, slug: normalizeSlug(item.slug) };
@@ -422,13 +553,16 @@ export function sanitize(items: IngestedItem[]): {
       valid.push(normalized);
       continue;
     }
-    if (classifySeverity(reason) === "soft") {
+    const severity = classifySeverity(reason);
+    if (severity === "soft") {
       review.push({ item: normalized, reason });
+    } else if (severity === "noise") {
+      noise.push({ item: normalized, reason });
     } else {
       rejected.push({ item, reason });
     }
   }
-  return { valid, review, rejected };
+  return { valid, review, noise, rejected };
 }
 
 export { KNOWN_PRAYER_CATEGORIES };

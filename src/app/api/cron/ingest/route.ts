@@ -15,6 +15,7 @@ import {
 import { getDataManagementSettings } from "@/lib/data/site-settings";
 import { dispatchAdminNotifications } from "@/lib/data/admin-notifications";
 import { pruneOldErrorLogs } from "@/lib/data/error-log";
+import { runCatalogJanitor } from "@/lib/data/catalog-janitor";
 import { jsonError, jsonOk } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
@@ -76,6 +77,25 @@ export async function POST(req: NextRequest) {
     ]);
   }
 
+  // Catalog janitor: runs every tick regardless of the auto-cleanup
+  // toggle so the catalog is continuously self-maintaining. The
+  // janitor inspects every PUBLISHED row, re-runs the
+  // format/clean/validate pipeline against it, repackages text that
+  // can be cleaned up (e.g. strips a stale "| EWTN" brand suffix
+  // from an old prayer title), hard-deletes any row classified as
+  // noise (landing page / nav cruft / meta-description), and diverts
+  // soft fails to REVIEW. This is the user-facing intelligent
+  // self-managing layer the admin can rely on without manual
+  // intervention.
+  const janitor = await runCatalogJanitor().catch((e) => {
+    logger.warn("cron.catalog_janitor.failed", {
+      route: "/api/cron/ingest",
+      requestId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return { buckets: [], totalRepackaged: 0, totalHardDeleted: 0, totalDivertedToReview: 0 };
+  });
+
   // Admin notification dispatch — runs after ingestion + cleanup so the
   // biweekly + monthly digests reflect this tick's activity. Each
   // sub-flow guards its own "is it time?" check, so an off-cadence call
@@ -106,6 +126,11 @@ export async function POST(req: NextRequest) {
     miscategorisedArchived: miscategorised.totalArchived,
     duplicatePrayersArchived: duplicatePrayers,
     hardDeleted: purged.totalDeleted,
+    janitor: {
+      repackaged: janitor.totalRepackaged,
+      hardDeleted: janitor.totalHardDeleted,
+      divertedToReview: janitor.totalDivertedToReview,
+    },
     adminNotifications: adminNotifications
       ? {
           biweeklySent:
@@ -134,6 +159,7 @@ export async function POST(req: NextRequest) {
       duplicatePrayers,
       hardDeleted: purged,
     },
+    janitor,
     adminNotifications,
   });
 }

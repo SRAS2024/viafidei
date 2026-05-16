@@ -5,6 +5,286 @@ import { listApprovedHosts } from "./vatican-allowlist";
 import { buildAllVaticanCrawlers } from "./vatican-adapters";
 
 /**
+ * For each adapter key, the set of secondary hosts the adapter walks
+ * (in addition to the primary host in ADAPTER_HOST_MAP). Registering a
+ * job row against each one means the admin dashboard can show non-zero
+ * "N jobs" counts next to every source that genuinely contributes to
+ * ingestion — not just the primary host.
+ *
+ * The list is curated rather than auto-derived because the index URL
+ * lists inside each adapter are the source of truth — the bootstrap
+ * file should not parse them. When a new index URL is added that lives
+ * on a host not already covered here, add the host to the right
+ * adapter entry below.
+ */
+const ADAPTER_SECONDARY_HOSTS: Record<string, ReadonlyArray<string>> = {
+  "vatican.prayers": [
+    "usccb.org",
+    "cbcew.org.uk",
+    "cccb.ca",
+    "catholic.org.au",
+    "catholicbishops.ie",
+  ],
+  "vatican.saints": [
+    "usccb.org",
+    "cccb.ca",
+    "cbcew.org.uk",
+    "catholic.org.au",
+    "catholicbishops.ie",
+    "archny.org",
+    "rcab.org",
+    "archchicago.org",
+    "archphila.org",
+    "ewtn.com",
+    "catholicculture.org",
+    "newadvent.org",
+    "catholic.com",
+    "osv.com",
+  ],
+  "vatican.apparitions": [
+    "usccb.org",
+    "cbcew.org.uk",
+    "cccb.ca",
+    "lourdes-france.org",
+    "fatima.pt",
+    "knock-shrine.ie",
+    "virgendeguadalupe.org.mx",
+    "basilica.mxv.mx",
+    "czestochowa.pl",
+    "jasnagora.pl",
+    "lasaletteshrine.org",
+  ],
+  "vatican.devotions": [
+    "usccb.org",
+    "cbcew.org.uk",
+    "thedivinemercy.org",
+    "marian.org",
+    "dominicans.org",
+    "franciscan.org",
+    "carmelites.com",
+    "jesuits.org",
+  ],
+  "vatican.parishes": [
+    "cccb.ca",
+    "cbcew.org.uk",
+    "catholic.org.au",
+    "archny.org",
+    "archchicago.org",
+    "rcab.org",
+    "archmil.org",
+    "rcdow.org.uk",
+    "lacatholics.org",
+    "archphila.org",
+    "archatl.com",
+    "archbalt.org",
+    "archstl.org",
+    "archden.org",
+    "miamiarch.org",
+    "archsa.org",
+    "sfarchdiocese.org",
+    "seattlearchdiocese.org",
+    "archtoronto.org",
+    "diomelb.org.au",
+    "sydneycatholic.org",
+    "dublindiocese.ie",
+    "dphx.org",
+    "dosp.org",
+    "dioceseoftrenton.org",
+    "dioceseofbrooklyn.org",
+    "rcdony.org",
+    "archomaha.org",
+    "archindy.org",
+    "archdpdx.org",
+    "archkck.org",
+    "parishesonline.com",
+    "masstimes.org",
+    "thecatholicdirectory.com",
+    "gcatholic.org",
+    "catholic-hierarchy.org",
+    "adw.org",
+    "aod.org",
+    "archdioceseofhartford.org",
+    "rcan.org",
+    "diopitt.org",
+    "dioceseofcleveland.org",
+    "catholicaoc.org",
+    "archgh.org",
+    "sdcatholic.org",
+    "catholichawaii.org",
+    "scd.org",
+    "dolr.org",
+    "richmonddiocese.org",
+    "diocesseofcc.org",
+    "raleighdiocese.org",
+    "dosma.org",
+    "rcdea.org.uk",
+    "erzbistumberlin.de",
+    "erzbistum-muenchen.de",
+    "erzbistum-koeln.de",
+    "kirchen.net",
+    "erzdioezese-wien.at",
+    "diecezja.pl",
+    "diecezja.krakow.pl",
+    "diecezja.warszawa.pl",
+    "kuria.lublin.pl",
+    "archimadrid.es",
+    "diocesimilano.it",
+    "diocesedeparis.fr",
+    "arquisp.org.br",
+    "arqrio.org",
+    "arzbaires.org.ar",
+  ],
+  "bishops.saints": [
+    "cccb.ca",
+    "cbcew.org.uk",
+    "catholic.org.au",
+    "catholicbishops.ie",
+    "archny.org",
+    "rcab.org",
+    "archchicago.org",
+    "catholic.org.nz",
+    "cbcp.net",
+    "sacbc.org.za",
+    "cbcindia.com",
+    "dbk.de",
+    "conferenciaepiscopal.es",
+    "chiesacattolica.it",
+    "eglise.catholique.fr",
+    "episcopado.pt",
+    "episkopat.pl",
+    "cnbb.org.br",
+    "celam.org",
+    "archphila.org",
+    "archatl.com",
+    "archbalt.org",
+    "archstl.org",
+    "lacatholics.org",
+    "archtoronto.org",
+    "sydneycatholic.org",
+    "dublindiocese.ie",
+  ],
+  "catholic.devotions": [
+    "cbcew.org.uk",
+    "cccb.ca",
+    "catholic.org.au",
+    "catholicbishops.ie",
+    "catholic.org.nz",
+    "cbcp.net",
+    "dbk.de",
+    "conferenciaepiscopal.es",
+    "chiesacattolica.it",
+    "eglise.catholique.fr",
+    "episkopat.pl",
+    "cnbb.org.br",
+  ],
+  "catholic.prayers": [
+    "cbcew.org.uk",
+    "catholic.org.au",
+    "catholicbishops.ie",
+    "cccb.ca",
+    "catholic.org.nz",
+    "cbcp.net",
+    "sacbc.org.za",
+    "dbk.de",
+    "conferenciaepiscopal.es",
+    "chiesacattolica.it",
+    "eglise.catholique.fr",
+    "episcopado.pt",
+    "episkopat.pl",
+    "cnbb.org.br",
+    "katolsk.no",
+  ],
+  "credible.prayers": [
+    "catholicculture.org",
+    "kofc.org",
+    "thedivinemercy.org",
+    "marian.org",
+    "dominicans.org",
+    "franciscan.org",
+    "jesuits.org",
+    "salesians.org",
+    "carmelites.com",
+    "redemptorists.com",
+    "osv.com",
+    "catholic.com",
+    "augustinian.org",
+    "benedictine.org",
+    "passionist.org",
+    "vincentians.org",
+    "norbertines.org",
+    "carmelitefriars.org",
+    "trappist.net",
+    "fathersofmercy.com",
+    "wordonfire.org",
+    "ascensionpress.com",
+    "ignatius.com",
+    "sophiainstitute.com",
+    "tanbooks.com",
+    "scepterpublishers.org",
+  ],
+  "credible.saints": [
+    "catholicculture.org",
+    "dominicans.org",
+    "franciscan.org",
+    "jesuits.org",
+    "salesians.org",
+    "carmelites.com",
+    "redemptorists.com",
+    "osv.com",
+    "catholic.com",
+    "newadvent.org",
+    "augustinian.org",
+    "benedictine.org",
+    "passionist.org",
+    "vincentians.org",
+    "norbertines.org",
+    "carmelitefriars.org",
+    "trappist.net",
+    "ocist.org",
+    "wordonfire.org",
+    "ignatius.com",
+    "sophiainstitute.com",
+    "tanbooks.com",
+    "thecatholicthing.org",
+    "ncregister.com",
+    "catholicnewsagency.com",
+  ],
+  "vatican.teaching": [
+    "usccb.org",
+    "cbcew.org.uk",
+    "cccb.ca",
+    "newadvent.org",
+    "catholicculture.org",
+    "catholic.com",
+    "wordonfire.org",
+    "ascensionpress.com",
+  ],
+  "vatican.guides": [
+    "usccb.org",
+    "cbcew.org.uk",
+    "cccb.ca",
+    "catholic.org.au",
+    "thedivinemercy.org",
+    "marian.org",
+    "osv.com",
+    "ascensionpress.com",
+    "sophiainstitute.com",
+    "wordonfire.org",
+    "discalcedcarmelitevocations.com",
+    "dominicans.org",
+    "franciscan.org",
+    "jesuits.org",
+  ],
+  "vatican.history": [
+    "usccb.org",
+    "newadvent.org",
+    "catholicculture.org",
+    "catholic-hierarchy.org",
+    "gcatholic.org",
+  ],
+};
+
+/**
  * Mapping from adapter keys to their primary upstream host. Used so the
  * scheduler always has an IngestionSource + IngestionJob row backing each
  * registered adapter.
@@ -168,6 +448,14 @@ export async function ensureVaticanSchedule(): Promise<void> {
   for (const key of listAdapterKeys()) {
     const meta = ADAPTER_HOST_MAP[key];
     if (!meta) continue;
+    // Register ONE job per adapter against its primary host. The adapter's
+    // internal index URL list still walks every secondary host it knows
+    // about (see ADAPTER_SECONDARY_HOSTS for the documented set) — those
+    // fetches go through the allowlist gate and end up in the same
+    // IngestionJobRun under the primary host. Registering one job per
+    // secondary host would cause `runAllActiveJobs()` to invoke the same
+    // adapter once per host per tick, multiplying HTTP load with no
+    // additional content.
     const source = await prisma.ingestionSource.findUnique({ where: { host: meta.host } });
     if (!source) continue;
     const existing = await prisma.ingestionJob.findFirst({
@@ -186,6 +474,16 @@ export async function ensureVaticanSchedule(): Promise<void> {
       },
     });
   }
+}
+
+/**
+ * Exposes the secondary-host mapping so the admin Sources page can
+ * surface "walked by adapter X" hints next to hosts that don't have a
+ * registered IngestionJob row but still participate in ingestion via
+ * one of the multi-source adapters above.
+ */
+export function listAdapterSecondaryHosts(): Readonly<Record<string, ReadonlyArray<string>>> {
+  return ADAPTER_SECONDARY_HOSTS;
 }
 
 function deriveName(host: string): string {

@@ -40,7 +40,7 @@ type LinkLimit = {
 };
 
 const DEFAULT_LIMIT: LinkLimit = {
-  perRun: 80,
+  perRun: 200,
   maxBodyLength: 12_000,
 };
 
@@ -52,7 +52,7 @@ const DEFAULT_LIMIT: LinkLimit = {
  * conservative default.
  */
 const PARISH_LIMIT: LinkLimit = {
-  perRun: 300,
+  perRun: 600,
   maxBodyLength: 8_000,
 };
 
@@ -326,11 +326,23 @@ export function buildVaticanPrayerCrawler(): SourceAdapter {
       "https://www.vatican.va/special/rosary/index_prayers_it.htm",
       "https://www.vatican.va/special/rosary/index_prayers_es.htm",
       "https://www.vatican.va/holy_father/index.htm",
+      "https://www.vatican.va/holy_father/francesco/index.htm",
+      "https://www.vatican.va/holy_father/benedict_xvi/index.htm",
+      "https://www.vatican.va/holy_father/john_paul_ii/index.htm",
       // USCCB prayer landing pages.
       "https://www.usccb.org/prayers",
       "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers",
+      // Bishops'-conference prayer landing pages (each contributes a
+      // different selection of localised standard prayers).
+      "https://www.cbcew.org.uk/home/our-faith/prayers/",
+      "https://www.cccb.ca/evangelization-catechesis-catholic-education/prayers/",
+      "https://www.catholic.org.au/prayer/",
+      "https://www.catholicbishops.ie/prayers/",
       // Sitemap-first discovery (XML is parsed automatically).
       "https://www.usccb.org/sitemap.xml",
+      "https://www.cbcew.org.uk/sitemap.xml",
+      "https://www.cccb.ca/sitemap.xml",
+      "https://www.catholic.org.au/sitemap.xml",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedPrayer | null => {
       const body = bodyText || description || "";
@@ -339,9 +351,12 @@ export function buildVaticanPrayerCrawler(): SourceAdapter {
       // cheap content-shape gate that doesn't depend on the upstream URL
       // path structure (the old linkFilter was too rigid).
       const looksLikePrayer =
-        /prayer|litany|novena|act of|memorare|hail mary|our father|nicene|apostles|magnificat|te deum|veni|angelus|salve|regina/i.test(
+        /prayer|litany|novena|act of|memorare|hail mary|our father|nicene|apostles|magnificat|te deum|veni|angelus|salve|regina|consecration|anima christi/i.test(
           title,
-        ) || /\/prayer|\/litany|\/novena|\/orationes|\/preghiere|\/oraciones/i.test(url);
+        ) ||
+        /\/prayer|\/litany|\/novena|\/orationes|\/preghiere|\/oraciones|\/gebete|\/prieres/i.test(
+          url,
+        );
       if (!looksLikePrayer) return null;
       if (body.length < 30) return null;
       return {
@@ -369,9 +384,27 @@ export function buildVaticanSaintsCrawler(): SourceAdapter {
       "https://www.vatican.va/news_services/liturgy/2024/documents/index.htm",
       "https://www.vatican.va/news_services/liturgy/2023/documents/index.htm",
       "https://www.vatican.va/news_services/liturgy/2022/documents/index.htm",
+      "https://www.vatican.va/news_services/liturgy/2021/documents/index.htm",
+      "https://www.vatican.va/news_services/liturgy/2020/documents/index.htm",
       "https://www.usccb.org/prayer-and-worship/liturgical-year/saints",
       "https://www.usccb.org/prayer-and-worship/liturgical-year/saints/index.cfm",
+      // Bishops' conferences and major archdioceses publish saint biographies
+      // and feast-day pages. Each one contributes a different patron-focus.
+      "https://www.cccb.ca/faith-moral-issues/feast-days-saints/",
+      "https://www.cbcew.org.uk/home/our-faith/saints/",
+      "https://www.catholic.org.au/saints",
+      "https://www.catholicbishops.ie/saints/",
+      "https://www.archny.org/news/saints",
+      "https://www.rcab.org/news/category/saints/",
+      "https://www.archchicago.org/saints",
+      "https://www.archphila.org/saints/",
+      // Reference works and religious orders republish biographies in
+      // depth — sitemap-first discovery flattens their full archives.
       "https://www.ewtn.com/sitemap.xml",
+      "https://www.catholicculture.org/sitemap.xml",
+      "https://www.newadvent.org/cathen/index.html",
+      "https://www.catholic.com/sitemap.xml",
+      "https://www.osv.com/sitemap.xml",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedSaint | null => {
       const biography = bodyText || description || "";
@@ -406,6 +439,17 @@ export function buildVaticanApparitionsCrawler(): SourceAdapter {
       "https://www.usccb.org/prayer-and-worship/devotions/marian-devotions",
       "https://www.cbcew.org.uk/home/our-faith/devotions/our-lady/",
       "https://www.cccb.ca/faith-moral-issues/feast-days-saints/",
+      // Approved Marian-shrine websites: each is the canonical record
+      // for one apparition site, so a single page on the shrine's home
+      // already passes the Marian-vocabulary validator.
+      "https://www.lourdes-france.org/",
+      "https://www.fatima.pt/",
+      "https://www.knock-shrine.ie/",
+      "https://www.virgendeguadalupe.org.mx/",
+      "https://basilica.mxv.mx/",
+      "https://www.czestochowa.pl/",
+      "https://www.jasnagora.pl/",
+      "https://www.lasaletteshrine.org/",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedApparition | null => {
       const summary = bodyText || description || "";
@@ -439,6 +483,15 @@ export function buildVaticanDevotionsCrawler(): SourceAdapter {
       "https://www.usccb.org/prayer-and-worship/devotions/eucharistic-devotion",
       "https://www.usccb.org/prayer-and-worship/devotions/rosary",
       "https://www.cbcew.org.uk/home/our-faith/devotions/",
+      // Approved Marian Fathers / Divine Mercy devotional archives.
+      "https://www.thedivinemercy.org/message/devotions",
+      "https://www.marian.org/divinemercy/",
+      // Religious orders publish characteristic devotions (Brown Scapular,
+      // Sacred Heart, etc.) — each surface is allowlisted.
+      "https://www.dominicans.org/prayers/",
+      "https://www.franciscan.org/prayers/",
+      "https://www.carmelites.com/prayers/",
+      "https://www.jesuits.org/spirituality/",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedDevotion | null => {
       const summary = description || bodyText.slice(0, 600) || "";
@@ -520,6 +573,68 @@ export function buildVaticanParishesCrawler(): SourceAdapter {
       "https://www.archden.org/sitemap.xml",
       "https://www.archomaha.org/sitemap.xml",
       "https://www.archindy.org/sitemap.xml",
+      // Additional approved diocesan + archdiocesan sitemaps (US, UK,
+      // Australia, Ireland, Germany, Poland). Each one flattens
+      // hundreds-to-thousands of parish entries through the
+      // sitemap-index recursion.
+      "https://www.archatl.com/sitemap.xml",
+      "https://www.miamiarch.org/sitemap.xml",
+      "https://www.archsa.org/sitemap.xml",
+      "https://www.sfarchdiocese.org/sitemap.xml",
+      "https://www.seattlearchdiocese.org/sitemap.xml",
+      "https://www.archtoronto.org/sitemap.xml",
+      "https://www.lacatholics.org/sitemap.xml",
+      "https://www.rcab.org/sitemap.xml",
+      "https://www.archmil.org/sitemap.xml",
+      "https://www.dphx.org/sitemap.xml",
+      "https://www.dosp.org/sitemap.xml",
+      "https://www.dioceseoftrenton.org/sitemap.xml",
+      "https://www.dioceseofbrooklyn.org/sitemap.xml",
+      "https://www.rcdony.org/sitemap.xml",
+      "https://www.archdpdx.org/sitemap.xml",
+      "https://www.archkck.org/sitemap.xml",
+      "https://www.adw.org/sitemap.xml",
+      "https://www.aod.org/sitemap.xml",
+      "https://www.archdioceseofhartford.org/sitemap.xml",
+      "https://www.rcan.org/sitemap.xml",
+      "https://www.diopitt.org/sitemap.xml",
+      "https://www.dioceseofcleveland.org/sitemap.xml",
+      "https://www.catholicaoc.org/sitemap.xml",
+      "https://www.archgh.org/sitemap.xml",
+      "https://www.sdcatholic.org/sitemap.xml",
+      "https://www.catholichawaii.org/sitemap.xml",
+      "https://www.scd.org/sitemap.xml",
+      "https://www.dolr.org/sitemap.xml",
+      "https://www.richmonddiocese.org/sitemap.xml",
+      "https://www.diocesseofcc.org/sitemap.xml",
+      "https://www.raleighdiocese.org/sitemap.xml",
+      "https://www.dosma.org/sitemap.xml",
+      // UK
+      "https://www.rcdow.org.uk/sitemap.xml",
+      "https://www.rcdea.org.uk/sitemap.xml",
+      // Australia & Ireland
+      "https://www.diomelb.org.au/sitemap.xml",
+      "https://www.sydneycatholic.org/sitemap.xml",
+      "https://www.dublindiocese.ie/sitemap.xml",
+      // Germany & Austria
+      "https://www.erzbistumberlin.de/sitemap.xml",
+      "https://www.erzbistum-muenchen.de/sitemap.xml",
+      "https://www.erzbistum-koeln.de/sitemap.xml",
+      "https://www.kirchen.net/sitemap.xml",
+      "https://www.erzdioezese-wien.at/sitemap.xml",
+      // Poland
+      "https://www.diecezja.pl/sitemap.xml",
+      "https://www.diecezja.krakow.pl/sitemap.xml",
+      "https://www.diecezja.warszawa.pl/sitemap.xml",
+      "https://www.kuria.lublin.pl/sitemap.xml",
+      // Spain & Italy
+      "https://www.archimadrid.es/sitemap.xml",
+      "https://www.diocesimilano.it/sitemap.xml",
+      "https://www.diocesedeparis.fr/sitemap.xml",
+      // Latin America
+      "https://www.arquisp.org.br/sitemap.xml",
+      "https://www.arqrio.org/sitemap.xml",
+      "https://www.arzbaires.org.ar/sitemap.xml",
     ],
     toItem: ({ url, title, description }): IngestedParish | null => {
       const name = sanitizeParishName(title);
@@ -619,6 +734,30 @@ export function buildBishopsConferenceSaintsCrawler(): SourceAdapter {
       "https://www.archny.org/news/saints",
       "https://www.rcab.org/news/category/saints/",
       "https://www.archchicago.org/saints",
+      // Bishops' conferences worldwide — each publishes patronal-saint
+      // pages and feast-day catechesis. Names listed here are all in
+      // the allowlist so gateUrl() accepts them at fetch time.
+      "https://www.catholic.org.nz/about-us/saints/",
+      "https://www.cbcp.net/saints/",
+      "https://www.sacbc.org.za/saints/",
+      "https://www.cbcindia.com/saints/",
+      "https://www.dbk.de/glaube/heilige",
+      "https://www.conferenciaepiscopal.es/santoral/",
+      "https://www.chiesacattolica.it/santi/",
+      "https://www.eglise.catholique.fr/approfondir-sa-foi/figures-de-saintete/",
+      "https://www.episcopado.pt/santos/",
+      "https://www.episkopat.pl/swieci/",
+      "https://www.cnbb.org.br/santos/",
+      "https://www.celam.org/santos/",
+      // Major archdioceses with saint catechesis pages.
+      "https://www.archphila.org/sitemap.xml",
+      "https://www.archatl.com/sitemap.xml",
+      "https://www.archbalt.org/sitemap.xml",
+      "https://www.archstl.org/sitemap.xml",
+      "https://www.lacatholics.org/sitemap.xml",
+      "https://www.archtoronto.org/sitemap.xml",
+      "https://www.sydneycatholic.org/sitemap.xml",
+      "https://www.dublindiocese.ie/sitemap.xml",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedSaint | null => {
       const biography = bodyText || description || "";
@@ -656,10 +795,21 @@ export function buildCatholicDevotionsCrawler(): SourceAdapter {
       "https://www.cbcew.org.uk/home/our-faith/devotions/",
       "https://www.cccb.ca/faith-moral-issues/devotions/",
       "https://www.catholic.org.au/devotions",
+      "https://www.catholicbishops.ie/devotions/",
       "https://www.usccb.org/prayer-and-worship/devotions/eucharistic-devotion",
       "https://www.usccb.org/prayer-and-worship/devotions/marian-devotions",
       "https://www.cbcew.org.uk/home/our-faith/devotions/our-lady/",
       "https://www.cbcew.org.uk/home/our-faith/devotions/eucharistic-devotion/",
+      // Bishops' conferences worldwide that publish localised devotional
+      // catechesis (Sacred Heart, Brown Scapular, First Friday, etc.).
+      "https://www.catholic.org.nz/about-us/devotional-life/",
+      "https://www.cbcp.net/devotions/",
+      "https://www.dbk.de/glaube/gebet-und-frommigkeit/",
+      "https://www.conferenciaepiscopal.es/devociones/",
+      "https://www.chiesacattolica.it/preghiere/",
+      "https://www.eglise.catholique.fr/approfondir-sa-foi/la-priere/",
+      "https://www.episkopat.pl/modlitwy/",
+      "https://www.cnbb.org.br/devocoes/",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedDevotion | null => {
       const summary = description || bodyText.slice(0, 600) || "";
@@ -703,6 +853,19 @@ export function buildCatholicPrayersCrawler(): SourceAdapter {
       "https://www.cccb.ca/evangelization-catechesis-catholic-education/prayers/",
       "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers/index.cfm",
       "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers/prayers-of-catholics.cfm",
+      // Worldwide bishops' conferences (allowlisted) — gives the prayer
+      // catalog multilingual breadth.
+      "https://www.catholic.org.nz/about-us/prayers/",
+      "https://www.cbcp.net/prayers/",
+      "https://www.sacbc.org.za/prayers/",
+      "https://www.dbk.de/glaube/gebete",
+      "https://www.conferenciaepiscopal.es/oraciones/",
+      "https://www.chiesacattolica.it/preghiere-cristiane/",
+      "https://www.eglise.catholique.fr/approfondir-sa-foi/la-priere/prieres/",
+      "https://www.episcopado.pt/oracoes/",
+      "https://www.episkopat.pl/modlitwy/",
+      "https://www.cnbb.org.br/oracoes/",
+      "https://www.katolsk.no/boenneliv",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedPrayer | null => {
       const body = bodyText || description || "";
@@ -751,6 +914,27 @@ export function buildCredibleCatholicPrayersCrawler(): SourceAdapter {
       "https://www.redemptorists.com/prayer-and-worship/",
       "https://www.osv.com/category/prayer/",
       "https://www.catholic.com/prayers",
+      // Additional approved religious-order prayer archives.
+      "https://www.augustinian.org/prayers",
+      "https://www.benedictine.org/prayers",
+      "https://www.passionist.org/prayers/",
+      "https://www.vincentians.org/prayer/",
+      "https://www.norbertines.org/prayers/",
+      "https://www.carmelitefriars.org/prayers/",
+      "https://www.trappist.net/prayers/",
+      "https://www.fathersofmercy.com/prayers",
+      // Catholic reference + publishing houses' prayer pages.
+      "https://www.wordonfire.org/articles/prayers/",
+      "https://www.ascensionpress.com/blogs/main/tagged/prayer",
+      "https://www.ignatius.com/prayers/",
+      "https://www.sophiainstitute.com/prayers/",
+      "https://www.tanbooks.com/prayers/",
+      "https://www.scepterpublishers.org/prayers/",
+      // Sitemap-first discovery on the busiest of these.
+      "https://www.ewtn.com/sitemap.xml",
+      "https://www.catholicculture.org/sitemap.xml",
+      "https://www.catholic.com/sitemap.xml",
+      "https://www.wordonfire.org/sitemap.xml",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedPrayer | null => {
       const body = bodyText || description || "";
@@ -795,10 +979,28 @@ export function buildCredibleCatholicSaintsCrawler(): SourceAdapter {
       "https://www.osv.com/category/saints/",
       "https://www.catholic.com/encyclopedia/saints",
       "https://www.newadvent.org/cathen/13347a.htm", // New Advent: index of saints
+      // Additional approved religious-order founder + martyr archives.
+      "https://www.augustinian.org/saints",
+      "https://www.benedictine.org/saints",
+      "https://www.passionist.org/saints/",
+      "https://www.vincentians.org/saints/",
+      "https://www.norbertines.org/saints/",
+      "https://www.carmelitefriars.org/saints/",
+      "https://www.trappist.net/saints/",
+      "https://www.ocist.org/saints/",
+      // Approved Catholic reference / publishing pages.
+      "https://www.wordonfire.org/articles/saints/",
+      "https://www.ignatius.com/saints/",
+      "https://www.sophiainstitute.com/saints/",
+      "https://www.tanbooks.com/saints/",
       // Sitemap-first discovery for these major reference sites.
       "https://www.ewtn.com/sitemap.xml",
       "https://www.catholicculture.org/sitemap.xml",
       "https://www.osv.com/sitemap.xml",
+      "https://www.wordonfire.org/sitemap.xml",
+      "https://www.thecatholicthing.org/sitemap.xml",
+      "https://www.ncregister.com/sitemap.xml",
+      "https://www.catholicnewsagency.com/sitemap.xml",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedSaint | null => {
       const biography = bodyText || description || "";
@@ -863,8 +1065,14 @@ export function buildVaticanTeachingCrawler(): SourceAdapter {
       "https://www.vatican.va/holy_father/index.htm",
       "https://www.vatican.va/holy_father/francesco/encyclicals/index.htm",
       "https://www.vatican.va/holy_father/francesco/apost_exhortations/index.htm",
+      "https://www.vatican.va/holy_father/francesco/messages/index.htm",
+      "https://www.vatican.va/holy_father/benedict_xvi/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/benedict_xvi/apost_exhortations/index.htm",
+      "https://www.vatican.va/holy_father/john_paul_ii/encyclicals/index.htm",
+      "https://www.vatican.va/holy_father/john_paul_ii/apost_exhortations/index.htm",
       "https://www.vatican.va/roman_curia/congregations/ccdds/index.htm",
       "https://www.vatican.va/roman_curia/congregations/cfaith/documents/index.htm",
+      "https://www.vatican.va/roman_curia/congregations/cclergy/index.htm",
       "https://www.usccb.org/beliefs-and-teachings",
       "https://www.usccb.org/prayer-and-worship/sacraments-and-sacramentals",
       "https://www.usccb.org/prayer-and-worship/sacraments-and-sacramentals/marriage",
@@ -873,6 +1081,13 @@ export function buildVaticanTeachingCrawler(): SourceAdapter {
       "https://www.usccb.org/prayer-and-worship/sacraments-and-sacramentals/penance",
       "https://www.cbcew.org.uk/home/our-faith/sacraments/",
       "https://www.cccb.ca/sacraments/",
+      // Reference works the validator can accept as Catholic teaching:
+      // each is on the allowlist so gateUrl() lets them through.
+      "https://www.newadvent.org/cathen/",
+      "https://www.catholicculture.org/culture/library/",
+      "https://www.catholic.com/encyclopedia",
+      "https://www.wordonfire.org/articles/teaching/",
+      "https://www.ascensionpress.com/blogs/main/tagged/teaching",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedLiturgy | null => {
       const body = bodyText || description || "";
@@ -926,6 +1141,21 @@ export function buildVaticanGuidesCrawler(): SourceAdapter {
       "https://www.cccb.ca/evangelization-catechesis-catholic-education/",
       "https://www.catholic.org.au/faith",
       "https://www.cbcew.org.uk/home/our-faith/the-mass/",
+      // Approved Marian Fathers / Divine Mercy guides on Confession,
+      // Adoration, Marian consecration.
+      "https://www.thedivinemercy.org/message/devotions",
+      "https://www.marian.org/divinemercy/",
+      // Catholic publishing houses publish "how to" spiritual guides
+      // for the laity (Rosary, Confession, Adoration, Discernment).
+      "https://www.osv.com/category/devotional/",
+      "https://www.ascensionpress.com/blogs/main/tagged/prayer-guide",
+      "https://www.sophiainstitute.com/spiritual-life/",
+      "https://www.wordonfire.org/articles/devotion/",
+      // Vocation discernment archives from approved religious orders.
+      "https://www.discalcedcarmelitevocations.com/",
+      "https://www.dominicans.org/vocations/",
+      "https://www.franciscan.org/vocations/",
+      "https://www.jesuits.org/vocations/",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedGuide | null => {
       const summary = description || bodyText.slice(0, 300) || "";
@@ -968,9 +1198,21 @@ export function buildVaticanHistoryCrawler(): SourceAdapter {
       "https://www.vatican.va/archive/hist_councils/i_vatican_council/index.htm",
       "https://www.vatican.va/archive/hist_councils/trent/index.htm",
       "https://www.vatican.va/archive/hist_councils/v_lateran_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/iv_lateran_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/iii_lateran_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/ii_lateran_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/i_lateran_council/index.htm",
+      "https://www.vatican.va/archive/hist_councils/florence/index.htm",
+      "https://www.vatican.va/archive/hist_councils/constance/index.htm",
       "https://www.vatican.va/holy_father/index.htm",
       "https://www.usccb.org/about/leadership/holy-see/papal-history",
       "https://www.usccb.org/about/leadership/holy-see/index.cfm",
+      // Catholic reference works that publish council / papacy
+      // summaries — all allowlisted.
+      "https://www.newadvent.org/cathen/04423f.htm", // councils overview
+      "https://www.catholicculture.org/culture/library/view.cfm",
+      "https://www.catholic-hierarchy.org/",
+      "https://www.gcatholic.org/dioceses/",
     ],
     toItem: ({ url, title, description, bodyText }): IngestedLiturgy | null => {
       const body = bodyText || description || "";

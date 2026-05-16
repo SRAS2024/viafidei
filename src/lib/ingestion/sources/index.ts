@@ -29,4 +29,9 @@ export {
   buildAllVaticanCrawlers,
   type VaticanCrawlerOptions,
 } from "./vatican-adapters";
-export { registerVaticanAdapters, ensureVaticanSchedule, hasRegisteredAdapters } from "./bootstrap";
+export {
+  registerVaticanAdapters,
+  ensureVaticanSchedule,
+  hasRegisteredAdapters,
+  listAdapterSecondaryHosts,
+} from "./bootstrap";

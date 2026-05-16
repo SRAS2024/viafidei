@@ -7,6 +7,9 @@ import { logger } from "../observability/logger";
 import type { ConditionalState, IngestionRunSummary, SourceAdapter } from "./types";
 import { sanitize } from "./validate";
 import { formatIngestedItems } from "./format";
+import { cleanIngestedItems } from "./clean";
+import { classifyIngestedItems } from "./classify";
+import { enrichIngestedItems } from "./enrich";
 import { persistItems } from "./persist";
 
 export type RunnerOptions = {
@@ -150,15 +153,41 @@ async function runAdapterUnlocked(
       return summary;
     }
 
-    // Pre-validation formatter: every ingested item is normalised to the
-    // canonical text shape for its content type (entity-decoded, smart-
-    // quotes folded to ASCII, internal whitespace collapsed, multi-line
-    // bodies trimmed) before the validator + persistence layer see it.
-    // This is the "correct formatting for that specific content type"
-    // step of the ingestion quality gate; by the time we hit `sanitize`
-    // every adapter's output looks the same regardless of source.
+    // Intelligent packaging pipeline. Each stage transforms or filters
+    // items so the catalog ends up clean.
+    //
+    //   1. format    — canonical text shape (entity decode, smart-quote
+    //                  fold, whitespace normalisation).
+    //   2. clean     — strip navigation / cookie / share-this / footer /
+    //                  newsletter / donation boilerplate from text
+    //                  fields. The surrounding content survives.
+    //   3. classify  — re-route the item's `kind` when the body reads
+    //                  more like another kind (a "prayer" page whose
+    //                  body is actually a saint biography is sent to
+    //                  the Saint bucket, not bounced).
+    //   4. enrich    — fill in missing required + helpful fields from
+    //                  signals already in the text: prayer category,
+    //                  saint patronages + feast day, apparition
+    //                  location + country + status, parish diocese +
+    //                  city + region + country, devotion duration +
+    //                  tags, liturgy kind, guide kind.
+    //   5. sanitize  — final per-kind validator. Three outcomes:
+    //                    • valid    → PUBLISHED
+    //                    • soft     → REVIEW (imperfect-but-real)
+    //                    • noise    → HARD-DELETED (landing pages,
+    //                                 navigation cruft, meta-
+    //                                 descriptions — never had any
+    //                                 place in the catalog)
+    //                    • rejected → not persisted (structurally
+    //                                 invalid: missing slug, off-
+    //                                 allowlist source, protected
+    //                                 kind)
     const formatted = formatIngestedItems(items);
-    const { valid, review, rejected } = sanitize(formatted);
+    const cleaned = cleanIngestedItems(formatted);
+    const classifyResults = classifyIngestedItems(cleaned);
+    const reclassified = classifyResults.map((r) => r.item);
+    const enriched = enrichIngestedItems(reclassified);
+    const { valid, review, noise, rejected } = sanitize(enriched);
 
     const triggeredBy = options.triggeredBy ?? "automatic";
     const persistOptions = {
@@ -166,8 +195,8 @@ async function runAdapterUnlocked(
       actorUsername: options.actorUsername ?? null,
       sourceName: options.sourceName ?? sourceHost,
       jobName: adapter.key,
-      // We accumulate logs ourselves so rejected items, soft-review
-      // items, and persisted items all land in the same batched
+      // We accumulate logs ourselves so review items, deleted items,
+      // and persisted items all land in the same batched
       // DataManagementLog write.
       skipDataManagementLog: true,
     } as const;
@@ -179,7 +208,8 @@ async function runAdapterUnlocked(
     // Items that fail a soft (category-heuristic) check are persisted
     // with `status = REVIEW` so a moderator can decide whether the
     // content is genuinely Catholic but mis-shaped, or really a
-    // source-summary blurb that should be archived.
+    // source-summary blurb that should be archived. This is the
+    // "imperfect but possibly real" bucket.
     const reviewCounts =
       review.length > 0
         ? await persistItems(
@@ -189,9 +219,28 @@ async function runAdapterUnlocked(
           )
         : { created: 0, updated: 0, skipped: 0, logs: [] as DataManagementLogInput[] };
 
-    // Rejected items never reach the catalog tables, but we still
-    // write a per-item REJECT row so an admin can see why ingestion
-    // refused them and re-categorise the source if needed.
+    // Noise: clearly non-content items (landing pages, navigation
+    // cruft, meta-descriptions). The intelligent packager hard-deletes
+    // these by not persisting them at all and emitting a single DELETE
+    // log row per item so the operator can see what the janitor
+    // dropped — no archive, no review, just gone.
+    const noiseLogs: DataManagementLogInput[] = noise.map(({ item, reason }) => ({
+      action: "DELETE",
+      contentType: ENTITY_TYPE_BY_KIND[item.kind] ?? "Unknown",
+      contentRef:
+        (item as { slug?: string }).slug ??
+        (item as { defaultTitle?: string }).defaultTitle ??
+        (item as { title?: string }).title ??
+        (item as { canonicalName?: string }).canonicalName ??
+        null,
+      reason: `Discarded as noise (landing page / nav cruft / meta-description): ${reason}`,
+      triggeredBy,
+      actorUsername: options.actorUsername ?? null,
+    }));
+
+    // Structural rejections: missing slug, off-allowlist, protected
+    // kind. These never reach the catalog and never make it past the
+    // sanitize() function — they go straight to the REJECT log.
     const rejectionLogs: DataManagementLogInput[] = rejected.map(({ item, reason }) => ({
       action: "REJECT",
       contentType: ENTITY_TYPE_BY_KIND[item.kind] ?? "Unknown",
@@ -205,6 +254,25 @@ async function runAdapterUnlocked(
       triggeredBy,
       actorUsername: options.actorUsername ?? null,
     }));
+
+    // Re-classified items: log when the classifier changed the
+    // adapter's `kind` so the admin can see which buckets the
+    // packager is routing things into.
+    const reclassifyLogs: DataManagementLogInput[] = classifyResults
+      .filter((r) => r.newKind !== r.originalKind)
+      .map((r) => ({
+        action: "CATEGORY_FIX",
+        contentType: ENTITY_TYPE_BY_KIND[r.newKind] ?? "Unknown",
+        contentRef:
+          (r.item as { slug?: string }).slug ??
+          (r.item as { defaultTitle?: string }).defaultTitle ??
+          (r.item as { title?: string }).title ??
+          (r.item as { canonicalName?: string }).canonicalName ??
+          null,
+        reason: `Re-classified from ${r.originalKind} → ${r.newKind} by content classifier`,
+        triggeredBy,
+        actorUsername: options.actorUsername ?? null,
+      }));
 
     // Soft-review items are persisted as REVIEW; tag them so the admin
     // can see *why* they were diverted.
@@ -225,7 +293,9 @@ async function runAdapterUnlocked(
     const allLogs: DataManagementLogInput[] = [
       ...counts.logs,
       ...reviewCounts.logs,
+      ...reclassifyLogs,
       ...softReviewLogs,
+      ...noiseLogs,
       ...rejectionLogs,
     ];
     if (allLogs.length > 0) {
@@ -250,12 +320,12 @@ async function runAdapterUnlocked(
       recordsSeen: items.length,
       recordsCreated: counts.created + reviewCounts.created,
       recordsUpdated: counts.updated + reviewCounts.updated,
-      recordsSkipped: counts.skipped + reviewCounts.skipped + rejected.length,
+      recordsSkipped: counts.skipped + reviewCounts.skipped + noise.length + rejected.length,
       recordsFailed: 0,
       recordsReviewRequired: directReview + softReview,
       errorMessage:
-        rejected.length || review.length
-          ? `${rejected.length} rejected, ${review.length} sent to review`
+        noise.length || rejected.length || review.length
+          ? `${noise.length} discarded as noise, ${rejected.length} rejected, ${review.length} routed to REVIEW`
           : null,
     };
 
@@ -276,6 +346,8 @@ async function runAdapterUnlocked(
       });
     }
 
+    const reclassifiedCount = classifyResults.filter((r) => r.newKind !== r.originalKind).length;
+
     logger.info("ingestion.run.completed", {
       adapter: adapter.key,
       sourceHost,
@@ -288,6 +360,8 @@ async function runAdapterUnlocked(
       recordsFailed: summary.recordsFailed,
       recordsReviewRequired: summary.recordsReviewRequired,
       published: initialStatus === "PUBLISHED" ? counts.created + counts.updated : 0,
+      reclassified: reclassifiedCount,
+      noiseDiscarded: noise.length,
       rejected: rejected.length,
       partial: rejected.length > 0,
     });

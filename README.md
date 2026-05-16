@@ -100,13 +100,47 @@ would call attention to:
   `isApprovedUrl`). Adapters write through a single persistence layer that
   enforces content-hash dedupe, source attribution, and per-run summary
   logs (created / updated / skipped / failed / review-required). Every
-  ingested item is run through a per-content-type **formatter**
-  (`src/lib/ingestion/format.ts`) that decodes HTML entities, folds smart
-  quotes to ASCII, and normalises whitespace before validation; the
-  validator then enforces quality, correctness, correct content type, and
-  correct shape per kind. The in-process scheduler runs in burst mode
-  while the catalog is below target and drops to a maintenance interval
-  afterward — no external cron service required.
+  ingested item flows through a five-stage **intelligent packager**:
+  - **format** (`src/lib/ingestion/format.ts`) — decode HTML entities,
+    fold smart quotes to ASCII, normalise whitespace.
+  - **clean** (`src/lib/ingestion/clean.ts`) — strip cookie / subscribe /
+    share-this / newsletter / donation / footer boilerplate per field
+    so the real content survives.
+  - **classify** (`src/lib/ingestion/classify.ts`) — re-route the item's
+    `kind` when the body reads more like another type (a "prayer" page
+    whose body is actually a saint biography is sent to the Saint
+    bucket, not bounced).
+  - **enrich** (`src/lib/ingestion/enrich.ts`) — fill missing
+    required + helpful fields from the text: prayer category, saint
+    patronages + feast day, apparition location + country + status,
+    parish diocese + city + region + country, devotion duration +
+    tags, liturgy kind, guide kind.
+  - **sanitize** (`src/lib/ingestion/validate.ts`) — final per-kind
+    quality / correctness / category / shape check with three
+    outcomes:
+    - **valid → PUBLISHED**
+    - **soft fail → REVIEW** (real content, slightly off shape)
+    - **noise → HARD-DELETED** (landing pages like
+      `"Catholic Prayers - Prayer to Jesus, Marian, & More | EWTN"`,
+      navigation cruft like `"Skip to main content…"`, meta-
+      descriptions like `"Devotions are manifestations of…"`).
+      These never had any place in the catalog. No archive, no
+      review — they're discarded.
+
+  A **catalog janitor** (`src/lib/data/catalog-janitor.ts`) runs on
+  every cron tick (regardless of the auto-cleanup toggle), walks
+  every PUBLISHED row, re-runs the format → clean → validate
+  pipeline against it, and:
+  - **repackages** rows whose stored text differs from the cleaned
+    version (e.g. strips a stale `" | EWTN"` brand suffix from an
+    old prayer title);
+  - **hard-deletes** rows now classified as noise;
+  - **diverts** rows that fail softly to REVIEW.
+
+  The in-process scheduler runs in burst mode while the catalog is
+  below target and drops to a maintenance interval afterward — no
+  external cron service required.
+
 - **Operational admin email.** A single dispatcher
   (`src/lib/data/admin-notifications.ts`) is invoked on every cron tick
   and emits, on its own cadence, the **Biweekly Admin Report** (Content
