@@ -237,34 +237,45 @@ model JournalEntry {
 }
 
 model Prayer {
-  id                    String              @id @default(cuid())
-  slug                  String              @unique
-  defaultTitle          String
-  body                  String
-  officialPrayer        String?
-  category              String
-  categoryId            String?
-  externalSourceKey     String?             @unique
-  sourceHost            String?
-  contentChecksum       String?
-  status                ContentStatus       @default(DRAFT)
-  archivedAt            DateTime?
-  sourceConfidence      Float?
-  formattingConfidence  Float?
-  qualityScore          Float?
-  theologicalReviewFlag Boolean             @default(false)
-  sourceTier            Int?
-  outcomeReason         String?
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  translations          PrayerTranslation[]
-  savedByUsers          UserSavedPrayer[]
-  categoryRel           Category?           @relation(fields: [categoryId], references: [id])
+  id                      String              @id @default(cuid())
+  slug                    String              @unique
+  defaultTitle            String
+  body                    String
+  officialPrayer          String?
+  category                String
+  categoryId              String?
+  prayerType              String?
+  language                String?
+  externalSourceKey       String?             @unique
+  sourceUrl               String?
+  sourceHost              String?
+  contentChecksum         String?
+  status                  ContentStatus       @default(DRAFT)
+  archivedAt              DateTime?
+  sourceConfidence        Float?
+  formattingConfidence    Float?
+  qualityScore            Float?
+  theologicalReviewFlag   Boolean             @default(false)
+  sourceTier              Int?
+  outcomeReason           String?
+  packageValidationStatus String?
+  packageValidationErrors String[]            @default([])
+  contentPackageVersion   String?
+  publicRenderReady       Boolean             @default(false)
+  isThresholdEligible     Boolean             @default(false)
+  lastPackageValidatedAt  DateTime?
+  createdAt               DateTime            @default(now())
+  updatedAt               DateTime            @updatedAt
+  translations            PrayerTranslation[]
+  savedByUsers            UserSavedPrayer[]
+  categoryRel             Category?           @relation(fields: [categoryId], references: [id])
 
   @@index([categoryId])
   @@index([status])
   @@index([slug])
   @@index([archivedAt])
+  @@index([publicRenderReady])
+  @@index([isThresholdEligible])
 }
 
 model PrayerTranslation {
@@ -284,33 +295,44 @@ model PrayerTranslation {
 }
 
 model Saint {
-  id                    String             @id @default(cuid())
-  slug                  String             @unique
-  canonicalName         String
-  feastDay              String?
-  feastMonth            Int?
-  feastDayOfMonth       Int?
-  patronages            String[]
-  biography             String
-  officialPrayer        String?
-  externalSourceKey     String?            @unique
-  contentChecksum       String?
-  status                ContentStatus      @default(DRAFT)
-  archivedAt            DateTime?
-  sourceConfidence      Float?
-  formattingConfidence  Float?
-  qualityScore          Float?
-  theologicalReviewFlag Boolean            @default(false)
-  sourceTier            Int?
-  outcomeReason         String?
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
-  translations          SaintTranslation[]
-  savedByUsers          UserSavedSaint[]
+  id                      String             @id @default(cuid())
+  slug                    String             @unique
+  canonicalName           String
+  feastDay                String?
+  feastMonth              Int?
+  feastDayOfMonth         Int?
+  patronages              String[]
+  biography               String
+  saintType               String?
+  officialPrayer          String?
+  externalSourceKey       String?            @unique
+  sourceUrl               String?
+  sourceHost              String?
+  contentChecksum         String?
+  status                  ContentStatus      @default(DRAFT)
+  archivedAt              DateTime?
+  sourceConfidence        Float?
+  formattingConfidence    Float?
+  qualityScore            Float?
+  theologicalReviewFlag   Boolean            @default(false)
+  sourceTier              Int?
+  outcomeReason           String?
+  packageValidationStatus String?
+  packageValidationErrors String[]           @default([])
+  contentPackageVersion   String?
+  publicRenderReady       Boolean            @default(false)
+  isThresholdEligible     Boolean            @default(false)
+  lastPackageValidatedAt  DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  translations            SaintTranslation[]
+  savedByUsers            UserSavedSaint[]
 
   @@index([status])
   @@index([feastMonth, feastDayOfMonth])
   @@index([archivedAt])
+  @@index([publicRenderReady])
+  @@index([isThresholdEligible])
 }
 
 model SaintTranslation {
@@ -331,31 +353,42 @@ model SaintTranslation {
 }
 
 model MarianApparition {
-  id                    String                        @id @default(cuid())
-  slug                  String                        @unique
-  title                 String
-  location              String?
-  country               String?
-  approvedStatus        String?
-  summary               String
-  officialPrayer        String?
-  externalSourceKey     String?                       @unique
-  contentChecksum       String?
-  status                ContentStatus                 @default(DRAFT)
-  archivedAt            DateTime?
-  sourceConfidence      Float?
-  formattingConfidence  Float?
-  qualityScore          Float?
-  theologicalReviewFlag Boolean                       @default(false)
-  sourceTier            Int?
-  outcomeReason         String?
-  createdAt             DateTime                      @default(now())
-  updatedAt             DateTime                      @updatedAt
-  translations          MarianApparitionTranslation[]
-  savedByUsers          UserSavedApparition[]
+  id                      String                        @id @default(cuid())
+  slug                    String                        @unique
+  title                   String
+  location                String?
+  country                 String?
+  approvedStatus          String?
+  summary                 String
+  background              String?
+  officialPrayer          String?
+  externalSourceKey       String?                       @unique
+  sourceUrl               String?
+  sourceHost              String?
+  contentChecksum         String?
+  status                  ContentStatus                 @default(DRAFT)
+  archivedAt              DateTime?
+  sourceConfidence        Float?
+  formattingConfidence    Float?
+  qualityScore            Float?
+  theologicalReviewFlag   Boolean                       @default(false)
+  sourceTier              Int?
+  outcomeReason           String?
+  packageValidationStatus String?
+  packageValidationErrors String[]                      @default([])
+  contentPackageVersion   String?
+  publicRenderReady       Boolean                       @default(false)
+  isThresholdEligible     Boolean                       @default(false)
+  lastPackageValidatedAt  DateTime?
+  createdAt               DateTime                      @default(now())
+  updatedAt               DateTime                      @updatedAt
+  translations            MarianApparitionTranslation[]
+  savedByUsers            UserSavedApparition[]
 
   @@index([status])
   @@index([archivedAt])
+  @@index([publicRenderReady])
+  @@index([isThresholdEligible])
 }
 
 model MarianApparitionTranslation {
@@ -376,38 +409,47 @@ model MarianApparitionTranslation {
 }
 
 model Parish {
-  id                    String            @id @default(cuid())
-  slug                  String            @unique
-  name                  String
-  address               String?
-  city                  String?
-  region                String?
-  country               String?
-  phone                 String?
-  email                 String?
-  websiteUrl            String?
-  diocese               String?
-  ociaUrl               String?
-  latitude              Float?
-  longitude             Float?
-  externalSourceKey     String?
-  sourceHost            String?
-  contentChecksum       String?
-  status                ContentStatus     @default(DRAFT)
-  archivedAt            DateTime?
-  sourceConfidence      Float?
-  formattingConfidence  Float?
-  qualityScore          Float?
-  theologicalReviewFlag Boolean           @default(false)
-  sourceTier            Int?
-  outcomeReason         String?
-  createdAt             DateTime          @default(now())
-  updatedAt             DateTime          @updatedAt
-  savedByUsers          UserSavedParish[]
+  id                      String            @id @default(cuid())
+  slug                    String            @unique
+  name                    String
+  address                 String?
+  city                    String?
+  region                  String?
+  country                 String?
+  phone                   String?
+  email                   String?
+  websiteUrl              String?
+  diocese                 String?
+  ociaUrl                 String?
+  latitude                Float?
+  longitude               Float?
+  externalSourceKey       String?
+  sourceUrl               String?
+  sourceHost              String?
+  contentChecksum         String?
+  status                  ContentStatus     @default(DRAFT)
+  archivedAt              DateTime?
+  sourceConfidence        Float?
+  formattingConfidence    Float?
+  qualityScore            Float?
+  theologicalReviewFlag   Boolean           @default(false)
+  sourceTier              Int?
+  outcomeReason           String?
+  packageValidationStatus String?
+  packageValidationErrors String[]          @default([])
+  contentPackageVersion   String?
+  publicRenderReady       Boolean           @default(false)
+  isThresholdEligible     Boolean           @default(false)
+  lastPackageValidatedAt  DateTime?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  savedByUsers            UserSavedParish[]
 
   @@unique([name, city, country])
   @@index([status])
   @@index([archivedAt])
+  @@index([publicRenderReady])
+  @@index([isThresholdEligible])
 }
 
 model Goal {
@@ -600,6 +642,19 @@ model IngestionSource {
   rejectedItems            Int            @default(0)
   exhaustedAt              DateTime?
   lastSourceTierChangeAt   DateTime?
+  canIngestPrayers         Boolean        @default(false)
+  canIngestSaints          Boolean        @default(false)
+  canIngestApparitions     Boolean        @default(false)
+  canIngestParishes        Boolean        @default(false)
+  canIngestDevotions       Boolean        @default(false)
+  canIngestNovenas         Boolean        @default(false)
+  canIngestSacraments      Boolean        @default(false)
+  canIngestRosaryGuides    Boolean        @default(false)
+  canIngestConsecrations   Boolean        @default(false)
+  canIngestSpiritualGuides Boolean        @default(false)
+  canIngestLiturgy         Boolean        @default(false)
+  canIngestHistory         Boolean        @default(false)
+  canProvideScriptureText  Boolean        @default(false)
   notes                    String?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt
@@ -667,6 +722,34 @@ model AdminAuditLog {
   @@index([action, createdAt])
 }
 
+/// Strict QA forensic log. Every item rejected or hard-deleted by the
+/// strict content QA pipeline writes one row here so the operator can
+/// see exactly what failed, which contract caught it, which fields
+/// were missing, and what the source URL was. DataManagementLog
+/// continues to capture run-level audit; this table is the per-item
+/// strict QA record.
+model RejectedContentLog {
+  id                 String   @id @default(cuid())
+  contentType        String
+  slug               String?
+  originalTitle      String?
+  sourceUrl          String?
+  sourceHost         String?
+  rejectionReason    String
+  failedContractName String?
+  failedFields       String[] @default([])
+  originalChecksum   String?
+  decision           String
+  triggeredBy        String   @default("automatic")
+  actorUsername      String?
+  deletedAt          DateTime @default(now())
+
+  @@index([contentType, deletedAt])
+  @@index([decision, deletedAt])
+  @@index([sourceHost, deletedAt])
+  @@index([deletedAt])
+}
+
 // DataManagementLog records every action performed by the Ingestion
 // & Data Management system. The `action` column is one of: ADD,
 // UPDATE, DELETE, REJECT, CLEANUP, DEDUPE, CATEGORY_FIX. The
@@ -727,29 +810,45 @@ model Category {
 }
 
 model Devotion {
-  id                    String                @id @default(cuid())
-  slug                  String                @unique
-  title                 String
-  summary               String
-  practiceText          String?
-  durationMinutes       Int?
-  externalSourceKey     String?               @unique
-  contentChecksum       String?
-  status                ContentStatus         @default(DRAFT)
-  archivedAt            DateTime?
-  sourceConfidence      Float?
-  formattingConfidence  Float?
-  qualityScore          Float?
-  theologicalReviewFlag Boolean               @default(false)
-  sourceTier            Int?
-  outcomeReason         String?
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
-  translations          DevotionTranslation[]
-  savedByUsers          UserSavedDevotion[]
+  id                      String                @id @default(cuid())
+  slug                    String                @unique
+  title                   String
+  summary                 String
+  practiceText            String?
+  durationMinutes         Int?
+  devotionType            String?
+  subtype                 String?
+  background              String?
+  practiceInstructions    String?
+  packageMetadata         Json?
+  externalSourceKey       String?               @unique
+  sourceUrl               String?
+  sourceHost              String?
+  contentChecksum         String?
+  status                  ContentStatus         @default(DRAFT)
+  archivedAt              DateTime?
+  sourceConfidence        Float?
+  formattingConfidence    Float?
+  qualityScore            Float?
+  theologicalReviewFlag   Boolean               @default(false)
+  sourceTier              Int?
+  outcomeReason           String?
+  packageValidationStatus String?
+  packageValidationErrors String[]              @default([])
+  contentPackageVersion   String?
+  publicRenderReady       Boolean               @default(false)
+  isThresholdEligible     Boolean               @default(false)
+  lastPackageValidatedAt  DateTime?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  translations            DevotionTranslation[]
+  savedByUsers            UserSavedDevotion[]
 
   @@index([status])
   @@index([archivedAt])
+  @@index([publicRenderReady])
+  @@index([isThresholdEligible])
+  @@index([subtype])
 }
 
 model DevotionTranslation {
@@ -795,29 +894,43 @@ model ContentReview {
 }
 
 model LiturgyEntry {
-  id                    String                    @id @default(cuid())
-  slug                  String                    @unique
-  kind                  LiturgyKind               @default(GENERAL)
-  title                 String
-  summary               String?
-  body                  String
-  externalSourceKey     String?                   @unique
-  contentChecksum       String?
-  status                ContentStatus             @default(DRAFT)
-  archivedAt            DateTime?
-  sourceConfidence      Float?
-  formattingConfidence  Float?
-  qualityScore          Float?
-  theologicalReviewFlag Boolean                   @default(false)
-  sourceTier            Int?
-  outcomeReason         String?
-  createdAt             DateTime                  @default(now())
-  updatedAt             DateTime                  @updatedAt
-  translations          LiturgyEntryTranslation[]
+  id                      String                    @id @default(cuid())
+  slug                    String                    @unique
+  kind                    LiturgyKind               @default(GENERAL)
+  title                   String
+  summary                 String?
+  body                    String
+  historyType             String?
+  dateOrEra               String?
+  packageMetadata         Json?
+  externalSourceKey       String?                   @unique
+  sourceUrl               String?
+  sourceHost              String?
+  contentChecksum         String?
+  status                  ContentStatus             @default(DRAFT)
+  archivedAt              DateTime?
+  sourceConfidence        Float?
+  formattingConfidence    Float?
+  qualityScore            Float?
+  theologicalReviewFlag   Boolean                   @default(false)
+  sourceTier              Int?
+  outcomeReason           String?
+  packageValidationStatus String?
+  packageValidationErrors String[]                  @default([])
+  contentPackageVersion   String?
+  publicRenderReady       Boolean                   @default(false)
+  isThresholdEligible     Boolean                   @default(false)
+  lastPackageValidatedAt  DateTime?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  translations            LiturgyEntryTranslation[]
 
   @@index([status])
   @@index([kind, status])
   @@index([archivedAt])
+  @@index([publicRenderReady])
+  @@index([isThresholdEligible])
+  @@index([historyType])
 }
 
 model LiturgyEntryTranslation {
@@ -838,32 +951,49 @@ model LiturgyEntryTranslation {
 }
 
 model SpiritualLifeGuide {
-  id                    String                          @id @default(cuid())
-  slug                  String                          @unique
-  kind                  SpiritualLifeKind               @default(GENERAL)
-  title                 String
-  summary               String
-  bodyText              String?
-  steps                 Json?
-  durationDays          Int?
-  goalTemplateSlug      String?
-  externalSourceKey     String?                         @unique
-  contentChecksum       String?
-  status                ContentStatus                   @default(DRAFT)
-  archivedAt            DateTime?
-  sourceConfidence      Float?
-  formattingConfidence  Float?
-  qualityScore          Float?
-  theologicalReviewFlag Boolean                         @default(false)
-  sourceTier            Int?
-  outcomeReason         String?
-  createdAt             DateTime                        @default(now())
-  updatedAt             DateTime                        @updatedAt
-  translations          SpiritualLifeGuideTranslation[]
+  id                      String                          @id @default(cuid())
+  slug                    String                          @unique
+  kind                    SpiritualLifeKind               @default(GENERAL)
+  title                   String
+  summary                 String
+  bodyText                String?
+  steps                   Json?
+  durationDays            Int?
+  goalTemplateSlug        String?
+  sacramentKey            String?
+  sacramentGroup          String?
+  subtype                 String?
+  background              String?
+  packageMetadata         Json?
+  externalSourceKey       String?                         @unique
+  sourceUrl               String?
+  sourceHost              String?
+  contentChecksum         String?
+  status                  ContentStatus                   @default(DRAFT)
+  archivedAt              DateTime?
+  sourceConfidence        Float?
+  formattingConfidence    Float?
+  qualityScore            Float?
+  theologicalReviewFlag   Boolean                         @default(false)
+  sourceTier              Int?
+  outcomeReason           String?
+  packageValidationStatus String?
+  packageValidationErrors String[]                        @default([])
+  contentPackageVersion   String?
+  publicRenderReady       Boolean                         @default(false)
+  isThresholdEligible     Boolean                         @default(false)
+  lastPackageValidatedAt  DateTime?
+  createdAt               DateTime                        @default(now())
+  updatedAt               DateTime                        @updatedAt
+  translations            SpiritualLifeGuideTranslation[]
 
   @@index([status])
   @@index([kind, status])
   @@index([archivedAt])
+  @@index([publicRenderReady])
+  @@index([isThresholdEligible])
+  @@index([sacramentKey])
+  @@index([subtype])
 }
 
 model SpiritualLifeGuideTranslation {

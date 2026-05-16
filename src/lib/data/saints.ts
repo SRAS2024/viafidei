@@ -1,11 +1,20 @@
 import { prisma } from "../db/client";
 import type { Locale } from "../i18n/locales";
+import { STRICT_PUBLIC_WHERE_CLAUSE } from "../content-qa/thresholds";
 
 const PAGE_SIZE = 9;
 
+/**
+ * Strict public-visibility gate for Saint rows. See
+ * `src/lib/content-qa/thresholds.ts` for the canonical clause: a row
+ * is only public when status = PUBLISHED, publicRenderReady = true,
+ * isThresholdEligible = true, and archivedAt is null.
+ */
+const PUBLIC_SAINT_WHERE = STRICT_PUBLIC_WHERE_CLAUSE;
+
 export function listPublishedSaints(locale: Locale, take = 60) {
   return prisma.saint.findMany({
-    where: { status: "PUBLISHED" },
+    where: PUBLIC_SAINT_WHERE,
     include: { translations: { where: { locale } } },
     orderBy: { canonicalName: "asc" },
     take,
@@ -45,14 +54,17 @@ const ANGEL_PATTERN =
  */
 function buildCategoryWhere(category: SaintCategory | undefined): {
   status: "PUBLISHED";
+  publicRenderReady: true;
+  isThresholdEligible: true;
+  archivedAt: null;
   AND?: object[];
 } {
   if (!category || category === "saint") {
-    return { status: "PUBLISHED" };
+    return { ...PUBLIC_SAINT_WHERE };
   }
   if (category === "our-lady") {
     return {
-      status: "PUBLISHED",
+      ...PUBLIC_SAINT_WHERE,
       AND: [
         {
           OR: [
@@ -70,7 +82,7 @@ function buildCategoryWhere(category: SaintCategory | undefined): {
     };
   }
   return {
-    status: "PUBLISHED",
+    ...PUBLIC_SAINT_WHERE,
     AND: [
       {
         OR: [
@@ -191,7 +203,7 @@ export function listAdminSaints(take = 200) {
 export function searchSaints(q: string, take = 10) {
   return prisma.saint.findMany({
     where: {
-      status: "PUBLISHED",
+      ...PUBLIC_SAINT_WHERE,
       OR: [
         { canonicalName: { contains: q, mode: "insensitive" } },
         { biography: { contains: q, mode: "insensitive" } },
@@ -211,7 +223,7 @@ export function listSavedSaintsForUser(userId: string) {
 
 export function getPublishedSaintBySlug(slug: string, locale: Locale) {
   return prisma.saint.findFirst({
-    where: { slug, status: "PUBLISHED" },
+    where: { slug, ...PUBLIC_SAINT_WHERE },
     include: { translations: { where: { locale } } },
   });
 }
@@ -338,7 +350,7 @@ export async function listSaintsForFeastDate(locale: Locale, month: number, day:
   const [structured, legacy] = await Promise.all([
     prisma.saint.findMany({
       where: {
-        status: "PUBLISHED",
+        ...PUBLIC_SAINT_WHERE,
         feastMonth: month,
         feastDayOfMonth: day,
       },
@@ -347,7 +359,7 @@ export async function listSaintsForFeastDate(locale: Locale, month: number, day:
     }),
     prisma.saint.findMany({
       where: {
-        status: "PUBLISHED",
+        ...PUBLIC_SAINT_WHERE,
         // Only inspect rows that lack a structured value — anything with
         // a populated `feastMonth` was already considered by the first
         // query.

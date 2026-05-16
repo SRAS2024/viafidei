@@ -1,11 +1,11 @@
 import { appConfig } from "../config";
-import { prisma } from "../db/client";
 import { logger } from "../observability/logger";
 import {
   CHURCH_DOCUMENT_SLUG_PREFIXES,
   CONSECRATION_SLUG_PREFIXES,
   SACRAMENT_SLUG_PREFIXES,
 } from "./backlog-prefixes";
+import { getStrictLegacyCounts } from "../content-qa/thresholds";
 
 // Re-export so existing call sites that depend on these constants
 // being available from the scheduler module continue to work. The
@@ -24,28 +24,6 @@ export type BacklogCounts = {
 };
 
 export type SchedulerMode = "constant" | "maintenance";
-
-function buildPrefixWhere(prefixes: readonly string[]) {
-  return { OR: prefixes.map((p) => ({ slug: { startsWith: p } })) };
-}
-
-async function countChurchDocuments(): Promise<number> {
-  return prisma.liturgyEntry.count({
-    where: buildPrefixWhere(CHURCH_DOCUMENT_SLUG_PREFIXES),
-  });
-}
-
-async function countSacraments(): Promise<number> {
-  return prisma.spiritualLifeGuide.count({
-    where: buildPrefixWhere(SACRAMENT_SLUG_PREFIXES),
-  });
-}
-
-async function countConsecrations(): Promise<number> {
-  return prisma.spiritualLifeGuide.count({
-    where: buildPrefixWhere(CONSECRATION_SLUG_PREFIXES),
-  });
-}
 
 /**
  * Compute backlog progress with explicit error handling. When ANY
@@ -78,23 +56,12 @@ export type BacklogProgressResult = {
 export async function getBacklogProgress(): Promise<BacklogProgressResult> {
   const targets = appConfig.ingestion.targets;
   try {
-    const [prayers, saints, parishes, churchDocuments, sacraments, consecrations] =
-      await Promise.all([
-        prisma.prayer.count(),
-        prisma.saint.count(),
-        prisma.parish.count(),
-        countChurchDocuments(),
-        countSacraments(),
-        countConsecrations(),
-      ]);
-    const counts: BacklogCounts = {
-      prayers,
-      saints,
-      parishes,
-      churchDocuments,
-      sacraments,
-      consecrations,
-    };
+    // Strict counts only count valid, render-ready, threshold-eligible
+    // packages. A bad prayer row that exists but failed its contract
+    // does NOT contribute to the count. See:
+    //   src/lib/content-qa/thresholds.ts
+    const counts: BacklogCounts = await getStrictLegacyCounts();
+    const { prayers, saints, parishes, churchDocuments, sacraments, consecrations } = counts;
     const metAll =
       prayers >= targets.prayers &&
       saints >= targets.saints &&
