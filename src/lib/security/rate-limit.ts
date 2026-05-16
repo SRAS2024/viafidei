@@ -86,12 +86,25 @@ function memoryRateLimit(key: string, policy: RatePolicy): RateLimitResult {
 }
 
 // Probabilistic background pruning so the table self-cleans even if the cron
-// pruner is delayed. ~0.5% of writes trigger a cheap delete.
+// pruner is delayed. ~0.5% of writes trigger a cheap delete. Wrapped in
+// try/catch + a defensive thenable check so a transient Prisma error or a
+// test mock that returns a non-Promise can never propagate back into the
+// rate-limit decision path (which would otherwise force a needless fall-
+// back to the in-memory limiter and skew the response).
 const PRUNE_PROBABILITY = 0.005;
 
 function maybePruneInBackground(now: Date): void {
   if (Math.random() >= PRUNE_PROBABILITY) return;
-  void prisma.rateLimitBucket.deleteMany({ where: { resetAt: { lt: now } } }).catch(() => {});
+  try {
+    const pending = prisma.rateLimitBucket.deleteMany({
+      where: { resetAt: { lt: now } },
+    });
+    if (pending && typeof (pending as { catch?: unknown }).catch === "function") {
+      (pending as Promise<unknown>).catch(() => {});
+    }
+  } catch {
+    // Pruning is best-effort and must never affect the caller's result.
+  }
 }
 
 export async function rateLimit(

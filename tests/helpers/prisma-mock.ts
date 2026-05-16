@@ -126,8 +126,11 @@ export function createPrismaMock(): PrismaMock {
       count: vi.fn(),
     },
     rateLimitBucket: {
-      deleteMany: vi.fn(),
-      count: vi.fn(),
+      // Default to resolved-promise return values so the
+      // probabilistic background prune call inside rateLimit() never
+      // throws synchronously when a test forgets to re-arm the mock.
+      deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      count: vi.fn().mockResolvedValue(0),
     },
     prayer: createCrud(),
     saint: createCrud(),
@@ -198,4 +201,10 @@ export function resetPrismaMock(): void {
       (model as { groupBy: Mock }).groupBy.mockResolvedValue([]);
     }
   }
+  // Re-install the rateLimitBucket defaults so the rate-limit
+  // module's probabilistic background pruning (which fires on ~0.5%
+  // of calls) never throws synchronously in tests that haven't
+  // re-armed the deleteMany mock.
+  prismaMock.rateLimitBucket.deleteMany.mockResolvedValue({ count: 0 });
+  prismaMock.rateLimitBucket.count.mockResolvedValue(0);
 }

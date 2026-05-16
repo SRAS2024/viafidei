@@ -63,6 +63,30 @@ describe("rateLimit (DB path)", () => {
     expect(result.ok).toBe(true);
     expect(result.remaining).toBe(0);
   });
+
+  it("does NOT fall back to memory when the background prune throws synchronously", async () => {
+    // Regression for a 0.5%-flake we hit on CI: maybePruneInBackground
+    // fires on a probabilistic path; if `deleteMany` returned undefined
+    // (because a test forgot to re-arm the mock) the chained .catch()
+    // threw synchronously, propagating into the outer try/catch and
+    // forcing a needless memory fallback. The rateLimit must keep
+    // returning the DB result even if the prune call throws.
+    const restore = Math.random;
+    Math.random = () => 0; // forces the prune branch every time
+    try {
+      prismaMock.rateLimitBucket.deleteMany.mockImplementation(() => {
+        throw new Error("prune backend exploded");
+      });
+      prismaMock.$queryRaw.mockResolvedValue([
+        { count: 3, resetAt: new Date(Date.now() + 60_000) },
+      ]);
+      const result = await rateLimit("prune-throw-key", { windowMs: 60_000, max: 5 });
+      expect(result.ok).toBe(true);
+      expect(result.remaining).toBe(2);
+    } finally {
+      Math.random = restore;
+    }
+  });
 });
 
 describe("rateLimit (memory fallback)", () => {
