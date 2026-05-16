@@ -35,6 +35,8 @@ export default async function DeletedContentLogPage() {
               <th className="px-3 py-2">Failed fields</th>
               <th className="px-3 py-2">Reason</th>
               <th className="px-3 py-2">Triggered by</th>
+              <th className="px-3 py-2">Worker job</th>
+              <th className="px-3 py-2">Ingestion batch</th>
             </tr>
           </thead>
           <tbody>
@@ -59,11 +61,13 @@ export default async function DeletedContentLogPage() {
                 </td>
                 <td className="px-3 py-2 max-w-md">{row.rejectionReason}</td>
                 <td className="px-3 py-2">{row.triggeredBy}</td>
+                <td className="px-3 py-2 font-mono text-xs">{row.workerJobId ?? "—"}</td>
+                <td className="px-3 py-2 font-mono text-xs">{row.ingestionBatchId ?? "—"}</td>
               </tr>
             ))}
             {rows.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-center text-ink-soft" colSpan={9}>
+                <td className="px-3 py-6 text-center text-ink-soft" colSpan={11}>
                   No deletions yet.
                 </td>
               </tr>

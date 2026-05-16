@@ -21,6 +21,10 @@ export type RejectedContentLogInput = {
   decision: Extract<ContractDecision, "reject" | "delete" | "archive">;
   triggeredBy?: "automatic" | "manual";
   actorUsername?: string | null;
+  /** IngestionJobQueue row id that produced this candidate, if known. */
+  workerJobId?: string | null;
+  /** IngestionBatch id this candidate was part of, if known. */
+  ingestionBatchId?: string | null;
 };
 
 export async function recordRejectedContent(input: RejectedContentLogInput): Promise<void> {
@@ -38,6 +42,8 @@ export async function recordRejectedContent(input: RejectedContentLogInput): Pro
       decision: input.decision,
       triggeredBy: input.triggeredBy ?? "automatic",
       actorUsername: input.actorUsername ?? null,
+      workerJobId: input.workerJobId ?? null,
+      ingestionBatchId: input.ingestionBatchId ?? null,
     },
   });
 }
@@ -64,6 +70,8 @@ export async function recordRejectedContentBatch(
       decision: input.decision,
       triggeredBy: input.triggeredBy ?? "automatic",
       actorUsername: input.actorUsername ?? null,
+      workerJobId: input.workerJobId ?? null,
+      ingestionBatchId: input.ingestionBatchId ?? null,
     })),
   });
 }

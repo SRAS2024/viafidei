@@ -76,6 +76,10 @@ async function runSourceJob(
     const summary = await runAdapter(adapter, job.jobId, sourceHost, {
       triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
       actorUsername: job.actorUsername ?? null,
+      // Stamp the queue-row id onto every RejectedContentLog row this
+      // run produces so the deleted-log page can trace each rejection
+      // back to the worker job that ingested it.
+      workerJobId: job.id,
     });
     if (job.sourceId) {
       await recordSourceFreshness(job.sourceId, { ok: true }).catch(() => undefined);

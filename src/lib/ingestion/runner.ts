@@ -36,6 +36,18 @@ export type RunnerOptions = {
   actorUsername?: string | null;
   /** Source display name (e.g. "Vatican"). Used in log reasons. */
   sourceName?: string;
+  /**
+   * IngestionJobQueue row id that triggered this run. Stamped onto every
+   * RejectedContentLog row produced by the strict QA pipeline so the
+   * deleted-log page can trace each rejection back to a worker job.
+   */
+  workerJobId?: string | null;
+  /**
+   * IngestionBatch id this run is part of. Stamped onto every
+   * RejectedContentLog row so the deleted-log page can group rejections
+   * by ingestion batch.
+   */
+  ingestionBatchId?: string | null;
 };
 
 const ENTITY_TYPE_BY_KIND: Record<string, string> = {
@@ -404,6 +416,8 @@ async function runAdapterUnlocked(
         decision: strict.decision as "reject" | "delete",
         triggeredBy: triggeredBy,
         actorUsername: options.actorUsername ?? null,
+        workerJobId: options.workerJobId ?? null,
+        ingestionBatchId: options.ingestionBatchId ?? null,
       }));
       await recordRejectedContentBatch(rejectedEntries).catch((err) => {
         logger.warn("ingestion.run.rejected_log_failed", {

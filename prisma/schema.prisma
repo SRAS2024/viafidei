@@ -742,12 +742,16 @@ model RejectedContentLog {
   decision           String
   triggeredBy        String   @default("automatic")
   actorUsername      String?
+  workerJobId        String?
+  ingestionBatchId   String?
   deletedAt          DateTime @default(now())
 
   @@index([contentType, deletedAt])
   @@index([decision, deletedAt])
   @@index([sourceHost, deletedAt])
   @@index([deletedAt])
+  @@index([workerJobId])
+  @@index([ingestionBatchId])
 }
 
 // DataManagementLog records every action performed by the Ingestion
