@@ -153,9 +153,8 @@ async function runAdapterUnlocked(
       return summary;
     }
 
-    // Intelligent packaging pipeline. Each stage transforms the items
-    // rather than dropping them, so content survives boundary cases
-    // that the strict validator would otherwise reject.
+    // Intelligent packaging pipeline. Each stage transforms or filters
+    // items so the catalog ends up clean.
     //
     //   1. format    — canonical text shape (entity decode, smart-quote
     //                  fold, whitespace normalisation).
@@ -172,20 +171,23 @@ async function runAdapterUnlocked(
     //                  location + country + status, parish diocese +
     //                  city + region + country, devotion duration +
     //                  tags, liturgy kind, guide kind.
-    //   5. sanitize  — final per-kind validator. Hard-fails are routed
-    //                  to REVIEW (not dropped) so an admin can decide;
-    //                  soft-fails are routed to REVIEW with their
-    //                  category-fix reason. Only items still missing
-    //                  the absolute basics (slug, body) after every
-    //                  stage above end up unsaved — and even those
-    //                  produce a structured log row so the operator
-    //                  can see why.
+    //   5. sanitize  — final per-kind validator. Three outcomes:
+    //                    • valid    → PUBLISHED
+    //                    • soft     → REVIEW (imperfect-but-real)
+    //                    • noise    → HARD-DELETED (landing pages,
+    //                                 navigation cruft, meta-
+    //                                 descriptions — never had any
+    //                                 place in the catalog)
+    //                    • rejected → not persisted (structurally
+    //                                 invalid: missing slug, off-
+    //                                 allowlist source, protected
+    //                                 kind)
     const formatted = formatIngestedItems(items);
     const cleaned = cleanIngestedItems(formatted);
     const classifyResults = classifyIngestedItems(cleaned);
     const reclassified = classifyResults.map((r) => r.item);
     const enriched = enrichIngestedItems(reclassified);
-    const { valid, review, rejected } = sanitize(enriched);
+    const { valid, review, noise, rejected } = sanitize(enriched);
 
     const triggeredBy = options.triggeredBy ?? "automatic";
     const persistOptions = {
@@ -193,7 +195,7 @@ async function runAdapterUnlocked(
       actorUsername: options.actorUsername ?? null,
       sourceName: options.sourceName ?? sourceHost,
       jobName: adapter.key,
-      // We accumulate logs ourselves so review items, archived items,
+      // We accumulate logs ourselves so review items, deleted items,
       // and persisted items all land in the same batched
       // DataManagementLog write.
       skipDataManagementLog: true,
@@ -206,7 +208,8 @@ async function runAdapterUnlocked(
     // Items that fail a soft (category-heuristic) check are persisted
     // with `status = REVIEW` so a moderator can decide whether the
     // content is genuinely Catholic but mis-shaped, or really a
-    // source-summary blurb that should be archived.
+    // source-summary blurb that should be archived. This is the
+    // "imperfect but possibly real" bucket.
     const reviewCounts =
       review.length > 0
         ? await persistItems(
@@ -215,51 +218,30 @@ async function runAdapterUnlocked(
             persistOptions,
           )
         : { created: 0, updated: 0, skipped: 0, logs: [] as DataManagementLogInput[] };
-    // Hard-fail items USED to be dropped entirely. The new policy is
-    // "package and keep" — anything that still trips the hard
-    // validator after format → clean → classify → enrich is
-    // structurally weak (missing required slug / fields / unrecognised
-    // enum, or off-allowlist source). For off-allowlist sources we
-    // still refuse to persist (the URL is outside the credibility
-    // gate); for every other reason we route to REVIEW with an
-    // explanatory log so the content survives for human inspection.
-    const offAllowlist: typeof rejected = [];
-    const weakReview: typeof rejected = [];
-    for (const entry of rejected) {
-      // A row that cannot physically exist in the database (no slug,
-      // required column missing) is still a true rejection — the
-      // persister would throw a unique-constraint error otherwise.
-      // Off-allowlist / protected-kind are credibility-boundary
-      // violations and also stay in REJECT. Everything else — a
-      // body that's slightly too short, a recognised-but-unusual
-      // approvedStatus, etc. — is preserved as REVIEW.
-      const isUnsavable =
-        /slug is required|name is required|defaultTitle is required|canonicalName is required|title is required|body is required|summary is required|biography is required|approvedStatus is required/i.test(
-          entry.reason,
-        );
-      const isCredibilityBoundary =
-        /Vatican-approved host|protected user-generated|non-Catholic place of worship/i.test(
-          entry.reason,
-        );
-      if (isUnsavable || isCredibilityBoundary) {
-        offAllowlist.push(entry);
-      } else {
-        weakReview.push(entry);
-      }
-    }
-    const weakReviewCounts =
-      weakReview.length > 0
-        ? await persistItems(
-            weakReview.map((r) => r.item),
-            "REVIEW" as ContentStatus,
-            persistOptions,
-          )
-        : { created: 0, updated: 0, skipped: 0, logs: [] as DataManagementLogInput[] };
 
-    // Off-allowlist + protected-kind items are the only ones we still
-    // refuse outright — those are credibility-boundary violations and
-    // belong in the REJECT log so the source pipeline can be audited.
-    const rejectionLogs: DataManagementLogInput[] = offAllowlist.map(({ item, reason }) => ({
+    // Noise: clearly non-content items (landing pages, navigation
+    // cruft, meta-descriptions). The intelligent packager hard-deletes
+    // these by not persisting them at all and emitting a single DELETE
+    // log row per item so the operator can see what the janitor
+    // dropped — no archive, no review, just gone.
+    const noiseLogs: DataManagementLogInput[] = noise.map(({ item, reason }) => ({
+      action: "DELETE",
+      contentType: ENTITY_TYPE_BY_KIND[item.kind] ?? "Unknown",
+      contentRef:
+        (item as { slug?: string }).slug ??
+        (item as { defaultTitle?: string }).defaultTitle ??
+        (item as { title?: string }).title ??
+        (item as { canonicalName?: string }).canonicalName ??
+        null,
+      reason: `Discarded as noise (landing page / nav cruft / meta-description): ${reason}`,
+      triggeredBy,
+      actorUsername: options.actorUsername ?? null,
+    }));
+
+    // Structural rejections: missing slug, off-allowlist, protected
+    // kind. These never reach the catalog and never make it past the
+    // sanitize() function — they go straight to the REJECT log.
+    const rejectionLogs: DataManagementLogInput[] = rejected.map(({ item, reason }) => ({
       action: "REJECT",
       contentType: ENTITY_TYPE_BY_KIND[item.kind] ?? "Unknown",
       contentRef:
@@ -308,30 +290,12 @@ async function runAdapterUnlocked(
       actorUsername: options.actorUsername ?? null,
     }));
 
-    // Weak-review items (hard validator failure → kept as REVIEW) get
-    // a distinct log entry so the admin can filter for them on
-    // /admin/logs/data-management.
-    const weakReviewLogs: DataManagementLogInput[] = weakReview.map(({ item, reason }) => ({
-      action: "CATEGORY_FIX",
-      contentType: ENTITY_TYPE_BY_KIND[item.kind] ?? "Unknown",
-      contentRef:
-        (item as { slug?: string }).slug ??
-        (item as { defaultTitle?: string }).defaultTitle ??
-        (item as { title?: string }).title ??
-        (item as { canonicalName?: string }).canonicalName ??
-        null,
-      reason: `Kept as REVIEW after hard validator failure: ${reason}`,
-      triggeredBy,
-      actorUsername: options.actorUsername ?? null,
-    }));
-
     const allLogs: DataManagementLogInput[] = [
       ...counts.logs,
       ...reviewCounts.logs,
-      ...weakReviewCounts.logs,
       ...reclassifyLogs,
       ...softReviewLogs,
-      ...weakReviewLogs,
+      ...noiseLogs,
       ...rejectionLogs,
     ];
     if (allLogs.length > 0) {
@@ -348,23 +312,20 @@ async function runAdapterUnlocked(
     // When new + updated rows land in REVIEW status (either because the
     // configured initialStatus is REVIEW, or because the soft validator
     // diverted them), every persisted row in that bucket counts toward
-    // the review queue. Weak-review items (hard validator failures kept
-    // for human inspection) also count.
+    // the review queue.
     const directReview = initialStatus === "REVIEW" ? counts.created + counts.updated : 0;
     const softReview = reviewCounts.created + reviewCounts.updated;
-    const weakReviewTotal = weakReviewCounts.created + weakReviewCounts.updated;
 
     const summary: IngestionRunSummary = {
       recordsSeen: items.length,
-      recordsCreated: counts.created + reviewCounts.created + weakReviewCounts.created,
-      recordsUpdated: counts.updated + reviewCounts.updated + weakReviewCounts.updated,
-      recordsSkipped:
-        counts.skipped + reviewCounts.skipped + weakReviewCounts.skipped + offAllowlist.length,
+      recordsCreated: counts.created + reviewCounts.created,
+      recordsUpdated: counts.updated + reviewCounts.updated,
+      recordsSkipped: counts.skipped + reviewCounts.skipped + noise.length + rejected.length,
       recordsFailed: 0,
-      recordsReviewRequired: directReview + softReview + weakReviewTotal,
+      recordsReviewRequired: directReview + softReview,
       errorMessage:
-        offAllowlist.length || weakReview.length || review.length
-          ? `${offAllowlist.length} rejected (off-allowlist / protected), ${weakReview.length} kept as REVIEW (weak), ${review.length} routed to REVIEW (soft category)`
+        noise.length || rejected.length || review.length
+          ? `${noise.length} discarded as noise, ${rejected.length} rejected, ${review.length} routed to REVIEW`
           : null,
     };
 
@@ -373,7 +334,7 @@ async function runAdapterUnlocked(
         where: { id: run.id },
         data: {
           finishedAt: new Date(),
-          status: offAllowlist.length > 0 ? "PARTIAL" : "SUCCESS",
+          status: rejected.length > 0 ? "PARTIAL" : "SUCCESS",
           recordsSeen: summary.recordsSeen,
           recordsCreated: summary.recordsCreated,
           recordsUpdated: summary.recordsUpdated,
@@ -400,9 +361,9 @@ async function runAdapterUnlocked(
       recordsReviewRequired: summary.recordsReviewRequired,
       published: initialStatus === "PUBLISHED" ? counts.created + counts.updated : 0,
       reclassified: reclassifiedCount,
-      weakReviewKept: weakReview.length,
-      rejected: offAllowlist.length,
-      partial: offAllowlist.length > 0,
+      noiseDiscarded: noise.length,
+      rejected: rejected.length,
+      partial: rejected.length > 0,
     });
 
     return summary;

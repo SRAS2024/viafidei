@@ -257,7 +257,7 @@ describe("sanitize", () => {
   });
 
   it("never throws on an empty input", () => {
-    expect(sanitize([])).toEqual({ valid: [], review: [], rejected: [] });
+    expect(sanitize([])).toEqual({ valid: [], review: [], noise: [], rejected: [] });
   });
 
   it("diverts soft (category-heuristic) failures into the review bucket", () => {

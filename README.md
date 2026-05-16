@@ -116,9 +116,26 @@ would call attention to:
     parish diocese + city + region + country, devotion duration +
     tags, liturgy kind, guide kind.
   - **sanitize** (`src/lib/ingestion/validate.ts`) — final per-kind
-    quality / correctness / category / shape check. Hard-fails that
-    are recoverable land in REVIEW; only off-allowlist sources and
-    physically-unsavable rows (missing slug) are truly refused.
+    quality / correctness / category / shape check with three
+    outcomes:
+    - **valid → PUBLISHED**
+    - **soft fail → REVIEW** (real content, slightly off shape)
+    - **noise → HARD-DELETED** (landing pages like
+      `"Catholic Prayers - Prayer to Jesus, Marian, & More | EWTN"`,
+      navigation cruft like `"Skip to main content…"`, meta-
+      descriptions like `"Devotions are manifestations of…"`).
+      These never had any place in the catalog. No archive, no
+      review — they're discarded.
+
+  A **catalog janitor** (`src/lib/data/catalog-janitor.ts`) runs on
+  every cron tick (regardless of the auto-cleanup toggle), walks
+  every PUBLISHED row, re-runs the format → clean → validate
+  pipeline against it, and:
+  - **repackages** rows whose stored text differs from the cleaned
+    version (e.g. strips a stale `" | EWTN"` brand suffix from an
+    old prayer title);
+  - **hard-deletes** rows now classified as noise;
+  - **diverts** rows that fail softly to REVIEW.
 
   The in-process scheduler runs in burst mode while the catalog is
   below target and drops to a maintenance interval afterward — no
