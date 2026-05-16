@@ -27,6 +27,7 @@ beforeEach(() => {
     prismaMock.spiritualLifeGuide,
     prismaMock.liturgyEntry,
     prismaMock.parish,
+    prismaMock.dailyLiturgy,
   ]) {
     m.findMany.mockResolvedValue([]);
     m.delete.mockResolvedValue({});

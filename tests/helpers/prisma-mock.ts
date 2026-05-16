@@ -114,6 +114,7 @@ export type PrismaMock = {
   errorLog: Crud;
   contentReview: Crud;
   rejectedContentLog: Crud;
+  dailyLiturgy: Crud;
   $transaction: Mock;
   $queryRaw: Mock;
   $queryRawUnsafe: Mock;
@@ -192,6 +193,7 @@ export function createPrismaMock(): PrismaMock {
     errorLog: createCrud(),
     contentReview: createCrud(),
     rejectedContentLog: createCrud(),
+    dailyLiturgy: createCrud(),
     // Default $transaction implementation just resolves the array of
     // promises so tests that don't override it still get sane behavior.
     $transaction: vi.fn(async (ops: unknown) => {

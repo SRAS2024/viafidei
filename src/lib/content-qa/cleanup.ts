@@ -535,6 +535,55 @@ export async function runStrictContentCleanup(): Promise<StrictCleanupSummary> {
     allRejections.push(...rejections);
   }
 
+  // Daily Liturgy — structured calendar data. The "where applicable"
+  // pass here checks for malformed rows: missing date, or empty
+  // readings AND empty saints (an effectively empty day). Malformed
+  // rows are hard-deleted with a RejectedContentLog entry so the day
+  // can be re-ingested by the daily-liturgy adapter.
+  try {
+    const dailyRows = await prisma.dailyLiturgy.findMany({
+      where: { status: "PUBLISHED" },
+    });
+    let dailyInspected = 0;
+    let dailyFlaggedReady = 0;
+    let dailyHardDeleted = 0;
+    for (const row of dailyRows) {
+      dailyInspected += 1;
+      const readings = row.readingsJson as Record<string, unknown> | null;
+      const saints = row.saintsJson as unknown[] | null;
+      const hasReadings = !!readings && Object.keys(readings).length > 0;
+      const hasSaints = Array.isArray(saints) && saints.length > 0;
+      if (!row.date || (!hasReadings && !hasSaints)) {
+        await prisma.dailyLiturgy.delete({ where: { id: row.id } });
+        dailyHardDeleted += 1;
+        allRejections.push({
+          contentType: "Liturgy",
+          slug: row.id,
+          originalTitle: row.feastTitle ?? null,
+          sourceUrl: null,
+          sourceHost: null,
+          rejectionReason:
+            "Daily liturgy row is structurally incomplete (missing date or both readings and saints)",
+          failedContractName: "DailyLiturgyValidation",
+          failedFields: !row.date ? ["date"] : ["readingsJson", "saintsJson"],
+          originalChecksum: null,
+          decision: "delete",
+        });
+      } else {
+        dailyFlaggedReady += 1;
+      }
+    }
+    buckets.push({
+      contentType: "DailyLiturgy",
+      inspected: dailyInspected,
+      flaggedReady: dailyFlaggedReady,
+      flaggedUnready: 0,
+      hardDeleted: dailyHardDeleted,
+    });
+  } catch {
+    // best-effort — a DB error here must not break the strict QA pass
+  }
+
   if (allRejections.length > 0) {
     await recordRejectedContentBatch(allRejections);
   }
