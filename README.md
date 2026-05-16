@@ -1412,6 +1412,26 @@ email subject is exactly `Security Breach` and the body lists the
 event kind, summary, route, IP, user-agent, and any structured detail
 the detector supplied.
 
+### End-to-end diagnostics
+
+`/admin/diagnostics/email` exposes an **Admin email diagnostics**
+panel that lets the operator trigger a labelled example of each
+admin notification flow (biweekly, monthly archive, monthly Error
+Report PDF, threshold milestones at 25 / 50 / 75 / 100%, Critical
+Failure, Security Breach). Each click POSTs to
+`/api/admin/email/admin-test` with the flow name; the route resolves
+`ADMIN_EMAIL`, dispatches through the same senders that production
+uses, records an `AdminAuditLog` entry, and surfaces the outcome
+inline. The page also shows the resolved `ADMIN_EMAIL` value next to
+the Resend API-key status so the operator can confirm both pieces of
+the pipeline are wired up.
+
+The same diagnostic section runs as a backend check at
+`/api/admin/diagnostics/email`: it reports `email.api_key` (Resend
+API key configured), `email.admin_email` (ADMIN_EMAIL configured),
+`email.from_address` (canonical sender), and `email.db_tables`
+(account-email tables present).
+
 ---
 
 ## Admin console
@@ -1541,55 +1561,56 @@ each catalog entity is exposed under `/api/admin/<entity>` via the
 
 ### Admin
 
-| Method         | Path                                     | Purpose                                                                                                                                                   |
-| -------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST           | `/api/admin/login`                       | Admin login                                                                                                                                               |
-| POST           | `/api/admin/logout`                      | Admin logout                                                                                                                                              |
-| POST           | `/api/admin/content/review`              | Approve / reject / revise / move-to-review                                                                                                                |
-| GET / POST     | `/api/admin/prayers`                     | List / create prayers (catalog)                                                                                                                           |
-| PATCH / DELETE | `/api/admin/prayers/[id]`                | Update / delete a prayer                                                                                                                                  |
-| GET / POST     | `/api/admin/saints`                      | List / create saints                                                                                                                                      |
-| PATCH / DELETE | `/api/admin/saints/[id]`                 | Update / delete a saint                                                                                                                                   |
-| GET / POST     | `/api/admin/apparitions`                 | List / create Marian apparitions                                                                                                                          |
-| PATCH / DELETE | `/api/admin/apparitions/[id]`            | Update / delete an apparition                                                                                                                             |
-| GET / POST     | `/api/admin/parishes`                    | List / create parishes                                                                                                                                    |
-| PATCH / DELETE | `/api/admin/parishes/[id]`               | Update / delete a parish                                                                                                                                  |
-| GET / POST     | `/api/admin/devotions`                   | List / create devotions                                                                                                                                   |
-| PATCH / DELETE | `/api/admin/devotions/[id]`              | Update / delete a devotion                                                                                                                                |
-| GET / POST     | `/api/admin/liturgy`                     | List / create liturgy entries                                                                                                                             |
-| PATCH / DELETE | `/api/admin/liturgy/[id]`                | Update / delete a liturgy entry                                                                                                                           |
-| GET / POST     | `/api/admin/spiritual-life`              | List / create spiritual-life guides                                                                                                                       |
-| PATCH / DELETE | `/api/admin/spiritual-life/[id]`         | Update / delete a spiritual-life guide                                                                                                                    |
-| POST           | `/api/admin/ingestion/run`               | Run a single job or all active jobs                                                                                                                       |
-| PATCH          | `/api/admin/ingestion/jobs/[id]`         | Pause / resume or re-schedule a job                                                                                                                       |
-| GET / POST     | `/api/admin/sources`                     | List / create ingestion sources                                                                                                                           |
-| GET / PATCH    | `/api/admin/sources/[id]`                | Read / update an ingestion source                                                                                                                         |
-| GET / POST     | `/api/admin/media`                       | List / register a media asset (Cloudinary URL)                                                                                                            |
-| GET / DELETE   | `/api/admin/media/[id]`                  | Read / delete a media asset                                                                                                                               |
-| GET            | `/api/admin/users`                       | Paginated, searchable user listing                                                                                                                        |
-| GET            | `/api/admin/audit`                       | Filterable audit log                                                                                                                                      |
-| GET            | `/api/admin/ingestion-status`            | Live snapshot used by the Ingestion admin page (polled)                                                                                                   |
-| GET / POST     | `/api/admin/data-management`             | Read / write Ingestion & Data Management settings                                                                                                         |
-| POST           | `/api/admin/data-management/cleanup`     | Run the cleanup passes on demand (admin "Run cleanup now")                                                                                                |
-| GET            | `/api/admin/diagnostics/email`           | Email diagnostics section                                                                                                                                 |
-| GET            | `/api/admin/diagnostics/data-management` | Data management diagnostics section + 24h edit counts                                                                                                     |
-| GET            | `/api/admin/diagnostics/ingestion`       | Ingestion diagnostics section + live snapshot                                                                                                             |
-| GET            | `/api/admin/diagnostics/saints-feast`    | Homepage saints feast-day diagnostics section                                                                                                             |
-| GET            | `/api/admin/diagnostics/sitemap`         | Sitemap & link-path diagnostics                                                                                                                           |
-| GET            | `/api/admin/diagnostics/accounts`        | Account diagnostics section                                                                                                                               |
-| GET / POST     | `/api/admin/email`                       | Email configuration check + send a test message                                                                                                           |
-| POST           | `/api/admin/email/ensure-tables`         | Idempotent in-process create of account-email tables                                                                                                      |
-| POST           | `/api/admin/email/self-test`             | End-to-end self-test of welcome / reset / verify flows                                                                                                    |
-| GET            | `/api/admin/publish-list`                | Items currently in REVIEW status across the catalog                                                                                                       |
-| POST           | `/api/admin/publish-list/publish-all`    | Bulk-publish every queued REVIEW row                                                                                                                      |
-| POST           | `/api/admin/search/reindex`              | Trigger reindex / housekeeping                                                                                                                            |
-| GET            | `/api/admin/translations`                | Translation row counts                                                                                                                                    |
-| GET / POST     | `/api/admin/favicon`                     | Read / replace favicon asset                                                                                                                              |
-| GET / POST     | `/api/admin/homepage`                    | Read / update homepage block config                                                                                                                       |
-| POST (`GET`)   | `/api/cron/ingest`                       | Run scheduler + cleanup pass + housekeeping + admin notification dispatch (cron-secret)                                                                   |
-| POST / GET     | `/api/internal/cleanup`                  | Prune sessions / tokens / rate-limits (cron-secret auth)                                                                                                  |
-| POST           | `/api/internal/critical-failure`         | Receive a Critical Failure escalation from the React global error boundary; writes to `ErrorLog` and emails ADMIN_EMAIL                                   |
-| POST           | `/api/internal/security-event`           | Receive a Security Breach signal from the client tamper detector or other client-side detector; writes to `ErrorLog` and emails ADMIN_EMAIL (5-min dedup) |
+| Method         | Path                                     | Purpose                                                                                                                                                                       |
+| -------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST           | `/api/admin/login`                       | Admin login                                                                                                                                                                   |
+| POST           | `/api/admin/logout`                      | Admin logout                                                                                                                                                                  |
+| POST           | `/api/admin/content/review`              | Approve / reject / revise / move-to-review                                                                                                                                    |
+| GET / POST     | `/api/admin/prayers`                     | List / create prayers (catalog)                                                                                                                                               |
+| PATCH / DELETE | `/api/admin/prayers/[id]`                | Update / delete a prayer                                                                                                                                                      |
+| GET / POST     | `/api/admin/saints`                      | List / create saints                                                                                                                                                          |
+| PATCH / DELETE | `/api/admin/saints/[id]`                 | Update / delete a saint                                                                                                                                                       |
+| GET / POST     | `/api/admin/apparitions`                 | List / create Marian apparitions                                                                                                                                              |
+| PATCH / DELETE | `/api/admin/apparitions/[id]`            | Update / delete an apparition                                                                                                                                                 |
+| GET / POST     | `/api/admin/parishes`                    | List / create parishes                                                                                                                                                        |
+| PATCH / DELETE | `/api/admin/parishes/[id]`               | Update / delete a parish                                                                                                                                                      |
+| GET / POST     | `/api/admin/devotions`                   | List / create devotions                                                                                                                                                       |
+| PATCH / DELETE | `/api/admin/devotions/[id]`              | Update / delete a devotion                                                                                                                                                    |
+| GET / POST     | `/api/admin/liturgy`                     | List / create liturgy entries                                                                                                                                                 |
+| PATCH / DELETE | `/api/admin/liturgy/[id]`                | Update / delete a liturgy entry                                                                                                                                               |
+| GET / POST     | `/api/admin/spiritual-life`              | List / create spiritual-life guides                                                                                                                                           |
+| PATCH / DELETE | `/api/admin/spiritual-life/[id]`         | Update / delete a spiritual-life guide                                                                                                                                        |
+| POST           | `/api/admin/ingestion/run`               | Run a single job or all active jobs                                                                                                                                           |
+| PATCH          | `/api/admin/ingestion/jobs/[id]`         | Pause / resume or re-schedule a job                                                                                                                                           |
+| GET / POST     | `/api/admin/sources`                     | List / create ingestion sources                                                                                                                                               |
+| GET / PATCH    | `/api/admin/sources/[id]`                | Read / update an ingestion source                                                                                                                                             |
+| GET / POST     | `/api/admin/media`                       | List / register a media asset (Cloudinary URL)                                                                                                                                |
+| GET / DELETE   | `/api/admin/media/[id]`                  | Read / delete a media asset                                                                                                                                                   |
+| GET            | `/api/admin/users`                       | Paginated, searchable user listing                                                                                                                                            |
+| GET            | `/api/admin/audit`                       | Filterable audit log                                                                                                                                                          |
+| GET            | `/api/admin/ingestion-status`            | Live snapshot used by the Ingestion admin page (polled)                                                                                                                       |
+| GET / POST     | `/api/admin/data-management`             | Read / write Ingestion & Data Management settings                                                                                                                             |
+| POST           | `/api/admin/data-management/cleanup`     | Run the cleanup passes on demand (admin "Run cleanup now")                                                                                                                    |
+| GET            | `/api/admin/diagnostics/email`           | Email diagnostics section                                                                                                                                                     |
+| GET            | `/api/admin/diagnostics/data-management` | Data management diagnostics section + 24h edit counts                                                                                                                         |
+| GET            | `/api/admin/diagnostics/ingestion`       | Ingestion diagnostics section + live snapshot                                                                                                                                 |
+| GET            | `/api/admin/diagnostics/saints-feast`    | Homepage saints feast-day diagnostics section                                                                                                                                 |
+| GET            | `/api/admin/diagnostics/sitemap`         | Sitemap & link-path diagnostics                                                                                                                                               |
+| GET            | `/api/admin/diagnostics/accounts`        | Account diagnostics section                                                                                                                                                   |
+| GET / POST     | `/api/admin/email`                       | Email configuration check + send a test message                                                                                                                               |
+| POST           | `/api/admin/email/ensure-tables`         | Idempotent in-process create of account-email tables                                                                                                                          |
+| POST           | `/api/admin/email/self-test`             | End-to-end self-test of welcome / reset / verify flows                                                                                                                        |
+| GET / POST     | `/api/admin/email/admin-test`            | Trigger one labelled example of each admin email flow (biweekly / monthly cleanup / monthly Error Report PDF / milestone / Critical Failure / Security Breach) to ADMIN_EMAIL |
+| GET            | `/api/admin/publish-list`                | Items currently in REVIEW status across the catalog                                                                                                                           |
+| POST           | `/api/admin/publish-list/publish-all`    | Bulk-publish every queued REVIEW row                                                                                                                                          |
+| POST           | `/api/admin/search/reindex`              | Trigger reindex / housekeeping                                                                                                                                                |
+| GET            | `/api/admin/translations`                | Translation row counts                                                                                                                                                        |
+| GET / POST     | `/api/admin/favicon`                     | Read / replace favicon asset                                                                                                                                                  |
+| GET / POST     | `/api/admin/homepage`                    | Read / update homepage block config                                                                                                                                           |
+| POST (`GET`)   | `/api/cron/ingest`                       | Run scheduler + cleanup pass + housekeeping + admin notification dispatch (cron-secret)                                                                                       |
+| POST / GET     | `/api/internal/cleanup`                  | Prune sessions / tokens / rate-limits (cron-secret auth)                                                                                                                      |
+| POST           | `/api/internal/critical-failure`         | Receive a Critical Failure escalation from the React global error boundary; writes to `ErrorLog` and emails ADMIN_EMAIL                                                       |
+| POST           | `/api/internal/security-event`           | Receive a Security Breach signal from the client tamper detector or other client-side detector; writes to `ErrorLog` and emails ADMIN_EMAIL (5-min dedup)                     |
 
 ---
 

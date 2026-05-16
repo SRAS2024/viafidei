@@ -3,11 +3,13 @@ import { redirect } from "next/navigation";
 import { appConfig } from "@/lib/config";
 import { requireAdmin } from "@/lib/auth";
 import { readResendApiKey } from "@/lib/email/resend";
+import { readAdminEmail } from "@/lib/email/admin-send";
 import { checkAccountEmailDb, type EmailFlowDbCheck } from "@/lib/email/db-health";
 import { logger } from "@/lib/observability";
 import { runEmailDiagnostics } from "@/lib/diagnostics";
 import { DiagnosticSectionPanel } from "@/components/diagnostics/DiagnosticSectionPanel";
 import { AdminSection } from "../../_sections/AdminSection";
+import { AdminEmailTestPanel } from "./AdminEmailTestPanel";
 import { EmailDiagnosticForm } from "./EmailDiagnosticForm";
 import { EmailSelfTestPanel } from "./EmailSelfTestPanel";
 import { EnsureTablesButton } from "./EnsureTablesButton";
@@ -34,6 +36,12 @@ export default async function AdminEmailPage() {
   const apiKey = readResendApiKey();
   const configured = apiKey !== null;
   const apiKeyPreview = apiKey ? `${apiKey.slice(0, 4)}…(${apiKey.length} chars)` : null;
+  // ADMIN_EMAIL drives every operational alert (biweekly report,
+  // monthly archive cleanup, monthly error PDF, milestones, critical
+  // failure, security breach). Surface its presence here so the
+  // operator can confirm the address without opening the hosting
+  // dashboard.
+  const adminEmail = readAdminEmail();
 
   // Run the database-side check inline so the operator sees the same
   // diagnosis the production routes would emit if a token write failed.
@@ -87,6 +95,16 @@ export default async function AdminEmailPage() {
               <dd className={configured ? "font-medium text-ink" : "font-medium"}>
                 {configured ? (
                   <span className="font-mono text-xs">{apiKeyPreview}</span>
+                ) : (
+                  <span style={{ color: ERROR_COLOR }}>not set</span>
+                )}
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-ink-faint">Admin email (ADMIN_EMAIL)</dt>
+              <dd className={adminEmail ? "font-medium text-ink" : "font-medium"}>
+                {adminEmail ? (
+                  <span className="font-mono text-xs">{adminEmail}</span>
                 ) : (
                   <span style={{ color: ERROR_COLOR }}>not set</span>
                 )}
@@ -160,6 +178,21 @@ export default async function AdminEmailPage() {
           </p>
           <div className="mt-5">
             <EmailSelfTestPanel />
+          </div>
+        </section>
+
+        <section className="vf-card rounded-sm p-6">
+          <h2 className="font-display text-2xl">Admin email diagnostics</h2>
+          <p className="mt-2 font-serif text-sm text-ink-soft">
+            Send one labelled example of each admin notification flow — the Biweekly Admin Report,
+            Monthly Archive Cleaning Up, monthly Error Report PDF, threshold milestone alerts (25 /
+            50 / 75 / 100%), Critical Failure, and Security Breach — to{" "}
+            <code>{adminEmail ?? "(ADMIN_EMAIL not set)"}</code> so the entire pipeline (template →
+            Resend → mailbox) can be verified end-to-end. Every send uses obvious sample data so the
+            recipient knows it is a diagnostic.
+          </p>
+          <div className="mt-5">
+            <AdminEmailTestPanel adminEmail={adminEmail} resendConfigured={configured} />
           </div>
         </section>
 

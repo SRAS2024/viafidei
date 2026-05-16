@@ -1,5 +1,6 @@
 import { appConfig } from "@/lib/config";
 import { readResendApiKey } from "@/lib/email/resend";
+import { readAdminEmail } from "@/lib/email/admin-send";
 import { checkAccountEmailDb } from "@/lib/email/db-health";
 import {
   finalizeSection,
@@ -14,6 +15,7 @@ import {
  *
  *   - Is the Resend API key configured?
  *   - Is the canonical from-address set?
+ *   - Is ADMIN_EMAIL set (so operational alerts have a destination)?
  *   - Do the account-email DB tables exist?
  *
  * No sensitive value (full key, DB URL) is ever included in any result
@@ -47,6 +49,34 @@ export async function runEmailDiagnostics(): Promise<DiagnosticSection> {
         },
       };
     }),
+  );
+
+  results.push(
+    await runDiagnostic(
+      "email.admin_email",
+      "Admin email address configured",
+      shell.requestId,
+      async () => {
+        const admin = readAdminEmail();
+        if (admin === null) {
+          return {
+            severity: "warn",
+            summary: "No ADMIN_EMAIL is set on this deployment.",
+            explanation:
+              "Operational alerts (Biweekly Admin Report, Monthly Archive Cleaning Up, " +
+              "monthly Error Report PDF, threshold milestones at 25/50/75/100%, Critical " +
+              "Failure, Security Breach) are logged and skipped at the transport layer. " +
+              "Set ADMIN_EMAIL in the hosting dashboard and redeploy.",
+            evidence: { configured: false },
+          };
+        }
+        return {
+          severity: "pass",
+          summary: `Admin notifications will be delivered to ${admin}.`,
+          evidence: { configured: true, address: admin },
+        };
+      },
+    ),
   );
 
   results.push(

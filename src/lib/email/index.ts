@@ -40,10 +40,6 @@ export {
   formatDeleted,
   formatPlain,
   CONTENT_TYPE_ROWS,
-  type AdminEmailParams,
   type AdminEmailSection,
-  type AdminTableColumn,
-  type AdminTableRow,
-  type ContentTypeKey,
 } from "./admin-templates";
 export { buildTextPdfBase64 } from "./pdf";
