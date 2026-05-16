@@ -12,10 +12,12 @@ type Counts = {
 };
 
 type Progress = {
-  counts: Counts;
+  counts: Counts | null;
   targets: Counts;
   metAll: boolean;
   mode: string;
+  dbError?: boolean;
+  errorMessage?: string;
 };
 
 type StatusKind =
@@ -187,10 +189,10 @@ export function LiveBacklogPanel({ initialSnapshot }: Props) {
         )}
       </p>
 
-      {progress ? (
+      {progress && progress.counts ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(Object.keys(LABELS) as Array<keyof Counts>).map((key) => {
-            const count = progress.counts[key];
+            const count = progress.counts![key];
             const target = progress.targets[key];
             const pct = Math.min(100, Math.round((count / Math.max(1, target)) * 100));
             const met = count >= target;
