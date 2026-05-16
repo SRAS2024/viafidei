@@ -25,8 +25,9 @@ import {
   pruneQueueHistory,
 } from "@/lib/ingestion/queue";
 import { hasHealthyWorker } from "@/lib/ingestion/queue/heartbeat";
-import { runAllIngestionAlerts } from "@/lib/data/ingestion-alerts";
+import { runAllIngestionAlerts, checkStallSignals } from "@/lib/data/ingestion-alerts";
 import { autoEvaluateSourcePauses } from "@/lib/data/source-auto-pause";
+import { detectStallSignals, getQueueHealthSummary } from "@/lib/data/queue-health";
 import { appConfig, isDurableQueueEnabled } from "@/lib/config";
 import { reportCriticalFailure } from "@/lib/data/admin-notifications";
 import { jsonError, jsonOk } from "@/lib/http";
@@ -235,6 +236,27 @@ export async function POST(req: NextRequest) {
     return { paused: [] as string[] };
   });
 
+  // Stall-class alerts. Each class fires its own distinct admin
+  // email with a 24h cooldown so the operator knows which corner
+  // of the pipeline is stuck.
+  const queueHealth = await getQueueHealthSummary().catch(() => null);
+  const contentTypesBelowTarget = bucketCounts
+    .filter((b) => b.currentCount < b.target)
+    .map((b) => b.key);
+  const stallSignals = await detectStallSignals({
+    contentTypesBelowTarget,
+    pendingCount: queueHealth?.counts.pending ?? 0,
+    workerHealthy: queueHealth?.hasHealthyWorker ?? false,
+    completionsLastHourCount: queueHealth?.counts.completed ?? 0,
+    contentGrowthLastHour: 0,
+  });
+  const stalls = await checkStallSignals(stallSignals).catch((e) => {
+    logger.warn("cron.stall_alerts_failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return { sent: [] as string[] };
+  });
+
   // Queue history retention pruner — cheap deleteMany call.
   const prunedQueueHistory = await pruneQueueHistory().catch(() => ({
     completed: 0,
@@ -270,6 +292,7 @@ export async function POST(req: NextRequest) {
     },
     alerts,
     autoPausedSources: autoPause.paused.length,
+    stallAlertsSent: stalls.sent,
     adminNotifications: adminNotifications
       ? {
           biweeklySent:

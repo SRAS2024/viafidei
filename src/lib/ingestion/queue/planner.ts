@@ -54,24 +54,36 @@ const DEFAULT_PER_SOURCE_CAP = 10;
 const DEFAULT_DAILY_PER_SOURCE = 5_000;
 const DEFAULT_DAILY_PER_CONTENT_TYPE = 50_000;
 
-/** Tier-aware priority boost when content threshold is unmet. */
+/** Tier-aware priority + source-health-aware demotion. */
 function priorityForJob(args: {
   mode: "constant" | "maintenance";
   contentTypeBelowTarget: boolean;
   tier: number | null | undefined;
+  healthState: string | null | undefined;
 }): number {
+  // Sources flagged as failing / low_quality get demoted regardless
+  // of tier so a "blocked" tier-1 source can't camp at the front of
+  // the queue. Blocked sources are filtered out entirely in the
+  // planner loop; this handles the other unhealthy states.
+  const demotion =
+    args.healthState === "failing"
+      ? 100
+      : args.healthState === "low_quality"
+        ? 50
+        : args.healthState === "stale"
+          ? 25
+          : 0;
   if (args.mode === "maintenance" && !args.contentTypeBelowTarget) {
-    return PRIORITY_MAINTENANCE;
+    return PRIORITY_MAINTENANCE + demotion;
   }
   if (args.contentTypeBelowTarget) {
     // Tier 1 sources jump to the front of the queue; tier 2 gets normal
     // priority; tier 3 gets demoted slightly so trusted sources fill the
     // catalog first when thresholds are unmet.
-    if (args.tier === 1) return PRIORITY_CONTENT_THRESHOLD_UNMET; // 10
-    if (args.tier === 2) return 30;
-    return 60; // tier 3 / unknown
+    const base = args.tier === 1 ? PRIORITY_CONTENT_THRESHOLD_UNMET : args.tier === 2 ? 30 : 60;
+    return base + demotion;
   }
-  return PRIORITY_NORMAL;
+  return PRIORITY_NORMAL + demotion;
 }
 
 function isContentTypeBelowTarget(
@@ -308,6 +320,7 @@ export async function enqueueDueIngestionJobs(
       mode: effectiveMode,
       contentTypeBelowTarget: belowTarget || progress.dbError,
       tier: job.source.tier,
+      healthState: job.source.healthState,
     });
 
     const dedupeKey = buildDedupeKey({
