@@ -56,11 +56,17 @@ const PARAGRAPH_NOISE_RE: ReadonlyArray<RegExp> = [
   // Source-summary blurbs ("EWTN is the global Catholic Network…").
   /^(ewtn|catholic answers|catholic culture|catholic news agency|catholic world report|word on fire|ascension|the catholic thing|catholic australia)\s+(is|was)\s+/i,
   /^a (work|service|publication|website|programme|program|ministry|apostolate|initiative|outreach) of /i,
-  // TV / radio / livestream descriptions.
+  // TV / radio / livestream descriptions + widget labels.
   /\b(live stream(?:ed)? (mass|liturgy|prayer)|broadcast schedule|on demand|episode \d+|series overview)\b/i,
   /\b(daily mass broadcast|catholic television|radio ministry|tv programs?|television programs?)\b/i,
-  // Event listings / registration.
-  /\b(event listings?|upcoming events|schedule of events|conference registration|register (now|today)|tickets available)\b/i,
+  /\b(watch (?:on|live on) (?:youtube|vimeo|facebook|twitch|x|instagram)|livestream from)\b/i,
+  // Event cards / listings / registration / RSVP.
+  /\b(event listings?|upcoming events|schedule of events|conference registration|register (now|today)|rsvp(?:\s+by)?|tickets available|join us for (?:our|the))\b/i,
+  // Related article blocks (sidebar / "see also" links).
+  /\b(related (?:articles?|posts?|reading|content|prayers?|saints?)|see also|you (?:might|may) (?:also )?(?:like|enjoy)|recommended (?:reading|articles))\b/i,
+  // Embedded media labels (figure / iframe / player captions).
+  /^(figure|image|photo|video|audio|player|embedded\s+(?:from|by)|source[:.]\s+\w+|caption[:.]\s+\w+)\b/i,
+  /\b(?:click to (?:play|watch|listen)|press play|download (?:the )?(?:video|audio|podcast))\b/i,
   // Shop pages.
   /\b(gift shop|online store|catholic bookstore|add to cart|order (now|today)|free shipping)\b/i,
   // 404 / access-denied page text.
