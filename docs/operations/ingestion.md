@@ -3,13 +3,12 @@
 How to inspect ingestion health, retry failed jobs, pause sources,
 and verify content thresholds in production.
 
-> **Queue-first transition.** As of migration `0012_queue_transition`,
-> ingestion runs in two services: the web service plans + enqueues
-> via `/api/cron/ingest`, and a separate worker service (`npm run
-worker`) is the only execution layer. The transition is governed
-> by `USE_DURABLE_INGESTION_QUEUE` (default `true`). See
-> `docs/operations/queue-rollout.md` for the full rollout plan and
-> rollback procedure.
+> **Architecture.** Ingestion runs in two services: the web service
+> plans + enqueues via `/api/cron/ingest`, and a separate worker
+> service (`npm run worker`) is the only adapter executor. The
+> direct-execution path no longer exists. See
+> `docs/operations/queue-rollout.md` for deployment + recovery
+> procedures.
 
 ## Inspecting ingestion health
 

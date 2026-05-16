@@ -1628,7 +1628,9 @@ window: `ADD` → Added, `UPDATE` → Edited, `DELETE` + `PURGE` → Deleted,
 ### Monthly Archive Cleaning Up body
 
 Last-day-of-month digest summarising the hard-delete pass that runs as
-part of `purgeStaleArchivedContent()`. The body is one table:
+part of `purgeArchivedByArchivedAt()` (uses the dedicated `archivedAt`
+column, not `updatedAt`, so editing an archived row never pushes its
+deletion date forward). The body is one table:
 
 | Content | Archived Deleted |
 | ------- | ---------------- |
