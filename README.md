@@ -167,18 +167,21 @@ would call attention to:
   URLs, and token values are explicitly stripped before any value is
   rendered to the browser. Every diagnostic page is backed by a
   matching `/api/admin/diagnostics/...` route.
-- **Real per-item Data Management logs.** Every ingestion run writes
-  one DataManagementLog row per accepted, skipped, rejected, or
-  category-fixed item — with the reason, source, job, and triggeredBy
-  flag — so the admin Logs page can answer "why is the count not
-  changing?" precisely instead of showing an unexplained zero.
+- **Real per-item Data Management logs.** Every ingestion run AND every
+  janitor pass writes one `DataManagementLog` row per item action —
+  added, updated, dedup-skipped, soft-routed to REVIEW, hard-deleted
+  as noise, rejected as structurally invalid, archived by the legacy
+  cleanup, or purged after the 30-day archive window — with the
+  reason, source, job, and `triggeredBy` flag. The admin Logs page
+  can answer "why is the count not changing?" precisely instead of
+  showing an unexplained zero.
 - **Ingestion run logs and per-item action logs are both
   first-class.** `/admin/logs/ingestion` reads from `IngestionJobRun`
   (per-run picture: source, job, status, counts, duration, error
   message). `/admin/logs/data-management` reads from
-  `DataManagementLog` (per-item picture: add / update / dedupe /
-  reject / cleanup / category-fix). Each has its own admin page with
-  filtering.
+  `DataManagementLog` (per-item picture: ADD / UPDATE / DELETE /
+  DEDUPE / REJECT / CLEANUP / CATEGORY_FIX / FAIL / PURGE). Each
+  has its own admin page with filtering.
 - **Manual "Run ingestion now" and "Run data cleanup now" buttons.**
   Both surface clear success or failure feedback inline — counts on
   success, error message on failure — and write to AdminAuditLog so
@@ -231,7 +234,12 @@ flowchart LR
     Instrumentation --> Scheduler[In-process scheduler<br/>burst → maintenance]
     Scheduler -->|POST /api/cron/ingest| AppRoutes
     AppRoutes -->|gateUrl| Sources{{Approved sources<br/>Vatican · USCCB · CBCEW · …}}
-    Sources --> AppRoutes
+    Sources --> Packager[Packaging pipeline<br/>format → clean → classify → enrich → sanitize]
+    Packager -->|valid| Postgres
+    Packager -->|review| Postgres
+    Packager -.->|noise| Discard((discarded))
+    AppRoutes --> Janitor[Catalog janitor<br/>every tick · repackage / hard-delete / divert]
+    Janitor --> Postgres
     AppRoutes --> AdminNotif[dispatchAdminNotifications<br/>biweekly · monthly archive · monthly PDF · milestones]
     AdminNotif --> Resend
     AppRoutes --> ErrorLog[(ErrorLog)]
@@ -298,6 +306,8 @@ below.
 │   │   │                      # + admin-notifications dispatcher (biweekly /
 │   │   │                      # monthly / milestone / critical / security)
 │   │   │                      # + admin-notification-state tracker (dedup)
+│   │   │                      # + catalog-janitor (always-on repackage / hard-
+│   │   │                      # delete / divert pass on every PUBLISHED row)
 │   │   │                      # + error-log (runtime error capture)
 │   │   ├── db/                # Prisma client, table diagnostics, init
 │   │   ├── email/             # Resend client, link builders, account templates,
