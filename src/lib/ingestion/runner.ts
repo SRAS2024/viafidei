@@ -124,12 +124,35 @@ async function runAdapterUnlocked(
     const {
       items: rawItems,
       notModified,
+      exhausted,
       conditionalState: nextState,
     } = await adapter.fetch({
       sourceHost,
       jobName: adapter.key,
       conditionalState,
     });
+
+    // Adapter-driven exhaustion: if the adapter signals that there
+    // are no more items at this source/cursor, mark the source as
+    // exhausted so the planner stops re-enqueuing source_ingest jobs
+    // for it. Freshness jobs in maintenance mode still run.
+    if (exhausted && jobId) {
+      try {
+        const job = await prisma.ingestionJob.findUnique({ where: { id: jobId } });
+        if (job?.sourceId) {
+          await prisma.ingestionSource.update({
+            where: { id: job.sourceId },
+            data: { exhaustedAt: new Date(), healthState: "exhausted" },
+          });
+        }
+      } catch (e) {
+        logger.warn("ingestion.run.exhausted_mark_failed", {
+          jobId,
+          adapter: adapter.key,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
 
     // Batch-size enforcement for very large sources. The cap is read
     // from `IngestionJob.batchSizeLimit` (per job) and falls back to
