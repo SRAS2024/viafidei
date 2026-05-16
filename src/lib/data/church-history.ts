@@ -1,6 +1,7 @@
 import type { Locale } from "../i18n/locales";
 import { prisma } from "../db/client";
 import { logger } from "../observability/logger";
+import { STRICT_PUBLIC_WHERE_CLAUSE } from "../content-qa/thresholds";
 
 /**
  * Church history timeline data.
@@ -661,7 +662,10 @@ export async function loadCouncilBuckets(locale: Locale): Promise<CouncilBucket[
   try {
     rows = await prisma.liturgyEntry
       .findMany({
-        where: { status: "PUBLISHED", slug: { startsWith: "council-" } },
+        where: {
+          ...STRICT_PUBLIC_WHERE_CLAUSE,
+          slug: { startsWith: "council-" },
+        },
         include: { translations: { where: { locale } } },
         orderBy: { title: "asc" },
       })
@@ -706,7 +710,7 @@ export async function loadTimeline(locale: Locale): Promise<TimelineEvent[]> {
   try {
     dbRows = await prisma.liturgyEntry.findMany({
       where: {
-        status: "PUBLISHED",
+        ...STRICT_PUBLIC_WHERE_CLAUSE,
         OR: [
           { kind: "COUNCIL_TIMELINE" },
           { slug: { startsWith: "church-history-" } },

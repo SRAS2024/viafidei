@@ -125,11 +125,25 @@ export type IngestionHealthSummary = {
   dedupedThisWindow: number;
 };
 
+/**
+ * Content QA summary appended to the biweekly admin report. Reports
+ * the per-content-type counts the strict QA pipeline produced over
+ * the window plus the current snapshot of threshold-eligible rows
+ * and content-type completeness percentages.
+ */
+export type ContentQASummary = {
+  rejectedThisWindow: Record<string, number>;
+  invalidPublicRowsDeletedThisWindow: Record<string, number>;
+  thresholdEligible: Record<string, number>;
+  completenessPercent: Record<string, number>;
+};
+
 export async function sendBiweeklyAdminReport(
   counts: ContentManagementCounts,
   windowStart: Date,
   windowEnd: Date,
   ingestionHealth?: IngestionHealthSummary,
+  contentQA?: ContentQASummary,
 ): Promise<AdminSendOutcome> {
   const rows = CONTENT_TYPE_ROWS.map((row) => {
     const c = counts[row.key] ?? {
@@ -201,6 +215,28 @@ export async function sendBiweeklyAdminReport(
           },
           { metric: "Items deduped", value: String(ingestionHealth.dedupedThisWindow) },
         ],
+      },
+    });
+  }
+
+  if (contentQA) {
+    sections.push({
+      title: "Content QA Report",
+      table: {
+        columns: [
+          { key: "Content", label: "Content" },
+          { key: "Rejected", label: "Rejected", align: "right" },
+          { key: "Deleted", label: "Invalid deleted", align: "right" },
+          { key: "ThresholdEligible", label: "Threshold eligible", align: "right" },
+          { key: "CompletePct", label: "Complete %", align: "right" },
+        ],
+        rows: CONTENT_TYPE_ROWS.map((row) => ({
+          Content: row.label,
+          Rejected: formatPlain(contentQA.rejectedThisWindow[row.key] ?? 0),
+          Deleted: formatDeleted(contentQA.invalidPublicRowsDeletedThisWindow[row.key] ?? 0),
+          ThresholdEligible: formatPlain(contentQA.thresholdEligible[row.key] ?? 0),
+          CompletePct: `${contentQA.completenessPercent[row.key] ?? 0}%`,
+        })),
       },
     });
   }

@@ -13,9 +13,11 @@ import {
   sendThresholdMilestoneAlert,
   type AdminSendOutcome,
   type ContentManagementCounts,
+  type ContentQASummary,
   type IngestionHealthSummary,
   type SourceQualityRow,
 } from "../email";
+import { getContentQAReportFragment } from "../content-qa";
 import { logger } from "../observability/logger";
 import {
   CHURCH_DOCUMENT_SLUG_PREFIXES,
@@ -238,11 +240,20 @@ async function maybeSendBiweeklyReport(now: Date): Promise<AdminSendOutcome | nu
   if (ageMs < 14 * 24 * 60 * 60 * 1000) return null;
 
   const { windowStart, windowEnd } = biweeklyWindow(now);
-  const [counts, health] = await Promise.all([
+  const [counts, health, qaFragment] = await Promise.all([
     aggregateContentManagementCounts(windowStart, windowEnd),
     aggregateIngestionHealth(windowStart, windowEnd).catch(() => undefined),
+    getContentQAReportFragment(windowStart, windowEnd).catch(() => undefined),
   ]);
-  const result = await sendBiweeklyAdminReport(counts, windowStart, windowEnd, health);
+  const contentQA: ContentQASummary | undefined = qaFragment
+    ? {
+        rejectedThisWindow: qaFragment.rejected,
+        invalidPublicRowsDeletedThisWindow: qaFragment.invalidPublicRowsDeleted,
+        thresholdEligible: qaFragment.thresholdEligible,
+        completenessPercent: qaFragment.completenessPercent,
+      }
+    : undefined;
+  const result = await sendBiweeklyAdminReport(counts, windowStart, windowEnd, health, contentQA);
   if (result.ok && result.delivery === "sent") {
     await setFlowState<BiweeklyState>("biweekly_report", {
       lastSentAt: now.toISOString(),

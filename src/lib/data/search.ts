@@ -5,6 +5,13 @@ import { searchApparitions } from "./apparitions";
 import { searchParishes } from "./parishes";
 import { searchDevotions } from "./devotions";
 import { bestTokenScore, normalize } from "./fuzzy";
+import { STRICT_PUBLIC_WHERE_CLAUSE } from "../content-qa/thresholds";
+
+// Strict public-visibility gate. Search must not return rows that
+// failed their package contract — even if the row is technically
+// status=PUBLISHED, it does not appear in search unless
+// publicRenderReady=true AND isThresholdEligible=true.
+const PUBLIC_SEARCH_WHERE = STRICT_PUBLIC_WHERE_CLAUSE;
 
 export type SearchHits = {
   prayers: Awaited<ReturnType<typeof searchPrayers>>;
@@ -29,7 +36,7 @@ export const EMPTY_HITS: SearchHits = {
 export function searchLiturgy(q: string, take = 10) {
   return prisma.liturgyEntry.findMany({
     where: {
-      status: "PUBLISHED",
+      ...PUBLIC_SEARCH_WHERE,
       OR: [
         { title: { contains: q, mode: "insensitive" } },
         { summary: { contains: q, mode: "insensitive" } },
@@ -43,7 +50,7 @@ export function searchLiturgy(q: string, take = 10) {
 export function searchSpiritualLife(q: string, take = 10) {
   return prisma.spiritualLifeGuide.findMany({
     where: {
-      status: "PUBLISHED",
+      ...PUBLIC_SEARCH_WHERE,
       OR: [
         { title: { contains: q, mode: "insensitive" } },
         { summary: { contains: q, mode: "insensitive" } },
@@ -268,7 +275,7 @@ export type Suggestion = {
 async function fuzzyCandidatesPrayers(q: string, take: number) {
   const where = buildLooseWhere(q, ["defaultTitle", "category", "body"]);
   return prisma.prayer.findMany({
-    where: { status: "PUBLISHED", ...where },
+    where: { ...PUBLIC_SEARCH_WHERE, ...where },
     take,
   });
 }
@@ -276,7 +283,7 @@ async function fuzzyCandidatesPrayers(q: string, take: number) {
 async function fuzzyCandidatesSaints(q: string, take: number) {
   const where = buildLooseWhere(q, ["canonicalName", "biography"]);
   return prisma.saint.findMany({
-    where: { status: "PUBLISHED", ...where },
+    where: { ...PUBLIC_SEARCH_WHERE, ...where },
     take,
   });
 }
@@ -284,7 +291,7 @@ async function fuzzyCandidatesSaints(q: string, take: number) {
 async function fuzzyCandidatesApparitions(q: string, take: number) {
   const where = buildLooseWhere(q, ["title", "summary", "location", "country"]);
   return prisma.marianApparition.findMany({
-    where: { status: "PUBLISHED", ...where },
+    where: { ...PUBLIC_SEARCH_WHERE, ...where },
     take,
   });
 }
@@ -292,7 +299,7 @@ async function fuzzyCandidatesApparitions(q: string, take: number) {
 async function fuzzyCandidatesParishes(q: string, take: number) {
   const where = buildLooseWhere(q, ["name", "city", "region", "country", "diocese", "address"]);
   return prisma.parish.findMany({
-    where: { status: "PUBLISHED", ...where },
+    where: { ...PUBLIC_SEARCH_WHERE, ...where },
     take,
   });
 }
@@ -300,7 +307,7 @@ async function fuzzyCandidatesParishes(q: string, take: number) {
 async function fuzzyCandidatesDevotions(q: string, take: number) {
   const where = buildLooseWhere(q, ["title", "summary", "practiceText"]);
   return prisma.devotion.findMany({
-    where: { status: "PUBLISHED", ...where },
+    where: { ...PUBLIC_SEARCH_WHERE, ...where },
     take,
   });
 }
@@ -308,7 +315,7 @@ async function fuzzyCandidatesDevotions(q: string, take: number) {
 async function fuzzyCandidatesLiturgy(q: string, take: number) {
   const where = buildLooseWhere(q, ["title", "summary", "body"]);
   return prisma.liturgyEntry.findMany({
-    where: { status: "PUBLISHED", ...where },
+    where: { ...PUBLIC_SEARCH_WHERE, ...where },
     take,
   });
 }
@@ -316,7 +323,7 @@ async function fuzzyCandidatesLiturgy(q: string, take: number) {
 async function fuzzyCandidatesGuides(q: string, take: number) {
   const where = buildLooseWhere(q, ["title", "summary", "bodyText"]);
   return prisma.spiritualLifeGuide.findMany({
-    where: { status: "PUBLISHED", ...where },
+    where: { ...PUBLIC_SEARCH_WHERE, ...where },
     take,
   });
 }

@@ -1,8 +1,10 @@
 import { prisma } from "../db/client";
 import type { Locale } from "../i18n/locales";
 import type { SpiritualLifeKind } from "@prisma/client";
+import { STRICT_PUBLIC_WHERE_CLAUSE } from "../content-qa/thresholds";
 
 const PAGE_SIZE = 9;
+const PUBLIC_GUIDE_WHERE = STRICT_PUBLIC_WHERE_CLAUSE;
 
 export function listPublishedSpiritualLifeGuides(
   locale: Locale,
@@ -10,7 +12,7 @@ export function listPublishedSpiritualLifeGuides(
   take = 60,
 ) {
   return prisma.spiritualLifeGuide.findMany({
-    where: { status: "PUBLISHED", ...(kind ? { kind } : {}) },
+    where: { ...PUBLIC_GUIDE_WHERE, ...(kind ? { kind } : {}) },
     include: { translations: { where: { locale } } },
     orderBy: [{ kind: "asc" }, { title: "asc" }],
     take,
@@ -23,7 +25,7 @@ export async function listPublishedSpiritualLifeGuidesPaginated(
   pageSize = PAGE_SIZE,
 ) {
   const skip = (page - 1) * pageSize;
-  const where = { status: "PUBLISHED" as const };
+  const where = PUBLIC_GUIDE_WHERE;
   const [items, total] = await Promise.all([
     prisma.spiritualLifeGuide.findMany({
       where,
@@ -43,7 +45,7 @@ export function listAdminSpiritualLifeGuides(take = 200) {
 
 export function getPublishedSpiritualLifeGuideBySlug(slug: string, locale: Locale) {
   return prisma.spiritualLifeGuide.findFirst({
-    where: { slug, status: "PUBLISHED" },
+    where: { slug, ...PUBLIC_GUIDE_WHERE },
     include: { translations: { where: { locale } } },
   });
 }
@@ -58,7 +60,7 @@ export function getPublishedSpiritualLifeGuideBySlug(slug: string, locale: Local
 export async function listSacramentGuides(locale: Locale) {
   const items = await prisma.spiritualLifeGuide.findMany({
     where: {
-      status: "PUBLISHED",
+      ...PUBLIC_GUIDE_WHERE,
       OR: [{ slug: { startsWith: "sacrament-" } }, { slug: { startsWith: "consecration-" } }],
     },
     include: { translations: { where: { locale } } },
