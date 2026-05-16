@@ -6,12 +6,14 @@
 
 **Live site: [etviafidei.com](https://etviafidei.com)**
 
-Via Fidei is a Next.js 14 application that pairs a public, reader-facing site
+Via Fidei is a Next.js 15 application that pairs a public, reader-facing site
 with an authenticated admin console for curating Catholic content. It supports
 twelve locales, persists data in PostgreSQL via Prisma, and ingests material
-from a curated allowlist of credible Catholic sources through a cron pipeline
-that auto-publishes new records (they reach the public site directly) and only
-sends content into a moderation queue when an admin manually edits it.
+from a curated allowlist of credible Catholic sources through a five-stage
+intelligent packaging pipeline (format → clean → classify → enrich → sanitize)
+that auto-publishes clean records, routes borderline content into a moderation
+queue, hard-deletes landing-page noise outright, and runs a catalog janitor on
+every cron tick to keep existing rows consistent.
 
 The public site exposes nine tabs — **Home**, **Prayers**, **Sacraments**,
 **Spiritual Life**, **Spiritual Guidance** (the parish finder), **Liturgy**,
@@ -924,67 +926,94 @@ to the obvious schema problems:
 - **Off-allowlist external keys.** Any `externalSourceKey` URL
   whose host is not in the Vatican allowlist is rejected.
 
-Validation failures are now classified by **severity**
+Validation failures are classified by **severity**
 (`src/lib/ingestion/validate.ts`):
 
-- **Hard failures** — missing required fields, protected user
-  kinds, off-allowlist sources, malformed URLs/emails, unrecognised
-  enum values. These items are rejected outright and never reach
-  the database.
-- **Soft failures** — items that pass the structural checks but
-  trip one of the category heuristics (a "prayer" without prayer
-  language, a "saint" body that reads like a TV listing, an
-  "apparition" without Marian vocabulary, a body that is too short
-  for the bucket). These items are written to the database with
-  `status = REVIEW` so a moderator can either publish or archive
-  them via `/admin/publish-list`. Soft severity is what enables
-  the system to "grow dynamically" without permanently dropping
-  borderline content that an admin might still want.
+- **Noise** — the page is clearly navigation cruft, a brand landing
+  page, or a meta-description about a content category (titles
+  matching `LANDING_PAGE_TITLE_PATTERNS`, bodies matching
+  `META_DESCRIPTION_OPENERS`, or anything else `looksLikeNonContent`
+  flags). The runner hard-deletes these with a single `DELETE` row in
+  `DataManagementLog`. No archive, no review — they never had any
+  place in the catalog.
+- **Hard failures** — structurally invalid: missing required fields,
+  protected user kinds, off-allowlist sources, malformed URLs/emails,
+  unrecognised enum values. Refused outright and logged as `REJECT`.
+- **Soft failures** — items that pass the structural and noise
+  checks but trip one of the category heuristics (a "prayer" without
+  prayer language, a "saint" body missing biographical vocabulary,
+  an "apparition" without Marian vocabulary, a body too short for
+  the bucket). Persisted with `status = REVIEW` so a moderator can
+  publish or archive via `/admin/publish-list`. Soft severity is
+  what preserves borderline real content without polluting the
+  public catalog.
 
-`sanitize()` returns three buckets — `valid`, `review`, and
-`rejected` — and the runner persists each set with its proper
-`ContentStatus`. Surviving valid records are written with the
-configured initial status (`PUBLISHED` by default); review-bound
-records are written as `REVIEW`; rejected records are logged and
-counted as skipped.
+`sanitize()` returns four buckets — `valid`, `review`, `noise`, and
+`rejected` — and the runner handles each:
+
+| Bucket     | Outcome                                                               |
+| ---------- | --------------------------------------------------------------------- |
+| `valid`    | persisted with the configured initial status (`PUBLISHED` by default) |
+| `review`   | persisted with `status = REVIEW` + a `CATEGORY_FIX` log row           |
+| `noise`    | **hard-deleted** with a single `DELETE` log row, no DB write          |
+| `rejected` | refused before persistence with a `REJECT` log row                    |
 
 ### Background cleanup pass (Ingestion & Data Management)
 
 The admin module `/admin/ingestion` is named **Ingestion & Data
-Management**. It exposes a settings panel at the top of the page
-that controls the automatic cleanup pass:
+Management**. Two coordinated passes run on every cron tick:
+
+#### 1. Catalog janitor (always on)
+
+`runCatalogJanitor()` (`src/lib/data/catalog-janitor.ts`) walks every
+`PUBLISHED` row across the seven content tables (Prayer, Saint,
+MarianApparition, Devotion, LiturgyEntry, SpiritualLifeGuide, Parish)
+and runs the same `format → clean → validate` pipeline against it
+that ingestion runs on new items. Three actions per row:
+
+- **Repackage** (UPDATE): if the cleaned text differs from what's
+  stored (e.g. the title has a stale `" | EWTN"` brand suffix, or
+  the body still carries a "Subscribe to our newsletter" line), the
+  row is updated to the cleaned version. Stays `PUBLISHED`.
+- **Hard-delete** (DELETE): if validation now classifies the row as
+  noise, it is hard-deleted with no archive. The legacy
+  "Catholic Faith, Beliefs, & Prayers | Catholic Answers" rows that
+  predate the noise detector get cleaned out on the next tick.
+- **Divert to review** (CATEGORY_FIX → status REVIEW): soft-fail rows
+  flip to REVIEW so an admin can decide.
+
+The janitor runs regardless of the auto-cleanup site setting —
+catalog quality is not a configurable behavior. Every action emits a
+`DataManagementLog` row prefixed `Janitor:` so the operator can
+filter for it at `/admin/logs/data-management`.
+
+#### 2. Legacy cleanup pass (toggleable)
+
+The settings panel at the top of `/admin/ingestion` controls a
+secondary cleanup pass that does coarser-grained work:
 
 - **Automatic cleanup enabled** — master switch. When on (default),
   the cron job runs `cleanupMiscategorisedContent()`,
   `archiveDuplicatePrayers()`, and `purgeStaleArchivedContent()`
-  on every tick. When off, the cron job skips those passes so the
-  admin can take manual control of the catalog. The per-row
-  ingestion validator continues to run regardless, so off-allowlist
-  sources and structurally-invalid items are still rejected at the
-  door.
+  on every tick. When off, the cron skips these — the catalog
+  janitor still runs.
 - **Hard-delete after N days** — how long a row may sit in
-  `ARCHIVED` status before the system permanently removes it.
-  Default 30. Set to 0 to disable hard deletes entirely.
+  `ARCHIVED` status before `purgeStaleArchivedContent()` permanently
+  removes it. Default **30 days** (the user-facing "auto-delete
+  archived content after one month" requirement). Set to 0 to
+  disable.
 
-The cleanup pass itself inspects every `PUBLISHED` row across
-seven content tables (Prayer, Saint, MarianApparition, Devotion,
-LiturgyEntry, SpiritualLifeGuide, Parish) and applies the same
-lexical heuristics the validator uses: rows whose title or body
-now reads as source summary, broadcast schedule, or newsletter
-blurb — or that fail the per-kind length floor / vocabulary check
-— are flipped to `ARCHIVED` so they no longer appear on the
-public site. After `hardDeleteAfterDays` days of inactivity,
-`purgeStaleArchivedContent()` permanently deletes the row from
-the database; the per-row persisters still skip on existing
-slug / `externalSourceKey` / checksum lookups, so the same
-upstream URL cannot re-create a deleted bad row even after the
-hard delete frees the dedup keys.
+`cleanupMiscategorisedContent()` walks every `PUBLISHED` row and
+flips anything that matches the broader miscategorised heuristics
+to `ARCHIVED` so it stops appearing on the public site, with a
+30-day grace period before hard-delete. `archiveDuplicatePrayers()`
+catches historical artefacts: rows sharing the same content
+checksum under different slugs (a pre-checksum dedup hangover). The
+earliest row stays `PUBLISHED`; the duplicates are archived.
 
-`archiveDuplicatePrayers()` runs alongside the misc-content pass
-to catch historical artefacts: rows that share the same content
-checksum but landed under different slugs (e.g. from older
-ingestion passes before checksums were enforced). The earliest
-row stays PUBLISHED; the later duplicates are archived.
+Per-row persisters still skip on existing slug / `externalSourceKey`
+/ checksum lookups, so the same upstream URL cannot re-create a
+deleted bad row even after the hard delete frees the dedup keys.
 
 Settings are stored in the `SiteSetting` table under the key
 `data_management` and editable via
