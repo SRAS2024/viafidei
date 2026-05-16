@@ -51,6 +51,24 @@ async function countConsecrations(): Promise<number> {
 }
 
 /**
+ * Compute backlog progress with explicit error handling. When ANY
+ * count throws (database unavailable, broken connection pool,
+ * migration in progress), the scheduler MUST stay in constant mode
+ * — entering maintenance on a DB error would silently let the
+ * catalog go cold. The `dbError` flag tells the caller why the
+ * decision was made so the admin notification path can fire a
+ * "thresholds could not be checked" warning.
+ */
+export type BacklogProgressResult = {
+  counts: BacklogCounts | null;
+  targets: BacklogCounts;
+  metAll: boolean;
+  mode: SchedulerMode;
+  dbError: boolean;
+  errorMessage?: string;
+};
+
+/**
  * Returns the current content counts versus the configured ingestion
  * backlog targets, and the scheduler mode that should follow.
  *
@@ -60,40 +78,50 @@ async function countConsecrations(): Promise<number> {
  * Used internally to decide both whether to keep ticking and how to size
  * the next interval. Public pages never expose these numbers.
  */
-export async function getBacklogProgress(): Promise<{
-  counts: BacklogCounts;
-  targets: BacklogCounts;
-  metAll: boolean;
-  mode: SchedulerMode;
-}> {
+export async function getBacklogProgress(): Promise<BacklogProgressResult> {
   const targets = appConfig.ingestion.targets;
-  const [prayers, saints, parishes, churchDocuments, sacraments, consecrations] = await Promise.all(
-    [
-      prisma.prayer.count(),
-      prisma.saint.count(),
-      prisma.parish.count(),
-      countChurchDocuments(),
-      countSacraments(),
-      countConsecrations(),
-    ],
-  );
-  const counts: BacklogCounts = {
-    prayers,
-    saints,
-    parishes,
-    churchDocuments,
-    sacraments,
-    consecrations,
-  };
-  const metAll =
-    prayers >= targets.prayers &&
-    saints >= targets.saints &&
-    parishes >= targets.parishes &&
-    churchDocuments >= targets.churchDocuments &&
-    sacraments >= targets.sacraments &&
-    consecrations >= targets.consecrations;
-  const mode: SchedulerMode = metAll ? "maintenance" : "constant";
-  return { counts, targets, metAll, mode };
+  try {
+    const [prayers, saints, parishes, churchDocuments, sacraments, consecrations] =
+      await Promise.all([
+        prisma.prayer.count(),
+        prisma.saint.count(),
+        prisma.parish.count(),
+        countChurchDocuments(),
+        countSacraments(),
+        countConsecrations(),
+      ]);
+    const counts: BacklogCounts = {
+      prayers,
+      saints,
+      parishes,
+      churchDocuments,
+      sacraments,
+      consecrations,
+    };
+    const metAll =
+      prayers >= targets.prayers &&
+      saints >= targets.saints &&
+      parishes >= targets.parishes &&
+      churchDocuments >= targets.churchDocuments &&
+      sacraments >= targets.sacraments &&
+      consecrations >= targets.consecrations;
+    const mode: SchedulerMode = metAll ? "maintenance" : "constant";
+    return { counts, targets, metAll, mode, dbError: false };
+  } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    // We deliberately do NOT assume the catalog is full when counts
+    // fail. A database error MUST keep the scheduler in constant mode
+    // so an outage cannot silently turn ingestion off.
+    logger.warn("ingestion.scheduler.backlog_progress_db_error", { errorMessage });
+    return {
+      counts: null,
+      targets,
+      metAll: false,
+      mode: "constant",
+      dbError: true,
+      errorMessage,
+    };
+  }
 }
 
 export type SchedulerJobResult = {
@@ -170,6 +198,8 @@ export async function runAllActiveJobs(options: RunnerOptions = {}): Promise<Sch
     totalJobs: jobs.length,
     ...totals,
     backlog: progress,
+    mode: progress?.mode ?? "constant",
+    dbError: progress?.dbError ?? false,
   });
 
   return { totalJobs: jobs.length, runs };

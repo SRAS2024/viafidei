@@ -70,6 +70,12 @@ async function runIngestionTick(): Promise<void> {
  * we don't have to import the ingestion subgraph into auto-seed (that
  * pulls node:crypto into the instrumentation bundle and breaks the
  * build — see the earlier build-fix commit).
+ *
+ * If ANY count fails (database unavailable, migration in progress,
+ * pool exhaustion), we MUST keep the scheduler in burst mode rather
+ * than assume the catalog is full. Previous behaviour returned
+ * `true` on error which meant a transient DB hiccup at startup
+ * silently turned off ingestion for the next 84 hours.
  */
 async function backlogMet(): Promise<boolean> {
   try {
@@ -108,8 +114,11 @@ async function backlogMet(): Promise<boolean> {
       sacraments >= targets.sacraments &&
       consecrations >= targets.consecrations
     );
-  } catch {
-    return true;
+  } catch (e) {
+    logger.warn("scheduler backlog check failed — keeping ingestion in CONSTANT mode (DB error)", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return false;
   }
 }
 

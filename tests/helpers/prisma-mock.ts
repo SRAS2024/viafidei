@@ -95,6 +95,17 @@ export type PrismaMock = {
   userSavedApparition: Crud;
   userSavedParish: Crud;
   userSavedDevotion: Crud;
+  // Durable ingestion queue + freshness/cursor/batch/history tables added
+  // in 0011_durable_ingestion_queue. Same generic CRUD shape.
+  ingestionJobQueue: Crud;
+  ingestionCursor: Crud;
+  ingestionBatch: Crud;
+  archiveDeletionLog: Crud;
+  contentVersion: Crud;
+  ingestionRateBucket: Crud;
+  adminNotificationState: Crud;
+  errorLog: Crud;
+  contentReview: Crud;
   $transaction: Mock;
   $queryRaw: Mock;
   $queryRawUnsafe: Mock;
@@ -156,6 +167,15 @@ export function createPrismaMock(): PrismaMock {
     userSavedApparition: createCrud(),
     userSavedParish: createCrud(),
     userSavedDevotion: createCrud(),
+    ingestionJobQueue: createCrud(),
+    ingestionCursor: createCrud(),
+    ingestionBatch: createCrud(),
+    archiveDeletionLog: createCrud(),
+    contentVersion: createCrud(),
+    ingestionRateBucket: createCrud(),
+    adminNotificationState: createCrud(),
+    errorLog: createCrud(),
+    contentReview: createCrud(),
     // Default $transaction implementation just resolves the array of
     // promises so tests that don't override it still get sane behavior.
     $transaction: vi.fn(async (ops: unknown) => {

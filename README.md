@@ -1038,6 +1038,125 @@ to `DRAFT`. The admin must then click **Publish** on `/admin/publish-list`
 (or on the entity's own admin page) for the change to go live. Status-
 only flips and explicit "Save and Publish" actions are honoured as-is.
 
+### Durable ingestion architecture
+
+The ingestion pipeline runs on a **persistent Postgres-backed job
+queue** (`IngestionJobQueue`), not just the in-process scheduler.
+The queue survives restarts, deploys, crashes, and timeouts: when a
+worker process picks up a job it claims a lease, runs the adapter,
+and either marks the job `completed` or schedules a retry with
+exponential backoff. Lifecycle states are:
+
+```
+pending → running → completed
+                  → failed (terminal — sent to admin review)
+                  → skipped (terminal — paused source / no adapter)
+                  → retrying → pending (backoff delay applied)
+```
+
+- **Priority lanes.** Lower numbers run first.
+  - `10` — content-threshold unmet (constant-mode burst).
+  - `100` — normal scheduled ingestion.
+  - `200` — maintenance refresh (all thresholds met).
+  - `500` — housekeeping / janitor work.
+- **Retries with exponential backoff.** Each job carries `attempts`,
+  `maxAttempts` (default 5), and a `runAt`. Failed jobs reschedule
+  themselves with a 30 s base × 2ⁿ delay (jittered ±25 %, capped at
+  6 h) so a flaky upstream gets several retries spread across the
+  day instead of hammering the source. See
+  `src/lib/ingestion/queue/backoff.ts`.
+- **Max-retry → admin review.** Once a job hits `maxAttempts`, the
+  row stays in `failed` with a `sentToReviewAt` timestamp, a
+  `DataManagementLog` `FAIL` row is written, and the job appears
+  on `/admin/ingestion/queue` with a "Retry" button. The admin can
+  re-enqueue with `POST /api/admin/ingestion/queue/retry`.
+- **Worker leases.** Workers claim a queue row with a single
+  `UPDATE … FROM (SELECT … FOR UPDATE SKIP LOCKED) RETURNING *`
+  statement so two workers never lease the same row. The default
+  lease is 10 min; expired leases are reclaimed by
+  `recoverStaleJobs()` on every cron tick and on every worker
+  iteration.
+- **Per-source cursors.** `IngestionCursor` stores the last
+  successful checkpoint for each `(adapterKey, cursorKey)` pair —
+  page numbers, feed URLs, paginated API endpoints, list-item slugs.
+  Adapters call `getCursor(...)` to resume and `saveCursor(...)` after
+  each batch so a worker restart never starts a large catalog
+  (parishes, saints) from scratch.
+- **Batch progress.** `IngestionBatch` tracks per-batch counts —
+  discovered, created, updated, skipped, rejected, archived, deduped,
+  failed — so the admin can answer "how much of the catalog actually
+  came from this source vs got rejected vs deduped?".
+- **Source freshness & health.** `IngestionSource` carries
+  `lastSuccessfulSync`, `lastFailedSync`, `lastContentUpdateAt`,
+  `lastHttpStatus`, `lastEtag`, `lastModifiedHeader`,
+  `consecutiveFailures`, `lowQualityRatio`, `pausedAt`,
+  `pausedReason`, plus a `healthState` label
+  (`active` / `stale` / `failing` / `blocked` / `exhausted` /
+  `low_quality` / `paused`) recomputed on every fetch. The
+  dashboard at `/admin/ingestion/health` surfaces every source's
+  current status.
+- **Source tiering.** Every source is classified as **Tier 1**
+  (official Church: `vatican.va`, `usccb.org`, etc.),
+  **Tier 2** (established publishers: `catholic.com`, `newadvent.org`,
+  `ewtn.com`, etc.), or **Tier 3** (blogs, general Catholic sites,
+  news). Routing rules in `src/lib/ingestion/source-tier.ts`:
+  - Tier 1 auto-publishes items with confidence ≥ 0.5; others → REVIEW.
+  - Tier 2 auto-publishes items with confidence ≥ 0.8; others → REVIEW.
+  - Tier 3 always → REVIEW unless the adapter is very confident
+    (≥ 0.95).
+  - Theological content (`theologicalReviewFlag`) is forced to
+    REVIEW regardless of tier.
+- **Per-item confidence scores.** Each persisted content row carries
+  `sourceConfidence`, `formattingConfidence`, `qualityScore`,
+  `theologicalReviewFlag`, `sourceTier`, and `outcomeReason` so the
+  admin sees why each item was accepted, rejected, archived, skipped,
+  or sent to review.
+- **Stronger per-content-type validation.** `src/lib/ingestion/strict-validate.ts`
+  enforces structural minimums per kind — prayers (title/body/tradition/source/language/formatting),
+  saints (name/feast/biography/patronage/source + feast-date sanity),
+  parishes (name/address/city/region/country/diocese/source URL),
+  Church documents (title/authoring authority signal/publication date/kind/body/source),
+  sacraments + consecrations (kind/doctrinal vocabulary/formatting/source).
+- **Content version history.** When an ingestion update changes an
+  existing row (different checksum, same `externalSourceKey`), the
+  previous title/body/source/checksum/status/updatedAt are
+  snapshotted into `ContentVersion`. Rows on theology / saints /
+  liturgy / sacraments default to `reviewRequired = true` so a major
+  upstream change to doctrinal material lands in the review queue.
+- **Per-domain rate limits.** `IngestionRateBucket` tracks per-domain
+  request spacing and per-minute ceilings, separate from the
+  web-request rate limiter. Conservative defaults are applied per
+  upstream (30/min for `vatican.va`, 20/min for `newadvent.org`,
+  etc.); admins can tune `IngestionSource.rateLimitPerMin` and
+  `requestSpacingMs` per source. The worker honours these spacing
+  rules across multiple workers via the shared bucket row.
+- **Robots.txt and source terms.** Adapters respect each source's
+  `robots.txt` `User-agent: *` `Disallow` rules
+  (`src/lib/ingestion/rate-limit-domain.ts`).
+
+### Scheduler modes — constant vs maintenance
+
+- **Constant mode** — at least one of the six backlog targets
+  (500 prayers, 7 000 saints, 150 000 parishes, 1 500 church
+  documents, 7 sacraments, 4 consecrations) is unmet. The scheduler
+  ticks every ~2.5 min (`burstIntervalMs = baseIntervalMs / 4`).
+  Constant mode is the "fast and high quality" loop that grows the
+  catalog continuously until every minimum is reached.
+- **Maintenance mode** — every target is met. The scheduler drops
+  to `maintenanceIntervalMs` (≈ 84 hours, twice per week). Adapters
+  short-circuit on ETag / Last-Modified 304 responses, so the only
+  writes that happen are genuine upstream updates the runner
+  detects via the content checksum.
+- **DB-error guard.** If `prisma.prayer.count()` (etc.) throws while
+  checking thresholds, the scheduler stays in **constant mode** and
+  a `threshold_check_failed` admin warning is fired. We never assume
+  the catalog is full on a DB error.
+
+The admin dashboard at **`/admin/ingestion/progress`** shows the
+current scheduler mode with a clear visual label (amber CONSTANT,
+emerald MAINTENANCE), and surfaces the `dbError` flag so an admin
+can see immediately when the threshold check failed.
+
 ### Scheduling and observability
 
 - **In-process scheduler.** Enabled by default in `src/lib/config.ts`
@@ -1079,11 +1198,38 @@ only flips and explicit "Save and Publish" actions are honoured as-is.
   tracked on `IngestionSource.lastSuccessfulSync` /
   `lastFailedSync` / `reliabilityScore`.
 - **Admin visibility.** `/admin/ingestion` lists registered sources and
-  job activity; `/admin/sources` renders the allowlist next to each
-  source's registration / sync status; `/admin/audit` records every
-  manual trigger. Source-management endpoints under `/api/admin/sources`
-  allow disabling, marking official, recording reliability scores, and
-  reading `lastSuccessfulSync` / `lastFailedSync` per host.
+  job activity. The dedicated dashboards add:
+  - **`/admin/ingestion/health`** — source health table (active /
+    stale / failing / blocked / exhausted / low_quality / paused).
+    Per-source counts, last-OK / last-fail / last-content-update
+    timestamps, last HTTP status, ETag, consecutive failures, and
+    low-quality ratio.
+  - **`/admin/ingestion/progress`** — content type progress
+    dashboard (Prayers, Saints, Parishes, Church Documents,
+    Sacraments, Consecrations). Current count, target, percent
+    complete, last successful ingestion, last update found, failed
+    source count, review queue size, plus a clear visual indicator
+    for **CONSTANT** vs **MAINTENANCE** mode.
+  - **`/admin/ingestion/queue`** — durable queue dashboard.
+    Per-status counts (pending / running / completed / failed /
+    skipped / retrying), the list of failed jobs awaiting admin
+    review (with retry button), and the currently-retrying jobs.
+  - `/admin/sources` renders the allowlist next to each source's
+    registration / sync status; `/admin/audit` records every manual
+    trigger. Source-management endpoints under `/api/admin/sources`
+    allow disabling, marking official, recording reliability scores,
+    and reading `lastSuccessfulSync` / `lastFailedSync` per host.
+- **Admin actions.** From the dashboards above the admin can:
+  - **Retry a failed queue job** — `POST /api/admin/ingestion/queue/retry`.
+  - **Reprocess a single source** — `POST /api/admin/ingestion/sources/reprocess`.
+    Re-enqueues every active job for the source at normal priority.
+  - **Revalidate a content type** — `POST /api/admin/ingestion/revalidate`.
+    Runs the catalog janitor (format + clean + validate) against
+    every PUBLISHED row.
+  - **Pause / resume a source** — `POST /api/admin/ingestion/sources/pause`.
+    Workers honour `pausedAt` and skip the run with status
+    `skipped` so paused sources cost no retry budget.
+  - **Pause / resume a single job** — `POST /api/admin/ingestion/jobs/pause`.
 - **Housekeeping piggyback.** Each ingestion run also prunes expired
   `RateLimitBucket` rows, expires unused password-reset and email-
   verification tokens, prunes old `IngestionJobRun`, `AdminAuditLog`, and
@@ -1274,6 +1420,49 @@ When the Node process boots, `src/instrumentation.ts` defers to
 
 All of this work is fire-and-forget — the HTTP server begins accepting
 requests immediately so Railway / Docker healthchecks never wait on it.
+
+### Dedicated ingestion worker
+
+Long-running ingestion can also be served by a **separate worker
+process** that drains the `IngestionJobQueue` continuously while the
+web container stays focused on serving pages and APIs.
+
+```
+npm run worker        # long-running loop
+npm run worker:once   # drain the queue once and exit (cron-friendly)
+```
+
+The worker (`scripts/run-worker.ts`) registers the adapter set, then
+calls `runWorkerLoop()` from `src/lib/ingestion/queue/worker.ts`. It
+leases the next job, runs the adapter, and either marks it
+`completed` or schedules a retry with exponential backoff. Multiple
+workers can run in parallel: the lease/SKIP LOCKED claim guarantees
+no two workers ever process the same job, and `recoverStaleJobs()`
+on every iteration returns crashed-worker jobs to the queue.
+
+Paused sources and paused jobs are honoured automatically — the
+worker checks `IngestionSource.pausedAt` and
+`IngestionJob.pausedAt` before running and skips the row with a
+`skipped` outcome (no retry consumed). The deploy script can either
+run a dedicated worker container or rely on the cron-tick fallback
+(every cron tick still recovers stale leases for single-server
+deploys).
+
+### Archive cleanup — `archivedAt` retention
+
+Archived content is **hard-deleted after 30 days, measured from
+`archivedAt`** (not from `updatedAt`). The dedicated `archivedAt`
+column on every content table is set the moment the row is flipped
+to `ARCHIVED`, so editing an archived row doesn't push its deletion
+date forward.
+
+Every hard delete writes one `ArchiveDeletionLog` row with
+`contentType`, `contentId`, `contentSlug`, `archivedAt`,
+`deletedAt`, `reason`, `triggeredBy`, and `actorUsername` so cleanup
+is fully auditable. The cron route's `purgeArchivedByArchivedAt()`
+pass writes both `ArchiveDeletionLog` rows (for audit) and
+`DataManagementLog` `PURGE` rows (so existing admin reports keep
+working).
 
 ### Backlog targets
 

@@ -86,6 +86,38 @@ export const appConfig = {
      * unnecessary background activity. Public pages never expose this.
      */
     maintenanceIntervalMs: 84 * 60 * 60 * 1000,
+    /**
+     * Durable-queue worker settings. These knobs control how a
+     * worker process (separate from the web server) leases and
+     * executes IngestionJobQueue rows. The web server still ticks
+     * the in-process scheduler so single-server deployments
+     * continue to work, but production should run at least one
+     * dedicated worker for retry safety.
+     */
+    queue: {
+      /** Max attempts per job before it's marked failed + sent to review. */
+      maxAttempts: 5,
+      /** Backoff base (ms). Doubles per attempt, jittered ±25%. */
+      backoffBaseMs: 30_000,
+      /** Backoff cap (ms). Long-failing sources still retry once per ~6h. */
+      backoffMaxMs: 6 * 60 * 60 * 1000,
+      /** Lease duration (ms). Stale leases beyond this get reclaimed. */
+      leaseDurationMs: 10 * 60 * 1000,
+      /** Worker idle sleep (ms) between empty-queue polls. */
+      idleSleepMs: 5_000,
+    },
+    /**
+     * Stalled-growth detector. Number of ingestion cycles a content
+     * type can go without growing (while still below target) before
+     * we send the admin a "stalled" alert.
+     */
+    stalledGrowthCycleThreshold: 6,
+    /**
+     * One-month retention window for ARCHIVED rows. Measured from
+     * `archivedAt`, not `updatedAt`, so editing an archived row does
+     * not push its deletion date forward.
+     */
+    archiveRetentionDays: 30,
   },
   email: {
     /**

@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 import { isAuthorizedCron } from "@/lib/security/cron-auth";
 import { pruneExpiredRateLimits } from "@/lib/security/rate-limit";
 import { pruneExpiredTokens } from "@/lib/auth";
-import { runAllActiveJobs } from "@/lib/ingestion/scheduler";
+import { getBacklogProgress, runAllActiveJobs } from "@/lib/ingestion/scheduler";
 import { ensureVaticanSchedule } from "@/lib/ingestion/sources";
 import { markOverdueGoals } from "@/lib/data/goals";
 import {
@@ -10,12 +10,18 @@ import {
   cleanupMiscategorisedContent,
   pruneOldAuditLogs,
   pruneOldIngestionRuns,
-  purgeStaleArchivedContent,
 } from "@/lib/data/cleanup";
+import { purgeArchivedByArchivedAt } from "@/lib/data/archive-cleanup";
 import { getDataManagementSettings } from "@/lib/data/site-settings";
-import { dispatchAdminNotifications } from "@/lib/data/admin-notifications";
+import {
+  dispatchAdminNotifications,
+  sendThresholdCheckFailedWarning,
+} from "@/lib/data/admin-notifications";
 import { pruneOldErrorLogs } from "@/lib/data/error-log";
 import { runCatalogJanitor } from "@/lib/data/catalog-janitor";
+import { recoverStaleJobs } from "@/lib/ingestion/queue/queue";
+import { runAllIngestionAlerts } from "@/lib/data/ingestion-alerts";
+import { appConfig } from "@/lib/config";
 import { jsonError, jsonOk } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 
@@ -34,6 +40,25 @@ export async function POST(req: NextRequest) {
   }
   const started = Date.now();
   await ensureVaticanSchedule();
+
+  // Recover any leases that expired since the previous tick. This is
+  // belt-and-suspenders for the worker's own stale-recovery loop —
+  // running it here guarantees a single-server deploy (no separate
+  // worker) still gets stale-job recovery on every cron pulse.
+  const staleRecovered = await recoverStaleJobs().catch(() => 0);
+
+  // Threshold check FIRST so we can fire a warning if the DB cannot
+  // count totals. Constant mode is the safe default — see
+  // BacklogProgressResult docs.
+  const backlogProgress = await getBacklogProgress().catch(() => null);
+  if (backlogProgress?.dbError && backlogProgress.errorMessage) {
+    await sendThresholdCheckFailedWarning(backlogProgress.errorMessage).catch((e) => {
+      logger.warn("cron.threshold_check_warning_failed", {
+        error: e instanceof Error ? e.message : String(e),
+      });
+    });
+  }
+
   const summary = await runAllActiveJobs();
 
   // Admin can disable the automatic Data Management sweep via the
@@ -59,7 +84,7 @@ export async function POST(req: NextRequest) {
     totalArchived: 0,
   };
   let duplicatePrayers = 0;
-  let purged: Awaited<ReturnType<typeof purgeStaleArchivedContent>> = {
+  let purged: Awaited<ReturnType<typeof purgeArchivedByArchivedAt>> = {
     buckets: [],
     totalDeleted: 0,
   };
@@ -70,10 +95,16 @@ export async function POST(req: NextRequest) {
     // or one-line stub. Then permanently delete anything that has been
     // archived for long enough (default 30 days) so the catalog stays
     // lean and the pipeline self-corrects.
+    //
+    // Hard delete now uses `archivedAt` (not `updatedAt`) — see
+    // archive-cleanup.ts for the rationale. The retention window is
+    // measured from the actual archive event, not the last write.
     [miscategorised, duplicatePrayers, purged] = await Promise.all([
       cleanupMiscategorisedContent(),
       archiveDuplicatePrayers(),
-      purgeStaleArchivedContent(dataManagement.hardDeleteAfterDays),
+      purgeArchivedByArchivedAt(
+        dataManagement.hardDeleteAfterDays ?? appConfig.ingestion.archiveRetentionDays,
+      ),
     ]);
   }
 
@@ -111,6 +142,57 @@ export async function POST(req: NextRequest) {
     return null;
   });
 
+  // Stalled-growth, repeated-failure, low-quality, and review-queue
+  // alerts. Each check carries its own cooldown so an off-cadence
+  // call is harmless.
+  const bucketCounts =
+    backlogProgress && backlogProgress.counts
+      ? [
+          {
+            key: "prayers",
+            label: "Prayers",
+            currentCount: backlogProgress.counts.prayers,
+            target: backlogProgress.targets.prayers,
+          },
+          {
+            key: "saints",
+            label: "Saints",
+            currentCount: backlogProgress.counts.saints,
+            target: backlogProgress.targets.saints,
+          },
+          {
+            key: "parishes",
+            label: "Parishes",
+            currentCount: backlogProgress.counts.parishes,
+            target: backlogProgress.targets.parishes,
+          },
+          {
+            key: "churchDocuments",
+            label: "Church Documents",
+            currentCount: backlogProgress.counts.churchDocuments,
+            target: backlogProgress.targets.churchDocuments,
+          },
+          {
+            key: "sacraments",
+            label: "Sacraments",
+            currentCount: backlogProgress.counts.sacraments,
+            target: backlogProgress.targets.sacraments,
+          },
+          {
+            key: "consecrations",
+            label: "Consecrations",
+            currentCount: backlogProgress.counts.consecrations,
+            target: backlogProgress.targets.consecrations,
+          },
+        ]
+      : [];
+  const alerts = await runAllIngestionAlerts(bucketCounts).catch((e) => {
+    logger.warn("cron.alerts_failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return { stalledGrowth: 0, sourceFailures: 0, lowQualitySources: 0, reviewQueueLarge: false };
+  });
+
   logger.info("cron.completed", {
     route: "/api/cron/ingest",
     requestId,
@@ -122,6 +204,9 @@ export async function POST(req: NextRequest) {
     prunedRuns,
     prunedAudits,
     prunedErrors,
+    staleRecovered,
+    mode: backlogProgress?.mode ?? "constant",
+    backlogDbError: backlogProgress?.dbError ?? false,
     autoCleanupEnabled: dataManagement.autoCleanupEnabled,
     miscategorisedArchived: miscategorised.totalArchived,
     duplicatePrayersArchived: duplicatePrayers,
@@ -131,6 +216,7 @@ export async function POST(req: NextRequest) {
       hardDeleted: janitor.totalHardDeleted,
       divertedToReview: janitor.totalDivertedToReview,
     },
+    alerts,
     adminNotifications: adminNotifications
       ? {
           biweeklySent:
@@ -142,6 +228,7 @@ export async function POST(req: NextRequest) {
             adminNotifications.monthlyErrorReport?.ok &&
             adminNotifications.monthlyErrorReport.delivery === "sent",
           milestonesSent: adminNotifications.milestonesSent.length,
+          milestonesRecordedWithoutSend: adminNotifications.milestonesRecordedWithoutSend.length,
         }
       : null,
   });
@@ -153,6 +240,9 @@ export async function POST(req: NextRequest) {
     prunedRuns,
     prunedAudits,
     prunedErrors,
+    staleRecovered,
+    mode: backlogProgress?.mode ?? "constant",
+    backlogDbError: backlogProgress?.dbError ?? false,
     dataManagement: {
       autoCleanupEnabled: dataManagement.autoCleanupEnabled,
       miscategorised,
@@ -160,6 +250,7 @@ export async function POST(req: NextRequest) {
       hardDeleted: purged,
     },
     janitor,
+    alerts,
     adminNotifications,
   });
 }

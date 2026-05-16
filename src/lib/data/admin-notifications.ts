@@ -318,11 +318,23 @@ const MILESTONE_THRESHOLDS: Array<25 | 50 | 75 | 100> = [25, 50, 75, 100];
  * Cross-check every milestone bucket against its target and emit one
  * email per newly-crossed threshold. State is per-bucket so the same
  * threshold is never re-sent — even if the count later drops below it.
+ *
+ * The state is recorded regardless of whether the email actually went
+ * out. Previously, an unconfigured ADMIN_EMAIL or a transport failure
+ * would leave the state un-advanced; the moment the operator finally
+ * configured ADMIN_EMAIL, the very next tick would fire 25/50/75/100
+ * for every bucket all at once (because every threshold had been
+ * "newly crossed" against an empty state record). We now mark
+ * thresholds as completed once the system detects they were crossed,
+ * even if the email was skipped, so the cap-up flow is clean.
  */
 export async function processMilestoneNotifications(): Promise<{
   sent: Array<{ bucket: string; threshold: number }>;
+  recordedWithoutSend: Array<{ bucket: string; threshold: number }>;
 }> {
   const sent: Array<{ bucket: string; threshold: number }> = [];
+  const recordedWithoutSend: Array<{ bucket: string; threshold: number }> = [];
+  const adminEmailConfigured = !!readAdminEmail();
   for (const bucket of milestoneBuckets()) {
     const flow = `milestone:${bucket.key}` as const;
     const state = (await getFlowState<MilestoneState>(flow)) ?? { sent: [] };
@@ -337,33 +349,59 @@ export async function processMilestoneNotifications(): Promise<{
     let dirty = false;
     for (const threshold of MILESTONE_THRESHOLDS) {
       if (state.sent.includes(threshold)) continue;
-      if (percent >= threshold) {
-        try {
-          const result = await sendThresholdMilestoneAlert({
-            contentLabel: bucket.label,
-            threshold,
-            currentCount: count,
-            target: bucket.target,
-          });
-          if (result.ok) {
-            state.sent.push(threshold);
-            dirty = true;
+      if (percent < threshold) continue;
+      if (!adminEmailConfigured) {
+        // ADMIN_EMAIL is not configured. Mark the threshold as
+        // completed in state anyway — otherwise the next time the
+        // operator sets ADMIN_EMAIL, every previously-crossed
+        // milestone fires at once (a known nasty surprise).
+        state.sent.push(threshold);
+        dirty = true;
+        recordedWithoutSend.push({ bucket: bucket.key, threshold });
+        continue;
+      }
+      try {
+        const result = await sendThresholdMilestoneAlert({
+          contentLabel: bucket.label,
+          threshold,
+          currentCount: count,
+          target: bucket.target,
+        });
+        // Mark as sent on success OR on `skipped` (e.g. transport
+        // disabled by config) so the state machine moves forward.
+        if (result.ok) {
+          state.sent.push(threshold);
+          dirty = true;
+          if (result.delivery === "sent") {
             sent.push({ bucket: bucket.key, threshold });
+          } else {
+            recordedWithoutSend.push({ bucket: bucket.key, threshold });
           }
-        } catch (e) {
-          logger.error("admin.milestone.send_failed", {
-            bucket: bucket.key,
-            threshold,
-            error: e instanceof Error ? e.message : String(e),
-          });
+        } else {
+          // Even on hard failure we record the milestone so a
+          // retry-storm cannot blow up the inbox. The send was already
+          // attempted; remembering that fact is the safer default.
+          state.sent.push(threshold);
+          dirty = true;
+          recordedWithoutSend.push({ bucket: bucket.key, threshold });
         }
+      } catch (e) {
+        logger.error("admin.milestone.send_failed", {
+          bucket: bucket.key,
+          threshold,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        // Mark as recorded anyway — see comment above.
+        state.sent.push(threshold);
+        dirty = true;
+        recordedWithoutSend.push({ bucket: bucket.key, threshold });
       }
     }
     if (dirty) {
       await setFlowState<MilestoneState>(flow, state);
     }
   }
-  return { sent };
+  return { sent, recordedWithoutSend };
 }
 
 export type AdminNotificationDispatchSummary = {
@@ -371,6 +409,7 @@ export type AdminNotificationDispatchSummary = {
   monthlyArchive: AdminSendOutcome | null;
   monthlyErrorReport: AdminSendOutcome | null;
   milestonesSent: Array<{ bucket: string; threshold: number }>;
+  milestonesRecordedWithoutSend: Array<{ bucket: string; threshold: number }>;
 };
 
 /**
@@ -381,24 +420,35 @@ export type AdminNotificationDispatchSummary = {
  *
  * Returns a structured summary so the cron route can emit one log line
  * with the outcome instead of every flow logging individually.
+ *
+ * The milestone tracker runs unconditionally — even when ADMIN_EMAIL
+ * is unset. Its state must advance whenever a threshold is crossed
+ * so that a later ADMIN_EMAIL configuration does not unleash a flood
+ * of old milestone emails on the next tick.
  */
 export async function dispatchAdminNotifications(
   now: Date = new Date(),
 ): Promise<AdminNotificationDispatchSummary> {
-  if (!readAdminEmail()) {
-    // Without an admin mailbox there is nothing to send. We still call
-    // the milestone tracker because it's harmless (writes will be
-    // skipped at the transport layer) and it keeps the state machine
-    // consistent if ADMIN_EMAIL is set later.
+  const adminEmail = readAdminEmail();
+  // Milestone tracking always runs — see the comment on
+  // `processMilestoneNotifications` for why state must update even
+  // when ADMIN_EMAIL is absent.
+  const milestones = await processMilestoneNotifications().catch((e) => {
+    logger.error("admin.milestones.dispatch_failed", { error: String(e) });
+    return { sent: [], recordedWithoutSend: [] };
+  });
+
+  if (!adminEmail) {
     return {
       biweekly: null,
       monthlyArchive: null,
       monthlyErrorReport: null,
-      milestonesSent: [],
+      milestonesSent: milestones.sent,
+      milestonesRecordedWithoutSend: milestones.recordedWithoutSend,
     };
   }
 
-  const [biweekly, monthlyArchive, monthlyErrorReport, milestones] = await Promise.all([
+  const [biweekly, monthlyArchive, monthlyErrorReport] = await Promise.all([
     maybeSendBiweeklyReport(now).catch((e) => {
       logger.error("admin.biweekly.dispatch_failed", { error: String(e) });
       return null;
@@ -411,10 +461,6 @@ export async function dispatchAdminNotifications(
       logger.error("admin.monthly_error_report.dispatch_failed", { error: String(e) });
       return null;
     }),
-    processMilestoneNotifications().catch((e) => {
-      logger.error("admin.milestones.dispatch_failed", { error: String(e) });
-      return { sent: [] };
-    }),
   ]);
 
   return {
@@ -422,7 +468,26 @@ export async function dispatchAdminNotifications(
     monthlyArchive,
     monthlyErrorReport,
     milestonesSent: milestones.sent,
+    milestonesRecordedWithoutSend: milestones.recordedWithoutSend,
   };
+}
+
+/**
+ * Send a "thresholds-could-not-be-checked" warning when the database
+ * count query throws and the scheduler stays in constant mode without
+ * knowing for sure whether the catalog is full. Caller is the cron
+ * route — it inspects the BacklogProgressResult and fires this only
+ * when `dbError === true`.
+ */
+export async function sendThresholdCheckFailedWarning(
+  errorMessage: string,
+): Promise<AdminSendOutcome | null> {
+  if (!readAdminEmail()) return null;
+  const { sendCriticalFailureAlert } = await import("../email");
+  return sendCriticalFailureAlert({
+    kind: "threshold_check_failed",
+    message: `Could not count content totals to check ingestion thresholds. Ingestion is staying in CONSTANT mode until counts succeed again. Cause: ${errorMessage.slice(0, 200)}`,
+  });
 }
 
 /**
