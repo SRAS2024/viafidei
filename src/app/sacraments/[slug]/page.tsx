@@ -6,6 +6,13 @@ import { getBadgeForGoalSlug } from "@/components/icons/SacramentBadges";
 import { PageHero } from "@/components/ui/PageHero";
 import { OfficialSourceLink } from "@/components/ui";
 import { buildDetailMetadata } from "@/lib/metadata";
+import {
+  checkSacramentRender,
+  checkConsecrationRender,
+  isCanonicalSacramentKey,
+} from "@/lib/content-qa";
+import { logPageMissingContent } from "@/lib/observability/page-errors";
+import { logger } from "@/lib/observability/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +32,59 @@ export default async function SacramentDetailPage({ params }: Props) {
   }
   const guide = await getPublishedSpiritualLifeGuideBySlug(slug, locale);
   if (!guide) notFound();
+
+  // Strict render gate. Sacraments must have one of the seven canonical
+  // keys; consecrations need duration + daily prayers + final prayer.
+  const isConsecrationSlug = slug.startsWith("consecration-");
+  if (isConsecrationSlug) {
+    const render = checkConsecrationRender({
+      title: guide.title,
+      background: guide.background ?? guide.summary,
+      durationDays: guide.durationDays,
+      packageMetadata: guide.packageMetadata as {
+        dailyPrayers?: unknown[];
+        finalConsecrationPrayer?: string;
+      } | null,
+    });
+    if (!render.ready) {
+      logger.warn("consecration.package_unready", { slug, missing: render.missing });
+      logPageMissingContent({
+        route: "/sacraments/[slug]",
+        entityType: "SpiritualLifeGuide",
+        slug,
+        reason: "validation_error",
+      });
+      notFound();
+    }
+  } else if (!isCanonicalSacramentKey(guide.sacramentKey)) {
+    logger.warn("sacrament.invalid_key", { slug, sacramentKey: guide.sacramentKey });
+    logPageMissingContent({
+      route: "/sacraments/[slug]",
+      entityType: "Sacrament",
+      slug,
+      reason: "validation_error",
+    });
+    notFound();
+  } else {
+    const render = checkSacramentRender({
+      sacramentKey: guide.sacramentKey,
+      sacramentGroup: guide.sacramentGroup,
+      title: guide.title,
+      background: guide.background ?? guide.summary,
+      bodyText: guide.bodyText,
+      summary: guide.summary,
+    });
+    if (!render.ready) {
+      logger.warn("sacrament.package_unready", { slug, missing: render.missing });
+      logPageMissingContent({
+        route: "/sacraments/[slug]",
+        entityType: "Sacrament",
+        slug,
+        reason: "validation_error",
+      });
+      notFound();
+    }
+  }
 
   const title = guide.translations[0]?.title ?? guide.title;
   const summary = guide.translations[0]?.summary ?? guide.summary;

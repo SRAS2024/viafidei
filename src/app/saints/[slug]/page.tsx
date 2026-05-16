@@ -11,6 +11,7 @@ import { parseSaintBiography } from "@/lib/data/saint-sections";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
+import { checkSaintRender, checkApparitionRender } from "@/lib/content-qa";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +79,27 @@ export default async function SaintDetailPage({ params }: Props) {
   // Try saint first, then apparition
   const saint = await safeGetSaint(slug, locale);
   if (saint) {
+    // Strict render gate — refuse to render if required sections are
+    // missing even when the DB row passed the public where clause.
+    const render = checkSaintRender({
+      saintType: saint.saintType,
+      canonicalName: saint.canonicalName,
+      feastDay: saint.feastDay,
+      feastMonth: saint.feastMonth,
+      feastDayOfMonth: saint.feastDayOfMonth,
+      biography: saint.biography,
+      patronages: saint.patronages,
+    });
+    if (!render.ready) {
+      logger.warn("saint.package_unready", { slug, missing: render.missing });
+      logPageMissingContent({
+        route: "/saints/[slug]",
+        entityType: "Saint",
+        slug,
+        reason: "validation_error",
+      });
+      notFound();
+    }
     const user = await safeRequireUser();
     const alreadySaved = user ? await safeIsSaved("saint", user.id, saint.id) : false;
     const tr = saint.translations[0];
@@ -212,6 +234,26 @@ export default async function SaintDetailPage({ params }: Props) {
       route: "/saints/[slug]",
       slug: slug,
       reason: "missing_record",
+    });
+    notFound();
+  }
+
+  // Strict apparition render gate.
+  const apparitionRender = checkApparitionRender({
+    title: apparition.title,
+    location: apparition.location,
+    country: apparition.country,
+    approvedStatus: apparition.approvedStatus,
+    background: apparition.background,
+    summary: apparition.summary,
+  });
+  if (!apparitionRender.ready) {
+    logger.warn("apparition.package_unready", { slug, missing: apparitionRender.missing });
+    logPageMissingContent({
+      route: "/saints/[slug]",
+      entityType: "MarianApparition",
+      slug,
+      reason: "validation_error",
     });
     notFound();
   }

@@ -10,6 +10,7 @@ import { ExpandablePrayer, OfficialSourceLink } from "@/components/ui";
 import { logger } from "@/lib/observability/logger";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
+import { checkPrayerRender } from "@/lib/content-qa";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,26 @@ export default async function PrayerDetailPage({ params }: Props) {
       entityType: "Prayer",
       slug,
       reason: "missing_record",
+    });
+    notFound();
+  }
+
+  // Strict render-readiness gate (belt-and-suspenders): even though
+  // getPublishedPrayerBySlug filters on the strict where clause, an
+  // admin-edited row could have flags but missing fields. Refuse to
+  // render in that case.
+  const render = checkPrayerRender({
+    prayerType: prayer.prayerType,
+    defaultTitle: prayer.defaultTitle,
+    body: prayer.body,
+  });
+  if (!render.ready) {
+    logger.warn("prayer.package_unready", { slug, missing: render.missing });
+    logPageMissingContent({
+      route: "/prayers/[slug]",
+      entityType: "Prayer",
+      slug,
+      reason: "validation_error",
     });
     notFound();
   }

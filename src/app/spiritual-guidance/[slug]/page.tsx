@@ -9,6 +9,7 @@ import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { fetchOsmParishById, type ExternalParish } from "@/lib/data/external-parishes";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
+import { checkParishRender } from "@/lib/content-qa";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,27 @@ export default async function ParishDetailPage({ params }: Props) {
       entityType: "Parish",
       slug,
       reason: "missing_record",
+    });
+    notFound();
+  }
+
+  // Strict parish render gate.
+  const render = checkParishRender({
+    name: parish.name,
+    city: parish.city,
+    address: parish.address,
+    country: parish.country,
+    sourceUrl: parish.sourceUrl ?? parish.externalSourceKey,
+    externalSourceKey: parish.externalSourceKey,
+    websiteUrl: parish.websiteUrl,
+  });
+  if (!render.ready) {
+    logger.warn("parish.package_unready", { slug, missing: render.missing });
+    logPageMissingContent({
+      route: "/spiritual-guidance/[slug]",
+      entityType: "Parish",
+      slug,
+      reason: "validation_error",
     });
     notFound();
   }

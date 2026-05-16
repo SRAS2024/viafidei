@@ -10,6 +10,7 @@ import { ExpandablePrayer, OfficialSourceLink } from "@/components/ui";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
+import { checkDevotionRender } from "@/lib/content-qa";
 
 export const dynamic = "force-dynamic";
 
@@ -73,6 +74,24 @@ export default async function DevotionDetailPage({ params }: Props) {
       entityType: "Devotion",
       slug,
       reason: "missing_record",
+    });
+    notFound();
+  }
+
+  const render = checkDevotionRender({
+    devotionType: devotion.devotionType,
+    title: devotion.title,
+    background: devotion.background,
+    practiceInstructions: devotion.practiceInstructions ?? devotion.practiceText,
+    summary: devotion.summary,
+  });
+  if (!render.ready) {
+    logger.warn("devotion.package_unready", { slug, missing: render.missing });
+    logPageMissingContent({
+      route: "/devotions/[slug]",
+      entityType: "Devotion",
+      slug,
+      reason: "validation_error",
     });
     notFound();
   }
