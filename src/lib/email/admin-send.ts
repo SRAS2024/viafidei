@@ -421,5 +421,3 @@ export async function sendMonthlyErrorReport(params: {
     ],
   });
 }
-
-export type { ContentManagementCounts as BiweeklyContentManagementCounts };

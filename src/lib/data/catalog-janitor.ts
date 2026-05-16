@@ -1,4 +1,4 @@
-import type { ContentStatus, Prisma } from "@prisma/client";
+import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../db/client";
 import { cleanIngestedItem } from "../ingestion/clean";
 import { formatIngestedItem } from "../ingestion/format";
@@ -734,8 +734,3 @@ export async function runCatalogJanitor(): Promise<JanitorSummary> {
     totalDivertedToReview: buckets.reduce((s, b) => s + b.divertedToReview, 0),
   };
 }
-
-// Re-export Prisma name so callers can declare typed helpers without
-// repeating the import path. Not currently used at call sites; kept
-// so future helpers can build query-where shapes against `Prisma`.
-export type { Prisma };

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import { checkRequiredTables, checkSeedContent } from "@/lib/db/tables";
+import { listAdapterSecondaryHosts } from "@/lib/ingestion";
 import {
   finalizeSection,
   runDiagnostic,
@@ -120,6 +121,94 @@ export async function runDataManagementDiagnostics(): Promise<DiagnosticSection>
           severity: "pass",
           summary: `${total} data-management actions in the last 24h.`,
           evidence: { total },
+        };
+      },
+    ),
+  );
+
+  results.push(
+    await runDiagnostic(
+      "dm.janitor_activity",
+      "Catalog janitor activity (last 24h)",
+      shell.requestId,
+      async () => {
+        const since = new Date(Date.now() - RECENT_WINDOW_MS);
+        const grouped = await prisma.dataManagementLog.groupBy({
+          by: ["action"],
+          where: {
+            createdAt: { gte: since },
+            reason: { contains: "Janitor:" },
+          },
+          _count: { _all: true },
+        });
+        const counts = Object.fromEntries(
+          grouped.map((row) => [row.action, row._count._all]),
+        ) as Record<string, number>;
+        const repackaged = counts.UPDATE ?? 0;
+        const hardDeleted = counts.DELETE ?? 0;
+        const divertedToReview = counts.CATEGORY_FIX ?? 0;
+        return {
+          severity: "pass",
+          summary: `Janitor: ${repackaged} repackaged · ${hardDeleted} hard-deleted · ${divertedToReview} diverted to REVIEW.`,
+          explanation:
+            "The catalog janitor runs on every cron tick. It applies the format → clean → " +
+            "validate pipeline to every PUBLISHED row, repackages titles / bodies that " +
+            "needed cleanup, hard-deletes anything classified as noise (landing pages, " +
+            "navigation cruft, meta-descriptions), and diverts soft fails to REVIEW.",
+          evidence: { repackaged, hardDeleted, divertedToReview },
+        };
+      },
+    ),
+  );
+
+  results.push(
+    await runDiagnostic(
+      "dm.adapter_coverage",
+      "Adapter source coverage",
+      shell.requestId,
+      async () => {
+        const secondary = listAdapterSecondaryHosts();
+        const adapters = Object.keys(secondary).length;
+        const hosts = new Set<string>();
+        for (const list of Object.values(secondary)) for (const h of list) hosts.add(h);
+        return {
+          severity: "pass",
+          summary: `${adapters} adapters draw from a documented ${hosts.size} secondary hosts beyond their primary upstream.`,
+          explanation:
+            "Each adapter walks the primary host registered in IngestionJob plus a curated " +
+            "list of secondary hosts. The dashboard 'jobs' column shows only the primary; " +
+            "the full set is `ADAPTER_SECONDARY_HOSTS` in src/lib/ingestion/sources/bootstrap.ts.",
+          evidence: { adapters, secondaryHosts: hosts.size },
+        };
+      },
+    ),
+  );
+
+  results.push(
+    await runDiagnostic(
+      "dm.ingestion_pipeline",
+      "Ingestion pipeline activity (last 24h)",
+      shell.requestId,
+      async () => {
+        const since = new Date(Date.now() - RECENT_WINDOW_MS);
+        const grouped = await prisma.dataManagementLog.groupBy({
+          by: ["action"],
+          where: { createdAt: { gte: since } },
+          _count: { _all: true },
+        });
+        const counts = Object.fromEntries(
+          grouped.map((row) => [row.action, row._count._all]),
+        ) as Record<string, number>;
+        return {
+          severity: "pass",
+          summary: `Pipeline: ${counts.ADD ?? 0} added · ${counts.UPDATE ?? 0} updated · ${counts.DELETE ?? 0} deleted · ${counts.CATEGORY_FIX ?? 0} re-classified · ${counts.REJECT ?? 0} rejected.`,
+          explanation:
+            "Aggregate of every DataManagementLog action over the last 24 hours. ADD + " +
+            "UPDATE come from ingestion runs and the janitor's repackaging pass; DELETE is " +
+            "the noise hard-delete; CATEGORY_FIX is the classifier re-routing kinds and " +
+            "soft-fail review divertions; REJECT is structurally-invalid rows that never " +
+            "reach the catalog.",
+          evidence: counts,
         };
       },
     ),
