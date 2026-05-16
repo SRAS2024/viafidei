@@ -2,11 +2,8 @@ import { type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { jsonError, jsonOk } from "@/lib/http";
-import {
-  archiveDuplicatePrayers,
-  cleanupMiscategorisedContent,
-  purgeStaleArchivedContent,
-} from "@/lib/data/cleanup";
+import { archiveDuplicatePrayers, cleanupMiscategorisedContent } from "@/lib/data/cleanup";
+import { purgeArchivedByArchivedAt } from "@/lib/data/archive-cleanup";
 import { getDataManagementSettings } from "@/lib/data/site-settings";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
 import { logger } from "@/lib/observability";
@@ -22,8 +19,9 @@ export const maxDuration = 60;
  *      reads like a source summary / TV listing / newsletter blurb.
  *   2. archiveDuplicatePrayers — collapse rows that share a content
  *      checksum but landed under different slugs.
- *   3. purgeStaleArchivedContent — permanently delete rows that have
- *      been ARCHIVED for ≥ hardDeleteAfterDays days.
+ *   3. purgeArchivedByArchivedAt — permanently delete rows that have
+ *      been ARCHIVED for ≥ hardDeleteAfterDays days, measured from
+ *      the dedicated `archivedAt` column.
  *
  * Records an AdminAuditLog row so the admin's manual trigger is
  * traceable, and returns a per-bucket summary so the UI can show
@@ -40,7 +38,7 @@ export async function POST(req: NextRequest) {
     totalArchived: 0,
   };
   let duplicatePrayers = 0;
-  let purged: Awaited<ReturnType<typeof purgeStaleArchivedContent>> = {
+  let purged: Awaited<ReturnType<typeof purgeArchivedByArchivedAt>> = {
     buckets: [],
     totalDeleted: 0,
   };
@@ -50,7 +48,7 @@ export async function POST(req: NextRequest) {
     [miscategorised, duplicatePrayers, purged] = await Promise.all([
       cleanupMiscategorisedContent(),
       archiveDuplicatePrayers(),
-      purgeStaleArchivedContent(settings.hardDeleteAfterDays),
+      purgeArchivedByArchivedAt(settings.hardDeleteAfterDays),
     ]);
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : String(err);

@@ -1,11 +1,11 @@
 /**
- * Scheduler-to-queue planner.
+ * Cron-side ingestion planner.
  *
- * Replaces the direct `runAllActiveJobs()` cron path. The planner is
- * short, cheap, and side-effect-light: it walks active `IngestionJob`
- * rows, consults backlog progress to decide constant vs maintenance
- * mode, and enqueues the right job into `IngestionJobQueue` at the
- * right priority. The worker process is the only execution layer.
+ * The planner is short, cheap, and side-effect-light: it walks
+ * active `IngestionJob` rows, consults backlog progress to decide
+ * constant vs maintenance mode, and enqueues the right job into
+ * `IngestionJobQueue` at the right priority. The dedicated worker
+ * process (`npm run worker`) is the only ingestion-adapter executor.
  *
  * Safety invariants:
  *   - DB error while checking thresholds → stay in constant mode,

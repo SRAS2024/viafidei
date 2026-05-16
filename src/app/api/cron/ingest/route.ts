@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 import { isAuthorizedCron } from "@/lib/security/cron-auth";
 import { pruneExpiredRateLimits } from "@/lib/security/rate-limit";
 import { pruneExpiredTokens } from "@/lib/auth";
-import { getBacklogProgress, runAllActiveJobs } from "@/lib/ingestion/scheduler";
+import { getBacklogProgress } from "@/lib/ingestion/scheduler";
 import { ensureVaticanSchedule } from "@/lib/ingestion/sources";
 import { markOverdueGoals } from "@/lib/data/goals";
 import {
@@ -28,7 +28,7 @@ import { hasHealthyWorker } from "@/lib/ingestion/queue/heartbeat";
 import { runAllIngestionAlerts, checkStallSignals } from "@/lib/data/ingestion-alerts";
 import { autoEvaluateSourcePauses } from "@/lib/data/source-auto-pause";
 import { detectStallSignals, getQueueHealthSummary } from "@/lib/data/queue-health";
-import { appConfig, isDurableQueueEnabled } from "@/lib/config";
+import { appConfig } from "@/lib/config";
 import { reportCriticalFailure } from "@/lib/data/admin-notifications";
 import { jsonError, jsonOk } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
@@ -67,32 +67,26 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Queue-first vs legacy direct-execution path. The transition flag
-  // `USE_DURABLE_INGESTION_QUEUE` (env or appConfig) controls which
-  // path runs. The new path is plan-only; a separate worker process
-  // dequeues and executes the jobs the planner creates.
-  let summary: Awaited<ReturnType<typeof runAllActiveJobs>> | null = null;
-  let plannerSummary: Awaited<ReturnType<typeof enqueueDueIngestionJobs>> | null = null;
-  if (isDurableQueueEnabled()) {
-    plannerSummary = await enqueueDueIngestionJobs().catch((e) => {
-      logger.error("cron.planner_failed", {
-        error: e instanceof Error ? e.message : String(e),
-      });
-      return null;
+  // Plan-only cron: the worker process is the sole adapter executor.
+  // We call the planner to enqueue due jobs into IngestionJobQueue,
+  // then a separate worker service dequeues them.
+  const plannerSummary = await enqueueDueIngestionJobs().catch((e) => {
+    logger.error("cron.planner_failed", {
+      error: e instanceof Error ? e.message : String(e),
     });
-    // Healthy-worker check: if the planner enqueued work but there
-    // is no live worker heartbeat, fire a critical admin alert.
-    if (plannerSummary && plannerSummary.jobsEnqueued > 0) {
-      const healthy = await hasHealthyWorker().catch(() => false);
-      if (!healthy) {
-        await reportCriticalFailure({
-          kind: "no_worker_alive",
-          message: `Planner enqueued ${plannerSummary.jobsEnqueued} jobs but no worker heartbeat detected.`,
-        }).catch(() => undefined);
-      }
+    return null;
+  });
+  // Healthy-worker check: if the planner enqueued work but there is
+  // no live worker heartbeat, fire a critical admin alert so the
+  // operator knows nothing is consuming the queue.
+  if (plannerSummary && plannerSummary.jobsEnqueued > 0) {
+    const healthy = await hasHealthyWorker().catch(() => false);
+    if (!healthy) {
+      await reportCriticalFailure({
+        kind: "no_worker_alive",
+        message: `Planner enqueued ${plannerSummary.jobsEnqueued} jobs but no worker heartbeat detected.`,
+      }).catch(() => undefined);
     }
-  } else {
-    summary = await runAllActiveJobs();
   }
 
   // Admin can disable the automatic Data Management sweep via the
@@ -268,8 +262,6 @@ export async function POST(req: NextRequest) {
     route: "/api/cron/ingest",
     requestId,
     durationMs: Date.now() - started,
-    queueFirst: isDurableQueueEnabled(),
-    summary,
     plannerSummary,
     prunedRateLimits,
     prunedTokens,
@@ -309,8 +301,6 @@ export async function POST(req: NextRequest) {
       : null,
   });
   return jsonOk({
-    queueFirst: isDurableQueueEnabled(),
-    summary,
     plannerSummary,
     prunedRateLimits,
     prunedTokens,

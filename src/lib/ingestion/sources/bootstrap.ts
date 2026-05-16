@@ -453,7 +453,7 @@ export async function ensureVaticanSchedule(): Promise<void> {
     // about (see ADAPTER_SECONDARY_HOSTS for the documented set) — those
     // fetches go through the allowlist gate and end up in the same
     // IngestionJobRun under the primary host. Registering one job per
-    // secondary host would cause `runAllActiveJobs()` to invoke the same
+    // secondary host would cause the planner to enqueue the same
     // adapter once per host per tick, multiplying HTTP load with no
     // additional content.
     const source = await prisma.ingestionSource.findUnique({ where: { host: meta.host } });

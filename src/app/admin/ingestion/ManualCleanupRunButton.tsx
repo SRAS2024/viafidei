@@ -25,7 +25,8 @@ type State =
  *
  *   • cleanupMiscategorisedContent
  *   • archiveDuplicatePrayers
- *   • purgeStaleArchivedContent
+ *   • purgeArchivedByArchivedAt (uses the dedicated archivedAt
+ *     column, not updatedAt, for the retention math)
  *
  * Shows a clear success or failure message (with counts) inline.
  */

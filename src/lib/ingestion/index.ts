@@ -32,10 +32,10 @@ export {
 
 export { runAdapter, type RunnerOptions } from "./runner";
 export {
-  runAllActiveJobs,
-  runJobByName,
-  type SchedulerSummary,
-  type SchedulerJobResult,
+  getBacklogProgress,
+  type BacklogCounts,
+  type BacklogProgressResult,
+  type SchedulerMode,
 } from "./scheduler";
 
 export {
