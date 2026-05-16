@@ -104,6 +104,12 @@ export type PrismaMock = {
   contentVersion: Crud;
   ingestionRateBucket: Crud;
   contentTypePause: Crud;
+  workerHeartbeat: Crud;
+  discoveredSourceItem: Crud;
+  robotsCache: Crud;
+  queueAuditLog: Crud;
+  sourceTierChange: Crud;
+  dailyIngestionCounter: Crud;
   adminNotificationState: Crud;
   errorLog: Crud;
   contentReview: Crud;
@@ -175,6 +181,12 @@ export function createPrismaMock(): PrismaMock {
     contentVersion: createCrud(),
     ingestionRateBucket: createCrud(),
     contentTypePause: createCrud(),
+    workerHeartbeat: createCrud(),
+    discoveredSourceItem: createCrud(),
+    robotsCache: createCrud(),
+    queueAuditLog: createCrud(),
+    sourceTierChange: createCrud(),
+    dailyIngestionCounter: createCrud(),
     adminNotificationState: createCrud(),
     errorLog: createCrud(),
     contentReview: createCrud(),

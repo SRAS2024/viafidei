@@ -9,6 +9,7 @@ import {
 import { appConfig } from "@/lib/config";
 import { isEmailConfigured } from "@/lib/email/resend";
 import { logger } from "@/lib/observability/logger";
+import { getPublicQueueHealth } from "@/lib/data/queue-health";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -152,6 +153,8 @@ export async function GET() {
           fromAddress: appConfig.email.fromAddress,
           provider: appConfig.email.providerName,
         },
+        // Sanitized queue health — counters only, never payload bodies.
+        queue: await getPublicQueueHealth().catch(() => null),
       },
     },
     { status: httpStatus },

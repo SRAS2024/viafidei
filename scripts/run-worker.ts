@@ -15,8 +15,9 @@
  * guarantees no two workers process the same job.
  */
 
-import { runWorkerLoop } from "../src/lib/ingestion/queue/worker";
+import { runWorkerLoop, releaseActiveLeases } from "../src/lib/ingestion/queue/worker";
 import { registerVaticanAdapters } from "../src/lib/ingestion/sources";
+import { removeHeartbeat } from "../src/lib/ingestion/queue/heartbeat";
 import { logger } from "../src/lib/observability/logger";
 
 function parseFlag(name: string): string | null {
@@ -39,16 +40,23 @@ async function main(): Promise<void> {
   await registerVaticanAdapters();
 
   let shuttingDown = false;
-  const shutdown = (signal: string) => {
+  const effectiveWorkerId = workerId ?? `worker-${process.pid}`;
+  const shutdown = async (signal: string) => {
     if (shuttingDown) return;
     shuttingDown = true;
-    logger.info("worker shutdown", { signal });
+    logger.info("worker shutdown signal", { signal, workerId: effectiveWorkerId });
+    // Release any active leases so the next worker can pick the job
+    // up without waiting for the stale-lease timeout.
+    await releaseActiveLeases(effectiveWorkerId).catch(() => undefined);
+    await removeHeartbeat(effectiveWorkerId).catch(() => undefined);
+    // Give the loop one cycle to detect the flag and exit.
+    setTimeout(() => process.exit(0), 1_000).unref();
   };
-  process.on("SIGINT", () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
   const result = await runWorkerLoop({
-    workerId,
+    workerId: effectiveWorkerId,
     oneShot: oneShot || shuttingDown,
     maxJobs,
   });
