@@ -3,6 +3,7 @@ import { logger } from "../../observability/logger";
 import { getAdapter } from "../registry";
 import { runAdapter, type RunnerOptions } from "../runner";
 import { recordSourceFreshness } from "../../data/source-health";
+import { isContentTypePaused } from "../../data/content-type-pause";
 import {
   completeJob,
   failJob,
@@ -78,6 +79,21 @@ export async function processNextJob(
       });
       return { processed: true, job, result: "skipped" };
     }
+  }
+  // Content-type pause → skip without consuming a retry. The admin
+  // can pause every Saint ingestion across all sources via a single
+  // toggle without disabling each job.
+  const ctPause = await isContentTypePaused(job.contentType);
+  if (ctPause.paused) {
+    await skipJob(
+      job.id,
+      `Content type ${job.contentType} paused at ${ctPause.pausedAt?.toISOString() ?? "?"}: ${ctPause.reason ?? "no reason"}`,
+    );
+    logger.info("ingestion.worker.skipped_paused_content_type", {
+      jobQueueId: job.id,
+      contentType: job.contentType,
+    });
+    return { processed: true, job, result: "skipped" };
   }
 
   const adapter = getAdapter(job.jobName);

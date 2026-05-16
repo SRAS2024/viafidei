@@ -1,6 +1,7 @@
 import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { computeChecksum } from "../checksum";
+import { snapshotPreviousVersion } from "../apply-decision";
 import type { IngestedLiturgy } from "../types";
 import type { PersistOutcomeDetailed } from "./persist-prayer";
 
@@ -26,8 +27,39 @@ export async function persistLiturgy(
   const incomingChecksum = computeChecksum(item);
 
   if (existing) {
-    // Spec: "only add content if it is not already in the database." Any
-    // existing row is left untouched; ingestion is strictly additive.
+    // Content-freshness check for Church documents: a new version of
+    // an encyclical / catechism section / canon law book lands as an
+    // UPDATE with the previous version snapshotted into
+    // ContentVersion (reviewRequired = true so a moderator approves
+    // doctrinal changes).
+    const checksumDiffers =
+      !!existing.contentChecksum && existing.contentChecksum !== incomingChecksum;
+    const sameExternalKey =
+      !!item.externalSourceKey && existing.externalSourceKey === item.externalSourceKey;
+    const isAdminProtected = existing.status === "ARCHIVED" || existing.status === "DRAFT";
+    if (checksumDiffers && sameExternalKey && !isAdminProtected) {
+      await snapshotPreviousVersion(
+        "liturgy",
+        existing,
+        incomingChecksum,
+        item.externalSourceKey ?? null,
+      );
+      await prisma.liturgyEntry.update({
+        where: { id: existing.id },
+        data: {
+          title: item.title,
+          summary: item.summary ?? existing.summary,
+          body: item.body,
+          contentChecksum: incomingChecksum,
+        },
+      });
+      return {
+        outcome: "updated",
+        slug: existing.slug,
+        contentRef: existing.slug || existing.title,
+        reason: "Upstream content changed — updated in place + version snapshotted",
+      };
+    }
     return {
       outcome: "skipped",
       slug: existing.slug,

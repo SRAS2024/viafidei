@@ -1230,6 +1230,33 @@ can see immediately when the threshold check failed.
     Workers honour `pausedAt` and skip the run with status
     `skipped` so paused sources cost no retry budget.
   - **Pause / resume a single job** — `POST /api/admin/ingestion/jobs/pause`.
+  - **Pause / resume an entire content type** —
+    `POST /api/admin/ingestion/content-types/pause`. Distinct from
+    the per-source / per-job toggles: pausing Saint here stops every
+    Saint job across every source without disabling them
+    individually.
+  - **List queue jobs with filters** — `GET /api/admin/ingestion/queue/list?status=failed,retrying&needsReview=1`.
+    The queue dashboard uses this for the filter pills (All, Failed,
+    Skipped, Review-required, Source errors, Formatting errors).
+  - **Approve / reject a content version** —
+    `POST /api/admin/ingestion/changes/review`. Writes a
+    `ContentReview` row and (on APPROVED) clears the
+    `reviewRequired` flag on the `ContentVersion`.
+- **Content change feed.** `/admin/ingestion/changes` lists the most
+  recent `ContentVersion` rows so an admin can see what changed
+  during ingestion updates — previous title, previous body excerpt,
+  previous checksum, status, and source. Theology / saint /
+  Church-document changes default to `reviewRequired = true`.
+- **Biweekly Admin Report — ingestion health summary.** The biweekly
+  email now includes an "Ingestion Health Summary" section with
+  total jobs run, jobs completed, jobs failed, jobs retried, items
+  sent to review, sources failing, items archived in the window,
+  archived items permanently deleted, and items deduped.
+- **Monthly Source Quality Report.** A new monthly email
+  (`sendMonthlySourceQualityReport`, flow `monthly_source_quality`)
+  fires on the last day of each month with per-source counts of
+  accepted, rejected, duplicate, and failed items so the admin can
+  see which sources carry the catalog and which produce mostly noise.
 - **Housekeeping piggyback.** Each ingestion run also prunes expired
   `RateLimitBucket` rows, expires unused password-reset and email-
   verification tokens, prunes old `IngestionJobRun`, `AdminAuditLog`, and

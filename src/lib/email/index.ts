@@ -27,12 +27,15 @@ export {
   readAdminEmail,
   sendBiweeklyAdminReport,
   sendMonthlyArchiveCleanupReport,
+  sendMonthlySourceQualityReport,
   sendThresholdMilestoneAlert,
   sendCriticalFailureAlert,
   sendSecurityBreachAlert,
   sendMonthlyErrorReport,
   type ContentManagementCounts,
   type AdminSendOutcome,
+  type IngestionHealthSummary,
+  type SourceQualityRow,
 } from "./admin-send";
 export {
   renderAdminEmail,

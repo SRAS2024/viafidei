@@ -33,6 +33,13 @@ export type PersistResult = {
    * trail of every action taken.
    */
   logs: DataManagementLogInput[];
+  /**
+   * Per-item outcome details — the runner uses these to know which
+   * specific items were created vs updated vs skipped, so it can
+   * apply post-persist enrichment (confidence scores, tier, outcome
+   * reason) only to items that actually have a row.
+   */
+  details: Array<{ kind: string; slug: string; outcome: "created" | "updated" | "skipped" }>;
 };
 
 const ENTITY_TYPE_BY_KIND = {
@@ -61,7 +68,7 @@ export async function persistItems(
   initialStatus: ContentStatus,
   options: PersistOptions = {},
 ): Promise<PersistResult> {
-  const counts: PersistResult = { created: 0, updated: 0, skipped: 0, logs: [] };
+  const counts: PersistResult = { created: 0, updated: 0, skipped: 0, logs: [], details: [] };
   const deduped = dedupeBatch(items);
   const droppedAsDuplicate = items.length - deduped.length;
   counts.skipped += droppedAsDuplicate;
@@ -78,6 +85,7 @@ export async function persistItems(
   for (const item of deduped) {
     const detail = await dispatch(item, initialStatus);
     counts[detail.outcome] += 1;
+    counts.details.push({ kind: item.kind, slug: detail.slug, outcome: detail.outcome });
     if (detail.outcome !== "skipped" && item.tagSlugs && item.tagSlugs.length > 0) {
       await applyTagsToEntity(ENTITY_TYPE_BY_KIND[item.kind], item.slug, item.tagSlugs);
     }

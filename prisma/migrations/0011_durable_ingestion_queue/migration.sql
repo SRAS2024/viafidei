@@ -232,3 +232,20 @@ CREATE TABLE IF NOT EXISTS "IngestionRateBucket" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "IngestionRateBucket_domain_key"
   ON "IngestionRateBucket" ("domain");
+
+-- ---------------------------------------------------------------------
+-- Per-content-type pause toggle. Distinct from per-source / per-job
+-- pause: an admin can pause "all Saint ingestion across every source"
+-- without disabling specific jobs one by one.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS "ContentTypePause" (
+    "id" TEXT NOT NULL,
+    "contentType" TEXT NOT NULL,
+    "pausedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "pausedReason" TEXT,
+    "actorUsername" TEXT,
+    "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "ContentTypePause_pkey" PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "ContentTypePause_contentType_key"
+  ON "ContentTypePause" ("contentType");

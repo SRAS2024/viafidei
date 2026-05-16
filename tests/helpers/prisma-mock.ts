@@ -103,6 +103,7 @@ export type PrismaMock = {
   archiveDeletionLog: Crud;
   contentVersion: Crud;
   ingestionRateBucket: Crud;
+  contentTypePause: Crud;
   adminNotificationState: Crud;
   errorLog: Crud;
   contentReview: Crud;
@@ -173,6 +174,7 @@ export function createPrismaMock(): PrismaMock {
     archiveDeletionLog: createCrud(),
     contentVersion: createCrud(),
     ingestionRateBucket: createCrud(),
+    contentTypePause: createCrud(),
     adminNotificationState: createCrud(),
     errorLog: createCrud(),
     contentReview: createCrud(),

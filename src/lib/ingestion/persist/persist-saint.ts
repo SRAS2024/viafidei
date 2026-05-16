@@ -3,6 +3,7 @@ import { prisma } from "../../db/client";
 import { parseFeastDayText } from "../../data/saints";
 import { computeChecksum } from "../checksum";
 import { normalizeSlug } from "../slug";
+import { snapshotPreviousVersion } from "../apply-decision";
 import type { IngestedSaint } from "../types";
 import type { PersistOutcomeDetailed } from "./persist-prayer";
 
@@ -42,9 +43,41 @@ export async function persistSaint(
   const existing = await findExistingSaint(item, incomingChecksum);
 
   if (existing) {
-    // Spec: "only add content if it is not already in the database." Any
-    // existing row — PUBLISHED, ARCHIVED, DRAFT (admin WIP), or REVIEW —
-    // is left untouched; ingestion is strictly additive.
+    // Content-freshness check (saints are theological content — major
+    // updates land in ContentVersion with reviewRequired = true so a
+    // moderator can approve doctrinal changes).
+    const checksumDiffers =
+      !!existing.contentChecksum && existing.contentChecksum !== incomingChecksum;
+    const sameExternalKey =
+      !!item.externalSourceKey && existing.externalSourceKey === item.externalSourceKey;
+    const isAdminProtected = existing.status === "ARCHIVED" || existing.status === "DRAFT";
+    if (checksumDiffers && sameExternalKey && !isAdminProtected) {
+      await snapshotPreviousVersion(
+        "saint",
+        existing,
+        incomingChecksum,
+        item.externalSourceKey ?? null,
+      );
+      const parsedUpdated = parseFeastDayText(item.feastDay);
+      await prisma.saint.update({
+        where: { id: existing.id },
+        data: {
+          canonicalName: item.canonicalName,
+          feastDay: item.feastDay ?? existing.feastDay,
+          feastMonth: item.feastMonth ?? parsedUpdated?.month ?? existing.feastMonth,
+          feastDayOfMonth: item.feastDayOfMonth ?? parsedUpdated?.day ?? existing.feastDayOfMonth,
+          patronages: item.patronages,
+          biography: item.biography,
+          contentChecksum: incomingChecksum,
+        },
+      });
+      return {
+        outcome: "updated",
+        slug: existing.slug,
+        contentRef: existing.slug || existing.canonicalName,
+        reason: "Upstream content changed — updated in place + version snapshotted",
+      };
+    }
     return {
       outcome: "skipped",
       slug: existing.slug,

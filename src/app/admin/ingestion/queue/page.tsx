@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { getQueueDashboard } from "@/lib/data/ingestion-dashboard";
+import { listQueueJobs } from "@/lib/ingestion/queue/queue";
 import { AdminSection } from "../../_sections/AdminSection";
 import { QueueRetryButton } from "./QueueRetryButton";
+import { QueueFilters } from "./QueueFilters";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,7 @@ export default async function QueuePage() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
   const dashboard = await getQueueDashboard();
+  const initialRows = await listQueueJobs({ take: 100 });
 
   return (
     <AdminSection
@@ -96,6 +99,23 @@ export default async function QueuePage() {
           </div>
         )}
       </section>
+
+      <QueueFilters
+        initial={initialRows.map((r) => ({
+          id: r.id,
+          jobName: r.jobName,
+          contentType: r.contentType,
+          status: r.status,
+          priority: r.priority,
+          attempts: r.attempts,
+          maxAttempts: r.maxAttempts,
+          runAt: r.runAt.toISOString(),
+          finishedAt: r.finishedAt?.toISOString() ?? null,
+          errorMessage: r.errorMessage,
+          lastError: r.lastError,
+          sentToReviewAt: r.sentToReviewAt?.toISOString() ?? null,
+        }))}
+      />
     </AdminSection>
   );
 }

@@ -130,6 +130,38 @@ curl -X POST https://etviafidei.com/api/admin/ingestion/jobs/pause \
   -d '{"jobId":"job...","action":"pause"}'
 ```
 
+### Pausing an entire content type
+
+When every saint job (across multiple sources) is producing noise
+and you want to halt Saint ingestion catalog-wide:
+
+```sh
+curl -X POST https://etviafidei.com/api/admin/ingestion/content-types/pause \
+  -H "content-type: application/json" \
+  -H "cookie: session=<admin-session-cookie>" \
+  -d '{"contentType":"Saint","action":"pause","reason":"audit in progress"}'
+```
+
+Workers consult `ContentTypePause` before leasing and mark paused
+content-type rows SKIPPED so no retry budget is spent. Resume with
+`"action":"resume"`.
+
+## Reviewing content changes
+
+`/admin/ingestion/changes` lists every recent `ContentVersion`. For
+rows marked `reviewRequired = true` (theology, saints, Church
+documents, sacraments), approve / reject via the review endpoint:
+
+```sh
+curl -X POST https://etviafidei.com/api/admin/ingestion/changes/review \
+  -H "content-type: application/json" \
+  -H "cookie: session=<admin-session-cookie>" \
+  -d '{"contentVersionId":"clk...","decision":"APPROVED","notes":"matches encyclical"}'
+```
+
+Decisions: `APPROVED`, `REJECTED`, `REVISION_REQUESTED`. APPROVED
+clears the `reviewRequired` flag on the `ContentVersion` row.
+
 ## Verifying content thresholds
 
 Two ways to check threshold progress:
