@@ -4,7 +4,7 @@ import { recordDataManagementLogs, type DataManagementLogInput } from "../data/d
 import { prisma } from "../db/client";
 import { withAdvisoryLock } from "../concurrency/lock";
 import { logger } from "../observability/logger";
-import type { ConditionalState, IngestionRunSummary, SourceAdapter } from "./types";
+import type { ConditionalState, IngestedItem, IngestionRunSummary, SourceAdapter } from "./types";
 import { sanitize } from "./validate";
 import { formatIngestedItems } from "./format";
 import { cleanIngestedItems } from "./clean";
@@ -16,6 +16,10 @@ import { enrichDecision } from "./enrich-decision";
 import { applyDecisionScores } from "./apply-decision";
 import { applyBatchSizeLimit } from "./batch-size";
 import { recordSourceQuality } from "../data/source-health";
+import { runStrictQAOnIngestedItemAsync } from "./strict-qa-bridge";
+import { applyStrictPackageFlags } from "./strict-package-flags";
+import { recordRejectedContentBatch } from "../content-qa/rejected-log";
+import type { ContractValidationResult } from "../content-qa/types";
 
 export type RunnerOptions = {
   /**
@@ -249,15 +253,47 @@ async function runAdapterUnlocked(
       skipDataManagementLog: true,
     } as const;
 
-    // Apply the strict-validation + source-tier decision pass before
-    // persisting. The decision splits `valid` into items that should
-    // land in PUBLISHED vs items diverted to REVIEW (low-tier source,
-    // theological review flag, soft validation failure). Each
-    // decision is recorded onto the persisted row via
-    // `applyDecisionScores` so the admin sees sourceConfidence,
-    // formattingConfidence, qualityScore, sourceTier, and
-    // outcomeReason on every ingested item.
-    const validDecisions = valid.map((item) => ({ item, decision: enrichDecision(item) }));
+    // Strict Content QA pipeline pass. Each item is run through its
+    // typed package contract. The contract decision (publish / update /
+    // skip / reject / delete / archive / review) replaces the old
+    // "REVIEW-by-default" routing:
+    //
+    //   - publish → persist with publicRenderReady + isThresholdEligible
+    //   - reject  → DO NOT persist; write RejectedContentLog
+    //   - delete  → DO NOT persist; write RejectedContentLog
+    //
+    // Items that fail the strict contract are NEVER routed to REVIEW
+    // by the automatic pipeline. REVIEW remains an optional admin
+    // holding area, but the strict pipeline does not produce it.
+    const strictResults: Array<{
+      item: IngestedItem;
+      strict: ContractValidationResult;
+    }> = [];
+    for (const item of valid) {
+      const strict = await runStrictQAOnIngestedItemAsync(item).catch((e) => {
+        logger.warn("ingestion.run.strict_qa_failed", {
+          slug: (item as { slug?: string }).slug ?? null,
+          kind: item.kind,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return null;
+      });
+      if (strict) strictResults.push({ item, strict });
+    }
+    const strictApproved = strictResults.filter(
+      (r) => r.strict.decision === "publish" || r.strict.decision === "update",
+    );
+    const strictRejected = strictResults.filter(
+      (r) => r.strict.decision === "reject" || r.strict.decision === "delete",
+    );
+
+    // Legacy enrich/decision still runs for low-tier scoring + tier
+    // review flag — but a strict-rejected item never reaches the
+    // persister even if the legacy path would have published it.
+    const validDecisions = strictApproved.map(({ item }) => ({
+      item,
+      decision: enrichDecision(item),
+    }));
     const acceptedForPublish = validDecisions
       .filter((d) => d.decision.action === "publish")
       .map((d) => d.item);
@@ -302,6 +338,82 @@ async function runAdapterUnlocked(
           return applyDecisionScores(d.kind, d.slug, decision.decision, status);
         }),
     );
+
+    // Apply strict-pipeline package flags onto every persisted item
+    // (publicRenderReady, isThresholdEligible, packageValidationStatus,
+    // contentPackageVersion, lastPackageValidatedAt) so the public-page
+    // gate and the strict threshold counters can read them.
+    const strictBySlug = new Map(
+      strictApproved
+        .map(({ item, strict }) => {
+          const slug = (item as { slug?: string }).slug ?? "";
+          return slug ? ([slug, { item, strict }] as const) : null;
+        })
+        .filter(
+          (x): x is readonly [string, { item: IngestedItem; strict: ContractValidationResult }] =>
+            x !== null,
+        ),
+    );
+    await Promise.all(
+      [...counts.details, ...tierReviewCounts.details]
+        .filter((d) => d.outcome !== "skipped")
+        .map((d) => {
+          const entry = strictBySlug.get(d.slug);
+          if (!entry) return Promise.resolve();
+          return applyStrictPackageFlags({
+            contentType: entry.strict.contentType,
+            slug: d.slug,
+            result: entry.strict,
+          }).catch(() => undefined);
+        }),
+    );
+
+    // Strict-rejected and strict-deleted items: write to RejectedContentLog.
+    if (strictRejected.length > 0) {
+      const rejectedEntries = strictRejected.map(({ item, strict }) => ({
+        contentType: strict.contentType,
+        slug: (item as { slug?: string }).slug ?? null,
+        originalTitle:
+          (item as { defaultTitle?: string }).defaultTitle ??
+          (item as { title?: string }).title ??
+          (item as { canonicalName?: string }).canonicalName ??
+          (item as { name?: string }).name ??
+          null,
+        sourceUrl: ((): string | null => {
+          const key = (item as { externalSourceKey?: string }).externalSourceKey;
+          return key ? (/^https?:\/\//i.test(key) ? key : null) : null;
+        })(),
+        sourceHost: ((): string | null => {
+          const key = (item as { externalSourceKey?: string }).externalSourceKey;
+          if (!key) return null;
+          if (/^https?:\/\//i.test(key)) {
+            try {
+              return new URL(key).host.toLowerCase();
+            } catch {
+              return null;
+            }
+          }
+          const colon = key.indexOf(":");
+          const head = colon > 0 ? key.slice(0, colon) : key;
+          return head.toLowerCase();
+        })(),
+        rejectionReason: strict.reason,
+        failedContractName: strict.contractName,
+        failedFields: strict.failedFields,
+        originalChecksum: null,
+        decision: strict.decision as "reject" | "delete",
+        triggeredBy: triggeredBy,
+        actorUsername: options.actorUsername ?? null,
+      }));
+      await recordRejectedContentBatch(rejectedEntries).catch((err) => {
+        logger.warn("ingestion.run.rejected_log_failed", {
+          adapter: adapter.key,
+          sourceHost,
+          jobId,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
+      });
+    }
     // Per-source quality observation: ratio of items that landed in
     // REVIEW/REJECT vs total. Smoothed into IngestionSource.lowQualityRatio
     // so the source health dashboard can flag chronically low-quality
@@ -438,12 +550,13 @@ async function runAdapterUnlocked(
         reviewCounts.skipped +
         tierReviewCounts.skipped +
         noise.length +
-        rejected.length,
+        rejected.length +
+        strictRejected.length,
       recordsFailed: 0,
       recordsReviewRequired: directReview + softReview + tierReview,
       errorMessage:
-        noise.length || rejected.length || review.length || tierReview
-          ? `${noise.length} discarded as noise, ${rejected.length} rejected, ${review.length + tierReview} routed to REVIEW`
+        noise.length || rejected.length || review.length || tierReview || strictRejected.length
+          ? `${noise.length} discarded as noise, ${rejected.length + strictRejected.length} rejected (${strictRejected.length} by strict QA), ${review.length + tierReview} routed to REVIEW`
           : null,
     };
 

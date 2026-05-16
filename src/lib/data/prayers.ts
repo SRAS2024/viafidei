@@ -1,13 +1,23 @@
 import { prisma } from "../db/client";
 import type { Locale } from "../i18n/locales";
 import { categorizePrayer, type PrayerCategory } from "../ingestion/sources/categorize";
+import { STRICT_PUBLIC_WHERE_CLAUSE } from "../content-qa/thresholds";
 
 const DEFAULT_TAKE = 60;
 const PAGE_SIZE = 9;
 
+/**
+ * Strict public-visibility gate. A Prayer is only visible publicly
+ * when it has status = PUBLISHED, publicRenderReady = true,
+ * isThresholdEligible = true, and is not archived. The strict content
+ * QA pipeline sets these flags; rows that have not passed the
+ * contract stay invisible to public callers.
+ */
+const PUBLIC_PRAYER_WHERE = STRICT_PUBLIC_WHERE_CLAUSE;
+
 export function listPublishedPrayers(locale: Locale, take = DEFAULT_TAKE) {
   return prisma.prayer.findMany({
-    where: { status: "PUBLISHED" },
+    where: PUBLIC_PRAYER_WHERE,
     include: { translations: { where: { locale } } },
     orderBy: { defaultTitle: "asc" },
     take,
@@ -39,7 +49,7 @@ export async function listPublishedPrayersPaginated(
   // is free-text and frequently disagrees with the actual content of the
   // prayer, so we re-run the categorizer here.
   const broad = await prisma.prayer.findMany({
-    where: { status: "PUBLISHED" },
+    where: PUBLIC_PRAYER_WHERE,
     include: { translations: { where: { locale } } },
     orderBy: { defaultTitle: "asc" },
   });
@@ -59,7 +69,7 @@ export function listAdminPrayers(take = 200) {
 export function searchPrayers(q: string, take = 10) {
   return prisma.prayer.findMany({
     where: {
-      status: "PUBLISHED",
+      ...PUBLIC_PRAYER_WHERE,
       OR: [
         { defaultTitle: { contains: q, mode: "insensitive" } },
         { body: { contains: q, mode: "insensitive" } },
@@ -80,7 +90,7 @@ export function listSavedPrayersForUser(userId: string, locale: Locale) {
 
 export function getPublishedPrayerBySlug(slug: string, locale: Locale) {
   return prisma.prayer.findFirst({
-    where: { slug, status: "PUBLISHED" },
+    where: { slug, ...PUBLIC_PRAYER_WHERE },
     include: {
       translations: { where: { locale } },
       categoryRel: true,
@@ -94,7 +104,7 @@ export async function getPublishedPrayersBySlugs(
 ): Promise<Map<string, { defaultTitle: string; body: string }>> {
   if (slugs.length === 0) return new Map();
   const prayers = await prisma.prayer.findMany({
-    where: { slug: { in: [...slugs] }, status: "PUBLISHED" },
+    where: { slug: { in: [...slugs] }, ...PUBLIC_PRAYER_WHERE },
     include: { translations: { where: { locale } } },
   });
   const out = new Map<string, { defaultTitle: string; body: string }>();

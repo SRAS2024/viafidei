@@ -1,9 +1,12 @@
 import { prisma } from "../db/client";
 import type { Prisma } from "@prisma/client";
+import { STRICT_PUBLIC_WHERE_CLAUSE } from "../content-qa/thresholds";
+
+const PUBLIC_PARISH_WHERE = STRICT_PUBLIC_WHERE_CLAUSE;
 
 export function listPublishedParishes(take = 40) {
   return prisma.parish.findMany({
-    where: { status: "PUBLISHED" },
+    where: PUBLIC_PARISH_WHERE,
     orderBy: { name: "asc" },
     take,
   });
@@ -17,7 +20,7 @@ export type ParishFilters = {
 };
 
 export function findPublishedParishes(filters: ParishFilters, take = 40) {
-  const where: Prisma.ParishWhereInput = { status: "PUBLISHED" };
+  const where: Prisma.ParishWhereInput = { ...PUBLIC_PARISH_WHERE };
   if (filters.q) {
     // Match against every column a user might type into the search box —
     // parish name, the city/region they live in, the diocese they belong
@@ -38,7 +41,7 @@ export function findPublishedParishes(filters: ParishFilters, take = 40) {
 }
 
 export function getPublishedParishBySlug(slug: string) {
-  return prisma.parish.findFirst({ where: { slug, status: "PUBLISHED" } });
+  return prisma.parish.findFirst({ where: { slug, ...PUBLIC_PARISH_WHERE } });
 }
 
 const EARTH_KM = 6371;
@@ -50,7 +53,7 @@ export async function findParishesNear(
   take = 40,
 ) {
   const all = await prisma.parish.findMany({
-    where: { status: "PUBLISHED", latitude: { not: null }, longitude: { not: null } },
+    where: { ...PUBLIC_PARISH_WHERE, latitude: { not: null }, longitude: { not: null } },
     take: 500,
   });
   const withDistance = all
@@ -100,7 +103,7 @@ export function searchParishes(q: string, take = 10) {
     OR: fields.map((f) => ({ [f]: { contains: tok, mode: "insensitive" } })),
   }));
   return prisma.parish.findMany({
-    where: { status: "PUBLISHED", AND },
+    where: { ...PUBLIC_PARISH_WHERE, AND },
     orderBy: [{ name: "asc" }],
     take,
   });

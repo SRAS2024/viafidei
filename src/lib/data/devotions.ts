@@ -1,11 +1,14 @@
 import { prisma } from "../db/client";
 import type { Locale } from "../i18n/locales";
+import { STRICT_PUBLIC_WHERE_CLAUSE } from "../content-qa/thresholds";
 
 const PAGE_SIZE = 9;
 
+const PUBLIC_DEVOTION_WHERE = STRICT_PUBLIC_WHERE_CLAUSE;
+
 export function listPublishedDevotions(locale: Locale, take = 60) {
   return prisma.devotion.findMany({
-    where: { status: "PUBLISHED" },
+    where: PUBLIC_DEVOTION_WHERE,
     include: { translations: { where: { locale } } },
     orderBy: { title: "asc" },
     take,
@@ -20,13 +23,13 @@ export async function listPublishedDevotionsPaginated(
   const skip = (page - 1) * pageSize;
   const [items, total] = await Promise.all([
     prisma.devotion.findMany({
-      where: { status: "PUBLISHED" },
+      where: PUBLIC_DEVOTION_WHERE,
       include: { translations: { where: { locale } } },
       orderBy: { title: "asc" },
       take: pageSize,
       skip,
     }),
-    prisma.devotion.count({ where: { status: "PUBLISHED" } }),
+    prisma.devotion.count({ where: PUBLIC_DEVOTION_WHERE }),
   ]);
   return { items, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
 }
@@ -41,7 +44,7 @@ export function listAdminDevotions(take = 200) {
 export function searchDevotions(q: string, take = 10) {
   return prisma.devotion.findMany({
     where: {
-      status: "PUBLISHED",
+      ...PUBLIC_DEVOTION_WHERE,
       OR: [
         { title: { contains: q, mode: "insensitive" } },
         { summary: { contains: q, mode: "insensitive" } },
@@ -61,7 +64,7 @@ export function listSavedDevotionsForUser(userId: string) {
 
 export function getPublishedDevotionBySlug(slug: string, locale: Locale) {
   return prisma.devotion.findFirst({
-    where: { slug, status: "PUBLISHED" },
+    where: { slug, ...PUBLIC_DEVOTION_WHERE },
     include: { translations: { where: { locale } } },
   });
 }

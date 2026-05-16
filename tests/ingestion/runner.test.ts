@@ -12,12 +12,15 @@ vi.mock("@/lib/concurrency/lock", () => ({
 import { runAdapter } from "@/lib/ingestion/runner";
 import type { IngestedItem, SourceAdapter } from "@/lib/ingestion/types";
 
+// Anima Christi excerpt — long enough and contains the prayer-language
+// markers (O good Jesus, "have mercy", Amen) that the strict QA pipeline
+// requires for a Prayer package.
 const item: IngestedItem = {
   kind: "prayer",
   slug: "anima-christi",
   defaultTitle: "Anima Christi",
-  category: "ordinary",
-  body: "Soul of Christ, sanctify me. Body of Christ, save me.",
+  category: "Traditional",
+  body: "Soul of Christ, sanctify me. Body of Christ, save me. O good Jesus, hear me. Within thy wounds hide me. Suffer me not to be separated from thee. From the malignant enemy defend me. In the hour of my death call me. And bid me come unto thee. That with thy saints I may praise thee for ever and ever. Amen.",
   externalSourceKey: "https://www.vatican.va/prayers/anima-christi",
 };
 
