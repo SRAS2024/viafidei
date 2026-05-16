@@ -51,4 +51,5 @@ export {
   isApprovedUrl,
   listApprovedHosts,
   buildAllVaticanCrawlers,
+  listAdapterSecondaryHosts,
 } from "./sources";
