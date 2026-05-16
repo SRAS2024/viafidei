@@ -17,6 +17,9 @@ export { normalizeSlug, isSlugUnique } from "./slug";
 export { computeChecksum, checksumString } from "./checksum";
 export { sanitize, validateItem } from "./validate";
 export { formatIngestedItem, formatIngestedItems } from "./format";
+export { cleanIngestedItem, cleanIngestedItems } from "./clean";
+export { classifyIngestedItem, classifyIngestedItems, type ClassifyResult } from "./classify";
+export { enrichIngestedItem, enrichIngestedItems } from "./enrich";
 
 export {
   registerAdapter,
