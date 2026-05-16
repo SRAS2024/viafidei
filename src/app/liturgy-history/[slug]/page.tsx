@@ -5,6 +5,8 @@ import { getPublishedLiturgyBySlug } from "@/lib/data/liturgy";
 import { OfficialSourceLink } from "@/components/ui";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
+import { checkLiturgyRender, checkHistoryRender } from "@/lib/content-qa";
+import { logger } from "@/lib/observability/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +60,36 @@ export default async function LiturgyDetailPage({ params }: Props) {
       entityType: "LiturgyEntry",
       slug,
       reason: "missing_record",
+    });
+    notFound();
+  }
+
+  // Strict render gate: history rows must satisfy the History contract;
+  // pure liturgy rows must satisfy the Liturgy contract.
+  const render = entry.historyType
+    ? checkHistoryRender({
+        historyType: entry.historyType,
+        title: entry.title,
+        dateOrEra: entry.dateOrEra,
+        summary: entry.summary,
+        body: entry.body,
+        sourceUrl: entry.sourceUrl,
+        externalSourceKey: entry.externalSourceKey,
+      })
+    : checkLiturgyRender({
+        kind: entry.kind,
+        title: entry.title,
+        body: entry.body,
+        sourceUrl: entry.sourceUrl,
+        externalSourceKey: entry.externalSourceKey,
+      });
+  if (!render.ready) {
+    logger.warn("liturgy_history.package_unready", { slug, missing: render.missing });
+    logPageMissingContent({
+      route: "/liturgy-history/[slug]",
+      entityType: "LiturgyEntry",
+      slug,
+      reason: "validation_error",
     });
     notFound();
   }
