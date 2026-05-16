@@ -22,7 +22,9 @@ export type FlowKey =
   | "biweekly_report"
   | "monthly_archive_cleanup"
   | "monthly_error_report"
-  | `milestone:${string}`;
+  | "monthly_source_quality"
+  | `milestone:${string}`
+  | `alert:${string}`;
 
 export async function getFlowState<T = Record<string, unknown>>(flow: FlowKey): Promise<T | null> {
   const row = await prisma.adminNotificationState.findUnique({ where: { flow } });

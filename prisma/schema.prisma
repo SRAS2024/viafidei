@@ -1072,10 +1072,23 @@ model ContentVersion {
 /// updates `lastRequestAt` and the next fetch waits at least
 /// requestSpacingMs since that timestamp.
 model IngestionRateBucket {
-  id               String   @id @default(cuid())
-  domain           String   @unique
-  windowStart      DateTime @default(now())
-  requestsInWindow Int      @default(0)
+  id               String    @id @default(cuid())
+  domain           String    @unique
+  windowStart      DateTime  @default(now())
+  requestsInWindow Int       @default(0)
   lastRequestAt    DateTime?
-  updatedAt        DateTime @updatedAt
+  updatedAt        DateTime  @updatedAt
+}
+
+/// Per-content-type pause toggle. Distinct from per-source / per-job
+/// pause: an admin can pause "all Saint ingestion across every source"
+/// without disabling specific jobs one by one. The worker checks for
+/// a matching row keyed by `contentType` before leasing.
+model ContentTypePause {
+  id            String   @id @default(cuid())
+  contentType   String   @unique
+  pausedAt      DateTime @default(now())
+  pausedReason  String?
+  actorUsername String?
+  updatedAt     DateTime @updatedAt
 }

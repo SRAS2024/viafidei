@@ -8,10 +8,13 @@ import {
   sendCriticalFailureAlert,
   sendMonthlyArchiveCleanupReport,
   sendMonthlyErrorReport,
+  sendMonthlySourceQualityReport,
   sendSecurityBreachAlert,
   sendThresholdMilestoneAlert,
   type AdminSendOutcome,
   type ContentManagementCounts,
+  type IngestionHealthSummary,
+  type SourceQualityRow,
 } from "../email";
 import { logger } from "../observability/logger";
 import {
@@ -87,11 +90,18 @@ async function aggregateContentManagementCounts(
   });
   const counts: ContentManagementCounts = {};
   for (const row of CONTENT_TYPE_ROWS) {
-    counts[row.key] = { added: 0, edited: 0, deleted: 0, archived: 0 };
+    counts[row.key] = { added: 0, edited: 0, deleted: 0, archived: 0, deduped: 0, purged: 0 };
   }
   for (const row of rows) {
     if (!counts[row.contentType]) {
-      counts[row.contentType] = { added: 0, edited: 0, deleted: 0, archived: 0 };
+      counts[row.contentType] = {
+        added: 0,
+        edited: 0,
+        deleted: 0,
+        archived: 0,
+        deduped: 0,
+        purged: 0,
+      };
     }
     const target = counts[row.contentType];
     const n = row._count?._all ?? 0;
@@ -103,17 +113,90 @@ async function aggregateContentManagementCounts(
         target.edited += n;
         break;
       case "DELETE":
+        // DELETE is admin-triggered or noise-discard; not the same as
+        // PURGE (which is the archive cleanup hard-delete). They both
+        // remove content, so we still fold them together in the
+        // "deleted" column but split PURGE separately for visibility.
+        target.deleted += n;
+        break;
       case "PURGE":
         target.deleted += n;
+        target.purged = (target.purged ?? 0) + n;
         break;
       case "CLEANUP":
         target.archived += n;
+        break;
+      case "DEDUPE":
+        // Deduped items are tracked separately so admin reports show
+        // the dedupe volume distinctly from normal archiving. A
+        // deduped item that is also archived (because it was a near-
+        // duplicate of a kept row) still increments the dedupe count
+        // here in addition to the CLEANUP-driven archived count.
+        target.deduped = (target.deduped ?? 0) + n;
         break;
       default:
         break;
     }
   }
   return counts;
+}
+
+/**
+ * Compute the ingestion-health summary appended to every biweekly
+ * report. Pulls per-status counts from `IngestionJobQueue` over the
+ * window plus the current count of failing sources.
+ */
+async function aggregateIngestionHealth(
+  windowStart: Date,
+  windowEnd: Date,
+): Promise<IngestionHealthSummary> {
+  const inWindow = { createdAt: { gte: windowStart, lt: windowEnd } };
+  const [totalJobsRun, jobsCompleted, jobsFailed, jobsRetried, itemsSentToReview, sourcesFailing] =
+    await Promise.all([
+      prisma.ingestionJobQueue.count({ where: { startedAt: { gte: windowStart, lt: windowEnd } } }),
+      prisma.ingestionJobQueue.count({
+        where: { status: "completed", finishedAt: { gte: windowStart, lt: windowEnd } },
+      }),
+      prisma.ingestionJobQueue.count({
+        where: { status: "failed", finishedAt: { gte: windowStart, lt: windowEnd } },
+      }),
+      prisma.ingestionJobQueue.count({
+        where: { status: "retrying", updatedAt: { gte: windowStart, lt: windowEnd } },
+      }),
+      prisma.ingestionJobRun.aggregate({
+        where: inWindow,
+        _sum: { recordsReviewRequired: true },
+      }),
+      prisma.ingestionSource.count({
+        where: { healthState: { in: ["failing", "blocked"] } },
+      }),
+    ]);
+
+  // Archive deletions for the window — pulled from ArchiveDeletionLog
+  // because that's the authoritative audit table for hard deletes.
+  const [archivedThisWindow, permanentlyDeletedThisWindow, dedupedThisWindow] = await Promise.all([
+    prisma.dataManagementLog.count({
+      where: { action: "CLEANUP", createdAt: { gte: windowStart, lt: windowEnd } },
+    }),
+    prisma.archiveDeletionLog.count({
+      where: { deletedAt: { gte: windowStart, lt: windowEnd } },
+    }),
+    prisma.dataManagementLog.count({
+      where: { action: "DEDUPE", createdAt: { gte: windowStart, lt: windowEnd } },
+    }),
+  ]);
+
+  return {
+    totalJobsRun,
+    jobsCompleted,
+    jobsFailed,
+    jobsRetried,
+    itemsSentToReview: itemsSentToReview._sum.recordsReviewRequired ?? 0,
+    sourcesFailing,
+    archivedThisWindow,
+    permanentlyDeletedThisWindow,
+    dedupedThisWindow,
+  };
 }
 
 /**
@@ -155,11 +238,95 @@ async function maybeSendBiweeklyReport(now: Date): Promise<AdminSendOutcome | nu
   if (ageMs < 14 * 24 * 60 * 60 * 1000) return null;
 
   const { windowStart, windowEnd } = biweeklyWindow(now);
-  const counts = await aggregateContentManagementCounts(windowStart, windowEnd);
-  const result = await sendBiweeklyAdminReport(counts, windowStart, windowEnd);
+  const [counts, health] = await Promise.all([
+    aggregateContentManagementCounts(windowStart, windowEnd),
+    aggregateIngestionHealth(windowStart, windowEnd).catch(() => undefined),
+  ]);
+  const result = await sendBiweeklyAdminReport(counts, windowStart, windowEnd, health);
   if (result.ok && result.delivery === "sent") {
     await setFlowState<BiweeklyState>("biweekly_report", {
       lastSentAt: now.toISOString(),
+    });
+  }
+  return result;
+}
+
+/**
+ * Monthly source quality report. Per source, counts the items
+ * accepted (ADD), rejected (REJECT), deduped (DEDUPE), and failed
+ * (FAIL) over the calendar month. Helps the admin see which sources
+ * carry the catalog and which produce mostly noise.
+ */
+async function aggregateMonthlySourceQuality(
+  windowStart: Date,
+  windowEnd: Date,
+): Promise<SourceQualityRow[]> {
+  const [sources, runRows, logRows] = await Promise.all([
+    prisma.ingestionSource.findMany(),
+    prisma.ingestionJobRun.findMany({
+      where: { startedAt: { gte: windowStart, lt: windowEnd } },
+      include: { job: { include: { source: true } } },
+    }),
+    prisma.dataManagementLog.groupBy({
+      by: ["action", "contentType"],
+      where: { createdAt: { gte: windowStart, lt: windowEnd } },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const bySourceId = new Map<string, SourceQualityRow>();
+  for (const s of sources) {
+    bySourceId.set(s.id, {
+      sourceName: s.name,
+      sourceHost: s.host,
+      tier: s.tier,
+      accepted: 0,
+      rejected: 0,
+      duplicate: 0,
+      failed: 0,
+    });
+  }
+  for (const run of runRows) {
+    const row = bySourceId.get(run.job.sourceId);
+    if (!row) continue;
+    row.accepted += run.recordsCreated;
+    row.failed += run.recordsFailed;
+  }
+  // DataManagementLog totals are catalog-wide (not per source), so we
+  // attribute REJECT / DEDUPE proportionally to the source that owns
+  // the most jobs targeting that contentType. This is best-effort —
+  // the per-item provenance would require tracking source on every
+  // log row, which we leave for a future schema change.
+  const jobsBySource = new Map<string, number>();
+  for (const r of runRows) {
+    jobsBySource.set(r.job.sourceId, (jobsBySource.get(r.job.sourceId) ?? 0) + 1);
+  }
+  const totalJobs = Array.from(jobsBySource.values()).reduce((a, b) => a + b, 0) || 1;
+  for (const log of logRows) {
+    const n = log._count?._all ?? 0;
+    for (const [sourceId, jobCount] of jobsBySource) {
+      const row = bySourceId.get(sourceId);
+      if (!row) continue;
+      const attributed = Math.round((n * jobCount) / totalJobs);
+      if (log.action === "REJECT") row.rejected += attributed;
+      if (log.action === "DEDUPE") row.duplicate += attributed;
+    }
+  }
+  return Array.from(bySourceId.values());
+}
+
+async function maybeSendMonthlySourceQualityReport(now: Date): Promise<AdminSendOutcome | null> {
+  if (!isLastDayOfMonth(now)) return null;
+  const tag = yearMonth(now);
+  const state = await getFlowState<MonthlySendState>("monthly_source_quality");
+  if (state && state.lastSentYearMonth === tag) return null;
+  const wStart = monthStart(now);
+  const wEnd = nextMonthStart(now);
+  const rows = await aggregateMonthlySourceQuality(wStart, wEnd);
+  const result = await sendMonthlySourceQualityReport(rows, wStart, wEnd);
+  if (result.ok && result.delivery === "sent") {
+    await setFlowState<MonthlySendState>("monthly_source_quality", {
+      lastSentYearMonth: tag,
     });
   }
   return result;
@@ -408,6 +575,7 @@ export type AdminNotificationDispatchSummary = {
   biweekly: AdminSendOutcome | null;
   monthlyArchive: AdminSendOutcome | null;
   monthlyErrorReport: AdminSendOutcome | null;
+  monthlySourceQuality: AdminSendOutcome | null;
   milestonesSent: Array<{ bucket: string; threshold: number }>;
   milestonesRecordedWithoutSend: Array<{ bucket: string; threshold: number }>;
 };
@@ -443,12 +611,13 @@ export async function dispatchAdminNotifications(
       biweekly: null,
       monthlyArchive: null,
       monthlyErrorReport: null,
+      monthlySourceQuality: null,
       milestonesSent: milestones.sent,
       milestonesRecordedWithoutSend: milestones.recordedWithoutSend,
     };
   }
 
-  const [biweekly, monthlyArchive, monthlyErrorReport] = await Promise.all([
+  const [biweekly, monthlyArchive, monthlyErrorReport, monthlySourceQuality] = await Promise.all([
     maybeSendBiweeklyReport(now).catch((e) => {
       logger.error("admin.biweekly.dispatch_failed", { error: String(e) });
       return null;
@@ -461,12 +630,17 @@ export async function dispatchAdminNotifications(
       logger.error("admin.monthly_error_report.dispatch_failed", { error: String(e) });
       return null;
     }),
+    maybeSendMonthlySourceQualityReport(now).catch((e) => {
+      logger.error("admin.monthly_source_quality.dispatch_failed", { error: String(e) });
+      return null;
+    }),
   ]);
 
   return {
     biweekly,
     monthlyArchive,
     monthlyErrorReport,
+    monthlySourceQuality,
     milestonesSent: milestones.sent,
     milestonesRecordedWithoutSend: milestones.recordedWithoutSend,
   };

@@ -91,7 +91,16 @@ async function sendAdminEmail(input: {
  */
 export type ContentManagementCounts = Record<
   string,
-  { added: number; edited: number; deleted: number; archived: number }
+  {
+    added: number;
+    edited: number;
+    deleted: number;
+    archived: number;
+    /** Items dropped by ingestion as duplicates (DEDUPE action). */
+    deduped?: number;
+    /** Items hard-deleted after the archive retention window (PURGE action). */
+    purged?: number;
+  }
 >;
 
 /**
@@ -104,19 +113,41 @@ export type ContentManagementCounts = Record<
  * the Deleted column carry a leading - when > 0. Zeroes are rendered
  * as plain `0`.
  */
+export type IngestionHealthSummary = {
+  totalJobsRun: number;
+  jobsCompleted: number;
+  jobsFailed: number;
+  jobsRetried: number;
+  itemsSentToReview: number;
+  sourcesFailing: number;
+  archivedThisWindow: number;
+  permanentlyDeletedThisWindow: number;
+  dedupedThisWindow: number;
+};
+
 export async function sendBiweeklyAdminReport(
   counts: ContentManagementCounts,
   windowStart: Date,
   windowEnd: Date,
+  ingestionHealth?: IngestionHealthSummary,
 ): Promise<AdminSendOutcome> {
   const rows = CONTENT_TYPE_ROWS.map((row) => {
-    const c = counts[row.key] ?? { added: 0, edited: 0, deleted: 0, archived: 0 };
+    const c = counts[row.key] ?? {
+      added: 0,
+      edited: 0,
+      deleted: 0,
+      archived: 0,
+      deduped: 0,
+      purged: 0,
+    };
     return {
       Content: row.label,
       Added: formatAdded(c.added),
       Edited: formatPlain(c.edited),
       Deleted: formatDeleted(c.deleted),
       Archived: formatPlain(c.archived),
+      Deduped: formatPlain((c as { deduped?: number }).deduped ?? 0),
+      Purged: formatDeleted((c as { purged?: number }).purged ?? 0),
     };
   });
 
@@ -124,7 +155,8 @@ export async function sendBiweeklyAdminReport(
   const intro =
     `Two weeks of content management activity across the catalog (${fmt(windowStart)} – ${fmt(windowEnd)}). ` +
     `The Added column shows new items, Edited shows modifications, Deleted shows removals, ` +
-    `and Archived shows items moved to the cleanup queue.`;
+    `Archived shows items moved to the cleanup queue, Deduped shows duplicates ` +
+    `discarded by ingestion, and Purged shows archived items permanently deleted.`;
 
   const sections: AdminEmailSection[] = [
     {
@@ -136,11 +168,42 @@ export async function sendBiweeklyAdminReport(
           { key: "Edited", label: "Edited", align: "right" },
           { key: "Deleted", label: "Deleted", align: "right" },
           { key: "Archived", label: "Archived", align: "right" },
+          { key: "Deduped", label: "Deduped", align: "right" },
+          { key: "Purged", label: "Purged", align: "right" },
         ],
         rows,
       },
     },
   ];
+
+  if (ingestionHealth) {
+    sections.push({
+      title: "Ingestion Health Summary",
+      table: {
+        columns: [
+          { key: "metric", label: "Metric" },
+          { key: "value", label: "Value", align: "right" },
+        ],
+        rows: [
+          { metric: "Total jobs run", value: String(ingestionHealth.totalJobsRun) },
+          { metric: "Jobs completed", value: String(ingestionHealth.jobsCompleted) },
+          { metric: "Jobs failed", value: String(ingestionHealth.jobsFailed) },
+          { metric: "Jobs retried", value: String(ingestionHealth.jobsRetried) },
+          { metric: "Items sent to review", value: String(ingestionHealth.itemsSentToReview) },
+          { metric: "Sources failing", value: String(ingestionHealth.sourcesFailing) },
+          {
+            metric: "Items archived this window",
+            value: String(ingestionHealth.archivedThisWindow),
+          },
+          {
+            metric: "Archived items permanently deleted",
+            value: String(ingestionHealth.permanentlyDeletedThisWindow),
+          },
+          { metric: "Items deduped", value: String(ingestionHealth.dedupedThisWindow) },
+        ],
+      },
+    });
+  }
 
   const rendered = renderAdminEmail({
     subject: "Biweekly Admin Report",
@@ -419,5 +482,75 @@ export async function sendMonthlyErrorReport(params: {
         contentType: "application/pdf",
       },
     ],
+  });
+}
+
+export type SourceQualityRow = {
+  sourceName: string;
+  sourceHost: string;
+  tier: number;
+  accepted: number;
+  rejected: number;
+  duplicate: number;
+  failed: number;
+};
+
+/**
+ * Monthly source quality report. Shows per-source counts of items
+ * accepted (ADD), rejected (REJECT), duplicate (DEDUPE), and failed
+ * (FAIL) over the calendar month. Helps the admin see which sources
+ * pull their weight and which produce mostly noise.
+ */
+export async function sendMonthlySourceQualityReport(
+  rows: SourceQualityRow[],
+  monthStart: Date,
+  monthEnd: Date,
+): Promise<AdminSendOutcome> {
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const intro =
+    `Monthly source quality report for ${fmt(monthStart)} – ${fmt(monthEnd)}. ` +
+    `Sources are ranked by total accepted items; tier 1 (official Church), tier 2 (established ` +
+    `publishers), and tier 3 (general/news) classifications are shown so you can see whether ` +
+    `the most-active sources are also the highest-trust ones.`;
+
+  const tableRows = rows
+    .sort((a, b) => b.accepted - a.accepted)
+    .map((r) => ({
+      Source: `${r.sourceName} (${r.sourceHost})`,
+      Tier: `T${r.tier}`,
+      Accepted: formatPlain(r.accepted),
+      Rejected: formatPlain(r.rejected),
+      Duplicate: formatPlain(r.duplicate),
+      Failed: formatPlain(r.failed),
+    }));
+
+  const sections: AdminEmailSection[] = [
+    {
+      title: "Source Quality",
+      table: {
+        columns: [
+          { key: "Source", label: "Source" },
+          { key: "Tier", label: "Tier" },
+          { key: "Accepted", label: "Accepted", align: "right" },
+          { key: "Rejected", label: "Rejected", align: "right" },
+          { key: "Duplicate", label: "Duplicate", align: "right" },
+          { key: "Failed", label: "Failed", align: "right" },
+        ],
+        rows: tableRows,
+      },
+    },
+  ];
+
+  const rendered = renderAdminEmail({
+    subject: "Monthly Source Quality Report",
+    heading: "Monthly Source Quality Report",
+    intro,
+    sections,
+  });
+  return sendAdminEmail({
+    flow: "monthly_source_quality",
+    subject: rendered.subject,
+    textBody: rendered.textBody,
+    htmlBody: rendered.htmlBody,
   });
 }

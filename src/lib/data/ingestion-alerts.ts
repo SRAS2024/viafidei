@@ -48,7 +48,7 @@ export async function checkStalledGrowth(
   now: Date = new Date(),
 ): Promise<boolean> {
   type StalledState = AlertState & { lastCount: number; cyclesNoGrowth: number };
-  const flow = `alert:stalled:${bucket.key}` as `milestone:${string}`;
+  const flow = `alert:stalled:${bucket.key}` as `alert:${string}`;
   const state = (await getFlowState<StalledState>(flow)) ?? {
     lastSentAt: null,
     counter: 0,
@@ -96,7 +96,7 @@ export async function checkRepeatedSourceFailures(now: Date = new Date()): Promi
   });
   for (const s of sources) {
     type SrcState = AlertState;
-    const flow = `alert:source_fail:${s.id}` as `milestone:${string}`;
+    const flow = `alert:source_fail:${s.id}` as `alert:${string}`;
     const state = (await getFlowState<SrcState>(flow)) ?? { lastSentAt: null, counter: 0 };
     if (isWithinCooldown(state.lastSentAt ? new Date(state.lastSentAt) : null, now)) continue;
     if (readAdminEmail()) {
@@ -128,7 +128,7 @@ export async function checkLowQualitySources(now: Date = new Date()): Promise<nu
   });
   for (const s of sources) {
     type SrcState = AlertState;
-    const flow = `alert:source_lowq:${s.id}` as `milestone:${string}`;
+    const flow = `alert:source_lowq:${s.id}` as `alert:${string}`;
     const state = (await getFlowState<SrcState>(flow)) ?? { lastSentAt: null, counter: 0 };
     if (isWithinCooldown(state.lastSentAt ? new Date(state.lastSentAt) : null, now)) continue;
     if (readAdminEmail()) {
@@ -159,7 +159,7 @@ export async function checkReviewQueueSize(now: Date = new Date()): Promise<bool
     .catch(() => 0);
   if (reviewCount < REVIEW_QUEUE_LARGE_THRESHOLD) return false;
   type QState = AlertState;
-  const flow = "alert:review_queue_large" as `milestone:${string}`;
+  const flow = "alert:review_queue_large" as `alert:${string}`;
   const state = (await getFlowState<QState>(flow)) ?? { lastSentAt: null, counter: 0 };
   if (isWithinCooldown(state.lastSentAt ? new Date(state.lastSentAt) : null, now)) return false;
   if (readAdminEmail()) {

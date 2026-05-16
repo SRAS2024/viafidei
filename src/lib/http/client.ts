@@ -3,6 +3,7 @@ import { buildConditionalHeaders, readConditionalState } from "./conditional";
 import { DEFAULT_RETRY_POLICY, type RetryPolicy, backoffDelay, shouldRetry, sleep } from "./retry";
 import { getDefaultTimeoutMs, withAbortTimeout } from "./timeout";
 import { getIngestionUserAgent } from "./user-agent";
+import { checkAndRecordDomainFetch } from "../ingestion/rate-limit-domain";
 
 export type FetchOptions = {
   method?: "GET" | "HEAD";
@@ -57,6 +58,18 @@ async function performFetch(
   for (let attempt = 0; attempt < policy.attempts; attempt++) {
     const wait = rateLimitDelayFor(host, rateLimitPerMin);
     if (wait > 0) await sleep(wait);
+
+    // Per-domain DB-backed rate bucket — shared across workers so
+    // multiple processes hitting the same upstream cooperate. Wait
+    // up to 10× before giving up to avoid blocking the whole
+    // pipeline on a permanently rate-limited domain.
+    for (let r = 0; r < 10; r++) {
+      const decision = await checkAndRecordDomainFetch(host).catch(() => ({
+        allow: true as const,
+      }));
+      if (decision.allow) break;
+      await sleep(Math.min(decision.waitMs, 5_000));
+    }
 
     const { signal, cancel } = withAbortTimeout(timeoutMs);
     try {

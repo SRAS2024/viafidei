@@ -11,6 +11,10 @@ import { cleanIngestedItems } from "./clean";
 import { classifyIngestedItems } from "./classify";
 import { enrichIngestedItems } from "./enrich";
 import { persistItems } from "./persist";
+import { enrichDecision } from "./enrich-decision";
+import { applyDecisionScores } from "./apply-decision";
+import { applyBatchSizeLimit } from "./batch-size";
+import { recordSourceQuality } from "../data/source-health";
 
 export type RunnerOptions = {
   /**
@@ -117,7 +121,7 @@ async function runAdapterUnlocked(
   try {
     const conditionalState = jobId ? await loadPriorState(jobId) : undefined;
     const {
-      items,
+      items: rawItems,
       notModified,
       conditionalState: nextState,
     } = await adapter.fetch({
@@ -125,6 +129,22 @@ async function runAdapterUnlocked(
       jobName: adapter.key,
       conditionalState,
     });
+
+    // Batch-size enforcement for very large sources. The cap is read
+    // from `IngestionJob.batchSizeLimit` (per job) and falls back to
+    // a global hard limit of 5000. The remainder of the batch is
+    // left for the next tick — cursors handle the resume.
+    const sized = await applyBatchSizeLimit(jobId, rawItems);
+    const items = sized.items;
+    if (sized.truncated) {
+      logger.info("ingestion.run.batch_truncated", {
+        adapter: adapter.key,
+        sourceHost,
+        jobId,
+        seen: rawItems.length,
+        cap: sized.cap,
+      });
+    }
 
     if (notModified) {
       const summary: IngestionRunSummary = { ...NO_OP_SUMMARY };
@@ -201,10 +221,73 @@ async function runAdapterUnlocked(
       skipDataManagementLog: true,
     } as const;
 
-    // Items that pass every check are persisted with the configured
-    // `initialStatus` (PUBLISHED for auto-publish, REVIEW for staged
-    // moderation).
-    const counts = await persistItems(valid, initialStatus, persistOptions);
+    // Apply the strict-validation + source-tier decision pass before
+    // persisting. The decision splits `valid` into items that should
+    // land in PUBLISHED vs items diverted to REVIEW (low-tier source,
+    // theological review flag, soft validation failure). Each
+    // decision is recorded onto the persisted row via
+    // `applyDecisionScores` so the admin sees sourceConfidence,
+    // formattingConfidence, qualityScore, sourceTier, and
+    // outcomeReason on every ingested item.
+    const validDecisions = valid.map((item) => ({ item, decision: enrichDecision(item) }));
+    const acceptedForPublish = validDecisions
+      .filter((d) => d.decision.action === "publish")
+      .map((d) => d.item);
+    const acceptedForReview = validDecisions
+      .filter((d) => d.decision.action !== "publish")
+      .map((d) => d.item);
+    const counts = await persistItems(acceptedForPublish, initialStatus, persistOptions);
+    const tierReviewCounts =
+      acceptedForReview.length > 0
+        ? await persistItems(acceptedForReview, "REVIEW" as ContentStatus, persistOptions)
+        : {
+            created: 0,
+            updated: 0,
+            skipped: 0,
+            logs: [] as DataManagementLogInput[],
+            details: [] as Array<{
+              kind: string;
+              slug: string;
+              outcome: "created" | "updated" | "skipped";
+            }>,
+          };
+    // Apply scoring onto every row that the persister actually
+    // created or updated. Skipped items keep the scores they already
+    // had (or none) so an idempotent re-run does not generate
+    // unnecessary UPDATEs.
+    const decisionBySlug = new Map(
+      validDecisions
+        .map((d) => {
+          const slug = (d.item as { slug?: string }).slug ?? "";
+          return slug ? ([slug, d] as const) : null;
+        })
+        .filter((x): x is readonly [string, (typeof validDecisions)[number]] => x !== null),
+    );
+    await Promise.all(
+      [...counts.details, ...tierReviewCounts.details]
+        .filter((d) => d.outcome !== "skipped")
+        .map((d) => {
+          const decision = decisionBySlug.get(d.slug);
+          if (!decision) return Promise.resolve();
+          const isReview = decision.decision.action !== "publish";
+          const status = isReview ? "REVIEW" : initialStatus;
+          return applyDecisionScores(d.kind, d.slug, decision.decision, status);
+        }),
+    );
+    // Per-source quality observation: ratio of items that landed in
+    // REVIEW/REJECT vs total. Smoothed into IngestionSource.lowQualityRatio
+    // so the source health dashboard can flag chronically low-quality
+    // sources.
+    const lowQualityCount = acceptedForReview.length + review.length + rejected.length;
+    if (jobId && items.length > 0) {
+      const job = await prisma.ingestionJob.findUnique({ where: { id: jobId } });
+      if (job?.sourceId) {
+        await recordSourceQuality(job.sourceId, {
+          totalItems: items.length,
+          reviewOrRejected: lowQualityCount,
+        }).catch(() => undefined);
+      }
+    }
     // Items that fail a soft (category-heuristic) check are persisted
     // with `status = REVIEW` so a moderator can decide whether the
     // content is genuinely Catholic but mis-shaped, or really a
@@ -293,6 +376,7 @@ async function runAdapterUnlocked(
     const allLogs: DataManagementLogInput[] = [
       ...counts.logs,
       ...reviewCounts.logs,
+      ...tierReviewCounts.logs,
       ...reclassifyLogs,
       ...softReviewLogs,
       ...noiseLogs,
@@ -311,21 +395,27 @@ async function runAdapterUnlocked(
 
     // When new + updated rows land in REVIEW status (either because the
     // configured initialStatus is REVIEW, or because the soft validator
-    // diverted them), every persisted row in that bucket counts toward
-    // the review queue.
+    // diverted them, or because the source-tier router diverted them),
+    // every persisted row in that bucket counts toward the review queue.
     const directReview = initialStatus === "REVIEW" ? counts.created + counts.updated : 0;
     const softReview = reviewCounts.created + reviewCounts.updated;
+    const tierReview = tierReviewCounts.created + tierReviewCounts.updated;
 
     const summary: IngestionRunSummary = {
       recordsSeen: items.length,
-      recordsCreated: counts.created + reviewCounts.created,
-      recordsUpdated: counts.updated + reviewCounts.updated,
-      recordsSkipped: counts.skipped + reviewCounts.skipped + noise.length + rejected.length,
+      recordsCreated: counts.created + reviewCounts.created + tierReviewCounts.created,
+      recordsUpdated: counts.updated + reviewCounts.updated + tierReviewCounts.updated,
+      recordsSkipped:
+        counts.skipped +
+        reviewCounts.skipped +
+        tierReviewCounts.skipped +
+        noise.length +
+        rejected.length,
       recordsFailed: 0,
-      recordsReviewRequired: directReview + softReview,
+      recordsReviewRequired: directReview + softReview + tierReview,
       errorMessage:
-        noise.length || rejected.length || review.length
-          ? `${noise.length} discarded as noise, ${rejected.length} rejected, ${review.length} routed to REVIEW`
+        noise.length || rejected.length || review.length || tierReview
+          ? `${noise.length} discarded as noise, ${rejected.length} rejected, ${review.length + tierReview} routed to REVIEW`
           : null,
     };
 

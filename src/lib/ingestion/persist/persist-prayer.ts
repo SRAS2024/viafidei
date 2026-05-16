@@ -2,6 +2,7 @@ import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../../db/client";
 import { computeChecksum } from "../checksum";
 import { normalizeSlug } from "../slug";
+import { snapshotPreviousVersion } from "../apply-decision";
 import type { IngestedPrayer } from "../types";
 
 export type PersistOutcome = "created" | "updated" | "skipped";
@@ -44,12 +45,43 @@ export async function persistPrayer(
   });
 
   if (existing) {
+    // Content-freshness check. When a Tier-1 source publishes a new
+    // version (different checksum, same externalSourceKey), we update
+    // the existing row in-place and snapshot the previous version into
+    // ContentVersion so the admin can see exactly what changed.
+    // ARCHIVED / DRAFT rows the admin is working on are still
+    // protected — those keep their old behaviour.
+    const checksumDiffers =
+      !!existing.contentChecksum && existing.contentChecksum !== incomingChecksum;
+    const sameExternalKey =
+      !!item.externalSourceKey && existing.externalSourceKey === item.externalSourceKey;
+    const isAdminProtected = existing.status === "ARCHIVED" || existing.status === "DRAFT";
+    if (checksumDiffers && sameExternalKey && !isAdminProtected) {
+      await snapshotPreviousVersion(
+        "prayer",
+        existing,
+        incomingChecksum,
+        item.externalSourceKey ?? null,
+      );
+      await prisma.prayer.update({
+        where: { id: existing.id },
+        data: {
+          defaultTitle: item.defaultTitle,
+          body: item.body,
+          category: item.category,
+          contentChecksum: incomingChecksum,
+        },
+      });
+      return {
+        outcome: "updated",
+        slug: existing.slug,
+        contentRef: existing.slug || existing.defaultTitle,
+        reason: "Upstream content changed — updated in place + version snapshotted",
+      };
+    }
     // Spec: "only add content if it is not already in the database."
     // Any existing row — whether already PUBLISHED, ARCHIVED, DRAFT (admin
-    // WIP), or REVIEW — is left untouched. Ingestion is strictly additive:
-    // it never overwrites a row the admin is or was working on, and it never
-    // re-writes its own previous output (that's what `dedupeBatch` + the
-    // checksum lookup are for).
+    // WIP), or REVIEW — is left untouched when the checksum matches.
     return {
       outcome: "skipped",
       slug: existing.slug,
