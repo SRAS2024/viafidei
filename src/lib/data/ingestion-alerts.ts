@@ -179,6 +179,66 @@ export async function checkReviewQueueSize(now: Date = new Date()): Promise<bool
 }
 
 /**
+ * Different stall-class alerts — each fires its own distinct admin
+ * email so the operator knows which corner of the pipeline is stuck.
+ *   - content_below_target_no_jobs: planner didn't enqueue any work
+ *     for a below-target bucket.
+ *   - jobs_enqueued_no_worker: pending jobs exist but no worker
+ *     heartbeat is alive.
+ *   - workers_complete_no_growth: workers are completing jobs but
+ *     content counts aren't increasing.
+ */
+export async function checkStallSignals(
+  signals: {
+    contentBelowTargetButNoJobs: boolean;
+    jobsEnqueuedButNotProcessed: boolean;
+    jobsCompletedButContentNotGrowing: boolean;
+  },
+  now: Date = new Date(),
+): Promise<{ sent: string[] }> {
+  const sent: string[] = [];
+  async function fire(key: string, message: string): Promise<void> {
+    const flow = `alert:stall:${key}` as `alert:${string}`;
+    const state = (await getFlowState<AlertState>(flow)) ?? { lastSentAt: null, counter: 0 };
+    if (isWithinCooldown(state.lastSentAt ? new Date(state.lastSentAt) : null, now)) return;
+    if (readAdminEmail()) {
+      try {
+        await sendCriticalFailureAlert({ kind: `stall_${key}`, message });
+      } catch (e) {
+        logger.warn("alert.stall.send_failed", {
+          key,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+    await setFlowState<AlertState>(flow, {
+      lastSentAt: now.toISOString(),
+      counter: state.counter + 1,
+    });
+    sent.push(key);
+  }
+  if (signals.contentBelowTargetButNoJobs) {
+    await fire(
+      "content_below_target_no_jobs",
+      "Planner is not enqueuing jobs for content types that are still below their target. Check IngestionJob.isActive + source pauses.",
+    );
+  }
+  if (signals.jobsEnqueuedButNotProcessed) {
+    await fire(
+      "jobs_enqueued_no_worker",
+      "Queue has pending jobs but no healthy worker heartbeat. Start a worker: npm run worker.",
+    );
+  }
+  if (signals.jobsCompletedButContentNotGrowing) {
+    await fire(
+      "workers_complete_no_growth",
+      "Workers are completing jobs but content counts are not increasing. Inspect adapter output / dedupe rate.",
+    );
+  }
+  return { sent };
+}
+
+/**
  * One-shot helper called from the cron route. Runs every check and
  * returns a structured summary so the run log captures whether any
  * alerts fired this tick.

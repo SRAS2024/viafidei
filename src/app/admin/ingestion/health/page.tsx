@@ -85,6 +85,22 @@ export default async function SourceHealthPage() {
                     <span>
                       HTTP: {s.lastHttpStatus ?? "—"} · failures: {s.consecutiveFailures}
                     </span>
+                    {s.coveragePercent != null ? (
+                      <span>
+                        coverage: {s.coveragePercent.toFixed(1)}% (
+                        {s.completedItems.toLocaleString()}
+                        {s.estimatedTotalItems != null
+                          ? ` / ${s.estimatedTotalItems.toLocaleString()}`
+                          : ""}
+                        )
+                      </span>
+                    ) : s.discoveredItems > 0 ? (
+                      <span>
+                        discovered: {s.discoveredItems.toLocaleString()} · completed:{" "}
+                        {s.completedItems.toLocaleString()}
+                      </span>
+                    ) : null}
+                    {s.autoPaused ? <span className="text-red-700">⚠ auto-paused</span> : null}
                     {s.lowQualityRatio != null ? (
                       <span>low-quality ratio: {(s.lowQualityRatio * 100).toFixed(0)}%</span>
                     ) : null}

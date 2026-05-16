@@ -9,6 +9,7 @@ import { sanitize } from "./validate";
 import { formatIngestedItems } from "./format";
 import { cleanIngestedItems } from "./clean";
 import { classifyIngestedItems } from "./classify";
+import { repairIngestedItem } from "./format-repair";
 import { enrichIngestedItems } from "./enrich";
 import { persistItems } from "./persist";
 import { enrichDecision } from "./enrich-decision";
@@ -202,7 +203,11 @@ async function runAdapterUnlocked(
     //                                 invalid: missing slug, off-
     //                                 allowlist source, protected
     //                                 kind)
-    const formatted = formatIngestedItems(items);
+    // Strict repair runs BEFORE format/clean — fixes HTML entities,
+    // strips unsafe markup, and normalizes whitespace so the
+    // downstream stages see well-shaped text.
+    const repaired = items.map(repairIngestedItem);
+    const formatted = formatIngestedItems(repaired);
     const cleaned = cleanIngestedItems(formatted);
     const classifyResults = classifyIngestedItems(cleaned);
     const reclassified = classifyResults.map((r) => r.item);

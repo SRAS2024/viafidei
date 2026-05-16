@@ -176,7 +176,17 @@ export type SourceHealthRow = {
   lowQualityRatio: number | null;
   pausedAt: Date | null;
   pausedReason: string | null;
+  autoPaused: boolean;
+  estimatedTotalItems: number | null;
+  discoveredItems: number;
+  completedItems: number;
+  coveragePercent: number | null;
 };
+
+function computeCoverage(estimated: number | null, completed: number): number | null {
+  if (!estimated || estimated <= 0) return null;
+  return Math.min(100, Math.round((completed / estimated) * 1000) / 10);
+}
 
 export async function listSourceHealth(): Promise<SourceHealthRow[]> {
   const rows = await prisma.ingestionSource.findMany({
@@ -197,5 +207,10 @@ export async function listSourceHealth(): Promise<SourceHealthRow[]> {
     lowQualityRatio: s.lowQualityRatio,
     pausedAt: s.pausedAt,
     pausedReason: s.pausedReason,
+    autoPaused: s.autoPaused,
+    estimatedTotalItems: s.estimatedTotalItems,
+    discoveredItems: s.discoveredItems,
+    completedItems: s.completedItems,
+    coveragePercent: computeCoverage(s.estimatedTotalItems, s.completedItems),
   }));
 }
