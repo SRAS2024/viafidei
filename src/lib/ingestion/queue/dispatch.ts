@@ -120,7 +120,7 @@ async function runSourceJob(
 
 async function runContentRevalidate(
   job: QueueJobRow,
-  _payload: Record<string, unknown>,
+  payload: Record<string, unknown>,
 ): Promise<DispatchResult> {
   void job;
   try {
@@ -128,12 +128,14 @@ async function runContentRevalidate(
     //   1. catalog janitor — legacy text-shape cleanup (format / clean /
     //      classify against existing PUBLISHED rows). Repackages noise,
     //      diverts soft-fails to REVIEW, hard-deletes clear cruft.
-    //   2. strict content QA cleanup — validates every PUBLISHED row
-    //      against its package contract. Flips publicRenderReady +
-    //      isThresholdEligible flags, removes invalid rows from public
-    //      view, hard-deletes wrong-content rows + writes
-    //      RejectedContentLog entries.
+    //   2. strict content QA cleanup — validates every catalog row
+    //      against its package contract under the active cleanup
+    //      policy (production: deleteAllInvalid=true,
+    //      mode=all_catalog_rows). Rows that pass are flagged
+    //      publicRenderReady + isThresholdEligible; rows that fail
+    //      are deleted + logged.
     const { runStrictContentCleanup } = await import("../../content-qa/cleanup");
+    const sweepReason = (payload.sweepReason as string) ?? "catalog_revalidate";
     const [janitor, strict] = await Promise.all([
       runCatalogJanitor().catch((e) => ({
         error: e instanceof Error ? e.message : String(e),
@@ -142,13 +144,18 @@ async function runContentRevalidate(
         totalHardDeleted: 0,
         buckets: [],
       })),
-      runStrictContentCleanup().catch((e) => ({
+      runStrictContentCleanup({ sweepReason }).catch((e) => ({
         error: e instanceof Error ? e.message : String(e),
         totalInspected: 0,
         totalFlaggedReady: 0,
         totalFlaggedUnready: 0,
         totalHardDeleted: 0,
+        totalLogFailures: 0,
         buckets: [],
+        mode: "all_catalog_rows" as const,
+        deleteAllInvalid: true,
+        packageContractVersion: "unknown",
+        ranAt: new Date(),
       })),
     ]);
     return {
@@ -158,7 +165,9 @@ async function runContentRevalidate(
         `diverted ${janitor.totalDivertedToReview}, ` +
         `strict-QA flagged ${strict.totalFlaggedReady} ready, ` +
         `${strict.totalFlaggedUnready} unready, ` +
-        `${strict.totalHardDeleted} hard-deleted`,
+        `${strict.totalHardDeleted} hard-deleted, ` +
+        `mode=${strict.mode}, ` +
+        `logFailures=${strict.totalLogFailures}`,
     };
   } catch (e) {
     return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };

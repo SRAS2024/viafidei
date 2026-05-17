@@ -2,6 +2,26 @@
  * RejectedContentLog writer + reader. Every reject or delete decision
  * made by the strict content QA pipeline writes one row here so the
  * operator has a forensic record per item.
+ *
+ * Each row carries enough provenance to prove WHY a row was removed
+ * from the catalog:
+ *
+ *   - content type, slug, original title
+ *   - source URL + source host
+ *   - failed contract name + failed fields
+ *   - rejection reason text
+ *   - original checksum
+ *   - worker job id + ingestion batch id (where the row came from)
+ *   - triggered-by (automatic system run or admin)
+ *   - deleted timestamp
+ *   - package version
+ *   - validation decision verbatim (`delete` / `reject` / ...)
+ *   - failure category (`wrong_content`, `missing_required_field`,
+ *     `source_purpose_mismatch`, ...)
+ *   - cleanup mode (`public_only` | `all_catalog_rows`)
+ *   - sweep reason (`scheduled`, `post_ingestion`, `manual`,
+ *     `render_gate`, ...)
+ *   - original status (PUBLISHED / REVIEW / DRAFT / ARCHIVED)
  */
 
 import { prisma } from "../db/client";
@@ -25,26 +45,48 @@ export type RejectedContentLogInput = {
   workerJobId?: string | null;
   /** IngestionBatch id this candidate was part of, if known. */
   ingestionBatchId?: string | null;
+  /** Contract version that ran (e.g. "1.1.0"). */
+  packageVersion?: string | null;
+  /** Final validation decision verbatim. */
+  validationDecision?: string | null;
+  /** Dashboard bucket the failure falls into. */
+  failureCategory?: string | null;
+  /** Cleanup mode that produced the deletion. */
+  cleanupMode?: string | null;
+  /** Short description of what kind of sweep triggered the deletion. */
+  sweepReason?: string | null;
+  /** Status the row carried before deletion. */
+  originalStatus?: string | null;
 };
+
+function toCreateData(input: RejectedContentLogInput): Record<string, unknown> {
+  return {
+    contentType: input.contentType,
+    slug: input.slug ?? null,
+    originalTitle: input.originalTitle ?? null,
+    sourceUrl: input.sourceUrl ?? null,
+    sourceHost: input.sourceHost ?? null,
+    rejectionReason: input.rejectionReason.slice(0, 1000),
+    failedContractName: input.failedContractName ?? null,
+    failedFields: input.failedFields ? [...input.failedFields] : [],
+    originalChecksum: input.originalChecksum ?? null,
+    decision: input.decision,
+    triggeredBy: input.triggeredBy ?? "automatic",
+    actorUsername: input.actorUsername ?? null,
+    workerJobId: input.workerJobId ?? null,
+    ingestionBatchId: input.ingestionBatchId ?? null,
+    packageVersion: input.packageVersion ?? null,
+    validationDecision: input.validationDecision ?? null,
+    failureCategory: input.failureCategory ?? null,
+    cleanupMode: input.cleanupMode ?? null,
+    sweepReason: input.sweepReason ?? null,
+    originalStatus: input.originalStatus ?? null,
+  };
+}
 
 export async function recordRejectedContent(input: RejectedContentLogInput): Promise<void> {
   await prisma.rejectedContentLog.create({
-    data: {
-      contentType: input.contentType,
-      slug: input.slug ?? null,
-      originalTitle: input.originalTitle ?? null,
-      sourceUrl: input.sourceUrl ?? null,
-      sourceHost: input.sourceHost ?? null,
-      rejectionReason: input.rejectionReason.slice(0, 1000),
-      failedContractName: input.failedContractName ?? null,
-      failedFields: input.failedFields ? [...input.failedFields] : [],
-      originalChecksum: input.originalChecksum ?? null,
-      decision: input.decision,
-      triggeredBy: input.triggeredBy ?? "automatic",
-      actorUsername: input.actorUsername ?? null,
-      workerJobId: input.workerJobId ?? null,
-      ingestionBatchId: input.ingestionBatchId ?? null,
-    },
+    data: toCreateData(input) as never,
   });
 }
 
@@ -57,22 +99,7 @@ export async function recordRejectedContentBatch(
 ): Promise<void> {
   if (inputs.length === 0) return;
   await prisma.rejectedContentLog.createMany({
-    data: inputs.map((input) => ({
-      contentType: input.contentType,
-      slug: input.slug ?? null,
-      originalTitle: input.originalTitle ?? null,
-      sourceUrl: input.sourceUrl ?? null,
-      sourceHost: input.sourceHost ?? null,
-      rejectionReason: input.rejectionReason.slice(0, 1000),
-      failedContractName: input.failedContractName ?? null,
-      failedFields: input.failedFields ? [...input.failedFields] : [],
-      originalChecksum: input.originalChecksum ?? null,
-      decision: input.decision,
-      triggeredBy: input.triggeredBy ?? "automatic",
-      actorUsername: input.actorUsername ?? null,
-      workerJobId: input.workerJobId ?? null,
-      ingestionBatchId: input.ingestionBatchId ?? null,
-    })),
+    data: inputs.map(toCreateData) as never,
   });
 }
 
@@ -81,6 +108,7 @@ export type RejectedContentSummary = {
   byContentType: Record<string, number>;
   byDecision: Record<string, number>;
   byHost: Record<string, number>;
+  byFailureCategory: Record<string, number>;
 };
 
 /**
@@ -97,7 +125,7 @@ export async function summarizeRejectedContent(
       : windowStart
         ? { deletedAt: { gte: windowStart } }
         : {};
-  const [total, byType, byDecision, byHostRows] = await Promise.all([
+  const [total, byType, byDecision, byHostRows, byCategoryRows] = await Promise.all([
     prisma.rejectedContentLog.count({ where }),
     prisma.rejectedContentLog.groupBy({
       by: ["contentType"],
@@ -114,6 +142,13 @@ export async function summarizeRejectedContent(
       where,
       _count: { _all: true },
     }),
+    prisma.rejectedContentLog
+      .groupBy({
+        by: ["failureCategory"],
+        where,
+        _count: { _all: true },
+      })
+      .catch(() => [] as Array<{ failureCategory: string | null; _count?: { _all: number } }>),
   ]);
   const byContentType: Record<string, number> = {};
   for (const row of byType) byContentType[row.contentType] = row._count?._all ?? 0;
@@ -124,7 +159,12 @@ export async function summarizeRejectedContent(
     const key = row.sourceHost ?? "(unknown)";
     byHost[key] = row._count?._all ?? 0;
   }
-  return { total, byContentType, byDecision: byDecisionMap, byHost };
+  const byFailureCategory: Record<string, number> = {};
+  for (const row of byCategoryRows) {
+    const key = row.failureCategory ?? "(unknown)";
+    byFailureCategory[key] = row._count?._all ?? 0;
+  }
+  return { total, byContentType, byDecision: byDecisionMap, byHost, byFailureCategory };
 }
 
 /**

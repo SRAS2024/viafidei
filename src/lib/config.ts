@@ -130,6 +130,50 @@ export const appConfig = {
     workerStaleAfterMs: 90 * 1000,
     oldestPendingWarnAfterMs: 30 * 60 * 1000,
   },
+  /**
+   * Strict content QA cleanup policy. The cleanup loop scans every
+   * catalog row and either flips its validation flags (valid +
+   * publicRenderReady + isThresholdEligible) or deletes the row +
+   * writes a RejectedContentLog entry.
+   *
+   *   - `deleteAllInvalid` — when `true`, any row that fails its
+   *     strict package contract is deleted and logged, even if it is
+   *     a status = REVIEW or status = DRAFT row. There is no
+   *     "remove from public view but keep the row" outcome under this
+   *     mode; the outcome is always one of: keep + valid + render-ready,
+   *     update in place, archive (only for valid old content), or
+   *     delete + log. Production must run with this enabled.
+   *   - `scanAllCatalogRows` — when `true`, the cleanup loop scans
+   *     PUBLISHED, REVIEW, DRAFT, ARCHIVED, and any row with stale
+   *     package flags or a stale package version, not just rows
+   *     visible publicly. This is the "all_catalog_rows" sweep mode.
+   *   - `autoTriggerAfterIngestion` — when `true`, every successful
+   *     ingestion batch enqueues a content-revalidate job. Keeps the
+   *     catalog clean without admin involvement.
+   *   - `packageContractVersion` — bumping this string forces the
+   *     cleanup loop to treat any row whose contentPackageVersion
+   *     does not match as stale, even if the flags say it is valid.
+   *     Used to invalidate the entire catalog when a contract is
+   *     tightened.
+   */
+  contentQA: {
+    deleteAllInvalid: true,
+    scanAllCatalogRows: true,
+    autoTriggerAfterIngestion: true,
+    packageContractVersion: "1.1.0",
+    /**
+     * Scheduled strict cleanup cadence. The queue planner enqueues a
+     * content_revalidate job on this cadence so the catalog cannot
+     * drift even when no ingestion is happening.
+     */
+    scheduledCleanupIntervalMs: 6 * 60 * 60 * 1000,
+    /**
+     * "Stale" threshold for the cleanupHealth diagnostic. If no
+     * strict cleanup has run within this window, the diagnostic
+     * flips to warn.
+     */
+    staleAfterMs: 24 * 60 * 60 * 1000,
+  } as const,
   email: {
     /**
      * Transactional sender address. Must match a verified Resend domain —

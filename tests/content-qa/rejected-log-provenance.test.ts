@@ -76,4 +76,42 @@ describe("RejectedContentLog carries worker + batch provenance", () => {
       expect(row.ingestionBatchId).toBe("bt-1");
     }
   });
+
+  it("recordRejectedContent passes packageVersion + validationDecision + failureCategory + cleanupMode + sweepReason + originalStatus through", async () => {
+    await recordRejectedContent({
+      contentType: "Prayer",
+      slug: "z",
+      rejectionReason: "missing prayer text",
+      decision: "delete",
+      packageVersion: "1.1.0",
+      validationDecision: "reject",
+      failureCategory: "missing_required_field",
+      cleanupMode: "all_catalog_rows",
+      sweepReason: "post_ingestion",
+      originalStatus: "REVIEW",
+    });
+    const call = prismaMock.rejectedContentLog.create.mock.calls[0][0];
+    expect(call.data.packageVersion).toBe("1.1.0");
+    expect(call.data.validationDecision).toBe("reject");
+    expect(call.data.failureCategory).toBe("missing_required_field");
+    expect(call.data.cleanupMode).toBe("all_catalog_rows");
+    expect(call.data.sweepReason).toBe("post_ingestion");
+    expect(call.data.originalStatus).toBe("REVIEW");
+  });
+
+  it("defaults the new provenance fields to null when not supplied", async () => {
+    await recordRejectedContent({
+      contentType: "Saint",
+      slug: "n",
+      rejectionReason: "test",
+      decision: "delete",
+    });
+    const call = prismaMock.rejectedContentLog.create.mock.calls[0][0];
+    expect(call.data.packageVersion).toBeNull();
+    expect(call.data.validationDecision).toBeNull();
+    expect(call.data.failureCategory).toBeNull();
+    expect(call.data.cleanupMode).toBeNull();
+    expect(call.data.sweepReason).toBeNull();
+    expect(call.data.originalStatus).toBeNull();
+  });
 });

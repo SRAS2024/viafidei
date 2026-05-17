@@ -214,7 +214,17 @@ export {
   runStrictContentCleanup,
   type StrictCleanupSummary,
   type ContentTypeCleanupSummary,
+  type RunStrictContentCleanupOptions,
 } from "./cleanup";
+
+export {
+  resolveCleanupPolicy,
+  describeCleanupPolicy,
+  type CleanupMode,
+  type CleanupPolicy,
+} from "./cleanup-policy";
+
+export { getCleanupHealth, type CleanupHealthSummary } from "./cleanup-health";
 
 export {
   checkPrayerRender,

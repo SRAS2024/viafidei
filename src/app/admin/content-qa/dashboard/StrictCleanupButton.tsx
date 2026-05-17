@@ -10,7 +10,12 @@ type StrictCleanupResponse = {
     totalFlaggedReady: number;
     totalFlaggedUnready: number;
     totalHardDeleted: number;
+    totalLogFailures?: number;
+    mode?: string;
+    deleteAllInvalid?: boolean;
+    packageContractVersion?: string;
   };
+  policyLabel?: string;
   durationMs?: number;
 };
 
@@ -48,9 +53,10 @@ export function StrictCleanupButton() {
       const parts = s
         ? [
             `${s.totalInspected} inspected`,
-            `${s.totalFlaggedReady} flagged ready`,
-            `${s.totalFlaggedUnready} flagged unready`,
-            `${s.totalHardDeleted} hard-deleted`,
+            `${s.totalFlaggedReady} valid`,
+            `${s.totalHardDeleted} deleted`,
+            `${s.totalLogFailures ?? 0} log failures`,
+            ...(s.mode ? [`mode=${s.mode}`] : []),
           ]
         : ["complete"];
       setState({ kind: "ok", message: `Strict QA cleanup · ${parts.join(" · ")}.` });

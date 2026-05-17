@@ -93,7 +93,7 @@ describe("strict cleanup: History rows", () => {
     expect(summary.totalHardDeleted).toBeGreaterThanOrEqual(1);
   });
 
-  it("flips publicRenderReady = false on a History row that lacks summary", async () => {
+  it("under strict policy, deletes a History row that fails its contract (does not park in REVIEW)", async () => {
     prismaMock.liturgyEntry.findMany.mockResolvedValue([
       {
         id: "h2",
@@ -112,7 +112,35 @@ describe("strict cleanup: History rows", () => {
         contentChecksum: "h2",
       },
     ]);
-    await runStrictContentCleanup();
+    await runStrictContentCleanup({
+      policy: { deleteAllInvalid: true, mode: "all_catalog_rows" },
+    });
+    expect(prismaMock.liturgyEntry.delete).toHaveBeenCalledWith({ where: { id: "h2" } });
+    expect(prismaMock.liturgyEntry.update).not.toHaveBeenCalled();
+  });
+
+  it("legacy mode flips publicRenderReady = false + status = REVIEW on a History row that lacks summary", async () => {
+    prismaMock.liturgyEntry.findMany.mockResolvedValue([
+      {
+        id: "h2",
+        slug: "council-of-trent",
+        title: "Council of Trent",
+        kind: "COUNCIL_TIMELINE",
+        body: "The Council of Trent ran from 1545-1563. It was an ecumenical council convened by Pope Paul III.",
+        summary: "",
+        historyType: "Council",
+        dateOrEra: "1545-1563",
+        packageMetadata: null,
+        externalSourceKey: "https://www.vatican.va/trent",
+        sourceUrl: "https://www.vatican.va/trent",
+        sourceHost: "vatican.va",
+        status: "PUBLISHED",
+        contentChecksum: "h2",
+      },
+    ]);
+    await runStrictContentCleanup({
+      policy: { deleteAllInvalid: false, mode: "public_only" },
+    });
     expect(prismaMock.liturgyEntry.update).toHaveBeenCalledTimes(1);
     const updateCall = prismaMock.liturgyEntry.update.mock.calls[0][0];
     expect(updateCall.data.publicRenderReady).toBe(false);
