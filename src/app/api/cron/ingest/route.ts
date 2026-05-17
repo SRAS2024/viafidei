@@ -257,6 +257,22 @@ export async function POST(req: NextRequest) {
     return { paused: [] as string[] };
   });
 
+  // Auto-resume: probe auto-paused sources for recovery. Temporary
+  // failures (timeouts, rate limits, 5xx blips) get re-enabled once
+  // a successful sync is observed; structurally-bad sources stay
+  // paused.
+  try {
+    const { autoResumeRecoveredSources, notifyStructurallyBadSources } =
+      await import("@/lib/data/source-auto-pause");
+    await autoResumeRecoveredSources();
+    await notifyStructurallyBadSources();
+  } catch (e) {
+    logger.warn("cron.auto_resume_failed", {
+      requestId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   // Stall-class alerts. Each class fires its own distinct admin
   // email with a 24h cooldown so the operator knows which corner
   // of the pipeline is stuck.

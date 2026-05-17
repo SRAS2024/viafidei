@@ -7,7 +7,7 @@ import {
   getRecentActivityByAction,
   getRecentActivityByContentType,
 } from "@/lib/data/data-management-log";
-import { loadIngestionLiveSnapshot } from "@/lib/diagnostics";
+import { loadIngestionLiveSnapshot, getDashboardWarnings } from "@/lib/diagnostics";
 import { getBacklogProgress } from "@/lib/ingestion/scheduler";
 import { AdminSection } from "../_sections/AdminSection";
 import { ManualIngestRunButton } from "./ManualIngestRunButton";
@@ -41,14 +41,16 @@ function describeZeroActivity(args: {
 export default async function AdminIngestion() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const [sources, progress, dataManagement, activity24h, byAction, snapshot] = await Promise.all([
-    listIngestionSourcesWithLatestRuns(),
-    getBacklogProgress().catch(() => null),
-    getDataManagementSettings(),
-    getRecentActivityByContentType(24).catch(() => ({}) as Record<string, number>),
-    getRecentActivityByAction(24).catch(() => ({}) as Record<string, number>),
-    loadIngestionLiveSnapshot().catch(() => null),
-  ]);
+  const [sources, progress, dataManagement, activity24h, byAction, snapshot, warnings] =
+    await Promise.all([
+      listIngestionSourcesWithLatestRuns(),
+      getBacklogProgress().catch(() => null),
+      getDataManagementSettings(),
+      getRecentActivityByContentType(24).catch(() => ({}) as Record<string, number>),
+      getRecentActivityByAction(24).catch(() => ({}) as Record<string, number>),
+      loadIngestionLiveSnapshot().catch(() => null),
+      getDashboardWarnings().catch(() => [] as Awaited<ReturnType<typeof getDashboardWarnings>>),
+    ]);
 
   const totalActions = Object.values(byAction).reduce((sum, n) => sum + n, 0);
   const activitySummary = describeZeroActivity({
@@ -60,6 +62,22 @@ export default async function AdminIngestion() {
 
   return (
     <AdminSection titleKey="admin.card.ingestion">
+      {warnings.length > 0 ? (
+        <section className="mb-6 vf-card rounded-sm border-l-4 border-amber-500 bg-amber-50 p-4">
+          <p className="font-display text-lg text-amber-900">
+            {warnings.length} active dashboard warning{warnings.length === 1 ? "" : "s"}
+          </p>
+          <ul className="mt-3 space-y-3 font-serif text-sm text-amber-900">
+            {warnings.map((w) => (
+              <li key={w.key}>
+                <p className="font-medium">{w.label}</p>
+                <p className="mt-1 text-xs">{w.detail}</p>
+                <p className="mt-1 text-xs italic">{w.actionable}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <DataManagementSettings
         initialAutoCleanupEnabled={dataManagement.autoCleanupEnabled}
         initialHardDeleteAfterDays={dataManagement.hardDeleteAfterDays}

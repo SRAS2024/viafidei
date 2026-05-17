@@ -317,10 +317,27 @@ export async function sendBiweeklyAdminReport(
  * each content type. The Archived Deleted column carries a leading -
  * when > 0; zeroes are rendered as plain `0`.
  */
+/**
+ * Per-content-type deletion counts split by source so the admin can
+ * see which deletion mechanism took the rows out. Section 10 of the
+ * strict QA spec requires this split.
+ */
+export type CleanupCategoryCounts = {
+  /** Valid old content intentionally archived then deleted after retention. */
+  archivedValidDeleted: Record<string, number>;
+  /** Strict QA invalid rows deleted with a RejectedContentLog entry. */
+  invalidStrictDeleted: Record<string, number>;
+  /** Rows the dedupe pass collapsed. */
+  duplicateDeleted: Record<string, number>;
+  /** Stale rows removed by janitor / age cleanup. */
+  staleDeleted: Record<string, number>;
+};
+
 export async function sendMonthlyArchiveCleanupReport(
   counts: Record<string, number>,
   monthStart: Date,
   monthEnd: Date,
+  categories?: CleanupCategoryCounts,
 ): Promise<AdminSendOutcome> {
   const rows = CONTENT_TYPE_ROWS.map((row) => {
     const n = counts[row.key] ?? 0;
@@ -347,6 +364,29 @@ export async function sendMonthlyArchiveCleanupReport(
       },
     },
   ];
+
+  if (categories) {
+    const categoryRows = CONTENT_TYPE_ROWS.map((row) => ({
+      Content: row.label,
+      "Archived (valid)": formatDeleted(categories.archivedValidDeleted[row.key] ?? 0),
+      "Strict QA invalid": formatDeleted(categories.invalidStrictDeleted[row.key] ?? 0),
+      Duplicate: formatDeleted(categories.duplicateDeleted[row.key] ?? 0),
+      Stale: formatDeleted(categories.staleDeleted[row.key] ?? 0),
+    }));
+    sections.push({
+      title: "Deletion Category Split",
+      table: {
+        columns: [
+          { key: "Content", label: "Content" },
+          { key: "Archived (valid)", label: "Archived (valid)", align: "right" },
+          { key: "Strict QA invalid", label: "Strict QA invalid", align: "right" },
+          { key: "Duplicate", label: "Duplicate", align: "right" },
+          { key: "Stale", label: "Stale", align: "right" },
+        ],
+        rows: categoryRows,
+      },
+    });
+  }
 
   const rendered = renderAdminEmail({
     subject: "Monthly Archive Cleaning Up",
