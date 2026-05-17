@@ -19,6 +19,7 @@ import { readAdminEmail, sendCriticalFailureAlert } from "../email";
 import { getFlowState, setFlowState } from "./admin-notification-state";
 import { getCleanupHealth, getSystemHealthReport } from "../content-qa";
 import { prisma } from "../db/client";
+import { recordError } from "./error-log";
 
 const RESEND_COOLDOWN_HOURS = 24;
 const REJECTION_SPIKE_FACTOR = 5;
@@ -64,6 +65,17 @@ export async function runStrictQAAlerts(now: Date = new Date()): Promise<StrictQ
           count: cleanup.invalidPublicRowCount,
           breakdown: cleanup.invalidPublicByContentType,
         });
+        // Also write to ErrorLog so the monthly error report picks it
+        // up. Section 5 of the strict QA spec routes alerts to (a)
+        // admin email, (b) admin dashboard, (c) error logs, (d)
+        // biweekly admin reports — the first three are now wired.
+        await recordError({
+          source: "ingestion",
+          kind: "strict_qa.invalid_public_rows",
+          severity: "warn",
+          message: `${cleanup.invalidPublicRowCount} invalid public row(s) lingering across the catalog.`,
+          context: cleanup.invalidPublicByContentType,
+        }).catch(() => undefined);
         if (adminEmail) {
           await sendCriticalFailureAlert({
             kind: "strict_qa_invalid_public_rows",
@@ -87,6 +99,12 @@ export async function runStrictQAAlerts(now: Date = new Date()): Promise<StrictQ
           lastRunAt: cleanup.lastRunAt,
           msSinceLastRun: cleanup.msSinceLastRun,
         });
+        await recordError({
+          source: "ingestion",
+          kind: "strict_qa.stale_cleanup",
+          severity: "warn",
+          message: `Strict cleanup has not run within its stale window. Last run: ${cleanup.lastRunAt ?? "never"}.`,
+        }).catch(() => undefined);
         if (adminEmail) {
           await sendCriticalFailureAlert({
             kind: "strict_qa_stale_cleanup",
@@ -124,6 +142,13 @@ export async function runStrictQAAlerts(now: Date = new Date()): Promise<StrictQ
           lastHour,
           lastDayAvgPerHour: avgPerHour,
         });
+        await recordError({
+          source: "ingestion",
+          kind: "strict_qa.rejection_spike",
+          severity: "warn",
+          message: `Rejection-rate spike: ${lastHour} deletes in last hour vs ${avgPerHour.toFixed(1)}/h prior 23h average.`,
+          context: { lastHour, avgPerHour },
+        }).catch(() => undefined);
         if (adminEmail) {
           await sendCriticalFailureAlert({
             kind: "strict_qa_rejection_spike",
@@ -154,6 +179,12 @@ export async function runStrictQAAlerts(now: Date = new Date()): Promise<StrictQ
           score: report.scores.system.score,
           worstComponent: report.scores.system.signals.worstComponent,
         });
+        await recordError({
+          source: "ingestion",
+          kind: "strict_qa.system_health_low",
+          severity: "error",
+          message: `System health score dropped to ${report.scores.system.score}/100; worst component: ${report.scores.system.signals.worstComponent}.`,
+        }).catch(() => undefined);
         if (adminEmail) {
           await sendCriticalFailureAlert({
             kind: "system_health_low",
