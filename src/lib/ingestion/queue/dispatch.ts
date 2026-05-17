@@ -232,6 +232,72 @@ async function runSourceJob(
         }).catch(() => undefined);
       }
     }
+    // Emit a synthetic SourceDocument + ContentPackageBuildLog row
+    // for the run so the Content Factory dashboard sees activity even
+    // from legacy source_ingest paths. The factory-native source_fetch
+    // → content_build pipeline writes these rows per-item; the
+    // legacy adapter path writes one aggregate row per run.
+    if (summary.recordsSeen > 0) {
+      const synthUrl = `legacy-runner://${adapterKey}/${job.id}`;
+      try {
+        await recordSourceDocument({
+          sourceUrl: synthUrl,
+          sourceHost: sourceHost,
+          sourceId: job.sourceId ?? null,
+          adapterKey,
+          workerJobId: job.id,
+          sourceTier: source?.tier ?? null,
+          rawBody: `Legacy adapter run summary — ${summary.recordsSeen} items seen, ${summary.recordsCreated} created, ${summary.recordsUpdated} updated.`,
+          fetchStatus: "ok",
+          sourcePurposes: source
+            ? buildLegacySourcePurposes(source)
+            : ({} as Record<string, boolean>),
+        });
+        const aggregateStatus =
+          summary.recordsCreated + summary.recordsUpdated > 0
+            ? "built_complete_package"
+            : summary.recordsFailed > 0
+              ? "build_failed_missing_required_fields"
+              : "duplicate";
+        const { recordBuildLog } = await import("../../content-factory");
+        await recordBuildLog({
+          result: {
+            outcome: aggregateStatus as never,
+            contentType: (job.contentType ?? "Prayer") as never,
+            builderName: `LegacyAdapter:${adapterKey}`,
+            builderVersion: "legacy",
+            ...(aggregateStatus === "built_complete_package"
+              ? {
+                  package: {
+                    contentType: (job.contentType ?? "Prayer") as never,
+                    slug: `legacy-run-${job.id}`,
+                    title: `Legacy adapter ${adapterKey}`,
+                    sourceUrl: synthUrl,
+                    sourceHost: sourceHost,
+                    payload: {
+                      recordsCreated: summary.recordsCreated,
+                      recordsUpdated: summary.recordsUpdated,
+                    },
+                    provenance: {},
+                  },
+                  missingFields: [],
+                }
+              : {
+                  failureReason: `Legacy adapter run produced no valid rows (failed=${summary.recordsFailed})`,
+                  missingFields: [],
+                }),
+          } as never,
+          sourceUrl: synthUrl,
+          sourceHost: sourceHost,
+          workerJobId: job.id,
+        });
+      } catch (e) {
+        logger.warn("worker.legacy_run_build_log_failed", {
+          jobQueueId: job.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
     const errorMessage = summary.errorMessage ?? undefined;
     if (summary.recordsFailed > 0 && summary.recordsSeen === 0) {
       return {
@@ -375,4 +441,36 @@ async function runReportGenerate(
   // payload through to the dispatcher.
   logger.info("worker.report_generate.requested", { reportKind: payload.reportKind });
   return { ok: true, errorMessage: `Report ${payload.reportKind} dispatched` };
+}
+
+function buildLegacySourcePurposes(source: {
+  canIngestPrayers: boolean;
+  canIngestSaints: boolean;
+  canIngestApparitions: boolean;
+  canIngestParishes: boolean;
+  canIngestDevotions: boolean;
+  canIngestNovenas: boolean;
+  canIngestSacraments: boolean;
+  canIngestRosaryGuides: boolean;
+  canIngestConsecrations: boolean;
+  canIngestSpiritualGuides: boolean;
+  canIngestLiturgy: boolean;
+  canIngestHistory: boolean;
+  canProvideScriptureText: boolean;
+}): Record<string, boolean> {
+  return {
+    canIngestPrayers: source.canIngestPrayers,
+    canIngestSaints: source.canIngestSaints,
+    canIngestApparitions: source.canIngestApparitions,
+    canIngestParishes: source.canIngestParishes,
+    canIngestDevotions: source.canIngestDevotions,
+    canIngestNovenas: source.canIngestNovenas,
+    canIngestSacraments: source.canIngestSacraments,
+    canIngestRosaryGuides: source.canIngestRosaryGuides,
+    canIngestConsecrations: source.canIngestConsecrations,
+    canIngestSpiritualGuides: source.canIngestSpiritualGuides,
+    canIngestLiturgy: source.canIngestLiturgy,
+    canIngestHistory: source.canIngestHistory,
+    canProvideScriptureText: source.canProvideScriptureText,
+  };
 }
