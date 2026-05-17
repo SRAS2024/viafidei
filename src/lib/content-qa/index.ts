@@ -249,6 +249,12 @@ export { extractPrayer, type PrayerExtractionResult } from "./extractors/prayer"
 export { extractRosary, type RosaryExtractionResult } from "./extractors/rosary";
 export { extractConsecration, type ConsecrationExtractionResult } from "./extractors/consecration";
 export { extractSaint, type SaintExtractionResult } from "./extractors/saint";
+export { extractApparition, type ApparitionExtractionResult } from "./extractors/apparition";
+export { extractDevotion, type DevotionExtractionResult } from "./extractors/devotion";
+export { extractSacrament, type SacramentExtractionResult } from "./extractors/sacrament";
+export { extractHistory, type HistoryExtractionResult } from "./extractors/history";
+export { extractLiturgy, type LiturgyExtractionResult } from "./extractors/liturgy";
+export { extractParish, type ParishExtractionResult } from "./extractors/parish";
 
 export {
   checkPrayerRender,
