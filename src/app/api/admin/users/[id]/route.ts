@@ -2,12 +2,13 @@ import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
-import { requireAdmin, verifyAdminCredentials } from "@/lib/auth/admin";
+import { verifyAdminCredentials } from "@/lib/auth/admin";
 import { writeAudit } from "@/lib/audit";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { logger, REQUEST_ID_HEADER } from "@/lib/observability";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 
 const deleteSchema = z.object({
   // The admin re-types their password in the confirmation dialog. This
@@ -43,8 +44,9 @@ const deleteSchema = z.object({
  */
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const ip = getClientIp(req);
   const limit = await rateLimit(`admin-user-delete:${admin.username}`, RATE_POLICIES.adminWrite, {

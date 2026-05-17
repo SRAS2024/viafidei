@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { getIngestionSource, updateIngestionSource } from "@/lib/data/sources";
 
@@ -29,8 +30,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const limit = await rateLimit(`admin-sources:${admin.username}`, RATE_POLICIES.adminWrite);
   if (!limit.ok) return jsonError("rate_limited");

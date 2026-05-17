@@ -26,6 +26,7 @@ import {
 } from "@/lib/email/templates";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { logger } from "@/lib/observability";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 
 /**
  * Diagnostic endpoint for the email pipeline. Returns:
@@ -314,8 +315,9 @@ function mapFlowResult(result: Awaited<ReturnType<typeof sendWelcomeEmail>>):
  * is obvious from the response — without exposing the API key.
  */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const body = await readJsonBody(req);
   if (!body.ok) return jsonError("invalid");

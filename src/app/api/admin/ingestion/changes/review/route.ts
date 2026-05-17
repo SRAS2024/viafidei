@@ -1,9 +1,9 @@
 import { type NextRequest } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { prisma } from "@/lib/db/client";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 
 const schema = z.object({
@@ -20,8 +20,9 @@ const schema = z.object({
  * `reviewRequired` flag off when the decision is APPROVED.
  */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
   const body = await readJsonBody<unknown>(req);
   if (!body.ok) return jsonError("invalid");
   const parsed = schema.safeParse(body.data);

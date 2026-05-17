@@ -1,8 +1,8 @@
 import { type NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
-import { requireAdmin } from "@/lib/auth/admin";
 import { hashPassword } from "@/lib/auth/password";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { encryptAtRest } from "@/lib/security/crypto";
 import { issueEmailVerificationToken, issuePasswordResetToken } from "@/lib/auth/tokens";
 import { sendEmailVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } from "@/lib/email";
@@ -51,8 +51,9 @@ type Step = {
  * mail is ever sent to the throwaway user's @selftest.local address.
  */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const url = new URL(req.url);
   const to = url.searchParams.get("to")?.trim();

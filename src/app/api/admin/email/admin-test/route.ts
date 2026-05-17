@@ -17,6 +17,7 @@ import { isEmailConfigured } from "@/lib/email/resend";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { logger } from "@/lib/observability";
 import { getClientIp, getUserAgent } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 
 /**
  * Admin email end-to-end diagnostics. Lets the operator trigger one
@@ -181,8 +182,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const readResult = await readJsonBody(req);
   if (!readResult.ok) {
