@@ -73,13 +73,38 @@ export const PrayerBuilder: Builder = {
     }
 
     const prov: PackageProvenance = {};
-    attachFieldProvenance({ ctx: internal, prov, field: "prayerName", method: "title-heuristic", snippet: result.payload.prayerName });
-    attachFieldProvenance({ ctx: internal, prov, field: "prayerText", method: "body-strip-nav", snippet: result.payload.prayerText });
-    attachFieldProvenance({ ctx: internal, prov, field: "prayerType", method: "regex-classifier", confidence: 0.75 });
-    attachFieldProvenance({ ctx: internal, prov, field: "category", method: "derived-from-prayer-type" });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "prayerName",
+      method: "title-heuristic",
+      snippet: result.payload.prayerName,
+    });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "prayerText",
+      method: "body-strip-nav",
+      snippet: result.payload.prayerText,
+    });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "prayerType",
+      method: "regex-classifier",
+      confidence: 0.75,
+    });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "category",
+      method: "derived-from-prayer-type",
+    });
     attachSlugProvenance({ ctx: internal, prov });
 
-    const prayerType = normalizePrayerType(result.payload.prayerType ?? "Traditional Catholic prayer");
+    const prayerType = normalizePrayerType(
+      result.payload.prayerType ?? "Traditional Catholic prayer",
+    );
     const slug = slugFromTitle(result.payload.prayerName ?? title);
 
     return makeSuccess({

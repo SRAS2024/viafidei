@@ -70,11 +70,26 @@ export const ConsecrationBuilder: Builder = {
     }
 
     const prov: PackageProvenance = {};
-    attachFieldProvenance({ ctx: internal, prov, field: "consecrationName", method: "title-heuristic" });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "consecrationName",
+      method: "title-heuristic",
+    });
     attachFieldProvenance({ ctx: internal, prov, field: "background", method: "first-paragraph" });
     attachFieldProvenance({ ctx: internal, prov, field: "durationDays", method: "duration-regex" });
-    attachFieldProvenance({ ctx: internal, prov, field: "dailyPrayers", method: "labeled-section" });
-    attachFieldProvenance({ ctx: internal, prov, field: "finalConsecrationPrayer", method: "labeled-section" });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "dailyPrayers",
+      method: "labeled-section",
+    });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "finalConsecrationPrayer",
+      method: "labeled-section",
+    });
     attachSlugProvenance({ ctx: internal, prov });
 
     const payload = result.payload as unknown as Record<string, unknown>;

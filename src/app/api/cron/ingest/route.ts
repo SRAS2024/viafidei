@@ -181,7 +181,12 @@ export async function POST(req: NextRequest) {
 
   // Catalog janitor runs as a queued content_revalidate job, not
   // inline. See dispatch.ts for the implementation.
-  const janitor = { buckets: [], totalRepackaged: 0, totalHardDeleted: 0, totalDivertedToReview: 0 };
+  const janitor = {
+    buckets: [],
+    totalRepackaged: 0,
+    totalHardDeleted: 0,
+    totalDivertedToReview: 0,
+  };
 
   // Admin notification dispatch — runs after ingestion + cleanup so the
   // biweekly + monthly digests reflect this tick's activity. Each

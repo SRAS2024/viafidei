@@ -68,14 +68,49 @@ export const MarianApparitionBuilder: Builder = {
     }
 
     const prov: PackageProvenance = {};
-    attachFieldProvenance({ ctx: internal, prov, field: "apparitionName", method: "title-heuristic", snippet: result.payload.apparitionName ?? undefined });
-    attachFieldProvenance({ ctx: internal, prov, field: "summary", method: "first-two-paragraphs", snippet: result.payload.summary ?? undefined });
-    attachFieldProvenance({ ctx: internal, prov, field: "background", method: "first-paragraph", snippet: result.payload.background ?? undefined });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "apparitionName",
+      method: "title-heuristic",
+      snippet: result.payload.apparitionName ?? undefined,
+    });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "summary",
+      method: "first-two-paragraphs",
+      snippet: result.payload.summary ?? undefined,
+    });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "background",
+      method: "first-paragraph",
+      snippet: result.payload.background ?? undefined,
+    });
     if (result.payload.location)
-      attachFieldProvenance({ ctx: internal, prov, field: "location", method: "known-place-lookup", snippet: result.payload.location });
+      attachFieldProvenance({
+        ctx: internal,
+        prov,
+        field: "location",
+        method: "known-place-lookup",
+        snippet: result.payload.location,
+      });
     if (result.payload.country)
-      attachFieldProvenance({ ctx: internal, prov, field: "country", method: "known-place-lookup", snippet: result.payload.country });
-    attachFieldProvenance({ ctx: internal, prov, field: "approvalStatus", method: "regex-classifier" });
+      attachFieldProvenance({
+        ctx: internal,
+        prov,
+        field: "country",
+        method: "known-place-lookup",
+        snippet: result.payload.country,
+      });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "approvalStatus",
+      method: "regex-classifier",
+    });
     attachSlugProvenance({ ctx: internal, prov });
 
     const slug = slugFromTitle(result.payload.apparitionName ?? title);

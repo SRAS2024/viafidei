@@ -123,7 +123,10 @@ export function cleanSourceBody(
     }
   }
 
-  const cleaned = surviving.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  const cleaned = surviving
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 
   // Headings (markdown-style) and lists are pulled from the surviving
   // text so the downstream builders can pick fields from them.
@@ -284,9 +287,7 @@ export async function recordSourceDocument(
  * Read a SourceDocument by URL for builders that work off cached
  * documents (e.g. the strict QA revalidation loop).
  */
-export async function getSourceDocument(
-  sourceUrl: string,
-): Promise<RecordedSourceDocument | null> {
+export async function getSourceDocument(sourceUrl: string): Promise<RecordedSourceDocument | null> {
   const row = await prisma.sourceDocument.findUnique({ where: { sourceUrl } });
   if (!row) return null;
   return rowToSnapshot(row);
@@ -311,7 +312,7 @@ export function syntheticSourceDocument(input: {
   return {
     sourceUrl: input.sourceUrl,
     sourceHost: input.sourceHost,
-    sourceTitle: input.sourceTitle ?? (cleanedResult.headings[0]?.text ?? input.sourceUrl),
+    sourceTitle: input.sourceTitle ?? cleanedResult.headings[0]?.text ?? input.sourceUrl,
     rawBody: input.rawBody,
     cleanedBody: cleanedResult.cleaned,
     headings: cleanedResult.headings,

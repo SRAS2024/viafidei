@@ -139,10 +139,7 @@ function buildUpdate(event: SourceScoreEvent): Record<string, unknown> {
   }
 }
 
-async function recomputeAndMaybePause(
-  rowId: string,
-  event: SourceScoreEvent,
-): Promise<void> {
+async function recomputeAndMaybePause(rowId: string, event: SourceScoreEvent): Promise<void> {
   const row = await prisma.sourceQualityScore.findUnique({ where: { id: rowId } });
   if (!row) return;
   const totalAttempts = row.buildSuccessCount + row.buildFailureCount;

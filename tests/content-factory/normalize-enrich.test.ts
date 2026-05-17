@@ -3,11 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-  normalizePackage,
-  enrichPackage,
-  type ContentPackage,
-} from "@/lib/content-factory";
+import { normalizePackage, enrichPackage, type ContentPackage } from "@/lib/content-factory";
 
 function pkg(over: Partial<ContentPackage>): ContentPackage {
   return {

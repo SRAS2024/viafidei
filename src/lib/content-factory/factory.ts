@@ -144,9 +144,10 @@ export async function runContentFactory(input: FactoryRunInput): Promise<Factory
 
   if (input.sourceId) {
     await recordScoreEvent({
-      kind: validation.decision === "publish" || validation.decision === "update"
-        ? "qa_pass"
-        : "qa_fail",
+      kind:
+        validation.decision === "publish" || validation.decision === "update"
+          ? "qa_pass"
+          : "qa_fail",
       sourceId: input.sourceId,
       contentType: input.contentType,
       reason: validation.reason,

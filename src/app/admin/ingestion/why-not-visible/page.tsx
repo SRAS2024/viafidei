@@ -26,10 +26,9 @@ export default async function WhyNotVisible({
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
   const params = (await searchParams) ?? {};
-  const filter =
-    (FILTERS.map((f) => f.key) as string[]).includes(params.filter ?? "")
-      ? (params.filter as WhyNotVisibleFilter)
-      : "all";
+  const filter = (FILTERS.map((f) => f.key) as string[]).includes(params.filter ?? "")
+    ? (params.filter as WhyNotVisibleFilter)
+    : "all";
 
   const rows = await listNonPublicRows({ filter, limit: 250 });
 
@@ -38,10 +37,9 @@ export default async function WhyNotVisible({
       <div className="mb-6">
         <h2 className="font-display text-2xl">Why is this content not visible?</h2>
         <p className="mt-2 font-serif text-sm text-stone-700">
-          One row per non-public catalog entry. Each row joins the latest
-          build attempt + last strict-QA reason + source purpose so the
-          system can explain — and the admin can verify — why nothing was
-          published.
+          One row per non-public catalog entry. Each row joins the latest build attempt + last
+          strict-QA reason + source purpose so the system can explain — and the admin can verify —
+          why nothing was published.
         </p>
       </div>
 

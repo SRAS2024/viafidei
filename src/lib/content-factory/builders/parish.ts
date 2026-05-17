@@ -49,7 +49,8 @@ export const ParishBuilder: Builder = {
       return makeFailure({
         ctx: internal,
         outcome: "wrong_content",
-        failureReason: "Candidate looks like a bulletin / staff / donation page, not a parish profile",
+        failureReason:
+          "Candidate looks like a bulletin / staff / donation page, not a parish profile",
         candidateTitle: title,
       });
     }

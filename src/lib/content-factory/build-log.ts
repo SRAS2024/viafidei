@@ -35,7 +35,7 @@ export async function recordBuildLog(input: BuildLogInput): Promise<void> {
         candidateSlug:
           input.result.outcome === "built_complete_package"
             ? input.result.package.slug
-            : input.result.candidateSlug ?? null,
+            : (input.result.candidateSlug ?? null),
         extractedFieldsJson:
           input.result.outcome === "built_complete_package"
             ? (sanitizeForJson(input.result.package.payload) as object)
@@ -48,9 +48,7 @@ export async function recordBuildLog(input: BuildLogInput): Promise<void> {
             ? (sanitizeForJson(input.result.package.provenance) as object)
             : undefined,
         failureReason:
-          input.result.outcome === "built_complete_package"
-            ? null
-            : input.result.failureReason,
+          input.result.outcome === "built_complete_package" ? null : input.result.failureReason,
         workerJobId: input.workerJobId ?? null,
         ingestionBatchId: input.ingestionBatchId ?? null,
         contentRef: input.contentRef ?? null,
@@ -95,9 +93,7 @@ export async function listRecentBuildFailures(args: {
     sourceHost: r.sourceHost,
     buildStatus: r.buildStatus,
     failureReason: r.failureReason,
-    missingFields: Array.isArray(r.missingFieldsJson)
-      ? (r.missingFieldsJson as string[])
-      : [],
+    missingFields: Array.isArray(r.missingFieldsJson) ? (r.missingFieldsJson as string[]) : [],
     createdAt: r.createdAt,
   }));
 }

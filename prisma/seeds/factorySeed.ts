@@ -135,13 +135,15 @@ export async function routeSeedThroughFactory(
  * label the source as "seed:viafidei" so the dashboard can tell seed
  * content apart from real upstream content.
  */
-export function adaptLegacyPrayerSeed(items: ReadonlyArray<{
-  slug: string;
-  defaultTitle: string;
-  category: string;
-  body: string;
-  officialPrayer?: string;
-}>): FactorySeedEntry[] {
+export function adaptLegacyPrayerSeed(
+  items: ReadonlyArray<{
+    slug: string;
+    defaultTitle: string;
+    category: string;
+    body: string;
+    officialPrayer?: string;
+  }>,
+): FactorySeedEntry[] {
   return items.map((p) => ({
     contentType: "Prayer",
     title: p.defaultTitle,
@@ -152,20 +154,23 @@ export function adaptLegacyPrayerSeed(items: ReadonlyArray<{
   }));
 }
 
-export function adaptLegacySaintSeed(items: ReadonlyArray<{
-  slug: string;
-  canonicalName: string;
-  feastDay?: string;
-  feastMonth?: number;
-  feastDayOfMonth?: number;
-  patronages: string[];
-  biography: string;
-  saintType?: string | null;
-  officialPrayer?: string;
-}>): FactorySeedEntry[] {
+export function adaptLegacySaintSeed(
+  items: ReadonlyArray<{
+    slug: string;
+    canonicalName: string;
+    feastDay?: string;
+    feastMonth?: number;
+    feastDayOfMonth?: number;
+    patronages: string[];
+    biography: string;
+    saintType?: string | null;
+    officialPrayer?: string;
+  }>,
+): FactorySeedEntry[] {
   return items.map((s) => {
     const feastLine = s.feastDay ? `\n\nFeast day: ${s.feastDay}` : "";
-    const patronageLine = s.patronages.length > 0 ? `\n\nPatron saint of ${s.patronages.join(", ")}.` : "";
+    const patronageLine =
+      s.patronages.length > 0 ? `\n\nPatron saint of ${s.patronages.join(", ")}.` : "";
     const prayerLine = s.officialPrayer ? `\n\nOfficial prayer: ${s.officialPrayer}` : "";
     return {
       contentType: "Saint",

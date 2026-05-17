@@ -89,7 +89,11 @@ function NovenaDaysSection({ metadata }: { metadata: Record<string, unknown> }) 
               {day.title ? ` — ${day.title}` : ""}
             </summary>
             <div className="mt-3 space-y-3 font-serif text-sm text-ink-soft">
-              {day.intention ? <p><strong>Intention:</strong> {day.intention}</p> : null}
+              {day.intention ? (
+                <p>
+                  <strong>Intention:</strong> {day.intention}
+                </p>
+              ) : null}
               {day.openingPrayer ? (
                 <details className="rounded-sm border border-stone-100 p-2">
                   <summary className="cursor-pointer font-medium">Opening prayer</summary>
@@ -103,7 +107,9 @@ function NovenaDaysSection({ metadata }: { metadata: Record<string, unknown> }) 
                 </details>
               ) : null}
               {day.reflection ? (
-                <p className="whitespace-pre-wrap"><strong>Reflection:</strong> {day.reflection}</p>
+                <p className="whitespace-pre-wrap">
+                  <strong>Reflection:</strong> {day.reflection}
+                </p>
               ) : null}
               {day.dayPrayer ? (
                 <details className="rounded-sm border border-stone-100 p-2">

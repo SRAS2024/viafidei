@@ -68,10 +68,25 @@ export const DevotionBuilder: Builder = {
     }
 
     const prov: PackageProvenance = {};
-    attachFieldProvenance({ ctx: internal, prov, field: "devotionName", method: "title-heuristic" });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "devotionName",
+      method: "title-heuristic",
+    });
     attachFieldProvenance({ ctx: internal, prov, field: "background", method: "first-paragraph" });
-    attachFieldProvenance({ ctx: internal, prov, field: "devotionType", method: "regex-classifier" });
-    attachFieldProvenance({ ctx: internal, prov, field: "practiceInstructions", method: "practice-regex" });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "devotionType",
+      method: "regex-classifier",
+    });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "practiceInstructions",
+      method: "practice-regex",
+    });
     attachSlugProvenance({ ctx: internal, prov });
 
     const payload = result.payload as Record<string, unknown>;

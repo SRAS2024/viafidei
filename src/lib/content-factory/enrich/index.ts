@@ -41,7 +41,10 @@ const APPROVED_BIBLE_HOSTS = new Set(["bible.usccb.org", "usccb.org", "vatican.v
 
 const APPROVED_PARISH_DIRECTORY_HOSTS = new Set(["usccb.org", "parishesonline.com"]);
 
-const SAINT_FEAST_CANONICAL: Record<string, { feastDay: string; feastMonth: number; feastDayOfMonth: number }> = {
+const SAINT_FEAST_CANONICAL: Record<
+  string,
+  { feastDay: string; feastMonth: number; feastDayOfMonth: number }
+> = {
   "francis-of-assisi": { feastDay: "October 4", feastMonth: 10, feastDayOfMonth: 4 },
   "thérèse-of-lisieux": { feastDay: "October 1", feastMonth: 10, feastDayOfMonth: 1 },
   "therese-of-lisieux": { feastDay: "October 1", feastMonth: 10, feastDayOfMonth: 1 },
@@ -57,7 +60,7 @@ const SAINT_PATRONAGE_CANONICAL: Record<string, string[]> = {
   "thérèse-of-lisieux": ["Missions", "Florists"],
   "therese-of-lisieux": ["Missions", "Florists"],
   "anthony-of-padua": ["Lost things", "Poor"],
-  "joseph": ["Workers", "Universal Church", "Fathers"],
+  joseph: ["Workers", "Universal Church", "Fathers"],
 };
 
 export function enrichSaintFeast(args: {
@@ -117,10 +120,10 @@ export function enrichSaintPatronage(args: {
   return { enriched: true, provenance: prov };
 }
 
-export function enrichSacramentGroup(args: {
-  builderVersion: string;
-  pkg: ContentPackage;
-}): { enriched: boolean; provenance?: FieldProvenance } {
+export function enrichSacramentGroup(args: { builderVersion: string; pkg: ContentPackage }): {
+  enriched: boolean;
+  provenance?: FieldProvenance;
+} {
   const p = args.pkg.payload as Record<string, unknown>;
   if (typeof p.sacramentKey !== "string") return { enriched: false };
   if (typeof p.sacramentGroup === "string" && p.sacramentGroup) return { enriched: false };
@@ -143,10 +146,10 @@ export function enrichSacramentGroup(args: {
   return { enriched: true, provenance: prov };
 }
 
-export function enrichScriptureText(args: {
-  builderVersion: string;
-  pkg: ContentPackage;
-}): { enriched: boolean; provenance?: FieldProvenance } {
+export function enrichScriptureText(args: { builderVersion: string; pkg: ContentPackage }): {
+  enriched: boolean;
+  provenance?: FieldProvenance;
+} {
   if (!APPROVED_BIBLE_HOSTS.has(args.pkg.sourceHost)) return { enriched: false };
   const p = args.pkg.payload as Record<string, unknown>;
   if (typeof p.scriptureText === "string" && p.scriptureText.trim()) return { enriched: false };
@@ -158,10 +161,10 @@ export function enrichScriptureText(args: {
   return { enriched: false };
 }
 
-export function enrichParishDiocese(args: {
-  builderVersion: string;
-  pkg: ContentPackage;
-}): { enriched: boolean; provenance?: FieldProvenance } {
+export function enrichParishDiocese(args: { builderVersion: string; pkg: ContentPackage }): {
+  enriched: boolean;
+  provenance?: FieldProvenance;
+} {
   if (!APPROVED_PARISH_DIRECTORY_HOSTS.has(args.pkg.sourceHost)) return { enriched: false };
   const p = args.pkg.payload as Record<string, unknown>;
   if (typeof p.diocese === "string" && p.diocese) return { enriched: false };

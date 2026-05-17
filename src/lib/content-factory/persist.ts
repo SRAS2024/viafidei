@@ -302,7 +302,12 @@ async function persistPrayerCanonical(
       },
     });
     await log("UPDATE", existing.slug, "package-rebuild updated existing prayer");
-    return { outcome: "updated", contentId: existing.id, contentType: "Prayer", slug: existing.slug };
+    return {
+      outcome: "updated",
+      contentId: existing.id,
+      contentType: "Prayer",
+      slug: existing.slug,
+    };
   }
   // packageMetadata not yet stored on Prayer (no column) — kept here
   // for forward-compat but ignored at DB level.
@@ -371,7 +376,12 @@ async function persistSaintCanonical(
       },
     });
     await log("UPDATE", existing.slug, "package-rebuild updated existing saint");
-    return { outcome: "updated", contentId: existing.id, contentType: "Saint", slug: existing.slug };
+    return {
+      outcome: "updated",
+      contentId: existing.id,
+      contentType: "Saint",
+      slug: existing.slug,
+    };
   }
   const created = await prisma.saint.create({
     data: {
@@ -474,11 +484,22 @@ async function persistDevotionCanonical(
 ): Promise<PersistResult> {
   const p = pkg.payload as Record<string, unknown>;
   const externalSourceKey = `${pkg.sourceHost}:${pkg.sourceUrl}`;
-  const summary = typeof p.summary === "string" ? p.summary : (typeof p.background === "string" ? p.background : "");
-  const practiceText = typeof p.practiceText === "string" ? p.practiceText : (typeof p.practiceInstructions === "string" ? p.practiceInstructions : null);
+  const summary =
+    typeof p.summary === "string"
+      ? p.summary
+      : typeof p.background === "string"
+        ? p.background
+        : "";
+  const practiceText =
+    typeof p.practiceText === "string"
+      ? p.practiceText
+      : typeof p.practiceInstructions === "string"
+        ? p.practiceInstructions
+        : null;
   const durationMinutes = typeof p.durationMinutes === "number" ? p.durationMinutes : null;
   const devotionType = typeof p.devotionType === "string" ? p.devotionType : null;
-  const subtype = typeof p.subtype === "string" ? p.subtype : (pkg.contentType === "Novena" ? "novena" : null);
+  const subtype =
+    typeof p.subtype === "string" ? p.subtype : pkg.contentType === "Novena" ? "novena" : null;
   const background = typeof p.background === "string" ? p.background : null;
   const practiceInstructions =
     typeof p.practiceInstructions === "string" ? p.practiceInstructions : practiceText;
@@ -514,7 +535,12 @@ async function persistDevotionCanonical(
       },
     });
     await log("UPDATE", existing.slug, "package-rebuild updated existing devotion/novena");
-    return { outcome: "updated", contentId: existing.id, contentType: pkg.contentType, slug: existing.slug };
+    return {
+      outcome: "updated",
+      contentId: existing.id,
+      contentType: pkg.contentType,
+      slug: existing.slug,
+    };
   }
   const created = await prisma.devotion.create({
     data: {
@@ -533,7 +559,12 @@ async function persistDevotionCanonical(
     },
   });
   await log("ADD", created.slug, "factory persisted new devotion/novena");
-  return { outcome: "created", contentId: created.id, contentType: pkg.contentType, slug: created.slug };
+  return {
+    outcome: "created",
+    contentId: created.id,
+    contentType: pkg.contentType,
+    slug: created.slug,
+  };
 }
 
 async function persistGuideCanonical(
@@ -544,24 +575,26 @@ async function persistGuideCanonical(
 ): Promise<PersistResult> {
   const p = pkg.payload as Record<string, unknown>;
   const externalSourceKey = `${pkg.sourceHost}:${pkg.sourceUrl}`;
-  const summary = typeof p.summary === "string"
-    ? p.summary
-    : typeof p.background === "string"
-      ? p.background
-      : pkg.title;
+  const summary =
+    typeof p.summary === "string"
+      ? p.summary
+      : typeof p.background === "string"
+        ? p.background
+        : pkg.title;
   const bodyText = typeof p.bodyText === "string" ? p.bodyText : null;
   const sacramentKey = typeof p.sacramentKey === "string" ? p.sacramentKey : null;
   const sacramentGroup = typeof p.sacramentGroup === "string" ? p.sacramentGroup : null;
   const background = typeof p.background === "string" ? p.background : null;
   const durationDays = typeof p.durationDays === "number" ? p.durationDays : null;
   const subtype = pkg.contentType.toLowerCase();
-  const kind = pkg.contentType === "Sacrament"
-    ? "CONFESSION"
-    : pkg.contentType === "Rosary"
-      ? "ROSARY"
-      : pkg.contentType === "Consecration"
-        ? "CONSECRATION"
-        : "GENERAL";
+  const kind =
+    pkg.contentType === "Sacrament"
+      ? "CONFESSION"
+      : pkg.contentType === "Rosary"
+        ? "ROSARY"
+        : pkg.contentType === "Consecration"
+          ? "CONSECRATION"
+          : "GENERAL";
 
   const existing = await prisma.spiritualLifeGuide.findFirst({
     where: { OR: [{ slug: pkg.slug }, { externalSourceKey }] },
@@ -594,7 +627,12 @@ async function persistGuideCanonical(
       },
     });
     await log("UPDATE", existing.slug, "package-rebuild updated existing guide");
-    return { outcome: "updated", contentId: existing.id, contentType: pkg.contentType, slug: existing.slug };
+    return {
+      outcome: "updated",
+      contentId: existing.id,
+      contentType: pkg.contentType,
+      slug: existing.slug,
+    };
   }
   const created = await prisma.spiritualLifeGuide.create({
     data: {
@@ -614,7 +652,12 @@ async function persistGuideCanonical(
     },
   });
   await log("ADD", created.slug, "factory persisted new guide");
-  return { outcome: "created", contentId: created.id, contentType: pkg.contentType, slug: created.slug };
+  return {
+    outcome: "created",
+    contentId: created.id,
+    contentType: pkg.contentType,
+    slug: created.slug,
+  };
 }
 
 async function persistLiturgyCanonical(
@@ -627,8 +670,18 @@ async function persistLiturgyCanonical(
   const externalSourceKey = `${pkg.sourceHost}:${pkg.sourceUrl}`;
   const summary = typeof p.summary === "string" ? p.summary : null;
   const body = typeof p.body === "string" ? p.body : "";
-  const liturgyKind = typeof p.liturgyKind === "string" ? p.liturgyKind : (pkg.contentType === "History" ? "COUNCIL_TIMELINE" : "GENERAL");
-  const historyType = typeof p.historyType === "string" ? p.historyType : (pkg.contentType === "History" ? "Major Church events" : null);
+  const liturgyKind =
+    typeof p.liturgyKind === "string"
+      ? p.liturgyKind
+      : pkg.contentType === "History"
+        ? "COUNCIL_TIMELINE"
+        : "GENERAL";
+  const historyType =
+    typeof p.historyType === "string"
+      ? p.historyType
+      : pkg.contentType === "History"
+        ? "Major Church events"
+        : null;
   const dateOrEra = typeof p.dateOrEra === "string" ? p.dateOrEra : null;
 
   const existing = await prisma.liturgyEntry.findFirst({
@@ -660,7 +713,12 @@ async function persistLiturgyCanonical(
       },
     });
     await log("UPDATE", existing.slug, "package-rebuild updated existing liturgy/history");
-    return { outcome: "updated", contentId: existing.id, contentType: pkg.contentType, slug: existing.slug };
+    return {
+      outcome: "updated",
+      contentId: existing.id,
+      contentType: pkg.contentType,
+      slug: existing.slug,
+    };
   }
   const created = await prisma.liturgyEntry.create({
     data: {
@@ -677,7 +735,12 @@ async function persistLiturgyCanonical(
     },
   });
   await log("ADD", created.slug, "factory persisted new liturgy/history");
-  return { outcome: "created", contentId: created.id, contentType: pkg.contentType, slug: created.slug };
+  return {
+    outcome: "created",
+    contentId: created.id,
+    contentType: pkg.contentType,
+    slug: created.slug,
+  };
 }
 
 async function persistParishCanonical(
@@ -736,7 +799,12 @@ async function persistParishCanonical(
       },
     });
     await log("UPDATE", existing.slug, "package-rebuild updated existing parish");
-    return { outcome: "updated", contentId: existing.id, contentType: "Parish", slug: existing.slug };
+    return {
+      outcome: "updated",
+      contentId: existing.id,
+      contentType: "Parish",
+      slug: existing.slug,
+    };
   }
   const created = await prisma.parish.create({
     data: {

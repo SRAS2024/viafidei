@@ -74,8 +74,18 @@ export const RosaryBuilder: Builder = {
     const prov: PackageProvenance = {};
     attachFieldProvenance({ ctx: internal, prov, field: "background", method: "first-paragraph" });
     attachFieldProvenance({ ctx: internal, prov, field: "mysterySets", method: "mystery-headers" });
-    attachFieldProvenance({ ctx: internal, prov, field: "openingPrayers", method: "labeled-prayer-blocks" });
-    attachFieldProvenance({ ctx: internal, prov, field: "closingPrayers", method: "labeled-prayer-blocks" });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "openingPrayers",
+      method: "labeled-prayer-blocks",
+    });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "closingPrayers",
+      method: "labeled-prayer-blocks",
+    });
     attachSlugProvenance({ ctx: internal, prov });
 
     const slug = slugFromTitle(title);

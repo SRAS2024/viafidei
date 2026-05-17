@@ -97,28 +97,30 @@ export async function loadContentFactoryDashboard(): Promise<FactoryDashboardDat
   ] = await Promise.all([
     prisma.ingestionJobQueue
       .groupBy({ by: ["status"], _count: { _all: true } })
-      .catch((e) => e instanceof Error ? e : new Error(String(e))),
-    prisma.workerHeartbeat.findMany({}).catch((e) => e instanceof Error ? e : new Error(String(e))),
+      .catch((e) => (e instanceof Error ? e : new Error(String(e)))),
+    prisma.workerHeartbeat
+      .findMany({})
+      .catch((e) => (e instanceof Error ? e : new Error(String(e)))),
     prisma.sourceDocument
       .aggregate({ _max: { fetchedAt: true }, _count: { _all: true } })
-      .catch((e) => e instanceof Error ? e : new Error(String(e))),
+      .catch((e) => (e instanceof Error ? e : new Error(String(e)))),
     prisma.contentPackageBuildLog
       .groupBy({ by: ["buildStatus"], _count: { _all: true }, _max: { createdAt: true } })
-      .catch((e) => e instanceof Error ? e : new Error(String(e))),
+      .catch((e) => (e instanceof Error ? e : new Error(String(e)))),
     prisma.contentPackageBuildLog
       .aggregate({
         where: { buildStatus: "built_complete_package" },
         _count: { _all: true },
         _max: { createdAt: true },
       })
-      .catch((e) => e instanceof Error ? e : new Error(String(e))),
+      .catch((e) => (e instanceof Error ? e : new Error(String(e)))),
     prisma.rejectedContentLog
       .aggregate({ _count: { _all: true }, _max: { deletedAt: true } })
-      .catch((e) => e instanceof Error ? e : new Error(String(e))),
+      .catch((e) => (e instanceof Error ? e : new Error(String(e)))),
     prisma.sourceQualityScore
       .findMany({ orderBy: { updatedAt: "desc" }, take: 100 })
       .catch(() => []),
-    publicCountsAcrossTypes().catch((e) => e instanceof Error ? e : new Error(String(e))),
+    publicCountsAcrossTypes().catch((e) => (e instanceof Error ? e : new Error(String(e)))),
   ]);
 
   const queueCounts = (() => {
@@ -130,8 +132,7 @@ export async function loadContentFactoryDashboard(): Promise<FactoryDashboardDat
         failed: errorValue(queueAgg.message),
       };
     }
-    const find = (status: string) =>
-      queueAgg.find((r) => r.status === status)?._count?._all ?? 0;
+    const find = (status: string) => queueAgg.find((r) => r.status === status)?._count?._all ?? 0;
     return {
       pending: valueOrZero(find("pending"), "no pending queue jobs"),
       running: valueOrZero(find("running"), "no jobs leased right now"),
@@ -164,8 +165,7 @@ export async function loadContentFactoryDashboard(): Promise<FactoryDashboardDat
     };
   })();
 
-  const sourceDocCount =
-    sourceDocAgg instanceof Error ? 0 : sourceDocAgg._count._all ?? 0;
+  const sourceDocCount = sourceDocAgg instanceof Error ? 0 : (sourceDocAgg._count._all ?? 0);
   const lastSourceFetch = sourceDocAgg instanceof Error ? null : sourceDocAgg._max.fetchedAt;
   const lastSourceDiscovery = lastSourceFetch; // discovery shares the timestamp until split
 
@@ -179,12 +179,11 @@ export async function loadContentFactoryDashboard(): Promise<FactoryDashboardDat
       .filter((r) => r.buildStatus !== "built_complete_package")
       .reduce((sum, r) => sum + (r._count?._all ?? 0), 0);
   })();
-  const lastPackageBuild = buildAgg instanceof Error
-    ? null
-    : maxDate(buildAgg.map((r) => r._max?.createdAt ?? null));
+  const lastPackageBuild =
+    buildAgg instanceof Error ? null : maxDate(buildAgg.map((r) => r._max?.createdAt ?? null));
   const lastValidPackageCreated = qaAgg instanceof Error ? null : qaAgg._max.createdAt;
 
-  const cleanupCount = cleanupAgg instanceof Error ? -1 : cleanupAgg._count._all ?? 0;
+  const cleanupCount = cleanupAgg instanceof Error ? -1 : (cleanupAgg._count._all ?? 0);
   const lastContentCleanup = cleanupAgg instanceof Error ? null : cleanupAgg._max.deletedAt;
   const lastInvalidRowDeleted = lastContentCleanup;
 
@@ -254,13 +253,11 @@ export async function loadContentFactoryDashboard(): Promise<FactoryDashboardDat
             contentType: s.contentType,
             discoveredCount: s.discoveredCount,
             fetchedCount: s.fetchedCount,
-            buildSuccessRate:
-              buildAttempts > 0 ? s.buildSuccessCount / buildAttempts : null,
+            buildSuccessRate: buildAttempts > 0 ? s.buildSuccessCount / buildAttempts : null,
             qaPassRate: qaAttempts > 0 ? s.qaPassCount / qaAttempts : null,
             rejectionRate: qaAttempts > 0 ? s.qaFailCount / qaAttempts : null,
             deletionRate: qaAttempts > 0 ? s.deletedCount / qaAttempts : null,
-            duplicateRate:
-              buildAttempts > 0 ? s.duplicateCount / buildAttempts : null,
+            duplicateRate: buildAttempts > 0 ? s.duplicateCount / buildAttempts : null,
             lastSuccessAt: s.lastSuccessAt,
             lastFailureAt: s.lastFailureAt,
             lastFailureReason: s.lastFailureReason,

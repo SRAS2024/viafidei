@@ -74,13 +74,25 @@ export const HistoryBuilder: Builder = {
     attachFieldProvenance({ ctx: internal, prov, field: "title", method: "title-heuristic" });
     attachFieldProvenance({ ctx: internal, prov, field: "summary", method: "first-paragraph" });
     attachFieldProvenance({ ctx: internal, prov, field: "body", method: "body-paragraphs" });
-    attachFieldProvenance({ ctx: internal, prov, field: "historyType", method: "regex-classifier" });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "historyType",
+      method: "regex-classifier",
+    });
     if (result.payload.dateOrEra)
-      attachFieldProvenance({ ctx: internal, prov, field: "dateOrEra", method: "year-regex", snippet: result.payload.dateOrEra });
+      attachFieldProvenance({
+        ctx: internal,
+        prov,
+        field: "dateOrEra",
+        method: "year-regex",
+        snippet: result.payload.dateOrEra,
+      });
     attachSlugProvenance({ ctx: internal, prov });
 
     const slug = slugFromTitle(title);
-    const normalizedType = normalizeHistoryType(result.payload.historyType) ?? result.payload.historyType;
+    const normalizedType =
+      normalizeHistoryType(result.payload.historyType) ?? result.payload.historyType;
 
     return makeSuccess({
       ctx: internal,

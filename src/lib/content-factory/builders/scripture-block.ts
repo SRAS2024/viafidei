@@ -39,7 +39,8 @@ export type ScriptureBuildResult =
   | { ok: true; block: ScriptureBlock; provenance: Record<string, string> }
   | { ok: false; reason: string };
 
-const REFERENCE_RE = /^(\d?\s?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(\d{1,3}):(\d{1,3})(?:[-–](\d{1,3}))?$/;
+const REFERENCE_RE =
+  /^(\d?\s?[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\s+(\d{1,3}):(\d{1,3})(?:[-–](\d{1,3}))?$/;
 
 const APP_BIBLE_TRANSLATION_POLICY = "NABRE";
 
@@ -72,7 +73,9 @@ export function buildScriptureBlock(args: {
     ? (APPROVED_SCRIPTURE_SOURCES as readonly string[]).includes(host)
     : false;
   const license: ScriptureBlock["licenseStatus"] =
-    args.text && sourceApproved && (APPROVED_LICENSE_STATUSES as readonly string[]).includes("licensed-display")
+    args.text &&
+    sourceApproved &&
+    (APPROVED_LICENSE_STATUSES as readonly string[]).includes("licensed-display")
       ? "licensed-display"
       : "reference-only";
 
@@ -95,7 +98,8 @@ export function buildScriptureBlock(args: {
     chapter: "regex group 2",
     verseStart: "regex group 3",
     bibleTranslationKey: "app policy default",
-    licenseStatus: license === "reference-only" ? "reference-only fallback" : "approved source + translation",
+    licenseStatus:
+      license === "reference-only" ? "reference-only fallback" : "approved source + translation",
   };
   return { ok: true, block, provenance };
 }

@@ -12,11 +12,7 @@ import { recordSourceFreshness, recordSourceQuality } from "../../data/source-he
 import { purgeArchivedByArchivedAt } from "../../data/archive-cleanup";
 import { runCatalogJanitor } from "../../data/catalog-janitor";
 import { validatePayload, isJobKind, type JobKind } from "./job-kinds";
-import {
-  runContentFactory,
-  getSourceDocument,
-  recordSourceDocument,
-} from "../../content-factory";
+import { runContentFactory, getSourceDocument, recordSourceDocument } from "../../content-factory";
 import type { ContentTypeKey } from "../../content-factory";
 import type { QueueJobRow } from "./queue";
 
@@ -165,7 +161,10 @@ async function runContentFactoryStage(
     triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
   });
   return {
-    ok: result.decision === "persisted-created" || result.decision === "persisted-updated" || result.decision === "persist-skipped",
+    ok:
+      result.decision === "persisted-created" ||
+      result.decision === "persisted-updated" ||
+      result.decision === "persist-skipped",
     errorMessage: `factory decision=${result.decision}`,
   };
 }

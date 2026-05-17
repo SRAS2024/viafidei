@@ -70,7 +70,12 @@ export const LiturgyBuilder: Builder = {
     attachFieldProvenance({ ctx: internal, prov, field: "title", method: "title-heuristic" });
     attachFieldProvenance({ ctx: internal, prov, field: "summary", method: "first-paragraph" });
     attachFieldProvenance({ ctx: internal, prov, field: "body", method: "body-paragraphs" });
-    attachFieldProvenance({ ctx: internal, prov, field: "liturgyKind", method: "regex-classifier" });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "liturgyKind",
+      method: "regex-classifier",
+    });
     attachSlugProvenance({ ctx: internal, prov });
 
     const slug = slugFromTitle(title);

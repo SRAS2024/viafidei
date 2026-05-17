@@ -56,8 +56,8 @@ export default async function FactoryDashboard() {
         <h2 className="font-display text-2xl">Content Factory Dashboard</h2>
         <p className="mt-2 font-serif text-sm text-stone-700">
           Live picture of the new Planner → Queue → Worker → Builder → Strict QA → Persistence
-          pipeline. Every metric reads from the durable tables: zero only ever means "no rows yet"
-          — never "the dashboard is disconnected".
+          pipeline. Every metric reads from the durable tables: zero only ever means &ldquo;no rows
+          yet&rdquo; — never &ldquo;the dashboard is disconnected&rdquo;.
         </p>
         {data.progress.stalledReason ? (
           <div className="mt-4 rounded-sm border-l-4 border-amber-500 bg-amber-50 p-3 font-serif text-sm text-amber-900">
@@ -91,20 +91,17 @@ export default async function FactoryDashboard() {
       <h3 className="mt-8 font-display text-lg">Pipeline timestamps</h3>
       <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 font-serif text-sm">
         <p>
-          <strong>Last source fetch:</strong>{" "}
-          {formatDateOrDash(data.timestamps.lastSourceFetch)}
+          <strong>Last source fetch:</strong> {formatDateOrDash(data.timestamps.lastSourceFetch)}
         </p>
         <p>
           <strong>Last source discovery:</strong>{" "}
           {formatDateOrDash(data.timestamps.lastSourceDiscovery)}
         </p>
         <p>
-          <strong>Last package build:</strong>{" "}
-          {formatDateOrDash(data.timestamps.lastPackageBuild)}
+          <strong>Last package build:</strong> {formatDateOrDash(data.timestamps.lastPackageBuild)}
         </p>
         <p>
-          <strong>Last strict QA pass:</strong>{" "}
-          {formatDateOrDash(data.timestamps.lastStrictQaPass)}
+          <strong>Last strict QA pass:</strong> {formatDateOrDash(data.timestamps.lastStrictQaPass)}
         </p>
         <p>
           <strong>Last content cleanup:</strong>{" "}
@@ -135,8 +132,8 @@ export default async function FactoryDashboard() {
 
       <h3 className="mt-8 font-display text-lg">Source quality</h3>
       <p className="mt-2 font-serif text-xs text-stone-600">
-        Top 100 source / content-type pairs ranked by lowest build success first so the worst
-        actors are visible. Auto-paused sources are skipped by the planner.
+        Top 100 source / content-type pairs ranked by lowest build success first so the worst actors
+        are visible. Auto-paused sources are skipped by the planner.
       </p>
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-full border-collapse font-serif text-xs">
@@ -157,7 +154,10 @@ export default async function FactoryDashboard() {
           <tbody>
             {data.sources.length === 0 ? (
               <tr>
-                <td colSpan={10} className="border border-stone-200 px-2 py-3 italic text-stone-600">
+                <td
+                  colSpan={10}
+                  className="border border-stone-200 px-2 py-3 italic text-stone-600"
+                >
                   No source quality data recorded yet.
                 </td>
               </tr>
@@ -186,7 +186,10 @@ export default async function FactoryDashboard() {
                   <td className="border border-stone-200 px-2 py-1">
                     {formatDateOrDash(s.lastSuccessAt)}
                   </td>
-                  <td className="border border-stone-200 px-2 py-1" title={s.lastFailureReason ?? undefined}>
+                  <td
+                    className="border border-stone-200 px-2 py-1"
+                    title={s.lastFailureReason ?? undefined}
+                  >
                     {formatDateOrDash(s.lastFailureAt)}
                   </td>
                   <td className="border border-stone-200 px-2 py-1">

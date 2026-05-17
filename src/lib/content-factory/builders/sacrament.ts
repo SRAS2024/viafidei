@@ -79,14 +79,44 @@ export const SacramentBuilder: Builder = {
     }
 
     const prov: PackageProvenance = {};
-    attachFieldProvenance({ ctx: internal, prov, field: "sacramentName", method: "canonical-name-map" });
-    attachFieldProvenance({ ctx: internal, prov, field: "catholicExplanation", method: "labeled-section" });
-    attachFieldProvenance({ ctx: internal, prov, field: "preparationGuide", method: "labeled-section" });
-    attachFieldProvenance({ ctx: internal, prov, field: "participationGuide", method: "labeled-section" });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "sacramentName",
+      method: "canonical-name-map",
+    });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "catholicExplanation",
+      method: "labeled-section",
+    });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "preparationGuide",
+      method: "labeled-section",
+    });
+    attachFieldProvenance({
+      ctx: internal,
+      prov,
+      field: "participationGuide",
+      method: "labeled-section",
+    });
     if (result.payload.biblicalFoundation)
-      attachFieldProvenance({ ctx: internal, prov, field: "biblicalFoundation", method: "labeled-section" });
+      attachFieldProvenance({
+        ctx: internal,
+        prov,
+        field: "biblicalFoundation",
+        method: "labeled-section",
+      });
     if (result.payload.catechismReferences?.length)
-      attachFieldProvenance({ ctx: internal, prov, field: "catechismReferences", method: "ccc-regex" });
+      attachFieldProvenance({
+        ctx: internal,
+        prov,
+        field: "catechismReferences",
+        method: "ccc-regex",
+      });
     // Sacrament key + group come from the canonical map — deterministic.
     prov.sacramentKey = deterministicProvenance({
       document: ctx.document,

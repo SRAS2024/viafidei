@@ -174,8 +174,7 @@ export async function listNonPublicRows(args: {
   }
   const latestRejectByUrl = new Map<string, (typeof rejectedLogs)[number]>();
   for (const r of rejectedLogs) {
-    if (r.sourceUrl && !latestRejectByUrl.has(r.sourceUrl))
-      latestRejectByUrl.set(r.sourceUrl, r);
+    if (r.sourceUrl && !latestRejectByUrl.has(r.sourceUrl)) latestRejectByUrl.set(r.sourceUrl, r);
   }
   const sourcePurposesByHost = new Map<string, Record<string, boolean>>();
   for (const s of sources) {
@@ -199,7 +198,7 @@ export async function listNonPublicRows(args: {
   const out: WhyNotVisibleRow[] = rows.map((r) => {
     const build = r.sourceUrl ? latestBuildLogByUrl.get(r.sourceUrl) : undefined;
     const rejection = r.sourceUrl ? latestRejectByUrl.get(r.sourceUrl) : undefined;
-    const purposes = r.sourceHost ? sourcePurposesByHost.get(r.sourceHost) ?? null : null;
+    const purposes = r.sourceHost ? (sourcePurposesByHost.get(r.sourceHost) ?? null) : null;
     const missingFields = Array.isArray(build?.missingFieldsJson)
       ? (build!.missingFieldsJson as string[])
       : r.packageValidationErrors;
@@ -212,9 +211,7 @@ export async function listNonPublicRows(args: {
       buildOutcome: build?.buildStatus,
       missingFields,
       hasSource: Boolean(r.sourceUrl),
-      sourceApproved: r.sourceHost
-        ? Object.values(purposes ?? {}).some((v) => v === true)
-        : false,
+      sourceApproved: r.sourceHost ? Object.values(purposes ?? {}).some((v) => v === true) : false,
       archivedAt: r.archivedAt,
     });
     return {
@@ -252,9 +249,7 @@ function applyFilter(rows: WhyNotVisibleRow[], filter: WhyNotVisibleFilter): Why
       case "missing_required_fields":
         return r.missingFields.length > 0;
       case "source_not_approved":
-        return r.sourcePurposes
-          ? !Object.values(r.sourcePurposes).some((v) => v === true)
-          : false;
+        return r.sourcePurposes ? !Object.values(r.sourcePurposes).some((v) => v === true) : false;
       case "build_failed":
         return (
           r.lastBuildOutcome !== null &&
@@ -301,6 +296,7 @@ function suggestNextAction(args: {
   }
   if (!args.publicRenderReady) return "Re-run render gate — publicRenderReady=false";
   if (!args.isThresholdEligible) return "Re-run threshold gate — isThresholdEligible=false";
-  if (args.status !== "PUBLISHED") return `Promote row from ${args.status} to PUBLISHED via factory rebuild`;
+  if (args.status !== "PUBLISHED")
+    return `Promote row from ${args.status} to PUBLISHED via factory rebuild`;
   return "No automatic action — admin review needed";
 }

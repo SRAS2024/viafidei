@@ -90,17 +90,29 @@ export function normalizeFeastDay(input: {
 }): { feastDay: string | null; feastMonth: number | null; feastDayOfMonth: number | null } {
   if (input.feastMonth && input.feastDayOfMonth) {
     const m = MONTH_NAMES[input.feastMonth - 1];
-    if (m) return { feastDay: `${m} ${input.feastDayOfMonth}`, feastMonth: input.feastMonth, feastDayOfMonth: input.feastDayOfMonth };
+    if (m)
+      return {
+        feastDay: `${m} ${input.feastDayOfMonth}`,
+        feastMonth: input.feastMonth,
+        feastDayOfMonth: input.feastDayOfMonth,
+      };
   }
   if (input.feastDay) {
-    const m = /(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})/i.exec(
+    const m =
+      /(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})/i.exec(
         input.feastDay,
       );
     if (m) {
-      const mi = MONTH_NAMES.findIndex((mn) => mn.toLowerCase().startsWith(m[1].toLowerCase().slice(0, 3)));
+      const mi = MONTH_NAMES.findIndex((mn) =>
+        mn.toLowerCase().startsWith(m[1].toLowerCase().slice(0, 3)),
+      );
       const dayNum = parseInt(m[2], 10);
       if (mi >= 0 && dayNum >= 1 && dayNum <= 31) {
-        return { feastDay: `${MONTH_NAMES[mi]} ${dayNum}`, feastMonth: mi + 1, feastDayOfMonth: dayNum };
+        return {
+          feastDay: `${MONTH_NAMES[mi]} ${dayNum}`,
+          feastMonth: mi + 1,
+          feastDayOfMonth: dayNum,
+        };
       }
     }
   }
@@ -266,7 +278,8 @@ export function normalizePackage(pkg: ContentPackage): ContentPackage {
     }
     case "Devotion": {
       const p = pkg.payload as Record<string, unknown>;
-      if (typeof p.devotionType === "string") p.devotionType = normalizeDevotionType(p.devotionType);
+      if (typeof p.devotionType === "string")
+        p.devotionType = normalizeDevotionType(p.devotionType);
       if (typeof p.devotionName === "string") p.devotionName = normalizeTitle(p.devotionName);
       break;
     }
@@ -281,7 +294,8 @@ export function normalizePackage(pkg: ContentPackage): ContentPackage {
     }
     case "History": {
       const p = pkg.payload as Record<string, unknown>;
-      if (typeof p.historyType === "string") p.historyType = normalizeHistoryType(p.historyType) ?? p.historyType;
+      if (typeof p.historyType === "string")
+        p.historyType = normalizeHistoryType(p.historyType) ?? p.historyType;
       break;
     }
     default:
