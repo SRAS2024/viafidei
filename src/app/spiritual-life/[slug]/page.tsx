@@ -28,6 +28,77 @@ function parseSteps(raw: unknown): Step[] {
   return raw.filter(isStep).sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
 }
 
+type MysterySet = {
+  setName?: string;
+  mysteries?: Array<{ order?: number; title?: string; scripture?: string; meditation?: string }>;
+};
+
+function RosarySection({ metadata }: { metadata: Record<string, unknown> }) {
+  const mysterySets = Array.isArray(metadata.mysterySets)
+    ? (metadata.mysterySets as MysterySet[])
+    : [];
+  const openingPrayers = Array.isArray(metadata.openingPrayers)
+    ? (metadata.openingPrayers as string[])
+    : [];
+  const closingPrayers = Array.isArray(metadata.closingPrayers)
+    ? (metadata.closingPrayers as string[])
+    : [];
+  if (mysterySets.length === 0 && openingPrayers.length === 0 && closingPrayers.length === 0) {
+    return null;
+  }
+  return (
+    <section className="mt-10 vf-card rounded-sm p-6 sm:p-8">
+      <h2 className="mb-6 font-display text-2xl">The Rosary</h2>
+      {openingPrayers.length > 0 ? (
+        <div className="mb-6">
+          <h3 className="font-display text-lg">Opening prayers</h3>
+          <div className="mt-2 space-y-2">
+            {openingPrayers.map((p, i) => (
+              <details key={i} className="rounded-sm border border-stone-200 p-2">
+                <summary className="cursor-pointer font-medium">Prayer {i + 1}</summary>
+                <p className="mt-2 whitespace-pre-wrap font-serif text-sm">{p}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {mysterySets.map((set, i) => (
+        <div key={i} className="mb-6">
+          <h3 className="font-display text-lg">{set.setName ?? `Mystery set ${i + 1}`}</h3>
+          <ol className="mt-2 space-y-2">
+            {(set.mysteries ?? []).map((m, j) => (
+              <li key={j} className="rounded-sm border border-stone-200 p-2">
+                <p className="font-medium">
+                  {j + 1}. {m.title ?? `Mystery ${j + 1}`}
+                </p>
+                {m.scripture ? (
+                  <p className="mt-1 font-serif text-xs italic text-stone-700">{m.scripture}</p>
+                ) : null}
+                {m.meditation ? (
+                  <p className="mt-1 font-serif text-sm text-ink-soft">{m.meditation}</p>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        </div>
+      ))}
+      {closingPrayers.length > 0 ? (
+        <div>
+          <h3 className="font-display text-lg">Closing prayers</h3>
+          <div className="mt-2 space-y-2">
+            {closingPrayers.map((p, i) => (
+              <details key={i} className="rounded-sm border border-stone-200 p-2">
+                <summary className="cursor-pointer font-medium">Prayer {i + 1}</summary>
+                <p className="mt-2 whitespace-pre-wrap font-serif text-sm">{p}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 async function safeGetGuide(slug: string, locale: string) {
   try {
     return await getPublishedSpiritualLifeGuideBySlug(slug, locale as never);
@@ -159,6 +230,10 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
             ))}
           </ol>
         </section>
+      ) : null}
+
+      {guide.kind === "ROSARY" && guide.packageMetadata ? (
+        <RosarySection metadata={guide.packageMetadata as Record<string, unknown>} />
       ) : null}
 
       {guidePrayers.length > 0 ? (

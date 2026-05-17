@@ -176,11 +176,23 @@ async function runStrictCleanup(
   void job;
   try {
     const { runStrictContentCleanup } = await import("../../content-qa/cleanup");
+    const { pruneOrphanedSaves } = await import("../../data/saved");
     const sweepReason = (payload.sweepReason as string) ?? "scheduled";
     const result = await runStrictContentCleanup({ sweepReason });
+    // Sweep orphaned saves so a user's saved list never contains a
+    // reference to content the factory just removed from public view.
+    const orphans = await pruneOrphanedSaves().catch(() => ({
+      prayers: 0,
+      saints: 0,
+      apparitions: 0,
+      parishes: 0,
+      devotions: 0,
+    }));
+    const orphanTotal =
+      orphans.prayers + orphans.saints + orphans.apparitions + orphans.parishes + orphans.devotions;
     return {
       ok: true,
-      errorMessage: `strict-cleanup deleted=${result.totalHardDeleted}, flaggedReady=${result.totalFlaggedReady}, flaggedUnready=${result.totalFlaggedUnready}, mode=${result.mode}`,
+      errorMessage: `strict-cleanup deleted=${result.totalHardDeleted}, flaggedReady=${result.totalFlaggedReady}, flaggedUnready=${result.totalFlaggedUnready}, mode=${result.mode}, orphanSavesPruned=${orphanTotal}`,
     };
   } catch (e) {
     return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };

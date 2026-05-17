@@ -105,44 +105,93 @@ export async function unsaveItem(
   }
 }
 
+// Strict visibility gate. Saved content listings filter out rows that
+// are no longer publicly visible (failed strict QA, archived, deleted
+// invalid by the factory) so a user never sees a save pointing at a
+// row that has been hard-deleted. Cascade FK handles the actual
+// reference cleanup; this filter handles the rows still in the table
+// but no longer public.
+const SAVED_PUBLIC_WHERE = {
+  status: "PUBLISHED" as const,
+  publicRenderReady: true,
+  isThresholdEligible: true,
+  archivedAt: null,
+};
+
 export async function listSavedPrayers(userId: string, locale: Locale) {
-  return prisma.userSavedPrayer.findMany({
-    where: { userId },
+  const rows = await prisma.userSavedPrayer.findMany({
+    where: { userId, prayer: SAVED_PUBLIC_WHERE },
     include: { prayer: { include: { translations: { where: { locale } } } } },
     orderBy: { createdAt: "desc" },
   });
+  return rows;
 }
 
 export async function listSavedSaints(userId: string, locale: Locale) {
-  return prisma.userSavedSaint.findMany({
-    where: { userId },
+  const rows = await prisma.userSavedSaint.findMany({
+    where: { userId, saint: SAVED_PUBLIC_WHERE },
     include: { saint: { include: { translations: { where: { locale } } } } },
     orderBy: { createdAt: "desc" },
   });
+  return rows;
 }
 
 export async function listSavedApparitions(userId: string, locale: Locale) {
-  return prisma.userSavedApparition.findMany({
-    where: { userId },
+  const rows = await prisma.userSavedApparition.findMany({
+    where: { userId, apparition: SAVED_PUBLIC_WHERE },
     include: { apparition: { include: { translations: { where: { locale } } } } },
     orderBy: { createdAt: "desc" },
   });
+  return rows;
 }
 
 export async function listSavedParishes(userId: string) {
-  return prisma.userSavedParish.findMany({
-    where: { userId },
+  const rows = await prisma.userSavedParish.findMany({
+    where: { userId, parish: SAVED_PUBLIC_WHERE },
     include: { parish: true },
     orderBy: { createdAt: "desc" },
   });
+  return rows;
 }
 
 export async function listSavedDevotions(userId: string, locale: Locale) {
-  return prisma.userSavedDevotion.findMany({
-    where: { userId },
+  const rows = await prisma.userSavedDevotion.findMany({
+    where: { userId, devotion: SAVED_PUBLIC_WHERE },
     include: { devotion: { include: { translations: { where: { locale } } } } },
     orderBy: { createdAt: "desc" },
   });
+  return rows;
+}
+
+/**
+ * Sweep saved rows whose target content is no longer publicly visible.
+ * Called by the worker after every strict_cleanup pass so a user's
+ * saved list never contains an invisible target. Cascade FK handles
+ * hard-deleted rows; this handles archived / soft-removed rows that
+ * are still in the catalog but not public anymore.
+ */
+export async function pruneOrphanedSaves(): Promise<{
+  prayers: number;
+  saints: number;
+  apparitions: number;
+  parishes: number;
+  devotions: number;
+}> {
+  const orphan = { NOT: SAVED_PUBLIC_WHERE };
+  const [pr, sa, ap, pa, dv] = await Promise.all([
+    prisma.userSavedPrayer.deleteMany({ where: { prayer: orphan } }),
+    prisma.userSavedSaint.deleteMany({ where: { saint: orphan } }),
+    prisma.userSavedApparition.deleteMany({ where: { apparition: orphan } }),
+    prisma.userSavedParish.deleteMany({ where: { parish: orphan } }),
+    prisma.userSavedDevotion.deleteMany({ where: { devotion: orphan } }),
+  ]);
+  return {
+    prayers: pr.count,
+    saints: sa.count,
+    apparitions: ap.count,
+    parishes: pa.count,
+    devotions: dv.count,
+  };
 }
 
 export async function isSaved(kind: SavedKind, userId: string, entityId: string): Promise<boolean> {
