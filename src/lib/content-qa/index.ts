@@ -263,6 +263,10 @@ export { extractHistory, type HistoryExtractionResult } from "./extractors/histo
 export { extractLiturgy, type LiturgyExtractionResult } from "./extractors/liturgy";
 export { extractParish, type ParishExtractionResult } from "./extractors/parish";
 
+export { getRowProvenance, type RowProvenance } from "./row-provenance";
+export { getSourceAudit, type SourceAuditResult } from "./source-audit";
+export { getGrowthAudit, type GrowthAuditResult } from "./growth-audit";
+
 export {
   checkPrayerRender,
   checkSaintRender,
