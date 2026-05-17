@@ -744,6 +744,24 @@ model RejectedContentLog {
   actorUsername      String?
   workerJobId        String?
   ingestionBatchId   String?
+  /// Contract version the validator ran when the row was deleted.
+  packageVersion     String?
+  /// Final pipeline decision verbatim (delete / reject / archive / ...).
+  validationDecision String?
+  /// Bucket the failure falls into for the dashboard. One of
+  /// "wrong_content", "missing_required_field", "source_purpose_mismatch",
+  /// "format_invalid", "render_not_ready", "duplicate", "unknown".
+  failureCategory    String?
+  /// Cleanup mode that produced the deletion: "public_only" |
+  /// "all_catalog_rows".
+  cleanupMode        String?
+  /// Short description of what kind of sweep triggered the deletion:
+  /// "scheduled", "post_ingestion", "manual", "render_gate",
+  /// "package_version_change", "catalog_revalidate".
+  sweepReason        String?
+  /// Status the row carried before deletion (PUBLISHED / REVIEW /
+  /// DRAFT / ARCHIVED).
+  originalStatus     String?
   deletedAt          DateTime @default(now())
 
   @@index([contentType, deletedAt])
@@ -752,6 +770,8 @@ model RejectedContentLog {
   @@index([deletedAt])
   @@index([workerJobId])
   @@index([ingestionBatchId])
+  @@index([failureCategory, deletedAt])
+  @@index([cleanupMode, deletedAt])
 }
 
 // DataManagementLog records every action performed by the Ingestion

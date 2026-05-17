@@ -36,6 +36,17 @@ const baseSchema = z.object({
   // is no admin UI for this value because operational alerts must keep
   // working even if the admin console itself is down.
   ADMIN_EMAIL: optionalString(z.string().email()),
+  // Optional override for the strict-cleanup "delete all invalid" policy.
+  // When set to "false" or "0", the cleanup loop refuses to delete rows
+  // and degrades to the legacy "remove from public view" behavior. The
+  // default in src/lib/config.ts is `true` (delete-all-invalid); this
+  // override exists so a temporary diagnostic run can switch the policy
+  // off without redeploying. Production must leave this unset (== true).
+  CONTENT_QA_DELETE_ALL_INVALID: optionalString(z.enum(["true", "false", "1", "0"])),
+  // Optional override for the strict-cleanup scan-all-catalog-rows mode.
+  // Default is `true`; setting this to "false" or "0" reverts to scanning
+  // only PUBLISHED / publicRenderReady=true rows (the old behavior).
+  CONTENT_QA_SCAN_ALL_CATALOG_ROWS: optionalString(z.enum(["true", "false", "1", "0"])),
 });
 
 const productionSchema = baseSchema.superRefine((env, ctx) => {
@@ -74,6 +85,8 @@ function fallbackEnvFromProcess(): Env {
     ADMIN_PASSWORD: data.ADMIN_PASSWORD,
     RESEND_API_KEY: data.RESEND_API_KEY,
     ADMIN_EMAIL: data.ADMIN_EMAIL,
+    CONTENT_QA_DELETE_ALL_INVALID: data.CONTENT_QA_DELETE_ALL_INVALID,
+    CONTENT_QA_SCAN_ALL_CATALOG_ROWS: data.CONTENT_QA_SCAN_ALL_CATALOG_ROWS,
   };
 }
 
