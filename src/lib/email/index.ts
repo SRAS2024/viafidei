@@ -38,6 +38,7 @@ export {
   type ContentQASummary,
   type SourceQualityRow,
   type StrictQAHealthSummary,
+  type CleanupCategoryCounts,
 } from "./admin-send";
 export {
   renderAdminEmail,

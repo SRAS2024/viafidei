@@ -17,6 +17,7 @@ import {
   type IngestionHealthSummary,
   type SourceQualityRow,
   type StrictQAHealthSummary,
+  type CleanupCategoryCounts,
 } from "../email";
 import { getContentQAReportFragment } from "../content-qa";
 import { logger } from "../observability/logger";
@@ -230,6 +231,84 @@ async function aggregateMonthlyArchiveCounts(
 }
 
 /**
+ * Section 10 split: archived-valid vs strict-QA-invalid vs duplicate
+ * vs stale deletions, per content type, over the month.
+ */
+async function aggregateMonthlyCleanupCategories(
+  windowStart: Date,
+  windowEnd: Date,
+): Promise<CleanupCategoryCounts> {
+  const init = (): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const row of CONTENT_TYPE_ROWS) out[row.key] = 0;
+    return out;
+  };
+  const result: CleanupCategoryCounts = {
+    archivedValidDeleted: init(),
+    invalidStrictDeleted: init(),
+    duplicateDeleted: init(),
+    staleDeleted: init(),
+  };
+  // Archived (valid) — PURGE action from the legacy archive cleanup loop.
+  try {
+    const purges = await prisma.dataManagementLog.groupBy({
+      by: ["contentType"],
+      where: { action: "PURGE", createdAt: { gte: windowStart, lt: windowEnd } },
+      _count: { _all: true },
+    });
+    for (const r of purges) {
+      result.archivedValidDeleted[r.contentType] =
+        (result.archivedValidDeleted[r.contentType] ?? 0) + (r._count?._all ?? 0);
+    }
+  } catch {
+    // best effort
+  }
+  // Strict QA invalid — RejectedContentLog delete decisions.
+  try {
+    const rejected = await prisma.rejectedContentLog.groupBy({
+      by: ["contentType"],
+      where: { decision: "delete", deletedAt: { gte: windowStart, lt: windowEnd } },
+      _count: { _all: true },
+    });
+    for (const r of rejected) {
+      result.invalidStrictDeleted[r.contentType] =
+        (result.invalidStrictDeleted[r.contentType] ?? 0) + (r._count?._all ?? 0);
+    }
+  } catch {
+    // best effort
+  }
+  // Duplicates — DEDUPE action from the dedupe-cleanup pass.
+  try {
+    const dups = await prisma.dataManagementLog.groupBy({
+      by: ["contentType"],
+      where: { action: "DEDUPE", createdAt: { gte: windowStart, lt: windowEnd } },
+      _count: { _all: true },
+    });
+    for (const r of dups) {
+      result.duplicateDeleted[r.contentType] =
+        (result.duplicateDeleted[r.contentType] ?? 0) + (r._count?._all ?? 0);
+    }
+  } catch {
+    // best effort
+  }
+  // Stale — CLEANUP DataManagementLog rows from the catalog janitor.
+  try {
+    const stale = await prisma.dataManagementLog.groupBy({
+      by: ["contentType"],
+      where: { action: "CLEANUP", createdAt: { gte: windowStart, lt: windowEnd } },
+      _count: { _all: true },
+    });
+    for (const r of stale) {
+      result.staleDeleted[r.contentType] =
+        (result.staleDeleted[r.contentType] ?? 0) + (r._count?._all ?? 0);
+    }
+  } catch {
+    // best effort
+  }
+  return result;
+}
+
+/**
  * Decide whether the biweekly report is due. Send when:
  *   - There has never been a send (lastSentAt missing), OR
  *   - It has been ≥ 14 days since the last successful send.
@@ -392,7 +471,8 @@ async function maybeSendMonthlyArchiveCleanup(now: Date): Promise<AdminSendOutco
   const wStart = monthStart(now);
   const wEnd = nextMonthStart(now);
   const counts = await aggregateMonthlyArchiveCounts(wStart, wEnd);
-  const result = await sendMonthlyArchiveCleanupReport(counts, wStart, wEnd);
+  const categories = await aggregateMonthlyCleanupCategories(wStart, wEnd).catch(() => undefined);
+  const result = await sendMonthlyArchiveCleanupReport(counts, wStart, wEnd, categories);
   if (result.ok && result.delivery === "sent") {
     await setFlowState<MonthlySendState>("monthly_archive_cleanup", {
       lastSentYearMonth: tag,

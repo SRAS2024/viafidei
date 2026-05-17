@@ -21,3 +21,4 @@ export {
 } from "./ingestion";
 export { runSaintsFeastDiagnostics } from "./saints-feast";
 export { getAdminDataSourceCard, type DataSourceCard } from "./admin-data-source-card";
+export { getDashboardWarnings, type DashboardWarning } from "./admin-dashboard-warnings";
