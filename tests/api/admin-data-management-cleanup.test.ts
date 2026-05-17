@@ -10,6 +10,17 @@ vi.mock("@/lib/ingestion/queue", () => ({
   enqueueJob: vi.fn(),
   PRIORITY_CONTENT_THRESHOLD_UNMET: 10,
 }));
+// Banned-device check + Security Breach reporter are exercised in
+// their own test suites; here we stub them so this test stays
+// focused on the cleanup endpoint's enqueue behavior.
+vi.mock("@/lib/security/security-event-store", () => ({
+  isDeviceBanned: vi.fn().mockResolvedValue(false),
+  recordBannedDeviceHit: vi.fn(),
+}));
+vi.mock("@/lib/security/security-events", () => ({
+  reportSecurityBreach: vi.fn(),
+  reportSuspiciousActivity: vi.fn(),
+}));
 
 import { POST } from "@/app/api/admin/data-management/cleanup/route";
 import { requireAdmin } from "@/lib/auth";
@@ -26,7 +37,14 @@ function makeReq() {
   return new NextRequest(
     new Request("https://app.example.com/api/admin/data-management/cleanup", {
       method: "POST",
-      headers: { "x-forwarded-for": "127.0.0.1", "user-agent": "test" },
+      headers: {
+        "x-forwarded-for": "127.0.0.1",
+        "user-agent": "test",
+        // Same-origin Origin header so CSRF check passes.
+        origin: "https://app.example.com",
+        "x-forwarded-host": "app.example.com",
+        "x-forwarded-proto": "https",
+      },
     }),
   );
 }

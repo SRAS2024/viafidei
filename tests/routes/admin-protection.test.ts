@@ -60,7 +60,8 @@ describe("admin route protection — static analysis", () => {
       const usesGuard =
         /requireAdmin\s*\(/.test(src) ||
         /makeAdminCatalog(Index|Item)\s*\(/.test(src) ||
-        /verifyAdmin/.test(src);
+        /verifyAdmin/.test(src) ||
+        /gateAdminApiCall\s*\(/.test(src);
       if (!usesGuard) offenders.push(rel);
     }
     expect(offenders).toEqual([]);

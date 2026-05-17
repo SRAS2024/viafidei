@@ -1,9 +1,9 @@
 import { type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { jsonError, jsonOk } from "@/lib/http";
 import { getDataManagementSettings } from "@/lib/data/site-settings";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { logger } from "@/lib/observability";
 import { enqueueJob, PRIORITY_CONTENT_THRESHOLD_UNMET } from "@/lib/ingestion/queue";
 
@@ -29,8 +29,9 @@ export const maxDuration = 60;
  * the caller can poll their status on the queue page.
  */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const started = Date.now();
   const settings = await getDataManagementSettings();
