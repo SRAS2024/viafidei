@@ -7,12 +7,18 @@
  *   - prayer name      — title heuristic
  *   - prayer text      — the actual body, stripped of bylines / nav
  *   - category         — same as prayer type bucket
- *   - source URL / host / language / checksum
+ *   - source URL / host / language
  *
- * Pure function; reports `complete` and per-field provenance.
+ * Pure function; reports `complete` and per-field provenance. The
+ * content checksum is intentionally NOT computed here — the persist
+ * layer (`ingestion/persist/persist-prayer.ts`) derives the
+ * package-level checksum from the canonicalised IngestedPrayer at
+ * write time, which is the single authoritative checksum used for
+ * dedup and change detection. Keeping this extractor free of the
+ * `node:crypto`-using checksum helper also keeps it runtime-neutral
+ * so it can be safely re-exported via `content-qa/index.ts` without
+ * dragging Node-only modules into Edge bundles.
  */
-
-import { checksumString } from "../../ingestion/checksum";
 
 export type PrayerExtractionResult = {
   complete: boolean;
@@ -24,7 +30,6 @@ export type PrayerExtractionResult = {
     sourceUrl?: string;
     sourceHost?: string;
     language?: string;
-    contentChecksum?: string;
   };
   provenance: Record<string, string>;
   missingFields: string[];
@@ -118,9 +123,6 @@ export function extractPrayer(args: {
   const language = args.language ?? "en";
   provenance.language = args.language ? "input" : "default en";
 
-  const contentChecksum = checksumString(`${prayerName ?? ""}\n${prayerText}`);
-  provenance.contentChecksum = "computed";
-
   return {
     complete: missingFields.length === 0,
     payload: {
@@ -131,7 +133,6 @@ export function extractPrayer(args: {
       sourceUrl: args.sourceUrl,
       sourceHost,
       language,
-      contentChecksum,
     },
     provenance,
     missingFields,

@@ -22,9 +22,7 @@ describe("extractPrayer", () => {
     expect(result.payload.prayerName).toBe("Hail Mary");
     expect(result.payload.sourceHost).toBe("www.vatican.va");
     expect(result.payload.language).toBe("en");
-    expect(result.payload.contentChecksum).toBeTruthy();
     expect(result.provenance.prayerName).toBeDefined();
-    expect(result.provenance.contentChecksum).toBe("computed");
   });
 
   it("classifies an Eucharistic prayer correctly", () => {
