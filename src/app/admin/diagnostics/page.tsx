@@ -42,6 +42,13 @@ const DIAGNOSTIC_AREAS = [
     description:
       "Verify that today's saints exist, are PUBLISHED, have structured feast fields, and are returned by /api/saints/today.",
   },
+  {
+    href: "/admin/diagnostics/data-management-health",
+    eyebrow: "VI.",
+    title: "Data Management Health",
+    description:
+      "Ten-row health panel: queue, worker, ingestion, source, strict QA, cleanup, threshold, report, admin email, and database. Each row carries a 0-100 score, status badge, and live signals.",
+  },
 ] as const;
 
 function statusBadgeStyle(status: string): { bg: string; text: string } {

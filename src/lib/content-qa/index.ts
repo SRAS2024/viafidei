@@ -245,6 +245,10 @@ export {
 } from "./extraction-monitor";
 
 export { extractNovena, type NovenaExtractionResult } from "./extractors/novena";
+export { extractPrayer, type PrayerExtractionResult } from "./extractors/prayer";
+export { extractRosary, type RosaryExtractionResult } from "./extractors/rosary";
+export { extractConsecration, type ConsecrationExtractionResult } from "./extractors/consecration";
+export { extractSaint, type SaintExtractionResult } from "./extractors/saint";
 
 export {
   checkPrayerRender,
