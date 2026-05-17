@@ -28,6 +28,7 @@ export {
   sendBiweeklyAdminReport,
   sendMonthlyArchiveCleanupReport,
   sendMonthlySourceQualityReport,
+  sendMonthlyDataManagementReport,
   sendThresholdMilestoneAlert,
   sendCriticalFailureAlert,
   sendSecurityBreachAlert,
@@ -39,6 +40,7 @@ export {
   type SourceQualityRow,
   type StrictQAHealthSummary,
   type CleanupCategoryCounts,
+  type DataManagementReportData,
 } from "./admin-send";
 export {
   renderAdminEmail,

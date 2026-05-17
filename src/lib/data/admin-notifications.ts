@@ -459,6 +459,308 @@ async function maybeSendMonthlySourceQualityReport(now: Date): Promise<AdminSend
 }
 
 /**
+ * Monthly Data Management Report: end-of-month operations summary.
+ * Pulls the durable-queue + strict-QA snapshot for the month.
+ * One send per calendar month.
+ */
+async function maybeSendMonthlyDataManagementReport(now: Date): Promise<AdminSendOutcome | null> {
+  if (!isLastDayOfMonth(now)) return null;
+  const tag = yearMonth(now);
+  const state = await getFlowState<MonthlySendState>("monthly_data_management");
+  if (state && state.lastSentYearMonth === tag) return null;
+
+  const wStart = monthStart(now);
+  const wEnd = nextMonthStart(now);
+  const data = await aggregateMonthlyDataManagement(wStart, wEnd);
+  const { sendMonthlyDataManagementReport } = await import("../email");
+  const result = await sendMonthlyDataManagementReport(data, wStart, wEnd);
+  if (result.ok && result.delivery === "sent") {
+    await setFlowState<MonthlySendState>("monthly_data_management", {
+      lastSentYearMonth: tag,
+    });
+  }
+  return result;
+}
+
+/**
+ * Build the inputs for the Monthly Data Management Report. Every
+ * query is wrapped in `try` so a single failed query doesn't break
+ * the whole report — the offending count silently falls back to 0
+ * (the same convention the dashboard cards use).
+ */
+async function aggregateMonthlyDataManagement(
+  wStart: Date,
+  wEnd: Date,
+): Promise<import("../email").DataManagementReportData> {
+  const inWindow = { gte: wStart, lt: wEnd };
+  const safeNum = async (fn: () => Promise<number>): Promise<number> => {
+    try {
+      return await fn();
+    } catch {
+      return 0;
+    }
+  };
+
+  // Jobs run.
+  const jobsRun = await safeNum(() =>
+    prisma.ingestionJobQueue.count({
+      where: { status: "completed", finishedAt: inWindow },
+    }),
+  );
+
+  // Per-content-type rollups.
+  const init = (): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const r of CONTENT_TYPE_ROWS) out[r.key] = 0;
+    return out;
+  };
+  const packagesCreated = init();
+  const packagesUpdated = init();
+  const packagesDeleted = init();
+  const packagesRejected = init();
+  try {
+    const created = await prisma.dataManagementLog.groupBy({
+      by: ["contentType"],
+      where: { action: "ADD", createdAt: inWindow },
+      _count: { _all: true },
+    });
+    for (const r of created) packagesCreated[r.contentType] = r._count?._all ?? 0;
+    const updated = await prisma.dataManagementLog.groupBy({
+      by: ["contentType"],
+      where: { action: "UPDATE", createdAt: inWindow },
+      _count: { _all: true },
+    });
+    for (const r of updated) packagesUpdated[r.contentType] = r._count?._all ?? 0;
+    const deleted = await prisma.rejectedContentLog.groupBy({
+      by: ["contentType"],
+      where: { decision: "delete", deletedAt: inWindow },
+      _count: { _all: true },
+    });
+    for (const r of deleted) packagesDeleted[r.contentType] = r._count?._all ?? 0;
+    const rejected = await prisma.rejectedContentLog.groupBy({
+      by: ["contentType"],
+      where: { decision: "reject", deletedAt: inWindow },
+      _count: { _all: true },
+    });
+    for (const r of rejected) packagesRejected[r.contentType] = r._count?._all ?? 0;
+  } catch {
+    // best effort
+  }
+
+  // Source pause / resume counts. We approximate from the
+  // `autoPausedAt` timestamp on IngestionSource — anything updated
+  // in the window with a non-null timestamp counts as "paused this
+  // month"; we don't currently log resumes separately so we count
+  // sources that became un-paused.
+  const sourcesPaused = await safeNum(() =>
+    prisma.ingestionSource.count({
+      where: { autoPaused: true, autoPausedAt: inWindow },
+    }),
+  );
+  const sourcesResumed = await safeNum(() =>
+    prisma.ingestionSource.count({
+      where: { autoPaused: false, updatedAt: inWindow, autoPausedAt: { not: null } },
+    }),
+  );
+
+  // Content types below threshold (current snapshot).
+  const targets = appConfig.ingestion.targets;
+  const tables: Array<{
+    key: string;
+    label: string;
+    current: number;
+    target: number;
+  }> = [];
+  try {
+    const [prayers, saints, parishes] = await Promise.all([
+      prisma.prayer.count({
+        where: {
+          status: "PUBLISHED",
+          publicRenderReady: true,
+          isThresholdEligible: true,
+          archivedAt: null,
+        },
+      }),
+      prisma.saint.count({
+        where: {
+          status: "PUBLISHED",
+          publicRenderReady: true,
+          isThresholdEligible: true,
+          archivedAt: null,
+        },
+      }),
+      prisma.parish.count({
+        where: {
+          status: "PUBLISHED",
+          publicRenderReady: true,
+          isThresholdEligible: true,
+          archivedAt: null,
+        },
+      }),
+    ]);
+    tables.push({
+      key: "Prayer",
+      label: "Prayer",
+      current: prayers,
+      target: targets.prayers,
+    });
+    tables.push({
+      key: "Saint",
+      label: "Saint",
+      current: saints,
+      target: targets.saints,
+    });
+    tables.push({
+      key: "Parish",
+      label: "Parish",
+      current: parishes,
+      target: targets.parishes,
+    });
+  } catch {
+    // best effort
+  }
+  const contentTypesBelowThreshold = tables
+    .filter((t) => t.current < t.target)
+    .map((t) => ({
+      contentType: t.label,
+      currentCount: t.current,
+      target: t.target,
+      pct: t.current / t.target,
+    }));
+
+  // Stalled content types — month-over-month flat. We approximate
+  // by checking whether the DataManagementLog ADD count for the
+  // bucket is zero this month.
+  const stalledContentTypes: string[] = [];
+  for (const t of tables) {
+    if ((packagesCreated[t.label] ?? 0) === 0 && t.current < t.target) {
+      stalledContentTypes.push(t.label);
+    }
+  }
+
+  // Invalid public rows (current snapshot).
+  let invalidPublicRowCount = 0;
+  try {
+    const counts = await Promise.all(
+      [
+        prisma.prayer,
+        prisma.saint,
+        prisma.parish,
+        prisma.devotion,
+        prisma.spiritualLifeGuide,
+        prisma.liturgyEntry,
+        prisma.marianApparition,
+      ].map((m) =>
+        (
+          m as unknown as {
+            count: (args: { where: Record<string, unknown> }) => Promise<number>;
+          }
+        )
+          .count({ where: { status: "PUBLISHED", publicRenderReady: false } })
+          .catch(() => 0),
+      ),
+    );
+    invalidPublicRowCount = counts.reduce((s, n) => s + n, 0);
+  } catch {
+    invalidPublicRowCount = 0;
+  }
+
+  // Invalid rows deleted this month.
+  const invalidPublicRowsDeleted = await safeNum(() =>
+    prisma.rejectedContentLog.count({
+      where: { decision: "delete", deletedAt: inWindow },
+    }),
+  );
+
+  // Worker uptime — fraction of the month with ≥1 active heartbeat.
+  // We approximate by checking how many WorkerHeartbeat updates
+  // landed in the window vs. how many 30-second intervals fit.
+  let workerUptimePct = 0;
+  try {
+    const heartbeats = await prisma.workerHeartbeat.count({
+      where: { lastHeartbeatAt: inWindow },
+    });
+    const windowMs = wEnd.getTime() - wStart.getTime();
+    const expectedBeats = windowMs / (30 * 1000);
+    workerUptimePct = Math.min(1, heartbeats / Math.max(1, expectedBeats));
+  } catch {
+    workerUptimePct = 0;
+  }
+
+  // Queue reliability — completed / (completed + failed) over month.
+  let queueReliabilityPct = 1;
+  try {
+    const [completed, failed] = await Promise.all([
+      prisma.ingestionJobQueue.count({
+        where: { status: "completed", finishedAt: inWindow },
+      }),
+      prisma.ingestionJobQueue.count({
+        where: { status: "failed", finishedAt: inWindow },
+      }),
+    ]);
+    const tot = completed + failed;
+    queueReliabilityPct = tot === 0 ? 1 : completed / tot;
+  } catch {
+    queueReliabilityPct = 1;
+  }
+
+  // Top failure reasons.
+  let topFailureReasons: Array<{ category: string; count: number }> = [];
+  try {
+    const rows = await prisma.rejectedContentLog.groupBy({
+      by: ["failureCategory"],
+      where: { deletedAt: inWindow },
+      _count: { _all: true },
+    });
+    topFailureReasons = rows
+      .map((r) => ({
+        category: r.failureCategory ?? "unknown",
+        count: r._count?._all ?? 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  } catch {
+    topFailureReasons = [];
+  }
+
+  // Top successful sources — DataManagementLog ADD rows don't carry
+  // source-host, so we approximate by looking at recent successful
+  // jobs. We use the source's `host` for the label.
+  let topSuccessfulSources: Array<{ host: string; saved: number }> = [];
+  try {
+    const sources = await prisma.ingestionSource.findMany({
+      where: { isActive: true },
+      orderBy: { completedItems: "desc" },
+      take: 5,
+    });
+    topSuccessfulSources = sources.map((s) => ({
+      host: s.host,
+      saved: s.completedItems,
+    }));
+  } catch {
+    topSuccessfulSources = [];
+  }
+
+  return {
+    jobsRun,
+    packagesCreated,
+    packagesUpdated,
+    packagesDeleted,
+    packagesRejected,
+    sourcesPaused,
+    sourcesResumed,
+    contentTypesBelowThreshold,
+    stalledContentTypes,
+    invalidPublicRowCount,
+    invalidPublicRowsDeleted,
+    workerUptimePct,
+    queueReliabilityPct,
+    topFailureReasons,
+    topSuccessfulSources,
+  };
+}
+
+/**
  * Monthly archive cleanup email: sent on the last day of every month
  * (30th / 31st / final-of-Feb). One send per calendar month.
  */
@@ -703,6 +1005,7 @@ export type AdminNotificationDispatchSummary = {
   monthlyArchive: AdminSendOutcome | null;
   monthlyErrorReport: AdminSendOutcome | null;
   monthlySourceQuality: AdminSendOutcome | null;
+  monthlyDataManagement: AdminSendOutcome | null;
   milestonesSent: Array<{ bucket: string; threshold: number }>;
   milestonesRecordedWithoutSend: Array<{ bucket: string; threshold: number }>;
 };
@@ -739,12 +1042,19 @@ export async function dispatchAdminNotifications(
       monthlyArchive: null,
       monthlyErrorReport: null,
       monthlySourceQuality: null,
+      monthlyDataManagement: null,
       milestonesSent: milestones.sent,
       milestonesRecordedWithoutSend: milestones.recordedWithoutSend,
     };
   }
 
-  const [biweekly, monthlyArchive, monthlyErrorReport, monthlySourceQuality] = await Promise.all([
+  const [
+    biweekly,
+    monthlyArchive,
+    monthlyErrorReport,
+    monthlySourceQuality,
+    monthlyDataManagement,
+  ] = await Promise.all([
     maybeSendBiweeklyReport(now).catch((e) => {
       logger.error("admin.biweekly.dispatch_failed", { error: String(e) });
       return null;
@@ -761,6 +1071,10 @@ export async function dispatchAdminNotifications(
       logger.error("admin.monthly_source_quality.dispatch_failed", { error: String(e) });
       return null;
     }),
+    maybeSendMonthlyDataManagementReport(now).catch((e) => {
+      logger.error("admin.monthly_data_management.dispatch_failed", { error: String(e) });
+      return null;
+    }),
   ]);
 
   return {
@@ -768,6 +1082,7 @@ export async function dispatchAdminNotifications(
     monthlyArchive,
     monthlyErrorReport,
     monthlySourceQuality,
+    monthlyDataManagement,
     milestonesSent: milestones.sent,
     milestonesRecordedWithoutSend: milestones.recordedWithoutSend,
   };

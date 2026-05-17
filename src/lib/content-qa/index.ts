@@ -244,6 +244,8 @@ export {
   type ExtractionFailureReason,
 } from "./extraction-monitor";
 
+export { extractNovena, type NovenaExtractionResult } from "./extractors/novena";
+
 export {
   checkPrayerRender,
   checkSaintRender,
