@@ -523,6 +523,13 @@ export async function sendSecurityBreachAlert(params: {
   ipAddress?: string;
   userAgent?: string;
   route?: string;
+  /**
+   * Optional URL the admin can click to ban the originating device.
+   * Only present when the caller has a device-credential fingerprint
+   * and has issued a signed, single-use ban token. Suspicious
+   * Activity emails never include this link.
+   */
+  banDeviceUrl?: string;
   detail?: Record<string, string>;
 }): Promise<AdminSendOutcome> {
   const intro = `A security event has been detected: ${params.kind}.`;
@@ -551,6 +558,14 @@ export async function sendSecurityBreachAlert(params: {
       },
     });
   }
+  if (params.banDeviceUrl) {
+    sections.push({
+      title: "Action",
+      paragraphs: [
+        `Ban the originating device (single-use, signed token): ${params.banDeviceUrl}`,
+      ],
+    });
+  }
   const rendered = renderAdminEmail({
     subject: "Security Breach",
     heading: "Security Breach",
@@ -560,6 +575,84 @@ export async function sendSecurityBreachAlert(params: {
   });
   return sendAdminEmail({
     flow: "security_breach",
+    subject: rendered.subject,
+    textBody: rendered.textBody,
+    htmlBody: rendered.htmlBody,
+  });
+}
+
+/**
+ * Suspicious Activity email — used for warning signs (failed admin
+ * password attempts, sustained client tamper probing, debug endpoint
+ * scanning). Distinct from Security Breach because it does not
+ * include a ban link and is not used for confirmed attacks.
+ */
+export async function sendSuspiciousActivityAlert(params: {
+  kind: string;
+  summary: string;
+  ipAddress?: string;
+  userAgent?: string;
+  route?: string;
+  deviceCredentialId?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  attemptedAccountOrRoute?: string;
+  recommendedAction?: string;
+  detail?: Record<string, string>;
+}): Promise<AdminSendOutcome> {
+  const intro = `A suspicious-activity signal has been detected: ${params.kind}.`;
+  const sections: AdminEmailSection[] = [
+    {
+      title: "Summary",
+      paragraphs: [params.summary],
+    },
+  ];
+  const contextRows: Array<{ key: string; value: string }> = [];
+  if (params.route) contextRows.push({ key: "Route", value: params.route });
+  if (params.ipAddress) contextRows.push({ key: "IP address", value: params.ipAddress });
+  if (params.deviceCredentialId)
+    contextRows.push({ key: "Device credential", value: params.deviceCredentialId });
+  if (params.userAgent) contextRows.push({ key: "User-Agent", value: params.userAgent });
+  if (params.city) contextRows.push({ key: "City", value: params.city });
+  if (params.region) contextRows.push({ key: "Region", value: params.region });
+  if (params.country) contextRows.push({ key: "Country", value: params.country });
+  if (params.attemptedAccountOrRoute)
+    contextRows.push({
+      key: "Attempted account/route",
+      value: params.attemptedAccountOrRoute,
+    });
+  for (const [k, v] of Object.entries(params.detail ?? {})) {
+    contextRows.push({ key: k, value: v });
+  }
+  if (contextRows.length > 0) {
+    sections.push({
+      title: "Context",
+      table: {
+        columns: [
+          { key: "key", label: "Field" },
+          { key: "value", label: "Value" },
+        ],
+        rows: contextRows,
+      },
+    });
+  }
+  if (params.recommendedAction) {
+    sections.push({
+      title: "Recommended automatic action",
+      paragraphs: [params.recommendedAction],
+    });
+  }
+  const rendered = renderAdminEmail({
+    subject: "Suspicious Activity",
+    heading: "Suspicious Activity",
+    intro,
+    sections,
+    signoff:
+      "This is a warning signal, not a confirmed attack. No device has been banned. Investigate at your discretion.",
+  });
+  return sendAdminEmail({
+    flow: "suspicious_activity",
     subject: rendered.subject,
     textBody: rendered.textBody,
     htmlBody: rendered.htmlBody,

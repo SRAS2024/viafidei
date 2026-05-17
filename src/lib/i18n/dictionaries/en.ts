@@ -360,6 +360,7 @@ const admin: Dict = {
   "admin.contentQA.title": "Content QA",
   "admin.contentQA.deletedLog": "Deleted invalid content log",
   "admin.email.title": "Email diagnostics",
+  "admin.bannedDevices.title": "Banned devices",
   "admin.signOut": "Sign out of admin",
   "admin.welcomeLine": "You are signed in as the administrator.",
 };

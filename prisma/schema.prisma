@@ -203,9 +203,16 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// HMAC fingerprint of the device credential cookie that bound
+  /// this session. Used to revoke every session for a banned device.
+  /// Optional because pre-migration sessions did not have it.
+  deviceCredentialHash String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([deviceCredentialHash])
 }
 
 model Profile {
@@ -1482,4 +1489,124 @@ model DailyIngestionCounter {
 
   @@unique([day, sourceId, contentType])
   @@index([day])
+}
+
+/// Two-tier security event log. `Suspicious` events (warning signs)
+/// trigger a Suspicious Activity email; `Breach` events (active or
+/// attempted attack) trigger a Security Breach email and can issue a
+/// signed ban link. Every event row is the durable audit trail the
+/// monthly security report PDF reads from.
+///
+/// Hashing rule: only one-way HMAC fingerprints (ipAddressHash,
+/// deviceCredentialHash, userAgentHash) are stored — raw IPs and
+/// device credentials never land in the DB.
+model SecurityEvent {
+  id String @id @default(cuid())
+
+  /// Short machine-readable identifier ("admin_password_failed",
+  /// "client_tamper_burst", "csrf_violation", ...).
+  eventType String
+  /// "Suspicious" or "Breach" — controls which email goes out and
+  /// whether a ban link is issued.
+  classification String
+  /// "info" | "warning" | "error" | "critical" — used to dedupe and
+  /// escalate. Suspicious events default to "warning"; Breach events
+  /// default to "error" or higher.
+  severity String
+
+  /// HMAC fingerprints — never raw values. See `src/lib/security/hash.ts`.
+  ipAddressHash         String?
+  deviceCredentialHash  String?
+  userAgentHash         String?
+
+  /// Plaintext user-agent string is kept (no PII risk) so the admin
+  /// email and the admin page can show a human-readable summary.
+  userAgent String?
+
+  /// Geo-IP fields populated best-effort by the caller. The schema
+  /// stores them only when the caller already had them.
+  city    String?
+  region  String?
+  country String?
+
+  /// Route + HTTP method the event came in on, so the admin can see
+  /// "where" the attack was happening.
+  targetRoute String?
+  httpMethod  String?
+
+  /// Action the attacker tried to perform ("set publicRenderReady",
+  /// "POST /api/admin/...", "submitted SQLi payload", ...).
+  attemptedAction String?
+
+  /// Account context, when the event can be attributed.
+  accountId  String?
+  adminAccount Boolean @default(false)
+
+  /// Request ID written by the observability layer; correlates the
+  /// event to the surrounding access log.
+  requestId String?
+
+  /// Automatic remediation taken (e.g. "session revoked", "device
+  /// banned via signed link", "rate-limit applied").
+  automaticActionTaken String?
+
+  /// Operational flags so the dashboard can show what fired.
+  emailSent      Boolean @default(false)
+  banTokenIssued Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  bannedDevices BannedDevice[]
+
+  @@index([eventType])
+  @@index([classification])
+  @@index([severity])
+  @@index([createdAt])
+  @@index([ipAddressHash])
+  @@index([deviceCredentialHash])
+}
+
+/// Devices banned in response to a SecurityEvent. No admin UI can
+/// remove a row from this table — bans are permanent by design.
+/// Middleware reads `active = true` rows on every request and blocks
+/// the request before any page renders.
+model BannedDevice {
+  id String @id @default(cuid())
+
+  /// Hashed device credential cookie. Hashes only — see
+  /// `src/lib/security/hash.ts`.
+  deviceCredentialHash String
+  ipAddressHash        String?
+  userAgentHash        String?
+
+  /// First and last time we observed this device. `firstSeenAt`
+  /// records when the device was first linked to the originating
+  /// SecurityEvent; `lastSeenAt` updates each time a banned device
+  /// re-attempts a request, which is useful for spotting persistent
+  /// attackers.
+  firstSeenAt DateTime
+  lastSeenAt  DateTime
+
+  /// Why the device was banned ("admin_brute_force",
+  /// "csrf_violation", ...). Mirrors SecurityEvent.eventType.
+  banReason String
+
+  /// SecurityEvent that triggered the ban. Used by the admin page to
+  /// surface "ban context" without duplicating event fields.
+  securityEventId String?
+  securityEvent   SecurityEvent? @relation(fields: [securityEventId], references: [id], onDelete: SetNull)
+
+  /// Marker for who/what created the row. "signed_ban_link" when the
+  /// admin clicks the link in a Security Breach email; "system" when
+  /// automated escalation triggers the ban directly.
+  createdBy String
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([deviceCredentialHash])
+  @@index([active])
+  @@index([ipAddressHash])
+  @@index([createdAt])
 }

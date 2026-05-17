@@ -30,6 +30,7 @@ const EXEMPT_PATHS = [
   "/api/milestones/", // user milestones
   "/api/saved/", // user saved items (id lookups, not list reads)
   "/api/settings/", // user preferences
+  "/api/security/", // signed-link security actions (e.g. ban-device); not a catalog reader
 ];
 
 function findRouteFiles(dir: string): string[] {

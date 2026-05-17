@@ -2,6 +2,35 @@ import { NextResponse, type NextRequest } from "next/server";
 import { REQUEST_ID_HEADER, ensureRequestId } from "@/lib/observability";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
+/**
+ * Server-issued device-credential cookie. Long opaque random string,
+ * HTTP-only + same-site=Lax. The raw value never leaves the browser,
+ * and only the HMAC fingerprint of this value is stored anywhere on
+ * the server (SecurityEvent.deviceCredentialHash,
+ * BannedDevice.deviceCredentialHash, Session.deviceCredentialHash).
+ *
+ * Set by middleware on first request so a session-less visitor still
+ * has a stable identifier the ban link can target.
+ */
+export const DEVICE_CREDENTIAL_COOKIE = "vf_dev_id";
+const DEVICE_CREDENTIAL_MAX_AGE_S = 60 * 60 * 24 * 365; // 1 year
+
+function ensureDeviceCredentialCookie(req: NextRequest, res: NextResponse): void {
+  const existing = req.cookies.get(DEVICE_CREDENTIAL_COOKIE);
+  if (existing && existing.value && existing.value.length >= 32) return;
+  // Edge-safe random. Two UUIDv4s (32 hex chars each) -> 64 hex string.
+  const value = `${crypto.randomUUID().replace(/-/g, "")}${crypto.randomUUID().replace(/-/g, "")}`;
+  res.cookies.set({
+    name: DEVICE_CREDENTIAL_COOKIE,
+    value,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: DEVICE_CREDENTIAL_MAX_AGE_S,
+  });
+}
+
 // Paths under /admin that should NOT require an admin session — the login page
 // itself, and the login/logout API endpoints that the form posts to.
 const ADMIN_PUBLIC_PATHS = new Set(["/admin/login", "/api/admin/login", "/api/admin/logout"]);
@@ -84,6 +113,7 @@ export function middleware(req: NextRequest) {
 
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set(REQUEST_ID_HEADER, requestId);
+  ensureDeviceCredentialCookie(req, res);
 
   const csp = [
     "default-src 'self'",
