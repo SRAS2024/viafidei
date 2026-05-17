@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { appConfig } from "@/lib/config";
 import { prisma } from "@/lib/db/client";
+import { STRICT_PUBLIC_WHERE_CLAUSE } from "@/lib/content-qa/thresholds";
 
 const BASE = appConfig.canonicalUrl;
 
@@ -33,33 +34,38 @@ async function loadPublishedContent(): Promise<DynamicGroup[]> {
   // Each query returns only PUBLISHED records — drafts, review, and archived
   // content must never appear in the public sitemap.
   try {
+    // Strict public-visibility gate: the sitemap must NEVER advertise
+    // a slug that fails render-readiness, since search engines would
+    // index it then hit a 404. Every accessor here uses
+    // STRICT_PUBLIC_WHERE_CLAUSE so a row that fails strict QA is
+    // automatically excluded.
     const [prayers, saints, apparitions, devotions, liturgy, parishes, guides] = await Promise.all([
       prisma.prayer.findMany({
-        where: { status: "PUBLISHED" },
+        where: STRICT_PUBLIC_WHERE_CLAUSE,
         select: { slug: true, updatedAt: true },
       }),
       prisma.saint.findMany({
-        where: { status: "PUBLISHED" },
+        where: STRICT_PUBLIC_WHERE_CLAUSE,
         select: { slug: true, updatedAt: true },
       }),
       prisma.marianApparition.findMany({
-        where: { status: "PUBLISHED" },
+        where: STRICT_PUBLIC_WHERE_CLAUSE,
         select: { slug: true, updatedAt: true },
       }),
       prisma.devotion.findMany({
-        where: { status: "PUBLISHED" },
+        where: STRICT_PUBLIC_WHERE_CLAUSE,
         select: { slug: true, updatedAt: true },
       }),
       prisma.liturgyEntry.findMany({
-        where: { status: "PUBLISHED" },
+        where: STRICT_PUBLIC_WHERE_CLAUSE,
         select: { slug: true, updatedAt: true },
       }),
       prisma.parish.findMany({
-        where: { status: "PUBLISHED" },
+        where: STRICT_PUBLIC_WHERE_CLAUSE,
         select: { slug: true, updatedAt: true },
       }),
       prisma.spiritualLifeGuide.findMany({
-        where: { status: "PUBLISHED" },
+        where: STRICT_PUBLIC_WHERE_CLAUSE,
         select: { slug: true, updatedAt: true },
       }),
     ]);

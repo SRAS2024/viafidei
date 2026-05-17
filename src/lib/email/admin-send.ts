@@ -683,3 +683,190 @@ export async function sendMonthlySourceQualityReport(
     htmlBody: rendered.htmlBody,
   });
 }
+
+/**
+ * Monthly Data Management Report (section 10 of the strict QA spec).
+ * Pulls every key durable-queue + strict-QA metric into one report
+ * so the operator can see, at a glance, what the system did this
+ * month and where its quality is trending.
+ *
+ * Distinct from the biweekly report (which focuses on per-content-type
+ * change counts) and the monthly source quality report (which ranks
+ * sources). This is the "data-management operations" view.
+ */
+export type DataManagementReportData = {
+  /** Total queue jobs completed in the month. */
+  jobsRun: number;
+  /** Per-content-type rows persisted as valid packages. */
+  packagesCreated: Record<string, number>;
+  /** Per-content-type rows updated. */
+  packagesUpdated: Record<string, number>;
+  /** Per-content-type rows deleted by strict QA. */
+  packagesDeleted: Record<string, number>;
+  /** Per-content-type rows that failed pre-persistence rejection. */
+  packagesRejected: Record<string, number>;
+  /** Source IDs auto-paused in the month. */
+  sourcesPaused: number;
+  /** Source IDs auto-resumed in the month. */
+  sourcesResumed: number;
+  /** Content type buckets currently below their configured target. */
+  contentTypesBelowThreshold: ReadonlyArray<{
+    contentType: string;
+    currentCount: number;
+    target: number;
+    pct: number;
+  }>;
+  /** Content types that grew by less than `stalledGrowthMinDelta` rows. */
+  stalledContentTypes: ReadonlyArray<string>;
+  /**
+   * Invalid public rows currently in the catalog
+   * (status=PUBLISHED but publicRenderReady=false).
+   */
+  invalidPublicRowCount: number;
+  /** Invalid rows the cleanup loop removed in the month. */
+  invalidPublicRowsDeleted: number;
+  /** Worker uptime ratio over the month (0-1). */
+  workerUptimePct: number;
+  /** Queue reliability ratio: completed / (completed + failed). */
+  queueReliabilityPct: number;
+  /** Top 5 failure reasons by count. */
+  topFailureReasons: ReadonlyArray<{ category: string; count: number }>;
+  /** Top 5 sources by valid-package count. */
+  topSuccessfulSources: ReadonlyArray<{ host: string; saved: number }>;
+};
+
+export async function sendMonthlyDataManagementReport(
+  data: DataManagementReportData,
+  monthStart: Date,
+  monthEnd: Date,
+): Promise<AdminSendOutcome> {
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const intro =
+    `Monthly Data Management Report (${fmt(monthStart)} – ${fmt(monthEnd)}). ` +
+    `Summary of every durable-queue and strict-QA action over the month. ` +
+    `Use it to spot stalled buckets, dominant sources, and quality trends.`;
+
+  const ctRows = CONTENT_TYPE_ROWS.map((row) => ({
+    Content: row.label,
+    Created: formatPlain(data.packagesCreated[row.key] ?? 0),
+    Updated: formatPlain(data.packagesUpdated[row.key] ?? 0),
+    Deleted: formatDeleted(data.packagesDeleted[row.key] ?? 0),
+    Rejected: formatDeleted(data.packagesRejected[row.key] ?? 0),
+  }));
+
+  const sections: AdminEmailSection[] = [
+    {
+      title: "Operations Summary",
+      table: {
+        columns: [
+          { key: "metric", label: "Metric" },
+          { key: "value", label: "Value", align: "right" },
+        ],
+        rows: [
+          { metric: "Jobs run", value: String(data.jobsRun) },
+          { metric: "Sources paused", value: String(data.sourcesPaused) },
+          { metric: "Sources resumed", value: String(data.sourcesResumed) },
+          { metric: "Invalid public rows (current)", value: String(data.invalidPublicRowCount) },
+          {
+            metric: "Invalid rows deleted",
+            value: String(data.invalidPublicRowsDeleted),
+          },
+          { metric: "Worker uptime", value: `${Math.round(data.workerUptimePct * 100)}%` },
+          {
+            metric: "Queue reliability",
+            value: `${Math.round(data.queueReliabilityPct * 100)}%`,
+          },
+        ],
+      },
+    },
+    {
+      title: "Per-Content-Type Counts",
+      table: {
+        columns: [
+          { key: "Content", label: "Content" },
+          { key: "Created", label: "Created", align: "right" },
+          { key: "Updated", label: "Updated", align: "right" },
+          { key: "Deleted", label: "Deleted", align: "right" },
+          { key: "Rejected", label: "Rejected", align: "right" },
+        ],
+        rows: ctRows,
+      },
+    },
+  ];
+
+  if (data.contentTypesBelowThreshold.length > 0) {
+    sections.push({
+      title: "Content Types Below Threshold",
+      table: {
+        columns: [
+          { key: "ct", label: "Content type" },
+          { key: "current", label: "Current", align: "right" },
+          { key: "target", label: "Target", align: "right" },
+          { key: "pct", label: "Complete %", align: "right" },
+        ],
+        rows: data.contentTypesBelowThreshold.map((b) => ({
+          ct: b.contentType,
+          current: String(b.currentCount),
+          target: String(b.target),
+          pct: `${Math.round(b.pct * 100)}%`,
+        })),
+      },
+    });
+  }
+
+  if (data.stalledContentTypes.length > 0) {
+    sections.push({
+      title: "Stalled Content Types",
+      paragraphs: [
+        `These content types did not grow this month: ${data.stalledContentTypes.join(", ")}. ` +
+          `Investigate the source health for each — likely needs a paused source resumed or ` +
+          `a new source added.`,
+      ],
+    });
+  }
+
+  if (data.topFailureReasons.length > 0) {
+    sections.push({
+      title: "Top Failure Reasons",
+      table: {
+        columns: [
+          { key: "category", label: "Failure category" },
+          { key: "count", label: "Count", align: "right" },
+        ],
+        rows: data.topFailureReasons.map((r) => ({
+          category: r.category,
+          count: String(r.count),
+        })),
+      },
+    });
+  }
+
+  if (data.topSuccessfulSources.length > 0) {
+    sections.push({
+      title: "Top Successful Sources",
+      table: {
+        columns: [
+          { key: "host", label: "Host" },
+          { key: "saved", label: "Saved this month", align: "right" },
+        ],
+        rows: data.topSuccessfulSources.map((s) => ({
+          host: s.host,
+          saved: String(s.saved),
+        })),
+      },
+    });
+  }
+
+  const rendered = renderAdminEmail({
+    subject: "Monthly Data Management Report",
+    heading: "Monthly Data Management Report",
+    intro,
+    sections,
+  });
+  return sendAdminEmail({
+    flow: "monthly_data_management",
+    subject: rendered.subject,
+    textBody: rendered.textBody,
+    htmlBody: rendered.htmlBody,
+  });
+}

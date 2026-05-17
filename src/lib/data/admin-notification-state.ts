@@ -23,6 +23,7 @@ export type FlowKey =
   | "monthly_archive_cleanup"
   | "monthly_error_report"
   | "monthly_source_quality"
+  | "monthly_data_management"
   | `milestone:${string}`
   | `alert:${string}`;
 
