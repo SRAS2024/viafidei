@@ -6,7 +6,6 @@ import { getBacklogProgress } from "@/lib/ingestion/scheduler";
 import { ensureVaticanSchedule } from "@/lib/ingestion/sources";
 import { markOverdueGoals } from "@/lib/data/goals";
 import {
-  archiveDuplicatePrayers,
   cleanupMiscategorisedContent,
   pruneOldAuditLogs,
   pruneOldIngestionRuns,
@@ -18,7 +17,6 @@ import {
   sendThresholdCheckFailedWarning,
 } from "@/lib/data/admin-notifications";
 import { pruneOldErrorLogs } from "@/lib/data/error-log";
-import { runCatalogJanitor } from "@/lib/data/catalog-janitor";
 import {
   recoverStaleJobs,
   enqueueDueIngestionJobs,
@@ -121,53 +119,69 @@ export async function POST(req: NextRequest) {
   const [prunedRateLimits, prunedTokens, overdueGoals, prunedRuns, prunedAudits, prunedErrors] =
     housekeeping;
 
-  let miscategorised: Awaited<ReturnType<typeof cleanupMiscategorisedContent>> = {
+  // Cleanup execution lives in the worker now. The cron route only
+  // enqueues the work — strict_cleanup / archive_cleanup /
+  // dedupe_cleanup all run inside the worker process. We surface zero
+  // counts here so the existing log payload shape is preserved.
+  const miscategorised: Awaited<ReturnType<typeof cleanupMiscategorisedContent>> = {
     buckets: [],
     totalArchived: 0,
   };
-  let duplicatePrayers = 0;
-  let purged: Awaited<ReturnType<typeof purgeArchivedByArchivedAt>> = {
+  const duplicatePrayers = 0;
+  const purged: Awaited<ReturnType<typeof purgeArchivedByArchivedAt>> = {
     buckets: [],
     totalDeleted: 0,
   };
 
   if (dataManagement.autoCleanupEnabled) {
-    // Sweep through every published content row and archive anything
-    // that looks like a TV listing, source byline, newsletter blurb,
-    // or one-line stub. Then permanently delete anything that has been
-    // archived for long enough (default 30 days) so the catalog stays
-    // lean and the pipeline self-corrects.
-    //
-    // Hard delete now uses `archivedAt` (not `updatedAt`) — see
-    // archive-cleanup.ts for the rationale. The retention window is
-    // measured from the actual archive event, not the last write.
-    [miscategorised, duplicatePrayers, purged] = await Promise.all([
-      cleanupMiscategorisedContent(),
-      archiveDuplicatePrayers(),
-      purgeArchivedByArchivedAt(
-        dataManagement.hardDeleteAfterDays ?? appConfig.ingestion.archiveRetentionDays,
-      ),
-    ]);
+    // Enqueue cleanup jobs into the durable queue. The worker
+    // executes them on the same Postgres advisory lock the cron used
+    // to hold, so behaviour is identical from the admin's
+    // perspective — but the cron route returns immediately, letting
+    // the worker scale independently.
+    try {
+      const { enqueueJob } = await import("@/lib/ingestion/queue");
+      const retentionDays =
+        dataManagement.hardDeleteAfterDays ?? appConfig.ingestion.archiveRetentionDays;
+      await Promise.all([
+        enqueueJob({
+          jobName: "strict_cleanup_scheduled",
+          jobKind: "strict_cleanup",
+          dedupeKey: `strict_cleanup_${new Date().toISOString().slice(0, 13)}`,
+          payload: { sweepReason: "scheduled" },
+          triggeredBy: "automatic",
+        }),
+        enqueueJob({
+          jobName: "dedupe_cleanup_scheduled",
+          jobKind: "dedupe_cleanup",
+          dedupeKey: `dedupe_cleanup_${new Date().toISOString().slice(0, 13)}`,
+          payload: {},
+          triggeredBy: "automatic",
+        }),
+        enqueueJob({
+          jobName: "archive_cleanup_scheduled",
+          jobKind: "archive_cleanup",
+          dedupeKey: `archive_cleanup_${new Date().toISOString().slice(0, 13)}`,
+          payload: { retentionDays },
+          triggeredBy: "automatic",
+        }),
+      ]).catch((e) => {
+        logger.warn("cron.cleanup_enqueue_failed", {
+          requestId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      });
+    } catch (e) {
+      logger.warn("cron.cleanup_enqueue_setup_failed", {
+        requestId,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
   }
 
-  // Catalog janitor: runs every tick regardless of the auto-cleanup
-  // toggle so the catalog is continuously self-maintaining. The
-  // janitor inspects every PUBLISHED row, re-runs the
-  // format/clean/validate pipeline against it, repackages text that
-  // can be cleaned up (e.g. strips a stale "| EWTN" brand suffix
-  // from an old prayer title), hard-deletes any row classified as
-  // noise (landing page / nav cruft / meta-description), and diverts
-  // soft fails to REVIEW. This is the user-facing intelligent
-  // self-managing layer the admin can rely on without manual
-  // intervention.
-  const janitor = await runCatalogJanitor().catch((e) => {
-    logger.warn("cron.catalog_janitor.failed", {
-      route: "/api/cron/ingest",
-      requestId,
-      error: e instanceof Error ? e.message : String(e),
-    });
-    return { buckets: [], totalRepackaged: 0, totalHardDeleted: 0, totalDivertedToReview: 0 };
-  });
+  // Catalog janitor runs as a queued content_revalidate job, not
+  // inline. See dispatch.ts for the implementation.
+  const janitor = { buckets: [], totalRepackaged: 0, totalHardDeleted: 0, totalDivertedToReview: 0 };
 
   // Admin notification dispatch — runs after ingestion + cleanup so the
   // biweekly + monthly digests reflect this tick's activity. Each

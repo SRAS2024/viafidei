@@ -64,6 +64,67 @@ export async function generateMetadata({ params }: Props) {
   });
 }
 
+type NovenaDay = {
+  dayNumber?: number;
+  title?: string;
+  intention?: string;
+  openingPrayer?: string;
+  scripture?: string;
+  reflection?: string;
+  dayPrayer?: string;
+  closingPrayer?: string;
+};
+
+function NovenaDaysSection({ metadata }: { metadata: Record<string, unknown> }) {
+  const days = Array.isArray(metadata.days) ? (metadata.days as NovenaDay[]) : [];
+  if (days.length === 0) return null;
+  return (
+    <section className="mt-10 vf-card rounded-sm p-6 sm:p-8">
+      <h2 className="mb-6 font-display text-2xl">Novena days</h2>
+      <div className="space-y-3">
+        {days.map((day, idx) => (
+          <details key={idx} className="rounded-sm border border-stone-200 p-3">
+            <summary className="font-display text-lg cursor-pointer">
+              Day {day.dayNumber ?? idx + 1}
+              {day.title ? ` — ${day.title}` : ""}
+            </summary>
+            <div className="mt-3 space-y-3 font-serif text-sm text-ink-soft">
+              {day.intention ? <p><strong>Intention:</strong> {day.intention}</p> : null}
+              {day.openingPrayer ? (
+                <details className="rounded-sm border border-stone-100 p-2">
+                  <summary className="cursor-pointer font-medium">Opening prayer</summary>
+                  <p className="mt-2 whitespace-pre-wrap">{day.openingPrayer}</p>
+                </details>
+              ) : null}
+              {day.scripture ? (
+                <details className="rounded-sm border border-stone-100 p-2">
+                  <summary className="cursor-pointer font-medium">Scripture</summary>
+                  <p className="mt-2 whitespace-pre-wrap">{day.scripture}</p>
+                </details>
+              ) : null}
+              {day.reflection ? (
+                <p className="whitespace-pre-wrap"><strong>Reflection:</strong> {day.reflection}</p>
+              ) : null}
+              {day.dayPrayer ? (
+                <details className="rounded-sm border border-stone-100 p-2">
+                  <summary className="cursor-pointer font-medium">Day prayer</summary>
+                  <p className="mt-2 whitespace-pre-wrap">{day.dayPrayer}</p>
+                </details>
+              ) : null}
+              {day.closingPrayer ? (
+                <details className="rounded-sm border border-stone-100 p-2">
+                  <summary className="cursor-pointer font-medium">Closing prayer</summary>
+                  <p className="mt-2 whitespace-pre-wrap">{day.closingPrayer}</p>
+                </details>
+              ) : null}
+            </div>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default async function DevotionDetailPage({ params }: Props) {
   const { t, locale } = await getTranslator();
   const { slug } = await params;
@@ -145,6 +206,10 @@ export default async function DevotionDetailPage({ params }: Props) {
             {practiceText}
           </p>
         </article>
+      ) : null}
+
+      {devotion.subtype === "novena" && devotion.packageMetadata ? (
+        <NovenaDaysSection metadata={devotion.packageMetadata as Record<string, unknown>} />
       ) : null}
 
       {steps.length > 0 ? (
