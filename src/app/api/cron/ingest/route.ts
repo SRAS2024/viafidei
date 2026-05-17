@@ -313,6 +313,27 @@ export async function POST(req: NextRequest) {
     return { sent: [] as string[] };
   });
 
+  // Content factory growth intelligence: detect when jobs run but no
+  // packages are built, when builds happen but QA fails, when sources
+  // produce mostly duplicates, when sources are exhausted, and either
+  // remediate automatically (re-enqueue revalidate, demote source) or
+  // file an admin alert when automation cannot resolve the issue.
+  const growthIntel = await (async () => {
+    try {
+      const { runGrowthIntelligence } = await import("@/lib/content-factory");
+      return await runGrowthIntelligence();
+    } catch (e) {
+      logger.warn("cron.growth_intelligence_failed", {
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return {
+        signalsDetected: [] as string[],
+        remediationsApplied: [] as string[],
+        adminAlertsFired: [] as string[],
+      };
+    }
+  })();
+
   // Queue history retention pruner — cheap deleteMany call.
   const prunedQueueHistory = await pruneQueueHistory().catch(() => ({
     completed: 0,
@@ -383,6 +404,7 @@ export async function POST(req: NextRequest) {
     janitor,
     alerts,
     adminNotifications,
+    growthIntel,
   });
 }
 

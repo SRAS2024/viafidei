@@ -29,6 +29,7 @@ export { enrichPackage } from "./enrich";
 export { persistBuiltPackage, type PersistResult, type PersistBuiltPackageInput } from "./persist";
 export { runContentFactory, type FactoryRunInput, type FactoryRunResult } from "./factory";
 export { recordScoreEvent, listSourceQualityScores } from "./source-scoring";
+export { runGrowthIntelligence, type GrowthIntelligenceReport } from "./growth-intelligence";
 export {
   BUILDER_REGISTRY,
   getBuilder,
