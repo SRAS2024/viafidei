@@ -167,7 +167,13 @@ export async function loadContentFactoryDashboard(): Promise<FactoryDashboardDat
 
   const sourceDocCount = sourceDocAgg instanceof Error ? 0 : (sourceDocAgg._count._all ?? 0);
   const lastSourceFetch = sourceDocAgg instanceof Error ? null : sourceDocAgg._max.fetchedAt;
-  const lastSourceDiscovery = lastSourceFetch; // discovery shares the timestamp until split
+  // Source discovery is tracked separately on DiscoveredSourceItem.
+  // We read the most recent discoveredAt across all sources so the
+  // dashboard shows distinct fetch vs discovery timestamps.
+  const discoveryAgg = await Promise.resolve(
+    prisma.discoveredSourceItem.aggregate({ _max: { discoveredAt: true } }),
+  ).catch(() => null);
+  const lastSourceDiscovery = discoveryAgg ? (discoveryAgg._max?.discoveredAt ?? null) : null;
 
   const buildSuccessCount = (() => {
     if (buildAgg instanceof Error) return -1;

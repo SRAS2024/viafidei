@@ -32,7 +32,13 @@ export type SourceScoreEvent =
   | { kind: "discovered"; sourceId: string; contentType: string }
   | { kind: "fetched"; sourceId: string; contentType: string }
   | { kind: "build_success"; sourceId: string; contentType: string; completeness?: number }
-  | { kind: "build_failure"; sourceId: string; contentType: string; reason?: string }
+  | {
+      kind: "build_failure";
+      sourceId: string;
+      contentType: string;
+      reason?: string;
+      completeness?: number;
+    }
   | { kind: "qa_pass"; sourceId: string; contentType: string }
   | { kind: "qa_fail"; sourceId: string; contentType: string; reason?: string }
   | { kind: "deleted"; sourceId: string; contentType: string }
@@ -146,6 +152,28 @@ async function recomputeAndMaybePause(rowId: string, event: SourceScoreEvent): P
   const totalContent = row.qaPassCount + row.qaFailCount;
   const validPackageRate = totalAttempts > 0 ? row.buildSuccessCount / totalAttempts : null;
   const wrongContentRate = totalContent > 0 ? row.wrongContentCount / totalContent : null;
+  // averageCompleteness:
+  //   - build_success contributes 1.0 (the row had every required field)
+  //   - build_failure contributes the completeness reported by the
+  //     builder (between 0 and 1 — fraction of required fields present).
+  //   When `completeness` isn't provided, build_failure contributes 0.
+  // We approximate the running average as:
+  //   (buildSuccessCount * 1 + buildFailureCount * priorCompleteness)
+  //   / totalAttempts
+  // and weight in the event's completeness so the metric trends.
+  const eventCompleteness =
+    event.kind === "build_success"
+      ? 1
+      : event.kind === "build_failure"
+        ? (event.completeness ?? 0)
+        : null;
+  let averageCompleteness: number | null = row.averageCompleteness ?? null;
+  if (totalAttempts > 0) {
+    const priorAvg = row.averageCompleteness ?? 0;
+    const priorWeight = totalAttempts - 1;
+    const eventContribution = eventCompleteness ?? priorAvg;
+    averageCompleteness = (priorAvg * priorWeight + eventContribution) / totalAttempts;
+  }
   let shouldPause = row.autoPaused;
   let pauseReason: string | null = null;
   if (!row.autoPaused) {
@@ -177,6 +205,7 @@ async function recomputeAndMaybePause(rowId: string, event: SourceScoreEvent): P
     data: {
       validPackageRate,
       wrongContentRate,
+      averageCompleteness,
       autoPaused: shouldPause,
       autoPausedAt: shouldPause && !row.autoPaused ? new Date() : row.autoPausedAt,
     },
