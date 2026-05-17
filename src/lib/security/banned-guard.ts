@@ -1,14 +1,21 @@
 /**
- * Server-side guard for the banned-device middleware. Node-runtime
- * route handlers and page handlers call `assertNotBanned(req)` to
- * short-circuit a request before any side effect runs.
+ * Server-side guard for banned devices. Two entry points:
  *
- * The guard is read-only: it cannot unban. Returning `null` means
- * "allow the request"; returning a Response means "stop and serve
- * the 403 page".
+ *   * `assertNotBanned(req)` — for Node-runtime route handlers
+ *     (`/api/*`). Returns a 403 Response when the request's device
+ *     credential is banned, `null` otherwise.
+ *
+ *   * `isCurrentDeviceBanned()` — for Server Components / layouts.
+ *     Reads the device cookie via `next/headers` and returns a
+ *     boolean. The caller redirects or renders an error page.
+ *
+ * The guard is read-only: it cannot unban. The "no admin unban UI"
+ * rule is enforced by not exposing the inverse function from this
+ * module or anywhere else in the codebase.
  */
 
 import { type NextRequest } from "next/server";
+import { cookies } from "next/headers";
 import { isDeviceBanned, recordBannedDeviceHit } from "./security-event-store";
 import { DEVICE_CREDENTIAL_COOKIE } from "@/middleware";
 
@@ -38,4 +45,20 @@ export async function assertNotBanned(req: NextRequest): Promise<Response | null
     status: 403,
     headers: { "content-type": "text/plain; charset=utf-8" },
   });
+}
+
+/**
+ * Server Component / layout variant. Reads the device cookie via
+ * `next/headers` and returns true when the device is banned. Records
+ * a hit so the admin page can see banned-device retries.
+ */
+export async function isCurrentDeviceBanned(): Promise<boolean> {
+  const store = await cookies();
+  const credential = store.get(DEVICE_CREDENTIAL_COOKIE)?.value ?? null;
+  if (!credential) return false;
+  const banned = await isDeviceBanned(credential).catch(() => false);
+  if (banned) {
+    await recordBannedDeviceHit(credential).catch(() => undefined);
+  }
+  return banned;
 }

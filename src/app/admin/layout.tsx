@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "../globals.css";
 import { getLocale, getTranslator } from "@/lib/i18n/server";
 import { SecurityTamperDetector } from "@/components/SecurityTamperDetector";
+import { isCurrentDeviceBanned } from "@/lib/security/banned-guard";
 
 export const metadata: Metadata = {
   title: "Administrator · Via Fidei",
@@ -9,6 +10,25 @@ export const metadata: Metadata = {
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // Banned-device gate at the admin boundary. A banned device cannot
+  // see any admin page — the layout short-circuits before any nested
+  // server component runs, and there is no admin UI to lift the ban.
+  if (await isCurrentDeviceBanned()) {
+    return (
+      <div lang="en" data-admin-banned className="min-h-screen">
+        <main
+          className="mx-auto max-w-2xl px-6 pt-32 pb-20 text-center"
+          data-testid="admin-banned-block"
+        >
+          <h1 className="font-display text-4xl text-ink">Access denied</h1>
+          <p className="mt-4 font-serif text-ink-soft">
+            This device has been banned by a Security Breach response. Bans are permanent.
+          </p>
+        </main>
+      </div>
+    );
+  }
+
   const locale = await getLocale();
   const { t } = await getTranslator();
   return (
