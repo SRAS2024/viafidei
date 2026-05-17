@@ -1,10 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
-import {
-  reportSecurityBreach,
-  reportSuspiciousActivity,
-} from "@/lib/security/security-events";
+import { reportSecurityBreach, reportSuspiciousActivity } from "@/lib/security/security-events";
 import { recordTamperEvent } from "@/lib/security/tamper-counter";
 import { getClientIp, getUserAgent } from "@/lib/security/request";
 import { DEVICE_CREDENTIAL_COOKIE } from "@/middleware";

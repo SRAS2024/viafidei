@@ -14,7 +14,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const reportSuspiciousActivityMock = vi.fn().mockResolvedValue(undefined);
 const reportSecurityBreachMock = vi.fn().mockResolvedValue(undefined);
-const rateLimitMock = vi.fn().mockResolvedValue({ ok: true, remaining: 10, resetAt: Date.now() + 60_000 });
+const rateLimitMock = vi
+  .fn()
+  .mockResolvedValue({ ok: true, remaining: 10, resetAt: Date.now() + 60_000 });
 
 vi.mock("@/lib/security/security-events", () => ({
   reportSecurityBreach: (...args: unknown[]) => reportSecurityBreachMock(...args),

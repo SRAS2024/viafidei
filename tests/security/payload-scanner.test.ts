@@ -16,7 +16,7 @@ describe("payload scanner — flags obvious threats", () => {
   });
 
   it("flags inline event handlers (onclick, onerror, ...)", () => {
-    const t = scanForThreats({ body: "<img src=x onerror=\"alert(1)\">" });
+    const t = scanForThreats({ body: '<img src=x onerror="alert(1)">' });
     expect(t?.kind).toBe("event_handler");
   });
 
@@ -80,5 +80,50 @@ describe("payload scanner — flags obvious threats", () => {
     expect(scanForThreats(42)).toBeNull();
     expect(scanForThreats({})).toBeNull();
     expect(scanForThreats([])).toBeNull();
+  });
+});
+
+describe("payload scanner — flags factory-gate bypass attempts", () => {
+  it("flags a top-level publicRenderReady key", () => {
+    const t = scanForThreats({ slug: "ok", publicRenderReady: true });
+    expect(t?.kind).toBe("factory_gate_bypass");
+    expect(t?.match).toBe("publicRenderReady");
+  });
+
+  it("flags a top-level isThresholdEligible key", () => {
+    const t = scanForThreats({ defaultTitle: "ok", isThresholdEligible: true });
+    expect(t?.kind).toBe("factory_gate_bypass");
+    expect(t?.match).toBe("isThresholdEligible");
+  });
+
+  it("flags packageValidationStatus / contentPackageVersion / lastPackageValidatedAt", () => {
+    expect(scanForThreats({ packageValidationStatus: "valid" })?.kind).toBe("factory_gate_bypass");
+    expect(scanForThreats({ contentPackageVersion: "v2" })?.kind).toBe("factory_gate_bypass");
+    expect(scanForThreats({ lastPackageValidatedAt: new Date() })?.kind).toBe(
+      "factory_gate_bypass",
+    );
+  });
+
+  it("flags a nested publicRenderReady key (any depth)", () => {
+    const t = scanForThreats({
+      slug: "ok",
+      packageMetadata: {
+        deeplyNested: {
+          publicRenderReady: true,
+        },
+      },
+    });
+    expect(t?.kind).toBe("factory_gate_bypass");
+  });
+
+  it("flags publicRenderReady even when set to false (the field itself is forbidden, not the value)", () => {
+    const t = scanForThreats({ slug: "ok", publicRenderReady: false });
+    expect(t?.kind).toBe("factory_gate_bypass");
+  });
+
+  it("does NOT flag content fields whose names merely contain similar substrings", () => {
+    // "renderReady" alone is fine — only the exact factory-managed keys are forbidden.
+    expect(scanForThreats({ renderReady: true })).toBeNull();
+    expect(scanForThreats({ eligibility: "yes" })).toBeNull();
   });
 });

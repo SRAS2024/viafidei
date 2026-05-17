@@ -17,9 +17,31 @@
  */
 
 export type PayloadThreat = {
-  kind: "script_tag" | "javascript_url" | "event_handler" | "sql_keyword_chain" | "shell_redirect";
+  kind:
+    | "script_tag"
+    | "javascript_url"
+    | "event_handler"
+    | "sql_keyword_chain"
+    | "shell_redirect"
+    | "factory_gate_bypass";
   match: string;
 };
+
+/**
+ * Field names that may NEVER appear in an admin-supplied payload —
+ * these are exclusively managed by the content factory's
+ * persistBuiltPackage() after strict QA accepts a package. An
+ * attempt to set them from the API surface is a factory-bypass
+ * attempt and gets logged as a Security Breach.
+ */
+const FACTORY_GATE_FIELDS = new Set([
+  "publicRenderReady",
+  "isThresholdEligible",
+  "packageValidationStatus",
+  "contentPackageVersion",
+  "lastPackageValidatedAt",
+  "packageContractVersion",
+]);
 
 const SCRIPT_TAG_RE = /<script\b[^>]*>[\s\S]*?<\/script>/i;
 const JS_URL_RE = /\bjavascript\s*:\s*[^\s"']{3,}/i;
@@ -35,6 +57,11 @@ const SHELL_REDIRECT_RE = /;\s*(?:rm\s+-rf|wget\s+http|curl\s+-O|nc\s+-e|bash\s+
  * Scan an arbitrary content payload (string OR nested object/array
  * of strings) for known threat patterns. Returns the first threat
  * it finds, or `null` when no patterns match.
+ *
+ * Object scanning also detects factory-gate field-name bypass
+ * attempts: any key in FACTORY_GATE_FIELDS at any nesting level
+ * fires `factory_gate_bypass` so the admin-mutation gate can log
+ * the attempt as a Security Breach.
  */
 export function scanForThreats(payload: unknown): PayloadThreat | null {
   if (payload == null) return null;
@@ -47,7 +74,10 @@ export function scanForThreats(payload: unknown): PayloadThreat | null {
     return null;
   }
   if (typeof payload === "object") {
-    for (const value of Object.values(payload as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(payload as Record<string, unknown>)) {
+      if (FACTORY_GATE_FIELDS.has(key)) {
+        return { kind: "factory_gate_bypass", match: key };
+      }
       const hit = scanForThreats(value);
       if (hit) return hit;
     }

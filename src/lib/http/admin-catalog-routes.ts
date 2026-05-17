@@ -19,10 +19,9 @@ import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
  * Returns a Response when the request must be rejected, or a
  * `{ ok: true, admin }` envelope when the caller may proceed.
  */
-async function gateMutation(req: NextRequest): Promise<
-  | { ok: true; admin: { username: string } }
-  | { ok: false; response: Response }
-> {
+async function gateMutation(
+  req: NextRequest,
+): Promise<{ ok: true; admin: { username: string } } | { ok: false; response: Response }> {
   // CSRF check first. A failed check is a Security Breach — the
   // attacker is attempting a cross-origin admin mutation.
   const decision = evaluateCsrf(req);

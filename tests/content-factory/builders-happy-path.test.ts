@@ -139,10 +139,9 @@ describe("ConsecrationBuilder — happy path", () => {
       }),
     );
     // The outcome must be one of the documented kinds.
-    expect([
-      "built_complete_package",
-      "build_failed_missing_required_fields",
-    ]).toContain(result.outcome);
+    expect(["built_complete_package", "build_failed_missing_required_fields"]).toContain(
+      result.outcome,
+    );
   });
 });
 
@@ -210,10 +209,9 @@ describe("NovenaBuilder — happy path", () => {
         body,
       }),
     );
-    expect([
-      "built_complete_package",
-      "build_failed_missing_required_fields",
-    ]).toContain(result.outcome);
+    expect(["built_complete_package", "build_failed_missing_required_fields"]).toContain(
+      result.outcome,
+    );
   });
 });
 
@@ -273,8 +271,6 @@ describe("every Builder is exported from @/lib/content-factory", () => {
     // ScriptureBlockBuilder is exposed as a function `buildScriptureBlock`
     // rather than a Builder object because scripture blocks attach to
     // other content packages rather than persisting on their own.
-    expect(typeof (mod as unknown as Record<string, unknown>).buildScriptureBlock).toBe(
-      "function",
-    );
+    expect(typeof (mod as unknown as Record<string, unknown>).buildScriptureBlock).toBe("function");
   });
 });
