@@ -113,7 +113,6 @@ would call attention to:
   uncertain content as public or failed content as review. The only
   ingestion execution model is Planner → Queue → Worker → Content
   Builder → Strict QA → Persistence → Public Render Gate → Monitoring.
-
   - **SourceDocument** — every fetched page becomes a normalized
     SourceDocument row with cleaned body / headings / paragraphs /
     lists / links / metadata + content checksums. Builders read
@@ -163,7 +162,6 @@ would call attention to:
     per-source quality scores. Every metric distinguishes "real zero"
     from "query failed → diagnostic error" so the dashboard never
     silently shows zero because it is disconnected.
-
 
 - **Ingestion as a first-class subsystem.** A curated allowlist of Vatican,
   USCCB, and dicastery hosts gates every fetch (`gateUrl` /
