@@ -29,6 +29,7 @@ beforeEach(() => {
   hoisted.sendCriticalFailureAlertMock.mockResolvedValue({ ok: true, delivery: "sent" });
   prismaMock.adminNotificationState.findUnique.mockResolvedValue(null);
   prismaMock.adminNotificationState.upsert.mockResolvedValue({});
+  prismaMock.errorLog.create.mockResolvedValue({});
   // Healthy defaults so each test enables exactly one alert.
   prismaMock.dataManagementLog.findFirst.mockResolvedValue({
     createdAt: new Date(),
@@ -64,6 +65,13 @@ describe("runStrictQAAlerts", () => {
     expect(result.invalidPublicAlerted).toBe(true);
     const kinds = hoisted.sendCriticalFailureAlertMock.mock.calls.map((c) => c[0].kind);
     expect(kinds).toContain("strict_qa_invalid_public_rows");
+  });
+
+  it("also writes the alert to ErrorLog so the monthly error report picks it up", async () => {
+    prismaMock.prayer.count.mockResolvedValue(5);
+    await runStrictQAAlerts();
+    const errorKinds = prismaMock.errorLog.create.mock.calls.map((c) => c[0].data.kind);
+    expect(errorKinds).toContain("strict_qa.invalid_public_rows");
   });
 
   it("fires stale_cleanup alert when no CLEANUP log row exists", async () => {
