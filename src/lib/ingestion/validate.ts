@@ -1,3 +1,22 @@
+/**
+ * LEGACY (Section 6 deprecation marker).
+ *
+ * This module is the pre-strict-QA validator. It still ships because
+ * `sanitize()` is reused by the runner's pre-processing step, and
+ * because `validateItem()` is referenced by `strict-qa-bridge.ts` as
+ * a structural sanity check before the strict pipeline runs.
+ *
+ * It must NOT be the authoritative validator. Production validity is
+ * enforced by `src/lib/content-qa/pipeline.ts` (runStrictPipeline +
+ * per-contract validators). Any new code path that needs to "validate
+ * content" should import from `@/lib/content-qa`, NOT from here.
+ *
+ * Audit: this file is allowed to remain in the tree, but its export
+ * surface is frozen — no new public symbols, no new responsibilities.
+ * Section 6 removal will follow once the runner has been refactored
+ * to depend on `sanitize` exclusively (and not `validateItem`).
+ */
+
 import type { IngestedItem } from "./types";
 import { normalizeSlug } from "./slug";
 import { isApprovedUrl } from "./sources/vatican-allowlist";
