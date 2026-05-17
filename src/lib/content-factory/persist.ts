@@ -39,6 +39,7 @@ import type { ContentStatus } from "@prisma/client";
 import { prisma } from "../db/client";
 import { logger } from "../observability/logger";
 import { recordDataManagementLogs } from "../data/data-management-log";
+import { snapshotPreviousVersion } from "../ingestion/apply-decision";
 import type { ContractValidationResult } from "../content-qa/types";
 import type { ContentPackage } from "./types";
 import { normalizePackage } from "./normalize";
@@ -289,6 +290,15 @@ async function persistPrayerCanonical(
         reason: "duplicate content checksum",
       };
     }
+    // Snapshot the previous version into ContentVersion so the admin
+    // can see what changed before we overwrite the row. Per spec:
+    // "It should create content version history for meaningful updates."
+    await snapshotPreviousVersion(
+      "prayer",
+      existing,
+      ready.contentChecksum ?? "",
+      pkg.sourceUrl,
+    ).catch(() => undefined);
     await prisma.prayer.update({
       where: { id: existing.id },
       data: {
@@ -361,6 +371,12 @@ async function persistSaintCanonical(
         reason: "duplicate content checksum",
       };
     }
+    await snapshotPreviousVersion(
+      "saint",
+      existing,
+      ready.contentChecksum ?? "",
+      pkg.sourceUrl,
+    ).catch(() => undefined);
     await prisma.saint.update({
       where: { id: existing.id },
       data: {
@@ -432,6 +448,12 @@ async function persistApparitionCanonical(
         reason: "duplicate content checksum",
       };
     }
+    await snapshotPreviousVersion(
+      "apparition",
+      existing,
+      ready.contentChecksum ?? "",
+      pkg.sourceUrl,
+    ).catch(() => undefined);
     await prisma.marianApparition.update({
       where: { id: existing.id },
       data: {
@@ -519,6 +541,12 @@ async function persistDevotionCanonical(
         reason: "duplicate content checksum",
       };
     }
+    await snapshotPreviousVersion(
+      "devotion",
+      existing,
+      ready.contentChecksum ?? "",
+      pkg.sourceUrl,
+    ).catch(() => undefined);
     await prisma.devotion.update({
       where: { id: existing.id },
       data: {
@@ -611,6 +639,12 @@ async function persistGuideCanonical(
         reason: "duplicate content checksum",
       };
     }
+    await snapshotPreviousVersion(
+      "guide",
+      existing,
+      ready.contentChecksum ?? "",
+      pkg.sourceUrl,
+    ).catch(() => undefined);
     await prisma.spiritualLifeGuide.update({
       where: { id: existing.id },
       data: {
@@ -699,6 +733,12 @@ async function persistLiturgyCanonical(
         reason: "duplicate content checksum",
       };
     }
+    await snapshotPreviousVersion(
+      "liturgy",
+      existing,
+      ready.contentChecksum ?? "",
+      pkg.sourceUrl,
+    ).catch(() => undefined);
     await prisma.liturgyEntry.update({
       where: { id: existing.id },
       data: {
@@ -783,6 +823,12 @@ async function persistParishCanonical(
         reason: "duplicate content checksum",
       };
     }
+    await snapshotPreviousVersion(
+      "parish",
+      existing,
+      ready.contentChecksum ?? "",
+      pkg.sourceUrl,
+    ).catch(() => undefined);
     await prisma.parish.update({
       where: { id: existing.id },
       data: {

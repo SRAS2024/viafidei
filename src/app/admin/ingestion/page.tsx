@@ -93,6 +93,18 @@ export default async function AdminIngestion() {
           Why is this content not visible? →
         </Link>
         <Link
+          href="/admin/ingestion/build-failures"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Build failures →
+        </Link>
+        <Link
+          href="/admin/content-qa/deleted-log"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Deleted invalid content →
+        </Link>
+        <Link
           href="/admin/ingestion/queue"
           className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
         >
