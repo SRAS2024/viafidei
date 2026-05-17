@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { checkPasswordStrength, PASSWORD_MIN_LENGTH } from "@/lib/auth/schemas";
 
-const PASSWORD_MIN = 5;
+const PASSWORD_MIN = PASSWORD_MIN_LENGTH;
 
 export type RegisterFormLabels = {
   firstName: string;
@@ -23,10 +24,7 @@ export type RegisterFormLabels = {
 };
 
 function isStrongPassword(value: string): boolean {
-  if (value.length < PASSWORD_MIN) return false;
-  if (!/[0-9]/.test(value)) return false;
-  if (!/[A-Z]/.test(value)) return false;
-  return true;
+  return checkPasswordStrength(value) === null;
 }
 
 type ValidationKind = "weak" | "mismatch";

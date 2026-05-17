@@ -5,23 +5,72 @@ import {
   registerSchema,
   resetPasswordSchema,
   passwordSchema,
+  checkPasswordStrength,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_RULE_MESSAGE,
 } from "@/lib/auth/schemas";
 
-describe("passwordSchema", () => {
-  it("accepts a 5+ char password with a number and a capital", () => {
-    expect(passwordSchema.safeParse("Pio12").success).toBe(true);
+describe("passwordSchema — 12 chars + upper + lower + digit + special", () => {
+  it("accepts a strong password meeting every rule", () => {
+    expect(passwordSchema.safeParse("Stigm4tica!Pad").success).toBe(true);
   });
 
-  it("rejects a password shorter than 5 characters", () => {
-    expect(passwordSchema.safeParse("A1b").success).toBe(false);
+  it("rejects a password shorter than 12 characters", () => {
+    expect(passwordSchema.safeParse("Aa1!short").success).toBe(false);
   });
 
   it("rejects a password missing a number", () => {
-    expect(passwordSchema.safeParse("Padre").success).toBe(false);
+    expect(passwordSchema.safeParse("PadreAlbino!ee").success).toBe(false);
   });
 
-  it("rejects a password missing a capital letter", () => {
-    expect(passwordSchema.safeParse("padre1").success).toBe(false);
+  it("rejects a password missing an uppercase letter", () => {
+    expect(passwordSchema.safeParse("padrealb1no!!!").success).toBe(false);
+  });
+
+  it("rejects a password missing a lowercase letter", () => {
+    expect(passwordSchema.safeParse("PADREALB1NO!!!").success).toBe(false);
+  });
+
+  it("rejects a password missing a special character", () => {
+    expect(passwordSchema.safeParse("PadreAlb1noXYZ").success).toBe(false);
+  });
+
+  it("PASSWORD_MIN_LENGTH is 12", () => {
+    expect(PASSWORD_MIN_LENGTH).toBe(12);
+  });
+});
+
+describe("checkPasswordStrength", () => {
+  it("returns null for a strong password", () => {
+    expect(checkPasswordStrength("Stigm4tica!Pad")).toBeNull();
+  });
+
+  it("returns the rule message when too short", () => {
+    expect(checkPasswordStrength("Aa1!short")).toBe(PASSWORD_RULE_MESSAGE);
+  });
+
+  it("returns the rule message when missing a special character", () => {
+    expect(checkPasswordStrength("PadreAlb1noXYZ")).toBe(PASSWORD_RULE_MESSAGE);
+  });
+
+  it("returns the rule message when missing an uppercase letter", () => {
+    expect(checkPasswordStrength("padrealb1no!!!")).toBe(PASSWORD_RULE_MESSAGE);
+  });
+
+  it("returns the rule message when missing a lowercase letter", () => {
+    expect(checkPasswordStrength("PADREALB1NO!!!")).toBe(PASSWORD_RULE_MESSAGE);
+  });
+
+  it("returns the rule message when missing a number", () => {
+    expect(checkPasswordStrength("PadreAlbino!ee")).toBe(PASSWORD_RULE_MESSAGE);
+  });
+
+  it("rule message contains every advertised constraint", () => {
+    expect(PASSWORD_RULE_MESSAGE).toMatch(/12 characters/);
+    expect(PASSWORD_RULE_MESSAGE).toMatch(/uppercase letter/);
+    expect(PASSWORD_RULE_MESSAGE).toMatch(/lowercase letter/);
+    expect(PASSWORD_RULE_MESSAGE).toMatch(/number/);
+    expect(PASSWORD_RULE_MESSAGE).toMatch(/special character/);
   });
 });
 
@@ -30,8 +79,8 @@ describe("registerSchema", () => {
     firstName: "Pio",
     lastName: "Pietrelcina",
     email: "padre@example.com",
-    password: "Stigm1ata",
-    passwordConfirm: "Stigm1ata",
+    password: "Stigm4tica!Pad",
+    passwordConfirm: "Stigm4tica!Pad",
   };
 
   it("accepts a well-formed registration payload", () => {
@@ -39,18 +88,18 @@ describe("registerSchema", () => {
   });
 
   it("rejects mismatched password confirmation", () => {
-    const result = registerSchema.safeParse({ ...valid, passwordConfirm: "Different1" });
+    const result = registerSchema.safeParse({ ...valid, passwordConfirm: "Different1!Pad" });
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues.some((i) => i.path.includes("passwordConfirm"))).toBe(true);
     }
   });
 
-  it("rejects passwords shorter than 5 characters", () => {
+  it("rejects passwords shorter than 12 characters", () => {
     const result = registerSchema.safeParse({
       ...valid,
-      password: "Aa1",
-      passwordConfirm: "Aa1",
+      password: "Aa1!short",
+      passwordConfirm: "Aa1!short",
     });
     expect(result.success).toBe(false);
   });
@@ -58,17 +107,35 @@ describe("registerSchema", () => {
   it("rejects passwords without a number", () => {
     const result = registerSchema.safeParse({
       ...valid,
-      password: "Padre",
-      passwordConfirm: "Padre",
+      password: "PadreAlbino!ee",
+      passwordConfirm: "PadreAlbino!ee",
     });
     expect(result.success).toBe(false);
   });
 
-  it("rejects passwords without a capital letter", () => {
+  it("rejects passwords without an uppercase letter", () => {
     const result = registerSchema.safeParse({
       ...valid,
-      password: "padre1",
-      passwordConfirm: "padre1",
+      password: "padrealb1no!!!",
+      passwordConfirm: "padrealb1no!!!",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects passwords without a lowercase letter", () => {
+    const result = registerSchema.safeParse({
+      ...valid,
+      password: "PADREALB1NO!!!",
+      passwordConfirm: "PADREALB1NO!!!",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects passwords without a special character", () => {
+    const result = registerSchema.safeParse({
+      ...valid,
+      password: "PadreAlb1noXYZ",
+      passwordConfirm: "PadreAlb1noXYZ",
     });
     expect(result.success).toBe(false);
   });
@@ -99,24 +166,32 @@ describe("resetPasswordSchema", () => {
   it("accepts strong password with matching confirm", () => {
     const r = resetPasswordSchema.safeParse({
       token: validToken,
-      password: "Newp4ss",
-      passwordConfirm: "Newp4ss",
+      password: "Newp4ss!word!",
+      passwordConfirm: "Newp4ss!word!",
     });
     expect(r.success).toBe(true);
   });
   it("rejects mismatched confirm", () => {
     const r = resetPasswordSchema.safeParse({
       token: validToken,
-      password: "Newp4ss",
-      passwordConfirm: "Newp4XX",
+      password: "Newp4ss!word!",
+      passwordConfirm: "Newp4XX!word!",
     });
     expect(r.success).toBe(false);
   });
-  it("rejects weak password", () => {
+  it("rejects weak password (no special character)", () => {
     const r = resetPasswordSchema.safeParse({
       token: validToken,
-      password: "weak",
-      passwordConfirm: "weak",
+      password: "Newp4ssword12",
+      passwordConfirm: "Newp4ssword12",
+    });
+    expect(r.success).toBe(false);
+  });
+  it("rejects weak password (too short)", () => {
+    const r = resetPasswordSchema.safeParse({
+      token: validToken,
+      password: "Aa1!short",
+      passwordConfirm: "Aa1!short",
     });
     expect(r.success).toBe(false);
   });

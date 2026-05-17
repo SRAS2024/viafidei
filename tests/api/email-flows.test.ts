@@ -363,8 +363,8 @@ describe("reset-password POST — token consumption", () => {
     const res = await POST(
       jsonReq("http://x/api/auth/reset-password", {
         token: VALID_RESET_TOKEN,
-        password: "Newp4ss!",
-        passwordConfirm: "Newp4ss!",
+        password: "Newp4ss!Strong",
+        passwordConfirm: "Newp4ss!Strong",
       }),
     );
     expect(res.status).toBe(400);
@@ -378,8 +378,8 @@ describe("reset-password POST — token consumption", () => {
     const res = await POST(
       jsonReq("http://x/api/auth/reset-password", {
         token: VALID_RESET_TOKEN,
-        password: "Newp4ss!",
-        passwordConfirm: "Newp4ss!",
+        password: "Newp4ss!Strong",
+        passwordConfirm: "Newp4ss!Strong",
       }),
     );
     expect(res.status).toBe(400);
@@ -396,8 +396,8 @@ describe("reset-password POST — token consumption", () => {
     const res = await POST(
       jsonReq("http://x/api/auth/reset-password", {
         token: VALID_RESET_TOKEN,
-        password: "Newp4ss!",
-        passwordConfirm: "Newp4ss!",
+        password: "Newp4ss!Strong",
+        passwordConfirm: "Newp4ss!Strong",
       }),
     );
     expect(res.status).toBe(500);

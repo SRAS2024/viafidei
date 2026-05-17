@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { checkPasswordStrength, PASSWORD_MIN_LENGTH } from "@/lib/auth/schemas";
 
 type Labels = {
   newPassword: string;
@@ -29,14 +30,11 @@ type Status =
   | { kind: "success" }
   | { kind: "server_error"; message: string };
 
-const PASSWORD_MIN = 5;
+const PASSWORD_MIN = PASSWORD_MIN_LENGTH;
 const ERROR_COLOR = "#8b1a1a";
 
 function isStrongPassword(value: string): boolean {
-  if (value.length < PASSWORD_MIN) return false;
-  if (!/[0-9]/.test(value)) return false;
-  if (!/[A-Z]/.test(value)) return false;
-  return true;
+  return checkPasswordStrength(value) === null;
 }
 
 type FieldValidation = "weak" | "mismatch" | null;
