@@ -7,6 +7,7 @@ import {
   resolveCleanupPolicy,
   describeCleanupPolicy,
 } from "@/lib/content-qa";
+import { getAdminDataSourceCard } from "@/lib/diagnostics";
 import { AdminSection } from "../../_sections/AdminSection";
 import { StrictCleanupButton } from "./StrictCleanupButton";
 
@@ -32,8 +33,11 @@ export default async function ContentQADashboardPage() {
   if (!admin) redirect("/admin/login");
 
   const policy = resolveCleanupPolicy();
-  const [rows, cleanupHealth] = await Promise.all([
+  const [rows, dataSourceCard, cleanupHealth] = await Promise.all([
     getContentQADashboard().catch(() => []),
+    getAdminDataSourceCard()
+      .then((c) => c)
+      .catch(() => null as Awaited<ReturnType<typeof getAdminDataSourceCard>> | null),
     getCleanupHealth().catch((err) => {
       return {
         mode: policy.mode,
@@ -120,6 +124,33 @@ export default async function ContentQADashboardPage() {
           </p>
         </div>
       </section>
+
+      {dataSourceCard ? (
+        <section className="mt-6 vf-card rounded-sm p-4">
+          <p className="vf-eyebrow">Data sources wired to this dashboard</p>
+          <p
+            className={
+              "mt-1 font-display text-sm " +
+              (dataSourceCard.allReachable ? "text-emerald-700" : "text-red-700")
+            }
+          >
+            {dataSourceCard.allReachable
+              ? "All required tables reachable. Zero means real zero."
+              : "One or more tables unreachable — dashboard zeros may be unreliable."}
+          </p>
+          <ul className="mt-3 grid gap-1 font-mono text-xs text-ink-soft sm:grid-cols-2 lg:grid-cols-3">
+            {dataSourceCard.surfaces.map((s) => (
+              <li
+                key={s.key}
+                className={s.present ? "text-emerald-700" : "text-red-700"}
+                title={s.errorMessage}
+              >
+                {s.present ? "✓" : "✗"} {s.label} ({s.rowCount.toLocaleString()} rows)
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {failingQueries.length > 0 ? (
         <section className="mt-6 vf-card rounded-sm border-l-4 border-red-700 bg-red-50 p-4">
