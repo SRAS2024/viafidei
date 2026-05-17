@@ -227,6 +227,15 @@ export {
 export { getCleanupHealth, type CleanupHealthSummary } from "./cleanup-health";
 
 export {
+  getSystemHealthReport,
+  type SystemHealthReport,
+  type HealthScore,
+  type HealthStatus,
+} from "./health-scores";
+
+export { notifyRenderGateFailure } from "./render-gate-trigger";
+
+export {
   checkPrayerRender,
   checkSaintRender,
   checkApparitionRender,

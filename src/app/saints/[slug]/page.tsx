@@ -11,7 +11,7 @@ import { parseSaintBiography } from "@/lib/data/saint-sections";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
-import { checkSaintRender, checkApparitionRender } from "@/lib/content-qa";
+import { checkSaintRender, checkApparitionRender, notifyRenderGateFailure } from "@/lib/content-qa";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +97,11 @@ export default async function SaintDetailPage({ params }: Props) {
         entityType: "Saint",
         slug,
         reason: "validation_error",
+      });
+      void notifyRenderGateFailure({
+        contentType: "Saint",
+        slug,
+        missingFields: render.missing,
       });
       notFound();
     }
@@ -254,6 +259,11 @@ export default async function SaintDetailPage({ params }: Props) {
       entityType: "MarianApparition",
       slug,
       reason: "validation_error",
+    });
+    void notifyRenderGateFailure({
+      contentType: "MarianApparition",
+      slug,
+      missingFields: apparitionRender.missing,
     });
     notFound();
   }

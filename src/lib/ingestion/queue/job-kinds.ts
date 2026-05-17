@@ -62,18 +62,54 @@ export const sourceDiscoveryPayloadSchema = baseSourcePayload.extend({
   maxPages: z.number().int().positive().optional(),
 });
 
-export const contentRevalidatePayloadSchema = z.object({
-  contentType: z.enum([
-    "Prayer",
-    "Saint",
-    "MarianApparition",
-    "Devotion",
-    "LiturgyEntry",
-    "SpiritualLifeGuide",
-    "Parish",
-    "all",
-  ]),
-});
+export const contentRevalidatePayloadSchema = z
+  .object({
+    /** Optional content type filter — when omitted, every type is swept. */
+    contentType: z
+      .enum([
+        "Prayer",
+        "Saint",
+        "MarianApparition",
+        "Devotion",
+        "Novena",
+        "Sacrament",
+        "Rosary",
+        "Consecration",
+        "SpiritualGuidance",
+        "LiturgyEntry",
+        "SpiritualLifeGuide",
+        "Liturgy",
+        "History",
+        "Parish",
+        "all",
+      ])
+      .optional(),
+    /**
+     * Sweep label written to RejectedContentLog.sweepReason — answers
+     * "what triggered this delete?" on the dashboard.
+     */
+    sweepReason: z
+      .enum([
+        "scheduled",
+        "post_ingestion",
+        "manual",
+        "render_gate",
+        "package_version_change",
+        "rejection_spike",
+        "growth_stall",
+        "catalog_revalidate",
+      ])
+      .optional(),
+    triggeredBy: z.enum(["automatic", "manual"]).optional(),
+    sourceId: z.string().nullable().optional(),
+    workerJobId: z.string().nullable().optional(),
+    slug: z.string().optional(),
+    previousVersion: z.string().nullable().optional(),
+    newVersion: z.string().optional(),
+    windowMinutes: z.number().optional(),
+    spikeFactor: z.number().optional(),
+  })
+  .passthrough();
 
 export const archiveCleanupPayloadSchema = z
   .object({

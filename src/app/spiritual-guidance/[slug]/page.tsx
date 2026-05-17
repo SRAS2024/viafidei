@@ -9,7 +9,7 @@ import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { fetchOsmParishById, type ExternalParish } from "@/lib/data/external-parishes";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
-import { checkParishRender } from "@/lib/content-qa";
+import { checkParishRender, notifyRenderGateFailure } from "@/lib/content-qa";
 
 export const dynamic = "force-dynamic";
 
@@ -113,6 +113,11 @@ export default async function ParishDetailPage({ params }: Props) {
       entityType: "Parish",
       slug,
       reason: "validation_error",
+    });
+    void notifyRenderGateFailure({
+      contentType: "Parish",
+      slug,
+      missingFields: render.missing,
     });
     notFound();
   }
