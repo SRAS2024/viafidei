@@ -87,9 +87,7 @@ export async function GET(
   // Revoke any active sessions whose stored device-credential hash
   // matches. Best-effort — the security row is the durable record
   // regardless of whether sessions could be wiped here.
-  await prisma.session
-    .deleteMany({ where: { deviceCredentialHash } })
-    .catch(() => undefined);
+  await prisma.session.deleteMany({ where: { deviceCredentialHash } }).catch(() => undefined);
 
   logger.info("security.ban_device.banned", {
     requestId,
@@ -115,13 +113,13 @@ function renderHtml(status: number, html: string): Response {
 function buildPage({ heading, body }: { heading: string; body: string }): string {
   return [
     "<!doctype html>",
-    "<html lang=\"en\">",
+    '<html lang="en">',
     "<head>",
-    "<meta charset=\"utf-8\">",
+    '<meta charset="utf-8">',
     "<title>Via Fidei security</title>",
-    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">",
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
     "</head>",
-    "<body style=\"font-family: ui-serif, Georgia, serif; max-width: 640px; margin: 80px auto; padding: 0 24px; color: #111\">",
+    '<body style="font-family: ui-serif, Georgia, serif; max-width: 640px; margin: 80px auto; padding: 0 24px; color: #111">',
     `<h1 style=\"font-size: 28px; margin-bottom: 16px\">${escapeHtml(heading)}</h1>`,
     `<p style=\"font-size: 16px; line-height: 1.5\">${escapeHtml(body)}</p>`,
     "</body>",

@@ -17,14 +17,17 @@ const writeAuditMock = vi.fn();
 const reportSuspiciousActivityMock = vi.fn().mockResolvedValue(undefined);
 const reportSecurityBreachMock = vi.fn().mockResolvedValue(undefined);
 const sessionSaveMock = vi.fn().mockResolvedValue(undefined);
-const getSessionMock = vi
-  .fn()
-  .mockResolvedValue({ save: sessionSaveMock });
+const getSessionMock = vi.fn().mockResolvedValue({ save: sessionSaveMock });
 
 vi.mock("@/lib/auth", () => ({
   adminLoginSchema: {
     safeParse: (v: { username: string; password: string }) => {
-      if (typeof v.username === "string" && v.username.length > 0 && typeof v.password === "string" && v.password.length > 0) {
+      if (
+        typeof v.username === "string" &&
+        v.username.length > 0 &&
+        typeof v.password === "string" &&
+        v.password.length > 0
+      ) {
         return { success: true, data: v };
       }
       return { success: false };
@@ -52,9 +55,7 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 
 import type { NextRequest } from "next/server";
-import {
-  _resetAllAdminFailureCountersForTests,
-} from "@/lib/security/admin-failure-counter";
+import { _resetAllAdminFailureCountersForTests } from "@/lib/security/admin-failure-counter";
 
 beforeEach(() => {
   resetPrismaMock();

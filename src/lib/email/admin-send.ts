@@ -561,9 +561,7 @@ export async function sendSecurityBreachAlert(params: {
   if (params.banDeviceUrl) {
     sections.push({
       title: "Action",
-      paragraphs: [
-        `Ban the originating device (single-use, signed token): ${params.banDeviceUrl}`,
-      ],
+      paragraphs: [`Ban the originating device (single-use, signed token): ${params.banDeviceUrl}`],
     });
   }
   const rendered = renderAdminEmail({

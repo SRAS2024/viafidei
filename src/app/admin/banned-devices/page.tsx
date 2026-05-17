@@ -49,9 +49,7 @@ export default async function BannedDevicesPage() {
                     {row.deviceCredentialHash.slice(0, 12)}…
                   </td>
                   <td className="py-2 pr-3">{row.banReason}</td>
-                  <td className="py-2 pr-3 text-ink-soft">
-                    {row.firstSeenAt.toISOString()}
-                  </td>
+                  <td className="py-2 pr-3 text-ink-soft">{row.firstSeenAt.toISOString()}</td>
                   <td className="py-2 pr-3 text-ink-soft">{row.lastSeenAt.toISOString()}</td>
                   <td className="py-2 pr-3 font-mono text-xs">
                     {row.securityEventId ? row.securityEventId.slice(0, 12) + "…" : "—"}
@@ -61,10 +59,12 @@ export default async function BannedDevicesPage() {
             </tbody>
           </table>
         )}
-        <p className="mt-6 font-serif text-xs text-ink-faint" data-testid="banned-devices-permanent-notice">
-          Bans are permanent. There is no unban button. To re-enable access for
-          a device the only path is a manual database operation by a
-          systems-level administrator.
+        <p
+          className="mt-6 font-serif text-xs text-ink-faint"
+          data-testid="banned-devices-permanent-notice"
+        >
+          Bans are permanent. There is no unban button. To re-enable access for a device the only
+          path is a manual database operation by a systems-level administrator.
         </p>
       </div>
     </AdminSection>

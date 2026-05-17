@@ -101,11 +101,7 @@ describe("dispatch translates in-flight source_ingest rows into source_discovery
     let createdJobKind: string | undefined;
     let createdPayload: Record<string, unknown> | undefined;
     prismaMock.ingestionJobQueue.create.mockImplementation(
-      async ({
-        data,
-      }: {
-        data: { jobKind: string; payload: Record<string, unknown> };
-      }) => {
+      async ({ data }: { data: { jobKind: string; payload: Record<string, unknown> } }) => {
         createdJobKind = data.jobKind;
         createdPayload = data.payload;
         return {

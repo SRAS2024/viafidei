@@ -10,11 +10,7 @@
  */
 
 import { prisma } from "../db/client";
-import {
-  deviceCredentialFingerprint,
-  ipFingerprint,
-  userAgentFingerprint,
-} from "./hash";
+import { deviceCredentialFingerprint, ipFingerprint, userAgentFingerprint } from "./hash";
 
 export type SecurityEventClassification = "Suspicious" | "Breach";
 
@@ -128,9 +124,7 @@ export async function updateSecurityEventFlags(
 /**
  * List recent events for the admin security dashboard.
  */
-export async function listRecentSecurityEvents(
-  limit = 50,
-): Promise<SecurityEventRow[]> {
+export async function listRecentSecurityEvents(limit = 50): Promise<SecurityEventRow[]> {
   const rows = await prisma.securityEvent.findMany({
     take: limit,
     orderBy: { createdAt: "desc" },
@@ -212,7 +206,9 @@ export async function banDevice(input: BanDeviceInput): Promise<BannedDeviceRow>
  * would require a database-level INSERT, which the admin app does
  * not expose.
  */
-export async function isDeviceBanned(deviceCredential: string | null | undefined): Promise<boolean> {
+export async function isDeviceBanned(
+  deviceCredential: string | null | undefined,
+): Promise<boolean> {
   const hash = deviceCredentialFingerprint(deviceCredential);
   if (!hash) return false;
   const row = await prisma.bannedDevice.findUnique({

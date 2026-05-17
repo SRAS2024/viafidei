@@ -89,8 +89,7 @@ async function translateRemovedJobKind(job: QueueJobRow): Promise<DispatchResult
     jobName: job.jobName,
   });
   const { enqueueJob } = await import("./queue");
-  const adapterKey =
-    (job.payload as Record<string, unknown> | null)?.adapterKey ?? job.jobName;
+  const adapterKey = (job.payload as Record<string, unknown> | null)?.adapterKey ?? job.jobName;
   try {
     await enqueueJob({
       jobName: job.jobName,

@@ -18,9 +18,7 @@ import { prismaMock, resetPrismaMock } from "../helpers/prisma-mock";
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 
-const sendSuspiciousActivityAlertMock = vi
-  .fn()
-  .mockResolvedValue({ ok: true, delivery: "sent" });
+const sendSuspiciousActivityAlertMock = vi.fn().mockResolvedValue({ ok: true, delivery: "sent" });
 const sendSecurityBreachAlertMock = vi.fn().mockResolvedValue({ ok: true, delivery: "sent" });
 
 vi.mock("@/lib/email", () => ({

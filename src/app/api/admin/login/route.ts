@@ -3,10 +3,7 @@ import { adminLoginSchema, verifyAdminCredentials, getSession } from "@/lib/auth
 import { writeAudit } from "@/lib/audit";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp, getUserAgent, redirectTo } from "@/lib/security/request";
-import {
-  reportSecurityBreach,
-  reportSuspiciousActivity,
-} from "@/lib/security/security-events";
+import { reportSecurityBreach, reportSuspiciousActivity } from "@/lib/security/security-events";
 import {
   recordAdminPasswordFailure,
   resetAdminPasswordFailureCounter,

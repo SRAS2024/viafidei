@@ -101,12 +101,15 @@ export async function reportSuspiciousActivity(ev: SecurityEventInput): Promise<
   });
   if (shouldDedup(ev, "Suspicious")) return;
   try {
-    const [{ recordSecurityEvent, updateSecurityEventFlags }, { recordError }, { sendSuspiciousActivityAlert }] =
-      await Promise.all([
-        import("./security-event-store"),
-        import("../data/error-log"),
-        import("../email"),
-      ]);
+    const [
+      { recordSecurityEvent, updateSecurityEventFlags },
+      { recordError },
+      { sendSuspiciousActivityAlert },
+    ] = await Promise.all([
+      import("./security-event-store"),
+      import("../data/error-log"),
+      import("../email"),
+    ]);
     const row = await recordSecurityEvent({
       eventType: ev.kind,
       classification: "Suspicious",
@@ -176,13 +179,17 @@ export async function reportSecurityBreach(ev: SecurityEventInput): Promise<void
   });
   if (shouldDedup(ev, "Breach")) return;
   try {
-    const [{ recordSecurityEvent, updateSecurityEventFlags }, { recordError }, { sendSecurityBreachAlert }, banTokenModule] =
-      await Promise.all([
-        import("./security-event-store"),
-        import("../data/error-log"),
-        import("../email"),
-        import("./ban-token"),
-      ]);
+    const [
+      { recordSecurityEvent, updateSecurityEventFlags },
+      { recordError },
+      { sendSecurityBreachAlert },
+      banTokenModule,
+    ] = await Promise.all([
+      import("./security-event-store"),
+      import("../data/error-log"),
+      import("../email"),
+      import("./ban-token"),
+    ]);
     const row = await recordSecurityEvent({
       eventType: ev.kind,
       classification: "Breach",
