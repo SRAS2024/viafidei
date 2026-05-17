@@ -19,6 +19,12 @@ export type SeedSummary = {
 };
 
 export async function runSeeds(prisma: PrismaClient): Promise<SeedSummary> {
+  // Every seed flows through the content factory: synthetic
+  // SourceDocument → builder → normalize → enrich → strict QA →
+  // persistBuiltPackage. Seed entries that don't survive the
+  // factory are logged as build failures and never reach the
+  // catalog. There is no direct-insert bypass. There is no
+  // post-write visibility-flag fix-up.
   const prayers = await seedPrayers(prisma);
   const saints = await seedSaints(prisma);
   const apparitions = await seedApparitions(prisma);
@@ -27,58 +33,6 @@ export async function runSeeds(prisma: PrismaClient): Promise<SeedSummary> {
   const liturgyEntries = await seedLiturgyEntries(prisma);
   const spiritualLifeGuides = await seedSpiritualLifeGuides(prisma);
   await seedSiteSettings(prisma);
-
-  // Normalize the visibility flags for seed rows written directly
-  // (apparitions, devotions, parishes, liturgy, guides) so they look
-  // identical to factory-produced rows. Prayer + Saint seeders already
-  // route through the factory and set these on the way in.
-  await prisma.$transaction([
-    prisma.marianApparition.updateMany({
-      where: { status: "PUBLISHED" },
-      data: {
-        publicRenderReady: true,
-        isThresholdEligible: true,
-        packageValidationStatus: "valid",
-        lastPackageValidatedAt: new Date(),
-      },
-    }),
-    prisma.devotion.updateMany({
-      where: { status: "PUBLISHED" },
-      data: {
-        publicRenderReady: true,
-        isThresholdEligible: true,
-        packageValidationStatus: "valid",
-        lastPackageValidatedAt: new Date(),
-      },
-    }),
-    prisma.parish.updateMany({
-      where: { status: "PUBLISHED" },
-      data: {
-        publicRenderReady: true,
-        isThresholdEligible: true,
-        packageValidationStatus: "valid",
-        lastPackageValidatedAt: new Date(),
-      },
-    }),
-    prisma.liturgyEntry.updateMany({
-      where: { status: "PUBLISHED" },
-      data: {
-        publicRenderReady: true,
-        isThresholdEligible: true,
-        packageValidationStatus: "valid",
-        lastPackageValidatedAt: new Date(),
-      },
-    }),
-    prisma.spiritualLifeGuide.updateMany({
-      where: { status: "PUBLISHED" },
-      data: {
-        publicRenderReady: true,
-        isThresholdEligible: true,
-        packageValidationStatus: "valid",
-        lastPackageValidatedAt: new Date(),
-      },
-    }),
-  ]);
 
   return { prayers, saints, apparitions, devotions, parishes, liturgyEntries, spiritualLifeGuides };
 }
