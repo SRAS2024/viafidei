@@ -244,6 +244,13 @@ export {
   type ExtractionFailureReason,
 } from "./extraction-monitor";
 
+export {
+  recordExtractionOutcome,
+  recordExtractionOutcomeBatch,
+  getExtractionLegStats,
+  type ExtractionOutcomeWrite,
+} from "./extraction-recorder";
+
 export { extractNovena, type NovenaExtractionResult } from "./extractors/novena";
 export { extractPrayer, type PrayerExtractionResult } from "./extractors/prayer";
 export { extractRosary, type RosaryExtractionResult } from "./extractors/rosary";
