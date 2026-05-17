@@ -28,6 +28,58 @@ export async function runSeeds(prisma: PrismaClient): Promise<SeedSummary> {
   const spiritualLifeGuides = await seedSpiritualLifeGuides(prisma);
   await seedSiteSettings(prisma);
 
+  // Normalize the visibility flags for seed rows written directly
+  // (apparitions, devotions, parishes, liturgy, guides) so they look
+  // identical to factory-produced rows. Prayer + Saint seeders already
+  // route through the factory and set these on the way in.
+  await prisma.$transaction([
+    prisma.marianApparition.updateMany({
+      where: { status: "PUBLISHED" },
+      data: {
+        publicRenderReady: true,
+        isThresholdEligible: true,
+        packageValidationStatus: "valid",
+        lastPackageValidatedAt: new Date(),
+      },
+    }),
+    prisma.devotion.updateMany({
+      where: { status: "PUBLISHED" },
+      data: {
+        publicRenderReady: true,
+        isThresholdEligible: true,
+        packageValidationStatus: "valid",
+        lastPackageValidatedAt: new Date(),
+      },
+    }),
+    prisma.parish.updateMany({
+      where: { status: "PUBLISHED" },
+      data: {
+        publicRenderReady: true,
+        isThresholdEligible: true,
+        packageValidationStatus: "valid",
+        lastPackageValidatedAt: new Date(),
+      },
+    }),
+    prisma.liturgyEntry.updateMany({
+      where: { status: "PUBLISHED" },
+      data: {
+        publicRenderReady: true,
+        isThresholdEligible: true,
+        packageValidationStatus: "valid",
+        lastPackageValidatedAt: new Date(),
+      },
+    }),
+    prisma.spiritualLifeGuide.updateMany({
+      where: { status: "PUBLISHED" },
+      data: {
+        publicRenderReady: true,
+        isThresholdEligible: true,
+        packageValidationStatus: "valid",
+        lastPackageValidatedAt: new Date(),
+      },
+    }),
+  ]);
+
   return { prayers, saints, apparitions, devotions, parishes, liturgyEntries, spiritualLifeGuides };
 }
 

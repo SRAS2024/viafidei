@@ -30,6 +30,17 @@ export function bodyOf(doc: SourceDocumentSnapshot): string {
   return doc.cleanedBody ?? doc.rawBody ?? doc.paragraphs?.join("\n\n") ?? "";
 }
 
+/**
+ * Raw body — preserves noise lines (livestream / event / donation /
+ * newsletter / share) so the wrong-content detector can still see
+ * them. Builders evaluate wrong-content against this BEFORE checking
+ * for an empty cleaned body, otherwise a livestream page reads as
+ * "no content" instead of "this is a livestream".
+ */
+export function rawBodyOf(doc: SourceDocumentSnapshot): string {
+  return doc.rawBody ?? doc.cleanedBody ?? "";
+}
+
 export function titleOf(doc: SourceDocumentSnapshot): string {
   return doc.sourceTitle ?? doc.headings?.[0]?.text ?? doc.sourceUrl;
 }
@@ -220,25 +231,31 @@ export function runStandardGuards(args: {
       candidateTitle: args.candidateTitle,
     });
   }
-  const body = bodyOf(args.ctx.document);
-  if (!body || body.trim().length === 0) {
+  // Wrong-content gate runs against the RAW body so livestream /
+  // event / donation pages are detected before they get stripped by
+  // cleanSourceBody.
+  const rawBody = rawBodyOf(args.ctx.document);
+  if (rawBody && rawBody.trim().length > 0) {
+    const wrong = ensureWrongContentClear({
+      contentType: args.contentType,
+      title: args.candidateTitle,
+      body: rawBody,
+    });
+    if (!wrong.ok) {
+      return makeFailure({
+        ctx: args.ctx,
+        outcome: "wrong_content",
+        failureReason: wrong.reason,
+        candidateTitle: args.candidateTitle,
+      });
+    }
+  }
+  const cleaned = bodyOf(args.ctx.document);
+  if (!cleaned || cleaned.trim().length === 0) {
     return makeFailure({
       ctx: args.ctx,
       outcome: "not_supported_by_source",
-      failureReason: "Source document has no body content",
-      candidateTitle: args.candidateTitle,
-    });
-  }
-  const wrong = ensureWrongContentClear({
-    contentType: args.contentType,
-    title: args.candidateTitle,
-    body,
-  });
-  if (!wrong.ok) {
-    return makeFailure({
-      ctx: args.ctx,
-      outcome: "wrong_content",
-      failureReason: wrong.reason,
+      failureReason: "Source document has no body content after cleanup",
       candidateTitle: args.candidateTitle,
     });
   }

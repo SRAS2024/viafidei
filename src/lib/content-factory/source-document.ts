@@ -52,7 +52,7 @@ export type RecordedSourceDocument = SourceDocumentSnapshot & {
 
 const NOISE_PATTERNS: Array<{ kind: string; re: RegExp }> = [
   { kind: "navigation", re: /^\s*(?:home|menu|navigation|skip\s+to\s+main\s+content)\s*$/i },
-  { kind: "footer", re: /^\s*(?:copyright|©|all rights reserved)\b/i },
+  { kind: "footer", re: /(?:^\s*(?:copyright|©)|all rights reserved)\b/i },
   {
     kind: "donation",
     re: /^\s*(?:donate|give\s+now|support\s+us|make\s+a\s+gift|your\s+gift)/i,
