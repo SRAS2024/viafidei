@@ -85,12 +85,19 @@ export async function GET(req: NextRequest) {
     // admin Diagnostics page both have a precise explanation of why
     // the list is empty. The numbers are also safe to expose to
     // unauthenticated callers — they are public catalog totals.
+    //
+    // The counts use STRICT_PUBLIC_WHERE_CLAUSE so the diagnostic
+    // numbers match the same gate the rendering query enforced. If
+    // the difference between `publishedSaintsTotal` and
+    // `structuredTotal` is large, it means most saints lack a
+    // structured feast date.
+    const { STRICT_PUBLIC_WHERE_CLAUSE } = await import("@/lib/content-qa");
     const [publishedSaintsTotal, structuredTotal] = await Promise.all([
-      prisma.saint.count({ where: { status: "PUBLISHED" } }).catch(() => 0),
+      prisma.saint.count({ where: STRICT_PUBLIC_WHERE_CLAUSE }).catch(() => 0),
       prisma.saint
         .count({
           where: {
-            status: "PUBLISHED",
+            ...STRICT_PUBLIC_WHERE_CLAUSE,
             feastMonth: { not: null },
             feastDayOfMonth: { not: null },
           },
