@@ -37,6 +37,7 @@ export {
   type IngestionHealthSummary,
   type ContentQASummary,
   type SourceQualityRow,
+  type StrictQAHealthSummary,
 } from "./admin-send";
 export {
   renderAdminEmail,

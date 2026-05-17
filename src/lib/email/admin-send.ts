@@ -138,12 +138,26 @@ export type ContentQASummary = {
   completenessPercent: Record<string, number>;
 };
 
+export type StrictQAHealthSummary = {
+  systemScore: number;
+  contentQAScore: number;
+  durableQueueScore: number;
+  sourceQualityScore: number;
+  workerReliabilityScore: number;
+  thresholdGrowthScore: number;
+  publicRenderingScore: number;
+  invalidPublicRowCount: number;
+  deletedLast24h: number;
+  cleanupModeLabel: string;
+};
+
 export async function sendBiweeklyAdminReport(
   counts: ContentManagementCounts,
   windowStart: Date,
   windowEnd: Date,
   ingestionHealth?: IngestionHealthSummary,
   contentQA?: ContentQASummary,
+  strictQAHealth?: StrictQAHealthSummary,
 ): Promise<AdminSendOutcome> {
   const rows = CONTENT_TYPE_ROWS.map((row) => {
     const c = counts[row.key] ?? {
@@ -237,6 +251,45 @@ export async function sendBiweeklyAdminReport(
           ThresholdEligible: formatPlain(contentQA.thresholdEligible[row.key] ?? 0),
           CompletePct: `${contentQA.completenessPercent[row.key] ?? 0}%`,
         })),
+      },
+    });
+  }
+
+  if (strictQAHealth) {
+    sections.push({
+      title: "Strict QA System Health",
+      table: {
+        columns: [
+          { key: "metric", label: "Metric" },
+          { key: "value", label: "Value", align: "right" },
+        ],
+        rows: [
+          { metric: "System health score", value: `${strictQAHealth.systemScore}/100` },
+          { metric: "Content QA score", value: `${strictQAHealth.contentQAScore}/100` },
+          { metric: "Durable queue score", value: `${strictQAHealth.durableQueueScore}/100` },
+          { metric: "Source quality score", value: `${strictQAHealth.sourceQualityScore}/100` },
+          {
+            metric: "Worker reliability score",
+            value: `${strictQAHealth.workerReliabilityScore}/100`,
+          },
+          {
+            metric: "Threshold growth score",
+            value: `${strictQAHealth.thresholdGrowthScore}/100`,
+          },
+          {
+            metric: "Public rendering score",
+            value: `${strictQAHealth.publicRenderingScore}/100`,
+          },
+          {
+            metric: "Invalid public rows",
+            value: String(strictQAHealth.invalidPublicRowCount),
+          },
+          {
+            metric: "Invalid rows deleted (24h)",
+            value: String(strictQAHealth.deletedLast24h),
+          },
+          { metric: "Cleanup mode", value: strictQAHealth.cleanupModeLabel },
+        ],
       },
     });
   }

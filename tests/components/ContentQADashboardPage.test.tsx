@@ -44,6 +44,21 @@ beforeEach(() => {
   ]) {
     m.count.mockResolvedValue(0);
   }
+  // Mock the data source card's probes too — every catalog accessor's
+  // count must return a number for the card to render.
+  for (const m of [
+    prismaMock.ingestionJobQueue,
+    prismaMock.ingestionBatch,
+    prismaMock.ingestionCursor,
+    prismaMock.workerHeartbeat,
+    prismaMock.queueAuditLog,
+    prismaMock.discoveredSourceItem,
+    prismaMock.dailyIngestionCounter,
+    prismaMock.dataManagementLog,
+    prismaMock.ingestionJobRun,
+  ]) {
+    m.count.mockResolvedValue(0);
+  }
   prismaMock.dataManagementLog.findFirst.mockResolvedValue(null);
   prismaMock.rejectedContentLog.count.mockResolvedValue(0);
   prismaMock.rejectedContentLog.groupBy.mockResolvedValue([]);

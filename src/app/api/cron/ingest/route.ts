@@ -235,6 +235,19 @@ export async function POST(req: NextRequest) {
     return { stalledGrowth: 0, sourceFailures: 0, lowQualitySources: 0, reviewQueueLarge: false };
   });
 
+  // Strict QA alerts: invalid-public-row count, stale cleanup,
+  // rejection-rate spike, system health score collapse. Each has a
+  // 24h cooldown so a persistent failure produces a daily reminder.
+  try {
+    const { runStrictQAAlerts } = await import("@/lib/data/strict-qa-alerts");
+    await runStrictQAAlerts();
+  } catch (e) {
+    logger.warn("cron.strict_qa_alerts_failed", {
+      requestId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   // Auto-pause sources that have crossed failure/low-quality
   // thresholds. Each paused source triggers one admin email.
   const autoPause = await autoEvaluateSourcePauses().catch((e) => {

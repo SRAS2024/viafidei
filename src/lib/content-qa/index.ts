@@ -236,6 +236,15 @@ export {
 export { notifyRenderGateFailure } from "./render-gate-trigger";
 
 export {
+  getExtractionStats,
+  overallSuccessRate,
+  overallDeletionRate,
+  type ExtractionStats,
+  type ExtractionOutcomeKind,
+  type ExtractionFailureReason,
+} from "./extraction-monitor";
+
+export {
   checkPrayerRender,
   checkSaintRender,
   checkApparitionRender,

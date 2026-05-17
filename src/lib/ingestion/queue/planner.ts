@@ -29,6 +29,7 @@ import { isContentTypePaused } from "../../data/content-type-pause";
 import { enqueueJob } from "./queue";
 import { PRIORITY_CONTENT_THRESHOLD_UNMET, PRIORITY_NORMAL, PRIORITY_MAINTENANCE } from "./queue";
 import { sendThresholdCheckFailedWarning } from "../../data/admin-notifications";
+import { computeBalanceDecision, effectiveContentTypeCap, effectiveSourceCap } from "./balance";
 
 export type PlannerSummary = {
   jobsScanned: number;
@@ -238,6 +239,19 @@ export async function enqueueDueIngestionJobs(
   });
   summary.jobsScanned = jobs.length;
 
+  // Dynamic content-type + source balancing. Throttles dominant
+  // buckets, boosts under-target buckets. Read once per tick.
+  const balance = await computeBalanceDecision({
+    baseContentTypeCap: perContentTypeCap,
+    baseSourceCap: perSourceCap,
+  }).catch(() => ({
+    contentTypeCap: {},
+    sourceCap: {},
+    underservedContentTypes: [] as string[],
+    completionPct: {},
+    dominantSources: [] as string[],
+  }));
+
   const perContentTypeCount = new Map<string, number>();
   const perSourceCount = new Map<string, number>();
 
@@ -290,13 +304,18 @@ export async function enqueueDueIngestionJobs(
       continue;
     }
 
-    // Caps: per-content-type, per-source, daily.
+    // Caps: per-content-type, per-source, daily — with dynamic
+    // content-type balancing layered on top of the static caps.
+    // Dominant types/sources get throttled, underserved types get
+    // their cap raised.
     const ctKey = job.targetEntity;
-    if ((perContentTypeCount.get(ctKey) ?? 0) >= perContentTypeCap) {
+    const ctCap = effectiveContentTypeCap(balance, ctKey, perContentTypeCap);
+    const srcCap = effectiveSourceCap(balance, job.sourceId, perSourceCap);
+    if ((perContentTypeCount.get(ctKey) ?? 0) >= ctCap) {
       summary.jobsSkippedFillCap += 1;
       continue;
     }
-    if ((perSourceCount.get(job.sourceId) ?? 0) >= perSourceCap) {
+    if ((perSourceCount.get(job.sourceId) ?? 0) >= srcCap) {
       summary.jobsSkippedFillCap += 1;
       continue;
     }
@@ -313,15 +332,29 @@ export async function enqueueDueIngestionJobs(
 
     const belowTarget =
       !progress.dbError && isContentTypeBelowTarget(ctKey, progress.counts, progress.targets);
+    const underserved = balance.underservedContentTypes.includes(ctKey);
     // DB error → never downgrade. We force "constant" semantics
     // regardless of mode here.
     const effectiveMode: "constant" | "maintenance" = progress.dbError ? "constant" : mode;
-    const priority = priorityForJob({
+    let priority = priorityForJob({
       mode: effectiveMode,
-      contentTypeBelowTarget: belowTarget || progress.dbError,
+      contentTypeBelowTarget: belowTarget || progress.dbError || underserved,
       tier: job.source.tier,
       healthState: job.source.healthState,
     });
+    // Underserved bucket below 25% of target → bump priority one band
+    // lower (lower number = higher priority) so it preempts dominant
+    // buckets even when the planner already chose normal priority.
+    // BUT do not bypass source-health demotion: spec says "If one
+    // content type is below threshold but producing mostly invalid
+    // rows, reduce bad sources and promote better sources." So we
+    // only boost healthy / low_quality sources, never failing /
+    // blocked ones.
+    const healthState = job.source.healthState;
+    const sourceHealthy = healthState !== "failing" && healthState !== "blocked";
+    if (underserved && sourceHealthy) {
+      priority = Math.min(priority, PRIORITY_CONTENT_THRESHOLD_UNMET);
+    }
 
     const dedupeKey = buildDedupeKey({
       jobId: job.id,

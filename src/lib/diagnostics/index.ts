@@ -20,3 +20,4 @@ export {
   type IngestionLiveSnapshot,
 } from "./ingestion";
 export { runSaintsFeastDiagnostics } from "./saints-feast";
+export { getAdminDataSourceCard, type DataSourceCard } from "./admin-data-source-card";

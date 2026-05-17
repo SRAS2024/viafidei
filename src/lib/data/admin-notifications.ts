@@ -16,6 +16,7 @@ import {
   type ContentQASummary,
   type IngestionHealthSummary,
   type SourceQualityRow,
+  type StrictQAHealthSummary,
 } from "../email";
 import { getContentQAReportFragment } from "../content-qa";
 import { logger } from "../observability/logger";
@@ -253,7 +254,42 @@ async function maybeSendBiweeklyReport(now: Date): Promise<AdminSendOutcome | nu
         completenessPercent: qaFragment.completenessPercent,
       }
     : undefined;
-  const result = await sendBiweeklyAdminReport(counts, windowStart, windowEnd, health, contentQA);
+  // Strict QA system health: the seven 0-100 health scores + invalid
+  // public row count + cleanup mode label. Appended as a separate
+  // section so the operator can see the system pulse alongside the
+  // content counts.
+  let strictQAHealth: StrictQAHealthSummary | undefined;
+  try {
+    const { getSystemHealthReport, getCleanupHealth, resolveCleanupPolicy, describeCleanupPolicy } =
+      await import("../content-qa");
+    const [report, cleanup] = await Promise.all([
+      getSystemHealthReport(),
+      getCleanupHealth().catch(() => null),
+    ]);
+    const policy = resolveCleanupPolicy();
+    strictQAHealth = {
+      systemScore: report.scores.system.score,
+      contentQAScore: report.scores.contentQA.score,
+      durableQueueScore: report.scores.durableQueue.score,
+      sourceQualityScore: report.scores.sourceQuality.score,
+      workerReliabilityScore: report.scores.workerReliability.score,
+      thresholdGrowthScore: report.scores.thresholdGrowth.score,
+      publicRenderingScore: report.scores.publicRendering.score,
+      invalidPublicRowCount: cleanup?.invalidPublicRowCount ?? 0,
+      deletedLast24h: cleanup?.deletedLast24h ?? 0,
+      cleanupModeLabel: describeCleanupPolicy(policy),
+    };
+  } catch {
+    strictQAHealth = undefined;
+  }
+  const result = await sendBiweeklyAdminReport(
+    counts,
+    windowStart,
+    windowEnd,
+    health,
+    contentQA,
+    strictQAHealth,
+  );
   if (result.ok && result.delivery === "sent") {
     await setFlowState<BiweeklyState>("biweekly_report", {
       lastSentAt: now.toISOString(),
