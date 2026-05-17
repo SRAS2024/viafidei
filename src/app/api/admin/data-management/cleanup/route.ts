@@ -2,30 +2,31 @@ import { type NextRequest } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { jsonError, jsonOk } from "@/lib/http";
-import { archiveDuplicatePrayers, cleanupMiscategorisedContent } from "@/lib/data/cleanup";
-import { purgeArchivedByArchivedAt } from "@/lib/data/archive-cleanup";
 import { getDataManagementSettings } from "@/lib/data/site-settings";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
 import { logger } from "@/lib/observability";
+import { enqueueJob, PRIORITY_CONTENT_THRESHOLD_UNMET } from "@/lib/ingestion/queue";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
- * Admin-triggered "Run data cleanup now". Runs the same three passes
- * the cron job runs:
+ * Admin-triggered "Run data cleanup now".
  *
- *   1. cleanupMiscategorisedContent — archive rows whose body now
- *      reads like a source summary / TV listing / newsletter blurb.
- *   2. archiveDuplicatePrayers — collapse rows that share a content
- *      checksum but landed under different slugs.
- *   3. purgeArchivedByArchivedAt — permanently delete rows that have
- *      been ARCHIVED for ≥ hardDeleteAfterDays days, measured from
- *      the dedicated `archivedAt` column.
+ * Per the content-factory spec: this endpoint NEVER executes cleanup
+ * inline anymore. It enqueues three high-priority cleanup jobs into
+ * the durable queue and returns immediately. The worker picks them up
+ * on its next iteration:
  *
- * Records an AdminAuditLog row so the admin's manual trigger is
- * traceable, and returns a per-bucket summary so the UI can show
- * what was archived and what was deleted.
+ *   1. strict_cleanup        — runs the strict content QA cleanup
+ *      pass (delete invalid + log).
+ *   2. dedupe_cleanup        — collapses duplicate prayers / content.
+ *   3. archive_cleanup       — purges archived rows past the
+ *      retention window.
+ *
+ * The admin trigger is recorded in AdminAuditLog so the manual
+ * action is traceable. The response carries the enqueued job ids so
+ * the caller can poll their status on the queue page.
  */
 export async function POST(req: NextRequest) {
   const admin = await requireAdmin();
@@ -33,53 +34,69 @@ export async function POST(req: NextRequest) {
 
   const started = Date.now();
   const settings = await getDataManagementSettings();
-  let miscategorised: Awaited<ReturnType<typeof cleanupMiscategorisedContent>> = {
-    buckets: [],
-    totalArchived: 0,
-  };
-  let duplicatePrayers = 0;
-  let purged: Awaited<ReturnType<typeof purgeArchivedByArchivedAt>> = {
-    buckets: [],
-    totalDeleted: 0,
-  };
   let errorMessage: string | null = null;
+  const enqueuedJobIds: string[] = [];
 
   try {
-    [miscategorised, duplicatePrayers, purged] = await Promise.all([
-      cleanupMiscategorisedContent(),
-      archiveDuplicatePrayers(),
-      purgeArchivedByArchivedAt(settings.hardDeleteAfterDays),
+    const stamp = Date.now();
+    const [strict, dedupe, archive] = await Promise.all([
+      enqueueJob({
+        jobName: "strict_cleanup_manual",
+        jobKind: "strict_cleanup",
+        dedupeKey: `manual_strict_cleanup_${stamp}`,
+        priority: PRIORITY_CONTENT_THRESHOLD_UNMET,
+        payload: { sweepReason: "manual" },
+        triggeredBy: "manual",
+        actorUsername: admin.username,
+      }),
+      enqueueJob({
+        jobName: "dedupe_cleanup_manual",
+        jobKind: "dedupe_cleanup",
+        dedupeKey: `manual_dedupe_cleanup_${stamp}`,
+        priority: PRIORITY_CONTENT_THRESHOLD_UNMET,
+        payload: {},
+        triggeredBy: "manual",
+        actorUsername: admin.username,
+      }),
+      enqueueJob({
+        jobName: "archive_cleanup_manual",
+        jobKind: "archive_cleanup",
+        dedupeKey: `manual_archive_cleanup_${stamp}`,
+        priority: PRIORITY_CONTENT_THRESHOLD_UNMET,
+        payload: { retentionDays: settings.hardDeleteAfterDays },
+        triggeredBy: "manual",
+        actorUsername: admin.username,
+      }),
     ]);
+    if (strict?.id) enqueuedJobIds.push(strict.id);
+    if (dedupe?.id) enqueuedJobIds.push(dedupe.id);
+    if (archive?.id) enqueuedJobIds.push(archive.id);
   } catch (err) {
     errorMessage = err instanceof Error ? err.message : String(err);
-    logger.error("admin.data_management.cleanup.failed", {
+    logger.error("admin.data_management.cleanup.enqueue_failed", {
       actor: admin.username,
       errorMessage,
     });
   }
 
   await writeAudit({
-    action: "admin.data_management.cleanup.run",
+    action: "admin.data_management.cleanup.enqueue",
     entityType: "SiteSetting",
     entityId: "data_management",
     actorUsername: admin.username,
     ipAddress: getClientIpOrNull(req),
     userAgent: getUserAgent(req),
     newValue: {
-      miscategorisedArchived: miscategorised.totalArchived,
-      duplicatePrayers,
-      hardDeleted: purged.totalDeleted,
+      enqueuedJobIds,
       hardDeleteAfterDays: settings.hardDeleteAfterDays,
       errorMessage,
     },
   });
 
-  logger.info("admin.data_management.cleanup.run", {
+  logger.info("admin.data_management.cleanup.enqueue", {
     actor: admin.username,
     durationMs: Date.now() - started,
-    miscategorisedArchived: miscategorised.totalArchived,
-    duplicatePrayers,
-    hardDeleted: purged.totalDeleted,
+    enqueuedJobIds,
     errorMessage,
   });
 
@@ -88,10 +105,16 @@ export async function POST(req: NextRequest) {
   }
   return jsonOk({
     durationMs: Date.now() - started,
-    miscategorised,
-    duplicatePrayers,
-    hardDeleted: purged,
+    enqueuedJobIds,
+    // Echo the legacy shape so the existing ManualCleanupRunButton UI
+    // continues to show a sensible result; the inline counts are
+    // always zero now because the actual cleanup work runs in the
+    // worker.
+    miscategorised: { totalArchived: 0, buckets: [] },
+    duplicatePrayers: 0,
+    hardDeleted: { totalDeleted: 0, buckets: [] },
     autoCleanupEnabled: settings.autoCleanupEnabled,
     hardDeleteAfterDays: settings.hardDeleteAfterDays,
+    queued: true,
   });
 }

@@ -19,6 +19,12 @@ export type SeedSummary = {
 };
 
 export async function runSeeds(prisma: PrismaClient): Promise<SeedSummary> {
+  // Every seed flows through the content factory: synthetic
+  // SourceDocument → builder → normalize → enrich → strict QA →
+  // persistBuiltPackage. Seed entries that don't survive the
+  // factory are logged as build failures and never reach the
+  // catalog. There is no direct-insert bypass. There is no
+  // post-write visibility-flag fix-up.
   const prayers = await seedPrayers(prisma);
   const saints = await seedSaints(prisma);
   const apparitions = await seedApparitions(prisma);

@@ -3,30 +3,24 @@ import { NextRequest } from "next/server";
 
 vi.mock("@/lib/auth", () => ({ requireAdmin: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ writeAudit: vi.fn() }));
-vi.mock("@/lib/data/cleanup", () => ({
-  archiveDuplicatePrayers: vi.fn(),
-  cleanupMiscategorisedContent: vi.fn(),
-}));
-vi.mock("@/lib/data/archive-cleanup", () => ({
-  purgeArchivedByArchivedAt: vi.fn(),
-}));
 vi.mock("@/lib/data/site-settings", () => ({
   getDataManagementSettings: vi.fn(),
+}));
+vi.mock("@/lib/ingestion/queue", () => ({
+  enqueueJob: vi.fn(),
+  PRIORITY_CONTENT_THRESHOLD_UNMET: 10,
 }));
 
 import { POST } from "@/app/api/admin/data-management/cleanup/route";
 import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
-import { archiveDuplicatePrayers, cleanupMiscategorisedContent } from "@/lib/data/cleanup";
-import { purgeArchivedByArchivedAt } from "@/lib/data/archive-cleanup";
 import { getDataManagementSettings } from "@/lib/data/site-settings";
+import { enqueueJob } from "@/lib/ingestion/queue";
 
 const requireAdminMock = vi.mocked(requireAdmin);
 const writeAuditMock = vi.mocked(writeAudit);
-const archiveDuplicateMock = vi.mocked(archiveDuplicatePrayers);
-const cleanupMock = vi.mocked(cleanupMiscategorisedContent);
-const purgeMock = vi.mocked(purgeArchivedByArchivedAt);
 const settingsMock = vi.mocked(getDataManagementSettings);
+const enqueueJobMock = vi.mocked(enqueueJob);
 
 function makeReq() {
   return new NextRequest(
@@ -40,10 +34,8 @@ function makeReq() {
 beforeEach(() => {
   requireAdminMock.mockReset();
   writeAuditMock.mockReset();
-  archiveDuplicateMock.mockReset();
-  cleanupMock.mockReset();
-  purgeMock.mockReset();
   settingsMock.mockReset();
+  enqueueJobMock.mockReset();
 });
 
 describe("POST /api/admin/data-management/cleanup", () => {
@@ -51,43 +43,35 @@ describe("POST /api/admin/data-management/cleanup", () => {
     requireAdminMock.mockResolvedValue(null);
     const res = await POST(makeReq());
     expect(res.status).toBe(401);
-    expect(cleanupMock).not.toHaveBeenCalled();
+    expect(enqueueJobMock).not.toHaveBeenCalled();
   });
 
-  it("runs all three cleanup passes and returns the summary", async () => {
+  it("enqueues three cleanup jobs and returns the queued ids", async () => {
     requireAdminMock.mockResolvedValue({ username: "admin" });
     settingsMock.mockResolvedValue({ autoCleanupEnabled: true, hardDeleteAfterDays: 30 });
-    cleanupMock.mockResolvedValue({
-      buckets: [{ entity: "Prayer", inspected: 100, archived: 4 }],
-      totalArchived: 4,
-    });
-    archiveDuplicateMock.mockResolvedValue(2);
-    purgeMock.mockResolvedValue({
-      buckets: [{ entity: "Prayer", deleted: 1 }],
-      totalDeleted: 1,
-    });
+    enqueueJobMock.mockResolvedValueOnce({ id: "j-strict" });
+    enqueueJobMock.mockResolvedValueOnce({ id: "j-dedupe" });
+    enqueueJobMock.mockResolvedValueOnce({ id: "j-archive" });
 
     const res = await POST(makeReq());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
-    expect(body.miscategorised.totalArchived).toBe(4);
-    expect(body.duplicatePrayers).toBe(2);
-    expect(body.hardDeleted.totalDeleted).toBe(1);
+    expect(body.queued).toBe(true);
+    expect(body.enqueuedJobIds).toEqual(["j-strict", "j-dedupe", "j-archive"]);
+    expect(enqueueJobMock).toHaveBeenCalledTimes(3);
     expect(writeAuditMock).toHaveBeenCalledTimes(1);
   });
 
-  it("returns 500 with the error message when a pass throws", async () => {
+  it("returns 500 with the error message when an enqueue throws", async () => {
     requireAdminMock.mockResolvedValue({ username: "admin" });
     settingsMock.mockResolvedValue({ autoCleanupEnabled: true, hardDeleteAfterDays: 30 });
-    cleanupMock.mockRejectedValue(new Error("DB unavailable"));
-    archiveDuplicateMock.mockResolvedValue(0);
-    purgeMock.mockResolvedValue({ buckets: [], totalDeleted: 0 });
+    enqueueJobMock.mockRejectedValue(new Error("queue unavailable"));
 
     const res = await POST(makeReq());
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.message).toContain("DB unavailable");
+    expect(body.message).toContain("queue unavailable");
     expect(writeAuditMock).toHaveBeenCalled();
   });
 });

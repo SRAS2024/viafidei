@@ -665,19 +665,19 @@ model IngestionSource {
 }
 
 model IngestionJob {
-  id              String            @id @default(cuid())
-  sourceId        String
-  jobName         String
-  targetEntity    String
-  schedule        String?
-  isActive        Boolean           @default(true)
-  pausedAt        DateTime?
-  pausedReason    String?
-  batchSizeLimit  Int?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  source          IngestionSource   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  runs            IngestionJobRun[]
+  id             String            @id @default(cuid())
+  sourceId       String
+  jobName        String
+  targetEntity   String
+  schedule       String?
+  isActive       Boolean           @default(true)
+  pausedAt       DateTime?
+  pausedReason   String?
+  batchSizeLimit Int?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  source         IngestionSource   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  runs           IngestionJobRun[]
 
   @@unique([sourceId, jobName])
 }
@@ -1058,21 +1058,21 @@ model DailyLiturgy {
 // day of every month. Rows older than ~90 days are pruned by the
 // regular cleanup pass so the table cannot grow unbounded.
 model ErrorLog {
-  id           String   @id @default(cuid())
-  occurredAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  occurredAt DateTime @default(now())
   // One of: "page", "api", "ingestion", "scheduler", "global", "uncaught".
-  source       String
+  source     String
   // Short machine-readable kind (e.g. "missing_table", "db_query",
   // "uncaught_exception"). Mirrors classifyPageError().
-  kind         String
-  message      String
-  stack        String?
-  route        String?
-  requestId    String?
+  kind       String
+  message    String
+  stack      String?
+  route      String?
+  requestId  String?
   // Severity: "error", "warn", "critical". Critical errors also
   // trigger a Critical Failure email immediately.
-  severity     String   @default("error")
-  context      Json?
+  severity   String   @default("error")
+  context    Json?
 
   @@index([occurredAt])
   @@index([severity, occurredAt])
@@ -1153,7 +1153,7 @@ model IngestionJobQueue {
 /// can resume from the last successful checkpoint after a restart,
 /// deploy, crash, or timeout.
 model IngestionCursor {
-  id                   String   @id @default(cuid())
+  id                   String    @id @default(cuid())
   sourceId             String?
   adapterKey           String
   contentType          String?
@@ -1161,13 +1161,13 @@ model IngestionCursor {
   lastPosition         String?
   lastItemSlug         String?
   lastFetchedAt        DateTime?
-  itemsProcessed       Int      @default(0)
-  completed            Boolean  @default(false)
+  itemsProcessed       Int       @default(0)
+  completed            Boolean   @default(false)
   exhaustedAt          DateTime?
   lastFreshnessCheckAt DateTime?
   metadata             Json?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
   @@unique([adapterKey, cursorKey])
   @@index([sourceId])
@@ -1204,14 +1204,14 @@ model IngestionBatch {
 /// the action) by adding the actual deletion timestamp + original
 /// archive timestamp + structured context.
 model ArchiveDeletionLog {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   contentType   String
   contentId     String
   contentSlug   String?
   archivedAt    DateTime?
-  deletedAt     DateTime @default(now())
+  deletedAt     DateTime  @default(now())
   reason        String?
-  triggeredBy   String   @default("automatic")
+  triggeredBy   String    @default("automatic")
   actorUsername String?
 
   @@index([contentType, deletedAt])
@@ -1223,7 +1223,7 @@ model ArchiveDeletionLog {
 /// per update so an admin can see what changed and decide whether the
 /// new version needs human review.
 model ContentVersion {
-  id                String   @id @default(cuid())
+  id                String    @id @default(cuid())
   entityType        String
   entityId          String
   previousTitle     String?
@@ -1233,8 +1233,8 @@ model ContentVersion {
   previousSource    String?
   previousUpdatedAt DateTime?
   changeSummary     String?
-  reviewRequired    Boolean  @default(false)
-  createdAt         DateTime @default(now())
+  reviewRequired    Boolean   @default(false)
+  createdAt         DateTime  @default(now())
 
   @@index([entityType, entityId, createdAt])
 }
@@ -1291,22 +1291,22 @@ model WorkerHeartbeat {
 /// they ingest, skip, reject, dedupe, or fail. Decouples discovery
 /// (find what's out there) from processing (turn it into a row).
 model DiscoveredSourceItem {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   sourceId      String
   adapterKey    String
   contentType   String?
   externalKey   String
   sourceUrl     String?
-  discoveredAt  DateTime @default(now())
-  status        String   @default("pending")
-  attempts      Int      @default(0)
-  maxAttempts   Int      @default(5)
+  discoveredAt  DateTime  @default(now())
+  status        String    @default("pending")
+  attempts      Int       @default(0)
+  maxAttempts   Int       @default(5)
   processedAt   DateTime?
   contentRef    String?
   failureReason String?
   metadata      Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@unique([sourceId, externalKey])
   @@index([status])
@@ -1354,6 +1354,116 @@ model SourceTierChange {
   createdAt     DateTime @default(now())
 
   @@index([sourceId, createdAt])
+}
+
+/// Normalized source document. Every fetched page becomes one of
+/// these rows. Builders read SourceDocument structures, never raw
+/// HTML — this is the boundary between "what we fetched" and "what
+/// the factory builds packages from". Heading/paragraph/list/table/
+/// link arrays are stored as JSON so each builder can pull the
+/// section it needs and stamp field provenance back to the exact
+/// snippet a value came from.
+model SourceDocument {
+  id                 String   @id @default(cuid())
+  sourceId           String?
+  adapterKey         String?
+  discoveredItemId   String?
+  workerJobId        String?
+  ingestionBatchId   String?
+  sourceUrl          String   @unique
+  sourceHost         String
+  sourceTier         Int?
+  sourceTitle        String?
+  cleanedBody        String?
+  rawBody            String?
+  headingsJson       Json?
+  paragraphsJson     Json?
+  listsJson          Json?
+  tablesJson         Json?
+  linksJson          Json?
+  metadataJson       Json?
+  sourcePurposesJson Json?
+  fetchStatus        String   @default("ok")
+  httpStatus         Int?
+  etag               String?
+  lastModifiedHeader String?
+  contentChecksum    String?
+  cleanedChecksum    String?
+  language           String?
+  fetchedAt          DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([sourceId, fetchedAt])
+  @@index([sourceHost, fetchedAt])
+  @@index([workerJobId])
+  @@index([ingestionBatchId])
+  @@index([contentChecksum])
+  @@index([cleanedChecksum])
+}
+
+/// One row per package-build attempt — success or failure. Answers
+/// "why was this content not created?" on the admin dashboard.
+/// Rejected content lives in RejectedContentLog (after QA);
+/// build failures live here (before QA).
+model ContentPackageBuildLog {
+  id                  String   @id @default(cuid())
+  sourceDocumentId    String?
+  sourceUrl           String
+  sourceHost          String
+  contentType         String
+  builderName         String
+  builderVersion      String
+  buildStatus         String
+  candidateSlug       String?
+  extractedFieldsJson Json?
+  missingFieldsJson   Json?
+  provenanceJson      Json?
+  failureReason       String?
+  workerJobId         String?
+  ingestionBatchId    String?
+  contentRef          String?
+  createdAt           DateTime @default(now())
+
+  @@index([sourceDocumentId])
+  @@index([contentType, createdAt])
+  @@index([buildStatus, createdAt])
+  @@index([sourceHost, createdAt])
+  @@index([workerJobId])
+  @@index([ingestionBatchId])
+}
+
+/// Per-source / per-content-type rolling quality stats. Used by the
+/// planner to pause bad sources automatically and prioritise good
+/// ones. One row per (sourceId, contentType) pair.
+model SourceQualityScore {
+  id                  String    @id @default(cuid())
+  sourceId            String
+  contentType         String
+  discoveredCount     Int       @default(0)
+  fetchedCount        Int       @default(0)
+  buildSuccessCount   Int       @default(0)
+  buildFailureCount   Int       @default(0)
+  qaPassCount         Int       @default(0)
+  qaFailCount         Int       @default(0)
+  deletedCount        Int       @default(0)
+  duplicateCount      Int       @default(0)
+  wrongContentCount   Int       @default(0)
+  validPackageRate    Float?
+  wrongContentRate    Float?
+  averageCompleteness Float?
+  lastSuccessAt       DateTime?
+  lastFailureAt       DateTime?
+  lastFailureReason   String?
+  autoPaused          Boolean   @default(false)
+  autoPausedAt        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([sourceId, contentType])
+  @@index([sourceId])
+  @@index([contentType])
+  @@index([autoPaused])
 }
 
 /// Per-day, per-source, per-content-type ingestion counters. Used by

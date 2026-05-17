@@ -10,10 +10,21 @@
 import { z } from "zod";
 
 export const JOB_KINDS = [
+  // Legacy single-step adapter execution. Retained as an alias for
+  // existing rows in flight; new enqueues prefer the explicit
+  // factory-stage kinds below.
   "source_ingest",
-  "source_freshness",
+  // Source-side kinds.
   "source_discovery",
+  "source_fetch",
+  "source_freshness",
+  // Factory-stage kinds.
+  "content_build",
+  "content_validate",
+  "content_persist",
+  // Catalog-wide kinds.
   "content_revalidate",
+  "strict_cleanup",
   "archive_cleanup",
   "dedupe_cleanup",
   "sitemap_refresh",
@@ -30,8 +41,13 @@ export type JobKind = (typeof JOB_KINDS)[number];
 export const PRIORITY_DEFAULTS: Record<JobKind, number> = {
   source_freshness: 50,
   source_ingest: 100,
+  source_fetch: 100,
   source_discovery: 110,
+  content_build: 120,
+  content_validate: 130,
+  content_persist: 140,
   content_revalidate: 150,
+  strict_cleanup: 250,
   dedupe_cleanup: 300,
   archive_cleanup: 400,
   sitemap_refresh: 450,
@@ -127,11 +143,62 @@ export const reportGeneratePayloadSchema = z.object({
   reportKind: z.enum(["biweekly", "monthly_archive", "monthly_source_quality", "monthly_error"]),
 });
 
+// Factory-stage payload schemas. Each carries the SourceDocument id
+// (or a fetch target URL for source_fetch) and the content type the
+// downstream stage should produce. The orchestrator chains them so
+// content_build → content_validate → content_persist can be enqueued
+// as separate jobs OR collapsed into a single `runContentFactory()`
+// call inside one worker tick.
+export const sourceFetchPayloadSchema = z.object({
+  sourceUrl: z.string().url(),
+  sourceId: z.string().min(1).optional(),
+  adapterKey: z.string().min(1).optional(),
+  discoveredItemId: z.string().min(1).optional(),
+  contentType: z.string().min(1).optional(),
+});
+
+export const contentBuildPayloadSchema = z.object({
+  sourceDocumentId: z.string().min(1).optional(),
+  sourceUrl: z.string().url().optional(),
+  contentType: z
+    .enum([
+      "Prayer",
+      "Saint",
+      "MarianApparition",
+      "Parish",
+      "Devotion",
+      "Novena",
+      "Sacrament",
+      "Rosary",
+      "Consecration",
+      "SpiritualGuidance",
+      "Liturgy",
+      "History",
+    ])
+    .optional(),
+  sourceId: z.string().min(1).optional(),
+});
+
+export const contentValidatePayloadSchema = contentBuildPayloadSchema;
+export const contentPersistPayloadSchema = contentBuildPayloadSchema;
+
+export const strictCleanupPayloadSchema = z
+  .object({
+    contentType: z.string().optional(),
+    sweepReason: z.string().optional(),
+  })
+  .passthrough();
+
 export const JOB_PAYLOAD_SCHEMAS: Record<JobKind, z.ZodTypeAny> = {
   source_ingest: sourceIngestPayloadSchema,
   source_freshness: sourceFreshnessPayloadSchema,
   source_discovery: sourceDiscoveryPayloadSchema,
+  source_fetch: sourceFetchPayloadSchema,
+  content_build: contentBuildPayloadSchema,
+  content_validate: contentValidatePayloadSchema,
+  content_persist: contentPersistPayloadSchema,
   content_revalidate: contentRevalidatePayloadSchema,
+  strict_cleanup: strictCleanupPayloadSchema,
   archive_cleanup: archiveCleanupPayloadSchema,
   dedupe_cleanup: dedupeCleanupPayloadSchema,
   sitemap_refresh: sitemapRefreshPayloadSchema,

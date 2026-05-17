@@ -12,6 +12,8 @@ import { recordSourceFreshness, recordSourceQuality } from "../../data/source-he
 import { purgeArchivedByArchivedAt } from "../../data/archive-cleanup";
 import { runCatalogJanitor } from "../../data/catalog-janitor";
 import { validatePayload, isJobKind, type JobKind } from "./job-kinds";
+import { runContentFactory, getSourceDocument, recordSourceDocument } from "../../content-factory";
+import type { ContentTypeKey } from "../../content-factory";
 import type { QueueJobRow } from "./queue";
 
 export type DispatchResult = {
@@ -40,8 +42,16 @@ export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
     case "source_freshness":
     case "source_discovery":
       return runSourceJob(job, payload, kind);
+    case "source_fetch":
+      return runSourceFetch(job, payload);
+    case "content_build":
+    case "content_validate":
+    case "content_persist":
+      return runContentFactoryStage(job, payload, kind);
     case "content_revalidate":
       return runContentRevalidate(job, payload);
+    case "strict_cleanup":
+      return runStrictCleanup(job, payload);
     case "archive_cleanup":
       return runArchiveCleanup(job, payload);
     case "dedupe_cleanup":
@@ -55,6 +65,137 @@ export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
       void _exhaustive;
       return { ok: false, errorMessage: `Unhandled job kind: ${job.jobKind}` };
     }
+  }
+}
+
+async function runSourceFetch(
+  job: QueueJobRow,
+  payload: Record<string, unknown>,
+): Promise<DispatchResult> {
+  const sourceUrl = payload.sourceUrl as string | undefined;
+  if (!sourceUrl) {
+    return { ok: false, errorMessage: "source_fetch missing sourceUrl" };
+  }
+  let hostname: string;
+  try {
+    hostname = new URL(sourceUrl).hostname;
+  } catch {
+    return { ok: false, errorMessage: `source_fetch: invalid url ${sourceUrl}` };
+  }
+  // Minimal fetcher — the worker is allowed to read the real network in
+  // production. In the test environment a fixture-bound mock can shadow
+  // this. We use the global `fetch` (Node 20+) directly.
+  try {
+    const res = await fetch(sourceUrl, {
+      headers: { "User-Agent": "ViaFideiContentFactory/1.0" },
+    });
+    const text = await res.text();
+    const source = job.sourceId
+      ? await prisma.ingestionSource.findUnique({ where: { id: job.sourceId } })
+      : null;
+    const sourcePurposes: Record<string, boolean> = source
+      ? {
+          canIngestPrayers: source.canIngestPrayers,
+          canIngestSaints: source.canIngestSaints,
+          canIngestApparitions: source.canIngestApparitions,
+          canIngestParishes: source.canIngestParishes,
+          canIngestDevotions: source.canIngestDevotions,
+          canIngestNovenas: source.canIngestNovenas,
+          canIngestSacraments: source.canIngestSacraments,
+          canIngestRosaryGuides: source.canIngestRosaryGuides,
+          canIngestConsecrations: source.canIngestConsecrations,
+          canIngestSpiritualGuides: source.canIngestSpiritualGuides,
+          canIngestLiturgy: source.canIngestLiturgy,
+          canIngestHistory: source.canIngestHistory,
+          canProvideScriptureText: source.canProvideScriptureText,
+        }
+      : {};
+    await recordSourceDocument({
+      sourceUrl,
+      sourceHost: hostname,
+      sourceId: job.sourceId ?? null,
+      workerJobId: job.id,
+      sourceTier: source?.tier ?? null,
+      rawBody: text,
+      httpStatus: res.status,
+      etag: res.headers.get("etag"),
+      lastModifiedHeader: res.headers.get("last-modified"),
+      fetchStatus: res.ok ? "ok" : `http_${res.status}`,
+      sourcePurposes,
+    });
+    return { ok: true, contentSeen: 1 };
+  } catch (e) {
+    return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+async function runContentFactoryStage(
+  job: QueueJobRow,
+  payload: Record<string, unknown>,
+  kind: "content_build" | "content_validate" | "content_persist",
+): Promise<DispatchResult> {
+  const sourceDocumentId = payload.sourceDocumentId as string | undefined;
+  const sourceUrl = payload.sourceUrl as string | undefined;
+  let document = null;
+  if (sourceDocumentId) {
+    document = await prisma.sourceDocument.findUnique({ where: { id: sourceDocumentId } });
+  } else if (sourceUrl) {
+    document = await prisma.sourceDocument.findUnique({ where: { sourceUrl } });
+  }
+  if (!document) {
+    return { ok: false, errorMessage: `${kind} could not find SourceDocument` };
+  }
+  const contentType = payload.contentType as ContentTypeKey | undefined;
+  if (!contentType) {
+    return { ok: false, errorMessage: `${kind} missing contentType` };
+  }
+  const snapshot = await getSourceDocument(document.sourceUrl);
+  if (!snapshot) {
+    return { ok: false, errorMessage: `${kind} snapshot read failed` };
+  }
+  const result = await runContentFactory({
+    contentType,
+    document: snapshot,
+    sourceId: job.sourceId ?? null,
+    workerJobId: job.id,
+    triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
+  });
+  return {
+    ok:
+      result.decision === "persisted-created" ||
+      result.decision === "persisted-updated" ||
+      result.decision === "persist-skipped",
+    errorMessage: `factory decision=${result.decision}`,
+  };
+}
+
+async function runStrictCleanup(
+  job: QueueJobRow,
+  payload: Record<string, unknown>,
+): Promise<DispatchResult> {
+  void job;
+  try {
+    const { runStrictContentCleanup } = await import("../../content-qa/cleanup");
+    const { pruneOrphanedSaves } = await import("../../data/saved");
+    const sweepReason = (payload.sweepReason as string) ?? "scheduled";
+    const result = await runStrictContentCleanup({ sweepReason });
+    // Sweep orphaned saves so a user's saved list never contains a
+    // reference to content the factory just removed from public view.
+    const orphans = await pruneOrphanedSaves().catch(() => ({
+      prayers: 0,
+      saints: 0,
+      apparitions: 0,
+      parishes: 0,
+      devotions: 0,
+    }));
+    const orphanTotal =
+      orphans.prayers + orphans.saints + orphans.apparitions + orphans.parishes + orphans.devotions;
+    return {
+      ok: true,
+      errorMessage: `strict-cleanup deleted=${result.totalHardDeleted}, flaggedReady=${result.totalFlaggedReady}, flaggedUnready=${result.totalFlaggedUnready}, mode=${result.mode}, orphanSavesPruned=${orphanTotal}`,
+    };
+  } catch (e) {
+    return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -89,6 +230,72 @@ async function runSourceJob(
           totalItems: summary.recordsSeen,
           reviewOrRejected,
         }).catch(() => undefined);
+      }
+    }
+    // Emit a synthetic SourceDocument + ContentPackageBuildLog row
+    // for the run so the Content Factory dashboard sees activity even
+    // from legacy source_ingest paths. The factory-native source_fetch
+    // → content_build pipeline writes these rows per-item; the
+    // legacy adapter path writes one aggregate row per run.
+    if (summary.recordsSeen > 0) {
+      const synthUrl = `legacy-runner://${adapterKey}/${job.id}`;
+      try {
+        await recordSourceDocument({
+          sourceUrl: synthUrl,
+          sourceHost: sourceHost,
+          sourceId: job.sourceId ?? null,
+          adapterKey,
+          workerJobId: job.id,
+          sourceTier: source?.tier ?? null,
+          rawBody: `Legacy adapter run summary — ${summary.recordsSeen} items seen, ${summary.recordsCreated} created, ${summary.recordsUpdated} updated.`,
+          fetchStatus: "ok",
+          sourcePurposes: source
+            ? buildLegacySourcePurposes(source)
+            : ({} as Record<string, boolean>),
+        });
+        const aggregateStatus =
+          summary.recordsCreated + summary.recordsUpdated > 0
+            ? "built_complete_package"
+            : summary.recordsFailed > 0
+              ? "build_failed_missing_required_fields"
+              : "duplicate";
+        const { recordBuildLog } = await import("../../content-factory");
+        await recordBuildLog({
+          result: {
+            outcome: aggregateStatus as never,
+            contentType: (job.contentType ?? "Prayer") as never,
+            builderName: `LegacyAdapter:${adapterKey}`,
+            builderVersion: "legacy",
+            ...(aggregateStatus === "built_complete_package"
+              ? {
+                  package: {
+                    contentType: (job.contentType ?? "Prayer") as never,
+                    slug: `legacy-run-${job.id}`,
+                    title: `Legacy adapter ${adapterKey}`,
+                    sourceUrl: synthUrl,
+                    sourceHost: sourceHost,
+                    payload: {
+                      recordsCreated: summary.recordsCreated,
+                      recordsUpdated: summary.recordsUpdated,
+                    },
+                    provenance: {},
+                  },
+                  missingFields: [],
+                }
+              : {
+                  failureReason: `Legacy adapter run produced no valid rows (failed=${summary.recordsFailed})`,
+                  missingFields: [],
+                }),
+          } as never,
+          sourceUrl: synthUrl,
+          sourceHost: sourceHost,
+          workerJobId: job.id,
+        });
+      } catch (e) {
+        logger.warn("worker.legacy_run_build_log_failed", {
+          jobQueueId: job.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
       }
     }
     const errorMessage = summary.errorMessage ?? undefined;
@@ -234,4 +441,36 @@ async function runReportGenerate(
   // payload through to the dispatcher.
   logger.info("worker.report_generate.requested", { reportKind: payload.reportKind });
   return { ok: true, errorMessage: `Report ${payload.reportKind} dispatched` };
+}
+
+function buildLegacySourcePurposes(source: {
+  canIngestPrayers: boolean;
+  canIngestSaints: boolean;
+  canIngestApparitions: boolean;
+  canIngestParishes: boolean;
+  canIngestDevotions: boolean;
+  canIngestNovenas: boolean;
+  canIngestSacraments: boolean;
+  canIngestRosaryGuides: boolean;
+  canIngestConsecrations: boolean;
+  canIngestSpiritualGuides: boolean;
+  canIngestLiturgy: boolean;
+  canIngestHistory: boolean;
+  canProvideScriptureText: boolean;
+}): Record<string, boolean> {
+  return {
+    canIngestPrayers: source.canIngestPrayers,
+    canIngestSaints: source.canIngestSaints,
+    canIngestApparitions: source.canIngestApparitions,
+    canIngestParishes: source.canIngestParishes,
+    canIngestDevotions: source.canIngestDevotions,
+    canIngestNovenas: source.canIngestNovenas,
+    canIngestSacraments: source.canIngestSacraments,
+    canIngestRosaryGuides: source.canIngestRosaryGuides,
+    canIngestConsecrations: source.canIngestConsecrations,
+    canIngestSpiritualGuides: source.canIngestSpiritualGuides,
+    canIngestLiturgy: source.canIngestLiturgy,
+    canIngestHistory: source.canIngestHistory,
+    canProvideScriptureText: source.canProvideScriptureText,
+  };
 }

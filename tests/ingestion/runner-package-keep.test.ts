@@ -60,14 +60,15 @@ describe("runner: intelligent packaging (re-classify, enrich, keep)", () => {
     expect(reclassifyRow).toBeDefined();
   });
 
-  it("keeps a hard-validator-failing item as REVIEW instead of dropping it", async () => {
+  it("does NOT auto-route a soft-fail item to REVIEW — it is logged as a rejection instead", async () => {
     prismaMock.prayer.findFirst.mockResolvedValue(null);
     prismaMock.prayer.findUnique.mockResolvedValue(null);
     prismaMock.prayer.create.mockResolvedValue({});
 
-    // A "prayer" that has all required fields but a body too short to
-    // satisfy any prayer-language marker. Old behaviour: REJECT &
-    // dropped. New behaviour: kept as REVIEW.
+    // A "prayer" that has all required fields but a body too short /
+    // off-shape for the hard validator. New behaviour (per the
+    // content-factory spec): never persisted as REVIEW automatically;
+    // either it passes strict QA (created) or it is dropped + logged.
     const weakPrayer: IngestedItem = {
       kind: "prayer",
       slug: "weak-prayer",
@@ -82,10 +83,18 @@ describe("runner: intelligent packaging (re-classify, enrich, keep)", () => {
       initialStatus: "PUBLISHED",
     });
 
-    // Either it passed validation (then created) or it landed in the
-    // weak-review bucket (then also created, in REVIEW status). Either
-    // way it must not have been dropped — at least one row was created.
-    expect(summary.recordsCreated + summary.recordsUpdated).toBeGreaterThanOrEqual(1);
+    // Either it passed validation and is now PUBLISHED (created>=1), or
+    // it failed and was logged-without-persistence (created==0). It
+    // must never produce a REVIEW row automatically.
+    const reviewWrites = prismaMock.prayer.create.mock.calls.filter((call) => {
+      const data = (call[0] as { data?: { status?: string } })?.data;
+      return data?.status === "REVIEW";
+    });
+    expect(reviewWrites.length).toBe(0);
+    // Summary should reflect the run completed without crashing — the
+    // item is either persisted or dropped, but the strict pipeline
+    // never silently leaves the system in an invalid state.
+    expect(summary.recordsSeen).toBeGreaterThanOrEqual(1);
   });
 
   it("still rejects a row that physically cannot be persisted (empty slug)", async () => {

@@ -55,12 +55,13 @@ const DEFAULT_PER_SOURCE_CAP = 10;
 const DEFAULT_DAILY_PER_SOURCE = 5_000;
 const DEFAULT_DAILY_PER_CONTENT_TYPE = 50_000;
 
-/** Tier-aware priority + source-health-aware demotion. */
+/** Tier-aware priority + source-health-aware demotion + quality-score bonus. */
 function priorityForJob(args: {
   mode: "constant" | "maintenance";
   contentTypeBelowTarget: boolean;
   tier: number | null | undefined;
   healthState: string | null | undefined;
+  qualityScore?: number | null;
 }): number {
   // Sources flagged as failing / low_quality get demoted regardless
   // of tier so a "blocked" tier-1 source can't camp at the front of
@@ -74,17 +75,22 @@ function priorityForJob(args: {
         : args.healthState === "stale"
           ? 25
           : 0;
+  // Quality-score bonus: a source with a recent valid-package-rate >
+  // 0.85 gets a small priority boost (lower number wins). The
+  // multiplier maxes at -20 for a perfect-record source.
+  const qualityBonus =
+    args.qualityScore != null && args.qualityScore > 0.85 ? -Math.round(args.qualityScore * 20) : 0;
   if (args.mode === "maintenance" && !args.contentTypeBelowTarget) {
-    return PRIORITY_MAINTENANCE + demotion;
+    return PRIORITY_MAINTENANCE + demotion + qualityBonus;
   }
   if (args.contentTypeBelowTarget) {
     // Tier 1 sources jump to the front of the queue; tier 2 gets normal
     // priority; tier 3 gets demoted slightly so trusted sources fill the
     // catalog first when thresholds are unmet.
     const base = args.tier === 1 ? PRIORITY_CONTENT_THRESHOLD_UNMET : args.tier === 2 ? 30 : 60;
-    return base + demotion;
+    return base + demotion + qualityBonus;
   }
-  return PRIORITY_NORMAL + demotion;
+  return PRIORITY_NORMAL + demotion + qualityBonus;
 }
 
 function isContentTypeBelowTarget(
@@ -336,11 +342,21 @@ export async function enqueueDueIngestionJobs(
     // DB error → never downgrade. We force "constant" semantics
     // regardless of mode here.
     const effectiveMode: "constant" | "maintenance" = progress.dbError ? "constant" : mode;
+    // Read the SourceQualityScore for this (source, contentType) pair
+    // so good performers get a small priority bonus and bad performers
+    // get nothing (plus already-paused sources have been filtered).
+    const qualityScore = await Promise.resolve(
+      prisma.sourceQualityScore.findUnique({
+        where: { sourceId_contentType: { sourceId: job.sourceId, contentType: ctKey } },
+      }),
+    ).catch(() => null);
+    const qualityRate = qualityScore?.validPackageRate ?? null;
     let priority = priorityForJob({
       mode: effectiveMode,
       contentTypeBelowTarget: belowTarget || progress.dbError || underserved,
       tier: job.source.tier,
       healthState: job.source.healthState,
+      qualityScore: qualityRate,
     });
     // Underserved bucket below 25% of target → bump priority one band
     // lower (lower number = higher priority) so it preempts dominant

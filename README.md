@@ -97,6 +97,72 @@ kind of trade-offs a small team makes when they want a production-leaning
 Next.js application that is honest about its boundaries. The pieces I
 would call attention to:
 
+- **Content Factory pipeline** (`src/lib/content-factory/`). The single
+  active ingestion execution model is:
+
+  ```
+  Source discovery → Source fetch → SourceDocument
+    → Builder (one per content type)
+    → Normalize → Enrich
+    → Strict QA → persistBuiltPackage()
+    → Public render gate
+    → Monitoring (SourceQualityScore + ContentPackageBuildLog)
+  ```
+
+  No fallback path bypasses this pipeline. No automatic path saves
+  uncertain content as public or failed content as review. The only
+  ingestion execution model is Planner → Queue → Worker → Content
+  Builder → Strict QA → Persistence → Public Render Gate → Monitoring.
+  - **SourceDocument** — every fetched page becomes a normalized
+    SourceDocument row with cleaned body / headings / paragraphs /
+    lists / links / metadata + content checksums. Builders read
+    SourceDocument structures, never raw HTML.
+  - **13 builders** (Prayer, Saint, MarianApparition, Parish, Devotion,
+    Novena, Sacrament, Rosary, Consecration, SpiritualGuidance,
+    Liturgy, History, ScriptureBlock). Each returns
+    `built_complete_package` / `build_failed_missing_required_fields` /
+    `wrong_content` / `source_not_allowed` / `duplicate` /
+    `not_supported_by_source` / `source_exhausted`. Only
+    `built_complete_package` proceeds to strict QA.
+  - **Field provenance** — every required field carries a snippet
+    hash + extraction method + extractor version + confidence +
+    timestamp. Deterministic rules (slug normalize, sacrament group
+    map) skip the snippet hash but still record the rule used.
+  - **persistBuiltPackage()** — single canonical persistence function.
+    Refuses anything that did not pass strict QA. Sets
+    `status=PUBLISHED`, `publicRenderReady=true`,
+    `isThresholdEligible=true`, `packageValidationStatus="valid"`,
+    `contentPackageVersion`, `lastPackageValidatedAt`,
+    `sourceUrl`/`sourceHost`, `contentChecksum`, and field provenance.
+  - **ContentPackageBuildLog** — one row per build attempt, success
+    or failure. Answers "why was this content not created?".
+  - **SourceQualityScore** — per-source / per-content-type rolling
+    stats (build success rate, QA pass rate, duplicate rate). Auto-
+    pauses sources whose failure rate or wrong-content rate cross a
+    threshold.
+  - **Growth intelligence** — periodic detector that catches "jobs
+    running but no packages being built", "builds happening but QA
+    failing", "sources producing mostly duplicates", "sources
+    exhausted", and either remediates automatically (re-enqueue
+    revalidate, demote source) or files an admin alert.
+  - **"Why is this content not visible?" admin page** —
+    `/admin/ingestion/why-not-visible`. One row per non-public catalog
+    entry with the last build attempt, last QA reason, missing fields,
+    failed contract, source purpose flags, and a suggested automatic
+    next action. Filters cover missing source, missing required
+    fields, source not approved, build failed, QA failed, deleted,
+    duplicate, waiting for worker, waiting for cleanup.
+  - **Content Factory dashboard** — `/admin/ingestion/factory`. Queue
+    counts (pending / running / retrying / failed), worker heartbeats
+    (active / stale / last heartbeat), pipeline timestamps (last
+    source fetch / last package build / last strict QA pass / last
+    valid package created / last invalid row deleted), content
+    progress (raw rows / built / valid / public / build failures / QA
+    failures / threshold-eligible / 24h growth / stalled reason), and
+    per-source quality scores. Every metric distinguishes "real zero"
+    from "query failed → diagnostic error" so the dashboard never
+    silently shows zero because it is disconnected.
+
 - **Ingestion as a first-class subsystem.** A curated allowlist of Vatican,
   USCCB, and dicastery hosts gates every fetch (`gateUrl` /
   `isApprovedUrl`). Adapters write through a single persistence layer that

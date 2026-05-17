@@ -299,34 +299,30 @@ async function runAdapterUnlocked(
       (r) => r.strict.decision === "reject" || r.strict.decision === "delete",
     );
 
-    // Legacy enrich/decision still runs for low-tier scoring + tier
-    // review flag — but a strict-rejected item never reaches the
-    // persister even if the legacy path would have published it.
+    // Legacy enrich/decision is now informational only — it still runs
+    // for source-tier scoring, but the automatic pipeline NEVER
+    // persists strict-approved items as REVIEW. The user spec is
+    // explicit: 'The app should have no automatic path that saves
+    // failed content as review.' Items that pass strict QA become
+    // PUBLISHED. Items that fail strict QA were already moved to
+    // strictRejected above and never reach this persist step.
     const validDecisions = strictApproved.map(({ item }) => ({
       item,
       decision: enrichDecision(item),
     }));
-    const acceptedForPublish = validDecisions
-      .filter((d) => d.decision.action === "publish")
-      .map((d) => d.item);
-    const acceptedForReview = validDecisions
-      .filter((d) => d.decision.action !== "publish")
-      .map((d) => d.item);
+    const acceptedForPublish = validDecisions.map((d) => d.item);
     const counts = await persistItems(acceptedForPublish, initialStatus, persistOptions);
-    const tierReviewCounts =
-      acceptedForReview.length > 0
-        ? await persistItems(acceptedForReview, "REVIEW" as ContentStatus, persistOptions)
-        : {
-            created: 0,
-            updated: 0,
-            skipped: 0,
-            logs: [] as DataManagementLogInput[],
-            details: [] as Array<{
-              kind: string;
-              slug: string;
-              outcome: "created" | "updated" | "skipped";
-            }>,
-          };
+    const tierReviewCounts: typeof counts = {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      logs: [] as DataManagementLogInput[],
+      details: [] as Array<{
+        kind: string;
+        slug: string;
+        outcome: "created" | "updated" | "skipped";
+      }>,
+    };
     // Apply scoring onto every row that the persister actually
     // created or updated. Skipped items keep the scores they already
     // had (or none) so an idempotent re-run does not generate
@@ -432,7 +428,7 @@ async function runAdapterUnlocked(
     // REVIEW/REJECT vs total. Smoothed into IngestionSource.lowQualityRatio
     // so the source health dashboard can flag chronically low-quality
     // sources.
-    const lowQualityCount = acceptedForReview.length + review.length + rejected.length;
+    const lowQualityCount = review.length + rejected.length + strictRejected.length;
     if (jobId && items.length > 0) {
       const job = await prisma.ingestionJob.findUnique({ where: { id: jobId } });
       if (job?.sourceId) {
@@ -442,19 +438,30 @@ async function runAdapterUnlocked(
         }).catch(() => undefined);
       }
     }
-    // Items that fail a soft (category-heuristic) check are persisted
-    // with `status = REVIEW` so a moderator can decide whether the
-    // content is genuinely Catholic but mis-shaped, or really a
-    // source-summary blurb that should be archived. This is the
-    // "imperfect but possibly real" bucket.
-    const reviewCounts =
-      review.length > 0
-        ? await persistItems(
-            review.map((r) => r.item),
-            "REVIEW" as ContentStatus,
-            persistOptions,
-          )
-        : { created: 0, updated: 0, skipped: 0, logs: [] as DataManagementLogInput[] };
+    // Soft-fail items (imperfect-but-real) are NO LONGER persisted as
+    // REVIEW automatically. The user spec is explicit: 'The app should
+    // have no automatic path that saves failed content as review.'
+    // We log them as rejections instead so the admin can see why they
+    // were dropped, then we do not write anything to the public table.
+    const reviewCounts = {
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      logs: [] as DataManagementLogInput[],
+    };
+    const softFailRejectionLogs: DataManagementLogInput[] = review.map(({ item, reason }) => ({
+      action: "REJECT",
+      contentType: ENTITY_TYPE_BY_KIND[item.kind] ?? "Unknown",
+      contentRef:
+        (item as { slug?: string }).slug ??
+        (item as { defaultTitle?: string }).defaultTitle ??
+        (item as { title?: string }).title ??
+        (item as { canonicalName?: string }).canonicalName ??
+        null,
+      reason: `Soft-fail dropped (no automatic REVIEW route): ${reason}`,
+      triggeredBy,
+      actorUsername: options.actorUsername ?? null,
+    }));
 
     // Noise: clearly non-content items (landing pages, navigation
     // cruft, meta-descriptions). The intelligent packager hard-deletes
@@ -535,6 +542,7 @@ async function runAdapterUnlocked(
       ...softReviewLogs,
       ...noiseLogs,
       ...rejectionLogs,
+      ...softFailRejectionLogs,
     ];
     if (allLogs.length > 0) {
       await recordDataManagementLogs(allLogs).catch((err) => {

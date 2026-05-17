@@ -78,6 +78,46 @@ export default async function AdminIngestion() {
           </ul>
         </section>
       ) : null}
+
+      <nav className="mb-6 flex flex-wrap gap-3 font-serif text-sm">
+        <Link
+          href="/admin/ingestion/factory"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Content Factory Dashboard →
+        </Link>
+        <Link
+          href="/admin/ingestion/why-not-visible"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Why is this content not visible? →
+        </Link>
+        <Link
+          href="/admin/ingestion/build-failures"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Build failures →
+        </Link>
+        <Link
+          href="/admin/content-qa/deleted-log"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Deleted invalid content →
+        </Link>
+        <Link
+          href="/admin/ingestion/queue"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Queue jobs →
+        </Link>
+        <Link
+          href="/admin/ingestion/workers"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Workers →
+        </Link>
+      </nav>
+
       <DataManagementSettings
         initialAutoCleanupEnabled={dataManagement.autoCleanupEnabled}
         initialHardDeleteAfterDays={dataManagement.hardDeleteAfterDays}
