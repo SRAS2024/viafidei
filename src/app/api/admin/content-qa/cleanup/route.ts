@@ -1,5 +1,4 @@
 import { type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { jsonError, jsonOk } from "@/lib/http";
 import {
@@ -8,6 +7,7 @@ import {
   describeCleanupPolicy,
 } from "@/lib/content-qa";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { logger } from "@/lib/observability";
 
 export const runtime = "nodejs";
@@ -26,8 +26,9 @@ export const maxDuration = 300;
  * Idempotent — re-running on a clean catalog is a no-op.
  */
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const started = Date.now();
   const policy = resolveCleanupPolicy();

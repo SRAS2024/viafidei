@@ -1,15 +1,16 @@
 import { type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
-import { jsonError, jsonOk } from "@/lib/http";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
+import { jsonOk } from "@/lib/http";
 import { publishAllPending } from "@/lib/data/publish-list";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const result = await publishAllPending();
   const total = Object.values(result).reduce((a, b) => a + b, 0);
