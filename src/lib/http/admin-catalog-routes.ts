@@ -6,6 +6,7 @@ import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
 import { assertCsrfOk, evaluateCsrf } from "@/lib/security/csrf";
 import { reportSecurityBreach } from "@/lib/security/security-events";
+import { scanForThreats } from "@/lib/security/payload-scanner";
 import { DEVICE_CREDENTIAL_COOKIE } from "@/middleware";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 
@@ -76,6 +77,24 @@ export function makeAdminCatalogIndex<C extends z.ZodTypeAny, U extends z.ZodTyp
 
     const body = await readJsonBody(req);
     if (!body.ok) return jsonError(body.reason === "too_large" ? "too_large" : "invalid");
+    // Threat scan: refuse payloads with script tags / event handlers /
+    // SQL keyword chains / shell redirects before they reach the
+    // database. The scanner is conservative — it flags only patterns
+    // that have no plausible place in religious-content fields.
+    const threat = scanForThreats(body.data);
+    if (threat) {
+      void reportSecurityBreach({
+        kind: `payload_threat:${threat.kind}`,
+        summary: `Suspicious payload (${threat.kind}) rejected on ${req.method} ${req.nextUrl.pathname}: ${threat.match}`,
+        ipAddress: getClientIpOrNull(req) ?? undefined,
+        userAgent: getUserAgent(req) ?? undefined,
+        route: req.nextUrl.pathname,
+        httpMethod: req.method,
+        deviceCredential: req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value,
+        attemptedAction: `admin_${config.entityType.toLowerCase()}_create`,
+      });
+      return jsonError("invalid", { message: "payload_rejected" });
+    }
     const parsed = config.createSchema.safeParse(body.data);
     if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
@@ -107,6 +126,20 @@ export function makeAdminCatalogItem<C extends z.ZodTypeAny, U extends z.ZodType
 
     const body = await readJsonBody(req);
     if (!body.ok) return jsonError(body.reason === "too_large" ? "too_large" : "invalid");
+    const threat = scanForThreats(body.data);
+    if (threat) {
+      void reportSecurityBreach({
+        kind: `payload_threat:${threat.kind}`,
+        summary: `Suspicious payload (${threat.kind}) rejected on ${req.method} ${req.nextUrl.pathname}: ${threat.match}`,
+        ipAddress: getClientIpOrNull(req) ?? undefined,
+        userAgent: getUserAgent(req) ?? undefined,
+        route: req.nextUrl.pathname,
+        httpMethod: req.method,
+        deviceCredential: req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value,
+        attemptedAction: `admin_${config.entityType.toLowerCase()}_update`,
+      });
+      return jsonError("invalid", { message: "payload_rejected" });
+    }
     const parsed = config.updateSchema.safeParse(body.data);
     if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
