@@ -10,6 +10,7 @@ import {
   checkSacramentRender,
   checkConsecrationRender,
   isCanonicalSacramentKey,
+  notifyRenderGateFailure,
 } from "@/lib/content-qa";
 import { logPageMissingContent } from "@/lib/observability/page-errors";
 import { logger } from "@/lib/observability/logger";
@@ -54,6 +55,11 @@ export default async function SacramentDetailPage({ params }: Props) {
         slug,
         reason: "validation_error",
       });
+      void notifyRenderGateFailure({
+        contentType: "Consecration",
+        slug,
+        missingFields: render.missing,
+      });
       notFound();
     }
   } else if (!isCanonicalSacramentKey(guide.sacramentKey)) {
@@ -63,6 +69,11 @@ export default async function SacramentDetailPage({ params }: Props) {
       entityType: "Sacrament",
       slug,
       reason: "validation_error",
+    });
+    void notifyRenderGateFailure({
+      contentType: "Sacrament",
+      slug,
+      missingFields: ["sacramentKey"],
     });
     notFound();
   } else {
@@ -81,6 +92,11 @@ export default async function SacramentDetailPage({ params }: Props) {
         entityType: "Sacrament",
         slug,
         reason: "validation_error",
+      });
+      void notifyRenderGateFailure({
+        contentType: "Sacrament",
+        slug,
+        missingFields: render.missing,
       });
       notFound();
     }

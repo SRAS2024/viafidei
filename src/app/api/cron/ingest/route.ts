@@ -89,6 +89,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Scheduled strict-cleanup keepalive. The auto-cleanup module dedupes
+  // by 5-minute bucket so calling this every tick produces at most one
+  // queued cleanup per bucket. Keeps the catalog continuously fresh
+  // even when there is no ingestion happening.
+  try {
+    const { autoEnqueueScheduledCleanup } = await import("@/lib/ingestion/queue/auto-cleanup");
+    await autoEnqueueScheduledCleanup();
+  } catch (e) {
+    logger.warn("cron.scheduled_cleanup_enqueue_failed", {
+      requestId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   // Admin can disable the automatic Data Management sweep via the
   // site_settings row. When disabled, the ingestion runner still runs
   // (per-row validation, skip-existing semantics) but the catalog-wide

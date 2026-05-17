@@ -99,7 +99,24 @@ async function runSourceJob(
         contentSeen: 0,
       };
     }
-    void kind;
+    // Auto-trigger post-ingestion cleanup. The strict QA policy says
+    // "every newly ingested batch must be revalidated immediately so
+    // a bad row never lingers". We enqueue (not run inline) so the
+    // adapter job stays fast and the cleanup is workable in parallel
+    // by another worker.
+    if (kind === "source_ingest" && summary.recordsSeen > 0) {
+      const { autoEnqueuePostIngestionCleanup } = await import("./auto-cleanup");
+      await autoEnqueuePostIngestionCleanup({
+        sourceId: job.sourceId,
+        contentType: job.contentType,
+        workerJobId: job.id,
+      }).catch((e) => {
+        logger.warn("worker.post_ingestion_cleanup_enqueue_failed", {
+          jobQueueId: job.id,
+          errorMessage: e instanceof Error ? e.message : String(e),
+        });
+      });
+    }
     return {
       ok: true,
       errorMessage,

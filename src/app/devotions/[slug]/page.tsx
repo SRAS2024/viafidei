@@ -10,7 +10,7 @@ import { ExpandablePrayer, OfficialSourceLink } from "@/components/ui";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
-import { checkDevotionRender } from "@/lib/content-qa";
+import { checkDevotionRender, notifyRenderGateFailure } from "@/lib/content-qa";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +92,11 @@ export default async function DevotionDetailPage({ params }: Props) {
       entityType: "Devotion",
       slug,
       reason: "validation_error",
+    });
+    void notifyRenderGateFailure({
+      contentType: "Devotion",
+      slug,
+      missingFields: render.missing,
     });
     notFound();
   }

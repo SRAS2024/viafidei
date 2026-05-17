@@ -5,7 +5,7 @@ import { getPublishedLiturgyBySlug } from "@/lib/data/liturgy";
 import { OfficialSourceLink } from "@/components/ui";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
-import { checkLiturgyRender, checkHistoryRender } from "@/lib/content-qa";
+import { checkLiturgyRender, checkHistoryRender, notifyRenderGateFailure } from "@/lib/content-qa";
 import { logger } from "@/lib/observability/logger";
 
 export const dynamic = "force-dynamic";
@@ -90,6 +90,11 @@ export default async function LiturgyDetailPage({ params }: Props) {
       entityType: "LiturgyEntry",
       slug,
       reason: "validation_error",
+    });
+    void notifyRenderGateFailure({
+      contentType: "LiturgyEntry",
+      slug,
+      missingFields: render.missing,
     });
     notFound();
   }

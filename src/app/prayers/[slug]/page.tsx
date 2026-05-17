@@ -10,7 +10,7 @@ import { ExpandablePrayer, OfficialSourceLink } from "@/components/ui";
 import { logger } from "@/lib/observability/logger";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
-import { checkPrayerRender } from "@/lib/content-qa";
+import { checkPrayerRender, notifyRenderGateFailure } from "@/lib/content-qa";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +95,14 @@ export default async function PrayerDetailPage({ params }: Props) {
       entityType: "Prayer",
       slug,
       reason: "validation_error",
+    });
+    // Fire-and-forget: enqueue a cleanup so the next visitor does not
+    // hit this same broken row. Render must complete even if the
+    // enqueue fails.
+    void notifyRenderGateFailure({
+      contentType: "Prayer",
+      slug,
+      missingFields: render.missing,
     });
     notFound();
   }

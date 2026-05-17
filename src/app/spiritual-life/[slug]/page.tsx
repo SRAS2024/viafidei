@@ -9,7 +9,7 @@ import { AddGoalButton } from "../_components";
 import { logger } from "@/lib/observability/logger";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
-import { checkSpiritualGuidanceRender } from "@/lib/content-qa";
+import { checkSpiritualGuidanceRender, notifyRenderGateFailure } from "@/lib/content-qa";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +102,11 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
       entityType: "SpiritualLifeGuide",
       slug,
       reason: "validation_error",
+    });
+    void notifyRenderGateFailure({
+      contentType: "SpiritualLifeGuide",
+      slug,
+      missingFields: render.missing,
     });
     notFound();
   }
