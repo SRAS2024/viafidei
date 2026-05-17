@@ -7,14 +7,17 @@ import { prismaMock, resetPrismaMock } from "../helpers/prisma-mock";
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
+
+const reportCriticalFailureMock = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/data/admin-notifications", () => ({
-  reportCriticalFailure: vi.fn(),
+  reportCriticalFailure: (...args: unknown[]) => reportCriticalFailureMock(...args),
 }));
 
 import { recordScoreEvent } from "@/lib/content-factory";
 
 beforeEach(() => {
   resetPrismaMock();
+  reportCriticalFailureMock.mockClear();
 });
 
 describe("recordScoreEvent", () => {
@@ -223,5 +226,53 @@ describe("recordScoreEvent — auto-pauses bad sources", () => {
     // ingestionSource.update is NOT called again — the source is
     // already paused.
     expect(prismaMock.ingestionSource.update).not.toHaveBeenCalled();
+  });
+
+  it("fires reportCriticalFailure to notify the admin when a source is auto-paused", async () => {
+    // 10 successes, 50 failures (~83% failure rate, > 80% threshold).
+    const after = scoreRow({
+      buildSuccessCount: 10,
+      buildFailureCount: 50,
+    });
+    prismaMock.sourceQualityScore.upsert.mockResolvedValue(after);
+    prismaMock.sourceQualityScore.findUnique.mockResolvedValue(after);
+    prismaMock.sourceQualityScore.update.mockResolvedValue({});
+    prismaMock.ingestionSource.update.mockResolvedValue({});
+
+    await recordScoreEvent({
+      kind: "build_failure",
+      sourceId: "src-bad",
+      contentType: "Prayer",
+      reason: "missing required fields",
+    });
+
+    expect(reportCriticalFailureMock).toHaveBeenCalledTimes(1);
+    const args = reportCriticalFailureMock.mock.calls[0]![0] as {
+      kind: string;
+      message: string;
+    };
+    expect(args.kind).toBe("source_auto_paused");
+    expect(args.message).toMatch(/src-bad/);
+    expect(args.message).toMatch(/Prayer/);
+  });
+
+  it("does NOT notify the admin when the source was already paused (no re-notify)", async () => {
+    const after = scoreRow({
+      buildSuccessCount: 0,
+      buildFailureCount: 100,
+      autoPaused: true,
+      autoPausedAt: new Date("2025-01-01"),
+    });
+    prismaMock.sourceQualityScore.upsert.mockResolvedValue(after);
+    prismaMock.sourceQualityScore.findUnique.mockResolvedValue(after);
+    prismaMock.sourceQualityScore.update.mockResolvedValue({});
+
+    await recordScoreEvent({
+      kind: "build_failure",
+      sourceId: "src-already-paused",
+      contentType: "Prayer",
+    });
+
+    expect(reportCriticalFailureMock).not.toHaveBeenCalled();
   });
 });
