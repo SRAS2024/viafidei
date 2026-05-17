@@ -150,8 +150,8 @@ async function runAdapterUnlocked(
 
     // Adapter-driven exhaustion: if the adapter signals that there
     // are no more items at this source/cursor, mark the source as
-    // exhausted so the planner stops re-enqueuing source_ingest jobs
-    // for it. Freshness jobs in maintenance mode still run.
+    // exhausted so the planner stops re-enqueuing source_discovery
+    // jobs for it. Freshness jobs in maintenance mode still run.
     if (exhausted && jobId) {
       try {
         const job = await prisma.ingestionJob.findUnique({ where: { id: jobId } });

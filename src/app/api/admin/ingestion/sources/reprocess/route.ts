@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   for (const job of jobs) {
     const row = await enqueueJob({
       jobName: job.jobName,
-      jobKind: "source_ingest",
+      jobKind: "source_discovery",
       dedupeKey: `reprocess:${job.id}:${Date.now()}`,
       sourceId: job.sourceId,
       jobId: job.id,

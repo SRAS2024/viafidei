@@ -48,13 +48,15 @@ export {
 
 export {
   JOB_KINDS,
+  REMOVED_JOB_KINDS,
   PRIORITY_DEFAULTS,
   JOB_PAYLOAD_SCHEMAS,
   validatePayload,
   sanitizePayload,
   isJobKind,
+  isRemovedJobKind,
   type JobKind,
-  type SourceIngestPayload,
+  type RemovedJobKind,
   type SourceFreshnessPayload,
   type SourceDiscoveryPayload,
   type ContentRevalidatePayload,

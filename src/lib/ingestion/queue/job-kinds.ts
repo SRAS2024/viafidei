@@ -5,15 +5,16 @@
  *
  * The worker uses `jobKind` to route execution, so adapter-name-based
  * dispatch is no longer needed at the queue layer.
+ *
+ * `source_ingest` was the legacy single-step adapter executor. It is
+ * removed from the active set — new code must enqueue explicit
+ * factory-stage kinds (`source_discovery` → `source_fetch` →
+ * `content_build` → `content_validate` → `content_persist`).
  */
 
 import { z } from "zod";
 
 export const JOB_KINDS = [
-  // Legacy single-step adapter execution. Retained as an alias for
-  // existing rows in flight; new enqueues prefer the explicit
-  // factory-stage kinds below.
-  "source_ingest",
   // Source-side kinds.
   "source_discovery",
   "source_fetch",
@@ -40,7 +41,6 @@ export type JobKind = (typeof JOB_KINDS)[number];
  */
 export const PRIORITY_DEFAULTS: Record<JobKind, number> = {
   source_freshness: 50,
-  source_ingest: 100,
   source_fetch: 100,
   source_discovery: 110,
   content_build: 120,
@@ -54,6 +54,17 @@ export const PRIORITY_DEFAULTS: Record<JobKind, number> = {
   report_generate: 500,
 };
 
+/**
+ * Removed job kinds. Surfacing this list lets callers (and tests)
+ * detect legacy rows still sitting in the queue and translate them
+ * into the modern factory stages — see `dispatch.ts`.
+ */
+export const REMOVED_JOB_KINDS = ["source_ingest"] as const;
+export type RemovedJobKind = (typeof REMOVED_JOB_KINDS)[number];
+export function isRemovedJobKind(value: string): value is RemovedJobKind {
+  return (REMOVED_JOB_KINDS as readonly string[]).includes(value);
+}
+
 // ─── Payload schemas ────────────────────────────────────────────────
 
 const baseSourcePayload = z.object({
@@ -61,11 +72,6 @@ const baseSourcePayload = z.object({
   adapterKey: z.string().min(1),
   cursorKey: z.string().min(1).optional(),
   contentType: z.string().min(1).optional(),
-});
-
-export const sourceIngestPayloadSchema = baseSourcePayload.extend({
-  mode: z.enum(["constant", "maintenance"]).default("constant"),
-  batchSizeLimit: z.number().int().positive().optional(),
 });
 
 export const sourceFreshnessPayloadSchema = baseSourcePayload.extend({
@@ -76,6 +82,7 @@ export const sourceFreshnessPayloadSchema = baseSourcePayload.extend({
 export const sourceDiscoveryPayloadSchema = baseSourcePayload.extend({
   startUrl: z.string().url().optional(),
   maxPages: z.number().int().positive().optional(),
+  mode: z.enum(["constant", "maintenance"]).default("constant"),
 });
 
 export const contentRevalidatePayloadSchema = z
@@ -190,7 +197,6 @@ export const strictCleanupPayloadSchema = z
   .passthrough();
 
 export const JOB_PAYLOAD_SCHEMAS: Record<JobKind, z.ZodTypeAny> = {
-  source_ingest: sourceIngestPayloadSchema,
   source_freshness: sourceFreshnessPayloadSchema,
   source_discovery: sourceDiscoveryPayloadSchema,
   source_fetch: sourceFetchPayloadSchema,
@@ -205,7 +211,6 @@ export const JOB_PAYLOAD_SCHEMAS: Record<JobKind, z.ZodTypeAny> = {
   report_generate: reportGeneratePayloadSchema,
 };
 
-export type SourceIngestPayload = z.infer<typeof sourceIngestPayloadSchema>;
 export type SourceFreshnessPayload = z.infer<typeof sourceFreshnessPayloadSchema>;
 export type SourceDiscoveryPayload = z.infer<typeof sourceDiscoveryPayloadSchema>;
 export type ContentRevalidatePayload = z.infer<typeof contentRevalidatePayloadSchema>;
@@ -221,6 +226,12 @@ export function validatePayload(
   jobKind: string,
   payload: unknown,
 ): { ok: true; data: unknown } | { ok: false; error: string } {
+  if (isRemovedJobKind(jobKind)) {
+    return {
+      ok: false,
+      error: `Removed job kind '${jobKind}' — use the explicit factory stages instead (source_discovery → source_fetch → content_build → content_validate → content_persist).`,
+    };
+  }
   if (!isJobKind(jobKind)) {
     return { ok: false, error: `Unknown job kind: ${jobKind}` };
   }

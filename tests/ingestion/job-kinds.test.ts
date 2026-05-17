@@ -3,13 +3,15 @@ import {
   validatePayload,
   sanitizePayload,
   isJobKind,
+  isRemovedJobKind,
   JOB_KINDS,
+  REMOVED_JOB_KINDS,
   PRIORITY_DEFAULTS,
 } from "@/lib/ingestion/queue/job-kinds";
 
 describe("job kinds — validation", () => {
-  it("accepts a valid source_ingest payload", () => {
-    const result = validatePayload("source_ingest", {
+  it("accepts a valid source_discovery payload", () => {
+    const result = validatePayload("source_discovery", {
       sourceId: "src1",
       adapterKey: "vatican.prayers",
       contentType: "Prayer",
@@ -26,9 +28,21 @@ describe("job kinds — validation", () => {
     }
   });
 
-  it("rejects an invalid source_ingest payload", () => {
-    const result = validatePayload("source_ingest", { sourceId: "src1" });
+  it("rejects an invalid source_discovery payload (missing required fields)", () => {
+    const result = validatePayload("source_discovery", { sourceId: "src1" });
     expect(result.ok).toBe(false);
+  });
+
+  it("rejects source_ingest with the explicit 'removed job kind' message", () => {
+    const result = validatePayload("source_ingest", {
+      sourceId: "src1",
+      adapterKey: "vatican.prayers",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/Removed job kind/);
+      expect(result.error).toMatch(/source_discovery/);
+    }
   });
 
   it("accepts content_revalidate with 'all'", () => {
@@ -36,9 +50,21 @@ describe("job kinds — validation", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("isJobKind narrows the type for valid kinds", () => {
-    expect(isJobKind("source_ingest")).toBe(true);
+  it("isJobKind narrows the type for valid kinds — source_ingest is no longer valid", () => {
+    expect(isJobKind("source_discovery")).toBe(true);
+    expect(isJobKind("source_ingest")).toBe(false);
     expect(isJobKind("totally_made_up")).toBe(false);
+  });
+
+  it("isRemovedJobKind identifies source_ingest as a removed legacy kind", () => {
+    expect(isRemovedJobKind("source_ingest")).toBe(true);
+    expect(isRemovedJobKind("source_discovery")).toBe(false);
+  });
+
+  it("REMOVED_JOB_KINDS and JOB_KINDS are disjoint", () => {
+    for (const removed of REMOVED_JOB_KINDS) {
+      expect(JOB_KINDS).not.toContain(removed);
+    }
   });
 
   it("every JOB_KIND has a PRIORITY_DEFAULTS entry", () => {

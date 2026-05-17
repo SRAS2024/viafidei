@@ -21,7 +21,7 @@ describe("queue lease — real Postgres concurrency", () => {
   it("two simultaneous leaseNextJob calls do not return the same row", async () => {
     const row = await enqueueJob({
       jobName: "integration-test",
-      jobKind: "source_ingest",
+      jobKind: "source_discovery",
       dedupeKey: `it:lease:${Date.now()}`,
       contentType: "Prayer",
       payload: {
@@ -48,7 +48,7 @@ describe("queue lease — real Postgres concurrency", () => {
   it("stale lease recovery returns the job to pending after the grace window", async () => {
     await enqueueJob({
       jobName: "integration-test",
-      jobKind: "source_ingest",
+      jobKind: "source_discovery",
       dedupeKey: `it:stale:${Date.now()}`,
       contentType: "Prayer",
       payload: {
@@ -79,7 +79,7 @@ describe("queue lease — real Postgres concurrency", () => {
   it("retry backoff applies after a recoverable failure", async () => {
     await enqueueJob({
       jobName: "integration-test",
-      jobKind: "source_ingest",
+      jobKind: "source_discovery",
       dedupeKey: `it:retry:${Date.now()}`,
       contentType: "Prayer",
       payload: {
@@ -105,7 +105,7 @@ describe("queue lease — real Postgres concurrency", () => {
     const dedupeKey = `it:dedupe:${Date.now()}`;
     await enqueueJob({
       jobName: "integration-test",
-      jobKind: "source_ingest",
+      jobKind: "source_discovery",
       dedupeKey,
       contentType: "Prayer",
       payload: {
@@ -121,7 +121,7 @@ describe("queue lease — real Postgres concurrency", () => {
     // existing pending row (not create a duplicate).
     await enqueueJob({
       jobName: "integration-test",
-      jobKind: "source_ingest",
+      jobKind: "source_discovery",
       dedupeKey,
       contentType: "Prayer",
       priority: 5,

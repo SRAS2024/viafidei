@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     if (!job) return jsonError("not_found", { message: "job-not-found" });
     const queued = await enqueueJob({
       jobName: job.jobName,
-      jobKind: "source_ingest",
+      jobKind: "source_discovery",
       dedupeKey: `manual:${job.id}:${Date.now()}`,
       sourceId: job.sourceId,
       jobId: job.id,

@@ -76,7 +76,7 @@ describe("migration script idempotency", () => {
       sourceId: "src1",
       jobId: "job1",
       jobName: "test-adapter",
-      jobKind: "source_ingest",
+      jobKind: "source_discovery",
       dedupeKey: "ingest|job1|src1|test-adapter|Prayer|constant",
       contentType: "Prayer",
       status: "pending",

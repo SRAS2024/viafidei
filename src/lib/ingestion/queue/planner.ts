@@ -387,7 +387,7 @@ export async function enqueueDueIngestionJobs(
     try {
       await enqueueJob({
         jobName: job.jobName,
-        jobKind: effectiveMode === "maintenance" ? "source_freshness" : "source_ingest",
+        jobKind: effectiveMode === "maintenance" ? "source_freshness" : "source_discovery",
         dedupeKey,
         sourceId: job.sourceId,
         jobId: job.id,
