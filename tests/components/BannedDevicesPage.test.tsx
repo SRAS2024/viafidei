@@ -13,8 +13,10 @@ vi.mock("@/lib/auth", () => ({
   requireAdmin: vi.fn().mockResolvedValue({ username: "admin", signedInAt: Date.now() }),
 }));
 const listBannedDevicesMock = vi.fn();
+const listBannedDevicesWithDetailMock = vi.fn();
 vi.mock("@/lib/security/security-event-store", () => ({
   listBannedDevices: (...args: unknown[]) => listBannedDevicesMock(...args),
+  listBannedDevicesWithDetail: (...args: unknown[]) => listBannedDevicesWithDetailMock(...args),
 }));
 // AdminSection is an async server component; replace with a synchronous
 // passthrough so RTL's render() can mount the page.
@@ -36,6 +38,7 @@ import BannedDevicesPage from "@/app/admin/banned-devices/page";
 
 beforeEach(() => {
   listBannedDevicesMock.mockReset();
+  listBannedDevicesWithDetailMock.mockReset();
 });
 
 async function renderBannedDevicesPage() {
@@ -46,13 +49,13 @@ async function renderBannedDevicesPage() {
 
 describe("admin banned-devices page", () => {
   it("renders an empty state when no devices are banned", async () => {
-    listBannedDevicesMock.mockResolvedValue([]);
+    listBannedDevicesWithDetailMock.mockResolvedValue([]);
     await renderBannedDevicesPage();
     expect(screen.getByTestId("banned-devices-empty")).toBeInTheDocument();
   });
 
-  it("renders the table when there are banned devices", async () => {
-    listBannedDevicesMock.mockResolvedValue([
+  it("renders the table when there are banned devices, including originating-event geo fields", async () => {
+    listBannedDevicesWithDetailMock.mockResolvedValue([
       {
         id: "bd_1",
         deviceCredentialHash: "fp_abcdef123456",
@@ -66,15 +69,53 @@ describe("admin banned-devices page", () => {
         active: true,
         createdAt: new Date("2026-01-01"),
         updatedAt: new Date("2026-01-02"),
+        originatingEventType: "csrf_violation",
+        originatingUserAgent: "Mozilla/5.0 (Linux; Android attacker)",
+        originatingCity: "Springfield",
+        originatingRegion: "IL",
+        originatingCountry: "US",
       },
     ]);
     await renderBannedDevicesPage();
     expect(screen.getByTestId("banned-devices-table")).toBeInTheDocument();
     expect(screen.getByText(/csrf_violation/)).toBeInTheDocument();
+    // Geo + UA columns surface the originating-event context.
+    expect(screen.getByTestId("banned-device-city")).toHaveTextContent("Springfield");
+    expect(screen.getByTestId("banned-device-region")).toHaveTextContent("IL");
+    expect(screen.getByTestId("banned-device-country")).toHaveTextContent("US");
+    expect(screen.getByTestId("banned-device-user-agent").textContent).toMatch(/Mozilla\/5\.0/);
+  });
+
+  it("renders '—' placeholders for missing geo / UA when the originating event has no detail", async () => {
+    listBannedDevicesWithDetailMock.mockResolvedValue([
+      {
+        id: "bd_2",
+        deviceCredentialHash: "fp_ee",
+        ipAddressHash: null,
+        userAgentHash: null,
+        firstSeenAt: new Date("2026-01-01"),
+        lastSeenAt: new Date("2026-01-02"),
+        banReason: "sqli_attempt",
+        securityEventId: "evt_222",
+        createdBy: "signed_ban_link",
+        active: true,
+        createdAt: new Date("2026-01-01"),
+        updatedAt: new Date("2026-01-02"),
+        originatingEventType: "sqli_attempt",
+        originatingUserAgent: null,
+        originatingCity: null,
+        originatingRegion: null,
+        originatingCountry: null,
+      },
+    ]);
+    await renderBannedDevicesPage();
+    expect(screen.getByTestId("banned-device-city").textContent).toBe("—");
+    expect(screen.getByTestId("banned-device-region").textContent).toBe("—");
+    expect(screen.getByTestId("banned-device-country").textContent).toBe("—");
   });
 
   it("NEVER renders an unban button or any UI affordance to remove a ban", async () => {
-    listBannedDevicesMock.mockResolvedValue([
+    listBannedDevicesWithDetailMock.mockResolvedValue([
       {
         id: "bd_1",
         deviceCredentialHash: "fp_abcdef123456",
@@ -88,6 +129,11 @@ describe("admin banned-devices page", () => {
         active: true,
         createdAt: new Date("2026-01-01"),
         updatedAt: new Date("2026-01-02"),
+        originatingEventType: "csrf_violation",
+        originatingUserAgent: null,
+        originatingCity: null,
+        originatingRegion: null,
+        originatingCountry: null,
       },
     ]);
     await renderBannedDevicesPage();

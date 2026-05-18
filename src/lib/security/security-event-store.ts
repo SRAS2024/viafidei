@@ -240,3 +240,60 @@ export async function listBannedDevices(limit = 100): Promise<BannedDeviceRow[]>
   });
   return rows as BannedDeviceRow[];
 }
+
+/**
+ * Detail row for the banned-devices admin page. Joins each ban
+ * with its originating SecurityEvent so the admin can see the
+ * geo / user-agent context without leaving the page. Empty fields
+ * are surfaced as null so the UI renders a "—" placeholder rather
+ * than a misleading "Unknown".
+ */
+export type BannedDeviceDetail = BannedDeviceRow & {
+  originatingEventType: string | null;
+  originatingUserAgent: string | null;
+  originatingCity: string | null;
+  originatingRegion: string | null;
+  originatingCountry: string | null;
+};
+
+export async function listBannedDevicesWithDetail(limit = 100): Promise<BannedDeviceDetail[]> {
+  const rows = await prisma.bannedDevice.findMany({
+    take: limit,
+    orderBy: { createdAt: "desc" },
+  });
+  // Eager-load the originating SecurityEvent for every row in a single
+  // findMany call so the page render stays O(1) DB round-trips
+  // regardless of `limit`.
+  const eventIds = Array.from(
+    new Set(
+      rows
+        .map((r) => r.securityEventId)
+        .filter((v): v is string => typeof v === "string" && v.length > 0),
+    ),
+  );
+  const events = eventIds.length
+    ? await prisma.securityEvent.findMany({
+        where: { id: { in: eventIds } },
+        select: {
+          id: true,
+          eventType: true,
+          userAgent: true,
+          city: true,
+          region: true,
+          country: true,
+        },
+      })
+    : [];
+  const eventMap = new Map(events.map((e) => [e.id, e]));
+  return rows.map((row) => {
+    const ev = row.securityEventId ? eventMap.get(row.securityEventId) : null;
+    return {
+      ...(row as BannedDeviceRow),
+      originatingEventType: ev?.eventType ?? null,
+      originatingUserAgent: ev?.userAgent ?? null,
+      originatingCity: ev?.city ?? null,
+      originatingRegion: ev?.region ?? null,
+      originatingCountry: ev?.country ?? null,
+    };
+  });
+}

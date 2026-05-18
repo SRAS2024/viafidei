@@ -9,6 +9,7 @@ import {
   isDeviceBanned,
   recordSecurityEvent,
   isClassification,
+  listBannedDevicesWithDetail,
 } from "@/lib/security/security-event-store";
 
 beforeEach(() => {
@@ -128,5 +129,91 @@ describe("security event store — banDevice + isDeviceBanned", () => {
     expect(await isDeviceBanned(null)).toBe(false);
     expect(await isDeviceBanned("")).toBe(false);
     expect(prismaMock.bannedDevice.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+describe("listBannedDevicesWithDetail — joins originating SecurityEvent geo / UA", () => {
+  it("attaches originating event fields onto each banned-device row", async () => {
+    prismaMock.bannedDevice.findMany.mockResolvedValue([
+      {
+        id: "bd_1",
+        deviceCredentialHash: "fp_1",
+        ipAddressHash: null,
+        userAgentHash: null,
+        firstSeenAt: new Date("2026-01-01"),
+        lastSeenAt: new Date("2026-01-02"),
+        banReason: "csrf_violation",
+        securityEventId: "evt_1",
+        createdBy: "signed_ban_link",
+        active: true,
+        createdAt: new Date("2026-01-01"),
+        updatedAt: new Date("2026-01-02"),
+      },
+    ]);
+    prismaMock.securityEvent.findMany.mockResolvedValue([
+      {
+        id: "evt_1",
+        eventType: "csrf_violation",
+        userAgent: "Mozilla/5.0",
+        city: "Springfield",
+        region: "IL",
+        country: "US",
+      },
+    ]);
+    const rows = await listBannedDevicesWithDetail();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.originatingCity).toBe("Springfield");
+    expect(rows[0]!.originatingRegion).toBe("IL");
+    expect(rows[0]!.originatingCountry).toBe("US");
+    expect(rows[0]!.originatingUserAgent).toBe("Mozilla/5.0");
+    expect(rows[0]!.originatingEventType).toBe("csrf_violation");
+  });
+
+  it("surfaces null fields when the originating event is missing (pruned / never linked)", async () => {
+    prismaMock.bannedDevice.findMany.mockResolvedValue([
+      {
+        id: "bd_2",
+        deviceCredentialHash: "fp_2",
+        ipAddressHash: null,
+        userAgentHash: null,
+        firstSeenAt: new Date(),
+        lastSeenAt: new Date(),
+        banReason: "system",
+        securityEventId: null,
+        createdBy: "system",
+        active: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    prismaMock.securityEvent.findMany.mockResolvedValue([]);
+    const rows = await listBannedDevicesWithDetail();
+    expect(rows[0]!.originatingCity).toBeNull();
+    expect(rows[0]!.originatingRegion).toBeNull();
+    expect(rows[0]!.originatingCountry).toBeNull();
+    expect(rows[0]!.originatingUserAgent).toBeNull();
+    expect(rows[0]!.originatingEventType).toBeNull();
+  });
+
+  it("skips the SecurityEvent lookup entirely when no row has a securityEventId", async () => {
+    prismaMock.bannedDevice.findMany.mockResolvedValue([
+      {
+        id: "bd_3",
+        deviceCredentialHash: "fp_3",
+        ipAddressHash: null,
+        userAgentHash: null,
+        firstSeenAt: new Date(),
+        lastSeenAt: new Date(),
+        banReason: "system",
+        securityEventId: null,
+        createdBy: "system",
+        active: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    prismaMock.securityEvent.findMany.mockClear();
+    await listBannedDevicesWithDetail();
+    expect(prismaMock.securityEvent.findMany).not.toHaveBeenCalled();
   });
 });
