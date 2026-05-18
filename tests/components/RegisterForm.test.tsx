@@ -49,17 +49,24 @@ describe("RegisterForm privacy notice", () => {
 
   it("does not show the password requirements hint by default", () => {
     render(<RegisterForm labels={labels} />);
-    expect(screen.queryByText(labels.passwordRequirements)).not.toBeInTheDocument();
+    expect(screen.queryByText(labels.weakPassword)).not.toBeInTheDocument();
   });
 
-  it("shows the password requirements message as a red alert when the password is too weak", () => {
+  it("shows the spec-mandated red alert when the password is too weak", () => {
     render(<RegisterForm labels={labels} />);
     const password = screen.getByLabelText("Password") as HTMLInputElement;
     fireEvent.change(password, { target: { value: "weak" } });
     fireEvent.blur(password);
-    const message = screen.getByText(labels.passwordRequirements);
+    const message = screen.getByText(labels.weakPassword);
     expect(message).toBeInTheDocument();
     expect(message).toHaveAttribute("role", "alert");
+    // The spec mandates the exact wording — pin it so a future i18n
+    // edit cannot silently weaken the on-screen rule.
+    expect(message.textContent).toContain("Password must be at least 12 characters");
+    expect(message.textContent).toContain("uppercase letter");
+    expect(message.textContent).toContain("lowercase letter");
+    expect(message.textContent).toContain("number");
+    expect(message.textContent).toContain("special character");
   });
 
   it("shows the mismatch message when the two passwords differ", () => {
@@ -80,10 +87,10 @@ describe("RegisterForm privacy notice", () => {
     const confirm = screen.getByLabelText("Re-enter password") as HTMLInputElement;
     fireEvent.change(password, { target: { value: "weak" } });
     fireEvent.blur(password);
-    expect(screen.getByText(labels.passwordRequirements)).toBeInTheDocument();
+    expect(screen.getByText(labels.weakPassword)).toBeInTheDocument();
     fireEvent.change(password, { target: { value: STRONG_PASSWORD } });
     fireEvent.change(confirm, { target: { value: STRONG_PASSWORD } });
-    expect(screen.queryByText(labels.passwordRequirements)).not.toBeInTheDocument();
+    expect(screen.queryByText(labels.weakPassword)).not.toBeInTheDocument();
     expect(screen.queryByText(labels.mismatch)).not.toBeInTheDocument();
   });
 
@@ -93,7 +100,7 @@ describe("RegisterForm privacy notice", () => {
     // 11 chars, includes upper / lower / digit / special, but too short.
     fireEvent.change(password, { target: { value: "Aa1!short!!" } });
     fireEvent.blur(password);
-    expect(screen.getByText(labels.passwordRequirements)).toBeInTheDocument();
+    expect(screen.getByText(labels.weakPassword)).toBeInTheDocument();
   });
 
   it("rejects a 12-char password missing a special character", () => {
@@ -101,7 +108,7 @@ describe("RegisterForm privacy notice", () => {
     const password = screen.getByLabelText("Password") as HTMLInputElement;
     fireEvent.change(password, { target: { value: "PadreAlb1noXY" } });
     fireEvent.blur(password);
-    expect(screen.getByText(labels.passwordRequirements)).toBeInTheDocument();
+    expect(screen.getByText(labels.weakPassword)).toBeInTheDocument();
   });
 
   it("accepts a 12-char password that includes every required class", () => {
@@ -109,7 +116,7 @@ describe("RegisterForm privacy notice", () => {
     const password = screen.getByLabelText("Password") as HTMLInputElement;
     fireEvent.change(password, { target: { value: STRONG_PASSWORD } });
     fireEvent.blur(password);
-    expect(screen.queryByText(labels.passwordRequirements)).not.toBeInTheDocument();
+    expect(screen.queryByText(labels.weakPassword)).not.toBeInTheDocument();
   });
 
   it("has no obvious accessibility violations in its initial render", async () => {
