@@ -33,7 +33,7 @@ function buildRequest(body: unknown): NextRequest {
 }
 
 const VALID_TOKEN = "a".repeat(40);
-const VALID_PASSWORD = "Newp4ss!";
+const VALID_PASSWORD = "Newp4ss!Strong";
 
 beforeEach(() => {
   rateLimitMock.mockReset();
@@ -86,7 +86,11 @@ describe("POST /api/auth/reset-password", () => {
 
   it("rejects passwords missing a number", async () => {
     const res = await POST(
-      buildRequest({ token: VALID_TOKEN, password: "Padre", passwordConfirm: "Padre" }),
+      buildRequest({
+        token: VALID_TOKEN,
+        password: "PadreAlbino!ee",
+        passwordConfirm: "PadreAlbino!ee",
+      }),
     );
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string; message: string };
@@ -95,7 +99,33 @@ describe("POST /api/auth/reset-password", () => {
 
   it("rejects passwords missing a capital letter", async () => {
     const res = await POST(
-      buildRequest({ token: VALID_TOKEN, password: "padre1", passwordConfirm: "padre1" }),
+      buildRequest({
+        token: VALID_TOKEN,
+        password: "padrealb1no!!!",
+        passwordConfirm: "padrealb1no!!!",
+      }),
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; message: string };
+    expect(body.message).toBe("weak");
+  });
+
+  it("rejects passwords missing a special character", async () => {
+    const res = await POST(
+      buildRequest({
+        token: VALID_TOKEN,
+        password: "PadreAlb1noXYZ",
+        passwordConfirm: "PadreAlb1noXYZ",
+      }),
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; message: string };
+    expect(body.message).toBe("weak");
+  });
+
+  it("rejects passwords shorter than 12 characters", async () => {
+    const res = await POST(
+      buildRequest({ token: VALID_TOKEN, password: "Aa1!short", passwordConfirm: "Aa1!short" }),
     );
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error: string; message: string };

@@ -1,14 +1,17 @@
 import { type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { getFaviconSetting, upsertFaviconSetting } from "@/lib/data/site-settings";
 import { getClientIpOrNull, getUserAgent, redirectTo } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) {
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) {
+    // For favicon, redirect to admin login on failure (consistent with
+    // the previous behavior — favicon is a form-post route).
     return redirectTo(req, "/admin/login");
   }
+  const { admin } = gate;
 
   const form = await req.formData();
   const url = String(form.get("url") ?? "").trim();

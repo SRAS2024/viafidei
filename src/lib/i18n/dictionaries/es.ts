@@ -38,7 +38,8 @@ export const es: Dict = {
     "Este inicio de sesión es solo para miembros de Via Fidei. Los administradores deben usar el portal dedicado.",
   "auth.invalid": "El correo o la contraseña son incorrectos.",
   "auth.mismatch": "Las contraseñas no coinciden.",
-  "auth.weakPassword": "La contraseña debe tener al menos 12 caracteres.",
+  "auth.weakPassword":
+    "La contraseña debe tener al menos 12 caracteres e incluir una letra mayúscula, una letra minúscula, un número y un carácter especial.",
   "admin.loading.greeting": "¡Bienvenido!",
   "admin.login.title": "Inicio de sesión del administrador",
   "admin.login.subtitle":

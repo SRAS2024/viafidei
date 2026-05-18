@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { getIngestionSource, updateIngestionSource } from "@/lib/data/sources";
 
@@ -16,6 +17,11 @@ const patchSchema = z.object({
   rateLimitPerMin: z.number().int().positive().max(10_000).nullish().optional(),
   notes: z.string().max(2000).nullish().optional(),
   reliabilityScore: z.number().min(0).max(1).nullish().optional(),
+  // When set to a sitemap / RSS URL, the worker's source_discovery
+  // dispatch uses the factory-native path for this source — walking
+  // the feed and enqueueing source_fetch jobs per URL — bypassing
+  // the legacy adapter discovery entirely.
+  discoveryFeedUrl: z.string().url().max(500).nullish().optional(),
 });
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -29,8 +35,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const limit = await rateLimit(`admin-sources:${admin.username}`, RATE_POLICIES.adminWrite);
   if (!limit.ok) return jsonError("rate_limited");

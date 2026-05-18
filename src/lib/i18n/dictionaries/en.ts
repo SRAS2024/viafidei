@@ -148,9 +148,9 @@ const auth: Dict = {
   "auth.invalid": "Email or password is incorrect.",
   "auth.mismatch": "Passwords do not match.",
   "auth.weakPassword":
-    "Password must be at least 5 characters and include at least one number and one capital letter.",
+    "Password must be at least 12 characters and include one uppercase letter, one lowercase letter, one number, and one special character.",
   "auth.passwordRequirements":
-    "Use at least 5 characters, with at least one number and one capital letter.",
+    "Use at least 12 characters with one uppercase letter, one lowercase letter, one number, and one special character.",
   "auth.signOut": "Sign out",
   "auth.forgot.title": "Forgot password",
   "auth.forgot.subtitle": "Enter your email and we'll send you a password reset link.",
@@ -360,6 +360,7 @@ const admin: Dict = {
   "admin.contentQA.title": "Content QA",
   "admin.contentQA.deletedLog": "Deleted invalid content log",
   "admin.email.title": "Email diagnostics",
+  "admin.bannedDevices.title": "Banned devices",
   "admin.signOut": "Sign out of admin",
   "admin.welcomeLine": "You are signed in as the administrator.",
 };

@@ -97,7 +97,7 @@ describe("planner source-health priority demotion", () => {
           sourceId: "src1",
           jobId: "job1",
           jobName: "test-adapter",
-          jobKind: "source_ingest",
+          jobKind: "source_discovery",
           dedupeKey: "x",
           contentType: "Prayer",
           status: "pending",

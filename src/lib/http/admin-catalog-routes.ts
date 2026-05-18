@@ -4,7 +4,48 @@ import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { assertCsrfOk, evaluateCsrf } from "@/lib/security/csrf";
+import { reportSecurityBreach } from "@/lib/security/security-events";
+import { scanForThreats } from "@/lib/security/payload-scanner";
+import { DEVICE_CREDENTIAL_COOKIE } from "@/middleware";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
+
+/**
+ * Common per-route mutation gate: CSRF check, admin auth, rate
+ * limit. Order matters — CSRF check first so a cross-origin admin
+ * session cannot mutate, then admin auth, then rate limit so an
+ * authenticated admin still has to obey the per-actor cap.
+ *
+ * Returns a Response when the request must be rejected, or a
+ * `{ ok: true, admin }` envelope when the caller may proceed.
+ */
+async function gateMutation(
+  req: NextRequest,
+): Promise<{ ok: true; admin: { username: string } } | { ok: false; response: Response }> {
+  // CSRF check first. A failed check is a Security Breach — the
+  // attacker is attempting a cross-origin admin mutation.
+  const decision = evaluateCsrf(req);
+  if (!decision.ok) {
+    const deviceCredential = req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value ?? undefined;
+    void reportSecurityBreach({
+      kind: "csrf_violation",
+      summary: `CSRF check failed on ${req.method} ${req.nextUrl.pathname} (expected ${decision.expected}, got ${decision.got ?? "missing"}).`,
+      ipAddress: getClientIpOrNull(req) ?? undefined,
+      userAgent: getUserAgent(req) ?? undefined,
+      route: req.nextUrl.pathname,
+      httpMethod: req.method,
+      deviceCredential,
+      attemptedAction: "admin_mutation",
+    });
+    const blocked = assertCsrfOk(req);
+    if (blocked) return { ok: false, response: blocked };
+  }
+  const admin = await requireAdmin();
+  if (!admin) return { ok: false, response: jsonError("unauthorized") };
+  const limit = await rateLimit(`admin-catalog:${admin.username}`, RATE_POLICIES.adminWrite);
+  if (!limit.ok) return { ok: false, response: jsonError("rate_limited") };
+  return { ok: true, admin };
+}
 
 type Outcome = { ok: true; entity: unknown; created?: boolean } | { ok: false; reason: string };
 
@@ -29,14 +70,30 @@ export function makeAdminCatalogIndex<C extends z.ZodTypeAny, U extends z.ZodTyp
   }
 
   async function POST(req: NextRequest) {
-    const admin = await requireAdmin();
-    if (!admin) return jsonError("unauthorized");
-
-    const limit = await rateLimit(`admin-catalog:${admin.username}`, RATE_POLICIES.adminWrite);
-    if (!limit.ok) return jsonError("rate_limited");
+    const gate = await gateMutation(req);
+    if (!gate.ok) return gate.response;
+    const { admin } = gate;
 
     const body = await readJsonBody(req);
     if (!body.ok) return jsonError(body.reason === "too_large" ? "too_large" : "invalid");
+    // Threat scan: refuse payloads with script tags / event handlers /
+    // SQL keyword chains / shell redirects before they reach the
+    // database. The scanner is conservative — it flags only patterns
+    // that have no plausible place in religious-content fields.
+    const threat = scanForThreats(body.data);
+    if (threat) {
+      void reportSecurityBreach({
+        kind: `payload_threat:${threat.kind}`,
+        summary: `Suspicious payload (${threat.kind}) rejected on ${req.method} ${req.nextUrl.pathname}: ${threat.match}`,
+        ipAddress: getClientIpOrNull(req) ?? undefined,
+        userAgent: getUserAgent(req) ?? undefined,
+        route: req.nextUrl.pathname,
+        httpMethod: req.method,
+        deviceCredential: req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value,
+        attemptedAction: `admin_${config.entityType.toLowerCase()}_create`,
+      });
+      return jsonError("invalid", { message: "payload_rejected" });
+    }
     const parsed = config.createSchema.safeParse(body.data);
     if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
@@ -62,14 +119,26 @@ export function makeAdminCatalogItem<C extends z.ZodTypeAny, U extends z.ZodType
   config: AdminCatalogHandlers<C, U>,
 ) {
   async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const admin = await requireAdmin();
-    if (!admin) return jsonError("unauthorized");
-
-    const limit = await rateLimit(`admin-catalog:${admin.username}`, RATE_POLICIES.adminWrite);
-    if (!limit.ok) return jsonError("rate_limited");
+    const gate = await gateMutation(req);
+    if (!gate.ok) return gate.response;
+    const { admin } = gate;
 
     const body = await readJsonBody(req);
     if (!body.ok) return jsonError(body.reason === "too_large" ? "too_large" : "invalid");
+    const threat = scanForThreats(body.data);
+    if (threat) {
+      void reportSecurityBreach({
+        kind: `payload_threat:${threat.kind}`,
+        summary: `Suspicious payload (${threat.kind}) rejected on ${req.method} ${req.nextUrl.pathname}: ${threat.match}`,
+        ipAddress: getClientIpOrNull(req) ?? undefined,
+        userAgent: getUserAgent(req) ?? undefined,
+        route: req.nextUrl.pathname,
+        httpMethod: req.method,
+        deviceCredential: req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value,
+        attemptedAction: `admin_${config.entityType.toLowerCase()}_update`,
+      });
+      return jsonError("invalid", { message: "payload_rejected" });
+    }
     const parsed = config.updateSchema.safeParse(body.data);
     if (!parsed.success) return jsonError("invalid", { details: parsed.error.flatten() });
 
@@ -92,11 +161,9 @@ export function makeAdminCatalogItem<C extends z.ZodTypeAny, U extends z.ZodType
   }
 
   async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    const admin = await requireAdmin();
-    if (!admin) return jsonError("unauthorized");
-
-    const limit = await rateLimit(`admin-catalog:${admin.username}`, RATE_POLICIES.adminWrite);
-    if (!limit.ok) return jsonError("rate_limited");
+    const gate = await gateMutation(req);
+    if (!gate.ok) return gate.response;
+    const { admin } = gate;
 
     const { id } = await params;
     const result = await config.remove(id);

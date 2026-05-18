@@ -8,7 +8,21 @@ import { AdminSection } from "../../_sections/AdminSection";
 
 export const dynamic = "force-dynamic";
 
-function MetricCard({ label, value }: { label: string; value: MetricValue }) {
+function MetricCard({
+  label,
+  value,
+  dataSource,
+}: {
+  label: string;
+  value: MetricValue;
+  /**
+   * Optional data-source badge naming the DB table or service the
+   * metric reads from. Per the spec: "Add a diagnostic badge to
+   * each admin card showing which new system table or service
+   * feeds it."
+   */
+  dataSource?: string;
+}) {
   let body: React.ReactNode;
   if (value.kind === "value") {
     body = <p className="text-3xl font-semibold">{value.value.toLocaleString()}</p>;
@@ -31,6 +45,14 @@ function MetricCard({ label, value }: { label: string; value: MetricValue }) {
     <div className="vf-card rounded-sm border border-stone-200 bg-white p-4">
       <p className="font-serif text-xs uppercase tracking-wide text-stone-600">{label}</p>
       <div className="mt-2">{body}</div>
+      {dataSource ? (
+        <p
+          className="mt-2 font-mono text-[10px] text-stone-500"
+          data-testid={`metric-data-source-${label.toLowerCase().replace(/\s+/g, "-")}`}
+        >
+          data source: {dataSource}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -68,16 +90,16 @@ export default async function FactoryDashboard() {
 
       <h3 className="font-display text-lg">Queue</h3>
       <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <MetricCard label="Pending" value={data.queue.pending} />
-        <MetricCard label="Running" value={data.queue.running} />
-        <MetricCard label="Retrying" value={data.queue.retrying} />
-        <MetricCard label="Failed" value={data.queue.failed} />
+        <MetricCard label="Pending" value={data.queue.pending} dataSource="IngestionJobQueue" />
+        <MetricCard label="Running" value={data.queue.running} dataSource="IngestionJobQueue" />
+        <MetricCard label="Retrying" value={data.queue.retrying} dataSource="IngestionJobQueue" />
+        <MetricCard label="Failed" value={data.queue.failed} dataSource="IngestionJobQueue" />
       </div>
 
       <h3 className="mt-8 font-display text-lg">Workers</h3>
       <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <MetricCard label="Active" value={data.workers.active} />
-        <MetricCard label="Stale" value={data.workers.stale} />
+        <MetricCard label="Active" value={data.workers.active} dataSource="WorkerHeartbeat" />
+        <MetricCard label="Stale" value={data.workers.stale} dataSource="WorkerHeartbeat" />
         <div className="vf-card rounded-sm border border-stone-200 bg-white p-4">
           <p className="font-serif text-xs uppercase tracking-wide text-stone-600">
             Last heartbeat
@@ -85,6 +107,7 @@ export default async function FactoryDashboard() {
           <p className="mt-2 font-serif text-sm">
             {formatDateOrDash(data.workers.lastHeartbeatAt)}
           </p>
+          <p className="mt-2 font-mono text-[10px] text-stone-500">data source: WorkerHeartbeat</p>
         </div>
       </div>
 
@@ -119,15 +142,62 @@ export default async function FactoryDashboard() {
 
       <h3 className="mt-8 font-display text-lg">Content progress</h3>
       <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <MetricCard label="Raw source rows" value={data.progress.rawRows} />
-        <MetricCard label="Built packages" value={data.progress.builtPackages} />
-        <MetricCard label="Valid packages" value={data.progress.validPackages} />
-        <MetricCard label="Public packages" value={data.progress.publicPackages} />
-        <MetricCard label="Deleted invalid rows" value={data.progress.deletedInvalidRows} />
-        <MetricCard label="Build failures" value={data.progress.buildFailures} />
-        <MetricCard label="QA failures" value={data.progress.qaFailures} />
-        <MetricCard label="Threshold eligible" value={data.progress.thresholdEligible} />
-        <MetricCard label="Growth last 24h" value={data.progress.growthRateLast24h} />
+        <MetricCard label="Raw rows" value={data.progress.rawRows} dataSource="SourceDocument" />
+        <MetricCard
+          label="Source documents"
+          value={data.progress.sourceDocuments}
+          dataSource="SourceDocument"
+        />
+        <MetricCard
+          label="Build attempts"
+          value={data.progress.buildAttempts}
+          dataSource="ContentPackageBuildLog"
+        />
+        <MetricCard
+          label="Built packages"
+          value={data.progress.builtPackages}
+          dataSource="ContentPackageBuildLog"
+        />
+        <MetricCard
+          label="Build failures"
+          value={data.progress.buildFailures}
+          dataSource="ContentPackageBuildLog"
+        />
+        <MetricCard
+          label="QA passes"
+          value={data.progress.qaPasses}
+          dataSource="ContentPackageBuildLog"
+        />
+        <MetricCard
+          label="QA failures"
+          value={data.progress.qaFailures}
+          dataSource="RejectedContentLog"
+        />
+        <MetricCard
+          label="Persisted packages"
+          value={data.progress.validPackages}
+          dataSource="ContentPackageBuildLog"
+        />
+        <MetricCard
+          label="Public packages"
+          value={data.progress.publicPackages}
+          dataSource="Catalog tables (strict gate)"
+        />
+        <MetricCard
+          label="Deleted invalid rows"
+          value={data.progress.deletedInvalidRows}
+          dataSource="RejectedContentLog"
+        />
+        <MetricCard
+          label="Threshold eligible"
+          value={data.progress.thresholdEligible}
+          dataSource="Catalog tables (strict gate)"
+        />
+        <MetricCard
+          label="Growth (24h)"
+          value={data.progress.growthRateLast24h}
+          dataSource="Catalog (24h window)"
+        />
       </div>
 
       <h3 className="mt-8 font-display text-lg">Source quality</h3>

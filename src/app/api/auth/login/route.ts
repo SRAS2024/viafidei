@@ -2,7 +2,13 @@ import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { authenticate, loginSchema, getSession } from "@/lib/auth";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
-import { getClientIp, redirectTo } from "@/lib/security/request";
+import { getClientIp, getUserAgent, redirectTo } from "@/lib/security/request";
+import { reportSecurityBreach, reportSuspiciousActivity } from "@/lib/security/security-events";
+import {
+  recordUserPasswordFailure,
+  resetUserPasswordFailureCounter,
+} from "@/lib/security/user-failure-counter";
+import { DEVICE_CREDENTIAL_COOKIE } from "@/middleware";
 import { isSupportedLocale } from "@/lib/i18n/locales";
 import { LOCALE_COOKIE_NAME, LOCALE_COOKIE_OPTIONS } from "@/lib/i18n/cookie";
 import {
@@ -56,6 +62,8 @@ export async function POST(req: NextRequest) {
     }
 
     const ip = getClientIp(req);
+    const userAgent = getUserAgent(req);
+    const deviceCredential = req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value ?? null;
     const limit = await rateLimit(
       `login:${ip}:${parsed.data.email.toLowerCase()}`,
       RATE_POLICIES.login,
@@ -67,8 +75,45 @@ export async function POST(req: NextRequest) {
 
     const user = await authenticate(parsed.data.email, parsed.data.password);
     if (!user) {
+      // Track consecutive failures by email + IP + device credential.
+      // > 5 -> Suspicious Activity; > 20 -> Security Breach (brute force).
+      const failure = recordUserPasswordFailure({
+        email: parsed.data.email,
+        ipAddress: ip,
+        deviceCredential,
+      });
+      if (failure.classification === "breach") {
+        void reportSecurityBreach({
+          kind: "user_password_brute_force",
+          summary: `${failure.count} consecutive user-account login failures within ${Math.round(failure.windowMs / 60000)} minutes from ${ip ?? "unknown"} — brute-force pattern against ${parsed.data.email}.`,
+          ipAddress: ip ?? undefined,
+          userAgent: userAgent ?? undefined,
+          route: "/api/auth/login",
+          deviceCredential: deviceCredential ?? undefined,
+          attemptedAction: "user_password_brute_force",
+        });
+      } else if (failure.classification === "suspicious") {
+        void reportSuspiciousActivity({
+          kind: "user_password_failed_repeatedly",
+          summary: `${failure.count} consecutive login failures for ${parsed.data.email} from ${ip ?? "unknown"}.`,
+          ipAddress: ip ?? undefined,
+          userAgent: userAgent ?? undefined,
+          route: "/api/auth/login",
+          deviceCredential: deviceCredential ?? undefined,
+          attemptedAccountOrRoute: parsed.data.email,
+          recommendedAction:
+            "Verify whether the legitimate account holder is signing in; if not, treat as suspected credential stuffing.",
+        });
+      }
       return redirectTo(req, LOGIN_INVALID);
     }
+
+    // Reset the consecutive-failure counter on a successful login.
+    resetUserPasswordFailureCounter({
+      email: parsed.data.email,
+      ipAddress: ip,
+      deviceCredential,
+    });
 
     const session = await getSession();
     session.userId = user.id;

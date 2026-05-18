@@ -79,6 +79,7 @@ export default async function AdminSourcesPage() {
             {registered.map((s) => {
               const totalRuns = s.jobs.reduce((acc, j) => acc + j.runs.length, 0);
               const lastSync = s.lastSuccessfulSync ?? s.lastFailedSync;
+              const usesFactoryNative = Boolean(s.discoveryFeedUrl);
               return (
                 <div key={s.id} className="vf-card rounded-sm p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -94,6 +95,23 @@ export default async function AdminSourcesPage() {
                         <div className="mt-1">last sync {lastSync.toISOString().slice(0, 10)}</div>
                       ) : null}
                     </div>
+                  </div>
+                  <div className="mt-3 font-serif text-xs text-ink-faint">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 ${
+                        usesFactoryNative
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-stone-100 text-stone-700"
+                      }`}
+                      data-testid={`source-discovery-mode-${s.id}`}
+                    >
+                      {usesFactoryNative ? "factory-native discovery" : "legacy adapter discovery"}
+                    </span>
+                    {s.discoveryFeedUrl ? (
+                      <span className="ml-2 break-all">
+                        feed: <code className="text-[10px]">{s.discoveryFeedUrl}</code>
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               );

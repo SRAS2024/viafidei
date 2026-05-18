@@ -48,7 +48,7 @@ const DEFAULT_MAX_ATTEMPTS = 5;
 
 export type EnqueueJobInput = {
   jobName: string;
-  /** Typed job kind from `job-kinds.ts`. Defaults to "source_ingest". */
+  /** Typed job kind from `job-kinds.ts`. Defaults to "source_discovery". */
   jobKind?: string;
   /** Stable dedupe key. Active rows are unique by this key. */
   dedupeKey?: string;
@@ -137,7 +137,7 @@ function rowToJob(row: {
     sourceId: row.sourceId,
     jobId: row.jobId,
     jobName: row.jobName,
-    jobKind: row.jobKind ?? "source_ingest",
+    jobKind: row.jobKind ?? "source_discovery",
     dedupeKey: row.dedupeKey ?? null,
     contentType: row.contentType,
     status: row.status as QueueStatus,
@@ -175,7 +175,7 @@ export async function enqueueJob(input: EnqueueJobInput): Promise<QueueJobRow> {
   const priority = input.priority ?? PRIORITY_NORMAL;
   const maxAttempts = input.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const runAt = input.runAt ?? new Date();
-  const jobKind = input.jobKind ?? "source_ingest";
+  const jobKind = input.jobKind ?? "source_discovery";
 
   // Strict payload validation (rejects unknown job kinds + malformed
   // payloads at the boundary). Caller can opt out with skipValidation

@@ -1,9 +1,9 @@
 import { type NextRequest } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { getHomepageWithBlocks, persistHomepageBlocks } from "@/lib/data/homepage";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { DEFAULT_JSON_BODY_LIMIT_BYTES, jsonError, jsonOk, readJsonBody } from "@/lib/http";
 
 const blockSchema = z.object({
@@ -22,8 +22,9 @@ const payloadSchema = z.object({
 const HOMEPAGE_BODY_LIMIT_BYTES = DEFAULT_JSON_BODY_LIMIT_BYTES * 4;
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const body = await readJsonBody(req, { limitBytes: HOMEPAGE_BODY_LIMIT_BYTES });
   if (!body.ok) {

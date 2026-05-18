@@ -25,6 +25,7 @@ import {
   isCanonicalSacramentKey,
 } from "../../content-qa/sacrament-normalize";
 import { VALID_PRAYER_TYPES } from "../../content-qa/contracts/prayer";
+import { VALID_DEVOTION_TYPES } from "../../content-qa/contracts/devotion";
 
 const BRAND_SUFFIXES = [
   /\s*\|\s*EWTN.*$/i,
@@ -140,14 +141,31 @@ export function normalizePrayerType(s: string): string {
 
 export function normalizeDevotionType(s: string): string {
   const lower = s.trim().toLowerCase();
-  if (/rosary/.test(lower)) return "Rosary devotion";
-  if (/divine\s+mercy/.test(lower)) return "Divine Mercy devotion";
-  if (/sacred\s+heart/.test(lower)) return "Sacred Heart devotion";
+  // First pass: an exact (case-insensitive) match for a canonical label
+  // wins. This handles inputs like "Rosary", "Sacred Heart" — phrases
+  // that the keyword fallbacks below would otherwise re-suffix with
+  // " devotion" and break contract validation.
+  const exact = VALID_DEVOTION_TYPES.find((t) => t.toLowerCase() === lower);
+  if (exact) return exact;
+  if (/immaculate\s+heart/.test(lower)) return "Immaculate Heart";
+  if (/sacred\s+heart/.test(lower)) return "Sacred Heart";
+  if (/divine\s+mercy/.test(lower)) return "Divine Mercy";
+  if (/first\s+friday/.test(lower)) return "First Friday";
+  if (/first\s+saturday/.test(lower)) return "First Saturday";
   if (/stations|via\s+crucis/.test(lower)) return "Stations of the Cross";
-  if (/eucharist|adoration/.test(lower)) return "Eucharistic devotion";
+  if (/chaplet/.test(lower)) return "Chaplet";
+  if (/litany/.test(lower)) return "Litany";
+  if (/novena/.test(lower)) return "Novena";
+  if (/consecration/.test(lower)) return "Consecration";
+  if (/rosary/.test(lower)) return "Rosary";
+  if (/adoration/.test(lower)) return "Adoration devotion";
+  if (/eucharist/.test(lower)) return "Eucharistic devotion";
   if (/marian|mary/.test(lower)) return "Marian devotion";
   if (/saint/.test(lower)) return "Saint devotion";
-  return "General devotion";
+  // No canonical match — return the original so the validator can
+  // reject it explicitly instead of a silent "General devotion" fallback
+  // that was never in the contract.
+  return s.trim();
 }
 
 export function normalizeSacramentAlias(name: string): string {
@@ -172,37 +190,31 @@ export function isSacramentKey(key: string): boolean {
   return (SACRAMENT_KEYS as ReadonlyArray<string>).includes(key);
 }
 
-const HISTORY_TYPES = [
-  "Councils",
-  "Major Church events",
-  "Encyclicals",
-  "Papal consecrations",
-  "Schisms",
-  "Religious order foundings",
-  "Catechisms",
-  "Code of Canon Law",
-  "Major papal acts",
-  "Major doctrinal definitions",
-  "Major ecumenical events",
-  "Major liturgical reforms",
-] as const;
+// Re-export the contract's canonical history-type tuple so the
+// normalizer and the validator agree on the spec set. Keeping a second
+// copy here used to drift (the normalizer produced plurals while the
+// validator accepted singulars, so every normalized History package
+// failed validation).
+export { VALID_HISTORY_TYPES as HISTORY_TYPES } from "../../content-qa/contracts/history";
+
+import { VALID_HISTORY_TYPES } from "../../content-qa/contracts/history";
 
 export function normalizeHistoryType(s: string | null | undefined): string | null {
   if (!s) return null;
   const lower = s.toLowerCase();
-  for (const t of HISTORY_TYPES) {
+  for (const t of VALID_HISTORY_TYPES) {
     if (lower.includes(t.toLowerCase())) return t;
   }
-  if (/council/.test(lower)) return "Councils";
-  if (/encyclical/.test(lower)) return "Encyclicals";
-  if (/schism/.test(lower)) return "Schisms";
+  if (/council/.test(lower)) return "Council";
+  if (/encyclical/.test(lower)) return "Encyclical";
+  if (/schism/.test(lower)) return "Schism";
   if (/canon\s+law/.test(lower)) return "Code of Canon Law";
-  if (/catechism/.test(lower)) return "Catechisms";
-  if (/religious\s+order/.test(lower)) return "Religious order foundings";
-  if (/papal\s+(?:bull|act)/.test(lower)) return "Major papal acts";
-  if (/dogma|doctrine|definition/.test(lower)) return "Major doctrinal definitions";
-  if (/ecumenical/.test(lower)) return "Major ecumenical events";
-  if (/liturgical\s+reform/.test(lower)) return "Major liturgical reforms";
+  if (/catechism/.test(lower)) return "Catechism";
+  if (/religious\s+order/.test(lower)) return "Religious order founding";
+  if (/papal\s+(?:bull|act)/.test(lower)) return "Major papal act";
+  if (/dogma|doctrine|definition/.test(lower)) return "Major doctrinal definition";
+  if (/ecumenical/.test(lower)) return "Major ecumenical event";
+  if (/liturgical\s+reform/.test(lower)) return "Major liturgical reform";
   return null;
 }
 

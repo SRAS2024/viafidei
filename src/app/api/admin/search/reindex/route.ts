@@ -1,15 +1,17 @@
 import { type NextRequest } from "next/server";
-import { requireAdmin, pruneExpiredTokens } from "@/lib/auth";
+import { pruneExpiredTokens } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { appConfig } from "@/lib/config";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { pruneExpiredRateLimits } from "@/lib/security/rate-limit";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { jsonError, jsonOk } from "@/lib/http";
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const limit = await rateLimit(`admin-reindex:${admin.username}`, RATE_POLICIES.adminWrite);
   if (!limit.ok) return jsonError("rate_limited");

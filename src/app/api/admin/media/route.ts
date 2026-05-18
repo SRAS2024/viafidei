@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { createMediaAsset, listRecentMedia } from "@/lib/data/media";
 import type { MediaKind } from "@prisma/client";
@@ -40,8 +41,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const limit = await rateLimit(`admin-media:${admin.username}`, RATE_POLICIES.mediaUpload);
   if (!limit.ok) return jsonError("rate_limited");

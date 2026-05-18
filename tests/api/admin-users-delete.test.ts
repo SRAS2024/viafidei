@@ -10,6 +10,14 @@ vi.mock("@/lib/auth/admin", () => ({
   requireAdmin: (...args: unknown[]) => requireAdminMock(...args),
   verifyAdminCredentials: (...args: unknown[]) => verifyAdminCredentialsMock(...args),
 }));
+// The DELETE route now goes through gateAdminApiCall(), which imports
+// requireAdmin from @/lib/auth (not @/lib/auth/admin). Mock both
+// re-export paths so the gate sees the same admin principal as the
+// existing test mocks.
+vi.mock("@/lib/auth", () => ({
+  requireAdmin: (...args: unknown[]) => requireAdminMock(...args),
+  verifyAdminCredentials: (...args: unknown[]) => verifyAdminCredentialsMock(...args),
+}));
 
 vi.mock("@/lib/security/rate-limit", async () => {
   const actual = await vi.importActual<typeof import("@/lib/security/rate-limit")>(
@@ -20,6 +28,16 @@ vi.mock("@/lib/security/rate-limit", async () => {
 
 vi.mock("@/lib/audit", () => ({
   writeAudit: (...args: unknown[]) => writeAuditMock(...args),
+}));
+
+// Banned-device + security-event hooks for gateAdminApiCall().
+vi.mock("@/lib/security/security-event-store", () => ({
+  isDeviceBanned: vi.fn().mockResolvedValue(false),
+  recordBannedDeviceHit: vi.fn(),
+}));
+vi.mock("@/lib/security/security-events", () => ({
+  reportSecurityBreach: vi.fn(),
+  reportSuspiciousActivity: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
@@ -46,10 +64,23 @@ import type { NextRequest } from "next/server";
 
 async function callDelete(id: string, body: unknown): Promise<Response> {
   const { DELETE } = await import("@/app/api/admin/users/[id]/route");
-  const req = new Request(`http://localhost/api/admin/users/${id}`, {
+  // Same-origin Origin header so the unified gate's CSRF check passes,
+  // plus a minimal cookies API so the banned-device guard can read
+  // the device credential without depending on NextRequest internals.
+  const base = new Request(`http://localhost/api/admin/users/${id}`, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json", "x-forwarded-for": "203.0.113.9" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-forwarded-for": "203.0.113.9",
+      origin: "http://localhost",
+      "x-forwarded-host": "localhost",
+      "x-forwarded-proto": "http",
+    },
     body: JSON.stringify(body),
+  });
+  const req = Object.assign(base, {
+    cookies: { get: () => undefined },
+    nextUrl: new URL(`http://localhost/api/admin/users/${id}`),
   }) as unknown as NextRequest;
   return DELETE(req, { params: { id } });
 }

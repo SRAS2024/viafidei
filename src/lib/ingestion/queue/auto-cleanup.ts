@@ -6,7 +6,7 @@
  * Trigger points:
  *
  *   - `autoEnqueuePostIngestionCleanup` — called from the worker
- *     after a successful source_ingest job. Enqueues a low-priority
+ *     after a successful source_discovery job. Enqueues a low-priority
  *     content_revalidate scoped to the content type just ingested.
  *   - `autoEnqueueScheduledCleanup`     — called by the planner on a
  *     cadence so the catalog never drifts even when no ingestion is
@@ -54,9 +54,9 @@ function buildDedupeKey(args: {
 
 /**
  * Enqueue a content_revalidate immediately after a successful
- * source_ingest. Scoped to the ingested content type. Dedupes within
- * a 5-minute window so a burst of source_ingest jobs only fires one
- * cleanup.
+ * source_discovery. Scoped to the ingested content type. Dedupes
+ * within a 5-minute window so a burst of discovery jobs only fires
+ * one cleanup.
  */
 export async function autoEnqueuePostIngestionCleanup(args: {
   sourceId?: string | null;

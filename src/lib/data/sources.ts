@@ -53,6 +53,13 @@ export async function updateIngestionSource(
     rateLimitPerMin: number | null;
     notes: string | null;
     reliabilityScore: number | null;
+    /**
+     * Optional sitemap / RSS feed URL. When set, the worker's
+     * source_discovery dispatch routes through the factory-native
+     * path for this source — walking the feed and enqueueing
+     * source_fetch jobs.
+     */
+    discoveryFeedUrl: string | null;
   }>,
 ) {
   const existing = await prisma.ingestionSource.findUnique({ where: { id } });

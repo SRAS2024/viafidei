@@ -49,6 +49,13 @@ const DIAGNOSTIC_AREAS = [
     description:
       "Ten-row health panel: queue, worker, ingestion, source, strict QA, cleanup, threshold, report, admin email, and database. Each row carries a 0-100 score, status badge, and live signals.",
   },
+  {
+    href: "/admin/diagnostics/system-health",
+    eyebrow: "VII.",
+    title: "System Health (14 cards)",
+    description:
+      "Single-page dashboard with one card per pipeline stage — queue, worker, source discovery / fetch / document, content factory, builders, strict QA, persistence, cleanup, growth, security, admin email, and database. Each card shows its data source, last-updated timestamp, and an error state (never a false zero) when its underlying query fails.",
+  },
 ] as const;
 
 function statusBadgeStyle(status: string): { bg: string; text: string } {

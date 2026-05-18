@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { middleware } from "@/middleware";
+import { middleware, DEVICE_CREDENTIAL_COOKIE } from "@/middleware";
 import { REQUEST_ID_HEADER } from "@/lib/observability";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
@@ -92,6 +92,55 @@ describe("middleware", () => {
     it("does NOT redirect non-admin paths even with no cookie", () => {
       const res = middleware(makeRequest("https://app.example.com/prayers"));
       expect(res.status).not.toBe(303);
+    });
+  });
+
+  describe("device-credential cookie (spec: server-issued, opaque, HMAC-fingerprinted only)", () => {
+    it("uses 'vf_dev_id' as the cookie name", () => {
+      expect(DEVICE_CREDENTIAL_COOKIE).toBe("vf_dev_id");
+    });
+
+    it("sets the device-credential cookie when none is present", () => {
+      const res = middleware(makeRequest("https://app.example.com/"));
+      const setCookie = res.headers.get("set-cookie") ?? "";
+      expect(setCookie).toContain(`${DEVICE_CREDENTIAL_COOKIE}=`);
+    });
+
+    it("device-credential cookie is HttpOnly + SameSite=Lax + Path=/", () => {
+      const res = middleware(makeRequest("https://app.example.com/"));
+      const setCookie = res.headers.get("set-cookie") ?? "";
+      expect(setCookie).toMatch(/HttpOnly/i);
+      expect(setCookie).toMatch(/SameSite=Lax/i);
+      expect(setCookie).toMatch(/Path=\//);
+    });
+
+    it("device-credential cookie value is at least 32 chars (opaque random)", () => {
+      const res = middleware(makeRequest("https://app.example.com/"));
+      const setCookie = res.headers.get("set-cookie") ?? "";
+      const m = setCookie.match(new RegExp(`${DEVICE_CREDENTIAL_COOKIE}=([^;]+)`));
+      expect(m).not.toBeNull();
+      expect(m![1]!.length).toBeGreaterThanOrEqual(32);
+    });
+
+    it("does NOT reissue the cookie when a valid one is already present", () => {
+      const existing = "a".repeat(64);
+      const res = middleware(
+        makeRequest("https://app.example.com/", {
+          cookie: `${DEVICE_CREDENTIAL_COOKIE}=${existing}`,
+        }),
+      );
+      const setCookie = res.headers.get("set-cookie") ?? "";
+      expect(setCookie).not.toContain(`${DEVICE_CREDENTIAL_COOKIE}=`);
+    });
+
+    it("DOES reissue when the existing cookie is too short (compromised / truncated)", () => {
+      const res = middleware(
+        makeRequest("https://app.example.com/", {
+          cookie: `${DEVICE_CREDENTIAL_COOKIE}=short`,
+        }),
+      );
+      const setCookie = res.headers.get("set-cookie") ?? "";
+      expect(setCookie).toContain(`${DEVICE_CREDENTIAL_COOKIE}=`);
     });
   });
 });

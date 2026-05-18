@@ -10,6 +10,16 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/audit", () => ({
   writeAudit: vi.fn().mockResolvedValue(undefined),
 }));
+// The admin-gate helper consults these — keep them stubbed so the
+// test stays focused on the queue endpoints.
+vi.mock("@/lib/security/security-event-store", () => ({
+  isDeviceBanned: vi.fn().mockResolvedValue(false),
+  recordBannedDeviceHit: vi.fn(),
+}));
+vi.mock("@/lib/security/security-events", () => ({
+  reportSecurityBreach: vi.fn(),
+  reportSuspiciousActivity: vi.fn(),
+}));
 
 import { POST as retryPost } from "@/app/api/admin/ingestion/queue/retry/route";
 import { POST as cancelPost } from "@/app/api/admin/ingestion/queue/cancel/route";
@@ -20,7 +30,12 @@ import { POST as ctPausePost } from "@/app/api/admin/ingestion/content-types/pau
 function makeReq(body: unknown): NextRequest {
   return new NextRequest("http://test/", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      origin: "http://test",
+      "x-forwarded-host": "test",
+      "x-forwarded-proto": "http",
+    },
     body: JSON.stringify(body),
   });
 }

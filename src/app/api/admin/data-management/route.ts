@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit/log";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { getDataManagementSettings, upsertDataManagementSettings } from "@/lib/data/site-settings";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 
 export const runtime = "nodejs";
 
@@ -28,8 +29,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
   const body = await readJsonBody(req);
   if (!body.ok) return jsonError(body.reason === "too_large" ? "too_large" : "invalid");
   const parsed = schema.safeParse(body.data);

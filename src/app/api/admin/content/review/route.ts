@@ -1,10 +1,10 @@
 import { type NextRequest } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { approveContent, rejectContent, requestRevision, moveToReview } from "@/lib/content/review";
 import type { ReviewableEntityType } from "@/lib/content/types";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 
 const ENTITY_TYPES: ReviewableEntityType[] = [
@@ -23,8 +23,9 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
+  const { admin } = gate;
 
   const body = await readJsonBody(req);
   if (!body.ok) {

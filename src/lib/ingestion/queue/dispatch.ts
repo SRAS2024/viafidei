@@ -11,7 +11,7 @@ import { prisma } from "../../db/client";
 import { recordSourceFreshness, recordSourceQuality } from "../../data/source-health";
 import { purgeArchivedByArchivedAt } from "../../data/archive-cleanup";
 import { runCatalogJanitor } from "../../data/catalog-janitor";
-import { validatePayload, isJobKind, type JobKind } from "./job-kinds";
+import { validatePayload, isJobKind, isRemovedJobKind, type JobKind } from "./job-kinds";
 import { runContentFactory, getSourceDocument, recordSourceDocument } from "../../content-factory";
 import type { ContentTypeKey } from "../../content-factory";
 import type { QueueJobRow } from "./queue";
@@ -24,6 +24,13 @@ export type DispatchResult = {
 };
 
 export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
+  // Removed kinds (legacy `source_ingest`) are translated into the
+  // modern factory chain by enqueueing an equivalent `source_discovery`
+  // job and marking the legacy row as completed. This keeps in-flight
+  // rows from a pre-migration deploy from breaking the worker.
+  if (isRemovedJobKind(job.jobKind)) {
+    return translateRemovedJobKind(job);
+  }
   // Strict payload validation at execution time. Bad payloads fail
   // the job permanently (not retried) so a malformed row doesn't
   // crash the worker on every retry.
@@ -38,7 +45,6 @@ export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
   const payload = validation.data as Record<string, unknown>;
 
   switch (kind) {
-    case "source_ingest":
     case "source_freshness":
     case "source_discovery":
       return runSourceJob(job, payload, kind);
@@ -66,6 +72,53 @@ export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
       return { ok: false, errorMessage: `Unhandled job kind: ${job.jobKind}` };
     }
   }
+}
+
+/**
+ * In-flight legacy `source_ingest` rows are translated into the
+ * modern `source_discovery` factory entry-point. The legacy row
+ * completes successfully so the planner can re-enqueue at the new
+ * kind on its next tick.
+ */
+async function translateRemovedJobKind(job: QueueJobRow): Promise<DispatchResult> {
+  logger.warn("worker.removed_job_kind_translated", {
+    jobQueueId: job.id,
+    legacyKind: job.jobKind,
+    translatedTo: "source_discovery",
+    sourceId: job.sourceId,
+    jobName: job.jobName,
+  });
+  const { enqueueJob } = await import("./queue");
+  const adapterKey = (job.payload as Record<string, unknown> | null)?.adapterKey ?? job.jobName;
+  try {
+    await enqueueJob({
+      jobName: job.jobName,
+      jobKind: "source_discovery",
+      dedupeKey: `translated:${job.id}`,
+      sourceId: job.sourceId,
+      jobId: job.jobId,
+      contentType: job.contentType,
+      payload: {
+        sourceId: job.sourceId,
+        adapterKey,
+        contentType: job.contentType ?? undefined,
+        mode: "constant" as const,
+      },
+      triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
+      actorUsername: job.actorUsername ?? null,
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      errorMessage: `Could not translate removed job kind '${job.jobKind}': ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    };
+  }
+  return {
+    ok: true,
+    errorMessage: `Legacy '${job.jobKind}' translated to source_discovery`,
+  };
 }
 
 async function runSourceFetch(
@@ -202,7 +255,7 @@ async function runStrictCleanup(
 async function runSourceJob(
   job: QueueJobRow,
   payload: Record<string, unknown>,
-  kind: "source_ingest" | "source_freshness" | "source_discovery",
+  kind: "source_freshness" | "source_discovery",
 ): Promise<DispatchResult> {
   const adapterKey = (payload.adapterKey as string) ?? job.jobName;
   const adapter = getAdapter(adapterKey);
@@ -213,6 +266,29 @@ async function runSourceJob(
     ? await prisma.ingestionSource.findUnique({ where: { id: job.sourceId } })
     : null;
   const sourceHost = source?.host ?? job.jobName;
+
+  // Factory-native discovery path. When the source has a
+  // discoveryFeedUrl set and this is a source_discovery job, we walk
+  // the feed and enqueue source_fetch jobs — bypassing the legacy
+  // adapter entirely. The result feeds the same factory pipeline
+  // (source_fetch → content_build → content_validate →
+  // content_persist) every other source-fetched URL flows through.
+  if (kind === "source_discovery" && source?.discoveryFeedUrl && job.sourceId) {
+    const { runFactoryNativeDiscovery } = await import("./factory-native-discovery");
+    const result = await runFactoryNativeDiscovery({
+      sourceId: job.sourceId,
+      sourceHost,
+      discoveryFeedUrl: source.discoveryFeedUrl,
+      workerJobId: job.id,
+    });
+    return {
+      ok: result.ok,
+      errorMessage:
+        result.errorMessage ??
+        `factory-native discovery: feedUrlCount=${result.feedUrlCount} enqueued=${result.enqueuedCount}`,
+      contentSeen: result.enqueuedCount,
+    };
+  }
   try {
     const summary = await runAdapter(adapter, job.jobId, sourceHost, {
       triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
@@ -309,9 +385,9 @@ async function runSourceJob(
     // Auto-trigger post-ingestion cleanup. The strict QA policy says
     // "every newly ingested batch must be revalidated immediately so
     // a bad row never lingers". We enqueue (not run inline) so the
-    // adapter job stays fast and the cleanup is workable in parallel
+    // discovery job stays fast and the cleanup is workable in parallel
     // by another worker.
-    if (kind === "source_ingest" && summary.recordsSeen > 0) {
+    if (kind === "source_discovery" && summary.recordsSeen > 0) {
       const { autoEnqueuePostIngestionCleanup } = await import("./auto-cleanup");
       await autoEnqueuePostIngestionCleanup({
         sourceId: job.sourceId,

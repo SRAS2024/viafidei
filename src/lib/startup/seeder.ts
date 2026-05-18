@@ -31,6 +31,19 @@ export type StartupSeedSummary = {
  * populated DB back-fills only the missing rows. Per-record errors are
  * captured into `failures` rather than aborted, so a single bad seed entry
  * doesn't stop the rest of the table from getting populated.
+ *
+ * Public-gate handover: every seeded row is created at status=DRAFT and
+ * without publicRenderReady/isThresholdEligible. The strict-cleanup
+ * pass (which runs on a 5-minute bucket via the cron route + worker)
+ * walks every catalog row, runs strict QA against the package
+ * contract, and either flips the public-gate flags to true (when the
+ * row passes) or hard-deletes + logs (when it fails). This preserves
+ * the spec invariant: "Do not allow any feature to create public
+ * content outside the content factory."
+ *
+ * The update branch never touches `status` — if a row is already at
+ * DRAFT (because strict cleanup demoted it), the seeder must not
+ * forcibly flip it back to PUBLISHED.
  */
 export async function seedAllContent(): Promise<StartupSeedSummary> {
   const failures: StartupSeedSummary["failures"] = [];
@@ -56,8 +69,8 @@ export async function seedAllContent(): Promise<StartupSeedSummary> {
     const ok = await upsertOne("Prayer", p, () =>
       prisma.prayer.upsert({
         where: { slug: p.slug },
-        update: { status: "PUBLISHED", officialPrayer: p.officialPrayer ?? null },
-        create: { ...p, officialPrayer: p.officialPrayer ?? null, status: "PUBLISHED" },
+        update: { officialPrayer: p.officialPrayer ?? null },
+        create: { ...p, officialPrayer: p.officialPrayer ?? null, status: "DRAFT" },
       }),
     );
     if (ok) prayers++;
@@ -68,8 +81,8 @@ export async function seedAllContent(): Promise<StartupSeedSummary> {
     const ok = await upsertOne("Saint", s, () =>
       prisma.saint.upsert({
         where: { slug: s.slug },
-        update: { status: "PUBLISHED" },
-        create: { ...s, status: "PUBLISHED" },
+        update: {},
+        create: { ...s, status: "DRAFT" },
       }),
     );
     if (ok) saints++;
@@ -80,8 +93,8 @@ export async function seedAllContent(): Promise<StartupSeedSummary> {
     const ok = await upsertOne("MarianApparition", a, () =>
       prisma.marianApparition.upsert({
         where: { slug: a.slug },
-        update: { status: "PUBLISHED" },
-        create: { ...a, status: "PUBLISHED" },
+        update: {},
+        create: { ...a, status: "DRAFT" },
       }),
     );
     if (ok) apparitions++;
@@ -92,8 +105,8 @@ export async function seedAllContent(): Promise<StartupSeedSummary> {
     const ok = await upsertOne("Devotion", d, () =>
       prisma.devotion.upsert({
         where: { slug: d.slug },
-        update: { status: "PUBLISHED" },
-        create: { ...d, status: "PUBLISHED" },
+        update: {},
+        create: { ...d, status: "DRAFT" },
       }),
     );
     if (ok) devotions++;
@@ -104,8 +117,8 @@ export async function seedAllContent(): Promise<StartupSeedSummary> {
     const ok = await upsertOne("Parish", p, () =>
       prisma.parish.upsert({
         where: { slug: p.slug },
-        update: { status: "PUBLISHED" },
-        create: { ...p, status: "PUBLISHED" },
+        update: {},
+        create: { ...p, status: "DRAFT" },
       }),
     );
     if (ok) parishes++;
@@ -126,8 +139,8 @@ export async function seedAllContent(): Promise<StartupSeedSummary> {
     const ok = await upsertOne("LiturgyEntry", e, () =>
       prisma.liturgyEntry.upsert({
         where: { slug: e.slug },
-        update: { status: "PUBLISHED" },
-        create: { ...e, status: "PUBLISHED" },
+        update: {},
+        create: { ...e, status: "DRAFT" },
       }),
     );
     if (ok) liturgyEntries++;
@@ -139,8 +152,8 @@ export async function seedAllContent(): Promise<StartupSeedSummary> {
     const ok = await upsertOne("SpiritualLifeGuide", g, () =>
       prisma.spiritualLifeGuide.upsert({
         where: { slug: g.slug },
-        update: { status: "PUBLISHED" },
-        create: { ...g, status: "PUBLISHED" },
+        update: {},
+        create: { ...g, status: "DRAFT" },
       }),
     );
     if (ok) spiritualLifeGuides++;

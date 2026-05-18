@@ -89,8 +89,8 @@ describe("POST /api/auth/register", () => {
     firstName: "Pio",
     lastName: "Pietrelcina",
     email: "user@example.com",
-    password: "Stigm1ata",
-    passwordConfirm: "Stigm1ata",
+    password: "Stigm4tica!Pad",
+    passwordConfirm: "Stigm4tica!Pad",
   };
 
   it("rejects malformed email by redirecting back to /register", async () => {
@@ -127,7 +127,7 @@ describe("POST /api/auth/register", () => {
 
   it("rejects passwords missing a number", async () => {
     const res = await POST(
-      buildRequest({ ...validBody, password: "Padre", passwordConfirm: "Padre" }),
+      buildRequest({ ...validBody, password: "PadreAlbino!ee", passwordConfirm: "PadreAlbino!ee" }),
     );
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toContain("error=weak");
@@ -135,14 +135,38 @@ describe("POST /api/auth/register", () => {
 
   it("rejects passwords missing a capital letter", async () => {
     const res = await POST(
-      buildRequest({ ...validBody, password: "padre1", passwordConfirm: "padre1" }),
+      buildRequest({ ...validBody, password: "padrealb1no!!!", passwordConfirm: "padrealb1no!!!" }),
+    );
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toContain("error=weak");
+  });
+
+  it("rejects passwords missing a lowercase letter", async () => {
+    const res = await POST(
+      buildRequest({ ...validBody, password: "PADREALB1NO!!!", passwordConfirm: "PADREALB1NO!!!" }),
+    );
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toContain("error=weak");
+  });
+
+  it("rejects passwords missing a special character", async () => {
+    const res = await POST(
+      buildRequest({ ...validBody, password: "PadreAlb1noXYZ", passwordConfirm: "PadreAlb1noXYZ" }),
+    );
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toContain("error=weak");
+  });
+
+  it("rejects passwords shorter than 12 characters (even when meeting every class)", async () => {
+    const res = await POST(
+      buildRequest({ ...validBody, password: "Aa1!short", passwordConfirm: "Aa1!short" }),
     );
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toContain("error=weak");
   });
 
   it("rejects mismatched password confirmation", async () => {
-    const res = await POST(buildRequest({ ...validBody, passwordConfirm: "Different1" }));
+    const res = await POST(buildRequest({ ...validBody, passwordConfirm: "Different1!Pad" }));
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toContain("error=mismatch");
   });

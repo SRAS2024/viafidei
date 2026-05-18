@@ -27,6 +27,19 @@ vi.mock("@/lib/auth", () => ({
   requireAdmin: requireAdminMock,
 }));
 
+// Banned-device + security-events are exercised in their own test
+// suites; here we stub them so the unified gate is a no-op for the
+// admin checks and the email-admin-test route's behavior under test
+// is unaffected by gate side effects.
+vi.mock("@/lib/security/security-event-store", () => ({
+  isDeviceBanned: vi.fn().mockResolvedValue(false),
+  recordBannedDeviceHit: vi.fn(),
+}));
+vi.mock("@/lib/security/security-events", () => ({
+  reportSecurityBreach: vi.fn(),
+  reportSuspiciousActivity: vi.fn(),
+}));
+
 vi.mock("@/lib/audit", () => ({
   writeAudit: writeAuditMock,
 }));
@@ -77,9 +90,17 @@ afterEach(() => {
 });
 
 function makeRequest(body: unknown): NextRequest {
+  // Same-origin Origin header so the unified admin gate's CSRF check
+  // passes for these unit tests; banned-device + security-event mocks
+  // are added below so the gate's other steps are no-ops.
   return new NextRequest("http://localhost/api/admin/email/admin-test", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      origin: "http://localhost",
+      "x-forwarded-host": "localhost",
+      "x-forwarded-proto": "http",
+    },
     body: JSON.stringify(body),
   });
 }

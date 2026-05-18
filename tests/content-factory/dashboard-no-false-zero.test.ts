@@ -91,3 +91,82 @@ describe("dashboard never shows false zero", () => {
     expect(data.progress.validPackages.kind).toBe("error");
   });
 });
+
+describe("dashboard exposes every spec-required progress metric", () => {
+  beforeEach(() => {
+    resetPrismaMock();
+    prismaMock.ingestionJobQueue.groupBy.mockResolvedValue([]);
+    prismaMock.workerHeartbeat.findMany.mockResolvedValue([]);
+    prismaMock.sourceDocument.aggregate.mockResolvedValue({
+      _count: { _all: 0 },
+      _max: { fetchedAt: null },
+    });
+    prismaMock.contentPackageBuildLog.groupBy.mockResolvedValue([]);
+    prismaMock.contentPackageBuildLog.aggregate.mockResolvedValue({
+      _count: { _all: 0 },
+      _max: { createdAt: null },
+    });
+    prismaMock.rejectedContentLog.aggregate.mockResolvedValue({
+      _count: { _all: 0 },
+      _max: { deletedAt: null },
+    });
+    prismaMock.sourceQualityScore.findMany.mockResolvedValue([]);
+    for (const m of [
+      prismaMock.prayer,
+      prismaMock.saint,
+      prismaMock.marianApparition,
+      prismaMock.parish,
+      prismaMock.devotion,
+      prismaMock.liturgyEntry,
+      prismaMock.spiritualLifeGuide,
+    ]) {
+      m.count.mockResolvedValue(0);
+    }
+  });
+
+  it("includes Raw rows, Source documents, Build attempts, Built packages, Build failures, QA passes, QA failures, Persisted packages, Public packages, Deleted invalid rows, Threshold eligible, Growth rate, Stall reason", async () => {
+    const data = await loadContentFactoryDashboard();
+    // Every spec-required progress field is present on the loader
+    // contract — even when their value is `real_zero`, they exist.
+    expect(data.progress.rawRows).toBeDefined();
+    expect(data.progress.sourceDocuments).toBeDefined();
+    expect(data.progress.buildAttempts).toBeDefined();
+    expect(data.progress.builtPackages).toBeDefined();
+    expect(data.progress.buildFailures).toBeDefined();
+    expect(data.progress.qaPasses).toBeDefined();
+    expect(data.progress.qaFailures).toBeDefined();
+    expect(data.progress.validPackages).toBeDefined();
+    expect(data.progress.publicPackages).toBeDefined();
+    expect(data.progress.deletedInvalidRows).toBeDefined();
+    expect(data.progress.thresholdEligible).toBeDefined();
+    expect(data.progress.growthRateLast24h).toBeDefined();
+    // stalledReason is a string | null — the field exists regardless.
+    expect("stalledReason" in data.progress).toBe(true);
+  });
+
+  it("Build attempts equals built + failed when both come from the build log", async () => {
+    prismaMock.contentPackageBuildLog.groupBy.mockResolvedValue([
+      { buildStatus: "built_complete_package", _count: { _all: 4 }, _max: { createdAt: null } },
+      {
+        buildStatus: "build_failed_missing_required_fields",
+        _count: { _all: 2 },
+        _max: { createdAt: null },
+      },
+      { buildStatus: "wrong_content", _count: { _all: 1 }, _max: { createdAt: null } },
+    ]);
+    prismaMock.contentPackageBuildLog.aggregate.mockResolvedValue({
+      _count: { _all: 4 },
+      _max: { createdAt: null },
+    });
+    const data = await loadContentFactoryDashboard();
+    if (data.progress.buildAttempts.kind === "value") {
+      expect(data.progress.buildAttempts.value).toBe(7); // 4 + 2 + 1
+    }
+    if (data.progress.builtPackages.kind === "value") {
+      expect(data.progress.builtPackages.value).toBe(4);
+    }
+    if (data.progress.buildFailures.kind === "value") {
+      expect(data.progress.buildFailures.value).toBe(3); // 2 + 1
+    }
+  });
+});

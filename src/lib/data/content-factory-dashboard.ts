@@ -55,11 +55,14 @@ export type FactoryDashboardData = {
   };
   progress: {
     rawRows: MetricValue;
+    sourceDocuments: MetricValue;
+    buildAttempts: MetricValue;
     builtPackages: MetricValue;
     validPackages: MetricValue;
     publicPackages: MetricValue;
     deletedInvalidRows: MetricValue;
     buildFailures: MetricValue;
+    qaPasses: MetricValue;
     qaFailures: MetricValue;
     thresholdEligible: MetricValue;
     growthRateLast24h: MetricValue;
@@ -225,6 +228,16 @@ export async function loadContentFactoryDashboard(): Promise<FactoryDashboardDat
     },
     progress: {
       rawRows: valueOrZero(sourceDocCount, "no source documents recorded yet"),
+      // The spec lists "Source documents" as its own card alongside
+      // "Raw rows" — the project counts every fetched page as both,
+      // so they share the SourceDocument count here. (Raw rows in
+      // the spec is the legacy "scraped record" count which is now
+      // exactly the SourceDocument count under the new pipeline.)
+      sourceDocuments: valueOrZero(sourceDocCount, "no source documents recorded yet"),
+      buildAttempts:
+        buildSuccessCount === -1 || buildFailureCount === -1
+          ? errorValue("build log query failed")
+          : valueOrZero(buildSuccessCount + buildFailureCount, "no build attempts recorded yet"),
       builtPackages,
       validPackages,
       publicPackages: thresholdValid
@@ -238,6 +251,9 @@ export async function loadContentFactoryDashboard(): Promise<FactoryDashboardDat
         buildFailureCount === -1
           ? errorValue("build log query failed")
           : valueOrZero(buildFailureCount, "no build failures"),
+      // QA passes mirrors validPackages — a row that survived strict
+      // QA == a row whose build_log status is built_complete_package.
+      qaPasses: validPackages,
       qaFailures:
         cleanupCount === -1
           ? errorValue("rejected log query failed")

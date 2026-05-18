@@ -32,6 +32,7 @@ export {
   sendThresholdMilestoneAlert,
   sendCriticalFailureAlert,
   sendSecurityBreachAlert,
+  sendSuspiciousActivityAlert,
   sendMonthlyErrorReport,
   type ContentManagementCounts,
   type AdminSendOutcome,
