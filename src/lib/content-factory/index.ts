@@ -31,6 +31,25 @@ export { runContentFactory, type FactoryRunInput, type FactoryRunResult } from "
 export { recordScoreEvent, listSourceQualityScores } from "./source-scoring";
 export { runGrowthIntelligence, type GrowthIntelligenceReport } from "./growth-intelligence";
 export {
+  BUILDER_VERSION_REGISTRY,
+  getBuilderRegistryEntry,
+  listBuilderRegistry,
+  type BuilderRegistryEntry,
+} from "./builder-registry";
+export { routeContentTypes, type RouterDecision, type RouterSignals } from "./content-type-router";
+export {
+  runCanaryBuilds,
+  getCanaryFixtures,
+  type CanaryResult,
+  type CanaryReport,
+  type CanaryFixture,
+} from "./canary-fixtures";
+export {
+  verifyPublicDisplay,
+  verifyPublicDisplayAndRepair,
+  type PublicDisplayVerificationResult,
+} from "./public-display-verifier";
+export {
   BUILDER_REGISTRY,
   getBuilder,
   PrayerBuilder,

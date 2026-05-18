@@ -2,18 +2,35 @@
  * Worker-side job-kind dispatch. Routes a leased queue row to the
  * matching execution function based on `jobKind`. New kinds slot in
  * by extending the switch — no other worker changes needed.
+ *
+ * Strict factory-only policy: the worker never calls `runAdapter()`
+ * for active content creation. The only ways content reaches the
+ * public catalog are:
+ *
+ *   source_discovery   → factory-native discovery only (sources without
+ *                         a configured discoveryFeedUrl fail loudly so
+ *                         the admin can mark them not_configured).
+ *   source_fetch       → writes a SourceDocument AND enqueues a
+ *                         content_build job per allowed content type.
+ *   content_build      → builds + normalizes + enriches + strict QA +
+ *                         persistBuiltPackage().
+ *
+ * No adapter fallback, no synthetic legacy build logs, no catalog
+ * janitor in revalidation — those paths are gone.
  */
 
 import { logger } from "../../observability/logger";
-import { getAdapter } from "../registry";
-import { runAdapter } from "../runner";
 import { prisma } from "../../db/client";
-import { recordSourceFreshness, recordSourceQuality } from "../../data/source-health";
+import { recordSourceFreshness } from "../../data/source-health";
 import { purgeArchivedByArchivedAt } from "../../data/archive-cleanup";
-import { runCatalogJanitor } from "../../data/catalog-janitor";
 import { validatePayload, isJobKind, isRemovedJobKind, type JobKind } from "./job-kinds";
+import { recordChainStage } from "./chain-audit";
 import { runContentFactory, getSourceDocument, recordSourceDocument } from "../../content-factory";
 import type { ContentTypeKey } from "../../content-factory";
+import {
+  enqueueContentBuildsForSourceDocument,
+  type SourceForBuildEligibility,
+} from "./build-enqueue";
 import type { QueueJobRow } from "./queue";
 
 export type DispatchResult = {
@@ -27,7 +44,10 @@ export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
   // Removed kinds (legacy `source_ingest`) are translated into the
   // modern factory chain by enqueueing an equivalent `source_discovery`
   // job and marking the legacy row as completed. This keeps in-flight
-  // rows from a pre-migration deploy from breaking the worker.
+  // rows from a pre-migration deploy from breaking the worker. The
+  // translation is intended to drain the queue once; the startup
+  // safety check raises a loud diagnostic if these rows persist past
+  // the migration window.
   if (isRemovedJobKind(job.jobKind)) {
     return translateRemovedJobKind(job);
   }
@@ -46,8 +66,9 @@ export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
 
   switch (kind) {
     case "source_freshness":
+      return runSourceFreshness(job, payload);
     case "source_discovery":
-      return runSourceJob(job, payload, kind);
+      return runSourceDiscovery(job, payload);
     case "source_fetch":
       return runSourceFetch(job, payload);
     case "content_build":
@@ -78,7 +99,9 @@ export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
  * In-flight legacy `source_ingest` rows are translated into the
  * modern `source_discovery` factory entry-point. The legacy row
  * completes successfully so the planner can re-enqueue at the new
- * kind on its next tick.
+ * kind on its next tick. Intended to drain pre-migration rows only —
+ * see the startup safety check for the loud diagnostic if these
+ * rows still arrive after the migration window.
  */
 async function translateRemovedJobKind(job: QueueJobRow): Promise<DispatchResult> {
   logger.warn("worker.removed_job_kind_translated", {
@@ -121,6 +144,105 @@ async function translateRemovedJobKind(job: QueueJobRow): Promise<DispatchResult
   };
 }
 
+/**
+ * Source freshness probe. Lightweight HEAD-style check — never runs
+ * adapter content ingestion. Records the source as reachable / not
+ * reachable so the dashboard sees a recent heartbeat for the source.
+ */
+async function runSourceFreshness(
+  job: QueueJobRow,
+  payload: Record<string, unknown>,
+): Promise<DispatchResult> {
+  if (!job.sourceId) {
+    return { ok: false, errorMessage: "source_freshness requires sourceId" };
+  }
+  const source = await prisma.ingestionSource.findUnique({ where: { id: job.sourceId } });
+  if (!source) {
+    return { ok: false, errorMessage: `source_freshness: source ${job.sourceId} not found` };
+  }
+  const probeUrl =
+    (payload.probeUrl as string | undefined) ?? source.discoveryFeedUrl ?? source.baseUrl;
+  if (!probeUrl) {
+    return { ok: false, errorMessage: "source_freshness: no probe URL configured for source" };
+  }
+  try {
+    const res = await fetch(probeUrl, {
+      method: "HEAD",
+      headers: { "User-Agent": "ViaFideiContentFactory/1.0 (+freshness-probe)" },
+    });
+    await recordSourceFreshness(job.sourceId, {
+      ok: res.ok,
+      errorMessage: res.ok ? undefined : `HTTP ${res.status}`,
+    }).catch(() => undefined);
+    return {
+      ok: res.ok,
+      errorMessage: res.ok ? `freshness ok: ${res.status}` : `freshness http_${res.status}`,
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    await recordSourceFreshness(job.sourceId, { ok: false, errorMessage: message }).catch(
+      () => undefined,
+    );
+    return { ok: false, errorMessage: message };
+  }
+}
+
+/**
+ * Source discovery — factory-native only. Walks the source's
+ * configured `discoveryFeedUrl` (sitemap or RSS), records each URL as
+ * a DiscoveredSourceItem, and enqueues a `source_fetch` job per URL.
+ *
+ * Sources without `discoveryFeedUrl` are NOT silently fallen back to
+ * a legacy adapter — that path is gone. They fail with a precise
+ * "source not configured" error so the admin sees the source as
+ * needing a configured discovery method.
+ */
+async function runSourceDiscovery(
+  job: QueueJobRow,
+  payload: Record<string, unknown>,
+): Promise<DispatchResult> {
+  void payload;
+  if (!job.sourceId) {
+    return { ok: false, errorMessage: "source_discovery requires sourceId" };
+  }
+  const source = await prisma.ingestionSource.findUnique({ where: { id: job.sourceId } });
+  if (!source) {
+    return { ok: false, errorMessage: `source_discovery: source ${job.sourceId} not found` };
+  }
+  if (!source.discoveryFeedUrl) {
+    return {
+      ok: false,
+      errorMessage:
+        `source_discovery: source ${source.host} has no discoveryFeedUrl — ` +
+        `mark the source not_configured or set a sitemap/RSS feed. ` +
+        `Legacy adapter execution is removed from the worker.`,
+    };
+  }
+  const { runFactoryNativeDiscovery } = await import("./factory-native-discovery");
+  try {
+    const result = await runFactoryNativeDiscovery({
+      sourceId: job.sourceId,
+      sourceHost: source.host,
+      discoveryFeedUrl: source.discoveryFeedUrl,
+      workerJobId: job.id,
+    });
+    await recordSourceFreshness(job.sourceId, { ok: result.ok }).catch(() => undefined);
+    return {
+      ok: result.ok,
+      errorMessage:
+        result.errorMessage ??
+        `factory-native discovery: feedUrlCount=${result.feedUrlCount} enqueued=${result.enqueuedCount}`,
+      contentSeen: result.enqueuedCount,
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    await recordSourceFreshness(job.sourceId, { ok: false, errorMessage: message }).catch(
+      () => undefined,
+    );
+    return { ok: false, errorMessage: message };
+  }
+}
+
 async function runSourceFetch(
   job: QueueJobRow,
   payload: Record<string, unknown>,
@@ -146,24 +268,8 @@ async function runSourceFetch(
     const source = job.sourceId
       ? await prisma.ingestionSource.findUnique({ where: { id: job.sourceId } })
       : null;
-    const sourcePurposes: Record<string, boolean> = source
-      ? {
-          canIngestPrayers: source.canIngestPrayers,
-          canIngestSaints: source.canIngestSaints,
-          canIngestApparitions: source.canIngestApparitions,
-          canIngestParishes: source.canIngestParishes,
-          canIngestDevotions: source.canIngestDevotions,
-          canIngestNovenas: source.canIngestNovenas,
-          canIngestSacraments: source.canIngestSacraments,
-          canIngestRosaryGuides: source.canIngestRosaryGuides,
-          canIngestConsecrations: source.canIngestConsecrations,
-          canIngestSpiritualGuides: source.canIngestSpiritualGuides,
-          canIngestLiturgy: source.canIngestLiturgy,
-          canIngestHistory: source.canIngestHistory,
-          canProvideScriptureText: source.canProvideScriptureText,
-        }
-      : {};
-    await recordSourceDocument({
+    const sourcePurposes: Record<string, boolean> = source ? sourcePurposesRecord(source) : {};
+    const document = await recordSourceDocument({
       sourceUrl,
       sourceHost: hostname,
       sourceId: job.sourceId ?? null,
@@ -176,7 +282,75 @@ async function runSourceFetch(
       fetchStatus: res.ok ? "ok" : `http_${res.status}`,
       sourcePurposes,
     });
-    return { ok: true, contentSeen: 1 };
+    await recordChainStage({
+      event: "chain.source_document_created",
+      jobQueueId: job.id,
+      sourceDocumentId: document.id,
+      sourceUrl,
+      metadata: { httpStatus: res.status, fetchStatus: res.ok ? "ok" : `http_${res.status}` },
+    }).catch(() => undefined);
+    // Spec: "After source_fetch creates a SourceDocument, immediately
+    // enqueue content_build." We enqueue one build job per allowed
+    // content type on the source so a multi-purpose source still
+    // builds every supported type. Dedupe and build-eligibility
+    // guards live inside enqueueContentBuildsForSourceDocument.
+    let enqueuedBuilds = 0;
+    if (res.ok && document.id) {
+      try {
+        const buildResult = await enqueueContentBuildsForSourceDocument({
+          sourceDocumentId: document.id,
+          sourceUrl,
+          sourceHost: hostname,
+          contentChecksum: document.contentChecksum ?? null,
+          source: source ? toBuildEligibility(source) : null,
+          requestedContentType: (payload.contentType as ContentTypeKey | undefined) ?? null,
+          triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
+          // Router signals: title + headings + metadata from the
+          // freshly recorded SourceDocument so the content type
+          // router can drop any content type that hit a hard-
+          // negative signal (livestream / event / bulletin /
+          // schedule). The router never overrides the source
+          // purpose gate — it only narrows the allowed set.
+          routerSignals: {
+            title: document.sourceTitle ?? null,
+            headings: document.headings ?? null,
+            metadata: document.metadata ?? null,
+          },
+        });
+        enqueuedBuilds = buildResult.enqueuedCount;
+        logger.info("worker.source_fetch_to_build", {
+          jobQueueId: job.id,
+          sourceDocumentId: document.id,
+          sourceUrl,
+          enqueuedCount: buildResult.enqueuedCount,
+          skipped: buildResult.skippedReasons,
+        });
+        await recordChainStage({
+          event: "chain.source_fetch_to_build",
+          jobQueueId: job.id,
+          sourceDocumentId: document.id,
+          sourceUrl,
+          metadata: {
+            enqueuedCount: buildResult.enqueuedCount,
+            enqueuedTypes: buildResult.enqueuedTypes,
+            skippedReasons: buildResult.skippedReasons,
+          },
+        }).catch(() => undefined);
+      } catch (e) {
+        logger.warn("worker.source_fetch_to_build_failed", {
+          jobQueueId: job.id,
+          sourceDocumentId: document.id,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+    return {
+      ok: res.ok,
+      errorMessage: res.ok
+        ? `source_fetch ok: enqueued ${enqueuedBuilds} content_build job(s)`
+        : `source_fetch http_${res.status}`,
+      contentSeen: 1,
+    };
   } catch (e) {
     return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };
   }
@@ -213,6 +387,26 @@ async function runContentFactoryStage(
     workerJobId: job.id,
     triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
   });
+  // Record chain-stage events so the audit log preserves the full
+  // pipeline trace per URL. We branch on the factory decision so the
+  // chain log distinguishes build success, QA rejection, persistence
+  // success, and persistence-skipped.
+  const chainEvent: Parameters<typeof recordChainStage>[0]["event"] =
+    result.decision === "persisted-created" || result.decision === "persisted-updated"
+      ? "chain.persistence_succeeded"
+      : result.decision === "persist-skipped"
+        ? "chain.public_gate_passed"
+        : result.decision === "qa-rejected" || result.decision === "qa-deleted"
+          ? "chain.strict_qa_rejected"
+          : "chain.content_build_completed";
+  await recordChainStage({
+    event: chainEvent,
+    jobQueueId: job.id,
+    sourceDocumentId: document.id,
+    sourceUrl: document.sourceUrl,
+    contentType,
+    metadata: { decision: result.decision },
+  }).catch(() => undefined);
   return {
     ok:
       result.decision === "persisted-created" ||
@@ -252,221 +446,41 @@ async function runStrictCleanup(
   }
 }
 
-async function runSourceJob(
-  job: QueueJobRow,
-  payload: Record<string, unknown>,
-  kind: "source_freshness" | "source_discovery",
-): Promise<DispatchResult> {
-  const adapterKey = (payload.adapterKey as string) ?? job.jobName;
-  const adapter = getAdapter(adapterKey);
-  if (!adapter) {
-    return { ok: false, errorMessage: `No registered adapter for ${adapterKey}` };
-  }
-  const source = job.sourceId
-    ? await prisma.ingestionSource.findUnique({ where: { id: job.sourceId } })
-    : null;
-  const sourceHost = source?.host ?? job.jobName;
-
-  // Factory-native discovery path. When the source has a
-  // discoveryFeedUrl set and this is a source_discovery job, we walk
-  // the feed and enqueue source_fetch jobs — bypassing the legacy
-  // adapter entirely. The result feeds the same factory pipeline
-  // (source_fetch → content_build → content_validate →
-  // content_persist) every other source-fetched URL flows through.
-  if (kind === "source_discovery" && source?.discoveryFeedUrl && job.sourceId) {
-    const { runFactoryNativeDiscovery } = await import("./factory-native-discovery");
-    const result = await runFactoryNativeDiscovery({
-      sourceId: job.sourceId,
-      sourceHost,
-      discoveryFeedUrl: source.discoveryFeedUrl,
-      workerJobId: job.id,
-    });
-    return {
-      ok: result.ok,
-      errorMessage:
-        result.errorMessage ??
-        `factory-native discovery: feedUrlCount=${result.feedUrlCount} enqueued=${result.enqueuedCount}`,
-      contentSeen: result.enqueuedCount,
-    };
-  }
-  try {
-    const summary = await runAdapter(adapter, job.jobId, sourceHost, {
-      triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
-      actorUsername: job.actorUsername ?? null,
-      // Stamp the queue-row id onto every RejectedContentLog row this
-      // run produces so the deleted-log page can trace each rejection
-      // back to the worker job that ingested it.
-      workerJobId: job.id,
-    });
-    if (job.sourceId) {
-      await recordSourceFreshness(job.sourceId, { ok: true }).catch(() => undefined);
-      if (summary.recordsSeen > 0) {
-        const reviewOrRejected = summary.recordsReviewRequired + summary.recordsFailed;
-        await recordSourceQuality(job.sourceId, {
-          totalItems: summary.recordsSeen,
-          reviewOrRejected,
-        }).catch(() => undefined);
-      }
-    }
-    // Emit a synthetic SourceDocument + ContentPackageBuildLog row
-    // for the run so the Content Factory dashboard sees activity even
-    // from legacy source_ingest paths. The factory-native source_fetch
-    // → content_build pipeline writes these rows per-item; the
-    // legacy adapter path writes one aggregate row per run.
-    if (summary.recordsSeen > 0) {
-      const synthUrl = `legacy-runner://${adapterKey}/${job.id}`;
-      try {
-        await recordSourceDocument({
-          sourceUrl: synthUrl,
-          sourceHost: sourceHost,
-          sourceId: job.sourceId ?? null,
-          adapterKey,
-          workerJobId: job.id,
-          sourceTier: source?.tier ?? null,
-          rawBody: `Legacy adapter run summary — ${summary.recordsSeen} items seen, ${summary.recordsCreated} created, ${summary.recordsUpdated} updated.`,
-          fetchStatus: "ok",
-          sourcePurposes: source
-            ? buildLegacySourcePurposes(source)
-            : ({} as Record<string, boolean>),
-        });
-        const aggregateStatus =
-          summary.recordsCreated + summary.recordsUpdated > 0
-            ? "built_complete_package"
-            : summary.recordsFailed > 0
-              ? "build_failed_missing_required_fields"
-              : "duplicate";
-        const { recordBuildLog } = await import("../../content-factory");
-        await recordBuildLog({
-          result: {
-            outcome: aggregateStatus as never,
-            contentType: (job.contentType ?? "Prayer") as never,
-            builderName: `LegacyAdapter:${adapterKey}`,
-            builderVersion: "legacy",
-            ...(aggregateStatus === "built_complete_package"
-              ? {
-                  package: {
-                    contentType: (job.contentType ?? "Prayer") as never,
-                    slug: `legacy-run-${job.id}`,
-                    title: `Legacy adapter ${adapterKey}`,
-                    sourceUrl: synthUrl,
-                    sourceHost: sourceHost,
-                    payload: {
-                      recordsCreated: summary.recordsCreated,
-                      recordsUpdated: summary.recordsUpdated,
-                    },
-                    provenance: {},
-                  },
-                  missingFields: [],
-                }
-              : {
-                  failureReason: `Legacy adapter run produced no valid rows (failed=${summary.recordsFailed})`,
-                  missingFields: [],
-                }),
-          } as never,
-          sourceUrl: synthUrl,
-          sourceHost: sourceHost,
-          workerJobId: job.id,
-        });
-      } catch (e) {
-        logger.warn("worker.legacy_run_build_log_failed", {
-          jobQueueId: job.id,
-          error: e instanceof Error ? e.message : String(e),
-        });
-      }
-    }
-    const errorMessage = summary.errorMessage ?? undefined;
-    if (summary.recordsFailed > 0 && summary.recordsSeen === 0) {
-      return {
-        ok: false,
-        errorMessage: errorMessage ?? "adapter returned no records",
-        contentSeen: 0,
-      };
-    }
-    // Auto-trigger post-ingestion cleanup. The strict QA policy says
-    // "every newly ingested batch must be revalidated immediately so
-    // a bad row never lingers". We enqueue (not run inline) so the
-    // discovery job stays fast and the cleanup is workable in parallel
-    // by another worker.
-    if (kind === "source_discovery" && summary.recordsSeen > 0) {
-      const { autoEnqueuePostIngestionCleanup } = await import("./auto-cleanup");
-      await autoEnqueuePostIngestionCleanup({
-        sourceId: job.sourceId,
-        contentType: job.contentType,
-        workerJobId: job.id,
-      }).catch((e) => {
-        logger.warn("worker.post_ingestion_cleanup_enqueue_failed", {
-          jobQueueId: job.id,
-          errorMessage: e instanceof Error ? e.message : String(e),
-        });
-      });
-    }
-    return {
-      ok: true,
-      errorMessage,
-      contentSeen: summary.recordsSeen,
-      contentReview: summary.recordsReviewRequired,
-    };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    if (job.sourceId) {
-      await recordSourceFreshness(job.sourceId, {
-        ok: false,
-        errorMessage: message,
-      }).catch(() => undefined);
-    }
-    return { ok: false, errorMessage: message };
-  }
-}
-
+/**
+ * content_revalidate runs ONLY strict content factory cleanup +
+ * package contract revalidation. The legacy catalog janitor (text-
+ * shape repackage / divert-to-review) is removed — failed content is
+ * deleted with a log, never quietly diverted to REVIEW.
+ */
 async function runContentRevalidate(
   job: QueueJobRow,
   payload: Record<string, unknown>,
 ): Promise<DispatchResult> {
   void job;
   try {
-    // Two passes:
-    //   1. catalog janitor — legacy text-shape cleanup (format / clean /
-    //      classify against existing PUBLISHED rows). Repackages noise,
-    //      diverts soft-fails to REVIEW, hard-deletes clear cruft.
-    //   2. strict content QA cleanup — validates every catalog row
-    //      against its package contract under the active cleanup
-    //      policy (production: deleteAllInvalid=true,
-    //      mode=all_catalog_rows). Rows that pass are flagged
-    //      publicRenderReady + isThresholdEligible; rows that fail
-    //      are deleted + logged.
     const { runStrictContentCleanup } = await import("../../content-qa/cleanup");
     const sweepReason = (payload.sweepReason as string) ?? "catalog_revalidate";
-    const [janitor, strict] = await Promise.all([
-      runCatalogJanitor().catch((e) => ({
-        error: e instanceof Error ? e.message : String(e),
-        totalRepackaged: 0,
-        totalDivertedToReview: 0,
-        totalHardDeleted: 0,
-        buckets: [],
-      })),
-      runStrictContentCleanup({ sweepReason }).catch((e) => ({
-        error: e instanceof Error ? e.message : String(e),
-        totalInspected: 0,
-        totalFlaggedReady: 0,
-        totalFlaggedUnready: 0,
-        totalHardDeleted: 0,
-        totalLogFailures: 0,
-        buckets: [],
-        mode: "all_catalog_rows" as const,
-        deleteAllInvalid: true,
-        packageContractVersion: "unknown",
-        ranAt: new Date(),
-      })),
-    ]);
+    const strict = await runStrictContentCleanup({ sweepReason }).catch((e) => ({
+      error: e instanceof Error ? e.message : String(e),
+      totalInspected: 0,
+      totalFlaggedReady: 0,
+      totalFlaggedUnready: 0,
+      totalHardDeleted: 0,
+      totalLogFailures: 0,
+      buckets: [],
+      mode: "all_catalog_rows" as const,
+      deleteAllInvalid: true,
+      packageContractVersion: "unknown",
+      ranAt: new Date(),
+    }));
     return {
       ok: true,
       errorMessage:
-        `Repackaged ${janitor.totalRepackaged}, ` +
-        `diverted ${janitor.totalDivertedToReview}, ` +
         `strict-QA flagged ${strict.totalFlaggedReady} ready, ` +
         `${strict.totalFlaggedUnready} unready, ` +
         `${strict.totalHardDeleted} hard-deleted, ` +
         `mode=${strict.mode}, ` +
+        `packageContract=${strict.packageContractVersion}, ` +
         `logFailures=${strict.totalLogFailures}`,
     };
   } catch (e) {
@@ -519,7 +533,26 @@ async function runReportGenerate(
   return { ok: true, errorMessage: `Report ${payload.reportKind} dispatched` };
 }
 
-function buildLegacySourcePurposes(source: {
+function sourcePurposesRecord(source: SourceForBuildEligibility): Record<string, boolean> {
+  return {
+    canIngestPrayers: source.canIngestPrayers,
+    canIngestSaints: source.canIngestSaints,
+    canIngestApparitions: source.canIngestApparitions,
+    canIngestParishes: source.canIngestParishes,
+    canIngestDevotions: source.canIngestDevotions,
+    canIngestNovenas: source.canIngestNovenas,
+    canIngestSacraments: source.canIngestSacraments,
+    canIngestRosaryGuides: source.canIngestRosaryGuides,
+    canIngestConsecrations: source.canIngestConsecrations,
+    canIngestSpiritualGuides: source.canIngestSpiritualGuides,
+    canIngestLiturgy: source.canIngestLiturgy,
+    canIngestHistory: source.canIngestHistory,
+    canProvideScriptureText: source.canProvideScriptureText,
+  };
+}
+
+function toBuildEligibility(source: {
+  id: string;
   canIngestPrayers: boolean;
   canIngestSaints: boolean;
   canIngestApparitions: boolean;
@@ -533,8 +566,9 @@ function buildLegacySourcePurposes(source: {
   canIngestLiturgy: boolean;
   canIngestHistory: boolean;
   canProvideScriptureText: boolean;
-}): Record<string, boolean> {
+}): SourceForBuildEligibility {
   return {
+    id: source.id,
     canIngestPrayers: source.canIngestPrayers,
     canIngestSaints: source.canIngestSaints,
     canIngestApparitions: source.canIngestApparitions,

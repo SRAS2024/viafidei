@@ -3,7 +3,9 @@ import { prisma } from "../db/client";
 import { checkRequiredTables } from "../db/tables";
 import { logger } from "../observability/logger";
 import { ensureAccountEmailTables } from "./ensure-email-tables";
+import { runFactorySourceSetup } from "./factory-source-setup";
 import { promoteIngestedOrphans } from "./promote-ingested";
+import { scanQueueForRemovedJobKinds } from "./removed-job-kinds-check";
 import { seedAllContent } from "./seeder";
 
 let scheduled = false;
@@ -304,6 +306,29 @@ export async function runStartupTasks(): Promise<void> {
     }
   } catch (e) {
     logger.error("startup failed to promote ingestion orphans", { error: e });
+  }
+
+  // Safety check: scan the queue for removed job kinds (e.g. legacy
+  // source_ingest). The worker translates these as a one-time migration
+  // aid; if they persist past the migration window, the operator must
+  // run the queue migration job to drain or delete them. The check is
+  // fire-and-forget — startup must not block on a queue scan.
+  try {
+    await scanQueueForRemovedJobKinds();
+  } catch (e) {
+    logger.warn("startup removed-job-kinds scan failed", { error: e });
+  }
+
+  // Backfill the typed discovery method + configuration status on
+  // every existing IngestionSource so the admin source card and the
+  // dispatcher have a consistent factory-native label.
+  try {
+    const report = await runFactorySourceSetup();
+    if (report.marked_factory_native + report.marked_not_configured > 0) {
+      logger.info("startup factory-source-setup applied", { report });
+    }
+  } catch (e) {
+    logger.warn("startup factory-source-setup failed", { error: e });
   }
 
   scheduleIngestion();

@@ -221,6 +221,25 @@ export async function runContentFactory(input: FactoryRunInput): Promise<Factory
     actorUsername: input.actorUsername,
   });
 
+  // Public display verification: after persistence, the strict public
+  // query MUST be able to see the row. If it can't, we log a public-
+  // gate-failure event and enqueue a render-gate revalidation so the
+  // cleanup loop either fixes the flags or deletes the row with a
+  // precise log entry. Skipped persists are exempt (the row was
+  // already public before this run).
+  if (persistResult.outcome === "created" || persistResult.outcome === "updated") {
+    const { verifyPublicDisplayAndRepair } = await import("./public-display-verifier");
+    await verifyPublicDisplayAndRepair({
+      contentType: input.contentType,
+      slug: pkg.slug,
+    }).catch((e) =>
+      logger.warn("content-factory.public_display_verify_failed", {
+        slug: pkg.slug,
+        error: e instanceof Error ? e.message : String(e),
+      }),
+    );
+  }
+
   return {
     contentType: input.contentType,
     sourceUrl: input.document.sourceUrl,

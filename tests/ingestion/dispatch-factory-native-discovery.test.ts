@@ -1,9 +1,11 @@
 /**
- * Worker dispatch: a source with `discoveryFeedUrl` set uses the
- * factory-native discovery path INSTEAD of calling runAdapter.
- * Sources without a feed URL fall back to the legacy adapter
- * (preserving production behaviour for adapters that haven't
- * migrated yet).
+ * Worker dispatch: source_discovery is factory-native only. The
+ * legacy adapter fallback path has been removed, so sources without
+ * a configured `discoveryFeedUrl` fail loudly rather than silently
+ * running an old adapter.
+ *
+ * source_freshness is a lightweight HEAD probe (no adapter
+ * execution).
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,51 +14,30 @@ import { prismaMock, resetPrismaMock } from "../helpers/prisma-mock";
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 
-// Stub the registry so dispatch's "adapter not registered" guard
-// never triggers — these tests focus on the discovery path
-// selection, not adapter execution.
-const fakeAdapter = {
-  key: "test.fake",
-  description: "test adapter",
-  entityKinds: ["prayer"],
-  fetch: vi.fn(async () => ({ items: [] })),
-};
-vi.mock("@/lib/ingestion/registry", () => ({
-  getAdapter: vi.fn(() => fakeAdapter),
-}));
-
-const runAdapterMock = vi.fn();
-vi.mock("@/lib/ingestion/runner", () => ({
-  runAdapter: (...args: unknown[]) => runAdapterMock(...args),
-}));
-
 const runFactoryNativeDiscoveryMock = vi.fn();
 vi.mock("@/lib/ingestion/queue/factory-native-discovery", () => ({
   runFactoryNativeDiscovery: (...args: unknown[]) => runFactoryNativeDiscoveryMock(...args),
 }));
+
+const fetchMock = vi.fn();
 
 import type { QueueJobRow } from "@/lib/ingestion/queue/queue";
 import { runJobByKind } from "@/lib/ingestion/queue/dispatch";
 
 beforeEach(() => {
   resetPrismaMock();
-  runAdapterMock.mockReset();
   runFactoryNativeDiscoveryMock.mockReset();
-  runAdapterMock.mockResolvedValue({
-    recordsSeen: 0,
-    recordsCreated: 0,
-    recordsUpdated: 0,
-    recordsSkipped: 0,
-    recordsFailed: 0,
-    recordsReviewRequired: 0,
-    errorMessage: null,
-  });
   runFactoryNativeDiscoveryMock.mockResolvedValue({
     ok: true,
     feedUrlCount: 5,
     discoveredCount: 5,
     enqueuedCount: 5,
   });
+  fetchMock.mockReset();
+  // Default HEAD response for source_freshness.
+  fetchMock.mockResolvedValue({ ok: true, status: 200, headers: new Map() });
+  // @ts-expect-error — overriding global fetch for tests
+  global.fetch = fetchMock;
 });
 
 afterEach(() => {
@@ -96,7 +77,7 @@ function buildDiscoveryJob(sourceId: string): QueueJobRow {
   };
 }
 
-describe("dispatch — source_discovery path selection", () => {
+describe("dispatch — source_discovery is factory-native only", () => {
   it("uses factory-native discovery when the source has discoveryFeedUrl set", async () => {
     prismaMock.ingestionSource.findUnique.mockResolvedValue({
       id: "src-factory",
@@ -118,12 +99,9 @@ describe("dispatch — source_discovery path selection", () => {
     expect(args.sourceId).toBe("src-factory");
     expect(args.sourceHost).toBe("vatican.va");
     expect(args.discoveryFeedUrl).toBe("https://vatican.va/sitemap.xml");
-    // The legacy runAdapter MUST NOT be called when the factory-
-    // native path is available.
-    expect(runAdapterMock).not.toHaveBeenCalled();
   });
 
-  it("falls back to runAdapter when discoveryFeedUrl is null", async () => {
+  it("fails loudly when discoveryFeedUrl is null (no legacy fallback)", async () => {
     prismaMock.ingestionSource.findUnique.mockResolvedValue({
       id: "src-legacy",
       host: "legacy.example.org",
@@ -132,26 +110,29 @@ describe("dispatch — source_discovery path selection", () => {
       canIngestPrayers: true,
     });
 
-    await runJobByKind(buildDiscoveryJob("src-legacy"));
+    const result = await runJobByKind(buildDiscoveryJob("src-legacy"));
 
     expect(runFactoryNativeDiscoveryMock).not.toHaveBeenCalled();
-    expect(runAdapterMock).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+    expect(result.errorMessage).toMatch(/no discoveryFeedUrl|not_configured/i);
   });
 
-  it("falls back to runAdapter when there is no source row at all", async () => {
+  it("fails when there is no source row at all (no legacy fallback)", async () => {
     prismaMock.ingestionSource.findUnique.mockResolvedValue(null);
 
-    await runJobByKind(buildDiscoveryJob("src-missing"));
+    const result = await runJobByKind(buildDiscoveryJob("src-missing"));
 
     expect(runFactoryNativeDiscoveryMock).not.toHaveBeenCalled();
-    expect(runAdapterMock).toHaveBeenCalledTimes(1);
+    expect(result.ok).toBe(false);
+    expect(result.errorMessage).toMatch(/not found/i);
   });
 
-  it("source_freshness never uses the factory-native discovery path (only source_discovery does)", async () => {
+  it("source_freshness runs a lightweight HEAD probe (never the legacy adapter)", async () => {
     prismaMock.ingestionSource.findUnique.mockResolvedValue({
       id: "src-fresh",
       host: "vatican.va",
       discoveryFeedUrl: "https://vatican.va/sitemap.xml",
+      baseUrl: "https://vatican.va",
       tier: 1,
       canIngestPrayers: true,
     });
@@ -159,12 +140,14 @@ describe("dispatch — source_discovery path selection", () => {
     const job = buildDiscoveryJob("src-fresh");
     job.jobKind = "source_freshness";
 
-    await runJobByKind(job);
+    const result = await runJobByKind(job);
 
-    // Freshness routes through runAdapter — it's the existing
-    // cheap HEAD/ETag check. Factory-native discovery is reserved
-    // for source_discovery.
+    // Factory-native discovery only runs for source_discovery, not freshness.
     expect(runFactoryNativeDiscoveryMock).not.toHaveBeenCalled();
-    expect(runAdapterMock).toHaveBeenCalledTimes(1);
+    // The HEAD probe is the only network call.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const fetchCall = fetchMock.mock.calls[0]!;
+    expect((fetchCall[1] as { method?: string } | undefined)?.method).toBe("HEAD");
+    expect(result.ok).toBe(true);
   });
 });
