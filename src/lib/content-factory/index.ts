@@ -31,6 +31,12 @@ export { runContentFactory, type FactoryRunInput, type FactoryRunResult } from "
 export { recordScoreEvent, listSourceQualityScores } from "./source-scoring";
 export { runGrowthIntelligence, type GrowthIntelligenceReport } from "./growth-intelligence";
 export {
+  BUILDER_VERSION_REGISTRY,
+  getBuilderRegistryEntry,
+  listBuilderRegistry,
+  type BuilderRegistryEntry,
+} from "./builder-registry";
+export {
   BUILDER_REGISTRY,
   getBuilder,
   PrayerBuilder,
