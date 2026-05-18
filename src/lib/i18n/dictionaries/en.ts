@@ -368,6 +368,7 @@ const admin: Dict = {
   "admin.whyNotVisible.title": "Why not visible",
   "admin.canaryResults.title": "Canary results",
   "admin.pipelineBrokenHere.title": "Pipeline broken here",
+  "admin.seedAudit.title": "Seed audit",
   "admin.signOut": "Sign out of admin",
   "admin.welcomeLine": "You are signed in as the administrator.",
 };
