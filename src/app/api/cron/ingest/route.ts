@@ -101,6 +101,50 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Auto-repair pass: consume the pipeline-broken-here report and
+  // enqueue the matching recovery action for each broken stage.
+  // Idempotent — the build-enqueue + cleanup dedupe keys prevent
+  // duplicate work across ticks.
+  try {
+    const { runAutoRepairPass } = await import("@/lib/ingestion/queue/auto-repair");
+    const repairReport = await runAutoRepairPass();
+    if (repairReport.actionsTaken.length > 0 || repairReport.errors.length > 0) {
+      logger.info("cron.auto_repair.ran", {
+        requestId,
+        actionsTaken: repairReport.actionsTaken.length,
+        errors: repairReport.errors.length,
+      });
+    }
+  } catch (e) {
+    logger.warn("cron.auto_repair_failed", {
+      requestId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  // Rebuild stale packages: when a builder version changes, the
+  // scheduled task scans the build log for source documents whose
+  // most-recent build used an older version and re-enqueues a
+  // content_build. Dedupe + buildEligibility prevent duplicate work.
+  try {
+    const { runRebuildStalePackages } =
+      await import("@/lib/ingestion/queue/rebuild-stale-packages");
+    const rebuild = await runRebuildStalePackages({ perTypeLimit: 25 });
+    if (rebuild.rebuildsEnqueued > 0 || rebuild.errors.length > 0) {
+      logger.info("cron.rebuild_stale_packages.ran", {
+        requestId,
+        rebuildsEnqueued: rebuild.rebuildsEnqueued,
+        scanned: rebuild.scanned,
+        errors: rebuild.errors.length,
+      });
+    }
+  } catch (e) {
+    logger.warn("cron.rebuild_stale_packages_failed", {
+      requestId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   // Admin can disable the automatic Data Management sweep via the
   // site_settings row. When disabled, the ingestion runner still runs
   // (per-row validation, skip-existing semantics) but the catalog-wide

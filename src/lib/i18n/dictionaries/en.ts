@@ -364,6 +364,10 @@ const admin: Dict = {
   "admin.productionReadiness.title": "Production readiness",
   "admin.contentGrowth.title": "Content growth",
   "admin.sourceConfiguration.title": "Source configuration",
+  "admin.contentReceipt.title": "Content receipt",
+  "admin.whyNotVisible.title": "Why not visible",
+  "admin.canaryResults.title": "Canary results",
+  "admin.pipelineBrokenHere.title": "Pipeline broken here",
   "admin.signOut": "Sign out of admin",
   "admin.welcomeLine": "You are signed in as the administrator.",
 };
