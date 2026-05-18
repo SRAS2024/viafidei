@@ -110,6 +110,36 @@ describe("normalizeDevotionType", () => {
     expect(typeof out).toBe("string");
     expect(out.length).toBeGreaterThan(0);
   });
+
+  it("output is always a member of VALID_DEVOTION_TYPES (or the original input)", async () => {
+    const { VALID_DEVOTION_TYPES } = await import("@/lib/content-qa/contracts/devotion");
+    const allowed = new Set<string>(VALID_DEVOTION_TYPES);
+    // Every keyword alias must resolve to a contract-valid label so a
+    // normalized payload can pass validateDevotionPackage downstream.
+    // (Previously emitted "Rosary devotion" / "Divine Mercy devotion"
+    // / "Sacred Heart devotion" / "General devotion" — none of which
+    // were in the contract.)
+    for (const input of [
+      "Rosary",
+      "rosary",
+      "Sacred Heart",
+      "sacred heart",
+      "Immaculate Heart",
+      "Divine Mercy",
+      "First Friday",
+      "First Saturday",
+      "Stations of the Cross",
+      "Chaplet",
+      "Litany",
+      "Novena",
+      "Consecration",
+      "Eucharistic adoration",
+      "Marian devotion",
+      "Saint devotion",
+    ]) {
+      expect(allowed.has(normalizeDevotionType(input))).toBe(true);
+    }
+  });
 });
 
 describe("normalizeHistoryType", () => {

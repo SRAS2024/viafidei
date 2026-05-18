@@ -25,6 +25,7 @@ import {
   isCanonicalSacramentKey,
 } from "../../content-qa/sacrament-normalize";
 import { VALID_PRAYER_TYPES } from "../../content-qa/contracts/prayer";
+import { VALID_DEVOTION_TYPES } from "../../content-qa/contracts/devotion";
 
 const BRAND_SUFFIXES = [
   /\s*\|\s*EWTN.*$/i,
@@ -140,14 +141,31 @@ export function normalizePrayerType(s: string): string {
 
 export function normalizeDevotionType(s: string): string {
   const lower = s.trim().toLowerCase();
-  if (/rosary/.test(lower)) return "Rosary devotion";
-  if (/divine\s+mercy/.test(lower)) return "Divine Mercy devotion";
-  if (/sacred\s+heart/.test(lower)) return "Sacred Heart devotion";
+  // First pass: an exact (case-insensitive) match for a canonical label
+  // wins. This handles inputs like "Rosary", "Sacred Heart" — phrases
+  // that the keyword fallbacks below would otherwise re-suffix with
+  // " devotion" and break contract validation.
+  const exact = VALID_DEVOTION_TYPES.find((t) => t.toLowerCase() === lower);
+  if (exact) return exact;
+  if (/immaculate\s+heart/.test(lower)) return "Immaculate Heart";
+  if (/sacred\s+heart/.test(lower)) return "Sacred Heart";
+  if (/divine\s+mercy/.test(lower)) return "Divine Mercy";
+  if (/first\s+friday/.test(lower)) return "First Friday";
+  if (/first\s+saturday/.test(lower)) return "First Saturday";
   if (/stations|via\s+crucis/.test(lower)) return "Stations of the Cross";
-  if (/eucharist|adoration/.test(lower)) return "Eucharistic devotion";
+  if (/chaplet/.test(lower)) return "Chaplet";
+  if (/litany/.test(lower)) return "Litany";
+  if (/novena/.test(lower)) return "Novena";
+  if (/consecration/.test(lower)) return "Consecration";
+  if (/rosary/.test(lower)) return "Rosary";
+  if (/adoration/.test(lower)) return "Adoration devotion";
+  if (/eucharist/.test(lower)) return "Eucharistic devotion";
   if (/marian|mary/.test(lower)) return "Marian devotion";
   if (/saint/.test(lower)) return "Saint devotion";
-  return "General devotion";
+  // No canonical match — return the original so the validator can
+  // reject it explicitly instead of a silent "General devotion" fallback
+  // that was never in the contract.
+  return s.trim();
 }
 
 export function normalizeSacramentAlias(name: string): string {
