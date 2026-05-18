@@ -153,9 +153,20 @@ describe("allow-listed creators never set public-gate flags", () => {
     expect(src).not.toMatch(/isThresholdEligible\s*:\s*true\b/);
   });
 
-  it("startup seeder seeds drafts/published rows but never sets publicRenderReady=true", () => {
+  it("startup seeder seeds DRAFT rows and never sets publicRenderReady=true", () => {
     const src = readFileSync(join(SRC_DIR, "lib", "startup", "seeder.ts"), "utf8");
     expect(src).not.toMatch(/publicRenderReady\s*:\s*true\b/);
     expect(src).not.toMatch(/isThresholdEligible\s*:\s*true\b/);
+  });
+
+  it("startup seeder creates rows at status=DRAFT — strict cleanup owns the PUBLISHED handover", () => {
+    const src = readFileSync(join(SRC_DIR, "lib", "startup", "seeder.ts"), "utf8");
+    // Every `create:` block in the seeder must use status: "DRAFT" so
+    // the strict-cleanup pass owns the transition to PUBLISHED +
+    // publicRenderReady=true.
+    expect(src).toMatch(/create:\s*\{[^}]*status:\s*["']DRAFT["']/);
+    // And the seeder must NOT force status="PUBLISHED" anywhere, as
+    // that would create rows that bypass the public-gate.
+    expect(src).not.toMatch(/status\s*:\s*["']PUBLISHED["']/);
   });
 });

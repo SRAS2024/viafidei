@@ -17,6 +17,11 @@ const patchSchema = z.object({
   rateLimitPerMin: z.number().int().positive().max(10_000).nullish().optional(),
   notes: z.string().max(2000).nullish().optional(),
   reliabilityScore: z.number().min(0).max(1).nullish().optional(),
+  // When set to a sitemap / RSS URL, the worker's source_discovery
+  // dispatch uses the factory-native path for this source — walking
+  // the feed and enqueueing source_fetch jobs per URL — bypassing
+  // the legacy adapter discovery entirely.
+  discoveryFeedUrl: z.string().url().max(500).nullish().optional(),
 });
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
