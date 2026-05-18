@@ -172,37 +172,31 @@ export function isSacramentKey(key: string): boolean {
   return (SACRAMENT_KEYS as ReadonlyArray<string>).includes(key);
 }
 
-export const HISTORY_TYPES = [
-  "Councils",
-  "Major Church events",
-  "Encyclicals",
-  "Papal consecrations",
-  "Schisms",
-  "Religious order foundings",
-  "Catechisms",
-  "Code of Canon Law",
-  "Major papal acts",
-  "Major doctrinal definitions",
-  "Major ecumenical events",
-  "Major liturgical reforms",
-] as const;
+// Re-export the contract's canonical history-type tuple so the
+// normalizer and the validator agree on the spec set. Keeping a second
+// copy here used to drift (the normalizer produced plurals while the
+// validator accepted singulars, so every normalized History package
+// failed validation).
+export { VALID_HISTORY_TYPES as HISTORY_TYPES } from "../../content-qa/contracts/history";
+
+import { VALID_HISTORY_TYPES } from "../../content-qa/contracts/history";
 
 export function normalizeHistoryType(s: string | null | undefined): string | null {
   if (!s) return null;
   const lower = s.toLowerCase();
-  for (const t of HISTORY_TYPES) {
+  for (const t of VALID_HISTORY_TYPES) {
     if (lower.includes(t.toLowerCase())) return t;
   }
-  if (/council/.test(lower)) return "Councils";
-  if (/encyclical/.test(lower)) return "Encyclicals";
-  if (/schism/.test(lower)) return "Schisms";
+  if (/council/.test(lower)) return "Council";
+  if (/encyclical/.test(lower)) return "Encyclical";
+  if (/schism/.test(lower)) return "Schism";
   if (/canon\s+law/.test(lower)) return "Code of Canon Law";
-  if (/catechism/.test(lower)) return "Catechisms";
-  if (/religious\s+order/.test(lower)) return "Religious order foundings";
-  if (/papal\s+(?:bull|act)/.test(lower)) return "Major papal acts";
-  if (/dogma|doctrine|definition/.test(lower)) return "Major doctrinal definitions";
-  if (/ecumenical/.test(lower)) return "Major ecumenical events";
-  if (/liturgical\s+reform/.test(lower)) return "Major liturgical reforms";
+  if (/catechism/.test(lower)) return "Catechism";
+  if (/religious\s+order/.test(lower)) return "Religious order founding";
+  if (/papal\s+(?:bull|act)/.test(lower)) return "Major papal act";
+  if (/dogma|doctrine|definition/.test(lower)) return "Major doctrinal definition";
+  if (/ecumenical/.test(lower)) return "Major ecumenical event";
+  if (/liturgical\s+reform/.test(lower)) return "Major liturgical reform";
   return null;
 }
 

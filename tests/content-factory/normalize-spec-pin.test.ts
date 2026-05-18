@@ -113,12 +113,12 @@ describe("normalizeDevotionType", () => {
 });
 
 describe("normalizeHistoryType", () => {
-  it("normalises 'ENCYCLICAL' to the canonical 'Encyclicals' label", () => {
-    expect(normalizeHistoryType("ENCYCLICAL")).toBe("Encyclicals");
+  it("normalises 'ENCYCLICAL' to the canonical 'Encyclical' label", () => {
+    expect(normalizeHistoryType("ENCYCLICAL")).toBe("Encyclical");
   });
 
-  it("normalises 'council' to 'Councils'", () => {
-    expect(normalizeHistoryType("council")).toBe("Councils");
+  it("normalises 'council' to 'Council'", () => {
+    expect(normalizeHistoryType("council")).toBe("Council");
   });
 
   it("returns null for an unrecognised category", () => {

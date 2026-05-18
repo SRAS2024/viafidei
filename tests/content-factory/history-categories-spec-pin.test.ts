@@ -18,18 +18,18 @@ import { describe, expect, it } from "vitest";
 import { HISTORY_TYPES, normalizeHistoryType } from "@/lib/content-factory/normalize";
 
 const SPEC_HISTORY_CATEGORIES = [
-  "Councils",
-  "Major Church events",
-  "Encyclicals",
-  "Papal consecrations",
-  "Schisms",
-  "Religious order foundings",
-  "Catechisms",
+  "Council",
+  "Major Church event",
+  "Encyclical",
+  "Papal consecration",
+  "Schism",
+  "Religious order founding",
+  "Catechism",
   "Code of Canon Law",
-  "Major papal acts",
-  "Major doctrinal definitions",
-  "Major ecumenical events",
-  "Major liturgical reforms",
+  "Major papal act",
+  "Major doctrinal definition",
+  "Major ecumenical event",
+  "Major liturgical reform",
 ] as const;
 
 describe("HISTORY_TYPES tuple matches the spec", () => {
@@ -60,18 +60,18 @@ describe("normalizeHistoryType resolves every spec label back to itself", () => 
 
 describe("normalizeHistoryType resolves common aliases to canonical labels", () => {
   const ALIASES: Array<[string, string]> = [
-    ["encyclical", "Encyclicals"],
-    ["ENCYCLICAL", "Encyclicals"],
-    ["council", "Councils"],
-    ["Vatican II Council", "Councils"],
-    ["schism", "Schisms"],
+    ["encyclical", "Encyclical"],
+    ["ENCYCLICAL", "Encyclical"],
+    ["council", "Council"],
+    ["Vatican II Council", "Council"],
+    ["schism", "Schism"],
     ["Code of Canon Law 1983", "Code of Canon Law"],
-    ["the catechism of the catholic church", "Catechisms"],
-    ["Religious Order founding", "Religious order foundings"],
-    ["papal bull", "Major papal acts"],
-    ["doctrinal definition", "Major doctrinal definitions"],
-    ["ecumenical dialogue", "Major ecumenical events"],
-    ["liturgical reform", "Major liturgical reforms"],
+    ["the catechism of the catholic church", "Catechism"],
+    ["Religious Order founding", "Religious order founding"],
+    ["papal bull", "Major papal act"],
+    ["doctrinal definition", "Major doctrinal definition"],
+    ["ecumenical dialogue", "Major ecumenical event"],
+    ["liturgical reform", "Major liturgical reform"],
   ];
   for (const [input, expected] of ALIASES) {
     it(`"${input}" → ${expected}`, () => {
