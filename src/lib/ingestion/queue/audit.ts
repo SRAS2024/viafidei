@@ -22,7 +22,22 @@ export type QueueAuditEvent =
   | "cancel_requested"
   | "paused"
   | "resumed"
-  | "stale_recovered";
+  | "stale_recovered"
+  | "chain.discovery_completed"
+  | "chain.source_fetch_started"
+  | "chain.source_document_created"
+  | "chain.source_fetch_to_build"
+  | "chain.content_build_started"
+  | "chain.content_build_completed"
+  | "chain.strict_qa_passed"
+  | "chain.strict_qa_rejected"
+  | "chain.persistence_succeeded"
+  | "chain.persistence_failed"
+  | "chain.public_gate_passed"
+  | "chain.public_gate_failed"
+  | "chain.sitemap_refreshed"
+  | "chain.dashboard_updated"
+  | "chain.deleted_with_log";
 
 export type RecordQueueAuditInput = {
   jobQueueId: string | null;

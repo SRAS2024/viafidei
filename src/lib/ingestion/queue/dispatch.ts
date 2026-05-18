@@ -24,6 +24,7 @@ import { prisma } from "../../db/client";
 import { recordSourceFreshness } from "../../data/source-health";
 import { purgeArchivedByArchivedAt } from "../../data/archive-cleanup";
 import { validatePayload, isJobKind, isRemovedJobKind, type JobKind } from "./job-kinds";
+import { recordChainStage } from "./chain-audit";
 import { runContentFactory, getSourceDocument, recordSourceDocument } from "../../content-factory";
 import type { ContentTypeKey } from "../../content-factory";
 import {
@@ -281,6 +282,13 @@ async function runSourceFetch(
       fetchStatus: res.ok ? "ok" : `http_${res.status}`,
       sourcePurposes,
     });
+    await recordChainStage({
+      event: "chain.source_document_created",
+      jobQueueId: job.id,
+      sourceDocumentId: document.id,
+      sourceUrl,
+      metadata: { httpStatus: res.status, fetchStatus: res.ok ? "ok" : `http_${res.status}` },
+    }).catch(() => undefined);
     // Spec: "After source_fetch creates a SourceDocument, immediately
     // enqueue content_build." We enqueue one build job per allowed
     // content type on the source so a multi-purpose source still
@@ -306,6 +314,17 @@ async function runSourceFetch(
           enqueuedCount: buildResult.enqueuedCount,
           skipped: buildResult.skippedReasons,
         });
+        await recordChainStage({
+          event: "chain.source_fetch_to_build",
+          jobQueueId: job.id,
+          sourceDocumentId: document.id,
+          sourceUrl,
+          metadata: {
+            enqueuedCount: buildResult.enqueuedCount,
+            enqueuedTypes: buildResult.enqueuedTypes,
+            skippedReasons: buildResult.skippedReasons,
+          },
+        }).catch(() => undefined);
       } catch (e) {
         logger.warn("worker.source_fetch_to_build_failed", {
           jobQueueId: job.id,
@@ -357,6 +376,26 @@ async function runContentFactoryStage(
     workerJobId: job.id,
     triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
   });
+  // Record chain-stage events so the audit log preserves the full
+  // pipeline trace per URL. We branch on the factory decision so the
+  // chain log distinguishes build success, QA rejection, persistence
+  // success, and persistence-skipped.
+  const chainEvent: Parameters<typeof recordChainStage>[0]["event"] =
+    result.decision === "persisted-created" || result.decision === "persisted-updated"
+      ? "chain.persistence_succeeded"
+      : result.decision === "persist-skipped"
+        ? "chain.public_gate_passed"
+        : result.decision === "qa-rejected" || result.decision === "qa-deleted"
+          ? "chain.strict_qa_rejected"
+          : "chain.content_build_completed";
+  await recordChainStage({
+    event: chainEvent,
+    jobQueueId: job.id,
+    sourceDocumentId: document.id,
+    sourceUrl: document.sourceUrl,
+    contentType,
+    metadata: { decision: result.decision },
+  }).catch(() => undefined);
   return {
     ok:
       result.decision === "persisted-created" ||
