@@ -85,9 +85,9 @@ describe("every builder's BuilderOutcome union matches the spec", () => {
   for (const name of SPEC_BUILDER_OBJECTS) {
     it(`${name} returns a documented BuilderOutcome on an unapproved-source fixture`, () => {
       const builder = (factory as unknown as Record<string, unknown>)[name] as {
-        build: (ctx: {
-          document: ReturnType<typeof factory.syntheticSourceDocument>;
-        }) => { outcome: string };
+        build: (ctx: { document: ReturnType<typeof factory.syntheticSourceDocument> }) => {
+          outcome: string;
+        };
         contentType: string;
       };
       const doc = factory.syntheticSourceDocument({
