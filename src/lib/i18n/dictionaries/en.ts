@@ -361,6 +361,7 @@ const admin: Dict = {
   "admin.contentQA.deletedLog": "Deleted invalid content log",
   "admin.email.title": "Email diagnostics",
   "admin.bannedDevices.title": "Banned devices",
+  "admin.productionReadiness.title": "Production readiness",
   "admin.signOut": "Sign out of admin",
   "admin.welcomeLine": "You are signed in as the administrator.",
 };
