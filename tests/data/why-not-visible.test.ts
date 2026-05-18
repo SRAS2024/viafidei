@@ -106,10 +106,7 @@ describe("why-not-visible row shape", () => {
     ]);
     const rows = await listNonPublicRows({ filter: "all", limit: 100 });
     const saint = rows.find((r) => r.slug === "test-saint");
-    expect(saint?.packageValidationErrors).toEqual([
-      "missing biography",
-      "missing feast day",
-    ]);
+    expect(saint?.packageValidationErrors).toEqual(["missing biography", "missing feast day"]);
   });
 
   it("returns an empty list when every row is public (no false rows)", async () => {

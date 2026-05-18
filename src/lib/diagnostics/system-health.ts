@@ -254,9 +254,7 @@ async function sourceDocumentCard(): Promise<HealthCard> {
     });
   }
   const failRate =
-    result.value.totalCount > 0
-      ? 1 - result.value.okCount / result.value.totalCount
-      : 0;
+    result.value.totalCount > 0 ? 1 - result.value.okCount / result.value.totalCount : 0;
   return {
     id: "source_document",
     label: "Source document health",
