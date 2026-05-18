@@ -172,7 +172,7 @@ export function isSacramentKey(key: string): boolean {
   return (SACRAMENT_KEYS as ReadonlyArray<string>).includes(key);
 }
 
-const HISTORY_TYPES = [
+export const HISTORY_TYPES = [
   "Councils",
   "Major Church events",
   "Encyclicals",
