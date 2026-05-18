@@ -36,6 +36,19 @@ export {
   listBuilderRegistry,
   type BuilderRegistryEntry,
 } from "./builder-registry";
+export { routeContentTypes, type RouterDecision, type RouterSignals } from "./content-type-router";
+export {
+  runCanaryBuilds,
+  getCanaryFixtures,
+  type CanaryResult,
+  type CanaryReport,
+  type CanaryFixture,
+} from "./canary-fixtures";
+export {
+  verifyPublicDisplay,
+  verifyPublicDisplayAndRepair,
+  type PublicDisplayVerificationResult,
+} from "./public-display-verifier";
 export {
   BUILDER_REGISTRY,
   getBuilder,
