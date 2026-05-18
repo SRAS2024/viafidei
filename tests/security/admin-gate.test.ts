@@ -138,6 +138,57 @@ describe("gateAdminApiCall — banned devices are blocked", () => {
   });
 });
 
+describe("gateAdminApiCall — sustained unauthenticated admin probes escalate to Suspicious", () => {
+  it("a single unauthorized call does NOT fire any Security event", async () => {
+    requireAdminMock.mockResolvedValue(null);
+    prismaMock.bannedDevice.findUnique.mockResolvedValue(null);
+
+    const { _resetAdminScanCountersForTests } = await import(
+      "@/lib/security/admin-route-scanner"
+    );
+    _resetAdminScanCountersForTests();
+
+    const r = await gateAdminApiCall(
+      buildReq({
+        method: "GET",
+        host: "viafidei.example.com",
+        proto: "https",
+        cookies: { vf_dev_id: "probing-device" },
+      }),
+    );
+    expect(r.ok).toBe(false);
+    expect(reportSecurityBreachMock).not.toHaveBeenCalled();
+  });
+
+  it("more than 5 distinct unauthorized admin paths fire Suspicious Activity (NOT Breach)", async () => {
+    requireAdminMock.mockResolvedValue(null);
+    prismaMock.bannedDevice.findUnique.mockResolvedValue(null);
+
+    const {
+      _resetAdminScanCountersForTests,
+    } = await import("@/lib/security/admin-route-scanner");
+    _resetAdminScanCountersForTests();
+
+    // Spread the calls across 6 distinct paths from the same caller.
+    for (let i = 1; i <= 6; i++) {
+      const req = buildReq({
+        method: "GET",
+        host: "viafidei.example.com",
+        proto: "https",
+        cookies: { vf_dev_id: "probing-device" },
+      });
+      // Override the nextUrl pathname for each call so distinctPaths increments.
+      Object.defineProperty(req, "nextUrl", {
+        value: new URL(`https://viafidei.example.com/api/admin/path-${i}`),
+        writable: false,
+      });
+      await gateAdminApiCall(req);
+    }
+    // Breach must never fire — the gate's 401s are blocked, not active attacks.
+    expect(reportSecurityBreachMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("gateAdminApiCall — admin auth fails last", () => {
   it("a non-admin caller is rejected with 401 (unauthorized)", async () => {
     requireAdminMock.mockResolvedValue(null);
