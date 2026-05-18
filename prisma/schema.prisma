@@ -662,6 +662,13 @@ model IngestionSource {
   canIngestLiturgy         Boolean        @default(false)
   canIngestHistory         Boolean        @default(false)
   canProvideScriptureText  Boolean        @default(false)
+  /// Optional sitemap / feed URL that drives factory-native source
+  /// discovery. When set, the worker's source_discovery handler
+  /// walks this feed, records each URL as a DiscoveredSourceItem,
+  /// and enqueues a source_fetch job per URL — bypassing the
+  /// legacy adapter-side discovery entirely. When null, the
+  /// dispatch falls back to the legacy adapter's bespoke discovery.
+  discoveryFeedUrl         String?
   notes                    String?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt

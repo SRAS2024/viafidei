@@ -266,6 +266,29 @@ async function runSourceJob(
     ? await prisma.ingestionSource.findUnique({ where: { id: job.sourceId } })
     : null;
   const sourceHost = source?.host ?? job.jobName;
+
+  // Factory-native discovery path. When the source has a
+  // discoveryFeedUrl set and this is a source_discovery job, we walk
+  // the feed and enqueue source_fetch jobs — bypassing the legacy
+  // adapter entirely. The result feeds the same factory pipeline
+  // (source_fetch → content_build → content_validate →
+  // content_persist) every other source-fetched URL flows through.
+  if (kind === "source_discovery" && source?.discoveryFeedUrl && job.sourceId) {
+    const { runFactoryNativeDiscovery } = await import("./factory-native-discovery");
+    const result = await runFactoryNativeDiscovery({
+      sourceId: job.sourceId,
+      sourceHost,
+      discoveryFeedUrl: source.discoveryFeedUrl,
+      workerJobId: job.id,
+    });
+    return {
+      ok: result.ok,
+      errorMessage:
+        result.errorMessage ??
+        `factory-native discovery: feedUrlCount=${result.feedUrlCount} enqueued=${result.enqueuedCount}`,
+      contentSeen: result.enqueuedCount,
+    };
+  }
   try {
     const summary = await runAdapter(adapter, job.jobId, sourceHost, {
       triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",

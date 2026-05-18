@@ -87,10 +87,7 @@ describe("old ingestion paths are gone", () => {
   });
 
   it("the planner enqueues source_discovery (not source_ingest) in constant mode", () => {
-    const src = readFileSync(
-      join(SRC_DIR, "lib", "ingestion", "queue", "planner.ts"),
-      "utf8",
-    );
+    const src = readFileSync(join(SRC_DIR, "lib", "ingestion", "queue", "planner.ts"), "utf8");
     // The planner must contain a literal "source_discovery" enqueue.
     expect(src).toMatch(/jobKind\s*:\s*[^,]*["']source_discovery["']/);
     // It must NOT enqueue source_ingest.
@@ -103,9 +100,7 @@ describe("old ingestion paths are gone", () => {
     for (const path of adminFiles) {
       const src = readFileSync(path, "utf8");
       if (/jobKind\s*:\s*["']source_ingest["']/.test(src)) {
-        throw new Error(
-          `${path.replace(process.cwd(), "")} still enqueues source_ingest`,
-        );
+        throw new Error(`${path.replace(process.cwd(), "")} still enqueues source_ingest`);
       }
     }
   });
@@ -113,10 +108,7 @@ describe("old ingestion paths are gone", () => {
 
 describe("no automatic process saves failed content as review", () => {
   it("the runner's status routing does NOT default REJECTED items to REVIEW", () => {
-    const runner = readFileSync(
-      join(SRC_DIR, "lib", "ingestion", "runner.ts"),
-      "utf8",
-    );
+    const runner = readFileSync(join(SRC_DIR, "lib", "ingestion", "runner.ts"), "utf8");
     // The spec: "Do not allow any automatic process to save failed
     // content as review." The new factory deletes failed builds; the
     // runner must not insert REVIEW rows automatically.
@@ -141,9 +133,7 @@ describe("no automatic process saves failed content as review", () => {
       if (/status\s*:\s*["']REVIEW["']/.test(line)) {
         // Found a REVIEW write — check the surrounding 10 lines for
         // "manual" / "admin" / "reviewer" justification.
-        const window = lines
-          .slice(Math.max(0, i - 10), Math.min(lines.length, i + 5))
-          .join(" ");
+        const window = lines.slice(Math.max(0, i - 10), Math.min(lines.length, i + 5)).join(" ");
         const isManual =
           /manual\b|adminReview|reviewer|moveToReview|approveContent|requestRevision/.test(window);
         if (!isManual) {
@@ -158,10 +148,7 @@ describe("no automatic process saves failed content as review", () => {
 
 describe("cleanup deletes invalid content (does not hide it)", () => {
   it("strict cleanup logs to RejectedContentLog and hard-deletes", () => {
-    const cleanup = readFileSync(
-      join(SRC_DIR, "lib", "content-qa", "cleanup.ts"),
-      "utf8",
-    );
+    const cleanup = readFileSync(join(SRC_DIR, "lib", "content-qa", "cleanup.ts"), "utf8");
     expect(cleanup).toMatch(/RejectedContentLog|rejectedContentLog/);
     // Must reference a deletion operation, not "hide" or "soft-archive".
     expect(cleanup).toMatch(/delete|deleteMany/);
