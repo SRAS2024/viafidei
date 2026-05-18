@@ -520,9 +520,20 @@ export async function sendCriticalFailureAlert(params: {
 export async function sendSecurityBreachAlert(params: {
   kind: string;
   summary: string;
+  /** Spec-required severity label. Defaults to "Error" if omitted. */
+  severity?: string;
   ipAddress?: string;
   userAgent?: string;
   route?: string;
+  /** HMAC fingerprint of the originating device credential. */
+  deviceCredentialId?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  /** The action the attacker attempted ("admin_password_brute_force", ...). */
+  attemptedAction?: string;
+  /** Automatic remediation already taken ("session revoked", "device banned", ...). */
+  automaticActionTaken?: string;
   /**
    * Optional URL the admin can click to ban the originating device.
    * Only present when the caller has a device-credential fingerprint
@@ -540,24 +551,34 @@ export async function sendSecurityBreachAlert(params: {
     },
   ];
   const contextRows: Array<{ key: string; value: string }> = [];
-  if (params.route) contextRows.push({ key: "Route", value: params.route });
+  contextRows.push({ key: "Event type", value: params.kind });
+  contextRows.push({ key: "Severity", value: params.severity ?? "Error" });
+  contextRows.push({ key: "Time", value: new Date().toISOString() });
+  if (params.route) contextRows.push({ key: "Target route", value: params.route });
   if (params.ipAddress) contextRows.push({ key: "IP address", value: params.ipAddress });
+  if (params.deviceCredentialId)
+    contextRows.push({ key: "Device credential", value: params.deviceCredentialId });
   if (params.userAgent) contextRows.push({ key: "User-Agent", value: params.userAgent });
+  if (params.city) contextRows.push({ key: "City", value: params.city });
+  if (params.region) contextRows.push({ key: "Region", value: params.region });
+  if (params.country) contextRows.push({ key: "Country", value: params.country });
+  if (params.attemptedAction)
+    contextRows.push({ key: "Action attempted", value: params.attemptedAction });
+  if (params.automaticActionTaken)
+    contextRows.push({ key: "Automatic action taken", value: params.automaticActionTaken });
   for (const [k, v] of Object.entries(params.detail ?? {})) {
     contextRows.push({ key: k, value: v });
   }
-  if (contextRows.length > 0) {
-    sections.push({
-      title: "Context",
-      table: {
-        columns: [
-          { key: "key", label: "Field" },
-          { key: "value", label: "Value" },
-        ],
-        rows: contextRows,
-      },
-    });
-  }
+  sections.push({
+    title: "Context",
+    table: {
+      columns: [
+        { key: "key", label: "Field" },
+        { key: "value", label: "Value" },
+      ],
+      rows: contextRows,
+    },
+  });
   if (params.banDeviceUrl) {
     sections.push({
       title: "Action",
@@ -607,6 +628,10 @@ export async function sendSuspiciousActivityAlert(params: {
     },
   ];
   const contextRows: Array<{ key: string; value: string }> = [];
+  // Spec-required core fields: every Suspicious Activity email
+  // shows event type + time even when no other context is known.
+  contextRows.push({ key: "Event type", value: params.kind });
+  contextRows.push({ key: "Time", value: new Date().toISOString() });
   if (params.route) contextRows.push({ key: "Route", value: params.route });
   if (params.ipAddress) contextRows.push({ key: "IP address", value: params.ipAddress });
   if (params.deviceCredentialId)
@@ -623,18 +648,16 @@ export async function sendSuspiciousActivityAlert(params: {
   for (const [k, v] of Object.entries(params.detail ?? {})) {
     contextRows.push({ key: k, value: v });
   }
-  if (contextRows.length > 0) {
-    sections.push({
-      title: "Context",
-      table: {
-        columns: [
-          { key: "key", label: "Field" },
-          { key: "value", label: "Value" },
-        ],
-        rows: contextRows,
-      },
-    });
-  }
+  sections.push({
+    title: "Context",
+    table: {
+      columns: [
+        { key: "key", label: "Field" },
+        { key: "value", label: "Value" },
+      ],
+      rows: contextRows,
+    },
+  });
   if (params.recommendedAction) {
     sections.push({
       title: "Recommended automatic action",

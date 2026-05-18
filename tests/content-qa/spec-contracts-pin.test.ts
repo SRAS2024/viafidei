@@ -11,7 +11,11 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { SACRAMENT_KEYS, SACRAMENT_LABELS, SACRAMENT_GROUP_BY_KEY } from "@/lib/content-qa/sacrament-normalize";
+import {
+  SACRAMENT_KEYS,
+  SACRAMENT_LABELS,
+  SACRAMENT_GROUP_BY_KEY,
+} from "@/lib/content-qa/sacrament-normalize";
 import { VALID_HISTORY_TYPES } from "@/lib/content-qa/contracts/history";
 
 const SPEC_SACRAMENT_KEYS = [

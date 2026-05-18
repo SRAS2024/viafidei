@@ -143,9 +143,7 @@ describe("gateAdminApiCall — sustained unauthenticated admin probes escalate t
     requireAdminMock.mockResolvedValue(null);
     prismaMock.bannedDevice.findUnique.mockResolvedValue(null);
 
-    const { _resetAdminScanCountersForTests } = await import(
-      "@/lib/security/admin-route-scanner"
-    );
+    const { _resetAdminScanCountersForTests } = await import("@/lib/security/admin-route-scanner");
     _resetAdminScanCountersForTests();
 
     const r = await gateAdminApiCall(
@@ -164,9 +162,7 @@ describe("gateAdminApiCall — sustained unauthenticated admin probes escalate t
     requireAdminMock.mockResolvedValue(null);
     prismaMock.bannedDevice.findUnique.mockResolvedValue(null);
 
-    const {
-      _resetAdminScanCountersForTests,
-    } = await import("@/lib/security/admin-route-scanner");
+    const { _resetAdminScanCountersForTests } = await import("@/lib/security/admin-route-scanner");
     _resetAdminScanCountersForTests();
 
     // Spread the calls across 6 distinct paths from the same caller.
