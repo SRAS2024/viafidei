@@ -669,6 +669,28 @@ model IngestionSource {
   /// legacy adapter-side discovery entirely. When null, the
   /// dispatch falls back to the legacy adapter's bespoke discovery.
   discoveryFeedUrl         String?
+  /// Typed discovery method the worker uses to choose HOW to
+  /// discover URLs. Valid values: "sitemap", "rss", "fixed_url_list",
+  /// "official_api", "factory_handler", "not_configured". Nullable
+  /// until the startup setup task backfills it from
+  /// discoveryFeedUrl.
+  discoveryMethod          String?
+  /// One-line configuration status for the admin source
+  /// configuration card. e.g. "factory_native", "not_configured",
+  /// "paused", "exhausted".
+  configurationStatus      String?
+  /// Free-text reason when the source is not configured for the
+  /// factory pipeline. Surfaced on the admin source card.
+  configurationStatusReason String?
+  /// Per-source override for the fetch limit per discovery run.
+  /// Null = use the global config default.
+  fetchLimitPerRun         Int?
+  /// Per-source override for the content-build limit per fetch.
+  /// Null = no per-source cap.
+  buildLimitPerRun         Int?
+  /// Per-source daily cap on enqueued source_fetch jobs.
+  /// Null = no daily cap.
+  dailyCap                 Int?
   notes                    String?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt

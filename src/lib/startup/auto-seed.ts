@@ -3,6 +3,7 @@ import { prisma } from "../db/client";
 import { checkRequiredTables } from "../db/tables";
 import { logger } from "../observability/logger";
 import { ensureAccountEmailTables } from "./ensure-email-tables";
+import { runFactorySourceSetup } from "./factory-source-setup";
 import { promoteIngestedOrphans } from "./promote-ingested";
 import { scanQueueForRemovedJobKinds } from "./removed-job-kinds-check";
 import { seedAllContent } from "./seeder";
@@ -316,6 +317,18 @@ export async function runStartupTasks(): Promise<void> {
     await scanQueueForRemovedJobKinds();
   } catch (e) {
     logger.warn("startup removed-job-kinds scan failed", { error: e });
+  }
+
+  // Backfill the typed discovery method + configuration status on
+  // every existing IngestionSource so the admin source card and the
+  // dispatcher have a consistent factory-native label.
+  try {
+    const report = await runFactorySourceSetup();
+    if (report.marked_factory_native + report.marked_not_configured > 0) {
+      logger.info("startup factory-source-setup applied", { report });
+    }
+  } catch (e) {
+    logger.warn("startup factory-source-setup failed", { error: e });
   }
 
   scheduleIngestion();
