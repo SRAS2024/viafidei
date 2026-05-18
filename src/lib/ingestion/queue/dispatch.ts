@@ -305,6 +305,17 @@ async function runSourceFetch(
           source: source ? toBuildEligibility(source) : null,
           requestedContentType: (payload.contentType as ContentTypeKey | undefined) ?? null,
           triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
+          // Router signals: title + headings + metadata from the
+          // freshly recorded SourceDocument so the content type
+          // router can drop any content type that hit a hard-
+          // negative signal (livestream / event / bulletin /
+          // schedule). The router never overrides the source
+          // purpose gate — it only narrows the allowed set.
+          routerSignals: {
+            title: document.sourceTitle ?? null,
+            headings: document.headings ?? null,
+            metadata: document.metadata ?? null,
+          },
         });
         enqueuedBuilds = buildResult.enqueuedCount;
         logger.info("worker.source_fetch_to_build", {

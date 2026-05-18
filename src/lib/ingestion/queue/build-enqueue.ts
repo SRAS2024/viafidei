@@ -73,6 +73,18 @@ export type EnqueueBuildsInput = {
    */
   requestedContentType: ContentTypeKey | null;
   triggeredBy: "automatic" | "manual";
+  /**
+   * Optional router signals (page title, headings, metadata) used to
+   * filter out content types with hard-negative signals — livestream
+   * / event / bulletin / schedule pages, etc. When omitted the
+   * helper enqueues every source-purpose-allowed type (the legacy
+   * behaviour).
+   */
+  routerSignals?: {
+    title?: string | null;
+    headings?: ReadonlyArray<{ level: number; text: string }> | null;
+    metadata?: Record<string, string | undefined> | null;
+  } | null;
 };
 
 export type EnqueueBuildsResult = {
@@ -209,11 +221,55 @@ export async function enqueueContentBuildsForSourceDocument(
     enqueuedTypes: [],
     skippedReasons: {},
   };
-  const allowed = allowedContentTypes(input.source, input.requestedContentType);
+  let allowed = allowedContentTypes(input.source, input.requestedContentType);
   if (allowed.length === 0) {
     result.skippedReasons.no_eligible_types =
       "source has no canIngest* purposes set and no explicit contentType requested";
     return result;
+  }
+  // Apply the content type router when signals are present. The
+  // router rejects content types with hard-negative signals (the
+  // page title looks like a livestream / event / bulletin /
+  // schedule) so no builder runs on a page that cannot possibly
+  // produce a valid Catholic content package.
+  if (input.routerSignals && input.source) {
+    const { routeContentTypes } = await import("../../content-factory/content-type-router");
+    const purposes: Record<string, boolean> = {
+      canIngestPrayers: input.source.canIngestPrayers,
+      canIngestSaints: input.source.canIngestSaints,
+      canIngestApparitions: input.source.canIngestApparitions,
+      canIngestParishes: input.source.canIngestParishes,
+      canIngestDevotions: input.source.canIngestDevotions,
+      canIngestNovenas: input.source.canIngestNovenas,
+      canIngestSacraments: input.source.canIngestSacraments,
+      canIngestRosaryGuides: input.source.canIngestRosaryGuides,
+      canIngestConsecrations: input.source.canIngestConsecrations,
+      canIngestSpiritualGuides: input.source.canIngestSpiritualGuides,
+      canIngestLiturgy: input.source.canIngestLiturgy,
+      canIngestHistory: input.source.canIngestHistory,
+      canProvideScriptureText: input.source.canProvideScriptureText,
+    };
+    const decision = routeContentTypes({
+      sourceUrl: input.sourceUrl,
+      sourceHost: input.sourceHost,
+      title: input.routerSignals.title ?? null,
+      headings: input.routerSignals.headings ?? null,
+      metadata: input.routerSignals.metadata ?? null,
+      sourcePurposes: purposes,
+    });
+    // Drop any content type the router rejected outright (negative
+    // signal). Keep the order so deterministic per-tick behaviour
+    // is preserved.
+    const rejectedTypes = new Set(decision.rejected.map((r) => r.contentType));
+    for (const r of decision.rejected) {
+      result.skippedReasons[r.contentType] = `router_rejected: ${r.reason}`;
+    }
+    allowed = allowed.filter((t) => !rejectedTypes.has(t));
+    if (allowed.length === 0) {
+      result.skippedReasons.no_eligible_types =
+        "router rejected every allowed content type for this source document";
+      return result;
+    }
   }
   const enqueued: ContentTypeKey[] = [];
   const packageContractVersion = appConfig.contentQA.packageContractVersion;
