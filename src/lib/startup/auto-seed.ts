@@ -4,6 +4,7 @@ import { checkRequiredTables } from "../db/tables";
 import { logger } from "../observability/logger";
 import { ensureAccountEmailTables } from "./ensure-email-tables";
 import { promoteIngestedOrphans } from "./promote-ingested";
+import { scanQueueForRemovedJobKinds } from "./removed-job-kinds-check";
 import { seedAllContent } from "./seeder";
 
 let scheduled = false;
@@ -304,6 +305,17 @@ export async function runStartupTasks(): Promise<void> {
     }
   } catch (e) {
     logger.error("startup failed to promote ingestion orphans", { error: e });
+  }
+
+  // Safety check: scan the queue for removed job kinds (e.g. legacy
+  // source_ingest). The worker translates these as a one-time migration
+  // aid; if they persist past the migration window, the operator must
+  // run the queue migration job to drain or delete them. The check is
+  // fire-and-forget — startup must not block on a queue scan.
+  try {
+    await scanQueueForRemovedJobKinds();
+  } catch (e) {
+    logger.warn("startup removed-job-kinds scan failed", { error: e });
   }
 
   scheduleIngestion();

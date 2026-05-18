@@ -22,9 +22,14 @@ import {
   SACRAMENT_SLUG_PREFIXES,
 } from "../ingestion/backlog-prefixes";
 import { countQueueByStatus, type QueueStatus } from "../ingestion/queue/queue";
+import { STRICT_PUBLIC_WHERE_CLAUSE } from "../content-qa/thresholds";
 
 function buildPrefixWhere(prefixes: readonly string[]) {
   return { OR: prefixes.map((p) => ({ slug: { startsWith: p } })) };
+}
+
+function withStrictPublicGate<T extends Record<string, unknown>>(extra?: T) {
+  return { ...STRICT_PUBLIC_WHERE_CLAUSE, ...(extra ?? {}) };
 }
 
 export type ContentProgressRow = {
@@ -41,13 +46,22 @@ export type ContentProgressRow = {
 
 export async function getContentProgressDashboard(): Promise<ContentProgressRow[]> {
   const targets = appConfig.ingestion.targets;
+  // Threshold counters MUST filter by the strict public gate so a row
+  // that exists in REVIEW / DRAFT / ARCHIVED does not register as
+  // catalog progress. Raw row counts are not official progress.
   const [prayers, saints, parishes, churchDocs, sacraments, consecrations] = await Promise.all([
-    prisma.prayer.count(),
-    prisma.saint.count(),
-    prisma.parish.count(),
-    prisma.liturgyEntry.count({ where: buildPrefixWhere(CHURCH_DOCUMENT_SLUG_PREFIXES) }),
-    prisma.spiritualLifeGuide.count({ where: buildPrefixWhere(SACRAMENT_SLUG_PREFIXES) }),
-    prisma.spiritualLifeGuide.count({ where: buildPrefixWhere(CONSECRATION_SLUG_PREFIXES) }),
+    prisma.prayer.count({ where: withStrictPublicGate() }),
+    prisma.saint.count({ where: withStrictPublicGate() }),
+    prisma.parish.count({ where: withStrictPublicGate() }),
+    prisma.liturgyEntry.count({
+      where: withStrictPublicGate(buildPrefixWhere(CHURCH_DOCUMENT_SLUG_PREFIXES)),
+    }),
+    prisma.spiritualLifeGuide.count({
+      where: withStrictPublicGate(buildPrefixWhere(SACRAMENT_SLUG_PREFIXES)),
+    }),
+    prisma.spiritualLifeGuide.count({
+      where: withStrictPublicGate(buildPrefixWhere(CONSECRATION_SLUG_PREFIXES)),
+    }),
   ]);
 
   // For each content type, find the most recent successful ingestion run
