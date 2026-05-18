@@ -165,49 +165,22 @@ would call attention to:
 
 - **Ingestion as a first-class subsystem.** A curated allowlist of Vatican,
   USCCB, and dicastery hosts gates every fetch (`gateUrl` /
-  `isApprovedUrl`). Adapters write through a single persistence layer that
-  enforces content-hash dedupe, source attribution, and per-run summary
-  logs (created / updated / skipped / failed / review-required). Every
-  ingested item flows through a five-stage **intelligent packager**:
-  - **format** (`src/lib/ingestion/format.ts`) — decode HTML entities,
-    fold smart quotes to ASCII, normalise whitespace.
-  - **clean** (`src/lib/ingestion/clean.ts`) — strip cookie / subscribe /
-    share-this / newsletter / donation / footer boilerplate per field
-    so the real content survives.
-  - **classify** (`src/lib/ingestion/classify.ts`) — re-route the item's
-    `kind` when the body reads more like another type (a "prayer" page
-    whose body is actually a saint biography is sent to the Saint
-    bucket, not bounced).
-  - **enrich** (`src/lib/ingestion/enrich.ts`) — fill missing
-    required + helpful fields from the text: prayer category, saint
-    patronages + feast day, apparition location + country + status,
-    parish diocese + city + region + country, devotion duration +
-    tags, liturgy kind, guide kind.
-  - **sanitize** (`src/lib/ingestion/validate.ts`) — final per-kind
-    quality / correctness / category / shape check with three
-    outcomes:
-    - **valid → PUBLISHED**
-    - **soft fail → REVIEW** (real content, slightly off shape)
-    - **noise → HARD-DELETED** (landing pages like
-      `"Catholic Prayers - Prayer to Jesus, Marian, & More | EWTN"`,
-      navigation cruft like `"Skip to main content…"`, meta-
-      descriptions like `"Devotions are manifestations of…"`).
-      These never had any place in the catalog. No archive, no
-      review — they're discarded.
-
-  A **catalog janitor** (`src/lib/data/catalog-janitor.ts`) runs on
-  every cron tick (regardless of the auto-cleanup toggle), walks
-  every PUBLISHED row, re-runs the format → clean → validate
-  pipeline against it, and:
-  - **repackages** rows whose stored text differs from the cleaned
-    version (e.g. strips a stale `" | EWTN"` brand suffix from an
-    old prayer title);
-  - **hard-deletes** rows now classified as noise;
-  - **diverts** rows that fail softly to REVIEW.
+  `isApprovedUrl`). All inbound content runs through the Content Factory
+  pipeline above — there is no legacy direct-adapter execution path.
+  `source_ingest` has been removed from the active job-kind set; the
+  worker dispatches the 12 active kinds (`source_discovery`,
+  `source_fetch`, `source_freshness`, `content_build`, `content_validate`,
+  `content_persist`, `content_revalidate`, `strict_cleanup`,
+  `dedupe_cleanup`, `archive_cleanup`, `sitemap_refresh`,
+  `report_generate`). Every queue job has a typed zod payload, a stable
+  `dedupeKey`, and writes lifecycle logs; the worker emits heartbeat
+  rows and the cron route recovers stale leases.
 
   The in-process scheduler runs in burst mode while the catalog is
   below target and drops to a maintenance interval afterward — no
-  external cron service required.
+  external cron service required. The cron route only **plans** work
+  and enqueues jobs; the worker is the **only** system that executes
+  them.
 
 - **Operational admin email.** A single dispatcher
   (`src/lib/data/admin-notifications.ts`) is invoked on every cron tick
@@ -640,17 +613,85 @@ isolation guards — see [TESTING.md](TESTING.md). The short version:
 
 ## Security
 
-- `src/middleware.ts` ensures every request has an `x-request-id`, sets a
+The security model has three layers: request hardening, classification
+
+- alerting, and persistent device bans.
+
+### Request hardening
+
+- `src/middleware.ts` ensures every request has an `x-request-id`, sets
   Content-Security-Policy and the usual hardening headers
   (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: strict-origin-when-cross-origin`,
-  `Permissions-Policy`, and HSTS in production).
+  `Permissions-Policy`, and HSTS in production). It also issues a
+  server-side **device-credential cookie** (`vf_dev_id`, HttpOnly,
+  SameSite=Lax, ≥32 chars of opaque random) on every fresh visitor so
+  the ban link has a stable target. Only the HMAC fingerprint of this
+  value is ever stored server-side.
 - `next.config.js` re-asserts security headers at the framework level and
   disables `x-powered-by`.
 - `/api/cron/ingest` requires a constant-time match against the per-deployment
-  cron token derived from `SESSION_SECRET` (HMAC-SHA-256 with a domain-separation
-  tag), supplied via `Authorization: Bearer <token>` or `X-Cron-Secret`.
+  cron token derived from `SESSION_SECRET` (HMAC-SHA-256 with a
+  domain-separation tag), supplied via `Authorization: Bearer <token>` or
+  `X-Cron-Secret`. The cron route only plans + enqueues — it never
+  executes adapters.
+- Every admin mutation route is gated by `gateAdminApiCall()` which
+  bundles CSRF (same-origin Origin / Referer check), banned-device
+  block, admin auth, and the **payload scanner** (`src/lib/security/
+payload-scanner.ts`) — the scanner flags script injection,
+  `javascript:` URLs, inline event handlers, SQL-injection chains,
+  shell redirects, AND any attempt to set the public-gate fields
+  (`publicRenderReady`, `isThresholdEligible`, `packageValidationStatus`,
+  `contentPackageVersion`, `lastPackageValidatedAt`) from outside the
+  factory.
 - Admin actions write to `AdminAuditLog` (`src/lib/audit`).
+- Password rule, enforced server-side via `passwordSchema` and
+  client-side via `checkPasswordStrength()`: **at least 12 characters
+  with one uppercase letter, one lowercase letter, one number, and
+  one special character.** The register / reset-password forms render
+  the spec-mandated red text on validation failure and block submit
+  until the password passes.
+
+### Suspicious Activity vs Security Breach
+
+`src/lib/security/security-events.ts` splits inbound events into two
+classifications with independent dedup keyspaces:
+
+- **Suspicious Activity** — warning signs. Triggered by `>3` consecutive
+  admin password failures (by account + IP + device), sustained
+  developer-tool probing (`>3` client tamper events in a 10-minute
+  window), admin route-scan bursts (`>5` distinct protected paths in
+  60s from one device), and similar low-confidence signals.
+- **Security Breach** — active or attempted attack. Triggered by
+  payload-scanner hits (script / SQL / shell / factory-gate-bypass),
+  brute-force escalation (`>20` user / `>15` admin failures),
+  unauthorized admin mutations, CSP violations, DOM / state / storage
+  tamper, and unauthorized calls to internal ingestion routes.
+
+Both classifications dedup at the `(kind, IP, route)` level within a
+short window so a misbehaving client cannot flood the mailbox.
+Suspicious does NOT include a ban link; Breach does (when a device
+credential is available).
+
+### SecurityEvent + BannedDevice + signed ban link
+
+- `SecurityEvent` persists every classification with the spec's full
+  field set: `eventType`, `severity`, `classification`, `ipAddressHash`,
+  `deviceCredentialHash`, `userAgent`, `city`, `region`, `country`,
+  `targetRoute`, `httpMethod`, `attemptedAction`, `accountId`,
+  `adminAccount`, `requestId`, `createdAt`, `automaticActionTaken`,
+  `emailSent`, `banTokenIssued`.
+- The Breach email contains an HMAC-signed ban link
+  (`/api/security/ban-device/[token]`) carrying the security-event ID,
+  device-credential hash, and a 24-hour expiration. Clicking the link
+  creates a `BannedDevice` row, revokes every active session for that
+  device, and shows a confirmation page. The link is single-use.
+- `BannedDevice` rows are queried on every request via middleware-time
+  banned-device middleware. There is **no admin UI to unban** — bans
+  are permanent by design.
+- A read-only `/admin/banned-devices` page surfaces every ban with
+  the originating security-event link, city / region / country,
+  user-agent summary, and first/last-seen timestamps.
 
 ---
 
@@ -658,8 +699,9 @@ isolation guards — see [TESTING.md](TESTING.md). The short version:
 
 The Prisma schema (`prisma/schema.prisma`) defines, among others:
 
-- **Identity**: `User`, `Session`, `Profile`, `PasswordResetToken`,
-  `EmailVerificationToken`.
+- **Identity**: `User`, `Session` (carries `deviceCredentialHash` so the
+  ban link can revoke every session for the offending device),
+  `Profile`, `PasswordResetToken`, `EmailVerificationToken`.
 - **User content**: `JournalEntry` (with an optional `goalId` so entries
   can be attached to a goal and preserved as part of that goal's
   spiritual history), `Goal` (with a `journalEntries` back-relation
@@ -674,26 +716,57 @@ The Prisma schema (`prisma/schema.prisma`) defines, among others:
   without leaving.
 - **Catalog**: `Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,
   `LiturgyEntry`, `SpiritualLifeGuide`, `DailyLiturgy`, each with a
-  `*Translation` sibling where applicable.
+  `*Translation` sibling where applicable. Every catalog model declares
+  the public-gate flags (`publicRenderReady`, `isThresholdEligible`,
+  `packageValidationStatus`) with `@default(false)` and indexes on the
+  first two — only `persistBuiltPackage()` flips them to true.
 - **Saved items**: `UserSavedPrayer`, `UserSavedSaint`, `UserSavedApparition`,
   `UserSavedParish`, `UserSavedDevotion`.
 - **Curation**: `ContentReview`, `Tag`, `EntityTag`, `Category`,
   `MediaAsset`, `EntityMediaLink`.
 - **Pages / settings**: `HomePage`, `HomePageBlock`, `SiteSetting`.
+- **Content factory**: `SourceDocument` (every fetched page; carries raw
+  - cleaned body, headings, paragraphs, lists, tables, links, metadata,
+    source tier, source-purpose permissions, fetch status, HTTP status,
+    ETag, Last-Modified, content + cleaned checksums, worker job ID,
+    ingestion batch ID), `ContentPackageBuildLog` (one row per build
+    attempt — source URL/host, content type attempted, builder name +
+    version, build status, extracted fields, missing fields, failure
+    reason, candidate slug, worker job ID, ingestion batch ID,
+    timestamp), `SourceQualityScore` (per-source / per-content-type
+    rolling counters — discovered / fetched / build-success /
+    build-failure / QA-pass / QA-fail / deleted / duplicate /
+    wrong-content + valid-package-rate + wrong-content-rate +
+    average-completeness; `autoPaused` flag + `lastFailureReason`).
+- **Security**: `SecurityEvent` (every Suspicious / Breach
+  classification with the spec's 19 fields including
+  `ipAddressHash`, `deviceCredentialHash`, `userAgent`, `city`,
+  `region`, `country`, `targetRoute`, `httpMethod`,
+  `attemptedAction`, `accountId`, `adminAccount`, `requestId`,
+  `automaticActionTaken`, `emailSent`, `banTokenIssued`),
+  `BannedDevice` (permanent ban registry — `deviceCredentialHash`
+  unique, `active` indexed, `securityEventId` link to the originating
+  event, `firstSeenAt` / `lastSeenAt`, `banReason`, `createdBy`).
 - **Ops**: `IngestionSource` (with `isActive`, `reliabilityScore`,
-  `lastSuccessfulSync`, `lastFailedSync`), `IngestionJob`,
-  `IngestionJobRun`, `AdminAuditLog` (per-user admin actions, with
-  indexes on `(actorUserId, createdAt)` and `(action, createdAt)`),
-  `DataManagementLog` (structured record of every automatic /
-  manually-triggered cleanup action — `action` is one of `ADD`,
-  `UPDATE`, `DELETE`, `REJECT`, `CLEANUP`, `DEDUPE`,
+  `lastSuccessfulSync`, `lastFailedSync`, optional
+  `discoveryFeedUrl` for factory-native sitemap-based discovery),
+  `IngestionJob`, `IngestionJobRun`, `IngestionJobQueue` (the durable
+  queue rows that back the worker — typed payload, dedupeKey, lease
+  state, retry with backoff), `WorkerHeartbeat` (per-worker rolling
+  liveness rows; `>90s` stale), `AdminAuditLog` (per-user admin
+  actions, with indexes on `(actorUserId, createdAt)` and
+  `(action, createdAt)`), `DataManagementLog` (structured record of
+  every automatic / manually-triggered cleanup action — `action` is
+  one of `ADD`, `UPDATE`, `DELETE`, `REJECT`, `CLEANUP`, `DEDUPE`,
   `CATEGORY_FIX`, `FAIL`, `PURGE`, with `contentType`, `contentRef`,
-  `reason`, and `triggeredBy`), `ErrorLog` (runtime error capture for
-  the monthly Error Report PDF — `source`, `kind`, `message`, `stack`,
-  `route`, `requestId`, `severity` ∈ `warn` / `error` / `critical`),
-  `AdminNotificationState` (per-flow dedup state for the operational
-  email scheduler — biweekly send timestamps, monthly year-month tags,
-  per-bucket milestone thresholds already emailed), `RateLimitBucket`.
+  `reason`, and `triggeredBy`), `RejectedContentLog` (one row per
+  package the factory refused — kind, reason, source), `ErrorLog`
+  (runtime error capture for the monthly Error Report PDF — `source`,
+  `kind`, `message`, `stack`, `route`, `requestId`, `severity` ∈
+  `warn` / `error` / `critical`), `AdminNotificationState` (per-flow
+  dedup state for the operational email scheduler — biweekly send
+  timestamps, monthly year-month tags, per-bucket milestone
+  thresholds already emailed), `RateLimitBucket`.
 
 Catalog entities all carry a `ContentStatus` (`DRAFT` → `REVIEW` →
 `PUBLISHED` / `ARCHIVED`) plus a `contentChecksum` so the ingestion pipeline
@@ -1766,33 +1839,59 @@ Per-request 4xx responses, ordinary validation errors, and upstream
 adapter 5xx do **not** trigger Critical Failure. Those are routine
 errors and are carried in the monthly Error Report PDF instead.
 
-### Security Breach alerts
+### Suspicious Activity vs Security Breach alerts
 
-Triggered on suspicious activity with a 5-minute per-`(kind, IP,
-route)` server-side dedup so a single misbehaving client cannot flood
-the mailbox. The detectors are:
+Two distinct classifications, each with its own dedup keyspace and
+email template. Both dedup at the `(kind, IP, route)` level within a
+5-minute window so a misbehaving client cannot flood the mailbox.
 
-- **Server-side** — admin login attempts that exceed the
-  `adminLogin` rate-limit policy.
-- **Client-side** —
-  `SecurityTamperDetector` (`src/components/SecurityTamperDetector.tsx`,
-  mounted in the admin layout):
-  - Browser developer tools detected as open
-    (`client_devtools_open`).
-  - Unexpected mutation of the admin chrome
-    (`client_dom_tamper`) — the kind of edit a tampering session
-    would attempt before submitting a forged request.
-  - Content-Security-Policy violations
-    (`client_csp_violation`).
-- **Client → server bridge** — `/api/internal/security-event`
-  validates the client's POST, rate-limits per IP, and calls
-  `reportSecurityEvent()`.
+**Suspicious Activity** (warning signs, no ban link) is triggered by:
 
-`reportSecurityEvent()` writes a row to `ErrorLog` (so it lands in the
-next monthly PDF) and fires a Security Breach email immediately. The
-email subject is exactly `Security Breach` and the body lists the
-event kind, summary, route, IP, user-agent, and any structured detail
-the detector supplied.
+- **Admin password failures** — `>3` consecutive failures from the
+  same account / IP / device. Counter resets on a successful admin
+  login (`src/lib/security/admin-failure-counter.ts`).
+- **User-account brute force** — `>5` failures against the same
+  user account (`src/lib/security/user-failure-counter.ts`); reset
+  on success.
+- **Sustained developer-tool probing** — `>3` client tamper events
+  in a 10-minute window
+  (`src/lib/security/tamper-counter.ts`). A single isolated
+  devtools-open ping is benign and does NOT alert.
+- **Admin route scanning** — `>5` distinct protected admin paths
+  hit from one device in 60s
+  (`src/lib/security/admin-route-scanner.ts`).
+
+**Security Breach** (active attack, includes signed ban link) is
+triggered by:
+
+- **Payload scanner hits** — script injection, `javascript:` URLs,
+  inline event handlers, SQL chains, shell redirects, OR any attempt
+  to set public-gate fields (`publicRenderReady`,
+  `isThresholdEligible`, `packageValidationStatus`, …) from outside
+  the factory (`src/lib/security/payload-scanner.ts`).
+- **Brute-force escalation** — `>20` user / `>15` admin password
+  failures from the same source.
+- **Active client tamper** — DOM tamper
+  (`client_dom_tamper`), state tamper, storage tamper, CSP
+  violation, or unauthorized action.
+- **Unauthorized admin mutation** — any admin route called without
+  a valid session.
+- **Unauthorized internal route call** — public-route attempt to
+  reach `/api/internal/*` or `/api/cron/*` without the required
+  authorization.
+
+Both flows write a `SecurityEvent` row with the full spec field set
+and a one-line `ErrorLog` entry so the alert also lands in the next
+monthly PDF. The Breach email additionally includes an HMAC-signed
+`/api/security/ban-device/[token]` link with a 24-hour TTL; clicking
+it creates a `BannedDevice` row, revokes every session for that
+device, and renders a confirmation page. Suspicious does **not**
+include a ban link.
+
+The client → server bridge `/api/internal/security-event` validates
+the client tamper-detector's POST, rate-limits per IP, and routes
+the event to `reportSuspiciousActivity()` or `reportSecurityBreach()`
+depending on the classification rule above.
 
 ### End-to-end diagnostics
 
@@ -1834,7 +1933,8 @@ API key configured), `email.admin_email` (ADMIN_EMAIL configured),
 - The `/admin` layout sets `robots: { index: false, follow: false }` so no
   admin page (including `/admin/login`) is indexable.
 
-`/admin` shows seventeen sections (`src/app/admin/_dashboard/cards.ts`):
+`/admin` shows the catalog editors, the operational dashboards, and
+the security pages (`src/app/admin/_dashboard/cards.ts`):
 
 1. Homepage mirror editor
 2. Prayers
@@ -1853,11 +1953,31 @@ API key configured), `email.admin_email` (ADMIN_EMAIL configured),
    ingestion now" button, and a "Run data cleanup now" button. Both
    manual buttons share the same advisory lock as the cron job and
    report inline success or failure detail.
-10. Approved sources (allowlist + per-host sync status)
-11. Search index
-12. Media library
-13. Favicon
-14. **Logs** — hub for four sub-views: Account audit (per-user
+10. **Content Factory dashboard** (`/admin/ingestion/factory`) —
+    queue counts (pending / running / retrying / failed), worker
+    heartbeats (active / stale / last heartbeat), pipeline
+    timestamps (last source fetch / last package build / last
+    strict QA pass / last valid package / last invalid row
+    deleted), content progress (raw rows / built / valid / public
+    / build failures / QA failures / threshold-eligible / 24h
+    growth / stall reason), per-source quality scores. Every
+    metric card carries a `dataSource` badge naming the new-system
+    table or service it reads from. Real-zero is distinguished
+    from "query failed → error state" so the dashboard never
+    silently shows a stale zero.
+11. **Why not visible** (`/admin/ingestion/why-not-visible`) — one
+    row per non-public catalog entry showing the last build attempt,
+    last QA reason, missing fields, failed contract, source-purpose
+    flags, and the suggested automatic next action. Filterable by
+    missing source / missing required fields / source not approved
+    / build failed / QA failed / deleted / duplicate / waiting for
+    worker / waiting for cleanup.
+12. Approved sources (allowlist + per-host sync status + optional
+    `discoveryFeedUrl` for factory-native discovery)
+13. Search index
+14. Media library
+15. Favicon
+16. **Logs** — hub for four sub-views: Account audit (per-user
     actions); Admin actions (homepage edits, content edits, settings,
     diagnostics, data-management toggles); Data Management (every
     addition, update, dedupe-skip, rejection, archive, dedupe, and
@@ -1866,20 +1986,24 @@ API key configured), `email.admin_email` (ADMIN_EMAIL configured),
     Ingestion runs (every IngestionJobRun row: source, job, status,
     per-run counts, duration, error message, filterable by status
     and job name).
-15. User accounts
-16. **Diagnostics** — hub for five sub-views, each backed by an
-    `/api/admin/diagnostics/...` route returning a `DiagnosticSection`
-    with severity / timestamp / requestId / explanation per check:
-    Email (welcome / verify / resend / forgot-password / reset-password
-    flows + self-test), Ingestion & Data Management (live status, last
-    successful and failed runs, 24h counts, per-job error messages,
-    review queue, published-content totals), Sitemap & Link Paths
-    (every static and dynamic route, plus profile and admin paths),
-    Accounts (account tables, saved items, badges, journals, language,
-    today's feast date / timezone, parish location search), Homepage —
-    Today's Feast Day Saints (PUBLISHED total, structured-field
-    coverage, today's match, `/api/saints/today` round-trip).
-17. Publish list (REVIEW queue)
+17. User accounts
+18. **Diagnostics** — hub for the operational dashboards, each backed
+    by an `/api/admin/diagnostics/...` route returning a
+    `DiagnosticSection` with severity / timestamp / requestId /
+    explanation per check. The **System Health** dashboard
+    (`/admin/diagnostics/system-health`) renders 14 cards covering
+    Queue / Worker / Source discovery / Source fetch / Source
+    document / Content factory / Builder / Strict QA / Persistence /
+    Cleanup / Growth / Security / Admin email / Database health.
+    Every card exposes `lastUpdatedAt`, a `dataSource` badge, and an
+    explicit error state when its underlying query throws — no false
+    zero.
+19. **Banned devices** (`/admin/banned-devices`) — read-only ban
+    registry surfacing device-credential ID, ban reason, first /
+    last seen, city / region / country, user-agent summary, and the
+    `SecurityEvent` link that created the ban. There is no admin UI
+    to unban — bans are permanent by design.
+20. Publish list (REVIEW queue)
 
 Content review actions go through `POST /api/admin/content/review` with
 `{ entityType, entityId, action, notes }` where `action` is
