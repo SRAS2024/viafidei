@@ -119,15 +119,18 @@ export default async function FactoryDashboard() {
 
       <h3 className="mt-8 font-display text-lg">Content progress</h3>
       <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <MetricCard label="Raw source rows" value={data.progress.rawRows} />
+        <MetricCard label="Raw rows" value={data.progress.rawRows} />
+        <MetricCard label="Source documents" value={data.progress.sourceDocuments} />
+        <MetricCard label="Build attempts" value={data.progress.buildAttempts} />
         <MetricCard label="Built packages" value={data.progress.builtPackages} />
-        <MetricCard label="Valid packages" value={data.progress.validPackages} />
+        <MetricCard label="Build failures" value={data.progress.buildFailures} />
+        <MetricCard label="QA passes" value={data.progress.qaPasses} />
+        <MetricCard label="QA failures" value={data.progress.qaFailures} />
+        <MetricCard label="Persisted packages" value={data.progress.validPackages} />
         <MetricCard label="Public packages" value={data.progress.publicPackages} />
         <MetricCard label="Deleted invalid rows" value={data.progress.deletedInvalidRows} />
-        <MetricCard label="Build failures" value={data.progress.buildFailures} />
-        <MetricCard label="QA failures" value={data.progress.qaFailures} />
         <MetricCard label="Threshold eligible" value={data.progress.thresholdEligible} />
-        <MetricCard label="Growth last 24h" value={data.progress.growthRateLast24h} />
+        <MetricCard label="Growth (24h)" value={data.progress.growthRateLast24h} />
       </div>
 
       <h3 className="mt-8 font-display text-lg">Source quality</h3>
