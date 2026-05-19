@@ -74,12 +74,29 @@ const TITLE_HINTS: Partial<Record<ContentTypeKey, RegExp>> = {
   History: /\b(council|encyclical|catechism|canon\s+law|schism|papal)\b/i,
 };
 
-const NEGATIVE_HINTS: Array<RegExp> = [
-  /\blivestream\b/i,
-  /\b(?:online\s+)?event\b/i,
-  /\bbulletin\b/i,
-  /\bnews\s*article\b/i,
-  /\bschedule\b/i,
+/**
+ * Hard negative signals from spec #4: the router rejects a candidate
+ * content type outright when any of these match the URL or title.
+ * Livestream / event / bulletin / staff / donation / school / Mass
+ * schedule / news / press / podcast / unrelated blog content can
+ * never become valid Catholic content packages.
+ */
+const NEGATIVE_HINTS: ReadonlyArray<{ pattern: RegExp; label: string }> = [
+  { pattern: /\blivestream\b/i, label: "livestream" },
+  { pattern: /\bwatch\s+live\b/i, label: "watch_live" },
+  { pattern: /\bbulletin\b/i, label: "bulletin" },
+  { pattern: /\bstaff\s+page\b/i, label: "staff_page" },
+  { pattern: /\bour\s+staff\b/i, label: "staff_page" },
+  { pattern: /\bdonate\b|\bdonation\s+page\b|\bgive\s+now\b/i, label: "donation_page" },
+  { pattern: /\bschool\s+page\b|\bcatholic\s+school\b/i, label: "school_page" },
+  { pattern: /\bevent\s+registration\b|\bregister\s+now\b/i, label: "event_registration" },
+  { pattern: /\b(?:online\s+)?event\b/i, label: "event" },
+  { pattern: /\bmass\s+schedule\b|\bmass\s+times\b/i, label: "mass_schedule" },
+  { pattern: /\bschedule\b/i, label: "schedule" },
+  { pattern: /\bnews\s+article\b|\bnews\s+story\b/i, label: "news_article" },
+  { pattern: /\bpress\s+release\b/i, label: "press_release" },
+  { pattern: /\bpodcast\s+episode\b|\bepisode\s+\d+\b/i, label: "podcast_episode" },
+  { pattern: /\bblog\s+post\b/i, label: "unrelated_blog_post" },
 ];
 
 /**
@@ -99,10 +116,16 @@ function scoreContentType(
   const headings = (signals.headings ?? []).map((h) => h.text).join(" ");
 
   // Negative hints are a hard exclusion — livestreams, events,
-  // bulletins, and schedules can never become valid Catholic
-  // content packages even if the URL/title looks promising.
-  if (NEGATIVE_HINTS.some((re) => re.test(title) || re.test(url))) {
-    reasons.push("negative_hint_match");
+  // bulletins, schedules, staff/donation/school pages, press
+  // releases, podcasts, blog posts can never become valid Catholic
+  // content packages even if the URL/title looks promising. We
+  // surface the matched label so router diagnostics can show why a
+  // candidate was rejected.
+  const negHit = NEGATIVE_HINTS.find(
+    ({ pattern }) => pattern.test(title) || pattern.test(url),
+  );
+  if (negHit) {
+    reasons.push(`negative_hint:${negHit.label}`);
     return { score: -1, reasons, rejected: true };
   }
   const urlHint = URL_PATTERN_HINTS[entry.contentType];

@@ -23,7 +23,13 @@ import type { Builder, PackageProvenance } from "../types";
 const BUILDER_NAME = "ParishBuilder";
 const BUILDER_VERSION = "1.0.0";
 
-const BULLETIN_RE = /\b(?:bulletin|weekly\s+update|parish\s+staff|donate\s+now)\b/i;
+/**
+ * Spec #13: reject bulletins, livestreams, staff pages, donation
+ * pages, school pages, and Mass schedule pages — these don't carry
+ * enough parish identity data even if they belong to a parish host.
+ */
+const BULLETIN_RE =
+  /\b(?:bulletin|weekly\s+update|parish\s+staff|donate\s+now|livestream|catholic\s+school|mass\s+(?:schedule|times)|school\s+page)\b/i;
 
 export const ParishBuilder: Builder = {
   contentType: "Parish",

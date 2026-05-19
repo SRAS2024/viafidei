@@ -41,15 +41,27 @@ export type DispatchResult = {
 };
 
 export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
-  // Removed kinds (legacy `source_ingest`) are translated into the
-  // modern factory chain by enqueueing an equivalent `source_discovery`
-  // job and marking the legacy row as completed. This keeps in-flight
-  // rows from a pre-migration deploy from breaking the worker. The
-  // translation is intended to drain the queue once; the startup
-  // safety check raises a loud diagnostic if these rows persist past
-  // the migration window.
+  // Removed kinds (legacy `source_ingest`, `content_validate`,
+  // `content_persist`) are no longer translated at runtime — the
+  // migration window has elapsed and the queue has been drained. Any
+  // remaining row fails permanently with a precise diagnostic so the
+  // operator sees the stale row in the queue migration / startup
+  // safety check and drains or deletes it manually.
   if (isRemovedJobKind(job.jobKind)) {
-    return translateRemovedJobKind(job);
+    logger.error("worker.removed_job_kind_seen", {
+      jobQueueId: job.id,
+      legacyKind: job.jobKind,
+      sourceId: job.sourceId,
+      jobName: job.jobName,
+      message:
+        "Legacy job kind row found after the migration window. " +
+        "The worker no longer translates these rows — drain or delete " +
+        "via the queue migration script.",
+    });
+    return {
+      ok: false,
+      errorMessage: `Removed job kind '${job.jobKind}' — translation shim deleted after queue drain. Run the queue migration script to drain or delete legacy rows.`,
+    };
   }
   // Strict payload validation at execution time. Bad payloads fail
   // the job permanently (not retried) so a malformed row doesn't
@@ -72,11 +84,11 @@ export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
     case "source_fetch":
       return runSourceFetch(job, payload);
     case "content_build":
-    case "content_validate":
-    case "content_persist":
-      return runContentFactoryStage(job, payload, kind);
+      return runContentFactoryStage(job, payload);
     case "content_revalidate":
       return runContentRevalidate(job, payload);
+    case "source_config_repair":
+      return runSourceConfigRepairJob(job, payload);
     case "strict_cleanup":
       return runStrictCleanup(job, payload);
     case "archive_cleanup":
@@ -93,55 +105,6 @@ export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
       return { ok: false, errorMessage: `Unhandled job kind: ${job.jobKind}` };
     }
   }
-}
-
-/**
- * In-flight legacy `source_ingest` rows are translated into the
- * modern `source_discovery` factory entry-point. The legacy row
- * completes successfully so the planner can re-enqueue at the new
- * kind on its next tick. Intended to drain pre-migration rows only —
- * see the startup safety check for the loud diagnostic if these
- * rows still arrive after the migration window.
- */
-async function translateRemovedJobKind(job: QueueJobRow): Promise<DispatchResult> {
-  logger.warn("worker.removed_job_kind_translated", {
-    jobQueueId: job.id,
-    legacyKind: job.jobKind,
-    translatedTo: "source_discovery",
-    sourceId: job.sourceId,
-    jobName: job.jobName,
-  });
-  const { enqueueJob } = await import("./queue");
-  const adapterKey = (job.payload as Record<string, unknown> | null)?.adapterKey ?? job.jobName;
-  try {
-    await enqueueJob({
-      jobName: job.jobName,
-      jobKind: "source_discovery",
-      dedupeKey: `translated:${job.id}`,
-      sourceId: job.sourceId,
-      jobId: job.jobId,
-      contentType: job.contentType,
-      payload: {
-        sourceId: job.sourceId,
-        adapterKey,
-        contentType: job.contentType ?? undefined,
-        mode: "constant" as const,
-      },
-      triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
-      actorUsername: job.actorUsername ?? null,
-    });
-  } catch (e) {
-    return {
-      ok: false,
-      errorMessage: `Could not translate removed job kind '${job.jobKind}': ${
-        e instanceof Error ? e.message : String(e)
-      }`,
-    };
-  }
-  return {
-    ok: true,
-    errorMessage: `Legacy '${job.jobKind}' translated to source_discovery`,
-  };
 }
 
 /**
@@ -257,6 +220,44 @@ async function runSourceFetch(
   } catch {
     return { ok: false, errorMessage: `source_fetch: invalid url ${sourceUrl}` };
   }
+  // Host-level source permission gate (spec #2). A source must be:
+  //   - present in the IngestionSource table (otherwise we have no
+  //     allowed-purpose record for the host)
+  //   - not paused
+  //   - not in configurationStatus="not_configured"
+  //   - same host as the target URL (defense against a hijacked feed
+  //     URL pointing at an unrelated host)
+  // The build-enqueue helper later filters per-content-type using the
+  // same source row's purpose flags.
+  if (job.sourceId) {
+    const sourceRow = await prisma.ingestionSource.findUnique({
+      where: { id: job.sourceId },
+      select: {
+        id: true,
+        host: true,
+        pausedAt: true,
+        configurationStatus: true,
+      },
+    });
+    if (!sourceRow) {
+      return { ok: false, errorMessage: `source_fetch: source ${job.sourceId} not found` };
+    }
+    if (sourceRow.pausedAt) {
+      return { ok: false, errorMessage: `source_fetch: source ${sourceRow.host} is paused` };
+    }
+    if (sourceRow.configurationStatus === "not_configured") {
+      return {
+        ok: false,
+        errorMessage: `source_fetch: source ${sourceRow.host} is not_configured — fix the discovery method first`,
+      };
+    }
+    if (sourceRow.host !== hostname) {
+      return {
+        ok: false,
+        errorMessage: `source_fetch: cross-host URL ${hostname} does not match source ${sourceRow.host}`,
+      };
+    }
+  }
   // Minimal fetcher — the worker is allowed to read the real network in
   // production. In the test environment a fixture-bound mock can shadow
   // this. We use the global `fetch` (Node 20+) directly.
@@ -356,11 +357,18 @@ async function runSourceFetch(
   }
 }
 
+/**
+ * Single combined factory stage. Runs build + normalize + enrich +
+ * strict QA + persist in one worker tick. The old split stages
+ * `content_validate` and `content_persist` were folded into this
+ * stage because they previously called the same `runContentFactory`
+ * entry point.
+ */
 async function runContentFactoryStage(
   job: QueueJobRow,
   payload: Record<string, unknown>,
-  kind: "content_build" | "content_validate" | "content_persist",
 ): Promise<DispatchResult> {
+  const kind = "content_build" as const;
   const sourceDocumentId = payload.sourceDocumentId as string | undefined;
   const sourceUrl = payload.sourceUrl as string | undefined;
   let document = null;
@@ -482,6 +490,30 @@ async function runContentRevalidate(
         `mode=${strict.mode}, ` +
         `packageContract=${strict.packageContractVersion}, ` +
         `logFailures=${strict.totalLogFailures}`,
+    };
+  } catch (e) {
+    return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+async function runSourceConfigRepairJob(
+  job: QueueJobRow,
+  payload: Record<string, unknown>,
+): Promise<DispatchResult> {
+  void job;
+  try {
+    const { runSourceConfigRepair } = await import("./source-config-repair");
+    const sourceId = (payload.sourceId as string | undefined) ?? null;
+    const report = await runSourceConfigRepair({ sourceId });
+    return {
+      ok: report.errors === 0,
+      errorMessage:
+        `source-config-repair inspected=${report.inspected}, ` +
+        `notConfigured=${report.markedNotConfigured}, ` +
+        `factoryNative=${report.markedFactoryNative}, ` +
+        `missingPurpose=${report.missingPurposeFlags.length}, ` +
+        `missingTypes=${report.missingContentTypes.length}, ` +
+        `errors=${report.errors}`,
     };
   } catch (e) {
     return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };

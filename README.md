@@ -9,11 +9,13 @@
 Via Fidei is a Next.js 15 application that pairs a public, reader-facing site
 with an authenticated admin console for curating Catholic content. It supports
 twelve locales, persists data in PostgreSQL via Prisma, and ingests material
-from a curated allowlist of credible Catholic sources through a five-stage
-intelligent packaging pipeline (format → clean → classify → enrich → sanitize)
-that auto-publishes clean records, routes borderline content into a moderation
-queue, hard-deletes landing-page noise outright, and runs a catalog janitor on
-every cron tick to keep existing rows consistent.
+from a curated allowlist of credible Catholic sources through the **Content
+Factory** — a single, strict pipeline (source discovery → source fetch →
+SourceDocument → content-type router → builder → normalize → enrich → strict
+QA → persistBuiltPackage → public-render + search/sitemap verification) that
+either publishes a complete package or records a precise build / QA failure
+with a deletion log. Automatic failures never silently divert to a moderation
+queue; manual review remains available to admins as an explicit human action.
 
 The public site exposes nine tabs — **Home**, **Prayers**, **Sacraments**,
 **Spiritual Life**, **Spiritual Guidance** (the parish finder), **Liturgy**,
@@ -167,14 +169,17 @@ would call attention to:
   USCCB, and dicastery hosts gates every fetch (`gateUrl` /
   `isApprovedUrl`). All inbound content runs through the Content Factory
   pipeline above — there is no legacy direct-adapter execution path.
-  `source_ingest` has been removed from the active job-kind set; the
-  worker dispatches the 12 active kinds (`source_discovery`,
-  `source_fetch`, `source_freshness`, `content_build`, `content_validate`,
-  `content_persist`, `content_revalidate`, `strict_cleanup`,
-  `dedupe_cleanup`, `archive_cleanup`, `sitemap_refresh`,
-  `report_generate`). Every queue job has a typed zod payload, a stable
-  `dedupeKey`, and writes lifecycle logs; the worker emits heartbeat
-  rows and the cron route recovers stale leases.
+  Legacy job kinds (`source_ingest`, `content_validate`, `content_persist`)
+  have been removed from the active set; `content_validate` and
+  `content_persist` collapsed into a single combined `content_build`
+  stage that runs build + normalize + enrich + strict QA + persist in
+  one worker tick. The worker dispatches the **11 active kinds**
+  (`source_discovery`, `source_fetch`, `source_freshness`,
+  `source_config_repair`, `content_build`, `content_revalidate`,
+  `strict_cleanup`, `dedupe_cleanup`, `archive_cleanup`,
+  `sitemap_refresh`, `report_generate`). Every queue job has a typed
+  zod payload, a stable `dedupeKey`, and writes lifecycle logs; the
+  worker emits heartbeat rows and the cron route recovers stale leases.
 
   The in-process scheduler runs in burst mode while the catalog is
   below target and drops to a maintenance interval afterward — no
@@ -206,14 +211,15 @@ would call attention to:
   URLs, and token values are explicitly stripped before any value is
   rendered to the browser. Every diagnostic page is backed by a
   matching `/api/admin/diagnostics/...` route.
-- **Real per-item Data Management logs.** Every ingestion run AND every
-  janitor pass writes one `DataManagementLog` row per item action —
-  added, updated, dedup-skipped, soft-routed to REVIEW, hard-deleted
-  as noise, rejected as structurally invalid, archived by the legacy
-  cleanup, or purged after the 30-day archive window — with the
-  reason, source, job, and `triggeredBy` flag. The admin Logs page
-  can answer "why is the count not changing?" precisely instead of
-  showing an unexplained zero.
+- **Real per-item Data Management logs.** Every factory build pass
+  writes one `DataManagementLog` row per item action — added,
+  updated, dedup-skipped, hard-deleted as noise, rejected by strict
+  QA with a precise reason, archived by `strict_cleanup`, or purged
+  after the 30-day archive window — with the reason, source, job,
+  and `triggeredBy` flag. The admin Logs page can answer "why is the
+  count not changing?" precisely instead of showing an unexplained
+  zero. Automatic failures never silently divert to REVIEW; manual
+  admin review remains its own explicit action.
 - **Ingestion run logs and per-item action logs are both
   first-class.** `/admin/logs/ingestion` reads from `IngestionJobRun`
   (per-run picture: source, job, status, counts, duration, error
@@ -272,21 +278,24 @@ flowchart LR
     Seeder --> Postgres
     Instrumentation --> Scheduler[In-process scheduler<br/>burst → maintenance]
     Scheduler -->|POST /api/cron/ingest| AppRoutes
-    AppRoutes -->|gateUrl| Sources{{Approved sources<br/>Vatican · USCCB · CBCEW · …}}
-    Sources --> Packager[Packaging pipeline<br/>format → clean → classify → enrich → sanitize]
-    Packager -->|valid| Postgres
-    Packager -->|review| Postgres
-    Packager -.->|noise| Discard((discarded))
-    AppRoutes --> Janitor[Catalog janitor<br/>every tick · repackage / hard-delete / divert]
-    Janitor --> Postgres
+    AppRoutes -->|enqueue| Queue[(IngestionJobQueue)]
+    Worker[Worker process<br/>npm run worker] -->|lease| Queue
+    Worker -->|gateUrl| Sources{{Approved sources<br/>Vatican · USCCB · CBCEW · …}}
+    Sources --> Factory[Content Factory<br/>builder → normalize → enrich → strict QA]
+    Factory -->|publish| Persist[persistBuiltPackage]
+    Persist --> Postgres
+    Factory -.->|reject / delete| RejLog[(RejectedContentLog)]
+    Factory -->|every attempt| BuildLog[(ContentPackageBuildLog)]
+    Worker -->|strict_cleanup<br/>dedupe_cleanup<br/>archive_cleanup| Postgres
     AppRoutes --> AdminNotif[dispatchAdminNotifications<br/>biweekly · monthly archive · monthly PDF · milestones]
     AdminNotif --> Resend
     AppRoutes --> ErrorLog[(ErrorLog)]
     ErrorLog --> AdminNotif
 ```
 
-The full content lifecycle — ingestion → moderation → publish — is laid
-out in [`## Content injection (ingestion) pipeline`](#content-injection-ingestion-pipeline)
+The full content lifecycle — discovery → fetch → SourceDocument → build →
+strict QA → persistBuiltPackage → public render — is laid out in
+[`## Content injection (ingestion) pipeline`](#content-injection-ingestion-pipeline)
 below.
 
 ---
@@ -376,7 +385,9 @@ below.
 │   │                          # admin templates, admin send, PDF generator
 │   ├── fixtures/              # Factories + mock SourceAdapter / fetch
 │   ├── helpers/               # Prisma + cookie mocks
-│   ├── ingestion/             # validateItem + sanitize boundary tests, formatter
+│   ├── ingestion/             # Queue / dispatch / planner / build-enqueue / discovery tests
+│   ├── content-factory/       # Builder / normalize / enrich / canary / public-display tests
+│   ├── content-qa/            # Strict QA + contract + Confession-folds-into-Reconciliation tests
 │   ├── integration/           # Real-DB tests, gated behind VITEST_INTEGRATION=1
 │   ├── routes/                # Static route coverage check
 │   ├── security/              # Rate limit DB + memory fallback
@@ -958,12 +969,17 @@ empty:
 
 ## Content injection (ingestion) pipeline
 
-Scheduled scrapers register adapters, fetch from a hard-coded allowlist of
-approved Catholic sources, and write items to the moderation queue. The
-allowlist is the single point of truth for which hosts may populate doctrine,
-liturgy, Church history, prayers, saints, devotions, guides, or
-catechetical content — anything not on the allowlist is refused at fetch
-time.
+The factory-native discovery handler walks each source's configured
+sitemap / RSS feed, writes each URL as a `DiscoveredSourceItem`, and
+enqueues a `source_fetch` job per URL. Source-permission and host
+gates run before the fetch even leaves the worker. The
+allowlist is the single point of truth for which hosts may populate
+doctrine, liturgy, Church history, prayers, saints, devotions,
+guides, or catechetical content — anything not on the allowlist is
+refused at fetch time. Sources without a usable discovery method
+are marked `configurationStatus="not_configured"` by the periodic
+`source_config_repair` job, and the planner refuses to enqueue
+work for them until they are configured.
 
 ### Approved-source allowlist
 
@@ -1029,137 +1045,96 @@ circuits unchanged runs), `category` / `kind` for indexing, and a
 `createdAt` / `updatedAt` retrieval timestamp. Curated rows
 (`PUBLISHED` / `ARCHIVED`) are protected from automatic overwrites.
 
-### Validation and auto-publish workflow
+### Content-Factory validation flow
 
-Every batch is sent through `sanitize()` and `validateItem()` before
-persistence. The validator is intentionally strict — quality over
-quantity is an explicit project priority — and rejects, in addition
-to the obvious schema problems:
+Validation is performed by the strict QA pass that runs immediately
+after every builder. There is no soft-review bucket — every package
+either publishes or is recorded with a precise failure. The factory
+is intentionally strict: quality over quantity is an explicit
+project priority.
 
-- **Source bylines and navigation copy.** Pages that read "Catholic
-  Australia, a work of the Australian Catholic Bishops Conference",
-  "EWTN is the global Catholic Network", "Subscribe to our
-  newsletter", "Donate now", or "404 Not Found" are rejected via a
-  curated set of `NON_CONTENT_PHRASES` regular expressions
-  (`src/lib/ingestion/validate.ts`).
-- **Prayers without prayer language.** A page tagged as a prayer
-  must contain at least one prayer-marker word — `Amen`, `Hail`,
-  `pray`, `Let us pray`, `Lord have mercy`, `Soul of Christ`,
-  `Mother of God`, the `I believe / I confess` family, etc. Pure
-  source-summary text is refused.
-- **Saints without biographical vocabulary.** A page tagged as a
-  saint must contain biographical markers (`Saint`, `Blessed`,
-  `martyr`, `bishop`, `Doctor`, `born`, `died`, `canonized`,
-  `feast`) and must not look like a catalog index
-  ("Catholic Saints", "Patron Saints Directory").
-- **Marian apparitions without Marian vocabulary.** The summary
-  must reference Mary, Our Lady, the Blessed Virgin, an
-  appearance, vision, or apparition — and `approvedStatus`
-  must be one of the canonical Church statuses (`Approved`,
-  `Constat de supernaturalitate`, `Worthy of belief`, etc.).
-- **Devotions without a devotional practice.** A devotion must
-  mention rosary, novena, chaplet, consecration, adoration, the
-  stations of the cross, first Friday / Saturday, the scapular,
-  the Miraculous Medal, or otherwise contain `prayer` /
-  `meditation`.
-- **Length floors per kind.** Prayer body ≥ 40 characters, saint
-  biography ≥ 80, apparition summary ≥ 60, devotion summary ≥ 40,
-  liturgy body ≥ 80, guide summary ≥ 40 — so the public catalog
-  feels consistent and complete rather than a mix of one-line
-  stubs and full entries.
-- **Parish non-Catholic rejection.** Baptist / Methodist /
-  Lutheran / Presbyterian / Orthodox / Anglican / Episcopal /
-  mosque / synagogue / temple / Hindu / Buddhist names are
-  refused; "Find a parish", "Parish locator", and "Parish
-  directory" navigation pages are refused.
-- **Off-allowlist external keys.** Any `externalSourceKey` URL
-  whose host is not in the Vatican allowlist is rejected.
+A builder returns exactly one of:
 
-Validation failures are classified by **severity**
-(`src/lib/ingestion/validate.ts`):
+- `built_complete_package` — every required field has provenance,
+  the package proceeds to strict QA.
+- `build_failed_missing_required_fields` — one or more required
+  fields could not be extracted; recorded with the field list.
+- `wrong_content` — the page tripped a hard-negative signal
+  (livestream, bulletin, event registration, Mass schedule, staff
+  page, donation page, school page, news article, press release,
+  podcast episode, unrelated blog post) BEFORE the builder ran.
+- `source_not_allowed` — the source is missing the per-content-type
+  purpose flag (e.g. building a Saint from a source whose
+  `canIngestSaints` is false).
+- `duplicate` — same `(sourceDocumentId, contentType,
+  builderVersion, packageContractVersion, sourceChecksum)` tuple
+  already produced a current package.
+- `not_supported_by_source` — no builder registered for this
+  content type from this source.
+- `source_exhausted` — source has been marked exhausted.
 
-- **Noise** — the page is clearly navigation cruft, a brand landing
-  page, or a meta-description about a content category (titles
-  matching `LANDING_PAGE_TITLE_PATTERNS`, bodies matching
-  `META_DESCRIPTION_OPENERS`, or anything else `looksLikeNonContent`
-  flags). The runner hard-deletes these with a single `DELETE` row in
-  `DataManagementLog`. No archive, no review — they never had any
-  place in the catalog.
-- **Hard failures** — structurally invalid: missing required fields,
-  protected user kinds, off-allowlist sources, malformed URLs/emails,
-  unrecognised enum values. Refused outright and logged as `REJECT`.
-- **Soft failures** — items that pass the structural and noise
-  checks but trip one of the category heuristics (a "prayer" without
-  prayer language, a "saint" body missing biographical vocabulary,
-  an "apparition" without Marian vocabulary, a body too short for
-  the bucket). Persisted with `status = REVIEW` so a moderator can
-  publish or archive via `/admin/publish-list`. Soft severity is
-  what preserves borderline real content without polluting the
-  public catalog.
+Strict QA then runs the package contract for that content type
+(novena day-completeness, sacrament-key canonicalization,
+scripture translation policy, parish identity, etc.). The QA
+verdict is one of:
 
-`sanitize()` returns four buckets — `valid`, `review`, `noise`, and
-`rejected` — and the runner handles each:
+- **publish / update** → `persistBuiltPackage()` writes the row
+  with `status=PUBLISHED`, `publicRenderReady=true`,
+  `isThresholdEligible=true`, `packageValidationStatus="valid"`,
+  `contentPackageVersion`, `lastPackageValidatedAt`, source
+  metadata, content checksum, and per-field provenance.
+- **reject** → a `RejectedContentLog` row is written with the
+  failed-field list and the exact reason; no public row is
+  created.
+- **delete** → an existing public row is hard-deleted with a
+  `DataManagementLog` `DELETE` row and a `RejectedContentLog`
+  trace so the admin can see why.
 
-| Bucket     | Outcome                                                               |
-| ---------- | --------------------------------------------------------------------- |
-| `valid`    | persisted with the configured initial status (`PUBLISHED` by default) |
-| `review`   | persisted with `status = REVIEW` + a `CATEGORY_FIX` log row           |
-| `noise`    | **hard-deleted** with a single `DELETE` log row, no DB write          |
-| `rejected` | refused before persistence with a `REJECT` log row                    |
+Automatic failures never silently divert to a REVIEW status. The
+admin can still manually flip a row to REVIEW via the admin
+console for editorial purposes — that path goes through
+`POST /api/admin/content/review` and is admin-gated.
 
 ### Background cleanup pass (Ingestion & Data Management)
 
 The admin module `/admin/ingestion` is named **Ingestion & Data
-Management**. Two coordinated passes run on every cron tick:
+Management**. The legacy `runCatalogJanitor()` (which used to flip
+borderline rows to REVIEW) has been deleted. Cleanup now runs as
+three durable queue jobs on every cron tick:
 
-#### 1. Catalog janitor (always on)
+#### 1. `strict_cleanup` (always on)
 
-`runCatalogJanitor()` (`src/lib/data/catalog-janitor.ts`) walks every
-`PUBLISHED` row across the seven content tables (Prayer, Saint,
-MarianApparition, Devotion, LiturgyEntry, SpiritualLifeGuide, Parish)
-and runs the same `format → clean → validate` pipeline against it
-that ingestion runs on new items. Three actions per row:
+The factory walks every `PUBLISHED` row and re-runs strict QA
+against the current package contract. Two outcomes per row:
 
-- **Repackage** (UPDATE): if the cleaned text differs from what's
-  stored (e.g. the title has a stale `" | EWTN"` brand suffix, or
-  the body still carries a "Subscribe to our newsletter" line), the
-  row is updated to the cleaned version. Stays `PUBLISHED`.
-- **Hard-delete** (DELETE): if validation now classifies the row as
-  noise, it is hard-deleted with no archive. The legacy
-  "Catholic Faith, Beliefs, & Prayers | Catholic Answers" rows that
-  predate the noise detector get cleaned out on the next tick.
-- **Divert to review** (CATEGORY_FIX → status REVIEW): soft-fail rows
-  flip to REVIEW so an admin can decide.
+- **flag-ready** — the row passes the contract; its strict flags
+  (`publicRenderReady`, `isThresholdEligible`,
+  `packageValidationStatus="valid"`) stay set or get re-asserted.
+- **hard-delete** — the row fails the contract. It is removed
+  from the catalog with a `DataManagementLog` `DELETE` row and a
+  `RejectedContentLog` trace recording the failed fields. No
+  archive step, no demotion to REVIEW: failed rows are deleted
+  cleanly and the receipt explains why.
 
-The janitor runs regardless of the auto-cleanup site setting —
-catalog quality is not a configurable behavior. Every action emits a
-`DataManagementLog` row prefixed `Janitor:` so the operator can
-filter for it at `/admin/logs/data-management`.
+Every `strict_cleanup` pass also runs `pruneOrphanedSaves()` so a
+user's saved-content list never references a row the strict pass
+just removed.
 
-#### 2. Catalog-wide cleanup pass (toggleable)
+#### 2. `dedupe_cleanup` and `archive_cleanup` (toggleable)
 
-The settings panel at the top of `/admin/ingestion` controls a
-secondary cleanup pass that does coarser-grained work:
+The settings panel at the top of `/admin/ingestion` controls two
+secondary passes:
 
 - **Automatic cleanup enabled** — master switch. When on (default),
-  the cron job runs `cleanupMiscategorisedContent()`,
-  `archiveDuplicatePrayers()`, and `purgeArchivedByArchivedAt()`
-  on every tick. When off, the cron skips these — the catalog
-  janitor still runs.
+  the cron job also enqueues `dedupe_cleanup`
+  (`archiveDuplicatePrayers()`) and `archive_cleanup`
+  (`purgeArchivedByArchivedAt()`) on every tick.
 - **Hard-delete after N days** — how long a row may sit in
   `ARCHIVED` status before `purgeArchivedByArchivedAt()`
   permanently removes it. Default **30 days**, measured from the
   dedicated `archivedAt` column (not `updatedAt`), so editing an
   archived row does not push its deletion date forward. Set to 0
   to disable.
-
-`cleanupMiscategorisedContent()` walks every `PUBLISHED` row and
-flips anything that matches the broader miscategorised heuristics
-to `ARCHIVED` so it stops appearing on the public site, with a
-30-day grace period before hard-delete. `archiveDuplicatePrayers()`
-catches historical artefacts: rows sharing the same content
-checksum under different slugs (a pre-checksum dedup hangover). The
-earliest row stays `PUBLISHED`; the duplicates are archived.
 
 Every hard delete writes one `ArchiveDeletionLog` row (contentType,
 contentId, contentSlug, archivedAt, deletedAt, reason, triggeredBy,
@@ -1172,13 +1147,35 @@ Settings are stored in the `SiteSetting` table under the key
 `/api/admin/data-management` (admin-only) and the toggle UI in
 the ingestion admin page.
 
-Manual edits are the only path that re-introduces a moderation step.
-The seven `update*` functions in `src/lib/data/admin-catalog.ts` use a
-shared `resolveStatusForUpdate()` helper: when an admin edits any
-content field without explicitly choosing a status, the row drops back
-to `DRAFT`. The admin must then click **Publish** on `/admin/publish-list`
-(or on the entity's own admin page) for the change to go live. Status-
-only flips and explicit "Save and Publish" actions are honoured as-is.
+#### 3. `source_config_repair` (always on)
+
+Cron also enqueues a `source_config_repair` job that re-scans every
+`IngestionSource` and:
+
+- marks sources without a usable discovery method as
+  `configurationStatus="not_configured"` with a precise reason on
+  the admin source-configuration card,
+- promotes sources with a sitemap or RSS feed URL to
+  `configurationStatus="factory_native"`,
+- reports active sources missing purpose flags or supported content
+  types.
+
+The planner skips `not_configured` sources deterministically so an
+unsetup source never enqueues a job.
+
+#### Manual editor flow (admin-only)
+
+Manual edits are the only path that re-introduces a moderation
+step. The seven `update*` functions in `src/lib/data/admin-catalog.ts`
+use a shared `resolveStatusForUpdate()` helper: when an admin edits
+any content field without explicitly choosing a status, the row
+drops back to `DRAFT`. The admin must then click **Publish** on
+`/admin/publish-list` (or on the entity's own admin page) for the
+change to go live. Status-only flips and explicit "Save and
+Publish" actions are honoured as-is. An admin can also explicitly
+move a row to REVIEW via `POST /api/admin/content/review` for
+editorial inspection — this is an admin action, never the result
+of an automatic failure.
 
 ### Queue-first architecture — cron plans, worker executes
 
@@ -1265,6 +1262,7 @@ the queue:
   "jobsSkippedContentTypePaused": 0,
   "jobsSkippedSourceUnhealthy": 0,
   "jobsSkippedSourceExhausted": 0,
+  "jobsSkippedSourceNotConfigured": 0,
   "jobsSkippedDailyCap": 0,
   "jobsSkippedFillCap": 0,
   "promotedToConstant": 8,
@@ -1307,19 +1305,33 @@ pending → running → completed
 
 #### Typed job kinds
 
-`src/lib/ingestion/queue/job-kinds.ts` defines eight kinds, each
-with a Zod payload schema validated at enqueue and at execution:
+`src/lib/ingestion/queue/job-kinds.ts` defines **11 active kinds**,
+each with a Zod payload schema validated at enqueue and at
+execution:
 
-| Job kind             | Priority default | Purpose                                                     |
-| -------------------- | ---------------- | ----------------------------------------------------------- |
-| `source_freshness`   | 50               | ETag / Last-Modified / checksum probe; lightweight.         |
-| `source_ingest`      | 100              | Full adapter run with format / clean / validate / persist.  |
-| `source_discovery`   | 110              | Find URLs / feed entries; writes to `DiscoveredSourceItem`. |
-| `content_revalidate` | 150              | Re-run the catalog janitor against PUBLISHED rows.          |
-| `dedupe_cleanup`     | 300              | Collapse duplicate-checksum rows.                           |
-| `archive_cleanup`    | 400              | `purgeArchivedByArchivedAt` — hard delete after 30 days.    |
-| `sitemap_refresh`    | 450              | Reserved for sitemap regeneration.                          |
-| `report_generate`    | 500              | Admin-triggered report regeneration.                        |
+| Job kind                | Priority default | Purpose                                                                 |
+| ----------------------- | ---------------- | ----------------------------------------------------------------------- |
+| `source_freshness`      | 50               | ETag / Last-Modified / checksum probe; lightweight.                     |
+| `source_fetch`          | 100              | Fetch one URL → write a `SourceDocument` → enqueue `content_build`.     |
+| `source_discovery`      | 110              | Walk sitemap / RSS / API → record `DiscoveredSourceItem`s + fetch jobs. |
+| `content_build`         | 120              | **Single combined factory stage:** build + normalize + enrich + strict QA + `persistBuiltPackage()`. |
+| `content_revalidate`    | 150              | Re-run strict QA against PUBLISHED rows after a contract change.        |
+| `source_config_repair`  | 200              | Periodic source-configuration repair (factory-native / not_configured). |
+| `strict_cleanup`        | 250              | Strict-QA sweep of every PUBLISHED row + orphan-saves prune.            |
+| `dedupe_cleanup`        | 300              | Collapse duplicate-checksum rows.                                       |
+| `archive_cleanup`       | 400              | `purgeArchivedByArchivedAt` — hard delete after 30 days.                |
+| `sitemap_refresh`       | 450              | Reserved for sitemap regeneration.                                      |
+| `report_generate`       | 500              | Admin-triggered report regeneration.                                    |
+
+`REMOVED_JOB_KINDS` retains the legacy `source_ingest`,
+`content_validate`, and `content_persist` entries so the queue
+migration script (`scripts/migrate-legacy-queue-rows.ts`) and the
+startup safety check (`src/lib/startup/removed-job-kinds-check.ts`)
+can detect any pre-migration rows. The runtime translation shim
+that used to rewrite legacy rows in-place has been deleted now
+that the queue has drained; a legacy row now fails dispatch with a
+precise "translation shim deleted — run the migration script"
+diagnostic.
 
 The worker's `runJobByKind()` (`src/lib/ingestion/queue/dispatch.ts`)
 routes to the matching execution function.
@@ -1380,14 +1392,21 @@ metrics (`estimatedTotalItems`, `discoveredItems`,
 **Source tiers** (`src/lib/ingestion/source-tier.ts`):
 
 - **Tier 1** — official Church (`vatican.va`, `usccb.org`, etc.).
-  Auto-publish at confidence ≥ 0.5; otherwise REVIEW.
+  Highest priority in the planner queue; the planner gives Tier 1
+  sources a `+0` priority and treats them as first-class when
+  content thresholds are unmet.
 - **Tier 2** — established publishers (`catholic.com`,
-  `newadvent.org`, `ewtn.com`, etc.). Auto-publish at confidence
-  ≥ 0.8; otherwise REVIEW.
-- **Tier 3** — general / blog / news. Always REVIEW unless
-  confidence ≥ 0.95.
-- Theological content (`theologicalReviewFlag`) is forced to
-  REVIEW regardless of tier.
+  `newadvent.org`, `ewtn.com`, etc.). Normal-priority queue band
+  (`+30`) when below target.
+- **Tier 3** — general / blog / news. Demoted (`+60`) so trusted
+  sources fill the catalog first.
+
+Tiering only affects **queue priority and source-quality scoring**.
+Content visibility itself is gated entirely by the strict-QA pass
+— Tier 1 content still has to satisfy its package contract to
+become public, and Tier 3 content that satisfies its contract
+publishes the same as Tier 1 content. There is no
+"auto-publish-at-confidence-X / else REVIEW" behaviour anymore.
 
 Tier changes go through `POST /api/admin/ingestion/sources/tier`
 (admin-only, requires a non-empty reason, audited in
@@ -1549,68 +1568,75 @@ for the Church-history timeline at `/liturgy-history/timeline`, where
 `ExpandableTimelineEvent` renders every council and history event with
 the same arrow / collapse behaviour.
 
-### Scrape → database → page contract
+### Factory → database → page contract
 
-Scraped content lives in PostgreSQL the entire time it is on the site —
-nothing renders out of in-memory scraper state. The pipeline is:
+Factory-built content lives in PostgreSQL the entire time it is on
+the site — nothing renders out of in-memory build state. The
+pipeline is:
 
-1. **Scrape** — `runAdapter()` calls `adapter.fetch()`, gets back a list
-   of `IngestedItem`s, and sends them through `sanitize()` /
-   `validateItem()`. Items missing required fields, with body shorter
-   than the kind-specific minimum, or carrying an off-allowlist
-   `externalSourceKey` are rejected up front.
-2. **Persist** — surviving items go through `persistItems()`, which
-   dispatches to a kind-specific persister (`persist-prayer`,
-   `persist-saint`, `persist-apparition`, `persist-parish`,
-   `persist-devotion`, `persist-liturgy`, `persist-guide`). Each persister
-   writes to its own dedicated table — guides land in
-   `SpiritualLifeGuide`, prayers in `Prayer`, saints in `Saint`,
-   apparitions in `MarianApparition`, parishes in `Parish`, devotions in
-   `Devotion`, liturgy / Church-history / catechetical entries in
-   `LiturgyEntry`. The runner asserts at the type level (and through
-   `validateItem`'s protected-kind list) that ingestion never touches
-   user-generated tables (journal entries, goals, milestones, profile
-   data, saved-item links).
-3. **Dedupe** — duplicates are eliminated at three layers:
-   - `dedupeBatch()` drops in-batch duplicates by normalized
-     `externalSourceKey` (URL canonicalised — fragments, trailing
-     slashes, and `utm_*` parameters stripped) and by normalized slug.
-   - Each persister looks up the existing row by stable identifiers
-     before writing: `externalSourceKey` first (the source URL is the
-     most reliable identity), then `slug`, then a kind-specific
-     fallback (`name + city + country` for parishes). When a match is
-     found, `contentChecksum` (SHA-256 of canonicalised content) is
-     compared — identical checksums short-circuit as `skipped` with no
-     DB write.
-   - `PUBLISHED` and `ARCHIVED` rows are protected: the persister
-     refuses to overwrite curated content. Re-ingesting on top of a
-     published row is a no-op until the admin moves it back to
-     `DRAFT` / `REVIEW`.
-4. **Update** — when an existing draft / review row's checksum changes,
-   the persister calls `prisma.<table>.update()` with the full payload
-   and resets `status` to the configured initial status (default `REVIEW`)
-   so the change re-enters the moderation queue. New rows are created
-   with the same status. The runner counts every freshly-created or
-   updated row as `recordsReviewRequired` when `initialStatus === REVIEW`.
-5. **Read** — public pages call `listPublished*` and `getPublished*BySlug`
-   functions in `src/lib/data/`, which always filter by
-   `{ status: "PUBLISHED" }`. Detail pages wrap the lookup in a `safe*`
-   helper that catches DB errors, classifies them with
-   `classifyPageError()` (missing-table vs. db-connection vs.
-   route-error), logs through `logPageError()` / `logPageMissingContent()`,
-   and falls back to `notFound()` so a missing or unpublished slug returns
-   a 404, never a 500. The `requireUser()` and `isSaved()` calls used by
-   the Save button are wrapped the same way: when no signed-in user is
-   present they short-circuit to `null` / `false` so anonymous traffic
-   sees the page exactly like a signed-in reader (minus the Save button
-   pre-checked state).
+1. **Discover** — `source_discovery` (factory-native) walks the
+   source's configured sitemap / RSS feed, canonicalizes each URL
+   (strips fragments, `utm_*` / `fbclid` / `gclid`, normalizes
+   host, drops trailing slashes), de-duplicates, and writes one
+   `DiscoveredSourceItem` per unique URL.
+2. **Fetch** — `source_fetch` runs the host-permission gate
+   (source not paused, not `not_configured`, URL host matches
+   source host) and fetches the URL. The response body becomes a
+   `SourceDocument` row with cleaned body / headings / paragraphs /
+   lists / metadata + a content checksum. The fetch handler then
+   enqueues one `content_build` job per content type the source
+   is permitted for, filtered through the content-type router.
+3. **Build** — `content_build` runs the single combined factory
+   stage: builder → normalize → enrich → strict QA →
+   `persistBuiltPackage()`. Each builder either returns
+   `built_complete_package` (with field provenance) or one of the
+   precise failure outcomes. Every attempt is recorded in
+   `ContentPackageBuildLog`, so "why was this not created?" is
+   always answerable.
+4. **Persist** — `persistBuiltPackage()` is the single canonical
+   writer for the public catalog. It dispatches to the kind-
+   specific persistence helper for `Prayer`, `Saint`,
+   `MarianApparition`, `Parish`, `Devotion` (also Novena),
+   `SpiritualLifeGuide` (Sacrament / Rosary / Consecration /
+   SpiritualGuidance), and `LiturgyEntry` (Liturgy / History).
+   Every persisted row carries `status=PUBLISHED`,
+   `publicRenderReady=true`, `isThresholdEligible=true`,
+   `packageValidationStatus="valid"`, `contentPackageVersion`,
+   `lastPackageValidatedAt`, source URL / host, content checksum,
+   and field provenance. Duplicate checksums short-circuit as
+   `skipped` with no DB write.
+5. **Verify** — after persistence, the factory runs
+   `verifyPublicDisplayAndRepair()` (strict-public-where query)
+   and `verifyIndexing()` (search + sitemap queries). If the row
+   is not visible via the strict public gate, a render-gate
+   cleanup is enqueued so strict QA re-evaluates the row and
+   either fixes the flags or deletes it with a precise reason.
+6. **Read** — public pages call `listPublished*` and
+   `getPublished*BySlug` functions in `src/lib/data/`, which
+   always filter by `STRICT_PUBLIC_WHERE_CLAUSE`
+   (`status="PUBLISHED"` + `publicRenderReady=true` +
+   `isThresholdEligible=true` + `archivedAt: null`). Detail pages
+   wrap the lookup in a `safe*` helper that catches DB errors,
+   classifies them with `classifyPageError()`, logs through
+   `logPageError()` / `logPageMissingContent()`, and falls back
+   to `notFound()` so a missing or unpublished slug returns a
+   404, never a 500. The `requireUser()` and `isSaved()` calls
+   used by the Save button are wrapped the same way: when no
+   signed-in user is present they short-circuit to `null` /
+   `false` so anonymous traffic sees the page exactly like a
+   signed-in reader (minus the Save button pre-checked state).
 
-Field mapping is one-to-one from `IngestedItem` → DB row → page render.
-The `Prayer` row carries `slug`, `defaultTitle`, `body`, `category`,
-`externalSourceKey`, `sourceHost`, `contentChecksum`, and `status`; the
-detail page reads exactly those fields (plus the locale translation).
-The same pattern applies to every kind — see
-`src/lib/ingestion/persist/persist-*.ts` for the source side and
+Field mapping is one-to-one from `ContentPackage` → DB row → page
+render. The `Prayer` row carries `slug`, `defaultTitle`, `body`,
+`category`, `prayerType`, `language`, `officialPrayer`, the strict
+public flags (`status`, `publicRenderReady`, `isThresholdEligible`,
+`packageValidationStatus`, `contentPackageVersion`,
+`lastPackageValidatedAt`), source metadata (`sourceUrl`,
+`sourceHost`, `sourceTier`, `contentChecksum`), and field provenance
+embedded in the package metadata blob. The detail page reads
+exactly those fields (plus the locale translation). The same pattern
+applies to every kind — see `src/lib/content-factory/persist.ts`
+for the persistence helpers (single canonical writer) and
 `src/lib/data/*.ts` for the read side.
 
 ### Persistence after redeploys
@@ -1627,32 +1653,41 @@ automatically); the health check at `/api/health` reports
 `SpiritualLifeGuide` / `DailyLiturgy` are gone — those are the tables
 the public site reads from.
 
-### Logging surface for ingestion runs and page failures
+### Logging surface for factory runs and page failures
 
-Every adapter run emits structured JSON via `logger`
+Every factory dispatch emits structured JSON via `logger`
 (`src/lib/observability/logger.ts`):
 
-- `ingestion.run.started` — adapter, sourceHost, jobId, initialStatus
-- `ingestion.run.not_modified` — emitted on a 304 short-circuit
-- `ingestion.run.completed` — with `recordsSeen`, `recordsCreated`,
-  `recordsUpdated`, `recordsSkipped`, `recordsFailed`,
-  `recordsReviewRequired`, `published`, `rejected`, `partial`,
-  `durationMs`
-- `ingestion.run.failed` — with `errorMessage` and `durationMs`
-- `ingestion.scheduler.start` / `ingestion.scheduler.completed` — totals
-  across all jobs in a tick
+- `worker.source_fetch_to_build` — sourceDocumentId, sourceUrl,
+  enqueuedCount, skippedReasons
+- `worker.factory_discovery.completed` — sourceId, feedUrlCount,
+  discoveredCount, enqueuedCount
+- `content-factory.public_display_failed` — slug, reasons
+- `content-factory.indexing_verify_failed` — slug, error
+- `auto-repair.completed` — actions, errors
+- `source-config-repair.completed` — inspected, markedNotConfigured,
+  markedFactoryNative, missingPurpose, missingTypes
+- `worker.removed_job_kind_seen` — legacy-kind diagnostic when any
+  pre-migration row appears
 
-The same numbers are persisted to `IngestionJobRun` for historic
-visibility — surfaced on `/admin/ingestion` (per-source rollup) and
-`/admin/logs/ingestion` (every recorded run, filterable by status and
-job name). For per-item detail, the same run writes one
-`DataManagementLog` row per accepted (ADD), updated (UPDATE),
-dedup-skipped (DEDUPE), hard-rejected (REJECT) or soft-routed
-(CATEGORY_FIX) item — with the reason, source name, job name, and
-`triggeredBy` (automatic vs manual). The Data Management cleanup pass
-adds CLEANUP, additional DEDUPE, and DELETE rows for items it
-archives or hard-deletes. The full timeline is browsable at
-`/admin/logs/data-management`. Page-side, every detail page calls
+The same numbers are persisted to first-class tables:
+
+- `ContentPackageBuildLog` — one row per build attempt, success or
+  failure. Surfaced at `/admin/ingestion/factory` and the
+  `/admin/ingestion/why-not-visible` page.
+- `QueueAuditLog` — every queue state transition (enqueued / leased /
+  completed / retrying / failed / skipped / canceled / stale_recovered).
+- `RejectedContentLog` — every strict-QA rejection with the failed
+  fields and the reason.
+- `DataManagementLog` — one row per ADD / UPDATE / DELETE / DEDUPE /
+  REJECT / CLEANUP / PURGE / FAIL action — with the reason, source,
+  job, and `triggeredBy` flag. The full timeline is browsable at
+  `/admin/logs/data-management`.
+- `SourceQualityScore` — rolling per-source / per-content-type
+  validPackageRate, wrongContentRate, dupeRate, qaPassRate.
+
+`IngestionJobRun` is retained for historical context (per-source
+rollups remain on `/admin/ingestion` and `/admin/logs/ingestion`). Page-side, every detail page calls
 `logPageMissingContent()` on a missed lookup (with a
 `reason: missing_record | bad_slug | missing_table | db_connection`
 classification) and `logPageError()` on caught exceptions, so an alert
@@ -2003,12 +2038,19 @@ the security pages (`src/app/admin/_dashboard/cards.ts`):
     last seen, city / region / country, user-agent summary, and the
     `SecurityEvent` link that created the ban. There is no admin UI
     to unban — bans are permanent by design.
-20. Publish list (REVIEW queue)
+20. **Publish list (manual admin queue).** `/admin/publish-list`
+    surfaces only rows that an admin explicitly placed under review
+    (manual edits dropping the row back to `DRAFT`, or an explicit
+    `move-to-review` action). Automatic factory failures never
+    appear here — they are deleted with a `RejectedContentLog` trace
+    instead, surfaced on `/admin/logs/rejected-content` and the
+    `/admin/ingestion/why-not-visible` diagnostic.
 
 Content review actions go through `POST /api/admin/content/review` with
 `{ entityType, entityId, action, notes }` where `action` is
-`approve` | `reject` | `request-revision` | `move-to-review`. Direct CRUD on
-each catalog entity is exposed under `/api/admin/<entity>` via the
+`approve` | `reject` | `request-revision` | `move-to-review`. These
+endpoints are admin-only and audited. Direct CRUD on each catalog
+entity is exposed under `/api/admin/<entity>` via the
 `makeAdminCatalogIndex` / `makeAdminCatalogItem` factories
 (`src/lib/http/admin-catalog-routes.ts`).
 

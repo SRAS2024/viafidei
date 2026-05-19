@@ -24,7 +24,13 @@ import type { Builder, PackageProvenance } from "../types";
 const BUILDER_NAME = "DevotionBuilder";
 const BUILDER_VERSION = "1.0.0";
 
-const ARTICLE_RE = /\b(?:article\s+about|reflection\s+on|opinion\s+piece|column)\b/i;
+/**
+ * Spec #11: reject devotion articles, livestreams, retreats,
+ * advertisements, and event pages that don't contain an actual
+ * devotion structure.
+ */
+const ARTICLE_RE =
+  /\b(?:article\s+about|reflection\s+on|opinion\s+piece|column|livestream|retreat\s+(?:registration|details|signup)|register\s+for|advertis(?:ement|ing)|event\s+(?:registration|details|signup))\b/i;
 
 export const DevotionBuilder: Builder = {
   contentType: "Devotion",

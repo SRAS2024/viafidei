@@ -23,8 +23,12 @@ import type { Builder, PackageProvenance } from "../types";
 const BUILDER_NAME = "RosaryBuilder";
 const BUILDER_VERSION = "1.0.0";
 
+/**
+ * Spec #9: reject Rosary articles, livestreams, and event pages.
+ * Only the actual Rosary structure (prayers + mystery sets) builds.
+ */
 const ROSARY_ARTICLE_RE =
-  /\b(?:why\s+(?:we\s+)?pray\s+the\s+rosary|history\s+of\s+the\s+rosary|five\s+(?:facts|things)\s+about)\b/i;
+  /\b(?:why\s+(?:we\s+)?pray\s+the\s+rosary|history\s+of\s+the\s+rosary|five\s+(?:facts|things)\s+about|rosary\s+livestream|rosary\s+event|live\s+rosary)\b/i;
 
 export const RosaryBuilder: Builder = {
   contentType: "Rosary",

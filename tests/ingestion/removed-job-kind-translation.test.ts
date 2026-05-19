@@ -1,13 +1,16 @@
 /**
- * Phase 1 — proves the legacy `source_ingest` job kind is no longer
- * an active execution path. Active code only enqueues factory-stage
- * kinds (source_discovery, source_fetch, content_build,
- * content_validate, content_persist).
+ * Proves the legacy `source_ingest`, `content_validate`, and
+ * `content_persist` job kinds are no longer active execution paths.
  *
- * An in-flight `source_ingest` queue row from a pre-migration deploy
- * is translated by the worker dispatch into a fresh `source_discovery`
- * job and the legacy row completes successfully — so no orphaned
- * rows block the queue after the upgrade.
+ * The previous runtime translation shim (which rewrote in-flight
+ * legacy rows into `source_discovery`) has been deleted now that the
+ * queue has been drained. The dispatch path returns a precise error
+ * for any remaining legacy row so the operator sees it surface in
+ * the queue migration / startup safety check and drains or deletes
+ * it manually.
+ *
+ * Active code only enqueues factory-stage kinds (source_discovery,
+ * source_fetch, content_build).
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -30,13 +33,13 @@ beforeEach(() => {
   resetPrismaMock();
 });
 
-function legacyRow(over: Partial<QueueJobRow> = {}): QueueJobRow {
+function legacyRow(kind: string, over: Partial<QueueJobRow> = {}): QueueJobRow {
   return {
     id: "queue-legacy-1",
     sourceId: "src1",
     jobId: "job1",
     jobName: "vatican.prayers",
-    jobKind: "source_ingest",
+    jobKind: kind,
     dedupeKey: "legacy:1",
     contentType: "Prayer",
     status: "running",
@@ -64,138 +67,73 @@ function legacyRow(over: Partial<QueueJobRow> = {}): QueueJobRow {
   };
 }
 
-describe("source_ingest is removed as an active job kind", () => {
-  it("source_ingest is not in JOB_KINDS", () => {
-    expect(JOB_KINDS as readonly string[]).not.toContain("source_ingest");
-  });
-
-  it("source_ingest is in REMOVED_JOB_KINDS", () => {
-    expect(REMOVED_JOB_KINDS as readonly string[]).toContain("source_ingest");
-  });
-
-  it("isJobKind('source_ingest') is false", () => {
-    expect(isJobKind("source_ingest")).toBe(false);
-  });
-
-  it("isRemovedJobKind('source_ingest') is true", () => {
-    expect(isRemovedJobKind("source_ingest")).toBe(true);
-  });
-
-  it("validatePayload rejects source_ingest with a 'Removed job kind' error", () => {
-    const result = validatePayload("source_ingest", {
-      sourceId: "src1",
-      adapterKey: "x",
-      mode: "constant",
+describe("legacy job kinds are removed from the active set", () => {
+  for (const kind of ["source_ingest", "content_validate", "content_persist"]) {
+    it(`${kind} is NOT in JOB_KINDS`, () => {
+      expect(JOB_KINDS as readonly string[]).not.toContain(kind);
     });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error).toMatch(/Removed job kind/);
-    }
-  });
+
+    it(`${kind} IS in REMOVED_JOB_KINDS`, () => {
+      expect(REMOVED_JOB_KINDS as readonly string[]).toContain(kind);
+    });
+
+    it(`isJobKind('${kind}') is false`, () => {
+      expect(isJobKind(kind)).toBe(false);
+    });
+
+    it(`isRemovedJobKind('${kind}') is true`, () => {
+      expect(isRemovedJobKind(kind)).toBe(true);
+    });
+
+    it(`validatePayload rejects ${kind} with a 'Removed job kind' error`, () => {
+      const result = validatePayload(kind, {});
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error).toMatch(/Removed job kind/);
+      }
+    });
+  }
 });
 
-describe("dispatch translates in-flight source_ingest rows into source_discovery", () => {
-  it("an in-flight source_ingest row completes by enqueueing a source_discovery follow-up", async () => {
-    // Mock the queue table so the translation enqueue can succeed.
-    prismaMock.ingestionJobQueue.findFirst.mockResolvedValue(null);
-    let createdJobKind: string | undefined;
-    let createdPayload: Record<string, unknown> | undefined;
-    prismaMock.ingestionJobQueue.create.mockImplementation(
-      async ({ data }: { data: { jobKind: string; payload: Record<string, unknown> } }) => {
-        createdJobKind = data.jobKind;
-        createdPayload = data.payload;
-        return {
-          id: "queue-new-1",
-          sourceId: "src1",
-          jobId: "job1",
-          jobName: "vatican.prayers",
-          jobKind: data.jobKind,
-          dedupeKey: "translated:queue-legacy-1",
-          contentType: "Prayer",
-          status: "pending",
-          priority: 100,
-          attempts: 0,
-          maxAttempts: 5,
-          runAt: new Date(),
-          startedAt: null,
-          finishedAt: null,
-          durationMs: null,
-          leaseExpiresAt: null,
-          leasedBy: null,
-          errorMessage: null,
-          lastError: null,
-          payload: data.payload,
-          triggeredBy: "automatic",
-          actorUsername: null,
-          sentToReviewAt: null,
-          cancelRequestedAt: null,
-          cancelReason: null,
-          canceledAt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-      },
-    );
-    // Audit + data-management writes are best-effort; mock them out.
-    prismaMock.queueAuditLog.create.mockResolvedValue({});
-    prismaMock.dataManagementLog.create.mockResolvedValue({});
-
-    const result = await runJobByKind(legacyRow());
-
-    expect(result.ok).toBe(true);
-    expect(createdJobKind).toBe("source_discovery");
-    expect(createdPayload).toMatchObject({
-      sourceId: "src1",
-      adapterKey: "vatican.prayers",
-      contentType: "Prayer",
-      mode: "constant",
+describe("dispatch no longer translates legacy rows — it fails them with a precise diagnostic", () => {
+  it("a source_ingest row is rejected (translation shim deleted after queue drain)", async () => {
+    // The new behaviour: dispatch must NOT enqueue any follow-up row
+    // and must return ok=false with a 'translation shim deleted' message.
+    let createCalls = 0;
+    prismaMock.ingestionJobQueue.create.mockImplementation(async () => {
+      createCalls += 1;
+      return {};
     });
+
+    const result = await runJobByKind(legacyRow("source_ingest"));
+
+    expect(result.ok).toBe(false);
+    expect(result.errorMessage).toMatch(/Removed job kind/);
+    expect(result.errorMessage).toMatch(/translation shim deleted/);
+    expect(createCalls).toBe(0);
   });
 
-  it("manual source_ingest rows are translated with triggeredBy='manual'", async () => {
-    prismaMock.ingestionJobQueue.findFirst.mockResolvedValue(null);
-    let createdTriggeredBy: string | undefined;
-    prismaMock.ingestionJobQueue.create.mockImplementation(
-      async ({ data }: { data: { triggeredBy: string } }) => {
-        createdTriggeredBy = data.triggeredBy;
-        return {
-          id: "queue-new-2",
-          sourceId: "src1",
-          jobId: "job1",
-          jobName: "vatican.prayers",
-          jobKind: "source_discovery",
-          dedupeKey: "translated:queue-legacy-2",
-          contentType: "Prayer",
-          status: "pending",
-          priority: 100,
-          attempts: 0,
-          maxAttempts: 5,
-          runAt: new Date(),
-          startedAt: null,
-          finishedAt: null,
-          durationMs: null,
-          leaseExpiresAt: null,
-          leasedBy: null,
-          errorMessage: null,
-          lastError: null,
-          payload: {},
-          triggeredBy: data.triggeredBy,
-          actorUsername: null,
-          sentToReviewAt: null,
-          cancelRequestedAt: null,
-          cancelReason: null,
-          canceledAt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-      },
-    );
-    prismaMock.queueAuditLog.create.mockResolvedValue({});
-    prismaMock.dataManagementLog.create.mockResolvedValue({});
+  it("a content_validate row is rejected", async () => {
+    let createCalls = 0;
+    prismaMock.ingestionJobQueue.create.mockImplementation(async () => {
+      createCalls += 1;
+      return {};
+    });
+    const result = await runJobByKind(legacyRow("content_validate"));
+    expect(result.ok).toBe(false);
+    expect(result.errorMessage).toMatch(/Removed job kind/);
+    expect(createCalls).toBe(0);
+  });
 
-    const result = await runJobByKind(legacyRow({ triggeredBy: "manual", id: "queue-legacy-2" }));
-
-    expect(result.ok).toBe(true);
-    expect(createdTriggeredBy).toBe("manual");
+  it("a content_persist row is rejected", async () => {
+    let createCalls = 0;
+    prismaMock.ingestionJobQueue.create.mockImplementation(async () => {
+      createCalls += 1;
+      return {};
+    });
+    const result = await runJobByKind(legacyRow("content_persist"));
+    expect(result.ok).toBe(false);
+    expect(result.errorMessage).toMatch(/Removed job kind/);
+    expect(createCalls).toBe(0);
   });
 });
