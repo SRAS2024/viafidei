@@ -220,6 +220,44 @@ async function runSourceFetch(
   } catch {
     return { ok: false, errorMessage: `source_fetch: invalid url ${sourceUrl}` };
   }
+  // Host-level source permission gate (spec #2). A source must be:
+  //   - present in the IngestionSource table (otherwise we have no
+  //     allowed-purpose record for the host)
+  //   - not paused
+  //   - not in configurationStatus="not_configured"
+  //   - same host as the target URL (defense against a hijacked feed
+  //     URL pointing at an unrelated host)
+  // The build-enqueue helper later filters per-content-type using the
+  // same source row's purpose flags.
+  if (job.sourceId) {
+    const sourceRow = await prisma.ingestionSource.findUnique({
+      where: { id: job.sourceId },
+      select: {
+        id: true,
+        host: true,
+        pausedAt: true,
+        configurationStatus: true,
+      },
+    });
+    if (!sourceRow) {
+      return { ok: false, errorMessage: `source_fetch: source ${job.sourceId} not found` };
+    }
+    if (sourceRow.pausedAt) {
+      return { ok: false, errorMessage: `source_fetch: source ${sourceRow.host} is paused` };
+    }
+    if (sourceRow.configurationStatus === "not_configured") {
+      return {
+        ok: false,
+        errorMessage: `source_fetch: source ${sourceRow.host} is not_configured — fix the discovery method first`,
+      };
+    }
+    if (sourceRow.host !== hostname) {
+      return {
+        ok: false,
+        errorMessage: `source_fetch: cross-host URL ${hostname} does not match source ${sourceRow.host}`,
+      };
+    }
+  }
   // Minimal fetcher — the worker is allowed to read the real network in
   // production. In the test environment a fixture-bound mock can shadow
   // this. We use the global `fetch` (Node 20+) directly.
