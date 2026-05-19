@@ -209,6 +209,18 @@ export async function POST(req: NextRequest) {
           payload: { retentionDays },
           triggeredBy: "automatic",
         }),
+        // Spec #2: periodic source-configuration repair. Sources
+        // edited at runtime are inspected each tick so that any
+        // source that loses its discovery method ends up
+        // not_configured (and stops enqueueing jobs) without
+        // needing a restart.
+        enqueueJob({
+          jobName: "source_config_repair_scheduled",
+          jobKind: "source_config_repair",
+          dedupeKey: `source_config_repair_${new Date().toISOString().slice(0, 13)}`,
+          payload: {},
+          triggeredBy: "automatic",
+        }),
       ]).catch((e) => {
         logger.warn("cron.cleanup_enqueue_failed", {
           requestId,
