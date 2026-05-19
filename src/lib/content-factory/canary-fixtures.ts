@@ -62,6 +62,96 @@ const CANARY_FIXTURES: CanaryFixture[] = [
       contentChecksum: "canary-therese",
     },
   },
+  {
+    contentType: "Devotion",
+    fixtureName: "Sacred Heart Devotion",
+    document: {
+      sourceUrl: "https://canary.example/devotions/sacred-heart",
+      sourceHost: "canary.example",
+      sourceTier: 1,
+      sourceTitle: "Devotion to the Sacred Heart of Jesus",
+      cleanedBody:
+        "The Devotion to the Sacred Heart of Jesus is one of the most widely practiced Catholic devotions. " +
+        "Practice: pray the Litany of the Sacred Heart each Friday and attend Mass on the First Friday of every month.",
+      headings: [{ level: 1, text: "Devotion to the Sacred Heart of Jesus" }],
+      paragraphs: [
+        "The Devotion to the Sacred Heart of Jesus is one of the most widely practiced Catholic devotions.",
+        "Practice: pray the Litany of the Sacred Heart each Friday and attend Mass on the First Friday of every month.",
+      ],
+      metadata: { language: "en" },
+      sourcePurposes: { canIngestDevotions: true },
+      contentChecksum: "canary-sacred-heart",
+    },
+  },
+  {
+    contentType: "Parish",
+    fixtureName: "Cathedral of the Holy Cross",
+    document: {
+      sourceUrl: "https://canary.example/parishes/holy-cross-boston",
+      sourceHost: "canary.example",
+      sourceTier: 1,
+      sourceTitle: "Cathedral of the Holy Cross",
+      cleanedBody:
+        "Cathedral of the Holy Cross, 1400 Washington Street, Boston, Massachusetts, United States. " +
+        "Diocese: Archdiocese of Boston. The Cathedral is the principal church of the Archdiocese of Boston.",
+      headings: [{ level: 1, text: "Cathedral of the Holy Cross" }],
+      paragraphs: [
+        "Address: 1400 Washington Street, Boston, Massachusetts, United States.",
+        "Diocese: Archdiocese of Boston.",
+      ],
+      metadata: {
+        language: "en",
+        city: "Boston",
+        country: "United States",
+        region: "Massachusetts",
+      },
+      sourcePurposes: { canIngestParishes: true },
+      contentChecksum: "canary-holy-cross",
+    },
+  },
+  {
+    contentType: "Liturgy",
+    fixtureName: "Liturgical Year overview",
+    document: {
+      sourceUrl: "https://canary.example/liturgy/liturgical-year",
+      sourceHost: "canary.example",
+      sourceTier: 1,
+      sourceTitle: "The Liturgical Year",
+      cleanedBody:
+        "The Liturgical Year structures the celebrations of the Catholic Church through Advent, Christmas, " +
+        "Lent, Easter, and Ordinary Time. Each season has its own liturgical color and theological focus.",
+      headings: [{ level: 1, text: "The Liturgical Year" }],
+      paragraphs: [
+        "The Liturgical Year structures the celebrations of the Catholic Church through Advent, Christmas, Lent, Easter, and Ordinary Time.",
+        "Each season has its own liturgical color and theological focus.",
+      ],
+      metadata: { language: "en" },
+      sourcePurposes: { canIngestLiturgy: true },
+      contentChecksum: "canary-liturgical-year",
+    },
+  },
+  {
+    contentType: "History",
+    fixtureName: "First Council of Nicaea",
+    document: {
+      sourceUrl: "https://canary.example/history/first-council-of-nicaea",
+      sourceHost: "canary.example",
+      sourceTier: 1,
+      sourceTitle: "First Council of Nicaea",
+      cleanedBody:
+        "The First Council of Nicaea was a council of Christian bishops convened in the Bithynian city of Nicaea " +
+        "by Emperor Constantine I in AD 325. It produced the original Nicene Creed and is considered the first " +
+        "ecumenical council of the Church.",
+      headings: [{ level: 1, text: "First Council of Nicaea" }],
+      paragraphs: [
+        "Date: AD 325. The First Council of Nicaea was a council of Christian bishops convened by Emperor Constantine I.",
+        "It produced the original Nicene Creed and is considered the first ecumenical council of the Church.",
+      ],
+      metadata: { language: "en", historyType: "Councils" },
+      sourcePurposes: { canIngestHistory: true },
+      contentChecksum: "canary-nicaea",
+    },
+  },
 ];
 
 export type CanaryResult = {
