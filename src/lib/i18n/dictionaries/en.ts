@@ -371,6 +371,9 @@ const admin: Dict = {
   "admin.seedAudit.title": "Seed audit",
   "admin.validationEvidence.title": "Validation evidence",
   "admin.sourcePlan.title": "Production source plan",
+  "admin.cacheHealth.title": "Cache health",
+  "admin.tabDiagnostics.title": "Tab diagnostics",
+  "admin.factoryCommandCenter.title": "Content factory command center",
   "admin.signOut": "Sign out of admin",
   "admin.welcomeLine": "You are signed in as the administrator.",
 };

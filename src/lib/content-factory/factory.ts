@@ -32,6 +32,12 @@ import { isSourceRole } from "../ingestion/sources/roles";
 import { getBuilder } from "./builders";
 import { recordBuildLog } from "./build-log";
 import { validateCrossSource, type EvidenceRecord } from "./cross-source-validation";
+import {
+  collectCrossSourceEvidence,
+  findApprovedValidators,
+  persistEvidenceBatch,
+  type ValidatorCandidate,
+} from "./cross-source-evidence-collector";
 import { enrichPackage } from "./enrich";
 import { normalizePackage } from "./normalize";
 import { persistBuiltPackage, type PersistResult } from "./persist";
@@ -54,12 +60,18 @@ export type FactoryRunInput = {
   sourceRole?: SourceRole;
   /**
    * Evidence collected from approved validation sources for this
-   * document. The collector lives in
-   * `cross-source-evidence-collector.ts` and is invoked by the
-   * worker before runContentFactory(). Passing it in as an input
-   * keeps the orchestrator pure and unit-testable.
+   * document. When omitted AND `validators` is supplied, the
+   * orchestrator runs `collectCrossSourceEvidence()` itself. Tests
+   * can pass evidence directly to skip the collector.
    */
   collectedEvidence?: ReadonlyArray<EvidenceRecord>;
+  /**
+   * Approved validator documents for the in-tick collector. When
+   * omitted, the orchestrator looks up validators via
+   * `findApprovedValidators()` (an Ingestion-source DB lookup). The
+   * worker passes pre-hydrated validator bodies for performance.
+   */
+  validators?: ReadonlyArray<ValidatorCandidate>;
 };
 
 export type FactoryRunResult = {
@@ -153,10 +165,39 @@ export async function runContentFactory(input: FactoryRunInput): Promise<Factory
     ? (input.sourceRole as SourceRole)
     : "discovery_only_source";
   pkg.sourceRole = role;
+
+  // Gather evidence. Caller-supplied evidence wins (tests). When
+  // omitted and role !== primary_content_source, run the collector
+  // against approved validators in the same tick (spec §17 — fold
+  // into content_build).
+  let collectedEvidence: ReadonlyArray<EvidenceRecord> = input.collectedEvidence ?? [];
+  if (input.collectedEvidence === undefined && role !== "primary_content_source") {
+    const validators: ReadonlyArray<ValidatorCandidate> =
+      input.validators ??
+      (await findApprovedValidators(pkg.contentType, {
+        excludeHost: pkg.sourceHost,
+      }).catch(() => []));
+    if (validators.length > 0) {
+      const collected = await collectCrossSourceEvidence({ pkg, validators }).catch((e) => {
+        logger.warn("content-factory.collect_evidence_failed", {
+          slug: pkg.slug,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return { evidence: [], totalValidatorsQueried: 0 };
+      });
+      collectedEvidence = collected.evidence;
+      // Persist for admin visibility — best-effort.
+      await persistEvidenceBatch(collected.evidence, {
+        candidateSlug: pkg.slug,
+        contentType: pkg.contentType,
+      }).catch(() => undefined);
+    }
+  }
+
   const crossSource = validateCrossSource({
     pkg,
     primarySourceRole: role,
-    collectedEvidence: input.collectedEvidence ?? [],
+    collectedEvidence,
   });
   if (crossSource.decision === "fail") {
     if (input.sourceId) {
@@ -326,6 +367,20 @@ export async function runContentFactory(input: FactoryRunInput): Promise<Factory
       slug: pkg.slug,
     }).catch((e) =>
       logger.warn("content-factory.indexing_verify_failed", {
+        slug: pkg.slug,
+        error: e instanceof Error ? e.message : String(e),
+      }),
+    );
+    // Spec §19: revalidate the cache tags affected by this row.
+    // Logged into the in-memory cache health snapshot so admin
+    // diagnostics can prove the factory revalidated after persist.
+    const { revalidateForRow } = await import("../cache/revalidate");
+    await revalidateForRow({
+      reason: persistResult.outcome === "created" ? "package_created" : "package_updated",
+      contentType: input.contentType,
+      slug: pkg.slug,
+    }).catch((e) =>
+      logger.warn("content-factory.cache_revalidate_failed", {
         slug: pkg.slug,
         error: e instanceof Error ? e.message : String(e),
       }),

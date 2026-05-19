@@ -134,6 +134,24 @@ export default async function AdminIngestion() {
         >
           Validation evidence →
         </Link>
+        <Link
+          href="/admin/factory-command-center"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Factory command center →
+        </Link>
+        <Link
+          href="/admin/tab-diagnostics"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Tab diagnostics →
+        </Link>
+        <Link
+          href="/admin/cache-health"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Cache health →
+        </Link>
       </nav>
 
       <DataManagementSettings
