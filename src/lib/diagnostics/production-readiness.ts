@@ -318,6 +318,77 @@ async function publicDisplayCard(): Promise<ReadinessCard> {
   }
 }
 
+async function canaryCard(): Promise<ReadinessCard> {
+  const lastUpdatedAt = new Date();
+  try {
+    const { runCanaryBuilds } = await import("../content-factory/canary-fixtures");
+    const report = runCanaryBuilds();
+    const failing = report.results.filter((r) => !r.passed);
+    return {
+      id: "canary",
+      label: "Canary builds",
+      severity: failing.length === 0 ? "pass" : "fail",
+      summary:
+        failing.length === 0
+          ? `${report.results.length} canary fixture(s) build cleanly`
+          : `${failing.length} canary fixture(s) FAILED: ${failing.map((f) => `${f.contentType}/${f.fixtureName}`).join(", ")}`,
+      lastUpdatedAt,
+      dataSource: "content-factory.canary-fixtures",
+      details: {
+        results: report.results,
+        factoryHealthy: report.factoryHealthy,
+      },
+    };
+  } catch (e) {
+    return {
+      id: "canary",
+      label: "Canary builds",
+      severity: "error",
+      summary: "Canary runner failed to execute",
+      lastUpdatedAt,
+      dataSource: "content-factory.canary-fixtures",
+      errorMessage: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+async function searchSitemapCard(): Promise<ReadinessCard> {
+  const lastUpdatedAt = new Date();
+  try {
+    // A minimum-floor sanity check: at least one public Prayer row
+    // must be visible in both the strict-public query (drives search)
+    // and the catalog the sitemap reads. We do not run verifyIndexing
+    // per-row here (too expensive on a readiness check); we confirm
+    // the strict-public Prayer count > 0 as a proxy. The cron-side
+    // indexing-repair handles per-row reconciliation.
+    const publicPrayerCount = await prisma.prayer.count({
+      where: { status: "PUBLISHED", publicRenderReady: true, isThresholdEligible: true },
+    });
+    return {
+      id: "search_sitemap",
+      label: "Search + sitemap surfaces",
+      severity: publicPrayerCount > 0 ? "pass" : "warn",
+      summary:
+        publicPrayerCount > 0
+          ? `${publicPrayerCount} strict-public Prayer rows visible to search + sitemap`
+          : "No strict-public Prayer rows exist yet — search + sitemap will be empty",
+      lastUpdatedAt,
+      dataSource: "prisma.prayer (strict-public)",
+      details: { publicPrayerCount },
+    };
+  } catch (e) {
+    return {
+      id: "search_sitemap",
+      label: "Search + sitemap surfaces",
+      severity: "error",
+      summary: "Search + sitemap readiness query failed",
+      lastUpdatedAt,
+      dataSource: "prisma.prayer (strict-public)",
+      errorMessage: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 export async function getProductionReadinessReport(): Promise<ReadinessReport> {
   const generatedAt = new Date();
   const cards = await Promise.all([
@@ -330,6 +401,8 @@ export async function getProductionReadinessReport(): Promise<ReadinessReport> {
     securityCard(),
     sourceConfigurationCard(),
     publicDisplayCard(),
+    canaryCard(),
+    searchSitemapCard(),
   ]).catch((e) => {
     logger.warn("production-readiness.aggregate_failed", {
       error: e instanceof Error ? e.message : String(e),
