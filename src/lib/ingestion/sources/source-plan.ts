@@ -74,6 +74,10 @@ export type SourcePlanRow = {
   enrichmentSources: number;
   status: "ok" | "warn" | "fail";
   shortfall: number;
+  /** Aggregated source health for this content type. */
+  sourceHealth: "healthy" | "degraded" | "failed";
+  /** Stable string the admin source-plan page surfaces. */
+  nextAutomaticRepairAction: string;
 };
 
 export type SourcePlanReport = {
@@ -215,6 +219,15 @@ export async function buildSourcePlanReport(): Promise<SourcePlanReport> {
       underMinimum += 1;
     }
 
+    const sourceHealth: SourcePlanRow["sourceHealth"] =
+      status === "fail" ? "failed" : status === "warn" ? "degraded" : "healthy";
+    const nextAutomaticRepairAction =
+      status === "fail"
+        ? `Enqueue source_discovery for ${contentType} candidates; mark source configuration as failed`
+        : status === "warn"
+          ? `Run planDiscoveryExpansion() for ${contentType} (${shortfall} source(s) short of minimum)`
+          : "No action required";
+
     rows.push({
       contentType,
       required,
@@ -223,6 +236,8 @@ export async function buildSourcePlanReport(): Promise<SourcePlanReport> {
       validationSources,
       enrichmentSources,
       status,
+      sourceHealth,
+      nextAutomaticRepairAction,
       shortfall,
     });
   }

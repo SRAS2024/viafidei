@@ -51,8 +51,10 @@ export default async function SourcePlanPage() {
               <th className="py-1">Factory-ready</th>
               <th className="py-1">Validation</th>
               <th className="py-1">Enrichment</th>
+              <th className="py-1">Health</th>
               <th className="py-1">Shortfall</th>
               <th className="py-1">Status</th>
+              <th className="py-1">Next automatic repair</th>
             </tr>
           </thead>
           <tbody>
@@ -62,6 +64,7 @@ export default async function SourcePlanPage() {
                 className="border-t border-ink/5"
                 data-testid={`source-plan-row-${row.contentType}`}
                 data-source-plan-status={row.status}
+                data-source-health={row.sourceHealth}
               >
                 <td className="py-1 font-semibold text-ink">{row.contentType}</td>
                 <td className="py-1">{row.required}</td>
@@ -69,6 +72,7 @@ export default async function SourcePlanPage() {
                 <td className="py-1">{row.factoryReady}</td>
                 <td className="py-1">{row.validationSources}</td>
                 <td className="py-1">{row.enrichmentSources}</td>
+                <td className="py-1">{row.sourceHealth}</td>
                 <td className="py-1">{row.shortfall}</td>
                 <td className="py-1">
                   <span
@@ -79,6 +83,7 @@ export default async function SourcePlanPage() {
                     {row.status}
                   </span>
                 </td>
+                <td className="py-1 text-ink-soft">{row.nextAutomaticRepairAction}</td>
               </tr>
             ))}
           </tbody>
