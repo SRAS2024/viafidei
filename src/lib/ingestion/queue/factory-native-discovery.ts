@@ -14,7 +14,8 @@
  *      DiscoveredSourceItem row AND enqueue a source_fetch job.
  *   5. The source_fetch handler then fetches the URL and writes a
  *      SourceDocument; source_fetch's own follow-up logic chains
- *      content_build / content_validate / content_persist.
+ *      a single combined content_build job (build + normalize +
+ *      enrich + strict QA + persist in one worker tick).
  *
  * This path runs no adapter logic. It only uses the durable queue,
  * which makes it strictly factory-native per the spec.

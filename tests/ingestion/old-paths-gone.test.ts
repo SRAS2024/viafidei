@@ -74,7 +74,14 @@ describe("old ingestion paths are gone", () => {
     if (jobKindsBlock) {
       expect(jobKindsBlock[1]).not.toMatch(/["']source_ingest["']/);
     }
-    expect(src).toMatch(/REMOVED_JOB_KINDS = \["source_ingest"\]/);
+    // REMOVED_JOB_KINDS now also contains the collapsed stages
+    // content_validate and content_persist — match the literal that
+    // contains "source_ingest" anywhere in the list.
+    const removedBlock = src.match(/export const REMOVED_JOB_KINDS = \[([\s\S]*?)\] as const/);
+    expect(removedBlock).not.toBeNull();
+    if (removedBlock) {
+      expect(removedBlock[1]).toMatch(/["']source_ingest["']/);
+    }
   });
 
   it("validatePayload rejects source_ingest with the 'Removed job kind' error", async () => {

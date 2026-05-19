@@ -1,20 +1,27 @@
 /**
- * One-time migration: convert or delete legacy `source_ingest` queue
- * rows so the worker can stop carrying the legacy-kind translation
- * shim.
+ * One-time migration: convert or delete legacy queue rows now that
+ * the worker translation shim has been deleted.
+ *
+ * The shim used to rewrite `source_ingest` rows into
+ * `source_discovery` at execution time. With the shim gone, legacy
+ * rows fail permanently at dispatch with a precise diagnostic — so
+ * this script must be run on every deployment that still has any
+ * legacy rows in the queue. Legacy kinds handled:
+ *
+ *   - `source_ingest`     → enqueue a fresh `source_discovery` row.
+ *   - `content_validate`  → enqueue a fresh `content_build` row with
+ *                            the same payload (the build stage now
+ *                            runs the whole pipeline).
+ *   - `content_persist`   → same as content_validate.
  *
  * Strategy per row:
  *
- *   - `pending` / `retrying` row with a known `sourceId` → enqueue
- *     a fresh `source_discovery` job and mark the legacy row
- *     completed. The new row uses the same priority and triggeredBy
- *     so the planner sees no behavioural change.
- *   - row with NO `sourceId` (cannot route through the new chain) →
- *     mark `failed` with a precise reason so the admin can see why
- *     the row was dropped.
+ *   - `pending` / `retrying` row that can be routed → enqueue the
+ *     replacement and mark the legacy row completed.
+ *   - row that cannot be routed (e.g. missing sourceId for a
+ *     source-side legacy row) → mark `failed` with a precise reason.
  *   - `running` rows are left alone (the leasing worker is still
- *     processing them; they'll complete and the next run drains
- *     them).
+ *     processing them; they'll complete on their own).
  *
  * Invocation:
  *
@@ -56,7 +63,8 @@ async function migrateLegacyQueueRows(options: { dryRun: boolean }): Promise<Mig
   report.total = rows.length;
   for (const row of rows) {
     const adapterKey = (row.payload as Record<string, unknown> | null)?.adapterKey ?? row.jobName;
-    if (!row.sourceId) {
+    const targetKind = chooseReplacementKind(row.jobKind);
+    if (targetKind === "source_discovery" && !row.sourceId) {
       report.failed += 1;
       console.log(
         `[${options.dryRun ? "dry-run" : "migrate"}] FAIL  queue=${row.id} jobKind=${row.jobKind} reason="no sourceId — cannot route through factory chain"`,
@@ -74,25 +82,42 @@ async function migrateLegacyQueueRows(options: { dryRun: boolean }): Promise<Mig
       }
       continue;
     }
+    if (targetKind === null) {
+      report.skipped += 1;
+      console.log(
+        `[${options.dryRun ? "dry-run" : "migrate"}] SKIP  queue=${row.id} jobKind=${row.jobKind} reason="no replacement mapping"`,
+      );
+      continue;
+    }
     report.translated += 1;
     console.log(
-      `[${options.dryRun ? "dry-run" : "migrate"}] OK    queue=${row.id} jobKind=${row.jobKind} sourceId=${row.sourceId} → source_discovery`,
+      `[${options.dryRun ? "dry-run" : "migrate"}] OK    queue=${row.id} jobKind=${row.jobKind} sourceId=${row.sourceId ?? "(none)"} → ${targetKind}`,
     );
     if (options.dryRun) continue;
     try {
+      const payload = (row.payload as Record<string, unknown> | null) ?? {};
+      const replacementPayload =
+        targetKind === "source_discovery"
+          ? {
+              sourceId: row.sourceId,
+              adapterKey,
+              contentType: row.contentType ?? undefined,
+              mode: "constant" as const,
+            }
+          : {
+              sourceDocumentId: payload.sourceDocumentId,
+              sourceUrl: payload.sourceUrl,
+              sourceId: row.sourceId ?? undefined,
+              contentType: row.contentType ?? undefined,
+            };
       await enqueueJob({
         jobName: row.jobName,
-        jobKind: "source_discovery",
+        jobKind: targetKind,
         dedupeKey: `migrated:${row.id}`,
         sourceId: row.sourceId,
         jobId: row.jobId,
         contentType: row.contentType,
-        payload: {
-          sourceId: row.sourceId,
-          adapterKey,
-          contentType: row.contentType ?? undefined,
-          mode: "constant" as const,
-        },
+        payload: replacementPayload,
         triggeredBy: row.triggeredBy === "manual" ? "manual" : "automatic",
         actorUsername: row.actorUsername ?? null,
       });
@@ -101,7 +126,7 @@ async function migrateLegacyQueueRows(options: { dryRun: boolean }): Promise<Mig
         data: {
           status: "completed",
           finishedAt: new Date(),
-          errorMessage: `Migrated to source_discovery via migrate-legacy-queue-rows`,
+          errorMessage: `Migrated to ${targetKind} via migrate-legacy-queue-rows`,
         },
       });
     } catch (e) {
@@ -113,6 +138,16 @@ async function migrateLegacyQueueRows(options: { dryRun: boolean }): Promise<Mig
     }
   }
   return report;
+}
+
+function chooseReplacementKind(
+  legacyKind: string,
+): "source_discovery" | "content_build" | null {
+  if (legacyKind === "source_ingest") return "source_discovery";
+  if (legacyKind === "content_validate" || legacyKind === "content_persist") {
+    return "content_build";
+  }
+  return null;
 }
 
 async function main() {

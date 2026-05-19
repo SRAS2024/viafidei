@@ -1,16 +1,16 @@
 /**
  * Startup safety check: scan the queue for removed job kinds.
  *
- * The worker temporarily translates legacy `source_ingest` rows into
- * modern `source_discovery` rows so a pre-migration deploy doesn't
- * break the queue. That translation is a one-time migration aid; it
- * is NOT a permanent fallback.
+ * The runtime translation shim has been DELETED — legacy rows
+ * (`source_ingest`, `content_validate`, `content_persist`) are no
+ * longer rewritten into `source_discovery` at the worker. They now
+ * fail at execution time with a precise diagnostic.
  *
  * This check runs at startup. If removed job kinds are still present
  * AFTER the migration window has elapsed, it raises a loud admin
  * diagnostic (logged at error level + recorded as a critical
  * ErrorLog) so the operator sees the queue is stuck on legacy rows
- * and can run the migration job to drain or delete them.
+ * and can run the queue migration job to drain or delete them.
  *
  * The migration window is `LEGACY_JOB_KIND_MIGRATION_WINDOW_MS`
  * (default 7 days) after the FIRST observation of any removed-kind
@@ -78,8 +78,8 @@ export async function scanQueueForRemovedJobKinds(
       migrationWindowMs: windowMs,
       message:
         "Removed job kinds are still queued AFTER the migration window. " +
-        "The temporary worker translation should be deleted only after these " +
-        "rows are drained. Run the queue migration job to convert or delete them.",
+        "The worker translation shim has been deleted; run the queue " +
+        "migration job to convert or delete these rows manually.",
     });
   } else {
     logger.warn("startup.removed_job_kinds_present_within_window", {

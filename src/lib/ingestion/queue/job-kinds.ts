@@ -6,10 +6,19 @@
  * The worker uses `jobKind` to route execution, so adapter-name-based
  * dispatch is no longer needed at the queue layer.
  *
- * `source_ingest` was the legacy single-step adapter executor. It is
- * removed from the active set — new code must enqueue explicit
- * factory-stage kinds (`source_discovery` → `source_fetch` →
- * `content_build` → `content_validate` → `content_persist`).
+ * Stage model: a single combined `content_build` job runs the entire
+ * factory pipeline (build → normalize → enrich → strict QA → persist)
+ * in one worker tick. The legacy split stages `content_validate` and
+ * `content_persist` only called the same combined factory function,
+ * so they have been removed from the active set and live in
+ * `REMOVED_JOB_KINDS`.
+ *
+ * `source_ingest` was the legacy single-step adapter executor and is
+ * also removed. Active code only enqueues factory-stage kinds
+ * (`source_discovery` → `source_fetch` → `content_build`). The
+ * runtime translation shim that previously rewrote in-flight legacy
+ * rows has been deleted; the queue migration script and the startup
+ * safety check are the only paths that touch legacy rows now.
  */
 
 import { z } from "zod";
@@ -19,10 +28,10 @@ export const JOB_KINDS = [
   "source_discovery",
   "source_fetch",
   "source_freshness",
-  // Factory-stage kinds.
+  "source_config_repair",
+  // Factory-stage kind. One combined job runs build + normalize +
+  // enrich + strict QA + persist in a single worker tick.
   "content_build",
-  "content_validate",
-  "content_persist",
   // Catalog-wide kinds.
   "content_revalidate",
   "strict_cleanup",
@@ -44,9 +53,8 @@ export const PRIORITY_DEFAULTS: Record<JobKind, number> = {
   source_fetch: 100,
   source_discovery: 110,
   content_build: 120,
-  content_validate: 130,
-  content_persist: 140,
   content_revalidate: 150,
+  source_config_repair: 200,
   strict_cleanup: 250,
   dedupe_cleanup: 300,
   archive_cleanup: 400,
@@ -55,11 +63,16 @@ export const PRIORITY_DEFAULTS: Record<JobKind, number> = {
 };
 
 /**
- * Removed job kinds. Surfacing this list lets callers (and tests)
- * detect legacy rows still sitting in the queue and translate them
- * into the modern factory stages — see `dispatch.ts`.
+ * Removed job kinds. Surfacing this list lets the startup safety
+ * check and queue-migration scripts identify legacy rows still
+ * sitting in the queue so the operator can drain or delete them.
+ *
+ * The runtime translation shim that previously rewrote in-flight
+ * legacy rows has been deleted (the queue has been drained). Legacy
+ * rows now fail validation at execution time and surface as a loud
+ * diagnostic.
  */
-export const REMOVED_JOB_KINDS = ["source_ingest"] as const;
+export const REMOVED_JOB_KINDS = ["source_ingest", "content_validate", "content_persist"] as const;
 export type RemovedJobKind = (typeof REMOVED_JOB_KINDS)[number];
 export function isRemovedJobKind(value: string): value is RemovedJobKind {
   return (REMOVED_JOB_KINDS as readonly string[]).includes(value);
@@ -150,12 +163,11 @@ export const reportGeneratePayloadSchema = z.object({
   reportKind: z.enum(["biweekly", "monthly_archive", "monthly_source_quality", "monthly_error"]),
 });
 
-// Factory-stage payload schemas. Each carries the SourceDocument id
-// (or a fetch target URL for source_fetch) and the content type the
-// downstream stage should produce. The orchestrator chains them so
-// content_build → content_validate → content_persist can be enqueued
-// as separate jobs OR collapsed into a single `runContentFactory()`
-// call inside one worker tick.
+// Factory-stage payload schemas. content_build is the single combined
+// stage that runs build + normalize + enrich + strict QA + persist
+// inside one worker tick. The previous split stages
+// (content_validate, content_persist) called the same factory entry
+// point and are removed.
 export const sourceFetchPayloadSchema = z.object({
   sourceUrl: z.string().url(),
   sourceId: z.string().min(1).optional(),
@@ -186,8 +198,11 @@ export const contentBuildPayloadSchema = z.object({
   sourceId: z.string().min(1).optional(),
 });
 
-export const contentValidatePayloadSchema = contentBuildPayloadSchema;
-export const contentPersistPayloadSchema = contentBuildPayloadSchema;
+export const sourceConfigRepairPayloadSchema = z
+  .object({
+    sourceId: z.string().min(1).optional(),
+  })
+  .strict();
 
 export const strictCleanupPayloadSchema = z
   .object({
@@ -200,9 +215,8 @@ export const JOB_PAYLOAD_SCHEMAS: Record<JobKind, z.ZodTypeAny> = {
   source_freshness: sourceFreshnessPayloadSchema,
   source_discovery: sourceDiscoveryPayloadSchema,
   source_fetch: sourceFetchPayloadSchema,
+  source_config_repair: sourceConfigRepairPayloadSchema,
   content_build: contentBuildPayloadSchema,
-  content_validate: contentValidatePayloadSchema,
-  content_persist: contentPersistPayloadSchema,
   content_revalidate: contentRevalidatePayloadSchema,
   strict_cleanup: strictCleanupPayloadSchema,
   archive_cleanup: archiveCleanupPayloadSchema,
@@ -229,7 +243,7 @@ export function validatePayload(
   if (isRemovedJobKind(jobKind)) {
     return {
       ok: false,
-      error: `Removed job kind '${jobKind}' — use the explicit factory stages instead (source_discovery → source_fetch → content_build → content_validate → content_persist).`,
+      error: `Removed job kind '${jobKind}' — use the explicit factory stages instead (source_discovery → source_fetch → content_build). content_validate / content_persist are folded into the single content_build stage.`,
     };
   }
   if (!isJobKind(jobKind)) {

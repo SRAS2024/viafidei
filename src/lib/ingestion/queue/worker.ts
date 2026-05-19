@@ -115,7 +115,8 @@ export async function processNextJob(
 
   // Dispatch by jobKind. The dispatcher handles every typed job
   // kind — source_discovery, source_fetch, source_freshness,
-  // content_build, content_validate, content_persist, etc.
+  // content_build (single combined factory stage),
+  // source_config_repair, content_revalidate, etc.
   try {
     const result = await runJobByKind(job);
     if (!result.ok) {
