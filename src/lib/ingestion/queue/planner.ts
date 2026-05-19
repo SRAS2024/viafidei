@@ -40,6 +40,7 @@ export type PlannerSummary = {
   jobsSkippedContentTypePaused: number;
   jobsSkippedSourceUnhealthy: number;
   jobsSkippedSourceExhausted: number;
+  jobsSkippedSourceNotConfigured: number;
   jobsSkippedDailyCap: number;
   jobsSkippedFillCap: number;
   promotedToConstant: number;
@@ -229,6 +230,7 @@ export async function enqueueDueIngestionJobs(
     jobsSkippedContentTypePaused: 0,
     jobsSkippedSourceUnhealthy: 0,
     jobsSkippedSourceExhausted: 0,
+    jobsSkippedSourceNotConfigured: 0,
     jobsSkippedDailyCap: 0,
     jobsSkippedFillCap: 0,
     promotedToConstant: 0,
@@ -294,6 +296,17 @@ export async function enqueueDueIngestionJobs(
     const ctPause = await isContentTypePaused(job.targetEntity);
     if (ctPause.paused) {
       summary.jobsSkippedContentTypePaused += 1;
+      continue;
+    }
+
+    // Spec #2: "Sources without a valid discovery method should be
+    // marked not_configured. not_configured sources should not
+    // enqueue jobs." The factory-source-setup task + the periodic
+    // source_config_repair job set `configurationStatus` to
+    // "not_configured" when a source has no usable discovery method,
+    // so the planner skips them deterministically here.
+    if (job.source.configurationStatus === "not_configured") {
+      summary.jobsSkippedSourceNotConfigured += 1;
       continue;
     }
 
