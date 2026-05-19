@@ -7,6 +7,7 @@ import {
   PERIOD_LABELS,
   type CouncilBucket,
 } from "@/lib/data/church-history";
+import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
 import { logPageError } from "@/lib/observability/page-errors";
 import { HistoryTimelineClient, type HistoryEvent } from "./HistoryTimelineClient";
 
@@ -25,9 +26,29 @@ export default async function HistoryPage() {
   let rawEvents: Awaited<ReturnType<typeof loadTimeline>> = [];
   let councilBuckets: CouncilBucket[] = [];
   try {
+    // Spec §19: cached strict-public history queries scoped by tab tag.
+    const cfg = tagsForList({ contentType: "History", tab: "history" });
+    const cachedTimeline = await withCacheTags<
+      Parameters<typeof loadTimeline>,
+      Awaited<ReturnType<typeof loadTimeline>>
+    >({
+      keyParts: ["history", "timeline", locale],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: loadTimeline,
+    });
+    const cachedCouncilBuckets = await withCacheTags<
+      Parameters<typeof loadCouncilBuckets>,
+      Awaited<ReturnType<typeof loadCouncilBuckets>>
+    >({
+      keyParts: ["history", "councils", locale],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: loadCouncilBuckets,
+    });
     [rawEvents, councilBuckets] = await Promise.all([
-      loadTimeline(locale),
-      loadCouncilBuckets(locale),
+      cachedTimeline(locale),
+      cachedCouncilBuckets(locale),
     ]);
   } catch (err) {
     logPageError({ route: "/history", entityType: "LiturgyEntry", error: err });

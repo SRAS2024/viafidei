@@ -31,6 +31,12 @@ export { runContentFactory, type FactoryRunInput, type FactoryRunResult } from "
 export { recordScoreEvent, listSourceQualityScores } from "./source-scoring";
 export { runGrowthIntelligence, type GrowthIntelligenceReport } from "./growth-intelligence";
 export {
+  BASELINE_SEED_FIXTURES,
+  seedBaselineContent,
+  type BaselineSeedEntry,
+  type BaselineSeedResult,
+} from "./baseline-seed";
+export {
   BUILDER_VERSION_REGISTRY,
   getBuilderRegistryEntry,
   listBuilderRegistry,

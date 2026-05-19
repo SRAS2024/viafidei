@@ -32,7 +32,8 @@
     "migrate:jobs-to-queue": "tsx scripts/migrate-jobs-to-queue.ts",
     "migrate:legacy-queue-rows": "tsx scripts/migrate-legacy-queue-rows.ts",
     "migrate:confession-to-reconciliation": "tsx scripts/migrate-confession-to-reconciliation.ts",
-    "verify:deployment": "tsx scripts/verify-deployment.ts"
+    "verify:deployment": "tsx scripts/verify-deployment.ts",
+    "seed:baseline": "tsx scripts/seed-baseline.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

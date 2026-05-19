@@ -16,7 +16,15 @@ import { describe, expect, it } from "vitest";
 
 const APP_ROOT = join(process.cwd(), "src", "app");
 
-const REQUIRED_CACHED_TABS = ["prayers", "saints", "devotions", "spiritual-life", "liturgy"];
+const REQUIRED_CACHED_TABS = [
+  "prayers",
+  "saints",
+  "devotions",
+  "spiritual-life",
+  "liturgy",
+  "sacraments",
+  "history",
+];
 
 describe("Public tabs use cache-tag helper (spec §19)", () => {
   for (const tab of REQUIRED_CACHED_TABS) {
