@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHero } from "@/components/ui/PageHero";
 import { listSaintsForFeastDate } from "@/lib/data/saints";
+import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
 import { getTranslator } from "@/lib/i18n/server";
 import { logPageError } from "@/lib/observability/page-errors";
 import { TodayDateLabel } from "./TodayDateLabel";
@@ -44,7 +45,21 @@ export default async function TodayFeastDayPage({ searchParams }: Props) {
 
   let saints: Awaited<ReturnType<typeof listSaintsForFeastDate>> = [];
   try {
-    saints = await listSaintsForFeastDate(locale, month, day);
+    // Spec §19: cached saints-by-feast-day query. The key includes the
+    // (month, day) so today's list and yesterday's list don't share a
+    // cache slot, and the tag set still flips when any Saint is
+    // persisted / deleted.
+    const cfg = tagsForList({ contentType: "Saint", tab: "saints" });
+    const cached = await withCacheTags<
+      Parameters<typeof listSaintsForFeastDate>,
+      Awaited<ReturnType<typeof listSaintsForFeastDate>>
+    >({
+      keyParts: ["saints", "today", locale, String(month), String(day)],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: listSaintsForFeastDate,
+    });
+    saints = await cached(locale, month, day);
   } catch (err) {
     logPageError({ route: "/saints/today", entityType: "Saint", error: err });
   }

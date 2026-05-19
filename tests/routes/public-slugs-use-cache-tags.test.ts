@@ -13,7 +13,15 @@ import { describe, expect, it } from "vitest";
 
 const APP_ROOT = join(process.cwd(), "src", "app");
 
-const REQUIRED_SLUG_TABS = ["prayers", "saints", "devotions"];
+const REQUIRED_SLUG_TABS = [
+  "prayers",
+  "saints",
+  "devotions",
+  "sacraments",
+  "spiritual-life",
+  "spiritual-guidance",
+  "liturgy-history",
+];
 
 describe("Per-slug cache-tag usage (spec §19)", () => {
   for (const tab of REQUIRED_SLUG_TABS) {

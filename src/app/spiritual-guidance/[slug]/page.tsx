@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedParishBySlug } from "@/lib/data/parishes";
+import { tagsForSlug, withCacheTags } from "@/lib/cache/cached-data";
 import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
@@ -17,7 +18,18 @@ type Props = { params: Promise<{ slug: string }> };
 
 async function safeGetParish(slug: string) {
   try {
-    return await getPublishedParishBySlug(slug);
+    // Spec §19: per-slug cache for parish detail pages.
+    const cfg = tagsForSlug({ contentType: "Parish", tab: "parishes", slug });
+    const cached = await withCacheTags<
+      Parameters<typeof getPublishedParishBySlug>,
+      Awaited<ReturnType<typeof getPublishedParishBySlug>>
+    >({
+      keyParts: ["parishes", "detail", slug],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: getPublishedParishBySlug,
+    });
+    return await cached(slug);
   } catch (err) {
     logPageError({
       route: "/spiritual-guidance/[slug]",
