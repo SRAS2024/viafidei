@@ -374,6 +374,7 @@ const admin: Dict = {
   "admin.cacheHealth.title": "Cache health",
   "admin.tabDiagnostics.title": "Tab diagnostics",
   "admin.factoryCommandCenter.title": "Content factory command center",
+  "admin.sourceGroups.title": "Source groups by content type",
   "admin.signOut": "Sign out of admin",
   "admin.welcomeLine": "You are signed in as the administrator.",
 };

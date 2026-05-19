@@ -152,6 +152,12 @@ export default async function AdminIngestion() {
         >
           Cache health →
         </Link>
+        <Link
+          href="/admin/source-groups"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Source groups →
+        </Link>
       </nav>
 
       <DataManagementSettings
