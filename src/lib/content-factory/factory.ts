@@ -238,6 +238,20 @@ export async function runContentFactory(input: FactoryRunInput): Promise<Factory
         error: e instanceof Error ? e.message : String(e),
       }),
     );
+    // Search + sitemap verification: spec #17 / #26.10. After the
+    // row is public, confirm both surfaces include it. Failures are
+    // logged but do not roll back persistence — they trigger the
+    // existing indexing-repair path.
+    const { verifyIndexing } = await import("./search-sitemap-verifier");
+    await verifyIndexing({
+      contentType: input.contentType,
+      slug: pkg.slug,
+    }).catch((e) =>
+      logger.warn("content-factory.indexing_verify_failed", {
+        slug: pkg.slug,
+        error: e instanceof Error ? e.message : String(e),
+      }),
+    );
   }
 
   return {
