@@ -3,6 +3,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { Pagination } from "@/components/ui/Pagination";
 import { listPublishedDevotionsPaginated } from "@/lib/data/devotions";
+import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
 import { logPageError } from "@/lib/observability/page-errors";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 import { filterByRite } from "@/lib/content/rites";
@@ -26,7 +27,18 @@ export default async function DevotionsPage({
     totalPages: 0,
   };
   try {
-    result = await listPublishedDevotionsPaginated(locale, page);
+    // Spec §19: cached strict-public devotions list scoped by tab tag.
+    const cfg = tagsForList({ contentType: "Devotion", tab: "devotions" });
+    const cached = await withCacheTags<
+      Parameters<typeof listPublishedDevotionsPaginated>,
+      Awaited<ReturnType<typeof listPublishedDevotionsPaginated>>
+    >({
+      keyParts: ["devotions", "list", locale, String(page)],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: listPublishedDevotionsPaginated,
+    });
+    result = await cached(locale, page);
   } catch (err) {
     logPageError({ route: "/devotions", entityType: "Devotion", error: err });
   }

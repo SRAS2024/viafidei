@@ -4,6 +4,7 @@ import { PageHero } from "@/components/ui/PageHero";
 import { Pagination } from "@/components/ui/Pagination";
 import { listPublishedSaintsPaginated, type SaintCategory } from "@/lib/data/saints";
 import { listPublishedApparitionsPaginated } from "@/lib/data/apparitions";
+import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
 import { SaintsGrid, ApparitionsGrid } from "./_components";
 import { logPageError } from "@/lib/observability/page-errors";
 
@@ -49,9 +50,33 @@ export default async function SaintsPage({ searchParams }: Props) {
   };
 
   try {
+    // Spec §19: cached strict-public queries scoped by tab tags.
+    const saintsTags = tagsForList({ contentType: "Saint", tab: "saints" });
+    const apparitionsTags = tagsForList({
+      contentType: "MarianApparition",
+      tab: "apparitions",
+    });
+    const cachedSaints = await withCacheTags<
+      Parameters<typeof listPublishedSaintsPaginated>,
+      Awaited<ReturnType<typeof listPublishedSaintsPaginated>>
+    >({
+      keyParts: ["saints", "list", locale, String(saintsPage), filter],
+      tags: saintsTags.tags,
+      revalidateSeconds: saintsTags.revalidateSeconds,
+      fn: listPublishedSaintsPaginated,
+    });
+    const cachedApparitions = await withCacheTags<
+      Parameters<typeof listPublishedApparitionsPaginated>,
+      Awaited<ReturnType<typeof listPublishedApparitionsPaginated>>
+    >({
+      keyParts: ["apparitions", "list", locale, String(apparitionsPage)],
+      tags: apparitionsTags.tags,
+      revalidateSeconds: apparitionsTags.revalidateSeconds,
+      fn: listPublishedApparitionsPaginated,
+    });
     [saintsResult, apparitionsResult] = await Promise.all([
-      listPublishedSaintsPaginated(locale, saintsPage, undefined, filter),
-      listPublishedApparitionsPaginated(locale, apparitionsPage),
+      cachedSaints(locale, saintsPage, undefined, filter),
+      cachedApparitions(locale, apparitionsPage),
     ]);
   } catch (err) {
     logPageError({ route: "/saints", entityType: "Saint", error: err });
