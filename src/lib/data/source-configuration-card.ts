@@ -57,6 +57,12 @@ export type SourceConfigurationCard = {
   lastFetchAt: Date | null;
   lastBuildAt: Date | null;
   lastValidPackageAt: Date | null;
+  /** Factory role gating what the source may originate/validate/enrich. */
+  role: string;
+  /** Last automatic role-change reason. */
+  roleLastReason: string | null;
+  /** Last automatic role-change timestamp. */
+  roleLastChangedAt: Date | null;
   errors: string[];
 };
 
@@ -125,6 +131,9 @@ async function buildCardForSource(source: {
   discoveryMethod: string | null;
   configurationStatus: string | null;
   configurationStatusReason: string | null;
+  role?: string;
+  roleLastReason?: string | null;
+  roleLastChangedAt?: Date | null;
 }): Promise<SourceConfigurationCard> {
   const errors: string[] = [];
   const flags: SourcePurposeFlags = {
@@ -204,6 +213,9 @@ async function buildCardForSource(source: {
     lastFetchAt: lastFetch?.fetchedAt ?? null,
     lastBuildAt: lastBuild?.createdAt ?? null,
     lastValidPackageAt: lastValidPackage?.createdAt ?? null,
+    role: source.role ?? "discovery_only_source",
+    roleLastReason: source.roleLastReason ?? null,
+    roleLastChangedAt: source.roleLastChangedAt ?? null,
     errors,
   };
 }

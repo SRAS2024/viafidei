@@ -62,7 +62,15 @@ describe("growth intelligence — stall detectors", () => {
     prismaMock.contentPackageBuildLog.groupBy.mockResolvedValue([
       { buildStatus: "built_complete_package", _count: { _all: 10 } },
     ]);
-    prismaMock.rejectedContentLog.count.mockResolvedValue(20); // 200% of builds
+    // The growth intelligence module makes two `rejectedContentLog.count`
+    // calls per tick: the unfiltered QA-spike count and a
+    // failureCategory-filtered evidence-missing count. Only the first
+    // should fire here.
+    prismaMock.rejectedContentLog.count.mockImplementation(async (args?: unknown) => {
+      const a = args as { where?: { failureCategory?: string } } | undefined;
+      if (a?.where?.failureCategory === "validation_evidence_missing") return 0;
+      return 20; // 200% of builds
+    });
     const report = await runGrowthIntelligence();
     expect(report.signalsDetected).toContain("qa-rejection-spike");
     expect(report.adminAlertsFired).toContain("qa-rejection-spike");
@@ -183,5 +191,23 @@ describe("growth intelligence — stall detectors", () => {
     expect(report.signalsDetected).toEqual([]);
     expect(report.remediationsApplied).toEqual([]);
     expect(report.adminAlertsFired).toEqual([]);
+  });
+
+  it("detects 'validation-evidence-missing' when many packages are rejected for that reason", async () => {
+    // Builds OK, no QA spike — but the failureCategory-filtered count
+    // is high enough that the validator-coverage detector fires.
+    prismaMock.contentPackageBuildLog.groupBy.mockResolvedValue([
+      { buildStatus: "built_complete_package", _count: { _all: 4 } },
+    ]);
+    prismaMock.rejectedContentLog.count.mockImplementation(async (args?: unknown) => {
+      const a = args as { where?: { failureCategory?: string } } | undefined;
+      if (a?.where?.failureCategory === "validation_evidence_missing") return 12;
+      return 0; // total QA rejection count
+    });
+    const report = await runGrowthIntelligence();
+    expect(report.signalsDetected).toContainEqual(
+      expect.stringMatching(/^validation-evidence-missing:/),
+    );
+    expect(report.adminAlertsFired).toContain("validation-evidence-missing");
   });
 });

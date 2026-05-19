@@ -116,6 +116,24 @@ export default async function AdminIngestion() {
         >
           Workers →
         </Link>
+        <Link
+          href="/admin/source-configuration"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Source configuration →
+        </Link>
+        <Link
+          href="/admin/source-plan"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Production source plan →
+        </Link>
+        <Link
+          href="/admin/validation-evidence"
+          className="vf-nav-link rounded-sm border border-stone-300 px-3 py-1 hover:bg-stone-100"
+        >
+          Validation evidence →
+        </Link>
       </nav>
 
       <DataManagementSettings

@@ -503,17 +503,25 @@ async function runSourceConfigRepairJob(
   void job;
   try {
     const { runSourceConfigRepair } = await import("./source-config-repair");
+    const { runRoleSync } = await import("../sources/role-sync");
     const sourceId = (payload.sourceId as string | undefined) ?? null;
-    const report = await runSourceConfigRepair({ sourceId });
+    const [configReport, roleReport] = await Promise.all([
+      runSourceConfigRepair({ sourceId }),
+      sourceId ? Promise.resolve(null) : runRoleSync(),
+    ]);
+    const rolePart = roleReport
+      ? `, role-sync inspected=${roleReport.inspected} promoted=${roleReport.promoted} demoted=${roleReport.demoted} rejected=${roleReport.rejected}`
+      : "";
     return {
-      ok: report.errors === 0,
+      ok: configReport.errors === 0 && (roleReport ? roleReport.errors === 0 : true),
       errorMessage:
-        `source-config-repair inspected=${report.inspected}, ` +
-        `notConfigured=${report.markedNotConfigured}, ` +
-        `factoryNative=${report.markedFactoryNative}, ` +
-        `missingPurpose=${report.missingPurposeFlags.length}, ` +
-        `missingTypes=${report.missingContentTypes.length}, ` +
-        `errors=${report.errors}`,
+        `source-config-repair inspected=${configReport.inspected}, ` +
+        `notConfigured=${configReport.markedNotConfigured}, ` +
+        `factoryNative=${configReport.markedFactoryNative}, ` +
+        `missingPurpose=${configReport.missingPurposeFlags.length}, ` +
+        `missingTypes=${configReport.missingContentTypes.length}, ` +
+        `errors=${configReport.errors}` +
+        rolePart,
     };
   } catch (e) {
     return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };
