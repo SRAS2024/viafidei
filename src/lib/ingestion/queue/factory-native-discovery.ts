@@ -60,6 +60,33 @@ function isSameHost(candidate: string, expectedHost: string): boolean {
   }
 }
 
+/**
+ * Canonicalize a discovery URL before we record / enqueue it. Strips
+ * tracking parameters and fragment, normalizes the host to lower
+ * case, and drops a trailing slash on the path so that
+ * `https://example.org/x` and `https://example.org/x/` resolve to the
+ * same DiscoveredSourceItem dedupe key.
+ *
+ * Spec #2: "Add canonical URL normalization before saving discovered
+ * items. Add duplicate URL filtering at discovery time."
+ */
+export function canonicalizeDiscoveredUrl(input: string): string {
+  try {
+    const u = new URL(input);
+    u.hash = "";
+    // Strip common tracking parameters.
+    const drop = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "gclid"];
+    for (const k of drop) u.searchParams.delete(k);
+    u.hostname = u.hostname.toLowerCase();
+    if (u.pathname.length > 1 && u.pathname.endsWith("/")) {
+      u.pathname = u.pathname.slice(0, -1);
+    }
+    return u.toString();
+  } catch {
+    return input;
+  }
+}
+
 export async function runFactoryNativeDiscovery(
   input: FactoryDiscoveryInput,
 ): Promise<FactoryDiscoveryResult> {
@@ -90,7 +117,6 @@ export async function runFactoryNativeDiscovery(
   // shapes since both nest the URL inside <loc> / <link>.
   const allUrls = extractSitemapUrls(feedText);
   const sameHostUrls = allUrls.filter((url) => isSameHost(url, input.sourceHost));
-  result.feedUrlCount = sameHostUrls.length;
   if (sameHostUrls.length < allUrls.length) {
     logger.warn("worker.factory_discovery.cross_host_urls_dropped", {
       sourceId: input.sourceId,
@@ -98,8 +124,20 @@ export async function runFactoryNativeDiscovery(
       dropped: allUrls.length - sameHostUrls.length,
     });
   }
+  // Canonicalize and de-duplicate. A sitemap that lists
+  // `https://example.org/x` AND `https://example.org/x/?utm_source=feed`
+  // should produce ONE DiscoveredSourceItem, not two.
+  const seen = new Set<string>();
+  const canonical: string[] = [];
+  for (const raw of sameHostUrls) {
+    const canon = canonicalizeDiscoveredUrl(raw);
+    if (seen.has(canon)) continue;
+    seen.add(canon);
+    canonical.push(canon);
+  }
+  result.feedUrlCount = canonical.length;
 
-  const urls = sameHostUrls.slice(0, limit);
+  const urls = canonical.slice(0, limit);
   for (const url of urls) {
     try {
       const id = await recordDiscoveredItem({
