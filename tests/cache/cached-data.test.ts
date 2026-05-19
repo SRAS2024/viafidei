@@ -9,8 +9,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
-import { SITEMAP_TAG, contentTypeTag, tabTag } from "@/lib/cache/tags";
+import { tagsForList, tagsForSlug, withCacheTags } from "@/lib/cache/cached-data";
+import { SITEMAP_TAG, contentSlugTag, contentTypeTag, tabTag } from "@/lib/cache/tags";
 
 describe("tagsForList()", () => {
   it("returns content-type, tab and sitemap tags by default", () => {
@@ -25,6 +25,22 @@ describe("tagsForList()", () => {
     const a = tagsForList({ contentType: "Saint", tab: "saints" });
     const b = tagsForList({ contentType: "Saint", tab: "saints" });
     expect(a.tags).toEqual(b.tags);
+  });
+});
+
+describe("tagsForSlug()", () => {
+  it("returns content-slug + content-type + tab + sitemap tags", () => {
+    const cfg = tagsForSlug({ contentType: "Prayer", tab: "prayers", slug: "our-father" });
+    expect(cfg.tags).toContain(contentTypeTag("Prayer"));
+    expect(cfg.tags).toContain(contentSlugTag("Prayer", "our-father"));
+    expect(cfg.tags).toContain(tabTag("prayers"));
+    expect(cfg.tags).toContain(SITEMAP_TAG);
+  });
+
+  it("uses a longer revalidate window than the list cache (slug content changes less often)", () => {
+    const list = tagsForList({ contentType: "Prayer", tab: "prayers" });
+    const slug = tagsForSlug({ contentType: "Prayer", tab: "prayers", slug: "x" });
+    expect(slug.revalidateSeconds).toBeGreaterThan(list.revalidateSeconds);
   });
 });
 

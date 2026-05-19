@@ -178,7 +178,16 @@ export async function runContentFactory(input: FactoryRunInput): Promise<Factory
         excludeHost: pkg.sourceHost,
       }).catch(() => []));
     if (validators.length > 0) {
-      const collected = await collectCrossSourceEvidence({ pkg, validators }).catch((e) => {
+      // Spec §17: when validators arrive without inline bodies (the
+      // common case from findApprovedValidators), the collector
+      // resolves them through the HTTP loader with retry+backoff.
+      const { createValidatorDocumentLoader } = await import("./validator-http-fetcher");
+      const loader = createValidatorDocumentLoader();
+      const collected = await collectCrossSourceEvidence({
+        pkg,
+        validators,
+        loader,
+      }).catch((e) => {
         logger.warn("content-factory.collect_evidence_failed", {
           slug: pkg.slug,
           error: e instanceof Error ? e.message : String(e),

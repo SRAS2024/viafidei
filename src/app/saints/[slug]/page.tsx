@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedSaintBySlug } from "@/lib/data/saints";
 import { getPublishedApparitionBySlug } from "@/lib/data/apparitions";
+import { tagsForSlug, withCacheTags } from "@/lib/cache/cached-data";
 import { isSaved, type SavedKind } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
 import { SaveButton } from "@/components/profile/SaveButton";
@@ -19,7 +20,18 @@ type Props = { params: Promise<{ slug: string }> };
 
 async function safeGetSaint(slug: string, locale: string) {
   try {
-    return await getPublishedSaintBySlug(slug, locale as never);
+    // Spec §19: per-slug cache scoped by content-slug + content-type tags.
+    const cfg = tagsForSlug({ contentType: "Saint", tab: "saints", slug });
+    const cached = await withCacheTags<
+      Parameters<typeof getPublishedSaintBySlug>,
+      Awaited<ReturnType<typeof getPublishedSaintBySlug>>
+    >({
+      keyParts: ["saints", "detail", slug, locale],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: getPublishedSaintBySlug,
+    });
+    return await cached(slug, locale as never);
   } catch (err) {
     logPageError({ route: "/saints/[slug]", entityType: "Saint", slug, error: err });
     return null;
@@ -28,7 +40,22 @@ async function safeGetSaint(slug: string, locale: string) {
 
 async function safeGetApparition(slug: string, locale: string) {
   try {
-    return await getPublishedApparitionBySlug(slug, locale as never);
+    // Spec §19: per-slug cache for apparitions.
+    const cfg = tagsForSlug({
+      contentType: "MarianApparition",
+      tab: "apparitions",
+      slug,
+    });
+    const cached = await withCacheTags<
+      Parameters<typeof getPublishedApparitionBySlug>,
+      Awaited<ReturnType<typeof getPublishedApparitionBySlug>>
+    >({
+      keyParts: ["apparitions", "detail", slug, locale],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: getPublishedApparitionBySlug,
+    });
+    return await cached(slug, locale as never);
   } catch (err) {
     logPageError({
       route: "/saints/[slug]",

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedDevotionBySlug } from "@/lib/data/devotions";
+import { tagsForSlug, withCacheTags } from "@/lib/cache/cached-data";
 import { resolveGuidePrayers, type GuidePrayerEntry } from "@/lib/data/guide-prayers";
 import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
@@ -18,7 +19,18 @@ type Props = { params: Promise<{ slug: string }> };
 
 async function safeGetDevotion(slug: string, locale: string) {
   try {
-    return await getPublishedDevotionBySlug(slug, locale as never);
+    // Spec §19: per-slug cache scoped by content-slug + content-type tags.
+    const cfg = tagsForSlug({ contentType: "Devotion", tab: "devotions", slug });
+    const cached = await withCacheTags<
+      Parameters<typeof getPublishedDevotionBySlug>,
+      Awaited<ReturnType<typeof getPublishedDevotionBySlug>>
+    >({
+      keyParts: ["devotions", "detail", slug, locale],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: getPublishedDevotionBySlug,
+    });
+    return await cached(slug, locale as never);
   } catch (err) {
     logPageError({ route: "/devotions/[slug]", entityType: "Devotion", slug, error: err });
     return null;

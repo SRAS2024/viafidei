@@ -18,7 +18,7 @@
  * sees the actual database state, not the cached snapshot.
  */
 
-import { contentTypeTag, SITEMAP_TAG, tabTag } from "./tags";
+import { contentSlugTag, contentTypeTag, SITEMAP_TAG, tabTag } from "./tags";
 
 /**
  * Detect whether `unstable_cache` is available in the current
@@ -101,5 +101,31 @@ export function tagsForList(opts: { contentType: string; tab: string }): {
   return {
     tags: [contentTypeTag(opts.contentType), tabTag(opts.tab), SITEMAP_TAG],
     revalidateSeconds: 60,
+  };
+}
+
+/**
+ * Per-slug cache scope. The factory's revalidateForRow() emits
+ * `content-slug:<Type>:<slug>` whenever a single row is created,
+ * updated, or deleted — slug pages should be tagged with both the
+ * content-type AND the slug tag so they invalidate in step.
+ *
+ * The revalidate window is longer than the list scope (5 minutes)
+ * because individual slug pages change less frequently than the
+ * tab list — once a Prayer is published, its body rarely changes,
+ * but the tab list adds/removes rows often.
+ */
+export function tagsForSlug(opts: { contentType: string; tab: string; slug: string }): {
+  tags: string[];
+  revalidateSeconds: number;
+} {
+  return {
+    tags: [
+      contentTypeTag(opts.contentType),
+      contentSlugTag(opts.contentType, opts.slug),
+      tabTag(opts.tab),
+      SITEMAP_TAG,
+    ],
+    revalidateSeconds: 300,
   };
 }
