@@ -22,7 +22,13 @@ import type { Builder, PackageProvenance } from "../types";
 const BUILDER_NAME = "ConsecrationBuilder";
 const BUILDER_VERSION = "1.0.0";
 
-const RETREAT_RE = /\b(retreat\s+(?:registration|signup|details)|consecration\s+event)\b/i;
+/**
+ * Spec #11: reject consecration articles, livestreams, retreats,
+ * advertisements, and event pages that don't contain an actual
+ * consecration structure.
+ */
+const RETREAT_RE =
+  /\b(retreat\s+(?:registration|signup|details)|consecration\s+event|livestream|article\s+about\s+consecration|advertis(?:ement|ing)|register\s+for)\b/i;
 
 export const ConsecrationBuilder: Builder = {
   contentType: "Consecration",
