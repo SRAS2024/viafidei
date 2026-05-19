@@ -12,6 +12,24 @@
 import { prisma } from "../db/client";
 import { logger } from "../observability/logger";
 
+/**
+ * Discovered item lifecycle. Spec #2 enumerates the eight states
+ * the admin must be able to see. We retain the original status
+ * vocabulary for backwards compatibility but also accept the
+ * spec-labelled values so writers can use whichever vocabulary they
+ * prefer.
+ *
+ *   spec word              → existing status value
+ *   --------------------     ------------------------
+ *   discovered             → pending
+ *   fetch_queued           → fetch_queued       (new)
+ *   fetched                → fetched            (new)
+ *   build_queued           → build_queued       (new)
+ *   built                  → ingested
+ *   rejected               → rejected
+ *   duplicate              → duplicate
+ *   source_not_configured  → source_not_configured (new)
+ */
 export type DiscoveredItemStatus =
   | "pending"
   | "processing"
@@ -20,7 +38,11 @@ export type DiscoveredItemStatus =
   | "rejected"
   | "duplicate"
   | "failed"
-  | "archived";
+  | "archived"
+  | "fetch_queued"
+  | "fetched"
+  | "build_queued"
+  | "source_not_configured";
 
 export type RecordDiscoveryInput = {
   sourceId: string;
