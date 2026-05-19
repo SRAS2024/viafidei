@@ -42,6 +42,9 @@ describe("getProductionReadinessReport", () => {
         "security",
         "source_configuration",
         "public_display",
+        // Spec #22: production readiness covers canary + search/sitemap.
+        "canary",
+        "search_sitemap",
       ]),
     );
   });
@@ -54,5 +57,13 @@ describe("getProductionReadinessReport", () => {
       expect(c.lastUpdatedAt).toBeInstanceOf(Date);
       expect(c.dataSource.length).toBeGreaterThan(0);
     }
+  });
+
+  it("canary card runs the canary fixtures and reports pass when healthy", async () => {
+    const report = await getProductionReadinessReport();
+    const canary = report.cards.find((c) => c.id === "canary");
+    expect(canary).toBeTruthy();
+    // The canary fixtures ship in this repo and must build cleanly.
+    expect(canary?.severity).toBe("pass");
   });
 });
