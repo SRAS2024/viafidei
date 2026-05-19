@@ -27,8 +27,11 @@ import { recordRejectedContentBatch } from "../content-qa/rejected-log";
 import { runStrictPipelineSync } from "../content-qa/pipeline";
 import { getSourcePurposes } from "../content-qa/source-purpose";
 import type { CandidatePackage, ContractValidationResult } from "../content-qa/types";
+import type { SourceRole } from "../ingestion/sources/roles";
+import { isSourceRole } from "../ingestion/sources/roles";
 import { getBuilder } from "./builders";
 import { recordBuildLog } from "./build-log";
+import { validateCrossSource, type EvidenceRecord } from "./cross-source-validation";
 import { enrichPackage } from "./enrich";
 import { normalizePackage } from "./normalize";
 import { persistBuiltPackage, type PersistResult } from "./persist";
@@ -43,6 +46,20 @@ export type FactoryRunInput = {
   ingestionBatchId?: string | null;
   triggeredBy?: "automatic" | "manual";
   actorUsername?: string | null;
+  /**
+   * Role of the source that produced this document. Defaults to
+   * `discovery_only_source` when unset — the safe default that
+   * forces cross-source validation before publication.
+   */
+  sourceRole?: SourceRole;
+  /**
+   * Evidence collected from approved validation sources for this
+   * document. The collector lives in
+   * `cross-source-evidence-collector.ts` and is invoked by the
+   * worker before runContentFactory(). Passing it in as an input
+   * keeps the orchestrator pure and unit-testable.
+   */
+  collectedEvidence?: ReadonlyArray<EvidenceRecord>;
 };
 
 export type FactoryRunResult = {
@@ -62,7 +79,8 @@ export type FactoryRunResult = {
     | "not-supported"
     | "source-exhausted"
     | "qa-rejected"
-    | "qa-deleted";
+    | "qa-deleted"
+    | "validation-evidence-missing";
 };
 
 export async function runContentFactory(input: FactoryRunInput): Promise<FactoryRunResult> {
@@ -124,6 +142,66 @@ export async function runContentFactory(input: FactoryRunInput): Promise<Factory
   const pkg = buildResult.package;
   normalizePackage(pkg);
   enrichPackage(pkg, buildResult.builderVersion);
+
+  // Cross-source validation. Sits between the builder and strict
+  // QA. The wider goal is to grow volume by adding good sources +
+  // good validation, NOT by lowering QA standards. A
+  // primary_content_source bypasses this check; every other role
+  // must produce `pass` evidence for the required fields of the
+  // content type.
+  const role: SourceRole = isSourceRole(input.sourceRole ?? "")
+    ? (input.sourceRole as SourceRole)
+    : "discovery_only_source";
+  pkg.sourceRole = role;
+  const crossSource = validateCrossSource({
+    pkg,
+    primarySourceRole: role,
+    collectedEvidence: input.collectedEvidence ?? [],
+  });
+  if (crossSource.decision === "fail") {
+    if (input.sourceId) {
+      await recordScoreEvent({
+        kind: "qa_fail",
+        sourceId: input.sourceId,
+        contentType: input.contentType,
+        reason: crossSource.reason,
+      });
+    }
+    await recordRejectedContentBatch([
+      {
+        contentType: pkg.contentType,
+        slug: pkg.slug,
+        originalTitle: pkg.title,
+        sourceUrl: pkg.sourceUrl,
+        sourceHost: pkg.sourceHost,
+        rejectionReason: crossSource.reason,
+        failedContractName: crossSource.contractName,
+        failedFields: [...crossSource.missingEvidenceFields],
+        decision: "reject",
+        triggeredBy: input.triggeredBy ?? "automatic",
+        actorUsername: input.actorUsername ?? null,
+        workerJobId: input.workerJobId ?? null,
+        ingestionBatchId: input.ingestionBatchId ?? null,
+        packageVersion: null,
+        validationDecision: "reject",
+        failureCategory: "validation_evidence_missing",
+        sweepReason: "factory",
+        originalStatus: null,
+        cleanupMode: null,
+      },
+    ]).catch((e) =>
+      logger.warn("content-factory.cross_source_rejected_log_failed", {
+        slug: pkg.slug,
+        error: e instanceof Error ? e.message : String(e),
+      }),
+    );
+    return {
+      contentType: input.contentType,
+      sourceUrl: input.document.sourceUrl,
+      build: buildResult,
+      decision: "validation-evidence-missing",
+    };
+  }
 
   // Strict QA — the pipeline dispatches the right contract by content
   // type. It returns publish/update on success, reject/delete on

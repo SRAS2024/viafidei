@@ -109,6 +109,7 @@ describe("runContentFactory — full pipeline", () => {
       contentType: "Prayer",
       document: doc,
       sourceId: "src1",
+      sourceRole: "primary_content_source",
     });
 
     expect(result.decision).toBe("persisted-created");
@@ -140,6 +141,7 @@ describe("runContentFactory — full pipeline", () => {
       contentType: "Prayer",
       document: doc,
       sourceId: "src1",
+      sourceRole: "primary_content_source",
     });
 
     expect(prismaMock.contentPackageBuildLog.create).toHaveBeenCalledTimes(1);

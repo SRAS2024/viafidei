@@ -124,6 +124,14 @@ export type ContentPackage = {
   packageMetadata?: Record<string, unknown>;
   /** Approved source purposes for this source — passed through to QA. */
   approvedSourcePurposes?: ReadonlyArray<string>;
+  /**
+   * Role of the source that produced this package. Drives the
+   * cross-source validator: only `primary_content_source` may
+   * originate required body fields without external evidence.
+   * Optional so existing fixtures don't break; defaults to
+   * `discovery_only_source` when unset.
+   */
+  sourceRole?: string;
 };
 
 /**

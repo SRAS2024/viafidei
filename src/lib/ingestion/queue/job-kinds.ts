@@ -7,11 +7,19 @@
  * dispatch is no longer needed at the queue layer.
  *
  * Stage model: a single combined `content_build` job runs the entire
- * factory pipeline (build → normalize → enrich → strict QA → persist)
- * in one worker tick. The legacy split stages `content_validate` and
- * `content_persist` only called the same combined factory function,
- * so they have been removed from the active set and live in
- * `REMOVED_JOB_KINDS`.
+ * factory pipeline (build → normalize → enrich → cross-source
+ * validation → strict QA → persist) in one worker tick. The legacy
+ * split stages `content_validate` and `content_persist` only called
+ * the same combined factory function, so they have been removed
+ * from the active set and live in `REMOVED_JOB_KINDS`.
+ *
+ * Cross-source validation evidence is collected inside the same
+ * `content_build` tick (per spec section 17 — "fold evidence
+ * validation into content_build"). There is no separate
+ * `content_validate_evidence` job kind because every package built
+ * by a non-primary source must already gather evidence before
+ * strict QA in the same tick — splitting it would re-introduce the
+ * race conditions the unified stage was created to eliminate.
  *
  * `source_ingest` was the legacy single-step adapter executor and is
  * also removed. Active code only enqueues factory-stage kinds

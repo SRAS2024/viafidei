@@ -191,6 +191,7 @@ describe("content visibility invariant", () => {
       contentType: "Prayer",
       document: doc,
       sourceId: "src",
+      sourceRole: "primary_content_source",
     });
     expect(result.decision).toBe("persisted-created");
     // The persistence call sets publicRenderReady AND isThresholdEligible
