@@ -186,6 +186,15 @@ export function enrichPackage(pkg: ContentPackage, builderVersion: string): Cont
       }
       case "Sacrament": {
         enrichSacramentGroup({ builderVersion, pkg });
+        // Spec §10: Catechism reference enrichment when not already
+        // provided by the source.
+        const { enrichSacramentCatechism } = require("./catechism-references") as {
+          enrichSacramentCatechism: (p: ContentPackage) => {
+            filled: boolean;
+            references: ReadonlyArray<{ paragraph: string; topic: string }>;
+          };
+        };
+        enrichSacramentCatechism(pkg);
         break;
       }
       case "Parish": {

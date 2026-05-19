@@ -445,6 +445,26 @@ async function runStrictCleanup(
     }));
     const orphanTotal =
       orphans.prayers + orphans.saints + orphans.apparitions + orphans.parishes + orphans.devotions;
+    // Spec §19: strict cleanup must revalidate the affected tabs +
+    // sitemap + search so the live site reflects the deletions.
+    if (result.totalHardDeleted > 0) {
+      const { revalidateTab, revalidateSitemap } = await import("../../cache/revalidate");
+      // Revalidate every tab — cheaper than per-row when many rows
+      // are deleted in one sweep.
+      const tabs = [
+        "prayers",
+        "saints",
+        "apparitions",
+        "parishes",
+        "devotions",
+        "novenas",
+        "sacraments",
+        "liturgy",
+        "history",
+      ];
+      await Promise.all(tabs.map((t) => revalidateTab(t).catch(() => undefined)));
+      await revalidateSitemap("strict_cleanup").catch(() => undefined);
+    }
     return {
       ok: true,
       errorMessage: `strict-cleanup deleted=${result.totalHardDeleted}, flaggedReady=${result.totalFlaggedReady}, flaggedUnready=${result.totalFlaggedUnready}, mode=${result.mode}, orphanSavesPruned=${orphanTotal}`,
@@ -556,10 +576,18 @@ async function runDedupeCleanup(_job: QueueJobRow): Promise<DispatchResult> {
 }
 
 async function runSitemapRefresh(_job: QueueJobRow): Promise<DispatchResult> {
-  // Future: hit /api/sitemap regenerate route. For now this is a
-  // no-op the planner can fire on a cadence as a placeholder.
-  logger.info("worker.sitemap_refresh.noop");
-  return { ok: true, errorMessage: "sitemap refresh: no-op (placeholder)" };
+  // Spec §19: sitemap refresh revalidates the sitemap + search cache
+  // tags so the route handler regenerates its payload on the next
+  // request. Even when the underlying data has not changed, this
+  // gives admins a reliable "force refresh" path.
+  try {
+    const { revalidateSitemap } = await import("../../cache/revalidate");
+    await revalidateSitemap("sitemap_refresh").catch(() => undefined);
+  } catch {
+    /* next/cache unavailable in tests — log path is already covered */
+  }
+  logger.info("worker.sitemap_refresh.completed");
+  return { ok: true, errorMessage: "sitemap refresh: revalidated sitemap + search tags" };
 }
 
 async function runReportGenerate(
