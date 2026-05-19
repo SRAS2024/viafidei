@@ -37,7 +37,9 @@ export type ReadinessCard = {
     | "email"
     | "security"
     | "source_configuration"
-    | "public_display";
+    | "public_display"
+    | "canary"
+    | "search_sitemap";
   label: string;
   severity: ReadinessSeverity;
   summary: string;
