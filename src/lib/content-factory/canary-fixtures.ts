@@ -152,6 +152,28 @@ const CANARY_FIXTURES: CanaryFixture[] = [
       contentChecksum: "canary-nicaea",
     },
   },
+  {
+    contentType: "Sacrament",
+    fixtureName: "Baptism",
+    document: {
+      sourceUrl: "https://canary.example/sacrament/baptism",
+      sourceHost: "canary.example",
+      sourceTier: 1,
+      sourceTitle: "The Sacrament of Baptism",
+      cleanedBody:
+        "Baptism is the first of the seven sacraments and the gateway to the Christian life. " +
+        "Through Baptism we are freed from sin and reborn as children of God. " +
+        "The Sacrament of Baptism is one of the three sacraments of Initiation.",
+      headings: [{ level: 1, text: "The Sacrament of Baptism" }],
+      paragraphs: [
+        "Baptism is the first of the seven sacraments and the gateway to the Christian life.",
+        "The Sacrament of Baptism is one of the three sacraments of Initiation.",
+      ],
+      metadata: { language: "en" },
+      sourcePurposes: { canIngestSacraments: true },
+      contentChecksum: "canary-baptism",
+    },
+  },
 ];
 
 export type CanaryResult = {
