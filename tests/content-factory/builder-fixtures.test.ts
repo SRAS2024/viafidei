@@ -19,9 +19,21 @@ import {
   DEVOTION_FIXTURES,
   SACRAMENT_FIXTURES,
   NOVENA_FIXTURES,
+  MARIAN_APPARITION_FIXTURES,
+  HISTORY_FIXTURES,
+  PARISH_FIXTURES,
 } from "@/lib/content-factory/builder-fixtures";
 
-const COVERED_CONTENT_TYPES = ["Prayer", "Saint", "Devotion", "Sacrament", "Novena"] as const;
+const COVERED_CONTENT_TYPES = [
+  "Prayer",
+  "Saint",
+  "Devotion",
+  "Sacrament",
+  "Novena",
+  "MarianApparition",
+  "History",
+  "Parish",
+] as const;
 
 describe("Builder fixture catalog (spec §5)", () => {
   for (const ct of COVERED_CONTENT_TYPES) {
@@ -39,6 +51,9 @@ describe("Builder fixture catalog (spec §5)", () => {
       ...DEVOTION_FIXTURES,
       ...SACRAMENT_FIXTURES,
       ...NOVENA_FIXTURES,
+      ...MARIAN_APPARITION_FIXTURES,
+      ...HISTORY_FIXTURES,
+      ...PARISH_FIXTURES,
     ]) {
       expect(f.name).toMatch(/^[a-z0-9-]+$/);
       expect(f.contentType).toBeDefined();

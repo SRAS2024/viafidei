@@ -1249,6 +1249,653 @@ export const NOVENA_FIXTURES: ReadonlyArray<BuilderFixture> = [
   },
 ];
 
+// ─── Marian Apparition ───────────────────────────────────────────────
+export const MARIAN_APPARITION_FIXTURES: ReadonlyArray<BuilderFixture> = [
+  {
+    name: "lourdes",
+    kind: "valid",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://vatican.va/apparitions/lourdes",
+      host: "vatican.va",
+      title: "Our Lady of Lourdes",
+      body:
+        "Our Lady of Lourdes appeared to St. Bernadette Soubirous in Lourdes, France in 1858. " +
+        "The Church declared the apparition worthy of belief in 1862 after careful investigation by the local bishop.",
+      purpose: "canIngestApparitions",
+    }),
+  },
+  {
+    name: "fatima",
+    kind: "valid",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://vatican.va/apparitions/fatima",
+      host: "vatican.va",
+      title: "Our Lady of Fatima",
+      body:
+        "Our Lady of Fatima appeared to three shepherd children in Fatima, Portugal in 1917. " +
+        "The Church officially approved the apparition as worthy of belief in 1930.",
+      purpose: "canIngestApparitions",
+    }),
+  },
+  {
+    name: "guadalupe",
+    kind: "valid",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://vatican.va/apparitions/guadalupe",
+      host: "vatican.va",
+      title: "Our Lady of Guadalupe",
+      body:
+        "Our Lady of Guadalupe appeared to St. Juan Diego in Mexico in 1531. " +
+        "The apparition is approved by the Church and the tilma remains an object of veneration.",
+      purpose: "canIngestApparitions",
+    }),
+  },
+  {
+    name: "knock",
+    kind: "valid",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://vatican.va/apparitions/knock",
+      host: "vatican.va",
+      title: "Our Lady of Knock",
+      body:
+        "Our Lady of Knock appeared at the Church of St. John in Knock, Ireland in 1879. " +
+        "The Church approved the apparition after diocesan investigation in 1879 and 1936.",
+      purpose: "canIngestApparitions",
+    }),
+  },
+  {
+    name: "rue-du-bac",
+    kind: "valid",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://vatican.va/apparitions/rue-du-bac",
+      host: "vatican.va",
+      title: "Our Lady of the Miraculous Medal",
+      body:
+        "Our Lady appeared to St. Catherine Labouré at the Rue du Bac in Paris, France in 1830. " +
+        "The Church approved the apparition and the Miraculous Medal devotion.",
+      purpose: "canIngestApparitions",
+    }),
+  },
+  // Invalid
+  {
+    name: "unapproved-apparition",
+    kind: "invalid",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://blog.example/unapproved",
+      host: "blog.example",
+      title: "Mary Appeared in My Kitchen",
+      body: "A personal account of a Marian apparition that the Church has never investigated.",
+      purpose: "canIngestApparitions",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "livestream-apparition",
+    kind: "invalid",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://parish.example/livestream",
+      host: "parish.example",
+      title: "Watch Live: Fatima Live Stream",
+      body: "Watch live every day at 8pm. Click here to join the live stream of the Marian shrine.",
+      purpose: "canIngestApparitions",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "article-about-apparitions",
+    kind: "invalid",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://blog.example/marian-history",
+      host: "blog.example",
+      title: "History of Marian Apparitions",
+      body:
+        "According to scholars, Marian apparitions have a long history. As theologian John Smith writes in his book, " +
+        "many apparitions remain disputed.",
+      purpose: "canIngestApparitions",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "empty-body",
+    kind: "invalid",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://vatican.va/apparitions/empty",
+      host: "vatican.va",
+      title: "Empty",
+      body: "",
+      purpose: "canIngestApparitions",
+    }),
+    expectedFailureReason: "not_supported_by_source",
+  },
+  {
+    name: "unapproved-source",
+    kind: "invalid",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://random.example/apparition",
+      host: "random.example",
+      title: "Some Apparition",
+      body: "Some text.",
+      purpose: "",
+    }),
+    expectedFailureReason: "source_not_allowed",
+  },
+  // Messy
+  {
+    name: "messy-lourdes",
+    kind: "messy",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://catholicculture.org/apparitions/lourdes-messy",
+      host: "catholicculture.org",
+      title: "Our Lady of Lourdes",
+      body:
+        "Read more at catholicculture.org\n\n" +
+        "Our Lady of Lourdes appeared to St. Bernadette in Lourdes, France in 1858. " +
+        "The Church approved the apparition as worthy of belief in 1862.\n\n" +
+        "© 2024",
+      purpose: "canIngestApparitions",
+    }),
+  },
+  {
+    name: "messy-fatima",
+    kind: "messy",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://catholic.org/apparitions/fatima-messy",
+      host: "catholic.org",
+      title: "Our Lady of Fatima",
+      body:
+        "Subscribe to our newsletter!\n\n" +
+        "Our Lady of Fatima appeared at Fatima, Portugal in 1917. " +
+        "The Church approved the apparition in 1930.",
+      purpose: "canIngestApparitions",
+    }),
+  },
+  {
+    name: "messy-guadalupe",
+    kind: "messy",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://usccb.org/apparitions/guadalupe-messy",
+      host: "usccb.org",
+      title: "Our Lady of Guadalupe",
+      body:
+        "Click here to read more.\n\n" +
+        "Our Lady of Guadalupe appeared at Tepeyac, Mexico in 1531. The apparition is approved by the Church.",
+      purpose: "canIngestApparitions",
+    }),
+  },
+  {
+    name: "messy-knock",
+    kind: "messy",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://catholic.org/apparitions/knock-messy",
+      host: "catholic.org",
+      title: "Our Lady of Knock",
+      body:
+        "Used with permission.\n\n" +
+        "Our Lady of Knock appeared at Knock, Ireland in 1879. " +
+        "The Church approved the apparition after diocesan investigation.",
+      purpose: "canIngestApparitions",
+    }),
+  },
+  {
+    name: "messy-rue-du-bac",
+    kind: "messy",
+    contentType: "MarianApparition",
+    document: doc({
+      url: "https://catholicculture.org/apparitions/rue-du-bac-messy",
+      host: "catholicculture.org",
+      title: "Our Lady of the Miraculous Medal",
+      body:
+        "Read more at catholicculture.org!!!\n\n" +
+        "Our Lady appeared to St. Catherine Labouré at Rue du Bac, Paris in 1830. " +
+        "The Church approved the apparition and devotion.",
+      purpose: "canIngestApparitions",
+    }),
+  },
+];
+
+// ─── History ─────────────────────────────────────────────────────────
+export const HISTORY_FIXTURES: ReadonlyArray<BuilderFixture> = [
+  {
+    name: "nicaea-325",
+    kind: "valid",
+    contentType: "History",
+    document: doc({
+      url: "https://vatican.va/history/nicaea-325",
+      host: "vatican.va",
+      title: "First Council of Nicaea",
+      body:
+        "The First Council of Nicaea took place in AD 325, convened by Emperor Constantine I. " +
+        "Authority: Roman Emperor and ecumenical council. " +
+        "Produced the original Nicene Creed and is considered the first ecumenical council of the Church.",
+      purpose: "canIngestHistory",
+    }),
+  },
+  {
+    name: "trent",
+    kind: "valid",
+    contentType: "History",
+    document: doc({
+      url: "https://vatican.va/history/trent",
+      host: "vatican.va",
+      title: "Council of Trent",
+      body:
+        "The Council of Trent took place from 1545 to 1563. " +
+        "Authority: ecumenical council convened by Pope Paul III. " +
+        "Produced major doctrinal definitions in response to the Reformation.",
+      purpose: "canIngestHistory",
+    }),
+  },
+  {
+    name: "vatican-i",
+    kind: "valid",
+    contentType: "History",
+    document: doc({
+      url: "https://vatican.va/history/vatican-i",
+      host: "vatican.va",
+      title: "First Vatican Council",
+      body:
+        "The First Vatican Council took place from 1869 to 1870. " +
+        "Authority: ecumenical council convened by Pope Pius IX. " +
+        "Defined the dogma of papal infallibility.",
+      purpose: "canIngestHistory",
+    }),
+  },
+  {
+    name: "vatican-ii",
+    kind: "valid",
+    contentType: "History",
+    document: doc({
+      url: "https://vatican.va/history/vatican-ii",
+      host: "vatican.va",
+      title: "Second Vatican Council",
+      body:
+        "The Second Vatican Council took place from 1962 to 1965. " +
+        "Authority: ecumenical council convened by Pope John XXIII. " +
+        "Produced four constitutions and twelve other documents reforming Church practice.",
+      purpose: "canIngestHistory",
+    }),
+  },
+  {
+    name: "east-west-schism",
+    kind: "valid",
+    contentType: "History",
+    document: doc({
+      url: "https://vatican.va/history/east-west-schism",
+      host: "vatican.va",
+      title: "East-West Schism",
+      body:
+        "The East-West Schism took place in 1054 AD. " +
+        "Authority: Patriarch Michael Cerularius of Constantinople and Pope Leo IX of Rome. " +
+        "The mutual excommunications formalized the split between Catholic and Orthodox churches.",
+      purpose: "canIngestHistory",
+    }),
+  },
+  // Invalid
+  {
+    name: "news-article",
+    kind: "invalid",
+    contentType: "History",
+    document: doc({
+      url: "https://blog.example/news",
+      host: "blog.example",
+      title: "Pope Announces New Initiative",
+      body:
+        "By John Doe | June 15, 2024. Breaking news from the Vatican. Click here to read more. " +
+        "Subscribe to our newsletter.",
+      purpose: "canIngestHistory",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "blog-post-no-dates",
+    kind: "invalid",
+    contentType: "History",
+    document: doc({
+      url: "https://blog.example/musings",
+      host: "blog.example",
+      title: "Some Thoughts on Church History",
+      body:
+        "We sometimes wonder why the Church has so many councils. " +
+        "Click here to subscribe to our newsletter for more thoughts.",
+      purpose: "canIngestHistory",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "no-date-marker",
+    kind: "invalid",
+    contentType: "History",
+    document: doc({
+      url: "https://blog.example/general",
+      host: "blog.example",
+      title: "Random Church Topic",
+      body: "An unspecified topic without any era or date marker.",
+      purpose: "canIngestHistory",
+    }),
+    expectedFailureReason: "build_failed_missing_required_fields",
+  },
+  {
+    name: "empty-body",
+    kind: "invalid",
+    contentType: "History",
+    document: doc({
+      url: "https://vatican.va/history/empty",
+      host: "vatican.va",
+      title: "Empty",
+      body: "",
+      purpose: "canIngestHistory",
+    }),
+    expectedFailureReason: "not_supported_by_source",
+  },
+  {
+    name: "unapproved-source",
+    kind: "invalid",
+    contentType: "History",
+    document: doc({
+      url: "https://random.example/history",
+      host: "random.example",
+      title: "Some History",
+      body: "Some text about 325 AD.",
+      purpose: "",
+    }),
+    expectedFailureReason: "source_not_allowed",
+  },
+  // Messy
+  {
+    name: "messy-nicaea",
+    kind: "messy",
+    contentType: "History",
+    document: doc({
+      url: "https://catholicculture.org/history/nicaea-messy",
+      host: "catholicculture.org",
+      title: "First Council of Nicaea",
+      body:
+        "Read more at catholicculture.org\n\n" +
+        "The First Council of Nicaea took place in AD 325. " +
+        "Authority: Roman Emperor and ecumenical council. " +
+        "Produced the original Nicene Creed.\n\n" +
+        "© 2024",
+      purpose: "canIngestHistory",
+    }),
+  },
+  {
+    name: "messy-trent",
+    kind: "messy",
+    contentType: "History",
+    document: doc({
+      url: "https://usccb.org/history/trent-messy",
+      host: "usccb.org",
+      title: "Council of Trent",
+      body:
+        "Subscribe to our newsletter!\n\n" +
+        "The Council of Trent took place 1545-1563. " +
+        "Authority: ecumenical council convened by Pope Paul III.",
+      purpose: "canIngestHistory",
+    }),
+  },
+  {
+    name: "messy-vatican-i",
+    kind: "messy",
+    contentType: "History",
+    document: doc({
+      url: "https://catholic.org/history/vatican-i-messy",
+      host: "catholic.org",
+      title: "First Vatican Council",
+      body:
+        "Click here to read more.\n\n" +
+        "The First Vatican Council 1869-1870. " +
+        "Authority: ecumenical council convened by Pope Pius IX.",
+      purpose: "canIngestHistory",
+    }),
+  },
+  {
+    name: "messy-vatican-ii",
+    kind: "messy",
+    contentType: "History",
+    document: doc({
+      url: "https://newadvent.org/history/vatican-ii-messy",
+      host: "newadvent.org",
+      title: "Second Vatican Council",
+      body:
+        "Used with permission.\n\n" +
+        "The Second Vatican Council 1962-1965. " +
+        "Authority: ecumenical council convened by Pope John XXIII.",
+      purpose: "canIngestHistory",
+    }),
+  },
+  {
+    name: "messy-schism",
+    kind: "messy",
+    contentType: "History",
+    document: doc({
+      url: "https://catholic.org/history/schism-messy",
+      host: "catholic.org",
+      title: "East-West Schism",
+      body:
+        "Read more at catholic.org!!!\n\n" +
+        "The East-West Schism took place in 1054. " +
+        "Authority: Patriarch Michael Cerularius and Pope Leo IX.",
+      purpose: "canIngestHistory",
+    }),
+  },
+];
+
+// ─── Parish ──────────────────────────────────────────────────────────
+export const PARISH_FIXTURES: ReadonlyArray<BuilderFixture> = [
+  {
+    name: "st-patricks-nyc",
+    kind: "valid",
+    contentType: "Parish",
+    document: doc({
+      url: "https://parishesonline.com/saint-patricks-cathedral-new-york-ny",
+      host: "parishesonline.com",
+      title: "Saint Patrick's Cathedral",
+      body: "Saint Patrick's Cathedral\n5 East 51st Street\nNew York, NY\nUnited States\nArchdiocese of New York\nWebsite: https://saintpatrickscathedral.org",
+      purpose: "canIngestParishes",
+    }),
+  },
+  {
+    name: "st-marys-cambridge",
+    kind: "valid",
+    contentType: "Parish",
+    document: doc({
+      url: "https://parishesonline.com/st-marys-cambridge-ma",
+      host: "parishesonline.com",
+      title: "St. Mary's Parish",
+      body: "St. Mary's Parish\n4 Norfolk Street\nCambridge, MA\nUnited States\nArchdiocese of Boston\nWebsite: https://stmaryscambridge.org",
+      purpose: "canIngestParishes",
+    }),
+  },
+  {
+    name: "holy-trinity-georgetown",
+    kind: "valid",
+    contentType: "Parish",
+    document: doc({
+      url: "https://parishesonline.com/holy-trinity-georgetown",
+      host: "parishesonline.com",
+      title: "Holy Trinity Parish",
+      body: "Holy Trinity Parish\n3513 N Street NW\nWashington, DC\nUnited States\nArchdiocese of Washington",
+      purpose: "canIngestParishes",
+    }),
+  },
+  {
+    name: "st-pauls-london",
+    kind: "valid",
+    contentType: "Parish",
+    document: doc({
+      url: "https://gcatholic.org/parish/st-pauls-london",
+      host: "gcatholic.org",
+      title: "St Paul's Catholic Church",
+      body: "St Paul's Catholic Church\nWood Lane\nLondon\nUnited Kingdom\nDiocese of Westminster",
+      purpose: "canIngestParishes",
+    }),
+  },
+  {
+    name: "st-josephs-toronto",
+    kind: "valid",
+    contentType: "Parish",
+    document: doc({
+      url: "https://gcatholic.org/parish/st-josephs-toronto",
+      host: "gcatholic.org",
+      title: "St. Joseph's Church",
+      body: "St. Joseph's Church\n171 Leslie Street\nToronto\nCanada\nArchdiocese of Toronto",
+      purpose: "canIngestParishes",
+    }),
+  },
+  // Invalid
+  {
+    name: "school-page",
+    kind: "invalid",
+    contentType: "Parish",
+    document: doc({
+      url: "https://school.example/about",
+      host: "school.example",
+      title: "St. Mary's Catholic Elementary School",
+      body: "Welcome to our school. Enrollment for next year is now open.",
+      purpose: "canIngestParishes",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "bulletin-page",
+    kind: "invalid",
+    contentType: "Parish",
+    document: doc({
+      url: "https://parish.example/bulletin",
+      host: "parish.example",
+      title: "Weekly Bulletin",
+      body: "This week's bulletin from St. Mary's Parish.",
+      purpose: "canIngestParishes",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "donation-page",
+    kind: "invalid",
+    contentType: "Parish",
+    document: doc({
+      url: "https://parish.example/donate",
+      host: "parish.example",
+      title: "Give Now",
+      body: "Donate now to support our parish stewardship program.",
+      purpose: "canIngestParishes",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "empty-body",
+    kind: "invalid",
+    contentType: "Parish",
+    document: doc({
+      url: "https://parishesonline.com/empty",
+      host: "parishesonline.com",
+      title: "Empty",
+      body: "",
+      purpose: "canIngestParishes",
+    }),
+    expectedFailureReason: "not_supported_by_source",
+  },
+  {
+    name: "unapproved-source",
+    kind: "invalid",
+    contentType: "Parish",
+    document: doc({
+      url: "https://random.example/parish",
+      host: "random.example",
+      title: "Some Parish",
+      body: "Some text.",
+      purpose: "",
+    }),
+    expectedFailureReason: "source_not_allowed",
+  },
+  // Messy
+  {
+    name: "messy-st-patricks",
+    kind: "messy",
+    contentType: "Parish",
+    document: doc({
+      url: "https://parishesonline.com/st-patricks-messy",
+      host: "parishesonline.com",
+      title: "Saint Patrick's Cathedral",
+      body:
+        "Click here to learn more!\n\n" +
+        "Saint Patrick's Cathedral\n5 East 51st Street\nNew York, NY\nUnited States\nArchdiocese of New York\n\n" +
+        "© 2024 Parishes Online",
+      purpose: "canIngestParishes",
+    }),
+  },
+  {
+    name: "messy-st-marys",
+    kind: "messy",
+    contentType: "Parish",
+    document: doc({
+      url: "https://parishesonline.com/st-marys-messy",
+      host: "parishesonline.com",
+      title: "St. Mary's Parish",
+      body:
+        "Subscribe to our newsletter!\n\n" +
+        "St. Mary's Parish\n4 Norfolk Street\nCambridge, MA\nUnited States\nArchdiocese of Boston",
+      purpose: "canIngestParishes",
+    }),
+  },
+  {
+    name: "messy-holy-trinity",
+    kind: "messy",
+    contentType: "Parish",
+    document: doc({
+      url: "https://parishesonline.com/holy-trinity-messy",
+      host: "parishesonline.com",
+      title: "Holy Trinity Parish",
+      body:
+        "Used with permission.\n\n" +
+        "Holy Trinity Parish\n3513 N Street NW\nWashington, DC\nUnited States\nArchdiocese of Washington",
+      purpose: "canIngestParishes",
+    }),
+  },
+  {
+    name: "messy-st-pauls",
+    kind: "messy",
+    contentType: "Parish",
+    document: doc({
+      url: "https://gcatholic.org/parish/st-pauls-messy",
+      host: "gcatholic.org",
+      title: "St Paul's Catholic Church",
+      body:
+        "Read more at gcatholic.org\n\n" +
+        "St Paul's Catholic Church\nWood Lane\nLondon\nUnited Kingdom\nDiocese of Westminster",
+      purpose: "canIngestParishes",
+    }),
+  },
+  {
+    name: "messy-st-josephs",
+    kind: "messy",
+    contentType: "Parish",
+    document: doc({
+      url: "https://gcatholic.org/parish/st-josephs-messy",
+      host: "gcatholic.org",
+      title: "St. Joseph's Church",
+      body:
+        "Read more at gcatholic.org!!!\n\n" +
+        "St. Joseph's Church\n171 Leslie Street\nToronto\nCanada\nArchdiocese of Toronto",
+      purpose: "canIngestParishes",
+    }),
+  },
+];
+
 /**
  * Index of every fixture set, keyed by content type. Tests and the
  * canary runner iterate this.
@@ -1259,6 +1906,9 @@ export const ALL_BUILDER_FIXTURES: Readonly<Record<string, ReadonlyArray<Builder
   Devotion: DEVOTION_FIXTURES,
   Sacrament: SACRAMENT_FIXTURES,
   Novena: NOVENA_FIXTURES,
+  MarianApparition: MARIAN_APPARITION_FIXTURES,
+  History: HISTORY_FIXTURES,
+  Parish: PARISH_FIXTURES,
 };
 
 export function fixturesForContentType(contentType: ContentTypeKey): ReadonlyArray<BuilderFixture> {
