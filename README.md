@@ -106,15 +106,17 @@ would call attention to:
   Source discovery → Source fetch → SourceDocument
     → Builder (one per content type)
     → Normalize → Enrich
+    → Cross-source validation (ContentValidationEvidence)
     → Strict QA → persistBuiltPackage()
-    → Public render gate
+    → Public render gate → cache revalidation
     → Monitoring (SourceQualityScore + ContentPackageBuildLog)
   ```
 
   No fallback path bypasses this pipeline. No automatic path saves
   uncertain content as public or failed content as review. The only
   ingestion execution model is Planner → Queue → Worker → Content
-  Builder → Strict QA → Persistence → Public Render Gate → Monitoring.
+  Builder → Cross-source validation → Strict QA → Persistence →
+  Public Render Gate → Cache revalidation → Monitoring.
   - **SourceDocument** — every fetched page becomes a normalized
     SourceDocument row with cleaned body / headings / paragraphs /
     lists / links / metadata + content checksums. Builders read
@@ -164,6 +166,25 @@ would call attention to:
     per-source quality scores. Every metric distinguishes "real zero"
     from "query failed → diagnostic error" so the dashboard never
     silently shows zero because it is disconnected.
+
+- **Production sources + cross-source validation.** A curated
+  production source registry configures every source with a
+  discovery method, factory role, source-purpose flags, tier,
+  license status, and fetch / build / daily caps; a startup task
+  loads it into `IngestionSource`. Between the builder and strict
+  QA a cross-source validation layer requires that each important
+  field of a prayer / saint / novena / devotion / history / etc. is
+  either originated by an approved `primary_content_source` or
+  validated against a second approved source — evidence is recorded
+  in `ContentValidationEvidence`, and a package that a wider source
+  supplies but no approved source can validate fails with
+  `validation_evidence_missing`. Source roles
+  (`primary_content_source` / `validation_source` /
+  `enrichment_source` / `discovery_only_source` / `rejected_source`)
+  are promoted and demoted automatically from rolling quality
+  scores. The production source plan pins minimum factory-ready
+  source counts per content type and auto-enqueues discovery
+  expansion when a content type is under target.
 
 - **Ingestion as a first-class subsystem.** A curated allowlist of Vatican,
   USCCB, and dicastery hosts gates every fetch (`gateUrl` /
@@ -619,6 +640,14 @@ isolation guards — see [TESTING.md](TESTING.md). The short version:
   threshold gate fails the build if coverage regresses.
 - **Accessibility smoke** uses `jest-axe` against rendered components
   (`tests/components/ConfirmDialog.test.tsx`).
+- **Content-factory coverage** is extensive: the registry, cross-source
+  validator, source roles, source plan, builder fixtures (5 valid + 5
+  invalid + 5 messy per major content type), normalizers, classifiers,
+  cache tags, stall taxonomy, and the worker / cron wiring all carry
+  dedicated specs — including end-to-end acceptance tests proving a
+  prayer from a wider source publishes only after a second approved
+  source validates it, and that a discovery-only source with no
+  evidence fails with `validation_evidence_missing`.
 
 ---
 
@@ -748,7 +777,11 @@ The Prisma schema (`prisma/schema.prisma`) defines, among others:
     rolling counters — discovered / fetched / build-success /
     build-failure / QA-pass / QA-fail / deleted / duplicate /
     wrong-content + valid-package-rate + wrong-content-rate +
-    average-completeness; `autoPaused` flag + `lastFailureReason`).
+    average-completeness; `autoPaused` flag + `lastFailureReason`),
+    `ContentValidationEvidence` (one row per cross-source validation
+    check — package ID or candidate slug, content type, field name,
+    source URL + host, evidence type, evidence checksum, matched
+    value, match confidence, validation decision, timestamp).
 - **Security**: `SecurityEvent` (every Suspicious / Breach
   classification with the spec's 19 fields including
   `ipAddressHash`, `deviceCredentialHash`, `userAgent`, `city`,
@@ -760,7 +793,12 @@ The Prisma schema (`prisma/schema.prisma`) defines, among others:
   event, `firstSeenAt` / `lastSeenAt`, `banReason`, `createdBy`).
 - **Ops**: `IngestionSource` (with `isActive`, `reliabilityScore`,
   `lastSuccessfulSync`, `lastFailedSync`, optional
-  `discoveryFeedUrl` for factory-native sitemap-based discovery),
+  `discoveryFeedUrl` for factory-native sitemap-based discovery,
+  `discoveryMethod` / `configurationStatus`, per-source
+  `fetchLimitPerRun` / `buildLimitPerRun` / `dailyCap`, and the
+  factory `role` ∈ `primary_content_source` / `validation_source` /
+  `enrichment_source` / `discovery_only_source` / `rejected_source`
+  with `roleLastReason` + `roleLastChangedAt`),
   `IngestionJob`, `IngestionJobRun`, `IngestionJobQueue` (the durable
   queue rows that back the worker — typed payload, dedupeKey, lease
   state, retry with backoff), `WorkerHeartbeat` (per-worker rolling
@@ -1067,7 +1105,7 @@ A builder returns exactly one of:
   purpose flag (e.g. building a Saint from a source whose
   `canIngestSaints` is false).
 - `duplicate` — same `(sourceDocumentId, contentType,
-  builderVersion, packageContractVersion, sourceChecksum)` tuple
+builderVersion, packageContractVersion, sourceChecksum)` tuple
   already produced a current package.
 - `not_supported_by_source` — no builder registered for this
   content type from this source.
@@ -1094,6 +1132,108 @@ Automatic failures never silently divert to a REVIEW status. The
 admin can still manually flip a row to REVIEW via the admin
 console for editorial purposes — that path goes through
 `POST /api/admin/content/review` and is admin-gated.
+
+### Production source registry
+
+Every source the factory knows about is configured up-front in the
+curated **production source registry**
+(`src/lib/ingestion/sources/production-source-registry.ts`). Each
+entry carries the full configuration the factory needs: source
+name, host, base URL, discovery method, supported content types,
+source-purpose flags, tier, factory role, the package fields it may
+originate, the `canProvidePrimaryContent` / `canProvideValidationOnly`
+/ `canProvideEnrichmentOnly` flags, license status, and per-source
+fetch / build / daily caps.
+
+A startup task
+(`src/lib/startup/production-source-registry-loader.ts`) idempotently
+upserts every registry entry into `IngestionSource` so a fresh
+deployment boots with a working source registry. The admin
+**Source groups** page (`/admin/source-groups`) renders the
+registry grouped into the spec's twelve content-type buckets
+(Prayer, Saint, Marian Apparition, Devotion, Novena, Sacrament,
+Rosary, Consecration, Liturgy, History, Parish, Scripture).
+
+Discovery methods are `sitemap`, `rss`, `fixed_url_list`,
+`official_api`, and `factory_handler`. A source with no valid
+discovery method is marked `not_configured`, and the planner
+refuses to enqueue discovery / fetch / build jobs for it.
+
+### Cross-source validation
+
+Between the builder and strict QA the factory runs a **cross-source
+validation layer** (`src/lib/content-factory/cross-source-validation.ts`).
+The principle: a wide range of sources may be used for _discovery_,
+but only an approved source may _approve final publication_. A
+package may pass only when each required field is one of:
+
+1. directly sourced from an approved `primary_content_source`,
+2. validated by a second approved source (a `pass` evidence row),
+3. filled by a deterministic internal rule, or
+4. filled by approved enrichment with provenance.
+
+Evidence is recorded in **`ContentValidationEvidence`** — one row
+per (package/candidate, field, validator) tuple, storing the
+content type, field name, source URL + host, evidence type,
+evidence checksum, matched value, match confidence, validation
+decision, and timestamp. The ten evidence types are
+`exact_text_match`, `title_match`, `feast_day_match`,
+`patronage_match`, `prayer_text_match`, `sacrament_identity_match`,
+`scripture_reference_match`, `history_date_match`,
+`apparition_approval_status_match`, and `parish_identity_match`
+(plus `deterministic_rule` and `approved_enrichment` for the
+internal-fill cases).
+
+`CROSS_SOURCE_RULES` lists the required fields per content type
+(prayer name / text / type; saint name / feast day / biography
+identity; novena name / days / daily prayers; sacrament key / group
+/ explanation; history category / date / authority / event
+identity; apparition name / location / approval status; parish
+name / city / country). When a wider source supplies content that
+no approved source can validate, the package fails with
+`validation_evidence_missing` — QA standards are never lowered to
+increase volume; volume grows by adding better sources and better
+evidence. The cross-source evidence collector
+(`cross-source-evidence-collector.ts`) gathers evidence inside the
+same `content_build` tick, fetching validator documents through an
+HTTP fetcher with exponential-backoff retry
+(`validator-http-fetcher.ts`).
+
+### Source roles
+
+Every `IngestionSource` carries a **factory role** that gates what
+it may do:
+
+- `primary_content_source` — may originate package body fields.
+- `validation_source` — may validate another source's fields but
+  not provide primary body text.
+- `enrichment_source` — may fill enrichment slots only.
+- `discovery_only_source` — may surface candidate URLs only; a
+  candidate must be validated by an approved source before it can
+  publish.
+- `rejected_source` — excluded from every factory job.
+
+Roles move automatically: `decideRoleTransition()` promotes a
+source up the ladder when its rolling `SourceQualityScore` shows
+sustained valid output, and demotes (or rejects) a source that
+repeatedly produces wrong content. The cron's `source_config_repair`
+job runs `runRoleSync()` each tick. The admin source-configuration
+page shows every source's role with filter chips.
+
+### Production source plan
+
+`SOURCE_PLAN_MINIMUMS` pins the recommended minimum number of
+factory-ready sources per content type (Prayer ≥5, Saint ≥5,
+Devotion ≥4, Novena ≥4, Sacrament ≥3, Rosary ≥3, Consecration ≥3,
+Liturgy ≥3, History ≥5, Parish ≥3, Marian Apparition ≥3). The
+admin **Production source plan** page (`/admin/source-plan`) shows,
+per content type, the required / configured / factory-ready /
+validation / enrichment source counts plus source health and the
+next automatic repair action. Production readiness _fails_ when any
+major content type has zero factory-ready sources and _warns_ when
+any is below its minimum. When a content type is under target, the
+`source_config_repair` job runs `runDiscoveryExpansion()` and
+enqueues `source_discovery` jobs for the next candidate sources.
 
 ### Background cleanup pass (Ingestion & Data Management)
 
@@ -1309,19 +1449,19 @@ pending → running → completed
 each with a Zod payload schema validated at enqueue and at
 execution:
 
-| Job kind                | Priority default | Purpose                                                                 |
-| ----------------------- | ---------------- | ----------------------------------------------------------------------- |
-| `source_freshness`      | 50               | ETag / Last-Modified / checksum probe; lightweight.                     |
-| `source_fetch`          | 100              | Fetch one URL → write a `SourceDocument` → enqueue `content_build`.     |
-| `source_discovery`      | 110              | Walk sitemap / RSS / API → record `DiscoveredSourceItem`s + fetch jobs. |
-| `content_build`         | 120              | **Single combined factory stage:** build + normalize + enrich + strict QA + `persistBuiltPackage()`. |
-| `content_revalidate`    | 150              | Re-run strict QA against PUBLISHED rows after a contract change.        |
-| `source_config_repair`  | 200              | Periodic source-configuration repair (factory-native / not_configured). |
-| `strict_cleanup`        | 250              | Strict-QA sweep of every PUBLISHED row + orphan-saves prune.            |
-| `dedupe_cleanup`        | 300              | Collapse duplicate-checksum rows.                                       |
-| `archive_cleanup`       | 400              | `purgeArchivedByArchivedAt` — hard delete after 30 days.                |
-| `sitemap_refresh`       | 450              | Reserved for sitemap regeneration.                                      |
-| `report_generate`       | 500              | Admin-triggered report regeneration.                                    |
+| Job kind               | Priority default | Purpose                                                                                              |
+| ---------------------- | ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `source_freshness`     | 50               | ETag / Last-Modified / checksum probe; lightweight.                                                  |
+| `source_fetch`         | 100              | Fetch one URL → write a `SourceDocument` → enqueue `content_build`.                                  |
+| `source_discovery`     | 110              | Walk sitemap / RSS / API → record `DiscoveredSourceItem`s + fetch jobs.                              |
+| `content_build`        | 120              | **Single combined factory stage:** build + normalize + enrich + strict QA + `persistBuiltPackage()`. |
+| `content_revalidate`   | 150              | Re-run strict QA against PUBLISHED rows after a contract change.                                     |
+| `source_config_repair` | 200              | Periodic source-configuration repair (factory-native / not_configured).                              |
+| `strict_cleanup`       | 250              | Strict-QA sweep of every PUBLISHED row + orphan-saves prune.                                         |
+| `dedupe_cleanup`       | 300              | Collapse duplicate-checksum rows.                                                                    |
+| `archive_cleanup`      | 400              | `purgeArchivedByArchivedAt` — hard delete after 30 days.                                             |
+| `sitemap_refresh`      | 450              | Reserved for sitemap regeneration.                                                                   |
+| `report_generate`      | 500              | Admin-triggered report regeneration.                                                                 |
 
 `REMOVED_JOB_KINDS` retains the legacy `source_ingest`,
 `content_validate`, and `content_persist` entries so the queue
@@ -2007,6 +2147,25 @@ the security pages (`src/app/admin/_dashboard/cards.ts`):
     missing source / missing required fields / source not approved
     / build failed / QA failed / deleted / duplicate / waiting for
     worker / waiting for cleanup.
+
+    The content-factory pipeline also exposes a cluster of
+    dedicated diagnostic pages, all linked from the Ingestion &
+    Data Management page: **Source configuration**
+    (`/admin/source-configuration`, per-source factory-ready status
+    - role badges + role filter chips), **Source groups**
+      (`/admin/source-groups`, the curated registry grouped into the
+      twelve content-type buckets), **Production source plan**
+      (`/admin/source-plan`, required / configured / factory-ready /
+      validation / enrichment source counts + health + next repair
+      action per content type), **Validation evidence**
+      (`/admin/validation-evidence`, `ContentValidationEvidence`
+      rows with per-content-type pass / fail / insufficient totals),
+      **Factory command center** (`/admin/factory-command-center`,
+      the full source-to-public observability rollup), **Tab
+      diagnostics** (`/admin/tab-diagnostics`, per-tab public /
+      threshold / hidden counts + stall reason), and **Cache health**
+      (`/admin/cache-health`, the cache-revalidation log).
+
 12. Approved sources (allowlist + per-host sync status + optional
     `discoveryFeedUrl` for factory-native discovery)
 13. Search index
