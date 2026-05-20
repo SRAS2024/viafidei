@@ -1,7 +1,8 @@
 /**
- * Content receipt panel — proves the helper returns the 8 spec-listed
- * answers ("why it exists", "which builder", "which contract", etc.)
- * by joining new factory tables.
+ * Content receipt panel — proves the helper returns the spec-listed
+ * answers ("why it exists", "which builder", "which contract",
+ * search + sitemap verification, cache revalidation tags, etc.) by
+ * joining the new factory tables.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -79,5 +80,39 @@ describe("getContentReceipt", () => {
     expect(receipt.publicRow).toBeNull();
     expect(receipt.sourceDocument).toBeNull();
     expect(receipt.derived.builderName).toBeNull();
+  });
+
+  it("verifies search + sitemap visibility and lists cache revalidation tags", async () => {
+    const now = new Date();
+    prismaMock.prayer.findUnique.mockResolvedValue({
+      id: "p1",
+      slug: "our-father",
+      defaultTitle: "Our Father",
+      status: "PUBLISHED",
+      publicRenderReady: true,
+      isThresholdEligible: true,
+      sourceUrl: null,
+      sourceHost: null,
+      contentChecksum: null,
+      packageValidationStatus: "valid",
+      contentPackageVersion: "1.0.0",
+      createdAt: now,
+      updatedAt: now,
+    });
+    prismaMock.contentPackageBuildLog.findMany.mockResolvedValue([]);
+    prismaMock.rejectedContentLog.findMany.mockResolvedValue([]);
+    // verifyIndexing re-runs the strict public / search / sitemap queries.
+    prismaMock.prayer.findFirst.mockResolvedValue({ id: "p1" });
+    prismaMock.prayer.findMany.mockResolvedValue([{ id: "p1" }]);
+
+    const receipt = await getContentReceipt({ contentType: "Prayer", slug: "our-father" });
+
+    expect(receipt.indexing?.visibleInPublicQuery).toBe(true);
+    expect(receipt.indexing?.visibleInSearch).toBe(true);
+    expect(receipt.indexing?.visibleInSitemap).toBe(true);
+    expect(receipt.cacheRevalidation.tabKey).toBe("prayers");
+    expect(receipt.cacheRevalidation.tags).toContain("content-slug:Prayer:our-father");
+    expect(receipt.cacheRevalidation.tags).toContain("sitemap");
+    expect(receipt.cacheRevalidation.tags).toContain("search-index");
   });
 });

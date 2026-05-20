@@ -11,6 +11,8 @@
  *   6. Whether it counts toward threshold.
  *   7. Whether it has ever been updated.
  *   8. Whether it has ever failed QA.
+ *   9. Whether search + sitemap can see it (verified live).
+ *  10. Which cache tags revalidate it.
  *
  * The data is sourced from the new factory tables:
  *   - SourceDocument                — raw fetched page
@@ -24,6 +26,8 @@
 import { prisma } from "../db/client";
 import { logger } from "../observability/logger";
 import type { ContentTypeKey } from "../content-factory";
+import { verifyIndexing } from "../content-factory/search-sitemap-verifier";
+import { tagsForRow, CONTENT_TYPE_TO_TAB } from "../cache/tags";
 
 export type ContentReceipt = {
   contentType: ContentTypeKey | string;
@@ -66,6 +70,22 @@ export type ContentReceipt = {
     decision: string;
     createdAt: Date;
   }>;
+  /**
+   * Search + sitemap verification — re-runs the strict public, search
+   * and sitemap queries this slug must appear in. Null when there is
+   * no public row to verify.
+   */
+  indexing: {
+    visibleInPublicQuery: boolean;
+    visibleInSitemap: boolean;
+    visibleInSearch: boolean;
+    reasons: Record<string, string | null>;
+  } | null;
+  /** Cache tags revalidated whenever this item is created / changed / deleted. */
+  cacheRevalidation: {
+    tabKey: string;
+    tags: string[];
+  };
   /** Counts derived from the data above. */
   derived: {
     everUpdated: boolean;
@@ -184,6 +204,21 @@ export async function getContentReceipt(input: {
       )
     : null;
 
+  // Search + sitemap verification — re-run the public-facing queries.
+  const indexing = publicRow
+    ? await safeRead(
+        () => verifyIndexing({ contentType: String(input.contentType), slug: input.slug }),
+        "indexing",
+        errors,
+      )
+    : null;
+
+  // Cache tags revalidated whenever this item changes.
+  const cacheRevalidation = {
+    tabKey: CONTENT_TYPE_TO_TAB[input.contentType as keyof typeof CONTENT_TYPE_TO_TAB] ?? "—",
+    tags: tagsForRow(String(input.contentType), input.slug),
+  };
+
   const latestSuccess = (buildLogs ?? []).find(
     (b: { buildStatus: string }) => b.buildStatus === "built_complete_package",
   );
@@ -262,6 +297,15 @@ export async function getContentReceipt(input: {
         createdAt: r.deletedAt,
       }),
     ),
+    indexing: indexing
+      ? {
+          visibleInPublicQuery: indexing.visibleInPublicQuery,
+          visibleInSitemap: indexing.visibleInSitemap,
+          visibleInSearch: indexing.visibleInSearch,
+          reasons: indexing.reasons,
+        }
+      : null,
+    cacheRevalidation,
     derived: {
       everUpdated,
       everFailedQA: (qaRejections ?? []).length > 0,
