@@ -23,6 +23,7 @@ import {
   SACRAMENT_GROUP_BY_KEY,
   isCanonicalSacramentKey,
 } from "../../content-qa/sacrament-normalize";
+import { enrichSacramentCatechism, enrichSacramentRelatedPrayers } from "./catechism-references";
 import type { ContentPackage, FieldProvenance } from "../types";
 
 function canonicalSacramentGroup(key: string): string | null {
@@ -188,17 +189,6 @@ export function enrichPackage(pkg: ContentPackage, builderVersion: string): Cont
         enrichSacramentGroup({ builderVersion, pkg });
         // Spec §10: Catechism reference + related-prayer enrichment
         // when not already provided by the source.
-        const { enrichSacramentCatechism, enrichSacramentRelatedPrayers } =
-          require("./catechism-references") as {
-            enrichSacramentCatechism: (p: ContentPackage) => {
-              filled: boolean;
-              references: ReadonlyArray<{ paragraph: string; topic: string }>;
-            };
-            enrichSacramentRelatedPrayers: (p: ContentPackage) => {
-              filled: boolean;
-              prayerSlugs: ReadonlyArray<string>;
-            };
-          };
         enrichSacramentCatechism(pkg);
         enrichSacramentRelatedPrayers(pkg);
         break;
