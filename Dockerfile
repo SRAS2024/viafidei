@@ -1,46 +1,22 @@
 # syntax=docker/dockerfile:1.6
 
+# Full node:22-bookworm (not -slim) so the build needs no apt-get: -slim
+# lacks openssl/ca-certificates/toolchain, and apt-installing them broke
+# deploys during Debian-mirror signature outages.
+
 # ---------- deps stage ----------
-FROM node:22-bookworm-slim AS deps
+FROM node:22-bookworm AS deps
 WORKDIR /app
 ENV NODE_ENV=development
-# Retry apt-get to survive transient Debian-mirror failures such as
-# "At least one invalid signature"; clear the list cache between attempts.
-RUN set -eux; \
-  for attempt in 1 2 3 4 5; do \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*; \
-    if apt-get -o Acquire::Retries=3 update \
-      && apt-get install -y --no-install-recommends openssl ca-certificates python3 make g++; then \
-      break; \
-    fi; \
-    if [ "$attempt" = 5 ]; then echo "apt-get failed after 5 attempts" >&2; exit 1; fi; \
-    echo "apt-get attempt $attempt failed; retrying in $((attempt * 5))s..." >&2; \
-    sleep "$((attempt * 5))"; \
-  done; \
-  rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # ---------- build stage ----------
-FROM node:22-bookworm-slim AS builder
+FROM node:22-bookworm AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-RUN set -eux; \
-  for attempt in 1 2 3 4 5; do \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*; \
-    if apt-get -o Acquire::Retries=3 update \
-      && apt-get install -y --no-install-recommends openssl ca-certificates; then \
-      break; \
-    fi; \
-    if [ "$attempt" = 5 ]; then echo "apt-get failed after 5 attempts" >&2; exit 1; fi; \
-    echo "apt-get attempt $attempt failed; retrying in $((attempt * 5))s..." >&2; \
-    sleep "$((attempt * 5))"; \
-  done; \
-  rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # npm run build already runs "prisma generate && next build" via the build script,
@@ -48,25 +24,12 @@ COPY . .
 RUN npm run build
 
 # ---------- runtime stage ----------
-FROM node:22-bookworm-slim AS runner
+FROM node:22-bookworm AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-RUN set -eux; \
-  for attempt in 1 2 3 4 5; do \
-    apt-get clean; \
-    rm -rf /var/lib/apt/lists/*; \
-    if apt-get -o Acquire::Retries=3 update \
-      && apt-get install -y --no-install-recommends openssl ca-certificates; then \
-      break; \
-    fi; \
-    if [ "$attempt" = 5 ]; then echo "apt-get failed after 5 attempts" >&2; exit 1; fi; \
-    echo "apt-get attempt $attempt failed; retrying in $((attempt * 5))s..." >&2; \
-    sleep "$((attempt * 5))"; \
-  done; \
-  rm -rf /var/lib/apt/lists/*
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
