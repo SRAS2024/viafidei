@@ -134,4 +134,18 @@ describe("Cache health snapshot (spec §22)", () => {
     const snapshot = getCacheHealthSnapshot(10);
     expect(snapshot.recent).toHaveLength(10);
   });
+
+  it("reports the last revalidated content type, slug and tab", async () => {
+    await revalidateForRow({
+      reason: "package_created",
+      contentType: "Prayer",
+      slug: "our-father",
+    });
+    const snapshot = getCacheHealthSnapshot();
+    expect(snapshot.lastRevalidatedContentType).toBe("Prayer");
+    expect(snapshot.lastRevalidatedSlug).toBe("our-father");
+    expect(snapshot.lastRevalidatedTab).toBe("tab:prayers");
+    expect(Array.isArray(snapshot.failedEvents)).toBe(true);
+    expect(Array.isArray(snapshot.pendingCacheRepairs)).toBe(true);
+  });
 });
