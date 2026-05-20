@@ -77,6 +77,13 @@ const DIAGNOSTIC_AREAS = [
     description:
       "One row per configured ingestion source: discovery method, role, tier, supported content types, allowed fields, license status, fetch / build / daily caps, validation + enrichment role, and source health — plus per-content-type source-coverage warnings.",
   },
+  {
+    href: "/admin/baseline-audit",
+    eyebrow: "XI.",
+    title: "Baseline Content Audit",
+    description:
+      "Traces every baseline fixture from its source URL to the public catalog: source documents created, build attempts, complete builds, public packages, failures, and failure reasons.",
+  },
 ] as const;
 
 function statusBadgeStyle(status: string): { bg: string; text: string } {
