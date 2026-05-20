@@ -2149,22 +2149,77 @@ the security pages (`src/app/admin/_dashboard/cards.ts`):
     worker / waiting for cleanup.
 
     The content-factory pipeline also exposes a cluster of
-    dedicated diagnostic pages, all linked from the Ingestion &
-    Data Management page: **Source configuration**
-    (`/admin/source-configuration`, per-source factory-ready status
-    - role badges + role filter chips), **Source groups**
-      (`/admin/source-groups`, the curated registry grouped into the
-      twelve content-type buckets), **Production source plan**
-      (`/admin/source-plan`, required / configured / factory-ready /
-      validation / enrichment source counts + health + next repair
-      action per content type), **Validation evidence**
-      (`/admin/validation-evidence`, `ContentValidationEvidence`
-      rows with per-content-type pass / fail / insufficient totals),
-      **Factory command center** (`/admin/factory-command-center`,
-      the full source-to-public observability rollup), **Tab
-      diagnostics** (`/admin/tab-diagnostics`, per-tab public /
-      threshold / hidden counts + stall reason), and **Cache health**
-      (`/admin/cache-health`, the cache-revalidation log).
+    dedicated diagnostic pages, all reachable from the Ingestion &
+    Data Management page and the Diagnostics hub:
+    - **Content growth** (`/admin/content-growth`) — a rolling
+      seven-day production content growth report. Per content type
+      it shows the twelve pipeline metrics (source documents
+      fetched, build attempts, complete packages, cross-source
+      validation passes, strict QA passes, persisted / public /
+      search-visible / sitemap-visible packages, deleted-invalid,
+      duplicates, net public growth), a daily growth target, a 24h
+      and a stronger 7d growth warning, a 0–100 production growth
+      score grounded in real public packages created (not raw
+      rows), and four daily-trend charts — public package growth,
+      QA pass rate, source success rate, builder success rate. The
+      all-time pipeline table follows underneath.
+    - **Production readiness** (`/admin/production-readiness`) — one
+      card per readiness category plus a per-content-type readiness
+      table covering all twelve major public tabs (a factory-ready
+      source is configured, the canary fixture builds, the strict
+      public tab query loads, a cache revalidation tag is mapped).
+      Readiness fails when any tab's strict query cannot load.
+    - **Builder quality** (`/admin/builder-quality`) — one row per
+      builder over a 14-day window: build attempts, complete
+      packages, QA pass / failure rate, public render / search /
+      sitemap visibility pass rate, duplicate + wrong-content rate,
+      top missing fields, top rejected source hosts.
+    - **Fixture quality** (`/admin/fixture-quality`) — runs every
+      bundled builder fixture through its real builder and reports
+      valid-pass / invalid-rejection / false-positive / false-
+      negative counts plus missing fixture-coverage areas.
+    - **Source onboarding** (`/admin/source-onboarding`) — per
+      source: discovery method, role, tier, supported content
+      types, allowed fields, license status, fetch / build / daily
+      caps, validation + enrichment role, and source health — plus
+      the four source-coverage warnings (below minimum, validation
+      without primary, primary without validation, sources without
+      builds).
+    - **Baseline content audit** (`/admin/baseline-audit`) — traces
+      every baseline fixture from its source URL through to the
+      public catalog (source documents, build attempts, complete
+      builds, public packages, failures + reasons).
+    - **Production growth runbook** (`/admin/production-runbook`) —
+      the single operator page for content-growth operations:
+      stalled content types + their automatic next action, paused
+      and promoted sources, weak builders, missing validation
+      evidence, and failing public display checks.
+    - **Source configuration** (`/admin/source-configuration`),
+      **Source groups** (`/admin/source-groups`) and **Production
+      source plan** (`/admin/source-plan`) — per-source factory-
+      ready status with role badges, the curated registry grouped
+      into the twelve content-type buckets, and required /
+      configured / factory-ready / validation / enrichment source
+      counts + health + next repair action per content type.
+    - **Validation evidence** (`/admin/validation-evidence`) — the
+      cross-source validation dashboard: `ContentValidationEvidence`
+      pass / fail / insufficient totals broken down by content
+      type, source host, field and source role, the most common
+      insufficient-evidence reasons, and a 0–100 health score per
+      validation source.
+    - **Factory command center** (`/admin/factory-command-center`)
+      and **Tab diagnostics** (`/admin/tab-diagnostics`) — the full
+      source-to-public observability rollup and per-tab public /
+      threshold / hidden counts + stall reason.
+    - **Content receipt** (`/admin/content-receipt`) — the full
+      source-to-public provenance trace for any single public item,
+      including its build log, cross-source validation evidence,
+      live search + sitemap verification, and the cache tags that
+      revalidate it.
+    - **Cache health** (`/admin/cache-health`) — the cache-
+      revalidation log plus the last revalidated content type /
+      slug / tab, the last sitemap and search-index revalidation,
+      failed cache events, and pending cache repairs.
 
 12. Approved sources (allowlist + per-host sync status + optional
     `discoveryFeedUrl` for factory-native discovery)
@@ -2191,7 +2246,12 @@ the security pages (`src/app/admin/_dashboard/cards.ts`):
     Cleanup / Growth / Security / Admin email / Database health.
     Every card exposes `lastUpdatedAt`, a `dataSource` badge, and an
     explicit error state when its underlying query throws — no false
-    zero.
+    zero. The hub also links the content-factory diagnostic cluster
+    described above — Content Growth (the seven-day production
+    growth report), Builder Quality, Source Onboarding, Baseline
+    Content Audit, Fixture Quality, and the Production Growth
+    Runbook — so every step from source to public page is
+    observable from one place.
 19. **Banned devices** (`/admin/banned-devices`) — read-only ban
     registry surfacing device-credential ID, ban reason, first /
     last seen, city / region / country, user-agent summary, and the
@@ -2451,12 +2511,16 @@ same CI gates that protect the rest of the codebase.
   legacy `.eslintrc` config. Moving to ESLint 9 requires migrating to
   the flat config format and revalidating every rule, including the
   `next/core-web-vitals` integration. Tracked as a stand-alone migration.
-- **Diagnostics expansion.** The diagnostics admin surface covers email
-  configuration, table availability, ingestion runs, cleanup activity,
-  and recent failures. Additional probes (location-based parish
-  discovery readiness, browser timezone reporting, translation override
-  audit) are scoped for the next diagnostics iteration so the test
-  surface for them lands together with the routes.
+- **Diagnostics expansion.** The diagnostics admin surface now covers
+  email configuration, table availability, ingestion runs, cleanup
+  activity, recent failures, 14-card system health, the seven-day
+  content growth report, per-content-type production readiness,
+  builder and fixture quality, source onboarding, cross-source
+  validation + validation-source health, the baseline content audit,
+  and the production growth runbook. A few probes remain scoped for a
+  later iteration — location-based parish discovery readiness, browser
+  timezone reporting, and translation override audit — so their test
+  surface lands together with the routes.
 - **Screenshot assets.** The `docs/screenshots/` files are placeholders
   in the README table. They will be populated when the next visible UI
   iteration ships so the captures stay current.
