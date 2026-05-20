@@ -45,14 +45,14 @@ function makeSource(over: Partial<Record<string, unknown>> = {}) {
 
 describe("runSourceConfigRepair", () => {
   it("marks a source with no discovery method as not_configured", async () => {
-    prismaMock.ingestionSource.findMany.mockResolvedValue([
-      makeSource({ canIngestPrayers: true }),
-    ]);
+    prismaMock.ingestionSource.findMany.mockResolvedValue([makeSource({ canIngestPrayers: true })]);
     let lastUpdate: Record<string, unknown> | undefined;
-    prismaMock.ingestionSource.update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
-      lastUpdate = data;
-      return {};
-    });
+    prismaMock.ingestionSource.update.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => {
+        lastUpdate = data;
+        return {};
+      },
+    );
 
     const report = await runSourceConfigRepair();
 
@@ -71,10 +71,12 @@ describe("runSourceConfigRepair", () => {
       }),
     ]);
     let lastUpdate: Record<string, unknown> | undefined;
-    prismaMock.ingestionSource.update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
-      lastUpdate = data;
-      return {};
-    });
+    prismaMock.ingestionSource.update.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => {
+        lastUpdate = data;
+        return {};
+      },
+    );
 
     const report = await runSourceConfigRepair();
 
@@ -92,10 +94,12 @@ describe("runSourceConfigRepair", () => {
       }),
     ]);
     let lastUpdate: Record<string, unknown> | undefined;
-    prismaMock.ingestionSource.update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
-      lastUpdate = data;
-      return {};
-    });
+    prismaMock.ingestionSource.update.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => {
+        lastUpdate = data;
+        return {};
+      },
+    );
 
     await runSourceConfigRepair();
     // The feedKind heuristic picks "sitemap" for any URL ending .xml,

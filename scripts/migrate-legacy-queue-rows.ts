@@ -140,9 +140,7 @@ async function migrateLegacyQueueRows(options: { dryRun: boolean }): Promise<Mig
   return report;
 }
 
-function chooseReplacementKind(
-  legacyKind: string,
-): "source_discovery" | "content_build" | null {
+function chooseReplacementKind(legacyKind: string): "source_discovery" | "content_build" | null {
   if (legacyKind === "source_ingest") return "source_discovery";
   if (legacyKind === "content_validate" || legacyKind === "content_persist") {
     return "content_build";

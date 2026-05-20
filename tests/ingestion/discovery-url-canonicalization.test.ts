@@ -32,9 +32,9 @@ describe("canonicalizeDiscoveredUrl", () => {
   });
 
   it("strips fbclid / gclid", () => {
-    expect(
-      canonicalizeDiscoveredUrl("https://example.org/saint?fbclid=abc&gclid=def"),
-    ).toBe("https://example.org/saint");
+    expect(canonicalizeDiscoveredUrl("https://example.org/saint?fbclid=abc&gclid=def")).toBe(
+      "https://example.org/saint",
+    );
   });
 
   it("lowercases the host", () => {

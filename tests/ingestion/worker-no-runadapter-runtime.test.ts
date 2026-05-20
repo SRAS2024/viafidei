@@ -41,10 +41,7 @@ describe("worker dispatch surface does not expose runAdapter at runtime", () => 
     // confirming every kind has a `case "<kind>":` clause.
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
-    const src = readFileSync(
-      join(process.cwd(), "src/lib/ingestion/queue/dispatch.ts"),
-      "utf8",
-    );
+    const src = readFileSync(join(process.cwd(), "src/lib/ingestion/queue/dispatch.ts"), "utf8");
     for (const kind of JOB_KINDS) {
       const pattern = new RegExp(`case\\s+["']${kind}["']`);
       expect(

@@ -121,9 +121,7 @@ function scoreContentType(
   // content packages even if the URL/title looks promising. We
   // surface the matched label so router diagnostics can show why a
   // candidate was rejected.
-  const negHit = NEGATIVE_HINTS.find(
-    ({ pattern }) => pattern.test(title) || pattern.test(url),
-  );
+  const negHit = NEGATIVE_HINTS.find(({ pattern }) => pattern.test(title) || pattern.test(url));
   if (negHit) {
     reasons.push(`negative_hint:${negHit.label}`);
     return { score: -1, reasons, rejected: true };

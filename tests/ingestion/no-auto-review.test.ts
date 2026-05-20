@@ -112,9 +112,7 @@ describe("no automatic path writes status='REVIEW'", () => {
       }
     }
     if (offenders.length > 0) {
-      const summary = offenders
-        .map((o) => `${o.path}:${o.line}  ${o.text}`)
-        .join("\n");
+      const summary = offenders.map((o) => `${o.path}:${o.line}  ${o.text}`).join("\n");
       throw new Error(
         "Automatic path writes status='REVIEW' — REVIEW must only come from an explicit admin action:\n" +
           summary,

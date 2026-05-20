@@ -75,9 +75,11 @@ function feedKind(feedUrl: string): "sitemap" | "rss" | "fixed_url_list" {
   return "fixed_url_list";
 }
 
-export async function runSourceConfigRepair(options: {
-  sourceId?: string | null;
-} = {}): Promise<SourceConfigRepairReport> {
+export async function runSourceConfigRepair(
+  options: {
+    sourceId?: string | null;
+  } = {},
+): Promise<SourceConfigRepairReport> {
   const report: SourceConfigRepairReport = {
     inspected: 0,
     markedNotConfigured: 0,
@@ -143,9 +145,10 @@ export async function runSourceConfigRepair(options: {
       }
     } else if (s.discoveryFeedUrl) {
       // Source has a usable feed — promote to factory_native.
-      const method = s.discoveryMethod === "official_api" || s.discoveryMethod === "factory_handler"
-        ? s.discoveryMethod
-        : feedKind(s.discoveryFeedUrl);
+      const method =
+        s.discoveryMethod === "official_api" || s.discoveryMethod === "factory_handler"
+          ? s.discoveryMethod
+          : feedKind(s.discoveryFeedUrl);
       const target = {
         discoveryMethod: method,
         configurationStatus: "factory_native",

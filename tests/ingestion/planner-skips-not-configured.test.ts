@@ -40,7 +40,8 @@ function makeJob(overrides: { configurationStatus: string | null }) {
       exhaustedAt: null,
       healthState: "healthy",
       discoveryFeedUrl: null,
-      discoveryMethod: overrides.configurationStatus === "not_configured" ? "not_configured" : "sitemap",
+      discoveryMethod:
+        overrides.configurationStatus === "not_configured" ? "not_configured" : "sitemap",
       configurationStatus: overrides.configurationStatus,
       isActive: true,
     },

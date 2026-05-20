@@ -19,11 +19,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import {
-  JOB_KINDS,
-  REMOVED_JOB_KINDS,
-  validatePayload,
-} from "@/lib/ingestion/queue/job-kinds";
+import { JOB_KINDS, REMOVED_JOB_KINDS, validatePayload } from "@/lib/ingestion/queue/job-kinds";
 
 const SRC = process.cwd();
 
