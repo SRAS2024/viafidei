@@ -84,6 +84,13 @@ const DIAGNOSTIC_AREAS = [
     description:
       "Traces every baseline fixture from its source URL to the public catalog: source documents created, build attempts, complete builds, public packages, failures, and failure reasons.",
   },
+  {
+    href: "/admin/fixture-quality",
+    eyebrow: "XII.",
+    title: "Fixture Quality Diagnostics",
+    description:
+      "Runs every bundled builder fixture through its real builder: fixture counts, valid-fixture pass count, invalid-fixture rejection count, false positives, false negatives, and missing fixture-coverage areas.",
+  },
 ] as const;
 
 function statusBadgeStyle(status: string): { bg: string; text: string } {
