@@ -70,6 +70,13 @@ const DIAGNOSTIC_AREAS = [
     description:
       "One row per builder over a rolling 14-day window: build attempts, complete packages, QA pass / failure rate, public render / search / sitemap visibility pass rate, duplicate rate, wrong-content rate, top missing fields, and top rejected source hosts.",
   },
+  {
+    href: "/admin/source-onboarding",
+    eyebrow: "X.",
+    title: "Source Onboarding Diagnostics",
+    description:
+      "One row per configured ingestion source: discovery method, role, tier, supported content types, allowed fields, license status, fetch / build / daily caps, validation + enrichment role, and source health — plus per-content-type source-coverage warnings.",
+  },
 ] as const;
 
 function statusBadgeStyle(status: string): { bg: string; text: string } {
