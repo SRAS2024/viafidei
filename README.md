@@ -422,7 +422,8 @@ below.
 ├── TESTING.md                 # Test stack reference (commands, layout, isolation)
 ├── Dockerfile                 # Multi-stage production web image
 ├── Dockerfile.worker          # Single-stage ingestion-worker image (tsx + Prisma)
-├── railway.json               # Railway deploy + healthcheck config
+├── railway.json               # Railway config for the web service
+├── railway.worker.json        # Railway config for the worker service
 ├── next.config.js             # standalone output, image hosts, security headers
 ├── tailwind.config.ts         # Liturgical palette + Cormorant/Inter typography
 ├── tsconfig.json              # `@/*` → `src/*`
@@ -2437,11 +2438,14 @@ Dockerfile in this repo:
 
 Both services need the same env vars: `DATABASE_URL`,
 `SESSION_SECRET`, `ADMIN_EMAIL`, `RESEND_API_KEY`,
-`ADMIN_USERNAME`, `ADMIN_PASSWORD`. `railway.json` configures the
-**web** service (root `Dockerfile`, `./scripts/start.sh`,
-`/api/health/live` healthcheck). The **worker** service points at
-`Dockerfile.worker` instead; it needs no start command — the image
-`CMD` runs migrate → validate → worker — and no healthcheck path.
+`ADMIN_USERNAME`, `ADMIN_PASSWORD`. Each service reads its own
+Railway config file: `railway.json` drives the **web** service
+(root `Dockerfile`, `./scripts/start.sh`, `/api/health/live`
+healthcheck), and `railway.worker.json` drives the **worker**
+service (`Dockerfile.worker`, no start command, no healthcheck —
+the image `CMD` runs migrate → validate → worker). Point the
+worker service's config-file path at `railway.worker.json` in its
+Railway settings; the web service keeps the default `railway.json`.
 
 See `docs/operations/queue-rollout.md` for the full 7-phase rollout
 plan, rollback procedure, and data-safety checklist.
