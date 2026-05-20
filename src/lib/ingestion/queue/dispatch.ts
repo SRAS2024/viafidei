@@ -27,6 +27,7 @@ import { validatePayload, isJobKind, isRemovedJobKind, type JobKind } from "./jo
 import { recordChainStage } from "./chain-audit";
 import { runContentFactory, getSourceDocument, recordSourceDocument } from "../../content-factory";
 import type { ContentTypeKey } from "../../content-factory";
+import { isSourceRole } from "../sources/roles";
 import {
   enqueueContentBuildsForSourceDocument,
   type SourceForBuildEligibility,
@@ -388,12 +389,32 @@ async function runContentFactoryStage(
   if (!snapshot) {
     return { ok: false, errorMessage: `${kind} snapshot read failed` };
   }
+  // Resolve the source's factory role so the cross-source validator
+  // applies the right rule: a primary_content_source bypasses the
+  // evidence requirement; every wider role must produce cross-source
+  // evidence before strict QA. Without this lookup the factory would
+  // default to `discovery_only_source` and force even Vatican.va
+  // primary content through cross-source validation.
+  let sourceRole: string | undefined;
+  if (job.sourceId) {
+    try {
+      const src = await prisma.ingestionSource.findUnique({
+        where: { id: job.sourceId },
+        select: { role: true },
+      });
+      sourceRole = (src as { role?: string } | null)?.role;
+    } catch {
+      // Leave undefined — the factory falls back to the safe
+      // discovery_only_source default.
+    }
+  }
   const result = await runContentFactory({
     contentType,
     document: snapshot,
     sourceId: job.sourceId ?? null,
     workerJobId: job.id,
     triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
+    sourceRole: isSourceRole(sourceRole ?? "") ? (sourceRole as never) : undefined,
   });
   // Record chain-stage events so the audit log preserves the full
   // pipeline trace per URL. We branch on the factory decision so the
