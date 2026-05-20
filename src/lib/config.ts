@@ -79,6 +79,29 @@ export const appConfig = {
       consecrations: 4,
     },
     /**
+     * Daily public-package growth targets, one per content-factory
+     * content type. The seven-day production content growth report
+     * compares the count of NEW strict-public packages created in the
+     * window against `dailyGrowthTarget × 7`, so the operator can see
+     * which content types are keeping pace. These are intentionally
+     * modest — they describe expected healthy daily growth, not the
+     * absolute backlog `targets` above. Public pages never expose them.
+     */
+    dailyGrowthTargets: {
+      Prayer: 5,
+      Saint: 25,
+      MarianApparition: 1,
+      Parish: 200,
+      Devotion: 2,
+      Novena: 1,
+      Sacrament: 1,
+      Rosary: 1,
+      Consecration: 1,
+      SpiritualGuidance: 2,
+      Liturgy: 3,
+      History: 5,
+    } as Record<string, number>,
+    /**
      * Maintenance-mode cadence: after the targets are met we still
      * want to catch new credible Catholic content without scraping
      * constantly. Twice per week (≈84h) is enough to pick up newly

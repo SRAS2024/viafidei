@@ -56,6 +56,13 @@ const DIAGNOSTIC_AREAS = [
     description:
       "Single-page dashboard with one card per pipeline stage — queue, worker, source discovery / fetch / document, content factory, builders, strict QA, persistence, cleanup, growth, security, admin email, and database. Each card shows its data source, last-updated timestamp, and an error state (never a false zero) when its underlying query fails.",
   },
+  {
+    href: "/admin/content-growth",
+    eyebrow: "VIII.",
+    title: "Content Growth (seven-day production report)",
+    description:
+      "Per content type, the source → public pipeline over a rolling seven days: documents fetched, builds, complete packages, cross-source validation, strict QA, persistence, public / search / sitemap visibility, deletions, duplicates, and net public growth. Includes daily growth targets, 24h / 7d growth warnings, a production growth score, and daily-trend charts.",
+  },
 ] as const;
 
 function statusBadgeStyle(status: string): { bg: string; text: string } {
