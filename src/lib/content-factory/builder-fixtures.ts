@@ -514,6 +514,741 @@ export const SAINT_FIXTURES: ReadonlyArray<BuilderFixture> = [
   },
 ];
 
+// ─── Devotion ────────────────────────────────────────────────────────
+export const DEVOTION_FIXTURES: ReadonlyArray<BuilderFixture> = [
+  // Valid
+  {
+    name: "divine-mercy",
+    kind: "valid",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://vatican.va/devotions/divine-mercy",
+      host: "vatican.va",
+      title: "Divine Mercy Devotion",
+      body:
+        "The Divine Mercy devotion was given by Jesus to St. Faustina Kowalska in the 1930s. " +
+        "Practice: Recite the Divine Mercy Chaplet daily at 3:00 PM, the Hour of Mercy. " +
+        "Begin with the Sign of the Cross, then pray the Our Father, Hail Mary, and Apostles' Creed.",
+      purpose: "canIngestDevotions",
+    }),
+  },
+  {
+    name: "sacred-heart",
+    kind: "valid",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://vatican.va/devotions/sacred-heart",
+      host: "vatican.va",
+      title: "Devotion to the Sacred Heart",
+      body:
+        "Devotion to the Sacred Heart of Jesus is one of the most widely practiced Catholic devotions. " +
+        "Practice: Recite the Litany of the Sacred Heart daily. Begin with the Sign of the Cross.",
+      purpose: "canIngestDevotions",
+    }),
+  },
+  {
+    name: "immaculate-heart",
+    kind: "valid",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://vatican.va/devotions/immaculate-heart",
+      host: "vatican.va",
+      title: "Devotion to the Immaculate Heart of Mary",
+      body:
+        "Devotion to the Immaculate Heart of Mary was promoted by St. Louis de Montfort and the Fatima apparitions. " +
+        "Practice: Pray five decades of the Rosary daily. Begin with the Apostles' Creed.",
+      purpose: "canIngestDevotions",
+    }),
+  },
+  {
+    name: "miraculous-medal",
+    kind: "valid",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://vatican.va/devotions/miraculous-medal",
+      host: "vatican.va",
+      title: "The Miraculous Medal Novena",
+      body:
+        "The Miraculous Medal devotion was given by Our Lady to St. Catherine Labouré in 1830. " +
+        "Practice: Wear the medal and recite the prayer daily — O Mary conceived without sin, " +
+        "pray for us who have recourse to thee. Begin every day with the Sign of the Cross.",
+      purpose: "canIngestDevotions",
+    }),
+  },
+  {
+    name: "stations-of-the-cross",
+    kind: "valid",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://vatican.va/devotions/stations-of-the-cross",
+      host: "vatican.va",
+      title: "The Stations of the Cross",
+      body:
+        "The Stations of the Cross is a Lenten devotion that traces Christ's path to Calvary. " +
+        "Practice: Begin with the Sign of the Cross. At each station, recite the traditional prayer: " +
+        "We adore Thee, O Christ, and we bless Thee, because by Thy holy Cross Thou hast redeemed the world.",
+      purpose: "canIngestDevotions",
+    }),
+  },
+  // Invalid
+  {
+    name: "livestream",
+    kind: "invalid",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://parish.example/livestream",
+      host: "parish.example",
+      title: "Watch Live: Divine Mercy",
+      body: "Watch live every day at 3pm. Click here to register for tonight's livestream.",
+      purpose: "canIngestDevotions",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "history-article",
+    kind: "invalid",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://blog.example/history-of-devotion",
+      host: "blog.example",
+      title: "The History of the Sacred Heart Devotion",
+      body:
+        "According to scholars, the devotion has a long history beginning in the 17th century. " +
+        "As theologian John Smith writes in his book, this is a fascinating history.",
+      purpose: "canIngestDevotions",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "retreat-registration",
+    kind: "invalid",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://parish.example/retreat",
+      host: "parish.example",
+      title: "Marian Devotion Retreat",
+      body: "Register for our weekend retreat to deepen your devotion to Mary.",
+      purpose: "canIngestDevotions",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "empty-body",
+    kind: "invalid",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://vatican.va/devotions/empty",
+      host: "vatican.va",
+      title: "Empty",
+      body: "",
+      purpose: "canIngestDevotions",
+    }),
+    expectedFailureReason: "not_supported_by_source",
+  },
+  {
+    name: "unapproved-source",
+    kind: "invalid",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://random.example/devotion",
+      host: "random.example",
+      title: "Some Devotion",
+      body: "Some text.",
+      purpose: "",
+    }),
+    expectedFailureReason: "source_not_allowed",
+  },
+  // Messy
+  {
+    name: "messy-divine-mercy",
+    kind: "messy",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://catholicculture.org/devotions/divine-mercy-messy",
+      host: "catholicculture.org",
+      title: "Divine Mercy Devotion",
+      body:
+        "Below is the devotion:\n\n" +
+        "The Divine Mercy devotion was given by Jesus to St. Faustina. " +
+        "Practice: Recite the Chaplet daily at 3pm. Begin with the Sign of the Cross.\n\n" +
+        "© 2024 EWTN. All rights reserved.",
+      purpose: "canIngestDevotions",
+    }),
+  },
+  {
+    name: "messy-sacred-heart",
+    kind: "messy",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://catholic.org/devotions/sacred-heart-messy",
+      host: "catholic.org",
+      title: "Sacred Heart Devotion",
+      body:
+        "Subscribe to our newsletter!\n\n" +
+        "Devotion to the Sacred Heart. Practice: Recite the Litany daily. " +
+        "Begin with the Sign of the Cross.",
+      purpose: "canIngestDevotions",
+    }),
+  },
+  {
+    name: "messy-immaculate-heart",
+    kind: "messy",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://usccb.org/devotions/immaculate-heart-messy",
+      host: "usccb.org",
+      title: "Immaculate Heart Devotion",
+      body:
+        "Used with permission.\n\n" +
+        "Devotion to the Immaculate Heart of Mary. Practice: pray five decades of the Rosary daily.",
+      purpose: "canIngestDevotions",
+    }),
+  },
+  {
+    name: "messy-miraculous-medal",
+    kind: "messy",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://catholicculture.org/devotions/miraculous-medal-messy",
+      host: "catholicculture.org",
+      title: "Miraculous Medal",
+      body:
+        "Click here to read more.\n\n" +
+        "Miraculous Medal devotion. Practice: wear the medal daily and recite the prayer.\n\n" +
+        "Source: Vatican.va",
+      purpose: "canIngestDevotions",
+    }),
+  },
+  {
+    name: "messy-stations",
+    kind: "messy",
+    contentType: "Devotion",
+    document: doc({
+      url: "https://catholic.org/devotions/stations-messy",
+      host: "catholic.org",
+      title: "Stations of the Cross",
+      body:
+        "Read more at catholic.org/stations!!!\n\n" +
+        "The Stations of the Cross. Practice: begin with the Sign of the Cross. " +
+        "At each station, recite the traditional prayer.",
+      purpose: "canIngestDevotions",
+    }),
+  },
+];
+
+// ─── Sacrament ───────────────────────────────────────────────────────
+export const SACRAMENT_FIXTURES: ReadonlyArray<BuilderFixture> = [
+  // Valid
+  {
+    name: "baptism",
+    kind: "valid",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://vatican.va/sacrament/baptism",
+      host: "vatican.va",
+      title: "The Sacrament of Baptism",
+      body:
+        "Baptism is the first of the seven sacraments and the gateway to the Christian life. " +
+        "The Sacrament of Baptism is one of the three sacraments of Initiation. " +
+        "Through baptism we are freed from sin and reborn as children of God.",
+      purpose: "canIngestSacraments",
+    }),
+  },
+  {
+    name: "eucharist",
+    kind: "valid",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://vatican.va/sacrament/eucharist",
+      host: "vatican.va",
+      title: "The Sacrament of the Eucharist",
+      body:
+        "The Eucharist is the source and summit of the Christian life. " +
+        "The Sacrament of the Eucharist is one of the three sacraments of Initiation. " +
+        "Christ is truly present in the Eucharistic elements.",
+      purpose: "canIngestSacraments",
+    }),
+  },
+  {
+    name: "confirmation",
+    kind: "valid",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://vatican.va/sacrament/confirmation",
+      host: "vatican.va",
+      title: "The Sacrament of Confirmation",
+      body:
+        "Confirmation completes baptismal grace. The Sacrament of Confirmation is one of " +
+        "the three sacraments of Initiation. Confirmation perfects the gift of the Holy Spirit.",
+      purpose: "canIngestSacraments",
+    }),
+  },
+  {
+    name: "reconciliation",
+    kind: "valid",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://vatican.va/sacrament/reconciliation",
+      host: "vatican.va",
+      title: "The Sacrament of Reconciliation",
+      body:
+        "The Sacrament of Reconciliation, also called Penance or Confession, is the sacrament " +
+        "of healing in which the faithful confess their sins to a priest. Reconciliation is one " +
+        "of the two sacraments of Healing.",
+      purpose: "canIngestSacraments",
+    }),
+  },
+  {
+    name: "matrimony",
+    kind: "valid",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://vatican.va/sacrament/matrimony",
+      host: "vatican.va",
+      title: "The Sacrament of Matrimony",
+      body:
+        "Matrimony is the sacrament of marriage. The Sacrament of Matrimony is one of the two " +
+        "sacraments of Service. The matrimonial covenant unites man and woman in a lifelong partnership.",
+      purpose: "canIngestSacraments",
+    }),
+  },
+  // Invalid
+  {
+    name: "schedule-page",
+    kind: "invalid",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://parish.example/confession-schedule",
+      host: "parish.example",
+      title: "Confession Schedule",
+      body: "Confessions are heard Saturdays at 3:30pm and by appointment.",
+      purpose: "canIngestSacraments",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "registration-page",
+    kind: "invalid",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://parish.example/baptism-registration",
+      host: "parish.example",
+      title: "Baptism Registration",
+      body: "Register your child for baptism. Click here to fill out the registration form.",
+      purpose: "canIngestSacraments",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "empty-body",
+    kind: "invalid",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://vatican.va/sacrament/empty",
+      host: "vatican.va",
+      title: "Empty",
+      body: "",
+      purpose: "canIngestSacraments",
+    }),
+    expectedFailureReason: "not_supported_by_source",
+  },
+  {
+    name: "non-sacrament-content",
+    kind: "invalid",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://blog.example/article",
+      host: "blog.example",
+      title: "Random blog post about parish life",
+      body: "Some random content with no sacramental teaching.",
+      purpose: "canIngestSacraments",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "unapproved-source",
+    kind: "invalid",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://random.example/sacrament",
+      host: "random.example",
+      title: "Some Sacrament",
+      body: "Some text.",
+      purpose: "",
+    }),
+    expectedFailureReason: "source_not_allowed",
+  },
+  // Messy
+  {
+    name: "messy-baptism",
+    kind: "messy",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://catholicculture.org/sacrament/baptism-messy",
+      host: "catholicculture.org",
+      title: "The Sacrament of Baptism",
+      body:
+        "Read more at catholicculture.org\n\n" +
+        "Baptism is the first of the seven sacraments. The Sacrament of Baptism is one of " +
+        "the three sacraments of Initiation. Through baptism we are freed from sin.\n\n" +
+        "© 2024 Catholic Culture",
+      purpose: "canIngestSacraments",
+    }),
+  },
+  {
+    name: "messy-eucharist",
+    kind: "messy",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://usccb.org/sacrament/eucharist-messy",
+      host: "usccb.org",
+      title: "The Eucharist",
+      body:
+        "Subscribe to our newsletter!\n\n" +
+        "The Eucharist is the source and summit of the Christian life. " +
+        "The Sacrament of the Eucharist is one of the sacraments of Initiation.",
+      purpose: "canIngestSacraments",
+    }),
+  },
+  {
+    name: "messy-confirmation",
+    kind: "messy",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://catholic.org/sacrament/confirmation-messy",
+      host: "catholic.org",
+      title: "Confirmation",
+      body:
+        "Click here to read more.\n\n" +
+        "Confirmation completes baptismal grace. The Sacrament of Confirmation is one of " +
+        "the three sacraments of Initiation.\n\n" +
+        "Source: Vatican.va",
+      purpose: "canIngestSacraments",
+    }),
+  },
+  {
+    name: "messy-reconciliation",
+    kind: "messy",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://catholicculture.org/sacrament/reconciliation-messy",
+      host: "catholicculture.org",
+      title: "Sacrament of Reconciliation",
+      body:
+        "Used with permission.\n\n" +
+        "The Sacrament of Reconciliation, also called Penance. " +
+        "Reconciliation is one of the two sacraments of Healing.",
+      purpose: "canIngestSacraments",
+    }),
+  },
+  {
+    name: "messy-matrimony",
+    kind: "messy",
+    contentType: "Sacrament",
+    document: doc({
+      url: "https://catholic.org/sacrament/matrimony-messy",
+      host: "catholic.org",
+      title: "Sacrament of Matrimony",
+      body:
+        "Read more at catholic.org!!!\n\n" +
+        "Matrimony is the sacrament of marriage. The Sacrament of Matrimony is one of the " +
+        "two sacraments of Service. The matrimonial covenant unites man and woman.",
+      purpose: "canIngestSacraments",
+    }),
+  },
+];
+
+// ─── Novena ──────────────────────────────────────────────────────────
+export const NOVENA_FIXTURES: ReadonlyArray<BuilderFixture> = [
+  // Valid
+  {
+    name: "divine-mercy-novena",
+    kind: "valid",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/divine-mercy",
+      host: "praymorenovenas.com",
+      title: "Divine Mercy Novena",
+      body:
+        "Day 1: Today bring to Me all mankind. Pray the Chaplet of Divine Mercy.\n\n" +
+        "Day 2: Today bring to Me the souls of priests and religious. Pray the Chaplet of Divine Mercy.\n\n" +
+        "Day 3: Today bring to Me all devout and faithful souls. Pray the Chaplet of Divine Mercy.\n\n" +
+        "Day 4: Today bring to Me those who do not believe in Jesus and those who do not yet know Me. Pray the Chaplet of Divine Mercy.\n\n" +
+        "Day 5: Today bring to Me the souls of separated brethren. Pray the Chaplet of Divine Mercy.\n\n" +
+        "Day 6: Today bring to Me the meek and humble souls and the souls of little children. Pray the Chaplet of Divine Mercy.\n\n" +
+        "Day 7: Today bring to Me the souls who especially venerate and glorify My mercy. Pray the Chaplet of Divine Mercy.\n\n" +
+        "Day 8: Today bring to Me the souls who are detained in purgatory. Pray the Chaplet of Divine Mercy.\n\n" +
+        "Day 9: Today bring to Me souls who have become lukewarm. Pray the Chaplet of Divine Mercy.",
+      purpose: "canIngestNovenas",
+    }),
+  },
+  {
+    name: "st-jude-novena",
+    kind: "valid",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/st-jude",
+      host: "praymorenovenas.com",
+      title: "St. Jude Novena",
+      body:
+        "Day 1: Most holy Apostle, St. Jude, hear my prayer. Pray the Lord's Prayer.\n\n" +
+        "Day 2: Most holy Apostle, St. Jude. Pray the Hail Mary.\n\n" +
+        "Day 3: Most holy Apostle, St. Jude. Pray the Glory Be.\n\n" +
+        "Day 4: Most holy Apostle, St. Jude. Pray the Lord's Prayer.\n\n" +
+        "Day 5: Most holy Apostle, St. Jude. Pray the Hail Mary.\n\n" +
+        "Day 6: Most holy Apostle, St. Jude. Pray the Glory Be.\n\n" +
+        "Day 7: Most holy Apostle, St. Jude. Pray the Lord's Prayer.\n\n" +
+        "Day 8: Most holy Apostle, St. Jude. Pray the Hail Mary.\n\n" +
+        "Day 9: Most holy Apostle, St. Jude. Pray the Glory Be.",
+      purpose: "canIngestNovenas",
+    }),
+  },
+  {
+    name: "st-anthony-novena",
+    kind: "valid",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/st-anthony",
+      host: "praymorenovenas.com",
+      title: "St. Anthony Novena",
+      body:
+        "Day 1: Holy St. Anthony, gentlest of saints. Pray three Our Fathers.\n\n" +
+        "Day 2: Holy St. Anthony. Pray three Hail Marys.\n\n" +
+        "Day 3: Holy St. Anthony. Pray three Glory Bes.\n\n" +
+        "Day 4: Holy St. Anthony. Pray three Our Fathers.\n\n" +
+        "Day 5: Holy St. Anthony. Pray three Hail Marys.\n\n" +
+        "Day 6: Holy St. Anthony. Pray three Glory Bes.\n\n" +
+        "Day 7: Holy St. Anthony. Pray three Our Fathers.\n\n" +
+        "Day 8: Holy St. Anthony. Pray three Hail Marys.\n\n" +
+        "Day 9: Holy St. Anthony. Pray three Glory Bes.",
+      purpose: "canIngestNovenas",
+    }),
+  },
+  {
+    name: "immaculate-conception-novena",
+    kind: "valid",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/immaculate-conception",
+      host: "praymorenovenas.com",
+      title: "Immaculate Conception Novena",
+      body:
+        "Day 1: Immaculate Mary, our Mother. Pray three Hail Marys.\n\n" +
+        "Day 2: Immaculate Mary. Pray three Hail Marys.\n\n" +
+        "Day 3: Immaculate Mary. Pray three Hail Marys.\n\n" +
+        "Day 4: Immaculate Mary. Pray three Hail Marys.\n\n" +
+        "Day 5: Immaculate Mary. Pray three Hail Marys.\n\n" +
+        "Day 6: Immaculate Mary. Pray three Hail Marys.\n\n" +
+        "Day 7: Immaculate Mary. Pray three Hail Marys.\n\n" +
+        "Day 8: Immaculate Mary. Pray three Hail Marys.\n\n" +
+        "Day 9: Immaculate Mary, on this last day we beg your intercession. Pray three Hail Marys.",
+      purpose: "canIngestNovenas",
+    }),
+  },
+  {
+    name: "sacred-heart-novena",
+    kind: "valid",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/sacred-heart",
+      host: "praymorenovenas.com",
+      title: "Sacred Heart Novena",
+      body:
+        "Day 1: O most holy Heart of Jesus. Pray the Our Father.\n\n" +
+        "Day 2: O most holy Heart of Jesus. Pray the Hail Mary.\n\n" +
+        "Day 3: O most holy Heart of Jesus. Pray the Glory Be.\n\n" +
+        "Day 4: O most holy Heart of Jesus. Pray the Our Father.\n\n" +
+        "Day 5: O most holy Heart of Jesus. Pray the Hail Mary.\n\n" +
+        "Day 6: O most holy Heart of Jesus. Pray the Glory Be.\n\n" +
+        "Day 7: O most holy Heart of Jesus. Pray the Our Father.\n\n" +
+        "Day 8: O most holy Heart of Jesus. Pray the Hail Mary.\n\n" +
+        "Day 9: O most holy Heart of Jesus, on this last day we beseech you. Pray the Glory Be.",
+      purpose: "canIngestNovenas",
+    }),
+  },
+  // Invalid — partial novenas, articles, livestreams
+  {
+    name: "partial-only-3-days",
+    kind: "invalid",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/partial",
+      host: "praymorenovenas.com",
+      title: "Partial Novena",
+      body:
+        "Day 1: First day prayer.\n\n" +
+        "Day 2: Second day prayer.\n\n" +
+        "Day 3: Third day prayer.",
+      purpose: "canIngestNovenas",
+    }),
+    expectedFailureReason: "build_failed_missing_required_fields",
+  },
+  {
+    name: "article-about-novenas",
+    kind: "invalid",
+    contentType: "Novena",
+    document: doc({
+      url: "https://blog.example/novena-history",
+      host: "blog.example",
+      title: "The History of Novenas",
+      body:
+        "According to scholars, novenas have a long history. As theologian John Smith writes, " +
+        "the practice of nine-day prayer cycles dates back to the early Church.",
+      purpose: "canIngestNovenas",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "novena-livestream",
+    kind: "invalid",
+    contentType: "Novena",
+    document: doc({
+      url: "https://parish.example/novena-livestream",
+      host: "parish.example",
+      title: "Watch Live: Divine Mercy Novena",
+      body: "Join us live every day at 7pm. Click here to register for tonight's livestream.",
+      purpose: "canIngestNovenas",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "empty-body",
+    kind: "invalid",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/empty",
+      host: "praymorenovenas.com",
+      title: "Empty",
+      body: "",
+      purpose: "canIngestNovenas",
+    }),
+    expectedFailureReason: "not_supported_by_source",
+  },
+  {
+    name: "unapproved-source",
+    kind: "invalid",
+    contentType: "Novena",
+    document: doc({
+      url: "https://random.example/novena",
+      host: "random.example",
+      title: "Some Novena",
+      body: "Day 1, Day 2, Day 3 prayer text.",
+      purpose: "",
+    }),
+    expectedFailureReason: "source_not_allowed",
+  },
+  // Messy — full novenas with noise around the days
+  {
+    name: "messy-divine-mercy-with-intro",
+    kind: "messy",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/divine-mercy-messy",
+      host: "praymorenovenas.com",
+      title: "Divine Mercy Novena",
+      body:
+        "Below is the novena:\n\n" +
+        "Day 1: Today bring to Me all mankind. Pray the Chaplet.\n\n" +
+        "Day 2: Today bring to Me priests. Pray the Chaplet.\n\n" +
+        "Day 3: Today bring to Me devout souls. Pray the Chaplet.\n\n" +
+        "Day 4: Today bring to Me unbelievers. Pray the Chaplet.\n\n" +
+        "Day 5: Today bring to Me separated brethren. Pray the Chaplet.\n\n" +
+        "Day 6: Today bring to Me humble souls. Pray the Chaplet.\n\n" +
+        "Day 7: Today bring to Me venerators of mercy. Pray the Chaplet.\n\n" +
+        "Day 8: Today bring to Me souls in purgatory. Pray the Chaplet.\n\n" +
+        "Day 9: Today bring to Me lukewarm souls. Pray the Chaplet.\n\n" +
+        "© 2024 All rights reserved.",
+      purpose: "canIngestNovenas",
+    }),
+  },
+  {
+    name: "messy-st-jude-roman-numerals",
+    kind: "messy",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/st-jude-roman",
+      host: "praymorenovenas.com",
+      title: "St. Jude Novena",
+      body:
+        "I. Holy St. Jude, pray for me. Our Father.\n\n" +
+        "II. Holy St. Jude. Hail Mary.\n\n" +
+        "III. Holy St. Jude. Glory Be.\n\n" +
+        "IV. Holy St. Jude. Our Father.\n\n" +
+        "V. Holy St. Jude. Hail Mary.\n\n" +
+        "VI. Holy St. Jude. Glory Be.\n\n" +
+        "VII. Holy St. Jude. Our Father.\n\n" +
+        "VIII. Holy St. Jude. Hail Mary.\n\n" +
+        "IX. Holy St. Jude. Glory Be.",
+      purpose: "canIngestNovenas",
+    }),
+  },
+  {
+    name: "messy-anthony-written-numerals",
+    kind: "messy",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/st-anthony-written",
+      host: "praymorenovenas.com",
+      title: "St. Anthony Novena",
+      body:
+        "First Day: Holy St. Anthony. Pray Our Fathers.\n\n" +
+        "Second Day: Holy St. Anthony. Pray Hail Marys.\n\n" +
+        "Third Day: Holy St. Anthony. Pray Glory Bes.\n\n" +
+        "Fourth Day: Holy St. Anthony. Pray Our Fathers.\n\n" +
+        "Fifth Day: Holy St. Anthony. Pray Hail Marys.\n\n" +
+        "Sixth Day: Holy St. Anthony. Pray Glory Bes.\n\n" +
+        "Seventh Day: Holy St. Anthony. Pray Our Fathers.\n\n" +
+        "Eighth Day: Holy St. Anthony. Pray Hail Marys.\n\n" +
+        "Ninth Day: Holy St. Anthony. Pray Glory Bes.",
+      purpose: "canIngestNovenas",
+    }),
+  },
+  {
+    name: "messy-immaculate-with-footers",
+    kind: "messy",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/immaculate-messy",
+      host: "praymorenovenas.com",
+      title: "Immaculate Conception Novena",
+      body:
+        "Subscribe to our newsletter!\n\n" +
+        "Day 1: Immaculate Mary. Hail Mary.\n\n" +
+        "Day 2: Immaculate Mary. Hail Mary.\n\n" +
+        "Day 3: Immaculate Mary. Hail Mary.\n\n" +
+        "Day 4: Immaculate Mary. Hail Mary.\n\n" +
+        "Day 5: Immaculate Mary. Hail Mary.\n\n" +
+        "Day 6: Immaculate Mary. Hail Mary.\n\n" +
+        "Day 7: Immaculate Mary. Hail Mary.\n\n" +
+        "Day 8: Immaculate Mary. Hail Mary.\n\n" +
+        "Day 9: Immaculate Mary. Hail Mary.\n\n" +
+        "Source: Praymore Novenas. Read more at praymorenovenas.com",
+      purpose: "canIngestNovenas",
+    }),
+  },
+  {
+    name: "messy-sacred-heart-day-one-style",
+    kind: "messy",
+    contentType: "Novena",
+    document: doc({
+      url: "https://praymorenovenas.com/sacred-heart-day-one",
+      host: "praymorenovenas.com",
+      title: "Sacred Heart Novena",
+      body:
+        "Day One: O Sacred Heart of Jesus. Our Father.\n\n" +
+        "Day Two: O Sacred Heart. Hail Mary.\n\n" +
+        "Day Three: O Sacred Heart. Glory Be.\n\n" +
+        "Day Four: O Sacred Heart. Our Father.\n\n" +
+        "Day Five: O Sacred Heart. Hail Mary.\n\n" +
+        "Day Six: O Sacred Heart. Glory Be.\n\n" +
+        "Day Seven: O Sacred Heart. Our Father.\n\n" +
+        "Day Eight: O Sacred Heart. Hail Mary.\n\n" +
+        "Day Nine: O Sacred Heart. Glory Be.",
+      purpose: "canIngestNovenas",
+    }),
+  },
+];
+
 /**
  * Index of every fixture set, keyed by content type. Tests and the
  * canary runner iterate this.
@@ -521,6 +1256,9 @@ export const SAINT_FIXTURES: ReadonlyArray<BuilderFixture> = [
 export const ALL_BUILDER_FIXTURES: Readonly<Record<string, ReadonlyArray<BuilderFixture>>> = {
   Prayer: PRAYER_FIXTURES,
   Saint: SAINT_FIXTURES,
+  Devotion: DEVOTION_FIXTURES,
+  Sacrament: SACRAMENT_FIXTURES,
+  Novena: NOVENA_FIXTURES,
 };
 
 export function fixturesForContentType(contentType: ContentTypeKey): ReadonlyArray<BuilderFixture> {
