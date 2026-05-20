@@ -142,3 +142,187 @@ export async function getBuilderWeaknessReport(
   entries.sort((a, b) => b.failureCount - a.failureCount);
   return entries;
 }
+
+/**
+ * Multi-dimensional builder weakness breakdown.
+ *
+ * Groups recent failures along every spec-listed axis so the admin
+ * can see which dimension a weakness clusters on: missing field,
+ * source host, content type, builder version, package contract
+ * version, source role, and cross-source validation evidence
+ * failure.
+ */
+export type WeaknessGroup = {
+  key: string;
+  failureCount: number;
+  sampleSourceUrls: string[];
+};
+
+export type BuilderWeaknessBreakdowns = {
+  generatedAt: Date;
+  byMissingField: WeaknessGroup[];
+  bySourceHost: WeaknessGroup[];
+  byContentType: WeaknessGroup[];
+  byBuilderVersion: WeaknessGroup[];
+  byPackageContractVersion: WeaknessGroup[];
+  bySourceRole: WeaknessGroup[];
+  byValidationEvidenceFailure: WeaknessGroup[];
+};
+
+function rollup(
+  items: ReadonlyArray<{ key: string; sourceUrl?: string | null }>,
+  minRepetition: number,
+): WeaknessGroup[] {
+  const map = new Map<string, { count: number; urls: string[] }>();
+  for (const it of items) {
+    if (!it.key) continue;
+    const entry = map.get(it.key) ?? { count: 0, urls: [] };
+    entry.count += 1;
+    if (entry.urls.length < 5 && it.sourceUrl) entry.urls.push(it.sourceUrl);
+    map.set(it.key, entry);
+  }
+  return [...map.entries()]
+    .filter(([, v]) => v.count >= minRepetition)
+    .map(([key, v]) => ({ key, failureCount: v.count, sampleSourceUrls: v.urls }))
+    .sort((a, b) => b.failureCount - a.failureCount);
+}
+
+export async function getBuilderWeaknessBreakdowns(
+  options: { windowMs?: number; minRepetition?: number } = {},
+): Promise<BuilderWeaknessBreakdowns> {
+  const windowMs = options.windowMs ?? DEFAULT_WINDOW_MS;
+  const minRepetition = options.minRepetition ?? MIN_REPETITION_FOR_WEAKNESS;
+  const cutoff = new Date(Date.now() - windowMs);
+  const generatedAt = new Date();
+
+  const buildFailures = await prisma.contentPackageBuildLog
+    .findMany({
+      where: { buildStatus: { not: "built_complete_package" }, createdAt: { gt: cutoff } },
+      select: {
+        contentType: true,
+        builderName: true,
+        builderVersion: true,
+        sourceHost: true,
+        sourceUrl: true,
+        missingFieldsJson: true,
+      },
+      take: 4000,
+    })
+    .catch((e) => {
+      logger.warn("builder-weakness.breakdown_builds_failed", {
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return [] as Array<{
+        contentType: string;
+        builderName: string;
+        builderVersion: string;
+        sourceHost: string;
+        sourceUrl: string;
+        missingFieldsJson: unknown;
+      }>;
+    });
+
+  // Source-host → role map for the source-role dimension.
+  const hostRole = new Map<string, string>();
+  try {
+    const sources = await prisma.ingestionSource.findMany({ select: { host: true, role: true } });
+    for (const s of sources) hostRole.set(s.host, s.role ?? "unknown");
+  } catch (e) {
+    logger.warn("builder-weakness.breakdown_roles_failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  const missingFieldItems: Array<{ key: string; sourceUrl?: string | null }> = [];
+  for (const f of buildFailures) {
+    const missing = Array.isArray(f.missingFieldsJson) ? (f.missingFieldsJson as string[]) : [];
+    for (const field of missing) {
+      if (typeof field === "string") {
+        missingFieldItems.push({ key: `${f.contentType}:${field}`, sourceUrl: f.sourceUrl });
+      }
+    }
+  }
+
+  // Package contract version weakness — from QA rejections.
+  const rejections = await prisma.rejectedContentLog
+    .findMany({
+      where: { deletedAt: { gt: cutoff } },
+      select: { packageVersion: true, failedContractName: true, sourceUrl: true },
+      take: 4000,
+    })
+    .catch(
+      () =>
+        [] as Array<{
+          packageVersion: string | null;
+          failedContractName: string | null;
+          sourceUrl: string | null;
+        }>,
+    );
+
+  // Cross-source validation evidence failures.
+  const evidenceClient = prisma as unknown as {
+    contentValidationEvidence?: {
+      findMany: (
+        a: Record<string, unknown>,
+      ) => Promise<Array<{ contentType: string; fieldName: string; sourceUrl: string | null }>>;
+    };
+  };
+  let evidenceFailures: Array<{
+    contentType: string;
+    fieldName: string;
+    sourceUrl: string | null;
+  }> = [];
+  if (evidenceClient.contentValidationEvidence) {
+    evidenceFailures = await evidenceClient.contentValidationEvidence
+      .findMany({
+        where: {
+          validationDecision: { in: ["fail", "insufficient_evidence"] },
+          createdAt: { gt: cutoff },
+        },
+        select: { contentType: true, fieldName: true, sourceUrl: true },
+        take: 4000,
+      })
+      .catch(() => []);
+  }
+
+  return {
+    generatedAt,
+    byMissingField: rollup(missingFieldItems, minRepetition),
+    bySourceHost: rollup(
+      buildFailures.map((f) => ({ key: f.sourceHost, sourceUrl: f.sourceUrl })),
+      minRepetition,
+    ),
+    byContentType: rollup(
+      buildFailures.map((f) => ({ key: f.contentType, sourceUrl: f.sourceUrl })),
+      minRepetition,
+    ),
+    byBuilderVersion: rollup(
+      buildFailures.map((f) => ({
+        key: `${f.builderName}@${f.builderVersion}`,
+        sourceUrl: f.sourceUrl,
+      })),
+      minRepetition,
+    ),
+    byPackageContractVersion: rollup(
+      rejections.map((r) => ({
+        key: `${r.failedContractName ?? "unknown"}@${r.packageVersion ?? "unversioned"}`,
+        sourceUrl: r.sourceUrl,
+      })),
+      minRepetition,
+    ),
+    bySourceRole: rollup(
+      buildFailures.map((f) => ({
+        key: hostRole.get(f.sourceHost) ?? "unknown",
+        sourceUrl: f.sourceUrl,
+      })),
+      minRepetition,
+    ),
+    byValidationEvidenceFailure: rollup(
+      evidenceFailures.map((e) => ({
+        key: `${e.contentType}:${e.fieldName}`,
+        sourceUrl: e.sourceUrl,
+      })),
+      minRepetition,
+    ),
+  };
+}

@@ -14,7 +14,10 @@ import { prismaMock, resetPrismaMock } from "../helpers/prisma-mock";
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 
-import { getBuilderWeaknessReport } from "@/lib/diagnostics/builder-weakness";
+import {
+  getBuilderWeaknessReport,
+  getBuilderWeaknessBreakdowns,
+} from "@/lib/diagnostics/builder-weakness";
 
 beforeEach(() => {
   resetPrismaMock();
@@ -69,5 +72,56 @@ describe("getBuilderWeaknessReport", () => {
     const report = await getBuilderWeaknessReport({ minRepetition: 3 });
 
     expect(report).toHaveLength(0);
+  });
+});
+
+describe("getBuilderWeaknessBreakdowns", () => {
+  it("groups failures by missing field, source host, content type, builder version and source role", async () => {
+    prismaMock.contentPackageBuildLog.findMany.mockResolvedValue(
+      Array.from({ length: 4 }, (_, i) => ({
+        contentType: "Novena",
+        builderName: "NovenaBuilder",
+        builderVersion: "1.0.0",
+        sourceHost: "weak.example",
+        sourceUrl: `https://weak.example/novena-${i}`,
+        missingFieldsJson: ["day7"] as never,
+      })),
+    );
+    prismaMock.rejectedContentLog.findMany.mockResolvedValue([]);
+    prismaMock.ingestionSource.findMany.mockResolvedValue([
+      { host: "weak.example", role: "discovery_only_source" },
+    ]);
+
+    const breakdowns = await getBuilderWeaknessBreakdowns();
+
+    expect(breakdowns.byMissingField[0]).toMatchObject({ key: "Novena:day7", failureCount: 4 });
+    expect(breakdowns.bySourceHost[0]).toMatchObject({ key: "weak.example", failureCount: 4 });
+    expect(breakdowns.byContentType[0]).toMatchObject({ key: "Novena", failureCount: 4 });
+    expect(breakdowns.byBuilderVersion[0]).toMatchObject({
+      key: "NovenaBuilder@1.0.0",
+      failureCount: 4,
+    });
+    expect(breakdowns.bySourceRole[0]).toMatchObject({
+      key: "discovery_only_source",
+      failureCount: 4,
+    });
+  });
+
+  it("groups package contract version failures from QA rejections", async () => {
+    prismaMock.contentPackageBuildLog.findMany.mockResolvedValue([]);
+    prismaMock.ingestionSource.findMany.mockResolvedValue([]);
+    prismaMock.rejectedContentLog.findMany.mockResolvedValue(
+      Array.from({ length: 3 }, (_, i) => ({
+        packageVersion: "2.0.0",
+        failedContractName: "PrayerPackage",
+        sourceUrl: `https://example.com/r-${i}`,
+      })),
+    );
+
+    const breakdowns = await getBuilderWeaknessBreakdowns();
+    expect(breakdowns.byPackageContractVersion[0]).toMatchObject({
+      key: "PrayerPackage@2.0.0",
+      failureCount: 3,
+    });
   });
 });
