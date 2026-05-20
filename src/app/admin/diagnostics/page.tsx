@@ -56,6 +56,48 @@ const DIAGNOSTIC_AREAS = [
     description:
       "Single-page dashboard with one card per pipeline stage — queue, worker, source discovery / fetch / document, content factory, builders, strict QA, persistence, cleanup, growth, security, admin email, and database. Each card shows its data source, last-updated timestamp, and an error state (never a false zero) when its underlying query fails.",
   },
+  {
+    href: "/admin/content-growth",
+    eyebrow: "VIII.",
+    title: "Content Growth (seven-day production report)",
+    description:
+      "Per content type, the source → public pipeline over a rolling seven days: documents fetched, builds, complete packages, cross-source validation, strict QA, persistence, public / search / sitemap visibility, deletions, duplicates, and net public growth. Includes daily growth targets, 24h / 7d growth warnings, a production growth score, and daily-trend charts.",
+  },
+  {
+    href: "/admin/builder-quality",
+    eyebrow: "IX.",
+    title: "Builder Quality",
+    description:
+      "One row per builder over a rolling 14-day window: build attempts, complete packages, QA pass / failure rate, public render / search / sitemap visibility pass rate, duplicate rate, wrong-content rate, top missing fields, and top rejected source hosts.",
+  },
+  {
+    href: "/admin/source-onboarding",
+    eyebrow: "X.",
+    title: "Source Onboarding Diagnostics",
+    description:
+      "One row per configured ingestion source: discovery method, role, tier, supported content types, allowed fields, license status, fetch / build / daily caps, validation + enrichment role, and source health — plus per-content-type source-coverage warnings.",
+  },
+  {
+    href: "/admin/baseline-audit",
+    eyebrow: "XI.",
+    title: "Baseline Content Audit",
+    description:
+      "Traces every baseline fixture from its source URL to the public catalog: source documents created, build attempts, complete builds, public packages, failures, and failure reasons.",
+  },
+  {
+    href: "/admin/fixture-quality",
+    eyebrow: "XII.",
+    title: "Fixture Quality Diagnostics",
+    description:
+      "Runs every bundled builder fixture through its real builder: fixture counts, valid-fixture pass count, invalid-fixture rejection count, false positives, false negatives, and missing fixture-coverage areas.",
+  },
+  {
+    href: "/admin/production-runbook",
+    eyebrow: "XIII.",
+    title: "Production Growth Runbook",
+    description:
+      "The single operator page for content-growth operations: which content types are stalled and why, the automatic next action, paused and promoted sources, weak builders, missing validation evidence, and failing public display checks.",
+  },
 ] as const;
 
 function statusBadgeStyle(status: string): { bg: string; text: string } {

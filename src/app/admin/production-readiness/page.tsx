@@ -1,9 +1,109 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { getProductionReadinessReport } from "@/lib/diagnostics/production-readiness";
+import type { ContentTypeReadinessRow } from "@/lib/diagnostics/content-type-readiness";
+import type { EnvSubsystemRow } from "@/lib/diagnostics/env-validation";
 import { AdminSection } from "../_sections/AdminSection";
 
 export const dynamic = "force-dynamic";
+
+const CHECK_GLYPH: Record<string, string> = {
+  pass: "ok",
+  warn: "warn",
+  fail: "FAIL",
+  na: "—",
+};
+const CHECK_CLASS: Record<string, string> = {
+  pass: "text-emerald-700",
+  warn: "text-amber-700",
+  fail: "font-semibold text-red-700",
+  na: "text-ink-faint",
+};
+
+/** Per-subsystem environment diagnostics rendered inside the env card. */
+function EnvSubsystemsDetail({ details }: { details?: Record<string, unknown> }) {
+  const rows = (details?.subsystems as EnvSubsystemRow[] | undefined) ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <div className="mt-3 space-y-1.5" data-testid="env-subsystems-detail">
+      {rows.map((r) => (
+        <div
+          key={r.subsystem}
+          className="font-mono text-xs"
+          data-testid={`env-subsystem-${r.subsystem}`}
+        >
+          <span className={CHECK_CLASS[r.status]}>[{r.status.toUpperCase()}]</span>{" "}
+          <span className="font-semibold">{r.label}</span>
+          {r.envVars.length > 0 ? (
+            <span className="text-ink-soft">
+              {" — "}
+              {r.envVars.map((v) => `${v.name} (${v.set ? "set" : "UNSET"})`).join(", ")}
+            </span>
+          ) : (
+            <span className="text-ink-faint"> — config-driven (no env var)</span>
+          )}
+          <span className="mt-0.5 block text-ink-faint">{r.detail}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Per-content-type readiness drill-down rendered inside its card. */
+function ContentTypeReadinessDetail({ details }: { details?: Record<string, unknown> }) {
+  const rows = (details?.rows as ContentTypeReadinessRow[] | undefined) ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <div className="mt-3 overflow-x-auto" data-testid="content-type-readiness-detail">
+      <table className="w-full border-collapse font-mono text-xs">
+        <thead>
+          <tr className="border-b border-ink/20 text-left">
+            <th className="py-1 pr-3">Content type</th>
+            <th className="py-1 pr-3">Tab</th>
+            <th className="py-1 pr-3" title="At least one factory-ready source configured">
+              Source
+            </th>
+            <th className="py-1 pr-3" title="Canary fixture builds through the builder chain">
+              Canary
+            </th>
+            <th className="py-1 pr-3" title="Strict public tab query can load">
+              Public tab
+            </th>
+            <th className="py-1 pr-3" title="Cache revalidation tag mapped">
+              Cache tag
+            </th>
+            <th className="py-1 pr-3">Strict packages</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr
+              key={r.contentType}
+              className="border-b border-ink/10"
+              data-testid={`readiness-type-${r.contentType}`}
+            >
+              <td className="py-1 pr-3">{r.contentType}</td>
+              <td className="py-1 pr-3 text-ink-soft">{r.tab}</td>
+              <td className={`py-1 pr-3 ${CHECK_CLASS[r.checks.sourceConfigured]}`}>
+                {CHECK_GLYPH[r.checks.sourceConfigured]}
+              </td>
+              <td className={`py-1 pr-3 ${CHECK_CLASS[r.checks.canaryBuild]}`}>
+                {CHECK_GLYPH[r.checks.canaryBuild]}
+              </td>
+              <td className={`py-1 pr-3 ${CHECK_CLASS[r.checks.publicDisplay]}`}>
+                {CHECK_GLYPH[r.checks.publicDisplay]}
+              </td>
+              <td className={`py-1 pr-3 ${CHECK_CLASS[r.checks.cacheTag]}`}>
+                {CHECK_GLYPH[r.checks.cacheTag]}
+              </td>
+              <td className="py-1 pr-3">{r.strictPublicCount ?? "err"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 /**
  * Production readiness page. Reads every spec-listed category
@@ -65,6 +165,12 @@ export default async function ProductionReadinessPage() {
               </span>
             </div>
             <p className="mt-2 font-serif text-sm">{card.summary}</p>
+            {card.id === "content_type_readiness" ? (
+              <ContentTypeReadinessDetail details={card.details} />
+            ) : null}
+            {card.id === "environment_variables" ? (
+              <EnvSubsystemsDetail details={card.details} />
+            ) : null}
             <div className="mt-2 flex flex-wrap gap-3 font-mono text-xs text-ink-soft">
               <span data-testid={`readiness-card-${card.id}-data-source`}>
                 source: {card.dataSource}

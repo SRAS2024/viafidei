@@ -22,7 +22,7 @@
 import { prisma } from "../db/client";
 import { logger } from "../observability/logger";
 import { hasHealthyWorker } from "../ingestion/queue/heartbeat";
-import { validateEnvironment } from "./env-validation";
+import { validateEnvironment, getEnvSubsystemDiagnostics } from "./env-validation";
 import { countSourceDocumentsWaitingForBuild } from "./pipeline-broken-here";
 
 export type ReadinessSeverity = "pass" | "warn" | "fail" | "error";
@@ -38,6 +38,7 @@ export type ReadinessCard = {
     | "security"
     | "source_configuration"
     | "public_display"
+    | "content_type_readiness"
     | "canary"
     | "search_sitemap"
     | "source_plan";
@@ -65,6 +66,7 @@ const worstOf = (severities: ReadinessSeverity[]): ReadinessSeverity => {
 
 async function envCard(): Promise<ReadinessCard> {
   const result = validateEnvironment();
+  const subsystems = getEnvSubsystemDiagnostics();
   return {
     id: "environment_variables",
     label: "Environment variables",
@@ -78,6 +80,7 @@ async function envCard(): Promise<ReadinessCard> {
     details: {
       missingRequired: result.missingRequired,
       missingRecommended: result.missingRecommended,
+      subsystems: subsystems.rows,
     },
   };
 }
@@ -321,6 +324,48 @@ async function publicDisplayCard(): Promise<ReadinessCard> {
   }
 }
 
+async function contentTypeReadinessCard(): Promise<ReadinessCard> {
+  const lastUpdatedAt = new Date();
+  try {
+    const { getContentTypeReadinessReport } = await import("./content-type-readiness");
+    const report = await getContentTypeReadinessReport();
+    const ready = report.rows.filter((r) => r.severity === "pass").length;
+    const summary =
+      report.tabsCannotLoad > 0
+        ? `${report.tabsCannotLoad} public tab(s) cannot load their strict valid packages`
+        : report.typesWithNoSource > 0
+          ? `${report.typesWithNoSource} content type(s) have no factory-ready source`
+          : report.typesWithNoCanary > 0
+            ? `${report.typesWithNoCanary} content type(s) have no successful canary build`
+            : `${ready} of ${report.rows.length} content types are fully production-ready`;
+    return {
+      id: "content_type_readiness",
+      label: "Content type readiness (all tabs)",
+      severity: report.worst,
+      summary,
+      lastUpdatedAt,
+      dataSource: "diagnostics/content-type-readiness",
+      details: {
+        rows: report.rows,
+        tabsCannotLoad: report.tabsCannotLoad,
+        typesWithNoSource: report.typesWithNoSource,
+        typesWithNoCanary: report.typesWithNoCanary,
+        typesWithNoContent: report.typesWithNoContent,
+      },
+    };
+  } catch (e) {
+    return {
+      id: "content_type_readiness",
+      label: "Content type readiness (all tabs)",
+      severity: "error",
+      summary: "Per-content-type readiness aggregation failed",
+      lastUpdatedAt,
+      dataSource: "diagnostics/content-type-readiness",
+      errorMessage: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 async function canaryCard(): Promise<ReadinessCard> {
   const lastUpdatedAt = new Date();
   try {
@@ -442,6 +487,7 @@ export async function getProductionReadinessReport(): Promise<ReadinessReport> {
     securityCard(),
     sourceConfigurationCard(),
     publicDisplayCard(),
+    contentTypeReadinessCard(),
     canaryCard(),
     searchSitemapCard(),
     sourcePlanCard(),

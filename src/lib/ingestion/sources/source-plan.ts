@@ -38,6 +38,7 @@ export const SOURCE_PLAN_MINIMUMS = {
   History: 5,
   Parish: 3,
   MarianApparition: 3,
+  SpiritualGuidance: 3,
 } as const;
 
 export type SourcePlanContentType = keyof typeof SOURCE_PLAN_MINIMUMS;
@@ -63,6 +64,7 @@ export const PURPOSE_FLAG_BY_CONTENT_TYPE: Record<SourcePlanContentType, string>
   History: "canIngestHistory",
   Parish: "canIngestParishes",
   MarianApparition: "canIngestApparitions",
+  SpiritualGuidance: "canIngestSpiritualGuides",
 };
 
 export type SourcePlanRow = {
@@ -113,6 +115,7 @@ type SourceRow = {
   canIngestSacraments: boolean;
   canIngestRosaryGuides: boolean;
   canIngestConsecrations: boolean;
+  canIngestSpiritualGuides: boolean;
   canIngestLiturgy: boolean;
   canIngestHistory: boolean;
 };
@@ -146,6 +149,8 @@ function purposeFor(row: SourceRow, key: string): boolean {
       return row.canIngestRosaryGuides;
     case "canIngestConsecrations":
       return row.canIngestConsecrations;
+    case "canIngestSpiritualGuides":
+      return row.canIngestSpiritualGuides;
     case "canIngestLiturgy":
       return row.canIngestLiturgy;
     case "canIngestHistory":
@@ -179,6 +184,7 @@ export async function buildSourcePlanReport(): Promise<SourcePlanReport> {
         canIngestSacraments: true,
         canIngestRosaryGuides: true,
         canIngestConsecrations: true,
+        canIngestSpiritualGuides: true,
         canIngestLiturgy: true,
         canIngestHistory: true,
       },

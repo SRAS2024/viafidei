@@ -71,6 +71,7 @@ describe("Production readiness source plan acceptance (spec §23)", () => {
       canIngestSacraments: "Sacrament",
       canIngestRosaryGuides: "Rosary",
       canIngestConsecrations: "Consecration",
+      canIngestSpiritualGuides: "SpiritualGuidance",
       canIngestLiturgy: "Liturgy",
       canIngestHistory: "History",
     };

@@ -47,4 +47,34 @@ describe("verifyPublicDisplay", () => {
     expect(result.visible).toBe(false);
     expect(result.reasons).toContain("row_does_not_exist");
   });
+
+  it("reports the expected tab and full checks for a visible package", async () => {
+    prismaMock.prayer.findFirst.mockResolvedValue({
+      id: "p1",
+      status: "PUBLISHED",
+      publicRenderReady: true,
+      isThresholdEligible: true,
+    });
+    const result = await verifyPublicDisplay({ contentType: "Prayer", slug: "our-father" });
+    expect(result.visible).toBe(true);
+    expect(result.expectedTab).toBe("prayers");
+    expect(result.checks.publicQuery).toBe(true);
+    expect(result.checks.correctTab).toBe(true);
+    expect(result.checks.thresholdEligible).toBe(true);
+    expect(result.checks.correctSubtype).toBe(true);
+  });
+
+  it("flags a wrong subtype when a Novena row lacks the Novena subtype", async () => {
+    prismaMock.devotion.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+      id: "d1",
+      status: "PUBLISHED",
+      publicRenderReady: true,
+      isThresholdEligible: true,
+      subtype: null,
+    });
+    const result = await verifyPublicDisplay({ contentType: "Novena", slug: "some-novena" });
+    expect(result.visible).toBe(false);
+    expect(result.checks.correctSubtype).toBe(false);
+    expect(result.reasons).toContain("wrong_subtype");
+  });
 });

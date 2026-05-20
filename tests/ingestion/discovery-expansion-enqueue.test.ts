@@ -67,6 +67,7 @@ describe("runDiscoveryExpansion()", () => {
       "canIngestSacraments",
       "canIngestRosaryGuides",
       "canIngestConsecrations",
+      "canIngestSpiritualGuides",
       "canIngestLiturgy",
       "canIngestHistory",
     ];

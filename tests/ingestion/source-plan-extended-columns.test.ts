@@ -69,6 +69,7 @@ describe("Source plan extended columns (spec §15)", () => {
       "canIngestSacraments",
       "canIngestRosaryGuides",
       "canIngestConsecrations",
+      "canIngestSpiritualGuides",
       "canIngestLiturgy",
       "canIngestHistory",
     ];

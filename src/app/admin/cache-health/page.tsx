@@ -74,6 +74,54 @@ export default async function CacheHealthPage() {
         )}
       </div>
 
+      <div
+        className="mx-auto mb-6 max-w-6xl rounded-2xl border border-ink/10 bg-paper px-5 py-4"
+        data-testid="cache-health-last-revalidated"
+      >
+        <h2 className="font-serif text-base font-semibold">Last revalidated</h2>
+        <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 font-mono text-xs sm:grid-cols-2">
+          <dt className="text-ink-faint">content type</dt>
+          <dd>{snapshot.lastRevalidatedContentType ?? "—"}</dd>
+          <dt className="text-ink-faint">slug</dt>
+          <dd className="break-all">{snapshot.lastRevalidatedSlug ?? "—"}</dd>
+          <dt className="text-ink-faint">tab</dt>
+          <dd>{snapshot.lastRevalidatedTab ?? "—"}</dd>
+          <dt className="text-ink-faint">sitemap</dt>
+          <dd>{snapshot.lastSitemapRevalidationAt?.toISOString() ?? "—"}</dd>
+          <dt className="text-ink-faint">search index</dt>
+          <dd>{snapshot.lastSearchRevalidationAt?.toISOString() ?? "—"}</dd>
+        </dl>
+      </div>
+
+      <div
+        className={`mx-auto mb-6 max-w-6xl rounded-2xl border px-5 py-4 ${
+          snapshot.pendingCacheRepairs.length > 0
+            ? "border-amber-300 bg-amber-50"
+            : "border-ink/10 bg-paper"
+        }`}
+        data-testid="cache-health-pending-repairs"
+      >
+        <h2 className="font-serif text-base font-semibold">
+          Pending cache repairs ({snapshot.pendingCacheRepairs.length})
+        </h2>
+        {snapshot.pendingCacheRepairs.length === 0 ? (
+          <p className="mt-2 font-serif text-sm text-ink-soft">
+            No failed revalidation is awaiting repair.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-1 font-mono text-xs">
+            {snapshot.pendingCacheRepairs.map((repair, idx) => (
+              <li key={`${repair.at.toISOString()}-${idx}`} className="text-amber-900">
+                <strong>{repair.reason}</strong>
+                {repair.contentType ? ` · ${repair.contentType}` : ""}
+                {repair.slug ? ` · ${repair.slug}` : ""}
+                {repair.errorMessage ? ` — ${repair.errorMessage}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <div className="mx-auto max-w-6xl rounded-2xl border border-ink/10 bg-paper px-5 py-4">
         <h2 className="font-serif text-base font-semibold">Recent revalidations</h2>
         {snapshot.recent.length === 0 ? (

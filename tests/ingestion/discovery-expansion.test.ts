@@ -28,6 +28,7 @@ describe("planDiscoveryExpansion()", () => {
       "canIngestSacraments",
       "canIngestRosaryGuides",
       "canIngestConsecrations",
+      "canIngestSpiritualGuides",
       "canIngestLiturgy",
       "canIngestHistory",
     ];

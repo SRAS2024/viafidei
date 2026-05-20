@@ -14,12 +14,35 @@
 
 import type { ContentTypeKey, SourceDocumentSnapshot } from "./types";
 import { getBuilder } from "./builders";
+import {
+  NOVENA_FIXTURES,
+  MARIAN_APPARITION_FIXTURES,
+  type BuilderFixture,
+} from "./builder-fixtures";
 
 export type CanaryFixture = {
   contentType: ContentTypeKey;
   fixtureName: string;
   document: SourceDocumentSnapshot;
 };
+
+/**
+ * Lift the first known-good `valid` fixture from a builder-fixtures
+ * bucket into a canary fixture. The builder-fixtures `valid` cases
+ * are already proven to build by the fixture-coverage test, so the
+ * canary inherits that guarantee.
+ */
+function canaryFromBuilderFixtures(fixtures: ReadonlyArray<BuilderFixture>): CanaryFixture {
+  const valid = fixtures.find((f) => f.kind === "valid");
+  if (!valid) {
+    throw new Error("canary-fixtures: builder-fixtures bucket has no valid fixture");
+  }
+  return {
+    contentType: valid.contentType,
+    fixtureName: `canary: ${valid.name}`,
+    document: valid.document,
+  };
+}
 
 const CANARY_FIXTURES: CanaryFixture[] = [
   {
@@ -174,11 +197,48 @@ const CANARY_FIXTURES: CanaryFixture[] = [
       contentChecksum: "canary-baptism",
     },
   },
+  canaryFromBuilderFixtures(NOVENA_FIXTURES),
+  canaryFromBuilderFixtures(MARIAN_APPARITION_FIXTURES),
+  {
+    contentType: "SpiritualGuidance",
+    fixtureName: "How to Pray the Daily Examen",
+    document: {
+      sourceUrl: "https://canary.example/guides/daily-examen",
+      sourceHost: "canary.example",
+      sourceTier: 1,
+      sourceTitle: "How to Pray the Daily Examen",
+      cleanedBody:
+        "The Daily Examen is a short reflective prayer that Saint Ignatius of Loyola gave to the Church for prayerfully reviewing each day in God's presence.\n\n" +
+        "1. Become aware of God's presence and ask the Holy Spirit for light to look honestly at the day.\n\n" +
+        "2. Review the day with gratitude, recalling its gifts and the moments where grace was clearly at work.\n\n" +
+        "3. Pay attention to your emotions and notice where you were drawn toward God and where you were drawn away.\n\n" +
+        "4. Choose one moment from the day to pray about, in thanksgiving or in sorrow, and then look toward tomorrow.",
+      rawBody:
+        "The Daily Examen is a short reflective prayer that Saint Ignatius of Loyola gave to the Church for prayerfully reviewing each day in God's presence.\n\n" +
+        "1. Become aware of God's presence and ask the Holy Spirit for light to look honestly at the day.\n\n" +
+        "2. Review the day with gratitude, recalling its gifts and the moments where grace was clearly at work.\n\n" +
+        "3. Pay attention to your emotions and notice where you were drawn toward God and where you were drawn away.\n\n" +
+        "4. Choose one moment from the day to pray about, in thanksgiving or in sorrow, and then look toward tomorrow.",
+      headings: [{ level: 1, text: "How to Pray the Daily Examen" }],
+      paragraphs: [
+        "The Daily Examen is a short reflective prayer that Saint Ignatius of Loyola gave to the Church for prayerfully reviewing each day in God's presence.",
+        "1. Become aware of God's presence and ask the Holy Spirit for light to look honestly at the day.",
+        "2. Review the day with gratitude, recalling its gifts and the moments where grace was clearly at work.",
+        "3. Pay attention to your emotions and notice where you were drawn toward God and where you were drawn away.",
+        "4. Choose one moment from the day to pray about, in thanksgiving or in sorrow, and then look toward tomorrow.",
+      ],
+      metadata: { language: "en" },
+      sourcePurposes: { canIngestSpiritualGuides: true },
+      contentChecksum: "canary-daily-examen",
+    },
+  },
 ];
 
 export type CanaryResult = {
   contentType: ContentTypeKey;
   fixtureName: string;
+  /** Version of the builder that ran this fixture. */
+  builderVersion: string;
   passed: boolean;
   outcome: string;
   failureReason?: string;
@@ -212,6 +272,7 @@ export function runCanaryBuilds(): CanaryReport {
       results.push({
         contentType: fixture.contentType,
         fixtureName: fixture.fixtureName,
+        builderVersion: builder.builderVersion,
         passed: true,
         outcome: result.outcome,
       });
@@ -219,6 +280,7 @@ export function runCanaryBuilds(): CanaryReport {
       results.push({
         contentType: fixture.contentType,
         fixtureName: fixture.fixtureName,
+        builderVersion: builder.builderVersion,
         passed: false,
         outcome: result.outcome,
         failureReason: result.failureReason,

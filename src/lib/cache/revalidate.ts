@@ -175,12 +175,34 @@ export async function revalidateContentType(
  * Snapshot for the admin "cache health" page — recent revalidation
  * entries plus rollup counters.
  */
+export type PendingCacheRepair = {
+  contentType?: string;
+  slug?: string;
+  reason: string;
+  at: Date;
+  errorMessage?: string;
+};
+
 export type CacheHealthSnapshot = {
   totalLogged: number;
   okCount: number;
   failCount: number;
   recent: ReadonlyArray<CacheRevalidationEntry>;
   byReason: Array<{ reason: string; count: number }>;
+  /** Content type of the most recent revalidation that named one. */
+  lastRevalidatedContentType: string | null;
+  /** Slug of the most recent revalidation that named one. */
+  lastRevalidatedSlug: string | null;
+  /** Tab tag of the most recent revalidation that touched a tab. */
+  lastRevalidatedTab: string | null;
+  /** Timestamp of the most recent successful sitemap revalidation. */
+  lastSitemapRevalidationAt: Date | null;
+  /** Timestamp of the most recent successful search-index revalidation. */
+  lastSearchRevalidationAt: Date | null;
+  /** Every failed revalidation event still in the log. */
+  failedEvents: ReadonlyArray<CacheRevalidationEntry>;
+  /** Failed revalidations not yet followed by a successful retry. */
+  pendingCacheRepairs: ReadonlyArray<PendingCacheRepair>;
 };
 
 export function getCacheHealthSnapshot(limit = 50): CacheHealthSnapshot {
@@ -194,11 +216,56 @@ export function getCacheHealthSnapshot(limit = 50): CacheHealthSnapshot {
   const byReason = [...byReasonMap.entries()]
     .map(([reason, count]) => ({ reason, count }))
     .sort((a, b) => b.count - a.count);
+
+  // The log is newest-first, so `find` returns the most recent match.
+  const lastRevalidatedContentType =
+    revalidationLog.find((e) => e.contentType)?.contentType ?? null;
+  const lastRevalidatedSlug = revalidationLog.find((e) => e.slug)?.slug ?? null;
+  const lastRevalidatedTab =
+    revalidationLog.flatMap((e) => e.tags).find((t) => t.startsWith("tab:")) ?? null;
+  const lastSitemapRevalidationAt =
+    revalidationLog.find((e) => e.ok && e.tags.includes(SITEMAP_TAG))?.at ?? null;
+  const lastSearchRevalidationAt =
+    revalidationLog.find((e) => e.ok && e.tags.includes(SEARCH_INDEX_TAG))?.at ?? null;
+
+  const failedEvents = revalidationLog.filter((e) => !e.ok);
+
+  // A failed event is a pending repair until a NEWER successful
+  // revalidation covers the same content type + slug.
+  const targetKey = (e: CacheRevalidationEntry): string => `${e.contentType ?? ""}|${e.slug ?? ""}`;
+  const pendingCacheRepairs: PendingCacheRepair[] = [];
+  for (let i = 0; i < revalidationLog.length; i++) {
+    const entry = revalidationLog[i];
+    if (entry.ok) continue;
+    const hasTarget = Boolean(entry.contentType || entry.slug);
+    const repaired =
+      hasTarget &&
+      revalidationLog
+        .slice(0, i)
+        .some((newer) => newer.ok && targetKey(newer) === targetKey(entry));
+    if (!repaired) {
+      pendingCacheRepairs.push({
+        contentType: entry.contentType,
+        slug: entry.slug,
+        reason: entry.reason,
+        at: entry.at,
+        errorMessage: entry.errorMessage,
+      });
+    }
+  }
+
   return {
     totalLogged: revalidationLog.length,
     okCount,
     failCount,
     recent: log,
     byReason,
+    lastRevalidatedContentType,
+    lastRevalidatedSlug,
+    lastRevalidatedTab,
+    lastSitemapRevalidationAt,
+    lastSearchRevalidationAt,
+    failedEvents,
+    pendingCacheRepairs,
   };
 }

@@ -101,4 +101,67 @@ describe("getValidationEvidenceSummary()", () => {
       delete (prismaMock as unknown as Record<string, unknown>).contentValidationEvidence;
     }
   });
+
+  it("breaks evidence down by source host, field and source role", async () => {
+    const groupByImpl = async (args: unknown) => {
+      const by = (args as { by: string[] }).by;
+      if (by.includes("sourceHost")) {
+        return [
+          { sourceHost: "validator.org", validationDecision: "pass", _count: { _all: 4 } },
+          { sourceHost: "validator.org", validationDecision: "fail", _count: { _all: 1 } },
+          {
+            sourceHost: "weak.example",
+            validationDecision: "insufficient_evidence",
+            _count: { _all: 3 },
+          },
+        ];
+      }
+      if (by.includes("fieldName")) {
+        return [{ fieldName: "feastDay", validationDecision: "pass", _count: { _all: 5 } }];
+      }
+      if (by.includes("contentType")) {
+        return [{ contentType: "Saint", validationDecision: "pass", _count: { _all: 5 } }];
+      }
+      if (by.includes("reason")) {
+        return [{ reason: "no matching feast day found", _count: { _all: 3 } }];
+      }
+      return [];
+    };
+    (prismaMock as unknown as Record<string, unknown>).contentValidationEvidence = {
+      findMany: vi.fn().mockResolvedValue([]),
+      count: vi.fn().mockResolvedValue(0),
+      groupBy: vi.fn().mockImplementation(groupByImpl),
+    };
+    prismaMock.ingestionSource.findMany.mockResolvedValue([
+      { host: "validator.org", role: "validation_source" },
+      { host: "weak.example", role: "discovery_only_source" },
+    ]);
+    try {
+      const summary = await getValidationEvidenceSummary({});
+      expect(summary.bySourceHost.find((h) => h.host === "validator.org")).toEqual({
+        host: "validator.org",
+        pass: 4,
+        fail: 1,
+        insufficient: 0,
+      });
+      expect(summary.byField[0]).toEqual({
+        field: "feastDay",
+        pass: 5,
+        fail: 0,
+        insufficient: 0,
+      });
+      expect(summary.bySourceRole.find((r) => r.role === "validation_source")).toEqual({
+        role: "validation_source",
+        pass: 4,
+        fail: 1,
+        insufficient: 0,
+      });
+      expect(summary.topInsufficientReasons[0]).toEqual({
+        reason: "no matching feast day found",
+        count: 3,
+      });
+    } finally {
+      delete (prismaMock as unknown as Record<string, unknown>).contentValidationEvidence;
+    }
+  });
 });

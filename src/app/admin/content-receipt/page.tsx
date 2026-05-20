@@ -9,10 +9,12 @@ export const dynamic = "force-dynamic";
  * Admin content receipt panel.
  *
  * Reads `?contentType=...&slug=...` from the URL and renders the
- * 8 spec-listed answers: why it exists, which builder created it,
+ * spec-listed answers: why it exists, which builder created it,
  * which contract it passed, which source supplied each field,
  * when it became public, whether it counts toward threshold,
- * whether it has ever been updated, whether it has ever failed QA.
+ * whether it has ever been updated, whether it has ever failed QA,
+ * whether search + sitemap can see it, and which cache tags
+ * revalidate it.
  */
 export default async function ContentReceiptPage({
   searchParams,
@@ -114,6 +116,32 @@ export default async function ContentReceiptPage({
               <dd>{String(receipt.derived.everUpdated)}</dd>
               <dt className="text-ink-faint">everFailedQA</dt>
               <dd>{String(receipt.derived.everFailedQA)}</dd>
+            </dl>
+          </div>
+          <div
+            className="rounded-2xl border border-ink/10 bg-paper p-5"
+            data-testid="content-receipt-indexing"
+          >
+            <h2 className="font-serif text-lg font-semibold">Search, sitemap &amp; cache</h2>
+            {receipt.indexing ? (
+              <dl className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-xs">
+                <dt className="text-ink-faint">visibleInPublicQuery</dt>
+                <dd>{String(receipt.indexing.visibleInPublicQuery)}</dd>
+                <dt className="text-ink-faint">visibleInSearch</dt>
+                <dd>{String(receipt.indexing.visibleInSearch)}</dd>
+                <dt className="text-ink-faint">visibleInSitemap</dt>
+                <dd>{String(receipt.indexing.visibleInSitemap)}</dd>
+              </dl>
+            ) : (
+              <p className="mt-2 font-serif text-ink-soft">
+                No public row to verify against search / sitemap.
+              </p>
+            )}
+            <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-xs">
+              <dt className="text-ink-faint">cache tab</dt>
+              <dd>{receipt.cacheRevalidation.tabKey}</dd>
+              <dt className="text-ink-faint">revalidated tags</dt>
+              <dd className="break-all">{receipt.cacheRevalidation.tags.join(", ")}</dd>
             </dl>
           </div>
           <div className="rounded-2xl border border-ink/10 bg-paper p-5">
