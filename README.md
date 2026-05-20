@@ -2442,10 +2442,13 @@ Both services need the same env vars: `DATABASE_URL`,
 Railway config file: `railway.json` drives the **web** service
 (root `Dockerfile`, `./scripts/start.sh`, `/api/health/live`
 healthcheck), and `railway.worker.json` drives the **worker**
-service (`Dockerfile.worker`, no start command, no healthcheck —
-the image `CMD` runs migrate → validate → worker). Point the
-worker service's config-file path at `railway.worker.json` in its
-Railway settings; the web service keeps the default `railway.json`.
+service (`Dockerfile.worker`, no healthcheck). `railway.worker.json`
+declares an explicit `startCommand` (migrate → validate → worker)
+mirroring the image `CMD`, so the worker service does not inherit a
+stale `./scripts/start.sh` — which would crash the worker image,
+whose build has no `server.js` to run. Point the worker service's
+config-file path at `railway.worker.json` in its Railway settings;
+the web service keeps the default `railway.json`.
 
 See `docs/operations/queue-rollout.md` for the full 7-phase rollout
 plan, rollback procedure, and data-safety checklist.
