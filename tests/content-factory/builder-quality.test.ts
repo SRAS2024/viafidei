@@ -69,6 +69,42 @@ describe("getBuilderQualityReport()", () => {
     expect(prayer?.qaPassRate).toBe(0.7);
   });
 
+  it("computes qaFailRate, top missing fields and top rejected hosts", async () => {
+    prismaMock.contentPackageBuildLog.groupBy.mockResolvedValue([
+      { buildStatus: "built_complete_package", _count: { _all: 5 } },
+      { buildStatus: "build_failed_missing_required_fields", _count: { _all: 5 } },
+    ]);
+    prismaMock.sourceQualityScore.aggregate.mockResolvedValue({
+      _sum: { qaPassCount: 6, qaFailCount: 4 },
+    });
+    prismaMock.contentPackageBuildLog.findMany.mockResolvedValue([
+      { missingFieldsJson: ["feastDay", "biography"] },
+      { missingFieldsJson: ["feastDay"] },
+    ]);
+    prismaMock.rejectedContentLog.groupBy.mockResolvedValue([
+      { sourceHost: "bad.example", _count: { _all: 7 } },
+      { sourceHost: "ok.example", _count: { _all: 2 } },
+    ]);
+    for (const model of [
+      "prayer",
+      "saint",
+      "marianApparition",
+      "parish",
+      "devotion",
+      "spiritualLifeGuide",
+      "liturgyEntry",
+    ] as const) {
+      prismaMock[model].count.mockResolvedValue(0);
+    }
+
+    const report = await getBuilderQualityReport();
+    const prayer = report.rows.find((r) => r.contentType === "Prayer")!;
+    expect(prayer.qaPassRate).toBe(0.6);
+    expect(prayer.qaFailRate).toBeCloseTo(0.4);
+    expect(prayer.topMissingFields[0]).toEqual({ field: "feastDay", count: 2 });
+    expect(prayer.topRejectedHosts[0]).toEqual({ host: "bad.example", count: 7 });
+  });
+
   it("is resilient to a Prisma error on a single builder row", async () => {
     prismaMock.contentPackageBuildLog.groupBy.mockRejectedValue(new Error("DB transient"));
     prismaMock.sourceQualityScore.aggregate.mockResolvedValue({

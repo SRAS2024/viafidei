@@ -365,6 +365,7 @@ const admin: Dict = {
   "admin.contentGrowth.title": "Content growth",
   "admin.sourceConfiguration.title": "Source configuration",
   "admin.contentReceipt.title": "Content receipt",
+  "admin.builderQuality.title": "Builder quality",
   "admin.whyNotVisible.title": "Why not visible",
   "admin.canaryResults.title": "Canary results",
   "admin.pipelineBrokenHere.title": "Pipeline broken here",

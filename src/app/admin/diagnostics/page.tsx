@@ -63,6 +63,13 @@ const DIAGNOSTIC_AREAS = [
     description:
       "Per content type, the source → public pipeline over a rolling seven days: documents fetched, builds, complete packages, cross-source validation, strict QA, persistence, public / search / sitemap visibility, deletions, duplicates, and net public growth. Includes daily growth targets, 24h / 7d growth warnings, a production growth score, and daily-trend charts.",
   },
+  {
+    href: "/admin/builder-quality",
+    eyebrow: "IX.",
+    title: "Builder Quality",
+    description:
+      "One row per builder over a rolling 14-day window: build attempts, complete packages, QA pass / failure rate, public render / search / sitemap visibility pass rate, duplicate rate, wrong-content rate, top missing fields, and top rejected source hosts.",
+  },
 ] as const;
 
 function statusBadgeStyle(status: string): { bg: string; text: string } {
