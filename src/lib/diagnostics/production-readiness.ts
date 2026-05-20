@@ -22,7 +22,7 @@
 import { prisma } from "../db/client";
 import { logger } from "../observability/logger";
 import { hasHealthyWorker } from "../ingestion/queue/heartbeat";
-import { validateEnvironment } from "./env-validation";
+import { validateEnvironment, getEnvSubsystemDiagnostics } from "./env-validation";
 import { countSourceDocumentsWaitingForBuild } from "./pipeline-broken-here";
 
 export type ReadinessSeverity = "pass" | "warn" | "fail" | "error";
@@ -66,6 +66,7 @@ const worstOf = (severities: ReadinessSeverity[]): ReadinessSeverity => {
 
 async function envCard(): Promise<ReadinessCard> {
   const result = validateEnvironment();
+  const subsystems = getEnvSubsystemDiagnostics();
   return {
     id: "environment_variables",
     label: "Environment variables",
@@ -79,6 +80,7 @@ async function envCard(): Promise<ReadinessCard> {
     details: {
       missingRequired: result.missingRequired,
       missingRecommended: result.missingRecommended,
+      subsystems: subsystems.rows,
     },
   };
 }

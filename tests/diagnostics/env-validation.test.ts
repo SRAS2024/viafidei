@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { validateEnvironment } from "@/lib/diagnostics/env-validation";
+import { validateEnvironment, getEnvSubsystemDiagnostics } from "@/lib/diagnostics/env-validation";
 
 const ORIGINAL_ENV = { ...process.env };
 
@@ -59,5 +59,50 @@ describe("validateEnvironment", () => {
       expect(e.description.length).toBeGreaterThan(0);
       expect(["core", "auth", "email", "security", "content-qa"]).toContain(e.subsystem);
     }
+  });
+});
+
+describe("getEnvSubsystemDiagnostics", () => {
+  it("reports one row for every spec-listed subsystem", () => {
+    const { rows } = getEnvSubsystemDiagnostics();
+    expect(rows.map((r) => r.subsystem).sort()).toEqual([
+      "adminEmail",
+      "appUrl",
+      "cron",
+      "database",
+      "email",
+      "queue",
+      "security",
+      "sourceConfig",
+      "worker",
+    ]);
+  });
+
+  it("marks worker, cron, queue, appUrl and sourceConfig as config-driven", () => {
+    const { rows } = getEnvSubsystemDiagnostics();
+    for (const subsystem of ["worker", "cron", "queue", "appUrl", "sourceConfig"] as const) {
+      const row = rows.find((r) => r.subsystem === subsystem)!;
+      expect(row.configDriven).toBe(true);
+      expect(row.envVars).toEqual([]);
+      expect(row.status).toBe("pass");
+    }
+  });
+
+  it("fails when DATABASE_URL is missing", () => {
+    delete process.env.DATABASE_URL;
+    const { rows, severity } = getEnvSubsystemDiagnostics();
+    const database = rows.find((r) => r.subsystem === "database")!;
+    expect(database.status).toBe("fail");
+    expect(severity).toBe("fail");
+  });
+
+  it("warns (does not fail) when only RESEND_API_KEY is missing", () => {
+    process.env.DATABASE_URL = "postgres://x";
+    process.env.SESSION_SECRET = "a".repeat(33);
+    process.env.ADMIN_EMAIL = "admin@example.com";
+    delete process.env.RESEND_API_KEY;
+    const { rows, severity } = getEnvSubsystemDiagnostics();
+    expect(rows.find((r) => r.subsystem === "email")!.status).toBe("warn");
+    expect(severity).toBe("warn");
   });
 });

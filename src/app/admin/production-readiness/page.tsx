@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { getProductionReadinessReport } from "@/lib/diagnostics/production-readiness";
 import type { ContentTypeReadinessRow } from "@/lib/diagnostics/content-type-readiness";
+import type { EnvSubsystemRow } from "@/lib/diagnostics/env-validation";
 import { AdminSection } from "../_sections/AdminSection";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +19,35 @@ const CHECK_CLASS: Record<string, string> = {
   fail: "font-semibold text-red-700",
   na: "text-ink-faint",
 };
+
+/** Per-subsystem environment diagnostics rendered inside the env card. */
+function EnvSubsystemsDetail({ details }: { details?: Record<string, unknown> }) {
+  const rows = (details?.subsystems as EnvSubsystemRow[] | undefined) ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <div className="mt-3 space-y-1.5" data-testid="env-subsystems-detail">
+      {rows.map((r) => (
+        <div
+          key={r.subsystem}
+          className="font-mono text-xs"
+          data-testid={`env-subsystem-${r.subsystem}`}
+        >
+          <span className={CHECK_CLASS[r.status]}>[{r.status.toUpperCase()}]</span>{" "}
+          <span className="font-semibold">{r.label}</span>
+          {r.envVars.length > 0 ? (
+            <span className="text-ink-soft">
+              {" — "}
+              {r.envVars.map((v) => `${v.name} (${v.set ? "set" : "UNSET"})`).join(", ")}
+            </span>
+          ) : (
+            <span className="text-ink-faint"> — config-driven (no env var)</span>
+          )}
+          <span className="mt-0.5 block text-ink-faint">{r.detail}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /** Per-content-type readiness drill-down rendered inside its card. */
 function ContentTypeReadinessDetail({ details }: { details?: Record<string, unknown> }) {
@@ -137,6 +167,9 @@ export default async function ProductionReadinessPage() {
             <p className="mt-2 font-serif text-sm">{card.summary}</p>
             {card.id === "content_type_readiness" ? (
               <ContentTypeReadinessDetail details={card.details} />
+            ) : null}
+            {card.id === "environment_variables" ? (
+              <EnvSubsystemsDetail details={card.details} />
             ) : null}
             <div className="mt-2 flex flex-wrap gap-3 font-mono text-xs text-ink-soft">
               <span data-testid={`readiness-card-${card.id}-data-source`}>
