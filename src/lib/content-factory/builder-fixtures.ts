@@ -1896,6 +1896,674 @@ export const PARISH_FIXTURES: ReadonlyArray<BuilderFixture> = [
   },
 ];
 
+// ─── Rosary ──────────────────────────────────────────────────────────
+export const ROSARY_FIXTURES: ReadonlyArray<BuilderFixture> = [
+  {
+    name: "joyful-mysteries",
+    kind: "valid",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://rosary-center.org/joyful-mysteries",
+      host: "rosary-center.org",
+      title: "The Joyful Mysteries",
+      body:
+        "The Joyful Mysteries are prayed on Mondays and Saturdays. " +
+        "First: The Annunciation. Second: The Visitation. Third: The Nativity. " +
+        "Fourth: The Presentation in the Temple. Fifth: The Finding in the Temple. " +
+        "Begin with the Sign of the Cross and the Apostles' Creed.",
+      purpose: "canIngestRosaryGuides",
+    }),
+  },
+  {
+    name: "sorrowful-mysteries",
+    kind: "valid",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://rosary-center.org/sorrowful-mysteries",
+      host: "rosary-center.org",
+      title: "The Sorrowful Mysteries",
+      body:
+        "The Sorrowful Mysteries are prayed on Tuesdays and Fridays. " +
+        "First: The Agony in the Garden. Second: The Scourging at the Pillar. " +
+        "Third: The Crowning with Thorns. Fourth: The Carrying of the Cross. " +
+        "Fifth: The Crucifixion. Begin with the Sign of the Cross.",
+      purpose: "canIngestRosaryGuides",
+    }),
+  },
+  {
+    name: "glorious-mysteries",
+    kind: "valid",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://rosary-center.org/glorious-mysteries",
+      host: "rosary-center.org",
+      title: "The Glorious Mysteries",
+      body:
+        "The Glorious Mysteries are prayed on Wednesdays and Sundays. " +
+        "First: The Resurrection. Second: The Ascension. Third: The Descent of the Holy Spirit. " +
+        "Fourth: The Assumption of Mary. Fifth: The Coronation of Mary.",
+      purpose: "canIngestRosaryGuides",
+    }),
+  },
+  {
+    name: "luminous-mysteries",
+    kind: "valid",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://rosary-center.org/luminous-mysteries",
+      host: "rosary-center.org",
+      title: "The Luminous Mysteries",
+      body:
+        "The Luminous Mysteries are prayed on Thursdays. " +
+        "First: The Baptism in the Jordan. Second: The Wedding at Cana. " +
+        "Third: The Proclamation of the Kingdom. Fourth: The Transfiguration. " +
+        "Fifth: The Institution of the Eucharist.",
+      purpose: "canIngestRosaryGuides",
+    }),
+  },
+  {
+    name: "how-to-pray-rosary",
+    kind: "valid",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://rosary-center.org/how-to-pray",
+      host: "rosary-center.org",
+      title: "How to Pray the Rosary",
+      body:
+        "Begin with the Sign of the Cross. Pray the Apostles' Creed. " +
+        "On each large bead pray the Our Father. On each small bead pray the Hail Mary. " +
+        "At the end of each decade pray the Glory Be. Each decade meditates on a Mystery.",
+      purpose: "canIngestRosaryGuides",
+    }),
+  },
+  // Invalid
+  {
+    name: "rosary-livestream",
+    kind: "invalid",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://parish.example/rosary-live",
+      host: "parish.example",
+      title: "Watch Live: Daily Rosary",
+      body: "Watch live every day at 7pm as we pray the Rosary together. Click here to join.",
+      purpose: "canIngestRosaryGuides",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "article-about-rosary",
+    kind: "invalid",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://blog.example/rosary-history",
+      host: "blog.example",
+      title: "History of the Rosary",
+      body:
+        "According to scholars, the Rosary developed over many centuries. " +
+        "As theologian John Smith writes in his book on the Rosary, the prayer is...",
+      purpose: "canIngestRosaryGuides",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "rosary-event-registration",
+    kind: "invalid",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://parish.example/rosary-rally",
+      host: "parish.example",
+      title: "Rosary Rally Event",
+      body: "Register for our annual Rosary Rally event. Click here to sign up.",
+      purpose: "canIngestRosaryGuides",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "empty-body",
+    kind: "invalid",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://rosary-center.org/empty",
+      host: "rosary-center.org",
+      title: "Empty",
+      body: "",
+      purpose: "canIngestRosaryGuides",
+    }),
+    expectedFailureReason: "not_supported_by_source",
+  },
+  {
+    name: "unapproved-source",
+    kind: "invalid",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://random.example/rosary",
+      host: "random.example",
+      title: "Some Rosary",
+      body: "Some text.",
+      purpose: "",
+    }),
+    expectedFailureReason: "source_not_allowed",
+  },
+  // Messy
+  {
+    name: "messy-joyful",
+    kind: "messy",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://catholicculture.org/rosary/joyful-messy",
+      host: "catholicculture.org",
+      title: "Joyful Mysteries",
+      body:
+        "Read more at catholicculture.org\n\n" +
+        "The Joyful Mysteries: Annunciation, Visitation, Nativity, Presentation, Finding in the Temple.\n\n" +
+        "© 2024",
+      purpose: "canIngestRosaryGuides",
+    }),
+  },
+  {
+    name: "messy-sorrowful",
+    kind: "messy",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://catholic.org/rosary/sorrowful-messy",
+      host: "catholic.org",
+      title: "Sorrowful Mysteries",
+      body:
+        "Subscribe to our newsletter!\n\n" +
+        "Sorrowful Mysteries: Agony, Scourging, Crowning, Carrying, Crucifixion.",
+      purpose: "canIngestRosaryGuides",
+    }),
+  },
+  {
+    name: "messy-glorious",
+    kind: "messy",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://ewtn.com/rosary/glorious-messy",
+      host: "ewtn.com",
+      title: "Glorious Mysteries",
+      body:
+        "Click here to read more.\n\n" +
+        "Glorious Mysteries: Resurrection, Ascension, Descent of Holy Spirit, Assumption, Coronation.",
+      purpose: "canIngestRosaryGuides",
+    }),
+  },
+  {
+    name: "messy-luminous",
+    kind: "messy",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://catholicculture.org/rosary/luminous-messy",
+      host: "catholicculture.org",
+      title: "Luminous Mysteries",
+      body:
+        "Used with permission.\n\n" +
+        "Luminous Mysteries: Baptism in the Jordan, Wedding at Cana, Proclamation of the Kingdom, " +
+        "Transfiguration, Institution of the Eucharist.",
+      purpose: "canIngestRosaryGuides",
+    }),
+  },
+  {
+    name: "messy-how-to-pray",
+    kind: "messy",
+    contentType: "Rosary",
+    document: doc({
+      url: "https://rosary-center.org/how-to-pray-messy",
+      host: "rosary-center.org",
+      title: "How to Pray the Rosary",
+      body:
+        "Read more at rosary-center.org!!!\n\n" +
+        "Begin with the Sign of the Cross. Pray the Apostles' Creed. " +
+        "Pray Our Father on each large bead, Hail Mary on each small bead, Glory Be after each decade.",
+      purpose: "canIngestRosaryGuides",
+    }),
+  },
+];
+
+// ─── Consecration ────────────────────────────────────────────────────
+export const CONSECRATION_FIXTURES: ReadonlyArray<BuilderFixture> = [
+  {
+    name: "33-day-marian-consecration",
+    kind: "valid",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://marian.org/33-days-to-morning-glory",
+      host: "marian.org",
+      title: "33-Day Consecration to Jesus through Mary",
+      body:
+        "Day 1 of 33: Begin with the Spirit of the World meditation. " +
+        "Day 2 of 33: Pray the Litany. Day 3 of 33: meditate on knowledge of self. " +
+        "Day 33 of 33: this is the consecration day.",
+      purpose: "canIngestConsecrations",
+    }),
+  },
+  {
+    name: "consecration-to-sacred-heart",
+    kind: "valid",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://marian.org/consecration-sacred-heart",
+      host: "marian.org",
+      title: "Consecration to the Sacred Heart",
+      body:
+        "Day 1: Begin with prayer. Day 2: Continue with meditation. Day 3: pray the Litany. " +
+        "Day 9 of 9: final consecration to the Sacred Heart.",
+      purpose: "canIngestConsecrations",
+    }),
+  },
+  {
+    name: "consecration-to-st-joseph",
+    kind: "valid",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://marian.org/consecration-st-joseph",
+      host: "marian.org",
+      title: "33-Day Consecration to St. Joseph",
+      body:
+        "Day 1: Begin with the meditation on St. Joseph's life. " +
+        "Day 2: continue with prayer. Day 3 of 33: meditate on St. Joseph's virtues. " +
+        "Day 33: final consecration day.",
+      purpose: "canIngestConsecrations",
+    }),
+  },
+  {
+    name: "consecration-de-montfort",
+    kind: "valid",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://marian.org/de-montfort",
+      host: "marian.org",
+      title: "True Devotion to Mary Consecration",
+      body:
+        "Day 1: knowledge of self. Day 2: knowledge of the world. " +
+        "Day 3: knowledge of Mary. Day 33 of 33: act of total consecration to Jesus through Mary.",
+      purpose: "canIngestConsecrations",
+    }),
+  },
+  {
+    name: "divine-mercy-consecration",
+    kind: "valid",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://marian.org/divine-mercy-consecration",
+      host: "marian.org",
+      title: "Consecration to Divine Mercy",
+      body:
+        "Day 1 of 9: meditate on the mercy of God. Day 2: pray the Chaplet. " +
+        "Day 3: receive the Sacrament of Reconciliation. " +
+        "Day 9 of 9: act of consecration to Divine Mercy.",
+      purpose: "canIngestConsecrations",
+    }),
+  },
+  // Invalid
+  {
+    name: "no-day-structure",
+    kind: "invalid",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://blog.example/about-consecration",
+      host: "blog.example",
+      title: "About Marian Consecration",
+      body: "Marian consecration is the act of dedicating oneself to Jesus through Mary.",
+      purpose: "canIngestConsecrations",
+    }),
+    expectedFailureReason: "build_failed_missing_required_fields",
+  },
+  {
+    name: "consecration-retreat-registration",
+    kind: "invalid",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://parish.example/retreat",
+      host: "parish.example",
+      title: "Marian Consecration Retreat",
+      body: "Register for our weekend retreat to consecrate yourself to Mary.",
+      purpose: "canIngestConsecrations",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "consecration-article",
+    kind: "invalid",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://blog.example/consecration-history",
+      host: "blog.example",
+      title: "History of Marian Consecration",
+      body:
+        "According to scholars, the practice of Marian consecration has a long history. " +
+        "As theologian John Smith writes in his book...",
+      purpose: "canIngestConsecrations",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "empty-body",
+    kind: "invalid",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://marian.org/empty",
+      host: "marian.org",
+      title: "Empty",
+      body: "",
+      purpose: "canIngestConsecrations",
+    }),
+    expectedFailureReason: "not_supported_by_source",
+  },
+  {
+    name: "unapproved-source",
+    kind: "invalid",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://random.example/consecration",
+      host: "random.example",
+      title: "Some Consecration",
+      body: "Day 1, Day 2, Day 3 text.",
+      purpose: "",
+    }),
+    expectedFailureReason: "source_not_allowed",
+  },
+  // Messy
+  {
+    name: "messy-33-day",
+    kind: "messy",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://marian.org/33-days-messy",
+      host: "marian.org",
+      title: "33-Day Marian Consecration",
+      body:
+        "Read more at marian.org\n\n" +
+        "33-Day Consecration: Day 1 of 33: spirit of the world. " +
+        "Day 2 of 33: meditation. Day 3 of 33: knowledge of self. " +
+        "Day 33: consecration day.\n\n" +
+        "© 2024",
+      purpose: "canIngestConsecrations",
+    }),
+  },
+  {
+    name: "messy-sacred-heart",
+    kind: "messy",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://catholic.org/consecration/sacred-heart-messy",
+      host: "catholic.org",
+      title: "Consecration to the Sacred Heart",
+      body:
+        "Subscribe to our newsletter!\n\n" +
+        "9-day consecration: Day 1: prayer. Day 2: meditation. Day 3: Litany. " +
+        "Day 9 of 9: act of consecration.",
+      purpose: "canIngestConsecrations",
+    }),
+  },
+  {
+    name: "messy-st-joseph",
+    kind: "messy",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://ewtn.com/consecration/st-joseph-messy",
+      host: "ewtn.com",
+      title: "St. Joseph Consecration",
+      body:
+        "Click here to read more.\n\n" +
+        "33-Day Consecration to St. Joseph: Day 1 meditation. Day 2 prayer. " +
+        "Day 3 of 33: meditate on virtues. Day 33: consecration day.",
+      purpose: "canIngestConsecrations",
+    }),
+  },
+  {
+    name: "messy-de-montfort",
+    kind: "messy",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://catholicculture.org/consecration/de-montfort-messy",
+      host: "catholicculture.org",
+      title: "De Montfort True Devotion",
+      body:
+        "Used with permission.\n\n" +
+        "33-day total consecration. Day 1: self-knowledge. Day 2: world. " +
+        "Day 3: Mary. Day 33 of 33: total consecration.",
+      purpose: "canIngestConsecrations",
+    }),
+  },
+  {
+    name: "messy-divine-mercy-consecration",
+    kind: "messy",
+    contentType: "Consecration",
+    document: doc({
+      url: "https://catholic.org/consecration/divine-mercy-messy",
+      host: "catholic.org",
+      title: "Divine Mercy Consecration",
+      body:
+        "Read more at catholic.org!!!\n\n" +
+        "9-day consecration to Divine Mercy. Day 1 of 9: mercy of God. " +
+        "Day 2: Chaplet. Day 9 of 9: act of consecration.",
+      purpose: "canIngestConsecrations",
+    }),
+  },
+];
+
+// ─── Liturgy ─────────────────────────────────────────────────────────
+export const LITURGY_FIXTURES: ReadonlyArray<BuilderFixture> = [
+  {
+    name: "order-of-the-mass",
+    kind: "valid",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://vatican.va/liturgy/order-of-mass",
+      host: "vatican.va",
+      title: "Order of the Mass",
+      body:
+        "The Mass is divided into the Introductory Rites, the Liturgy of the Word, " +
+        "the Liturgy of the Eucharist, and the Concluding Rites. " +
+        "Each part forms a single act of worship.",
+      purpose: "canIngestLiturgy",
+    }),
+  },
+  {
+    name: "liturgical-year",
+    kind: "valid",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://vatican.va/liturgy/liturgical-year",
+      host: "vatican.va",
+      title: "The Liturgical Year",
+      body:
+        "The liturgical year is structured around the major seasons: " +
+        "Advent, Christmas, Lent, Easter, and Ordinary Time. " +
+        "The liturgical seasons mark the salvation history of Christ.",
+      purpose: "canIngestLiturgy",
+    }),
+  },
+  {
+    name: "marriage-rite",
+    kind: "valid",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://vatican.va/liturgy/marriage-rite",
+      host: "vatican.va",
+      title: "The Rite of Marriage",
+      body:
+        "The Rite of Marriage is celebrated within Mass. " +
+        "Begins with introductory rites, followed by the Liturgy of the Word, " +
+        "then the exchange of consent and nuptial blessing.",
+      purpose: "canIngestLiturgy",
+    }),
+  },
+  {
+    name: "funeral-rite",
+    kind: "valid",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://vatican.va/liturgy/funeral-rite",
+      host: "vatican.va",
+      title: "The Funeral Rite",
+      body:
+        "The Catholic funeral rite consists of three principal parts: " +
+        "the Vigil, the Funeral Mass, and the Rite of Committal. " +
+        "Each part forms part of a single liturgy of Christian funeral.",
+      purpose: "canIngestLiturgy",
+    }),
+  },
+  {
+    name: "liturgical-symbolism",
+    kind: "valid",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://vatican.va/liturgy/symbolism",
+      host: "vatican.va",
+      title: "Liturgical Symbolism",
+      body:
+        "The Catholic liturgy uses sacramentals — vestments, gestures, vessels, and seasonal " +
+        "colors. The liturgical colors mark the seasons of the liturgical year. " +
+        "Each symbol carries a specific theological meaning.",
+      purpose: "canIngestLiturgy",
+    }),
+  },
+  // Invalid
+  {
+    name: "mass-schedule",
+    kind: "invalid",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://parish.example/mass-schedule",
+      host: "parish.example",
+      title: "Mass Schedule",
+      body: "Sunday: 8am, 10am, 12pm. Daily Masses at 7am. Mass schedule for this week.",
+      purpose: "canIngestLiturgy",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "parish-bulletin",
+    kind: "invalid",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://parish.example/bulletin",
+      host: "parish.example",
+      title: "Weekly Bulletin",
+      body: "This week's bulletin from St. Mary's Parish.",
+      purpose: "canIngestLiturgy",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "liturgy-livestream",
+    kind: "invalid",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://parish.example/mass-live",
+      host: "parish.example",
+      title: "Watch Mass Live",
+      body: "Watch Mass live every Sunday at 10am.",
+      purpose: "canIngestLiturgy",
+    }),
+    expectedFailureReason: "wrong_content",
+  },
+  {
+    name: "empty-body",
+    kind: "invalid",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://vatican.va/liturgy/empty",
+      host: "vatican.va",
+      title: "Empty",
+      body: "",
+      purpose: "canIngestLiturgy",
+    }),
+    expectedFailureReason: "not_supported_by_source",
+  },
+  {
+    name: "unapproved-source",
+    kind: "invalid",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://random.example/liturgy",
+      host: "random.example",
+      title: "Some Liturgy",
+      body: "Some text about the Mass.",
+      purpose: "",
+    }),
+    expectedFailureReason: "source_not_allowed",
+  },
+  // Messy
+  {
+    name: "messy-order-of-mass",
+    kind: "messy",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://adoremus.org/liturgy/order-messy",
+      host: "adoremus.org",
+      title: "Order of the Mass",
+      body:
+        "Read more at adoremus.org\n\n" +
+        "The Mass is divided into the Introductory Rites, the Liturgy of the Word, " +
+        "the Liturgy of the Eucharist, and the Concluding Rites.\n\n© 2024",
+      purpose: "canIngestLiturgy",
+    }),
+  },
+  {
+    name: "messy-liturgical-year",
+    kind: "messy",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://usccb.org/liturgy/year-messy",
+      host: "usccb.org",
+      title: "Liturgical Year",
+      body:
+        "Subscribe to our newsletter!\n\n" +
+        "The liturgical year is structured around Advent, Christmas, Lent, Easter, and Ordinary Time. " +
+        "The liturgical seasons mark salvation history.",
+      purpose: "canIngestLiturgy",
+    }),
+  },
+  {
+    name: "messy-marriage-rite",
+    kind: "messy",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://catholicculture.org/liturgy/marriage-messy",
+      host: "catholicculture.org",
+      title: "Rite of Marriage",
+      body:
+        "Click here to read more.\n\n" +
+        "The Rite of Marriage is celebrated within Mass. " +
+        "Begins with introductory rites, then Liturgy of the Word, then exchange of consent.",
+      purpose: "canIngestLiturgy",
+    }),
+  },
+  {
+    name: "messy-funeral-rite",
+    kind: "messy",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://adoremus.org/liturgy/funeral-messy",
+      host: "adoremus.org",
+      title: "Funeral Rite",
+      body:
+        "Used with permission.\n\n" +
+        "Catholic funeral rite: Vigil, Funeral Mass, Rite of Committal. " +
+        "Each part forms the liturgy of Christian funeral.",
+      purpose: "canIngestLiturgy",
+    }),
+  },
+  {
+    name: "messy-symbolism",
+    kind: "messy",
+    contentType: "Liturgy",
+    document: doc({
+      url: "https://catholic.org/liturgy/symbolism-messy",
+      host: "catholic.org",
+      title: "Liturgical Symbolism",
+      body:
+        "Read more at catholic.org!!!\n\n" +
+        "Catholic liturgy uses sacramentals — vestments, gestures, vessels, and seasonal colors. " +
+        "Liturgical colors mark the seasons of the liturgical year.",
+      purpose: "canIngestLiturgy",
+    }),
+  },
+];
+
 /**
  * Index of every fixture set, keyed by content type. Tests and the
  * canary runner iterate this.
@@ -1909,6 +2577,9 @@ export const ALL_BUILDER_FIXTURES: Readonly<Record<string, ReadonlyArray<Builder
   MarianApparition: MARIAN_APPARITION_FIXTURES,
   History: HISTORY_FIXTURES,
   Parish: PARISH_FIXTURES,
+  Rosary: ROSARY_FIXTURES,
+  Consecration: CONSECRATION_FIXTURES,
+  Liturgy: LITURGY_FIXTURES,
 };
 
 export function fixturesForContentType(contentType: ContentTypeKey): ReadonlyArray<BuilderFixture> {
