@@ -11,13 +11,57 @@ const DECISION_STYLES: Record<string, string> = {
   insufficient_evidence: "text-amber-800",
 };
 
+/** A pass / fail / insufficient breakdown table keyed by host / field / role. */
+function BreakdownCard({
+  title,
+  keyLabel,
+  rows,
+  testId,
+}: {
+  title: string;
+  keyLabel: string;
+  rows: Array<{ label: string; pass: number; fail: number; insufficient: number }>;
+  testId: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-ink/10 bg-paper px-5 py-4" data-testid={testId}>
+      <h2 className="font-serif text-base font-semibold">{title}</h2>
+      {rows.length === 0 ? (
+        <p className="mt-2 font-serif text-sm text-ink-soft">No evidence yet.</p>
+      ) : (
+        <table className="mt-3 w-full font-mono text-xs">
+          <thead className="text-ink-soft">
+            <tr className="text-left">
+              <th className="py-1">{keyLabel}</th>
+              <th className="py-1">Pass</th>
+              <th className="py-1">Fail</th>
+              <th className="py-1">Insuff.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.label} className="border-t border-ink/5">
+                <td className="break-all py-1">{r.label}</td>
+                <td className="py-1 text-emerald-700">{r.pass}</td>
+                <td className="py-1 text-red-800">{r.fail}</td>
+                <td className="py-1 text-amber-800">{r.insufficient}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
 /**
- * Admin "Validation evidence" page.
+ * Admin cross-source validation dashboard.
  *
  * Surfaces ContentValidationEvidence rows so an admin can answer
  * "why did the cross-source validator pass/fail this package?".
- * Shows totals, per-content-type breakdown, and the most recent 50
- * rows by default.
+ * Shows totals; pass / fail / insufficient breakdowns by content
+ * type, source host, field and source role; the most common
+ * insufficient-evidence reasons; and the most recent 50 rows.
  */
 export default async function ValidationEvidencePage({
   searchParams,
@@ -101,6 +145,53 @@ export default async function ValidationEvidencePage({
               ))}
             </tbody>
           </table>
+        )}
+      </div>
+
+      <div
+        className="mx-auto mb-6 grid max-w-6xl grid-cols-1 gap-4 lg:grid-cols-3"
+        data-testid="validation-evidence-breakdowns"
+      >
+        <BreakdownCard
+          title="By source host"
+          keyLabel="Host"
+          testId="validation-evidence-by-source-host"
+          rows={summary.bySourceHost.map((r) => ({ label: r.host, ...r }))}
+        />
+        <BreakdownCard
+          title="By field"
+          keyLabel="Field"
+          testId="validation-evidence-by-field"
+          rows={summary.byField.map((r) => ({ label: r.field, ...r }))}
+        />
+        <BreakdownCard
+          title="By source role"
+          keyLabel="Role"
+          testId="validation-evidence-by-source-role"
+          rows={summary.bySourceRole.map((r) => ({ label: r.role, ...r }))}
+        />
+      </div>
+
+      <div
+        className="mx-auto mb-6 max-w-6xl rounded-2xl border border-ink/10 bg-paper px-5 py-4"
+        data-testid="validation-evidence-insufficient-reasons"
+      >
+        <h2 className="font-serif text-base font-semibold">
+          Most common insufficient-evidence reasons
+        </h2>
+        {summary.topInsufficientReasons.length === 0 ? (
+          <p className="mt-2 font-serif text-sm text-ink-soft">
+            No insufficient-evidence rows recorded.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-1 font-mono text-xs">
+            {summary.topInsufficientReasons.map((r) => (
+              <li key={r.reason} className="flex justify-between gap-3">
+                <span className="text-ink-soft">{r.reason}</span>
+                <span className="tabular-nums text-amber-800">{r.count}</span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
