@@ -106,3 +106,33 @@ export const RELATED_PRAYER_HINTS_BY_SACRAMENT: Readonly<Record<string, Readonly
   holy_orders: ["prayer-for-vocations"],
   matrimony: ["wedding-blessing"],
 };
+
+/**
+ * Look up the related-prayer hints for a sacrament. Returns an
+ * empty array when the sacrament key is unknown.
+ */
+export function relatedPrayerHintsFor(sacramentKey: string): ReadonlyArray<string> {
+  return RELATED_PRAYER_HINTS_BY_SACRAMENT[sacramentKey] ?? [];
+}
+
+/**
+ * Fill a sacrament package's `relatedPrayerSlugs` field when the
+ * builder did not. Mirrors enrichSacramentCatechism() — opportunistic,
+ * skipped when the package already declared the field.
+ */
+export function enrichSacramentRelatedPrayers(pkg: ContentPackage): {
+  filled: boolean;
+  prayerSlugs: ReadonlyArray<string>;
+} {
+  if (pkg.contentType !== "Sacrament") return { filled: false, prayerSlugs: [] };
+  const payload = pkg.payload as Record<string, unknown>;
+  if (Array.isArray(payload.relatedPrayerSlugs) && payload.relatedPrayerSlugs.length > 0) {
+    return { filled: false, prayerSlugs: [] };
+  }
+  const sacramentKey = String(payload.sacramentKey ?? "").trim();
+  if (!sacramentKey) return { filled: false, prayerSlugs: [] };
+  const hints = relatedPrayerHintsFor(sacramentKey);
+  if (hints.length === 0) return { filled: false, prayerSlugs: [] };
+  payload.relatedPrayerSlugs = hints;
+  return { filled: true, prayerSlugs: hints };
+}

@@ -8,6 +8,8 @@ import {
   RELATED_PRAYER_HINTS_BY_SACRAMENT,
   catechismReferencesFor,
   enrichSacramentCatechism,
+  enrichSacramentRelatedPrayers,
+  relatedPrayerHintsFor,
 } from "@/lib/content-factory/enrich/catechism-references";
 import type { ContentPackage } from "@/lib/content-factory/types";
 
@@ -106,5 +108,65 @@ describe("enrichSacramentCatechism()", () => {
   it("skips when the sacramentKey is unknown", () => {
     const pkg = sacramentPackage("bogus");
     expect(enrichSacramentCatechism(pkg).filled).toBe(false);
+  });
+});
+
+describe("relatedPrayerHintsFor()", () => {
+  it("returns hints for every spec sacrament", () => {
+    for (const key of [
+      "baptism",
+      "eucharist",
+      "confirmation",
+      "reconciliation",
+      "anointing_of_the_sick",
+      "holy_orders",
+      "matrimony",
+    ]) {
+      expect(relatedPrayerHintsFor(key).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("returns an empty array for unknown sacraments", () => {
+    expect(relatedPrayerHintsFor("not_a_sacrament")).toEqual([]);
+  });
+});
+
+describe("enrichSacramentRelatedPrayers()", () => {
+  it("fills relatedPrayerSlugs on a sacrament package missing the field", () => {
+    const pkg = sacramentPackage("eucharist");
+    const result = enrichSacramentRelatedPrayers(pkg);
+    expect(result.filled).toBe(true);
+    expect(result.prayerSlugs.length).toBeGreaterThan(0);
+    expect((pkg.payload as { relatedPrayerSlugs: unknown[] }).relatedPrayerSlugs).toEqual(
+      result.prayerSlugs,
+    );
+  });
+
+  it("does NOT overwrite a package that already declared related prayers", () => {
+    const pkg = sacramentPackage("eucharist");
+    (pkg.payload as Record<string, unknown>).relatedPrayerSlugs = ["existing-prayer"];
+    const result = enrichSacramentRelatedPrayers(pkg);
+    expect(result.filled).toBe(false);
+    expect((pkg.payload as { relatedPrayerSlugs: string[] }).relatedPrayerSlugs).toEqual([
+      "existing-prayer",
+    ]);
+  });
+
+  it("skips non-sacrament packages", () => {
+    const pkg: ContentPackage = {
+      contentType: "Prayer",
+      slug: "x",
+      title: "x",
+      sourceUrl: "https://x",
+      sourceHost: "x",
+      payload: {},
+      provenance: {},
+    };
+    expect(enrichSacramentRelatedPrayers(pkg).filled).toBe(false);
+  });
+
+  it("skips when the sacramentKey is unknown", () => {
+    const pkg = sacramentPackage("bogus");
+    expect(enrichSacramentRelatedPrayers(pkg).filled).toBe(false);
   });
 });
