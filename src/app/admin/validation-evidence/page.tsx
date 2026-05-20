@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { getValidationEvidenceSummary } from "@/lib/data/validation-evidence";
+import { getValidationSourceHealthReport } from "@/lib/data/validation-source-health";
 import { AdminSection } from "../_sections/AdminSection";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,16 @@ const DECISION_STYLES: Record<string, string> = {
   fail: "text-red-800",
   insufficient_evidence: "text-amber-800",
 };
+
+function healthClass(score: number): string {
+  if (score >= 80) return "text-emerald-700";
+  if (score >= 60) return "text-amber-700";
+  return "font-semibold text-red-700";
+}
+
+function pct(rate: number): string {
+  return `${Math.round(rate * 100)}%`;
+}
 
 /** A pass / fail / insufficient breakdown table keyed by host / field / role. */
 function BreakdownCard({
@@ -74,7 +85,10 @@ export default async function ValidationEvidencePage({
   }
   const params = (await searchParams) ?? {};
   const contentType = params.contentType ?? null;
-  const summary = await getValidationEvidenceSummary({ contentType });
+  const [summary, sourceHealth] = await Promise.all([
+    getValidationEvidenceSummary({ contentType }),
+    getValidationSourceHealthReport().catch(() => null),
+  ]);
 
   return (
     <AdminSection
@@ -194,6 +208,68 @@ export default async function ValidationEvidencePage({
           </ul>
         )}
       </div>
+
+      {sourceHealth ? (
+        <div
+          className="mx-auto mb-6 max-w-6xl rounded-2xl border border-ink/10 bg-paper px-5 py-4"
+          data-testid="validation-source-health"
+        >
+          <h2 className="font-serif text-base font-semibold">
+            Validation source health
+            {sourceHealth.unhealthyCount > 0 ? (
+              <span className="ml-2 font-mono text-xs text-red-700">
+                {sourceHealth.unhealthyCount} unhealthy
+              </span>
+            ) : null}
+          </h2>
+          {sourceHealth.rows.length === 0 ? (
+            <p className="mt-2 font-serif text-sm text-ink-soft">
+              No sources are configured with the validation_source role.
+            </p>
+          ) : (
+            <table className="mt-3 w-full font-mono text-xs">
+              <thead className="text-ink-soft">
+                <tr className="text-left">
+                  <th className="py-1">Host</th>
+                  <th className="py-1" title="0–100 composite health score">
+                    Score
+                  </th>
+                  <th className="py-1" title="pass / total evidence rows">
+                    Match rate
+                  </th>
+                  <th className="py-1" title="(fail + insufficient) / total">
+                    Failure rate
+                  </th>
+                  <th className="py-1">Evidence</th>
+                  <th className="py-1">Fetch health</th>
+                  <th className="py-1">Last successful validation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sourceHealth.rows.map((row) => (
+                  <tr
+                    key={row.host}
+                    className="border-t border-ink/5"
+                    data-testid={`validation-source-health-${row.host}`}
+                  >
+                    <td className="break-all py-1">{row.host}</td>
+                    <td className={`py-1 ${healthClass(row.healthScore)}`}>{row.healthScore}</td>
+                    <td className="py-1">{pct(row.matchSuccessRate)}</td>
+                    <td className="py-1">{pct(row.evidenceFailureRate)}</td>
+                    <td className="py-1">{row.evidenceCreated}</td>
+                    <td className="py-1">{row.fetchHealth}</td>
+                    <td className="py-1 text-ink-soft">
+                      {row.lastSuccessfulValidationAt
+                        ? row.lastSuccessfulValidationAt.toISOString().slice(0, 10)
+                        : "never"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      ) : null}
 
       <div className="mx-auto max-w-6xl rounded-2xl border border-ink/10 bg-paper px-5 py-4">
         <h2 className="font-serif text-base font-semibold">

@@ -91,6 +91,13 @@ const DIAGNOSTIC_AREAS = [
     description:
       "Runs every bundled builder fixture through its real builder: fixture counts, valid-fixture pass count, invalid-fixture rejection count, false positives, false negatives, and missing fixture-coverage areas.",
   },
+  {
+    href: "/admin/production-runbook",
+    eyebrow: "XIII.",
+    title: "Production Growth Runbook",
+    description:
+      "The single operator page for content-growth operations: which content types are stalled and why, the automatic next action, paused and promoted sources, weak builders, missing validation evidence, and failing public display checks.",
+  },
 ] as const;
 
 function statusBadgeStyle(status: string): { bg: string; text: string } {

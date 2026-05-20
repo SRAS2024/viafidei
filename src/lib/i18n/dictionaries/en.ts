@@ -369,6 +369,7 @@ const admin: Dict = {
   "admin.sourceOnboarding.title": "Source onboarding diagnostics",
   "admin.baselineAudit.title": "Baseline content audit",
   "admin.fixtureQuality.title": "Fixture quality diagnostics",
+  "admin.productionRunbook.title": "Production growth runbook",
   "admin.whyNotVisible.title": "Why not visible",
   "admin.canaryResults.title": "Canary results",
   "admin.pipelineBrokenHere.title": "Pipeline broken here",
