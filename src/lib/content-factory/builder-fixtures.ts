@@ -970,15 +970,15 @@ export const NOVENA_FIXTURES: ReadonlyArray<BuilderFixture> = [
       host: "praymorenovenas.com",
       title: "Divine Mercy Novena",
       body:
-        "Day 1: Today bring to Me all mankind. Pray the Chaplet of Divine Mercy.\n\n" +
-        "Day 2: Today bring to Me the souls of priests and religious. Pray the Chaplet of Divine Mercy.\n\n" +
-        "Day 3: Today bring to Me all devout and faithful souls. Pray the Chaplet of Divine Mercy.\n\n" +
-        "Day 4: Today bring to Me those who do not believe in Jesus and those who do not yet know Me. Pray the Chaplet of Divine Mercy.\n\n" +
-        "Day 5: Today bring to Me the souls of separated brethren. Pray the Chaplet of Divine Mercy.\n\n" +
-        "Day 6: Today bring to Me the meek and humble souls and the souls of little children. Pray the Chaplet of Divine Mercy.\n\n" +
-        "Day 7: Today bring to Me the souls who especially venerate and glorify My mercy. Pray the Chaplet of Divine Mercy.\n\n" +
-        "Day 8: Today bring to Me the souls who are detained in purgatory. Pray the Chaplet of Divine Mercy.\n\n" +
-        "Day 9: Today bring to Me souls who have become lukewarm. Pray the Chaplet of Divine Mercy.",
+        "Day 1\nToday bring to Me all mankind.\nPrayer: Eternal God, in whom mercy is endless, look kindly upon us. Amen.\n\n" +
+        "Day 2\nToday bring to Me the souls of priests and religious.\nPrayer: Most Merciful Jesus, bless these souls. Amen.\n\n" +
+        "Day 3\nToday bring to Me all devout and faithful souls.\nPrayer: Most Merciful Jesus, from the treasury of mercy. Amen.\n\n" +
+        "Day 4\nToday bring to Me those who do not believe in Jesus and those who do not yet know Me.\nPrayer: Most Compassionate Jesus, You are the Light of the world. Amen.\n\n" +
+        "Day 5\nToday bring to Me the souls of separated brethren.\nPrayer: Most Merciful Jesus, Goodness Itself. Amen.\n\n" +
+        "Day 6\nToday bring to Me the meek and humble souls.\nPrayer: Most Merciful Jesus, You yourself have said. Amen.\n\n" +
+        "Day 7\nToday bring to Me the souls who especially venerate and glorify My mercy.\nPrayer: Most Merciful Jesus, Whose Heart is Love Itself. Amen.\n\n" +
+        "Day 8\nToday bring to Me the souls who are detained in purgatory.\nPrayer: Most Merciful Jesus, You Yourself have said. Amen.\n\n" +
+        "Day 9\nToday bring to Me souls who have become lukewarm.\nPrayer: Most Compassionate Jesus, you are Compassion Itself. Amen.",
       purpose: "canIngestNovenas",
     }),
   },

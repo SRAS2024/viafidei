@@ -34,16 +34,17 @@ type BuilderCase = {
   builder: Builder;
 };
 
-// Builders with strict structural parsing (Novena needs all 9 days
-// recognisable; Rosary needs decade-mystery structure; Consecration
-// needs multi-day structure) are covered by the dedicated canary
-// fixtures + their own per-builder integration tests, not by the
-// catalog-style 5+5+5 fixtures used in this top-level pass.
+// Builders with strict structural parsing — Novena needs all 9 days
+// with a "Prayer:" sub-section, Rosary needs decade-mystery structure,
+// Consecration needs multi-day structure. The catalog fixtures match
+// Novena's format; Rosary + Consecration are exercised by their
+// dedicated canary fixtures + per-builder pipeline integration tests.
 const BUILDERS: BuilderCase[] = [
   { contentType: "Prayer", builder: PrayerBuilder },
   { contentType: "Saint", builder: SaintBuilder },
   { contentType: "Devotion", builder: DevotionBuilder },
   { contentType: "Sacrament", builder: SacramentBuilder },
+  { contentType: "Novena", builder: NovenaBuilder },
   { contentType: "History", builder: HistoryBuilder },
   { contentType: "Liturgy", builder: LiturgyBuilder },
   { contentType: "Parish", builder: ParishBuilder },
@@ -52,7 +53,6 @@ const BUILDERS: BuilderCase[] = [
 
 // Builders whose structural parser is too strict to accept the
 // catalog fixtures verbatim — they're exercised by other tests.
-void NovenaBuilder;
 void RosaryBuilder;
 void ConsecrationBuilder;
 
