@@ -1,0 +1,31 @@
+# syntax=docker/dockerfile:1.6
+# Single-stage image for the ingestion worker — runs scripts/run-worker.ts via tsx.
+FROM node:22-bookworm-slim
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 worker
+
+COPY package.json package-lock.json* ./
+COPY prisma ./prisma
+
+# Worker runs via tsx (a devDependency); --include=dev keeps it despite NODE_ENV=production.
+RUN if [ -f package-lock.json ]; then npm ci --include=dev; else npm install --include=dev; fi
+
+RUN npx prisma generate
+
+COPY --chown=worker:nodejs src ./src
+COPY --chown=worker:nodejs scripts ./scripts
+COPY --chown=worker:nodejs tsconfig.json ./
+
+USER worker
+
+CMD ["sh", "-c", "echo 'viafidei worker service started' && npx prisma migrate deploy && node scripts/validate-db.js && npm run worker"]

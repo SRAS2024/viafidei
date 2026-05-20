@@ -5,6 +5,7 @@
 node_modules
 npm-debug.log
 Dockerfile
+Dockerfile.worker
 .dockerignore
 README.md
 LICENSE

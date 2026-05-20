@@ -420,7 +420,8 @@ below.
 ├── playwright.config.ts       # E2E + visual regression config
 ├── vitest.config.ts           # Unit + component test config (coverage thresholds)
 ├── TESTING.md                 # Test stack reference (commands, layout, isolation)
-├── Dockerfile                 # Multi-stage production image
+├── Dockerfile                 # Multi-stage production web image
+├── Dockerfile.worker          # Single-stage ingestion-worker image (tsx + Prisma)
 ├── railway.json               # Railway deploy + healthcheck config
 ├── next.config.js             # standalone output, image hosts, security headers
 ├── tailwind.config.ts         # Liturgical palette + Cormorant/Inter typography
@@ -2385,7 +2386,7 @@ entity is exposed under `/api/admin/<entity>` via the
 
 ### Docker
 
-The `Dockerfile` builds a slim three-stage image (`node:20-bookworm-slim`),
+The `Dockerfile` builds a slim three-stage image (`node:22-bookworm-slim`),
 runs as non-root user `nextjs:nodejs`, and exposes `3000`. The container
 entrypoint is `scripts/start.sh`, which:
 
@@ -2407,24 +2408,40 @@ must not flip the container unhealthy. `/api/health` is the readiness /
 diagnostic endpoint and reports `migration_required` when expected tables
 are missing.
 
+`Dockerfile.worker` builds the **ingestion worker** as a separate image.
+It is a single-stage `node:22-bookworm-slim` build that — unlike the web
+`Dockerfile` — installs `devDependencies` and copies the full `src/` tree,
+because the worker runs `scripts/run-worker.ts` through `tsx` rather than a
+compiled Next.js standalone bundle. It runs as the non-root user
+`worker:nodejs`. The image `CMD` runs `prisma migrate deploy`, then
+`scripts/validate-db.js`, then `npm run worker` (the long-running queue
+loop). No port is exposed and no HTTP `HEALTHCHECK` is defined — worker
+liveness is tracked through `WorkerHeartbeat` rows, not an endpoint.
+
 ### Railway
 
-The production deployment runs two services from the same image:
+The production deployment runs two services, each built from its own
+Dockerfile in this repo:
 
-1. **`viafidei-web`** — start command `./scripts/start.sh` (Next.js
-   standalone server). Health check `/api/health/live` with a 180s
-   timeout and a 5-retry on-failure restart policy. Hosts every
-   page, every API route, and the cron entry point at
-   `POST /api/cron/ingest`.
-2. **`viafidei-worker`** — start command `npm run worker`. The
-   only ingestion-adapter executor. Shares the same production
-   Postgres reference as the web service. No external health
-   check needed — `WorkerHeartbeat` is the source of truth.
+1. **`viafidei-web`** — built from `Dockerfile`; start command
+   `./scripts/start.sh` (Next.js standalone server). Health check
+   `/api/health/live` with a 180s timeout and a 5-retry on-failure
+   restart policy. Hosts every page, every API route, and the cron
+   entry point at `POST /api/cron/ingest`.
+2. **`viafidei-worker`** — built from `Dockerfile.worker`. The only
+   ingestion-adapter executor. The image's own `CMD` applies
+   migrations, validates the schema, then runs the long-running
+   `npm run worker` loop. Shares the same production Postgres
+   reference as the web service. No external health check needed —
+   `WorkerHeartbeat` is the source of truth.
 
 Both services need the same env vars: `DATABASE_URL`,
 `SESSION_SECRET`, `ADMIN_EMAIL`, `RESEND_API_KEY`,
-`ADMIN_USERNAME`, `ADMIN_PASSWORD`. `railway.json` builds with the
-Dockerfile.
+`ADMIN_USERNAME`, `ADMIN_PASSWORD`. `railway.json` configures the
+**web** service (root `Dockerfile`, `./scripts/start.sh`,
+`/api/health/live` healthcheck). The **worker** service points at
+`Dockerfile.worker` instead; it needs no start command — the image
+`CMD` runs migrate → validate → worker — and no healthcheck path.
 
 See `docs/operations/queue-rollout.md` for the full 7-phase rollout
 plan, rollback procedure, and data-safety checklist.
