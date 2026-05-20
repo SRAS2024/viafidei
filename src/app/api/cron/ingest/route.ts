@@ -390,6 +390,33 @@ export async function POST(req: NextRequest) {
     }
   })();
 
+  // Spec §16: walk the full 13-reason growth-stall taxonomy each
+  // tick. runGrowthIntelligence above covers the remediations it can
+  // act on; detectStalls() additionally surfaces every spec-listed
+  // stall reason so the cron log records a complete picture and the
+  // admin command center can show which content types are stalled.
+  const growthStalls = await (async () => {
+    try {
+      const { detectStalls } = await import("@/lib/diagnostics/growth-stall-taxonomy");
+      const report = await detectStalls();
+      if (report.detected.length > 0) {
+        logger.warn("cron.growth_stalls_detected", {
+          requestId,
+          stalls: report.detected.map((s) => ({
+            id: s.id,
+            nextAction: s.automaticNextAction,
+          })),
+        });
+      }
+      return report.detected.map((s) => s.id);
+    } catch (e) {
+      logger.warn("cron.stall_detection_failed", {
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return [] as string[];
+    }
+  })();
+
   // Queue history retention pruner — cheap deleteMany call.
   const prunedQueueHistory = await pruneQueueHistory().catch(() => ({
     completed: 0,
@@ -424,6 +451,7 @@ export async function POST(req: NextRequest) {
     alerts,
     autoPausedSources: autoPause.paused.length,
     stallAlertsSent: stalls.sent,
+    growthStallsDetected: growthStalls,
     adminNotifications: adminNotifications
       ? {
           biweeklySent:
