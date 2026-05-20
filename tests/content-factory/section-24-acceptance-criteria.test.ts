@@ -9,7 +9,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { SOURCE_PLAN_CONTENT_TYPES, SOURCE_PLAN_MINIMUMS } from "@/lib/ingestion/sources/source-plan";
+import {
+  SOURCE_PLAN_CONTENT_TYPES,
+  SOURCE_PLAN_MINIMUMS,
+} from "@/lib/ingestion/sources/source-plan";
 import { SOURCE_ROLES } from "@/lib/ingestion/sources/roles";
 import { CROSS_SOURCE_RULES, EVIDENCE_TYPES } from "@/lib/content-factory/cross-source-validation";
 import { STALL_TAXONOMY } from "@/lib/diagnostics/growth-stall-taxonomy";
@@ -119,14 +122,7 @@ describe("Spec §24 acceptance criteria", () => {
 
   it("baseline seeder covers every spec-listed baseline content type", () => {
     const types = new Set(BASELINE_SEED_FIXTURES.map((f) => f.contentType));
-    for (const ct of [
-      "Prayer",
-      "Saint",
-      "Devotion",
-      "Sacrament",
-      "Liturgy",
-      "History",
-    ]) {
+    for (const ct of ["Prayer", "Saint", "Devotion", "Sacrament", "Liturgy", "History"]) {
       expect(types.has(ct as never), `${ct} missing from baseline seeder`).toBe(true);
     }
   });

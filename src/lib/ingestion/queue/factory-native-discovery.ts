@@ -75,7 +75,15 @@ export function canonicalizeDiscoveredUrl(input: string): string {
     const u = new URL(input);
     u.hash = "";
     // Strip common tracking parameters.
-    const drop = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "gclid"];
+    const drop = [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_content",
+      "utm_term",
+      "fbclid",
+      "gclid",
+    ];
     for (const k of drop) u.searchParams.delete(k);
     u.hostname = u.hostname.toLowerCase();
     if (u.pathname.length > 1 && u.pathname.endsWith("/")) {
