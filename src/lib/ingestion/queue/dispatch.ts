@@ -550,6 +550,23 @@ async function runSourceConfigRepairJob(
       runSourceConfigRepair({ sourceId }),
       sourceId ? Promise.resolve(null) : runRoleSync(),
     ]);
+    // Spec §4 + §16: automatic source-discovery expansion. When a
+    // content type is below its factory-ready minimum, enqueue
+    // source_discovery jobs for the next candidate sources. Skipped
+    // for single-source repair runs (sourceId set).
+    let expansionPart = "";
+    if (!sourceId) {
+      const { runDiscoveryExpansion } = await import("../sources/discovery-expansion");
+      const { enqueueJob } = await import("./queue");
+      const expansion = await runDiscoveryExpansion({
+        enqueue: (input) => enqueueJob(input),
+      }).catch(() => null);
+      if (expansion) {
+        expansionPart =
+          `, discovery-expansion underTarget=${expansion.contentTypesUnderTarget} ` +
+          `enqueued=${expansion.discoveryJobsEnqueued}`;
+      }
+    }
     const rolePart = roleReport
       ? `, role-sync inspected=${roleReport.inspected} promoted=${roleReport.promoted} demoted=${roleReport.demoted} rejected=${roleReport.rejected}`
       : "";
@@ -562,7 +579,8 @@ async function runSourceConfigRepairJob(
         `missingPurpose=${configReport.missingPurposeFlags.length}, ` +
         `missingTypes=${configReport.missingContentTypes.length}, ` +
         `errors=${configReport.errors}` +
-        rolePart,
+        rolePart +
+        expansionPart,
     };
   } catch (e) {
     return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };

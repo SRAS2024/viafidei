@@ -115,3 +115,74 @@ export async function planDiscoveryExpansion(
     generatedAt,
   };
 }
+
+export type DiscoveryExpansionEnqueueResult = {
+  contentTypesUnderTarget: number;
+  discoveryJobsEnqueued: number;
+  errors: number;
+};
+
+/**
+ * Run the discovery-expansion planner AND enqueue the resulting
+ * source_discovery jobs (spec §4 "automatic source discovery
+ * expansion when a content type is under target" + §16 "If no
+ * discovery is happening, enqueue discovery").
+ *
+ * `enqueue` is injected so the queue layer wires in the real
+ * enqueueJob and tests can pass a spy. Dedup keys are scoped per
+ * (sourceId, day) so a second tick the same day does not pile up
+ * duplicate discovery rows.
+ */
+export async function runDiscoveryExpansion(opts: {
+  enqueue: (input: {
+    jobName: string;
+    jobKind: string;
+    dedupeKey: string;
+    sourceId: string;
+    contentType: string;
+    triggeredBy: "automatic";
+  }) => Promise<unknown>;
+  maxPerTick?: number;
+}): Promise<DiscoveryExpansionEnqueueResult> {
+  const result: DiscoveryExpansionEnqueueResult = {
+    contentTypesUnderTarget: 0,
+    discoveryJobsEnqueued: 0,
+    errors: 0,
+  };
+  let plan: DiscoveryExpansionPlan;
+  try {
+    plan = await planDiscoveryExpansion({ maxPerTick: opts.maxPerTick });
+  } catch (e) {
+    logger.warn("discovery-expansion.plan_failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    result.errors += 1;
+    return result;
+  }
+  result.contentTypesUnderTarget = plan.shortfalls.length;
+  const dayKey = new Date().toISOString().slice(0, 10);
+  for (const shortfall of plan.shortfalls) {
+    for (const sourceId of shortfall.candidateSourceIds) {
+      try {
+        await opts.enqueue({
+          jobName: `discovery_expansion_${shortfall.contentType}`,
+          jobKind: "source_discovery",
+          dedupeKey: `discovery_expansion_${sourceId}_${dayKey}`,
+          sourceId,
+          contentType: shortfall.contentType,
+          triggeredBy: "automatic",
+        });
+        result.discoveryJobsEnqueued += 1;
+      } catch (e) {
+        result.errors += 1;
+        logger.warn("discovery-expansion.enqueue_failed", {
+          sourceId,
+          contentType: shortfall.contentType,
+          error: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+  logger.info("discovery-expansion.completed", result);
+  return result;
+}
