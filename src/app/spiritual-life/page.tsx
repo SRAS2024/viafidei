@@ -3,6 +3,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { Pagination } from "@/components/ui/Pagination";
 import { listPublishedSpiritualLifeGuidesPaginated } from "@/lib/data/spiritual-life";
+import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
 import { FORMATION_ITEMS, FormationCard } from "./_components";
 import { logger } from "@/lib/observability/logger";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
@@ -27,7 +28,20 @@ export default async function SpiritualLifePage({
     totalPages: 0,
   };
   try {
-    result = await listPublishedSpiritualLifeGuidesPaginated(locale, page);
+    // Spec §19: cached strict-public spiritual-life query scoped by
+    // tab tag. The factory's revalidate helpers flip this cache after
+    // any guide is persisted, updated, or deleted.
+    const cfg = tagsForList({ contentType: "SpiritualGuidance", tab: "devotions" });
+    const cached = await withCacheTags<
+      Parameters<typeof listPublishedSpiritualLifeGuidesPaginated>,
+      Awaited<ReturnType<typeof listPublishedSpiritualLifeGuidesPaginated>>
+    >({
+      keyParts: ["spiritual-life", "list", locale, String(page)],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: listPublishedSpiritualLifeGuidesPaginated,
+    });
+    result = await cached(locale, page);
   } catch (err) {
     logger.error("spiritual_life.list_failed", { error: (err as Error).message });
   }

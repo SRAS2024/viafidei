@@ -136,6 +136,30 @@ export async function runGrowthIntelligence(): Promise<GrowthIntelligenceReport>
         .catch(() => undefined);
       remediations.push(`flagged source ${c.sourceId} exhausted`);
     }
+
+    // 6. Validation-evidence missing — spec §16. RejectedContentLog
+    // rows with failureCategory = "validation_evidence_missing"
+    // mean the cross-source validator is failing many packages
+    // because no validation source is approving the required
+    // fields. Surface this as a signal and file an admin alert when
+    // the rate is high enough to stall growth.
+    const evidenceMissing = await prisma.rejectedContentLog.count({
+      where: {
+        deletedAt: { gte: since },
+        failureCategory: "validation_evidence_missing",
+      },
+    });
+    if (evidenceMissing > 5) {
+      signals.push(`validation-evidence-missing:${evidenceMissing}`);
+      await reportCriticalFailure({
+        kind: "validation_evidence_missing_spike",
+        message:
+          `${evidenceMissing} packages rejected with validation_evidence_missing in last ` +
+          `${LOOK_BACK_HOURS}h. Promote more sources to validation_source role, or add an ` +
+          `approved validator for the affected content type.`,
+      }).catch(() => undefined);
+      alerts.push("validation-evidence-missing");
+    }
   } catch (e) {
     logger.warn("content-factory.growth-intelligence.failed", {
       error: e instanceof Error ? e.message : String(e),

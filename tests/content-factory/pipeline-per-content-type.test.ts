@@ -98,6 +98,7 @@ describe("E2E pipeline per content type — outcome is always observable", () =>
       contentType: "Prayer",
       document: doc,
       sourceId: "src",
+      sourceRole: "primary_content_source",
     });
     expect(result.decision).toBe("persisted-created");
     // Build log records the success.
@@ -121,6 +122,7 @@ describe("E2E pipeline per content type — outcome is always observable", () =>
       contentType: "Saint",
       document: doc,
       sourceId: "src",
+      sourceRole: "primary_content_source",
     });
     // Either persisted or rejected somewhere in the chain. The
     // important thing: the build log captured the attempt and the
@@ -133,6 +135,7 @@ describe("E2E pipeline per content type — outcome is always observable", () =>
       "qa-rejected",
       "qa-deleted",
       "wrong-content",
+      "validation-evidence-missing",
     ]).toContain(result.decision);
     expect(prismaMock.contentPackageBuildLog.create).toHaveBeenCalled();
   });

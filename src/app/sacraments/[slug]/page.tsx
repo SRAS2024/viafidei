@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedSpiritualLifeGuideBySlug } from "@/lib/data/spiritual-life";
+import { tagsForSlug, withCacheTags } from "@/lib/cache/cached-data";
 import { getBadgeForGoalSlug } from "@/components/icons/SacramentBadges";
 import { PageHero } from "@/components/ui/PageHero";
 import { OfficialSourceLink } from "@/components/ui";
@@ -31,7 +32,20 @@ export default async function SacramentDetailPage({ params }: Props) {
   if (!slug.startsWith("sacrament-") && !slug.startsWith("consecration-")) {
     notFound();
   }
-  const guide = await getPublishedSpiritualLifeGuideBySlug(slug, locale);
+  // Spec §19: per-slug cache scoped by content-slug + content-type tags.
+  const contentType = slug.startsWith("consecration-") ? "Consecration" : "Sacrament";
+  const tab = slug.startsWith("consecration-") ? "consecrations" : "sacraments";
+  const cfg = tagsForSlug({ contentType, tab, slug });
+  const cached = await withCacheTags<
+    Parameters<typeof getPublishedSpiritualLifeGuideBySlug>,
+    Awaited<ReturnType<typeof getPublishedSpiritualLifeGuideBySlug>>
+  >({
+    keyParts: [tab, "detail", slug, locale],
+    tags: cfg.tags,
+    revalidateSeconds: cfg.revalidateSeconds,
+    fn: getPublishedSpiritualLifeGuideBySlug,
+  });
+  const guide = await cached(slug, locale);
   if (!guide) notFound();
 
   // Strict render gate. Sacraments must have one of the seven canonical

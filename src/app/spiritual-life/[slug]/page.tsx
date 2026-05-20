@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedSpiritualLifeGuideBySlug } from "@/lib/data/spiritual-life";
+import { tagsForSlug, withCacheTags } from "@/lib/cache/cached-data";
 import { resolveGuidePrayers, type GuidePrayerEntry } from "@/lib/data/guide-prayers";
 import { requireUser } from "@/lib/auth";
 import { ExpandablePrayer, OfficialSourceLink } from "@/components/ui";
@@ -101,7 +102,22 @@ function RosarySection({ metadata }: { metadata: Record<string, unknown> }) {
 
 async function safeGetGuide(slug: string, locale: string) {
   try {
-    return await getPublishedSpiritualLifeGuideBySlug(slug, locale as never);
+    // Spec §19: per-slug cache scoped by content-slug + content-type tags.
+    const cfg = tagsForSlug({
+      contentType: "SpiritualGuidance",
+      tab: "devotions",
+      slug,
+    });
+    const cached = await withCacheTags<
+      Parameters<typeof getPublishedSpiritualLifeGuideBySlug>,
+      Awaited<ReturnType<typeof getPublishedSpiritualLifeGuideBySlug>>
+    >({
+      keyParts: ["spiritual-life", "detail", slug, locale],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: getPublishedSpiritualLifeGuideBySlug,
+    });
+    return await cached(slug, locale as never);
   } catch (err) {
     logPageError({
       route: "/spiritual-life/[slug]",

@@ -23,6 +23,7 @@ import {
   SACRAMENT_GROUP_BY_KEY,
   isCanonicalSacramentKey,
 } from "../../content-qa/sacrament-normalize";
+import { enrichSacramentCatechism, enrichSacramentRelatedPrayers } from "./catechism-references";
 import type { ContentPackage, FieldProvenance } from "../types";
 
 function canonicalSacramentGroup(key: string): string | null {
@@ -186,6 +187,10 @@ export function enrichPackage(pkg: ContentPackage, builderVersion: string): Cont
       }
       case "Sacrament": {
         enrichSacramentGroup({ builderVersion, pkg });
+        // Spec §10: Catechism reference + related-prayer enrichment
+        // when not already provided by the source.
+        enrichSacramentCatechism(pkg);
+        enrichSacramentRelatedPrayers(pkg);
         break;
       }
       case "Parish": {

@@ -39,7 +39,8 @@ export type ReadinessCard = {
     | "source_configuration"
     | "public_display"
     | "canary"
-    | "search_sitemap";
+    | "search_sitemap"
+    | "source_plan";
   label: string;
   severity: ReadinessSeverity;
   summary: string;
@@ -391,6 +392,44 @@ async function searchSitemapCard(): Promise<ReadinessCard> {
   }
 }
 
+async function sourcePlanCard(): Promise<ReadinessCard> {
+  const lastUpdatedAt = new Date();
+  try {
+    const { buildSourcePlanReport } = await import("../ingestion/sources/source-plan");
+    const report = await buildSourcePlanReport();
+    // Spec: production readiness FAILS when any major content type
+    // has zero factory-ready sources; WARNS when any major content
+    // type is below the configured minimum.
+    const severity: ReadinessSeverity =
+      report.zeroFactoryReady > 0 ? "fail" : report.underMinimum > 0 ? "warn" : "pass";
+    const summary =
+      severity === "fail"
+        ? `${report.zeroFactoryReady} content type(s) have zero factory-ready sources`
+        : severity === "warn"
+          ? `${report.underMinimum} content type(s) below the configured minimum source count`
+          : "Every content type meets the configured factory-ready source minimum";
+    return {
+      id: "source_plan",
+      label: "Production source plan",
+      severity,
+      summary,
+      lastUpdatedAt,
+      dataSource: "ingestion/sources/source-plan",
+      details: { rows: report.rows },
+    };
+  } catch (e) {
+    return {
+      id: "source_plan",
+      label: "Production source plan",
+      severity: "error",
+      summary: "Source plan aggregation failed",
+      lastUpdatedAt,
+      dataSource: "ingestion/sources/source-plan",
+      errorMessage: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
 export async function getProductionReadinessReport(): Promise<ReadinessReport> {
   const generatedAt = new Date();
   const cards = await Promise.all([
@@ -405,6 +444,7 @@ export async function getProductionReadinessReport(): Promise<ReadinessReport> {
     publicDisplayCard(),
     canaryCard(),
     searchSitemapCard(),
+    sourcePlanCard(),
   ]).catch((e) => {
     logger.warn("production-readiness.aggregate_failed", {
       error: e instanceof Error ? e.message : String(e),

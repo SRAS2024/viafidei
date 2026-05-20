@@ -96,6 +96,12 @@ export async function routeSeedThroughFactory(
       contentType: entry.contentType,
       document: doc,
       triggeredBy: "automatic",
+      // Seed entries are trusted by definition — they are the
+      // baseline content the spec §21 names. Mark them as
+      // primary_content_source so the cross-source validator
+      // does not require external evidence for a deterministic
+      // seed file.
+      sourceRole: "primary_content_source",
     });
     summary.byContentType[entry.contentType] = (summary.byContentType[entry.contentType] ?? 0) + 1;
     switch (result.decision) {

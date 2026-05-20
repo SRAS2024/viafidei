@@ -3,6 +3,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { Pagination } from "@/components/ui/Pagination";
 import { listPublishedLiturgyEntries } from "@/lib/data/liturgy";
+import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
 import { matchesRite, RITE_LABEL_KEYS } from "@/lib/content/rites";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 import { logPageError } from "@/lib/observability/page-errors";
@@ -79,7 +80,18 @@ export default async function LiturgyPage({
 
   let entries: Awaited<ReturnType<typeof listPublishedLiturgyEntries>> = [];
   try {
-    entries = await listPublishedLiturgyEntries(locale);
+    // Spec §19: cached strict-public liturgy query scoped by tab tag.
+    const cfg = tagsForList({ contentType: "Liturgy", tab: "liturgy" });
+    const cached = await withCacheTags<
+      Parameters<typeof listPublishedLiturgyEntries>,
+      Awaited<ReturnType<typeof listPublishedLiturgyEntries>>
+    >({
+      keyParts: ["liturgy", "list", locale],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: listPublishedLiturgyEntries,
+    });
+    entries = await cached(locale);
   } catch (err) {
     logPageError({ route: "/liturgy", entityType: "LiturgyEntry", error: err });
   }

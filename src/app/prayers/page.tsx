@@ -3,6 +3,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { Pagination } from "@/components/ui/Pagination";
 import { listPublishedPrayersPaginated, resolvePrayerCategory } from "@/lib/data/prayers";
+import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
 import { logPageError } from "@/lib/observability/page-errors";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 import { filterByRite } from "@/lib/content/rites";
@@ -53,7 +54,21 @@ export default async function PrayersPage({ searchParams }: Props) {
     totalPages: 0,
   };
   try {
-    result = await listPublishedPrayersPaginated(locale, page, undefined, filter);
+    // Spec §19: public-tab queries flow through unstable_cache with
+    // the tab + content-type tags so the factory's revalidate
+    // helpers can flush them after persist / cleanup / sitemap
+    // refresh.
+    const tagsCfg = tagsForList({ contentType: "Prayer", tab: "prayers" });
+    const cached = await withCacheTags<
+      Parameters<typeof listPublishedPrayersPaginated>,
+      Awaited<ReturnType<typeof listPublishedPrayersPaginated>>
+    >({
+      keyParts: ["prayers", "list", locale, String(page), filter ?? "all"],
+      tags: tagsCfg.tags,
+      revalidateSeconds: tagsCfg.revalidateSeconds,
+      fn: listPublishedPrayersPaginated,
+    });
+    result = await cached(locale, page, undefined, filter);
   } catch (err) {
     logPageError({ route: "/prayers", entityType: "Prayer", error: err });
   }

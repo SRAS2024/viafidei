@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { listSacramentGuides } from "@/lib/data/spiritual-life";
+import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 import { filterByRite } from "@/lib/content/rites";
 import {
@@ -68,7 +69,18 @@ export default async function SacramentsPage() {
     consecrations: [],
   };
   try {
-    groups = await listSacramentGuides(locale);
+    // Spec §19: cached strict-public sacraments query scoped by tab tag.
+    const cfg = tagsForList({ contentType: "Sacrament", tab: "sacraments" });
+    const cached = await withCacheTags<
+      Parameters<typeof listSacramentGuides>,
+      Awaited<ReturnType<typeof listSacramentGuides>>
+    >({
+      keyParts: ["sacraments", "list", locale],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: listSacramentGuides,
+    });
+    groups = await cached(locale);
   } catch (err) {
     logger.error("sacraments.list_failed", { error: (err as Error).message });
   }

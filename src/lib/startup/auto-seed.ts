@@ -331,5 +331,18 @@ export async function runStartupTasks(): Promise<void> {
     logger.warn("startup factory-source-setup failed", { error: e });
   }
 
+  // Spec §1: seed the curated production source registry. Idempotent
+  // upsert per host — new hosts get created, existing hosts get the
+  // registry-managed fields refreshed.
+  try {
+    const { loadProductionSourceRegistry } = await import("./production-source-registry-loader");
+    const report = await loadProductionSourceRegistry();
+    if (report.created + report.updated > 0) {
+      logger.info("startup production-source-registry applied", { report });
+    }
+  } catch (e) {
+    logger.warn("startup production-source-registry failed", { error: e });
+  }
+
   scheduleIngestion();
 }

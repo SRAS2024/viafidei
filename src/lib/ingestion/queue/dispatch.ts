@@ -27,6 +27,7 @@ import { validatePayload, isJobKind, isRemovedJobKind, type JobKind } from "./jo
 import { recordChainStage } from "./chain-audit";
 import { runContentFactory, getSourceDocument, recordSourceDocument } from "../../content-factory";
 import type { ContentTypeKey } from "../../content-factory";
+import { isSourceRole } from "../sources/roles";
 import {
   enqueueContentBuildsForSourceDocument,
   type SourceForBuildEligibility,
@@ -388,12 +389,32 @@ async function runContentFactoryStage(
   if (!snapshot) {
     return { ok: false, errorMessage: `${kind} snapshot read failed` };
   }
+  // Resolve the source's factory role so the cross-source validator
+  // applies the right rule: a primary_content_source bypasses the
+  // evidence requirement; every wider role must produce cross-source
+  // evidence before strict QA. Without this lookup the factory would
+  // default to `discovery_only_source` and force even Vatican.va
+  // primary content through cross-source validation.
+  let sourceRole: string | undefined;
+  if (job.sourceId) {
+    try {
+      const src = await prisma.ingestionSource.findUnique({
+        where: { id: job.sourceId },
+        select: { role: true },
+      });
+      sourceRole = (src as { role?: string } | null)?.role;
+    } catch {
+      // Leave undefined — the factory falls back to the safe
+      // discovery_only_source default.
+    }
+  }
   const result = await runContentFactory({
     contentType,
     document: snapshot,
     sourceId: job.sourceId ?? null,
     workerJobId: job.id,
     triggeredBy: job.triggeredBy === "manual" ? "manual" : "automatic",
+    sourceRole: isSourceRole(sourceRole ?? "") ? (sourceRole as never) : undefined,
   });
   // Record chain-stage events so the audit log preserves the full
   // pipeline trace per URL. We branch on the factory decision so the
@@ -445,6 +466,26 @@ async function runStrictCleanup(
     }));
     const orphanTotal =
       orphans.prayers + orphans.saints + orphans.apparitions + orphans.parishes + orphans.devotions;
+    // Spec §19: strict cleanup must revalidate the affected tabs +
+    // sitemap + search so the live site reflects the deletions.
+    if (result.totalHardDeleted > 0) {
+      const { revalidateTab, revalidateSitemap } = await import("../../cache/revalidate");
+      // Revalidate every tab — cheaper than per-row when many rows
+      // are deleted in one sweep.
+      const tabs = [
+        "prayers",
+        "saints",
+        "apparitions",
+        "parishes",
+        "devotions",
+        "novenas",
+        "sacraments",
+        "liturgy",
+        "history",
+      ];
+      await Promise.all(tabs.map((t) => revalidateTab(t).catch(() => undefined)));
+      await revalidateSitemap("strict_cleanup").catch(() => undefined);
+    }
     return {
       ok: true,
       errorMessage: `strict-cleanup deleted=${result.totalHardDeleted}, flaggedReady=${result.totalFlaggedReady}, flaggedUnready=${result.totalFlaggedUnready}, mode=${result.mode}, orphanSavesPruned=${orphanTotal}`,
@@ -503,17 +544,43 @@ async function runSourceConfigRepairJob(
   void job;
   try {
     const { runSourceConfigRepair } = await import("./source-config-repair");
+    const { runRoleSync } = await import("../sources/role-sync");
     const sourceId = (payload.sourceId as string | undefined) ?? null;
-    const report = await runSourceConfigRepair({ sourceId });
+    const [configReport, roleReport] = await Promise.all([
+      runSourceConfigRepair({ sourceId }),
+      sourceId ? Promise.resolve(null) : runRoleSync(),
+    ]);
+    // Spec §4 + §16: automatic source-discovery expansion. When a
+    // content type is below its factory-ready minimum, enqueue
+    // source_discovery jobs for the next candidate sources. Skipped
+    // for single-source repair runs (sourceId set).
+    let expansionPart = "";
+    if (!sourceId) {
+      const { runDiscoveryExpansion } = await import("../sources/discovery-expansion");
+      const { enqueueJob } = await import("./queue");
+      const expansion = await runDiscoveryExpansion({
+        enqueue: (input) => enqueueJob(input),
+      }).catch(() => null);
+      if (expansion) {
+        expansionPart =
+          `, discovery-expansion underTarget=${expansion.contentTypesUnderTarget} ` +
+          `enqueued=${expansion.discoveryJobsEnqueued}`;
+      }
+    }
+    const rolePart = roleReport
+      ? `, role-sync inspected=${roleReport.inspected} promoted=${roleReport.promoted} demoted=${roleReport.demoted} rejected=${roleReport.rejected}`
+      : "";
     return {
-      ok: report.errors === 0,
+      ok: configReport.errors === 0 && (roleReport ? roleReport.errors === 0 : true),
       errorMessage:
-        `source-config-repair inspected=${report.inspected}, ` +
-        `notConfigured=${report.markedNotConfigured}, ` +
-        `factoryNative=${report.markedFactoryNative}, ` +
-        `missingPurpose=${report.missingPurposeFlags.length}, ` +
-        `missingTypes=${report.missingContentTypes.length}, ` +
-        `errors=${report.errors}`,
+        `source-config-repair inspected=${configReport.inspected}, ` +
+        `notConfigured=${configReport.markedNotConfigured}, ` +
+        `factoryNative=${configReport.markedFactoryNative}, ` +
+        `missingPurpose=${configReport.missingPurposeFlags.length}, ` +
+        `missingTypes=${configReport.missingContentTypes.length}, ` +
+        `errors=${configReport.errors}` +
+        rolePart +
+        expansionPart,
     };
   } catch (e) {
     return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };
@@ -548,10 +615,18 @@ async function runDedupeCleanup(_job: QueueJobRow): Promise<DispatchResult> {
 }
 
 async function runSitemapRefresh(_job: QueueJobRow): Promise<DispatchResult> {
-  // Future: hit /api/sitemap regenerate route. For now this is a
-  // no-op the planner can fire on a cadence as a placeholder.
-  logger.info("worker.sitemap_refresh.noop");
-  return { ok: true, errorMessage: "sitemap refresh: no-op (placeholder)" };
+  // Spec §19: sitemap refresh revalidates the sitemap + search cache
+  // tags so the route handler regenerates its payload on the next
+  // request. Even when the underlying data has not changed, this
+  // gives admins a reliable "force refresh" path.
+  try {
+    const { revalidateSitemap } = await import("../../cache/revalidate");
+    await revalidateSitemap("sitemap_refresh").catch(() => undefined);
+  } catch {
+    /* next/cache unavailable in tests — log path is already covered */
+  }
+  logger.info("worker.sitemap_refresh.completed");
+  return { ok: true, errorMessage: "sitemap refresh: revalidated sitemap + search tags" };
 }
 
 async function runReportGenerate(

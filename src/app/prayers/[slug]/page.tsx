@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedPrayerBySlug } from "@/lib/data/prayers";
+import { tagsForSlug, withCacheTags } from "@/lib/cache/cached-data";
 import { resolveGuidePrayers, type GuidePrayerEntry } from "@/lib/data/guide-prayers";
 import { isSaved } from "@/lib/data/saved";
 import { requireUser } from "@/lib/auth";
@@ -18,7 +19,20 @@ type Props = { params: Promise<{ slug: string }> };
 
 async function safeGetPrayer(slug: string, locale: string) {
   try {
-    return await getPublishedPrayerBySlug(slug, locale as never);
+    // Spec §19: per-slug cache scoped by content-slug + content-type
+    // + tab tags. Revalidates when the factory persists / deletes
+    // this prayer.
+    const cfg = tagsForSlug({ contentType: "Prayer", tab: "prayers", slug });
+    const cached = await withCacheTags<
+      Parameters<typeof getPublishedPrayerBySlug>,
+      Awaited<ReturnType<typeof getPublishedPrayerBySlug>>
+    >({
+      keyParts: ["prayers", "detail", slug, locale],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: getPublishedPrayerBySlug,
+    });
+    return await cached(slug, locale as never);
   } catch (err) {
     logPageError({ route: "/prayers/[slug]", entityType: "Prayer", slug, error: err });
     return null;

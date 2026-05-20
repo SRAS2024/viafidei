@@ -139,6 +139,33 @@ enum SourceTier {
   TIER_3
 }
 
+/// Source roles describe what a source is *allowed* to do in the
+/// factory pipeline. A source can discover content without being
+/// allowed to publish it; it can validate without being allowed to
+/// provide primary body text; and so on. The role gates which jobs
+/// the worker will run for the source and which fields it may write
+/// onto a built package.
+///
+///   primary_content_source — may originate package body fields.
+///   validation_source       — may only validate fields produced by
+///                             another approved source.
+///   enrichment_source       — may only fill enrichment / metadata
+///                             slots (Catechism references, related
+///                             prayers, etc.).
+///   discovery_only_source   — may surface candidate URLs only; the
+///                             candidates must be validated by an
+///                             approved source before they can
+///                             publish.
+///   rejected_source         — explicitly forbidden. The worker MUST
+///                             NOT enqueue any job for this source.
+enum SourceRole {
+  primary_content_source
+  validation_source
+  enrichment_source
+  discovery_only_source
+  rejected_source
+}
+
 model User {
   id                      String                   @id @default(cuid())
   email                   String                   @unique
@@ -691,6 +718,17 @@ model IngestionSource {
   /// Per-source daily cap on enqueued source_fetch jobs.
   /// Null = no daily cap.
   dailyCap                 Int?
+  /// Factory role this source is approved for. Gates which jobs the
+  /// worker enqueues and which package fields may originate here vs.
+  /// be validated only. Defaults to `discovery_only_source` so a
+  /// freshly added source can suggest candidates but cannot publish
+  /// content until an admin promotes it. See enum SourceRole.
+  role                     SourceRole     @default(discovery_only_source)
+  /// Last automatic role change reason. Surfaced on the admin source
+  /// card so an admin can see why a source was promoted or demoted.
+  roleLastReason           String?
+  /// Last automatic role change timestamp.
+  roleLastChangedAt        DateTime?
   notes                    String?
   createdAt                DateTime       @default(now())
   updatedAt                DateTime       @updatedAt
@@ -1500,6 +1538,60 @@ model SourceQualityScore {
   @@index([sourceId])
   @@index([contentType])
   @@index([autoPaused])
+}
+
+/// Cross-source validation evidence. Sits between the builder and
+/// strict QA. A built package may pass only when every required
+/// field is either:
+///   1. directly sourced from an approved primary source, OR
+///   2. validated by a second approved validation source, OR
+///   3. filled by deterministic internal rules, OR
+///   4. filled by approved enrichment with provenance.
+///
+/// One row per (package, field, validation source) tuple. The
+/// presence of a `pass` row with high enough confidence for every
+/// required field means the cross-source rule for that content type
+/// is satisfied.
+model ContentValidationEvidence {
+  id              String   @id @default(cuid())
+  /// Built package id when known (set after persistence) or the
+  /// candidate slug while still in the build phase.
+  packageId       String?
+  candidateSlug   String?
+  contentType     String
+  fieldName       String
+  /// Validation source URL — the document on the approved source
+  /// that contains the matching value.
+  sourceUrl       String
+  /// Host portion of `sourceUrl`. Repeated here so admin queries can
+  /// group by host without parsing the URL.
+  sourceHost      String
+  /// One of the EVIDENCE_TYPES values
+  /// (exact_text_match, title_match, feast_day_match, ...).
+  evidenceType    String
+  /// SHA-256 of the source snippet that produced the match. Lets us
+  /// re-verify that the source has not silently changed.
+  evidenceChecksum String?
+  /// The actual value matched on the validation source side. May be
+  /// truncated for very long bodies.
+  matchedValue    String?
+  /// 0..1 confidence the validator assigned.
+  matchConfidence Float    @default(1.0)
+  /// One of "pass", "fail", "insufficient_evidence".
+  validationDecision String
+  /// Optional human-readable reason — e.g. "Catholic.org feast day
+  /// matched within 1 day tolerance" or "no matching prayer text
+  /// found on Vatican.va".
+  reason          String?
+  /// Build log row that this evidence is tied to, when known.
+  buildLogId      String?
+  createdAt       DateTime @default(now())
+
+  @@index([packageId])
+  @@index([candidateSlug])
+  @@index([contentType, fieldName])
+  @@index([sourceHost])
+  @@index([validationDecision])
 }
 
 /// Per-day, per-source, per-content-type ingestion counters. Used by

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { getPublishedLiturgyBySlug } from "@/lib/data/liturgy";
+import { tagsForSlug, withCacheTags } from "@/lib/cache/cached-data";
 import { OfficialSourceLink } from "@/components/ui";
 import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
 import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
@@ -26,7 +27,26 @@ const KIND_LABELS: Record<string, string> = {
 
 async function safeGetEntry(slug: string, locale: string) {
   try {
-    return await getPublishedLiturgyBySlug(slug, locale as never);
+    // Spec §19: per-slug cache for liturgy/history entry pages.
+    // History uses the same LiturgyEntry table; we tag with the
+    // history content type when the slug looks historical.
+    const isHistory =
+      slug.startsWith("council-") ||
+      slug.startsWith("church-history-") ||
+      slug.startsWith("encyclical-");
+    const contentType = isHistory ? "History" : "Liturgy";
+    const tab = isHistory ? "history" : "liturgy";
+    const cfg = tagsForSlug({ contentType, tab, slug });
+    const cached = await withCacheTags<
+      Parameters<typeof getPublishedLiturgyBySlug>,
+      Awaited<ReturnType<typeof getPublishedLiturgyBySlug>>
+    >({
+      keyParts: ["liturgy-history", "detail", slug, locale],
+      tags: cfg.tags,
+      revalidateSeconds: cfg.revalidateSeconds,
+      fn: getPublishedLiturgyBySlug,
+    });
+    return await cached(slug, locale as never);
   } catch (err) {
     logPageError({
       route: "/liturgy-history/[slug]",
