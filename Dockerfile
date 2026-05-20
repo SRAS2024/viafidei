@@ -1,11 +1,14 @@
 # syntax=docker/dockerfile:1.6
 
-# Full node:22-bookworm (not -slim) so the build needs no apt-get: -slim
-# lacks openssl/ca-certificates/toolchain, and apt-installing them broke
-# deploys during Debian-mirror signature outages.
+# openssl/libssl source. node:22-bookworm-slim ships without openssl, which
+# the Prisma query engine needs at runtime; apt-get installing it broke
+# deploys during Debian-mirror signature outages. buildpack-deps:bookworm-curl
+# is the same Debian release (so its libraries are binary-compatible) and is
+# small — later stages COPY the libraries from here instead of using apt.
+FROM buildpack-deps:bookworm-curl AS osslibs
 
 # ---------- deps stage ----------
-FROM node:22-bookworm AS deps
+FROM node:22-bookworm-slim AS deps
 WORKDIR /app
 ENV NODE_ENV=development
 COPY package.json package-lock.json* ./
@@ -13,10 +16,12 @@ COPY prisma ./prisma
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
 # ---------- build stage ----------
-FROM node:22-bookworm AS builder
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+# libssl/libcrypto so `prisma generate` detects OpenSSL 3.x.
+COPY --from=osslibs /usr/lib/x86_64-linux-gnu/libssl.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # npm run build already runs "prisma generate && next build" via the build script,
@@ -24,12 +29,18 @@ COPY . .
 RUN npm run build
 
 # ---------- runtime stage ----------
-FROM node:22-bookworm AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+# openssl runtime: the Prisma query engine links libssl/libcrypto, and its
+# Postgres TLS reads the CA bundle under /etc/ssl — node:slim has neither.
+COPY --from=osslibs /usr/lib/x86_64-linux-gnu/libssl.so.3 /usr/lib/x86_64-linux-gnu/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/
+COPY --from=osslibs /etc/ssl/ /etc/ssl/
+COPY --from=osslibs /usr/lib/ssl/ /usr/lib/ssl/
+COPY --from=osslibs /usr/share/ca-certificates/ /usr/share/ca-certificates/
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
