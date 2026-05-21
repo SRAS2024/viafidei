@@ -33,6 +33,7 @@ export {
   sendCriticalFailureAlert,
   sendSecurityBreachAlert,
   sendSuspiciousActivityAlert,
+  sendAdminLoginAlert,
   sendMonthlyErrorReport,
   type ContentManagementCounts,
   type AdminSendOutcome,

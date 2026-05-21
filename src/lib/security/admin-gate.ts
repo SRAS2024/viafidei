@@ -17,10 +17,11 @@
  */
 
 import { type NextRequest } from "next/server";
-import { requireAdmin, type AdminPrincipal } from "@/lib/auth";
+import { type AdminPrincipal } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
 import { assertNotBanned } from "./banned-guard";
 import { evaluateCsrf, assertCsrfOk } from "./csrf";
+import { evaluateAdminTrust } from "./admin-trust";
 import { reportSecurityBreach, reportSuspiciousActivity } from "./security-events";
 import { recordAdminScan } from "./admin-route-scanner";
 import { getClientIpOrNull, getUserAgent } from "./request";
@@ -52,38 +53,41 @@ export async function gateAdminApiCall(req: NextRequest): Promise<AdminGateOutco
   const banned = await assertNotBanned(req);
   if (banned) return { ok: false, response: banned };
 
-  // 3. Admin auth.
-  const admin = await requireAdmin();
-  if (!admin) {
-    // Unauthenticated probe of a protected admin path. Track it
-    // per (IP + device credential) so we can detect sustained
-    // admin-route scanning. Single 401s are benign — admins typo
-    // URLs, browsers race the session cookie, etc. But more than
-    // a handful of distinct admin paths from the same caller in a
-    // short window is a probe pattern that fires Suspicious
-    // Activity (NOT a Security Breach — the request was blocked).
-    const scan = recordAdminScan({
-      ipAddress: getClientIpOrNull(req),
-      deviceCredential: req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value,
-      path: req.nextUrl.pathname,
-    });
-    if (scan.classification === "suspicious") {
-      void reportSuspiciousActivity({
-        kind: "admin_route_scan",
-        summary: `Sustained unauthenticated probing of admin routes — ${scan.distinctPaths} distinct paths within ${Math.round(
-          scan.windowMs / 60000,
-        )} minutes from ${getClientIpOrNull(req) ?? "unknown"}.`,
-        ipAddress: getClientIpOrNull(req) ?? undefined,
-        userAgent: getUserAgent(req) ?? undefined,
-        route: req.nextUrl.pathname,
-        deviceCredential: req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value,
-        attemptedAccountOrRoute: req.nextUrl.pathname,
-        recommendedAction:
-          "Investigate whether a developer is checking admin URLs or an attacker is enumerating endpoints; escalate to a Security Breach if a follow-up active-attack event is observed.",
-      });
-    }
-    return { ok: false, response: jsonError("unauthorized") };
+  // 3. Admin session trust rule. The suspicious-activity logic checks
+  //    authentication state FIRST: a request with a valid admin
+  //    session is trusted authenticated admin activity and proceeds
+  //    without any suspicious-activity classification.
+  const trust = await evaluateAdminTrust(req);
+  if (trust.trusted) {
+    return { ok: true, admin: trust.admin };
   }
 
-  return { ok: true, admin };
+  // No valid admin session — unauthenticated access of a protected
+  // admin route. Track it per (IP + device credential) so we can
+  // detect sustained admin-route scanning. Single 401s are benign —
+  // admins typo URLs, browsers race the session cookie, etc. But more
+  // than a handful of distinct admin paths from the same caller in a
+  // short window is a probe pattern that fires Suspicious Activity
+  // (NOT a Security Breach — the request was blocked).
+  const scan = recordAdminScan({
+    ipAddress: getClientIpOrNull(req),
+    deviceCredential: req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value,
+    path: req.nextUrl.pathname,
+  });
+  if (scan.classification === "suspicious") {
+    void reportSuspiciousActivity({
+      kind: "admin_route_scan",
+      summary: `Sustained unauthenticated probing of admin routes — ${scan.distinctPaths} distinct paths within ${Math.round(
+        scan.windowMs / 60000,
+      )} minutes from ${getClientIpOrNull(req) ?? "unknown"}.`,
+      ipAddress: getClientIpOrNull(req) ?? undefined,
+      userAgent: getUserAgent(req) ?? undefined,
+      route: req.nextUrl.pathname,
+      deviceCredential: req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value,
+      attemptedAccountOrRoute: req.nextUrl.pathname,
+      recommendedAction:
+        "Investigate whether a developer is checking admin URLs or an attacker is enumerating endpoints; escalate to a Security Breach if a follow-up active-attack event is observed.",
+    });
+  }
+  return { ok: false, response: jsonError("unauthorized") };
 }
