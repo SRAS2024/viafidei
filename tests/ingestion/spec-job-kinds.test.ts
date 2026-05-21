@@ -17,10 +17,15 @@
  *   content_build
  *   content_revalidate
  *   strict_cleanup
+ *   content_growth_bootstrap
  *   dedupe_cleanup
  *   archive_cleanup
  *   sitemap_refresh
  *   report_generate
+ *
+ * `content_growth_bootstrap` enqueues a first wave of source
+ * discovery jobs for the priority content types when the catalog is
+ * starved of public content.
  *
  * This test pins JOB_KINDS to that list and fails if anything is
  * added or removed without an accompanying spec update.
@@ -37,6 +42,7 @@ const SPEC_KINDS = [
   "content_build",
   "content_revalidate",
   "strict_cleanup",
+  "content_growth_bootstrap",
   "dedupe_cleanup",
   "archive_cleanup",
   "sitemap_refresh",

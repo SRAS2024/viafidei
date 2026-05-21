@@ -1,0 +1,164 @@
+/**
+ * Source job repair.
+ *
+ * Many factory-ready sources can sit with zero active queue jobs —
+ * nothing discovers their URLs, so the whole pipeline starves. This
+ * repair scans factory-ready sources and enqueues a missing
+ * `source_discovery` job for any source that has no active queue
+ * work.
+ *
+ * It respects paused / not_configured sources and per-source daily
+ * caps, and is idempotent: a source that already has an active job
+ * is skipped, and a stable dedupe key prevents a double enqueue.
+ */
+
+import { prisma } from "../../db/client";
+import { logger } from "../../observability/logger";
+import { enqueueJob } from "./queue";
+
+export type SourceJobRepairReport = {
+  generatedAt: Date;
+  factoryReadySources: number;
+  sourcesWithActiveJobs: number;
+  sourcesWithZeroJobs: number;
+  discoveryJobsCreated: number;
+  skippedPaused: number;
+  skippedNotConfigured: number;
+  skippedDailyCapReached: number;
+  errors: string[];
+};
+
+const ACTIVE_QUEUE_STATUSES = ["pending", "retrying", "running"];
+
+function startOfUtcDay(now: Date): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+export async function runSourceJobRepair(
+  options: { limit?: number; triggeredBy?: "automatic" | "manual" } = {},
+): Promise<SourceJobRepairReport> {
+  const report: SourceJobRepairReport = {
+    generatedAt: new Date(),
+    factoryReadySources: 0,
+    sourcesWithActiveJobs: 0,
+    sourcesWithZeroJobs: 0,
+    discoveryJobsCreated: 0,
+    skippedPaused: 0,
+    skippedNotConfigured: 0,
+    skippedDailyCapReached: 0,
+    errors: [],
+  };
+  const limit = Math.max(1, Math.min(options.limit ?? 100, 500));
+  const triggeredBy = options.triggeredBy ?? "automatic";
+
+  let sources: Array<{
+    id: string;
+    host: string;
+    pausedAt: Date | null;
+    configurationStatus: string | null;
+    discoveryFeedUrl: string | null;
+    dailyCap: number | null;
+  }> = [];
+  try {
+    sources = await prisma.ingestionSource.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        host: true,
+        pausedAt: true,
+        configurationStatus: true,
+        discoveryFeedUrl: true,
+        dailyCap: true,
+      },
+      take: 1000,
+    });
+  } catch (e) {
+    report.errors.push(`source read: ${e instanceof Error ? e.message : String(e)}`);
+    return report;
+  }
+
+  const dayStart = startOfUtcDay(report.generatedAt);
+
+  for (const source of sources) {
+    // Respect paused sources.
+    if (source.pausedAt) {
+      report.skippedPaused += 1;
+      continue;
+    }
+    // Respect not_configured sources / sources with no discovery feed —
+    // `runSourceDiscovery` hard-fails without a discoveryFeedUrl.
+    if (source.configurationStatus === "not_configured" || !source.discoveryFeedUrl) {
+      report.skippedNotConfigured += 1;
+      continue;
+    }
+    report.factoryReadySources += 1;
+
+    let activeJobCount = 0;
+    try {
+      activeJobCount = await prisma.ingestionJobQueue.count({
+        where: { sourceId: source.id, status: { in: ACTIVE_QUEUE_STATUSES } },
+      });
+    } catch (e) {
+      report.errors.push(
+        `active job count ${source.host}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      continue;
+    }
+    if (activeJobCount > 0) {
+      report.sourcesWithActiveJobs += 1;
+      continue;
+    }
+    report.sourcesWithZeroJobs += 1;
+
+    // Respect per-source daily caps.
+    if (source.dailyCap != null) {
+      try {
+        const counter = await prisma.dailyIngestionCounter.findFirst({
+          where: { sourceId: source.id, contentType: null, day: { gte: dayStart } },
+          select: { enqueued: true },
+        });
+        if (counter && counter.enqueued >= source.dailyCap) {
+          report.skippedDailyCapReached += 1;
+          continue;
+        }
+      } catch {
+        // A daily-cap read failure must not block the repair.
+      }
+    }
+
+    if (report.discoveryJobsCreated >= limit) continue;
+
+    try {
+      await enqueueJob({
+        jobName: `source-job-repair:${source.host}`,
+        jobKind: "source_discovery",
+        dedupeKey: `source_job_repair:${source.id}`,
+        sourceId: source.id,
+        payload: {
+          sourceId: source.id,
+          adapterKey: `factory-native:${source.host}`,
+          mode: "constant",
+        },
+        triggeredBy,
+      });
+      report.discoveryJobsCreated += 1;
+      logger.info("source-job-repair.discovery_job_created", {
+        sourceId: source.id,
+        host: source.host,
+      });
+    } catch (e) {
+      report.errors.push(`enqueue ${source.host}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  logger.info("source-job-repair.completed", {
+    factoryReadySources: report.factoryReadySources,
+    sourcesWithZeroJobs: report.sourcesWithZeroJobs,
+    discoveryJobsCreated: report.discoveryJobsCreated,
+    skippedPaused: report.skippedPaused,
+    skippedNotConfigured: report.skippedNotConfigured,
+    skippedDailyCapReached: report.skippedDailyCapReached,
+    errors: report.errors.length,
+  });
+  return report;
+}

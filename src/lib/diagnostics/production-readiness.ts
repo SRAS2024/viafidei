@@ -21,9 +21,11 @@
 
 import { prisma } from "../db/client";
 import { logger } from "../observability/logger";
-import { hasHealthyWorker, listWorkerHealth } from "../ingestion/queue/heartbeat";
+import { hasHealthyWorker } from "../ingestion/queue/heartbeat";
 import { validateEnvironment, getEnvSubsystemDiagnostics } from "./env-validation";
 import { countSourceDocumentsWaitingForBuild } from "./pipeline-broken-here";
+import { getWorkerHealthDiagnostics, type WorkerHealthDiagnostics } from "./worker-health";
+import { getPipelineStatus, type PipelineStatus } from "./pipeline-status";
 
 export type ReadinessSeverity = "pass" | "warn" | "fail" | "error";
 
@@ -41,7 +43,8 @@ export type ReadinessCard = {
     | "content_type_readiness"
     | "canary"
     | "search_sitemap"
-    | "source_plan";
+    | "source_plan"
+    | "pipeline_status";
   label: string;
   severity: ReadinessSeverity;
   summary: string;
@@ -110,28 +113,51 @@ async function databaseCard(): Promise<ReadinessCard> {
   }
 }
 
+function workerHealthDetails(d: WorkerHealthDiagnostics): Record<string, unknown> {
+  return {
+    workerAlive: d.workerAlive,
+    lastHeartbeatAt: d.lastHeartbeatAt ? d.lastHeartbeatAt.toISOString() : null,
+    heartbeatAgeMs: d.heartbeatAgeMs,
+    processType: d.processType,
+    workerId: d.workerId,
+    hostname: d.hostname,
+    processedCount: d.processedCount,
+    failedCount: d.failedCount,
+    retryCount: d.retryCount,
+    currentJobId: d.currentJobId,
+    workerStatus: d.workerStatus,
+    pendingJobs: d.pendingJobs,
+    runningJobs: d.runningJobs,
+    failedJobs: d.failedJobs,
+    oldestPendingAgeMs: d.oldestPendingAgeMs,
+    likelyCauses: d.likelyCauses,
+    topFailureReasons: d.topFailureReasons,
+    message: d.message,
+  };
+}
+
 async function workerCard(): Promise<ReadinessCard> {
   const lastUpdatedAt = new Date();
   try {
-    const workers = await listWorkerHealth();
-    const liveWorkers = workers.filter((w) => !w.isStale && w.status !== "stopped");
-    const healthy = liveWorkers.length > 0;
-    const hasWorkerProcessType = liveWorkers.some((w) => w.processType === "worker");
+    const d = await getWorkerHealthDiagnostics();
     let severity: ReadinessSeverity;
     let summary: string;
-    if (!healthy) {
+    if (!d.workerAlive) {
       // Spec: production readiness fails when the worker heartbeat is
       // missing — a queue with nobody draining it is a hard blocker.
       severity = "fail";
-      summary = "No healthy worker heartbeat";
-    } else if (!hasWorkerProcessType) {
+      summary = "Worker health: FAIL — no healthy worker heartbeat";
+    } else if (d.processType !== "worker") {
       // A heartbeat exists but it does not identify itself as the
       // worker process — the deploy is likely wired up wrong.
       severity = "fail";
-      summary = 'Worker heartbeat present but process type is not "worker"';
+      summary = 'Worker health: FAIL — heartbeat present but process type is not "worker"';
+    } else if (d.message === "Worker is alive but queue is not draining." || d.failedJobs > 0) {
+      severity = "warn";
+      summary = `Worker health: OK — ${d.message}`;
     } else {
       severity = "pass";
-      summary = "Healthy worker heartbeat detected (process type: worker)";
+      summary = "Worker health: OK — healthy worker heartbeat detected (process type: worker)";
     }
     return {
       id: "worker",
@@ -139,11 +165,8 @@ async function workerCard(): Promise<ReadinessCard> {
       severity,
       summary,
       lastUpdatedAt,
-      dataSource: "WorkerHeartbeat",
-      details: {
-        liveWorkers: liveWorkers.length,
-        processType: liveWorkers[0]?.processType ?? null,
-      },
+      dataSource: "WorkerHeartbeat + IngestionJobQueue",
+      details: workerHealthDetails(d),
     };
   } catch (e) {
     return {
@@ -153,6 +176,57 @@ async function workerCard(): Promise<ReadinessCard> {
       summary: "Worker health query failed",
       lastUpdatedAt,
       dataSource: "WorkerHeartbeat",
+      errorMessage: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+function pipelineStatusDetails(s: PipelineStatus): Record<string, unknown> {
+  return {
+    queuePending: s.queuePending,
+    queueRunning: s.queueRunning,
+    workerHeartbeat: s.workerHealthy,
+    sourceDocuments: s.sourceDocuments,
+    buildLogs: s.buildLogs,
+    completePackages: s.completePackages,
+    qaPasses: s.qaPasses,
+    persistedPackages: s.persistedPackages,
+    strictPublicRows: s.strictPublicRows,
+    blocker: s.blocker,
+    blockerMessage: s.blockerMessage,
+  };
+}
+
+async function pipelineStatusCard(): Promise<ReadinessCard> {
+  const lastUpdatedAt = new Date();
+  try {
+    const s = await getPipelineStatus();
+    let severity: ReadinessSeverity = "pass";
+    let summary = "Pipeline is flowing — no blocker detected";
+    if (s.blocker === "worker_not_processing_queue") {
+      severity = "fail";
+      summary = "Current blocker: worker not processing queue.";
+    } else if (s.blocker) {
+      severity = "fail";
+      summary = `Current blocker: ${s.blocker} — ${s.blockerMessage}`;
+    }
+    return {
+      id: "pipeline_status",
+      label: "Pipeline status",
+      severity,
+      summary,
+      lastUpdatedAt,
+      dataSource: "IngestionJobQueue + SourceDocument + ContentPackageBuildLog + QueueAuditLog",
+      details: pipelineStatusDetails(s),
+    };
+  } catch (e) {
+    return {
+      id: "pipeline_status",
+      label: "Pipeline status",
+      severity: "error",
+      summary: "Pipeline status query failed",
+      lastUpdatedAt,
+      dataSource: "IngestionJobQueue + SourceDocument + ContentPackageBuildLog",
       errorMessage: e instanceof Error ? e.message : String(e),
     };
   }
@@ -505,6 +579,7 @@ export async function getProductionReadinessReport(): Promise<ReadinessReport> {
     databaseCard(),
     workerCard(),
     queueCard(),
+    pipelineStatusCard(),
     contentFactoryCard(),
     emailCard(),
     securityCard(),
