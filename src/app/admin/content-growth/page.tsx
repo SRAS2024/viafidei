@@ -4,6 +4,10 @@ import { getContentGrowthDashboard } from "@/lib/data/content-growth-dashboard";
 import { getGlobalGrowthHealth } from "@/lib/data/growth-health-score";
 import { getSevenDayGrowthReport } from "@/lib/data/seven-day-growth-report";
 import type { SevenDayGrowthRow } from "@/lib/data/seven-day-growth-report";
+import {
+  getSourceDocumentSummary,
+  type SourceDocumentSummary,
+} from "@/lib/data/source-document-summary";
 import { DailySeriesChart } from "@/components/diagnostics/DailySeriesChart";
 import { AdminSection } from "../_sections/AdminSection";
 
@@ -69,15 +73,63 @@ function sevenDayMetricValues(row: SevenDayGrowthRow): ReadonlyArray<number | nu
   ];
 }
 
+/**
+ * Source documents are counted directly from the SourceDocument
+ * table — never inferred from ContentPackageBuildLog.
+ */
+function SourceDocumentSection({ summary }: { summary: SourceDocumentSummary | null }) {
+  if (!summary) {
+    return (
+      <section className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
+        <p className="font-serif text-sm text-red-800">Source document summary unavailable.</p>
+      </section>
+    );
+  }
+  const rows: ReadonlyArray<[string, number | null]> = [
+    ["Source documents created", summary.sourceDocumentsCreated],
+    ["Created in last 24h", summary.sourceDocumentsCreated24h],
+    ["Waiting for build", summary.sourceDocumentsWaitingForBuild],
+    ["With build attempts", summary.sourceDocumentsWithBuildAttempts],
+    ["Without build attempt", summary.sourceDocumentsWithoutBuildAttempt],
+    ["Source fetch succeeded", summary.sourceFetchSucceeded],
+    ["Source fetch failed", summary.sourceFetchFailed],
+  ];
+  return (
+    <section
+      className="rounded-2xl border border-ink/10 bg-paper px-5 py-4"
+      data-testid="source-document-summary"
+    >
+      <h2 className="font-serif text-lg font-semibold">Source documents</h2>
+      {summary.summaryMessage ? (
+        <p className="mt-1 font-serif text-sm text-amber-800">{summary.summaryMessage}</p>
+      ) : null}
+      <table className="mt-3 w-full border-collapse font-mono text-xs">
+        <tbody>
+          {rows.map(([label, value]) => (
+            <tr key={label} className="border-b border-ink/10">
+              <td className="py-1 pr-3 text-ink-soft">{label}</td>
+              <td className="py-1 tabular-nums">{value == null ? "err" : value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 font-mono text-xs text-ink-faint">
+        source: SourceDocument — counted directly, not inferred from build logs
+      </p>
+    </section>
+  );
+}
+
 export default async function ContentGrowthPage() {
   const admin = await requireAdmin();
   if (!admin) {
     redirect("/admin/login");
   }
-  const [rows, health, report] = await Promise.all([
+  const [rows, health, report, sourceDocs] = await Promise.all([
     getContentGrowthDashboard().catch(() => []),
     getGlobalGrowthHealth().catch(() => null),
     getSevenDayGrowthReport().catch(() => null),
+    getSourceDocumentSummary().catch(() => null),
   ]);
 
   const warning7d = report?.rows.filter((r) => r.warning === "no_growth_7d") ?? [];
@@ -94,6 +146,7 @@ export default async function ContentGrowthPage() {
       }
     >
       <div className="mx-auto max-w-6xl space-y-10">
+        <SourceDocumentSection summary={sourceDocs} />
         {/* ============ Seven-day production content growth report ============ */}
         {report ? (
           <section className="space-y-6" data-testid="seven-day-growth-report">
