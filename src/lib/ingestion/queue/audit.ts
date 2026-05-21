@@ -23,6 +23,8 @@ export type QueueAuditEvent =
   | "paused"
   | "resumed"
   | "stale_recovered"
+  | "scheduler.tick_completed"
+  | "scheduler.tick_failed"
   | "chain.discovery_completed"
   | "chain.source_fetch_started"
   | "chain.source_document_created"

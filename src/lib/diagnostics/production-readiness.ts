@@ -26,6 +26,7 @@ import { validateEnvironment, getEnvSubsystemDiagnostics } from "./env-validatio
 import { countSourceDocumentsWaitingForBuild } from "./pipeline-broken-here";
 import { getWorkerHealthDiagnostics, type WorkerHealthDiagnostics } from "./worker-health";
 import { getPipelineStatus, type PipelineStatus } from "./pipeline-status";
+import { getSchedulerHealth } from "./scheduler-health";
 import { getSourceJobCoverage } from "../ingestion/queue/source-job-repair";
 
 export type ReadinessSeverity = "pass" | "warn" | "fail" | "error";
@@ -45,7 +46,8 @@ export type ReadinessCard = {
     | "canary"
     | "search_sitemap"
     | "source_plan"
-    | "pipeline_status";
+    | "pipeline_status"
+    | "scheduler";
   label: string;
   severity: ReadinessSeverity;
   summary: string;
@@ -265,6 +267,51 @@ async function queueCard(): Promise<ReadinessCard> {
       summary: "Queue query failed",
       lastUpdatedAt,
       dataSource: "IngestionJobQueue",
+      errorMessage: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+async function schedulerCard(): Promise<ReadinessCard> {
+  const lastUpdatedAt = new Date();
+  try {
+    const h = await getSchedulerHealth();
+    let severity: ReadinessSeverity = "pass";
+    let summary = `Scheduler healthy — last tick enqueued ${h.jobsEnqueuedLastTick ?? 0} job(s)`;
+    if (!h.ticked24h) {
+      severity = "fail";
+      summary =
+        "No scheduler tick recorded in the last 24 hours — check the cron token and scheduler configuration.";
+    } else if (h.lastTickOk === false) {
+      severity = "fail";
+      summary = `Last scheduler tick failed: ${h.lastFailureReason ?? "unknown reason"}`;
+    }
+    return {
+      id: "scheduler",
+      label: "Scheduler",
+      severity,
+      summary,
+      lastUpdatedAt,
+      dataSource: "QueueAuditLog (scheduler.tick_*)",
+      details: {
+        lastTickAt: h.lastTickAt ? h.lastTickAt.toISOString() : null,
+        lastSuccessfulTickAt: h.lastSuccessfulTickAt ? h.lastSuccessfulTickAt.toISOString() : null,
+        lastFailedTickAt: h.lastFailedTickAt ? h.lastFailedTickAt.toISOString() : null,
+        lastFailureReason: h.lastFailureReason,
+        jobsEnqueuedLastTick: h.jobsEnqueuedLastTick,
+        jobsScannedLastTick: h.jobsScannedLastTick,
+        currentMode: h.currentMode,
+        ticked24h: h.ticked24h,
+      },
+    };
+  } catch (e) {
+    return {
+      id: "scheduler",
+      label: "Scheduler",
+      severity: "error",
+      summary: "Scheduler health query failed",
+      lastUpdatedAt,
+      dataSource: "QueueAuditLog (scheduler.tick_*)",
       errorMessage: e instanceof Error ? e.message : String(e),
     };
   }
@@ -601,6 +648,7 @@ export async function getProductionReadinessReport(): Promise<ReadinessReport> {
     workerCard(),
     queueCard(),
     pipelineStatusCard(),
+    schedulerCard(),
     contentFactoryCard(),
     emailCard(),
     securityCard(),
