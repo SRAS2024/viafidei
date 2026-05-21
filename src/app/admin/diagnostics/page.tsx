@@ -98,6 +98,13 @@ const DIAGNOSTIC_AREAS = [
     description:
       "The single operator page for content-growth operations: which content types are stalled and why, the automatic next action, paused and promoted sources, weak builders, missing validation evidence, and failing public display checks.",
   },
+  {
+    href: "/admin/worker-diagnostics",
+    eyebrow: "XIV.",
+    title: "Worker & Pipeline Diagnostics",
+    description:
+      "Worker health (heartbeat, process type, processed / failed counts), the current pipeline blocker, the pending job queue, and one-click repair / recovery actions: run worker once, repair queue, repair source jobs, recover content growth, audit raw rows, convert raw rows, and run strict cleanup.",
+  },
 ] as const;
 
 function statusBadgeStyle(status: string): { bg: string; text: string } {
