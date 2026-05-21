@@ -681,6 +681,98 @@ export async function sendSuspiciousActivityAlert(params: {
 }
 
 /**
+ * Admin Log In email. Sent whenever an admin successfully signs in.
+ * This is deliberately distinct from the Suspicious Activity, Security
+ * Breach, and Brute Force emails: a valid sign-in is expected activity,
+ * so the operator gets a calm confirmation — not a security alert.
+ *
+ * Subject is pinned to "Admin Log In". The body shows when, who, the
+ * device and location (with explicit "unavailable" copy when a field
+ * could not be resolved), whether the device has been seen before, and
+ * the SecurityEvent / AdminActionLog reference id.
+ */
+export async function sendAdminLoginAlert(params: {
+  username: string;
+  loginAt?: Date;
+  ipAddress?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  userAgent?: string;
+  browser?: string;
+  operatingSystem?: string;
+  /** Whether this device credential has signed in before. */
+  deviceSeenBefore: boolean;
+  /** Whether the sign-in succeeded — true for every Admin Log In email. */
+  successful: boolean;
+  /** SecurityEvent id or AdminActionLog id tied to this sign-in. */
+  referenceId?: string;
+}): Promise<AdminSendOutcome> {
+  const at = params.loginAt ?? new Date();
+  const intro = `A ${params.successful ? "successful" : "failed"} sign-in to the admin account has been recorded.`;
+  const rows: Array<{ key: string; value: string }> = [];
+  rows.push({ key: "Login timestamp", value: at.toISOString() });
+  rows.push({ key: "Username", value: params.username });
+
+  const hasDevice = Boolean(params.userAgent || params.browser || params.operatingSystem);
+  if (hasDevice) {
+    rows.push({ key: "Browser", value: params.browser ?? "Browser unavailable" });
+    rows.push({
+      key: "Operating system",
+      value: params.operatingSystem ?? "Operating system unavailable",
+    });
+    rows.push({ key: "User agent", value: params.userAgent ?? "User agent unavailable" });
+  } else {
+    rows.push({ key: "Device details", value: "Device details unavailable" });
+  }
+
+  const hasLocation = Boolean(params.city || params.region || params.country);
+  if (hasLocation) {
+    rows.push({ key: "City", value: params.city ?? "Unknown" });
+    rows.push({ key: "State / region", value: params.region ?? "Unknown" });
+    rows.push({ key: "Country", value: params.country ?? "Unknown" });
+  } else {
+    rows.push({ key: "Location", value: "Location unavailable" });
+  }
+
+  rows.push({ key: "IP address", value: params.ipAddress ?? "IP address unavailable" });
+  rows.push({
+    key: "Device recognised",
+    value: params.deviceSeenBefore
+      ? "Yes — this device has signed in before"
+      : "No — first time this device is seen",
+  });
+  rows.push({ key: "Login successful", value: params.successful ? "Yes" : "No" });
+  if (params.referenceId) rows.push({ key: "Reference id", value: params.referenceId });
+
+  const rendered = renderAdminEmail({
+    subject: "Admin Log In",
+    heading: "Admin Log In",
+    intro,
+    sections: [
+      {
+        title: "Sign-in details",
+        table: {
+          columns: [
+            { key: "key", label: "Field" },
+            { key: "value", label: "Value" },
+          ],
+          rows,
+        },
+      },
+    ],
+    signoff:
+      "If this sign-in was not you, change the admin password immediately and review the security log.",
+  });
+  return sendAdminEmail({
+    flow: "admin_login",
+    subject: rendered.subject,
+    textBody: rendered.textBody,
+    htmlBody: rendered.htmlBody,
+  });
+}
+
+/**
  * Monthly Error Report. The body is a one-paragraph summary of the
  * counts; the full per-error detail ships as a PDF attachment whose
  * filename encodes the year + month so an admin can keep an archive

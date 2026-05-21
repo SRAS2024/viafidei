@@ -1731,3 +1731,79 @@ model BannedDevice {
   @@index([ipAddressHash])
   @@index([createdAt])
 }
+
+/// Durable diagnostic history. Every time the admin Diagnostics panel
+/// is opened or diagnostics are run, one row per diagnostic card is
+/// written here so the Developer Audit report can show the diagnostic
+/// snapshots that fall inside any selected time period — not only the
+/// live values.
+///
+/// No secrets are stored: `detailsJson` is passed through the
+/// diagnostic redaction pass (see `src/lib/diagnostics/redaction.ts`)
+/// before the row is written.
+model DiagnosticSnapshot {
+  id String @id @default(cuid())
+
+  /// Stable diagnostic identifier ("overall", "queue", "worker", ...).
+  diagnosticKey String
+  /// Human-readable card title ("Queue health", ...).
+  diagnosticName String
+  /// "pass" | "warn" | "fail" | "error".
+  status String
+  /// One-line summary safe for display.
+  summary String
+  /// Table / module the diagnostic read from.
+  dataSource String
+  /// Redacted structured payload — counts, IDs, error message.
+  detailsJson Json?
+  /// Suggested operator next action, when the diagnostic produced one.
+  suggestedAction String?
+
+  createdAt DateTime @default(now())
+
+  @@index([diagnosticKey, createdAt])
+  @@index([createdAt])
+  @@index([status, createdAt])
+}
+
+/// Durable admin action log. One row per important admin action or
+/// sensitive admin page visit. Distinct from AdminAuditLog (which
+/// records content-entity before/after values): this table records
+/// the request itself — who, what route, what method, what result —
+/// plus the device / IP / user-agent fingerprints and best-effort geo,
+/// so the Developer Audit report can show "Admin Navigation and
+/// Actions" and so suspicious-activity detection can trust a valid
+/// authenticated admin.
+///
+/// Only one-way HMAC fingerprints are stored for device / IP /
+/// user-agent — raw values never land in the DB.
+model AdminActionLog {
+  id String @id @default(cuid())
+
+  adminUserId   String?
+  adminUsername String
+
+  /// Machine-readable action type ("admin_login_success",
+  /// "diagnostics_run", "developer_audit_report", ...).
+  actionType String
+  route      String?
+  method     String?
+  /// "success" | "failure" | "skipped" | ...
+  result String
+
+  /// HMAC fingerprint of the device credential cookie.
+  deviceFingerprint String?
+  ipHash            String?
+  userAgentHash     String?
+
+  city    String?
+  region  String?
+  country String?
+
+  createdAt    DateTime @default(now())
+  metadataJson Json?
+
+  @@index([createdAt])
+  @@index([actionType, createdAt])
+  @@index([adminUsername, createdAt])
+}

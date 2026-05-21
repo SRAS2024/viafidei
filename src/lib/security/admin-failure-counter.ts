@@ -1,10 +1,15 @@
 /**
  * In-memory consecutive-admin-password-failure counter, keyed by
  * account + IP + device credential. Used to fire a Suspicious
- * Activity email after MORE THAN three consecutive failures (i.e.
- * the 4th failure in a row), and to escalate to a Security Breach
- * after a much higher burst (default 15 within the window) — at
- * which point we treat it as a brute-force attempt.
+ * Activity email once the admin password fails THREE OR MORE times in
+ * a row, and to escalate to a Security Breach after a much higher
+ * burst (default 15 within the window) — at which point we treat it
+ * as a brute-force attempt.
+ *
+ * The counter key includes the IP and device credential fingerprints,
+ * so a brute-force run from one device is tracked independently of any
+ * other device: a successful login from device A resets only device
+ * A's streak and cannot erase attack evidence accumulating on device B.
  *
  * Counters reset on a successful admin login, which is the only
  * happy-path signal.
@@ -19,7 +24,7 @@
 import { ipFingerprint, deviceCredentialFingerprint } from "./hash";
 
 const WINDOW_MS = 15 * 60 * 1000;
-const SUSPICIOUS_THRESHOLD = 3; // > 3 consecutive failures triggers Suspicious
+const SUSPICIOUS_THRESHOLD = 3; // >= 3 consecutive failures triggers Suspicious
 const BREACH_THRESHOLD = 15; // > 15 consecutive failures triggers Breach
 
 type CounterEntry = { count: number; firstFailAt: number; lastFailAt: number };
@@ -44,6 +49,10 @@ export type RecordFailureResult = {
   classification: FailureClassification;
   count: number;
   windowMs: number;
+  /** Epoch ms of the first failure in the current streak. */
+  firstFailAt: number;
+  /** Epoch ms of this (most recent) failure. */
+  lastFailAt: number;
 };
 
 export function recordAdminPasswordFailure(args: {
@@ -61,18 +70,32 @@ export function recordAdminPasswordFailure(args: {
   const entry = counters.get(key);
   if (!entry || now - entry.lastFailAt > WINDOW_MS) {
     counters.set(key, { count: 1, firstFailAt: now, lastFailAt: now });
-    return { classification: "below_threshold", count: 1, windowMs: WINDOW_MS };
+    return {
+      classification: "below_threshold",
+      count: 1,
+      windowMs: WINDOW_MS,
+      firstFailAt: now,
+      lastFailAt: now,
+    };
   }
   entry.count += 1;
   entry.lastFailAt = now;
   counters.set(key, entry);
-  if (entry.count > BREACH_THRESHOLD) {
-    return { classification: "breach", count: entry.count, windowMs: WINDOW_MS };
-  }
-  if (entry.count > SUSPICIOUS_THRESHOLD) {
-    return { classification: "suspicious", count: entry.count, windowMs: WINDOW_MS };
-  }
-  return { classification: "below_threshold", count: entry.count, windowMs: WINDOW_MS };
+  // The Suspicious threshold fires on the THIRD consecutive failure
+  // (three or more in a row); a much larger burst escalates to Breach.
+  const classification: FailureClassification =
+    entry.count > BREACH_THRESHOLD
+      ? "breach"
+      : entry.count >= SUSPICIOUS_THRESHOLD
+        ? "suspicious"
+        : "below_threshold";
+  return {
+    classification,
+    count: entry.count,
+    windowMs: WINDOW_MS,
+    firstFailAt: entry.firstFailAt,
+    lastFailAt: entry.lastFailAt,
+  };
 }
 
 /** Reset the counter after a valid admin login. */

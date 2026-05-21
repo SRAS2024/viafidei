@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { loadIngestionLiveSnapshot } from "@/lib/diagnostics";
+import { writeDiagnosticSnapshots } from "@/lib/diagnostics/diagnostic-snapshot";
+import { listAvailableReportMonths } from "@/lib/diagnostics/developer-report";
+import { DeveloperReportButton } from "@/components/diagnostics/DeveloperReportButton";
 import { AdminSection } from "../_sections/AdminSection";
 
 export const dynamic = "force-dynamic";
@@ -127,7 +130,13 @@ function statusBadgeStyle(status: string): { bg: string; text: string } {
 export default async function AdminDiagnostics() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
-  const snapshot = await loadIngestionLiveSnapshot().catch(() => null);
+  const [snapshot, reportMonths] = await Promise.all([
+    loadIngestionLiveSnapshot().catch(() => null),
+    listAvailableReportMonths().catch(() => []),
+    // Loading the Diagnostics panel records a diagnostic snapshot so
+    // the Developer Audit report can reproduce this point in time.
+    writeDiagnosticSnapshots(),
+  ]);
   const badge = snapshot ? statusBadgeStyle(snapshot.status) : null;
 
   return (
@@ -135,6 +144,20 @@ export default async function AdminDiagnostics() {
       titleKey="admin.card.diagnostics"
       subtitle="One hub for every diagnostic the Via Fidei admin can run. Each area opens its own dedicated page with results, last-run timestamps, request ids, and useful failure detail when something breaks."
     >
+      <div
+        className="mb-6 flex flex-wrap items-start justify-between gap-3 vf-card rounded-sm p-4 sm:p-5"
+        data-testid="developer-report-panel"
+      >
+        <div className="max-w-reading">
+          <h2 className="font-display text-lg">Developer Report</h2>
+          <p className="mt-1 font-serif text-sm text-ink-soft">
+            Generate a downloadable Developer Audit PDF — every diagnostic result and system log for
+            a chosen period, in one document, so a system issue can be debugged without searching
+            across the whole admin console.
+          </p>
+        </div>
+        <DeveloperReportButton availableMonths={reportMonths} />
+      </div>
       {snapshot ? (
         <div className="mb-6 vf-card rounded-sm p-4 sm:p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-3">

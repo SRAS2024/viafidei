@@ -1,9 +1,9 @@
 /**
  * Admin /api/admin/login behavior under the Suspicious/Breach split:
  *
- * - A valid admin login never emits any security event.
+ * - A valid admin login never emits a Suspicious / Breach event.
  * - A single failure logs to audit but does not email the admin.
- * - More than three consecutive failures emit a Suspicious Activity event.
+ * - Three or more consecutive failures emit a Suspicious Activity event.
  * - A high-burst run of failures escalates to a Security Breach event.
  * - A successful login resets the failure counter.
  */
@@ -116,12 +116,16 @@ describe("admin login — Suspicious vs Breach classification", () => {
     expect(reportSecurityBreachMock).not.toHaveBeenCalled();
   });
 
-  it("the fourth consecutive failure triggers Suspicious Activity (but not Breach)", async () => {
+  it("the third consecutive failure triggers Suspicious Activity (but not Breach)", async () => {
     verifyAdminCredentialsMock.mockReturnValue(false);
-    for (let i = 0; i < 4; i++) {
-      await callLogin({ username: "admin", password: "wrong" });
-    }
-    expect(reportSuspiciousActivityMock).toHaveBeenCalledTimes(1);
+    await callLogin({ username: "admin", password: "wrong" });
+    await callLogin({ username: "admin", password: "wrong" });
+    expect(reportSuspiciousActivityMock).not.toHaveBeenCalled();
+    await callLogin({ username: "admin", password: "wrong" });
+    expect(reportSuspiciousActivityMock).toHaveBeenCalled();
+    expect((reportSuspiciousActivityMock.mock.calls[0][0] as { kind: string }).kind).toBe(
+      "admin_failed_login_threshold_reached",
+    );
     expect(reportSecurityBreachMock).not.toHaveBeenCalled();
   });
 
@@ -142,21 +146,20 @@ describe("admin login — Suspicious vs Breach classification", () => {
 
   it("a successful login resets the failure counter so a later run starts fresh", async () => {
     verifyAdminCredentialsMock.mockReturnValue(false);
-    // 3 failures — below threshold, no event.
-    for (let i = 0; i < 3; i++) {
-      await callLogin({ username: "admin", password: "wrong" });
-    }
+    // 2 failures — below the 3-failure threshold, no event.
+    await callLogin({ username: "admin", password: "wrong" });
+    await callLogin({ username: "admin", password: "wrong" });
     expect(reportSuspiciousActivityMock).not.toHaveBeenCalled();
 
-    // Successful login resets the counter.
+    // Successful login resets the counter for this identity.
     verifyAdminCredentialsMock.mockReturnValue(true);
     await callLogin({ username: "admin", password: "correct" });
 
-    // Now another 3 failures — should still be below threshold.
+    // Two more failures — the streak restarted, so still below threshold.
+    // Without the reset, 2 + 2 would have crossed the threshold.
     verifyAdminCredentialsMock.mockReturnValue(false);
-    for (let i = 0; i < 3; i++) {
-      await callLogin({ username: "admin", password: "wrong" });
-    }
+    await callLogin({ username: "admin", password: "wrong" });
+    await callLogin({ username: "admin", password: "wrong" });
     expect(reportSuspiciousActivityMock).not.toHaveBeenCalled();
   });
 });
