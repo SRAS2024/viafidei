@@ -162,3 +162,48 @@ export async function runSourceJobRepair(
   });
   return report;
 }
+
+export type SourceJobCoverage = {
+  factoryReadySources: number;
+  sourcesWithZeroJobs: number;
+  /** Fraction (0..1) of factory-ready sources with no active queue job. */
+  zeroJobRatio: number;
+};
+
+/**
+ * Read-only coverage check: how many factory-ready sources currently
+ * have zero active queue jobs. Used by production readiness to warn
+ * when source job coverage has degraded — never enqueues anything.
+ */
+export async function getSourceJobCoverage(): Promise<SourceJobCoverage> {
+  try {
+    const sources = await prisma.ingestionSource.findMany({
+      where: {
+        isActive: true,
+        pausedAt: null,
+        discoveryFeedUrl: { not: null },
+        configurationStatus: { not: "not_configured" },
+      },
+      select: { id: true },
+      take: 1000,
+    });
+    const activeGroups = await prisma.ingestionJobQueue.groupBy({
+      by: ["sourceId"],
+      where: { status: { in: ACTIVE_QUEUE_STATUSES }, sourceId: { not: null } },
+    });
+    const withActiveJobs = new Set(
+      activeGroups.map((g) => g.sourceId).filter((id): id is string => typeof id === "string"),
+    );
+    const zeroJob = sources.filter((s) => !withActiveJobs.has(s.id)).length;
+    return {
+      factoryReadySources: sources.length,
+      sourcesWithZeroJobs: zeroJob,
+      zeroJobRatio: sources.length > 0 ? zeroJob / sources.length : 0,
+    };
+  } catch (e) {
+    logger.warn("source-job-repair.coverage_failed", {
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return { factoryReadySources: 0, sourcesWithZeroJobs: 0, zeroJobRatio: 0 };
+  }
+}

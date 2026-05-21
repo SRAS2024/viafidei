@@ -17,6 +17,7 @@
 
 import { runWorkerLoop, releaseActiveLeases } from "../src/lib/ingestion/queue/worker";
 import { runWorkerStartupCheck } from "../src/lib/ingestion/queue/worker-startup-check";
+import { runSourceJobRepair } from "../src/lib/ingestion/queue/source-job-repair";
 import { registerVaticanAdapters } from "../src/lib/ingestion/sources";
 import { removeHeartbeat } from "../src/lib/ingestion/queue/heartbeat";
 import { logger } from "../src/lib/observability/logger";
@@ -79,6 +80,24 @@ async function main(): Promise<void> {
     maxJobs: maxJobs ?? null,
     processType: "worker",
   });
+
+  // Automatic source job repair on startup — enqueue a missing
+  // source_discovery job for any factory-ready source sitting with
+  // zero active jobs, so the worker always has work to drain.
+  try {
+    const repair = await runSourceJobRepair({ triggeredBy: "automatic" });
+    logger.info("viafidei.worker_service.source_job_repair", {
+      workerId: effectiveWorkerId,
+      factoryReadySources: repair.factoryReadySources,
+      sourcesWithZeroJobs: repair.sourcesWithZeroJobs,
+      discoveryJobsCreated: repair.discoveryJobsCreated,
+    });
+  } catch (e) {
+    logger.warn("viafidei.worker_service.source_job_repair_failed", {
+      workerId: effectiveWorkerId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
 
   const result = await runWorkerLoop({
     workerId: effectiveWorkerId,

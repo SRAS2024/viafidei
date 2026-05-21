@@ -26,6 +26,7 @@ import { validateEnvironment, getEnvSubsystemDiagnostics } from "./env-validatio
 import { countSourceDocumentsWaitingForBuild } from "./pipeline-broken-here";
 import { getWorkerHealthDiagnostics, type WorkerHealthDiagnostics } from "./worker-health";
 import { getPipelineStatus, type PipelineStatus } from "./pipeline-status";
+import { getSourceJobCoverage } from "../ingestion/queue/source-job-repair";
 
 export type ReadinessSeverity = "pass" | "warn" | "fail" | "error";
 
@@ -363,17 +364,32 @@ async function sourceConfigurationCard(): Promise<ReadinessCard> {
       where: { isActive: true, discoveryFeedUrl: { not: null } },
     });
     const notConfigured = total - factoryNative;
+    const coverage = await getSourceJobCoverage();
+    // Spec §11: warn when more than 25% of factory-ready sources have
+    // zero queue jobs — the queue is starving and needs Repair source
+    // jobs.
+    const lowJobCoverage = coverage.factoryReadySources > 0 && coverage.zeroJobRatio > 0.25;
+    const severity: ReadinessSeverity = notConfigured > 0 || lowJobCoverage ? "warn" : "pass";
+    const summary = lowJobCoverage
+      ? `${coverage.sourcesWithZeroJobs} of ${coverage.factoryReadySources} factory-ready sources have zero jobs — run Repair source jobs`
+      : notConfigured > 0
+        ? `${notConfigured} of ${total} active sources have no discovery feed (mark not_configured or set a sitemap/RSS feed)`
+        : `All ${total} active sources are factory-native`;
     return {
       id: "source_configuration",
       label: "Source configuration",
-      severity: notConfigured > 0 ? "warn" : "pass",
-      summary:
-        notConfigured > 0
-          ? `${notConfigured} of ${total} active sources have no discovery feed (mark not_configured or set a sitemap/RSS feed)`
-          : `All ${total} active sources are factory-native`,
+      severity,
+      summary,
       lastUpdatedAt,
-      dataSource: "IngestionSource",
-      details: { total, factoryNative, notConfigured },
+      dataSource: "IngestionSource + IngestionJobQueue",
+      details: {
+        total,
+        factoryNative,
+        notConfigured,
+        factoryReadySources: coverage.factoryReadySources,
+        sourcesWithZeroJobs: coverage.sourcesWithZeroJobs,
+        zeroJobRatio: coverage.zeroJobRatio,
+      },
     };
   } catch (e) {
     return {

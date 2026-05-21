@@ -16,7 +16,7 @@ vi.mock("@/lib/ingestion/queue/queue", () => ({
   enqueueJob: vi.fn(),
 }));
 
-import { runSourceJobRepair } from "@/lib/ingestion/queue/source-job-repair";
+import { runSourceJobRepair, getSourceJobCoverage } from "@/lib/ingestion/queue/source-job-repair";
 import { enqueueJob } from "@/lib/ingestion/queue/queue";
 
 function source(overrides: Record<string, unknown> = {}) {
@@ -80,5 +80,24 @@ describe("runSourceJobRepair", () => {
     expect(report.skippedNotConfigured).toBe(1);
     expect(report.discoveryJobsCreated).toBe(0);
     expect(enqueueJob).not.toHaveBeenCalled();
+  });
+});
+
+describe("getSourceJobCoverage", () => {
+  it("reports the fraction of factory-ready sources with zero active jobs", async () => {
+    prismaMock.ingestionSource.findMany.mockResolvedValue([
+      { id: "s1" },
+      { id: "s2" },
+      { id: "s3" },
+      { id: "s4" },
+    ]);
+    // Only s1 has an active job.
+    prismaMock.ingestionJobQueue.groupBy.mockResolvedValue([{ sourceId: "s1" }]);
+
+    const coverage = await getSourceJobCoverage();
+
+    expect(coverage.factoryReadySources).toBe(4);
+    expect(coverage.sourcesWithZeroJobs).toBe(3);
+    expect(coverage.zeroJobRatio).toBeCloseTo(0.75);
   });
 });
