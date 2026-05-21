@@ -21,7 +21,7 @@
 
 import { prisma } from "../db/client";
 import { logger } from "../observability/logger";
-import { hasHealthyWorker } from "../ingestion/queue/heartbeat";
+import { hasHealthyWorker, listWorkerHealth } from "../ingestion/queue/heartbeat";
 import { validateEnvironment, getEnvSubsystemDiagnostics } from "./env-validation";
 import { countSourceDocumentsWaitingForBuild } from "./pipeline-broken-here";
 
@@ -113,14 +113,37 @@ async function databaseCard(): Promise<ReadinessCard> {
 async function workerCard(): Promise<ReadinessCard> {
   const lastUpdatedAt = new Date();
   try {
-    const healthy = await hasHealthyWorker();
+    const workers = await listWorkerHealth();
+    const liveWorkers = workers.filter((w) => !w.isStale && w.status !== "stopped");
+    const healthy = liveWorkers.length > 0;
+    const hasWorkerProcessType = liveWorkers.some((w) => w.processType === "worker");
+    let severity: ReadinessSeverity;
+    let summary: string;
+    if (!healthy) {
+      // Spec: production readiness fails when the worker heartbeat is
+      // missing — a queue with nobody draining it is a hard blocker.
+      severity = "fail";
+      summary = "No healthy worker heartbeat";
+    } else if (!hasWorkerProcessType) {
+      // A heartbeat exists but it does not identify itself as the
+      // worker process — the deploy is likely wired up wrong.
+      severity = "fail";
+      summary = 'Worker heartbeat present but process type is not "worker"';
+    } else {
+      severity = "pass";
+      summary = "Healthy worker heartbeat detected (process type: worker)";
+    }
     return {
       id: "worker",
       label: "Worker heartbeat",
-      severity: healthy ? "pass" : "fail",
-      summary: healthy ? "At least one worker is healthy" : "No healthy worker heartbeat",
+      severity,
+      summary,
       lastUpdatedAt,
       dataSource: "WorkerHeartbeat",
+      details: {
+        liveWorkers: liveWorkers.length,
+        processType: liveWorkers[0]?.processType ?? null,
+      },
     };
   } catch (e) {
     return {

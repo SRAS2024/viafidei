@@ -16,6 +16,7 @@
  */
 
 import { runWorkerLoop, releaseActiveLeases } from "../src/lib/ingestion/queue/worker";
+import { runWorkerStartupCheck } from "../src/lib/ingestion/queue/worker-startup-check";
 import { registerVaticanAdapters } from "../src/lib/ingestion/sources";
 import { removeHeartbeat } from "../src/lib/ingestion/queue/heartbeat";
 import { logger } from "../src/lib/observability/logger";
@@ -55,6 +56,30 @@ async function main(): Promise<void> {
   process.on("SIGINT", () => void shutdown("SIGINT"));
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
+  // Startup self-test — proves the worker can reach the database and
+  // read/write the queue + heartbeat tables before it enters the
+  // loop. A failed check exits non-zero so Railway restarts the
+  // worker instead of leaving a dead process that never heartbeats.
+  const startupCheck = await runWorkerStartupCheck({ processType: "worker" });
+  if (!startupCheck.ok) {
+    logger.error("viafidei.worker_service.startup_check_failed", {
+      workerId: effectiveWorkerId,
+      ...startupCheck,
+    });
+    process.exit(1);
+  }
+  logger.info("viafidei.worker_service.startup_check_ok", {
+    workerId: effectiveWorkerId,
+    ...startupCheck,
+  });
+
+  logger.info("viafidei.worker_service.started", {
+    workerId: effectiveWorkerId,
+    oneShot,
+    maxJobs: maxJobs ?? null,
+    processType: "worker",
+  });
+
   const result = await runWorkerLoop({
     workerId: effectiveWorkerId,
     oneShot: oneShot || shuttingDown,
@@ -62,6 +87,16 @@ async function main(): Promise<void> {
   });
 
   logger.info("worker exited", result);
+
+  // A long-running worker is supposed to poll forever. If the loop
+  // returns without `--one-shot`, `--max-jobs`, or a graceful
+  // shutdown, something went wrong — exit non-zero so Railway
+  // restarts the service.
+  if (!oneShot && !maxJobs && !shuttingDown) {
+    logger.error("worker exited unexpectedly in long-running mode", result);
+    process.exit(1);
+  }
+
   process.exit(0);
 }
 

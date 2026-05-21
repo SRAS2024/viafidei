@@ -11,6 +11,23 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/ingestion/queue/heartbeat", () => ({
   hasHealthyWorker: vi.fn().mockResolvedValue(true),
+  listWorkerHealth: vi.fn().mockResolvedValue([
+    {
+      workerId: "worker-test",
+      startedAt: new Date(),
+      lastHeartbeatAt: new Date(),
+      ageMs: 1_000,
+      isStale: false,
+      status: "idle",
+      processedCount: 0,
+      failedCount: 0,
+      retryCount: 0,
+      currentJobId: null,
+      hostname: "test-host",
+      version: null,
+      processType: "worker",
+    },
+  ]),
 }));
 
 import { getProductionReadinessReport } from "@/lib/diagnostics/production-readiness";
