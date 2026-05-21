@@ -24,6 +24,10 @@ import { logger } from "../observability/logger";
 import { hasHealthyWorker } from "../ingestion/queue/heartbeat";
 import { validateEnvironment, getEnvSubsystemDiagnostics } from "./env-validation";
 import { countSourceDocumentsWaitingForBuild } from "./pipeline-broken-here";
+import { getWorkerHealthDiagnostics, type WorkerHealthDiagnostics } from "./worker-health";
+import { getPipelineStatus, type PipelineStatus } from "./pipeline-status";
+import { getSchedulerHealth } from "./scheduler-health";
+import { getSourceJobCoverage } from "../ingestion/queue/source-job-repair";
 
 export type ReadinessSeverity = "pass" | "warn" | "fail" | "error";
 
@@ -41,7 +45,9 @@ export type ReadinessCard = {
     | "content_type_readiness"
     | "canary"
     | "search_sitemap"
-    | "source_plan";
+    | "source_plan"
+    | "pipeline_status"
+    | "scheduler";
   label: string;
   severity: ReadinessSeverity;
   summary: string;
@@ -110,17 +116,60 @@ async function databaseCard(): Promise<ReadinessCard> {
   }
 }
 
+function workerHealthDetails(d: WorkerHealthDiagnostics): Record<string, unknown> {
+  return {
+    workerAlive: d.workerAlive,
+    lastHeartbeatAt: d.lastHeartbeatAt ? d.lastHeartbeatAt.toISOString() : null,
+    heartbeatAgeMs: d.heartbeatAgeMs,
+    processType: d.processType,
+    workerId: d.workerId,
+    hostname: d.hostname,
+    processedCount: d.processedCount,
+    failedCount: d.failedCount,
+    retryCount: d.retryCount,
+    currentJobId: d.currentJobId,
+    workerStatus: d.workerStatus,
+    pendingJobs: d.pendingJobs,
+    runningJobs: d.runningJobs,
+    failedJobs: d.failedJobs,
+    oldestPendingAgeMs: d.oldestPendingAgeMs,
+    likelyCauses: d.likelyCauses,
+    topFailureReasons: d.topFailureReasons,
+    message: d.message,
+  };
+}
+
 async function workerCard(): Promise<ReadinessCard> {
   const lastUpdatedAt = new Date();
   try {
-    const healthy = await hasHealthyWorker();
+    const d = await getWorkerHealthDiagnostics();
+    let severity: ReadinessSeverity;
+    let summary: string;
+    if (!d.workerAlive) {
+      // Spec: production readiness fails when the worker heartbeat is
+      // missing — a queue with nobody draining it is a hard blocker.
+      severity = "fail";
+      summary = "Worker health: FAIL — no healthy worker heartbeat";
+    } else if (d.processType !== "worker") {
+      // A heartbeat exists but it does not identify itself as the
+      // worker process — the deploy is likely wired up wrong.
+      severity = "fail";
+      summary = 'Worker health: FAIL — heartbeat present but process type is not "worker"';
+    } else if (d.message === "Worker is alive but queue is not draining." || d.failedJobs > 0) {
+      severity = "warn";
+      summary = `Worker health: OK — ${d.message}`;
+    } else {
+      severity = "pass";
+      summary = "Worker health: OK — healthy worker heartbeat detected (process type: worker)";
+    }
     return {
       id: "worker",
       label: "Worker heartbeat",
-      severity: healthy ? "pass" : "fail",
-      summary: healthy ? "At least one worker is healthy" : "No healthy worker heartbeat",
+      severity,
+      summary,
       lastUpdatedAt,
-      dataSource: "WorkerHeartbeat",
+      dataSource: "WorkerHeartbeat + IngestionJobQueue",
+      details: workerHealthDetails(d),
     };
   } catch (e) {
     return {
@@ -130,6 +179,62 @@ async function workerCard(): Promise<ReadinessCard> {
       summary: "Worker health query failed",
       lastUpdatedAt,
       dataSource: "WorkerHeartbeat",
+      errorMessage: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+function pipelineStatusDetails(s: PipelineStatus): Record<string, unknown> {
+  return {
+    queuePending: s.queuePending,
+    queueRunning: s.queueRunning,
+    workerHeartbeat: s.workerHealthy,
+    sourceDocuments: s.sourceDocuments,
+    buildLogs: s.buildLogs,
+    completePackages: s.completePackages,
+    qaPasses: s.qaPasses,
+    persistedPackages: s.persistedPackages,
+    strictPublicRows: s.strictPublicRows,
+    blocker: s.blocker,
+    blockerMessage: s.blockerMessage,
+  };
+}
+
+async function pipelineStatusCard(): Promise<ReadinessCard> {
+  const lastUpdatedAt = new Date();
+  try {
+    const s = await getPipelineStatus();
+    let severity: ReadinessSeverity = "pass";
+    let summary = "Pipeline is flowing — no blocker detected";
+    if (s.blocker === "worker_not_processing_queue") {
+      severity = "fail";
+      summary = "Current blocker: worker not processing queue.";
+    } else if (s.blocker) {
+      severity = "fail";
+      summary = `Current blocker: ${s.blocker} — ${s.blockerMessage}`;
+    } else if (s.strictPublicRows === 0) {
+      // No named upstream blocker, but the catalog is still empty —
+      // the pipeline is idle and producing nothing.
+      severity = "fail";
+      summary = "Current blocker: catalog is empty and the pipeline is idle.";
+    }
+    return {
+      id: "pipeline_status",
+      label: "Pipeline status",
+      severity,
+      summary,
+      lastUpdatedAt,
+      dataSource: "IngestionJobQueue + SourceDocument + ContentPackageBuildLog + QueueAuditLog",
+      details: pipelineStatusDetails(s),
+    };
+  } catch (e) {
+    return {
+      id: "pipeline_status",
+      label: "Pipeline status",
+      severity: "error",
+      summary: "Pipeline status query failed",
+      lastUpdatedAt,
+      dataSource: "IngestionJobQueue + SourceDocument + ContentPackageBuildLog",
       errorMessage: e instanceof Error ? e.message : String(e),
     };
   }
@@ -162,6 +267,51 @@ async function queueCard(): Promise<ReadinessCard> {
       summary: "Queue query failed",
       lastUpdatedAt,
       dataSource: "IngestionJobQueue",
+      errorMessage: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+async function schedulerCard(): Promise<ReadinessCard> {
+  const lastUpdatedAt = new Date();
+  try {
+    const h = await getSchedulerHealth();
+    let severity: ReadinessSeverity = "pass";
+    let summary = `Scheduler healthy — last tick enqueued ${h.jobsEnqueuedLastTick ?? 0} job(s)`;
+    if (!h.ticked24h) {
+      severity = "fail";
+      summary =
+        "No scheduler tick recorded in the last 24 hours — check the cron token and scheduler configuration.";
+    } else if (h.lastTickOk === false) {
+      severity = "fail";
+      summary = `Last scheduler tick failed: ${h.lastFailureReason ?? "unknown reason"}`;
+    }
+    return {
+      id: "scheduler",
+      label: "Scheduler",
+      severity,
+      summary,
+      lastUpdatedAt,
+      dataSource: "QueueAuditLog (scheduler.tick_*)",
+      details: {
+        lastTickAt: h.lastTickAt ? h.lastTickAt.toISOString() : null,
+        lastSuccessfulTickAt: h.lastSuccessfulTickAt ? h.lastSuccessfulTickAt.toISOString() : null,
+        lastFailedTickAt: h.lastFailedTickAt ? h.lastFailedTickAt.toISOString() : null,
+        lastFailureReason: h.lastFailureReason,
+        jobsEnqueuedLastTick: h.jobsEnqueuedLastTick,
+        jobsScannedLastTick: h.jobsScannedLastTick,
+        currentMode: h.currentMode,
+        ticked24h: h.ticked24h,
+      },
+    };
+  } catch (e) {
+    return {
+      id: "scheduler",
+      label: "Scheduler",
+      severity: "error",
+      summary: "Scheduler health query failed",
+      lastUpdatedAt,
+      dataSource: "QueueAuditLog (scheduler.tick_*)",
       errorMessage: e instanceof Error ? e.message : String(e),
     };
   }
@@ -266,17 +416,32 @@ async function sourceConfigurationCard(): Promise<ReadinessCard> {
       where: { isActive: true, discoveryFeedUrl: { not: null } },
     });
     const notConfigured = total - factoryNative;
+    const coverage = await getSourceJobCoverage();
+    // Spec §11: warn when more than 25% of factory-ready sources have
+    // zero queue jobs — the queue is starving and needs Repair source
+    // jobs.
+    const lowJobCoverage = coverage.factoryReadySources > 0 && coverage.zeroJobRatio > 0.25;
+    const severity: ReadinessSeverity = notConfigured > 0 || lowJobCoverage ? "warn" : "pass";
+    const summary = lowJobCoverage
+      ? `${coverage.sourcesWithZeroJobs} of ${coverage.factoryReadySources} factory-ready sources have zero jobs — run Repair source jobs`
+      : notConfigured > 0
+        ? `${notConfigured} of ${total} active sources have no discovery feed (mark not_configured or set a sitemap/RSS feed)`
+        : `All ${total} active sources are factory-native`;
     return {
       id: "source_configuration",
       label: "Source configuration",
-      severity: notConfigured > 0 ? "warn" : "pass",
-      summary:
-        notConfigured > 0
-          ? `${notConfigured} of ${total} active sources have no discovery feed (mark not_configured or set a sitemap/RSS feed)`
-          : `All ${total} active sources are factory-native`,
+      severity,
+      summary,
       lastUpdatedAt,
-      dataSource: "IngestionSource",
-      details: { total, factoryNative, notConfigured },
+      dataSource: "IngestionSource + IngestionJobQueue",
+      details: {
+        total,
+        factoryNative,
+        notConfigured,
+        factoryReadySources: coverage.factoryReadySources,
+        sourcesWithZeroJobs: coverage.sourcesWithZeroJobs,
+        zeroJobRatio: coverage.zeroJobRatio,
+      },
     };
   } catch (e) {
     return {
@@ -482,6 +647,8 @@ export async function getProductionReadinessReport(): Promise<ReadinessReport> {
     databaseCard(),
     workerCard(),
     queueCard(),
+    pipelineStatusCard(),
+    schedulerCard(),
     contentFactoryCard(),
     emailCard(),
     securityCard(),

@@ -56,6 +56,7 @@ describe("admin metrics surface errors instead of silent zeros", () => {
   it("production readiness card carries severity=error when its query throws", async () => {
     vi.doMock("@/lib/ingestion/queue/heartbeat", () => ({
       hasHealthyWorker: vi.fn().mockRejectedValue(new Error("hb down")),
+      listWorkerHealth: vi.fn().mockRejectedValue(new Error("hb down")),
     }));
     const { getProductionReadinessReport } = await import("@/lib/diagnostics/production-readiness");
     prismaMock.$queryRaw.mockResolvedValue([{ "?column?": 1 }]);
@@ -68,7 +69,7 @@ describe("admin metrics surface errors instead of silent zeros", () => {
     prismaMock.prayer.count.mockResolvedValue(0);
 
     const report = await getProductionReadinessReport();
-    // The worker card uses hasHealthyWorker — that throws here, so
+    // The worker card reads listWorkerHealth — that throws here, so
     // the card must NOT show severity=pass with a "zero workers" message.
     const worker = report.cards.find((c) => c.id === "worker");
     expect(worker).toBeDefined();

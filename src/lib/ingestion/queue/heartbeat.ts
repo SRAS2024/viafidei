@@ -7,7 +7,6 @@
  */
 
 import { prisma } from "../../db/client";
-import { logger } from "../../observability/logger";
 
 const STALE_THRESHOLD_MS = 90 * 1000;
 
@@ -23,39 +22,62 @@ export type HeartbeatUpdate = {
   status?: WorkerStatus;
   hostname?: string;
   version?: string;
+  /**
+   * Process identity. The dedicated worker service records "worker".
+   * Stored in the `WorkerHeartbeat.metadata` JSON column so the admin
+   * diagnostics can prove the heartbeat came from the worker process
+   * (and not, say, a web request that wandered into worker code).
+   */
+  processType?: string;
 };
 
+/**
+ * Write (upsert) a worker heartbeat row.
+ *
+ * This intentionally does NOT swallow database errors. The caller
+ * decides whether a failed write is fatal — the worker's first
+ * startup heartbeat must fail loudly so Railway restarts a worker
+ * that can't reach the database — or merely a logged warning, which
+ * is the right call for the periodic in-loop heartbeats. A silently
+ * swallowed heartbeat write is exactly how a worker ends up looking
+ * dead on the dashboard while the process is still alive.
+ */
 export async function writeHeartbeat(update: HeartbeatUpdate): Promise<void> {
-  try {
-    await prisma.workerHeartbeat.upsert({
-      where: { workerId: update.workerId },
-      create: {
-        workerId: update.workerId,
-        startedAt: update.startedAt,
-        processedCount: update.processedCount,
-        failedCount: update.failedCount,
-        retryCount: update.retryCount,
-        currentJobId: update.currentJobId ?? null,
-        status: update.status ?? "idle",
-        hostname: update.hostname ?? null,
-        version: update.version ?? null,
-        lastHeartbeatAt: new Date(),
-      },
-      update: {
-        processedCount: update.processedCount,
-        failedCount: update.failedCount,
-        retryCount: update.retryCount,
-        currentJobId: update.currentJobId ?? null,
-        status: update.status ?? "idle",
-        lastHeartbeatAt: new Date(),
-      },
-    });
-  } catch (e) {
-    logger.warn("worker.heartbeat.write_failed", {
+  const metadata = update.processType ? { processType: update.processType } : undefined;
+  await prisma.workerHeartbeat.upsert({
+    where: { workerId: update.workerId },
+    create: {
       workerId: update.workerId,
-      error: e instanceof Error ? e.message : String(e),
-    });
+      startedAt: update.startedAt,
+      processedCount: update.processedCount,
+      failedCount: update.failedCount,
+      retryCount: update.retryCount,
+      currentJobId: update.currentJobId ?? null,
+      status: update.status ?? "idle",
+      hostname: update.hostname ?? null,
+      version: update.version ?? null,
+      metadata,
+      lastHeartbeatAt: new Date(),
+    },
+    update: {
+      processedCount: update.processedCount,
+      failedCount: update.failedCount,
+      retryCount: update.retryCount,
+      currentJobId: update.currentJobId ?? null,
+      status: update.status ?? "idle",
+      metadata,
+      lastHeartbeatAt: new Date(),
+    },
+  });
+}
+
+/** Pull a string `processType` out of the heartbeat `metadata` JSON. */
+function readProcessType(metadata: unknown): string | null {
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    const value = (metadata as Record<string, unknown>).processType;
+    if (typeof value === "string") return value;
   }
+  return null;
 }
 
 export type WorkerHealthRow = {
@@ -69,6 +91,9 @@ export type WorkerHealthRow = {
   failedCount: number;
   retryCount: number;
   currentJobId: string | null;
+  hostname: string | null;
+  version: string | null;
+  processType: string | null;
 };
 
 export async function listWorkerHealth(now: Date = new Date()): Promise<WorkerHealthRow[]> {
@@ -88,6 +113,9 @@ export async function listWorkerHealth(now: Date = new Date()): Promise<WorkerHe
       failedCount: r.failedCount,
       retryCount: r.retryCount,
       currentJobId: r.currentJobId,
+      hostname: r.hostname ?? null,
+      version: r.version ?? null,
+      processType: readProcessType(r.metadata),
     };
   });
 }

@@ -43,6 +43,7 @@ export const JOB_KINDS = [
   // Catalog-wide kinds.
   "content_revalidate",
   "strict_cleanup",
+  "content_growth_bootstrap",
   "archive_cleanup",
   "dedupe_cleanup",
   "sitemap_refresh",
@@ -63,6 +64,7 @@ export const PRIORITY_DEFAULTS: Record<JobKind, number> = {
   content_build: 120,
   content_revalidate: 150,
   source_config_repair: 200,
+  content_growth_bootstrap: 130,
   strict_cleanup: 250,
   dedupe_cleanup: 300,
   archive_cleanup: 400,
@@ -219,6 +221,17 @@ export const strictCleanupPayloadSchema = z
   })
   .passthrough();
 
+/**
+ * Content growth bootstrap. Enqueues a first wave of source_discovery
+ * jobs for the priority content types when the catalog is starved.
+ */
+export const contentGrowthBootstrapPayloadSchema = z
+  .object({
+    maxJobs: z.number().int().positive().optional(),
+    triggeredBy: z.enum(["automatic", "manual"]).optional(),
+  })
+  .passthrough();
+
 export const JOB_PAYLOAD_SCHEMAS: Record<JobKind, z.ZodTypeAny> = {
   source_freshness: sourceFreshnessPayloadSchema,
   source_discovery: sourceDiscoveryPayloadSchema,
@@ -227,6 +240,7 @@ export const JOB_PAYLOAD_SCHEMAS: Record<JobKind, z.ZodTypeAny> = {
   content_build: contentBuildPayloadSchema,
   content_revalidate: contentRevalidatePayloadSchema,
   strict_cleanup: strictCleanupPayloadSchema,
+  content_growth_bootstrap: contentGrowthBootstrapPayloadSchema,
   archive_cleanup: archiveCleanupPayloadSchema,
   dedupe_cleanup: dedupeCleanupPayloadSchema,
   sitemap_refresh: sitemapRefreshPayloadSchema,

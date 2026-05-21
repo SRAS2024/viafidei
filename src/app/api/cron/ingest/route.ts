@@ -23,6 +23,7 @@ import {
   pruneQueueHistory,
 } from "@/lib/ingestion/queue";
 import { hasHealthyWorker } from "@/lib/ingestion/queue/heartbeat";
+import { recordSchedulerTick } from "@/lib/diagnostics/scheduler-health";
 import { runAllIngestionAlerts, checkStallSignals } from "@/lib/data/ingestion-alerts";
 import { autoEvaluateSourcePauses } from "@/lib/data/source-auto-pause";
 import { detectStallSignals, getQueueHealthSummary } from "@/lib/data/queue-health";
@@ -68,12 +69,19 @@ export async function POST(req: NextRequest) {
   // Plan-only cron: the worker process is the sole adapter executor.
   // We call the planner to enqueue due jobs into IngestionJobQueue,
   // then a separate worker service dequeues them.
+  const plannerStart = Date.now();
   const plannerSummary = await enqueueDueIngestionJobs().catch((e) => {
     logger.error("cron.planner_failed", {
       error: e instanceof Error ? e.message : String(e),
     });
     return null;
   });
+  // Record the scheduler tick so the admin scheduler health card can
+  // show the exact cause of a failed tick, not just "tick failed".
+  await recordSchedulerTick({
+    summary: plannerSummary,
+    durationMs: Date.now() - plannerStart,
+  }).catch(() => undefined);
   // Healthy-worker check: if the planner enqueued work but there is
   // no live worker heartbeat, fire a critical admin alert so the
   // operator knows nothing is consuming the queue.

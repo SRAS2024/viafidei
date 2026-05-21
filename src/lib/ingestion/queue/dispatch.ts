@@ -92,6 +92,8 @@ export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
       return runSourceConfigRepairJob(job, payload);
     case "strict_cleanup":
       return runStrictCleanup(job, payload);
+    case "content_growth_bootstrap":
+      return runContentGrowthBootstrap(job, payload);
     case "archive_cleanup":
       return runArchiveCleanup(job, payload);
     case "dedupe_cleanup":
@@ -105,6 +107,32 @@ export async function runJobByKind(job: QueueJobRow): Promise<DispatchResult> {
       void _exhaustive;
       return { ok: false, errorMessage: `Unhandled job kind: ${job.jobKind}` };
     }
+  }
+}
+
+/**
+ * Content growth bootstrap — enqueues a first wave of source
+ * discovery jobs for the priority content types when the catalog is
+ * starved. Delegates to the bootstrap module.
+ */
+async function runContentGrowthBootstrap(
+  job: QueueJobRow,
+  payload: Record<string, unknown>,
+): Promise<DispatchResult> {
+  const { runGrowthBootstrap } = await import("./growth-bootstrap");
+  const maxJobs = typeof payload.maxJobs === "number" ? payload.maxJobs : undefined;
+  const triggeredBy = payload.triggeredBy === "manual" ? "manual" : "automatic";
+  try {
+    const report = await runGrowthBootstrap({ maxJobs, triggeredBy, jobQueueId: job.id });
+    return {
+      ok: true,
+      errorMessage: report.skippedReason
+        ? `growth bootstrap skipped: ${report.skippedReason}`
+        : `growth bootstrap: ${report.discoveryJobsCreated} discovery job(s) created`,
+      contentSeen: report.discoveryJobsCreated,
+    };
+  } catch (e) {
+    return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -555,6 +583,7 @@ async function runSourceConfigRepairJob(
     // source_discovery jobs for the next candidate sources. Skipped
     // for single-source repair runs (sourceId set).
     let expansionPart = "";
+    let sourceJobPart = "";
     if (!sourceId) {
       const { runDiscoveryExpansion } = await import("../sources/discovery-expansion");
       const { enqueueJob } = await import("./queue");
@@ -565,6 +594,15 @@ async function runSourceConfigRepairJob(
         expansionPart =
           `, discovery-expansion underTarget=${expansion.contentTypesUnderTarget} ` +
           `enqueued=${expansion.discoveryJobsEnqueued}`;
+      }
+      // Scheduled source-job repair: enqueue a missing source_discovery
+      // job for any factory-ready source that has zero active jobs.
+      const { runSourceJobRepair } = await import("./source-job-repair");
+      const jobRepair = await runSourceJobRepair({ triggeredBy: "automatic" }).catch(() => null);
+      if (jobRepair) {
+        sourceJobPart =
+          `, source-job-repair zeroJobSources=${jobRepair.sourcesWithZeroJobs} ` +
+          `created=${jobRepair.discoveryJobsCreated}`;
       }
     }
     const rolePart = roleReport
@@ -580,7 +618,8 @@ async function runSourceConfigRepairJob(
         `missingTypes=${configReport.missingContentTypes.length}, ` +
         `errors=${configReport.errors}` +
         rolePart +
-        expansionPart,
+        expansionPart +
+        sourceJobPart,
     };
   } catch (e) {
     return { ok: false, errorMessage: e instanceof Error ? e.message : String(e) };

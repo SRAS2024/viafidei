@@ -11,9 +11,27 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/ingestion/queue/heartbeat", () => ({
   hasHealthyWorker: vi.fn().mockResolvedValue(true),
+  listWorkerHealth: vi.fn().mockResolvedValue([
+    {
+      workerId: "worker-test",
+      startedAt: new Date(),
+      lastHeartbeatAt: new Date(),
+      ageMs: 1_000,
+      isStale: false,
+      status: "idle",
+      processedCount: 0,
+      failedCount: 0,
+      retryCount: 0,
+      currentJobId: null,
+      hostname: "test-host",
+      version: null,
+      processType: "worker",
+    },
+  ]),
 }));
 
 import { getProductionReadinessReport } from "@/lib/diagnostics/production-readiness";
+import { listWorkerHealth } from "@/lib/ingestion/queue/heartbeat";
 
 beforeEach(() => {
   resetPrismaMock();
@@ -65,5 +83,32 @@ describe("getProductionReadinessReport", () => {
     expect(canary).toBeTruthy();
     // The canary fixtures ship in this repo and must build cleanly.
     expect(canary?.severity).toBe("pass");
+  });
+
+  it("fails the worker card when the worker heartbeat is missing", async () => {
+    // No live worker heartbeat for this run.
+    vi.mocked(listWorkerHealth).mockResolvedValueOnce([]);
+
+    const report = await getProductionReadinessReport();
+    const worker = report.cards.find((c) => c.id === "worker");
+
+    expect(worker?.severity).toBe("fail");
+    expect(worker?.summary).toMatch(/no healthy worker heartbeat/i);
+  });
+
+  it("passes the worker and pipeline cards when the whole pipeline is healthy", async () => {
+    // Worker alive (file-level mock), and every pipeline stage has flow.
+    prismaMock.sourceDocument.count.mockResolvedValue(10);
+    prismaMock.contentPackageBuildLog.count.mockResolvedValue(10);
+    prismaMock.queueAuditLog.count.mockResolvedValue(5);
+    prismaMock.prayer.count.mockResolvedValue(5);
+
+    const report = await getProductionReadinessReport();
+    const worker = report.cards.find((c) => c.id === "worker");
+    const pipeline = report.cards.find((c) => c.id === "pipeline_status");
+
+    expect(worker?.severity).toBe("pass");
+    expect(pipeline?.severity).toBe("pass");
+    expect(pipeline?.summary).toMatch(/pipeline is flowing/i);
   });
 });

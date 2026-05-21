@@ -6,9 +6,11 @@ import { recordSourceFreshness } from "../../data/source-health";
 import { isContentTypePaused } from "../../data/content-type-pause";
 import {
   completeJob,
+  countQueueByStatus,
   failJob,
   isCancelRequested,
   leaseNextJob,
+  queueLatencySnapshot,
   recoverStaleJobs,
   releaseLease,
   skipJob,
@@ -35,6 +37,37 @@ export type WorkerOptions = {
 };
 
 const DEFAULT_IDLE_SLEEP_MS = 5_000;
+
+/**
+ * Snapshot the queue for the periodic idle log so an operator can
+ * see — straight from the worker logs — whether the queue is empty,
+ * backed up, or stuck. Cheap enough to run once every few idle
+ * cycles.
+ */
+async function gatherIdleStats(): Promise<{
+  pending: number;
+  running: number;
+  failed: number;
+  oldestPendingAgeMs: number | null;
+  nextRunnableAt: string | null;
+}> {
+  const [counts, latency, nextJob] = await Promise.all([
+    countQueueByStatus(),
+    queueLatencySnapshot(),
+    prisma.ingestionJobQueue.findFirst({
+      where: { status: { in: ["pending", "retrying"] } },
+      orderBy: { runAt: "asc" },
+      select: { runAt: true },
+    }),
+  ]);
+  return {
+    pending: counts.pending,
+    running: counts.running,
+    failed: counts.failed,
+    oldestPendingAgeMs: latency.oldestPendingAgeMs,
+    nextRunnableAt: nextJob?.runAt.toISOString() ?? null,
+  };
+}
 
 /**
  * Execute a single leased job. Returns the resolved status so the
@@ -182,16 +215,44 @@ export async function runWorkerLoop(
     maxJobs: options.maxJobs ?? null,
     hostname,
   });
-  await writeHeartbeat({
+  // The first heartbeat must succeed. If the worker cannot write its
+  // heartbeat it is effectively dead — the dashboard will never see
+  // it — so fail loudly and let the process exit non-zero so Railway
+  // restarts it, rather than spinning in a loop nobody can observe.
+  try {
+    await writeHeartbeat({
+      workerId,
+      startedAt,
+      processedCount: 0,
+      failedCount: 0,
+      retryCount: 0,
+      status: "idle",
+      hostname,
+      version: process.env.npm_package_version,
+      processType: "worker",
+    });
+
+    logger.info("ingestion.worker.heartbeat_written", {
+      workerId,
+      status: "idle",
+    });
+  } catch (error) {
+    logger.error("ingestion.worker.heartbeat_write_failed", {
+      workerId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    throw error;
+  }
+
+  logger.info("ingestion.worker.loop_alive", {
     workerId,
-    startedAt,
-    processedCount: 0,
-    failedCount: 0,
-    retryCount: 0,
-    status: "idle",
+    idleSleepMs: idleSleep,
+    oneShot: !!options.oneShot,
+    maxJobs: options.maxJobs ?? null,
     hostname,
-    version: process.env.npm_package_version,
-  }).catch(() => undefined);
+    processType: "worker",
+  });
 
   let consecutiveEmpty = 0;
   while (true) {
@@ -211,11 +272,13 @@ export async function runWorkerLoop(
       if (outcome.result === "retrying") retryCount += 1;
       logger.info("ingestion.worker.processed", {
         workerId,
-        jobName: outcome.job.jobName,
-        jobKind: outcome.job.jobKind,
         jobQueueId: outcome.job.id,
+        jobKind: outcome.job.jobKind,
+        jobName: outcome.job.jobName,
         result: outcome.result,
         attempts: outcome.job.attempts,
+        sourceId: outcome.job.sourceId,
+        contentType: outcome.job.contentType,
         priority: outcome.job.priority,
       });
       await writeHeartbeat({
@@ -227,13 +290,28 @@ export async function runWorkerLoop(
         currentJobId: null,
         status: "running",
         hostname,
-      }).catch(() => undefined);
+        processType: "worker",
+      }).catch((error) => {
+        logger.warn("ingestion.worker.heartbeat_write_failed", {
+          workerId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
       continue;
     }
     if (options.oneShot) break;
     consecutiveEmpty += 1;
     if (consecutiveEmpty >= 5) {
-      logger.info("ingestion.worker.idle", { workerId, idleSleepMs: idleSleep });
+      const stats = await gatherIdleStats().catch(() => null);
+      logger.info("ingestion.worker.idle", {
+        workerId,
+        idleSleepMs: idleSleep,
+        pendingJobs: stats?.pending ?? null,
+        runningJobs: stats?.running ?? null,
+        failedJobs: stats?.failed ?? null,
+        oldestPendingAgeMs: stats?.oldestPendingAgeMs ?? null,
+        nextRunnableAt: stats?.nextRunnableAt ?? null,
+      });
       consecutiveEmpty = 0;
     }
     await writeHeartbeat({
@@ -244,10 +322,20 @@ export async function runWorkerLoop(
       retryCount,
       status: "idle",
       hostname,
-    }).catch(() => undefined);
-    await new Promise((r) => {
-      const t = setTimeout(r, idleSleep);
-      if (typeof t.unref === "function") t.unref();
+      processType: "worker",
+    }).catch((error) => {
+      logger.warn("ingestion.worker.heartbeat_write_failed", {
+        workerId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+    // Idle sleep. This timer is intentionally NOT `unref()`-ed: the
+    // worker is a long-running process whose entire job is to keep
+    // polling. An `unref()`-ed timer lets Node exit the moment the
+    // event loop has nothing else pending — which is exactly how the
+    // worker was silently dying while waiting for the next job.
+    await new Promise((resolve) => {
+      setTimeout(resolve, idleSleep);
     });
   }
   await writeHeartbeat({
@@ -258,7 +346,13 @@ export async function runWorkerLoop(
     retryCount,
     status: "stopped",
     hostname,
-  }).catch(() => undefined);
+    processType: "worker",
+  }).catch((error) => {
+    logger.warn("ingestion.worker.heartbeat_write_failed", {
+      workerId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
   // Best-effort heartbeat removal so the dashboard doesn't show a
   // permanently-stale worker after a clean shutdown.
   await removeHeartbeat(workerId).catch(() => undefined);
