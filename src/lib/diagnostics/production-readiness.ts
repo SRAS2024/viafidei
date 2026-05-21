@@ -210,6 +210,11 @@ async function pipelineStatusCard(): Promise<ReadinessCard> {
     } else if (s.blocker) {
       severity = "fail";
       summary = `Current blocker: ${s.blocker} — ${s.blockerMessage}`;
+    } else if (s.strictPublicRows === 0) {
+      // No named upstream blocker, but the catalog is still empty —
+      // the pipeline is idle and producing nothing.
+      severity = "fail";
+      summary = "Current blocker: catalog is empty and the pipeline is idle.";
     }
     return {
       id: "pipeline_status",
