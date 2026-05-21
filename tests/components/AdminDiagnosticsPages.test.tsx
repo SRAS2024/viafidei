@@ -9,6 +9,13 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 
 vi.mock("@/lib/auth", () => ({ requireAdmin: vi.fn() }));
+// The Diagnostics hub reads next/headers + next/cookies to record the
+// admin-action log row for the page visit; stub them so the page can
+// render outside a request scope in this unit test.
+vi.mock("next/headers", () => ({
+  headers: () => new Headers(),
+  cookies: () => ({ get: () => undefined }),
+}));
 vi.mock("@/lib/i18n/server", () => ({
   getTranslator: async () => ({ t: (k: string) => k, locale: "en", dict: {} }),
 }));

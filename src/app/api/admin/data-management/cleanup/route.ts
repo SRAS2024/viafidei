@@ -1,11 +1,13 @@
 import { type NextRequest } from "next/server";
 import { writeAudit } from "@/lib/audit";
+import { ADMIN_ACTION, writeAdminActionLog } from "@/lib/audit/admin-action-log";
 import { jsonError, jsonOk } from "@/lib/http";
 import { getDataManagementSettings } from "@/lib/data/site-settings";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
 import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { logger } from "@/lib/observability";
 import { enqueueJob, PRIORITY_CONTENT_THRESHOLD_UNMET } from "@/lib/ingestion/queue";
+import { DEVICE_CREDENTIAL_COOKIE } from "@/middleware";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -99,6 +101,21 @@ export async function POST(req: NextRequest) {
     durationMs: Date.now() - started,
     enqueuedJobIds,
     errorMessage,
+  });
+
+  // Record the cleanup trigger as an important admin action for the
+  // Developer Audit report. Metadata carries only non-secret structured
+  // values — never the raw error message text.
+  await writeAdminActionLog({
+    adminUsername: admin.username,
+    actionType: ADMIN_ACTION.contentCleanup,
+    route: "/api/admin/data-management/cleanup",
+    method: "POST",
+    result: errorMessage ? "failure" : "success",
+    deviceCredential: req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value ?? null,
+    ipAddress: getClientIpOrNull(req),
+    userAgent: getUserAgent(req),
+    metadata: { enqueuedJobCount: enqueuedJobIds.length, enqueuedJobIds },
   });
 
   if (errorMessage) {
