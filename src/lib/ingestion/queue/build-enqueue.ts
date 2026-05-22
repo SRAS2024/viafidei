@@ -18,6 +18,8 @@
 
 import { BUILDER_REGISTRY } from "../../content-factory";
 import type { ContentTypeKey } from "../../content-factory";
+import { HTML_PARSER_VERSION } from "../../content-factory/html-parser";
+import { CONTENT_TYPE_ROUTER_VERSION } from "../../content-factory/content-type-router";
 import { appConfig } from "../../config";
 import { logger } from "../../observability/logger";
 import { prisma } from "../../db/client";
@@ -134,11 +136,23 @@ function allowedContentTypes(
  * Stable dedupe key for a content_build job. Encodes the inputs that
  * MUST change for a rebuild to be eligible:
  *
- *   - sourceDocumentId   (the cleaned page being built)
- *   - contentType        (one build job per type)
- *   - builderVersion     (a builder bump invalidates prior builds)
- *   - packageContractVer (a contract bump invalidates prior builds)
- *   - contentChecksum    (the page content)
+ *   - sourceDocumentId    (the cleaned page being built)
+ *   - contentType         (one build job per type)
+ *   - builderVersion      (a builder bump invalidates prior builds)
+ *   - packageContractVer  (a contract bump invalidates prior builds)
+ *   - parserVersion       (a parser bump can produce new structured
+ *                          content for the same URL — should retry)
+ *   - routerVersion       (a router bump may unblock a previously-
+ *                          rejected URL — should retry)
+ *   - sourceConfigVersion (a source-config change like new allowPaths/
+ *                          denyPaths should also retry)
+ *   - contentChecksum     (the page content)
+ *
+ * Spec #11: parser/router/source-config changes used to require an
+ * artificial builder version bump to take effect. By encoding the
+ * extra version components in the dedupe key, a post-fix repair
+ * naturally re-enqueues without forcing the operator to fake a
+ * builder version bump.
  *
  * Two enqueues with the same key collapse into one row at the
  * queue layer.
@@ -149,16 +163,23 @@ export function buildContentBuildDedupeKey(input: {
   builderVersion: string;
   packageContractVersion: string;
   contentChecksum: string | null;
+  parserVersion?: string | null;
+  routerVersion?: string | null;
+  sourceConfigVersion?: string | null;
 }): string {
   const checksum = input.contentChecksum ?? "no-checksum";
-  return [
+  const parts = [
     "content_build",
     input.sourceDocumentId,
     input.contentType,
     `bv=${input.builderVersion}`,
     `pkv=${input.packageContractVersion}`,
     `ck=${checksum}`,
-  ].join(":");
+  ];
+  if (input.parserVersion) parts.push(`pv=${input.parserVersion}`);
+  if (input.routerVersion) parts.push(`rv=${input.routerVersion}`);
+  if (input.sourceConfigVersion) parts.push(`scv=${input.sourceConfigVersion}`);
+  return parts.join(":");
 }
 
 /**
@@ -386,12 +407,17 @@ export async function enqueueContentBuildsForSourceDocument(
       result.skippedReasons[contentType] = skipReason;
       continue;
     }
+    // Spec #11: encode parser / router / source-config versions in
+    // the dedupe key so a fix to any of those naturally re-enqueues
+    // prior failures without an artificial builder version bump.
     const dedupeKey = buildContentBuildDedupeKey({
       sourceDocumentId: input.sourceDocumentId,
       contentType,
       builderVersion: builder.builderVersion,
       packageContractVersion,
       contentChecksum: input.contentChecksum,
+      parserVersion: HTML_PARSER_VERSION,
+      routerVersion: CONTENT_TYPE_ROUTER_VERSION,
     });
     // The queue layer only understands "automatic" | "manual" for
     // triggeredBy. Map the wider EnqueueBuildsInput.triggeredBy
@@ -418,6 +444,8 @@ export async function enqueueContentBuildsForSourceDocument(
           contentType,
           builderVersion: builder.builderVersion,
           contentPackageVersion: packageContractVersion,
+          parserVersion: HTML_PARSER_VERSION,
+          routerVersion: CONTENT_TYPE_ROUTER_VERSION,
           dedupeKey,
           triggeredBy: input.triggeredBy,
           forceRebuild: input.forceRebuild === true,

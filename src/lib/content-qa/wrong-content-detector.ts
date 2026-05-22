@@ -163,20 +163,43 @@ export function detectWrongContent(args: {
   const bodyStrong = strongSignalDensity(body);
   const weak = countWeakSignals(blob);
 
+  // Spec #6/#9: density-aware body rule. Title negatives stay fatal
+  // (a "Watch Live" or "Press Release" title is never devotional
+  // content). Body negatives only fatal when:
+  //   - high signal density (>= 0.02 = ~2 signals per 100 words), OR
+  //   - the body is short AND has any strong signal, OR
+  //   - >= 3 strong matches anywhere (clearly not isolated chrome).
+  // A long valid devotion with two isolated "event" mentions in a
+  // footer should NOT be a fatal hit — the per-type rules below
+  // check positive markers and only fire when those markers are
+  // absent.
+
   // 1. Title clearly is a livestream / event / bulletin: strong delete.
   if (titleHasStrong) {
     reasons.push("Title matches a livestream / event / bulletin / news / press-release pattern");
     triggeredSignals.push("title:strong");
   }
-  // 2. Body has multiple strong matches OR a single strong match in a
-  // very short body (which means the page is essentially nothing but
-  // that signal).
-  if (bodyStrong.count >= 2) {
+  // 2. Density-aware body rule. The signal density (signals/words)
+  // is the headline check — a page that is 2% strong-signal words
+  // is mostly chrome. A long valid devotion at <0.02 density passes
+  // this rule even with two isolated "upcoming events" mentions.
+  if (bodyStrong.density > 0.02 && bodyStrong.count >= 2) {
+    reasons.push(
+      `Body density of wrong-content signals is ${(bodyStrong.density * 100).toFixed(2)}% — page is mostly chrome`,
+    );
+    triggeredSignals.push("body:strong-density");
+  }
+  // 3. Three or more strong matches anywhere in a body is unlikely to
+  // be isolated chrome and almost always indicates the wrong page.
+  if (bodyStrong.count >= 3) {
     reasons.push(
       `Body contains ${bodyStrong.count} strong wrong-content signals (livestream / event / news)`,
     );
     triggeredSignals.push("body:strong-multi");
   }
+  // 4. Short bodies with any signal — a 200-character page with
+  // "livestream" in it is almost certainly the page being THE
+  // livestream, not mentioning one in passing.
   if (bodyStrong.count >= 1 && body.length < 240) {
     reasons.push(
       "Body is short AND contains a wrong-content signal (livestream / event / news / press)",

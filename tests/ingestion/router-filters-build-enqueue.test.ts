@@ -214,6 +214,35 @@ describe("build-enqueue role gate (spec #4/#15)", () => {
   });
 });
 
+describe("build-enqueue dedupe key encodes parser+router versions (spec #11)", () => {
+  it("includes parserVersion + routerVersion in the content_build dedupe key", async () => {
+    const enqueuedJobs: Array<{ dedupeKey?: string | null }> = [];
+    prismaMock.ingestionJobQueue.create.mockImplementation(
+      async ({ data }: { data: { dedupeKey?: string | null } }) => {
+        enqueuedJobs.push(data);
+        return { id: "q-1", ...data };
+      },
+    );
+
+    await enqueueContentBuildsForSourceDocument({
+      sourceDocumentId: "doc-versioned",
+      sourceUrl: "https://example.com/prayers/our-father",
+      sourceHost: "example.com",
+      contentChecksum: "ck",
+      source: FULLY_APPROVED_SOURCE,
+      requestedContentType: "Prayer",
+      triggeredBy: "automatic",
+    });
+
+    expect(enqueuedJobs).toHaveLength(1);
+    // The dedupe key must encode both pv= (parser) and rv= (router)
+    // so a parser/router fix produces a new key and re-enqueues the
+    // prior failure naturally (no artificial builder version bump).
+    expect(enqueuedJobs[0].dedupeKey).toMatch(/pv=/);
+    expect(enqueuedJobs[0].dedupeKey).toMatch(/rv=/);
+  });
+});
+
 describe("build-enqueue force rebuild (spec #11)", () => {
   it("skips a previously-failed build at the current builder version when not forced", async () => {
     prismaMock.contentPackageBuildLog.findFirst.mockResolvedValue({

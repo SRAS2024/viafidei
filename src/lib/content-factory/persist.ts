@@ -48,7 +48,10 @@ import { ensureProvenance } from "./provenance";
 import {
   getRequiredFields,
   getDeterministicFields,
+  getPublicRenderRequiredFields,
 } from "./content-type-contracts";
+import { HTML_PARSER_VERSION } from "./html-parser";
+import { CONTENT_TYPE_ROUTER_VERSION } from "./content-type-router";
 
 export type PersistResult =
   | {
@@ -182,8 +185,32 @@ export async function persistBuiltPackage(input: PersistBuiltPackageInput): Prom
     };
   }
 
+  // Spec #14: persist parser / router versions in packageMetadata so
+  // the strict-public gate (and the rebuild-on-version-bump path) can
+  // see which parser + router produced the row. The provenance object
+  // already carries source URL / source host per field; we tag the
+  // package-level metadata with version info here.
+  if (!input.pkg.packageMetadata) {
+    input.pkg.packageMetadata = {};
+  }
+  (input.pkg.packageMetadata as Record<string, unknown>).parserVersion = HTML_PARSER_VERSION;
+  (input.pkg.packageMetadata as Record<string, unknown>).routerVersion =
+    CONTENT_TYPE_ROUTER_VERSION;
+
   try {
-    return await persistByContentType(input);
+    const persistResult = await persistByContentType(input);
+    // Spec #14: after persistence, verify the strict-public gate
+    // again. If the row was written with publicRenderReady=true but
+    // structurally fails the gate, log a hard error. The row is left
+    // in the database for the next strict-cleanup pass to handle —
+    // we do not delete it here (that would lose the audit trail).
+    if (
+      (persistResult.outcome === "created" || persistResult.outcome === "updated") &&
+      persistResult.contentId
+    ) {
+      verifyStrictPublicGate(persistResult.contentId, input.pkg).catch(() => undefined);
+    }
+    return persistResult;
   } catch (e) {
     logger.error("content-factory.persist.failed", {
       slug: input.pkg.slug,
@@ -992,3 +1019,48 @@ async function persistParishCanonical(
   await log("ADD", created.slug, "factory persisted new parish");
   return { outcome: "created", contentId: created.id, contentType: "Parish", slug: created.slug };
 }
+
+/**
+ * Spec #14: post-persistence strict-public gate verification.
+ *
+ * After persisting a row, re-check that every field the public
+ * render requires is actually non-empty on the package. If the row
+ * was written with publicRenderReady=true but the strict gate would
+ * reject it (e.g. an enrichment step blanked a field), log a hard
+ * error so the next strict-cleanup pass can fix or delete it.
+ *
+ * Returns nothing — purely a diagnostic post-write check.
+ */
+async function verifyStrictPublicGate(
+  contentId: string,
+  pkg: ContentPackage,
+): Promise<void> {
+  const required = getPublicRenderRequiredFields(pkg.contentType);
+  const missing: string[] = [];
+  for (const fieldName of required) {
+    const value = (pkg.payload as Record<string, unknown>)[fieldName];
+    if (value === undefined || value === null) {
+      missing.push(fieldName);
+      continue;
+    }
+    if (typeof value === "string" && value.trim().length === 0) {
+      missing.push(fieldName);
+      continue;
+    }
+    if (Array.isArray(value) && value.length === 0) {
+      missing.push(fieldName);
+    }
+  }
+  if (missing.length > 0) {
+    logger.error("content-factory.persist.post_persist_gate_failed", {
+      contentId,
+      contentType: pkg.contentType,
+      slug: pkg.slug,
+      sourceUrl: pkg.sourceUrl,
+      missingPublicRenderFields: missing,
+      parserVersion: HTML_PARSER_VERSION,
+      routerVersion: CONTENT_TYPE_ROUTER_VERSION,
+    });
+  }
+}
+

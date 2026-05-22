@@ -27,6 +27,14 @@
 import type { ContentTypeKey } from "./types";
 import { BUILDER_VERSION_REGISTRY, type BuilderRegistryEntry } from "./builder-registry";
 
+/**
+ * Stable version string. Bump when the router's signal logic changes
+ * in a way that should re-evaluate previously-rejected source
+ * documents. Encoded in the build dedupe key so a router fix
+ * naturally re-enqueues prior failures.
+ */
+export const CONTENT_TYPE_ROUTER_VERSION = "1.1.0";
+
 export type RouterSignals = {
   sourceUrl: string;
   sourceHost: string;
