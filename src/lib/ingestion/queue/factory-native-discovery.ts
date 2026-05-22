@@ -44,9 +44,26 @@ export type FactoryDiscoveryResult = {
   discoveredCount: number;
   /** URLs we enqueued a source_fetch job for. */
   enqueuedCount: number;
+  /**
+   * URLs skipped because the URL itself is an obvious non-content page
+   * (livestream / event registration / donation / newsletter / press
+   * release). These can never become a content package, so discovery
+   * does not even fetch them.
+   */
+  skippedNonContentCount: number;
 };
 
 const DEFAULT_MAX_URLS = 200;
+
+/**
+ * Hard-negative URL path shapes — a URL that is itself a livestream /
+ * event-registration / donation / newsletter / press-release page.
+ * Discovery skips these so they are never fetched, recorded, or
+ * queued as a content build. Matched on path components only, so a
+ * legitimate `/prayers/...` or `/saints/...` URL is never affected.
+ */
+const NON_CONTENT_URL_RE =
+  /\/(?:livestreams?|live-streams?|watch-live|event-registration|register-now|donate|donations?|give-now|newsletters?|press-releases?)(?=[/?#-]|$)/i;
 
 /**
  * Returns true when `candidate` belongs to the same hostname as
@@ -104,6 +121,7 @@ export async function runFactoryNativeDiscovery(
     feedUrlCount: 0,
     discoveredCount: 0,
     enqueuedCount: 0,
+    skippedNonContentCount: 0,
   };
 
   let feedText: string;
@@ -145,7 +163,27 @@ export async function runFactoryNativeDiscovery(
   }
   result.feedUrlCount = canonical.length;
 
-  const urls = canonical.slice(0, limit);
+  // Skip URLs that are themselves obvious non-content pages — a
+  // livestream / event-registration / donation / newsletter / press
+  // page can never become a content package, so discovery does not
+  // fetch, record, or queue a build for them.
+  const contentUrls: string[] = [];
+  for (const url of canonical) {
+    if (NON_CONTENT_URL_RE.test(url)) {
+      result.skippedNonContentCount += 1;
+      continue;
+    }
+    contentUrls.push(url);
+  }
+  if (result.skippedNonContentCount > 0) {
+    logger.info("worker.factory_discovery.non_content_urls_skipped", {
+      sourceId: input.sourceId,
+      sourceHost: input.sourceHost,
+      skipped: result.skippedNonContentCount,
+    });
+  }
+
+  const urls = contentUrls.slice(0, limit);
   for (const url of urls) {
     try {
       const id = await recordDiscoveredItem({
@@ -193,6 +231,7 @@ export async function runFactoryNativeDiscovery(
     feedUrlCount: result.feedUrlCount,
     discoveredCount: result.discoveredCount,
     enqueuedCount: result.enqueuedCount,
+    skippedNonContentCount: result.skippedNonContentCount,
   });
   return result;
 }

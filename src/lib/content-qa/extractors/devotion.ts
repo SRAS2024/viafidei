@@ -64,9 +64,15 @@ export function extractDevotion(args: {
   if (devotionName) provenance.devotionName = "title input";
   else missingFields.push("devotionName");
 
-  const background = args.body.split(/\n\n/)[0]?.trim() || undefined;
+  // Background is the first substantial paragraph — this skips a
+  // short "Below is the devotion:" intro line that survives cleanup.
+  const paragraphs = args.body
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+  const background = paragraphs.find((p) => p.length >= 50) ?? paragraphs[0];
   if (background && background.length >= 50) {
-    provenance.background = "first paragraph";
+    provenance.background = "first substantial paragraph";
   } else {
     missingFields.push("background");
   }
@@ -74,11 +80,25 @@ export function extractDevotion(args: {
   const devotionType = classifyDevotionType(`${devotionName ?? ""}\n${args.body}`);
   provenance.devotionType = "regex classifier";
 
+  const steps = extractSteps(args.body);
+
+  // Practice instructions: a "Practice:" / "How to pray:" labeled
+  // section when present, otherwise the numbered practice steps
+  // themselves — a devotion page often lists the practice as an
+  // ordered list with no explicit label.
   const practiceMatch = args.body.match(PRACTICE_RE);
-  const practiceInstructions = practiceMatch ? practiceMatch[1].trim() : undefined;
+  let practiceInstructions = practiceMatch ? practiceMatch[1].trim() : undefined;
   if (practiceInstructions) {
     provenance.practiceInstructions = "practice regex";
-  } else {
+  } else if (steps.length >= 2) {
+    practiceInstructions =
+      steps
+        .map((s) => s.body)
+        .filter((b): b is string => Boolean(b))
+        .join("\n") || undefined;
+    if (practiceInstructions) provenance.practiceInstructions = "numbered-steps fallback";
+  }
+  if (!practiceInstructions) {
     missingFields.push("practiceInstructions");
   }
 
@@ -86,7 +106,6 @@ export function extractDevotion(args: {
   const duration = durationMatch ? parseInt(durationMatch[1], 10) : undefined;
   if (duration) provenance.duration = "duration regex";
 
-  const steps = extractSteps(args.body);
   if (steps.length > 0) provenance.steps = "numbered-list parser";
 
   return {

@@ -14,12 +14,14 @@
  * The router never runs a builder if the source is not approved for
  * the content type, regardless of URL/title signals.
  *
- * The router returns a confidence-ordered list of content types so
- * the dispatcher can either enqueue the top match (when the signal
- * is strong) or enqueue the full eligible set (when nothing
- * dominates). The current dispatcher uses the eligible set; this
- * helper exposes the ranking for future routing decisions and for
- * the admin "which builders ran for this URL?" diagnostic.
+ * The router returns a confidence-ordered list of content types AND a
+ * `selected` subset — the types that carry a STRONG positive signal
+ * (a URL-path match or a title/heading match). A source merely
+ * permitting a content type is not, by itself, a reason to build that
+ * type: the dispatcher enqueues `selected` when it is non-empty so a
+ * `/prayers/` page is not also queued as a Saint / Devotion / Novena
+ * build. `ranked` is still exposed for the admin "which builders
+ * could run for this URL?" diagnostic.
  */
 
 import type { ContentTypeKey } from "./types";
@@ -38,9 +40,24 @@ export type RouterSignals = {
 export type RouterDecision = {
   /** Allowed types in confidence order (highest first). */
   ranked: ReadonlyArray<{ contentType: ContentTypeKey; score: number; reasons: string[] }>;
+  /**
+   * The subset of `ranked` carrying a STRONG positive signal — a
+   * URL-path match or a title/heading match. The dispatcher enqueues
+   * only these types when the set is non-empty, so a source document
+   * is not built as every type the source happens to permit.
+   */
+  selected: ReadonlyArray<{ contentType: ContentTypeKey; score: number; reasons: string[] }>;
   /** Types the router refused to consider (with the reason). */
   rejected: ReadonlyArray<{ contentType: ContentTypeKey; reason: string }>;
 };
+
+/**
+ * Minimum score for a content type to count as "strongly signalled".
+ * A URL-pattern match or a title/heading match each contribute +2, so
+ * the threshold of 2 requires at least one of those — metadata alone
+ * (+1) is too weak to queue a builder on.
+ */
+const STRONG_SIGNAL_THRESHOLD = 2;
 
 const URL_PATTERN_HINTS: Partial<Record<ContentTypeKey, RegExp>> = {
   Prayer: /\/(prayer|prayers|orations?)\b/i,
@@ -95,8 +112,13 @@ const NEGATIVE_HINTS: ReadonlyArray<{ pattern: RegExp; label: string }> = [
   { pattern: /\bschedule\b/i, label: "schedule" },
   { pattern: /\bnews\s+article\b|\bnews\s+story\b/i, label: "news_article" },
   { pattern: /\bpress\s+release\b/i, label: "press_release" },
+  { pattern: /\bnewsletter\b/i, label: "newsletter" },
   { pattern: /\bpodcast\s+episode\b|\bepisode\s+\d+\b/i, label: "podcast_episode" },
   { pattern: /\bblog\s+post\b/i, label: "unrelated_blog_post" },
+  // URL-path shapes for article / blog feeds — a "/articles/" or
+  // "/blog/" path is a news / blog page, never a content package.
+  { pattern: /\/articles?(?:\/|$)/i, label: "article" },
+  { pattern: /\/blog(?:\/|$)/i, label: "unrelated_blog_post" },
 ];
 
 /**
@@ -179,5 +201,6 @@ export function routeContentTypes(signals: RouterSignals): RouterDecision {
     });
   }
   ranked.sort((a, b) => b.score - a.score);
-  return { ranked, rejected };
+  const selected = ranked.filter((r) => r.score >= STRONG_SIGNAL_THRESHOLD);
+  return { ranked, selected, rejected };
 }

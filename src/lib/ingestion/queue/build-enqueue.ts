@@ -228,10 +228,14 @@ export async function enqueueContentBuildsForSourceDocument(
     return result;
   }
   // Apply the content type router when signals are present. The
-  // router rejects content types with hard-negative signals (the
-  // page title looks like a livestream / event / bulletin /
-  // schedule) so no builder runs on a page that cannot possibly
-  // produce a valid Catholic content package.
+  // router rejects content types with hard-negative signals (the page
+  // looks like a livestream / event / bulletin / schedule / donation /
+  // newsletter / article / blog) AND narrows the rest to the types
+  // that carry a STRONG positive signal — so an article / event /
+  // livestream / newsletter / schedule / donation page is never
+  // queued as a Devotion / Novena / Consecration / Prayer / Saint
+  // build, and a source document is not built as every type the
+  // source merely permits.
   if (input.routerSignals && input.source) {
     const { routeContentTypes } = await import("../../content-factory/content-type-router");
     const purposes: Record<string, boolean> = {
@@ -269,6 +273,28 @@ export async function enqueueContentBuildsForSourceDocument(
       result.skippedReasons.no_eligible_types =
         "router rejected every allowed content type for this source document";
       return result;
+    }
+    // Narrow to the types carrying a strong positive signal. A source
+    // permitting a content type is not by itself a reason to build it.
+    // An explicit `requestedContentType` counts as a strong signal —
+    // the discoverer routed it deliberately. When NOTHING carries a
+    // strong signal the (non-rejected) allowed set is kept so a
+    // genuinely ambiguous page still gets a build attempt.
+    const selectedTypes = new Set(decision.selected.map((s) => s.contentType));
+    if (input.requestedContentType) selectedTypes.add(input.requestedContentType);
+    if (selectedTypes.size > 0) {
+      for (const t of allowed) {
+        if (!selectedTypes.has(t)) {
+          result.skippedReasons[t] =
+            "router_weak_signal: source permits this type but the page carries no strong positive signal for it";
+        }
+      }
+      allowed = allowed.filter((t) => selectedTypes.has(t));
+      if (allowed.length === 0) {
+        result.skippedReasons.no_eligible_types =
+          "no allowed content type carries a strong positive signal for this source document";
+        return result;
+      }
     }
   }
   const enqueued: ContentTypeKey[] = [];

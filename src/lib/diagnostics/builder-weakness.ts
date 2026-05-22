@@ -326,3 +326,149 @@ export async function getBuilderWeaknessBreakdowns(
     ),
   };
 }
+
+/**
+ * Build-log failure detail.
+ *
+ * Where `getBuilderWeaknessReport` only surfaces repeated weaknesses,
+ * this report exposes the raw build-failure detail the spec asks for:
+ * every recent failed build grouped along six axes — content type,
+ * source host, source URL, builder, failure reason, and missing
+ * fields — plus the most recent failing rows themselves. It answers
+ * "what specifically should we tune?" instead of just "how many
+ * builds failed".
+ */
+export type BuildLogDetailRow = {
+  contentType: string;
+  sourceHost: string;
+  sourceUrl: string;
+  builderName: string;
+  builderVersion: string;
+  buildStatus: string;
+  failureReason: string | null;
+  missingFields: string[];
+  createdAt: Date;
+};
+
+export type BuildLogDetailReport = {
+  generatedAt: Date;
+  windowMs: number;
+  totalFailures: number;
+  byContentType: WeaknessGroup[];
+  bySourceHost: WeaknessGroup[];
+  bySourceUrl: WeaknessGroup[];
+  byBuilder: WeaknessGroup[];
+  byFailureReason: WeaknessGroup[];
+  byMissingField: WeaknessGroup[];
+  /** Most recent failing build-log rows, newest first. */
+  rows: BuildLogDetailRow[];
+};
+
+const MAX_DETAIL_GROUPS = 50;
+const MAX_DETAIL_ROWS = 200;
+
+/**
+ * Normalise a free-text failure reason into a stable grouping key.
+ * "Missing required fields: prayerText" and "Missing required fields:
+ * biography" collapse to "Missing required fields" so the report
+ * surfaces the failure CLASS, not one row per field permutation.
+ */
+function normalizeFailureReason(reason: string | null | undefined, buildStatus: string): string {
+  if (!reason) return buildStatus;
+  const head = reason.split(/[:—]/)[0]?.trim();
+  return head && head.length > 0 ? head : buildStatus;
+}
+
+export async function getBuildLogDetail(
+  options: { windowMs?: number } = {},
+): Promise<BuildLogDetailReport> {
+  const windowMs = options.windowMs ?? DEFAULT_WINDOW_MS;
+  const cutoff = new Date(Date.now() - windowMs);
+  const generatedAt = new Date();
+
+  const failures = await prisma.contentPackageBuildLog
+    .findMany({
+      where: { buildStatus: { not: "built_complete_package" }, createdAt: { gt: cutoff } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        contentType: true,
+        builderName: true,
+        builderVersion: true,
+        sourceHost: true,
+        sourceUrl: true,
+        buildStatus: true,
+        failureReason: true,
+        missingFieldsJson: true,
+        createdAt: true,
+      },
+      take: 5000,
+    })
+    .catch((e) => {
+      logger.warn("builder-weakness.build_log_detail_failed", {
+        error: e instanceof Error ? e.message : String(e),
+      });
+      return [] as Array<{
+        contentType: string;
+        builderName: string;
+        builderVersion: string;
+        sourceHost: string;
+        sourceUrl: string;
+        buildStatus: string;
+        failureReason: string | null;
+        missingFieldsJson: unknown;
+        createdAt: Date;
+      }>;
+    });
+
+  const rows: BuildLogDetailRow[] = failures.map((f) => ({
+    contentType: f.contentType,
+    sourceHost: f.sourceHost,
+    sourceUrl: f.sourceUrl,
+    builderName: f.builderName,
+    builderVersion: f.builderVersion,
+    buildStatus: f.buildStatus,
+    failureReason: f.failureReason,
+    missingFields: Array.isArray(f.missingFieldsJson)
+      ? (f.missingFieldsJson as unknown[]).filter((v): v is string => typeof v === "string")
+      : [],
+    createdAt: f.createdAt,
+  }));
+
+  const missingFieldItems: Array<{ key: string; sourceUrl?: string | null }> = [];
+  for (const r of rows) {
+    for (const field of r.missingFields) {
+      missingFieldItems.push({ key: `${r.contentType}:${field}`, sourceUrl: r.sourceUrl });
+    }
+  }
+
+  return {
+    generatedAt,
+    windowMs,
+    totalFailures: rows.length,
+    byContentType: rollup(
+      rows.map((r) => ({ key: r.contentType, sourceUrl: r.sourceUrl })),
+      1,
+    ).slice(0, MAX_DETAIL_GROUPS),
+    bySourceHost: rollup(
+      rows.map((r) => ({ key: r.sourceHost, sourceUrl: r.sourceUrl })),
+      1,
+    ).slice(0, MAX_DETAIL_GROUPS),
+    bySourceUrl: rollup(
+      rows.map((r) => ({ key: r.sourceUrl, sourceUrl: r.sourceUrl })),
+      1,
+    ).slice(0, MAX_DETAIL_GROUPS),
+    byBuilder: rollup(
+      rows.map((r) => ({ key: `${r.builderName}@${r.builderVersion}`, sourceUrl: r.sourceUrl })),
+      1,
+    ).slice(0, MAX_DETAIL_GROUPS),
+    byFailureReason: rollup(
+      rows.map((r) => ({
+        key: normalizeFailureReason(r.failureReason, r.buildStatus),
+        sourceUrl: r.sourceUrl,
+      })),
+      1,
+    ).slice(0, MAX_DETAIL_GROUPS),
+    byMissingField: rollup(missingFieldItems, 1).slice(0, MAX_DETAIL_GROUPS),
+    rows: rows.slice(0, MAX_DETAIL_ROWS),
+  };
+}

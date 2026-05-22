@@ -1,18 +1,25 @@
 /**
  * ConsecrationBuilder.
  *
- * Builds complete consecration guides — not articles, not retreat
- * adverts, not event pages.
+ * Builds complete consecration guides. It isolates the consecration
+ * day structure from surrounding article / retreat-advert / event
+ * noise and extracts the daily prayers + final consecration prayer
+ * when they are present. A consecration is rejected only when its
+ * TITLE announces a retreat/event, or when the day structure is
+ * genuinely incomplete after a real extraction attempt.
  */
 
 import { extractConsecration } from "../../content-qa/extractors/consecration";
+import { contentTypeMarkers } from "../../content-qa/wrong-content-detector";
 import {
   attachFieldProvenance,
   attachSlugProvenance,
   bodyOf,
+  guardWrongContent,
+  isolateContentCandidate,
   makeFailure,
   makeSuccess,
-  runStandardGuards,
+  runEntryGuards,
   slugFromTitle,
   titleOf,
   type BuilderInternalContext,
@@ -22,13 +29,8 @@ import type { Builder, PackageProvenance } from "../types";
 const BUILDER_NAME = "ConsecrationBuilder";
 const BUILDER_VERSION = "1.0.0";
 
-/**
- * Spec #11: reject consecration articles, livestreams, retreats,
- * advertisements, and event pages that don't contain an actual
- * consecration structure.
- */
-const RETREAT_RE =
-  /\b(retreat\s+(?:registration|signup|details)|consecration\s+event|livestream|article\s+about\s+consecration|advertis(?:ement|ing)|register\s+for)\b/i;
+const RETREAT_TITLE_RE =
+  /\b(retreat\s+(?:registration|signup|details)|consecration\s+event|article\s+about\s+consecration|advertis(?:ement|ing))\b/i;
 
 export const ConsecrationBuilder: Builder = {
   contentType: "Consecration",
@@ -41,25 +43,38 @@ export const ConsecrationBuilder: Builder = {
       builderVersion: BUILDER_VERSION,
     };
     const title = titleOf(ctx.document);
-    const guard = runStandardGuards({
+    const guard = runEntryGuards({
       ctx: internal,
       contentType: "Consecration",
       purposeFlag: "canIngestConsecrations",
       candidateTitle: title,
+      titleReject: {
+        pattern: RETREAT_TITLE_RE,
+        reason: "Candidate looks like a retreat / event page, not a consecration guide",
+      },
     });
     if (guard) return guard;
 
-    const body = bodyOf(ctx.document);
-    if (RETREAT_RE.test(`${title}\n${body}`)) {
-      return makeFailure({
-        ctx: internal,
-        outcome: "wrong_content",
-        failureReason: "Candidate looks like a retreat / event page, not a consecration guide",
-        candidateTitle: title,
-      });
-    }
+    // Candidate extraction before rejection: isolate the consecration
+    // day structure from livestream / event / donation / nav noise.
+    const candidate = isolateContentCandidate({
+      body: bodyOf(ctx.document),
+      positiveMarker: contentTypeMarkers.devotionPractice,
+    });
 
-    const result = extractConsecration({ title, body, sourceUrl: ctx.document.sourceUrl });
+    const wrong = guardWrongContent({
+      ctx: internal,
+      contentType: "Consecration",
+      candidateTitle: title,
+      candidateBody: candidate.text,
+    });
+    if (wrong) return wrong;
+
+    const result = extractConsecration({
+      title,
+      body: candidate.text,
+      sourceUrl: ctx.document.sourceUrl,
+    });
     if (!result.complete) {
       const missing = result.missingDays.map((d) => `day_${d}`);
       return makeFailure({

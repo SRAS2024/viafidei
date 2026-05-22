@@ -1,8 +1,12 @@
 /**
  * PrayerBuilder.
  *
- * Builds actual prayer packages — not articles, not livestreams, not
- * event listings. Rejects pages that lack a recognizable prayer body.
+ * Builds a simple, valid prayer package — { title, payload:
+ * { prayerName, prayerText, prayerType, category } } — whenever the
+ * source page contains a real prayer. It isolates the actual prayer
+ * text from surrounding article / livestream / event / donation /
+ * navigation noise before judging the page, so a real prayer is no
+ * longer rejected just because the page carries chrome around it.
  */
 
 import { extractPrayer } from "../../content-qa/extractors/prayer";
@@ -11,9 +15,11 @@ import {
   attachFieldProvenance,
   attachSlugProvenance,
   bodyOf,
+  guardWrongContent,
+  isolateContentCandidate,
   makeFailure,
   makeSuccess,
-  runStandardGuards,
+  runEntryGuards,
   slugFromTitle,
   titleOf,
   type BuilderInternalContext,
@@ -37,7 +43,9 @@ export const PrayerBuilder: Builder = {
       builderVersion: BUILDER_VERSION,
     };
     const title = titleOf(ctx.document);
-    const guard = runStandardGuards({
+
+    // Entry guards — source approval, non-content title, empty body.
+    const guard = runEntryGuards({
       ctx: internal,
       contentType: "Prayer",
       purposeFlag: "canIngestPrayers",
@@ -45,8 +53,26 @@ export const PrayerBuilder: Builder = {
     });
     if (guard) return guard;
 
-    const body = bodyOf(ctx.document);
-    if (!PRAYER_LANGUAGE_RE.test(`${title}\n${body}`)) {
+    // Candidate extraction before rejection: isolate the prayer body
+    // from surrounding livestream / event / donation / nav noise.
+    const candidate = isolateContentCandidate({
+      body: bodyOf(ctx.document),
+      positiveMarker: PRAYER_LANGUAGE_RE,
+    });
+
+    // Wrong-content is judged against the isolated candidate, so page
+    // noise around a real prayer no longer rejects the page.
+    const wrong = guardWrongContent({
+      ctx: internal,
+      contentType: "Prayer",
+      candidateTitle: title,
+      candidateBody: candidate.text,
+    });
+    if (wrong) return wrong;
+
+    // The isolated candidate must read like an actual prayer — an
+    // article about prayer is wrong content, not a prayer.
+    if (!PRAYER_LANGUAGE_RE.test(`${title}\n${candidate.text}`)) {
       return makeFailure({
         ctx: internal,
         outcome: "wrong_content",
@@ -57,7 +83,7 @@ export const PrayerBuilder: Builder = {
 
     const result = extractPrayer({
       title,
-      body,
+      body: candidate.text,
       sourceUrl: ctx.document.sourceUrl,
       language: ctx.document.language ?? "en",
     });

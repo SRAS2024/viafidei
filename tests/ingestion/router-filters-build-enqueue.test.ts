@@ -88,8 +88,9 @@ describe("content type router filters build_enqueue", () => {
       },
     });
 
-    // Both Prayer + Saint should still enqueue because the title
-    // doesn't carry a negative signal.
+    // The page carries a strong positive signal for Prayer (the
+    // /prayers/ URL), so the router narrows the build to that type
+    // instead of also queueing every other type the source permits.
     expect(result.enqueuedCount).toBeGreaterThan(0);
   });
 });

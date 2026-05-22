@@ -55,25 +55,28 @@ describe("messy source fixtures — cleanup strips noise but keeps content", () 
     expect(result.outcome).toBe("built_complete_package");
   });
 
-  it("PrayerBuilder rejects a fixture so messy it has multiple donation/newsletter/livestream signals", () => {
-    // Multiple strong wrong-content signals → wrong_content outcome.
-    // This is the correct behavior: a prayer hidden under that much
-    // chrome is probably actually a parish landing page, not a prayer.
+  it("PrayerBuilder extracts the prayer even when it is buried under donation/newsletter/livestream chrome", () => {
+    // A real prayer surrounded by heavy chrome — donation, newsletter,
+    // livestream callouts. Source cleanup strips the chrome lines and
+    // the builder extracts the prayer that survives, instead of
+    // rejecting the whole page for the noise around it.
     const doc = syntheticSourceDocument({
       sourceUrl: "https://vatican.va/prayer/over-messy",
       sourceHost: "vatican.va",
-      sourceTitle: "Prayer page",
+      sourceTitle: "Hail Mary",
       rawBody: [
         "Donate now to support our parish",
         "Subscribe to our newsletter",
         "Register now for tonight's livestream",
         "Watch live on YouTube",
-        "Hail Mary, full of grace.",
+        "Hail Mary, full of grace, the Lord is with thee. " +
+          "Blessed art thou amongst women, and blessed is the fruit of thy womb, Jesus. " +
+          "Holy Mary, Mother of God, pray for us sinners, now and at the hour of our death. Amen.",
       ].join("\n"),
       sourcePurposes: { canIngestPrayers: true },
     });
     const result = PrayerBuilder.build({ document: doc });
-    expect(result.outcome).toBe("wrong_content");
+    expect(result.outcome).toBe("built_complete_package");
   });
 });
 

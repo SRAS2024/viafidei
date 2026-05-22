@@ -3,17 +3,22 @@
  *
  * Builds the full Rosary structure including the four mystery sets,
  * core prayers, and the optional Fatima prayer / Luminous mysteries
- * (controlled by app policy).
+ * (controlled by app policy). It isolates the Rosary structure from
+ * surrounding article / livestream / event noise, and rejects only a
+ * page whose TITLE is a Rosary article / livestream / event.
  */
 
 import { extractRosary } from "../../content-qa/extractors/rosary";
+import { contentTypeMarkers } from "../../content-qa/wrong-content-detector";
 import {
   attachFieldProvenance,
   attachSlugProvenance,
   bodyOf,
+  guardWrongContent,
+  isolateContentCandidate,
   makeFailure,
   makeSuccess,
-  runStandardGuards,
+  runEntryGuards,
   slugFromTitle,
   titleOf,
   type BuilderInternalContext,
@@ -24,10 +29,11 @@ const BUILDER_NAME = "RosaryBuilder";
 const BUILDER_VERSION = "1.0.0";
 
 /**
- * Spec #9: reject Rosary articles, livestreams, and event pages.
- * Only the actual Rosary structure (prayers + mystery sets) builds.
+ * A TITLE that announces a Rosary article / listicle / livestream /
+ * event — not the Rosary structure itself. The body is not matched
+ * here; the actual prayer order is extracted from the candidate.
  */
-const ROSARY_ARTICLE_RE =
+const ROSARY_ARTICLE_TITLE_RE =
   /\b(?:why\s+(?:we\s+)?pray\s+the\s+rosary|history\s+of\s+the\s+rosary|five\s+(?:facts|things)\s+about|rosary\s+livestream|rosary\s+event|live\s+rosary)\b/i;
 
 export const RosaryBuilder: Builder = {
@@ -41,25 +47,34 @@ export const RosaryBuilder: Builder = {
       builderVersion: BUILDER_VERSION,
     };
     const title = titleOf(ctx.document);
-    const guard = runStandardGuards({
+    const guard = runEntryGuards({
       ctx: internal,
       contentType: "Rosary",
       purposeFlag: "canIngestRosaryGuides",
       candidateTitle: title,
+      titleReject: {
+        pattern: ROSARY_ARTICLE_TITLE_RE,
+        reason: "Candidate looks like a Rosary article, not the Rosary structure",
+      },
     });
     if (guard) return guard;
 
-    const body = bodyOf(ctx.document);
-    if (ROSARY_ARTICLE_RE.test(`${title}\n${body}`)) {
-      return makeFailure({
-        ctx: internal,
-        outcome: "wrong_content",
-        failureReason: "Candidate looks like a Rosary article, not the Rosary structure",
-        candidateTitle: title,
-      });
-    }
+    // Candidate extraction before rejection: isolate the Rosary
+    // structure from livestream / event / donation / nav noise.
+    const candidate = isolateContentCandidate({
+      body: bodyOf(ctx.document),
+      positiveMarker: contentTypeMarkers.devotionPractice,
+    });
 
-    const result = extractRosary({ title, body, sourceUrl: ctx.document.sourceUrl });
+    const wrong = guardWrongContent({
+      ctx: internal,
+      contentType: "Rosary",
+      candidateTitle: title,
+      candidateBody: candidate.text,
+    });
+    if (wrong) return wrong;
+
+    const result = extractRosary({ title, body: candidate.text, sourceUrl: ctx.document.sourceUrl });
     const missingFields = [
       ...result.missingPrayers.map((p) => `prayer:${p}`),
       ...result.missingMysterySets.map((m) => `mysteries:${m}`),
