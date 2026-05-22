@@ -166,8 +166,9 @@ export default async function AdminDiagnostics() {
       titleKey="admin.card.diagnostics"
       subtitle="One hub for every diagnostic the Via Fidei admin can run. Each area opens its own dedicated page with results, last-run timestamps, request ids, and useful failure detail when something breaks."
     >
+      {/* relative z-30: each .vf-card is its own stacking context (backdrop-filter), so the dropdown's z-index can't escape — lift the whole panel above the cards below. */}
       <div
-        className="mb-6 flex flex-wrap items-start justify-between gap-3 vf-card rounded-sm p-4 sm:p-5"
+        className="relative z-30 mb-6 flex flex-wrap items-start justify-between gap-3 vf-card rounded-sm p-4 sm:p-5"
         data-testid="developer-report-panel"
       >
         <div className="max-w-reading">
