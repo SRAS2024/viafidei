@@ -1,18 +1,25 @@
 /**
  * SaintBuilder.
  *
- * Builds actual saint profiles — not parishes / schools / hospitals
- * named after saints, not staff pages, not livestreams.
+ * Builds a valid saint-profile package — { title, payload:
+ * { saintName, feastDay, patronages, biography, saintType,
+ * officialPrayer } }. It isolates the biographical prose from
+ * surrounding page noise before judging the page, and only rejects
+ * candidates that are clearly NOT saint profiles: institutions,
+ * staff pages, parishes, schools, hospitals, or livestreams.
  */
 
 import { extractSaint } from "../../content-qa/extractors/saint";
+import { contentTypeMarkers } from "../../content-qa/wrong-content-detector";
 import {
   attachFieldProvenance,
   attachSlugProvenance,
   bodyOf,
+  guardWrongContent,
+  isolateContentCandidate,
   makeFailure,
   makeSuccess,
-  runStandardGuards,
+  runEntryGuards,
   slugFromTitle,
   titleOf,
   type BuilderInternalContext,
@@ -35,26 +42,40 @@ export const SaintBuilder: Builder = {
       builderVersion: BUILDER_VERSION,
     };
     const title = titleOf(ctx.document);
-    const guard = runStandardGuards({
+
+    // Entry guards — source approval, empty body, and a title that
+    // names an institution ("St. X Parish / School / Hospital") is the
+    // institution, not the saint.
+    const guard = runEntryGuards({
       ctx: internal,
       contentType: "Saint",
       purposeFlag: "canIngestSaints",
       candidateTitle: title,
+      titleReject: {
+        pattern: INSTITUTION_RE,
+        reason: "Candidate looks like an institution named after a saint, not a saint profile",
+      },
     });
     if (guard) return guard;
 
-    const body = bodyOf(ctx.document);
-    if (INSTITUTION_RE.test(title)) {
-      return makeFailure({
-        ctx: internal,
-        outcome: "wrong_content",
-        failureReason:
-          "Candidate looks like an institution named after a saint, not a saint profile",
-        candidateTitle: title,
-      });
-    }
+    // Candidate extraction before rejection: isolate the biographical
+    // prose from livestream / event / donation / navigation noise.
+    const candidate = isolateContentCandidate({
+      body: bodyOf(ctx.document),
+      positiveMarker: contentTypeMarkers.saint,
+    });
 
-    const result = extractSaint({ title, body, sourceUrl: ctx.document.sourceUrl });
+    // Wrong-content is judged against the isolated biography, so a
+    // shrine-event mention inside a real profile no longer rejects it.
+    const wrong = guardWrongContent({
+      ctx: internal,
+      contentType: "Saint",
+      candidateTitle: title,
+      candidateBody: candidate.text,
+    });
+    if (wrong) return wrong;
+
+    const result = extractSaint({ title, body: candidate.text, sourceUrl: ctx.document.sourceUrl });
     if (!result.complete) {
       return makeFailure({
         ctx: internal,

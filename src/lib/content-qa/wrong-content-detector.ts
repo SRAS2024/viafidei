@@ -119,6 +119,19 @@ function countWeakSignals(text: string): number {
 }
 
 /**
+ * True when `text` contains at least one STRONG wrong-content signal
+ * (livestream / event / bulletin / news / donation / staff). Builders
+ * use this for "candidate extraction before rejection": a body
+ * paragraph that carries a strong signal AND no positive content
+ * marker is page noise and can be dropped before the real content is
+ * judged — see `isolateContentCandidate` in the builder shared layer.
+ */
+export function hasStrongWrongContentSignal(text: string | null | undefined): boolean {
+  if (!text) return false;
+  return STRONG_WRONG_SIGNALS.some((re) => re.test(text));
+}
+
+/**
  * What the detector returns. `delete: true` means hard-delete the row
  * (or refuse to persist a fresh ingest); `delete: false` means the
  * content passed the wrong-content gate (other contracts still run).

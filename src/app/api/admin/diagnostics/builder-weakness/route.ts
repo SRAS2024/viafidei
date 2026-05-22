@@ -4,6 +4,7 @@ import { jsonError, jsonOk } from "@/lib/http";
 import {
   getBuilderWeaknessReport,
   getBuilderWeaknessBreakdowns,
+  getBuildLogDetail,
 } from "@/lib/diagnostics/builder-weakness";
 import { REQUEST_ID_HEADER } from "@/lib/observability";
 
@@ -13,9 +14,15 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const admin = await requireAdmin();
   if (!admin) return jsonError("unauthorized");
-  const [entries, breakdowns] = await Promise.all([
+  const [entries, breakdowns, detail] = await Promise.all([
     getBuilderWeaknessReport(),
     getBuilderWeaknessBreakdowns().catch(() => null),
+    getBuildLogDetail().catch(() => null),
   ]);
-  return jsonOk({ entries, breakdowns, requestId: req.headers.get(REQUEST_ID_HEADER) ?? null });
+  return jsonOk({
+    entries,
+    breakdowns,
+    detail,
+    requestId: req.headers.get(REQUEST_ID_HEADER) ?? null,
+  });
 }

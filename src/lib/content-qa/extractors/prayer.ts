@@ -74,12 +74,41 @@ const NAV_GARBAGE_RE = [
   /\b(?:home|menu|search|sign\s+in)\b/i,
 ];
 
+const PRAYER_LANGUAGE_RE =
+  /\b(amen|o\s+lord|o\s+god|o\s+jesus|hail\s+mary|glory\s+be|lord\s+have\s+mercy|we\s+beseech|grant\s+(?:us|me|that)|pray\s+for\s+us|in\s+the\s+name\s+of\s+the\s+father|i\s+(?:believe|confess|adore|love|offer|thank)|hallowed|forgive\s+us|deliver\s+us|come\s+holy\s+spirit|let\s+us\s+pray)\b/i;
+
 function stripNav(body: string): string {
   let out = body;
   for (const re of NAV_GARBAGE_RE) {
     out = out.replace(new RegExp(re.source, "gi"), "");
   }
   return out.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * Isolate the actual prayer from intro / footer noise. When the body
+ * has lines carrying prayer language, the prayer text is the span
+ * from the first to the last such line — this drops leading
+ * "Below is the prayer:" intros and trailing "© 2024" / "Visit …"
+ * footers without discarding lines inside the prayer itself. When no
+ * line carries prayer language the body is returned unchanged so the
+ * caller still reports it as not-a-prayer.
+ */
+function trimToPrayerSpan(body: string): string {
+  const lines = body.split(/\n/);
+  let first = -1;
+  let last = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (PRAYER_LANGUAGE_RE.test(lines[i])) {
+      if (first < 0) first = i;
+      last = i;
+    }
+  }
+  if (first < 0) return body.trim();
+  return lines
+    .slice(first, last + 1)
+    .join("\n")
+    .trim();
 }
 
 function sourceHostFromUrl(url?: string): string | undefined {
@@ -105,7 +134,7 @@ export function extractPrayer(args: {
   if (prayerName) provenance.prayerName = "title input";
   else missingFields.push("prayerName");
 
-  const prayerText = stripNav(args.body ?? "");
+  const prayerText = trimToPrayerSpan(stripNav(args.body ?? ""));
   if (prayerText && prayerText.length >= 20) {
     provenance.prayerText = "body stripped of nav";
   } else {

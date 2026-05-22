@@ -1,18 +1,24 @@
 /**
  * NovenaBuilder.
  *
- * Builds complete Novenas. A Novena must not be built from a generic
- * devotional summary or an event announcement.
+ * Builds complete Novenas. It isolates the novena day structure from
+ * surrounding article / livestream / event noise and extracts the
+ * nine days when they are present. A Novena is rejected only when its
+ * TITLE announces an event/advert, or when the day structure is
+ * genuinely incomplete after a real extraction attempt.
  */
 
 import { extractNovena } from "../../content-qa/extractors/novena";
+import { contentTypeMarkers } from "../../content-qa/wrong-content-detector";
 import {
   attachFieldProvenance,
   attachSlugProvenance,
   bodyOf,
+  guardWrongContent,
+  isolateContentCandidate,
   makeFailure,
   makeSuccess,
-  runStandardGuards,
+  runEntryGuards,
   slugFromTitle,
   titleOf,
   type BuilderInternalContext,
@@ -22,7 +28,7 @@ import type { Builder, PackageProvenance } from "../types";
 const BUILDER_NAME = "NovenaBuilder";
 const BUILDER_VERSION = "1.0.0";
 
-const ADVERT_RE =
+const ADVERT_TITLE_RE =
   /\b(join\s+us\s+for\s+(?:our\s+)?novena|attend\s+(?:the|our)\s+novena|novena\s+(?:begins|starts)\s+on)\b/i;
 
 export const NovenaBuilder: Builder = {
@@ -36,25 +42,34 @@ export const NovenaBuilder: Builder = {
       builderVersion: BUILDER_VERSION,
     };
     const title = titleOf(ctx.document);
-    const guard = runStandardGuards({
+    const guard = runEntryGuards({
       ctx: internal,
       contentType: "Novena",
       purposeFlag: "canIngestNovenas",
       candidateTitle: title,
+      titleReject: {
+        pattern: ADVERT_TITLE_RE,
+        reason: "Candidate advertises a novena event, not the actual novena content",
+      },
     });
     if (guard) return guard;
 
-    const body = bodyOf(ctx.document);
-    if (ADVERT_RE.test(`${title}\n${body}`)) {
-      return makeFailure({
-        ctx: internal,
-        outcome: "wrong_content",
-        failureReason: "Candidate advertises a novena event, not the actual novena content",
-        candidateTitle: title,
-      });
-    }
+    // Candidate extraction before rejection: isolate the novena day
+    // structure from livestream / event / donation / nav noise.
+    const candidate = isolateContentCandidate({
+      body: bodyOf(ctx.document),
+      positiveMarker: contentTypeMarkers.devotionPractice,
+    });
 
-    const result = extractNovena({ title, body, sourceUrl: ctx.document.sourceUrl });
+    const wrong = guardWrongContent({
+      ctx: internal,
+      contentType: "Novena",
+      candidateTitle: title,
+      candidateBody: candidate.text,
+    });
+    if (wrong) return wrong;
+
+    const result = extractNovena({ title, body: candidate.text, sourceUrl: ctx.document.sourceUrl });
     if (!result.complete || result.missingDays.length > 0) {
       return makeFailure({
         ctx: internal,

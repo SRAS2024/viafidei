@@ -17,6 +17,7 @@ vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 import {
   getBuilderWeaknessReport,
   getBuilderWeaknessBreakdowns,
+  getBuildLogDetail,
 } from "@/lib/diagnostics/builder-weakness";
 
 beforeEach(() => {
@@ -123,5 +124,66 @@ describe("getBuilderWeaknessBreakdowns", () => {
       key: "PrayerPackage@2.0.0",
       failureCount: 3,
     });
+  });
+});
+
+describe("getBuildLogDetail", () => {
+  it("groups build failures by content type, source host, source URL, builder, failure reason and missing field", async () => {
+    prismaMock.contentPackageBuildLog.findMany.mockResolvedValue([
+      {
+        contentType: "Prayer",
+        builderName: "PrayerBuilder",
+        builderVersion: "1.0.0",
+        sourceHost: "weak.example",
+        sourceUrl: "https://weak.example/p1",
+        buildStatus: "build_failed_missing_required_fields",
+        failureReason: "Missing required fields: prayerText",
+        missingFieldsJson: ["prayerText"] as never,
+        createdAt: new Date("2026-05-20"),
+      },
+      {
+        contentType: "Prayer",
+        builderName: "PrayerBuilder",
+        builderVersion: "1.0.0",
+        sourceHost: "weak.example",
+        sourceUrl: "https://weak.example/p2",
+        buildStatus: "build_failed_missing_required_fields",
+        failureReason: "Missing required fields: category",
+        missingFieldsJson: ["category"] as never,
+        createdAt: new Date("2026-05-21"),
+      },
+      {
+        contentType: "Saint",
+        builderName: "SaintBuilder",
+        builderVersion: "1.0.0",
+        sourceHost: "other.example",
+        sourceUrl: "https://other.example/s1",
+        buildStatus: "wrong_content",
+        failureReason: "Page title is a livestream / event / bulletin / news page, not Saint content",
+        missingFieldsJson: [] as never,
+        createdAt: new Date("2026-05-22"),
+      },
+    ]);
+
+    const detail = await getBuildLogDetail();
+
+    expect(detail.totalFailures).toBe(3);
+    expect(detail.byContentType).toContainEqual(
+      expect.objectContaining({ key: "Prayer", failureCount: 2 }),
+    );
+    expect(detail.bySourceHost).toContainEqual(
+      expect.objectContaining({ key: "weak.example", failureCount: 2 }),
+    );
+    expect(detail.bySourceUrl.map((g) => g.key)).toContain("https://weak.example/p1");
+    expect(detail.byBuilder).toContainEqual(
+      expect.objectContaining({ key: "PrayerBuilder@1.0.0", failureCount: 2 }),
+    );
+    // The two "Missing required fields: …" reasons collapse to one
+    // grouped failure-reason class.
+    expect(detail.byFailureReason).toContainEqual(
+      expect.objectContaining({ key: "Missing required fields", failureCount: 2 }),
+    );
+    expect(detail.byMissingField.map((g) => g.key)).toContain("Prayer:prayerText");
+    expect(detail.rows).toHaveLength(3);
   });
 });
