@@ -69,7 +69,11 @@ export const NovenaBuilder: Builder = {
     });
     if (wrong) return wrong;
 
-    const result = extractNovena({ title, body: candidate.text, sourceUrl: ctx.document.sourceUrl });
+    const result = extractNovena({
+      title,
+      body: candidate.text,
+      sourceUrl: ctx.document.sourceUrl,
+    });
     if (!result.complete || result.missingDays.length > 0) {
       return makeFailure({
         ctx: internal,

@@ -74,7 +74,11 @@ export const RosaryBuilder: Builder = {
     });
     if (wrong) return wrong;
 
-    const result = extractRosary({ title, body: candidate.text, sourceUrl: ctx.document.sourceUrl });
+    const result = extractRosary({
+      title,
+      body: candidate.text,
+      sourceUrl: ctx.document.sourceUrl,
+    });
     const missingFields = [
       ...result.missingPrayers.map((p) => `prayer:${p}`),
       ...result.missingMysterySets.map((m) => `mysteries:${m}`),

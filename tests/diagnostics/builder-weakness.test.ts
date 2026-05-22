@@ -159,7 +159,8 @@ describe("getBuildLogDetail", () => {
         sourceHost: "other.example",
         sourceUrl: "https://other.example/s1",
         buildStatus: "wrong_content",
-        failureReason: "Page title is a livestream / event / bulletin / news page, not Saint content",
+        failureReason:
+          "Page title is a livestream / event / bulletin / news page, not Saint content",
         missingFieldsJson: [] as never,
         createdAt: new Date("2026-05-22"),
       },
