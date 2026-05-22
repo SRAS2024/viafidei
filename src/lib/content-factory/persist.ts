@@ -45,6 +45,10 @@ import type { ContentPackage } from "./types";
 import { normalizePackage } from "./normalize";
 import { enrichPackage } from "./enrich";
 import { ensureProvenance } from "./provenance";
+import {
+  getRequiredFields,
+  getDeterministicFields,
+} from "./content-type-contracts";
 
 export type PersistResult =
   | {
@@ -114,8 +118,14 @@ export async function persistBuiltPackage(input: PersistBuiltPackageInput): Prom
 
   // Final provenance gate — required fields without a provenance entry
   // (and not flagged as deterministic) fail this check.
-  const required = REQUIRED_FIELDS_BY_TYPE[input.pkg.contentType] ?? [];
-  const deterministic = DETERMINISTIC_FIELDS_BY_TYPE[input.pkg.contentType] ?? [];
+  //
+  // Spec #13: read from the centralized content-type contracts so the
+  // builder, persistence, and strict QA all use the same field list.
+  // Legacy REQUIRED_FIELDS_BY_TYPE / DETERMINISTIC_FIELDS_BY_TYPE
+  // entries below are retained as compatibility shims for any test
+  // that imports them directly; they delegate to the contract.
+  const required = getRequiredFields(input.pkg.contentType);
+  const deterministic = getDeterministicFields(input.pkg.contentType);
   const provGate = ensureProvenance({
     payload: input.pkg.payload,
     provenance: input.pkg.provenance,
@@ -150,27 +160,38 @@ export async function persistBuiltPackage(input: PersistBuiltPackageInput): Prom
   }
 }
 
+/**
+ * @deprecated Read from `content-type-contracts.getRequiredFields()`.
+ * Retained for compatibility with any existing imports — values are
+ * sourced from the centralized contract map and may differ from the
+ * legacy hard-coded list (which under-specified some types).
+ */
 const REQUIRED_FIELDS_BY_TYPE: Record<string, ReadonlyArray<string>> = {
-  Prayer: ["prayerType", "prayerName", "prayerText", "category"],
-  Saint: ["saintName", "biography"],
-  MarianApparition: ["apparitionName", "location", "summary"],
-  Devotion: ["devotionName"],
-  Novena: ["novenaName", "background", "purpose"],
-  Sacrament: ["sacramentKey", "sacramentName"],
-  Rosary: ["background", "mysterySets"],
-  Consecration: ["consecrationName", "background"],
-  SpiritualGuidance: ["guideName", "background"],
-  Liturgy: ["liturgyKind", "title"],
-  History: ["historyType", "title"],
-  Parish: ["parishName", "city", "country"],
+  Prayer: getRequiredFields("Prayer"),
+  Saint: getRequiredFields("Saint"),
+  MarianApparition: getRequiredFields("MarianApparition"),
+  Devotion: getRequiredFields("Devotion"),
+  Novena: getRequiredFields("Novena"),
+  Sacrament: getRequiredFields("Sacrament"),
+  Rosary: getRequiredFields("Rosary"),
+  Consecration: getRequiredFields("Consecration"),
+  SpiritualGuidance: getRequiredFields("SpiritualGuidance"),
+  Liturgy: getRequiredFields("Liturgy"),
+  History: getRequiredFields("History"),
+  Parish: getRequiredFields("Parish"),
 };
 
+/** @deprecated Read from `content-type-contracts.getDeterministicFields()`. */
 const DETERMINISTIC_FIELDS_BY_TYPE: Record<string, ReadonlyArray<string>> = {
-  Sacrament: ["sacramentKey", "sacramentGroup"],
-  Saint: ["slug"],
-  Prayer: ["slug"],
-  Devotion: ["slug"],
+  Sacrament: getDeterministicFields("Sacrament"),
+  Saint: getDeterministicFields("Saint"),
+  Prayer: getDeterministicFields("Prayer"),
+  Devotion: getDeterministicFields("Devotion"),
 };
+
+// Silence unused-warning while the legacy maps remain.
+void REQUIRED_FIELDS_BY_TYPE;
+void DETERMINISTIC_FIELDS_BY_TYPE;
 
 async function persistByContentType(input: PersistBuiltPackageInput): Promise<PersistResult> {
   const { pkg, validation, workerJobId, triggeredBy, actorUsername } = input;
@@ -279,8 +300,13 @@ async function persistPrayerCanonical(
     },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -360,8 +386,13 @@ async function persistSaintCanonical(
     where: { OR: [{ slug: pkg.slug }, { externalSourceKey }] },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -437,8 +468,13 @@ async function persistApparitionCanonical(
     where: { OR: [{ slug: pkg.slug }, { externalSourceKey }] },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -530,8 +566,13 @@ async function persistDevotionCanonical(
     where: { OR: [{ slug: pkg.slug }, { externalSourceKey }] },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -615,9 +656,35 @@ async function persistGuideCanonical(
   const background = typeof p.background === "string" ? p.background : null;
   const durationDays = typeof p.durationDays === "number" ? p.durationDays : null;
   const subtype = pkg.contentType.toLowerCase();
+  // Spec #14: a Sacrament package must persist with a kind that
+  // reflects the actual sacrament — not always CONFESSION. The
+  // SpiritualLifeKind enum is narrow (ROSARY / CONFESSION / ADORATION /
+  // DEVOTION / CONSECRATION / VOCATION / GENERAL) so only
+  // Reconciliation maps directly to CONFESSION; every other sacrament
+  // is stored as GENERAL with the actual sacrament identity preserved
+  // on the sacramentKey + sacramentGroup columns. This stops the
+  // factory from mislabelling a Baptism / Eucharist / Confirmation
+  // guide as a Confession guide on the public surface.
+  function sacramentKindFromKey(key: string | null): string {
+    if (!key) return "GENERAL";
+    const normalized = key.trim().toLowerCase().replace(/[\s_-]+/g, "");
+    if (
+      normalized === "reconciliation" ||
+      normalized === "confession" ||
+      normalized === "penance"
+    ) {
+      return "CONFESSION";
+    }
+    // Every other sacrament (Baptism, Eucharist, Confirmation, Holy
+    // Orders, Matrimony, Anointing of the Sick) is stored as GENERAL
+    // because the SpiritualLifeKind enum has no direct slot for them.
+    // The sacramentKey + sacramentGroup columns carry the actual
+    // sacrament identity for renderers and the strict-public gate.
+    return "GENERAL";
+  }
   const kind =
     pkg.contentType === "Sacrament"
-      ? "CONFESSION"
+      ? sacramentKindFromKey(sacramentKey)
       : pkg.contentType === "Rosary"
         ? "ROSARY"
         : pkg.contentType === "Consecration"
@@ -628,8 +695,13 @@ async function persistGuideCanonical(
     where: { OR: [{ slug: pkg.slug }, { externalSourceKey }] },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -722,8 +794,13 @@ async function persistLiturgyCanonical(
     where: { OR: [{ slug: pkg.slug }, { externalSourceKey }] },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -812,8 +889,13 @@ async function persistParishCanonical(
     },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",

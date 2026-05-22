@@ -1,7 +1,10 @@
 /**
- * System health dashboard: 14 spec-required cards, each with a
- * `dataSource` badge, `lastUpdatedAt` timestamp, and explicit
- * error state when the underlying query fails (never a false zero).
+ * System health dashboard: one card per spec-required diagnostic
+ * category. Each card carries a `dataSource` badge, `lastUpdatedAt`
+ * timestamp, and explicit error state when the underlying query
+ * fails (never a false zero). The exact card set is sourced from
+ * `SYSTEM_HEALTH_CARD_IDS` so adding a card (e.g. the new
+ * fetch_to_build_chain card) doesn't require a test update.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -20,6 +23,8 @@ beforeEach(() => {
   // Default-happy responses for every dependency so individual tests
   // can override one collector at a time.
   prismaMock.ingestionJobQueue.groupBy.mockResolvedValue([]);
+  prismaMock.ingestionJobQueue.count.mockResolvedValue(0);
+  prismaMock.ingestionJobQueue.findFirst.mockResolvedValue(null);
   prismaMock.workerHeartbeat.findFirst.mockResolvedValue(null);
   prismaMock.discoveredSourceItem.count.mockResolvedValue(0);
   prismaMock.discoveredSourceItem.findFirst.mockResolvedValue(null);
@@ -28,6 +33,7 @@ beforeEach(() => {
   prismaMock.contentPackageBuildLog.groupBy.mockResolvedValue([]);
   prismaMock.contentPackageBuildLog.count.mockResolvedValue(0);
   prismaMock.rejectedContentLog.count.mockResolvedValue(0);
+  prismaMock.queueAuditLog.findMany.mockResolvedValue([]);
   for (const m of [
     prismaMock.prayer,
     prismaMock.saint,
@@ -44,10 +50,10 @@ beforeEach(() => {
   prismaMock.$queryRaw.mockResolvedValue([{ ok: 1 }]);
 });
 
-describe("system health dashboard — 14 cards", () => {
-  it("returns exactly the 14 spec-required cards", async () => {
+describe("system health dashboard", () => {
+  it("returns exactly the spec-required card set", async () => {
     const report = await loadSystemHealth();
-    expect(report.cards).toHaveLength(14);
+    expect(report.cards).toHaveLength(SYSTEM_HEALTH_CARD_IDS.length);
     const ids = report.cards.map((c) => c.id).sort();
     const expected = [...SYSTEM_HEALTH_CARD_IDS].sort();
     expect(ids).toEqual(expected);

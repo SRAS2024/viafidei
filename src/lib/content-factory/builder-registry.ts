@@ -14,6 +14,7 @@
 import type { ContentTypeKey } from "./types";
 import { BUILDER_REGISTRY } from "./builders";
 import type { SourcePurpose } from "../content-qa/source-purpose";
+import { getRequiredFields, getContentTypeContract } from "./content-type-contracts";
 
 export type BuilderRegistryEntry = {
   /** Stable builder identity — matches `Builder.builderName`. */
@@ -43,136 +44,61 @@ export type BuilderRegistryEntry = {
   requiredOutputFields: ReadonlyArray<string>;
 };
 
+// Builder-side required SourceDocument sections. These describe what
+// the BUILDER needs in the cleaned source document (headings,
+// paragraphs, lists, ...), separate from what the builder OUTPUTS
+// (the latter lives in `content-type-contracts.getRequiredFields`).
+const REQUIRED_SOURCE_SECTIONS: Record<
+  ContentTypeKey,
+  ReadonlyArray<"headings" | "paragraphs" | "lists" | "tables" | "links" | "metadata">
+> = {
+  Prayer: ["headings", "paragraphs"],
+  Saint: ["headings", "paragraphs", "metadata"],
+  MarianApparition: ["headings", "paragraphs"],
+  Parish: ["headings", "paragraphs", "metadata"],
+  Devotion: ["headings", "paragraphs", "lists"],
+  Novena: ["headings", "paragraphs", "lists"],
+  Sacrament: ["headings", "paragraphs"],
+  Rosary: ["headings", "paragraphs", "lists"],
+  Consecration: ["headings", "paragraphs", "lists"],
+  SpiritualGuidance: ["headings", "paragraphs"],
+  Liturgy: ["headings", "paragraphs"],
+  History: ["headings", "paragraphs"],
+};
+
+function buildRegistryEntry(contentType: ContentTypeKey): BuilderRegistryEntry {
+  const contract = getContentTypeContract(contentType);
+  const builder = BUILDER_REGISTRY[contentType];
+  return {
+    builderName: builder.builderName,
+    builderVersion: builder.builderVersion,
+    contentType,
+    requiredSourcePurpose: contract.requiredSourcePurpose as SourcePurpose,
+    requiredSourceSections: REQUIRED_SOURCE_SECTIONS[contentType],
+    requiredOutputFields: getRequiredFields(contentType),
+  };
+}
+
+/**
+ * Spec #13: every per-content-type field below comes from the central
+ * `content-type-contracts` module. Builder validation, strict QA,
+ * persistence, and diagnostics all read the same field list, so a
+ * package marked structurally complete by the builder will not later
+ * be rejected by persistence for the wrong field name.
+ */
 export const BUILDER_VERSION_REGISTRY: Readonly<Record<ContentTypeKey, BuilderRegistryEntry>> = {
-  Prayer: {
-    builderName: BUILDER_REGISTRY.Prayer.builderName,
-    builderVersion: BUILDER_REGISTRY.Prayer.builderVersion,
-    contentType: "Prayer",
-    requiredSourcePurpose: "canIngestPrayers",
-    requiredSourceSections: ["headings", "paragraphs"],
-    requiredOutputFields: ["prayerType", "prayerName", "prayerText", "category", "language"],
-  },
-  Saint: {
-    builderName: BUILDER_REGISTRY.Saint.builderName,
-    builderVersion: BUILDER_REGISTRY.Saint.builderVersion,
-    contentType: "Saint",
-    requiredSourcePurpose: "canIngestSaints",
-    requiredSourceSections: ["headings", "paragraphs", "metadata"],
-    requiredOutputFields: [
-      "saintType",
-      "saintName",
-      "feastDay",
-      "feastMonth",
-      "feastDayOfMonth",
-      "biography",
-    ],
-  },
-  MarianApparition: {
-    builderName: BUILDER_REGISTRY.MarianApparition.builderName,
-    builderVersion: BUILDER_REGISTRY.MarianApparition.builderVersion,
-    contentType: "MarianApparition",
-    requiredSourcePurpose: "canIngestApparitions",
-    requiredSourceSections: ["headings", "paragraphs"],
-    requiredOutputFields: ["title", "location", "year", "description"],
-  },
-  Parish: {
-    builderName: BUILDER_REGISTRY.Parish.builderName,
-    builderVersion: BUILDER_REGISTRY.Parish.builderVersion,
-    contentType: "Parish",
-    requiredSourcePurpose: "canIngestParishes",
-    requiredSourceSections: ["headings", "paragraphs", "metadata"],
-    requiredOutputFields: ["parishName", "city", "country"],
-  },
-  Devotion: {
-    builderName: BUILDER_REGISTRY.Devotion.builderName,
-    builderVersion: BUILDER_REGISTRY.Devotion.builderVersion,
-    contentType: "Devotion",
-    requiredSourcePurpose: "canIngestDevotions",
-    requiredSourceSections: ["headings", "paragraphs", "lists"],
-    requiredOutputFields: [
-      "devotionType",
-      "devotionName",
-      "background",
-      "practiceInstructions",
-      "prayerStructure",
-    ],
-  },
-  Novena: {
-    builderName: BUILDER_REGISTRY.Novena.builderName,
-    builderVersion: BUILDER_REGISTRY.Novena.builderVersion,
-    contentType: "Novena",
-    requiredSourcePurpose: "canIngestNovenas",
-    requiredSourceSections: ["headings", "paragraphs", "lists"],
-    requiredOutputFields: ["novenaName", "background", "purpose", "duration", "days"],
-  },
-  Sacrament: {
-    builderName: BUILDER_REGISTRY.Sacrament.builderName,
-    builderVersion: BUILDER_REGISTRY.Sacrament.builderVersion,
-    contentType: "Sacrament",
-    requiredSourcePurpose: "canIngestSacraments",
-    requiredSourceSections: ["headings", "paragraphs"],
-    requiredOutputFields: [
-      "sacramentKey",
-      "sacramentName",
-      "sacramentGroup",
-      "explanation",
-      "preparation",
-      "participation",
-    ],
-  },
-  Rosary: {
-    builderName: BUILDER_REGISTRY.Rosary.builderName,
-    builderVersion: BUILDER_REGISTRY.Rosary.builderVersion,
-    contentType: "Rosary",
-    requiredSourcePurpose: "canIngestRosaryGuides",
-    requiredSourceSections: ["headings", "paragraphs", "lists"],
-    requiredOutputFields: [
-      "background",
-      "howToPray",
-      "openingPrayers",
-      "mysterySets",
-      "closingPrayers",
-    ],
-  },
-  Consecration: {
-    builderName: BUILDER_REGISTRY.Consecration.builderName,
-    builderVersion: BUILDER_REGISTRY.Consecration.builderVersion,
-    contentType: "Consecration",
-    requiredSourcePurpose: "canIngestConsecrations",
-    requiredSourceSections: ["headings", "paragraphs", "lists"],
-    requiredOutputFields: [
-      "consecrationName",
-      "background",
-      "duration",
-      "dailyStructure",
-      "dailyPrayers",
-      "finalConsecrationPrayer",
-    ],
-  },
-  SpiritualGuidance: {
-    builderName: BUILDER_REGISTRY.SpiritualGuidance.builderName,
-    builderVersion: BUILDER_REGISTRY.SpiritualGuidance.builderVersion,
-    contentType: "SpiritualGuidance",
-    requiredSourcePurpose: "canIngestSpiritualGuides",
-    requiredSourceSections: ["headings", "paragraphs"],
-    requiredOutputFields: ["title", "body"],
-  },
-  Liturgy: {
-    builderName: BUILDER_REGISTRY.Liturgy.builderName,
-    builderVersion: BUILDER_REGISTRY.Liturgy.builderVersion,
-    contentType: "Liturgy",
-    requiredSourcePurpose: "canIngestLiturgy",
-    requiredSourceSections: ["headings", "paragraphs"],
-    requiredOutputFields: ["title", "body"],
-  },
-  History: {
-    builderName: BUILDER_REGISTRY.History.builderName,
-    builderVersion: BUILDER_REGISTRY.History.builderVersion,
-    contentType: "History",
-    requiredSourcePurpose: "canIngestHistory",
-    requiredSourceSections: ["headings", "paragraphs"],
-    requiredOutputFields: ["historyType", "title", "dateOrEra", "summary", "body"],
-  },
+  Prayer: buildRegistryEntry("Prayer"),
+  Saint: buildRegistryEntry("Saint"),
+  MarianApparition: buildRegistryEntry("MarianApparition"),
+  Parish: buildRegistryEntry("Parish"),
+  Devotion: buildRegistryEntry("Devotion"),
+  Novena: buildRegistryEntry("Novena"),
+  Sacrament: buildRegistryEntry("Sacrament"),
+  Rosary: buildRegistryEntry("Rosary"),
+  Consecration: buildRegistryEntry("Consecration"),
+  SpiritualGuidance: buildRegistryEntry("SpiritualGuidance"),
+  Liturgy: buildRegistryEntry("Liturgy"),
+  History: buildRegistryEntry("History"),
 };
 
 /**

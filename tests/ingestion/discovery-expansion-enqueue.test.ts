@@ -52,7 +52,14 @@ describe("runDiscoveryExpansion()", () => {
       expect(e.jobKind).toBe("source_discovery");
       expect(e.triggeredBy).toBe("automatic");
       expect(typeof e.dedupeKey).toBe("string");
-      expect(String(e.dedupeKey)).toMatch(/^discovery_expansion_/);
+      // Spec #5: per-content-type dedupe so a source with multiple
+      // shortfalls doesn't have one type's discovery collapse another's.
+      expect(String(e.dedupeKey)).toMatch(/^discovery_expansion:/);
+      expect(e.contentType).toBeTruthy();
+      // Payload now carries the adapterKey + content type per spec #5.
+      const payload = e.payload as Record<string, unknown> | undefined;
+      expect(payload?.contentType).toBe(e.contentType);
+      expect(typeof payload?.adapterKey).toBe("string");
     }
   });
 
