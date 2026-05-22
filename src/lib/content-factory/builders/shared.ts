@@ -299,10 +299,10 @@ export function guardWrongContent(args: {
  * original body is returned unchanged so the wrong-content guard and
  * the extractor still get to judge it.
  */
-export function isolateContentCandidate(args: {
-  body: string;
-  positiveMarker: RegExp;
-}): { text: string; droppedNoiseCount: number } {
+export function isolateContentCandidate(args: { body: string; positiveMarker: RegExp }): {
+  text: string;
+  droppedNoiseCount: number;
+} {
   const body = args.body ?? "";
   const segments = body
     .split(/\n{2,}/)

@@ -79,7 +79,11 @@ export const DevotionBuilder: Builder = {
     });
     if (wrong) return wrong;
 
-    const result = extractDevotion({ title, body: candidate.text, sourceUrl: ctx.document.sourceUrl });
+    const result = extractDevotion({
+      title,
+      body: candidate.text,
+      sourceUrl: ctx.document.sourceUrl,
+    });
     if (!result.complete) {
       return makeFailure({
         ctx: internal,
