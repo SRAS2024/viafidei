@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
+import { ADMIN_ACTION, writeAdminActionLog } from "@/lib/audit/admin-action-log";
 import { loadIngestionLiveSnapshot } from "@/lib/diagnostics";
 import { writeDiagnosticSnapshots } from "@/lib/diagnostics/diagnostic-snapshot";
 import { listAvailableReportMonths } from "@/lib/diagnostics/developer-report";
 import { DeveloperReportButton } from "@/components/diagnostics/DeveloperReportButton";
+import { DEVICE_CREDENTIAL_COOKIE } from "@/middleware";
 import { AdminSection } from "../_sections/AdminSection";
 
 export const dynamic = "force-dynamic";
@@ -130,12 +133,31 @@ function statusBadgeStyle(status: string): { bg: string; text: string } {
 export default async function AdminDiagnostics() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
+  const [requestHeaders, cookieStore] = await Promise.all([headers(), cookies()]);
   const [snapshot, reportMonths] = await Promise.all([
     loadIngestionLiveSnapshot().catch(() => null),
     listAvailableReportMonths().catch(() => []),
-    // Loading the Diagnostics panel records a diagnostic snapshot so
-    // the Developer Audit report can reproduce this point in time.
+    // Loading the Diagnostics panel runs diagnostics: record a
+    // diagnostic snapshot so the Developer Audit report can reproduce
+    // this point in time...
     writeDiagnosticSnapshots(),
+    // ...and log the visit as an important admin action (Diagnostics
+    // is a sensitive admin page). A valid authenticated admin — this
+    // is recorded without raising any suspicious-activity alert, and
+    // collapsed by the action log's rate window so a refresh storm
+    // cannot spam it.
+    writeAdminActionLog({
+      adminUsername: admin.username,
+      actionType: ADMIN_ACTION.diagnosticsRun,
+      route: "/admin/diagnostics",
+      method: "GET",
+      result: "success",
+      deviceCredential: cookieStore.get(DEVICE_CREDENTIAL_COOKIE)?.value ?? null,
+      ipAddress:
+        requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        requestHeaders.get("x-real-ip"),
+      userAgent: requestHeaders.get("user-agent"),
+    }),
   ]);
   const badge = snapshot ? statusBadgeStyle(snapshot.status) : null;
 

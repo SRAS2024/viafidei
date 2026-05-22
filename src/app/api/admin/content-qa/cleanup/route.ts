@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { writeAudit } from "@/lib/audit";
+import { ADMIN_ACTION, writeAdminActionLog } from "@/lib/audit/admin-action-log";
 import { jsonError, jsonOk } from "@/lib/http";
 import {
   runStrictContentCleanup,
@@ -9,6 +10,7 @@ import {
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
 import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { logger } from "@/lib/observability";
+import { DEVICE_CREDENTIAL_COOKIE } from "@/middleware";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -82,6 +84,23 @@ export async function POST(req: NextRequest) {
     totalHardDeleted: summary?.totalHardDeleted ?? 0,
     totalLogFailures: summary?.totalLogFailures ?? 0,
     errorMessage,
+  });
+
+  // Record the cleanup run as an important admin action for the
+  // Developer Audit report. Metadata carries only non-secret counts.
+  await writeAdminActionLog({
+    adminUsername: admin.username,
+    actionType: ADMIN_ACTION.contentCleanup,
+    route: "/api/admin/content-qa/cleanup",
+    method: "POST",
+    result: errorMessage ? "failure" : "success",
+    deviceCredential: req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value ?? null,
+    ipAddress: getClientIpOrNull(req),
+    userAgent: getUserAgent(req),
+    metadata: {
+      totalInspected: summary?.totalInspected ?? 0,
+      totalHardDeleted: summary?.totalHardDeleted ?? 0,
+    },
   });
 
   if (errorMessage) {

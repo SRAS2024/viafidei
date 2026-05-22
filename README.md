@@ -57,7 +57,8 @@ edited blindly:
 - **Operational admin mailbox.** Admin email (the biweekly Content Management
   Report, the monthly Archive Cleaning Up digest, the monthly Error Report
   PDF, threshold milestone alerts at 25 / 50 / 75 / 100 percent, Critical
-  Failure pages, Security Breach alerts) is delivered to `ADMIN_EMAIL` —
+  Failure pages, Admin Log In confirmations, and Suspicious Activity /
+  Security Breach alerts) is delivered to `ADMIN_EMAIL` —
   set in the hosting platform's environment dashboard (Railway, Vercel,
   …). There is **no admin UI for this value** because operational alerts
   must keep working even if the admin console itself is down. When unset,
@@ -221,17 +222,29 @@ would call attention to:
   global error boundary, an uncaught exception, or an unhandled
   rejection blows up; **Security Breach** alerts fire on devtools
   abuse, attempted DOM tampering, CSP violations, and admin-login rate-
-  limit blowouts. All admin emails greet the recipient as `Admin` and
-  share the same paper / serif design system used by the account emails.
-- **Admin diagnostics designed around troubleshooting.** Diagnostics are
-  split into five sections — Email; Ingestion & Data Management; Sitemap
-  & Link Paths; Accounts; and Homepage Saints Feast Day — and each
-  result carries severity (pass / warn / fail / skipped), a timestamp,
-  a request id, and a short explanation so failures can be
-  cross-referenced against the structured log stream. Secrets, database
-  URLs, and token values are explicitly stripped before any value is
-  rendered to the browser. Every diagnostic page is backed by a
-  matching `/api/admin/diagnostics/...` route.
+  limit blowouts. A successful admin sign-in instead sends a calm
+  **Admin Log In** confirmation email — deliberately distinct from the
+  Suspicious Activity and Security Breach alerts. All admin emails
+  greet the recipient as `Admin` and share the same paper / serif
+  design system used by the account emails.
+- **Admin diagnostics designed around troubleshooting.** The
+  `/admin/diagnostics` hub gathers every operational check — Email,
+  Ingestion & Data Management, Sitemap & Link Paths, Accounts,
+  Homepage Saints, and the 14-card **System Health** dashboard (Queue,
+  Worker, Source discovery / fetch / document, Content factory,
+  Builder, Strict QA, Persistence, Cleanup, Growth, Security, Admin
+  email, Database) — alongside the content-factory diagnostic cluster.
+  Each result carries severity (pass / warn / fail / skipped), a
+  timestamp, a request id, a `dataSource` badge, and a short
+  explanation, and distinguishes a real zero from a failed query.
+  Secrets, database URLs, and token values are stripped before any
+  value reaches the browser, and every diagnostic page is backed by a
+  matching `/api/admin/diagnostics/...` route. A **Developer Report**
+  control at the top of the panel generates a downloadable **Developer
+  Audit** PDF — table of contents, summary, every diagnostic result,
+  all system logs, and the admin action history for a chosen period —
+  so a system issue can be debugged from one document instead of
+  paging through every admin screen.
 - **Real per-item Data Management logs.** Every factory build pass
   writes one `DataManagementLog` row per item action — added,
   updated, dedup-skipped, hard-deleted as noise, rejected by strict
@@ -352,7 +365,7 @@ below.
 │   │   │                      # /profile/saints, /profile/apparitions,
 │   │   │                      # /profile/devotions, /profile/parishes,
 │   │   │                      # /profile/settings
-│   │   ├── admin/             # 17-card admin dashboard (see Admin console section)
+│   │   ├── admin/             # 20-card admin dashboard (see Admin console section)
 │   │   └── api/               # Route handlers (auth, admin, cron, internal,
 │   │                          # journal, settings, health, search, saints/today,
 │   │                          # data-management, ingestion-status)
@@ -368,7 +381,7 @@ below.
 │   │                          # ExpandablePrayer, ExpandableTimelineEvent
 │   ├── lib/
 │   │   ├── auth/              # Session, password, schemas, user/admin helpers, tokens
-│   │   ├── audit/             # AdminAuditLog writer
+│   │   ├── audit/             # AdminAuditLog + AdminActionLog writers
 │   │   ├── concurrency/       # Lock helpers
 │   │   ├── content/           # Review workflow + Catholic-rite filtering
 │   │   ├── data/              # Per-entity repositories + admin catalog + goal templates
@@ -379,6 +392,8 @@ below.
 │   │   │                      # delete / divert pass on every PUBLISHED row)
 │   │   │                      # + error-log (runtime error capture)
 │   │   ├── db/                # Prisma client, table diagnostics, init
+│   │   ├── diagnostics/       # System-health checks, diagnostic snapshots,
+│   │   │                      # Developer Audit report builder, secret redaction
 │   │   ├── email/             # Resend client, link builders, account templates,
 │   │   │                      # admin templates + admin-send + zero-dep PDF
 │   │   │                      # generator, send helpers, locale-aware translations
@@ -390,9 +405,12 @@ below.
 │   │   │                      # format (per-kind text normaliser), backlog-prefixes
 │   │   ├── observability/     # Structured logger + request-id propagation
 │   │   │                      # + page-error / api-error → ErrorLog bridge
+│   │   ├── pdf/               # Zero-dependency PDF writer + report layout
+│   │   │                      # (Developer Audit report)
 │   │   ├── security/          # Rate limit, hashing, crypto, request helpers,
-│   │   │                      # cron-auth, key resolution, security-events
-│   │   │                      # (admin Security Breach + ErrorLog dispatcher)
+│   │   │                      # cron-auth, key resolution, security-events,
+│   │   │                      # admin trust rule + admin login events
+│   │   │                      # (Security Breach + ErrorLog dispatcher)
 │   │   └── startup/           # Auto-seed bootstrap + content seeder
 │   ├── instrumentation.ts     # Next.js startup hook (auto-seed + ingestion schedule)
 │   └── middleware.ts          # Request-id + CSP / security headers
@@ -696,19 +714,27 @@ payload-scanner.ts`) — the scanner flags script injection,
 
 ### Suspicious Activity vs Security Breach
 
-`src/lib/security/security-events.ts` splits inbound events into two
-classifications with independent dedup keyspaces:
+Admin-route access is classified **only after** an authentication
+check. The admin session trust rule (`src/lib/security/admin-trust.ts`)
+runs first: a request carrying a valid, non-expired, non-revoked admin
+session from a non-banned device is _trusted authenticated admin
+activity_ — normal admin navigation, running diagnostics, downloading
+the Developer Audit report, viewing logs, and triggering approved
+admin actions never raise a suspicious-activity email. Only when no
+valid admin session exists does `src/lib/security/security-events.ts`
+split the event into two classifications, each with an independent
+dedup keyspace:
 
-- **Suspicious Activity** — warning signs. Triggered by `>3` consecutive
-  admin password failures (by account + IP + device), sustained
-  developer-tool probing (`>3` client tamper events in a 10-minute
-  window), admin route-scan bursts (`>5` distinct protected paths in
-  60s from one device), and similar low-confidence signals.
+- **Suspicious Activity** — warning signs. Triggered by **three or
+  more** consecutive admin password failures (scoped by account + IP +
+  device), sustained developer-tool probing (`>3` client tamper events
+  in a 10-minute window), and unauthenticated admin route-scan bursts
+  (`>5` distinct protected paths in 60s from one device).
 - **Security Breach** — active or attempted attack. Triggered by
   payload-scanner hits (script / SQL / shell / factory-gate-bypass),
-  brute-force escalation (`>20` user / `>15` admin failures),
-  unauthorized admin mutations, CSP violations, DOM / state / storage
-  tamper, and unauthorized calls to internal ingestion routes.
+  brute-force escalation (`>20` user / `>15` admin failures), CSRF
+  violations, DOM / state / storage tamper, CSP violations, and
+  unauthorized calls to internal ingestion routes.
 
 Both classifications dedup at the `(kind, IP, route)` level within a
 short window so a misbehaving client cannot flood the mailbox.
@@ -817,7 +843,14 @@ The Prisma schema (`prisma/schema.prisma`) defines, among others:
   `warn` / `error` / `critical`), `AdminNotificationState` (per-flow
   dedup state for the operational email scheduler — biweekly send
   timestamps, monthly year-month tags, per-bucket milestone
-  thresholds already emailed), `RateLimitBucket`.
+  thresholds already emailed), `DiagnosticSnapshot` (durable
+  diagnostic history — one row per diagnostic card every time the
+  Diagnostics panel loads or diagnostics run, with a redacted
+  `detailsJson`; powers the Developer Audit report), `AdminActionLog`
+  (one row per important admin action or sensitive admin-page visit —
+  `actionType`, `route`, `method`, `result`, device / IP / user-agent
+  HMAC fingerprints, best-effort `city` / `region` / `country`, and a
+  `metadataJson` payload), `RateLimitBucket`.
 
 Catalog entities all carry a `ContentStatus` (`DRAFT` → `REVIEW` →
 `PUBLISHED` / `ARCHIVED`) plus a `contentChecksum` so the ingestion pipeline
@@ -1913,7 +1946,9 @@ admin email is skipped with `admin.email.skipped_no_provider`.
 | Threshold milestone — partial | `<Content> 25% Threshold Reached` (etc.) | Once per `(content type, threshold)` when the live count crosses 25 / 50 / 75 percent of the target |
 | Threshold milestone — final   | `<Content> Final Threshold Reached`      | Once per content type when the live count first reaches 100% of the target                          |
 | Critical Failure              | `Critical Failure`                       | Immediately on uncaught exception, unhandled rejection, or React global error boundary firing       |
-| Security Breach               | `Security Breach`                        | Immediately (subject to a 5-minute per-(kind, IP, route) dedup) on suspicious activity — see below  |
+| Admin Log In                  | `Admin Log In`                           | Immediately on every successful admin sign-in (a calm confirmation, not a security alert)           |
+| Suspicious Activity           | `Suspicious Activity`                    | On a suspicious-activity threshold crossing (5-minute per-(kind, IP, route) dedup)                  |
+| Security Breach               | `Security Breach`                        | Immediately (subject to a 5-minute per-(kind, IP, route) dedup) on an active or attempted attack    |
 
 ### Content Management Report (biweekly body)
 
@@ -2016,17 +2051,44 @@ Per-request 4xx responses, ordinary validation errors, and upstream
 adapter 5xx do **not** trigger Critical Failure. Those are routine
 errors and are carried in the monthly Error Report PDF instead.
 
-### Suspicious Activity vs Security Breach alerts
+### Admin Log In, Suspicious Activity, and Security Breach alerts
 
-Two distinct classifications, each with its own dedup keyspace and
-email template. Both dedup at the `(kind, IP, route)` level within a
-5-minute window so a misbehaving client cannot flood the mailbox.
+A successful admin sign-in is treated as expected activity, **not** a
+security signal. It sends a calm **Admin Log In** confirmation email
+(subject `Admin Log In`) — login timestamp, username, device /
+browser / OS, IP, best-effort city / region / country, whether the
+device has been seen before, whether the login succeeded, and the
+`SecurityEvent` / `AdminActionLog` reference id — and writes a
+benign-audit `SecurityEvent` of type `admin_login_success`. It never
+raises a Suspicious Activity or Security Breach alert. When location
+or device details cannot be resolved the email says
+`Location unavailable` / `Device details unavailable` rather than
+omitting the field. The Admin Log In, Suspicious Activity, Security
+Breach, and brute-force emails are kept deliberately distinct so the
+operator can tell a routine sign-in from an attack at a glance.
+
+The suspicious-activity logic checks authentication state **before**
+classifying any admin-route access (`gateAdminApiCall` →
+`evaluateAdminTrust`): a request with a valid admin session is trusted
+authenticated admin activity — the important action is logged to
+`AdminActionLog` and no security email is sent. Only an
+unauthenticated / invalid request is evaluated against the rules
+below. Both classifications dedup at the `(kind, IP, route)` level
+within a 5-minute window.
 
 **Suspicious Activity** (warning signs, no ban link) is triggered by:
 
-- **Admin password failures** — `>3` consecutive failures from the
-  same account / IP / device. Counter resets on a successful admin
-  login (`src/lib/security/admin-failure-counter.ts`).
+- **Admin password failures** — **three or more** consecutive
+  failures from the same account / IP / device. The counter
+  (`src/lib/security/admin-failure-counter.ts`) is keyed per
+  `(account, IP hash, device fingerprint)`, so a brute-force run on
+  one device cannot be erased by a valid login from another, and it
+  resets on a successful admin login from the same identity. The
+  threshold sends **one** Suspicious Activity email when it is first
+  crossed — not one per failed attempt — and another only when a new
+  time window begins or the signal escalates. Crossing the threshold
+  also writes a `SecurityEvent` of type
+  `admin_failed_login_threshold_reached`.
 - **User-account brute force** — `>5` failures against the same
   user account (`src/lib/security/user-failure-counter.ts`); reset
   on success.
@@ -2034,9 +2096,10 @@ email template. Both dedup at the `(kind, IP, route)` level within a
   in a 10-minute window
   (`src/lib/security/tamper-counter.ts`). A single isolated
   devtools-open ping is benign and does NOT alert.
-- **Admin route scanning** — `>5` distinct protected admin paths
-  hit from one device in 60s
-  (`src/lib/security/admin-route-scanner.ts`).
+- **Admin route scanning** — `>5` distinct protected admin paths hit
+  from one device in 60s **without a valid session**
+  (`src/lib/security/admin-route-scanner.ts`) — unauthenticated
+  probing of protected routes.
 
 **Security Breach** (active attack, includes signed ban link) is
 triggered by:
@@ -2048,11 +2111,11 @@ triggered by:
   the factory (`src/lib/security/payload-scanner.ts`).
 - **Brute-force escalation** — `>20` user / `>15` admin password
   failures from the same source.
+- **CSRF violations** — an admin mutation whose Origin / Referer
+  fails the same-origin check.
 - **Active client tamper** — DOM tamper
   (`client_dom_tamper`), state tamper, storage tamper, CSP
   violation, or unauthorized action.
-- **Unauthorized admin mutation** — any admin route called without
-  a valid session.
 - **Unauthorized internal route call** — public-route attempt to
   reach `/api/internal/*` or `/api/cron/*` without the required
   authorization.
@@ -2064,6 +2127,13 @@ monthly PDF. The Breach email additionally includes an HMAC-signed
 it creates a `BannedDevice` row, revokes every session for that
 device, and renders a confirmation page. Suspicious does **not**
 include a ban link.
+
+Canonical `SecurityEvent.eventType` values
+(`src/lib/security/event-types.ts`): `admin_login_success`,
+`admin_login_failed`, `admin_failed_login_threshold_reached`,
+`authenticated_admin_action`, `unauthenticated_admin_route_access`,
+`unauthorized_admin_mutation`, `suspicious_activity`,
+`security_breach`.
 
 The client → server bridge `/api/internal/security-event` validates
 the client tamper-detector's POST, rate-limits per IP, and routes
@@ -2254,6 +2324,24 @@ the security pages (`src/app/admin/_dashboard/cards.ts`):
     Content Audit, Fixture Quality, and the Production Growth
     Runbook — so every step from source to public page is
     observable from one place.
+
+    At the top of the Diagnostics panel a **Developer Report** control
+    (labelled with a download icon) opens a small menu — Last 24
+    Hours, Last 7 Days, or a month picker of months that have
+    diagnostic / log data — and POSTs to
+    `POST /api/admin/diagnostics/developer-report` to generate and
+    download a **Developer Audit** PDF for that period
+    (`developer-audit-last-24-hours.pdf`, `developer-audit-2026-05.pdf`,
+    …). The PDF carries a table of contents, a headline summary, every
+    diagnostic result in panel order, all twenty system-log sources
+    (each marked "No logs found for this period" when empty), and the
+    Admin Navigation and Actions history — secrets redacted before the
+    document is generated. Every time the panel loads or diagnostics
+    run, one `DiagnosticSnapshot` row per diagnostic is written so the
+    report can reproduce any selected period; the route is admin-only,
+    rejects unauthenticated requests, and records an `AdminActionLog`
+    entry without raising a security alert.
+
 19. **Banned devices** (`/admin/banned-devices`) — read-only ban
     registry surfacing device-credential ID, ban reason, first /
     last seen, city / region / country, user-agent summary, and the
@@ -2330,56 +2418,57 @@ entity is exposed under `/api/admin/<entity>` via the
 
 ### Admin
 
-| Method         | Path                                     | Purpose                                                                                                                                                                       |
-| -------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST           | `/api/admin/login`                       | Admin login                                                                                                                                                                   |
-| POST           | `/api/admin/logout`                      | Admin logout                                                                                                                                                                  |
-| POST           | `/api/admin/content/review`              | Approve / reject / revise / move-to-review                                                                                                                                    |
-| GET / POST     | `/api/admin/prayers`                     | List / create prayers (catalog)                                                                                                                                               |
-| PATCH / DELETE | `/api/admin/prayers/[id]`                | Update / delete a prayer                                                                                                                                                      |
-| GET / POST     | `/api/admin/saints`                      | List / create saints                                                                                                                                                          |
-| PATCH / DELETE | `/api/admin/saints/[id]`                 | Update / delete a saint                                                                                                                                                       |
-| GET / POST     | `/api/admin/apparitions`                 | List / create Marian apparitions                                                                                                                                              |
-| PATCH / DELETE | `/api/admin/apparitions/[id]`            | Update / delete an apparition                                                                                                                                                 |
-| GET / POST     | `/api/admin/parishes`                    | List / create parishes                                                                                                                                                        |
-| PATCH / DELETE | `/api/admin/parishes/[id]`               | Update / delete a parish                                                                                                                                                      |
-| GET / POST     | `/api/admin/devotions`                   | List / create devotions                                                                                                                                                       |
-| PATCH / DELETE | `/api/admin/devotions/[id]`              | Update / delete a devotion                                                                                                                                                    |
-| GET / POST     | `/api/admin/liturgy`                     | List / create liturgy entries                                                                                                                                                 |
-| PATCH / DELETE | `/api/admin/liturgy/[id]`                | Update / delete a liturgy entry                                                                                                                                               |
-| GET / POST     | `/api/admin/spiritual-life`              | List / create spiritual-life guides                                                                                                                                           |
-| PATCH / DELETE | `/api/admin/spiritual-life/[id]`         | Update / delete a spiritual-life guide                                                                                                                                        |
-| POST           | `/api/admin/ingestion/run`               | Run a single job or all active jobs                                                                                                                                           |
-| PATCH          | `/api/admin/ingestion/jobs/[id]`         | Pause / resume or re-schedule a job                                                                                                                                           |
-| GET / POST     | `/api/admin/sources`                     | List / create ingestion sources                                                                                                                                               |
-| GET / PATCH    | `/api/admin/sources/[id]`                | Read / update an ingestion source                                                                                                                                             |
-| GET / POST     | `/api/admin/media`                       | List / register a media asset (Cloudinary URL)                                                                                                                                |
-| GET / DELETE   | `/api/admin/media/[id]`                  | Read / delete a media asset                                                                                                                                                   |
-| GET            | `/api/admin/users`                       | Paginated, searchable user listing                                                                                                                                            |
-| GET            | `/api/admin/audit`                       | Filterable audit log                                                                                                                                                          |
-| GET            | `/api/admin/ingestion-status`            | Live snapshot used by the Ingestion admin page (polled)                                                                                                                       |
-| GET / POST     | `/api/admin/data-management`             | Read / write Ingestion & Data Management settings                                                                                                                             |
-| POST           | `/api/admin/data-management/cleanup`     | Run the cleanup passes on demand (admin "Run cleanup now")                                                                                                                    |
-| GET            | `/api/admin/diagnostics/email`           | Email diagnostics section                                                                                                                                                     |
-| GET            | `/api/admin/diagnostics/data-management` | Data management diagnostics section + 24h edit counts                                                                                                                         |
-| GET            | `/api/admin/diagnostics/ingestion`       | Ingestion diagnostics section + live snapshot                                                                                                                                 |
-| GET            | `/api/admin/diagnostics/saints-feast`    | Homepage saints feast-day diagnostics section                                                                                                                                 |
-| GET            | `/api/admin/diagnostics/sitemap`         | Sitemap & link-path diagnostics                                                                                                                                               |
-| GET            | `/api/admin/diagnostics/accounts`        | Account diagnostics section                                                                                                                                                   |
-| GET / POST     | `/api/admin/email`                       | Email configuration check + send a test message                                                                                                                               |
-| POST           | `/api/admin/email/ensure-tables`         | Idempotent in-process create of account-email tables                                                                                                                          |
-| POST           | `/api/admin/email/self-test`             | End-to-end self-test of welcome / reset / verify flows                                                                                                                        |
-| GET / POST     | `/api/admin/email/admin-test`            | Trigger one labelled example of each admin email flow (biweekly / monthly cleanup / monthly Error Report PDF / milestone / Critical Failure / Security Breach) to ADMIN_EMAIL |
-| GET            | `/api/admin/publish-list`                | Items currently in REVIEW status across the catalog                                                                                                                           |
-| POST           | `/api/admin/publish-list/publish-all`    | Bulk-publish every queued REVIEW row                                                                                                                                          |
-| POST           | `/api/admin/search/reindex`              | Trigger reindex / housekeeping                                                                                                                                                |
-| GET            | `/api/admin/translations`                | Translation row counts                                                                                                                                                        |
-| GET / POST     | `/api/admin/favicon`                     | Read / replace favicon asset                                                                                                                                                  |
-| GET / POST     | `/api/admin/homepage`                    | Read / update homepage block config                                                                                                                                           |
-| POST (`GET`)   | `/api/cron/ingest`                       | Run scheduler + cleanup pass + housekeeping + admin notification dispatch (cron-secret)                                                                                       |
-| POST / GET     | `/api/internal/cleanup`                  | Prune sessions / tokens / rate-limits (cron-secret auth)                                                                                                                      |
-| POST           | `/api/internal/critical-failure`         | Receive a Critical Failure escalation from the React global error boundary; writes to `ErrorLog` and emails ADMIN_EMAIL                                                       |
-| POST           | `/api/internal/security-event`           | Receive a Security Breach signal from the client tamper detector or other client-side detector; writes to `ErrorLog` and emails ADMIN_EMAIL (5-min dedup)                     |
+| Method         | Path                                      | Purpose                                                                                                                                                                       |
+| -------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST           | `/api/admin/login`                        | Admin login                                                                                                                                                                   |
+| POST           | `/api/admin/logout`                       | Admin logout                                                                                                                                                                  |
+| POST           | `/api/admin/content/review`               | Approve / reject / revise / move-to-review                                                                                                                                    |
+| GET / POST     | `/api/admin/prayers`                      | List / create prayers (catalog)                                                                                                                                               |
+| PATCH / DELETE | `/api/admin/prayers/[id]`                 | Update / delete a prayer                                                                                                                                                      |
+| GET / POST     | `/api/admin/saints`                       | List / create saints                                                                                                                                                          |
+| PATCH / DELETE | `/api/admin/saints/[id]`                  | Update / delete a saint                                                                                                                                                       |
+| GET / POST     | `/api/admin/apparitions`                  | List / create Marian apparitions                                                                                                                                              |
+| PATCH / DELETE | `/api/admin/apparitions/[id]`             | Update / delete an apparition                                                                                                                                                 |
+| GET / POST     | `/api/admin/parishes`                     | List / create parishes                                                                                                                                                        |
+| PATCH / DELETE | `/api/admin/parishes/[id]`                | Update / delete a parish                                                                                                                                                      |
+| GET / POST     | `/api/admin/devotions`                    | List / create devotions                                                                                                                                                       |
+| PATCH / DELETE | `/api/admin/devotions/[id]`               | Update / delete a devotion                                                                                                                                                    |
+| GET / POST     | `/api/admin/liturgy`                      | List / create liturgy entries                                                                                                                                                 |
+| PATCH / DELETE | `/api/admin/liturgy/[id]`                 | Update / delete a liturgy entry                                                                                                                                               |
+| GET / POST     | `/api/admin/spiritual-life`               | List / create spiritual-life guides                                                                                                                                           |
+| PATCH / DELETE | `/api/admin/spiritual-life/[id]`          | Update / delete a spiritual-life guide                                                                                                                                        |
+| POST           | `/api/admin/ingestion/run`                | Run a single job or all active jobs                                                                                                                                           |
+| PATCH          | `/api/admin/ingestion/jobs/[id]`          | Pause / resume or re-schedule a job                                                                                                                                           |
+| GET / POST     | `/api/admin/sources`                      | List / create ingestion sources                                                                                                                                               |
+| GET / PATCH    | `/api/admin/sources/[id]`                 | Read / update an ingestion source                                                                                                                                             |
+| GET / POST     | `/api/admin/media`                        | List / register a media asset (Cloudinary URL)                                                                                                                                |
+| GET / DELETE   | `/api/admin/media/[id]`                   | Read / delete a media asset                                                                                                                                                   |
+| GET            | `/api/admin/users`                        | Paginated, searchable user listing                                                                                                                                            |
+| GET            | `/api/admin/audit`                        | Filterable audit log                                                                                                                                                          |
+| GET            | `/api/admin/ingestion-status`             | Live snapshot used by the Ingestion admin page (polled)                                                                                                                       |
+| GET / POST     | `/api/admin/data-management`              | Read / write Ingestion & Data Management settings                                                                                                                             |
+| POST           | `/api/admin/data-management/cleanup`      | Run the cleanup passes on demand (admin "Run cleanup now")                                                                                                                    |
+| GET            | `/api/admin/diagnostics/email`            | Email diagnostics section                                                                                                                                                     |
+| GET            | `/api/admin/diagnostics/data-management`  | Data management diagnostics section + 24h edit counts                                                                                                                         |
+| GET            | `/api/admin/diagnostics/ingestion`        | Ingestion diagnostics section + live snapshot                                                                                                                                 |
+| GET            | `/api/admin/diagnostics/saints-feast`     | Homepage saints feast-day diagnostics section                                                                                                                                 |
+| GET            | `/api/admin/diagnostics/sitemap`          | Sitemap & link-path diagnostics                                                                                                                                               |
+| GET            | `/api/admin/diagnostics/accounts`         | Account diagnostics section                                                                                                                                                   |
+| POST           | `/api/admin/diagnostics/developer-report` | Generate + return the Developer Audit PDF for a period (last 24h / 7d / month); admin-only, server-side                                                                       |
+| GET / POST     | `/api/admin/email`                        | Email configuration check + send a test message                                                                                                                               |
+| POST           | `/api/admin/email/ensure-tables`          | Idempotent in-process create of account-email tables                                                                                                                          |
+| POST           | `/api/admin/email/self-test`              | End-to-end self-test of welcome / reset / verify flows                                                                                                                        |
+| GET / POST     | `/api/admin/email/admin-test`             | Trigger one labelled example of each admin email flow (biweekly / monthly cleanup / monthly Error Report PDF / milestone / Critical Failure / Security Breach) to ADMIN_EMAIL |
+| GET            | `/api/admin/publish-list`                 | Items currently in REVIEW status across the catalog                                                                                                                           |
+| POST           | `/api/admin/publish-list/publish-all`     | Bulk-publish every queued REVIEW row                                                                                                                                          |
+| POST           | `/api/admin/search/reindex`               | Trigger reindex / housekeeping                                                                                                                                                |
+| GET            | `/api/admin/translations`                 | Translation row counts                                                                                                                                                        |
+| GET / POST     | `/api/admin/favicon`                      | Read / replace favicon asset                                                                                                                                                  |
+| GET / POST     | `/api/admin/homepage`                     | Read / update homepage block config                                                                                                                                           |
+| POST (`GET`)   | `/api/cron/ingest`                        | Run scheduler + cleanup pass + housekeeping + admin notification dispatch (cron-secret)                                                                                       |
+| POST / GET     | `/api/internal/cleanup`                   | Prune sessions / tokens / rate-limits (cron-secret auth)                                                                                                                      |
+| POST           | `/api/internal/critical-failure`          | Receive a Critical Failure escalation from the React global error boundary; writes to `ErrorLog` and emails ADMIN_EMAIL                                                       |
+| POST           | `/api/internal/security-event`            | Receive a Security Breach signal from the client tamper detector or other client-side detector; writes to `ErrorLog` and emails ADMIN_EMAIL (5-min dedup)                     |
 
 ---
 
