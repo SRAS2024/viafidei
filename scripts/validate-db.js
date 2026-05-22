@@ -83,6 +83,7 @@ const REQUIRED_TABLES = [
   "IngestionSource",
   "IngestionJob",
   "IngestionJobRun",
+  "ContentTypePause",
   "UserSavedPrayer",
   "UserSavedSaint",
   "UserSavedApparition",
