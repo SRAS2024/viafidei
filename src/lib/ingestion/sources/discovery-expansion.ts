@@ -65,17 +65,27 @@ export async function planDiscoveryExpansion(
       candidates = (await prisma.ingestionSource.findMany({
         where: {
           isActive: true,
+          pausedAt: null,
           [purposeFlag]: true,
           // Already factory-ready sources are not the bottleneck —
           // we expand to ones with a valid discovery method but no
-          // recent discovery activity.
+          // recent discovery activity. Spec #4: only primary content
+          // sources may seed content_build jobs. Validation /
+          // enrichment / discovery-only sources are used inside
+          // cross-source evidence, not here.
           configurationStatus: "factory_native",
+          role: "primary_content_source",
           OR: [
             { lastSuccessfulSync: null },
             {
               lastSuccessfulSync: {
                 lt: new Date(Date.now() - 24 * 60 * 60 * 1000),
               },
+            },
+          ],
+          AND: [
+            {
+              OR: [{ buildLimitPerRun: null }, { buildLimitPerRun: { gt: 0 } }],
             },
           ],
         },
@@ -141,6 +151,7 @@ export async function runDiscoveryExpansion(opts: {
     sourceId: string;
     contentType: string;
     triggeredBy: "automatic";
+    payload?: Record<string, unknown>;
   }) => Promise<unknown>;
   maxPerTick?: number;
 }): Promise<DiscoveryExpansionEnqueueResult> {
@@ -161,16 +172,48 @@ export async function runDiscoveryExpansion(opts: {
   }
   result.contentTypesUnderTarget = plan.shortfalls.length;
   const dayKey = new Date().toISOString().slice(0, 10);
+  // Look up sources once so we can write a valid factory-native
+  // adapterKey into each discovery payload. Without this the
+  // payload validator may accept a payload that omits adapterKey,
+  // but the downstream factory-native discovery wants it for
+  // consistent log shape across all callers.
+  const sourceIds = new Set<string>();
+  for (const s of plan.shortfalls) {
+    for (const id of s.candidateSourceIds) sourceIds.add(id);
+  }
+  let hostByIdMap: Map<string, string> = new Map();
+  if (sourceIds.size > 0) {
+    try {
+      const rows = await prisma.ingestionSource.findMany({
+        where: { id: { in: Array.from(sourceIds) } },
+        select: { id: true, host: true },
+      });
+      hostByIdMap = new Map(rows.map((r) => [r.id, r.host]));
+    } catch {
+      // Fall back to "unknown" host strings — the dispatcher still
+      // resolves the actual host from the IngestionSource row.
+    }
+  }
   for (const shortfall of plan.shortfalls) {
     for (const sourceId of shortfall.candidateSourceIds) {
       try {
+        const host = hostByIdMap.get(sourceId) ?? "unknown";
         await opts.enqueue({
-          jobName: `discovery_expansion_${shortfall.contentType}`,
+          jobName: `discovery_expansion:${shortfall.contentType}:${host}`,
           jobKind: "source_discovery",
-          dedupeKey: `discovery_expansion_${sourceId}_${dayKey}`,
+          // Per-content-type dedupe key. A single source can be
+          // scheduled for multiple content types in the same day
+          // without one collapsing the other.
+          dedupeKey: `discovery_expansion:${sourceId}:${shortfall.contentType}:${dayKey}`,
           sourceId,
           contentType: shortfall.contentType,
           triggeredBy: "automatic",
+          payload: {
+            sourceId,
+            adapterKey: `factory-native:${host}`,
+            contentType: shortfall.contentType,
+            mode: "constant",
+          },
         });
         result.discoveryJobsEnqueued += 1;
       } catch (e) {

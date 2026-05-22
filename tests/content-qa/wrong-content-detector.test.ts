@@ -93,4 +93,45 @@ describe("WrongContentDetector", () => {
     });
     expect(result.delete).toBe(true);
   });
+
+  it("does NOT delete a long valid Devotion that mentions 'event' twice in a long body (spec #6 density-aware)", () => {
+    // Spec #6/#9: two isolated weak phrases in a long valid devotion
+    // should not be fatal — the body rule is density-aware. The body
+    // here is ~600 words; two strong matches at low density should
+    // pass when the body carries strong devotion practice markers.
+    const longDevotion = [
+      "The Divine Mercy Chaplet is a devotion given to Saint Faustina Kowalska.",
+      // Strong devotion practice vocabulary throughout.
+      "How to pray the Divine Mercy Chaplet: begin by making the sign of the cross. " +
+        "Then recite the Our Father, Hail Mary, and the Apostles' Creed. " +
+        "On the large bead before each decade, pray: Eternal Father, I offer You the Body and Blood, Soul and Divinity of Your dearly beloved Son, Our Lord Jesus Christ, in atonement for our sins and those of the whole world. " +
+        "On the ten small beads of each decade, pray: For the sake of His sorrowful Passion, have mercy on us and on the whole world. " +
+        "Conclude the chaplet by reciting three times: Holy God, Holy Mighty One, Holy Immortal One, have mercy on us and on the whole world.",
+      // Two weak "event" mentions far from positive content, in footer.
+      "Upcoming events: nothing currently scheduled. For news about upcoming events, check the parish website.",
+      "End of page.",
+    ].join("\n\n");
+    const result = detectWrongContent({
+      contentType: "Devotion",
+      title: "The Divine Mercy Chaplet",
+      body: longDevotion,
+    });
+    // Two 'event' matches alone in a long valid body should not be
+    // fatal; the strong density-aware rule + the per-type rule both
+    // require the positive marker to be missing.
+    expect(result.delete).toBe(false);
+  });
+
+  it("does delete a body that is mostly chrome (high density of strong signals)", () => {
+    // Density rule kicks in when signals/words is high.
+    const chromeBody =
+      "Donate now to support us. Subscribe to our newsletter. Watch live every Sunday. " +
+      "Register now for our retreat. Make a donation today. Click here to register.";
+    const result = detectWrongContent({
+      contentType: "Devotion",
+      title: "Devotional Page",
+      body: chromeBody,
+    });
+    expect(result.delete).toBe(true);
+  });
 });

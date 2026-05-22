@@ -101,6 +101,30 @@ describe("dispatch — source_discovery is factory-native only", () => {
     expect(args.discoveryFeedUrl).toBe("https://vatican.va/sitemap.xml");
   });
 
+  it("propagates payload.contentType into runFactoryNativeDiscovery (spec #1)", async () => {
+    prismaMock.ingestionSource.findUnique.mockResolvedValue({
+      id: "src-marian",
+      host: "marian.org",
+      discoveryFeedUrl: "https://marian.org/sitemap.xml",
+      tier: 2,
+      canIngestDevotions: true,
+    });
+
+    const job = buildDiscoveryJob("src-marian");
+    // Both the queue row column (job.contentType, already set to "Prayer"
+    // by buildDiscoveryJob) and the payload carry the type.
+    job.contentType = "Devotion";
+    job.payload = { ...job.payload, contentType: "Devotion" };
+
+    await runJobByKind(job);
+
+    expect(runFactoryNativeDiscoveryMock).toHaveBeenCalledTimes(1);
+    const args = runFactoryNativeDiscoveryMock.mock.calls[0]![0] as {
+      requestedContentType?: string | null;
+    };
+    expect(args.requestedContentType).toBe("Devotion");
+  });
+
   it("fails loudly when discoveryFeedUrl is null (no legacy fallback)", async () => {
     prismaMock.ingestionSource.findUnique.mockResolvedValue({
       id: "src-legacy",

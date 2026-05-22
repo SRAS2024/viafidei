@@ -202,3 +202,138 @@ describe("factory-native source discovery", () => {
     expect(seenDedupeKeys).toEqual(["source_fetch:https://vatican.va/prayers/anima-christi"]);
   });
 });
+
+describe("factory-native discovery URL filtering (spec #2)", () => {
+  // Spec #2: discovery must drop /articles/, /news/, /events/,
+  // /livestream/, /podcast/, /donate/, /register/, /newsletter/, /tag/,
+  // /category/, /author/, /store/, /shop/ before fetch. These pages can
+  // never become content packages so we should not waste a fetch or a
+  // build attempt on them.
+  it("drops /articles/, /news/, /events/, /livestream/, /donate/ URLs at discovery time", async () => {
+    const urls = [
+      "https://marian.org/articles/example-news-piece",
+      "https://marian.org/news/recent-announcement",
+      "https://marian.org/events/upcoming-retreat",
+      "https://marian.org/livestream/holy-mass",
+      "https://marian.org/donate/give-now",
+      "https://marian.org/register/sign-up",
+      "https://marian.org/newsletter",
+      "https://marian.org/tag/something",
+      "https://marian.org/category/something-else",
+      // These should pass.
+      "https://marian.org/consecration/33-days-to-morning-glory",
+      "https://marian.org/novena/divine-mercy",
+    ];
+    mockFetchOnce(buildSitemap(urls));
+
+    const result = await runFactoryNativeDiscovery({
+      sourceId: "src-marian",
+      sourceHost: "marian.org",
+      discoveryFeedUrl: "https://marian.org/sitemap.xml",
+      workerJobId: "queue-row-filter",
+    });
+
+    expect(result.feedUrlCount).toBe(11);
+    expect(result.skippedNonContentCount).toBe(9);
+    expect(result.enqueuedCount).toBe(2);
+  });
+
+  it("requestedContentType uses positive URL rules so curated content URLs pass even from broad sitemaps", async () => {
+    const urls = [
+      // Hard negatives still win.
+      "https://marian.org/articles/devotion-overview",
+      // Generic page (no positive rule match) — dropped when typed.
+      "https://marian.org/about-us",
+      // Matches Devotion positive rule.
+      "https://marian.org/devotion/divine-mercy",
+      "https://marian.org/devotional/marian-fathers",
+    ];
+    mockFetchOnce(buildSitemap(urls));
+
+    const result = await runFactoryNativeDiscovery({
+      sourceId: "src-marian",
+      sourceHost: "marian.org",
+      discoveryFeedUrl: "https://marian.org/sitemap.xml",
+      workerJobId: "queue-row-type",
+      requestedContentType: "Devotion",
+    });
+
+    // 1 hard-negative dropped, 1 not matching positive Devotion rule
+    // skipped, 2 matching positive rules pass.
+    expect(result.skippedNonContentCount).toBe(1);
+    expect(result.skippedTypeMismatchCount).toBe(1);
+    expect(result.enqueuedCount).toBe(2);
+  });
+
+  it("propagates requestedContentType into the source_fetch payload and DiscoveredSourceItem", async () => {
+    mockFetchOnce(buildSitemap(["https://marian.org/devotions/example"]));
+
+    const enqueuedPayloads: Array<Record<string, unknown>> = [];
+    prismaMock.ingestionJobQueue.create.mockImplementation(
+      async ({ data }: { data: Record<string, unknown> }) => {
+        enqueuedPayloads.push(data);
+        return { id: "q", ...data };
+      },
+    );
+
+    await runFactoryNativeDiscovery({
+      sourceId: "src-marian",
+      sourceHost: "marian.org",
+      discoveryFeedUrl: "https://marian.org/sitemap.xml",
+      workerJobId: "queue-row-prop",
+      requestedContentType: "Devotion",
+    });
+
+    expect(enqueuedPayloads).toHaveLength(1);
+    expect(enqueuedPayloads[0].contentType).toBe("Devotion");
+    const payload = enqueuedPayloads[0].payload as Record<string, unknown>;
+    expect(payload.contentType).toBe("Devotion");
+    // DiscoveredSourceItem also carries the content type so a typed
+    // discovery wave doesn't get re-classified later.
+    const upserted = prismaMock.discoveredSourceItem.upsert.mock.calls[0]?.[0];
+    expect((upserted as { create: { contentType: string } } | undefined)?.create?.contentType).toBe(
+      "Devotion",
+    );
+  });
+
+  it("source-config denyPaths layer on top of the global filter", async () => {
+    const urls = [
+      "https://marian.org/articles/skip-me",
+      // Not in global filter but in source denyPaths.
+      "https://marian.org/sermons/skip-me-too",
+      "https://marian.org/devotion/keep-me",
+    ];
+    mockFetchOnce(buildSitemap(urls));
+
+    const result = await runFactoryNativeDiscovery({
+      sourceId: "src-marian",
+      sourceHost: "marian.org",
+      discoveryFeedUrl: "https://marian.org/sitemap.xml",
+      workerJobId: "queue-row-deny",
+      denyPaths: ["/sermons/"],
+    });
+
+    expect(result.skippedNonContentCount).toBe(2);
+    expect(result.enqueuedCount).toBe(1);
+  });
+
+  it("source-config allowPaths require the URL to live under one of the allowed sections", async () => {
+    const urls = [
+      "https://marian.org/devotion/divine-mercy",
+      "https://marian.org/random-page",
+      "https://marian.org/consecration/33-days",
+    ];
+    mockFetchOnce(buildSitemap(urls));
+
+    const result = await runFactoryNativeDiscovery({
+      sourceId: "src-marian",
+      sourceHost: "marian.org",
+      discoveryFeedUrl: "https://marian.org/sitemap.xml",
+      workerJobId: "queue-row-allow",
+      allowPaths: ["/devotion", "/consecration"],
+    });
+
+    expect(result.skippedTypeMismatchCount).toBe(1);
+    expect(result.enqueuedCount).toBe(2);
+  });
+});

@@ -82,12 +82,21 @@ export async function runGrowthBootstrap(
 
   let sources: BootstrapSource[] = [];
   try {
+    // Growth bootstrap only kicks off discovery against sources that
+    // can actually produce primary content. Validation, enrichment,
+    // and discovery-only sources are scheduled inside cross-source
+    // evidence collection — not here. The role gate (spec #4)
+    // prevents wrong-source rejections downstream: a validation
+    // source's article page can never become a primary devotion or
+    // novena, so we don't even attempt the discovery.
     const rows = await prisma.ingestionSource.findMany({
       where: {
         isActive: true,
         pausedAt: null,
         discoveryFeedUrl: { not: null },
-        configurationStatus: { not: "not_configured" },
+        configurationStatus: "factory_native",
+        role: "primary_content_source",
+        OR: [{ buildLimitPerRun: null }, { buildLimitPerRun: { gt: 0 } }],
       },
       select: {
         id: true,

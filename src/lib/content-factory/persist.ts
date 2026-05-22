@@ -45,6 +45,13 @@ import type { ContentPackage } from "./types";
 import { normalizePackage } from "./normalize";
 import { enrichPackage } from "./enrich";
 import { ensureProvenance } from "./provenance";
+import {
+  getRequiredFields,
+  getDeterministicFields,
+  getPublicRenderRequiredFields,
+} from "./content-type-contracts";
+import { HTML_PARSER_VERSION } from "./html-parser";
+import { CONTENT_TYPE_ROUTER_VERSION } from "./content-type-router";
 
 export type PersistResult =
   | {
@@ -114,8 +121,54 @@ export async function persistBuiltPackage(input: PersistBuiltPackageInput): Prom
 
   // Final provenance gate — required fields without a provenance entry
   // (and not flagged as deterministic) fail this check.
-  const required = REQUIRED_FIELDS_BY_TYPE[input.pkg.contentType] ?? [];
-  const deterministic = DETERMINISTIC_FIELDS_BY_TYPE[input.pkg.contentType] ?? [];
+  //
+  // Spec #13: read from the centralized content-type contracts so the
+  // builder, persistence, and strict QA all use the same field list.
+  // Legacy REQUIRED_FIELDS_BY_TYPE / DETERMINISTIC_FIELDS_BY_TYPE
+  // entries below are retained as compatibility shims for any test
+  // that imports them directly; they delegate to the contract.
+  const required = getRequiredFields(input.pkg.contentType);
+  const deterministic = getDeterministicFields(input.pkg.contentType);
+
+  // Spec #14: structural completeness preflight — verify every
+  // required field is actually present and non-empty in the payload.
+  // Catches a builder that emits an incomplete package without the
+  // contract validator catching it. Uses placeholder detection (empty
+  // string, "Unknown", null) to refuse rows that would otherwise show
+  // blanks on the public catalog.
+  const missingStructure: string[] = [];
+  for (const fieldName of required) {
+    const value = (input.pkg.payload as Record<string, unknown>)[fieldName];
+    if (value === undefined || value === null) {
+      missingStructure.push(fieldName);
+      continue;
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (
+        trimmed.length === 0 ||
+        trimmed.toLowerCase() === "unknown" ||
+        trimmed.toLowerCase() === "tbd" ||
+        trimmed.toLowerCase() === "n/a"
+      ) {
+        missingStructure.push(fieldName);
+      }
+      continue;
+    }
+    if (Array.isArray(value) && value.length === 0) {
+      missingStructure.push(fieldName);
+    }
+  }
+  if (missingStructure.length > 0) {
+    return {
+      outcome: "rejected",
+      contentType: input.pkg.contentType,
+      slug: input.pkg.slug,
+      reason: `Missing or placeholder values for required fields: ${missingStructure.join(", ")}`,
+      missing: missingStructure,
+    };
+  }
+
   const provGate = ensureProvenance({
     payload: input.pkg.payload,
     provenance: input.pkg.provenance,
@@ -132,8 +185,32 @@ export async function persistBuiltPackage(input: PersistBuiltPackageInput): Prom
     };
   }
 
+  // Spec #14: persist parser / router versions in packageMetadata so
+  // the strict-public gate (and the rebuild-on-version-bump path) can
+  // see which parser + router produced the row. The provenance object
+  // already carries source URL / source host per field; we tag the
+  // package-level metadata with version info here.
+  if (!input.pkg.packageMetadata) {
+    input.pkg.packageMetadata = {};
+  }
+  (input.pkg.packageMetadata as Record<string, unknown>).parserVersion = HTML_PARSER_VERSION;
+  (input.pkg.packageMetadata as Record<string, unknown>).routerVersion =
+    CONTENT_TYPE_ROUTER_VERSION;
+
   try {
-    return await persistByContentType(input);
+    const persistResult = await persistByContentType(input);
+    // Spec #14: after persistence, verify the strict-public gate
+    // again. If the row was written with publicRenderReady=true but
+    // structurally fails the gate, log a hard error. The row is left
+    // in the database for the next strict-cleanup pass to handle —
+    // we do not delete it here (that would lose the audit trail).
+    if (
+      (persistResult.outcome === "created" || persistResult.outcome === "updated") &&
+      persistResult.contentId
+    ) {
+      verifyStrictPublicGate(persistResult.contentId, input.pkg).catch(() => undefined);
+    }
+    return persistResult;
   } catch (e) {
     logger.error("content-factory.persist.failed", {
       slug: input.pkg.slug,
@@ -150,27 +227,38 @@ export async function persistBuiltPackage(input: PersistBuiltPackageInput): Prom
   }
 }
 
+/**
+ * @deprecated Read from `content-type-contracts.getRequiredFields()`.
+ * Retained for compatibility with any existing imports — values are
+ * sourced from the centralized contract map and may differ from the
+ * legacy hard-coded list (which under-specified some types).
+ */
 const REQUIRED_FIELDS_BY_TYPE: Record<string, ReadonlyArray<string>> = {
-  Prayer: ["prayerType", "prayerName", "prayerText", "category"],
-  Saint: ["saintName", "biography"],
-  MarianApparition: ["apparitionName", "location", "summary"],
-  Devotion: ["devotionName"],
-  Novena: ["novenaName", "background", "purpose"],
-  Sacrament: ["sacramentKey", "sacramentName"],
-  Rosary: ["background", "mysterySets"],
-  Consecration: ["consecrationName", "background"],
-  SpiritualGuidance: ["guideName", "background"],
-  Liturgy: ["liturgyKind", "title"],
-  History: ["historyType", "title"],
-  Parish: ["parishName", "city", "country"],
+  Prayer: getRequiredFields("Prayer"),
+  Saint: getRequiredFields("Saint"),
+  MarianApparition: getRequiredFields("MarianApparition"),
+  Devotion: getRequiredFields("Devotion"),
+  Novena: getRequiredFields("Novena"),
+  Sacrament: getRequiredFields("Sacrament"),
+  Rosary: getRequiredFields("Rosary"),
+  Consecration: getRequiredFields("Consecration"),
+  SpiritualGuidance: getRequiredFields("SpiritualGuidance"),
+  Liturgy: getRequiredFields("Liturgy"),
+  History: getRequiredFields("History"),
+  Parish: getRequiredFields("Parish"),
 };
 
+/** @deprecated Read from `content-type-contracts.getDeterministicFields()`. */
 const DETERMINISTIC_FIELDS_BY_TYPE: Record<string, ReadonlyArray<string>> = {
-  Sacrament: ["sacramentKey", "sacramentGroup"],
-  Saint: ["slug"],
-  Prayer: ["slug"],
-  Devotion: ["slug"],
+  Sacrament: getDeterministicFields("Sacrament"),
+  Saint: getDeterministicFields("Saint"),
+  Prayer: getDeterministicFields("Prayer"),
+  Devotion: getDeterministicFields("Devotion"),
 };
+
+// Silence unused-warning while the legacy maps remain.
+void REQUIRED_FIELDS_BY_TYPE;
+void DETERMINISTIC_FIELDS_BY_TYPE;
 
 async function persistByContentType(input: PersistBuiltPackageInput): Promise<PersistResult> {
   const { pkg, validation, workerJobId, triggeredBy, actorUsername } = input;
@@ -279,8 +367,13 @@ async function persistPrayerCanonical(
     },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -360,8 +453,13 @@ async function persistSaintCanonical(
     where: { OR: [{ slug: pkg.slug }, { externalSourceKey }] },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -437,8 +535,13 @@ async function persistApparitionCanonical(
     where: { OR: [{ slug: pkg.slug }, { externalSourceKey }] },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -530,8 +633,13 @@ async function persistDevotionCanonical(
     where: { OR: [{ slug: pkg.slug }, { externalSourceKey }] },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -615,9 +723,35 @@ async function persistGuideCanonical(
   const background = typeof p.background === "string" ? p.background : null;
   const durationDays = typeof p.durationDays === "number" ? p.durationDays : null;
   const subtype = pkg.contentType.toLowerCase();
+  // Spec #14: a Sacrament package must persist with a kind that
+  // reflects the actual sacrament — not always CONFESSION. The
+  // SpiritualLifeKind enum is narrow (ROSARY / CONFESSION / ADORATION /
+  // DEVOTION / CONSECRATION / VOCATION / GENERAL) so only
+  // Reconciliation maps directly to CONFESSION; every other sacrament
+  // is stored as GENERAL with the actual sacrament identity preserved
+  // on the sacramentKey + sacramentGroup columns. This stops the
+  // factory from mislabelling a Baptism / Eucharist / Confirmation
+  // guide as a Confession guide on the public surface.
+  function sacramentKindFromKey(key: string | null): string {
+    if (!key) return "GENERAL";
+    const normalized = key.trim().toLowerCase().replace(/[\s_-]+/g, "");
+    if (
+      normalized === "reconciliation" ||
+      normalized === "confession" ||
+      normalized === "penance"
+    ) {
+      return "CONFESSION";
+    }
+    // Every other sacrament (Baptism, Eucharist, Confirmation, Holy
+    // Orders, Matrimony, Anointing of the Sick) is stored as GENERAL
+    // because the SpiritualLifeKind enum has no direct slot for them.
+    // The sacramentKey + sacramentGroup columns carry the actual
+    // sacrament identity for renderers and the strict-public gate.
+    return "GENERAL";
+  }
   const kind =
     pkg.contentType === "Sacrament"
-      ? "CONFESSION"
+      ? sacramentKindFromKey(sacramentKey)
       : pkg.contentType === "Rosary"
         ? "ROSARY"
         : pkg.contentType === "Consecration"
@@ -628,8 +762,13 @@ async function persistGuideCanonical(
     where: { OR: [{ slug: pkg.slug }, { externalSourceKey }] },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -722,8 +861,13 @@ async function persistLiturgyCanonical(
     where: { OR: [{ slug: pkg.slug }, { externalSourceKey }] },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -812,8 +956,13 @@ async function persistParishCanonical(
     },
   });
   if (existing) {
+    // Spec #14: when the existing row has NO checksum (legacy or
+    // seed data), update it on the next ingest rather than skipping.
+    // The previous behaviour (`!!existing.contentChecksum && ...`)
+    // silently dropped fresh content when an older row was sitting
+    // there checksum-less, leaving the catalog stuck on stale data.
     const checksumDiffers =
-      !!existing.contentChecksum && existing.contentChecksum !== ready.contentChecksum;
+      !existing.contentChecksum || existing.contentChecksum !== ready.contentChecksum;
     if (!checksumDiffers) {
       return {
         outcome: "skipped",
@@ -870,3 +1019,48 @@ async function persistParishCanonical(
   await log("ADD", created.slug, "factory persisted new parish");
   return { outcome: "created", contentId: created.id, contentType: "Parish", slug: created.slug };
 }
+
+/**
+ * Spec #14: post-persistence strict-public gate verification.
+ *
+ * After persisting a row, re-check that every field the public
+ * render requires is actually non-empty on the package. If the row
+ * was written with publicRenderReady=true but the strict gate would
+ * reject it (e.g. an enrichment step blanked a field), log a hard
+ * error so the next strict-cleanup pass can fix or delete it.
+ *
+ * Returns nothing — purely a diagnostic post-write check.
+ */
+async function verifyStrictPublicGate(
+  contentId: string,
+  pkg: ContentPackage,
+): Promise<void> {
+  const required = getPublicRenderRequiredFields(pkg.contentType);
+  const missing: string[] = [];
+  for (const fieldName of required) {
+    const value = (pkg.payload as Record<string, unknown>)[fieldName];
+    if (value === undefined || value === null) {
+      missing.push(fieldName);
+      continue;
+    }
+    if (typeof value === "string" && value.trim().length === 0) {
+      missing.push(fieldName);
+      continue;
+    }
+    if (Array.isArray(value) && value.length === 0) {
+      missing.push(fieldName);
+    }
+  }
+  if (missing.length > 0) {
+    logger.error("content-factory.persist.post_persist_gate_failed", {
+      contentId,
+      contentType: pkg.contentType,
+      slug: pkg.slug,
+      sourceUrl: pkg.sourceUrl,
+      missingPublicRenderFields: missing,
+      parserVersion: HTML_PARSER_VERSION,
+      routerVersion: CONTENT_TYPE_ROUTER_VERSION,
+    });
+  }
+}
+

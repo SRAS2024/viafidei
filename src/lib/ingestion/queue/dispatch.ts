@@ -193,7 +193,6 @@ async function runSourceDiscovery(
   job: QueueJobRow,
   payload: Record<string, unknown>,
 ): Promise<DispatchResult> {
-  void payload;
   if (!job.sourceId) {
     return { ok: false, errorMessage: "source_discovery requires sourceId" };
   }
@@ -210,20 +209,61 @@ async function runSourceDiscovery(
         `Legacy adapter execution is removed from the worker.`,
     };
   }
+  // Carry the caller's intended content type (set by growth-bootstrap,
+  // discovery-expansion, admin replay, etc.) through to factory-native
+  // discovery so:
+  //   1. discovery can apply positive URL rules for the type
+  //   2. the resulting DiscoveredSourceItem rows store the contentType
+  //   3. the source_fetch jobs the discovery enqueues also carry the
+  //      contentType, so build-enqueue downstream can use it as a
+  //      strong signal in addition to URL/title/heading evidence.
+  // The queue row's contentType column takes precedence over the
+  // payload when both are present.
+  const requestedContentType =
+    (job.contentType as ContentTypeKey | undefined) ??
+    (payload.contentType as ContentTypeKey | undefined) ??
+    null;
   const { runFactoryNativeDiscovery } = await import("./factory-native-discovery");
+  const { getProductionSourceEntryByHost } = await import("../sources/production-source-registry");
+  // Per-source URL filters from the curated registry. A source with
+  // a broad sitemap (e.g. marian.org) can carry denyPaths to drop
+  // its article / news / event / livestream sections at discovery
+  // time, and allowPaths to require URLs to live under a content
+  // section before they are fetched. Sources missing from the
+  // registry (operator-added) get no per-source filtering.
+  const registryEntry = getProductionSourceEntryByHost(source.host);
   try {
     const result = await runFactoryNativeDiscovery({
       sourceId: job.sourceId,
       sourceHost: source.host,
       discoveryFeedUrl: source.discoveryFeedUrl,
       workerJobId: job.id,
+      requestedContentType,
+      denyPaths: registryEntry?.denyPaths ?? null,
+      allowPaths: registryEntry?.allowPaths ?? null,
     });
     await recordSourceFreshness(job.sourceId, { ok: result.ok }).catch(() => undefined);
+    // Chain event so the source-fetch-to-build diagnostic can compute
+    // a "discovery completed" baseline per source / per type.
+    await recordChainStage({
+      event: "chain.discovery_completed",
+      jobQueueId: job.id,
+      contentType: requestedContentType ?? undefined,
+      metadata: {
+        sourceId: job.sourceId,
+        sourceHost: source.host,
+        feedUrlCount: result.feedUrlCount,
+        discoveredCount: result.discoveredCount,
+        enqueuedCount: result.enqueuedCount,
+        skippedNonContentCount: result.skippedNonContentCount,
+        skippedTypeMismatchCount: result.skippedTypeMismatchCount,
+      },
+    }).catch(() => undefined);
     return {
       ok: result.ok,
       errorMessage:
         result.errorMessage ??
-        `factory-native discovery: feedUrlCount=${result.feedUrlCount} enqueued=${result.enqueuedCount}`,
+        `factory-native discovery: feedUrlCount=${result.feedUrlCount} enqueued=${result.enqueuedCount} typeMismatchSkipped=${result.skippedTypeMismatchCount} nonContentSkipped=${result.skippedNonContentCount} contentType=${requestedContentType ?? "any"}`,
       contentSeen: result.enqueuedCount,
     };
   } catch (e) {
@@ -299,17 +339,47 @@ async function runSourceFetch(
       ? await prisma.ingestionSource.findUnique({ where: { id: job.sourceId } })
       : null;
     const sourcePurposes: Record<string, boolean> = source ? sourcePurposesRecord(source) : {};
+    // Spec #5/#7: pre-parse raw HTML into structured fields before
+    // storing. Builders need title / headings / paragraphs / list
+    // items, not raw nav + footer + script + share buttons. The
+    // parser also extracts canonical URL, og:title, og:type, and
+    // meta description so the content type router has metadata
+    // signals to work with. Plain-text bodies (already-rendered)
+    // pass through unchanged.
+    const { parseHtmlForSourceDocument, HTML_PARSER_VERSION } = await import(
+      "../../content-factory/html-parser"
+    );
+    const parsed = parseHtmlForSourceDocument({ html: text, sourceUrl });
+    // Empty cleaned body → record as a low-signal page so the build
+    // chain diagnostic can count it, but skip enqueueing builds.
+    const effectiveFetchStatus = res.ok
+      ? parsed.cleanedText.length === 0
+        ? "empty_cleaned_body"
+        : "ok"
+      : `http_${res.status}`;
     const document = await recordSourceDocument({
       sourceUrl,
       sourceHost: hostname,
       sourceId: job.sourceId ?? null,
       workerJobId: job.id,
       sourceTier: source?.tier ?? null,
-      rawBody: text,
+      // Keep the raw HTML on the row for forensics, but feed the
+      // structured cleaned text into the heading / paragraph parser
+      // via `rawBody`. This is what builders read.
+      rawHtml: text,
+      rawBody: parsed.cleanedText,
+      sourceTitle: parsed.title ?? undefined,
+      metadata: {
+        description: parsed.description ?? undefined,
+        canonicalUrl: parsed.canonicalUrl ?? undefined,
+        ogTitle: parsed.ogTitle ?? undefined,
+        schemaType: parsed.schemaType ?? undefined,
+        parserVersion: HTML_PARSER_VERSION,
+      },
       httpStatus: res.status,
       etag: res.headers.get("etag"),
       lastModifiedHeader: res.headers.get("last-modified"),
-      fetchStatus: res.ok ? "ok" : `http_${res.status}`,
+      fetchStatus: effectiveFetchStatus,
       sourcePurposes,
     });
     await recordChainStage({
@@ -324,8 +394,11 @@ async function runSourceFetch(
     // content type on the source so a multi-purpose source still
     // builds every supported type. Dedupe and build-eligibility
     // guards live inside enqueueContentBuildsForSourceDocument.
+    // Skip the build enqueue when the parser produced an empty
+    // cleaned body — the source document is logged for diagnostics
+    // but no builder can produce anything useful from zero text.
     let enqueuedBuilds = 0;
-    if (res.ok && document.id) {
+    if (res.ok && document.id && effectiveFetchStatus === "ok") {
       try {
         const buildResult = await enqueueContentBuildsForSourceDocument({
           sourceDocumentId: document.id,
@@ -447,14 +520,16 @@ async function runContentFactoryStage(
   // Record chain-stage events so the audit log preserves the full
   // pipeline trace per URL. We branch on the factory decision so the
   // chain log distinguishes build success, QA rejection, persistence
-  // success, and persistence-skipped.
+  // success, and persistence-skipped. Spec #23: terminal content
+  // rejects get a distinct event so diagnostics can separate them
+  // from infra failures.
   const chainEvent: Parameters<typeof recordChainStage>[0]["event"] =
     result.decision === "persisted-created" || result.decision === "persisted-updated"
       ? "chain.persistence_succeeded"
       : result.decision === "persist-skipped"
         ? "chain.public_gate_passed"
         : result.decision === "qa-rejected" || result.decision === "qa-deleted"
-          ? "chain.strict_qa_rejected"
+          ? "chain.content_build_terminal_reject"
           : "chain.content_build_completed";
   await recordChainStage({
     event: chainEvent,
@@ -464,11 +539,27 @@ async function runContentFactoryStage(
     contentType,
     metadata: { decision: result.decision },
   }).catch(() => undefined);
+  // Spec #12: terminal content rejections (qa-rejected, qa-deleted,
+  // wrong-content, source-not-allowed, duplicate) are CORRECT factory
+  // outcomes — strict QA decided this candidate is not publishable.
+  // They are NOT infrastructure failures and should not be retried.
+  // We mark the queue row as `completed` (with a terminal-reject
+  // summary) so the queue health card stops counting them as ongoing
+  // production breakage. The full reject reason is preserved in
+  // ContentPackageBuildLog and RejectedContentLog for audit.
+  //
+  // Reserve queue `failed` for infrastructure errors only: thrown
+  // exceptions, database / network / OpenAI / parser timeouts.
+  const TERMINAL_DECISIONS = new Set([
+    "persisted-created",
+    "persisted-updated",
+    "persist-skipped",
+    "qa-rejected",
+    "qa-deleted",
+  ]);
+  const isTerminal = TERMINAL_DECISIONS.has(result.decision);
   return {
-    ok:
-      result.decision === "persisted-created" ||
-      result.decision === "persisted-updated" ||
-      result.decision === "persist-skipped",
+    ok: isTerminal,
     errorMessage: `factory decision=${result.decision}`,
   };
 }
@@ -712,6 +803,7 @@ function toBuildEligibility(source: {
   canIngestLiturgy: boolean;
   canIngestHistory: boolean;
   canProvideScriptureText: boolean;
+  role?: string | null;
 }): SourceForBuildEligibility {
   return {
     id: source.id,
@@ -728,5 +820,6 @@ function toBuildEligibility(source: {
     canIngestLiturgy: source.canIngestLiturgy,
     canIngestHistory: source.canIngestHistory,
     canProvideScriptureText: source.canProvideScriptureText,
+    role: source.role ?? null,
   };
 }

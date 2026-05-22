@@ -35,6 +35,7 @@ export const ADMIN_ACTION = {
   ingestionTriggered: "ingestion_triggered",
   queueRepair: "queue_repair_triggered",
   sourceJobRepair: "source_job_repair_triggered",
+  sourceQualityReset: "source_quality_reset",
   settingsChanged: "settings_changed",
   contentEdited: "content_edited",
   contentPublished: "content_published",

@@ -27,6 +27,22 @@ function source(overrides: Record<string, unknown> = {}) {
     configurationStatus: "factory_native",
     discoveryFeedUrl: "https://a.example.org/sitemap.xml",
     dailyCap: null,
+    // Spec #6: source-job-repair now enqueues one discovery job per
+    // supported primary content type. The test fixture must declare
+    // role=primary_content_source and at least one canIngest flag.
+    role: "primary_content_source",
+    buildLimitPerRun: 10,
+    canIngestPrayers: true,
+    canIngestSaints: false,
+    canIngestApparitions: false,
+    canIngestParishes: false,
+    canIngestDevotions: false,
+    canIngestNovenas: false,
+    canIngestSacraments: false,
+    canIngestRosaryGuides: false,
+    canIngestConsecrations: false,
+    canIngestLiturgy: false,
+    canIngestHistory: false,
     ...overrides,
   };
 }
@@ -47,7 +63,14 @@ describe("runSourceJobRepair", () => {
     expect(report.sourcesWithZeroJobs).toBe(1);
     expect(report.discoveryJobsCreated).toBe(1);
     expect(enqueueJob).toHaveBeenCalledWith(
-      expect.objectContaining({ jobKind: "source_discovery", sourceId: "s1" }),
+      expect.objectContaining({
+        jobKind: "source_discovery",
+        sourceId: "s1",
+        // Spec #6: the per-type discovery carries contentType in the
+        // queue row column and the payload.
+        contentType: "Prayer",
+        payload: expect.objectContaining({ contentType: "Prayer" }),
+      }),
     );
   });
 

@@ -44,6 +44,21 @@ export {
 } from "./builder-registry";
 export { routeContentTypes, type RouterDecision, type RouterSignals } from "./content-type-router";
 export {
+  CONTENT_TYPE_CONTRACTS,
+  getContentTypeContract,
+  getRequiredFields,
+  getDeterministicFields,
+  getPublicRenderRequiredFields,
+  listContentTypeContracts,
+  type ContentTypeContract,
+  type PersistenceTarget,
+} from "./content-type-contracts";
+export {
+  parseHtmlForSourceDocument,
+  HTML_PARSER_VERSION,
+  type ParsedHtmlDocument,
+} from "./html-parser";
+export {
   runCanaryBuilds,
   getCanaryFixtures,
   type CanaryResult,

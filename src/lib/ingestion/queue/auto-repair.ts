@@ -58,6 +58,12 @@ export async function runAutoRepairPass(): Promise<AutoRepairReport> {
         for (const sample of entry.samples) {
           if (acted >= PER_STAGE_REPAIR_LIMIT) break;
           if (!sample.sourceDocumentId) continue;
+          // Spec #10: load the full source-document fields needed to
+          // rebuild router signals. Auto-repair must not enqueue every
+          // source-approved content type — it must apply the same
+          // router gate the normal source_fetch → content_build chain
+          // applies, so a wrong-source URL doesn't get repaired into
+          // a wrong-content build.
           const doc = await prisma.sourceDocument
             .findUnique({
               where: { id: sample.sourceDocumentId },
@@ -67,6 +73,9 @@ export async function runAutoRepairPass(): Promise<AutoRepairReport> {
                 sourceHost: true,
                 contentChecksum: true,
                 sourceId: true,
+                sourceTitle: true,
+                headingsJson: true,
+                metadataJson: true,
               },
             })
             .catch(() => null);
@@ -97,10 +106,28 @@ export async function runAutoRepairPass(): Promise<AutoRepairReport> {
                   canIngestLiturgy: source.canIngestLiturgy,
                   canIngestHistory: source.canIngestHistory,
                   canProvideScriptureText: source.canProvideScriptureText,
+                  role: source.role,
                 }
               : null,
             requestedContentType: null,
-            triggeredBy: "automatic",
+            // Router signals from the SourceDocument so the router
+            // can reject hard-negative URLs and narrow to types with
+            // a strong positive signal. Without these, auto-repair
+            // would enqueue every source-approved type and a wrong-
+            // URL source document would re-fail per type.
+            routerSignals: {
+              title: doc.sourceTitle ?? null,
+              headings: (doc.headingsJson ?? null) as ReadonlyArray<{
+                level: number;
+                text: string;
+              }> | null,
+              metadata: (doc.metadataJson ?? null) as Record<string, string | undefined> | null,
+            },
+            // Auto-repair runs automatically; the "auto_repair" label
+            // is carried in the payload for diagnostics but does NOT
+            // bypass the failed-current-version skip rule. Admin
+            // manual replay is the only path that bypasses that rule.
+            triggeredBy: "auto_repair",
           });
           report.actionsTaken.push({
             kind: "enqueue_content_build",
@@ -176,11 +203,25 @@ export async function runAutoRepairPass(): Promise<AutoRepairReport> {
   return report;
 }
 
-/** Optional helper: enqueue a single source document for rebuild. Used by the admin "replay" action. */
+/**
+ * Optional helper: enqueue a single source document for rebuild. Used
+ * by the admin "replay" action. Spec #11: `forceRebuild` lets an
+ * admin retry a build that failed at the current builder version,
+ * recovering after a parser / router / source-config fix without
+ * needing to bump the builder version artificially.
+ */
 export async function replaySourceDocument(args: {
   sourceDocumentId: string;
   contentType?: ContentTypeKey;
-}): Promise<{ enqueued: number; reason?: string }> {
+  /**
+   * When true, bypass the "previous_build_failed_at_current_builder_version"
+   * skip rule so a post-fix rebuild can proceed. Defaults to true for
+   * admin replay because the assumed use case IS the post-fix repair.
+   * Pass `forceRebuild: false` for a cautious "would this still skip?"
+   * dry-run-style check.
+   */
+  forceRebuild?: boolean;
+}): Promise<{ enqueued: number; reason?: string; skippedReasons?: Record<string, string> }> {
   const doc = await prisma.sourceDocument
     .findUnique({
       where: { id: args.sourceDocumentId },
@@ -190,6 +231,9 @@ export async function replaySourceDocument(args: {
         sourceHost: true,
         contentChecksum: true,
         sourceId: true,
+        sourceTitle: true,
+        headingsJson: true,
+        metadataJson: true,
       },
     })
     .catch(() => null);
@@ -221,7 +265,19 @@ export async function replaySourceDocument(args: {
         }
       : null,
     requestedContentType: args.contentType ?? null,
-    triggeredBy: "manual",
+    triggeredBy: "admin",
+    forceRebuild: args.forceRebuild ?? true,
+    // Spec #2/#10: pass router signals so admin replay still respects
+    // hard-negative URL rejects. Force-rebuild bypasses the
+    // "previous failure" skip but it does NOT bypass router signals.
+    routerSignals: {
+      title: doc.sourceTitle ?? null,
+      headings: (doc.headingsJson ?? null) as ReadonlyArray<{
+        level: number;
+        text: string;
+      }> | null,
+      metadata: (doc.metadataJson ?? null) as Record<string, string | undefined> | null,
+    },
   });
-  return { enqueued: result.enqueuedCount };
+  return { enqueued: result.enqueuedCount, skippedReasons: result.skippedReasons };
 }
