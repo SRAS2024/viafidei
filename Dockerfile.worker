@@ -39,4 +39,4 @@ COPY --chown=worker:nodejs tsconfig.json ./
 
 USER worker
 
-CMD ["sh", "-c", "echo 'viafidei worker service started' && npx prisma migrate deploy && node scripts/validate-db.js && npm run worker"]
+CMD ["sh", "-c", "set -ex; echo 'viafidei worker service started'; npx prisma migrate deploy; echo 'migrations complete'; node scripts/validate-db.js; echo 'database validation complete'; exec npm run worker"]
