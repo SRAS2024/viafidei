@@ -5,7 +5,6 @@
     "dockerfilePath": "Dockerfile.worker"
   },
   "deploy": {
-    "startCommand": "set -ex; echo 'viafidei worker service started'; npx prisma migrate deploy; echo 'migrations complete'; node scripts/validate-db.js; echo 'database validation complete'; exec npm run worker",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 5
   }
