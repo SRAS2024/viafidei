@@ -93,4 +93,109 @@ describe("content type router filters build_enqueue", () => {
     // instead of also queueing every other type the source permits.
     expect(result.enqueuedCount).toBeGreaterThan(0);
   });
+
+  it("requestedContentType does NOT bypass a router rejection (spec #8)", async () => {
+    // The page is an /articles/ URL — router rejects every type.
+    // Asking for Prayer specifically must not override that.
+    const result = await enqueueContentBuildsForSourceDocument({
+      sourceDocumentId: "doc-articles",
+      sourceUrl: "https://example.com/articles/prayer-tips",
+      sourceHost: "example.com",
+      contentChecksum: "ck",
+      source: FULLY_APPROVED_SOURCE,
+      requestedContentType: "Prayer",
+      triggeredBy: "automatic",
+      routerSignals: {
+        title: "Prayer Tips Article",
+        headings: [],
+        metadata: {},
+      },
+    });
+
+    expect(result.enqueuedCount).toBe(0);
+    const reasons = Object.values(result.skippedReasons).join(" ");
+    // Either router_rejected or router_rejected_requested_type satisfies
+    // the policy: the requested type was not allowed to override.
+    expect(reasons).toMatch(/router/);
+  });
+
+  it("requestedContentType acts as tie-breaker when router neither rejects nor selects", async () => {
+    const result = await enqueueContentBuildsForSourceDocument({
+      sourceDocumentId: "doc-ambiguous",
+      sourceUrl: "https://example.com/page-1",
+      sourceHost: "example.com",
+      contentChecksum: "ck",
+      // Source only supports Prayer (single purpose), so router has no
+      // ambiguity to resolve.
+      source: { ...FULLY_APPROVED_SOURCE, canIngestSaints: false },
+      requestedContentType: "Prayer",
+      triggeredBy: "automatic",
+      routerSignals: {
+        title: "Some Generic Page",
+        headings: [{ level: 1, text: "Some Generic Page" }],
+        metadata: {},
+      },
+    });
+
+    // No hard negative → request can act as tie-breaker for the only
+    // supported type.
+    expect(result.enqueuedCount).toBe(1);
+  });
+});
+
+describe("build-enqueue force rebuild (spec #11)", () => {
+  it("skips a previously-failed build at the current builder version when not forced", async () => {
+    prismaMock.contentPackageBuildLog.findFirst.mockResolvedValue({
+      buildStatus: "build_failed_missing_required_fields",
+      builderVersion: "1.0.0",
+    });
+    const result = await enqueueContentBuildsForSourceDocument({
+      sourceDocumentId: "doc-failed",
+      sourceUrl: "https://example.com/prayers/page",
+      sourceHost: "example.com",
+      contentChecksum: "ck",
+      source: FULLY_APPROVED_SOURCE,
+      requestedContentType: "Prayer",
+      triggeredBy: "automatic",
+    });
+    expect(result.enqueuedCount).toBe(0);
+    expect(Object.values(result.skippedReasons).join(" ")).toMatch(
+      /previous_build_failed_at_current_builder_version/,
+    );
+  });
+
+  it("admin force rebuild retries a previously-failed build at the current builder version", async () => {
+    prismaMock.contentPackageBuildLog.findFirst.mockResolvedValue({
+      buildStatus: "build_failed_missing_required_fields",
+      builderVersion: "1.0.0",
+    });
+    const result = await enqueueContentBuildsForSourceDocument({
+      sourceDocumentId: "doc-failed",
+      sourceUrl: "https://example.com/prayers/page",
+      sourceHost: "example.com",
+      contentChecksum: "ck",
+      source: FULLY_APPROVED_SOURCE,
+      requestedContentType: "Prayer",
+      triggeredBy: "admin",
+      forceRebuild: true,
+    });
+    expect(result.enqueuedCount).toBe(1);
+  });
+
+  it("admin triggeredBy without forceRebuild still retries a previous failure (admin intent is explicit)", async () => {
+    prismaMock.contentPackageBuildLog.findFirst.mockResolvedValue({
+      buildStatus: "build_failed_missing_required_fields",
+      builderVersion: "1.0.0",
+    });
+    const result = await enqueueContentBuildsForSourceDocument({
+      sourceDocumentId: "doc-failed",
+      sourceUrl: "https://example.com/prayers/page",
+      sourceHost: "example.com",
+      contentChecksum: "ck",
+      source: FULLY_APPROVED_SOURCE,
+      requestedContentType: "Prayer",
+      triggeredBy: "admin",
+    });
+    expect(result.enqueuedCount).toBe(1);
+  });
 });

@@ -101,4 +101,34 @@ describe("routeContentTypes", () => {
     const prayerRejection = decision.rejected.find((r) => r.contentType === "Prayer");
     expect(prayerRejection?.reason).toMatch(/bulletin/);
   });
+
+  it("rejects URL-path negatives even with neutral title", () => {
+    // Spec #9: URL-path negatives apply even when title looks fine.
+    // /articles/, /news/, /events/, /livestream/, /donate/ etc. cannot
+    // be devotional content, regardless of what the title says.
+    const cases = [
+      "https://marian.org/articles/devotion-overview",
+      "https://marian.org/news/new-novena-announced",
+      "https://marian.org/events/upcoming-retreat",
+      "https://marian.org/livestream/divine-mercy-chaplet",
+      "https://marian.org/podcast/episode-42",
+      "https://marian.org/donate/support-us",
+      "https://marian.org/register/sign-up",
+      "https://marian.org/newsletter/subscribe",
+      "https://marian.org/tag/devotion",
+      "https://marian.org/category/spiritual",
+    ];
+    for (const url of cases) {
+      const decision = routeContentTypes({
+        sourceUrl: url,
+        sourceHost: "marian.org",
+        title: "Marian Devotion to Our Lady",
+        sourcePurposes: { canIngestDevotions: true },
+      });
+      expect(
+        decision.rejected.some((r) => r.contentType === "Devotion"),
+        `URL ${url} should be rejected for Devotion`,
+      ).toBe(true);
+    }
+  });
 });

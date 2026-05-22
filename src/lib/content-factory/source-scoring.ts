@@ -49,6 +49,12 @@ const AUTO_PAUSE_BUILD_FAILURE_RATE = 0.8;
 const AUTO_PAUSE_WRONG_CONTENT_RATE = 0.5;
 const AUTO_PAUSE_MIN_ATTEMPTS = 50;
 const AUTO_PAUSE_NO_SUCCESS_BUDGET = 200;
+// Spec #24: aggressive early-pause for sources that produce mostly
+// wrong-content failures in the first 20 attempts of a discovery
+// wave. Catches misconfigured sources (broad sitemap, wrong allowPaths)
+// before they pile up 50 attempts of garbage.
+const AUTO_PAUSE_EARLY_WRONG_CONTENT_RATE = 0.8;
+const AUTO_PAUSE_EARLY_MIN_ATTEMPTS = 20;
 
 export async function recordScoreEvent(event: SourceScoreEvent): Promise<void> {
   try {
@@ -177,7 +183,18 @@ async function recomputeAndMaybePause(rowId: string, event: SourceScoreEvent): P
   let shouldPause = row.autoPaused;
   let pauseReason: string | null = null;
   if (!row.autoPaused) {
+    // Spec #24: aggressive early-pause kicks in first — a source with
+    // 20+ wrong-content rejections at 80%+ rate is almost certainly
+    // misconfigured (broad sitemap, wrong allowPaths) and we should
+    // stop hammering it before it racks up 50 attempts of garbage.
     if (
+      wrongContentRate != null &&
+      totalContent >= AUTO_PAUSE_EARLY_MIN_ATTEMPTS &&
+      wrongContentRate >= AUTO_PAUSE_EARLY_WRONG_CONTENT_RATE
+    ) {
+      shouldPause = true;
+      pauseReason = `Wrong content rate ${Math.round(wrongContentRate * 100)}% over ${totalContent} attempts (early-aggressive pause; source likely misconfigured)`;
+    } else if (
       validPackageRate != null &&
       totalAttempts >= AUTO_PAUSE_MIN_ATTEMPTS &&
       validPackageRate < 1 - AUTO_PAUSE_BUILD_FAILURE_RATE

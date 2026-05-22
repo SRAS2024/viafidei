@@ -520,14 +520,16 @@ async function runContentFactoryStage(
   // Record chain-stage events so the audit log preserves the full
   // pipeline trace per URL. We branch on the factory decision so the
   // chain log distinguishes build success, QA rejection, persistence
-  // success, and persistence-skipped.
+  // success, and persistence-skipped. Spec #23: terminal content
+  // rejects get a distinct event so diagnostics can separate them
+  // from infra failures.
   const chainEvent: Parameters<typeof recordChainStage>[0]["event"] =
     result.decision === "persisted-created" || result.decision === "persisted-updated"
       ? "chain.persistence_succeeded"
       : result.decision === "persist-skipped"
         ? "chain.public_gate_passed"
         : result.decision === "qa-rejected" || result.decision === "qa-deleted"
-          ? "chain.strict_qa_rejected"
+          ? "chain.content_build_terminal_reject"
           : "chain.content_build_completed";
   await recordChainStage({
     event: chainEvent,
@@ -537,11 +539,27 @@ async function runContentFactoryStage(
     contentType,
     metadata: { decision: result.decision },
   }).catch(() => undefined);
+  // Spec #12: terminal content rejections (qa-rejected, qa-deleted,
+  // wrong-content, source-not-allowed, duplicate) are CORRECT factory
+  // outcomes — strict QA decided this candidate is not publishable.
+  // They are NOT infrastructure failures and should not be retried.
+  // We mark the queue row as `completed` (with a terminal-reject
+  // summary) so the queue health card stops counting them as ongoing
+  // production breakage. The full reject reason is preserved in
+  // ContentPackageBuildLog and RejectedContentLog for audit.
+  //
+  // Reserve queue `failed` for infrastructure errors only: thrown
+  // exceptions, database / network / OpenAI / parser timeouts.
+  const TERMINAL_DECISIONS = new Set([
+    "persisted-created",
+    "persisted-updated",
+    "persist-skipped",
+    "qa-rejected",
+    "qa-deleted",
+  ]);
+  const isTerminal = TERMINAL_DECISIONS.has(result.decision);
   return {
-    ok:
-      result.decision === "persisted-created" ||
-      result.decision === "persisted-updated" ||
-      result.decision === "persist-skipped",
+    ok: isTerminal,
     errorMessage: `factory decision=${result.decision}`,
   };
 }

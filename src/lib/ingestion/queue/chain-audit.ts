@@ -24,14 +24,22 @@ import { recordQueueAudit } from "./audit";
  * being entered by a specific URL or SourceDocument.
  */
 export type ChainStageEvent =
+  | "chain.discovery_started"
   | "chain.discovery_completed"
+  | "chain.discovery_url_skipped"
   | "chain.source_fetch_started"
+  | "chain.source_fetch_completed"
   | "chain.source_document_created"
   | "chain.source_fetch_to_build"
+  | "chain.build_enqueued"
+  | "chain.build_skipped"
   | "chain.content_build_started"
   | "chain.content_build_completed"
+  | "chain.content_build_terminal_reject"
+  | "chain.content_build_infra_failed"
   | "chain.strict_qa_passed"
   | "chain.strict_qa_rejected"
+  | "chain.persistence_started"
   | "chain.persistence_succeeded"
   | "chain.persistence_failed"
   | "chain.public_gate_passed"
