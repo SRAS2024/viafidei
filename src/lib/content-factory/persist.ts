@@ -126,6 +126,46 @@ export async function persistBuiltPackage(input: PersistBuiltPackageInput): Prom
   // that imports them directly; they delegate to the contract.
   const required = getRequiredFields(input.pkg.contentType);
   const deterministic = getDeterministicFields(input.pkg.contentType);
+
+  // Spec #14: structural completeness preflight — verify every
+  // required field is actually present and non-empty in the payload.
+  // Catches a builder that emits an incomplete package without the
+  // contract validator catching it. Uses placeholder detection (empty
+  // string, "Unknown", null) to refuse rows that would otherwise show
+  // blanks on the public catalog.
+  const missingStructure: string[] = [];
+  for (const fieldName of required) {
+    const value = (input.pkg.payload as Record<string, unknown>)[fieldName];
+    if (value === undefined || value === null) {
+      missingStructure.push(fieldName);
+      continue;
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (
+        trimmed.length === 0 ||
+        trimmed.toLowerCase() === "unknown" ||
+        trimmed.toLowerCase() === "tbd" ||
+        trimmed.toLowerCase() === "n/a"
+      ) {
+        missingStructure.push(fieldName);
+      }
+      continue;
+    }
+    if (Array.isArray(value) && value.length === 0) {
+      missingStructure.push(fieldName);
+    }
+  }
+  if (missingStructure.length > 0) {
+    return {
+      outcome: "rejected",
+      contentType: input.pkg.contentType,
+      slug: input.pkg.slug,
+      reason: `Missing or placeholder values for required fields: ${missingStructure.join(", ")}`,
+      missing: missingStructure,
+    };
+  }
+
   const provGate = ensureProvenance({
     payload: input.pkg.payload,
     provenance: input.pkg.provenance,

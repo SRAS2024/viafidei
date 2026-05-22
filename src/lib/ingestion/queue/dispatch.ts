@@ -803,6 +803,7 @@ function toBuildEligibility(source: {
   canIngestLiturgy: boolean;
   canIngestHistory: boolean;
   canProvideScriptureText: boolean;
+  role?: string | null;
 }): SourceForBuildEligibility {
   return {
     id: source.id,
@@ -819,5 +820,6 @@ function toBuildEligibility(source: {
     canIngestLiturgy: source.canIngestLiturgy,
     canIngestHistory: source.canIngestHistory,
     canProvideScriptureText: source.canProvideScriptureText,
+    role: source.role ?? null,
   };
 }

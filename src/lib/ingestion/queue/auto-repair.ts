@@ -106,6 +106,7 @@ export async function runAutoRepairPass(): Promise<AutoRepairReport> {
                   canIngestLiturgy: source.canIngestLiturgy,
                   canIngestHistory: source.canIngestHistory,
                   canProvideScriptureText: source.canProvideScriptureText,
+                  role: source.role,
                 }
               : null,
             requestedContentType: null,

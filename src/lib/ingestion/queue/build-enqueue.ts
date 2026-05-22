@@ -43,6 +43,15 @@ export type SourceForBuildEligibility = {
   canIngestLiturgy: boolean;
   canIngestHistory: boolean;
   canProvideScriptureText: boolean;
+  /**
+   * Optional factory role. When provided, build-enqueue gates by role
+   * so a validation / enrichment / discovery-only source's URL cannot
+   * trigger a primary content_build. Spec #4/#15: only
+   * `primary_content_source` sources may produce primary content;
+   * other roles contribute inside cross-source evidence collection.
+   * Omitted = bypass the role gate (test fixtures and synthetic sources).
+   */
+  role?: string | null;
 };
 
 const PURPOSE_BY_CONTENT_TYPE: Record<ContentTypeKey, keyof SourceForBuildEligibility> = {
@@ -241,6 +250,18 @@ export async function enqueueContentBuildsForSourceDocument(
     enqueuedTypes: [],
     skippedReasons: {},
   };
+  // Spec #4/#15: only `primary_content_source` sources are allowed to
+  // seed primary content_build jobs. Validation / enrichment /
+  // discovery-only sources contribute inside cross-source evidence
+  // collection, not via this enqueue path. When `role` is set on the
+  // source row but is not "primary_content_source", refuse to enqueue.
+  // Sources with role unset (omitted in the input — used by test
+  // fixtures and synthetic sources) bypass this gate.
+  if (input.source?.role && input.source.role !== "primary_content_source") {
+    result.skippedReasons.source_role_not_primary =
+      `source role '${input.source.role}' is not primary_content_source — only primary sources may seed content_build`;
+    return result;
+  }
   let allowed = allowedContentTypes(input.source, input.requestedContentType);
   if (allowed.length === 0) {
     result.skippedReasons.no_eligible_types =

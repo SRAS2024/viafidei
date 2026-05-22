@@ -143,6 +143,77 @@ describe("content type router filters build_enqueue", () => {
   });
 });
 
+describe("build-enqueue role gate (spec #4/#15)", () => {
+  it("refuses to enqueue when the source role is validation_source", async () => {
+    const result = await enqueueContentBuildsForSourceDocument({
+      sourceDocumentId: "doc-1",
+      sourceUrl: "https://example.com/prayers/our-father",
+      sourceHost: "example.com",
+      contentChecksum: "ck",
+      source: { ...FULLY_APPROVED_SOURCE, role: "validation_source" },
+      requestedContentType: "Prayer",
+      triggeredBy: "automatic",
+    });
+    expect(result.enqueuedCount).toBe(0);
+    expect(result.skippedReasons.source_role_not_primary).toBeTruthy();
+  });
+
+  it("refuses to enqueue when the source role is enrichment_source", async () => {
+    const result = await enqueueContentBuildsForSourceDocument({
+      sourceDocumentId: "doc-1",
+      sourceUrl: "https://example.com/prayers/our-father",
+      sourceHost: "example.com",
+      contentChecksum: "ck",
+      source: { ...FULLY_APPROVED_SOURCE, role: "enrichment_source" },
+      requestedContentType: "Prayer",
+      triggeredBy: "automatic",
+    });
+    expect(result.enqueuedCount).toBe(0);
+  });
+
+  it("refuses to enqueue when the source role is discovery_only_source", async () => {
+    const result = await enqueueContentBuildsForSourceDocument({
+      sourceDocumentId: "doc-1",
+      sourceUrl: "https://example.com/prayers/our-father",
+      sourceHost: "example.com",
+      contentChecksum: "ck",
+      source: { ...FULLY_APPROVED_SOURCE, role: "discovery_only_source" },
+      requestedContentType: "Prayer",
+      triggeredBy: "automatic",
+    });
+    expect(result.enqueuedCount).toBe(0);
+  });
+
+  it("enqueues normally when the source role is primary_content_source", async () => {
+    const result = await enqueueContentBuildsForSourceDocument({
+      sourceDocumentId: "doc-1",
+      sourceUrl: "https://example.com/prayers/our-father",
+      sourceHost: "example.com",
+      contentChecksum: "ck",
+      source: { ...FULLY_APPROVED_SOURCE, role: "primary_content_source" },
+      requestedContentType: "Prayer",
+      triggeredBy: "automatic",
+    });
+    expect(result.enqueuedCount).toBeGreaterThan(0);
+  });
+
+  it("enqueues when role is omitted (test fixture compat)", async () => {
+    // Bypass the role gate when role is not set — used by synthetic
+    // sources and old test fixtures. The role check kicks in only when
+    // the field is set to a non-primary value.
+    const result = await enqueueContentBuildsForSourceDocument({
+      sourceDocumentId: "doc-1",
+      sourceUrl: "https://example.com/prayers/our-father",
+      sourceHost: "example.com",
+      contentChecksum: "ck",
+      source: FULLY_APPROVED_SOURCE,
+      requestedContentType: "Prayer",
+      triggeredBy: "automatic",
+    });
+    expect(result.enqueuedCount).toBeGreaterThan(0);
+  });
+});
+
 describe("build-enqueue force rebuild (spec #11)", () => {
   it("skips a previously-failed build at the current builder version when not forced", async () => {
     prismaMock.contentPackageBuildLog.findFirst.mockResolvedValue({
