@@ -51,17 +51,38 @@ export async function runSourceJobRepair(
   const limit = Math.max(1, Math.min(options.limit ?? 100, 500));
   const triggeredBy = options.triggeredBy ?? "automatic";
 
-  let sources: Array<{
+  type SourceRow = {
     id: string;
     host: string;
     pausedAt: Date | null;
     configurationStatus: string | null;
     discoveryFeedUrl: string | null;
     dailyCap: number | null;
-  }> = [];
+    role: string;
+    buildLimitPerRun: number | null;
+    canIngestPrayers: boolean;
+    canIngestSaints: boolean;
+    canIngestApparitions: boolean;
+    canIngestParishes: boolean;
+    canIngestDevotions: boolean;
+    canIngestNovenas: boolean;
+    canIngestSacraments: boolean;
+    canIngestRosaryGuides: boolean;
+    canIngestConsecrations: boolean;
+    canIngestLiturgy: boolean;
+    canIngestHistory: boolean;
+  };
+  let sources: SourceRow[] = [];
   try {
-    sources = await prisma.ingestionSource.findMany({
-      where: { isActive: true },
+    sources = (await prisma.ingestionSource.findMany({
+      where: {
+        isActive: true,
+        // Source-job-repair only enqueues discovery for primary content
+        // sources (spec #6). Validation / enrichment / discovery-only
+        // sources are used inside cross-source evidence and must not
+        // be repaired into the primary build pipeline.
+        role: "primary_content_source",
+      },
       select: {
         id: true,
         host: true,
@@ -69,15 +90,45 @@ export async function runSourceJobRepair(
         configurationStatus: true,
         discoveryFeedUrl: true,
         dailyCap: true,
+        role: true,
+        buildLimitPerRun: true,
+        canIngestPrayers: true,
+        canIngestSaints: true,
+        canIngestApparitions: true,
+        canIngestParishes: true,
+        canIngestDevotions: true,
+        canIngestNovenas: true,
+        canIngestSacraments: true,
+        canIngestRosaryGuides: true,
+        canIngestConsecrations: true,
+        canIngestLiturgy: true,
+        canIngestHistory: true,
       },
       take: 1000,
-    });
+    })) as unknown as SourceRow[];
   } catch (e) {
     report.errors.push(`source read: ${e instanceof Error ? e.message : String(e)}`);
     return report;
   }
 
   const dayStart = startOfUtcDay(report.generatedAt);
+  // Mapping from source purpose flag → ContentTypeKey. Per-content-type
+  // discovery jobs let the build router use the type as a strong
+  // signal AND let the dedupe key separate one source's parallel
+  // discoveries instead of collapsing them.
+  const PURPOSE_TO_CONTENT_TYPE: ReadonlyArray<{ flag: keyof SourceRow; type: string }> = [
+    { flag: "canIngestPrayers", type: "Prayer" },
+    { flag: "canIngestSaints", type: "Saint" },
+    { flag: "canIngestApparitions", type: "MarianApparition" },
+    { flag: "canIngestParishes", type: "Parish" },
+    { flag: "canIngestDevotions", type: "Devotion" },
+    { flag: "canIngestNovenas", type: "Novena" },
+    { flag: "canIngestSacraments", type: "Sacrament" },
+    { flag: "canIngestRosaryGuides", type: "Rosary" },
+    { flag: "canIngestConsecrations", type: "Consecration" },
+    { flag: "canIngestLiturgy", type: "Liturgy" },
+    { flag: "canIngestHistory", type: "History" },
+  ];
 
   for (const source of sources) {
     // Respect paused sources.
@@ -88,6 +139,14 @@ export async function runSourceJobRepair(
     // Respect not_configured sources / sources with no discovery feed —
     // `runSourceDiscovery` hard-fails without a discoveryFeedUrl.
     if (source.configurationStatus === "not_configured" || !source.discoveryFeedUrl) {
+      report.skippedNotConfigured += 1;
+      continue;
+    }
+    // Spec #6: a source with buildLimitPerRun === 0 cannot produce
+    // primary content — skip even though the registry might still
+    // label it primary_content_source. (Belt-and-braces; the source
+    // query already filters by role.)
+    if (source.buildLimitPerRun === 0) {
       report.skippedNotConfigured += 1;
       continue;
     }
@@ -126,28 +185,52 @@ export async function runSourceJobRepair(
       }
     }
 
-    if (report.discoveryJobsCreated >= limit) continue;
+    // Enqueue one discovery job per supported primary content type
+    // rather than one untyped job. This:
+    //   - lets the dispatcher pass the content type into
+    //     factory-native discovery (positive URL rules)
+    //   - lets build-enqueue use the content type as a strong signal
+    //   - separates dedupe keys so a source with three content types
+    //     gets three concurrent discoveries, not one that crowds out
+    //     the others.
+    const supportedTypes: string[] = [];
+    for (const { flag, type } of PURPOSE_TO_CONTENT_TYPE) {
+      if (source[flag] === true) supportedTypes.push(type);
+    }
+    if (supportedTypes.length === 0) {
+      // Primary source with no purpose flags — treat as misconfigured.
+      report.skippedNotConfigured += 1;
+      continue;
+    }
 
-    try {
-      await enqueueJob({
-        jobName: `source-job-repair:${source.host}`,
-        jobKind: "source_discovery",
-        dedupeKey: `source_job_repair:${source.id}`,
-        sourceId: source.id,
-        payload: {
+    for (const contentType of supportedTypes) {
+      if (report.discoveryJobsCreated >= limit) break;
+      try {
+        await enqueueJob({
+          jobName: `source-job-repair:${source.host}:${contentType}`,
+          jobKind: "source_discovery",
+          dedupeKey: `source_job_repair:${source.id}:${contentType}`,
           sourceId: source.id,
-          adapterKey: `factory-native:${source.host}`,
-          mode: "constant",
-        },
-        triggeredBy,
-      });
-      report.discoveryJobsCreated += 1;
-      logger.info("source-job-repair.discovery_job_created", {
-        sourceId: source.id,
-        host: source.host,
-      });
-    } catch (e) {
-      report.errors.push(`enqueue ${source.host}: ${e instanceof Error ? e.message : String(e)}`);
+          contentType,
+          payload: {
+            sourceId: source.id,
+            adapterKey: `factory-native:${source.host}`,
+            contentType,
+            mode: "constant",
+          },
+          triggeredBy,
+        });
+        report.discoveryJobsCreated += 1;
+        logger.info("source-job-repair.discovery_job_created", {
+          sourceId: source.id,
+          host: source.host,
+          contentType,
+        });
+      } catch (e) {
+        report.errors.push(
+          `enqueue ${source.host}:${contentType}: ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
     }
   }
 

@@ -72,7 +72,7 @@ export type EnqueueBuildsInput = {
    * source_fetch when the discoverer hinted at a specific type.
    */
   requestedContentType: ContentTypeKey | null;
-  triggeredBy: "automatic" | "manual";
+  triggeredBy: "automatic" | "manual" | "admin" | "auto_repair" | "scheduler" | "worker";
   /**
    * Optional router signals (page title, headings, metadata) used to
    * filter out content types with hard-negative signals — livestream
@@ -85,6 +85,14 @@ export type EnqueueBuildsInput = {
     headings?: ReadonlyArray<{ level: number; text: string }> | null;
     metadata?: Record<string, string | undefined> | null;
   } | null;
+  /**
+   * Spec #3/#11: bypass the "previous failed at current builder
+   * version" skip rule. Used by admin manual replay and post-fix
+   * repair so a parser / router / source-config change can take
+   * effect without an artificial builder version bump. Should not
+   * be set by the regular source_fetch → content_build chain.
+   */
+  forceRebuild?: boolean;
 };
 
 export type EnqueueBuildsResult = {
@@ -171,6 +179,8 @@ async function shouldSkipBuild(input: {
   contentType: ContentTypeKey;
   builderVersion: string;
   contentChecksum: string | null;
+  forceRebuild: boolean;
+  triggeredBy: "automatic" | "manual" | "admin" | "auto_repair" | "scheduler" | "worker";
 }): Promise<string | null> {
   // Look up the most recent build log for this (sourceDocumentId,
   // contentType). The build log doesn't store the source checksum or
@@ -194,7 +204,8 @@ async function shouldSkipBuild(input: {
   // A prior successful build at the current builder version is
   // authoritative; nothing to do until the builder or contract is
   // bumped (which produces a different dedupe key and re-enqueues
-  // naturally).
+  // naturally). Even admin force-rebuild respects this — to rebuild
+  // a successful row, change the contract or builder version.
   if (
     existing.buildStatus === "built_complete_package" &&
     existing.builderVersion === input.builderVersion
@@ -204,10 +215,19 @@ async function shouldSkipBuild(input: {
   // A failed build at the current builder version is NOT retried on
   // every fetch — only when the builder is bumped (different dedupe
   // key) or the admin requests a manual rebuild.
+  //
+  // Spec #3/#11: admin replay and force_rebuild bypass this skip.
+  // This is the recovery path after a parser fix, router fix, or
+  // source-registry fix — without it, every post-fix repair would
+  // require an artificial builder version bump even though the
+  // builder code is identical.
   if (
     existing.buildStatus !== "built_complete_package" &&
     existing.builderVersion === input.builderVersion
   ) {
+    if (input.forceRebuild) return null;
+    if (input.triggeredBy === "admin") return null;
+    if (input.triggeredBy === "manual") return null;
     return "previous_build_failed_at_current_builder_version";
   }
   return null;
@@ -276,12 +296,33 @@ export async function enqueueContentBuildsForSourceDocument(
     }
     // Narrow to the types carrying a strong positive signal. A source
     // permitting a content type is not by itself a reason to build it.
-    // An explicit `requestedContentType` counts as a strong signal —
-    // the discoverer routed it deliberately. When NOTHING carries a
-    // strong signal the (non-rejected) allowed set is kept so a
-    // genuinely ambiguous page still gets a build attempt.
+    //
+    // Spec #8: the requested content type can NARROW the candidate set,
+    // but it must not OVERRIDE a router rejection. Adding the requested
+    // type to selectedTypes whenever the router didn't reject it makes
+    // the requested-type signal a "tie-breaker" rather than a bypass:
+    //   - router rejected it             → skip (request loses)
+    //   - router selected it             → keep (no change)
+    //   - router neither selected nor rejected → keep when requested
+    //     and the URL came from a curated source (fixedUrlList) OR the
+    //     source has only one supported content type (single-purpose).
+    // For a normal multi-type source with a broad sitemap, the
+    // requested-type alone is NOT enough to build — the page itself
+    // must show a URL / title / heading match for the type.
     const selectedTypes = new Set(decision.selected.map((s) => s.contentType));
-    if (input.requestedContentType) selectedTypes.add(input.requestedContentType);
+    const rejectedSet = rejectedTypes;
+    if (
+      input.requestedContentType &&
+      !rejectedSet.has(input.requestedContentType) &&
+      // Treat as strong signal only when the requested type also
+      // appears in the router's ranked set with a non-negative score
+      // OR when the source has only one supported content type
+      // (single-purpose source — no ambiguity possible).
+      (decision.ranked.find((r) => r.contentType === input.requestedContentType) ||
+        allowed.length === 1)
+    ) {
+      selectedTypes.add(input.requestedContentType);
+    }
     if (selectedTypes.size > 0) {
       for (const t of allowed) {
         if (!selectedTypes.has(t)) {
@@ -295,6 +336,12 @@ export async function enqueueContentBuildsForSourceDocument(
           "no allowed content type carries a strong positive signal for this source document";
         return result;
       }
+    } else if (input.requestedContentType && rejectedSet.has(input.requestedContentType)) {
+      // The caller specifically requested a type the router rejected —
+      // log it explicitly so the diagnostic shows "we tried to build
+      // this URL as the requested type but the router blocked it".
+      result.skippedReasons[input.requestedContentType] =
+        "router_rejected_requested_type: requested content type was hard-rejected by router signals";
     }
   }
   const enqueued: ContentTypeKey[] = [];
@@ -311,6 +358,8 @@ export async function enqueueContentBuildsForSourceDocument(
       contentType,
       builderVersion: builder.builderVersion,
       contentChecksum: input.contentChecksum,
+      forceRebuild: input.forceRebuild === true,
+      triggeredBy: input.triggeredBy,
     });
     if (skipReason) {
       result.skippedReasons[contentType] = skipReason;
@@ -323,6 +372,15 @@ export async function enqueueContentBuildsForSourceDocument(
       packageContractVersion,
       contentChecksum: input.contentChecksum,
     });
+    // The queue layer only understands "automatic" | "manual" for
+    // triggeredBy. Map the wider EnqueueBuildsInput.triggeredBy
+    // (admin / auto_repair / scheduler / worker) down to one of those
+    // two values, while preserving the more precise label in the
+    // payload for downstream diagnostics.
+    const queueTriggeredBy: "automatic" | "manual" =
+      input.triggeredBy === "manual" || input.triggeredBy === "admin"
+        ? "manual"
+        : "automatic";
     try {
       await enqueueJob({
         jobName: `content_build:${contentType}`,
@@ -331,7 +389,7 @@ export async function enqueueContentBuildsForSourceDocument(
         sourceId: input.source?.id ?? null,
         contentType,
         priority: PRIORITY_NORMAL,
-        triggeredBy: input.triggeredBy,
+        triggeredBy: queueTriggeredBy,
         payload: {
           sourceDocumentId: input.sourceDocumentId,
           sourceUrl: input.sourceUrl,
@@ -341,6 +399,7 @@ export async function enqueueContentBuildsForSourceDocument(
           contentPackageVersion: packageContractVersion,
           dedupeKey,
           triggeredBy: input.triggeredBy,
+          forceRebuild: input.forceRebuild === true,
         },
       });
       enqueued.push(contentType);

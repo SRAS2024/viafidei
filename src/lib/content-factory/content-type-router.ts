@@ -92,11 +92,12 @@ const TITLE_HINTS: Partial<Record<ContentTypeKey, RegExp>> = {
 };
 
 /**
- * Hard negative signals from spec #4: the router rejects a candidate
- * content type outright when any of these match the URL or title.
- * Livestream / event / bulletin / staff / donation / school / Mass
- * schedule / news / press / podcast / unrelated blog content can
- * never become valid Catholic content packages.
+ * Hard negative signals from spec #4 + #6: the router rejects a
+ * candidate content type outright when any of these match the URL or
+ * title. Livestream / event / bulletin / staff / donation / school /
+ * Mass schedule / news / press / podcast / blog / newsletter /
+ * registration / video / webinar content can never become valid
+ * Catholic content packages — bad URL → no build attempt.
  */
 const NEGATIVE_HINTS: ReadonlyArray<{ pattern: RegExp; label: string }> = [
   { pattern: /\blivestream\b/i, label: "livestream" },
@@ -115,10 +116,40 @@ const NEGATIVE_HINTS: ReadonlyArray<{ pattern: RegExp; label: string }> = [
   { pattern: /\bnewsletter\b/i, label: "newsletter" },
   { pattern: /\bpodcast\s+episode\b|\bepisode\s+\d+\b/i, label: "podcast_episode" },
   { pattern: /\bblog\s+post\b/i, label: "unrelated_blog_post" },
-  // URL-path shapes for article / blog feeds — a "/articles/" or
-  // "/blog/" path is a news / blog page, never a content package.
-  { pattern: /\/articles?(?:\/|$)/i, label: "article" },
-  { pattern: /\/blog(?:\/|$)/i, label: "unrelated_blog_post" },
+  { pattern: /\bwebinar\b/i, label: "webinar" },
+  { pattern: /\bbreaking\s+news\b/i, label: "breaking_news" },
+  // URL-path shapes for article / blog / news / event / livestream /
+  // podcast / video / webinar / press / donate / register / newsletter /
+  // tag / category / author feeds. Even when title or headings look
+  // promising, a /articles/, /blog/, /news/, /events/ URL is a news
+  // or blog page — never a content package. These match against the
+  // URL only (since the title regexes above already cover the words
+  // when they appear in <title>).
+  { pattern: /\/articles?(?:\/|$|-)/i, label: "article" },
+  { pattern: /\/blog(?:\/|$|-)/i, label: "unrelated_blog_post" },
+  { pattern: /\/news(?:\/|$|-)/i, label: "news" },
+  { pattern: /\/events?(?:\/|$|-)/i, label: "event" },
+  { pattern: /\/calendar(?:\/|$|-)/i, label: "calendar" },
+  { pattern: /\/livestreams?(?:\/|$|-)/i, label: "livestream" },
+  { pattern: /\/live-streams?(?:\/|$|-)/i, label: "livestream" },
+  { pattern: /\/watch-live(?:\/|$|-)/i, label: "watch_live" },
+  { pattern: /\/podcasts?(?:\/|$|-)/i, label: "podcast" },
+  { pattern: /\/videos?(?:\/|$|-)/i, label: "video" },
+  { pattern: /\/webinar(?:\/|$|-)/i, label: "webinar" },
+  { pattern: /\/press(?:-releases?)?(?:\/|$|-)/i, label: "press" },
+  { pattern: /\/donate(?:\/|$|-)/i, label: "donate" },
+  { pattern: /\/donations?(?:\/|$|-)/i, label: "donations" },
+  { pattern: /\/register(?:\/|$|-)/i, label: "register" },
+  { pattern: /\/registration(?:\/|$|-)/i, label: "registration" },
+  { pattern: /\/newsletters?(?:\/|$|-)/i, label: "newsletter" },
+  { pattern: /\/subscribe(?:\/|$|-)/i, label: "subscribe" },
+  { pattern: /\/tag(?:\/|$|-)/i, label: "tag_index" },
+  { pattern: /\/tags(?:\/|$|-)/i, label: "tag_index" },
+  { pattern: /\/category(?:\/|$|-)/i, label: "category_index" },
+  { pattern: /\/categories(?:\/|$|-)/i, label: "category_index" },
+  { pattern: /\/author(?:\/|$|-)/i, label: "author_index" },
+  { pattern: /\/store(?:\/|$|-)/i, label: "store" },
+  { pattern: /\/shop(?:\/|$|-)/i, label: "shop" },
 ];
 
 /**

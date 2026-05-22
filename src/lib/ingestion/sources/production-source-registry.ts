@@ -66,6 +66,29 @@ export type ProductionSourceEntry = {
   fetchLimitPerRun: number | null;
   buildLimitPerRun: number | null;
   dailyCap: number | null;
+  /**
+   * Optional curated allowlist of fully-qualified source URLs. When
+   * set, the factory-native discoverer will only enqueue source_fetch
+   * jobs for URLs in this list (the sitemap is ignored). Used for
+   * sources whose discovery feed is broad and includes article /
+   * news / event pages that would otherwise pile up wrong-content
+   * rejections downstream.
+   */
+  fixedUrlList?: ReadonlyArray<string>;
+  /**
+   * Optional URL path patterns to drop at discovery time. Used by
+   * sources with broad sitemaps (e.g. publishers that surface
+   * articles, news, and events alongside their primary content).
+   * Matched as case-insensitive substrings.
+   */
+  denyPaths?: ReadonlyArray<string>;
+  /**
+   * Optional URL path patterns that a URL MUST match (at least one)
+   * to pass discovery. When non-empty, URLs that don't match are
+   * dropped at discovery time. Combine with denyPaths for tight
+   * scoping.
+   */
+  allowPaths?: ReadonlyArray<string>;
   notes?: string;
 };
 
@@ -474,8 +497,59 @@ export const PRODUCTION_SOURCE_REGISTRY: ReadonlyArray<ProductionSourceEntry> = 
     fetchLimitPerRun: 15,
     buildLimitPerRun: 10,
     dailyCap: 150,
+    // marian.org's full sitemap includes articles, news, events,
+    // livestream, and donation pages alongside its actual devotion /
+    // novena / consecration material. Without these path filters,
+    // the factory would burn dozens of build attempts on /articles/
+    // and /events/ URLs that the wrong-content detector correctly
+    // rejects. denyPaths blocks the noisy sections; allowPaths
+    // requires every passing URL to live under a path that actually
+    // hosts devotional content. The global non-content URL filter
+    // would catch most of these anyway — these per-source filters
+    // are the second-line defence per spec #3.
+    denyPaths: [
+      "/articles/",
+      "/article/",
+      "/news/",
+      "/events/",
+      "/event/",
+      "/calendar/",
+      "/livestream/",
+      "/live-stream/",
+      "/watch-live/",
+      "/podcast/",
+      "/video/",
+      "/press/",
+      "/store/",
+      "/shop/",
+      "/cart/",
+      "/donate/",
+      "/donations/",
+      "/give/",
+      "/register/",
+      "/registration/",
+      "/newsletter/",
+      "/subscribe/",
+      "/tag/",
+      "/category/",
+      "/author/",
+    ],
+    allowPaths: [
+      "/consecration",
+      "/consecrations",
+      "/33-days",
+      "/33days",
+      "/devotion",
+      "/devotions",
+      "/devotional",
+      "/divine-mercy",
+      "/novena",
+      "/novenas",
+      "/prayers",
+      "/prayer",
+    ],
     notes:
-      "Marian Fathers of the Immaculate Conception. Primary source for Marian consecrations + Divine Mercy devotion content.",
+      "Marian Fathers of the Immaculate Conception. Primary source for Marian consecrations + Divine Mercy devotion content. Discovery is scoped via denyPaths (/articles, /news, /events, /livestream, /donate) and allowPaths (/consecration, /33-days, /devotion, /novena) because the full sitemap also serves news and event pages that the wrong-content detector would otherwise reject.",
   },
   {
     name: "Adoremus",
@@ -554,4 +628,20 @@ export function groupSourcesByContentType(
     }
   }
   return groups as Record<string, ReadonlyArray<ProductionSourceEntry>>;
+}
+
+/**
+ * Look up the registry entry for a given host. Returns null when the
+ * host is not in the curated registry (operator-added sources, fixture
+ * sources, etc.). Used by the discovery dispatcher to read
+ * source-specific URL filters (denyPaths / allowPaths / fixedUrlList)
+ * without storing them on the IngestionSource row.
+ */
+export function getProductionSourceEntryByHost(
+  host: string,
+): ProductionSourceEntry | null {
+  for (const entry of PRODUCTION_SOURCE_REGISTRY) {
+    if (entry.host === host) return entry;
+  }
+  return null;
 }
