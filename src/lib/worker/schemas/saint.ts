@@ -1,0 +1,72 @@
+import { z } from "zod";
+import type { ContentSchema } from "./index";
+
+export const saintSchema: ContentSchema = {
+  contentType: "SAINT",
+  schema: z.object({
+    slug: z.string().min(1),
+    canonicalName: z.string().min(1),
+    feastDay: z.string().regex(/^\d{2}-\d{2}$/), // MM-DD
+    feastMonth: z.number().int().min(1).max(12),
+    feastDayOfMonth: z.number().int().min(1).max(31),
+    patronages: z.array(z.string()).default([]),
+    biography: z.string().min(100),
+    saintType: z.enum([
+      "martyr",
+      "doctor_of_the_church",
+      "virgin",
+      "confessor",
+      "religious",
+      "lay",
+      "bishop",
+      "pope",
+      "apostle",
+      "evangelist",
+      "founder",
+      "missionary",
+      "other",
+    ]),
+    canonizationStatus: z.enum(["canonized", "beatified", "venerable", "servant_of_god"]),
+    canonizationDate: z.string().optional(),
+    canonizedBy: z.string().optional(),
+    birthDate: z.string().optional(),
+    deathDate: z.string().optional(),
+    relatedPrayers: z.array(z.string()).default([]),
+    relatedDevotions: z.array(z.string()).default([]),
+    citations: z.array(z.string().url()).min(2),
+  }),
+  instruction: {
+    description:
+      "Catholic saint or blessed with verified canonization status, biographical text, feast day, and patronages.",
+    accuracyRules: [
+      "Feast day MUST match the General Roman Calendar or the saint's proper calendar. Never invent a feast day.",
+      "Canonization status (canonized / beatified / venerable / servant_of_god) MUST be sourced.",
+      "Do not assign patronages without a citation — apocryphal patronages are common online.",
+      "Distinguish memorials, optional memorials, feasts, and solemnities when noting feast rank.",
+      "Cross-reference two approved sources before claiming canonization details.",
+    ],
+    requiredFields: [
+      "slug",
+      "canonicalName",
+      "feastDay",
+      "feastMonth",
+      "feastDayOfMonth",
+      "biography",
+      "saintType",
+      "canonizationStatus",
+      "citations",
+    ],
+    optionalFields: [
+      "patronages",
+      "canonizationDate",
+      "canonizedBy",
+      "birthDate",
+      "deathDate",
+      "relatedPrayers",
+      "relatedDevotions",
+    ],
+    preferredSourceHosts: ["vatican.va", "usccb.org", "ewtn.com", "catholic.org", "newadvent.org"],
+    minCitations: 2,
+    requiresHumanReview: false,
+  },
+};

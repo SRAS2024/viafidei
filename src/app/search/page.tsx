@@ -1,29 +1,27 @@
+import Link from "next/link";
+
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
-import { detectSearchIntent, searchAll, type SearchIntent, EMPTY_HITS } from "@/lib/data/search";
-import { SearchInput, SearchResultGroup, buildSearchGroups } from "./_components";
-import { logger } from "@/lib/observability/logger";
-
-const INTENT_GROUP_KEY: Record<Exclude<SearchIntent, "any">, string> = {
-  parish: "parishes",
-  saint: "saints",
-  prayer: "prayers",
-  apparition: "apparitions",
-  angel: "saints",
-  sacrament: "spiritualLife",
-};
-
-const INTENT_LABEL: Record<Exclude<SearchIntent, "any">, string> = {
-  parish: "Parishes",
-  saint: "Saints",
-  prayer: "Prayers",
-  apparition: "Marian apparitions",
-  angel: "Angels",
-  sacrament: "Sacraments & consecrations",
-};
+import { searchPublished } from "@/lib/data/published";
+import { SearchInput } from "./_components/SearchInput";
+import type { ChecklistContentType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Search" };
+
+const TYPE_PATHS: Record<ChecklistContentType, string> = {
+  PRAYER: "/prayers",
+  DEVOTION: "/devotions",
+  SAINT: "/saints",
+  MARIAN_TITLE: "/spiritual-guidance",
+  APPARITION: "/spiritual-guidance",
+  NOVENA: "/devotions",
+  SACRAMENT: "/sacraments",
+  GUIDE: "/spiritual-life",
+  CHURCH_DOCUMENT: "/liturgy-history",
+  LITURGICAL: "/liturgy-history",
+  SPIRITUAL_PRACTICE: "/spiritual-life",
+};
 
 export default async function SearchPage({
   searchParams,
@@ -34,28 +32,7 @@ export default async function SearchPage({
   const { q: rawQ } = await searchParams;
   const q = (rawQ ?? "").trim();
 
-  let hits: Awaited<ReturnType<typeof searchAll>>;
-  try {
-    hits = await searchAll(q);
-  } catch (err) {
-    logger.error("search.page_failed", { q, error: (err as Error).message });
-    hits = EMPTY_HITS;
-  }
-  const groups = buildSearchGroups(hits, t);
-  const total = groups.reduce((acc, g) => acc + g.count, 0);
-  const intent = detectSearchIntent(q);
-  const intentGroupKey = intent !== "any" ? INTENT_GROUP_KEY[intent] : null;
-
-  // When the query carries a clear content-type intent, surface the
-  // matching group first so a "Boston MA" search lands on parishes
-  // and a "Saint Therese" search lands on saints. Other groups still
-  // render below in their canonical order.
-  const orderedGroups = intentGroupKey
-    ? [
-        ...groups.filter((g) => g.key === intentGroupKey),
-        ...groups.filter((g) => g.key !== intentGroupKey),
-      ]
-    : groups;
+  const hits = q ? await searchPublished(q, 50) : [];
 
   return (
     <div>
@@ -72,27 +49,25 @@ export default async function SearchPage({
         submitLabel={t("nav.search")}
       />
 
-      {q ? (
-        <div className="mb-8 text-center font-serif text-ink-faint">
-          <p>
-            {total === 0
-              ? t("search.noResults")
-              : t("search.resultsCount", { count: total, query: q })}
-          </p>
-          {intent !== "any" && total > 0 ? (
-            <p className="mt-1 text-xs">
-              Showing {INTENT_LABEL[intent].toLowerCase()} first based on your query.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+      {q && (
+        <p className="mb-8 text-center font-serif text-ink-faint">
+          {hits.length === 0
+            ? "No results for that query."
+            : `${hits.length} result${hits.length === 1 ? "" : "s"} for "${q}".`}
+        </p>
+      )}
 
-      <div className="mx-auto flex max-w-3xl flex-col gap-10">
-        {orderedGroups
-          .filter((g) => g.count > 0)
-          .map((g) => (
-            <SearchResultGroup key={g.key} group={g} query={q} />
-          ))}
+      <div className="mx-auto max-w-3xl space-y-3">
+        {hits.map((item) => (
+          <Link
+            key={item.id}
+            href={`${TYPE_PATHS[item.contentType]}/${item.slug}`}
+            className="block rounded border border-slate-200 bg-white p-4 transition hover:border-slate-400"
+          >
+            <p className="text-xs uppercase tracking-wide text-ink-faint">{item.contentType}</p>
+            <p className="mt-1 font-display text-lg text-ink">{item.title}</p>
+          </Link>
+        ))}
       </div>
     </div>
   );

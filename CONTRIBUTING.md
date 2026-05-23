@@ -75,16 +75,17 @@ to a class of risk we've hit before in this codebase.
 - `logger.error` / `logger.warn` calls do not pass passwords, tokens,
   or session values — only ids and shapes.
 
-### Ingestion
+### Checklist-first worker
 
-- Every external fetch goes through `fetchText` / `fetchJson` in
-  `src/lib/http/client.ts` so timeouts, retries, and per-host rate
-  limits are uniform.
-- Every adapter calls `gateUrl` / `isApprovedUrl` against the
-  Vatican-source allowlist before persistence; the test in
-  `tests/ingestion/vatican-allowlist.test.ts` enforces that contract.
-- Ingestion writes go through the dedup / checksum path so unchanged
-  rows are skipped.
+- Every external fetch goes through `fetchApprovedSource()` in
+  `src/lib/worker/sources/fetcher.ts`. The fetcher refuses to read any URL
+  whose host is not in `src/lib/worker/sources/authority-registry.ts`; the
+  test in `tests/worker/source-validation.test.ts` enforces that contract.
+- Every published row is validated against the Zod schema in
+  `src/lib/worker/schemas/` before it lands in `PublishedContent`.
+- The worker never invents doctrine, feast days, indulgences, titles,
+  apparitions, or promises. Any required field without source provenance
+  raises an accuracy warning and blocks publishing.
 
 ### Data layer
 

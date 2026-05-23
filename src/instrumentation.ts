@@ -11,24 +11,14 @@ async function notifyCriticalFailure(params: {
   stack?: string;
 }): Promise<void> {
   try {
-    const [{ recordError }, { reportCriticalFailure }] = await Promise.all([
-      import("./lib/data/error-log"),
-      import("./lib/data/admin-notifications"),
-    ]);
-    await Promise.all([
-      recordError({
-        source: "uncaught",
-        kind: params.kind,
-        message: params.message,
-        stack: params.stack,
-        severity: "critical",
-      }),
-      reportCriticalFailure({
-        kind: params.kind,
-        message: params.message,
-        stack: params.stack,
-      }),
-    ]);
+    const { recordError } = await import("./lib/data/error-log");
+    await recordError({
+      source: "uncaught",
+      kind: params.kind,
+      message: params.message,
+      stack: params.stack,
+      severity: "critical",
+    });
   } catch {
     // Never throw from the safety net.
   }

@@ -1,5 +1,5 @@
 import { getTranslator } from "@/lib/i18n/server";
-import { listPublishedPrayers } from "@/lib/data/prayers";
+import { listPublished } from "@/lib/data/published";
 import {
   HomeHero,
   HomeMission,
@@ -13,18 +13,15 @@ import type { FeaturedPrayer } from "./_sections/HomeFeatured";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const { t, locale } = await getTranslator();
+  const { t } = await getTranslator();
 
-  const dbPrayers = await listPublishedPrayers(locale, 6).catch(() => []);
-  const featuredPrayers: FeaturedPrayer[] = dbPrayers.map((p) => {
-    const tr = p.translations[0];
-    return {
-      id: p.id,
-      title: tr?.title ?? p.defaultTitle,
-      category: p.category,
-      slug: p.slug,
-    };
-  });
+  const dbPrayers = await listPublished("PRAYER").catch(() => []);
+  const featuredPrayers: FeaturedPrayer[] = dbPrayers.slice(0, 6).map((p) => ({
+    id: p.id,
+    title: p.title,
+    category: (p.payload.category as string | undefined) ?? "general",
+    slug: p.slug,
+  }));
 
   return (
     <div className="flex flex-col gap-24">

@@ -1,192 +1,55 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { getTranslator } from "@/lib/i18n/server";
-import { getPublishedPrayerBySlug } from "@/lib/data/prayers";
-import { tagsForSlug, withCacheTags } from "@/lib/cache/cached-data";
-import { resolveGuidePrayers, type GuidePrayerEntry } from "@/lib/data/guide-prayers";
-import { isSaved } from "@/lib/data/saved";
-import { requireUser } from "@/lib/auth";
-import { SaveButton } from "@/components/profile/SaveButton";
-import { ExpandablePrayer, OfficialSourceLink } from "@/components/ui";
-import { logger } from "@/lib/observability/logger";
-import { buildDetailMetadata, notFoundMetadataFor } from "@/lib/metadata";
-import { logPageError, logPageMissingContent } from "@/lib/observability/page-errors";
-import { checkPrayerRender, notifyRenderGateFailure } from "@/lib/content-qa";
+
+import { getPublishedBySlug } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 
-async function safeGetPrayer(slug: string, locale: string) {
-  try {
-    // Spec §19: per-slug cache scoped by content-slug + content-type
-    // + tab tags. Revalidates when the factory persists / deletes
-    // this prayer.
-    const cfg = tagsForSlug({ contentType: "Prayer", tab: "prayers", slug });
-    const cached = await withCacheTags<
-      Parameters<typeof getPublishedPrayerBySlug>,
-      Awaited<ReturnType<typeof getPublishedPrayerBySlug>>
-    >({
-      keyParts: ["prayers", "detail", slug, locale],
-      tags: cfg.tags,
-      revalidateSeconds: cfg.revalidateSeconds,
-      fn: getPublishedPrayerBySlug,
-    });
-    return await cached(slug, locale as never);
-  } catch (err) {
-    logPageError({ route: "/prayers/[slug]", entityType: "Prayer", slug, error: err });
-    return null;
-  }
-}
-
-async function safeRequireUser() {
-  try {
-    return await requireUser();
-  } catch (err) {
-    logger.warn("prayer.requireUser_failed", { error: (err as Error).message });
-    return null;
-  }
-}
-
-async function safeIsSaved(userId: string, prayerId: string): Promise<boolean> {
-  try {
-    return await isSaved("prayer", userId, prayerId);
-  } catch (err) {
-    logger.warn("prayer.isSaved_failed", { error: (err as Error).message });
-    return false;
-  }
-}
-
-async function safeResolveSteps(slug: string, locale: string): Promise<GuidePrayerEntry[]> {
-  try {
-    return await resolveGuidePrayers(slug, locale as never);
-  } catch (err) {
-    logger.warn("prayer.resolve_steps_failed", { slug, error: (err as Error).message });
-    return [];
-  }
-}
-
-export async function generateMetadata({ params }: Props) {
-  const { locale } = await getTranslator();
-  const { slug } = await params;
-  const prayer = await safeGetPrayer(slug, locale);
-  if (!prayer) return notFoundMetadataFor("/prayers");
-  const tr = prayer.translations[0];
-  const title = tr?.title ?? prayer.defaultTitle;
-  return buildDetailMetadata({
-    path: `/prayers/${slug}`,
-    title,
-  });
-}
-
 export default async function PrayerDetailPage({ params }: Props) {
-  const { t, locale } = await getTranslator();
   const { slug } = await params;
-  const prayer = await safeGetPrayer(slug, locale);
-  if (!prayer) {
-    logPageMissingContent({
-      route: "/prayers/[slug]",
-      entityType: "Prayer",
-      slug,
-      reason: "missing_record",
-    });
-    notFound();
-  }
+  const prayer = await getPublishedBySlug("PRAYER", slug);
+  if (!prayer) notFound();
 
-  // Strict render-readiness gate (belt-and-suspenders): even though
-  // getPublishedPrayerBySlug filters on the strict where clause, an
-  // admin-edited row could have flags but missing fields. Refuse to
-  // render in that case.
-  const render = checkPrayerRender({
-    prayerType: prayer.prayerType,
-    defaultTitle: prayer.defaultTitle,
-    body: prayer.body,
-  });
-  if (!render.ready) {
-    logger.warn("prayer.package_unready", { slug, missing: render.missing });
-    logPageMissingContent({
-      route: "/prayers/[slug]",
-      entityType: "Prayer",
-      slug,
-      reason: "validation_error",
-    });
-    // Fire-and-forget: enqueue a cleanup so the next visitor does not
-    // hit this same broken row. Render must complete even if the
-    // enqueue fails.
-    void notifyRenderGateFailure({
-      contentType: "Prayer",
-      slug,
-      missingFields: render.missing,
-    });
-    notFound();
-  }
-
-  const user = await safeRequireUser();
-  const alreadySaved = user ? await safeIsSaved(user.id, prayer.id) : false;
-
-  const tr = prayer.translations[0];
-  const title = tr?.title ?? prayer.defaultTitle;
-  const body = tr?.body ?? prayer.body;
-  const steps = await safeResolveSteps(prayer.slug, locale);
+  const body = (prayer.payload.body as string | undefined) ?? "";
+  const officialPrayer = prayer.payload.officialPrayer as string | undefined;
+  const summary = prayer.payload.summary as string | undefined;
+  const citations = (prayer.payload.citations as string[] | undefined) ?? [];
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="mb-6">
-        <Link href="/prayers" className="vf-nav-link">
-          ← {t("nav.prayers")}
-        </Link>
-      </div>
+    <article className="mx-auto max-w-2xl px-4 py-10">
+      <header className="mb-8">
+        <h1 className="font-display text-4xl text-ink">{prayer.title}</h1>
+        {summary && <p className="mt-3 font-serif leading-relaxed text-ink-soft">{summary}</p>}
+      </header>
 
-      <section className="mb-10 px-2 text-center">
-        <p className="vf-eyebrow">{prayer.category}</p>
-        <div className="vf-rule mx-auto my-5" />
-        <h1 className="break-words font-display text-3xl leading-tight text-ink sm:text-5xl md:text-6xl">
-          {title}
-        </h1>
+      {officialPrayer && (
+        <section className="mb-6 rounded border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs uppercase tracking-wide text-ink-faint">Official prayer</p>
+          <p className="mt-2 whitespace-pre-line font-serif leading-relaxed text-ink">
+            {officialPrayer}
+          </p>
+        </section>
+      )}
+
+      <section className="font-serif text-lg leading-relaxed text-ink whitespace-pre-line">
+        {body}
       </section>
 
-      <div className="mb-10 flex justify-center">
-        <SaveButton
-          kind="prayers"
-          entityId={prayer.id}
-          initiallySaved={alreadySaved}
-          isAuthed={!!user}
-          labels={{
-            save: t("prayers.save"),
-            saved: t("prayers.saved"),
-            remove: t("common.remove"),
-          }}
-        />
-      </div>
-
-      <article className="vf-card rounded-sm p-6 sm:p-8">
-        <p className="whitespace-pre-wrap break-words font-serif text-base leading-loose text-ink-soft sm:text-lg">
-          {body}
-        </p>
-      </article>
-
-      {prayer.officialPrayer ? (
-        <div className="mt-8">
-          <h2 className="mb-4 font-display text-xl">{t("saints.officialPrayer")}</h2>
-          <p className="font-serif leading-relaxed text-ink-soft">{prayer.officialPrayer}</p>
-        </div>
-      ) : null}
-
-      {steps.length > 0 ? (
-        <section className="mt-10 vf-card rounded-sm p-6 sm:p-8">
-          <h2 className="mb-2 font-display text-2xl">Prayers in this devotion</h2>
-          <p className="mb-4 font-serif text-sm text-ink-faint">
-            Tap any prayer to read its full text.
-          </p>
-          <div>
-            {steps.map((p) => (
-              <ExpandablePrayer key={p.slug} title={p.title} body={p.body} />
+      {citations.length > 0 && (
+        <footer className="mt-12 border-t border-slate-200 pt-4 text-xs text-ink-faint">
+          <p className="font-medium uppercase tracking-wide">Sources</p>
+          <ul className="mt-2 space-y-1">
+            {citations.map((url) => (
+              <li key={url}>
+                <a href={url} className="break-all underline">
+                  {url}
+                </a>
+              </li>
             ))}
-          </div>
-        </section>
-      ) : null}
-
-      <OfficialSourceLink url={prayer.externalSourceKey} />
-    </div>
+          </ul>
+        </footer>
+      )}
+    </article>
   );
 }
