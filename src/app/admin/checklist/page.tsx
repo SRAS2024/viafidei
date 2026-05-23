@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
+import { bulkActionCounts } from "@/lib/worker";
+import { BulkActions } from "./BulkActions";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +68,7 @@ export default async function ChecklistDashboard() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
 
-  const stats = await fetchStats();
+  const [stats, bulkCounts] = await Promise.all([fetchStats(), bulkActionCounts(prisma)]);
 
   const cards: Array<{ label: string; value: number; href: string; tone: string }> = [
     {
@@ -129,6 +131,11 @@ export default async function ChecklistDashboard() {
         </p>
       </header>
 
+      <BulkActions
+        verifyCount={bulkCounts.discoveredReadyToVerify}
+        buildCount={bulkCounts.verifiedReadyToBuild}
+      />
+
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {cards.map((card) => (
           <Link
@@ -180,6 +187,21 @@ export default async function ChecklistDashboard() {
           <li>
             <Link className="text-indigo-600 underline" href="/admin/checklist/published">
               Published content
+            </Link>
+          </li>
+          <li>
+            <Link className="text-indigo-600 underline" href="/admin/checklist/janitor/edits">
+              Janitor: edits
+            </Link>
+          </li>
+          <li>
+            <Link className="text-indigo-600 underline" href="/admin/checklist/janitor/deletes">
+              Janitor: deletes
+            </Link>
+          </li>
+          <li>
+            <Link className="text-indigo-600 underline" href="/admin/diagnostics">
+              System diagnostics
             </Link>
           </li>
         </ul>

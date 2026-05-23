@@ -174,7 +174,10 @@ Useful scripts:
 The admin console at `/admin/checklist` is the single pane of glass for the
 content factory:
 
-- **Dashboard** (`/admin/checklist`) — counts by status + content type.
+- **Dashboard** (`/admin/checklist`) — counts by status + content type, plus
+  **bulk actions**: _Verify all_, _Build all_, _Reject all discovered_. The
+  _Build all_ button glows green once everything has been verified so an
+  admin can drain the entire pipeline in two clicks.
 - **Discovered items** (`/admin/checklist/discovered`) — add citations, mark
   source-verified.
 - **Approved for build** (`/admin/checklist/approved`) — waiting for the
@@ -187,12 +190,57 @@ content factory:
 - **Failed builds** (`/admin/checklist/failed`) — exhausted retry budgets.
 - **Authority sources** (`/admin/checklist/sources`) — approved-source
   registry.
+- **Janitor: edits** (`/admin/checklist/janitor/edits`) — items the worker
+  recommends rebuilding (low QA score, schema drift, stale source, …).
+- **Janitor: deletes** (`/admin/checklist/janitor/deletes`) — items the
+  worker recommends removing from the site entirely (rejected-but-still-live,
+  duplicates, all approved citations have lapsed).
+- **System diagnostics** (`/admin/diagnostics`) — colour-coded live health
+  status for every part of the system (database, queue, QA pipeline,
+  publishing, janitor, …). Includes a **Developer Report** button at the
+  top that generates a markdown report and copies it to the clipboard.
 - **Item detail** (`/admin/checklist/item/[id]`) — full citations, build
   history, QA reports, version history, relations + manual actions (verify,
   approve, rebuild, publish, unpublish, reject).
 
 Admin API routes live under `/api/admin/checklist/*` and require an
-authenticated admin principal.
+authenticated admin principal. Bulk-action routes live under
+`/api/admin/checklist/bulk/{verify-all,build-all,reject-all}`. The janitor's
+accept/dismiss endpoint is `/api/admin/checklist/janitor/[id]`.
+
+### Diagnostic status colour scheme
+
+- **Green** — pass: the part is healthy.
+- **Yellow** — warn: the part is degraded but functioning.
+- **Red** — fail: the part is broken; the status badge is white-on-red and
+  the row uses black-on-red highlighting for high visibility.
+
+## The autonomous custodian
+
+The worker is the site's custodian. Beyond running the queue, it
+autonomously promotes work and self-publishes when it is confident:
+
+1. **Autonomous promotion.** When the build queue is idle, the worker scans
+   for DISCOVERED items that already have at least one citation pointing to
+   an approved authority host and promotes them to SOURCE_VERIFIED. It then
+   scans SOURCE_VERIFIED items whose schema does not mandate human review
+   and have enough citations, approves them for build, and enqueues them.
+   APPARITION items are never auto-promoted past SOURCE_VERIFIED because
+   Church approval status is doctrinally significant.
+
+2. **Self-publishing.** Every successful build attempts to publish. The
+   publishing gate refuses anything QA rejected. Packages flagged for
+   review that meet the confidence bar (≥0.75) and have not hard-failed QA
+   are auto-published; lower-confidence packages stay in QA_PENDING for an
+   admin.
+
+3. **Janitor.** Runs on demand from the admin pages and as a diagnostic. It
+   produces typed recommendations (edit / delete) the admin accepts or
+   dismisses.
+
+The worker has no off switch for its accuracy guards: it never invents
+content, never publishes uncited required fields, and never accepts a
+source outside the authority registry.
 
 ---
 
@@ -259,6 +307,10 @@ coverage of:
 - `publishing.test.ts` — gate refuses bad packages, versions on republish.
 - `checklists.test.ts` — every master checklist is well-formed.
 - `catholic-accuracy.test.ts` — Catholic-accuracy guards in code.
+- `bulk-actions.test.ts` — verify-all / build-all / bulk-reject helpers.
+- `janitor.test.ts` — janitor edit/delete recommendations.
+- `autonomous.test.ts` — autonomous promotion pipeline.
+- `diagnostics.test.ts` — system health checks + developer report.
 
 ---
 
