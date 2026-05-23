@@ -1,125 +1,86 @@
 #!/usr/bin/env tsx
 /**
- * Dedicated ingestion worker. Runs the durable-queue loop without
- * the web server. Designed to be a separate process from the Next
- * app so the web container stays focused on serving pages and APIs
- * while long-running ingestion batches happen elsewhere.
+ * Viafidei checklist-first worker entry point.
+ *
+ * Replaces the legacy scraper worker. Drains the WorkerBuildJob queue by
+ * repeatedly calling `runOneBuildCycle` from `src/lib/worker`. Each cycle:
+ *
+ *   - Picks an approved checklist item from the queue.
+ *   - Fetches every approved citation (HTTP).
+ *   - Cross-checks values across sources.
+ *   - Builds a complete content package against the strict schema.
+ *   - Scores QA on six dimensions.
+ *   - Publishes when QA passes and human review isn't required.
  *
  * Usage:
- *   tsx scripts/run-worker.ts                       # long-running
- *   tsx scripts/run-worker.ts --one-shot            # drain the queue and exit
- *   tsx scripts/run-worker.ts --max-jobs 25         # exit after N jobs
- *   tsx scripts/run-worker.ts --worker-id worker-A  # stable id (default: random uuid)
+ *   tsx scripts/run-worker.ts                # loop forever
+ *   tsx scripts/run-worker.ts --one-shot     # one cycle then exit
+ *   tsx scripts/run-worker.ts --max-jobs N   # exit after N cycles
+ *   tsx scripts/run-worker.ts --worker-id X  # supply a stable worker id
  *
- * Multiple workers can run in parallel: the lease/SKIP LOCKED claim
- * guarantees no two workers process the same job.
+ * Multiple workers can run in parallel; the lease guard guarantees no two
+ * workers run the same build.
  */
 
-import { runWorkerLoop, releaseActiveLeases } from "../src/lib/ingestion/queue/worker";
-import { runWorkerStartupCheck } from "../src/lib/ingestion/queue/worker-startup-check";
-import { runSourceJobRepair } from "../src/lib/ingestion/queue/source-job-repair";
-import { registerVaticanAdapters } from "../src/lib/ingestion/sources";
-import { removeHeartbeat } from "../src/lib/ingestion/queue/heartbeat";
-import { logger } from "../src/lib/observability/logger";
+import { PrismaClient } from "@prisma/client";
 
-function parseFlag(name: string): string | null {
-  const i = process.argv.indexOf(`--${name}`);
-  if (i < 0) return null;
-  return process.argv[i + 1] ?? "";
+import { runOneBuildCycle, runWorkerLoop } from "../src/lib/worker";
+
+function parseArgs(argv: string[]): {
+  oneShot: boolean;
+  maxJobs: number | null;
+  workerId: string;
+} {
+  let oneShot = false;
+  let maxJobs: number | null = null;
+  let workerId = process.env.WORKER_ID ?? `worker-${process.pid}-${Date.now()}`;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--one-shot") oneShot = true;
+    else if (arg === "--max-jobs") {
+      maxJobs = parseInt(argv[++i] ?? "0", 10);
+    } else if (arg === "--worker-id") {
+      workerId = argv[++i] ?? workerId;
+    }
+  }
+  return { oneShot, maxJobs, workerId };
 }
 
-function hasFlag(name: string): boolean {
-  return process.argv.includes(`--${name}`);
-}
-
-async function main(): Promise<void> {
-  const workerId = parseFlag("worker-id") ?? undefined;
-  const oneShot = hasFlag("one-shot");
-  const maxJobsArg = parseFlag("max-jobs");
-  const maxJobs = maxJobsArg ? Number.parseInt(maxJobsArg, 10) : undefined;
-
-  // Workers need the same adapter registry the web process has.
-  await registerVaticanAdapters();
-
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  const prisma = new PrismaClient();
   let shuttingDown = false;
-  const effectiveWorkerId = workerId ?? `worker-${process.pid}`;
-  const shutdown = async (signal: string) => {
+  const shutdown = (signal: string) => {
     if (shuttingDown) return;
     shuttingDown = true;
-    logger.info("worker shutdown signal", { signal, workerId: effectiveWorkerId });
-    // Release any active leases so the next worker can pick the job
-    // up without waiting for the stale-lease timeout.
-    await releaseActiveLeases(effectiveWorkerId).catch(() => undefined);
-    await removeHeartbeat(effectiveWorkerId).catch(() => undefined);
-    // Give the loop one cycle to detect the flag and exit.
+    console.log(`[worker:${args.workerId}] received ${signal}; exiting...`);
     setTimeout(() => process.exit(0), 1_000).unref();
   };
-  process.on("SIGINT", () => void shutdown("SIGINT"));
-  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-  // Startup self-test — proves the worker can reach the database and
-  // read/write the queue + heartbeat tables before it enters the
-  // loop. A failed check exits non-zero so Railway restarts the
-  // worker instead of leaving a dead process that never heartbeats.
-  const startupCheck = await runWorkerStartupCheck({ processType: "worker" });
-  if (!startupCheck.ok) {
-    logger.error("viafidei.worker_service.startup_check_failed", {
-      workerId: effectiveWorkerId,
-      ...startupCheck,
-    });
-    process.exit(1);
-  }
-  logger.info("viafidei.worker_service.startup_check_ok", {
-    workerId: effectiveWorkerId,
-    ...startupCheck,
-  });
-
-  logger.info("viafidei.worker_service.started", {
-    workerId: effectiveWorkerId,
-    oneShot,
-    maxJobs: maxJobs ?? null,
-    processType: "worker",
-  });
-
-  // Automatic source job repair on startup — enqueue a missing
-  // source_discovery job for any factory-ready source sitting with
-  // zero active jobs, so the worker always has work to drain.
   try {
-    const repair = await runSourceJobRepair({ triggeredBy: "automatic" });
-    logger.info("viafidei.worker_service.source_job_repair", {
-      workerId: effectiveWorkerId,
-      factoryReadySources: repair.factoryReadySources,
-      sourcesWithZeroJobs: repair.sourcesWithZeroJobs,
-      discoveryJobsCreated: repair.discoveryJobsCreated,
+    console.log(
+      `[worker:${args.workerId}] starting (oneShot=${args.oneShot}, maxJobs=${args.maxJobs ?? "∞"})`,
+    );
+    if (args.oneShot) {
+      const result = await runOneBuildCycle(prisma, args.workerId);
+      console.log(`[worker:${args.workerId}] result:`, result);
+      return;
+    }
+    await runWorkerLoop(prisma, {
+      workerId: args.workerId,
+      maxCycles: args.maxJobs ?? Infinity,
+      onIdle: () => {
+        if (!shuttingDown) console.log(`[worker:${args.workerId}] idle`);
+      },
     });
-  } catch (e) {
-    logger.warn("viafidei.worker_service.source_job_repair_failed", {
-      workerId: effectiveWorkerId,
-      error: e instanceof Error ? e.message : String(e),
-    });
+  } finally {
+    await prisma.$disconnect();
   }
-
-  const result = await runWorkerLoop({
-    workerId: effectiveWorkerId,
-    oneShot: oneShot || shuttingDown,
-    maxJobs,
-  });
-
-  logger.info("worker exited", result);
-
-  // A long-running worker is supposed to poll forever. If the loop
-  // returns without `--one-shot`, `--max-jobs`, or a graceful
-  // shutdown, something went wrong — exit non-zero so Railway
-  // restarts the service.
-  if (!oneShot && !maxJobs && !shuttingDown) {
-    logger.error("worker exited unexpectedly in long-running mode", result);
-    process.exit(1);
-  }
-
-  process.exit(0);
 }
 
-main().catch((e) => {
-  logger.error("worker fatal", { error: e instanceof Error ? e.message : String(e) });
-  process.exit(1);
+main().catch((err) => {
+  console.error("[worker] fatal:", err);
+  process.exitCode = 1;
 });

@@ -1,51 +1,13 @@
-import Link from "next/link";
+import { PageHero, PublishedList } from "@/components/ui";
 import { getTranslator } from "@/lib/i18n/server";
-import { PageHero } from "@/components/ui/PageHero";
-import { Pagination } from "@/components/ui/Pagination";
-import { listPublishedDevotionsPaginated } from "@/lib/data/devotions";
-import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
-import { logPageError } from "@/lib/observability/page-errors";
-import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
-import { filterByRite } from "@/lib/content/rites";
+import { listPublished } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Devotions" };
 
-export default async function DevotionsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ page?: string }>;
-}) {
-  const { t, locale } = await getTranslator();
-  const { page: pageParam } = await searchParams;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
-  let result: Awaited<ReturnType<typeof listPublishedDevotionsPaginated>> = {
-    items: [],
-    total: 0,
-    page,
-    pageSize: 0,
-    totalPages: 0,
-  };
-  try {
-    // Spec §19: cached strict-public devotions list scoped by tab tag.
-    const cfg = tagsForList({ contentType: "Devotion", tab: "devotions" });
-    const cached = await withCacheTags<
-      Parameters<typeof listPublishedDevotionsPaginated>,
-      Awaited<ReturnType<typeof listPublishedDevotionsPaginated>>
-    >({
-      keyParts: ["devotions", "list", locale, String(page)],
-      tags: cfg.tags,
-      revalidateSeconds: cfg.revalidateSeconds,
-      fn: listPublishedDevotionsPaginated,
-    });
-    result = await cached(locale, page);
-  } catch (err) {
-    logPageError({ route: "/devotions", entityType: "Devotion", error: err });
-  }
-  const rite = await getRiteCookieValue();
-  const devotions = filterByRite(result.items, rite);
-  const { totalPages } = result;
-
+export default async function DevotionsPage() {
+  const { t } = await getTranslator();
+  const items = await listPublished("DEVOTION");
   return (
     <div>
       <PageHero
@@ -53,33 +15,7 @@ export default async function DevotionsPage({
         title={t("devotions.title")}
         subtitle={t("devotions.subtitle")}
       />
-
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {devotions.length === 0 ? (
-          <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
-            Devotion library will appear here as it is seeded and published.
-          </div>
-        ) : (
-          devotions.map((d) => {
-            const tr = d.translations[0];
-            const title = tr?.title ?? d.title;
-            const summary = tr?.summary ?? d.summary;
-            return (
-              <Link key={d.id} href={`/devotions/${d.slug}`}>
-                <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-7">
-                  {d.durationMinutes ? <p className="vf-eyebrow">{d.durationMinutes} min</p> : null}
-                  <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{title}</h2>
-                  <p className="mt-4 line-clamp-4 font-serif leading-relaxed text-ink-soft">
-                    {summary}
-                  </p>
-                </article>
-              </Link>
-            );
-          })
-        )}
-      </div>
-
-      <Pagination basePath="/devotions" page={result.page} totalPages={totalPages} />
+      <PublishedList items={items} baseHref="/devotions" eyebrowField="devotionType" />
     </div>
   );
 }

@@ -1,40 +1,29 @@
+import { PageHero, PublishedList } from "@/components/ui";
 import { getTranslator } from "@/lib/i18n/server";
-import { PageHero } from "@/components/ui/PageHero";
-import { listPublishedParishes } from "@/lib/data/parishes";
-import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
-import { ParishList } from "./_components/ParishList";
-import { logPageError } from "@/lib/observability/page-errors";
+import { listPublished } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Spiritual Guidance" };
 
-export default async function GuidancePage() {
+export default async function SpiritualGuidancePage() {
   const { t } = await getTranslator();
-  let parishes: Awaited<ReturnType<typeof listPublishedParishes>> = [];
-  try {
-    // Spec §19: cached strict-public parishes query scoped by tab tag.
-    const cfg = tagsForList({ contentType: "Parish", tab: "parishes" });
-    const cached = await withCacheTags<
-      Parameters<typeof listPublishedParishes>,
-      Awaited<ReturnType<typeof listPublishedParishes>>
-    >({
-      keyParts: ["parishes", "list"],
-      tags: cfg.tags,
-      revalidateSeconds: cfg.revalidateSeconds,
-      fn: listPublishedParishes,
-    });
-    parishes = await cached();
-  } catch (err) {
-    logPageError({ route: "/spiritual-guidance", entityType: "Parish", error: err });
-  }
+  const items = await listPublished("MARIAN_TITLE");
+  const apparitions = await listPublished("APPARITION");
   return (
     <div>
       <PageHero
         eyebrow={t("nav.spiritualGuidance")}
-        title={t("guidance.title")}
-        subtitle={t("guidance.subtitle")}
+        title={t("spiritualGuidance.title")}
+        subtitle={t("spiritualGuidance.subtitle")}
       />
-      <ParishList parishes={parishes} placeholder={t("guidance.searchPlaceholder")} />
+      <h2 className="mt-12 mb-6 font-display text-2xl text-ink">Marian Titles</h2>
+      <PublishedList items={items} baseHref="/spiritual-guidance" />
+      <h2 className="mt-12 mb-6 font-display text-2xl text-ink">Approved Apparitions</h2>
+      <PublishedList
+        items={apparitions}
+        baseHref="/spiritual-guidance"
+        eyebrowField="approvedStatus"
+      />
     </div>
   );
 }

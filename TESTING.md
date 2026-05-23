@@ -24,16 +24,23 @@ tests/
   api/                 # route handler tests (Node, mocked Prisma)
   components/          # React component tests (jsdom)
   db/                  # checkRequiredTables / checkSeedContent
-  fixtures/            # factories.ts, mock-source.ts
+  fixtures/            # factories.ts
   helpers/             # prisma-mock.ts, cookies-mock.ts
-  ingestion/           # ingestion validation + mock-source tests
+  worker/              # checklist-first worker tests:
+                       #   source-validation.test.ts
+                       #   schema-compliance.test.ts
+                       #   duplicate-detection.test.ts
+                       #   qa-approval.test.ts
+                       #   cross-source.test.ts
+                       #   build-engine.test.ts
+                       #   build-queue.test.ts
+                       #   relations.test.ts
+                       #   publishing.test.ts
+                       #   checklists.test.ts
+                       #   catholic-accuracy.test.ts
   integration/         # real-DB integration tests (gated)
   middleware.test.ts   # Next.js middleware (incl. /admin redirect protection)
-  routes/              # static route coverage:
-                       #   route-coverage.test.ts — every page.tsx URL is reachable
-                       #   admin-routes.test.ts   — /admin login/logout redirects + no legacy admin path refs
-                       #   sitemap.test.ts        — sitemap & robots: published-only, excludes admin/auth pages
-                       #   static-files.test.ts   — Google verification file & single-source sitemap
+  routes/              # static route coverage
   security/            # rate-limit
   setup.ts             # shared env stubs
   setup.dom.ts         # jsdom + RTL cleanup
@@ -56,29 +63,22 @@ npm run verify            # typecheck + lint + format:check + test
 npm run verify:full       # verify + integration + e2e + production build
 ```
 
-## Admin route, sitemap, and verification-file checks
+## Worker tests
 
-The route-level tests under `tests/routes/` and `tests/middleware.test.ts`
-together pin down the behavior the SEO and admin-access requirements care
-about. They do not need a database (Prisma is mocked):
+The `tests/worker/` directory covers every guarantee the checklist-first
+factory makes. Each file is focused and self-contained — no real DB or HTTP.
 
-- `tests/routes/admin-routes.test.ts` walks the full source tree to confirm no
-  stray references to the legacy admin path exist anywhere, and asserts the
-  admin login route redirects success → `/admin?welcome=1`, failure →
-  `/admin/login?error=invalid`, and logout → `/admin/login`.
-- `tests/middleware.test.ts` asserts unauthenticated requests to `/admin` and
-  `/admin/<section>` are 303-redirected to `/admin/login`, while
-  `/admin/login`, `/api/admin/login`, and `/api/admin/logout` are reachable.
-- `tests/routes/sitemap.test.ts` confirms `/sitemap.xml` includes the public
-  pages and only `PUBLISHED` content rows (with `updatedAt` as `lastmod`),
-  and excludes `/admin`, `/login`, `/register`, `/forgot-password`,
-  `/reset-password`, `/verify-email`, and `/profile`. It also confirms
-  `robots.txt` points at `/sitemap.xml` and disallows `/admin` plus the
-  account routes.
-- `tests/routes/static-files.test.ts` confirms `public/google0292583cfdf40074.html`
-  exists with the body Google's verification protocol requires, and that
-  `public/sitemap.xml` does **not** exist (single source of truth lives at
-  `src/app/sitemap.ts`).
+- **source-validation** — authority registry + fetcher host gate.
+- **schema-compliance** — every Zod content schema accepts/rejects payloads.
+- **duplicate-detection** — slug + normalized-name + alias matching.
+- **qa-approval** — six-dimension QA scoring + publishing-gate behavior.
+- **cross-source** — authority-weighted reconciliation.
+- **build-engine** — HTML extraction + accuracy-guard behavior.
+- **build-queue** — lease + retry-with-backoff + partial-save state machine.
+- **relations** — typed relationship extraction (saint→feast day, etc.).
+- **publishing** — gate refuses bad packages, versions on republish.
+- **checklists** — every master checklist is well-formed (no duplicate slugs).
+- **catholic-accuracy** — invented-content guards.
 
 ## Coverage thresholds
 
@@ -90,8 +90,8 @@ about. They do not need a database (Prisma is mocked):
 - 75% branches
 
 The included set is the security-critical surface (auth, rate-limit,
-middleware, the DB diagnostic checks, and the destructive-confirm UI). When
-you add a new critical module, extend that list.
+middleware, the DB diagnostic checks, the worker module, and the
+destructive-confirm UI). When you add a new critical module, extend that list.
 
 ## Test database isolation
 
@@ -105,23 +105,6 @@ in two places:
    queries `current_database()` after connecting and aborts if the connected
    database name doesn't contain `test`.
 
-## Mocked external sources
-
-Ingestion tests never make real HTTP calls. Use `tests/fixtures/mock-source.ts`:
-
-- `makeMockAdapter({ items, notModified, throwError })` — returns a stub
-  `SourceAdapter` whose `fetch` returns canned items, signals 304-equivalent
-  via `notModified`, or throws.
-- `makeMockFetch({ url: { status, body } })` — returns a `vi.fn()` shaped
-  like `globalThis.fetch` for adapters that call it directly.
-
-## Fixtures and factories
-
-`tests/fixtures/factories.ts` exports builders for every major entity
-(`user`, `admin`, `prayer`, `saint`, `apparition`, `parish`, `devotion`,
-`goal`, `milestone`, `journal`, `media`, `ingestionSource`). Each accepts a
-`Partial<T>` overlay so individual tests pin only the fields they need.
-
 ## CI
 
 `.github/workflows/ci.yml` runs:
@@ -129,8 +112,8 @@ Ingestion tests never make real HTTP calls. Use `tests/fixtures/mock-source.ts`:
 1. Install
 2. `prisma validate` (schema sanity)
 3. Typecheck → Lint → Format check
-4. Vitest unit + component tests (jsdom auto-applied per file via `@vitest-environment` doc-comment)
-5. `npm audit --audit-level=high` (vulnerable-dependency gate, advisory)
+4. Vitest unit + component + worker tests
+5. `npm audit --audit-level=high` (advisory)
 6. Production build
 
 A separate `e2e` job is wired but only runs on push to `main` and on PRs

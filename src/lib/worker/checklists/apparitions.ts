@@ -1,0 +1,76 @@
+import type { ChecklistSeed } from "./index";
+
+export const apparitionsChecklist: ChecklistSeed[] = [
+  {
+    canonicalName: "Apparition of Our Lady of Guadalupe",
+    canonicalSlug: "apparition-our-lady-of-guadalupe",
+    priority: 10,
+    authorityLevelHint: "VATICAN",
+    metadata: { location: "Tepeyac", country: "Mexico", year: 1531 },
+  },
+  {
+    canonicalName: "Apparition of Our Lady of Lourdes",
+    canonicalSlug: "apparition-our-lady-of-lourdes",
+    priority: 10,
+    authorityLevelHint: "VATICAN",
+    metadata: { location: "Lourdes", country: "France", year: 1858 },
+  },
+  {
+    canonicalName: "Apparition of Our Lady of Fatima",
+    canonicalSlug: "apparition-our-lady-of-fatima",
+    priority: 10,
+    authorityLevelHint: "VATICAN",
+    metadata: { location: "Fatima", country: "Portugal", year: 1917 },
+  },
+  {
+    canonicalName: "Apparition of the Miraculous Medal (Rue du Bac)",
+    canonicalSlug: "apparition-miraculous-medal-rue-du-bac",
+    priority: 15,
+    authorityLevelHint: "VATICAN",
+    metadata: { location: "Paris", country: "France", year: 1830 },
+  },
+  {
+    canonicalName: "Apparition of Our Lady of La Salette",
+    canonicalSlug: "apparition-our-lady-of-la-salette",
+    priority: 20,
+    authorityLevelHint: "VATICAN",
+    metadata: { location: "La Salette", country: "France", year: 1846 },
+  },
+  {
+    canonicalName: "Apparition of Our Lady of Knock",
+    canonicalSlug: "apparition-our-lady-of-knock",
+    priority: 25,
+    authorityLevelHint: "VATICAN",
+    metadata: { location: "Knock", country: "Ireland", year: 1879 },
+  },
+  {
+    canonicalName: "Apparition of Our Lady of Akita",
+    canonicalSlug: "apparition-our-lady-of-akita",
+    priority: 30,
+    authorityLevelHint: "DIOCESAN",
+    metadata: { location: "Akita", country: "Japan", year: 1973 },
+    needsHumanReview: true,
+    humanReviewReason: "Approved at diocesan level; verify status in Vatican commentary.",
+  },
+  {
+    canonicalName: "Apparition of Our Lady of Banneux",
+    canonicalSlug: "apparition-our-lady-of-banneux",
+    priority: 30,
+    authorityLevelHint: "VATICAN",
+    metadata: { location: "Banneux", country: "Belgium", year: 1933 },
+  },
+  {
+    canonicalName: "Apparition of Our Lady of Beauraing",
+    canonicalSlug: "apparition-our-lady-of-beauraing",
+    priority: 30,
+    authorityLevelHint: "VATICAN",
+    metadata: { location: "Beauraing", country: "Belgium", year: 1932 },
+  },
+  {
+    canonicalName: "Apparition of Our Lady of Champion (Good Help)",
+    canonicalSlug: "apparition-our-lady-of-champion",
+    priority: 35,
+    authorityLevelHint: "DIOCESAN",
+    metadata: { location: "Champion, Wisconsin", country: "USA", year: 1859 },
+  },
+];

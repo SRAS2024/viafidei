@@ -1,0 +1,112 @@
+import type { ChecklistSeed } from "./index";
+
+export const devotionsChecklist: ChecklistSeed[] = [
+  {
+    canonicalName: "The Holy Rosary",
+    canonicalSlug: "holy-rosary",
+    priority: 10,
+    authorityLevelHint: "VATICAN",
+    summary: "The most prominent Marian devotion of the Latin Church.",
+  },
+  {
+    canonicalName: "Divine Mercy Chaplet",
+    canonicalSlug: "divine-mercy-chaplet",
+    priority: 15,
+    authorityLevelHint: "VATICAN",
+  },
+  {
+    canonicalName: "Stations of the Cross",
+    canonicalSlug: "stations-of-the-cross",
+    aliases: ["Way of the Cross", "Via Crucis"],
+    priority: 15,
+    authorityLevelHint: "VATICAN",
+  },
+  {
+    canonicalName: "Eucharistic Adoration",
+    canonicalSlug: "eucharistic-adoration",
+    priority: 20,
+    authorityLevelHint: "VATICAN",
+  },
+  {
+    canonicalName: "Devotion to the Sacred Heart of Jesus",
+    canonicalSlug: "devotion-sacred-heart-of-jesus",
+    priority: 20,
+    authorityLevelHint: "VATICAN",
+  },
+  {
+    canonicalName: "Devotion to the Immaculate Heart of Mary",
+    canonicalSlug: "devotion-immaculate-heart-of-mary",
+    priority: 20,
+    authorityLevelHint: "VATICAN",
+  },
+  {
+    canonicalName: "First Friday Devotion",
+    canonicalSlug: "first-friday-devotion",
+    priority: 30,
+    authorityLevelHint: "VATICAN",
+    needsHumanReview: true,
+    humanReviewReason: "Twelve Promises require careful sourcing.",
+  },
+  {
+    canonicalName: "First Saturday Devotion",
+    canonicalSlug: "first-saturday-devotion",
+    priority: 30,
+    authorityLevelHint: "VATICAN",
+  },
+  {
+    canonicalName: "Brown Scapular Devotion",
+    canonicalSlug: "brown-scapular-devotion",
+    priority: 35,
+    authorityLevelHint: "RELIGIOUS_ORDER",
+  },
+  {
+    canonicalName: "Miraculous Medal Devotion",
+    canonicalSlug: "miraculous-medal-devotion",
+    priority: 35,
+    authorityLevelHint: "VATICAN",
+  },
+  {
+    canonicalName: "Seven Sorrows of Mary",
+    canonicalSlug: "seven-sorrows-of-mary",
+    priority: 35,
+    authorityLevelHint: "VATICAN",
+  },
+  {
+    canonicalName: "Devotion to the Holy Face of Jesus",
+    canonicalSlug: "devotion-holy-face-of-jesus",
+    priority: 40,
+    authorityLevelHint: "VATICAN",
+  },
+  {
+    canonicalName: "Holy Hour",
+    canonicalSlug: "holy-hour",
+    priority: 30,
+    authorityLevelHint: "VATICAN",
+  },
+  {
+    canonicalName: "Total Consecration to Jesus through Mary",
+    canonicalSlug: "marian-consecration",
+    aliases: ["Saint Louis de Montfort Consecration", "33 Day Consecration"],
+    priority: 35,
+    authorityLevelHint: "RELIGIOUS_ORDER",
+  },
+  {
+    canonicalName: "Devotion to St. Joseph",
+    canonicalSlug: "devotion-saint-joseph",
+    priority: 35,
+    authorityLevelHint: "VATICAN",
+  },
+  {
+    canonicalName: "Three Hail Marys Devotion",
+    canonicalSlug: "three-hail-marys-devotion",
+    priority: 50,
+    authorityLevelHint: "TRUSTED_PUBLISHER",
+  },
+  {
+    canonicalName: "Liturgy of the Hours",
+    canonicalSlug: "liturgy-of-the-hours",
+    aliases: ["Divine Office", "Breviary"],
+    priority: 20,
+    authorityLevelHint: "LITURGICAL_BOOK",
+  },
+];

@@ -6,3 +6,5 @@ export { ExpandablePrayer } from "./ExpandablePrayer";
 export { ExpandableTimelineEvent } from "./ExpandableTimelineEvent";
 export { Pagination } from "./Pagination";
 export { OfficialSourceLink } from "./OfficialSourceLink";
+export { PublishedDetail } from "./PublishedDetail";
+export { PublishedList } from "./PublishedList";

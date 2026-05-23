@@ -644,95 +644,95 @@ model HomePageBlock {
 }
 
 model IngestionSource {
-  id                       String         @id @default(cuid())
-  name                     String
-  host                     String         @unique
-  baseUrl                  String
-  sourceType               String
-  isOfficial               Boolean        @default(false)
-  isActive                 Boolean        @default(true)
-  rateLimitPerMin          Int?
-  reliabilityScore         Float?
-  lastSuccessfulSync       DateTime?
-  lastFailedSync           DateTime?
-  lastContentUpdateAt      DateTime?
-  lastHttpStatus           Int?
-  lastEtag                 String?
-  lastModifiedHeader       String?
-  tier                     Int            @default(3)
-  trustLabel               String?
-  healthState              String         @default("active")
-  consecutiveFailures      Int            @default(0)
-  lowQualityRatio          Float?
-  pausedAt                 DateTime?
-  pausedReason             String?
-  autoPaused               Boolean        @default(false)
-  autoPausedAt             DateTime?
-  requestSpacingMs         Int?
-  robotsRespect            Boolean        @default(true)
-  estimatedTotalItems      Int?
-  discoveredItems          Int            @default(0)
-  completedItems           Int            @default(0)
-  rejectedItems            Int            @default(0)
-  exhaustedAt              DateTime?
-  lastSourceTierChangeAt   DateTime?
-  canIngestPrayers         Boolean        @default(false)
-  canIngestSaints          Boolean        @default(false)
-  canIngestApparitions     Boolean        @default(false)
-  canIngestParishes        Boolean        @default(false)
-  canIngestDevotions       Boolean        @default(false)
-  canIngestNovenas         Boolean        @default(false)
-  canIngestSacraments      Boolean        @default(false)
-  canIngestRosaryGuides    Boolean        @default(false)
-  canIngestConsecrations   Boolean        @default(false)
-  canIngestSpiritualGuides Boolean        @default(false)
-  canIngestLiturgy         Boolean        @default(false)
-  canIngestHistory         Boolean        @default(false)
-  canProvideScriptureText  Boolean        @default(false)
+  id                        String         @id @default(cuid())
+  name                      String
+  host                      String         @unique
+  baseUrl                   String
+  sourceType                String
+  isOfficial                Boolean        @default(false)
+  isActive                  Boolean        @default(true)
+  rateLimitPerMin           Int?
+  reliabilityScore          Float?
+  lastSuccessfulSync        DateTime?
+  lastFailedSync            DateTime?
+  lastContentUpdateAt       DateTime?
+  lastHttpStatus            Int?
+  lastEtag                  String?
+  lastModifiedHeader        String?
+  tier                      Int            @default(3)
+  trustLabel                String?
+  healthState               String         @default("active")
+  consecutiveFailures       Int            @default(0)
+  lowQualityRatio           Float?
+  pausedAt                  DateTime?
+  pausedReason              String?
+  autoPaused                Boolean        @default(false)
+  autoPausedAt              DateTime?
+  requestSpacingMs          Int?
+  robotsRespect             Boolean        @default(true)
+  estimatedTotalItems       Int?
+  discoveredItems           Int            @default(0)
+  completedItems            Int            @default(0)
+  rejectedItems             Int            @default(0)
+  exhaustedAt               DateTime?
+  lastSourceTierChangeAt    DateTime?
+  canIngestPrayers          Boolean        @default(false)
+  canIngestSaints           Boolean        @default(false)
+  canIngestApparitions      Boolean        @default(false)
+  canIngestParishes         Boolean        @default(false)
+  canIngestDevotions        Boolean        @default(false)
+  canIngestNovenas          Boolean        @default(false)
+  canIngestSacraments       Boolean        @default(false)
+  canIngestRosaryGuides     Boolean        @default(false)
+  canIngestConsecrations    Boolean        @default(false)
+  canIngestSpiritualGuides  Boolean        @default(false)
+  canIngestLiturgy          Boolean        @default(false)
+  canIngestHistory          Boolean        @default(false)
+  canProvideScriptureText   Boolean        @default(false)
   /// Optional sitemap / feed URL that drives factory-native source
   /// discovery. When set, the worker's source_discovery handler
   /// walks this feed, records each URL as a DiscoveredSourceItem,
   /// and enqueues a source_fetch job per URL — bypassing the
   /// legacy adapter-side discovery entirely. When null, the
   /// dispatch falls back to the legacy adapter's bespoke discovery.
-  discoveryFeedUrl         String?
+  discoveryFeedUrl          String?
   /// Typed discovery method the worker uses to choose HOW to
   /// discover URLs. Valid values: "sitemap", "rss", "fixed_url_list",
   /// "official_api", "factory_handler", "not_configured". Nullable
   /// until the startup setup task backfills it from
   /// discoveryFeedUrl.
-  discoveryMethod          String?
+  discoveryMethod           String?
   /// One-line configuration status for the admin source
   /// configuration card. e.g. "factory_native", "not_configured",
   /// "paused", "exhausted".
-  configurationStatus      String?
+  configurationStatus       String?
   /// Free-text reason when the source is not configured for the
   /// factory pipeline. Surfaced on the admin source card.
   configurationStatusReason String?
   /// Per-source override for the fetch limit per discovery run.
   /// Null = use the global config default.
-  fetchLimitPerRun         Int?
+  fetchLimitPerRun          Int?
   /// Per-source override for the content-build limit per fetch.
   /// Null = no per-source cap.
-  buildLimitPerRun         Int?
+  buildLimitPerRun          Int?
   /// Per-source daily cap on enqueued source_fetch jobs.
   /// Null = no daily cap.
-  dailyCap                 Int?
+  dailyCap                  Int?
   /// Factory role this source is approved for. Gates which jobs the
   /// worker enqueues and which package fields may originate here vs.
   /// be validated only. Defaults to `discovery_only_source` so a
   /// freshly added source can suggest candidates but cannot publish
   /// content until an admin promotes it. See enum SourceRole.
-  role                     SourceRole     @default(discovery_only_source)
+  role                      SourceRole     @default(discovery_only_source)
   /// Last automatic role change reason. Surfaced on the admin source
   /// card so an admin can see why a source was promoted or demoted.
-  roleLastReason           String?
+  roleLastReason            String?
   /// Last automatic role change timestamp.
-  roleLastChangedAt        DateTime?
-  notes                    String?
-  createdAt                DateTime       @default(now())
-  updatedAt                DateTime       @updatedAt
-  jobs                     IngestionJob[]
+  roleLastChangedAt         DateTime?
+  notes                     String?
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+  jobs                      IngestionJob[]
 
   @@index([healthState])
   @@index([tier])
@@ -1553,39 +1553,39 @@ model SourceQualityScore {
 /// required field means the cross-source rule for that content type
 /// is satisfied.
 model ContentValidationEvidence {
-  id              String   @id @default(cuid())
+  id                 String   @id @default(cuid())
   /// Built package id when known (set after persistence) or the
   /// candidate slug while still in the build phase.
-  packageId       String?
-  candidateSlug   String?
-  contentType     String
-  fieldName       String
+  packageId          String?
+  candidateSlug      String?
+  contentType        String
+  fieldName          String
   /// Validation source URL — the document on the approved source
   /// that contains the matching value.
-  sourceUrl       String
+  sourceUrl          String
   /// Host portion of `sourceUrl`. Repeated here so admin queries can
   /// group by host without parsing the URL.
-  sourceHost      String
+  sourceHost         String
   /// One of the EVIDENCE_TYPES values
   /// (exact_text_match, title_match, feast_day_match, ...).
-  evidenceType    String
+  evidenceType       String
   /// SHA-256 of the source snippet that produced the match. Lets us
   /// re-verify that the source has not silently changed.
-  evidenceChecksum String?
+  evidenceChecksum   String?
   /// The actual value matched on the validation source side. May be
   /// truncated for very long bodies.
-  matchedValue    String?
+  matchedValue       String?
   /// 0..1 confidence the validator assigned.
-  matchConfidence Float    @default(1.0)
+  matchConfidence    Float    @default(1.0)
   /// One of "pass", "fail", "insufficient_evidence".
   validationDecision String
   /// Optional human-readable reason — e.g. "Catholic.org feast day
   /// matched within 1 day tolerance" or "no matching prayer text
   /// found on Vatican.va".
-  reason          String?
+  reason             String?
   /// Build log row that this evidence is tied to, when known.
-  buildLogId      String?
-  createdAt       DateTime @default(now())
+  buildLogId         String?
+  createdAt          DateTime @default(now())
 
   @@index([packageId])
   @@index([candidateSlug])
@@ -1626,19 +1626,19 @@ model SecurityEvent {
 
   /// Short machine-readable identifier ("admin_password_failed",
   /// "client_tamper_burst", "csrf_violation", ...).
-  eventType String
+  eventType      String
   /// "Suspicious" or "Breach" — controls which email goes out and
   /// whether a ban link is issued.
   classification String
   /// "info" | "warning" | "error" | "critical" — used to dedupe and
   /// escalate. Suspicious events default to "warning"; Breach events
   /// default to "error" or higher.
-  severity String
+  severity       String
 
   /// HMAC fingerprints — never raw values. See `src/lib/security/hash.ts`.
-  ipAddressHash         String?
-  deviceCredentialHash  String?
-  userAgentHash         String?
+  ipAddressHash        String?
+  deviceCredentialHash String?
+  userAgentHash        String?
 
   /// Plaintext user-agent string is kept (no PII risk) so the admin
   /// email and the admin page can show a human-readable summary.
@@ -1660,7 +1660,7 @@ model SecurityEvent {
   attemptedAction String?
 
   /// Account context, when the event can be attributed.
-  accountId  String?
+  accountId    String?
   adminAccount Boolean @default(false)
 
   /// Request ID written by the observability layer; correlates the
@@ -1745,17 +1745,17 @@ model DiagnosticSnapshot {
   id String @id @default(cuid())
 
   /// Stable diagnostic identifier ("overall", "queue", "worker", ...).
-  diagnosticKey String
+  diagnosticKey   String
   /// Human-readable card title ("Queue health", ...).
-  diagnosticName String
+  diagnosticName  String
   /// "pass" | "warn" | "fail" | "error".
-  status String
+  status          String
   /// One-line summary safe for display.
-  summary String
+  summary         String
   /// Table / module the diagnostic read from.
-  dataSource String
+  dataSource      String
   /// Redacted structured payload — counts, IDs, error message.
-  detailsJson Json?
+  detailsJson     Json?
   /// Suggested operator next action, when the diagnostic produced one.
   suggestedAction String?
 
@@ -1789,7 +1789,7 @@ model AdminActionLog {
   route      String?
   method     String?
   /// "success" | "failure" | "skipped" | ...
-  result String
+  result     String
 
   /// HMAC fingerprint of the device credential cookie.
   deviceFingerprint String?
@@ -1806,4 +1806,326 @@ model AdminActionLog {
   @@index([createdAt])
   @@index([actionType, createdAt])
   @@index([adminUsername, createdAt])
+}
+
+// =============================================================================
+// CHECKLIST-FIRST ARCHITECTURE
+// =============================================================================
+// The system below replaces the legacy scraper-first pipeline. Content is
+// driven by approved master checklists curated by admins. The worker only
+// builds items that have been admin-approved with verified sources.
+//
+// Flow:
+//   1. Master checklist item is created (e.g. "Saint Padre Pio").
+//   2. Sources are discovered and verified against the authority registry.
+//   3. Admin approves the checklist item for build.
+//   4. Worker picks it up, fetches every approved source, cross-checks them,
+//      builds the full content package, and runs Catholic-accuracy validators.
+//   5. QA report is generated; on approval the package is published.
+// =============================================================================
+
+/// The eleven content domains the checklist system curates.
+enum ChecklistContentType {
+  PRAYER
+  DEVOTION
+  SAINT
+  MARIAN_TITLE
+  APPARITION
+  NOVENA
+  SACRAMENT
+  GUIDE
+  CHURCH_DOCUMENT
+  LITURGICAL
+  SPIRITUAL_PRACTICE
+}
+
+/// Lifecycle for every checklist item. Every transition is admin-driven
+/// or worker-driven and is recorded on the item.
+enum ChecklistApprovalStatus {
+  DISCOVERED
+  SOURCE_VERIFIED
+  APPROVED_FOR_BUILD
+  BUILT
+  QA_PENDING
+  APPROVED
+  REJECTED
+  PUBLISHED
+  NEEDS_HUMAN_REVIEW
+}
+
+/// Authority levels for approved Catholic sources. Higher levels override
+/// lower ones in the worker's cross-source reconciliation pass.
+enum SourceAuthorityLevel {
+  VATICAN
+  CATECHISM
+  LITURGICAL_BOOK
+  USCCB
+  DIOCESAN
+  RELIGIOUS_ORDER
+  TRUSTED_PUBLISHER
+  ACADEMIC
+  COMMUNITY
+}
+
+/// State machine for a worker build job derived from an approved checklist
+/// item. Mirrors the IngestionJobQueueStatus enum but specific to the
+/// checklist-driven build flow so the two queues do not collide.
+enum WorkerBuildStatus {
+  pending
+  running
+  partial
+  succeeded
+  failed
+  retrying
+  cancelled
+}
+
+/// Master checklist row. One row per concrete app item the system intends
+/// to publish ("Litany of the Sacred Heart", "Saint Therese of Lisieux",
+/// "Solemnity of the Immaculate Conception", ...).
+model ChecklistItem {
+  id                  String                  @id @default(cuid())
+  contentType         ChecklistContentType
+  canonicalName       String
+  canonicalSlug       String                  @unique
+  aliases             String[]                @default([])
+  summary             String?
+  approvalStatus      ChecklistApprovalStatus @default(DISCOVERED)
+  priority            Int                     @default(100)
+  needsHumanReview    Boolean                 @default(false)
+  humanReviewReason   String?
+  authorityLevelHint  SourceAuthorityLevel?
+  duplicateOfId       String?
+  notes               String?
+  metadata            Json?
+  discoveredAt        DateTime                @default(now())
+  sourceVerifiedAt    DateTime?
+  approvedForBuildAt  DateTime?
+  builtAt             DateTime?
+  qaPendingAt         DateTime?
+  approvedAt          DateTime?
+  rejectedAt          DateTime?
+  publishedAt         DateTime?
+  rejectedReason      String?
+  publishedContentRef String?
+  approvedByUsername  String?
+  rejectedByUsername  String?
+  publishedByUsername String?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  duplicateOf         ChecklistItem?          @relation("ChecklistDuplicate", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates          ChecklistItem[]         @relation("ChecklistDuplicate")
+  citations           ChecklistCitation[]
+  buildJobs           WorkerBuildJob[]
+  qaReports           ChecklistQAReport[]
+  versions            ChecklistVersion[]
+  relationsFrom       ChecklistRelation[]     @relation("RelationFrom")
+  relationsTo         ChecklistRelation[]     @relation("RelationTo")
+
+  @@unique([contentType, canonicalSlug])
+  @@index([contentType, approvalStatus])
+  @@index([approvalStatus])
+  @@index([priority])
+  @@index([needsHumanReview])
+  @@index([canonicalSlug])
+}
+
+/// Approved Catholic source. The worker may only fetch from sources listed
+/// here. Each source has an authority level used for ranking and cross-
+/// source reconciliation.
+model AuthoritySource {
+  id             String                 @id @default(cuid())
+  name           String
+  host           String                 @unique
+  baseUrl        String
+  authorityLevel SourceAuthorityLevel
+  description    String?
+  notes          String?
+  isActive       Boolean                @default(true)
+  contentTypes   ChecklistContentType[] @default([])
+  citations      ChecklistCitation[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([authorityLevel])
+  @@index([isActive])
+}
+
+/// One citation per (checklist item, source URL). Stores the URL, the
+/// resolved authority level, validation notes, and a content checksum so
+/// silent upstream changes can be detected.
+model ChecklistCitation {
+  id                String               @id @default(cuid())
+  checklistItemId   String
+  authoritySourceId String?
+  sourceUrl         String
+  sourceHost        String
+  authorityLevel    SourceAuthorityLevel
+  title             String?
+  excerpt           String?
+  contentChecksum   String?
+  validated         Boolean              @default(false)
+  validationNotes   String?
+  validatedAt       DateTime?
+  fetchedAt         DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  checklistItem     ChecklistItem        @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  authoritySource   AuthoritySource?     @relation(fields: [authoritySourceId], references: [id], onDelete: SetNull)
+
+  @@unique([checklistItemId, sourceUrl])
+  @@index([authorityLevel])
+  @@index([validated])
+  @@index([sourceHost])
+}
+
+/// One build job per (checklist item, attempt). Survives restarts via the
+/// pending/running/partial/succeeded/failed/retrying lifecycle.
+model WorkerBuildJob {
+  id              String              @id @default(cuid())
+  checklistItemId String
+  status          WorkerBuildStatus   @default(pending)
+  attempt         Int                 @default(1)
+  maxAttempts     Int                 @default(5)
+  priority        Int                 @default(100)
+  runAt           DateTime            @default(now())
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  durationMs      Int?
+  leaseExpiresAt  DateTime?
+  leasedBy        String?
+  partialPayload  Json?
+  resultPayload   Json?
+  errorMessage    String?
+  confidence      Float?
+  triggeredBy     String              @default("automatic")
+  actorUsername   String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  checklistItem   ChecklistItem       @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  buildLogs       WorkerBuildLog[]
+  qaReports       ChecklistQAReport[]
+
+  @@index([status, priority, runAt])
+  @@index([checklistItemId, attempt])
+  @@index([status, leaseExpiresAt])
+}
+
+/// Structured worker build log — one row per significant step. The worker
+/// writes a row when it picks a source, extracts a field, detects a
+/// duplicate, raises a warning, or finalises a confidence value. Replaces
+/// the legacy ContentPackageBuildLog for the checklist-driven flow.
+model WorkerBuildLog {
+  id         String         @id @default(cuid())
+  buildJobId String
+  step       String
+  level      String         @default("info")
+  message    String
+  fieldName  String?
+  sourceUrl  String?
+  warnings   String[]       @default([])
+  confidence Float?
+  metadata   Json?
+  createdAt  DateTime       @default(now())
+  buildJob   WorkerBuildJob @relation(fields: [buildJobId], references: [id], onDelete: Cascade)
+
+  @@index([buildJobId, createdAt])
+  @@index([level])
+  @@index([step])
+}
+
+/// QA report generated after every worker build. Stores per-dimension
+/// scores so admins can sort the dashboard by the weakest signal.
+model ChecklistQAReport {
+  id                  String          @id @default(cuid())
+  checklistItemId     String
+  buildJobId          String?
+  passed              Boolean
+  completenessScore   Float
+  accuracyScore       Float
+  sourceCoverageScore Float
+  formattingScore     Float
+  readabilityScore    Float
+  appCompatScore      Float
+  overallScore        Float
+  issues              String[]        @default([])
+  warnings            String[]        @default([])
+  fieldsValidated     String[]        @default([])
+  recommendation      String
+  needsHumanReview    Boolean         @default(false)
+  reviewedByUsername  String?
+  reviewedAt          DateTime?
+  reviewerNotes       String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  checklistItem       ChecklistItem   @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  buildJob            WorkerBuildJob? @relation(fields: [buildJobId], references: [id], onDelete: SetNull)
+
+  @@index([checklistItemId, createdAt])
+  @@index([passed])
+  @@index([needsHumanReview])
+  @@index([overallScore])
+}
+
+/// Snapshot of every checklist build/edit so any item can be audited and
+/// rolled back. Stores the full package payload before each change.
+model ChecklistVersion {
+  id              String        @id @default(cuid())
+  checklistItemId String
+  version         Int
+  payload         Json
+  buildJobId      String?
+  authorUsername  String?
+  changeSummary   String?
+  createdAt       DateTime      @default(now())
+  checklistItem   ChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+
+  @@unique([checklistItemId, version])
+  @@index([checklistItemId, createdAt])
+}
+
+/// Typed relationship between two checklist items. Examples:
+///   saint --HAS_FEAST_DAY--> liturgical
+///   devotion --USES_PRAYER--> prayer
+///   marian_title --LINKED_TO_APPARITION--> apparition
+///   guide --COVERS_SACRAMENT--> sacrament
+model ChecklistRelation {
+  id           String        @id @default(cuid())
+  fromItemId   String
+  toItemId     String
+  relationType String
+  notes        String?
+  createdAt    DateTime      @default(now())
+  fromItem     ChecklistItem @relation("RelationFrom", fields: [fromItemId], references: [id], onDelete: Cascade)
+  toItem       ChecklistItem @relation("RelationTo", fields: [toItemId], references: [id], onDelete: Cascade)
+
+  @@unique([fromItemId, toItemId, relationType])
+  @@index([fromItemId])
+  @@index([toItemId])
+  @@index([relationType])
+}
+
+/// Published content store. The worker writes the final, QA-approved
+/// package here. Public routes read from this table — never directly from
+/// build logs or partial payloads. Includes a publishing gate
+/// (`isPublished`) and a relation back to the source checklist item.
+model PublishedContent {
+  id              String               @id @default(cuid())
+  checklistItemId String               @unique
+  contentType     ChecklistContentType
+  slug            String
+  title           String
+  payload         Json
+  authorityLevel  SourceAuthorityLevel
+  isPublished     Boolean              @default(false)
+  publishedAt     DateTime?
+  unpublishedAt   DateTime?
+  version         Int                  @default(1)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@unique([contentType, slug])
+  @@index([contentType, isPublished])
+  @@index([isPublished])
+  @@index([authorityLevel])
 }

@@ -1,122 +1,45 @@
 import Link from "next/link";
+
 import { PageHero } from "@/components/ui/PageHero";
-import { listSaintsForFeastDate } from "@/lib/data/saints";
-import { tagsForList, withCacheTags } from "@/lib/cache/cached-data";
 import { getTranslator } from "@/lib/i18n/server";
-import { logPageError } from "@/lib/observability/page-errors";
+import { listPublished } from "@/lib/data/published";
 import { TodayDateLabel } from "./TodayDateLabel";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Today's Feast Day Saints" };
 
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-type Props = { searchParams: Promise<{ month?: string; day?: string }> };
-
-function parseDate(sp: { month?: string; day?: string }) {
-  const now = new Date();
-  const monthRaw = Number(sp.month ?? "");
-  const dayRaw = Number(sp.day ?? "");
-  const month =
-    Number.isInteger(monthRaw) && monthRaw >= 1 && monthRaw <= 12
-      ? monthRaw
-      : now.getUTCMonth() + 1;
-  const day = Number.isInteger(dayRaw) && dayRaw >= 1 && dayRaw <= 31 ? dayRaw : now.getUTCDate();
-  return { month, day };
-}
-
-export default async function TodayFeastDayPage({ searchParams }: Props) {
-  const { t, locale } = await getTranslator();
-  const sp = await searchParams;
-  const { month, day } = parseDate(sp);
-
-  let saints: Awaited<ReturnType<typeof listSaintsForFeastDate>> = [];
-  try {
-    // Spec §19: cached saints-by-feast-day query. The key includes the
-    // (month, day) so today's list and yesterday's list don't share a
-    // cache slot, and the tag set still flips when any Saint is
-    // persisted / deleted.
-    const cfg = tagsForList({ contentType: "Saint", tab: "saints" });
-    const cached = await withCacheTags<
-      Parameters<typeof listSaintsForFeastDate>,
-      Awaited<ReturnType<typeof listSaintsForFeastDate>>
-    >({
-      keyParts: ["saints", "today", locale, String(month), String(day)],
-      tags: cfg.tags,
-      revalidateSeconds: cfg.revalidateSeconds,
-      fn: listSaintsForFeastDate,
-    });
-    saints = await cached(locale, month, day);
-  } catch (err) {
-    logPageError({ route: "/saints/today", entityType: "Saint", error: err });
-  }
-
-  const monthName = MONTH_NAMES[month - 1] ?? "—";
+export default async function SaintsTodayPage() {
+  const { t } = await getTranslator();
+  const today = new Date();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  const todayMMDD = `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const allSaints = await listPublished("SAINT");
+  const todaySaints = allSaints.filter((s) => s.payload.feastDay === todayMMDD);
 
   return (
     <div>
-      <div className="mb-4">
-        <Link href="/saints" className="vf-nav-link">
-          ← {t("nav.saints")}
-        </Link>
-      </div>
-      <PageHero
-        eyebrow="Today's feast"
-        title="Today's Feast Day Saints"
-        subtitle={`Saints whose feast falls on ${monthName} ${day}, ordered with the most widely venerated first.`}
-      />
+      <PageHero eyebrow={t("saints.today.eyebrow")} title={t("saints.today.title")} />
       <TodayDateLabel serverMonth={month} serverDay={day} />
-
-      {saints.length === 0 ? (
-        <p className="mx-auto max-w-reading text-center font-serif text-ink-faint">
-          No saints in our catalog have a feast on this date yet. Browse the full{" "}
-          <Link href="/saints" className="vf-nav-link">
-            Saints catalog
-          </Link>{" "}
-          to discover others.
-        </p>
-      ) : (
-        <ul className="mx-auto flex w-full max-w-2xl flex-col gap-3">
-          {saints.map((s) => {
-            const tr = s.translations[0];
-            const name = tr?.name ?? s.canonicalName;
-            const biography = tr?.biography ?? s.biography;
-            return (
-              <li key={s.id}>
-                <Link
-                  href={`/saints/${s.slug}`}
-                  className="vf-card block rounded-sm p-5 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-6"
-                >
-                  <h2 className="break-words font-display text-xl sm:text-2xl">{name}</h2>
-                  {s.feastDay ? <p className="vf-eyebrow mt-1 truncate">{s.feastDay}</p> : null}
-                  <p className="mt-3 line-clamp-3 font-serif leading-relaxed text-ink-soft">
-                    {biography}
-                  </p>
-                  {s.patronages.length > 0 ? (
-                    <p className="mt-3 break-words font-serif text-xs text-ink-faint">
-                      <span className="font-medium text-ink-soft">Patron of:</span>{" "}
-                      {s.patronages.join(", ")}
-                    </p>
-                  ) : null}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {todaySaints.length === 0 ? (
+          <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
+            No published feast day saints for today.
+          </div>
+        ) : (
+          todaySaints.map((saint) => (
+            <Link key={saint.id} href={`/saints/${saint.slug}`}>
+              <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-7">
+                <p className="vf-eyebrow">Feast day</p>
+                <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{saint.title}</h2>
+                <p className="mt-4 line-clamp-5 font-serif leading-relaxed text-ink-soft">
+                  {(saint.payload.biography as string | undefined)?.slice(0, 280) ?? ""}
+                </p>
+              </article>
+            </Link>
+          ))
+        )}
+      </div>
     </div>
   );
 }
