@@ -1677,7 +1677,8 @@ model SecurityEvent {
 
   createdAt DateTime @default(now())
 
-  bannedDevices BannedDevice[]
+  bannedDevices      BannedDevice[]
+  adminWorkerActions AdminWorkerSecurityAction[]
 
   @@index([eventType])
   @@index([classification])
@@ -2128,4 +2129,629 @@ model PublishedContent {
   @@index([contentType, isPublished])
   @@index([isPublished])
   @@index([authorityLevel])
+}
+
+// =============================================================================
+// ADMIN WORKER (Phase 1)
+// =============================================================================
+// The Admin Worker is the autonomous website-administrator system. It is
+// fully coded, deterministic, and operates without any AI APIs. Internal
+// model names that already exist — ChecklistItem, WorkerBuildJob,
+// WorkerBuildLog, WorkerHeartbeat — keep their existing names for code
+// compatibility, and the tables below add the durable state, planning,
+// learning, and reporting surfaces the Admin Worker engine needs.
+//
+// See `src/lib/admin-worker/` for the engine code that reads / writes
+// these tables and `prisma/migrations/0024_admin_worker/migration.sql`
+// for the SQL definitions.
+// =============================================================================
+
+enum AdminWorkerMode {
+  SETUP
+  CONSTANT_FILL
+  MAINTENANCE
+  REPAIR
+  HOMEPAGE
+  DIAGNOSTICS
+  SECURITY_DEFENSE
+  REPORTING
+  PAUSED
+}
+
+enum AdminWorkerPriority {
+  SECURITY_THREAT
+  WORKER_HEALTH
+  CONTENT_GOAL
+  SOURCE_REPAIR
+  CONTENT_BUILD
+  CONTENT_VALIDATION
+  CONTENT_PUBLISH
+  HOMEPAGE
+  DIAGNOSTICS
+  CLEANUP
+  MAINTENANCE
+}
+
+enum AdminWorkerPassType {
+  AUTONOMOUS
+  DIAGNOSTICS
+  CONTENT_GOAL
+  HOMEPAGE
+  SOURCE_REPAIR
+  SECURITY
+  REPORT
+  CLEANUP
+}
+
+enum AdminWorkerPassStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum AdminWorkerTaskType {
+  DISCOVER_SOURCE
+  READ_SOURCE
+  CLASSIFY_CONTENT
+  BUILD_CONTENT
+  FORMAT_CONTENT
+  VALIDATE_CONTENT
+  CROSS_SOURCE_VERIFY
+  PUBLISH_CONTENT
+  POST_PUBLISH_VERIFY
+  UPDATE_HOMEPAGE
+  SECURITY_DEFENSE
+  CLEANUP
+  DIAGNOSTICS
+  REPORT
+  REPAIR
+}
+
+enum AdminWorkerTaskStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+  CANCELLED
+}
+
+enum AdminWorkerLogSeverity {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+  CRITICAL
+}
+
+enum AdminWorkerLogCategory {
+  OVERVIEW
+  WORKER_PASS
+  SOURCE_DISCOVERY
+  SOURCE_READING
+  CONTENT_CLASSIFICATION
+  CONTENT_BUILD
+  VALIDATION
+  QA
+  PUBLISHING
+  POST_PUBLISH
+  HOMEPAGE
+  CLEANUP
+  SECURITY
+  REPORT
+  ERROR
+  REPAIR
+}
+
+enum AdminWorkerMemoryType {
+  SOURCE_PRIORITY
+  BUILDER_PRIORITY
+  CONTENT_TYPE_PRIORITY
+  VALIDATION_SOURCE_PRIORITY
+  HOMEPAGE_SELECTION
+  CLEANUP_AGGRESSIVENESS
+  FAILURE_PATTERN
+  SOURCE_RETRY_TIMING
+  GENERIC
+}
+
+enum SourceReputationTier {
+  TRUSTED
+  GOOD
+  NEUTRAL
+  LIMITED
+  POOR
+  PAUSED
+}
+
+enum CandidateSourceUrlStatus {
+  DISCOVERED
+  PRIORITIZED
+  FETCHED
+  BUILT
+  REJECTED
+  PAUSED
+}
+
+enum CandidateSourceDiscoveryMethod {
+  CONFIGURED_URL
+  SITEMAP
+  RSS
+  API
+  SEARCH_PAGE
+  INTERNAL_LINK
+  DIRECTORY
+  MANUAL
+}
+
+enum ContentGoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  NEAR_GOAL
+  GOAL_MET
+  MAINTENANCE
+  PAUSED
+}
+
+enum HumanReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ESCALATED
+  EXPIRED
+}
+
+enum HomepageWorkerDraftMode {
+  AUTOMATIC_SMALL
+  SEASONAL_REFRESH
+  CONTENT_GAP_REPAIR
+  ADMIN_REQUESTED
+  FULL_REFRESH
+}
+
+enum HomepageWorkerDraftStatus {
+  PROPOSED
+  AUTO_PUBLISHED
+  AWAITING_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum AdminDeveloperReportPeriod {
+  LAST_24_HOURS
+  LAST_7_DAYS
+  LAST_30_DAYS
+}
+
+enum AdminDeveloperReportStatus {
+  PENDING
+  GENERATED
+  FAILED
+}
+
+enum AdminWorkerSecurityActionType {
+  OBSERVE
+  WARN
+  RATE_LIMIT
+  CHALLENGE
+  BAN_DEVICE
+  REVOKE_SESSION
+  ESCALATE
+}
+
+enum PostPublishVerificationResult {
+  PASS
+  WARN
+  FAIL
+  PENDING
+}
+
+/// Singleton row (id = "singleton") that records the current state of
+/// the Admin Worker engine. The pause toggle on the diagnostics page
+/// flips `paused` here; the central loop honours it on every cycle.
+model AdminWorkerState {
+  id               String              @id
+  currentMode      AdminWorkerMode     @default(SETUP)
+  currentPriority  AdminWorkerPriority @default(WORKER_HEALTH)
+  currentGoal      String?
+  currentTask      String?
+  lastHeartbeatAt  DateTime?
+  lastSuccessfulAt DateTime?
+  lastFailedAt     DateTime?
+  currentBlocker   String?
+  recoveryAction   String?
+  workerVersion    String              @default("admin-worker/0.1")
+  paused           Boolean             @default(false)
+  pausedReason     String?
+  pausedByUsername String?
+  pausedAt         DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([lastHeartbeatAt])
+  @@index([paused])
+}
+
+/// One row per Admin Worker pass. A pass is a single decide-then-act
+/// cycle of the central loop; it groups all tasks, logs, decisions, and
+/// homepage drafts created during that cycle.
+model AdminWorkerPass {
+  id                 String                @id @default(cuid())
+  passType           AdminWorkerPassType
+  status             AdminWorkerPassStatus @default(PENDING)
+  startedAt          DateTime              @default(now())
+  completedAt        DateTime?
+  durationMs         Int?
+  tasksPlanned       Int                   @default(0)
+  tasksCompleted     Int                   @default(0)
+  tasksFailed        Int                   @default(0)
+  contentBuilt       Int                   @default(0)
+  contentPublished   Int                   @default(0)
+  contentRejected    Int                   @default(0)
+  homepageActions    Int                   @default(0)
+  securityActions    Int                   @default(0)
+  diagnosticsResults Json?
+  summary            String?
+  errorMessage       String?
+
+  tasks            AdminWorkerTask[]
+  logs             AdminWorkerLog[]
+  decisions        AdminWorkerDecision[]
+  homepageDrafts   HomepageWorkerDraft[]
+  securityActionsR AdminWorkerSecurityAction[]
+
+  @@index([status])
+  @@index([passType, startedAt])
+  @@index([startedAt])
+}
+
+/// A single planned action the Admin Worker decided to take. Tasks are
+/// generated by the planner from content goals, source repairs, security
+/// events, or admin commands; they are consumed by mode handlers and
+/// always produce at least one AdminWorkerLog row.
+model AdminWorkerTask {
+  id               String                @id @default(cuid())
+  passId           String?
+  taskType         AdminWorkerTaskType
+  priority         AdminWorkerPriority   @default(CONTENT_BUILD)
+  status           AdminWorkerTaskStatus @default(PENDING)
+  contentType      String?
+  sourceId         String?
+  sourceUrl        String?
+  relatedContentId String?
+  plannedAction    String?
+  result           String?
+  failureReason    String?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  metadata         Json?
+  createdAt        DateTime              @default(now())
+
+  pass        AdminWorkerPass?      @relation(fields: [passId], references: [id], onDelete: SetNull)
+  logs        AdminWorkerLog[]
+  decisions   AdminWorkerDecision[]
+  reviewQueue HumanReviewQueue[]
+
+  @@index([passId])
+  @@index([status])
+  @@index([taskType, status])
+  @@index([contentType])
+}
+
+/// Structured Admin Worker log. Distinct from WorkerBuildLog (which
+/// stays scoped to individual checklist builds): this table records
+/// every Admin Worker decision, navigator action, security action,
+/// homepage action, repair, and report. Filterable by category in the
+/// admin UI.
+model AdminWorkerLog {
+  id              String                 @id @default(cuid())
+  passId          String?
+  taskId          String?
+  severity        AdminWorkerLogSeverity @default(INFO)
+  category        AdminWorkerLogCategory @default(OVERVIEW)
+  eventName       String
+  message         String
+  contentType     String?
+  sourceHost      String?
+  sourceUrl       String?
+  relatedEntityId String?
+  safeMetadata    Json?
+  createdAt       DateTime               @default(now())
+
+  pass AdminWorkerPass? @relation(fields: [passId], references: [id], onDelete: SetNull)
+  task AdminWorkerTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([passId])
+  @@index([taskId])
+  @@index([category, createdAt])
+  @@index([severity, createdAt])
+  @@index([createdAt])
+  @@index([contentType])
+  @@index([sourceHost])
+}
+
+/// Key/value learning store the worker writes to as it observes
+/// outcomes. The learning system NEVER invents facts: it only adjusts
+/// priorities, retry timing, and source/content selection rates based
+/// on stored outcomes (success/failure counts + a confidence score).
+model AdminWorkerMemory {
+  id           String                @id @default(cuid())
+  memoryType   AdminWorkerMemoryType @default(GENERIC)
+  memoryKey    String
+  memoryValue  Json
+  confidence   Float                 @default(0.5)
+  successCount Int                   @default(0)
+  failureCount Int                   @default(0)
+  lastUsedAt   DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@unique([memoryType, memoryKey])
+  @@index([memoryType])
+  @@index([confidence])
+}
+
+/// Rolling per-(source, contentType) reputation used by the planner to
+/// promote/pause sources without admin intervention. The reputation
+/// tier is derived from the underlying rates and is updated by the
+/// learning loop after every successful or failed build.
+model AdminWorkerSourceReputation {
+  id                            String               @id @default(cuid())
+  sourceId                      String?
+  sourceHost                    String
+  sourceRole                    String?
+  contentType                   String?
+  discoverySuccessRate          Float                @default(0)
+  fetchSuccessRate              Float                @default(0)
+  contentBuildSuccessRate       Float                @default(0)
+  qaPassRate                    Float                @default(0)
+  validationEvidenceSuccessRate Float                @default(0)
+  publicPublishRate             Float                @default(0)
+  wrongContentRate              Float                @default(0)
+  duplicateRate                 Float                @default(0)
+  averageUsefulness             Float                @default(0)
+  reputationTier                SourceReputationTier @default(NEUTRAL)
+  paused                        Boolean              @default(false)
+  lastScoreUpdate               DateTime             @default(now())
+  createdAt                     DateTime             @default(now())
+  updatedAt                     DateTime             @updatedAt
+
+  @@unique([sourceHost, contentType])
+  @@index([reputationTier])
+  @@index([paused])
+}
+
+/// One row per major decision the worker made. The deterministic
+/// decision engine writes the rules it evaluated, the inputs it saw,
+/// the chosen action, and the fallback action so the admin can audit
+/// "why did the worker do that?" without re-running the decision.
+model AdminWorkerDecision {
+  id             String   @id @default(cuid())
+  passId         String?
+  taskId         String?
+  decisionType   String
+  inputSummary   String
+  rulesEvaluated Json?
+  chosenAction   String
+  confidence     Float    @default(0)
+  reason         String?
+  fallbackAction String?
+  createdAt      DateTime @default(now())
+
+  pass AdminWorkerPass? @relation(fields: [passId], references: [id], onDelete: SetNull)
+  task AdminWorkerTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([decisionType])
+  @@index([createdAt])
+  @@index([passId])
+}
+
+/// Candidate URLs the web navigator has discovered (sitemap / RSS /
+/// internal link / configured list). The classifier prioritises them
+/// and the planner consumes the highest-confidence rows first.
+model CandidateSourceUrl {
+  id                   String                         @id @default(cuid())
+  discoveredUrl        String                         @unique
+  sourceHost           String
+  sourceId             String?
+  discoveryMethod      CandidateSourceDiscoveryMethod @default(INTERNAL_LINK)
+  predictedContentType String?
+  predictedUsefulness  Float                          @default(0)
+  status               CandidateSourceUrlStatus       @default(DISCOVERED)
+  fetchAttempts        Int                            @default(0)
+  lastFetchedAt        DateTime?
+  rejectionReason      String?
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
+
+  @@index([status])
+  @@index([sourceHost])
+  @@index([predictedContentType])
+  @@index([predictedUsefulness])
+}
+
+/// Per-content-type goal. The planner compares each goal's current
+/// count to the minimum/desired targets and prioritises content types
+/// with the largest gap.
+model ContentGoal {
+  id                String            @id @default(cuid())
+  contentType       String            @unique
+  minimumTarget     Int               @default(0)
+  desiredTarget     Int               @default(0)
+  currentValidCount Int               @default(0)
+  gapCount          Int               @default(0)
+  priority          Int               @default(100)
+  status            ContentGoalStatus @default(NOT_STARTED)
+  lastUpdatedAt     DateTime          @default(now())
+  createdAt         DateTime          @default(now())
+
+  @@index([status])
+  @@index([priority])
+}
+
+/// Rare items needing human review. The Admin Worker is designed so
+/// that this queue stays small — normal content publishing never lands
+/// here. Items appear only when confidence is below threshold, deletion
+/// is uncertain, the worker cannot determine content type, or sources
+/// conflict in ways the cross-source verifier cannot reconcile.
+model HumanReviewQueue {
+  id                 String            @id @default(cuid())
+  taskId             String?
+  contentType        String?
+  contentTitle       String?
+  proposedAction     String
+  reason             String
+  confidence         Float             @default(0)
+  sourceEvidence     Json?
+  currentVersion     Json?
+  proposedVersion    Json?
+  status             HumanReviewStatus @default(PENDING)
+  createdAt          DateTime          @default(now())
+  reviewedAt         DateTime?
+  reviewedByUsername String?
+  reviewerNotes      String?
+
+  task AdminWorkerTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([contentType])
+  @@index([createdAt])
+}
+
+/// Proposed homepage redesign. The homepage designer writes a snapshot
+/// of the current homepage + a snapshot of the proposed homepage and
+/// either auto-publishes (small, high-confidence changes) or files the
+/// draft for review (major changes).
+model HomepageWorkerDraft {
+  id               String                    @id @default(cuid())
+  passId           String?
+  mode             HomepageWorkerDraftMode   @default(AUTOMATIC_SMALL)
+  currentSnapshot  Json?
+  proposedSnapshot Json?
+  reasonSummary    String?
+  sectionsChanged  String[]                  @default([])
+  confidence       Float                     @default(0)
+  status           HomepageWorkerDraftStatus @default(PROPOSED)
+  createdAt        DateTime                  @default(now())
+  publishedAt      DateTime?
+
+  pass AdminWorkerPass? @relation(fields: [passId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Audit trail for every Developer Audit PDF generated. The
+/// `includedSections` array records which report sections were in the
+/// PDF (the report UI lets the admin filter), and `status` captures
+/// success/failure so a stuck report job can be surfaced.
+model AdminDeveloperReportLog {
+  id               String                     @id @default(cuid())
+  reportPeriod     AdminDeveloperReportPeriod
+  generatedBy      String
+  generatedAt      DateTime                   @default(now())
+  fileSize         Int?
+  includedSections String[]                   @default([])
+  status           AdminDeveloperReportStatus @default(PENDING)
+  errorMessage     String?
+
+  @@index([generatedAt])
+  @@index([status])
+}
+
+/// Defense actions the Admin Worker takes in response to a confirmed
+/// security event. Distinct from SecurityEvent (which records that an
+/// event happened): this table records what the worker decided to do
+/// about it and why. Used by the security defender pass and surfaced
+/// in the diagnostics card.
+model AdminWorkerSecurityAction {
+  id                    String                        @id @default(cuid())
+  securityEventId       String?
+  passId                String?
+  actionType            AdminWorkerSecurityActionType
+  deviceFingerprintHash String?
+  ipHash                String?
+  userAgentHash         String?
+  route                 String?
+  reason                String
+  severity              String                        @default("warning")
+  confidence            Float                         @default(0)
+  actionTaken           String
+  createdAt             DateTime                      @default(now())
+
+  pass          AdminWorkerPass? @relation(fields: [passId], references: [id], onDelete: SetNull)
+  securityEvent SecurityEvent?   @relation(fields: [securityEventId], references: [id], onDelete: SetNull)
+
+  @@index([actionType])
+  @@index([createdAt])
+  @@index([securityEventId])
+}
+
+/// Result of post-publish verification on a piece of public content.
+/// The worker runs verification after every publish to confirm public
+/// page load, tab placement, search visibility, sitemap visibility,
+/// and cache freshness. A failed verification triggers automatic
+/// rollback (or human review if the failure is ambiguous).
+model PostPublishVerification {
+  id                String                        @id @default(cuid())
+  contentType       String
+  contentId         String
+  slug              String
+  publicPageCheck   PostPublishVerificationResult @default(PENDING)
+  tabPlacementCheck PostPublishVerificationResult @default(PENDING)
+  searchCheck       PostPublishVerificationResult @default(PENDING)
+  sitemapCheck      PostPublishVerificationResult @default(PENDING)
+  cacheCheck        PostPublishVerificationResult @default(PENDING)
+  result            PostPublishVerificationResult @default(PENDING)
+  errorMessage      String?
+  createdAt         DateTime                      @default(now())
+
+  @@index([contentType, contentId])
+  @@index([result])
+  @@index([createdAt])
+}
+
+/// Deterministic per-package quality score. The publishing gate
+/// requires a `finalScore` at or above the configured threshold; lower
+/// scores are repaired or rejected, and only ambiguous cases reach the
+/// human review queue.
+model ContentQualityScore {
+  id                  String   @id @default(cuid())
+  contentType         String
+  contentId           String
+  completenessScore   Float    @default(0)
+  correctnessScore    Float    @default(0)
+  formattingScore     Float    @default(0)
+  sourceEvidenceScore Float    @default(0)
+  validationScore     Float    @default(0)
+  renderScore         Float    @default(0)
+  finalScore          Float    @default(0)
+  createdAt           DateTime @default(now())
+
+  @@index([contentType, contentId])
+  @@index([finalScore])
+  @@index([createdAt])
+}
+
+/// Deterministic homepage quality score. The homepage designer runs
+/// this every pass; a score below threshold triggers a redesign draft.
+model HomepageQualityScore {
+  id                       String   @id @default(cuid())
+  contentFreshnessScore    Float    @default(0)
+  sectionBalanceScore      Float    @default(0)
+  visualCompletenessScore  Float    @default(0)
+  linkHealthScore          Float    @default(0)
+  seasonalRelevanceScore   Float    @default(0)
+  emptyStateAvoidanceScore Float    @default(0)
+  accessibilityScore       Float    @default(0)
+  mobileReadinessScore     Float    @default(0)
+  finalScore               Float    @default(0)
+  createdAt                DateTime @default(now())
+
+  @@index([finalScore])
+  @@index([createdAt])
 }

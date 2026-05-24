@@ -478,6 +478,79 @@ process — running `npm run worker` is enough to keep the pipeline moving.
 
 ---
 
+## Admin Worker
+
+The **Admin Worker** is the autonomous website-administrator system. It is
+fully coded, deterministic, durable, observable, and autonomous, and it
+operates **without any AI APIs**. Code lives under `src/lib/admin-worker/`;
+the operator-facing surface is at `/admin/admin-worker` (Command Center)
+and `/admin/diagnostics` (24 health ratings + pause toggle).
+
+What it does:
+
+- discovers approved Catholic source URLs and classifies candidates
+  (junk URLs — livestreams, donations, bulletins, store pages, etc. —
+  are rejected before fetch)
+- reads source pages and extracts Catholic content
+- validates content correctness against the existing strict Zod schemas
+- formats content into complete packages
+- publishes valid content automatically when QA + quality score + source
+  evidence + confidence all pass; humans only see ambiguous edge cases
+- maintains the homepage (deterministic 8-dimension score; small
+  high-confidence improvements auto-publish, major redesigns route to
+  review)
+- monitors diagnostics (24 health ratings — heartbeat, queue, sources,
+  classification, building, formatting, validation, QA, publishing,
+  post-publish, search, sitemap, cache, homepage, cleanup, review queue,
+  security, email, monthly report, database, env, content goals)
+- generates **Developer Audit** PDFs for the last 24 hours, last 7 days,
+  or last 30 days (operator-triggered from the diagnostics card)
+- generates the **Monthly Admin Worker Report** email on the last day
+  of each month with a PDF attachment
+- defends against brute-force admin login attempts. Only confirmed
+  brute force results in an automatic device ban; suspicious activity
+  alone never bans. A valid authenticated admin login is not treated
+  as suspicious — a calm "Admin Log In" email confirms the sign-in.
+- learns operationally through outcome counts and per-source reputation
+  (no facts are ever invented; the learning loop only nudges priorities)
+
+Pause / resume toggle sits on the diagnostics page directly above the
+Developer Audit button. Pausing stops all non-security work; the
+security defender keeps running.
+
+**Internal model names** (`ChecklistItem`, `WorkerBuildJob`,
+`WorkerBuildLog`, `WorkerHeartbeat`) deliberately keep their existing
+names for code and migration compatibility — the rename to "Admin Worker"
+is in the admin-facing UI only.
+
+Phase 1 (already shipped):
+
+- 15 new database tables (`AdminWorkerState`, `AdminWorkerPass`,
+  `AdminWorkerTask`, `AdminWorkerLog`, `AdminWorkerMemory`,
+  `AdminWorkerSourceReputation`, `AdminWorkerDecision`,
+  `CandidateSourceUrl`, `ContentGoal`, `HumanReviewQueue`,
+  `HomepageWorkerDraft`, `AdminDeveloperReportLog`,
+  `AdminWorkerSecurityAction`, `PostPublishVerification`,
+  `ContentQualityScore`, `HomepageQualityScore`)
+- central decision loop with deterministic priority selection
+- source reputation engine (EWMA-smoothed)
+- content goals + autonomous planner
+- 24-rating diagnostics surface
+- rule engine + decision log
+- confidence-gated publishing wrapper
+- learning memory (success/failure counts only)
+- homepage designer + scoring
+- security defender layered on top of the existing
+  `SecurityEvent`/`BannedDevice` flow
+- cleanup custodian
+- post-publish verification record + rollback decision
+- Command Center page + Admin Worker API routes (pause / resume /
+  run pass / state)
+- Monthly Admin Worker Report email + Admin Worker Banned Device email
+- 101 admin-worker tests
+
+---
+
 ## Public site
 
 Every public page renders directly from `PublishedContent`:

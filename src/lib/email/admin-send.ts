@@ -1076,3 +1076,156 @@ export async function sendMonthlyDataManagementReport(
     htmlBody: rendered.htmlBody,
   });
 }
+
+// ============================================================================
+// Admin Worker emails
+// ============================================================================
+// Spec sections 13 and 14:
+//   - Monthly Admin Worker Report (PDF attachment, last day of month).
+//   - Admin Worker Banned Device (when the worker bans a confirmed
+//     brute-force device — distinct from the legacy Security Breach
+//     email so the operator can tell which one fired).
+// ============================================================================
+
+export interface AdminWorkerMonthlyReportInput {
+  monthStart: Date;
+  monthEnd: Date;
+  totalContentBuilt: number;
+  totalContentPublished: number;
+  totalContentRejected: number;
+  totalContentDeleted: number;
+  totalSourcesUsed: number;
+  workerUptimePct: number;
+  workerFailures: number;
+  securityEvents: number;
+  homepageChanges: number;
+  pdfBase64: string;
+}
+
+export async function sendAdminWorkerMonthlyReport(
+  input: AdminWorkerMonthlyReportInput,
+): Promise<AdminSendOutcome> {
+  const fmt = (d: Date) => d.toISOString().slice(0, 10);
+  const intro =
+    `Monthly Admin Worker Report (${fmt(input.monthStart)} – ${fmt(input.monthEnd)}). ` +
+    `The full daily breakdown and worker log are attached as a PDF.`;
+  const filename = `admin-worker-${input.monthStart.getUTCFullYear()}-${String(
+    input.monthStart.getUTCMonth() + 1,
+  ).padStart(2, "0")}.pdf`;
+
+  const sections: AdminEmailSection[] = [
+    {
+      title: "Monthly Summary",
+      table: {
+        columns: [
+          { key: "metric", label: "Metric" },
+          { key: "value", label: "Value", align: "right" },
+        ],
+        rows: [
+          { metric: "Total content built", value: String(input.totalContentBuilt) },
+          { metric: "Total content published", value: String(input.totalContentPublished) },
+          { metric: "Total content rejected", value: String(input.totalContentRejected) },
+          { metric: "Total content deleted", value: String(input.totalContentDeleted) },
+          { metric: "Total sources used", value: String(input.totalSourcesUsed) },
+          {
+            metric: "Worker uptime",
+            value: `${Math.round(input.workerUptimePct * 100)}%`,
+          },
+          { metric: "Worker failures", value: String(input.workerFailures) },
+          { metric: "Security events", value: String(input.securityEvents) },
+          { metric: "Homepage changes", value: String(input.homepageChanges) },
+        ],
+      },
+    },
+  ];
+
+  const rendered = renderAdminEmail({
+    subject: "Monthly Admin Worker Report",
+    heading: "Monthly Admin Worker Report",
+    intro,
+    sections,
+  });
+
+  return sendAdminEmail({
+    flow: "admin_worker_monthly",
+    subject: rendered.subject,
+    textBody: rendered.textBody,
+    htmlBody: rendered.htmlBody,
+    attachments: [
+      {
+        filename,
+        content: input.pdfBase64,
+        contentType: "application/pdf",
+      },
+    ],
+  });
+}
+
+/**
+ * Fired when the Admin Worker automatically bans a confirmed brute-force
+ * device. Distinct from `sendSecurityBreachAlert` (which fires for the
+ * underlying event itself) so the operator can tell at a glance "the
+ * worker took an automatic action" vs "a breach was logged".
+ */
+export interface AdminWorkerBannedDeviceInput {
+  reason: string;
+  route?: string;
+  ipAddress?: string;
+  city?: string;
+  region?: string;
+  country?: string;
+  userAgent?: string;
+  deviceCredentialFingerprint?: string;
+  securityEventId?: string;
+  workerActionId?: string;
+  confidence: number;
+}
+
+export async function sendAdminWorkerBannedDevice(
+  input: AdminWorkerBannedDeviceInput,
+): Promise<AdminSendOutcome> {
+  const intro =
+    `The Admin Worker has automatically banned a device after confirming a brute-force ` +
+    `pattern (confidence ${(input.confidence * 100).toFixed(0)}%). No further action is required.`;
+  const rows: Array<{ key: string; value: string }> = [];
+  rows.push({ key: "Reason", value: input.reason });
+  rows.push({ key: "Time", value: new Date().toISOString() });
+  rows.push({ key: "Confidence", value: `${(input.confidence * 100).toFixed(0)}%` });
+  if (input.route) rows.push({ key: "Target route", value: input.route });
+  if (input.ipAddress) rows.push({ key: "IP address", value: input.ipAddress });
+  if (input.city) rows.push({ key: "City", value: input.city });
+  if (input.region) rows.push({ key: "State / region", value: input.region });
+  if (input.country) rows.push({ key: "Country", value: input.country });
+  if (input.userAgent) rows.push({ key: "User-Agent", value: input.userAgent });
+  if (input.deviceCredentialFingerprint)
+    rows.push({ key: "Device fingerprint", value: input.deviceCredentialFingerprint });
+  if (input.securityEventId) rows.push({ key: "Security event id", value: input.securityEventId });
+  if (input.workerActionId)
+    rows.push({ key: "Admin worker action id", value: input.workerActionId });
+
+  const rendered = renderAdminEmail({
+    subject: "Admin Worker Banned Device",
+    heading: "Admin Worker Banned Device",
+    intro,
+    sections: [
+      {
+        title: "Action detail",
+        table: {
+          columns: [
+            { key: "key", label: "Field" },
+            { key: "value", label: "Value" },
+          ],
+          rows,
+        },
+      },
+    ],
+    signoff:
+      "The ban is permanent. If this device should not be banned, remove the BannedDevice row from the database after investigating.",
+  });
+  return sendAdminEmail({
+    flow: "admin_worker_banned_device",
+    subject: rendered.subject,
+    textBody: rendered.textBody,
+    htmlBody: rendered.htmlBody,
+  });
+}

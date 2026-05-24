@@ -337,9 +337,10 @@ const admin: Dict = {
   "admin.dashboard.title": "Administrator dashboard",
   "admin.dashboard.subtitle":
     "Manage content, translations, ingestion, media, and the live homepage.",
+  "admin.card.adminWorker": "Admin Worker · Command Center",
   "admin.card.checklist": "Checklist dashboard",
   "admin.card.diagnostics": "System diagnostics",
-  "admin.card.queue": "Worker build queue",
+  "admin.card.queue": "Admin Worker build queue",
   "admin.card.qa": "QA reports",
   "admin.card.published": "Published content",
   "admin.card.failed": "Failed builds",

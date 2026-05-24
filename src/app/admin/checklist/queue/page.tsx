@@ -25,7 +25,7 @@ export default async function WorkerQueuePage() {
     <div className="space-y-6">
       <header className="flex items-baseline justify-between">
         <div>
-          <h1 className="font-display text-3xl text-ink">Worker build queue</h1>
+          <h1 className="font-display text-3xl text-ink">Admin Worker build queue</h1>
           <p className="mt-1 font-serif text-ink-soft">
             {jobs.length} live build job(s). Failed jobs surface in{" "}
             <Link href="/admin/checklist/failed" className="underline text-indigo-600">
