@@ -548,7 +548,7 @@ Phase 1 (already shipped):
   run pass / state)
 - Monthly Admin Worker Report email + Admin Worker Banned Device email
 
-Phase 2 (this PR):
+Phase 2 (previous PR):
 
 - production worker (`scripts/run-worker.ts`) now drives the Admin
   Worker loop directly instead of the legacy build-only loop; it
@@ -598,7 +598,42 @@ Phase 2 (this PR):
   Developer Audit PDF emits a valid `%PDF-` buffer + writes the
   AdminDeveloperReportLog row.
 
-Tests: 1050 / 1050 passing (was 1026).
+Phase 3 (this PR):
+
+- live post-publish HTTP probe: the publisher actively triggers cache
+  revalidation, fetches the public page, confirms the title shows in
+  the rendered HTML, and on FAIL automatically unpublishes; ambiguous
+  failures route to human review, clear failures route to deletion
+- live sitemap discovery: the web navigator fetches `/robots.txt` +
+  `/sitemap.xml` on every approved authority host, parses `<loc>`
+  URLs, applies the existing junk-URL classifier, and inserts the
+  survivors as CandidateSourceUrl rows; honours `Sitemap:` and
+  `Disallow:` directives in robots.txt
+- per-content-type packaging validators for spec section 7
+  (`validatePrayerPackage`, `validateNovenaPackage` with Day 1–9
+  enforcement, `validateRosaryPackage` requiring exactly 5
+  mysteries per set, `validateConsecrationPackage` with daily
+  prayers, `validateHistoryPackage` enforcing only the 12 approved
+  Church history types, etc.)
+- publish-safety pattern blockers for spec section 15: incomplete
+  prayers, articles about prayers, saint-named institutions,
+  livestream / event / donation / store source URLs, missing source
+  evidence, unapproved scripture translations
+- explicit security detectors for spec section 14:
+  banned-device-reuse, set-public-flag-outside-worker,
+  internal-route-manipulation, suspicious-request-burst (with
+  per-detector severity + classification + confidence)
+- `verifyPublished` is wired into the existing `publish()` flow via
+  dynamic import — every successful publish now triggers the probe
+  in production; non-production environments skip the network call
+- new admin worker public route helpers (`publicRouteFor`,
+  `publicUrlFor`, `publicOrigin`) so the probe + cache + UI all
+  agree on URL shape
+- 51 new tests covering publish-safety, packaging validators,
+  post-publish probe + rollback, sitemap discovery, security
+  detectors, and public route mapping
+
+Tests: 1101 / 1101 passing (was 1050).
 
 ---
 

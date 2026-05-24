@@ -126,6 +126,31 @@ export async function publish(prisma: PrismaClient, input: PublishInput): Promis
     },
   });
 
+  // Post-publish verification + automatic rollback. The verifier
+  // triggers cache revalidation, probes the public page, and on FAIL
+  // unpublishes + routes per the rollback plan. We don't fail the
+  // publish() call itself on verification failure — the row is on
+  // disk and we'd rather record the verification + the rollback than
+  // surprise the caller with an exception. Verification errors are
+  // logged to AdminWorkerLog by the verifier.
+  try {
+    // Dynamic import keeps this module independent of the Admin
+    // Worker code path for unit tests that don't want the verifier
+    // wired in.
+    const { verifyPublished } = await import("@/lib/admin-worker/post-publish-probe");
+    await verifyPublished(prisma, {
+      contentType: pkg.contentType as ChecklistContentType,
+      contentId: published.id,
+      slug: pkg.canonicalSlug,
+      expectedTitle: pkg.title,
+      // Skip the live HTTP probe in non-production environments so
+      // tests + dev don't make outbound requests.
+      skipNetwork: process.env.NODE_ENV !== "production",
+    });
+  } catch {
+    // verifier failures are non-fatal for publish()
+  }
+
   return {
     published: true,
     reason: `Published version ${version}.`,

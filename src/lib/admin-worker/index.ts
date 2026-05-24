@@ -207,3 +207,55 @@ export {
   type PublishGateInput,
   type PublishGateDecision,
 } from "./publisher";
+
+export { publicRouteFor, publicUrlFor, publicOrigin, type PublicRouteInfo } from "./public-routes";
+
+export {
+  verifyPublished,
+  rollback,
+  type VerifyPublishedInput,
+  type VerifyPublishedResult,
+} from "./post-publish-probe";
+
+export {
+  discoverFromHost,
+  discoverFromAllAuthorities,
+  type SitemapDiscoveryOutcome,
+} from "./sitemap-discovery";
+
+export {
+  evaluatePublishSafety,
+  type SafetyInput,
+  type SafetyDecision,
+  type SafetyBlockReason,
+} from "./publish-safety";
+
+export {
+  validatePackagingByType,
+  validatePrayerPackage,
+  validateSaintPackage,
+  validateApparitionPackage,
+  validateDevotionPackage,
+  validateNovenaPackage,
+  validateRosaryPackage,
+  validateConsecrationPackage,
+  validateSacramentPackage,
+  validateHistoryPackage,
+  validateLiturgyPackage,
+  validateParishPackage,
+  APPROVED_HISTORY_TYPES,
+  type PackagingValidationResult,
+  type ApprovedHistoryType,
+} from "./packaging";
+
+export {
+  detectBannedDeviceReuse,
+  detectSetPublicFlagOutsideWorker,
+  detectInternalRouteManipulation,
+  detectSuspiciousBurst,
+  fireDetector,
+  DETECTOR_SEVERITY,
+  DETECTOR_CLASSIFICATION,
+  type SecurityDetectorKind,
+  type DetectorContext,
+} from "./security-detectors";
