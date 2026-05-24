@@ -4,6 +4,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/admin";
 import { runAllDiagnostics } from "@/lib/diagnostics";
 import { DeveloperReportButton } from "./DeveloperReportButton";
+import { DeveloperAuditButton } from "./DeveloperAuditButton";
 
 export const dynamic = "force-dynamic";
 
@@ -27,11 +28,14 @@ export default async function DiagnosticsPage() {
             <span className="font-medium text-rose-700">{counts.fail} fail</span>
           </p>
         </div>
-        <div className="space-x-4 text-sm">
-          <DeveloperReportButton />
-          <Link className="text-indigo-600 underline" href="/admin/checklist">
-            ← dashboard
-          </Link>
+        <div className="flex flex-col items-end gap-2 text-sm">
+          <DeveloperAuditButton />
+          <div className="flex items-center gap-3">
+            <DeveloperReportButton />
+            <Link className="text-indigo-600 underline" href="/admin/checklist">
+              ← dashboard
+            </Link>
+          </div>
         </div>
       </header>
 

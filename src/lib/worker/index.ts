@@ -75,6 +75,13 @@ export {
   type JanitorAction,
   type JanitorFinding,
 } from "./janitor";
+export {
+  findCuratedEntry,
+  curatedKnowledgeSize,
+  curatedKnowledgeByType,
+  ALL_CURATED_ENTRIES,
+  type CuratedEntry,
+} from "./knowledge";
 
 // =============================================================================
 // High-level checklist operations
@@ -465,11 +472,18 @@ export async function runWorkerLoop(
     const result = await runOneBuildCycle(prisma, options.workerId);
     if (result.kind === "idle") {
       // The autonomous custodian keeps the pipeline flowing: when the
-      // build queue is empty, the worker auto-promotes items it can
-      // confidently move forward (DISCOVERED → SOURCE_VERIFIED →
-      // APPROVED_FOR_BUILD) so the next cycle has work.
+      // build queue is empty, the worker bootstraps citations from the
+      // curated knowledge base for any item that has none, then promotes
+      // items it can confidently move forward (DISCOVERED → SOURCE_VERIFIED
+      // → APPROVED_FOR_BUILD) so the next cycle has work. This is what
+      // lets a freshly-seeded database fill the site without any admin
+      // clicks.
+      const bootstrap = await bootstrapCitationsFromKnowledge(prisma).catch(() => ({
+        attempted: 0,
+        created: 0,
+      }));
       const advanced = await autonomousPromote(prisma).catch(() => 0);
-      if (advanced > 0) {
+      if (bootstrap.created > 0 || advanced > 0) {
         cycle++;
         continue;
       }
@@ -557,6 +571,89 @@ export interface BulkResult {
   succeeded: number;
   failed: number;
   errors: string[];
+}
+
+/**
+ * Bootstrap citations for every checklist item that has none but has a
+ * curated knowledge entry. The worker is allowed to "self-cite" from the
+ * curated registry so it can build the foundational items without an admin
+ * having to paste in URLs first. This is the autonomous custodian's
+ * starting move.
+ */
+export async function bootstrapCitationsFromKnowledge(
+  prisma: PrismaClient,
+): Promise<{ attempted: number; created: number }> {
+  const { ALL_CURATED_ENTRIES } = await import("./knowledge");
+  let attempted = 0;
+  let created = 0;
+  for (const entry of ALL_CURATED_ENTRIES) {
+    attempted++;
+    const item = await prisma.checklistItem.findFirst({
+      where: {
+        contentType: entry.contentType,
+        canonicalSlug: entry.slug,
+      },
+      include: { citations: true },
+    });
+    if (!item) continue;
+    if (item.citations.length > 0) continue;
+    for (const url of entry.citations) {
+      try {
+        const result = await addCitation(prisma, {
+          checklistItemId: item.id,
+          sourceUrl: url,
+          title: `Curated source for ${item.canonicalName}`,
+          validationNotes: "Auto-attached from worker knowledge base.",
+        });
+        if (result.ok) created++;
+      } catch {
+        // best effort; the bootstrap is allowed to skip URLs it can't parse
+      }
+    }
+  }
+  return { attempted, created };
+}
+
+/**
+ * Run one full autonomous custodian cycle:
+ *   1. Bootstrap citations from the curated knowledge base.
+ *   2. Promote DISCOVERED → SOURCE_VERIFIED → APPROVED_FOR_BUILD.
+ *   3. Drain the build queue (build → QA → publish) up to `maxBuilds` times.
+ *
+ * This is what the "Run autonomous cycle" button on the dashboard triggers
+ * and what the worker loop calls when the queue is otherwise idle.
+ */
+export async function runFullAutonomousCycle(
+  prisma: PrismaClient,
+  options: { workerId?: string; maxBuilds?: number } = {},
+): Promise<{
+  bootstrapped: { attempted: number; created: number };
+  promoted: number;
+  builds: Array<{ jobId: string; status: string; reason?: string; qaScore?: number }>;
+}> {
+  const workerId = options.workerId ?? `autonomous-${Date.now()}`;
+  const maxBuilds = options.maxBuilds ?? 50;
+
+  const bootstrapped = await bootstrapCitationsFromKnowledge(prisma);
+  let promoted = await autonomousPromote(prisma);
+  // The first promote pass may have created brand-new APPROVED_FOR_BUILD
+  // rows; run it twice so any items that needed a citation bootstrap on
+  // this same cycle still get promoted before the queue drain.
+  promoted += await autonomousPromote(prisma);
+
+  const builds: Array<{ jobId: string; status: string; reason?: string; qaScore?: number }> = [];
+  for (let i = 0; i < maxBuilds; i++) {
+    const result = await runOneBuildCycle(prisma, workerId);
+    if (result.kind === "idle") break;
+    builds.push({
+      jobId: result.jobId,
+      status: result.status,
+      reason: result.reason,
+      qaScore: result.qaScore,
+    });
+  }
+
+  return { bootstrapped, promoted, builds };
 }
 
 /**

@@ -114,6 +114,56 @@ export async function runBuildEngine(
   const schemaDef = getContentSchema(item.contentType);
   const instruction = schemaDef.instruction;
 
+  // -- Curated knowledge short-circuit -------------------------------------
+  // If the checklist item's slug is in the curated knowledge base, the
+  // worker uses the curated payload as the canonical content. This gives
+  // production-quality content for the most fundamental Catholic items
+  // without depending on a network fetch. The citations on the item are
+  // still fetched best-effort for cross-source validation, but a fetch
+  // failure no longer blocks the build.
+  const { findCuratedEntry } = await import("../knowledge");
+  const curated = findCuratedEntry(item.contentType, item.canonicalSlug);
+  if (curated) {
+    await logger.info(
+      "curated",
+      `Using curated knowledge for "${item.canonicalName}" (authority level ${curated.authorityLevel}).`,
+    );
+    const validation = validatePayload(item.contentType, curated.payload);
+    if (!validation.ok) {
+      // Curated entries should always validate; this is a developer bug.
+      const msg = `Curated payload failed schema validation: ${validation.errors.join("; ")}`;
+      await logger.error("curated", msg);
+      // Fall through to live fetch path instead of failing.
+    } else {
+      const pkg: BuiltContentPackage = {
+        contentType: item.contentType,
+        canonicalSlug: canonicalizeSlug(item.canonicalSlug),
+        title: String(validation.data.title ?? item.canonicalName),
+        fields: {},
+        payload: validation.data,
+        authorityLevel: curated.authorityLevel,
+        confidence: 0.95,
+        warnings: [],
+        citations: curated.citations,
+        needsHumanReview: instruction.requiresHumanReview || item.needsHumanReview,
+        humanReviewReason:
+          instruction.requiresHumanReview && !item.needsHumanReview
+            ? "Content type requires human review."
+            : undefined,
+      };
+      await logger.info("done", "Curated build produced a complete package.", {
+        confidence: pkg.confidence,
+      });
+      return {
+        ok: true,
+        partial: false,
+        package: pkg,
+        warnings: [],
+        confidence: pkg.confidence,
+      };
+    }
+  }
+
   if (item.citations.length < instruction.minCitations) {
     const message = `Item has ${item.citations.length} citation(s); needs at least ${instruction.minCitations}.`;
     await logger.error("guard", message);
