@@ -59,36 +59,42 @@ export function BulkActions({ verifyCount, buildCount }: Props) {
       <div className="mt-3 flex flex-wrap gap-3">
         <button
           type="button"
-          disabled={pending || verifyCount === 0}
+          disabled={pending}
           onClick={() => call("verify-all", "/api/admin/checklist/bulk/verify-all")}
-          className={`rounded px-4 py-2 text-sm text-white disabled:opacity-40 ${
-            verifyCount > 0 ? "bg-indigo-600 hover:bg-indigo-700" : "bg-slate-400"
+          className={`rounded px-4 py-2 text-sm text-white disabled:opacity-50 ${
+            verifyCount > 0
+              ? "bg-indigo-600 hover:bg-indigo-700"
+              : "bg-indigo-400 hover:bg-indigo-500"
           }`}
         >
           Verify all
-          {verifyCount > 0 && (
-            <span className="ml-2 rounded bg-white/20 px-1.5 py-0.5 text-xs">{verifyCount}</span>
-          )}
+          <span className="ml-2 rounded bg-white/20 px-1.5 py-0.5 text-xs">{verifyCount}</span>
         </button>
         <button
           type="button"
-          disabled={pending || buildCount === 0}
+          disabled={pending}
           onClick={() =>
             call("build-all", "/api/admin/checklist/bulk/build-all", { includeReview: false })
           }
-          className={`rounded px-4 py-2 text-sm text-white disabled:opacity-40 ${
+          className={`rounded px-4 py-2 text-sm text-white disabled:opacity-50 ${
             allVerified
               ? "bg-emerald-600 hover:bg-emerald-700 ring-2 ring-emerald-300 ring-offset-2 animate-pulse"
               : buildCount > 0
                 ? "bg-emerald-600 hover:bg-emerald-700"
-                : "bg-slate-400"
+                : "bg-emerald-400 hover:bg-emerald-500"
           }`}
         >
           Build all
-          {buildCount > 0 && (
-            <span className="ml-2 rounded bg-white/20 px-1.5 py-0.5 text-xs">{buildCount}</span>
-          )}
+          <span className="ml-2 rounded bg-white/20 px-1.5 py-0.5 text-xs">{buildCount}</span>
           {allVerified && <span className="ml-2 text-xs">⚡ ready</span>}
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => call("run-autonomous", "/api/admin/checklist/bulk/run-autonomous")}
+          className="rounded bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-700 disabled:opacity-50"
+        >
+          ⚡ Run autonomous cycle
         </button>
         <button
           type="button"
@@ -104,7 +110,7 @@ export function BulkActions({ verifyCount, buildCount }: Props) {
               reason,
             });
           }}
-          className="rounded bg-rose-600 px-4 py-2 text-sm text-white hover:bg-rose-700 disabled:opacity-40"
+          className="rounded bg-rose-600 px-4 py-2 text-sm text-white hover:bg-rose-700 disabled:opacity-50"
         >
           Reject all discovered
         </button>

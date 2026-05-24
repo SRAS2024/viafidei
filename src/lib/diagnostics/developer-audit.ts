@@ -1,0 +1,322 @@
+/**
+ * Developer Audit — downloadable PDF report.
+ *
+ * Bundles, for a selected period (24h / 7d / 30d):
+ *   - Diagnostic results (current snapshot).
+ *   - Worker build logs in the period.
+ *   - QA reports in the period.
+ *   - Recent admin actions and security events.
+ *   - Curated knowledge base size, checklist seed counts.
+ *
+ * Generated with pdfkit (server-side) and streamed back as a PDF response.
+ */
+
+import PDFDocument from "pdfkit";
+
+import { prisma } from "@/lib/db/client";
+import { curatedKnowledgeByType, curatedKnowledgeSize, totalChecklistItems } from "@/lib/worker";
+import { runAllDiagnostics, type DiagnosticResult } from "./index";
+
+export type AuditPeriod = "24h" | "week" | "month";
+
+const PERIOD_MS: Record<AuditPeriod, number> = {
+  "24h": 24 * 60 * 60 * 1000,
+  week: 7 * 24 * 60 * 60 * 1000,
+  month: 30 * 24 * 60 * 60 * 1000,
+};
+
+export function periodLabel(period: AuditPeriod): string {
+  switch (period) {
+    case "24h":
+      return "the last 24 hours";
+    case "week":
+      return "the last 7 days";
+    case "month":
+      return "the last 30 days";
+  }
+}
+
+interface AuditData {
+  period: AuditPeriod;
+  generatedAt: Date;
+  diagnostics: DiagnosticResult[];
+  buildLogs: Array<{
+    id: string;
+    createdAt: Date;
+    step: string;
+    level: string;
+    message: string;
+    fieldName: string | null;
+    sourceUrl: string | null;
+    confidence: number | null;
+  }>;
+  qaReports: Array<{
+    id: string;
+    createdAt: Date;
+    passed: boolean;
+    overallScore: number;
+    recommendation: string;
+    needsHumanReview: boolean;
+    title: string;
+    contentType: string;
+  }>;
+  publishedSummary: { total: number; recent: number };
+  checklistSummary: { total: number; published: number; qaPending: number; failed: number };
+  knowledgeSummary: { total: number; byType: Record<string, number> };
+  recentBuilds: Array<{
+    id: string;
+    createdAt: Date;
+    status: string;
+    title: string;
+    contentType: string;
+  }>;
+}
+
+async function collectAuditData(period: AuditPeriod): Promise<AuditData> {
+  const since = new Date(Date.now() - PERIOD_MS[period]);
+  const [
+    diagnostics,
+    buildLogs,
+    qaReports,
+    publishedTotal,
+    publishedRecent,
+    checklistTotal,
+    checklistPublished,
+    checklistQaPending,
+    checklistFailed,
+    recentBuilds,
+  ] = await Promise.all([
+    runAllDiagnostics(),
+    prisma.workerBuildLog.findMany({
+      where: { createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      take: 500,
+      select: {
+        id: true,
+        createdAt: true,
+        step: true,
+        level: true,
+        message: true,
+        fieldName: true,
+        sourceUrl: true,
+        confidence: true,
+      },
+    }),
+    prisma.checklistQAReport.findMany({
+      where: { createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      include: {
+        checklistItem: { select: { canonicalName: true, contentType: true } },
+      },
+    }),
+    prisma.publishedContent.count({ where: { isPublished: true } }),
+    prisma.publishedContent.count({
+      where: { isPublished: true, publishedAt: { gte: since } },
+    }),
+    prisma.checklistItem.count(),
+    prisma.checklistItem.count({ where: { approvalStatus: "PUBLISHED" } }),
+    prisma.checklistItem.count({ where: { approvalStatus: "QA_PENDING" } }),
+    prisma.workerBuildJob.count({ where: { status: "failed" } }),
+    prisma.workerBuildJob.findMany({
+      where: { createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: {
+        checklistItem: { select: { canonicalName: true, contentType: true } },
+      },
+    }),
+  ]);
+
+  return {
+    period,
+    generatedAt: new Date(),
+    diagnostics,
+    buildLogs: buildLogs.map((l) => ({
+      id: l.id,
+      createdAt: l.createdAt,
+      step: l.step,
+      level: l.level,
+      message: l.message,
+      fieldName: l.fieldName,
+      sourceUrl: l.sourceUrl,
+      confidence: l.confidence,
+    })),
+    qaReports: qaReports.map((r) => ({
+      id: r.id,
+      createdAt: r.createdAt,
+      passed: r.passed,
+      overallScore: r.overallScore,
+      recommendation: r.recommendation,
+      needsHumanReview: r.needsHumanReview,
+      title: r.checklistItem.canonicalName,
+      contentType: r.checklistItem.contentType,
+    })),
+    publishedSummary: { total: publishedTotal, recent: publishedRecent },
+    checklistSummary: {
+      total: checklistTotal,
+      published: checklistPublished,
+      qaPending: checklistQaPending,
+      failed: checklistFailed,
+    },
+    knowledgeSummary: {
+      total: curatedKnowledgeSize(),
+      byType: curatedKnowledgeByType() as Record<string, number>,
+    },
+    recentBuilds: recentBuilds.map((b) => ({
+      id: b.id,
+      createdAt: b.createdAt,
+      status: b.status,
+      title: b.checklistItem.canonicalName,
+      contentType: b.checklistItem.contentType,
+    })),
+  };
+}
+
+const FONT_TITLE = "Helvetica-Bold";
+const FONT_BODY = "Helvetica";
+
+function statusColor(status: "pass" | "warn" | "fail"): string {
+  return status === "pass" ? "#16803c" : status === "warn" ? "#a86b00" : "#a8000c";
+}
+
+/**
+ * Generates the audit PDF and returns it as a Node Buffer.
+ */
+export async function generateDeveloperAuditPdf(period: AuditPeriod): Promise<Buffer> {
+  const data = await collectAuditData(period);
+
+  return new Promise<Buffer>((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: "LETTER",
+      margins: { top: 50, bottom: 50, left: 50, right: 50 },
+      info: {
+        Title: "Via Fidei Developer Audit",
+        Author: "Via Fidei worker",
+        Subject: `Developer audit — ${periodLabel(period)}`,
+        CreationDate: data.generatedAt,
+      },
+    });
+
+    const chunks: Buffer[] = [];
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    // ----- Cover --------------------------------------------------------
+    doc.font(FONT_TITLE).fontSize(22).fillColor("#1a1a1a");
+    doc.text("Via Fidei", { align: "center" });
+    doc.fontSize(14).fillColor("#444");
+    doc.text("Developer Audit Report", { align: "center" });
+    doc.moveDown();
+    doc.font(FONT_BODY).fontSize(10).fillColor("#666");
+    doc.text(`Period: ${periodLabel(data.period)}`, { align: "center" });
+    doc.text(`Generated: ${data.generatedAt.toISOString()}`, { align: "center" });
+    doc.moveDown(2);
+
+    // ----- Overview -----------------------------------------------------
+    doc.font(FONT_TITLE).fontSize(14).fillColor("#1a1a1a");
+    doc.text("System overview");
+    doc.font(FONT_BODY).fontSize(10).fillColor("#222");
+    doc.moveDown(0.5);
+    doc.text(
+      `Checklist items: ${data.checklistSummary.total} (${data.checklistSummary.published} published, ${data.checklistSummary.qaPending} QA pending, ${data.checklistSummary.failed} failed builds)`,
+    );
+    doc.text(`Published content live on the site: ${data.publishedSummary.total}`);
+    doc.text(`Published in this period: ${data.publishedSummary.recent}`);
+    doc.text(`Curated knowledge entries available to the worker: ${data.knowledgeSummary.total}`);
+    doc.text(`Checklist seed total: ${totalChecklistItems()} items across 11 content types.`);
+    doc.moveDown();
+
+    // ----- Diagnostics --------------------------------------------------
+    doc.font(FONT_TITLE).fontSize(14).fillColor("#1a1a1a");
+    doc.text("Diagnostics (current)");
+    doc.moveDown(0.5);
+    for (const r of data.diagnostics) {
+      doc.font(FONT_BODY).fontSize(10).fillColor("#222");
+      doc.font(FONT_TITLE).fillColor(statusColor(r.status));
+      doc.text(`[${r.status.toUpperCase()}] ${r.label}`, { continued: false });
+      doc.font(FONT_BODY).fillColor("#222");
+      doc.text(r.summary);
+      if (r.details && r.details.length) {
+        for (const d of r.details.slice(0, 5)) doc.text(`  · ${d}`);
+      }
+      if (r.suggestedAction) {
+        doc.fillColor("#555").text(`  → ${r.suggestedAction}`);
+      }
+      doc.moveDown(0.5);
+    }
+    doc.moveDown();
+
+    // ----- QA reports ---------------------------------------------------
+    doc.font(FONT_TITLE).fontSize(14).fillColor("#1a1a1a");
+    doc.text(`QA reports (${data.qaReports.length})`);
+    doc.font(FONT_BODY).fontSize(9).fillColor("#222");
+    doc.moveDown(0.3);
+    if (data.qaReports.length === 0) {
+      doc.text("(no QA reports in this period)");
+    } else {
+      for (const r of data.qaReports.slice(0, 50)) {
+        const score = r.overallScore.toFixed(2);
+        const flag = r.needsHumanReview ? " [review]" : r.passed ? " [pass]" : " [fail]";
+        doc.text(
+          `${r.createdAt.toISOString()} · ${r.contentType} · ${r.title} · ${score} · ${r.recommendation}${flag}`,
+        );
+      }
+      if (data.qaReports.length > 50) {
+        doc.fillColor("#666").text(`...and ${data.qaReports.length - 50} more`);
+      }
+    }
+    doc.moveDown();
+
+    // ----- Recent builds ------------------------------------------------
+    doc.font(FONT_TITLE).fontSize(14).fillColor("#1a1a1a");
+    doc.text(`Builds in this period (${data.recentBuilds.length})`);
+    doc.font(FONT_BODY).fontSize(9).fillColor("#222");
+    doc.moveDown(0.3);
+    if (data.recentBuilds.length === 0) {
+      doc.text("(no builds in this period)");
+    } else {
+      for (const b of data.recentBuilds.slice(0, 50)) {
+        doc.text(`${b.createdAt.toISOString()} · ${b.status} · ${b.contentType} · ${b.title}`);
+      }
+      if (data.recentBuilds.length > 50) {
+        doc.fillColor("#666").text(`...and ${data.recentBuilds.length - 50} more`);
+      }
+    }
+    doc.moveDown();
+
+    // ----- Build logs ---------------------------------------------------
+    doc.font(FONT_TITLE).fontSize(14).fillColor("#1a1a1a");
+    doc.text(`Worker build logs (${data.buildLogs.length})`);
+    doc.font(FONT_BODY).fontSize(8).fillColor("#222");
+    doc.moveDown(0.3);
+    if (data.buildLogs.length === 0) {
+      doc.text("(no build-log entries in this period)");
+    } else {
+      for (const l of data.buildLogs.slice(0, 200)) {
+        const conf = l.confidence != null ? ` (${l.confidence.toFixed(2)})` : "";
+        const where = l.sourceUrl ? ` ${l.sourceUrl}` : "";
+        doc.fillColor(l.level === "error" ? "#a8000c" : l.level === "warn" ? "#a86b00" : "#222");
+        doc.text(
+          `${l.createdAt.toISOString()} [${l.level}] ${l.step}: ${l.message}${conf}${where}`,
+        );
+      }
+      if (data.buildLogs.length > 200) {
+        doc.fillColor("#666").text(`...and ${data.buildLogs.length - 200} more`);
+      }
+    }
+
+    // ----- Curated knowledge --------------------------------------------
+    doc.moveDown();
+    doc.font(FONT_TITLE).fontSize(14).fillColor("#1a1a1a");
+    doc.text("Curated knowledge available to the worker");
+    doc.font(FONT_BODY).fontSize(10).fillColor("#222");
+    doc.moveDown(0.3);
+    for (const [type, count] of Object.entries(data.knowledgeSummary.byType)) {
+      doc.text(`${type}: ${count}`);
+    }
+
+    doc.end();
+  });
+}

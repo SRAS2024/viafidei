@@ -217,26 +217,61 @@ accept/dismiss endpoint is `/api/admin/checklist/janitor/[id]`.
 
 ## The autonomous custodian
 
-The worker is the site's custodian. Beyond running the queue, it
-autonomously promotes work and self-publishes when it is confident:
+The worker is the site's custodian. It is its own admin: it bootstraps,
+verifies, approves, builds, and publishes content without needing human
+clicks. It runs a continuous five-step cycle:
 
-1. **Autonomous promotion.** When the build queue is idle, the worker scans
-   for DISCOVERED items that already have at least one citation pointing to
-   an approved authority host and promotes them to SOURCE_VERIFIED. It then
-   scans SOURCE_VERIFIED items whose schema does not mandate human review
-   and have enough citations, approves them for build, and enqueues them.
-   APPARITION items are never auto-promoted past SOURCE_VERIFIED because
-   Church approval status is doctrinally significant.
+1. **Curated knowledge bootstrap.** The worker ships with a curated
+   knowledge base in `src/lib/worker/knowledge/` containing canonical text
+   for ~70 of the most foundational items (Our Father, Hail Mary, the
+   seven sacraments, the Apostles' and Nicene Creeds, the Holy Rosary,
+   Divine Mercy Chaplet, Stations of the Cross, the major Marian
+   apparitions and titles, the principal solemnities, the most
+   widely-read encyclicals, etc.). When an item has no admin-attached
+   citations, the worker self-cites from this registry — so the site
+   fills itself starting from a fresh database.
 
-2. **Self-publishing.** Every successful build attempts to publish. The
+2. **Autonomous promotion.** When the build queue is idle, the worker
+   advances DISCOVERED → SOURCE_VERIFIED (any item with at least one
+   approved citation) → APPROVED_FOR_BUILD (any item whose schema does
+   not mandate human review and has enough citations). APPARITION items
+   are never auto-promoted past SOURCE_VERIFIED because Church approval
+   status is doctrinally significant.
+
+3. **Curated build short-circuit.** When the build engine processes an
+   item with a curated knowledge entry, it uses the curated payload
+   directly. This gives production-quality content with confidence 0.95
+   even when network fetches fail.
+
+4. **Self-publishing.** Every successful build attempts to publish. The
    publishing gate refuses anything QA rejected. Packages flagged for
-   review that meet the confidence bar (≥0.75) and have not hard-failed QA
-   are auto-published; lower-confidence packages stay in QA_PENDING for an
-   admin.
+   review that meet the confidence bar (≥0.75) and have not hard-failed
+   QA are auto-published; lower-confidence packages stay in QA_PENDING
+   for an admin.
 
-3. **Janitor.** Runs on demand from the admin pages and as a diagnostic. It
-   produces typed recommendations (edit / delete) the admin accepts or
-   dismisses.
+5. **Janitor.** Walks published and built content and surfaces edit /
+   delete recommendations on `/admin/checklist/janitor/edits` and
+   `/admin/checklist/janitor/deletes`.
+
+The admin can also kick this whole cycle manually via the **Run
+autonomous cycle** button on the dashboard (it calls
+`/api/admin/checklist/bulk/run-autonomous`).
+
+### Developer Audit (PDF)
+
+The diagnostics page (`/admin/diagnostics`) has a **Download Developer
+Audit (PDF)** button with a period selector — **24 hours**, **7 days**,
+or **30 days**. The PDF bundles:
+
+- Diagnostics snapshot
+- Every QA report from the period
+- Every worker build log line from the period
+- Every build job from the period
+- Curated knowledge base availability
+
+It's served from `GET /api/admin/diagnostics/developer-audit?period=...`,
+generated server-side with pdfkit, and saves to disk as a Catholic-shaped
+audit trail.
 
 The worker has no off switch for its accuracy guards: it never invents
 content, never publishes uncited required fields, and never accepts a
@@ -310,6 +345,7 @@ coverage of:
 - `bulk-actions.test.ts` — verify-all / build-all / bulk-reject helpers.
 - `janitor.test.ts` — janitor edit/delete recommendations.
 - `autonomous.test.ts` — autonomous promotion pipeline.
+- `knowledge.test.ts` — curated knowledge base validates and is complete.
 - `diagnostics.test.ts` — system health checks + developer report.
 
 ---

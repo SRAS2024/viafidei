@@ -1,0 +1,231 @@
+import type { CuratedEntry } from "./index";
+
+const VATICAN = "https://www.vatican.va/";
+const USCCB = "https://www.usccb.org/";
+
+function feast(
+  slug: string,
+  title: string,
+  kind:
+    | "feast"
+    | "solemnity"
+    | "memorial"
+    | "optional_memorial"
+    | "liturgical_season"
+    | "liturgical_year"
+    | "mass_structure"
+    | "marriage_rite"
+    | "funeral_rite"
+    | "ordination_rite"
+    | "council_event"
+    | "symbolism"
+    | "glossary_term",
+  summary: string,
+  body: string,
+  feastDate?: string,
+  movableFeast = false,
+  season?: "advent" | "christmas" | "ordinary_time" | "lent" | "triduum" | "easter" | "n/a",
+): CuratedEntry {
+  return {
+    contentType: "LITURGICAL",
+    slug,
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: [VATICAN, USCCB],
+    payload: {
+      slug,
+      title,
+      kind,
+      ...(season ? { season } : {}),
+      summary,
+      body,
+      ...(feastDate ? { feastDate } : {}),
+      movableFeast,
+      associatedSaintSlugs: [],
+      associatedReadings: [],
+      citations: [VATICAN, USCCB],
+    },
+  };
+}
+
+export const liturgicalKnowledge: CuratedEntry[] = [
+  feast(
+    "solemnity-christmas",
+    "Solemnity of the Nativity of the Lord (Christmas)",
+    "solemnity",
+    "The principal feast of the Incarnation, celebrating the birth of Jesus Christ.",
+    "Christmas (December 25) is the second-greatest solemnity of the liturgical year after Easter. It opens the Christmas Octave and the Christmas Season, which continues until the Baptism of the Lord. Three Masses are traditionally celebrated: at the Vigil, at Midnight (Mass during the Night), at Dawn, and during the Day.",
+    "12-25",
+    false,
+    "christmas",
+  ),
+  feast(
+    "solemnity-easter",
+    "Solemnity of the Resurrection of the Lord (Easter)",
+    "solemnity",
+    "The Solemnity of solemnities — the celebration of the Resurrection of Jesus Christ from the dead.",
+    "Easter is the feast of feasts, the heart of the liturgical year. The date is movable: the first Sunday after the first full moon following the spring equinox. The Easter Vigil, celebrated on Holy Saturday night, is the mother of all vigils. The Easter Octave is celebrated as a single day; the Easter Season continues for fifty days through Pentecost.",
+    undefined,
+    true,
+    "easter",
+  ),
+  feast(
+    "solemnity-pentecost",
+    "Solemnity of Pentecost",
+    "solemnity",
+    "The fiftieth day of Easter — the descent of the Holy Spirit on Mary and the Apostles, the birth of the Church.",
+    "Pentecost falls fifty days after Easter Sunday. It closes the Easter Season and inaugurates the second part of Ordinary Time. The Sequence Veni Sancte Spiritus is sung at Mass.",
+    undefined,
+    true,
+    "easter",
+  ),
+  feast(
+    "solemnity-most-holy-trinity",
+    "Solemnity of the Most Holy Trinity",
+    "solemnity",
+    "Honors the central mystery of Christian faith: one God in three Persons, Father, Son, and Holy Spirit.",
+    "Celebrated on the Sunday after Pentecost. Made universal by Pope John XXII in 1334.",
+    undefined,
+    true,
+    "ordinary_time",
+  ),
+  feast(
+    "solemnity-corpus-christi",
+    "Solemnity of the Body and Blood of Christ (Corpus Christi)",
+    "solemnity",
+    "Celebrates the gift of the Holy Eucharist, the Real Presence of Christ under the appearances of bread and wine.",
+    "Established by Pope Urban IV in 1264 (Transiturus de hoc mundo). Sequence Lauda Sion (St. Thomas Aquinas) sung at Mass. Celebrated on the Thursday after Trinity Sunday or, where transferred, on the following Sunday. The traditional Corpus Christi procession is a public profession of faith in the Real Presence.",
+    undefined,
+    true,
+    "ordinary_time",
+  ),
+  feast(
+    "solemnity-sacred-heart",
+    "Solemnity of the Most Sacred Heart of Jesus",
+    "solemnity",
+    "Adoration of the wounded Heart of Christ as the symbol and source of his redeeming love.",
+    "Celebrated on the Friday after the Second Sunday after Pentecost. Established as a universal feast by Pope Pius IX in 1856. Pope Pius XI raised it to a Solemnity in 1928.",
+    undefined,
+    true,
+    "ordinary_time",
+  ),
+  feast(
+    "solemnity-immaculate-conception",
+    "Solemnity of the Immaculate Conception of the Blessed Virgin Mary",
+    "solemnity",
+    "Celebrates the dogma defined by Pope Pius IX in 1854: that Mary was preserved free from original sin in the first moment of her conception.",
+    "Celebrated on December 8 (nine months before the Nativity of Mary on September 8). Patronal Feast of the United States of America.",
+    "12-08",
+    false,
+    "advent",
+  ),
+  feast(
+    "solemnity-assumption",
+    "Solemnity of the Assumption of the Blessed Virgin Mary",
+    "solemnity",
+    "Celebrates the dogma defined by Pope Pius XII in 1950: that Mary, having completed the course of her earthly life, was assumed body and soul into heavenly glory.",
+    "Celebrated on August 15. A Holy Day of Obligation in the universal Church.",
+    "08-15",
+    false,
+    "ordinary_time",
+  ),
+  feast(
+    "solemnity-all-saints",
+    "Solemnity of All Saints",
+    "solemnity",
+    "Honors all the saints in heaven, known and unknown, who together with the angels make up the Church Triumphant.",
+    "Celebrated on November 1. A Holy Day of Obligation in many countries (including the United States, except when it falls on a Monday or Saturday).",
+    "11-01",
+    false,
+    "ordinary_time",
+  ),
+  feast(
+    "solemnity-christ-the-king",
+    "Solemnity of Our Lord Jesus Christ, King of the Universe",
+    "solemnity",
+    "Proclaims the universal kingship of Christ over all creation, every nation, every person, every aspect of life.",
+    "Established by Pope Pius XI in the encyclical Quas Primas (1925) in response to growing secularism. Moved to the last Sunday of the liturgical year by Pope Paul VI in 1969.",
+    undefined,
+    true,
+    "ordinary_time",
+  ),
+  feast(
+    "solemnity-annunciation",
+    "Solemnity of the Annunciation of the Lord",
+    "solemnity",
+    "Celebrates the announcement by the Angel Gabriel to Mary that she would conceive the Son of God by the power of the Holy Spirit (Luke 1:26-38).",
+    "Celebrated on March 25 (nine months before Christmas). When it falls in Holy Week or the Easter Octave, it is transferred. A Marian solemnity that is fundamentally Christological — the celebration of the Incarnation.",
+    "03-25",
+    false,
+    "ordinary_time",
+  ),
+  feast(
+    "season-advent",
+    "Season of Advent",
+    "liturgical_season",
+    "The four-week season of preparation for the celebration of Christmas, marked by joyful expectation of the Lord's coming.",
+    "Begins on the Sunday closest to November 30 (Feast of St. Andrew) and ends on December 24. The liturgical color is violet (rose on Gaudete Sunday, the Third Sunday of Advent). Advent has two characters: it directs hearts to await Christ's second coming and prepares us to celebrate his historical coming at Christmas.",
+    undefined,
+    false,
+    "advent",
+  ),
+  feast(
+    "season-christmas",
+    "Christmas Season",
+    "liturgical_season",
+    "The Christmas Octave and Season, from Christmas Eve through the Feast of the Baptism of the Lord.",
+    "The Christmas Season begins with the Vigil of Christmas and ends with the Feast of the Baptism of the Lord (the Sunday after Epiphany). Includes the Solemnity of Mary, Mother of God (January 1), Epiphany, the Holy Family, and the Baptism of the Lord.",
+    undefined,
+    false,
+    "christmas",
+  ),
+  feast(
+    "season-lent",
+    "Season of Lent",
+    "liturgical_season",
+    "The forty-day season of penitential preparation for Easter through prayer, fasting, and almsgiving.",
+    "Begins on Ash Wednesday and ends at the Mass of the Lord's Supper on Holy Thursday. The liturgical color is violet (rose on Laetare Sunday). The faithful prepare for Easter through prayer, fasting, almsgiving, and the discipline of self-denial. The 'Alleluia' is suppressed throughout Lent.",
+    undefined,
+    true,
+    "lent",
+  ),
+  feast(
+    "season-triduum",
+    "The Sacred Paschal Triduum",
+    "liturgical_season",
+    "The three holiest days of the liturgical year: from the Mass of the Lord's Supper on Holy Thursday through Easter Vespers on Easter Sunday.",
+    "The Triduum is one continuous liturgy celebrated over three days: the Evening Mass of the Lord's Supper (Holy Thursday), the Celebration of the Lord's Passion (Good Friday), and the Easter Vigil (Holy Saturday night). The high point of the entire liturgical year.",
+    undefined,
+    true,
+    "triduum",
+  ),
+  feast(
+    "season-easter",
+    "Easter Season",
+    "liturgical_season",
+    "The fifty-day Easter Season culminating in Pentecost — celebrated as 'one great Sunday.'",
+    "Begins with the Easter Vigil and ends on the Sunday of Pentecost. The liturgical color is white. The Paschal Candle burns at every liturgy of the Easter Season. The 'Alleluia' returns and is sung with abundance.",
+    undefined,
+    true,
+    "easter",
+  ),
+  feast(
+    "season-ordinary-time",
+    "Ordinary Time",
+    "liturgical_season",
+    "The two periods of the liturgical year not specifically devoted to a season of celebration or preparation. Far from being 'ordinary,' it is the time in which the mystery of Christ in all its aspects is celebrated.",
+    "First period: from the Monday after the Feast of the Baptism of the Lord through Shrove Tuesday. Second period: from the Monday after Pentecost through the Saturday before the First Sunday of Advent. The liturgical color is green.",
+    undefined,
+    false,
+    "ordinary_time",
+  ),
+  feast(
+    "structure-roman-rite-mass",
+    "The Structure of the Roman Rite Mass",
+    "mass_structure",
+    "The Mass has two principal parts: the Liturgy of the Word and the Liturgy of the Eucharist, framed by Introductory Rites and Concluding Rites.",
+    "Introductory Rites: Entrance, Greeting, Penitential Act, Gloria (on Sundays outside Lent/Advent), Collect. Liturgy of the Word: First Reading, Responsorial Psalm, Second Reading (on Sundays/Solemnities), Gospel Acclamation, Gospel, Homily, Profession of Faith (Creed), Universal Prayer. Liturgy of the Eucharist: Preparation of the Gifts, Eucharistic Prayer (Preface, Sanctus, Institution Narrative and Consecration, Memorial Acclamation, Amen), Communion Rite (Our Father, Sign of Peace, Lamb of God, Communion). Concluding Rites: Blessing, Dismissal.",
+    undefined,
+    false,
+    "n/a",
+  ),
+];

@@ -32,12 +32,14 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@types/pdfkit": "^0.17.6",
     "argon2": "^0.41.1",
     "clsx": "^2.1.1",
     "framer-motion": "^11.11.17",
     "iron-session": "^8.0.4",
     "negotiator": "^1.0.0",
     "next": "15.5.18",
+    "pdfkit": "^0.18.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "zod": "^3.23.8"
