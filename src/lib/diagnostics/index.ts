@@ -301,15 +301,139 @@ async function schemaCoverage(): Promise<DiagnosticResult> {
   };
 }
 
+async function knowledgeBaseHealth(): Promise<DiagnosticResult> {
+  const { curatedKnowledgeSize, curatedKnowledgeByType } = await import("@/lib/worker");
+  const total = curatedKnowledgeSize();
+  const byType = curatedKnowledgeByType();
+  const types = Object.keys(byType).length;
+  if (total < 50) {
+    return {
+      key: "knowledge",
+      label: "Curated knowledge base",
+      status: "warn",
+      summary: `Only ${total} curated entries across ${types} content types.`,
+      details: Object.entries(byType).map(([k, v]) => `${k}: ${v}`),
+    };
+  }
+  return {
+    key: "knowledge",
+    label: "Curated knowledge base",
+    status: "pass",
+    summary: `${total} curated entries available to the worker (${types} content types covered).`,
+    details: Object.entries(byType).map(([k, v]) => `${k}: ${v}`),
+    metric: total,
+  };
+}
+
+async function autonomyProgress(): Promise<DiagnosticResult> {
+  const [discovered, sourceVerified, approved, published, total] = await Promise.all([
+    prisma.checklistItem.count({ where: { approvalStatus: "DISCOVERED" } }),
+    prisma.checklistItem.count({ where: { approvalStatus: "SOURCE_VERIFIED" } }),
+    prisma.checklistItem.count({ where: { approvalStatus: "APPROVED_FOR_BUILD" } }),
+    prisma.checklistItem.count({ where: { approvalStatus: "PUBLISHED" } }),
+    prisma.checklistItem.count(),
+  ]);
+  const pct = total === 0 ? 0 : Math.round((published / total) * 100);
+  const summary = `${published}/${total} (${pct}%) published · ${discovered} discovered · ${sourceVerified} verified · ${approved} approved for build.`;
+  if (total === 0) {
+    return {
+      key: "autonomy",
+      label: "Autonomous progress",
+      status: "fail",
+      summary: "No checklist items exist. Run `npm run seed:checklist`.",
+    };
+  }
+  if (pct < 10) {
+    return {
+      key: "autonomy",
+      label: "Autonomous progress",
+      status: "warn",
+      summary,
+      details: [
+        "Run `npm run worker` to let the autonomous custodian fill the site,",
+        "or press ⚡ Run autonomous cycle on the checklist dashboard.",
+      ],
+    };
+  }
+  if (pct < 60) {
+    return {
+      key: "autonomy",
+      label: "Autonomous progress",
+      status: "warn",
+      summary,
+      metric: pct,
+    };
+  }
+  return {
+    key: "autonomy",
+    label: "Autonomous progress",
+    status: "pass",
+    summary,
+    metric: pct,
+  };
+}
+
+async function publishedByContentType(): Promise<DiagnosticResult> {
+  const rows = await prisma.publishedContent.groupBy({
+    by: ["contentType"],
+    where: { isPublished: true },
+    _count: true,
+  });
+  const map = Object.fromEntries(rows.map((r) => [r.contentType, r._count] as const));
+  const allTypes = [
+    "PRAYER",
+    "DEVOTION",
+    "SAINT",
+    "MARIAN_TITLE",
+    "APPARITION",
+    "NOVENA",
+    "SACRAMENT",
+    "GUIDE",
+    "CHURCH_DOCUMENT",
+    "LITURGICAL",
+    "SPIRITUAL_PRACTICE",
+  ];
+  const missing = allTypes.filter((t) => !(t in map) || map[t] === 0);
+  const details = allTypes.map((t) => `${t}: ${map[t] ?? 0}`);
+  if (missing.length === allTypes.length) {
+    return {
+      key: "coverage",
+      label: "Published content coverage",
+      status: "fail",
+      summary: "Nothing published yet on any content type.",
+      details,
+    };
+  }
+  if (missing.length > 0) {
+    return {
+      key: "coverage",
+      label: "Published content coverage",
+      status: "warn",
+      summary: `Missing on ${missing.length}/${allTypes.length} content types: ${missing.join(", ")}.`,
+      details,
+    };
+  }
+  return {
+    key: "coverage",
+    label: "Published content coverage",
+    status: "pass",
+    summary: `All ${allTypes.length} content types have at least one published item.`,
+    details,
+  };
+}
+
 export async function runAllDiagnostics(): Promise<DiagnosticResult[]> {
   const results = await Promise.all([
     databaseReachability(),
     schemaCoverage(),
     checklistSeed(),
     authoritySources(),
+    knowledgeBaseHealth(),
+    autonomyProgress(),
     workerQueue(),
     qaPipeline(),
     publishingHealth(),
+    publishedByContentType(),
     buildLogActivity(),
     janitorFindings(),
   ]);

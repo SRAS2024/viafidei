@@ -241,14 +241,22 @@ The single pane of glass for the content factory. It shows:
 
 ### Diagnostics page (`/admin/diagnostics`)
 
-Colour-coded live health status for every part of the system — database,
-schemas, checklist seed, authority sources, queue, QA pipeline,
-publishing, worker activity, janitor. Top right of the page has:
+Colour-coded live health status for every part of the system. Twelve
+live checks cover: database connectivity, schema registration, checklist
+seed completeness, authority source registry, curated knowledge base,
+autonomous progress (published-vs-total percentage), worker queue,
+QA pipeline, publishing health, published-content coverage per type,
+worker activity in the last 24h, and janitor findings. The header
+exposes four controls:
 
 1. **Period selector + Download Developer Audit (PDF)** (emerald) —
    downloads the full audit for the last 24 hours, 7 days, or 30 days.
-2. **Developer report** (indigo) — generates the same audit as Markdown
+2. **⚡ Run autonomous now** (purple) — kicks one full custodian cycle
+   in-process from the diagnostics view: bootstrap citations, promote,
+   build, publish.
+3. **Developer report** (indigo) — generates the same audit as Markdown
    and copies it to the clipboard.
+4. **← dashboard** — back link.
 
 ### Admin API routes
 
@@ -444,6 +452,8 @@ coverage across 16 files:
 - `autonomous.test.ts` — autonomous promotion pipeline.
 - `knowledge.test.ts` — curated knowledge base validates and is complete.
 - `diagnostics.test.ts` — system health checks + developer report.
+- `end-to-end-build.test.ts` — engine guard accepts every rebuild state and
+  the curated short-circuit produces complete packages without HTTP.
 
 ---
 

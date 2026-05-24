@@ -105,7 +105,18 @@ export async function runBuildEngine(
 
   await logger.info("start", `Building "${item.canonicalName}" (${item.contentType}).`);
 
-  if (item.approvalStatus !== "APPROVED_FOR_BUILD") {
+  // Permit builds when the item is APPROVED_FOR_BUILD (first build) or
+  // when it has already been built/approved/published (rebuilds triggered
+  // by admin Rebuild or by the janitor's edit recommendation). Reject only
+  // when the item is in a non-build state.
+  const ALLOWED_STATES = new Set([
+    "APPROVED_FOR_BUILD",
+    "BUILT",
+    "QA_PENDING",
+    "APPROVED",
+    "PUBLISHED",
+  ]);
+  if (!ALLOWED_STATES.has(item.approvalStatus)) {
     const message = `Item is not approved for build (status=${item.approvalStatus}). Worker refuses to proceed.`;
     await logger.error("guard", message);
     return { ok: false, partial: false, errorMessage: message, warnings: [], confidence: 0 };
