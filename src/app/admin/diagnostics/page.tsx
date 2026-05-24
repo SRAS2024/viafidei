@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { runAllDiagnostics } from "@/lib/diagnostics";
 import { DeveloperReportButton } from "./DeveloperReportButton";
 import { DeveloperAuditButton } from "./DeveloperAuditButton";
+import { RunAutonomousButton } from "./RunAutonomousButton";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export default async function DiagnosticsPage() {
         <div className="flex flex-col items-end gap-2 text-sm">
           <DeveloperAuditButton />
           <div className="flex items-center gap-3">
+            <RunAutonomousButton />
             <DeveloperReportButton />
             <Link className="text-indigo-600 underline" href="/admin/checklist">
               ← dashboard

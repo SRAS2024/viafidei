@@ -306,12 +306,6 @@ export async function runOneBuildCycle(
   if (!job) return { kind: "idle" };
 
   const logger = new BuildLogger(prisma, job.id);
-  await prisma.checklistItem
-    .update({
-      where: { id: job.checklistItemId },
-      data: { approvalStatus: "BUILT", builtAt: new Date() },
-    })
-    .catch(() => undefined); // best effort; engine will guard.
 
   try {
     const result = await runBuildEngine(
@@ -395,6 +389,7 @@ export async function runOneBuildCycle(
       where: { id: job.checklistItemId },
       data: {
         approvalStatus: qa.needsHumanReview ? "QA_PENDING" : "APPROVED",
+        builtAt: new Date(),
         qaPendingAt: qa.needsHumanReview ? new Date() : null,
         approvedAt: qa.needsHumanReview ? null : new Date(),
         needsHumanReview: qa.needsHumanReview,

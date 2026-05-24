@@ -25,6 +25,10 @@ vi.mock("@/lib/db/client", () => {
       count: vi.fn().mockResolvedValue(50),
       findMany: vi.fn().mockResolvedValue([]),
       findUnique: vi.fn().mockResolvedValue(null),
+      groupBy: vi.fn().mockResolvedValue([
+        { contentType: "PRAYER", _count: 10 },
+        { contentType: "SAINT", _count: 5 },
+      ]),
     },
     workerBuildLog: { count: vi.fn().mockResolvedValue(20) },
     checklistCitation: { findMany: vi.fn().mockResolvedValue([]) },
@@ -42,9 +46,12 @@ describe("runAllDiagnostics", () => {
     expect(keys).toContain("database");
     expect(keys).toContain("checklist");
     expect(keys).toContain("authority-sources");
+    expect(keys).toContain("knowledge");
+    expect(keys).toContain("autonomy");
     expect(keys).toContain("queue");
     expect(keys).toContain("qa");
     expect(keys).toContain("publishing");
+    expect(keys).toContain("coverage");
     expect(keys).toContain("janitor");
     expect(keys).toContain("schemas");
   });

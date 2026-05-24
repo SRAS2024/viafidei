@@ -9,7 +9,9 @@
 Via Fidei is a Next.js 15 application that pairs a public, reader-facing site
 with an authenticated admin console for curating Catholic content. Content is
 sourced only from approved Catholic publishers and verified at multiple stages
-before it reaches the public.
+before it reaches the public. The worker is an autonomous custodian: with a
+fresh database it fills the site by itself, drawing on a curated knowledge
+base of foundational Catholic content.
 
 ---
 
@@ -22,9 +24,9 @@ replaced. Every published item flows through these five stages:
 ```
    1. APPROVED SOURCE DISCOVERY
         ↓
-   2. CHECKLIST APPROVAL (admin)
+   2. CHECKLIST APPROVAL (admin or autonomous worker)
         ↓
-   3. INTELLIGENT WORKER BUILD
+   3. INTELLIGENT WORKER BUILD (curated knowledge or live fetch)
         ↓
    4. QA VALIDATION (six-dimension scoring + publishing gate)
         ↓
@@ -33,31 +35,31 @@ replaced. Every published item flows through these five stages:
 
 ### 1. Approved source discovery
 
-Sources are listed in `src/lib/worker/sources/authority-registry.ts`. Each
-authority has a level: VATICAN, CATECHISM, LITURGICAL_BOOK, USCCB, DIOCESAN,
-RELIGIOUS_ORDER, TRUSTED_PUBLISHER, ACADEMIC, COMMUNITY. **The worker physically
-refuses to fetch any URL whose host is not on this list.** Admins can add new
-sources via the admin UI; the seed script writes them into the `AuthoritySource`
-table.
+Sources are listed in `src/lib/worker/sources/authority-registry.ts` (16
+approved hosts at last count). Each authority has a level: VATICAN, CATECHISM,
+LITURGICAL_BOOK, USCCB, DIOCESAN, RELIGIOUS_ORDER, TRUSTED_PUBLISHER, ACADEMIC,
+COMMUNITY. **The worker physically refuses to fetch any URL whose host is not
+on this list.** Admins can add new sources via the admin UI; the seed script
+writes them into the `AuthoritySource` table.
 
 ### 2. Checklist approval
 
 Eleven master checklists, in `src/lib/worker/checklists/`, define every item
-the app intends to publish:
+the app intends to publish — **191 items in total**:
 
 | Checklist           | Count | File                                               |
 | ------------------- | ----- | -------------------------------------------------- |
 | Prayers             | 33    | `src/lib/worker/checklists/prayers.ts`             |
-| Devotions           | 17    | `src/lib/worker/checklists/devotions.ts`           |
 | Saints              | 30    | `src/lib/worker/checklists/saints.ts`              |
-| Marian titles       | 16    | `src/lib/worker/checklists/marian-titles.ts`       |
-| Apparitions         | 10    | `src/lib/worker/checklists/apparitions.ts`         |
-| Novenas             | 12    | `src/lib/worker/checklists/novenas.ts`             |
-| Sacraments          | 7     | `src/lib/worker/checklists/sacraments.ts`          |
-| Guides              | 14    | `src/lib/worker/checklists/guides.ts`              |
-| Church documents    | 19    | `src/lib/worker/checklists/church-documents.ts`    |
 | Liturgical topics   | 21    | `src/lib/worker/checklists/liturgical.ts`          |
+| Church documents    | 19    | `src/lib/worker/checklists/church-documents.ts`    |
+| Devotions           | 17    | `src/lib/worker/checklists/devotions.ts`           |
+| Marian titles       | 16    | `src/lib/worker/checklists/marian-titles.ts`       |
+| Guides              | 14    | `src/lib/worker/checklists/guides.ts`              |
+| Novenas             | 12    | `src/lib/worker/checklists/novenas.ts`             |
 | Spiritual practices | 12    | `src/lib/worker/checklists/spiritual-practices.ts` |
+| Apparitions         | 10    | `src/lib/worker/checklists/apparitions.ts`         |
+| Sacraments          | 7     | `src/lib/worker/checklists/sacraments.ts`          |
 
 Every checklist item moves through a lifecycle tracked on its row:
 
@@ -157,56 +159,127 @@ npm run worker
 
 Useful scripts:
 
-| Script                            | What it does                               |
-| --------------------------------- | ------------------------------------------ |
-| `npm run worker`                  | Loop forever, draining the build queue     |
-| `npm run worker:once`             | Run one build cycle and exit               |
-| `npm run seed:checklist`          | Sync authority sources + master checklists |
-| `npm run migrate:checklist-first` | Migrate legacy data into new tables        |
-| `npm run db:validate`             | Verify the schema is wired correctly       |
-| `npm run verify`                  | typecheck + lint + format:check + tests    |
-| `npm run verify:full`             | The above + integration + e2e + build      |
+| Script                            | What it does                                                            |
+| --------------------------------- | ----------------------------------------------------------------------- |
+| `npm run dev`                     | Start the Next.js dev server on :3000                                   |
+| `npm run build`                   | Production build (`prisma generate && next build`)                      |
+| `npm run start`                   | Start the production server                                             |
+| `npm run worker`                  | Loop forever, draining the build queue + autonomous promotion when idle |
+| `npm run worker:once`             | Run one build cycle and exit                                            |
+| `npm run seed:checklist`          | Sync authority sources + master checklists (idempotent)                 |
+| `npm run migrate:checklist-first` | Migrate legacy data into the new tables (idempotent)                    |
+| `npm run db:push`                 | Push the Prisma schema to the database                                  |
+| `npm run db:migrate`              | Apply Prisma migrations                                                 |
+| `npm run db:validate`             | Verify the schema is wired correctly                                    |
+| `npm run typecheck`               | `tsc --noEmit`                                                          |
+| `npm run lint`                    | ESLint                                                                  |
+| `npm run format` / `format:check` | Prettier                                                                |
+| `npm test`                        | Vitest unit + component + worker tests                                  |
+| `npm run test:integration`        | Real-DB integration tests (`VITEST_INTEGRATION=1`)                      |
+| `npm run test:e2e`                | Playwright end-to-end                                                   |
+| `npm run verify`                  | typecheck + lint + format:check + tests                                 |
+| `npm run verify:full`             | The above + integration + e2e + build                                   |
+
+### Notable runtime dependencies
+
+- **Next.js 15** (`next`) — application framework.
+- **Prisma 5** (`@prisma/client`, `prisma`) — Postgres ORM and migrations.
+- **Zod** (`zod`) — strict content schemas.
+- **pdfkit** (`pdfkit`) — server-side PDF generation for the Developer
+  Audit download.
+- **argon2** — password hashing.
+- **iron-session** — admin session cookies.
 
 ---
 
 ## Admin UI
 
-The admin console at `/admin/checklist` is the single pane of glass for the
-content factory:
+The admin home page (`/admin`) renders a card grid that links to every part
+of the system. The cards include:
 
-- **Dashboard** (`/admin/checklist`) — counts by status + content type, plus
-  **bulk actions**: _Verify all_, _Build all_, _Reject all discovered_. The
-  _Build all_ button glows green once everything has been verified so an
-  admin can drain the entire pipeline in two clicks.
-- **Discovered items** (`/admin/checklist/discovered`) — add citations, mark
-  source-verified.
-- **Approved for build** (`/admin/checklist/approved`) — waiting for the
-  worker.
-- **Worker queue** (`/admin/checklist/queue`) — live build job state.
-- **QA reports** (`/admin/checklist/qa`) — unreviewed reports sorted by
-  weakest score.
-- **Published** (`/admin/checklist/published`) — live items on the public
-  site.
-- **Failed builds** (`/admin/checklist/failed`) — exhausted retry budgets.
-- **Authority sources** (`/admin/checklist/sources`) — approved-source
-  registry.
-- **Janitor: edits** (`/admin/checklist/janitor/edits`) — items the worker
-  recommends rebuilding (low QA score, schema drift, stale source, …).
-- **Janitor: deletes** (`/admin/checklist/janitor/deletes`) — items the
-  worker recommends removing from the site entirely (rejected-but-still-live,
-  duplicates, all approved citations have lapsed).
-- **System diagnostics** (`/admin/diagnostics`) — colour-coded live health
-  status for every part of the system (database, queue, QA pipeline,
-  publishing, janitor, …). Includes a **Developer Report** button at the
-  top that generates a markdown report and copies it to the clipboard.
-- **Item detail** (`/admin/checklist/item/[id]`) — full citations, build
-  history, QA reports, version history, relations + manual actions (verify,
-  approve, rebuild, publish, unpublish, reject).
+| Card                | Route                              | Purpose                                   |
+| ------------------- | ---------------------------------- | ----------------------------------------- |
+| Checklist dashboard | `/admin/checklist`                 | Main pane of glass — counts, bulk actions |
+| System diagnostics  | `/admin/diagnostics`               | Live health + developer audit             |
+| Worker build queue  | `/admin/checklist/queue`           | Live build job state                      |
+| QA reports          | `/admin/checklist/qa`              | Unreviewed reports                        |
+| Published content   | `/admin/checklist/published`       | Items live on the public site             |
+| Approved sources    | `/admin/checklist/sources`         | Authority registry                        |
+| Janitor: edits      | `/admin/checklist/janitor/edits`   | Items the worker wants to rebuild         |
+| Janitor: deletes    | `/admin/checklist/janitor/deletes` | Items the worker wants to remove          |
+| Failed builds       | `/admin/checklist/failed`          | Exhausted retry budgets                   |
+| Homepage editor     | `/admin/homepage`                  | Public homepage mirror                    |
+| Search index        | `/admin/search`                    | Search                                    |
+| Media library       | `/admin/media`                     | Image assets                              |
+| Logs                | `/admin/logs`                      | Application logs                          |
+| User accounts       | `/admin/users`                     | Registered users                          |
+| Audit log           | `/admin/audit`                     | Admin actions                             |
 
-Admin API routes live under `/api/admin/checklist/*` and require an
-authenticated admin principal. Bulk-action routes live under
-`/api/admin/checklist/bulk/{verify-all,build-all,reject-all}`. The janitor's
-accept/dismiss endpoint is `/api/admin/checklist/janitor/[id]`.
+### Checklist dashboard (`/admin/checklist`)
+
+The single pane of glass for the content factory. It shows:
+
+- Counts by approval status and by content type.
+- **Bulk action buttons** at the top — always clickable (a lighter shade
+  when there is nothing to do):
+  - **Verify all** (indigo) — flips every DISCOVERED item that has at
+    least one approved citation to SOURCE_VERIFIED.
+  - **Build all** (emerald) — approves and enqueues every
+    SOURCE_VERIFIED item; pulses ⚡ when verification just completed
+    and only the build step remains.
+  - **⚡ Run autonomous cycle** (purple) — runs the full custodian
+    pipeline in-process: bootstrap citations from the knowledge base,
+    promote, build, publish, up to 50 builds per call.
+  - **Reject all discovered** (rose) — prompts for a reason and rejects
+    every DISCOVERED item.
+- Discovered / Source verified / Approved for build / Queue pending /
+  QA pending / Published / Failed builds / Needs human review cards.
+- Per-item detail at `/admin/checklist/item/[id]` with full citations,
+  build history, QA reports, version history, relations, and manual
+  actions (verify, approve, rebuild, publish, unpublish, reject, add
+  citation).
+
+### Diagnostics page (`/admin/diagnostics`)
+
+Colour-coded live health status for every part of the system. Twelve
+live checks cover: database connectivity, schema registration, checklist
+seed completeness, authority source registry, curated knowledge base,
+autonomous progress (published-vs-total percentage), worker queue,
+QA pipeline, publishing health, published-content coverage per type,
+worker activity in the last 24h, and janitor findings. The header
+exposes four controls:
+
+1. **Period selector + Download Developer Audit (PDF)** (emerald) —
+   downloads the full audit for the last 24 hours, 7 days, or 30 days.
+2. **⚡ Run autonomous now** (purple) — kicks one full custodian cycle
+   in-process from the diagnostics view: bootstrap citations, promote,
+   build, publish.
+3. **Developer report** (indigo) — generates the same audit as Markdown
+   and copies it to the clipboard.
+4. **← dashboard** — back link.
+
+### Admin API routes
+
+All require an authenticated admin principal.
+
+| Route                                               | Method   | Purpose                                |
+| --------------------------------------------------- | -------- | -------------------------------------- |
+| `/api/admin/checklist/[id]/verify-sources`          | POST     | Mark single item SOURCE_VERIFIED       |
+| `/api/admin/checklist/[id]/approve`                 | POST     | Approve single item for build          |
+| `/api/admin/checklist/[id]/rebuild`                 | POST     | Re-enqueue single item                 |
+| `/api/admin/checklist/[id]/publish`                 | POST     | Force-publish single item              |
+| `/api/admin/checklist/[id]/unpublish`               | POST     | Unpublish single item                  |
+| `/api/admin/checklist/[id]/reject`                  | POST     | Reject single item                     |
+| `/api/admin/checklist/[id]/add-citation`            | POST     | Attach an approved citation            |
+| `/api/admin/checklist/janitor/[id]`                 | POST     | Accept / dismiss a janitor finding     |
+| `/api/admin/checklist/bulk/verify-all`              | POST     | Verify every DISCOVERED item           |
+| `/api/admin/checklist/bulk/build-all`               | POST     | Build every SOURCE_VERIFIED item       |
+| `/api/admin/checklist/bulk/reject-all`              | POST     | Bulk reject by status / content type   |
+| `/api/admin/checklist/bulk/run-autonomous`          | POST     | One full autonomous custodian cycle    |
+| `/api/admin/checklist/seed`                         | POST     | Re-seed authority sources + checklists |
+| `/api/admin/checklist/worker-run`                   | POST     | Run one worker cycle in-process        |
+| `/api/admin/diagnostics`                            | GET/POST | Live diagnostics + Markdown report     |
+| `/api/admin/diagnostics/developer-audit?period=...` | GET      | Download Developer Audit PDF           |
 
 ### Diagnostic status colour scheme
 
@@ -222,14 +295,42 @@ verifies, approves, builds, and publishes content without needing human
 clicks. It runs a continuous five-step cycle:
 
 1. **Curated knowledge bootstrap.** The worker ships with a curated
-   knowledge base in `src/lib/worker/knowledge/` containing canonical text
-   for ~70 of the most foundational items (Our Father, Hail Mary, the
-   seven sacraments, the Apostles' and Nicene Creeds, the Holy Rosary,
-   Divine Mercy Chaplet, Stations of the Cross, the major Marian
-   apparitions and titles, the principal solemnities, the most
-   widely-read encyclicals, etc.). When an item has no admin-attached
-   citations, the worker self-cites from this registry — so the site
-   fills itself starting from a fresh database.
+   knowledge base in `src/lib/worker/knowledge/` containing canonical
+   text for **117 of the most foundational Catholic items**: every one
+   of the seven sacraments with theology, matter, form, minister,
+   effects, and CCC references; the foundational prayers (Our Father,
+   Hail Mary, Glory Be, both Creeds, the Acts of Faith / Hope / Love /
+   Contrition, Memorare, Angelus, Regina Caeli, Salve Regina, Prayer to
+   St. Michael, Morning Offering, Grace before/after meals, Anima
+   Christi, Magnificat, Confiteor, Te Deum, Veni Creator Spiritus,
+   Divine Praises, Prayer of St. Francis); 21 saints with feast day and
+   biography; the four defined Marian dogmas; five approved Marian
+   apparitions; five novenas with all nine days written out; the major
+   liturgical solemnities and seasons plus the structure of the Roman
+   Rite Mass; eight spiritual practices; the Rosary, Confession, and
+   Examination-of-Conscience step-by-step guides; the most influential
+   devotions; and eleven Vatican documents (CCC, Lumen Gentium,
+   Dei Verbum, Sacrosanctum Concilium, Gaudium et Spes, Humanae Vitae,
+   Veritatis Splendor, Evangelium Vitae, Deus Caritas Est, Laudato Si',
+   Evangelii Gaudium). When an item has no admin-attached citations,
+   the worker self-cites from this registry — so the site fills itself
+   starting from a fresh database.
+
+   The curated knowledge base by content type:
+
+   | Type                | Curated entries |
+   | ------------------- | --------------- |
+   | Prayers             | 24              |
+   | Saints              | 21              |
+   | Liturgical          | 18              |
+   | Church documents    | 11              |
+   | Marian titles       | 8               |
+   | Spiritual practices | 8               |
+   | Devotions           | 7               |
+   | Sacraments          | 7               |
+   | Novenas             | 5               |
+   | Apparitions         | 5               |
+   | Guides              | 3               |
 
 2. **Autonomous promotion.** When the build queue is idle, the worker
    advances DISCOVERED → SOURCE_VERIFIED (any item with at least one
@@ -253,29 +354,33 @@ clicks. It runs a continuous five-step cycle:
    delete recommendations on `/admin/checklist/janitor/edits` and
    `/admin/checklist/janitor/deletes`.
 
-The admin can also kick this whole cycle manually via the **Run
-autonomous cycle** button on the dashboard (it calls
-`/api/admin/checklist/bulk/run-autonomous`).
-
-### Developer Audit (PDF)
-
-The diagnostics page (`/admin/diagnostics`) has a **Download Developer
-Audit (PDF)** button with a period selector — **24 hours**, **7 days**,
-or **30 days**. The PDF bundles:
-
-- Diagnostics snapshot
-- Every QA report from the period
-- Every worker build log line from the period
-- Every build job from the period
-- Curated knowledge base availability
-
-It's served from `GET /api/admin/diagnostics/developer-audit?period=...`,
-generated server-side with pdfkit, and saves to disk as a Catholic-shaped
-audit trail.
+The admin can also kick this whole cycle manually via the **⚡ Run
+autonomous cycle** button on the dashboard (purple, sits next to the
+Verify / Build / Reject buttons). It calls
+`/api/admin/checklist/bulk/run-autonomous` and runs one full cycle:
+bootstrap citations → promote → drain up to 50 build jobs.
 
 The worker has no off switch for its accuracy guards: it never invents
 content, never publishes uncited required fields, and never accepts a
 source outside the authority registry.
+
+### Developer Audit (PDF)
+
+The diagnostics page (`/admin/diagnostics`) has a **Download Developer
+Audit (PDF)** button at the top right with a period selector —
+**Last 24 hours**, **Last 7 days**, or **Last 30 days**. The PDF bundles:
+
+- Diagnostics snapshot (current state of every system part)
+- Every QA report from the period
+- Every worker build log line from the period
+- Every build job from the period
+- Curated knowledge base availability by content type
+- System overview: checklist counts, published-content counts, knowledge total
+
+It's served from `GET /api/admin/diagnostics/developer-audit?period=24h|week|month`,
+generated server-side with **pdfkit**, and downloaded by the browser as
+a timestamped PDF file. The smaller **Developer report** button next to
+it produces the same content as Markdown and copies it to the clipboard.
 
 ---
 
@@ -323,13 +428,13 @@ field on each `BuildInstruction` in `src/lib/worker/schemas/`.
 ## Testing
 
 ```bash
-npm test                  # vitest unit/integration tests
+npm test                  # vitest unit/integration tests (918+ tests)
 npm run test:integration  # integration tests (separate DB)
 npm run test:e2e          # Playwright end-to-end
 ```
 
 The worker module has its own test directory at `tests/worker/` with focused
-coverage of:
+coverage across 16 files:
 
 - `source-validation.test.ts` — authority registry + fetch host gate.
 - `schema-compliance.test.ts` — every Zod schema accepts/rejects correctly.
@@ -347,6 +452,8 @@ coverage of:
 - `autonomous.test.ts` — autonomous promotion pipeline.
 - `knowledge.test.ts` — curated knowledge base validates and is complete.
 - `diagnostics.test.ts` — system health checks + developer report.
+- `end-to-end-build.test.ts` — engine guard accepts every rebuild state and
+  the curated short-circuit produces complete packages without HTTP.
 
 ---
 
@@ -362,6 +469,12 @@ tsx scripts/run-worker.ts --worker-id X  # stable worker id
 The worker self-leases jobs and is safe to run with multiple replicas. Each
 build job is leased for five minutes; stale leases are reclaimed
 automatically.
+
+**Production behavior:** the worker loop runs `runOneBuildCycle` to drain
+the queue and, on every idle tick, calls `bootstrapCitationsFromKnowledge`
+followed by `autonomousPromote` so a freshly-deployed worker fills the
+site by itself without admin intervention. There is no separate cron
+process — running `npm run worker` is enough to keep the pipeline moving.
 
 ---
 

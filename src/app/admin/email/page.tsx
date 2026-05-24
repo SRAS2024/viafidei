@@ -7,5 +7,5 @@ import { permanentRedirect } from "next/navigation";
  * search engines and clients update the cached URL.
  */
 export default function AdminEmailLegacyRedirect() {
-  permanentRedirect("/admin/diagnostics/email");
+  permanentRedirect("/admin/diagnostics");
 }
