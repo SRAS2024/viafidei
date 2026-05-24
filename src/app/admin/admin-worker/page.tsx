@@ -112,15 +112,21 @@ export default async function AdminWorkerPage() {
           <div className="mt-3">
             <AdminWorkerControls initialPaused={state.paused} />
           </div>
-          <div className="mt-3 flex gap-3 text-xs">
-            <Link className="text-indigo-600 underline" href="/admin/logs/worker">
-              View logs
+          <div className="mt-3 flex flex-wrap gap-3 text-xs">
+            <Link className="text-indigo-600 underline" href="/admin/admin-worker/logs">
+              Admin Worker logs
+            </Link>
+            <Link className="text-indigo-600 underline" href="/admin/admin-worker/rules">
+              Rule catalogue
             </Link>
             <Link className="text-indigo-600 underline" href="/admin/diagnostics">
               Diagnostics card
             </Link>
             <Link className="text-indigo-600 underline" href="/admin/checklist/queue">
-              Queue
+              Build queue
+            </Link>
+            <Link className="text-indigo-600 underline" href="/admin/logs/worker">
+              Build log
             </Link>
           </div>
         </article>

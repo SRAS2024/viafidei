@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { runAllDiagnostics } from "@/lib/diagnostics";
 import {
   getAdminWorkerState,
+  listRecentPasses,
   runAdminWorkerDiagnostics,
   summarizeRatings,
 } from "@/lib/admin-worker";
@@ -20,10 +21,11 @@ export default async function DiagnosticsPage() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
 
-  const [results, adminWorkerRatings, state] = await Promise.all([
+  const [results, adminWorkerRatings, state, recentPasses] = await Promise.all([
     runAllDiagnostics(),
     runAdminWorkerDiagnostics(prisma),
     getAdminWorkerState(prisma),
+    listRecentPasses(prisma, { limit: 15 }),
   ]);
   const counts = { pass: 0, warn: 0, fail: 0 };
   for (const r of results) counts[r.status]++;
@@ -86,6 +88,66 @@ export default async function DiagnosticsPage() {
             />
           ))}
         </div>
+      </section>
+
+      <section>
+        <h2 className="font-display text-2xl text-ink">Admin Worker pass breakdown</h2>
+        <p className="mb-2 text-xs italic text-ink-soft">
+          Most recent passes. Each row records what the worker decided, what it ran, and what the
+          outcome was.
+        </p>
+        {recentPasses.length === 0 ? (
+          <p className="rounded border border-dashed border-slate-300 p-4 text-sm italic text-ink-soft">
+            No passes recorded yet. Start the Admin Worker (or trigger a pass from the Command
+            Center) to populate this list.
+          </p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left uppercase text-ink-soft">
+                <th className="py-1">Pass ID</th>
+                <th>Started</th>
+                <th>Completed</th>
+                <th>Status</th>
+                <th className="text-right">Planned</th>
+                <th className="text-right">Done</th>
+                <th className="text-right">Failed</th>
+                <th className="text-right">Built</th>
+                <th className="text-right">Pub</th>
+                <th className="text-right">Rej</th>
+                <th className="text-right">Sec</th>
+                <th className="text-right">Home</th>
+                <th>Logs</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentPasses.map((p) => (
+                <tr key={p.id} className="border-t">
+                  <td className="py-1 font-mono">{p.id.slice(0, 8)}</td>
+                  <td className="font-mono">{p.startedAt.toISOString()}</td>
+                  <td className="font-mono">{p.completedAt?.toISOString() ?? "—"}</td>
+                  <td>{p.status}</td>
+                  <td className="text-right">{p.tasksPlanned}</td>
+                  <td className="text-right">{p.tasksCompleted}</td>
+                  <td className="text-right">{p.tasksFailed}</td>
+                  <td className="text-right">{p.contentBuilt}</td>
+                  <td className="text-right">{p.contentPublished}</td>
+                  <td className="text-right">{p.contentRejected}</td>
+                  <td className="text-right">{p.securityActions}</td>
+                  <td className="text-right">{p.homepageActions}</td>
+                  <td>
+                    <Link
+                      className="text-indigo-600 underline"
+                      href={`/admin/admin-worker/logs?passId=${p.id}`}
+                    >
+                      view
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
 
       <section>

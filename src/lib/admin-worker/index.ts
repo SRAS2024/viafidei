@@ -170,9 +170,32 @@ export {
 export {
   recoverStuckQueue,
   pauseChronicallyFailingSource,
+  checkHeartbeatHealth,
+  reportDiscoveryGap,
+  rotateSourceForMissingFields,
+  flagCacheRefresh,
+  flagSitemapRefresh,
+  flagSearchRefresh,
   type RepairKind,
   type RepairOutcome,
 } from "./repair";
+
+export { planAndEnqueue, type PlanOutcome } from "./planner";
+
+export {
+  evaluateDeletion,
+  applyDeletion,
+  DELETION_REASONS,
+  type DeletionInput,
+  type DeletionDecision,
+  type DeletionReason,
+} from "./deletion";
+
+export { rankSource, rankedSourcePlan, type RankedSource } from "./source-strategy";
+
+export { runMonthlyReportJobIfDue, type MonthlyReportRunOutcome } from "./monthly-report-job";
+
+export { generateAdminWorkerDeveloperAuditPdf, generateMonthlyAdminWorkerReportPdf } from "./pdf";
 
 export { checkWorkerHealth, type WorkerHealthSnapshot } from "./health";
 

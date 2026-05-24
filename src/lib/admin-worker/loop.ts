@@ -38,6 +38,7 @@ import {
 import { completePass, startPass } from "./passes";
 import { highestPriority } from "./priorities";
 import { nextPriorityContentType, refreshContentGoals } from "./content-goals";
+import { planAndEnqueue } from "./planner";
 
 export interface LoopOptions {
   workerId?: string;
@@ -144,10 +145,25 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   let idle = false;
 
   try {
-    if (decision.priority === "CONTENT_BUILD") {
+    if (decision.priority === "CONTENT_GOAL" || decision.priority === "CONTENT_BUILD") {
+      // Planner first: enqueue work for the largest content gap before
+      // we drain the queue. This is the autonomous behaviour the spec
+      // requires — the Admin Worker creates its own work items.
+      const planOutcome = await planAndEnqueue(prisma, { passId: pass.id });
+      if (planOutcome.enqueued > 0) {
+        await writeAdminWorkerLog(prisma, {
+          passId: pass.id,
+          category: "WORKER_PASS",
+          severity: "INFO",
+          eventName: "planner_run",
+          message: planOutcome.reason,
+          contentType: planOutcome.contentType ?? undefined,
+        });
+      }
+
       const cycle = await runOneBuildCycle(prisma, workerId);
       if (cycle.kind === "idle") {
-        idle = true;
+        idle = planOutcome.enqueued === 0;
       } else {
         // cycle.kind === "ran"
         if (cycle.status === "succeeded" || cycle.status === "published") {

@@ -547,7 +547,58 @@ Phase 1 (already shipped):
 - Command Center page + Admin Worker API routes (pause / resume /
   run pass / state)
 - Monthly Admin Worker Report email + Admin Worker Banned Device email
-- 101 admin-worker tests
+
+Phase 2 (this PR):
+
+- production worker (`scripts/run-worker.ts`) now drives the Admin
+  Worker loop directly instead of the legacy build-only loop; it
+  checks the monthly report job on startup so a restart on the last
+  day of the month still fires the email
+- planner that enqueues build jobs from content goals automatically —
+  the worker creates its own work when goals are unmet, no manual
+  trigger required
+- deletion module with the 9 spec-defined deletion reasons + a
+  confidence-gated `evaluateDeletion` that routes uncertain cases to
+  human review and logs every deletion with the spec's required
+  fields (content type, title, source URL, reason, failed fields,
+  confidence, timestamp, worker task id)
+- source ranking that combines all 10 criteria from spec section 19
+  (credibility, source role, publish rate, QA pass, validation
+  usefulness, fetch reliability, duplicate rate, wrong-content rate,
+  legal usability, content-type coverage) into a deterministic rank
+- real PDF rendering for Developer Audit (table of contents +
+  7 sections: Diagnostics, Worker Logs, System Logs, Security Logs,
+  Content Growth, Homepage Actions, Recommended Repairs; secrets
+  redacted; AdminDeveloperReportLog records every download)
+- real PDF rendering for the Monthly Admin Worker Report (monthly
+  summary + best/worst sources + content goal progress + per-day
+  sections)
+- monthly report job that gates itself on "is today the last day of
+  the month?" (handles February + shorter months); called daily from
+  the worker startup hook
+- expanded repair handlers: heartbeat staleness, discovery gap,
+  QA-missing-field source rotation, cache / sitemap / search refresh
+  flagging
+- new admin pages:
+  - `/admin/admin-worker/rules` — visible rule catalogue grouped by
+    spec category (publish, deletion, homepage_design, security, …)
+  - `/admin/admin-worker/logs` — section tabs + period / severity /
+    content type / source host filters
+- Admin Worker pass breakdown table on `/admin/diagnostics` with
+  every spec-required column (pass id, started, completed, status,
+  tasks planned / completed / failed, content built / published /
+  rejected, security actions, homepage actions, logs link)
+- POST `/api/admin/developer-audit` route — accepts period +
+  optional section filter; returns the PDF directly
+- additional tests covering: planner enqueues work for gaps;
+  deletion routes below-threshold confidence to review; source
+  ranking prefers Vatican over community for equal QA; reputation
+  tier transitions over time (TRUSTED → PAUSED); monthly report
+  job runs on the last day of every month including Feb 28 / Feb 29;
+  Developer Audit PDF emits a valid `%PDF-` buffer + writes the
+  AdminDeveloperReportLog row.
+
+Tests: 1050 / 1050 passing (was 1026).
 
 ---
 
