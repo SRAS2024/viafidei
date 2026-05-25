@@ -674,7 +674,7 @@ Phase 4 (previous PR):
   report freshness gate), fetchWithBackoff retries, persistence /
   validation-evidence reporters.
 
-Phase 5 (this PR):
+Phase 5 (previous PR):
 
 - rule engine completeness: registered at least one rule in every
   spec section 4 category. New built-ins:
@@ -711,7 +711,44 @@ Phase 5 (this PR):
   the two new security detectors, RSS feed extraction + discovery
   pipeline, loop pause-and-cleanup dispatch.
 
-Tests: 1147 / 1147 passing (was 1118).
+Phase 6 (this PR):
+
+- discovery method completeness (spec §5): all 7 spec-listed
+  discovery methods are now implemented end-to-end:
+  - configured fixed URL lists — `configured-urls.ts` with a
+    built-in catalogue + `addConfiguredUrl()` for runtime extras
+  - source internal links — `internal-link-discovery.ts` fetches
+    an approved page and extracts `<a href>` URLs via pure regex
+    (no DOM parser), strips fragments, resolves relative paths,
+    applies host-allowlist + junk classifier
+  - known Catholic content directories — `directory-discovery.ts`
+    fans out from curated directory pages via the internal-link
+    extractor
+  - approved source search pages — `search-page-discovery.ts`
+    fires a query against publisher-specific search templates
+    (operator-registered) and parses the result page
+  - official source APIs — `source-apis.ts` registry pattern
+    (`registerApiAdapter`) so per-publisher API adapters can ship
+    via PR; each adapter result still passes through the
+    host-allowlist + junk filter
+
+- real liturgical calendar (spec §10, §23): new
+  `liturgical-calendar.ts` computes Easter via the Meeus algorithm
+  and classifies every day into ADVENT / CHRISTMAS / LENT / TRIDUUM
+  / EASTER / ORDINARY_TIME with date-based flags for the major
+  Marian feasts. The homepage mutator now uses `seasonalRelevance`
+  instead of the calendar-month heuristic — proper boost for
+  Easter, Christmas, Triduum, Lent, Advent, and Marian months.
+
+- 24 new tests: configured-URL catalogue behaviour, internal-link
+  extraction edge cases (javascript:/mailto:/tel:/fragment-only),
+  directory + search + API discovery dispatch, Easter dates for
+  2024-2027, season classification (Easter Sunday → EASTER, Ash
+  Wednesday → LENT, mid-summer → ORDINARY_TIME, early December →
+  ADVENT, Christmas Day → CHRISTMAS), seasonal-relevance bounds
+  and ordering.
+
+Tests: 1171 / 1171 passing (was 1147; added 24 tests).
 
 ---
 

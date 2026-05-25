@@ -186,6 +186,53 @@ export {
 
 export { extractFeedUrls, discoverFromFeed, type RssDiscoveryOutcome } from "./rss-discovery";
 
+export {
+  BUILTIN_CONFIGURED_URLS,
+  addConfiguredUrl,
+  listConfiguredUrls,
+  discoverFromConfiguredUrls,
+  type ConfiguredUrlEntry,
+  type ConfiguredUrlsOutcome,
+} from "./configured-urls";
+
+export {
+  extractInternalLinks,
+  discoverFromInternalLinks,
+  type InternalLinkOutcome,
+} from "./internal-link-discovery";
+
+export {
+  DIRECTORY_PAGES,
+  discoverFromDirectories,
+  type DirectoryPage,
+  type DirectoryDiscoveryOutcome,
+} from "./directory-discovery";
+
+export {
+  SEARCH_TEMPLATES,
+  addSearchTemplate,
+  listSearchTemplates,
+  discoverFromSearchPages,
+  type SearchTemplate,
+  type SearchDiscoveryOutcome,
+} from "./search-page-discovery";
+
+export {
+  registerApiAdapter,
+  listApiAdapters,
+  discoverFromApis,
+  type ApiAdapter,
+  type ApiDiscoveryOutcome,
+} from "./source-apis";
+
+export {
+  computeLiturgicalContext,
+  gregorianEaster,
+  seasonalRelevance,
+  type LiturgicalSeason,
+  type LiturgicalContext,
+} from "./liturgical-calendar";
+
 export { redesignHomepage, type RedesignResult } from "./homepage-mutator";
 
 export { loadCommandCenterMetrics, type CommandCenterMetrics } from "./metrics";

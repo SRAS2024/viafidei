@@ -24,6 +24,7 @@ import {
   HOMEPAGE_REDESIGN_THRESHOLD,
   computeHomepageFinalScore,
 } from "./homepage-designer";
+import { seasonalRelevance } from "./liturgical-calendar";
 import { writeAdminWorkerLog } from "./logs";
 
 /** Supported block types — the mutator refuses to invent any type
@@ -303,18 +304,10 @@ function humanLabel(blockKey: string): string {
 }
 
 /**
- * Lightweight seasonal-relevance score using the calendar month. The
- * spec only requires "seasonal Catholic calendar context", not a
- * complete liturgical-year engine; this scaffolding can be replaced
- * with a real liturgical calendar in Phase 5+.
+ * Seasonal-relevance proxy. Delegates to the liturgical-calendar
+ * engine so the homepage designer can boost Advent / Christmas /
+ * Lent / Easter / Marian months automatically.
  */
 function computeSeasonalRelevance(date = new Date()): number {
-  const month = date.getMonth() + 1;
-  // Advent + Christmas + Epiphany (Dec, Jan) get a small boost.
-  if (month === 12 || month === 1) return 1;
-  // Lent + Easter season approximations (Mar, Apr, May).
-  if (month >= 3 && month <= 5) return 0.95;
-  // Marian months (Oct, May).
-  if (month === 10) return 0.9;
-  return 0.7;
+  return seasonalRelevance(date);
 }
