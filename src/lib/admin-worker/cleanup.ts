@@ -1,7 +1,7 @@
 /**
- * Cleanup custodian. Phase 1 wraps the existing janitor logic so
- * cleanup can be triggered as part of an Admin Worker pass without
- * the operator hitting the legacy /admin/checklist/janitor pages.
+ * Cleanup custodian. Runs during MAINTENANCE passes: prunes stale
+ * candidate URLs, closes expired human-review rows, and writes log
+ * entries for any cleanup action taken.
  */
 
 import type { PrismaClient } from "@prisma/client";

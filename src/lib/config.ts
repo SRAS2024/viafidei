@@ -143,17 +143,6 @@ export const appConfig = {
     archiveRetentionDays: 30,
   },
   /**
-   * Durable ingestion queue tunables. The cron route plans + enqueues
-   * via `enqueueDueIngestionJobs()`; a separate worker process
-   * (`npm run worker`) is the only adapter executor.
-   */
-  ingestionQueue: {
-    completedRetentionDays: 30,
-    failedRetentionDays: 90,
-    workerStaleAfterMs: 90 * 1000,
-    oldestPendingWarnAfterMs: 30 * 60 * 1000,
-  },
-  /**
    * Strict content QA cleanup policy. The cleanup loop scans every
    * catalog row and either flips its validation flags (valid +
    * publicRenderReady + isThresholdEligible) or deletes the row +

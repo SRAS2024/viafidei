@@ -99,7 +99,7 @@ export async function listMemoryByType(
   });
 }
 
-// ── Phase 10: active memory hooks (spec §15) ─────────────────────────
+// ── Active memory hooks (spec §15) ───────────────────────────────────
 //
 // Memory is consulted during planning, source ranking, classification,
 // extraction, and validation. It NEVER invents facts and NEVER
