@@ -124,6 +124,17 @@ DROP TABLE IF EXISTS "SpiritualLifeGuide" CASCADE;
 DROP TABLE IF EXISTS "DailyLiturgy" CASCADE;
 
 -- -----------------------------------------------------------------------------
+-- Drop the legacy reviewStatus column on tables that are KEPT but
+-- previously held a column of a soon-to-be-dropped enum type.
+-- Postgres refuses to DROP TYPE while a live column still references
+-- the type, so the column drop must precede the type drop. MediaAsset
+-- is the only kept table that referenced one of the dropped enums
+-- (`ReviewStatus`); all other dependent columns lived on tables that
+-- were already dropped above.
+-- -----------------------------------------------------------------------------
+ALTER TABLE "MediaAsset" DROP COLUMN IF EXISTS "reviewStatus";
+
+-- -----------------------------------------------------------------------------
 -- Drop enums whose only users were the legacy tables above.
 -- -----------------------------------------------------------------------------
 DROP TYPE IF EXISTS "ReviewStatus";
