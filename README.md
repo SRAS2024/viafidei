@@ -478,6 +478,280 @@ process — running `npm run worker` is enough to keep the pipeline moving.
 
 ---
 
+## Admin Worker
+
+The **Admin Worker** is the autonomous website-administrator system. It is
+fully coded, deterministic, durable, observable, and autonomous, and it
+operates **without any AI APIs**. Code lives under `src/lib/admin-worker/`;
+the operator-facing surface is at `/admin/admin-worker` (Command Center)
+and `/admin/diagnostics` (24 health ratings + pause toggle).
+
+What it does:
+
+- discovers approved Catholic source URLs and classifies candidates
+  (junk URLs — livestreams, donations, bulletins, store pages, etc. —
+  are rejected before fetch)
+- reads source pages and extracts Catholic content
+- validates content correctness against the existing strict Zod schemas
+- formats content into complete packages
+- publishes valid content automatically when QA + quality score + source
+  evidence + confidence all pass; humans only see ambiguous edge cases
+- maintains the homepage (deterministic 8-dimension score; small
+  high-confidence improvements auto-publish, major redesigns route to
+  review)
+- monitors diagnostics (24 health ratings — heartbeat, queue, sources,
+  classification, building, formatting, validation, QA, publishing,
+  post-publish, search, sitemap, cache, homepage, cleanup, review queue,
+  security, email, monthly report, database, env, content goals)
+- generates **Developer Audit** PDFs for the last 24 hours, last 7 days,
+  or last 30 days (operator-triggered from the diagnostics card)
+- generates the **Monthly Admin Worker Report** email on the last day
+  of each month with a PDF attachment
+- defends against brute-force admin login attempts. Only confirmed
+  brute force results in an automatic device ban; suspicious activity
+  alone never bans. A valid authenticated admin login is not treated
+  as suspicious — a calm "Admin Log In" email confirms the sign-in.
+- learns operationally through outcome counts and per-source reputation
+  (no facts are ever invented; the learning loop only nudges priorities)
+
+Pause / resume toggle sits on the diagnostics page directly above the
+Developer Audit button. Pausing stops all non-security work; the
+security defender keeps running.
+
+**Internal model names** (`ChecklistItem`, `WorkerBuildJob`,
+`WorkerBuildLog`, `WorkerHeartbeat`) deliberately keep their existing
+names for code and migration compatibility — the rename to "Admin Worker"
+is in the admin-facing UI only.
+
+Phase 1 (already shipped):
+
+- 15 new database tables (`AdminWorkerState`, `AdminWorkerPass`,
+  `AdminWorkerTask`, `AdminWorkerLog`, `AdminWorkerMemory`,
+  `AdminWorkerSourceReputation`, `AdminWorkerDecision`,
+  `CandidateSourceUrl`, `ContentGoal`, `HumanReviewQueue`,
+  `HomepageWorkerDraft`, `AdminDeveloperReportLog`,
+  `AdminWorkerSecurityAction`, `PostPublishVerification`,
+  `ContentQualityScore`, `HomepageQualityScore`)
+- central decision loop with deterministic priority selection
+- source reputation engine (EWMA-smoothed)
+- content goals + autonomous planner
+- 24-rating diagnostics surface
+- rule engine + decision log
+- confidence-gated publishing wrapper
+- learning memory (success/failure counts only)
+- homepage designer + scoring
+- security defender layered on top of the existing
+  `SecurityEvent`/`BannedDevice` flow
+- cleanup custodian
+- post-publish verification record + rollback decision
+- Command Center page + Admin Worker API routes (pause / resume /
+  run pass / state)
+- Monthly Admin Worker Report email + Admin Worker Banned Device email
+
+Phase 2 (previous PR):
+
+- production worker (`scripts/run-worker.ts`) now drives the Admin
+  Worker loop directly instead of the legacy build-only loop; it
+  checks the monthly report job on startup so a restart on the last
+  day of the month still fires the email
+- planner that enqueues build jobs from content goals automatically —
+  the worker creates its own work when goals are unmet, no manual
+  trigger required
+- deletion module with the 9 spec-defined deletion reasons + a
+  confidence-gated `evaluateDeletion` that routes uncertain cases to
+  human review and logs every deletion with the spec's required
+  fields (content type, title, source URL, reason, failed fields,
+  confidence, timestamp, worker task id)
+- source ranking that combines all 10 criteria from spec section 19
+  (credibility, source role, publish rate, QA pass, validation
+  usefulness, fetch reliability, duplicate rate, wrong-content rate,
+  legal usability, content-type coverage) into a deterministic rank
+- real PDF rendering for Developer Audit (table of contents +
+  7 sections: Diagnostics, Worker Logs, System Logs, Security Logs,
+  Content Growth, Homepage Actions, Recommended Repairs; secrets
+  redacted; AdminDeveloperReportLog records every download)
+- real PDF rendering for the Monthly Admin Worker Report (monthly
+  summary + best/worst sources + content goal progress + per-day
+  sections)
+- monthly report job that gates itself on "is today the last day of
+  the month?" (handles February + shorter months); called daily from
+  the worker startup hook
+- expanded repair handlers: heartbeat staleness, discovery gap,
+  QA-missing-field source rotation, cache / sitemap / search refresh
+  flagging
+- new admin pages:
+  - `/admin/admin-worker/rules` — visible rule catalogue grouped by
+    spec category (publish, deletion, homepage_design, security, …)
+  - `/admin/admin-worker/logs` — section tabs + period / severity /
+    content type / source host filters
+- Admin Worker pass breakdown table on `/admin/diagnostics` with
+  every spec-required column (pass id, started, completed, status,
+  tasks planned / completed / failed, content built / published /
+  rejected, security actions, homepage actions, logs link)
+- POST `/api/admin/developer-audit` route — accepts period +
+  optional section filter; returns the PDF directly
+- additional tests covering: planner enqueues work for gaps;
+  deletion routes below-threshold confidence to review; source
+  ranking prefers Vatican over community for equal QA; reputation
+  tier transitions over time (TRUSTED → PAUSED); monthly report
+  job runs on the last day of every month including Feb 28 / Feb 29;
+  Developer Audit PDF emits a valid `%PDF-` buffer + writes the
+  AdminDeveloperReportLog row.
+
+Phase 3 (previous PR):
+
+- live post-publish HTTP probe: the publisher actively triggers cache
+  revalidation, fetches the public page, confirms the title shows in
+  the rendered HTML, and on FAIL automatically unpublishes; ambiguous
+  failures route to human review, clear failures route to deletion
+- live sitemap discovery: the web navigator fetches `/robots.txt` +
+  `/sitemap.xml` on every approved authority host, parses `<loc>`
+  URLs, applies the existing junk-URL classifier, and inserts the
+  survivors as CandidateSourceUrl rows; honours `Sitemap:` and
+  `Disallow:` directives in robots.txt
+- per-content-type packaging validators for spec section 7
+  (`validatePrayerPackage`, `validateNovenaPackage` with Day 1–9
+  enforcement, `validateRosaryPackage` requiring exactly 5
+  mysteries per set, `validateConsecrationPackage` with daily
+  prayers, `validateHistoryPackage` enforcing only the 12 approved
+  Church history types, etc.)
+- publish-safety pattern blockers for spec section 15: incomplete
+  prayers, articles about prayers, saint-named institutions,
+  livestream / event / donation / store source URLs, missing source
+  evidence, unapproved scripture translations
+- explicit security detectors for spec section 14:
+  banned-device-reuse, set-public-flag-outside-worker,
+  internal-route-manipulation, suspicious-request-burst (with
+  per-detector severity + classification + confidence)
+- `verifyPublished` is wired into the existing `publish()` flow via
+  dynamic import — every successful publish now triggers the probe
+  in production; non-production environments skip the network call
+- new admin worker public route helpers (`publicRouteFor`,
+  `publicUrlFor`, `publicOrigin`) so the probe + cache + UI all
+  agree on URL shape
+- 51 new tests covering publish-safety, packaging validators,
+  post-publish probe + rollback, sitemap discovery, security
+  detectors, and public route mapping
+
+Phase 4 (previous PR):
+
+- defender now actually bans: when `decideAction` returns BAN_DEVICE
+  on a confirmed Breach, `defend()` upserts a BannedDevice row + sends
+  the "Admin Worker Banned Device" email. Ban + email failures are
+  logged but never break the loop. Middleware already reads
+  BannedDevice on every request, so the ban is enforced immediately.
+- homepage redesign mutator: `redesignHomepage()` reads the current
+  HomePageBlock rows + live PublishedContent, scores the homepage,
+  proposes a refreshed set of featured blocks (drawn only from the
+  supported block-type allowlist — never invents components),
+  computes a confidence + section diff, and files a
+  HomepageWorkerDraft routed AUTO_PUBLISHED / PROPOSED / AWAITING_REVIEW
+  per the existing decideDraftStatus rules. Major redesigns and
+  section-deletion changes always route to review.
+- Command Center metrics: new `loadCommandCenterMetrics()` computes
+  publishRate30d, qaPassRate30d, deletionRate30d, reviewQueueCount,
+  recentSecurityActions24h, publishedContentLive, queueInFlight, and
+  monthlyReport last-generated + freshness. The Command Center page
+  renders these as a metric strip at the top.
+- expanded repair handlers: `fetchWithBackoff` (exponential retry,
+  logs each attempt), `reportPersistenceFailure`,
+  `reportValidationEvidenceMissing`. Section 20 coverage now spans
+  heartbeat staleness, queue stalls, discovery gaps, source rotation,
+  cache / sitemap / search refresh, fetch backoff, and persistence
+  failures.
+- diagnostics ratings now populate `latestSuccess` / `latestFailure`
+  / `currentBlocker` from real DB queries (queue + publishing rating);
+  the diagnostics page already renders these when present.
+- Developer Audit button: new dropdown with period picker + section
+  checkboxes; POSTs `/api/admin/developer-audit` with the chosen
+  sections so the operator can pull a partial report (e.g. "just
+  Security Logs").
+- 17 new tests: defender ban (Suspicious never bans, Breach + high
+  confidence does ban + sends email + survives email failure),
+  homepage mutator (no draft above threshold, small refresh
+  auto-publishes, section deletion routes to review), Command Center
+  metrics (publish rate / QA rate / deletion rate math + monthly
+  report freshness gate), fetchWithBackoff retries, persistence /
+  validation-evidence reporters.
+
+Phase 5 (previous PR):
+
+- rule engine completeness: registered at least one rule in every
+  spec section 4 category. New built-ins:
+  `content_extraction.minimum_body_length`,
+  `content_type_classification.requires_predicted_type`,
+  `content_package_formatting.no_html_leak`,
+  `cross_source_validation.minimum_distinct_sources`,
+  `report.must_redact_secrets`. All 11 categories are now visible at
+  `/admin/admin-worker/rules`.
+- security detector coverage: added `detectSuccessfulBruteForceSigns`
+  (fires when N failed attempts precede a success in a short window)
+  and `detectBypassAdminAuthentication` (fires on POST to admin API
+  without a session cookie). All 10 spec-listed detector kinds now
+  have a detection function.
+- loop mode dispatch: the central loop branches on selected mode and
+  runs the corresponding module — `CONSTANT_FILL` runs the planner +
+  build cycle, `HOMEPAGE` runs the redesign mutator, `REPORTING`
+  runs the monthly report job, `DIAGNOSTICS` runs the rating sweep,
+  `MAINTENANCE` runs the cleanup pass, `REPAIR` recovers stuck
+  queue + does one build cycle.
+- post-publish probe extensions: optional `expectedBodyMarker` so the
+  probe can confirm the content body rendered (not just the title);
+  new threshold-count probe refreshes the ContentGoal row and confirms
+  `currentValidCount` is consistent with live PublishedContent count.
+- source-jobs-missing repair: `recreateMissingSourceJobs` finds
+  APPROVED_FOR_BUILD / SOURCE_VERIFIED checklist items with no live
+  WorkerBuildJob and re-enqueues them (covers the case where a queue
+  purge or migration left orphaned approved items).
+- RSS / Atom feed discovery: `discoverFromFeed` complements
+  `discoverFromHost` for sources that syndicate. Parses both RSS 2.0
+  `<item><link>` and Atom `<entry><link href="..."/>` formats with
+  the same junk-URL + host-allowlist filters.
+- 27 new tests: rule-engine completeness across all 11 categories,
+  the two new security detectors, RSS feed extraction + discovery
+  pipeline, loop pause-and-cleanup dispatch.
+
+Phase 6 (this PR):
+
+- discovery method completeness (spec §5): all 7 spec-listed
+  discovery methods are now implemented end-to-end:
+  - configured fixed URL lists — `configured-urls.ts` with a
+    built-in catalogue + `addConfiguredUrl()` for runtime extras
+  - source internal links — `internal-link-discovery.ts` fetches
+    an approved page and extracts `<a href>` URLs via pure regex
+    (no DOM parser), strips fragments, resolves relative paths,
+    applies host-allowlist + junk classifier
+  - known Catholic content directories — `directory-discovery.ts`
+    fans out from curated directory pages via the internal-link
+    extractor
+  - approved source search pages — `search-page-discovery.ts`
+    fires a query against publisher-specific search templates
+    (operator-registered) and parses the result page
+  - official source APIs — `source-apis.ts` registry pattern
+    (`registerApiAdapter`) so per-publisher API adapters can ship
+    via PR; each adapter result still passes through the
+    host-allowlist + junk filter
+
+- real liturgical calendar (spec §10, §23): new
+  `liturgical-calendar.ts` computes Easter via the Meeus algorithm
+  and classifies every day into ADVENT / CHRISTMAS / LENT / TRIDUUM
+  / EASTER / ORDINARY_TIME with date-based flags for the major
+  Marian feasts. The homepage mutator now uses `seasonalRelevance`
+  instead of the calendar-month heuristic — proper boost for
+  Easter, Christmas, Triduum, Lent, Advent, and Marian months.
+
+- 24 new tests: configured-URL catalogue behaviour, internal-link
+  extraction edge cases (javascript:/mailto:/tel:/fragment-only),
+  directory + search + API discovery dispatch, Easter dates for
+  2024-2027, season classification (Easter Sunday → EASTER, Ash
+  Wednesday → LENT, mid-summer → ORDINARY_TIME, early December →
+  ADVENT, Christmas Day → CHRISTMAS), seasonal-relevance bounds
+  and ordering.
+
+Tests: 1171 / 1171 passing (was 1147; added 24 tests).
+
+---
+
 ## Public site
 
 Every public page renders directly from `PublishedContent`:

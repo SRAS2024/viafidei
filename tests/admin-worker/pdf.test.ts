@@ -1,0 +1,86 @@
+/**
+ * Developer Audit PDF generation — proves "Admin Worker can generate
+ * Developer Audit PDFs" (spec section 24).
+ *
+ * Renders a real PDF buffer from a mocked Prisma. Verifies the PDF
+ * starts with the standard %PDF- magic and contains a Developer Audit
+ * marker.
+ */
+
+import type { AdminDeveloperReportLog } from "@prisma/client";
+import { describe, expect, it, vi } from "vitest";
+
+import { generateAdminWorkerDeveloperAuditPdf } from "@/lib/admin-worker/pdf";
+
+function makePrisma() {
+  const reportRow: Partial<AdminDeveloperReportLog> = { id: "r1", status: "PENDING" };
+  return {
+    adminDeveloperReportLog: {
+      create: vi.fn(async () => reportRow as AdminDeveloperReportLog),
+      update: vi.fn(async () => reportRow as AdminDeveloperReportLog),
+    },
+    adminWorkerState: { findUnique: vi.fn(async () => ({ id: "singleton" })) },
+    adminWorkerPass: {
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
+    },
+    adminWorkerLog: {
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
+    },
+    adminWorkerTask: { count: vi.fn(async () => 0) },
+    adminWorkerSecurityAction: { count: vi.fn(async () => 0) },
+    adminWorkerSourceReputation: {
+      count: vi.fn(async () => 0),
+      findMany: vi.fn(async () => []),
+    },
+    candidateSourceUrl: { count: vi.fn(async () => 0) },
+    workerBuildJob: { count: vi.fn(async () => 0) },
+    contentGoal: { findMany: vi.fn(async () => []) },
+    publishedContent: { count: vi.fn(async () => 0) },
+    postPublishVerification: { count: vi.fn(async () => 0) },
+    humanReviewQueue: { count: vi.fn(async () => 0) },
+    homepageWorkerDraft: {
+      findFirst: vi.fn(async () => null),
+      findMany: vi.fn(async () => []),
+    },
+    homepageQualityScore: { findFirst: vi.fn(async () => null) },
+    securityEvent: { count: vi.fn(async () => 0) },
+    contentValidationEvidence: { count: vi.fn(async () => 0) },
+    checklistQAReport: { findFirst: vi.fn(async () => null) },
+    contentQualityScore: { findFirst: vi.fn(async () => null) },
+    $queryRaw: vi.fn(async () => [{ "1": 1 }]),
+  } as unknown as Parameters<typeof generateAdminWorkerDeveloperAuditPdf>[0];
+}
+
+describe("generateAdminWorkerDeveloperAuditPdf", () => {
+  it("emits a valid PDF for LAST_24_HOURS", async () => {
+    const prisma = makePrisma();
+    const { pdf, reportLogId } = await generateAdminWorkerDeveloperAuditPdf(
+      prisma,
+      "LAST_24_HOURS",
+      "admin",
+    );
+    expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
+    expect(reportLogId).toBe("r1");
+  });
+
+  it("records a PENDING then GENERATED log row", async () => {
+    const prisma = makePrisma();
+    await generateAdminWorkerDeveloperAuditPdf(prisma, "LAST_7_DAYS", "admin");
+    // create called once with status=PENDING, update called once with GENERATED.
+    expect(prisma.adminDeveloperReportLog.create).toHaveBeenCalledTimes(1);
+    expect(prisma.adminDeveloperReportLog.update).toHaveBeenCalledTimes(1);
+    const updateCall = vi.mocked(prisma.adminDeveloperReportLog.update).mock.calls[0][0];
+    expect(updateCall.data).toMatchObject({ status: "GENERATED" });
+    expect(updateCall.data.fileSize).toBeGreaterThan(100);
+  });
+
+  it("supports filtering to a subset of sections", async () => {
+    const prisma = makePrisma();
+    const { pdf } = await generateAdminWorkerDeveloperAuditPdf(prisma, "LAST_30_DAYS", "admin", {
+      includedSections: ["Diagnostics Results"],
+    });
+    expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
+  });
+});

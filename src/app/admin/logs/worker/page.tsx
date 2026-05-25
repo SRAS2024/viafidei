@@ -44,7 +44,7 @@ export default async function AdminWorkerLogPage({
     <div className="space-y-6">
       <header className="flex items-baseline justify-between">
         <div>
-          <h1 className="font-display text-3xl text-ink">Worker build log</h1>
+          <h1 className="font-display text-3xl text-ink">Admin Worker build log</h1>
           <p className="mt-1 font-serif text-ink-soft">
             Last {logs.length} entries. Filter via{" "}
             <code className="px-1 py-0.5 bg-slate-100 rounded">?level=warn</code> or{" "}
