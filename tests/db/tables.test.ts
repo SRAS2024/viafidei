@@ -6,30 +6,22 @@ vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 
 import { checkRequiredTables, checkSeedContent } from "@/lib/db/tables";
 
+/**
+ * Every required table the runtime touches in the current (post-legacy)
+ * system. Kept in sync with `REQUIRED_TABLES` in
+ * `src/lib/db/tables.ts`.
+ */
 const ALL_TABLES = [
   "User",
   "Session",
   "Profile",
   "PasswordResetToken",
   "EmailVerificationToken",
-  "Prayer",
-  "Saint",
-  "MarianApparition",
-  "Parish",
-  "Devotion",
-  "LiturgyEntry",
-  "SpiritualLifeGuide",
-  "DailyLiturgy",
-  "PrayerTranslation",
-  "SaintTranslation",
-  "MarianApparitionTranslation",
-  "DevotionTranslation",
-  "LiturgyEntryTranslation",
-  "SpiritualLifeGuideTranslation",
   "JournalEntry",
   "Goal",
   "GoalChecklistItem",
   "Milestone",
+  "UserSavedContent",
   "Category",
   "Tag",
   "EntityTag",
@@ -38,22 +30,44 @@ const ALL_TABLES = [
   "SiteSetting",
   "HomePage",
   "HomePageBlock",
+  "ChecklistItem",
+  "AuthoritySource",
+  "ChecklistCitation",
+  "WorkerBuildJob",
+  "WorkerBuildLog",
+  "ChecklistQAReport",
+  "ChecklistVersion",
+  "ChecklistRelation",
+  "PublishedContent",
+  "WorkerHeartbeat",
+  "ContentTypePause",
+  "AdminWorkerState",
+  "AdminWorkerPass",
+  "AdminWorkerTask",
+  "AdminWorkerLog",
+  "AdminWorkerMemory",
+  "AdminWorkerSourceReputation",
+  "AdminWorkerDecision",
+  "AdminWorkerSecurityAction",
+  "CandidateSourceUrl",
+  "ContentGoal",
+  "HumanReviewQueue",
+  "HomepageWorkerDraft",
+  "AdminDeveloperReportLog",
+  "PostPublishVerification",
+  "ContentQualityScore",
+  "HomepageQualityScore",
   "AdminAuditLog",
-  "ContentReview",
+  "AdminActionLog",
+  "AdminNotificationState",
   "RateLimitBucket",
-  "IngestionSource",
-  "IngestionJob",
-  "IngestionJobRun",
-  "UserSavedPrayer",
-  "UserSavedSaint",
-  "UserSavedApparition",
-  "UserSavedParish",
-  "UserSavedDevotion",
+  "SecurityEvent",
+  "BannedDevice",
+  "DiagnosticSnapshot",
+  "ErrorLog",
 ];
 
-// All columns required by REQUIRED_COLUMNS in src/lib/db/tables.ts. The mock
-// pretends these columns exist on every table so `checkRequiredTables`
-// reports `columnsMissing: []` whenever the table is present.
+// All columns required by REQUIRED_COLUMNS in src/lib/db/tables.ts.
 const ALL_COLUMNS = [
   "id",
   "email",
@@ -68,27 +82,23 @@ const ALL_COLUMNS = [
   "userId",
   "tokenHash",
   "expiresAt",
+  "checklistItemId",
+  "contentType",
   "slug",
-  "defaultTitle",
-  "body",
-  "category",
-  "officialPrayer",
-  "externalSourceKey",
-  "sourceHost",
-  "status",
-  "canonicalName",
-  "biography",
-  "patronages",
   "title",
-  "summary",
-  "kind",
+  "payload",
+  "authorityLevel",
+  "isPublished",
+  "publishedAt",
+  "canonicalName",
+  "canonicalSlug",
+  "approvalStatus",
+  "currentMode",
+  "currentPriority",
+  "paused",
+  "lastHeartbeatAt",
 ];
 
-/**
- * The new checkRequiredTables makes one query for tables and then one query
- * per entry in REQUIRED_COLUMNS to verify columns. The mock dispatches by
- * inspecting the SQL string so tests don't need to chain mockResolvedValueOnce.
- */
 function mockSchema({
   tables = ALL_TABLES,
   columns = ALL_COLUMNS,
@@ -146,15 +156,13 @@ describe("checkRequiredTables", () => {
     expect(result.present).toEqual([]);
   });
 
-  it("flags missing public content tables separately from other required tables", async () => {
-    // Drop the Prayer + LiturgyEntry tables — public reads will 500 without
-    // them, so the health check must call this out as its own bucket.
+  it("flags missing PublishedContent as a public-content gap", async () => {
     mockSchema({
-      tables: ALL_TABLES.filter((t) => t !== "Prayer" && t !== "LiturgyEntry"),
+      tables: ALL_TABLES.filter((t) => t !== "PublishedContent"),
     });
     const result = await checkRequiredTables();
     expect(result.ok).toBe(false);
-    expect(result.publicContentMissing.sort()).toEqual(["LiturgyEntry", "Prayer"]);
+    expect(result.publicContentMissing).toEqual(["PublishedContent"]);
   });
 
   it("flags missing columns on a present table without claiming the table itself is missing", async () => {
@@ -172,44 +180,19 @@ describe("checkRequiredTables", () => {
 });
 
 describe("checkSeedContent (empty database behavior)", () => {
-  function stubAllCounts(value: number) {
-    prismaMock.$queryRaw.mockResolvedValue([]);
-    type CountableModel = { count?: ReturnType<typeof vi.fn> };
-    const m = prismaMock as unknown as Record<string, CountableModel>;
-    for (const model of [
-      "prayer",
-      "saint",
-      "marianApparition",
-      "devotion",
-      "liturgyEntry",
-      "spiritualLifeGuide",
-      "parish",
-    ]) {
-      m[model] = { count: vi.fn().mockResolvedValue(value) };
-    }
-  }
-
-  it("reports ok=false when every counted table is empty (gracefully, no throw)", async () => {
-    stubAllCounts(0);
+  it("reports ok=false when PublishedContent has no rows", async () => {
+    prismaMock.publishedContent.groupBy = vi.fn().mockResolvedValue([]);
     const result = await checkSeedContent();
     expect(result.ok).toBe(false);
-    expect(result.counts).toEqual({
-      prayers: 0,
-      saints: 0,
-      apparitions: 0,
-      devotions: 0,
-      liturgy: 0,
-      guides: 0,
-      parishes: 0,
-    });
+    expect(result.counts).toEqual({});
   });
 
-  it("reports ok=true the moment any one content type has rows", async () => {
-    stubAllCounts(0);
-    type CountableModel = { count: ReturnType<typeof vi.fn> };
-    (prismaMock as unknown as Record<string, CountableModel>).prayer.count.mockResolvedValue(3);
+  it("reports ok=true the moment any content type has rows", async () => {
+    prismaMock.publishedContent.groupBy = vi
+      .fn()
+      .mockResolvedValue([{ contentType: "PRAYER", _count: 5 }]);
     const result = await checkSeedContent();
     expect(result.ok).toBe(true);
-    expect(result.counts.prayers).toBe(3);
+    expect(result.counts.PRAYER).toBe(5);
   });
 });

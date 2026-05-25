@@ -6,12 +6,13 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 async function runCleanup(now: Date) {
+  const buildJobCutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const [
     expiredPasswordResetTokens,
     expiredEmailVerificationTokens,
     expiredSessions,
     expiredRateLimitBuckets,
-    staleIngestionRuns,
+    staleBuildJobs,
   ] = await Promise.all([
     prisma.passwordResetToken.deleteMany({
       where: { expiresAt: { lt: now } },
@@ -25,10 +26,10 @@ async function runCleanup(now: Date) {
     prisma.rateLimitBucket.deleteMany({
       where: { resetAt: { lt: now } },
     }),
-    prisma.ingestionJobRun.deleteMany({
+    prisma.workerBuildJob.deleteMany({
       where: {
-        startedAt: { lt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) },
-        status: { in: ["SUCCESS", "FAILED"] },
+        finishedAt: { lt: buildJobCutoff },
+        status: { in: ["succeeded", "failed", "cancelled"] },
       },
     }),
   ]);
@@ -38,7 +39,7 @@ async function runCleanup(now: Date) {
     expiredEmailVerificationTokens: expiredEmailVerificationTokens.count,
     expiredSessions: expiredSessions.count,
     expiredRateLimitBuckets: expiredRateLimitBuckets.count,
-    staleIngestionRuns: staleIngestionRuns.count,
+    staleBuildJobs: staleBuildJobs.count,
   };
 }
 
@@ -72,18 +73,20 @@ export async function GET(req: NextRequest) {
   }
 
   const now = new Date();
-  const [passwordResets, emailVerifications, sessions, rateLimits, oldRuns] = await Promise.all([
-    prisma.passwordResetToken.count({ where: { expiresAt: { lt: now } } }),
-    prisma.emailVerificationToken.count({ where: { expiresAt: { lt: now } } }),
-    prisma.session.count({ where: { expiresAt: { lt: now } } }),
-    prisma.rateLimitBucket.count({ where: { resetAt: { lt: now } } }),
-    prisma.ingestionJobRun.count({
-      where: {
-        startedAt: { lt: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) },
-        status: { in: ["SUCCESS", "FAILED"] },
-      },
-    }),
-  ]);
+  const buildJobCutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const [passwordResets, emailVerifications, sessions, rateLimits, oldBuildJobs] =
+    await Promise.all([
+      prisma.passwordResetToken.count({ where: { expiresAt: { lt: now } } }),
+      prisma.emailVerificationToken.count({ where: { expiresAt: { lt: now } } }),
+      prisma.session.count({ where: { expiresAt: { lt: now } } }),
+      prisma.rateLimitBucket.count({ where: { resetAt: { lt: now } } }),
+      prisma.workerBuildJob.count({
+        where: {
+          finishedAt: { lt: buildJobCutoff },
+          status: { in: ["succeeded", "failed", "cancelled"] },
+        },
+      }),
+    ]);
 
   return NextResponse.json({
     stale: {
@@ -91,7 +94,7 @@ export async function GET(req: NextRequest) {
       expiredEmailVerificationTokens: emailVerifications,
       expiredSessions: sessions,
       expiredRateLimitBuckets: rateLimits,
-      staleIngestionRuns: oldRuns,
+      staleBuildJobs: oldBuildJobs,
     },
     checkedAt: now.toISOString(),
   });

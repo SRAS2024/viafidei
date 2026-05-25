@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { cookies } from "next/headers";
-import { isCatholicRite } from "@/lib/content/rites";
+import { isCatholicRite } from "@/lib/content-shared/rites";
 import { RITE_COOKIE_NAME, RITE_COOKIE_OPTIONS } from "@/lib/i18n/rite-cookie";
 import { redirectTo } from "@/lib/security/request";
 

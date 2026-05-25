@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { CatholicRite } from "@/lib/content/rites";
+import type { CatholicRite } from "@/lib/content-shared/rites";
 
 type Option = { value: CatholicRite; label: string };
 

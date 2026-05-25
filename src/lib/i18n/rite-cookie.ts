@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { isCatholicRite, type CatholicRite, DEFAULT_RITE } from "../content/rites";
+import { isCatholicRite, type CatholicRite, DEFAULT_RITE } from "../content-shared/rites";
 
 export const RITE_COOKIE_NAME = "vf_rite";
 

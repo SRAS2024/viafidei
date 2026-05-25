@@ -338,8 +338,18 @@ const admin: Dict = {
   "admin.dashboard.subtitle":
     "Manage content, translations, ingestion, media, and the live homepage.",
   "admin.card.adminWorker": "Admin Worker · Command Center",
+  "admin.card.adminWorker.desc":
+    "Pause, resume, run a pass, see content goals + publish/QA/deletion rates.",
+  "admin.card.adminWorkerLogs": "Admin Worker logs",
+  "admin.card.adminWorkerLogs.desc":
+    "Structured worker logs grouped by section, filterable by period and severity.",
+  "admin.card.adminWorkerRules": "Admin Worker rules",
+  "admin.card.adminWorkerRules.desc":
+    "Versioned, testable rules the worker evaluates for every major decision.",
   "admin.card.checklist": "Checklist dashboard",
   "admin.card.diagnostics": "System diagnostics",
+  "admin.card.diagnostics.desc":
+    "27 live health ratings, pass breakdown, pause toggle, Developer Report download.",
   "admin.card.queue": "Admin Worker build queue",
   "admin.card.qa": "QA reports",
   "admin.card.published": "Published content",

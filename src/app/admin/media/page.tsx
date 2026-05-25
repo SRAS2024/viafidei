@@ -19,7 +19,7 @@ export default async function AdminMedia() {
             <div key={m.id} className="vf-card rounded-sm p-5">
               <p className="vf-eyebrow">{m.kind}</p>
               <p className="mt-2 font-serif text-sm text-ink-soft break-all">{m.url}</p>
-              <p className="mt-3 text-xs text-ink-faint">{m.reviewStatus}</p>
+              {m.attribution && <p className="mt-3 text-xs text-ink-faint">{m.attribution}</p>}
             </div>
           ))
         )}

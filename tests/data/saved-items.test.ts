@@ -1,108 +1,118 @@
+/**
+ * UserSavedContent — proves the consolidated saved-content data
+ * layer respects the publish gate (cannot save unpublished or
+ * non-existent content) and the (userId, contentType, contentSlug)
+ * unique constraint (duplicate save is a no-op).
+ *
+ * Replaces the old 5-table UserSavedPrayer/Saint/Apparition/
+ * Parish/Devotion tests (those tables were dropped in migration
+ * 0025_drop_legacy_system).
+ */
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { prismaMock, resetPrismaMock } from "../helpers/prisma-mock";
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 
-import { saveItem, unsaveItem } from "@/lib/data/saved";
+import { saveItem, unsaveItem, isSaved } from "@/lib/data/saved";
 
 beforeEach(() => {
   resetPrismaMock();
 });
 
-describe("saveItem — duplicate save protection", () => {
-  it("returns not_found when the catalog entity does not exist", async () => {
-    prismaMock.prayer.findUnique.mockResolvedValue(null);
-    const result = await saveItem("prayer", "user-A", "missing");
+describe("saveItem — refuses to save unpublished content", () => {
+  it("returns not_found when the slug isn't a published PublishedContent row", async () => {
+    prismaMock.publishedContent.findFirst.mockResolvedValue(null);
+    const result = await saveItem("prayer", "user-A", "ghost-slug");
     expect(result).toEqual({ ok: false, reason: "not_found" });
-    // Critical: must not have attempted to write a save row for a
-    // non-existent entity.
-    expect(prismaMock.userSavedPrayer.upsert).not.toHaveBeenCalled();
+    expect(prismaMock.userSavedContent.create).not.toHaveBeenCalled();
   });
 
-  it("uses upsert on the composite unique key so a second save is a no-op", async () => {
-    prismaMock.prayer.findUnique.mockResolvedValue({ id: "p1" });
-    prismaMock.userSavedPrayer.upsert.mockResolvedValue({ createdAt: new Date() });
-    const result = await saveItem("prayer", "user-A", "p1");
-    expect(result.ok).toBe(true);
-    expect(prismaMock.userSavedPrayer.upsert).toHaveBeenCalledTimes(1);
-    const args = prismaMock.userSavedPrayer.upsert.mock.calls[0][0] as {
-      where: { userId_prayerId: { userId: string; prayerId: string } };
-    };
-    // The composite unique key is what prevents duplicate rows — the database
-    // refuses to insert a second row with the same (userId, prayerId).
-    expect(args.where.userId_prayerId).toEqual({ userId: "user-A", prayerId: "p1" });
-  });
-
-  it("rejects a save against an unknown saint without writing", async () => {
-    prismaMock.saint.findUnique.mockResolvedValue(null);
+  it("rejects a saint slug that isn't published", async () => {
+    prismaMock.publishedContent.findFirst.mockResolvedValue(null);
     expect(await saveItem("saint", "user-A", "ghost")).toEqual({
       ok: false,
       reason: "not_found",
     });
-    expect(prismaMock.userSavedSaint.upsert).not.toHaveBeenCalled();
   });
 
-  it("rejects a save against an unknown apparition without writing", async () => {
-    prismaMock.marianApparition.findUnique.mockResolvedValue(null);
+  it("rejects an apparition slug that isn't published", async () => {
+    prismaMock.publishedContent.findFirst.mockResolvedValue(null);
     expect(await saveItem("apparition", "user-A", "ghost")).toEqual({
       ok: false,
       reason: "not_found",
     });
-    expect(prismaMock.userSavedApparition.upsert).not.toHaveBeenCalled();
   });
 
-  it("rejects a save against an unknown parish without writing", async () => {
-    prismaMock.parish.findUnique.mockResolvedValue(null);
-    expect(await saveItem("parish", "user-A", "ghost")).toEqual({
-      ok: false,
-      reason: "not_found",
-    });
-    expect(prismaMock.userSavedParish.upsert).not.toHaveBeenCalled();
-  });
-
-  it("rejects a save against an unknown devotion without writing", async () => {
-    prismaMock.devotion.findUnique.mockResolvedValue(null);
+  it("rejects a devotion slug that isn't published", async () => {
+    prismaMock.publishedContent.findFirst.mockResolvedValue(null);
     expect(await saveItem("devotion", "user-A", "ghost")).toEqual({
       ok: false,
       reason: "not_found",
     });
-    expect(prismaMock.userSavedDevotion.upsert).not.toHaveBeenCalled();
   });
 });
 
-describe("unsaveItem — only deletes join rows, never the catalog content", () => {
-  it("deletes from the prayer join table only, scoped to (userId, prayerId)", async () => {
-    prismaMock.userSavedPrayer.deleteMany.mockResolvedValue({ count: 1 });
-    const result = await unsaveItem("prayer", "user-A", "p1");
-    expect(result).toEqual({ ok: true, removed: true });
-    // CRITICAL: deleteMany targets the JOIN table, not the catalog table.
-    // The catalog prayer table must never be touched by an unsave.
-    expect(prismaMock.userSavedPrayer.deleteMany).toHaveBeenCalledWith({
-      where: { userId: "user-A", prayerId: "p1" },
+describe("saveItem — duplicate save protection", () => {
+  it("is a no-op when the user already saved the same (type, slug)", async () => {
+    prismaMock.publishedContent.findFirst.mockResolvedValue({ id: "pc1" });
+    prismaMock.userSavedContent.findUnique.mockResolvedValue({ id: "existing-save" });
+    const result = await saveItem("prayer", "user-A", "our-father");
+    expect(result).toEqual({ ok: true, created: false });
+    expect(prismaMock.userSavedContent.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a save when no existing row matches the composite key", async () => {
+    prismaMock.publishedContent.findFirst.mockResolvedValue({ id: "pc1" });
+    prismaMock.userSavedContent.findUnique.mockResolvedValue(null);
+    prismaMock.userSavedContent.create.mockResolvedValue({ id: "new-save" });
+    const result = await saveItem("prayer", "user-A", "our-father");
+    expect(result).toEqual({ ok: true, created: true });
+    expect(prismaMock.userSavedContent.create).toHaveBeenCalledTimes(1);
+    const args = prismaMock.userSavedContent.create.mock.calls[0][0] as {
+      data: { userId: string; contentType: string; contentSlug: string };
+    };
+    expect(args.data).toEqual({
+      userId: "user-A",
+      contentType: "PRAYER",
+      contentSlug: "our-father",
     });
-    expect(prismaMock.prayer.delete).not.toHaveBeenCalled();
-    expect(prismaMock.prayer.deleteMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("unsaveItem — only removes the user's own join row", () => {
+  it("deletes by (userId, contentType, contentSlug)", async () => {
+    prismaMock.userSavedContent.deleteMany.mockResolvedValue({ count: 1 });
+    const result = await unsaveItem("saint", "user-A", "teresa");
+    expect(result).toEqual({ ok: true, removed: true });
+    const args = prismaMock.userSavedContent.deleteMany.mock.calls[0][0] as {
+      where: { userId: string; contentType: string; contentSlug: string };
+    };
+    expect(args.where).toEqual({
+      userId: "user-A",
+      contentType: "SAINT",
+      contentSlug: "teresa",
+    });
   });
 
-  it("returns removed=false when the user had not actually saved the item", async () => {
-    prismaMock.userSavedPrayer.deleteMany.mockResolvedValue({ count: 0 });
-    expect(await unsaveItem("prayer", "user-A", "p1")).toEqual({ ok: true, removed: false });
+  it("returns removed=false when no save row existed", async () => {
+    prismaMock.userSavedContent.deleteMany.mockResolvedValue({ count: 0 });
+    expect(await unsaveItem("prayer", "user-A", "missing")).toEqual({
+      ok: true,
+      removed: false,
+    });
+  });
+});
+
+describe("isSaved — checks the composite key", () => {
+  it("returns true when a matching save exists", async () => {
+    prismaMock.userSavedContent.findUnique.mockResolvedValue({ id: "s1" });
+    expect(await isSaved("prayer", "user-A", "our-father")).toBe(true);
   });
 
-  it("never touches the catalog saint table when unsaving a saint", async () => {
-    prismaMock.userSavedSaint.deleteMany.mockResolvedValue({ count: 1 });
-    await unsaveItem("saint", "user-A", "s1");
-    expect(prismaMock.userSavedSaint.deleteMany).toHaveBeenCalledTimes(1);
-    expect(prismaMock.saint.delete).not.toHaveBeenCalled();
-    expect(prismaMock.saint.deleteMany).not.toHaveBeenCalled();
-  });
-
-  it("never touches the catalog parish table when unsaving a parish", async () => {
-    prismaMock.userSavedParish.deleteMany.mockResolvedValue({ count: 1 });
-    await unsaveItem("parish", "user-A", "p1");
-    expect(prismaMock.userSavedParish.deleteMany).toHaveBeenCalledTimes(1);
-    expect(prismaMock.parish.delete).not.toHaveBeenCalled();
-    expect(prismaMock.parish.deleteMany).not.toHaveBeenCalled();
+  it("returns false when no matching save exists", async () => {
+    prismaMock.userSavedContent.findUnique.mockResolvedValue(null);
+    expect(await isSaved("prayer", "user-A", "ghost")).toBe(false);
   });
 });

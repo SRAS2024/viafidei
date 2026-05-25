@@ -107,65 +107,29 @@ describe("Session.deviceCredentialHash supports ban-link session revocation", ()
   });
 });
 
-describe("SourceDocument — every spec-required field is declared", () => {
-  const body = modelBlock("SourceDocument");
+// `SourceDocument` and `ContentPackageBuildLog` schema pins were
+// dropped along with their tables in migration
+// 0025_drop_legacy_system. Equivalent provenance now lives on
+// WorkerBuildLog + ChecklistCitation, which are pinned by the
+// worker-build tests.
 
-  const SOURCE_DOCUMENT_REQUIRED = [
-    // The spec lists these by readable label; map to the schema-camelCase column.
+describe("WorkerBuildLog — provenance fields are declared", () => {
+  const body = modelBlock("WorkerBuildLog");
+
+  const WORKER_BUILD_LOG_REQUIRED = [
+    "buildJobId",
+    "step",
+    "level",
+    "message",
+    "fieldName",
     "sourceUrl",
-    "sourceHost",
-    "sourceTitle",
-    "rawBody",
-    "cleanedBody",
-    "headingsJson",
-    "paragraphsJson",
-    "listsJson",
-    "tablesJson",
-    "linksJson",
-    "metadataJson",
-    "sourceTier",
-    "sourcePurposesJson",
-    "fetchStatus",
-    "httpStatus",
-    "etag",
-    "lastModifiedHeader",
-    // Schema uses contentChecksum for the raw body checksum + a
-    // separate cleanedChecksum. Both spec fields are covered.
-    "contentChecksum",
-    "cleanedChecksum",
-    "workerJobId",
-    "ingestionBatchId",
-  ];
-
-  for (const field of SOURCE_DOCUMENT_REQUIRED) {
-    it(`declares ${field}`, () => {
-      const re = new RegExp(`^\\s+${field}\\b`, "m");
-      expect(re.test(body)).toBe(true);
-    });
-  }
-});
-
-describe("ContentPackageBuildLog — every spec-required field is declared", () => {
-  const body = modelBlock("ContentPackageBuildLog");
-
-  const BUILD_LOG_REQUIRED = [
-    "sourceDocumentId",
-    "sourceUrl",
-    "sourceHost",
-    "contentType",
-    "builderName",
-    "builderVersion",
-    "buildStatus",
-    "extractedFieldsJson",
-    "missingFieldsJson",
-    "failureReason",
-    "candidateSlug",
-    "workerJobId",
-    "ingestionBatchId",
+    "warnings",
+    "confidence",
+    "metadata",
     "createdAt",
   ];
 
-  for (const field of BUILD_LOG_REQUIRED) {
+  for (const field of WORKER_BUILD_LOG_REQUIRED) {
     it(`declares ${field}`, () => {
       const re = new RegExp(`^\\s+${field}\\b`, "m");
       expect(re.test(body)).toBe(true);

@@ -1,5 +1,5 @@
 import { prisma } from "../db/client";
-import type { MediaKind, ReviewStatus } from "@prisma/client";
+import type { MediaKind } from "@prisma/client";
 
 export function listRecentMedia(take = 60) {
   return prisma.mediaAsset.findMany({ orderBy: { createdAt: "desc" }, take });
@@ -18,7 +18,6 @@ export type CreateMediaInput = {
   licenseInfo?: string | null;
   attribution?: string | null;
   checksum?: string | null;
-  reviewStatus?: ReviewStatus;
   confidenceScore?: number | null;
 };
 
@@ -37,7 +36,6 @@ export async function createMediaAsset(input: CreateMediaInput) {
       licenseInfo: input.licenseInfo ?? null,
       attribution: input.attribution ?? null,
       checksum: input.checksum ?? null,
-      reviewStatus: input.reviewStatus ?? "PENDING",
       confidenceScore: input.confidenceScore ?? null,
     },
   });

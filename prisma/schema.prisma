@@ -44,13 +44,6 @@ enum MediaKind {
   OTHER
 }
 
-enum ReviewStatus {
-  PENDING
-  AUTO_APPROVED
-  HUMAN_REVIEWED
-  REJECTED
-}
-
 enum TranslationStatus {
   MACHINE
   HUMAN_REVIEWED
@@ -77,68 +70,6 @@ enum CategoryScope {
   SPIRITUAL_LIFE
 }
 
-enum LiturgyKind {
-  MASS_STRUCTURE
-  LITURGICAL_YEAR
-  SYMBOLISM
-  MARRIAGE_RITE
-  FUNERAL_RITE
-  ORDINATION_RITE
-  COUNCIL_TIMELINE
-  GLOSSARY
-  GENERAL
-}
-
-enum SpiritualLifeKind {
-  ROSARY
-  CONFESSION
-  ADORATION
-  DEVOTION
-  CONSECRATION
-  VOCATION
-  GENERAL
-}
-
-enum ReviewDecision {
-  PENDING
-  APPROVED
-  REJECTED
-  REVISION_REQUESTED
-}
-
-enum IngestionRunStatus {
-  PENDING
-  RUNNING
-  SUCCESS
-  PARTIAL
-  FAILED
-}
-
-enum IngestionJobQueueStatus {
-  pending
-  running
-  completed
-  failed
-  skipped
-  retrying
-}
-
-enum SourceHealthState {
-  active
-  stale
-  failing
-  blocked
-  exhausted
-  low_quality
-  paused
-}
-
-enum SourceTier {
-  TIER_1
-  TIER_2
-  TIER_3
-}
-
 /// Source roles describe what a source is *allowed* to do in the
 /// factory pipeline. A source can discover content without being
 /// allowed to publish it; it can validate without being allowed to
@@ -158,14 +89,6 @@ enum SourceTier {
 ///                             publish.
 ///   rejected_source         — explicitly forbidden. The worker MUST
 ///                             NOT enqueue any job for this source.
-enum SourceRole {
-  primary_content_source
-  validation_source
-  enrichment_source
-  discovery_only_source
-  rejected_source
-}
-
 model User {
   id                      String                   @id @default(cuid())
   email                   String                   @unique
@@ -182,17 +105,12 @@ model User {
   profile                 Profile?
   sessions                Session[]
   journalEntries          JournalEntry[]
-  savedPrayers            UserSavedPrayer[]
-  savedSaints             UserSavedSaint[]
-  savedApparitions        UserSavedApparition[]
-  savedParishes           UserSavedParish[]
-  savedDevotions          UserSavedDevotion[]
+  savedContent            UserSavedContent[]
   goals                   Goal[]
   milestones              Milestone[]
   passwordResetTokens     PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   auditLogs               AdminAuditLog[]          @relation("AuditActor")
-  contentReviews          ContentReview[]          @relation("ReviewActor")
 }
 
 model PasswordResetToken {
@@ -270,222 +188,6 @@ model JournalEntry {
   @@index([goalId])
 }
 
-model Prayer {
-  id                      String              @id @default(cuid())
-  slug                    String              @unique
-  defaultTitle            String
-  body                    String
-  officialPrayer          String?
-  category                String
-  categoryId              String?
-  prayerType              String?
-  language                String?
-  externalSourceKey       String?             @unique
-  sourceUrl               String?
-  sourceHost              String?
-  contentChecksum         String?
-  status                  ContentStatus       @default(DRAFT)
-  archivedAt              DateTime?
-  sourceConfidence        Float?
-  formattingConfidence    Float?
-  qualityScore            Float?
-  theologicalReviewFlag   Boolean             @default(false)
-  sourceTier              Int?
-  outcomeReason           String?
-  packageValidationStatus String?
-  packageValidationErrors String[]            @default([])
-  contentPackageVersion   String?
-  publicRenderReady       Boolean             @default(false)
-  isThresholdEligible     Boolean             @default(false)
-  lastPackageValidatedAt  DateTime?
-  createdAt               DateTime            @default(now())
-  updatedAt               DateTime            @updatedAt
-  translations            PrayerTranslation[]
-  savedByUsers            UserSavedPrayer[]
-  categoryRel             Category?           @relation(fields: [categoryId], references: [id])
-
-  @@index([categoryId])
-  @@index([status])
-  @@index([slug])
-  @@index([archivedAt])
-  @@index([publicRenderReady])
-  @@index([isThresholdEligible])
-}
-
-model PrayerTranslation {
-  id                String            @id @default(cuid())
-  prayerId          String
-  locale            String
-  title             String
-  body              String
-  translationStatus TranslationStatus @default(MACHINE)
-  translationEngine String?
-  checksum          String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  prayer            Prayer            @relation(fields: [prayerId], references: [id], onDelete: Cascade)
-
-  @@unique([prayerId, locale])
-}
-
-model Saint {
-  id                      String             @id @default(cuid())
-  slug                    String             @unique
-  canonicalName           String
-  feastDay                String?
-  feastMonth              Int?
-  feastDayOfMonth         Int?
-  patronages              String[]
-  biography               String
-  saintType               String?
-  officialPrayer          String?
-  externalSourceKey       String?            @unique
-  sourceUrl               String?
-  sourceHost              String?
-  contentChecksum         String?
-  status                  ContentStatus      @default(DRAFT)
-  archivedAt              DateTime?
-  sourceConfidence        Float?
-  formattingConfidence    Float?
-  qualityScore            Float?
-  theologicalReviewFlag   Boolean            @default(false)
-  sourceTier              Int?
-  outcomeReason           String?
-  packageValidationStatus String?
-  packageValidationErrors String[]           @default([])
-  contentPackageVersion   String?
-  publicRenderReady       Boolean            @default(false)
-  isThresholdEligible     Boolean            @default(false)
-  lastPackageValidatedAt  DateTime?
-  createdAt               DateTime           @default(now())
-  updatedAt               DateTime           @updatedAt
-  translations            SaintTranslation[]
-  savedByUsers            UserSavedSaint[]
-
-  @@index([status])
-  @@index([feastMonth, feastDayOfMonth])
-  @@index([archivedAt])
-  @@index([publicRenderReady])
-  @@index([isThresholdEligible])
-}
-
-model SaintTranslation {
-  id                String            @id @default(cuid())
-  saintId           String
-  locale            String
-  name              String
-  biography         String
-  officialPrayer    String?
-  translationStatus TranslationStatus @default(MACHINE)
-  translationEngine String?
-  checksum          String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  saint             Saint             @relation(fields: [saintId], references: [id], onDelete: Cascade)
-
-  @@unique([saintId, locale])
-}
-
-model MarianApparition {
-  id                      String                        @id @default(cuid())
-  slug                    String                        @unique
-  title                   String
-  location                String?
-  country                 String?
-  approvedStatus          String?
-  summary                 String
-  background              String?
-  officialPrayer          String?
-  externalSourceKey       String?                       @unique
-  sourceUrl               String?
-  sourceHost              String?
-  contentChecksum         String?
-  status                  ContentStatus                 @default(DRAFT)
-  archivedAt              DateTime?
-  sourceConfidence        Float?
-  formattingConfidence    Float?
-  qualityScore            Float?
-  theologicalReviewFlag   Boolean                       @default(false)
-  sourceTier              Int?
-  outcomeReason           String?
-  packageValidationStatus String?
-  packageValidationErrors String[]                      @default([])
-  contentPackageVersion   String?
-  publicRenderReady       Boolean                       @default(false)
-  isThresholdEligible     Boolean                       @default(false)
-  lastPackageValidatedAt  DateTime?
-  createdAt               DateTime                      @default(now())
-  updatedAt               DateTime                      @updatedAt
-  translations            MarianApparitionTranslation[]
-  savedByUsers            UserSavedApparition[]
-
-  @@index([status])
-  @@index([archivedAt])
-  @@index([publicRenderReady])
-  @@index([isThresholdEligible])
-}
-
-model MarianApparitionTranslation {
-  id                String            @id @default(cuid())
-  apparitionId      String
-  locale            String
-  title             String
-  summary           String
-  officialPrayer    String?
-  translationStatus TranslationStatus @default(MACHINE)
-  translationEngine String?
-  checksum          String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  apparition        MarianApparition  @relation(fields: [apparitionId], references: [id], onDelete: Cascade)
-
-  @@unique([apparitionId, locale])
-}
-
-model Parish {
-  id                      String            @id @default(cuid())
-  slug                    String            @unique
-  name                    String
-  address                 String?
-  city                    String?
-  region                  String?
-  country                 String?
-  phone                   String?
-  email                   String?
-  websiteUrl              String?
-  diocese                 String?
-  ociaUrl                 String?
-  latitude                Float?
-  longitude               Float?
-  externalSourceKey       String?
-  sourceUrl               String?
-  sourceHost              String?
-  contentChecksum         String?
-  status                  ContentStatus     @default(DRAFT)
-  archivedAt              DateTime?
-  sourceConfidence        Float?
-  formattingConfidence    Float?
-  qualityScore            Float?
-  theologicalReviewFlag   Boolean           @default(false)
-  sourceTier              Int?
-  outcomeReason           String?
-  packageValidationStatus String?
-  packageValidationErrors String[]          @default([])
-  contentPackageVersion   String?
-  publicRenderReady       Boolean           @default(false)
-  isThresholdEligible     Boolean           @default(false)
-  lastPackageValidatedAt  DateTime?
-  createdAt               DateTime          @default(now())
-  updatedAt               DateTime          @updatedAt
-  savedByUsers            UserSavedParish[]
-
-  @@unique([name, city, country])
-  @@index([status])
-  @@index([archivedAt])
-  @@index([publicRenderReady])
-  @@index([isThresholdEligible])
-}
-
 model Goal {
   id             String              @id @default(cuid())
   userId         String
@@ -537,44 +239,22 @@ model Milestone {
   @@index([userId, tier])
 }
 
-model UserSavedPrayer {
-  userId    String
-  prayerId  String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  prayer    Prayer   @relation(fields: [prayerId], references: [id], onDelete: Cascade)
+/// Single saved-content table. Keyed on (userId, contentType,
+/// contentSlug) so a signed-in user can save any PublishedContent row
+/// uniformly. Replaces the legacy UserSavedPrayer / UserSavedSaint /
+/// UserSavedApparition / UserSavedParish / UserSavedDevotion tables
+/// (dropped in migration 0025_drop_legacy_system).
+model UserSavedContent {
+  id          String               @id @default(cuid())
+  userId      String
+  contentType ChecklistContentType
+  contentSlug String
+  createdAt   DateTime             @default(now())
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@id([userId, prayerId])
-}
-
-model UserSavedSaint {
-  userId    String
-  saintId   String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  saint     Saint    @relation(fields: [saintId], references: [id], onDelete: Cascade)
-
-  @@id([userId, saintId])
-}
-
-model UserSavedApparition {
-  userId       String
-  apparitionId String
-  createdAt    DateTime         @default(now())
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apparition   MarianApparition @relation(fields: [apparitionId], references: [id], onDelete: Cascade)
-
-  @@id([userId, apparitionId])
-}
-
-model UserSavedParish {
-  userId    String
-  parishId  String
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parish    Parish   @relation(fields: [parishId], references: [id], onDelete: Cascade)
-
-  @@id([userId, parishId])
+  @@unique([userId, contentType, contentSlug])
+  @@index([userId])
+  @@index([contentType, contentSlug])
 }
 
 model MediaAsset {
@@ -587,7 +267,6 @@ model MediaAsset {
   licenseInfo     String?
   attribution     String?
   checksum        String?
-  reviewStatus    ReviewStatus      @default(PENDING)
   confidenceScore Float?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -643,139 +322,6 @@ model HomePageBlock {
   @@unique([pageId, sortOrder])
 }
 
-model IngestionSource {
-  id                        String         @id @default(cuid())
-  name                      String
-  host                      String         @unique
-  baseUrl                   String
-  sourceType                String
-  isOfficial                Boolean        @default(false)
-  isActive                  Boolean        @default(true)
-  rateLimitPerMin           Int?
-  reliabilityScore          Float?
-  lastSuccessfulSync        DateTime?
-  lastFailedSync            DateTime?
-  lastContentUpdateAt       DateTime?
-  lastHttpStatus            Int?
-  lastEtag                  String?
-  lastModifiedHeader        String?
-  tier                      Int            @default(3)
-  trustLabel                String?
-  healthState               String         @default("active")
-  consecutiveFailures       Int            @default(0)
-  lowQualityRatio           Float?
-  pausedAt                  DateTime?
-  pausedReason              String?
-  autoPaused                Boolean        @default(false)
-  autoPausedAt              DateTime?
-  requestSpacingMs          Int?
-  robotsRespect             Boolean        @default(true)
-  estimatedTotalItems       Int?
-  discoveredItems           Int            @default(0)
-  completedItems            Int            @default(0)
-  rejectedItems             Int            @default(0)
-  exhaustedAt               DateTime?
-  lastSourceTierChangeAt    DateTime?
-  canIngestPrayers          Boolean        @default(false)
-  canIngestSaints           Boolean        @default(false)
-  canIngestApparitions      Boolean        @default(false)
-  canIngestParishes         Boolean        @default(false)
-  canIngestDevotions        Boolean        @default(false)
-  canIngestNovenas          Boolean        @default(false)
-  canIngestSacraments       Boolean        @default(false)
-  canIngestRosaryGuides     Boolean        @default(false)
-  canIngestConsecrations    Boolean        @default(false)
-  canIngestSpiritualGuides  Boolean        @default(false)
-  canIngestLiturgy          Boolean        @default(false)
-  canIngestHistory          Boolean        @default(false)
-  canProvideScriptureText   Boolean        @default(false)
-  /// Optional sitemap / feed URL that drives factory-native source
-  /// discovery. When set, the worker's source_discovery handler
-  /// walks this feed, records each URL as a DiscoveredSourceItem,
-  /// and enqueues a source_fetch job per URL — bypassing the
-  /// legacy adapter-side discovery entirely. When null, the
-  /// dispatch falls back to the legacy adapter's bespoke discovery.
-  discoveryFeedUrl          String?
-  /// Typed discovery method the worker uses to choose HOW to
-  /// discover URLs. Valid values: "sitemap", "rss", "fixed_url_list",
-  /// "official_api", "factory_handler", "not_configured". Nullable
-  /// until the startup setup task backfills it from
-  /// discoveryFeedUrl.
-  discoveryMethod           String?
-  /// One-line configuration status for the admin source
-  /// configuration card. e.g. "factory_native", "not_configured",
-  /// "paused", "exhausted".
-  configurationStatus       String?
-  /// Free-text reason when the source is not configured for the
-  /// factory pipeline. Surfaced on the admin source card.
-  configurationStatusReason String?
-  /// Per-source override for the fetch limit per discovery run.
-  /// Null = use the global config default.
-  fetchLimitPerRun          Int?
-  /// Per-source override for the content-build limit per fetch.
-  /// Null = no per-source cap.
-  buildLimitPerRun          Int?
-  /// Per-source daily cap on enqueued source_fetch jobs.
-  /// Null = no daily cap.
-  dailyCap                  Int?
-  /// Factory role this source is approved for. Gates which jobs the
-  /// worker enqueues and which package fields may originate here vs.
-  /// be validated only. Defaults to `discovery_only_source` so a
-  /// freshly added source can suggest candidates but cannot publish
-  /// content until an admin promotes it. See enum SourceRole.
-  role                      SourceRole     @default(discovery_only_source)
-  /// Last automatic role change reason. Surfaced on the admin source
-  /// card so an admin can see why a source was promoted or demoted.
-  roleLastReason            String?
-  /// Last automatic role change timestamp.
-  roleLastChangedAt         DateTime?
-  notes                     String?
-  createdAt                 DateTime       @default(now())
-  updatedAt                 DateTime       @updatedAt
-  jobs                      IngestionJob[]
-
-  @@index([healthState])
-  @@index([tier])
-}
-
-model IngestionJob {
-  id             String            @id @default(cuid())
-  sourceId       String
-  jobName        String
-  targetEntity   String
-  schedule       String?
-  isActive       Boolean           @default(true)
-  pausedAt       DateTime?
-  pausedReason   String?
-  batchSizeLimit Int?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  source         IngestionSource   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  runs           IngestionJobRun[]
-
-  @@unique([sourceId, jobName])
-}
-
-model IngestionJobRun {
-  id                    String       @id @default(cuid())
-  jobId                 String
-  startedAt             DateTime
-  finishedAt            DateTime?
-  status                String
-  recordsSeen           Int          @default(0)
-  recordsCreated        Int          @default(0)
-  recordsUpdated        Int          @default(0)
-  recordsSkipped        Int          @default(0)
-  recordsFailed         Int          @default(0)
-  recordsReviewRequired Int          @default(0)
-  errorMessage          String?
-  createdAt             DateTime     @default(now())
-  job                   IngestionJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-
-  @@index([jobId, startedAt])
-  @@index([status, startedAt])
-}
-
 model AdminAuditLog {
   id            String   @id @default(cuid())
   actorUserId   String?
@@ -802,72 +348,11 @@ model AdminAuditLog {
 /// were missing, and what the source URL was. DataManagementLog
 /// continues to capture run-level audit; this table is the per-item
 /// strict QA record.
-model RejectedContentLog {
-  id                 String   @id @default(cuid())
-  contentType        String
-  slug               String?
-  originalTitle      String?
-  sourceUrl          String?
-  sourceHost         String?
-  rejectionReason    String
-  failedContractName String?
-  failedFields       String[] @default([])
-  originalChecksum   String?
-  decision           String
-  triggeredBy        String   @default("automatic")
-  actorUsername      String?
-  workerJobId        String?
-  ingestionBatchId   String?
-  /// Contract version the validator ran when the row was deleted.
-  packageVersion     String?
-  /// Final pipeline decision verbatim (delete / reject / archive / ...).
-  validationDecision String?
-  /// Bucket the failure falls into for the dashboard. One of
-  /// "wrong_content", "missing_required_field", "source_purpose_mismatch",
-  /// "format_invalid", "render_not_ready", "duplicate", "unknown".
-  failureCategory    String?
-  /// Cleanup mode that produced the deletion: "public_only" |
-  /// "all_catalog_rows".
-  cleanupMode        String?
-  /// Short description of what kind of sweep triggered the deletion:
-  /// "scheduled", "post_ingestion", "manual", "render_gate",
-  /// "package_version_change", "catalog_revalidate".
-  sweepReason        String?
-  /// Status the row carried before deletion (PUBLISHED / REVIEW /
-  /// DRAFT / ARCHIVED).
-  originalStatus     String?
-  deletedAt          DateTime @default(now())
-
-  @@index([contentType, deletedAt])
-  @@index([decision, deletedAt])
-  @@index([sourceHost, deletedAt])
-  @@index([deletedAt])
-  @@index([workerJobId])
-  @@index([ingestionBatchId])
-  @@index([failureCategory, deletedAt])
-  @@index([cleanupMode, deletedAt])
-}
-
 // DataManagementLog records every action performed by the Ingestion
 // & Data Management system. The `action` column is one of: ADD,
 // UPDATE, DELETE, REJECT, CLEANUP, DEDUPE, CATEGORY_FIX. The
 // `contentType` is the catalog table (Prayer, Saint, ...). The
 // `triggeredBy` is "automatic" (cron) or "manual" (admin-triggered).
-model DataManagementLog {
-  id            String   @id @default(cuid())
-  action        String
-  contentType   String
-  contentRef    String?
-  reason        String?
-  triggeredBy   String   @default("automatic")
-  actorUsername String?
-  createdAt     DateTime @default(now())
-
-  @@index([action, createdAt])
-  @@index([contentType, createdAt])
-  @@index([createdAt])
-}
-
 model Tag {
   id         String      @id @default(cuid())
   slug       String      @unique
@@ -902,229 +387,8 @@ model Category {
   description String?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-  prayers     Prayer[]
 
   @@index([scope, sortOrder])
-}
-
-model Devotion {
-  id                      String                @id @default(cuid())
-  slug                    String                @unique
-  title                   String
-  summary                 String
-  practiceText            String?
-  durationMinutes         Int?
-  devotionType            String?
-  subtype                 String?
-  background              String?
-  practiceInstructions    String?
-  packageMetadata         Json?
-  externalSourceKey       String?               @unique
-  sourceUrl               String?
-  sourceHost              String?
-  contentChecksum         String?
-  status                  ContentStatus         @default(DRAFT)
-  archivedAt              DateTime?
-  sourceConfidence        Float?
-  formattingConfidence    Float?
-  qualityScore            Float?
-  theologicalReviewFlag   Boolean               @default(false)
-  sourceTier              Int?
-  outcomeReason           String?
-  packageValidationStatus String?
-  packageValidationErrors String[]              @default([])
-  contentPackageVersion   String?
-  publicRenderReady       Boolean               @default(false)
-  isThresholdEligible     Boolean               @default(false)
-  lastPackageValidatedAt  DateTime?
-  createdAt               DateTime              @default(now())
-  updatedAt               DateTime              @updatedAt
-  translations            DevotionTranslation[]
-  savedByUsers            UserSavedDevotion[]
-
-  @@index([status])
-  @@index([archivedAt])
-  @@index([publicRenderReady])
-  @@index([isThresholdEligible])
-  @@index([subtype])
-}
-
-model DevotionTranslation {
-  id                String            @id @default(cuid())
-  devotionId        String
-  locale            String
-  title             String
-  summary           String
-  practiceText      String?
-  translationStatus TranslationStatus @default(MACHINE)
-  translationEngine String?
-  checksum          String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  devotion          Devotion          @relation(fields: [devotionId], references: [id], onDelete: Cascade)
-
-  @@unique([devotionId, locale])
-}
-
-model UserSavedDevotion {
-  userId     String
-  devotionId String
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  devotion   Devotion @relation(fields: [devotionId], references: [id], onDelete: Cascade)
-
-  @@id([userId, devotionId])
-}
-
-model ContentReview {
-  id               String         @id @default(cuid())
-  entityType       String
-  entityId         String
-  reviewerUserId   String?
-  reviewerUsername String?
-  decision         ReviewDecision @default(PENDING)
-  notes            String?
-  createdAt        DateTime       @default(now())
-  reviewer         User?          @relation("ReviewActor", fields: [reviewerUserId], references: [id], onDelete: SetNull)
-
-  @@index([entityType, entityId, createdAt])
-  @@index([decision, createdAt])
-}
-
-model LiturgyEntry {
-  id                      String                    @id @default(cuid())
-  slug                    String                    @unique
-  kind                    LiturgyKind               @default(GENERAL)
-  title                   String
-  summary                 String?
-  body                    String
-  historyType             String?
-  dateOrEra               String?
-  packageMetadata         Json?
-  externalSourceKey       String?                   @unique
-  sourceUrl               String?
-  sourceHost              String?
-  contentChecksum         String?
-  status                  ContentStatus             @default(DRAFT)
-  archivedAt              DateTime?
-  sourceConfidence        Float?
-  formattingConfidence    Float?
-  qualityScore            Float?
-  theologicalReviewFlag   Boolean                   @default(false)
-  sourceTier              Int?
-  outcomeReason           String?
-  packageValidationStatus String?
-  packageValidationErrors String[]                  @default([])
-  contentPackageVersion   String?
-  publicRenderReady       Boolean                   @default(false)
-  isThresholdEligible     Boolean                   @default(false)
-  lastPackageValidatedAt  DateTime?
-  createdAt               DateTime                  @default(now())
-  updatedAt               DateTime                  @updatedAt
-  translations            LiturgyEntryTranslation[]
-
-  @@index([status])
-  @@index([kind, status])
-  @@index([archivedAt])
-  @@index([publicRenderReady])
-  @@index([isThresholdEligible])
-  @@index([historyType])
-}
-
-model LiturgyEntryTranslation {
-  id                String            @id @default(cuid())
-  entryId           String
-  locale            String
-  title             String
-  summary           String?
-  body              String
-  translationStatus TranslationStatus @default(MACHINE)
-  translationEngine String?
-  checksum          String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  entry             LiturgyEntry      @relation(fields: [entryId], references: [id], onDelete: Cascade)
-
-  @@unique([entryId, locale])
-}
-
-model SpiritualLifeGuide {
-  id                      String                          @id @default(cuid())
-  slug                    String                          @unique
-  kind                    SpiritualLifeKind               @default(GENERAL)
-  title                   String
-  summary                 String
-  bodyText                String?
-  steps                   Json?
-  durationDays            Int?
-  goalTemplateSlug        String?
-  sacramentKey            String?
-  sacramentGroup          String?
-  subtype                 String?
-  background              String?
-  packageMetadata         Json?
-  externalSourceKey       String?                         @unique
-  sourceUrl               String?
-  sourceHost              String?
-  contentChecksum         String?
-  status                  ContentStatus                   @default(DRAFT)
-  archivedAt              DateTime?
-  sourceConfidence        Float?
-  formattingConfidence    Float?
-  qualityScore            Float?
-  theologicalReviewFlag   Boolean                         @default(false)
-  sourceTier              Int?
-  outcomeReason           String?
-  packageValidationStatus String?
-  packageValidationErrors String[]                        @default([])
-  contentPackageVersion   String?
-  publicRenderReady       Boolean                         @default(false)
-  isThresholdEligible     Boolean                         @default(false)
-  lastPackageValidatedAt  DateTime?
-  createdAt               DateTime                        @default(now())
-  updatedAt               DateTime                        @updatedAt
-  translations            SpiritualLifeGuideTranslation[]
-
-  @@index([status])
-  @@index([kind, status])
-  @@index([archivedAt])
-  @@index([publicRenderReady])
-  @@index([isThresholdEligible])
-  @@index([sacramentKey])
-  @@index([subtype])
-}
-
-model SpiritualLifeGuideTranslation {
-  id                String             @id @default(cuid())
-  guideId           String
-  locale            String
-  title             String
-  summary           String
-  bodyText          String?
-  steps             Json?
-  translationStatus TranslationStatus  @default(MACHINE)
-  translationEngine String?
-  checksum          String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  guide             SpiritualLifeGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
-
-  @@unique([guideId, locale])
-}
-
-model DailyLiturgy {
-  id           String        @id @default(cuid())
-  date         DateTime      @unique
-  season       String?
-  rank         String?
-  feastTitle   String?
-  readingsJson Json?
-  saintsJson   Json?
-  status       ContentStatus @default(DRAFT)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  @@index([date, status])
 }
 
 // ErrorLog captures runtime errors so they can be assembled into the
@@ -1185,147 +449,24 @@ model RateLimitBucket {
 /// and releases. The queue replaces the in-process scheduler for all
 /// non-interactive ingestion work and adds retries, exponential
 /// backoff, priority, leases, and stale-job recovery.
-model IngestionJobQueue {
-  id                String    @id @default(cuid())
-  sourceId          String?
-  jobId             String?
-  jobName           String
-  jobKind           String    @default("source_ingest")
-  contentType       String?
-  status            String    @default("pending")
-  priority          Int       @default(100)
-  attempts          Int       @default(0)
-  maxAttempts       Int       @default(5)
-  runAt             DateTime  @default(now())
-  startedAt         DateTime?
-  finishedAt        DateTime?
-  durationMs        Int?
-  leaseExpiresAt    DateTime?
-  leasedBy          String?
-  dedupeKey         String?
-  errorMessage      String?
-  lastError         String?
-  payload           Json?
-  triggeredBy       String    @default("automatic")
-  actorUsername     String?
-  sentToReviewAt    DateTime?
-  cancelRequestedAt DateTime?
-  cancelReason      String?
-  canceledAt        DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  @@index([status, priority, runAt])
-  @@index([sourceId])
-  @@index([status, leaseExpiresAt])
-  @@index([jobName, status])
-  @@index([dedupeKey])
-  @@index([jobKind, status])
-}
-
 /// Per-source / per-adapter / per-content-type cursor so ingestion
 /// can resume from the last successful checkpoint after a restart,
 /// deploy, crash, or timeout.
-model IngestionCursor {
-  id                   String    @id @default(cuid())
-  sourceId             String?
-  adapterKey           String
-  contentType          String?
-  cursorKey            String
-  lastPosition         String?
-  lastItemSlug         String?
-  lastFetchedAt        DateTime?
-  itemsProcessed       Int       @default(0)
-  completed            Boolean   @default(false)
-  exhaustedAt          DateTime?
-  lastFreshnessCheckAt DateTime?
-  metadata             Json?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
-
-  @@unique([adapterKey, cursorKey])
-  @@index([sourceId])
-}
-
 /// Batch-level progress for large content types. Each batch row
 /// tracks how many items were discovered, created, updated, skipped,
 /// rejected, archived, deduped, and failed.
-model IngestionBatch {
-  id          String    @id @default(cuid())
-  sourceId    String?
-  adapterKey  String
-  contentType String
-  batchKey    String
-  discovered  Int       @default(0)
-  created     Int       @default(0)
-  updated     Int       @default(0)
-  skipped     Int       @default(0)
-  rejected    Int       @default(0)
-  archived    Int       @default(0)
-  failed      Int       @default(0)
-  deduped     Int       @default(0)
-  status      String    @default("in_progress")
-  startedAt   DateTime  @default(now())
-  finishedAt  DateTime?
-  metadata    Json?
-
-  @@index([contentType, startedAt])
-  @@index([sourceId])
-}
-
 /// Every archive hard-delete writes one row here so cleanup is fully
 /// auditable. Pairs with the existing DataManagementLog (which captures
 /// the action) by adding the actual deletion timestamp + original
 /// archive timestamp + structured context.
-model ArchiveDeletionLog {
-  id            String    @id @default(cuid())
-  contentType   String
-  contentId     String
-  contentSlug   String?
-  archivedAt    DateTime?
-  deletedAt     DateTime  @default(now())
-  reason        String?
-  triggeredBy   String    @default("automatic")
-  actorUsername String?
-
-  @@index([contentType, deletedAt])
-  @@index([deletedAt])
-}
-
 /// Content version history for important updates (theology, official
 /// documents, saints, sacraments, doctrinal material). One row written
 /// per update so an admin can see what changed and decide whether the
 /// new version needs human review.
-model ContentVersion {
-  id                String    @id @default(cuid())
-  entityType        String
-  entityId          String
-  previousTitle     String?
-  previousBody      String?
-  previousChecksum  String?
-  previousStatus    String?
-  previousSource    String?
-  previousUpdatedAt DateTime?
-  changeSummary     String?
-  reviewRequired    Boolean   @default(false)
-  createdAt         DateTime  @default(now())
-
-  @@index([entityType, entityId, createdAt])
-}
-
 /// Per-domain rate bucket for ingestion fetches (separate from the
 /// web-request rate limiter). One row per upstream domain; the worker
 /// updates `lastRequestAt` and the next fetch waits at least
 /// requestSpacingMs since that timestamp.
-model IngestionRateBucket {
-  id               String    @id @default(cuid())
-  domain           String    @unique
-  windowStart      DateTime  @default(now())
-  requestsInWindow Int       @default(0)
-  lastRequestAt    DateTime?
-  updatedAt        DateTime  @updatedAt
-}
-
 /// Per-content-type pause toggle. Distinct from per-source / per-job
 /// pause: an admin can pause "all Saint ingestion across every source"
 /// without disabling specific jobs one by one. The worker checks for
@@ -1364,72 +505,11 @@ model WorkerHeartbeat {
 /// Processing jobs consume `pending` rows and update the status as
 /// they ingest, skip, reject, dedupe, or fail. Decouples discovery
 /// (find what's out there) from processing (turn it into a row).
-model DiscoveredSourceItem {
-  id            String    @id @default(cuid())
-  sourceId      String
-  adapterKey    String
-  contentType   String?
-  externalKey   String
-  sourceUrl     String?
-  discoveredAt  DateTime  @default(now())
-  status        String    @default("pending")
-  attempts      Int       @default(0)
-  maxAttempts   Int       @default(5)
-  processedAt   DateTime?
-  contentRef    String?
-  failureReason String?
-  metadata      Json?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  @@unique([sourceId, externalKey])
-  @@index([status])
-  @@index([sourceId, status])
-}
-
 /// robots.txt cache. Each domain's robots body lives here with an
 /// expiry — refetched only when the cached row is past expiresAt.
-model RobotsCache {
-  domain     String   @id
-  fetchedAt  DateTime @default(now())
-  expiresAt  DateTime
-  body       String?
-  lastStatus Int?
-
-  @@index([expiresAt])
-}
-
 /// Per-queue-row audit trail. One row per lifecycle event so a forensic
 /// reconstruction of "what happened to this job" is always possible.
-model QueueAuditLog {
-  id            String   @id @default(cuid())
-  jobQueueId    String?
-  event         String
-  fromStatus    String?
-  toStatus      String?
-  actorUsername String?
-  workerId      String?
-  reason        String?
-  metadata      Json?
-  createdAt     DateTime @default(now())
-
-  @@index([jobQueueId, createdAt])
-  @@index([event, createdAt])
-}
-
 /// Audit row for every source tier change.
-model SourceTierChange {
-  id            String   @id @default(cuid())
-  sourceId      String
-  previousTier  Int?
-  newTier       Int
-  reason        String
-  actorUsername String?
-  createdAt     DateTime @default(now())
-
-  @@index([sourceId, createdAt])
-}
-
 /// Normalized source document. Every fetched page becomes one of
 /// these rows. Builders read SourceDocument structures, never raw
 /// HTML — this is the boundary between "what we fetched" and "what
@@ -1437,109 +517,13 @@ model SourceTierChange {
 /// link arrays are stored as JSON so each builder can pull the
 /// section it needs and stamp field provenance back to the exact
 /// snippet a value came from.
-model SourceDocument {
-  id                 String   @id @default(cuid())
-  sourceId           String?
-  adapterKey         String?
-  discoveredItemId   String?
-  workerJobId        String?
-  ingestionBatchId   String?
-  sourceUrl          String   @unique
-  sourceHost         String
-  sourceTier         Int?
-  sourceTitle        String?
-  cleanedBody        String?
-  rawBody            String?
-  headingsJson       Json?
-  paragraphsJson     Json?
-  listsJson          Json?
-  tablesJson         Json?
-  linksJson          Json?
-  metadataJson       Json?
-  sourcePurposesJson Json?
-  fetchStatus        String   @default("ok")
-  httpStatus         Int?
-  etag               String?
-  lastModifiedHeader String?
-  contentChecksum    String?
-  cleanedChecksum    String?
-  language           String?
-  fetchedAt          DateTime @default(now())
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-
-  @@index([sourceId, fetchedAt])
-  @@index([sourceHost, fetchedAt])
-  @@index([workerJobId])
-  @@index([ingestionBatchId])
-  @@index([contentChecksum])
-  @@index([cleanedChecksum])
-}
-
 /// One row per package-build attempt — success or failure. Answers
 /// "why was this content not created?" on the admin dashboard.
 /// Rejected content lives in RejectedContentLog (after QA);
 /// build failures live here (before QA).
-model ContentPackageBuildLog {
-  id                  String   @id @default(cuid())
-  sourceDocumentId    String?
-  sourceUrl           String
-  sourceHost          String
-  contentType         String
-  builderName         String
-  builderVersion      String
-  buildStatus         String
-  candidateSlug       String?
-  extractedFieldsJson Json?
-  missingFieldsJson   Json?
-  provenanceJson      Json?
-  failureReason       String?
-  workerJobId         String?
-  ingestionBatchId    String?
-  contentRef          String?
-  createdAt           DateTime @default(now())
-
-  @@index([sourceDocumentId])
-  @@index([contentType, createdAt])
-  @@index([buildStatus, createdAt])
-  @@index([sourceHost, createdAt])
-  @@index([workerJobId])
-  @@index([ingestionBatchId])
-}
-
 /// Per-source / per-content-type rolling quality stats. Used by the
 /// planner to pause bad sources automatically and prioritise good
 /// ones. One row per (sourceId, contentType) pair.
-model SourceQualityScore {
-  id                  String    @id @default(cuid())
-  sourceId            String
-  contentType         String
-  discoveredCount     Int       @default(0)
-  fetchedCount        Int       @default(0)
-  buildSuccessCount   Int       @default(0)
-  buildFailureCount   Int       @default(0)
-  qaPassCount         Int       @default(0)
-  qaFailCount         Int       @default(0)
-  deletedCount        Int       @default(0)
-  duplicateCount      Int       @default(0)
-  wrongContentCount   Int       @default(0)
-  validPackageRate    Float?
-  wrongContentRate    Float?
-  averageCompleteness Float?
-  lastSuccessAt       DateTime?
-  lastFailureAt       DateTime?
-  lastFailureReason   String?
-  autoPaused          Boolean   @default(false)
-  autoPausedAt        DateTime?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
-
-  @@unique([sourceId, contentType])
-  @@index([sourceId])
-  @@index([contentType])
-  @@index([autoPaused])
-}
-
 /// Cross-source validation evidence. Sits between the builder and
 /// strict QA. A built package may pass only when every required
 /// field is either:
@@ -1552,66 +536,9 @@ model SourceQualityScore {
 /// presence of a `pass` row with high enough confidence for every
 /// required field means the cross-source rule for that content type
 /// is satisfied.
-model ContentValidationEvidence {
-  id                 String   @id @default(cuid())
-  /// Built package id when known (set after persistence) or the
-  /// candidate slug while still in the build phase.
-  packageId          String?
-  candidateSlug      String?
-  contentType        String
-  fieldName          String
-  /// Validation source URL — the document on the approved source
-  /// that contains the matching value.
-  sourceUrl          String
-  /// Host portion of `sourceUrl`. Repeated here so admin queries can
-  /// group by host without parsing the URL.
-  sourceHost         String
-  /// One of the EVIDENCE_TYPES values
-  /// (exact_text_match, title_match, feast_day_match, ...).
-  evidenceType       String
-  /// SHA-256 of the source snippet that produced the match. Lets us
-  /// re-verify that the source has not silently changed.
-  evidenceChecksum   String?
-  /// The actual value matched on the validation source side. May be
-  /// truncated for very long bodies.
-  matchedValue       String?
-  /// 0..1 confidence the validator assigned.
-  matchConfidence    Float    @default(1.0)
-  /// One of "pass", "fail", "insufficient_evidence".
-  validationDecision String
-  /// Optional human-readable reason — e.g. "Catholic.org feast day
-  /// matched within 1 day tolerance" or "no matching prayer text
-  /// found on Vatican.va".
-  reason             String?
-  /// Build log row that this evidence is tied to, when known.
-  buildLogId         String?
-  createdAt          DateTime @default(now())
-
-  @@index([packageId])
-  @@index([candidateSlug])
-  @@index([contentType, fieldName])
-  @@index([sourceHost])
-  @@index([validationDecision])
-}
-
 /// Per-day, per-source, per-content-type ingestion counters. Used by
 /// the planner to enforce daily caps and by admin reports to show
 /// daily ingestion volume.
-model DailyIngestionCounter {
-  id          String   @id @default(cuid())
-  day         DateTime @db.Date
-  sourceId    String?
-  contentType String?
-  enqueued    Int      @default(0)
-  processed   Int      @default(0)
-  failed      Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@unique([day, sourceId, contentType])
-  @@index([day])
-}
-
 /// Two-tier security event log. `Suspicious` events (warning signs)
 /// trigger a Suspicious Activity email; `Breach` events (active or
 /// attempted attack) trigger a Security Breach email and can issue a

@@ -460,8 +460,15 @@ async function ratingFormatting(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingCrossSource(prisma: PrismaClient): Promise<HealthRating> {
-  const recent = await prisma.contentValidationEvidence.count({
-    where: { createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } },
+  // Cross-source validation activity is observed via the
+  // VALIDATION-category log emitted by the build engine + post-publish
+  // verifier. ContentValidationEvidence was removed with the legacy
+  // ingestion tables in migration 0025_drop_legacy_system.
+  const recent = await prisma.adminWorkerLog.count({
+    where: {
+      category: "VALIDATION",
+      createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+    },
   });
   return {
     key: "admin_worker_cross_source",
@@ -469,8 +476,8 @@ async function ratingCrossSource(prisma: PrismaClient): Promise<HealthRating> {
     status: recent > 0 ? "pass" : "warn",
     score: recent > 0 ? 1 : 0.5,
     lastCheckedAt: new Date(),
-    dataSource: "ContentValidationEvidence",
-    summary: `${recent} validation evidence rows in last 7 days.`,
+    dataSource: "AdminWorkerLog (category=VALIDATION)",
+    summary: `${recent} validation log entries in last 7 days.`,
   };
 }
 

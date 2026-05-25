@@ -5,7 +5,7 @@ import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { LOCALE_LABELS, SUPPORTED_LOCALES } from "@/lib/i18n/locales";
 import { getProfileForUser } from "@/lib/data/profile";
-import { CATHOLIC_RITES, RITE_LABEL_KEYS } from "@/lib/content/rites";
+import { CATHOLIC_RITES, RITE_LABEL_KEYS } from "@/lib/content-shared/rites";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 import { ThemeAppearancePicker } from "./ThemeAppearancePicker";
 import { RitePicker } from "./RitePicker";
