@@ -4,20 +4,15 @@ import { requireUser } from "@/lib/auth";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { saveItem, unsaveItem, type SavedKind } from "@/lib/data/saved";
-import { getLocale } from "@/lib/i18n/server";
 
 const saveSchema = z.object({ id: z.string().min(1).max(64) });
 const unsaveSchema = z.object({ id: z.string().min(1).max(64) });
 
-export function makeSavedHandlers(
-  kind: SavedKind,
-  list: (userId: string, locale: Awaited<ReturnType<typeof getLocale>>) => Promise<unknown>,
-) {
+export function makeSavedHandlers(kind: SavedKind, list: (userId: string) => Promise<unknown>) {
   async function GET() {
     const user = await requireUser();
     if (!user) return jsonError("unauthorized");
-    const locale = await getLocale();
-    const items = await list(user.id, locale);
+    const items = await list(user.id);
     return jsonOk({ items });
   }
 

@@ -1,23 +1,17 @@
 /**
- * Public-gate flag spec pin.
+ * Public-gate spec pin (new world).
  *
- * The spec invariant: "Do not allow any feature to create public
- * content outside the content factory." The mechanism is three
- * gate flags on every catalog model:
+ * The legacy catalog models (Prayer, Saint, MarianApparition,
+ * Parish, Devotion, LiturgyEntry, SpiritualLifeGuide) and their
+ * three publish-gate booleans (publicRenderReady, isThresholdEligible,
+ * packageValidationStatus) were removed in migration
+ * 0025_drop_legacy_system. Public content now lives in a single
+ * `PublishedContent` table with one `isPublished` boolean. The
+ * Admin Worker engine's `publisher.ts` + `post-publish-probe.ts`
+ * own the publish gate at the code level.
  *
- *   * `publicRenderReady` — set true only by `persistBuiltPackage()`
- *     after strict QA accepts a built package.
- *   * `isThresholdEligible` — set true only by the same path.
- *   * `packageValidationStatus` — string-valued; "valid" only after
- *     the contract validator accepts.
- *
- * Catalog models in the schema (7 spec-content models in production):
- *   Prayer, Saint, MarianApparition, Parish, Devotion, LiturgyEntry,
- *   SpiritualLifeGuide.
- *
- * This test parses the Prisma schema and asserts each of those
- * models declares ALL THREE flags. A future migration that drops one
- * fails this test before it ships.
+ * This file pins the new contract so a future migration cannot
+ * silently drop the gate column.
  */
 
 import { readFileSync } from "node:fs";
@@ -33,52 +27,61 @@ function modelBlock(name: string): string {
   return match[1]!;
 }
 
-const CATALOG_MODELS = [
-  "Prayer",
-  "Saint",
-  "MarianApparition",
-  "Parish",
-  "Devotion",
-  "LiturgyEntry",
-  "SpiritualLifeGuide",
-] as const;
+describe("PublishedContent — single publish-gate column", () => {
+  const body = modelBlock("PublishedContent");
 
-const GATE_FLAGS = ["publicRenderReady", "isThresholdEligible", "packageValidationStatus"] as const;
+  it("declares isPublished", () => {
+    expect(/^\s+isPublished\b/m.test(body)).toBe(true);
+  });
 
-describe("Every catalog model declares the public-gate flags", () => {
-  for (const model of CATALOG_MODELS) {
-    const body = modelBlock(model);
-    for (const flag of GATE_FLAGS) {
-      it(`${model} declares ${flag}`, () => {
-        const re = new RegExp(`^\\s+${flag}\\b`, "m");
-        expect(re.test(body)).toBe(true);
-      });
-    }
+  it("isPublished defaults to false (publish requires explicit code path)", () => {
+    expect(body).toMatch(/isPublished\s+Boolean\s+@default\(false\)/);
+  });
+
+  it("isPublished is indexed (public reads filter by it)", () => {
+    expect(body).toMatch(/@@index\(\[isPublished\]\)/);
+  });
+
+  it("declares unpublishedAt for rollback bookkeeping", () => {
+    expect(/^\s+unpublishedAt\b/m.test(body)).toBe(true);
+  });
+});
+
+describe("Legacy catalog models are gone", () => {
+  const LEGACY_MODELS = [
+    "Prayer",
+    "Saint",
+    "MarianApparition",
+    "Parish",
+    "Devotion",
+    "LiturgyEntry",
+    "SpiritualLifeGuide",
+    "DailyLiturgy",
+  ];
+  for (const name of LEGACY_MODELS) {
+    it(`does not declare a legacy ${name} model`, () => {
+      const re = new RegExp(`model\\s+${name}\\s*\\{`);
+      expect(re.test(SCHEMA)).toBe(false);
+    });
   }
 });
 
-describe("publicRenderReady + isThresholdEligible default to false", () => {
-  // Catching a future migration that silently flips the default to
-  // `true` — that would publish every new row before strict QA runs.
-  for (const model of CATALOG_MODELS) {
-    const body = modelBlock(model);
-    it(`${model}.publicRenderReady defaults to false`, () => {
-      expect(body).toMatch(/publicRenderReady\s+Boolean\s+@default\(false\)/);
-    });
-    it(`${model}.isThresholdEligible defaults to false`, () => {
-      expect(body).toMatch(/isThresholdEligible\s+Boolean\s+@default\(false\)/);
-    });
-  }
-});
-
-describe("Both gate flags are indexed (query-on-render path)", () => {
-  for (const model of CATALOG_MODELS) {
-    const body = modelBlock(model);
-    it(`${model} indexes publicRenderReady`, () => {
-      expect(body).toMatch(/@@index\(\[publicRenderReady\]\)/);
-    });
-    it(`${model} indexes isThresholdEligible`, () => {
-      expect(body).toMatch(/@@index\(\[isThresholdEligible\]\)/);
+describe("Legacy ingestion tables are gone", () => {
+  const LEGACY_INGESTION = [
+    "IngestionSource",
+    "IngestionJob",
+    "IngestionJobRun",
+    "IngestionJobQueue",
+    "IngestionCursor",
+    "IngestionBatch",
+    "IngestionRateBucket",
+    "DailyIngestionCounter",
+    "DiscoveredSourceItem",
+  ];
+  for (const name of LEGACY_INGESTION) {
+    it(`does not declare a legacy ${name} model`, () => {
+      const re = new RegExp(`model\\s+${name}\\s*\\{`);
+      expect(re.test(SCHEMA)).toBe(false);
     });
   }
 });

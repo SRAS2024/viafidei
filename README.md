@@ -6,123 +6,60 @@
 
 **Live site: [etviafidei.com](https://etviafidei.com)**
 
-Via Fidei is a Next.js 15 application that pairs a public, reader-facing site
-with an authenticated admin console for curating Catholic content. Content is
-sourced only from approved Catholic publishers and verified at multiple stages
-before it reaches the public. The worker is an autonomous custodian: with a
-fresh database it fills the site by itself, drawing on a curated knowledge
-base of foundational Catholic content.
+Via Fidei is a Next.js 15 application that pairs a public reader-facing
+site with an authenticated admin console. Content is sourced only from
+approved Catholic publishers and verified at multiple stages before it
+reaches the public. The site is run by an autonomous **Admin Worker**:
+with a fresh database it fills the site by itself from a curated
+knowledge base of foundational Catholic content, monitors its own
+health, defends the admin surface, redesigns the homepage, and emails
+a monthly operations report.
 
 ---
 
-## Architecture: approved-checklist-first
+## Architecture
 
-Viafidei runs a **checklist-first content factory** — the only way new content
-reaches the public site. The legacy scrape-transform-clean pipeline has been
-replaced. Every published item flows through these five stages:
+Two systems run together:
 
-```
-   1. APPROVED SOURCE DISCOVERY
-        ↓
-   2. CHECKLIST APPROVAL (admin or autonomous worker)
-        ↓
-   3. INTELLIGENT WORKER BUILD (curated knowledge or live fetch)
-        ↓
-   4. QA VALIDATION (six-dimension scoring + publishing gate)
-        ↓
-   5. PUBLISH
-```
+1. **Checklist-first content factory** — `src/lib/worker/`.
+   The only way new content reaches the public site. Every
+   public-content row begins as a `ChecklistItem` (a row in the
+   master list of items the app intends to publish), gets one or
+   more `ChecklistCitation`s pointing at approved Catholic sources,
+   is built by the worker against a strict per-content-type schema,
+   is scored on six QA dimensions, and is finally written to
+   `PublishedContent` — the single table every public page reads
+   from.
 
-### 1. Approved source discovery
-
-Sources are listed in `src/lib/worker/sources/authority-registry.ts` (16
-approved hosts at last count). Each authority has a level: VATICAN, CATECHISM,
-LITURGICAL_BOOK, USCCB, DIOCESAN, RELIGIOUS_ORDER, TRUSTED_PUBLISHER, ACADEMIC,
-COMMUNITY. **The worker physically refuses to fetch any URL whose host is not
-on this list.** Admins can add new sources via the admin UI; the seed script
-writes them into the `AuthoritySource` table.
-
-### 2. Checklist approval
-
-Eleven master checklists, in `src/lib/worker/checklists/`, define every item
-the app intends to publish — **191 items in total**:
-
-| Checklist           | Count | File                                               |
-| ------------------- | ----- | -------------------------------------------------- |
-| Prayers             | 33    | `src/lib/worker/checklists/prayers.ts`             |
-| Saints              | 30    | `src/lib/worker/checklists/saints.ts`              |
-| Liturgical topics   | 21    | `src/lib/worker/checklists/liturgical.ts`          |
-| Church documents    | 19    | `src/lib/worker/checklists/church-documents.ts`    |
-| Devotions           | 17    | `src/lib/worker/checklists/devotions.ts`           |
-| Marian titles       | 16    | `src/lib/worker/checklists/marian-titles.ts`       |
-| Guides              | 14    | `src/lib/worker/checklists/guides.ts`              |
-| Novenas             | 12    | `src/lib/worker/checklists/novenas.ts`             |
-| Spiritual practices | 12    | `src/lib/worker/checklists/spiritual-practices.ts` |
-| Apparitions         | 10    | `src/lib/worker/checklists/apparitions.ts`         |
-| Sacraments          | 7     | `src/lib/worker/checklists/sacraments.ts`          |
-
-Every checklist item moves through a lifecycle tracked on its row:
+2. **Admin Worker engine** — `src/lib/admin-worker/`.
+   The autonomous administrator that drives the checklist-first
+   factory plus everything around it: source discovery, content
+   goals, publishing safety, post-publish verification, homepage
+   redesign, security defense, diagnostics, reporting, and self-
+   repair. Fully coded, deterministic, observable, and operates
+   without any AI APIs.
 
 ```
-DISCOVERED → SOURCE_VERIFIED → APPROVED_FOR_BUILD →
-BUILT → QA_PENDING → APPROVED → PUBLISHED
+   ┌─────────────────────────────────────────────────────────────┐
+   │                       Admin Worker engine                    │
+   │                  (src/lib/admin-worker/)                     │
+   │   planner → web navigator → web checkers → ...               │
+   │   ┌──────────────────────────────────────────────────────┐   │
+   │   │       Checklist-first content factory                │   │
+   │   │  ChecklistItem → WorkerBuildJob → ChecklistQAReport  │   │
+   │   │            → PublishedContent (public)               │   │
+   │   └──────────────────────────────────────────────────────┘   │
+   └─────────────────────────────────────────────────────────────┘
 ```
 
-with side-branches for `REJECTED` and `NEEDS_HUMAN_REVIEW`.
-
-### 3. Intelligent worker build
-
-The worker (`src/lib/worker/`) is **self-sufficient, intelligent, and
-schema-driven**:
-
-- Loads the approved checklist item and its verified citations.
-- Fetches every source via `fetchApprovedSource()` (host-allowlist enforced).
-- Extracts candidate values per field using a type-specific extractor.
-- Reconciles across sources: higher authority wins, agreement raises
-  confidence, conflict at the same level raises `needsHumanReview`.
-- Refuses to invent doctrine, feast days, indulgences, titles, apparitions,
-  or promises — any required field without source provenance is rejected.
-- Generates a canonical slug, runs duplicate detection, and stamps source
-  provenance onto every field.
-- Validates the final payload against the strict Zod schema for the content
-  type (see `src/lib/worker/schemas/`).
-- Emits a structured `WorkerBuildLog` row per step and a confidence number
-  per build.
-- Retries failed builds with exponential backoff; preserves partial results
-  via `partialPayload` so a build does not have to restart from scratch.
-
-### 4. QA validation
-
-Every build runs through `runQA()` in `src/lib/worker/qa/index.ts`, which
-scores six dimensions:
-
-| Dimension      | What it measures                                |
-| -------------- | ----------------------------------------------- |
-| completeness   | Every required field populated                  |
-| accuracy       | Catholic-accuracy guardrails pass               |
-| sourceCoverage | Minimum citations met                           |
-| formatting     | No script tags, no broken whitespace            |
-| readability    | Average word length plausible                   |
-| appCompat      | Payload validates against the strict Zod schema |
-
-The aggregate score plus the issue list produce a recommendation:
-**publish**, **review**, or **reject**. The QA report is persisted in
-`ChecklistQAReport` for every build attempt.
-
-### 5. Publishing gate
-
-`publish()` in `src/lib/worker/publishing/index.ts` is the **single
-chokepoint** between the worker and the public site. It refuses to publish
-unless QA passed AND no human review is required (admins can force a bypass).
-Successful publish writes a `PublishedContent` row (the only table the public
-site reads from) and a `ChecklistVersion` snapshot for rollback.
+The public site reads only from `PublishedContent`. There is no other
+code path from the database to a public page.
 
 ---
 
-## Data model (overview)
+## Data model
 
-The new checklist-first models live alongside (and replace the content roles
-of) the legacy `Prayer`, `Saint`, `Devotion`, etc. tables.
+**Checklist-first factory** (`src/lib/worker/`):
 
 | Model               | Role                                                  |
 | ------------------- | ----------------------------------------------------- |
@@ -136,6 +73,42 @@ of) the legacy `Prayer`, `Saint`, `Devotion`, etc. tables.
 | `ChecklistRelation` | Typed relations (saint→feast day, devotion→prayer, …) |
 | `PublishedContent`  | The only table the public site reads from             |
 
+**Admin Worker engine** (`src/lib/admin-worker/`):
+
+| Model                         | Role                                                  |
+| ----------------------------- | ----------------------------------------------------- |
+| `AdminWorkerState`            | Singleton: current mode, priority, pause toggle       |
+| `AdminWorkerPass`             | One row per decide-then-act cycle of the loop         |
+| `AdminWorkerTask`             | Planned action; produces one or more log rows         |
+| `AdminWorkerLog`              | Structured engine log (16 categories)                 |
+| `AdminWorkerMemory`           | Outcome counts + confidence — no invented facts       |
+| `AdminWorkerSourceReputation` | Rolling per-(host, contentType) reputation tier       |
+| `AdminWorkerDecision`         | Every major decision with inputs + chosen action      |
+| `AdminWorkerSecurityAction`   | Defender actions taken in response to security events |
+| `CandidateSourceUrl`          | URLs the web navigator has discovered                 |
+| `ContentGoal`                 | Per-content-type minimum + desired targets            |
+| `HumanReviewQueue`            | Rare items needing human review                       |
+| `HomepageWorkerDraft`         | Proposed homepage edits with before/after snapshots   |
+| `AdminDeveloperReportLog`     | Audit trail of every Developer Audit PDF generated    |
+| `PostPublishVerification`     | Public-page load + cache + sitemap + search check     |
+| `ContentQualityScore`         | Deterministic per-package quality score               |
+| `HomepageQualityScore`        | Deterministic homepage score (8 dimensions)           |
+
+**User + site** (unchanged):
+
+`User`, `Session`, `Profile`, `JournalEntry`, `Goal`,
+`GoalChecklistItem`, `Milestone`, `UserSavedContent` (consolidated
+saved-content table keyed on `(userId, contentType, slug)`),
+`MediaAsset`, `EntityMediaLink`, `SiteSetting`, `HomePage`,
+`HomePageBlock`, `Category`, `Tag`, `EntityTag`.
+
+**Security + admin** (unchanged):
+
+`SecurityEvent`, `BannedDevice`, `DiagnosticSnapshot`,
+`AdminAuditLog`, `AdminActionLog`, `AdminNotificationState`,
+`RateLimitBucket`, `ErrorLog`, `PasswordResetToken`,
+`EmailVerificationToken`.
+
 See `prisma/schema.prisma` for the full definitions.
 
 ---
@@ -143,317 +116,231 @@ See `prisma/schema.prisma` for the full definitions.
 ## Running locally
 
 ```bash
-# Install deps and generate Prisma client
+# Install deps and generate the Prisma client
 npm install
 
-# Push the schema and seed authority sources + master checklists
-npm run db:push
+# Apply migrations to a local Postgres
+npx prisma migrate deploy
+
+# Seed the master checklists + authority sources
 npm run seed:checklist
 
-# Start the dev server
+# Run the public site (port 3000)
 npm run dev
 
-# In a separate terminal, run the worker
+# Run the Admin Worker in another terminal
 npm run worker
 ```
 
-Useful scripts:
+Required environment variables (production):
 
-| Script                            | What it does                                                            |
-| --------------------------------- | ----------------------------------------------------------------------- |
-| `npm run dev`                     | Start the Next.js dev server on :3000                                   |
-| `npm run build`                   | Production build (`prisma generate && next build`)                      |
-| `npm run start`                   | Start the production server                                             |
-| `npm run worker`                  | Loop forever, draining the build queue + autonomous promotion when idle |
-| `npm run worker:once`             | Run one build cycle and exit                                            |
-| `npm run seed:checklist`          | Sync authority sources + master checklists (idempotent)                 |
-| `npm run migrate:checklist-first` | Migrate legacy data into the new tables (idempotent)                    |
-| `npm run db:push`                 | Push the Prisma schema to the database                                  |
-| `npm run db:migrate`              | Apply Prisma migrations                                                 |
-| `npm run db:validate`             | Verify the schema is wired correctly                                    |
-| `npm run typecheck`               | `tsc --noEmit`                                                          |
-| `npm run lint`                    | ESLint                                                                  |
-| `npm run format` / `format:check` | Prettier                                                                |
-| `npm test`                        | Vitest unit + component + worker tests                                  |
-| `npm run test:integration`        | Real-DB integration tests (`VITEST_INTEGRATION=1`)                      |
-| `npm run test:e2e`                | Playwright end-to-end                                                   |
-| `npm run verify`                  | typecheck + lint + format:check + tests                                 |
-| `npm run verify:full`             | The above + integration + e2e + build                                   |
+| Variable         | Purpose                            |
+| ---------------- | ---------------------------------- |
+| `DATABASE_URL`   | Postgres connection string         |
+| `SESSION_SECRET` | 32+ char iron-session secret       |
+| `ADMIN_USERNAME` | Admin console username             |
+| `ADMIN_PASSWORD` | Admin console password (12+ chars) |
 
-### Notable runtime dependencies
+Optional environment variables:
 
-- **Next.js 15** (`next`) — application framework.
-- **Prisma 5** (`@prisma/client`, `prisma`) — Postgres ORM and migrations.
-- **Zod** (`zod`) — strict content schemas.
-- **pdfkit** (`pdfkit`) — server-side PDF generation for the Developer
-  Audit download.
-- **argon2** — password hashing.
-- **iron-session** — admin session cookies.
+| Variable          | Purpose                                                |
+| ----------------- | ------------------------------------------------------ |
+| `RESEND_API_KEY`  | Enables transactional + admin emails                   |
+| `ADMIN_EMAIL`     | Destination for Admin Worker monthly + security emails |
+| `PUBLIC_BASE_URL` | Base URL the post-publish probe fetches from           |
+| `WORKER_ID`       | Stable id for this worker process (auto-generated)     |
 
 ---
 
 ## Admin UI
 
-The admin home page (`/admin`) renders a card grid that links to every part
-of the system. The cards include:
+`/admin` renders a card grid grouped into four sections:
 
-| Card                | Route                              | Purpose                                   |
-| ------------------- | ---------------------------------- | ----------------------------------------- |
-| Checklist dashboard | `/admin/checklist`                 | Main pane of glass — counts, bulk actions |
-| System diagnostics  | `/admin/diagnostics`               | Live health + developer audit             |
-| Worker build queue  | `/admin/checklist/queue`           | Live build job state                      |
-| QA reports          | `/admin/checklist/qa`              | Unreviewed reports                        |
-| Published content   | `/admin/checklist/published`       | Items live on the public site             |
-| Approved sources    | `/admin/checklist/sources`         | Authority registry                        |
-| Janitor: edits      | `/admin/checklist/janitor/edits`   | Items the worker wants to rebuild         |
-| Janitor: deletes    | `/admin/checklist/janitor/deletes` | Items the worker wants to remove          |
-| Failed builds       | `/admin/checklist/failed`          | Exhausted retry budgets                   |
-| Homepage editor     | `/admin/homepage`                  | Public homepage mirror                    |
-| Search index        | `/admin/search`                    | Search                                    |
-| Media library       | `/admin/media`                     | Image assets                              |
-| Logs                | `/admin/logs`                      | Application logs                          |
-| User accounts       | `/admin/users`                     | Registered users                          |
-| Audit log           | `/admin/audit`                     | Admin actions                             |
+**Admin Worker (autonomous system):**
 
-### Checklist dashboard (`/admin/checklist`)
+| Card               | Route                       | Purpose                                               |
+| ------------------ | --------------------------- | ----------------------------------------------------- |
+| Command Center     | `/admin/admin-worker`       | Status, controls, content goals, metrics              |
+| System diagnostics | `/admin/diagnostics`        | 27 ratings, pass breakdown, pause toggle, Dev Report  |
+| Admin Worker logs  | `/admin/admin-worker/logs`  | 16-category log viewer with period + severity filters |
+| Admin Worker rules | `/admin/admin-worker/rules` | Versioned rule catalogue                              |
 
-The single pane of glass for the content factory. It shows:
+**Checklist (content the worker builds):**
 
-- Counts by approval status and by content type.
-- **Bulk action buttons** at the top — always clickable (a lighter shade
-  when there is nothing to do):
-  - **Verify all** (indigo) — flips every DISCOVERED item that has at
-    least one approved citation to SOURCE_VERIFIED.
-  - **Build all** (emerald) — approves and enqueues every
-    SOURCE_VERIFIED item; pulses ⚡ when verification just completed
-    and only the build step remains.
-  - **⚡ Run autonomous cycle** (purple) — runs the full custodian
-    pipeline in-process: bootstrap citations from the knowledge base,
-    promote, build, publish, up to 50 builds per call.
-  - **Reject all discovered** (rose) — prompts for a reason and rejects
-    every DISCOVERED item.
-- Discovered / Source verified / Approved for build / Queue pending /
-  QA pending / Published / Failed builds / Needs human review cards.
-- Per-item detail at `/admin/checklist/item/[id]` with full citations,
-  build history, QA reports, version history, relations, and manual
-  actions (verify, approve, rebuild, publish, unpublish, reject, add
-  citation).
+| Card                | Route                              | Purpose                               |
+| ------------------- | ---------------------------------- | ------------------------------------- |
+| Checklist dashboard | `/admin/checklist`                 | Counts by status + type, bulk actions |
+| Build queue         | `/admin/checklist/queue`           | Live `WorkerBuildJob` state           |
+| QA reports          | `/admin/checklist/qa`              | Unreviewed reports                    |
+| Published content   | `/admin/checklist/published`       | Items live on the public site         |
+| Approved sources    | `/admin/checklist/sources`         | Authority registry                    |
+| Janitor: edits      | `/admin/checklist/janitor/edits`   | Items the worker wants to rebuild     |
+| Janitor: deletes    | `/admin/checklist/janitor/deletes` | Items the worker wants to remove      |
+| Failed builds       | `/admin/checklist/failed`          | Exhausted retry budgets               |
 
-### Diagnostics page (`/admin/diagnostics`)
+**Site surfaces:**
 
-Colour-coded live health status for every part of the system. Twelve
-live checks cover: database connectivity, schema registration, checklist
-seed completeness, authority source registry, curated knowledge base,
-autonomous progress (published-vs-total percentage), worker queue,
-QA pipeline, publishing health, published-content coverage per type,
-worker activity in the last 24h, and janitor findings. The header
-exposes four controls:
+| Card            | Route             | Purpose                |
+| --------------- | ----------------- | ---------------------- |
+| Homepage editor | `/admin/homepage` | Public homepage mirror |
+| Search index    | `/admin/search`   | Search                 |
+| Media library   | `/admin/media`    | Image assets           |
 
-1. **Period selector + Download Developer Audit (PDF)** (emerald) —
-   downloads the full audit for the last 24 hours, 7 days, or 30 days.
-2. **⚡ Run autonomous now** (purple) — kicks one full custodian cycle
-   in-process from the diagnostics view: bootstrap citations, promote,
-   build, publish.
-3. **Developer report** (indigo) — generates the same audit as Markdown
-   and copies it to the clipboard.
-4. **← dashboard** — back link.
+**Admin operations:**
 
-### Admin API routes
-
-All require an authenticated admin principal.
-
-| Route                                               | Method   | Purpose                                |
-| --------------------------------------------------- | -------- | -------------------------------------- |
-| `/api/admin/checklist/[id]/verify-sources`          | POST     | Mark single item SOURCE_VERIFIED       |
-| `/api/admin/checklist/[id]/approve`                 | POST     | Approve single item for build          |
-| `/api/admin/checklist/[id]/rebuild`                 | POST     | Re-enqueue single item                 |
-| `/api/admin/checklist/[id]/publish`                 | POST     | Force-publish single item              |
-| `/api/admin/checklist/[id]/unpublish`               | POST     | Unpublish single item                  |
-| `/api/admin/checklist/[id]/reject`                  | POST     | Reject single item                     |
-| `/api/admin/checklist/[id]/add-citation`            | POST     | Attach an approved citation            |
-| `/api/admin/checklist/janitor/[id]`                 | POST     | Accept / dismiss a janitor finding     |
-| `/api/admin/checklist/bulk/verify-all`              | POST     | Verify every DISCOVERED item           |
-| `/api/admin/checklist/bulk/build-all`               | POST     | Build every SOURCE_VERIFIED item       |
-| `/api/admin/checklist/bulk/reject-all`              | POST     | Bulk reject by status / content type   |
-| `/api/admin/checklist/bulk/run-autonomous`          | POST     | One full autonomous custodian cycle    |
-| `/api/admin/checklist/seed`                         | POST     | Re-seed authority sources + checklists |
-| `/api/admin/checklist/worker-run`                   | POST     | Run one worker cycle in-process        |
-| `/api/admin/diagnostics`                            | GET/POST | Live diagnostics + Markdown report     |
-| `/api/admin/diagnostics/developer-audit?period=...` | GET      | Download Developer Audit PDF           |
-
-### Diagnostic status colour scheme
-
-- **Green** — pass: the part is healthy.
-- **Yellow** — warn: the part is degraded but functioning.
-- **Red** — fail: the part is broken; the status badge is white-on-red and
-  the row uses black-on-red highlighting for high visibility.
-
-## The autonomous custodian
-
-The worker is the site's custodian. It is its own admin: it bootstraps,
-verifies, approves, builds, and publishes content without needing human
-clicks. It runs a continuous five-step cycle:
-
-1. **Curated knowledge bootstrap.** The worker ships with a curated
-   knowledge base in `src/lib/worker/knowledge/` containing canonical
-   text for **117 of the most foundational Catholic items**: every one
-   of the seven sacraments with theology, matter, form, minister,
-   effects, and CCC references; the foundational prayers (Our Father,
-   Hail Mary, Glory Be, both Creeds, the Acts of Faith / Hope / Love /
-   Contrition, Memorare, Angelus, Regina Caeli, Salve Regina, Prayer to
-   St. Michael, Morning Offering, Grace before/after meals, Anima
-   Christi, Magnificat, Confiteor, Te Deum, Veni Creator Spiritus,
-   Divine Praises, Prayer of St. Francis); 21 saints with feast day and
-   biography; the four defined Marian dogmas; five approved Marian
-   apparitions; five novenas with all nine days written out; the major
-   liturgical solemnities and seasons plus the structure of the Roman
-   Rite Mass; eight spiritual practices; the Rosary, Confession, and
-   Examination-of-Conscience step-by-step guides; the most influential
-   devotions; and eleven Vatican documents (CCC, Lumen Gentium,
-   Dei Verbum, Sacrosanctum Concilium, Gaudium et Spes, Humanae Vitae,
-   Veritatis Splendor, Evangelium Vitae, Deus Caritas Est, Laudato Si',
-   Evangelii Gaudium). When an item has no admin-attached citations,
-   the worker self-cites from this registry — so the site fills itself
-   starting from a fresh database.
-
-   The curated knowledge base by content type:
-
-   | Type                | Curated entries |
-   | ------------------- | --------------- |
-   | Prayers             | 24              |
-   | Saints              | 21              |
-   | Liturgical          | 18              |
-   | Church documents    | 11              |
-   | Marian titles       | 8               |
-   | Spiritual practices | 8               |
-   | Devotions           | 7               |
-   | Sacraments          | 7               |
-   | Novenas             | 5               |
-   | Apparitions         | 5               |
-   | Guides              | 3               |
-
-2. **Autonomous promotion.** When the build queue is idle, the worker
-   advances DISCOVERED → SOURCE_VERIFIED (any item with at least one
-   approved citation) → APPROVED_FOR_BUILD (any item whose schema does
-   not mandate human review and has enough citations). APPARITION items
-   are never auto-promoted past SOURCE_VERIFIED because Church approval
-   status is doctrinally significant.
-
-3. **Curated build short-circuit.** When the build engine processes an
-   item with a curated knowledge entry, it uses the curated payload
-   directly. This gives production-quality content with confidence 0.95
-   even when network fetches fail.
-
-4. **Self-publishing.** Every successful build attempts to publish. The
-   publishing gate refuses anything QA rejected. Packages flagged for
-   review that meet the confidence bar (≥0.75) and have not hard-failed
-   QA are auto-published; lower-confidence packages stay in QA_PENDING
-   for an admin.
-
-5. **Janitor.** Walks published and built content and surfaces edit /
-   delete recommendations on `/admin/checklist/janitor/edits` and
-   `/admin/checklist/janitor/deletes`.
-
-The admin can also kick this whole cycle manually via the **⚡ Run
-autonomous cycle** button on the dashboard (purple, sits next to the
-Verify / Build / Reject buttons). It calls
-`/api/admin/checklist/bulk/run-autonomous` and runs one full cycle:
-bootstrap citations → promote → drain up to 50 build jobs.
-
-The worker has no off switch for its accuracy guards: it never invents
-content, never publishes uncited required fields, and never accepts a
-source outside the authority registry.
-
-### Developer Audit (PDF)
-
-The diagnostics page (`/admin/diagnostics`) has a **Download Developer
-Audit (PDF)** button at the top right with a period selector —
-**Last 24 hours**, **Last 7 days**, or **Last 30 days**. The PDF bundles:
-
-- Diagnostics snapshot (current state of every system part)
-- Every QA report from the period
-- Every worker build log line from the period
-- Every build job from the period
-- Curated knowledge base availability by content type
-- System overview: checklist counts, published-content counts, knowledge total
-
-It's served from `GET /api/admin/diagnostics/developer-audit?period=24h|week|month`,
-generated server-side with **pdfkit**, and downloaded by the browser as
-a timestamped PDF file. The smaller **Developer report** button next to
-it produces the same content as Markdown and copies it to the clipboard.
+| Card          | Route          | Purpose          |
+| ------------- | -------------- | ---------------- |
+| Logs          | `/admin/logs`  | Application logs |
+| User accounts | `/admin/users` | Registered users |
+| Audit log     | `/admin/audit` | Admin actions    |
 
 ---
 
-## Migration from the legacy system
+## Admin Worker
 
-If you have data from the old scraper-first pipeline, run:
+The **Admin Worker** is the autonomous website-administrator system.
+It is fully coded, deterministic, durable, observable, and autonomous,
+and it operates **without any AI APIs**. Code lives under
+`src/lib/admin-worker/`; the operator-facing surface is at
+`/admin/admin-worker` (Command Center) and `/admin/diagnostics` (27
+health ratings + pause toggle).
 
-```bash
-npm run migrate:checklist-first
-```
+### What it does
 
-This:
+- **Discovers approved Catholic source URLs** — all 7 spec-listed
+  discovery methods work end-to-end: sitemap, RSS / Atom, configured
+  fixed URL lists, source internal links, Catholic content
+  directories, source search pages, and registered API adapters.
+  Junk URLs (livestreams, donations, bulletins, store pages, event
+  listings, …) are rejected before fetch.
+- **Reads source pages** and extracts Catholic content using the
+  existing fetcher + per-content-type Zod schemas.
+- **Validates correctness** against schema + per-type packaging
+  validators (Prayer, Saint, Marian Apparition, Devotion, Novena
+  Day 1–9, Rosary mystery sets, Consecration daily structure,
+  Sacrament, Church History — only 12 approved types — Liturgy,
+  Parish).
+- **Formats and publishes** valid content automatically when QA +
+  quality score + source evidence + confidence all pass; humans only
+  see ambiguous edge cases.
+- **Verifies the public page** after every publish: HTTP-fetches the
+  public URL, checks the title and body marker, triggers cache /
+  sitemap / search revalidation. On failure, automatically
+  unpublishes and either deletes (clear failure) or files a human
+  review row (ambiguous failure).
+- **Maintains the homepage** — deterministic 8-dimension scoring +
+  proper liturgical-calendar engine (Meeus algorithm for Easter,
+  Advent / Christmas / Lent / Triduum / Easter / Ordinary Time, with
+  flags for Marian feasts + months). Small high-confidence changes
+  auto-publish, major redesigns route to review, section deletion
+  always routes to review.
+- **Monitors diagnostics** (27 health ratings) and surfaces them on
+  `/admin/diagnostics` with pass / warn / fail badges and links to
+  underlying data.
+- **Creates Developer Audit PDFs** for the last 24 hours, 7 days,
+  or 30 days. Table of contents + 7 sections (Diagnostics Results,
+  Worker Logs, System Logs, Security Logs, Content Growth and
+  Publishing, Homepage Actions, Recommended Repairs) with secret
+  redaction.
+- **Defends the admin site**. Detects brute force, suspicious
+  request bursts, banned-device reuse, attempts to bypass admin
+  authentication, attempts to set public-content flags outside the
+  worker, attempts to manipulate internal content routes. Only
+  confirmed brute force results in an automatic device ban
+  (BannedDevice row + Admin Worker Banned Device email). A valid
+  authenticated admin login is never treated as suspicious — the
+  admin gets a calm Admin Log In email confirming the sign-in with
+  device + location.
+- **Sends monthly worker reports** to `ADMIN_EMAIL` on the last day
+  of each month with a PDF attachment containing per-day sections
+  and a monthly summary. Handles February + shorter months.
+- **Learns operationally** — outcome counts + confidence scoring +
+  EWMA-smoothed source reputation. The learning system never
+  invents facts, never bypasses QA, and never creates content
+  without source evidence. Bad sources are paused automatically;
+  good sources promoted automatically.
+- **Repairs itself** — 13 repair handlers covering heartbeat
+  staleness, stuck queue, missing source jobs, discovery gaps,
+  fetch backoff, chronic-failure source pause, missing QA fields,
+  validation evidence gaps, persistence failures, public display
+  failures, and cache / sitemap / search refresh.
 
-1. Seeds the new authority registry + master checklists.
-2. Imports every legacy `Prayer`, `Saint`, `Devotion`, `MarianApparition`,
-   `LiturgyEntry`, and `SpiritualLifeGuide` row into the new `ChecklistItem`
-   and `PublishedContent` tables.
-3. Removes legacy `IngestionJobQueue` rows that point at the old worker.
+### Internal modules
 
-The migration is idempotent: running it again is safe.
+`src/lib/admin-worker/` ships every spec-required module:
 
----
+| File                         | Module                                  |
+| ---------------------------- | --------------------------------------- |
+| `planner.ts`                 | Source / content planner                |
+| `web-navigator.ts`           | Web navigator + junk-URL classifier     |
+| `sitemap-discovery.ts`       | Sitemap discovery + robots.txt          |
+| `rss-discovery.ts`           | RSS / Atom feed discovery               |
+| `configured-urls.ts`         | Configured fixed URL list discovery     |
+| `internal-link-discovery.ts` | Internal-link discovery                 |
+| `directory-discovery.ts`     | Catholic content directory discovery    |
+| `search-page-discovery.ts`   | Approved-source search-page discovery   |
+| `source-apis.ts`             | Official source API adapter registry    |
+| `publisher.ts`               | Publishing gate + confidence thresholds |
+| `publish-safety.ts`          | Pattern blockers (incomplete prayers, … |
+| `packaging.ts`               | Per-content-type structural validators  |
+| `post-publish-probe.ts`      | Live HTTP probe + auto-rollback         |
+| `post-publish.ts`            | Aggregation + rollback decision         |
+| `homepage-designer.ts`       | Homepage scoring + draft decision       |
+| `homepage-mutator.ts`        | Builds proposed homepage snapshots      |
+| `liturgical-calendar.ts`     | Meeus-based liturgical calendar engine  |
+| `security-defender.ts`       | Defender + automatic ban + email        |
+| `security-detectors.ts`      | 10 deterministic detector functions     |
+| `cleanup.ts`                 | Cleanup custodian                       |
+| `diagnostics.ts`             | 27-rating diagnostics auditor           |
+| `report-generator.ts`        | Developer Audit data collection         |
+| `pdf.ts`                     | Real PDF rendering for both reports     |
+| `monthly-report-job.ts`      | Last-day-of-month gate + run            |
+| `learning.ts`                | Feedback loop (success/failure counts)  |
+| `memory.ts`                  | Learning memory store                   |
+| `source-reputation.ts`       | EWMA-smoothed reputation engine         |
+| `source-strategy.ts`         | 10-criteria source ranking              |
+| `repair.ts`                  | 13 self-repair handlers                 |
+| `rules.ts`                   | 12 versioned rules across 11 categories |
+| `decisions.ts`               | Decision log + confidence thresholds    |
+| `health.ts`                  | Worker health monitor                   |
+| `metrics.ts`                 | Command Center metric computation       |
+| `loop.ts`                    | Central decision loop + mode dispatch   |
+| `state.ts`                   | Singleton state + pause/resume          |
+| `modes.ts`                   | 9 mode descriptors                      |
+| `priorities.ts`              | Priority ladder + selector              |
+| `passes.ts`                  | Pass lifecycle                          |
+| `tasks.ts`                   | Task management                         |
+| `logs.ts`                    | Structured AdminWorkerLog writer        |
+| `human-review.ts`            | Rare-edge-case review queue             |
+| `deletion.ts`                | Confidence-gated deletion + 9 reasons   |
+| `quality.ts`                 | Content quality scoring                 |
+| `public-routes.ts`           | Public URL builder + cache tag mapping  |
 
-## Catholic accuracy rules
+### Pause + override
 
-The worker treats Catholic accuracy as a hard constraint:
+The human admin is the site's super-admin. They can pause the Admin
+Worker at any time via the toggle on `/admin/diagnostics` (directly
+above the Developer Report button). Pausing stops all non-security
+work — the security defender keeps running so the site is never
+unprotected.
 
-- **No invented doctrine, feast days, indulgences, titles, apparitions, or
-  promises.** Any required field without source provenance triggers an
-  accuracy warning and bars publication.
-- **Vatican.va beats USCCB beats diocesan beats trusted publishers.**
-  Conflicts at the same level flag human review.
-- **Apparitions default to "needs human review"** because Church approval
-  status is doctrinally significant.
-- **The seven sacraments are the only sacraments.** The schema enforces this.
-- **Novenas must have exactly nine days.** The schema enforces this.
-- **Indulgences require an Apostolic Penitentiary or Vatican citation.** No
-  citation, no indulgence claim.
+When paused, the Admin Worker writes a single "Admin Worker is paused
+(reason)" log entry per pass and skips the rest of the loop. Resume
+the worker via the same toggle.
 
-These rules live in code, not in policy documents — see the `accuracyRules`
-field on each `BuildInstruction` in `src/lib/worker/schemas/`.
+### Modes
 
----
+The loop runs in exactly one mode at a time:
 
-## Testing
-
-```bash
-npm test                  # vitest unit/integration tests (918+ tests)
-npm run test:integration  # integration tests (separate DB)
-npm run test:e2e          # Playwright end-to-end
-```
-
-The worker module has its own test directory at `tests/worker/` with focused
-coverage across 16 files:
-
-- `source-validation.test.ts` — authority registry + fetch host gate.
-- `schema-compliance.test.ts` — every Zod schema accepts/rejects correctly.
-- `duplicate-detection.test.ts` — slug + alias + normalized-name matching.
-- `qa-approval.test.ts` — six-dimension scoring + publishing-gate behavior.
-- `cross-source.test.ts` — authority-weighted reconciliation.
-- `build-engine.test.ts` — extractor + accuracy-guard behavior.
-- `build-queue.test.ts` — lease + retry-with-backoff + partial save.
-- `relations.test.ts` — typed relationship extraction.
-- `publishing.test.ts` — gate refuses bad packages, versions on republish.
-- `checklists.test.ts` — every master checklist is well-formed.
-- `catholic-accuracy.test.ts` — Catholic-accuracy guards in code.
-- `bulk-actions.test.ts` — verify-all / build-all / bulk-reject helpers.
-- `janitor.test.ts` — janitor edit/delete recommendations.
-- `autonomous.test.ts` — autonomous promotion pipeline.
-- `knowledge.test.ts` — curated knowledge base validates and is complete.
-- `diagnostics.test.ts` — system health checks + developer report.
-- `end-to-end-build.test.ts` — engine guard accepts every rebuild state and
-  the curated short-circuit produces complete packages without HTTP.
+- `SETUP` — initialize tables, source jobs, diagnostics, goals
+- `CONSTANT_FILL` — build content until goals are met
+- `MAINTENANCE` — keep content fresh
+- `REPAIR` — fix pipeline failures
+- `HOMEPAGE` — improve the homepage
+- `DIAGNOSTICS` — audit the system
+- `SECURITY_DEFENSE` — protect the site
+- `REPORTING` — generate scheduled reports
+- `PAUSED` — non-security tasks paused
 
 ---
 
@@ -461,294 +348,18 @@ coverage across 16 files:
 
 ```bash
 tsx scripts/run-worker.ts                # loop forever
-tsx scripts/run-worker.ts --one-shot     # one cycle then exit
-tsx scripts/run-worker.ts --max-jobs N   # exit after N cycles
+tsx scripts/run-worker.ts --one-shot     # one pass then exit
+tsx scripts/run-worker.ts --max-jobs N   # exit after N passes
 tsx scripts/run-worker.ts --worker-id X  # stable worker id
 ```
 
-The worker self-leases jobs and is safe to run with multiple replicas. Each
-build job is leased for five minutes; stale leases are reclaimed
-automatically.
+The worker self-leases jobs and is safe to run with multiple
+replicas. Each build job is leased for five minutes; stale leases
+are reclaimed automatically.
 
-**Production behavior:** the worker loop runs `runOneBuildCycle` to drain
-the queue and, on every idle tick, calls `bootstrapCitationsFromKnowledge`
-followed by `autonomousPromote` so a freshly-deployed worker fills the
-site by itself without admin intervention. There is no separate cron
-process — running `npm run worker` is enough to keep the pipeline moving.
-
----
-
-## Admin Worker
-
-The **Admin Worker** is the autonomous website-administrator system. It is
-fully coded, deterministic, durable, observable, and autonomous, and it
-operates **without any AI APIs**. Code lives under `src/lib/admin-worker/`;
-the operator-facing surface is at `/admin/admin-worker` (Command Center)
-and `/admin/diagnostics` (24 health ratings + pause toggle).
-
-What it does:
-
-- discovers approved Catholic source URLs and classifies candidates
-  (junk URLs — livestreams, donations, bulletins, store pages, etc. —
-  are rejected before fetch)
-- reads source pages and extracts Catholic content
-- validates content correctness against the existing strict Zod schemas
-- formats content into complete packages
-- publishes valid content automatically when QA + quality score + source
-  evidence + confidence all pass; humans only see ambiguous edge cases
-- maintains the homepage (deterministic 8-dimension score; small
-  high-confidence improvements auto-publish, major redesigns route to
-  review)
-- monitors diagnostics (24 health ratings — heartbeat, queue, sources,
-  classification, building, formatting, validation, QA, publishing,
-  post-publish, search, sitemap, cache, homepage, cleanup, review queue,
-  security, email, monthly report, database, env, content goals)
-- generates **Developer Audit** PDFs for the last 24 hours, last 7 days,
-  or last 30 days (operator-triggered from the diagnostics card)
-- generates the **Monthly Admin Worker Report** email on the last day
-  of each month with a PDF attachment
-- defends against brute-force admin login attempts. Only confirmed
-  brute force results in an automatic device ban; suspicious activity
-  alone never bans. A valid authenticated admin login is not treated
-  as suspicious — a calm "Admin Log In" email confirms the sign-in.
-- learns operationally through outcome counts and per-source reputation
-  (no facts are ever invented; the learning loop only nudges priorities)
-
-Pause / resume toggle sits on the diagnostics page directly above the
-Developer Audit button. Pausing stops all non-security work; the
-security defender keeps running.
-
-**Internal model names** (`ChecklistItem`, `WorkerBuildJob`,
-`WorkerBuildLog`, `WorkerHeartbeat`) deliberately keep their existing
-names for code and migration compatibility — the rename to "Admin Worker"
-is in the admin-facing UI only.
-
-Phase 1 (already shipped):
-
-- 15 new database tables (`AdminWorkerState`, `AdminWorkerPass`,
-  `AdminWorkerTask`, `AdminWorkerLog`, `AdminWorkerMemory`,
-  `AdminWorkerSourceReputation`, `AdminWorkerDecision`,
-  `CandidateSourceUrl`, `ContentGoal`, `HumanReviewQueue`,
-  `HomepageWorkerDraft`, `AdminDeveloperReportLog`,
-  `AdminWorkerSecurityAction`, `PostPublishVerification`,
-  `ContentQualityScore`, `HomepageQualityScore`)
-- central decision loop with deterministic priority selection
-- source reputation engine (EWMA-smoothed)
-- content goals + autonomous planner
-- 24-rating diagnostics surface
-- rule engine + decision log
-- confidence-gated publishing wrapper
-- learning memory (success/failure counts only)
-- homepage designer + scoring
-- security defender layered on top of the existing
-  `SecurityEvent`/`BannedDevice` flow
-- cleanup custodian
-- post-publish verification record + rollback decision
-- Command Center page + Admin Worker API routes (pause / resume /
-  run pass / state)
-- Monthly Admin Worker Report email + Admin Worker Banned Device email
-
-Phase 2 (previous PR):
-
-- production worker (`scripts/run-worker.ts`) now drives the Admin
-  Worker loop directly instead of the legacy build-only loop; it
-  checks the monthly report job on startup so a restart on the last
-  day of the month still fires the email
-- planner that enqueues build jobs from content goals automatically —
-  the worker creates its own work when goals are unmet, no manual
-  trigger required
-- deletion module with the 9 spec-defined deletion reasons + a
-  confidence-gated `evaluateDeletion` that routes uncertain cases to
-  human review and logs every deletion with the spec's required
-  fields (content type, title, source URL, reason, failed fields,
-  confidence, timestamp, worker task id)
-- source ranking that combines all 10 criteria from spec section 19
-  (credibility, source role, publish rate, QA pass, validation
-  usefulness, fetch reliability, duplicate rate, wrong-content rate,
-  legal usability, content-type coverage) into a deterministic rank
-- real PDF rendering for Developer Audit (table of contents +
-  7 sections: Diagnostics, Worker Logs, System Logs, Security Logs,
-  Content Growth, Homepage Actions, Recommended Repairs; secrets
-  redacted; AdminDeveloperReportLog records every download)
-- real PDF rendering for the Monthly Admin Worker Report (monthly
-  summary + best/worst sources + content goal progress + per-day
-  sections)
-- monthly report job that gates itself on "is today the last day of
-  the month?" (handles February + shorter months); called daily from
-  the worker startup hook
-- expanded repair handlers: heartbeat staleness, discovery gap,
-  QA-missing-field source rotation, cache / sitemap / search refresh
-  flagging
-- new admin pages:
-  - `/admin/admin-worker/rules` — visible rule catalogue grouped by
-    spec category (publish, deletion, homepage_design, security, …)
-  - `/admin/admin-worker/logs` — section tabs + period / severity /
-    content type / source host filters
-- Admin Worker pass breakdown table on `/admin/diagnostics` with
-  every spec-required column (pass id, started, completed, status,
-  tasks planned / completed / failed, content built / published /
-  rejected, security actions, homepage actions, logs link)
-- POST `/api/admin/developer-audit` route — accepts period +
-  optional section filter; returns the PDF directly
-- additional tests covering: planner enqueues work for gaps;
-  deletion routes below-threshold confidence to review; source
-  ranking prefers Vatican over community for equal QA; reputation
-  tier transitions over time (TRUSTED → PAUSED); monthly report
-  job runs on the last day of every month including Feb 28 / Feb 29;
-  Developer Audit PDF emits a valid `%PDF-` buffer + writes the
-  AdminDeveloperReportLog row.
-
-Phase 3 (previous PR):
-
-- live post-publish HTTP probe: the publisher actively triggers cache
-  revalidation, fetches the public page, confirms the title shows in
-  the rendered HTML, and on FAIL automatically unpublishes; ambiguous
-  failures route to human review, clear failures route to deletion
-- live sitemap discovery: the web navigator fetches `/robots.txt` +
-  `/sitemap.xml` on every approved authority host, parses `<loc>`
-  URLs, applies the existing junk-URL classifier, and inserts the
-  survivors as CandidateSourceUrl rows; honours `Sitemap:` and
-  `Disallow:` directives in robots.txt
-- per-content-type packaging validators for spec section 7
-  (`validatePrayerPackage`, `validateNovenaPackage` with Day 1–9
-  enforcement, `validateRosaryPackage` requiring exactly 5
-  mysteries per set, `validateConsecrationPackage` with daily
-  prayers, `validateHistoryPackage` enforcing only the 12 approved
-  Church history types, etc.)
-- publish-safety pattern blockers for spec section 15: incomplete
-  prayers, articles about prayers, saint-named institutions,
-  livestream / event / donation / store source URLs, missing source
-  evidence, unapproved scripture translations
-- explicit security detectors for spec section 14:
-  banned-device-reuse, set-public-flag-outside-worker,
-  internal-route-manipulation, suspicious-request-burst (with
-  per-detector severity + classification + confidence)
-- `verifyPublished` is wired into the existing `publish()` flow via
-  dynamic import — every successful publish now triggers the probe
-  in production; non-production environments skip the network call
-- new admin worker public route helpers (`publicRouteFor`,
-  `publicUrlFor`, `publicOrigin`) so the probe + cache + UI all
-  agree on URL shape
-- 51 new tests covering publish-safety, packaging validators,
-  post-publish probe + rollback, sitemap discovery, security
-  detectors, and public route mapping
-
-Phase 4 (previous PR):
-
-- defender now actually bans: when `decideAction` returns BAN_DEVICE
-  on a confirmed Breach, `defend()` upserts a BannedDevice row + sends
-  the "Admin Worker Banned Device" email. Ban + email failures are
-  logged but never break the loop. Middleware already reads
-  BannedDevice on every request, so the ban is enforced immediately.
-- homepage redesign mutator: `redesignHomepage()` reads the current
-  HomePageBlock rows + live PublishedContent, scores the homepage,
-  proposes a refreshed set of featured blocks (drawn only from the
-  supported block-type allowlist — never invents components),
-  computes a confidence + section diff, and files a
-  HomepageWorkerDraft routed AUTO_PUBLISHED / PROPOSED / AWAITING_REVIEW
-  per the existing decideDraftStatus rules. Major redesigns and
-  section-deletion changes always route to review.
-- Command Center metrics: new `loadCommandCenterMetrics()` computes
-  publishRate30d, qaPassRate30d, deletionRate30d, reviewQueueCount,
-  recentSecurityActions24h, publishedContentLive, queueInFlight, and
-  monthlyReport last-generated + freshness. The Command Center page
-  renders these as a metric strip at the top.
-- expanded repair handlers: `fetchWithBackoff` (exponential retry,
-  logs each attempt), `reportPersistenceFailure`,
-  `reportValidationEvidenceMissing`. Section 20 coverage now spans
-  heartbeat staleness, queue stalls, discovery gaps, source rotation,
-  cache / sitemap / search refresh, fetch backoff, and persistence
-  failures.
-- diagnostics ratings now populate `latestSuccess` / `latestFailure`
-  / `currentBlocker` from real DB queries (queue + publishing rating);
-  the diagnostics page already renders these when present.
-- Developer Audit button: new dropdown with period picker + section
-  checkboxes; POSTs `/api/admin/developer-audit` with the chosen
-  sections so the operator can pull a partial report (e.g. "just
-  Security Logs").
-- 17 new tests: defender ban (Suspicious never bans, Breach + high
-  confidence does ban + sends email + survives email failure),
-  homepage mutator (no draft above threshold, small refresh
-  auto-publishes, section deletion routes to review), Command Center
-  metrics (publish rate / QA rate / deletion rate math + monthly
-  report freshness gate), fetchWithBackoff retries, persistence /
-  validation-evidence reporters.
-
-Phase 5 (previous PR):
-
-- rule engine completeness: registered at least one rule in every
-  spec section 4 category. New built-ins:
-  `content_extraction.minimum_body_length`,
-  `content_type_classification.requires_predicted_type`,
-  `content_package_formatting.no_html_leak`,
-  `cross_source_validation.minimum_distinct_sources`,
-  `report.must_redact_secrets`. All 11 categories are now visible at
-  `/admin/admin-worker/rules`.
-- security detector coverage: added `detectSuccessfulBruteForceSigns`
-  (fires when N failed attempts precede a success in a short window)
-  and `detectBypassAdminAuthentication` (fires on POST to admin API
-  without a session cookie). All 10 spec-listed detector kinds now
-  have a detection function.
-- loop mode dispatch: the central loop branches on selected mode and
-  runs the corresponding module — `CONSTANT_FILL` runs the planner +
-  build cycle, `HOMEPAGE` runs the redesign mutator, `REPORTING`
-  runs the monthly report job, `DIAGNOSTICS` runs the rating sweep,
-  `MAINTENANCE` runs the cleanup pass, `REPAIR` recovers stuck
-  queue + does one build cycle.
-- post-publish probe extensions: optional `expectedBodyMarker` so the
-  probe can confirm the content body rendered (not just the title);
-  new threshold-count probe refreshes the ContentGoal row and confirms
-  `currentValidCount` is consistent with live PublishedContent count.
-- source-jobs-missing repair: `recreateMissingSourceJobs` finds
-  APPROVED_FOR_BUILD / SOURCE_VERIFIED checklist items with no live
-  WorkerBuildJob and re-enqueues them (covers the case where a queue
-  purge or migration left orphaned approved items).
-- RSS / Atom feed discovery: `discoverFromFeed` complements
-  `discoverFromHost` for sources that syndicate. Parses both RSS 2.0
-  `<item><link>` and Atom `<entry><link href="..."/>` formats with
-  the same junk-URL + host-allowlist filters.
-- 27 new tests: rule-engine completeness across all 11 categories,
-  the two new security detectors, RSS feed extraction + discovery
-  pipeline, loop pause-and-cleanup dispatch.
-
-Phase 6 (this PR):
-
-- discovery method completeness (spec §5): all 7 spec-listed
-  discovery methods are now implemented end-to-end:
-  - configured fixed URL lists — `configured-urls.ts` with a
-    built-in catalogue + `addConfiguredUrl()` for runtime extras
-  - source internal links — `internal-link-discovery.ts` fetches
-    an approved page and extracts `<a href>` URLs via pure regex
-    (no DOM parser), strips fragments, resolves relative paths,
-    applies host-allowlist + junk classifier
-  - known Catholic content directories — `directory-discovery.ts`
-    fans out from curated directory pages via the internal-link
-    extractor
-  - approved source search pages — `search-page-discovery.ts`
-    fires a query against publisher-specific search templates
-    (operator-registered) and parses the result page
-  - official source APIs — `source-apis.ts` registry pattern
-    (`registerApiAdapter`) so per-publisher API adapters can ship
-    via PR; each adapter result still passes through the
-    host-allowlist + junk filter
-
-- real liturgical calendar (spec §10, §23): new
-  `liturgical-calendar.ts` computes Easter via the Meeus algorithm
-  and classifies every day into ADVENT / CHRISTMAS / LENT / TRIDUUM
-  / EASTER / ORDINARY_TIME with date-based flags for the major
-  Marian feasts. The homepage mutator now uses `seasonalRelevance`
-  instead of the calendar-month heuristic — proper boost for
-  Easter, Christmas, Triduum, Lent, Advent, and Marian months.
-
-- 24 new tests: configured-URL catalogue behaviour, internal-link
-  extraction edge cases (javascript:/mailto:/tel:/fragment-only),
-  directory + search + API discovery dispatch, Easter dates for
-  2024-2027, season classification (Easter Sunday → EASTER, Ash
-  Wednesday → LENT, mid-summer → ORDINARY_TIME, early December →
-  ADVENT, Christmas Day → CHRISTMAS), seasonal-relevance bounds
-  and ordering.
-
-Tests: 1171 / 1171 passing (was 1147; added 24 tests).
+The monthly Admin Worker Report is gated on `isLastDayOfMonth(today)`
+and is triggered once on every worker startup, so a restart on the
+last day of the month still fires the email.
 
 ---
 
@@ -767,9 +378,125 @@ Every public page renders directly from `PublishedContent`:
 /liturgy-history      → LITURGICAL + CHURCH_DOCUMENT slugs (same /[slug] route)
 /history              → PublishedContent where contentType=CHURCH_DOCUMENT
 /search?q=...         → full-text search across PublishedContent
+/api/prayers?take=N   → public list endpoint (clamped at 200)
 ```
 
 There is no other code path from the database to the public site.
+
+---
+
+## Catholic accuracy rules
+
+The worker treats Catholic accuracy as a hard constraint:
+
+- Scripture must come from an approved translation source. Unapproved
+  translations are blocked at the publish gate.
+- Sacraments are limited to the seven the Catholic Church recognises.
+- Indulgences must cite the Vatican or the Apostolic Penitentiary.
+- Novenas must have exactly nine days.
+- Rosary mystery sets must have exactly five mysteries each.
+- Church history packages must be one of the 12 approved types
+  (councils, encyclicals, papal acts, doctrinal definitions, …).
+- Cross-source reconciliation prefers higher authority levels
+  (Vatican > Catechism > USCCB > Diocesan > Religious Order > Trusted
+  Publisher > Academic > Community).
+- Marian apparitions must include an approval status.
+
+The accuracy guards are deterministic and enforced in code — they
+have no off-switch.
+
+---
+
+## Testing
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm run lint        # eslint
+npm run format:check
+npm test            # vitest run (unit + component + worker + admin-worker)
+npm run test:e2e    # playwright
+npm run verify      # typecheck + lint + format:check + test
+npm run verify:full # verify + integration + e2e + build
+```
+
+The unit + component suite covers:
+
+- 246 admin-worker tests (state, modes, priorities, planner, deletion,
+  publish gate, publish safety, packaging validators, post-publish
+  probe + rollback, homepage designer + mutator, security defender +
+  auto-ban + emails, security detectors, source reputation + ranking,
+  PDF generation, monthly report job, metrics, rule categories,
+  sitemap + RSS + internal-link + directory discovery, liturgical
+  calendar)
+- 17 worker tests (build engine, build queue, publishing gate, QA
+  approval, source validation, diagnostics, janitor, cross-source,
+  duplicate detection, schema compliance, autonomous cycle,
+  knowledge base, relations, Catholic accuracy)
+- API, auth, security, components, data, email, observability,
+  i18n, cache test suites
+
+Total: **1119+ passing tests**.
+
+---
+
+## Security
+
+Three-tier security model:
+
+1. **Middleware** — every request goes through `src/middleware.ts`,
+   which sets the device-credential cookie, enforces CSP / HSTS /
+   referrer-policy, and gates `/admin/*` on session presence.
+2. **Admin gate** — `src/lib/security/banned-guard.ts` blocks every
+   request from a `BannedDevice` row before any page renders.
+3. **Admin Worker security defender** — `src/lib/admin-worker/
+security-defender.ts` consumes `SecurityEvent` rows. On a
+   confirmed Breach (classification=Breach + confidence ≥ 0.9 +
+   known device fingerprint) it upserts a `BannedDevice` row and
+   sends the Admin Worker Banned Device email. Suspicious activity
+   never results in an automatic ban.
+
+Admin login flow:
+
+- Successful login → `recordAdminLoginSuccess` → SecurityEvent +
+  AdminActionLog + Admin Log In email (timestamp, device, location).
+- 3+ failed logins in window → Suspicious Activity email (no ban).
+- 5+ failed logins in window OR confirmed brute force → Security
+  Breach email + signed ban link the admin can click.
+- The Admin Worker defender layers on top: when classification=Breach
+  - high confidence, it auto-bans (BannedDevice + Admin Worker
+    Banned Device email) without waiting for the admin to click the
+    signed link.
+
+A valid authenticated admin browsing the admin console never
+triggers a suspicious-activity email — `recordAdminLoginSuccess`
+marks the device known so subsequent navigation reads as expected
+activity.
+
+---
+
+## Migration history
+
+| Migration                           | What it added                                                             |
+| ----------------------------------- | ------------------------------------------------------------------------- |
+| `0001` – `0022`                     | Original schema (auth, content, ingestion, …)                             |
+| `0023_checklist_first_architecture` | Checklist-first models (ChecklistItem, …)                                 |
+| `0024_admin_worker`                 | Admin Worker engine tables (15 + enums)                                   |
+| `0025_drop_legacy_system`           | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent |
+
+The legacy scraper-first ingestion + legacy public-content models
+(`Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,
+`LiturgyEntry`, `SpiritualLifeGuide`, `DailyLiturgy`, and their
+translations) were dropped in migration `0025_drop_legacy_system`.
+Public reads have been served by `PublishedContent` since
+`0023`; the schema cleanup removes the now-orphaned tables and
+collapses the 5 separate `UserSaved*` tables into one
+`UserSavedContent` keyed on `(userId, contentType, contentSlug)`.
+
+If you are deploying to a database that still has the legacy tables,
+running `prisma migrate deploy` applies `0025` which drops them
+cleanly. No data migration is required because the public surface
+has been reading from `PublishedContent` for the full life of those
+tables under the new system.
 
 ---
 

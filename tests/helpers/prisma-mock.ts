@@ -68,20 +68,8 @@ export type PrismaMock = {
     deleteMany: Mock;
     count: Mock;
   };
-  // Content-side models the ingestion / data layers use. These are all
-  // generic CRUD shapes — tests reach in and program the methods they
-  // care about per case.
-  prayer: Crud;
-  saint: Crud;
-  marianApparition: Crud;
-  parish: Crud;
-  devotion: Crud;
-  liturgyEntry: Crud;
-  spiritualLifeGuide: Crud;
-  ingestionJob: Crud;
-  ingestionJobRun: Crud;
-  ingestionSource: Crud;
-  dataManagementLog: Crud;
+  // Content-side models. All public content lives in PublishedContent
+  // since migration 0025_drop_legacy_system.
   adminAuditLog: Crud;
   tag: Crud;
   entityTag: Crud;
@@ -90,34 +78,12 @@ export type PrismaMock = {
   goal: Crud;
   goalChecklistItem: Crud;
   milestone: Crud;
-  userSavedPrayer: Crud;
-  userSavedSaint: Crud;
-  userSavedApparition: Crud;
-  userSavedParish: Crud;
-  userSavedDevotion: Crud;
-  // Durable ingestion queue + freshness/cursor/batch/history tables added
-  // in 0011_durable_ingestion_queue. Same generic CRUD shape.
-  ingestionJobQueue: Crud;
-  ingestionCursor: Crud;
-  ingestionBatch: Crud;
-  archiveDeletionLog: Crud;
-  contentVersion: Crud;
-  ingestionRateBucket: Crud;
+  userSavedContent: Crud;
+  publishedContent: Crud;
   contentTypePause: Crud;
   workerHeartbeat: Crud;
-  discoveredSourceItem: Crud;
-  robotsCache: Crud;
-  queueAuditLog: Crud;
-  sourceTierChange: Crud;
-  dailyIngestionCounter: Crud;
   adminNotificationState: Crud;
   errorLog: Crud;
-  contentReview: Crud;
-  rejectedContentLog: Crud;
-  dailyLiturgy: Crud;
-  sourceDocument: Crud;
-  contentPackageBuildLog: Crud;
-  sourceQualityScore: Crud;
   // Added in 0017_security_event_and_banned_device.
   securityEvent: Crud;
   bannedDevice: Crud;
@@ -161,17 +127,6 @@ export function createPrismaMock(): PrismaMock {
       deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       count: vi.fn().mockResolvedValue(0),
     },
-    prayer: createCrud(),
-    saint: createCrud(),
-    marianApparition: createCrud(),
-    parish: createCrud(),
-    devotion: createCrud(),
-    liturgyEntry: createCrud(),
-    spiritualLifeGuide: createCrud(),
-    ingestionJob: createCrud(),
-    ingestionJobRun: createCrud(),
-    ingestionSource: createCrud(),
-    dataManagementLog: createCrud(),
     adminAuditLog: createCrud(),
     tag: createCrud(),
     entityTag: createCrud(),
@@ -180,32 +135,12 @@ export function createPrismaMock(): PrismaMock {
     goal: createCrud(),
     goalChecklistItem: createCrud(),
     milestone: createCrud(),
-    userSavedPrayer: createCrud(),
-    userSavedSaint: createCrud(),
-    userSavedApparition: createCrud(),
-    userSavedParish: createCrud(),
-    userSavedDevotion: createCrud(),
-    ingestionJobQueue: createCrud(),
-    ingestionCursor: createCrud(),
-    ingestionBatch: createCrud(),
-    archiveDeletionLog: createCrud(),
-    contentVersion: createCrud(),
-    ingestionRateBucket: createCrud(),
+    userSavedContent: createCrud(),
+    publishedContent: createCrud(),
     contentTypePause: createCrud(),
     workerHeartbeat: createCrud(),
-    discoveredSourceItem: createCrud(),
-    robotsCache: createCrud(),
-    queueAuditLog: createCrud(),
-    sourceTierChange: createCrud(),
-    dailyIngestionCounter: createCrud(),
     adminNotificationState: createCrud(),
     errorLog: createCrud(),
-    contentReview: createCrud(),
-    rejectedContentLog: createCrud(),
-    dailyLiturgy: createCrud(),
-    sourceDocument: createCrud(),
-    contentPackageBuildLog: createCrud(),
-    sourceQualityScore: createCrud(),
     securityEvent: createCrud(),
     bannedDevice: createCrud(),
     diagnosticSnapshot: createCrud(),

@@ -20,7 +20,6 @@ const EMPTY_COUNTS: ProfileCounts = {
   prayersSaved: 0,
   saintsSaved: 0,
   apparitionsSaved: 0,
-  parishesSaved: 0,
   devotionsSaved: 0,
   goalsCount: 0,
   completedGoalsCount: 0,
@@ -103,7 +102,6 @@ export default async function ProfilePage() {
     {
       key: "profile.section.savedLiturgy",
       tabs: [
-        { href: "/profile/parishes", key: "profile.tab.parishes", count: counts.parishesSaved },
         {
           href: "/profile/apparitions",
           key: "profile.tab.apparitions",

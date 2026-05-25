@@ -7,7 +7,6 @@ export type ProfileCounts = {
   prayersSaved: number;
   saintsSaved: number;
   apparitionsSaved: number;
-  parishesSaved: number;
   devotionsSaved: number;
   goalsCount: number;
   completedGoalsCount: number;
@@ -91,7 +90,6 @@ export async function setProfileAvatarFromDataUrl(userId: string, validated: Ava
             altText: "Profile photo",
             attribution: "User upload",
             checksum,
-            reviewStatus: "AUTO_APPROVED",
           },
         });
     return tx.profile.update({
@@ -110,18 +108,16 @@ export async function getProfileCounts(userId: string): Promise<ProfileCounts> {
     prayersSaved,
     saintsSaved,
     apparitionsSaved,
-    parishesSaved,
     devotionsSaved,
     goalsCount,
     completedGoalsCount,
     milestonesCount,
   ] = await Promise.all([
     prisma.journalEntry.count({ where: { userId } }),
-    prisma.userSavedPrayer.count({ where: { userId } }),
-    prisma.userSavedSaint.count({ where: { userId } }),
-    prisma.userSavedApparition.count({ where: { userId } }),
-    prisma.userSavedParish.count({ where: { userId } }),
-    prisma.userSavedDevotion.count({ where: { userId } }),
+    prisma.userSavedContent.count({ where: { userId, contentType: "PRAYER" } }),
+    prisma.userSavedContent.count({ where: { userId, contentType: "SAINT" } }),
+    prisma.userSavedContent.count({ where: { userId, contentType: "APPARITION" } }),
+    prisma.userSavedContent.count({ where: { userId, contentType: "DEVOTION" } }),
     prisma.goal.count({ where: { userId } }),
     prisma.goal.count({ where: { userId, status: "COMPLETED" } }),
     prisma.milestone.count({ where: { userId } }),
@@ -131,7 +127,6 @@ export async function getProfileCounts(userId: string): Promise<ProfileCounts> {
     prayersSaved,
     saintsSaved,
     apparitionsSaved,
-    parishesSaved,
     devotionsSaved,
     goalsCount,
     completedGoalsCount,

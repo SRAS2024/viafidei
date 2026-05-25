@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/client";
  * checklist-first worker queue. Replaces the legacy "ingestion status"
  * banner.
  */
-export async function IngestionStatusBanner() {
+export async function AdminWorkerStatusBanner() {
   let pending = 0;
   let running = 0;
   let failed = 0;
@@ -44,7 +44,7 @@ export async function IngestionStatusBanner() {
       data-status={tone.label.toLowerCase()}
     >
       <p>
-        <span className="font-bold">Worker · {tone.label}.</span> Queue: {pending} pending,{" "}
+        <span className="font-bold">Admin Worker · {tone.label}.</span> Queue: {pending} pending,{" "}
         {running} running, {failed} failed · QA pending: {qaPending}.{" "}
         <Link href="/admin/checklist" className="underline">
           Open dashboard

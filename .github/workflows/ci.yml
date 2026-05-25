@@ -60,34 +60,48 @@ jobs:
       - name: Test (unit + component)
         run: npm run test
 
-      # Guard rail: the diagnostic / log / ingestion / saints-feast
-      # features added in admin/diagnostics + admin/logs must keep
-      # their test coverage. If any of these files are missing on
-      # main, CI fails fast — a quiet deletion can't silently
-      # regress the feature.
-      - name: Ensure diagnostic + log feature tests exist
+      # Guard rail: the checklist-first worker + Admin Worker
+      # features must keep their test coverage. If any of these
+      # files are missing on main, CI fails fast — a quiet deletion
+      # can't silently regress the feature.
+      #
+      # The legacy diagnostic / saints-feast / ingestion-log tests
+      # this list used to enforce were removed in commit c7c4d60
+      # ("refactor: replace scraper-first ingestion with
+      # approved-checklist-first worker"); their features were
+      # replaced by the checklist-first worker + the Admin Worker
+      # engine, which carry their own tests under tests/worker/ and
+      # tests/admin-worker/.
+      - name: Ensure worker + admin-worker feature tests exist
         run: |
           set -e
           for f in \
-            tests/data/parse-feast-day.test.ts \
-            tests/data/list-saints-for-feast-date.test.ts \
-            tests/data/feast-day-match.test.ts \
-            tests/data/data-management-log.test.ts \
-            tests/diagnostics/ingestion.test.ts \
-            tests/diagnostics/saints-feast.test.ts \
-            tests/diagnostics/data-management.test.ts \
-            tests/api/admin-diagnostics-routes.test.ts \
-            tests/api/admin-data-management-cleanup.test.ts \
-            tests/api/saints-today.test.ts \
-            tests/ingestion/data-management-log-writes.test.ts \
-            tests/components/ManualCleanupRunButton.test.tsx \
-            tests/components/ManualIngestRunButton.test.tsx \
+            tests/worker/build-engine.test.ts \
+            tests/worker/build-queue.test.ts \
+            tests/worker/publishing.test.ts \
+            tests/worker/qa-approval.test.ts \
+            tests/worker/source-validation.test.ts \
+            tests/worker/diagnostics.test.ts \
+            tests/admin-worker/state.test.ts \
+            tests/admin-worker/modes.test.ts \
+            tests/admin-worker/decisions.test.ts \
+            tests/admin-worker/planner.test.ts \
+            tests/admin-worker/deletion.test.ts \
+            tests/admin-worker/security-defender.test.ts \
+            tests/admin-worker/defender-ban.test.ts \
+            tests/admin-worker/post-publish.test.ts \
+            tests/admin-worker/post-publish-probe.test.ts \
+            tests/admin-worker/homepage-designer.test.ts \
+            tests/admin-worker/homepage-mutator.test.ts \
+            tests/admin-worker/source-reputation.test.ts \
+            tests/admin-worker/pdf.test.ts \
+            tests/admin-worker/monthly-report-job.test.ts \
+            tests/admin-worker/metrics.test.ts \
+            tests/admin-worker/rule-categories.test.ts \
             tests/components/HomeToday.test.tsx \
-            tests/components/AdminLogsPages.test.tsx \
-            tests/components/AdminDiagnosticsPages.test.tsx \
             ; do
             if [ ! -f "$f" ]; then
-              echo "Missing required diagnostic/log/ingestion/saints-feast test: $f" >&2
+              echo "Missing required worker / admin-worker test: $f" >&2
               exit 1
             fi
           done
