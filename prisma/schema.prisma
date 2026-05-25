@@ -1682,3 +1682,150 @@ model HomepageQualityScore {
   @@index([finalScore])
   @@index([createdAt])
 }
+
+// =============================================================================
+// ADMIN WORKER BRAIN — Phase 8 substrate
+// =============================================================================
+// Durable substrate for the explicit AdminWorkerBrain module:
+//   - AdminWorkerSourceRead     reused-when-checksum-matches source reads
+//   - AdminWorkerPipelineStage  one row per item moving through the
+//                                content chain
+//   - AdminWorkerRepairPlan     durable repair plans the worker
+//                                retries with exponential backoff
+// =============================================================================
+
+enum AdminWorkerPipelineStageName {
+  DISCOVERY
+  CANDIDATE
+  FETCH
+  READ
+  CLASSIFY
+  CHECKLIST_ITEM
+  CITATION
+  BUILD_JOB
+  BUILD_PACKAGE
+  VALIDATE
+  QA
+  PUBLISH
+  POST_PUBLISH_VERIFY
+  SEARCH_INDEX
+  SITEMAP
+  CACHE
+}
+
+enum AdminWorkerPipelineStageStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  BLOCKED
+  SKIPPED
+}
+
+enum AdminWorkerRepairKind {
+  HEARTBEAT_STALE
+  QUEUE_STUCK
+  SOURCE_JOBS_MISSING
+  CANDIDATE_URLS_MISSING
+  DISCOVERY_FAILED
+  FETCH_FAILED
+  READ_FAILED
+  CLASSIFY_FAILED
+  EXTRACT_FAILED
+  VALIDATION_FAILED
+  QA_MISSING_FIELDS
+  BUILD_REPEATED_FAILURE
+  PERSIST_FAILED
+  PUBLIC_DISPLAY_FAILED
+  SEARCH_VISIBILITY_FAILED
+  SITEMAP_VISIBILITY_FAILED
+  CACHE_FAILED
+  VALIDATION_EVIDENCE_MISSING
+}
+
+enum AdminWorkerRepairStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  ABANDONED
+}
+
+/// Durable extracted text per (sourceUrl, checksum). The brain reuses
+/// a read when the checksum has not changed; refetches when the
+/// checksum changes. Persists across worker restarts so a process
+/// rotation does not throw away expensive extraction work.
+model AdminWorkerSourceRead {
+  id                  String   @id @default(cuid())
+  sourceUrl           String
+  sourceHost          String
+  checksum            String
+  extractedTitle      String?
+  extractedText       String?
+  extractedHeadings   Json?
+  detectedContentType String?
+  confidenceScore     Float    @default(0)
+  rejectedSections    Json?
+  fetchStatus         Int?
+  etag                String?
+  lastModifiedHeader  String?
+  byteSize            Int?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@unique([sourceUrl, checksum])
+  @@index([sourceUrl])
+  @@index([sourceHost])
+  @@index([detectedContentType])
+  @@index([createdAt])
+}
+
+/// One row per item moving through the content chain. The brain
+/// consults this table to see where each item is stuck and what the
+/// next stage should be.
+model AdminWorkerPipelineStage {
+  id                    String                          @id @default(cuid())
+  stageName             AdminWorkerPipelineStageName
+  status                AdminWorkerPipelineStageStatus  @default(PENDING)
+  contentType           String?
+  inputId               String?
+  outputId              String?
+  startedAt             DateTime?
+  completedAt           DateTime?
+  failureReason         String?
+  repairRecommendation  String?
+  confidenceScore       Float                           @default(0)
+  metadata              Json?
+  createdAt             DateTime                        @default(now())
+  updatedAt             DateTime                        @updatedAt
+
+  @@index([stageName, status])
+  @@index([contentType])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Durable repair plans the worker executes and retries with
+/// exponential backoff. Distinct from the legacy ad-hoc repair
+/// helpers in `repair.ts` (which still exist for in-pass calls) —
+/// this table carries plans that need to survive process restarts.
+model AdminWorkerRepairPlan {
+  id            String                  @id @default(cuid())
+  kind          AdminWorkerRepairKind
+  failedEntity  String?
+  repairAction  String
+  status        AdminWorkerRepairStatus @default(PENDING)
+  attempts      Int                     @default(0)
+  maxAttempts   Int                     @default(5)
+  lastAttemptAt DateTime?
+  nextAttemptAt DateTime?
+  finalResult   String?
+  metadata      Json?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@index([status])
+  @@index([kind])
+  @@index([nextAttemptAt])
+  @@index([createdAt])
+}

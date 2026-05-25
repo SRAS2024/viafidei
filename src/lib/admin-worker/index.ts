@@ -318,3 +318,38 @@ export {
   type SecurityDetectorKind,
   type DetectorContext,
 } from "./security-detectors";
+
+// ── Phase 8: Admin Worker brain + pipeline + repair plans ─────────────
+export { runBrain, decide, sampleWorld, type BrainDecision, type WorldState } from "./brain";
+
+export {
+  PIPELINE_ORDER,
+  nextStage,
+  recordStage,
+  completeStage,
+  pipelineSnapshot,
+  type RecordStageInput,
+} from "./pipeline-stages";
+
+export {
+  filePlan,
+  leaseNextPlan,
+  completePlan,
+  countOpenPlansByKind,
+  type FilePlanInput,
+} from "./repair-plans";
+
+export {
+  checksumOf,
+  findExistingRead,
+  upsertSourceRead,
+  listRecentReads,
+  type UpsertSourceReadInput,
+} from "./source-reads";
+
+export {
+  runReadiness,
+  type ReadinessCheck,
+  type ReadinessReport,
+  type ReadinessStatus,
+} from "./readiness";

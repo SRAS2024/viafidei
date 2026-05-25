@@ -85,6 +85,9 @@ code path from the database to a public page.
 | `AdminWorkerSourceReputation` | Rolling per-(host, contentType) reputation tier       |
 | `AdminWorkerDecision`         | Every major decision with inputs + chosen action      |
 | `AdminWorkerSecurityAction`   | Defender actions taken in response to security events |
+| `AdminWorkerSourceRead`       | Durable extracted text per (sourceUrl, checksum)      |
+| `AdminWorkerPipelineStage`    | One row per item moving through the content chain     |
+| `AdminWorkerRepairPlan`       | Durable repair plans with exponential-backoff retry   |
 | `CandidateSourceUrl`          | URLs the web navigator has discovered                 |
 | `ContentGoal`                 | Per-content-type minimum + desired targets            |
 | `HumanReviewQueue`            | Rare items needing human review                       |
@@ -263,7 +266,15 @@ health ratings + pause toggle).
   staleness, stuck queue, missing source jobs, discovery gaps,
   fetch backoff, chronic-failure source pause, missing QA fields,
   validation evidence gaps, persistence failures, public display
-  failures, and cache / sitemap / search refresh.
+  failures, and cache / sitemap / search refresh. **Durable repair
+  plans** (`AdminWorkerRepairPlan`) survive process restarts and
+  retry with exponential backoff (1 min → 1 h cap).
+- **Brain audit view** — every pass writes a `BrainDecision` to
+  `AdminWorkerDecision` with the full rules-evaluated payload so
+  the operator can answer _"why did the worker choose this?"_
+  without re-running the loop. The Command Center shows the most
+  recent decision and the Production Readiness card runs 12 live
+  checks with concrete repair instructions for each fail.
 
 ### Internal modules
 
@@ -304,6 +315,11 @@ health ratings + pause toggle).
 | `decisions.ts`               | Decision log + confidence thresholds    |
 | `health.ts`                  | Worker health monitor                   |
 | `metrics.ts`                 | Command Center metric computation       |
+| `brain.ts`                   | Explicit decision brain (deterministic) |
+| `pipeline-stages.ts`         | Pipeline-stage chain + snapshot bucket  |
+| `repair-plans.ts`            | Durable repair-plan queue + backoff     |
+| `source-reads.ts`            | Source-read dedupe via sha256 checksum  |
+| `readiness.ts`               | Production-readiness 12-check sweep     |
 | `loop.ts`                    | Central decision loop + mode dispatch   |
 | `state.ts`                   | Singleton state + pause/resume          |
 | `modes.ts`                   | 9 mode descriptors                      |
@@ -435,7 +451,7 @@ The unit + component suite covers:
 - API, auth, security, components, data, email, observability,
   i18n, cache test suites
 
-Total: **1119+ passing tests**.
+Total: **1165+ passing tests**.
 
 ---
 
@@ -482,6 +498,7 @@ activity.
 | `0023_checklist_first_architecture` | Checklist-first models (ChecklistItem, …)                                 |
 | `0024_admin_worker`                 | Admin Worker engine tables (15 + enums)                                   |
 | `0025_drop_legacy_system`           | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent |
+| `0026_admin_worker_brain`           | Brain tables: SourceRead, PipelineStage, RepairPlan                       |
 
 The legacy scraper-first ingestion + legacy public-content models
 (`Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,

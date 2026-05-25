@@ -547,9 +547,84 @@ async function ratingCacheFreshness(prisma: PrismaClient): Promise<HealthRating>
   };
 }
 
+/**
+ * Spec §18 — legacy `WorkerHeartbeat` table. The Admin Worker writes
+ * a compatibility heartbeat there too, so this rating distinguishes
+ * "build-queue worker has a heartbeat" from the Admin Worker's own
+ * heartbeat (ratingHeartbeat above).
+ */
+async function ratingLegacyWorkerHeartbeat(prisma: PrismaClient): Promise<HealthRating> {
+  const recent = await prisma.workerHeartbeat
+    .findFirst({ orderBy: { lastHeartbeatAt: "desc" } })
+    .catch(() => null);
+  const now = new Date();
+  const ageMs = recent ? now.getTime() - recent.lastHeartbeatAt.getTime() : Infinity;
+  const status: HealthStatus = ageMs < 5 * 60_000 ? "pass" : ageMs < 60 * 60_000 ? "warn" : "fail";
+  return {
+    key: "admin_worker_legacy_heartbeat",
+    label: "Build queue worker heartbeat (legacy)",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "WorkerHeartbeat",
+    latestSuccess: recent?.lastHeartbeatAt ?? null,
+    summary: recent
+      ? `Legacy heartbeat ${Math.round(ageMs / 1000)}s ago.`
+      : "No legacy worker heartbeat — only Admin Worker heartbeat in use.",
+  };
+}
+
+async function ratingLastPassTime(prisma: PrismaClient): Promise<HealthRating> {
+  const recent = await prisma.adminWorkerPass.findFirst({
+    orderBy: { startedAt: "desc" },
+    select: { startedAt: true, status: true },
+  });
+  const now = new Date();
+  const ageMs = recent ? now.getTime() - recent.startedAt.getTime() : Infinity;
+  const status: HealthStatus = ageMs < 10 * 60_000 ? "pass" : ageMs < 60 * 60_000 ? "warn" : "fail";
+  return {
+    key: "admin_worker_last_pass",
+    label: "Last Admin Worker pass",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerPass.startedAt",
+    latestSuccess: recent?.startedAt ?? null,
+    summary: recent
+      ? `Last pass ${Math.round(ageMs / 1000)}s ago (status: ${recent.status}).`
+      : "No pass recorded yet.",
+  };
+}
+
+async function ratingLastTaskTime(prisma: PrismaClient): Promise<HealthRating> {
+  const recent = await prisma.adminWorkerTask.findFirst({
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true, taskType: true },
+  });
+  const now = new Date();
+  const ageMs = recent ? now.getTime() - recent.createdAt.getTime() : Infinity;
+  const status: HealthStatus =
+    ageMs < 60 * 60_000 ? "pass" : ageMs < 24 * 60 * 60_000 ? "warn" : "fail";
+  return {
+    key: "admin_worker_last_task",
+    label: "Last Admin Worker task",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerTask.createdAt",
+    latestSuccess: recent?.createdAt ?? null,
+    summary: recent
+      ? `Last task ${Math.round(ageMs / 60_000)}min ago (type: ${recent.taskType}).`
+      : "No tasks recorded yet.",
+  };
+}
+
 const RATINGS: ReadonlyArray<RatingFn> = [
   ratingOverall,
   ratingHeartbeat,
+  ratingLegacyWorkerHeartbeat,
+  ratingLastPassTime,
+  ratingLastTaskTime,
   ratingQueue,
   ratingTaskPlanning,
   ratingSourceDiscovery,

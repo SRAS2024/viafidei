@@ -26,7 +26,6 @@ import type { AdminWorkerPassType, AdminWorkerPriority, PrismaClient } from "@pr
 
 import { runOneBuildCycle } from "@/lib/worker";
 import { writeAdminWorkerLog } from "./logs";
-import { recordDecision } from "./decisions";
 import {
   getAdminWorkerState,
   recordFailure,
@@ -123,21 +122,58 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   }
 
   await refreshContentGoals(prisma);
-  const decision = await selectPriority(prisma);
-  await setPriority(prisma, decision.priority);
-  await setMode(prisma, decision.mode);
 
-  const pass = await startPass(prisma, { passType: decision.passType });
-  await recordDecision(prisma, {
-    passId: pass.id,
-    decisionType: "loop_priority",
-    inputSummary: decision.summary,
-    rulesEvaluated: decision.rulesEvaluated as Record<string, string | number | boolean | null>,
-    chosenAction: decision.priority,
-    confidence: decision.confidence,
-    reason: decision.reason,
-    fallbackAction: decision.fallback ?? undefined,
-  });
+  // Phase 8: run the explicit Admin Worker brain. The brain samples
+  // world state + records a BrainDecision so the audit view can show
+  // exactly what the worker chose and why. The legacy selectPriority
+  // path is kept as a fallback for callers that import it directly,
+  // but the loop itself now delegates to the brain.
+  const pass = await startPass(prisma, { passType: "AUTONOMOUS" });
+  const { runBrain } = await import("./brain");
+  const brain = await runBrain(prisma, { passId: pass.id });
+
+  // Project the brain decision onto the legacy `decision` shape the
+  // mode dispatch below already consumes.
+  const decision: {
+    priority: import("@prisma/client").AdminWorkerPriority;
+    mode:
+      | "CONSTANT_FILL"
+      | "MAINTENANCE"
+      | "REPAIR"
+      | "HOMEPAGE"
+      | "DIAGNOSTICS"
+      | "SECURITY_DEFENSE"
+      | "REPORTING"
+      | "SETUP";
+    passType: import("@prisma/client").AdminWorkerPassType;
+    summary: string;
+    confidence: number;
+    reason: string;
+    fallback?: string;
+    rulesEvaluated: Record<string, unknown>;
+  } = {
+    priority: brain.chosenPriority,
+    mode:
+      brain.chosenMode === "PAUSED"
+        ? "MAINTENANCE"
+        : (brain.chosenMode as
+            | "CONSTANT_FILL"
+            | "MAINTENANCE"
+            | "REPAIR"
+            | "HOMEPAGE"
+            | "DIAGNOSTICS"
+            | "SECURITY_DEFENSE"
+            | "REPORTING"
+            | "SETUP"),
+    passType: brain.passType,
+    summary: brain.reason,
+    confidence: brain.confidenceScore,
+    reason: brain.reason,
+    fallback: brain.fallbackAction ?? undefined,
+    rulesEvaluated: brain.rulesEvaluated,
+  };
+  await setPriority(prisma, decision.priority);
+  await setMode(prisma, brain.chosenMode);
 
   let built = 0;
   let publishedCount = 0;
