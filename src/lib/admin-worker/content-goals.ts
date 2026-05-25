@@ -3,8 +3,7 @@
  * valid items per content type against the minimum and desired
  * targets. The content type with the largest gap is prioritised.
  *
- * Targets here are the Phase 1 starting point — admins can edit them
- * via Prisma directly until the goal-editor UI is wired up.
+ * Targets ship as seeded defaults; admins can edit them via Prisma.
  */
 
 import type { ChecklistContentType, ContentGoalStatus, PrismaClient } from "@prisma/client";

@@ -11,10 +11,10 @@
  *     bulletins, school pages, news posts, calendars, login, store, ads)
  *     are filtered before fetch.
  *
- * Phase 1 ships the URL store and the junk-URL classifier. The real
- * sitemap/RSS fetchers land in Phase 2 — for now `discoverFromHost`
- * accepts a list of candidate URLs from the caller and inserts them
- * with the right discovery method.
+ * This module owns the URL store + junk-URL classifier. Live sitemap,
+ * RSS, internal-link, configured-URL, directory, and search-page
+ * discovery live in their own modules (`*-discovery.ts`); they call
+ * `discoverFromHost` to persist the candidates they find.
  */
 
 import type {

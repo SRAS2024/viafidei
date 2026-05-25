@@ -36,7 +36,7 @@ vi.mock("@/lib/db/client", () => {
   return { prisma: stub };
 });
 
-import { runAllDiagnostics, buildDeveloperReport } from "@/lib/diagnostics";
+import { runAllDiagnostics } from "@/lib/diagnostics";
 
 describe("runAllDiagnostics", () => {
   it("returns one result per check", async () => {
@@ -63,30 +63,5 @@ describe("runAllDiagnostics", () => {
       expect(typeof r.summary).toBe("string");
       expect(r.summary.length).toBeGreaterThan(0);
     }
-  });
-});
-
-describe("buildDeveloperReport", () => {
-  it("produces a markdown blob containing each diagnostic", () => {
-    const md = buildDeveloperReport([
-      {
-        key: "database",
-        label: "Database",
-        status: "pass",
-        summary: "ok",
-      },
-      {
-        key: "queue",
-        label: "Queue",
-        status: "warn",
-        summary: "slow",
-        details: ["pending=5"],
-        suggestedAction: "run the worker",
-      },
-    ]);
-    expect(md).toContain("# Viafidei Developer Report");
-    expect(md).toContain("Database");
-    expect(md).toContain("Queue");
-    expect(md).toContain("Suggested action: run the worker");
   });
 });

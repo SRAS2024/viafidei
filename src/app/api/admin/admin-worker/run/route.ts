@@ -10,6 +10,7 @@ export const runtime = "nodejs";
 const ALLOWED_PASS_TYPES = new Set([
   "diagnostics",
   "content_goal",
+  "source_discovery",
   "homepage",
   "source_repair",
   "report",

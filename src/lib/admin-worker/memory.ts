@@ -98,3 +98,99 @@ export async function listMemoryByType(
     take: opts.limit ?? 50,
   });
 }
+
+// ── Active memory hooks (spec §15) ───────────────────────────────────
+//
+// Memory is consulted during planning, source ranking, classification,
+// extraction, and validation. It NEVER invents facts and NEVER
+// bypasses strict QA — it only nudges priorities.
+
+export interface RankedHost {
+  host: string;
+  confidence: number;
+  successCount: number;
+  failureCount: number;
+}
+
+/**
+ * Rank hosts by memory confidence. The brain + mission planner consult
+ * this when several candidate sources are available for the same
+ * content type — the highest-confidence host wins first.
+ */
+export async function rankHostsByMemory(
+  prisma: PrismaClient,
+  candidateHosts: ReadonlyArray<string>,
+): Promise<RankedHost[]> {
+  if (candidateHosts.length === 0) return [];
+  const rows = await prisma.adminWorkerMemory.findMany({
+    where: {
+      memoryType: "SOURCE_PRIORITY",
+      memoryKey: { in: [...candidateHosts] },
+    },
+  });
+  const byHost = new Map(rows.map((row) => [row.memoryKey, row]));
+  return candidateHosts
+    .map((host) => {
+      const row = byHost.get(host);
+      return {
+        host,
+        confidence: row?.confidence ?? 0.5, // Laplace-smoothed default
+        successCount: row?.successCount ?? 0,
+        failureCount: row?.failureCount ?? 0,
+      };
+    })
+    .sort((a, b) => b.confidence - a.confidence);
+}
+
+/**
+ * Record the outcome of an extractor run so future passes can rank
+ * the (host, contentType) pair.
+ */
+export async function recordExtractorOutcome(
+  prisma: PrismaClient,
+  input: {
+    host: string;
+    contentType: string;
+    fatal: boolean;
+    confidenceScore: number;
+    missingFields: string[];
+  },
+): Promise<void> {
+  await rememberOutcome(prisma, {
+    memoryType: "BUILDER_PRIORITY",
+    memoryKey: `${input.host}|${input.contentType}`,
+    memoryValue: {
+      lastConfidence: input.confidenceScore,
+      lastMissingFields: input.missingFields,
+    },
+    outcome: input.fatal ? "failure" : input.confidenceScore >= 0.75 ? "success" : "neutral",
+  });
+}
+
+/**
+ * Pull the per-(host, contentType) extractor memory so the brain can
+ * skip hosts that have repeatedly produced incomplete packages.
+ */
+export async function recallExtractorMemory(
+  prisma: PrismaClient,
+  host: string,
+  contentType: string,
+) {
+  return recallMemory(prisma, "BUILDER_PRIORITY", `${host}|${contentType}`);
+}
+
+/**
+ * Record a failure pattern (`FAILURE_PATTERN` memory type). Used by the
+ * brain after a pass fails so the next pass can avoid the same input.
+ */
+export async function rememberFailurePattern(
+  prisma: PrismaClient,
+  input: { patternKey: string; details: Prisma.InputJsonValue },
+): Promise<void> {
+  await rememberOutcome(prisma, {
+    memoryType: "FAILURE_PATTERN",
+    memoryKey: input.patternKey,
+    memoryValue: input.details,
+    outcome: "failure",
+  });
+}

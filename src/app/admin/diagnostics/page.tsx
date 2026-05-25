@@ -10,7 +10,6 @@ import {
   summarizeRatings,
 } from "@/lib/admin-worker";
 import { prisma } from "@/lib/db/client";
-import { DeveloperReportButton } from "./DeveloperReportButton";
 import { DeveloperAuditButton } from "./DeveloperAuditButton";
 import { RunAutonomousButton } from "./RunAutonomousButton";
 import { AdminWorkerPauseToggle } from "../admin-worker/AdminWorkerPauseToggle";
@@ -65,13 +64,12 @@ export default async function DiagnosticsPage() {
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <DeveloperAuditButton />
         <RunAutonomousButton />
-        <DeveloperReportButton />
       </div>
 
       <section>
         <h2 className="font-display text-2xl text-ink">Admin Worker health</h2>
         <p className="mb-2 text-xs italic text-ink-soft">
-          24 ratings covering every Admin Worker subsystem. Each rating links to the underlying data
+          30 ratings covering every Admin Worker subsystem. Each rating links to the underlying data
           source.
         </p>
         <div className="space-y-2">

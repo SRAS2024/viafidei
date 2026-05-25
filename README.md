@@ -9,11 +9,15 @@
 Via Fidei is a Next.js 15 application that pairs a public reader-facing
 site with an authenticated admin console. Content is sourced only from
 approved Catholic publishers and verified at multiple stages before it
-reaches the public. The site is run by an autonomous **Admin Worker**:
-with a fresh database it fills the site by itself from a curated
-knowledge base of foundational Catholic content, monitors its own
-health, defends the admin surface, redesigns the homepage, and emails
-a monthly operations report.
+reaches the public. The site is run by the **Admin Worker** — a fully
+coded, deterministic, autonomous administrator that operates **without
+any AI APIs**. With a fresh database the Admin Worker fills the site
+by itself: it discovers approved Catholic sources, classifies and
+extracts content, validates facts across sources, publishes when QA +
+provenance + confidence all pass, verifies the public page after
+publish, repairs failed pipeline stages, redesigns the homepage when
+safe, defends the admin surface, and emails a monthly operations
+report.
 
 ---
 
@@ -22,34 +26,37 @@ a monthly operations report.
 Two systems run together:
 
 1. **Checklist-first content factory** — `src/lib/worker/`.
-   The only way new content reaches the public site. Every
-   public-content row begins as a `ChecklistItem` (a row in the
-   master list of items the app intends to publish), gets one or
-   more `ChecklistCitation`s pointing at approved Catholic sources,
-   is built by the worker against a strict per-content-type schema,
-   is scored on six QA dimensions, and is finally written to
-   `PublishedContent` — the single table every public page reads
-   from.
+   The only path from a source page to a public page. Every public
+   row begins as a `ChecklistItem`, gets one or more
+   `ChecklistCitation`s pointing at approved Catholic sources, is
+   built against a strict per-content-type schema, is scored on six
+   QA dimensions, and is finally written to `PublishedContent` —
+   the single table every public page reads from.
 
 2. **Admin Worker engine** — `src/lib/admin-worker/`.
    The autonomous administrator that drives the checklist-first
-   factory plus everything around it: source discovery, content
-   goals, publishing safety, post-publish verification, homepage
-   redesign, security defense, diagnostics, reporting, and self-
-   repair. Fully coded, deterministic, observable, and operates
-   without any AI APIs.
+   factory plus everything around it: brain, mission planner,
+   discovery, source reader, classifier, extractors, cross-source
+   verifier, publishing gate, post-publish verification, homepage
+   redesign, security defense, diagnostics, reporting, durable
+   repair plans, memory, source reputation. Deterministic and
+   observable end-to-end.
 
 ```
-   ┌─────────────────────────────────────────────────────────────┐
-   │                       Admin Worker engine                    │
-   │                  (src/lib/admin-worker/)                     │
-   │   planner → web navigator → web checkers → ...               │
-   │   ┌──────────────────────────────────────────────────────┐   │
-   │   │       Checklist-first content factory                │   │
-   │   │  ChecklistItem → WorkerBuildJob → ChecklistQAReport  │   │
-   │   │            → PublishedContent (public)               │   │
-   │   └──────────────────────────────────────────────────────┘   │
-   └─────────────────────────────────────────────────────────────┘
+   ┌──────────────────────────────────────────────────────────────────┐
+   │                       Admin Worker engine                         │
+   │                    (src/lib/admin-worker/)                        │
+   │                                                                   │
+   │   brain → mission planner → discovery → source reader →           │
+   │     classifier → extractors → cross-source verifier →             │
+   │     publish gate → post-publish probe → repair plans              │
+   │                                                                   │
+   │   ┌──────────────────────────────────────────────────────────┐   │
+   │   │       Checklist-first content factory                    │   │
+   │   │  ChecklistItem → WorkerBuildJob → ChecklistQAReport      │   │
+   │   │            → PublishedContent (public)                   │   │
+   │   └──────────────────────────────────────────────────────────┘   │
+   └──────────────────────────────────────────────────────────────────┘
 ```
 
 The public site reads only from `PublishedContent`. There is no other
@@ -81,10 +88,13 @@ code path from the database to a public page.
 | `AdminWorkerPass`             | One row per decide-then-act cycle of the loop         |
 | `AdminWorkerTask`             | Planned action; produces one or more log rows         |
 | `AdminWorkerLog`              | Structured engine log (16 categories)                 |
+| `AdminWorkerDecision`         | Every brain decision with inputs + chosen action      |
 | `AdminWorkerMemory`           | Outcome counts + confidence — no invented facts       |
 | `AdminWorkerSourceReputation` | Rolling per-(host, contentType) reputation tier       |
-| `AdminWorkerDecision`         | Every major decision with inputs + chosen action      |
 | `AdminWorkerSecurityAction`   | Defender actions taken in response to security events |
+| `AdminWorkerSourceRead`       | Durable extracted text per (sourceUrl, checksum)      |
+| `AdminWorkerPipelineStage`    | One row per item moving through the content chain     |
+| `AdminWorkerRepairPlan`       | Durable repair plans with exponential-backoff retry   |
 | `CandidateSourceUrl`          | URLs the web navigator has discovered                 |
 | `ContentGoal`                 | Per-content-type minimum + desired targets            |
 | `HumanReviewQueue`            | Rare items needing human review                       |
@@ -94,7 +104,7 @@ code path from the database to a public page.
 | `ContentQualityScore`         | Deterministic per-package quality score               |
 | `HomepageQualityScore`        | Deterministic homepage score (8 dimensions)           |
 
-**User + site** (unchanged):
+**User + site:**
 
 `User`, `Session`, `Profile`, `JournalEntry`, `Goal`,
 `GoalChecklistItem`, `Milestone`, `UserSavedContent` (consolidated
@@ -102,12 +112,13 @@ saved-content table keyed on `(userId, contentType, slug)`),
 `MediaAsset`, `EntityMediaLink`, `SiteSetting`, `HomePage`,
 `HomePageBlock`, `Category`, `Tag`, `EntityTag`.
 
-**Security + admin** (unchanged):
+**Security + admin:**
 
 `SecurityEvent`, `BannedDevice`, `DiagnosticSnapshot`,
 `AdminAuditLog`, `AdminActionLog`, `AdminNotificationState`,
 `RateLimitBucket`, `ErrorLog`, `PasswordResetToken`,
-`EmailVerificationToken`.
+`EmailVerificationToken`, `WorkerHeartbeat` (compat — Admin Worker
+also writes it during the heartbeat-unification transition).
 
 See `prisma/schema.prisma` for the full definitions.
 
@@ -158,12 +169,12 @@ Optional environment variables:
 
 **Admin Worker (autonomous system):**
 
-| Card               | Route                       | Purpose                                               |
-| ------------------ | --------------------------- | ----------------------------------------------------- |
-| Command Center     | `/admin/admin-worker`       | Status, controls, content goals, metrics              |
-| System diagnostics | `/admin/diagnostics`        | 27 ratings, pass breakdown, pause toggle, Dev Report  |
-| Admin Worker logs  | `/admin/admin-worker/logs`  | 16-category log viewer with period + severity filters |
-| Admin Worker rules | `/admin/admin-worker/rules` | Versioned rule catalogue                              |
+| Card               | Route                       | Purpose                                                       |
+| ------------------ | --------------------------- | ------------------------------------------------------------- |
+| Command Center     | `/admin/admin-worker`       | Status, current mission, last brain decision, controls, goals |
+| System diagnostics | `/admin/diagnostics`        | 30 ratings, pause toggle, Developer Audit PDF                 |
+| Admin Worker logs  | `/admin/admin-worker/logs`  | 16-category log viewer with period + severity filters         |
+| Admin Worker rules | `/admin/admin-worker/rules` | Versioned rule catalogue                                      |
 
 **Checklist (content the worker builds):**
 
@@ -198,72 +209,161 @@ Optional environment variables:
 
 ## Admin Worker
 
-The **Admin Worker** is the autonomous website-administrator system.
-It is fully coded, deterministic, durable, observable, and autonomous,
-and it operates **without any AI APIs**. Code lives under
-`src/lib/admin-worker/`; the operator-facing surface is at
-`/admin/admin-worker` (Command Center) and `/admin/diagnostics` (27
-health ratings + pause toggle).
+The **Admin Worker** is the autonomous website-administrator system,
+fully coded and operating **without any AI APIs**. Code lives under
+`src/lib/admin-worker/`. The operator surface is at `/admin/admin-worker`
+(Command Center) and `/admin/diagnostics` (30 ratings + pause toggle).
 
 ### What it does
 
-- **Discovers approved Catholic source URLs** — all 7 spec-listed
-  discovery methods work end-to-end: sitemap, RSS / Atom, configured
-  fixed URL lists, source internal links, Catholic content
-  directories, source search pages, and registered API adapters.
-  Junk URLs (livestreams, donations, bulletins, store pages, event
-  listings, …) are rejected before fetch.
-- **Reads source pages** and extracts Catholic content using the
-  existing fetcher + per-content-type Zod schemas.
-- **Validates correctness** against schema + per-type packaging
-  validators (Prayer, Saint, Marian Apparition, Devotion, Novena
-  Day 1–9, Rosary mystery sets, Consecration daily structure,
-  Sacrament, Church History — only 12 approved types — Liturgy,
-  Parish).
-- **Formats and publishes** valid content automatically when QA +
-  quality score + source evidence + confidence all pass; humans only
-  see ambiguous edge cases.
+- **Has a real coded brain.** `brain.ts` samples world state on every
+  pass (content goals, source reputation, pending + failed build jobs,
+  homepage score, security events, heartbeat age, candidate URLs, open
+  repair plans, blocked pipeline stages) and emits a structured
+  `BrainDecision`: chosen mode + priority + task type, content type,
+  source target, expected result, confidence, risk, reason, fallback,
+  repair action, rules evaluated, memory used, reputation used. Every
+  decision is written to `AdminWorkerDecision` so the operator can
+  audit _"why did the worker choose this?"_ without re-running.
+
+- **Walks the full content chain.** `mission-planner.ts` traverses
+  Discovery → Candidate → Fetch → Read → Classify → Checklist →
+  Citation → Build → Validate → QA → Publish → Post-publish → Search
+  → Sitemap → Cache and stops at the first stage that needs work for
+  the largest content gap. The worker never stalls when the build
+  queue is empty; it creates discovery / classification / citation /
+  build / verify work on demand.
+
+- **Discovers approved Catholic sources** — eight discovery methods
+  end-to-end: sitemap, RSS / Atom, configured fixed URL lists,
+  internal links, Catholic content directories, source search pages,
+  official source API adapters, and the candidate-URL store. Junk
+  URLs (livestreams, donations, bulletins, store pages, event listings,
+  staff pages, schools, login pages, calendars, …) are rejected
+  before fetch.
+
+- **Reads source pages.** `source-reader.ts` orchestrates fetch →
+  stripJunk → classify → extract → persist into one call. Source body
+  is sha256-hashed and stored in `AdminWorkerSourceRead`; subsequent
+  reads short-circuit when the checksum hasn't changed.
+
+- **Classifies content deterministically.** `classifier.ts` decides
+  whether a source page is a prayer / saint / apparition / devotion /
+  novena / rosary / consecration / sacrament / liturgy / history /
+  parish — or rejects it as WRONG / UNUSABLE — using URL patterns,
+  title regex, headings, body regex, required-term presence, and
+  source reputation. Every decision records its per-type scores +
+  reasons.
+
+- **Extracts complete packages with field-level provenance.**
+  Eleven specialised extractors (PrayerExtractor, SaintExtractor,
+  MarianApparitionExtractor, DevotionExtractor, NovenaExtractor,
+  RosaryExtractor, ConsecrationExtractor, SacramentExtractor,
+  HistoryExtractor, LiturgyExtractor, ParishExtractor) parse a
+  source-read into a candidate package. Every required field gets
+  a `FieldProvenance` row with source URL, host, snippet, extraction
+  method, confidence, timestamp, and source-page checksum. Required
+  fields without provenance cannot be published — except deterministic
+  internal rules (Rosary 5-mystery decade structure, seven sacraments
+  list, novena 9-day requirement, content-type mapping).
+
+- **Verifies facts across sources.** `cross-source-verifier.ts`
+  compares required facts against approved validation sources and
+  emits structured `ValidationEvidence` rows (`fieldVerified`,
+  `sourceUsed`, `matchStatus`, `confidence`, `conflict`,
+  `failureReason`). When two sources conflict — or when validation
+  evidence is missing for required sensitive facts (apparition
+  approval, saint feast day, scripture references, novena day count,
+  rosary mystery count, sacrament identity) — publishing is blocked.
+
+- **Validates per-content-type packages.** `packaging.ts` enforces
+  the spec's structural extras the Zod schema treats as optional:
+  Novena must have Day 1–9 with title + prayer, Rosary must have
+  mystery sets with exactly 5 mysteries + decade structure,
+  Consecration must have daily structure + final consecration prayer,
+  Church History must be one of the 12 approved types, and so on.
+
+- **Publishes valid content autonomously.** The publish gate
+  (`publisher.ts`) requires: complete package, correct content type,
+  required fields with provenance, validation evidence when sensitive
+  facts are involved, duplicate check pass, strict QA pass, formatting
+  check pass, and confidence above the per-type threshold (normal /
+  doctrinal / Marian apparition / history / scripture / homepage).
+  Items below threshold are repaired first; items that cannot be
+  repaired go to rare human review.
+
 - **Verifies the public page** after every publish: HTTP-fetches the
-  public URL, checks the title and body marker, triggers cache /
-  sitemap / search revalidation. On failure, automatically
-  unpublishes and either deletes (clear failure) or files a human
-  review row (ambiguous failure).
-- **Maintains the homepage** — deterministic 8-dimension scoring +
-  proper liturgical-calendar engine (Meeus algorithm for Easter,
-  Advent / Christmas / Lent / Triduum / Easter / Ordinary Time, with
-  flags for Marian feasts + months). Small high-confidence changes
-  auto-publish, major redesigns route to review, section deletion
-  always routes to review.
-- **Monitors diagnostics** (27 health ratings) and surfaces them on
-  `/admin/diagnostics` with pass / warn / fail badges and links to
-  underlying data.
-- **Creates Developer Audit PDFs** for the last 24 hours, 7 days,
-  or 30 days. Table of contents + 7 sections (Diagnostics Results,
-  Worker Logs, System Logs, Security Logs, Content Growth and
-  Publishing, Homepage Actions, Recommended Repairs) with secret
-  redaction.
-- **Defends the admin site**. Detects brute force, suspicious
-  request bursts, banned-device reuse, attempts to bypass admin
-  authentication, attempts to set public-content flags outside the
-  worker, attempts to manipulate internal content routes. Only
-  confirmed brute force results in an automatic device ban
-  (BannedDevice row + Admin Worker Banned Device email). A valid
+  public URL, checks title + body markers + tab placement + search
+  visibility + sitemap inclusion + cache freshness. On failure,
+  automatically unpublishes; clear-cut failures delete with logs,
+  ambiguous failures route to human review.
+
+- **Repairs failed pipeline stages.** Thirteen in-pass repair
+  handlers cover heartbeat staleness, stuck queue, missing source
+  jobs, discovery gaps, fetch backoff, chronic-failure source pause,
+  missing QA fields, validation evidence gaps, persistence failures,
+  public display failures, and cache / sitemap / search refresh.
+  **Durable repair plans** (`AdminWorkerRepairPlan`) survive process
+  restarts and retry with exponential backoff (1 min → 1 h cap).
+  Plans abandon after maxAttempts.
+
+- **Learns operationally.** `memory.ts` writes outcome counts +
+  Laplace-smoothed confidence per (memoryType, memoryKey). Active
+  hooks: `rankHostsByMemory` (orders candidate hosts before fetch),
+  `recordExtractorOutcome` (tracks per-host extractor success),
+  `rememberFailurePattern` (records failure modes for the brain).
+  EWMA-smoothed `AdminWorkerSourceReputation` updates after every
+  discovery / fetch / classify / extract / build / QA / publish /
+  post-publish / duplicate / wrong-content outcome. Good sources
+  promoted automatically; bad sources paused.
+
+- **Maintains the homepage.** Deterministic 8-dimension scoring +
+  Meeus-algorithm liturgical calendar (Advent / Christmas / Lent /
+  Triduum / Easter / Ordinary Time, Marian feasts + months). Small
+  high-confidence changes auto-publish; major redesigns route to
+  human review; section deletion always routes to review. The
+  Command Center has a **Request Homepage Makeover** button that
+  triggers an on-demand task.
+
+- **Defends the admin site.** Ten deterministic detectors classify
+  every protected-route request: unauthenticated direct access,
+  normal login redirect, failed admin login, valid admin login,
+  valid session navigation, expired session, brute force, mutation
+  bypass attempt, content route manipulation, banned-device reuse.
+  Confirmed brute force results in an automatic device ban
+  (`BannedDevice` row + Admin Worker Banned Device email). A valid
   authenticated admin login is never treated as suspicious — the
-  admin gets a calm Admin Log In email confirming the sign-in with
-  device + location.
-- **Sends monthly worker reports** to `ADMIN_EMAIL` on the last day
-  of each month with a PDF attachment containing per-day sections
-  and a monthly summary. Handles February + shorter months.
-- **Learns operationally** — outcome counts + confidence scoring +
-  EWMA-smoothed source reputation. The learning system never
-  invents facts, never bypasses QA, and never creates content
-  without source evidence. Bad sources are paused automatically;
-  good sources promoted automatically.
-- **Repairs itself** — 13 repair handlers covering heartbeat
-  staleness, stuck queue, missing source jobs, discovery gaps,
-  fetch backoff, chronic-failure source pause, missing QA fields,
-  validation evidence gaps, persistence failures, public display
-  failures, and cache / sitemap / search refresh.
+  admin gets a calm **Admin Log In** email with date, time, device,
+  browser, OS, IP, city, region, country, and session status.
+
+- **Creates Developer Audit PDFs** for the last 24 hours / 7 days /
+  30 days. Table of contents + sections for Admin Worker diagnostics,
+  worker decisions, passes, tasks, logs, source / classification /
+  extraction / validation / QA / publishing / post-publish / security
+  / homepage / repair / email / scheduler / DB / cache / search /
+  sitemap logs, plus a summary section (overall health, top failures,
+  top warnings, current blocker, most recent pass / publish / security
+  action, top repair recommendation). All secrets redacted.
+
+- **Sends a monthly PDF report** to `ADMIN_EMAIL` on the last calendar
+  day of each month. Daily sections + monthly summary (total content
+  growth, best / weakest content type growth, best / worst sources, QA
+  pass rate, publish rate, worker uptime, security events, homepage
+  improvements, remaining blockers).
+
+- **Escalates stalled growth.** `content-growth.ts` watches each
+  content type. After 24 hours with no growth while below target, the
+  worker auto-expands sources. After 7 days, it escalates the gap to
+  a full diagnostics pass.
+
+- **Reports production readiness.** `readiness.ts` runs 12 live
+  checks (heartbeat, brain has run, content goals exist, source
+  discovery configured, candidate URLs available, source reads exist,
+  builds exist, QA passes exist, published content exists,
+  post-publish verification works, security defender wired, homepage
+  scoring available). Every failed check returns a concrete repair
+  instruction. The Command Center surfaces the readiness score and
+  failing checks.
 
 ### Internal modules
 
@@ -271,8 +371,17 @@ health ratings + pause toggle).
 
 | File                         | Module                                  |
 | ---------------------------- | --------------------------------------- |
-| `planner.ts`                 | Source / content planner                |
-| `web-navigator.ts`           | Web navigator + junk-URL classifier     |
+| `brain.ts`                   | Explicit decision brain (deterministic) |
+| `mission-planner.ts`         | Chain-aware mission planner             |
+| `loop.ts`                    | Central decision loop + mode dispatch   |
+| `passes.ts`                  | Pass lifecycle                          |
+| `tasks.ts`                   | Task management                         |
+| `state.ts`                   | Singleton state + pause/resume          |
+| `modes.ts`                   | 9 mode descriptors                      |
+| `priorities.ts`              | Priority ladder + selector              |
+| `decisions.ts`               | Decision log + confidence thresholds    |
+| `planner.ts`                 | Build-job enqueuer (within mission)     |
+| `web-navigator.ts`           | Candidate URL store + junk classifier   |
 | `sitemap-discovery.ts`       | Sitemap discovery + robots.txt          |
 | `rss-discovery.ts`           | RSS / Atom feed discovery               |
 | `configured-urls.ts`         | Configured fixed URL list discovery     |
@@ -280,9 +389,15 @@ health ratings + pause toggle).
 | `directory-discovery.ts`     | Catholic content directory discovery    |
 | `search-page-discovery.ts`   | Approved-source search-page discovery   |
 | `source-apis.ts`             | Official source API adapter registry    |
-| `publisher.ts`               | Publishing gate + confidence thresholds |
-| `publish-safety.ts`          | Pattern blockers (incomplete prayers, … |
+| `source-reads.ts`            | Source-read dedupe via sha256 checksum  |
+| `source-reader.ts`           | Orchestrator: classify + extract + read |
+| `classifier.ts`              | Deterministic content classifier        |
+| `extractors.ts`              | Per-type extractors + field provenance  |
+| `provenance.ts`              | Field-level provenance tracker          |
+| `cross-source-verifier.ts`   | Field verification + ValidationEvidence |
 | `packaging.ts`               | Per-content-type structural validators  |
+| `publisher.ts`               | Publishing gate + confidence thresholds |
+| `publish-safety.ts`          | Pattern blockers (incomplete prayers …) |
 | `post-publish-probe.ts`      | Live HTTP probe + auto-rollback         |
 | `post-publish.ts`            | Aggregation + rollback decision         |
 | `homepage-designer.ts`       | Homepage scoring + draft decision       |
@@ -290,49 +405,59 @@ health ratings + pause toggle).
 | `liturgical-calendar.ts`     | Meeus-based liturgical calendar engine  |
 | `security-defender.ts`       | Defender + automatic ban + email        |
 | `security-detectors.ts`      | 10 deterministic detector functions     |
-| `cleanup.ts`                 | Cleanup custodian                       |
-| `diagnostics.ts`             | 27-rating diagnostics auditor           |
-| `report-generator.ts`        | Developer Audit data collection         |
-| `pdf.ts`                     | Real PDF rendering for both reports     |
-| `monthly-report-job.ts`      | Last-day-of-month gate + run            |
+| `pipeline-stages.ts`         | Pipeline-stage chain + snapshot bucket  |
+| `repair.ts`                  | 13 in-pass repair handlers              |
+| `repair-plans.ts`            | Durable repair-plan queue + backoff     |
 | `learning.ts`                | Feedback loop (success/failure counts)  |
-| `memory.ts`                  | Learning memory store                   |
+| `memory.ts`                  | Active memory hooks (rank + record)     |
 | `source-reputation.ts`       | EWMA-smoothed reputation engine         |
 | `source-strategy.ts`         | 10-criteria source ranking              |
-| `repair.ts`                  | 13 self-repair handlers                 |
-| `rules.ts`                   | 12 versioned rules across 11 categories |
-| `decisions.ts`               | Decision log + confidence thresholds    |
-| `health.ts`                  | Worker health monitor                   |
-| `metrics.ts`                 | Command Center metric computation       |
-| `loop.ts`                    | Central decision loop + mode dispatch   |
-| `state.ts`                   | Singleton state + pause/resume          |
-| `modes.ts`                   | 9 mode descriptors                      |
-| `priorities.ts`              | Priority ladder + selector              |
-| `passes.ts`                  | Pass lifecycle                          |
-| `tasks.ts`                   | Task management                         |
-| `logs.ts`                    | Structured AdminWorkerLog writer        |
+| `content-goals.ts`           | Per-content-type minimum/desired        |
+| `content-growth.ts`          | 24h / 7d growth-escalation watcher      |
+| `cleanup.ts`                 | Cleanup custodian                       |
 | `human-review.ts`            | Rare-edge-case review queue             |
 | `deletion.ts`                | Confidence-gated deletion + 9 reasons   |
 | `quality.ts`                 | Content quality scoring                 |
+| `health.ts`                  | Worker health monitor                   |
+| `metrics.ts`                 | Command Center metric computation       |
+| `diagnostics.ts`             | 30-rating diagnostics auditor           |
+| `readiness.ts`               | Production-readiness 12-check sweep     |
+| `rules.ts`                   | 12 versioned rules across 11 categories |
+| `logs.ts`                    | Structured AdminWorkerLog writer        |
+| `report-generator.ts`        | Developer Audit data collection         |
+| `pdf.ts`                     | PDF rendering for both reports          |
+| `monthly-report-job.ts`      | Last-day-of-month gate + run            |
 | `public-routes.ts`           | Public URL builder + cache tag mapping  |
 
 ### Pause + override
 
 The human admin is the site's super-admin. They can pause the Admin
-Worker at any time via the toggle on `/admin/diagnostics` (directly
-above the Developer Report button). Pausing stops all non-security
-work — the security defender keeps running so the site is never
-unprotected.
+Worker at any time via the toggle on `/admin/diagnostics`. Pausing
+stops all non-security work — the security defender keeps running so
+the site is never unprotected. When paused, the Admin Worker writes a
+single "Admin Worker is paused (reason)" log entry per pass and skips
+the rest of the loop. Resume the worker via the same toggle.
 
-When paused, the Admin Worker writes a single "Admin Worker is paused
-(reason)" log entry per pass and skips the rest of the loop. Resume
-the worker via the same toggle.
+### Operator actions
+
+The Command Center exposes one-click actions for every named pass:
+
+- **Run diagnostic pass** — refreshes 30 ratings + writes diagnostic snapshots
+- **Run content goal pass** — recomputes gaps + enqueues build jobs
+- **Run source discovery pass** — runs the web navigator
+- **Run homepage pass** — invokes the homepage mutator
+- **Run source repair pass** — drains durable repair plans
+- **Run report generation** — generates a monthly report on demand
+- **Run cleanup pass** — runs the custodian
+- **Run security defense pass** — invokes the defender (even when paused)
+- **Request Homepage Makeover** — operator-triggered redesign
+- **Download Developer Audit** — last 24 h / 7 d / 30 d PDF
 
 ### Modes
 
 The loop runs in exactly one mode at a time:
 
-- `SETUP` — initialize tables, source jobs, diagnostics, goals
+- `SETUP` — initialise tables, source jobs, diagnostics, goals
 - `CONSTANT_FILL` — build content until goals are met
 - `MAINTENANCE` — keep content fresh
 - `REPAIR` — fix pipeline failures
@@ -353,13 +478,11 @@ tsx scripts/run-worker.ts --max-jobs N   # exit after N passes
 tsx scripts/run-worker.ts --worker-id X  # stable worker id
 ```
 
-The worker self-leases jobs and is safe to run with multiple
-replicas. Each build job is leased for five minutes; stale leases
-are reclaimed automatically.
-
-The monthly Admin Worker Report is gated on `isLastDayOfMonth(today)`
-and is triggered once on every worker startup, so a restart on the
-last day of the month still fires the email.
+The worker self-leases jobs and is safe to run with multiple replicas.
+Each build job is leased for five minutes; stale leases are reclaimed
+automatically. The monthly Admin Worker Report fires once per worker
+startup when `isLastDayOfMonth(today)` is true, so a restart on the
+last day of the month still sends the email.
 
 ---
 
@@ -387,7 +510,7 @@ There is no other code path from the database to the public site.
 
 ## Catholic accuracy rules
 
-The worker treats Catholic accuracy as a hard constraint:
+The Admin Worker treats Catholic accuracy as a hard constraint:
 
 - Scripture must come from an approved translation source. Unapproved
   translations are blocked at the publish gate.
@@ -421,21 +544,24 @@ npm run verify:full # verify + integration + e2e + build
 
 The unit + component suite covers:
 
-- 246 admin-worker tests (state, modes, priorities, planner, deletion,
-  publish gate, publish safety, packaging validators, post-publish
-  probe + rollback, homepage designer + mutator, security defender +
-  auto-ban + emails, security detectors, source reputation + ranking,
-  PDF generation, monthly report job, metrics, rule categories,
-  sitemap + RSS + internal-link + directory discovery, liturgical
-  calendar)
-- 17 worker tests (build engine, build queue, publishing gate, QA
-  approval, source validation, diagnostics, janitor, cross-source,
-  duplicate detection, schema compliance, autonomous cycle,
-  knowledge base, relations, Catholic accuracy)
-- API, auth, security, components, data, email, observability,
-  i18n, cache test suites
+- Admin Worker brain, mission planner, classifier, all 11 extractors,
+  field provenance, cross-source verifier, source reader, pipeline
+  stages, durable repair plans, source-read dedupe, memory hooks,
+  content-growth escalation, production readiness, packaging,
+  publish gate + safety, post-publish probe + rollback, homepage
+  designer + mutator, security defender + auto-ban + emails, security
+  detectors, source reputation + ranking, monthly report job, PDF
+  generation, metrics, rule categories, liturgical calendar.
+- End-to-end chain tests (Prayer + Saint + Novena) proving Discovery
+  → Read → Classify → Extract → Verify → publishAllowed.
+- Worker tests covering build engine, build queue, publishing gate,
+  QA approval, source validation, diagnostics, janitor, cross-source,
+  duplicate detection, schema compliance, autonomous cycle, knowledge
+  base, relations, Catholic accuracy.
+- API, auth, security, components, data, email, observability, i18n,
+  and cache test suites.
 
-Total: **1119+ passing tests**.
+Total: **1243+ passing tests**.
 
 ---
 
@@ -448,29 +574,26 @@ Three-tier security model:
    referrer-policy, and gates `/admin/*` on session presence.
 2. **Admin gate** — `src/lib/security/banned-guard.ts` blocks every
    request from a `BannedDevice` row before any page renders.
-3. **Admin Worker security defender** — `src/lib/admin-worker/
-security-defender.ts` consumes `SecurityEvent` rows. On a
-   confirmed Breach (classification=Breach + confidence ≥ 0.9 +
-   known device fingerprint) it upserts a `BannedDevice` row and
-   sends the Admin Worker Banned Device email. Suspicious activity
-   never results in an automatic ban.
+3. **Admin Worker security defender** — `security-defender.ts`
+   consumes `SecurityEvent` rows. On a confirmed Breach
+   (classification=Breach + confidence ≥ 0.9 + known device
+   fingerprint) it upserts a `BannedDevice` row and sends the Admin
+   Worker Banned Device email. Suspicious activity never results in
+   an automatic ban.
 
 Admin login flow:
 
 - Successful login → `recordAdminLoginSuccess` → SecurityEvent +
   AdminActionLog + Admin Log In email (timestamp, device, location).
 - 3+ failed logins in window → Suspicious Activity email (no ban).
-- 5+ failed logins in window OR confirmed brute force → Security
-  Breach email + signed ban link the admin can click.
-- The Admin Worker defender layers on top: when classification=Breach
-  - high confidence, it auto-bans (BannedDevice + Admin Worker
-    Banned Device email) without waiting for the admin to click the
-    signed link.
+- 5+ failed logins OR confirmed brute force → Security Breach email +
+  signed ban link the admin can click.
+- The defender layers on top: classification=Breach + high confidence
+  auto-bans without waiting for the admin to click the signed link.
 
-A valid authenticated admin browsing the admin console never
-triggers a suspicious-activity email — `recordAdminLoginSuccess`
-marks the device known so subsequent navigation reads as expected
-activity.
+A valid authenticated admin browsing the admin console never triggers
+a suspicious-activity email — `recordAdminLoginSuccess` marks the
+device known so subsequent navigation reads as expected activity.
 
 ---
 
@@ -482,21 +605,16 @@ activity.
 | `0023_checklist_first_architecture` | Checklist-first models (ChecklistItem, …)                                 |
 | `0024_admin_worker`                 | Admin Worker engine tables (15 + enums)                                   |
 | `0025_drop_legacy_system`           | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent |
+| `0026_admin_worker_brain`           | Brain tables: SourceRead, PipelineStage, RepairPlan                       |
 
 The legacy scraper-first ingestion + legacy public-content models
 (`Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,
 `LiturgyEntry`, `SpiritualLifeGuide`, `DailyLiturgy`, and their
-translations) were dropped in migration `0025_drop_legacy_system`.
-Public reads have been served by `PublishedContent` since
-`0023`; the schema cleanup removes the now-orphaned tables and
-collapses the 5 separate `UserSaved*` tables into one
-`UserSavedContent` keyed on `(userId, contentType, contentSlug)`.
-
-If you are deploying to a database that still has the legacy tables,
-running `prisma migrate deploy` applies `0025` which drops them
-cleanly. No data migration is required because the public surface
-has been reading from `PublishedContent` for the full life of those
-tables under the new system.
+translations) were dropped in `0025_drop_legacy_system`. Public reads
+have been served by `PublishedContent` since `0023`; the schema
+cleanup removes the now-orphaned tables and collapses the five
+separate `UserSaved*` tables into one `UserSavedContent` keyed on
+`(userId, contentType, contentSlug)`.
 
 ---
 

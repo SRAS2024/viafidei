@@ -59,7 +59,7 @@ function makePrisma(opts: { pendingJobs?: number; failedJobs?: number; gap?: num
         currentGoal: null,
         currentTask: null,
         lastHeartbeatAt: new Date(),
-        lastSuccessfulAt: null,
+        lastSuccessfulAt: new Date(),
         lastFailedAt: null,
         currentBlocker: null,
         recoveryAction: null,
@@ -87,6 +87,13 @@ function makePrisma(opts: { pendingJobs?: number; failedJobs?: number; gap?: num
         return 0;
       }),
     },
+    adminWorkerSourceReputation: { count: vi.fn(async () => 0) },
+    humanReviewQueue: { count: vi.fn(async () => 0) },
+    securityEvent: { count: vi.fn(async () => 0) },
+    homepageQualityScore: { findFirst: vi.fn(async () => ({ finalScore: 0.9 })) },
+    candidateSourceUrl: { count: vi.fn(async () => 0) },
+    adminWorkerRepairPlan: { count: vi.fn(async () => 0) },
+    adminWorkerPipelineStage: { count: vi.fn(async () => 0) },
     adminWorkerPass: {
       create: vi.fn(async () => ({ id: "p1", startedAt: new Date() })),
       update: vi.fn(async () => ({})),
@@ -101,13 +108,11 @@ describe("runOnePass — mode dispatch", () => {
   it("runs the homepage mutator when HOMEPAGE priority wins", async () => {
     vi.mocked(redesignHomepage).mockClear();
     const prisma = makePrisma({});
-    // Force HOMEPAGE by leaving no candidates so MAINTENANCE wins.
-    // But MAINTENANCE doesn't trigger the mutator — we need HOMEPAGE
-    // selected explicitly. The selectPriority path always promotes
-    // CONTENT_GOAL/CONTENT_BUILD/SOURCE_REPAIR before HOMEPAGE; to
-    // exercise the dispatch directly we call selectPriority-free via
-    // mode override is not exposed. Instead, exercise the
-    // MAINTENANCE/cleanup path: it MUST call runCleanupPass.
+    // Force MAINTENANCE by leaving every world signal idle. The brain
+    // walks its priority ladder (security → health → goal → repair →
+    // queue → homepage → diagnostics → maintenance) and lands on
+    // MAINTENANCE when nothing else has work. The dispatch then MUST
+    // call runCleanupPass.
     vi.mocked(runCleanupPass).mockClear();
     await runOnePass(prisma, "test-worker");
     expect(runCleanupPass).toHaveBeenCalledTimes(1);

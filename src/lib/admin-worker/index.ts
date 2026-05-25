@@ -9,30 +9,25 @@
  * Code outside `src/lib/admin-worker/` should import from this index
  * and never reach into submodules directly.
  *
- * Phase 1 ships:
- *   - state machine (modes, priorities, pause toggle)
- *   - central decision loop wrapping the existing build worker
- *   - per-source reputation engine (deterministic, EWMA-smoothed)
- *   - per-content-type goals + planner that prioritises by gap
- *   - 24-rating diagnostics surface
- *   - rule engine + decision log
- *   - confidence-gated publishing wrapper
- *   - learning memory (no AI: success/failure counts only)
- *   - human review queue (deliberately rarely used)
- *   - homepage designer / scorer
- *   - security defender that layers on top of the existing
- *     SecurityEvent / BannedDevice flow
- *   - cleanup custodian
- *   - post-publish verification
- *   - developer report data + monthly report data
+ * Subsystems:
+ *   - state machine + pause toggle           (state, modes, priorities)
+ *   - brain + mission planner                (brain, mission-planner)
+ *   - central pass loop                      (loop, passes, tasks)
+ *   - discovery (sitemap, RSS, internal, …)  (web-navigator, *-discovery)
+ *   - source reader + classifier             (source-reader, classifier)
+ *   - per-content-type extractors            (extractors)
+ *   - field provenance + cross-source verify (provenance, cross-source-verifier)
+ *   - publishing gate + post-publish probe   (publisher, post-publish*)
+ *   - homepage designer + mutator            (homepage-*)
+ *   - security defender                      (security-defender, security-detectors)
+ *   - durable repair plans                   (repair, repair-plans)
+ *   - memory + source reputation             (memory, source-reputation)
+ *   - diagnostics + readiness                (diagnostics, readiness)
+ *   - PDF reports                            (report-generator, pdf)
  *
- * Phase 2+ ships the live HTTP plumbing (sitemap/RSS fetchers, public
- * page checks, search-index probes, cache revalidation triggers).
- *
- * Internal model names (ChecklistItem, WorkerBuildJob, WorkerBuildLog,
- * WorkerHeartbeat) deliberately keep their existing names for
- * compatibility with the long-running worker process and historical
- * data; the spec calls for renaming only the admin-facing UI.
+ * Internal model names (ChecklistItem, WorkerBuildJob, WorkerBuildLog)
+ * deliberately keep their existing names; the spec calls for renaming
+ * only the admin-facing UI.
  */
 
 export { ADMIN_WORKER_MODES, describeMode, type ModeDescriptor } from "./modes";
@@ -86,13 +81,7 @@ export {
   type ContentGoalSeed,
 } from "./content-goals";
 
-export {
-  runAdminWorkerLoop,
-  runOnePass,
-  selectPriority,
-  type LoopOptions,
-  type LoopResult,
-} from "./loop";
+export { runAdminWorkerLoop, runOnePass, type LoopOptions, type LoopResult } from "./loop";
 
 export {
   isJunkUrl,
@@ -318,3 +307,102 @@ export {
   type SecurityDetectorKind,
   type DetectorContext,
 } from "./security-detectors";
+
+// ── Brain + pipeline + repair plans + source reads + readiness ───────
+export { runBrain, decide, sampleWorld, type BrainDecision, type WorldState } from "./brain";
+
+export {
+  PIPELINE_ORDER,
+  nextStage,
+  recordStage,
+  completeStage,
+  pipelineSnapshot,
+  type RecordStageInput,
+} from "./pipeline-stages";
+
+export {
+  filePlan,
+  leaseNextPlan,
+  completePlan,
+  countOpenPlansByKind,
+  type FilePlanInput,
+} from "./repair-plans";
+
+export {
+  checksumOf,
+  findExistingRead,
+  upsertSourceRead,
+  listRecentReads,
+  type UpsertSourceReadInput,
+} from "./source-reads";
+
+export {
+  runReadiness,
+  type ReadinessCheck,
+  type ReadinessReport,
+  type ReadinessStatus,
+} from "./readiness";
+
+// ── Classifier + extractors + provenance + mission planner ──────────
+export {
+  classify,
+  toChecklistContentType,
+  type ClassifierInput,
+  type ClassificationResult,
+  type ClassifierContentType,
+} from "./classifier";
+
+export {
+  makeProvenance,
+  makeInternalRuleProvenance,
+  missingProvenance,
+  hasFullProvenance,
+  DETERMINISTIC_INTERNAL_FIELDS,
+  type FieldProvenance,
+  type ExtractionMethod,
+} from "./provenance";
+
+export {
+  PrayerExtractor,
+  SaintExtractor,
+  MarianApparitionExtractor,
+  DevotionExtractor,
+  NovenaExtractor,
+  RosaryExtractor,
+  ConsecrationExtractor,
+  SacramentExtractor,
+  HistoryExtractor,
+  LiturgyExtractor,
+  ParishExtractor,
+  extractByType,
+  type ExtractorInput,
+  type ExtractorOutput,
+} from "./extractors";
+
+export { planMission, type MissionPlan, type MissionStage } from "./mission-planner";
+
+export {
+  reportGrowth,
+  escalationsForOperator,
+  type GrowthReport,
+  type GrowthEscalation,
+} from "./content-growth";
+
+// ── Source reader + cross-source verifier + memory hooks ────────────
+export { readSource, type ReadSourceInput, type ReadSourceOutcome } from "./source-reader";
+
+export {
+  verifyCrossSource,
+  type ValidationEvidence,
+  type VerifyInput,
+  type VerifyOutcome,
+  type VerifyMatchStatus,
+} from "./cross-source-verifier";
+
+export {
+  rankHostsByMemory,
+  recordExtractorOutcome,
+  recallExtractorMemory,
+  rememberFailurePattern,
+  type RankedHost,
+} from "./memory";
