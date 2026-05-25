@@ -134,6 +134,54 @@ export function detectSuspiciousBurst(opts: {
 }
 
 /**
+ * Successful brute-force signs. Fires when a successful admin login
+ * occurs immediately after the same IP / device had brute-force
+ * pattern failures within the supplied window. Distinct from the
+ * normal "admin login success" path — this catches the case where
+ * an attacker eventually guesses correct credentials after enough
+ * tries.
+ */
+export function detectSuccessfulBruteForceSigns(opts: {
+  failedAttemptsInWindow: number;
+  windowMinutes: number;
+}): boolean {
+  // 5+ failed attempts in the same 15-minute window before a success
+  // is the brute-force signal. Tunable from the rule engine.
+  if (opts.windowMinutes > 15) return false;
+  return opts.failedAttemptsInWindow >= 5;
+}
+
+/**
+ * Bypass-admin-authentication. Fires when a request targets an
+ * admin route but presents no session cookie at all (the device
+ * tried to slip past the middleware redirect by, eg., calling the
+ * API directly with cookies stripped).
+ */
+export function detectBypassAdminAuthentication(opts: {
+  route: string;
+  hasSessionCookie: boolean;
+  method: string;
+}): boolean {
+  if (!opts.route.startsWith("/api/admin/") && !opts.route.startsWith("/admin/")) {
+    return false;
+  }
+  // The login + logout routes are intentionally session-less.
+  if (
+    opts.route === "/admin/login" ||
+    opts.route === "/api/admin/login" ||
+    opts.route === "/api/admin/logout"
+  ) {
+    return false;
+  }
+  // POSTing to an admin API without a session cookie is a bypass
+  // attempt — normal admin navigation always carries the cookie.
+  if (opts.method !== "GET" && opts.method !== "HEAD" && !opts.hasSessionCookie) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * High-level helper. Given a detector kind + context, build a
  * DefendInput and call `defend()` so the defender records the action
  * with consistent severity + classification.

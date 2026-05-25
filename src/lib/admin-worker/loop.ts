@@ -144,42 +144,85 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   let failedCount = 0;
   let idle = false;
 
+  let homepageActions = 0;
   try {
-    if (decision.priority === "CONTENT_GOAL" || decision.priority === "CONTENT_BUILD") {
-      // Planner first: enqueue work for the largest content gap before
-      // we drain the queue. This is the autonomous behaviour the spec
-      // requires — the Admin Worker creates its own work items.
-      const planOutcome = await planAndEnqueue(prisma, { passId: pass.id });
-      if (planOutcome.enqueued > 0) {
-        await writeAdminWorkerLog(prisma, {
-          passId: pass.id,
-          category: "WORKER_PASS",
-          severity: "INFO",
-          eventName: "planner_run",
-          message: planOutcome.reason,
-          contentType: planOutcome.contentType ?? undefined,
-        });
-      }
-
-      const cycle = await runOneBuildCycle(prisma, workerId);
-      if (cycle.kind === "idle") {
-        idle = planOutcome.enqueued === 0;
-      } else {
-        // cycle.kind === "ran"
-        if (cycle.status === "succeeded" || cycle.status === "published") {
+    // Mode-aware dispatch. The priority selector picks the mode; this
+    // switch runs the corresponding module so the loop actually does
+    // work for every mode rather than only CONTENT_BUILD.
+    switch (decision.mode) {
+      case "CONSTANT_FILL": {
+        // Planner first: enqueue work for the largest content gap.
+        const planOutcome = await planAndEnqueue(prisma, { passId: pass.id });
+        if (planOutcome.enqueued > 0) {
+          await writeAdminWorkerLog(prisma, {
+            passId: pass.id,
+            category: "WORKER_PASS",
+            severity: "INFO",
+            eventName: "planner_run",
+            message: planOutcome.reason,
+            contentType: planOutcome.contentType ?? undefined,
+          });
+        }
+        const cycle = await runOneBuildCycle(prisma, workerId);
+        if (cycle.kind === "idle") {
+          idle = planOutcome.enqueued === 0;
+        } else if (cycle.status === "succeeded" || cycle.status === "published") {
           built += 1;
           if (cycle.status === "published") publishedCount += 1;
         } else if (cycle.status === "failed" || cycle.status === "retrying") {
           failedCount += 1;
         }
+        break;
       }
-    } else {
-      // For other priorities the Phase 1 loop only records the
-      // decision — the actual handlers (homepage designer, security
-      // defender, etc.) are wired up in their own modules and can be
-      // invoked directly. The loop still writes a clean pass so the
-      // pass breakdown stays accurate.
-      idle = decision.priority === "MAINTENANCE";
+      case "HOMEPAGE": {
+        const { redesignHomepage } = await import("./homepage-mutator");
+        const result = await redesignHomepage(prisma, { passId: pass.id });
+        if (result.draftId) homepageActions += 1;
+        break;
+      }
+      case "REPORTING": {
+        const { runMonthlyReportJobIfDue } = await import("./monthly-report-job");
+        await runMonthlyReportJobIfDue(prisma);
+        break;
+      }
+      case "DIAGNOSTICS": {
+        // Refresh diagnostics: write DiagnosticSnapshot rows via the
+        // existing module so the Developer Audit can see them.
+        const ratings = await (await import("./diagnostics")).runAdminWorkerDiagnostics(prisma);
+        await writeAdminWorkerLog(prisma, {
+          passId: pass.id,
+          category: "WORKER_PASS",
+          severity: "INFO",
+          eventName: "diagnostics_pass",
+          message: `Diagnostics audit completed (${ratings.length} ratings checked).`,
+          safeMetadata: { ratingsCount: ratings.length },
+        });
+        break;
+      }
+      case "MAINTENANCE": {
+        const { runCleanupPass } = await import("./cleanup");
+        await runCleanupPass(prisma);
+        idle = true; // maintenance + cleanup is intentionally slow
+        break;
+      }
+      case "REPAIR": {
+        const { recoverStuckQueue } = await import("./repair");
+        await recoverStuckQueue(prisma);
+        // Then attempt a build cycle to make forward progress.
+        const cycle = await runOneBuildCycle(prisma, workerId);
+        if (cycle.kind === "idle") idle = true;
+        else if (cycle.status === "succeeded" || cycle.status === "published") built += 1;
+        else if (cycle.status === "failed" || cycle.status === "retrying") failedCount += 1;
+        break;
+      }
+      case "SECURITY_DEFENSE":
+      case "SETUP":
+      default:
+        // No active work for SECURITY_DEFENSE in the central loop —
+        // the defender fires from the request path itself. SETUP mode
+        // does nothing in the loop; setup runs once at deploy time.
+        idle = true;
+        break;
     }
     await completePass(prisma, {
       passId: pass.id,
@@ -189,6 +232,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       tasksFailed: failedCount,
       contentBuilt: built,
       contentPublished: publishedCount,
+      homepageActions,
       summary: decision.summary,
     });
     await recordSuccess(prisma, { summary: decision.summary });

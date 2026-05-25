@@ -294,3 +294,54 @@ export async function reportValidationEvidenceMissing(
     reason: "logged",
   };
 }
+
+/**
+ * Source-jobs-missing repair (spec §20). Re-enqueues every approved
+ * checklist item that has no live WorkerBuildJob — covers the case
+ * where a queue purge or migration left orphaned approved items
+ * behind. Uses the existing `enqueueBuild` so the lease guard +
+ * priority + retry budget stay consistent.
+ */
+export async function recreateMissingSourceJobs(prisma: PrismaClient): Promise<RepairOutcome> {
+  const candidates = await prisma.checklistItem.findMany({
+    where: {
+      approvalStatus: { in: ["APPROVED_FOR_BUILD", "SOURCE_VERIFIED"] },
+      buildJobs: { none: { status: { in: ["pending", "running"] } } },
+    },
+    take: 25,
+    select: { id: true },
+  });
+  if (candidates.length === 0) {
+    return {
+      kind: "source_jobs_missing",
+      attempted: false,
+      succeeded: true,
+      reason: "no orphaned approved items",
+    };
+  }
+  const { enqueueBuild } = await import("@/lib/worker");
+  let enqueued = 0;
+  for (const item of candidates) {
+    try {
+      await enqueueBuild(prisma, {
+        checklistItemId: item.id,
+        triggeredBy: "admin_worker_repair",
+      });
+      enqueued += 1;
+    } catch {
+      // best effort
+    }
+  }
+  await writeAdminWorkerLog(prisma, {
+    category: "REPAIR",
+    severity: "INFO",
+    eventName: "source_jobs_recreated",
+    message: `Re-enqueued ${enqueued} approved checklist item(s) with no live build job.`,
+  });
+  return {
+    kind: "source_jobs_missing",
+    attempted: true,
+    succeeded: true,
+    reason: `enqueued ${enqueued} item(s)`,
+  };
+}

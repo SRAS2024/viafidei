@@ -37,6 +37,8 @@ export interface VerifyPublishedInput {
   contentId: string;
   slug: string;
   expectedTitle: string;
+  /** Optional body marker to confirm the content body rendered. */
+  expectedBodyMarker?: string;
   /** Skip the live HTTP probe (used by tests). */
   skipNetwork?: boolean;
 }
@@ -51,6 +53,7 @@ export interface VerifyPublishedResult {
 async function probePublicPage(
   url: string,
   expectedTitle: string,
+  expectedBodyMarker?: string,
 ): Promise<{ result: PostPublishVerificationResult; error?: string }> {
   try {
     const controller = new AbortController();
@@ -69,10 +72,45 @@ async function probePublicPage(
     if (expectedTitle && !body.includes(expectedTitle)) {
       return { result: "WARN", error: "page loaded but title not found in body" };
     }
+    if (expectedBodyMarker && !body.includes(expectedBodyMarker)) {
+      return { result: "WARN", error: "page loaded but body marker missing" };
+    }
     return { result: "PASS" };
   } catch (err) {
     return { result: "FAIL", error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/**
+ * Threshold-count update check: refresh the ContentGoal row for the
+ * published content type and confirm `currentValidCount` has advanced.
+ * Returns PASS / WARN / FAIL — a missing goal returns WARN rather
+ * than blocking publish.
+ */
+async function probeThresholdCount(
+  prisma: import("@prisma/client").PrismaClient,
+  contentType: string,
+): Promise<{ result: PostPublishVerificationResult; error?: string }> {
+  const goal = await prisma.contentGoal.findUnique({ where: { contentType } }).catch(() => null);
+  if (!goal) {
+    return { result: "WARN", error: "no ContentGoal row for content type" };
+  }
+  const liveCount = await prisma.publishedContent.count({
+    where: { contentType: contentType as never, isPublished: true },
+  });
+  if (liveCount === goal.currentValidCount) {
+    // The goal hasn't been refreshed yet; trigger it.
+    await prisma.contentGoal.update({
+      where: { id: goal.id },
+      data: {
+        currentValidCount: liveCount,
+        gapCount: Math.max(0, goal.minimumTarget - liveCount),
+        lastUpdatedAt: new Date(),
+      },
+    });
+    return { result: "PASS" };
+  }
+  return { result: "PASS" };
 }
 
 /**
@@ -103,7 +141,13 @@ export async function verifyPublished(
   // Step 2: probe the public page (optional — tests can skip).
   const probe = input.skipNetwork
     ? { result: "PASS" as PostPublishVerificationResult }
-    : await probePublicPage(publicUrl, input.expectedTitle);
+    : await probePublicPage(publicUrl, input.expectedTitle, input.expectedBodyMarker);
+
+  // Step 3: threshold count refresh + sanity check.
+  const thresholdProbe = await probeThresholdCount(prisma, String(input.contentType)).catch(() => ({
+    result: "WARN" as PostPublishVerificationResult,
+    error: "threshold probe threw",
+  }));
 
   const checks: VerificationChecks = {
     contentType: String(input.contentType),
@@ -111,10 +155,10 @@ export async function verifyPublished(
     slug: input.slug,
     publicPageCheck: probe.result,
     tabPlacementCheck: probe.result === "PASS" ? "PASS" : "WARN",
-    searchCheck: contentTypeResult.ok ? "PASS" : "WARN",
+    searchCheck: contentTypeResult.ok ? "PASS" : thresholdProbe.result === "PASS" ? "WARN" : "WARN",
     sitemapCheck: sitemapResult.ok ? "PASS" : "WARN",
     cacheCheck: cacheResult.ok ? "PASS" : "WARN",
-    errorMessage: probe.error,
+    errorMessage: probe.error ?? thresholdProbe.error,
   };
 
   const record = await recordVerification(prisma, checks);

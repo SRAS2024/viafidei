@@ -179,9 +179,12 @@ export {
   fetchWithBackoff,
   reportPersistenceFailure,
   reportValidationEvidenceMissing,
+  recreateMissingSourceJobs,
   type RepairKind,
   type RepairOutcome,
 } from "./repair";
+
+export { extractFeedUrls, discoverFromFeed, type RssDiscoveryOutcome } from "./rss-discovery";
 
 export { redesignHomepage, type RedesignResult } from "./homepage-mutator";
 
@@ -260,6 +263,8 @@ export {
   detectSetPublicFlagOutsideWorker,
   detectInternalRouteManipulation,
   detectSuspiciousBurst,
+  detectSuccessfulBruteForceSigns,
+  detectBypassAdminAuthentication,
   fireDetector,
   DETECTOR_SEVERITY,
   DETECTOR_CLASSIFICATION,

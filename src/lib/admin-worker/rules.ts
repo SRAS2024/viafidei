@@ -135,3 +135,71 @@ registerRule({
     return { pass, reason: pass ? "approved translation" : "translation not approved" };
   },
 });
+
+registerRule({
+  id: "content_extraction.minimum_body_length",
+  category: "content_extraction",
+  version: 1,
+  description: "Extracted content body must be at least 40 characters.",
+  evaluate(input: { bodyLength: number }) {
+    const pass = (input?.bodyLength ?? 0) >= 40;
+    return { pass, reason: pass ? "body length ok" : `body length ${input.bodyLength} < 40` };
+  },
+});
+
+registerRule({
+  id: "content_type_classification.requires_predicted_type",
+  category: "content_type_classification",
+  version: 1,
+  description: "Candidate URLs must have a predicted content type before fetching.",
+  evaluate(input: { predictedContentType: string | null }) {
+    const pass = Boolean(input?.predictedContentType);
+    return {
+      pass,
+      reason: pass ? "content type predicted" : "no predicted content type",
+    };
+  },
+});
+
+registerRule({
+  id: "content_package_formatting.no_html_leak",
+  category: "content_package_formatting",
+  version: 1,
+  description: "Formatted package body must not contain raw HTML tags.",
+  evaluate(input: { body: string }) {
+    const body = String(input?.body ?? "");
+    const pass = !/<[a-z][^>]*>/i.test(body);
+    return { pass, reason: pass ? "no HTML leak" : "raw HTML tag detected" };
+  },
+});
+
+registerRule({
+  id: "cross_source_validation.minimum_distinct_sources",
+  category: "cross_source_validation",
+  version: 1,
+  description: "Validation evidence must cover at least 2 distinct sources.",
+  evaluate(input: { distinctSourceCount: number }) {
+    const pass = (input?.distinctSourceCount ?? 0) >= 2;
+    return {
+      pass,
+      reason: pass
+        ? `${input.distinctSourceCount} distinct sources`
+        : `only ${input.distinctSourceCount ?? 0} distinct source(s)`,
+    };
+  },
+});
+
+registerRule({
+  id: "report.must_redact_secrets",
+  category: "report",
+  version: 1,
+  description: "Generated reports must redact secrets (passwords, tokens, etc.).",
+  evaluate(input: { rendered: string }) {
+    const rendered = String(input?.rendered ?? "");
+    // Heuristic: a "password=" or "token=" in plain text is a leak.
+    const pass = !/(password|api_key|token|session_secret|database_url)\s*[:=]\s*[^[\s]/i.test(
+      rendered,
+    );
+    return { pass, reason: pass ? "no secret leak detected" : "potential secret in report body" };
+  },
+});

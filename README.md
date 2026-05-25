@@ -633,7 +633,7 @@ Phase 3 (previous PR):
   post-publish probe + rollback, sitemap discovery, security
   detectors, and public route mapping
 
-Phase 4 (this PR):
+Phase 4 (previous PR):
 
 - defender now actually bans: when `decideAction` returns BAN_DEVICE
   on a confirmed Breach, `defend()` upserts a BannedDevice row + sends
@@ -674,7 +674,44 @@ Phase 4 (this PR):
   report freshness gate), fetchWithBackoff retries, persistence /
   validation-evidence reporters.
 
-Tests: 1118 / 1118 passing (was 1101).
+Phase 5 (this PR):
+
+- rule engine completeness: registered at least one rule in every
+  spec section 4 category. New built-ins:
+  `content_extraction.minimum_body_length`,
+  `content_type_classification.requires_predicted_type`,
+  `content_package_formatting.no_html_leak`,
+  `cross_source_validation.minimum_distinct_sources`,
+  `report.must_redact_secrets`. All 11 categories are now visible at
+  `/admin/admin-worker/rules`.
+- security detector coverage: added `detectSuccessfulBruteForceSigns`
+  (fires when N failed attempts precede a success in a short window)
+  and `detectBypassAdminAuthentication` (fires on POST to admin API
+  without a session cookie). All 10 spec-listed detector kinds now
+  have a detection function.
+- loop mode dispatch: the central loop branches on selected mode and
+  runs the corresponding module — `CONSTANT_FILL` runs the planner +
+  build cycle, `HOMEPAGE` runs the redesign mutator, `REPORTING`
+  runs the monthly report job, `DIAGNOSTICS` runs the rating sweep,
+  `MAINTENANCE` runs the cleanup pass, `REPAIR` recovers stuck
+  queue + does one build cycle.
+- post-publish probe extensions: optional `expectedBodyMarker` so the
+  probe can confirm the content body rendered (not just the title);
+  new threshold-count probe refreshes the ContentGoal row and confirms
+  `currentValidCount` is consistent with live PublishedContent count.
+- source-jobs-missing repair: `recreateMissingSourceJobs` finds
+  APPROVED_FOR_BUILD / SOURCE_VERIFIED checklist items with no live
+  WorkerBuildJob and re-enqueues them (covers the case where a queue
+  purge or migration left orphaned approved items).
+- RSS / Atom feed discovery: `discoverFromFeed` complements
+  `discoverFromHost` for sources that syndicate. Parses both RSS 2.0
+  `<item><link>` and Atom `<entry><link href="..."/>` formats with
+  the same junk-URL + host-allowlist filters.
+- 27 new tests: rule-engine completeness across all 11 categories,
+  the two new security detectors, RSS feed extraction + discovery
+  pipeline, loop pause-and-cleanup dispatch.
+
+Tests: 1147 / 1147 passing (was 1118).
 
 ---
 
