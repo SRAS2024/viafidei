@@ -275,6 +275,31 @@ health ratings + pause toggle).
   without re-running the loop. The Command Center shows the most
   recent decision and the Production Readiness card runs 12 live
   checks with concrete repair instructions for each fail.
+- **Mission planner** — `mission-planner.ts` walks the full content
+  chain (Discovery → Candidate → Fetch → Read → Classify →
+  Checklist → Citation → Build → Validate → QA → Publish →
+  Post-publish → Search → Sitemap → Cache) and stops at the first
+  stage that needs work, so the worker never stalls when the build
+  queue is empty.
+- **Per-type extractors with field-level provenance** — eleven
+  specialised extractors (PrayerExtractor, SaintExtractor,
+  MarianApparitionExtractor, DevotionExtractor, NovenaExtractor,
+  RosaryExtractor, ConsecrationExtractor, SacramentExtractor,
+  HistoryExtractor, LiturgyExtractor, ParishExtractor) parse a
+  source-read into a candidate package. Every required field has
+  a `FieldProvenance` row with source URL, snippet, extraction
+  method, confidence, and source-page checksum. Fields without
+  provenance cannot be published — except deterministic internal
+  rules (Rosary 5-mystery decade, seven sacraments list).
+- **Deterministic classifier** — `classifier.ts` decides whether a
+  source page is a prayer / saint / apparition / devotion / novena
+  / rosary / consecration / sacrament / liturgy / history / parish
+  — or rejects it as WRONG / UNUSABLE — using URL patterns,
+  title regex, headings, body regex, and source reputation.
+- **Content-growth escalation** — `content-growth.ts` watches each
+  content type. After 24h with no growth while below target, the
+  worker auto-expands sources. After 7 days, it escalates the gap
+  to a full diagnostics pass.
 
 ### Internal modules
 
@@ -320,6 +345,11 @@ health ratings + pause toggle).
 | `repair-plans.ts`            | Durable repair-plan queue + backoff     |
 | `source-reads.ts`            | Source-read dedupe via sha256 checksum  |
 | `readiness.ts`               | Production-readiness 12-check sweep     |
+| `classifier.ts`              | Deterministic content classifier        |
+| `extractors.ts`              | Per-type extractors + field provenance  |
+| `provenance.ts`              | Field-level provenance tracker          |
+| `mission-planner.ts`         | Chain-aware mission planner             |
+| `content-growth.ts`          | 24h / 7d growth-escalation watcher      |
 | `loop.ts`                    | Central decision loop + mode dispatch   |
 | `state.ts`                   | Singleton state + pause/resume          |
 | `modes.ts`                   | 9 mode descriptors                      |
@@ -451,7 +481,7 @@ The unit + component suite covers:
 - API, auth, security, components, data, email, observability,
   i18n, cache test suites
 
-Total: **1165+ passing tests**.
+Total: **1222+ passing tests**.
 
 ---
 

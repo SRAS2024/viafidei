@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 type PassKind =
   | "diagnostics"
   | "content_goal"
+  | "source_discovery"
   | "homepage"
   | "source_repair"
   | "report"
@@ -14,6 +15,7 @@ type PassKind =
 const PASS_LABELS: Record<PassKind, string> = {
   diagnostics: "Run diagnostic pass",
   content_goal: "Run content goal pass",
+  source_discovery: "Run source discovery pass",
   homepage: "Run homepage pass",
   source_repair: "Run source repair pass",
   report: "Run report generation",

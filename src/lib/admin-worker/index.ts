@@ -353,3 +353,48 @@ export {
   type ReadinessReport,
   type ReadinessStatus,
 } from "./readiness";
+
+// ── Phase 9: classifier + extractors + provenance + mission planner ───
+export {
+  classify,
+  toChecklistContentType,
+  type ClassifierInput,
+  type ClassificationResult,
+  type ClassifierContentType,
+} from "./classifier";
+
+export {
+  makeProvenance,
+  makeInternalRuleProvenance,
+  missingProvenance,
+  hasFullProvenance,
+  DETERMINISTIC_INTERNAL_FIELDS,
+  type FieldProvenance,
+  type ExtractionMethod,
+} from "./provenance";
+
+export {
+  PrayerExtractor,
+  SaintExtractor,
+  MarianApparitionExtractor,
+  DevotionExtractor,
+  NovenaExtractor,
+  RosaryExtractor,
+  ConsecrationExtractor,
+  SacramentExtractor,
+  HistoryExtractor,
+  LiturgyExtractor,
+  ParishExtractor,
+  extractByType,
+  type ExtractorInput,
+  type ExtractorOutput,
+} from "./extractors";
+
+export { planMission, type MissionPlan, type MissionStage } from "./mission-planner";
+
+export {
+  reportGrowth,
+  escalationsForOperator,
+  type GrowthReport,
+  type GrowthEscalation,
+} from "./content-growth";
