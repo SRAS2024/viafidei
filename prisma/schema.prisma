@@ -1456,18 +1456,31 @@ model AdminWorkerSourceReputation {
 /// decision engine writes the rules it evaluated, the inputs it saw,
 /// the chosen action, and the fallback action so the admin can audit
 /// "why did the worker do that?" without re-running the decision.
+///
+/// rankedAlternatives stores the full scored list of candidate actions
+/// the brain considered (highest score first, including the chosen
+/// action at index 0). brainExplanation is a short human-readable
+/// summary the admin UI surfaces next to the chosen action; brainFailure
+/// is non-null when the brain could not find any safe action.
 model AdminWorkerDecision {
-  id             String   @id @default(cuid())
-  passId         String?
-  taskId         String?
-  decisionType   String
-  inputSummary   String
-  rulesEvaluated Json?
-  chosenAction   String
-  confidence     Float    @default(0)
-  reason         String?
-  fallbackAction String?
-  createdAt      DateTime @default(now())
+  id                  String   @id @default(cuid())
+  passId              String?
+  taskId              String?
+  decisionType        String
+  inputSummary        String
+  rulesEvaluated      Json?
+  chosenAction        String
+  confidence          Float    @default(0)
+  reason              String?
+  fallbackAction      String?
+  rankedAlternatives  Json?
+  brainExplanation    String?
+  brainFailure        String?
+  riskScore           Float    @default(0)
+  expectedResult      String?
+  contentType         String?
+  missionStage        String?
+  createdAt           DateTime @default(now())
 
   pass AdminWorkerPass? @relation(fields: [passId], references: [id], onDelete: SetNull)
   task AdminWorkerTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -1475,6 +1488,7 @@ model AdminWorkerDecision {
   @@index([decisionType])
   @@index([createdAt])
   @@index([passId])
+  @@index([missionStage])
 }
 
 /// Candidate URLs the web navigator has discovered (sitemap / RSS /
@@ -1827,5 +1841,86 @@ model AdminWorkerRepairPlan {
   @@index([status])
   @@index([kind])
   @@index([nextAttemptAt])
+  @@index([createdAt])
+}
+
+/// One row per fetch attempt against an approved source. Drives source
+/// reputation, lets the brain decide whether to refetch (checksum
+/// changed) or skip (checksum unchanged), and surfaces fetch quality
+/// in the diagnostics card. Spec §6.
+model AdminWorkerFetchResult {
+  id                String   @id @default(cuid())
+  sourceUrl         String
+  sourceHost        String
+  candidateUrlId    String?
+  httpStatus        Int?
+  contentType       String?
+  contentLength     Int?
+  checksum          String?
+  etag              String?
+  lastModifiedHeader String?
+  redirectChain     String[] @default([])
+  durationMs        Int?
+  attempt           Int      @default(1)
+  succeeded         Boolean  @default(false)
+  unchanged         Boolean  @default(false)
+  rejectionReason   String?
+  errorClass        String?
+  errorMessage      String?
+  createdAt         DateTime @default(now())
+
+  @@index([sourceUrl])
+  @@index([sourceHost])
+  @@index([candidateUrlId])
+  @@index([succeeded])
+  @@index([createdAt])
+}
+
+/// Structured blocks extracted from a source page. The source reader
+/// stores both raw text and structured blocks; extractors consume
+/// blocks rather than raw body text so they can ignore navigation,
+/// footers, ads, and unrelated sidebars. Spec §7.
+model AdminWorkerSourceBlock {
+  id              String   @id @default(cuid())
+  sourceReadId    String
+  blockType       String
+  blockOrder      Int
+  text            String
+  headingLevel    Int?
+  confidenceScore Float    @default(0)
+  isRejected      Boolean  @default(false)
+  rejectionReason String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+
+  @@index([sourceReadId, blockOrder])
+  @@index([blockType])
+  @@index([isRejected])
+}
+
+/// Cross-source field verification result. The verifier checks a
+/// sensitive field (saint feast day, scripture reference, apparition
+/// approval status, etc.) against an approved validation source and
+/// records the match / mismatch / conflict so the publishing gate can
+/// require evidence before going live. Spec §11.
+model AdminWorkerCrossSourceVerification {
+  id                  String   @id @default(cuid())
+  contentType         String
+  contentId           String?
+  packageChecksum     String?
+  fieldName           String
+  valueChecked        String
+  validationSourceHost String
+  validationSourceUrl  String?
+  matchResult         String
+  mismatchReason      String?
+  confidenceScore     Float    @default(0)
+  conflictReason      String?
+  finalDecision       String
+  createdAt           DateTime @default(now())
+
+  @@index([contentType, contentId])
+  @@index([validationSourceHost])
+  @@index([matchResult])
   @@index([createdAt])
 }

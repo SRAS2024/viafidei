@@ -73,13 +73,6 @@ function makePrisma(opts: { pendingJobs?: number; failedJobs?: number; gap?: num
       })),
       update: vi.fn(async () => ({})),
     },
-    contentGoal: {
-      findMany: vi.fn(async () =>
-        opts.gap ? [{ contentType: "PRAYER", gapCount: opts.gap, priority: 10 }] : [],
-      ),
-      update: vi.fn(async () => ({})),
-    },
-    publishedContent: { groupBy: vi.fn(async () => []) },
     workerBuildJob: {
       count: vi.fn(async ({ where }: { where: { status: string } }) => {
         if (where.status === "pending") return opts.pendingJobs ?? 0;
@@ -87,13 +80,42 @@ function makePrisma(opts: { pendingJobs?: number; failedJobs?: number; gap?: num
         return 0;
       }),
     },
-    adminWorkerSourceReputation: { count: vi.fn(async () => 0) },
+    adminWorkerSourceReputation: {
+      count: vi.fn(async () => 0),
+      findMany: vi.fn(async () => []),
+    },
     humanReviewQueue: { count: vi.fn(async () => 0) },
     securityEvent: { count: vi.fn(async () => 0) },
     homepageQualityScore: { findFirst: vi.fn(async () => ({ finalScore: 0.9 })) },
-    candidateSourceUrl: { count: vi.fn(async () => 0) },
+    candidateSourceUrl: {
+      count: vi.fn(async () => 0),
+      findFirst: vi.fn(async () => null),
+      updateMany: vi.fn(async () => ({ count: 0 })),
+      update: vi.fn(async () => ({})),
+    },
     adminWorkerRepairPlan: { count: vi.fn(async () => 0) },
     adminWorkerPipelineStage: { count: vi.fn(async () => 0) },
+    adminWorkerSourceRead: {
+      count: vi.fn(async () => 0),
+      findFirst: vi.fn(async () => null),
+    },
+    publishedContent: {
+      count: vi.fn(async () => 0),
+      findFirst: vi.fn(async () => null),
+      findMany: vi.fn(async () => []),
+      groupBy: vi.fn(async () => []),
+    },
+    postPublishVerification: {
+      findMany: vi.fn(async () => []),
+    },
+    checklistQAReport: { count: vi.fn(async () => 0) },
+    contentGoal: {
+      findMany: vi.fn(async () =>
+        opts.gap ? [{ contentType: "PRAYER", gapCount: opts.gap, priority: 10 }] : [],
+      ),
+      update: vi.fn(async () => ({})),
+      count: vi.fn(async () => 0),
+    },
     adminWorkerPass: {
       create: vi.fn(async () => ({ id: "p1", startedAt: new Date() })),
       update: vi.fn(async () => ({})),

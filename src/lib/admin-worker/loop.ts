@@ -4,21 +4,24 @@
  * Every pass:
  *   1. writes a heartbeat (AdminWorkerState.lastHeartbeatAt + compat)
  *   2. runs the AdminWorkerBrain to produce a structured BrainDecision
- *   3. delegates to the mission planner for chain-aware stage choice
- *   4. dispatches to the module matching the chosen mode
- *   5. records the pass + decision rows so the audit view can answer
- *      "why did the worker choose this?"
+ *      with ranked alternatives (spec §1)
+ *   3. delegates to the dispatcher to execute the chosen mission stage
+ *      (spec §2 — the dispatcher replaces the old "merely log the
+ *      mission plan" path with concrete stage execution)
+ *   4. records the pass + decision rows so the audit view can answer
+ *      "why did the worker choose this — and what happened next?"
  *
  * Hard rules:
  *   - When paused, only security defense runs.
  *   - When a security event needs response, it runs first.
  *   - When worker health is degraded, repair runs before new builds.
  *   - When content goals are unmet, the worker generates its own work.
+ *   - The worker never stops at "planned" when work is available — the
+ *     dispatcher always advances the chosen stage to a concrete result.
  */
 
 import type { PrismaClient } from "@prisma/client";
 
-import { runOneBuildCycle } from "@/lib/worker";
 import { writeAdminWorkerLog } from "./logs";
 import {
   getAdminWorkerState,
@@ -30,7 +33,7 @@ import {
 } from "./state";
 import { completePass, startPass } from "./passes";
 import { refreshContentGoals } from "./content-goals";
-import { planAndEnqueue } from "./planner";
+import { executeMissionStage, type DispatchOutcome } from "./dispatcher";
 
 export interface LoopOptions {
   workerId?: string;
@@ -91,8 +94,8 @@ interface PassOutcome {
 }
 
 /**
- * Single pass. Decides priority, runs the corresponding work, writes
- * the pass + decision rows, and updates state. Exported for tests.
+ * Single pass. Decides what to do, dispatches the chosen stage, and
+ * records the pass + decision rows. Exported for tests.
  */
 export async function runOnePass(prisma: PrismaClient, workerId: string): Promise<PassOutcome> {
   await writeHeartbeat(prisma);
@@ -112,161 +115,76 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
 
   await refreshContentGoals(prisma);
 
-  // Run the explicit Admin Worker brain. The brain samples world
-  // state + records a BrainDecision so the audit view can show exactly
-  // what the worker chose and why.
+  // Run the explicit Admin Worker brain. The brain ranks every
+  // candidate action it can take right now and picks the highest-
+  // scoring safe one. The decision (including ranked alternatives)
+  // lands in AdminWorkerDecision for the audit view.
   const pass = await startPass(prisma, { passType: "AUTONOMOUS" });
   const { runBrain } = await import("./brain");
   const brain = await runBrain(prisma, { passId: pass.id });
 
-  // Project the brain decision onto the legacy `decision` shape the
-  // mode dispatch below already consumes.
-  const decision: {
-    priority: import("@prisma/client").AdminWorkerPriority;
-    mode:
-      | "CONSTANT_FILL"
-      | "MAINTENANCE"
-      | "REPAIR"
-      | "HOMEPAGE"
-      | "DIAGNOSTICS"
-      | "SECURITY_DEFENSE"
-      | "REPORTING"
-      | "SETUP";
-    passType: import("@prisma/client").AdminWorkerPassType;
-    summary: string;
-    confidence: number;
-    reason: string;
-    fallback?: string;
-    rulesEvaluated: Record<string, unknown>;
-  } = {
-    priority: brain.chosenPriority,
-    mode:
-      brain.chosenMode === "PAUSED"
-        ? "MAINTENANCE"
-        : (brain.chosenMode as
-            | "CONSTANT_FILL"
-            | "MAINTENANCE"
-            | "REPAIR"
-            | "HOMEPAGE"
-            | "DIAGNOSTICS"
-            | "SECURITY_DEFENSE"
-            | "REPORTING"
-            | "SETUP"),
-    passType: brain.passType,
-    summary: brain.reason,
-    confidence: brain.confidenceScore,
-    reason: brain.reason,
-    fallback: brain.fallbackAction ?? undefined,
-    rulesEvaluated: brain.rulesEvaluated,
-  };
-  await setPriority(prisma, decision.priority);
+  await setPriority(prisma, brain.chosenPriority);
   await setMode(prisma, brain.chosenMode);
+
+  // Log the brain decision + the top rejected alternatives so the
+  // audit view always has a paper trail of "why this and not that".
+  const topRejected = brain.rankedAlternatives.filter((a) => a !== brain.chosenAction).slice(0, 3);
+  await writeAdminWorkerLog(prisma, {
+    passId: pass.id,
+    category: "WORKER_PASS",
+    severity: "INFO",
+    eventName: "brain_decided",
+    message: `Brain chose ${brain.missionStage} (${brain.chosenMode}/${brain.chosenPriority}): ${brain.reason}`,
+    contentType: brain.contentType ?? undefined,
+    safeMetadata: {
+      missionStage: brain.missionStage,
+      chosenScore: brain.chosenAction.finalScore,
+      explanation: brain.brainExplanation,
+      brainFailure: brain.brainFailure,
+      topRejected: topRejected.map((a) => ({
+        missionStage: a.missionStage,
+        score: a.finalScore,
+        rejection: a.rejectionReason,
+      })),
+    },
+  });
 
   let built = 0;
   let publishedCount = 0;
   let failedCount = 0;
   let idle = false;
+  let dispatch: DispatchOutcome | null = null;
 
-  let homepageActions = 0;
   try {
-    // Mode-aware dispatch. The priority selector picks the mode; this
-    // switch runs the corresponding module so the loop actually does
-    // work for every mode rather than only CONTENT_BUILD.
-    switch (decision.mode) {
-      case "CONSTANT_FILL": {
-        // Consult the mission planner first. It walks the full chain
-        // (Discovery → … → Cache) and tells us which stage is the
-        // choke point. We log the chosen stage + nextStep so the audit
-        // view shows "why this stage now".
-        const { planMission } = await import("./mission-planner");
-        const mission = await planMission(prisma);
-        await writeAdminWorkerLog(prisma, {
-          passId: pass.id,
-          category: "WORKER_PASS",
-          severity: "INFO",
-          eventName: "mission_planned",
-          message: `Stage ${mission.stage}: ${mission.reason}`,
-          contentType: mission.contentType ?? undefined,
-          safeMetadata: {
-            stage: mission.stage,
-            taskType: mission.taskType,
-            nextStep: mission.nextStep,
-          },
-        });
+    dispatch = await executeMissionStage({
+      prisma,
+      workerId,
+      passId: pass.id,
+      decision: brain,
+    });
 
-        // Planner: enqueue work for the largest content gap (BUILD stage).
-        const planOutcome = await planAndEnqueue(prisma, { passId: pass.id });
-        if (planOutcome.enqueued > 0) {
-          await writeAdminWorkerLog(prisma, {
-            passId: pass.id,
-            category: "WORKER_PASS",
-            severity: "INFO",
-            eventName: "planner_run",
-            message: planOutcome.reason,
-            contentType: planOutcome.contentType ?? undefined,
-          });
-        }
-        const cycle = await runOneBuildCycle(prisma, workerId);
-        if (cycle.kind === "idle") {
-          idle = planOutcome.enqueued === 0;
-        } else if (cycle.status === "succeeded" || cycle.status === "published") {
-          built += 1;
-          if (cycle.status === "published") publishedCount += 1;
-        } else if (cycle.status === "failed" || cycle.status === "retrying") {
-          failedCount += 1;
-        }
-        break;
-      }
-      case "HOMEPAGE": {
-        const { redesignHomepage } = await import("./homepage-mutator");
-        const result = await redesignHomepage(prisma, { passId: pass.id });
-        if (result.draftId) homepageActions += 1;
-        break;
-      }
-      case "REPORTING": {
-        const { runMonthlyReportJobIfDue } = await import("./monthly-report-job");
-        await runMonthlyReportJobIfDue(prisma);
-        break;
-      }
-      case "DIAGNOSTICS": {
-        // Refresh diagnostics: write DiagnosticSnapshot rows via the
-        // existing module so the Developer Audit can see them.
-        const ratings = await (await import("./diagnostics")).runAdminWorkerDiagnostics(prisma);
-        await writeAdminWorkerLog(prisma, {
-          passId: pass.id,
-          category: "WORKER_PASS",
-          severity: "INFO",
-          eventName: "diagnostics_pass",
-          message: `Diagnostics audit completed (${ratings.length} ratings checked).`,
-          safeMetadata: { ratingsCount: ratings.length },
-        });
-        break;
-      }
-      case "MAINTENANCE": {
-        const { runCleanupPass } = await import("./cleanup");
-        await runCleanupPass(prisma);
-        idle = true; // maintenance + cleanup is intentionally slow
-        break;
-      }
-      case "REPAIR": {
-        const { recoverStuckQueue } = await import("./repair");
-        await recoverStuckQueue(prisma);
-        // Then attempt a build cycle to make forward progress.
-        const cycle = await runOneBuildCycle(prisma, workerId);
-        if (cycle.kind === "idle") idle = true;
-        else if (cycle.status === "succeeded" || cycle.status === "published") built += 1;
-        else if (cycle.status === "failed" || cycle.status === "retrying") failedCount += 1;
-        break;
-      }
-      case "SECURITY_DEFENSE":
-      case "SETUP":
-      default:
-        // No active work for SECURITY_DEFENSE in the central loop —
-        // the defender fires from the request path itself. SETUP mode
-        // does nothing in the loop; setup runs once at deploy time.
-        idle = true;
-        break;
-    }
+    built += dispatch.built ?? 0;
+    publishedCount += dispatch.published ?? 0;
+    failedCount += dispatch.failed ?? 0;
+    idle = dispatch.kind === "idle" || dispatch.kind === "skipped";
+
+    await writeAdminWorkerLog(prisma, {
+      passId: pass.id,
+      category: "WORKER_PASS",
+      severity: dispatch.kind === "failed" ? "ERROR" : "INFO",
+      eventName: "stage_dispatched",
+      message: `Stage ${dispatch.stage}: ${dispatch.summary}`,
+      contentType: brain.contentType ?? undefined,
+      safeMetadata: {
+        kind: dispatch.kind,
+        built: dispatch.built,
+        published: dispatch.published,
+        failed: dispatch.failed,
+        rejected: dispatch.rejected,
+        repairsPlanned: dispatch.repairsPlanned,
+      },
+    });
+
     await completePass(prisma, {
       passId: pass.id,
       status: failedCount > 0 ? "PARTIAL" : "SUCCEEDED",
@@ -275,10 +193,10 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       tasksFailed: failedCount,
       contentBuilt: built,
       contentPublished: publishedCount,
-      homepageActions,
-      summary: decision.summary,
+      homepageActions: dispatch.stage === "HOMEPAGE_WORK" ? 1 : 0,
+      summary: `${brain.missionStage}: ${dispatch.summary}`,
     });
-    await recordSuccess(prisma, { summary: decision.summary });
+    await recordSuccess(prisma, { summary: dispatch.summary });
   } catch (err) {
     failedCount += 1;
     const message = err instanceof Error ? err.message : String(err);

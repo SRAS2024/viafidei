@@ -281,24 +281,52 @@ export default async function AdminWorkerPage() {
           </div>
         </article>
 
-        {/* Brain "why" view (spec §2). Shows the most recent
-            AdminWorkerDecision so the operator can audit what the
-            brain chose, on what input, and at what confidence. */}
-        <article className="rounded border bg-white p-4 shadow-sm">
+        {/* Brain "why" view (spec §1 + §2). Shows the most recent
+            AdminWorkerDecision plus the ranked alternatives the brain
+            considered, so the operator can audit:
+              - what the worker chose
+              - why it chose that
+              - what it rejected and why (next-best alternatives)
+              - whether the brain failed to find a safe action  */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
           <h2 className="font-display text-xl text-ink">Last brain decision</h2>
           {recentBrainDecision ? (
-            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-              <dt className="text-ink-soft">When</dt>
-              <dd className="font-mono">{recentBrainDecision.createdAt.toISOString()}</dd>
-              <dt className="text-ink-soft">Chosen action</dt>
-              <dd className="font-mono">{recentBrainDecision.chosenAction}</dd>
-              <dt className="text-ink-soft">Confidence</dt>
-              <dd className="font-mono">{recentBrainDecision.confidence.toFixed(2)}</dd>
-              <dt className="text-ink-soft">Reason</dt>
-              <dd className="font-serif">{recentBrainDecision.reason ?? "—"}</dd>
-              <dt className="text-ink-soft">Fallback</dt>
-              <dd className="font-mono">{recentBrainDecision.fallbackAction ?? "—"}</dd>
-            </dl>
+            <>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm md:grid-cols-4">
+                <dt className="text-ink-soft">When</dt>
+                <dd className="font-mono">
+                  {recentBrainDecision.createdAt.toISOString().slice(0, 19)}
+                </dd>
+                <dt className="text-ink-soft">Mission stage</dt>
+                <dd className="font-mono">{recentBrainDecision.missionStage ?? "—"}</dd>
+                <dt className="text-ink-soft">Chosen action</dt>
+                <dd className="font-mono">{recentBrainDecision.chosenAction}</dd>
+                <dt className="text-ink-soft">Confidence</dt>
+                <dd className="font-mono">{recentBrainDecision.confidence.toFixed(2)}</dd>
+                <dt className="text-ink-soft">Risk</dt>
+                <dd className="font-mono">{recentBrainDecision.riskScore.toFixed(2)}</dd>
+                <dt className="text-ink-soft">Content type</dt>
+                <dd className="font-mono">{recentBrainDecision.contentType ?? "—"}</dd>
+                <dt className="text-ink-soft">Fallback</dt>
+                <dd className="font-mono">{recentBrainDecision.fallbackAction ?? "—"}</dd>
+                <dt className="text-ink-soft">Expected result</dt>
+                <dd className="font-serif">{recentBrainDecision.expectedResult ?? "—"}</dd>
+                <dt className="text-ink-soft md:col-span-1">Reason</dt>
+                <dd className="font-serif md:col-span-3">{recentBrainDecision.reason ?? "—"}</dd>
+              </dl>
+              {recentBrainDecision.brainExplanation && (
+                <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs font-mono text-ink-soft">
+                  {recentBrainDecision.brainExplanation}
+                </pre>
+              )}
+              {recentBrainDecision.brainFailure && (
+                <p className="mt-3 rounded border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-serif text-rose-900">
+                  <span className="font-semibold">Brain failure:</span>{" "}
+                  {recentBrainDecision.brainFailure}
+                </p>
+              )}
+              <RankedAlternatives raw={recentBrainDecision.rankedAlternatives} />
+            </>
           ) : (
             <p className="mt-2 text-sm text-ink-soft">
               No brain decisions recorded yet. The first pass will populate this card.
@@ -393,6 +421,74 @@ function Metric(props: {
     <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
       <div className="text-[10px] uppercase tracking-wide text-ink-soft">{props.label}</div>
       <div className={`font-mono text-base ${tone}`}>{props.value}</div>
+    </div>
+  );
+}
+
+interface RankedAlternativeRow {
+  missionStage?: string;
+  actionType?: string;
+  finalScore?: number;
+  urgencyScore?: number;
+  riskScore?: number;
+  qualityExpectation?: number;
+  safe?: boolean;
+  rejectionReason?: string | null;
+  reasonSummary?: string;
+}
+
+function RankedAlternatives({ raw }: { raw: unknown }) {
+  if (!raw || !Array.isArray(raw)) return null;
+  const rows = raw as RankedAlternativeRow[];
+  if (rows.length === 0) return null;
+  return (
+    <div className="mt-4">
+      <h3 className="font-display text-sm uppercase tracking-wide text-ink-soft">
+        Ranked alternatives (spec §1) — top 6
+      </h3>
+      <table className="mt-2 w-full text-xs">
+        <thead>
+          <tr className="text-left uppercase text-ink-soft">
+            <th>#</th>
+            <th>Stage</th>
+            <th>Action</th>
+            <th className="text-right">Score</th>
+            <th className="text-right">Urgency</th>
+            <th className="text-right">Risk</th>
+            <th className="text-right">Quality</th>
+            <th>Why</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.slice(0, 6).map((r, i) => (
+            <tr
+              key={`${r.missionStage}-${i}`}
+              className={`border-t ${i === 0 ? "bg-emerald-50" : r.safe === false ? "text-rose-700" : ""}`}
+            >
+              <td className="py-1 font-mono">{i === 0 ? "★" : i + 1}</td>
+              <td className="py-1 font-mono">{r.missionStage ?? "—"}</td>
+              <td className="py-1 font-mono">{r.actionType ?? "—"}</td>
+              <td className="py-1 text-right font-mono">
+                {typeof r.finalScore === "number" ? r.finalScore.toFixed(1) : "—"}
+              </td>
+              <td className="py-1 text-right font-mono">
+                {typeof r.urgencyScore === "number" ? r.urgencyScore.toFixed(1) : "—"}
+              </td>
+              <td className="py-1 text-right font-mono">
+                {typeof r.riskScore === "number" ? r.riskScore.toFixed(2) : "—"}
+              </td>
+              <td className="py-1 text-right font-mono">
+                {typeof r.qualityExpectation === "number" ? r.qualityExpectation.toFixed(2) : "—"}
+              </td>
+              <td className="py-1 font-serif">
+                {i === 0
+                  ? (r.reasonSummary ?? "chosen")
+                  : (r.rejectionReason ?? r.reasonSummary ?? "lower score")}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

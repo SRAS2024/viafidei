@@ -6,6 +6,10 @@
  *
  * The decisions are deterministic — given the same `rulesEvaluated`
  * payload the engine always picks the same `chosenAction`.
+ *
+ * The brain also writes the ranked alternatives it considered so the
+ * admin UI can show "why this and not that" — see brain.ts for the
+ * scoring engine that produces them.
  */
 
 import type { Prisma, PrismaClient } from "@prisma/client";
@@ -20,6 +24,20 @@ export interface RecordDecisionInput {
   confidence: number;
   reason?: string;
   fallbackAction?: string;
+  /** Ranked candidate actions the brain considered (highest score first). */
+  rankedAlternatives?: Prisma.InputJsonValue;
+  /** Readable summary of why the brain chose the action it did. */
+  brainExplanation?: string;
+  /** Non-null when the brain could not find any safe action to take. */
+  brainFailure?: string;
+  /** The brain's risk estimate for the chosen action (0..1). */
+  riskScore?: number;
+  /** One-line description of what success looks like for the chosen action. */
+  expectedResult?: string;
+  /** The content type the action targets, if any. */
+  contentType?: string;
+  /** The pipeline mission stage the action advances, if any. */
+  missionStage?: string;
 }
 
 export async function recordDecision(
@@ -37,6 +55,13 @@ export async function recordDecision(
       confidence: input.confidence,
       reason: input.reason,
       fallbackAction: input.fallbackAction,
+      rankedAlternatives: input.rankedAlternatives,
+      brainExplanation: input.brainExplanation,
+      brainFailure: input.brainFailure,
+      riskScore: input.riskScore ?? 0,
+      expectedResult: input.expectedResult,
+      contentType: input.contentType,
+      missionStage: input.missionStage,
     },
     select: { id: true },
   });

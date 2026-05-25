@@ -83,6 +83,8 @@ export {
 
 export { runAdminWorkerLoop, runOnePass, type LoopOptions, type LoopResult } from "./loop";
 
+export { executeMissionStage, type DispatchInput, type DispatchOutcome } from "./dispatcher";
+
 export {
   isJunkUrl,
   discoverCandidate,
@@ -309,7 +311,16 @@ export {
 } from "./security-detectors";
 
 // ── Brain + pipeline + repair plans + source reads + readiness ───────
-export { runBrain, decide, sampleWorld, type BrainDecision, type WorldState } from "./brain";
+export {
+  runBrain,
+  decide,
+  rankActions,
+  sampleWorld,
+  type BrainAction,
+  type BrainDecision,
+  type BrainMissionStage,
+  type WorldState,
+} from "./brain";
 
 export {
   PIPELINE_ORDER,
