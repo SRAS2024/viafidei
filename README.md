@@ -350,6 +350,8 @@ health ratings + pause toggle).
 | `provenance.ts`              | Field-level provenance tracker          |
 | `mission-planner.ts`         | Chain-aware mission planner             |
 | `content-growth.ts`          | 24h / 7d growth-escalation watcher      |
+| `source-reader.ts`           | Orchestrator: classify + extract + read |
+| `cross-source-verifier.ts`   | Field verification + ValidationEvidence |
 | `loop.ts`                    | Central decision loop + mode dispatch   |
 | `state.ts`                   | Singleton state + pause/resume          |
 | `modes.ts`                   | 9 mode descriptors                      |
@@ -481,7 +483,7 @@ The unit + component suite covers:
 - API, auth, security, components, data, email, observability,
   i18n, cache test suites
 
-Total: **1222+ passing tests**.
+Total: **1243+ passing tests**.
 
 ---
 

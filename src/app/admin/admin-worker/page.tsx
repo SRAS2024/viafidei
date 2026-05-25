@@ -14,6 +14,7 @@ import {
   summarizeRatings,
 } from "@/lib/admin-worker";
 import { loadCommandCenterMetrics } from "@/lib/admin-worker/metrics";
+import { planMission } from "@/lib/admin-worker/mission-planner";
 import { AdminWorkerPauseToggle } from "./AdminWorkerPauseToggle";
 import { AdminWorkerControls } from "./AdminWorkerControls";
 import { RequestHomepageMakeoverButton } from "./RequestHomepageMakeoverButton";
@@ -48,6 +49,7 @@ export default async function AdminWorkerPage() {
     metrics,
     readiness,
     recentBrainDecision,
+    mission,
   ] = await Promise.all([
     getAdminWorkerState(prisma),
     runAdminWorkerDiagnostics(prisma),
@@ -62,6 +64,7 @@ export default async function AdminWorkerPage() {
       where: { decisionType: "brain_pass" },
       orderBy: { createdAt: "desc" },
     }),
+    planMission(prisma).catch(() => null),
   ]);
 
   const summary = summarizeRatings(ratings);
@@ -299,6 +302,33 @@ export default async function AdminWorkerPage() {
           ) : (
             <p className="mt-2 text-sm text-ink-soft">
               No brain decisions recorded yet. The first pass will populate this card.
+            </p>
+          )}
+        </article>
+
+        {/* Mission planner (spec §3). Shows the next stage the worker
+            will work on + the concrete next step. Helps the operator
+            see the worker's current mission at a glance. */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Current mission</h2>
+          {mission ? (
+            <dl className="mt-2 grid grid-cols-1 gap-x-3 gap-y-1 text-sm md:grid-cols-2">
+              <dt className="text-ink-soft">Stage</dt>
+              <dd className="font-mono">{mission.stage}</dd>
+              <dt className="text-ink-soft">Task type</dt>
+              <dd className="font-mono">{mission.taskType}</dd>
+              <dt className="text-ink-soft">Content type</dt>
+              <dd className="font-mono">{mission.contentType ?? "—"}</dd>
+              <dt className="text-ink-soft">Confidence</dt>
+              <dd className="font-mono">{mission.confidence.toFixed(2)}</dd>
+              <dt className="text-ink-soft md:col-span-1">Reason</dt>
+              <dd className="font-serif md:col-span-1">{mission.reason}</dd>
+              <dt className="text-ink-soft md:col-span-1">Next step</dt>
+              <dd className="font-serif md:col-span-1">{mission.nextStep}</dd>
+            </dl>
+          ) : (
+            <p className="mt-2 text-sm text-ink-soft">
+              Mission planner unavailable. Run a worker pass to populate.
             </p>
           )}
         </article>

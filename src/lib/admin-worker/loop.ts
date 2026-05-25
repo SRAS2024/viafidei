@@ -187,7 +187,27 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // work for every mode rather than only CONTENT_BUILD.
     switch (decision.mode) {
       case "CONSTANT_FILL": {
-        // Planner first: enqueue work for the largest content gap.
+        // Phase 10: consult the mission planner first. It walks the
+        // full chain (Discovery → … → Cache) and tells us which stage
+        // is the choke point. We log the chosen stage + nextStep so
+        // the audit view shows "why this stage now".
+        const { planMission } = await import("./mission-planner");
+        const mission = await planMission(prisma);
+        await writeAdminWorkerLog(prisma, {
+          passId: pass.id,
+          category: "WORKER_PASS",
+          severity: "INFO",
+          eventName: "mission_planned",
+          message: `Stage ${mission.stage}: ${mission.reason}`,
+          contentType: mission.contentType ?? undefined,
+          safeMetadata: {
+            stage: mission.stage,
+            taskType: mission.taskType,
+            nextStep: mission.nextStep,
+          },
+        });
+
+        // Planner: enqueue work for the largest content gap (BUILD stage).
         const planOutcome = await planAndEnqueue(prisma, { passId: pass.id });
         if (planOutcome.enqueued > 0) {
           await writeAdminWorkerLog(prisma, {

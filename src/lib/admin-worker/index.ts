@@ -398,3 +398,22 @@ export {
   type GrowthReport,
   type GrowthEscalation,
 } from "./content-growth";
+
+// ── Phase 10: source reader + cross-source verifier + memory hooks ───
+export { readSource, type ReadSourceInput, type ReadSourceOutcome } from "./source-reader";
+
+export {
+  verifyCrossSource,
+  type ValidationEvidence,
+  type VerifyInput,
+  type VerifyOutcome,
+  type VerifyMatchStatus,
+} from "./cross-source-verifier";
+
+export {
+  rankHostsByMemory,
+  recordExtractorOutcome,
+  recallExtractorMemory,
+  rememberFailurePattern,
+  type RankedHost,
+} from "./memory";
