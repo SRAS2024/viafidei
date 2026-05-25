@@ -92,8 +92,20 @@ async function ratingHeartbeat(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingQueue(prisma: PrismaClient): Promise<HealthRating> {
-  const pending = await prisma.workerBuildJob.count({ where: { status: "pending" } });
-  const failed = await prisma.workerBuildJob.count({ where: { status: "failed" } });
+  const [pending, failed, lastSuccess, lastFailure] = await Promise.all([
+    prisma.workerBuildJob.count({ where: { status: "pending" } }),
+    prisma.workerBuildJob.count({ where: { status: "failed" } }),
+    prisma.workerBuildJob.findFirst({
+      where: { status: "succeeded" },
+      orderBy: { finishedAt: "desc" },
+      select: { finishedAt: true, errorMessage: true },
+    }),
+    prisma.workerBuildJob.findFirst({
+      where: { status: "failed" },
+      orderBy: { finishedAt: "desc" },
+      select: { finishedAt: true, errorMessage: true },
+    }),
+  ]);
   const status: HealthStatus =
     failed > pending && failed > 5 ? "fail" : failed > 0 ? "warn" : "pass";
   return {
@@ -104,6 +116,9 @@ async function ratingQueue(prisma: PrismaClient): Promise<HealthRating> {
     lastCheckedAt: new Date(),
     dataSource: "WorkerBuildJob",
     summary: `${pending} pending, ${failed} failed.`,
+    latestSuccess: lastSuccess?.finishedAt ?? null,
+    latestFailure: lastFailure?.finishedAt ?? null,
+    currentBlocker: lastFailure?.errorMessage ?? undefined,
     recommendedRepair: failed > 0 ? "Inspect failed jobs at /admin/checklist/failed." : undefined,
   };
 }
@@ -172,7 +187,19 @@ async function ratingSourceReputation(prisma: PrismaClient): Promise<HealthRatin
 }
 
 async function ratingPublishing(prisma: PrismaClient): Promise<HealthRating> {
-  const total = await prisma.publishedContent.count({ where: { isPublished: true } });
+  const [total, lastPublish, lastFailure] = await Promise.all([
+    prisma.publishedContent.count({ where: { isPublished: true } }),
+    prisma.publishedContent.findFirst({
+      where: { isPublished: true },
+      orderBy: { publishedAt: "desc" },
+      select: { publishedAt: true },
+    }),
+    prisma.adminWorkerLog.findFirst({
+      where: { category: "PUBLISHING", severity: { in: ["ERROR", "CRITICAL"] } },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true, message: true },
+    }),
+  ]);
   const status: HealthStatus = total > 0 ? "pass" : "warn";
   return {
     key: "admin_worker_publishing",
@@ -182,6 +209,9 @@ async function ratingPublishing(prisma: PrismaClient): Promise<HealthRating> {
     lastCheckedAt: new Date(),
     dataSource: "PublishedContent",
     summary: `${total} items currently published.`,
+    latestSuccess: lastPublish?.publishedAt ?? null,
+    latestFailure: lastFailure?.createdAt ?? null,
+    currentBlocker: lastFailure?.message ?? undefined,
   };
 }
 

@@ -12,6 +12,7 @@ import {
   runAdminWorkerDiagnostics,
   summarizeRatings,
 } from "@/lib/admin-worker";
+import { loadCommandCenterMetrics } from "@/lib/admin-worker/metrics";
 import { AdminWorkerPauseToggle } from "./AdminWorkerPauseToggle";
 import { AdminWorkerControls } from "./AdminWorkerControls";
 
@@ -34,7 +35,7 @@ export default async function AdminWorkerPage() {
   // Refresh content goals before reading so the page shows live counts.
   await refreshContentGoals(prisma).catch(() => {});
 
-  const [state, ratings, recentPasses, recentSecurity, pendingReview, goals, recentDraft] =
+  const [state, ratings, recentPasses, recentSecurity, pendingReview, goals, recentDraft, metrics] =
     await Promise.all([
       getAdminWorkerState(prisma),
       runAdminWorkerDiagnostics(prisma),
@@ -43,6 +44,7 @@ export default async function AdminWorkerPage() {
       countPendingReview(prisma),
       prisma.contentGoal.findMany({ orderBy: [{ gapCount: "desc" }, { priority: "asc" }] }),
       prisma.homepageWorkerDraft.findFirst({ orderBy: { createdAt: "desc" } }),
+      loadCommandCenterMetrics(prisma),
     ]);
 
   const summary = summarizeRatings(ratings);
@@ -70,6 +72,37 @@ export default async function AdminWorkerPage() {
       </header>
 
       <AdminWorkerPauseToggle initialPaused={state.paused} initialReason={state.pausedReason} />
+
+      <section className="grid grid-cols-2 gap-4 rounded border bg-white p-4 shadow-sm md:grid-cols-4">
+        <Metric label="Publish rate (30d)" value={fmtPct(metrics.publishRate30d)} tone="emerald" />
+        <Metric label="QA pass rate (30d)" value={fmtPct(metrics.qaPassRate30d)} tone="emerald" />
+        <Metric
+          label="Deletion rate (30d)"
+          value={fmtPct(metrics.deletionRate30d)}
+          tone={metrics.deletionRate30d > 0.1 ? "rose" : "slate"}
+        />
+        <Metric
+          label="Review queue"
+          value={String(metrics.reviewQueueCount)}
+          tone={metrics.reviewQueueCount > 0 ? "amber" : "slate"}
+        />
+        <Metric label="Published live" value={String(metrics.publishedContentLive)} tone="slate" />
+        <Metric label="Queue in-flight" value={String(metrics.queueInFlight)} tone="slate" />
+        <Metric
+          label="Security actions (24h)"
+          value={String(metrics.recentSecurityActions24h)}
+          tone={metrics.recentSecurityActions24h > 0 ? "rose" : "slate"}
+        />
+        <Metric
+          label="Monthly report"
+          value={
+            metrics.monthlyReportLastAt
+              ? `${metrics.monthlyReportLastAt.toISOString().slice(0, 10)}${metrics.monthlyReportFresh ? " (fresh)" : " (stale)"}`
+              : "—"
+          }
+          tone={metrics.monthlyReportFresh ? "emerald" : "amber"}
+        />
+      </section>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <article className="rounded border bg-white p-4 shadow-sm">
@@ -225,6 +258,29 @@ export default async function AdminWorkerPage() {
           )}
         </article>
       </section>
+    </div>
+  );
+}
+
+function fmtPct(n: number): string {
+  return `${Math.round(n * 100)}%`;
+}
+
+function Metric(props: {
+  label: string;
+  value: string;
+  tone: "emerald" | "amber" | "rose" | "slate";
+}) {
+  const tone = {
+    emerald: "text-emerald-700",
+    amber: "text-amber-700",
+    rose: "text-rose-700",
+    slate: "text-slate-900",
+  }[props.tone];
+  return (
+    <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wide text-ink-soft">{props.label}</div>
+      <div className={`font-mono text-base ${tone}`}>{props.value}</div>
     </div>
   );
 }

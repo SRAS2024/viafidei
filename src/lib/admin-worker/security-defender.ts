@@ -121,7 +121,76 @@ export async function defend(prisma: PrismaClient, input: DefendInput): Promise<
     relatedEntityId: row.id,
   });
 
+  // BAN_DEVICE: actually insert the BannedDevice row + send the
+  // Admin Worker Banned Device email. Middleware reads BannedDevice
+  // on every request so the ban is enforced immediately. Wrapped in
+  // try / catch so a row insertion failure can never break the loop.
+  if (decision.actionType === "BAN_DEVICE" && input.deviceFingerprintHash) {
+    await issueBan(prisma, input, row.id);
+  }
+
   return { ...decision, recordId: row.id };
+}
+
+async function issueBan(
+  prisma: PrismaClient,
+  input: DefendInput,
+  workerActionId: string,
+): Promise<void> {
+  const now = new Date();
+  try {
+    await prisma.bannedDevice.upsert({
+      where: { deviceCredentialHash: input.deviceFingerprintHash! },
+      update: {
+        lastSeenAt: now,
+        active: true,
+        banReason: input.eventType,
+        securityEventId: input.securityEventId ?? null,
+      },
+      create: {
+        deviceCredentialHash: input.deviceFingerprintHash!,
+        ipAddressHash: input.ipHash ?? null,
+        userAgentHash: input.userAgentHash ?? null,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        banReason: input.eventType,
+        securityEventId: input.securityEventId ?? null,
+        createdBy: "admin_worker",
+        active: true,
+      },
+    });
+  } catch (err) {
+    await writeAdminWorkerLog(prisma, {
+      passId: input.passId ?? null,
+      category: "SECURITY",
+      severity: "ERROR",
+      eventName: "ban_insert_failed",
+      message: `BannedDevice insert failed: ${err instanceof Error ? err.message : String(err)}`,
+    });
+    return;
+  }
+
+  // Dynamic import keeps the defender independent of the email module
+  // for tests; email failure must never roll back the ban.
+  try {
+    const { sendAdminWorkerBannedDevice } = await import("@/lib/email/admin-send");
+    await sendAdminWorkerBannedDevice({
+      reason: input.reason,
+      route: input.route,
+      deviceCredentialFingerprint: input.deviceFingerprintHash,
+      securityEventId: input.securityEventId,
+      workerActionId,
+      confidence: input.confidence,
+    });
+  } catch (err) {
+    await writeAdminWorkerLog(prisma, {
+      passId: input.passId ?? null,
+      category: "SECURITY",
+      severity: "WARN",
+      eventName: "ban_email_failed",
+      message: `Banned-device email failed: ${err instanceof Error ? err.message : String(err)}`,
+    });
+  }
 }
 
 export async function listRecentSecurityActions(

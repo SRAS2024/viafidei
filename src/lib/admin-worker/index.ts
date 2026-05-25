@@ -176,9 +176,16 @@ export {
   flagCacheRefresh,
   flagSitemapRefresh,
   flagSearchRefresh,
+  fetchWithBackoff,
+  reportPersistenceFailure,
+  reportValidationEvidenceMissing,
   type RepairKind,
   type RepairOutcome,
 } from "./repair";
+
+export { redesignHomepage, type RedesignResult } from "./homepage-mutator";
+
+export { loadCommandCenterMetrics, type CommandCenterMetrics } from "./metrics";
 
 export { planAndEnqueue, type PlanOutcome } from "./planner";
 

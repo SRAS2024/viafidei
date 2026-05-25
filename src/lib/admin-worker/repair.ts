@@ -203,3 +203,94 @@ export async function flagSearchRefresh(prisma: PrismaClient): Promise<RepairOut
   });
   return { kind: "search_failed", attempted: true, succeeded: true, reason: "flagged" };
 }
+
+/**
+ * Fetch-with-backoff. Wraps a single async operation in an
+ * exponential-backoff retry loop. Each attempt logs to AdminWorkerLog
+ * so the operator can see the retry trail. Returns the resolved value
+ * on the first success or throws after the final attempt.
+ *
+ * Spec section 20: "If fetch fails, it should retry with backoff."
+ */
+export async function fetchWithBackoff<T>(
+  prisma: PrismaClient,
+  description: string,
+  attempt: () => Promise<T>,
+  opts: { attempts?: number; baseDelayMs?: number; sourceHost?: string } = {},
+): Promise<T> {
+  const max = opts.attempts ?? 4;
+  const base = opts.baseDelayMs ?? 250;
+  let lastErr: unknown = null;
+  for (let i = 0; i < max; i++) {
+    try {
+      const value = await attempt();
+      if (i > 0) {
+        await writeAdminWorkerLog(prisma, {
+          category: "REPAIR",
+          severity: "INFO",
+          eventName: "fetch_backoff_recovered",
+          message: `${description} recovered after ${i + 1} attempt(s).`,
+          sourceHost: opts.sourceHost ?? undefined,
+        });
+      }
+      return value;
+    } catch (err) {
+      lastErr = err;
+      const wait = base * 2 ** i;
+      await writeAdminWorkerLog(prisma, {
+        category: "REPAIR",
+        severity: i + 1 >= max ? "ERROR" : "WARN",
+        eventName: "fetch_backoff_retry",
+        message: `${description} attempt ${i + 1}/${max} failed: ${err instanceof Error ? err.message : String(err)}; backing off ${wait}ms.`,
+        sourceHost: opts.sourceHost ?? undefined,
+      });
+      if (i + 1 < max) await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
+
+/** Persistence-failed repair: log the database error so it surfaces
+ *  in the diagnostics card. */
+export async function reportPersistenceFailure(
+  prisma: PrismaClient,
+  description: string,
+  error: unknown,
+): Promise<RepairOutcome> {
+  const message = error instanceof Error ? error.message : String(error);
+  await writeAdminWorkerLog(prisma, {
+    category: "ERROR",
+    severity: "ERROR",
+    eventName: "persistence_failed",
+    message: `${description}: ${message}`,
+  });
+  return {
+    kind: "persistence_failed",
+    attempted: true,
+    succeeded: false,
+    reason: message.slice(0, 200),
+  };
+}
+
+/** Validation-evidence missing: log it and let the planner pick a
+ *  validation source on the next pass. */
+export async function reportValidationEvidenceMissing(
+  prisma: PrismaClient,
+  contentType: string,
+  contentId: string,
+): Promise<RepairOutcome> {
+  await writeAdminWorkerLog(prisma, {
+    category: "REPAIR",
+    severity: "WARN",
+    eventName: "validation_evidence_missing",
+    message: `Validation evidence missing for ${contentType} ${contentId}; planner will source a validator.`,
+    contentType,
+    relatedEntityId: contentId,
+  });
+  return {
+    kind: "validation_evidence_missing",
+    attempted: true,
+    succeeded: false,
+    reason: "logged",
+  };
+}

@@ -2,27 +2,59 @@
 
 import { useState } from "react";
 
-type Period = "24h" | "week" | "month";
+/**
+ * Period values map to the new POST /api/admin/developer-audit route
+ * (uppercase enum) plus the legacy GET /api/admin/diagnostics/developer-audit
+ * (lowercase string). The button targets the new route; the legacy
+ * route stays for backwards compatibility but is no longer used.
+ */
+type Period = "LAST_24_HOURS" | "LAST_7_DAYS" | "LAST_30_DAYS";
 
-const LABELS: Record<Period, string> = {
-  "24h": "Last 24 hours",
-  week: "Last 7 days",
-  month: "Last 30 days",
+const PERIOD_LABELS: Record<Period, string> = {
+  LAST_24_HOURS: "Last 24 hours",
+  LAST_7_DAYS: "Last 7 days",
+  LAST_30_DAYS: "Last 30 days",
 };
 
+const ALL_SECTIONS = [
+  "Diagnostics Results",
+  "Worker Logs",
+  "System Logs",
+  "Security Logs",
+  "Content Growth and Publishing",
+  "Homepage Actions",
+  "Recommended Repairs",
+] as const;
+type Section = (typeof ALL_SECTIONS)[number];
+
 export function DeveloperAuditButton() {
-  const [period, setPeriod] = useState<Period>("24h");
+  const [period, setPeriod] = useState<Period>("LAST_24_HOURS");
+  const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sections, setSections] = useState<Set<Section>>(new Set(ALL_SECTIONS));
+
+  const toggleSection = (s: Section) => {
+    setSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s);
+      else next.add(s);
+      return next;
+    });
+  };
 
   const download = async () => {
     setError(null);
     setPending(true);
     try {
-      const res = await fetch(
-        `/api/admin/diagnostics/developer-audit?period=${encodeURIComponent(period)}`,
-        { method: "GET" },
-      );
+      const res = await fetch(`/api/admin/developer-audit`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          period,
+          sections: Array.from(sections),
+        }),
+      });
       if (!res.ok) {
         const text = await res.text();
         throw new Error(`${res.status}: ${text || "Failed to generate audit"}`);
@@ -32,11 +64,12 @@ export function DeveloperAuditButton() {
       const a = document.createElement("a");
       a.href = url;
       const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-      a.download = `viafidei-developer-audit-${period}-${stamp}.pdf`;
+      a.download = `viafidei-developer-audit-${period.toLowerCase()}-${stamp}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -45,27 +78,14 @@ export function DeveloperAuditButton() {
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <select
-        value={period}
-        onChange={(e) => setPeriod(e.target.value as Period)}
-        disabled={pending}
-        className="rounded border border-slate-300 bg-white px-2 py-1 text-sm"
-        aria-label="Developer audit period"
-      >
-        {(["24h", "week", "month"] as const).map((p) => (
-          <option key={p} value={p}>
-            {LABELS[p]}
-          </option>
-        ))}
-      </select>
+    <div className="relative inline-block">
       <button
         type="button"
-        disabled={pending}
-        onClick={download}
+        onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3 py-1 text-sm text-white hover:bg-emerald-700 disabled:opacity-50"
+        aria-expanded={open}
       >
-        <span>{pending ? "Generating PDF…" : "Developer Report"}</span>
+        <span>Developer Report</span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="14"
@@ -83,10 +103,63 @@ export function DeveloperAuditButton() {
           <line x1="12" y1="15" x2="12" y2="3" />
         </svg>
       </button>
-      {error && (
-        <span className="ml-2 text-xs text-rose-700" title={error}>
-          ⚠ failed
-        </span>
+
+      {open && (
+        <div className="absolute right-0 z-10 mt-2 w-80 rounded border border-slate-300 bg-white p-3 text-sm shadow-lg">
+          <fieldset className="space-y-1">
+            <legend className="mb-1 text-xs uppercase text-ink-soft">Report period</legend>
+            {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (
+              <label key={p} className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="period"
+                  value={p}
+                  checked={period === p}
+                  onChange={() => setPeriod(p)}
+                />
+                <span>{PERIOD_LABELS[p]}</span>
+              </label>
+            ))}
+          </fieldset>
+
+          <fieldset className="mt-3 space-y-1">
+            <legend className="mb-1 text-xs uppercase text-ink-soft">Sections</legend>
+            {ALL_SECTIONS.map((s) => (
+              <label key={s} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={sections.has(s)}
+                  onChange={() => toggleSection(s)}
+                />
+                <span>{s}</span>
+              </label>
+            ))}
+          </fieldset>
+
+          <div className="mt-3 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="text-xs text-ink-soft underline"
+            >
+              cancel
+            </button>
+            <button
+              type="button"
+              disabled={pending || sections.size === 0}
+              onClick={download}
+              className="inline-flex items-center gap-1 rounded bg-emerald-600 px-3 py-1 text-sm text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {pending ? "Generating PDF…" : "Download PDF"}
+            </button>
+          </div>
+
+          {error && (
+            <p className="mt-2 text-xs text-rose-700" title={error}>
+              ⚠ {error}
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

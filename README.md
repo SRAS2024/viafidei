@@ -598,7 +598,7 @@ Phase 2 (previous PR):
   Developer Audit PDF emits a valid `%PDF-` buffer + writes the
   AdminDeveloperReportLog row.
 
-Phase 3 (this PR):
+Phase 3 (previous PR):
 
 - live post-publish HTTP probe: the publisher actively triggers cache
   revalidation, fetches the public page, confirms the title shows in
@@ -633,7 +633,48 @@ Phase 3 (this PR):
   post-publish probe + rollback, sitemap discovery, security
   detectors, and public route mapping
 
-Tests: 1101 / 1101 passing (was 1050).
+Phase 4 (this PR):
+
+- defender now actually bans: when `decideAction` returns BAN_DEVICE
+  on a confirmed Breach, `defend()` upserts a BannedDevice row + sends
+  the "Admin Worker Banned Device" email. Ban + email failures are
+  logged but never break the loop. Middleware already reads
+  BannedDevice on every request, so the ban is enforced immediately.
+- homepage redesign mutator: `redesignHomepage()` reads the current
+  HomePageBlock rows + live PublishedContent, scores the homepage,
+  proposes a refreshed set of featured blocks (drawn only from the
+  supported block-type allowlist — never invents components),
+  computes a confidence + section diff, and files a
+  HomepageWorkerDraft routed AUTO_PUBLISHED / PROPOSED / AWAITING_REVIEW
+  per the existing decideDraftStatus rules. Major redesigns and
+  section-deletion changes always route to review.
+- Command Center metrics: new `loadCommandCenterMetrics()` computes
+  publishRate30d, qaPassRate30d, deletionRate30d, reviewQueueCount,
+  recentSecurityActions24h, publishedContentLive, queueInFlight, and
+  monthlyReport last-generated + freshness. The Command Center page
+  renders these as a metric strip at the top.
+- expanded repair handlers: `fetchWithBackoff` (exponential retry,
+  logs each attempt), `reportPersistenceFailure`,
+  `reportValidationEvidenceMissing`. Section 20 coverage now spans
+  heartbeat staleness, queue stalls, discovery gaps, source rotation,
+  cache / sitemap / search refresh, fetch backoff, and persistence
+  failures.
+- diagnostics ratings now populate `latestSuccess` / `latestFailure`
+  / `currentBlocker` from real DB queries (queue + publishing rating);
+  the diagnostics page already renders these when present.
+- Developer Audit button: new dropdown with period picker + section
+  checkboxes; POSTs `/api/admin/developer-audit` with the chosen
+  sections so the operator can pull a partial report (e.g. "just
+  Security Logs").
+- 17 new tests: defender ban (Suspicious never bans, Breach + high
+  confidence does ban + sends email + survives email failure),
+  homepage mutator (no draft above threshold, small refresh
+  auto-publishes, section deletion routes to review), Command Center
+  metrics (publish rate / QA rate / deletion rate math + monthly
+  report freshness gate), fetchWithBackoff retries, persistence /
+  validation-evidence reporters.
+
+Tests: 1118 / 1118 passing (was 1101).
 
 ---
 
