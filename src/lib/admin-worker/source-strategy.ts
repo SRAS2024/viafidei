@@ -15,6 +15,8 @@ import type {
   SourceAuthorityLevel,
 } from "@prisma/client";
 
+import { rankHostsByMemory } from "./memory";
+
 /** Authority-level weight (spec: "prefer official Church sources"). */
 const AUTHORITY_WEIGHTS: Record<SourceAuthorityLevel, number> = {
   VATICAN: 1.0,
@@ -154,6 +156,22 @@ export async function rankedSourcePlan(
     if (rep?.paused) continue;
     ranked.push(rankSource(auth ?? null, rep ?? null));
   }
+
+  // Memory tilt: nudge ranks up/down based on Laplace-smoothed
+  // per-host extractor outcomes. Memory never moves a Vatican source
+  // below a community source — the credibility weight dominates — but
+  // it does break ties between similarly-credible hosts.
+  const memoryConfidence = new Map<string, number>(
+    (await rankHostsByMemory(prisma, [...hosts])).map((row) => [row.host, row.confidence]),
+  );
+  for (const row of ranked) {
+    const conf = memoryConfidence.get(row.sourceHost) ?? 0.5;
+    // Centre at 0.5 (Laplace default) → effect range ±0.05.
+    const tilt = (conf - 0.5) * 0.1;
+    row.rank = Math.max(0, Math.min(1, row.rank + tilt));
+    if (Math.abs(tilt) > 0.01) row.reasons.push(`memory=${conf.toFixed(2)}`);
+  }
+
   ranked.sort((a, b) => b.rank - a.rank);
   return ranked.slice(0, opts.limit ?? 50);
 }

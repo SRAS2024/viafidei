@@ -7,8 +7,10 @@
  *   - fail   — red, the part is broken or unsafe
  *
  * The admin diagnostics page calls `runAllDiagnostics()` and renders each
- * row with the appropriate colour. The Developer Report button collects
- * every diagnostic into a markdown blob the operator can copy.
+ * row with the appropriate colour. The canonical Developer Audit is a
+ * PDF produced by `src/lib/admin-worker/pdf.ts` from richer Admin Worker
+ * data; this module only ships standard system / database / env-var
+ * checks that complement the Admin Worker's 30 ratings.
  */
 
 import { prisma } from "@/lib/db/client";
@@ -438,38 +440,4 @@ export async function runAllDiagnostics(): Promise<DiagnosticResult[]> {
     janitorFindings(),
   ]);
   return results;
-}
-
-/**
- * Build a markdown Developer Report that the admin can copy to share with a
- * developer. Each diagnostic becomes one section with status, summary, and
- * any details/suggested actions.
- */
-export function buildDeveloperReport(results: DiagnosticResult[]): string {
-  const lines: string[] = [];
-  lines.push(`# Viafidei Developer Report`);
-  lines.push("");
-  lines.push(`Generated: ${new Date().toISOString()}`);
-  lines.push("");
-  const counts = { pass: 0, warn: 0, fail: 0 };
-  for (const r of results) counts[r.status]++;
-  lines.push(`**Status:** ${counts.pass} pass · ${counts.warn} warn · ${counts.fail} fail`);
-  lines.push("");
-  for (const r of results) {
-    const marker = r.status === "pass" ? "✓" : r.status === "warn" ? "⚠" : "✕";
-    lines.push(`## ${marker} ${r.label} — ${r.status.toUpperCase()}`);
-    lines.push("");
-    lines.push(r.summary);
-    if (r.details && r.details.length) {
-      lines.push("");
-      lines.push("Details:");
-      for (const d of r.details) lines.push(`- ${d}`);
-    }
-    if (r.suggestedAction) {
-      lines.push("");
-      lines.push(`Suggested action: ${r.suggestedAction}`);
-    }
-    lines.push("");
-  }
-  return lines.join("\n");
 }

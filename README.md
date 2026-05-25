@@ -172,7 +172,7 @@ Optional environment variables:
 | Card               | Route                       | Purpose                                                       |
 | ------------------ | --------------------------- | ------------------------------------------------------------- |
 | Command Center     | `/admin/admin-worker`       | Status, current mission, last brain decision, controls, goals |
-| System diagnostics | `/admin/diagnostics`        | 27 ratings, pause toggle, Developer Audit PDF                 |
+| System diagnostics | `/admin/diagnostics`        | 30 ratings, pause toggle, Developer Audit PDF                 |
 | Admin Worker logs  | `/admin/admin-worker/logs`  | 16-category log viewer with period + severity filters         |
 | Admin Worker rules | `/admin/admin-worker/rules` | Versioned rule catalogue                                      |
 
@@ -212,7 +212,7 @@ Optional environment variables:
 The **Admin Worker** is the autonomous website-administrator system,
 fully coded and operating **without any AI APIs**. Code lives under
 `src/lib/admin-worker/`. The operator surface is at `/admin/admin-worker`
-(Command Center) and `/admin/diagnostics` (27 ratings + pause toggle).
+(Command Center) and `/admin/diagnostics` (30 ratings + pause toggle).
 
 ### What it does
 
@@ -420,7 +420,7 @@ fully coded and operating **without any AI APIs**. Code lives under
 | `quality.ts`                 | Content quality scoring                 |
 | `health.ts`                  | Worker health monitor                   |
 | `metrics.ts`                 | Command Center metric computation       |
-| `diagnostics.ts`             | 27-rating diagnostics auditor           |
+| `diagnostics.ts`             | 30-rating diagnostics auditor           |
 | `readiness.ts`               | Production-readiness 12-check sweep     |
 | `rules.ts`                   | 12 versioned rules across 11 categories |
 | `logs.ts`                    | Structured AdminWorkerLog writer        |
@@ -442,7 +442,7 @@ the rest of the loop. Resume the worker via the same toggle.
 
 The Command Center exposes one-click actions for every named pass:
 
-- **Run diagnostic pass** — refreshes 27 ratings + writes diagnostic snapshots
+- **Run diagnostic pass** — refreshes 30 ratings + writes diagnostic snapshots
 - **Run content goal pass** — recomputes gaps + enqueues build jobs
 - **Run source discovery pass** — runs the web navigator
 - **Run homepage pass** — invokes the homepage mutator
