@@ -731,49 +731,76 @@ async function runCrossSourceVerification(
   prisma: PrismaClient,
   passId: string,
 ): Promise<DispatchOutcome> {
-  // Pick the most recent published content row that has not had
-  // verification evidence stored yet. The verifier persists per-field
-  // evidence to AdminWorkerCrossSourceVerification so the publish
-  // gate + admin UI can show the audit trail (spec §11).
+  // Spec §5: verify package artifacts BEFORE publishing — not
+  // already-published rows. The verifier picks the most recent
+  // BUILD_READY artifact whose validation needs haven't been
+  // recorded yet, looks up the right validation sources via the
+  // resolver, and persists per-field evidence.
   const pending = await prisma.checklistQAReport
     .count({ where: { needsHumanReview: true, reviewedAt: null } })
     .catch(() => 0);
 
-  // Best-effort: pick the most recent published content we haven't
-  // already verified, and run the durable verifier on its payload.
-  const candidate = await prisma.publishedContent
+  // Pick a BUILD_READY artifact with sensitive fields that need
+  // verification.
+  const artifact = await prisma.adminWorkerPackageArtifact
     .findFirst({
-      where: { isPublished: true },
-      orderBy: { publishedAt: "desc" },
-      select: { id: true, contentType: true, title: true, slug: true, payload: true },
+      where: { status: "BUILD_READY" },
+      orderBy: { createdAt: "asc" },
     })
     .catch(() => null);
 
   let verifiedFieldCount = 0;
   let blockingFields: string[] = [];
-  if (candidate) {
+  let usedHosts: string[] = [];
+
+  if (artifact && artifact.validationNeeds.length > 0) {
+    // Check if we've already verified this artifact recently.
     const already = await prisma.adminWorkerCrossSourceVerification
       .findFirst({
-        where: { contentType: candidate.contentType, contentId: candidate.id },
+        where: { contentType: artifact.contentType, contentId: artifact.id },
         orderBy: { createdAt: "desc" },
         select: { id: true },
       })
       .catch(() => null);
 
     if (!already) {
+      const { resolveValidationSources } = await import("./validation-source-resolver");
       const { runVerifier } = await import("./verifier");
-      const fields =
-        typeof candidate.payload === "object" && candidate.payload != null
-          ? (candidate.payload as Record<string, unknown>)
-          : {};
+      const fields = (artifact.extractedFields as Record<string, unknown>) ?? {};
+
+      // For each sensitive field, resolve up to 2 validation
+      // sources. We attach them all once to the verifier so it can
+      // cross-check the same field against multiple sources.
+      const validationSources: Array<{
+        host: string;
+        fields: Record<string, unknown>;
+        url?: string;
+      }> = [];
+      const seenHosts = new Set<string>();
+      for (const field of artifact.validationNeeds) {
+        const resolved = await resolveValidationSources(
+          prisma,
+          { contentType: artifact.contentType, field, primarySourceHost: undefined },
+          { limit: 2 },
+        );
+        for (const r of resolved) {
+          if (seenHosts.has(r.host)) continue;
+          seenHosts.add(r.host);
+          // We don't have live content from the validation source
+          // here — the resolver simply names *which* sources to
+          // consult; the verifier records MISSING_EVIDENCE for the
+          // sensitive field, which the publish gate enforces.
+          validationSources.push({ host: r.host, fields: {} });
+        }
+      }
+      usedHosts = [...seenHosts];
+
       const result = await runVerifier(prisma, {
-        contentType: candidate.contentType,
-        contentId: candidate.id,
+        contentType: artifact.contentType,
+        contentId: artifact.id,
+        packageChecksum: artifact.packageChecksum,
         fields,
-        // With no live validation source connection in the dispatcher,
-        // we record a single "self" row — the verifier surfaces
-        // MISSING_EVIDENCE for the admin UI to act on.
-        validationSources: [],
+        validationSources,
       }).catch(() => null);
       verifiedFieldCount = result?.verificationRowIds.length ?? 0;
       blockingFields = result?.blockingSensitiveFields ?? [];
@@ -792,7 +819,8 @@ async function runCrossSourceVerification(
       pendingReviews: pending,
       verifiedFieldCount,
       blockingFields,
-      contentId: candidate?.id,
+      artifactId: artifact?.id ?? null,
+      usedHosts,
     },
   });
   return {

@@ -151,6 +151,15 @@ export interface DeveloperAuditData {
     createdAt: Date;
   }>;
   currentBlockers: string[];
+  /** Spec §15: live "why no content growth" diagnostic snapshot. */
+  whyNoGrowth: {
+    blocker: string;
+    blockerExplanation: string;
+    exactTable: string;
+    nextAutomaticRepair: string | null;
+    nextWorkerDecision: string;
+    checks: Array<{ stage: string; ok: boolean; count: number; detail: string }>;
+  } | null;
 }
 
 export async function collectDeveloperAuditData(
@@ -355,7 +364,36 @@ export async function collectDeveloperAuditData(
       createdAt: v.createdAt,
     })),
     currentBlockers,
+    whyNoGrowth: await collectWhyNoGrowthSnapshot(prisma),
   };
+}
+
+/**
+ * Snapshot the live why-no-growth diagnostic for the Developer Audit
+ * (spec §15 + §16). Best-effort: degrades to null on failure.
+ */
+async function collectWhyNoGrowthSnapshot(
+  prisma: PrismaClient,
+): Promise<DeveloperAuditData["whyNoGrowth"]> {
+  try {
+    const { diagnoseWhyNoGrowth } = await import("./why-no-growth");
+    const report = await diagnoseWhyNoGrowth(prisma);
+    return {
+      blocker: report.blocker,
+      blockerExplanation: report.blockerExplanation,
+      exactTable: report.exactTable,
+      nextAutomaticRepair: report.nextAutomaticRepair,
+      nextWorkerDecision: report.nextWorkerDecision,
+      checks: report.checks.map((c) => ({
+        stage: c.stage,
+        ok: c.ok,
+        count: c.count,
+        detail: c.detail,
+      })),
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
