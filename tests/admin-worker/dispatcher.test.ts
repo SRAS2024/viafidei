@@ -136,6 +136,19 @@ vi.mock("@/lib/admin-worker/memory", () => ({
   decayMemory: vi.fn(async () => ({ decayed: 0, pruned: 0 })),
 }));
 
+vi.mock("@/lib/admin-worker/homepage-publish-orchestrator", () => ({
+  runHomepagePublishOrchestrator: vi.fn(async () => ({
+    kind: "auto-published" as const,
+    draftId: "d1",
+    beforeSnapshotId: null,
+    afterSnapshotId: "d1",
+    inspection: { composite: 0.5 },
+    reason: "mocked auto-publish",
+    verificationPassed: true,
+  })),
+  inspectHomepage: vi.fn(async () => ({ composite: 0.5 })),
+}));
+
 import { executeMissionStage } from "@/lib/admin-worker/dispatcher";
 import type { BrainAction, BrainDecision } from "@/lib/admin-worker/brain";
 
@@ -333,10 +346,11 @@ describe("executeMissionStage — concrete stage handlers (spec §2)", () => {
     expect(vi.mocked(flagCacheRefresh)).toHaveBeenCalledTimes(1);
   });
 
-  it("HOMEPAGE_WORK calls the homepage mutator", async () => {
+  it("HOMEPAGE_WORK calls the homepage publish orchestrator (spec §20)", async () => {
     const prisma = makePrismaForDispatch();
-    const { redesignHomepage } = await import("@/lib/admin-worker/homepage-mutator");
-    vi.mocked(redesignHomepage).mockClear();
+    const { runHomepagePublishOrchestrator } =
+      await import("@/lib/admin-worker/homepage-publish-orchestrator");
+    vi.mocked(runHomepagePublishOrchestrator).mockClear();
     const out = await executeMissionStage({
       prisma,
       workerId: "w1",
@@ -344,7 +358,7 @@ describe("executeMissionStage — concrete stage handlers (spec §2)", () => {
       decision: makeDecision("HOMEPAGE_WORK"),
     });
     expect(out.kind).toBe("advanced");
-    expect(vi.mocked(redesignHomepage)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(runHomepagePublishOrchestrator)).toHaveBeenCalledTimes(1);
   });
 
   it("REPAIR calls recoverStuckQueue", async () => {

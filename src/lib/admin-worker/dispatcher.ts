@@ -688,27 +688,38 @@ async function runRepair(
 }
 
 async function runHomepageWork(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
-  const { redesignHomepage } = await import("./homepage-mutator");
-  const result = await redesignHomepage(prisma, { passId });
+  // Spec §20: homepage makeover is a real worker mission. Delegate
+  // to the HomepagePublishOrchestrator which inspects, mutates,
+  // verifies, and rolls back when needed.
+  const { runHomepagePublishOrchestrator } = await import("./homepage-publish-orchestrator");
+  const result = await runHomepagePublishOrchestrator(prisma, { passId });
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "HOMEPAGE",
-    severity: "INFO",
+    severity: result.kind === "rolled-back" ? "WARN" : "INFO",
     eventName: "homepage_dispatch",
-    message: `Homepage redesign run; draft=${result.draftId ?? "(none)"} status=${result.status}.`,
+    message: `Homepage orchestrator: ${result.kind} (composite=${result.inspection.composite.toFixed(2)}).`,
     safeMetadata: {
+      kind: result.kind,
       draftId: result.draftId,
-      status: result.status,
-      finalScore: result.finalScore,
+      composite: result.inspection.composite,
+      verificationPassed: result.verificationPassed,
     },
   });
   return {
     stage: "HOMEPAGE_WORK",
-    kind: result.draftId ? "advanced" : "idle",
-    summary: result.draftId
-      ? `Homepage draft ${result.draftId} (${result.status}).`
-      : "Homepage already healthy; no draft created.",
-    metadata: { draftId: result.draftId, status: result.status },
+    kind:
+      result.kind === "auto-published" || result.kind === "review-draft"
+        ? "advanced"
+        : result.kind === "rolled-back"
+          ? "rejected"
+          : "idle",
+    summary: result.reason,
+    metadata: {
+      kind: result.kind,
+      draftId: result.draftId,
+      composite: result.inspection.composite,
+    },
   };
 }
 

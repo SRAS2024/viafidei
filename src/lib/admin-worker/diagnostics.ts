@@ -619,8 +619,183 @@ async function ratingLastTaskTime(prisma: PrismaClient): Promise<HealthRating> {
   };
 }
 
+// ── Spec §18 subsystem ratings ─────────────────────────────────────
+
+async function ratingBrain(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const decision = await prisma.adminWorkerDecision
+    .findFirst({ where: { decisionType: "brain_pass" }, orderBy: { createdAt: "desc" } })
+    .catch(() => null);
+  if (!decision) {
+    return {
+      key: "admin_worker_brain",
+      label: "Brain (ranked-action engine)",
+      status: "fail",
+      score: 0,
+      lastCheckedAt: now,
+      dataSource: "AdminWorkerDecision.decisionType=brain_pass",
+      summary: "No brain decisions recorded yet.",
+      recommendedRepair: "Run a worker pass — the brain writes a decision on every cycle.",
+    };
+  }
+  const ageMs = now.getTime() - decision.createdAt.getTime();
+  const status: HealthStatus = ageMs < 10 * 60_000 ? "pass" : ageMs < 60 * 60_000 ? "warn" : "fail";
+  return {
+    key: "admin_worker_brain",
+    label: "Brain (ranked-action engine)",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerDecision.createdAt",
+    latestSuccess: decision.createdAt,
+    summary: `Last brain decision ${Math.round(ageMs / 60_000)}min ago: ${decision.chosenAction}.`,
+    recommendedRepair:
+      status === "pass" ? undefined : "Run a worker pass to refresh the brain decision.",
+  };
+}
+
+async function ratingMissionPlanner(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const pipelineStages = await prisma.adminWorkerPipelineStage.count().catch(() => 0);
+  const status: HealthStatus = pipelineStages > 0 ? "pass" : "warn";
+  return {
+    key: "admin_worker_mission_planner",
+    label: "Mission planner + pipeline tracking",
+    status,
+    score: status === "pass" ? 1 : 0.5,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerPipelineStage",
+    summary: `${pipelineStages} pipeline stage row(s) recorded.`,
+    recommendedRepair: status === "pass" ? undefined : "Run a content-goal pass.",
+  };
+}
+
+async function ratingFetcher(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const since = new Date(now.getTime() - 24 * 60 * 60_000);
+  const [recent, succeeded] = await Promise.all([
+    prisma.adminWorkerFetchResult.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.adminWorkerFetchResult
+      .count({ where: { createdAt: { gte: since }, succeeded: true } })
+      .catch(() => 0),
+  ]);
+  const rate = recent === 0 ? 0 : succeeded / recent;
+  const status: HealthStatus =
+    recent === 0 ? "warn" : rate >= 0.8 ? "pass" : rate >= 0.5 ? "warn" : "fail";
+  return {
+    key: "admin_worker_fetcher",
+    label: "Fetcher",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerFetchResult (last 24h)",
+    summary:
+      recent === 0
+        ? "No fetch attempts in last 24h."
+        : `${succeeded}/${recent} fetches succeeded (${Math.round(rate * 100)}%).`,
+    recommendedRepair:
+      status === "fail"
+        ? "Investigate fetch failures; check approved hosts and rate limits."
+        : status === "warn"
+          ? "Schedule a discovery pass to surface new candidates."
+          : undefined,
+  };
+}
+
+async function ratingVerifier(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const count = await prisma.adminWorkerCrossSourceVerification.count().catch(() => 0);
+  const status: HealthStatus = count > 0 ? "pass" : "warn";
+  return {
+    key: "admin_worker_verifier",
+    label: "Cross-source verifier",
+    status,
+    score: status === "pass" ? 1 : 0.5,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerCrossSourceVerification",
+    summary: `${count} verification row(s) recorded.`,
+    recommendedRepair:
+      status === "pass"
+        ? undefined
+        : "Run a CROSS_SOURCE_VERIFICATION pass to populate evidence rows.",
+  };
+}
+
+async function ratingRepairOrchestrator(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const [pending, abandoned] = await Promise.all([
+    prisma.adminWorkerRepairPlan
+      .count({ where: { status: { in: ["PENDING", "RUNNING"] } } })
+      .catch(() => 0),
+    prisma.adminWorkerRepairPlan.count({ where: { status: "ABANDONED" } }).catch(() => 0),
+  ]);
+  const status: HealthStatus = abandoned > 5 ? "fail" : pending > 10 ? "warn" : "pass";
+  return {
+    key: "admin_worker_repair_orchestrator",
+    label: "Repair orchestrator",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerRepairPlan",
+    summary: `${pending} pending plan(s), ${abandoned} abandoned.`,
+    recommendedRepair:
+      status === "fail"
+        ? "Investigate abandoned repair plans; raise maxAttempts or rework the failing path."
+        : status === "warn"
+          ? "Run a REPAIR pass to drain pending plans."
+          : undefined,
+  };
+}
+
+async function ratingGrowthOrchestrator(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const count = await prisma.adminWorkerGrowthSnapshot.count().catch(() => 0);
+  const status: HealthStatus = count > 0 ? "pass" : "warn";
+  return {
+    key: "admin_worker_growth_orchestrator",
+    label: "Growth orchestrator",
+    status,
+    score: status === "pass" ? 1 : 0.5,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerGrowthSnapshot",
+    summary: `${count} growth snapshot(s) recorded.`,
+    recommendedRepair:
+      status === "pass" ? undefined : "Run a REPORTING pass to populate growth snapshots.",
+  };
+}
+
+async function ratingSourceCoverage(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const [total, blocked] = await Promise.all([
+    prisma.adminWorkerSourceCoverage.count().catch(() => 0),
+    prisma.adminWorkerSourceCoverage.count({ where: { blockedByCoverage: true } }).catch(() => 0),
+  ]);
+  const status: HealthStatus =
+    total === 0 ? "warn" : blocked > total / 3 ? "fail" : blocked > 0 ? "warn" : "pass";
+  return {
+    key: "admin_worker_source_coverage",
+    label: "Source coverage (per content type)",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerSourceCoverage",
+    summary:
+      total === 0
+        ? "No source coverage scored yet."
+        : `${blocked}/${total} content type(s) blocked by source coverage.`,
+    recommendedRepair:
+      status === "fail"
+        ? "Add approved primary sources for blocked content types via the source registry."
+        : status === "warn"
+          ? "Schedule a REPORTING pass + review the coverage scorecard."
+          : undefined,
+  };
+}
+
 const RATINGS: ReadonlyArray<RatingFn> = [
   ratingOverall,
+  ratingBrain,
+  ratingMissionPlanner,
   ratingHeartbeat,
   ratingLegacyWorkerHeartbeat,
   ratingLastPassTime,
@@ -628,11 +803,14 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingQueue,
   ratingTaskPlanning,
   ratingSourceDiscovery,
+  ratingFetcher,
   ratingSourceReading,
   ratingSourceReputation,
+  ratingSourceCoverage,
   ratingClassification,
   ratingBuilding,
   ratingFormatting,
+  ratingVerifier,
   ratingCrossSource,
   ratingStrictQa,
   ratingPublishing,
@@ -649,6 +827,8 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingDatabaseHealth,
   ratingEnvironmentHealth,
   ratingContentGoals,
+  ratingGrowthOrchestrator,
+  ratingRepairOrchestrator,
   ratingPostPublish,
 ];
 

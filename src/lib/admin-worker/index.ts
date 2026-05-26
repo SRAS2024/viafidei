@@ -150,6 +150,20 @@ export {
 } from "./publish-orchestrator";
 
 export {
+  runHomepagePublishOrchestrator,
+  inspectHomepage,
+  type HomepageInspection,
+  type HomepageOrchestrationResult,
+} from "./homepage-publish-orchestrator";
+
+export {
+  pushReputation,
+  pushReputationBatch,
+  type ReputationHookInput,
+  type ReputationStage,
+} from "./source-reputation-hooks";
+
+export {
   isJunkUrl,
   discoverCandidate,
   nextCandidatesForFetch,
@@ -165,7 +179,16 @@ export {
   type FileHumanReviewInput,
 } from "./human-review";
 
-export { computeFinalScore, recordQualityScore, type QualityInputs } from "./quality";
+export {
+  computeFinalScore,
+  computeFinalScoreV2,
+  thresholdFor,
+  missingDimensions,
+  recordQualityScore,
+  QUALITY_THRESHOLDS,
+  type QualityInputs,
+  type QualityInputsV2,
+} from "./quality";
 
 export {
   aggregateResult,
