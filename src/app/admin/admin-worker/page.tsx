@@ -206,6 +206,9 @@ export default async function AdminWorkerPage() {
             <Link className="text-indigo-600 underline" href="/admin/admin-worker/logs">
               Admin Worker logs
             </Link>
+            <Link className="text-indigo-600 underline" href="/admin/admin-worker/pipeline">
+              Pipeline map
+            </Link>
             <Link className="text-indigo-600 underline" href="/admin/admin-worker/rules">
               Rule catalogue
             </Link>

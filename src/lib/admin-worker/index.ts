@@ -164,6 +164,13 @@ export {
 } from "./source-reputation-hooks";
 
 export {
+  buildContentPackage,
+  REQUIRED_FIELDS,
+  type ContentPackage,
+  type BuildPackageInput,
+} from "./content-builder";
+
+export {
   isJunkUrl,
   discoverCandidate,
   nextCandidatesForFetch,

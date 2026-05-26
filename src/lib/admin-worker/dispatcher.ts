@@ -272,6 +272,15 @@ async function runSourceFetchRead(
     data: { fetchAttempts: candidate.fetchAttempts + 1, lastFetchedAt: new Date() },
   });
 
+  // Feed source reputation (spec §16).
+  const { pushReputation } = await import("./source-reputation-hooks");
+  await pushReputation(prisma, {
+    sourceHost: candidate.sourceHost,
+    contentType: candidate.predictedContentType ?? undefined,
+    stage: "fetch",
+    ok: true,
+  }).catch(() => undefined);
+
   return {
     stage: "SOURCE_FETCH",
     kind: "advanced",
@@ -352,6 +361,17 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     sourceUrl: read.sourceUrl,
     sourceHost: read.sourceHost,
   });
+
+  // Feed source reputation — extraction success/failure (spec §16).
+  const { pushReputation } = await import("./source-reputation-hooks");
+  await pushReputation(prisma, {
+    sourceHost: read.sourceHost,
+    contentType: read.detectedContentType ?? undefined,
+    stage: "extraction",
+    ok: (read.confidenceScore ?? 0) >= 0.5,
+    usefulness: read.confidenceScore ?? 0,
+  }).catch(() => undefined);
+
   return {
     stage: "EXTRACTION",
     kind: "advanced",
@@ -607,6 +627,33 @@ async function runPostPublishVerify(
     relatedEntityId: target.id,
     safeMetadata: { result: verification.result },
   });
+
+  // Feed source reputation — post-publish success is the strongest
+  // signal (spec §16). We pull the source host from the most recent
+  // build job for this checklist item, best-effort.
+  const buildJob = await prisma.workerBuildJob
+    .findFirst({
+      where: { checklistItemId: target.id },
+      orderBy: { createdAt: "desc" },
+      select: { resultPayload: true },
+    })
+    .catch(() => null);
+  const sourceHost =
+    typeof buildJob?.resultPayload === "object" &&
+    buildJob?.resultPayload != null &&
+    "sourceHost" in (buildJob.resultPayload as Record<string, unknown>)
+      ? String((buildJob.resultPayload as Record<string, unknown>).sourceHost)
+      : "";
+  if (sourceHost) {
+    const { pushReputation } = await import("./source-reputation-hooks");
+    await pushReputation(prisma, {
+      sourceHost,
+      contentType: target.contentType,
+      stage: "post_publish",
+      ok: verification.result === "PASS",
+    }).catch(() => undefined);
+  }
+
   return {
     stage: "POST_PUBLISH_VERIFY",
     kind: verification.result === "PASS" ? "advanced" : "rejected",
