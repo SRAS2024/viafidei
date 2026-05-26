@@ -2014,3 +2014,41 @@ model AdminWorkerGrowthSnapshot {
   @@index([contentType, createdAt])
   @@index([status])
 }
+
+/// Durable extractor output (spec §9). The extraction stage materialises
+/// one of these from a successful source-read + classify pair so the
+/// checklist + citation + build + verify + publish stages have a
+/// stable artifact to act on. Replaces the previous "extraction was
+/// only logged, not stored" gap.
+model AdminWorkerPackageArtifact {
+  id                   String   @id @default(cuid())
+  sourceReadId         String?
+  candidateUrlId       String?
+  contentType          String
+  normalizedTitle      String
+  normalizedSlug       String
+  extractedFields      Json
+  fieldProvenance      Json?
+  missingFields        String[] @default([])
+  validationNeeds      String[] @default([])
+  formattingMetadata   Json?
+  confidenceScore      Float    @default(0)
+  packageChecksum      String
+  status               String   @default("EXTRACTED")
+  /// "EXTRACTED" → "CHECKLIST_READY" → "BUILD_READY" → "BUILT" →
+  ///   "VERIFIED" → "PUBLISHED" or "REJECTED" with reason on
+  ///   `rejectionReason`.
+  rejectionReason      String?
+  repairSuggestions    String[] @default([])
+  checklistItemId      String?
+  publishedContentId   String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([contentType, normalizedSlug, packageChecksum])
+  @@index([contentType, status])
+  @@index([candidateUrlId])
+  @@index([sourceReadId])
+  @@index([checklistItemId])
+  @@index([createdAt])
+}

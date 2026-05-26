@@ -157,6 +157,11 @@ export {
 } from "./homepage-publish-orchestrator";
 
 export {
+  runChecklistAndCitationOrchestrator,
+  type ChecklistCitationOutcome,
+} from "./checklist-citation-orchestrator";
+
+export {
   pushReputation,
   pushReputationBatch,
   type ReputationHookInput,

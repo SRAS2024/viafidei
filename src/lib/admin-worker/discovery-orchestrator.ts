@@ -210,6 +210,73 @@ export async function runDiscoveryOrchestrator(
     }
   }
 
+  // RSS discovery (spec §4) — probe /feed on each approved host.
+  // Hosts without a feed get a recorded skip reason.
+  if (!strategy || strategy.preferDiscoverers.includes("RSS")) {
+    try {
+      const { discoverFromFeed } = await import("./rss-discovery");
+      for (const host of rankedHosts.slice(0, 5)) {
+        const r = await discoverFromFeed(prisma, `https://${host.sourceHost}/feed`).catch(
+          () => null,
+        );
+        if (r?.fetched) surfaced += r.inserted;
+        else if (r?.reason) {
+          hostsSkipped.push({ host: host.sourceHost, reason: `rss: ${r.reason}` });
+        }
+      }
+    } catch (e) {
+      errors.push(`rss: ${(e as Error).message}`);
+    }
+  }
+
+  // Internal-link discovery (spec §4) — expand from already-known
+  // good URLs to find related content on the same host.
+  if (!strategy || strategy.preferDiscoverers.includes("INTERNAL_LINK")) {
+    try {
+      const { discoverFromInternalLinks } = await import("./internal-link-discovery");
+      const seeds = await prisma.adminWorkerSourceRead
+        .findMany({
+          where: { detectedContentType: { not: null } },
+          orderBy: { createdAt: "desc" },
+          take: 5,
+          select: { sourceUrl: true },
+        })
+        .catch(() => [] as Array<{ sourceUrl: string }>);
+      for (const seed of seeds) {
+        const r = await discoverFromInternalLinks(prisma, seed.sourceUrl).catch(() => null);
+        if (r?.fetched) surfaced += r.inserted;
+      }
+    } catch (e) {
+      errors.push(`internal_link: ${(e as Error).message}`);
+    }
+  }
+
+  // Approved-source search-page discovery (spec §4).
+  if (!strategy || strategy.preferDiscoverers.includes("SEARCH")) {
+    try {
+      const { discoverFromSearchPages } = await import("./search-page-discovery");
+      // Use the strategy's first hint as a search query when available.
+      const query = strategy?.hints[0] ?? contentType ?? "catholic";
+      const r = await discoverFromSearchPages(prisma, query);
+      surfaced += r.inserted;
+    } catch (e) {
+      errors.push(`search: ${(e as Error).message}`);
+    }
+  }
+
+  // Official API discovery (spec §4) — only fires when an adapter is
+  // registered. Adapter list is empty by default; this is a no-op
+  // safe stub.
+  if (!strategy || strategy.preferDiscoverers.includes("API")) {
+    try {
+      const { discoverFromApis } = await import("./source-apis");
+      const r = await discoverFromApis(prisma);
+      surfaced += r.inserted;
+    } catch (e) {
+      errors.push(`api: ${(e as Error).message}`);
+    }
+  }
+
   // Score every newly-discovered candidate so the fetcher can pick
   // the best ones first on the next pass.
   const rescored = await rescoreAllCandidates(prisma, { limit: 200 });
