@@ -314,6 +314,17 @@ async function runClassification(prisma: PrismaClient, passId: string): Promise<
     sourceHost: unclassified.sourceHost,
     safeMetadata: { classification: result.contentType, confidence: result.confidence },
   });
+
+  // Feed source reputation with the classification outcome (spec §16).
+  const { pushReputation } = await import("./source-reputation-hooks");
+  await pushReputation(prisma, {
+    sourceHost: unclassified.sourceHost,
+    contentType: result.contentType,
+    stage: "classification",
+    ok: result.contentType !== "WRONG" && result.contentType !== "UNUSABLE",
+    usefulness: result.confidence,
+  }).catch(() => undefined);
+
   return {
     stage: "CLASSIFICATION",
     kind: "advanced",
