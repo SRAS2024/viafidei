@@ -90,14 +90,42 @@ export async function collectDeveloperAuditData(
   };
 }
 
+/**
+ * Developer Audit table of contents (spec §19). The PDF generator
+ * uses this list both for the actual TOC and to enforce that every
+ * section is at least present in the audit (even if empty), so
+ * comparing two audits over time is straightforward.
+ */
 export const DEVELOPER_AUDIT_SECTIONS = [
+  "Table of Contents",
+  "Executive Summary",
   "Diagnostics Results",
+  "Admin Worker Brain Decisions",
+  "Mission Plans",
+  "Pipeline Stage History",
+  "Content Goal Progress",
+  "Discovery Logs",
+  "Fetch Logs",
+  "Source Read Logs",
+  "Classification Logs",
+  "Extraction Logs",
+  "Verification Logs",
+  "QA Logs",
+  "Publishing Logs",
+  "Post-Publish Verification Logs",
+  "Search and Sitemap Logs",
+  "Cache Logs",
+  "Repair Logs",
+  "Security Logs",
+  "Homepage Logs",
+  "Source Reputation Changes",
+  "Memory Changes",
+  "Current Blockers",
+  "Recommended Repairs",
   "Worker Logs",
   "System Logs",
-  "Security Logs",
   "Content Growth and Publishing",
   "Homepage Actions",
-  "Recommended Repairs",
 ] as const;
 
 export type DeveloperAuditSection = (typeof DEVELOPER_AUDIT_SECTIONS)[number];

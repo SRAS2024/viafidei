@@ -143,6 +143,13 @@ export { runRepairOrchestrator, type RepairOrchestratorOutcome } from "./repair-
 export { decayedConfidence, decayMemory, listMemoryAudit } from "./memory";
 
 export {
+  runPublishOrchestrator,
+  explainPublishStatus,
+  type PublishOrchestratorInput,
+  type OrchestratorResult,
+} from "./publish-orchestrator";
+
+export {
   isJunkUrl,
   discoverCandidate,
   nextCandidatesForFetch,
