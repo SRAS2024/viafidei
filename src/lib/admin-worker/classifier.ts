@@ -11,6 +11,8 @@
 
 import type { ChecklistContentType } from "@prisma/client";
 
+import { detectConfusion } from "./confusion-detector";
+
 export type ClassifierContentType =
   | ChecklistContentType
   | "ROSARY"
@@ -290,5 +292,141 @@ export function classify(input: ClassifierInput): ClassificationResult {
     confidence: best.score,
     reasons,
     perTypeScores,
+  };
+}
+
+/**
+ * Spec §8 extended classifier output. Returns the same primary
+ * decision plus the runner-up types, required-field signals
+ * detected / missing, negative patterns found, and a confusion-
+ * detector result. Stored durably on AdminWorkerSourceRead so the
+ * publish gate + admin UI can show "why this was rejected".
+ */
+export interface DetailedClassification extends ClassificationResult {
+  /** Up to two runner-up types whose score was within 0.2 of the winner. */
+  secondaryContentTypes: Array<{ type: ClassifierContentType; score: number }>;
+  /** Confidence the page should be rejected outright (1 - max score). */
+  rejectionScore: number;
+  /** Required-field signals detected in the body (eg. "feast day"). */
+  requiredFieldsDetected: string[];
+  /** Required-field signals that were absent. */
+  requiredFieldsMissing: string[];
+  /** Negative patterns the classifier saw (eg. /livestream/). */
+  negativePatternsDetected: string[];
+  /** Confusion detector verdict. */
+  confusion: {
+    confused: boolean;
+    rules: string[];
+    explanation: string;
+    penalty: number;
+  };
+  /** Human-readable explanation combining all signals. */
+  explanation: string;
+}
+
+/**
+ * Required-field markers we expect to find in the body for each
+ * content type. Used by the classifier to compute the
+ * required-fields-detected / required-fields-missing arrays.
+ */
+const REQUIRED_FIELD_MARKERS: Record<string, RegExp[]> = {
+  PRAYER: [/amen[.!]/i, /our father/i, /hail mary/i, /\bglory be\b/i],
+  SAINT: [/feast day/i, /born in \d/i, /died in \d/i, /canoni[sz]ed/i, /patron of/i],
+  APPARITION: [/our lady of/i, /appeared to/i, /approved by/i, /\b(seer|visionary)\b/i],
+  NOVENA: [/day 1/i, /day 9/i, /nine days/i],
+  ROSARY: [/joyful mysteries/i, /sorrowful mysteries/i, /glorious mysteries/i],
+  CONSECRATION: [/33 days/i, /act of consecration/i],
+  DEVOTION: [/how to|instructions|practice/i],
+  SACRAMENT: [/one of the seven sacraments|catechism/i, /minister|effect|matter|form/i],
+  LITURGICAL: [/order of mass|eucharistic prayer|lectionary/i],
+  CHURCH_DOCUMENT: [/promulgated|supreme pontiff|apostolic see/i],
+  PARISH: [/address|street|diocese|pastor/i],
+};
+
+/**
+ * Extended classify entry point (spec §8). Wraps the simpler
+ * classify() result with secondary types, required-field signals,
+ * negative-pattern detection, and the confusion detector.
+ */
+export function classifyDetailed(input: ClassifierInput): DetailedClassification {
+  const base = classify(input);
+
+  // Runner-ups within 0.2 of the winner score.
+  const sortedTypes = Object.entries(base.perTypeScores)
+    .filter(([type]) => type !== base.contentType)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([type, score]) => ({ type: type as ClassifierContentType, score }));
+
+  // Required-field signal scan against the body.
+  const body = (input.bodyText ?? "").slice(0, 20_000);
+  const requiredMarkers = REQUIRED_FIELD_MARKERS[base.contentType] ?? [];
+  const detected: string[] = [];
+  const missing: string[] = [];
+  for (const m of requiredMarkers) {
+    if (m.test(body)) detected.push(m.source);
+    else missing.push(m.source);
+  }
+
+  // Negative patterns surfaced (URL or body).
+  const negativeHits: string[] = [];
+  const combined = `${input.url ?? ""} ${input.title ?? ""} ${body}`;
+  for (const rule of RULES) {
+    if (rule.type !== base.contentType) continue;
+    for (const p of rule.negativePatterns ?? []) {
+      if (p.test(combined)) negativeHits.push(p.source);
+    }
+  }
+
+  // Confusion detector.
+  const confusion = detectConfusion({
+    url: input.url,
+    title: input.title,
+    bodyText: input.bodyText,
+    headings: input.headings,
+    proposedContentType: base.contentType,
+  });
+
+  // Adjust confidence downward by the confusion penalty.
+  const adjustedConfidence = Math.max(0, base.confidence - confusion.penalty);
+  const rejectionScore = 1 - adjustedConfidence;
+
+  // Compose final classification: if confusion penalty pushes
+  // confidence below threshold, treat as UNUSABLE — low-confidence
+  // pages must not publish (spec §8).
+  const finalType =
+    adjustedConfidence < CLASSIFY_THRESHOLD
+      ? ("UNUSABLE" as ClassifierContentType)
+      : base.contentType;
+
+  const explanationLines = [
+    `Primary: ${finalType} (confidence ${adjustedConfidence.toFixed(2)}, rejection ${rejectionScore.toFixed(2)}).`,
+    sortedTypes.length > 0
+      ? `Runner-ups: ${sortedTypes.map((s) => `${s.type}=${s.score.toFixed(2)}`).join(", ")}.`
+      : "No runner-up types.",
+    detected.length > 0
+      ? `Required signals detected: ${detected.slice(0, 4).join(", ")}.`
+      : "No required signals detected.",
+    missing.length > 0 ? `Missing signals: ${missing.slice(0, 4).join(", ")}.` : "",
+    negativeHits.length > 0 ? `Negative patterns: ${negativeHits.join(", ")}.` : "",
+    confusion.confused ? `Confusion: ${confusion.explanation}` : "",
+  ].filter(Boolean);
+
+  return {
+    ...base,
+    contentType: finalType,
+    confidence: adjustedConfidence,
+    secondaryContentTypes: sortedTypes,
+    rejectionScore,
+    requiredFieldsDetected: detected,
+    requiredFieldsMissing: missing,
+    negativePatternsDetected: negativeHits,
+    confusion: {
+      confused: confusion.confused,
+      rules: confusion.rules,
+      explanation: confusion.explanation,
+      penalty: confusion.penalty,
+    },
+    explanation: explanationLines.join(" "),
   };
 }

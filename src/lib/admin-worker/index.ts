@@ -118,6 +118,26 @@ export {
   type VerifierPersistInput,
 } from "./verifier";
 
+export { adminWorkerFetch, type FetchedPage, type FetcherInput } from "./fetcher";
+
+export {
+  parseStructuredBlocks,
+  persistStructuredBlocks,
+  REJECTION_PATTERN_NAMES,
+  type SourceBlockType,
+  type StructuredBlock,
+  type StructuredReadOutput,
+} from "./structured-source-reader";
+
+export {
+  detectConfusion,
+  CONFUSION_RULE_NAMES,
+  type ConfusionInput,
+  type ConfusionResult,
+} from "./confusion-detector";
+
+export { classifyDetailed, type DetailedClassification } from "./classifier";
+
 export {
   isJunkUrl,
   discoverCandidate,
