@@ -86,6 +86,39 @@ export { runAdminWorkerLoop, runOnePass, type LoopOptions, type LoopResult } fro
 export { executeMissionStage, type DispatchInput, type DispatchOutcome } from "./dispatcher";
 
 export {
+  runDiscoveryOrchestrator,
+  discoveryCadenceMinutes,
+  CONTENT_TYPE_STRATEGIES,
+  type ContentTypeStrategy,
+  type DiscoveryOrchestrationOutcome,
+} from "./discovery-orchestrator";
+
+export {
+  scoreCandidate,
+  scoreAndPersist,
+  rescoreAllCandidates,
+  adjustAfterOutcome,
+  type CandidateScore,
+} from "./candidate-scorer";
+
+export {
+  runGrowthOrchestrator,
+  type GrowthAssessment,
+  type GrowthOrchestrationOutcome,
+  type GrowthStatus,
+} from "./growth-orchestrator";
+
+export { runSourceCoverage, listCoverageBlocked, type CoverageRow } from "./source-coverage";
+
+export {
+  runVerifier,
+  listVerificationsFor,
+  SENSITIVE_FIELDS,
+  type VerifierOutcome,
+  type VerifierPersistInput,
+} from "./verifier";
+
+export {
   isJunkUrl,
   discoverCandidate,
   nextCandidatesForFetch,
@@ -328,7 +361,11 @@ export {
   recordStage,
   completeStage,
   pipelineSnapshot,
+  pipelineMapFor,
+  latestStageFor,
+  resumeOrAdvance,
   type RecordStageInput,
+  type ResumeDecision,
 } from "./pipeline-stages";
 
 export {

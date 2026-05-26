@@ -1494,25 +1494,42 @@ model AdminWorkerDecision {
 /// Candidate URLs the web navigator has discovered (sitemap / RSS /
 /// internal link / configured list). The classifier prioritises them
 /// and the planner consumes the highest-confidence rows first.
+///
+/// The expanded scoring columns (contentTypeLikelihood, junkRisk,
+/// duplicateRisk, sourceAuthority, fetchPriority, packageCompleteness,
+/// validationValue) are written by the CandidateUrlScorer and updated
+/// after fetch / classification / extraction / QA / publishing so the
+/// fetcher always reaches for the best safe candidate first (spec §5).
 model CandidateSourceUrl {
-  id                   String                         @id @default(cuid())
-  discoveredUrl        String                         @unique
-  sourceHost           String
-  sourceId             String?
-  discoveryMethod      CandidateSourceDiscoveryMethod @default(INTERNAL_LINK)
-  predictedContentType String?
-  predictedUsefulness  Float                          @default(0)
-  status               CandidateSourceUrlStatus       @default(DISCOVERED)
-  fetchAttempts        Int                            @default(0)
-  lastFetchedAt        DateTime?
-  rejectionReason      String?
-  createdAt            DateTime                       @default(now())
-  updatedAt            DateTime                       @updatedAt
+  id                      String                         @id @default(cuid())
+  discoveredUrl           String                         @unique
+  sourceHost              String
+  sourceId                String?
+  discoveryMethod         CandidateSourceDiscoveryMethod @default(INTERNAL_LINK)
+  predictedContentType    String?
+  predictedUsefulness     Float                          @default(0)
+  status                  CandidateSourceUrlStatus       @default(DISCOVERED)
+  fetchAttempts           Int                            @default(0)
+  lastFetchedAt           DateTime?
+  rejectionReason         String?
+  rejectionPattern        String?
+  contentTypeLikelihood   Float                          @default(0)
+  junkRisk                Float                          @default(0)
+  duplicateRisk           Float                          @default(0)
+  sourceAuthorityScore    Float                          @default(0)
+  fetchPriority           Float                          @default(0)
+  expectedPackageCompleteness Float                      @default(0)
+  expectedValidationValue Float                          @default(0)
+  scoreUpdatedAt          DateTime?
+  createdAt               DateTime                       @default(now())
+  updatedAt               DateTime                       @updatedAt
 
   @@index([status])
   @@index([sourceHost])
   @@index([predictedContentType])
   @@index([predictedUsefulness])
+  @@index([fetchPriority])
+  @@index([status, fetchPriority])
 }
 
 /// Per-content-type goal. The planner compares each goal's current
@@ -1797,26 +1814,45 @@ model AdminWorkerSourceRead {
 /// One row per item moving through the content chain. The brain
 /// consults this table to see where each item is stuck and what the
 /// next stage should be.
+///
+/// The pipelineKey is a stable identifier across stages so we can
+/// follow one item through the whole chain (Discovery → Cache) and
+/// resume incomplete work on the next pass. Input/output checksums
+/// gate duplicate work: if the input hasn't changed since the last
+/// successful stage, the brain skips the stage instead of redoing
+/// it (spec §3).
 model AdminWorkerPipelineStage {
-  id                    String                          @id @default(cuid())
-  stageName             AdminWorkerPipelineStageName
-  status                AdminWorkerPipelineStageStatus  @default(PENDING)
-  contentType           String?
-  inputId               String?
-  outputId              String?
-  startedAt             DateTime?
-  completedAt           DateTime?
-  failureReason         String?
-  repairRecommendation  String?
-  confidenceScore       Float                           @default(0)
-  metadata              Json?
-  createdAt             DateTime                        @default(now())
-  updatedAt             DateTime                        @updatedAt
+  id                   String                         @id @default(cuid())
+  pipelineKey          String?
+  stageName            AdminWorkerPipelineStageName
+  status               AdminWorkerPipelineStageStatus @default(PENDING)
+  contentType          String?
+  candidateUrlId       String?
+  sourceReadId         String?
+  packageId            String?
+  publishedContentId   String?
+  inputId              String?
+  outputId             String?
+  inputChecksum        String?
+  outputChecksum       String?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  failureReason        String?
+  repairRecommendation String?
+  confidenceScore      Float                          @default(0)
+  qualityScore         Float                          @default(0)
+  metadata             Json?
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
 
   @@index([stageName, status])
   @@index([contentType])
   @@index([status])
   @@index([createdAt])
+  @@index([pipelineKey])
+  @@index([candidateUrlId])
+  @@index([sourceReadId])
+  @@index([publishedContentId])
 }
 
 /// Durable repair plans the worker executes and retries with
@@ -1923,4 +1959,58 @@ model AdminWorkerCrossSourceVerification {
   @@index([validationSourceHost])
   @@index([matchResult])
   @@index([createdAt])
+}
+
+/// Per-content-type source coverage scorecard (spec §23). Captures
+/// whether each content type has enough primary / validation /
+/// enrichment sources to be unblocked, plus rolling recent-success
+/// signals. The brain blocks growth attempts when coverage is too
+/// low (the answer to "lowering quality won't fix this — bring more
+/// sources").
+model AdminWorkerSourceCoverage {
+  id                      String   @id @default(cuid())
+  contentType             String   @unique
+  primarySources          Int      @default(0)
+  validationSources       Int      @default(0)
+  enrichmentSources       Int      @default(0)
+  recentCandidates7d      Int      @default(0)
+  recentValidPackages7d   Int      @default(0)
+  recentPublishes7d       Int      @default(0)
+  coverageScore           Float    @default(0)
+  blockedByCoverage       Boolean  @default(false)
+  blockReason             String?
+  recommendation          String?
+  updatedAt               DateTime @updatedAt
+  createdAt               DateTime @default(now())
+
+  @@index([contentType])
+  @@index([blockedByCoverage])
+}
+
+/// Rolling growth snapshot per content type (spec §22). The Growth
+/// Orchestrator writes one of these on every pass so the admin UI
+/// can show "what the worker learned recently" without recomputing,
+/// and the brain can fire on "no growth in 24h" / "no growth in 7d"
+/// without scanning publishedContent.
+model AdminWorkerGrowthSnapshot {
+  id                  String   @id @default(cuid())
+  contentType         String
+  publishedCount      Int      @default(0)
+  validCount          Int      @default(0)
+  minimumTarget       Int      @default(0)
+  desiredTarget       Int      @default(0)
+  gap                 Int      @default(0)
+  growth24h           Int      @default(0)
+  growth7d            Int      @default(0)
+  growth30d           Int      @default(0)
+  hoursSinceLastGrowth Int?
+  qaPassRate30d       Float    @default(0)
+  publishRate30d      Float    @default(0)
+  pipelineHealth      Float    @default(0)
+  status              String
+  recommendation      String?
+  createdAt           DateTime @default(now())
+
+  @@index([contentType, createdAt])
+  @@index([status])
 }

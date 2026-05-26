@@ -84,6 +84,43 @@ vi.mock("@/lib/admin-worker/classifier", () => ({
   })),
 }));
 
+vi.mock("@/lib/admin-worker/discovery-orchestrator", () => ({
+  runDiscoveryOrchestrator: vi.fn(async () => ({
+    surfaced: 4,
+    rejected: 1,
+    hostsSkipped: [{ host: "stale.example", reason: "fetch rate too low" }],
+    strategies: ["test"],
+    errors: [],
+  })),
+  CONTENT_TYPE_STRATEGIES: {},
+  discoveryCadenceMinutes: vi.fn(() => 60),
+}));
+
+vi.mock("@/lib/admin-worker/candidate-scorer", () => ({
+  rescoreAllCandidates: vi.fn(async () => ({
+    scored: 6,
+    prioritized: 4,
+    rejected: 1,
+  })),
+  scoreCandidate: vi.fn(),
+  scoreAndPersist: vi.fn(async () => ({})),
+  adjustAfterOutcome: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/admin-worker/growth-orchestrator", () => ({
+  runGrowthOrchestrator: vi.fn(async () => ({
+    assessments: [{ contentType: "PRAYER", status: "SLOW_24H", gap: 5 }],
+    repairPlansFiled: 0,
+    movedToMaintenance: 0,
+  })),
+}));
+
+vi.mock("@/lib/admin-worker/source-coverage", () => ({
+  runSourceCoverage: vi.fn(async () => [
+    { contentType: "PRAYER", blockedByCoverage: false, coverageScore: 0.85 },
+  ]),
+}));
+
 import { executeMissionStage } from "@/lib/admin-worker/dispatcher";
 import type { BrainAction, BrainDecision } from "@/lib/admin-worker/brain";
 
@@ -187,8 +224,10 @@ function makeDecision(stage: BrainAction["missionStage"]): BrainDecision {
 }
 
 describe("executeMissionStage — concrete stage handlers (spec §2)", () => {
-  it("DISCOVERY runs the sitemap, configured-URL, and directory discoverers", async () => {
+  it("DISCOVERY delegates to the DiscoveryOrchestrator (spec §4)", async () => {
     const prisma = makePrismaForDispatch();
+    const { runDiscoveryOrchestrator } = await import("@/lib/admin-worker/discovery-orchestrator");
+    vi.mocked(runDiscoveryOrchestrator).mockClear();
     const out = await executeMissionStage({
       prisma,
       workerId: "w1",
@@ -197,12 +236,14 @@ describe("executeMissionStage — concrete stage handlers (spec §2)", () => {
     });
     expect(out.stage).toBe("DISCOVERY");
     expect(out.kind).toBe("advanced");
-    // sitemap inserted 3, configured 1, directory 1 → 5 total
-    expect(out.metadata).toMatchObject({ surfaced: 5 });
+    expect(vi.mocked(runDiscoveryOrchestrator)).toHaveBeenCalledTimes(1);
+    expect(out.metadata).toMatchObject({ surfaced: 4 });
   });
 
-  it("CANDIDATE_PRIORITIZATION promotes DISCOVERED candidates to PRIORITIZED", async () => {
+  it("CANDIDATE_PRIORITIZATION rescoring uses CandidateUrlScorer (spec §5)", async () => {
     const prisma = makePrismaForDispatch();
+    const { rescoreAllCandidates } = await import("@/lib/admin-worker/candidate-scorer");
+    vi.mocked(rescoreAllCandidates).mockClear();
     const out = await executeMissionStage({
       prisma,
       workerId: "w1",
@@ -211,7 +252,8 @@ describe("executeMissionStage — concrete stage handlers (spec §2)", () => {
     });
     expect(out.stage).toBe("CANDIDATE_PRIORITIZATION");
     expect(out.kind).toBe("advanced");
-    expect(out.metadata).toMatchObject({ promoted: 5 });
+    expect(vi.mocked(rescoreAllCandidates)).toHaveBeenCalledTimes(1);
+    expect(out.summary).toContain("Scored");
   });
 
   it("SOURCE_FETCH leases the highest-priority candidate", async () => {

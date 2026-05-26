@@ -40,6 +40,11 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     securityActionCount,
     homepageScoreCount,
     recentDeveloperReport,
+    growthSnapshotCount,
+    coverageCount,
+    coverageBlockedCount,
+    crossSourceVerificationCount,
+    pipelineStageCount,
   ] = await Promise.all([
     prisma.adminWorkerState.findUnique({ where: { id: "singleton" } }).catch(() => null),
     prisma.contentGoal.count(),
@@ -55,6 +60,11 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
       where: { status: "GENERATED" },
       orderBy: { generatedAt: "desc" },
     }),
+    prisma.adminWorkerGrowthSnapshot.count().catch(() => 0),
+    prisma.adminWorkerSourceCoverage.count().catch(() => 0),
+    prisma.adminWorkerSourceCoverage.count({ where: { blockedByCoverage: true } }).catch(() => 0),
+    prisma.adminWorkerCrossSourceVerification.count().catch(() => 0),
+    prisma.adminWorkerPipelineStage.count().catch(() => 0),
   ]);
 
   const checks: ReadinessCheck[] = [];
@@ -169,6 +179,44 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
       : "No Developer Audit recorded yet.",
     repair:
       "POST /api/admin/developer-audit with a period (LAST_24_HOURS / LAST_7_DAYS / LAST_30_DAYS).",
+  });
+
+  // ── New subsystem ratings (spec §18) ──────────────────────────────
+
+  checks.push({
+    key: "pipeline_stages",
+    label: "Pipeline stage tracking",
+    status: pipelineStageCount > 0 ? "pass" : "fail",
+    detail: `${pipelineStageCount} AdminWorkerPipelineStage row(s).`,
+    repair:
+      "Run a dispatcher pass — every stage now records a pipeline row with input/output checksums.",
+  });
+
+  checks.push({
+    key: "growth_orchestrator",
+    label: "Growth orchestrator active",
+    status: growthSnapshotCount > 0 ? "pass" : "fail",
+    detail: `${growthSnapshotCount} AdminWorkerGrowthSnapshot row(s).`,
+    repair: "Run a REPORTING pass; the dispatcher invokes the GrowthOrchestrator each pass.",
+  });
+
+  checks.push({
+    key: "source_coverage",
+    label: "Source coverage scored",
+    status: coverageCount > 0 ? "pass" : "fail",
+    detail:
+      coverageCount > 0
+        ? `${coverageCount} content type(s) scored; ${coverageBlockedCount} blocked by coverage.`
+        : "No source coverage scorecards yet.",
+    repair: "Run a REPORTING pass to populate source coverage rows.",
+  });
+
+  checks.push({
+    key: "cross_source_verifier",
+    label: "Cross-source verifier wired",
+    status: crossSourceVerificationCount > 0 ? "pass" : "fail",
+    detail: `${crossSourceVerificationCount} AdminWorkerCrossSourceVerification row(s).`,
+    repair: "Run a CROSS_SOURCE_VERIFICATION pass — verifier persists per-field evidence.",
   });
 
   const passing = checks.filter((c) => c.status === "pass").length;

@@ -50,6 +50,10 @@ export default async function AdminWorkerPage() {
     readiness,
     recentBrainDecision,
     mission,
+    growthSnapshots,
+    coverageRows,
+    pipelineCounts,
+    rejectedCandidates,
   ] = await Promise.all([
     getAdminWorkerState(prisma),
     runAdminWorkerDiagnostics(prisma),
@@ -65,6 +69,39 @@ export default async function AdminWorkerPage() {
       orderBy: { createdAt: "desc" },
     }),
     planMission(prisma).catch(() => null),
+    // spec §22: latest growth snapshot per content type
+    prisma.adminWorkerGrowthSnapshot
+      .findMany({
+        distinct: ["contentType"],
+        orderBy: { createdAt: "desc" },
+        take: 15,
+      })
+      .catch(() => []),
+    // spec §23: source coverage scorecard
+    prisma.adminWorkerSourceCoverage
+      .findMany({ orderBy: [{ blockedByCoverage: "desc" }, { coverageScore: "asc" }] })
+      .catch(() => []),
+    // spec §3: pipeline-stage snapshot for the diagnostics card
+    import("@/lib/admin-worker/pipeline-stages").then(({ pipelineSnapshot }) =>
+      pipelineSnapshot(prisma).catch(() => []),
+    ),
+    // spec §5: rejected candidates surfacing the rejection pattern
+    prisma.candidateSourceUrl
+      .findMany({
+        where: { status: "REJECTED" },
+        orderBy: { updatedAt: "desc" },
+        take: 15,
+        select: {
+          id: true,
+          discoveredUrl: true,
+          sourceHost: true,
+          rejectionReason: true,
+          rejectionPattern: true,
+          junkRisk: true,
+          duplicateRisk: true,
+        },
+      })
+      .catch(() => []),
   ]);
 
   const summary = summarizeRatings(ratings);
@@ -358,6 +395,176 @@ export default async function AdminWorkerPage() {
             <p className="mt-2 text-sm text-ink-soft">
               Mission planner unavailable. Run a worker pass to populate.
             </p>
+          )}
+        </article>
+
+        {/* Why no content growth (spec §22 + §18). One panel per
+            content type, showing the GrowthOrchestrator's
+            classification and recommendation. */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Why no content growth?</h2>
+          {growthSnapshots.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No growth snapshots yet. The orchestrator writes one on each REPORTING pass.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Content type</th>
+                  <th>Status</th>
+                  <th className="text-right">Gap</th>
+                  <th className="text-right">24h</th>
+                  <th className="text-right">7d</th>
+                  <th className="text-right">Last growth</th>
+                  <th>Recommendation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {growthSnapshots.map((g) => (
+                  <tr
+                    key={g.id}
+                    className={`border-t ${
+                      g.status === "STUCK_7D" || g.status === "REJECT_HEAVY"
+                        ? "bg-rose-50"
+                        : g.status === "SLOW_24H" || g.status === "PARTIAL_HEAVY"
+                          ? "bg-amber-50"
+                          : g.status === "AT_GOAL"
+                            ? "bg-emerald-50"
+                            : ""
+                    }`}
+                  >
+                    <td className="py-1 font-mono">{g.contentType}</td>
+                    <td className="py-1 font-mono">{g.status}</td>
+                    <td className="py-1 text-right font-mono">{g.gap}</td>
+                    <td className="py-1 text-right font-mono">{g.growth24h}</td>
+                    <td className="py-1 text-right font-mono">{g.growth7d}</td>
+                    <td className="py-1 text-right font-mono">
+                      {g.hoursSinceLastGrowth == null ? "—" : `${g.hoursSinceLastGrowth}h`}
+                    </td>
+                    <td className="py-1 font-serif">{g.recommendation ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Source coverage scorecard (spec §23). */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Source coverage</h2>
+          {coverageRows.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No source coverage scored yet. Runs on every REPORTING pass.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Content type</th>
+                  <th className="text-right">Primary</th>
+                  <th className="text-right">Valid.</th>
+                  <th className="text-right">Enrich.</th>
+                  <th className="text-right">Cand. 7d</th>
+                  <th className="text-right">Builds 7d</th>
+                  <th className="text-right">Publ. 7d</th>
+                  <th className="text-right">Score</th>
+                  <th>Block?</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coverageRows.map((r) => (
+                  <tr key={r.id} className={`border-t ${r.blockedByCoverage ? "bg-rose-50" : ""}`}>
+                    <td className="py-1 font-mono">{r.contentType}</td>
+                    <td className="py-1 text-right font-mono">{r.primarySources}</td>
+                    <td className="py-1 text-right font-mono">{r.validationSources}</td>
+                    <td className="py-1 text-right font-mono">{r.enrichmentSources}</td>
+                    <td className="py-1 text-right font-mono">{r.recentCandidates7d}</td>
+                    <td className="py-1 text-right font-mono">{r.recentValidPackages7d}</td>
+                    <td className="py-1 text-right font-mono">{r.recentPublishes7d}</td>
+                    <td className="py-1 text-right font-mono">{r.coverageScore.toFixed(2)}</td>
+                    <td className="py-1 font-serif">
+                      {r.blockedByCoverage ? (r.blockReason ?? "blocked") : "ok"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Pipeline snapshot (spec §3). Per-stage counts so the operator
+            can see exactly where the chain is bottlenecked. */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Pipeline (Discovery → Cache)</h2>
+          <table className="mt-2 w-full text-xs">
+            <thead>
+              <tr className="text-left uppercase text-ink-soft">
+                <th>Stage</th>
+                <th className="text-right">Pending</th>
+                <th className="text-right">Running</th>
+                <th className="text-right">Succeeded</th>
+                <th className="text-right">Failed</th>
+                <th className="text-right">Blocked</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pipelineCounts.map((s) => (
+                <tr
+                  key={s.stage}
+                  className={`border-t ${
+                    s.failed > 0 || s.blocked > 0
+                      ? "bg-rose-50"
+                      : s.pending > 0
+                        ? "bg-amber-50"
+                        : ""
+                  }`}
+                >
+                  <td className="py-1 font-mono">{s.stage}</td>
+                  <td className="py-1 text-right font-mono">{s.pending}</td>
+                  <td className="py-1 text-right font-mono">{s.running}</td>
+                  <td className="py-1 text-right font-mono">{s.succeeded}</td>
+                  <td className="py-1 text-right font-mono">{s.failed}</td>
+                  <td className="py-1 text-right font-mono">{s.blocked}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </article>
+
+        {/* Rejected candidates (spec §5). Surfaces the exact junk
+            pattern that triggered each rejection. */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Rejected candidates (last 15)</h2>
+          {rejectedCandidates.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No rejected candidates. The candidate scorer flips junk-heavy URLs to REJECTED.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Host</th>
+                  <th>URL</th>
+                  <th className="text-right">Junk</th>
+                  <th className="text-right">Dup</th>
+                  <th>Pattern</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rejectedCandidates.map((r) => (
+                  <tr key={r.id} className="border-t">
+                    <td className="py-1 font-mono">{r.sourceHost}</td>
+                    <td className="py-1 font-mono break-all">{r.discoveredUrl.slice(0, 60)}</td>
+                    <td className="py-1 text-right font-mono">{r.junkRisk.toFixed(2)}</td>
+                    <td className="py-1 text-right font-mono">{r.duplicateRisk.toFixed(2)}</td>
+                    <td className="py-1 font-mono text-[10px]">{r.rejectionPattern ?? "—"}</td>
+                    <td className="py-1 font-serif">{r.rejectionReason ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </article>
 

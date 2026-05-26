@@ -178,46 +178,24 @@ async function runDiscovery(
   passId: string,
   decision: BrainDecision,
 ): Promise<DispatchOutcome> {
-  const { discoverFromAllAuthorities } = await import("./sitemap-discovery");
-  const { discoverFromConfiguredUrls } = await import("./configured-urls");
-  const { discoverFromDirectories } = await import("./directory-discovery");
-  let surfaced = 0;
-  const errors: string[] = [];
-
-  const sitemapResults = await discoverFromAllAuthorities(prisma).catch((e) => {
-    errors.push(`sitemap: ${(e as Error).message}`);
-    return null;
-  });
-  if (sitemapResults) {
-    for (const r of sitemapResults) surfaced += r.inserted;
-  }
-
-  const configResult = await discoverFromConfiguredUrls(prisma).catch((e) => {
-    errors.push(`configured: ${(e as Error).message}`);
-    return null;
-  });
-  if (configResult) surfaced += configResult.inserted;
-
-  const dirResult = await discoverFromDirectories(prisma).catch((e) => {
-    errors.push(`directory: ${(e as Error).message}`);
-    return null;
-  });
-  if (dirResult) surfaced += dirResult.inserted;
-
-  await writeAdminWorkerLog(prisma, {
+  // Delegate to the DiscoveryOrchestrator (spec §4) which knows
+  // content-type-specific strategies, source ranking, skip rules,
+  // and the candidate scorer wiring.
+  const { runDiscoveryOrchestrator } = await import("./discovery-orchestrator");
+  const outcome = await runDiscoveryOrchestrator(prisma, {
     passId,
-    category: "SOURCE_DISCOVERY",
-    severity: surfaced > 0 ? "INFO" : "WARN",
-    eventName: "discovery_pass",
-    message: `Discovery surfaced ${surfaced} candidate URL(s) for ${decision.contentType ?? "any type"}.`,
-    contentType: decision.contentType ?? undefined,
-    safeMetadata: { surfaced, errors },
+    contentType: decision.contentType,
   });
   return {
     stage: "DISCOVERY",
-    kind: surfaced > 0 ? "advanced" : "idle",
-    summary: `Discovery surfaced ${surfaced} candidate(s).`,
-    metadata: { surfaced, errors },
+    kind: outcome.surfaced > 0 ? "advanced" : "idle",
+    summary: `Discovery orchestrator: surfaced ${outcome.surfaced}, rejected ${outcome.rejected}, ${outcome.hostsSkipped.length} host(s) skipped.`,
+    metadata: {
+      surfaced: outcome.surfaced,
+      rejected: outcome.rejected,
+      hostsSkipped: outcome.hostsSkipped.length,
+      errors: outcome.errors,
+    },
   };
 }
 
@@ -225,27 +203,25 @@ async function runCandidatePrioritization(
   prisma: PrismaClient,
   passId: string,
 ): Promise<DispatchOutcome> {
-  // Promote DISCOVERED candidates to PRIORITIZED with a score the
-  // fetcher can sort on. Today we use the existing predictedUsefulness
-  // value (mostly 0.5) — future work will plug the CandidateUrlScorer
-  // (spec §5) into this slot.
-  const promoted = await prisma.candidateSourceUrl.updateMany({
-    where: { status: "DISCOVERED" },
-    data: { status: "PRIORITIZED" },
-  });
+  // Score every DISCOVERED or PRIORITIZED candidate so the fetcher
+  // can sort by fetchPriority. The scorer also flips junk-heavy
+  // candidates to REJECTED (visible in the rejected-candidate
+  // dashboard) — spec §5.
+  const { rescoreAllCandidates } = await import("./candidate-scorer");
+  const result = await rescoreAllCandidates(prisma, { limit: 200 });
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "SOURCE_DISCOVERY",
     severity: "INFO",
     eventName: "candidates_prioritized",
-    message: `Promoted ${promoted.count} candidate URL(s) to PRIORITIZED.`,
-    safeMetadata: { promoted: promoted.count },
+    message: `Candidate scorer: ${result.scored} scored, ${result.prioritized} prioritized, ${result.rejected} rejected.`,
+    safeMetadata: result,
   });
   return {
     stage: "CANDIDATE_PRIORITIZATION",
-    kind: promoted.count > 0 ? "advanced" : "idle",
-    summary: `Promoted ${promoted.count} candidates.`,
-    metadata: { promoted: promoted.count },
+    kind: result.scored > 0 ? "advanced" : "idle",
+    summary: `Scored ${result.scored} candidates (${result.prioritized} prioritized, ${result.rejected} rejected).`,
+    metadata: result,
   };
 }
 
@@ -254,9 +230,11 @@ async function runSourceFetchRead(
   passId: string,
   decision: BrainDecision,
 ): Promise<DispatchOutcome> {
+  // Order by the candidate scorer's fetchPriority — the best safe
+  // candidate first (spec §5).
   const candidate = await prisma.candidateSourceUrl.findFirst({
     where: { status: { in: ["DISCOVERED", "PRIORITIZED"] } },
-    orderBy: [{ predictedUsefulness: "desc" }, { createdAt: "asc" }],
+    orderBy: [{ fetchPriority: "desc" }, { predictedUsefulness: "desc" }, { createdAt: "asc" }],
   });
   if (!candidate) {
     await writeAdminWorkerLog(prisma, {
@@ -443,22 +421,85 @@ async function runCrossSourceVerification(
   prisma: PrismaClient,
   passId: string,
 ): Promise<DispatchOutcome> {
+  // Pick the most recent published content row that has not had
+  // verification evidence stored yet. The verifier persists per-field
+  // evidence to AdminWorkerCrossSourceVerification so the publish
+  // gate + admin UI can show the audit trail (spec §11).
   const pending = await prisma.checklistQAReport
     .count({ where: { needsHumanReview: true, reviewedAt: null } })
     .catch(() => 0);
+
+  // Best-effort: pick the most recent published content we haven't
+  // already verified, and run the durable verifier on its payload.
+  const candidate = await prisma.publishedContent
+    .findFirst({
+      where: { isPublished: true },
+      orderBy: { publishedAt: "desc" },
+      select: { id: true, contentType: true, title: true, slug: true, payload: true },
+    })
+    .catch(() => null);
+
+  let verifiedFieldCount = 0;
+  let blockingFields: string[] = [];
+  if (candidate) {
+    const already = await prisma.adminWorkerCrossSourceVerification
+      .findFirst({
+        where: { contentType: candidate.contentType, contentId: candidate.id },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      })
+      .catch(() => null);
+
+    if (!already) {
+      const { runVerifier } = await import("./verifier");
+      const fields =
+        typeof candidate.payload === "object" && candidate.payload != null
+          ? (candidate.payload as Record<string, unknown>)
+          : {};
+      const result = await runVerifier(prisma, {
+        contentType: candidate.contentType,
+        contentId: candidate.id,
+        fields,
+        // With no live validation source connection in the dispatcher,
+        // we record a single "self" row — the verifier surfaces
+        // MISSING_EVIDENCE for the admin UI to act on.
+        validationSources: [],
+      }).catch(() => null);
+      verifiedFieldCount = result?.verificationRowIds.length ?? 0;
+      blockingFields = result?.blockingSensitiveFields ?? [];
+    }
+  }
+
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "VALIDATION",
-    severity: "INFO",
+    severity: blockingFields.length > 0 ? "WARN" : "INFO",
     eventName: "cross_source_pass",
-    message: `Cross-source verification pass: ${pending} pending QA review(s).`,
-    safeMetadata: { pendingReviews: pending },
+    message: `Cross-source verification pass: ${pending} pending QA review(s); ${verifiedFieldCount} field(s) recorded${
+      blockingFields.length > 0 ? `; blocked on ${blockingFields.join(", ")}` : ""
+    }.`,
+    safeMetadata: {
+      pendingReviews: pending,
+      verifiedFieldCount,
+      blockingFields,
+      contentId: candidate?.id,
+    },
   });
   return {
     stage: "CROSS_SOURCE_VERIFICATION",
-    kind: pending > 0 ? "advanced" : "idle",
-    summary: `${pending} QA review(s) to verify.`,
-    metadata: { pendingReviews: pending },
+    kind: verifiedFieldCount > 0 ? "advanced" : pending > 0 ? "advanced" : "idle",
+    summary:
+      verifiedFieldCount > 0
+        ? `Verified ${verifiedFieldCount} field(s)${
+            blockingFields.length > 0 ? `, blocked on ${blockingFields.join(", ")}` : ""
+          }.`
+        : `${pending} QA review(s) to verify.`,
+    metadata: {
+      pendingReviews: pending,
+      verifiedFieldCount,
+      blockingFields,
+    },
+    rejected: blockingFields.length > 0 ? 1 : 0,
   };
 }
 
@@ -659,20 +700,41 @@ async function runHomepageWork(prisma: PrismaClient, passId: string): Promise<Di
 }
 
 async function runReporting(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
-  const ratings = await (await import("./diagnostics")).runAdminWorkerDiagnostics(prisma);
+  // Reporting now bundles diagnostics + growth orchestrator + source
+  // coverage so the admin UI always has fresh "why content isn't
+  // growing" and "where source coverage is thin" panels (spec §22, §23).
+  const [ratings, growth, coverage] = await Promise.all([
+    (await import("./diagnostics")).runAdminWorkerDiagnostics(prisma),
+    (await import("./growth-orchestrator"))
+      .runGrowthOrchestrator(prisma, { passId })
+      .catch(() => ({ assessments: [], repairPlansFiled: 0, movedToMaintenance: 0 })),
+    (await import("./source-coverage")).runSourceCoverage(prisma).catch(() => []),
+  ]);
+  const blocked = coverage.filter((c) => c.blockedByCoverage).length;
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "REPORT",
     severity: "INFO",
     eventName: "diagnostics_dispatch",
-    message: `Diagnostics audit checked ${ratings.length} subsystem rating(s).`,
-    safeMetadata: { ratingsCount: ratings.length },
+    message: `Reporting pass: ${ratings.length} ratings checked, ${growth.assessments.length} growth assessments (${growth.repairPlansFiled} repair plan(s)), ${blocked} content type(s) blocked by source coverage.`,
+    safeMetadata: {
+      ratingsCount: ratings.length,
+      growthAssessments: growth.assessments.length,
+      repairPlansFiled: growth.repairPlansFiled,
+      movedToMaintenance: growth.movedToMaintenance,
+      coverageBlocked: blocked,
+    },
   });
   return {
     stage: "REPORTING",
     kind: "advanced",
-    summary: `Diagnostics audit checked ${ratings.length} ratings.`,
-    metadata: { ratingsCount: ratings.length },
+    summary: `Reporting pass: ${ratings.length} ratings, ${growth.assessments.length} growth, ${blocked} coverage-blocked.`,
+    metadata: {
+      ratingsCount: ratings.length,
+      growthAssessments: growth.assessments.length,
+      repairPlansFiled: growth.repairPlansFiled,
+      coverageBlocked: blocked,
+    },
   };
 }
 
