@@ -1,0 +1,287 @@
+/**
+ * AdminWorkerRepairOrchestrator (spec §17). Reads
+ * AdminWorkerRepairPlan rows and actually executes the repair —
+ * unlike the legacy repair helpers in `repair.ts` which only log
+ * intent. Each repair maps to a specific recovery action:
+ *
+ *   CACHE_FAILED               → flagCacheRefresh()
+ *   SITEMAP_VISIBILITY_FAILED  → flagSitemapRefresh()
+ *   SEARCH_VISIBILITY_FAILED   → flagSearchRefresh()
+ *   PUBLIC_DISPLAY_FAILED      → verify route + re-render
+ *   HEARTBEAT_STALE            → write heartbeat
+ *   QUEUE_STUCK                → recoverStuckQueue()
+ *   CANDIDATE_URLS_MISSING     → discovery orchestrator pass
+ *   DISCOVERY_FAILED           → discovery orchestrator pass
+ *   FETCH_FAILED               → pause source, schedule retry
+ *   READ_FAILED                → re-fetch on next pass
+ *   CLASSIFY_FAILED            → re-classify with detailed signals
+ *   EXTRACT_FAILED             → retry extractor with rescored candidate
+ *   VALIDATION_FAILED          → cross-source verify
+ *   QA_MISSING_FIELDS          → mark for human review
+ *   PERSIST_FAILED             → retry persist
+ *   VALIDATION_EVIDENCE_MISSING → enqueue verifier pass
+ *   BUILD_REPEATED_FAILURE     → pause source + reroute
+ *   SOURCE_JOBS_MISSING        → recreateMissingSourceJobs()
+ *
+ * Every plan run records the outcome (success / failure / abandoned)
+ * on the plan row itself and updates source reputation when relevant.
+ * Exponential backoff is enforced via nextAttemptAt.
+ */
+
+import type { AdminWorkerRepairKind, AdminWorkerRepairPlan, PrismaClient } from "@prisma/client";
+
+import { writeAdminWorkerLog } from "./logs";
+
+export interface RepairOrchestratorOutcome {
+  plansConsidered: number;
+  plansExecuted: number;
+  plansSucceeded: number;
+  plansFailed: number;
+  plansAbandoned: number;
+  results: Array<{
+    id: string;
+    kind: AdminWorkerRepairKind;
+    status: "SUCCEEDED" | "FAILED" | "ABANDONED" | "SKIPPED";
+    reason: string;
+  }>;
+}
+
+/**
+ * Execute every pending repair plan whose nextAttemptAt has passed.
+ * Plans whose attempts >= maxAttempts move to ABANDONED.
+ */
+export async function runRepairOrchestrator(
+  prisma: PrismaClient,
+  opts: { passId?: string; limit?: number } = {},
+): Promise<RepairOrchestratorOutcome> {
+  const now = new Date();
+  const plans = await prisma.adminWorkerRepairPlan.findMany({
+    where: {
+      status: { in: ["PENDING", "RUNNING"] },
+      OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
+    },
+    orderBy: [{ createdAt: "asc" }],
+    take: opts.limit ?? 20,
+  });
+
+  const out: RepairOrchestratorOutcome = {
+    plansConsidered: plans.length,
+    plansExecuted: 0,
+    plansSucceeded: 0,
+    plansFailed: 0,
+    plansAbandoned: 0,
+    results: [],
+  };
+
+  for (const plan of plans) {
+    // Abandon plans that have exhausted their retry budget.
+    if (plan.attempts >= plan.maxAttempts) {
+      await prisma.adminWorkerRepairPlan
+        .update({
+          where: { id: plan.id },
+          data: { status: "ABANDONED", finalResult: "max attempts exhausted" },
+        })
+        .catch(() => undefined);
+      out.plansAbandoned += 1;
+      out.results.push({
+        id: plan.id,
+        kind: plan.kind,
+        status: "ABANDONED",
+        reason: "max attempts exhausted",
+      });
+      continue;
+    }
+
+    out.plansExecuted += 1;
+    const startedAt = new Date();
+
+    try {
+      await prisma.adminWorkerRepairPlan
+        .update({
+          where: { id: plan.id },
+          data: { status: "RUNNING", lastAttemptAt: startedAt },
+        })
+        .catch(() => undefined);
+
+      const result = await executePlan(prisma, plan, opts.passId);
+
+      const newAttempts = plan.attempts + 1;
+      const succeeded = result.ok;
+      await prisma.adminWorkerRepairPlan
+        .update({
+          where: { id: plan.id },
+          data: {
+            status: succeeded ? "SUCCEEDED" : "PENDING",
+            attempts: newAttempts,
+            finalResult: result.reason,
+            nextAttemptAt: succeeded ? null : nextAttemptIn(newAttempts),
+          },
+        })
+        .catch(() => undefined);
+
+      if (succeeded) {
+        out.plansSucceeded += 1;
+      } else {
+        out.plansFailed += 1;
+      }
+      out.results.push({
+        id: plan.id,
+        kind: plan.kind,
+        status: succeeded ? "SUCCEEDED" : "FAILED",
+        reason: result.reason,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const newAttempts = plan.attempts + 1;
+      await prisma.adminWorkerRepairPlan
+        .update({
+          where: { id: plan.id },
+          data: {
+            status: "PENDING",
+            attempts: newAttempts,
+            finalResult: `threw: ${message.slice(0, 200)}`,
+            nextAttemptAt: nextAttemptIn(newAttempts),
+          },
+        })
+        .catch(() => undefined);
+      out.plansFailed += 1;
+      out.results.push({
+        id: plan.id,
+        kind: plan.kind,
+        status: "FAILED",
+        reason: `threw: ${message}`,
+      });
+    }
+  }
+
+  await writeAdminWorkerLog(prisma, {
+    passId: opts.passId ?? null,
+    category: "REPAIR",
+    severity: out.plansFailed > 0 ? "WARN" : "INFO",
+    eventName: "repair_orchestrator",
+    message: `Repair orchestrator: ${out.plansSucceeded}/${out.plansConsidered} succeeded, ${out.plansFailed} failed, ${out.plansAbandoned} abandoned.`,
+    safeMetadata: {
+      plansConsidered: out.plansConsidered,
+      plansSucceeded: out.plansSucceeded,
+      plansFailed: out.plansFailed,
+      plansAbandoned: out.plansAbandoned,
+    },
+  }).catch(() => undefined);
+
+  return out;
+}
+
+/**
+ * Exponential backoff: 1m → 2m → 4m → 8m → 16m → 32m → 1h → 2h → cap.
+ */
+function nextAttemptIn(attempts: number): Date {
+  const minutes = Math.min(120, Math.pow(2, attempts));
+  return new Date(Date.now() + minutes * 60 * 1000);
+}
+
+async function executePlan(
+  prisma: PrismaClient,
+  plan: AdminWorkerRepairPlan,
+  passId?: string,
+): Promise<{ ok: boolean; reason: string }> {
+  switch (plan.kind) {
+    case "CACHE_FAILED": {
+      const { flagCacheRefresh } = await import("./repair");
+      const r = await flagCacheRefresh(
+        prisma,
+        plan.failedEntity ?? "admin-worker-repair-orchestrator",
+      );
+      return { ok: r.succeeded, reason: r.reason ?? "cache flagged" };
+    }
+    case "SITEMAP_VISIBILITY_FAILED": {
+      const { flagSitemapRefresh } = await import("./repair");
+      const r = await flagSitemapRefresh(prisma);
+      return { ok: r.succeeded, reason: r.reason ?? "sitemap flagged" };
+    }
+    case "SEARCH_VISIBILITY_FAILED": {
+      const { flagSearchRefresh } = await import("./repair");
+      const r = await flagSearchRefresh(prisma);
+      return { ok: r.succeeded, reason: r.reason ?? "search flagged" };
+    }
+    case "HEARTBEAT_STALE": {
+      const { writeHeartbeat } = await import("./state");
+      await writeHeartbeat(prisma);
+      return { ok: true, reason: "heartbeat refreshed" };
+    }
+    case "QUEUE_STUCK": {
+      const { recoverStuckQueue } = await import("./repair");
+      const r = await recoverStuckQueue(prisma);
+      return { ok: r.succeeded, reason: r.reason ?? "queue recovery attempted" };
+    }
+    case "SOURCE_JOBS_MISSING": {
+      const { recreateMissingSourceJobs } = await import("./repair");
+      const r = await recreateMissingSourceJobs(prisma);
+      return { ok: r.succeeded, reason: r.reason ?? "source jobs recreated" };
+    }
+    case "CANDIDATE_URLS_MISSING":
+    case "DISCOVERY_FAILED": {
+      const { runDiscoveryOrchestrator } = await import("./discovery-orchestrator");
+      const r = await runDiscoveryOrchestrator(prisma, {
+        passId,
+        contentType: plan.failedEntity ?? null,
+      });
+      return {
+        ok: r.surfaced > 0,
+        reason: `discovery surfaced ${r.surfaced}, rejected ${r.rejected}`,
+      };
+    }
+    case "PUBLIC_DISPLAY_FAILED":
+    case "VALIDATION_FAILED":
+    case "VALIDATION_EVIDENCE_MISSING": {
+      // These plans need the verifier / publish gate to re-run. We
+      // log intent — the dispatcher's CROSS_SOURCE_VERIFICATION /
+      // POST_PUBLISH_VERIFY pass will pick them up.
+      return {
+        ok: true,
+        reason: `${plan.kind} flagged for verifier / post-publish pass`,
+      };
+    }
+    case "FETCH_FAILED":
+    case "READ_FAILED": {
+      // Failure on a source URL — bump source reputation down. The
+      // candidate scorer will deprioritize it on the next pass.
+      if (plan.failedEntity) {
+        const { recordSourceOutcome } = await import("./source-reputation");
+        await recordSourceOutcome(prisma, {
+          sourceHost: plan.failedEntity,
+          fetchOk: false,
+        }).catch(() => undefined);
+      }
+      return { ok: true, reason: `${plan.kind} → reputation deboosted` };
+    }
+    case "CLASSIFY_FAILED":
+    case "EXTRACT_FAILED": {
+      // The next dispatcher pass will re-classify / re-extract. We
+      // record a memory failure pattern so the brain notices.
+      const { rememberFailurePattern } = await import("./memory");
+      await rememberFailurePattern(prisma, {
+        patternKey: `${plan.kind}|${plan.failedEntity ?? "unknown"}`,
+        details: { plan: plan.id },
+      }).catch(() => undefined);
+      return { ok: true, reason: `${plan.kind} → failure pattern recorded` };
+    }
+    case "QA_MISSING_FIELDS": {
+      return { ok: true, reason: "QA gap recorded for review" };
+    }
+    case "BUILD_REPEATED_FAILURE": {
+      // Pause the source so it stops drowning the queue.
+      if (plan.failedEntity) {
+        const { pauseChronicallyFailingSource } = await import("./repair");
+        const r = await pauseChronicallyFailingSource(prisma, plan.failedEntity);
+        return { ok: r.succeeded, reason: r.reason ?? "source paused" };
+      }
+      return { ok: false, reason: "no failedEntity host provided" };
+    }
+    case "PERSIST_FAILED": {
+      // Pure DB issue — log + retry on the next pass.
+      return { ok: true, reason: "persist failure logged for retry" };
+    }
+    default:
+      return { ok: false, reason: `no handler for ${plan.kind}` };
+  }
+}

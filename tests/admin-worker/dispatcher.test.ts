@@ -121,6 +121,21 @@ vi.mock("@/lib/admin-worker/source-coverage", () => ({
   ]),
 }));
 
+vi.mock("@/lib/admin-worker/repair-orchestrator", () => ({
+  runRepairOrchestrator: vi.fn(async () => ({
+    plansConsidered: 0,
+    plansExecuted: 0,
+    plansSucceeded: 0,
+    plansFailed: 0,
+    plansAbandoned: 0,
+    results: [],
+  })),
+}));
+
+vi.mock("@/lib/admin-worker/memory", () => ({
+  decayMemory: vi.fn(async () => ({ decayed: 0, pruned: 0 })),
+}));
+
 import { executeMissionStage } from "@/lib/admin-worker/dispatcher";
 import type { BrainAction, BrainDecision } from "@/lib/admin-worker/brain";
 

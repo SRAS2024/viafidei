@@ -138,6 +138,10 @@ export {
 
 export { classifyDetailed, type DetailedClassification } from "./classifier";
 
+export { runRepairOrchestrator, type RepairOrchestratorOutcome } from "./repair-orchestrator";
+
+export { decayedConfidence, decayMemory, listMemoryAudit } from "./memory";
+
 export {
   isJunkUrl,
   discoverCandidate,

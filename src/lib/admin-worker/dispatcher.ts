@@ -648,15 +648,28 @@ async function runRepair(
   workerId: string,
   passId: string,
 ): Promise<DispatchOutcome> {
+  // First drain durable repair plans via the orchestrator (spec §17).
+  const { runRepairOrchestrator } = await import("./repair-orchestrator");
+  const orchestrator = await runRepairOrchestrator(prisma, { passId });
+
+  // Then run the legacy stuck-queue recovery for in-pass fixups.
   const { recoverStuckQueue } = await import("./repair");
   const recovery = await recoverStuckQueue(prisma);
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "REPAIR",
     severity: "INFO",
-    eventName: "repair_recover_stuck",
-    message: recovery.reason ?? "Stuck-queue recovery attempted.",
-    safeMetadata: { recovery: JSON.parse(JSON.stringify(recovery)) },
+    eventName: "repair_pass",
+    message: `Repair orchestrator: ${orchestrator.plansSucceeded}/${orchestrator.plansConsidered} succeeded; stuck-queue ${recovery.attempted ? "attempted" : "skipped"}.`,
+    safeMetadata: {
+      orchestrator: {
+        considered: orchestrator.plansConsidered,
+        succeeded: orchestrator.plansSucceeded,
+        failed: orchestrator.plansFailed,
+        abandoned: orchestrator.plansAbandoned,
+      },
+      stuckQueue: JSON.parse(JSON.stringify(recovery)),
+    },
   });
 
   // After repair, attempt a build cycle to make forward progress.
@@ -667,10 +680,10 @@ async function runRepair(
   return {
     stage: "REPAIR",
     kind: "advanced",
-    summary: `Repair pass + build cycle: ${cycle.kind === "ran" ? cycle.status : "idle"}.`,
+    summary: `Repair orchestrator + stuck-queue + build cycle: ${cycle.kind === "ran" ? cycle.status : "idle"}.`,
     built,
     published,
-    repairsPlanned: recovery.attempted ? 1 : 0,
+    repairsPlanned: orchestrator.plansExecuted + (recovery.attempted ? 1 : 0),
   };
 }
 
@@ -740,20 +753,24 @@ async function runReporting(prisma: PrismaClient, passId: string): Promise<Dispa
 
 async function runMaintenance(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
   const { runCleanupPass } = await import("./cleanup");
-  const result = await runCleanupPass(prisma);
-  const safe = JSON.parse(JSON.stringify(result));
+  const { decayMemory } = await import("./memory");
+  const [cleanup, memoryDecay] = await Promise.all([
+    runCleanupPass(prisma),
+    decayMemory(prisma).catch(() => ({ decayed: 0, pruned: 0 })),
+  ]);
+  const safe = JSON.parse(JSON.stringify({ cleanup, memoryDecay }));
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "CLEANUP",
     severity: "INFO",
     eventName: "maintenance_dispatch",
-    message: `Cleanup pass: ${result.staleCandidatesRemoved} stale candidate(s) removed, ${result.expiredReviewsClosed} expired review(s) closed.`,
+    message: `Maintenance: ${cleanup.staleCandidatesRemoved} stale candidate(s), ${cleanup.expiredReviewsClosed} expired review(s) closed; memory decayed=${memoryDecay.decayed}, pruned=${memoryDecay.pruned}.`,
     safeMetadata: safe,
   });
   return {
     stage: "MAINTENANCE",
     kind: "advanced",
-    summary: `Cleanup pass: ${result.staleCandidatesRemoved} stale candidate(s).`,
+    summary: `Maintenance: cleanup + memory decay (${memoryDecay.decayed} rows).`,
     metadata: safe,
   };
 }
