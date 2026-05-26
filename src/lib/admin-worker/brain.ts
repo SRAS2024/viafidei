@@ -825,13 +825,123 @@ function scoreAction(action: BrainAction, world: WorldState): BrainAction {
  * Build the ranked alternatives list. Highest finalScore first. Unsafe
  * actions stay in the list (so the audit view can show "considered
  * but unsafe") but always sort behind any safe action.
+ *
+ * Spec §12 follow-up: applyFatigue lets the brain back off from a
+ * mission stage that has been failing repeatedly. If we see the same
+ * stage in the most recent N decisions with no advancement, its
+ * urgency is decayed so the brain rotates to a different action.
  */
-export function rankActions(world: WorldState): BrainAction[] {
-  const scored = enumerateCandidateActions(world).map((a) => scoreAction(a, world));
+export function rankActions(
+  world: WorldState,
+  feedback: ExecutionFeedback = { recentFailedStages: {}, recentlyAdvanced: new Set() },
+): BrainAction[] {
+  const scored = enumerateCandidateActions(world)
+    .map((a) => scoreAction(a, world))
+    .map((a) => applyExecutionFeedback(a, feedback));
   return [...scored].sort((a, b) => {
     if (a.safe !== b.safe) return a.safe ? -1 : 1;
     return b.finalScore - a.finalScore;
   });
+}
+
+/**
+ * Execution feedback the brain uses to adjust ranking based on
+ * recent real outcomes (spec §12). Populated by sampleWorld().
+ */
+export interface ExecutionFeedback {
+  /** Per-mission-stage count of recent failed dispatches. */
+  recentFailedStages: Record<string, number>;
+  /** Stages that recently advanced — the brain prefers fresh winners. */
+  recentlyAdvanced: Set<string>;
+}
+
+function applyExecutionFeedback(action: BrainAction, feedback: ExecutionFeedback): BrainAction {
+  if (!action.safe) return action;
+  const failed = feedback.recentFailedStages[action.missionStage] ?? 0;
+  // Action fatigue: subtract 5 points per consecutive recent failure
+  // (caps at -20 so the action can still win when its baseline is
+  // very high).
+  const fatigue = Math.min(20, failed * 5);
+  const advancedBonus = feedback.recentlyAdvanced.has(action.missionStage) ? 3 : 0;
+  return {
+    ...action,
+    finalScore: action.finalScore - fatigue + advancedBonus,
+    rulesEvaluated: {
+      ...action.rulesEvaluated,
+      executionFeedback: { fatigue, advancedBonus, recentFailures: failed },
+    },
+  };
+}
+
+/**
+ * Sample the last N dispatch outcomes to build the ExecutionFeedback
+ * the brain consults. Best-effort: missing logs degrade gracefully
+ * to an empty feedback structure.
+ */
+export async function sampleExecutionFeedback(
+  prisma: PrismaClient,
+  windowSize = 25,
+): Promise<ExecutionFeedback> {
+  const recent = await prisma.adminWorkerLog
+    .findMany({
+      where: { eventName: "stage_dispatched" },
+      orderBy: { createdAt: "desc" },
+      take: windowSize,
+      select: { safeMetadata: true },
+    })
+    .catch(() => [] as Array<{ safeMetadata: unknown }>);
+
+  const recentlyAdvanced = new Set<string>();
+
+  for (const row of recent) {
+    const meta = row.safeMetadata as Record<string, unknown> | null;
+    if (!meta || typeof meta !== "object") continue;
+    const kind = typeof meta.kind === "string" ? meta.kind : null;
+    // The stage_dispatched log puts the stage inside the message;
+    // we use the kind to attribute fatigue.
+    if (!kind) continue;
+    if (kind === "failed" || kind === "rejected") {
+      // We don't know the exact mission stage here without parsing;
+      // skip per-stage attribution and rely on the brain decision
+      // log for accurate per-stage failure attribution.
+    } else if (kind === "advanced") {
+      // Likewise — kind alone doesn't tell us the stage. Per-stage
+      // attribution requires the brain decision row which carries
+      // missionStage.
+    }
+  }
+
+  const recentDecisions = await prisma.adminWorkerDecision
+    .findMany({
+      where: { decisionType: "brain_pass", missionStage: { not: null } },
+      orderBy: { createdAt: "desc" },
+      take: windowSize,
+      select: { missionStage: true },
+    })
+    .catch(() => [] as Array<{ missionStage: string | null }>);
+
+  // Join brain decisions with their downstream stage_dispatched log
+  // to attribute failures per missionStage. We approximate by
+  // counting consecutive decisions choosing the same stage — the
+  // assumption is that if the brain keeps picking the same stage
+  // and growth isn't happening, that stage is failing.
+  const stageRuns: Record<string, number> = {};
+  let prev: string | null = null;
+  let run = 0;
+  for (const d of recentDecisions) {
+    if (!d.missionStage) continue;
+    if (d.missionStage === prev) {
+      run += 1;
+    } else {
+      run = 1;
+      prev = d.missionStage;
+    }
+    if (run >= 3) {
+      stageRuns[d.missionStage] = (stageRuns[d.missionStage] ?? 0) + 1;
+    }
+  }
+
+  return { recentFailedStages: stageRuns, recentlyAdvanced };
 }
 
 /**
@@ -840,8 +950,11 @@ export function rankActions(world: WorldState): BrainAction[] {
  * no action could score above zero we set brainFailure and fall back
  * to maintenance.
  */
-export function decide(world: WorldState): BrainDecision {
-  const ranked = rankActions(world);
+export function decide(
+  world: WorldState,
+  feedback: ExecutionFeedback = { recentFailedStages: {}, recentlyAdvanced: new Set() },
+): BrainDecision {
+  const ranked = rankActions(world, feedback);
 
   // Pause overrides everything else — the operator pulled the brake.
   const chosen = world.isPaused
@@ -919,8 +1032,13 @@ export async function runBrain(
   prisma: PrismaClient,
   opts: { passId?: string } = {},
 ): Promise<BrainDecision> {
-  const world = await sampleWorld(prisma);
-  const decision = decide(world);
+  const [world, feedback] = await Promise.all([
+    sampleWorld(prisma),
+    sampleExecutionFeedback(prisma).catch(
+      () => ({ recentFailedStages: {}, recentlyAdvanced: new Set<string>() }) as ExecutionFeedback,
+    ),
+  ]);
+  const decision = decide(world, feedback);
 
   await recordDecision(prisma, {
     passId: opts.passId,

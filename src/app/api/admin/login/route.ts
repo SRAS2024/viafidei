@@ -14,6 +14,16 @@ import {
   recordAdminLoginSuccess,
 } from "@/lib/security/admin-login-events";
 import { describeDevice } from "@/lib/security/device-info";
+import {
+  deviceCredentialFingerprint,
+  ipFingerprint,
+  userAgentFingerprint,
+} from "@/lib/security/hash";
+import {
+  defendConfirmedBruteForce,
+  defendFailedAdminLogin,
+} from "@/lib/admin-worker/request-defender";
+import { prisma as adminWorkerPrisma } from "@/lib/db/client";
 import { DEVICE_CREDENTIAL_COOKIE } from "@/middleware";
 
 const LOGIN_ROUTE = "/api/admin/login";
@@ -93,6 +103,30 @@ export async function POST(req: NextRequest) {
       ipAddress: ip,
       deviceCredential,
     });
+
+    // Wire the Admin Worker request-path defender (spec §21). The
+    // defender records an AdminWorkerSecurityAction row alongside the
+    // existing SecurityEvent so the diagnostics card can show what
+    // the worker did about the failure.
+    const requestDefenderInput = {
+      prisma: adminWorkerPrisma,
+      route: LOGIN_ROUTE,
+      ipHash: ipFingerprint(ip),
+      deviceFingerprintHash: deviceCredentialFingerprint(deviceCredential),
+      userAgentHash: userAgentFingerprint(userAgent),
+      securityEventId: failedEventId ?? undefined,
+    };
+    if (failure.classification === "breach") {
+      void defendConfirmedBruteForce({
+        ...requestDefenderInput,
+        attemptsInWindow: failure.count,
+      });
+    } else {
+      void defendFailedAdminLogin({
+        ...requestDefenderInput,
+        attemptsInWindow: failure.count,
+      });
+    }
     const device = describeDevice(userAgent);
     const deviceKnown = await hasKnownAdminDevice(deviceCredential).catch(() => false);
     if (failure.classification === "breach") {

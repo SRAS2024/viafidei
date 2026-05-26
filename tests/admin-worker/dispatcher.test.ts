@@ -6,10 +6,64 @@
  * repair-planned / idle) the loop can record.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+
+// The dispatcher's SOURCE_FETCH stage now performs a real network
+// fetch unless ADMIN_WORKER_SKIP_NETWORK=1. Tests stay offline.
+beforeAll(() => {
+  process.env.ADMIN_WORKER_SKIP_NETWORK = "1";
+});
 
 vi.mock("@/lib/worker", () => ({
   runOneBuildCycle: vi.fn(async () => ({ kind: "idle" as const })),
+  isApprovedAuthorityHost: vi.fn(() => true),
+}));
+
+vi.mock("@/lib/admin-worker/fetcher", () => ({
+  adminWorkerFetch: vi.fn(async (_prisma: unknown, input: { url: string }) => ({
+    url: input.url,
+    finalUrl: input.url,
+    httpStatus: 200,
+    contentType: "text/html",
+    contentLength: 100,
+    checksum: "test-checksum",
+    etag: null,
+    lastModifiedHeader: null,
+    body: "<html><title>Test</title><body><p>Body</p></body></html>",
+    durationMs: 1,
+    attempt: 1,
+    succeeded: true,
+    unchanged: false,
+    rejectionReason: null,
+    errorClass: null,
+    errorMessage: null,
+    fetchResultRowId: "fr1",
+    redirectChain: [],
+  })),
+}));
+
+vi.mock("@/lib/admin-worker/source-reader", () => ({
+  readSource: vi.fn(async () => ({
+    sourceReadId: "sr1",
+    reused: false,
+    checksum: "test-checksum",
+    classifierContentType: "PRAYER",
+    classifierConfidence: 0.9,
+    classifierReasons: ["url matched"],
+    extraction: {
+      fields: { prayerTitle: "Test" },
+      fatalReasons: [],
+      missingFields: [],
+      warnings: [],
+    },
+    pipelineStageId: "ps1",
+    rejected: false,
+    rejectionReason: null,
+  })),
+}));
+
+vi.mock("@/lib/admin-worker/repair-plans", () => ({
+  filePlan: vi.fn(async () => ({ id: "rp1" })),
 }));
 
 vi.mock("@/lib/admin-worker/homepage-mutator", () => ({
@@ -195,6 +249,19 @@ function makePrismaForDispatch(opts: { candidates?: number; unclassified?: numbe
       findMany: vi.fn(async () => []),
     },
     adminWorkerLog: { create: vi.fn(async () => ({ id: "l1" })) },
+    adminWorkerFetchResult: {
+      findFirst: vi.fn(async () => null),
+      create: vi.fn(async () => ({ id: "fr1" })),
+    },
+    adminWorkerSourceReputation: {
+      findFirst: vi.fn(async () => null),
+      findMany: vi.fn(async () => []),
+    },
+    adminWorkerPackageArtifact: {
+      findFirst: vi.fn(async () => null),
+      create: vi.fn(async () => ({ id: "art1" })),
+      update: vi.fn(async () => ({})),
+    },
   } as unknown as Parameters<typeof executeMissionStage>[0]["prisma"];
 }
 

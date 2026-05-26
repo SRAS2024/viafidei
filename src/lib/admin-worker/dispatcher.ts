@@ -247,12 +247,31 @@ async function runSourceFetchRead(
     return idle("SOURCE_FETCH", "No candidates available to fetch.");
   }
 
+  // Look up the most recent successful fetch for this candidate so the
+  // fetcher can short-circuit on a 304 / unchanged checksum (spec §6).
+  const previousFetch = await prisma.adminWorkerFetchResult
+    .findFirst({
+      where: { sourceUrl: candidate.discoveredUrl, succeeded: true },
+      orderBy: { createdAt: "desc" },
+      select: { checksum: true, etag: true },
+    })
+    .catch(() => null);
+
+  // Reputation tier informs both the scorer and the source reader.
+  const reputation = await prisma.adminWorkerSourceReputation
+    .findFirst({
+      where: { sourceHost: candidate.sourceHost },
+      orderBy: { lastScoreUpdate: "desc" },
+      select: { reputationTier: true },
+    })
+    .catch(() => null);
+
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "SOURCE_READING",
     severity: "INFO",
-    eventName: "fetch_planned",
-    message: `Planned fetch for ${candidate.discoveredUrl}.`,
+    eventName: "fetch_started",
+    message: `Fetching ${candidate.discoveredUrl}.`,
     sourceHost: candidate.sourceHost,
     sourceUrl: candidate.discoveredUrl,
     contentType: decision.contentType ?? undefined,
@@ -263,29 +282,121 @@ async function runSourceFetchRead(
     },
   });
 
-  // The actual network fetch happens in a separate environment (the
-  // worker process owns HTTP). The dispatcher's job is to advance
-  // the chain: mark the candidate FETCHED so the build engine picks
-  // it up. Future passes / repair plans handle real network IO.
-  await prisma.candidateSourceUrl.update({
-    where: { id: candidate.id },
-    data: { fetchAttempts: candidate.fetchAttempts + 1, lastFetchedAt: new Date() },
+  // Real fetch + read (spec §6, §7). In tests `process.env.ADMIN_WORKER_SKIP_NETWORK`
+  // forces the synthetic-success path so unit suites don't hit the
+  // network; production leaves it unset so the real HTTP call runs.
+  const skipNetwork = process.env.ADMIN_WORKER_SKIP_NETWORK === "1";
+  const { adminWorkerFetch } = await import("./fetcher");
+  const fetched = await adminWorkerFetch(prisma, {
+    url: candidate.discoveredUrl,
+    candidateUrlId: candidate.id,
+    previousChecksum: previousFetch?.checksum ?? undefined,
+    previousEtag: previousFetch?.etag ?? null,
+    skipNetwork,
   });
 
-  // Feed source reputation (spec §16).
-  const { pushReputation } = await import("./source-reputation-hooks");
-  await pushReputation(prisma, {
+  // Bookkeeping on the candidate row.
+  await prisma.candidateSourceUrl
+    .update({
+      where: { id: candidate.id },
+      data: {
+        fetchAttempts: candidate.fetchAttempts + 1,
+        lastFetchedAt: new Date(),
+        status: fetched.succeeded
+          ? "FETCHED"
+          : fetched.rejectionReason
+            ? "REJECTED"
+            : candidate.status,
+        rejectionReason: fetched.rejectionReason ?? candidate.rejectionReason,
+      },
+    })
+    .catch(() => undefined);
+
+  // Failed fetch → file a repair plan + push reputation down + return.
+  if (!fetched.succeeded) {
+    const { filePlan } = await import("./repair-plans");
+    await filePlan(prisma, {
+      kind: "FETCH_FAILED",
+      failedEntity: candidate.sourceHost,
+      repairAction: `Re-fetch ${candidate.discoveredUrl} after backoff (${fetched.errorClass ?? "fetch_failed"}).`,
+      metadata: {
+        candidateId: candidate.id,
+        url: candidate.discoveredUrl,
+        rejectionReason: fetched.rejectionReason,
+      },
+    }).catch(() => undefined);
+    return {
+      stage: "SOURCE_FETCH",
+      kind: "repair-planned",
+      summary: `Fetch failed for ${candidate.discoveredUrl}: ${fetched.rejectionReason ?? fetched.errorMessage}.`,
+      failed: 1,
+      repairsPlanned: 1,
+      metadata: {
+        candidateId: candidate.id,
+        url: candidate.discoveredUrl,
+        errorClass: fetched.errorClass,
+      },
+    };
+  }
+
+  // 304 / unchanged-checksum path — no body to read, but we count
+  // this as advancing the chain because the previous source-read
+  // row is still valid.
+  if (fetched.unchanged) {
+    return {
+      stage: "SOURCE_FETCH",
+      kind: "advanced",
+      summary: `Fetched ${candidate.discoveredUrl}: unchanged (checksum reused).`,
+      metadata: { candidateId: candidate.id, url: candidate.discoveredUrl, unchanged: true },
+    };
+  }
+
+  // Real fetch returned a body — run the source reader.
+  const titleMatch = /<title[^>]*>([\s\S]+?)<\/title>/i.exec(fetched.body);
+  const title = titleMatch ? titleMatch[1].trim() : null;
+  const headings = Array.from(fetched.body.matchAll(/<h[1-6][^>]*>([\s\S]+?)<\/h[1-6]>/gi))
+    .map((m) => m[1].replace(/<[^>]+>/g, "").trim())
+    .filter(Boolean)
+    .slice(0, 30);
+
+  const tier = reputation?.reputationTier;
+  const sourceReputationTier =
+    tier === "TRUSTED" ? "TRUSTED" : tier === "PAUSED" ? "PAUSED" : tier ? "PROBATION" : null;
+
+  const { readSource } = await import("./source-reader");
+  const readOutcome = await readSource(prisma, {
+    sourceUrl: candidate.discoveredUrl,
     sourceHost: candidate.sourceHost,
-    contentType: candidate.predictedContentType ?? undefined,
-    stage: "fetch",
-    ok: true,
-  }).catch(() => undefined);
+    rawBody: fetched.body,
+    title,
+    headings,
+    sourceReputationTier,
+  }).catch(() => null);
+
+  if (!readOutcome) {
+    return {
+      stage: "SOURCE_FETCH",
+      kind: "failed",
+      summary: `Fetched ${candidate.discoveredUrl} but readSource threw.`,
+      failed: 1,
+    };
+  }
 
   return {
     stage: "SOURCE_FETCH",
-    kind: "advanced",
-    summary: `Marked ${candidate.discoveredUrl} as fetched.`,
-    metadata: { candidateId: candidate.id, url: candidate.discoveredUrl },
+    kind: readOutcome.rejected ? "rejected" : "advanced",
+    summary: readOutcome.rejected
+      ? `Fetched + read ${candidate.discoveredUrl}: rejected (${readOutcome.rejectionReason}).`
+      : `Fetched + read ${candidate.discoveredUrl}: ${readOutcome.classifierContentType} (conf ${readOutcome.classifierConfidence.toFixed(2)}).`,
+    metadata: {
+      candidateId: candidate.id,
+      sourceReadId: readOutcome.sourceReadId,
+      checksum: readOutcome.checksum,
+      classifierContentType: readOutcome.classifierContentType,
+      classifierConfidence: readOutcome.classifierConfidence,
+      pipelineStageId: readOutcome.pipelineStageId,
+    },
+    rejected: readOutcome.rejected ? 1 : 0,
   };
 }
 
@@ -342,9 +453,8 @@ async function runClassification(prisma: PrismaClient, passId: string): Promise<
 }
 
 async function runExtraction(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
-  // Extraction happens inside source-reader.readSource(). Here we
-  // ensure the latest classified read has had extraction attempted —
-  // a future enhancement will materialise a structured-block table.
+  // Find the latest classified source-read that doesn't already have
+  // a materialised AdminWorkerPackageArtifact for the same checksum.
   const read = await prisma.adminWorkerSourceRead.findFirst({
     where: { detectedContentType: { not: null } },
     orderBy: { updatedAt: "desc" },
@@ -352,15 +462,96 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
   if (!read) {
     return idle("EXTRACTION", "No classified source-reads available for extraction.");
   }
-  await writeAdminWorkerLog(prisma, {
-    passId,
-    category: "CONTENT_BUILD",
-    severity: "INFO",
-    eventName: "extraction_planned",
-    message: `Extraction planned for ${read.sourceUrl} (${read.detectedContentType}).`,
-    sourceUrl: read.sourceUrl,
-    sourceHost: read.sourceHost,
+
+  // Skip if we already have a package artifact for this read + checksum.
+  const existing = await prisma.adminWorkerPackageArtifact
+    .findFirst({
+      where: { sourceReadId: read.id, packageChecksum: read.checksum },
+    })
+    .catch(() => null);
+  if (existing) {
+    return {
+      stage: "EXTRACTION",
+      kind: "idle",
+      summary: `Package artifact already exists for ${read.sourceUrl} (skipped).`,
+      metadata: { packageArtifactId: existing.id, status: existing.status },
+    };
+  }
+
+  // Run the per-content-type extractor.
+  const { extractByType } = await import("./extractors");
+  const { buildContentPackage } = await import("./content-builder");
+  const detected = read.detectedContentType;
+  const supportedTypes = new Set([
+    "PRAYER",
+    "SAINT",
+    "APPARITION",
+    "DEVOTION",
+    "NOVENA",
+    "ROSARY",
+    "CONSECRATION",
+    "SACRAMENT",
+    "CHURCH_DOCUMENT",
+    "LITURGICAL",
+    "PARISH",
+  ]);
+  if (!detected || !supportedTypes.has(detected)) {
+    return {
+      stage: "EXTRACTION",
+      kind: "rejected",
+      summary: `Cannot extract: read ${read.id} is type ${detected ?? "(none)"}.`,
+      rejected: 1,
+    };
+  }
+  const extractor = extractByType(detected as never, {
+    url: read.sourceUrl,
+    host: read.sourceHost,
+    title: read.extractedTitle,
+    headings: Array.isArray(read.extractedHeadings) ? (read.extractedHeadings as string[]) : [],
+    bodyText: read.extractedText ?? "",
+    checksum: read.checksum,
   });
+
+  const pkg = buildContentPackage({
+    contentType: detected,
+    extractor,
+    title: read.extractedTitle ?? undefined,
+  });
+
+  // Persist the artifact durably. Status reflects whether required
+  // fields are present (CHECKLIST_READY) or missing (EXTRACTED with
+  // repair suggestions) or fatal (REJECTED).
+  const candidate = await prisma.candidateSourceUrl
+    .findFirst({ where: { discoveredUrl: read.sourceUrl } })
+    .catch(() => null);
+  const status =
+    pkg.rejectionReasons.length > 0
+      ? "REJECTED"
+      : pkg.missingFields.length === 0
+        ? "CHECKLIST_READY"
+        : "EXTRACTED";
+
+  const artifact = await prisma.adminWorkerPackageArtifact
+    .create({
+      data: {
+        sourceReadId: read.id,
+        candidateUrlId: candidate?.id ?? null,
+        contentType: detected,
+        normalizedTitle: pkg.normalizedTitle,
+        normalizedSlug: pkg.normalizedSlug,
+        extractedFields: pkg.displayFields as never,
+        fieldProvenance: pkg.fieldProvenance as never,
+        missingFields: pkg.missingFields,
+        validationNeeds: pkg.validationNeeds,
+        formattingMetadata: pkg.formattingMetadata as never,
+        confidenceScore: pkg.confidenceByPackage,
+        packageChecksum: pkg.duplicateKeys.titleHash,
+        status,
+        rejectionReason: pkg.rejectionReasons[0] ?? null,
+        repairSuggestions: pkg.repairSuggestions,
+      },
+    })
+    .catch(() => null);
 
   // Feed source reputation — extraction success/failure (spec §16).
   const { pushReputation } = await import("./source-reputation-hooks");
@@ -368,14 +559,57 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     sourceHost: read.sourceHost,
     contentType: read.detectedContentType ?? undefined,
     stage: "extraction",
-    ok: (read.confidenceScore ?? 0) >= 0.5,
-    usefulness: read.confidenceScore ?? 0,
+    ok: status !== "REJECTED",
+    usefulness: pkg.confidenceByPackage,
   }).catch(() => undefined);
+
+  // File a repair plan when required fields are missing — the next
+  // pass can try a different source via the candidate-scorer.
+  if (status === "EXTRACTED" && pkg.missingFields.length > 0) {
+    const { filePlan } = await import("./repair-plans");
+    await filePlan(prisma, {
+      kind: "EXTRACT_FAILED",
+      failedEntity: read.sourceHost,
+      repairAction: `Re-extract ${read.sourceUrl} or pull missing fields ${pkg.missingFields.join(", ")} from another approved source.`,
+      metadata: {
+        sourceReadId: read.id,
+        missingFields: pkg.missingFields,
+      },
+    }).catch(() => undefined);
+  }
+
+  await writeAdminWorkerLog(prisma, {
+    passId,
+    category: "CONTENT_BUILD",
+    severity: status === "REJECTED" ? "WARN" : "INFO",
+    eventName: "extraction_materialised",
+    message: `Extraction → ${status} for ${read.sourceUrl} (${detected}, missing=${pkg.missingFields.length}).`,
+    sourceUrl: read.sourceUrl,
+    sourceHost: read.sourceHost,
+    contentType: detected,
+    safeMetadata: {
+      artifactId: artifact?.id ?? null,
+      status,
+      missingFields: pkg.missingFields,
+    },
+  });
 
   return {
     stage: "EXTRACTION",
-    kind: "advanced",
-    summary: `Extraction planned for ${read.sourceUrl}.`,
+    kind:
+      status === "REJECTED"
+        ? "rejected"
+        : status === "CHECKLIST_READY"
+          ? "advanced"
+          : "repair-planned",
+    summary: `Extraction materialised package artifact ${artifact?.id ?? "(?)"} (${status}).`,
+    rejected: status === "REJECTED" ? 1 : 0,
+    repairsPlanned: status === "EXTRACTED" && pkg.missingFields.length > 0 ? 1 : 0,
+    metadata: {
+      artifactId: artifact?.id ?? null,
+      status,
+      missingFields: pkg.missingFields,
+    },
   };
 }
 
@@ -384,20 +618,34 @@ async function runChecklistOrCitation(
   passId: string,
   stage: BrainMissionStage,
 ): Promise<DispatchOutcome> {
-  // Today these stages are handled inside the build engine. We log
-  // the chosen stage so the audit view can show the brain reached
-  // for it — the engine itself does the work.
+  // Spec §9 follow-on: materialise package artifacts into checklist
+  // items + citations so the build engine has a row to grab.
+  const { runChecklistAndCitationOrchestrator } = await import("./checklist-citation-orchestrator");
+  const results = await runChecklistAndCitationOrchestrator(prisma, { passId, limit: 10 });
+  const advanced = results.filter((r) => r.status === "created" || r.status === "updated").length;
+  const skipped = results.filter(
+    (r) => r.status === "skipped_duplicate" || r.status === "skipped_insufficient",
+  ).length;
+  const failed = results.filter((r) => r.status === "failed").length;
+  const citationsCreated = results.reduce((acc, r) => acc + r.citationsCreated, 0);
+
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "CONTENT_BUILD",
-    severity: "INFO",
+    severity: failed > 0 ? "WARN" : "INFO",
     eventName: `${stage.toLowerCase()}_pass`,
-    message: `Stage ${stage} delegated to the build engine.`,
+    message: `Stage ${stage}: ${advanced} checklist item(s) materialised, ${citationsCreated} citation(s) attached, ${skipped} skipped, ${failed} failed.`,
+    safeMetadata: { advanced, skipped, failed, citationsCreated },
   });
+
   return {
     stage,
-    kind: "advanced",
-    summary: `Stage ${stage} delegated to build engine.`,
+    kind:
+      results.length === 0 ? "idle" : failed > 0 ? "failed" : advanced > 0 ? "advanced" : "idle",
+    summary: `Materialised ${advanced} checklist item(s); ${citationsCreated} citation(s).`,
+    built: advanced,
+    failed,
+    metadata: { advanced, skipped, failed, citationsCreated },
   };
 }
 
@@ -406,8 +654,41 @@ async function runPackageBuild(
   workerId: string,
   passId: string,
 ): Promise<DispatchOutcome> {
-  // First make sure the queue has work — the planner enqueues new
-  // build jobs to close any content-type gap.
+  // Spec §4: prefer AdminWorkerPackageArtifact rows over the legacy
+  // build queue. A BUILD_READY artifact already has every required
+  // field + provenance + citation; the publish stage can carry it
+  // through without needing the older build engine.
+  const artifact = await prisma.adminWorkerPackageArtifact
+    .findFirst({
+      where: { status: "BUILD_READY" },
+      orderBy: { createdAt: "asc" },
+    })
+    .catch(() => null);
+
+  if (artifact) {
+    // Advance the artifact (it is already shaped like a complete
+    // package — the publish stage will pull it next pass).
+    await writeAdminWorkerLog(prisma, {
+      passId,
+      category: "CONTENT_BUILD",
+      severity: "INFO",
+      eventName: "build_from_artifact",
+      message: `Package artifact ${artifact.id} (${artifact.contentType}) is BUILD_READY; deferring to PUBLIC_PUBLISH stage.`,
+      contentType: artifact.contentType,
+      safeMetadata: { artifactId: artifact.id, status: artifact.status },
+    });
+    return {
+      stage: "PACKAGE_BUILD",
+      kind: "advanced",
+      summary: `Artifact ${artifact.id} ready; publish stage will pick it up.`,
+      built: 1,
+      metadata: { artifactId: artifact.id, source: "AdminWorkerPackageArtifact" },
+    };
+  }
+
+  // Fallback: no artifact ready — make sure the legacy build queue
+  // has work and drain one cycle. planAndEnqueue is now only one
+  // tool inside the dispatcher (spec §2).
   const planOutcome: PlanOutcome = await planAndEnqueue(prisma, { passId });
   if (planOutcome.enqueued > 0) {
     await writeAdminWorkerLog(prisma, {
@@ -419,31 +700,29 @@ async function runPackageBuild(
       contentType: planOutcome.contentType ?? undefined,
     });
   }
-
-  // Then drain one build cycle.
   const cycle = await runOneBuildCycle(prisma, workerId);
   if (cycle.kind === "idle") {
     return {
       stage: "PACKAGE_BUILD",
       kind: "idle",
-      summary: "Build engine idle; nothing to drain.",
-      metadata: { enqueued: planOutcome.enqueued },
+      summary: "No artifacts ready; build engine idle.",
+      metadata: { enqueued: planOutcome.enqueued, source: "WorkerBuildJob" },
     };
   }
-
   const built = cycle.status === "succeeded" || cycle.status === "published" ? 1 : 0;
   const published = cycle.status === "published" ? 1 : 0;
   const failed = cycle.status === "failed" || cycle.status === "retrying" ? 1 : 0;
   return {
     stage: "PACKAGE_BUILD",
     kind: failed > 0 ? "failed" : "advanced",
-    summary: `Build cycle ${cycle.status}.`,
+    summary: `Legacy build cycle ${cycle.status}.`,
     built,
     published,
     failed,
     metadata: {
       enqueued: planOutcome.enqueued,
       jobId: cycle.kind === "ran" ? cycle.jobId : undefined,
+      source: "WorkerBuildJob",
     },
   };
 }
@@ -452,49 +731,76 @@ async function runCrossSourceVerification(
   prisma: PrismaClient,
   passId: string,
 ): Promise<DispatchOutcome> {
-  // Pick the most recent published content row that has not had
-  // verification evidence stored yet. The verifier persists per-field
-  // evidence to AdminWorkerCrossSourceVerification so the publish
-  // gate + admin UI can show the audit trail (spec §11).
+  // Spec §5: verify package artifacts BEFORE publishing — not
+  // already-published rows. The verifier picks the most recent
+  // BUILD_READY artifact whose validation needs haven't been
+  // recorded yet, looks up the right validation sources via the
+  // resolver, and persists per-field evidence.
   const pending = await prisma.checklistQAReport
     .count({ where: { needsHumanReview: true, reviewedAt: null } })
     .catch(() => 0);
 
-  // Best-effort: pick the most recent published content we haven't
-  // already verified, and run the durable verifier on its payload.
-  const candidate = await prisma.publishedContent
+  // Pick a BUILD_READY artifact with sensitive fields that need
+  // verification.
+  const artifact = await prisma.adminWorkerPackageArtifact
     .findFirst({
-      where: { isPublished: true },
-      orderBy: { publishedAt: "desc" },
-      select: { id: true, contentType: true, title: true, slug: true, payload: true },
+      where: { status: "BUILD_READY" },
+      orderBy: { createdAt: "asc" },
     })
     .catch(() => null);
 
   let verifiedFieldCount = 0;
   let blockingFields: string[] = [];
-  if (candidate) {
+  let usedHosts: string[] = [];
+
+  if (artifact && artifact.validationNeeds.length > 0) {
+    // Check if we've already verified this artifact recently.
     const already = await prisma.adminWorkerCrossSourceVerification
       .findFirst({
-        where: { contentType: candidate.contentType, contentId: candidate.id },
+        where: { contentType: artifact.contentType, contentId: artifact.id },
         orderBy: { createdAt: "desc" },
         select: { id: true },
       })
       .catch(() => null);
 
     if (!already) {
+      const { resolveValidationSources } = await import("./validation-source-resolver");
       const { runVerifier } = await import("./verifier");
-      const fields =
-        typeof candidate.payload === "object" && candidate.payload != null
-          ? (candidate.payload as Record<string, unknown>)
-          : {};
+      const fields = (artifact.extractedFields as Record<string, unknown>) ?? {};
+
+      // For each sensitive field, resolve up to 2 validation
+      // sources. We attach them all once to the verifier so it can
+      // cross-check the same field against multiple sources.
+      const validationSources: Array<{
+        host: string;
+        fields: Record<string, unknown>;
+        url?: string;
+      }> = [];
+      const seenHosts = new Set<string>();
+      for (const field of artifact.validationNeeds) {
+        const resolved = await resolveValidationSources(
+          prisma,
+          { contentType: artifact.contentType, field, primarySourceHost: undefined },
+          { limit: 2 },
+        );
+        for (const r of resolved) {
+          if (seenHosts.has(r.host)) continue;
+          seenHosts.add(r.host);
+          // We don't have live content from the validation source
+          // here — the resolver simply names *which* sources to
+          // consult; the verifier records MISSING_EVIDENCE for the
+          // sensitive field, which the publish gate enforces.
+          validationSources.push({ host: r.host, fields: {} });
+        }
+      }
+      usedHosts = [...seenHosts];
+
       const result = await runVerifier(prisma, {
-        contentType: candidate.contentType,
-        contentId: candidate.id,
+        contentType: artifact.contentType,
+        contentId: artifact.id,
+        packageChecksum: artifact.packageChecksum,
         fields,
-        // With no live validation source connection in the dispatcher,
-        // we record a single "self" row — the verifier surfaces
-        // MISSING_EVIDENCE for the admin UI to act on.
-        validationSources: [],
+        validationSources,
       }).catch(() => null);
       verifiedFieldCount = result?.verificationRowIds.length ?? 0;
       blockingFields = result?.blockingSensitiveFields ?? [];
@@ -513,7 +819,8 @@ async function runCrossSourceVerification(
       pendingReviews: pending,
       verifiedFieldCount,
       blockingFields,
-      contentId: candidate?.id,
+      artifactId: artifact?.id ?? null,
+      usedHosts,
     },
   });
   return {
@@ -554,12 +861,98 @@ async function runPersistAndPublish(
   workerId: string,
   passId: string,
 ): Promise<DispatchOutcome> {
-  // Persist + publish happens inside the build engine when QA passes.
-  // From the dispatcher we drive a build cycle to make forward
-  // progress on the publish path.
+  // Spec §13: PERSIST/PUBLIC_PUBLISH route through runPublishOrchestrator
+  // when a BUILD_READY artifact exists. The orchestrator handles the
+  // quality-gate, duplicate, slug, public-route, persistence, content-
+  // goal refresh, search, sitemap, and cache side effects in one
+  // transaction. The legacy runOneBuildCycle() path stays only as a
+  // fallback when no artifact is ready.
+  const artifact = await prisma.adminWorkerPackageArtifact
+    .findFirst({
+      where: { status: "BUILD_READY" },
+      orderBy: { createdAt: "asc" },
+    })
+    .catch(() => null);
+
+  if (artifact) {
+    const { runPublishOrchestrator } = await import("./publish-orchestrator");
+    const isDoctrinal = ["APPARITION", "SACRAMENT", "CHURCH_DOCUMENT"].includes(
+      artifact.contentType,
+    );
+    // Pull verifier evidence — required for doctrinal content.
+    const verifier = isDoctrinal
+      ? await (async () => {
+          const { runVerifier } = await import("./verifier");
+          const fields = (artifact.extractedFields as Record<string, unknown>) ?? {};
+          return runVerifier(prisma, {
+            contentType: artifact.contentType,
+            contentId: artifact.checklistItemId ?? artifact.id,
+            packageChecksum: artifact.packageChecksum,
+            fields,
+            validationSources: [],
+          }).catch(() => undefined);
+        })()
+      : undefined;
+
+    const result = await runPublishOrchestrator(prisma, {
+      contentType: artifact.contentType,
+      contentId: artifact.checklistItemId ?? artifact.id,
+      title: artifact.normalizedTitle,
+      slug: artifact.normalizedSlug,
+      payload: artifact.extractedFields as never,
+      authorityLevel: "VATICAN",
+      finalScore: artifact.confidenceScore,
+      qaPassed: artifact.missingFields.length === 0,
+      hasSourceEvidence:
+        Array.isArray(artifact.fieldProvenance) &&
+        (artifact.fieldProvenance as unknown[]).length > 0,
+      isDoctrinallySensitive: isDoctrinal,
+      confidence: artifact.confidenceScore,
+      verifier,
+    });
+
+    // Update the artifact based on the outcome.
+    if (result.kind === "published") {
+      await prisma.adminWorkerPackageArtifact
+        .update({
+          where: { id: artifact.id },
+          data: { status: "PUBLISHED", publishedContentId: result.publishedContentId },
+        })
+        .catch(() => undefined);
+    } else if (result.kind === "blocked") {
+      await prisma.adminWorkerPackageArtifact
+        .update({
+          where: { id: artifact.id },
+          data: { status: "REJECTED", rejectionReason: result.reason },
+        })
+        .catch(() => undefined);
+    }
+
+    return {
+      stage: "PUBLIC_PUBLISH",
+      kind:
+        result.kind === "published"
+          ? "advanced"
+          : result.kind === "blocked"
+            ? "rejected"
+            : result.kind === "duplicate"
+              ? "idle"
+              : "rejected",
+      summary: `Publish orchestrator: ${result.kind} (${result.reason}).`,
+      built: result.kind === "published" ? 1 : 0,
+      published: result.kind === "published" ? 1 : 0,
+      rejected: result.kind === "blocked" || result.kind === "review" ? 1 : 0,
+      metadata: {
+        artifactId: artifact.id,
+        kind: result.kind,
+      },
+    };
+  }
+
+  // Fallback: no artifact ready, drain the legacy build queue.
   const cycle = await runOneBuildCycle(prisma, workerId);
   if (cycle.kind === "idle") {
-    return idle("PUBLIC_PUBLISH", "Publish queue idle.");
+    return idle("PUBLIC_PUBLISH", "No artifacts ready and publish queue idle.");
   }
   const built = cycle.status === "succeeded" || cycle.status === "published" ? 1 : 0;
   const published = cycle.status === "published" ? 1 : 0;
@@ -568,13 +961,13 @@ async function runPersistAndPublish(
     passId,
     category: "PUBLISHING",
     severity: published > 0 ? "INFO" : "WARN",
-    eventName: "publish_pass",
-    message: `Publish pass status: ${cycle.status}.`,
+    eventName: "publish_pass_legacy",
+    message: `Fallback publish via runOneBuildCycle: ${cycle.status}.`,
   });
   return {
     stage: "PUBLIC_PUBLISH",
     kind: failed > 0 ? "failed" : "advanced",
-    summary: `Publish cycle ${cycle.status}.`,
+    summary: `Legacy publish cycle ${cycle.status}.`,
     built,
     published,
     failed,
@@ -602,12 +995,16 @@ async function runPostPublishVerify(
   if (!target) {
     return idle("POST_PUBLISH_VERIFY", "All published content already verified.");
   }
+  // Spec §14: production post-publish must perform a real HTTP
+  // probe. `ADMIN_WORKER_SKIP_NETWORK=1` is honoured for tests so the
+  // unit suite doesn't hit the network.
+  const skipNetwork = process.env.ADMIN_WORKER_SKIP_NETWORK === "1";
   const verification = await verifyPublished(prisma, {
     contentType: target.contentType,
     contentId: target.id,
     slug: target.slug,
     expectedTitle: target.title,
-    skipNetwork: true,
+    skipNetwork,
   }).catch(
     () =>
       ({
