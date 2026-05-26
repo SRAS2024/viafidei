@@ -654,8 +654,41 @@ async function runPackageBuild(
   workerId: string,
   passId: string,
 ): Promise<DispatchOutcome> {
-  // First make sure the queue has work — the planner enqueues new
-  // build jobs to close any content-type gap.
+  // Spec §4: prefer AdminWorkerPackageArtifact rows over the legacy
+  // build queue. A BUILD_READY artifact already has every required
+  // field + provenance + citation; the publish stage can carry it
+  // through without needing the older build engine.
+  const artifact = await prisma.adminWorkerPackageArtifact
+    .findFirst({
+      where: { status: "BUILD_READY" },
+      orderBy: { createdAt: "asc" },
+    })
+    .catch(() => null);
+
+  if (artifact) {
+    // Advance the artifact (it is already shaped like a complete
+    // package — the publish stage will pull it next pass).
+    await writeAdminWorkerLog(prisma, {
+      passId,
+      category: "CONTENT_BUILD",
+      severity: "INFO",
+      eventName: "build_from_artifact",
+      message: `Package artifact ${artifact.id} (${artifact.contentType}) is BUILD_READY; deferring to PUBLIC_PUBLISH stage.`,
+      contentType: artifact.contentType,
+      safeMetadata: { artifactId: artifact.id, status: artifact.status },
+    });
+    return {
+      stage: "PACKAGE_BUILD",
+      kind: "advanced",
+      summary: `Artifact ${artifact.id} ready; publish stage will pick it up.`,
+      built: 1,
+      metadata: { artifactId: artifact.id, source: "AdminWorkerPackageArtifact" },
+    };
+  }
+
+  // Fallback: no artifact ready — make sure the legacy build queue
+  // has work and drain one cycle. planAndEnqueue is now only one
+  // tool inside the dispatcher (spec §2).
   const planOutcome: PlanOutcome = await planAndEnqueue(prisma, { passId });
   if (planOutcome.enqueued > 0) {
     await writeAdminWorkerLog(prisma, {
@@ -667,31 +700,29 @@ async function runPackageBuild(
       contentType: planOutcome.contentType ?? undefined,
     });
   }
-
-  // Then drain one build cycle.
   const cycle = await runOneBuildCycle(prisma, workerId);
   if (cycle.kind === "idle") {
     return {
       stage: "PACKAGE_BUILD",
       kind: "idle",
-      summary: "Build engine idle; nothing to drain.",
-      metadata: { enqueued: planOutcome.enqueued },
+      summary: "No artifacts ready; build engine idle.",
+      metadata: { enqueued: planOutcome.enqueued, source: "WorkerBuildJob" },
     };
   }
-
   const built = cycle.status === "succeeded" || cycle.status === "published" ? 1 : 0;
   const published = cycle.status === "published" ? 1 : 0;
   const failed = cycle.status === "failed" || cycle.status === "retrying" ? 1 : 0;
   return {
     stage: "PACKAGE_BUILD",
     kind: failed > 0 ? "failed" : "advanced",
-    summary: `Build cycle ${cycle.status}.`,
+    summary: `Legacy build cycle ${cycle.status}.`,
     built,
     published,
     failed,
     metadata: {
       enqueued: planOutcome.enqueued,
       jobId: cycle.kind === "ran" ? cycle.jobId : undefined,
+      source: "WorkerBuildJob",
     },
   };
 }

@@ -137,6 +137,11 @@ export default async function AdminWorkerPage() {
       .catch(() => []),
   ]);
 
+  // Spec §15: live "Why no content growth" walk of the chain.
+  const whyNoGrowth = await (await import("@/lib/admin-worker/why-no-growth"))
+    .diagnoseWhyNoGrowth(prisma)
+    .catch(() => null);
+
   const summary = summarizeRatings(ratings);
 
   return (
@@ -539,6 +544,78 @@ export default async function AdminWorkerPage() {
                 ))}
               </tbody>
             </table>
+          )}
+        </article>
+
+        {/* Why no content growth — live diagnostic (spec §15).
+            Walks the chain top-to-bottom and identifies the first
+            blocked stage with the exact table, count, and next
+            automatic repair. */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Why no content growth — live chain walk</h2>
+          {whyNoGrowth ? (
+            <>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm md:grid-cols-4">
+                <dt className="text-ink-soft">Blocker stage</dt>
+                <dd
+                  className={`font-mono ${
+                    whyNoGrowth.blocker === "NONE" ? "text-emerald-700" : "text-rose-700"
+                  }`}
+                >
+                  {whyNoGrowth.blocker}
+                </dd>
+                <dt className="text-ink-soft">Content type</dt>
+                <dd className="font-mono">{whyNoGrowth.contentType ?? "(all types)"}</dd>
+                <dt className="text-ink-soft">Exact table</dt>
+                <dd className="font-mono">{whyNoGrowth.exactTable || "—"}</dd>
+                <dt className="text-ink-soft">Most recent failure</dt>
+                <dd className="font-serif">
+                  {whyNoGrowth.mostRecentFailure
+                    ? `${whyNoGrowth.mostRecentFailure.when.toISOString().slice(0, 19)} — ${whyNoGrowth.mostRecentFailure.reason}`
+                    : "none in window"}
+                </dd>
+                <dt className="text-ink-soft md:col-span-1">Explanation</dt>
+                <dd className="font-serif md:col-span-3">{whyNoGrowth.blockerExplanation}</dd>
+                <dt className="text-ink-soft md:col-span-1">Next automatic repair</dt>
+                <dd className="font-serif md:col-span-3">
+                  {whyNoGrowth.nextAutomaticRepair ?? "no repair queued"}
+                </dd>
+                <dt className="text-ink-soft md:col-span-1">Last worker decision</dt>
+                <dd className="font-serif md:col-span-3">
+                  {whyNoGrowth.lastWorkerDecision
+                    ? `${whyNoGrowth.lastWorkerDecision.chosenAction}: ${whyNoGrowth.lastWorkerDecision.reason ?? "—"}`
+                    : "no decision on record"}
+                </dd>
+                <dt className="text-ink-soft md:col-span-1">Next worker decision</dt>
+                <dd className="font-serif md:col-span-3">{whyNoGrowth.nextWorkerDecision}</dd>
+              </dl>
+
+              <h3 className="mt-4 font-display text-sm uppercase tracking-wide text-ink-soft">
+                Chain walk
+              </h3>
+              <table className="mt-1 w-full text-xs">
+                <thead>
+                  <tr className="text-left uppercase text-ink-soft">
+                    <th>Stage</th>
+                    <th>OK?</th>
+                    <th className="text-right">Count</th>
+                    <th>Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {whyNoGrowth.checks.map((c) => (
+                    <tr key={c.stage} className={`border-t ${c.ok ? "" : "bg-rose-50"}`}>
+                      <td className="py-1 font-mono">{c.stage}</td>
+                      <td className="py-1 font-mono">{c.ok ? "✓" : "✕"}</td>
+                      <td className="py-1 text-right font-mono">{c.count}</td>
+                      <td className="py-1 font-serif">{c.detail}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-ink-soft">Diagnostic unavailable.</p>
           )}
         </article>
 

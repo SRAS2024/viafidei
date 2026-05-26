@@ -162,6 +162,19 @@ export {
 } from "./checklist-citation-orchestrator";
 
 export {
+  resolveValidationSources,
+  findHigherAuthority,
+  type ResolvedValidationSource,
+  type ResolverInput,
+} from "./validation-source-resolver";
+
+export {
+  diagnoseWhyNoGrowth,
+  type WhyNoGrowthReport,
+  type GrowthBlockerStage,
+} from "./why-no-growth";
+
+export {
   pushReputation,
   pushReputationBatch,
   type ReputationHookInput,
