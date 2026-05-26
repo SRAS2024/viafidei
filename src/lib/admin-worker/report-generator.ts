@@ -68,6 +68,89 @@ export interface DeveloperAuditData {
   diagnosticsSummary: ReturnType<typeof summarizeRatings>;
   recentPasses: Awaited<ReturnType<typeof listRecentPasses>>;
   workerLogs: Awaited<ReturnType<typeof listAdminWorkerLogs>>;
+  // Spec §19 — the audit must now include brain decisions, mission
+  // plans, pipeline stage history, content goal progress, growth
+  // snapshots, source coverage, source reputation, memory rows,
+  // repair plans, security actions, post-publish verifications.
+  brainDecisions: Array<{
+    id: string;
+    createdAt: Date;
+    chosenAction: string;
+    missionStage: string | null;
+    contentType: string | null;
+    confidence: number;
+    riskScore: number;
+    reason: string | null;
+    brainExplanation: string | null;
+    brainFailure: string | null;
+  }>;
+  pipelineStages: Array<{
+    id: string;
+    pipelineKey: string | null;
+    stageName: string;
+    status: string;
+    contentType: string | null;
+    failureReason: string | null;
+    createdAt: Date;
+  }>;
+  contentGoals: Array<{
+    contentType: string;
+    minimumTarget: number;
+    desiredTarget: number;
+    currentValidCount: number;
+    gapCount: number;
+    status: string;
+  }>;
+  growthSnapshots: Array<{
+    contentType: string;
+    status: string;
+    gap: number;
+    growth24h: number;
+    growth7d: number;
+    recommendation: string | null;
+    createdAt: Date;
+  }>;
+  sourceCoverage: Array<{
+    contentType: string;
+    coverageScore: number;
+    blockedByCoverage: boolean;
+    blockReason: string | null;
+  }>;
+  sourceReputation: Array<{
+    sourceHost: string;
+    contentType: string | null;
+    reputationTier: string;
+    publicPublishRate: number;
+    qaPassRate: number;
+    fetchSuccessRate: number;
+    paused: boolean;
+  }>;
+  recentMemory: Array<{
+    memoryType: string;
+    memoryKey: string;
+    confidence: number;
+    successCount: number;
+    failureCount: number;
+    lastUsedAt: Date | null;
+  }>;
+  repairPlans: Array<{
+    id: string;
+    kind: string;
+    status: string;
+    attempts: number;
+    maxAttempts: number;
+    finalResult: string | null;
+    createdAt: Date;
+  }>;
+  postPublishVerifications: Array<{
+    contentType: string;
+    contentId: string;
+    slug: string;
+    result: string;
+    errorMessage: string | null;
+    createdAt: Date;
+  }>;
+  currentBlockers: string[];
 }
 
 export async function collectDeveloperAuditData(
@@ -75,11 +158,125 @@ export async function collectDeveloperAuditData(
   period: AdminDeveloperReportPeriod,
 ): Promise<DeveloperAuditData> {
   const since = periodToSince(period);
-  const [diagnosticsResults, recentPasses, workerLogs] = await Promise.all([
+  const [
+    diagnosticsResults,
+    recentPasses,
+    workerLogs,
+    brainDecisionsRaw,
+    pipelineStagesRaw,
+    contentGoalsRaw,
+    growthSnapshotsRaw,
+    sourceCoverageRaw,
+    sourceReputationRaw,
+    recentMemoryRaw,
+    repairPlansRaw,
+    postPublishVerificationsRaw,
+    blockerState,
+  ] = await Promise.all([
     runAdminWorkerDiagnostics(prisma),
     listRecentPasses(prisma, { limit: 100 }),
     listAdminWorkerLogs(prisma, { since, limit: 1000 }),
+    // Spec §19: brain decisions
+    prisma.adminWorkerDecision
+      .findMany({
+        where: { createdAt: { gte: since }, decisionType: "brain_pass" },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+        select: {
+          id: true,
+          createdAt: true,
+          chosenAction: true,
+          missionStage: true,
+          contentType: true,
+          confidence: true,
+          riskScore: true,
+          reason: true,
+          brainExplanation: true,
+          brainFailure: true,
+        },
+      })
+      .catch(() => []),
+    // Spec §19: pipeline stage history
+    prisma.adminWorkerPipelineStage
+      .findMany({
+        where: { createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+        select: {
+          id: true,
+          pipelineKey: true,
+          stageName: true,
+          status: true,
+          contentType: true,
+          failureReason: true,
+          createdAt: true,
+        },
+      })
+      .catch(() => []),
+    // Spec §19: content goal progress
+    prisma.contentGoal
+      .findMany({
+        orderBy: [{ gapCount: "desc" }, { priority: "asc" }],
+      })
+      .catch(() => []),
+    // Spec §19: growth snapshots
+    prisma.adminWorkerGrowthSnapshot
+      .findMany({
+        where: { createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      })
+      .catch(() => []),
+    // Spec §19: source coverage
+    prisma.adminWorkerSourceCoverage
+      .findMany({ orderBy: [{ blockedByCoverage: "desc" }, { coverageScore: "asc" }] })
+      .catch(() => []),
+    // Spec §19: source reputation
+    prisma.adminWorkerSourceReputation
+      .findMany({
+        orderBy: [{ reputationTier: "asc" }, { contentBuildSuccessRate: "desc" }],
+        take: 200,
+      })
+      .catch(() => []),
+    // Spec §19: memory changes (recently used)
+    prisma.adminWorkerMemory
+      .findMany({
+        orderBy: [{ lastUsedAt: "desc" }, { confidence: "desc" }],
+        take: 100,
+      })
+      .catch(() => []),
+    // Spec §19: repair plans
+    prisma.adminWorkerRepairPlan
+      .findMany({
+        where: { createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      })
+      .catch(() => []),
+    // Spec §19: post-publish verification logs
+    prisma.postPublishVerification
+      .findMany({
+        where: { createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+      })
+      .catch(() => []),
+    // Spec §19: current blockers (from AdminWorkerState)
+    prisma.adminWorkerState
+      .findUnique({ where: { id: "singleton" }, select: { currentBlocker: true } })
+      .catch(() => null),
   ]);
+
+  const currentBlockers: string[] = [];
+  if (blockerState?.currentBlocker) currentBlockers.push(blockerState.currentBlocker);
+  // Pipeline-stage blockers
+  const blockedStages = pipelineStagesRaw.filter(
+    (s) => s.status === "BLOCKED" || s.status === "FAILED",
+  );
+  for (const s of blockedStages.slice(0, 5)) {
+    if (s.failureReason) currentBlockers.push(`${s.stageName}: ${s.failureReason}`);
+  }
+
   return {
     generatedAt: new Date(),
     period,
@@ -87,6 +284,77 @@ export async function collectDeveloperAuditData(
     diagnosticsSummary: summarizeRatings(diagnosticsResults),
     recentPasses,
     workerLogs,
+    brainDecisions: brainDecisionsRaw.map((d) => ({
+      id: d.id,
+      createdAt: d.createdAt,
+      chosenAction: d.chosenAction,
+      missionStage: d.missionStage,
+      contentType: d.contentType,
+      confidence: d.confidence,
+      riskScore: d.riskScore,
+      reason: d.reason,
+      brainExplanation: d.brainExplanation,
+      brainFailure: d.brainFailure,
+    })),
+    pipelineStages: pipelineStagesRaw,
+    contentGoals: contentGoalsRaw.map((g) => ({
+      contentType: g.contentType,
+      minimumTarget: g.minimumTarget,
+      desiredTarget: g.desiredTarget,
+      currentValidCount: g.currentValidCount,
+      gapCount: g.gapCount,
+      status: g.status,
+    })),
+    growthSnapshots: growthSnapshotsRaw.map((s) => ({
+      contentType: s.contentType,
+      status: s.status,
+      gap: s.gap,
+      growth24h: s.growth24h,
+      growth7d: s.growth7d,
+      recommendation: s.recommendation,
+      createdAt: s.createdAt,
+    })),
+    sourceCoverage: sourceCoverageRaw.map((c) => ({
+      contentType: c.contentType,
+      coverageScore: c.coverageScore,
+      blockedByCoverage: c.blockedByCoverage,
+      blockReason: c.blockReason,
+    })),
+    sourceReputation: sourceReputationRaw.map((r) => ({
+      sourceHost: r.sourceHost,
+      contentType: r.contentType,
+      reputationTier: r.reputationTier,
+      publicPublishRate: r.publicPublishRate,
+      qaPassRate: r.qaPassRate,
+      fetchSuccessRate: r.fetchSuccessRate,
+      paused: r.paused,
+    })),
+    recentMemory: recentMemoryRaw.map((m) => ({
+      memoryType: m.memoryType,
+      memoryKey: m.memoryKey,
+      confidence: m.confidence,
+      successCount: m.successCount,
+      failureCount: m.failureCount,
+      lastUsedAt: m.lastUsedAt,
+    })),
+    repairPlans: repairPlansRaw.map((p) => ({
+      id: p.id,
+      kind: p.kind,
+      status: p.status,
+      attempts: p.attempts,
+      maxAttempts: p.maxAttempts,
+      finalResult: p.finalResult,
+      createdAt: p.createdAt,
+    })),
+    postPublishVerifications: postPublishVerificationsRaw.map((v) => ({
+      contentType: v.contentType,
+      contentId: v.contentId,
+      slug: v.slug,
+      result: v.result,
+      errorMessage: v.errorMessage,
+      createdAt: v.createdAt,
+    })),
+    currentBlockers,
   };
 }
 

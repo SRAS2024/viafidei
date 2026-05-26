@@ -224,6 +224,17 @@ export {
 } from "./security-defender";
 
 export {
+  defendRedirectToLogin,
+  defendValidAdminNavigation,
+  defendFailedAdminLogin,
+  defendConfirmedBruteForce,
+  defendUnauthorizedMutation,
+  defendAdminRouteProbing,
+  defendBannedDeviceReuse,
+  type RequestDefenderInput,
+} from "./request-defender";
+
+export {
   runAdminWorkerDiagnostics,
   summarizeRatings,
   type HealthRating,

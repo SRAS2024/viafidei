@@ -54,6 +54,8 @@ export default async function AdminWorkerPage() {
     coverageRows,
     pipelineCounts,
     rejectedCandidates,
+    recentMemory,
+    recentRepairs,
   ] = await Promise.all([
     getAdminWorkerState(prisma),
     runAdminWorkerDiagnostics(prisma),
@@ -99,6 +101,37 @@ export default async function AdminWorkerPage() {
           rejectionPattern: true,
           junkRisk: true,
           duplicateRisk: true,
+        },
+      })
+      .catch(() => []),
+    // spec §18: what the worker learned recently
+    prisma.adminWorkerMemory
+      .findMany({
+        orderBy: [{ lastUsedAt: "desc" }, { confidence: "desc" }],
+        take: 15,
+        select: {
+          memoryType: true,
+          memoryKey: true,
+          confidence: true,
+          successCount: true,
+          failureCount: true,
+          lastUsedAt: true,
+        },
+      })
+      .catch(() => []),
+    // spec §18: latest repair plans (what's broken + being fixed)
+    prisma.adminWorkerRepairPlan
+      .findMany({
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          kind: true,
+          status: true,
+          attempts: true,
+          maxAttempts: true,
+          finalResult: true,
+          updatedAt: true,
         },
       })
       .catch(() => []),
@@ -398,6 +431,114 @@ export default async function AdminWorkerPage() {
             <p className="mt-2 text-sm text-ink-soft">
               Mission planner unavailable. Run a worker pass to populate.
             </p>
+          )}
+        </article>
+
+        {/* What the worker will do next (spec §18). Drawn from the
+            most recent brain decision — surfaces mission stage,
+            content type, target source, expected output. */}
+        <article className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">What the worker will do next</h2>
+          {recentBrainDecision ? (
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+              <dt className="text-ink-soft">Mission stage</dt>
+              <dd className="font-mono">{recentBrainDecision.missionStage ?? "—"}</dd>
+              <dt className="text-ink-soft">Action</dt>
+              <dd className="font-mono">{recentBrainDecision.chosenAction}</dd>
+              <dt className="text-ink-soft">Content type</dt>
+              <dd className="font-mono">{recentBrainDecision.contentType ?? "—"}</dd>
+              <dt className="text-ink-soft">Confidence</dt>
+              <dd className="font-mono">{recentBrainDecision.confidence.toFixed(2)}</dd>
+              <dt className="text-ink-soft">Expected</dt>
+              <dd className="font-serif">{recentBrainDecision.expectedResult ?? "—"}</dd>
+              <dt className="text-ink-soft">Fallback</dt>
+              <dd className="font-mono">{recentBrainDecision.fallbackAction ?? "—"}</dd>
+            </dl>
+          ) : (
+            <p className="mt-2 text-sm text-ink-soft">Run a pass to populate.</p>
+          )}
+        </article>
+
+        {/* What the worker learned recently (spec §18). Top 15 most-
+            recently-used memory rows. */}
+        <article className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">What the worker learned recently</h2>
+          {recentMemory.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No memory rows yet. The worker writes one per outcome (source success/failure,
+              extractor outcome, URL pattern, repair outcome).
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Type</th>
+                  <th>Key</th>
+                  <th className="text-right">Confidence</th>
+                  <th className="text-right">✓ / ✕</th>
+                  <th>Last used</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentMemory.map((m) => (
+                  <tr key={`${m.memoryType}|${m.memoryKey}`} className="border-t">
+                    <td className="py-1 font-mono">{m.memoryType}</td>
+                    <td className="py-1 font-mono">{m.memoryKey.slice(0, 40)}</td>
+                    <td className="py-1 text-right font-mono">{m.confidence.toFixed(2)}</td>
+                    <td className="py-1 text-right font-mono">
+                      {m.successCount} / {m.failureCount}
+                    </td>
+                    <td className="py-1 font-mono">
+                      {m.lastUsedAt ? m.lastUsedAt.toISOString().slice(0, 19) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Latest repair plans (spec §17 + §18). */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Latest repair plans</h2>
+          {recentRepairs.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">No repair plans on record.</p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Kind</th>
+                  <th>Status</th>
+                  <th className="text-right">Attempts</th>
+                  <th>Final result</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentRepairs.map((r) => (
+                  <tr
+                    key={r.id}
+                    className={`border-t ${
+                      r.status === "ABANDONED"
+                        ? "bg-rose-50"
+                        : r.status === "SUCCEEDED"
+                          ? "bg-emerald-50"
+                          : r.status === "PENDING" || r.status === "RUNNING"
+                            ? "bg-amber-50"
+                            : ""
+                    }`}
+                  >
+                    <td className="py-1 font-mono">{r.kind}</td>
+                    <td className="py-1 font-mono">{r.status}</td>
+                    <td className="py-1 text-right font-mono">
+                      {r.attempts} / {r.maxAttempts}
+                    </td>
+                    <td className="py-1 font-serif">{r.finalResult ?? "—"}</td>
+                    <td className="py-1 font-mono">{r.updatedAt.toISOString().slice(0, 19)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </article>
 
