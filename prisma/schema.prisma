@@ -2052,3 +2052,30 @@ model AdminWorkerPackageArtifact {
   @@index([checklistItemId])
   @@index([createdAt])
 }
+
+/// Durable strict-QA result per package artifact (spec §5 / §6
+/// follow-up). The publish gate refuses any artifact that doesn't
+/// carry a passing AdminWorkerStrictQAResult.
+model AdminWorkerStrictQAResult {
+  id                  String   @id @default(cuid())
+  packageArtifactId   String
+  contentType         String
+  completenessScore   Float    @default(0)
+  correctnessScore    Float    @default(0)
+  formattingScore     Float    @default(0)
+  provenanceScore     Float    @default(0)
+  validationScore     Float    @default(0)
+  duplicateSafetyScore Float   @default(0)
+  publicReadinessScore Float   @default(0)
+  finalScore          Float    @default(0)
+  status              String   @default("PENDING")
+  /// "PASSED" | "FAILED" | "PENDING" | "NEEDS_REPAIR"
+  blockingReasons     String[] @default([])
+  repairSuggestions   String[] @default([])
+  createdAt           DateTime @default(now())
+
+  @@unique([packageArtifactId])
+  @@index([contentType, status])
+  @@index([finalScore])
+  @@index([createdAt])
+}
