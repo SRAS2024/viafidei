@@ -21,6 +21,11 @@ function makePrisma(
     securityActions: number;
     homepageScores: number;
     recentReport: Date | null;
+    pipelineStages: number;
+    growthSnapshots: number;
+    sourceCoverage: number;
+    coverageBlocked: number;
+    crossSourceVerifications: number;
   }>,
 ) {
   const opts = {
@@ -36,6 +41,11 @@ function makePrisma(
     securityActions: 1,
     homepageScores: 1,
     recentReport: new Date() as Date | null,
+    pipelineStages: 5,
+    growthSnapshots: 3,
+    sourceCoverage: 11,
+    coverageBlocked: 0,
+    crossSourceVerifications: 2,
     ...stub,
   };
   const lastHeartbeatAt = new Date(Date.now() - opts.heartbeatAgeMs);
@@ -55,6 +65,17 @@ function makePrisma(
     homepageQualityScore: { count: vi.fn(async () => opts.homepageScores) },
     adminDeveloperReportLog: {
       findFirst: vi.fn(async () => (opts.recentReport ? { generatedAt: opts.recentReport } : null)),
+    },
+    adminWorkerPipelineStage: { count: vi.fn(async () => opts.pipelineStages) },
+    adminWorkerGrowthSnapshot: { count: vi.fn(async () => opts.growthSnapshots) },
+    adminWorkerSourceCoverage: {
+      count: vi.fn(async ({ where }: { where?: { blockedByCoverage?: boolean } } = {}) => {
+        if (where?.blockedByCoverage) return opts.coverageBlocked;
+        return opts.sourceCoverage;
+      }),
+    },
+    adminWorkerCrossSourceVerification: {
+      count: vi.fn(async () => opts.crossSourceVerifications),
     },
   } as unknown as Parameters<typeof runReadiness>[0];
 }

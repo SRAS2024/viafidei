@@ -38,7 +38,10 @@ function makePrisma() {
     workerBuildJob: { count: vi.fn(async () => 0) },
     contentGoal: { findMany: vi.fn(async () => []) },
     publishedContent: { count: vi.fn(async () => 0) },
-    postPublishVerification: { count: vi.fn(async () => 0) },
+    postPublishVerification: {
+      count: vi.fn(async () => 0),
+      findMany: vi.fn(async () => []),
+    },
     humanReviewQueue: { count: vi.fn(async () => 0) },
     homepageWorkerDraft: {
       findFirst: vi.fn(async () => null),
@@ -49,6 +52,37 @@ function makePrisma() {
     contentValidationEvidence: { count: vi.fn(async () => 0) },
     checklistQAReport: { findFirst: vi.fn(async () => null) },
     contentQualityScore: { findFirst: vi.fn(async () => null) },
+    // Spec §19 new audit sections — empty arrays so the PDF can render.
+    adminWorkerDecision: {
+      findMany: vi.fn(async () => []),
+      findFirst: vi.fn(async () => null),
+      count: vi.fn(async () => 0),
+    },
+    adminWorkerPipelineStage: {
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
+    },
+    adminWorkerGrowthSnapshot: {
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
+    },
+    adminWorkerSourceCoverage: {
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
+    },
+    adminWorkerMemory: {
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
+    },
+    adminWorkerRepairPlan: {
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
+    },
+    adminWorkerSourceRead: { count: vi.fn(async () => 0) },
+    adminWorkerCrossSourceVerification: { count: vi.fn(async () => 0) },
+    adminWorkerFetchResult: { count: vi.fn(async () => 0) },
+    adminDeveloperReportLog2: undefined, // typo guard
+    adminDeveloperReportLog__alias: undefined,
     $queryRaw: vi.fn(async () => [{ "1": 1 }]),
   } as unknown as Parameters<typeof generateAdminWorkerDeveloperAuditPdf>[0];
 }

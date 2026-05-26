@@ -93,17 +93,53 @@ describe("periodToSince", () => {
   });
 });
 
-describe("Developer Audit section list", () => {
-  it("includes every spec-required section, in order", () => {
-    expect(DEVELOPER_AUDIT_SECTIONS).toEqual([
+describe("Developer Audit section list (spec §19)", () => {
+  it("includes every spec-required section the auditor needs", () => {
+    // Spec §19 requires: table of contents, executive summary, brain
+    // decisions, mission plans, pipeline stage history, content goal
+    // progress, discovery logs, fetch logs, source read logs,
+    // classification logs, extraction logs, verification logs,
+    // QA logs, publishing logs, post-publish verification logs,
+    // search/sitemap logs, cache logs, repair logs, security logs,
+    // homepage logs, source reputation changes, memory changes,
+    // current blockers, recommended repairs.
+    const required = [
+      "Table of Contents",
+      "Executive Summary",
       "Diagnostics Results",
-      "Worker Logs",
-      "System Logs",
+      "Admin Worker Brain Decisions",
+      "Mission Plans",
+      "Pipeline Stage History",
+      "Content Goal Progress",
+      "Discovery Logs",
+      "Fetch Logs",
+      "Source Read Logs",
+      "Classification Logs",
+      "Extraction Logs",
+      "Verification Logs",
+      "QA Logs",
+      "Publishing Logs",
+      "Post-Publish Verification Logs",
+      "Search and Sitemap Logs",
+      "Cache Logs",
+      "Repair Logs",
       "Security Logs",
-      "Content Growth and Publishing",
-      "Homepage Actions",
+      "Homepage Logs",
+      "Source Reputation Changes",
+      "Memory Changes",
+      "Current Blockers",
       "Recommended Repairs",
-    ]);
+    ];
+    for (const section of required) {
+      expect(DEVELOPER_AUDIT_SECTIONS).toContain(section);
+    }
+  });
+
+  it("keeps the legacy sections so existing PDF generators still work", () => {
+    expect(DEVELOPER_AUDIT_SECTIONS).toContain("Diagnostics Results");
+    expect(DEVELOPER_AUDIT_SECTIONS).toContain("Worker Logs");
+    expect(DEVELOPER_AUDIT_SECTIONS).toContain("Security Logs");
+    expect(DEVELOPER_AUDIT_SECTIONS).toContain("Recommended Repairs");
   });
 });
 

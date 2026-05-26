@@ -194,3 +194,139 @@ export async function rememberFailurePattern(
     outcome: "failure",
   });
 }
+
+// ── Memory decay (spec §15) ──────────────────────────────────────────
+//
+// Old outcomes should matter less than recent ones. We apply a half-
+// life decay: every `MEMORY_HALF_LIFE_DAYS` days that pass without
+// `lastUsedAt` being updated halve the successCount and failureCount.
+// The confidence rederives from the decayed counts so a stale row
+// gradually drifts back to 0.5 (the Laplace-smoothed neutral).
+
+const MEMORY_HALF_LIFE_DAYS = 30;
+
+/**
+ * Decay-adjusted confidence calculator. Returns the confidence we
+ * would assign to this memory row right now given its lastUsedAt
+ * age. Used by the brain at read time so we don't have to mutate
+ * the DB on every read.
+ */
+export function decayedConfidence(opts: {
+  successCount: number;
+  failureCount: number;
+  lastUsedAt: Date | null;
+  now?: Date;
+}): { confidence: number; effectiveSuccess: number; effectiveFailure: number; ageDays: number } {
+  const now = (opts.now ?? new Date()).getTime();
+  const last = (opts.lastUsedAt ?? new Date(now)).getTime();
+  const ageDays = Math.max(0, (now - last) / (24 * 60 * 60 * 1000));
+  const decay = Math.pow(0.5, ageDays / MEMORY_HALF_LIFE_DAYS);
+  const effectiveSuccess = opts.successCount * decay;
+  const effectiveFailure = opts.failureCount * decay;
+  return {
+    confidence: computeConfidence(effectiveSuccess, effectiveFailure),
+    effectiveSuccess,
+    effectiveFailure,
+    ageDays,
+  };
+}
+
+/**
+ * Walk every memory row and persist the decayed counts. Run this
+ * weekly so stale rows fade rather than persist forever. Spec §15:
+ * "Add memory decay so old outcomes matter less than recent
+ * outcomes."
+ */
+export async function decayMemory(
+  prisma: PrismaClient,
+  opts: { now?: Date } = {},
+): Promise<{ decayed: number; pruned: number }> {
+  const now = opts.now ?? new Date();
+  const rows = await prisma.adminWorkerMemory.findMany({
+    select: {
+      id: true,
+      successCount: true,
+      failureCount: true,
+      lastUsedAt: true,
+      confidence: true,
+    },
+  });
+  let decayed = 0;
+  let pruned = 0;
+  for (const row of rows) {
+    const d = decayedConfidence({
+      successCount: row.successCount,
+      failureCount: row.failureCount,
+      lastUsedAt: row.lastUsedAt,
+      now,
+    });
+    // Prune rows that have completely decayed AND have no
+    // significant signal — they would only add noise to future
+    // confidence calculations.
+    if (d.ageDays > 180 && d.effectiveSuccess + d.effectiveFailure < 0.25) {
+      await prisma.adminWorkerMemory.delete({ where: { id: row.id } }).catch(() => undefined);
+      pruned += 1;
+      continue;
+    }
+    if (d.ageDays > 7) {
+      await prisma.adminWorkerMemory
+        .update({
+          where: { id: row.id },
+          data: {
+            successCount: Math.round(d.effectiveSuccess),
+            failureCount: Math.round(d.effectiveFailure),
+            confidence: d.confidence,
+          },
+        })
+        .catch(() => undefined);
+      decayed += 1;
+    }
+  }
+  return { decayed, pruned };
+}
+
+/**
+ * Audit-view helper: list every memory row with its current decayed
+ * confidence + age, sorted by most-recently-used. Used by the
+ * admin "what the worker learned recently" panel.
+ */
+export async function listMemoryAudit(
+  prisma: PrismaClient,
+  opts: { limit?: number; memoryType?: AdminWorkerMemoryType } = {},
+): Promise<
+  Array<{
+    id: string;
+    memoryType: AdminWorkerMemoryType;
+    memoryKey: string;
+    storedConfidence: number;
+    decayedConfidence: number;
+    successCount: number;
+    failureCount: number;
+    ageDays: number;
+    lastUsedAt: Date | null;
+  }>
+> {
+  const rows = await prisma.adminWorkerMemory.findMany({
+    where: opts.memoryType ? { memoryType: opts.memoryType } : undefined,
+    orderBy: [{ lastUsedAt: "desc" }, { confidence: "desc" }],
+    take: opts.limit ?? 50,
+  });
+  return rows.map((r) => {
+    const d = decayedConfidence({
+      successCount: r.successCount,
+      failureCount: r.failureCount,
+      lastUsedAt: r.lastUsedAt,
+    });
+    return {
+      id: r.id,
+      memoryType: r.memoryType,
+      memoryKey: r.memoryKey,
+      storedConfidence: r.confidence,
+      decayedConfidence: d.confidence,
+      successCount: r.successCount,
+      failureCount: r.failureCount,
+      ageDays: d.ageDays,
+      lastUsedAt: r.lastUsedAt,
+    };
+  });
+}

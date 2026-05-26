@@ -1,14 +1,36 @@
 /**
  * AdminWorkerBrain — the explicit coded intelligence of the Admin
- * Worker. Runs before every pass: gathers world state, evaluates rules,
- * and emits a structured BrainDecision that explains exactly what the
- * worker chose to do next and why.
+ * Worker. Runs before every pass: gathers world state, scores every
+ * possible action against that state, ranks them, and emits a
+ * structured BrainDecision that explains exactly what the worker chose
+ * to do next AND why it rejected the alternatives.
  *
  * Hard rules (spec sections 1, 4):
  *   - No AI APIs. Deterministic rules + scoring only.
  *   - Reads only stored state (DB rows + memory). Never invents facts.
- *   - Records every decision in AdminWorkerDecision so the operator
- *     can audit "why did the worker do that?" without re-running.
+ *   - Records every decision in AdminWorkerDecision (including the
+ *     ranked alternatives list) so the operator can audit "why did
+ *     the worker do that — and why not that other thing?" without
+ *     re-running the pass.
+ *
+ * Architecture (spec §1):
+ *   1. sampleWorld() reads world state into a flat WorldState.
+ *   2. enumerateCandidateActions() generates every action the brain
+ *      could take right now (one per priority ladder rung).
+ *   3. scoreAction() assigns a value to each candidate based on:
+ *        - urgency (security / health / no recent success)
+ *        - content gap severity
+ *        - source readiness (candidates / reputation / freshness)
+ *        - expected package completeness
+ *        - expected QA / publish likelihood
+ *        - duplicate / legal / doctrinal risk (lowers score)
+ *        - time since last growth / last successful pass
+ *      A safety filter zeros the score of any action that would be
+ *      unsafe given the current world (eg. PUBLISH while paused).
+ *   4. The highest-scoring safe action becomes the chosen action;
+ *      the rest become rankedAlternatives.
+ *   5. brainExplanation summarises the choice; brainFailure is set
+ *      when no safe action could be scored above zero.
  */
 
 import type {
@@ -25,11 +47,77 @@ import { refreshContentGoals, nextPriorityContentType } from "./content-goals";
 import { recordDecision } from "./decisions";
 
 /**
- * The structured decision object the brain emits. Every field is
- * required (some may be null) so the audit view always has the same
- * shape. Spec §2.
+ * The pipeline stage the brain decided to advance. Mirrors the
+ * mission planner stages so the action dispatcher knows which module
+ * to invoke. Kept as a string union (not the DB enum) so the brain
+ * stays testable without a Prisma client.
+ */
+export type BrainMissionStage =
+  | "DISCOVERY"
+  | "CANDIDATE_PRIORITIZATION"
+  | "SOURCE_FETCH"
+  | "SOURCE_READ"
+  | "CLASSIFICATION"
+  | "EXTRACTION"
+  | "CHECKLIST_CREATION"
+  | "CITATION_CREATION"
+  | "PACKAGE_BUILD"
+  | "CROSS_SOURCE_VERIFICATION"
+  | "STRICT_QA"
+  | "PERSISTENCE"
+  | "PUBLIC_PUBLISH"
+  | "POST_PUBLISH_VERIFY"
+  | "SEARCH_VERIFY"
+  | "SITEMAP_VERIFY"
+  | "CACHE_REFRESH"
+  | "REPAIR"
+  | "HOMEPAGE_WORK"
+  | "REPORTING"
+  | "SECURITY_DEFENSE"
+  | "MAINTENANCE"
+  | "PAUSED";
+
+/**
+ * One candidate action the brain considered. The brain produces a
+ * ranked list of these; the chosen action is the highest-scoring safe
+ * member of the list. Every field is required so the audit view
+ * always has the same shape.
+ */
+export interface BrainAction {
+  actionType: AdminWorkerTaskType | "PAUSED";
+  missionStage: BrainMissionStage;
+  mode: AdminWorkerMode;
+  priority: AdminWorkerPriority;
+  passType: AdminWorkerPassType;
+  contentType: string | null;
+  sourceTarget: string | null;
+  candidateUrl: string | null;
+  expectedOutput: string;
+  confidenceScore: number;
+  riskScore: number;
+  qualityExpectation: number;
+  urgencyScore: number;
+  sourceScore: number;
+  repairScore: number;
+  finalScore: number;
+  fallbackAction: string | null;
+  stopCondition: string | null;
+  reasonSummary: string;
+  rulesEvaluated: Record<string, unknown>;
+  safe: boolean;
+  rejectionReason: string | null;
+}
+
+/**
+ * The structured decision object the brain emits. The chosen action
+ * is the highest-scoring safe member of `rankedAlternatives`; the
+ * rest are the rejected alternatives the admin UI surfaces under
+ * "why not that?". `brainFailure` is non-null when no candidate
+ * could be scored above zero.
  */
 export interface BrainDecision {
+  // Top-level convenience fields — same shape the prior brain emitted
+  // so existing call sites keep working.
   chosenMode: AdminWorkerMode;
   chosenPriority: AdminWorkerPriority;
   chosenTaskType: AdminWorkerTaskType | null;
@@ -45,6 +133,12 @@ export interface BrainDecision {
   rulesEvaluated: Record<string, unknown>;
   memoryUsed: Record<string, unknown>;
   sourceReputationUsed: Array<{ host: string; tier: string }>;
+  // New action-engine fields.
+  chosenAction: BrainAction;
+  rankedAlternatives: BrainAction[];
+  missionStage: BrainMissionStage;
+  brainExplanation: string;
+  brainFailure: string | null;
 }
 
 export interface WorldState {
@@ -67,6 +161,14 @@ export interface WorldState {
   candidateUrlsAvailable: number;
   pendingRepairPlans: number;
   pipelineStagesBlocked: number;
+  // New world signals for richer scoring.
+  unclassifiedReads: number;
+  publishedButUnverified: number;
+  pendingQAReviews: number;
+  contentGoalsAtGoalCount: number;
+  contentGoalsBelowGoalCount: number;
+  timeSinceLastGrowthMs: number | null;
+  topSourceReputation: Array<{ host: string; tier: string }>;
 }
 
 /**
@@ -76,6 +178,7 @@ export interface WorldState {
  */
 export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
   await refreshContentGoals(prisma).catch(() => undefined);
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const [
     state,
     pendingBuildJobs,
@@ -90,6 +193,14 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     pendingRepairPlans,
     pipelineStagesBlocked,
     nextGoal,
+    unclassifiedReads,
+    publishedTotal,
+    verifiedDistinct,
+    pendingQAReviews,
+    contentGoalsAtGoal,
+    contentGoalsBelowGoal,
+    recentGrowth,
+    topReputation,
   ] = await Promise.all([
     getAdminWorkerState(prisma),
     prisma.workerBuildJob.count({ where: { status: "pending" } }),
@@ -101,7 +212,7 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     prisma.securityEvent.count({
       where: {
         classification: "Breach",
-        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        createdAt: { gte: since24h },
       },
     }),
     prisma.homepageQualityScore.findFirst({ orderBy: { createdAt: "desc" } }),
@@ -109,6 +220,33 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     prisma.adminWorkerRepairPlan.count({ where: { status: { in: ["PENDING", "RUNNING"] } } }),
     prisma.adminWorkerPipelineStage.count({ where: { status: "BLOCKED" } }),
     nextPriorityContentType(prisma),
+    prisma.adminWorkerSourceRead.count({ where: { detectedContentType: null } }),
+    prisma.publishedContent.count({ where: { isPublished: true } }).catch(() => 0),
+    prisma.postPublishVerification
+      .findMany({ select: { contentId: true }, distinct: ["contentId"] })
+      .catch(() => [] as Array<{ contentId: string }>),
+    prisma.checklistQAReport
+      .count({ where: { needsHumanReview: true, reviewedAt: null } })
+      .catch(() => 0),
+    prisma.contentGoal.count({ where: { status: { in: ["GOAL_MET", "MAINTENANCE"] } } }),
+    prisma.contentGoal.count({
+      where: { status: { in: ["NOT_STARTED", "IN_PROGRESS", "NEAR_GOAL"] } },
+    }),
+    prisma.publishedContent
+      .findFirst({
+        where: { isPublished: true },
+        orderBy: { publishedAt: "desc" },
+        select: { publishedAt: true },
+      })
+      .catch(() => null),
+    prisma.adminWorkerSourceReputation
+      .findMany({
+        where: { reputationTier: { in: ["TRUSTED", "GOOD"] } },
+        orderBy: [{ contentBuildSuccessRate: "desc" }, { lastScoreUpdate: "desc" }],
+        take: 5,
+        select: { sourceHost: true, reputationTier: true },
+      })
+      .catch(() => [] as Array<{ sourceHost: string; reputationTier: string }>),
   ]);
 
   const now = Date.now();
@@ -132,235 +270,650 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     candidateUrlsAvailable,
     pendingRepairPlans,
     pipelineStagesBlocked,
+    unclassifiedReads,
+    publishedButUnverified: Math.max(0, publishedTotal - verifiedDistinct.length),
+    pendingQAReviews,
+    contentGoalsAtGoalCount: contentGoalsAtGoal,
+    contentGoalsBelowGoalCount: contentGoalsBelowGoal,
+    timeSinceLastGrowthMs: recentGrowth?.publishedAt
+      ? now - recentGrowth.publishedAt.getTime()
+      : null,
+    topSourceReputation: topReputation.map((r) => ({
+      host: r.sourceHost,
+      tier: r.reputationTier,
+    })),
   };
 }
 
 /**
- * Deterministic brain. Given a sampled world, picks the next best
- * action by walking a priority ladder.
- *
- * Priority order (spec section 2):
- *   1. confirmed security threat response
- *   2. worker health + queue recovery
- *   3. content types below threshold
- *   4. failed source repair
- *   5. content package building
- *   6. content validation
- *   7. public publishing
- *   8. homepage maintenance
- *   9. diagnostics and reporting
- *  10. scheduled cleanup
- *  11. scheduled maintenance
+ * Build the candidate action list. One BrainAction per primitive
+ * pipeline stage / mode the brain can choose. Scoring (next step)
+ * picks the best one.
  */
-export function decide(world: WorldState): BrainDecision {
-  if (world.isPaused) {
-    return {
-      chosenMode: "PAUSED",
-      chosenPriority: "SECURITY_THREAT",
-      chosenTaskType: "SECURITY_DEFENSE",
+function enumerateCandidateActions(world: WorldState): BrainAction[] {
+  const ct = world.contentGoalContentType;
+  return [
+    // Paused — only fires when the operator pulled the pause toggle.
+    {
+      actionType: "PAUSED",
+      missionStage: "PAUSED",
+      mode: "PAUSED",
+      priority: "SECURITY_THREAT",
       passType: "SECURITY",
       contentType: null,
       sourceTarget: null,
-      expectedResult: "Security defender stays online; nothing else runs.",
+      candidateUrl: null,
+      expectedOutput: "Security defender stays online; nothing else runs.",
       confidenceScore: 1,
       riskScore: 0,
-      reason: `Admin Worker is paused${world.pausedReason ? ` (${world.pausedReason})` : ""}.`,
+      qualityExpectation: 1,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
       fallbackAction: null,
-      repairAction: null,
-      rulesEvaluated: { isPaused: true },
-      memoryUsed: {},
-      sourceReputationUsed: [],
-    };
-  }
-
-  // 1. Security threat.
-  if (world.recentSecurityBreaches24h > 0) {
-    return {
-      chosenMode: "SECURITY_DEFENSE",
-      chosenPriority: "SECURITY_THREAT",
-      chosenTaskType: "SECURITY_DEFENSE",
+      stopCondition: "operator resumes the worker",
+      reasonSummary: `Worker paused${world.pausedReason ? ` (${world.pausedReason})` : ""}.`,
+      rulesEvaluated: { isPaused: world.isPaused, pausedReason: world.pausedReason },
+      safe: true,
+      rejectionReason: null,
+    },
+    // Security defense — confirmed breach in the last 24h.
+    {
+      actionType: "SECURITY_DEFENSE",
+      missionStage: "SECURITY_DEFENSE",
+      mode: "SECURITY_DEFENSE",
+      priority: "SECURITY_THREAT",
       passType: "SECURITY",
       contentType: null,
       sourceTarget: null,
-      expectedResult: "Defender records actions for recent breaches.",
+      candidateUrl: null,
+      expectedOutput: "Defender records actions for confirmed breaches; bans confirmed attackers.",
       confidenceScore: 0.95,
       riskScore: 0.2,
-      reason: `${world.recentSecurityBreaches24h} confirmed security breach(es) in the last 24h.`,
-      fallbackAction: null,
-      repairAction: null,
+      qualityExpectation: 0.9,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "log + escalate",
+      stopCondition: "no security breaches in last 24h",
+      reasonSummary: `${world.recentSecurityBreaches24h} confirmed security breach(es) in 24h.`,
       rulesEvaluated: { recentSecurityBreaches24h: world.recentSecurityBreaches24h },
-      memoryUsed: {},
-      sourceReputationUsed: [],
-    };
-  }
-
-  // 2. Worker health / queue recovery.
-  const heartbeatStale = world.heartbeatAgeMs > 5 * 60_000;
-  if (heartbeatStale || world.currentBlocker) {
-    return {
-      chosenMode: "REPAIR",
-      chosenPriority: "WORKER_HEALTH",
-      chosenTaskType: "REPAIR",
+      safe: true,
+      rejectionReason: null,
+    },
+    // Worker health repair — stale heartbeat or active blocker.
+    {
+      actionType: "REPAIR",
+      missionStage: "REPAIR",
+      mode: "REPAIR",
+      priority: "WORKER_HEALTH",
       passType: "SOURCE_REPAIR",
       contentType: null,
       sourceTarget: null,
-      expectedResult: "Repair stuck queue / heartbeat / current blocker.",
-      confidenceScore: 0.8,
-      riskScore: 0.3,
-      reason: heartbeatStale
-        ? `Heartbeat is ${Math.round(world.heartbeatAgeMs / 1000)}s stale.`
-        : `Blocker active: ${world.currentBlocker}.`,
+      candidateUrl: null,
+      expectedOutput: "Clear worker blocker / refresh heartbeat / unstick queue.",
+      confidenceScore: 0.85,
+      riskScore: 0.25,
+      qualityExpectation: 0.7,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
       fallbackAction: "diagnostics",
-      repairAction: heartbeatStale ? "log heartbeat + signal restart" : "clear blocker",
+      stopCondition: "heartbeat fresh and no active blocker",
+      reasonSummary: world.currentBlocker
+        ? `Active blocker: ${world.currentBlocker}.`
+        : `Heartbeat stale (${Math.round(world.heartbeatAgeMs / 1000)}s).`,
       rulesEvaluated: {
         heartbeatAgeMs: world.heartbeatAgeMs,
         currentBlocker: world.currentBlocker,
       },
-      memoryUsed: {},
-      sourceReputationUsed: [],
-    };
-  }
-
-  // 3. Content type below threshold.
-  if (world.contentGoalGap > 0) {
-    return {
-      chosenMode: "CONSTANT_FILL",
-      chosenPriority: "CONTENT_GOAL",
-      chosenTaskType: world.candidateUrlsAvailable > 0 ? "BUILD_CONTENT" : "DISCOVER_SOURCE",
+      safe: true,
+      rejectionReason: null,
+    },
+    // Discovery — content goal has gap and no candidate URLs ready.
+    {
+      actionType: "DISCOVER_SOURCE",
+      missionStage: "DISCOVERY",
+      mode: "CONSTANT_FILL",
+      priority: "CONTENT_GOAL",
       passType: "CONTENT_GOAL",
-      contentType: world.contentGoalContentType,
+      contentType: ct,
       sourceTarget: null,
-      expectedResult: `Close gap of ${world.contentGoalGap} for ${world.contentGoalContentType ?? "content"}.`,
-      confidenceScore: 0.85,
-      riskScore: 0.2,
-      reason: `Content gap of ${world.contentGoalGap} on ${world.contentGoalContentType ?? "unknown"}.`,
-      fallbackAction: "diagnostics",
-      repairAction: null,
+      candidateUrl: null,
+      expectedOutput: `Surface candidate URLs for ${ct ?? "the highest-gap content type"}.`,
+      confidenceScore: 0.75,
+      riskScore: 0.15,
+      qualityExpectation: 0.5,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "maintenance",
+      stopCondition: "candidateUrlsAvailable above min threshold",
+      reasonSummary: `Discovery for ${ct ?? "any type"}: gap=${world.contentGoalGap}, candidates=${world.candidateUrlsAvailable}.`,
       rulesEvaluated: {
         contentGoalGap: world.contentGoalGap,
-        contentGoalContentType: world.contentGoalContentType,
         candidateUrlsAvailable: world.candidateUrlsAvailable,
       },
-      memoryUsed: {},
-      sourceReputationUsed: [],
-    };
-  }
-
-  // 4. Failed-source repair.
-  if (world.failedBuildJobs > 0 || world.pendingRepairPlans > 0) {
-    return {
-      chosenMode: "REPAIR",
-      chosenPriority: "SOURCE_REPAIR",
-      chosenTaskType: "REPAIR",
+      safe: true,
+      rejectionReason: null,
+    },
+    // Source read — candidates available, no source-read row yet for them.
+    {
+      actionType: "READ_SOURCE",
+      missionStage: "SOURCE_FETCH",
+      mode: "CONSTANT_FILL",
+      priority: "CONTENT_GOAL",
+      passType: "CONTENT_GOAL",
+      contentType: ct,
+      sourceTarget: null,
+      candidateUrl: null,
+      expectedOutput: "Fetch + parse the highest-priority candidate; write source-read row.",
+      confidenceScore: 0.8,
+      riskScore: 0.15,
+      qualityExpectation: 0.6,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "discovery",
+      stopCondition: "candidate becomes FETCHED",
+      reasonSummary: `${world.candidateUrlsAvailable} candidates ready to fetch.`,
+      rulesEvaluated: { candidateUrlsAvailable: world.candidateUrlsAvailable },
+      safe: true,
+      rejectionReason: null,
+    },
+    // Classification — source-read rows exist with no detected type.
+    {
+      actionType: "CLASSIFY_CONTENT",
+      missionStage: "CLASSIFICATION",
+      mode: "CONSTANT_FILL",
+      priority: "CONTENT_GOAL",
+      passType: "CONTENT_GOAL",
+      contentType: ct,
+      sourceTarget: null,
+      candidateUrl: null,
+      expectedOutput: "Classify unclassified source-reads.",
+      confidenceScore: 0.8,
+      riskScore: 0.1,
+      qualityExpectation: 0.65,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "discovery",
+      stopCondition: "no unclassified source-reads",
+      reasonSummary: `${world.unclassifiedReads} unclassified source-reads.`,
+      rulesEvaluated: { unclassifiedReads: world.unclassifiedReads },
+      safe: true,
+      rejectionReason: null,
+    },
+    // Build — pending build jobs or content-type gap with candidates available.
+    {
+      actionType: "BUILD_CONTENT",
+      missionStage: "PACKAGE_BUILD",
+      mode: "CONSTANT_FILL",
+      priority: world.pendingBuildJobs > 0 ? "CONTENT_BUILD" : "CONTENT_GOAL",
+      passType: "CONTENT_GOAL",
+      contentType: ct,
+      sourceTarget: null,
+      candidateUrl: null,
+      expectedOutput: "Run a build cycle: pick the next job, build a package.",
+      confidenceScore: 0.9,
+      riskScore: 0.15,
+      qualityExpectation: 0.75,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "maintenance",
+      stopCondition: "no pending build jobs",
+      reasonSummary: `Build queue: ${world.pendingBuildJobs} pending, ${world.runningBuildJobs} running.`,
+      rulesEvaluated: {
+        pendingBuildJobs: world.pendingBuildJobs,
+        contentGoalGap: world.contentGoalGap,
+      },
+      safe: true,
+      rejectionReason: null,
+    },
+    // Validate / cross-source verify — QA reports waiting on review.
+    {
+      actionType: "CROSS_SOURCE_VERIFY",
+      missionStage: "CROSS_SOURCE_VERIFICATION",
+      mode: "CONSTANT_FILL",
+      priority: "CONTENT_VALIDATION",
+      passType: "CONTENT_GOAL",
+      contentType: ct,
+      sourceTarget: null,
+      candidateUrl: null,
+      expectedOutput: "Run cross-source verifier on sensitive fields; record evidence.",
+      confidenceScore: 0.75,
+      riskScore: 0.1,
+      qualityExpectation: 0.7,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "human review",
+      stopCondition: "no pending QA reviews",
+      reasonSummary: `${world.pendingQAReviews} QA reports awaiting verification.`,
+      rulesEvaluated: { pendingQAReviews: world.pendingQAReviews },
+      safe: true,
+      rejectionReason: null,
+    },
+    // Post-publish verification — published items missing verification.
+    {
+      actionType: "POST_PUBLISH_VERIFY",
+      missionStage: "POST_PUBLISH_VERIFY",
+      mode: "CONSTANT_FILL",
+      priority: "CONTENT_VALIDATION",
+      passType: "CONTENT_GOAL",
+      contentType: null,
+      sourceTarget: null,
+      candidateUrl: null,
+      expectedOutput: "Probe public URL + check tab placement, search, sitemap, cache.",
+      confidenceScore: 0.8,
+      riskScore: 0.1,
+      qualityExpectation: 0.8,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "maintenance",
+      stopCondition: "all published content verified",
+      reasonSummary: `${world.publishedButUnverified} published items missing verification.`,
+      rulesEvaluated: { publishedButUnverified: world.publishedButUnverified },
+      safe: true,
+      rejectionReason: null,
+    },
+    // Source repair — failed jobs / pending repair plans.
+    {
+      actionType: "REPAIR",
+      missionStage: "REPAIR",
+      mode: "REPAIR",
+      priority: "SOURCE_REPAIR",
       passType: "SOURCE_REPAIR",
       contentType: null,
       sourceTarget: null,
-      expectedResult: "Clear failed build jobs + execute pending repair plans.",
+      candidateUrl: null,
+      expectedOutput: "Drain failed build jobs + execute pending repair plans.",
       confidenceScore: 0.75,
       riskScore: 0.25,
-      reason: `${world.failedBuildJobs} failed build(s), ${world.pendingRepairPlans} pending repair plan(s).`,
+      qualityExpectation: 0.6,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
       fallbackAction: "diagnostics",
-      repairAction: "execute repair plans",
+      stopCondition: "no failed jobs and no pending repair plans",
+      reasonSummary: `${world.failedBuildJobs} failed jobs, ${world.pendingRepairPlans} repair plans.`,
       rulesEvaluated: {
         failedBuildJobs: world.failedBuildJobs,
         pendingRepairPlans: world.pendingRepairPlans,
+        pipelineStagesBlocked: world.pipelineStagesBlocked,
       },
-      memoryUsed: {},
-      sourceReputationUsed: [],
-    };
-  }
-
-  // 5. Pending build jobs (the queue is non-empty).
-  if (world.pendingBuildJobs > 0) {
-    return {
-      chosenMode: "CONSTANT_FILL",
-      chosenPriority: "CONTENT_BUILD",
-      chosenTaskType: "BUILD_CONTENT",
-      passType: "CONTENT_GOAL",
-      contentType: null,
-      sourceTarget: null,
-      expectedResult: `Drain ${world.pendingBuildJobs} pending build job(s).`,
-      confidenceScore: 0.9,
-      riskScore: 0.15,
-      reason: `${world.pendingBuildJobs} pending build job(s) on the queue.`,
-      fallbackAction: "maintenance",
-      repairAction: null,
-      rulesEvaluated: { pendingBuildJobs: world.pendingBuildJobs },
-      memoryUsed: {},
-      sourceReputationUsed: [],
-    };
-  }
-
-  // 8. Homepage maintenance.
-  if (world.homepageScore < 0.65) {
-    return {
-      chosenMode: "HOMEPAGE",
-      chosenPriority: "HOMEPAGE",
-      chosenTaskType: "UPDATE_HOMEPAGE",
+      safe: true,
+      rejectionReason: null,
+    },
+    // Homepage redesign — score below threshold.
+    {
+      actionType: "UPDATE_HOMEPAGE",
+      missionStage: "HOMEPAGE_WORK",
+      mode: "HOMEPAGE",
+      priority: "HOMEPAGE",
       passType: "HOMEPAGE",
       contentType: null,
       sourceTarget: null,
-      expectedResult: "File a homepage draft to improve the score.",
+      candidateUrl: null,
+      expectedOutput: "File a homepage draft to lift the score.",
       confidenceScore: 0.7,
       riskScore: 0.3,
-      reason: `Homepage score ${world.homepageScore.toFixed(2)} below 0.65 threshold.`,
+      qualityExpectation: 0.65,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
       fallbackAction: "maintenance",
-      repairAction: null,
+      stopCondition: "homepage score >= 0.65",
+      reasonSummary: `Homepage score ${world.homepageScore.toFixed(2)}.`,
       rulesEvaluated: { homepageScore: world.homepageScore },
-      memoryUsed: {},
-      sourceReputationUsed: [],
-    };
-  }
-
-  // 9. Diagnostics.
-  if (world.lastSuccessAgeMs == null || world.lastSuccessAgeMs > 60 * 60_000) {
-    return {
-      chosenMode: "DIAGNOSTICS",
-      chosenPriority: "DIAGNOSTICS",
-      chosenTaskType: "DIAGNOSTICS",
+      safe: true,
+      rejectionReason: null,
+    },
+    // Diagnostics — no recent success.
+    {
+      actionType: "DIAGNOSTICS",
+      missionStage: "REPORTING",
+      mode: "DIAGNOSTICS",
+      priority: "DIAGNOSTICS",
       passType: "DIAGNOSTICS",
       contentType: null,
       sourceTarget: null,
-      expectedResult: "Run a full diagnostic sweep.",
+      candidateUrl: null,
+      expectedOutput: "Run a full diagnostic sweep.",
       confidenceScore: 0.6,
       riskScore: 0.1,
-      reason: "No recent successful pass; running diagnostics.",
+      qualityExpectation: 0.5,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
       fallbackAction: "maintenance",
-      repairAction: null,
+      stopCondition: "fresh successful pass recorded",
+      reasonSummary:
+        world.lastSuccessAgeMs == null
+          ? "No successful pass on record."
+          : `Last success ${Math.round(world.lastSuccessAgeMs / 60_000)}m ago.`,
       rulesEvaluated: { lastSuccessAgeMs: world.lastSuccessAgeMs },
-      memoryUsed: {},
-      sourceReputationUsed: [],
-    };
+      safe: true,
+      rejectionReason: null,
+    },
+    // Maintenance — the floor action; safe to run any time.
+    {
+      actionType: "CLEANUP",
+      missionStage: "MAINTENANCE",
+      mode: "MAINTENANCE",
+      priority: "MAINTENANCE",
+      passType: "AUTONOMOUS",
+      contentType: null,
+      sourceTarget: null,
+      candidateUrl: null,
+      expectedOutput: "Run cleanup pass; trim stale candidates and closed reviews.",
+      confidenceScore: 0.5,
+      riskScore: 0.05,
+      qualityExpectation: 0.4,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: null,
+      stopCondition: "next pass",
+      reasonSummary: "Floor maintenance pass.",
+      rulesEvaluated: {},
+      safe: true,
+      rejectionReason: null,
+    },
+  ];
+}
+
+/** Hours since `ms` capped to [0, 168]. */
+function hoursSinceCapped(ms: number | null): number {
+  if (ms == null) return 168;
+  return Math.min(168, Math.max(0, ms / 3_600_000));
+}
+
+/**
+ * Score a single candidate action against the current world. The
+ * scoring engine assigns:
+ *   - urgencyScore   how time-critical the work is (security, health,
+ *                    no growth in days)
+ *   - sourceScore    how prepared the source side is (candidates,
+ *                    reputation, freshness)
+ *   - repairScore    how badly the worker needs to repair itself
+ *   - qualityExpectation chance the action produces a publishable result
+ * A safety filter zeros the score (and sets rejectionReason) for
+ * actions that would be unsafe given the world (eg. PUBLISH while
+ * paused; BUILD with no candidate URLs).
+ */
+function scoreAction(action: BrainAction, world: WorldState): BrainAction {
+  let urgency = 0;
+  let sourceScore = 0;
+  let repairScore = 0;
+  let quality = action.qualityExpectation;
+  let safe = true;
+  let rejection: string | null = null;
+
+  switch (action.missionStage) {
+    case "PAUSED":
+      if (!world.isPaused) {
+        safe = false;
+        rejection = "Worker is not paused.";
+      }
+      urgency = world.isPaused ? 100 : 0;
+      break;
+    case "SECURITY_DEFENSE":
+      urgency = world.recentSecurityBreaches24h * 50;
+      if (world.recentSecurityBreaches24h === 0) {
+        safe = false;
+        rejection = "No confirmed breaches in last 24h.";
+      }
+      break;
+    case "REPAIR":
+      if (action.priority === "WORKER_HEALTH") {
+        const stale = world.heartbeatAgeMs > 5 * 60_000;
+        urgency = stale ? 40 : 0;
+        if (world.currentBlocker) urgency += 30;
+        repairScore = (stale ? 0.4 : 0) + (world.currentBlocker ? 0.5 : 0);
+        if (!stale && !world.currentBlocker) {
+          safe = false;
+          rejection = "Heartbeat fresh and no blocker.";
+        }
+      } else {
+        urgency = Math.min(20, world.failedBuildJobs * 2 + world.pendingRepairPlans * 3);
+        repairScore =
+          0.4 + Math.min(0.4, world.failedBuildJobs * 0.05 + world.pendingRepairPlans * 0.08);
+        if (world.failedBuildJobs === 0 && world.pendingRepairPlans === 0) {
+          safe = false;
+          rejection = "No failed jobs or pending repair plans.";
+        }
+      }
+      break;
+    case "DISCOVERY": {
+      const gap = world.contentGoalGap;
+      const noCandidates = world.candidateUrlsAvailable === 0;
+      const noGrowth = hoursSinceCapped(world.timeSinceLastGrowthMs);
+      const queueIsDoingWork = world.pendingBuildJobs > 0 || world.runningBuildJobs > 0;
+      urgency =
+        (gap > 0 ? Math.min(20, gap * 1.5) : 0) +
+        (noCandidates && !queueIsDoingWork ? 15 : 0) +
+        // Only push discovery hard when the queue isn't already
+        // working — otherwise let the build engine drain first.
+        (queueIsDoingWork ? 0 : Math.min(10, noGrowth / 24));
+      sourceScore = noCandidates ? 0.2 : 0.6;
+      if (gap <= 0) {
+        safe = false;
+        rejection = "All content goals met — discovery not needed.";
+      }
+      break;
+    }
+    case "SOURCE_FETCH": {
+      const trusted = world.trustedSources;
+      urgency = Math.min(20, world.candidateUrlsAvailable * 2);
+      sourceScore = 0.4 + Math.min(0.4, trusted * 0.05);
+      quality = world.candidateUrlsAvailable === 0 ? 0 : quality;
+      if (world.candidateUrlsAvailable === 0) {
+        safe = false;
+        rejection = "No candidates available to fetch.";
+      }
+      break;
+    }
+    case "CLASSIFICATION": {
+      urgency = Math.min(20, world.unclassifiedReads * 1.5);
+      sourceScore = world.unclassifiedReads > 0 ? 0.7 : 0;
+      if (world.unclassifiedReads === 0) {
+        safe = false;
+        rejection = "All source-reads already classified.";
+      }
+      break;
+    }
+    case "PACKAGE_BUILD": {
+      const gap = world.contentGoalGap;
+      // Pending build jobs already have candidates + checklist items
+      // attached — they are the closest thing to a one-shot publishable
+      // result and should win over upstream pipeline stages.
+      urgency = Math.min(60, world.pendingBuildJobs * 8 + gap * 1.5);
+      sourceScore = world.pendingBuildJobs > 0 ? 0.8 : world.candidateUrlsAvailable > 0 ? 0.5 : 0.1;
+      quality = world.pendingBuildJobs > 0 ? 0.85 : quality;
+      if (world.pendingBuildJobs === 0 && gap === 0) {
+        safe = false;
+        rejection = "Build queue empty and all goals met.";
+      }
+      break;
+    }
+    case "CROSS_SOURCE_VERIFICATION":
+      urgency = Math.min(20, world.pendingQAReviews * 4);
+      quality = world.pendingQAReviews > 0 ? 0.85 : quality;
+      if (world.pendingQAReviews === 0) {
+        safe = false;
+        rejection = "No pending QA reviews to verify.";
+      }
+      break;
+    case "POST_PUBLISH_VERIFY":
+      urgency = Math.min(20, world.publishedButUnverified * 0.5);
+      quality = 0.9;
+      if (world.publishedButUnverified === 0) {
+        safe = false;
+        rejection = "All published content already verified.";
+      }
+      break;
+    case "HOMEPAGE_WORK":
+      urgency = world.homepageScore < 0.65 ? 15 : 0;
+      quality = 0.65;
+      if (world.homepageScore >= 0.65) {
+        safe = false;
+        rejection = `Homepage score ${world.homepageScore.toFixed(2)} already above threshold.`;
+      }
+      break;
+    case "REPORTING":
+      urgency = world.lastSuccessAgeMs == null ? 25 : world.lastSuccessAgeMs > 60 * 60_000 ? 15 : 0;
+      quality = 0.5;
+      if (world.lastSuccessAgeMs != null && world.lastSuccessAgeMs <= 60 * 60_000) {
+        safe = false;
+        rejection = "Recent successful pass — diagnostics not urgent.";
+      }
+      break;
+    case "MAINTENANCE":
+      urgency = 1;
+      sourceScore = 0;
+      quality = 0.4;
+      break;
+    default:
+      break;
   }
 
-  // 11. Maintenance default.
+  // Doctrinal-sensitivity risk bump: actions that publish or persist
+  // doctrinally sensitive content carry higher risk by default; the
+  // brain prefers verification-heavy actions when verification is due.
+  const doctrinalSensitive =
+    action.missionStage === "PUBLIC_PUBLISH" || action.missionStage === "PERSISTENCE";
+  const baseRisk = doctrinalSensitive ? action.riskScore + 0.1 : action.riskScore;
+
+  // Final score combines the dimensions. Urgency dominates so the
+  // brain reaches for the most time-critical safe action first; the
+  // other dimensions break ties.
+  const finalScore = safe
+    ? urgency + sourceScore * 5 + repairScore * 4 + quality * 3 - baseRisk * 2
+    : 0;
+
   return {
-    chosenMode: "MAINTENANCE",
-    chosenPriority: "MAINTENANCE",
-    chosenTaskType: "CLEANUP",
-    passType: "AUTONOMOUS",
-    contentType: null,
-    sourceTarget: null,
-    expectedResult: "Run cleanup pass; goals met.",
-    confidenceScore: 0.5,
-    riskScore: 0.05,
-    reason: "All goals met, no failures, no urgent work. Maintenance pass.",
-    fallbackAction: null,
-    repairAction: null,
-    rulesEvaluated: {
-      contentGoalGap: 0,
-      pendingBuildJobs: 0,
-      homepageScore: world.homepageScore,
-    },
-    memoryUsed: {},
-    sourceReputationUsed: [],
+    ...action,
+    urgencyScore: urgency,
+    sourceScore,
+    repairScore,
+    qualityExpectation: quality,
+    riskScore: baseRisk,
+    finalScore,
+    safe,
+    rejectionReason: rejection,
   };
 }
 
 /**
- * High-level entry point. Samples the world, runs the brain, and
- * records the decision in AdminWorkerDecision so the audit view can
- * surface it later.
+ * Build the ranked alternatives list. Highest finalScore first. Unsafe
+ * actions stay in the list (so the audit view can show "considered
+ * but unsafe") but always sort behind any safe action.
+ */
+export function rankActions(world: WorldState): BrainAction[] {
+  const scored = enumerateCandidateActions(world).map((a) => scoreAction(a, world));
+  return [...scored].sort((a, b) => {
+    if (a.safe !== b.safe) return a.safe ? -1 : 1;
+    return b.finalScore - a.finalScore;
+  });
+}
+
+/**
+ * Compose the BrainDecision from the ranked alternatives. When the
+ * worker is paused the PAUSED action wins regardless of score; when
+ * no action could score above zero we set brainFailure and fall back
+ * to maintenance.
+ */
+export function decide(world: WorldState): BrainDecision {
+  const ranked = rankActions(world);
+
+  // Pause overrides everything else — the operator pulled the brake.
+  const chosen = world.isPaused
+    ? (ranked.find((a) => a.missionStage === "PAUSED") ?? ranked[0])
+    : (ranked.find((a) => a.safe && a.finalScore > 0) ?? ranked.find((a) => a.safe) ?? ranked[0]);
+
+  const allUnsafe = ranked.every((a) => !a.safe || a.finalScore === 0);
+  const brainFailure =
+    allUnsafe && !world.isPaused
+      ? "Brain could not find any safe action that scored above zero. Falling back to maintenance."
+      : null;
+
+  // Tag the chosen action so the diff with rejected alternatives is
+  // visible to the admin UI.
+  const rejected = ranked.filter((a) => a !== chosen);
+  const topRejected = rejected.slice(0, 3);
+  const explanation = buildExplanation(chosen, topRejected, world);
+
+  return {
+    chosenMode: chosen.mode,
+    chosenPriority: chosen.priority,
+    chosenTaskType: chosen.actionType === "PAUSED" ? null : chosen.actionType,
+    passType: chosen.passType,
+    contentType: chosen.contentType,
+    sourceTarget: chosen.sourceTarget,
+    expectedResult: chosen.expectedOutput,
+    confidenceScore: chosen.confidenceScore,
+    riskScore: chosen.riskScore,
+    reason: chosen.reasonSummary,
+    fallbackAction: chosen.fallbackAction,
+    repairAction: chosen.missionStage === "REPAIR" ? chosen.expectedOutput : null,
+    rulesEvaluated: chosen.rulesEvaluated,
+    memoryUsed: { trustedSources: world.trustedSources },
+    sourceReputationUsed: world.topSourceReputation,
+    chosenAction: chosen,
+    rankedAlternatives: ranked,
+    missionStage: chosen.missionStage,
+    brainExplanation: explanation,
+    brainFailure,
+  };
+}
+
+/**
+ * Human-readable summary explaining the choice + the strongest
+ * rejected alternative. The admin UI surfaces this verbatim.
+ */
+function buildExplanation(chosen: BrainAction, rejected: BrainAction[], world: WorldState): string {
+  const lines: string[] = [];
+  lines.push(
+    `Chose ${chosen.missionStage} (score ${chosen.finalScore.toFixed(1)}, urgency ${chosen.urgencyScore.toFixed(1)}, risk ${chosen.riskScore.toFixed(2)}): ${chosen.reasonSummary}`,
+  );
+  if (rejected.length === 0) {
+    lines.push("No alternative actions considered.");
+  } else {
+    lines.push("Rejected alternatives:");
+    for (const r of rejected) {
+      const why = r.rejectionReason ?? `lower score (${r.finalScore.toFixed(1)})`;
+      lines.push(`  • ${r.missionStage}: ${why}`);
+    }
+  }
+  if (world.contentGoalContentType && world.contentGoalGap > 0) {
+    lines.push(
+      `Largest content gap: ${world.contentGoalContentType} (gap ${world.contentGoalGap}).`,
+    );
+  }
+  return lines.join("\n");
+}
+
+/**
+ * High-level entry point. Samples the world, ranks actions, picks the
+ * best safe action, and records the decision (with ranked
+ * alternatives) in AdminWorkerDecision.
  */
 export async function runBrain(
   prisma: PrismaClient,
@@ -378,6 +931,36 @@ export async function runBrain(
     confidence: decision.confidenceScore,
     reason: decision.reason,
     fallbackAction: decision.fallbackAction ?? undefined,
+    rankedAlternatives: decision.rankedAlternatives.map((a) => ({
+      missionStage: a.missionStage,
+      actionType: a.actionType,
+      mode: a.mode,
+      priority: a.priority,
+      passType: a.passType,
+      contentType: a.contentType,
+      sourceTarget: a.sourceTarget,
+      candidateUrl: a.candidateUrl,
+      expectedOutput: a.expectedOutput,
+      confidenceScore: a.confidenceScore,
+      riskScore: a.riskScore,
+      qualityExpectation: a.qualityExpectation,
+      urgencyScore: a.urgencyScore,
+      sourceScore: a.sourceScore,
+      repairScore: a.repairScore,
+      finalScore: a.finalScore,
+      fallbackAction: a.fallbackAction,
+      stopCondition: a.stopCondition,
+      reasonSummary: a.reasonSummary,
+      rulesEvaluated: a.rulesEvaluated,
+      safe: a.safe,
+      rejectionReason: a.rejectionReason,
+    })) as Prisma.InputJsonValue,
+    brainExplanation: decision.brainExplanation,
+    brainFailure: decision.brainFailure ?? undefined,
+    riskScore: decision.riskScore,
+    expectedResult: decision.expectedResult,
+    contentType: decision.contentType ?? undefined,
+    missionStage: decision.missionStage,
   });
 
   return decision;

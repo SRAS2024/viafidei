@@ -50,6 +50,12 @@ export default async function AdminWorkerPage() {
     readiness,
     recentBrainDecision,
     mission,
+    growthSnapshots,
+    coverageRows,
+    pipelineCounts,
+    rejectedCandidates,
+    recentMemory,
+    recentRepairs,
   ] = await Promise.all([
     getAdminWorkerState(prisma),
     runAdminWorkerDiagnostics(prisma),
@@ -65,6 +71,70 @@ export default async function AdminWorkerPage() {
       orderBy: { createdAt: "desc" },
     }),
     planMission(prisma).catch(() => null),
+    // spec §22: latest growth snapshot per content type
+    prisma.adminWorkerGrowthSnapshot
+      .findMany({
+        distinct: ["contentType"],
+        orderBy: { createdAt: "desc" },
+        take: 15,
+      })
+      .catch(() => []),
+    // spec §23: source coverage scorecard
+    prisma.adminWorkerSourceCoverage
+      .findMany({ orderBy: [{ blockedByCoverage: "desc" }, { coverageScore: "asc" }] })
+      .catch(() => []),
+    // spec §3: pipeline-stage snapshot for the diagnostics card
+    import("@/lib/admin-worker/pipeline-stages").then(({ pipelineSnapshot }) =>
+      pipelineSnapshot(prisma).catch(() => []),
+    ),
+    // spec §5: rejected candidates surfacing the rejection pattern
+    prisma.candidateSourceUrl
+      .findMany({
+        where: { status: "REJECTED" },
+        orderBy: { updatedAt: "desc" },
+        take: 15,
+        select: {
+          id: true,
+          discoveredUrl: true,
+          sourceHost: true,
+          rejectionReason: true,
+          rejectionPattern: true,
+          junkRisk: true,
+          duplicateRisk: true,
+        },
+      })
+      .catch(() => []),
+    // spec §18: what the worker learned recently
+    prisma.adminWorkerMemory
+      .findMany({
+        orderBy: [{ lastUsedAt: "desc" }, { confidence: "desc" }],
+        take: 15,
+        select: {
+          memoryType: true,
+          memoryKey: true,
+          confidence: true,
+          successCount: true,
+          failureCount: true,
+          lastUsedAt: true,
+        },
+      })
+      .catch(() => []),
+    // spec §18: latest repair plans (what's broken + being fixed)
+    prisma.adminWorkerRepairPlan
+      .findMany({
+        orderBy: { updatedAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          kind: true,
+          status: true,
+          attempts: true,
+          maxAttempts: true,
+          finalResult: true,
+          updatedAt: true,
+        },
+      })
+      .catch(() => []),
   ]);
 
   const summary = summarizeRatings(ratings);
@@ -168,6 +238,9 @@ export default async function AdminWorkerPage() {
           <div className="mt-3 flex flex-wrap gap-3 text-xs">
             <Link className="text-indigo-600 underline" href="/admin/admin-worker/logs">
               Admin Worker logs
+            </Link>
+            <Link className="text-indigo-600 underline" href="/admin/admin-worker/pipeline">
+              Pipeline map
             </Link>
             <Link className="text-indigo-600 underline" href="/admin/admin-worker/rules">
               Rule catalogue
@@ -281,24 +354,52 @@ export default async function AdminWorkerPage() {
           </div>
         </article>
 
-        {/* Brain "why" view (spec §2). Shows the most recent
-            AdminWorkerDecision so the operator can audit what the
-            brain chose, on what input, and at what confidence. */}
-        <article className="rounded border bg-white p-4 shadow-sm">
+        {/* Brain "why" view (spec §1 + §2). Shows the most recent
+            AdminWorkerDecision plus the ranked alternatives the brain
+            considered, so the operator can audit:
+              - what the worker chose
+              - why it chose that
+              - what it rejected and why (next-best alternatives)
+              - whether the brain failed to find a safe action  */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
           <h2 className="font-display text-xl text-ink">Last brain decision</h2>
           {recentBrainDecision ? (
-            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
-              <dt className="text-ink-soft">When</dt>
-              <dd className="font-mono">{recentBrainDecision.createdAt.toISOString()}</dd>
-              <dt className="text-ink-soft">Chosen action</dt>
-              <dd className="font-mono">{recentBrainDecision.chosenAction}</dd>
-              <dt className="text-ink-soft">Confidence</dt>
-              <dd className="font-mono">{recentBrainDecision.confidence.toFixed(2)}</dd>
-              <dt className="text-ink-soft">Reason</dt>
-              <dd className="font-serif">{recentBrainDecision.reason ?? "—"}</dd>
-              <dt className="text-ink-soft">Fallback</dt>
-              <dd className="font-mono">{recentBrainDecision.fallbackAction ?? "—"}</dd>
-            </dl>
+            <>
+              <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm md:grid-cols-4">
+                <dt className="text-ink-soft">When</dt>
+                <dd className="font-mono">
+                  {recentBrainDecision.createdAt.toISOString().slice(0, 19)}
+                </dd>
+                <dt className="text-ink-soft">Mission stage</dt>
+                <dd className="font-mono">{recentBrainDecision.missionStage ?? "—"}</dd>
+                <dt className="text-ink-soft">Chosen action</dt>
+                <dd className="font-mono">{recentBrainDecision.chosenAction}</dd>
+                <dt className="text-ink-soft">Confidence</dt>
+                <dd className="font-mono">{recentBrainDecision.confidence.toFixed(2)}</dd>
+                <dt className="text-ink-soft">Risk</dt>
+                <dd className="font-mono">{recentBrainDecision.riskScore.toFixed(2)}</dd>
+                <dt className="text-ink-soft">Content type</dt>
+                <dd className="font-mono">{recentBrainDecision.contentType ?? "—"}</dd>
+                <dt className="text-ink-soft">Fallback</dt>
+                <dd className="font-mono">{recentBrainDecision.fallbackAction ?? "—"}</dd>
+                <dt className="text-ink-soft">Expected result</dt>
+                <dd className="font-serif">{recentBrainDecision.expectedResult ?? "—"}</dd>
+                <dt className="text-ink-soft md:col-span-1">Reason</dt>
+                <dd className="font-serif md:col-span-3">{recentBrainDecision.reason ?? "—"}</dd>
+              </dl>
+              {recentBrainDecision.brainExplanation && (
+                <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded bg-slate-50 p-3 text-xs font-mono text-ink-soft">
+                  {recentBrainDecision.brainExplanation}
+                </pre>
+              )}
+              {recentBrainDecision.brainFailure && (
+                <p className="mt-3 rounded border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-serif text-rose-900">
+                  <span className="font-semibold">Brain failure:</span>{" "}
+                  {recentBrainDecision.brainFailure}
+                </p>
+              )}
+              <RankedAlternatives raw={recentBrainDecision.rankedAlternatives} />
+            </>
           ) : (
             <p className="mt-2 text-sm text-ink-soft">
               No brain decisions recorded yet. The first pass will populate this card.
@@ -330,6 +431,284 @@ export default async function AdminWorkerPage() {
             <p className="mt-2 text-sm text-ink-soft">
               Mission planner unavailable. Run a worker pass to populate.
             </p>
+          )}
+        </article>
+
+        {/* What the worker will do next (spec §18). Drawn from the
+            most recent brain decision — surfaces mission stage,
+            content type, target source, expected output. */}
+        <article className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">What the worker will do next</h2>
+          {recentBrainDecision ? (
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+              <dt className="text-ink-soft">Mission stage</dt>
+              <dd className="font-mono">{recentBrainDecision.missionStage ?? "—"}</dd>
+              <dt className="text-ink-soft">Action</dt>
+              <dd className="font-mono">{recentBrainDecision.chosenAction}</dd>
+              <dt className="text-ink-soft">Content type</dt>
+              <dd className="font-mono">{recentBrainDecision.contentType ?? "—"}</dd>
+              <dt className="text-ink-soft">Confidence</dt>
+              <dd className="font-mono">{recentBrainDecision.confidence.toFixed(2)}</dd>
+              <dt className="text-ink-soft">Expected</dt>
+              <dd className="font-serif">{recentBrainDecision.expectedResult ?? "—"}</dd>
+              <dt className="text-ink-soft">Fallback</dt>
+              <dd className="font-mono">{recentBrainDecision.fallbackAction ?? "—"}</dd>
+            </dl>
+          ) : (
+            <p className="mt-2 text-sm text-ink-soft">Run a pass to populate.</p>
+          )}
+        </article>
+
+        {/* What the worker learned recently (spec §18). Top 15 most-
+            recently-used memory rows. */}
+        <article className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">What the worker learned recently</h2>
+          {recentMemory.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No memory rows yet. The worker writes one per outcome (source success/failure,
+              extractor outcome, URL pattern, repair outcome).
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Type</th>
+                  <th>Key</th>
+                  <th className="text-right">Confidence</th>
+                  <th className="text-right">✓ / ✕</th>
+                  <th>Last used</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentMemory.map((m) => (
+                  <tr key={`${m.memoryType}|${m.memoryKey}`} className="border-t">
+                    <td className="py-1 font-mono">{m.memoryType}</td>
+                    <td className="py-1 font-mono">{m.memoryKey.slice(0, 40)}</td>
+                    <td className="py-1 text-right font-mono">{m.confidence.toFixed(2)}</td>
+                    <td className="py-1 text-right font-mono">
+                      {m.successCount} / {m.failureCount}
+                    </td>
+                    <td className="py-1 font-mono">
+                      {m.lastUsedAt ? m.lastUsedAt.toISOString().slice(0, 19) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Latest repair plans (spec §17 + §18). */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Latest repair plans</h2>
+          {recentRepairs.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">No repair plans on record.</p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Kind</th>
+                  <th>Status</th>
+                  <th className="text-right">Attempts</th>
+                  <th>Final result</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentRepairs.map((r) => (
+                  <tr
+                    key={r.id}
+                    className={`border-t ${
+                      r.status === "ABANDONED"
+                        ? "bg-rose-50"
+                        : r.status === "SUCCEEDED"
+                          ? "bg-emerald-50"
+                          : r.status === "PENDING" || r.status === "RUNNING"
+                            ? "bg-amber-50"
+                            : ""
+                    }`}
+                  >
+                    <td className="py-1 font-mono">{r.kind}</td>
+                    <td className="py-1 font-mono">{r.status}</td>
+                    <td className="py-1 text-right font-mono">
+                      {r.attempts} / {r.maxAttempts}
+                    </td>
+                    <td className="py-1 font-serif">{r.finalResult ?? "—"}</td>
+                    <td className="py-1 font-mono">{r.updatedAt.toISOString().slice(0, 19)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Why no content growth (spec §22 + §18). One panel per
+            content type, showing the GrowthOrchestrator's
+            classification and recommendation. */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Why no content growth?</h2>
+          {growthSnapshots.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No growth snapshots yet. The orchestrator writes one on each REPORTING pass.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Content type</th>
+                  <th>Status</th>
+                  <th className="text-right">Gap</th>
+                  <th className="text-right">24h</th>
+                  <th className="text-right">7d</th>
+                  <th className="text-right">Last growth</th>
+                  <th>Recommendation</th>
+                </tr>
+              </thead>
+              <tbody>
+                {growthSnapshots.map((g) => (
+                  <tr
+                    key={g.id}
+                    className={`border-t ${
+                      g.status === "STUCK_7D" || g.status === "REJECT_HEAVY"
+                        ? "bg-rose-50"
+                        : g.status === "SLOW_24H" || g.status === "PARTIAL_HEAVY"
+                          ? "bg-amber-50"
+                          : g.status === "AT_GOAL"
+                            ? "bg-emerald-50"
+                            : ""
+                    }`}
+                  >
+                    <td className="py-1 font-mono">{g.contentType}</td>
+                    <td className="py-1 font-mono">{g.status}</td>
+                    <td className="py-1 text-right font-mono">{g.gap}</td>
+                    <td className="py-1 text-right font-mono">{g.growth24h}</td>
+                    <td className="py-1 text-right font-mono">{g.growth7d}</td>
+                    <td className="py-1 text-right font-mono">
+                      {g.hoursSinceLastGrowth == null ? "—" : `${g.hoursSinceLastGrowth}h`}
+                    </td>
+                    <td className="py-1 font-serif">{g.recommendation ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Source coverage scorecard (spec §23). */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Source coverage</h2>
+          {coverageRows.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No source coverage scored yet. Runs on every REPORTING pass.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Content type</th>
+                  <th className="text-right">Primary</th>
+                  <th className="text-right">Valid.</th>
+                  <th className="text-right">Enrich.</th>
+                  <th className="text-right">Cand. 7d</th>
+                  <th className="text-right">Builds 7d</th>
+                  <th className="text-right">Publ. 7d</th>
+                  <th className="text-right">Score</th>
+                  <th>Block?</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coverageRows.map((r) => (
+                  <tr key={r.id} className={`border-t ${r.blockedByCoverage ? "bg-rose-50" : ""}`}>
+                    <td className="py-1 font-mono">{r.contentType}</td>
+                    <td className="py-1 text-right font-mono">{r.primarySources}</td>
+                    <td className="py-1 text-right font-mono">{r.validationSources}</td>
+                    <td className="py-1 text-right font-mono">{r.enrichmentSources}</td>
+                    <td className="py-1 text-right font-mono">{r.recentCandidates7d}</td>
+                    <td className="py-1 text-right font-mono">{r.recentValidPackages7d}</td>
+                    <td className="py-1 text-right font-mono">{r.recentPublishes7d}</td>
+                    <td className="py-1 text-right font-mono">{r.coverageScore.toFixed(2)}</td>
+                    <td className="py-1 font-serif">
+                      {r.blockedByCoverage ? (r.blockReason ?? "blocked") : "ok"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Pipeline snapshot (spec §3). Per-stage counts so the operator
+            can see exactly where the chain is bottlenecked. */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Pipeline (Discovery → Cache)</h2>
+          <table className="mt-2 w-full text-xs">
+            <thead>
+              <tr className="text-left uppercase text-ink-soft">
+                <th>Stage</th>
+                <th className="text-right">Pending</th>
+                <th className="text-right">Running</th>
+                <th className="text-right">Succeeded</th>
+                <th className="text-right">Failed</th>
+                <th className="text-right">Blocked</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pipelineCounts.map((s) => (
+                <tr
+                  key={s.stage}
+                  className={`border-t ${
+                    s.failed > 0 || s.blocked > 0
+                      ? "bg-rose-50"
+                      : s.pending > 0
+                        ? "bg-amber-50"
+                        : ""
+                  }`}
+                >
+                  <td className="py-1 font-mono">{s.stage}</td>
+                  <td className="py-1 text-right font-mono">{s.pending}</td>
+                  <td className="py-1 text-right font-mono">{s.running}</td>
+                  <td className="py-1 text-right font-mono">{s.succeeded}</td>
+                  <td className="py-1 text-right font-mono">{s.failed}</td>
+                  <td className="py-1 text-right font-mono">{s.blocked}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </article>
+
+        {/* Rejected candidates (spec §5). Surfaces the exact junk
+            pattern that triggered each rejection. */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Rejected candidates (last 15)</h2>
+          {rejectedCandidates.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No rejected candidates. The candidate scorer flips junk-heavy URLs to REJECTED.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Host</th>
+                  <th>URL</th>
+                  <th className="text-right">Junk</th>
+                  <th className="text-right">Dup</th>
+                  <th>Pattern</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rejectedCandidates.map((r) => (
+                  <tr key={r.id} className="border-t">
+                    <td className="py-1 font-mono">{r.sourceHost}</td>
+                    <td className="py-1 font-mono break-all">{r.discoveredUrl.slice(0, 60)}</td>
+                    <td className="py-1 text-right font-mono">{r.junkRisk.toFixed(2)}</td>
+                    <td className="py-1 text-right font-mono">{r.duplicateRisk.toFixed(2)}</td>
+                    <td className="py-1 font-mono text-[10px]">{r.rejectionPattern ?? "—"}</td>
+                    <td className="py-1 font-serif">{r.rejectionReason ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </article>
 
@@ -393,6 +772,74 @@ function Metric(props: {
     <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
       <div className="text-[10px] uppercase tracking-wide text-ink-soft">{props.label}</div>
       <div className={`font-mono text-base ${tone}`}>{props.value}</div>
+    </div>
+  );
+}
+
+interface RankedAlternativeRow {
+  missionStage?: string;
+  actionType?: string;
+  finalScore?: number;
+  urgencyScore?: number;
+  riskScore?: number;
+  qualityExpectation?: number;
+  safe?: boolean;
+  rejectionReason?: string | null;
+  reasonSummary?: string;
+}
+
+function RankedAlternatives({ raw }: { raw: unknown }) {
+  if (!raw || !Array.isArray(raw)) return null;
+  const rows = raw as RankedAlternativeRow[];
+  if (rows.length === 0) return null;
+  return (
+    <div className="mt-4">
+      <h3 className="font-display text-sm uppercase tracking-wide text-ink-soft">
+        Ranked alternatives (spec §1) — top 6
+      </h3>
+      <table className="mt-2 w-full text-xs">
+        <thead>
+          <tr className="text-left uppercase text-ink-soft">
+            <th>#</th>
+            <th>Stage</th>
+            <th>Action</th>
+            <th className="text-right">Score</th>
+            <th className="text-right">Urgency</th>
+            <th className="text-right">Risk</th>
+            <th className="text-right">Quality</th>
+            <th>Why</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.slice(0, 6).map((r, i) => (
+            <tr
+              key={`${r.missionStage}-${i}`}
+              className={`border-t ${i === 0 ? "bg-emerald-50" : r.safe === false ? "text-rose-700" : ""}`}
+            >
+              <td className="py-1 font-mono">{i === 0 ? "★" : i + 1}</td>
+              <td className="py-1 font-mono">{r.missionStage ?? "—"}</td>
+              <td className="py-1 font-mono">{r.actionType ?? "—"}</td>
+              <td className="py-1 text-right font-mono">
+                {typeof r.finalScore === "number" ? r.finalScore.toFixed(1) : "—"}
+              </td>
+              <td className="py-1 text-right font-mono">
+                {typeof r.urgencyScore === "number" ? r.urgencyScore.toFixed(1) : "—"}
+              </td>
+              <td className="py-1 text-right font-mono">
+                {typeof r.riskScore === "number" ? r.riskScore.toFixed(2) : "—"}
+              </td>
+              <td className="py-1 text-right font-mono">
+                {typeof r.qualityExpectation === "number" ? r.qualityExpectation.toFixed(2) : "—"}
+              </td>
+              <td className="py-1 font-serif">
+                {i === 0
+                  ? (r.reasonSummary ?? "chosen")
+                  : (r.rejectionReason ?? r.reasonSummary ?? "lower score")}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

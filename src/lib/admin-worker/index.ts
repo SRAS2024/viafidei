@@ -83,6 +83,93 @@ export {
 
 export { runAdminWorkerLoop, runOnePass, type LoopOptions, type LoopResult } from "./loop";
 
+export { executeMissionStage, type DispatchInput, type DispatchOutcome } from "./dispatcher";
+
+export {
+  runDiscoveryOrchestrator,
+  discoveryCadenceMinutes,
+  CONTENT_TYPE_STRATEGIES,
+  type ContentTypeStrategy,
+  type DiscoveryOrchestrationOutcome,
+} from "./discovery-orchestrator";
+
+export {
+  scoreCandidate,
+  scoreAndPersist,
+  rescoreAllCandidates,
+  adjustAfterOutcome,
+  type CandidateScore,
+} from "./candidate-scorer";
+
+export {
+  runGrowthOrchestrator,
+  type GrowthAssessment,
+  type GrowthOrchestrationOutcome,
+  type GrowthStatus,
+} from "./growth-orchestrator";
+
+export { runSourceCoverage, listCoverageBlocked, type CoverageRow } from "./source-coverage";
+
+export {
+  runVerifier,
+  listVerificationsFor,
+  SENSITIVE_FIELDS,
+  type VerifierOutcome,
+  type VerifierPersistInput,
+} from "./verifier";
+
+export { adminWorkerFetch, type FetchedPage, type FetcherInput } from "./fetcher";
+
+export {
+  parseStructuredBlocks,
+  persistStructuredBlocks,
+  REJECTION_PATTERN_NAMES,
+  type SourceBlockType,
+  type StructuredBlock,
+  type StructuredReadOutput,
+} from "./structured-source-reader";
+
+export {
+  detectConfusion,
+  CONFUSION_RULE_NAMES,
+  type ConfusionInput,
+  type ConfusionResult,
+} from "./confusion-detector";
+
+export { classifyDetailed, type DetailedClassification } from "./classifier";
+
+export { runRepairOrchestrator, type RepairOrchestratorOutcome } from "./repair-orchestrator";
+
+export { decayedConfidence, decayMemory, listMemoryAudit } from "./memory";
+
+export {
+  runPublishOrchestrator,
+  explainPublishStatus,
+  type PublishOrchestratorInput,
+  type OrchestratorResult,
+} from "./publish-orchestrator";
+
+export {
+  runHomepagePublishOrchestrator,
+  inspectHomepage,
+  type HomepageInspection,
+  type HomepageOrchestrationResult,
+} from "./homepage-publish-orchestrator";
+
+export {
+  pushReputation,
+  pushReputationBatch,
+  type ReputationHookInput,
+  type ReputationStage,
+} from "./source-reputation-hooks";
+
+export {
+  buildContentPackage,
+  REQUIRED_FIELDS,
+  type ContentPackage,
+  type BuildPackageInput,
+} from "./content-builder";
+
 export {
   isJunkUrl,
   discoverCandidate,
@@ -99,7 +186,16 @@ export {
   type FileHumanReviewInput,
 } from "./human-review";
 
-export { computeFinalScore, recordQualityScore, type QualityInputs } from "./quality";
+export {
+  computeFinalScore,
+  computeFinalScoreV2,
+  thresholdFor,
+  missingDimensions,
+  recordQualityScore,
+  QUALITY_THRESHOLDS,
+  type QualityInputs,
+  type QualityInputsV2,
+} from "./quality";
 
 export {
   aggregateResult,
@@ -126,6 +222,17 @@ export {
   type DefendInput,
   type DefendOutcome,
 } from "./security-defender";
+
+export {
+  defendRedirectToLogin,
+  defendValidAdminNavigation,
+  defendFailedAdminLogin,
+  defendConfirmedBruteForce,
+  defendUnauthorizedMutation,
+  defendAdminRouteProbing,
+  defendBannedDeviceReuse,
+  type RequestDefenderInput,
+} from "./request-defender";
 
 export {
   runAdminWorkerDiagnostics,
@@ -309,7 +416,16 @@ export {
 } from "./security-detectors";
 
 // ── Brain + pipeline + repair plans + source reads + readiness ───────
-export { runBrain, decide, sampleWorld, type BrainDecision, type WorldState } from "./brain";
+export {
+  runBrain,
+  decide,
+  rankActions,
+  sampleWorld,
+  type BrainAction,
+  type BrainDecision,
+  type BrainMissionStage,
+  type WorldState,
+} from "./brain";
 
 export {
   PIPELINE_ORDER,
@@ -317,7 +433,11 @@ export {
   recordStage,
   completeStage,
   pipelineSnapshot,
+  pipelineMapFor,
+  latestStageFor,
+  resumeOrAdvance,
   type RecordStageInput,
+  type ResumeDecision,
 } from "./pipeline-stages";
 
 export {
