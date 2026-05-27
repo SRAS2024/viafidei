@@ -89,5 +89,35 @@ export async function gateAdminApiCall(req: NextRequest): Promise<AdminGateOutco
         "Investigate whether a developer is checking admin URLs or an attacker is enumerating endpoints; escalate to a Security Breach if a follow-up active-attack event is observed.",
     });
   }
+
+  // Admin Worker defender hook (spec §12 follow-up). Fires on
+  // unauthorized mutation attempts so AdminWorkerSecurityAction is
+  // recorded alongside the SecurityEvent. The defender bans the
+  // device when the fingerprint + confidence are strong; otherwise
+  // it records OBSERVE / WARN. Fire-and-forget — never blocks the
+  // request handler.
+  const method = req.method.toUpperCase();
+  if (method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE") {
+    void (async () => {
+      try {
+        const { prisma } = await import("@/lib/db/client");
+        const { defendUnauthorizedMutation } = await import("@/lib/admin-worker/request-defender");
+        const { deviceCredentialFingerprint, ipFingerprint, userAgentFingerprint } =
+          await import("./hash");
+        await defendUnauthorizedMutation({
+          prisma,
+          route: req.nextUrl.pathname,
+          ipHash: ipFingerprint(getClientIpOrNull(req)),
+          userAgentHash: userAgentFingerprint(getUserAgent(req)),
+          deviceFingerprintHash: deviceCredentialFingerprint(
+            req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value,
+          ),
+        });
+      } catch {
+        // ignore — defender hook is fire-and-forget
+      }
+    })();
+  }
+
   return { ok: false, response: jsonError("unauthorized") };
 }

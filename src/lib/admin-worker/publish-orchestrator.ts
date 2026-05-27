@@ -46,6 +46,8 @@ export interface PublishOrchestratorInput {
   isDoctrinallySensitive: boolean;
   confidence: number;
   verifier?: VerifierOutcome;
+  /** Spec §5: when supplied, gate requires status="PASSED". */
+  strictQAArtifactId?: string;
 }
 
 export type OrchestratorResult =
@@ -64,6 +66,29 @@ export async function runPublishOrchestrator(
   prisma: PrismaClient,
   input: PublishOrchestratorInput,
 ): Promise<OrchestratorResult> {
+  // 0. Strict QA artifact requirement (spec §5/§6 follow-up).
+  // When a strictQAArtifactId is supplied, the publish gate refuses
+  // unless the AdminWorkerStrictQAResult row exists with status =
+  // "PASSED".
+  if (input.strictQAArtifactId) {
+    const { getStrictQAResult } = await import("./strict-qa");
+    const qa = await getStrictQAResult(prisma, input.strictQAArtifactId);
+    if (!qa) {
+      return {
+        kind: "blocked",
+        blockedBy: "strict-qa",
+        reason: "no AdminWorkerStrictQAResult row for this artifact",
+      };
+    }
+    if (qa.status !== "PASSED") {
+      const reason = `strict QA status=${qa.status} (finalScore=${qa.finalScore.toFixed(2)}, blocking=${qa.blockingReasons.join("; ") || "(none)"})`;
+      if (qa.status === "NEEDS_REPAIR") {
+        return { kind: "review", reason };
+      }
+      return { kind: "blocked", blockedBy: "strict-qa", reason };
+    }
+  }
+
   // 1. Sensitive content requires verifier sign-off.
   if (input.isDoctrinallySensitive) {
     if (!input.verifier) {

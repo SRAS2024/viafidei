@@ -764,13 +764,15 @@ async function runCrossSourceVerification(
       .catch(() => null);
 
     if (!already) {
-      const { resolveValidationSources } = await import("./validation-source-resolver");
       const { runVerifier } = await import("./verifier");
+      const { fetchAndCompareValidation } = await import("./validation-fetcher");
       const fields = (artifact.extractedFields as Record<string, unknown>) ?? {};
+      const skipNetwork = process.env.ADMIN_WORKER_SKIP_NETWORK === "1";
 
-      // For each sensitive field, resolve up to 2 validation
-      // sources. We attach them all once to the verifier so it can
-      // cross-check the same field against multiple sources.
+      // For each sensitive field, actually fetch the validation
+      // source page(s) and compare the expected value (spec §1
+      // follow-up: validation sources must be fetched and compared,
+      // not just named).
       const validationSources: Array<{
         host: string;
         fields: Record<string, unknown>;
@@ -778,19 +780,30 @@ async function runCrossSourceVerification(
       }> = [];
       const seenHosts = new Set<string>();
       for (const field of artifact.validationNeeds) {
-        const resolved = await resolveValidationSources(
-          prisma,
-          { contentType: artifact.contentType, field, primarySourceHost: undefined },
-          { limit: 2 },
-        );
-        for (const r of resolved) {
-          if (seenHosts.has(r.host)) continue;
-          seenHosts.add(r.host);
-          // We don't have live content from the validation source
-          // here — the resolver simply names *which* sources to
-          // consult; the verifier records MISSING_EVIDENCE for the
-          // sensitive field, which the publish gate enforces.
-          validationSources.push({ host: r.host, fields: {} });
+        const expected = fields[field];
+        if (expected == null || expected === "") continue;
+        const evidence = await fetchAndCompareValidation(prisma, {
+          contentType: artifact.contentType,
+          field,
+          expectedValue: String(expected).slice(0, 200),
+          slugHint: artifact.normalizedSlug,
+          maxSources: 2,
+          skipNetwork,
+        }).catch(() => []);
+        for (const e of evidence) {
+          if (seenHosts.has(e.host)) continue;
+          seenHosts.add(e.host);
+          // Translate the fetch evidence into the verifier shape.
+          // MATCH → the validation source carries the same value;
+          // MISMATCH → the source disagrees;
+          // MISSING_EVIDENCE → could not fetch or could not find.
+          const validationFieldValue =
+            e.matchStatus === "MATCH" ? expected : (e.found ?? "(not found)");
+          validationSources.push({
+            host: e.host,
+            url: e.url,
+            fields: { [field]: validationFieldValue },
+          });
         }
       }
       usedHosts = [...seenHosts];
@@ -1060,28 +1073,68 @@ async function runPostPublishVerify(
 }
 
 async function runSearchVerify(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
+  // Spec §8: direct search verification, independent of post-publish
+  // probe. Picks the most recent published row and confirms the
+  // search index would surface it.
+  const target = await prisma.publishedContent
+    .findFirst({
+      where: { isPublished: true },
+      orderBy: { publishedAt: "desc" },
+      select: { contentType: true, slug: true, title: true },
+    })
+    .catch(() => null);
+  if (!target) {
+    return idle("SEARCH_VERIFY", "No published content to verify.");
+  }
+  const { verifySearchIndex } = await import("./search-sitemap-cache-verifiers");
+  const result = await verifySearchIndex(prisma, {
+    contentType: target.contentType,
+    slug: target.slug,
+    title: target.title,
+  });
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "POST_PUBLISH",
-    severity: "INFO",
-    eventName: "search_verify_pass",
-    message: "Search verification pass: relies on post-publish probe for now.",
+    severity: result.ok ? "INFO" : "WARN",
+    eventName: "search_verify_independent",
+    message: `Search verify ${target.contentType}/${target.slug}: ${result.reason}`,
   });
-  return { stage: "SEARCH_VERIFY", kind: "advanced", summary: "Search verify pass acknowledged." };
+  return {
+    stage: "SEARCH_VERIFY",
+    kind: result.ok ? "advanced" : "rejected",
+    summary: result.reason,
+    rejected: result.ok ? 0 : 1,
+  };
 }
 
 async function runSitemapVerify(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
+  const target = await prisma.publishedContent
+    .findFirst({
+      where: { isPublished: true },
+      orderBy: { publishedAt: "desc" },
+      select: { contentType: true, slug: true, title: true },
+    })
+    .catch(() => null);
+  if (!target) {
+    return idle("SITEMAP_VERIFY", "No published content to verify.");
+  }
+  const { verifySitemap } = await import("./search-sitemap-cache-verifiers");
+  const result = await verifySitemap(prisma, {
+    contentType: target.contentType,
+    slug: target.slug,
+  });
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "POST_PUBLISH",
-    severity: "INFO",
-    eventName: "sitemap_verify_pass",
-    message: "Sitemap verification pass: relies on post-publish probe for now.",
+    severity: result.ok ? "INFO" : "WARN",
+    eventName: "sitemap_verify_independent",
+    message: `Sitemap verify ${target.contentType}/${target.slug}: ${result.reason}`,
   });
   return {
     stage: "SITEMAP_VERIFY",
-    kind: "advanced",
-    summary: "Sitemap verify pass acknowledged.",
+    kind: result.ok ? "advanced" : "rejected",
+    summary: result.reason,
+    rejected: result.ok ? 0 : 1,
   };
 }
 
