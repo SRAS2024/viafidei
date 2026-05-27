@@ -196,6 +196,15 @@ export {
 } from "./search-sitemap-cache-verifiers";
 
 export {
+  decideAndExecuteRollback,
+  type RollbackDecisionKind,
+  type RollbackDecisionResult,
+  type PostPublishFailureInput,
+} from "./post-publish-rollback";
+
+export { requireAdminWithDefender } from "./admin-route-guard";
+
+export {
   pushReputation,
   pushReputationBatch,
   type ReputationHookInput,
