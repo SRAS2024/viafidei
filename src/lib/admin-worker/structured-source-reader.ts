@@ -172,6 +172,23 @@ export function parseStructuredBlocks(html: string): StructuredReadOutput {
 
   const scriptureReferences = extractScriptureReferences(mainBodyText);
 
+  // Emit SCRIPTURE blocks for paragraphs that contain a citation —
+  // spec §1 asks the classifier + extractors to consume SCRIPTURE
+  // blocks directly (not just the reference array).
+  for (const para of blocks.filter((b) => !b.isRejected && b.blockType === "PARAGRAPH")) {
+    if (SCRIPTURE_RE.test(para.text)) {
+      blocks.push({
+        blockType: "SCRIPTURE",
+        blockOrder: order++,
+        text: para.text,
+        confidenceScore: 0.85,
+        isRejected: false,
+      });
+      // Reset RegExp lastIndex (global flag is stateful across .test calls).
+      SCRIPTURE_RE.lastIndex = 0;
+    }
+  }
+
   return {
     title,
     canonicalUrl: canonical,

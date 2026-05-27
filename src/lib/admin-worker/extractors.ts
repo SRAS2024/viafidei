@@ -12,6 +12,7 @@
  */
 
 import { makeProvenance, type FieldProvenance } from "./provenance";
+import type { StructuredBlock, SourceBlockType } from "./structured-source-reader";
 
 export interface ExtractorInput {
   url: string;
@@ -19,8 +20,37 @@ export interface ExtractorInput {
   title?: string | null;
   headings?: string[];
   bodyText?: string;
+  /** Spec §2: extractors prefer structured blocks; raw bodyText is fallback. */
+  blocks?: StructuredBlock[];
+  scriptureReferences?: string[];
   checksum?: string;
   language?: string;
+}
+
+/**
+ * Spec §2: derive a per-extractor body string from structured blocks.
+ * The caller passes the block types this extractor cares about first.
+ * Falls back to raw `bodyText` only when no matching blocks exist.
+ */
+export function blockAwareBody(
+  input: ExtractorInput,
+  preferredTypes: readonly SourceBlockType[],
+): string {
+  const blocks = input.blocks ?? [];
+  if (blocks.length === 0) return input.bodyText ?? "";
+  const preferred = blocks
+    .filter((b) => !b.isRejected && preferredTypes.includes(b.blockType))
+    .map((b) => b.text);
+  const supporting = blocks
+    .filter(
+      (b) =>
+        !b.isRejected &&
+        !preferredTypes.includes(b.blockType) &&
+        (b.blockType === "HEADING" || b.blockType === "PARAGRAPH" || b.blockType === "LIST_ITEM"),
+    )
+    .map((b) => b.text);
+  const combined = [...preferred, ...supporting].join("\n\n");
+  return combined.length > 0 ? combined : (input.bodyText ?? "");
 }
 
 export interface ExtractorOutput<T = Record<string, unknown>> {
@@ -115,8 +145,9 @@ export interface PrayerFields {
 }
 
 export function PrayerExtractor(input: ExtractorInput): ExtractorOutput<PrayerFields> {
-  if (!input.bodyText) return blank(input, "No body text supplied.");
-  const { kept, rejected } = stripJunk(input.bodyText);
+  const body = blockAwareBody(input, ["PRAYER", "PARAGRAPH", "HEADING"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
   const required = ["prayerTitle", "prayerType", "prayerText", "category"];
   const evidence: FieldProvenance[] = [];
   const fields: Partial<PrayerFields> = {
@@ -233,8 +264,10 @@ const MONTHS = [
 ];
 
 export function SaintExtractor(input: ExtractorInput): ExtractorOutput<SaintFields> {
-  if (!input.bodyText) return blank(input, "No body text supplied.");
-  const { kept, rejected } = stripJunk(input.bodyText);
+  // Saints: biography paragraphs + feast/patronage headings.
+  const body = blockAwareBody(input, ["HEADING", "PARAGRAPH"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
   const evidence: FieldProvenance[] = [];
   const fields: Partial<SaintFields> = { sourceUrl: input.url, sourceHost: input.host };
   const fatal: string[] = [];
@@ -332,8 +365,10 @@ export interface ApparitionFields {
 export function MarianApparitionExtractor(
   input: ExtractorInput,
 ): ExtractorOutput<ApparitionFields> {
-  if (!input.bodyText) return blank(input, "No body text supplied.");
-  const { kept, rejected } = stripJunk(input.bodyText);
+  // Apparitions: approval status + location appear in headings + paragraphs.
+  const body = blockAwareBody(input, ["HEADING", "PARAGRAPH", "LOCATION"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
   const evidence: FieldProvenance[] = [];
   const fields: Partial<ApparitionFields> = { sourceUrl: input.url, sourceHost: input.host };
   const fatal: string[] = [];
@@ -419,8 +454,11 @@ export interface DevotionFields {
 }
 
 export function DevotionExtractor(input: ExtractorInput): ExtractorOutput<DevotionFields> {
-  if (!input.bodyText) return blank(input, "No body text supplied.");
-  const { kept, rejected } = stripJunk(input.bodyText);
+  // Devotions: practice instructions are list-items / paragraphs;
+  // associated prayers are PRAYER blocks.
+  const body = blockAwareBody(input, ["PARAGRAPH", "LIST_ITEM", "PRAYER", "HEADING"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
   const evidence: FieldProvenance[] = [];
   const fields: Partial<DevotionFields> = { sourceUrl: input.url, sourceHost: input.host };
   const fatal: string[] = [];
@@ -487,8 +525,11 @@ export interface NovenaFields {
 }
 
 export function NovenaExtractor(input: ExtractorInput): ExtractorOutput<NovenaFields> {
-  if (!input.bodyText) return blank(input, "No body text supplied.");
-  const { kept, rejected } = stripJunk(input.bodyText);
+  // Novenas: nine-day structure is encoded in DAY_SECTION blocks;
+  // associated prayer text in PRAYER blocks.
+  const body = blockAwareBody(input, ["DAY_SECTION", "PRAYER", "PARAGRAPH", "HEADING"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
   const evidence: FieldProvenance[] = [];
   const fields: Partial<NovenaFields> = { sourceUrl: input.url, sourceHost: input.host, days: {} };
   const fatal: string[] = [];
@@ -574,8 +615,11 @@ export interface RosaryFields {
 }
 
 export function RosaryExtractor(input: ExtractorInput): ExtractorOutput<RosaryFields> {
-  if (!input.bodyText) return blank(input, "No body text supplied.");
-  const { kept, rejected } = stripJunk(input.bodyText);
+  // Rosary: mystery names appear as headings; opening/closing prayers
+  // as PRAYER blocks.
+  const body = blockAwareBody(input, ["HEADING", "PRAYER", "PARAGRAPH", "LIST_ITEM"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
   const evidence: FieldProvenance[] = [];
   const fields: Partial<RosaryFields> = {
     sourceUrl: input.url,
@@ -674,8 +718,10 @@ export interface ConsecrationFields {
 }
 
 export function ConsecrationExtractor(input: ExtractorInput): ExtractorOutput<ConsecrationFields> {
-  if (!input.bodyText) return blank(input, "No body text supplied.");
-  const { kept, rejected } = stripJunk(input.bodyText);
+  // Consecration: daily structure (DAY_SECTION) + final-consecration prayer.
+  const body = blockAwareBody(input, ["DAY_SECTION", "PRAYER", "HEADING", "PARAGRAPH"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
   const evidence: FieldProvenance[] = [];
   const fields: Partial<ConsecrationFields> = {
     sourceUrl: input.url,
@@ -770,8 +816,10 @@ const SEVEN_SACRAMENTS: Record<string, string> = {
 };
 
 export function SacramentExtractor(input: ExtractorInput): ExtractorOutput<SacramentFields> {
-  if (!input.bodyText) return blank(input, "No body text supplied.");
-  const { kept, rejected } = stripJunk(input.bodyText);
+  // Sacraments: identity + theology in headings + paragraphs.
+  const body = blockAwareBody(input, ["HEADING", "PARAGRAPH"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
   const evidence: FieldProvenance[] = [];
   const fields: Partial<SacramentFields> = { sourceUrl: input.url, sourceHost: input.host };
   const fatal: string[] = [];
@@ -861,8 +909,11 @@ export interface HistoryFields {
 }
 
 export function HistoryExtractor(input: ExtractorInput): ExtractorOutput<HistoryFields> {
-  if (!input.bodyText) return blank(input, "No body text supplied.");
-  const { kept, rejected } = stripJunk(input.bodyText);
+  // Church history: date + authority + document context across
+  // headings + paragraphs.
+  const body = blockAwareBody(input, ["HEADING", "PARAGRAPH", "METADATA"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
   const evidence: FieldProvenance[] = [];
   const fields: Partial<HistoryFields> = { sourceUrl: input.url, sourceHost: input.host };
   const fatal: string[] = [];
@@ -950,8 +1001,10 @@ export interface LiturgyFields {
 }
 
 export function LiturgyExtractor(input: ExtractorInput): ExtractorOutput<LiturgyFields> {
-  if (!input.bodyText) return blank(input, "No body text supplied.");
-  const { kept, rejected } = stripJunk(input.bodyText);
+  // Liturgy: formation body + liturgical type — headings + paragraphs.
+  const body = blockAwareBody(input, ["HEADING", "PARAGRAPH", "METADATA"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
   const evidence: FieldProvenance[] = [];
   const fields: Partial<LiturgyFields> = { sourceUrl: input.url, sourceHost: input.host };
   const fatal: string[] = [];
@@ -1026,8 +1079,10 @@ export interface ParishFields {
 }
 
 export function ParishExtractor(input: ExtractorInput): ExtractorOutput<ParishFields> {
-  if (!input.bodyText) return blank(input, "No body text supplied.");
-  const { kept, rejected } = stripJunk(input.bodyText);
+  // Parishes: address + hours come from LOCATION + METADATA blocks first.
+  const body = blockAwareBody(input, ["LOCATION", "METADATA", "PARAGRAPH", "LIST_ITEM"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
   const evidence: FieldProvenance[] = [];
   const fields: Partial<ParishFields> = { sourceUrl: input.url, sourceHost: input.host };
   const fatal: string[] = [];

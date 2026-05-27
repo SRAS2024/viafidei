@@ -83,6 +83,15 @@ function makePrisma() {
     },
     adminWorkerFetchResult: { create: vi.fn(async () => ({ id: "f-1" })) },
     adminWorkerLog: { findFirst: vi.fn(async () => null) },
+    // Spec §4: publish orchestrator requires a ContentQualityScore.
+    // Mock echoes the computed finalScore so doctrinal types (0.95
+    // threshold) pass when inputs warrant it.
+    contentQualityScore: {
+      create: vi.fn(async (args: { data: { finalScore: number } }) => ({
+        id: "q-1",
+        finalScore: args.data.finalScore,
+      })),
+    },
   } as unknown as Parameters<typeof adminWorkerFetch>[0];
 }
 

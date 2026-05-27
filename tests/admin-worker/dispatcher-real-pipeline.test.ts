@@ -228,13 +228,37 @@ function makePrisma(opts: {
     },
     adminWorkerPackageArtifact: {
       findFirst: vi.fn(async () => opts.artifact ?? null),
+      findMany: vi.fn(async () => (opts.artifact ? [opts.artifact] : [])),
       create: vi.fn(async () => ({ id: "art1" })),
       update: vi.fn(async () => ({})),
+    },
+    adminWorkerStrictQAResult: {
+      // Default to a passing QA result so PUBLIC_PUBLISH tests
+      // exercise the publish path. Tests that want to assert the
+      // strict-QA gate override this with mockResolvedValueOnce.
+      findUnique: vi.fn(async () => ({
+        id: "qa-1",
+        status: "PASSED",
+        finalScore: 0.92,
+        blockingReasons: [],
+        repairSuggestions: [],
+      })),
+      upsert: vi.fn(async () => ({ id: "qa-1" })),
+    },
+    contentQualityScore: {
+      create: vi.fn(async (args: { data: { finalScore: number } }) => ({
+        id: "q-1",
+        finalScore: args.data.finalScore,
+      })),
+    },
+    adminWorkerCrossSourceVerification: {
+      count: vi.fn(async () => 0),
     },
     workerBuildJob: { findFirst: vi.fn(async () => null) },
     publishedContent: {
       findMany: vi.fn(async () => []),
       findFirst: vi.fn(async () => null),
+      count: vi.fn(async () => 0),
     },
     postPublishVerification: {
       findMany: vi.fn(async () => []),

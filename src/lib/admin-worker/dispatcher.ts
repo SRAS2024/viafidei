@@ -855,17 +855,158 @@ async function runCrossSourceVerification(
 }
 
 async function runStrictQA(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
+  // Spec §3: find BUILD_READY / VERIFICATION_READY artifacts without a
+  // strict-QA result, score the 7 dimensions, persist the result via
+  // recordStrictQA, and transition the artifact status:
+  //   PASSED       → QA_PASSED
+  //   NEEDS_REPAIR → NEEDS_REPAIR
+  //   FAILED       → REJECTED
+  const { recordStrictQA, getStrictQAResult } = await import("./strict-qa");
+
+  const candidates = await prisma.adminWorkerPackageArtifact
+    .findMany({
+      where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } },
+      orderBy: { createdAt: "asc" },
+      take: 10,
+    })
+    .catch(
+      () => [] as Array<Awaited<ReturnType<typeof prisma.adminWorkerPackageArtifact.findFirst>>>,
+    );
+
+  if (!candidates || candidates.length === 0) {
+    await writeAdminWorkerLog(prisma, {
+      passId,
+      category: "QA",
+      severity: "INFO",
+      eventName: "strict_qa_idle",
+      message: "Strict QA: no BUILD_READY / VERIFICATION_READY artifacts pending.",
+    });
+    return {
+      stage: "STRICT_QA",
+      kind: "idle",
+      summary: "No artifacts pending strict QA.",
+    };
+  }
+
+  let processed = 0;
+  let passed = 0;
+  let needsRepair = 0;
+  let rejected = 0;
+
+  for (const artifact of candidates) {
+    if (!artifact) continue;
+    // Skip if a QA row already exists for this artifact (idempotent).
+    const existing = await getStrictQAResult(prisma, artifact.id);
+    if (existing && existing.status === "PASSED") {
+      // Already passed; just advance status if still BUILD_READY.
+      if (artifact.status === "BUILD_READY" || artifact.status === "VERIFICATION_READY") {
+        await prisma.adminWorkerPackageArtifact
+          .update({ where: { id: artifact.id }, data: { status: "QA_PASSED" } })
+          .catch(() => undefined);
+      }
+      continue;
+    }
+
+    const provenance = Array.isArray(artifact.fieldProvenance)
+      ? (artifact.fieldProvenance as unknown[])
+      : [];
+    const missing = (artifact.missingFields ?? []) as string[];
+    const validationNeeds = (artifact.validationNeeds ?? []) as string[];
+    const fields = (artifact.extractedFields as Record<string, unknown>) ?? {};
+
+    // 7-dimension scoring (deterministic; spec §5).
+    const requiredCount = Math.max(provenance.length + missing.length, 1);
+    const completenessScore = Math.max(0, Math.min(1, 1 - missing.length / requiredCount));
+    const correctnessScore = Math.max(0, Math.min(1, artifact.confidenceScore ?? 0));
+    const formattingMetadata = (artifact.formattingMetadata as Record<string, unknown>) ?? {};
+    const formattingScore =
+      typeof formattingMetadata.score === "number"
+        ? Math.max(0, Math.min(1, formattingMetadata.score as number))
+        : 0.8;
+    const provenanceScore =
+      provenance.length > 0 ? Math.min(1, provenance.length / requiredCount) : 0;
+
+    // Validation evidence: look for a CrossSourceVerification row for
+    // this artifact. If validationNeeds is empty, no evidence is
+    // required and the dimension scores 0.9 (neutral pass).
+    let validationScore = 0.9;
+    if (validationNeeds.length > 0) {
+      const verification = await prisma.adminWorkerCrossSourceVerification
+        .count({
+          where: {
+            contentType: artifact.contentType,
+            contentId: artifact.id,
+            matchResult: { in: ["MATCH", "PASS"] },
+          },
+        })
+        .catch(() => 0);
+      validationScore = verification > 0 ? 0.9 : 0;
+    }
+
+    // Duplicate safety: no other PublishedContent with the same slug.
+    const duplicate = await prisma.publishedContent
+      .count({
+        where: { contentType: artifact.contentType as never, slug: artifact.normalizedSlug },
+      })
+      .catch(() => 0);
+    const duplicateSafetyScore = duplicate === 0 ? 0.9 : 0;
+
+    // Public readiness: title + slug + payload present.
+    const publicReadinessScore =
+      artifact.normalizedTitle && artifact.normalizedSlug && Object.keys(fields).length > 0
+        ? 0.9
+        : 0;
+
+    const qa = await recordStrictQA(prisma, {
+      packageArtifactId: artifact.id,
+      contentType: artifact.contentType,
+      completenessScore,
+      correctnessScore,
+      formattingScore,
+      provenanceScore,
+      validationScore,
+      duplicateSafetyScore,
+      publicReadinessScore,
+    });
+
+    const nextStatus =
+      qa.status === "PASSED"
+        ? "QA_PASSED"
+        : qa.status === "NEEDS_REPAIR"
+          ? "NEEDS_REPAIR"
+          : "REJECTED";
+
+    await prisma.adminWorkerPackageArtifact
+      .update({
+        where: { id: artifact.id },
+        data: {
+          status: nextStatus,
+          rejectionReason:
+            nextStatus === "REJECTED" ? `strict QA failed: ${qa.blockingReasons.join("; ")}` : null,
+        },
+      })
+      .catch(() => undefined);
+
+    processed += 1;
+    if (qa.status === "PASSED") passed += 1;
+    else if (qa.status === "NEEDS_REPAIR") needsRepair += 1;
+    else rejected += 1;
+  }
+
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "QA",
-    severity: "INFO",
+    severity: rejected > 0 ? "WARN" : "INFO",
     eventName: "strict_qa_pass",
-    message: "Strict QA pass: build engine runs QA inline; nothing extra to do here.",
+    message: `Strict QA processed ${processed} artifact(s): ${passed} passed, ${needsRepair} need repair, ${rejected} rejected.`,
+    safeMetadata: { processed, passed, needsRepair, rejected },
   });
+
   return {
     stage: "STRICT_QA",
-    kind: "advanced",
-    summary: "Strict QA runs inline with the build engine.",
+    kind: processed > 0 ? "advanced" : "idle",
+    summary: `Strict QA: ${passed} passed / ${needsRepair} repair / ${rejected} rejected.`,
+    rejected,
   };
 }
 
@@ -880,9 +1021,12 @@ async function runPersistAndPublish(
   // goal refresh, search, sitemap, and cache side effects in one
   // transaction. The legacy runOneBuildCycle() path stays only as a
   // fallback when no artifact is ready.
+  // Spec §6: publish reads QA_PASSED artifacts. BUILD_READY remains
+  // queryable for backwards-compat tests, but the orchestrator gate
+  // requires a passing AdminWorkerStrictQAResult either way.
   const artifact = await prisma.adminWorkerPackageArtifact
     .findFirst({
-      where: { status: "BUILD_READY" },
+      where: { status: { in: ["QA_PASSED", "BUILD_READY"] } },
       orderBy: { createdAt: "asc" },
     })
     .catch(() => null);
@@ -922,6 +1066,9 @@ async function runPersistAndPublish(
       isDoctrinallySensitive: isDoctrinal,
       confidence: artifact.confidenceScore,
       verifier,
+      // Spec §6: pass the artifact id so the orchestrator can refuse
+      // publishing when no passing AdminWorkerStrictQAResult exists.
+      strictQAArtifactId: artifact.id,
     });
 
     // Update the artifact based on the outcome.

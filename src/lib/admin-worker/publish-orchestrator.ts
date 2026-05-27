@@ -48,6 +48,16 @@ export interface PublishOrchestratorInput {
   verifier?: VerifierOutcome;
   /** Spec §5: when supplied, gate requires status="PASSED". */
   strictQAArtifactId?: string;
+  /** Spec §4: optional precomputed quality inputs. When omitted, the
+   *  orchestrator derives them from the package artifact fields. */
+  qualityInputs?: {
+    completenessScore: number;
+    correctnessScore: number;
+    formattingScore: number;
+    sourceEvidenceScore: number;
+    validationScore: number;
+    renderScore: number;
+  };
 }
 
 export type OrchestratorResult =
@@ -125,6 +135,29 @@ export async function runPublishOrchestrator(
   if (gate.kind === "review") {
     await logBlocked(prisma, input, gate.reason);
     return { kind: "review", reason: gate.reason };
+  }
+
+  // 2b. Spec §4: ContentQualityScore is mandatory before publish.
+  //     Compute one if the caller didn't supply explicit inputs.
+  const qualityInputs = input.qualityInputs ?? {
+    completenessScore: input.qaPassed ? 1 : 0.5,
+    correctnessScore: input.confidence,
+    formattingScore: 0.8,
+    sourceEvidenceScore: input.hasSourceEvidence ? 1 : 0,
+    validationScore: input.verifier?.publishAllowed ? 1 : input.isDoctrinallySensitive ? 0 : 0.8,
+    renderScore: 1,
+  };
+  const { recordQualityScore, thresholdFor } = await import("./quality");
+  const qualityScore = await recordQualityScore(prisma, {
+    contentType: input.contentType,
+    contentId: input.contentId,
+    ...qualityInputs,
+  }).catch(() => null);
+  const qualityThreshold = thresholdFor(input.contentType);
+  if (!qualityScore || qualityScore.finalScore < qualityThreshold) {
+    const reason = `ContentQualityScore ${qualityScore?.finalScore?.toFixed(2) ?? "missing"} below ${input.contentType} threshold ${qualityThreshold.toFixed(2)}`;
+    await logBlocked(prisma, input, reason);
+    return { kind: "blocked", blockedBy: "quality-score", reason };
   }
 
   // 3. Public route placement.

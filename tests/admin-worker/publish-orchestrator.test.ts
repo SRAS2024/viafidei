@@ -63,6 +63,26 @@ function makePrisma(opts: { existing?: { id: string; isPublished: boolean } | nu
     adminWorkerLog: {
       findFirst: vi.fn(async () => null),
     },
+    // Spec §4: publish orchestrator now records a ContentQualityScore
+    // before persisting. Mock echoes the computed finalScore.
+    contentQualityScore: {
+      create: vi.fn(async (args: { data: { finalScore: number } }) => ({
+        id: "q-1",
+        finalScore: args.data.finalScore,
+      })),
+    },
+    // Spec §6: publish orchestrator looks up strict-QA when the caller
+    // supplies strictQAArtifactId. Default mock returns PASSED so the
+    // tests that don't pass strictQAArtifactId behave as before.
+    adminWorkerStrictQAResult: {
+      findUnique: vi.fn(async () => ({
+        id: "qa-1",
+        status: "PASSED",
+        finalScore: 0.92,
+        blockingReasons: [],
+        repairSuggestions: [],
+      })),
+    },
   } as unknown as Parameters<typeof runPublishOrchestrator>[0];
 }
 
