@@ -150,6 +150,29 @@ export interface DeveloperAuditData {
     errorMessage: string | null;
     createdAt: Date;
   }>;
+  /** Spec §3 + §15: strict-QA results for the audit period. */
+  strictQAResults: Array<{
+    id: string;
+    contentType: string;
+    status: string;
+    finalScore: number;
+    blockingReasons: string[];
+    createdAt: Date;
+  }>;
+  /** Spec §4 + §15: ContentQualityScore rows for the audit period. */
+  qualityScores: Array<{
+    id: string;
+    contentType: string;
+    contentId: string;
+    finalScore: number;
+    createdAt: Date;
+  }>;
+  /** Spec §1 + §15: structured-block creation activity. */
+  structuredBlockStats: {
+    total: number;
+    rejected: number;
+    perType: Array<{ blockType: string; count: number }>;
+  };
   currentBlockers: string[];
   /** Spec §15: live "why no content growth" diagnostic snapshot. */
   whyNoGrowth: {
@@ -180,6 +203,10 @@ export async function collectDeveloperAuditData(
     recentMemoryRaw,
     repairPlansRaw,
     postPublishVerificationsRaw,
+    strictQAResultsRaw,
+    qualityScoresRaw,
+    sourceBlocksRaw,
+    sourceBlocksByType,
     blockerState,
   ] = await Promise.all([
     runAdminWorkerDiagnostics(prisma),
@@ -270,11 +297,56 @@ export async function collectDeveloperAuditData(
         take: 200,
       })
       .catch(() => []),
+    // Spec §3 follow-up: strict-QA results
+    prisma.adminWorkerStrictQAResult
+      .findMany({
+        where: { createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        select: {
+          id: true,
+          contentType: true,
+          status: true,
+          finalScore: true,
+          blockingReasons: true,
+          createdAt: true,
+        },
+      })
+      .catch(() => []),
+    // Spec §4 follow-up: ContentQualityScore rows
+    prisma.contentQualityScore
+      .findMany({
+        where: { createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        select: {
+          id: true,
+          contentType: true,
+          contentId: true,
+          finalScore: true,
+          createdAt: true,
+        },
+      })
+      .catch(() => []),
+    // Spec §1 follow-up: structured-block totals
+    prisma.adminWorkerSourceBlock.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.adminWorkerSourceBlock
+      .groupBy({
+        by: ["blockType"],
+        where: { createdAt: { gte: since } },
+        _count: { _all: true },
+      })
+      .catch(() => [] as Array<{ blockType: string; _count: { _all: number } }>),
     // Spec §19: current blockers (from AdminWorkerState)
     prisma.adminWorkerState
       .findUnique({ where: { id: "singleton" }, select: { currentBlocker: true } })
       .catch(() => null),
   ]);
+
+  // Compute rejected-block count separately so groupBy stays simple.
+  const rejectedBlockCount = await prisma.adminWorkerSourceBlock
+    .count({ where: { createdAt: { gte: since }, isRejected: true } })
+    .catch(() => 0);
 
   const currentBlockers: string[] = [];
   if (blockerState?.currentBlocker) currentBlockers.push(blockerState.currentBlocker);
@@ -363,6 +435,29 @@ export async function collectDeveloperAuditData(
       errorMessage: v.errorMessage,
       createdAt: v.createdAt,
     })),
+    strictQAResults: strictQAResultsRaw.map((q) => ({
+      id: q.id,
+      contentType: q.contentType,
+      status: q.status,
+      finalScore: q.finalScore,
+      blockingReasons: q.blockingReasons,
+      createdAt: q.createdAt,
+    })),
+    qualityScores: qualityScoresRaw.map((q) => ({
+      id: q.id,
+      contentType: q.contentType,
+      contentId: q.contentId,
+      finalScore: q.finalScore,
+      createdAt: q.createdAt,
+    })),
+    structuredBlockStats: {
+      total: sourceBlocksRaw,
+      rejected: rejectedBlockCount,
+      perType: sourceBlocksByType.map((b) => ({
+        blockType: b.blockType,
+        count: b._count._all,
+      })),
+    },
     currentBlockers,
     whyNoGrowth: await collectWhyNoGrowthSnapshot(prisma),
   };

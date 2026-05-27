@@ -63,6 +63,14 @@ function makePrisma() {
     adminWorkerRepairPlan: { findMany: vi.fn(async () => []) },
     postPublishVerification: { findMany: vi.fn(async () => []) },
     adminWorkerState: { findUnique: vi.fn(async () => ({ currentBlocker: null })) },
+    // Spec §3 + §4 + §1 follow-up: audit collects strict-QA +
+    // ContentQualityScore + structured-block stats.
+    adminWorkerStrictQAResult: { findMany: vi.fn(async () => []) },
+    contentQualityScore: { findMany: vi.fn(async () => []) },
+    adminWorkerSourceBlock: {
+      count: vi.fn(async () => 0),
+      groupBy: vi.fn(async () => []),
+    },
   } as unknown as Parameters<typeof collectDeveloperAuditData>[0];
 }
 

@@ -51,7 +51,11 @@ function makePrisma() {
     securityEvent: { count: vi.fn(async () => 0) },
     contentValidationEvidence: { count: vi.fn(async () => 0) },
     checklistQAReport: { findFirst: vi.fn(async () => null) },
-    contentQualityScore: { findFirst: vi.fn(async () => null) },
+    contentQualityScore: {
+      findFirst: vi.fn(async () => null),
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
+    },
     // Spec §19 new audit sections — empty arrays so the PDF can render.
     adminWorkerDecision: {
       findMany: vi.fn(async () => []),
@@ -81,6 +85,21 @@ function makePrisma() {
     adminWorkerSourceRead: { count: vi.fn(async () => 0) },
     adminWorkerCrossSourceVerification: { count: vi.fn(async () => 0) },
     adminWorkerFetchResult: { count: vi.fn(async () => 0) },
+    // Spec §3 + §4 + §1 follow-up: audit collects strict-QA + quality
+    // scores + structured-block stats.
+    adminWorkerStrictQAResult: {
+      findMany: vi.fn(async () => []),
+      count: vi.fn(async () => 0),
+      findFirst: vi.fn(async () => null),
+    },
+    adminWorkerSourceBlock: {
+      count: vi.fn(async () => 0),
+      groupBy: vi.fn(async () => []),
+    },
+    adminWorkerPackageArtifact: {
+      count: vi.fn(async () => 0),
+      findMany: vi.fn(async () => []),
+    },
     adminDeveloperReportLog2: undefined, // typo guard
     adminDeveloperReportLog__alias: undefined,
     $queryRaw: vi.fn(async () => [{ "1": 1 }]),

@@ -482,16 +482,147 @@ async function ratingCrossSource(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingStrictQa(prisma: PrismaClient): Promise<HealthRating> {
-  const recent = await prisma.checklistQAReport.findFirst({ orderBy: { createdAt: "desc" } });
-  const score = recent?.overallScore ?? 0;
+  // Spec §3: Prefer the artifact-level AdminWorkerStrictQAResult
+  // (the new durable strict-QA stage). Fall back to ChecklistQAReport
+  // when no artifact-level results exist (transitional).
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [total, passed, latest] = await Promise.all([
+    prisma.adminWorkerStrictQAResult.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.adminWorkerStrictQAResult
+      .count({ where: { createdAt: { gte: since }, status: "PASSED" } })
+      .catch(() => 0),
+    prisma.adminWorkerStrictQAResult
+      .findFirst({ orderBy: { createdAt: "desc" } })
+      .catch(() => null),
+  ]);
+
+  if (total === 0 && !latest) {
+    // No artifact-level QA yet — fall back to legacy ChecklistQAReport
+    // so existing installations still see a value.
+    const recent = await prisma.checklistQAReport.findFirst({ orderBy: { createdAt: "desc" } });
+    const score = recent?.overallScore ?? 0;
+    return {
+      key: "admin_worker_strict_qa",
+      label: "Strict QA",
+      status: score >= 0.8 ? "pass" : score >= 0.5 ? "warn" : "fail",
+      score,
+      lastCheckedAt: now,
+      dataSource: "ChecklistQAReport (transitional)",
+      summary: recent
+        ? `Legacy QA score ${score.toFixed(2)}; no artifact-level results yet.`
+        : "No QA reports yet.",
+      recommendedRepair: "Run a content-goal pass; STRICT_QA stage will create artifact results.",
+    };
+  }
+
+  const passRate = total === 0 ? 0 : passed / total;
+  const status: HealthStatus =
+    total === 0 ? "warn" : passRate >= 0.7 ? "pass" : passRate >= 0.4 ? "warn" : "fail";
   return {
     key: "admin_worker_strict_qa",
-    label: "Strict QA",
-    status: score >= 0.8 ? "pass" : score >= 0.5 ? "warn" : "fail",
-    score,
-    lastCheckedAt: new Date(),
-    dataSource: "ChecklistQAReport",
-    summary: recent ? `Latest QA score ${score.toFixed(2)}.` : "No QA reports yet.",
+    label: "Strict QA (AdminWorkerStrictQAResult)",
+    status,
+    score: status === "pass" ? Math.min(1, passRate) : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerStrictQAResult (last 7d)",
+    latestSuccess: latest?.createdAt,
+    summary:
+      total === 0
+        ? "No strict-QA results in last 7 days."
+        : `${passed}/${total} artifacts passed strict QA (${Math.round(passRate * 100)}%); latest finalScore=${latest?.finalScore.toFixed(2) ?? "?"}.`,
+    recommendedRepair:
+      status === "fail"
+        ? "Investigate strict-QA blocking reasons; review NEEDS_REPAIR artifacts."
+        : undefined,
+  };
+}
+
+async function ratingQualityScoring(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §4 + §13: per-publish ContentQualityScore rating.
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [recent, latest] = await Promise.all([
+    prisma.contentQualityScore.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.contentQualityScore.findFirst({ orderBy: { createdAt: "desc" } }).catch(() => null),
+  ]);
+  const status: HealthStatus =
+    recent === 0 ? "warn" : (latest?.finalScore ?? 0) >= 0.8 ? "pass" : "warn";
+  return {
+    key: "admin_worker_quality_scoring",
+    label: "Quality scoring (ContentQualityScore)",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "ContentQualityScore (last 7d)",
+    latestSuccess: latest?.createdAt,
+    summary:
+      recent === 0
+        ? "No quality scores recorded in last 7 days."
+        : `${recent} quality score(s) in last 7d; latest finalScore=${latest?.finalScore.toFixed(2) ?? "?"}.`,
+    recommendedRepair:
+      recent === 0
+        ? "Run a publish pass; the orchestrator records a score per artifact."
+        : undefined,
+  };
+}
+
+async function ratingPackageArtifacts(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §13: surface the per-status counts of AdminWorkerPackageArtifact.
+  const now = new Date();
+  const [total, buildReady, qaPassed, needsRepair, rejected, published] = await Promise.all([
+    prisma.adminWorkerPackageArtifact.count().catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "BUILD_READY" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "QA_PASSED" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "NEEDS_REPAIR" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "REJECTED" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "PUBLISHED" } }).catch(() => 0),
+  ]);
+  const status: HealthStatus = total === 0 ? "warn" : "pass";
+  return {
+    key: "admin_worker_package_artifacts",
+    label: "Package artifacts",
+    status,
+    score: total === 0 ? 0.5 : 1,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerPackageArtifact",
+    summary:
+      total === 0
+        ? "No package artifacts yet."
+        : `Artifacts: ${published} published, ${qaPassed} QA_PASSED, ${buildReady} BUILD_READY, ${needsRepair} NEEDS_REPAIR, ${rejected} REJECTED.`,
+    recommendedRepair:
+      needsRepair > 0
+        ? "Repair NEEDS_REPAIR artifacts before they fall through to rare human review."
+        : undefined,
+  };
+}
+
+async function ratingStructuredBlocks(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §1 + §15: surface structured-block parsing activity.
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [recent, rejected] = await Promise.all([
+    prisma.adminWorkerSourceBlock.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.adminWorkerSourceBlock
+      .count({ where: { createdAt: { gte: since }, isRejected: true } })
+      .catch(() => 0),
+  ]);
+  const status: HealthStatus = recent === 0 ? "warn" : "pass";
+  return {
+    key: "admin_worker_structured_blocks",
+    label: "Structured source blocks",
+    status,
+    score: recent === 0 ? 0.5 : 1,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerSourceBlock (last 7d)",
+    summary:
+      recent === 0
+        ? "No structured blocks created in last 7 days."
+        : `${recent} blocks created (${rejected} rejected as junk).`,
+    recommendedRepair:
+      recent === 0
+        ? "Run a source-fetch pass; readSource will parse and persist blocks."
+        : undefined,
   };
 }
 
@@ -812,7 +943,10 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingFormatting,
   ratingVerifier,
   ratingCrossSource,
+  ratingStructuredBlocks,
+  ratingPackageArtifacts,
   ratingStrictQa,
+  ratingQualityScoring,
   ratingPublishing,
   ratingPublicRender,
   ratingSearchVisibility,

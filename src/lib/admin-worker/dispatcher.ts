@@ -686,17 +686,22 @@ async function runPackageBuild(
     };
   }
 
-  // Fallback: no artifact ready — make sure the legacy build queue
-  // has work and drain one cycle. planAndEnqueue is now only one
-  // tool inside the dispatcher (spec §2).
+  // TRANSITIONAL_FALLBACK (spec §6 follow-up): no artifact ready —
+  // drain a legacy build-queue cycle so checklist items get built into
+  // public rows. This path still runs through evaluatePublishGate
+  // inside runOneBuildCycle, but it does NOT consult the new strict-QA
+  // artifact-level result. It exists only to keep older content
+  // moving while the artifact-native path is the production path.
+  // Removal target: once all 11 content types reliably produce
+  // BUILD_READY artifacts via the dispatcher's EXTRACTION stage.
   const planOutcome: PlanOutcome = await planAndEnqueue(prisma, { passId });
   if (planOutcome.enqueued > 0) {
     await writeAdminWorkerLog(prisma, {
       passId,
       category: "CONTENT_BUILD",
       severity: "INFO",
-      eventName: "planner_run_dispatcher",
-      message: planOutcome.reason,
+      eventName: "planner_run_dispatcher_transitional",
+      message: `[TRANSITIONAL] ${planOutcome.reason}`,
       contentType: planOutcome.contentType ?? undefined,
     });
   }
@@ -1012,7 +1017,7 @@ async function runStrictQA(prisma: PrismaClient, passId: string): Promise<Dispat
 
 async function runPersistAndPublish(
   prisma: PrismaClient,
-  workerId: string,
+  _workerId: string,
   passId: string,
 ): Promise<DispatchOutcome> {
   // Spec §13: PERSIST/PUBLIC_PUBLISH route through runPublishOrchestrator
@@ -1109,29 +1114,24 @@ async function runPersistAndPublish(
     };
   }
 
-  // Fallback: no artifact ready, drain the legacy build queue.
-  const cycle = await runOneBuildCycle(prisma, workerId);
-  if (cycle.kind === "idle") {
-    return idle("PUBLIC_PUBLISH", "No artifacts ready and publish queue idle.");
-  }
-  const built = cycle.status === "succeeded" || cycle.status === "published" ? 1 : 0;
-  const published = cycle.status === "published" ? 1 : 0;
-  const failed = cycle.status === "failed" || cycle.status === "retrying" ? 1 : 0;
+  // Spec §6 follow-up: the legacy runOneBuildCycle fallback used to
+  // publish here. That path bypasses strict QA + ContentQualityScore,
+  // which the spec explicitly forbids. With no BUILD_READY or
+  // QA_PASSED artifact, publishing is idle — content gets built into
+  // an artifact first (PACKAGE_BUILD stage), strict-QA processes it,
+  // then this stage publishes via runPublishOrchestrator.
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "PUBLISHING",
-    severity: published > 0 ? "INFO" : "WARN",
-    eventName: "publish_pass_legacy",
-    message: `Fallback publish via runOneBuildCycle: ${cycle.status}.`,
+    severity: "INFO",
+    eventName: "publish_pass_idle",
+    message:
+      "No BUILD_READY/QA_PASSED artifacts; publish stage idle. (Legacy runOneBuildCycle fallback removed — strict-QA + quality-score gate is enforced.)",
   });
-  return {
-    stage: "PUBLIC_PUBLISH",
-    kind: failed > 0 ? "failed" : "advanced",
-    summary: `Legacy publish cycle ${cycle.status}.`,
-    built,
-    published,
-    failed,
-  };
+  return idle(
+    "PUBLIC_PUBLISH",
+    "No artifacts ready; publish path requires a passing AdminWorkerStrictQAResult.",
+  );
 }
 
 async function runPostPublishVerify(

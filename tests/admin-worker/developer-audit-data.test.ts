@@ -140,6 +140,38 @@ function makePrisma() {
     adminWorkerState: {
       findUnique: vi.fn(async () => ({ currentBlocker: "Source vatican.va paused" })),
     },
+    // Spec §3 + §4 + §1 follow-up: audit data includes strict-QA,
+    // ContentQualityScore, and structured-block stats.
+    adminWorkerStrictQAResult: {
+      findMany: vi.fn(async () => [
+        {
+          id: "qa-1",
+          contentType: "PRAYER",
+          status: "PASSED",
+          finalScore: 0.92,
+          blockingReasons: [],
+          createdAt: new Date(),
+        },
+      ]),
+    },
+    contentQualityScore: {
+      findMany: vi.fn(async () => [
+        {
+          id: "q-1",
+          contentType: "PRAYER",
+          contentId: "ci-1",
+          finalScore: 0.88,
+          createdAt: new Date(),
+        },
+      ]),
+    },
+    adminWorkerSourceBlock: {
+      count: vi.fn(async () => 42),
+      groupBy: vi.fn(async () => [
+        { blockType: "PARAGRAPH", _count: { _all: 30 } },
+        { blockType: "PRAYER", _count: { _all: 5 } },
+      ]),
+    },
   } as unknown as Parameters<typeof collectDeveloperAuditData>[0];
 }
 
