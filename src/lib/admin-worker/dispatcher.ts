@@ -992,6 +992,24 @@ async function runStrictQA(prisma: PrismaClient, passId: string): Promise<Dispat
       })
       .catch(() => undefined);
 
+    // Spec §9 follow-up: file a STRICT_QA_FAILED repair plan when the
+    // artifact needs repair so the repair orchestrator can drive the
+    // retry loop rather than the artifact silently stalling.
+    if (qa.status === "NEEDS_REPAIR" || qa.status === "FAILED") {
+      const { filePlan } = await import("./repair-plans");
+      await filePlan(prisma, {
+        kind: "STRICT_QA_FAILED",
+        failedEntity: artifact.id,
+        repairAction: `Re-extract ${artifact.contentType}/${artifact.normalizedSlug} and re-run strict QA.`,
+        metadata: {
+          contentType: artifact.contentType,
+          slug: artifact.normalizedSlug,
+          blockingReasons: qa.blockingReasons,
+          finalScore: qa.finalScore,
+        },
+      }).catch(() => undefined);
+    }
+
     processed += 1;
     if (qa.status === "PASSED") passed += 1;
     else if (qa.status === "NEEDS_REPAIR") needsRepair += 1;

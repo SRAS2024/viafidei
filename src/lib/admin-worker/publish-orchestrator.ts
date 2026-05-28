@@ -157,6 +157,24 @@ export async function runPublishOrchestrator(
   if (!qualityScore || qualityScore.finalScore < qualityThreshold) {
     const reason = `ContentQualityScore ${qualityScore?.finalScore?.toFixed(2) ?? "missing"} below ${input.contentType} threshold ${qualityThreshold.toFixed(2)}`;
     await logBlocked(prisma, input, reason);
+    // Spec §4 + §9: file a QUALITY_SCORE_FAILED repair plan so the
+    // package goes to repair first rather than being silently
+    // rejected. The repair orchestrator resets the artifact for
+    // re-extraction.
+    if (input.strictQAArtifactId) {
+      const { filePlan } = await import("./repair-plans");
+      await filePlan(prisma, {
+        kind: "QUALITY_SCORE_FAILED",
+        failedEntity: input.strictQAArtifactId,
+        repairAction: `Re-extract ${input.contentType}/${input.slug}; quality score too low.`,
+        metadata: {
+          contentType: input.contentType,
+          slug: input.slug,
+          finalScore: qualityScore?.finalScore ?? 0,
+          threshold: qualityThreshold,
+        },
+      }).catch(() => undefined);
+    }
     return { kind: "blocked", blockedBy: "quality-score", reason };
   }
 

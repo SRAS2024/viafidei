@@ -268,6 +268,36 @@ async function executePlan(
     case "QA_MISSING_FIELDS": {
       return { ok: true, reason: "QA gap recorded for review" };
     }
+    case "STRICT_QA_FAILED": {
+      // Spec §3 + §9: a NEEDS_REPAIR / REJECTED artifact's strict-QA
+      // failure is logged; if the artifact ID is on the plan, mark it
+      // for re-extraction so a new pass can repair it.
+      if (plan.failedEntity) {
+        await prisma.adminWorkerPackageArtifact
+          .updateMany({
+            where: { id: plan.failedEntity, status: "NEEDS_REPAIR" },
+            data: { status: "EXTRACTED" },
+          })
+          .catch(() => undefined);
+        return { ok: true, reason: "artifact marked for re-extraction + strict-QA retry" };
+      }
+      return { ok: true, reason: "strict-QA failure logged for review" };
+    }
+    case "QUALITY_SCORE_FAILED": {
+      // Spec §4 + §9: a low quality score on a published row triggers
+      // a refresh attempt; on a pre-publish artifact, mark for
+      // re-extraction so the next pass can repair it.
+      if (plan.failedEntity) {
+        await prisma.adminWorkerPackageArtifact
+          .updateMany({
+            where: { id: plan.failedEntity },
+            data: { status: "EXTRACTED" },
+          })
+          .catch(() => undefined);
+        return { ok: true, reason: "artifact reset for re-scoring" };
+      }
+      return { ok: true, reason: "quality-score failure logged for review" };
+    }
     case "BUILD_REPEATED_FAILURE": {
       // Pause the source so it stops drowning the queue.
       if (plan.failedEntity) {

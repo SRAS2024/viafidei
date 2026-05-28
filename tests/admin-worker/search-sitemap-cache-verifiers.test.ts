@@ -17,21 +17,34 @@ import {
 } from "@/lib/admin-worker/search-sitemap-cache-verifiers";
 
 function prismaWithPublished(opts: {
-  row?: { id?: string; title?: string; publishedAt?: Date | null } | null;
+  row?: { id?: string; title?: string; publishedAt?: Date | null; payload?: unknown } | null;
   cacheLog?: { createdAt: Date } | null;
 }) {
   return {
     publishedContent: {
       findFirst: vi.fn(async () =>
         opts.row === undefined
-          ? { id: "p1", title: "Our Father", publishedAt: new Date() }
+          ? {
+              id: "p1",
+              title: "Our Father",
+              publishedAt: new Date(),
+              payload: { prayerText: "Our Father, who art in heaven. Amen." },
+            }
           : opts.row,
       ),
+      // Spec §7: search verifier now runs separate count() queries
+      // for slug / contentType. Default to 1 so the search-ok path
+      // returns true; tests can override with mockResolvedValueOnce.
+      count: vi.fn(async () => 1),
     },
     adminWorkerLog: {
       findFirst: vi.fn(async () =>
         opts.cacheLog === undefined ? { createdAt: new Date() } : opts.cacheLog,
       ),
+    },
+    adminWorkerRepairPlan: {
+      findFirst: vi.fn(async () => null),
+      create: vi.fn(async () => ({ id: "rp-1" })),
     },
   } as unknown as Parameters<typeof verifySearchIndex>[0];
 }
@@ -64,7 +77,9 @@ describe("verifySearchIndex (spec §8)", () => {
       { contentType: "PRAYER", slug: "our-father", title: "Our Father" },
     );
     expect(out.ok).toBe(false);
-    expect(out.reason).toContain("diverges");
+    // Spec §7: reason now lists which of the 4 query forms failed.
+    expect(out.reason).toMatch(/Search queries failed.*title/);
+    expect(out.queryResults.title).toBe(false);
   });
 });
 

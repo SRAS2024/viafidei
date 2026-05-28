@@ -626,6 +626,99 @@ async function ratingStructuredBlocks(prisma: PrismaClient): Promise<HealthRatin
   };
 }
 
+async function ratingCandidateScoring(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §13: candidate-scorer rating from CandidateSourceUrl.fetchPriority.
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [scored, total] = await Promise.all([
+    prisma.candidateSourceUrl
+      .count({ where: { createdAt: { gte: since }, fetchPriority: { gt: 0 } } })
+      .catch(() => 0),
+    prisma.candidateSourceUrl.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+  ]);
+  const rate = total === 0 ? 0 : scored / total;
+  const status: HealthStatus =
+    total === 0 ? "warn" : rate >= 0.8 ? "pass" : rate >= 0.5 ? "warn" : "fail";
+  return {
+    key: "admin_worker_candidate_scoring",
+    label: "Candidate scoring",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "CandidateSourceUrl.fetchPriority (last 7d)",
+    summary:
+      total === 0
+        ? "No candidate URLs scored in last 7 days."
+        : `${scored}/${total} candidates carry a non-zero fetchPriority (${Math.round(rate * 100)}%).`,
+    recommendedRepair:
+      status === "fail" ? "Re-run candidate scoring (rescoreAllCandidates)." : undefined,
+  };
+}
+
+async function ratingExtractors(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §13: extractors rating from package-artifact confidence.
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [created, withFields] = await Promise.all([
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { createdAt: { gte: since } } })
+      .catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { createdAt: { gte: since }, confidenceScore: { gte: 0.5 } } })
+      .catch(() => 0),
+  ]);
+  const rate = created === 0 ? 0 : withFields / created;
+  const status: HealthStatus =
+    created === 0 ? "warn" : rate >= 0.7 ? "pass" : rate >= 0.4 ? "warn" : "fail";
+  return {
+    key: "admin_worker_extractors",
+    label: "Extractors",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerPackageArtifact.confidenceScore (last 7d)",
+    summary:
+      created === 0
+        ? "No package artifacts extracted in last 7 days."
+        : `${withFields}/${created} artifacts have confidence >= 0.5 (${Math.round(rate * 100)}%).`,
+    recommendedRepair:
+      status === "fail"
+        ? "Investigate low-confidence extractions; check structured blocks."
+        : undefined,
+  };
+}
+
+async function ratingChecklistBridge(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §13: checklist + citation bridge — artifacts with a
+  // checklistItemId have been promoted to checklist items.
+  const now = new Date();
+  const [total, bridged] = await Promise.all([
+    prisma.adminWorkerPackageArtifact.count().catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { checklistItemId: { not: null } } })
+      .catch(() => 0),
+  ]);
+  const rate = total === 0 ? 0 : bridged / total;
+  const status: HealthStatus =
+    total === 0 ? "warn" : rate >= 0.6 ? "pass" : rate >= 0.3 ? "warn" : "fail";
+  return {
+    key: "admin_worker_checklist_bridge",
+    label: "Checklist + citation bridge",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerPackageArtifact.checklistItemId",
+    summary:
+      total === 0
+        ? "No package artifacts to bridge yet."
+        : `${bridged}/${total} artifacts bridged to ChecklistItem (${Math.round(rate * 100)}%).`,
+    recommendedRepair:
+      status === "fail"
+        ? "Run the CHECKLIST_CREATION / CITATION_CREATION dispatcher stages."
+        : undefined,
+  };
+}
+
 async function ratingPublicRender(prisma: PrismaClient): Promise<HealthRating> {
   const fails = await prisma.postPublishVerification.count({ where: { publicPageCheck: "FAIL" } });
   return {
@@ -941,6 +1034,9 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingClassification,
   ratingBuilding,
   ratingFormatting,
+  ratingCandidateScoring,
+  ratingExtractors,
+  ratingChecklistBridge,
   ratingVerifier,
   ratingCrossSource,
   ratingStructuredBlocks,
