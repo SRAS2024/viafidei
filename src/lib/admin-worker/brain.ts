@@ -846,13 +846,55 @@ export function rankActions(
 
 /**
  * Execution feedback the brain uses to adjust ranking based on
- * recent real outcomes (spec §12). Populated by sampleWorld().
+ * recent real outcomes (spec §12 + §10 follow-up). Populated by
+ * sampleExecutionFeedback().
+ *
+ * Pass rates are last-7-day signals drawn directly from the durable
+ * tables (AdminWorkerStrictQAResult, ContentQualityScore, etc.). A
+ * stage with a poor recent pass rate is penalised so the brain
+ * rotates to a healthier path; a stage with a strong pass rate gets
+ * a small boost.
  */
 export interface ExecutionFeedback {
   /** Per-mission-stage count of recent failed dispatches. */
   recentFailedStages: Record<string, number>;
   /** Stages that recently advanced — the brain prefers fresh winners. */
   recentlyAdvanced: Set<string>;
+  /** Spec §10: 0..1 pass rate of the strict-QA stage over the last 7d. */
+  strictQAPassRate?: number;
+  /** Spec §10: 0..1 pass rate of ContentQualityScore over the last 7d. */
+  qualityScorePassRate?: number;
+  /** Spec §10: 0..1 pass rate of publishing over the last 7d. */
+  publishPassRate?: number;
+  /** Spec §10: 0..1 pass rate of post-publish verification over the last 7d. */
+  postPublishPassRate?: number;
+  /** Spec §10: 0..1 pass rate of repair plans over the last 7d. */
+  repairPassRate?: number;
+}
+
+/**
+ * Map a mission stage to the relevant outcome rate the brain should
+ * read when scoring that stage. Returns null when no specific rate
+ * applies (e.g. SECURITY_DEFENSE, PAUSED).
+ */
+function passRateForStage(stage: string, feedback: ExecutionFeedback): number | null {
+  switch (stage) {
+    case "STRICT_QA":
+      return feedback.strictQAPassRate ?? null;
+    case "PERSISTENCE":
+    case "PUBLIC_PUBLISH":
+      // Publish depends on the upstream quality score gating it.
+      return Math.min(feedback.qualityScorePassRate ?? 1, feedback.publishPassRate ?? 1);
+    case "POST_PUBLISH_VERIFY":
+    case "SEARCH_VERIFY":
+    case "SITEMAP_VERIFY":
+    case "CACHE_REFRESH":
+      return feedback.postPublishPassRate ?? null;
+    case "REPAIR":
+      return feedback.repairPassRate ?? null;
+    default:
+      return null;
+  }
 }
 
 function applyExecutionFeedback(action: BrainAction, feedback: ExecutionFeedback): BrainAction {
@@ -863,12 +905,26 @@ function applyExecutionFeedback(action: BrainAction, feedback: ExecutionFeedback
   // very high).
   const fatigue = Math.min(20, failed * 5);
   const advancedBonus = feedback.recentlyAdvanced.has(action.missionStage) ? 3 : 0;
+
+  // Spec §10: pass-rate influence. A 0.5 pass rate is neutral; below
+  // it penalises (the stage is unreliable), above it boosts (the
+  // stage is winning). Range: -8 to +5.
+  const passRate = passRateForStage(action.missionStage, feedback);
+  const passRateAdjustment =
+    passRate == null ? 0 : Math.max(-8, Math.min(5, Math.round((passRate - 0.5) * 10)));
+
   return {
     ...action,
-    finalScore: action.finalScore - fatigue + advancedBonus,
+    finalScore: action.finalScore - fatigue + advancedBonus + passRateAdjustment,
     rulesEvaluated: {
       ...action.rulesEvaluated,
-      executionFeedback: { fatigue, advancedBonus, recentFailures: failed },
+      executionFeedback: {
+        fatigue,
+        advancedBonus,
+        recentFailures: failed,
+        passRate: passRate ?? null,
+        passRateAdjustment,
+      },
     },
   };
 }
@@ -941,7 +997,66 @@ export async function sampleExecutionFeedback(
     }
   }
 
-  return { recentFailedStages: stageRuns, recentlyAdvanced };
+  // Spec §10: sample real outcome signals from the durable tables.
+  // The brain consults pass rates so a chronically failing stage gets
+  // demoted in ranking even when it has been re-tried fewer times.
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [
+    strictQaTotal,
+    strictQaPassed,
+    qualityTotal,
+    qualityPassed,
+    publishedRecent,
+    publishBlocks,
+    postPublishTotal,
+    postPublishPassed,
+    repairTotal,
+    repairSucceeded,
+  ] = await Promise.all([
+    prisma.adminWorkerStrictQAResult.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.adminWorkerStrictQAResult
+      .count({ where: { createdAt: { gte: since }, status: "PASSED" } })
+      .catch(() => 0),
+    prisma.contentQualityScore.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.contentQualityScore
+      .count({ where: { createdAt: { gte: since }, finalScore: { gte: 0.8 } } })
+      .catch(() => 0),
+    prisma.publishedContent
+      .count({ where: { publishedAt: { gte: since }, isPublished: true } })
+      .catch(() => 0),
+    prisma.adminWorkerLog
+      .count({
+        where: {
+          createdAt: { gte: since },
+          eventName: { in: ["publish_orchestrator_blocked", "publish_pass_idle"] },
+        },
+      })
+      .catch(() => 0),
+    prisma.postPublishVerification.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.postPublishVerification
+      .count({ where: { createdAt: { gte: since }, result: "PASS" } })
+      .catch(() => 0),
+    prisma.adminWorkerRepairPlan
+      .count({ where: { createdAt: { gte: since }, status: { in: ["SUCCEEDED", "FAILED"] } } })
+      .catch(() => 0),
+    prisma.adminWorkerRepairPlan
+      .count({ where: { createdAt: { gte: since }, status: "SUCCEEDED" } })
+      .catch(() => 0),
+  ]);
+
+  const rate = (passed: number, total: number): number | undefined =>
+    total === 0 ? undefined : passed / total;
+  const publishAttempts = publishedRecent + publishBlocks;
+
+  return {
+    recentFailedStages: stageRuns,
+    recentlyAdvanced,
+    strictQAPassRate: rate(strictQaPassed, strictQaTotal),
+    qualityScorePassRate: rate(qualityPassed, qualityTotal),
+    publishPassRate: rate(publishedRecent, publishAttempts),
+    postPublishPassRate: rate(postPublishPassed, postPublishTotal),
+    repairPassRate: rate(repairSucceeded, repairTotal),
+  };
 }
 
 /**

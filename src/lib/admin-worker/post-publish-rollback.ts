@@ -45,6 +45,13 @@ export interface PostPublishFailureInput {
   reason: string;
   /** True when the failure is clearly recoverable (cache stale, etc.). */
   recoverableHint?: boolean;
+  /**
+   * Spec §8: after repair the dispatcher re-runs the failed check.
+   * The caller passes this callback so the rollback module stays
+   * independent of the actual probe implementation. Return true when
+   * the re-check now passes.
+   */
+  reverify?: () => Promise<boolean>;
 }
 
 export interface RollbackDecisionResult {
@@ -68,20 +75,28 @@ export async function decideAndExecuteRollback(
   const repairAttempted = await attemptRepair(prisma, input);
 
   if (repairAttempted.ok) {
-    await logRollback(prisma, {
-      ...input,
-      kind: "REPAIRED",
-      repairAttempted: repairAttempted.what,
-      rollbackAction: null,
-      humanReviewFiled: false,
-    });
-    return {
-      kind: "REPAIRED",
-      repairAttempted: repairAttempted.what,
-      rollbackAction: null,
-      humanReviewFiled: false,
-      reason: `Repair succeeded: ${repairAttempted.what}`,
-    };
+    // Spec §8 follow-up: don't claim REPAIRED until the failed check
+    // actually passes again. If the caller supplied a reverify
+    // callback, run it; if it still fails, treat the repair as failed
+    // and fall through to unpublish.
+    const reverified = input.reverify ? await input.reverify().catch(() => false) : true;
+    if (reverified) {
+      await logRollback(prisma, {
+        ...input,
+        kind: "REPAIRED",
+        repairAttempted: repairAttempted.what,
+        rollbackAction: input.reverify ? "repair + reverify succeeded" : null,
+        humanReviewFiled: false,
+      });
+      return {
+        kind: "REPAIRED",
+        repairAttempted: repairAttempted.what,
+        rollbackAction: input.reverify ? "repair + reverify succeeded" : null,
+        humanReviewFiled: false,
+        reason: `Repair succeeded: ${repairAttempted.what}${input.reverify ? " (re-verified)" : ""}`,
+      };
+    }
+    // Reverify failed — fall through, treating the repair as ineffective.
   }
 
   // Step 2: repair didn't fix it — unpublish.
