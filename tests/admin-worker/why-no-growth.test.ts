@@ -15,10 +15,13 @@ function makePrisma(opts: {
   recentFetches?: number;
   successfulFetches?: number;
   sourceReadCount?: number;
+  blockCount?: number;
   classifiedCount?: number;
   artifactCount?: number;
+  bridgedCount?: number;
   verificationCount?: number;
   qaReports?: Array<{ passed: boolean }>;
+  qualityScores?: Array<{ finalScore: number }>;
   publishedCount?: number;
   recentVerifications?: number;
   failedVerifications?: number;
@@ -54,14 +57,25 @@ function makePrisma(opts: {
         return opts.sourceReadCount ?? 0;
       }),
     },
+    adminWorkerSourceBlock: {
+      // Default healthy: structured blocks exist whenever reads do.
+      count: vi.fn(async () => opts.blockCount ?? (opts.sourceReadCount ?? 0) * 4),
+    },
     adminWorkerPackageArtifact: {
-      count: vi.fn(async () => opts.artifactCount ?? 0),
+      count: vi.fn(async ({ where }: { where?: { checklistItemId?: unknown } } = {}) => {
+        // The bridge check filters on checklistItemId: { not: null }.
+        if (where?.checklistItemId) return opts.bridgedCount ?? opts.artifactCount ?? 0;
+        return opts.artifactCount ?? 0;
+      }),
     },
     adminWorkerCrossSourceVerification: {
       count: vi.fn(async () => opts.verificationCount ?? 0),
     },
     checklistQAReport: {
       findMany: vi.fn(async () => opts.qaReports ?? []),
+    },
+    contentQualityScore: {
+      findMany: vi.fn(async () => opts.qualityScores ?? []),
     },
     publishedContent: {
       count: vi.fn(async () => opts.publishedCount ?? 0),
@@ -193,12 +207,75 @@ describe("diagnoseWhyNoGrowth (spec §15)", () => {
     expect(out.blocker).toBe("QA_REJECTING");
   });
 
+  it("blocks on STRUCTURED_BLOCKS_MISSING when reads exist but no blocks (spec §14)", async () => {
+    const out = await diagnoseWhyNoGrowth(
+      makePrisma({
+        candidateCount: 10,
+        prioritizedCount: 8,
+        recentFetches: 10,
+        successfulFetches: 9,
+        sourceReadCount: 5,
+        blockCount: 0, // parser not wired
+        classifiedCount: 5,
+      }),
+    );
+    expect(out.blocker).toBe("STRUCTURED_BLOCKS_MISSING");
+    expect(out.exactTable).toBe("AdminWorkerSourceBlock");
+    expect(out.exactCount).toBe(0);
+  });
+
+  it("blocks on CHECKLIST_OR_CITATIONS_MISSING when artifacts exist but none bridged (spec §14)", async () => {
+    const out = await diagnoseWhyNoGrowth(
+      makePrisma({
+        candidateCount: 10,
+        prioritizedCount: 8,
+        recentFetches: 10,
+        successfulFetches: 9,
+        sourceReadCount: 5,
+        blockCount: 20,
+        classifiedCount: 5,
+        artifactCount: 3,
+        bridgedCount: 0, // bridge hasn't run
+      }),
+    );
+    expect(out.blocker).toBe("CHECKLIST_OR_CITATIONS_MISSING");
+    expect(out.exactTable).toBe("AdminWorkerPackageArtifact.checklistItemId");
+  });
+
+  it("blocks on QUALITY_SCORE_TOO_LOW when most recent scores are below threshold (spec §14)", async () => {
+    const scores = [
+      ...Array.from({ length: 8 }, () => ({ finalScore: 0.4 })),
+      ...Array.from({ length: 2 }, () => ({ finalScore: 0.9 })),
+    ];
+    const out = await diagnoseWhyNoGrowth(
+      makePrisma({
+        candidateCount: 10,
+        prioritizedCount: 8,
+        recentFetches: 10,
+        successfulFetches: 9,
+        sourceReadCount: 5,
+        blockCount: 20,
+        classifiedCount: 5,
+        artifactCount: 3,
+        bridgedCount: 3,
+        verificationCount: 1,
+        qaReports: [{ passed: true }, { passed: true }, { passed: true }],
+        qualityScores: scores,
+      }),
+    );
+    expect(out.blocker).toBe("QUALITY_SCORE_TOO_LOW");
+    expect(out.exactTable).toBe("ContentQualityScore");
+  });
+
   it("returns a checks[] array covering each stage", async () => {
     const out = await diagnoseWhyNoGrowth(makePrisma({}));
     expect(out.checks.length).toBeGreaterThanOrEqual(10);
     expect(out.checks.some((c) => c.stage === "NO_CONTENT_GOALS")).toBe(true);
     expect(out.checks.some((c) => c.stage === "FETCH_NOT_RUNNING")).toBe(true);
+    expect(out.checks.some((c) => c.stage === "STRUCTURED_BLOCKS_MISSING")).toBe(true);
+    expect(out.checks.some((c) => c.stage === "CHECKLIST_OR_CITATIONS_MISSING")).toBe(true);
     expect(out.checks.some((c) => c.stage === "QA_REJECTING")).toBe(true);
+    expect(out.checks.some((c) => c.stage === "QUALITY_SCORE_TOO_LOW")).toBe(true);
     expect(out.checks.some((c) => c.stage === "PUBLISH_BLOCKED")).toBe(true);
   });
 
