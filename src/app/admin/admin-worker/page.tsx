@@ -686,6 +686,9 @@ export default async function AdminWorkerPage() {
                   <th className="text-right">Primary</th>
                   <th className="text-right">Valid.</th>
                   <th className="text-right">Enrich.</th>
+                  <th className="text-right">Active</th>
+                  <th className="text-right">OK 7d</th>
+                  <th className="text-right">Fail 7d</th>
                   <th className="text-right">Cand. 7d</th>
                   <th className="text-right">Builds 7d</th>
                   <th className="text-right">Publ. 7d</th>
@@ -700,6 +703,9 @@ export default async function AdminWorkerPage() {
                     <td className="py-1 text-right font-mono">{r.primarySources}</td>
                     <td className="py-1 text-right font-mono">{r.validationSources}</td>
                     <td className="py-1 text-right font-mono">{r.enrichmentSources}</td>
+                    <td className="py-1 text-right font-mono">{r.activeSourceCount}</td>
+                    <td className="py-1 text-right font-mono">{r.recentlySuccessfulSources}</td>
+                    <td className="py-1 text-right font-mono">{r.recentlyFailedSources}</td>
                     <td className="py-1 text-right font-mono">{r.recentCandidates7d}</td>
                     <td className="py-1 text-right font-mono">{r.recentValidPackages7d}</td>
                     <td className="py-1 text-right font-mono">{r.recentPublishes7d}</td>

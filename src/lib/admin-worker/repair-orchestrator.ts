@@ -89,6 +89,41 @@ export async function runRepairOrchestrator(
         status: "ABANDONED",
         reason: "max attempts exhausted",
       });
+
+      // Spec §9: repeated repair failure causes fallback source
+      // selection. When an abandoned plan names a host, pause it so
+      // the candidate scorer / source ranker rotates to a fallback
+      // source on the next pass, and record the rotation in memory so
+      // the brain can explain why it switched.
+      if (plan.failedEntity && isLikelyHost(plan.failedEntity)) {
+        const { pauseChronicallyFailingSource } = await import("./repair");
+        await pauseChronicallyFailingSource(prisma, plan.failedEntity).catch(() => undefined);
+        const { rememberOutcome } = await import("./memory");
+        await rememberOutcome(prisma, {
+          memoryType: "SOURCE_RETRY_TIMING",
+          memoryKey: plan.failedEntity,
+          memoryValue: {
+            abandonedPlan: plan.id,
+            kind: plan.kind,
+            action: "fallback_source_selected",
+          },
+          outcome: "failure",
+        }).catch(() => undefined);
+        const { pushReputation } = await import("./source-reputation-hooks");
+        await pushReputation(prisma, {
+          sourceHost: plan.failedEntity,
+          stage: "repair",
+          ok: false,
+        }).catch(() => undefined);
+        await writeAdminWorkerLog(prisma, {
+          passId: opts.passId ?? null,
+          category: "REPAIR",
+          severity: "WARN",
+          eventName: "repair_abandoned_fallback_source",
+          message: `Repair plan ${plan.kind} for ${plan.failedEntity} abandoned after ${plan.attempts} attempts; source paused and fallback selection triggered.`,
+          safeMetadata: { planId: plan.id, host: plan.failedEntity, kind: plan.kind },
+        }).catch(() => undefined);
+      }
       continue;
     }
 
