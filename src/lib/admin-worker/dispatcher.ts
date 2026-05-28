@@ -1229,12 +1229,91 @@ async function runPostPublishVerify(
     }).catch(() => undefined);
   }
 
+  // Spec §8: when post-publish verification fails, drive the decision
+  // tree (repair → re-verify → unpublish → DELETED / HUMAN_REVIEW)
+  // rather than just logging the failure. The reverify callback
+  // re-runs verifyPublished so REPAIRED is only declared when the
+  // public surface is actually fixed.
+  if (verification.result === "FAIL") {
+    const checks = verification.checks as unknown as Record<string, unknown> | undefined;
+    // Pick the first failed check as the canonical failedCheck for
+    // the rollback decision tree.
+    const failedCheck = pickFailedCheck(checks);
+    const { decideAndExecuteRollback } = await import("./post-publish-rollback");
+    await decideAndExecuteRollback(prisma, {
+      contentType: target.contentType,
+      contentId: target.id,
+      slug: target.slug,
+      failedCheck,
+      reason: `verifyPublished returned FAIL on ${failedCheck}.`,
+      reverify: async () => {
+        const re = await verifyPublished(prisma, {
+          contentType: target.contentType,
+          contentId: target.id,
+          slug: target.slug,
+          expectedTitle: target.title,
+          skipNetwork,
+        }).catch(() => null);
+        return re?.result === "PASS";
+      },
+    }).catch(() => undefined);
+  }
+
   return {
     stage: "POST_PUBLISH_VERIFY",
     kind: verification.result === "PASS" ? "advanced" : "rejected",
     summary: `Verified ${target.contentType}/${target.slug}: ${verification.result}.`,
     rejected: verification.result === "PASS" ? 0 : 1,
   };
+}
+
+/**
+ * Map the `verifyPublished` checks object to the `failedCheck` field
+ * the rollback decision tree expects. Returns the first FAIL we find,
+ * or "public_route" as the conservative default for "something is
+ * broken but the structured check map didn't tell us what".
+ */
+function pickFailedCheck(
+  checks: Record<string, unknown> | undefined,
+):
+  | "public_route"
+  | "title"
+  | "body_marker"
+  | "tab_placement"
+  | "search"
+  | "sitemap"
+  | "cache"
+  | "related_links"
+  | "content_goal_count" {
+  if (!checks) return "public_route";
+  const order: Array<
+    [
+      string,
+      (
+        | "public_route"
+        | "title"
+        | "body_marker"
+        | "tab_placement"
+        | "search"
+        | "sitemap"
+        | "cache"
+        | "content_goal_count"
+      ),
+    ]
+  > = [
+    ["publicPageCheck", "public_route"],
+    ["titleCheck", "title"],
+    ["bodyMarkerCheck", "body_marker"],
+    ["tabPlacementCheck", "tab_placement"],
+    ["searchCheck", "search"],
+    ["sitemapCheck", "sitemap"],
+    ["cacheCheck", "cache"],
+    ["contentGoalCheck", "content_goal_count"],
+  ];
+  for (const [key, kind] of order) {
+    if (checks[key] === "FAIL") return kind;
+  }
+  return "public_route";
 }
 
 async function runSearchVerify(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {

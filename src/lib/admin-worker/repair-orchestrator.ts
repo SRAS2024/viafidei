@@ -119,6 +119,33 @@ export async function runRepairOrchestrator(
         })
         .catch(() => undefined);
 
+      // Spec §9: every repair attempt feeds outcome learning so the
+      // brain backs off chronically-failing repair paths.
+      const { rememberOutcome } = await import("./memory");
+      await rememberOutcome(prisma, {
+        memoryType: "FAILURE_PATTERN",
+        memoryKey: `repair:${plan.kind}`,
+        memoryValue: {
+          planId: plan.id,
+          attempts: newAttempts,
+          reason: result.reason,
+          failedEntity: plan.failedEntity ?? null,
+        },
+        outcome: succeeded ? "success" : "failure",
+      }).catch(() => undefined);
+
+      // Spec §9: failed repairs also penalise the source's reputation
+      // when the plan carries a host as failedEntity. This nudges the
+      // brain to rotate to a different source on the next pass.
+      if (!succeeded && plan.failedEntity && isLikelyHost(plan.failedEntity)) {
+        const { pushReputation } = await import("./source-reputation-hooks");
+        await pushReputation(prisma, {
+          sourceHost: plan.failedEntity,
+          stage: "repair",
+          ok: false,
+        }).catch(() => undefined);
+      }
+
       if (succeeded) {
         out.plansSucceeded += 1;
       } else {
@@ -177,6 +204,21 @@ export async function runRepairOrchestrator(
 function nextAttemptIn(attempts: number): Date {
   const minutes = Math.min(120, Math.pow(2, attempts));
   return new Date(Date.now() + minutes * 60 * 1000);
+}
+
+/**
+ * Spec §9: failed repairs penalise reputation only when `failedEntity`
+ * actually looks like a host (e.g. "vatican.va") — not when it's an
+ * artifact id, slug pair, or content-type:slug cache tag.
+ */
+function isLikelyHost(entity: string): boolean {
+  if (!entity) return false;
+  // Must look like a domain (contains a dot, no slash, no colon).
+  if (entity.includes("/") || entity.includes(":")) return false;
+  if (!entity.includes(".")) return false;
+  // Reject cuid / uuid-ish patterns (cuid is ~25 chars, starts with c).
+  if (/^[a-z0-9]{20,}$/.test(entity)) return false;
+  return true;
 }
 
 async function executePlan(
