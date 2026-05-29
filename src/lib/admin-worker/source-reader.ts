@@ -279,6 +279,17 @@ export async function readSource(
     outcome: stageStatus === "SUCCEEDED" ? "success" : "failure",
   });
 
+  // 9b. Spec §19: source reputation updates after the source-read
+  //     stage too — a host that reads cleanly is more trustworthy.
+  const { pushReputation } = await import("./source-reputation-hooks");
+  await pushReputation(prisma, {
+    sourceHost: input.sourceHost,
+    contentType: toChecklistContentType(classification.contentType) ?? undefined,
+    stage: "source_read",
+    ok: stageStatus === "SUCCEEDED",
+    usefulness: classification.confidence,
+  }).catch(() => undefined);
+
   // 10. Operator-visible log with the block counts (spec §1 ask:
   //     "Add source reader logs showing total/accepted/rejected
   //     blocks, content type, confidence, source read id").

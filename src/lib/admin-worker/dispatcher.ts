@@ -253,6 +253,22 @@ function idle(stage: BrainMissionStage, summary: string): DispatchOutcome {
   return { stage, kind: "idle", summary };
 }
 
+/**
+ * Spec §19: resolve the originating source host for a package artifact
+ * (via its source-read) so the strict-QA + publish stages can feed
+ * source reputation. Returns null when the artifact has no linked read.
+ */
+async function resolveArtifactSourceHost(
+  prisma: PrismaClient,
+  sourceReadId: string | null,
+): Promise<string | null> {
+  if (!sourceReadId) return null;
+  const read = await prisma.adminWorkerSourceRead
+    .findUnique({ where: { id: sourceReadId }, select: { sourceHost: true } })
+    .catch(() => null);
+  return read?.sourceHost ?? null;
+}
+
 // ── Stage handlers ────────────────────────────────────────────────────
 
 async function runSecurityDefense(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
@@ -903,6 +919,19 @@ async function runCrossSourceVerification(
       }).catch(() => null);
       verifiedFieldCount = result?.verificationRowIds.length ?? 0;
       blockingFields = result?.blockingSensitiveFields ?? [];
+
+      // Spec §19: source reputation updates after the validation stage
+      // — validation hosts that confirm fields gain reputation; those
+      // that block lose it.
+      const { pushReputation } = await import("./source-reputation-hooks");
+      for (const host of usedHosts) {
+        await pushReputation(prisma, {
+          sourceHost: host,
+          contentType: artifact.contentType,
+          stage: "verification",
+          ok: blockingFields.length === 0,
+        }).catch(() => undefined);
+      }
     }
   }
 
@@ -1073,6 +1102,19 @@ async function runStrictQA(prisma: PrismaClient, passId: string): Promise<Dispat
       })
       .catch(() => undefined);
 
+    // Spec §19: source reputation updates after the strict-QA stage —
+    // a host whose artifact passes QA is more trustworthy.
+    const qaHost = await resolveArtifactSourceHost(prisma, artifact.sourceReadId);
+    if (qaHost) {
+      const { pushReputation } = await import("./source-reputation-hooks");
+      await pushReputation(prisma, {
+        sourceHost: qaHost,
+        contentType: artifact.contentType,
+        stage: "qa",
+        ok: qa.status === "PASSED",
+      }).catch(() => undefined);
+    }
+
     // Spec §9 follow-up: file a STRICT_QA_FAILED repair plan when the
     // artifact needs repair so the repair orchestrator can drive the
     // retry loop rather than the artifact silently stalling.
@@ -1174,6 +1216,20 @@ async function runPersistAndPublish(
       // publishing when no passing AdminWorkerStrictQAResult exists.
       strictQAArtifactId: artifact.id,
     });
+
+    // Spec §19: source reputation updates after the publishing stage
+    // (which also gates on the quality score). A host whose artifact
+    // publishes gains reputation; a blocked/repair outcome loses it.
+    const pubHost = await resolveArtifactSourceHost(prisma, artifact.sourceReadId);
+    if (pubHost) {
+      const { pushReputation } = await import("./source-reputation-hooks");
+      await pushReputation(prisma, {
+        sourceHost: pubHost,
+        contentType: artifact.contentType,
+        stage: "publish",
+        ok: result.kind === "published",
+      }).catch(() => undefined);
+    }
 
     // Update the artifact based on the outcome.
     if (result.kind === "published") {
