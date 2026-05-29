@@ -453,6 +453,20 @@ export default async function AdminWorkerPage() {
               <dd className="font-mono">{recentBrainDecision.chosenAction}</dd>
               <dt className="text-ink-soft">Content type</dt>
               <dd className="font-mono">{recentBrainDecision.contentType ?? "—"}</dd>
+              {/* Spec §13: source target + candidate target from the chosen action. */}
+              <dt className="text-ink-soft">Source target</dt>
+              <dd className="font-mono">
+                {chosenActionTargets(recentBrainDecision.rankedAlternatives).sourceTarget ?? "—"}
+              </dd>
+              <dt className="text-ink-soft">Candidate target</dt>
+              <dd className="truncate font-mono">
+                {chosenActionTargets(recentBrainDecision.rankedAlternatives).candidateUrl ?? "—"}
+              </dd>
+              {/* Spec §13: current content goal gap (largest gap first). */}
+              <dt className="text-ink-soft">Content goal gap</dt>
+              <dd className="font-mono">
+                {goals.length > 0 ? `${goals[0].contentType} (${goals[0].gapCount} short)` : "—"}
+              </dd>
               <dt className="text-ink-soft">Confidence</dt>
               <dd className="font-mono">{recentBrainDecision.confidence.toFixed(2)}</dd>
               <dt className="text-ink-soft">Expected</dt>
@@ -870,6 +884,22 @@ interface RankedAlternativeRow {
   safe?: boolean;
   rejectionReason?: string | null;
   reasonSummary?: string;
+}
+
+/**
+ * Spec §13: extract the chosen action's source + candidate targets
+ * from the persisted rankedAlternatives JSON (first entry = chosen).
+ */
+function chosenActionTargets(raw: unknown): {
+  sourceTarget: string | null;
+  candidateUrl: string | null;
+} {
+  if (!Array.isArray(raw) || raw.length === 0) return { sourceTarget: null, candidateUrl: null };
+  const chosen = raw[0] as { sourceTarget?: string | null; candidateUrl?: string | null };
+  return {
+    sourceTarget: chosen?.sourceTarget ?? null,
+    candidateUrl: chosen?.candidateUrl ?? null,
+  };
 }
 
 /**
