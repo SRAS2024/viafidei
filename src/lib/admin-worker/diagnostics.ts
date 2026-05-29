@@ -27,7 +27,40 @@ export interface HealthRating {
   currentBlocker?: string;
   recommendedRepair?: string;
   summary: string;
+  /**
+   * Spec §13: per-subsystem automatic-repair status.
+   *   "in_progress" — an open repair plan (PENDING/RUNNING) maps to
+   *                   this subsystem right now.
+   *   "available"   — the subsystem is auto-repairable but no plan is
+   *                   currently open.
+   *   "manual"      — no automatic repair handler covers this subsystem.
+   */
+  automaticRepairStatus?: "in_progress" | "available" | "manual";
 }
+
+/**
+ * Spec §13: map each subsystem rating key to the AdminWorkerRepairKind
+ * values that auto-repair it. Keys absent from this map are "manual".
+ */
+const RATING_REPAIR_KINDS: Record<string, string[]> = {
+  admin_worker_heartbeat: ["HEARTBEAT_STALE"],
+  admin_worker_queue: ["QUEUE_STUCK"],
+  admin_worker_source_discovery: ["DISCOVERY_FAILED", "CANDIDATE_URLS_MISSING"],
+  admin_worker_fetcher: ["FETCH_FAILED"],
+  admin_worker_source_reading: ["READ_FAILED", "SOURCE_JOBS_MISSING"],
+  admin_worker_classification: ["CLASSIFY_FAILED"],
+  admin_worker_extractors: ["EXTRACT_FAILED"],
+  admin_worker_building: ["BUILD_REPEATED_FAILURE"],
+  admin_worker_cross_source: ["VALIDATION_FAILED", "VALIDATION_EVIDENCE_MISSING"],
+  admin_worker_verifier: ["VALIDATION_FAILED", "VALIDATION_EVIDENCE_MISSING"],
+  admin_worker_strict_qa: ["STRICT_QA_FAILED", "QA_MISSING_FIELDS"],
+  admin_worker_quality_scoring: ["QUALITY_SCORE_FAILED"],
+  admin_worker_publishing: ["PERSIST_FAILED"],
+  admin_worker_public_render: ["PUBLIC_DISPLAY_FAILED"],
+  admin_worker_search: ["SEARCH_VISIBILITY_FAILED"],
+  admin_worker_sitemap: ["SITEMAP_VISIBILITY_FAILED"],
+  admin_worker_cache: ["CACHE_FAILED"],
+};
 
 /** Each rating returns a HealthRating shape so the UI is uniform. */
 type RatingFn = (prisma: PrismaClient) => Promise<HealthRating>;
@@ -1063,22 +1096,51 @@ const RATINGS: ReadonlyArray<RatingFn> = [
 ];
 
 export async function runAdminWorkerDiagnostics(prisma: PrismaClient): Promise<HealthRating[]> {
-  const results = await Promise.all(
+  const results: HealthRating[] = await Promise.all(
     RATINGS.map((r) =>
       r(prisma).catch(
-        (err) =>
-          ({
-            key: "admin_worker_rating_error",
-            label: "Rating error",
-            status: "fail" as HealthStatus,
-            score: 0,
-            lastCheckedAt: new Date(),
-            dataSource: "?",
-            summary: err instanceof Error ? err.message : String(err),
-          }) satisfies HealthRating,
+        (err): HealthRating => ({
+          key: "admin_worker_rating_error",
+          label: "Rating error",
+          status: "fail" as HealthStatus,
+          score: 0,
+          lastCheckedAt: new Date(),
+          dataSource: "?",
+          summary: err instanceof Error ? err.message : String(err),
+        }),
       ),
     ),
   );
+
+  // Spec §13: annotate each rating with its automatic-repair status.
+  // One query for all open repair plans, grouped by kind. Wrapped in a
+  // try/catch (not just .catch) so a mock or client without groupBy
+  // degrades gracefully instead of throwing synchronously.
+  const openPlans = await (async () => {
+    try {
+      const rows = await prisma.adminWorkerRepairPlan.groupBy({
+        by: ["kind"],
+        where: { status: { in: ["PENDING", "RUNNING"] } },
+        _count: { _all: true },
+      });
+      return rows as Array<{ kind: string; _count: { _all: number } }>;
+    } catch {
+      return [] as Array<{ kind: string; _count: { _all: number } }>;
+    }
+  })();
+  const openKinds = new Set(openPlans.filter((p) => p._count._all > 0).map((p) => p.kind));
+
+  for (const rating of results) {
+    const kinds = RATING_REPAIR_KINDS[rating.key];
+    if (!kinds) {
+      rating.automaticRepairStatus = "manual";
+    } else if (kinds.some((k) => openKinds.has(k))) {
+      rating.automaticRepairStatus = "in_progress";
+    } else {
+      rating.automaticRepairStatus = "available";
+    }
+  }
+
   return results;
 }
 

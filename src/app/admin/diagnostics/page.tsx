@@ -83,6 +83,7 @@ export default async function DiagnosticsPage() {
               recommended={r.recommendedRepair}
               dataSource={r.dataSource}
               blocker={r.currentBlocker}
+              automaticRepairStatus={r.automaticRepairStatus}
             />
           ))}
         </div>
@@ -178,6 +179,7 @@ function DiagnosticRow(props: {
   details?: string[];
   metric?: number;
   score?: number;
+  automaticRepairStatus?: "in_progress" | "available" | "manual";
 }) {
   const tone =
     props.status === "pass"
@@ -220,6 +222,16 @@ function DiagnosticRow(props: {
         </p>
       )}
       {props.blocker && <p className="mt-1 text-xs">Blocker: {props.blocker}</p>}
+      {props.automaticRepairStatus && (
+        <p className="mt-1 text-[10px] uppercase tracking-wide text-ink-soft">
+          auto-repair:{" "}
+          {props.automaticRepairStatus === "in_progress"
+            ? "in progress"
+            : props.automaticRepairStatus === "available"
+              ? "available"
+              : "manual"}
+        </p>
+      )}
       {props.recommended && <p className="mt-2 text-xs italic">→ {props.recommended}</p>}
     </div>
   );

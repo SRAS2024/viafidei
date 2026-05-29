@@ -266,6 +266,290 @@ export async function generateAdminWorkerDeveloperAuditPdf(
       }
     }
 
+    // ─── Brain decisions + rejected alternatives (spec §15) ───────────
+    if (sectionsToInclude.has("Admin Worker Brain Decisions")) {
+      builder.section("Admin Worker Brain Decisions");
+      if (data.brainDecisions.length === 0) {
+        builder.note("No brain decisions recorded in this period.");
+      } else {
+        builder.table(
+          [
+            { header: "When", weight: 120 },
+            { header: "Stage", weight: 110 },
+            { header: "Type", weight: 70, align: "right" },
+            { header: "Conf.", weight: 45, align: "right" },
+            { header: "Reason", weight: 145 },
+          ],
+          data.brainDecisions
+            .slice(0, 40)
+            .map((d) => [
+              fmtTime(d.createdAt),
+              d.missionStage ?? "—",
+              d.contentType ?? "—",
+              d.confidence.toFixed(2),
+              (d.brainExplanation ?? d.reason ?? "").slice(0, 80),
+            ]),
+        );
+      }
+    }
+
+    // ─── Pipeline stage history (spec §15) ────────────────────────────
+    if (sectionsToInclude.has("Pipeline Stage History")) {
+      builder.section("Pipeline Stage History");
+      if (data.pipelineStages.length === 0) {
+        builder.note("No pipeline stage rows in this period.");
+      } else {
+        builder.table(
+          [
+            { header: "When", weight: 120 },
+            { header: "Stage", weight: 130 },
+            { header: "Status", weight: 90 },
+            { header: "Type", weight: 70 },
+            { header: "Failure", weight: 80 },
+          ],
+          data.pipelineStages
+            .slice(0, 40)
+            .map((s) => [
+              fmtTime(s.createdAt),
+              s.stageName,
+              s.status,
+              s.contentType ?? "—",
+              (s.failureReason ?? "").slice(0, 50),
+            ]),
+        );
+      }
+    }
+
+    // ─── Source coverage (spec §11 + §15) ─────────────────────────────
+    if (sectionsToInclude.has("Source Coverage")) {
+      builder.section("Source Coverage");
+      if (data.sourceCoverage.length === 0) {
+        builder.note("No source-coverage rows computed yet.");
+      } else {
+        builder.table(
+          [
+            { header: "Content type", weight: 130 },
+            { header: "Score", weight: 60, align: "right" },
+            { header: "Blocked?", weight: 70 },
+            { header: "Reason", weight: 220 },
+          ],
+          data.sourceCoverage.map((c) => [
+            c.contentType,
+            c.coverageScore.toFixed(2),
+            c.blockedByCoverage ? "BLOCKED" : "ok",
+            (c.blockReason ?? "").slice(0, 90),
+          ]),
+        );
+      }
+    }
+
+    // ─── Strict QA logs (spec §3 + §15) ───────────────────────────────
+    if (sectionsToInclude.has("Strict QA Logs")) {
+      builder.section("Strict QA Logs");
+      if (data.strictQAResults.length === 0) {
+        builder.note("No strict-QA results in this period.");
+      } else {
+        builder.table(
+          [
+            { header: "When", weight: 120 },
+            { header: "Type", weight: 90 },
+            { header: "Status", weight: 90 },
+            { header: "Score", weight: 50, align: "right" },
+            { header: "Blocking", weight: 130 },
+          ],
+          data.strictQAResults
+            .slice(0, 40)
+            .map((q) => [
+              fmtTime(q.createdAt),
+              q.contentType,
+              q.status,
+              q.finalScore.toFixed(2),
+              q.blockingReasons.join("; ").slice(0, 70),
+            ]),
+        );
+      }
+    }
+
+    // ─── Quality score logs (spec §4 + §15) ───────────────────────────
+    if (sectionsToInclude.has("Quality Score Logs")) {
+      builder.section("Quality Score Logs");
+      if (data.qualityScores.length === 0) {
+        builder.note("No ContentQualityScore rows in this period.");
+      } else {
+        builder.table(
+          [
+            { header: "When", weight: 140 },
+            { header: "Content type", weight: 130 },
+            { header: "Final score", weight: 90, align: "right" },
+          ],
+          data.qualityScores
+            .slice(0, 40)
+            .map((q) => [fmtTime(q.createdAt), q.contentType, q.finalScore.toFixed(2)]),
+        );
+      }
+    }
+
+    // ─── Structured block logs (spec §1 + §15) ────────────────────────
+    if (sectionsToInclude.has("Structured Block Logs")) {
+      builder.section("Structured Block Logs");
+      const s = data.structuredBlockStats;
+      builder.paragraph(
+        `${s.total} structured block(s) parsed this period; ${s.rejected} rejected as junk.`,
+      );
+      if (s.perType.length > 0) {
+        builder.table(
+          [
+            { header: "Block type", weight: 200 },
+            { header: "Count", weight: 80, align: "right" },
+          ],
+          s.perType.map((p) => [p.blockType, String(p.count)]),
+        );
+      }
+    }
+
+    // ─── Post-publish verification logs (spec §8 + §15) ───────────────
+    if (sectionsToInclude.has("Post-Publish Verification Logs")) {
+      builder.section("Post-Publish Verification Logs");
+      if (data.postPublishVerifications.length === 0) {
+        builder.note("No post-publish verifications in this period.");
+      } else {
+        builder.table(
+          [
+            { header: "When", weight: 120 },
+            { header: "Type", weight: 90 },
+            { header: "Slug", weight: 130 },
+            { header: "Result", weight: 60 },
+          ],
+          data.postPublishVerifications
+            .slice(0, 40)
+            .map((v) => [fmtTime(v.createdAt), v.contentType, v.slug.slice(0, 30), v.result]),
+        );
+      }
+    }
+
+    // ─── Repair logs (spec §9 + §15) ──────────────────────────────────
+    if (sectionsToInclude.has("Repair Logs")) {
+      builder.section("Repair Logs");
+      if (data.repairPlans.length === 0) {
+        builder.note("No repair plans in this period.");
+      } else {
+        builder.table(
+          [
+            { header: "When", weight: 110 },
+            { header: "Kind", weight: 150 },
+            { header: "Status", weight: 80 },
+            { header: "Att.", weight: 45, align: "right" },
+            { header: "Result", weight: 110 },
+          ],
+          data.repairPlans
+            .slice(0, 40)
+            .map((p) => [
+              fmtTime(p.createdAt),
+              p.kind,
+              p.status,
+              `${p.attempts}/${p.maxAttempts}`,
+              (p.finalResult ?? "").slice(0, 50),
+            ]),
+        );
+      }
+    }
+
+    // ─── Source reputation changes (spec §10 + §15) ───────────────────
+    if (sectionsToInclude.has("Source Reputation Changes")) {
+      builder.section("Source Reputation Changes");
+      if (data.sourceReputation.length === 0) {
+        builder.note("No source reputation rows.");
+      } else {
+        builder.table(
+          [
+            { header: "Host", weight: 150 },
+            { header: "Tier", weight: 80 },
+            { header: "Publish", weight: 60, align: "right" },
+            { header: "QA", weight: 50, align: "right" },
+            { header: "Paused", weight: 60 },
+          ],
+          data.sourceReputation
+            .slice(0, 40)
+            .map((r) => [
+              r.sourceHost.slice(0, 28),
+              r.reputationTier,
+              r.publicPublishRate.toFixed(2),
+              r.qaPassRate.toFixed(2),
+              r.paused ? "yes" : "no",
+            ]),
+        );
+      }
+    }
+
+    // ─── Memory changes (spec §10 + §15) ──────────────────────────────
+    if (sectionsToInclude.has("Memory Changes")) {
+      builder.section("Memory Changes");
+      if (data.recentMemory.length === 0) {
+        builder.note("No memory rows recorded.");
+      } else {
+        builder.table(
+          [
+            { header: "Type", weight: 140 },
+            { header: "Key", weight: 150 },
+            { header: "Conf.", weight: 50, align: "right" },
+            { header: "OK/Fail", weight: 70, align: "right" },
+          ],
+          data.recentMemory
+            .slice(0, 40)
+            .map((m) => [
+              m.memoryType,
+              m.memoryKey.slice(0, 28),
+              m.confidence.toFixed(2),
+              `${m.successCount}/${m.failureCount}`,
+            ]),
+        );
+      }
+    }
+
+    // ─── Why No Content Growth (spec §14 + §15) ───────────────────────
+    if (sectionsToInclude.has("Why No Content Growth")) {
+      builder.section("Why No Content Growth");
+      const w = data.whyNoGrowth;
+      if (!w) {
+        builder.note("Why-No-Growth diagnostic unavailable for this period.");
+      } else {
+        builder.keyValue([
+          { label: "Blocker", value: w.blocker },
+          { label: "Explanation", value: w.blockerExplanation },
+          { label: "Exact table", value: w.exactTable || "—" },
+          { label: "Next automatic repair", value: w.nextAutomaticRepair ?? "—" },
+          { label: "Next worker decision", value: w.nextWorkerDecision },
+        ]);
+        if (w.checks.length > 0) {
+          builder.subsection("Chain walk");
+          builder.table(
+            [
+              { header: "Stage", weight: 180 },
+              { header: "OK?", weight: 50 },
+              { header: "Count", weight: 50, align: "right" },
+              { header: "Detail", weight: 140 },
+            ],
+            w.checks.map((c) => [
+              c.stage,
+              c.ok ? "ok" : "BLOCK",
+              String(c.count),
+              c.detail.slice(0, 60),
+            ]),
+          );
+        }
+      }
+    }
+
+    // ─── Current blockers (spec §15) ──────────────────────────────────
+    if (sectionsToInclude.has("Current Blockers")) {
+      builder.section("Current Blockers");
+      if (data.currentBlockers.length === 0) {
+        builder.paragraph("No current blockers — the chain is unobstructed.");
+      } else {
+        for (const b of data.currentBlockers.slice(0, 20)) builder.note(b);
+      }
+    }
+
     const pdf = builder.build();
     await prisma.adminDeveloperReportLog.update({
       where: { id: logRow.id },
