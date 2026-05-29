@@ -1,18 +1,35 @@
 /**
  * Publishing gate.
  *
- * Only QA-approved content reaches the public site. The publishing gate
- * here is the single chokepoint:
- *   - rejects packages whose QA report failed
- *   - rejects packages needing human review until reviewed
- *   - writes to PublishedContent and stamps publishedAt
- *   - on unpublish, sets isPublished=false but keeps the row + version
+ * LEGACY — HARD-DISABLED (Admin Worker spec §1). This pre-Admin-Worker
+ * publish writer is no longer an active content path: the only way
+ * content becomes public is the Admin Worker artifact pipeline via
+ * `runPublishOrchestrator()`. `publish()` throws unless the
+ * `ALLOW_LEGACY_PUBLISH=1` escape hatch is set (reserved for a
+ * one-off data migration under direct operator control). Nothing in
+ * the running worker, loop, or dispatcher calls it.
  */
 
 import type { ChecklistContentType, PrismaClient, SourceAuthorityLevel } from "@prisma/client";
 
 import type { BuiltContentPackage } from "../types";
 import type { QAReport } from "../qa";
+
+/**
+ * Spec §1: the legacy publish path is hard-disabled. Any call throws
+ * unless the explicit migration escape hatch is set. This is the
+ * single chokepoint that used to write public rows outside the Admin
+ * Worker artifact pipeline.
+ */
+export const LEGACY_PUBLISH_DISABLED_MESSAGE =
+  "Legacy publish path is disabled (Admin Worker spec §1). " +
+  "Public content is created only by the Admin Worker artifact pipeline " +
+  "via runPublishOrchestrator(). Set ALLOW_LEGACY_PUBLISH=1 for a " +
+  "supervised one-off migration only.";
+
+export function isLegacyPublishAllowed(): boolean {
+  return process.env.ALLOW_LEGACY_PUBLISH === "1";
+}
 
 export interface PublishInput {
   checklistItemId: string;
@@ -33,6 +50,8 @@ export interface PublishResult {
 /**
  * Attempt to publish a QA-passed package.
  *
+ * LEGACY — HARD-DISABLED. Throws unless ALLOW_LEGACY_PUBLISH=1.
+ *
  * Refuses if:
  *   - QA report's `passed` is false
  *   - QA recommends "reject"
@@ -44,6 +63,9 @@ export interface PublishResult {
  *   - Writes a ChecklistVersion snapshot
  */
 export async function publish(prisma: PrismaClient, input: PublishInput): Promise<PublishResult> {
+  if (!isLegacyPublishAllowed()) {
+    throw new Error(LEGACY_PUBLISH_DISABLED_MESSAGE);
+  }
   const { checklistItemId, pkg, qa } = input;
 
   if (qa.recommendation === "reject") {

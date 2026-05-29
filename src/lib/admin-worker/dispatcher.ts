@@ -1,9 +1,10 @@
 /**
  * AdminWorkerDispatcher (spec §2). Executes the mission stage the
- * brain selected. Replaces the previous loop logic that only knew how
- * to call `planAndEnqueue()` + `runOneBuildCycle()` — the dispatcher
- * walks every stage of the content chain and invokes the correct
- * module for the brain's chosen action.
+ * brain selected. The legacy planAndEnqueue() + runOneBuildCycle()
+ * build/publish path is gone (spec §1) — the dispatcher walks every
+ * stage of the artifact content chain and invokes the correct module
+ * for the brain's chosen action. The ONLY way content becomes public
+ * is EXTRACTION → STRICT_QA → PUBLIC_PUBLISH (runPublishOrchestrator).
  *
  * Each stage handler is small and delegates to the existing modules
  * (web-navigator, source-reader, classifier, extractors,
@@ -23,10 +24,8 @@
 
 import type { PrismaClient } from "@prisma/client";
 
-import { runOneBuildCycle } from "@/lib/worker";
 import type { BrainDecision, BrainMissionStage } from "./brain";
 import { writeAdminWorkerLog } from "./logs";
-import { planAndEnqueue, type PlanOutcome } from "./planner";
 
 export interface DispatchOutcome {
   /** The mission stage the dispatcher actually executed. */
@@ -93,7 +92,7 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
       case "CITATION_CREATION":
         return await runChecklistOrCitation(prisma, passId, stage);
       case "PACKAGE_BUILD":
-        return await runPackageBuild(prisma, workerId, passId);
+        return await runPackageBuild(prisma, passId);
       case "CROSS_SOURCE_VERIFICATION":
         return await runCrossSourceVerification(prisma, passId);
       case "STRICT_QA":
@@ -110,7 +109,7 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
       case "CACHE_REFRESH":
         return await runCacheRefresh(prisma, passId);
       case "REPAIR":
-        return await runRepair(prisma, workerId, passId);
+        return await runRepair(prisma, passId);
       case "HOMEPAGE_WORK":
         return await runHomepageWork(prisma, passId);
       case "REPORTING":
@@ -649,11 +648,7 @@ async function runChecklistOrCitation(
   };
 }
 
-async function runPackageBuild(
-  prisma: PrismaClient,
-  workerId: string,
-  passId: string,
-): Promise<DispatchOutcome> {
+async function runPackageBuild(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
   // Spec §4: prefer AdminWorkerPackageArtifact rows over the legacy
   // build queue. A BUILD_READY artifact already has every required
   // field + provenance + citation; the publish stage can carry it
@@ -686,49 +681,24 @@ async function runPackageBuild(
     };
   }
 
-  // TRANSITIONAL_FALLBACK (spec §6 follow-up): no artifact ready —
-  // drain a legacy build-queue cycle so checklist items get built into
-  // public rows. This path still runs through evaluatePublishGate
-  // inside runOneBuildCycle, but it does NOT consult the new strict-QA
-  // artifact-level result. It exists only to keep older content
-  // moving while the artifact-native path is the production path.
-  // Removal target: once all 11 content types reliably produce
-  // BUILD_READY artifacts via the dispatcher's EXTRACTION stage.
-  const planOutcome: PlanOutcome = await planAndEnqueue(prisma, { passId });
-  if (planOutcome.enqueued > 0) {
-    await writeAdminWorkerLog(prisma, {
-      passId,
-      category: "CONTENT_BUILD",
-      severity: "INFO",
-      eventName: "planner_run_dispatcher_transitional",
-      message: `[TRANSITIONAL] ${planOutcome.reason}`,
-      contentType: planOutcome.contentType ?? undefined,
-    });
-  }
-  const cycle = await runOneBuildCycle(prisma, workerId);
-  if (cycle.kind === "idle") {
-    return {
-      stage: "PACKAGE_BUILD",
-      kind: "idle",
-      summary: "No artifacts ready; build engine idle.",
-      metadata: { enqueued: planOutcome.enqueued, source: "WorkerBuildJob" },
-    };
-  }
-  const built = cycle.status === "succeeded" || cycle.status === "published" ? 1 : 0;
-  const published = cycle.status === "published" ? 1 : 0;
-  const failed = cycle.status === "failed" || cycle.status === "retrying" ? 1 : 0;
+  // Spec §1: the legacy runOneBuildCycle / planAndEnqueue fallback is
+  // removed. The only way an item becomes a buildable package is the
+  // EXTRACTION stage materialising an AdminWorkerPackageArtifact. With
+  // no BUILD_READY artifact, PACKAGE_BUILD is idle — there is no
+  // legacy build/publish path to fall back to.
+  await writeAdminWorkerLog(prisma, {
+    passId,
+    category: "CONTENT_BUILD",
+    severity: "INFO",
+    eventName: "package_build_idle",
+    message:
+      "No BUILD_READY artifact; PACKAGE_BUILD idle. (Legacy build queue removed — artifacts come from the EXTRACTION stage only.)",
+  });
   return {
     stage: "PACKAGE_BUILD",
-    kind: failed > 0 ? "failed" : "advanced",
-    summary: `Legacy build cycle ${cycle.status}.`,
-    built,
-    published,
-    failed,
-    metadata: {
-      enqueued: planOutcome.enqueued,
-      jobId: cycle.kind === "ran" ? cycle.jobId : undefined,
-      source: "WorkerBuildJob",
-    },
+    kind: "idle",
+    summary: "No BUILD_READY artifact; the EXTRACTION stage produces artifacts.",
+    metadata: { source: "AdminWorkerPackageArtifact" },
   };
 }
 
@@ -1408,11 +1378,7 @@ async function runCacheRefresh(prisma: PrismaClient, passId: string): Promise<Di
   return { stage: "CACHE_REFRESH", kind: "advanced", summary: "Cache refresh requested." };
 }
 
-async function runRepair(
-  prisma: PrismaClient,
-  workerId: string,
-  passId: string,
-): Promise<DispatchOutcome> {
+async function runRepair(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
   // First drain durable repair plans via the orchestrator (spec §17).
   const { runRepairOrchestrator } = await import("./repair-orchestrator");
   const orchestrator = await runRepairOrchestrator(prisma, { passId });
@@ -1437,17 +1403,13 @@ async function runRepair(
     },
   });
 
-  // After repair, attempt a build cycle to make forward progress.
-  const cycle = await runOneBuildCycle(prisma, workerId);
-  const built =
-    cycle.kind === "ran" && (cycle.status === "succeeded" || cycle.status === "published") ? 1 : 0;
-  const published = cycle.kind === "ran" && cycle.status === "published" ? 1 : 0;
+  // Spec §1: no legacy build cycle here. Repair fixes pipeline state;
+  // forward progress to a public row happens only through the artifact
+  // pipeline (EXTRACTION → STRICT_QA → PUBLIC_PUBLISH).
   return {
     stage: "REPAIR",
     kind: "advanced",
-    summary: `Repair orchestrator + stuck-queue + build cycle: ${cycle.kind === "ran" ? cycle.status : "idle"}.`,
-    built,
-    published,
+    summary: `Repair orchestrator + stuck-queue: ${orchestrator.plansSucceeded}/${orchestrator.plansConsidered} plan(s) succeeded; stuck-queue ${recovery.attempted ? "attempted" : "skipped"}.`,
     repairsPlanned: orchestrator.plansExecuted + (recovery.attempted ? 1 : 0),
   };
 }

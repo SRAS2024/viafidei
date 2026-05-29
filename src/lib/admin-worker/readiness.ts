@@ -7,6 +7,8 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { isLegacyPublishAllowed } from "@/lib/worker/publishing";
+
 export type ReadinessStatus = "pass" | "fail";
 
 export interface ReadinessCheck {
@@ -217,6 +219,51 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     status: crossSourceVerificationCount > 0 ? "pass" : "fail",
     detail: `${crossSourceVerificationCount} AdminWorkerCrossSourceVerification row(s).`,
     repair: "Run a CROSS_SOURCE_VERIFICATION pass — verifier persists per-field evidence.",
+  });
+
+  // Spec §1: production-readiness FAILS if content can still become
+  // public through a legacy path. The legacy publish writer is
+  // hard-disabled unless the ALLOW_LEGACY_PUBLISH escape hatch is set;
+  // if it is set in production the worker is NOT the only publish path.
+  const legacyAllowed = isLegacyPublishAllowed();
+  checks.push({
+    key: "legacy_publish_disabled",
+    label: "Legacy publish path disabled",
+    status: legacyAllowed ? "fail" : "pass",
+    detail: legacyAllowed
+      ? "ALLOW_LEGACY_PUBLISH=1 — the legacy build/publish engine can still create public content outside the Admin Worker artifact pipeline."
+      : "Legacy build/publish engine is hard-disabled; the Admin Worker artifact pipeline is the only path to public content.",
+    repair: "Unset ALLOW_LEGACY_PUBLISH so only runPublishOrchestrator() can publish.",
+  });
+
+  // Spec §1: every recently-published row must trace to an
+  // AdminWorkerPackageArtifact. A published row in the last 7 days with
+  // no artifact came from a legacy path — readiness fails.
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const recentPublished = await prisma.publishedContent
+    .findMany({
+      where: { isPublished: true, publishedAt: { gte: since } },
+      select: { id: true },
+      take: 200,
+    })
+    .catch(() => [] as Array<{ id: string }>);
+  let orphanPublished = 0;
+  if (recentPublished.length > 0) {
+    const withArtifact = await prisma.adminWorkerPackageArtifact
+      .count({ where: { publishedContentId: { in: recentPublished.map((r) => r.id) } } })
+      .catch(() => recentPublished.length);
+    orphanPublished = Math.max(0, recentPublished.length - withArtifact);
+  }
+  checks.push({
+    key: "published_via_artifact_path",
+    label: "Recent public content traces to the artifact pipeline",
+    status: orphanPublished === 0 ? "pass" : "fail",
+    detail:
+      orphanPublished === 0
+        ? `All ${recentPublished.length} row(s) published in the last 7d trace to an AdminWorkerPackageArtifact.`
+        : `${orphanPublished} of ${recentPublished.length} row(s) published in the last 7d have NO package artifact — a legacy path published them.`,
+    repair:
+      "Investigate the orphan rows; ensure publishing only happens via runPublishOrchestrator with a linked artifact.",
   });
 
   const passing = checks.filter((c) => c.status === "pass").length;

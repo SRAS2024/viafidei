@@ -56,7 +56,12 @@ function makePrisma(
     adminWorkerDecision: { count: vi.fn(async () => opts.decisions) },
     contentGoal: { count: vi.fn(async () => opts.contentGoals) },
     candidateSourceUrl: { count: vi.fn(async () => opts.candidateUrls) },
-    publishedContent: { count: vi.fn(async () => opts.publishedContent) },
+    publishedContent: {
+      count: vi.fn(async () => opts.publishedContent),
+      // Spec §1: readiness checks recent published rows trace to artifacts.
+      findMany: vi.fn(async () => []),
+    },
+    adminWorkerPackageArtifact: { count: vi.fn(async () => 0) },
     adminWorkerSourceRead: { count: vi.fn(async () => opts.sourceReads) },
     workerBuildJob: { count: vi.fn(async () => opts.buildJobs) },
     checklistQAReport: { count: vi.fn(async () => opts.qaReports) },
