@@ -11,7 +11,10 @@
  *     health, content goal, source repair, content build, …)
  *   - generates work items when content goals are unmet — no manual
  *     trigger required
- *   - runs `runOneBuildCycle` to drain the build queue
+ *   - walks the Admin Worker artifact pipeline via the mission
+ *     dispatcher (discovery → fetch → structured read → artifact →
+ *     strict QA → publish orchestrator → post-publish verification).
+ *     The legacy build/publish engine is removed (spec §1).
  *   - on the last calendar day of the month, generates + emails the
  *     Monthly Admin Worker Report PDF (no separate cron needed)
  *

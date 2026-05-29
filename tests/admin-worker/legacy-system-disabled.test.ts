@@ -72,6 +72,16 @@ describe("legacy publish writer is hard-disabled (spec §1)", () => {
     ).rejects.toThrow(/disabled/i);
     if (prev) process.env.ALLOW_LEGACY_PUBLISH = prev;
   });
+
+  it("the legacy runOneBuildCycle build engine throws when disabled", async () => {
+    const prev = process.env.ALLOW_LEGACY_PUBLISH;
+    delete process.env.ALLOW_LEGACY_PUBLISH;
+    // Import the real module (not the @/lib/worker mock above) to hit
+    // the guard at the legacy build-engine entry point.
+    const real = await vi.importActual<typeof import("@/lib/worker/index")>("@/lib/worker/index");
+    await expect(real.runOneBuildCycle({} as never, "w1")).rejects.toThrow(/disabled/i);
+    if (prev) process.env.ALLOW_LEGACY_PUBLISH = prev;
+  });
 });
 
 describe("dispatcher PACKAGE_BUILD never runs a legacy build (spec §1)", () => {

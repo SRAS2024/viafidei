@@ -31,7 +31,7 @@ import {
 } from "./build/queue";
 import { runBuildEngine } from "./build/engine";
 import { runQA } from "./qa";
-import { publish } from "./publishing";
+import { publish, isLegacyPublishAllowed, LEGACY_PUBLISH_DISABLED_MESSAGE } from "./publishing";
 import { extractRelationCandidates, persistRelations } from "./relations";
 import { authorityLevelForHost, isApprovedAuthorityHost } from "./sources/authority-registry";
 import { canonicalizeSlug } from "./slugs";
@@ -287,6 +287,12 @@ export async function rejectItem(
 /**
  * Run one build cycle: lease the next job, run the engine, score QA,
  * persist logs/version/relations, and publish if QA passes.
+ *
+ * LEGACY — HARD-DISABLED (Admin Worker spec §1). This pre-Admin-Worker
+ * build+publish engine bypasses the artifact pipeline (discovery →
+ * fetch → structured read → artifact → strict-QA → orchestrator). It
+ * is no longer on any active path and throws unless the
+ * ALLOW_LEGACY_PUBLISH escape hatch is set.
  */
 export async function runOneBuildCycle(
   prisma: PrismaClient,
@@ -302,6 +308,9 @@ export async function runOneBuildCycle(
       qaScore?: number;
     }
 > {
+  if (!isLegacyPublishAllowed()) {
+    throw new Error(LEGACY_PUBLISH_DISABLED_MESSAGE);
+  }
   const job = await leaseNextBuildJob(prisma, workerId);
   if (!job) return { kind: "idle" };
 
