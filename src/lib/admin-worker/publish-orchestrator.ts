@@ -69,6 +69,11 @@ export type OrchestratorResult =
       reason: string;
     }
   | { kind: "blocked"; reason: string; gate?: string; blockedBy: string }
+  // Spec §6: "repair" is distinct from "review". A repairable failure
+  // (e.g. strict QA NEEDS_REPAIR, quality score just below threshold)
+  // goes to repair first; "review" is reserved for genuinely
+  // ambiguous / conflicting cases a human must adjudicate.
+  | { kind: "repair"; reason: string }
   | { kind: "review"; reason: string }
   | { kind: "duplicate"; existingId: string; reason: string };
 
@@ -93,7 +98,8 @@ export async function runPublishOrchestrator(
     if (qa.status !== "PASSED") {
       const reason = `strict QA status=${qa.status} (finalScore=${qa.finalScore.toFixed(2)}, blocking=${qa.blockingReasons.join("; ") || "(none)"})`;
       if (qa.status === "NEEDS_REPAIR") {
-        return { kind: "review", reason };
+        // Spec §6: needs repair, not review — repair first.
+        return { kind: "repair", reason };
       }
       return { kind: "blocked", blockedBy: "strict-qa", reason };
     }
@@ -160,7 +166,9 @@ export async function runPublishOrchestrator(
     // Spec §4 + §9: file a QUALITY_SCORE_FAILED repair plan so the
     // package goes to repair first rather than being silently
     // rejected. The repair orchestrator resets the artifact for
-    // re-extraction.
+    // re-extraction. When the artifact is repairable (we have its id)
+    // the result is "repair", not "blocked" — spec §4 "go to repair
+    // first" / §6 distinct repair explanation.
     if (input.strictQAArtifactId) {
       const { filePlan } = await import("./repair-plans");
       await filePlan(prisma, {
@@ -174,6 +182,7 @@ export async function runPublishOrchestrator(
           threshold: qualityThreshold,
         },
       }).catch(() => undefined);
+      return { kind: "repair", reason };
     }
     return { kind: "blocked", blockedBy: "quality-score", reason };
   }

@@ -169,4 +169,34 @@ describe("runHomepagePublishOrchestrator — mission flow (spec §20)", () => {
     const result = await runHomepagePublishOrchestrator(prisma);
     expect(result.kind).toBe("skipped");
   });
+
+  it("rolls back when a post-change axis (e.g. link health) fails verification (spec §16)", async () => {
+    const { prisma } = makePrisma({
+      publishedByType: [{ contentType: "PRAYER", count: 1 }],
+      // Post-change quality score with a broken-links axis below 0.4.
+      homepageScore: {
+        finalScore: 0.7,
+        visualCompletenessScore: 0.9,
+        linkHealthScore: 0.1, // featured links broken → must roll back
+        sectionBalanceScore: 0.9,
+        emptyStateAvoidanceScore: 0.9,
+        mobileReadinessScore: 0.9,
+        accessibilityScore: 0.9,
+        seasonalRelevanceScore: 0.9,
+      } as never,
+    });
+    const { redesignHomepage } = await import("@/lib/admin-worker/homepage-mutator");
+    vi.mocked(redesignHomepage).mockResolvedValueOnce({
+      draftId: "draft-3",
+      status: "AUTO_PUBLISHED",
+      finalScore: 0.7,
+      qualityScoreId: "q3",
+      sectionsChanged: ["hero"],
+      reasonSummary: "test",
+    });
+    const result = await runHomepagePublishOrchestrator(prisma);
+    expect(result.kind).toBe("rolled-back");
+    expect(result.verificationPassed).toBe(false);
+    expect(result.reason).toMatch(/featured links work/);
+  });
 });

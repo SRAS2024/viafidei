@@ -88,13 +88,15 @@ describe("publish requires a passing strict-QA result (spec §6)", () => {
     if (result.kind === "blocked") expect(result.blockedBy).toBe("strict-qa");
   });
 
-  it("routes to review when strict-QA status is NEEDS_REPAIR", async () => {
+  it("routes to repair (not review) when strict-QA status is NEEDS_REPAIR (spec §6)", async () => {
     const prisma = makePrisma({ qaStatus: "NEEDS_REPAIR" });
     const result = await runPublishOrchestrator(prisma, {
       ...HEALTHY,
       strictQAArtifactId: "art-1",
     });
-    expect(result.kind).toBe("review");
+    // Spec §6: needs-repair is a distinct outcome from human review —
+    // the package goes to repair first.
+    expect(result.kind).toBe("repair");
   });
 
   it("blocks when strict-QA status is FAILED", async () => {
@@ -118,12 +120,22 @@ describe("publish requires a passing strict-QA result (spec §6)", () => {
 });
 
 describe("publish requires a passing ContentQualityScore (spec §4)", () => {
-  it("blocks when ContentQualityScore is below threshold", async () => {
+  it("blocks when ContentQualityScore is below threshold (no artifact id → not repairable)", async () => {
     // Override the mock to force a low finalScore.
     const prisma = makePrisma({ qualityFinalScore: 0.3 });
     const result = await runPublishOrchestrator(prisma, HEALTHY);
     expect(result.kind).toBe("blocked");
     if (result.kind === "blocked") expect(result.blockedBy).toBe("quality-score");
+  });
+
+  it("routes to repair when quality is below threshold AND the artifact is repairable (spec §4)", async () => {
+    const prisma = makePrisma({ qualityFinalScore: 0.3, qaStatus: "PASSED" });
+    const result = await runPublishOrchestrator(prisma, {
+      ...HEALTHY,
+      strictQAArtifactId: "art-1",
+    });
+    // Spec §4: "Packages below threshold should go to repair first."
+    expect(result.kind).toBe("repair");
   });
 
   it("publishes when ContentQualityScore is at or above threshold", async () => {

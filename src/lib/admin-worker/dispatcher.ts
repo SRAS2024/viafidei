@@ -1109,6 +1109,16 @@ async function runPersistAndPublish(
           data: { status: "REJECTED", rejectionReason: result.reason },
         })
         .catch(() => undefined);
+    } else if (result.kind === "repair") {
+      // Spec §6: repairable — send the artifact back for re-extraction
+      // (the QUALITY_SCORE_FAILED / STRICT_QA_FAILED repair plan the
+      // orchestrator filed drives the retry).
+      await prisma.adminWorkerPackageArtifact
+        .update({
+          where: { id: artifact.id },
+          data: { status: "NEEDS_REPAIR", rejectionReason: result.reason },
+        })
+        .catch(() => undefined);
     }
 
     return {
@@ -1120,11 +1130,14 @@ async function runPersistAndPublish(
             ? "rejected"
             : result.kind === "duplicate"
               ? "idle"
-              : "rejected",
+              : result.kind === "repair"
+                ? "repair-planned"
+                : "rejected",
       summary: `Publish orchestrator: ${result.kind} (${result.reason}).`,
       built: result.kind === "published" ? 1 : 0,
       published: result.kind === "published" ? 1 : 0,
       rejected: result.kind === "blocked" || result.kind === "review" ? 1 : 0,
+      repairsPlanned: result.kind === "repair" ? 1 : 0,
       metadata: {
         artifactId: artifact.id,
         kind: result.kind,
