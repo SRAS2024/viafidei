@@ -320,6 +320,35 @@ export async function generateAdminWorkerDeveloperAuditPdf(
       }
     }
 
+    // ─── Content growth funnel (spec §17) ─────────────────────────────
+    if (sectionsToInclude.has("Content Growth Funnel")) {
+      builder.section("Content Growth Funnel");
+      if (data.contentFunnel.length === 0) {
+        builder.note("No content funnel rows computed yet.");
+      } else {
+        builder.table(
+          [
+            { header: "Content type", weight: 120 },
+            { header: "Cand.", weight: 50, align: "right" },
+            { header: "Artifacts", weight: 60, align: "right" },
+            { header: "Strict QA", weight: 60, align: "right" },
+            { header: "Published", weight: 60, align: "right" },
+            { header: "PostPub", weight: 55, align: "right" },
+            { header: "Bottleneck", weight: 110 },
+          ],
+          data.contentFunnel.map((f) => [
+            f.contentType,
+            String(f.candidatesDiscovered),
+            String(f.packageArtifactsCreated),
+            String(f.strictQAPasses),
+            String(f.publishedItems),
+            String(f.postPublishPasses),
+            f.firstEmptyStage ?? "flowing",
+          ]),
+        );
+      }
+    }
+
     // ─── Source coverage (spec §11 + §15) ─────────────────────────────
     if (sectionsToInclude.has("Source Coverage")) {
       builder.section("Source Coverage");

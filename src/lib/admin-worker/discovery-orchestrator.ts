@@ -183,6 +183,15 @@ export async function runDiscoveryOrchestrator(
       try {
         const outcome = await discoverFromHost(prisma, host.sourceHost);
         surfaced += outcome.inserted;
+        // Spec §19: source reputation updates after the discovery stage
+        // — a host that surfaces candidates is more productive.
+        const { pushReputation } = await import("./source-reputation-hooks");
+        await pushReputation(prisma, {
+          sourceHost: host.sourceHost,
+          contentType: contentType ?? undefined,
+          stage: "discovery",
+          ok: outcome.inserted > 0,
+        }).catch(() => undefined);
       } catch (e) {
         errors.push(`sitemap:${host.sourceHost}: ${(e as Error).message}`);
       }

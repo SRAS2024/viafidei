@@ -29,68 +29,61 @@ operations report.
 
 ## Architecture
 
-Two systems run together:
-
-1. **Checklist-first content factory** — `src/lib/worker/`.
-   The only path from a source page to a public page. Every public
-   row begins as a `ChecklistItem`, gets one or more
-   `ChecklistCitation`s pointing at approved Catholic sources, is
-   built against a strict per-content-type schema, is scored on six
-   QA dimensions, and is finally written to `PublishedContent` —
-   the single table every public page reads from.
-
-2. **Admin Worker engine** — `src/lib/admin-worker/`.
-   The autonomous administrator that drives the checklist-first
-   factory plus everything around it: brain, mission planner,
-   discovery, source reader, classifier, extractors, cross-source
-   verifier, publishing gate, post-publish verification, homepage
-   redesign, security defense, diagnostics, reporting, durable
-   repair plans, memory, source reputation. Deterministic and
-   observable end-to-end.
+The **Admin Worker artifact pipeline** is the only active path from a
+source page to a public page. The pre-Admin-Worker checklist-first
+build/publish engine in `src/lib/worker/` is **hard-disabled** (see
+[Single content path](#single-content-path-no-legacy)): the legacy
+`publish()` writer and `runOneBuildCycle` build engine throw unless an
+explicit `ALLOW_LEGACY_PUBLISH=1` migration escape hatch is set, the
+old build/publish admin routes return `410 Gone`, and production
+readiness fails if any content could still become public through an
+old path. The checklist-first data models (`ChecklistItem`,
+`ChecklistCitation`, `AuthoritySource`, `PublishedContent`) remain —
+the Admin Worker pipeline populates `ChecklistItem` + `ChecklistCitation`
+from package artifacts and publishes to `PublishedContent` through the
+Publish Orchestrator.
 
 ```
    ┌──────────────────────────────────────────────────────────────────┐
-   │                       Admin Worker engine                         │
-   │                    (src/lib/admin-worker/)                        │
-   │                                                                   │
-   │   ranked-action brain → mission dispatcher (22 stages)            │
-   │                                                                   │
-   │     DISCOVERY → CANDIDATE_PRIORITIZATION → SOURCE_FETCH →         │
-   │     SOURCE_READ → CLASSIFICATION → EXTRACTION →                   │
-   │     CHECKLIST_CREATION → CITATION_CREATION → PACKAGE_BUILD →      │
-   │     CROSS_SOURCE_VERIFICATION → STRICT_QA → PERSISTENCE →         │
-   │     PUBLIC_PUBLISH → POST_PUBLISH_VERIFY → SEARCH_VERIFY →        │
-   │     SITEMAP_VERIFY → CACHE_REFRESH → REPAIR → HOMEPAGE_WORK →     │
-   │     REPORTING → SECURITY_DEFENSE → MAINTENANCE                    │
-   │                                                                   │
-   │   ┌──────────────────────────────────────────────────────────┐   │
-   │   │       Checklist-first content factory                    │   │
-   │   │  ChecklistItem → WorkerBuildJob → ChecklistQAReport      │   │
-   │   │            → PublishedContent (public)                   │   │
-   │   └──────────────────────────────────────────────────────────┘   │
+   │                  Admin Worker engine — the ONLY                    │
+   │              active content path (src/lib/admin-worker/)           │
+   │                                                                    │
+   │   ranked-action brain → mission dispatcher (22 stages)             │
+   │                                                                    │
+   │     DISCOVERY → CANDIDATE_PRIORITIZATION → SOURCE_FETCH →          │
+   │     SOURCE_READ → CLASSIFICATION → EXTRACTION →                    │
+   │     CHECKLIST_CREATION → CITATION_CREATION → PACKAGE_BUILD →       │
+   │     CROSS_SOURCE_VERIFICATION → STRICT_QA → PERSISTENCE →          │
+   │     PUBLIC_PUBLISH → POST_PUBLISH_VERIFY → SEARCH_VERIFY →         │
+   │     SITEMAP_VERIFY → CACHE_REFRESH → REPAIR → HOMEPAGE_WORK →      │
+   │     REPORTING → SECURITY_DEFENSE → MAINTENANCE                     │
+   │                                                                    │
+   │   AdminWorkerPackageArtifact → ChecklistItem + ChecklistCitation   │
+   │            → runPublishOrchestrator() → PublishedContent (public)  │
    └──────────────────────────────────────────────────────────────────┘
 ```
 
 The public site reads only from `PublishedContent`. There is no other
-code path from the database to a public page.
+code path from the database to a public page, and only
+`runPublishOrchestrator()` writes it.
 
 ---
 
 ## Data model
 
-**Checklist-first factory** (`src/lib/worker/`):
+**Checklist + published content** (`src/lib/worker/`):
 
-| Model               | Role                                                  |
-| ------------------- | ----------------------------------------------------- |
-| `ChecklistItem`     | One row per concrete item the app intends to publish  |
-| `AuthoritySource`   | Approved-source registry (Vatican, USCCB, …)          |
-| `ChecklistCitation` | One citation per (item, URL) with authority level     |
-| `WorkerBuildJob`    | Queue row for a single worker build attempt           |
-| `WorkerBuildLog`    | Structured log of every meaningful worker step        |
-| `ChecklistQAReport` | Per-build six-dimension QA score                      |
-| `ChecklistVersion`  | Per-publish snapshot for audit & rollback             |
-| `ChecklistRelation` | Typed relations (saint→feast day, devotion→prayer, …) |
-| `PublishedContent`  | The only table the public site reads from             |
+| Model               | Role                                                           |
+| ------------------- | -------------------------------------------------------------- |
+| `ChecklistItem`     | One row per concrete item (populated from package artifacts)   |
+| `AuthoritySource`   | Approved-source registry (Vatican, USCCB, …)                   |
+| `ChecklistCitation` | One citation per (item, URL) with authority level              |
+| `WorkerBuildJob`    | Legacy build-queue row (legacy build engine hard-disabled)     |
+| `WorkerBuildLog`    | Legacy structured build log                                    |
+| `ChecklistQAReport` | Legacy per-build QA score (artifact strict QA is the live one) |
+| `ChecklistVersion`  | Per-publish snapshot for audit & rollback                      |
+| `ChecklistRelation` | Typed relations (saint→feast day, devotion→prayer, …)          |
+| `PublishedContent`  | The only table the public site reads from                      |
 
 **Admin Worker engine** (`src/lib/admin-worker/`):
 
@@ -110,7 +103,7 @@ code path from the database to a public page.
 | `AdminWorkerPackageArtifact`         | Built content package (provenance + missing fields)           |
 | `AdminWorkerStrictQAResult`          | Per-artifact strict QA: 7 sub-scores + blocking reasons       |
 | `AdminWorkerCrossSourceVerification` | Per-field validation evidence with conflict status            |
-| `AdminWorkerSourceCoverage`          | Per-content-type primary/validation/enrichment coverage       |
+| `AdminWorkerSourceCoverage`          | Per-type primary/validation/enrichment + active/recent counts |
 | `AdminWorkerGrowthSnapshot`          | Per-content-type 24h/7d growth status                         |
 | `AdminWorkerPipelineStage`           | One row per item moving through the 22-stage chain            |
 | `AdminWorkerRepairPlan`              | Durable repair plans with exponential-backoff retry           |
@@ -189,26 +182,32 @@ Optional environment variables:
 
 **Admin Worker (autonomous system):**
 
-| Card               | Route                          | Purpose                                                                  |
-| ------------------ | ------------------------------ | ------------------------------------------------------------------------ |
-| Command Center     | `/admin/admin-worker`          | Mission + chosen action + ranked alternatives + Why-No-Growth + controls |
-| System diagnostics | `/admin/diagnostics`           | Subsystem ratings, pause toggle, Developer Audit PDF                     |
-| Pipeline map       | `/admin/admin-worker/pipeline` | Per-stage queue snapshot across the 22-stage chain                       |
-| Admin Worker logs  | `/admin/admin-worker/logs`     | 16-category log viewer with period + severity filters                    |
-| Admin Worker rules | `/admin/admin-worker/rules`    | Versioned rule catalogue                                                 |
+| Card               | Route                           | Purpose                                                                                          |
+| ------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Command Center     | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls |
+| System diagnostics | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF             |
+| Pipeline map       | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                               |
+| Package artifacts  | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                            |
+| Admin Worker logs  | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                            |
+| Admin Worker rules | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                         |
 
-**Checklist (content the worker builds):**
+**Checklist (read-only management surfaces):**
 
-| Card                | Route                              | Purpose                               |
-| ------------------- | ---------------------------------- | ------------------------------------- |
-| Checklist dashboard | `/admin/checklist`                 | Counts by status + type, bulk actions |
-| Build queue         | `/admin/checklist/queue`           | Live `WorkerBuildJob` state           |
-| QA reports          | `/admin/checklist/qa`              | Unreviewed reports                    |
-| Published content   | `/admin/checklist/published`       | Items live on the public site         |
-| Approved sources    | `/admin/checklist/sources`         | Authority registry                    |
-| Janitor: edits      | `/admin/checklist/janitor/edits`   | Items the worker wants to rebuild     |
-| Janitor: deletes    | `/admin/checklist/janitor/deletes` | Items the worker wants to remove      |
-| Failed builds       | `/admin/checklist/failed`          | Exhausted retry budgets               |
+The legacy build/publish admin actions (`worker-run`, per-item
+`publish`, `bulk/build-all`, `bulk/run-autonomous`) return `410 Gone`
+— content is created only by the Admin Worker pipeline. The remaining
+checklist pages are read-only views of the data the worker populates.
+
+| Card                | Route                              | Purpose                           |
+| ------------------- | ---------------------------------- | --------------------------------- |
+| Checklist dashboard | `/admin/checklist`                 | Counts by status + type           |
+| Build queue         | `/admin/checklist/queue`           | `WorkerBuildJob` state (legacy)   |
+| QA reports          | `/admin/checklist/qa`              | Unreviewed reports                |
+| Published content   | `/admin/checklist/published`       | Items live on the public site     |
+| Approved sources    | `/admin/checklist/sources`         | Authority registry                |
+| Janitor: edits      | `/admin/checklist/janitor/edits`   | Items the worker wants to rebuild |
+| Janitor: deletes    | `/admin/checklist/janitor/deletes` | Items the worker wants to remove  |
+| Failed builds       | `/admin/checklist/failed`          | Exhausted retry budgets           |
 
 **Site surfaces:**
 
@@ -233,7 +232,9 @@ Optional environment variables:
 The **Admin Worker** is the autonomous website-administrator system,
 fully coded and operating **without any AI APIs**. Code lives under
 `src/lib/admin-worker/`. The operator surface is at `/admin/admin-worker`
-(Command Center) and `/admin/diagnostics` (30 ratings + pause toggle).
+(Command Center) and `/admin/diagnostics` (per-subsystem ratings +
+pause toggle). It is the **only** system that creates public content
+(see [Single content path](#single-content-path-no-legacy)).
 
 ### What it does
 
@@ -243,15 +244,23 @@ fully coded and operating **without any AI APIs**. Code lives under
   URLs, open repair plans, blocked pipeline stages, growth snapshots,
   source coverage) and _scores every candidate action_. The output is
   a `BrainDecision` with the chosen action **plus a ranked list of
-  rejected alternatives**, confidence, risk, reasons, and the memory
-  - reputation rows that influenced the decision. Action fatigue
-    penalises paths that have just failed; a recently-advanced bonus
-    rewards paths that just moved a stage forward. Every decision is
-    written to `AdminWorkerDecision` so the operator can audit _"why
-    this and not that?"_ without re-running.
+  rejected alternatives**, confidence, risk, urgency, source score,
+  quality expectation, repair likelihood, fallback action, stop
+  condition, the rules evaluated, and the memory + reputation rows
+  that influenced the decision. It also learns from real outcomes:
+  `sampleExecutionFeedback` reads last-7-day **pass rates** from the
+  durable tables (strict-QA, ContentQualityScore, post-publish, repair
+  plans) and `applyExecutionFeedback` demotes stages with poor pass
+  rates and boosts winners. Action fatigue penalises paths that have
+  just failed; a recently-advanced bonus rewards paths that just moved
+  a stage forward; fallback + content-type rotation kick in when a
+  type/source is repeatedly blocked. Every decision is written to
+  `AdminWorkerDecision` (including memory + reputation used) so the
+  operator can audit _"why this and not that?"_ without re-running.
 
 - **Executes 22 mission stages.** `dispatcher.ts` runs the chosen
-  action against the real pipeline — _no "logged intent" stubs_. The
+  action against the real pipeline — _no "logged intent" stubs_ (a
+  test statically scans every handler and fails if one only logs). The
   22 stages span DISCOVERY → CANDIDATE_PRIORITIZATION → SOURCE_FETCH
   → SOURCE_READ → CLASSIFICATION → EXTRACTION → CHECKLIST_CREATION →
   CITATION_CREATION → PACKAGE_BUILD → CROSS_SOURCE_VERIFICATION →
@@ -260,7 +269,9 @@ fully coded and operating **without any AI APIs**. Code lives under
   HOMEPAGE_WORK → REPORTING → SECURITY_DEFENSE → MAINTENANCE. SOURCE_FETCH
   actually calls `adminWorkerFetch`; SOURCE_READ actually calls
   `readSource`; POST_PUBLISH_VERIFY actually hits the public route
-  (no `skipNetwork: true` in the production path).
+  (no `skipNetwork: true` in the production path). Every stage returns
+  a uniform result — stage name, action taken, input/output entity,
+  advanced/rejected/repaired counts, blocker, next stage, logs created.
 
 - **Discovers approved Catholic sources.** `discovery-orchestrator.ts`
   runs seven discovery methods end-to-end with per-content-type
@@ -399,12 +410,14 @@ fully coded and operating **without any AI APIs**. Code lives under
   with **30-day half-life decay** so recent outcomes outweigh stale
   ones. Active hooks: `rankHostsByMemory`, `recordExtractorOutcome`,
   `rememberFailurePattern`. EWMA-smoothed
-  `AdminWorkerSourceReputation` updates after every discovery, fetch,
-  source-read, classification, extraction, verification, QA, publish,
-  post-publish, duplicate, and wrong-content outcome
-  (`source-reputation-hooks.ts`). Good sources promoted automatically;
-  bad sources paused. Action fatigue rotates the brain to fallback
-  paths when one content type or source is repeatedly blocked.
+  `AdminWorkerSourceReputation` updates after **every one of the ten
+  pipeline stages** — discovery, fetch, source-read, classification,
+  extraction, validation, strict QA, quality score, publish, and
+  post-publish (`source-reputation-hooks.ts`; a static test asserts a
+  reputation push exists for each stage). Good sources promoted
+  automatically; bad sources paused. Action fatigue rotates the brain
+  to fallback paths when one content type or source is repeatedly
+  blocked.
 
 - **Maintains the homepage.**
   `homepage-publish-orchestrator.ts` runs a 10-axis homepage
@@ -445,14 +458,15 @@ fully coded and operating **without any AI APIs**. Code lives under
   in every Developer Audit PDF.
 
 - **Creates Developer Audit PDFs** for the last 24 hours / 7 days /
-  30 days. Twenty-four sections: table of contents, executive
-  summary, brain decisions + ranked alternatives, mission plans,
-  dispatcher outcomes, pipeline stage history, content goal
-  progress, discovery / fetch / source-read / classification /
-  extraction / package-artifact / checklist+citation / validation /
-  strict-QA / quality-score / publishing / post-publish / search /
-  sitemap / cache / repair / security / homepage logs, memory +
-  source-reputation changes, current blockers, why-no-growth,
+  30 days. All declared sections are actually rendered: table of
+  contents, executive summary, brain decisions + ranked alternatives,
+  mission plans, pipeline stage history, content goal progress,
+  content growth funnel, source coverage, discovery / fetch /
+  source-read / structured-block / classification / extraction /
+  package-artifact / checklist+citation / validation / strict-QA /
+  quality-score / publishing / post-publish / search / sitemap /
+  cache / repair / security / homepage logs, memory +
+  source-reputation changes, why-no-growth, current blockers,
   recommended repairs. All secrets redacted; useful debugging
   fields visible.
 
@@ -476,19 +490,57 @@ fully coded and operating **without any AI APIs**. Code lives under
   NEW). After 7 days stuck below target, the worker auto-files a
   repair plan.
 
-- **Reports production readiness.** `readiness.ts` runs 12 live
-  checks (heartbeat, brain has run, content goals exist, source
-  discovery configured, candidate URLs available, source reads exist,
-  builds exist, QA passes exist, published content exists,
-  post-publish verification works, security defender wired, homepage
-  scoring available). Every failed check returns a concrete repair
-  instruction. The Command Center surfaces the readiness score and
-  failing checks.
+- **Tracks the full growth funnel.** `content-growth-monitor.ts`
+  (`computeContentFunnel`) computes a per-content-type funnel from the
+  durable tables — candidates discovered → prioritized → fetched →
+  source reads → structured blocks → package artifacts → checklist
+  items → citations → validation → strict QA → quality score →
+  published → post-publish, plus public/search/sitemap visibility and
+  the first **bottleneck** stage (first funnel stage that dropped to
+  zero). Surfaced on the Command Center and in the Developer Audit.
+
+- **Reports production readiness.** `readiness.ts` runs live checks
+  (heartbeat, brain has run, content goals exist, source discovery
+  configured, candidate URLs available, source reads exist, pipeline
+  stages tracked, growth orchestrator active, source coverage scored,
+  cross-source verifier wired, post-publish verification works,
+  **legacy publish path disabled**, and **every recent public row
+  traces to a package artifact** — the last two fail if any content
+  could become public through an old path). Every failed check returns
+  a concrete repair instruction. The Command Center surfaces the
+  readiness score and failing checks.
+
+### Single content path (no legacy)
+
+The Admin Worker artifact pipeline is the **only** way content becomes
+public. The pre-Admin-Worker build/publish engine is hard-disabled:
+
+- `src/lib/worker/publishing/index.ts` `publish()` — the only writer
+  that ever wrote public rows outside the pipeline — throws unless
+  `ALLOW_LEGACY_PUBLISH=1` (a supervised one-off migration escape
+  hatch, off in production).
+- `runOneBuildCycle` (the legacy build entry point that
+  `runWorkerLoop` / `runFullAutonomousCycle` / `bulkBuildAll` funnel
+  through) throws under the same guard.
+- The legacy build/publish admin routes (`checklist/worker-run`,
+  `checklist/[id]/publish`, `bulk/build-all`, `bulk/run-autonomous`)
+  return `410 Gone` (`src/lib/worker/legacy-disabled.ts`).
+- The dispatcher no longer imports `@/lib/worker`; with no
+  `BUILD_READY` / `QA_PASSED` artifact, PACKAGE_BUILD and
+  PUBLIC_PUBLISH return idle rather than falling back to a legacy
+  build.
+- Production readiness **fails** if `ALLOW_LEGACY_PUBLISH` is set, or
+  if any row published in the last 7 days has no linked
+  `AdminWorkerPackageArtifact`.
+
+`tests/admin-worker/legacy-system-disabled.test.ts` proves `publish()`
+and `runOneBuildCycle` throw when disabled, PACKAGE_BUILD never runs a
+legacy build, readiness fails when the flag is set, and the legacy
+routes return `410`.
 
 ### Internal modules
 
-`src/lib/admin-worker/` ships every spec-required module. New
-orchestrators (Sessions 10–14) appear in **bold**.
+`src/lib/admin-worker/` ships every module of the autonomous pipeline.
 
 | File                                     | Module                                                    |
 | ---------------------------------------- | --------------------------------------------------------- |
@@ -530,8 +582,8 @@ orchestrators (Sessions 10–14) appear in **bold**.
 | `packaging.ts`                           | Per-content-type structural validators                    |
 | **`strict-qa.ts`**                       | Artifact-level strict QA (7 sub-scores + gate)            |
 | `quality.ts`                             | 10-dim quality scoring (`computeFinalScoreV2`)            |
-| **`publish-orchestrator.ts`**            | Only normal publish path; idempotent; updates all stores  |
-| `publisher.ts`                           | Legacy publishing gate (still used by some flows)         |
+| **`publish-orchestrator.ts`**            | The only publish path; idempotent; updates all stores     |
+| `publisher.ts`                           | Publish-gate evaluator used by the orchestrator           |
 | `publish-safety.ts`                      | Pattern blockers (incomplete prayers, …)                  |
 | `post-publish-probe.ts`                  | Live HTTP probe                                           |
 | **`search-sitemap-cache-verifiers.ts`**  | Independent search + sitemap + cache verification         |
@@ -558,6 +610,7 @@ orchestrators (Sessions 10–14) appear in **bold**.
 | `content-goals.ts`                       | Per-content-type minimum/desired                          |
 | `content-growth.ts`                      | 24 h / 7 d growth-escalation watcher                      |
 | **`growth-orchestrator.ts`**             | 7 growth-status classes + auto-file repair plans          |
+| **`content-growth-monitor.ts`**          | Per-content-type funnel (candidates → cache) + bottleneck |
 | `cleanup.ts`                             | Cleanup custodian                                         |
 | `human-review.ts`                        | Rare-edge-case review queue                               |
 | `deletion.ts`                            | Confidence-gated deletion + 9 reasons                     |
@@ -586,10 +639,10 @@ the rest of the loop. Resume the worker via the same toggle.
 
 The Command Center exposes one-click actions for every named pass:
 
-- **Run diagnostic pass** — refreshes 30 ratings + writes diagnostic snapshots
-- **Run content goal pass** — recomputes gaps + enqueues build jobs
-- **Run source discovery pass** — runs the web navigator
-- **Run homepage pass** — invokes the homepage mutator
+- **Run diagnostic pass** — refreshes subsystem ratings + writes diagnostic snapshots
+- **Run content goal pass** — recomputes gaps + refreshes content goals
+- **Run source discovery pass** — runs the discovery orchestrator
+- **Run homepage pass** — invokes the homepage publish orchestrator
 - **Run source repair pass** — drains durable repair plans
 - **Run report generation** — generates a monthly report on demand
 - **Run cleanup pass** — runs the custodian
@@ -625,11 +678,13 @@ tsx scripts/run-worker.ts --max-jobs N   # exit after N passes
 tsx scripts/run-worker.ts --worker-id X  # stable worker id
 ```
 
-The worker self-leases jobs and is safe to run with multiple replicas.
-Each build job is leased for five minutes; stale leases are reclaimed
-automatically. The monthly Admin Worker Report fires once per worker
-startup when `isLastDayOfMonth(today)` is true, so a restart on the
-last day of the month still sends the email.
+`run-worker.ts` drives `runAdminWorkerLoop` — each pass runs the
+ranked-action brain then the mission dispatcher (the legacy
+build-queue engine is removed). It is safe to run with multiple
+replicas; per-stage work is idempotent and durable. The monthly Admin
+Worker Report fires once per worker startup when `isLastDayOfMonth(today)`
+is true, so a restart on the last day of the month still sends the
+email.
 
 ---
 
@@ -721,14 +776,23 @@ The unit + component suite covers:
   actually fetched and compared, `runPublishOrchestrator()` is the
   normal publish path, post-publish verification performs live
   checks, Developer Audit includes all required sections.
-- **Worker (checklist-first factory)** — build engine, build queue,
-  publishing gate, QA approval, source validation, diagnostics,
-  janitor, cross-source, duplicate detection, schema compliance,
-  autonomous cycle, knowledge base, relations, Catholic accuracy.
+- **Single-content-path guards** — no legacy system can create,
+  publish, or mutate public content (`legacy-system-disabled.test.ts`);
+  no dispatcher handler only logs without doing work
+  (`dispatcher-no-placeholder-stages.test.ts`); every stage returns
+  the full §3.4 result shape (`dispatcher-outcome-shape.test.ts`);
+  source reputation updates after all ten stages
+  (`source-reputation-stage-coverage.test.ts`); content funnel +
+  bottleneck (`content-growth-monitor.test.ts`).
+- **Worker (checklist + publish gate)** — build engine, publish-gate
+  evaluator, QA approval, source validation, diagnostics, janitor,
+  cross-source, duplicate detection, schema compliance, knowledge
+  base, relations, Catholic accuracy (legacy build/publish exercised
+  behind the `ALLOW_LEGACY_PUBLISH` escape hatch).
 - **App-wide** — API, auth, security, components, data, email,
   observability, i18n, cache test suites.
 
-Total: **1677 passing tests across 201 test files**.
+Total: **1803 passing tests across 220 test files**.
 
 ---
 
@@ -777,17 +841,19 @@ device known so subsequent navigation reads as expected activity.
 
 ## Migration history
 
-| Migration                                      | What it added                                                                              |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `0001` – `0022`                                | Original schema (auth, content, ingestion, …)                                              |
-| `0023_checklist_first_architecture`            | Checklist-first models (ChecklistItem, …)                                                  |
-| `0024_admin_worker`                            | Admin Worker engine tables (15 + enums)                                                    |
-| `0025_drop_legacy_system`                      | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent                  |
-| `0026_admin_worker_brain`                      | Brain tables: SourceRead, PipelineStage, RepairPlan                                        |
-| `0027_admin_worker_brain_ranking`              | Brain ranked alternatives + AdminWorkerFetchResult / SourceBlock / CrossSourceVerification |
-| `0028_admin_worker_pipeline_and_orchestrators` | Pipeline durability + candidate scoring fields + SourceCoverage + GrowthSnapshot           |
-| `0029_admin_worker_package_artifact`           | AdminWorkerPackageArtifact (built package as a first-class artifact)                       |
-| `0030_admin_worker_strict_qa`                  | AdminWorkerStrictQAResult (durable strict-QA per artifact)                                 |
+| Migration                                          | What it added                                                                              |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `0001` – `0022`                                    | Original schema (auth, content, ingestion, …)                                              |
+| `0023_checklist_first_architecture`                | Checklist-first models (ChecklistItem, …)                                                  |
+| `0024_admin_worker`                                | Admin Worker engine tables (15 + enums)                                                    |
+| `0025_drop_legacy_system`                          | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent                  |
+| `0026_admin_worker_brain`                          | Brain tables: SourceRead, PipelineStage, RepairPlan                                        |
+| `0027_admin_worker_brain_ranking`                  | Brain ranked alternatives + AdminWorkerFetchResult / SourceBlock / CrossSourceVerification |
+| `0028_admin_worker_pipeline_and_orchestrators`     | Pipeline durability + candidate scoring fields + SourceCoverage + GrowthSnapshot           |
+| `0029_admin_worker_package_artifact`               | AdminWorkerPackageArtifact (built package as a first-class artifact)                       |
+| `0030_admin_worker_strict_qa`                      | AdminWorkerStrictQAResult (durable strict-QA per artifact)                                 |
+| `0031_admin_worker_repair_kinds_strict_qa_quality` | Added STRICT_QA_FAILED + QUALITY_SCORE_FAILED repair kinds                                 |
+| `0032_admin_worker_source_coverage_active_counts`  | SourceCoverage: active / recently-successful / recently-failed source counts               |
 
 The legacy scraper-first ingestion + legacy public-content models
 (`Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,

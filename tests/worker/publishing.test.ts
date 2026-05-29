@@ -2,7 +2,7 @@
  * Tests for the publishing gate.
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import { publish } from "@/lib/worker/publishing";
 import type { BuiltContentPackage } from "@/lib/worker/types";
@@ -53,7 +53,29 @@ function makePrisma() {
   } as never;
 }
 
+// Spec §1: the legacy publish() is hard-disabled. It throws unless the
+// ALLOW_LEGACY_PUBLISH escape hatch is set (supervised migration only).
+describe("legacy publish is hard-disabled by default (spec §1)", () => {
+  it("throws unless ALLOW_LEGACY_PUBLISH=1", async () => {
+    const prev = process.env.ALLOW_LEGACY_PUBLISH;
+    delete process.env.ALLOW_LEGACY_PUBLISH;
+    await expect(
+      publish(makePrisma() as never, { checklistItemId: "ci-1", pkg: fakePkg(), qa: fakeQa() }),
+    ).rejects.toThrow(/disabled/i);
+    if (prev) process.env.ALLOW_LEGACY_PUBLISH = prev;
+  });
+});
+
 describe("publishing gate", () => {
+  // The underlying publish logic is retained for a supervised one-off
+  // migration; these tests exercise it behind the escape hatch.
+  beforeEach(() => {
+    process.env.ALLOW_LEGACY_PUBLISH = "1";
+  });
+  afterEach(() => {
+    delete process.env.ALLOW_LEGACY_PUBLISH;
+  });
+
   it("refuses to publish when QA recommends reject", async () => {
     const prisma = makePrisma() as never as Awaited<ReturnType<typeof makePrisma>>;
     const result = await publish(prisma as never, {

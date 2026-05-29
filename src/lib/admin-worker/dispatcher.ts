@@ -1,9 +1,10 @@
 /**
  * AdminWorkerDispatcher (spec §2). Executes the mission stage the
- * brain selected. Replaces the previous loop logic that only knew how
- * to call `planAndEnqueue()` + `runOneBuildCycle()` — the dispatcher
- * walks every stage of the content chain and invokes the correct
- * module for the brain's chosen action.
+ * brain selected. The legacy planAndEnqueue() + runOneBuildCycle()
+ * build/publish path is gone (spec §1) — the dispatcher walks every
+ * stage of the artifact content chain and invokes the correct module
+ * for the brain's chosen action. The ONLY way content becomes public
+ * is EXTRACTION → STRICT_QA → PUBLIC_PUBLISH (runPublishOrchestrator).
  *
  * Each stage handler is small and delegates to the existing modules
  * (web-navigator, source-reader, classifier, extractors,
@@ -23,10 +24,8 @@
 
 import type { PrismaClient } from "@prisma/client";
 
-import { runOneBuildCycle } from "@/lib/worker";
 import type { BrainDecision, BrainMissionStage } from "./brain";
 import { writeAdminWorkerLog } from "./logs";
-import { planAndEnqueue, type PlanOutcome } from "./planner";
 
 export interface DispatchOutcome {
   /** The mission stage the dispatcher actually executed. */
@@ -55,6 +54,101 @@ export interface DispatchOutcome {
   repairsPlanned?: number;
   /** Free-form metadata kept on the log row for diagnostics. */
   metadata?: Record<string, unknown>;
+  // ── Spec §3.4: every stage return carries the full result shape. ──
+  /** What the stage actually did (e.g. "fetched candidate", "no work"). */
+  actionTaken?: string;
+  /** The entity the stage consumed (candidate URL, source-read id, artifact id). */
+  inputEntity?: string | null;
+  /** The entity the stage produced (source-read id, artifact id, published id). */
+  outputEntity?: string | null;
+  /** Items advanced through the chain by this dispatch. */
+  advancedCount?: number;
+  /** Items rejected by this dispatch. */
+  rejectedCount?: number;
+  /** Items repaired / repair-planned by this dispatch. */
+  repairedCount?: number;
+  /** The blocker, when the stage could not advance. */
+  blocker?: string | null;
+  /** The next stage in the chain the worker should run. */
+  nextStage?: BrainMissionStage | null;
+  /** How many log rows the stage wrote. */
+  logsCreated?: number;
+}
+
+/**
+ * Spec §3.4: the next mission stage in the artifact chain. Side
+ * missions (repair / homepage / reporting / security / maintenance)
+ * loop back to discovery.
+ */
+const NEXT_STAGE: Partial<Record<BrainMissionStage, BrainMissionStage | null>> = {
+  DISCOVERY: "CANDIDATE_PRIORITIZATION",
+  CANDIDATE_PRIORITIZATION: "SOURCE_FETCH",
+  SOURCE_FETCH: "SOURCE_READ",
+  SOURCE_READ: "CLASSIFICATION",
+  CLASSIFICATION: "EXTRACTION",
+  EXTRACTION: "CHECKLIST_CREATION",
+  CHECKLIST_CREATION: "CITATION_CREATION",
+  CITATION_CREATION: "PACKAGE_BUILD",
+  PACKAGE_BUILD: "CROSS_SOURCE_VERIFICATION",
+  CROSS_SOURCE_VERIFICATION: "STRICT_QA",
+  STRICT_QA: "PERSISTENCE",
+  PERSISTENCE: "PUBLIC_PUBLISH",
+  PUBLIC_PUBLISH: "POST_PUBLISH_VERIFY",
+  POST_PUBLISH_VERIFY: "SEARCH_VERIFY",
+  SEARCH_VERIFY: "SITEMAP_VERIFY",
+  SITEMAP_VERIFY: "CACHE_REFRESH",
+  CACHE_REFRESH: null,
+  REPAIR: "DISCOVERY",
+  HOMEPAGE_WORK: "DISCOVERY",
+  REPORTING: "DISCOVERY",
+  SECURITY_DEFENSE: "DISCOVERY",
+  MAINTENANCE: "DISCOVERY",
+  PAUSED: null,
+};
+
+/**
+ * Spec §3.4: enrich a raw handler outcome with the full result shape
+ * (actionTaken, input/output entity, advanced/rejected/repaired
+ * counts, blocker, nextStage, logsCreated). Fields the handler already
+ * set are preserved; the rest are derived from kind + metadata so
+ * every stage return is uniform without editing all 19 handlers.
+ */
+function enrichOutcome(outcome: DispatchOutcome, decision: BrainDecision): DispatchOutcome {
+  const meta = (outcome.metadata ?? {}) as Record<string, unknown>;
+  const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
+  const advancedCount =
+    outcome.advancedCount ?? outcome.built ?? (outcome.kind === "advanced" ? 1 : 0);
+  const rejectedCount =
+    outcome.rejectedCount ?? outcome.rejected ?? (outcome.kind === "rejected" ? 1 : 0);
+  const repairedCount = outcome.repairedCount ?? outcome.repairsPlanned ?? 0;
+  const blocker =
+    outcome.blocker ??
+    (outcome.kind === "rejected" || outcome.kind === "failed" ? outcome.summary : null);
+  return {
+    ...outcome,
+    actionTaken: outcome.actionTaken ?? `${outcome.stage}:${outcome.kind}`,
+    inputEntity:
+      outcome.inputEntity ??
+      str(meta.candidateUrlId) ??
+      str(meta.sourceReadId) ??
+      str(meta.artifactId) ??
+      decision.chosenAction?.candidateUrl ??
+      null,
+    outputEntity:
+      outcome.outputEntity ??
+      str(meta.publishedContentId) ??
+      str(meta.artifactId) ??
+      str(meta.sourceReadId) ??
+      null,
+    advancedCount,
+    rejectedCount,
+    repairedCount,
+    blocker,
+    nextStage: outcome.nextStage ?? NEXT_STAGE[outcome.stage] ?? null,
+    // Every stage writes at least one log row (the dispatch log); most
+    // write more. Default to 1 when the handler didn't count.
+    logsCreated: outcome.logsCreated ?? 1,
+  };
 }
 
 export interface DispatchInput {
@@ -73,53 +167,9 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
   const stage = decision.missionStage;
 
   try {
-    switch (stage) {
-      case "PAUSED":
-        return idle(stage, "Worker paused; only security defense allowed.");
-      case "SECURITY_DEFENSE":
-        return await runSecurityDefense(prisma, passId);
-      case "DISCOVERY":
-        return await runDiscovery(prisma, passId, decision);
-      case "CANDIDATE_PRIORITIZATION":
-        return await runCandidatePrioritization(prisma, passId);
-      case "SOURCE_FETCH":
-      case "SOURCE_READ":
-        return await runSourceFetchRead(prisma, passId, decision);
-      case "CLASSIFICATION":
-        return await runClassification(prisma, passId);
-      case "EXTRACTION":
-        return await runExtraction(prisma, passId);
-      case "CHECKLIST_CREATION":
-      case "CITATION_CREATION":
-        return await runChecklistOrCitation(prisma, passId, stage);
-      case "PACKAGE_BUILD":
-        return await runPackageBuild(prisma, workerId, passId);
-      case "CROSS_SOURCE_VERIFICATION":
-        return await runCrossSourceVerification(prisma, passId);
-      case "STRICT_QA":
-        return await runStrictQA(prisma, passId);
-      case "PERSISTENCE":
-      case "PUBLIC_PUBLISH":
-        return await runPersistAndPublish(prisma, workerId, passId);
-      case "POST_PUBLISH_VERIFY":
-        return await runPostPublishVerify(prisma, passId);
-      case "SEARCH_VERIFY":
-        return await runSearchVerify(prisma, passId);
-      case "SITEMAP_VERIFY":
-        return await runSitemapVerify(prisma, passId);
-      case "CACHE_REFRESH":
-        return await runCacheRefresh(prisma, passId);
-      case "REPAIR":
-        return await runRepair(prisma, workerId, passId);
-      case "HOMEPAGE_WORK":
-        return await runHomepageWork(prisma, passId);
-      case "REPORTING":
-        return await runReporting(prisma, passId);
-      case "MAINTENANCE":
-        return await runMaintenance(prisma, passId);
-      default:
-        return idle(stage, `No dispatcher registered for ${stage}.`);
-    }
+    const raw = await runStageHandler(prisma, workerId, passId, decision, stage);
+    // Spec §3.4: every stage return carries the full uniform shape.
+    return enrichOutcome(raw, decision);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await writeAdminWorkerLog(prisma, {
@@ -130,17 +180,93 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
       message: `Dispatcher for ${stage} threw: ${message}`,
       safeMetadata: { stage },
     });
-    return {
-      stage,
-      kind: "failed",
-      summary: `Stage ${stage} failed: ${message.slice(0, 240)}`,
-      failed: 1,
-    };
+    return enrichOutcome(
+      {
+        stage,
+        kind: "failed",
+        summary: `Stage ${stage} failed: ${message.slice(0, 240)}`,
+        failed: 1,
+        blocker: message.slice(0, 240),
+      },
+      decision,
+    );
+  }
+}
+
+async function runStageHandler(
+  prisma: PrismaClient,
+  workerId: string,
+  passId: string,
+  decision: BrainDecision,
+  stage: BrainMissionStage,
+): Promise<DispatchOutcome> {
+  switch (stage) {
+    case "PAUSED":
+      return idle(stage, "Worker paused; only security defense allowed.");
+    case "SECURITY_DEFENSE":
+      return await runSecurityDefense(prisma, passId);
+    case "DISCOVERY":
+      return await runDiscovery(prisma, passId, decision);
+    case "CANDIDATE_PRIORITIZATION":
+      return await runCandidatePrioritization(prisma, passId);
+    case "SOURCE_FETCH":
+    case "SOURCE_READ":
+      return await runSourceFetchRead(prisma, passId, decision);
+    case "CLASSIFICATION":
+      return await runClassification(prisma, passId);
+    case "EXTRACTION":
+      return await runExtraction(prisma, passId);
+    case "CHECKLIST_CREATION":
+    case "CITATION_CREATION":
+      return await runChecklistOrCitation(prisma, passId, stage);
+    case "PACKAGE_BUILD":
+      return await runPackageBuild(prisma, passId);
+    case "CROSS_SOURCE_VERIFICATION":
+      return await runCrossSourceVerification(prisma, passId);
+    case "STRICT_QA":
+      return await runStrictQA(prisma, passId);
+    case "PERSISTENCE":
+    case "PUBLIC_PUBLISH":
+      return await runPersistAndPublish(prisma, workerId, passId);
+    case "POST_PUBLISH_VERIFY":
+      return await runPostPublishVerify(prisma, passId);
+    case "SEARCH_VERIFY":
+      return await runSearchVerify(prisma, passId);
+    case "SITEMAP_VERIFY":
+      return await runSitemapVerify(prisma, passId);
+    case "CACHE_REFRESH":
+      return await runCacheRefresh(prisma, passId);
+    case "REPAIR":
+      return await runRepair(prisma, passId);
+    case "HOMEPAGE_WORK":
+      return await runHomepageWork(prisma, passId);
+    case "REPORTING":
+      return await runReporting(prisma, passId);
+    case "MAINTENANCE":
+      return await runMaintenance(prisma, passId);
+    default:
+      return idle(stage, `No dispatcher registered for ${stage}.`);
   }
 }
 
 function idle(stage: BrainMissionStage, summary: string): DispatchOutcome {
   return { stage, kind: "idle", summary };
+}
+
+/**
+ * Spec §19: resolve the originating source host for a package artifact
+ * (via its source-read) so the strict-QA + publish stages can feed
+ * source reputation. Returns null when the artifact has no linked read.
+ */
+async function resolveArtifactSourceHost(
+  prisma: PrismaClient,
+  sourceReadId: string | null,
+): Promise<string | null> {
+  if (!sourceReadId) return null;
+  const read = await prisma.adminWorkerSourceRead
+    .findUnique({ where: { id: sourceReadId }, select: { sourceHost: true } })
+    .catch(() => null);
+  return read?.sourceHost ?? null;
 }
 
 // ── Stage handlers ────────────────────────────────────────────────────
@@ -649,11 +775,7 @@ async function runChecklistOrCitation(
   };
 }
 
-async function runPackageBuild(
-  prisma: PrismaClient,
-  workerId: string,
-  passId: string,
-): Promise<DispatchOutcome> {
+async function runPackageBuild(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
   // Spec §4: prefer AdminWorkerPackageArtifact rows over the legacy
   // build queue. A BUILD_READY artifact already has every required
   // field + provenance + citation; the publish stage can carry it
@@ -686,49 +808,24 @@ async function runPackageBuild(
     };
   }
 
-  // TRANSITIONAL_FALLBACK (spec §6 follow-up): no artifact ready —
-  // drain a legacy build-queue cycle so checklist items get built into
-  // public rows. This path still runs through evaluatePublishGate
-  // inside runOneBuildCycle, but it does NOT consult the new strict-QA
-  // artifact-level result. It exists only to keep older content
-  // moving while the artifact-native path is the production path.
-  // Removal target: once all 11 content types reliably produce
-  // BUILD_READY artifacts via the dispatcher's EXTRACTION stage.
-  const planOutcome: PlanOutcome = await planAndEnqueue(prisma, { passId });
-  if (planOutcome.enqueued > 0) {
-    await writeAdminWorkerLog(prisma, {
-      passId,
-      category: "CONTENT_BUILD",
-      severity: "INFO",
-      eventName: "planner_run_dispatcher_transitional",
-      message: `[TRANSITIONAL] ${planOutcome.reason}`,
-      contentType: planOutcome.contentType ?? undefined,
-    });
-  }
-  const cycle = await runOneBuildCycle(prisma, workerId);
-  if (cycle.kind === "idle") {
-    return {
-      stage: "PACKAGE_BUILD",
-      kind: "idle",
-      summary: "No artifacts ready; build engine idle.",
-      metadata: { enqueued: planOutcome.enqueued, source: "WorkerBuildJob" },
-    };
-  }
-  const built = cycle.status === "succeeded" || cycle.status === "published" ? 1 : 0;
-  const published = cycle.status === "published" ? 1 : 0;
-  const failed = cycle.status === "failed" || cycle.status === "retrying" ? 1 : 0;
+  // Spec §1: the legacy runOneBuildCycle / planAndEnqueue fallback is
+  // removed. The only way an item becomes a buildable package is the
+  // EXTRACTION stage materialising an AdminWorkerPackageArtifact. With
+  // no BUILD_READY artifact, PACKAGE_BUILD is idle — there is no
+  // legacy build/publish path to fall back to.
+  await writeAdminWorkerLog(prisma, {
+    passId,
+    category: "CONTENT_BUILD",
+    severity: "INFO",
+    eventName: "package_build_idle",
+    message:
+      "No BUILD_READY artifact; PACKAGE_BUILD idle. (Legacy build queue removed — artifacts come from the EXTRACTION stage only.)",
+  });
   return {
     stage: "PACKAGE_BUILD",
-    kind: failed > 0 ? "failed" : "advanced",
-    summary: `Legacy build cycle ${cycle.status}.`,
-    built,
-    published,
-    failed,
-    metadata: {
-      enqueued: planOutcome.enqueued,
-      jobId: cycle.kind === "ran" ? cycle.jobId : undefined,
-      source: "WorkerBuildJob",
-    },
+    kind: "idle",
+    summary: "No BUILD_READY artifact; the EXTRACTION stage produces artifacts.",
+    metadata: { source: "AdminWorkerPackageArtifact" },
   };
 }
 
@@ -822,6 +919,19 @@ async function runCrossSourceVerification(
       }).catch(() => null);
       verifiedFieldCount = result?.verificationRowIds.length ?? 0;
       blockingFields = result?.blockingSensitiveFields ?? [];
+
+      // Spec §19: source reputation updates after the validation stage
+      // — validation hosts that confirm fields gain reputation; those
+      // that block lose it.
+      const { pushReputation } = await import("./source-reputation-hooks");
+      for (const host of usedHosts) {
+        await pushReputation(prisma, {
+          sourceHost: host,
+          contentType: artifact.contentType,
+          stage: "verification",
+          ok: blockingFields.length === 0,
+        }).catch(() => undefined);
+      }
     }
   }
 
@@ -992,6 +1102,19 @@ async function runStrictQA(prisma: PrismaClient, passId: string): Promise<Dispat
       })
       .catch(() => undefined);
 
+    // Spec §19: source reputation updates after the strict-QA stage —
+    // a host whose artifact passes QA is more trustworthy.
+    const qaHost = await resolveArtifactSourceHost(prisma, artifact.sourceReadId);
+    if (qaHost) {
+      const { pushReputation } = await import("./source-reputation-hooks");
+      await pushReputation(prisma, {
+        sourceHost: qaHost,
+        contentType: artifact.contentType,
+        stage: "qa",
+        ok: qa.status === "PASSED",
+      }).catch(() => undefined);
+    }
+
     // Spec §9 follow-up: file a STRICT_QA_FAILED repair plan when the
     // artifact needs repair so the repair orchestrator can drive the
     // retry loop rather than the artifact silently stalling.
@@ -1093,6 +1216,20 @@ async function runPersistAndPublish(
       // publishing when no passing AdminWorkerStrictQAResult exists.
       strictQAArtifactId: artifact.id,
     });
+
+    // Spec §19: source reputation updates after the publishing stage
+    // (which also gates on the quality score). A host whose artifact
+    // publishes gains reputation; a blocked/repair outcome loses it.
+    const pubHost = await resolveArtifactSourceHost(prisma, artifact.sourceReadId);
+    if (pubHost) {
+      const { pushReputation } = await import("./source-reputation-hooks");
+      await pushReputation(prisma, {
+        sourceHost: pubHost,
+        contentType: artifact.contentType,
+        stage: "publish",
+        ok: result.kind === "published",
+      }).catch(() => undefined);
+    }
 
     // Update the artifact based on the outcome.
     if (result.kind === "published") {
@@ -1408,11 +1545,7 @@ async function runCacheRefresh(prisma: PrismaClient, passId: string): Promise<Di
   return { stage: "CACHE_REFRESH", kind: "advanced", summary: "Cache refresh requested." };
 }
 
-async function runRepair(
-  prisma: PrismaClient,
-  workerId: string,
-  passId: string,
-): Promise<DispatchOutcome> {
+async function runRepair(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
   // First drain durable repair plans via the orchestrator (spec §17).
   const { runRepairOrchestrator } = await import("./repair-orchestrator");
   const orchestrator = await runRepairOrchestrator(prisma, { passId });
@@ -1437,17 +1570,13 @@ async function runRepair(
     },
   });
 
-  // After repair, attempt a build cycle to make forward progress.
-  const cycle = await runOneBuildCycle(prisma, workerId);
-  const built =
-    cycle.kind === "ran" && (cycle.status === "succeeded" || cycle.status === "published") ? 1 : 0;
-  const published = cycle.kind === "ran" && cycle.status === "published" ? 1 : 0;
+  // Spec §1: no legacy build cycle here. Repair fixes pipeline state;
+  // forward progress to a public row happens only through the artifact
+  // pipeline (EXTRACTION → STRICT_QA → PUBLIC_PUBLISH).
   return {
     stage: "REPAIR",
     kind: "advanced",
-    summary: `Repair orchestrator + stuck-queue + build cycle: ${cycle.kind === "ran" ? cycle.status : "idle"}.`,
-    built,
-    published,
+    summary: `Repair orchestrator + stuck-queue: ${orchestrator.plansSucceeded}/${orchestrator.plansConsidered} plan(s) succeeded; stuck-queue ${recovery.attempted ? "attempted" : "skipped"}.`,
     repairsPlanned: orchestrator.plansExecuted + (recovery.attempted ? 1 : 0),
   };
 }

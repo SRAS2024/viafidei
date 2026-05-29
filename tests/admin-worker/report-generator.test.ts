@@ -111,6 +111,7 @@ describe("Developer Audit section list (spec §19)", () => {
       "Mission Plans",
       "Pipeline Stage History",
       "Content Goal Progress",
+      "Content Growth Funnel",
       "Source Coverage",
       "Discovery Logs",
       "Fetch Logs",
