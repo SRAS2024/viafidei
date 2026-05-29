@@ -36,11 +36,14 @@ export type GrowthBlockerStage =
   | "FETCH_NOT_RUNNING"
   | "FETCH_FAILING"
   | "NO_SOURCE_READS"
+  | "STRUCTURED_BLOCKS_MISSING"
   | "CLASSIFICATION_FAILING"
   | "EXTRACTION_FAILING"
   | "NO_PACKAGE_ARTIFACTS"
+  | "CHECKLIST_OR_CITATIONS_MISSING"
   | "VALIDATION_EVIDENCE_MISSING"
   | "QA_REJECTING"
+  | "QUALITY_SCORE_TOO_LOW"
   | "PUBLISH_BLOCKED"
   | "POST_PUBLISH_FAILING"
   | "CACHE_HIDING_CONTENT"
@@ -232,6 +235,27 @@ export async function diagnoseWhyNoGrowth(
     nextRepair = "Run a SOURCE_READ pass; verify readSource() is wired into the dispatcher.";
   }
 
+  // 8.5. Structured source blocks (spec §14: "structured blocks not
+  //      created"). readSource() parses blocks for every page; if
+  //      reads exist but no AdminWorkerSourceBlock rows do, the
+  //      structured parser is not wired into the active read path.
+  const blockCount =
+    blocker === "NONE" ? await prisma.adminWorkerSourceBlock.count().catch(() => 0) : 0;
+  checks.push({
+    stage: "STRUCTURED_BLOCKS_MISSING",
+    label: "Structured source blocks created",
+    ok: sourceReadCount === 0 || blockCount > 0,
+    count: blockCount,
+    detail: `${blockCount} AdminWorkerSourceBlock row(s).`,
+  });
+  if (blocker === "NONE" && sourceReadCount > 0 && blockCount === 0) {
+    blocker = "STRUCTURED_BLOCKS_MISSING";
+    blockerExplanation =
+      "Source reads exist but parseStructuredBlocks() produced no AdminWorkerSourceBlock rows.";
+    exactTable = "AdminWorkerSourceBlock";
+    nextRepair = "Verify readSource() calls parseStructuredBlocks() + persistStructuredBlocks().";
+  }
+
   // 9. Classification.
   const classifiedCount =
     blocker === "NONE"
@@ -273,6 +297,36 @@ export async function diagnoseWhyNoGrowth(
       "Classified reads exist but the extractor hasn't materialised any package artifacts.";
     exactTable = "AdminWorkerPackageArtifact";
     nextRepair = "Run the EXTRACTION mission stage.";
+  }
+
+  // 11.5. Checklist + citation bridge (spec §14: "checklist or
+  //        citations missing"). Artifacts become checklist items via
+  //        the checklist-citation orchestrator; if artifacts exist but
+  //        none carry a checklistItemId, the bridge hasn't run.
+  const bridgedCount =
+    blocker === "NONE"
+      ? await prisma.adminWorkerPackageArtifact
+          .count({
+            where: {
+              checklistItemId: { not: null },
+              ...(contentType ? { contentType } : {}),
+            },
+          })
+          .catch(() => 0)
+      : 0;
+  checks.push({
+    stage: "CHECKLIST_OR_CITATIONS_MISSING",
+    label: "Checklist + citations created",
+    ok: artifactCount === 0 || bridgedCount > 0,
+    count: bridgedCount,
+    detail: `${bridgedCount} artifact(s) bridged to a ChecklistItem.`,
+  });
+  if (blocker === "NONE" && artifactCount > 0 && bridgedCount === 0) {
+    blocker = "CHECKLIST_OR_CITATIONS_MISSING";
+    blockerExplanation =
+      "Package artifacts exist but none have been promoted to checklist items + citations.";
+    exactTable = "AdminWorkerPackageArtifact.checklistItemId";
+    nextRepair = "Run the CHECKLIST_CREATION / CITATION_CREATION mission stages.";
   }
 
   // 12. Verification evidence.
@@ -317,6 +371,38 @@ export async function diagnoseWhyNoGrowth(
     blockerExplanation = `QA is rejecting more than 70% of builds in the last 7 days.`;
     exactTable = "ChecklistQAReport";
     nextRepair = "Improve source selection + extractor strategy; review rejection reasons.";
+  }
+
+  // 13.5. Quality score (spec §14: "quality score too low"). Every
+  //        artifact must clear ContentQualityScore before publish; if
+  //        recent scores are mostly below threshold, that's the gate.
+  const qualityScores =
+    blocker === "NONE"
+      ? await prisma.contentQualityScore
+          .findMany({
+            where: { createdAt: { gte: since7d } },
+            select: { finalScore: true },
+            take: 200,
+          })
+          .catch(() => [] as Array<{ finalScore: number }>)
+      : [];
+  const qualityPassRate =
+    qualityScores.length === 0
+      ? 1
+      : qualityScores.filter((q) => q.finalScore >= 0.8).length / qualityScores.length;
+  checks.push({
+    stage: "QUALITY_SCORE_TOO_LOW",
+    label: "Quality score pass rate (7d)",
+    ok: qualityPassRate >= 0.3,
+    count: qualityScores.length,
+    detail: `${Math.round(qualityPassRate * 100)}% scored >= 0.8 across ${qualityScores.length} score(s).`,
+  });
+  if (blocker === "NONE" && qualityScores.length >= 5 && qualityPassRate < 0.3) {
+    blocker = "QUALITY_SCORE_TOO_LOW";
+    blockerExplanation =
+      "More than 70% of recent ContentQualityScore rows are below the publish threshold.";
+    exactTable = "ContentQualityScore";
+    nextRepair = "Improve extraction completeness + provenance; review quality-score logs.";
   }
 
   // 14. Publishing.
@@ -375,6 +461,13 @@ export async function diagnoseWhyNoGrowth(
     blockerExplanation = "More than half of recent post-publish verifications failed.";
     exactTable = "PostPublishVerification";
     nextRepair = "Investigate cache/sitemap/search refreshes; re-run the post-publish probe.";
+  }
+
+  // Spec §14: surface the exact count for the blocking stage so the
+  // operator sees "0 candidate URLs", "0 structured blocks", etc.
+  if (blocker !== "NONE") {
+    const blockingCheck = checks.find((c) => c.stage === blocker);
+    if (blockingCheck) exactCount = blockingCheck.count;
   }
 
   // Surface the most recent failure across the pipeline.

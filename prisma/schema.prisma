@@ -1765,6 +1765,8 @@ enum AdminWorkerRepairKind {
   EXTRACT_FAILED
   VALIDATION_FAILED
   QA_MISSING_FIELDS
+  STRICT_QA_FAILED
+  QUALITY_SCORE_FAILED
   BUILD_REPEATED_FAILURE
   PERSIST_FAILED
   PUBLIC_DISPLAY_FAILED
@@ -1973,6 +1975,9 @@ model AdminWorkerSourceCoverage {
   primarySources          Int      @default(0)
   validationSources       Int      @default(0)
   enrichmentSources       Int      @default(0)
+  activeSourceCount       Int      @default(0)
+  recentlySuccessfulSources Int    @default(0)
+  recentlyFailedSources   Int      @default(0)
   recentCandidates7d      Int      @default(0)
   recentValidPackages7d   Int      @default(0)
   recentPublishes7d       Int      @default(0)

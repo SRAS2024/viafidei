@@ -89,6 +89,41 @@ export async function runRepairOrchestrator(
         status: "ABANDONED",
         reason: "max attempts exhausted",
       });
+
+      // Spec §9: repeated repair failure causes fallback source
+      // selection. When an abandoned plan names a host, pause it so
+      // the candidate scorer / source ranker rotates to a fallback
+      // source on the next pass, and record the rotation in memory so
+      // the brain can explain why it switched.
+      if (plan.failedEntity && isLikelyHost(plan.failedEntity)) {
+        const { pauseChronicallyFailingSource } = await import("./repair");
+        await pauseChronicallyFailingSource(prisma, plan.failedEntity).catch(() => undefined);
+        const { rememberOutcome } = await import("./memory");
+        await rememberOutcome(prisma, {
+          memoryType: "SOURCE_RETRY_TIMING",
+          memoryKey: plan.failedEntity,
+          memoryValue: {
+            abandonedPlan: plan.id,
+            kind: plan.kind,
+            action: "fallback_source_selected",
+          },
+          outcome: "failure",
+        }).catch(() => undefined);
+        const { pushReputation } = await import("./source-reputation-hooks");
+        await pushReputation(prisma, {
+          sourceHost: plan.failedEntity,
+          stage: "repair",
+          ok: false,
+        }).catch(() => undefined);
+        await writeAdminWorkerLog(prisma, {
+          passId: opts.passId ?? null,
+          category: "REPAIR",
+          severity: "WARN",
+          eventName: "repair_abandoned_fallback_source",
+          message: `Repair plan ${plan.kind} for ${plan.failedEntity} abandoned after ${plan.attempts} attempts; source paused and fallback selection triggered.`,
+          safeMetadata: { planId: plan.id, host: plan.failedEntity, kind: plan.kind },
+        }).catch(() => undefined);
+      }
       continue;
     }
 
@@ -118,6 +153,33 @@ export async function runRepairOrchestrator(
           },
         })
         .catch(() => undefined);
+
+      // Spec §9: every repair attempt feeds outcome learning so the
+      // brain backs off chronically-failing repair paths.
+      const { rememberOutcome } = await import("./memory");
+      await rememberOutcome(prisma, {
+        memoryType: "FAILURE_PATTERN",
+        memoryKey: `repair:${plan.kind}`,
+        memoryValue: {
+          planId: plan.id,
+          attempts: newAttempts,
+          reason: result.reason,
+          failedEntity: plan.failedEntity ?? null,
+        },
+        outcome: succeeded ? "success" : "failure",
+      }).catch(() => undefined);
+
+      // Spec §9: failed repairs also penalise the source's reputation
+      // when the plan carries a host as failedEntity. This nudges the
+      // brain to rotate to a different source on the next pass.
+      if (!succeeded && plan.failedEntity && isLikelyHost(plan.failedEntity)) {
+        const { pushReputation } = await import("./source-reputation-hooks");
+        await pushReputation(prisma, {
+          sourceHost: plan.failedEntity,
+          stage: "repair",
+          ok: false,
+        }).catch(() => undefined);
+      }
 
       if (succeeded) {
         out.plansSucceeded += 1;
@@ -177,6 +239,21 @@ export async function runRepairOrchestrator(
 function nextAttemptIn(attempts: number): Date {
   const minutes = Math.min(120, Math.pow(2, attempts));
   return new Date(Date.now() + minutes * 60 * 1000);
+}
+
+/**
+ * Spec §9: failed repairs penalise reputation only when `failedEntity`
+ * actually looks like a host (e.g. "vatican.va") — not when it's an
+ * artifact id, slug pair, or content-type:slug cache tag.
+ */
+function isLikelyHost(entity: string): boolean {
+  if (!entity) return false;
+  // Must look like a domain (contains a dot, no slash, no colon).
+  if (entity.includes("/") || entity.includes(":")) return false;
+  if (!entity.includes(".")) return false;
+  // Reject cuid / uuid-ish patterns (cuid is ~25 chars, starts with c).
+  if (/^[a-z0-9]{20,}$/.test(entity)) return false;
+  return true;
 }
 
 async function executePlan(
@@ -267,6 +344,36 @@ async function executePlan(
     }
     case "QA_MISSING_FIELDS": {
       return { ok: true, reason: "QA gap recorded for review" };
+    }
+    case "STRICT_QA_FAILED": {
+      // Spec §3 + §9: a NEEDS_REPAIR / REJECTED artifact's strict-QA
+      // failure is logged; if the artifact ID is on the plan, mark it
+      // for re-extraction so a new pass can repair it.
+      if (plan.failedEntity) {
+        await prisma.adminWorkerPackageArtifact
+          .updateMany({
+            where: { id: plan.failedEntity, status: "NEEDS_REPAIR" },
+            data: { status: "EXTRACTED" },
+          })
+          .catch(() => undefined);
+        return { ok: true, reason: "artifact marked for re-extraction + strict-QA retry" };
+      }
+      return { ok: true, reason: "strict-QA failure logged for review" };
+    }
+    case "QUALITY_SCORE_FAILED": {
+      // Spec §4 + §9: a low quality score on a published row triggers
+      // a refresh attempt; on a pre-publish artifact, mark for
+      // re-extraction so the next pass can repair it.
+      if (plan.failedEntity) {
+        await prisma.adminWorkerPackageArtifact
+          .updateMany({
+            where: { id: plan.failedEntity },
+            data: { status: "EXTRACTED" },
+          })
+          .catch(() => undefined);
+        return { ok: true, reason: "artifact reset for re-scoring" };
+      }
+      return { ok: true, reason: "quality-score failure logged for review" };
     }
     case "BUILD_REPEATED_FAILURE": {
       // Pause the source so it stops drowning the queue.

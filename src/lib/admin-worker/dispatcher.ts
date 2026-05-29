@@ -686,17 +686,22 @@ async function runPackageBuild(
     };
   }
 
-  // Fallback: no artifact ready — make sure the legacy build queue
-  // has work and drain one cycle. planAndEnqueue is now only one
-  // tool inside the dispatcher (spec §2).
+  // TRANSITIONAL_FALLBACK (spec §6 follow-up): no artifact ready —
+  // drain a legacy build-queue cycle so checklist items get built into
+  // public rows. This path still runs through evaluatePublishGate
+  // inside runOneBuildCycle, but it does NOT consult the new strict-QA
+  // artifact-level result. It exists only to keep older content
+  // moving while the artifact-native path is the production path.
+  // Removal target: once all 11 content types reliably produce
+  // BUILD_READY artifacts via the dispatcher's EXTRACTION stage.
   const planOutcome: PlanOutcome = await planAndEnqueue(prisma, { passId });
   if (planOutcome.enqueued > 0) {
     await writeAdminWorkerLog(prisma, {
       passId,
       category: "CONTENT_BUILD",
       severity: "INFO",
-      eventName: "planner_run_dispatcher",
-      message: planOutcome.reason,
+      eventName: "planner_run_dispatcher_transitional",
+      message: `[TRANSITIONAL] ${planOutcome.reason}`,
       contentType: planOutcome.contentType ?? undefined,
     });
   }
@@ -855,23 +860,182 @@ async function runCrossSourceVerification(
 }
 
 async function runStrictQA(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
+  // Spec §3: find BUILD_READY / VERIFICATION_READY artifacts without a
+  // strict-QA result, score the 7 dimensions, persist the result via
+  // recordStrictQA, and transition the artifact status:
+  //   PASSED       → QA_PASSED
+  //   NEEDS_REPAIR → NEEDS_REPAIR
+  //   FAILED       → REJECTED
+  const { recordStrictQA, getStrictQAResult } = await import("./strict-qa");
+
+  const candidates = await prisma.adminWorkerPackageArtifact
+    .findMany({
+      where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } },
+      orderBy: { createdAt: "asc" },
+      take: 10,
+    })
+    .catch(
+      () => [] as Array<Awaited<ReturnType<typeof prisma.adminWorkerPackageArtifact.findFirst>>>,
+    );
+
+  if (!candidates || candidates.length === 0) {
+    await writeAdminWorkerLog(prisma, {
+      passId,
+      category: "QA",
+      severity: "INFO",
+      eventName: "strict_qa_idle",
+      message: "Strict QA: no BUILD_READY / VERIFICATION_READY artifacts pending.",
+    });
+    return {
+      stage: "STRICT_QA",
+      kind: "idle",
+      summary: "No artifacts pending strict QA.",
+    };
+  }
+
+  let processed = 0;
+  let passed = 0;
+  let needsRepair = 0;
+  let rejected = 0;
+
+  for (const artifact of candidates) {
+    if (!artifact) continue;
+    // Skip if a QA row already exists for this artifact (idempotent).
+    const existing = await getStrictQAResult(prisma, artifact.id);
+    if (existing && existing.status === "PASSED") {
+      // Already passed; just advance status if still BUILD_READY.
+      if (artifact.status === "BUILD_READY" || artifact.status === "VERIFICATION_READY") {
+        await prisma.adminWorkerPackageArtifact
+          .update({ where: { id: artifact.id }, data: { status: "QA_PASSED" } })
+          .catch(() => undefined);
+      }
+      continue;
+    }
+
+    const provenance = Array.isArray(artifact.fieldProvenance)
+      ? (artifact.fieldProvenance as unknown[])
+      : [];
+    const missing = (artifact.missingFields ?? []) as string[];
+    const validationNeeds = (artifact.validationNeeds ?? []) as string[];
+    const fields = (artifact.extractedFields as Record<string, unknown>) ?? {};
+
+    // 7-dimension scoring (deterministic; spec §5).
+    const requiredCount = Math.max(provenance.length + missing.length, 1);
+    const completenessScore = Math.max(0, Math.min(1, 1 - missing.length / requiredCount));
+    const correctnessScore = Math.max(0, Math.min(1, artifact.confidenceScore ?? 0));
+    const formattingMetadata = (artifact.formattingMetadata as Record<string, unknown>) ?? {};
+    const formattingScore =
+      typeof formattingMetadata.score === "number"
+        ? Math.max(0, Math.min(1, formattingMetadata.score as number))
+        : 0.8;
+    const provenanceScore =
+      provenance.length > 0 ? Math.min(1, provenance.length / requiredCount) : 0;
+
+    // Validation evidence: look for a CrossSourceVerification row for
+    // this artifact. If validationNeeds is empty, no evidence is
+    // required and the dimension scores 0.9 (neutral pass).
+    let validationScore = 0.9;
+    if (validationNeeds.length > 0) {
+      const verification = await prisma.adminWorkerCrossSourceVerification
+        .count({
+          where: {
+            contentType: artifact.contentType,
+            contentId: artifact.id,
+            matchResult: { in: ["MATCH", "PASS"] },
+          },
+        })
+        .catch(() => 0);
+      validationScore = verification > 0 ? 0.9 : 0;
+    }
+
+    // Duplicate safety: no other PublishedContent with the same slug.
+    const duplicate = await prisma.publishedContent
+      .count({
+        where: { contentType: artifact.contentType as never, slug: artifact.normalizedSlug },
+      })
+      .catch(() => 0);
+    const duplicateSafetyScore = duplicate === 0 ? 0.9 : 0;
+
+    // Public readiness: title + slug + payload present.
+    const publicReadinessScore =
+      artifact.normalizedTitle && artifact.normalizedSlug && Object.keys(fields).length > 0
+        ? 0.9
+        : 0;
+
+    const qa = await recordStrictQA(prisma, {
+      packageArtifactId: artifact.id,
+      contentType: artifact.contentType,
+      completenessScore,
+      correctnessScore,
+      formattingScore,
+      provenanceScore,
+      validationScore,
+      duplicateSafetyScore,
+      publicReadinessScore,
+    });
+
+    const nextStatus =
+      qa.status === "PASSED"
+        ? "QA_PASSED"
+        : qa.status === "NEEDS_REPAIR"
+          ? "NEEDS_REPAIR"
+          : "REJECTED";
+
+    await prisma.adminWorkerPackageArtifact
+      .update({
+        where: { id: artifact.id },
+        data: {
+          status: nextStatus,
+          rejectionReason:
+            nextStatus === "REJECTED" ? `strict QA failed: ${qa.blockingReasons.join("; ")}` : null,
+        },
+      })
+      .catch(() => undefined);
+
+    // Spec §9 follow-up: file a STRICT_QA_FAILED repair plan when the
+    // artifact needs repair so the repair orchestrator can drive the
+    // retry loop rather than the artifact silently stalling.
+    if (qa.status === "NEEDS_REPAIR" || qa.status === "FAILED") {
+      const { filePlan } = await import("./repair-plans");
+      await filePlan(prisma, {
+        kind: "STRICT_QA_FAILED",
+        failedEntity: artifact.id,
+        repairAction: `Re-extract ${artifact.contentType}/${artifact.normalizedSlug} and re-run strict QA.`,
+        metadata: {
+          contentType: artifact.contentType,
+          slug: artifact.normalizedSlug,
+          blockingReasons: qa.blockingReasons,
+          finalScore: qa.finalScore,
+        },
+      }).catch(() => undefined);
+    }
+
+    processed += 1;
+    if (qa.status === "PASSED") passed += 1;
+    else if (qa.status === "NEEDS_REPAIR") needsRepair += 1;
+    else rejected += 1;
+  }
+
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "QA",
-    severity: "INFO",
+    severity: rejected > 0 ? "WARN" : "INFO",
     eventName: "strict_qa_pass",
-    message: "Strict QA pass: build engine runs QA inline; nothing extra to do here.",
+    message: `Strict QA processed ${processed} artifact(s): ${passed} passed, ${needsRepair} need repair, ${rejected} rejected.`,
+    safeMetadata: { processed, passed, needsRepair, rejected },
   });
+
   return {
     stage: "STRICT_QA",
-    kind: "advanced",
-    summary: "Strict QA runs inline with the build engine.",
+    kind: processed > 0 ? "advanced" : "idle",
+    summary: `Strict QA: ${passed} passed / ${needsRepair} repair / ${rejected} rejected.`,
+    rejected,
   };
 }
 
 async function runPersistAndPublish(
   prisma: PrismaClient,
-  workerId: string,
+  _workerId: string,
   passId: string,
 ): Promise<DispatchOutcome> {
   // Spec §13: PERSIST/PUBLIC_PUBLISH route through runPublishOrchestrator
@@ -880,9 +1044,12 @@ async function runPersistAndPublish(
   // goal refresh, search, sitemap, and cache side effects in one
   // transaction. The legacy runOneBuildCycle() path stays only as a
   // fallback when no artifact is ready.
+  // Spec §6: publish reads QA_PASSED artifacts. BUILD_READY remains
+  // queryable for backwards-compat tests, but the orchestrator gate
+  // requires a passing AdminWorkerStrictQAResult either way.
   const artifact = await prisma.adminWorkerPackageArtifact
     .findFirst({
-      where: { status: "BUILD_READY" },
+      where: { status: { in: ["QA_PASSED", "BUILD_READY"] } },
       orderBy: { createdAt: "asc" },
     })
     .catch(() => null);
@@ -922,6 +1089,9 @@ async function runPersistAndPublish(
       isDoctrinallySensitive: isDoctrinal,
       confidence: artifact.confidenceScore,
       verifier,
+      // Spec §6: pass the artifact id so the orchestrator can refuse
+      // publishing when no passing AdminWorkerStrictQAResult exists.
+      strictQAArtifactId: artifact.id,
     });
 
     // Update the artifact based on the outcome.
@@ -939,6 +1109,16 @@ async function runPersistAndPublish(
           data: { status: "REJECTED", rejectionReason: result.reason },
         })
         .catch(() => undefined);
+    } else if (result.kind === "repair") {
+      // Spec §6: repairable — send the artifact back for re-extraction
+      // (the QUALITY_SCORE_FAILED / STRICT_QA_FAILED repair plan the
+      // orchestrator filed drives the retry).
+      await prisma.adminWorkerPackageArtifact
+        .update({
+          where: { id: artifact.id },
+          data: { status: "NEEDS_REPAIR", rejectionReason: result.reason },
+        })
+        .catch(() => undefined);
     }
 
     return {
@@ -950,11 +1130,14 @@ async function runPersistAndPublish(
             ? "rejected"
             : result.kind === "duplicate"
               ? "idle"
-              : "rejected",
+              : result.kind === "repair"
+                ? "repair-planned"
+                : "rejected",
       summary: `Publish orchestrator: ${result.kind} (${result.reason}).`,
       built: result.kind === "published" ? 1 : 0,
       published: result.kind === "published" ? 1 : 0,
       rejected: result.kind === "blocked" || result.kind === "review" ? 1 : 0,
+      repairsPlanned: result.kind === "repair" ? 1 : 0,
       metadata: {
         artifactId: artifact.id,
         kind: result.kind,
@@ -962,29 +1145,24 @@ async function runPersistAndPublish(
     };
   }
 
-  // Fallback: no artifact ready, drain the legacy build queue.
-  const cycle = await runOneBuildCycle(prisma, workerId);
-  if (cycle.kind === "idle") {
-    return idle("PUBLIC_PUBLISH", "No artifacts ready and publish queue idle.");
-  }
-  const built = cycle.status === "succeeded" || cycle.status === "published" ? 1 : 0;
-  const published = cycle.status === "published" ? 1 : 0;
-  const failed = cycle.status === "failed" || cycle.status === "retrying" ? 1 : 0;
+  // Spec §6 follow-up: the legacy runOneBuildCycle fallback used to
+  // publish here. That path bypasses strict QA + ContentQualityScore,
+  // which the spec explicitly forbids. With no BUILD_READY or
+  // QA_PASSED artifact, publishing is idle — content gets built into
+  // an artifact first (PACKAGE_BUILD stage), strict-QA processes it,
+  // then this stage publishes via runPublishOrchestrator.
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "PUBLISHING",
-    severity: published > 0 ? "INFO" : "WARN",
-    eventName: "publish_pass_legacy",
-    message: `Fallback publish via runOneBuildCycle: ${cycle.status}.`,
+    severity: "INFO",
+    eventName: "publish_pass_idle",
+    message:
+      "No BUILD_READY/QA_PASSED artifacts; publish stage idle. (Legacy runOneBuildCycle fallback removed — strict-QA + quality-score gate is enforced.)",
   });
-  return {
-    stage: "PUBLIC_PUBLISH",
-    kind: failed > 0 ? "failed" : "advanced",
-    summary: `Legacy publish cycle ${cycle.status}.`,
-    built,
-    published,
-    failed,
-  };
+  return idle(
+    "PUBLIC_PUBLISH",
+    "No artifacts ready; publish path requires a passing AdminWorkerStrictQAResult.",
+  );
 }
 
 async function runPostPublishVerify(
@@ -1064,12 +1242,91 @@ async function runPostPublishVerify(
     }).catch(() => undefined);
   }
 
+  // Spec §8: when post-publish verification fails, drive the decision
+  // tree (repair → re-verify → unpublish → DELETED / HUMAN_REVIEW)
+  // rather than just logging the failure. The reverify callback
+  // re-runs verifyPublished so REPAIRED is only declared when the
+  // public surface is actually fixed.
+  if (verification.result === "FAIL") {
+    const checks = verification.checks as unknown as Record<string, unknown> | undefined;
+    // Pick the first failed check as the canonical failedCheck for
+    // the rollback decision tree.
+    const failedCheck = pickFailedCheck(checks);
+    const { decideAndExecuteRollback } = await import("./post-publish-rollback");
+    await decideAndExecuteRollback(prisma, {
+      contentType: target.contentType,
+      contentId: target.id,
+      slug: target.slug,
+      failedCheck,
+      reason: `verifyPublished returned FAIL on ${failedCheck}.`,
+      reverify: async () => {
+        const re = await verifyPublished(prisma, {
+          contentType: target.contentType,
+          contentId: target.id,
+          slug: target.slug,
+          expectedTitle: target.title,
+          skipNetwork,
+        }).catch(() => null);
+        return re?.result === "PASS";
+      },
+    }).catch(() => undefined);
+  }
+
   return {
     stage: "POST_PUBLISH_VERIFY",
     kind: verification.result === "PASS" ? "advanced" : "rejected",
     summary: `Verified ${target.contentType}/${target.slug}: ${verification.result}.`,
     rejected: verification.result === "PASS" ? 0 : 1,
   };
+}
+
+/**
+ * Map the `verifyPublished` checks object to the `failedCheck` field
+ * the rollback decision tree expects. Returns the first FAIL we find,
+ * or "public_route" as the conservative default for "something is
+ * broken but the structured check map didn't tell us what".
+ */
+function pickFailedCheck(
+  checks: Record<string, unknown> | undefined,
+):
+  | "public_route"
+  | "title"
+  | "body_marker"
+  | "tab_placement"
+  | "search"
+  | "sitemap"
+  | "cache"
+  | "related_links"
+  | "content_goal_count" {
+  if (!checks) return "public_route";
+  const order: Array<
+    [
+      string,
+      (
+        | "public_route"
+        | "title"
+        | "body_marker"
+        | "tab_placement"
+        | "search"
+        | "sitemap"
+        | "cache"
+        | "content_goal_count"
+      ),
+    ]
+  > = [
+    ["publicPageCheck", "public_route"],
+    ["titleCheck", "title"],
+    ["bodyMarkerCheck", "body_marker"],
+    ["tabPlacementCheck", "tab_placement"],
+    ["searchCheck", "search"],
+    ["sitemapCheck", "sitemap"],
+    ["cacheCheck", "cache"],
+    ["contentGoalCheck", "content_goal_count"],
+  ];
+  for (const [key, kind] of order) {
+    if (checks[key] === "FAIL") return kind;
+  }
+  return "public_route";
 }
 
 async function runSearchVerify(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {

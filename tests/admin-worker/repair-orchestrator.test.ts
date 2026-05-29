@@ -54,6 +54,13 @@ vi.mock("@/lib/admin-worker/source-reputation", () => ({
 
 vi.mock("@/lib/admin-worker/memory", () => ({
   rememberFailurePattern: vi.fn(async () => undefined),
+  // Spec §9 follow-up: every repair attempt feeds outcome learning.
+  rememberOutcome: vi.fn(async () => undefined),
+}));
+
+vi.mock("@/lib/admin-worker/source-reputation-hooks", () => ({
+  // Spec §9 follow-up: failed repairs penalise source reputation.
+  pushReputation: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/admin-worker/discovery-orchestrator", () => ({

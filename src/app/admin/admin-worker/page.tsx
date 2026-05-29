@@ -403,6 +403,7 @@ export default async function AdminWorkerPage() {
                   {recentBrainDecision.brainFailure}
                 </p>
               )}
+              <BrainInfluences raw={recentBrainDecision.rulesEvaluated} />
               <RankedAlternatives raw={recentBrainDecision.rankedAlternatives} />
             </>
           ) : (
@@ -452,6 +453,20 @@ export default async function AdminWorkerPage() {
               <dd className="font-mono">{recentBrainDecision.chosenAction}</dd>
               <dt className="text-ink-soft">Content type</dt>
               <dd className="font-mono">{recentBrainDecision.contentType ?? "—"}</dd>
+              {/* Spec §13: source target + candidate target from the chosen action. */}
+              <dt className="text-ink-soft">Source target</dt>
+              <dd className="font-mono">
+                {chosenActionTargets(recentBrainDecision.rankedAlternatives).sourceTarget ?? "—"}
+              </dd>
+              <dt className="text-ink-soft">Candidate target</dt>
+              <dd className="truncate font-mono">
+                {chosenActionTargets(recentBrainDecision.rankedAlternatives).candidateUrl ?? "—"}
+              </dd>
+              {/* Spec §13: current content goal gap (largest gap first). */}
+              <dt className="text-ink-soft">Content goal gap</dt>
+              <dd className="font-mono">
+                {goals.length > 0 ? `${goals[0].contentType} (${goals[0].gapCount} short)` : "—"}
+              </dd>
               <dt className="text-ink-soft">Confidence</dt>
               <dd className="font-mono">{recentBrainDecision.confidence.toFixed(2)}</dd>
               <dt className="text-ink-soft">Expected</dt>
@@ -686,6 +701,9 @@ export default async function AdminWorkerPage() {
                   <th className="text-right">Primary</th>
                   <th className="text-right">Valid.</th>
                   <th className="text-right">Enrich.</th>
+                  <th className="text-right">Active</th>
+                  <th className="text-right">OK 7d</th>
+                  <th className="text-right">Fail 7d</th>
                   <th className="text-right">Cand. 7d</th>
                   <th className="text-right">Builds 7d</th>
                   <th className="text-right">Publ. 7d</th>
@@ -700,6 +718,9 @@ export default async function AdminWorkerPage() {
                     <td className="py-1 text-right font-mono">{r.primarySources}</td>
                     <td className="py-1 text-right font-mono">{r.validationSources}</td>
                     <td className="py-1 text-right font-mono">{r.enrichmentSources}</td>
+                    <td className="py-1 text-right font-mono">{r.activeSourceCount}</td>
+                    <td className="py-1 text-right font-mono">{r.recentlySuccessfulSources}</td>
+                    <td className="py-1 text-right font-mono">{r.recentlyFailedSources}</td>
                     <td className="py-1 text-right font-mono">{r.recentCandidates7d}</td>
                     <td className="py-1 text-right font-mono">{r.recentValidPackages7d}</td>
                     <td className="py-1 text-right font-mono">{r.recentPublishes7d}</td>
@@ -863,6 +884,71 @@ interface RankedAlternativeRow {
   safe?: boolean;
   rejectionReason?: string | null;
   reasonSummary?: string;
+}
+
+/**
+ * Spec §13: extract the chosen action's source + candidate targets
+ * from the persisted rankedAlternatives JSON (first entry = chosen).
+ */
+function chosenActionTargets(raw: unknown): {
+  sourceTarget: string | null;
+  candidateUrl: string | null;
+} {
+  if (!Array.isArray(raw) || raw.length === 0) return { sourceTarget: null, candidateUrl: null };
+  const chosen = raw[0] as { sourceTarget?: string | null; candidateUrl?: string | null };
+  return {
+    sourceTarget: chosen?.sourceTarget ?? null,
+    candidateUrl: chosen?.candidateUrl ?? null,
+  };
+}
+
+/**
+ * Spec §13: surface the memory + source reputation the brain consulted
+ * for its decision. Read from the persisted rulesEvaluated JSON.
+ */
+function BrainInfluences({ raw }: { raw: unknown }) {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as {
+    memoryUsed?: Record<string, unknown>;
+    sourceReputationUsed?: Array<{ host?: string; tier?: string }>;
+  };
+  const memoryEntries = r.memoryUsed ? Object.entries(r.memoryUsed) : [];
+  const reputation = Array.isArray(r.sourceReputationUsed) ? r.sourceReputationUsed : [];
+  if (memoryEntries.length === 0 && reputation.length === 0) return null;
+  return (
+    <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
+      <div>
+        <h3 className="font-display uppercase tracking-wide text-ink-soft">Memory used</h3>
+        {memoryEntries.length === 0 ? (
+          <p className="font-serif text-ink-soft">No memory influenced this decision.</p>
+        ) : (
+          <ul className="mt-1 font-mono">
+            {memoryEntries.map(([k, v]) => (
+              <li key={k}>
+                {k}: {String(v)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div>
+        <h3 className="font-display uppercase tracking-wide text-ink-soft">
+          Source reputation used
+        </h3>
+        {reputation.length === 0 ? (
+          <p className="font-serif text-ink-soft">No source reputation influenced this decision.</p>
+        ) : (
+          <ul className="mt-1 font-mono">
+            {reputation.slice(0, 8).map((s, i) => (
+              <li key={i}>
+                {s.host ?? "—"} → {s.tier ?? "—"}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function RankedAlternatives({ raw }: { raw: unknown }) {

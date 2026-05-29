@@ -22,16 +22,29 @@ export interface SimpleVerifyResult {
   detail?: Record<string, unknown>;
 }
 
+/** Spec §7: per-query-form result for search verification. */
+export interface SearchVerifyResult extends SimpleVerifyResult {
+  queryResults: {
+    title: boolean;
+    slug: boolean;
+    contentType: boolean;
+    keywords: boolean;
+  };
+}
+
 /**
- * Search verification — looks for the published item in the search
- * index store. The Admin Worker doesn't talk to an external search
- * engine; it confirms the public-tab rows are present so anything
- * the in-app search reads will return them.
+ * Search verification — independently checks the four query forms the
+ * in-app search engine offers (spec §7):
+ *   1. title query     — the stored title contains the package title
+ *   2. slug query      — the stored slug matches exactly
+ *   3. content-type query — a row of the expected content type exists
+ *   4. major keyword query — keywords drawn from the title appear in
+ *      the payload
  */
 export async function verifySearchIndex(
   prisma: PrismaClient,
-  opts: { contentType: string; slug: string; title: string },
-): Promise<SimpleVerifyResult> {
+  opts: { contentType: string; slug: string; title: string; majorKeywords?: string[] },
+): Promise<SearchVerifyResult> {
   const row = await prisma.publishedContent
     .findFirst({
       where: {
@@ -39,28 +52,73 @@ export async function verifySearchIndex(
         slug: opts.slug,
         isPublished: true,
       },
-      select: { id: true, title: true },
+      select: { id: true, title: true, payload: true },
     })
     .catch(() => null);
   if (!row) {
     return {
       ok: false,
       reason: `No PublishedContent row for ${opts.contentType}/${opts.slug}.`,
+      queryResults: { title: false, slug: false, contentType: false, keywords: false },
     };
   }
-  // Title parity check — if the published title differs significantly
-  // from the package title, the search index will mis-rank it.
-  const titleMatches =
+
+  // Query 1: title query
+  const titleOk =
     normalise(row.title).includes(normalise(opts.title).slice(0, 40)) ||
     normalise(opts.title).includes(normalise(row.title).slice(0, 40));
-  if (!titleMatches) {
-    return {
-      ok: false,
-      reason: "Published title diverges from package title; search ranking will suffer.",
-      detail: { stored: row.title, expected: opts.title },
-    };
-  }
-  return { ok: true, reason: "Published row found with matching title." };
+
+  // Query 2: slug query — exact match on PublishedContent.slug.
+  const slugOk =
+    (await prisma.publishedContent
+      .count({
+        where: {
+          slug: opts.slug,
+          isPublished: true,
+        },
+      })
+      .catch(() => 0)) > 0;
+
+  // Query 3: content-type query — at least one row of the expected
+  // content type exists (validates the search tab routes correctly).
+  const contentTypeOk =
+    (await prisma.publishedContent
+      .count({
+        where: { contentType: opts.contentType as never, isPublished: true },
+      })
+      .catch(() => 0)) > 0;
+
+  // Query 4: major keywords — derive from the title (longest words)
+  // and confirm they appear in the payload.
+  const keywords =
+    opts.majorKeywords ??
+    opts.title
+      .split(/\s+/)
+      .filter((w) => w.length >= 5)
+      .map(normalise)
+      .slice(0, 3);
+  const payloadText = JSON.stringify(row.payload ?? {}).toLowerCase();
+  const keywordsOk = keywords.length === 0 || keywords.every((k) => payloadText.includes(k));
+
+  const queryResults = {
+    title: titleOk,
+    slug: slugOk,
+    contentType: contentTypeOk,
+    keywords: keywordsOk,
+  };
+  const allOk = titleOk && slugOk && contentTypeOk && keywordsOk;
+  const fails = Object.entries(queryResults)
+    .filter(([, ok]) => !ok)
+    .map(([k]) => k);
+
+  return {
+    ok: allOk,
+    reason: allOk
+      ? "All 4 query forms (title, slug, contentType, keywords) return the row."
+      : `Search queries failed: ${fails.join(", ")}.`,
+    detail: { stored: row.title, expected: opts.title, keywords, queryResults },
+    queryResults,
+  };
 }
 
 /**
@@ -152,7 +210,7 @@ export async function runIndependentVerifiers(
   prisma: PrismaClient,
   opts: { contentType: string; slug: string; title: string; passId?: string },
 ): Promise<{
-  search: SimpleVerifyResult;
+  search: SearchVerifyResult;
   sitemap: SimpleVerifyResult;
   cache: SimpleVerifyResult;
   allOk: boolean;
@@ -174,8 +232,50 @@ export async function runIndependentVerifiers(
       search: search.reason,
       sitemap: sitemap.reason,
       cache: cache.reason,
+      searchQueryResults: search.queryResults,
     },
   }).catch(() => undefined);
+
+  // Spec §7 + §9: failures auto-file repair plans so the repair
+  // orchestrator can actually execute the refresh (not just log the
+  // failure).
+  if (!search.ok || !sitemap.ok || !cache.ok) {
+    const { filePlan } = await import("./repair-plans");
+    const failedEntity = `${opts.contentType}:${opts.slug}`;
+    const filings: Array<Promise<unknown>> = [];
+    if (!search.ok) {
+      filings.push(
+        filePlan(prisma, {
+          kind: "SEARCH_VISIBILITY_FAILED",
+          failedEntity,
+          repairAction: `Refresh search index for ${failedEntity}.`,
+          metadata: { reason: search.reason, queryResults: search.queryResults },
+        }).catch(() => undefined),
+      );
+    }
+    if (!sitemap.ok) {
+      filings.push(
+        filePlan(prisma, {
+          kind: "SITEMAP_VISIBILITY_FAILED",
+          failedEntity,
+          repairAction: `Regenerate sitemap to include ${failedEntity}.`,
+          metadata: { reason: sitemap.reason },
+        }).catch(() => undefined),
+      );
+    }
+    if (!cache.ok) {
+      filings.push(
+        filePlan(prisma, {
+          kind: "CACHE_FAILED",
+          failedEntity,
+          repairAction: `Revalidate cache tag ${failedEntity}.`,
+          metadata: { reason: cache.reason },
+        }).catch(() => undefined),
+      );
+    }
+    await Promise.all(filings);
+  }
+
   return { search, sitemap, cache, allOk };
 }
 

@@ -48,6 +48,16 @@ export interface PublishOrchestratorInput {
   verifier?: VerifierOutcome;
   /** Spec §5: when supplied, gate requires status="PASSED". */
   strictQAArtifactId?: string;
+  /** Spec §4: optional precomputed quality inputs. When omitted, the
+   *  orchestrator derives them from the package artifact fields. */
+  qualityInputs?: {
+    completenessScore: number;
+    correctnessScore: number;
+    formattingScore: number;
+    sourceEvidenceScore: number;
+    validationScore: number;
+    renderScore: number;
+  };
 }
 
 export type OrchestratorResult =
@@ -59,6 +69,11 @@ export type OrchestratorResult =
       reason: string;
     }
   | { kind: "blocked"; reason: string; gate?: string; blockedBy: string }
+  // Spec §6: "repair" is distinct from "review". A repairable failure
+  // (e.g. strict QA NEEDS_REPAIR, quality score just below threshold)
+  // goes to repair first; "review" is reserved for genuinely
+  // ambiguous / conflicting cases a human must adjudicate.
+  | { kind: "repair"; reason: string }
   | { kind: "review"; reason: string }
   | { kind: "duplicate"; existingId: string; reason: string };
 
@@ -83,7 +98,8 @@ export async function runPublishOrchestrator(
     if (qa.status !== "PASSED") {
       const reason = `strict QA status=${qa.status} (finalScore=${qa.finalScore.toFixed(2)}, blocking=${qa.blockingReasons.join("; ") || "(none)"})`;
       if (qa.status === "NEEDS_REPAIR") {
-        return { kind: "review", reason };
+        // Spec §6: needs repair, not review — repair first.
+        return { kind: "repair", reason };
       }
       return { kind: "blocked", blockedBy: "strict-qa", reason };
     }
@@ -125,6 +141,50 @@ export async function runPublishOrchestrator(
   if (gate.kind === "review") {
     await logBlocked(prisma, input, gate.reason);
     return { kind: "review", reason: gate.reason };
+  }
+
+  // 2b. Spec §4: ContentQualityScore is mandatory before publish.
+  //     Compute one if the caller didn't supply explicit inputs.
+  const qualityInputs = input.qualityInputs ?? {
+    completenessScore: input.qaPassed ? 1 : 0.5,
+    correctnessScore: input.confidence,
+    formattingScore: 0.8,
+    sourceEvidenceScore: input.hasSourceEvidence ? 1 : 0,
+    validationScore: input.verifier?.publishAllowed ? 1 : input.isDoctrinallySensitive ? 0 : 0.8,
+    renderScore: 1,
+  };
+  const { recordQualityScore, thresholdFor } = await import("./quality");
+  const qualityScore = await recordQualityScore(prisma, {
+    contentType: input.contentType,
+    contentId: input.contentId,
+    ...qualityInputs,
+  }).catch(() => null);
+  const qualityThreshold = thresholdFor(input.contentType);
+  if (!qualityScore || qualityScore.finalScore < qualityThreshold) {
+    const reason = `ContentQualityScore ${qualityScore?.finalScore?.toFixed(2) ?? "missing"} below ${input.contentType} threshold ${qualityThreshold.toFixed(2)}`;
+    await logBlocked(prisma, input, reason);
+    // Spec §4 + §9: file a QUALITY_SCORE_FAILED repair plan so the
+    // package goes to repair first rather than being silently
+    // rejected. The repair orchestrator resets the artifact for
+    // re-extraction. When the artifact is repairable (we have its id)
+    // the result is "repair", not "blocked" — spec §4 "go to repair
+    // first" / §6 distinct repair explanation.
+    if (input.strictQAArtifactId) {
+      const { filePlan } = await import("./repair-plans");
+      await filePlan(prisma, {
+        kind: "QUALITY_SCORE_FAILED",
+        failedEntity: input.strictQAArtifactId,
+        repairAction: `Re-extract ${input.contentType}/${input.slug}; quality score too low.`,
+        metadata: {
+          contentType: input.contentType,
+          slug: input.slug,
+          finalScore: qualityScore?.finalScore ?? 0,
+          threshold: qualityThreshold,
+        },
+      }).catch(() => undefined);
+      return { kind: "repair", reason };
+    }
+    return { kind: "blocked", blockedBy: "quality-score", reason };
   }
 
   // 3. Public route placement.

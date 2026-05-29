@@ -271,16 +271,49 @@ export async function inspectHomepage(prisma: PrismaClient): Promise<HomepageIns
 async function verifyHomepageAfterChange(
   prisma: PrismaClient,
 ): Promise<{ ok: boolean; reason: string }> {
-  // Lightweight post-change verification: refresh quality score and
-  // check it didn't drop below the redesign threshold.
+  // Spec §16: post-change verification checks the specific safety axes
+  // of the NEW homepage state — homepage loads, featured links work,
+  // no unpublished content featured, no section accidentally empty,
+  // mobile layout valid, accessibility passes, seasonal content
+  // appropriate. The mutator writes a HomepageQualityScore for the
+  // draft with per-axis sub-scores; we read the latest one and gate on
+  // each axis (NOT inspectHomepage, which reads current published
+  // content rather than the proposed draft).
   const score = await prisma.homepageQualityScore
     .findFirst({ orderBy: { createdAt: "desc" } })
     .catch(() => null);
-  if (!score) return { ok: true, reason: "no quality score; assuming safe" };
+  if (!score) return { ok: true, reason: "no post-change quality score; assuming safe" };
+
+  const FAIL = 0.4;
+  // Each spec §16 axis → HomepageQualityScore sub-score. Sub-scores
+  // that are absent (older rows) are skipped rather than failing.
+  const axisChecks: Array<{ name: string; score: number | null | undefined }> = [
+    { name: "homepage loads", score: score.visualCompletenessScore },
+    { name: "featured links work", score: score.linkHealthScore },
+    { name: "no unpublished content featured", score: score.sectionBalanceScore },
+    { name: "no section accidentally empty", score: score.emptyStateAvoidanceScore },
+    { name: "mobile layout valid", score: score.mobileReadinessScore },
+    { name: "accessibility checks pass", score: score.accessibilityScore },
+    { name: "seasonal content appropriate", score: score.seasonalRelevanceScore },
+  ];
+  const failed = axisChecks.filter((a) => typeof a.score === "number" && a.score < FAIL);
+  if (failed.length > 0) {
+    return {
+      ok: false,
+      reason: `post-change verification failed: ${failed
+        .map((f) => `${f.name} (${(f.score as number).toFixed(2)})`)
+        .join(", ")}`,
+    };
+  }
+
+  // Guard the aggregate so a broad regression still rolls back.
   if (score.finalScore < 0.3) {
     return { ok: false, reason: `homepage score collapsed to ${score.finalScore.toFixed(2)}` };
   }
-  return { ok: true, reason: `homepage score ${score.finalScore.toFixed(2)} acceptable` };
+  return {
+    ok: true,
+    reason: `all post-change homepage axes >= ${FAIL}; finalScore ${score.finalScore.toFixed(2)}`,
+  };
 }
 
 async function rollbackHomepage(prisma: PrismaClient, draftId: string): Promise<void> {

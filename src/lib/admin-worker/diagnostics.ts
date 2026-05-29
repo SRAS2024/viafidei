@@ -27,7 +27,40 @@ export interface HealthRating {
   currentBlocker?: string;
   recommendedRepair?: string;
   summary: string;
+  /**
+   * Spec §13: per-subsystem automatic-repair status.
+   *   "in_progress" — an open repair plan (PENDING/RUNNING) maps to
+   *                   this subsystem right now.
+   *   "available"   — the subsystem is auto-repairable but no plan is
+   *                   currently open.
+   *   "manual"      — no automatic repair handler covers this subsystem.
+   */
+  automaticRepairStatus?: "in_progress" | "available" | "manual";
 }
+
+/**
+ * Spec §13: map each subsystem rating key to the AdminWorkerRepairKind
+ * values that auto-repair it. Keys absent from this map are "manual".
+ */
+const RATING_REPAIR_KINDS: Record<string, string[]> = {
+  admin_worker_heartbeat: ["HEARTBEAT_STALE"],
+  admin_worker_queue: ["QUEUE_STUCK"],
+  admin_worker_source_discovery: ["DISCOVERY_FAILED", "CANDIDATE_URLS_MISSING"],
+  admin_worker_fetcher: ["FETCH_FAILED"],
+  admin_worker_source_reading: ["READ_FAILED", "SOURCE_JOBS_MISSING"],
+  admin_worker_classification: ["CLASSIFY_FAILED"],
+  admin_worker_extractors: ["EXTRACT_FAILED"],
+  admin_worker_building: ["BUILD_REPEATED_FAILURE"],
+  admin_worker_cross_source: ["VALIDATION_FAILED", "VALIDATION_EVIDENCE_MISSING"],
+  admin_worker_verifier: ["VALIDATION_FAILED", "VALIDATION_EVIDENCE_MISSING"],
+  admin_worker_strict_qa: ["STRICT_QA_FAILED", "QA_MISSING_FIELDS"],
+  admin_worker_quality_scoring: ["QUALITY_SCORE_FAILED"],
+  admin_worker_publishing: ["PERSIST_FAILED"],
+  admin_worker_public_render: ["PUBLIC_DISPLAY_FAILED"],
+  admin_worker_search: ["SEARCH_VISIBILITY_FAILED"],
+  admin_worker_sitemap: ["SITEMAP_VISIBILITY_FAILED"],
+  admin_worker_cache: ["CACHE_FAILED"],
+};
 
 /** Each rating returns a HealthRating shape so the UI is uniform. */
 type RatingFn = (prisma: PrismaClient) => Promise<HealthRating>;
@@ -482,16 +515,240 @@ async function ratingCrossSource(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingStrictQa(prisma: PrismaClient): Promise<HealthRating> {
-  const recent = await prisma.checklistQAReport.findFirst({ orderBy: { createdAt: "desc" } });
-  const score = recent?.overallScore ?? 0;
+  // Spec §3: Prefer the artifact-level AdminWorkerStrictQAResult
+  // (the new durable strict-QA stage). Fall back to ChecklistQAReport
+  // when no artifact-level results exist (transitional).
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [total, passed, latest] = await Promise.all([
+    prisma.adminWorkerStrictQAResult.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.adminWorkerStrictQAResult
+      .count({ where: { createdAt: { gte: since }, status: "PASSED" } })
+      .catch(() => 0),
+    prisma.adminWorkerStrictQAResult
+      .findFirst({ orderBy: { createdAt: "desc" } })
+      .catch(() => null),
+  ]);
+
+  if (total === 0 && !latest) {
+    // No artifact-level QA yet — fall back to legacy ChecklistQAReport
+    // so existing installations still see a value.
+    const recent = await prisma.checklistQAReport.findFirst({ orderBy: { createdAt: "desc" } });
+    const score = recent?.overallScore ?? 0;
+    return {
+      key: "admin_worker_strict_qa",
+      label: "Strict QA",
+      status: score >= 0.8 ? "pass" : score >= 0.5 ? "warn" : "fail",
+      score,
+      lastCheckedAt: now,
+      dataSource: "ChecklistQAReport (transitional)",
+      summary: recent
+        ? `Legacy QA score ${score.toFixed(2)}; no artifact-level results yet.`
+        : "No QA reports yet.",
+      recommendedRepair: "Run a content-goal pass; STRICT_QA stage will create artifact results.",
+    };
+  }
+
+  const passRate = total === 0 ? 0 : passed / total;
+  const status: HealthStatus =
+    total === 0 ? "warn" : passRate >= 0.7 ? "pass" : passRate >= 0.4 ? "warn" : "fail";
   return {
     key: "admin_worker_strict_qa",
-    label: "Strict QA",
-    status: score >= 0.8 ? "pass" : score >= 0.5 ? "warn" : "fail",
-    score,
-    lastCheckedAt: new Date(),
-    dataSource: "ChecklistQAReport",
-    summary: recent ? `Latest QA score ${score.toFixed(2)}.` : "No QA reports yet.",
+    label: "Strict QA (AdminWorkerStrictQAResult)",
+    status,
+    score: status === "pass" ? Math.min(1, passRate) : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerStrictQAResult (last 7d)",
+    latestSuccess: latest?.createdAt,
+    summary:
+      total === 0
+        ? "No strict-QA results in last 7 days."
+        : `${passed}/${total} artifacts passed strict QA (${Math.round(passRate * 100)}%); latest finalScore=${latest?.finalScore.toFixed(2) ?? "?"}.`,
+    recommendedRepair:
+      status === "fail"
+        ? "Investigate strict-QA blocking reasons; review NEEDS_REPAIR artifacts."
+        : undefined,
+  };
+}
+
+async function ratingQualityScoring(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §4 + §13: per-publish ContentQualityScore rating.
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [recent, latest] = await Promise.all([
+    prisma.contentQualityScore.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.contentQualityScore.findFirst({ orderBy: { createdAt: "desc" } }).catch(() => null),
+  ]);
+  const status: HealthStatus =
+    recent === 0 ? "warn" : (latest?.finalScore ?? 0) >= 0.8 ? "pass" : "warn";
+  return {
+    key: "admin_worker_quality_scoring",
+    label: "Quality scoring (ContentQualityScore)",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "ContentQualityScore (last 7d)",
+    latestSuccess: latest?.createdAt,
+    summary:
+      recent === 0
+        ? "No quality scores recorded in last 7 days."
+        : `${recent} quality score(s) in last 7d; latest finalScore=${latest?.finalScore.toFixed(2) ?? "?"}.`,
+    recommendedRepair:
+      recent === 0
+        ? "Run a publish pass; the orchestrator records a score per artifact."
+        : undefined,
+  };
+}
+
+async function ratingPackageArtifacts(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §13: surface the per-status counts of AdminWorkerPackageArtifact.
+  const now = new Date();
+  const [total, buildReady, qaPassed, needsRepair, rejected, published] = await Promise.all([
+    prisma.adminWorkerPackageArtifact.count().catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "BUILD_READY" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "QA_PASSED" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "NEEDS_REPAIR" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "REJECTED" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "PUBLISHED" } }).catch(() => 0),
+  ]);
+  const status: HealthStatus = total === 0 ? "warn" : "pass";
+  return {
+    key: "admin_worker_package_artifacts",
+    label: "Package artifacts",
+    status,
+    score: total === 0 ? 0.5 : 1,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerPackageArtifact",
+    summary:
+      total === 0
+        ? "No package artifacts yet."
+        : `Artifacts: ${published} published, ${qaPassed} QA_PASSED, ${buildReady} BUILD_READY, ${needsRepair} NEEDS_REPAIR, ${rejected} REJECTED.`,
+    recommendedRepair:
+      needsRepair > 0
+        ? "Repair NEEDS_REPAIR artifacts before they fall through to rare human review."
+        : undefined,
+  };
+}
+
+async function ratingStructuredBlocks(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §1 + §15: surface structured-block parsing activity.
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [recent, rejected] = await Promise.all([
+    prisma.adminWorkerSourceBlock.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.adminWorkerSourceBlock
+      .count({ where: { createdAt: { gte: since }, isRejected: true } })
+      .catch(() => 0),
+  ]);
+  const status: HealthStatus = recent === 0 ? "warn" : "pass";
+  return {
+    key: "admin_worker_structured_blocks",
+    label: "Structured source blocks",
+    status,
+    score: recent === 0 ? 0.5 : 1,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerSourceBlock (last 7d)",
+    summary:
+      recent === 0
+        ? "No structured blocks created in last 7 days."
+        : `${recent} blocks created (${rejected} rejected as junk).`,
+    recommendedRepair:
+      recent === 0
+        ? "Run a source-fetch pass; readSource will parse and persist blocks."
+        : undefined,
+  };
+}
+
+async function ratingCandidateScoring(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §13: candidate-scorer rating from CandidateSourceUrl.fetchPriority.
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [scored, total] = await Promise.all([
+    prisma.candidateSourceUrl
+      .count({ where: { createdAt: { gte: since }, fetchPriority: { gt: 0 } } })
+      .catch(() => 0),
+    prisma.candidateSourceUrl.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+  ]);
+  const rate = total === 0 ? 0 : scored / total;
+  const status: HealthStatus =
+    total === 0 ? "warn" : rate >= 0.8 ? "pass" : rate >= 0.5 ? "warn" : "fail";
+  return {
+    key: "admin_worker_candidate_scoring",
+    label: "Candidate scoring",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "CandidateSourceUrl.fetchPriority (last 7d)",
+    summary:
+      total === 0
+        ? "No candidate URLs scored in last 7 days."
+        : `${scored}/${total} candidates carry a non-zero fetchPriority (${Math.round(rate * 100)}%).`,
+    recommendedRepair:
+      status === "fail" ? "Re-run candidate scoring (rescoreAllCandidates)." : undefined,
+  };
+}
+
+async function ratingExtractors(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §13: extractors rating from package-artifact confidence.
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [created, withFields] = await Promise.all([
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { createdAt: { gte: since } } })
+      .catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { createdAt: { gte: since }, confidenceScore: { gte: 0.5 } } })
+      .catch(() => 0),
+  ]);
+  const rate = created === 0 ? 0 : withFields / created;
+  const status: HealthStatus =
+    created === 0 ? "warn" : rate >= 0.7 ? "pass" : rate >= 0.4 ? "warn" : "fail";
+  return {
+    key: "admin_worker_extractors",
+    label: "Extractors",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerPackageArtifact.confidenceScore (last 7d)",
+    summary:
+      created === 0
+        ? "No package artifacts extracted in last 7 days."
+        : `${withFields}/${created} artifacts have confidence >= 0.5 (${Math.round(rate * 100)}%).`,
+    recommendedRepair:
+      status === "fail"
+        ? "Investigate low-confidence extractions; check structured blocks."
+        : undefined,
+  };
+}
+
+async function ratingChecklistBridge(prisma: PrismaClient): Promise<HealthRating> {
+  // Spec §13: checklist + citation bridge — artifacts with a
+  // checklistItemId have been promoted to checklist items.
+  const now = new Date();
+  const [total, bridged] = await Promise.all([
+    prisma.adminWorkerPackageArtifact.count().catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { checklistItemId: { not: null } } })
+      .catch(() => 0),
+  ]);
+  const rate = total === 0 ? 0 : bridged / total;
+  const status: HealthStatus =
+    total === 0 ? "warn" : rate >= 0.6 ? "pass" : rate >= 0.3 ? "warn" : "fail";
+  return {
+    key: "admin_worker_checklist_bridge",
+    label: "Checklist + citation bridge",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerPackageArtifact.checklistItemId",
+    summary:
+      total === 0
+        ? "No package artifacts to bridge yet."
+        : `${bridged}/${total} artifacts bridged to ChecklistItem (${Math.round(rate * 100)}%).`,
+    recommendedRepair:
+      status === "fail"
+        ? "Run the CHECKLIST_CREATION / CITATION_CREATION dispatcher stages."
+        : undefined,
   };
 }
 
@@ -810,9 +1067,15 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingClassification,
   ratingBuilding,
   ratingFormatting,
+  ratingCandidateScoring,
+  ratingExtractors,
+  ratingChecklistBridge,
   ratingVerifier,
   ratingCrossSource,
+  ratingStructuredBlocks,
+  ratingPackageArtifacts,
   ratingStrictQa,
+  ratingQualityScoring,
   ratingPublishing,
   ratingPublicRender,
   ratingSearchVisibility,
@@ -833,22 +1096,51 @@ const RATINGS: ReadonlyArray<RatingFn> = [
 ];
 
 export async function runAdminWorkerDiagnostics(prisma: PrismaClient): Promise<HealthRating[]> {
-  const results = await Promise.all(
+  const results: HealthRating[] = await Promise.all(
     RATINGS.map((r) =>
       r(prisma).catch(
-        (err) =>
-          ({
-            key: "admin_worker_rating_error",
-            label: "Rating error",
-            status: "fail" as HealthStatus,
-            score: 0,
-            lastCheckedAt: new Date(),
-            dataSource: "?",
-            summary: err instanceof Error ? err.message : String(err),
-          }) satisfies HealthRating,
+        (err): HealthRating => ({
+          key: "admin_worker_rating_error",
+          label: "Rating error",
+          status: "fail" as HealthStatus,
+          score: 0,
+          lastCheckedAt: new Date(),
+          dataSource: "?",
+          summary: err instanceof Error ? err.message : String(err),
+        }),
       ),
     ),
   );
+
+  // Spec §13: annotate each rating with its automatic-repair status.
+  // One query for all open repair plans, grouped by kind. Wrapped in a
+  // try/catch (not just .catch) so a mock or client without groupBy
+  // degrades gracefully instead of throwing synchronously.
+  const openPlans = await (async () => {
+    try {
+      const rows = await prisma.adminWorkerRepairPlan.groupBy({
+        by: ["kind"],
+        where: { status: { in: ["PENDING", "RUNNING"] } },
+        _count: { _all: true },
+      });
+      return rows as Array<{ kind: string; _count: { _all: number } }>;
+    } catch {
+      return [] as Array<{ kind: string; _count: { _all: number } }>;
+    }
+  })();
+  const openKinds = new Set(openPlans.filter((p) => p._count._all > 0).map((p) => p.kind));
+
+  for (const rating of results) {
+    const kinds = RATING_REPAIR_KINDS[rating.key];
+    if (!kinds) {
+      rating.automaticRepairStatus = "manual";
+    } else if (kinds.some((k) => openKinds.has(k))) {
+      rating.automaticRepairStatus = "in_progress";
+    } else {
+      rating.automaticRepairStatus = "available";
+    }
+  }
+
   return results;
 }
 

@@ -16,6 +16,9 @@ function makePrisma(opts: {
   recentCandidates?: number;
   recentBuilds?: number;
   recentPublishes?: number;
+  activeSources?: number;
+  recentlySuccessful?: number;
+  recentlyFailed?: number;
 }) {
   return {
     contentGoal: {
@@ -25,11 +28,29 @@ function makePrisma(opts: {
       count: vi.fn(async () => opts.primary ?? 0),
     },
     adminWorkerSourceReputation: {
-      count: vi.fn(async ({ where }: { where: { sourceRole?: string } }) => {
-        if (where.sourceRole === "validation_source") return opts.validation ?? 0;
-        if (where.sourceRole === "enrichment_source") return opts.enrichment ?? 0;
-        return 0;
-      }),
+      count: vi.fn(
+        async ({
+          where,
+        }: {
+          where: {
+            sourceRole?: string;
+            paused?: boolean;
+            fetchSuccessRate?: unknown;
+            lastScoreUpdate?: unknown;
+            AND?: unknown;
+          };
+        }) => {
+          if (where.sourceRole === "validation_source") return opts.validation ?? 0;
+          if (where.sourceRole === "enrichment_source") return opts.enrichment ?? 0;
+          // recently-failed query carries an AND clause.
+          if (where.AND) return opts.recentlyFailed ?? 0;
+          // recently-successful query carries lastScoreUpdate + fetchSuccessRate.
+          if (where.lastScoreUpdate && where.fetchSuccessRate) return opts.recentlySuccessful ?? 0;
+          // active-source query carries paused:false (no lastScoreUpdate).
+          if (where.paused === false) return opts.activeSources ?? 0;
+          return 0;
+        },
+      ),
     },
     candidateSourceUrl: {
       count: vi.fn(async () => opts.recentCandidates ?? 0),
@@ -111,5 +132,19 @@ describe("runSourceCoverage — spec §23", () => {
     expect(
       vi.mocked(prisma.adminWorkerSourceCoverage.upsert as ReturnType<typeof vi.fn>),
     ).toHaveBeenCalled();
+  });
+
+  it("populates activeSourceCount + recentlySuccessfulSources + recentlyFailedSources (spec §11)", async () => {
+    const prisma = makePrisma({
+      goals: [{ contentType: "PRAYER", gapCount: 30 }],
+      primary: 3,
+      activeSources: 5,
+      recentlySuccessful: 3,
+      recentlyFailed: 1,
+    });
+    const rows = await runSourceCoverage(prisma);
+    expect(rows[0].activeSourceCount).toBe(5);
+    expect(rows[0].recentlySuccessfulSources).toBe(3);
+    expect(rows[0].recentlyFailedSources).toBe(1);
   });
 });

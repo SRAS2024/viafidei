@@ -72,6 +72,12 @@ import { parseStructuredBlocks } from "@/lib/admin-worker/structured-source-read
 import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator";
 import { computeFinalScoreV2, thresholdFor } from "@/lib/admin-worker/quality";
 import { buildContentPackage } from "@/lib/admin-worker/content-builder";
+import { recordStrictQA } from "@/lib/admin-worker/strict-qa";
+import {
+  verifySearchIndex,
+  verifySitemap,
+  verifyCacheFreshness,
+} from "@/lib/admin-worker/search-sitemap-cache-verifiers";
 import type { ExtractorOutput } from "@/lib/admin-worker/extractors";
 
 function makePrisma() {
@@ -82,8 +88,51 @@ function makePrisma() {
       update: vi.fn(async () => ({ id: "pub-1" })),
     },
     adminWorkerFetchResult: { create: vi.fn(async () => ({ id: "f-1" })) },
-    adminWorkerLog: { findFirst: vi.fn(async () => null) },
+    adminWorkerLog: {
+      findFirst: vi.fn(async () => null),
+      create: vi.fn(async () => ({ id: "l" })),
+    },
+    // Spec §4: publish orchestrator requires a ContentQualityScore.
+    // Mock echoes the computed finalScore so doctrinal types (0.95
+    // threshold) pass when inputs warrant it.
+    contentQualityScore: {
+      create: vi.fn(async (args: { data: { finalScore: number } }) => ({
+        id: "q-1",
+        finalScore: args.data.finalScore,
+      })),
+    },
+    // Spec §5 (strict QA) + §8 (independent verifiers) per-type coverage.
+    adminWorkerStrictQAResult: {
+      upsert: vi.fn(async () => ({ id: "qa-1" })),
+      findUnique: vi.fn(async () => null),
+    },
   } as unknown as Parameters<typeof adminWorkerFetch>[0];
+}
+
+// Prisma for the verification stages: the published row exists so
+// search/sitemap/cache verifiers find it.
+function makeVerifierPrisma(contentType: string, slug: string, title: string) {
+  return {
+    publishedContent: {
+      findFirst: vi.fn(async () => ({
+        id: "pub-1",
+        title,
+        slug,
+        contentType,
+        payload: { title },
+        publishedAt: new Date(),
+      })),
+      count: vi.fn(async () => 1),
+    },
+    adminWorkerLog: {
+      findFirst: vi.fn(async () => ({ createdAt: new Date() })),
+      create: vi.fn(async () => ({ id: "l" })),
+    },
+    adminWorkerRepairPlan: {
+      findFirst: vi.fn(async () => null),
+      create: vi.fn(async () => ({ id: "rp" })),
+    },
+  } as unknown as Parameters<typeof verifySearchIndex>[0];
 }
 
 function fakeExtractor(fields: Record<string, unknown>): ExtractorOutput {
@@ -431,6 +480,53 @@ describe("full chain per content type (spec §24)", () => {
             : undefined,
         });
         expect(result.kind).toBe("published");
+      });
+
+      it("strict QA records a result for the package artifact", async () => {
+        const prisma = makePrisma();
+        const qa = await recordStrictQA(prisma, {
+          packageArtifactId: `art-${s.contentType}`,
+          contentType: s.contentType,
+          completenessScore: 1,
+          correctnessScore: 0.95,
+          formattingScore: 0.9,
+          provenanceScore: 0.95,
+          validationScore: s.isDoctrinal ? 0.95 : 0.9,
+          duplicateSafetyScore: 0.95,
+          publicReadinessScore: 0.95,
+        });
+        // A healthy package should pass (or at worst need repair) — never
+        // a hard FAIL with these inputs.
+        expect(["PASSED", "NEEDS_REPAIR"]).toContain(qa.status);
+      });
+
+      // URL-safe slug (content types like CHURCH_DOCUMENT have underscores).
+      const slug = `${s.contentType.toLowerCase().replace(/_/g, "-")}-test`;
+
+      it("search verification confirms the published row across query forms", async () => {
+        const out = await verifySearchIndex(makeVerifierPrisma(s.contentType, slug, s.title), {
+          contentType: s.contentType,
+          slug,
+          title: s.title,
+        });
+        expect(out.queryResults.slug).toBe(true);
+        expect(out.queryResults.contentType).toBe(true);
+      });
+
+      it("sitemap verification confirms the public URL qualifies", async () => {
+        const out = await verifySitemap(makeVerifierPrisma(s.contentType, slug, s.title), {
+          contentType: s.contentType,
+          slug,
+        });
+        expect(out.ok).toBe(true);
+      });
+
+      it("cache verification confirms a recent revalidation", async () => {
+        const out = await verifyCacheFreshness(makeVerifierPrisma(s.contentType, slug, s.title), {
+          contentType: s.contentType,
+          slug,
+        });
+        expect(out.ok).toBe(true);
       });
     });
   }

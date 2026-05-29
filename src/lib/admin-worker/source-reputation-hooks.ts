@@ -22,7 +22,8 @@ export type ReputationStage =
   | "publish"
   | "post_publish"
   | "duplicate"
-  | "wrong_content";
+  | "wrong_content"
+  | "repair";
 
 export interface ReputationHookInput {
   sourceHost: string;

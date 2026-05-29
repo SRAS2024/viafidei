@@ -41,6 +41,12 @@ export interface CoverageRow {
   primarySources: number;
   validationSources: number;
   enrichmentSources: number;
+  /** Spec §11: sources not paused (i.e. eligible to be used right now). */
+  activeSourceCount: number;
+  /** Spec §11: distinct hosts that succeeded for this type in the last 7d. */
+  recentlySuccessfulSources: number;
+  /** Spec §11: distinct hosts that failed for this type in the last 7d. */
+  recentlyFailedSources: number;
   recentCandidates7d: number;
   recentValidPackages7d: number;
   recentPublishes7d: number;
@@ -65,41 +71,85 @@ export async function runSourceCoverage(prisma: PrismaClient): Promise<CoverageR
     // of distinct TRUSTED hosts in source reputation as a proxy for
     // primary sources, with role tags from authoritySource when
     // available.
-    const [primary, validation, enrichment, recentCandidates, recentBuilds, recentPublishes] =
-      await Promise.all([
-        prisma.authoritySource
-          .count({ where: { authorityLevel: { in: ["VATICAN", "USCCB", "CATECHISM"] } } })
-          .catch(() => 0),
-        prisma.adminWorkerSourceReputation
-          .count({ where: { sourceRole: "validation_source" } })
-          .catch(() => 0),
-        prisma.adminWorkerSourceReputation
-          .count({ where: { sourceRole: "enrichment_source" } })
-          .catch(() => 0),
-        prisma.candidateSourceUrl
-          .count({
-            where: {
-              predictedContentType: ct,
-              status: { in: ["DISCOVERED", "PRIORITIZED", "FETCHED", "BUILT"] },
-              createdAt: { gte: since },
-            },
-          })
-          .catch(() => 0),
-        prisma.workerBuildJob
-          .count({
-            where: {
-              status: "succeeded",
-              checklistItem: { contentType: ct as never },
-              finishedAt: { gte: since },
-            },
-          })
-          .catch(() => 0),
-        prisma.publishedContent
-          .count({
-            where: { contentType: ct as never, isPublished: true, publishedAt: { gte: since } },
-          })
-          .catch(() => 0),
-      ]);
+    const [
+      primary,
+      validation,
+      enrichment,
+      recentCandidates,
+      recentBuilds,
+      recentPublishes,
+      activeSourceCount,
+      recentlySuccessfulSources,
+      recentlyFailedSources,
+    ] = await Promise.all([
+      prisma.authoritySource
+        .count({ where: { authorityLevel: { in: ["VATICAN", "USCCB", "CATECHISM"] } } })
+        .catch(() => 0),
+      prisma.adminWorkerSourceReputation
+        .count({ where: { sourceRole: "validation_source" } })
+        .catch(() => 0),
+      prisma.adminWorkerSourceReputation
+        .count({ where: { sourceRole: "enrichment_source" } })
+        .catch(() => 0),
+      prisma.candidateSourceUrl
+        .count({
+          where: {
+            predictedContentType: ct,
+            status: { in: ["DISCOVERED", "PRIORITIZED", "FETCHED", "BUILT"] },
+            createdAt: { gte: since },
+          },
+        })
+        .catch(() => 0),
+      prisma.workerBuildJob
+        .count({
+          where: {
+            status: "succeeded",
+            checklistItem: { contentType: ct as never },
+            finishedAt: { gte: since },
+          },
+        })
+        .catch(() => 0),
+      prisma.publishedContent
+        .count({
+          where: { contentType: ct as never, isPublished: true, publishedAt: { gte: since } },
+        })
+        .catch(() => 0),
+      // Spec §11: active sources = reputation rows for this type (or
+      // global) that are NOT paused.
+      prisma.adminWorkerSourceReputation
+        .count({
+          where: {
+            paused: false,
+            OR: [{ contentType: ct }, { contentType: null }],
+          },
+        })
+        .catch(() => 0),
+      // Spec §11: hosts scored recently (last 7d) with a healthy fetch
+      // success rate — a proxy for "recently successful sources".
+      prisma.adminWorkerSourceReputation
+        .count({
+          where: {
+            OR: [{ contentType: ct }, { contentType: null }],
+            lastScoreUpdate: { gte: since },
+            fetchSuccessRate: { gte: 0.5 },
+            paused: false,
+          },
+        })
+        .catch(() => 0),
+      // Spec §11: hosts scored recently that are paused or have a poor
+      // fetch success rate — a proxy for "recently failed sources".
+      prisma.adminWorkerSourceReputation
+        .count({
+          where: {
+            lastScoreUpdate: { gte: since },
+            AND: [
+              { OR: [{ contentType: ct }, { contentType: null }] },
+              { OR: [{ paused: true }, { fetchSuccessRate: { lt: 0.5 } }] },
+            ],
+          },
+        })
+        .catch(() => 0),
+    ]);
 
     const minPrimary = MIN_PRIMARY_SOURCES[ct] ?? 2;
     const primaryRatio = Math.min(1, primary / minPrimary);
@@ -142,6 +192,9 @@ export async function runSourceCoverage(prisma: PrismaClient): Promise<CoverageR
       primarySources: primary,
       validationSources: validation,
       enrichmentSources: enrichment,
+      activeSourceCount,
+      recentlySuccessfulSources,
+      recentlyFailedSources,
       recentCandidates7d: recentCandidates,
       recentValidPackages7d: recentBuilds,
       recentPublishes7d: recentPublishes,
