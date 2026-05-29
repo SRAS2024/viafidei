@@ -173,6 +173,16 @@ export interface DeveloperAuditData {
     rejected: number;
     perType: Array<{ blockType: string; count: number }>;
   };
+  /** Spec §17: per-content-type growth execution funnel. */
+  contentFunnel: Array<{
+    contentType: string;
+    candidatesDiscovered: number;
+    packageArtifactsCreated: number;
+    strictQAPasses: number;
+    publishedItems: number;
+    postPublishPasses: number;
+    firstEmptyStage: string | null;
+  }>;
   currentBlockers: string[];
   /** Spec §15: live "why no content growth" diagnostic snapshot. */
   whyNoGrowth: {
@@ -458,9 +468,34 @@ export async function collectDeveloperAuditData(
         count: b._count._all,
       })),
     },
+    contentFunnel: await collectContentFunnel(prisma),
     currentBlockers,
     whyNoGrowth: await collectWhyNoGrowthSnapshot(prisma),
   };
+}
+
+/**
+ * Spec §17: per-content-type growth funnel for the Developer Audit.
+ * Best-effort: degrades to an empty array on failure.
+ */
+async function collectContentFunnel(
+  prisma: PrismaClient,
+): Promise<DeveloperAuditData["contentFunnel"]> {
+  try {
+    const { computeContentFunnel } = await import("./content-growth-monitor");
+    const rows = await computeContentFunnel(prisma);
+    return rows.map((r) => ({
+      contentType: r.contentType,
+      candidatesDiscovered: r.candidatesDiscovered,
+      packageArtifactsCreated: r.packageArtifactsCreated,
+      strictQAPasses: r.strictQAPasses,
+      publishedItems: r.publishedItems,
+      postPublishPasses: r.postPublishPasses,
+      firstEmptyStage: r.firstEmptyStage,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -505,6 +540,7 @@ export const DEVELOPER_AUDIT_SECTIONS = [
   "Mission Plans",
   "Pipeline Stage History",
   "Content Goal Progress",
+  "Content Growth Funnel",
   "Source Coverage",
   "Discovery Logs",
   "Fetch Logs",

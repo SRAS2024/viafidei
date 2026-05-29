@@ -109,6 +109,7 @@ export {
 } from "./growth-orchestrator";
 
 export { runSourceCoverage, listCoverageBlocked, type CoverageRow } from "./source-coverage";
+export { computeContentFunnel, type ContentFunnelRow } from "./content-growth-monitor";
 
 export {
   runVerifier,

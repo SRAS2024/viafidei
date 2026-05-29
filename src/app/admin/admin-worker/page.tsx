@@ -4,6 +4,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
 import {
+  computeContentFunnel,
   countPendingReview,
   getAdminWorkerState,
   listRecentPasses,
@@ -142,6 +143,9 @@ export default async function AdminWorkerPage() {
     .diagnoseWhyNoGrowth(prisma)
     .catch(() => null);
 
+  // Spec §17: per-content-type growth execution funnel.
+  const funnel = await computeContentFunnel(prisma).catch(() => []);
+
   const summary = summarizeRatings(ratings);
 
   return (
@@ -246,6 +250,9 @@ export default async function AdminWorkerPage() {
             </Link>
             <Link className="text-indigo-600 underline" href="/admin/admin-worker/pipeline">
               Pipeline map
+            </Link>
+            <Link className="text-indigo-600 underline" href="/admin/admin-worker/artifacts">
+              Package artifacts
             </Link>
             <Link className="text-indigo-600 underline" href="/admin/admin-worker/rules">
               Rule catalogue
@@ -732,6 +739,72 @@ export default async function AdminWorkerPage() {
                 ))}
               </tbody>
             </table>
+          )}
+        </article>
+
+        {/* Content growth execution funnel (spec §17). Full per-content-
+            type funnel from candidates → public/search/sitemap. */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Content growth funnel (spec §17)</h2>
+          <p className="mb-2 text-xs italic text-ink-soft">
+            Per content type: candidates → prioritized → fetched → reads → blocks → artifacts →
+            checklist → validation → strict QA → quality → published → post-publish, plus
+            public/search/sitemap visibility. The bottleneck column shows the first stage that
+            dropped to zero.
+          </p>
+          {funnel.length === 0 ? (
+            <p className="text-sm italic text-ink-soft">No content goals seeded yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left uppercase text-ink-soft">
+                    <th>Type</th>
+                    <th className="text-right">Cand.</th>
+                    <th className="text-right">Prio.</th>
+                    <th className="text-right">Fetch</th>
+                    <th className="text-right">Reads</th>
+                    <th className="text-right">Blocks</th>
+                    <th className="text-right">Artif.</th>
+                    <th className="text-right">Check.</th>
+                    <th className="text-right">Valid.</th>
+                    <th className="text-right">QA</th>
+                    <th className="text-right">Qual.</th>
+                    <th className="text-right">Pub.</th>
+                    <th className="text-right">PostPub</th>
+                    <th>Visible</th>
+                    <th>Bottleneck</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {funnel.map((f) => (
+                    <tr
+                      key={f.contentType}
+                      className={`border-t ${f.firstEmptyStage ? "bg-amber-50" : ""}`}
+                    >
+                      <td className="py-1 font-mono">{f.contentType}</td>
+                      <td className="py-1 text-right font-mono">{f.candidatesDiscovered}</td>
+                      <td className="py-1 text-right font-mono">{f.candidatesPrioritized}</td>
+                      <td className="py-1 text-right font-mono">{f.sourcesFetched}</td>
+                      <td className="py-1 text-right font-mono">{f.sourceReadsCreated}</td>
+                      <td className="py-1 text-right font-mono">{f.structuredBlocksCreated}</td>
+                      <td className="py-1 text-right font-mono">{f.packageArtifactsCreated}</td>
+                      <td className="py-1 text-right font-mono">{f.checklistItemsCreated}</td>
+                      <td className="py-1 text-right font-mono">{f.validationPasses}</td>
+                      <td className="py-1 text-right font-mono">{f.strictQAPasses}</td>
+                      <td className="py-1 text-right font-mono">{f.qualityScorePasses}</td>
+                      <td className="py-1 text-right font-mono">{f.publishedItems}</td>
+                      <td className="py-1 text-right font-mono">{f.postPublishPasses}</td>
+                      <td className="py-1 font-mono">
+                        {f.publicTabVisible ? "tab" : "—"}/{f.searchVisible ? "srch" : "—"}/
+                        {f.sitemapVisible ? "map" : "—"}
+                      </td>
+                      <td className="py-1 font-serif">{f.firstEmptyStage ?? "flowing"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </article>
 
