@@ -54,6 +54,101 @@ export interface DispatchOutcome {
   repairsPlanned?: number;
   /** Free-form metadata kept on the log row for diagnostics. */
   metadata?: Record<string, unknown>;
+  // ── Spec §3.4: every stage return carries the full result shape. ──
+  /** What the stage actually did (e.g. "fetched candidate", "no work"). */
+  actionTaken?: string;
+  /** The entity the stage consumed (candidate URL, source-read id, artifact id). */
+  inputEntity?: string | null;
+  /** The entity the stage produced (source-read id, artifact id, published id). */
+  outputEntity?: string | null;
+  /** Items advanced through the chain by this dispatch. */
+  advancedCount?: number;
+  /** Items rejected by this dispatch. */
+  rejectedCount?: number;
+  /** Items repaired / repair-planned by this dispatch. */
+  repairedCount?: number;
+  /** The blocker, when the stage could not advance. */
+  blocker?: string | null;
+  /** The next stage in the chain the worker should run. */
+  nextStage?: BrainMissionStage | null;
+  /** How many log rows the stage wrote. */
+  logsCreated?: number;
+}
+
+/**
+ * Spec §3.4: the next mission stage in the artifact chain. Side
+ * missions (repair / homepage / reporting / security / maintenance)
+ * loop back to discovery.
+ */
+const NEXT_STAGE: Partial<Record<BrainMissionStage, BrainMissionStage | null>> = {
+  DISCOVERY: "CANDIDATE_PRIORITIZATION",
+  CANDIDATE_PRIORITIZATION: "SOURCE_FETCH",
+  SOURCE_FETCH: "SOURCE_READ",
+  SOURCE_READ: "CLASSIFICATION",
+  CLASSIFICATION: "EXTRACTION",
+  EXTRACTION: "CHECKLIST_CREATION",
+  CHECKLIST_CREATION: "CITATION_CREATION",
+  CITATION_CREATION: "PACKAGE_BUILD",
+  PACKAGE_BUILD: "CROSS_SOURCE_VERIFICATION",
+  CROSS_SOURCE_VERIFICATION: "STRICT_QA",
+  STRICT_QA: "PERSISTENCE",
+  PERSISTENCE: "PUBLIC_PUBLISH",
+  PUBLIC_PUBLISH: "POST_PUBLISH_VERIFY",
+  POST_PUBLISH_VERIFY: "SEARCH_VERIFY",
+  SEARCH_VERIFY: "SITEMAP_VERIFY",
+  SITEMAP_VERIFY: "CACHE_REFRESH",
+  CACHE_REFRESH: null,
+  REPAIR: "DISCOVERY",
+  HOMEPAGE_WORK: "DISCOVERY",
+  REPORTING: "DISCOVERY",
+  SECURITY_DEFENSE: "DISCOVERY",
+  MAINTENANCE: "DISCOVERY",
+  PAUSED: null,
+};
+
+/**
+ * Spec §3.4: enrich a raw handler outcome with the full result shape
+ * (actionTaken, input/output entity, advanced/rejected/repaired
+ * counts, blocker, nextStage, logsCreated). Fields the handler already
+ * set are preserved; the rest are derived from kind + metadata so
+ * every stage return is uniform without editing all 19 handlers.
+ */
+function enrichOutcome(outcome: DispatchOutcome, decision: BrainDecision): DispatchOutcome {
+  const meta = (outcome.metadata ?? {}) as Record<string, unknown>;
+  const str = (v: unknown): string | null => (typeof v === "string" ? v : null);
+  const advancedCount =
+    outcome.advancedCount ?? outcome.built ?? (outcome.kind === "advanced" ? 1 : 0);
+  const rejectedCount =
+    outcome.rejectedCount ?? outcome.rejected ?? (outcome.kind === "rejected" ? 1 : 0);
+  const repairedCount = outcome.repairedCount ?? outcome.repairsPlanned ?? 0;
+  const blocker =
+    outcome.blocker ??
+    (outcome.kind === "rejected" || outcome.kind === "failed" ? outcome.summary : null);
+  return {
+    ...outcome,
+    actionTaken: outcome.actionTaken ?? `${outcome.stage}:${outcome.kind}`,
+    inputEntity:
+      outcome.inputEntity ??
+      str(meta.candidateUrlId) ??
+      str(meta.sourceReadId) ??
+      str(meta.artifactId) ??
+      decision.chosenAction?.candidateUrl ??
+      null,
+    outputEntity:
+      outcome.outputEntity ??
+      str(meta.publishedContentId) ??
+      str(meta.artifactId) ??
+      str(meta.sourceReadId) ??
+      null,
+    advancedCount,
+    rejectedCount,
+    repairedCount,
+    blocker,
+    nextStage: outcome.nextStage ?? NEXT_STAGE[outcome.stage] ?? null,
+    // Every stage writes at least one log row (the dispatch log); most
+    // write more. Default to 1 when the handler didn't count.
+    logsCreated: outcome.logsCreated ?? 1,
+  };
 }
 
 export interface DispatchInput {
@@ -72,53 +167,9 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
   const stage = decision.missionStage;
 
   try {
-    switch (stage) {
-      case "PAUSED":
-        return idle(stage, "Worker paused; only security defense allowed.");
-      case "SECURITY_DEFENSE":
-        return await runSecurityDefense(prisma, passId);
-      case "DISCOVERY":
-        return await runDiscovery(prisma, passId, decision);
-      case "CANDIDATE_PRIORITIZATION":
-        return await runCandidatePrioritization(prisma, passId);
-      case "SOURCE_FETCH":
-      case "SOURCE_READ":
-        return await runSourceFetchRead(prisma, passId, decision);
-      case "CLASSIFICATION":
-        return await runClassification(prisma, passId);
-      case "EXTRACTION":
-        return await runExtraction(prisma, passId);
-      case "CHECKLIST_CREATION":
-      case "CITATION_CREATION":
-        return await runChecklistOrCitation(prisma, passId, stage);
-      case "PACKAGE_BUILD":
-        return await runPackageBuild(prisma, passId);
-      case "CROSS_SOURCE_VERIFICATION":
-        return await runCrossSourceVerification(prisma, passId);
-      case "STRICT_QA":
-        return await runStrictQA(prisma, passId);
-      case "PERSISTENCE":
-      case "PUBLIC_PUBLISH":
-        return await runPersistAndPublish(prisma, workerId, passId);
-      case "POST_PUBLISH_VERIFY":
-        return await runPostPublishVerify(prisma, passId);
-      case "SEARCH_VERIFY":
-        return await runSearchVerify(prisma, passId);
-      case "SITEMAP_VERIFY":
-        return await runSitemapVerify(prisma, passId);
-      case "CACHE_REFRESH":
-        return await runCacheRefresh(prisma, passId);
-      case "REPAIR":
-        return await runRepair(prisma, passId);
-      case "HOMEPAGE_WORK":
-        return await runHomepageWork(prisma, passId);
-      case "REPORTING":
-        return await runReporting(prisma, passId);
-      case "MAINTENANCE":
-        return await runMaintenance(prisma, passId);
-      default:
-        return idle(stage, `No dispatcher registered for ${stage}.`);
-    }
+    const raw = await runStageHandler(prisma, workerId, passId, decision, stage);
+    // Spec §3.4: every stage return carries the full uniform shape.
+    return enrichOutcome(raw, decision);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await writeAdminWorkerLog(prisma, {
@@ -129,12 +180,72 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
       message: `Dispatcher for ${stage} threw: ${message}`,
       safeMetadata: { stage },
     });
-    return {
-      stage,
-      kind: "failed",
-      summary: `Stage ${stage} failed: ${message.slice(0, 240)}`,
-      failed: 1,
-    };
+    return enrichOutcome(
+      {
+        stage,
+        kind: "failed",
+        summary: `Stage ${stage} failed: ${message.slice(0, 240)}`,
+        failed: 1,
+        blocker: message.slice(0, 240),
+      },
+      decision,
+    );
+  }
+}
+
+async function runStageHandler(
+  prisma: PrismaClient,
+  workerId: string,
+  passId: string,
+  decision: BrainDecision,
+  stage: BrainMissionStage,
+): Promise<DispatchOutcome> {
+  switch (stage) {
+    case "PAUSED":
+      return idle(stage, "Worker paused; only security defense allowed.");
+    case "SECURITY_DEFENSE":
+      return await runSecurityDefense(prisma, passId);
+    case "DISCOVERY":
+      return await runDiscovery(prisma, passId, decision);
+    case "CANDIDATE_PRIORITIZATION":
+      return await runCandidatePrioritization(prisma, passId);
+    case "SOURCE_FETCH":
+    case "SOURCE_READ":
+      return await runSourceFetchRead(prisma, passId, decision);
+    case "CLASSIFICATION":
+      return await runClassification(prisma, passId);
+    case "EXTRACTION":
+      return await runExtraction(prisma, passId);
+    case "CHECKLIST_CREATION":
+    case "CITATION_CREATION":
+      return await runChecklistOrCitation(prisma, passId, stage);
+    case "PACKAGE_BUILD":
+      return await runPackageBuild(prisma, passId);
+    case "CROSS_SOURCE_VERIFICATION":
+      return await runCrossSourceVerification(prisma, passId);
+    case "STRICT_QA":
+      return await runStrictQA(prisma, passId);
+    case "PERSISTENCE":
+    case "PUBLIC_PUBLISH":
+      return await runPersistAndPublish(prisma, workerId, passId);
+    case "POST_PUBLISH_VERIFY":
+      return await runPostPublishVerify(prisma, passId);
+    case "SEARCH_VERIFY":
+      return await runSearchVerify(prisma, passId);
+    case "SITEMAP_VERIFY":
+      return await runSitemapVerify(prisma, passId);
+    case "CACHE_REFRESH":
+      return await runCacheRefresh(prisma, passId);
+    case "REPAIR":
+      return await runRepair(prisma, passId);
+    case "HOMEPAGE_WORK":
+      return await runHomepageWork(prisma, passId);
+    case "REPORTING":
+      return await runReporting(prisma, passId);
+    case "MAINTENANCE":
+      return await runMaintenance(prisma, passId);
+    default:
+      return idle(stage, `No dispatcher registered for ${stage}.`);
   }
 }
 
