@@ -403,6 +403,7 @@ export default async function AdminWorkerPage() {
                   {recentBrainDecision.brainFailure}
                 </p>
               )}
+              <BrainInfluences raw={recentBrainDecision.rulesEvaluated} />
               <RankedAlternatives raw={recentBrainDecision.rankedAlternatives} />
             </>
           ) : (
@@ -869,6 +870,55 @@ interface RankedAlternativeRow {
   safe?: boolean;
   rejectionReason?: string | null;
   reasonSummary?: string;
+}
+
+/**
+ * Spec §13: surface the memory + source reputation the brain consulted
+ * for its decision. Read from the persisted rulesEvaluated JSON.
+ */
+function BrainInfluences({ raw }: { raw: unknown }) {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as {
+    memoryUsed?: Record<string, unknown>;
+    sourceReputationUsed?: Array<{ host?: string; tier?: string }>;
+  };
+  const memoryEntries = r.memoryUsed ? Object.entries(r.memoryUsed) : [];
+  const reputation = Array.isArray(r.sourceReputationUsed) ? r.sourceReputationUsed : [];
+  if (memoryEntries.length === 0 && reputation.length === 0) return null;
+  return (
+    <div className="mt-3 grid grid-cols-1 gap-3 text-xs md:grid-cols-2">
+      <div>
+        <h3 className="font-display uppercase tracking-wide text-ink-soft">Memory used</h3>
+        {memoryEntries.length === 0 ? (
+          <p className="font-serif text-ink-soft">No memory influenced this decision.</p>
+        ) : (
+          <ul className="mt-1 font-mono">
+            {memoryEntries.map(([k, v]) => (
+              <li key={k}>
+                {k}: {String(v)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div>
+        <h3 className="font-display uppercase tracking-wide text-ink-soft">
+          Source reputation used
+        </h3>
+        {reputation.length === 0 ? (
+          <p className="font-serif text-ink-soft">No source reputation influenced this decision.</p>
+        ) : (
+          <ul className="mt-1 font-mono">
+            {reputation.slice(0, 8).map((s, i) => (
+              <li key={i}>
+                {s.host ?? "—"} → {s.tier ?? "—"}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function RankedAlternatives({ raw }: { raw: unknown }) {

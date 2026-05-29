@@ -1159,7 +1159,14 @@ export async function runBrain(
     passId: opts.passId,
     decisionType: "brain_pass",
     inputSummary: JSON.stringify(world).slice(0, 480),
-    rulesEvaluated: decision.rulesEvaluated as Prisma.InputJsonValue,
+    // Spec §13: persist the memory + source-reputation the brain
+    // consulted so the command center can show "what memory / source
+    // reputation influenced the action" without a separate column.
+    rulesEvaluated: {
+      ...decision.rulesEvaluated,
+      memoryUsed: decision.memoryUsed,
+      sourceReputationUsed: decision.sourceReputationUsed,
+    } as Prisma.InputJsonValue,
     chosenAction: `${decision.chosenMode}:${decision.chosenPriority}`,
     confidence: decision.confidenceScore,
     reason: decision.reason,
