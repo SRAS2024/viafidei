@@ -162,6 +162,15 @@ export async function runPublishOrchestrator(
   //     has a stored result. Only when no strict-QA row exists do we
   //     fall back to default inputs (this path also has the strict-QA
   //     gate refuse the publish above).
+  //
+  //     The mapping folds in source authority and verification evidence
+  //     strength as quality factors (spec §6): sourceEvidenceScore is
+  //     biased downward when the source authority is below VATICAN,
+  //     and validationScore is biased downward when the stored
+  //     verifier outcome reports missing evidence. duplicate-safety is
+  //     pulled from strict-QA and combined with the geometric mean by
+  //     dragging completeness down to zero on a duplicate-safety
+  //     failure (= refusal to publish a duplicate).
   let qualityInputs = input.qualityInputs;
   if (!qualityInputs && input.strictQAArtifactId) {
     const { getStrictQAResult } = await import("./strict-qa");
@@ -170,13 +179,29 @@ export async function runPublishOrchestrator(
       .findUnique({ where: { packageArtifactId: input.strictQAArtifactId } })
       .catch(() => null);
     if (qa && qaRow) {
-      // Map strict-QA dimensions → ContentQualityScore inputs (spec §6).
+      // Source-authority factor: VATICAN=1.0, CONFERENCE/MAGISTERIUM=0.95,
+      // DIOCESAN=0.88, PARISH/COMMUNITY=0.78 — folded into sourceEvidence
+      // so the geometric mean reflects authority rigor.
+      const authorityFactor = sourceAuthorityFactor(input.authorityLevel);
+      // Verification-evidence-strength factor: when a verifier outcome
+      // is supplied, missing required fields drag validation down even
+      // if the strict-QA validation score was high.
+      const evidenceStrength = verificationEvidenceStrength(input.verifier);
+      // Duplicate-safety failure → completenessScore=0 so the geometric
+      // mean is zero and the publish gate refuses (a duplicate is not a
+      // valid publish even if every other dimension passes). When the
+      // strict-QA row pre-dates the duplicateSafetyScore column we
+      // treat the absence as "not yet measured" and pass through.
+      const duplicateOk =
+        qaRow.duplicateSafetyScore === undefined || qaRow.duplicateSafetyScore === null
+          ? true
+          : qaRow.duplicateSafetyScore > 0;
       qualityInputs = {
-        completenessScore: qaRow.completenessScore,
+        completenessScore: duplicateOk ? qaRow.completenessScore : 0,
         correctnessScore: qaRow.correctnessScore,
         formattingScore: qaRow.formattingScore,
-        sourceEvidenceScore: qaRow.provenanceScore,
-        validationScore: qaRow.validationScore,
+        sourceEvidenceScore: qaRow.provenanceScore * authorityFactor,
+        validationScore: qaRow.validationScore * evidenceStrength,
         renderScore: qaRow.publicReadinessScore,
       };
     }
@@ -382,6 +407,47 @@ async function logBlocked(
       verifier: input.verifier ? input.verifier.summary : null,
     },
   }).catch(() => undefined);
+}
+
+/**
+ * Spec §6: source-authority factor used to bias sourceEvidenceScore
+ * by where the content was sourced. VATICAN is the unconditional
+ * baseline (1.0); conference / magisterium sources are slightly
+ * deboosted; diocesan / parish / community sources are deboosted
+ * further so the geometric mean reflects the actual authority of the
+ * sources backing the publish.
+ */
+function sourceAuthorityFactor(authorityLevel: string): number {
+  switch (authorityLevel) {
+    case "VATICAN":
+      return 1.0;
+    case "MAGISTERIUM":
+    case "CONFERENCE":
+      return 0.95;
+    case "DIOCESAN":
+      return 0.88;
+    case "PARISH":
+    case "COMMUNITY":
+      return 0.78;
+    default:
+      return 0.85;
+  }
+}
+
+/**
+ * Spec §6: verification-evidence-strength factor used to bias
+ * validationScore by how much stored verification evidence actually
+ * confirmed the package. Missing required fields drop the factor
+ * proportionally; a clean publish-allowed outcome is full strength.
+ */
+function verificationEvidenceStrength(verifier?: VerifierOutcome): number {
+  if (!verifier) return 1.0;
+  if (verifier.publishAllowed) return 1.0;
+  const missing = verifier.missingRequired?.length ?? 0;
+  const blocking = verifier.blockingSensitiveFields?.length ?? 0;
+  // Each missing / blocking field deducts 25% from the factor;
+  // floors at 0.1 so the geometric mean still reflects partial work.
+  return Math.max(0.1, 1 - 0.25 * (missing + blocking));
 }
 
 /**

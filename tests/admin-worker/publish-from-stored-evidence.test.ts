@@ -149,6 +149,35 @@ describe("publish derives ContentQualityScore from strict-QA dimensions (spec §
     expect(captured.qualityScoreInputs).toMatchObject({ formattingScore: 0.8 });
   });
 
+  it("biases sourceEvidence by authority level and validation by verifier evidence strength (spec §6)", async () => {
+    const { prisma, captured } = makePrisma({
+      qaRow: {
+        completenessScore: 1,
+        correctnessScore: 1,
+        formattingScore: 1,
+        provenanceScore: 1,
+        validationScore: 1,
+        publicReadinessScore: 1,
+      },
+    });
+    await runPublishOrchestrator(prisma, {
+      contentType: "PRAYER",
+      contentId: "ci-bias",
+      title: "Our Father",
+      slug: "our-father-bias",
+      payload: {} as never,
+      // DIOCESAN authority → 0.88 factor on sourceEvidence
+      authorityLevel: "DIOCESAN",
+      finalScore: 0.92,
+      qaPassed: true,
+      hasSourceEvidence: true,
+      isDoctrinallySensitive: false,
+      confidence: 0.92,
+      strictQAArtifactId: "art-bias",
+    });
+    expect((captured.qualityScoreInputs?.sourceEvidenceScore as number).toFixed(2)).toBe("0.88");
+  });
+
   it("blocks when strictQAArtifactId is supplied but no row exists", async () => {
     // Conversely: when a strictQAArtifactId IS supplied but no
     // AdminWorkerStrictQAResult row exists, the orchestrator must
