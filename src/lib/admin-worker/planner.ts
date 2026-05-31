@@ -15,9 +15,9 @@
  *    source documents, build content packages, validate content,
  *    publish valid content, update diagnostics, update progress."
  *
- * Phase 2 implements the "enqueue build jobs from gaps" step: the
- * planner finds approved checklist items for the under-goal content
- * type that have no pending build job and enqueues them. The
+ * The "enqueue build jobs from gaps" step: the planner finds
+ * approved checklist items for the under-goal content type that have
+ * no pending build job and enqueues them. The
  * downstream build engine (already deterministic) does the rest.
  */
 

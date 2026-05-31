@@ -78,11 +78,15 @@ describe("verifySearchIndex returns per-query-form results (spec §7)", () => {
       title: "Our Father",
     });
     expect(out.ok).toBe(true);
+    // Spec §8: 5 query forms — title, slug, contentType, keywords,
+    // exactPhrase. The exact-phrase axis checks the payload for the
+    // multi-word title verbatim.
     expect(out.queryResults).toEqual({
       title: true,
       slug: true,
       contentType: true,
       keywords: true,
+      exactPhrase: true,
     });
   });
 

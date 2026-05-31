@@ -69,6 +69,17 @@ function makePrisma(plans: Array<Record<string, unknown>>) {
       findMany: vi.fn(async () => plans),
       update: vi.fn(async () => ({})),
     },
+    // Spec §9: CACHE_FAILED handler re-verifies via verifyCacheFreshness
+    // which reads the cache_refresh_flagged log row. Return a recent
+    // row so the verify passes after a successful flag.
+    adminWorkerLog: {
+      findFirst: vi.fn(async () => ({
+        createdAt: new Date(),
+        message: "cache flagged",
+        safeMetadata: {},
+      })),
+    },
+    publishedContent: { findFirst: vi.fn(async () => null) },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
       // The orchestrator's leaseNextPlan uses $transaction. Pass back a
       // tx that returns the next plan directly.

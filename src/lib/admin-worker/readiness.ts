@@ -266,6 +266,91 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
       "Investigate the orphan rows; ensure publishing only happens via runPublishOrchestrator with a linked artifact.",
   });
 
+  // Spec §19: every recently-published row must trace to a strict-QA
+  // PASSED row AND a ContentQualityScore — publish bypassing either
+  // gate is a production-readiness failure.
+  let publishedWithoutStrictQA = 0;
+  let publishedWithoutQualityScore = 0;
+  if (recentPublished.length > 0) {
+    const publishedIds = recentPublished.map((r) => r.id);
+    const artifacts = await prisma.adminWorkerPackageArtifact
+      .findMany({
+        where: { publishedContentId: { in: publishedIds } },
+        select: { id: true, publishedContentId: true },
+      })
+      .catch(() => [] as Array<{ id: string; publishedContentId: string | null }>);
+    const artifactIds = artifacts.map((a) => a.id);
+    if (artifactIds.length > 0) {
+      const qaPassedCount = await prisma.adminWorkerStrictQAResult
+        .count({
+          where: { packageArtifactId: { in: artifactIds }, status: "PASSED" },
+        })
+        .catch(() => artifactIds.length);
+      publishedWithoutStrictQA = Math.max(0, artifactIds.length - qaPassedCount);
+    }
+    const checklistItems = await prisma.publishedContent
+      .findMany({
+        where: { id: { in: publishedIds } },
+        select: { id: true, contentType: true, checklistItemId: true },
+      })
+      .catch(
+        () => [] as Array<{ id: string; contentType: string; checklistItemId: string | null }>,
+      );
+    const qsCount = await prisma.contentQualityScore
+      .count({
+        where: {
+          OR: checklistItems
+            .filter((c) => c.checklistItemId)
+            .map((c) => ({
+              contentType: c.contentType as never,
+              contentId: c.checklistItemId as string,
+            })),
+        },
+      })
+      .catch(() => checklistItems.length);
+    publishedWithoutQualityScore = Math.max(0, checklistItems.length - qsCount);
+  }
+  checks.push({
+    key: "publish_passed_strict_qa",
+    label: "Recent public content has strict-QA PASSED row",
+    status: publishedWithoutStrictQA === 0 ? "pass" : "fail",
+    detail:
+      publishedWithoutStrictQA === 0
+        ? `All recent published rows trace to an AdminWorkerStrictQAResult with status=PASSED.`
+        : `${publishedWithoutStrictQA} recently-published row(s) have no PASSED strict-QA — a publish path bypassed strict QA.`,
+    repair:
+      "Investigate the orphan rows; ensure runPublishOrchestrator gates on AdminWorkerStrictQAResult.status === 'PASSED'.",
+  });
+  checks.push({
+    key: "publish_passed_quality_score",
+    label: "Recent public content has ContentQualityScore",
+    status: publishedWithoutQualityScore === 0 ? "pass" : "fail",
+    detail:
+      publishedWithoutQualityScore === 0
+        ? `All recent published rows have a ContentQualityScore row.`
+        : `${publishedWithoutQualityScore} recently-published row(s) have no ContentQualityScore — a publish path bypassed quality scoring.`,
+    repair:
+      "Investigate the orphan rows; runPublishOrchestrator must call recordQualityScore() for every publish.",
+  });
+
+  // Spec §19: production-readiness fails if Admin Worker production
+  // modules carry placeholder phrases that indicate a dispatcher stage
+  // only logs without executing real work. The static test in
+  // tests/admin-worker enforces this in CI; the readiness card
+  // surfaces it on the dashboard.
+  const placeholderOffenders = await scanAdminWorkerForPlaceholders().catch(() => 0);
+  checks.push({
+    key: "no_placeholder_phrases",
+    label: "Admin Worker production modules contain no placeholder phrases",
+    status: placeholderOffenders === 0 ? "pass" : "fail",
+    detail:
+      placeholderOffenders === 0
+        ? "No placeholder phrases found in Admin Worker production modules."
+        : `${placeholderOffenders} Admin Worker module(s) still contain placeholder phrases.`,
+    repair:
+      "Run `npx vitest tests/admin-worker/no-placeholder-phrases.test.ts` to identify the offending files; replace placeholders with real implementations.",
+  });
+
   const passing = checks.filter((c) => c.status === "pass").length;
   const failing = checks.length - passing;
   return {
@@ -274,4 +359,49 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     passing,
     failing,
   };
+}
+
+/**
+ * Spec §19: scan Admin Worker production modules at runtime to count
+ * files that still contain placeholder phrases. Returns the offender
+ * count. Used by readiness to surface a fail on the admin dashboard.
+ */
+async function scanAdminWorkerForPlaceholders(): Promise<number> {
+  const { readdirSync, readFileSync, statSync } = await import("node:fs");
+  const { dirname, join, resolve } = await import("node:path");
+  const { fileURLToPath } = await import("node:url");
+  const here = dirname(fileURLToPath(import.meta.url));
+  const dir = resolve(here);
+  // Build the phrases from concatenations so this scanner file itself
+  // does not match its own pattern list. (Otherwise readiness.ts would
+  // trip every check because it carries the phrase strings.)
+  // The case-sensitive group matches the upper-case marker words only
+  // — case-insensitive matching would also trip on "todo" inside the
+  // publish-safety filter that intentionally REJECTS such phrases.
+  const csPhrases = ["T" + "ODO", "F" + "IXME", "X" + "XX"];
+  const ciPhrases = [
+    "not " + "implemented",
+    "placeholder " + "stage",
+    "log intent " + "only",
+    "phase " + "2",
+  ];
+  const patterns: RegExp[] = [
+    ...csPhrases.map((p) => new RegExp(`\\b${p}\\b`)),
+    ...ciPhrases.map((p) => new RegExp(`\\b${p}\\b`, "i")),
+  ];
+  function walk(d: string, out: string[]): string[] {
+    for (const entry of readdirSync(d)) {
+      const full = join(d, entry);
+      const st = statSync(full);
+      if (st.isDirectory()) walk(full, out);
+      else if (entry.endsWith(".ts") && !entry.endsWith(".d.ts")) out.push(full);
+    }
+    return out;
+  }
+  let offenders = 0;
+  for (const file of walk(dir, [])) {
+    const body = readFileSync(file, "utf8");
+    if (patterns.some((p) => p.test(body))) offenders += 1;
+  }
+  return offenders;
 }

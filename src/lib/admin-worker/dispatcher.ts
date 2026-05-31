@@ -254,6 +254,89 @@ function idle(stage: BrainMissionStage, summary: string): DispatchOutcome {
 }
 
 /**
+ * Spec §5 follow-up: build a VerifierOutcome from the stored
+ * AdminWorkerCrossSourceVerification rows the cross-source stage
+ * already produced. The publish orchestrator gates on this outcome
+ * rather than re-running the verifier with empty validation sources.
+ *
+ * - missingRequired: validation needs with no MATCH/PASS row.
+ * - blockingSensitiveFields: needs with a MISMATCH or only
+ *   MISSING_EVIDENCE rows.
+ * - publishAllowed: every need has at least one passing match AND no
+ *   blocker.
+ */
+async function loadVerifierFromStoredEvidence(
+  prisma: PrismaClient,
+  artifactId: string,
+  validationNeeds: string[],
+): Promise<{
+  evidence: never[];
+  hasConflict: boolean;
+  missingRequired: string[];
+  publishAllowed: boolean;
+  verificationRowIds: string[];
+  blockingSensitiveFields: string[];
+  summary: string;
+}> {
+  const needs = (validationNeeds ?? []).filter((n) => typeof n === "string");
+  if (needs.length === 0) {
+    return {
+      evidence: [],
+      hasConflict: false,
+      missingRequired: [],
+      publishAllowed: true,
+      verificationRowIds: [],
+      blockingSensitiveFields: [],
+      summary: "No validation needs for this artifact.",
+    };
+  }
+  const rows = await prisma.adminWorkerCrossSourceVerification
+    .findMany({
+      where: { contentId: artifactId },
+      select: { id: true, fieldName: true, matchResult: true },
+    })
+    .catch(() => [] as Array<{ id: string; fieldName: string; matchResult: string }>);
+  const byField = new Map<string, string[]>();
+  for (const r of rows) {
+    const arr = byField.get(r.fieldName) ?? [];
+    arr.push(r.matchResult);
+    byField.set(r.fieldName, arr);
+  }
+  const missingRequired: string[] = [];
+  const blockingSensitiveFields: string[] = [];
+  let hasConflict = false;
+  for (const need of needs) {
+    const results = byField.get(need) ?? [];
+    if (results.length === 0) {
+      missingRequired.push(need);
+      continue;
+    }
+    if (results.some((r) => r === "MISMATCH")) {
+      blockingSensitiveFields.push(need);
+      hasConflict = true;
+      continue;
+    }
+    if (!results.some((r) => r === "MATCH" || r === "PASS")) {
+      blockingSensitiveFields.push(need);
+    }
+  }
+  const publishAllowed =
+    missingRequired.length === 0 && blockingSensitiveFields.length === 0 && !hasConflict;
+  const summary = publishAllowed
+    ? `All ${needs.length} validation need(s) confirmed by stored evidence.`
+    : `Stored evidence: ${missingRequired.length} missing, ${blockingSensitiveFields.length} blocking.`;
+  return {
+    evidence: [],
+    hasConflict,
+    missingRequired,
+    publishAllowed,
+    verificationRowIds: rows.map((r) => r.id),
+    blockingSensitiveFields,
+    summary,
+  };
+}
+
+/**
  * Spec §19: resolve the originating source host for a package artifact
  * (via its source-read) so the strict-QA + publish stages can feed
  * source reputation. Returns null when the artifact has no linked read.
@@ -1165,8 +1248,8 @@ async function runPersistAndPublish(
   // when a BUILD_READY artifact exists. The orchestrator handles the
   // quality-gate, duplicate, slug, public-route, persistence, content-
   // goal refresh, search, sitemap, and cache side effects in one
-  // transaction. The legacy runOneBuildCycle() path stays only as a
-  // fallback when no artifact is ready.
+  // transaction. When no artifact is ready the publish stage is idle —
+  // the legacy runOneBuildCycle fallback has been removed.
   // Spec §6: publish reads QA_PASSED artifacts. BUILD_READY remains
   // queryable for backwards-compat tests, but the orchestrator gate
   // requires a passing AdminWorkerStrictQAResult either way.
@@ -1182,19 +1265,13 @@ async function runPersistAndPublish(
     const isDoctrinal = ["APPARITION", "SACRAMENT", "CHURCH_DOCUMENT"].includes(
       artifact.contentType,
     );
-    // Pull verifier evidence — required for doctrinal content.
+    // Spec §5 follow-up: build the verifier outcome from STORED
+    // AdminWorkerCrossSourceVerification rows (written by the
+    // CROSS_SOURCE_VERIFICATION stage) — not from a fresh run with
+    // validationSources: []. For doctrinal content, missing evidence
+    // routes to repair via VALIDATION_EVIDENCE_MISSING.
     const verifier = isDoctrinal
-      ? await (async () => {
-          const { runVerifier } = await import("./verifier");
-          const fields = (artifact.extractedFields as Record<string, unknown>) ?? {};
-          return runVerifier(prisma, {
-            contentType: artifact.contentType,
-            contentId: artifact.checklistItemId ?? artifact.id,
-            packageChecksum: artifact.packageChecksum,
-            fields,
-            validationSources: [],
-          }).catch(() => undefined);
-        })()
+      ? await loadVerifierFromStoredEvidence(prisma, artifact.id, artifact.validationNeeds)
       : undefined;
 
     const result = await runPublishOrchestrator(prisma, {
@@ -1533,16 +1610,60 @@ async function runSitemapVerify(prisma: PrismaClient, passId: string): Promise<D
 }
 
 async function runCacheRefresh(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
+  // Spec §7: this stage doesn't just flag — it verifies cache freshness
+  // against the most recent published item, files a CACHE_FAILED
+  // repair plan on failure, and refreshes when the flag was stale.
   const { flagCacheRefresh } = await import("./repair");
   await flagCacheRefresh(prisma, "admin-worker-brain-requested");
+
+  const target = await prisma.publishedContent
+    .findFirst({
+      where: { isPublished: true },
+      orderBy: { publishedAt: "desc" },
+      select: { contentType: true, slug: true },
+    })
+    .catch(() => null);
+
+  if (!target) {
+    return {
+      stage: "CACHE_REFRESH",
+      kind: "advanced",
+      summary: "Cache refresh requested; no published content to verify against.",
+    };
+  }
+
+  const { verifyCacheFreshness } = await import("./search-sitemap-cache-verifiers");
+  const result = await verifyCacheFreshness(prisma, {
+    contentType: target.contentType,
+    slug: target.slug,
+  }).catch(() => ({ ok: false, reason: "verification threw" }));
+
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "POST_PUBLISH",
-    severity: "INFO",
-    eventName: "cache_refresh",
-    message: "Cache refresh requested.",
-  });
-  return { stage: "CACHE_REFRESH", kind: "advanced", summary: "Cache refresh requested." };
+    severity: result.ok ? "INFO" : "WARN",
+    eventName: "cache_verified",
+    message: `Cache verification for ${target.contentType}/${target.slug}: ${result.ok ? "PASS" : "FAIL"} — ${result.reason}`,
+    contentType: target.contentType,
+    safeMetadata: { reason: result.reason },
+  }).catch(() => undefined);
+
+  if (!result.ok) {
+    const { filePlan } = await import("./repair-plans");
+    await filePlan(prisma, {
+      kind: "CACHE_FAILED",
+      failedEntity: `${target.contentType}:${target.slug}`,
+      repairAction: `Revalidate cache for ${target.contentType}/${target.slug}.`,
+      metadata: { reason: result.reason },
+    }).catch(() => undefined);
+  }
+
+  return {
+    stage: "CACHE_REFRESH",
+    kind: result.ok ? "advanced" : "repair-planned",
+    summary: `Cache verified for ${target.contentType}/${target.slug}: ${result.ok ? "fresh" : result.reason}`,
+    repairsPlanned: result.ok ? 0 : 1,
+  };
 }
 
 async function runRepair(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
@@ -1550,7 +1671,7 @@ async function runRepair(prisma: PrismaClient, passId: string): Promise<Dispatch
   const { runRepairOrchestrator } = await import("./repair-orchestrator");
   const orchestrator = await runRepairOrchestrator(prisma, { passId });
 
-  // Then run the legacy stuck-queue recovery for in-pass fixups.
+  // Then sweep any stuck build jobs for in-pass fixups.
   const { recoverStuckQueue } = await import("./repair");
   const recovery = await recoverStuckQueue(prisma);
   await writeAdminWorkerLog(prisma, {

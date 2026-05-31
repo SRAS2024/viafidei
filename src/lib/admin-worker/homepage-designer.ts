@@ -4,8 +4,9 @@
  * HomepageWorkerDraft. Small high-confidence improvements may publish
  * automatically; major changes file for review.
  *
- * Phase 1 ships the scoring + draft surfaces. The actual homepage
- * mutator integrates with the existing homepage editor in Phase 2.
+ * The scoring + draft surfaces here feed homepage-mutator and the
+ * homepage-publish-orchestrator, which integrate with the existing
+ * homepage editor.
  */
 
 import type {

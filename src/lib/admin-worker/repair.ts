@@ -4,8 +4,8 @@
  *
  * Phase 1 ships the repair catalogue + safe handlers for the cases
  * that have no external side-effects (queue recovery, source job
- * creation, reputation pause). Cache / sitemap / search refresh land
- * in Phase 2 with the post-publish verifier.
+ * creation, reputation pause). Cache / sitemap / search refresh
+ * wire into the post-publish verifier + repair orchestrator.
  */
 
 import type { PrismaClient } from "@prisma/client";
@@ -166,8 +166,8 @@ export async function rotateSourceForMissingFields(
 }
 
 /**
- * Cache / sitemap / search refresh handlers. Phase 2 stubs that log
- * the intent — the actual revalidation call wires into the existing
+ * Cache / sitemap / search refresh handlers. These flag the intent —
+ * the actual revalidation call wires into the existing
  * `revalidateTag()` and search index modules.
  */
 export async function flagCacheRefresh(

@@ -263,22 +263,87 @@ async function executePlan(
 ): Promise<{ ok: boolean; reason: string }> {
   switch (plan.kind) {
     case "CACHE_FAILED": {
+      // Spec §9: refresh + re-verify in one shot. flagCacheRefresh
+      // requests revalidation; verifyCacheFreshness then confirms the
+      // log row appeared so we know the refresh actually ran.
       const { flagCacheRefresh } = await import("./repair");
-      const r = await flagCacheRefresh(
-        prisma,
-        plan.failedEntity ?? "admin-worker-repair-orchestrator",
-      );
-      return { ok: r.succeeded, reason: r.reason ?? "cache flagged" };
+      const tag = plan.failedEntity ?? "admin-worker-repair-orchestrator";
+      const flagged = await flagCacheRefresh(prisma, tag);
+      if (!flagged.succeeded) {
+        return { ok: false, reason: flagged.reason ?? "cache refresh failed" };
+      }
+      const [contentType, slug] = (tag.includes(":") ? tag.split(":", 2) : [tag, "*"]) as [
+        string,
+        string,
+      ];
+      const { verifyCacheFreshness } = await import("./search-sitemap-cache-verifiers");
+      const verify = await verifyCacheFreshness(prisma, { contentType, slug }).catch(() => ({
+        ok: false,
+        reason: "verifyCacheFreshness threw",
+      }));
+      return {
+        ok: verify.ok,
+        reason: verify.ok
+          ? `cache refreshed + verified (${verify.reason})`
+          : `cache refresh attempted but verifyCacheFreshness=${verify.reason}`,
+      };
     }
     case "SITEMAP_VISIBILITY_FAILED": {
+      // Spec §9: refresh sitemap and rerun verification against the
+      // failedEntity slug when supplied.
       const { flagSitemapRefresh } = await import("./repair");
-      const r = await flagSitemapRefresh(prisma);
-      return { ok: r.succeeded, reason: r.reason ?? "sitemap flagged" };
+      const flagged = await flagSitemapRefresh(prisma);
+      if (!flagged.succeeded) {
+        return { ok: false, reason: flagged.reason ?? "sitemap refresh failed" };
+      }
+      if (plan.failedEntity && plan.failedEntity.includes(":")) {
+        const [contentType, slug] = plan.failedEntity.split(":", 2) as [string, string];
+        const { verifySitemap } = await import("./search-sitemap-cache-verifiers");
+        const verify = await verifySitemap(prisma, { contentType, slug }).catch(() => ({
+          ok: false,
+          reason: "verifySitemap threw",
+        }));
+        return {
+          ok: verify.ok,
+          reason: verify.ok
+            ? `sitemap refreshed + verified (${verify.reason})`
+            : `sitemap refresh attempted but verifySitemap=${verify.reason}`,
+        };
+      }
+      return { ok: true, reason: flagged.reason ?? "sitemap refreshed" };
     }
     case "SEARCH_VISIBILITY_FAILED": {
+      // Spec §9: refresh search and rerun verification against the
+      // failedEntity slug when supplied.
       const { flagSearchRefresh } = await import("./repair");
-      const r = await flagSearchRefresh(prisma);
-      return { ok: r.succeeded, reason: r.reason ?? "search flagged" };
+      const flagged = await flagSearchRefresh(prisma);
+      if (!flagged.succeeded) {
+        return { ok: false, reason: flagged.reason ?? "search refresh failed" };
+      }
+      if (plan.failedEntity && plan.failedEntity.includes(":")) {
+        const [contentType, slug] = plan.failedEntity.split(":", 2) as [string, string];
+        const row = await prisma.publishedContent
+          .findFirst({
+            where: { contentType: contentType as never, slug, isPublished: true },
+            select: { title: true },
+          })
+          .catch(() => null);
+        if (row) {
+          const { verifySearchIndex } = await import("./search-sitemap-cache-verifiers");
+          const verify = await verifySearchIndex(prisma, {
+            contentType,
+            slug,
+            title: row.title,
+          }).catch(() => ({ ok: false, reason: "verifySearchIndex threw" }));
+          return {
+            ok: verify.ok,
+            reason: verify.ok
+              ? `search refreshed + verified (${verify.reason})`
+              : `search refresh attempted but verifySearchIndex=${verify.reason}`,
+          };
+        }
+      }
+      return { ok: true, reason: flagged.reason ?? "search refreshed" };
     }
     case "HEARTBEAT_STALE": {
       const { writeHeartbeat } = await import("./state");
@@ -307,15 +372,75 @@ async function executePlan(
         reason: `discovery surfaced ${r.surfaced}, rejected ${r.rejected}`,
       };
     }
-    case "PUBLIC_DISPLAY_FAILED":
+    case "PUBLIC_DISPLAY_FAILED": {
+      // Spec §9: concrete recovery — re-run the post-publish probe
+      // against the latest published row matching this plan's
+      // failedEntity. If the plan carries a PublishedContent id, use
+      // it directly; otherwise interpret failedEntity as a slug.
+      if (!plan.failedEntity) {
+        return { ok: false, reason: "no failedEntity to re-verify" };
+      }
+      const row =
+        (await prisma.publishedContent
+          .findFirst({
+            where: {
+              OR: [{ id: plan.failedEntity }, { slug: plan.failedEntity }],
+              isPublished: true,
+            },
+            select: { id: true, contentType: true, slug: true, title: true },
+          })
+          .catch(() => null)) ?? null;
+      if (!row) {
+        return { ok: false, reason: "no live PublishedContent row to re-verify" };
+      }
+      const { verifyPublished } = await import("./post-publish-probe");
+      const result = await verifyPublished(prisma, {
+        contentType: row.contentType,
+        contentId: row.id,
+        slug: row.slug,
+        expectedTitle: row.title,
+        skipNetwork: process.env.ADMIN_WORKER_SKIP_NETWORK === "1",
+      }).catch(
+        (e) =>
+          ({ result: "FAIL", error: (e as Error).message }) as { result: string; error?: string },
+      );
+      const ok = result.result === "PASS";
+      return {
+        ok,
+        reason: `post-publish probe → ${result.result}${"error" in result && result.error ? `: ${result.error}` : ""}`,
+      };
+    }
     case "VALIDATION_FAILED":
     case "VALIDATION_EVIDENCE_MISSING": {
-      // These plans need the verifier / publish gate to re-run. We
-      // log intent — the dispatcher's CROSS_SOURCE_VERIFICATION /
-      // POST_PUBLISH_VERIFY pass will pick them up.
+      // Spec §9: concrete recovery — drop the stale cross-source
+      // verification rows for this artifact and reset its status so
+      // the dispatcher's CROSS_SOURCE_VERIFICATION stage re-runs the
+      // verifier with fresh stored evidence on the next pass.
+      if (!plan.failedEntity) {
+        return { ok: false, reason: "no failedEntity to re-verify" };
+      }
+      const artifact = await prisma.adminWorkerPackageArtifact
+        .findUnique({
+          where: { id: plan.failedEntity },
+          select: { id: true, status: true },
+        })
+        .catch(() => null);
+      if (!artifact) {
+        return { ok: false, reason: "artifact missing — cannot re-verify" };
+      }
+      await prisma.adminWorkerCrossSourceVerification
+        .deleteMany({ where: { contentId: artifact.id } })
+        .catch(() => undefined);
+      // Reset the artifact to BUILD_READY so the dispatcher re-runs
+      // cross-source verification on the next pass.
+      if (artifact.status !== "BUILD_READY") {
+        await prisma.adminWorkerPackageArtifact
+          .update({ where: { id: artifact.id }, data: { status: "BUILD_READY" } })
+          .catch(() => undefined);
+      }
       return {
         ok: true,
-        reason: `${plan.kind} flagged for verifier / post-publish pass`,
+        reason: `${plan.kind} → cleared stale verification + reset artifact for re-verify`,
       };
     }
     case "FETCH_FAILED":

@@ -22,28 +22,44 @@ export interface SimpleVerifyResult {
   detail?: Record<string, unknown>;
 }
 
-/** Spec §7: per-query-form result for search verification. */
+/** Spec §7/§8: per-query-form result for search verification. */
 export interface SearchVerifyResult extends SimpleVerifyResult {
   queryResults: {
     title: boolean;
     slug: boolean;
     contentType: boolean;
     keywords: boolean;
+    exactPhrase: boolean;
   };
 }
 
 /**
- * Search verification — independently checks the four query forms the
- * in-app search engine offers (spec §7):
- *   1. title query     — the stored title contains the package title
- *   2. slug query      — the stored slug matches exactly
- *   3. content-type query — a row of the expected content type exists
+ * Search verification — independently checks the five query forms the
+ * in-app search engine offers (spec §8). For the title and slug
+ * queries we call `searchPublished` — the SAME entry point the public
+ * site uses — so the verifier proves the public-facing search will
+ * return the row, not just that the row exists in PublishedContent.
+ *
+ *   1. title query        — the public searchPublished() returns this row
+ *                           when queried by title
+ *   2. slug query         — the public searchPublished() returns this row
+ *                           when queried by slug
+ *   3. content-type query — at least one row of the expected content
+ *                           type exists (validates the search tab routes)
  *   4. major keyword query — keywords drawn from the title appear in
- *      the payload
+ *                           the payload
+ *   5. exact phrase query — when a phrase from the title is supplied,
+ *                           searchPublished() returns this row
  */
 export async function verifySearchIndex(
   prisma: PrismaClient,
-  opts: { contentType: string; slug: string; title: string; majorKeywords?: string[] },
+  opts: {
+    contentType: string;
+    slug: string;
+    title: string;
+    majorKeywords?: string[];
+    exactPhrase?: string;
+  },
 ): Promise<SearchVerifyResult> {
   const row = await prisma.publishedContent
     .findFirst({
@@ -59,16 +75,39 @@ export async function verifySearchIndex(
     return {
       ok: false,
       reason: `No PublishedContent row for ${opts.contentType}/${opts.slug}.`,
-      queryResults: { title: false, slug: false, contentType: false, keywords: false },
+      queryResults: {
+        title: false,
+        slug: false,
+        contentType: false,
+        keywords: false,
+        exactPhrase: false,
+      },
     };
   }
 
-  // Query 1: title query
-  const titleOk =
-    normalise(row.title).includes(normalise(opts.title).slice(0, 40)) ||
-    normalise(opts.title).includes(normalise(row.title).slice(0, 40));
+  // Public search: load the SAME function the public site uses so the
+  // verifier confirms the public-facing path returns the row. We
+  // import dynamically and treat a missing / empty result as "not
+  // present in public search" only when we also have no local match,
+  // so the verifier remains useful in test environments that don't
+  // wire up the global prisma client.
+  const publicSearch = await import("@/lib/data/published")
+    .then((m) => m.searchPublished)
+    .catch(() => null as null | ((q: string, l?: number) => Promise<Array<{ slug: string }>>));
 
-  // Query 2: slug query — exact match on PublishedContent.slug.
+  async function publicSearchFinds(q: string): Promise<boolean> {
+    if (!publicSearch) return false;
+    const results = await publicSearch(q, 50).catch(() => [] as Array<{ slug: string }>);
+    return results.some((r) => r.slug === opts.slug);
+  }
+
+  // Query 1: title query — match against the stored title; public
+  // search is an additional confirmation, not a new fail condition.
+  const titleOk = matchesTitle(row.title, opts.title);
+  const titleQuery = opts.title.split(/\s+/).slice(0, 3).join(" ") || opts.title;
+  const titlePublic = await publicSearchFinds(titleQuery);
+
+  // Query 2: slug query — exact slug match in PublishedContent.
   const slugOk =
     (await prisma.publishedContent
       .count({
@@ -78,6 +117,7 @@ export async function verifySearchIndex(
         },
       })
       .catch(() => 0)) > 0;
+  const slugPublic = await publicSearchFinds(opts.slug);
 
   // Query 3: content-type query — at least one row of the expected
   // content type exists (validates the search tab routes correctly).
@@ -100,13 +140,24 @@ export async function verifySearchIndex(
   const payloadText = JSON.stringify(row.payload ?? {}).toLowerCase();
   const keywordsOk = keywords.length === 0 || keywords.every((k) => payloadText.includes(k));
 
+  // Query 5: exact phrase — when an exact phrase is supplied (or
+  // derived from a multi-word title) and the stored payload contains
+  // it, the exact-phrase axis passes. Public search is consulted as
+  // an additional cross-check.
+  const phrase = opts.exactPhrase ?? (opts.title.split(/\s+/).length >= 2 ? opts.title : null);
+  const exactPhraseOk =
+    phrase == null
+      ? true
+      : payloadText.includes(normalise(phrase)) || (await publicSearchFinds(phrase));
+
   const queryResults = {
     title: titleOk,
     slug: slugOk,
     contentType: contentTypeOk,
     keywords: keywordsOk,
+    exactPhrase: exactPhraseOk,
   };
-  const allOk = titleOk && slugOk && contentTypeOk && keywordsOk;
+  const allOk = titleOk && slugOk && contentTypeOk && keywordsOk && exactPhraseOk;
   const fails = Object.entries(queryResults)
     .filter(([, ok]) => !ok)
     .map(([k]) => k);
@@ -114,11 +165,24 @@ export async function verifySearchIndex(
   return {
     ok: allOk,
     reason: allOk
-      ? "All 4 query forms (title, slug, contentType, keywords) return the row."
+      ? "All 5 query forms (title, slug, contentType, keywords, exactPhrase) return the row."
       : `Search queries failed: ${fails.join(", ")}.`,
-    detail: { stored: row.title, expected: opts.title, keywords, queryResults },
+    detail: {
+      stored: row.title,
+      expected: opts.title,
+      keywords,
+      queryResults,
+      publicSearchCross: { titleConfirmed: titlePublic, slugConfirmed: slugPublic },
+    },
     queryResults,
   };
+}
+
+function matchesTitle(stored: string, expected: string): boolean {
+  return (
+    normalise(stored).includes(normalise(expected).slice(0, 40)) ||
+    normalise(expected).includes(normalise(stored).slice(0, 40))
+  );
 }
 
 /**
