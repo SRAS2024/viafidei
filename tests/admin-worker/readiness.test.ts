@@ -128,4 +128,33 @@ describe("runReadiness", () => {
     expect(report.failing).toBe(2);
     expect(report.score).toBeCloseTo((report.checks.length - 2) / report.checks.length, 5);
   });
+
+  it("includes the spec §19 publish-gate readiness checks", async () => {
+    const report = await runReadiness(makePrisma({}));
+    expect(report.checks.find((c) => c.key === "publish_passed_strict_qa")?.status).toBe("pass");
+    expect(report.checks.find((c) => c.key === "publish_passed_quality_score")?.status).toBe(
+      "pass",
+    );
+    expect(report.checks.find((c) => c.key === "no_placeholder_phrases")?.status).toBe("pass");
+  });
+
+  it("fails publish_passed_strict_qa when a recently-published row has no PASSED strict-QA", async () => {
+    const recent = new Date();
+    const pub = { id: "pub-1", isPublished: true, publishedAt: recent };
+    const prisma = {
+      ...makePrisma({}),
+      publishedContent: {
+        count: vi.fn(async () => 1),
+        findMany: vi.fn(async () => [pub]),
+      },
+      adminWorkerPackageArtifact: {
+        count: vi.fn(async () => 1),
+        findMany: vi.fn(async () => [{ id: "art-1", publishedContentId: "pub-1" }]),
+      },
+      adminWorkerStrictQAResult: { count: vi.fn(async () => 0) },
+      contentQualityScore: { count: vi.fn(async () => 1) },
+    } as unknown as Parameters<typeof runReadiness>[0];
+    const report = await runReadiness(prisma);
+    expect(report.checks.find((c) => c.key === "publish_passed_strict_qa")?.status).toBe("fail");
+  });
 });
