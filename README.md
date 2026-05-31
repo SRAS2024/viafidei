@@ -759,8 +759,23 @@ npm run admin-worker:proof:all-content-types  # one full pipeline proof per cont
 npm run admin-worker:proof:security           # 5 defender flows (login email, threshold, ban, mutation, reuse)
 npm run admin-worker:proof:reports            # Developer Audit generates + required sections + secret redaction
 npm run admin-worker:proof:live               # back-half proof against a REAL DB: extract → publish a prayer
+npm run admin-worker:proof:autonomy           # FULL autonomous loop vs REAL DB + REAL HTTP (local mirror)
 npm run worker:dry-run                        # offline brain action-ranking across synthetic worlds
 ```
+
+`admin-worker:proof:autonomy` is the strongest end-to-end proof: it serves
+content-complete fixtures from a local HTTP server (a mirror of approved
+content, since the CI sandbox blocks outbound fetches), seeds candidate
+URLs, and runs the **real worker loop** — the brain ranks actions each
+pass and the dispatcher really fetches over HTTP, reads the page into
+structured blocks, classifies, extracts the package artifact, creates
+checklist + citations, runs strict QA, scores quality, and publishes
+through the orchestrator. It confirms the worker autonomously publishes
+PRAYER + DEVOTION and constructs a complete SAINT (name + patronage +
+birthplace + lived dates + feast day + background) that correctly holds
+for cross-source verification before publishing. It uses the
+`ADMIN_WORKER_DEV_SOURCE_HOSTS` hook (non-production only) to allow the
+local mirror; every QA / quality / content-contract gate still applies.
 
 The proof tests live in `tests/admin-worker/proof/` and drive the real
 extractors / strict-QA / quality scorer / publish orchestrator (so they

@@ -1274,6 +1274,20 @@ async function runPersistAndPublish(
       ? await loadVerifierFromStoredEvidence(prisma, artifact.id, artifact.validationNeeds)
       : undefined;
 
+    // The authoritative quality signal for the publish gate is the
+    // durable strict-QA finalScore (the mandatory gate the artifact just
+    // passed), NOT the raw extraction confidence — extraction confidence
+    // is a per-field provenance average that is routinely below the
+    // publish threshold even for complete, QA-passing content. Using the
+    // strict-QA score lets a PASSED artifact actually publish instead of
+    // bouncing into the review band forever.
+    const { getStrictQAResult } = await import("./strict-qa");
+    const qaResultForPublish = await getStrictQAResult(prisma, artifact.id).catch(() => null);
+    const qualitySignal =
+      qaResultForPublish?.status === "PASSED"
+        ? Math.max(qaResultForPublish.finalScore, artifact.confidenceScore)
+        : artifact.confidenceScore;
+
     const result = await runPublishOrchestrator(prisma, {
       contentType: artifact.contentType,
       contentId: artifact.checklistItemId ?? artifact.id,
@@ -1281,13 +1295,13 @@ async function runPersistAndPublish(
       slug: artifact.normalizedSlug,
       payload: artifact.extractedFields as never,
       authorityLevel: "VATICAN",
-      finalScore: artifact.confidenceScore,
+      finalScore: qualitySignal,
       qaPassed: artifact.missingFields.length === 0,
       hasSourceEvidence:
         Array.isArray(artifact.fieldProvenance) &&
         (artifact.fieldProvenance as unknown[]).length > 0,
       isDoctrinallySensitive: isDoctrinal,
-      confidence: artifact.confidenceScore,
+      confidence: qualitySignal,
       verifier,
       // Spec §6: pass the artifact id so the orchestrator can refuse
       // publishing when no passing AdminWorkerStrictQAResult exists.
@@ -1331,6 +1345,25 @@ async function runPersistAndPublish(
         .update({
           where: { id: artifact.id },
           data: { status: "NEEDS_REPAIR", rejectionReason: result.reason },
+        })
+        .catch(() => undefined);
+    } else if (result.kind === "review") {
+      // Spec §6: ambiguous → rare human review. Park the artifact in
+      // NEEDS_REVIEW so it leaves the QA_PASSED publish queue (otherwise
+      // the brain would re-select PUBLIC_PUBLISH on it every pass).
+      await prisma.adminWorkerPackageArtifact
+        .update({
+          where: { id: artifact.id },
+          data: { status: "NEEDS_REVIEW", rejectionReason: result.reason },
+        })
+        .catch(() => undefined);
+    } else if (result.kind === "duplicate") {
+      // Already public under this (contentType, slug) — mark the artifact
+      // PUBLISHED and link the existing row so it leaves the queue.
+      await prisma.adminWorkerPackageArtifact
+        .update({
+          where: { id: artifact.id },
+          data: { status: "PUBLISHED", publishedContentId: result.existingId },
         })
         .catch(() => undefined);
     }

@@ -29,6 +29,11 @@ const HEALTHY: WorldState = {
   pendingRepairPlans: 0,
   pipelineStagesBlocked: 0,
   unclassifiedReads: 0,
+  readsAwaitingExtraction: 0,
+  artifactsAwaitingChecklist: 0,
+  artifactsAwaitingBuild: 0,
+  artifactsAwaitingQA: 0,
+  artifactsAwaitingPublish: 0,
   publishedButUnverified: 0,
   pendingQAReviews: 0,
   contentGoalsAtGoalCount: 0,
@@ -43,6 +48,40 @@ describe("AdminWorkerBrain.decide", () => {
     expect(d.chosenMode).toBe("PAUSED");
     expect(d.chosenPriority).toBe("SECURITY_THREAT");
     expect(d.reason).toContain("paused");
+  });
+
+  // Content-pipeline ladder (spec §49-66): the brain must be able to
+  // select EVERY content stage so an in-flight item flows all the way to
+  // publication. Before these were added the loop stalled after
+  // classification and never produced an artifact or published.
+  it("selects EXTRACTION when classified reads await extraction", () => {
+    const d = decide({ ...HEALTHY, contentGoalGap: 5, readsAwaitingExtraction: 3 });
+    expect(d.missionStage).toBe("EXTRACTION");
+  });
+
+  it("selects CHECKLIST_CREATION when CHECKLIST_READY artifacts exist", () => {
+    const d = decide({ ...HEALTHY, contentGoalGap: 5, artifactsAwaitingChecklist: 2 });
+    expect(d.missionStage).toBe("CHECKLIST_CREATION");
+  });
+
+  it("selects STRICT_QA when built artifacts await QA", () => {
+    const d = decide({ ...HEALTHY, contentGoalGap: 5, artifactsAwaitingQA: 2 });
+    expect(d.missionStage).toBe("STRICT_QA");
+  });
+
+  it("drains PUBLIC_PUBLISH first when QA-passed artifacts await publish", () => {
+    // Publish closes the content-goal gap, so it must out-rank every
+    // upstream content stage when QA-passed artifacts are ready.
+    const d = decide({
+      ...HEALTHY,
+      contentGoalGap: 8,
+      candidateUrlsAvailable: 5,
+      readsAwaitingExtraction: 2,
+      artifactsAwaitingQA: 2,
+      artifactsAwaitingPublish: 2,
+    });
+    expect(d.missionStage).toBe("PUBLIC_PUBLISH");
+    expect(d.chosenTaskType).toBe("PUBLISH_CONTENT");
   });
 
   it("prioritises confirmed security breaches over everything else", () => {

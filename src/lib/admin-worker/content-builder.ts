@@ -87,7 +87,7 @@ const VALIDATION_NEEDS: Record<string, string[]> = {
  */
 const OPTIONAL_FIELDS: Record<string, string[]> = {
   PRAYER: ["liturgicalSeason", "patron", "audience"],
-  SAINT: ["birthDate", "deathDate", "patronage", "canonizationYear"],
+  SAINT: ["birthDate", "deathDate", "birthplace", "patronage", "canonizationYear"],
   APPARITION: ["seers", "approvalCitation"],
   NOVENA: ["intentions", "litanicalContext"],
   ROSARY: ["history", "indulgences"],

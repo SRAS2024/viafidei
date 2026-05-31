@@ -34,7 +34,8 @@
     "admin-worker:proof:all-content-types": "vitest run tests/admin-worker/proof/all-content-types.proof.test.ts",
     "admin-worker:proof:security": "vitest run tests/admin-worker/proof/security.proof.test.ts",
     "admin-worker:proof:reports": "vitest run tests/admin-worker/proof/reports.proof.test.ts",
-    "admin-worker:proof:live": "tsx scripts/admin-worker-live-content-proof.ts"
+    "admin-worker:proof:live": "tsx scripts/admin-worker-live-content-proof.ts",
+    "admin-worker:proof:autonomy": "tsx scripts/admin-worker-autonomy-proof.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

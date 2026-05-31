@@ -244,6 +244,14 @@ export interface SaintFields {
   feastDayNumber: number;
   background: string;
   patronage?: string;
+  /** Where the saint is from (birthplace / origin). */
+  birthplace?: string;
+  /** Year the saint was born (dates the saint lived from). */
+  birthDate?: string;
+  /** Year the saint died. */
+  deathDate?: string;
+  /** Year the saint was canonized, when stated. */
+  canonizationYear?: string;
   sourceUrl: string;
   sourceHost: string;
 }
@@ -331,6 +339,38 @@ export function SaintExtractor(input: ExtractorInput): ExtractorOutput<SaintFiel
   if (patronage) {
     fields.patronage = patronage.value;
     evidence.push(provenanceFor("patronage", patronage, input));
+  }
+
+  // Dates the saint lived from (optional): birth + death years. Capture
+  // the first 3–4 digit year after "born" / "died".
+  const birthYear = matchBody(kept, /\bborn\b[^.]*?\b(\d{3,4})\b/i);
+  if (birthYear) {
+    fields.birthDate = birthYear.value;
+    evidence.push(provenanceFor("birthDate", birthYear, input));
+  }
+  const deathYear = matchBody(kept, /\bdied\b[^.]*?\b(\d{3,4})\b/i);
+  if (deathYear) {
+    fields.deathDate = deathYear.value;
+    evidence.push(provenanceFor("deathDate", deathYear, input));
+  }
+
+  // Where the saint is of (optional): the place after "born … in",
+  // skipping an optional birth year so "born in 1181 in Assisi, Italy"
+  // and "born in Assisi" both resolve to the place, not the year.
+  const birthplace = matchBody(
+    kept,
+    /\bborn\b(?:[^.]*?\b\d{3,4}\b)?[^.A-Z]*?\bin\s+([A-Z][a-zA-Z.'-]+(?:[ ,]+[A-Z][a-zA-Z.'-]+){0,3})/,
+  );
+  if (birthplace) {
+    fields.birthplace = birthplace.value.replace(/[ ,]+$/, "");
+    evidence.push(provenanceFor("birthplace", birthplace, input));
+  }
+
+  // Canonization year (optional).
+  const canonized = matchBody(kept, /canoniz(?:ed|ation)\b[^.]*?\b(\d{3,4})\b/i);
+  if (canonized) {
+    fields.canonizationYear = canonized.value;
+    evidence.push(provenanceFor("canonizationYear", canonized, input));
   }
 
   const required = ["saintName", "feastDay", "background"];
