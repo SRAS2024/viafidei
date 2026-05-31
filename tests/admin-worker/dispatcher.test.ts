@@ -244,6 +244,7 @@ function makePrismaForDispatch(opts: { candidates?: number; unclassified?: numbe
     checklistQAReport: { count: vi.fn(async () => 0) },
     publishedContent: {
       findMany: vi.fn(async () => []),
+      findFirst: vi.fn(async () => null),
     },
     postPublishVerification: {
       findMany: vi.fn(async () => []),

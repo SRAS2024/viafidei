@@ -115,11 +115,25 @@ export async function runPublishOrchestrator(
       };
     }
     if (!input.verifier.publishAllowed) {
-      return {
-        kind: "blocked",
-        blockedBy: "verifier",
-        reason: `verifier blocked: ${input.verifier.summary}`,
-      };
+      // Spec §5 follow-up: missing evidence → repair (file
+      // VALIDATION_EVIDENCE_MISSING); conflicts → human review;
+      // hard blocker → blocked.
+      const reason = `verifier blocked: ${input.verifier.summary}`;
+      const missing = input.verifier.missingRequired ?? [];
+      if (missing.length > 0 && !input.verifier.hasConflict && input.strictQAArtifactId) {
+        const { filePlan } = await import("./repair-plans");
+        await filePlan(prisma, {
+          kind: "VALIDATION_EVIDENCE_MISSING",
+          failedEntity: input.strictQAArtifactId,
+          repairAction: `Fetch + compare validation sources for ${missing.join(", ")}.`,
+          metadata: { contentType: input.contentType, slug: input.slug, missing },
+        }).catch(() => undefined);
+        return { kind: "repair", reason };
+      }
+      if (input.verifier.hasConflict) {
+        return { kind: "review", reason };
+      }
+      return { kind: "blocked", blockedBy: "verifier", reason };
     }
   }
 
@@ -143,9 +157,31 @@ export async function runPublishOrchestrator(
     return { kind: "review", reason: gate.reason };
   }
 
-  // 2b. Spec §4: ContentQualityScore is mandatory before publish.
-  //     Compute one if the caller didn't supply explicit inputs.
-  const qualityInputs = input.qualityInputs ?? {
+  // 2b. Spec §4 + §6: ContentQualityScore is mandatory before publish
+  //     and derives from the strict-QA dimensions when the artifact
+  //     has a stored result. Only when no strict-QA row exists do we
+  //     fall back to default inputs (this path also has the strict-QA
+  //     gate refuse the publish above).
+  let qualityInputs = input.qualityInputs;
+  if (!qualityInputs && input.strictQAArtifactId) {
+    const { getStrictQAResult } = await import("./strict-qa");
+    const qa = await getStrictQAResult(prisma, input.strictQAArtifactId);
+    const qaRow = await prisma.adminWorkerStrictQAResult
+      .findUnique({ where: { packageArtifactId: input.strictQAArtifactId } })
+      .catch(() => null);
+    if (qa && qaRow) {
+      // Map strict-QA dimensions → ContentQualityScore inputs (spec §6).
+      qualityInputs = {
+        completenessScore: qaRow.completenessScore,
+        correctnessScore: qaRow.correctnessScore,
+        formattingScore: qaRow.formattingScore,
+        sourceEvidenceScore: qaRow.provenanceScore,
+        validationScore: qaRow.validationScore,
+        renderScore: qaRow.publicReadinessScore,
+      };
+    }
+  }
+  qualityInputs = qualityInputs ?? {
     completenessScore: input.qaPassed ? 1 : 0.5,
     correctnessScore: input.confidence,
     formattingScore: 0.8,

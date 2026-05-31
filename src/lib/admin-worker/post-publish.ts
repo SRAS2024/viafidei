@@ -4,9 +4,9 @@
  * route loads, the tab placement is correct, search/sitemap see it,
  * and the cache was revalidated.
  *
- * Phase 1 ships the verification record + the rollback shape. The
- * actual HTTP checks (public page load, search hit) land in Phase 2
- * — for now the verifier accepts pre-computed results from the caller
+ * The verification record + rollback shape live here. The actual HTTP
+ * checks (public page load, search hit) live in post-publish-probe.ts;
+ * this module accepts pre-computed results from the caller
  * so the publishing pipeline can record what it confirmed.
  */
 
