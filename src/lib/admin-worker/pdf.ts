@@ -293,6 +293,58 @@ export async function generateAdminWorkerDeveloperAuditPdf(
       }
     }
 
+    // ─── Rejected alternatives (spec §7 + §450) ───────────────────────
+    if (sectionsToInclude.has("Rejected Alternatives")) {
+      builder.section("Rejected Alternatives");
+      if (data.rejectedAlternatives.length === 0) {
+        builder.note("No rejected alternative actions recorded in this period.");
+      } else {
+        builder.table(
+          [
+            { header: "When", weight: 120 },
+            { header: "Stage", weight: 110 },
+            { header: "Type", weight: 70 },
+            { header: "Score", weight: 45, align: "right" },
+            { header: "Rejected because", weight: 145 },
+          ],
+          data.rejectedAlternatives
+            .slice(0, 40)
+            .map((r) => [
+              fmtTime(r.createdAt),
+              r.missionStage,
+              r.actionType,
+              r.actionScore.toFixed(1),
+              r.rejectedReason.slice(0, 80),
+            ]),
+        );
+      }
+    }
+
+    // ─── Reasoning graph (spec §23-45 + §451) ─────────────────────────
+    if (sectionsToInclude.has("Reasoning Graph")) {
+      builder.section("Reasoning Graph");
+      if (data.reasoningGraph.length === 0) {
+        builder.note("No reasoning graph edges recorded in this period.");
+      } else {
+        builder.table(
+          [
+            { header: "When", weight: 110 },
+            { header: "From → To", weight: 130 },
+            { header: "Relation", weight: 110 },
+            { header: "Why", weight: 130 },
+          ],
+          data.reasoningGraph
+            .slice(0, 50)
+            .map((e) => [
+              fmtTime(e.createdAt),
+              `${e.fromNodeType} → ${e.toNodeType}`,
+              e.relation,
+              e.explanation.slice(0, 70),
+            ]),
+        );
+      }
+    }
+
     // ─── Pipeline stage history (spec §15) ────────────────────────────
     if (sectionsToInclude.has("Pipeline Stage History")) {
       builder.section("Pipeline Stage History");

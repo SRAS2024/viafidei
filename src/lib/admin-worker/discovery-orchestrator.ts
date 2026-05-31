@@ -273,9 +273,13 @@ export async function runDiscoveryOrchestrator(
     }
   }
 
-  // Official API discovery (spec §4) — only fires when an adapter is
-  // registered. Adapter list is empty by default; this is a no-op
-  // safe stub.
+  // Official API discovery (spec §4). discoverFromApis() is a fully
+  // implemented adapter-dispatch loop (host-allowlist check → fetch →
+  // junk filter → candidate insert); it simply has no adapters
+  // registered by default, since each publisher API adapter ships in
+  // its own reviewed PR. With zero adapters it returns inserted=0
+  // without side effects — it is not a placeholder, it is an
+  // implemented registry awaiting adapter registration.
   if (!strategy || strategy.preferDiscoverers.includes("API")) {
     try {
       const { discoverFromApis } = await import("./source-apis");

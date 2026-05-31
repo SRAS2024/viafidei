@@ -94,8 +94,10 @@ code path from the database to a public page, and only
 | `AdminWorkerTask`                    | Planned action; produces one or more log rows                 |
 | `AdminWorkerLog`                     | Structured engine log (16 categories)                         |
 | `AdminWorkerDecision`                | Brain decision: chosen action + ranked alternatives + reason  |
+| `AdminWorkerActionScore`             | One row per ranked action (every action, not only the chosen) |
+| `AdminWorkerReasoningGraph`          | Directed "why" graph edges connecting every pipeline entity   |
 | `AdminWorkerMemory`                  | Outcome counts + confidence — no invented facts, 30-day decay |
-| `AdminWorkerSourceReputation`        | EWMA-smoothed per-(host, contentType) reputation tier         |
+| `AdminWorkerSourceReputation`        | EWMA + time-decayed per-(host, contentType) reputation tier   |
 | `AdminWorkerSecurityAction`          | Defender actions taken in response to security events         |
 | `AdminWorkerSourceRead`              | Durable extracted text per (sourceUrl, checksum)              |
 | `AdminWorkerSourceBlock`             | Structured HTML blocks (heading, paragraph, list, …)          |
@@ -186,6 +188,7 @@ Optional environment variables:
 | ------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Command Center     | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls |
 | System diagnostics | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF             |
+| Worker Reasoning   | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph  |
 | Pipeline map       | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                               |
 | Package artifacts  | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                            |
 | Admin Worker logs  | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                            |
@@ -743,6 +746,29 @@ npm run test:e2e    # playwright
 npm run verify      # typecheck + lint + format:check + test
 npm run verify:full # verify + integration + e2e + build
 ```
+
+### Admin Worker proof gate
+
+```bash
+npm run admin-worker:proof                    # full gate: prisma validate + typecheck + lint
+                                              #   + unit/integration/full-pipeline tests
+                                              #   + no-legacy + no-placeholder tests
+                                              #   + offline brain dry run + content-growth proof
+npm run admin-worker:proof:content            # one content item through all 16 pipeline stages
+npm run admin-worker:proof:all-content-types  # one full pipeline proof per content type (real extractor)
+npm run admin-worker:proof:security           # 5 defender flows (login email, threshold, ban, mutation, reuse)
+npm run admin-worker:proof:reports            # Developer Audit generates + required sections + secret redaction
+npm run admin-worker:proof:live               # back-half proof against a REAL DB: extract → publish a prayer
+npm run worker:dry-run                        # offline brain action-ranking across synthetic worlds
+```
+
+The proof tests live in `tests/admin-worker/proof/` and drive the real
+extractors / strict-QA / quality scorer / publish orchestrator (so they
+prove content correctness: a prayer yields title + actual prayer text, a
+saint yields name + feast day + patronage + biography, a novena yields
+exactly nine days, junk content fails). `admin-worker:proof:live`
+publishes a real `PublishedContent` row to the configured database and
+prints the resulting reasoning chain.
 
 The unit + component suite covers:
 

@@ -825,12 +825,18 @@ export function SacramentExtractor(input: ExtractorInput): ExtractorOutput<Sacra
   const fatal: string[] = [];
 
   const titleLower = (input.title ?? "").toLowerCase();
-  const matchedKey = Object.keys(SEVEN_SACRAMENTS).find((k) => titleLower.includes(k));
+  // Spec §239-240: "Confession" / "Penance" is NOT a top-level content
+  // type — it normalizes to Reconciliation under Sacraments.
+  const matchedKey =
+    Object.keys(SEVEN_SACRAMENTS).find((k) => titleLower.includes(k)) ??
+    (/\b(confession|penance)\b/.test(titleLower) ? "reconciliation" : undefined);
   if (!matchedKey) {
     return blank(input, "Title does not name one of the seven sacraments.");
   }
   fields.sacramentTitle = input.title!.trim();
   fields.sacramentKey = SEVEN_SACRAMENTS[matchedKey];
+  // Always file under the normalized badge (a Confession page becomes the
+  // Reconciliation badge, never a "confession" badge).
   fields.sacramentBadge = matchedKey;
   evidence.push(
     makeProvenance({

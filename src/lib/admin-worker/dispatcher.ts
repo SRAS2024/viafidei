@@ -1780,23 +1780,29 @@ async function runReporting(prisma: PrismaClient, passId: string): Promise<Dispa
 async function runMaintenance(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
   const { runCleanupPass } = await import("./cleanup");
   const { decayMemory } = await import("./memory");
-  const [cleanup, memoryDecay] = await Promise.all([
+  const { decaySourceReputation } = await import("./source-reputation");
+  // Spec §17-22: decay memory AND source reputation on maintenance so
+  // recent outcomes matter more than old ones, and a source that has
+  // gone quiet loses its high tier until it produces valid content
+  // again (it must be re-proven).
+  const [cleanup, memoryDecay, reputationDecay] = await Promise.all([
     runCleanupPass(prisma),
     decayMemory(prisma).catch(() => ({ decayed: 0, pruned: 0 })),
+    decaySourceReputation(prisma).catch(() => ({ decayed: 0, demoted: 0, retestable: 0 })),
   ]);
-  const safe = JSON.parse(JSON.stringify({ cleanup, memoryDecay }));
+  const safe = JSON.parse(JSON.stringify({ cleanup, memoryDecay, reputationDecay }));
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "CLEANUP",
     severity: "INFO",
     eventName: "maintenance_dispatch",
-    message: `Maintenance: ${cleanup.staleCandidatesRemoved} stale candidate(s), ${cleanup.expiredReviewsClosed} expired review(s) closed; memory decayed=${memoryDecay.decayed}, pruned=${memoryDecay.pruned}.`,
+    message: `Maintenance: ${cleanup.staleCandidatesRemoved} stale candidate(s), ${cleanup.expiredReviewsClosed} expired review(s) closed; memory decayed=${memoryDecay.decayed}, pruned=${memoryDecay.pruned}; reputation decayed=${reputationDecay.decayed}, demoted=${reputationDecay.demoted}, retestable=${reputationDecay.retestable}.`,
     safeMetadata: safe,
   });
   return {
     stage: "MAINTENANCE",
     kind: "advanced",
-    summary: `Maintenance: cleanup + memory decay (${memoryDecay.decayed} rows).`,
+    summary: `Maintenance: cleanup + memory decay (${memoryDecay.decayed} rows) + reputation decay (${reputationDecay.decayed} rows, ${reputationDecay.demoted} demoted).`,
     metadata: safe,
   };
 }

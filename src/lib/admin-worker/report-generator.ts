@@ -184,6 +184,24 @@ export interface DeveloperAuditData {
     firstEmptyStage: string | null;
   }>;
   currentBlockers: string[];
+  /** Spec §7 + §450: rejected alternative actions the brain considered. */
+  rejectedAlternatives: Array<{
+    decisionId: string | null;
+    missionStage: string;
+    actionType: string;
+    actionScore: number;
+    rejectedReason: string;
+    createdAt: Date;
+  }>;
+  /** Spec §23-45 + §451: reasoning graph edges for the audit period. */
+  reasoningGraph: Array<{
+    contentType: string | null;
+    fromNodeType: string;
+    toNodeType: string;
+    relation: string;
+    explanation: string;
+    createdAt: Date;
+  }>;
   /** Spec §15: live "why no content growth" diagnostic snapshot. */
   whyNoGrowth: {
     blocker: string;
@@ -358,6 +376,50 @@ export async function collectDeveloperAuditData(
     .count({ where: { createdAt: { gte: since }, isRejected: true } })
     .catch(() => 0);
 
+  // Spec §7 + §23-45: rejected alternative actions + reasoning graph
+  // edges for the period (the durable, queryable form of the brain's
+  // reasoning). safeList tolerates a missing model on a partial client
+  // so the audit never crashes on optional data.
+  const safeList = async <T>(fn: () => Promise<T[]>): Promise<T[]> => {
+    try {
+      return await fn();
+    } catch {
+      return [];
+    }
+  };
+  const [rejectedAlternativesRaw, reasoningGraphRaw] = await Promise.all([
+    safeList(() =>
+      prisma.adminWorkerActionScore.findMany({
+        where: { createdAt: { gte: since }, selected: false },
+        orderBy: { createdAt: "desc" },
+        take: 200,
+        select: {
+          decisionId: true,
+          missionStage: true,
+          actionType: true,
+          actionScore: true,
+          rejectedReason: true,
+          createdAt: true,
+        },
+      }),
+    ),
+    safeList(() =>
+      prisma.adminWorkerReasoningGraph.findMany({
+        where: { createdAt: { gte: since } },
+        orderBy: { createdAt: "desc" },
+        take: 300,
+        select: {
+          contentType: true,
+          fromNodeType: true,
+          toNodeType: true,
+          relation: true,
+          explanation: true,
+          createdAt: true,
+        },
+      }),
+    ),
+  ]);
+
   const currentBlockers: string[] = [];
   if (blockerState?.currentBlocker) currentBlockers.push(blockerState.currentBlocker);
   // Pipeline-stage blockers
@@ -470,6 +532,15 @@ export async function collectDeveloperAuditData(
     },
     contentFunnel: await collectContentFunnel(prisma),
     currentBlockers,
+    rejectedAlternatives: rejectedAlternativesRaw.map((r) => ({
+      decisionId: r.decisionId,
+      missionStage: r.missionStage,
+      actionType: r.actionType,
+      actionScore: r.actionScore,
+      rejectedReason: r.rejectedReason ?? "lower score",
+      createdAt: r.createdAt,
+    })),
+    reasoningGraph: reasoningGraphRaw,
     whyNoGrowth: await collectWhyNoGrowthSnapshot(prisma),
   };
 }
@@ -537,6 +608,8 @@ export const DEVELOPER_AUDIT_SECTIONS = [
   "Executive Summary",
   "Diagnostics Results",
   "Admin Worker Brain Decisions",
+  "Rejected Alternatives",
+  "Reasoning Graph",
   "Mission Plans",
   "Pipeline Stage History",
   "Content Goal Progress",

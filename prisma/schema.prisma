@@ -2084,3 +2084,86 @@ model AdminWorkerStrictQAResult {
   @@index([finalScore])
   @@index([createdAt])
 }
+
+/// One row per ranked candidate action the brain scored on a pass
+/// (spec §5-7). The brain enumerates every possible next action, scores
+/// each across the full dimension set (content-goal gap, urgency, source
+/// reputation, source coverage, candidate quality, expected
+/// extraction/validation/QA/publish/post-publish success, repair
+/// likelihood, risk, confidence, time-since-growth, time-since-failure,
+/// current blocker), ranks them, and persists the ENTIRE ranked list
+/// here — not only the chosen action. This is the durable, queryable
+/// form of AdminWorkerDecision.rankedAlternatives so the command center,
+/// Worker Reasoning view, and Developer Audit can show "why this action,
+/// and why not the others" without re-parsing JSON. The `selected` row
+/// is the action the brain executed; every other row carries a
+/// `rejectedReason`.
+model AdminWorkerActionScore {
+  id                 String   @id @default(cuid())
+  decisionId         String?
+  passId             String?
+  rankIndex          Int      @default(0)
+  selected           Boolean  @default(false)
+  actionType         String
+  missionStage       String
+  targetContentType  String?
+  targetSource       String?
+  targetCandidate    String?
+  expectedOutput     String
+  actionScore        Float    @default(0)
+  confidenceScore    Float    @default(0)
+  riskScore          Float    @default(0)
+  sourceScore        Float    @default(0)
+  repairScore        Float    @default(0)
+  urgencyScore       Float    @default(0)
+  qualityExpectation Float    @default(0)
+  safe               Boolean  @default(true)
+  reason             String?
+  rejectedReason     String?
+  createdAt          DateTime @default(now())
+
+  @@index([decisionId])
+  @@index([passId])
+  @@index([missionStage])
+  @@index([selected])
+  @@index([createdAt])
+}
+
+/// Worker reasoning graph (spec §23-45). A directed "why" graph: each
+/// row is one edge connecting two pipeline entities (content goal →
+/// candidate URL → source read → source block → package artifact →
+/// validation evidence → strict QA → quality score → published content
+/// → post-publish result, plus repair plans, memory outcomes, and
+/// source-reputation changes). The `explanation` answers "why did this
+/// lead to that" (e.g. "candidate selected because source reputation was
+/// high", "artifact rejected because prayer text was missing", "source
+/// paused because QA failures exceeded threshold", "publish allowed
+/// because strict QA and quality score passed"). The Worker Reasoning
+/// admin view walks these edges to show the full chain for any content
+/// item, so no important worker decision is ever unexplainable later.
+model AdminWorkerReasoningGraph {
+  id            String   @id @default(cuid())
+  pipelineKey   String?
+  contentType   String?
+  contentId     String?
+  fromNodeType  String
+  fromNodeId    String?
+  fromNodeLabel String?
+  toNodeType    String
+  toNodeId      String?
+  toNodeLabel   String?
+  relation      String
+  explanation   String
+  confidence    Float    @default(0)
+  passId        String?
+  decisionId    String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  @@index([pipelineKey])
+  @@index([contentType, contentId])
+  @@index([fromNodeType, fromNodeId])
+  @@index([toNodeType, toNodeId])
+  @@index([relation])
+  @@index([createdAt])
+}

@@ -169,3 +169,133 @@ export async function listPausedSources(prisma: PrismaClient) {
     orderBy: { lastScoreUpdate: "desc" },
   });
 }
+
+// ── Source reputation decay (spec §19-22) ────────────────────────────
+//
+// Sources that have not produced valid content recently should become
+// less trusted until proven again. We apply a half-life decay to the
+// *positive* signals (publish / QA / build / validation / fetch /
+// usefulness) so a TRUSTED source that goes quiet drifts back toward
+// NEUTRAL. Negative signals (wrong-content / duplicate) decay on a
+// slower half-life so a paused source isn't condemned forever but also
+// isn't forgiven quickly — it must be re-proven (spec §378: "retest
+// paused sources only on a slow schedule").
+
+/** Half-life (days) for positive reputation signals. */
+export const REPUTATION_POSITIVE_HALF_LIFE_DAYS = 21;
+/** Half-life (days) for negative reputation signals (slower). */
+export const REPUTATION_NEGATIVE_HALF_LIFE_DAYS = 45;
+
+function halfLife(value: number, ageDays: number, halfLifeDays: number): number {
+  return value * Math.pow(0.5, ageDays / halfLifeDays);
+}
+
+/**
+ * Decay-adjusted rates for a single reputation row given how long it has
+ * been since the last successful update. Pure — used both by the
+ * persisting sweep and by read-time callers that want a "current trust"
+ * view without mutating the DB.
+ */
+export function decayedReputationRates(
+  row: {
+    publicPublishRate: number;
+    qaPassRate: number;
+    contentBuildSuccessRate: number;
+    validationEvidenceSuccessRate: number;
+    fetchSuccessRate: number;
+    averageUsefulness: number;
+    wrongContentRate: number;
+    duplicateRate: number;
+    lastScoreUpdate: Date | null;
+  },
+  now: Date = new Date(),
+): {
+  publicPublishRate: number;
+  qaPassRate: number;
+  contentBuildSuccessRate: number;
+  validationEvidenceSuccessRate: number;
+  fetchSuccessRate: number;
+  averageUsefulness: number;
+  wrongContentRate: number;
+  duplicateRate: number;
+  ageDays: number;
+} {
+  const last = (row.lastScoreUpdate ?? now).getTime();
+  const ageDays = Math.max(0, (now.getTime() - last) / (24 * 60 * 60 * 1000));
+  return {
+    publicPublishRate: halfLife(row.publicPublishRate, ageDays, REPUTATION_POSITIVE_HALF_LIFE_DAYS),
+    qaPassRate: halfLife(row.qaPassRate, ageDays, REPUTATION_POSITIVE_HALF_LIFE_DAYS),
+    contentBuildSuccessRate: halfLife(
+      row.contentBuildSuccessRate,
+      ageDays,
+      REPUTATION_POSITIVE_HALF_LIFE_DAYS,
+    ),
+    validationEvidenceSuccessRate: halfLife(
+      row.validationEvidenceSuccessRate,
+      ageDays,
+      REPUTATION_POSITIVE_HALF_LIFE_DAYS,
+    ),
+    fetchSuccessRate: halfLife(row.fetchSuccessRate, ageDays, REPUTATION_POSITIVE_HALF_LIFE_DAYS),
+    averageUsefulness: halfLife(row.averageUsefulness, ageDays, REPUTATION_POSITIVE_HALF_LIFE_DAYS),
+    wrongContentRate: halfLife(row.wrongContentRate, ageDays, REPUTATION_NEGATIVE_HALF_LIFE_DAYS),
+    duplicateRate: halfLife(row.duplicateRate, ageDays, REPUTATION_NEGATIVE_HALF_LIFE_DAYS),
+    ageDays,
+  };
+}
+
+/**
+ * Walk every reputation row and persist the decayed rates + re-derived
+ * tier. Run this on a slow schedule (e.g. once a day) so sources that
+ * have gone quiet lose their high tier until they produce valid content
+ * again. A paused source whose negative signal has fully decayed is
+ * un-paused back to NEUTRAL so it can be re-tested (spec §378).
+ */
+export async function decaySourceReputation(
+  prisma: PrismaClient,
+  opts: { now?: Date; minAgeDays?: number } = {},
+): Promise<{ decayed: number; demoted: number; retestable: number }> {
+  const now = opts.now ?? new Date();
+  const minAgeDays = opts.minAgeDays ?? 7;
+  const rows = await prisma.adminWorkerSourceReputation.findMany();
+  let decayed = 0;
+  let demoted = 0;
+  let retestable = 0;
+  for (const row of rows) {
+    const d = decayedReputationRates(row, now);
+    if (d.ageDays < minAgeDays) continue;
+    const tierInfo = deriveTier({
+      publicPublishRate: d.publicPublishRate,
+      qaPassRate: d.qaPassRate,
+      contentBuildSuccessRate: d.contentBuildSuccessRate,
+      wrongContentRate: d.wrongContentRate,
+    });
+    // A previously-paused source whose negative signal has decayed below
+    // the pause threshold becomes retestable (un-paused to NEUTRAL).
+    const wasPaused = row.paused;
+    const nowPaused = tierInfo.paused;
+    if (tierInfo.tier !== row.reputationTier) demoted += 1;
+    if (wasPaused && !nowPaused) retestable += 1;
+    await prisma.adminWorkerSourceReputation
+      .update({
+        where: { id: row.id },
+        data: {
+          publicPublishRate: d.publicPublishRate,
+          qaPassRate: d.qaPassRate,
+          contentBuildSuccessRate: d.contentBuildSuccessRate,
+          validationEvidenceSuccessRate: d.validationEvidenceSuccessRate,
+          fetchSuccessRate: d.fetchSuccessRate,
+          averageUsefulness: d.averageUsefulness,
+          wrongContentRate: d.wrongContentRate,
+          duplicateRate: d.duplicateRate,
+          reputationTier: tierInfo.tier,
+          paused: nowPaused,
+          // NOTE: we deliberately do NOT bump lastScoreUpdate here — the
+          // decay is anchored to the last *real* outcome, so a source
+          // keeps decaying every sweep until it produces content again.
+        },
+      })
+      .catch(() => undefined);
+    decayed += 1;
+  }
+  return { decayed, demoted, retestable };
+}

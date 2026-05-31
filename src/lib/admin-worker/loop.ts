@@ -32,7 +32,7 @@ import {
   writeHeartbeat,
 } from "./state";
 import { completePass, startPass } from "./passes";
-import { refreshContentGoals } from "./content-goals";
+import { refreshContentGoals, seedContentGoals } from "./content-goals";
 import { executeMissionStage, type DispatchOutcome } from "./dispatcher";
 
 export interface LoopOptions {
@@ -113,6 +113,12 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     return { built: 0, published: 0, failed: 0, idle: true };
   }
 
+  // Seed content goals on first contact, then refresh from live counts.
+  // seedContentGoals is idempotent (it skips content types that already
+  // have a goal row), so calling it every pass is cheap and guarantees
+  // the brain always sees real gaps to close — without it the worker
+  // would idle forever thinking "all goals met" (spec §49-50, §66).
+  await seedContentGoals(prisma).catch(() => 0);
   await refreshContentGoals(prisma);
 
   // Run the explicit Admin Worker brain. The brain ranks every

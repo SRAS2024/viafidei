@@ -45,6 +45,8 @@ import type {
 import { getAdminWorkerState } from "./state";
 import { refreshContentGoals, nextPriorityContentType } from "./content-goals";
 import { recordDecision } from "./decisions";
+import { persistActionScores } from "./action-scores";
+import { recordReasoningEdges } from "./reasoning-graph";
 
 /**
  * The pipeline stage the brain decided to advance. Mirrors the
@@ -721,8 +723,16 @@ function scoreAction(action: BrainAction, world: WorldState): BrainAction {
     }
     case "SOURCE_FETCH": {
       const trusted = world.trustedSources;
-      urgency = Math.min(20, world.candidateUrlsAvailable * 2);
-      sourceScore = 0.4 + Math.min(0.4, trusted * 0.05);
+      // Fetching available candidates is the path that closes the gap
+      // when raw candidates exist. Scale urgency with both the number of
+      // ready candidates and the gap pressure so SOURCE_FETCH outranks
+      // both DISCOVERY (don't keep discovering when you have unfetched
+      // candidates) and PACKAGE_BUILD (you can't build before you fetch).
+      urgency =
+        world.candidateUrlsAvailable === 0
+          ? 0
+          : Math.min(48, world.candidateUrlsAvailable * 6 + (world.contentGoalGap > 0 ? 12 : 0));
+      sourceScore = 0.5 + Math.min(0.4, trusted * 0.05);
       quality = world.candidateUrlsAvailable === 0 ? 0 : quality;
       if (world.candidateUrlsAvailable === 0) {
         safe = false;
@@ -741,15 +751,22 @@ function scoreAction(action: BrainAction, world: WorldState): BrainAction {
     }
     case "PACKAGE_BUILD": {
       const gap = world.contentGoalGap;
-      // Pending build jobs already have candidates + checklist items
-      // attached — they are the closest thing to a one-shot publishable
-      // result and should win over upstream pipeline stages.
-      urgency = Math.min(60, world.pendingBuildJobs * 8 + gap * 1.5);
-      sourceScore = world.pendingBuildJobs > 0 ? 0.8 : world.candidateUrlsAvailable > 0 ? 0.5 : 0.1;
+      // PACKAGE_BUILD acts on pending build JOBS — content that has
+      // already been fetched, read, classified, and queued for build.
+      // Raw candidate URLs are NOT build inputs: they must first flow
+      // through SOURCE_FETCH → read → classify. Driving PACKAGE_BUILD
+      // urgency from the gap when there are no jobs makes the brain pick
+      // a stage that cannot advance and stall (it would loop on
+      // PACKAGE_BUILD forever instead of fetching the candidates it has).
+      urgency = world.pendingBuildJobs > 0 ? Math.min(60, world.pendingBuildJobs * 8 + gap * 1.5) : 0;
+      sourceScore = world.pendingBuildJobs > 0 ? 0.8 : 0.1;
       quality = world.pendingBuildJobs > 0 ? 0.85 : quality;
-      if (world.pendingBuildJobs === 0 && gap === 0) {
+      if (world.pendingBuildJobs === 0) {
         safe = false;
-        rejection = "Build queue empty and all goals met.";
+        rejection =
+          gap === 0
+            ? "Build queue empty and all goals met."
+            : "No pending build jobs — fetch + read + classify candidates first.";
       }
       break;
     }
@@ -1155,7 +1172,7 @@ export async function runBrain(
   ]);
   const decision = decide(world, feedback);
 
-  await recordDecision(prisma, {
+  const { id: decisionId } = await recordDecision(prisma, {
     passId: opts.passId,
     decisionType: "brain_pass",
     inputSummary: JSON.stringify(world).slice(0, 480),
@@ -1202,6 +1219,49 @@ export async function runBrain(
     contentType: decision.contentType ?? undefined,
     missionStage: decision.missionStage,
   });
+
+  // Spec §5-7: persist every ranked action (not only the selected one)
+  // to AdminWorkerActionScore so the command center + Worker Reasoning
+  // view + Developer Audit can show "why this action and why not the
+  // others" from durable, queryable rows.
+  await persistActionScores(prisma, decision, { decisionId, passId: opts.passId }).catch(
+    () => undefined,
+  );
+
+  // Spec §23-45 + §48: record the brain's reasoning as graph edges so
+  // the decision is explainable later. The chosen action is connected to
+  // its mission stage with "selected because <reason>"; the strongest
+  // rejected alternative is connected with "rejected because <reason>".
+  const chosen = decision.chosenAction;
+  const topRejected = decision.rankedAlternatives.find((a) => a !== chosen);
+  await recordReasoningEdges(prisma, [
+    {
+      contentType: decision.contentType,
+      passId: opts.passId,
+      decisionId,
+      from: { type: "BRAIN_DECISION", id: decisionId, label: "brain pass" },
+      to: { type: "ACTION", label: chosen.missionStage },
+      relation: "SELECTED_BECAUSE",
+      explanation: chosen.reasonSummary,
+      confidence: chosen.confidenceScore,
+    },
+    ...(topRejected
+      ? [
+          {
+            contentType: decision.contentType,
+            passId: opts.passId,
+            decisionId,
+            from: { type: "BRAIN_DECISION" as const, id: decisionId, label: "brain pass" },
+            to: { type: "ACTION" as const, label: topRejected.missionStage },
+            relation: "REJECTED_BECAUSE" as const,
+            explanation:
+              topRejected.rejectionReason ??
+              `lower score (${topRejected.finalScore.toFixed(1)} vs ${chosen.finalScore.toFixed(1)})`,
+            confidence: topRejected.confidenceScore,
+          },
+        ]
+      : []),
+  ]).catch(() => undefined);
 
   return decision;
 }

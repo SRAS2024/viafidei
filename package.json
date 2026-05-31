@@ -27,7 +27,14 @@
     "db:validate:email": "node scripts/validate-account-email-db.js",
     "worker": "tsx scripts/run-worker.ts",
     "worker:once": "tsx scripts/run-worker.ts --one-shot",
-    "seed:checklist": "tsx scripts/seed-checklist.ts"
+    "worker:dry-run": "tsx scripts/admin-worker-dry-run.ts",
+    "seed:checklist": "tsx scripts/seed-checklist.ts",
+    "admin-worker:proof": "tsx scripts/admin-worker-proof.ts",
+    "admin-worker:proof:content": "vitest run tests/admin-worker/proof/content-pipeline.proof.test.ts",
+    "admin-worker:proof:all-content-types": "vitest run tests/admin-worker/proof/all-content-types.proof.test.ts",
+    "admin-worker:proof:security": "vitest run tests/admin-worker/proof/security.proof.test.ts",
+    "admin-worker:proof:reports": "vitest run tests/admin-worker/proof/reports.proof.test.ts",
+    "admin-worker:proof:live": "tsx scripts/admin-worker-live-content-proof.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

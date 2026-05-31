@@ -172,6 +172,32 @@ function makePrisma() {
         { blockType: "PRAYER", _count: { _all: 5 } },
       ]),
     },
+    // Spec §7 + §450: rejected alternatives the brain considered.
+    adminWorkerActionScore: {
+      findMany: vi.fn(async () => [
+        {
+          decisionId: "d1",
+          missionStage: "MAINTENANCE",
+          actionType: "CLEANUP",
+          actionScore: 1,
+          rejectedReason: "Lower score (1.0).",
+          createdAt: new Date(),
+        },
+      ]),
+    },
+    // Spec §23-45 + §451: reasoning graph edges.
+    adminWorkerReasoningGraph: {
+      findMany: vi.fn(async () => [
+        {
+          contentType: "PRAYER",
+          fromNodeType: "QUALITY_SCORE",
+          toNodeType: "PUBLISHED_CONTENT",
+          relation: "PUBLISH_ALLOWED_BECAUSE",
+          explanation: "strict QA + quality passed",
+          createdAt: new Date(),
+        },
+      ]),
+    },
   } as unknown as Parameters<typeof collectDeveloperAuditData>[0];
 }
 
@@ -235,6 +261,20 @@ describe("collectDeveloperAuditData — spec §19 sections populated", () => {
     const data = await collectDeveloperAuditData(makePrisma(), "LAST_7_DAYS");
     expect(data.currentBlockers.length).toBeGreaterThan(0);
     expect(data.currentBlockers[0]).toContain("paused");
+  });
+
+  it("returns rejected alternatives the brain considered (spec §7 + §450)", async () => {
+    const data = await collectDeveloperAuditData(makePrisma(), "LAST_7_DAYS");
+    expect(data.rejectedAlternatives.length).toBe(1);
+    expect(data.rejectedAlternatives[0].missionStage).toBe("MAINTENANCE");
+    expect(data.rejectedAlternatives[0].rejectedReason).toBeTruthy();
+  });
+
+  it("returns reasoning graph edges (spec §23-45 + §451)", async () => {
+    const data = await collectDeveloperAuditData(makePrisma(), "LAST_7_DAYS");
+    expect(data.reasoningGraph.length).toBe(1);
+    expect(data.reasoningGraph[0].relation).toBe("PUBLISH_ALLOWED_BECAUSE");
+    expect(data.reasoningGraph[0].explanation).toContain("quality passed");
   });
 
   it("supports LAST_24_HOURS, LAST_7_DAYS, LAST_30_DAYS periods", async () => {
