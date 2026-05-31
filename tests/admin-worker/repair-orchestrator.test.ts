@@ -91,6 +91,19 @@ function makePrisma(plans: Array<Record<string, unknown>>) {
           return { ...plans.find((p) => p.id === args.where.id), ...args.data };
         }),
       },
+      // Spec §9: CACHE_FAILED handler re-verifies via
+      // verifyCacheFreshness, which reads the cache_refresh_flagged
+      // log row. The mock returns a recent row so the verify passes.
+      adminWorkerLog: {
+        findFirst: vi.fn(async () => ({
+          createdAt: new Date(),
+          message: "cache flagged",
+          safeMetadata: {},
+        })),
+      },
+      publishedContent: {
+        findFirst: vi.fn(async () => null),
+      },
     } as unknown as Parameters<typeof runRepairOrchestrator>[0],
   };
 }

@@ -208,4 +208,141 @@ describe("repair-orchestrator concrete handlers (spec §9)", () => {
     expect(out.plansFailed).toBe(1);
     expect(out.results[0].reason).toContain("artifact missing");
   });
+
+  it("CACHE_FAILED refreshes AND re-verifies via verifyCacheFreshness", async () => {
+    const { flagCacheRefresh } = await import("@/lib/admin-worker/repair");
+    vi.mocked(flagCacheRefresh).mockClear();
+    const prisma = {
+      adminWorkerRepairPlan: {
+        findMany: vi.fn(async () => [
+          {
+            id: "plan-cf-1",
+            kind: "CACHE_FAILED",
+            failedEntity: "PRAYER:our-father",
+            repairAction: "refresh",
+            status: "PENDING",
+            attempts: 0,
+            maxAttempts: 5,
+            lastAttemptAt: null,
+            nextAttemptAt: null,
+          },
+        ]),
+        update: vi.fn(async () => undefined),
+      },
+      adminWorkerLog: {
+        findFirst: vi.fn(async () => ({
+          createdAt: new Date(),
+          message: "cache flagged",
+          safeMetadata: {},
+        })),
+      },
+    } as unknown as Parameters<typeof runRepairOrchestrator>[0];
+    const out = await runRepairOrchestrator(prisma);
+    expect(out.plansSucceeded).toBe(1);
+    expect(vi.mocked(flagCacheRefresh)).toHaveBeenCalled();
+    expect(out.results[0].reason).toContain("refreshed + verified");
+  });
+
+  it("CACHE_FAILED fails when the verify step finds no cache log row", async () => {
+    const { flagCacheRefresh } = await import("@/lib/admin-worker/repair");
+    vi.mocked(flagCacheRefresh).mockClear();
+    const prisma = {
+      adminWorkerRepairPlan: {
+        findMany: vi.fn(async () => [
+          {
+            id: "plan-cf-2",
+            kind: "CACHE_FAILED",
+            failedEntity: "PRAYER:our-father",
+            repairAction: "refresh",
+            status: "PENDING",
+            attempts: 0,
+            maxAttempts: 5,
+            lastAttemptAt: null,
+            nextAttemptAt: null,
+          },
+        ]),
+        update: vi.fn(async () => undefined),
+      },
+      adminWorkerLog: { findFirst: vi.fn(async () => null) },
+    } as unknown as Parameters<typeof runRepairOrchestrator>[0];
+    const out = await runRepairOrchestrator(prisma);
+    expect(out.plansFailed).toBe(1);
+    expect(out.results[0].reason).toContain("verifyCacheFreshness");
+  });
+
+  it("SITEMAP_VISIBILITY_FAILED refreshes AND re-verifies when failedEntity is contentType:slug", async () => {
+    const { flagSitemapRefresh } = await import("@/lib/admin-worker/repair");
+    vi.mocked(flagSitemapRefresh).mockResolvedValueOnce({
+      kind: "ok",
+      attempted: true,
+      succeeded: true,
+    } as never);
+    const prisma = {
+      adminWorkerRepairPlan: {
+        findMany: vi.fn(async () => [
+          {
+            id: "plan-sm-1",
+            kind: "SITEMAP_VISIBILITY_FAILED",
+            failedEntity: "PRAYER:our-father",
+            repairAction: "refresh",
+            status: "PENDING",
+            attempts: 0,
+            maxAttempts: 5,
+            lastAttemptAt: null,
+            nextAttemptAt: null,
+          },
+        ]),
+        update: vi.fn(async () => undefined),
+      },
+      publishedContent: {
+        findFirst: vi.fn(async () => ({
+          id: "pub-1",
+          publishedAt: new Date(),
+          title: "Our Father",
+        })),
+      },
+    } as unknown as Parameters<typeof runRepairOrchestrator>[0];
+    const out = await runRepairOrchestrator(prisma);
+    expect(out.plansSucceeded).toBe(1);
+    expect(out.results[0].reason).toContain("refreshed + verified");
+  });
+
+  it("SEARCH_VISIBILITY_FAILED refreshes AND re-verifies via verifySearchIndex", async () => {
+    const { flagSearchRefresh } = await import("@/lib/admin-worker/repair");
+    vi.mocked(flagSearchRefresh).mockResolvedValueOnce({
+      kind: "ok",
+      attempted: true,
+      succeeded: true,
+    } as never);
+    const prisma = {
+      adminWorkerRepairPlan: {
+        findMany: vi.fn(async () => [
+          {
+            id: "plan-sv-1",
+            kind: "SEARCH_VISIBILITY_FAILED",
+            failedEntity: "PRAYER:our-father",
+            repairAction: "refresh",
+            status: "PENDING",
+            attempts: 0,
+            maxAttempts: 5,
+            lastAttemptAt: null,
+            nextAttemptAt: null,
+          },
+        ]),
+        update: vi.fn(async () => undefined),
+      },
+      publishedContent: {
+        findFirst: vi.fn(async () => ({
+          id: "pub-1",
+          title: "Our Father",
+          payload: { prayerText: "Our Father, who art in heaven." },
+          publishedAt: new Date(),
+        })),
+        count: vi.fn(async () => 1),
+      },
+    } as unknown as Parameters<typeof runRepairOrchestrator>[0];
+    const out = await runRepairOrchestrator(prisma);
+    expect(out.plansSucceeded).toBe(1);
+    expect(out.results[0].reason).toContain("refreshed + verified");
+  });
 });
