@@ -39,6 +39,22 @@ const PRAYER_TEXT =
 async function main(): Promise<number> {
   const prisma = new PrismaClient();
   try {
+    // 0. Self-clean so the proof is idempotent regardless of prior runs
+    //    (e.g. the autonomy proof may have already published this prayer).
+    //    Without this, a re-publish returns "duplicate" and records no new
+    //    PUBLISH_ALLOWED_BECAUSE reasoning edge, so the proof would only
+    //    pass on a pristine database.
+    const SLUG = "the-memorare";
+    await prisma.publishedContent
+      .deleteMany({ where: { contentType: "PRAYER" as never, slug: SLUG } })
+      .catch(() => undefined);
+    // Delete any prior artifact for this slug so the upsert below creates
+    // a fresh row with a fresh id (and the reasoning chain query, keyed by
+    // that id, starts clean).
+    await prisma.adminWorkerPackageArtifact
+      .deleteMany({ where: { contentType: "PRAYER" as never, normalizedSlug: SLUG } })
+      .catch(() => undefined);
+
     // 1. REAL extraction — recover the prayer title + actual prayer text.
     const extracted = PrayerExtractor({ url: URL, host: HOST, title: TITLE, bodyText: PRAYER_TEXT });
     if (extracted.fatalReasons.length > 0) {
