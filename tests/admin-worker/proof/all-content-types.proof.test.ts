@@ -185,7 +185,10 @@ Joyful Mysteries
       expect(String(f.description ?? "")).not.toBe("");
       expect(String(f.preparation ?? "")).not.toBe("");
     },
-    junk: base({ title: "About Catholic Faith", bodyText: "Information about the Catholic faith." }),
+    junk: base({
+      title: "About Catholic Faith",
+      bodyText: "Information about the Catholic faith.",
+    }),
   },
   {
     label: "CHURCH_DOCUMENT (History) — approved category + date/era",

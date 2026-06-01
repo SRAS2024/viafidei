@@ -56,7 +56,12 @@ async function main(): Promise<number> {
       .catch(() => undefined);
 
     // 1. REAL extraction — recover the prayer title + actual prayer text.
-    const extracted = PrayerExtractor({ url: URL, host: HOST, title: TITLE, bodyText: PRAYER_TEXT });
+    const extracted = PrayerExtractor({
+      url: URL,
+      host: HOST,
+      title: TITLE,
+      bodyText: PRAYER_TEXT,
+    });
     if (extracted.fatalReasons.length > 0) {
       console.error("Extraction failed:", extracted.fatalReasons);
       return 1;
@@ -64,7 +69,9 @@ async function main(): Promise<number> {
     console.log("1. Extracted:");
     console.log(`     prayerTitle = ${extracted.fields.prayerTitle}`);
     console.log(`     prayerText  = ${String(extracted.fields.prayerText).slice(0, 60)}…`);
-    console.log(`     provenance  = ${extracted.sourceEvidence.length} field(s) with source evidence`);
+    console.log(
+      `     provenance  = ${extracted.sourceEvidence.length} field(s) with source evidence`,
+    );
 
     // 2. Package artifact (real row).
     const pkg = buildContentPackage({ contentType: "PRAYER", extractor: extracted, title: TITLE });
@@ -128,7 +135,9 @@ async function main(): Promise<number> {
       confidence: 0.95,
       strictQAArtifactId: artifact.id,
     });
-    console.log(`4. Publish orchestrator: ${result.kind} — ${"reason" in result ? result.reason : ""}`);
+    console.log(
+      `4. Publish orchestrator: ${result.kind} — ${"reason" in result ? result.reason : ""}`,
+    );
     if (result.kind !== "published" && result.kind !== "duplicate") return 1;
 
     // 6. Read the published row + the reasoning chain back out of the DB.
@@ -139,13 +148,17 @@ async function main(): Promise<number> {
     console.log("5. PublishedContent row in DB:");
     console.log(`     ${JSON.stringify(published)}`);
 
-    const chain = await getReasoningChain(prisma, { contentType: "PRAYER", contentId: artifact.id });
+    const chain = await getReasoningChain(prisma, {
+      contentType: "PRAYER",
+      contentId: artifact.id,
+    });
     console.log(`6. Reasoning chain (${chain.edges.length} edge(s)):`);
     for (const e of chain.edges) {
       console.log(`     ${e.from.type} —${e.relation}→ ${e.to.type}: ${e.explanation}`);
     }
 
-    const ok = !!published?.isPublished && chain.edges.some((e) => e.relation === "PUBLISH_ALLOWED_BECAUSE");
+    const ok =
+      !!published?.isPublished && chain.edges.some((e) => e.relation === "PUBLISH_ALLOWED_BECAUSE");
     console.log(
       ok
         ? "\nLive content proof PASSED — a real prayer is public with a full reasoning trail."

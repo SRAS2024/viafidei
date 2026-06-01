@@ -24,9 +24,24 @@ vi.mock("@/lib/worker", () => ({
 }));
 
 vi.mock("@/lib/admin-worker/repair", () => ({
-  flagSearchRefresh: vi.fn(async () => ({ kind: "search_failed", attempted: true, succeeded: true, reason: "flagged" })),
-  flagSitemapRefresh: vi.fn(async () => ({ kind: "sitemap_failed", attempted: true, succeeded: true, reason: "flagged" })),
-  flagCacheRefresh: vi.fn(async () => ({ kind: "cache_failed", attempted: true, succeeded: true, reason: "flagged" })),
+  flagSearchRefresh: vi.fn(async () => ({
+    kind: "search_failed",
+    attempted: true,
+    succeeded: true,
+    reason: "flagged",
+  })),
+  flagSitemapRefresh: vi.fn(async () => ({
+    kind: "sitemap_failed",
+    attempted: true,
+    succeeded: true,
+    reason: "flagged",
+  })),
+  flagCacheRefresh: vi.fn(async () => ({
+    kind: "cache_failed",
+    attempted: true,
+    succeeded: true,
+    reason: "flagged",
+  })),
 }));
 
 vi.mock("@/lib/admin-worker/content-goals", () => ({
@@ -105,8 +120,9 @@ function makePrisma() {
         strictRows.set(row.packageArtifactId as string, row);
         return row;
       }),
-      findUnique: vi.fn(async (args: { where: { packageArtifactId: string } }) =>
-        strictRows.get(args.where.packageArtifactId) ?? null,
+      findUnique: vi.fn(
+        async (args: { where: { packageArtifactId: string } }) =>
+          strictRows.get(args.where.packageArtifactId) ?? null,
       ),
     },
     contentQualityScore: {
@@ -269,7 +285,10 @@ describe("admin-worker:proof:content — one PRAYER through every stage", () => 
     expect(search.queryResults.contentType).toBe(true);
 
     // 15. Sitemap verification.
-    const sitemap = await verifySitemap(fake as unknown as P, { contentType: "PRAYER", slug: SLUG });
+    const sitemap = await verifySitemap(fake as unknown as P, {
+      contentType: "PRAYER",
+      slug: SLUG,
+    });
     expect(sitemap.ok).toBe(true);
 
     // 16. Cache verification.

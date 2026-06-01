@@ -42,10 +42,8 @@ export default async function AdminWorkerReasoningPage({
           <h1 className="font-display text-3xl text-ink">Worker Reasoning</h1>
           <p className="mt-1 font-serif text-ink-soft">
             Full reasoning chain for{" "}
-            <span className="font-mono">
-              {pipelineKey ?? `${contentType}:${contentId}`}
-            </span>
-            . Each edge explains why one thing led to another.
+            <span className="font-mono">{pipelineKey ?? `${contentType}:${contentId}`}</span>. Each
+            edge explains why one thing led to another.
           </p>
           <Link className="text-indigo-600 underline" href="/admin/admin-worker/reasoning">
             ← back to recent reasoning chains
@@ -62,10 +60,15 @@ export default async function AdminWorkerReasoningPage({
             <h2 className="font-display text-xl text-ink">Chain ({chain.edges.length} edges)</h2>
             <ol className="mt-3 space-y-2">
               {chain.edges.map((e) => (
-                <li key={e.id} className="rounded border-l-4 border-indigo-300 bg-slate-50 px-3 py-2">
+                <li
+                  key={e.id}
+                  className="rounded border-l-4 border-indigo-300 bg-slate-50 px-3 py-2"
+                >
                   <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
                     <span className="rounded bg-slate-200 px-1.5 py-0.5">{e.from.type}</span>
-                    {e.from.label && <span className="text-ink-soft">{e.from.label.slice(0, 40)}</span>}
+                    {e.from.label && (
+                      <span className="text-ink-soft">{e.from.label.slice(0, 40)}</span>
+                    )}
                     <span className="text-indigo-700">—{e.relation}→</span>
                     <span className="rounded bg-slate-200 px-1.5 py-0.5">{e.to.type}</span>
                     {e.to.label && <span className="text-ink-soft">{e.to.label.slice(0, 40)}</span>}

@@ -979,7 +979,8 @@ function scoreAction(action: BrainAction, world: WorldState): BrainAction {
       quality = world.pendingBuildJobs > 0 ? 0.85 : quality;
       if (world.pendingBuildJobs === 0) {
         safe = false;
-        rejection = "No pending build jobs (BUILD_READY artifacts advance via QA, not PACKAGE_BUILD).";
+        rejection =
+          "No pending build jobs (BUILD_READY artifacts advance via QA, not PACKAGE_BUILD).";
       }
       break;
     }
