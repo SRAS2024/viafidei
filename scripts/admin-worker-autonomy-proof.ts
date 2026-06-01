@@ -98,7 +98,7 @@ const FIXTURES: Fixture[] = [
     slug: "the-joyful-mysteries-of-the-holy-rosary",
     html: page(
       "The Joyful Mysteries of the Holy Rosary",
-      `<p>The Holy Rosary is a Scripture-based prayer; this page presents the Joyful Mysteries and how to pray them as decades of Hail Marys with meditation on the life of Christ.</p>
+      `<p>The Holy Rosary is a Scripture-based prayer; pray each decade with an Our Father, ten Hail Marys, and a Glory Be while meditating on the life of Christ.</p>
        <h2>Joyful Mysteries</h2>
        <p>1. The Annunciation. 2. The Visitation. 3. The Nativity. 4. The Presentation. 5. The Finding of Jesus in the Temple.</p>`,
     ),
@@ -119,7 +119,7 @@ const FIXTURES: Fixture[] = [
     contentType: "SACRAMENT",
     publishAs: "SACRAMENT",
     path: "/sacraments/baptism",
-    slug: "baptism",
+    slug: "the-sacrament-of-baptism",
     html: page(
       "The Sacrament of Baptism",
       `<p>Baptism is the first sacrament of initiation and the gateway to life in the Spirit, by which we are freed from sin and reborn as children of God.</p>
