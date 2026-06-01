@@ -32,6 +32,7 @@ const HEALTHY: WorldState = {
   readsAwaitingExtraction: 0,
   artifactsAwaitingChecklist: 0,
   artifactsAwaitingBuild: 0,
+  artifactsAwaitingVerification: 0,
   artifactsAwaitingQA: 0,
   artifactsAwaitingPublish: 0,
   publishedButUnverified: 0,
@@ -67,6 +68,20 @@ describe("AdminWorkerBrain.decide", () => {
   it("selects STRICT_QA when built artifacts await QA", () => {
     const d = decide({ ...HEALTHY, contentGoalGap: 5, artifactsAwaitingQA: 2 });
     expect(d.missionStage).toBe("STRICT_QA");
+  });
+
+  it("verifies sensitive content (cross-source) BEFORE strict QA", () => {
+    // A BUILD_READY artifact that still needs validation evidence must
+    // gather it first — otherwise strict QA would zero the validation
+    // dimension and wrongly fail it. CROSS_SOURCE_VERIFICATION out-ranks
+    // STRICT_QA in that state.
+    const d = decide({
+      ...HEALTHY,
+      contentGoalGap: 5,
+      artifactsAwaitingVerification: 1,
+      artifactsAwaitingQA: 1,
+    });
+    expect(d.missionStage).toBe("CROSS_SOURCE_VERIFICATION");
   });
 
   it("drains PUBLIC_PUBLISH first when QA-passed artifacts await publish", () => {

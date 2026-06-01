@@ -24,7 +24,6 @@
 import type { PrismaClient, SourceAuthorityLevel } from "@prisma/client";
 
 import { adminWorkerFetch } from "./fetcher";
-import { readSource } from "./source-reader";
 import {
   type ResolvedValidationSource,
   resolveValidationSources,
@@ -123,7 +122,11 @@ async function fetchOneAndCompare(
   const pathsToTry = probePaths ? probePaths(slug).slice(0, 3) : ["/"];
 
   for (const path of pathsToTry) {
-    const url = `https://${target.host}${path}`;
+    // Local validation mirrors (dev verification) are served over plain
+    // HTTP on a loopback host:port; every real approved validation source
+    // is HTTPS.
+    const scheme = /^localhost(:\d+)?$|^127\.0\.0\.1(:\d+)?$/.test(target.host) ? "http" : "https";
+    const url = `${scheme}://${target.host}${path}`;
     const fetched = await adminWorkerFetch(prisma, {
       url,
       skipNetwork: input.skipNetwork,
@@ -132,27 +135,11 @@ async function fetchOneAndCompare(
       continue;
     }
 
-    // Run the body through the source reader so the comparison
-    // works against structured blocks (titles, paragraphs, headings).
-    const titleMatch = /<title[^>]*>([\s\S]+?)<\/title>/i.exec(fetched.body);
-    const title = titleMatch ? titleMatch[1].trim() : null;
-    const headings = Array.from(fetched.body.matchAll(/<h[1-6][^>]*>([\s\S]+?)<\/h[1-6]>/gi))
-      .map((m) => m[1].replace(/<[^>]+>/g, "").trim())
-      .filter(Boolean);
-
-    await readSource(prisma, {
-      sourceUrl: url,
-      sourceHost: target.host,
-      rawBody: fetched.body,
-      title,
-      headings,
-      sourceReputationTier:
-        target.reputationTier === "TRUSTED"
-          ? "TRUSTED"
-          : target.reputationTier === "PAUSED"
-            ? "PAUSED"
-            : null,
-    }).catch(() => null);
+    // NOTE: a validation source is fetched ONLY to confirm a sensitive
+    // field — it is NOT content to grow. We deliberately do not run it
+    // through readSource()/persist a source-read here, otherwise the
+    // validation page would leak into the content pipeline and be
+    // (wrongly) treated as a buildable item.
 
     // Compare expected value against the fetched text. Normalise
     // both sides so casing / whitespace differences don't trigger

@@ -770,12 +770,16 @@ URLs, and runs the **real worker loop** — the brain ranks actions each
 pass and the dispatcher really fetches over HTTP, reads the page into
 structured blocks, classifies, extracts the package artifact, creates
 checklist + citations, runs strict QA, scores quality, and publishes
-through the orchestrator. It confirms the worker autonomously publishes
-PRAYER + DEVOTION and constructs a complete SAINT (name + patronage +
-birthplace + lived dates + feast day + background) that correctly holds
-for cross-source verification before publishing. It uses the
-`ADMIN_WORKER_DEV_SOURCE_HOSTS` hook (non-production only) to allow the
-local mirror; every QA / quality / content-contract gate still applies.
+through the orchestrator. It confirms the worker autonomously publishes PRAYER + DEVOTION and — via
+a real fetch-and-compare against an INDEPENDENT validation mirror — the
+doctrinally-sensitive SAINT (name + patronage + birthplace + lived dates
++ feast day + background), with the feast day cross-source verified before
+publishing. It uses the `ADMIN_WORKER_DEV_SOURCE_HOSTS` +
+`ADMIN_WORKER_DEV_VALIDATION_HOSTS` hooks (non-production only) to allow
+the local mirrors; every QA / quality / content-contract / cross-source
+gate still applies. Sensitive content with no reachable validation source
+correctly holds in NEEDS_REPAIR (a `VALIDATION_EVIDENCE_MISSING` plan is
+filed) rather than publishing unverified.
 
 The proof tests live in `tests/admin-worker/proof/` and drive the real
 extractors / strict-QA / quality scorer / publish orchestrator (so they

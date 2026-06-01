@@ -32,6 +32,7 @@ const HEALTHY: WorldState = {
   readsAwaitingExtraction: 0,
   artifactsAwaitingChecklist: 0,
   artifactsAwaitingBuild: 0,
+  artifactsAwaitingVerification: 0,
   artifactsAwaitingQA: 0,
   artifactsAwaitingPublish: 0,
   publishedButUnverified: 0,

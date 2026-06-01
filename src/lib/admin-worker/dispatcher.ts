@@ -939,7 +939,16 @@ async function runCrossSourceVerification(
   let usedHosts: string[] = [];
 
   if (artifact && artifact.validationNeeds.length > 0) {
-    // Check if we've already verified this artifact recently.
+    // Check whether we already hold MATCH/PASS evidence for this artifact.
+    const matchingEvidence = await prisma.adminWorkerCrossSourceVerification
+      .count({
+        where: {
+          contentType: artifact.contentType,
+          contentId: artifact.id,
+          matchResult: { in: ["MATCH", "PASS"] },
+        },
+      })
+      .catch(() => 0);
     const already = await prisma.adminWorkerCrossSourceVerification
       .findFirst({
         where: { contentType: artifact.contentType, contentId: artifact.id },
@@ -947,6 +956,16 @@ async function runCrossSourceVerification(
         select: { id: true },
       })
       .catch(() => null);
+
+    // Already verified (e.g. evidence recorded on a prior pass): promote
+    // the artifact so strict QA picks it up and the brain stops
+    // re-selecting verification for it.
+    if (already && matchingEvidence > 0 && artifact.status === "BUILD_READY") {
+      await prisma.adminWorkerPackageArtifact
+        .update({ where: { id: artifact.id }, data: { status: "VERIFICATION_READY" } })
+        .catch(() => undefined);
+      verifiedFieldCount = matchingEvidence;
+    }
 
     if (!already) {
       const { runVerifier } = await import("./verifier");
@@ -976,14 +995,19 @@ async function runCrossSourceVerification(
           skipNetwork,
         }).catch(() => []);
         for (const e of evidence) {
+          // A source we could NOT fetch (MISSING_EVIDENCE) is not
+          // evidence of anything — it must never be translated into a
+          // disagreeing value, otherwise an unreachable approved source
+          // would wrongly block a field that another source confirmed.
+          if (e.matchStatus === "MISSING_EVIDENCE") continue;
           if (seenHosts.has(e.host)) continue;
           seenHosts.add(e.host);
           // Translate the fetch evidence into the verifier shape.
           // MATCH → the validation source carries the same value;
-          // MISMATCH → the source disagrees;
-          // MISSING_EVIDENCE → could not fetch or could not find.
+          // MISMATCH → the source disagrees (real different value found).
           const validationFieldValue =
-            e.matchStatus === "MATCH" ? expected : (e.found ?? "(not found)");
+            e.matchStatus === "MATCH" ? expected : (e.found ?? "");
+          if (!validationFieldValue) continue;
           validationSources.push({
             host: e.host,
             url: e.url,
@@ -1014,6 +1038,40 @@ async function runCrossSourceVerification(
           stage: "verification",
           ok: blockingFields.length === 0,
         }).catch(() => undefined);
+      }
+
+      // Advance the artifact out of the verification queue. When evidence
+      // confirmed every sensitive field, promote BUILD_READY →
+      // VERIFICATION_READY so strict QA picks it up (and the brain stops
+      // re-selecting verification for it). When evidence is missing /
+      // conflicting, file a VALIDATION_EVIDENCE_MISSING repair plan and
+      // park the artifact in NEEDS_REPAIR — sensitive content must never
+      // publish without stored evidence (spec §246, §258).
+      if (verifiedFieldCount > 0 && blockingFields.length === 0) {
+        await prisma.adminWorkerPackageArtifact
+          .update({ where: { id: artifact.id }, data: { status: "VERIFICATION_READY" } })
+          .catch(() => undefined);
+      } else if (blockingFields.length > 0) {
+        const { filePlan } = await import("./repair-plans");
+        await filePlan(prisma, {
+          kind: "VALIDATION_EVIDENCE_MISSING",
+          failedEntity: artifact.id,
+          repairAction: `Fetch + compare validation sources for ${blockingFields.join(", ")} on ${artifact.contentType}/${artifact.normalizedSlug}.`,
+          metadata: {
+            artifactId: artifact.id,
+            contentType: artifact.contentType,
+            blockingFields,
+          },
+        }).catch(() => undefined);
+        await prisma.adminWorkerPackageArtifact
+          .update({
+            where: { id: artifact.id },
+            data: {
+              status: "NEEDS_REPAIR",
+              rejectionReason: `missing cross-source evidence for ${blockingFields.join(", ")}`,
+            },
+          })
+          .catch(() => undefined);
       }
     }
   }
@@ -1093,6 +1151,17 @@ async function runStrictQA(prisma: PrismaClient, passId: string): Promise<Dispat
 
   for (const artifact of candidates) {
     if (!artifact) continue;
+    // Defensive: a BUILD_READY artifact that still carries unmet
+    // validation needs must gather cross-source evidence FIRST (the
+    // CROSS_SOURCE_VERIFICATION stage promotes it to VERIFICATION_READY).
+    // Scoring it now would zero the validation dimension and wrongly
+    // FAIL doctrinally-sensitive content before it has been verified.
+    if (artifact.status === "BUILD_READY" && (artifact.validationNeeds ?? []).length > 0) {
+      const hasEvidence = await prisma.adminWorkerCrossSourceVerification
+        .count({ where: { contentType: artifact.contentType, contentId: artifact.id } })
+        .catch(() => 0);
+      if (hasEvidence === 0) continue;
+    }
     // Skip if a QA row already exists for this artifact (idempotent).
     const existing = await getStrictQAResult(prisma, artifact.id);
     if (existing && existing.status === "PASSED") {

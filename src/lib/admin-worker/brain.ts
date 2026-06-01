@@ -171,6 +171,7 @@ export interface WorldState {
   readsAwaitingExtraction: number;
   artifactsAwaitingChecklist: number;
   artifactsAwaitingBuild: number;
+  artifactsAwaitingVerification: number;
   artifactsAwaitingQA: number;
   artifactsAwaitingPublish: number;
   publishedButUnverified: number;
@@ -209,6 +210,7 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     artifactsFromReads,
     artifactsChecklistReady,
     artifactsBuildReady,
+    artifactsBuildReadyNeedsValidation,
     artifactsBuildOrVerification,
     artifactsQaPassed,
     verifiedDistinct,
@@ -249,6 +251,9 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
       .count({ where: { status: "CHECKLIST_READY" } })
       .catch(() => 0),
     prisma.adminWorkerPackageArtifact.count({ where: { status: "BUILD_READY" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { status: "BUILD_READY", validationNeeds: { isEmpty: false } } })
+      .catch(() => 0),
     prisma.adminWorkerPackageArtifact
       .count({ where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } } })
       .catch(() => 0),
@@ -306,6 +311,7 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     readsAwaitingExtraction: Math.max(0, classifiedReads - artifactsFromReads),
     artifactsAwaitingChecklist: artifactsChecklistReady,
     artifactsAwaitingBuild: artifactsBuildReady,
+    artifactsAwaitingVerification: artifactsBuildReadyNeedsValidation,
     artifactsAwaitingQA: artifactsBuildOrVerification,
     artifactsAwaitingPublish: artifactsQaPassed,
     publishedButUnverified: Math.max(0, publishedTotal - verifiedDistinct.length),
@@ -586,9 +592,12 @@ function enumerateCandidateActions(world: WorldState): BrainAction[] {
       repairScore: 0,
       finalScore: 0,
       fallbackAction: "human review",
-      stopCondition: "no pending QA reviews",
-      reasonSummary: `${world.pendingQAReviews} QA reports awaiting verification.`,
-      rulesEvaluated: { pendingQAReviews: world.pendingQAReviews },
+      stopCondition: "no artifacts awaiting validation evidence and no pending QA reviews",
+      reasonSummary: `${world.artifactsAwaitingVerification} artifact(s) awaiting cross-source evidence; ${world.pendingQAReviews} QA review(s) pending.`,
+      rulesEvaluated: {
+        artifactsAwaitingVerification: world.artifactsAwaitingVerification,
+        pendingQAReviews: world.pendingQAReviews,
+      },
       safe: true,
       rejectionReason: null,
     },
@@ -943,34 +952,40 @@ function scoreAction(action: BrainAction, world: WorldState): BrainAction {
     }
     case "PACKAGE_BUILD": {
       const gap = world.contentGoalGap;
-      // PACKAGE_BUILD advances BUILD_READY package artifacts (and any
-      // legacy pending build jobs) toward the publish stage. Raw
-      // candidate URLs are NOT build inputs: they must first flow through
-      // SOURCE_FETCH → read → classify → extract → checklist. With no
-      // BUILD_READY artifact and no pending job there is nothing to
-      // build, so the stage is unsafe and the brain reaches earlier in
-      // the ladder instead of looping on PACKAGE_BUILD forever.
-      const buildInputs = world.pendingBuildJobs + world.artifactsAwaitingBuild;
-      urgency = buildInputs > 0 ? Math.min(60, buildInputs * 8 + gap * 1.5) : 0;
-      sourceScore = buildInputs > 0 ? 0.8 : 0.1;
-      quality = buildInputs > 0 ? 0.85 : quality;
-      if (buildInputs === 0) {
+      // PACKAGE_BUILD only drains LEGACY pending build jobs. BUILD_READY
+      // package artifacts are advanced directly by CROSS_SOURCE_VERIFICATION
+      // (when they carry validation needs) and STRICT_QA — runPackageBuild
+      // is a deferring no-op for them, so letting it compete for
+      // BUILD_READY artifacts just makes the brain spin on a stage that
+      // can't advance the item. Gate strictly on pending jobs.
+      urgency =
+        world.pendingBuildJobs > 0 ? Math.min(60, world.pendingBuildJobs * 8 + gap * 1.5) : 0;
+      sourceScore = world.pendingBuildJobs > 0 ? 0.8 : 0.1;
+      quality = world.pendingBuildJobs > 0 ? 0.85 : quality;
+      if (world.pendingBuildJobs === 0) {
         safe = false;
-        rejection =
-          gap === 0
-            ? "Build queue empty and all goals met."
-            : "No BUILD_READY artifacts or pending jobs — extract + checklist first.";
+        rejection = "No pending build jobs (BUILD_READY artifacts advance via QA, not PACKAGE_BUILD).";
       }
       break;
     }
-    case "CROSS_SOURCE_VERIFICATION":
-      urgency = Math.min(20, world.pendingQAReviews * 4);
-      quality = world.pendingQAReviews > 0 ? 0.85 : quality;
-      if (world.pendingQAReviews === 0) {
+    case "CROSS_SOURCE_VERIFICATION": {
+      // Sensitive content (saint feast day, novena day count, sacrament
+      // identity, …) MUST gather stored cross-source evidence BEFORE
+      // strict QA — otherwise the validation dimension scores zero and
+      // the artifact fails QA. So this stage out-ranks STRICT_QA whenever
+      // a BUILD_READY artifact still needs validation evidence.
+      const needsVerification = world.artifactsAwaitingVerification;
+      urgency =
+        needsVerification > 0
+          ? Math.min(62, 46 + needsVerification * 4)
+          : Math.min(20, world.pendingQAReviews * 4);
+      quality = needsVerification > 0 || world.pendingQAReviews > 0 ? 0.85 : quality;
+      if (needsVerification === 0 && world.pendingQAReviews === 0) {
         safe = false;
-        rejection = "No pending QA reviews to verify.";
+        rejection = "No artifacts awaiting cross-source evidence and no pending QA reviews.";
       }
       break;
+    }
     case "POST_PUBLISH_VERIFY":
       urgency = Math.min(20, world.publishedButUnverified * 0.5);
       quality = 0.9;
