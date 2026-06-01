@@ -61,10 +61,15 @@ function makePrisma() {
       },
       adminWorkerLog: { create: vi.fn(async () => ({ id: "l" })) },
       bannedDevice: {
-        upsert: vi.fn(async (args: { where: { deviceCredentialHash: string }; create: Record<string, unknown> }) => {
-          banned.set(args.where.deviceCredentialHash, args.create);
-          return { id: "bd-1" };
-        }),
+        upsert: vi.fn(
+          async (args: {
+            where: { deviceCredentialHash: string };
+            create: Record<string, unknown>;
+          }) => {
+            banned.set(args.where.deviceCredentialHash, args.create);
+            return { id: "bd-1" };
+          },
+        ),
         findUnique: vi.fn(async (args: { where: { deviceCredentialHash: string } }) => {
           const row = banned.get(args.where.deviceCredentialHash);
           return row ? { active: true, ...row } : null;
@@ -92,13 +97,20 @@ describe("admin-worker:proof:security", () => {
 
   it("1b. valid admin navigation only OBSERVEs (never WARN/ban → no suspicious email)", async () => {
     const { prisma, store } = makePrisma();
-    const out = await defendValidAdminNavigation({ prisma: prisma as never, route: "/admin/checklist" });
+    const out = await defendValidAdminNavigation({
+      prisma: prisma as never,
+      route: "/admin/checklist",
+    });
     expect(out?.actionType).toBe("OBSERVE");
     expect(store.banned.size).toBe(0);
   });
 
   it("2. failed logins escalate to Suspicious on the third consecutive failure", () => {
-    const ctx = { account: "admin", ipAddress: "203.0.113.9", deviceCredential: "device-bruteforce" };
+    const ctx = {
+      account: "admin",
+      ipAddress: "203.0.113.9",
+      deviceCredential: "device-bruteforce",
+    };
     expect(recordAdminPasswordFailure(ctx).classification).toBe("below_threshold");
     expect(recordAdminPasswordFailure(ctx).classification).toBe("below_threshold");
     // The third consecutive failure is what the login route uses to fire

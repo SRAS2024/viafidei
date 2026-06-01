@@ -72,9 +72,40 @@ describe("decaySourceReputation (spec §19-20)", () => {
     expect(result.decayed).toBe(1);
     expect(result.demoted).toBe(1);
     expect(updates[0].reputationTier).not.toBe("TRUSTED");
-    // The decay must NOT bump lastScoreUpdate — it stays anchored to the
-    // last real outcome so the source keeps decaying until re-proven.
-    expect(updates[0].lastScoreUpdate).toBeUndefined();
+    // A merely-quiet (not actively-bad) source must NOT be auto-paused by
+    // decay — it drifts back toward NEUTRAL (spec §378). Its build rate
+    // decays through the (0, 0.1] auto-pause band, but pausing is reserved
+    // for real bad signal, so it stays un-paused.
+    expect(updates[0].paused).toBe(false);
+    expect(updates[0].reputationTier).toBe("NEUTRAL");
+    // The decay re-anchors the clock to "now" so the next sweep decays
+    // only by the newly-elapsed interval (no compounding).
+    expect(updates[0].lastScoreUpdate).toBeInstanceOf(Date);
+  });
+
+  it("re-anchors the decay clock so repeated sweeps do not compound", async () => {
+    const quiet = row({ lastScoreUpdate: new Date(Date.now() - 30 * DAY) });
+    const store = [quiet as Record<string, unknown>];
+    const prisma = {
+      adminWorkerSourceReputation: {
+        findMany: vi.fn(async () => store),
+        update: vi.fn(async (args: { data: Record<string, unknown> }) => {
+          Object.assign(store[0], args.data);
+          return store[0];
+        }),
+      },
+    } as unknown as Parameters<typeof decaySourceReputation>[0];
+
+    const first = await decaySourceReputation(prisma, { minAgeDays: 7 });
+    expect(first.decayed).toBe(1);
+    const afterFirst = store[0].publicPublishRate as number;
+    expect(afterFirst).toBeLessThan(0.9);
+    // The clock is now anchored at ~now, so an immediate second sweep is
+    // gated by minAgeDays and must NOT decay again (the bug was that the
+    // persisted rate kept decaying from the original outcome every pass).
+    const second = await decaySourceReputation(prisma, { minAgeDays: 7 });
+    expect(second.decayed).toBe(0);
+    expect(store[0].publicPublishRate).toBe(afterFirst);
   });
 
   it("skips rows updated within the minimum age window", async () => {

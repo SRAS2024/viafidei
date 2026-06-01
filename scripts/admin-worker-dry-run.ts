@@ -39,7 +39,7 @@ function baseWorld(over: Partial<WorldState> = {}): WorldState {
     readsAwaitingExtraction: 0,
     artifactsAwaitingChecklist: 0,
     artifactsAwaitingBuild: 0,
-  artifactsAwaitingVerification: 0,
+    artifactsAwaitingVerification: 0,
     artifactsAwaitingQA: 0,
     artifactsAwaitingPublish: 0,
     publishedButUnverified: 0,
@@ -80,7 +80,11 @@ const scenarios: Scenario[] = [
   },
   {
     label: "content gap, no candidates → discovery",
-    world: baseWorld({ contentGoalGap: 12, contentGoalContentType: "PRAYER", candidateUrlsAvailable: 0 }),
+    world: baseWorld({
+      contentGoalGap: 12,
+      contentGoalContentType: "PRAYER",
+      candidateUrlsAvailable: 0,
+    }),
     expect: (s) => s === "DISCOVERY" || s === "SOURCE_FETCH",
     describeExpectation: "DISCOVERY",
   },

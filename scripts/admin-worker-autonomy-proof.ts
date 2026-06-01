@@ -177,7 +177,9 @@ const VALIDATION_HTML = page(
    <p>The Joyful Mysteries of the Holy Rosary are: The Annunciation, The Visitation, The Nativity, The Presentation, The Finding of Jesus in the Temple.</p>`,
 );
 
-function startServer(handler: (url: string) => string | null): Promise<{ server: Server; port: number }> {
+function startServer(
+  handler: (url: string) => string | null,
+): Promise<{ server: Server; port: number }> {
   return new Promise((resolve) => {
     const server = createServer((req, res) => {
       const body = req.url ? handler(req.url) : null;
@@ -214,11 +216,33 @@ async function main(): Promise<number> {
       .catch(() => [] as Array<{ id: string }>);
     const readIds = reads.map((r) => r.id);
     if (readIds.length) {
-      await prisma.adminWorkerPackageArtifact.deleteMany({ where: { sourceReadId: { in: readIds } } }).catch(() => {});
-      await prisma.adminWorkerSourceBlock.deleteMany({ where: { sourceReadId: { in: readIds } } }).catch(() => {});
-      await prisma.adminWorkerSourceRead.deleteMany({ where: { id: { in: readIds } } }).catch(() => {});
+      await prisma.adminWorkerPackageArtifact
+        .deleteMany({ where: { sourceReadId: { in: readIds } } })
+        .catch(() => {});
+      await prisma.adminWorkerSourceBlock
+        .deleteMany({ where: { sourceReadId: { in: readIds } } })
+        .catch(() => {});
+      await prisma.adminWorkerSourceRead
+        .deleteMany({ where: { id: { in: readIds } } })
+        .catch(() => {});
     }
-    await prisma.candidateSourceUrl.deleteMany({ where: { sourceHost: { contains: "localhost" } } }).catch(() => {});
+    await prisma.candidateSourceUrl
+      .deleteMany({ where: { sourceHost: { contains: "localhost" } } })
+      .catch(() => {});
+
+    // Clean-room reset: remove any catalog rows this proof published on a
+    // prior run so every run proves the worker publishes each type FRESH
+    // (not that a stale row happens to exist) and the duplicate-safety gate
+    // sees a clean slate. PublishedContent FKs ChecklistItem (unique), so
+    // delete published rows first, then the checklist items (citations
+    // cascade on delete).
+    const fixtureSlugs = FIXTURES.map((f) => f.slug);
+    await prisma.publishedContent
+      .deleteMany({ where: { slug: { in: fixtureSlugs } } })
+      .catch(() => {});
+    await prisma.checklistItem
+      .deleteMany({ where: { canonicalSlug: { in: fixtureSlugs } } })
+      .catch(() => {});
 
     for (const f of FIXTURES) {
       await prisma.candidateSourceUrl
@@ -262,7 +286,8 @@ async function main(): Promise<number> {
     let doctrinalHeld = 0;
     const stuck: string[] = [];
     for (const f of FIXTURES) {
-      const label = f.contentType === f.publishAs ? f.contentType : `${f.contentType}→${f.publishAs}`;
+      const label =
+        f.contentType === f.publishAs ? f.contentType : `${f.contentType}→${f.publishAs}`;
       const row = await prisma.publishedContent.findFirst({
         where: { contentType: f.publishAs as never, slug: f.slug, isPublished: true },
         select: { slug: true },
@@ -279,7 +304,11 @@ async function main(): Promise<number> {
       });
       // Correct doctrinal hold: artifact built, cross-source MATCH evidence
       // recorded, held at NEEDS_REPAIR/REVIEW for the strict 0.95 bar.
-      if (art && DOCTRINAL.has(f.contentType) && ["NEEDS_REPAIR", "NEEDS_REVIEW"].includes(art.status)) {
+      if (
+        art &&
+        DOCTRINAL.has(f.contentType) &&
+        ["NEEDS_REPAIR", "NEEDS_REVIEW"].includes(art.status)
+      ) {
         const evidence = await prisma.adminWorkerCrossSourceVerification.count({
           where: { contentId: art.id, matchResult: { in: ["MATCH", "PASS"] } },
         });

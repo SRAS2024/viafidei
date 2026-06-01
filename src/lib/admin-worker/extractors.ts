@@ -356,10 +356,14 @@ export function SaintExtractor(input: ExtractorInput): ExtractorOutput<SaintFiel
 
   // Where the saint is of (optional): the place after "born … in",
   // skipping an optional birth year so "born in 1181 in Assisi, Italy"
-  // and "born in Assisi" both resolve to the place, not the year.
+  // and "born in Assisi" both resolve to the place, not the year. The
+  // skip is [^.]*? (confined to the sentence, but allowed to cross an
+  // intervening capitalized word like "born, the son of Pietro, in
+  // Assisi"); the [A-Z] capture requirement skips past the year on its
+  // own, so we do not also need to exclude capitals from the skip.
   const birthplace = matchBody(
     kept,
-    /\bborn\b(?:[^.]*?\b\d{3,4}\b)?[^.A-Z]*?\bin\s+([A-Z][a-zA-Z.'-]+(?:[ ,]+[A-Z][a-zA-Z.'-]+){0,3})/,
+    /\bborn\b(?:[^.]*?\b\d{3,4}\b)?[^.]*?\bin\s+([A-Z][a-zA-Z.'-]+(?:[ ,]+[A-Z][a-zA-Z.'-]+){0,3})/,
   );
   if (birthplace) {
     fields.birthplace = birthplace.value.replace(/[ ,]+$/, "");
