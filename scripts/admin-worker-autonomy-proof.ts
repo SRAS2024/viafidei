@@ -230,6 +230,20 @@ async function main(): Promise<number> {
       .deleteMany({ where: { sourceHost: { contains: "localhost" } } })
       .catch(() => {});
 
+    // Clean-room reset: remove any catalog rows this proof published on a
+    // prior run so every run proves the worker publishes each type FRESH
+    // (not that a stale row happens to exist) and the duplicate-safety gate
+    // sees a clean slate. PublishedContent FKs ChecklistItem (unique), so
+    // delete published rows first, then the checklist items (citations
+    // cascade on delete).
+    const fixtureSlugs = FIXTURES.map((f) => f.slug);
+    await prisma.publishedContent
+      .deleteMany({ where: { slug: { in: fixtureSlugs } } })
+      .catch(() => {});
+    await prisma.checklistItem
+      .deleteMany({ where: { canonicalSlug: { in: fixtureSlugs } } })
+      .catch(() => {});
+
     for (const f of FIXTURES) {
       await prisma.candidateSourceUrl
         .upsert({

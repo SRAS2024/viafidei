@@ -269,11 +269,20 @@ export async function decaySourceReputation(
       contentBuildSuccessRate: d.contentBuildSuccessRate,
       wrongContentRate: d.wrongContentRate,
     });
+    // Decay must never NEWLY pause a source. Pausing is an active-signal
+    // decision (real wrong content / failed builds); a source that has
+    // merely gone quiet must drift back toward NEUTRAL, not get parked in
+    // PAUSED because its build-success rate decayed through the
+    // (0, pauseBuild] band (spec §378). So a not-previously-paused source
+    // can never come out of decay paused, and a PAUSED tier with no real
+    // pause maps back to NEUTRAL.
+    const wasPaused = row.paused;
+    const nowPaused = wasPaused ? tierInfo.paused : false;
+    const nextTier: SourceReputationTier =
+      !nowPaused && tierInfo.tier === "PAUSED" ? "NEUTRAL" : tierInfo.tier;
     // A previously-paused source whose negative signal has decayed below
     // the pause threshold becomes retestable (un-paused to NEUTRAL).
-    const wasPaused = row.paused;
-    const nowPaused = tierInfo.paused;
-    if (tierInfo.tier !== row.reputationTier) demoted += 1;
+    if (nextTier !== row.reputationTier) demoted += 1;
     if (wasPaused && !nowPaused) retestable += 1;
     await prisma.adminWorkerSourceReputation
       .update({
@@ -287,11 +296,16 @@ export async function decaySourceReputation(
           averageUsefulness: d.averageUsefulness,
           wrongContentRate: d.wrongContentRate,
           duplicateRate: d.duplicateRate,
-          reputationTier: tierInfo.tier,
+          reputationTier: nextTier,
           paused: nowPaused,
-          // NOTE: we deliberately do NOT bump lastScoreUpdate here — the
-          // decay is anchored to the last *real* outcome, so a source
-          // keeps decaying every sweep until it produces content again.
+          // Re-anchor the decay clock to now. The decayed rates are
+          // persisted and read directly by the planner, so the *next*
+          // sweep must decay only by the newly-elapsed interval. Without
+          // this re-anchor the persisted rate is decayed again from the
+          // original outcome on every maintenance pass (compounding far
+          // past a true half-life), and the minAgeDays gate becomes dead
+          // code once a source ages past it once.
+          lastScoreUpdate: now,
         },
       })
       .catch(() => undefined);

@@ -254,8 +254,20 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     prisma.adminWorkerPackageArtifact
       .count({ where: { status: "BUILD_READY", validationNeeds: { isEmpty: false } } })
       .catch(() => 0),
+    // Artifacts STRICT_QA will actually process: VERIFICATION_READY (cross-
+    // source done) plus BUILD_READY artifacts that need NO validation
+    // evidence. BUILD_READY-with-validation-needs is deliberately excluded
+    // — strict QA skips those (they must be cross-source-verified first),
+    // so counting them here would make the brain pick STRICT_QA and idle.
     prisma.adminWorkerPackageArtifact
-      .count({ where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } } })
+      .count({
+        where: {
+          OR: [
+            { status: "VERIFICATION_READY" },
+            { status: "BUILD_READY", validationNeeds: { isEmpty: true } },
+          ],
+        },
+      })
       .catch(() => 0),
     prisma.adminWorkerPackageArtifact.count({ where: { status: "QA_PASSED" } }).catch(() => 0),
     prisma.postPublishVerification
