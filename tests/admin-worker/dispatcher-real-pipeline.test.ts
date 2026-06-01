@@ -218,7 +218,27 @@ function makePrisma(opts: {
             }
           : null,
       ),
+      findMany: vi.fn(async () =>
+        opts.read
+          ? [
+              {
+                id: "sr1",
+                sourceUrl: "https://vatican.va/prayers/our-father",
+                sourceHost: "vatican.va",
+                extractedTitle: "Our Father",
+                extractedText: "Our Father. Amen.",
+                extractedHeadings: [],
+                detectedContentType: "PRAYER",
+                checksum: "cs-1",
+                confidenceScore: 0.9,
+              },
+            ]
+          : [],
+      ),
       update: vi.fn(async () => ({})),
+    },
+    adminWorkerSourceBlock: {
+      findMany: vi.fn(async () => []),
     },
     adminWorkerFetchResult: {
       findFirst: vi.fn(async () => null),

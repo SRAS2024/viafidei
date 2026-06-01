@@ -856,12 +856,27 @@ function scoreAction(action: BrainAction, world: WorldState): BrainAction {
       const noCandidates = world.candidateUrlsAvailable === 0;
       const noGrowth = hoursSinceCapped(world.timeSinceLastGrowthMs);
       const queueIsDoingWork = world.pendingBuildJobs > 0 || world.runningBuildJobs > 0;
+      // Drain before discover: when items are already in flight (reads to
+      // extract, artifacts awaiting checklist / verification / QA /
+      // publish, or candidates still to fetch), pushing those to public
+      // content closes the gap faster than discovering more sources — and
+      // hammering discovery while in-flight work waits is the churn that
+      // starves the pipeline. Discovery stays a low floor in that state.
+      const inFlight =
+        world.candidateUrlsAvailable +
+        world.readsAwaitingExtraction +
+        world.artifactsAwaitingChecklist +
+        world.artifactsAwaitingVerification +
+        world.artifactsAwaitingQA +
+        world.artifactsAwaitingPublish;
       urgency =
-        (gap > 0 ? Math.min(20, gap * 1.5) : 0) +
-        (noCandidates && !queueIsDoingWork ? 15 : 0) +
-        // Only push discovery hard when the queue isn't already
-        // working — otherwise let the build engine drain first.
-        (queueIsDoingWork ? 0 : Math.min(10, noGrowth / 24));
+        inFlight > 0
+          ? 2
+          : (gap > 0 ? Math.min(20, gap * 1.5) : 0) +
+            (noCandidates && !queueIsDoingWork ? 15 : 0) +
+            // Only push discovery hard when the queue isn't already
+            // working — otherwise let the build engine drain first.
+            (queueIsDoingWork ? 0 : Math.min(10, noGrowth / 24));
       sourceScore = noCandidates ? 0.2 : 0.6;
       if (gap <= 0) {
         safe = false;

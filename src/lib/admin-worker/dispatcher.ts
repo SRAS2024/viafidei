@@ -662,29 +662,30 @@ async function runClassification(prisma: PrismaClient, passId: string): Promise<
 }
 
 async function runExtraction(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
-  // Find the latest classified source-read that doesn't already have
-  // a materialised AdminWorkerPackageArtifact for the same checksum.
-  const read = await prisma.adminWorkerSourceRead.findFirst({
+  // Find a classified source-read that does NOT yet have a materialised
+  // AdminWorkerPackageArtifact. Critically, we must pick a read WITHOUT an
+  // artifact — not just the newest read — otherwise, once the newest read
+  // is extracted, every older un-extracted read is stranded forever (the
+  // stage would go idle on the newest, already-extracted read every time).
+  const candidates = await prisma.adminWorkerSourceRead.findMany({
     where: { detectedContentType: { not: null } },
     orderBy: { updatedAt: "desc" },
+    take: 50,
   });
-  if (!read) {
+  if (candidates.length === 0) {
     return idle("EXTRACTION", "No classified source-reads available for extraction.");
   }
-
-  // Skip if we already have a package artifact for this read + checksum.
-  const existing = await prisma.adminWorkerPackageArtifact
-    .findFirst({
-      where: { sourceReadId: read.id, packageChecksum: read.checksum },
-    })
-    .catch(() => null);
-  if (existing) {
-    return {
-      stage: "EXTRACTION",
-      kind: "idle",
-      summary: `Package artifact already exists for ${read.sourceUrl} (skipped).`,
-      metadata: { packageArtifactId: existing.id, status: existing.status },
-    };
+  const readIds = candidates.map((r) => r.id);
+  const artifactReadIds = new Set(
+    (
+      await prisma.adminWorkerPackageArtifact
+        .findMany({ where: { sourceReadId: { in: readIds } }, select: { sourceReadId: true } })
+        .catch(() => [] as Array<{ sourceReadId: string | null }>)
+    ).map((a) => a.sourceReadId),
+  );
+  const read = candidates.find((r) => !artifactReadIds.has(r.id));
+  if (!read) {
+    return idle("EXTRACTION", "Every classified source-read already has a package artifact.");
   }
 
   // Run the per-content-type extractor.
@@ -712,12 +713,28 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
       rejected: 1,
     };
   }
+  // Spec §154: extractors use STRUCTURED BLOCKS first; raw body text is
+  // only the fallback. Load the persisted source blocks for this read and
+  // hand them to the extractor so multi-item structures (novena days,
+  // rosary mysteries, daily consecration prayers) parse from the clean
+  // block boundaries rather than a flattened body string.
+  const blockRows = await prisma.adminWorkerSourceBlock
+    .findMany({ where: { sourceReadId: read.id }, orderBy: { blockOrder: "asc" } })
+    .catch(() => [] as Array<Record<string, unknown>>);
+  const blocks = blockRows.map((b) => ({
+    blockType: (b as { blockType: string }).blockType as never,
+    text: (b as { text: string }).text,
+    isRejected: (b as { isRejected: boolean }).isRejected,
+    blockOrder: (b as { blockOrder: number }).blockOrder,
+    confidenceScore: (b as { confidenceScore: number }).confidenceScore,
+  }));
   const extractor = extractByType(detected as never, {
     url: read.sourceUrl,
     host: read.sourceHost,
     title: read.extractedTitle,
     headings: Array.isArray(read.extractedHeadings) ? (read.extractedHeadings as string[]) : [],
     bodyText: read.extractedText ?? "",
+    blocks: blocks.length > 0 ? (blocks as never) : undefined,
     checksum: read.checksum,
   });
 
@@ -912,6 +929,41 @@ async function runPackageBuild(prisma: PrismaClient, passId: string): Promise<Di
   };
 }
 
+/**
+ * Derive a string an authoritative validation source could carry, for a
+ * sensitive field that may be a string, number, array, or object. Plain
+ * strings/numbers pass through; arrays of mystery/day objects collapse to
+ * their human names (the fact a source actually states); other objects
+ * fall back to their joined string values.
+ */
+function verifiableExpectedString(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    const names = value
+      .map((el) => {
+        if (typeof el === "string") return el;
+        if (el && typeof el === "object") {
+          const o = el as Record<string, unknown>;
+          // Rosary mystery set → its five mystery names; novena/day → title.
+          if (Array.isArray(o.mysteries)) return (o.mysteries as unknown[]).join(", ");
+          return String(o.name ?? o.title ?? o.mystery ?? "");
+        }
+        return "";
+      })
+      .filter(Boolean);
+    return names.join(", ");
+  }
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>)
+      .map((v) => (typeof v === "string" ? v : ""))
+      .filter(Boolean)
+      .join(", ");
+  }
+  return String(value);
+}
+
 async function runCrossSourceVerification(
   prisma: PrismaClient,
   passId: string,
@@ -986,10 +1038,17 @@ async function runCrossSourceVerification(
       for (const field of artifact.validationNeeds) {
         const expected = fields[field];
         if (expected == null || expected === "") continue;
+        // Derive a comparable string. Array/object sensitive fields
+        // (e.g. rosary mysterySets) cannot be string-matched as
+        // "[object Object]"; we verify a representative element instead
+        // (the mystery names), which IS the fact an authoritative source
+        // carries.
+        const expectedValue = verifiableExpectedString(expected);
+        if (!expectedValue) continue;
         const evidence = await fetchAndCompareValidation(prisma, {
           contentType: artifact.contentType,
           field,
-          expectedValue: String(expected).slice(0, 200),
+          expectedValue: expectedValue.slice(0, 200),
           slugHint: artifact.normalizedSlug,
           maxSources: 2,
           skipNetwork,
@@ -1357,8 +1416,18 @@ async function runPersistAndPublish(
         ? Math.max(qaResultForPublish.finalScore, artifact.confidenceScore)
         : artifact.confidenceScore;
 
+    // Map the extractor/classifier content type to the publishable
+    // catalog type before persisting (ROSARY / CONSECRATION are parsed
+    // by their own extractors but stored in the catalog as
+    // SPIRITUAL_PRACTICE). PublishedContent.contentType is the catalog
+    // enum, so a publish that used the raw extractor type would be
+    // rejected by the DB.
+    const { toChecklistContentType } = await import("./classifier");
+    const publishableType =
+      toChecklistContentType(artifact.contentType as never) ?? artifact.contentType;
+
     const result = await runPublishOrchestrator(prisma, {
-      contentType: artifact.contentType,
+      contentType: publishableType,
       contentId: artifact.checklistItemId ?? artifact.id,
       title: artifact.normalizedTitle,
       slug: artifact.normalizedSlug,
