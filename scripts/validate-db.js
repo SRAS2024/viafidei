@@ -6,8 +6,10 @@
 //
 // Verifies, in order:
 //   1. The database accepts a connection.
-//   2. Prisma's `_prisma_migrations` table is present and every migration in
-//      ./prisma/migrations is recorded as applied (no rolled-back rows).
+//      2. Prisma's `_prisma_migrations` table is present and every migration
+//      in ./prisma/migrations is recorded as applied (a rolled-back row is
+//      fine as long as that migration was later re-applied — the supported
+//      recovery from a failed migration).
 //   3. Every table the app reads or writes is present in the public schema.
 //   4. The columns the auth flow and core content lookups depend on exist on
 //      User, Profile, Session, PasswordResetToken, EmailVerificationToken,
@@ -252,7 +254,19 @@ async function main() {
         .map((row) => row.migration_name),
     );
     const missing = expected.filter((name) => !appliedNames.has(name));
-    const rolledBack = applied.filter((row) => row.rolled_back_at).map((row) => row.migration_name);
+    // A rolled-back row is only a problem if that migration was never
+    // successfully (re-)applied. The supported recovery for a failed
+    // migration — `migrate resolve --rolled-back` then `migrate deploy`
+    // (what scripts/migrate-deploy.sh automates) — intentionally leaves the
+    // old rolled-back row in place alongside a fresh applied row; that is a
+    // healthy, fully-migrated state, not a failure.
+    const rolledBack = [
+      ...new Set(
+        applied
+          .filter((row) => row.rolled_back_at && !appliedNames.has(row.migration_name))
+          .map((row) => row.migration_name),
+      ),
+    ];
     if (missing.length > 0 || rolledBack.length > 0) {
       failures.push({ stage: "migrations", missing, rolledBack });
       emit("error", { stage: "migrations.missing", missing, rolledBack });

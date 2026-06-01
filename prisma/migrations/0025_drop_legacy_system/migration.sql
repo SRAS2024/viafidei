@@ -1,6 +1,13 @@
 -- =============================================================================
 -- 0025_drop_legacy_system
 --
+-- @idempotent-recoverable
+--   Every statement below is guarded (DROP ... IF EXISTS / CREATE ... IF NOT
+--   EXISTS / ALTER ... DROP COLUMN IF EXISTS), so this migration is safe to
+--   re-apply regardless of how far a prior attempt got. scripts/migrate-deploy.sh
+--   relies on this marker to self-heal a P3009 "failed migration" wedge, and
+--   tests/db/idempotent-migrations.test.ts enforces that the marker is truthful.
+--
 -- Completes the transition from the legacy scraper-first ingestion +
 -- legacy public-content models to the checklist-first worker + the
 -- Admin Worker engine. Every public route already reads from

@@ -48,12 +48,15 @@ until eval "$DB_PROBE" >/dev/null 2>&1; do
 done
 log "database reachable after $((i * 2))s"
 
-# 2. Migrations. migrate deploy is idempotent; safe to run on every boot.
-# Failing here exits the container so Railway marks the deploy as failed,
-# instead of starting a server against a half-applied schema.
+# 2. Migrations. Delegated to scripts/migrate-deploy.sh, which runs
+# `migrate deploy` and self-heals the one recoverable wedge — a migration
+# recorded as failed (P3009) whose SQL is certified idempotent — by marking
+# it rolled-back and retrying once. Any other failure (or a non-idempotent
+# wedged migration) still exits non-zero here, so the container fails the
+# deploy instead of starting against a half-applied schema.
 log "applying database migrations..."
-if ! $PRISMA_CLI migrate deploy; then
-  fail "prisma migrate deploy failed — refusing to start server"
+if ! PRISMA_CLI="$PRISMA_CLI" MIGRATIONS_DIR="prisma/migrations" sh ./scripts/migrate-deploy.sh; then
+  fail "database migrations failed — refusing to start server"
 fi
 log "migrations OK"
 
