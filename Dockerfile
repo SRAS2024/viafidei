@@ -57,8 +57,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_module
 # outputFileTracingIncludes; this redundant copy is a belt-and-suspenders
 # safety net in case the trace ever drops the prebuild directory.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/argon2 ./node_modules/argon2
-COPY --chown=nextjs:nodejs scripts/start.sh scripts/validate-db.js ./scripts/
-RUN chmod +x ./scripts/start.sh ./scripts/validate-db.js
+COPY --chown=nextjs:nodejs scripts/start.sh scripts/migrate-deploy.sh scripts/validate-db.js ./scripts/
+RUN chmod +x ./scripts/start.sh ./scripts/migrate-deploy.sh ./scripts/validate-db.js
 
 USER nextjs
 EXPOSE 3000
