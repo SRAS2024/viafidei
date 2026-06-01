@@ -11,11 +11,12 @@
 //   3. Every table the app reads or writes is present in the public schema.
 //   4. The columns the auth flow and core content lookups depend on exist on
 //      User, Profile, Session, PasswordResetToken, EmailVerificationToken,
-//      Prayer, Saint, Devotion, MarianApparition, LiturgyEntry, and
-//      SpiritualLifeGuide.
-//   5. A representative SELECT against each public-facing content table
-//      succeeds — surfaces a permission, enum-cast, or column-mismatch error
-//      that pure metadata checks would miss.
+//      PublishedContent, and UserSavedContent. (Legacy per-type content
+//      tables were dropped in 0025_drop_legacy_system; public content now
+//      lives in PublishedContent.)
+//   5. A representative SELECT against PublishedContent (the public content
+//      store) succeeds — surfaces a permission, enum-cast, or column-mismatch
+//      error that pure metadata checks would miss.
 //
 // Exit codes:
 //   0 — all checks passed; safe to start the server.
@@ -44,31 +45,26 @@ try {
 }
 
 // Tables the app touches at runtime. Missing any of these means a public
-// page or the auth flow will throw.
+// page or the auth flow will throw. The legacy per-type content tables
+// (Prayer, Saint, Devotion, …) and the legacy ingestion / review / per-type
+// saved tables were dropped in 0025_drop_legacy_system; public content now
+// lives in PublishedContent and saved items in UserSavedContent. (Stage 1
+// already asserts every migration is applied, so the Admin Worker tables are
+// covered holistically — this focused list pins the core auth + public-content
+// surfaces whose absence we have actually seen cause 500s.)
 const REQUIRED_TABLES = [
+  // Auth + account
   "User",
   "Session",
   "Profile",
   "PasswordResetToken",
   "EmailVerificationToken",
+  // Personal spiritual-life data
   "JournalEntry",
   "Goal",
   "GoalChecklistItem",
   "Milestone",
-  "Prayer",
-  "PrayerTranslation",
-  "Saint",
-  "SaintTranslation",
-  "MarianApparition",
-  "MarianApparitionTranslation",
-  "Parish",
-  "Devotion",
-  "DevotionTranslation",
-  "LiturgyEntry",
-  "LiturgyEntryTranslation",
-  "SpiritualLifeGuide",
-  "SpiritualLifeGuideTranslation",
-  "DailyLiturgy",
+  // Taxonomy, media, and site chrome
   "Category",
   "Tag",
   "EntityTag",
@@ -78,17 +74,12 @@ const REQUIRED_TABLES = [
   "HomePage",
   "HomePageBlock",
   "AdminAuditLog",
-  "ContentReview",
   "RateLimitBucket",
-  "IngestionSource",
-  "IngestionJob",
-  "IngestionJobRun",
   "ContentTypePause",
-  "UserSavedPrayer",
-  "UserSavedSaint",
-  "UserSavedApparition",
-  "UserSavedParish",
-  "UserSavedDevotion",
+  // Checklist-first content store (replaces the dropped legacy tables)
+  "PublishedContent",
+  "UserSavedContent",
+  "ChecklistItem",
 ];
 
 // Columns whose absence we have actually seen cause production 500s. Pinning
@@ -111,39 +102,28 @@ const REQUIRED_COLUMNS = {
   Session: ["id", "userId", "tokenHash", "expiresAt", "createdAt", "updatedAt"],
   PasswordResetToken: ["id", "userId", "tokenHash", "expiresAt", "createdAt", "updatedAt"],
   EmailVerificationToken: ["id", "userId", "tokenHash", "expiresAt", "createdAt", "updatedAt"],
-  Prayer: [
+  // Public content lives in PublishedContent (0025_drop_legacy_system); the
+  // public site reads it via src/lib/data/published.ts, so pin the columns
+  // those reads depend on.
+  PublishedContent: [
     "id",
+    "checklistItemId",
+    "contentType",
     "slug",
-    "defaultTitle",
-    "body",
-    "category",
-    "officialPrayer",
-    "externalSourceKey",
-    "sourceHost",
-    "status",
-    "createdAt",
-    "updatedAt",
+    "title",
+    "payload",
+    "isPublished",
+    "publishedAt",
   ],
-  Saint: ["id", "slug", "canonicalName", "biography", "patronages", "status", "externalSourceKey"],
-  Devotion: ["id", "slug", "title", "summary", "status", "externalSourceKey"],
-  MarianApparition: ["id", "slug", "title", "summary", "status"],
-  LiturgyEntry: ["id", "slug", "kind", "title", "body", "status"],
-  SpiritualLifeGuide: ["id", "slug", "kind", "title", "summary", "status"],
+  UserSavedContent: ["id", "userId", "contentType", "contentSlug", "createdAt"],
 };
 
 // Tables whose readability is required by the public site. We hit each one
-// with a count() so a missing enum value or a permissions issue (not just a
-// missing column) bubbles up at boot.
-const PUBLIC_CONTENT_PROBES = [
-  ["Prayer", "prayer"],
-  ["Saint", "saint"],
-  ["MarianApparition", "marianApparition"],
-  ["Devotion", "devotion"],
-  ["Parish", "parish"],
-  ["LiturgyEntry", "liturgyEntry"],
-  ["SpiritualLifeGuide", "spiritualLifeGuide"],
-  ["DailyLiturgy", "dailyLiturgy"],
-];
+// through the Prisma client so a missing enum value or a permissions issue
+// (not just a missing column) bubbles up at boot. Public content is served
+// from PublishedContent now — the legacy per-type models no longer exist on
+// the client, so probing them would throw on `prisma.prayer` being undefined.
+const PUBLIC_CONTENT_PROBES = [["PublishedContent", "publishedContent"]];
 
 function listMigrationDirs() {
   const dir = path.resolve(__dirname, "..", "prisma", "migrations");
