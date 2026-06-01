@@ -36,8 +36,19 @@
 
 -- -----------------------------------------------------------------------------
 -- New table: UserSavedContent (single saved-content table)
+--
+-- Every statement in this migration is idempotent (CREATE ... IF NOT EXISTS /
+-- DROP ... IF EXISTS) so `prisma migrate deploy` can RE-APPLY it cleanly after
+-- a failed/interrupted attempt. The original 2026-05-25 run was recorded as
+-- failed (P3009) — most plausibly the migrate step was interrupted, or the
+-- DROPs blocked on a lock held by the still-running previous replica while
+-- removing ~30 legacy tables. Postgres runs the migration in one transaction,
+-- so a failed attempt rolls back to the pre-0025 schema; the IF NOT EXISTS
+-- guards additionally make a re-apply safe even if any object survived. To
+-- recover: `prisma migrate resolve --rolled-back 0025_drop_legacy_system`,
+-- then redeploy so this migration (and 0026+) re-apply.
 -- -----------------------------------------------------------------------------
-CREATE TABLE "UserSavedContent" (
+CREATE TABLE IF NOT EXISTS "UserSavedContent" (
   "id"          TEXT NOT NULL,
   "userId"      TEXT NOT NULL,
   "contentType" "ChecklistContentType" NOT NULL,
@@ -47,10 +58,10 @@ CREATE TABLE "UserSavedContent" (
   CONSTRAINT "UserSavedContent_userId_fkey"
     FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
-CREATE UNIQUE INDEX "UserSavedContent_userId_contentType_contentSlug_key"
+CREATE UNIQUE INDEX IF NOT EXISTS "UserSavedContent_userId_contentType_contentSlug_key"
   ON "UserSavedContent"("userId", "contentType", "contentSlug");
-CREATE INDEX "UserSavedContent_userId_idx" ON "UserSavedContent"("userId");
-CREATE INDEX "UserSavedContent_contentType_contentSlug_idx"
+CREATE INDEX IF NOT EXISTS "UserSavedContent_userId_idx" ON "UserSavedContent"("userId");
+CREATE INDEX IF NOT EXISTS "UserSavedContent_contentType_contentSlug_idx"
   ON "UserSavedContent"("contentType", "contentSlug");
 
 -- -----------------------------------------------------------------------------
