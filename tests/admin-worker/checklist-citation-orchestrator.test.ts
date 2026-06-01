@@ -71,6 +71,30 @@ describe("runChecklistAndCitationOrchestrator (spec §9 follow-on)", () => {
     expect(out[0].citationsCreated).toBeGreaterThan(0);
   });
 
+  it("maps a CONSECRATION artifact to the SPIRITUAL_PRACTICE checklist type", async () => {
+    // ChecklistItem.contentType is the ChecklistContentType enum (no
+    // CONSECRATION / ROSARY value) — the orchestrator must map via
+    // toChecklistContentType or the create() fails and the artifact is
+    // stranded at CHECKLIST_READY.
+    const prisma = makePrisma({
+      existing: null,
+      artifacts: [
+        {
+          ...ARTIFACT_WITH_PROVENANCE,
+          id: "art-con",
+          contentType: "CONSECRATION",
+          normalizedSlug: "33-day-consecration",
+        },
+      ],
+    });
+    const create = prisma.checklistItem.create as ReturnType<typeof vi.fn>;
+    const out = await runChecklistAndCitationOrchestrator(prisma);
+    expect(out[0].status).toBe("created");
+    expect(create).toHaveBeenCalledTimes(1);
+    const data = create.mock.calls[0][0].data as { contentType: string };
+    expect(data.contentType).toBe("SPIRITUAL_PRACTICE");
+  });
+
   it("attaches one citation per provenance entry", async () => {
     const prisma = makePrisma({ existing: null });
     const create = prisma.checklistCitation.create as ReturnType<typeof vi.fn>;

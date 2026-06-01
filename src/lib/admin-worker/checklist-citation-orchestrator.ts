@@ -15,6 +15,7 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
+import { toChecklistContentType } from "./classifier";
 import { writeAdminWorkerLog } from "./logs";
 
 export interface ChecklistCitationOutcome {
@@ -85,10 +86,17 @@ export async function runChecklistAndCitationOrchestrator(
     let action: "created" | "updated" | "skipped_duplicate" = "updated";
 
     if (!checklistItemId) {
+      // Map the extractor/classifier content type to the publishable
+      // catalog enum (ROSARY / CONSECRATION → SPIRITUAL_PRACTICE).
+      // ChecklistItem.contentType is the ChecklistContentType enum, so an
+      // unmapped extractor type would fail the create() and strand the
+      // artifact at CHECKLIST_READY forever.
+      const checklistType =
+        toChecklistContentType(artifact.contentType as never) ?? artifact.contentType;
       const created = await prisma.checklistItem
         .create({
           data: {
-            contentType: artifact.contentType as never,
+            contentType: checklistType as never,
             canonicalSlug: artifact.normalizedSlug,
             canonicalName: artifact.normalizedTitle,
             approvalStatus: "SOURCE_VERIFIED",

@@ -45,6 +45,8 @@ import type {
 import { getAdminWorkerState } from "./state";
 import { refreshContentGoals, nextPriorityContentType } from "./content-goals";
 import { recordDecision } from "./decisions";
+import { persistActionScores } from "./action-scores";
+import { recordReasoningEdges } from "./reasoning-graph";
 
 /**
  * The pipeline stage the brain decided to advance. Mirrors the
@@ -163,6 +165,15 @@ export interface WorldState {
   pipelineStagesBlocked: number;
   // New world signals for richer scoring.
   unclassifiedReads: number;
+  // Content-pipeline ladder signals (in-flight artifacts by state) so
+  // the brain can select EVERY stage from extraction through publish and
+  // drain in-flight items to public content rather than stalling.
+  readsAwaitingExtraction: number;
+  artifactsAwaitingChecklist: number;
+  artifactsAwaitingBuild: number;
+  artifactsAwaitingVerification: number;
+  artifactsAwaitingQA: number;
+  artifactsAwaitingPublish: number;
   publishedButUnverified: number;
   pendingQAReviews: number;
   contentGoalsAtGoalCount: number;
@@ -195,6 +206,13 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     nextGoal,
     unclassifiedReads,
     publishedTotal,
+    classifiedReads,
+    artifactsFromReads,
+    artifactsChecklistReady,
+    artifactsBuildReady,
+    artifactsBuildReadyNeedsValidation,
+    artifactsBuildOrVerification,
+    artifactsQaPassed,
     verifiedDistinct,
     pendingQAReviews,
     contentGoalsAtGoal,
@@ -222,6 +240,24 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     nextPriorityContentType(prisma),
     prisma.adminWorkerSourceRead.count({ where: { detectedContentType: null } }),
     prisma.publishedContent.count({ where: { isPublished: true } }).catch(() => 0),
+    // Content-pipeline ladder counts (artifacts by state).
+    prisma.adminWorkerSourceRead
+      .count({ where: { detectedContentType: { not: null } } })
+      .catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { sourceReadId: { not: null } } })
+      .catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { status: "CHECKLIST_READY" } })
+      .catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "BUILD_READY" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { status: "BUILD_READY", validationNeeds: { isEmpty: false } } })
+      .catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } } })
+      .catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "QA_PASSED" } }).catch(() => 0),
     prisma.postPublishVerification
       .findMany({ select: { contentId: true }, distinct: ["contentId"] })
       .catch(() => [] as Array<{ contentId: string }>),
@@ -271,6 +307,13 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     pendingRepairPlans,
     pipelineStagesBlocked,
     unclassifiedReads,
+    // Reads classified but not yet extracted into an artifact.
+    readsAwaitingExtraction: Math.max(0, classifiedReads - artifactsFromReads),
+    artifactsAwaitingChecklist: artifactsChecklistReady,
+    artifactsAwaitingBuild: artifactsBuildReady,
+    artifactsAwaitingVerification: artifactsBuildReadyNeedsValidation,
+    artifactsAwaitingQA: artifactsBuildOrVerification,
+    artifactsAwaitingPublish: artifactsQaPassed,
     publishedButUnverified: Math.max(0, publishedTotal - verifiedDistinct.length),
     pendingQAReviews,
     contentGoalsAtGoalCount: contentGoalsAtGoal,
@@ -451,6 +494,57 @@ function enumerateCandidateActions(world: WorldState): BrainAction[] {
       safe: true,
       rejectionReason: null,
     },
+    // Extraction — classified reads exist that have no package artifact.
+    {
+      actionType: "BUILD_CONTENT",
+      missionStage: "EXTRACTION",
+      mode: "CONSTANT_FILL",
+      priority: "CONTENT_BUILD",
+      passType: "CONTENT_GOAL",
+      contentType: ct,
+      sourceTarget: null,
+      candidateUrl: null,
+      expectedOutput: "Extract a package artifact from a classified source-read.",
+      confidenceScore: 0.82,
+      riskScore: 0.12,
+      qualityExpectation: 0.75,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "classification",
+      stopCondition: "no classified reads awaiting extraction",
+      reasonSummary: `${world.readsAwaitingExtraction} classified read(s) awaiting extraction.`,
+      rulesEvaluated: { readsAwaitingExtraction: world.readsAwaitingExtraction },
+      safe: true,
+      rejectionReason: null,
+    },
+    // Checklist + citations — CHECKLIST_READY artifacts need checklist
+    // items + citations created before they can be built/published.
+    {
+      actionType: "BUILD_CONTENT",
+      missionStage: "CHECKLIST_CREATION",
+      mode: "CONSTANT_FILL",
+      priority: "CONTENT_BUILD",
+      passType: "CONTENT_GOAL",
+      contentType: ct,
+      sourceTarget: null,
+      candidateUrl: null,
+      expectedOutput: "Create checklist items + citations for CHECKLIST_READY artifacts.",
+      confidenceScore: 0.85,
+      riskScore: 0.1,
+      qualityExpectation: 0.8,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "extraction",
+      stopCondition: "no CHECKLIST_READY artifacts",
+      reasonSummary: `${world.artifactsAwaitingChecklist} artifact(s) awaiting checklist + citations.`,
+      rulesEvaluated: { artifactsAwaitingChecklist: world.artifactsAwaitingChecklist },
+      safe: true,
+      rejectionReason: null,
+    },
     // Build — pending build jobs or content-type gap with candidates available.
     {
       actionType: "BUILD_CONTENT",
@@ -498,9 +592,65 @@ function enumerateCandidateActions(world: WorldState): BrainAction[] {
       repairScore: 0,
       finalScore: 0,
       fallbackAction: "human review",
-      stopCondition: "no pending QA reviews",
-      reasonSummary: `${world.pendingQAReviews} QA reports awaiting verification.`,
-      rulesEvaluated: { pendingQAReviews: world.pendingQAReviews },
+      stopCondition: "no artifacts awaiting validation evidence and no pending QA reviews",
+      reasonSummary: `${world.artifactsAwaitingVerification} artifact(s) awaiting cross-source evidence; ${world.pendingQAReviews} QA review(s) pending.`,
+      rulesEvaluated: {
+        artifactsAwaitingVerification: world.artifactsAwaitingVerification,
+        pendingQAReviews: world.pendingQAReviews,
+      },
+      safe: true,
+      rejectionReason: null,
+    },
+    // Strict QA — BUILD_READY / VERIFICATION_READY artifacts need their
+    // durable strict-QA result before they can publish (mandatory gate).
+    {
+      actionType: "VALIDATE_CONTENT",
+      missionStage: "STRICT_QA",
+      mode: "CONSTANT_FILL",
+      priority: "CONTENT_VALIDATION",
+      passType: "CONTENT_GOAL",
+      contentType: ct,
+      sourceTarget: null,
+      candidateUrl: null,
+      expectedOutput: "Score strict QA on built artifacts; pass/repair/reject.",
+      confidenceScore: 0.85,
+      riskScore: 0.1,
+      qualityExpectation: 0.85,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "repair",
+      stopCondition: "no artifacts awaiting strict QA",
+      reasonSummary: `${world.artifactsAwaitingQA} artifact(s) awaiting strict QA.`,
+      rulesEvaluated: { artifactsAwaitingQA: world.artifactsAwaitingQA },
+      safe: true,
+      rejectionReason: null,
+    },
+    // Publish — QA-passed artifacts go public through the orchestrator.
+    // Highest content-side urgency: this is the stage that actually
+    // closes the content-goal gap, so the brain drains it first.
+    {
+      actionType: "PUBLISH_CONTENT",
+      missionStage: "PUBLIC_PUBLISH",
+      mode: "CONSTANT_FILL",
+      priority: "CONTENT_BUILD",
+      passType: "CONTENT_GOAL",
+      contentType: ct,
+      sourceTarget: null,
+      candidateUrl: null,
+      expectedOutput: "Publish QA-passed artifacts via the publish orchestrator.",
+      confidenceScore: 0.9,
+      riskScore: 0.15,
+      qualityExpectation: 0.9,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "strict QA",
+      stopCondition: "no QA-passed artifacts awaiting publish",
+      reasonSummary: `${world.artifactsAwaitingPublish} QA-passed artifact(s) awaiting publish.`,
+      rulesEvaluated: { artifactsAwaitingPublish: world.artifactsAwaitingPublish },
       safe: true,
       rejectionReason: null,
     },
@@ -706,12 +856,27 @@ function scoreAction(action: BrainAction, world: WorldState): BrainAction {
       const noCandidates = world.candidateUrlsAvailable === 0;
       const noGrowth = hoursSinceCapped(world.timeSinceLastGrowthMs);
       const queueIsDoingWork = world.pendingBuildJobs > 0 || world.runningBuildJobs > 0;
+      // Drain before discover: when items are already in flight (reads to
+      // extract, artifacts awaiting checklist / verification / QA /
+      // publish, or candidates still to fetch), pushing those to public
+      // content closes the gap faster than discovering more sources — and
+      // hammering discovery while in-flight work waits is the churn that
+      // starves the pipeline. Discovery stays a low floor in that state.
+      const inFlight =
+        world.candidateUrlsAvailable +
+        world.readsAwaitingExtraction +
+        world.artifactsAwaitingChecklist +
+        world.artifactsAwaitingVerification +
+        world.artifactsAwaitingQA +
+        world.artifactsAwaitingPublish;
       urgency =
-        (gap > 0 ? Math.min(20, gap * 1.5) : 0) +
-        (noCandidates && !queueIsDoingWork ? 15 : 0) +
-        // Only push discovery hard when the queue isn't already
-        // working — otherwise let the build engine drain first.
-        (queueIsDoingWork ? 0 : Math.min(10, noGrowth / 24));
+        inFlight > 0
+          ? 2
+          : (gap > 0 ? Math.min(20, gap * 1.5) : 0) +
+            (noCandidates && !queueIsDoingWork ? 15 : 0) +
+            // Only push discovery hard when the queue isn't already
+            // working — otherwise let the build engine drain first.
+            (queueIsDoingWork ? 0 : Math.min(10, noGrowth / 24));
       sourceScore = noCandidates ? 0.2 : 0.6;
       if (gap <= 0) {
         safe = false;
@@ -721,8 +886,16 @@ function scoreAction(action: BrainAction, world: WorldState): BrainAction {
     }
     case "SOURCE_FETCH": {
       const trusted = world.trustedSources;
-      urgency = Math.min(20, world.candidateUrlsAvailable * 2);
-      sourceScore = 0.4 + Math.min(0.4, trusted * 0.05);
+      // Fetching available candidates is the path that closes the gap
+      // when raw candidates exist. Scale urgency with both the number of
+      // ready candidates and the gap pressure so SOURCE_FETCH outranks
+      // both DISCOVERY (don't keep discovering when you have unfetched
+      // candidates) and PACKAGE_BUILD (you can't build before you fetch).
+      urgency =
+        world.candidateUrlsAvailable === 0
+          ? 0
+          : Math.min(48, world.candidateUrlsAvailable * 6 + (world.contentGoalGap > 0 ? 12 : 0));
+      sourceScore = 0.5 + Math.min(0.4, trusted * 0.05);
       quality = world.candidateUrlsAvailable === 0 ? 0 : quality;
       if (world.candidateUrlsAvailable === 0) {
         safe = false;
@@ -739,28 +912,95 @@ function scoreAction(action: BrainAction, world: WorldState): BrainAction {
       }
       break;
     }
-    case "PACKAGE_BUILD": {
-      const gap = world.contentGoalGap;
-      // Pending build jobs already have candidates + checklist items
-      // attached — they are the closest thing to a one-shot publishable
-      // result and should win over upstream pipeline stages.
-      urgency = Math.min(60, world.pendingBuildJobs * 8 + gap * 1.5);
-      sourceScore = world.pendingBuildJobs > 0 ? 0.8 : world.candidateUrlsAvailable > 0 ? 0.5 : 0.1;
-      quality = world.pendingBuildJobs > 0 ? 0.85 : quality;
-      if (world.pendingBuildJobs === 0 && gap === 0) {
+    case "EXTRACTION": {
+      urgency =
+        world.readsAwaitingExtraction > 0
+          ? Math.min(42, 26 + world.readsAwaitingExtraction * 4)
+          : 0;
+      sourceScore = world.readsAwaitingExtraction > 0 ? 0.7 : 0;
+      quality = world.readsAwaitingExtraction > 0 ? 0.78 : quality;
+      if (world.readsAwaitingExtraction === 0) {
         safe = false;
-        rejection = "Build queue empty and all goals met.";
+        rejection = "No classified reads awaiting extraction.";
       }
       break;
     }
-    case "CROSS_SOURCE_VERIFICATION":
-      urgency = Math.min(20, world.pendingQAReviews * 4);
-      quality = world.pendingQAReviews > 0 ? 0.85 : quality;
-      if (world.pendingQAReviews === 0) {
+    case "CHECKLIST_CREATION": {
+      urgency =
+        world.artifactsAwaitingChecklist > 0
+          ? Math.min(46, 30 + world.artifactsAwaitingChecklist * 4)
+          : 0;
+      sourceScore = world.artifactsAwaitingChecklist > 0 ? 0.75 : 0;
+      quality = world.artifactsAwaitingChecklist > 0 ? 0.82 : quality;
+      if (world.artifactsAwaitingChecklist === 0) {
         safe = false;
-        rejection = "No pending QA reviews to verify.";
+        rejection = "No CHECKLIST_READY artifacts awaiting checklist + citations.";
       }
       break;
+    }
+    case "STRICT_QA": {
+      urgency =
+        world.artifactsAwaitingQA > 0 ? Math.min(58, 40 + world.artifactsAwaitingQA * 4) : 0;
+      sourceScore = world.artifactsAwaitingQA > 0 ? 0.8 : 0;
+      quality = world.artifactsAwaitingQA > 0 ? 0.85 : quality;
+      if (world.artifactsAwaitingQA === 0) {
+        safe = false;
+        rejection = "No artifacts awaiting strict QA.";
+      }
+      break;
+    }
+    case "PUBLIC_PUBLISH": {
+      // The stage that actually closes the content-goal gap — drain it
+      // first so in-flight, QA-passed artifacts reach the public site
+      // before the worker starts new discovery work.
+      urgency =
+        world.artifactsAwaitingPublish > 0
+          ? Math.min(70, 50 + world.artifactsAwaitingPublish * 5)
+          : 0;
+      sourceScore = world.artifactsAwaitingPublish > 0 ? 0.85 : 0;
+      quality = world.artifactsAwaitingPublish > 0 ? 0.9 : quality;
+      if (world.artifactsAwaitingPublish === 0) {
+        safe = false;
+        rejection = "No QA-passed artifacts awaiting publish.";
+      }
+      break;
+    }
+    case "PACKAGE_BUILD": {
+      const gap = world.contentGoalGap;
+      // PACKAGE_BUILD only drains LEGACY pending build jobs. BUILD_READY
+      // package artifacts are advanced directly by CROSS_SOURCE_VERIFICATION
+      // (when they carry validation needs) and STRICT_QA — runPackageBuild
+      // is a deferring no-op for them, so letting it compete for
+      // BUILD_READY artifacts just makes the brain spin on a stage that
+      // can't advance the item. Gate strictly on pending jobs.
+      urgency =
+        world.pendingBuildJobs > 0 ? Math.min(60, world.pendingBuildJobs * 8 + gap * 1.5) : 0;
+      sourceScore = world.pendingBuildJobs > 0 ? 0.8 : 0.1;
+      quality = world.pendingBuildJobs > 0 ? 0.85 : quality;
+      if (world.pendingBuildJobs === 0) {
+        safe = false;
+        rejection = "No pending build jobs (BUILD_READY artifacts advance via QA, not PACKAGE_BUILD).";
+      }
+      break;
+    }
+    case "CROSS_SOURCE_VERIFICATION": {
+      // Sensitive content (saint feast day, novena day count, sacrament
+      // identity, …) MUST gather stored cross-source evidence BEFORE
+      // strict QA — otherwise the validation dimension scores zero and
+      // the artifact fails QA. So this stage out-ranks STRICT_QA whenever
+      // a BUILD_READY artifact still needs validation evidence.
+      const needsVerification = world.artifactsAwaitingVerification;
+      urgency =
+        needsVerification > 0
+          ? Math.min(62, 46 + needsVerification * 4)
+          : Math.min(20, world.pendingQAReviews * 4);
+      quality = needsVerification > 0 || world.pendingQAReviews > 0 ? 0.85 : quality;
+      if (needsVerification === 0 && world.pendingQAReviews === 0) {
+        safe = false;
+        rejection = "No artifacts awaiting cross-source evidence and no pending QA reviews.";
+      }
+      break;
+    }
     case "POST_PUBLISH_VERIFY":
       urgency = Math.min(20, world.publishedButUnverified * 0.5);
       quality = 0.9;
@@ -1155,7 +1395,7 @@ export async function runBrain(
   ]);
   const decision = decide(world, feedback);
 
-  await recordDecision(prisma, {
+  const { id: decisionId } = await recordDecision(prisma, {
     passId: opts.passId,
     decisionType: "brain_pass",
     inputSummary: JSON.stringify(world).slice(0, 480),
@@ -1202,6 +1442,49 @@ export async function runBrain(
     contentType: decision.contentType ?? undefined,
     missionStage: decision.missionStage,
   });
+
+  // Spec §5-7: persist every ranked action (not only the selected one)
+  // to AdminWorkerActionScore so the command center + Worker Reasoning
+  // view + Developer Audit can show "why this action and why not the
+  // others" from durable, queryable rows.
+  await persistActionScores(prisma, decision, { decisionId, passId: opts.passId }).catch(
+    () => undefined,
+  );
+
+  // Spec §23-45 + §48: record the brain's reasoning as graph edges so
+  // the decision is explainable later. The chosen action is connected to
+  // its mission stage with "selected because <reason>"; the strongest
+  // rejected alternative is connected with "rejected because <reason>".
+  const chosen = decision.chosenAction;
+  const topRejected = decision.rankedAlternatives.find((a) => a !== chosen);
+  await recordReasoningEdges(prisma, [
+    {
+      contentType: decision.contentType,
+      passId: opts.passId,
+      decisionId,
+      from: { type: "BRAIN_DECISION", id: decisionId, label: "brain pass" },
+      to: { type: "ACTION", label: chosen.missionStage },
+      relation: "SELECTED_BECAUSE",
+      explanation: chosen.reasonSummary,
+      confidence: chosen.confidenceScore,
+    },
+    ...(topRejected
+      ? [
+          {
+            contentType: decision.contentType,
+            passId: opts.passId,
+            decisionId,
+            from: { type: "BRAIN_DECISION" as const, id: decisionId, label: "brain pass" },
+            to: { type: "ACTION" as const, label: topRejected.missionStage },
+            relation: "REJECTED_BECAUSE" as const,
+            explanation:
+              topRejected.rejectionReason ??
+              `lower score (${topRejected.finalScore.toFixed(1)} vs ${chosen.finalScore.toFixed(1)})`,
+            confidence: topRejected.confidenceScore,
+          },
+        ]
+      : []),
+  ]).catch(() => undefined);
 
   return decision;
 }

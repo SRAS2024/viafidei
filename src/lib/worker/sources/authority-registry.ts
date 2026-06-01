@@ -176,12 +176,40 @@ export const AUTHORITY_SOURCES: AuthoritySourceSeed[] = [
   },
 ];
 
+/**
+ * Local-verification-only source hosts. When `ADMIN_WORKER_DEV_SOURCE_HOSTS`
+ * is set AND `NODE_ENV !== "production"`, the listed hosts are treated as
+ * approved COMMUNITY-level sources so a developer can point the worker at a
+ * LOCAL MIRROR of approved Catholic content and watch the full autonomous
+ * chain (fetch → read → blocks → classify → extract → build → strict QA →
+ * quality → publish → verify) run end-to-end offline.
+ *
+ * Safety: this NEVER fires in production (guarded by NODE_ENV) and lowers
+ * NO standard — content from a dev host must still pass strict QA, quality
+ * scoring, and the per-type content contract before it can publish, exactly
+ * like any other source. It only widens the fetch allow-list for local runs.
+ */
+function devSourceHosts(): string[] {
+  if (process.env.NODE_ENV === "production") return [];
+  const raw = process.env.ADMIN_WORKER_DEV_SOURCE_HOSTS;
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export function authorityLevelForHost(host: string): SourceAuthorityLevel | null {
   const normalized = host.toLowerCase();
   const match = AUTHORITY_SOURCES.find(
     (src) => normalized === src.host || normalized.endsWith(`.${src.host}`),
   );
-  return match?.authorityLevel ?? null;
+  if (match) return match.authorityLevel;
+  // Local-verification hook (non-production only).
+  if (devSourceHosts().some((h) => normalized === h || normalized.endsWith(`.${h}`))) {
+    return "COMMUNITY";
+  }
+  return null;
 }
 
 export function isApprovedAuthorityHost(host: string): boolean {

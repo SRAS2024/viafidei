@@ -94,8 +94,10 @@ code path from the database to a public page, and only
 | `AdminWorkerTask`                    | Planned action; produces one or more log rows                 |
 | `AdminWorkerLog`                     | Structured engine log (16 categories)                         |
 | `AdminWorkerDecision`                | Brain decision: chosen action + ranked alternatives + reason  |
+| `AdminWorkerActionScore`             | One row per ranked action (every action, not only the chosen) |
+| `AdminWorkerReasoningGraph`          | Directed "why" graph edges connecting every pipeline entity   |
 | `AdminWorkerMemory`                  | Outcome counts + confidence — no invented facts, 30-day decay |
-| `AdminWorkerSourceReputation`        | EWMA-smoothed per-(host, contentType) reputation tier         |
+| `AdminWorkerSourceReputation`        | EWMA + time-decayed per-(host, contentType) reputation tier   |
 | `AdminWorkerSecurityAction`          | Defender actions taken in response to security events         |
 | `AdminWorkerSourceRead`              | Durable extracted text per (sourceUrl, checksum)              |
 | `AdminWorkerSourceBlock`             | Structured HTML blocks (heading, paragraph, list, …)          |
@@ -186,6 +188,7 @@ Optional environment variables:
 | ------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Command Center     | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls |
 | System diagnostics | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF             |
+| Worker Reasoning   | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph  |
 | Pipeline map       | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                               |
 | Package artifacts  | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                            |
 | Admin Worker logs  | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                            |
@@ -743,6 +746,48 @@ npm run test:e2e    # playwright
 npm run verify      # typecheck + lint + format:check + test
 npm run verify:full # verify + integration + e2e + build
 ```
+
+### Admin Worker proof gate
+
+```bash
+npm run admin-worker:proof                    # full gate: prisma validate + typecheck + lint
+                                              #   + unit/integration/full-pipeline tests
+                                              #   + no-legacy + no-placeholder tests
+                                              #   + offline brain dry run + content-growth proof
+npm run admin-worker:proof:content            # one content item through all 16 pipeline stages
+npm run admin-worker:proof:all-content-types  # one full pipeline proof per content type (real extractor)
+npm run admin-worker:proof:security           # 5 defender flows (login email, threshold, ban, mutation, reuse)
+npm run admin-worker:proof:reports            # Developer Audit generates + required sections + secret redaction
+npm run admin-worker:proof:live               # back-half proof against a REAL DB: extract → publish a prayer
+npm run admin-worker:proof:autonomy           # FULL autonomous loop vs REAL DB + REAL HTTP (local mirror)
+npm run worker:dry-run                        # offline brain action-ranking across synthetic worlds
+```
+
+`admin-worker:proof:autonomy` is the strongest end-to-end proof: it serves
+content-complete fixtures from a local HTTP server (a mirror of approved
+content, since the CI sandbox blocks outbound fetches), seeds candidate
+URLs, and runs the **real worker loop** — the brain ranks actions each
+pass and the dispatcher really fetches over HTTP, reads the page into
+structured blocks, classifies, extracts the package artifact, creates
+checklist + citations, runs strict QA, scores quality, and publishes
+through the orchestrator. It confirms the worker autonomously publishes PRAYER + DEVOTION and — via
+a real fetch-and-compare against an INDEPENDENT validation mirror — the
+doctrinally-sensitive SAINT (name + patronage + birthplace + lived dates
++ feast day + background), with the feast day cross-source verified before
+publishing. It uses the `ADMIN_WORKER_DEV_SOURCE_HOSTS` +
+`ADMIN_WORKER_DEV_VALIDATION_HOSTS` hooks (non-production only) to allow
+the local mirrors; every QA / quality / content-contract / cross-source
+gate still applies. Sensitive content with no reachable validation source
+correctly holds in NEEDS_REPAIR (a `VALIDATION_EVIDENCE_MISSING` plan is
+filed) rather than publishing unverified.
+
+The proof tests live in `tests/admin-worker/proof/` and drive the real
+extractors / strict-QA / quality scorer / publish orchestrator (so they
+prove content correctness: a prayer yields title + actual prayer text, a
+saint yields name + feast day + patronage + biography, a novena yields
+exactly nine days, junk content fails). `admin-worker:proof:live`
+publishes a real `PublishedContent` row to the configured database and
+prints the resulting reasoning chain.
 
 The unit + component suite covers:
 

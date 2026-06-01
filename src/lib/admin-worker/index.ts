@@ -69,6 +69,10 @@ export {
   deriveTier,
   listSourcesByTier,
   listPausedSources,
+  decaySourceReputation,
+  decayedReputationRates,
+  REPUTATION_POSITIVE_HALF_LIFE_DAYS,
+  REPUTATION_NEGATIVE_HALF_LIFE_DAYS,
   type SourceOutcomeUpdate,
 } from "./source-reputation";
 
@@ -142,6 +146,26 @@ export { classifyDetailed, type DetailedClassification } from "./classifier";
 export { runRepairOrchestrator, type RepairOrchestratorOutcome } from "./repair-orchestrator";
 
 export { decayedConfidence, decayMemory, listMemoryAudit } from "./memory";
+
+export {
+  persistActionScores,
+  buildActionExplanation,
+  explainCurrentAction,
+  type ActionExplanation,
+} from "./action-scores";
+
+export {
+  recordReasoningEdge,
+  recordReasoningEdges,
+  getReasoningChain,
+  listReasoningChains,
+  type ReasoningNodeType,
+  type ReasoningRelation,
+  type ReasoningEdgeInput,
+  type ReasoningChain,
+  type ReasoningChainEdge,
+  type ReasoningChainNode,
+} from "./reasoning-graph";
 
 export {
   runPublishOrchestrator,

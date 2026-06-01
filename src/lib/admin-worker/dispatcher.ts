@@ -662,29 +662,30 @@ async function runClassification(prisma: PrismaClient, passId: string): Promise<
 }
 
 async function runExtraction(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
-  // Find the latest classified source-read that doesn't already have
-  // a materialised AdminWorkerPackageArtifact for the same checksum.
-  const read = await prisma.adminWorkerSourceRead.findFirst({
+  // Find a classified source-read that does NOT yet have a materialised
+  // AdminWorkerPackageArtifact. Critically, we must pick a read WITHOUT an
+  // artifact — not just the newest read — otherwise, once the newest read
+  // is extracted, every older un-extracted read is stranded forever (the
+  // stage would go idle on the newest, already-extracted read every time).
+  const candidates = await prisma.adminWorkerSourceRead.findMany({
     where: { detectedContentType: { not: null } },
     orderBy: { updatedAt: "desc" },
+    take: 50,
   });
-  if (!read) {
+  if (candidates.length === 0) {
     return idle("EXTRACTION", "No classified source-reads available for extraction.");
   }
-
-  // Skip if we already have a package artifact for this read + checksum.
-  const existing = await prisma.adminWorkerPackageArtifact
-    .findFirst({
-      where: { sourceReadId: read.id, packageChecksum: read.checksum },
-    })
-    .catch(() => null);
-  if (existing) {
-    return {
-      stage: "EXTRACTION",
-      kind: "idle",
-      summary: `Package artifact already exists for ${read.sourceUrl} (skipped).`,
-      metadata: { packageArtifactId: existing.id, status: existing.status },
-    };
+  const readIds = candidates.map((r) => r.id);
+  const artifactReadIds = new Set(
+    (
+      await prisma.adminWorkerPackageArtifact
+        .findMany({ where: { sourceReadId: { in: readIds } }, select: { sourceReadId: true } })
+        .catch(() => [] as Array<{ sourceReadId: string | null }>)
+    ).map((a) => a.sourceReadId),
+  );
+  const read = candidates.find((r) => !artifactReadIds.has(r.id));
+  if (!read) {
+    return idle("EXTRACTION", "Every classified source-read already has a package artifact.");
   }
 
   // Run the per-content-type extractor.
@@ -712,12 +713,28 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
       rejected: 1,
     };
   }
+  // Spec §154: extractors use STRUCTURED BLOCKS first; raw body text is
+  // only the fallback. Load the persisted source blocks for this read and
+  // hand them to the extractor so multi-item structures (novena days,
+  // rosary mysteries, daily consecration prayers) parse from the clean
+  // block boundaries rather than a flattened body string.
+  const blockRows = await prisma.adminWorkerSourceBlock
+    .findMany({ where: { sourceReadId: read.id }, orderBy: { blockOrder: "asc" } })
+    .catch(() => [] as Array<Record<string, unknown>>);
+  const blocks = blockRows.map((b) => ({
+    blockType: (b as { blockType: string }).blockType as never,
+    text: (b as { text: string }).text,
+    isRejected: (b as { isRejected: boolean }).isRejected,
+    blockOrder: (b as { blockOrder: number }).blockOrder,
+    confidenceScore: (b as { confidenceScore: number }).confidenceScore,
+  }));
   const extractor = extractByType(detected as never, {
     url: read.sourceUrl,
     host: read.sourceHost,
     title: read.extractedTitle,
     headings: Array.isArray(read.extractedHeadings) ? (read.extractedHeadings as string[]) : [],
     bodyText: read.extractedText ?? "",
+    blocks: blocks.length > 0 ? (blocks as never) : undefined,
     checksum: read.checksum,
   });
 
@@ -912,6 +929,41 @@ async function runPackageBuild(prisma: PrismaClient, passId: string): Promise<Di
   };
 }
 
+/**
+ * Derive a string an authoritative validation source could carry, for a
+ * sensitive field that may be a string, number, array, or object. Plain
+ * strings/numbers pass through; arrays of mystery/day objects collapse to
+ * their human names (the fact a source actually states); other objects
+ * fall back to their joined string values.
+ */
+function verifiableExpectedString(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) {
+    const names = value
+      .map((el) => {
+        if (typeof el === "string") return el;
+        if (el && typeof el === "object") {
+          const o = el as Record<string, unknown>;
+          // Rosary mystery set → its five mystery names; novena/day → title.
+          if (Array.isArray(o.mysteries)) return (o.mysteries as unknown[]).join(", ");
+          return String(o.name ?? o.title ?? o.mystery ?? "");
+        }
+        return "";
+      })
+      .filter(Boolean);
+    return names.join(", ");
+  }
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>)
+      .map((v) => (typeof v === "string" ? v : ""))
+      .filter(Boolean)
+      .join(", ");
+  }
+  return String(value);
+}
+
 async function runCrossSourceVerification(
   prisma: PrismaClient,
   passId: string,
@@ -939,7 +991,16 @@ async function runCrossSourceVerification(
   let usedHosts: string[] = [];
 
   if (artifact && artifact.validationNeeds.length > 0) {
-    // Check if we've already verified this artifact recently.
+    // Check whether we already hold MATCH/PASS evidence for this artifact.
+    const matchingEvidence = await prisma.adminWorkerCrossSourceVerification
+      .count({
+        where: {
+          contentType: artifact.contentType,
+          contentId: artifact.id,
+          matchResult: { in: ["MATCH", "PASS"] },
+        },
+      })
+      .catch(() => 0);
     const already = await prisma.adminWorkerCrossSourceVerification
       .findFirst({
         where: { contentType: artifact.contentType, contentId: artifact.id },
@@ -948,50 +1009,83 @@ async function runCrossSourceVerification(
       })
       .catch(() => null);
 
+    // Already verified (e.g. evidence recorded on a prior pass): promote
+    // the artifact so strict QA picks it up and the brain stops
+    // re-selecting verification for it.
+    if (already && matchingEvidence > 0 && artifact.status === "BUILD_READY") {
+      await prisma.adminWorkerPackageArtifact
+        .update({ where: { id: artifact.id }, data: { status: "VERIFICATION_READY" } })
+        .catch(() => undefined);
+      verifiedFieldCount = matchingEvidence;
+    }
+
     if (!already) {
       const { runVerifier } = await import("./verifier");
       const { fetchAndCompareValidation } = await import("./validation-fetcher");
+      const { REQUIRED_FACTS } = await import("./cross-source-verifier");
       const fields = (artifact.extractedFields as Record<string, unknown>) ?? {};
       const skipNetwork = process.env.ADMIN_WORKER_SKIP_NETWORK === "1";
 
-      // For each sensitive field, actually fetch the validation
+      // Fetch validation for EXACTLY the fields the verifier will check
+      // (REQUIRED_FACTS) — unioned with the package's validationNeeds.
+      // Previously this fetched only validationNeeds while the verifier
+      // checked REQUIRED_FACTS, so the two never lined up and every field
+      // came back MISSING (a doctrinally-sensitive artifact could never
+      // gather evidence and so could never publish).
+      const requiredFacts =
+        (REQUIRED_FACTS as Record<string, string[]>)[artifact.contentType] ?? [];
+      const fieldsToVerify = [...new Set([...requiredFacts, ...artifact.validationNeeds])];
+
+      // For each field the verifier checks, actually fetch the validation
       // source page(s) and compare the expected value (spec §1
       // follow-up: validation sources must be fetched and compared,
-      // not just named).
+      // not just named). We accumulate ALL fields per validation host into
+      // ONE source entry — a per-host dedup that dropped every field after
+      // the first one would leave the verifier with no value to compare
+      // for the rest, wrongly blocking confirmed facts.
       const validationSources: Array<{
         host: string;
         fields: Record<string, unknown>;
         url?: string;
       }> = [];
-      const seenHosts = new Set<string>();
-      for (const field of artifact.validationNeeds) {
+      const byHost = new Map<string, { url?: string; fields: Record<string, unknown> }>();
+      for (const field of fieldsToVerify) {
         const expected = fields[field];
         if (expected == null || expected === "") continue;
+        // Derive a comparable string. Array/object sensitive fields
+        // (e.g. rosary mysterySets) cannot be string-matched as
+        // "[object Object]"; we verify a representative element instead
+        // (the mystery names), which IS the fact an authoritative source
+        // carries.
+        const expectedValue = verifiableExpectedString(expected);
+        if (!expectedValue) continue;
         const evidence = await fetchAndCompareValidation(prisma, {
           contentType: artifact.contentType,
           field,
-          expectedValue: String(expected).slice(0, 200),
+          expectedValue: expectedValue.slice(0, 200),
           slugHint: artifact.normalizedSlug,
           maxSources: 2,
           skipNetwork,
         }).catch(() => []);
         for (const e of evidence) {
-          if (seenHosts.has(e.host)) continue;
-          seenHosts.add(e.host);
-          // Translate the fetch evidence into the verifier shape.
+          // A source we could NOT fetch (MISSING_EVIDENCE) is not
+          // evidence of anything — it must never be translated into a
+          // disagreeing value, otherwise an unreachable approved source
+          // would wrongly block a field that another source confirmed.
+          if (e.matchStatus === "MISSING_EVIDENCE") continue;
           // MATCH → the validation source carries the same value;
-          // MISMATCH → the source disagrees;
-          // MISSING_EVIDENCE → could not fetch or could not find.
-          const validationFieldValue =
-            e.matchStatus === "MATCH" ? expected : (e.found ?? "(not found)");
-          validationSources.push({
-            host: e.host,
-            url: e.url,
-            fields: { [field]: validationFieldValue },
-          });
+          // MISMATCH → the source disagrees (real different value found).
+          const validationFieldValue = e.matchStatus === "MATCH" ? expected : (e.found ?? "");
+          if (!validationFieldValue) continue;
+          const entry = byHost.get(e.host) ?? { url: e.url, fields: {} };
+          entry.fields[field] = validationFieldValue;
+          byHost.set(e.host, entry);
         }
       }
-      usedHosts = [...seenHosts];
+      for (const [host, v] of byHost.entries()) {
+        validationSources.push({ host, url: v.url, fields: v.fields });
+      }
+      usedHosts = [...byHost.keys()];
 
       const result = await runVerifier(prisma, {
         contentType: artifact.contentType,
@@ -1014,6 +1108,40 @@ async function runCrossSourceVerification(
           stage: "verification",
           ok: blockingFields.length === 0,
         }).catch(() => undefined);
+      }
+
+      // Advance the artifact out of the verification queue. When evidence
+      // confirmed every sensitive field, promote BUILD_READY →
+      // VERIFICATION_READY so strict QA picks it up (and the brain stops
+      // re-selecting verification for it). When evidence is missing /
+      // conflicting, file a VALIDATION_EVIDENCE_MISSING repair plan and
+      // park the artifact in NEEDS_REPAIR — sensitive content must never
+      // publish without stored evidence (spec §246, §258).
+      if (verifiedFieldCount > 0 && blockingFields.length === 0) {
+        await prisma.adminWorkerPackageArtifact
+          .update({ where: { id: artifact.id }, data: { status: "VERIFICATION_READY" } })
+          .catch(() => undefined);
+      } else if (blockingFields.length > 0) {
+        const { filePlan } = await import("./repair-plans");
+        await filePlan(prisma, {
+          kind: "VALIDATION_EVIDENCE_MISSING",
+          failedEntity: artifact.id,
+          repairAction: `Fetch + compare validation sources for ${blockingFields.join(", ")} on ${artifact.contentType}/${artifact.normalizedSlug}.`,
+          metadata: {
+            artifactId: artifact.id,
+            contentType: artifact.contentType,
+            blockingFields,
+          },
+        }).catch(() => undefined);
+        await prisma.adminWorkerPackageArtifact
+          .update({
+            where: { id: artifact.id },
+            data: {
+              status: "NEEDS_REPAIR",
+              rejectionReason: `missing cross-source evidence for ${blockingFields.join(", ")}`,
+            },
+          })
+          .catch(() => undefined);
       }
     }
   }
@@ -1093,6 +1221,17 @@ async function runStrictQA(prisma: PrismaClient, passId: string): Promise<Dispat
 
   for (const artifact of candidates) {
     if (!artifact) continue;
+    // Defensive: a BUILD_READY artifact that carries validation needs must
+    // gather cross-source evidence FIRST. The CROSS_SOURCE_VERIFICATION
+    // stage transitions it to VERIFICATION_READY (evidence matched) or
+    // NEEDS_REPAIR (evidence missing) — so strict QA should never score it
+    // while it is still BUILD_READY, or it would zero the validation
+    // dimension and wrongly FAIL doctrinally-sensitive content before it
+    // has been verified. Only VERIFICATION_READY (verified) or
+    // BUILD_READY-with-no-validation-needs artifacts are QA'd here.
+    if (artifact.status === "BUILD_READY" && (artifact.validationNeeds ?? []).length > 0) {
+      continue;
+    }
     // Skip if a QA row already exists for this artifact (idempotent).
     const existing = await getStrictQAResult(prisma, artifact.id);
     if (existing && existing.status === "PASSED") {
@@ -1253,9 +1392,15 @@ async function runPersistAndPublish(
   // Spec §6: publish reads QA_PASSED artifacts. BUILD_READY remains
   // queryable for backwards-compat tests, but the orchestrator gate
   // requires a passing AdminWorkerStrictQAResult either way.
+  // Publish ONLY QA_PASSED artifacts. A BUILD_READY artifact has not yet
+  // been through strict QA (it has no AdminWorkerStrictQAResult row), so
+  // including it here caused the publish stage to pick it, fail the
+  // strict-QA gate ("no AdminWorkerStrictQAResult row"), and wrongly
+  // REJECT a perfectly good artifact that was simply waiting its turn at
+  // the STRICT_QA stage.
   const artifact = await prisma.adminWorkerPackageArtifact
     .findFirst({
-      where: { status: { in: ["QA_PASSED", "BUILD_READY"] } },
+      where: { status: "QA_PASSED" },
       orderBy: { createdAt: "asc" },
     })
     .catch(() => null);
@@ -1274,20 +1419,44 @@ async function runPersistAndPublish(
       ? await loadVerifierFromStoredEvidence(prisma, artifact.id, artifact.validationNeeds)
       : undefined;
 
+    // The authoritative quality signal for the publish gate is the
+    // durable strict-QA finalScore (the mandatory gate the artifact just
+    // passed), NOT the raw extraction confidence — extraction confidence
+    // is a per-field provenance average that is routinely below the
+    // publish threshold even for complete, QA-passing content. Using the
+    // strict-QA score lets a PASSED artifact actually publish instead of
+    // bouncing into the review band forever.
+    const { getStrictQAResult } = await import("./strict-qa");
+    const qaResultForPublish = await getStrictQAResult(prisma, artifact.id).catch(() => null);
+    const qualitySignal =
+      qaResultForPublish?.status === "PASSED"
+        ? Math.max(qaResultForPublish.finalScore, artifact.confidenceScore)
+        : artifact.confidenceScore;
+
+    // Map the extractor/classifier content type to the publishable
+    // catalog type before persisting (ROSARY / CONSECRATION are parsed
+    // by their own extractors but stored in the catalog as
+    // SPIRITUAL_PRACTICE). PublishedContent.contentType is the catalog
+    // enum, so a publish that used the raw extractor type would be
+    // rejected by the DB.
+    const { toChecklistContentType } = await import("./classifier");
+    const publishableType =
+      toChecklistContentType(artifact.contentType as never) ?? artifact.contentType;
+
     const result = await runPublishOrchestrator(prisma, {
-      contentType: artifact.contentType,
+      contentType: publishableType,
       contentId: artifact.checklistItemId ?? artifact.id,
       title: artifact.normalizedTitle,
       slug: artifact.normalizedSlug,
       payload: artifact.extractedFields as never,
       authorityLevel: "VATICAN",
-      finalScore: artifact.confidenceScore,
+      finalScore: qualitySignal,
       qaPassed: artifact.missingFields.length === 0,
       hasSourceEvidence:
         Array.isArray(artifact.fieldProvenance) &&
         (artifact.fieldProvenance as unknown[]).length > 0,
       isDoctrinallySensitive: isDoctrinal,
-      confidence: artifact.confidenceScore,
+      confidence: qualitySignal,
       verifier,
       // Spec §6: pass the artifact id so the orchestrator can refuse
       // publishing when no passing AdminWorkerStrictQAResult exists.
@@ -1331,6 +1500,25 @@ async function runPersistAndPublish(
         .update({
           where: { id: artifact.id },
           data: { status: "NEEDS_REPAIR", rejectionReason: result.reason },
+        })
+        .catch(() => undefined);
+    } else if (result.kind === "review") {
+      // Spec §6: ambiguous → rare human review. Park the artifact in
+      // NEEDS_REVIEW so it leaves the QA_PASSED publish queue (otherwise
+      // the brain would re-select PUBLIC_PUBLISH on it every pass).
+      await prisma.adminWorkerPackageArtifact
+        .update({
+          where: { id: artifact.id },
+          data: { status: "NEEDS_REVIEW", rejectionReason: result.reason },
+        })
+        .catch(() => undefined);
+    } else if (result.kind === "duplicate") {
+      // Already public under this (contentType, slug) — mark the artifact
+      // PUBLISHED and link the existing row so it leaves the queue.
+      await prisma.adminWorkerPackageArtifact
+        .update({
+          where: { id: artifact.id },
+          data: { status: "PUBLISHED", publishedContentId: result.existingId },
         })
         .catch(() => undefined);
     }
@@ -1780,23 +1968,29 @@ async function runReporting(prisma: PrismaClient, passId: string): Promise<Dispa
 async function runMaintenance(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
   const { runCleanupPass } = await import("./cleanup");
   const { decayMemory } = await import("./memory");
-  const [cleanup, memoryDecay] = await Promise.all([
+  const { decaySourceReputation } = await import("./source-reputation");
+  // Spec §17-22: decay memory AND source reputation on maintenance so
+  // recent outcomes matter more than old ones, and a source that has
+  // gone quiet loses its high tier until it produces valid content
+  // again (it must be re-proven).
+  const [cleanup, memoryDecay, reputationDecay] = await Promise.all([
     runCleanupPass(prisma),
     decayMemory(prisma).catch(() => ({ decayed: 0, pruned: 0 })),
+    decaySourceReputation(prisma).catch(() => ({ decayed: 0, demoted: 0, retestable: 0 })),
   ]);
-  const safe = JSON.parse(JSON.stringify({ cleanup, memoryDecay }));
+  const safe = JSON.parse(JSON.stringify({ cleanup, memoryDecay, reputationDecay }));
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "CLEANUP",
     severity: "INFO",
     eventName: "maintenance_dispatch",
-    message: `Maintenance: ${cleanup.staleCandidatesRemoved} stale candidate(s), ${cleanup.expiredReviewsClosed} expired review(s) closed; memory decayed=${memoryDecay.decayed}, pruned=${memoryDecay.pruned}.`,
+    message: `Maintenance: ${cleanup.staleCandidatesRemoved} stale candidate(s), ${cleanup.expiredReviewsClosed} expired review(s) closed; memory decayed=${memoryDecay.decayed}, pruned=${memoryDecay.pruned}; reputation decayed=${reputationDecay.decayed}, demoted=${reputationDecay.demoted}, retestable=${reputationDecay.retestable}.`,
     safeMetadata: safe,
   });
   return {
     stage: "MAINTENANCE",
     kind: "advanced",
-    summary: `Maintenance: cleanup + memory decay (${memoryDecay.decayed} rows).`,
+    summary: `Maintenance: cleanup + memory decay (${memoryDecay.decayed} rows) + reputation decay (${reputationDecay.decayed} rows, ${reputationDecay.demoted} demoted).`,
     metadata: safe,
   };
 }

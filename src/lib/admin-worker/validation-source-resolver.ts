@@ -137,6 +137,24 @@ const AUTHORITY_WEIGHT: Record<SourceAuthorityLevel, number> = {
  * Best-effort: missing tables or hosts degrade gracefully and the
  * resolver returns whatever ranked subset is available.
  */
+/**
+ * Local-verification-only validation hosts. When
+ * `ADMIN_WORKER_DEV_VALIDATION_HOSTS` is set AND `NODE_ENV !==
+ * "production"`, the listed hosts are offered as COMMUNITY-authority
+ * validation sources for every content type/field so a developer can run
+ * a LOCAL validation mirror and prove the worker really fetches +
+ * compares cross-source evidence offline. Never fires in production.
+ */
+function devValidationHosts(): string[] {
+  if (process.env.NODE_ENV === "production") return [];
+  const raw = process.env.ADMIN_WORKER_DEV_VALIDATION_HOSTS;
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export async function resolveValidationSources(
   prisma: PrismaClient,
   input: ResolverInput,
@@ -178,6 +196,20 @@ export async function resolveValidationSources(
         rank,
       };
     });
+
+  // Local-verification hook: offer dev validation hosts (non-production)
+  // ahead of the registry so an offline local mirror is actually used.
+  for (const host of devValidationHosts()) {
+    if (input.primarySourceHost && host === input.primarySourceHost.toLowerCase()) continue;
+    resolved.unshift({
+      host,
+      authority: "COMMUNITY",
+      reason: "Local validation mirror (dev verification)",
+      pastSuccessRate: 0,
+      reputationTier: null,
+      rank: 1.5,
+    });
+  }
 
   resolved.sort((a, b) => b.rank - a.rank);
   return resolved.slice(0, opts.limit ?? 5);

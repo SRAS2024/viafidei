@@ -99,6 +99,11 @@ function makePrisma(opts: { pendingJobs?: number; failedJobs?: number; gap?: num
       count: vi.fn(async () => 0),
       findFirst: vi.fn(async () => null),
     },
+    // Content-pipeline ladder signals (brain reads artifact counts by state).
+    adminWorkerPackageArtifact: {
+      count: vi.fn(async () => 0),
+      findFirst: vi.fn(async () => null),
+    },
     publishedContent: {
       count: vi.fn(async () => 0),
       findFirst: vi.fn(async () => null),

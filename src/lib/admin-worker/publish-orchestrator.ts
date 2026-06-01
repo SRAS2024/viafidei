@@ -31,6 +31,7 @@ import { refreshContentGoals } from "./content-goals";
 import { writeAdminWorkerLog } from "./logs";
 import { publicRouteFor } from "./public-routes";
 import { evaluatePublishGate } from "./publisher";
+import { recordReasoningEdge } from "./reasoning-graph";
 import type { VerifierOutcome } from "./verifier";
 
 export interface PublishOrchestratorInput {
@@ -386,6 +387,21 @@ async function postPublishSideEffects(
         : null,
     },
   }).catch(() => undefined);
+
+  // Spec §45: record the marquee reasoning edge — "publish allowed
+  // because strict QA and quality score passed" — so the Worker
+  // Reasoning view can show why this item went public.
+  await recordReasoningEdge(prisma, {
+    contentType: input.contentType,
+    contentId: input.contentId,
+    from: { type: "QUALITY_SCORE", id: input.contentId, label: input.title },
+    to: { type: "PUBLISHED_CONTENT", id: publishedContentId, label: input.slug },
+    relation: "PUBLISH_ALLOWED_BECAUSE",
+    explanation: `strict QA passed and quality score ${input.finalScore.toFixed(2)} cleared the ${input.contentType} threshold${
+      input.isDoctrinallySensitive ? " (doctrinally sensitive: verifier signed off)" : ""
+    }`,
+    confidence: input.confidence,
+  }).catch(() => undefined);
 }
 
 async function logBlocked(
@@ -406,6 +422,18 @@ async function logBlocked(
       isDoctrinallySensitive: input.isDoctrinallySensitive,
       verifier: input.verifier ? input.verifier.summary : null,
     },
+  }).catch(() => undefined);
+
+  // Spec §44/§48: record why publish was blocked so the decision is
+  // explainable later in the Worker Reasoning view.
+  await recordReasoningEdge(prisma, {
+    contentType: input.contentType,
+    contentId: input.contentId,
+    from: { type: "QUALITY_SCORE", id: input.contentId, label: input.title },
+    to: { type: "PUBLISHED_CONTENT", label: input.slug },
+    relation: "PUBLISH_BLOCKED_BECAUSE",
+    explanation: reason,
+    confidence: input.confidence,
   }).catch(() => undefined);
 }
 

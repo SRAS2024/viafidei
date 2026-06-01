@@ -29,6 +29,12 @@ const HEALTHY: WorldState = {
   pendingRepairPlans: 0,
   pipelineStagesBlocked: 0,
   unclassifiedReads: 0,
+  readsAwaitingExtraction: 0,
+  artifactsAwaitingChecklist: 0,
+  artifactsAwaitingBuild: 0,
+  artifactsAwaitingVerification: 0,
+  artifactsAwaitingQA: 0,
+  artifactsAwaitingPublish: 0,
   publishedButUnverified: 0,
   pendingQAReviews: 0,
   contentGoalsAtGoalCount: 0,
@@ -71,15 +77,19 @@ describe("rankActions execution feedback (spec §12)", () => {
   });
 
   it("bonuses a stage that recently advanced", () => {
+    // SOURCE_FETCH is the safe content stage in the HEALTHY world (10
+    // candidates ready, no pending build jobs). The advanced-bonus is
+    // stage-agnostic; we assert it on a stage that is actually safe here
+    // (PACKAGE_BUILD is unsafe without pending build jobs).
     const winning: ExecutionFeedback = {
       recentFailedStages: {},
-      recentlyAdvanced: new Set(["PACKAGE_BUILD"]),
+      recentlyAdvanced: new Set(["SOURCE_FETCH"]),
     };
     const baseline = rankActions(HEALTHY);
     const after = rankActions(HEALTHY, winning);
-    const baselineBuild = baseline.find((a) => a.missionStage === "PACKAGE_BUILD");
-    const afterBuild = after.find((a) => a.missionStage === "PACKAGE_BUILD");
-    expect(afterBuild!.finalScore).toBeGreaterThan(baselineBuild!.finalScore);
+    const baselineFetch = baseline.find((a) => a.missionStage === "SOURCE_FETCH");
+    const afterFetch = after.find((a) => a.missionStage === "SOURCE_FETCH");
+    expect(afterFetch!.finalScore).toBeGreaterThan(baselineFetch!.finalScore);
   });
 
   it("rotates to a different stage when fatigue brings the leader below an alternative", () => {

@@ -57,7 +57,7 @@ export interface VerifyOutcome {
 /**
  * Required-for-publish fact list, by content type. Spec §11.
  */
-const REQUIRED_FACTS: Record<VerifyInput["contentType"], string[]> = {
+export const REQUIRED_FACTS: Record<VerifyInput["contentType"], string[]> = {
   PRAYER: ["prayerTitle", "prayerText"],
   SAINT: ["saintName", "feastDay"],
   APPARITION: ["apparitionTitle", "approvalStatus"],
