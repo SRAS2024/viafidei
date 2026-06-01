@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { SaveContentButton } from "@/components/profile";
 import { getPublishedBySlug } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,12 @@ export default async function PrayerDetailPage({ params }: Props) {
   return (
     <article className="mx-auto max-w-2xl px-4 py-10">
       <header className="mb-8">
-        <h1 className="font-display text-4xl text-ink">{prayer.title}</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="font-display text-4xl text-ink">{prayer.title}</h1>
+          <div className="shrink-0 pt-1">
+            <SaveContentButton contentType="PRAYER" slug={slug} />
+          </div>
+        </div>
         {summary && <p className="mt-3 font-serif leading-relaxed text-ink-soft">{summary}</p>}
       </header>
 

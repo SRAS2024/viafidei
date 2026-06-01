@@ -9,6 +9,8 @@ export interface PublishedDetailProps {
   item: PublishedItem;
   primaryFields?: string[];
   secondaryFields?: string[];
+  /** Optional header action (e.g. the Save/Add button) shown beside the title. */
+  action?: React.ReactNode;
 }
 
 function renderValue(value: unknown): React.ReactNode {
@@ -64,7 +66,12 @@ function renderValue(value: unknown): React.ReactNode {
 
 const HIDDEN_FIELDS = new Set(["slug", "title", "citations"]);
 
-export function PublishedDetail({ item, primaryFields, secondaryFields }: PublishedDetailProps) {
+export function PublishedDetail({
+  item,
+  primaryFields,
+  secondaryFields,
+  action,
+}: PublishedDetailProps) {
   const payload = item.payload;
   const summary = payload.summary as string | undefined;
   const citations = (payload.citations as string[] | undefined) ?? [];
@@ -98,8 +105,13 @@ export function PublishedDetail({ item, primaryFields, secondaryFields }: Publis
   return (
     <article className="mx-auto max-w-3xl px-4 py-10">
       <header className="mb-8">
-        <p className="vf-eyebrow">{item.contentType}</p>
-        <h1 className="mt-2 font-display text-4xl text-ink">{item.title}</h1>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="vf-eyebrow">{item.contentType}</p>
+            <h1 className="mt-2 font-display text-4xl text-ink">{item.title}</h1>
+          </div>
+          {action ? <div className="shrink-0 pt-1">{action}</div> : null}
+        </div>
         {summary && <p className="mt-3 font-serif leading-relaxed text-ink-soft">{summary}</p>}
       </header>
 

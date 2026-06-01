@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { PublishedDetail } from "@/components/ui";
+import { SaveContentButton } from "@/components/profile";
 import { getPublishedBySlug } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
     return (
       <PublishedDetail
         item={apparition}
+        action={<SaveContentButton contentType="APPARITION" slug={slug} />}
         primaryFields={["background"]}
         secondaryFields={[
           "location",
