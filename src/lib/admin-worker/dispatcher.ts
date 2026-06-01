@@ -1022,20 +1022,34 @@ async function runCrossSourceVerification(
     if (!already) {
       const { runVerifier } = await import("./verifier");
       const { fetchAndCompareValidation } = await import("./validation-fetcher");
+      const { REQUIRED_FACTS } = await import("./cross-source-verifier");
       const fields = (artifact.extractedFields as Record<string, unknown>) ?? {};
       const skipNetwork = process.env.ADMIN_WORKER_SKIP_NETWORK === "1";
 
-      // For each sensitive field, actually fetch the validation
+      // Fetch validation for EXACTLY the fields the verifier will check
+      // (REQUIRED_FACTS) — unioned with the package's validationNeeds.
+      // Previously this fetched only validationNeeds while the verifier
+      // checked REQUIRED_FACTS, so the two never lined up and every field
+      // came back MISSING (a doctrinally-sensitive artifact could never
+      // gather evidence and so could never publish).
+      const requiredFacts =
+        (REQUIRED_FACTS as Record<string, string[]>)[artifact.contentType] ?? [];
+      const fieldsToVerify = [...new Set([...requiredFacts, ...artifact.validationNeeds])];
+
+      // For each field the verifier checks, actually fetch the validation
       // source page(s) and compare the expected value (spec §1
       // follow-up: validation sources must be fetched and compared,
-      // not just named).
+      // not just named). We accumulate ALL fields per validation host into
+      // ONE source entry — a per-host dedup that dropped every field after
+      // the first one would leave the verifier with no value to compare
+      // for the rest, wrongly blocking confirmed facts.
       const validationSources: Array<{
         host: string;
         fields: Record<string, unknown>;
         url?: string;
       }> = [];
-      const seenHosts = new Set<string>();
-      for (const field of artifact.validationNeeds) {
+      const byHost = new Map<string, { url?: string; fields: Record<string, unknown> }>();
+      for (const field of fieldsToVerify) {
         const expected = fields[field];
         if (expected == null || expected === "") continue;
         // Derive a comparable string. Array/object sensitive fields
@@ -1059,22 +1073,19 @@ async function runCrossSourceVerification(
           // disagreeing value, otherwise an unreachable approved source
           // would wrongly block a field that another source confirmed.
           if (e.matchStatus === "MISSING_EVIDENCE") continue;
-          if (seenHosts.has(e.host)) continue;
-          seenHosts.add(e.host);
-          // Translate the fetch evidence into the verifier shape.
           // MATCH → the validation source carries the same value;
           // MISMATCH → the source disagrees (real different value found).
-          const validationFieldValue =
-            e.matchStatus === "MATCH" ? expected : (e.found ?? "");
+          const validationFieldValue = e.matchStatus === "MATCH" ? expected : (e.found ?? "");
           if (!validationFieldValue) continue;
-          validationSources.push({
-            host: e.host,
-            url: e.url,
-            fields: { [field]: validationFieldValue },
-          });
+          const entry = byHost.get(e.host) ?? { url: e.url, fields: {} };
+          entry.fields[field] = validationFieldValue;
+          byHost.set(e.host, entry);
         }
       }
-      usedHosts = [...seenHosts];
+      for (const [host, v] of byHost.entries()) {
+        validationSources.push({ host, url: v.url, fields: v.fields });
+      }
+      usedHosts = [...byHost.keys()];
 
       const result = await runVerifier(prisma, {
         contentType: artifact.contentType,
@@ -1210,16 +1221,16 @@ async function runStrictQA(prisma: PrismaClient, passId: string): Promise<Dispat
 
   for (const artifact of candidates) {
     if (!artifact) continue;
-    // Defensive: a BUILD_READY artifact that still carries unmet
-    // validation needs must gather cross-source evidence FIRST (the
-    // CROSS_SOURCE_VERIFICATION stage promotes it to VERIFICATION_READY).
-    // Scoring it now would zero the validation dimension and wrongly
-    // FAIL doctrinally-sensitive content before it has been verified.
+    // Defensive: a BUILD_READY artifact that carries validation needs must
+    // gather cross-source evidence FIRST. The CROSS_SOURCE_VERIFICATION
+    // stage transitions it to VERIFICATION_READY (evidence matched) or
+    // NEEDS_REPAIR (evidence missing) — so strict QA should never score it
+    // while it is still BUILD_READY, or it would zero the validation
+    // dimension and wrongly FAIL doctrinally-sensitive content before it
+    // has been verified. Only VERIFICATION_READY (verified) or
+    // BUILD_READY-with-no-validation-needs artifacts are QA'd here.
     if (artifact.status === "BUILD_READY" && (artifact.validationNeeds ?? []).length > 0) {
-      const hasEvidence = await prisma.adminWorkerCrossSourceVerification
-        .count({ where: { contentType: artifact.contentType, contentId: artifact.id } })
-        .catch(() => 0);
-      if (hasEvidence === 0) continue;
+      continue;
     }
     // Skip if a QA row already exists for this artifact (idempotent).
     const existing = await getStrictQAResult(prisma, artifact.id);
@@ -1381,9 +1392,15 @@ async function runPersistAndPublish(
   // Spec §6: publish reads QA_PASSED artifacts. BUILD_READY remains
   // queryable for backwards-compat tests, but the orchestrator gate
   // requires a passing AdminWorkerStrictQAResult either way.
+  // Publish ONLY QA_PASSED artifacts. A BUILD_READY artifact has not yet
+  // been through strict QA (it has no AdminWorkerStrictQAResult row), so
+  // including it here caused the publish stage to pick it, fail the
+  // strict-QA gate ("no AdminWorkerStrictQAResult row"), and wrongly
+  // REJECT a perfectly good artifact that was simply waiting its turn at
+  // the STRICT_QA stage.
   const artifact = await prisma.adminWorkerPackageArtifact
     .findFirst({
-      where: { status: { in: ["QA_PASSED", "BUILD_READY"] } },
+      where: { status: "QA_PASSED" },
       orderBy: { createdAt: "asc" },
     })
     .catch(() => null);

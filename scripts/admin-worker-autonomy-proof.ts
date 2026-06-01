@@ -248,7 +248,7 @@ async function main(): Promise<number> {
     const { runAdminWorkerLoop } = await import("../src/lib/admin-worker");
     const result = await runAdminWorkerLoop(prisma, {
       oneShot: false,
-      maxPasses: 300,
+      maxPasses: 400,
       idleBackoffMs: 0,
       workerId: "autonomy-all-types",
     });
