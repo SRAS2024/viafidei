@@ -12,6 +12,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { href: "/liturgy", key: "nav.liturgy" },
   { href: "/history", key: "nav.history" },
   { href: "/saints", key: "nav.saints" },
+  { href: "/parishes", key: "nav.parishes" },
 ];
 
 type Props = {

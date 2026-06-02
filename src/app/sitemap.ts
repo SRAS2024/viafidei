@@ -18,6 +18,7 @@ const PUBLIC_STATIC_PATHS: ReadonlyArray<{
   { path: "/sacraments", changeFrequency: "weekly", priority: 0.8 },
   { path: "/spiritual-life", changeFrequency: "weekly", priority: 0.8 },
   { path: "/our-lady", changeFrequency: "weekly", priority: 0.7 },
+  { path: "/parishes", changeFrequency: "weekly", priority: 0.7 },
   { path: "/liturgy", changeFrequency: "weekly", priority: 0.7 },
   { path: "/liturgy-history", changeFrequency: "weekly", priority: 0.7 },
   { path: "/history", changeFrequency: "weekly", priority: 0.7 },
@@ -37,6 +38,7 @@ const CONTENT_TYPE_PATHS: Record<ChecklistContentType, string> = {
   CHURCH_DOCUMENT: "/liturgy-history",
   LITURGICAL: "/liturgy-history",
   SPIRITUAL_PRACTICE: "/spiritual-life",
+  PARISH: "/parishes",
 };
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

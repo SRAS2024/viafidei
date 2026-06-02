@@ -41,6 +41,7 @@ const CHECKLIST_TO_TAG_KEY: Record<ChecklistContentType, ContentTypeTagKey> = {
   CHURCH_DOCUMENT: "History",
   LITURGICAL: "Liturgy",
   SPIRITUAL_PRACTICE: "SpiritualGuidance",
+  PARISH: "Parish",
 };
 
 const TAB_PATH: Record<TabKey, string> = {

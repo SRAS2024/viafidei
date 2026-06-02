@@ -1123,9 +1123,21 @@ export interface ParishFields {
   state?: string;
   country: string;
   diocese?: string;
+  /** parish | shrine | cathedral | major-basilica | minor-basilica */
+  designation: string;
   website?: string;
   sourceUrl: string;
   sourceHost: string;
+}
+
+/** Classify a parish record by the designation stated in its name/text. */
+export function parishDesignation(title: string | null | undefined, body: string): string {
+  const hay = `${title ?? ""} ${body}`.toLowerCase();
+  if (hay.includes("major basilica")) return "major-basilica";
+  if (hay.includes("minor basilica") || hay.includes("basilica")) return "minor-basilica";
+  if (hay.includes("cathedral")) return "cathedral";
+  if (hay.includes("shrine")) return "shrine";
+  return "parish";
 }
 
 export function ParishExtractor(input: ExtractorInput): ExtractorOutput<ParishFields> {
@@ -1180,6 +1192,8 @@ export function ParishExtractor(input: ExtractorInput): ExtractorOutput<ParishFi
     fields.diocese = dioceseMatch.value;
     evidence.push(provenanceFor("diocese", dioceseMatch, input));
   }
+
+  fields.designation = parishDesignation(input.title, kept);
 
   const required = ["parishName", "address", "city", "country"];
   const missing = required.filter((f) => !(f in fields));
