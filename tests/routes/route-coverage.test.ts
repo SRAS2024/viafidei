@@ -62,7 +62,7 @@ describe("route coverage", () => {
     "/saints",
     "/devotions",
     "/spiritual-life",
-    "/spiritual-guidance",
+    "/our-lady",
     "/liturgy-history",
     "/admin",
     "/admin/users",
@@ -83,7 +83,7 @@ describe("route coverage", () => {
       "/saints/[slug]",
       "/devotions/[slug]",
       "/spiritual-life/[slug]",
-      "/spiritual-guidance/[slug]",
+      "/our-lady/[slug]",
       "/liturgy-history/[slug]",
     ];
     for (const pattern of expected) {

@@ -29,6 +29,15 @@ const nextConfig = {
       { protocol: "https", hostname: "images.unsplash.com" },
     ],
   },
+  async redirects() {
+    return [
+      // The Marian section moved from /spiritual-guidance to /our-lady.
+      // Preserve old links (and any cached search/parish links) with a
+      // permanent redirect.
+      { source: "/spiritual-guidance", destination: "/our-lady", permanent: true },
+      { source: "/spiritual-guidance/:slug*", destination: "/our-lady/:slug*", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {
