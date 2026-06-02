@@ -14,6 +14,10 @@ export interface PublishedListProps {
   emptyMessage?: string;
   eyebrowField?: string;
   summaryField?: string;
+  /** Optional comparator to order items (e.g. saints chronologically). */
+  sortItems?: (a: PublishedItem, b: PublishedItem) => number;
+  /** Optional computed eyebrow; overrides `eyebrowField` when provided. */
+  eyebrowFor?: (item: PublishedItem) => string | undefined;
 }
 
 export function PublishedList({
@@ -22,6 +26,8 @@ export function PublishedList({
   emptyMessage,
   eyebrowField,
   summaryField = "summary",
+  sortItems,
+  eyebrowFor,
 }: PublishedListProps) {
   if (items.length === 0) {
     return (
@@ -31,8 +37,13 @@ export function PublishedList({
       </div>
     );
   }
-  const cards = items.map((item) => {
-    const eyebrow = eyebrowField ? (item.payload[eyebrowField] as string | undefined) : undefined;
+  const ordered = sortItems ? [...items].sort(sortItems) : items;
+  const cards = ordered.map((item) => {
+    const eyebrow = eyebrowFor
+      ? eyebrowFor(item)
+      : eyebrowField
+        ? (item.payload[eyebrowField] as string | undefined)
+        : undefined;
     const summary = (item.payload[summaryField] as string | undefined) ?? "";
     return (
       <Link key={item.id} href={`${baseHref}/${item.slug}`} className="block h-full">
