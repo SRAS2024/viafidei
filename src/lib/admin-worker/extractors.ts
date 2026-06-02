@@ -1211,6 +1211,90 @@ export function ParishExtractor(input: ExtractorInput): ExtractorOutput<ParishFi
   };
 }
 
+// ─── PopeExtractor ──────────────────────────────────────────────────────────
+export interface PopeFields {
+  popeName: string;
+  papacyStart: string;
+  papacyEnd?: string;
+  background?: string;
+  sourceUrl: string;
+  sourceHost: string;
+}
+
+export function PopeExtractor(input: ExtractorInput): ExtractorOutput<PopeFields> {
+  const body = blockAwareBody(input, ["PARAGRAPH", "LIST_ITEM", "METADATA"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
+  const evidence: FieldProvenance[] = [];
+  const fields: Partial<PopeFields> = { sourceUrl: input.url, sourceHost: input.host };
+  const fatal: string[] = [];
+
+  if (input.title) {
+    fields.popeName = input.title.trim();
+    evidence.push(
+      makeProvenance({
+        fieldName: "popeName",
+        sourceUrl: input.url,
+        sourceHost: input.host,
+        snippet: input.title,
+        method: "TITLE_REGEX",
+        confidence: 0.85,
+        checksum: input.checksum,
+      }),
+    );
+  } else {
+    fatal.push("No pope name found.");
+  }
+
+  // Years of the pontificate: prefer an explicit range ("1978 to 2005",
+  // "2013–present"); otherwise a start year near pontificate language.
+  const range = kept.match(
+    /\b(1\d{3}|20\d{2})\s*(?:to|through|until|–|—|-)\s*(present|1\d{3}|20\d{2})\b/i,
+  );
+  if (range) {
+    fields.papacyStart = range[1]!;
+    if (!/present/i.test(range[2]!)) fields.papacyEnd = range[2]!;
+    evidence.push(
+      provenanceFor(
+        "papacyStart",
+        { value: range[1]!, snippet: range[0]!, confidence: 0.75 },
+        input,
+      ),
+    );
+  } else {
+    const start = matchBody(
+      kept,
+      /\b(?:elected|pope from|since|began (?:his )?pontificate in|pontificate began in|papacy began in)\D{0,12}(1\d{3}|20\d{2})\b/i,
+    );
+    if (start) {
+      fields.papacyStart = start.value;
+      evidence.push(provenanceFor("papacyStart", start, input));
+    }
+  }
+  if (!fields.papacyStart) fatal.push("No papacy start year found.");
+
+  // Background — the first substantial sentence.
+  const bio = matchBody(kept, /([A-Z][^.]{60,400}\.)/);
+  if (bio) {
+    fields.background = bio.value;
+    evidence.push(provenanceFor("background", bio, input));
+  }
+
+  const required = ["popeName", "papacyStart"];
+  const missing = required.filter((f) => !(f in fields));
+  const confidence = (required.length - missing.length) / required.length;
+  return {
+    fields,
+    missingFields: missing,
+    confidenceScore: confidence,
+    sourceEvidence: evidence,
+    rejectedSections: rejected,
+    formatting: {},
+    warnings: [],
+    fatalReasons: fatal,
+  };
+}
+
 /** Single dispatcher for picking the right extractor by content type. */
 export function extractByType(
   type:
@@ -1224,7 +1308,8 @@ export function extractByType(
     | "SACRAMENT"
     | "CHURCH_DOCUMENT"
     | "LITURGICAL"
-    | "PARISH",
+    | "PARISH"
+    | "POPE",
   input: ExtractorInput,
 ): ExtractorOutput {
   switch (type) {
@@ -1250,5 +1335,7 @@ export function extractByType(
       return LiturgyExtractor(input) as ExtractorOutput;
     case "PARISH":
       return ParishExtractor(input) as ExtractorOutput;
+    case "POPE":
+      return PopeExtractor(input) as ExtractorOutput;
   }
 }

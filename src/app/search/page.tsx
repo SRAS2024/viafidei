@@ -22,6 +22,7 @@ const TYPE_PATHS: Record<ChecklistContentType, string> = {
   LITURGICAL: "/liturgy-history",
   SPIRITUAL_PRACTICE: "/spiritual-life",
   PARISH: "/parishes",
+  POPE: "/popes",
 };
 
 export default async function SearchPage({

@@ -21,6 +21,7 @@ import { churchDocumentSchema } from "./church-document";
 import { liturgicalSchema } from "./liturgical";
 import { spiritualPracticeSchema } from "./spiritual-practice";
 import { parishSchema } from "./parish";
+import { popeSchema } from "./pope";
 
 export interface BuildInstruction {
   /// What this content type represents.
@@ -60,6 +61,7 @@ export const CONTENT_SCHEMAS: Record<ChecklistContentType, ContentSchema> = {
   LITURGICAL: liturgicalSchema,
   SPIRITUAL_PRACTICE: spiritualPracticeSchema,
   PARISH: parishSchema,
+  POPE: popeSchema,
 };
 
 export function getContentSchema(contentType: ChecklistContentType): ContentSchema {

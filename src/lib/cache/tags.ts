@@ -28,7 +28,8 @@ export type ContentTypeTagKey =
   | "Consecration"
   | "SpiritualGuidance"
   | "Liturgy"
-  | "History";
+  | "History"
+  | "Pope";
 
 export type TabKey =
   | "prayers"
@@ -41,7 +42,8 @@ export type TabKey =
   | "rosary"
   | "consecrations"
   | "liturgy"
-  | "history";
+  | "history"
+  | "popes";
 
 /** Map from content type to the public tab key it appears under. */
 export const CONTENT_TYPE_TO_TAB: Record<ContentTypeTagKey, TabKey> = {
@@ -57,6 +59,7 @@ export const CONTENT_TYPE_TO_TAB: Record<ContentTypeTagKey, TabKey> = {
   SpiritualGuidance: "devotions",
   Liturgy: "liturgy",
   History: "history",
+  Pope: "popes",
 };
 
 export const contentTypeTag = (contentType: ContentTypeTagKey | string): string =>
