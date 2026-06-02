@@ -4,6 +4,9 @@
  */
 
 import type { PublishedItem } from "@/lib/data/published";
+import { toDisclosureItems } from "@/lib/content-shared/structured-content";
+
+import { Disclosure } from "./Disclosure";
 
 export interface PublishedDetailProps {
   item: PublishedItem;
@@ -85,12 +88,25 @@ export function PublishedDetail({
     if (value == null) return null;
     if (typeof value === "string" && !value.trim()) return null;
     if (Array.isArray(value) && value.length === 0) return null;
+    // Novena days / guide prayers / rosary mysteries → expandable dropdowns
+    // (title + chevron → full text), so guides stay concise.
+    const disclosures = toDisclosureItems(value);
     return (
       <section key={key} className="mt-6">
-        <h2 className="font-display text-xl text-ink capitalize">
+        <h2 className="font-display text-xl capitalize text-ink">
           {key.replace(/([A-Z])/g, " $1").trim()}
         </h2>
-        <div className="mt-2 font-serif leading-relaxed text-ink">{renderValue(value)}</div>
+        {disclosures ? (
+          <div className="mt-3 flex flex-col gap-3">
+            {disclosures.map((d, i) => (
+              <Disclosure key={`${key}-${i}`} title={d.title}>
+                <p className="whitespace-pre-line">{d.body}</p>
+              </Disclosure>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-2 font-serif leading-relaxed text-ink">{renderValue(value)}</div>
+        )}
       </section>
     );
   };
