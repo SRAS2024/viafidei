@@ -43,6 +43,7 @@ const CHECKLIST_TO_TAG_KEY: Record<ChecklistContentType, ContentTypeTagKey> = {
   SPIRITUAL_PRACTICE: "SpiritualGuidance",
   PARISH: "Parish",
   POPE: "Pope",
+  DOCTOR: "Doctor",
 };
 
 const TAB_PATH: Record<TabKey, string> = {
@@ -58,6 +59,7 @@ const TAB_PATH: Record<TabKey, string> = {
   liturgy: "/liturgy",
   history: "/history",
   popes: "/popes",
+  doctors: "/doctors",
 };
 
 export interface PublicRouteInfo {

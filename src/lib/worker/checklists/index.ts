@@ -23,6 +23,7 @@ import { liturgicalChecklist } from "./liturgical";
 import { spiritualPracticesChecklist } from "./spiritual-practices";
 import { parishesChecklist } from "./parishes";
 import { popesChecklist } from "./popes";
+import { doctorsChecklist } from "./doctors";
 
 export interface ChecklistSeed {
   canonicalName: string;
@@ -56,6 +57,7 @@ export const MASTER_CHECKLISTS: Record<ChecklistContentType, ChecklistSeed[]> = 
   SPIRITUAL_PRACTICE: spiritualPracticesChecklist,
   PARISH: parishesChecklist,
   POPE: popesChecklist,
+  DOCTOR: doctorsChecklist,
 };
 
 export function totalChecklistItems(): number {

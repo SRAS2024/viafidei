@@ -17,6 +17,7 @@ const nav: Dict = {
   "nav.history": "History",
   "nav.saints": "Saints & Our Lady",
   "nav.popes": "Popes",
+  "nav.doctors": "Doctors of the Church",
   "nav.parishes": "Parishes",
   "nav.search": "Search",
   "nav.login": "Sign in",

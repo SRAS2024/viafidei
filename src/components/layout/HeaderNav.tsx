@@ -13,6 +13,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { href: "/history", key: "nav.history" },
   { href: "/saints", key: "nav.saints" },
   { href: "/popes", key: "nav.popes" },
+  { href: "/doctors", key: "nav.doctors" },
   { href: "/parishes", key: "nav.parishes" },
 ];
 

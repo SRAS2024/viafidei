@@ -1295,6 +1295,81 @@ export function PopeExtractor(input: ExtractorInput): ExtractorOutput<PopeFields
   };
 }
 
+// ─── DoctorExtractor ────────────────────────────────────────────────────────
+export interface DoctorFields {
+  doctorName: string;
+  doctorTitle?: string;
+  feastDay?: string;
+  background?: string;
+  sourceUrl: string;
+  sourceHost: string;
+}
+
+export function DoctorExtractor(input: ExtractorInput): ExtractorOutput<DoctorFields> {
+  const body = blockAwareBody(input, ["PARAGRAPH", "LIST_ITEM", "METADATA"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
+  const evidence: FieldProvenance[] = [];
+  const fields: Partial<DoctorFields> = { sourceUrl: input.url, sourceHost: input.host };
+  const fatal: string[] = [];
+
+  if (input.title) {
+    fields.doctorName = input.title.trim();
+    evidence.push(
+      makeProvenance({
+        fieldName: "doctorName",
+        sourceUrl: input.url,
+        sourceHost: input.host,
+        snippet: input.title,
+        method: "TITLE_REGEX",
+        confidence: 0.85,
+        checksum: input.checksum,
+      }),
+    );
+  } else {
+    fatal.push("No doctor name found.");
+  }
+
+  // Honorific epithet, e.g. "Doctor of Grace", "Angelic Doctor".
+  const epithet = matchBody(
+    kept,
+    /\b((?:Angelic|Seraphic|Common|Universal|Marian|Eucharistic|Mellifluous)\s+Doctor|Doctor\s+of\s+(?:the\s+)?[A-Z][a-zA-Z ]{2,40})\b/,
+  );
+  if (epithet) {
+    fields.doctorTitle = epithet.value;
+    evidence.push(provenanceFor("doctorTitle", epithet, input));
+  }
+
+  const feast = matchBody(
+    kept,
+    /\bfeast(?:\s+day)?\s+(?:is\s+)?(?:on\s+)?((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2})/i,
+  );
+  if (feast) {
+    fields.feastDay = feast.value;
+    evidence.push(provenanceFor("feastDay", feast, input));
+  }
+
+  const bio = matchBody(kept, /([A-Z][^.]{60,400}\.)/);
+  if (bio) {
+    fields.background = bio.value;
+    evidence.push(provenanceFor("background", bio, input));
+  }
+
+  const required = ["doctorName"];
+  const missing = required.filter((f) => !(f in fields));
+  const confidence = (required.length - missing.length) / required.length;
+  return {
+    fields,
+    missingFields: missing,
+    confidenceScore: confidence,
+    sourceEvidence: evidence,
+    rejectedSections: rejected,
+    formatting: {},
+    warnings: [],
+    fatalReasons: fatal,
+  };
+}
+
 /** Single dispatcher for picking the right extractor by content type. */
 export function extractByType(
   type:
@@ -1309,7 +1384,8 @@ export function extractByType(
     | "CHURCH_DOCUMENT"
     | "LITURGICAL"
     | "PARISH"
-    | "POPE",
+    | "POPE"
+    | "DOCTOR",
   input: ExtractorInput,
 ): ExtractorOutput {
   switch (type) {
@@ -1337,5 +1413,7 @@ export function extractByType(
       return ParishExtractor(input) as ExtractorOutput;
     case "POPE":
       return PopeExtractor(input) as ExtractorOutput;
+    case "DOCTOR":
+      return DoctorExtractor(input) as ExtractorOutput;
   }
 }
