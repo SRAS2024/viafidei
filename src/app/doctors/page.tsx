@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { PageHero } from "@/components/ui";
+import { PageHero, PaginatedGrid } from "@/components/ui";
 import { listPublished } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
@@ -23,23 +23,22 @@ export default async function DoctorsPage() {
           the checklist-first worker.
         </div>
       ) : (
-        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {doctors.map((d) => {
+        <PaginatedGrid
+          items={doctors.map((d) => {
             const payload = d.payload as Record<string, unknown>;
             const epithet = typeof payload.doctorTitle === "string" ? payload.doctorTitle : "";
             return (
-              <li key={d.id}>
-                <Link
-                  href={`/doctors/${d.slug}`}
-                  className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30"
-                >
-                  {epithet ? <p className="vf-eyebrow">{epithet}</p> : null}
-                  <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{d.title}</h2>
-                </Link>
-              </li>
+              <Link
+                key={d.id}
+                href={`/doctors/${d.slug}`}
+                className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30"
+              >
+                {epithet ? <p className="vf-eyebrow">{epithet}</p> : null}
+                <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{d.title}</h2>
+              </Link>
             );
           })}
-        </ul>
+        />
       )}
     </div>
   );

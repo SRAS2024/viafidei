@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { PageHero } from "@/components/ui";
+import { PageHero, PaginatedGrid } from "@/components/ui";
 import { listPublished } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
@@ -41,22 +41,21 @@ export default async function PopesPage() {
           through the checklist-first worker.
         </div>
       ) : (
-        <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {ordered.map((p) => {
+        <PaginatedGrid
+          items={ordered.map((p) => {
             const reign = reignLabel(p.payload as Record<string, unknown>);
             return (
-              <li key={p.id}>
-                <Link
-                  href={`/popes/${p.slug}`}
-                  className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30"
-                >
-                  {reign ? <p className="vf-eyebrow">{reign}</p> : null}
-                  <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{p.title}</h2>
-                </Link>
-              </li>
+              <Link
+                key={p.id}
+                href={`/popes/${p.slug}`}
+                className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30"
+              >
+                {reign ? <p className="vf-eyebrow">{reign}</p> : null}
+                <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{p.title}</h2>
+              </Link>
             );
           })}
-        </ol>
+        />
       )}
     </div>
   );

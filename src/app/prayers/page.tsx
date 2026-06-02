@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
+import { PaginatedGrid } from "@/components/ui/PaginatedGrid";
 import { listPublished } from "@/lib/data/published";
 import {
   PRAYER_CATEGORIES,
@@ -58,17 +59,17 @@ export default async function PrayersPage({ searchParams }: Props) {
         </div>
       ) : null}
 
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {prayers.length === 0 ? (
-          <div className="vf-card col-span-full rounded-sm p-10 text-center font-serif text-ink-faint">
-            The prayer library will appear here as items are approved and published through the
-            checklist-first worker.
-          </div>
-        ) : (
-          visible.map(({ prayer: p, category }) => {
+      {prayers.length === 0 ? (
+        <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
+          The prayer library will appear here as items are approved and published through the
+          checklist-first worker.
+        </div>
+      ) : (
+        <PaginatedGrid
+          items={visible.map(({ prayer: p, category }) => {
             const body = (p.payload.body as string | undefined) ?? "";
             return (
-              <Link key={p.id} href={`/prayers/${p.slug}`}>
+              <Link key={p.id} href={`/prayers/${p.slug}`} className="block h-full">
                 <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">
                   <p className="vf-eyebrow">{prayerCategoryLabel(category)}</p>
                   <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{p.title}</h2>
@@ -78,9 +79,9 @@ export default async function PrayersPage({ searchParams }: Props) {
                 </article>
               </Link>
             );
-          })
-        )}
-      </div>
+          })}
+        />
+      )}
     </div>
   );
 }

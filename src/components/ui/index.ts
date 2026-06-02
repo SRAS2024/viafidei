@@ -7,3 +7,4 @@ export { Pagination } from "./Pagination";
 export { OfficialSourceLink } from "./OfficialSourceLink";
 export { PublishedDetail } from "./PublishedDetail";
 export { PublishedList } from "./PublishedList";
+export { PaginatedGrid } from "./PaginatedGrid";
