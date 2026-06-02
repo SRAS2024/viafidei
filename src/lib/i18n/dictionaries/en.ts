@@ -219,6 +219,8 @@ const profile: Dict = {
   "profile.tab.completedGoals": "Completed Goals",
   "profile.tab.settings": "Settings",
   "profile.tab.favorites": "Favorites",
+  "profile.tab.allFavorites": "Saved content",
+  "profile.tab.journalFavorites": "Favorite journals",
   "profile.tab.savedPrayers": "Saved prayers",
   "profile.tab.savedLiturgy": "Saved liturgical content",
   "profile.tab.savedLearning": "Saved Catholic learning guides",

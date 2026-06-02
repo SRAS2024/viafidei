@@ -15,6 +15,9 @@ import { prisma } from "@/lib/db/client";
 import { logPageError } from "@/lib/observability/page-errors";
 import { logoutAction } from "@/app/_actions/auth";
 
+// Reads the auth session (cookies), so it can never be statically prerendered.
+export const dynamic = "force-dynamic";
+
 const EMPTY_COUNTS: ProfileCounts = {
   journalCount: 0,
   prayersSaved: 0,
@@ -61,6 +64,12 @@ export default async function ProfilePage() {
   // Sections group user-specific content into clear categories so the page
   // surfaces what is meaningful — goals, journals, favorites, saved prayers,
   // saved liturgical content, and saved Catholic learning guides.
+  // Saved content (prayers, saints, Our Lady, devotions) is now a single
+  // Favorites section with per-type tab filters on /profile/favorites — the
+  // old per-type /profile/{prayers,saints,apparitions,devotions} pages never
+  // existed, so those dashboard links 404'd.
+  const favoritesTotal =
+    counts.prayersSaved + counts.saintsSaved + counts.apparitionsSaved + counts.devotionsSaved;
   const sections: ProfileSection[] = [
     {
       key: "profile.section.goals",
@@ -79,39 +88,21 @@ export default async function ProfilePage() {
       ],
     },
     {
-      key: "profile.section.journals",
-      tabs: [{ href: "/profile/journal", key: "profile.tab.journal", count: counts.journalCount }],
-    },
-    {
       key: "profile.section.favorites",
       tabs: [
+        { href: "/profile/favorites", key: "profile.tab.allFavorites", count: favoritesTotal },
+      ],
+    },
+    {
+      key: "profile.section.journals",
+      tabs: [
+        { href: "/profile/journal", key: "profile.tab.journal", count: counts.journalCount },
         {
           href: "/profile/journal?filter=favorites",
-          key: "profile.tab.favorites",
+          key: "profile.tab.journalFavorites",
           count: favoriteJournalCount,
         },
       ],
-    },
-    {
-      key: "profile.section.savedPrayers",
-      tabs: [
-        { href: "/profile/prayers", key: "profile.tab.prayers", count: counts.prayersSaved },
-        { href: "/profile/devotions", key: "profile.tab.devotions", count: counts.devotionsSaved },
-      ],
-    },
-    {
-      key: "profile.section.savedLiturgy",
-      tabs: [
-        {
-          href: "/profile/apparitions",
-          key: "profile.tab.apparitions",
-          count: counts.apparitionsSaved,
-        },
-      ],
-    },
-    {
-      key: "profile.section.savedLearning",
-      tabs: [{ href: "/profile/saints", key: "profile.tab.saints", count: counts.saintsSaved }],
     },
   ];
 

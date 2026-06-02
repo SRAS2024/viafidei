@@ -26,13 +26,13 @@ type Props = {
 };
 
 const DEFAULT_LABELS = {
-  save: "Save",
-  saved: "Saved",
+  save: "Favorite",
+  saved: "Favorited",
   remove: "Remove",
-  confirmRemove: "Remove this from your saved items?",
-  loginRequired: "An account is required to use this feature.",
-  loginCta: "Sign in",
-  registerCta: "Create account",
+  confirmRemove: "Remove this from your favorites?",
+  loginRequired: "You must have an account for this action.",
+  loginCta: "Sign In",
+  registerCta: "Create Account",
 };
 
 export function SaveButton({

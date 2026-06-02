@@ -12,6 +12,9 @@ import { RitePicker } from "./RitePicker";
 import { UnverifiedEmailNotice } from "@/components/profile/UnverifiedEmailNotice";
 import { logPageError } from "@/lib/observability/page-errors";
 
+// Reads the auth session (cookies), so it can never be statically prerendered.
+export const dynamic = "force-dynamic";
+
 export default async function SettingsPage() {
   // Settings is signed-in only — anonymous visitors are bounced to login.
   let user: Awaited<ReturnType<typeof requireUser>> = null;
