@@ -9,3 +9,4 @@ export { PublishedDetail } from "./PublishedDetail";
 export { PublishedList } from "./PublishedList";
 export { PaginatedGrid } from "./PaginatedGrid";
 export { Disclosure } from "./Disclosure";
+export { PrayerLanguageToggle } from "./PrayerLanguageToggle";
