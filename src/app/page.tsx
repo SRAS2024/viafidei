@@ -7,6 +7,7 @@ import {
   HomeFeatured,
   HomeNewcomer,
   HomeToday,
+  LiturgicalToday,
 } from "./_sections";
 import type { FeaturedPrayer } from "./_sections/HomeFeatured";
 
@@ -30,6 +31,7 @@ export default async function HomePage() {
       <HomeQuickLinks t={t} />
       <HomeFeatured t={t} items={featuredPrayers} />
       <HomeNewcomer t={t} />
+      <LiturgicalToday />
       <HomeToday />
     </div>
   );

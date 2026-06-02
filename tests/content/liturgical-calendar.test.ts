@@ -7,6 +7,7 @@ import {
   liturgicalDay,
   liturgicalSeasonFor,
   sundayCycle,
+  usccbReadingsUrl,
   weekdayCycle,
 } from "@/lib/content-shared/liturgical-calendar";
 
@@ -76,6 +77,17 @@ describe("isJubileeYear", () => {
     expect(isJubileeYear(2050)).toBe(true);
     expect(isJubileeYear(2026)).toBe(false);
     expect(isJubileeYear(2024)).toBe(false);
+  });
+});
+
+describe("usccbReadingsUrl", () => {
+  it("builds the MMDDYY USCCB daily-readings URL", () => {
+    expect(usccbReadingsUrl(day("2026-07-01"))).toBe(
+      "https://bible.usccb.org/bible/readings/070126.cfm",
+    );
+    expect(usccbReadingsUrl(day("2026-12-25"))).toBe(
+      "https://bible.usccb.org/bible/readings/122526.cfm",
+    );
   });
 });
 

@@ -23,6 +23,7 @@ const PUBLIC_STATIC_PATHS: ReadonlyArray<{
   { path: "/doctors", changeFrequency: "weekly", priority: 0.7 },
   { path: "/rites", changeFrequency: "weekly", priority: 0.7 },
   { path: "/liturgy", changeFrequency: "weekly", priority: 0.7 },
+  { path: "/liturgical-calendar", changeFrequency: "daily", priority: 0.7 },
   { path: "/liturgy-history", changeFrequency: "weekly", priority: 0.7 },
   { path: "/history", changeFrequency: "weekly", priority: 0.7 },
   { path: "/search", changeFrequency: "weekly", priority: 0.5 },

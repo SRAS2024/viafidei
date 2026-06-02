@@ -14,6 +14,7 @@ const nav: Dict = {
   "nav.spiritualGuidance": "Our Lady",
   "nav.liturgyHistory": "Liturgy & History",
   "nav.liturgy": "Liturgy",
+  "nav.liturgicalCalendar": "Liturgical Calendar",
   "nav.history": "History",
   "nav.saints": "Saints & Our Lady",
   "nav.popes": "Popes",

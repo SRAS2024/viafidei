@@ -164,6 +164,19 @@ export function isJubileeYear(year: number): boolean {
   return year % 25 === 0;
 }
 
+/**
+ * Link to the official daily Mass readings (USCCB) for a date. The full
+ * lectionary is not reproduced here; this points at the authoritative
+ * source, whose URLs are keyed by MMDDYY.
+ */
+export function usccbReadingsUrl(input: Date): string {
+  const date = startOfUtcDay(input);
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  const yy = String(date.getUTCFullYear() % 100).padStart(2, "0");
+  return `https://bible.usccb.org/bible/readings/${mm}${dd}${yy}.cfm`;
+}
+
 /** Bundles the full liturgical description of a civil date. */
 export function liturgicalDay(input: Date): LiturgicalDay {
   const date = startOfUtcDay(input);
