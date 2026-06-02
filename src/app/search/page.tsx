@@ -24,6 +24,7 @@ const TYPE_PATHS: Record<ChecklistContentType, string> = {
   PARISH: "/parishes",
   POPE: "/popes",
   DOCTOR: "/doctors",
+  RITE: "/rites",
 };
 
 export default async function SearchPage({

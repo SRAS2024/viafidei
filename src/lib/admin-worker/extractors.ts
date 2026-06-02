@@ -1370,6 +1370,68 @@ export function DoctorExtractor(input: ExtractorInput): ExtractorOutput<DoctorFi
   };
 }
 
+// ─── RiteExtractor ──────────────────────────────────────────────────────────
+export interface RiteFields {
+  riteName: string;
+  history?: string;
+  background?: string;
+  sourceUrl: string;
+  sourceHost: string;
+}
+
+export function RiteExtractor(input: ExtractorInput): ExtractorOutput<RiteFields> {
+  const body = blockAwareBody(input, ["PARAGRAPH", "LIST_ITEM", "METADATA"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
+  const evidence: FieldProvenance[] = [];
+  const fields: Partial<RiteFields> = { sourceUrl: input.url, sourceHost: input.host };
+  const fatal: string[] = [];
+
+  if (input.title) {
+    fields.riteName = input.title.trim();
+    evidence.push(
+      makeProvenance({
+        fieldName: "riteName",
+        sourceUrl: input.url,
+        sourceHost: input.host,
+        snippet: input.title,
+        method: "TITLE_REGEX",
+        confidence: 0.85,
+        checksum: input.checksum,
+      }),
+    );
+  } else {
+    fatal.push("No rite name found.");
+  }
+
+  // History: prefer the paragraph after a "History" heading; otherwise the
+  // first substantial sentence becomes the background.
+  const historyBlock = matchBody(kept, /history[:\s]+([A-Z][^]{80,800}?\.)(?:\s|$)/i);
+  if (historyBlock) {
+    fields.history = historyBlock.value;
+    evidence.push(provenanceFor("history", historyBlock, input));
+  }
+  const bio = matchBody(kept, /([A-Z][^.]{60,400}\.)/);
+  if (bio) {
+    fields.background = bio.value;
+    evidence.push(provenanceFor("background", bio, input));
+  }
+
+  const required = ["riteName"];
+  const missing = required.filter((f) => !(f in fields));
+  const confidence = (required.length - missing.length) / required.length;
+  return {
+    fields,
+    missingFields: missing,
+    confidenceScore: confidence,
+    sourceEvidence: evidence,
+    rejectedSections: rejected,
+    formatting: {},
+    warnings: [],
+    fatalReasons: fatal,
+  };
+}
+
 /** Single dispatcher for picking the right extractor by content type. */
 export function extractByType(
   type:
@@ -1385,7 +1447,8 @@ export function extractByType(
     | "LITURGICAL"
     | "PARISH"
     | "POPE"
-    | "DOCTOR",
+    | "DOCTOR"
+    | "RITE",
   input: ExtractorInput,
 ): ExtractorOutput {
   switch (type) {
@@ -1415,5 +1478,7 @@ export function extractByType(
       return PopeExtractor(input) as ExtractorOutput;
     case "DOCTOR":
       return DoctorExtractor(input) as ExtractorOutput;
+    case "RITE":
+      return RiteExtractor(input) as ExtractorOutput;
   }
 }

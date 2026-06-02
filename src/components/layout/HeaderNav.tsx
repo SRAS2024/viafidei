@@ -15,6 +15,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { href: "/popes", key: "nav.popes" },
   { href: "/doctors", key: "nav.doctors" },
   { href: "/parishes", key: "nav.parishes" },
+  { href: "/rites", key: "nav.rites" },
 ];
 
 type Props = {

@@ -35,6 +35,7 @@ export const DEFAULT_GOAL_SEEDS: readonly ContentGoalSeed[] = [
   { contentType: "PARISH", minimumTarget: 12, desiredTarget: 40, priority: 110 },
   { contentType: "POPE", minimumTarget: 20, desiredTarget: 266, priority: 120 },
   { contentType: "DOCTOR", minimumTarget: 12, desiredTarget: 37, priority: 130 },
+  { contentType: "RITE", minimumTarget: 6, desiredTarget: 12, priority: 140 },
 ] as const;
 
 export async function seedContentGoals(prisma: PrismaClient): Promise<number> {

@@ -768,6 +768,7 @@ enum ChecklistContentType {
   PARISH
   POPE
   DOCTOR
+  RITE
 }
 
 /// Lifecycle for every checklist item. Every transition is admin-driven
