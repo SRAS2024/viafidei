@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
-import { createGoal, listGoals } from "@/lib/data/goals";
+import { createGoal, completeGoal, listGoals } from "@/lib/data/goals";
 import type { GoalStatus } from "@prisma/client";
 
 const STATUS_VALUES: GoalStatus[] = ["ACTIVE", "COMPLETED", "OVERDUE", "ARCHIVED"];
@@ -17,6 +17,9 @@ const createSchema = z.object({
     .array(z.object({ label: z.string().min(1).max(200) }))
     .max(50)
     .optional(),
+  // "Already Completed" path: create the goal then immediately mark it done
+  // (and award its milestone) for users who finished it before using the app.
+  completed: z.boolean().optional(),
 });
 
 export async function GET(req: NextRequest) {
@@ -53,5 +56,13 @@ export async function POST(req: NextRequest) {
     templateSlug: parsed.data.templateSlug ?? null,
     checklist: parsed.data.checklist,
   });
+
+  // "Already Completed": mark it done now and award the milestone, so a goal
+  // the user finished before joining still earns its badge.
+  if (parsed.data.completed) {
+    const done = await completeGoal(user.id, goal.id);
+    if (done.ok) return jsonOk({ goal: done.goal, milestone: done.milestone });
+  }
+
   return jsonOk({ goal });
 }

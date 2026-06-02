@@ -61,6 +61,8 @@ export default async function GoalsPage() {
           description: t("profile.goals.description"),
           dueDate: t("profile.goals.dueDate"),
           save: t("common.save"),
+          startGoal: t("profile.goals.startGoal"),
+          alreadyCompleted: t("profile.goals.alreadyCompleted"),
           cancel: t("common.cancel"),
           edit: t("profile.goals.edit"),
           complete: t("profile.goals.complete"),
