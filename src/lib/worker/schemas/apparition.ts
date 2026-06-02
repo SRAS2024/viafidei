@@ -18,6 +18,10 @@ export const apparitionSchema: ContentSchema = {
       "private_revelation",
     ]),
     yearOfApparition: z.number().int().optional(),
+    feastDay: z
+      .string()
+      .regex(/^\d{2}-\d{2}$/)
+      .optional(), // MM-DD liturgical feast, when one is celebrated
     summary: z.string().min(50),
     background: z.string().optional(),
     visionaries: z.array(z.string()).default([]),
@@ -47,6 +51,7 @@ export const apparitionSchema: ContentSchema = {
     ],
     optionalFields: [
       "yearOfApparition",
+      "feastDay",
       "background",
       "visionaries",
       "messageHighlights",

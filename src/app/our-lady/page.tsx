@@ -1,4 +1,5 @@
 import { PageHero, PublishedList } from "@/components/ui";
+import { apparitionEyebrow } from "@/lib/content-shared/apparitions";
 import { listPublished } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,11 @@ export default async function OurLadyPage() {
       <h2 className="mt-12 mb-6 font-display text-2xl text-ink">Marian Titles</h2>
       <PublishedList items={items} baseHref="/our-lady" />
       <h2 className="mt-12 mb-6 font-display text-2xl text-ink">Approved Apparitions</h2>
-      <PublishedList items={apparitions} baseHref="/our-lady" eyebrowField="approvedStatus" />
+      <PublishedList
+        items={apparitions}
+        baseHref="/our-lady"
+        eyebrowFor={(item) => apparitionEyebrow(item.payload)}
+      />
     </div>
   );
 }
