@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
 
+import { publicRouteFor } from "@/lib/admin-worker/public-routes";
 import { appConfig } from "@/lib/config";
 import { prisma } from "@/lib/db/client";
-import type { ChecklistContentType } from "@prisma/client";
 
 const BASE = appConfig.canonicalUrl;
 
@@ -33,24 +33,6 @@ const PUBLIC_STATIC_PATHS: ReadonlyArray<{
   { path: "/privacy", changeFrequency: "yearly", priority: 0.4 },
 ];
 
-const CONTENT_TYPE_PATHS: Record<ChecklistContentType, string> = {
-  PRAYER: "/prayers",
-  DEVOTION: "/devotions",
-  SAINT: "/saints",
-  MARIAN_TITLE: "/our-lady",
-  APPARITION: "/our-lady",
-  NOVENA: "/novenas",
-  SACRAMENT: "/sacraments",
-  GUIDE: "/guides",
-  CHURCH_DOCUMENT: "/liturgy-history",
-  LITURGICAL: "/liturgy-history",
-  SPIRITUAL_PRACTICE: "/spiritual-life",
-  PARISH: "/parishes",
-  POPE: "/popes",
-  DOCTOR: "/doctors",
-  RITE: "/rites",
-};
-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const staticEntries: MetadataRoute.Sitemap = PUBLIC_STATIC_PATHS.map(
@@ -69,7 +51,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       select: { contentType: true, slug: true, updatedAt: true },
     });
     dynamicEntries = published.map((row) => ({
-      url: `${BASE}${CONTENT_TYPE_PATHS[row.contentType]}/${row.slug}`,
+      // publicRouteFor is the single source of truth for each type's detail
+      // URL, so the sitemap and the worker's post-publish probe never drift.
+      url: `${BASE}${publicRouteFor(row.contentType, row.slug).slugPath}`,
       lastModified: row.updatedAt,
       changeFrequency: "weekly" as const,
       priority: 0.6,
