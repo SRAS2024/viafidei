@@ -4,11 +4,11 @@ import type { Translator } from "@/lib/i18n/translator";
 export type QuickLink = { href: string; key: string };
 
 export const QUICK_LINKS: QuickLink[] = [
-  { href: "/spiritual-life#sacraments", key: "home.ql.sacraments" },
-  { href: "/spiritual-life#ocia", key: "home.ql.ocia" },
-  { href: "/spiritual-life#rosary", key: "home.ql.rosary" },
-  { href: "/spiritual-life#confession", key: "home.ql.confession" },
-  { href: "/spiritual-guidance", key: "home.ql.parish" },
+  { href: "/sacraments", key: "home.ql.sacraments" },
+  { href: "/guides/ocia-rcia-overview", key: "home.ql.ocia" },
+  { href: "/guides/how-to-pray-the-rosary", key: "home.ql.rosary" },
+  { href: "/guides/how-to-go-to-confession", key: "home.ql.confession" },
+  { href: "/parishes", key: "home.ql.parish" },
 ];
 
 export function HomeQuickLinks({ t, links = QUICK_LINKS }: { t: Translator; links?: QuickLink[] }) {
