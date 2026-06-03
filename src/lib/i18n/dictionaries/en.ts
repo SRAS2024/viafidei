@@ -123,6 +123,11 @@ const saints: Dict = {
   "saints.feastDay": "Feast day",
   "saints.patronages": "Patronages",
   "saints.officialPrayer": "Official prayer",
+  "saints.today.eyebrow": "Today",
+  "saints.today.title": "Today's Feast Day Saints",
+  "sacraments.title": "The Seven Sacraments",
+  "sacraments.subtitle":
+    "The seven sacraments of the Catholic Church — channels of grace instituted by Christ.",
 };
 
 const search: Dict = {
