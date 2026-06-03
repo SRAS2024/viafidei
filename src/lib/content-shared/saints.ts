@@ -1,29 +1,59 @@
 /**
- * Saint ordering and labelling (spec — "Saints chronological ordering and
- * strict title labels").
+ * Saint ordering and labelling (spec — "Saints chronological ordering" and
+ * "Saint Titles").
  *
- * Saints are listed in the order they lived (earliest first), so the
- * Apostles and early martyrs come before modern saints. Each saint also
- * carries a strict title label derived from its canonical type (Apostle,
- * Martyr, Doctor of the Church, …).
+ * Saints are listed in the order they lived, but the foundational figures
+ * come first in a fixed canonical order — Mary, Joseph, John the Baptist,
+ * Peter, the remaining Apostles, Matthias, then Paul — before everyone else
+ * by year. Only a strict, permitted set of title labels may appear beneath a
+ * saint's name; everything else (Martyr, Virgin, Bishop, …) shows no label.
  */
 
-/** Strict title label for each saint type. "other" has no label. */
-export const SAINT_TYPE_LABELS: Record<string, string> = {
-  apostle: "Apostle",
-  evangelist: "Evangelist",
-  martyr: "Martyr",
-  doctor_of_the_church: "Doctor of the Church",
-  pope: "Pope",
-  bishop: "Bishop",
-  virgin: "Virgin",
-  confessor: "Confessor",
-  religious: "Religious",
-  founder: "Founder",
-  missionary: "Missionary",
-  lay: "Lay Faithful",
-  other: "",
+/**
+ * Canonical order of the foundational figures, by slug. The Admin Worker can
+ * override per-saint with an explicit `orderRank`; this is the built-in
+ * fallback for the well-known slugs.
+ */
+const FOUNDATIONAL_RANK: Record<string, number> = {
+  mary: 0,
+  "blessed-virgin-mary": 0,
+  "the-blessed-virgin-mary": 0,
+  "mary-mother-of-god": 0,
+  joseph: 1,
+  "saint-joseph": 1,
+  "st-joseph": 1,
+  "john-the-baptist": 2,
+  "saint-john-the-baptist": 2,
+  "st-john-the-baptist": 2,
+  peter: 3,
+  "saint-peter": 3,
+  "st-peter": 3,
+  "peter-the-apostle": 3,
+  matthias: 50,
+  "saint-matthias": 50,
+  "st-matthias": 50,
+  "matthias-the-apostle": 50,
+  paul: 60,
+  "saint-paul": 60,
+  "st-paul": 60,
+  "paul-the-apostle": 60,
+  "paul-of-tarsus": 60,
 };
+
+/**
+ * Sort rank for the foundational figures (lower = earlier). The remaining
+ * Apostles cluster after Peter (10) and before Matthias/Paul. Returns null
+ * for ordinary saints, who then sort purely by year.
+ */
+export function saintOrderRank(payload: Record<string, unknown>): number | null {
+  if (typeof payload.orderRank === "number" && Number.isFinite(payload.orderRank)) {
+    return payload.orderRank;
+  }
+  const slug = typeof payload.slug === "string" ? payload.slug.toLowerCase() : "";
+  if (slug in FOUNDATIONAL_RANK) return FOUNDATIONAL_RANK[slug];
+  if (payload.saintType === "apostle") return 10;
+  return null;
+}
 
 const MONTHS = [
   "January",
@@ -96,13 +126,20 @@ export function saintSortYear(payload: Record<string, unknown>): number | null {
 }
 
 /**
- * Comparator that orders saints from earliest to latest. Saints with no
- * datable year sort last; ties (and undatable saints) fall back to title.
+ * Comparator that orders saints. Foundational figures lead in their fixed
+ * canonical order; everyone else follows from earliest to latest, with
+ * undatable saints last and ties broken by title.
  */
 export function compareSaintsChronologically(
   a: { title: string; payload: Record<string, unknown> },
   b: { title: string; payload: Record<string, unknown> },
 ): number {
+  const ra = saintOrderRank(a.payload);
+  const rb = saintOrderRank(b.payload);
+  if (ra != null && rb != null && ra !== rb) return ra - rb;
+  if (ra != null && rb == null) return -1; // foundational figures lead
+  if (ra == null && rb != null) return 1;
+
   const ya = saintSortYear(a.payload);
   const yb = saintSortYear(b.payload);
   if (ya == null && yb == null) return a.title.localeCompare(b.title);
@@ -112,11 +149,28 @@ export function compareSaintsChronologically(
   return a.title.localeCompare(b.title);
 }
 
-/** Strict title label for a saint, or undefined when none applies. */
+/**
+ * The single title label permitted beneath a saint's name, or undefined when
+ * none applies (spec — "Saint Titles"). A worker-provided `titleLabel` is
+ * authoritative (e.g. "Mother of God", "Foster Father of Jesus", "Apostle of
+ * Jesus and Disciple of Peter"); otherwise only Apostle, Doctor of the
+ * Church, and a dated papal title are derived. Martyr, Virgin, Bishop, and
+ * the like deliberately show no label.
+ */
 export function saintTitleLabel(payload: Record<string, unknown>): string | undefined {
-  const type = payload.saintType;
-  if (typeof type !== "string") return undefined;
-  return SAINT_TYPE_LABELS[type] || undefined;
+  if (typeof payload.titleLabel === "string" && payload.titleLabel.trim()) {
+    return payload.titleLabel.trim();
+  }
+  const type = typeof payload.saintType === "string" ? payload.saintType : "";
+  if (type === "apostle") return "Apostle and Disciple of Jesus";
+  if (type === "doctor_of_the_church") return "Doctor of the Church";
+  if (type === "pope") {
+    const start = parseYear(payload.papacyStart);
+    const end = parseYear(payload.papacyEnd);
+    // Only the dated form is a permitted label; otherwise defer to titleLabel.
+    if (start != null && end != null) return `Pope from ${start} to ${end}`;
+  }
+  return undefined;
 }
 
 /** Formats a stored "MM-DD" feast day as e.g. "July 25"; passes other text through. */

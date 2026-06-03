@@ -5,6 +5,7 @@ import {
   formatFeastDay,
   parseYear,
   saintEyebrow,
+  saintOrderRank,
   saintSortYear,
   saintTitleLabel,
 } from "@/lib/content-shared/saints";
@@ -78,16 +79,74 @@ describe("compareSaintsChronologically", () => {
   });
 });
 
-describe("saintTitleLabel", () => {
-  it("maps the canonical saint type to a strict title", () => {
-    expect(saintTitleLabel({ saintType: "apostle" })).toBe("Apostle");
-    expect(saintTitleLabel({ saintType: "doctor_of_the_church" })).toBe("Doctor of the Church");
-    expect(saintTitleLabel({ saintType: "martyr" })).toBe("Martyr");
+describe("compareSaintsChronologically — foundational ordering", () => {
+  const fig = (title: string, payload: Record<string, unknown>) => ({ title, payload });
+
+  it("leads with Mary, Joseph, John the Baptist, Peter, Apostles, Matthias, Paul", () => {
+    const list = [
+      fig("Thérèse", { deathDate: "1897" }),
+      fig("Paul", { slug: "paul" }),
+      fig("Andrew", { slug: "andrew", saintType: "apostle" }),
+      fig("Peter", { slug: "peter", saintType: "apostle" }),
+      fig("Mary", { slug: "mary" }),
+      fig("Matthias", { slug: "matthias" }),
+      fig("Joseph", { slug: "joseph" }),
+      fig("John the Baptist", { slug: "john-the-baptist" }),
+      fig("Augustine", { deathDate: "430" }),
+    ];
+    const ordered = [...list].sort(compareSaintsChronologically).map((s) => s.title);
+    expect(ordered).toEqual([
+      "Mary",
+      "Joseph",
+      "John the Baptist",
+      "Peter",
+      "Andrew",
+      "Matthias",
+      "Paul",
+      "Augustine",
+      "Thérèse",
+    ]);
   });
 
-  it("returns undefined for 'other' or a missing type", () => {
+  it("honours an explicit worker orderRank", () => {
+    expect(saintOrderRank({ orderRank: 0 })).toBe(0);
+    expect(saintOrderRank({ slug: "peter" })).toBe(3);
+    expect(saintOrderRank({ saintType: "apostle" })).toBe(10);
+    expect(saintOrderRank({ deathDate: "1897" })).toBeNull();
+  });
+});
+
+describe("saintTitleLabel — only the permitted set", () => {
+  it("labels Apostles and Doctors of the Church", () => {
+    expect(saintTitleLabel({ saintType: "apostle" })).toBe("Apostle and Disciple of Jesus");
+    expect(saintTitleLabel({ saintType: "doctor_of_the_church" })).toBe("Doctor of the Church");
+  });
+
+  it("shows no label for Martyr, Virgin, Bishop, and the like", () => {
+    expect(saintTitleLabel({ saintType: "martyr" })).toBeUndefined();
+    expect(saintTitleLabel({ saintType: "virgin" })).toBeUndefined();
+    expect(saintTitleLabel({ saintType: "bishop" })).toBeUndefined();
     expect(saintTitleLabel({ saintType: "other" })).toBeUndefined();
     expect(saintTitleLabel({})).toBeUndefined();
+  });
+
+  it("uses an explicit worker titleLabel verbatim", () => {
+    expect(saintTitleLabel({ saintType: "virgin", titleLabel: "Mother of God" })).toBe(
+      "Mother of God",
+    );
+    expect(
+      saintTitleLabel({
+        saintType: "evangelist",
+        titleLabel: "Apostle of Jesus and Disciple of Peter",
+      }),
+    ).toBe("Apostle of Jesus and Disciple of Peter");
+  });
+
+  it("renders a dated papal title, or none when dates are missing", () => {
+    expect(saintTitleLabel({ saintType: "pope", papacyStart: "440", papacyEnd: "461" })).toBe(
+      "Pope from 440 to 461",
+    );
+    expect(saintTitleLabel({ saintType: "pope" })).toBeUndefined();
   });
 });
 
@@ -111,7 +170,7 @@ describe("saintEyebrow", () => {
   });
 
   it("shows just one part when the other is missing", () => {
-    expect(saintEyebrow({ saintType: "apostle" })).toBe("Apostle");
+    expect(saintEyebrow({ saintType: "apostle" })).toBe("Apostle and Disciple of Jesus");
     expect(saintEyebrow({ feastDay: "12-25" })).toBe("Feast December 25");
     expect(saintEyebrow({})).toBeUndefined();
   });

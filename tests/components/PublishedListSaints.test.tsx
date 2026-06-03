@@ -51,7 +51,8 @@ describe("PublishedList with saint ordering + computed eyebrow", () => {
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(headings).toEqual(["St. Peter the Apostle", "St. Thérèse of Lisieux"]);
 
-    expect(screen.getByText("Apostle · Feast June 29")).toBeInTheDocument();
-    expect(screen.getByText("Virgin · Feast October 1")).toBeInTheDocument();
+    // Peter (an Apostle) carries the permitted title; Thérèse (a virgin) shows none.
+    expect(screen.getByText("Apostle and Disciple of Jesus · Feast June 29")).toBeInTheDocument();
+    expect(screen.getByText("Feast October 1")).toBeInTheDocument();
   });
 });
