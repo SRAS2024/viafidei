@@ -1,24 +1,31 @@
-import { PageHero, PublishedList } from "@/components/ui";
+import { PageHero } from "@/components/ui";
 import { getTranslator } from "@/lib/i18n/server";
 import { listPublished } from "@/lib/data/published";
+
+import { HistoryTimelineClient } from "./HistoryTimelineClient";
+import { historyYearBounds, toHistoryEvents } from "./historyEvents";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Church History",
-  description: "Council documents, encyclicals, and key Catholic Church documents.",
+  description: "A timeline of the Catholic Church through her councils and magisterial documents.",
 };
 
 export default async function HistoryPage() {
   const { t } = await getTranslator();
   const documents = await listPublished("CHURCH_DOCUMENT");
+  const events = toHistoryEvents(documents);
+  const { minYear, maxYear } = historyYearBounds(events);
   return (
     <div>
       <PageHero
         eyebrow={t("nav.history")}
         title="Church History"
-        subtitle="Approved Catholic documents from the Holy See, councils, and the USCCB, organized by type."
+        subtitle="The Church's story told through her councils and magisterial documents — scroll the timeline from the early Church to today."
       />
-      <PublishedList items={documents} baseHref="/liturgy-history" eyebrowField="documentType" />
+      <div className="mx-auto max-w-3xl px-4 pb-12">
+        <HistoryTimelineClient events={events} minYear={minYear} maxYear={maxYear} />
+      </div>
     </div>
   );
 }

@@ -10,6 +10,8 @@ export type HistoryEvent = {
   sortYear: number;
   period: string;
   periodLabel: string;
+  /** Church-document type (encyclical, council_document, …) when event came from a document. */
+  documentType?: string;
   location?: string;
   context?: string;
   issues?: string;
@@ -49,6 +51,7 @@ function matchesFilter(event: HistoryEvent, filter: HistoryFilterKey): boolean {
   }
   if (filter === "councils") {
     return (
+      event.documentType === "council_document" ||
       /council|nicaea|chalcedon|ephesus|trent|lateran|vatican|constantinople/i.test(event.title) ||
       event.slug.startsWith("council-") ||
       event.period === "councils-early" ||
@@ -66,6 +69,8 @@ function matchesFilter(event: HistoryEvent, filter: HistoryFilterKey): boolean {
   }
   if (filter === "doctrine") {
     return (
+      // Every magisterial document (anything but a council text) is doctrine.
+      (event.documentType != null && event.documentType !== "council_document") ||
       event.slug.startsWith("encyclical-") ||
       event.slug.startsWith("catechism-") ||
       event.slug.startsWith("code-of-canon-law-") ||
