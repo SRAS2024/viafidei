@@ -8,6 +8,12 @@ export const guidesChecklist: ChecklistSeed[] = [
     authorityLevelHint: "VATICAN",
   },
   {
+    canonicalName: "How to Pray the Divine Mercy Chaplet",
+    canonicalSlug: "how-to-pray-the-divine-mercy-chaplet",
+    priority: 12,
+    authorityLevelHint: "VATICAN",
+  },
+  {
     canonicalName: "How to Go to Confession",
     canonicalSlug: "how-to-go-to-confession",
     priority: 10,
