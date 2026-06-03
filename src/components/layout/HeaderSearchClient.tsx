@@ -8,9 +8,15 @@ type SuggestionGroup =
   | "prayers"
   | "saints"
   | "apparitions"
+  | "popes"
+  | "doctors"
   | "parishes"
   | "devotions"
+  | "guides"
+  | "sacraments"
   | "liturgy"
+  | "documents"
+  | "rites"
   | "spiritualLife";
 
 export type Suggestion = {
@@ -23,10 +29,16 @@ export type Suggestion = {
 const GROUP_LABEL: Record<SuggestionGroup, string> = {
   prayers: "Prayer",
   saints: "Saint",
-  apparitions: "Marian apparition",
+  apparitions: "Our Lady",
+  popes: "Pope",
+  doctors: "Doctor of the Church",
   parishes: "Parish",
   devotions: "Devotion",
-  liturgy: "Liturgy & History",
+  guides: "Guide",
+  sacraments: "Sacrament",
+  liturgy: "Liturgy",
+  documents: "Church document",
+  rites: "Rite",
   spiritualLife: "Spiritual life",
 };
 
@@ -34,9 +46,15 @@ const GROUP_ORDER: SuggestionGroup[] = [
   "prayers",
   "saints",
   "apparitions",
+  "popes",
+  "doctors",
+  "guides",
   "devotions",
+  "sacraments",
   "spiritualLife",
   "liturgy",
+  "documents",
+  "rites",
   "parishes",
 ];
 
@@ -58,9 +76,15 @@ export function pathForSuggestion(s: Suggestion): string {
   if (s.group === "prayers") return `/prayers/${s.slug}`;
   if (s.group === "saints") return `/saints/${s.slug}`;
   if (s.group === "apparitions") return `/our-lady/${s.slug}`;
+  if (s.group === "popes") return `/popes/${s.slug}`;
+  if (s.group === "doctors") return `/doctors/${s.slug}`;
   if (s.group === "parishes") return `/parishes/${s.slug}`;
   if (s.group === "devotions") return `/devotions/${s.slug}`;
-  if (s.group === "liturgy") return `/liturgy-history/${s.slug}`;
+  if (s.group === "guides") return `/guides/${s.slug}`;
+  if (s.group === "sacraments") return `/sacraments/${s.slug}`;
+  if (s.group === "rites") return `/rites/${s.slug}`;
+  // Church documents and other liturgy/history content share the detail route.
+  if (s.group === "liturgy" || s.group === "documents") return `/liturgy-history/${s.slug}`;
   if (s.group === "spiritualLife") {
     if (s.slug.startsWith("sacrament-") || s.slug.startsWith("consecration-")) {
       return `/sacraments/${s.slug}`;

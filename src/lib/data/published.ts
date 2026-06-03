@@ -92,3 +92,58 @@ export async function searchPublished(query: string, limit = 20): Promise<Publis
   });
   return rows.map((row) => deserialize(row)!).filter(Boolean);
 }
+
+/** Content type → the header search-suggestion group it appears under. */
+const CONTENT_TYPE_TO_SUGGEST_GROUP: Record<ChecklistContentType, string> = {
+  PRAYER: "prayers",
+  SAINT: "saints",
+  APPARITION: "apparitions",
+  MARIAN_TITLE: "apparitions",
+  POPE: "popes",
+  DOCTOR: "doctors",
+  PARISH: "parishes",
+  DEVOTION: "devotions",
+  NOVENA: "devotions",
+  GUIDE: "guides",
+  SACRAMENT: "sacraments",
+  LITURGICAL: "liturgy",
+  CHURCH_DOCUMENT: "documents",
+  RITE: "rites",
+  SPIRITUAL_PRACTICE: "spiritualLife",
+};
+
+export interface SearchSuggestion {
+  group: string;
+  id: string;
+  slug: string;
+  label: string;
+}
+
+/**
+ * Autocomplete suggestions for the header search, drawn from every content
+ * type and grouped by tab, capped at `perGroup` each. Matches title and slug.
+ */
+export async function suggestPublished(query: string, perGroup = 3): Promise<SearchSuggestion[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const rows = await prisma.publishedContent.findMany({
+    where: {
+      isPublished: true,
+      OR: [
+        { title: { contains: q, mode: "insensitive" } },
+        { slug: { contains: q.toLowerCase(), mode: "insensitive" } },
+      ],
+    },
+    orderBy: { title: "asc" },
+    take: 120,
+  });
+  const byGroup = new Map<string, SearchSuggestion[]>();
+  for (const row of rows) {
+    const group = CONTENT_TYPE_TO_SUGGEST_GROUP[row.contentType] ?? "prayers";
+    const arr = byGroup.get(group) ?? [];
+    if (arr.length >= perGroup) continue;
+    arr.push({ group, id: row.id, slug: row.slug, label: row.title });
+    byGroup.set(group, arr);
+  }
+  return [...byGroup.values()].flat();
+}

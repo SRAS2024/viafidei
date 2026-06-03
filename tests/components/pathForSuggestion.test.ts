@@ -21,6 +21,17 @@ describe("pathForSuggestion (search suggestion → detail route)", () => {
     expect(pathForSuggestion(s("parishes", "st-marys"))).toBe("/parishes/st-marys");
     expect(pathForSuggestion(s("devotions", "sacred-heart"))).toBe("/devotions/sacred-heart");
     expect(pathForSuggestion(s("liturgy", "rerum-novarum"))).toBe("/liturgy-history/rerum-novarum");
+    // Content types added after the original groups.
+    expect(pathForSuggestion(s("popes", "leo-xiii"))).toBe("/popes/leo-xiii");
+    expect(pathForSuggestion(s("doctors", "aquinas"))).toBe("/doctors/aquinas");
+    expect(pathForSuggestion(s("guides", "how-to-pray-the-rosary"))).toBe(
+      "/guides/how-to-pray-the-rosary",
+    );
+    expect(pathForSuggestion(s("sacraments", "baptism"))).toBe("/sacraments/baptism");
+    expect(pathForSuggestion(s("rites", "byzantine"))).toBe("/rites/byzantine");
+    expect(pathForSuggestion(s("documents", "lumen-gentium"))).toBe(
+      "/liturgy-history/lumen-gentium",
+    );
   });
 
   it("keeps sacraments / consecrations under the sacraments tab from the spiritual-life group", () => {
