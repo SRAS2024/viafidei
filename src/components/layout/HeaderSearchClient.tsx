@@ -13,7 +13,7 @@ type SuggestionGroup =
   | "liturgy"
   | "spiritualLife";
 
-type Suggestion = {
+export type Suggestion = {
   group: SuggestionGroup;
   id: string;
   slug: string;
@@ -54,11 +54,11 @@ const GROUP_ORDER: SuggestionGroup[] = [
  * Sacrament / consecration slugs live under `/sacraments/[slug]` (not
  * `/spiritual-life/`) because they have their own dedicated tab.
  */
-function pathForSuggestion(s: Suggestion): string {
+export function pathForSuggestion(s: Suggestion): string {
   if (s.group === "prayers") return `/prayers/${s.slug}`;
   if (s.group === "saints") return `/saints/${s.slug}`;
-  if (s.group === "apparitions") return `/saints/${s.slug}`;
-  if (s.group === "parishes") return `/spiritual-guidance/${s.slug}`;
+  if (s.group === "apparitions") return `/our-lady/${s.slug}`;
+  if (s.group === "parishes") return `/parishes/${s.slug}`;
   if (s.group === "devotions") return `/devotions/${s.slug}`;
   if (s.group === "liturgy") return `/liturgy-history/${s.slug}`;
   if (s.group === "spiritualLife") {
