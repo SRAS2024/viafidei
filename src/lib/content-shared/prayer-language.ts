@@ -32,7 +32,6 @@ const LANGUAGE_LABELS: Record<string, string> = {
   pt: "Portuguese",
   de: "German",
   pl: "Polish",
-  la_grc: "Latin",
 };
 
 /** Codes whose text must be preserved verbatim (never auto-translated). */

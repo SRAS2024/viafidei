@@ -55,6 +55,16 @@ export function parseYear(value: unknown): number | null {
   const isBC = /\b(bc|bce)\b/i.test(norm);
   const sign = isBC ? -1 : 1;
 
+  // A year range — the earliest (first) year wins, e.g. "100–44 BC" → -100.
+  // For BC ranges the era marker sits beside the *later* year, so the
+  // era-adjacent rule below would pick the wrong end; handle ranges first.
+  // Guarded to BC so numeric dates like "10-01-1897" still fall to the
+  // 4-digit-year rule below.
+  if (isBC) {
+    const range = norm.match(/(\d{1,4})\s*[–—-]\s*\d{1,4}/);
+    if (range) return -Number(range[1]);
+  }
+
   // "4th century", "3rd century BC" → midpoint of that century.
   const century = norm.match(/(\d{1,2})\s*(?:st|nd|rd|th)\s*century/i);
   if (century) return sign * ((Number(century[1]) - 1) * 100 + 50);

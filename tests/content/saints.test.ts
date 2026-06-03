@@ -35,6 +35,14 @@ describe("parseYear", () => {
     expect(parseYear("1182-1226")).toBe(1182);
   });
 
+  it("takes the earliest year of a BC range (era marker sits by the later year)", () => {
+    expect(parseYear("100–44 BC")).toBe(-100);
+    expect(parseYear("356-323 BC")).toBe(-356);
+    // A single BC year and a numeric date are unaffected.
+    expect(parseYear("100 BC")).toBe(-100);
+    expect(parseYear("10-01-1897")).toBe(1897);
+  });
+
   it("returns null when no year is present", () => {
     expect(parseYear("unknown")).toBeNull();
     expect(parseYear(undefined)).toBeNull();

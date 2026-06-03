@@ -6,9 +6,8 @@ import { SaveButton, type SaveKind } from "./SaveButton";
 /**
  * The content types a signed-in user can save, mapped to the public save
  * route segment (SaveKind, e.g. "prayers" → POST /api/saved/prayers) and the
- * data-layer kind. ONLY these four have /api/saved/* routes; any other
- * content type renders no button rather than a button that 404s (which is
- * exactly the bug SaveButton's stray "parishes" kind would have caused).
+ * data-layer kind. Each entry must have a matching /api/saved/* route; any
+ * other content type renders no button rather than a button that 404s.
  */
 export const SAVEABLE_CONTENT: Record<string, { kind: SaveKind; savedKind: SavedKind }> = {
   PRAYER: { kind: "prayers", savedKind: "prayer" },
