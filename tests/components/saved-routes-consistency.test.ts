@@ -49,7 +49,7 @@ function saveableKinds(): string[] {
 describe("Save button kinds match the /api/saved routes", () => {
   it("discovers the saved routes (sanity)", () => {
     expect(routeKinds).toEqual(
-      new Set(["prayers", "saints", "apparitions", "devotions", "parishes"]),
+      new Set(["prayers", "saints", "apparitions", "devotions", "parishes", "novenas"]),
     );
   });
 
@@ -57,9 +57,11 @@ describe("Save button kinds match the /api/saved routes", () => {
     expect(saveKindUnion()).toEqual(routeKinds);
   });
 
-  it('the "parishes" kind is now backed by a real route', () => {
-    expect(saveKindUnion().has("parishes")).toBe(true);
-    expect(routeKinds.has("parishes")).toBe(true);
+  it("parishes and novenas are backed by real routes", () => {
+    for (const kind of ["parishes", "novenas"]) {
+      expect(saveKindUnion().has(kind)).toBe(true);
+      expect(routeKinds.has(kind)).toBe(true);
+    }
   });
 
   it("every saveable content type maps to a kind with a real route", () => {

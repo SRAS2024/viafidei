@@ -16,7 +16,7 @@ import type { ChecklistContentType } from "@prisma/client";
 
 import { prisma } from "../db/client";
 
-export type SavedKind = "prayer" | "saint" | "apparition" | "devotion" | "parish";
+export type SavedKind = "prayer" | "saint" | "apparition" | "devotion" | "parish" | "novena";
 
 const SAVED_KIND_TO_CONTENT_TYPE: Record<SavedKind, ChecklistContentType> = {
   prayer: "PRAYER",
@@ -24,6 +24,7 @@ const SAVED_KIND_TO_CONTENT_TYPE: Record<SavedKind, ChecklistContentType> = {
   apparition: "APPARITION",
   devotion: "DEVOTION",
   parish: "PARISH",
+  novena: "NOVENA",
 };
 
 export type SaveOutcome = { ok: true; created: boolean } | { ok: false; reason: "not_found" };
@@ -131,6 +132,9 @@ export async function listSavedDevotions(userId: string) {
 }
 export async function listSavedParishes(userId: string) {
   return listSavedForKind("parish", userId);
+}
+export async function listSavedNovenas(userId: string) {
+  return listSavedForKind("novena", userId);
 }
 
 /**

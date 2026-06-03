@@ -5,7 +5,7 @@ import { LoginRequiredPopup } from "@/components/ui/LoginRequiredPopup";
 
 // One segment per /api/saved/* route. Each must have a matching
 // src/app/api/saved/<kind>/route.ts; see SAVEABLE_CONTENT.
-export type SaveKind = "prayers" | "saints" | "apparitions" | "devotions" | "parishes";
+export type SaveKind = "prayers" | "saints" | "apparitions" | "devotions" | "parishes" | "novenas";
 
 type Props = {
   kind: SaveKind;

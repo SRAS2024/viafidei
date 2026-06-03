@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { SaveContentButton } from "@/components/profile";
 import { PublishedDetail } from "@/components/ui";
 import { getPublishedBySlug } from "@/lib/data/published";
 
@@ -16,6 +17,7 @@ export default async function NovenaDetailPage({ params }: Props) {
       item={item}
       primaryFields={["background", "days"]}
       secondaryFields={["intentionTheme", "typicalStartDate"]}
+      action={<SaveContentButton contentType="NOVENA" slug={slug} />}
     />
   );
 }

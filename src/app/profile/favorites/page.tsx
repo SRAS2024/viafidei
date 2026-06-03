@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import {
   listSavedApparitions,
   listSavedDevotions,
+  listSavedNovenas,
   listSavedParishes,
   listSavedPrayers,
   listSavedSaints,
@@ -40,11 +41,12 @@ export default async function FavoritesPage() {
   const user = await requireUser();
   if (!user) redirect("/login?next=/profile/favorites");
 
-  const [prayers, saints, apparitions, devotions, parishes] = await Promise.all([
+  const [prayers, saints, apparitions, devotions, novenas, parishes] = await Promise.all([
     listSavedPrayers(user.id),
     listSavedSaints(user.id),
     listSavedApparitions(user.id),
     listSavedDevotions(user.id),
+    listSavedNovenas(user.id),
     listSavedParishes(user.id),
   ]);
 
@@ -53,6 +55,7 @@ export default async function FavoritesPage() {
     ...toItems(saints, "SAINT", "saints", "/saints", "Saint"),
     ...toItems(apparitions, "APPARITION", "apparitions", "/our-lady", "Our Lady"),
     ...toItems(devotions, "DEVOTION", "devotions", "/devotions", "Devotion"),
+    ...toItems(novenas, "NOVENA", "novenas", "/novenas", "Novena"),
     ...toItems(parishes, "PARISH", "parishes", "/parishes", "Parish"),
   ].sort((a, b) => +new Date(b.savedAt) - +new Date(a.savedAt));
 

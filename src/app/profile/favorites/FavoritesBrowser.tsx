@@ -5,8 +5,8 @@ import Link from "next/link";
 
 export type FavoriteItem = {
   id: string;
-  contentType: "PRAYER" | "SAINT" | "APPARITION" | "DEVOTION" | "PARISH";
-  kind: "prayers" | "saints" | "apparitions" | "devotions" | "parishes";
+  contentType: "PRAYER" | "SAINT" | "APPARITION" | "DEVOTION" | "PARISH" | "NOVENA";
+  kind: "prayers" | "saints" | "apparitions" | "devotions" | "parishes" | "novenas";
   slug: string;
   title: string;
   href: string;
@@ -22,6 +22,7 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "SAINT", label: "Saints" },
   { key: "APPARITION", label: "Our Lady" },
   { key: "DEVOTION", label: "Devotions" },
+  { key: "NOVENA", label: "Novenas" },
   { key: "PARISH", label: "Parishes" },
 ];
 
@@ -38,6 +39,7 @@ export function FavoritesBrowser({ items: initial }: { items: FavoriteItem[] }) 
       SAINT: 0,
       APPARITION: 0,
       DEVOTION: 0,
+      NOVENA: 0,
       PARISH: 0,
     };
     for (const it of items) c[it.contentType] += 1;
