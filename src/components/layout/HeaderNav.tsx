@@ -12,6 +12,7 @@ export const PRIMARY_NAV: NavItem[] = [
   { href: "/liturgy", key: "nav.liturgy" },
   { href: "/liturgical-calendar", key: "nav.liturgicalCalendar" },
   { href: "/history", key: "nav.history" },
+  { href: "/church-documents", key: "nav.churchDocuments" },
   { href: "/saints", key: "nav.saints" },
   { href: "/popes", key: "nav.popes" },
   { href: "/doctors", key: "nav.doctors" },

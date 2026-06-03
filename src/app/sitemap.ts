@@ -26,6 +26,7 @@ const PUBLIC_STATIC_PATHS: ReadonlyArray<{
   { path: "/liturgical-calendar", changeFrequency: "daily", priority: 0.7 },
   { path: "/liturgy-history", changeFrequency: "weekly", priority: 0.7 },
   { path: "/history", changeFrequency: "weekly", priority: 0.7 },
+  { path: "/church-documents", changeFrequency: "weekly", priority: 0.7 },
   { path: "/search", changeFrequency: "weekly", priority: 0.5 },
   { path: "/privacy", changeFrequency: "yearly", priority: 0.4 },
 ];

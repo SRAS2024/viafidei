@@ -1,3 +1,4 @@
+import { documentTypeLabel } from "@/lib/content-shared/church-documents";
 import { parseYear } from "@/lib/content-shared/saints";
 import type { PublishedItem } from "@/lib/data/published";
 
@@ -8,21 +9,6 @@ import type { HistoryEvent } from "./HistoryTimelineClient";
  * Church's story is told through her councils and magisterial documents:
  * each document becomes a dated timeline event, placed by its issue year.
  */
-const DOC_TYPE_LABELS: Record<string, string> = {
-  encyclical: "Encyclical",
-  apostolic_exhortation: "Apostolic Exhortation",
-  apostolic_constitution: "Apostolic Constitution",
-  motu_proprio: "Motu Proprio",
-  apostolic_letter: "Apostolic Letter",
-  decree: "Decree",
-  declaration: "Declaration",
-  council_document: "Council Document",
-  catechism_section: "Catechism",
-  instruction: "Instruction",
-  vatican_document: "Vatican Document",
-  uscb_pastoral_letter: "USCCB Pastoral Letter",
-};
-
 function str(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;
 }
@@ -44,7 +30,7 @@ export function toHistoryEvents(items: PublishedItem[]): HistoryEvent[] {
       date: issued ?? String(year),
       sortYear: year,
       period: documentType ?? "document",
-      periodLabel: (documentType && DOC_TYPE_LABELS[documentType]) || "Document",
+      periodLabel: documentTypeLabel(documentType),
       documentType,
       context: str(p.issuingAuthority),
       significance: themes.length ? themes.join(", ") : undefined,
