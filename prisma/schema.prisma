@@ -765,6 +765,10 @@ enum ChecklistContentType {
   CHURCH_DOCUMENT
   LITURGICAL
   SPIRITUAL_PRACTICE
+  PARISH
+  POPE
+  DOCTOR
+  RITE
 }
 
 /// Lifecycle for every checklist item. Every transition is admin-driven

@@ -8,8 +8,8 @@ export default function ParishNotFound() {
       <p className="font-serif text-ink-faint">
         This parish may have been removed or the link is incorrect.
       </p>
-      <Link href="/spiritual-guidance" className="vf-btn vf-btn-ghost">
-        ← Back to Spiritual Guidance
+      <Link href="/parishes" className="vf-btn vf-btn-ghost">
+        ← Back to Parishes
       </Link>
     </div>
   );

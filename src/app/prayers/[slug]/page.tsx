@@ -1,5 +1,8 @@
 import { notFound } from "next/navigation";
 
+import { SaveContentButton } from "@/components/profile";
+import { PrayerLanguageToggle } from "@/components/ui";
+import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
 import { getPublishedBySlug } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +15,7 @@ export default async function PrayerDetailPage({ params }: Props) {
   if (!prayer) notFound();
 
   const body = (prayer.payload.body as string | undefined) ?? "";
+  const variants = buildPrayerVariants(prayer.payload);
   const officialPrayer = prayer.payload.officialPrayer as string | undefined;
   const summary = prayer.payload.summary as string | undefined;
   const citations = (prayer.payload.citations as string[] | undefined) ?? [];
@@ -19,7 +23,12 @@ export default async function PrayerDetailPage({ params }: Props) {
   return (
     <article className="mx-auto max-w-2xl px-4 py-10">
       <header className="mb-8">
-        <h1 className="font-display text-4xl text-ink">{prayer.title}</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="font-display text-4xl text-ink">{prayer.title}</h1>
+          <div className="shrink-0 pt-1">
+            <SaveContentButton contentType="PRAYER" slug={slug} />
+          </div>
+        </div>
         {summary && <p className="mt-3 font-serif leading-relaxed text-ink-soft">{summary}</p>}
       </header>
 
@@ -32,8 +41,12 @@ export default async function PrayerDetailPage({ params }: Props) {
         </section>
       )}
 
-      <section className="font-serif text-lg leading-relaxed text-ink whitespace-pre-line">
-        {body}
+      <section>
+        {variants.length > 0 ? (
+          <PrayerLanguageToggle variants={variants} />
+        ) : (
+          <p className="whitespace-pre-line font-serif text-lg leading-relaxed text-ink">{body}</p>
+        )}
       </section>
 
       {citations.length > 0 && (

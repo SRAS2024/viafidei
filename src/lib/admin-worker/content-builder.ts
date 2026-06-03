@@ -66,6 +66,9 @@ export const REQUIRED_FIELDS: Record<string, string[]> = {
   CHURCH_DOCUMENT: ["historyType", "title", "dateOrEra", "summary", "body"],
   LITURGICAL: ["liturgyTitle", "liturgyType", "summary", "formationBody"],
   PARISH: ["parishName", "address", "city", "country"],
+  POPE: ["popeName", "papacyStart"],
+  DOCTOR: ["doctorName"],
+  RITE: ["riteName"],
 };
 
 /**
@@ -97,6 +100,9 @@ const OPTIONAL_FIELDS: Record<string, string[]> = {
   CHURCH_DOCUMENT: ["authority", "promulgationDate"],
   LITURGICAL: ["liturgicalSeason", "color"],
   PARISH: ["website", "diocese", "region"],
+  POPE: ["papacyEnd", "birthName", "background"],
+  DOCTOR: ["doctorTitle", "feastDay", "background"],
+  RITE: ["history", "background", "riteKey"],
 };
 
 export interface ContentPackage {

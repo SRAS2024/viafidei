@@ -412,7 +412,7 @@ function ParishCard({ parish, distanceKm }: { parish: Parish; distanceKm?: numbe
     .filter(Boolean)
     .join(", ");
   return (
-    <Link href={`/spiritual-guidance/${parish.slug}`}>
+    <Link href={`/parishes/${parish.slug}`}>
       <article className="vf-card h-full rounded-sm p-5 transition hover:border-ink/30 hover:-translate-y-0.5 sm:p-7">
         <div className="flex items-start justify-between gap-3">
           <h3 className="min-w-0 break-words font-display text-xl sm:text-2xl">{parish.name}</h3>

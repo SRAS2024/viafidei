@@ -3,7 +3,9 @@
 import { useState, useTransition } from "react";
 import { LoginRequiredPopup } from "@/components/ui/LoginRequiredPopup";
 
-export type SaveKind = "prayers" | "saints" | "apparitions" | "parishes" | "devotions";
+// One segment per /api/saved/* route. Each must have a matching
+// src/app/api/saved/<kind>/route.ts; see SAVEABLE_CONTENT.
+export type SaveKind = "prayers" | "saints" | "apparitions" | "devotions" | "parishes" | "novenas";
 
 type Props = {
   kind: SaveKind;
@@ -24,13 +26,13 @@ type Props = {
 };
 
 const DEFAULT_LABELS = {
-  save: "Save",
-  saved: "Saved",
+  save: "Favorite",
+  saved: "Favorited",
   remove: "Remove",
-  confirmRemove: "Remove this from your saved items?",
-  loginRequired: "An account is required to use this feature.",
-  loginCta: "Sign in",
-  registerCta: "Create account",
+  confirmRemove: "Remove this from your favorites?",
+  loginRequired: "You must have an account for this action.",
+  loginCta: "Log In",
+  registerCta: "Create Account",
 };
 
 export function SaveButton({

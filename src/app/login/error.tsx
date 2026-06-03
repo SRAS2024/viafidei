@@ -6,5 +6,5 @@ export default function LoginError(props: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  return <RouteError {...props} title="Sign in unavailable" />;
+  return <RouteError {...props} title="Log in unavailable" />;
 }

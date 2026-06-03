@@ -8,12 +8,19 @@ type SuggestionGroup =
   | "prayers"
   | "saints"
   | "apparitions"
+  | "popes"
+  | "doctors"
   | "parishes"
   | "devotions"
+  | "novenas"
+  | "guides"
+  | "sacraments"
   | "liturgy"
+  | "documents"
+  | "rites"
   | "spiritualLife";
 
-type Suggestion = {
+export type Suggestion = {
   group: SuggestionGroup;
   id: string;
   slug: string;
@@ -23,10 +30,17 @@ type Suggestion = {
 const GROUP_LABEL: Record<SuggestionGroup, string> = {
   prayers: "Prayer",
   saints: "Saint",
-  apparitions: "Marian apparition",
+  apparitions: "Our Lady",
+  popes: "Pope",
+  doctors: "Doctor of the Church",
   parishes: "Parish",
   devotions: "Devotion",
-  liturgy: "Liturgy & History",
+  novenas: "Novena",
+  guides: "Guide",
+  sacraments: "Sacrament",
+  liturgy: "Liturgy",
+  documents: "Church document",
+  rites: "Rite",
   spiritualLife: "Spiritual life",
 };
 
@@ -34,9 +48,16 @@ const GROUP_ORDER: SuggestionGroup[] = [
   "prayers",
   "saints",
   "apparitions",
+  "popes",
+  "doctors",
+  "guides",
   "devotions",
+  "novenas",
+  "sacraments",
   "spiritualLife",
   "liturgy",
+  "documents",
+  "rites",
   "parishes",
 ];
 
@@ -54,13 +75,20 @@ const GROUP_ORDER: SuggestionGroup[] = [
  * Sacrament / consecration slugs live under `/sacraments/[slug]` (not
  * `/spiritual-life/`) because they have their own dedicated tab.
  */
-function pathForSuggestion(s: Suggestion): string {
+export function pathForSuggestion(s: Suggestion): string {
   if (s.group === "prayers") return `/prayers/${s.slug}`;
   if (s.group === "saints") return `/saints/${s.slug}`;
-  if (s.group === "apparitions") return `/saints/${s.slug}`;
-  if (s.group === "parishes") return `/spiritual-guidance/${s.slug}`;
+  if (s.group === "apparitions") return `/our-lady/${s.slug}`;
+  if (s.group === "popes") return `/popes/${s.slug}`;
+  if (s.group === "doctors") return `/doctors/${s.slug}`;
+  if (s.group === "parishes") return `/parishes/${s.slug}`;
   if (s.group === "devotions") return `/devotions/${s.slug}`;
-  if (s.group === "liturgy") return `/liturgy-history/${s.slug}`;
+  if (s.group === "novenas") return `/novenas/${s.slug}`;
+  if (s.group === "guides") return `/guides/${s.slug}`;
+  if (s.group === "sacraments") return `/sacraments/${s.slug}`;
+  if (s.group === "rites") return `/rites/${s.slug}`;
+  // Church documents and other liturgy/history content share the detail route.
+  if (s.group === "liturgy" || s.group === "documents") return `/liturgy-history/${s.slug}`;
   if (s.group === "spiritualLife") {
     if (s.slug.startsWith("sacrament-") || s.slug.startsWith("consecration-")) {
       return `/sacraments/${s.slug}`;
@@ -103,8 +131,10 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
   const [q, setQ] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
+  // The search is a single icon by default; clicking it expands the bar.
+  const [expanded, setExpanded] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const wrapperRef = useRef<HTMLFormElement | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const limit = useSuggestionLimit();
 
@@ -141,11 +171,20 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
   useEffect(() => {
     function onClick(event: MouseEvent) {
       if (!wrapperRef.current) return;
-      if (!wrapperRef.current.contains(event.target as Node)) setOpen(false);
+      if (!wrapperRef.current.contains(event.target as Node)) {
+        setOpen(false);
+        // Collapse back to the icon when the field is empty.
+        if (!q.trim()) setExpanded(false);
+      }
     }
     window.addEventListener("click", onClick);
     return () => window.removeEventListener("click", onClick);
-  }, []);
+  }, [q]);
+
+  // Focus the field as soon as the search expands.
+  useEffect(() => {
+    if (expanded) inputRef.current?.focus();
+  }, [expanded]);
 
   function pick(suggestion: Suggestion) {
     setOpen(false);
@@ -189,78 +228,95 @@ export function HeaderSearchClient({ placeholder, ariaLabel }: Props) {
     } else if (e.key === "Escape") {
       setOpen(false);
       setActiveIndex(-1);
+      if (!q.trim()) setExpanded(false);
       inputRef.current?.blur();
     }
   }
 
   return (
-    <form
-      ref={wrapperRef}
-      method="get"
-      action="/search"
-      role="search"
-      className="vf-header-search relative flex w-full items-center gap-2 sm:w-auto sm:max-w-xs"
-    >
-      <SearchIcon size={14} className="shrink-0 text-ink-faint" />
-      <input
-        ref={inputRef}
-        type="search"
-        name="q"
-        value={q}
-        onChange={(e) => {
-          setQ(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={onKeyDown}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        role="combobox"
-        aria-autocomplete="list"
-        aria-expanded={open && flat.length > 0}
-        aria-controls="vf-header-search-listbox"
-        autoComplete="off"
-        className="vf-header-search-input"
-      />
-      {open && flat.length > 0 ? (
-        <div
-          id="vf-header-search-listbox"
-          role="listbox"
-          aria-label="Search suggestions"
-          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[28rem] overflow-auto rounded-md border border-ink/10 bg-paper shadow-paper"
+    <div ref={wrapperRef} className="relative flex w-full items-center justify-end sm:w-auto">
+      {!expanded ? (
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          aria-expanded={false}
+          onClick={() => {
+            setExpanded(true);
+            setOpen(true);
+          }}
+          className="vf-header-search-toggle flex h-9 w-9 items-center justify-center rounded-full text-ink-faint transition hover:text-ink"
         >
-          {grouped.map(({ group, items }) => (
-            <div key={group} className="border-b border-ink/5 last:border-b-0">
-              <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-liturgical text-ink-faint">
-                {GROUP_LABEL[group]}
-              </p>
-              <ul>
-                {items.map((s) => {
-                  const flatIndex = flat.findIndex((x) => x.group === s.group && x.id === s.id);
-                  const active = flatIndex === activeIndex;
-                  return (
-                    <li key={`${s.group}:${s.id}`}>
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={active}
-                        onMouseEnter={() => setActiveIndex(flatIndex)}
-                        onClick={() => pick(s)}
-                        className={`flex w-full items-baseline gap-3 px-3 py-2 text-left text-sm ${active ? "bg-ink/[0.07]" : "hover:bg-ink/5"}`}
-                      >
-                        <span className="truncate">{s.label}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+          <SearchIcon size={16} />
+        </button>
+      ) : (
+        <form
+          method="get"
+          action="/search"
+          role="search"
+          className="vf-header-search relative flex w-full items-center gap-2 sm:w-64"
+        >
+          <SearchIcon size={14} className="shrink-0 text-ink-faint" />
+          <input
+            ref={inputRef}
+            type="search"
+            name="q"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={onKeyDown}
+            placeholder={placeholder}
+            aria-label={ariaLabel}
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={open && flat.length > 0}
+            aria-controls="vf-header-search-listbox"
+            autoComplete="off"
+            className="vf-header-search-input"
+          />
+          {open && flat.length > 0 ? (
+            <div
+              id="vf-header-search-listbox"
+              role="listbox"
+              aria-label="Search suggestions"
+              className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[28rem] overflow-auto rounded-md border border-ink/10 bg-paper shadow-paper"
+            >
+              {grouped.map(({ group, items }) => (
+                <div key={group} className="border-b border-ink/5 last:border-b-0">
+                  <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-liturgical text-ink-faint">
+                    {GROUP_LABEL[group]}
+                  </p>
+                  <ul>
+                    {items.map((s) => {
+                      const flatIndex = flat.findIndex((x) => x.group === s.group && x.id === s.id);
+                      const active = flatIndex === activeIndex;
+                      return (
+                        <li key={`${s.group}:${s.id}`}>
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={active}
+                            onMouseEnter={() => setActiveIndex(flatIndex)}
+                            onClick={() => pick(s)}
+                            className={`flex w-full items-baseline gap-3 px-3 py-2 text-left text-sm ${active ? "bg-ink/[0.07]" : "hover:bg-ink/5"}`}
+                          >
+                            <span className="truncate">{s.label}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+              <div className="border-t border-ink/10 px-3 py-2 text-[11px] font-serif text-ink-faint">
+                ↑↓ navigate &middot; ↵ open &middot; esc close
+              </div>
             </div>
-          ))}
-          <div className="border-t border-ink/10 px-3 py-2 text-[11px] font-serif text-ink-faint">
-            ↑↓ navigate &middot; ↵ open &middot; esc close
-          </div>
-        </div>
-      ) : null}
-    </form>
+          ) : null}
+        </form>
+      )}
+    </div>
   );
 }

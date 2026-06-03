@@ -7,6 +7,9 @@ import { PageHero } from "@/components/ui/PageHero";
 import { GoalManager } from "./GoalManager";
 import { logPageError } from "@/lib/observability/page-errors";
 
+// Reads the auth session (cookies), so it can never be statically prerendered.
+export const dynamic = "force-dynamic";
+
 export default async function GoalsPage() {
   let user: Awaited<ReturnType<typeof requireUser>> = null;
   try {
@@ -58,6 +61,8 @@ export default async function GoalsPage() {
           description: t("profile.goals.description"),
           dueDate: t("profile.goals.dueDate"),
           save: t("common.save"),
+          startGoal: t("profile.goals.startGoal"),
+          alreadyCompleted: t("profile.goals.alreadyCompleted"),
           cancel: t("common.cancel"),
           edit: t("profile.goals.edit"),
           complete: t("profile.goals.complete"),

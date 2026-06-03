@@ -38,10 +38,21 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** Clicks the collapsed search icon to reveal the input bar, then returns it. */
+async function openSearch(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Search the site" }));
+  return screen.getByRole("combobox", { name: "Search the site" });
+}
+
 describe("HeaderSearchClient", () => {
-  it("renders an input with a search role/label and combobox semantics", () => {
+  it("starts as a search icon and expands into a combobox when clicked", async () => {
     render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
-    const input = screen.getByRole("combobox", { name: "Search the site" });
+    // Collapsed: just the icon button, no input.
+    const toggle = screen.getByRole("button", { name: "Search the site" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+
+    const input = await openSearch(userEvent.setup());
     expect(input).toBeInTheDocument();
     expect(input).toHaveAttribute("aria-autocomplete", "list");
     expect(input).toHaveAttribute("aria-controls", "vf-header-search-listbox");
@@ -51,7 +62,7 @@ describe("HeaderSearchClient", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
     const user = userEvent.setup();
-    await user.type(screen.getByRole("combobox"), "a");
+    await user.type(await openSearch(user), "a");
     // Debounce is 150ms — give it room.
     await new Promise((r) => setTimeout(r, 250));
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -61,7 +72,7 @@ describe("HeaderSearchClient", () => {
     mockSuggestFetch();
     render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
     const user = userEvent.setup();
-    await user.type(screen.getByRole("combobox"), "ani");
+    await user.type(await openSearch(user), "ani");
     await waitFor(() => expect(screen.queryByRole("listbox")).toBeInTheDocument(), {
       timeout: 1000,
     });
@@ -73,7 +84,7 @@ describe("HeaderSearchClient", () => {
     mockSuggestFetch();
     render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
     const user = userEvent.setup();
-    const input = screen.getByRole("combobox");
+    const input = await openSearch(user);
     await user.type(input, "ani");
     await waitFor(() => expect(screen.queryByRole("listbox")).toBeInTheDocument(), {
       timeout: 1000,
@@ -96,7 +107,7 @@ describe("HeaderSearchClient", () => {
     mockSuggestFetch();
     render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
     const user = userEvent.setup();
-    await user.type(screen.getByRole("combobox"), "ani");
+    await user.type(await openSearch(user), "ani");
     await waitFor(() => expect(screen.queryByRole("listbox")).toBeInTheDocument(), {
       timeout: 1000,
     });
@@ -108,7 +119,7 @@ describe("HeaderSearchClient", () => {
     mockSuggestFetch();
     render(<HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />);
     const user = userEvent.setup();
-    await user.type(screen.getByRole("combobox"), "ani");
+    await user.type(await openSearch(user), "ani");
     await waitFor(() => expect(screen.queryByRole("listbox")).toBeInTheDocument(), {
       timeout: 1000,
     });
@@ -118,7 +129,7 @@ describe("HeaderSearchClient", () => {
     });
   });
 
-  it("has no obvious accessibility violations in the closed state", async () => {
+  it("has no obvious accessibility violations in the collapsed (icon) state", async () => {
     const { container } = render(
       <HeaderSearchClient placeholder="Search" ariaLabel="Search the site" />,
     );

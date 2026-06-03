@@ -1,4 +1,5 @@
 import { PageHero, PublishedList } from "@/components/ui";
+import { compareSaintsChronologically, saintEyebrow } from "@/lib/content-shared/saints";
 import { getTranslator } from "@/lib/i18n/server";
 import { listPublished } from "@/lib/data/published";
 
@@ -15,7 +16,13 @@ export default async function SaintsPage() {
         title={t("saints.title")}
         subtitle={t("saints.subtitle")}
       />
-      <PublishedList items={items} baseHref="/saints" eyebrowField="feastDay" />
+      {/* Earliest saints first (Apostles → modern), each tagged with its strict title. */}
+      <PublishedList
+        items={items}
+        baseHref="/saints"
+        sortItems={compareSaintsChronologically}
+        eyebrowFor={(item) => saintEyebrow(item.payload)}
+      />
     </div>
   );
 }

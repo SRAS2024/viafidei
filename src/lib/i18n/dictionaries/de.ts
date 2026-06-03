@@ -7,7 +7,7 @@ export const de: Dict = {
   "nav.home": "Startseite",
   "nav.prayers": "Gebete",
   "nav.spiritualLife": "Geistliches Leben",
-  "nav.spiritualGuidance": "Begleitung",
+  "nav.spiritualGuidance": "Unsere Liebe Frau",
   "nav.liturgyHistory": "Liturgie & Geschichte",
   "nav.saints": "Heilige & Unsere Liebe Frau",
   "nav.search": "Suche",

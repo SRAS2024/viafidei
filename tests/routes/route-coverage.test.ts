@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { PRIMARY_NAV } from "@/components/layout/HeaderNav";
+import { QUICK_LINKS } from "@/app/_sections/HomeQuickLinks";
 
 // Walk src/app and collect every Next.js page.tsx route. The path of a
 // page.tsx file (minus app/ prefix and trailing /page.tsx) is the public
@@ -51,6 +52,18 @@ describe("route coverage", () => {
     expect(STATIC_ROUTES.has(href)).toBe(true);
   });
 
+  // A concrete href resolves if it's a static route or its parent has a [slug] page.
+  function hrefResolves(href: string): boolean {
+    const clean = href.split("#")[0]!.split("?")[0]!;
+    if (STATIC_ROUTES.has(clean)) return true;
+    const parent = clean.split("/").slice(0, -1).join("/");
+    return PAGE_ROUTES.includes(`${parent}/[slug]`);
+  }
+
+  it.each(QUICK_LINKS)("homepage quick link $href resolves to a real route", ({ href }) => {
+    expect(hrefResolves(href)).toBe(true);
+  });
+
   const REQUIRED_STATIC_ROUTES = [
     "/",
     "/login",
@@ -62,7 +75,7 @@ describe("route coverage", () => {
     "/saints",
     "/devotions",
     "/spiritual-life",
-    "/spiritual-guidance",
+    "/our-lady",
     "/liturgy-history",
     "/admin",
     "/admin/users",
@@ -83,7 +96,7 @@ describe("route coverage", () => {
       "/saints/[slug]",
       "/devotions/[slug]",
       "/spiritual-life/[slug]",
-      "/spiritual-guidance/[slug]",
+      "/our-lady/[slug]",
       "/liturgy-history/[slug]",
     ];
     for (const pattern of expected) {

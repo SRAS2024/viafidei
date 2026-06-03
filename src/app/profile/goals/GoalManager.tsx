@@ -28,6 +28,8 @@ type Labels = {
   description: string;
   dueDate: string;
   save: string;
+  startGoal: string;
+  alreadyCompleted: string;
   cancel: string;
   edit: string;
   complete: string;
@@ -69,7 +71,7 @@ function CreateForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function submit() {
+  function submit(completed: boolean) {
     if (!title.trim()) return;
     setError(null);
     startTransition(async () => {
@@ -80,6 +82,7 @@ function CreateForm({
           title: title.trim(),
           description: desc.trim() || null,
           dueDate: due ? new Date(due).toISOString() : null,
+          completed,
         }),
       });
       if (!res.ok) {
@@ -124,17 +127,27 @@ function CreateForm({
         onChange={(e) => setDue(e.target.value)}
       />
       {error ? <p className="mt-2 text-sm text-liturgical-red">{error}</p> : null}
-      <div className="mt-4 flex gap-3">
+      <div className="mt-4 flex flex-wrap gap-3">
         <button type="button" className="vf-btn vf-btn-cancel" onClick={onCancel}>
           {labels.cancel}
         </button>
         <button
           type="button"
           className="vf-btn vf-btn-primary"
-          onClick={submit}
+          onClick={() => submit(false)}
           disabled={pending || !title.trim()}
         >
-          {pending ? "…" : labels.save}
+          {pending ? "…" : labels.startGoal}
+        </button>
+        {/* Manual completion: for a goal the user finished before joining.
+            Creates it already-completed and awards its milestone. */}
+        <button
+          type="button"
+          className="vf-btn vf-btn-ghost"
+          onClick={() => submit(true)}
+          disabled={pending || !title.trim()}
+        >
+          {labels.alreadyCompleted}
         </button>
       </div>
     </div>

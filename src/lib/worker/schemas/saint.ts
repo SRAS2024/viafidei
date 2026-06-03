@@ -31,6 +31,13 @@ export const saintSchema: ContentSchema = {
     canonizedBy: z.string().optional(),
     birthDate: z.string().optional(),
     deathDate: z.string().optional(),
+    // Exact permitted title shown beneath the name (e.g. "Mother of God").
+    titleLabel: z.string().optional(),
+    // Explicit sort rank for the foundational figures (lower = earlier).
+    orderRank: z.number().int().optional(),
+    // Papacy years for saint-popes, to render "Pope from X to Y".
+    papacyStart: z.string().optional(),
+    papacyEnd: z.string().optional(),
     relatedPrayers: z.array(z.string()).default([]),
     relatedDevotions: z.array(z.string()).default([]),
     citations: z.array(z.string().url()).min(2),
@@ -62,6 +69,10 @@ export const saintSchema: ContentSchema = {
       "canonizedBy",
       "birthDate",
       "deathDate",
+      "titleLabel",
+      "orderRank",
+      "papacyStart",
+      "papacyEnd",
       "relatedPrayers",
       "relatedDevotions",
     ],

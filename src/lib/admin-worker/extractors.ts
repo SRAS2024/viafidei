@@ -1123,9 +1123,21 @@ export interface ParishFields {
   state?: string;
   country: string;
   diocese?: string;
+  /** parish | shrine | cathedral | major-basilica | minor-basilica */
+  designation: string;
   website?: string;
   sourceUrl: string;
   sourceHost: string;
+}
+
+/** Classify a parish record by the designation stated in its name/text. */
+export function parishDesignation(title: string | null | undefined, body: string): string {
+  const hay = `${title ?? ""} ${body}`.toLowerCase();
+  if (hay.includes("major basilica")) return "major-basilica";
+  if (hay.includes("minor basilica") || hay.includes("basilica")) return "minor-basilica";
+  if (hay.includes("cathedral")) return "cathedral";
+  if (hay.includes("shrine")) return "shrine";
+  return "parish";
 }
 
 export function ParishExtractor(input: ExtractorInput): ExtractorOutput<ParishFields> {
@@ -1181,10 +1193,233 @@ export function ParishExtractor(input: ExtractorInput): ExtractorOutput<ParishFi
     evidence.push(provenanceFor("diocese", dioceseMatch, input));
   }
 
+  fields.designation = parishDesignation(input.title, kept);
+
   const required = ["parishName", "address", "city", "country"];
   const missing = required.filter((f) => !(f in fields));
   const confidence = (required.length - missing.length) / required.length;
 
+  return {
+    fields,
+    missingFields: missing,
+    confidenceScore: confidence,
+    sourceEvidence: evidence,
+    rejectedSections: rejected,
+    formatting: {},
+    warnings: [],
+    fatalReasons: fatal,
+  };
+}
+
+// ─── PopeExtractor ──────────────────────────────────────────────────────────
+export interface PopeFields {
+  popeName: string;
+  papacyStart: string;
+  papacyEnd?: string;
+  background?: string;
+  sourceUrl: string;
+  sourceHost: string;
+}
+
+export function PopeExtractor(input: ExtractorInput): ExtractorOutput<PopeFields> {
+  const body = blockAwareBody(input, ["PARAGRAPH", "LIST_ITEM", "METADATA"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
+  const evidence: FieldProvenance[] = [];
+  const fields: Partial<PopeFields> = { sourceUrl: input.url, sourceHost: input.host };
+  const fatal: string[] = [];
+
+  if (input.title) {
+    fields.popeName = input.title.trim();
+    evidence.push(
+      makeProvenance({
+        fieldName: "popeName",
+        sourceUrl: input.url,
+        sourceHost: input.host,
+        snippet: input.title,
+        method: "TITLE_REGEX",
+        confidence: 0.85,
+        checksum: input.checksum,
+      }),
+    );
+  } else {
+    fatal.push("No pope name found.");
+  }
+
+  // Years of the pontificate: prefer an explicit range ("1978 to 2005",
+  // "2013–present"); otherwise a start year near pontificate language.
+  const range = kept.match(
+    /\b(1\d{3}|20\d{2})\s*(?:to|through|until|–|—|-)\s*(present|1\d{3}|20\d{2})\b/i,
+  );
+  if (range) {
+    fields.papacyStart = range[1]!;
+    if (!/present/i.test(range[2]!)) fields.papacyEnd = range[2]!;
+    evidence.push(
+      provenanceFor(
+        "papacyStart",
+        { value: range[1]!, snippet: range[0]!, confidence: 0.75 },
+        input,
+      ),
+    );
+  } else {
+    const start = matchBody(
+      kept,
+      /\b(?:elected|pope from|since|began (?:his )?pontificate in|pontificate began in|papacy began in)\D{0,12}(1\d{3}|20\d{2})\b/i,
+    );
+    if (start) {
+      fields.papacyStart = start.value;
+      evidence.push(provenanceFor("papacyStart", start, input));
+    }
+  }
+  if (!fields.papacyStart) fatal.push("No papacy start year found.");
+
+  // Background — the first substantial sentence.
+  const bio = matchBody(kept, /([A-Z][^.]{60,400}\.)/);
+  if (bio) {
+    fields.background = bio.value;
+    evidence.push(provenanceFor("background", bio, input));
+  }
+
+  const required = ["popeName", "papacyStart"];
+  const missing = required.filter((f) => !(f in fields));
+  const confidence = (required.length - missing.length) / required.length;
+  return {
+    fields,
+    missingFields: missing,
+    confidenceScore: confidence,
+    sourceEvidence: evidence,
+    rejectedSections: rejected,
+    formatting: {},
+    warnings: [],
+    fatalReasons: fatal,
+  };
+}
+
+// ─── DoctorExtractor ────────────────────────────────────────────────────────
+export interface DoctorFields {
+  doctorName: string;
+  doctorTitle?: string;
+  feastDay?: string;
+  background?: string;
+  sourceUrl: string;
+  sourceHost: string;
+}
+
+export function DoctorExtractor(input: ExtractorInput): ExtractorOutput<DoctorFields> {
+  const body = blockAwareBody(input, ["PARAGRAPH", "LIST_ITEM", "METADATA"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
+  const evidence: FieldProvenance[] = [];
+  const fields: Partial<DoctorFields> = { sourceUrl: input.url, sourceHost: input.host };
+  const fatal: string[] = [];
+
+  if (input.title) {
+    fields.doctorName = input.title.trim();
+    evidence.push(
+      makeProvenance({
+        fieldName: "doctorName",
+        sourceUrl: input.url,
+        sourceHost: input.host,
+        snippet: input.title,
+        method: "TITLE_REGEX",
+        confidence: 0.85,
+        checksum: input.checksum,
+      }),
+    );
+  } else {
+    fatal.push("No doctor name found.");
+  }
+
+  // Honorific epithet, e.g. "Doctor of Grace", "Angelic Doctor".
+  const epithet = matchBody(
+    kept,
+    /\b((?:Angelic|Seraphic|Common|Universal|Marian|Eucharistic|Mellifluous)\s+Doctor|Doctor\s+of\s+(?:the\s+)?[A-Z][a-zA-Z ]{2,40})\b/,
+  );
+  if (epithet) {
+    fields.doctorTitle = epithet.value;
+    evidence.push(provenanceFor("doctorTitle", epithet, input));
+  }
+
+  const feast = matchBody(
+    kept,
+    /\bfeast(?:\s+day)?\s+(?:is\s+)?(?:on\s+)?((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2})/i,
+  );
+  if (feast) {
+    fields.feastDay = feast.value;
+    evidence.push(provenanceFor("feastDay", feast, input));
+  }
+
+  const bio = matchBody(kept, /([A-Z][^.]{60,400}\.)/);
+  if (bio) {
+    fields.background = bio.value;
+    evidence.push(provenanceFor("background", bio, input));
+  }
+
+  const required = ["doctorName"];
+  const missing = required.filter((f) => !(f in fields));
+  const confidence = (required.length - missing.length) / required.length;
+  return {
+    fields,
+    missingFields: missing,
+    confidenceScore: confidence,
+    sourceEvidence: evidence,
+    rejectedSections: rejected,
+    formatting: {},
+    warnings: [],
+    fatalReasons: fatal,
+  };
+}
+
+// ─── RiteExtractor ──────────────────────────────────────────────────────────
+export interface RiteFields {
+  riteName: string;
+  history?: string;
+  background?: string;
+  sourceUrl: string;
+  sourceHost: string;
+}
+
+export function RiteExtractor(input: ExtractorInput): ExtractorOutput<RiteFields> {
+  const body = blockAwareBody(input, ["PARAGRAPH", "LIST_ITEM", "METADATA"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
+  const evidence: FieldProvenance[] = [];
+  const fields: Partial<RiteFields> = { sourceUrl: input.url, sourceHost: input.host };
+  const fatal: string[] = [];
+
+  if (input.title) {
+    fields.riteName = input.title.trim();
+    evidence.push(
+      makeProvenance({
+        fieldName: "riteName",
+        sourceUrl: input.url,
+        sourceHost: input.host,
+        snippet: input.title,
+        method: "TITLE_REGEX",
+        confidence: 0.85,
+        checksum: input.checksum,
+      }),
+    );
+  } else {
+    fatal.push("No rite name found.");
+  }
+
+  // History: prefer the paragraph after a "History" heading; otherwise the
+  // first substantial sentence becomes the background.
+  const historyBlock = matchBody(kept, /history[:\s]+([A-Z][^]{80,800}?\.)(?:\s|$)/i);
+  if (historyBlock) {
+    fields.history = historyBlock.value;
+    evidence.push(provenanceFor("history", historyBlock, input));
+  }
+  const bio = matchBody(kept, /([A-Z][^.]{60,400}\.)/);
+  if (bio) {
+    fields.background = bio.value;
+    evidence.push(provenanceFor("background", bio, input));
+  }
+
+  const required = ["riteName"];
+  const missing = required.filter((f) => !(f in fields));
+  const confidence = (required.length - missing.length) / required.length;
   return {
     fields,
     missingFields: missing,
@@ -1210,7 +1445,10 @@ export function extractByType(
     | "SACRAMENT"
     | "CHURCH_DOCUMENT"
     | "LITURGICAL"
-    | "PARISH",
+    | "PARISH"
+    | "POPE"
+    | "DOCTOR"
+    | "RITE",
   input: ExtractorInput,
 ): ExtractorOutput {
   switch (type) {
@@ -1236,5 +1474,11 @@ export function extractByType(
       return LiturgyExtractor(input) as ExtractorOutput;
     case "PARISH":
       return ParishExtractor(input) as ExtractorOutput;
+    case "POPE":
+      return PopeExtractor(input) as ExtractorOutput;
+    case "DOCTOR":
+      return DoctorExtractor(input) as ExtractorOutput;
+    case "RITE":
+      return RiteExtractor(input) as ExtractorOutput;
   }
 }

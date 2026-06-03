@@ -706,6 +706,9 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     "CHURCH_DOCUMENT",
     "LITURGICAL",
     "PARISH",
+    "POPE",
+    "DOCTOR",
+    "RITE",
   ]);
   if (!detected || !supportedTypes.has(detected)) {
     return {

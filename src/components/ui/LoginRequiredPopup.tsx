@@ -14,7 +14,7 @@ type Props = {
 
 const DEFAULTS = {
   message: "An account is required to use this feature.",
-  loginLabel: "Sign in",
+  loginLabel: "Log in",
   registerLabel: "Create account",
   closeLabel: "Close",
 };

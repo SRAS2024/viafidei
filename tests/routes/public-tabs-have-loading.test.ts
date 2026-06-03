@@ -22,7 +22,7 @@ const REQUIRED_LOADING_TABS = [
   "history",
   "liturgy",
   "spiritual-life",
-  "spiritual-guidance",
+  "our-lady",
   "liturgy-history",
 ];
 

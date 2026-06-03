@@ -29,6 +29,37 @@ describe("publicRouteFor", () => {
     expect(route.slugPath).toBe("/prayers/our%20father");
   });
 
+  it("points liturgy and church-document detail at the real /liturgy-history page", () => {
+    // Listed under /liturgy and /history, but detail lives at /liturgy-history.
+    const lit = publicRouteFor("LITURGICAL", "order-of-mass");
+    expect(lit.slugPath).toBe("/liturgy-history/order-of-mass");
+    const doc = publicRouteFor("CHURCH_DOCUMENT", "lumen-gentium");
+    expect(doc.slugPath).toBe("/liturgy-history/lumen-gentium");
+  });
+
+  it("every content type's slugPath points at an existing detail route base", () => {
+    // The set of [slug] detail-route bases that actually exist in the app.
+    const detailBases = new Set([
+      "/prayers",
+      "/saints",
+      "/our-lady",
+      "/devotions",
+      "/novenas",
+      "/sacraments",
+      "/guides",
+      "/spiritual-life",
+      "/parishes",
+      "/popes",
+      "/doctors",
+      "/rites",
+      "/liturgy-history",
+    ]);
+    for (const ct of Object.values(ChecklistContentType)) {
+      const base = publicRouteFor(ct, "x").slugPath.replace(/\/x$/, "");
+      expect(detailBases.has(base), `${ct} → ${base} has no detail route`).toBe(true);
+    }
+  });
+
   it("produces a defined route for every ChecklistContentType", () => {
     for (const ct of Object.values(ChecklistContentType)) {
       const route = publicRouteFor(ct, "x");

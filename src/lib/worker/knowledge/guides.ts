@@ -8,6 +8,7 @@ function guide(
   title: string,
   kind:
     | "rosary"
+    | "chaplet"
     | "confession"
     | "adoration"
     | "consecration"
@@ -83,6 +84,49 @@ export const guideKnowledge: CuratedEntry[] = [
         order: 6,
         title: "Conclude with the Hail Holy Queen",
         body: "Pray the Hail Holy Queen (Salve Regina), the closing prayer of the Rosary. Make the Sign of the Cross.",
+      },
+    ],
+  ),
+  guide(
+    "how-to-pray-the-divine-mercy-chaplet",
+    "How to Pray the Divine Mercy Chaplet",
+    "chaplet",
+    "A step-by-step guide to praying the Chaplet of Divine Mercy, prayed on ordinary Rosary beads.",
+    [
+      {
+        order: 1,
+        title: "Begin with the Sign of the Cross",
+        body: "Make the Sign of the Cross. The Chaplet of Divine Mercy is prayed on ordinary Rosary beads.",
+      },
+      {
+        order: 2,
+        title: "Optional opening prayers",
+        body: "You may pray the optional opening: 'You expired, Jesus, but the source of life gushed forth for souls, and the ocean of mercy opened up for the whole world.' Then three times: 'O Blood and Water, which gushed forth from the Heart of Jesus as a fount of Mercy for us, I trust in You!'",
+      },
+      {
+        order: 3,
+        title: "Our Father, Hail Mary, and the Apostles' Creed",
+        body: "On the opening beads, pray one Our Father, one Hail Mary, and the Apostles' Creed.",
+      },
+      {
+        order: 4,
+        title: "The Eternal Father prayer on the large bead",
+        body: "On the large bead before each decade, pray: 'Eternal Father, I offer You the Body and Blood, Soul and Divinity of Your dearly beloved Son, Our Lord Jesus Christ, in atonement for our sins and those of the whole world.'",
+      },
+      {
+        order: 5,
+        title: "Pray the decade and repeat for all five",
+        body: "On each of the ten small beads, pray: 'For the sake of His sorrowful Passion, have mercy on us and on the whole world.' Then repeat the Eternal Father prayer and the ten petitions for all five decades.",
+      },
+      {
+        order: 6,
+        title: "Conclude with the Holy God (three times)",
+        body: "After the five decades, pray three times: 'Holy God, Holy Mighty One, Holy Immortal One, have mercy on us and on the whole world.'",
+      },
+      {
+        order: 7,
+        title: "Optional closing prayer",
+        body: "You may conclude with the closing prayer to the merciful God, then make the Sign of the Cross.",
       },
     ],
   ),

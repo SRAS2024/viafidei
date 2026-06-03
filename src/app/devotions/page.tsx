@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { PageHero, PublishedList } from "@/components/ui";
 import { getTranslator } from "@/lib/i18n/server";
 import { listPublished } from "@/lib/data/published";
@@ -15,6 +17,12 @@ export default async function DevotionsPage() {
         title={t("devotions.title")}
         subtitle={t("devotions.subtitle")}
       />
+      <p className="mb-8 text-center font-serif text-sm text-ink-soft">
+        Looking for a nine-day novena?{" "}
+        <Link href="/novenas" className="vf-nav-link">
+          Browse novenas →
+        </Link>
+      </p>
       <PublishedList items={items} baseHref="/devotions" eyebrowField="devotionType" />
     </div>
   );

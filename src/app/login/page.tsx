@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { LoginForm } from "./LoginForm";
 
-export const metadata = { title: "Sign in" };
+export const metadata = { title: "Log in" };
 
 export default async function LoginPage({
   searchParams,

@@ -21,7 +21,7 @@ const REQUIRED_ERROR_TABS = [
   "saints",
   "devotions",
   "spiritual-life",
-  "spiritual-guidance",
+  "our-lady",
   "liturgy-history",
 ];
 

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { PublishedDetail } from "@/components/ui";
+import { SaveContentButton } from "@/components/profile";
 import { getPublishedBySlug } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export default async function SaintDetailPage({ params }: Props) {
   return (
     <PublishedDetail
       item={item}
+      action={<SaveContentButton contentType="SAINT" slug={slug} />}
       primaryFields={["biography"]}
       secondaryFields={[
         "feastDay",

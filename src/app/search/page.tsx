@@ -13,14 +13,18 @@ const TYPE_PATHS: Record<ChecklistContentType, string> = {
   PRAYER: "/prayers",
   DEVOTION: "/devotions",
   SAINT: "/saints",
-  MARIAN_TITLE: "/spiritual-guidance",
-  APPARITION: "/spiritual-guidance",
-  NOVENA: "/devotions",
+  MARIAN_TITLE: "/our-lady",
+  APPARITION: "/our-lady",
+  NOVENA: "/novenas",
   SACRAMENT: "/sacraments",
-  GUIDE: "/spiritual-life",
+  GUIDE: "/guides",
   CHURCH_DOCUMENT: "/liturgy-history",
   LITURGICAL: "/liturgy-history",
   SPIRITUAL_PRACTICE: "/spiritual-life",
+  PARISH: "/parishes",
+  POPE: "/popes",
+  DOCTOR: "/doctors",
+  RITE: "/rites",
 };
 
 export default async function SearchPage({

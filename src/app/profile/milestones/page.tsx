@@ -8,6 +8,9 @@ import { MilestoneCreator } from "./MilestoneCreator";
 import { MilestoneDeleteButton } from "./MilestoneDeleteButton";
 import { logPageError } from "@/lib/observability/page-errors";
 
+// Reads the auth session (cookies), so it can never be statically prerendered.
+export const dynamic = "force-dynamic";
+
 const MILESTONE_TIERS = ["SACRAMENT", "SPIRITUAL", "PERSONAL"] as const;
 type Tier = (typeof MILESTONE_TIERS)[number];
 

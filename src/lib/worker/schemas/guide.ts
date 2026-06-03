@@ -15,6 +15,7 @@ export const guideSchema: ContentSchema = {
     summary: z.string().min(20),
     kind: z.enum([
       "rosary",
+      "chaplet",
       "confession",
       "adoration",
       "consecration",
