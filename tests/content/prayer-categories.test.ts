@@ -32,7 +32,25 @@ describe("prayer categorisation (drives the /prayers filter)", () => {
 
   it("respects prayerType hints", () => {
     expect(categorizePrayer({ title: "x", prayerType: "marian" })).toBe("marian");
-    expect(categorizePrayer({ title: "x", prayerType: "consecration" })).toBe("devotional");
+    expect(categorizePrayer({ title: "x", prayerType: "consecration" })).toBe("consecration");
+    expect(categorizePrayer({ title: "x", prayerType: "novena" })).toBe("novena");
+    expect(categorizePrayer({ title: "x", prayerType: "chaplet" })).toBe("chaplet");
+  });
+
+  it("categorises the expanded set (Trinitarian, chaplet, consecration, novena, saint-related)", () => {
+    expect(PRAYER_CATEGORIES.map((c) => c.value)).toEqual(
+      expect.arrayContaining(["trinitarian", "saintly", "novena", "chaplet", "consecration"]),
+    );
+    expect(categorizePrayer({ title: "Glory Be", body: "Glory be to the Father" })).toBe(
+      "trinitarian",
+    );
+    expect(categorizePrayer({ title: "The Divine Mercy Chaplet" })).toBe("chaplet");
+    expect(categorizePrayer({ title: "Act of Consecration to the Sacred Heart" })).toBe(
+      "consecration",
+    );
+    expect(categorizePrayer({ title: "Novena to St. Jude" })).toBe("novena");
+    expect(categorizePrayer({ title: "Prayer to St. Joseph" })).toBe("saintly");
+    expect(prayerCategoryLabel("saintly")).toBe("Saint-related");
   });
 
   it("prefers an already-canonical stored category over derivation", () => {

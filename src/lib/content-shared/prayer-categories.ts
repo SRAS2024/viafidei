@@ -14,8 +14,13 @@ export const PRAYER_CATEGORIES: readonly PrayerCategory[] = [
   { value: "marian", label: "Marian" },
   { value: "angelic", label: "Angelic" },
   { value: "eucharistic", label: "Eucharistic" },
+  { value: "trinitarian", label: "Trinitarian" },
   { value: "penitential", label: "Penitential" },
   { value: "liturgical", label: "Liturgical" },
+  { value: "saintly", label: "Saint-related" },
+  { value: "novena", label: "Novena" },
+  { value: "chaplet", label: "Chaplet" },
+  { value: "consecration", label: "Consecration" },
   { value: "devotional", label: "Devotional" },
   { value: "general", label: "General" },
 ] as const;
@@ -78,6 +83,21 @@ export function categorizePrayer(input: {
     return "eucharistic";
   }
   if (
+    has("glory be", "gloria patri", "most holy trinity", "holy trinity", "o blessed trinity") ||
+    (input.title ?? "").toLowerCase().includes("trinity")
+  ) {
+    return "trinitarian";
+  }
+  if (pt === "chaplet" || has("chaplet")) {
+    return "chaplet";
+  }
+  if (pt === "consecration" || has("consecration", "i consecrate", "totus tuus")) {
+    return "consecration";
+  }
+  if (pt === "novena" || has("novena")) {
+    return "novena";
+  }
+  if (
     pt === "act" ||
     has("act of contrition", "penance", "have mercy", "contrition", "confiteor", "forgive us")
   ) {
@@ -99,11 +119,10 @@ export function categorizePrayer(input: {
   ) {
     return "liturgical";
   }
-  if (
-    pt === "consecration" ||
-    pt === "novena" ||
-    has("consecration", "novena", "sacred heart", "divine mercy", "chaplet", "devotion")
-  ) {
+  if (/\b(st\.?|saint)\s+[a-z]/.test((input.title ?? "").toLowerCase()) || has("intercession of")) {
+    return "saintly";
+  }
+  if (has("sacred heart", "divine mercy", "immaculate heart", "devotion")) {
     return "devotional";
   }
   return "general";
