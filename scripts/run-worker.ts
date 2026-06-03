@@ -33,9 +33,8 @@
  * "Admin Worker".
  */
 
-import { PrismaClient } from "@prisma/client";
-
 import { runAdminWorkerLoop, runMonthlyReportJobIfDue } from "../src/lib/admin-worker";
+import { prisma } from "../src/lib/db/client";
 
 function parseArgs(argv: string[]): {
   oneShot: boolean;
@@ -59,7 +58,8 @@ function parseArgs(argv: string[]): {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const prisma = new PrismaClient();
+  // Reuse the shared, connection-pool-capped client so the worker and the web
+  // service don't exhaust Postgres (P2037 "too many clients already").
   let shuttingDown = false;
   const shutdown = (signal: string) => {
     if (shuttingDown) return;
