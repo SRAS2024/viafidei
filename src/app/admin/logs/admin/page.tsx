@@ -29,8 +29,8 @@ export default async function AdminActionsLogPage() {
         <Link href="/admin/logs/accounts" className="vf-nav-link">
           Account audit →
         </Link>
-        <Link href="/admin/logs/data-management" className="vf-nav-link">
-          Data Management →
+        <Link href="/admin/logs/worker" className="vf-nav-link">
+          Worker build log →
         </Link>
       </div>
 
