@@ -66,6 +66,18 @@ const TAB_PATH: Record<TabKey, string> = {
   rites: "/rites",
 };
 
+/**
+ * Some content types are listed under one tab but their detail pages live
+ * under a different base. Liturgy and Church-document detail pages both
+ * render at `/liturgy-history/<slug>`, even though they are listed under the
+ * Liturgy and History tabs. The post-publish probe must hit the real detail
+ * URL, so it uses this override instead of `tabPath/<slug>`.
+ */
+const SLUG_BASE_OVERRIDE: Partial<Record<ChecklistContentType, string>> = {
+  LITURGICAL: "/liturgy-history",
+  CHURCH_DOCUMENT: "/liturgy-history",
+};
+
 export interface PublicRouteInfo {
   tab: TabKey;
   tabPath: string;
@@ -81,7 +93,8 @@ export function publicRouteFor(
     (CHECKLIST_TO_TAG_KEY[contentType as ChecklistContentType] as ContentTypeTagKey) ?? "Prayer";
   const tab = (CONTENT_TYPE_TO_TAB[tagKey] ?? "prayers") as TabKey;
   const tabPath = TAB_PATH[tab];
-  const slugPath = `${tabPath}/${encodeURIComponent(slug)}`;
+  const slugBase = SLUG_BASE_OVERRIDE[contentType as ChecklistContentType] ?? tabPath;
+  const slugPath = `${slugBase}/${encodeURIComponent(slug)}`;
   return {
     tab,
     tabPath,
