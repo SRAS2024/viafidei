@@ -34,15 +34,22 @@ const SWATCH: Record<string, string> = {
   Rose: "#d98ca0",
 };
 
+/** Persists the rite globally (same client-cookie mechanism as the settings picker). */
+function persistRiteCookie(rite: string) {
+  if (typeof document === "undefined") return;
+  document.cookie = `vf_rite=${rite}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+}
+
 export function LiturgicalCalendarBrowser({
-  riteLabel,
-  isRoman,
+  rites,
+  initialRite,
 }: {
-  riteLabel: string;
-  isRoman: boolean;
+  rites: { value: string; label: string }[];
+  initialRite: string;
 }) {
   // Empty until mounted so server and client render the same initial markup.
   const [iso, setIso] = useState("");
+  const [rite, setRite] = useState(initialRite);
   useEffect(() => setIso(todayIso()), []);
 
   if (!iso) {
@@ -52,18 +59,39 @@ export function LiturgicalCalendarBrowser({
   const date = toCivilDate(iso);
   const day = liturgicalDay(date);
   const readings = usccbReadingsUrl(date);
+  const isRoman = rite === "roman";
+  const riteLabel = rites.find((r) => r.value === rite)?.label ?? rite;
 
   return (
     <div className="vf-card rounded-sm p-6 sm:p-8">
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="vf-eyebrow text-ink-faint">Choose a date</span>
-        <input
-          type="date"
-          value={iso}
-          onChange={(e) => setIso(e.target.value || todayIso())}
-          className="rounded-sm border border-ink/20 bg-transparent px-3 py-2 font-serif text-ink"
-        />
-      </label>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="vf-eyebrow text-ink-faint">Choose a date</span>
+          <input
+            type="date"
+            value={iso}
+            onChange={(e) => setIso(e.target.value || todayIso())}
+            className="rounded-sm border border-ink/20 bg-transparent px-3 py-2 font-serif text-ink"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="vf-eyebrow text-ink-faint">Rite</span>
+          <select
+            value={rite}
+            onChange={(e) => {
+              setRite(e.target.value);
+              persistRiteCookie(e.target.value);
+            }}
+            className="rounded-sm border border-ink/20 bg-transparent px-3 py-2 font-serif text-ink"
+          >
+            {rites.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       <div className="mt-6 flex items-center gap-3">
         <span
