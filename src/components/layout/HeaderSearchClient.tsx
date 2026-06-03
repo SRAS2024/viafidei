@@ -12,6 +12,7 @@ type SuggestionGroup =
   | "doctors"
   | "parishes"
   | "devotions"
+  | "novenas"
   | "guides"
   | "sacraments"
   | "liturgy"
@@ -34,6 +35,7 @@ const GROUP_LABEL: Record<SuggestionGroup, string> = {
   doctors: "Doctor of the Church",
   parishes: "Parish",
   devotions: "Devotion",
+  novenas: "Novena",
   guides: "Guide",
   sacraments: "Sacrament",
   liturgy: "Liturgy",
@@ -50,6 +52,7 @@ const GROUP_ORDER: SuggestionGroup[] = [
   "doctors",
   "guides",
   "devotions",
+  "novenas",
   "sacraments",
   "spiritualLife",
   "liturgy",
@@ -80,6 +83,7 @@ export function pathForSuggestion(s: Suggestion): string {
   if (s.group === "doctors") return `/doctors/${s.slug}`;
   if (s.group === "parishes") return `/parishes/${s.slug}`;
   if (s.group === "devotions") return `/devotions/${s.slug}`;
+  if (s.group === "novenas") return `/novenas/${s.slug}`;
   if (s.group === "guides") return `/guides/${s.slug}`;
   if (s.group === "sacraments") return `/sacraments/${s.slug}`;
   if (s.group === "rites") return `/rites/${s.slug}`;

@@ -20,6 +20,9 @@ describe("pathForSuggestion (search suggestion → detail route)", () => {
     // Parishes have their own tab, not the (redirecting) spiritual-guidance path.
     expect(pathForSuggestion(s("parishes", "st-marys"))).toBe("/parishes/st-marys");
     expect(pathForSuggestion(s("devotions", "sacred-heart"))).toBe("/devotions/sacred-heart");
+    expect(pathForSuggestion(s("novenas", "divine-mercy-novena"))).toBe(
+      "/novenas/divine-mercy-novena",
+    );
     expect(pathForSuggestion(s("liturgy", "rerum-novarum"))).toBe("/liturgy-history/rerum-novarum");
     // Content types added after the original groups.
     expect(pathForSuggestion(s("popes", "leo-xiii"))).toBe("/popes/leo-xiii");

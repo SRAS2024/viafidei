@@ -103,7 +103,7 @@ const CONTENT_TYPE_TO_SUGGEST_GROUP: Record<ChecklistContentType, string> = {
   DOCTOR: "doctors",
   PARISH: "parishes",
   DEVOTION: "devotions",
-  NOVENA: "devotions",
+  NOVENA: "novenas",
   GUIDE: "guides",
   SACRAMENT: "sacraments",
   LITURGICAL: "liturgy",
