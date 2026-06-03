@@ -89,8 +89,13 @@ export async function Header() {
               {isAuthed ? (
                 <HeaderUserMenu
                   isAuthed
-                  labels={{ profile: t("nav.profile"), logout: t("nav.logout") }}
+                  labels={{
+                    profile: t("nav.profile"),
+                    settings: t("nav.settings"),
+                    logout: t("nav.logout"),
+                  }}
                   avatarSrc={avatarSrc}
+                  logoutAction={logoutAction}
                 />
               ) : (
                 <HeaderUserMenu isAuthed={false} labels={{ login: t("nav.login") }} />
