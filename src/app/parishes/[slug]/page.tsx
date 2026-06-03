@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 
+import { SaveContentButton } from "@/components/profile";
 import { PublishedDetail } from "@/components/ui";
 import { getPublishedBySlug } from "@/lib/data/published";
 
@@ -16,6 +17,7 @@ export default async function ParishDetailPage({ params }: Props) {
       item={item}
       primaryFields={["background", "summary"]}
       secondaryFields={["designation", "address", "city", "state", "country", "diocese", "website"]}
+      action={<SaveContentButton contentType="PARISH" slug={slug} />}
     />
   );
 }

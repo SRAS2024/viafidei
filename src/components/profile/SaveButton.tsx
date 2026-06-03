@@ -3,9 +3,9 @@
 import { useState, useTransition } from "react";
 import { LoginRequiredPopup } from "@/components/ui/LoginRequiredPopup";
 
-// One segment per /api/saved/* route. (No "parishes" — there is no parish
-// save route or saveable parish content; see SAVEABLE_CONTENT.)
-export type SaveKind = "prayers" | "saints" | "apparitions" | "devotions";
+// One segment per /api/saved/* route. Each must have a matching
+// src/app/api/saved/<kind>/route.ts; see SAVEABLE_CONTENT.
+export type SaveKind = "prayers" | "saints" | "apparitions" | "devotions" | "parishes";
 
 type Props = {
   kind: SaveKind;

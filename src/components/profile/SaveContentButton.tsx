@@ -15,6 +15,7 @@ export const SAVEABLE_CONTENT: Record<string, { kind: SaveKind; savedKind: Saved
   SAINT: { kind: "saints", savedKind: "saint" },
   APPARITION: { kind: "apparitions", savedKind: "apparition" },
   DEVOTION: { kind: "devotions", savedKind: "devotion" },
+  PARISH: { kind: "parishes", savedKind: "parish" },
 };
 
 /**

@@ -89,4 +89,21 @@ describe("FavoritesBrowser", () => {
     render(<FavoritesBrowser items={[]} />);
     expect(screen.getByText(/haven't favorited anything yet/i)).toBeInTheDocument();
   });
+
+  it("supports favorited parishes under the Parishes tab", () => {
+    const parish: FavoriteItem = {
+      id: "p1",
+      contentType: "PARISH",
+      kind: "parishes",
+      slug: "st-marys-cathedral",
+      title: "St. Mary's Cathedral",
+      href: "/parishes/st-marys-cathedral",
+      typeLabel: "Parish",
+      savedAt: "2026-01-04T00:00:00.000Z",
+    };
+    render(<FavoritesBrowser items={[...ITEMS, parish]} />);
+    fireEvent.click(screen.getByRole("tab", { name: /Parishes/ }));
+    expect(screen.getByText("St. Mary's Cathedral")).toBeInTheDocument();
+    expect(screen.queryByText("The Memorare")).not.toBeInTheDocument();
+  });
 });

@@ -47,16 +47,19 @@ function saveableKinds(): string[] {
 }
 
 describe("Save button kinds match the /api/saved routes", () => {
-  it("discovers the four saved routes (sanity)", () => {
-    expect(routeKinds).toEqual(new Set(["prayers", "saints", "apparitions", "devotions"]));
+  it("discovers the saved routes (sanity)", () => {
+    expect(routeKinds).toEqual(
+      new Set(["prayers", "saints", "apparitions", "devotions", "parishes"]),
+    );
   });
 
   it("SaveKind union exactly matches the existing routes (no orphans either way)", () => {
     expect(saveKindUnion()).toEqual(routeKinds);
   });
 
-  it('no longer declares the routeless "parishes" kind', () => {
-    expect(saveKindUnion().has("parishes")).toBe(false);
+  it('the "parishes" kind is now backed by a real route', () => {
+    expect(saveKindUnion().has("parishes")).toBe(true);
+    expect(routeKinds.has("parishes")).toBe(true);
   });
 
   it("every saveable content type maps to a kind with a real route", () => {
