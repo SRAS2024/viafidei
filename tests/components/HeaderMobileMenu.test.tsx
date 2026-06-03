@@ -121,13 +121,13 @@ describe("HeaderMobileMenu", () => {
     render(
       <HeaderMobileMenu
         navItems={NAV}
-        signInItem={{ href: "/login", label: "Sign in" }}
+        signInItem={{ href: "/login", label: "Log in" }}
         openLabel={LABELS.open}
         closeLabel={LABELS.close}
       />,
     );
     await user.click(screen.getByRole("button", { name: LABELS.open }));
-    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
   });
 
   it("shows the settings link when showSettings is true", async () => {
@@ -157,11 +157,11 @@ describe("HeaderMobileMenu", () => {
         signInItem={null}
         openLabel={LABELS.open}
         closeLabel={LABELS.close}
-        authedActions={[{ type: "form-button", action: "/api/auth/logout", label: "Sign out" }]}
+        authedActions={[{ type: "form-button", action: "/api/auth/logout", label: "Log out" }]}
       />,
     );
     await user.click(screen.getByRole("button", { name: LABELS.open }));
-    const signOut = screen.getByRole("button", { name: "Sign out" });
+    const signOut = screen.getByRole("button", { name: "Log out" });
     expect(signOut.tagName).toBe("BUTTON");
     expect(signOut).toHaveAttribute("type", "submit");
     const form = signOut.closest("form");
@@ -174,7 +174,7 @@ describe("HeaderMobileMenu", () => {
     const { container } = render(
       <HeaderMobileMenu
         navItems={NAV}
-        signInItem={{ href: "/login", label: "Sign in" }}
+        signInItem={{ href: "/login", label: "Log in" }}
         openLabel={LABELS.open}
         closeLabel={LABELS.close}
       />,

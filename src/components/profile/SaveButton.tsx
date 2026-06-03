@@ -31,7 +31,7 @@ const DEFAULT_LABELS = {
   remove: "Remove",
   confirmRemove: "Remove this from your favorites?",
   loginRequired: "You must have an account for this action.",
-  loginCta: "Sign In",
+  loginCta: "Log In",
   registerCta: "Create Account",
 };
 

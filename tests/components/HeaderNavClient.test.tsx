@@ -13,10 +13,11 @@ const entries: ClientNavEntry[] = [
   { kind: "link", href: "/", label: "Home" },
   {
     kind: "group",
-    key: "nav.group.holyPeople",
-    label: "Saints & Holy People",
+    href: "/saints",
+    key: "nav.saints",
+    label: "Saints",
     items: [
-      { href: "/saints", label: "Saints" },
+      { href: "/our-lady", label: "Our Lady" },
       { href: "/popes", label: "Popes" },
     ],
   },
@@ -27,47 +28,48 @@ afterEach(() => {
   nav.path = "/";
 });
 
-describe("HeaderNavClient (desktop dropdowns)", () => {
-  it("renders top-level links and group buttons, with menus closed", () => {
+describe("HeaderNavClient (parent-link dropdowns)", () => {
+  it("renders a parent link plus a submenu toggle, with the menu closed", () => {
     render(<HeaderNavClient entries={entries} />);
     expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
-    const group = screen.getByRole("button", { name: /Saints & Holy People/ });
-    expect(group).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("link", { name: "Popes" })).not.toBeInTheDocument();
+    // The parent tab is itself a link to its own page…
+    expect(screen.getByRole("link", { name: "Saints" })).toHaveAttribute("href", "/saints");
+    // …with a separate chevron button that opens the submenu.
+    const toggle = screen.getByRole("button", { name: /Saints submenu/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("menuitem", { name: "Popes" })).not.toBeInTheDocument();
   });
 
-  it("opens and closes the dropdown on click", () => {
+  it("opens and closes the dropdown on toggle click", () => {
     render(<HeaderNavClient entries={entries} />);
-    const group = screen.getByRole("button", { name: /Saints & Holy People/ });
+    const toggle = screen.getByRole("button", { name: /Saints submenu/ });
 
-    fireEvent.click(group);
-    expect(group).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("menuitem", { name: "Popes" })).toBeInTheDocument();
 
-    fireEvent.click(group);
+    fireEvent.click(toggle);
     expect(screen.queryByRole("menuitem", { name: "Popes" })).not.toBeInTheDocument();
   });
 
   it("closes the dropdown when a menu item is chosen", () => {
     render(<HeaderNavClient entries={entries} />);
-    fireEvent.click(screen.getByRole("button", { name: /Saints & Holy People/ }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Saints" }));
-    expect(screen.queryByRole("menuitem", { name: "Saints" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Saints submenu/ }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Our Lady" }));
+    expect(screen.queryByRole("menuitem", { name: "Our Lady" })).not.toBeInTheDocument();
   });
 
   it("closes the dropdown on Escape", () => {
     render(<HeaderNavClient entries={entries} />);
-    fireEvent.click(screen.getByRole("button", { name: /Saints & Holy People/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Saints submenu/ }));
     expect(screen.getByRole("menuitem", { name: "Popes" })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("menuitem", { name: "Popes" })).not.toBeInTheDocument();
   });
 
-  it("marks a group active when one of its children is the current route", () => {
+  it("marks the parent link active when it or one of its children is the current route", () => {
     nav.path = "/popes";
     render(<HeaderNavClient entries={entries} />);
-    expect(screen.getByRole("button", { name: /Saints & Holy People/ })).toHaveClass(
-      "vf-nav-link-active",
-    );
+    expect(screen.getByRole("link", { name: "Saints" })).toHaveClass("vf-nav-link-active");
   });
 });

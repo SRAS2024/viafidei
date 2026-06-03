@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 export type ClientNavLeaf = { href: string; label: string };
 export type ClientNavEntry =
   | { kind: "link"; href: string; label: string }
-  | { kind: "group"; key: string; label: string; items: ClientNavLeaf[] };
+  | { kind: "group"; href: string; key: string; label: string; items: ClientNavLeaf[] };
 
 type Props = {
   entries: ClientNavEntry[];
@@ -83,20 +83,27 @@ export function HeaderNavClient({ entries }: Props) {
           );
         }
 
-        const groupActive = entry.items.some((i) => isActive(pathname, i.href));
+        const groupActive =
+          isActive(pathname, entry.href) || entry.items.some((i) => isActive(pathname, i.href));
         const open = openKey === entry.key;
         return (
-          <div key={entry.key} className="relative">
+          <div key={entry.key} className="relative inline-flex items-center">
+            {/* Parent label navigates to its own page; the chevron toggles the submenu. */}
+            <Link
+              href={entry.href}
+              className={`vf-nav-link ${groupActive ? "vf-nav-link-active" : ""}`}
+              aria-current={isActive(pathname, entry.href) ? "page" : undefined}
+            >
+              {entry.label}
+            </Link>
             <button
               type="button"
               aria-haspopup="menu"
               aria-expanded={open}
+              aria-label={`${entry.label} submenu`}
               onClick={() => setOpenKey(open ? null : entry.key)}
-              className={`vf-nav-link inline-flex items-center gap-1 ${
-                groupActive ? "vf-nav-link-active" : ""
-              }`}
+              className="vf-nav-link !px-1"
             >
-              {entry.label}
               <Chevron open={open} />
             </button>
             {open ? (

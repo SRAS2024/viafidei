@@ -27,6 +27,7 @@ export type ContentTypeTagKey =
   | "Rosary"
   | "Consecration"
   | "SpiritualGuidance"
+  | "Guide"
   | "Liturgy"
   | "History"
   | "Pope"
@@ -43,6 +44,8 @@ export type TabKey =
   | "sacraments"
   | "rosary"
   | "consecrations"
+  | "guides"
+  | "spiritualLife"
   | "liturgy"
   | "history"
   | "popes"
@@ -60,7 +63,8 @@ export const CONTENT_TYPE_TO_TAB: Record<ContentTypeTagKey, TabKey> = {
   Sacrament: "sacraments",
   Rosary: "rosary",
   Consecration: "consecrations",
-  SpiritualGuidance: "devotions",
+  SpiritualGuidance: "spiritualLife",
+  Guide: "guides",
   Liturgy: "liturgy",
   History: "history",
   Pope: "popes",

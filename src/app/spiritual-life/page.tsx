@@ -7,7 +7,6 @@ export const metadata = { title: "Spiritual Life" };
 
 export default async function SpiritualLifePage() {
   const { t } = await getTranslator();
-  const guides = await listPublished("GUIDE");
   const practices = await listPublished("SPIRITUAL_PRACTICE");
   return (
     <div>
@@ -16,9 +15,6 @@ export default async function SpiritualLifePage() {
         title={t("spiritualLife.title")}
         subtitle={t("spiritualLife.subtitle")}
       />
-      <h2 className="mt-12 mb-6 font-display text-2xl text-ink">Guides</h2>
-      <PublishedList items={guides} baseHref="/spiritual-life" eyebrowField="kind" />
-      <h2 className="mt-12 mb-6 font-display text-2xl text-ink">Practices</h2>
       <PublishedList items={practices} baseHref="/spiritual-life" eyebrowField="practiceKind" />
     </div>
   );

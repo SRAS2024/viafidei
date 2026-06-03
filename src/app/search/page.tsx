@@ -17,7 +17,7 @@ const TYPE_PATHS: Record<ChecklistContentType, string> = {
   APPARITION: "/our-lady",
   NOVENA: "/devotions",
   SACRAMENT: "/sacraments",
-  GUIDE: "/spiritual-life",
+  GUIDE: "/guides",
   CHURCH_DOCUMENT: "/liturgy-history",
   LITURGICAL: "/liturgy-history",
   SPIRITUAL_PRACTICE: "/spiritual-life",
