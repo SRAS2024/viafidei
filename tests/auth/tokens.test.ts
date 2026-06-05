@@ -3,10 +3,16 @@ import { prismaMock, resetPrismaMock } from "../helpers/prisma-mock";
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
+// The schema self-heal calls ensureAccountEmailTables(); stub it so the
+// retry path is deterministic without running real DDL against the mock.
+vi.mock("@/lib/startup/ensure-email-tables", () => ({
+  ensureAccountEmailTables: vi.fn().mockResolvedValue(undefined),
+}));
 
 import {
   consumeEmailVerificationToken,
   consumePasswordResetToken,
+  hashRawToken,
   issueEmailVerificationToken,
   issuePasswordResetToken,
   pruneExpiredTokens,
@@ -26,6 +32,33 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("hashRawToken", () => {
+  it("returns the SHA-256 hex of the token and never the raw value", () => {
+    expect(hashRawToken("a-raw-token")).toBe(sha256Hex("a-raw-token"));
+    expect(hashRawToken("a-raw-token")).not.toBe("a-raw-token");
+  });
+});
+
+describe("table self-heal (withTableSelfHeal)", () => {
+  it("creates the missing schema and retries the write exactly once on 'relation does not exist'", async () => {
+    prismaMock.passwordResetToken.create
+      .mockRejectedValueOnce(new Error('relation "PasswordResetToken" does not exist'))
+      .mockResolvedValueOnce({});
+    const issued = await issuePasswordResetToken("u1");
+    expect(issued.token).toBeTruthy();
+    // First attempt threw, the catch self-healed, the second attempt succeeded.
+    expect(prismaMock.passwordResetToken.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-throws a non-schema error without retrying (no infinite loop)", async () => {
+    prismaMock.passwordResetToken.create.mockRejectedValue(
+      new Error("permission denied for table"),
+    );
+    await expect(issuePasswordResetToken("u1")).rejects.toThrow("permission denied");
+    expect(prismaMock.passwordResetToken.create).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("issuePasswordResetToken", () => {

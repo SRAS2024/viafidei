@@ -4,7 +4,12 @@ import { prismaMock, resetPrismaMock } from "../helpers/prisma-mock";
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 
-import { RATE_POLICIES, pruneExpiredRateLimits, rateLimit } from "@/lib/security/rate-limit";
+import {
+  RATE_POLICIES,
+  pruneExpiredRateLimits,
+  rateLimit,
+  rateLimitHeaders,
+} from "@/lib/security/rate-limit";
 
 beforeEach(() => {
   resetPrismaMock();
@@ -35,6 +40,34 @@ describe("RATE_POLICIES", () => {
     for (const name of expected) {
       expect(RATE_POLICIES).toHaveProperty(name);
     }
+  });
+});
+
+describe("rateLimitHeaders", () => {
+  it("emits limit/remaining/reset headers and omits Retry-After when the request is allowed", () => {
+    const policy = { windowMs: 60_000, max: 100 };
+    const resetAt = Date.now() + 30_000;
+    const headers = rateLimitHeaders({ ok: true, remaining: 42, resetAt }, policy);
+    expect(headers["X-RateLimit-Limit"]).toBe("100");
+    expect(headers["X-RateLimit-Remaining"]).toBe("42");
+    expect(headers["X-RateLimit-Reset"]).toBe(String(Math.ceil(resetAt / 1000)));
+    expect(headers["Retry-After"]).toBeUndefined();
+  });
+
+  it("clamps a negative remaining to 0 and adds Retry-After when the request is blocked", () => {
+    const policy = { windowMs: 60_000, max: 5 };
+    const resetAt = Date.now() + 10_000;
+    const headers = rateLimitHeaders({ ok: false, remaining: -3, resetAt }, policy);
+    expect(headers["X-RateLimit-Remaining"]).toBe("0");
+    expect(Number(headers["Retry-After"])).toBeGreaterThanOrEqual(1);
+  });
+
+  it("never emits a Retry-After below 1 second, even if the reset already passed", () => {
+    const headers = rateLimitHeaders(
+      { ok: false, remaining: 0, resetAt: Date.now() - 5_000 },
+      { windowMs: 60_000, max: 5 },
+    );
+    expect(headers["Retry-After"]).toBe("1");
   });
 });
 
