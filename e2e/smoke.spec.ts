@@ -9,7 +9,7 @@ const PRIMARY_PAGES = [
   { path: "/", name: "home" },
   { path: "/prayers", name: "prayers" },
   { path: "/spiritual-life", name: "spiritual-life" },
-  { path: "/spiritual-guidance", name: "spiritual-guidance" },
+  { path: "/our-lady", name: "our-lady" },
   { path: "/liturgy-history", name: "liturgy-history" },
   { path: "/saints", name: "saints" },
   { path: "/search", name: "search" },
