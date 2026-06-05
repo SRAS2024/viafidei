@@ -698,16 +698,28 @@ Every public page renders directly from `PublishedContent`:
 ```
 /prayers              → PublishedContent where contentType=PRAYER
 /saints               → PublishedContent where contentType=SAINT
+/our-lady             → PublishedContent where contentType=MARIAN_TITLE or APPARITION
+/doctors              → PublishedContent where contentType=DOCTOR
+/popes                → PublishedContent where contentType=POPE
 /sacraments           → PublishedContent where contentType=SACRAMENT
+/parishes             → PublishedContent where contentType=PARISH
+/spiritual-life       → PublishedContent where contentType=SPIRITUAL_PRACTICE
 /devotions            → PublishedContent where contentType=DEVOTION
-/spiritual-life       → PublishedContent where contentType=GUIDE or SPIRITUAL_PRACTICE
-/spiritual-guidance   → PublishedContent where contentType=MARIAN_TITLE or APPARITION
-/liturgy              → PublishedContent where contentType=LITURGICAL
+/novenas              → PublishedContent where contentType=NOVENA
+/guides               → PublishedContent where contentType=GUIDE
+/rites                → PublishedContent where contentType=RITE
+/liturgical-calendar  → computed General Roman Calendar (per selected rite)
 /liturgy-history      → LITURGICAL + CHURCH_DOCUMENT slugs (same /[slug] route)
-/history              → PublishedContent where contentType=CHURCH_DOCUMENT
+/church-documents     → PublishedContent where contentType=CHURCH_DOCUMENT
 /search?q=...         → full-text search across PublishedContent
 /api/prayers?take=N   → public list endpoint (clamped at 200)
 ```
+
+The top navigation groups these as **Home · Prayers · Saints · Sacraments ·
+Guides · Liturgy · History**, with dropdowns (desktop) and inline expanders
+(mobile) for the grouped tabs (Saints → Our Lady / Doctors / Popes;
+Sacraments → Parishes / Spiritual Life; Liturgy → Liturgical Calendar /
+Rites; History → Church Documents).
 
 There is no other code path from the database to the public site.
 
