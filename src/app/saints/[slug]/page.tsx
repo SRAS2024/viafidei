@@ -16,16 +16,18 @@ export default async function SaintDetailPage({ params }: Props) {
     <PublishedDetail
       item={item}
       action={<SaveContentButton contentType="SAINT" slug={slug} />}
-      primaryFields={["biography"]}
+      primaryFields={["background", "biography"]}
       secondaryFields={[
         "feastDay",
+        "patronage",
         "patronages",
-        "saintType",
+        "birthplace",
+        "birthDate",
+        "deathDate",
+        "canonizationYear",
         "canonizationStatus",
         "canonizationDate",
         "canonizedBy",
-        "birthDate",
-        "deathDate",
         "relatedPrayers",
         "relatedDevotions",
       ]}
