@@ -93,6 +93,11 @@ export function HeaderNavClient({ entries }: Props) {
           ...entry.items,
         ];
         return (
+          // The container's hover/focus only reveals the submenu as an
+          // enhancement; the real controls (the section link + the chevron
+          // button) are focusable and fully keyboard-operable, so the wrapper
+          // needs no interactive role of its own.
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
           <div
             key={entry.key}
             className="relative inline-flex items-center"
