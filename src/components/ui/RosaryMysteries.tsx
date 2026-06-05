@@ -64,9 +64,28 @@ export function RosaryMysteries() {
         <div className="mt-4">
           <p className="vf-eyebrow">{active.label}</p>
           <p className="text-xs text-ink-faint">Prayed on {daysForMysterySet(active.key)}</p>
-          <ol className="mt-3 ml-6 list-decimal space-y-1 font-serif leading-relaxed text-ink">
-            {active.mysteries.map((m) => (
-              <li key={m}>{m}</li>
+          <ol className="mt-3 space-y-3">
+            {active.mysteries.map((m, i) => (
+              <li
+                key={m.name}
+                className="rounded-sm border border-ink/10 bg-paper-bright/60 p-4 shadow-paper"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="font-display text-lg text-ink">
+                    <span className="mr-2 text-ink-faint">{i + 1}.</span>
+                    {m.name}
+                  </h3>
+                  <span className="shrink-0 rounded-sm bg-ink/5 px-2 py-0.5 text-[11px] uppercase tracking-liturgical text-ink-soft">
+                    Fruit: {m.fruit}
+                  </span>
+                </div>
+                <p className="mt-1 font-serif text-sm text-ink-soft">
+                  Meditation reading:{" "}
+                  <span className="font-medium text-ink" translate="no">
+                    {m.scripture}
+                  </span>
+                </p>
+              </li>
             ))}
           </ol>
         </div>
