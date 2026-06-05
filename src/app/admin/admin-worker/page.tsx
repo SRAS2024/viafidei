@@ -288,7 +288,7 @@ export default async function AdminWorkerPage() {
                 <tr className="text-left text-xs uppercase text-ink-soft">
                   <th>Content type</th>
                   <th className="text-right">Have</th>
-                  <th className="text-right">Min</th>
+                  <th className="text-right">Max</th>
                   <th className="text-right">Gap</th>
                   <th>Status</th>
                 </tr>
@@ -298,7 +298,7 @@ export default async function AdminWorkerPage() {
                   <tr key={g.id} className="border-t">
                     <td className="py-1 font-mono">{g.contentType}</td>
                     <td className="py-1 text-right font-mono">{g.currentValidCount}</td>
-                    <td className="py-1 text-right font-mono">{g.minimumTarget}</td>
+                    <td className="py-1 text-right font-mono">{g.desiredTarget}</td>
                     <td className="py-1 text-right font-mono">{g.gapCount}</td>
                     <td className="py-1 text-xs">{g.status}</td>
                   </tr>
