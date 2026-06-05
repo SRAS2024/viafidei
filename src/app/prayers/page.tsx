@@ -70,7 +70,10 @@ export default async function PrayersPage({ searchParams }: Props) {
       ) : (
         <PaginatedGrid
           items={visible.map(({ prayer: p, category }) => {
-            const body = (p.payload.body as string | undefined) ?? "";
+            const body =
+              (p.payload.body as string | undefined) ??
+              (p.payload.prayerText as string | undefined) ??
+              "";
             return (
               <Link key={p.id} href={`/prayers/${p.slug}`} className="block h-full">
                 <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">

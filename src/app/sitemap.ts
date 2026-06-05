@@ -6,6 +6,11 @@ import { prisma } from "@/lib/db/client";
 
 const BASE = appConfig.canonicalUrl;
 
+// Query published content at request time. Without this the route is
+// statically rendered at build (against an empty DB), so worker-published
+// content — added after the build — never appears in the sitemap.
+export const dynamic = "force-dynamic";
+
 const PUBLIC_STATIC_PATHS: ReadonlyArray<{
   path: string;
   changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];

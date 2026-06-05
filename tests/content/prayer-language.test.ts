@@ -15,6 +15,26 @@ describe("buildPrayerVariants (Latin / Greek prayer language support)", () => {
     ]);
   });
 
+  it("falls back to the worker's prayerText field when body is absent", () => {
+    // The PrayerExtractor emits `prayerText`, not `body`; the variant builder
+    // must still surface it so worker-published prayers show their text.
+    const v = buildPrayerVariants({ prayerText: "Remember, O most gracious Virgin Mary..." });
+    expect(v).toEqual([
+      {
+        code: "en",
+        label: "English",
+        text: "Remember, O most gracious Virgin Mary...",
+        preserve: false,
+      },
+    ]);
+  });
+
+  it("prefers body over prayerText when both are present", () => {
+    const v = buildPrayerVariants({ body: "Canonical body.", prayerText: "Extractor text." });
+    expect(v).toHaveLength(1);
+    expect(v[0]?.text).toBe("Canonical body.");
+  });
+
   it("adds Latin and Greek variants, vernacular first, with preserve flags", () => {
     const v = buildPrayerVariants({
       body: "Hail Mary, full of grace...",
