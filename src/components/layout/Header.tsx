@@ -4,7 +4,7 @@ import { logger } from "@/lib/observability";
 import { getProfileForUser } from "@/lib/data/profile";
 import { logoutAction } from "@/app/_actions/auth";
 import { HeaderBrand } from "./HeaderBrand";
-import { HeaderNav, PRIMARY_NAV } from "./HeaderNav";
+import { HeaderNav, NAV_GROUPS } from "./HeaderNav";
 import { HeaderSearch } from "./HeaderSearch";
 import { HeaderUserMenu } from "./HeaderUserMenu";
 import { HeaderMobileMenu } from "./HeaderMobileMenu";
@@ -44,7 +44,18 @@ export async function Header() {
   const { isAuthed, userId } = await readAuthState();
   const avatarSrc = await readAvatarSrc(userId);
 
-  const navItems = PRIMARY_NAV.map((item) => ({ href: item.href, label: t(item.key) }));
+  // Mobile menu mirrors the desktop tab structure: top-level tabs, with
+  // grouped tabs (Saints, Sacraments, Liturgy, History) carrying their
+  // sub-tabs so they expand inline in the 3-line menu.
+  const navItems = NAV_GROUPS.map((entry) =>
+    entry.kind === "link"
+      ? { href: entry.href, label: t(entry.key) }
+      : {
+          href: entry.href,
+          label: t(entry.key),
+          items: entry.items.map((sub) => ({ href: sub.href, label: t(sub.key) })),
+        },
+  );
   const signInItem = isAuthed ? null : { href: "/login", label: t("nav.login") };
   const authedActions = isAuthed
     ? [
