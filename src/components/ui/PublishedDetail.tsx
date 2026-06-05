@@ -69,6 +69,68 @@ function renderValue(value: unknown): React.ReactNode {
 
 const HIDDEN_FIELDS = new Set(["slug", "title", "citations"]);
 
+// Structural / worker-metadata keys that must never auto-render in the
+// catch-all "remaining" section (they would surface as stray headings like
+// "Rite Key", "Approved Status", or "Requires Human Review"). A page that
+// genuinely wants one of these still lists it explicitly in primary/secondary
+// fields, which bypasses this filter.
+const META_FIELDS = new Set([
+  "summary", // rendered in the header
+  "contentType",
+  "type",
+  "kind",
+  "subtype",
+  "language",
+  "locale",
+  "canonicalName",
+  "canonicalSlug",
+  "canonicalUrl",
+  "officialDocumentUrl",
+  "approvalStatus",
+  "approvedStatus",
+  "authorityLevel",
+  "titleLabel",
+  "order",
+  "orderRank",
+  "rank",
+  "confidence",
+  "confidenceScore",
+  "provenance",
+  "sourceEvidence",
+  "qualityScore",
+  "score",
+  "checksum",
+  "ok",
+  "errors",
+  "schema",
+  "payload",
+  "optionalFields",
+  "requiredFields",
+  "requiresHumanReview",
+  "minCitations",
+  "preferredSourceHosts",
+  "accuracyRules",
+  "claimed",
+  "version",
+  "status",
+  "id",
+  "createdAt",
+  "updatedAt",
+  "publishedAt",
+]);
+
+/**
+ * Whether a payload key is structural metadata (not user-facing prose) and so
+ * should be skipped by the catch-all renderer. Covers the explicit META_FIELDS
+ * plus internal reference keys/slugs and source URLs by suffix — e.g.
+ * `riteKey`, `sacramentKey`, `associatedSaintSlug`, `relatedFeastSlug`,
+ * `canonicalUrl`. Content fields like `keyThemes` or `practiceKind` are not
+ * matched (they don't end in Key/Slug/Url).
+ */
+function isMetaField(key: string): boolean {
+  return META_FIELDS.has(key) || /(?:Key|Slug|Slugs|Url)$/.test(key);
+}
+
 export function PublishedDetail({
   item,
   primaryFields,
@@ -115,7 +177,7 @@ export function PublishedDetail({
   const secondary = secondaryFields ?? [];
   const remaining = Object.keys(payload).filter(
     (k) =>
-      !primary.includes(k) && !secondary.includes(k) && !HIDDEN_FIELDS.has(k) && k !== "summary",
+      !primary.includes(k) && !secondary.includes(k) && !HIDDEN_FIELDS.has(k) && !isMetaField(k),
   );
 
   return (
