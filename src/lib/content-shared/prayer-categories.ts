@@ -16,6 +16,7 @@ export const PRAYER_CATEGORIES: readonly PrayerCategory[] = [
   { value: "eucharistic", label: "Eucharistic" },
   { value: "trinitarian", label: "Trinitarian" },
   { value: "penitential", label: "Penitential" },
+  { value: "litany", label: "Litany" },
   { value: "liturgical", label: "Liturgical" },
   { value: "saintly", label: "Saint-related" },
   { value: "novena", label: "Novena" },
@@ -44,6 +45,13 @@ export function categorizePrayer(input: {
   const pt = (input.prayerType ?? "").toLowerCase();
   const hay = `${input.title ?? ""} ${input.body ?? ""}`.toLowerCase();
   const has = (...words: string[]) => words.some((w) => hay.includes(w));
+
+  // Litanies (the /litanies tab) take priority — a "Litany of …" title or a
+  // litany prayerType marks a litany regardless of its thematic content (e.g.
+  // the Litany of Loreto is Marian, but it belongs in the Litany tab).
+  if (pt === "litany" || (input.title ?? "").toLowerCase().includes("litany")) {
+    return "litany";
+  }
 
   if (
     pt === "marian" ||
@@ -104,11 +112,9 @@ export function categorizePrayer(input: {
     return "penitential";
   }
   if (
-    pt === "litany" ||
     pt === "intercession" ||
     pt === "intercessory" ||
     has(
-      "litany",
       "te deum",
       "gloria in excelsis",
       "agnus dei",
