@@ -86,9 +86,29 @@ export function HeaderNavClient({ entries }: Props) {
         const groupActive =
           isActive(pathname, entry.href) || entry.items.some((i) => isActive(pathname, i.href));
         const open = openKey === entry.key;
+        // The dropdown lists the section's own page first, then its sub-tabs —
+        // so "Saints" expands to Saints · Our Lady · Doctors · Popes.
+        const menuItems: ClientNavLeaf[] = [
+          { href: entry.href, label: entry.label },
+          ...entry.items,
+        ];
         return (
-          <div key={entry.key} className="relative inline-flex items-center">
-            {/* Parent label navigates to its own page; the chevron toggles the submenu. */}
+          <div
+            key={entry.key}
+            className="relative inline-flex items-center"
+            // Desktop: hover opens the menu (standard mega-menu behavior);
+            // keyboard focus opens it too, and blurring away closes it.
+            onMouseEnter={() => setOpenKey(entry.key)}
+            onMouseLeave={() => setOpenKey((k) => (k === entry.key ? null : k))}
+            onFocus={() => setOpenKey(entry.key)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                setOpenKey((k) => (k === entry.key ? null : k));
+              }
+            }}
+          >
+            {/* Parent label navigates to its own page; the chevron also toggles
+                the submenu for touch / click users who don't hover. */}
             <Link
               href={entry.href}
               className={`vf-nav-link ${groupActive ? "vf-nav-link-active" : ""}`}
@@ -107,28 +127,32 @@ export function HeaderNavClient({ entries }: Props) {
               <Chevron open={open} />
             </button>
             {open ? (
+              // `pt-2` (not `mt-2`) keeps the hoverable area contiguous with the
+              // tab so the menu doesn't close while the pointer crosses the gap.
               <div
                 role="menu"
                 aria-label={entry.label}
-                className="absolute left-1/2 top-full z-50 mt-2 w-56 -translate-x-1/2 rounded-sm border border-ink/10 bg-paper-bright p-1 shadow-paper"
+                className="absolute left-1/2 top-full z-50 w-56 -translate-x-1/2 pt-2"
               >
-                {entry.items.map((leaf) => {
-                  const active = isActive(pathname, leaf.href);
-                  return (
-                    <Link
-                      key={leaf.href}
-                      href={leaf.href}
-                      role="menuitem"
-                      onClick={() => setOpenKey(null)}
-                      aria-current={active ? "page" : undefined}
-                      className={`vf-mobile-menu-link block rounded-sm px-3 py-2 text-sm ${
-                        active ? "vf-mobile-menu-link-active" : ""
-                      }`}
-                    >
-                      {leaf.label}
-                    </Link>
-                  );
-                })}
+                <div className="rounded-sm border border-ink/10 bg-paper-bright p-1 shadow-paper">
+                  {menuItems.map((leaf) => {
+                    const active = isActive(pathname, leaf.href);
+                    return (
+                      <Link
+                        key={leaf.href}
+                        href={leaf.href}
+                        role="menuitem"
+                        onClick={() => setOpenKey(null)}
+                        aria-current={active ? "page" : undefined}
+                        className={`vf-mobile-menu-link block rounded-sm px-3 py-2 text-sm ${
+                          active ? "vf-mobile-menu-link-active" : ""
+                        }`}
+                      >
+                        {leaf.label}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
             ) : null}
           </div>

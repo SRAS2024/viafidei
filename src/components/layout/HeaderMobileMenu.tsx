@@ -185,7 +185,10 @@ export function HeaderMobileMenu({
                   </div>
                   {isExpanded ? (
                     <ul className="flex flex-col">
-                      {item.items!.map((sub) => {
+                      {/* The section's own page first, then its sub-tabs —
+                          "Saints" expands to Saints · Our Lady · Doctors · Popes,
+                          matching the desktop dropdown. */}
+                      {[{ href: item.href, label: item.label }, ...item.items!].map((sub) => {
                         const subActive = isActive(pathname, sub.href);
                         return (
                           <li key={sub.href}>
