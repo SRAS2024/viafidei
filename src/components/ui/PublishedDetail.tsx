@@ -111,6 +111,7 @@ const META_FIELDS = new Set([
   "preferredSourceHosts",
   "accuracyRules",
   "claimed",
+  "dropdownMetadata",
   "version",
   "status",
   "id",
@@ -122,13 +123,17 @@ const META_FIELDS = new Set([
 /**
  * Whether a payload key is structural metadata (not user-facing prose) and so
  * should be skipped by the catch-all renderer. Covers the explicit META_FIELDS
- * plus internal reference keys/slugs and source URLs by suffix — e.g.
- * `riteKey`, `sacramentKey`, `associatedSaintSlug`, `relatedFeastSlug`,
- * `canonicalUrl`. Content fields like `keyThemes` or `practiceKind` are not
- * matched (they don't end in Key/Slug/Url).
+ * plus, by suffix:
+ *   - Key / Slug / Slugs / Url — internal references (riteKey, associatedSaintSlug, canonicalUrl)
+ *   - Title / Name — the worker's name fields (saintName, devotionTitle) that just duplicate the page title
+ *   - Type — classification metadata (saintType, devotionType, liturgyType)
+ * A page that genuinely wants one of these (e.g. a Doctor's `doctorTitle` or a
+ * Pope's `birthName`) lists it explicitly in primary/secondary fields, which
+ * bypasses this filter. Content fields like `keyThemes`, `mysterySets`,
+ * `openingPrayers`, or `practiceKind` don't match these suffixes and still render.
  */
 function isMetaField(key: string): boolean {
-  return META_FIELDS.has(key) || /(?:Key|Slug|Slugs|Url)$/.test(key);
+  return META_FIELDS.has(key) || /(?:Key|Slug|Slugs|Url|Title|Name|Type)$/.test(key);
 }
 
 export function PublishedDetail({

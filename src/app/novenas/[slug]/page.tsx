@@ -15,8 +15,8 @@ export default async function NovenaDetailPage({ params }: Props) {
   return (
     <PublishedDetail
       item={item}
-      primaryFields={["background", "days"]}
-      secondaryFields={["intentionTheme", "typicalStartDate"]}
+      primaryFields={["background", "purpose", "days"]}
+      secondaryFields={["duration", "intentions", "intentionTheme", "typicalStartDate"]}
       action={<SaveContentButton contentType="NOVENA" slug={slug} />}
     />
   );

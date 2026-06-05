@@ -24,7 +24,17 @@ describe("prayer categorisation (drives the /prayers filter)", () => {
       "eucharistic",
     );
     expect(categorizePrayer({ title: "Act of Contrition" })).toBe("penitential");
-    expect(categorizePrayer({ title: "Litany of the Saints" })).toBe("liturgical");
+    // Litanies are their own category (the /litanies tab), not "liturgical".
+    expect(categorizePrayer({ title: "Litany of the Saints" })).toBe("litany");
+    expect(categorizePrayer({ title: "Litany of Loreto" })).toBe("litany");
+    expect(
+      categorizePrayer({
+        title: "Litany of the Sacred Heart",
+        body: "Heart of Jesus, have mercy on us",
+      }),
+    ).toBe("litany");
+    // Te Deum is still liturgical, not a litany.
+    expect(categorizePrayer({ title: "Te Deum" })).toBe("liturgical");
     expect(
       categorizePrayer({ title: "Sign of the Cross", body: "In the name of the Father" }),
     ).toBe("general");

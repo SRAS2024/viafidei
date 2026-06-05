@@ -56,6 +56,34 @@ describe("PublishedDetail — stray metadata is never rendered as a section", ()
     }
   });
 
+  it("hides the worker's *Name / *Title / *Type fields (title duplicates + classification) from the catch-all", () => {
+    render(
+      <PublishedDetail
+        item={makeItem({
+          background: "He bore the stigmata for fifty years.",
+          // These are exactly the stray sections seen on detail pages:
+          saintName: "Saint Pio of Pietrelcina", // duplicates the title
+          saintType: "mystic", // classification metadata
+          devotionTitle: "Devotion to the Sacred Heart",
+          devotionType: "consecration",
+          liturgyType: "office",
+          dropdownMetadata: { foo: "bar" },
+        })}
+      />,
+    );
+    expect(screen.getByText(/bore the stigmata/i)).toBeInTheDocument();
+    for (const stray of [
+      /saint name/i,
+      /saint type/i,
+      /devotion title/i,
+      /devotion type/i,
+      /liturgy type/i,
+      /dropdown metadata/i,
+    ]) {
+      expect(screen.queryByText(stray)).not.toBeInTheDocument();
+    }
+  });
+
   it("does not render the summary as a body section (it belongs in the header)", () => {
     render(
       <PublishedDetail item={makeItem({ summary: "Short summary.", history: "Full history." })} />,

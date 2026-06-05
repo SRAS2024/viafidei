@@ -16,7 +16,12 @@ export type NavGroup =
 
 export const NAV_GROUPS: NavGroup[] = [
   { kind: "link", href: "/", key: "nav.home" },
-  { kind: "link", href: "/prayers", key: "nav.prayers" },
+  {
+    kind: "group",
+    href: "/prayers",
+    key: "nav.prayers",
+    items: [{ href: "/litanies", key: "nav.litanies" }],
+  },
   {
     kind: "group",
     href: "/saints",

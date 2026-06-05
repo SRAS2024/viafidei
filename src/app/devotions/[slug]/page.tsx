@@ -16,10 +16,10 @@ export default async function DevotionDetailPage({ params }: Props) {
     <PublishedDetail
       item={item}
       action={<SaveContentButton contentType="DEVOTION" slug={slug} />}
-      primaryFields={["background", "practiceInstructions", "practiceText"]}
+      primaryFields={["background", "howToPractice", "practiceInstructions", "practiceText"]}
       secondaryFields={[
-        "devotionType",
-        "subtype",
+        "origin",
+        "audience",
         "durationMinutes",
         "indulgences",
         "relatedPrayers",

@@ -17,11 +17,17 @@ describe("Default content goal seeds", () => {
     }
   });
 
-  it("every seed has positive minimum and desired targets", () => {
+  it("every seed has a positive maximum cap", () => {
     for (const seed of DEFAULT_GOAL_SEEDS) {
-      expect(seed.minimumTarget).toBeGreaterThan(0);
-      expect(seed.desiredTarget).toBeGreaterThanOrEqual(seed.minimumTarget);
+      expect(seed.maximumTarget).toBeGreaterThan(0);
     }
+  });
+
+  it("pins fixed-by-the-faith caps exactly (7 sacraments, 37 doctors, 266 popes)", () => {
+    const cap = (t: string) => DEFAULT_GOAL_SEEDS.find((s) => s.contentType === t)?.maximumTarget;
+    expect(cap("SACRAMENT")).toBe(7);
+    expect(cap("DOCTOR")).toBe(37);
+    expect(cap("POPE")).toBe(266);
   });
 
   it("every priority is unique so the planner ties always break the same way", () => {
@@ -30,22 +36,18 @@ describe("Default content goal seeds", () => {
   });
 });
 
-describe("deriveStatus", () => {
+describe("deriveStatus (max-only: cap, no minimum)", () => {
   it("returns NOT_STARTED for an empty bucket", () => {
-    expect(deriveStatus(0, 10, 20)).toBe("NOT_STARTED");
+    expect(deriveStatus(0, 20)).toBe("NOT_STARTED");
   });
-  it("returns IN_PROGRESS below 75% of minimum", () => {
-    expect(deriveStatus(3, 10, 20)).toBe("IN_PROGRESS");
+  it("returns IN_PROGRESS below 75% of the cap", () => {
+    expect(deriveStatus(3, 20)).toBe("IN_PROGRESS");
   });
-  it("returns NEAR_GOAL between 75% and minimum", () => {
-    expect(deriveStatus(8, 10, 20)).toBe("NEAR_GOAL");
+  it("returns NEAR_GOAL within the last quarter before the cap", () => {
+    expect(deriveStatus(15, 20)).toBe("NEAR_GOAL");
   });
-  it("returns GOAL_MET at or above minimum but below desired", () => {
-    expect(deriveStatus(10, 10, 20)).toBe("GOAL_MET");
-    expect(deriveStatus(15, 10, 20)).toBe("GOAL_MET");
-  });
-  it("returns MAINTENANCE at or above desired", () => {
-    expect(deriveStatus(20, 10, 20)).toBe("MAINTENANCE");
-    expect(deriveStatus(25, 10, 20)).toBe("MAINTENANCE");
+  it("returns MAINTENANCE at or above the cap", () => {
+    expect(deriveStatus(20, 20)).toBe("MAINTENANCE");
+    expect(deriveStatus(25, 20)).toBe("MAINTENANCE");
   });
 });

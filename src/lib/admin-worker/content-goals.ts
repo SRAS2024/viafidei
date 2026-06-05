@@ -1,56 +1,59 @@
 /**
- * Content goals. The planner compares the live count of published-and-
- * valid items per content type against the minimum and desired
- * targets. The content type with the largest gap is prioritised.
+ * Content goals. Each content type has a single **maximum** target — a cap the
+ * worker fills toward and never exceeds. There is no minimum: the worker keeps
+ * building a type until it reaches the cap, then leaves it in MAINTENANCE.
  *
- * Targets ship as seeded defaults; admins can edit them via Prisma.
+ * Some caps are fixed by the faith itself (exactly seven Sacraments, the set
+ * list of Doctors of the Church and Popes); others are a sensible ceiling for a
+ * curated catalog. The content type with the largest remaining gap to its cap
+ * is prioritised. Caps ship as seeded defaults; admins can edit them via Prisma.
  */
 
 import type { ChecklistContentType, ContentGoalStatus, PrismaClient } from "@prisma/client";
 
 export interface ContentGoalSeed {
   contentType: ChecklistContentType;
-  minimumTarget: number;
-  desiredTarget: number;
+  /** The maximum number of published items for this type — the worker stops here. */
+  maximumTarget: number;
   priority: number;
 }
 
 /**
- * Default goal seeds. Numbers are the minimum content count that
- * keeps each public tab feeling alive — calibrated against the
- * existing master checklists (eg. 24 prayers, 30 saints).
+ * Default caps. Fixed-by-the-faith counts (7 sacraments, 37 Doctors of the
+ * Church, 266 popes) are exact; the rest are practical ceilings for a curated
+ * catalog. The worker never publishes past these.
  */
 export const DEFAULT_GOAL_SEEDS: readonly ContentGoalSeed[] = [
-  { contentType: "PRAYER", minimumTarget: 24, desiredTarget: 60, priority: 10 },
-  { contentType: "SAINT", minimumTarget: 30, desiredTarget: 75, priority: 20 },
-  { contentType: "DEVOTION", minimumTarget: 12, desiredTarget: 25, priority: 30 },
-  { contentType: "NOVENA", minimumTarget: 9, desiredTarget: 18, priority: 40 },
-  { contentType: "MARIAN_TITLE", minimumTarget: 8, desiredTarget: 16, priority: 50 },
-  { contentType: "APPARITION", minimumTarget: 5, desiredTarget: 12, priority: 60 },
-  { contentType: "SACRAMENT", minimumTarget: 7, desiredTarget: 7, priority: 5 },
-  { contentType: "GUIDE", minimumTarget: 8, desiredTarget: 20, priority: 70 },
-  { contentType: "CHURCH_DOCUMENT", minimumTarget: 10, desiredTarget: 30, priority: 80 },
-  { contentType: "LITURGICAL", minimumTarget: 12, desiredTarget: 25, priority: 90 },
-  { contentType: "SPIRITUAL_PRACTICE", minimumTarget: 8, desiredTarget: 18, priority: 100 },
-  { contentType: "PARISH", minimumTarget: 12, desiredTarget: 40, priority: 110 },
-  { contentType: "POPE", minimumTarget: 20, desiredTarget: 266, priority: 120 },
-  { contentType: "DOCTOR", minimumTarget: 12, desiredTarget: 37, priority: 130 },
-  { contentType: "RITE", minimumTarget: 6, desiredTarget: 12, priority: 140 },
+  { contentType: "PRAYER", maximumTarget: 80, priority: 10 },
+  { contentType: "SAINT", maximumTarget: 150, priority: 20 },
+  { contentType: "DEVOTION", maximumTarget: 40, priority: 30 },
+  { contentType: "NOVENA", maximumTarget: 30, priority: 40 },
+  { contentType: "MARIAN_TITLE", maximumTarget: 25, priority: 50 },
+  { contentType: "APPARITION", maximumTarget: 20, priority: 60 },
+  { contentType: "SACRAMENT", maximumTarget: 7, priority: 5 }, // exactly seven
+  { contentType: "GUIDE", maximumTarget: 30, priority: 70 },
+  { contentType: "CHURCH_DOCUMENT", maximumTarget: 60, priority: 80 },
+  { contentType: "LITURGICAL", maximumTarget: 40, priority: 90 },
+  { contentType: "SPIRITUAL_PRACTICE", maximumTarget: 25, priority: 100 },
+  { contentType: "PARISH", maximumTarget: 100, priority: 110 },
+  { contentType: "POPE", maximumTarget: 266, priority: 120 }, // the set list of popes
+  { contentType: "DOCTOR", maximumTarget: 37, priority: 130 }, // the 37 Doctors of the Church
+  { contentType: "RITE", maximumTarget: 24, priority: 140 }, // the sui iuris churches
 ] as const;
 
 export async function seedContentGoals(prisma: PrismaClient): Promise<number> {
   let seeded = 0;
   for (const seed of DEFAULT_GOAL_SEEDS) {
-    const existing = await prisma.contentGoal.findUnique({
+    // Upsert so the max-only caps apply even to pre-existing goal rows.
+    // minimumTarget is pinned to 0 — the model has no minimum, only the cap
+    // stored in desiredTarget.
+    await prisma.contentGoal.upsert({
       where: { contentType: seed.contentType },
-      select: { id: true },
-    });
-    if (existing) continue;
-    await prisma.contentGoal.create({
-      data: {
+      update: { minimumTarget: 0, desiredTarget: seed.maximumTarget, priority: seed.priority },
+      create: {
         contentType: seed.contentType,
-        minimumTarget: seed.minimumTarget,
-        desiredTarget: seed.desiredTarget,
+        minimumTarget: 0,
+        desiredTarget: seed.maximumTarget,
         priority: seed.priority,
         status: "NOT_STARTED",
       },
@@ -60,19 +63,23 @@ export async function seedContentGoals(prisma: PrismaClient): Promise<number> {
   return seeded;
 }
 
-export function deriveStatus(current: number, minimum: number, desired: number): ContentGoalStatus {
-  if (minimum === 0 && desired === 0) return "NOT_STARTED";
-  if (current === 0) return "NOT_STARTED";
-  if (current >= desired) return "MAINTENANCE";
-  if (current >= minimum) return "GOAL_MET";
-  if (current >= Math.floor(minimum * 0.75)) return "NEAR_GOAL";
+/**
+ * Status from the live count against the maximum cap. No minimum: a type is
+ * IN_PROGRESS until it nears the cap, NEAR_GOAL within the last quarter, and
+ * MAINTENANCE once it reaches the cap.
+ */
+export function deriveStatus(current: number, maximum: number): ContentGoalStatus {
+  if (maximum <= 0) return "NOT_STARTED";
+  if (current <= 0) return "NOT_STARTED";
+  if (current >= maximum) return "MAINTENANCE";
+  if (current >= Math.floor(maximum * 0.75)) return "NEAR_GOAL";
   return "IN_PROGRESS";
 }
 
 /**
  * Refresh every ContentGoal row from the live PublishedContent count.
  * Run before the planner picks a priority, so the planner sees current
- * gaps rather than stale snapshots.
+ * gaps-to-the-cap rather than stale snapshots.
  */
 export async function refreshContentGoals(prisma: PrismaClient): Promise<void> {
   const goals = await prisma.contentGoal.findMany();
@@ -86,8 +93,10 @@ export async function refreshContentGoals(prisma: PrismaClient): Promise<void> {
 
   for (const goal of goals) {
     const current = countMap.get(goal.contentType) ?? 0;
-    const gap = Math.max(0, goal.minimumTarget - current);
-    const status = deriveStatus(current, goal.minimumTarget, goal.desiredTarget);
+    // desiredTarget holds the maximum cap; the gap is what remains up to it.
+    const cap = goal.desiredTarget;
+    const gap = Math.max(0, cap - current);
+    const status = deriveStatus(current, cap);
     await prisma.contentGoal.update({
       where: { id: goal.id },
       data: {

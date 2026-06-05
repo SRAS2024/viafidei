@@ -8,6 +8,7 @@ const brand: Dict = {
 const nav: Dict = {
   "nav.home": "Home",
   "nav.prayers": "Prayers",
+  "nav.litanies": "Litanies",
   "nav.devotions": "Devotions",
   "nav.sacraments": "Sacraments",
   "nav.spiritualLife": "Spiritual Life",
@@ -70,6 +71,12 @@ const prayers: Dict = {
   "prayers.title": "Prayers",
   "prayers.subtitle":
     "A curated library of Catholic prayers — Marian, Christocentric, angelic, sacramental, seasonal, and daily devotions.",
+  "litanies.eyebrow": "Prayers",
+  "litanies.title": "Litanies",
+  "litanies.subtitle":
+    "The Church's litanies — sustained invocations and responses, from the Litany of the Saints to the Litany of Loreto and the Sacred Heart.",
+  "litanies.empty":
+    "Litanies will appear here as they are approved and published through the Admin Worker.",
   "prayers.category.marian": "Marian",
   "prayers.category.christ": "Christ-centered",
   "prayers.category.angelic": "Angelic",
