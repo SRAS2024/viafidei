@@ -41,6 +41,50 @@ describe("classify", () => {
     expect(res.contentType).toBe("SAINT");
   });
 
+  it("classifies a pope-focused page as POPE, not SAINT", () => {
+    const res = classify({
+      url: "https://catholic.example/popes/pope-leo-xiii",
+      title: "Pope Leo XIII",
+      headings: ["Pontificate", "Election"],
+      bodyText:
+        "He was elected pope in 1878. During his pontificate he wrote Rerum Novarum. As Bishop of Rome he reigned for 25 years.",
+    });
+    expect(res.contentType).toBe("POPE");
+  });
+
+  it("classifies a Doctor of the Church page as DOCTOR", () => {
+    const res = classify({
+      url: "https://catholic.example/doctors/saint-augustine",
+      title: "Saint Augustine, Doctor of the Church",
+      headings: ["Doctor of the Church"],
+      bodyText:
+        "Augustine of Hippo was declared a Doctor of the Church. He is one of the great Doctors of the Church.",
+    });
+    expect(res.contentType).toBe("DOCTOR");
+  });
+
+  it("classifies a liturgical rite page as RITE, not LITURGICAL", () => {
+    const res = classify({
+      url: "https://catholic.example/rites/byzantine-rite",
+      title: "The Byzantine Rite",
+      headings: ["Liturgical tradition", "Eastern Catholic"],
+      bodyText:
+        "The Byzantine Rite is a liturgical tradition of the Eastern Catholic Churches, each a sui iuris particular church.",
+    });
+    expect(res.contentType).toBe("RITE");
+  });
+
+  it("keeps an ordinary saint as SAINT even though popes/doctors are saints too", () => {
+    const res = classify({
+      url: "https://catholic.example/saints/saint-francis-of-assisi",
+      title: "Saint Francis of Assisi",
+      headings: ["Feast day", "Patron"],
+      bodyText:
+        "Saint Francis was born in 1181. He was canonized in 1228. His feast day is October 4. He is the patron of animals.",
+    });
+    expect(res.contentType).toBe("SAINT");
+  });
+
   it("classifies a Marian apparition", () => {
     const res = classify({
       url: "https://catholic.example/apparitions/our-lady-of-fatima",

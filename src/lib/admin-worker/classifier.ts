@@ -81,6 +81,64 @@ const RULES: TypeRule[] = [
     negativePatterns: [/livestream/i, /event/i, /commentary/i, /reflection only/i],
   },
   {
+    // A pope is a saint, so this is listed before SAINT and carries
+    // pontificate-specific markers so a pope-focused page outscores the
+    // generic saint rule; an ordinary saint page matches none of these.
+    type: "POPE",
+    urlPatterns: [/\/pope(s)?\//i, /\/pope-/i, /\/pontiff/i, /\/papacy/i],
+    titlePatterns: [/\bpope\b/i, /\bpontiff\b/i, /bishop of rome/i],
+    headingPatterns: [/pontificate/i, /papacy/i, /elected pope/i, /conclave/i, /papal election/i],
+    bodyPatterns: [
+      /elected pope/i,
+      /his pontificate/i,
+      /the papacy/i,
+      /bishop of rome/i,
+      /reigned as pope/i,
+    ],
+    requiredTerms: ["pope", "pontiff", "papacy"],
+  },
+  {
+    // "Doctor of the Church" is a precise title; a doctor-focused page
+    // outscores the generic saint rule on it.
+    type: "DOCTOR",
+    urlPatterns: [/\/doctor(s)?-of-the-church/i, /\/doctor(s)?-of-the/i, /\/doctors?\//i],
+    titlePatterns: [/doctor of the church/i],
+    headingPatterns: [/doctor of the church/i, /declared a doctor/i],
+    bodyPatterns: [
+      /doctor of the church/i,
+      /declared a doctor of the church/i,
+      /proclaimed a doctor/i,
+    ],
+    requiredTerms: ["doctor of the church"],
+  },
+  {
+    // A liturgical rite / sui iuris particular Church — distinct from a
+    // LITURGICAL page about the Mass or Office (listed before LITURGICAL).
+    type: "RITE",
+    urlPatterns: [
+      /\/rite(s)?\//i,
+      /\/(roman|latin|byzantine|maronite|coptic|chaldean|melkite|syro-malabar|armenian)-rite/i,
+    ],
+    titlePatterns: [
+      /\brite\b/i,
+      /(roman|latin|byzantine|eastern|alexandrian|antiochian) rite/i,
+      /eastern catholic/i,
+    ],
+    headingPatterns: [
+      /liturgical tradition/i,
+      /sui iuris/i,
+      /particular church/i,
+      /eastern catholic/i,
+    ],
+    bodyPatterns: [
+      /liturgical tradition/i,
+      /sui iuris/i,
+      /eastern catholic churches/i,
+      /particular church/i,
+    ],
+    requiredTerms: ["rite"],
+  },
+  {
     type: "SAINT",
     urlPatterns: [/\/saint(s)?\//i, /\/st-[a-z]/i],
     titlePatterns: [/\bsaint\b/i, /\bst\.\s/i, /\bblessed\b/i, /\bvenerable\b/i],
