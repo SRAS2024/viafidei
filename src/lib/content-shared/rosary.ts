@@ -10,11 +10,20 @@
  */
 export type MysterySetKey = "joyful" | "sorrowful" | "glorious" | "luminous";
 
+export interface RosaryMystery {
+  /** The mystery's name. */
+  name: string;
+  /** Scripture reference for the meditation reading. */
+  scripture: string;
+  /** The spiritual fruit traditionally associated with the mystery. */
+  fruit: string;
+}
+
 export interface MysterySet {
   key: MysterySetKey;
   label: string;
-  /** The five mysteries, in order. */
-  mysteries: string[];
+  /** The five mysteries, in order, each with its meditation and fruit. */
+  mysteries: RosaryMystery[];
 }
 
 export const ROSARY_MYSTERY_SETS: MysterySet[] = [
@@ -22,44 +31,80 @@ export const ROSARY_MYSTERY_SETS: MysterySet[] = [
     key: "joyful",
     label: "Joyful Mysteries",
     mysteries: [
-      "The Annunciation",
-      "The Visitation",
-      "The Nativity",
-      "The Presentation in the Temple",
-      "The Finding of Jesus in the Temple",
+      { name: "The Annunciation", scripture: "Luke 1:26–38", fruit: "Humility" },
+      { name: "The Visitation", scripture: "Luke 1:39–45", fruit: "Love of Neighbor" },
+      { name: "The Nativity", scripture: "Luke 2:1–14", fruit: "Poverty of Spirit" },
+      {
+        name: "The Presentation in the Temple",
+        scripture: "Luke 2:22–35",
+        fruit: "Obedience",
+      },
+      {
+        name: "The Finding of Jesus in the Temple",
+        scripture: "Luke 2:41–52",
+        fruit: "Joy in Finding Jesus",
+      },
     ],
   },
   {
     key: "sorrowful",
     label: "Sorrowful Mysteries",
     mysteries: [
-      "The Agony in the Garden",
-      "The Scourging at the Pillar",
-      "The Crowning with Thorns",
-      "The Carrying of the Cross",
-      "The Crucifixion and Death of Our Lord",
+      { name: "The Agony in the Garden", scripture: "Luke 22:39–46", fruit: "Sorrow for Sin" },
+      { name: "The Scourging at the Pillar", scripture: "John 19:1", fruit: "Purity" },
+      {
+        name: "The Crowning with Thorns",
+        scripture: "Matthew 27:27–31",
+        fruit: "Moral Courage",
+      },
+      { name: "The Carrying of the Cross", scripture: "Luke 23:26–32", fruit: "Patience" },
+      {
+        name: "The Crucifixion and Death of Our Lord",
+        scripture: "Luke 23:33–46",
+        fruit: "Perseverance",
+      },
     ],
   },
   {
     key: "glorious",
     label: "Glorious Mysteries",
     mysteries: [
-      "The Resurrection",
-      "The Ascension",
-      "The Descent of the Holy Spirit",
-      "The Assumption of Mary",
-      "The Coronation of Mary as Queen of Heaven",
+      { name: "The Resurrection", scripture: "Luke 24:1–12", fruit: "Faith" },
+      { name: "The Ascension", scripture: "Acts 1:6–11", fruit: "Hope" },
+      {
+        name: "The Descent of the Holy Spirit",
+        scripture: "Acts 2:1–13",
+        fruit: "Love of God",
+      },
+      { name: "The Assumption of Mary", scripture: "Revelation 12:1", fruit: "Devotion to Mary" },
+      {
+        name: "The Coronation of Mary as Queen of Heaven",
+        scripture: "Revelation 12:1; Judith 13:18–20",
+        fruit: "Eternal Happiness",
+      },
     ],
   },
   {
     key: "luminous",
     label: "Luminous Mysteries",
     mysteries: [
-      "The Baptism of Jesus in the Jordan",
-      "The Wedding at Cana",
-      "The Proclamation of the Kingdom of God",
-      "The Transfiguration",
-      "The Institution of the Eucharist",
+      {
+        name: "The Baptism of Jesus in the Jordan",
+        scripture: "Matthew 3:13–17",
+        fruit: "Openness to the Holy Spirit",
+      },
+      { name: "The Wedding at Cana", scripture: "John 2:1–11", fruit: "To Jesus through Mary" },
+      {
+        name: "The Proclamation of the Kingdom of God",
+        scripture: "Mark 1:14–15",
+        fruit: "Repentance and Trust in God",
+      },
+      { name: "The Transfiguration", scripture: "Luke 9:28–36", fruit: "Desire for Holiness" },
+      {
+        name: "The Institution of the Eucharist",
+        scripture: "Matthew 26:26–28",
+        fruit: "Adoration",
+      },
     ],
   },
 ];

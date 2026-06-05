@@ -52,6 +52,25 @@ describe("HeaderNavClient (parent-link dropdowns)", () => {
     expect(screen.queryByRole("menuitem", { name: "Popes" })).not.toBeInTheDocument();
   });
 
+  it("includes the section's own page as the first item in the dropdown", () => {
+    render(<HeaderNavClient entries={entries} />);
+    fireEvent.click(screen.getByRole("button", { name: /Saints submenu/ }));
+    // The menu opens to Saints (overview) · Our Lady · Popes.
+    const overview = screen.getByRole("menuitem", { name: "Saints" });
+    expect(overview).toHaveAttribute("href", "/saints");
+    expect(screen.getByRole("menuitem", { name: "Our Lady" })).toHaveAttribute("href", "/our-lady");
+    expect(screen.getByRole("menuitem", { name: "Popes" })).toHaveAttribute("href", "/popes");
+  });
+
+  it("opens the dropdown on hover (desktop) and closes when the pointer leaves", () => {
+    const { container } = render(<HeaderNavClient entries={entries} />);
+    const group = container.querySelector(".relative.inline-flex") as HTMLElement;
+    fireEvent.mouseEnter(group);
+    expect(screen.getByRole("menuitem", { name: "Popes" })).toBeInTheDocument();
+    fireEvent.mouseLeave(group);
+    expect(screen.queryByRole("menuitem", { name: "Popes" })).not.toBeInTheDocument();
+  });
+
   it("closes the dropdown when a menu item is chosen", () => {
     render(<HeaderNavClient entries={entries} />);
     fireEvent.click(screen.getByRole("button", { name: /Saints submenu/ }));

@@ -206,6 +206,11 @@ describe("HeaderMobileMenu", () => {
       expect(toggle).toHaveAttribute("aria-expanded", "true");
       expect(screen.getByRole("link", { name: "Our Lady" })).toHaveAttribute("href", "/our-lady");
       expect(screen.getByRole("link", { name: "Popes" })).toHaveAttribute("href", "/popes");
+      // The section's own page is included in the expansion (so there are now
+      // two "Saints" links: the header row and the overview sub-item).
+      const saintsLinks = screen.getAllByRole("link", { name: "Saints" });
+      expect(saintsLinks).toHaveLength(2);
+      expect(saintsLinks.every((a) => a.getAttribute("href") === "/saints")).toBe(true);
     });
 
     it("auto-expands the group that contains the active route", async () => {

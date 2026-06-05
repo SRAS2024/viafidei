@@ -235,6 +235,56 @@ Joyful Mysteries
     },
     junk: base({ title: "St. Patrick's Catholic Church", bodyText: "A parish in the city." }),
   },
+  {
+    label: "POPE — name + papacy years",
+    type: "POPE",
+    packageType: "POPE",
+    pass: base({
+      url: "https://catholic.example/popes/pope-leo-xiii",
+      title: "Pope Leo XIII",
+      bodyText:
+        "Pope Leo XIII reigned from 1878 to 1903. As Bishop of Rome he wrote the encyclical Rerum Novarum, which set out the Church's teaching on the rights and duties of labor and capital.",
+    }),
+    assertFields: (f) => {
+      expect(String(f.popeName)).toMatch(/Leo XIII/);
+      expect(String(f.papacyStart)).toBe("1878");
+    },
+    junk: base({
+      title: "Weekly Bulletin",
+      bodyText: "Mass schedule and parish announcements for the week.",
+    }),
+  },
+  {
+    label: "DOCTOR — name + Doctor of the Church title",
+    type: "DOCTOR",
+    packageType: "DOCTOR",
+    pass: base({
+      url: "https://catholic.example/doctors/saint-augustine",
+      title: "Saint Augustine of Hippo",
+      bodyText:
+        "Saint Augustine of Hippo was a bishop and theologian who profoundly shaped Western Christianity. He is honored as the Doctor of Grace and counted among the great Doctors of the Church.",
+    }),
+    assertFields: (f) => {
+      expect(String(f.doctorName)).toMatch(/Augustine/);
+      expect(String(f.doctorTitle ?? "")).toMatch(/Doctor/);
+    },
+    junk: base({ title: "Donate Now", bodyText: "" }),
+  },
+  {
+    label: "RITE — name + background of a liturgical tradition",
+    type: "RITE",
+    packageType: "RITE",
+    pass: base({
+      url: "https://catholic.example/rites/byzantine-rite",
+      title: "The Byzantine Rite",
+      bodyText:
+        "The Byzantine Rite is one of the principal liturgical traditions of the Catholic Church, followed by the Eastern Catholic Churches that are sui iuris particular churches in full communion with Rome. It developed from the liturgy of Constantinople.",
+    }),
+    assertFields: (f) => {
+      expect(String(f.riteName)).toMatch(/Byzantine/);
+    },
+    junk: base({ title: "Gift Shop", bodyText: "" }),
+  },
 ];
 
 describe("admin-worker:proof:all-content-types", () => {

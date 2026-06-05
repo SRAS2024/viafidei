@@ -42,4 +42,14 @@ describe("RosaryMysteries", () => {
     expect(screen.getByText("The Annunciation")).toBeInTheDocument();
     expect(screen.queryByText("The Baptism of Jesus in the Jordan")).not.toBeInTheDocument();
   });
+
+  it("shows each mystery's meditation reading and fruit", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-04T09:00:00"));
+    render(<RosaryMysteries />);
+    fireEvent.click(screen.getByRole("button", { name: /^Joyful/ }));
+    // The Annunciation → Luke 1:26–38, fruit Humility.
+    expect(screen.getByText("Luke 1:26–38")).toBeInTheDocument();
+    expect(screen.getByText(/Fruit: Humility/)).toBeInTheDocument();
+  });
 });

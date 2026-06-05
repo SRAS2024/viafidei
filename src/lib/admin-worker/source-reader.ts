@@ -224,8 +224,8 @@ export async function readSource(
     language: input.language,
   };
 
-  // The extractor dispatcher only knows the 11 spec types — GUIDE and
-  // MARIAN_TITLE skip extraction (the checklist already builds those).
+  // GUIDE and MARIAN_TITLE skip extraction (the checklist already builds
+  // those); every other extractor-backed type runs here.
   let extraction: ExtractorOutput | null = null;
   if (
     extractorType === "PRAYER" ||
@@ -238,7 +238,10 @@ export async function readSource(
     extractorType === "SACRAMENT" ||
     extractorType === "CHURCH_DOCUMENT" ||
     extractorType === "LITURGICAL" ||
-    extractorType === "PARISH"
+    extractorType === "PARISH" ||
+    extractorType === "POPE" ||
+    extractorType === "DOCTOR" ||
+    extractorType === "RITE"
   ) {
     extraction = extractByType(extractorType, extractorInput);
   }

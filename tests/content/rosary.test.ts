@@ -49,10 +49,25 @@ describe("rosary mystery structure", () => {
     expect(daysForMysterySet("luminous")).toBe("Thursday");
   });
 
-  it("returns a set by key with the canonical mysteries", () => {
-    expect(mysterySet("joyful").mysteries[0]).toBe("The Annunciation");
-    expect(mysterySet("luminous").mysteries).toContain("The Institution of the Eucharist");
-    expect(mysterySet("glorious").mysteries[0]).toBe("The Resurrection");
+  it("returns a set by key with the canonical mysteries, each with a meditation and fruit", () => {
+    const joyful = mysterySet("joyful");
+    expect(joyful.mysteries[0]).toMatchObject({
+      name: "The Annunciation",
+      scripture: "Luke 1:26–38",
+      fruit: "Humility",
+    });
+    expect(mysterySet("glorious").mysteries[0].name).toBe("The Resurrection");
+    expect(mysterySet("luminous").mysteries.map((m) => m.name)).toContain(
+      "The Institution of the Eucharist",
+    );
+    // Every mystery across every set carries a scripture reading and a fruit.
+    for (const set of ROSARY_MYSTERY_SETS) {
+      for (const m of set.mysteries) {
+        expect(m.name.length).toBeGreaterThan(0);
+        expect(m.scripture.length).toBeGreaterThan(0);
+        expect(m.fruit.length).toBeGreaterThan(0);
+      }
+    }
   });
 
   it("identifies the Rosary guide by its kind", () => {
