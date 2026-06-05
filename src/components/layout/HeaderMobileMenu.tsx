@@ -156,33 +156,25 @@ export function HeaderMobileMenu({
                 );
               }
 
-              // Grouped tab: the label navigates to the section page; the
-              // chevron expands its sub-tabs inline (mirrors the desktop menu).
+              // Grouped tab: on mobile there is no hover, so tapping the whole
+              // row expands its sub-tabs inline (the section's own page is the
+              // first item inside). This is the standard mobile accordion — a
+              // tap reveals the options instead of navigating away.
               const isExpanded = expanded.has(item.href);
               const parentActive = groupActive(pathname, item);
               return (
                 <li key={item.href}>
-                  <div className="flex items-center">
-                    <Link
-                      href={item.href}
-                      onClick={() => setOpen(false)}
-                      aria-current={active ? "page" : undefined}
-                      className={`vf-mobile-menu-link block flex-1 px-4 py-3 ${
-                        parentActive ? "vf-mobile-menu-link-active" : ""
-                      }`}
-                    >
-                      {item.label}
-                    </Link>
-                    <button
-                      type="button"
-                      aria-expanded={isExpanded}
-                      aria-label={`${item.label} submenu`}
-                      onClick={() => toggleExpanded(item.href)}
-                      className="vf-mobile-menu-link flex h-12 w-12 items-center justify-center text-ink-soft"
-                    >
-                      <Chevron open={isExpanded} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    onClick={() => toggleExpanded(item.href)}
+                    className={`vf-mobile-menu-link flex w-full items-center justify-between px-4 py-3 text-left ${
+                      parentActive ? "vf-mobile-menu-link-active" : ""
+                    }`}
+                  >
+                    <span>{item.label}</span>
+                    <Chevron open={isExpanded} />
+                  </button>
                   {isExpanded ? (
                     <ul className="flex flex-col">
                       {/* The section's own page first, then its sub-tabs —

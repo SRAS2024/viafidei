@@ -195,22 +195,19 @@ describe("HeaderMobileMenu", () => {
         />,
       );
       await user.click(screen.getByRole("button", { name: LABELS.open }));
-      // The parent tab is a link to its section page (not on the active route here).
-      expect(screen.getByRole("link", { name: "Saints" })).toHaveAttribute("href", "/saints");
-      // Sub-tabs are collapsed initially (Saints group is not the active route).
-      expect(screen.queryByRole("link", { name: "Our Lady" })).not.toBeInTheDocument();
-
-      const toggle = screen.getByRole("button", { name: "Saints submenu" });
+      // The grouped tab is a toggle button (tap expands; it does not navigate).
+      const toggle = screen.getByRole("button", { name: "Saints" });
       expect(toggle).toHaveAttribute("aria-expanded", "false");
+      // Collapsed initially: neither the sub-tabs nor the overview link show.
+      expect(screen.queryByRole("link", { name: "Our Lady" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Saints" })).not.toBeInTheDocument();
+
       await user.click(toggle);
       expect(toggle).toHaveAttribute("aria-expanded", "true");
+      // Expands to the section's own page first, then its sub-tabs.
+      expect(screen.getByRole("link", { name: "Saints" })).toHaveAttribute("href", "/saints");
       expect(screen.getByRole("link", { name: "Our Lady" })).toHaveAttribute("href", "/our-lady");
       expect(screen.getByRole("link", { name: "Popes" })).toHaveAttribute("href", "/popes");
-      // The section's own page is included in the expansion (so there are now
-      // two "Saints" links: the header row and the overview sub-item).
-      const saintsLinks = screen.getAllByRole("link", { name: "Saints" });
-      expect(saintsLinks).toHaveLength(2);
-      expect(saintsLinks.every((a) => a.getAttribute("href") === "/saints")).toBe(true);
     });
 
     it("auto-expands the group that contains the active route", async () => {
@@ -236,7 +233,7 @@ describe("HeaderMobileMenu", () => {
       // The active sub-route's group starts expanded, so the sub-link is visible.
       const sub = screen.getByRole("link", { name: "Daily Prayers" });
       expect(sub).toHaveAttribute("aria-current", "page");
-      expect(screen.getByRole("button", { name: "Saints submenu" })).toHaveAttribute(
+      expect(screen.getByRole("button", { name: "Saints" })).toHaveAttribute(
         "aria-expanded",
         "true",
       );
