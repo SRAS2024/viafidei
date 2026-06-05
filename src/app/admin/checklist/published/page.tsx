@@ -14,13 +14,6 @@ export default async function PublishedItems() {
     where: { isPublished: true },
     orderBy: [{ contentType: "asc" }, { title: "asc" }],
     take: 200,
-    include: {
-      _count: {
-        select: {
-          /* placeholder */
-        },
-      } as never,
-    } as never,
   });
 
   return (
