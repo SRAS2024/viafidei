@@ -19,6 +19,7 @@ import { planMission } from "@/lib/admin-worker/mission-planner";
 import { AdminWorkerPauseToggle } from "./AdminWorkerPauseToggle";
 import { AdminWorkerControls } from "./AdminWorkerControls";
 import { RequestHomepageMakeoverButton } from "./RequestHomepageMakeoverButton";
+import { DeveloperAuditButton } from "../diagnostics/DeveloperAuditButton";
 
 export const dynamic = "force-dynamic";
 
@@ -161,6 +162,9 @@ export default async function AdminWorkerPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 text-sm">
+          {/* Developer Report: generate + download the audit PDF straight
+              from the worker control console (spec §12). */}
+          <DeveloperAuditButton />
           <Link className="text-indigo-600 underline" href="/admin/diagnostics">
             Diagnostics →
           </Link>

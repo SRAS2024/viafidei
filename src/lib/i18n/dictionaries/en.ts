@@ -159,7 +159,7 @@ const auth: Dict = {
   "auth.submitLogin": "Log in",
   "auth.submitRegister": "Create account",
   "auth.toRegister": "Create account",
-  "auth.toLogin": "Already have an account? Sign in.",
+  "auth.toLogin": "Already have an account? Log in.",
   "auth.adminNotice":
     "This log-in is for Via Fidei members only. Administrators must use the dedicated admin portal.",
   "auth.invalid": "Email or password is incorrect.",
@@ -408,8 +408,8 @@ const admin: Dict = {
   "admin.tabDiagnostics.title": "Tab diagnostics",
   "admin.factoryCommandCenter.title": "Content factory command center",
   "admin.sourceGroups.title": "Source groups by content type",
-  "admin.signOut": "Sign out of admin",
-  "admin.welcomeLine": "You are signed in as the administrator.",
+  "admin.signOut": "Log out of admin",
+  "admin.welcomeLine": "You are logged in as the administrator.",
 };
 
 const footer: Dict = {

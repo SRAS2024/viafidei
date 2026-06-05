@@ -51,6 +51,98 @@ describe("middleware", () => {
     expect(res.headers.get("Strict-Transport-Security")).toBeNull();
   });
 
+  it("sets a 2-year preload HSTS header in production", () => {
+    const original = process.env.NODE_ENV;
+    // NODE_ENV is a readonly type but writable at runtime; cast to set it.
+    (process.env as { NODE_ENV?: string }).NODE_ENV = "production";
+    try {
+      const hsts = middleware(makeRequest()).headers.get("Strict-Transport-Security");
+      expect(hsts).toBe("max-age=63072000; includeSubDomains; preload");
+    } finally {
+      (process.env as { NODE_ENV?: string }).NODE_ENV = original;
+    }
+  });
+
+  // The login redirect builds its absolute URL from publicOriginForMiddleware,
+  // which mirrors getPublicOrigin: prefer X-Forwarded-Host/Proto, fall back to
+  // the Host header, never echo a local-bind host, and strip a redundant
+  // upstream port over https (the Safari "restricted network port" bug).
+  describe("public origin resolution (via the admin login redirect)", () => {
+    function redirectLocation(headers: Record<string, string>): string {
+      // A bare hostname URL with no path segment maps to "/", so use an
+      // unauthenticated protected admin path to force the redirect.
+      const res = middleware(makeRequest("https://bind-host.internal/admin/users", headers));
+      expect(res.status).toBe(303);
+      return res.headers.get("location") ?? "";
+    }
+
+    it("prefers X-Forwarded-Host with X-Forwarded-Proto", () => {
+      expect(
+        redirectLocation({ "x-forwarded-host": "viafidei.org", "x-forwarded-proto": "https" }),
+      ).toBe("https://viafidei.org/admin/login");
+    });
+
+    it("defaults the proto to https when only X-Forwarded-Host is present", () => {
+      expect(redirectLocation({ "x-forwarded-host": "viafidei.org" })).toBe(
+        "https://viafidei.org/admin/login",
+      );
+    });
+
+    it("takes only the first value of a comma-joined X-Forwarded-Proto", () => {
+      expect(
+        redirectLocation({
+          "x-forwarded-host": "viafidei.org",
+          "x-forwarded-proto": "https, http",
+        }),
+      ).toBe("https://viafidei.org/admin/login");
+    });
+
+    it("strips a redundant upstream port from the forwarded host over https", () => {
+      expect(
+        redirectLocation({ "x-forwarded-host": "viafidei.org:8080", "x-forwarded-proto": "https" }),
+      ).toBe("https://viafidei.org/admin/login");
+    });
+
+    it("leaves an explicit :443 in place (URL() then normalizes the default port away)", () => {
+      // stripUpstreamPort keeps :443 (it is the https default, not a redundant
+      // upstream port); the WHATWG URL constructor then drops the default port,
+      // so the emitted Location has no :443. Either way the host is preserved.
+      expect(
+        redirectLocation({ "x-forwarded-host": "viafidei.org:443", "x-forwarded-proto": "https" }),
+      ).toBe("https://viafidei.org/admin/login");
+    });
+
+    it("does not strip the port for a bracketed IPv6 forwarded host", () => {
+      expect(
+        redirectLocation({ "x-forwarded-host": "[2001:db8::1]", "x-forwarded-proto": "https" }),
+      ).toBe("https://[2001:db8::1]/admin/login");
+    });
+
+    it("ignores a local-bind X-Forwarded-Host and falls back to the Host header", () => {
+      expect(redirectLocation({ "x-forwarded-host": "0.0.0.0:8080", host: "viafidei.org" })).toBe(
+        "http://viafidei.org/admin/login",
+      );
+    });
+
+    it("uses the Host header (non-prod => http) when no forwarded header is present", () => {
+      expect(redirectLocation({ host: "viafidei.org" })).toBe("http://viafidei.org/admin/login");
+    });
+
+    it("does not strip the port from the Host header when the scheme is http", () => {
+      expect(redirectLocation({ host: "viafidei.org:8080" })).toBe(
+        "http://viafidei.org:8080/admin/login",
+      );
+    });
+
+    it("ignores a local-bind Host header and falls back to the request origin", () => {
+      // Both candidates are local-bind, so neither is echoed; the redirect
+      // uses req.nextUrl.origin (the request URL's own host) instead.
+      expect(redirectLocation({ host: "127.0.0.1:3000" })).toBe(
+        "https://bind-host.internal/admin/login",
+      );
+    });
+  });
+
   describe("admin protection", () => {
     it("redirects unauthenticated /admin requests to /admin/login", () => {
       const res = middleware(makeRequest("https://app.example.com/admin"));

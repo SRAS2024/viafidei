@@ -3,14 +3,13 @@ import Link from "next/link";
 import { getTranslator } from "@/lib/i18n/server";
 import { PageHero } from "@/components/ui/PageHero";
 import { PaginatedGrid } from "@/components/ui/PaginatedGrid";
+import { FilterChips } from "@/components/ui";
 import { listPublished } from "@/lib/data/published";
 import {
   PRAYER_CATEGORIES,
   categorizePrayer,
   prayerCategoryLabel,
 } from "@/lib/content-shared/prayer-categories";
-
-import { PrayerFilterDropdown, type FilterOption } from "./_components/PrayerFilterDropdown";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Prayers" };
@@ -35,14 +34,15 @@ export default async function PrayersPage({ searchParams }: Props) {
   }));
 
   const present = new Set(annotated.map((a) => a.category));
-  const options: FilterOption[] = [
-    { value: null, label: "All" },
+  const selected = filter && PRAYER_CATEGORIES.some((c) => c.value === filter) ? filter : null;
+  const filterChips = [
+    { key: "__all__", label: "All", href: "/prayers" },
     ...PRAYER_CATEGORIES.filter((c) => present.has(c.value)).map((c) => ({
-      value: c.value,
+      key: c.value,
       label: c.label,
+      href: `/prayers?filter=${encodeURIComponent(c.value)}`,
     })),
   ];
-  const selected = filter && PRAYER_CATEGORIES.some((c) => c.value === filter) ? filter : null;
   const visible = selected ? annotated.filter((a) => a.category === selected) : annotated;
 
   return (
@@ -54,9 +54,12 @@ export default async function PrayersPage({ searchParams }: Props) {
       />
 
       {prayers.length > 0 ? (
-        <div className="mb-8">
-          <PrayerFilterDropdown options={options} selected={selected} />
-        </div>
+        <FilterChips
+          ariaLabel="Filter prayers by category"
+          activeKey={selected ?? "__all__"}
+          items={filterChips}
+          className="mb-8"
+        />
       ) : null}
 
       {prayers.length === 0 ? (
@@ -67,7 +70,10 @@ export default async function PrayersPage({ searchParams }: Props) {
       ) : (
         <PaginatedGrid
           items={visible.map(({ prayer: p, category }) => {
-            const body = (p.payload.body as string | undefined) ?? "";
+            const body =
+              (p.payload.body as string | undefined) ??
+              (p.payload.prayerText as string | undefined) ??
+              "";
             return (
               <Link key={p.id} href={`/prayers/${p.slug}`} className="block h-full">
                 <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">

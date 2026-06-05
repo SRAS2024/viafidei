@@ -45,10 +45,11 @@ const STALE_DAYS = 90;
 export async function scanForJanitorFindings(prisma: PrismaClient): Promise<JanitorFinding[]> {
   const findings: JanitorFinding[] = [];
 
-  // 1. Items REJECTED by admin but still PUBLISHED → janitor recommends DELETE
+  // 1. Items REJECTED by admin but still PUBLISHED → janitor recommends DELETE.
+  //    (publishedContent is looked up per item below — it is not a relation on
+  //    ChecklistItem, so it cannot be included here.)
   const rejectedButPublished = await prisma.checklistItem.findMany({
     where: { approvalStatus: "REJECTED" },
-    include: { publishedContent: false } as never,
   });
   for (const item of rejectedButPublished) {
     const pub = await prisma.publishedContent.findUnique({
@@ -102,9 +103,10 @@ export async function scanForJanitorFindings(prisma: PrismaClient): Promise<Jani
 
   // 3. Published content whose payload no longer validates against the
   //    current schema (schema drifted under an existing publication) → EDIT
+  //    (checklistItem is fetched per row below — PublishedContent has only a
+  //    checklistItemId scalar, not a checklistItem relation to include.)
   const allPublished = await prisma.publishedContent.findMany({
     where: { isPublished: true },
-    include: { checklistItem: true } as never,
   });
   for (const pub of allPublished) {
     const validation = validatePayload(pub.contentType, pub.payload);

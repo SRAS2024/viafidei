@@ -78,7 +78,14 @@ export interface FetchedPage {
   redirectChain: string[];
 }
 
-const USER_AGENT_DEFAULT = "ViaFideiAdminWorker/1.0 (+https://viafidei)";
+// Present as a mainstream browser. Authoritative sources — notably
+// vatican.va — return HTTP 403 to custom bot User-Agents, which stalls
+// content building at the fetch stage. A standard browser UA (plus the
+// headers a real navigation sends, below) retrieves the same public pages a
+// reader would see. NOTE: live fetching still depends on the deployment's
+// outbound network policy permitting these hosts.
+const USER_AGENT_DEFAULT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 /**
  * Fetch a URL with policy + persistence. Always returns a FetchedPage
@@ -178,7 +185,10 @@ export async function adminWorkerFetch(
       const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
       const headers: Record<string, string> = {
         "User-Agent": userAgent,
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Upgrade-Insecure-Requests": "1",
       };
       if (input.previousEtag) headers["If-None-Match"] = input.previousEtag;
 

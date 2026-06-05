@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { CloseIcon, HamburgerIcon } from "../icons/HamburgerIcon";
 
-export type MobileMenuItem = { href: string; label: string };
+export type MobileMenuItem = { href: string; label: string; items?: MobileMenuItem[] };
 export type MobileMenuAction =
   | { type: "link"; href: string; label: string }
   | {
@@ -33,6 +33,30 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function groupActive(pathname: string, item: MobileMenuItem): boolean {
+  return (
+    isActive(pathname, item.href) || (item.items ?? []).some((sub) => isActive(pathname, sub.href))
+  );
+}
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 12 12"
+      className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`}
+      fill="none"
+    >
+      <path
+        d="M2.5 4.5 6 8l3.5-3.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function HeaderMobileMenu({
   navItems,
   signInItem,
@@ -45,6 +69,22 @@ export function HeaderMobileMenu({
   const [open, setOpen] = useState(false);
   const pathname = usePathname() ?? "/";
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  // Groups whose submenu is expanded. Seed with the group that contains the
+  // current route so the menu opens already showing where you are.
+  const [expanded, setExpanded] = useState<Set<string>>(() => {
+    const seed = new Set<string>();
+    for (const item of navItems) {
+      if (item.items && item.items.length > 0 && groupActive(pathname, item)) seed.add(item.href);
+    }
+    return seed;
+  });
+  const toggleExpanded = (href: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(href)) next.delete(href);
+      else next.add(href);
+      return next;
+    });
 
   useEffect(() => {
     function onPointer(event: PointerEvent | MouseEvent | TouchEvent) {
@@ -96,19 +136,74 @@ export function HeaderMobileMenu({
         >
           <ul className="flex flex-col py-2">
             {navItems.map((item) => {
+              const hasChildren = !!item.items && item.items.length > 0;
               const active = isActive(pathname, item.href);
+
+              if (!hasChildren) {
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      onClick={() => setOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      className={`vf-mobile-menu-link block px-4 py-3 ${
+                        active ? "vf-mobile-menu-link-active" : ""
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                );
+              }
+
+              // Grouped tab: the label navigates to the section page; the
+              // chevron expands its sub-tabs inline (mirrors the desktop menu).
+              const isExpanded = expanded.has(item.href);
+              const parentActive = groupActive(pathname, item);
               return (
                 <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    aria-current={active ? "page" : undefined}
-                    className={`vf-mobile-menu-link block px-4 py-3 ${
-                      active ? "vf-mobile-menu-link-active" : ""
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
+                  <div className="flex items-center">
+                    <Link
+                      href={item.href}
+                      onClick={() => setOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      className={`vf-mobile-menu-link block flex-1 px-4 py-3 ${
+                        parentActive ? "vf-mobile-menu-link-active" : ""
+                      }`}
+                    >
+                      {item.label}
+                    </Link>
+                    <button
+                      type="button"
+                      aria-expanded={isExpanded}
+                      aria-label={`${item.label} submenu`}
+                      onClick={() => toggleExpanded(item.href)}
+                      className="vf-mobile-menu-link flex h-12 w-12 items-center justify-center text-ink-soft"
+                    >
+                      <Chevron open={isExpanded} />
+                    </button>
+                  </div>
+                  {isExpanded ? (
+                    <ul className="flex flex-col">
+                      {item.items!.map((sub) => {
+                        const subActive = isActive(pathname, sub.href);
+                        return (
+                          <li key={sub.href}>
+                            <Link
+                              href={sub.href}
+                              onClick={() => setOpen(false)}
+                              aria-current={subActive ? "page" : undefined}
+                              className={`vf-mobile-menu-link block py-2.5 pl-8 pr-4 text-sm ${
+                                subActive ? "vf-mobile-menu-link-active" : ""
+                              }`}
+                            >
+                              {sub.label}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
                 </li>
               );
             })}

@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
 import path from "node:path";
 
 // Single Vitest config. Component tests opt into jsdom via the
@@ -13,16 +14,17 @@ import path from "node:path";
 const runIntegration = process.env.VITEST_INTEGRATION === "1";
 
 export default defineConfig({
+  // Vitest 4 transforms via Vite 8 (rolldown/oxc). The React plugin
+  // transpiles `.tsx`/`.jsx` (automatic runtime, `react` import source) in
+  // both the browser and the SSR/module-runner path Vitest uses, so component
+  // test files need no explicit `import React`. Vite's built-in transform
+  // alone does not JSX-transform files for the SSR runner, which is why
+  // `.tsx` files failed to parse without this plugin.
+  plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
     },
-  },
-  esbuild: {
-    // Automatic JSX runtime so component test files don't need an
-    // explicit `import React from "react"` — matches Next's behavior.
-    jsx: "automatic",
-    jsxImportSource: "react",
   },
   test: {
     environment: "node",

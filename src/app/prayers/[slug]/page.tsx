@@ -14,7 +14,12 @@ export default async function PrayerDetailPage({ params }: Props) {
   const prayer = await getPublishedBySlug("PRAYER", slug);
   if (!prayer) notFound();
 
-  const body = (prayer.payload.body as string | undefined) ?? "";
+  // Knowledge-base prayers store the text in `body`; worker-extracted prayers
+  // use `prayerText`. Accept either so the prayer text always renders.
+  const body =
+    (prayer.payload.body as string | undefined) ??
+    (prayer.payload.prayerText as string | undefined) ??
+    "";
   const variants = buildPrayerVariants(prayer.payload);
   const officialPrayer = prayer.payload.officialPrayer as string | undefined;
   const summary = prayer.payload.summary as string | undefined;

@@ -68,9 +68,11 @@ export function buildPrayerVariants(payload: Record<string, unknown>): PrayerVar
     out.push({ code, label: labelFor(code), text, preserve: PRESERVE_CODES.has(code) });
   };
 
-  // Vernacular / primary text first.
+  // Vernacular / primary text first. Knowledge-base prayers use `body`; the
+  // worker's PrayerExtractor emits `prayerText` — accept either so worker-built
+  // prayers render their text, not just their title.
   const primaryLang = typeof payload.language === "string" ? payload.language : "en";
-  push(primaryLang, payload.body);
+  push(primaryLang, payload.body ?? payload.prayerText);
 
   // Dedicated liturgical-language fields.
   push("la", payload.latin);

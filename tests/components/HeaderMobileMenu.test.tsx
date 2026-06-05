@@ -169,6 +169,75 @@ describe("HeaderMobileMenu", () => {
     expect(form).toHaveAttribute("method", "post");
   });
 
+  describe("grouped tabs (sub-tabs expand inline, mirroring desktop)", () => {
+    const GROUPED = [
+      { href: "/", label: "Home" },
+      { href: "/prayers", label: "Prayers" },
+      {
+        href: "/saints",
+        label: "Saints",
+        items: [
+          { href: "/our-lady", label: "Our Lady" },
+          { href: "/doctors", label: "Doctors of the Church" },
+          { href: "/popes", label: "Popes" },
+        ],
+      },
+    ];
+
+    it("renders a submenu toggle for grouped tabs and hides sub-tabs until expanded", async () => {
+      const user = userEvent.setup();
+      render(
+        <HeaderMobileMenu
+          navItems={GROUPED}
+          signInItem={null}
+          openLabel={LABELS.open}
+          closeLabel={LABELS.close}
+        />,
+      );
+      await user.click(screen.getByRole("button", { name: LABELS.open }));
+      // The parent tab is a link to its section page (not on the active route here).
+      expect(screen.getByRole("link", { name: "Saints" })).toHaveAttribute("href", "/saints");
+      // Sub-tabs are collapsed initially (Saints group is not the active route).
+      expect(screen.queryByRole("link", { name: "Our Lady" })).not.toBeInTheDocument();
+
+      const toggle = screen.getByRole("button", { name: "Saints submenu" });
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await user.click(toggle);
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByRole("link", { name: "Our Lady" })).toHaveAttribute("href", "/our-lady");
+      expect(screen.getByRole("link", { name: "Popes" })).toHaveAttribute("href", "/popes");
+    });
+
+    it("auto-expands the group that contains the active route", async () => {
+      // usePathname is mocked to "/prayers"; point a group at it instead.
+      const user = userEvent.setup();
+      const nav = [
+        { href: "/", label: "Home" },
+        {
+          href: "/saints",
+          label: "Saints",
+          items: [{ href: "/prayers", label: "Daily Prayers" }],
+        },
+      ];
+      render(
+        <HeaderMobileMenu
+          navItems={nav}
+          signInItem={null}
+          openLabel={LABELS.open}
+          closeLabel={LABELS.close}
+        />,
+      );
+      await user.click(screen.getByRole("button", { name: LABELS.open }));
+      // The active sub-route's group starts expanded, so the sub-link is visible.
+      const sub = screen.getByRole("link", { name: "Daily Prayers" });
+      expect(sub).toHaveAttribute("aria-current", "page");
+      expect(screen.getByRole("button", { name: "Saints submenu" })).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+    });
+  });
+
   it("has no obvious accessibility violations in the open state", async () => {
     const user = userEvent.setup();
     const { container } = render(

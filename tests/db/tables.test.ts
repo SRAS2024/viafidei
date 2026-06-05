@@ -4,7 +4,12 @@ import { prismaMock, resetPrismaMock } from "../helpers/prisma-mock";
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/db/client", () => ({ prisma: prismaMock }));
 
-import { checkRequiredTables, checkSeedContent } from "@/lib/db/tables";
+import {
+  checkMigrationsApplied,
+  checkRequiredTables,
+  checkSeedContent,
+  probePublicContentTables,
+} from "@/lib/db/tables";
 
 /**
  * Every required table the runtime touches in the current (post-legacy)
@@ -176,6 +181,69 @@ describe("checkRequiredTables", () => {
     expect(result.missing).toEqual([]);
     const userMissing = result.columnsMissing.find((c) => c.table === "User");
     expect(userMissing?.columns).toContain("language");
+  });
+});
+
+describe("checkMigrationsApplied", () => {
+  it("returns ok=true with the count of finished, non-rolled-back migrations", async () => {
+    prismaMock.$queryRaw.mockResolvedValue([
+      { migration_name: "0001_init", finished_at: new Date(), rolled_back_at: null },
+      { migration_name: "0002_more", finished_at: new Date(), rolled_back_at: null },
+      // An in-flight migration (no finished_at) is not counted as applied.
+      { migration_name: "0003_pending", finished_at: null, rolled_back_at: null },
+    ]);
+    const result = await checkMigrationsApplied();
+    expect(result).toEqual({ ok: true, appliedCount: 2 });
+  });
+
+  it("returns ok=false reason=rolled_back, naming the rolled-back migrations", async () => {
+    prismaMock.$queryRaw.mockResolvedValue([
+      { migration_name: "0001_init", finished_at: new Date(), rolled_back_at: null },
+      { migration_name: "0002_bad", finished_at: new Date(), rolled_back_at: new Date() },
+    ]);
+    const result = await checkMigrationsApplied();
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("rolled_back");
+      expect(result.detail).toContain("0002_bad");
+    }
+  });
+
+  it("returns ok=false reason=table_missing when _prisma_migrations does not exist", async () => {
+    prismaMock.$queryRaw.mockRejectedValue(
+      new Error('relation "_prisma_migrations" does not exist'),
+    );
+    const result = await checkMigrationsApplied();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("table_missing");
+  });
+
+  it("returns ok=false reason=query_failed for any other error", async () => {
+    prismaMock.$queryRaw.mockRejectedValue(new Error("connection reset"));
+    const result = await checkMigrationsApplied();
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("query_failed");
+      expect(result.detail).toContain("connection reset");
+    }
+  });
+});
+
+describe("probePublicContentTables", () => {
+  it("returns ok=true with no failures when the smoke probe succeeds", async () => {
+    prismaMock.publishedContent.findFirst.mockResolvedValue({ id: "x" });
+    const result = await probePublicContentTables();
+    // The probe succeeded, so failures is empty and ok is true.
+    expect(result).toEqual({ ok: true, failures: [] });
+  });
+
+  it("records a failure (table + error) when the probe throws", async () => {
+    prismaMock.publishedContent.findFirst.mockRejectedValue(new Error("column does not exist"));
+    const result = await probePublicContentTables();
+    expect(result.ok).toBe(false);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0].table).toBe("PublishedContent");
+    expect(result.failures[0].error).toContain("column does not exist");
   });
 });
 

@@ -63,39 +63,34 @@ export async function seedChecklistFirst(prisma: PrismaClient): Promise<SeedResu
     const type = contentType as ChecklistContentType;
     for (const seed of list) {
       const slug = canonicalizeSlug(seed.canonicalSlug);
-      const existing = await prisma.checklistItem.findFirst({
-        where: { contentType: type, canonicalSlug: slug },
-      });
-      const item = await prisma.checklistItem.upsert({
-        where: {
-          contentType_canonicalSlug: { contentType: type, canonicalSlug: slug },
-        },
-        update: {
-          canonicalName: seed.canonicalName,
-          aliases: seed.aliases ?? [],
-          summary: seed.summary,
-          priority: seed.priority ?? 100,
-          needsHumanReview: seed.needsHumanReview ?? false,
-          humanReviewReason: seed.humanReviewReason,
-          authorityLevelHint: seed.authorityLevelHint,
-          notes: seed.notes,
-          metadata: (seed.metadata ?? undefined) as never,
-        },
-        create: {
-          contentType: type,
-          canonicalName: seed.canonicalName,
-          canonicalSlug: slug,
-          aliases: seed.aliases ?? [],
-          summary: seed.summary,
-          priority: seed.priority ?? 100,
-          needsHumanReview: seed.needsHumanReview ?? false,
-          humanReviewReason: seed.humanReviewReason,
-          authorityLevelHint: seed.authorityLevelHint,
-          notes: seed.notes,
-          metadata: (seed.metadata ?? undefined) as never,
-          approvalStatus: "DISCOVERED",
-        },
-      });
+      // Update in place when the item exists, create otherwise — and never
+      // abort the seed on a pre-existing row. `canonicalSlug` carries a
+      // single-column @unique on top of the (contentType, canonicalSlug)
+      // compound unique, so an item may already exist under a *different*
+      // content type; a plain `upsert` throws P2025/P2002 in that case. Look up
+      // by type+slug first, then by slug alone, and reconcile the row to the
+      // master definition (including its content type).
+      const existing =
+        (await prisma.checklistItem.findFirst({
+          where: { contentType: type, canonicalSlug: slug },
+        })) ?? (await prisma.checklistItem.findFirst({ where: { canonicalSlug: slug } }));
+      const fields = {
+        contentType: type,
+        canonicalName: seed.canonicalName,
+        aliases: seed.aliases ?? [],
+        summary: seed.summary,
+        priority: seed.priority ?? 100,
+        needsHumanReview: seed.needsHumanReview ?? false,
+        humanReviewReason: seed.humanReviewReason,
+        authorityLevelHint: seed.authorityLevelHint,
+        notes: seed.notes,
+        metadata: (seed.metadata ?? undefined) as never,
+      };
+      const item = existing
+        ? await prisma.checklistItem.update({ where: { id: existing.id }, data: fields })
+        : await prisma.checklistItem.create({
+            data: { canonicalSlug: slug, approvalStatus: "DISCOVERED", ...fields },
+          });
       if (existing) result.checklistItemsUpdated++;
       else result.checklistItemsInserted++;
 
