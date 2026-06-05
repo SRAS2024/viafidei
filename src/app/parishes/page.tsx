@@ -1,7 +1,7 @@
-import Link from "next/link";
-
-import { PageHero, PaginatedGrid } from "@/components/ui";
+import { PageHero } from "@/components/ui";
 import { listPublished } from "@/lib/data/published";
+
+import { ParishLocator, type ParishCard } from "./ParishLocator";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Parishes" };
@@ -14,46 +14,46 @@ const DESIGNATION_LABEL: Record<string, string> = {
   "minor-basilica": "Minor Basilica",
 };
 
+function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
 export default async function ParishesPage() {
   const parishes = await listPublished("PARISH");
+
+  const cards: ParishCard[] = parishes.map((p) => {
+    const payload = p.payload as Record<string, unknown>;
+    const designation = String(payload.designation ?? "parish");
+    const location = [payload.address, payload.city, payload.state]
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter(Boolean)
+      .join(", ");
+    return {
+      id: p.id,
+      slug: p.slug,
+      title: p.title,
+      designationLabel: DESIGNATION_LABEL[designation] ?? "Parish",
+      location,
+      latitude: asNumber(payload.latitude),
+      longitude: asNumber(payload.longitude),
+    };
+  });
 
   return (
     <div>
       <PageHero
         eyebrow="Find a parish"
         title="Parishes"
-        subtitle="Catholic parishes, shrines, cathedrals, and basilicas."
+        subtitle="Catholic parishes, shrines, cathedrals, and basilicas — use your location to find the nearest."
       />
 
-      {parishes.length === 0 ? (
+      {cards.length === 0 ? (
         <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
           The parish directory will appear here as records are approved and published through the
           checklist-first worker.
         </div>
       ) : (
-        <PaginatedGrid
-          items={parishes.map((p) => {
-            const payload = p.payload as Record<string, unknown>;
-            const designation = String(payload.designation ?? "parish");
-            const location = [payload.address, payload.city, payload.state]
-              .map((v) => (typeof v === "string" ? v.trim() : ""))
-              .filter(Boolean)
-              .join(", ");
-            return (
-              <Link
-                key={p.id}
-                href={`/parishes/${p.slug}`}
-                className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30"
-              >
-                <p className="vf-eyebrow">{DESIGNATION_LABEL[designation] ?? "Parish"}</p>
-                <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{p.title}</h2>
-                {location ? (
-                  <p className="mt-3 font-serif leading-relaxed text-ink-soft">{location}</p>
-                ) : null}
-              </Link>
-            );
-          })}
-        />
+        <ParishLocator parishes={cards} />
       )}
     </div>
   );
