@@ -53,15 +53,15 @@ describe("FavoritesBrowser", () => {
     expect(screen.getByText("The Memorare")).toBeInTheDocument();
     expect(screen.getByText("Saint Francis")).toBeInTheDocument();
     expect(screen.getByText("Our Lady of Lourdes")).toBeInTheDocument();
-    // "All" tab is selected and counts everything.
-    const allTab = screen.getByRole("tab", { name: /All/ });
-    expect(allTab).toHaveAttribute("aria-selected", "true");
-    expect(allTab).toHaveTextContent("3");
+    // "All" chip is selected and counts everything.
+    const allChip = screen.getByRole("button", { name: /All/ });
+    expect(allChip).toHaveAttribute("aria-pressed", "true");
+    expect(allChip).toHaveTextContent("3");
   });
 
-  it("filters to a single content type when its tab is selected", () => {
+  it("filters to a single content type when its chip is selected", () => {
     render(<FavoritesBrowser items={ITEMS} />);
-    fireEvent.click(screen.getByRole("tab", { name: /Saints/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Saints/ }));
     expect(screen.getByText("Saint Francis")).toBeInTheDocument();
     expect(screen.queryByText("The Memorare")).not.toBeInTheDocument();
     expect(screen.queryByText("Our Lady of Lourdes")).not.toBeInTheDocument();
@@ -102,7 +102,7 @@ describe("FavoritesBrowser", () => {
       savedAt: "2026-01-04T00:00:00.000Z",
     };
     render(<FavoritesBrowser items={[...ITEMS, parish]} />);
-    fireEvent.click(screen.getByRole("tab", { name: /Parishes/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Parishes/ }));
     expect(screen.getByText("St. Mary's Cathedral")).toBeInTheDocument();
     expect(screen.queryByText("The Memorare")).not.toBeInTheDocument();
   });

@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { PageHero } from "@/components/ui";
+import { FilterChips, PageHero } from "@/components/ui";
 import { PaginatedGrid } from "@/components/ui/PaginatedGrid";
 import {
   DOCUMENT_CATEGORIES,
@@ -76,21 +76,18 @@ export default async function ChurchDocumentsPage({ searchParams }: Props) {
         subtitle="Encyclicals, council documents, the Catechism, and Canon Law — each linked to its official source."
       />
 
-      <div className="mb-6 flex flex-wrap justify-center gap-2">
-        {DOCUMENT_CATEGORIES.filter((c) => c.key === "all" || present.has(c.key)).map((c) => {
-          const active = c.key === selected.key;
-          return (
-            <Link
-              key={c.key}
-              href={c.key === "all" ? "/church-documents" : `/church-documents?filter=${c.key}`}
-              aria-current={active ? "page" : undefined}
-              className={`vf-btn !py-1 !px-4 text-xs ${active ? "vf-btn-primary" : "vf-btn-ghost"}`}
-            >
-              {c.label}
-            </Link>
-          );
-        })}
-      </div>
+      <FilterChips
+        ariaLabel="Filter documents by category"
+        activeKey={selected.key}
+        className="mb-6"
+        items={DOCUMENT_CATEGORIES.filter((c) => c.key === "all" || present.has(c.key)).map(
+          (c) => ({
+            key: c.key,
+            label: c.label,
+            href: c.key === "all" ? "/church-documents" : `/church-documents?filter=${c.key}`,
+          }),
+        )}
+      />
 
       {cards.length === 0 ? (
         <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">

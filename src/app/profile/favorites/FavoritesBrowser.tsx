@@ -3,6 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 
+import { FilterChips } from "@/components/ui";
+
 export type FavoriteItem = {
   id: string;
   contentType: "PRAYER" | "SAINT" | "APPARITION" | "DEVOTION" | "PARISH" | "NOVENA";
@@ -66,29 +68,13 @@ export function FavoritesBrowser({ items: initial }: { items: FavoriteItem[] }) 
 
   return (
     <div>
-      <div
-        className="mb-6 flex flex-wrap gap-2"
-        role="tablist"
-        aria-label="Filter favorites by type"
-      >
-        {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            type="button"
-            role="tab"
-            aria-selected={filter === f.key}
-            onClick={() => setFilter(f.key)}
-            className={`rounded-full border px-4 py-1.5 text-xs uppercase tracking-liturgical transition ${
-              filter === f.key
-                ? "border-liturgical-gold bg-liturgical-gold/10 text-ink"
-                : "border-ink/20 text-ink-soft hover:bg-ink/5"
-            }`}
-          >
-            {f.label}
-            <span className="ml-2 text-ink-faint">{counts[f.key]}</span>
-          </button>
-        ))}
-      </div>
+      <FilterChips
+        ariaLabel="Filter favorites by type"
+        activeKey={filter}
+        className="mb-6"
+        onSelect={(k) => setFilter(k as Filter)}
+        items={FILTERS.map((f) => ({ key: f.key, label: f.label, count: counts[f.key] }))}
+      />
 
       {visible.length === 0 ? (
         <p className="py-16 text-center font-serif text-ink-faint">

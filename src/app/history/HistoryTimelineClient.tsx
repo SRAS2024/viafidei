@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ExpandableTimelineEvent } from "@/components/ui";
+import { ExpandableTimelineEvent, FilterChips } from "@/components/ui";
 
 export type HistoryEvent = {
   slug: string;
@@ -108,23 +108,16 @@ export function HistoryTimelineClient({ events, minYear, maxYear }: Props) {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Filter pills — Beginnings / Councils / Schisms / Doctrine / Modern */}
-      <div className="flex flex-wrap justify-center gap-2">
-        {(Object.keys(FILTER_LABELS) as HistoryFilterKey[]).map((k) => {
-          const active = k === filter;
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setFilter(k)}
-              aria-pressed={active}
-              className={`vf-btn !py-1 !px-4 text-xs ${active ? "vf-btn-primary" : "vf-btn-ghost"}`}
-            >
-              {FILTER_LABELS[k]}
-            </button>
-          );
-        })}
-      </div>
+      {/* Filter chips — Beginnings / Councils / Schisms / Doctrine / Modern */}
+      <FilterChips
+        ariaLabel="Filter the timeline by theme"
+        activeKey={filter}
+        onSelect={(k) => setFilter(k as HistoryFilterKey)}
+        items={(Object.keys(FILTER_LABELS) as HistoryFilterKey[]).map((k) => ({
+          key: k,
+          label: FILTER_LABELS[k],
+        }))}
+      />
 
       {/* Year slider + year input.
           The slider scrubs through the whole arc of Christian history; the
