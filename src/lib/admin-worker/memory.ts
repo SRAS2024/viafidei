@@ -143,7 +143,7 @@ export async function rankHostsByMemory(
 }
 
 /**
- * Record the outcome of an extractor run so future passes can rank
+ * Record the outcome of an extractor run so later passes can rank
  * the (host, contentType) pair.
  */
 export async function recordExtractorOutcome(

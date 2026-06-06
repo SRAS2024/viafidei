@@ -13,7 +13,7 @@
  *   - request search index refresh
  *   - request sitemap refresh
  *   - revalidate cache
- *   - record post-publish verification placeholder
+ *   - record post-publish verification result
  *
  * The orchestrator never approves doctrinally-sensitive content
  * without the cross-source verifier signing off — VerifierOutcome
