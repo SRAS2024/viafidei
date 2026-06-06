@@ -25,6 +25,22 @@ handlers (not just logging), rolls back via an explicit decision tree
 surface (without harassing the valid admin), and emails a monthly
 operations report.
 
+The Admin Worker is driven by a **permanent Python intelligence brain**
+([`intelligence/`](intelligence/)) — a deterministic, pure-stdlib core (no
+AI APIs, no network) that TypeScript holds open as an always-on service and
+consults on every meaningful decision: semantic memory + vector search,
+duplicate detection, source intelligence with **Catholic communion-risk**
+screening, quality scoring, relationship inference, knowledge-graph and
+schema/UI/code awareness, repair analysis, learning, and self-inspection.
+The split is **TypeScript = the body** (execution, Prisma/DB, queues,
+policy, publishing, safety, app + admin integration), **Python = the brain**
+(it analyses and recommends through strict typed contracts; it never touches
+the database or the network), and **Postgres = the long-term store**
+(content, vectors, knowledge graph, audit trail, semantic memory). The
+worker learns from every run, and the **end of every developer report lists
+the upgrades the worker believes it needs** to get smarter and more capable.
+See [Intelligence brain (Python)](#intelligence-brain-python).
+
 ---
 
 ## Architecture
