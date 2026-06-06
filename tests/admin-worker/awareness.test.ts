@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { inspectSchema, inspectUi } from "@/lib/admin-worker/awareness";
+import { inspectCode, inspectSchema, inspectUi } from "@/lib/admin-worker/awareness";
 
 // These inspectors are pure filesystem reads over the real repo (no brain).
 
@@ -32,5 +32,18 @@ describe("UI awareness — inspectUi", () => {
     expect(ui.admin_pages).toContain("/admin/intelligence");
     // api + private route groups are excluded.
     expect(ui.public_routes).not.toContain("/api");
+  });
+});
+
+describe("code awareness — inspectCode", () => {
+  it("summarises worker modules and surfaces the oversized ones", () => {
+    const files = inspectCode();
+    expect(files.length).toBeGreaterThan(20);
+    const dispatcher = files.find((f) => f.path.endsWith("admin-worker/dispatcher.ts"));
+    expect(dispatcher).toBeDefined();
+    // dispatcher.ts is the canonical oversized module the spec calls out.
+    expect(dispatcher!.lines).toBeGreaterThan(800);
+    // .test.ts and .d.ts files are excluded.
+    expect(files.some((f) => f.path.includes(".test."))).toBe(false);
   });
 });

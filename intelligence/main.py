@@ -187,6 +187,12 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
         "admin_pages": ["/admin/intelligence"],
         "content_types": ["PRAYER", "SAINT", "NOVENA"],
     },
+    "analyze_code": {
+        "files": [
+            {"path": "dispatcher.ts", "lines": 2000},
+            {"path": "small.ts", "lines": 80},
+        ],
+    },
 }
 
 

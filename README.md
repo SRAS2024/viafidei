@@ -796,6 +796,7 @@ release as the node base). TypeScript talks to it through a typed bridge:
 | `learn_from_outcome`                                        | turn an outcome / admin feedback into score adjustments + a learned memory        |
 | `analyze_schema`                                            | schema-awareness: isolated/under-indexed models → schema developer requests       |
 | `analyze_ui`                                                | UI-awareness: content types with no public route → UI developer requests          |
+| `analyze_code`                                              | code-awareness: oversized modules → refactor developer requests (review-gated)    |
 
 > **Communion-risk note.** `detect_communion_risk` emits a _verification
 > flag_, never a canonical/doctrinal ruling. Sources or content that may not
@@ -826,8 +827,11 @@ release as the node base). TypeScript talks to it through a typed bridge:
 - **Maintenance intelligence, throttled** (`awareness.ts` + `custody.ts`):
   **schema-awareness** (parses the Prisma schema → isolated/under-indexed
   models), **UI-awareness** (scans routes/admin pages → content types with
-  no public page), and **content custody** (`detect_missing` over published
-  records → improvement requests). Each files deduped developer requests.
+  no public page), **code-awareness** (walks the worker modules → oversized
+  files; the worker flags `dispatcher.ts`/`brain.ts` itself and files a
+  review-gated refactor request — code changes require human review), and
+  **content custody** (`detect_missing` over published records → improvement
+  requests). Each files deduped developer requests.
 - **Autonomy + policy engine** (`policy.ts`): `evaluateAutonomy()` turns the
   brain's confidence/risk/communion/duplicate signals into an
   auto/draft/escalate/block decision bounded by the worker's autonomy level

@@ -44,6 +44,7 @@ export const BRAIN_OPS = [
   "learn_from_outcome",
   "analyze_schema",
   "analyze_ui",
+  "analyze_code",
 ] as const;
 export type BrainOp = (typeof BRAIN_OPS)[number];
 
@@ -350,6 +351,16 @@ export interface UiAnalysisResult {
     admin_page_count: number;
     content_type_count: number;
     unexposed_content_types: string[];
+  };
+  developer_requests: DeveloperRequest[];
+}
+
+export interface CodeAnalysisResult {
+  findings: {
+    file_count: number;
+    total_lines: number;
+    oversized_files: Array<{ path: string; lines: number }>;
+    large_files: Array<{ path: string; lines: number }>;
   };
   developer_requests: DeveloperRequest[];
 }

@@ -25,6 +25,7 @@ import {
   MissingResult,
   PlanResult,
   PrioritizeResult,
+  CodeAnalysisResult,
   QualityResult,
   RelationshipResult,
   SchemaAnalysisResult,
@@ -377,6 +378,25 @@ export function analyzeUi(
   opts?: CallOpts,
 ) {
   return callBrain<UiAnalysisResult>("analyze_ui", input, opts);
+}
+
+export interface CodeFileSummary {
+  path: string;
+  lines: number;
+}
+export function analyzeCode(
+  files: CodeFileSummary[],
+  opts?: CallOpts & { oversizedThreshold?: number; largeThreshold?: number },
+) {
+  return callBrain<CodeAnalysisResult>(
+    "analyze_code",
+    {
+      files,
+      oversized_threshold: opts?.oversizedThreshold,
+      large_threshold: opts?.largeThreshold,
+    },
+    opts,
+  );
 }
 
 export type { BrainEnvelope };

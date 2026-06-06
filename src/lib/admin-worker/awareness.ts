@@ -10,8 +10,14 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 
-import { analyzeSchema, analyzeUi, isBrainEnabled, resolveBrainRoot } from "./intelligence";
-import type { SchemaModelSummary } from "./intelligence";
+import {
+  analyzeCode,
+  analyzeSchema,
+  analyzeUi,
+  isBrainEnabled,
+  resolveBrainRoot,
+} from "./intelligence";
+import type { CodeFileSummary, SchemaModelSummary } from "./intelligence";
 import { BrainCallContext, recordBrainCall, recordDeveloperRequests } from "./intelligence/store";
 import { writeAdminWorkerLog } from "./logs";
 
@@ -122,8 +128,42 @@ export function inspectUi(root = resolveBrainRoot() ?? process.cwd()): UiSummary
   return { public_routes: publicRoutes, admin_pages: adminPages };
 }
 
+/** Walk the worker source tree and summarise each module's line count. */
+export function inspectCode(root = resolveBrainRoot() ?? process.cwd()): CodeFileSummary[] {
+  const dirs = ["src/lib/admin-worker", "src/lib/worker"];
+  const out: CodeFileSummary[] = [];
+  const walk = (dir: string): void => {
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (
+        entry.name.endsWith(".ts") &&
+        !entry.name.endsWith(".d.ts") &&
+        !entry.name.includes(".test.")
+      ) {
+        try {
+          const lines = readFileSync(full, "utf8").split("\n").length;
+          out.push({ path: path.relative(root, full), lines });
+        } catch {
+          /* skip unreadable file */
+        }
+      }
+    }
+  };
+  for (const d of dirs) walk(path.join(root, d));
+  return out;
+}
+
 let _lastSchemaAt = 0;
 let _lastUiAt = 0;
+let _lastCodeAt = 0;
 const THROTTLE_MS = 6 * 60 * 60 * 1000; // at most ~4×/day
 
 export async function runSchemaAwareness(
@@ -192,8 +232,41 @@ export async function runUiAwareness(
   }
 }
 
+export async function runCodeAwareness(
+  prisma: PrismaClient,
+  ctx: BrainCallContext = {},
+): Promise<{ ran: boolean; requests: number }> {
+  if (!isBrainEnabled() || Date.now() - _lastCodeAt < THROTTLE_MS)
+    return { ran: false, requests: 0 };
+  _lastCodeAt = Date.now();
+  try {
+    const files = inspectCode();
+    if (files.length === 0) return { ran: false, requests: 0 };
+    const env = await analyzeCode(files);
+    await recordBrainCall(prisma, "analyze_code", env, ctx);
+    if (!env || !env.ok || !env.result) return { ran: false, requests: 0 };
+    const { created, bumped } = await recordDeveloperRequests(
+      prisma,
+      env.result.developer_requests,
+      "code_awareness",
+    );
+    await writeAdminWorkerLog(prisma, {
+      passId: ctx.passId ?? undefined,
+      category: "CLEANUP",
+      severity: env.result.findings.oversized_files.length > 0 ? "WARN" : "INFO",
+      eventName: "code_awareness",
+      message: `Code analysis: ${env.result.findings.file_count} module(s), ${env.result.findings.oversized_files.length} oversized; ${created} new + ${bumped} bumped developer request(s).`,
+      safeMetadata: { findings: env.result.findings },
+    }).catch(() => undefined);
+    return { ran: true, requests: created + bumped };
+  } catch {
+    return { ran: false, requests: 0 };
+  }
+}
+
 /** For tests: reset the awareness throttles. */
 export function resetAwarenessThrottle(): void {
   _lastSchemaAt = 0;
   _lastUiAt = 0;
+  _lastCodeAt = 0;
 }

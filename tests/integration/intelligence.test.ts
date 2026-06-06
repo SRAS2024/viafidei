@@ -28,6 +28,7 @@ import {
 } from "@/lib/admin-worker/intelligence/service";
 import {
   resetAwarenessThrottle,
+  runCodeAwareness,
   runSchemaAwareness,
   runUiAwareness,
 } from "@/lib/admin-worker/awareness";
@@ -308,6 +309,20 @@ describe("schema/UI awareness + content custody", () => {
     expect(res.ran).toBe(true);
     const call = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "analyze_ui" } });
     expect(call).not.toBeNull();
+  });
+
+  it("runs code awareness and requests refactors of oversized modules", async () => {
+    if (!brainOnline) return;
+    resetAwarenessThrottle();
+    const res = await runCodeAwareness(prisma);
+    expect(res.ran).toBe(true);
+    const call = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "analyze_code" } });
+    expect(call).not.toBeNull();
+    // The worker should flag its own oversized modules (dispatcher/brain).
+    const req = await prisma.adminWorkerDeveloperRequest.findFirst({
+      where: { source: "code_awareness", kind: "code" },
+    });
+    expect(req).not.toBeNull();
   });
 
   it("custody flags weak published content and files an improvement request", async () => {
