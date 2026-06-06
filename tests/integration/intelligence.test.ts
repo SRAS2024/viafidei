@@ -27,6 +27,7 @@ import {
 let brainOnline = false;
 
 beforeAll(async () => {
+  process.env.INTELLIGENCE_BRAIN_ENABLED = "1";
   resetBrainStatus();
   const probe = await probeBrain();
   brainOnline = probe != null && probe.protocolVersion === 1;

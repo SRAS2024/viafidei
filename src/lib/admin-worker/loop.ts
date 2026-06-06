@@ -226,6 +226,16 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     });
   }
 
+  // Post-pass intelligence: self-inspection + developer requests +
+  // worker-IQ metrics via the Python brain. Best-effort and fail-open —
+  // never breaks the loop, and a no-op when the brain is disabled/offline.
+  try {
+    const { runPostPassIntelligence } = await import("./intelligence-pass");
+    await runPostPassIntelligence(prisma, { passId: pass.id, workerId });
+  } catch {
+    // ignore — intelligence is advisory and must not affect pass outcome
+  }
+
   return { built, published: publishedCount, failed: failedCount, idle };
 }
 

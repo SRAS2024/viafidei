@@ -18,13 +18,15 @@ import {
 let brainOnline = false;
 
 beforeAll(async () => {
+  process.env.INTELLIGENCE_BRAIN_ENABLED = "1";
   resetBrainStatus();
   const probe = await probeBrain();
   brainOnline = probe != null && probe.protocolVersion === 1;
 });
 
 afterEach(() => {
-  delete process.env.INTELLIGENCE_BRAIN_ENABLED;
+  // Restore "enabled" between tests; individual tests toggle as needed.
+  process.env.INTELLIGENCE_BRAIN_ENABLED = "1";
   resetBrainStatus();
 });
 
@@ -75,6 +77,7 @@ describe("configuration + fallback", () => {
   });
 
   it("is enabled by default and respects the off switch", () => {
+    delete process.env.INTELLIGENCE_BRAIN_ENABLED;
     expect(isBrainEnabled()).toBe(true);
     process.env.INTELLIGENCE_BRAIN_ENABLED = "0";
     expect(isBrainEnabled()).toBe(false);

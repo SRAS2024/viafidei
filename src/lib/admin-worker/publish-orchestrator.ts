@@ -138,6 +138,30 @@ export async function runPublishOrchestrator(
     }
   }
 
+  // 1c. Catholic communion-risk screen (intelligence brain). A
+  //     *verification flag*, not a canonical ruling: when the title /
+  //     payload trips the communion-risk threshold, route to human review
+  //     rather than auto-publishing ("communion risk, no publish" —
+  //     prevent unsafe publishing until verified). Fail-open: when the
+  //     brain is disabled or offline this is a no-op and the existing
+  //     gates below still apply.
+  {
+    const { screenCommunionRisk } = await import("./intelligence/service");
+    const screenText = `${input.title}\n${JSON.stringify(input.payload)}`.slice(0, 8000);
+    const screen = await screenCommunionRisk(
+      prisma,
+      { name: input.title, text: screenText },
+      { contentType: input.contentType, entityId: input.contentId },
+    );
+    if (screen.available && screen.block) {
+      const reason = `communion risk ${screen.risk.toFixed(2)} (${screen.verdict}); requires human verification before publish — flags: ${
+        screen.flags.slice(0, 3).join("; ") || "n/a"
+      }`;
+      await logBlocked(prisma, input, reason);
+      return { kind: "review", reason };
+    }
+  }
+
   // 2. Publish gate (quality + QA + source evidence + confidence).
   const gate = evaluatePublishGate({
     contentType: input.contentType,
