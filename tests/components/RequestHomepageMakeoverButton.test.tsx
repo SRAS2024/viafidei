@@ -72,7 +72,9 @@ describe("RequestHomepageMakeoverButton", () => {
     render(<RequestHomepageMakeoverButton initialDraft={null} />);
     fireEvent.click(screen.getByRole("button", { name: /Request Homepage Makeover/ }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Publish" })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Publish" })).toBeInTheDocument(),
+    );
     expect(screen.getByText("Makeover ready for review")).toBeInTheDocument();
     expect(screen.getByText(/score=0.42/)).toBeInTheDocument();
   });
@@ -83,7 +85,12 @@ describe("RequestHomepageMakeoverButton", () => {
 
     render(
       <RequestHomepageMakeoverButton
-        initialDraft={{ id: "d3", status: "AWAITING_REVIEW", reasonSummary: "x", sectionsChanged: [] }}
+        initialDraft={{
+          id: "d3",
+          status: "AWAITING_REVIEW",
+          reasonSummary: "x",
+          sectionsChanged: [],
+        }}
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: "Publish" }));

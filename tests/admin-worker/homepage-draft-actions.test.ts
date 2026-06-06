@@ -26,13 +26,19 @@ const sampleSnapshot = [
     blockKey: "featured-prayers",
     blockType: "featured-prayers",
     sortOrder: 0,
-    configJson: { heading: "Featured Prayers", items: [{ slug: "our-father", title: "Our Father" }] },
+    configJson: {
+      heading: "Featured Prayers",
+      items: [{ slug: "our-father", title: "Our Father" }],
+    },
   },
   {
     blockKey: "featured-saints",
     blockType: "featured-saints",
     sortOrder: 1,
-    configJson: { heading: "Featured Saints", items: [{ slug: "st-francis", title: "St. Francis" }] },
+    configJson: {
+      heading: "Featured Saints",
+      items: [{ slug: "st-francis", title: "St. Francis" }],
+    },
   },
 ];
 
@@ -165,7 +171,10 @@ describe("applyHomepageDraft", () => {
     const tx = {
       homePageBlock: {
         deleteMany: vi.fn(async () => ({ count: 1 })),
-        create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: "b", ...data })),
+        create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+          id: "b",
+          ...data,
+        })),
       },
       homePage: { update: vi.fn(async () => ({})) },
       homepageWorkerDraft: { update: vi.fn(async () => ({})) },
@@ -181,7 +190,11 @@ describe("applyHomepageDraft", () => {
       },
       $transaction: vi.fn(async (cb: (t: typeof tx) => Promise<unknown>) => cb(tx)),
     } as unknown as AnyPrisma;
-    return { prisma, tx, getPrismaSpies: () => prisma as unknown as { homePage: { create: ReturnType<typeof vi.fn> } } };
+    return {
+      prisma,
+      tx,
+      getPrismaSpies: () => prisma as unknown as { homePage: { create: ReturnType<typeof vi.fn> } },
+    };
   }
 
   it("publishes featured rails non-destructively after the kept blocks", async () => {
@@ -260,6 +273,11 @@ describe("applyHomepageDraft", () => {
   it("reports not_found for a missing draft", async () => {
     const { prisma } = makeApplyPrisma({ draft: null, page: { id: "p1", blocks: [] } });
     const res = await applyHomepageDraft(prisma, "missing");
-    expect(res).toEqual({ applied: false, status: "EXPIRED", blocksWritten: 0, reason: "not_found" });
+    expect(res).toEqual({
+      applied: false,
+      status: "EXPIRED",
+      blocksWritten: 0,
+      reason: "not_found",
+    });
   });
 });
