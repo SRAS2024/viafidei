@@ -40,6 +40,7 @@ export {
   resolveBrainRoot,
 } from "./client";
 export type { CallOpts } from "./client";
+export * from "./store";
 
 // ── Semantic memory / vectors ─────────────────────────────────────────
 export interface EmbedItem {
