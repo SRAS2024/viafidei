@@ -34,6 +34,11 @@ export default async function AdminIntelligencePage() {
     byOp,
     developerRequests,
     communionFlags,
+    brainOkCount,
+    brainSafeCount,
+    brainLatencyAgg,
+    learningEventCount,
+    strategyMemoryCount,
   ] = await Promise.all([
     prisma.adminWorkerBrainCall.count().catch(() => 0),
     prisma.adminWorkerEmbedding.count().catch(() => 0),
@@ -89,7 +94,21 @@ export default async function AdminIntelligencePage() {
         select: { reasoning: true, riskLevel: true, recommendedNextAction: true, createdAt: true },
       })
       .catch(() => []),
+    // Brain IQ diagnostics: success rate, latency, safe-to-auto-execute
+    // rate, learning events, and strategy-memory size.
+    prisma.adminWorkerBrainCall.count({ where: { ok: true } }).catch(() => 0),
+    prisma.adminWorkerBrainCall.count({ where: { safeToAutoExecute: true } }).catch(() => 0),
+    prisma.adminWorkerBrainCall
+      .aggregate({ _avg: { elapsedMs: true, confidence: true } })
+      .catch(() => ({ _avg: { elapsedMs: null, confidence: null } })),
+    prisma.adminWorkerBrainCall.count({ where: { op: "learn_from_outcome" } }).catch(() => 0),
+    prisma.adminWorkerMemory.count().catch(() => 0),
   ]);
+
+  const brainAvgLatencyMs = brainLatencyAgg._avg.elapsedMs ?? 0;
+  const brainAvgConfidence = brainLatencyAgg._avg.confidence ?? 0;
+  const brainFailedCount = Math.max(0, brainCallTotal - brainOkCount);
+  const brainSafeRate = brainCallTotal > 0 ? brainSafeCount / brainCallTotal : 0;
 
   // Live worker-IQ for display only — uses the read-only wrapper (no audit
   // row written on a page view). Falls back to "n/a" when the brain is off.
@@ -180,6 +199,38 @@ export default async function AdminIntelligencePage() {
         <StatCard label="Graph nodes" value={nodeCount.toLocaleString()} tone="slate" />
         <StatCard label="Graph edges" value={edgeCount.toLocaleString()} tone="slate" />
         <StatCard label="Open dev requests" value={openRequests.toLocaleString()} tone="rose" />
+      </section>
+
+      {/* Brain IQ diagnostics — availability/latency/safety/learning */}
+      <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <StatCard
+          label="Brain calls ok / failed"
+          value={`${brainOkCount.toLocaleString()} / ${brainFailedCount.toLocaleString()}`}
+          tone={brainFailedCount === 0 ? "emerald" : "amber"}
+        />
+        <StatCard
+          label="Avg brain latency"
+          value={`${Math.round(brainAvgLatencyMs)} ms`}
+          tone="slate"
+        />
+        <StatCard label="Avg brain confidence" value={fmtPct(brainAvgConfidence)} tone="indigo" />
+        <StatCard label="Safe-to-auto-execute" value={fmtPct(brainSafeRate)} tone="emerald" />
+        <StatCard
+          label="Learning events"
+          value={learningEventCount.toLocaleString()}
+          tone="slate"
+        />
+        <StatCard
+          label="Strategy memory rows"
+          value={strategyMemoryCount.toLocaleString()}
+          tone="slate"
+        />
+        <StatCard label="Protocol" value={`v${probe?.protocolVersion ?? "?"}`} tone="slate" />
+        <StatCard
+          label="Brain"
+          value={probe ? "online" : "fallback"}
+          tone={probe ? "emerald" : "amber"}
+        />
       </section>
 
       {/* Developer requests */}
