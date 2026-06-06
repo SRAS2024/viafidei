@@ -279,12 +279,23 @@ export {
 
 export {
   HOMEPAGE_REDESIGN_THRESHOLD,
+  REVIEWABLE_DRAFT_STATUSES,
+  isReviewableDraftStatus,
   computeHomepageFinalScore,
   recordHomepageScore,
   decideDraftStatus,
   createHomepageDraft,
+  getHomepageDraft,
+  saveHomepageDraftEdits,
+  applyHomepageDraft,
+  discardHomepageDraft,
+  readSnapshotBlocks,
   type HomepageScoreInputs,
   type CreateDraftInput,
+  type HomepageBlockSnapshot,
+  type SaveDraftEditsResult,
+  type ApplyDraftResult,
+  type DiscardDraftResult,
 } from "./homepage-designer";
 
 export {

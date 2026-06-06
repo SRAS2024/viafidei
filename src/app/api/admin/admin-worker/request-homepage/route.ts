@@ -34,7 +34,10 @@ export async function POST() {
     actorUsername: admin.username,
   });
 
-  const result = await redesignHomepage(prisma, { mode: "ADMIN_REQUESTED" });
+  // Admin explicitly asked for a makeover — always produce a reviewable
+  // draft so the operator gets a preview / publish / discard choice,
+  // even when the homepage already scores above the redesign threshold.
+  const result = await redesignHomepage(prisma, { mode: "ADMIN_REQUESTED", force: true });
 
   return NextResponse.json({
     taskId: task.id,

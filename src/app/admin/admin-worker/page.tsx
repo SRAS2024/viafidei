@@ -369,7 +369,20 @@ export default async function AdminWorkerPage() {
             </p>
           )}
           <div className="mt-3">
-            <RequestHomepageMakeoverButton />
+            <RequestHomepageMakeoverButton
+              initialDraft={
+                recentDraft &&
+                (recentDraft.status === "PROPOSED" || recentDraft.status === "AWAITING_REVIEW")
+                  ? {
+                      id: recentDraft.id,
+                      status: recentDraft.status,
+                      reasonSummary: recentDraft.reasonSummary ?? "",
+                      sectionsChanged: recentDraft.sectionsChanged,
+                      confidence: recentDraft.confidence,
+                    }
+                  : null
+              }
+            />
           </div>
         </article>
 

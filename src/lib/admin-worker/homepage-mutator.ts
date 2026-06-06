@@ -140,6 +140,10 @@ export async function redesignHomepage(
     mode?: HomepageWorkerDraftMode;
     /** Optional override for the redesign threshold (tests). */
     redesignThreshold?: number;
+    /** Always file a draft even when the score is above threshold.
+     *  Used for admin-requested makeovers so the operator always has
+     *  something to preview / publish / discard. */
+    force?: boolean;
   } = {},
 ): Promise<RedesignResult> {
   const homepage = await prisma.homePage
@@ -191,7 +195,7 @@ export async function redesignHomepage(
   });
 
   const threshold = opts.redesignThreshold ?? HOMEPAGE_REDESIGN_THRESHOLD;
-  if (score >= threshold) {
+  if (score >= threshold && !opts.force) {
     return {
       draftId: null,
       status: "no_redesign_needed",

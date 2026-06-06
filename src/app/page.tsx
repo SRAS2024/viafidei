@@ -1,10 +1,12 @@
 import { getTranslator } from "@/lib/i18n/server";
 import { listPublished } from "@/lib/data/published";
+import { getPublishedFeaturedBlocks } from "@/lib/data/homepage";
 import {
   HomeHero,
   HomeMission,
   HomeQuickLinks,
   HomeFeatured,
+  HomeWorkerFeatured,
   HomeNewcomer,
   HomeToday,
   LiturgicalToday,
@@ -24,12 +26,21 @@ export default async function HomePage() {
     slug: p.slug,
   }));
 
+  // Worker-published featured rails (Homepage Makeover). When present,
+  // they replace the static featured prayers rail; otherwise the
+  // homepage looks exactly as it does by default.
+  const workerFeatured = await getPublishedFeaturedBlocks().catch(() => []);
+
   return (
     <div className="flex flex-col gap-24">
       <HomeHero t={t} />
       <HomeMission t={t} />
       <HomeQuickLinks t={t} />
-      <HomeFeatured t={t} items={featuredPrayers} />
+      {workerFeatured.length > 0 ? (
+        <HomeWorkerFeatured blocks={workerFeatured} />
+      ) : (
+        <HomeFeatured t={t} items={featuredPrayers} />
+      )}
       <HomeNewcomer t={t} />
       <LiturgicalToday />
       <HomeToday />
