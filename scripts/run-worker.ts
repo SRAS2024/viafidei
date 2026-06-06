@@ -34,6 +34,7 @@
  */
 
 import { runAdminWorkerLoop, runMonthlyReportJobIfDue } from "../src/lib/admin-worker";
+import { ensureBrainStarted, shutdownBrain } from "../src/lib/admin-worker/intelligence";
 import { prisma } from "../src/lib/db/client";
 
 function parseArgs(argv: string[]): {
@@ -75,6 +76,14 @@ async function main() {
       `[admin-worker:${args.workerId}] starting (oneShot=${args.oneShot}, maxJobs=${args.maxJobs ?? "∞"})`,
     );
 
+    // Bring the permanent intelligence brain online up front so it is
+    // available for the first decision — it stays resident for the life of
+    // the worker rather than being spawned per call.
+    const brainUp = ensureBrainStarted();
+    console.log(
+      `[admin-worker:${args.workerId}] intelligence brain: ${brainUp ? "online" : "disabled/unavailable (deterministic fallbacks)"}`,
+    );
+
     // Best-effort monthly report check on startup. The job gates itself
     // on "is today the last day of the month?" so calling it daily is
     // safe; we trigger once on start so a restart on the last day of
@@ -90,6 +99,7 @@ async function main() {
     });
     console.log(`[admin-worker:${args.workerId}] result:`, result);
   } finally {
+    shutdownBrain();
     await prisma.$disconnect();
   }
 }

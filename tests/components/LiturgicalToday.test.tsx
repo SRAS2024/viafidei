@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 describe("LiturgicalToday (homepage Today's Scripture Readings)", () => {
-  it("shows today's season and a link to the official Mass readings", () => {
+  it("shows today's season and a link to the in-app Mass readings page", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-01T12:00:00")); // Ordinary Time, cycle A / II
     render(<LiturgicalToday />);
@@ -21,8 +21,10 @@ describe("LiturgicalToday (homepage Today's Scripture Readings)", () => {
     expect(screen.getByText(/Ordinary Time/)).toBeInTheDocument();
     expect(screen.getByText(/Sunday Cycle A/)).toBeInTheDocument();
 
+    // The primary CTA now points at the internal readings page (the external
+    // source is shown modestly at the bottom of that page).
     const link = screen.getByRole("link", { name: /Read today's Mass readings/ });
-    expect(link).toHaveAttribute("href", "https://bible.usccb.org/bible/readings/070126.cfm");
+    expect(link).toHaveAttribute("href", "/liturgy/readings");
   });
 
   it("flags a Jubilee year", () => {

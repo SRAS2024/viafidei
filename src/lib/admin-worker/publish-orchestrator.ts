@@ -24,10 +24,11 @@
  * returned untouched).
  */
 
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { ChecklistContentType, Prisma, PrismaClient } from "@prisma/client";
 
 import { CONFIDENCE_THRESHOLDS } from "./decisions";
 import { refreshContentGoals } from "./content-goals";
+import { isBrainEnabled } from "./intelligence";
 import { writeAdminWorkerLog } from "./logs";
 import { publicRouteFor } from "./public-routes";
 import { evaluatePublishGate } from "./publisher";
@@ -135,6 +136,68 @@ export async function runPublishOrchestrator(
         return { kind: "review", reason };
       }
       return { kind: "blocked", blockedBy: "verifier", reason };
+    }
+  }
+
+  // 1c. Catholic communion-risk screen (intelligence brain). A
+  //     *verification flag*, not a canonical ruling: when the title /
+  //     payload trips the communion-risk threshold, route to human review
+  //     rather than auto-publishing ("communion risk, no publish" —
+  //     prevent unsafe publishing until verified). Fail-open: when the
+  //     brain is disabled or offline this is a no-op and the existing
+  //     gates below still apply.
+  {
+    const { screenCommunionRisk } = await import("./intelligence/service");
+    const screenText = `${input.title}\n${JSON.stringify(input.payload)}`.slice(0, 8000);
+    const screen = await screenCommunionRisk(
+      prisma,
+      { name: input.title, text: screenText },
+      { contentType: input.contentType, entityId: input.contentId },
+    );
+    if (screen.available && screen.block) {
+      const reason = `communion risk ${screen.risk.toFixed(2)} (${screen.verdict}); requires human verification before publish — flags: ${
+        screen.flags.slice(0, 3).join("; ") || "n/a"
+      }`;
+      await logBlocked(prisma, input, reason);
+      return { kind: "review", reason };
+    }
+  }
+
+  // 1d. Semantic duplicate gate (intelligence brain). Catches near-duplicates
+  //     the slug/canonical checks miss — alternate titles, fuzzy + semantic
+  //     overlap — across other published items of the same type. The item's
+  //     own slug is excluded so idempotent re-publish/update still works.
+  //     Fully skipped (no DB query) when the brain is disabled, so it is
+  //     inert in tests and fails open. "duplicate detected, no publish."
+  if (isBrainEnabled()) {
+    try {
+      const { checkDuplicate } = await import("./intelligence/service");
+      const candidates = await prisma.publishedContent
+        .findMany({
+          where: {
+            isPublished: true,
+            contentType: input.contentType as ChecklistContentType,
+            slug: { not: input.slug },
+          },
+          take: 200,
+          select: { id: true, title: true, slug: true },
+        })
+        .catch(() => [] as Array<{ id: string; title: string; slug: string }>);
+      if (candidates.length > 0) {
+        const dup = await checkDuplicate(
+          prisma,
+          { title: input.title, slug: input.slug },
+          candidates.map((c) => ({ id: c.id, title: c.title, slug: c.slug })),
+          { contentType: input.contentType, entityId: input.contentId },
+        );
+        if (dup.available && dup.isDuplicate && dup.bestMatchId) {
+          const reason = `semantic duplicate of published ${dup.bestMatchId} (score ${dup.bestScore.toFixed(2)})`;
+          await logBlocked(prisma, input, reason);
+          return { kind: "duplicate", existingId: dup.bestMatchId, reason };
+        }
+      }
+    } catch {
+      // Intelligence dedupe is advisory; never block publishing on its failure.
     }
   }
 

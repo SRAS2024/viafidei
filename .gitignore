@@ -42,3 +42,10 @@ coverage/**
 # Local profile data not intended to be committed
 .local
 .tmp
+
+# Python intelligence brain artifacts
+__pycache__/
+*.py[cod]
+*.sqlite3
+.pytest_cache/
+.mypy_cache/

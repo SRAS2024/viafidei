@@ -64,4 +64,12 @@ export const DASHBOARD_CARDS: DashboardCard[] = [
   { href: "/admin/logs", labelKey: "admin.card.logs", eyebrow: "XVI." },
   { href: "/admin/users", labelKey: "admin.card.users", eyebrow: "XVII." },
   { href: "/admin/audit", labelKey: "admin.card.audit", eyebrow: "XVIII." },
+
+  // ── Worker intelligence (the Python brain) ───────────────────────
+  {
+    href: "/admin/intelligence",
+    labelKey: "admin.card.intelligence",
+    descriptionKey: "admin.card.intelligence.desc",
+    eyebrow: "XIX.",
+  },
 ];

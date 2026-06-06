@@ -2171,3 +2171,185 @@ model AdminWorkerReasoningGraph {
   @@index([relation])
   @@index([createdAt])
 }
+
+// ── Intelligence brain: semantic memory, knowledge graph, developer
+//    requests, and the brain-call audit trail (spec: "Postgres is the
+//    long-term memory, vector store, semantic memory store, and knowledge
+//    graph foundation"). TypeScript owns every write here; the Python
+//    brain only computes over rows TypeScript passes it.
+
+/// Vector store / semantic-memory row. One embedding per app entity (or
+/// per worker memory/decision/source). `embeddingJson` is a compact JSON
+/// map {dim: weight} produced by the Python brain's deterministic hash
+/// embedder, so no pgvector extension is required; semantic search runs in
+/// Python over the candidate rows TypeScript hands it. A real pgvector /
+/// model-backed store can replace this behind the same interface later
+/// (bump `model`). `contentHash` lets the worker skip re-embedding text
+/// that hasn't changed.
+model AdminWorkerEmbedding {
+  id            String   @id @default(cuid())
+  entityType    String
+  entityId      String
+  contentType   String?
+  title         String?
+  textSnapshot  String?
+  embeddingJson String
+  dims          Int      @default(512)
+  model         String   @default("hash-v1")
+  contentHash   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([entityType, entityId, model])
+  @@index([entityType])
+  @@index([contentType])
+  @@index([contentHash])
+  @@index([updatedAt])
+}
+
+/// Knowledge-graph node. Connects every kind of thing the worker reasons
+/// about: app entities, sources, concepts, variants, citations, dates, UI
+/// areas, code areas, worker decisions and learning records. TypeScript
+/// persists; the Python `analyze_graph` op reasons over the supplied
+/// subgraph (orphans, weak links, hubs, components, duplicate clusters,
+/// missing edges).
+model AdminWorkerGraphNode {
+  id            String   @id @default(cuid())
+  nodeType      String
+  entityType    String?
+  entityId      String?
+  label         String
+  embeddingJson String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  outEdges AdminWorkerGraphEdge[] @relation("GraphEdgeFrom")
+  inEdges  AdminWorkerGraphEdge[] @relation("GraphEdgeTo")
+
+  @@unique([nodeType, entityType, entityId])
+  @@index([nodeType])
+  @@index([entityType, entityId])
+  @@index([label])
+}
+
+/// Knowledge-graph edge. `status` gates whether an inferred relationship
+/// is live: the Python relationship-inference op proposes edges
+/// ("PROPOSED"); TypeScript validates + an admin (or a high-confidence
+/// auto rule) promotes them to "APPROVED" before they affect the app.
+model AdminWorkerGraphEdge {
+  id          String   @id @default(cuid())
+  fromNodeId  String
+  toNodeId    String
+  edgeType    String
+  weight      Float    @default(1)
+  confidence  Float    @default(0)
+  status      String   @default("PROPOSED")
+  source      String?
+  explanation String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  fromNode AdminWorkerGraphNode @relation("GraphEdgeFrom", fields: [fromNodeId], references: [id], onDelete: Cascade)
+  toNode   AdminWorkerGraphNode @relation("GraphEdgeTo", fields: [toNodeId], references: [id], onDelete: Cascade)
+
+  @@unique([fromNodeId, toNodeId, edgeType])
+  @@index([status])
+  @@index([edgeType])
+  @@index([confidence])
+  @@index([fromNodeId])
+  @@index([toNodeId])
+}
+
+/// Structured developer request — the "worker request section" of the
+/// developer report, surfaced in the admin intelligence dashboard. The
+/// Python self-inspection / fetch-diagnosis ops generate these; repeats
+/// bump `occurrences` instead of creating duplicates (keyed by
+/// `fingerprint`).
+model AdminWorkerDeveloperRequest {
+  id          String    @id @default(cuid())
+  kind        String
+  title       String
+  detail      String
+  severity    String    @default("medium")
+  status      String    @default("OPEN")
+  evidence    String?
+  occurrences Int       @default(1)
+  source      String?
+  fingerprint String    @unique
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  resolvedAt  DateTime?
+
+  @@index([status])
+  @@index([kind])
+  @@index([severity])
+  @@index([updatedAt])
+}
+
+/// Audit trail of every meaningful brain call. Lets the admin
+/// intelligence dashboard show recent decisions, confidence levels, risk
+/// levels and reasoning ("why did the worker recommend or do this?"), and
+/// powers worker-IQ metrics over time. Written by the TypeScript bridge
+/// after a successful (or failed) brain call.
+model AdminWorkerBrainCall {
+  id                    String   @id @default(cuid())
+  op                    String
+  ok                    Boolean  @default(true)
+  confidence            Float    @default(0)
+  riskLevel             String   @default("low")
+  recommendedNextAction String?
+  safeToAutoExecute     Boolean  @default(false)
+  reasoning             String?
+  evidence              String[] @default([])
+  sourcesUsed           String[] @default([])
+  entityType            String?
+  entityId              String?
+  contentType           String?
+  passId                String?
+  decisionId            String?
+  elapsedMs             Float    @default(0)
+  error                 String?
+  createdAt             DateTime @default(now())
+
+  @@index([op])
+  @@index([ok])
+  @@index([entityType, entityId])
+  @@index([contentType])
+  @@index([passId])
+  @@index([createdAt])
+}
+
+/// Daily liturgical readings stored as internal app content (spec: "Add
+/// daily liturgical readings as internal app content"). The worker
+/// refreshes one row per (date, calendar, locale). `sections` is an
+/// ordered list of {kind,label,citation,body} — bodies are only ever
+/// filled from a trusted source (never fabricated). When readings can't
+/// be confidently determined the row stays in REVIEW and a human-review
+/// task is filed instead of publishing uncertain readings. `sourceUrl` is
+/// shown as a modest source link at the bottom of the public page.
+model DailyReading {
+  id               String    @id @default(cuid())
+  date             DateTime  @db.Date
+  calendar         String    @default("roman-ordinary")
+  locale           String    @default("en")
+  seasonLabel      String?
+  sundayCycle      String?
+  weekdayCycle     String?
+  color            String?
+  sections         Json      @default("[]")
+  sourceUrl        String?
+  sourceName       String?
+  sourceConfidence Float     @default(0)
+  status           String    @default("REVIEW")
+  /// "DRAFT" | "REVIEW" | "PUBLISHED" | "ARCHIVED"
+  verifiedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([date, calendar, locale])
+  @@index([status])
+  @@index([date])
+}

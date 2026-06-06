@@ -126,6 +126,17 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   // scoring safe one. The decision (including ranked alternatives)
   // lands in AdminWorkerDecision for the audit view.
   const pass = await startPass(prisma, { passType: "AUTONOMOUS" });
+
+  // Pre-decision intelligence: consult the permanent brain for which work to
+  // prioritise next + a next-best-action. Recorded to the audit trail; the
+  // TypeScript brain below remains the conductor. Best-effort, fail-open.
+  try {
+    const { adviseNextWork } = await import("./intelligence-advisory");
+    await adviseNextWork(prisma, { passId: pass.id });
+  } catch {
+    // advisory only — never blocks the decision
+  }
+
   const { runBrain } = await import("./brain");
   const brain = await runBrain(prisma, { passId: pass.id });
 
@@ -224,6 +235,39 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       eventName: "loop_pass_failed",
       message,
     });
+  }
+
+  // Post-pass intelligence: self-inspection + developer requests +
+  // worker-IQ metrics via the Python brain. Best-effort and fail-open —
+  // never breaks the loop, and a no-op when the brain is disabled/offline.
+  try {
+    const { runPostPassIntelligence } = await import("./intelligence-pass");
+    await runPostPassIntelligence(prisma, { passId: pass.id, workerId });
+  } catch {
+    // ignore — intelligence is advisory and must not affect pass outcome
+  }
+
+  // Daily liturgical readings: keep the internal readings page current.
+  // Throttled (≈once per 30 min/process) and fail-open; routes to review
+  // rather than ever publishing uncertain readings.
+  try {
+    const { maybeRefreshDailyReadings } = await import("./daily-readings");
+    await maybeRefreshDailyReadings(prisma, { passId: pass.id });
+  } catch {
+    // ignore — readings refresh is best-effort and must not affect the pass
+  }
+
+  // Maintenance intelligence: schema-awareness, UI-awareness, and content
+  // custody. Each is throttled internally and fails open — advisory only.
+  try {
+    const { runSchemaAwareness, runUiAwareness, runCodeAwareness } = await import("./awareness");
+    const { runCustodyPass } = await import("./custody");
+    await runSchemaAwareness(prisma, { passId: pass.id });
+    await runUiAwareness(prisma, { passId: pass.id });
+    await runCodeAwareness(prisma, { passId: pass.id });
+    await runCustodyPass(prisma, { passId: pass.id });
+  } catch {
+    // best-effort — maintenance intelligence must not affect the pass
   }
 
   return { built, published: publishedCount, failed: failedCount, idle };
