@@ -2321,3 +2321,35 @@ model AdminWorkerBrainCall {
   @@index([passId])
   @@index([createdAt])
 }
+
+/// Daily liturgical readings stored as internal app content (spec: "Add
+/// daily liturgical readings as internal app content"). The worker
+/// refreshes one row per (date, calendar, locale). `sections` is an
+/// ordered list of {kind,label,citation,body} — bodies are only ever
+/// filled from a trusted source (never fabricated). When readings can't
+/// be confidently determined the row stays in REVIEW and a human-review
+/// task is filed instead of publishing uncertain readings. `sourceUrl` is
+/// shown as a modest source link at the bottom of the public page.
+model DailyReading {
+  id               String    @id @default(cuid())
+  date             DateTime  @db.Date
+  calendar         String    @default("roman-ordinary")
+  locale           String    @default("en")
+  seasonLabel      String?
+  sundayCycle      String?
+  weekdayCycle     String?
+  color            String?
+  sections         Json      @default("[]")
+  sourceUrl        String?
+  sourceName       String?
+  sourceConfidence Float     @default(0)
+  status           String    @default("REVIEW")
+  /// "DRAFT" | "REVIEW" | "PUBLISHED" | "ARCHIVED"
+  verifiedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@unique([date, calendar, locale])
+  @@index([status])
+  @@index([date])
+}

@@ -236,6 +236,16 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // ignore — intelligence is advisory and must not affect pass outcome
   }
 
+  // Daily liturgical readings: keep the internal readings page current.
+  // Throttled (≈once per 30 min/process) and fail-open; routes to review
+  // rather than ever publishing uncertain readings.
+  try {
+    const { maybeRefreshDailyReadings } = await import("./daily-readings");
+    await maybeRefreshDailyReadings(prisma, { passId: pass.id });
+  } catch {
+    // ignore — readings refresh is best-effort and must not affect the pass
+  }
+
   return { built, published: publishedCount, failed: failedCount, idle };
 }
 

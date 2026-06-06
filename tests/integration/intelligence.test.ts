@@ -40,6 +40,8 @@ afterAll(async () => {
   await prisma.adminWorkerGraphEdge.deleteMany({});
   await prisma.adminWorkerGraphNode.deleteMany({});
   await prisma.adminWorkerDeveloperRequest.deleteMany({});
+  await prisma.dailyReading.deleteMany({});
+  await prisma.humanReviewQueue.deleteMany({ where: { contentType: "READING" } });
 });
 
 describe("intelligence service (TS -> Python -> Postgres)", () => {
@@ -194,5 +196,36 @@ describe("intelligence service (TS -> Python -> Postgres)", () => {
     const analysis = await analyzeGraph(sub.nodes, sub.edges);
     expect(analysis?.ok).toBe(true);
     expect(analysis?.result?.node_count).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("daily readings (worker refresh)", () => {
+  it("routes to review and never fabricates text when no parser is configured", async () => {
+    const { refreshDailyReadings, getStoredReading } =
+      await import("@/lib/admin-worker/daily-readings");
+    const date = new Date(Date.UTC(2026, 5, 7)); // a Sunday
+
+    const res = await refreshDailyReadings(prisma, { date });
+    expect(res.status).toBe("review");
+    expect(res.reviewQueued).toBe(true);
+
+    const row = await getStoredReading(prisma, date);
+    expect(row?.status).toBe("REVIEW");
+    const sections = (row?.sections as Array<{ kind: string; body: string | null }>) ?? [];
+    expect(sections.length).toBeGreaterThanOrEqual(5); // Sunday includes a 2nd reading
+    expect(sections.every((s) => s.body === null)).toBe(true); // never fabricated
+
+    // A human-review task and a developer request were filed.
+    const task = await prisma.humanReviewQueue.findFirst({ where: { contentType: "READING" } });
+    expect(task).not.toBeNull();
+    const dr = await prisma.adminWorkerDeveloperRequest.findFirst({
+      where: { source: "daily_readings" },
+    });
+    expect(dr).not.toBeNull();
+
+    // Re-running does not duplicate the review task.
+    await refreshDailyReadings(prisma, { date });
+    const taskCount = await prisma.humanReviewQueue.count({ where: { contentType: "READING" } });
+    expect(taskCount).toBe(1);
   });
 });
