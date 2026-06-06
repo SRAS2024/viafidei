@@ -15,11 +15,14 @@ import {
   DeveloperRequestsResult,
   DuplicateResult,
   EmbedResult,
+  ExtractKnowledgeResult,
   FailureClassification,
   FetchDiagnosis,
   FreshnessResult,
   GraphResult,
   IqResult,
+  LearningResult,
+  MissingResult,
   PlanResult,
   PrioritizeResult,
   QualityResult,
@@ -28,6 +31,8 @@ import {
   SelfInspectResult,
   SemanticSearchResult,
   SourceAssessmentResult,
+  StructureResult,
+  VariantsResult,
 } from "./contracts";
 
 export * from "./contracts";
@@ -299,6 +304,59 @@ export interface FreshnessRecord {
 }
 export function classifyFreshness(record: FreshnessRecord, opts?: CallOpts) {
   return callBrain<FreshnessResult>("classify_freshness", { record }, opts);
+}
+
+// ── Knowledge extraction / structure / variants ───────────────────────
+export function extractKnowledge(text: string, opts?: CallOpts & { maxItems?: number }) {
+  return callBrain<ExtractKnowledgeResult>(
+    "extract_knowledge",
+    { text, max_items: opts?.maxItems },
+    opts,
+  );
+}
+
+export function suggestStructure(
+  record: { contentType: string; body?: string; text?: string; sections?: unknown[] },
+  opts?: CallOpts,
+) {
+  return callBrain<StructureResult>("suggest_structure", { record }, opts);
+}
+
+export function detectVariants(
+  input: { title: string; knownVariants?: string[] },
+  opts?: CallOpts,
+) {
+  return callBrain<VariantsResult>("detect_variants", input, opts);
+}
+
+// ── Missing-information detection ──────────────────────────────────────
+export interface MissingRecord {
+  contentType: string;
+  title?: string;
+  summary?: string;
+  body?: string;
+  text?: string;
+  slug?: string;
+  sources?: unknown[];
+  citations?: unknown[];
+  relationships?: unknown[];
+  translations?: unknown[];
+  dates?: unknown[];
+}
+export function detectMissing(record: MissingRecord, opts?: CallOpts) {
+  return callBrain<MissingResult>("detect_missing", { record }, opts);
+}
+
+// ── Learning from outcomes (incl. admin feedback) ─────────────────────
+export interface OutcomeInput {
+  type: string;
+  contentType?: string;
+  sourceHost?: string;
+  detail?: string;
+  confidence?: number;
+}
+export function learnFromOutcome(outcome: OutcomeInput, opts?: CallOpts) {
+  return callBrain<LearningResult>("learn_from_outcome", { outcome }, opts);
 }
 
 export type { BrainEnvelope };

@@ -37,6 +37,11 @@ export const BRAIN_OPS = [
   "analyze_graph",
   "scan_content",
   "classify_freshness",
+  "extract_knowledge",
+  "suggest_structure",
+  "detect_variants",
+  "detect_missing",
+  "learn_from_outcome",
 ] as const;
 export type BrainOp = (typeof BRAIN_OPS)[number];
 
@@ -279,4 +284,50 @@ export interface EmbedResult {
   vectors: Array<{ id: string | null; embedding_json: string; dims: number; term_count: number }>;
   dims: number;
   count: number;
+}
+
+export interface ExtractKnowledgeResult {
+  dates: string[];
+  names: string[];
+  citations: string[];
+  sources: string[];
+  summary: string;
+  claims: string[];
+  sections: string[];
+  years: string[];
+}
+
+export interface StructureResult {
+  content_type: string;
+  suggested_sections: string[];
+  missing_sections: string[];
+  split_recommended: boolean;
+  paragraphs: number;
+}
+
+export interface VariantsResult {
+  candidate_variants: Array<{ form: string; kind: string; confidence: number }>;
+  title: string;
+}
+
+export interface MissingResult {
+  content_type: string;
+  missing: Array<{ field: string; severity: "low" | "medium" | "high" | "critical"; note: string }>;
+  missing_count: number;
+  overall_completeness: number;
+}
+
+export interface LearningAdjustment {
+  target: string;
+  key: string;
+  direction: "increase" | "decrease" | "hold";
+  magnitude: number;
+}
+export interface LearningResult {
+  lesson: string;
+  adjustments: LearningAdjustment[];
+  memory_key: string;
+  memory_value: Record<string, unknown>;
+  signal: number;
+  outcome_class: "positive" | "negative" | "neutral";
 }

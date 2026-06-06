@@ -776,19 +776,24 @@ release as the node base). TypeScript talks to it through a typed bridge:
 
 ### Operations (`intelligence/operations/`)
 
-| Op                                                          | Purpose                                                                          |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `embed`, `semantic_search`                                  | semantic memory / vector search                                                  |
-| `detect_duplicates`                                         | exact + slug + fuzzy + semantic + alias + source/citation duplicate scoring      |
-| `score_quality`                                             | per-record quality profile + hard publish gates                                  |
-| `assess_source`, `detect_communion_risk`, `compare_sources` | source authority, **Catholic communion-risk screening**, contradiction detection |
-| `infer_relationships`                                       | recommend knowledge-graph edges                                                  |
-| `classify_failure`, `diagnose_fetch`                        | repair intelligence + webpage-fetch diagnosis                                    |
-| `self_inspect`, `developer_requests`, `iq_metrics`          | self-inspection, the worker's developer requests, worker-IQ metrics              |
-| `plan`, `prioritize`                                        | planning + priority intelligence                                                 |
-| `analyze_graph`                                             | orphans, weak links, hubs, components, duplicate clusters, missing edges         |
-| `scan_content`                                              | prompt-injection / manipulation detection on sanitised text                      |
-| `classify_freshness`                                        | refresh-cadence classification                                                   |
+| Op                                                          | Purpose                                                                           |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `embed`, `semantic_search`                                  | semantic memory / vector search                                                   |
+| `detect_duplicates`                                         | exact + slug + fuzzy + semantic + alias + source/citation duplicate scoring       |
+| `score_quality`                                             | per-record quality profile + hard publish gates                                   |
+| `assess_source`, `detect_communion_risk`, `compare_sources` | source authority, **Catholic communion-risk screening**, contradiction detection  |
+| `infer_relationships`                                       | recommend knowledge-graph edges                                                   |
+| `classify_failure`, `diagnose_fetch`                        | repair intelligence + webpage-fetch diagnosis                                     |
+| `self_inspect`, `developer_requests`, `iq_metrics`          | self-inspection, the worker's developer requests, worker-IQ metrics               |
+| `plan`, `prioritize`                                        | planning + priority intelligence                                                  |
+| `analyze_graph`                                             | orphans, weak links, hubs, components, duplicate clusters, missing edges          |
+| `scan_content`                                              | prompt-injection / manipulation detection on sanitised text                       |
+| `classify_freshness`                                        | refresh-cadence classification                                                    |
+| `extract_knowledge`                                         | extract dates, names, citations, sources, claims, sections from sanitised text    |
+| `suggest_structure`                                         | content-structure intelligence (sections, split recommendations)                  |
+| `detect_variants`                                           | structural title variants (flags that real translations need source verification) |
+| `detect_missing`                                            | missing-information detection per record (gaps + severity + completeness)         |
+| `learn_from_outcome`                                        | turn an outcome / admin feedback into score adjustments + a learned memory        |
 
 > **Communion-risk note.** `detect_communion_risk` emits a _verification
 > flag_, never a canonical/doctrinal ruling. Sources or content that may not
@@ -810,7 +815,12 @@ release as the node base). TypeScript talks to it through a typed bridge:
   quality/QA gates.
 - **Post-pass, every pass** (`loop.ts` → `intelligence-pass.ts`):
   self-inspects recent failures/blocked actions, persists deduped
-  **developer requests**, and computes **worker-IQ** metrics.
+  **developer requests**, computes **worker-IQ** metrics, and turns the
+  dominant repeated failure into a **learning signal** (`learn_from_outcome`)
+  that adjusts source-ranking memory the planner consults.
+- **Admin feedback as training signal** (`service.recordAdminFeedback`):
+  an admin approve/reject/edit/unpublish/repair becomes a learned outcome
+  that changes future behaviour.
 - **Daily readings** (`daily-readings.ts`): freshness classification +
   review-on-uncertainty.
 

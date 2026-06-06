@@ -14,9 +14,12 @@ from typing import Any, Callable, Dict, List
 from .operations import (
     duplicates,
     embeddings,
+    extraction,
     freshness,
+    gaps,
     graph,
     inspection,
+    learning,
     planning,
     relationships,
     repair,
@@ -57,6 +60,14 @@ REGISTRY: Dict[str, Handler] = {
     "scan_content": security.scan_content,
     # freshness
     "classify_freshness": freshness.classify_freshness,
+    # knowledge extraction + structure + variants
+    "extract_knowledge": extraction.extract_knowledge,
+    "suggest_structure": extraction.suggest_structure,
+    "detect_variants": extraction.detect_variants,
+    # missing-information detection
+    "detect_missing": gaps.detect_missing,
+    # learning from outcomes (incl. admin feedback)
+    "learn_from_outcome": learning.learn_from_outcome,
 }
 
 

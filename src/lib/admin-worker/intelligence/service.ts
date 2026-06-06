@@ -15,11 +15,14 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { rememberOutcome } from "../memory";
 import type {
   BrainEnvelope,
   CommunionRiskResult,
   DuplicateResult,
   IqResult,
+  LearningResult,
+  MissingResult,
   QualityResult,
   SelfInspectResult,
   SemanticSearchResult,
@@ -29,12 +32,16 @@ import {
   assessSource,
   detectCommunionRisk,
   detectDuplicates,
+  detectMissing,
   embed,
   iqMetrics,
+  learnFromOutcome as learnFromOutcomeOp,
   scoreQuality,
   selfInspect,
   semanticSearch,
   type DuplicateRecord,
+  type MissingRecord,
+  type OutcomeInput,
   type QualityRecord,
   type SourceInput,
 } from "./index";
@@ -272,6 +279,113 @@ export async function embedAndStore(
     stored += 1;
   }
   return { available: true, stored };
+}
+
+/** Detect missing fields/relationships on a record (for custody + gap jobs). */
+export async function detectMissingFor(
+  prisma: PrismaClient,
+  record: MissingRecord,
+  ctx: BrainCallContext = {},
+): Promise<{
+  available: boolean;
+  missing: MissingResult["missing"];
+  completeness: number;
+  envelope: BrainEnvelope<MissingResult> | null;
+}> {
+  const env = await detectMissing(record);
+  await recordBrainCall(prisma, "detect_missing", env, ctx);
+  if (!env || !env.ok || !env.result) {
+    return { available: false, missing: [], completeness: 0, envelope: env };
+  }
+  return {
+    available: true,
+    missing: env.result.missing,
+    completeness: env.result.overall_completeness,
+    envelope: env,
+  };
+}
+
+/**
+ * Convert an outcome into a learning signal and APPLY it to the worker's
+ * memory (so it changes future behaviour): source-reputation adjustments feed
+ * the host-ranking memory the planner already consults, and the lesson is
+ * stored as a generic learning memory.
+ */
+export async function applyLearningFromOutcome(
+  prisma: PrismaClient,
+  outcome: OutcomeInput,
+  ctx: BrainCallContext = {},
+): Promise<{
+  available: boolean;
+  applied: number;
+  lesson: string | null;
+  envelope: BrainEnvelope<LearningResult> | null;
+}> {
+  const env = await learnFromOutcomeOp(outcome);
+  await recordBrainCall(prisma, "learn_from_outcome", env, ctx);
+  if (!env || !env.ok || !env.result) {
+    return { available: false, applied: 0, lesson: null, envelope: env };
+  }
+  let applied = 0;
+  for (const adj of env.result.adjustments) {
+    if (adj.target === "source_reputation" && adj.key) {
+      await rememberOutcome(prisma, {
+        memoryType: "SOURCE_PRIORITY",
+        memoryKey: adj.key,
+        memoryValue: { lesson: env.result.lesson, magnitude: adj.magnitude },
+        outcome:
+          adj.direction === "increase"
+            ? "success"
+            : adj.direction === "decrease"
+              ? "failure"
+              : "neutral",
+      }).catch(() => undefined);
+      applied += 1;
+    }
+  }
+  await rememberOutcome(prisma, {
+    memoryType: "GENERIC",
+    memoryKey: env.result.memory_key,
+    memoryValue: { lesson: env.result.lesson, outcomeClass: env.result.outcome_class },
+    outcome:
+      env.result.outcome_class === "positive"
+        ? "success"
+        : env.result.outcome_class === "negative"
+          ? "failure"
+          : "neutral",
+  }).catch(() => undefined);
+  return { available: true, applied, lesson: env.result.lesson, envelope: env };
+}
+
+/**
+ * Admin feedback as a training signal: when an admin approves/rejects/edits/
+ * unpublishes/repairs content, learn from it (spec: "admin feedback as
+ * training signal"). Maps the admin action to an outcome and applies it.
+ */
+export async function recordAdminFeedback(
+  prisma: PrismaClient,
+  input: { action: string; contentType?: string; sourceHost?: string; detail?: string },
+  ctx: BrainCallContext = {},
+) {
+  const map: Record<string, string> = {
+    approve: "approved",
+    approved: "approved",
+    reject: "rejected",
+    rejected: "rejected",
+    edit: "edited",
+    edited: "edited",
+    correct: "admin_correction",
+    correction: "admin_correction",
+    unpublish: "unpublished",
+    unpublished: "unpublished",
+    repair: "admin_correction",
+  };
+  const type = map[input.action.toLowerCase()] ?? "admin_correction";
+  return applyLearningFromOutcome(
+    prisma,
+    { type, contentType: input.contentType, sourceHost: input.sourceHost, detail: input.detail },
+    ctx,
+  );
 }
 
 /** Find records related to a query via the stored vector memory. */

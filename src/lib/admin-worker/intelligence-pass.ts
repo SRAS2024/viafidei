@@ -17,7 +17,11 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { isBrainEnabled } from "./intelligence";
-import { computeIqMetrics, inspectAndRecordRequests } from "./intelligence/service";
+import {
+  applyLearningFromOutcome,
+  computeIqMetrics,
+  inspectAndRecordRequests,
+} from "./intelligence/service";
 import { writeAdminWorkerLog } from "./logs";
 
 async function gatherIqStats(prisma: PrismaClient): Promise<Record<string, number>> {
@@ -84,6 +88,17 @@ export async function runPostPassIntelligence(
       { failures, blocked, jobs },
       { passId: opts.passId },
     );
+
+    // Close the learning loop: turn the dominant repeated failure into a
+    // learning signal that adjusts future behaviour (source ranking + memory).
+    const topPattern = inspection.report?.failure_patterns?.find((p) => p.count >= 2);
+    if (topPattern) {
+      await applyLearningFromOutcome(
+        prisma,
+        { type: "failure", detail: topPattern.pattern },
+        { passId: opts.passId },
+      ).catch(() => undefined);
+    }
 
     const stats = await gatherIqStats(prisma);
     const iq = await computeIqMetrics(prisma, stats, { passId: opts.passId });

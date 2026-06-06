@@ -15,11 +15,14 @@ import {
   upsertGraphNode,
 } from "@/lib/admin-worker/intelligence";
 import {
+  applyLearningFromOutcome,
   checkDuplicate,
   computeIqMetrics,
+  detectMissingFor,
   embedAndStore,
   findRelated,
   inspectAndRecordRequests,
+  recordAdminFeedback,
   screenCommunionRisk,
   scoreRecordQuality,
 } from "@/lib/admin-worker/intelligence/service";
@@ -42,6 +45,7 @@ afterAll(async () => {
   await prisma.adminWorkerDeveloperRequest.deleteMany({});
   await prisma.dailyReading.deleteMany({});
   await prisma.humanReviewQueue.deleteMany({ where: { contentType: "READING" } });
+  await prisma.adminWorkerMemory.deleteMany({});
   // Tear down the persistent brain process so vitest can exit cleanly.
   resetBrainStatus();
 });
@@ -229,5 +233,53 @@ describe("daily readings (worker refresh)", () => {
     await refreshDailyReadings(prisma, { date });
     const taskCount = await prisma.humanReviewQueue.count({ where: { contentType: "READING" } });
     expect(taskCount).toBe(1);
+  });
+});
+
+describe("learning, gaps, and admin feedback (new ops)", () => {
+  it("applies a learning signal to source-reputation memory", async () => {
+    if (!brainOnline) return;
+    const res = await applyLearningFromOutcome(prisma, {
+      type: "source_failure",
+      sourceHost: "bad.example.test",
+      contentType: "PRAYER",
+    });
+    expect(res.available).toBe(true);
+    expect(res.applied).toBeGreaterThanOrEqual(1);
+    // The host-ranking memory the planner consults now reflects the failure.
+    const mem = await prisma.adminWorkerMemory.findUnique({
+      where: {
+        memoryType_memoryKey: { memoryType: "SOURCE_PRIORITY", memoryKey: "bad.example.test" },
+      },
+    });
+    expect(mem).not.toBeNull();
+    expect(mem!.confidence).toBeLessThan(0.5); // a failure lowers confidence
+  });
+
+  it("treats admin rejection as a training signal", async () => {
+    if (!brainOnline) return;
+    const before = await prisma.adminWorkerBrainCall.count({ where: { op: "learn_from_outcome" } });
+    const res = await recordAdminFeedback(prisma, {
+      action: "rejected",
+      contentType: "APPARITION",
+    });
+    expect(res.available).toBe(true);
+    expect((res.lesson ?? "").toLowerCase()).toContain("admin");
+    const after = await prisma.adminWorkerBrainCall.count({ where: { op: "learn_from_outcome" } });
+    expect(after).toBe(before + 1);
+  });
+
+  it("detects missing fields on a thin record", async () => {
+    if (!brainOnline) return;
+    const res = await detectMissingFor(prisma, {
+      contentType: "PRAYER",
+      title: "Untitled",
+      body: "short",
+    });
+    expect(res.available).toBe(true);
+    const fields = res.missing.map((m) => m.field);
+    expect(fields).toContain("sources");
+    expect(fields).toContain("citations");
+    expect(res.completeness).toBeLessThan(0.6);
   });
 });
