@@ -1451,9 +1451,10 @@ async function runPersistAndPublish(
 
   if (artifact) {
     const { runPublishOrchestrator } = await import("./publish-orchestrator");
-    const isDoctrinal = ["APPARITION", "SACRAMENT", "CHURCH_DOCUMENT"].includes(
-      artifact.contentType,
-    );
+    // Single source of truth: the content-type profile decides doctrinal
+    // sensitivity (and thus whether the cross-source verifier is required).
+    const { isDoctrinallySensitive } = await import("./content-type-profiles");
+    const isDoctrinal = isDoctrinallySensitive(artifact.contentType);
     // Spec §5 follow-up: build the verifier outcome from STORED
     // AdminWorkerCrossSourceVerification rows (written by the
     // CROSS_SOURCE_VERIFICATION stage) — not from a fresh run with
