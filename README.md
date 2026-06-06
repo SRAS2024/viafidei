@@ -794,6 +794,8 @@ release as the node base). TypeScript talks to it through a typed bridge:
 | `detect_variants`                                           | structural title variants (flags that real translations need source verification) |
 | `detect_missing`                                            | missing-information detection per record (gaps + severity + completeness)         |
 | `learn_from_outcome`                                        | turn an outcome / admin feedback into score adjustments + a learned memory        |
+| `analyze_schema`                                            | schema-awareness: isolated/under-indexed models → schema developer requests       |
+| `analyze_ui`                                                | UI-awareness: content types with no public route → UI developer requests          |
 
 > **Communion-risk note.** `detect_communion_risk` emits a _verification
 > flag_, never a canonical/doctrinal ruling. Sources or content that may not
@@ -821,6 +823,15 @@ release as the node base). TypeScript talks to it through a typed bridge:
 - **Admin feedback as training signal** (`service.recordAdminFeedback`):
   an admin approve/reject/edit/unpublish/repair becomes a learned outcome
   that changes future behaviour.
+- **Maintenance intelligence, throttled** (`awareness.ts` + `custody.ts`):
+  **schema-awareness** (parses the Prisma schema → isolated/under-indexed
+  models), **UI-awareness** (scans routes/admin pages → content types with
+  no public page), and **content custody** (`detect_missing` over published
+  records → improvement requests). Each files deduped developer requests.
+- **Autonomy + policy engine** (`policy.ts`): `evaluateAutonomy()` turns the
+  brain's confidence/risk/communion/duplicate signals into an
+  auto/draft/escalate/block decision bounded by the worker's autonomy level
+  (`ADMIN_WORKER_AUTONOMY`). Policy stays in TypeScript.
 - **Daily readings** (`daily-readings.ts`): freshness classification +
   review-on-uncertainty.
 

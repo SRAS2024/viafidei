@@ -42,6 +42,8 @@ export const BRAIN_OPS = [
   "detect_variants",
   "detect_missing",
   "learn_from_outcome",
+  "analyze_schema",
+  "analyze_ui",
 ] as const;
 export type BrainOp = (typeof BRAIN_OPS)[number];
 
@@ -330,4 +332,24 @@ export interface LearningResult {
   memory_value: Record<string, unknown>;
   signal: number;
   outcome_class: "positive" | "negative" | "neutral";
+}
+
+export interface SchemaAnalysisResult {
+  findings: {
+    model_count: number;
+    isolated_models: string[];
+    under_indexed_models: string[];
+    thin_models: string[];
+  };
+  developer_requests: DeveloperRequest[];
+}
+
+export interface UiAnalysisResult {
+  findings: {
+    public_route_count: number;
+    admin_page_count: number;
+    content_type_count: number;
+    unexposed_content_types: string[];
+  };
+  developer_requests: DeveloperRequest[];
 }

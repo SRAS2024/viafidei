@@ -26,6 +26,12 @@ import {
   screenCommunionRisk,
   scoreRecordQuality,
 } from "@/lib/admin-worker/intelligence/service";
+import {
+  resetAwarenessThrottle,
+  runSchemaAwareness,
+  runUiAwareness,
+} from "@/lib/admin-worker/awareness";
+import { resetCustodyThrottle, runCustodyPass } from "@/lib/admin-worker/custody";
 
 let brainOnline = false;
 
@@ -46,6 +52,7 @@ afterAll(async () => {
   await prisma.dailyReading.deleteMany({});
   await prisma.humanReviewQueue.deleteMany({ where: { contentType: "READING" } });
   await prisma.adminWorkerMemory.deleteMany({});
+  await prisma.publishedContent.deleteMany({ where: { slug: { startsWith: "custody-test-" } } });
   // Tear down the persistent brain process so vitest can exit cleanly.
   resetBrainStatus();
 });
@@ -281,5 +288,48 @@ describe("learning, gaps, and admin feedback (new ops)", () => {
     expect(fields).toContain("sources");
     expect(fields).toContain("citations");
     expect(res.completeness).toBeLessThan(0.6);
+  });
+});
+
+describe("schema/UI awareness + content custody", () => {
+  it("runs schema awareness and records a brain call", async () => {
+    if (!brainOnline) return;
+    resetAwarenessThrottle();
+    const res = await runSchemaAwareness(prisma);
+    expect(res.ran).toBe(true);
+    const call = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "analyze_schema" } });
+    expect(call).not.toBeNull();
+  });
+
+  it("runs UI awareness and records a brain call", async () => {
+    if (!brainOnline) return;
+    resetAwarenessThrottle();
+    const res = await runUiAwareness(prisma);
+    expect(res.ran).toBe(true);
+    const call = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "analyze_ui" } });
+    expect(call).not.toBeNull();
+  });
+
+  it("custody flags weak published content and files an improvement request", async () => {
+    if (!brainOnline) return;
+    const uid = `custody-test-${Date.now()}`;
+    await prisma.publishedContent.create({
+      data: {
+        checklistItemId: uid,
+        contentType: "PRAYER",
+        slug: uid,
+        title: "Weak custody record",
+        payload: { body: "tiny" },
+        authorityLevel: "COMMUNITY",
+        isPublished: true,
+      },
+    });
+    resetCustodyThrottle();
+    const res = await runCustodyPass(prisma);
+    expect(res.ran).toBe(true);
+    expect(res.scanned).toBeGreaterThanOrEqual(1);
+    expect(res.weak).toBeGreaterThanOrEqual(1);
+    const dr = await prisma.adminWorkerDeveloperRequest.findFirst({ where: { source: "custody" } });
+    expect(dr).not.toBeNull();
   });
 });

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from intelligence.operations import extraction, gaps, learning
+from intelligence.operations import awareness, extraction, gaps, learning
 
 
 class TestExtraction(unittest.TestCase):
@@ -95,6 +95,36 @@ class TestLearning(unittest.TestCase):
         )
         self.assertEqual(r["result"]["outcome_class"], "positive")
         self.assertTrue(r["safe_to_auto_execute"])
+
+
+class TestAwareness(unittest.TestCase):
+    def test_analyze_schema_flags_unindexed_and_isolated(self):
+        r = awareness.analyze_schema(
+            {
+                "models": [
+                    {"name": "Big", "fields": 12, "relations": 0, "indexes": 0},
+                    {"name": "A", "fields": 1, "relations": 0, "indexes": 0},
+                    {"name": "B", "fields": 1, "relations": 0, "indexes": 0},
+                    {"name": "C", "fields": 1, "relations": 0, "indexes": 0},
+                ]
+            }
+        )
+        self.assertIn("Big", r["result"]["findings"]["under_indexed_models"])
+        titles = [d["title"] for d in r["result"]["developer_requests"]]
+        self.assertTrue(any("Index" in t for t in titles))
+        self.assertFalse(r["safe_to_auto_execute"])  # schema changes need review
+
+    def test_analyze_ui_flags_unexposed_content_types(self):
+        r = awareness.analyze_ui(
+            {
+                "public_routes": ["/prayers", "/saints"],
+                "admin_pages": ["/admin/intelligence"],
+                "content_types": ["PRAYER", "SAINT", "NOVENA"],
+            }
+        )
+        self.assertIn("NOVENA", r["result"]["findings"]["unexposed_content_types"])
+        # prayers + saints routes cover PRAYER + SAINT.
+        self.assertNotIn("PRAYER", r["result"]["findings"]["unexposed_content_types"])
 
 
 if __name__ == "__main__":

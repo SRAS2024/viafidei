@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List
 
 from .operations import (
+    awareness,
     duplicates,
     embeddings,
     extraction,
@@ -68,6 +69,9 @@ REGISTRY: Dict[str, Handler] = {
     "detect_missing": gaps.detect_missing,
     # learning from outcomes (incl. admin feedback)
     "learn_from_outcome": learning.learn_from_outcome,
+    # schema / UI awareness
+    "analyze_schema": awareness.analyze_schema,
+    "analyze_ui": awareness.analyze_ui,
 }
 
 

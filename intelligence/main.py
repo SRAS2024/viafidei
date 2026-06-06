@@ -176,6 +176,17 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
     "learn_from_outcome": {
         "outcome": {"type": "rejected", "contentType": "APPARITION", "sourceHost": "blog.example", "detail": "admin rejected"},
     },
+    "analyze_schema": {
+        "models": [
+            {"name": "Prayer", "fields": 12, "relations": 0, "indexes": 0},
+            {"name": "Saint", "fields": 4, "relations": 2, "indexes": 3},
+        ],
+    },
+    "analyze_ui": {
+        "public_routes": ["/prayers", "/saints"],
+        "admin_pages": ["/admin/intelligence"],
+        "content_types": ["PRAYER", "SAINT", "NOVENA"],
+    },
 }
 
 

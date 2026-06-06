@@ -27,11 +27,13 @@ import {
   PrioritizeResult,
   QualityResult,
   RelationshipResult,
+  SchemaAnalysisResult,
   SecurityResult,
   SelfInspectResult,
   SemanticSearchResult,
   SourceAssessmentResult,
   StructureResult,
+  UiAnalysisResult,
   VariantsResult,
 } from "./contracts";
 
@@ -357,6 +359,24 @@ export interface OutcomeInput {
 }
 export function learnFromOutcome(outcome: OutcomeInput, opts?: CallOpts) {
   return callBrain<LearningResult>("learn_from_outcome", { outcome }, opts);
+}
+
+// ── Schema / UI awareness ─────────────────────────────────────────────
+export interface SchemaModelSummary {
+  name: string;
+  fields: number;
+  relations: number;
+  indexes: number;
+}
+export function analyzeSchema(models: SchemaModelSummary[], opts?: CallOpts) {
+  return callBrain<SchemaAnalysisResult>("analyze_schema", { models }, opts);
+}
+
+export function analyzeUi(
+  input: { public_routes: string[]; admin_pages: string[]; content_types: string[] },
+  opts?: CallOpts,
+) {
+  return callBrain<UiAnalysisResult>("analyze_ui", input, opts);
 }
 
 export type { BrainEnvelope };

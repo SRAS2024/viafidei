@@ -257,6 +257,18 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // ignore — readings refresh is best-effort and must not affect the pass
   }
 
+  // Maintenance intelligence: schema-awareness, UI-awareness, and content
+  // custody. Each is throttled internally and fails open — advisory only.
+  try {
+    const { runSchemaAwareness, runUiAwareness } = await import("./awareness");
+    const { runCustodyPass } = await import("./custody");
+    await runSchemaAwareness(prisma, { passId: pass.id });
+    await runUiAwareness(prisma, { passId: pass.id });
+    await runCustodyPass(prisma, { passId: pass.id });
+  } catch {
+    // best-effort — maintenance intelligence must not affect the pass
+  }
+
   return { built, published: publishedCount, failed: failedCount, idle };
 }
 
