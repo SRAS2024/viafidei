@@ -42,6 +42,8 @@ afterAll(async () => {
   await prisma.adminWorkerDeveloperRequest.deleteMany({});
   await prisma.dailyReading.deleteMany({});
   await prisma.humanReviewQueue.deleteMany({ where: { contentType: "READING" } });
+  // Tear down the persistent brain process so vitest can exit cleanly.
+  resetBrainStatus();
 });
 
 describe("intelligence service (TS -> Python -> Postgres)", () => {

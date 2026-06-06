@@ -1,19 +1,21 @@
 /**
- * The bridge that calls the Python intelligence brain from TypeScript.
+ * The bridge to the permanent Python intelligence brain.
  *
- * Transport: one-shot subprocess per call — `python3 -m intelligence --once`
- * with a JSON request on stdin and a JSON envelope on stdout. This needs no
- * long-running service and no network. Per the spec, the brain is consulted
- * for *meaningful decisions*, not every tiny DB write, so the spawn cost is
- * acceptable; an in-memory cache avoids repeating expensive analysis.
+ * The brain is NOT a per-call sidecar: TypeScript holds a single long-lived
+ * `python3 -m intelligence` process open for the lifetime of the worker (or
+ * web) process and multiplexes every request over it by id. This makes the
+ * brain a permanent, always-available intelligence core that is in play for
+ * every meaningful decision — not a process that is spawned and thrown away.
  *
- * Safety: the brain is always optional. If it's disabled, Python is missing,
- * the package can't be found, it times out, crashes, returns malformed JSON,
- * or reports a mismatched protocol version, `callBrain` returns `null` and the
- * caller falls back to its existing deterministic heuristics. Nothing breaks.
+ * The process is started lazily on first use, auto-restarts if it dies, and
+ * is shut down cleanly via {@link shutdownBrain}. Everything still fails open:
+ * if the brain is disabled, Python is missing, a call times out, or the
+ * process crashes, `callBrain` returns `null` and the caller falls back to its
+ * deterministic heuristics. Resilience is not the same as "optional" — the
+ * brain is always consulted; it simply never blocks the worker.
  */
 
-import { spawn } from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -33,15 +35,25 @@ export interface CallOpts {
 }
 
 type Status = "unknown" | "up" | "down";
+
 let _status: Status = "unknown";
 let _downReason: string | null = null;
+
+let _proc: ChildProcessWithoutNullStreams | null = null;
+const _pending = new Map<
+  string,
+  { settle: (value: unknown | null) => void; timer: ReturnType<typeof setTimeout> }
+>();
+
+// Restart throttle: don't thrash if the brain keeps dying.
+let _restarts = 0;
+let _restartWindowStart = 0;
+const MAX_RESTARTS_PER_MIN = 5;
 
 const _cache = new Map<string, { env: BrainEnvelope; expires: number }>();
 
 function brainLog(level: "warn" | "info", msg: string): void {
   if (level === "info" && process.env.INTELLIGENCE_DEBUG !== "1") return;
-  // Low-volume, worker-side diagnostics. Kept on console so the bridge has no
-  // dependency on the app logger (it runs in the worker process).
   // eslint-disable-next-line no-console
   console[level](`[intelligence] ${msg}`);
 }
@@ -62,7 +74,7 @@ export function resolveBrainRoot(): string | null {
     const here = path.dirname(fileURLToPath(import.meta.url));
     candidates.push(path.resolve(here, "../../../.."));
   } catch {
-    // import.meta unavailable (e.g. CJS shim) — process.cwd() covers the worker.
+    // import.meta unavailable (CJS shim) — process.cwd() covers the worker.
   }
   for (const c of candidates) {
     if (c && existsSync(path.join(c, "intelligence", "__init__.py"))) return c;
@@ -70,21 +82,145 @@ export function resolveBrainRoot(): string | null {
   return null;
 }
 
+function pythonExe(): string {
+  return process.env.INTELLIGENCE_PYTHON ?? "python3";
+}
+
 function markDown(reason: string): void {
-  if (_status !== "down") brainLog("warn", `brain disabled for this process: ${reason}`);
+  if (_status !== "down") brainLog("warn", `brain unavailable: ${reason}`);
   _status = "down";
   _downReason = reason;
 }
 
-export function brainStatus(): { status: Status; reason: string | null } {
-  return { status: _status, reason: _downReason };
+export function brainStatus(): { status: Status; reason: string | null; running: boolean } {
+  return { status: _status, reason: _downReason, running: !!_proc && _proc.exitCode === null };
 }
 
-/** Reset cached availability + memo cache. Intended for tests. */
+function failAllPending(): void {
+  for (const [, p] of _pending) {
+    clearTimeout(p.timer);
+    p.settle(null);
+  }
+  _pending.clear();
+}
+
+/** Stop the brain process and reject any in-flight calls. */
+export function shutdownBrain(): void {
+  failAllPending();
+  if (_proc) {
+    try {
+      _proc.stdin.end();
+    } catch {
+      /* ignore */
+    }
+    try {
+      _proc.kill("SIGTERM");
+    } catch {
+      /* ignore */
+    }
+    _proc = null;
+  }
+}
+
+/** Reset cached availability + memo cache + tear down the process (tests). */
 export function resetBrainStatus(): void {
+  shutdownBrain();
   _status = "unknown";
   _downReason = null;
+  _restarts = 0;
+  _restartWindowStart = 0;
   _cache.clear();
+}
+
+/** Ensure the long-lived brain process is running; returns it or null. */
+function ensureProc(): ChildProcessWithoutNullStreams | null {
+  if (_proc && _proc.exitCode === null && !_proc.killed) return _proc;
+
+  const root = resolveBrainRoot();
+  if (!root) {
+    markDown("intelligence/ package not found");
+    return null;
+  }
+
+  const nowMs = Date.now();
+  if (nowMs - _restartWindowStart > 60_000) {
+    _restartWindowStart = nowMs;
+    _restarts = 0;
+  }
+  if (_restarts >= MAX_RESTARTS_PER_MIN) {
+    markDown(`too many brain restarts (${_restarts}/min)`);
+    return null;
+  }
+
+  try {
+    const child = spawn(pythonExe(), ["-m", "intelligence"], {
+      cwd: root,
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, PYTHONUNBUFFERED: "1", PYTHONDONTWRITEBYTECODE: "1" },
+    });
+
+    // Per-child stdout buffer + handlers, all guarded by `_proc === child` so a
+    // previously-killed process exiting late can never null the current one or
+    // fail its in-flight calls (the lifecycle race).
+    let buf = "";
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      if (_proc !== child) return; // stale process — ignore
+      buf += chunk;
+      let idx: number;
+      while ((idx = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, idx).trim();
+        buf = buf.slice(idx + 1);
+        if (!line) continue;
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(line);
+        } catch {
+          continue; // ignore non-JSON noise on stdout
+        }
+        const id = (parsed as { id?: string } | null)?.id;
+        if (!id) continue;
+        const p = _pending.get(id);
+        if (p) {
+          _pending.delete(id);
+          clearTimeout(p.timer);
+          p.settle(parsed);
+        }
+      }
+    });
+    child.stderr.on("data", (d) => brainLog("info", `stderr: ${String(d).slice(0, 200)}`));
+
+    const handleGone = (code: number | null, signal: string | null) => {
+      if (_proc !== child) return; // a previous process exiting — ignore
+      _proc = null;
+      if (_pending.size > 0) {
+        brainLog(
+          "warn",
+          `brain process exited (code=${code} signal=${signal}); failing ${_pending.size} pending call(s)`,
+        );
+        failAllPending();
+      }
+    };
+    child.on("exit", handleGone);
+    child.on("error", (e) => {
+      markDown(`spawn error: ${e.message}`);
+      handleGone(null, null);
+    });
+    child.stdin.on("error", () => undefined); // swallow EPIPE on a dying child
+
+    _proc = child;
+    _restarts += 1;
+    return child;
+  } catch (e) {
+    markDown(`failed to start brain: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
+/** Warm the brain up front (called by the worker on boot). */
+export function ensureBrainStarted(): boolean {
+  if (!isBrainEnabled()) return false;
+  return ensureProc() != null;
 }
 
 function cacheGet(key: string): BrainEnvelope | null {
@@ -99,59 +235,15 @@ function cacheGet(key: string): BrainEnvelope | null {
 
 function cacheSet(key: string, env: BrainEnvelope, ttl: number): void {
   _cache.set(key, { env, expires: Date.now() + ttl });
-  // Bound the cache so a long-lived worker can't grow it without limit.
   if (_cache.size > 500) {
     const oldest = _cache.keys().next().value;
     if (oldest) _cache.delete(oldest);
   }
 }
 
-function spawnOnce(
-  root: string,
-  py: string,
-  requestJson: string,
-  timeoutMs: number,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(py, ["-m", "intelligence", "--once"], {
-      cwd: root,
-      stdio: ["pipe", "pipe", "pipe"],
-      env: { ...process.env, PYTHONUNBUFFERED: "1", PYTHONDONTWRITEBYTECODE: "1" },
-    });
-    let out = "";
-    let err = "";
-    let settled = false;
-    const finish = (fn: () => void) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      fn();
-    };
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      finish(() => reject(new Error(`brain timed out after ${timeoutMs}ms`)));
-    }, timeoutMs);
-
-    child.stdout.on("data", (d) => (out += d.toString()));
-    child.stderr.on("data", (d) => (err += d.toString()));
-    child.on("error", (e) => finish(() => reject(e)));
-    child.on("close", (code) =>
-      finish(() =>
-        code === 0
-          ? resolve(out)
-          : reject(new Error(`brain exited ${code}: ${err.slice(0, 500) || "(no stderr)"}`)),
-      ),
-    );
-    // The child may exit before we finish writing; swallow EPIPE.
-    child.stdin.on("error", () => undefined);
-    child.stdin.write(requestJson);
-    child.stdin.end();
-  });
-}
-
 /**
- * Call a brain op. Returns the validated envelope, or `null` when the brain is
- * unavailable for any reason (caller should fall back to its heuristics).
+ * Call a brain op over the persistent process. Returns the validated
+ * envelope, or `null` when the brain is unavailable for any reason.
  */
 export async function callBrain<T = unknown>(
   op: BrainOp,
@@ -166,46 +258,39 @@ export async function callBrain<T = unknown>(
     if (hit) return hit as BrainEnvelope<T>;
   }
 
-  const root = resolveBrainRoot();
-  if (!root) {
-    markDown("intelligence/ package not found");
-    return null;
-  }
+  const proc = ensureProc();
+  if (!proc) return null;
 
-  const py = process.env.INTELLIGENCE_PYTHON ?? "python3";
+  const id = randomUUID();
   const timeoutMs = opts.timeoutMs ?? Number(process.env.INTELLIGENCE_TIMEOUT_MS ?? 8000);
-  const request = JSON.stringify({ id: randomUUID(), op, payload: payload ?? {} });
 
-  let raw: string;
-  try {
-    raw = await spawnOnce(root, py, request, timeoutMs);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (/ENOENT/.test(msg)) markDown(`python executable not found (${py})`);
-    brainLog("warn", `callBrain(${op}) failed: ${msg}`);
-    return null;
-  }
+  const raw = await new Promise<unknown | null>((resolve) => {
+    const timer = setTimeout(() => {
+      _pending.delete(id);
+      brainLog("warn", `callBrain(${op}) timed out after ${timeoutMs}ms`);
+      resolve(null);
+    }, timeoutMs);
+    _pending.set(id, { settle: resolve, timer });
+    try {
+      proc.stdin.write(`${JSON.stringify({ id, op, payload: payload ?? {} })}\n`);
+    } catch (e) {
+      _pending.delete(id);
+      clearTimeout(timer);
+      brainLog(
+        "warn",
+        `callBrain(${op}) write failed: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      resolve(null);
+    }
+  });
 
-  const line = raw.trim().split(/\r?\n/).filter(Boolean).pop();
-  if (!line) {
-    brainLog("warn", `callBrain(${op}) returned no output`);
-    return null;
-  }
+  if (raw == null) return null;
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(line);
-  } catch {
-    brainLog("warn", `callBrain(${op}) returned invalid JSON`);
-    return null;
-  }
-
-  const result = BrainEnvelopeSchema.safeParse(parsed);
+  const result = BrainEnvelopeSchema.safeParse(raw);
   if (!result.success) {
     brainLog("warn", `callBrain(${op}) envelope failed validation: ${result.error.message}`);
     return null;
   }
-
   const env = result.data;
   if (env.protocolVersion && env.protocolVersion !== PROTOCOL_VERSION) {
     markDown(`protocol mismatch: brain v${env.protocolVersion} vs expected v${PROTOCOL_VERSION}`);
@@ -219,8 +304,9 @@ export async function callBrain<T = unknown>(
 }
 
 /**
- * Probe the brain once (lists ops) to confirm it's reachable. Returns the op
- * list on success, or null. Useful for the admin "is the brain online?" panel.
+ * Health probe: list the brain's ops + protocol version via a short one-shot
+ * (`--list-ops`). Independent of the persistent process so it gives an
+ * accurate capability list for the admin dashboard.
  */
 export async function probeBrain(
   timeoutMs = 5000,
@@ -230,10 +316,9 @@ export async function probeBrain(
     markDown("intelligence/ package not found");
     return null;
   }
-  const py = process.env.INTELLIGENCE_PYTHON ?? "python3";
   try {
     const out = await new Promise<string>((resolve, reject) => {
-      const child = spawn(py, ["-m", "intelligence", "--list-ops"], { cwd: root });
+      const child = spawn(pythonExe(), ["-m", "intelligence", "--list-ops"], { cwd: root });
       let buf = "";
       let errBuf = "";
       const timer = setTimeout(() => {
@@ -248,17 +333,21 @@ export async function probeBrain(
       });
       child.on("close", (code) => {
         clearTimeout(timer);
-        code === 0 ? resolve(buf) : reject(new Error(errBuf || `exit ${code}`));
+        if (code === 0) resolve(buf);
+        else reject(new Error(errBuf || `exit ${code}`));
       });
     });
     const parsed = JSON.parse(out) as { protocol_version: number; ops: string[] };
-    _status = "up";
-    _downReason = null;
     return { protocolVersion: parsed.protocol_version, ops: parsed.ops };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (/ENOENT/.test(msg)) markDown(`python executable not found (${py})`);
+    if (/ENOENT/.test(msg)) markDown(`python executable not found (${pythonExe()})`);
     brainLog("warn", `probeBrain failed: ${msg}`);
     return null;
   }
+}
+
+// Best-effort cleanup so a persistent child never blocks process exit.
+for (const sig of ["exit", "SIGINT", "SIGTERM"] as const) {
+  process.once(sig, () => shutdownBrain());
 }

@@ -38,6 +38,8 @@ export {
   brainStatus,
   resetBrainStatus,
   resolveBrainRoot,
+  ensureBrainStarted,
+  shutdownBrain,
 } from "./client";
 export type { CallOpts } from "./client";
 export * from "./store";

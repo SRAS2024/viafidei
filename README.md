@@ -748,17 +748,25 @@ deterministic** (no external AI APIs, no network), consistent with the
 worker brain's existing "deterministic rules only" rule, so the same input
 always yields the same output and every recommendation is auditable.
 
-### How it's called
+### A permanent, always-on service (not a sidecar)
 
-The brain runs as a subprocess — `python3 -m intelligence` speaks
-newline-delimited JSON over stdio. TypeScript talks to it through a typed
-bridge:
+The brain is **not** spawned per call. TypeScript holds a single long-lived
+`python3 -m intelligence` process open for the lifetime of the worker (and
+web) process and multiplexes every request over it by id (newline-delimited
+JSON over stdio). The worker warms it on boot (`ensureBrainStarted()`),
+keeps it resident, auto-restarts it if it dies, and shuts it down cleanly on
+exit. It is consulted for every meaningful decision and ships **inside the
+worker image** (`Dockerfile.worker` copies the Python runtime, same Debian
+release as the node base). TypeScript talks to it through a typed bridge:
 
 - `src/lib/admin-worker/intelligence/contracts.ts` — Zod-validated response
   envelope + a protocol-version check + typed result interfaces.
-- `src/lib/admin-worker/intelligence/client.ts` — `callBrain()` spawns the
-  subprocess, validates output, caches expensive analysis, and **degrades
-  gracefully** (returns `null`) whenever the brain is disabled/offline.
+- `src/lib/admin-worker/intelligence/client.ts` — the persistent-process
+  manager: `callBrain()` writes a request and resolves the matching response
+  by id, with per-call timeouts, an in-memory cache, auto-restart, and
+  `ensureBrainStarted()` / `shutdownBrain()`. It **degrades gracefully**
+  (returns `null`) whenever the brain is disabled/offline — resilience, not
+  optionality: the brain is always consulted; it simply never blocks a pass.
 - `src/lib/admin-worker/intelligence/index.ts` — one typed wrapper per op.
 - `src/lib/admin-worker/intelligence/service.ts` — worker-facing functions
   that call the brain, write the audit trail, persist durable output, and
@@ -792,13 +800,22 @@ bridge:
 
 ### Where the brain is wired in
 
-- **Every worker pass** (`loop.ts` → `intelligence-pass.ts`): self-inspects
-  recent failures/blocked actions, persists deduped **developer requests**,
-  and computes **worker-IQ** metrics. Best-effort, never blocks the pass.
-- **Publish gate** (`publish-orchestrator.ts`): a communion-risk screen
-  routes risky content to review before the existing quality/QA gates.
+- **Pre-decision, every pass** (`loop.ts` → `intelligence-advisory.ts`):
+  before the TypeScript ranked-action brain chooses, the Python brain
+  `prioritize`s the unmet content goals and returns a `plan` / next-best-
+  action, recorded to the audit trail. TypeScript remains the conductor.
+- **Publish gate** (`publish-orchestrator.ts`): a **communion-risk** screen
+  routes risky content to review, and a **semantic-duplicate** gate blocks
+  near-duplicates the slug/canonical checks miss — both before the existing
+  quality/QA gates.
+- **Post-pass, every pass** (`loop.ts` → `intelligence-pass.ts`):
+  self-inspects recent failures/blocked actions, persists deduped
+  **developer requests**, and computes **worker-IQ** metrics.
 - **Daily readings** (`daily-readings.ts`): freshness classification +
   review-on-uncertainty.
+
+All of these are best-effort and fail open — they never block a pass — but
+the brain is always consulted when it is online (the default).
 
 ### Postgres tables (migration `0038`)
 
@@ -824,8 +841,12 @@ npm run brain:test                   # python unit tests (stdlib unittest)
 npm run brain:selftest               # same as --selftest
 ```
 
-Enabling the brain in production requires `python3` in the worker image;
-when it is absent the worker simply uses its deterministic fallbacks.
+The Python runtime ships **inside the worker image** (`Dockerfile.worker`
+copies the `python:3.11-slim-bookworm` interpreter + stdlib, the same Debian
+release as the node base, plus the `intelligence/` package), so the brain is
+a permanent part of the deploy. If Python is ever unavailable the worker
+simply uses its deterministic fallbacks. Override the interpreter with
+`INTELLIGENCE_PYTHON` or disable entirely with `INTELLIGENCE_BRAIN_ENABLED=0`.
 
 ---
 

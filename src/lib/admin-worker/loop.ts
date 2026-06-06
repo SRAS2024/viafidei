@@ -126,6 +126,17 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   // scoring safe one. The decision (including ranked alternatives)
   // lands in AdminWorkerDecision for the audit view.
   const pass = await startPass(prisma, { passType: "AUTONOMOUS" });
+
+  // Pre-decision intelligence: consult the permanent brain for which work to
+  // prioritise next + a next-best-action. Recorded to the audit trail; the
+  // TypeScript brain below remains the conductor. Best-effort, fail-open.
+  try {
+    const { adviseNextWork } = await import("./intelligence-advisory");
+    await adviseNextWork(prisma, { passId: pass.id });
+  } catch {
+    // advisory only — never blocks the decision
+  }
+
   const { runBrain } = await import("./brain");
   const brain = await runBrain(prisma, { passId: pass.id });
 
