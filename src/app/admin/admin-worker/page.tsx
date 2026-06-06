@@ -165,6 +165,25 @@ export default async function AdminWorkerPage() {
     })
     .catch(() => []);
 
+  // Durable rollback ledger (spec: rollback guarantees) for diagnostics.
+  const recentRollbacks = await prisma.adminWorkerRollbackLedger
+    .findMany({
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        contentType: true,
+        slug: true,
+        rollbackResult: true,
+        rollbackAction: true,
+        failedVerificationReason: true,
+        restorable: true,
+        humanReviewCreated: true,
+        createdAt: true,
+      },
+    })
+    .catch(() => []);
+
   // Exact stage-outcome ledger: the most recent precise per-stage results
   // the brain learns from (spec: make brain feedback exact).
   const recentStageOutcomes = await prisma.adminWorkerStageOutcome
@@ -577,6 +596,49 @@ export default async function AdminWorkerPage() {
                     <td className="py-1 font-mono">
                       {m.lastUsedAt ? m.lastUsedAt.toISOString().slice(0, 19) : "—"}
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Durable rollback ledger (spec: rollback guarantees). */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Rollback ledger</h2>
+          {recentRollbacks.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No rollbacks recorded. Every post-publish rollback is logged here with whether it can
+              be safely restored.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Type</th>
+                  <th>Slug</th>
+                  <th>Result</th>
+                  <th>Restorable</th>
+                  <th>Review?</th>
+                  <th>Reason</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentRollbacks.map((r) => (
+                  <tr
+                    key={r.id}
+                    className={`border-t ${r.rollbackResult === "DELETED" ? "bg-rose-50" : "bg-amber-50"}`}
+                  >
+                    <td className="py-1 font-mono">{r.contentType ?? "—"}</td>
+                    <td className="py-1 font-mono">{(r.slug ?? "—").slice(0, 28)}</td>
+                    <td className="py-1 font-mono">{r.rollbackResult}</td>
+                    <td className="py-1 font-mono">{r.restorable ? "yes" : "no"}</td>
+                    <td className="py-1 font-mono">{r.humanReviewCreated ? "✓" : "—"}</td>
+                    <td className="py-1 font-serif">
+                      {(r.failedVerificationReason ?? r.rollbackAction).slice(0, 50)}
+                    </td>
+                    <td className="py-1 font-mono">{r.createdAt.toISOString().slice(0, 19)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -150,6 +150,18 @@ export interface DeveloperAuditData {
     errorMessage: string | null;
     createdAt: Date;
   }>;
+  /** Spec: durable rollback ledger for the audit period. */
+  rollbackLedger: Array<{
+    contentType: string | null;
+    slug: string | null;
+    previousPublicState: string;
+    failedVerificationReason: string | null;
+    rollbackAction: string;
+    rollbackResult: string;
+    humanReviewCreated: boolean;
+    restorable: boolean;
+    createdAt: Date;
+  }>;
   /** Spec §3 + §15: strict-QA results for the audit period. */
   strictQAResults: Array<{
     id: string;
@@ -246,6 +258,7 @@ export async function collectDeveloperAuditData(
     recentMemoryRaw,
     repairPlansRaw,
     postPublishVerificationsRaw,
+    rollbackLedgerRaw,
     strictQAResultsRaw,
     qualityScoresRaw,
     sourceBlocksRaw,
@@ -340,6 +353,30 @@ export async function collectDeveloperAuditData(
         take: 200,
       })
       .catch(() => []),
+    // Durable rollback ledger. Wrapped so a missing delegate (partial
+    // test mock) yields [] instead of throwing during audit assembly.
+    (async () => {
+      try {
+        return await prisma.adminWorkerRollbackLedger.findMany({
+          where: { createdAt: { gte: since } },
+          orderBy: { createdAt: "desc" },
+          take: 200,
+          select: {
+            contentType: true,
+            slug: true,
+            previousPublicState: true,
+            failedVerificationReason: true,
+            rollbackAction: true,
+            rollbackResult: true,
+            humanReviewCreated: true,
+            restorable: true,
+            createdAt: true,
+          },
+        });
+      } catch {
+        return [];
+      }
+    })(),
     // Spec §3 follow-up: strict-QA results
     prisma.adminWorkerStrictQAResult
       .findMany({
@@ -549,6 +586,17 @@ export async function collectDeveloperAuditData(
       errorMessage: v.errorMessage,
       createdAt: v.createdAt,
     })),
+    rollbackLedger: rollbackLedgerRaw.map((r) => ({
+      contentType: r.contentType,
+      slug: r.slug,
+      previousPublicState: r.previousPublicState,
+      failedVerificationReason: r.failedVerificationReason,
+      rollbackAction: r.rollbackAction,
+      rollbackResult: r.rollbackResult,
+      humanReviewCreated: r.humanReviewCreated,
+      restorable: r.restorable,
+      createdAt: r.createdAt,
+    })),
     strictQAResults: strictQAResultsRaw.map((q) => ({
       id: q.id,
       contentType: q.contentType,
@@ -674,6 +722,7 @@ export const DEVELOPER_AUDIT_SECTIONS = [
   "Quality Score Logs",
   "Publishing Logs",
   "Post-Publish Verification Logs",
+  "Rollback Ledger",
   "Search and Sitemap Logs",
   "Cache Logs",
   "Repair Logs",

@@ -42,6 +42,9 @@ function makePrisma() {
       count: vi.fn(async () => 0),
       findMany: vi.fn(async () => []),
     },
+    adminWorkerRollbackLedger: {
+      findMany: vi.fn(async () => []),
+    },
     humanReviewQueue: { count: vi.fn(async () => 0) },
     homepageWorkerDraft: {
       findFirst: vi.fn(async () => null),

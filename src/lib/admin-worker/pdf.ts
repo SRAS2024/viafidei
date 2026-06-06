@@ -516,6 +516,35 @@ export async function generateAdminWorkerDeveloperAuditPdf(
       }
     }
 
+    // ─── Rollback ledger (rollback guarantees) ────────────────────────
+    if (sectionsToInclude.has("Rollback Ledger")) {
+      builder.section("Rollback Ledger");
+      if (data.rollbackLedger.length === 0) {
+        builder.note("No rollbacks in this period.");
+      } else {
+        builder.table(
+          [
+            { header: "When", weight: 105 },
+            { header: "Type", weight: 80 },
+            { header: "Slug", weight: 95 },
+            { header: "Result", weight: 80 },
+            { header: "Restorable", weight: 65 },
+            { header: "Reason", weight: 130 },
+          ],
+          data.rollbackLedger
+            .slice(0, 40)
+            .map((r) => [
+              fmtTime(r.createdAt),
+              r.contentType ?? "—",
+              (r.slug ?? "—").slice(0, 24),
+              r.rollbackResult,
+              r.restorable ? "yes" : "no",
+              (r.failedVerificationReason ?? r.rollbackAction).slice(0, 40),
+            ]),
+        );
+      }
+    }
+
     // ─── Repair logs (spec §9 + §15) ──────────────────────────────────
     if (sectionsToInclude.has("Repair Logs")) {
       builder.section("Repair Logs");
