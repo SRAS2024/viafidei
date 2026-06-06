@@ -165,6 +165,9 @@ export interface DeveloperAuditData {
     contentType: string;
     contentId: string;
     finalScore: number;
+    threshold: number;
+    passed: boolean;
+    failedDimensions: string[];
     createdAt: Date;
   }>;
   /** Spec §1 + §15: structured-block creation activity. */
@@ -364,6 +367,9 @@ export async function collectDeveloperAuditData(
           contentType: true,
           contentId: true,
           finalScore: true,
+          threshold: true,
+          passed: true,
+          failedDimensions: true,
           createdAt: true,
         },
       })
@@ -556,6 +562,9 @@ export async function collectDeveloperAuditData(
       contentType: q.contentType,
       contentId: q.contentId,
       finalScore: q.finalScore,
+      threshold: q.threshold,
+      passed: q.passed,
+      failedDimensions: q.failedDimensions,
       createdAt: q.createdAt,
     })),
     structuredBlockStats: {

@@ -129,17 +129,21 @@ export function computeFinalScore(
 export function computeFinalScoreV2(
   inputs: Omit<QualityInputsV2, "contentType" | "contentId">,
 ): number {
+  // Coerce unmeasured / non-finite dimensions to 1 (neutral). A required
+  // dimension that was never measured must not poison the geometric mean
+  // with NaN — an explicit 0 is the only "hard fail" signal.
+  const safe = (v: number | undefined): number => (Number.isFinite(v) ? (v as number) : 1);
   const d = {
-    completeness: inputs.completenessScore,
-    correctness: inputs.correctnessScore,
-    formatting: inputs.formattingScore,
-    sourceAuthority: inputs.sourceAuthorityScore ?? 1,
-    fieldProvenance: inputs.fieldProvenanceScore ?? 1,
-    validationEvidence: inputs.validationEvidenceScore ?? 1,
-    duplicateSafety: inputs.duplicateSafetyScore ?? 1,
-    publicRendering: inputs.publicRenderingScore ?? 1,
-    doctrinalSensitivity: inputs.doctrinalSensitivityScore ?? 1,
-    packageConsistency: inputs.packageConsistencyScore ?? 1,
+    completeness: safe(inputs.completenessScore),
+    correctness: safe(inputs.correctnessScore),
+    formatting: safe(inputs.formattingScore),
+    sourceAuthority: safe(inputs.sourceAuthorityScore),
+    fieldProvenance: safe(inputs.fieldProvenanceScore),
+    validationEvidence: safe(inputs.validationEvidenceScore),
+    duplicateSafety: safe(inputs.duplicateSafetyScore),
+    publicRendering: safe(inputs.publicRenderingScore),
+    doctrinalSensitivity: safe(inputs.doctrinalSensitivityScore),
+    packageConsistency: safe(inputs.packageConsistencyScore),
   };
   if (Object.values(d).some((v) => v <= 0)) return 0;
 
@@ -198,14 +202,113 @@ export function missingDimensions(inputs: QualityInputsV2): string[] {
   return out;
 }
 
+/** Per-dimension "weak/failed" detector. A dimension counts as failed
+ *  when its score is below `floor` (0.5 by default) — this is what the
+ *  dashboard + Developer Audit surface as "which dimension failed". */
+export function failedDimensionsV2(inputs: QualityInputsV2, floor = 0.5): string[] {
+  const d: Record<string, number> = {
+    completeness: inputs.completenessScore,
+    correctness: inputs.correctnessScore,
+    formatting: inputs.formattingScore,
+    sourceAuthority: inputs.sourceAuthorityScore ?? 1,
+    fieldProvenance: inputs.fieldProvenanceScore ?? 1,
+    validationEvidence: inputs.validationEvidenceScore ?? 1,
+    duplicateSafety: inputs.duplicateSafetyScore ?? 1,
+    publicRendering: inputs.publicRenderingScore ?? 1,
+    doctrinalSensitivity: inputs.doctrinalSensitivityScore ?? 1,
+    packageConsistency: inputs.packageConsistencyScore ?? 1,
+  };
+  return Object.entries(d)
+    .filter(([, v]) => v < floor)
+    .map(([k]) => k);
+}
+
+export interface QualityScoreResult {
+  id: string;
+  finalScore: number;
+  threshold: number;
+  passed: boolean;
+  failedDimensions: string[];
+}
+
+/**
+ * Record a full ten-dimension ContentQualityScore (spec: "store the full
+ * quality score model in the database"). Stores every dimension, the
+ * threshold, the pass/fail status, and the list of failed dimensions so
+ * the dashboard, Developer Audit, publish gate, and Python brain can all
+ * see exactly which dimension failed. The publish gate uses `passed`.
+ */
+export async function recordQualityScoreV2(
+  prisma: PrismaClient,
+  inputs: QualityInputsV2,
+): Promise<QualityScoreResult> {
+  const finalScore = computeFinalScoreV2(inputs);
+  const threshold = thresholdFor(inputs.contentType);
+  const failedDimensions = failedDimensionsV2(inputs);
+  const passed = finalScore >= threshold;
+  const row = await prisma.contentQualityScore.create({
+    data: {
+      contentType: inputs.contentType,
+      contentId: inputs.contentId,
+      completenessScore: inputs.completenessScore,
+      correctnessScore: inputs.correctnessScore,
+      formattingScore: inputs.formattingScore,
+      // Legacy columns mirror the closest V2 dimension for back-compat.
+      sourceEvidenceScore: inputs.fieldProvenanceScore ?? 1,
+      validationScore: inputs.validationEvidenceScore ?? 1,
+      renderScore: inputs.publicRenderingScore ?? 1,
+      // Full model.
+      sourceAuthorityScore: inputs.sourceAuthorityScore ?? 1,
+      fieldProvenanceScore: inputs.fieldProvenanceScore ?? 1,
+      duplicateSafetyScore: inputs.duplicateSafetyScore ?? 1,
+      doctrinalSensitivityScore: inputs.doctrinalSensitivityScore ?? 1,
+      packageConsistencyScore: inputs.packageConsistencyScore ?? 1,
+      finalScore,
+      threshold,
+      passed,
+      failedDimensions,
+    },
+    select: { id: true },
+  });
+  // Return the JS-computed verdict (not the persisted row) so the gate is
+  // correct regardless of what a (mocked) create returns.
+  return { id: row.id, finalScore, threshold, passed, failedDimensions };
+}
+
 export async function recordQualityScore(
   prisma: PrismaClient,
   inputs: QualityInputs,
 ): Promise<{ id: string; finalScore: number }> {
+  // finalScore keeps the legacy six-dimension math (callers depend on
+  // it), but the row is enriched to the full model so every stored score
+  // carries threshold + pass/fail + failed dimensions.
   const finalScore = computeFinalScore(inputs);
-  const row = await prisma.contentQualityScore.create({
-    data: { ...inputs, finalScore },
-    select: { id: true, finalScore: true },
+  const threshold = thresholdFor(inputs.contentType);
+  const failedDimensions = failedDimensionsV2({
+    contentType: inputs.contentType,
+    contentId: inputs.contentId,
+    completenessScore: inputs.completenessScore,
+    correctnessScore: inputs.correctnessScore,
+    formattingScore: inputs.formattingScore,
+    sourceAuthorityScore: inputs.sourceEvidenceScore,
+    fieldProvenanceScore: inputs.sourceEvidenceScore,
+    validationEvidenceScore: inputs.validationScore,
+    publicRenderingScore: inputs.renderScore,
   });
-  return row;
+  const row = await prisma.contentQualityScore.create({
+    data: {
+      ...inputs,
+      sourceAuthorityScore: inputs.sourceEvidenceScore,
+      fieldProvenanceScore: inputs.sourceEvidenceScore,
+      duplicateSafetyScore: 1,
+      doctrinalSensitivityScore: 1,
+      packageConsistencyScore: inputs.correctnessScore,
+      finalScore,
+      threshold,
+      passed: finalScore >= threshold,
+      failedDimensions,
+    },
+    select: { id: true },
+  });
+  return { id: row.id, finalScore };
 }

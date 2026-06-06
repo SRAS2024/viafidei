@@ -147,6 +147,24 @@ export default async function AdminWorkerPage() {
   // Spec §17: per-content-type growth execution funnel.
   const funnel = await computeContentFunnel(prisma).catch(() => []);
 
+  // Full quality model: most recent scores with the failed dimension(s)
+  // so the operator can see exactly which dimension dragged a score down.
+  const recentQualityScores = await prisma.contentQualityScore
+    .findMany({
+      orderBy: { createdAt: "desc" },
+      take: 12,
+      select: {
+        id: true,
+        contentType: true,
+        finalScore: true,
+        threshold: true,
+        passed: true,
+        failedDimensions: true,
+        createdAt: true,
+      },
+    })
+    .catch(() => []);
+
   const summary = summarizeRatings(ratings);
 
   return (
@@ -538,6 +556,49 @@ export default async function AdminWorkerPage() {
                     <td className="py-1 font-mono">
                       {m.lastUsedAt ? m.lastUsedAt.toISOString().slice(0, 19) : "—"}
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Full quality model — shows which dimension failed. */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Quality scores — failed dimensions</h2>
+          {recentQualityScores.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No quality scores yet. Each built package records a full ten-dimension score.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Content type</th>
+                  <th className="text-right">Score</th>
+                  <th className="text-right">Threshold</th>
+                  <th>Result</th>
+                  <th>Failed dimensions</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentQualityScores.map((q) => (
+                  <tr key={q.id} className={`border-t ${q.passed ? "" : "bg-rose-50"}`}>
+                    <td className="py-1 font-mono">{q.contentType}</td>
+                    <td className="py-1 text-right font-mono">{q.finalScore.toFixed(2)}</td>
+                    <td className="py-1 text-right font-mono">{q.threshold.toFixed(2)}</td>
+                    <td className="py-1 font-mono">
+                      {q.passed ? (
+                        <span className="text-emerald-700">PASS</span>
+                      ) : (
+                        <span className="text-rose-700">FAIL</span>
+                      )}
+                    </td>
+                    <td className="py-1 font-serif">
+                      {q.failedDimensions.length > 0 ? q.failedDimensions.join(", ") : "—"}
+                    </td>
+                    <td className="py-1 font-mono">{q.createdAt.toISOString().slice(0, 19)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -459,13 +459,21 @@ export async function generateAdminWorkerDeveloperAuditPdf(
       } else {
         builder.table(
           [
-            { header: "When", weight: 140 },
-            { header: "Content type", weight: 130 },
-            { header: "Final score", weight: 90, align: "right" },
+            { header: "When", weight: 110 },
+            { header: "Content type", weight: 95 },
+            { header: "Score / thr.", weight: 75, align: "right" },
+            { header: "Result", weight: 55 },
+            { header: "Failed dimensions", weight: 160 },
           ],
           data.qualityScores
             .slice(0, 40)
-            .map((q) => [fmtTime(q.createdAt), q.contentType, q.finalScore.toFixed(2)]),
+            .map((q) => [
+              fmtTime(q.createdAt),
+              q.contentType,
+              `${q.finalScore.toFixed(2)} / ${q.threshold.toFixed(2)}`,
+              q.passed ? "PASS" : "FAIL",
+              q.failedDimensions.length > 0 ? q.failedDimensions.join(", ") : "—",
+            ]),
         );
       }
     }
