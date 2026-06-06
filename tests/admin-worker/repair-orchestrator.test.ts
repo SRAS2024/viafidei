@@ -102,7 +102,9 @@ function makePrisma(plans: Array<Record<string, unknown>>) {
         })),
       },
       publishedContent: {
-        findFirst: vi.fn(async () => null),
+        // Cache freshness needs the published row to exist; no stored
+        // checksum → the offline cache-log fallback decides freshness.
+        findFirst: vi.fn(async () => ({ title: "X", payload: {}, contentChecksum: null })),
       },
     } as unknown as Parameters<typeof runRepairOrchestrator>[0],
   };

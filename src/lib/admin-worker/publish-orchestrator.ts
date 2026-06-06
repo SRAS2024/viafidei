@@ -372,6 +372,11 @@ export async function runPublishOrchestrator(
     };
   }
 
+  // Freshness marker written at publish time; cache verification later
+  // confirms this checksum is actually being served from the public route.
+  const { computeContentChecksum } = await import("./cache-freshness");
+  const contentChecksum = computeContentChecksum(input.title, input.payload);
+
   // 4. Duplicate check (slug + content type — schema-unique).
   const existing = await prisma.publishedContent
     .findFirst({
@@ -397,6 +402,7 @@ export async function runPublishOrchestrator(
           publishedAt: new Date(),
           payload: input.payload,
           title: input.title,
+          contentChecksum,
         },
       })
       .catch(() => null);
@@ -429,6 +435,7 @@ export async function runPublishOrchestrator(
         authorityLevel: input.authorityLevel as never,
         isPublished: true,
         publishedAt: new Date(),
+        contentChecksum,
         version: 1,
       },
     })

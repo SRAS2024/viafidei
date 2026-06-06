@@ -236,6 +236,15 @@ describe("repair-orchestrator concrete handlers (spec §9)", () => {
           safeMetadata: {},
         })),
       },
+      publishedContent: {
+        // Cache freshness requires the published row; with no stored
+        // checksum the offline cache-log fallback confirms freshness.
+        findFirst: vi.fn(async () => ({
+          title: "Our Father",
+          payload: { prayerText: "Amen." },
+          contentChecksum: null,
+        })),
+      },
     } as unknown as Parameters<typeof runRepairOrchestrator>[0];
     const out = await runRepairOrchestrator(prisma);
     expect(out.plansSucceeded).toBe(1);
