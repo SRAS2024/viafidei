@@ -593,89 +593,89 @@ routes return `410`.
 
 `src/lib/admin-worker/` ships every module of the autonomous pipeline.
 
-| File                                     | Module                                                    |
-| ---------------------------------------- | --------------------------------------------------------- |
-| **`brain.ts`**                           | Ranked-action brain + action fatigue + execution feedback |
-| **`dispatcher.ts`**                      | 22-stage mission dispatcher (real execution, no stubs)    |
-| `mission-planner.ts`                     | Chain-aware mission planner                               |
-| `loop.ts`                                | Central decision loop + mode dispatch                     |
-| `passes.ts`                              | Pass lifecycle                                            |
-| `tasks.ts`                               | Task management                                           |
-| `state.ts`                               | Singleton state + pause/resume                            |
-| `modes.ts`                               | Mode descriptors                                          |
-| `priorities.ts`                          | Priority ladder + selector                                |
-| `decisions.ts`                           | Decision log + confidence thresholds                      |
-| `planner.ts`                             | Build-job enqueuer (within mission)                       |
-| **`discovery-orchestrator.ts`**          | 7 discovery methods + per-type strategies + cadence       |
-| `web-navigator.ts`                       | Candidate URL store + junk classifier                     |
-| `sitemap-discovery.ts`                   | Sitemap discovery + robots.txt                            |
-| `rss-discovery.ts`                       | RSS / Atom feed discovery                                 |
-| `configured-urls.ts`                     | Configured fixed URL list discovery                       |
-| `internal-link-discovery.ts`             | Internal-link discovery                                   |
-| `directory-discovery.ts`                 | Catholic content directory discovery                      |
-| `search-page-discovery.ts`               | Approved-source search-page discovery                     |
-| `source-apis.ts`                         | Official source API adapter registry                      |
-| **`candidate-scorer.ts`**                | 7-dimension candidate scoring + outcome adjustment        |
-| **`fetcher.ts`**                         | Approved-host fetch + checksum + login/binary rejection   |
-| `source-reads.ts`                        | Source-read dedupe via sha256 checksum                    |
-| `source-reader.ts`                       | Orchestrator: classify + extract + read                   |
-| **`structured-source-reader.ts`**        | HTML parser → AdminWorkerSourceBlock rows                 |
-| **`confusion-detector.ts`**              | 11 confusion rules (flip to UNUSABLE before extract)      |
-| `classifier.ts`                          | Deterministic content classifier + `classifyDetailed`     |
-| `extractors.ts`                          | Per-type extractors + field provenance                    |
-| **`content-builder.ts`**                 | Builds complete package artifacts (all required fields)   |
-| `provenance.ts`                          | Field-level provenance tracker                            |
-| **`checklist-citation-orchestrator.ts`** | Artifact → ChecklistItem + ChecklistCitation bridge       |
-| `cross-source-verifier.ts`               | Field verification + ValidationEvidence                   |
-| **`validation-source-resolver.ts`**      | Field → ranked validation hosts + conflict fallback       |
-| **`validation-fetcher.ts`**              | Actually fetches + reads + compares validation pages      |
-| **`verifier.ts`**                        | Sensitive-field whitelist + pre-publish verifier gate     |
-| `packaging.ts`                           | Per-content-type structural validators                    |
-| **`strict-qa.ts`**                       | Artifact-level strict QA (7 sub-scores + gate)            |
-| `quality.ts`                             | 10-dim quality scoring (`computeFinalScoreV2`)            |
-| **`publish-orchestrator.ts`**            | The only publish path; idempotent; updates all stores     |
-| `publisher.ts`                           | Publish-gate evaluator used by the orchestrator           |
-| `publish-safety.ts`                      | Pattern blockers (incomplete prayers, …)                  |
-| `post-publish-probe.ts`                  | Live HTTP probe                                           |
-| **`search-sitemap-cache-verifiers.ts`**  | Independent search + sitemap + cache verification         |
-| `post-publish.ts`                        | Aggregation + decision                                    |
-| **`post-publish-rollback.ts`**           | REPAIR → UNPUBLISH → DELETED → HUMAN_REVIEW decision tree |
-| `homepage-designer.ts`                   | Homepage scoring + draft decision                         |
-| `homepage-mutator.ts`                    | Builds proposed homepage snapshots                        |
-| **`homepage-publish-orchestrator.ts`**   | 10-axis inspect + snapshot + verify + rollback            |
-| `liturgical-calendar.ts`                 | Meeus-based liturgical calendar engine                    |
-| `security-defender.ts`                   | Defender + automatic ban + email                          |
-| `security-detectors.ts`                  | 10 deterministic detector functions                       |
-| **`request-defender.ts`**                | 7 helpers (failed login, brute force, mutation, …)        |
-| **`admin-route-guard.ts`**               | `requireAdminWithDefender` for non-gate routes            |
-| `pipeline-stages.ts`                     | Pipeline-stage chain + `resumeOrAdvance` checksum skip    |
-| `repair.ts`                              | In-pass repair handlers                                   |
-| **`repair-orchestrator.ts`**             | Real per-kind repair execution (not just logging)         |
-| `repair-plans.ts`                        | Durable repair-plan queue + exponential backoff           |
-| `learning.ts`                            | Feedback loop (success/failure counts)                    |
-| `memory.ts`                              | Memory hooks + **30-day half-life decay**                 |
-| `source-reputation.ts`                   | EWMA-smoothed reputation engine                           |
-| **`source-reputation-hooks.ts`**         | Per-stage `pushReputation` (discovery → post-publish)     |
-| `source-strategy.ts`                     | 10-criteria source ranking                                |
-| **`source-coverage.ts`**                 | Primary/validation/enrichment coverage per content type   |
-| `content-goals.ts`                       | Per-content-type minimum/desired                          |
-| `content-growth.ts`                      | 24 h / 7 d growth-escalation watcher                      |
-| **`growth-orchestrator.ts`**             | 7 growth-status classes + auto-file repair plans          |
-| **`content-growth-monitor.ts`**          | Per-content-type funnel (candidates → cache) + bottleneck |
-| `cleanup.ts`                             | Cleanup custodian                                         |
-| `human-review.ts`                        | Rare-edge-case review queue                               |
-| `deletion.ts`                            | Confidence-gated deletion + 9 reasons                     |
-| `health.ts`                              | Worker health monitor                                     |
-| `metrics.ts`                             | Command Center metric computation                         |
-| `diagnostics.ts`                         | Subsystem ratings + diagnostics auditor                   |
-| **`why-no-growth.ts`**                   | Live chain walk → first blocker + next automatic repair   |
-| `readiness.ts`                           | Production-readiness 12-check sweep                       |
-| `rules.ts`                               | Versioned rules across categories                         |
-| `logs.ts`                                | Structured AdminWorkerLog writer                          |
-| `report-generator.ts`                    | Developer Audit data collection (24 sections)             |
-| `pdf.ts`                                 | PDF rendering for both reports                            |
-| `monthly-report-job.ts`                  | Last-day-of-month gate + run                              |
-| `public-routes.ts`                       | Public URL builder + cache tag mapping                    |
+| File                                     | Module                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------- |
+| **`brain.ts`**                           | Ranked-action brain + action fatigue + execution feedback           |
+| **`dispatcher.ts`**                      | 22-stage mission dispatcher (real execution, no stubs)              |
+| `mission-planner.ts`                     | Chain-aware mission planner                                         |
+| `loop.ts`                                | Central decision loop + mode dispatch                               |
+| `passes.ts`                              | Pass lifecycle                                                      |
+| `tasks.ts`                               | Task management                                                     |
+| `state.ts`                               | Singleton state + pause/resume                                      |
+| `modes.ts`                               | Mode descriptors                                                    |
+| `priorities.ts`                          | Priority ladder + selector                                          |
+| `decisions.ts`                           | Decision log + confidence thresholds                                |
+| `planner.ts`                             | Build-job enqueuer (within mission)                                 |
+| **`discovery-orchestrator.ts`**          | 7 discovery methods + per-type strategies + cadence                 |
+| `web-navigator.ts`                       | Candidate URL store + junk classifier                               |
+| `sitemap-discovery.ts`                   | Sitemap discovery + robots.txt                                      |
+| `rss-discovery.ts`                       | RSS / Atom feed discovery                                           |
+| `configured-urls.ts`                     | Configured fixed URL list discovery                                 |
+| `internal-link-discovery.ts`             | Internal-link discovery                                             |
+| `directory-discovery.ts`                 | Catholic content directory discovery                                |
+| `search-page-discovery.ts`               | Approved-source search-page discovery                               |
+| `source-apis.ts`                         | Official source API adapter registry                                |
+| **`candidate-scorer.ts`**                | 7-dimension candidate scoring + outcome adjustment                  |
+| **`fetcher.ts`**                         | Approved-host fetch + checksum + login/binary rejection             |
+| `source-reads.ts`                        | Source-read dedupe via sha256 checksum                              |
+| `source-reader.ts`                       | Orchestrator: classify + extract + read                             |
+| **`structured-source-reader.ts`**        | HTML parser → AdminWorkerSourceBlock rows                           |
+| **`confusion-detector.ts`**              | 11 confusion rules (flip to UNUSABLE before extract)                |
+| `classifier.ts`                          | Deterministic content classifier + `classifyDetailed`               |
+| `extractors.ts`                          | Per-type extractors + field provenance                              |
+| **`content-builder.ts`**                 | Builds complete package artifacts (all required fields)             |
+| `provenance.ts`                          | Field-level provenance tracker                                      |
+| **`checklist-citation-orchestrator.ts`** | Artifact → ChecklistItem + ChecklistCitation bridge                 |
+| `cross-source-verifier.ts`               | Field verification + ValidationEvidence                             |
+| **`validation-source-resolver.ts`**      | Field → ranked validation hosts + conflict fallback                 |
+| **`validation-fetcher.ts`**              | Actually fetches + reads + compares validation pages                |
+| **`verifier.ts`**                        | Sensitive-field whitelist + pre-publish verifier gate               |
+| `packaging.ts`                           | Per-content-type structural validators                              |
+| **`strict-qa.ts`**                       | Artifact-level strict QA (7 sub-scores + gate)                      |
+| `quality.ts`                             | 10-dim quality scoring (`computeFinalScoreV2`)                      |
+| **`publish-orchestrator.ts`**            | The only publish path; idempotent; updates all stores               |
+| `publisher.ts`                           | Publish-gate evaluator used by the orchestrator                     |
+| `publish-safety.ts`                      | Pattern blockers (incomplete prayers, …)                            |
+| `post-publish-probe.ts`                  | Live HTTP probe                                                     |
+| **`search-sitemap-cache-verifiers.ts`**  | Independent search + sitemap + cache verification                   |
+| `post-publish.ts`                        | Aggregation + decision                                              |
+| **`post-publish-rollback.ts`**           | REPAIR → UNPUBLISH → DELETED → HUMAN_REVIEW decision tree           |
+| `homepage-designer.ts`                   | Homepage scoring + draft decision                                   |
+| `homepage-mutator.ts`                    | Builds proposed homepage snapshots                                  |
+| **`homepage-publish-orchestrator.ts`**   | 10-axis inspect + snapshot + verify + rollback                      |
+| `liturgical-calendar.ts`                 | Meeus-based liturgical calendar engine                              |
+| `security-defender.ts`                   | Defender + automatic ban + email                                    |
+| `security-detectors.ts`                  | 10 deterministic detector functions                                 |
+| **`request-defender.ts`**                | 7 helpers (failed login, brute force, mutation, …)                  |
+| **`admin-route-guard.ts`**               | `requireAdminWithDefender` for non-gate routes                      |
+| `pipeline-stages.ts`                     | Pipeline-stage chain + `resumeOrAdvance` checksum skip              |
+| `repair.ts`                              | In-pass repair handlers                                             |
+| **`repair-orchestrator.ts`**             | Real per-kind repair execution (not just logging)                   |
+| `repair-plans.ts`                        | Durable repair-plan queue + exponential backoff                     |
+| `learning.ts`                            | Feedback loop (success/failure counts)                              |
+| `memory.ts`                              | Memory hooks + **30-day half-life decay**                           |
+| `source-reputation.ts`                   | EWMA-smoothed reputation engine                                     |
+| **`source-reputation-hooks.ts`**         | Per-stage `pushReputation` (discovery → post-publish)               |
+| `source-strategy.ts`                     | 10-criteria source ranking                                          |
+| **`source-coverage.ts`**                 | Primary/validation/enrichment coverage per content type             |
+| `content-goals.ts`                       | Per-content-type minimum/desired                                    |
+| `content-growth.ts`                      | 24 h / 7 d growth-escalation watcher                                |
+| **`growth-orchestrator.ts`**             | 7 growth-status classes + auto-file repair plans                    |
+| **`content-growth-monitor.ts`**          | Per-content-type funnel (candidates → cache) + bottleneck           |
+| `cleanup.ts`                             | Cleanup custodian                                                   |
+| `human-review.ts`                        | Rare-edge-case review queue                                         |
+| `deletion.ts`                            | Confidence-gated deletion + 9 reasons                               |
+| `health.ts`                              | Worker health monitor                                               |
+| `metrics.ts`                             | Command Center metric computation                                   |
+| `diagnostics.ts`                         | Subsystem ratings + diagnostics auditor                             |
+| **`why-no-growth.ts`**                   | Live chain walk → first blocker + next automatic repair             |
+| `readiness.ts`                           | Production-readiness 12-check sweep                                 |
+| `rules.ts`                               | Versioned rules across categories                                   |
+| `logs.ts`                                | Structured AdminWorkerLog writer                                    |
+| `report-generator.ts`                    | Developer Audit data collection (incl. the Worker Requests section) |
+| `pdf.ts`                                 | PDF rendering for both reports                                      |
+| `monthly-report-job.ts`                  | Last-day-of-month gate + run                                        |
+| `public-routes.ts`                       | Public URL builder + cache tag mapping                              |
 
 ### Pause + override
 
@@ -824,6 +824,12 @@ release as the node base). TypeScript talks to it through a typed bridge:
 - **Admin feedback as training signal** (`service.recordAdminFeedback`):
   an admin approve/reject/edit/unpublish/repair becomes a learned outcome
   that changes future behaviour.
+- **Developer report — Worker Requests section** (`report-generator.ts` +
+  `pdf.ts`): every Developer Audit ends with the worker's own self-aware
+  requests for what it needs to be better/smarter/more capable (parser,
+  schema, source, UI, safety, capability, and code/refactor needs), drawn
+  from self-inspection + schema/UI/code awareness. Also surfaced live on the
+  `/admin/intelligence` dashboard.
 - **Maintenance intelligence, throttled** (`awareness.ts` + `custody.ts`):
   **schema-awareness** (parses the Prisma schema → isolated/under-indexed
   models), **UI-awareness** (scans routes/admin pages → content types with
