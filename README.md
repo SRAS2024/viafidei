@@ -132,36 +132,38 @@ design.
 
 **Admin Worker engine** (`src/lib/admin-worker/`):
 
-| Model                                | Role                                                          |
-| ------------------------------------ | ------------------------------------------------------------- |
-| `AdminWorkerState`                   | Singleton: current mode, priority, pause toggle               |
-| `AdminWorkerPass`                    | One row per decide-then-act cycle of the loop                 |
-| `AdminWorkerTask`                    | Planned action; produces one or more log rows                 |
-| `AdminWorkerLog`                     | Structured engine log (16 categories)                         |
-| `AdminWorkerDecision`                | Brain decision: chosen action + ranked alternatives + reason  |
-| `AdminWorkerActionScore`             | One row per ranked action (every action, not only the chosen) |
-| `AdminWorkerReasoningGraph`          | Directed "why" graph edges connecting every pipeline entity   |
-| `AdminWorkerMemory`                  | Outcome counts + confidence — no invented facts, 30-day decay |
-| `AdminWorkerSourceReputation`        | EWMA + time-decayed per-(host, contentType) reputation tier   |
-| `AdminWorkerSecurityAction`          | Defender actions taken in response to security events         |
-| `AdminWorkerSourceRead`              | Durable extracted text per (sourceUrl, checksum)              |
-| `AdminWorkerSourceBlock`             | Structured HTML blocks (heading, paragraph, list, …)          |
-| `AdminWorkerFetchResult`             | Every fetch: status, checksum, host, rejection reason         |
-| `AdminWorkerPackageArtifact`         | Built content package (provenance + missing fields)           |
-| `AdminWorkerStrictQAResult`          | Per-artifact strict QA: 7 sub-scores + blocking reasons       |
-| `AdminWorkerCrossSourceVerification` | Per-field validation evidence with conflict status            |
-| `AdminWorkerSourceCoverage`          | Per-type primary/validation/enrichment + active/recent counts |
-| `AdminWorkerGrowthSnapshot`          | Per-content-type 24h/7d growth status                         |
-| `AdminWorkerPipelineStage`           | One row per item moving through the 22-stage chain            |
-| `AdminWorkerRepairPlan`              | Durable repair plans with exponential-backoff retry           |
-| `CandidateSourceUrl`                 | URLs the discovery orchestrator has found (with scoring)      |
-| `ContentGoal`                        | Per-content-type minimum + desired targets                    |
-| `HumanReviewQueue`                   | Rare items needing human review                               |
-| `HomepageWorkerDraft`                | Proposed homepage edits with before/after snapshots           |
-| `AdminDeveloperReportLog`            | Audit trail of every Developer Audit PDF generated            |
-| `PostPublishVerification`            | Public-page load + cache + sitemap + search check             |
-| `ContentQualityScore`                | Deterministic per-package quality score (10 dimensions)       |
-| `HomepageQualityScore`               | Deterministic homepage score (8 dimensions)                   |
+| Model                                | Role                                                                                                 |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `AdminWorkerState`                   | Singleton: current mode, priority, pause toggle                                                      |
+| `AdminWorkerPass`                    | One row per decide-then-act cycle of the loop                                                        |
+| `AdminWorkerTask`                    | Planned action; produces one or more log rows                                                        |
+| `AdminWorkerLog`                     | Structured engine log (16 categories)                                                                |
+| `AdminWorkerDecision`                | Brain decision: chosen action + ranked alternatives + reason                                         |
+| `AdminWorkerActionScore`             | One row per ranked action (every action, not only the chosen) — incl. `fallbackAction`               |
+| `AdminWorkerReasoningGraph`          | Directed "why" graph edges connecting every pipeline entity                                          |
+| `AdminWorkerStageOutcome`            | Exact per-stage outcome ledger (result, duration, confidence, repair) — the brain's precise feedback |
+| `AdminWorkerRollbackLedger`          | Durable, restorable-aware record of every post-publish rollback                                      |
+| `AdminWorkerMemory`                  | Outcome counts + confidence — no invented facts, 30-day decay                                        |
+| `AdminWorkerSourceReputation`        | EWMA + time-decayed per-(host, contentType) reputation tier                                          |
+| `AdminWorkerSecurityAction`          | Defender actions taken in response to security events                                                |
+| `AdminWorkerSourceRead`              | Durable extracted text per (sourceUrl, checksum)                                                     |
+| `AdminWorkerSourceBlock`             | Structured HTML blocks (heading, paragraph, list, …)                                                 |
+| `AdminWorkerFetchResult`             | Every fetch: status, checksum, host, rejection reason                                                |
+| `AdminWorkerPackageArtifact`         | Built content package (provenance + missing fields)                                                  |
+| `AdminWorkerStrictQAResult`          | Per-artifact strict QA: 7 sub-scores + blocking reasons                                              |
+| `AdminWorkerCrossSourceVerification` | Per-field validation evidence with conflict status                                                   |
+| `AdminWorkerSourceCoverage`          | Per-type primary/validation/enrichment + active/recent counts                                        |
+| `AdminWorkerGrowthSnapshot`          | Per-content-type 24h/7d growth status                                                                |
+| `AdminWorkerPipelineStage`           | One row per item moving through the 22-stage chain                                                   |
+| `AdminWorkerRepairPlan`              | Durable repair plans with exponential-backoff retry                                                  |
+| `CandidateSourceUrl`                 | URLs the discovery orchestrator has found (with scoring)                                             |
+| `ContentGoal`                        | Per-content-type minimum + desired targets                                                           |
+| `HumanReviewQueue`                   | Rare items needing human review                                                                      |
+| `HomepageWorkerDraft`                | Proposed homepage edits with before/after snapshots                                                  |
+| `AdminDeveloperReportLog`            | Audit trail of every Developer Audit PDF generated                                                   |
+| `PostPublishVerification`            | Public-page load + cache + sitemap + search check                                                    |
+| `ContentQualityScore`                | Full per-package quality model — 10 dimensions + threshold + pass/fail + failed-dimension list       |
+| `HomepageQualityScore`               | Deterministic homepage score (8 dimensions)                                                          |
 
 **User + site:**
 
@@ -303,6 +305,72 @@ fully coded and operating **without any AI APIs**. Code lives under
 (Command Center) and `/admin/diagnostics` (per-subsystem ratings +
 pause toggle). It is the **only** system that creates public content
 (see [Single content path](#single-content-path-no-legacy)).
+
+### Brain as the central reasoning layer
+
+The Python intelligence brain is the **reasoning layer**; the TypeScript
+worker is the **safety-enforcing executor**. The brain thinks, scores,
+ranks, compares, detects, learns, diagnoses, and recommends — it never
+publishes, deletes, bans, mutates users, or bypasses any gate. TypeScript
+enforces truth, provenance, strict QA, the full quality score, publishing
+rules, rollback, security, and database integrity. Concretely:
+
+- **Every considered action is stored, not just the chosen one.**
+  `AdminWorkerActionScore` records each ranked action with action type,
+  mission stage, target content type / source / candidate, expected
+  result, final / confidence / risk / quality / source / repair scores,
+  the **fallback action**, the rejected reason, and the selected flag — so
+  the worker can explain what it chose, why it rejected alternatives, and
+  what nearly won.
+- **Exact stage feedback.** Every dispatcher result writes one precise
+  `AdminWorkerStageOutcome` (stage, action, entity, result, result type,
+  failure reason, downstream stage, duration, confidence-before, actual
+  outcome, repair-created, next action). `summarizeStageReliability`
+  aggregates real per-stage success/failure so the brain scores from
+  exact outcomes instead of guessed attribution.
+- **Full quality model, stored and enforced.** `ContentQualityScore`
+  stores all ten dimensions (completeness, correctness, formatting,
+  source authority, field provenance, validation evidence, duplicate
+  safety, public rendering, doctrinal sensitivity, package consistency)
+  plus the threshold, the pass/fail verdict, and the **failed-dimension
+  list**. Publishing uses the full stored score; the dashboard and
+  Developer Audit show exactly which dimension failed.
+- **Generated sitemap is actually inspected.** `sitemap-inspect.ts`
+  builds the expected URL, assembles the generated sitemap's URL set
+  (real generator ∪ authoritative published-row mapping), and confirms
+  the public URL is present — a genuine miss files a sitemap repair that
+  re-verifies the generated output. A live `/sitemap.xml` probe + parser
+  runs in production.
+- **Cache freshness is proven against the public route.** A content
+  checksum is stamped on `PublishedContent.contentChecksum` at publish
+  time; cache verification confirms the marker matches the live row and
+  (with `probeLive`) fetches the public route to confirm the latest
+  title/checksum is served, failing → repairing → re-verifying when
+  stale.
+- **Rollback guarantees.** Every post-publish rollback writes an
+  `AdminWorkerRollbackLedger` row (previous public state, failed reason,
+  action, related artifact/repair, human-review, result, restorable).
+  DELETED is the only non-restorable terminal state. Surfaced in
+  diagnostics + the Developer Audit.
+- **Content-type intelligence profiles.** `content-type-profiles.ts` is
+  the single source of truth per content type for required / validation
+  fields, forbidden patterns, doctrinal sensitivity, source-authority +
+  cross-source-validation requirements, QA + quality thresholds,
+  extraction strategy, public route, and publishing / repair / rollback /
+  human-review rules.
+- **Brain IQ diagnostics.** `/admin/intelligence` shows brain
+  availability + protocol, ok/failed call counts, average latency,
+  average + safe-to-auto-execute confidence, learning events, and
+  strategy-memory size, drawn from the `AdminWorkerBrainCall` ledger.
+- **No placeholders.** `npm run admin-worker:no-placeholders` fails the
+  build if production worker code contains unresolved implementation
+  language (TODO, "not implemented", "placeholder stage", "intent only",
+  "log only", "phase 2", "future pass", "stub", …); the readiness check
+  also fails if a publish path bypasses strict QA or the quality score.
+- **Live dry run.** `npm run admin-worker:proof:dry-run` runs the full
+  chain (extract → package → strict QA → full quality score → publish
+  decision) and **explains whether it would publish (and why not)
+  without writing any public row**.
 
 ### What it does
 
@@ -1021,7 +1089,12 @@ npm run admin-worker:proof:security           # 5 defender flows (login email, t
 npm run admin-worker:proof:reports            # Developer Audit generates + required sections + secret redaction
 npm run admin-worker:proof:live               # back-half proof against a REAL DB: extract → publish a prayer
 npm run admin-worker:proof:autonomy           # FULL autonomous loop vs REAL DB + REAL HTTP (local mirror)
+npm run admin-worker:proof:dry-run            # full chain → publish DECISION, explained, nothing published
+npm run admin-worker:no-placeholders          # build fails on unresolved implementation language
 npm run worker:dry-run                        # offline brain action-ranking across synthetic worlds
+npm run verify:all                            # complete local verification: prisma validate/generate +
+                                              #   brain selftest/tests + typecheck + lint + no-placeholders +
+                                              #   unit tests + content/all-types/security/reports proofs + dry-run
 ```
 
 `admin-worker:proof:autonomy` is the strongest end-to-end proof: it serves
@@ -1148,22 +1221,23 @@ device known so subsequent navigation reads as expected activity.
 
 ## Migration history
 
-| Migration                                          | What it added                                                                                   |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `0001` – `0022`                                    | Original schema (auth, content, ingestion, …)                                                   |
-| `0023_checklist_first_architecture`                | Checklist-first models (ChecklistItem, …)                                                       |
-| `0024_admin_worker`                                | Admin Worker engine tables (15 + enums)                                                         |
-| `0025_drop_legacy_system`                          | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent                       |
-| `0026_admin_worker_brain`                          | Brain tables: SourceRead, PipelineStage, RepairPlan                                             |
-| `0027_admin_worker_brain_ranking`                  | Brain ranked alternatives + AdminWorkerFetchResult / SourceBlock / CrossSourceVerification      |
-| `0028_admin_worker_pipeline_and_orchestrators`     | Pipeline durability + candidate scoring fields + SourceCoverage + GrowthSnapshot                |
-| `0029_admin_worker_package_artifact`               | AdminWorkerPackageArtifact (built package as a first-class artifact)                            |
-| `0030_admin_worker_strict_qa`                      | AdminWorkerStrictQAResult (durable strict-QA per artifact)                                      |
-| `0031_admin_worker_repair_kinds_strict_qa_quality` | Added STRICT_QA_FAILED + QUALITY_SCORE_FAILED repair kinds                                      |
-| `0032_admin_worker_source_coverage_active_counts`  | SourceCoverage: active / recently-successful / recently-failed source counts                    |
-| `0033` – `0037`                                    | Action-score + reasoning-graph tables; parish / pope / doctor / rite content types              |
-| `0038_intelligence_memory_graph`                   | Intelligence brain store: Embedding (vectors), GraphNode/GraphEdge, DeveloperRequest, BrainCall |
-| `0039_daily_readings`                              | DailyReading (daily liturgical readings as internal content)                                    |
+| Migration                                          | What it added                                                                                                                                    |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `0001` – `0022`                                    | Original schema (auth, content, ingestion, …)                                                                                                    |
+| `0023_checklist_first_architecture`                | Checklist-first models (ChecklistItem, …)                                                                                                        |
+| `0024_admin_worker`                                | Admin Worker engine tables (15 + enums)                                                                                                          |
+| `0025_drop_legacy_system`                          | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent                                                                        |
+| `0026_admin_worker_brain`                          | Brain tables: SourceRead, PipelineStage, RepairPlan                                                                                              |
+| `0027_admin_worker_brain_ranking`                  | Brain ranked alternatives + AdminWorkerFetchResult / SourceBlock / CrossSourceVerification                                                       |
+| `0028_admin_worker_pipeline_and_orchestrators`     | Pipeline durability + candidate scoring fields + SourceCoverage + GrowthSnapshot                                                                 |
+| `0029_admin_worker_package_artifact`               | AdminWorkerPackageArtifact (built package as a first-class artifact)                                                                             |
+| `0030_admin_worker_strict_qa`                      | AdminWorkerStrictQAResult (durable strict-QA per artifact)                                                                                       |
+| `0031_admin_worker_repair_kinds_strict_qa_quality` | Added STRICT_QA_FAILED + QUALITY_SCORE_FAILED repair kinds                                                                                       |
+| `0032_admin_worker_source_coverage_active_counts`  | SourceCoverage: active / recently-successful / recently-failed source counts                                                                     |
+| `0033` – `0037`                                    | Action-score + reasoning-graph tables; parish / pope / doctor / rite content types                                                               |
+| `0038_intelligence_memory_graph`                   | Intelligence brain store: Embedding (vectors), GraphNode/GraphEdge, DeveloperRequest, BrainCall                                                  |
+| `0039_daily_readings`                              | DailyReading (daily liturgical readings as internal content)                                                                                     |
+| `0040_stage_outcomes_rollback_quality_v2`          | AdminWorkerStageOutcome + AdminWorkerRollbackLedger; full ContentQualityScore model; action `fallbackAction`; PublishedContent `contentChecksum` |
 
 The legacy scraper-first ingestion + legacy public-content models
 (`Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,
