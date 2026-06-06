@@ -39,22 +39,22 @@ Response: the envelope plus `id`, `op`, `protocol_version`, `elapsed_ms`.
 
 ## Operations
 
-| Op | Purpose |
-|----|---------|
-| `embed`, `semantic_search` | semantic memory / vector search |
-| `detect_duplicates` | multi-signal duplicate detection |
-| `score_quality` | per-record quality profile + publish gates |
+| Op                                                          | Purpose                                                                         |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `embed`, `semantic_search`                                  | semantic memory / vector search                                                 |
+| `detect_duplicates`                                         | multi-signal duplicate detection                                                |
+| `score_quality`                                             | per-record quality profile + publish gates                                      |
 | `assess_source`, `detect_communion_risk`, `compare_sources` | source intelligence, Catholic communion-risk screening, contradiction detection |
-| `infer_relationships` | recommend edges between records |
-| `classify_failure`, `diagnose_fetch` | repair intelligence + webpage-fetch diagnosis |
-| `self_inspect`, `developer_requests`, `iq_metrics` | self-inspection, developer requests, worker-IQ metrics |
-| `plan`, `prioritize` | planning + priority intelligence |
-| `analyze_graph` | knowledge-graph analysis |
-| `scan_content` | prompt-injection / manipulation detection |
-| `classify_freshness` | refresh-cadence classification |
+| `infer_relationships`                                       | recommend edges between records                                                 |
+| `classify_failure`, `diagnose_fetch`                        | repair intelligence + webpage-fetch diagnosis                                   |
+| `self_inspect`, `developer_requests`, `iq_metrics`          | self-inspection, developer requests, worker-IQ metrics                          |
+| `plan`, `prioritize`                                        | planning + priority intelligence                                                |
+| `analyze_graph`                                             | knowledge-graph analysis                                                        |
+| `scan_content`                                              | prompt-injection / manipulation detection                                       |
+| `classify_freshness`                                        | refresh-cadence classification                                                  |
 
-> **Communion-risk note:** `detect_communion_risk` emits a *verification
-> flag*, never a canonical/doctrinal ruling. When uncertain it raises risk
+> **Communion-risk note:** `detect_communion_risk` emits a _verification
+> flag_, never a canonical/doctrinal ruling. When uncertain it raises risk
 > and recommends human review — the safe direction.
 
 ## Tests

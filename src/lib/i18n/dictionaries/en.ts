@@ -388,7 +388,8 @@ const admin: Dict = {
   "admin.card.search": "Search index",
   "admin.card.audit": "Audit log",
   "admin.card.intelligence": "Worker Intelligence",
-  "admin.card.intelligence.desc": "Brain status, worker IQ, decisions, developer requests, communion-risk flags",
+  "admin.card.intelligence.desc":
+    "Brain status, worker IQ, decisions, developer requests, communion-risk flags",
   "admin.card.logs": "Logs",
   "admin.card.media": "Media library",
   "admin.card.homepage": "Homepage mirror editor",

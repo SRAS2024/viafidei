@@ -67,6 +67,35 @@ The public site reads only from `PublishedContent`. There is no other
 code path from the database to a public page, and only
 `runPublishOrchestrator()` writes it.
 
+### Body, brain, store
+
+The Admin Worker is split into three layers:
+
+```
+   TypeScript = the BODY            Python = the BRAIN          Postgres = the STORE
+   (src/lib/admin-worker/)          (intelligence/)             (Prisma models)
+   execution, Prisma writes,   ───► semantic memory, dup    ───► long-term memory,
+   queues, policy, publishing,      detection, source intel,     vector store,
+   safety, app + admin glue         quality, relationships,      knowledge graph,
+                              ◄───   repair, self-inspection ◄─── audit trail
+                                     (deterministic, stdlib)
+```
+
+- **TypeScript executes; Python advises.** TypeScript calls the brain
+  through strict typed contracts (`src/lib/admin-worker/intelligence/`),
+  validates every response with Zod, and keeps all policy/publish
+  decisions. Python returns a structured envelope — `result`, `confidence`,
+  `reasoning`, `evidence`, `sources_used`, `risk_level`,
+  `recommended_next_action`, `safe_to_auto_execute` — and **never touches
+  the database or the network**.
+- **Always optional, never blocking.** The brain is behind
+  `INTELLIGENCE_BRAIN_ENABLED` (default on) and fails open: if Python is
+  absent, times out, or returns malformed output, the worker falls back to
+  its existing deterministic heuristics.
+
+See [Intelligence brain (Python)](#intelligence-brain-python) for the full
+design.
+
 ---
 
 ## Data model
@@ -155,7 +184,18 @@ npm run dev
 
 # Run the Admin Worker in another terminal
 npm run worker
+
+# Refresh today's daily readings (the worker also does this on a schedule)
+npm run readings:refresh
+
+# Exercise the Python intelligence brain (needs python3 on PATH)
+npm run brain:selftest
+npm run brain:test
 ```
+
+The intelligence brain needs `python3` (3.11+, stdlib only — no pip
+installs). When it isn't present the worker still runs and uses its
+deterministic fallbacks.
 
 Required environment variables (production):
 
@@ -168,13 +208,16 @@ Required environment variables (production):
 
 Optional environment variables:
 
-| Variable                    | Purpose                                                      |
-| --------------------------- | ------------------------------------------------------------ |
-| `RESEND_API_KEY`            | Enables transactional + admin emails                         |
-| `ADMIN_EMAIL`               | Destination for Admin Worker monthly + security emails       |
-| `PUBLIC_BASE_URL`           | Base URL the post-publish probe + verifiers fetch from       |
-| `WORKER_ID`                 | Stable id for this worker process (auto-generated)           |
-| `ADMIN_WORKER_SKIP_NETWORK` | Test-only: dispatcher skips real fetch + read calls when `1` |
+| Variable                     | Purpose                                                      |
+| ---------------------------- | ------------------------------------------------------------ |
+| `RESEND_API_KEY`             | Enables transactional + admin emails                         |
+| `ADMIN_EMAIL`                | Destination for Admin Worker monthly + security emails       |
+| `PUBLIC_BASE_URL`            | Base URL the post-publish probe + verifiers fetch from       |
+| `WORKER_ID`                  | Stable id for this worker process (auto-generated)           |
+| `ADMIN_WORKER_SKIP_NETWORK`  | Test-only: dispatcher skips real fetch + read calls when `1` |
+| `INTELLIGENCE_BRAIN_ENABLED` | Python intelligence brain on/off (default on; `0` disables)  |
+| `INTELLIGENCE_PYTHON`        | Python executable for the brain (default `python3`)          |
+| `INTELLIGENCE_TIMEOUT_MS`    | Per brain-call timeout (default `8000`)                      |
 
 ---
 
@@ -184,15 +227,20 @@ Optional environment variables:
 
 **Admin Worker (autonomous system):**
 
-| Card               | Route                           | Purpose                                                                                          |
-| ------------------ | ------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Command Center     | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls |
-| System diagnostics | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF             |
-| Worker Reasoning   | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph  |
-| Pipeline map       | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                               |
-| Package artifacts  | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                            |
-| Admin Worker logs  | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                            |
-| Admin Worker rules | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                         |
+| Card                | Route                           | Purpose                                                                                                  |
+| ------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Command Center      | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls         |
+| System diagnostics  | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF                     |
+| Worker Reasoning    | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph          |
+| Pipeline map        | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                                       |
+| Package artifacts   | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                                    |
+| Admin Worker logs   | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                                    |
+| Admin Worker rules  | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                                 |
+| Worker Intelligence | `/admin/intelligence`           | Brain status, worker-IQ, recent decisions, developer requests, communion-risk flags, memory/graph counts |
+
+The public **daily readings** page lives at `/liturgy/readings` (the
+homepage + liturgical calendar link to it); the worker keeps it current and
+routes uncertain days to review.
 
 **Checklist (read-only management surfaces):**
 
@@ -691,6 +739,96 @@ email.
 
 ---
 
+## Intelligence brain (Python)
+
+A permanent intelligence core under [`intelligence/`](intelligence/) gives
+the Admin Worker semantic, learning, and self-inspection abilities while
+TypeScript stays the safe execution layer. It is **pure-stdlib and
+deterministic** (no external AI APIs, no network), consistent with the
+worker brain's existing "deterministic rules only" rule, so the same input
+always yields the same output and every recommendation is auditable.
+
+### How it's called
+
+The brain runs as a subprocess — `python3 -m intelligence` speaks
+newline-delimited JSON over stdio. TypeScript talks to it through a typed
+bridge:
+
+- `src/lib/admin-worker/intelligence/contracts.ts` — Zod-validated response
+  envelope + a protocol-version check + typed result interfaces.
+- `src/lib/admin-worker/intelligence/client.ts` — `callBrain()` spawns the
+  subprocess, validates output, caches expensive analysis, and **degrades
+  gracefully** (returns `null`) whenever the brain is disabled/offline.
+- `src/lib/admin-worker/intelligence/index.ts` — one typed wrapper per op.
+- `src/lib/admin-worker/intelligence/service.ts` — worker-facing functions
+  that call the brain, write the audit trail, persist durable output, and
+  return a fallback-safe shape.
+- `src/lib/admin-worker/intelligence/store.ts` — all Postgres writes
+  (TypeScript owns the database; Python never does).
+
+### Operations (`intelligence/operations/`)
+
+| Op                                                          | Purpose                                                                          |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `embed`, `semantic_search`                                  | semantic memory / vector search                                                  |
+| `detect_duplicates`                                         | exact + slug + fuzzy + semantic + alias + source/citation duplicate scoring      |
+| `score_quality`                                             | per-record quality profile + hard publish gates                                  |
+| `assess_source`, `detect_communion_risk`, `compare_sources` | source authority, **Catholic communion-risk screening**, contradiction detection |
+| `infer_relationships`                                       | recommend knowledge-graph edges                                                  |
+| `classify_failure`, `diagnose_fetch`                        | repair intelligence + webpage-fetch diagnosis                                    |
+| `self_inspect`, `developer_requests`, `iq_metrics`          | self-inspection, the worker's developer requests, worker-IQ metrics              |
+| `plan`, `prioritize`                                        | planning + priority intelligence                                                 |
+| `analyze_graph`                                             | orphans, weak links, hubs, components, duplicate clusters, missing edges         |
+| `scan_content`                                              | prompt-injection / manipulation detection on sanitised text                      |
+| `classify_freshness`                                        | refresh-cadence classification                                                   |
+
+> **Communion-risk note.** `detect_communion_risk` emits a _verification
+> flag_, never a canonical/doctrinal ruling. Sources or content that may not
+> be in full communion with Rome (e.g. "Old Catholic", "independent
+> Catholic", "not in communion with Rome") raise risk and route to human
+> review before publishing; official domains (`vatican.va`, diocesan, USCCB)
+> are recognised as trustworthy. When uncertain it raises risk — the safe
+> direction.
+
+### Where the brain is wired in
+
+- **Every worker pass** (`loop.ts` → `intelligence-pass.ts`): self-inspects
+  recent failures/blocked actions, persists deduped **developer requests**,
+  and computes **worker-IQ** metrics. Best-effort, never blocks the pass.
+- **Publish gate** (`publish-orchestrator.ts`): a communion-risk screen
+  routes risky content to review before the existing quality/QA gates.
+- **Daily readings** (`daily-readings.ts`): freshness classification +
+  review-on-uncertainty.
+
+### Postgres tables (migration `0038`)
+
+`AdminWorkerEmbedding` (vector/semantic-memory store, JSON embeddings — no
+pgvector required), `AdminWorkerGraphNode` / `AdminWorkerGraphEdge`
+(knowledge graph; inferred edges land `PROPOSED` until approved),
+`AdminWorkerDeveloperRequest` (the worker's requests to the developer,
+deduped by fingerprint), and `AdminWorkerBrainCall` (audit trail of every
+brain call).
+
+### Admin surface
+
+`/admin/intelligence` shows brain status, worker-IQ, recent decisions with
+confidence + risk, the developer-request queue, communion-risk flags, the
+operation mix, and memory/graph counts.
+
+### Commands
+
+```bash
+python3 -m intelligence --selftest   # run every op against a sample payload
+python3 -m intelligence --list-ops   # list ops + protocol version
+npm run brain:test                   # python unit tests (stdlib unittest)
+npm run brain:selftest               # same as --selftest
+```
+
+Enabling the brain in production requires `python3` in the worker image;
+when it is absent the worker simply uses its deterministic fallbacks.
+
+---
+
 ## Public site
 
 Every public page renders directly from `PublishedContent`:
@@ -758,6 +896,21 @@ npm run test:e2e    # playwright
 npm run verify      # typecheck + lint + format:check + test
 npm run verify:full # verify + integration + e2e + build
 ```
+
+The Python intelligence brain has its own deterministic test suites
+(stdlib only — no pip installs):
+
+```bash
+npm run brain:test       # python3 -m unittest (core, every op, the stdio protocol)
+npm run brain:selftest   # every op produces a valid envelope
+```
+
+The TS↔Python bridge and the full TS→Python→Postgres loop are covered by
+`tests/admin-worker/intelligence/bridge.test.ts` (unit; brain spawns are
+opt-in) and `tests/integration/intelligence.test.ts` (integration, needs a
+test Postgres). The unit suite defaults `INTELLIGENCE_BRAIN_ENABLED=0` for
+determinism; brain-specific tests opt back in. Integration tests run with
+`VITEST_INTEGRATION=1` + `TEST_DATABASE_URL`.
 
 ### Admin Worker proof gate
 
@@ -899,19 +1052,22 @@ device known so subsequent navigation reads as expected activity.
 
 ## Migration history
 
-| Migration                                          | What it added                                                                              |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `0001` – `0022`                                    | Original schema (auth, content, ingestion, …)                                              |
-| `0023_checklist_first_architecture`                | Checklist-first models (ChecklistItem, …)                                                  |
-| `0024_admin_worker`                                | Admin Worker engine tables (15 + enums)                                                    |
-| `0025_drop_legacy_system`                          | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent                  |
-| `0026_admin_worker_brain`                          | Brain tables: SourceRead, PipelineStage, RepairPlan                                        |
-| `0027_admin_worker_brain_ranking`                  | Brain ranked alternatives + AdminWorkerFetchResult / SourceBlock / CrossSourceVerification |
-| `0028_admin_worker_pipeline_and_orchestrators`     | Pipeline durability + candidate scoring fields + SourceCoverage + GrowthSnapshot           |
-| `0029_admin_worker_package_artifact`               | AdminWorkerPackageArtifact (built package as a first-class artifact)                       |
-| `0030_admin_worker_strict_qa`                      | AdminWorkerStrictQAResult (durable strict-QA per artifact)                                 |
-| `0031_admin_worker_repair_kinds_strict_qa_quality` | Added STRICT_QA_FAILED + QUALITY_SCORE_FAILED repair kinds                                 |
-| `0032_admin_worker_source_coverage_active_counts`  | SourceCoverage: active / recently-successful / recently-failed source counts               |
+| Migration                                          | What it added                                                                                   |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `0001` – `0022`                                    | Original schema (auth, content, ingestion, …)                                                   |
+| `0023_checklist_first_architecture`                | Checklist-first models (ChecklistItem, …)                                                       |
+| `0024_admin_worker`                                | Admin Worker engine tables (15 + enums)                                                         |
+| `0025_drop_legacy_system`                          | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent                       |
+| `0026_admin_worker_brain`                          | Brain tables: SourceRead, PipelineStage, RepairPlan                                             |
+| `0027_admin_worker_brain_ranking`                  | Brain ranked alternatives + AdminWorkerFetchResult / SourceBlock / CrossSourceVerification      |
+| `0028_admin_worker_pipeline_and_orchestrators`     | Pipeline durability + candidate scoring fields + SourceCoverage + GrowthSnapshot                |
+| `0029_admin_worker_package_artifact`               | AdminWorkerPackageArtifact (built package as a first-class artifact)                            |
+| `0030_admin_worker_strict_qa`                      | AdminWorkerStrictQAResult (durable strict-QA per artifact)                                      |
+| `0031_admin_worker_repair_kinds_strict_qa_quality` | Added STRICT_QA_FAILED + QUALITY_SCORE_FAILED repair kinds                                      |
+| `0032_admin_worker_source_coverage_active_counts`  | SourceCoverage: active / recently-successful / recently-failed source counts                    |
+| `0033` – `0037`                                    | Action-score + reasoning-graph tables; parish / pope / doctor / rite content types              |
+| `0038_intelligence_memory_graph`                   | Intelligence brain store: Embedding (vectors), GraphNode/GraphEdge, DeveloperRequest, BrainCall |
+| `0039_daily_readings`                              | DailyReading (daily liturgical readings as internal content)                                    |
 
 The legacy scraper-first ingestion + legacy public-content models
 (`Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,
