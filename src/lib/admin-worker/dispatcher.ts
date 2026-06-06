@@ -26,6 +26,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import type { BrainDecision, BrainMissionStage } from "./brain";
 import { writeAdminWorkerLog } from "./logs";
+import { recordStageOutcome, toStageOutcome } from "./stage-outcomes";
 
 export interface DispatchOutcome {
   /** The mission stage the dispatcher actually executed. */
@@ -165,11 +166,19 @@ export interface DispatchInput {
 export async function executeMissionStage(input: DispatchInput): Promise<DispatchOutcome> {
   const { prisma, workerId, passId, decision } = input;
   const stage = decision.missionStage;
+  const startedAt = Date.now();
 
   try {
     const raw = await runStageHandler(prisma, workerId, passId, decision, stage);
     // Spec §3.4: every stage return carries the full uniform shape.
-    return enrichOutcome(raw, decision);
+    const outcome = enrichOutcome(raw, decision);
+    // Exact stage-outcome ledger: one precise row per dispatch so the
+    // brain scores from real outcomes, not approximations.
+    await recordStageOutcome(prisma, {
+      ...toStageOutcome(outcome, decision, Date.now() - startedAt),
+      passId,
+    });
+    return outcome;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await writeAdminWorkerLog(prisma, {
@@ -180,7 +189,7 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
       message: `Dispatcher for ${stage} threw: ${message}`,
       safeMetadata: { stage },
     });
-    return enrichOutcome(
+    const outcome = enrichOutcome(
       {
         stage,
         kind: "failed",
@@ -190,6 +199,11 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
       },
       decision,
     );
+    await recordStageOutcome(prisma, {
+      ...toStageOutcome(outcome, decision, Date.now() - startedAt),
+      passId,
+    });
+    return outcome;
   }
 }
 

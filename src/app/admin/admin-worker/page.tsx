@@ -165,6 +165,27 @@ export default async function AdminWorkerPage() {
     })
     .catch(() => []);
 
+  // Exact stage-outcome ledger: the most recent precise per-stage results
+  // the brain learns from (spec: make brain feedback exact).
+  const recentStageOutcomes = await prisma.adminWorkerStageOutcome
+    .findMany({
+      orderBy: { createdAt: "desc" },
+      take: 15,
+      select: {
+        id: true,
+        stage: true,
+        result: true,
+        resultType: true,
+        contentType: true,
+        failureReason: true,
+        downstreamStage: true,
+        durationMs: true,
+        repairCreated: true,
+        createdAt: true,
+      },
+    })
+    .catch(() => []);
+
   const summary = summarizeRatings(ratings);
 
   return (
@@ -556,6 +577,54 @@ export default async function AdminWorkerPage() {
                     <td className="py-1 font-mono">
                       {m.lastUsedAt ? m.lastUsedAt.toISOString().slice(0, 19) : "—"}
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Exact stage-outcome ledger (spec: make brain feedback exact). */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Stage outcomes (exact feedback)</h2>
+          {recentStageOutcomes.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No stage outcomes yet. Every dispatcher stage writes one precise outcome row.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Stage</th>
+                  <th>Result</th>
+                  <th>Type</th>
+                  <th className="text-right">ms</th>
+                  <th>Repair?</th>
+                  <th>Next / failure</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentStageOutcomes.map((s) => (
+                  <tr
+                    key={s.id}
+                    className={`border-t ${
+                      s.resultType === "failure"
+                        ? "bg-rose-50"
+                        : s.resultType === "needs_repair"
+                          ? "bg-amber-50"
+                          : ""
+                    }`}
+                  >
+                    <td className="py-1 font-mono">{s.stage}</td>
+                    <td className="py-1 font-mono">{s.result}</td>
+                    <td className="py-1 font-mono">{s.resultType}</td>
+                    <td className="py-1 text-right font-mono">{Math.round(s.durationMs)}</td>
+                    <td className="py-1 font-mono">{s.repairCreated ? "✓" : "—"}</td>
+                    <td className="py-1 font-serif">
+                      {s.failureReason ?? s.downstreamStage ?? "—"}
+                    </td>
+                    <td className="py-1 font-mono">{s.createdAt.toISOString().slice(11, 19)}</td>
                   </tr>
                 ))}
               </tbody>
