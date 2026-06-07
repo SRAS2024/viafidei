@@ -2,9 +2,13 @@
  * Typed wrappers around {@link callBrain} — one function per brain op.
  *
  * Each returns `Promise<BrainEnvelope<Result> | null>`. A `null` means the
- * brain was unavailable; callers should fall back to their existing
- * deterministic heuristics. The envelope's `safeToAutoExecute` and `riskLevel`
- * are advisory — TypeScript's policy/publish gates make the final decision.
+ * brain was unavailable for that op: for the final-action op (select_action)
+ * this puts the worker into safe degraded mode (it never falls back to a
+ * TypeScript final-decision path); for supplementary ops the caller simply
+ * skips that analysis. The envelope's `safeToAutoExecute` and `riskLevel` are
+ * inputs to TypeScript's safety validation — TypeScript validates the brain's
+ * selected action and enforces every safety/policy/publish gate (and may
+ * reject an unsafe choice) before executing it.
  */
 
 import { callBrain, CallOpts } from "./client";

@@ -5,8 +5,8 @@ This is the Brain from the operator-provided script, kept intact so it
 runs standalone (``python3 -m intelligence.brain`` reproduces the
 original demo). The integrated ``plan`` operation in
 ``intelligence.operations.planning`` reuses ``decompose`` and the
-action-scoring helpers here, but recommends rather than executes — the
-real tools live in TypeScript, which stays the conductor.
+action-scoring helpers here. Python reasons and selects; it never
+executes — TypeScript executes the chosen action and enforces safety.
 """
 
 from __future__ import annotations

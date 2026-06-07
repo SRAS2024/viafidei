@@ -121,20 +121,22 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   await seedContentGoals(prisma).catch(() => 0);
   await refreshContentGoals(prisma);
 
-  // Run the explicit Admin Worker brain. The brain ranks every
-  // candidate action it can take right now and picks the highest-
-  // scoring safe one. The decision (including ranked alternatives)
-  // lands in AdminWorkerDecision for the audit view.
+  // Run the Admin Worker brain pass. TypeScript generates + sub-scores the
+  // candidate actions; the Python brain selects the final action from them
+  // (see runBrain + pythonFinalSelector below). The decision (including
+  // ranked alternatives) lands in AdminWorkerDecision for the audit view.
   const pass = await startPass(prisma, { passType: "AUTONOMOUS" });
 
-  // Pre-decision intelligence: consult the permanent brain for which work to
-  // prioritise next + a next-best-action. Recorded to the audit trail; the
-  // TypeScript brain below remains the conductor. Best-effort, fail-open.
+  // Supplementary pre-pass consultation: ask the Python brain to prioritise
+  // unmet content goals and suggest a next-best-action, recorded to the audit
+  // trail for the reasoning view. This is NOT the final decision — the Python
+  // brain selects the final action via select_action below. Best-effort and
+  // non-blocking.
   try {
     const { adviseNextWork } = await import("./intelligence-advisory");
     await adviseNextWork(prisma, { passId: pass.id });
   } catch {
-    // advisory only — never blocks the decision
+    // supplementary only — never blocks the final decision
   }
 
   // The Python intelligence brain is the FINAL action selector. TypeScript
@@ -249,13 +251,14 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   }
 
   // Post-pass intelligence: self-inspection + developer requests +
-  // worker-IQ metrics via the Python brain. Best-effort and fail-open —
-  // never breaks the loop, and a no-op when the brain is disabled/offline.
+  // worker-IQ metrics via the Python brain. Supplementary and non-blocking —
+  // never breaks the loop, and a no-op when the brain is offline. (The final
+  // action was already selected by the Python brain above.)
   try {
     const { runPostPassIntelligence } = await import("./intelligence-pass");
     await runPostPassIntelligence(prisma, { passId: pass.id, workerId });
   } catch {
-    // ignore — intelligence is advisory and must not affect pass outcome
+    // ignore — post-pass analysis is supplementary and must not affect the pass
   }
 
   // Daily liturgical readings: keep the internal readings page current.
@@ -269,7 +272,8 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   }
 
   // Maintenance intelligence: schema-awareness, UI-awareness, and content
-  // custody. Each is throttled internally and fails open — advisory only.
+  // custody. Each is throttled internally and non-blocking — supplementary
+  // analyses that never affect the pass's final action.
   try {
     const { runSchemaAwareness, runUiAwareness, runCodeAwareness } = await import("./awareness");
     const { runCustodyPass } = await import("./custody");

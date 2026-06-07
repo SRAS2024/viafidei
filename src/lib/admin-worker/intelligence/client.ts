@@ -8,11 +8,13 @@
  * every meaningful decision — not a process that is spawned and thrown away.
  *
  * The process is started lazily on first use, auto-restarts if it dies, and
- * is shut down cleanly via {@link shutdownBrain}. Everything still fails open:
- * if the brain is disabled, Python is missing, a call times out, or the
- * process crashes, `callBrain` returns `null` and the caller falls back to its
- * deterministic heuristics. Resilience is not the same as "optional" — the
- * brain is always consulted; it simply never blocks the worker.
+ * is shut down cleanly via {@link shutdownBrain}. If the brain is disabled,
+ * Python is missing, a call times out, or the process crashes, `callBrain`
+ * returns `null`. For the final-action decision a `null` puts the worker into
+ * safe degraded mode (safe work only — never a TypeScript final-decision
+ * fallback); supplementary callers simply skip that analysis. The brain is the
+ * final decision brain whenever it is available, and resilient by design so an
+ * outage degrades safely rather than crashing the worker.
  */
 
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";

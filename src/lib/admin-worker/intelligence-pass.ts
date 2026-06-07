@@ -2,9 +2,10 @@
  * Post-pass intelligence (spec: "at the end of every major worker run,
  * generate a developer report ... worker request section").
  *
- * Runs after each worker pass. Best-effort and fail-open: gated on the
- * brain feature flag, wrapped so it can never break the loop, and a no-op
- * when the Python brain is offline. It:
+ * Runs after each worker pass. Supplementary and non-blocking: wrapped so
+ * it can never break the loop, and a no-op when the Python brain is offline.
+ * This is the periodic self-awareness + reporting layer — the pass's final
+ * action was already selected by the Python brain. It:
  *   - self-inspects recent failures / blocked actions / pass outcomes and
  *     persists structured developer requests (deduped), and
  *   - computes worker-IQ metrics from the brain-call audit trail + memory.
@@ -32,11 +33,12 @@ import { recordBrainCall } from "./intelligence/store";
 import { writeAdminWorkerLog } from "./logs";
 
 /**
- * Advisory brain analyses run once per pass (best-effort, fail-open):
+ * Supplementary brain analyses run once per pass (best-effort, non-blocking):
  *   - infer_relationships over recent published content, and
  *   - analyze_graph over the knowledge graph.
- * Both only recommend/score; TypeScript records the brain call so the
- * results are visible in IQ diagnostics + the Developer Audit.
+ * These produce scores/suggestions that TypeScript records (the brain call is
+ * stored) so they appear in IQ diagnostics + the Developer Audit. They are
+ * not the final-action brain — the Python brain selects the action elsewhere.
  */
 async function runGraphAndRelationshipAnalysis(
   prisma: PrismaClient,
@@ -119,7 +121,7 @@ async function runGraphAndRelationshipAnalysis(
       await recordBrainCall(prisma, "compare_sources", env, { passId }).catch(() => undefined);
     }
 
-    // Content safety scan: an advisory brain scan of a recent read's text
+    // Content safety scan: a supplementary brain scan of a recent read's text
     // (the publish path still enforces the communion + quality gates).
     const sample = reads.find((r) => (r.extractedText ?? "").length > 0);
     if (sample) {
@@ -129,7 +131,7 @@ async function runGraphAndRelationshipAnalysis(
       await recordBrainCall(prisma, "scan_content", env, { passId }).catch(() => undefined);
     }
   } catch {
-    // advisory only — never break the pass
+    // supplementary only — never break the pass
   }
 }
 
@@ -209,7 +211,7 @@ export async function runPostPassIntelligence(
       ).catch(() => undefined);
     }
 
-    // Advisory brain analyses: relationship inference + graph analysis.
+    // Supplementary brain analyses: relationship inference + graph analysis.
     await runGraphAndRelationshipAnalysis(prisma, opts.passId);
 
     const stats = await gatherIqStats(prisma);

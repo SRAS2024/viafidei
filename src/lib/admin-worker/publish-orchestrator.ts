@@ -169,7 +169,7 @@ export async function runPublishOrchestrator(
   //     overlap — across other published items of the same type. The item's
   //     own slug is excluded so idempotent re-publish/update still works.
   //     Fully skipped (no DB query) when the brain is disabled, so it is
-  //     inert in tests and fails open. "duplicate detected, no publish."
+  //     inert in tests and non-blocking. "duplicate detected, no publish."
   if (isBrainEnabled()) {
     try {
       const { checkDuplicate } = await import("./intelligence/service");
@@ -198,7 +198,7 @@ export async function runPublishOrchestrator(
         }
       }
     } catch {
-      // Intelligence dedupe is advisory; never block publishing on its failure.
+      // Intelligence dedupe is a best-effort safety check; never block publishing on its failure.
     }
   }
 

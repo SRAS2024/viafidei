@@ -202,6 +202,121 @@ describe("pythonFinalSelector", () => {
   });
 });
 
+describe("Python final brain — rejections are logged + no legacy fallback (spec)", () => {
+  const ranked = [
+    action("DISCOVERY", { finalScore: 0.6 }),
+    action("REPORTING", { finalScore: 0.4 }),
+    action("PUBLIC_PUBLISH", { finalScore: 0.99, safe: false }),
+  ];
+
+  it("logs PYTHON_BRAIN_UNAVAILABLE and returns null (never a TS final decision) when Python is unavailable (spec §9)", async () => {
+    const { writeAdminWorkerLog } = await import("@/lib/admin-worker/logs");
+    brainState.enabled = false;
+    const out = await pythonFinalSelector(fakePrisma)({
+      world,
+      decision: decision(ranked),
+      passId: "p1",
+    });
+    // null => the worker enters safe degraded mode; it does NOT pick a TS action
+    expect(out).toBeNull();
+    expect(vi.mocked(writeAdminWorkerLog)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ eventName: "python_brain_unavailable" }),
+    );
+  });
+
+  it("rejects AND logs an invalid Python decision shape (spec §10)", async () => {
+    const { writeAdminWorkerLog } = await import("@/lib/admin-worker/logs");
+    brainState.select = async () => ({ ok: true, result: { selected_action: "DISCOVERY" } });
+    const out = await pythonFinalSelector(fakePrisma)({
+      world,
+      decision: decision(ranked),
+      passId: "p1",
+    });
+    expect(out).toBeNull();
+    expect(vi.mocked(writeAdminWorkerLog)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ eventName: "python_brain_invalid_decision" }),
+    );
+  });
+
+  it("rejects AND logs an unsafe Python selected action (safety gate) (spec §11)", async () => {
+    const { writeAdminWorkerLog } = await import("@/lib/admin-worker/logs");
+    brainState.select = async () => pythonResult("PUBLIC_PUBLISH"); // unsafe candidate in `ranked`
+    const out = await pythonFinalSelector(fakePrisma)({
+      world,
+      decision: decision(ranked),
+      passId: "p1",
+    });
+    expect(out).toBeNull();
+    expect(vi.mocked(writeAdminWorkerLog)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ eventName: "python_brain_rejected_action" }),
+    );
+  });
+
+  it("rejects AND logs a Python action that is not an allowed candidate (spec §11)", async () => {
+    const { writeAdminWorkerLog } = await import("@/lib/admin-worker/logs");
+    brainState.select = async () => pythonResult("INVENTED_STAGE");
+    const out = await pythonFinalSelector(fakePrisma)({
+      world,
+      decision: decision(ranked),
+      passId: "p1",
+    });
+    expect(out).toBeNull();
+    expect(vi.mocked(writeAdminWorkerLog)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ eventName: "python_brain_rejected_action" }),
+    );
+  });
+
+  it("does NOT override a valid SAFE Python choice with its own higher-scored candidate (spec §13)", async () => {
+    // DISCOVERY scores 0.6 (TS top); Python deliberately picks the lower-scored
+    // but safe REPORTING. TypeScript must execute Python's choice, not its argmax.
+    brainState.select = async () => pythonResult("REPORTING");
+    const out = await pythonFinalSelector(fakePrisma)({
+      world,
+      decision: decision(ranked),
+      passId: "p1",
+    });
+    expect(out).not.toBeNull();
+    expect(out!.source).toBe("python");
+    expect(out!.chosen.missionStage).toBe("REPORTING");
+  });
+});
+
+describe("brain assembly: Python selects → executed; unavailable → safe degraded (spec §9, §12, §14)", () => {
+  // These mirror runBrain's exact assembly in brain.ts:
+  //   picked  => applyFinalChosen(candidate, picked.chosen, "python")
+  //   !picked => applyFinalChosen(candidate, safeDegradedAction(candidate), "degraded")
+  const ranked = [
+    action("DISCOVERY", { finalScore: 0.6 }),
+    action("REPORTING", { finalScore: 0.4 }),
+    action("PUBLIC_PUBLISH", { finalScore: 0.99 }), // highest score: a TS argmax would pick this
+  ];
+
+  it("a valid Python-selected action becomes the executed action, tagged python (spec §12)", () => {
+    const final = applyFinalChosen(decision(ranked), action("REPORTING"), "python");
+    expect(final.finalBrain).toBe("python");
+    expect(final.missionStage).toBe("REPORTING");
+  });
+
+  it("when Python is unavailable the executed action is SAFE degraded — never publish, never the TS argmax (spec §9, §14)", () => {
+    const base = decision(ranked);
+    const final = applyFinalChosen(
+      base,
+      safeDegradedAction(base),
+      "degraded",
+      "PYTHON_BRAIN_UNAVAILABLE",
+    );
+    expect(final.finalBrain).toBe("degraded");
+    expect(SAFE_DEGRADED_STAGES.has(final.missionStage)).toBe(true);
+    // PUBLIC_PUBLISH was the highest-scored candidate; a legacy TS argmax would
+    // have executed it. Safe degraded mode must NOT publish content.
+    expect(final.missionStage).not.toBe("PUBLIC_PUBLISH");
+  });
+});
+
 describe("applyFinalChosen", () => {
   it("re-derives top-level fields + tags the final brain source", () => {
     const d = decision([action("DISCOVERY"), action("REPORTING")]);

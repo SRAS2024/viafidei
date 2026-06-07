@@ -1,11 +1,14 @@
 """
 Planning + priority intelligence.
 
-``plan`` reuses the bounded-rationality reasoning principles to produce a
-ranked, scored plan and a next-best-action recommendation — TypeScript
-stays the conductor and actually executes. ``prioritize`` ranks candidate
-work items by mission importance, weakness, user value, source
-availability, confidence, risk and dependency order.
+``select_action`` is the FINAL Admin Worker action selector: it ranks the
+candidate actions TypeScript supplies and chooses the one to run. TypeScript
+then validates that choice against its safety gate and executes it (and may
+reject an unsafe choice). ``plan`` and ``prioritize`` are supplementary —
+``plan`` produces a ranked plan + next-best-action, ``prioritize`` ranks
+candidate work items by mission importance, weakness, user value, source
+availability, confidence, risk and dependency order. Python reasons and
+selects; TypeScript executes and enforces safety.
 """
 
 from __future__ import annotations
@@ -82,7 +85,7 @@ def plan(payload: Dict[str, Any]) -> Dict[str, Any]:
         evidence=[f"{s['action']}: score={s['score']}" for s in steps[:3]],
         risk_level=RISK_LOW,
         recommended_next_action=nba["action"] if nba else "no-action-available",
-        safe_to_auto_execute=False,  # the conductor (TS) decides what to run
+        safe_to_auto_execute=False,  # TypeScript validates + enforces safety before executing
     )
 
 
@@ -342,6 +345,8 @@ def select_action(payload: Dict[str, Any]) -> Dict[str, Any]:
         evidence=result["evidence_used"],
         risk_level=RISK_LOW,
         recommended_next_action=str(selected["_stage"]),
-        # Truth + safety gates live in TypeScript; the brain only recommends.
+        # The brain selects the final action; TypeScript validates this
+        # selection against its safety gate and enforces every truth/safety
+        # gate before executing.
         safe_to_auto_execute=False,
     )
