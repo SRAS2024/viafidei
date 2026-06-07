@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { liturgicalDay, usccbReadingsUrl } from "@/lib/content-shared/liturgical-calendar";
+import { liturgicalDay } from "@/lib/content-shared/liturgical-calendar";
 
 /**
  * Interactive liturgical calendar.
@@ -58,7 +59,6 @@ export function LiturgicalCalendarBrowser({
 
   const date = toCivilDate(iso);
   const day = liturgicalDay(date);
-  const readings = usccbReadingsUrl(date);
   const isRoman = rite === "roman";
   const riteLabel = rites.find((r) => r.value === rite)?.label ?? rite;
 
@@ -116,14 +116,15 @@ export function LiturgicalCalendarBrowser({
         <dd>Year {day.weekdayCycle}</dd>
       </dl>
 
-      <a
-        href={readings}
-        target="_blank"
-        rel="noopener noreferrer"
+      {/* Route to the INTERNAL daily-readings page for the selected day (the
+          worker keeps it current); that page links out to the official source
+          modestly at the bottom. */}
+      <Link
+        href={`/liturgy/readings?date=${iso}`}
         className="vf-btn vf-btn-primary mt-6 inline-block"
       >
         Official Mass readings for this day →
-      </a>
+      </Link>
 
       {!isRoman ? (
         <p className="mt-6 rounded-sm border border-ink/15 bg-ink/5 p-3 font-serif text-xs leading-relaxed text-ink-soft">
