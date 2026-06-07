@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 
-import { enqueueBuild } from "@/lib/worker/build/queue";
+import { enqueueBuild } from "@/lib/checklist/build/queue";
 
 function makePrisma() {
   return {

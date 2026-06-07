@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
-import { AUTHORITY_SOURCES } from "@/lib/worker";
+import { AUTHORITY_SOURCES } from "@/lib/checklist";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +33,7 @@ export default async function AuthoritySources() {
       <p className="text-xs text-ink-soft">
         Bootstrapped list ({AUTHORITY_SOURCES.length} entries) lives in{" "}
         <code className="px-1 py-0.5 bg-slate-100 rounded">
-          src/lib/worker/sources/authority-registry.ts
+          src/lib/checklist/sources/authority-registry.ts
         </code>
         . Run <code className="px-1 py-0.5 bg-slate-100 rounded">npm run seed:checklist</code> to
         sync.

@@ -14,7 +14,7 @@ import {
   authorityLevelForHost,
   isApprovedAuthorityHost,
   findAuthoritySource,
-} from "@/lib/worker/sources/authority-registry";
+} from "@/lib/checklist/sources/authority-registry";
 
 describe("authority source registry", () => {
   it("accepts vatican.va as VATICAN authority", () => {

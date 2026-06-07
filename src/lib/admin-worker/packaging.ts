@@ -1,7 +1,7 @@
 /**
  * Per-content-type packaging validators (spec section 7).
  *
- * The existing `src/lib/worker/schemas/` Zod schemas enforce the core
+ * The existing `src/lib/checklist/schemas/` Zod schemas enforce the core
  * required fields for every content type. These validators add the
  * spec's *structural* extras — fields the spec explicitly enumerates
  * that the schema may treat as optional:

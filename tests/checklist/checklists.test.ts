@@ -4,8 +4,8 @@
 
 import { describe, it, expect } from "vitest";
 
-import { MASTER_CHECKLISTS, totalChecklistItems } from "@/lib/worker/checklists";
-import { canonicalizeSlug } from "@/lib/worker/slugs";
+import { MASTER_CHECKLISTS, totalChecklistItems } from "@/lib/checklist/checklists";
+import { canonicalizeSlug } from "@/lib/checklist/slugs";
 
 describe("master checklists", () => {
   it("covers every content type", () => {

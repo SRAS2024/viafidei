@@ -11,8 +11,8 @@ import {
   curatedKnowledgeByType,
   curatedKnowledgeSize,
   findCuratedEntry,
-} from "@/lib/worker";
-import { validatePayload } from "@/lib/worker/schemas";
+} from "@/lib/checklist";
+import { validatePayload } from "@/lib/checklist/schemas";
 
 describe("curated knowledge base", () => {
   it("contains many entries", () => {

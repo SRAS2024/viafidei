@@ -6,7 +6,7 @@
 
 import { describe, it, expect } from "vitest";
 
-import { CONTENT_SCHEMAS, validatePayload } from "@/lib/worker/schemas";
+import { CONTENT_SCHEMAS, validatePayload } from "@/lib/checklist/schemas";
 
 describe("content schemas", () => {
   it("registers a schema for every content type", () => {

@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 
-import { canonicalizeSlug, normalizeForComparison, suggestSlug } from "@/lib/worker/slugs";
+import { canonicalizeSlug, normalizeForComparison, suggestSlug } from "@/lib/checklist/slugs";
 
 describe("canonicalizeSlug", () => {
   it("lowercases and dash-separates", () => {

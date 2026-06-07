@@ -14,7 +14,7 @@
  */
 
 import { prisma } from "@/lib/db/client";
-import { AUTHORITY_SOURCES } from "@/lib/worker";
+import { AUTHORITY_SOURCES } from "@/lib/checklist";
 
 export type DiagnosticStatus = "pass" | "warn" | "fail";
 
@@ -229,7 +229,7 @@ async function publishingHealth(): Promise<DiagnosticResult> {
 }
 
 async function janitorFindings(): Promise<DiagnosticResult> {
-  const { scanForJanitorFindings } = await import("@/lib/worker/janitor");
+  const { scanForJanitorFindings } = await import("@/lib/checklist/janitor");
   const findings = await scanForJanitorFindings(prisma);
   const high = findings.filter((f) => f.severity === "high").length;
   const deletes = findings.filter((f) => f.action === "delete").length;
@@ -285,7 +285,7 @@ async function buildLogActivity(): Promise<DiagnosticResult> {
 }
 
 async function schemaCoverage(): Promise<DiagnosticResult> {
-  const { CONTENT_SCHEMAS } = await import("@/lib/worker/schemas");
+  const { CONTENT_SCHEMAS } = await import("@/lib/checklist/schemas");
   const all = Object.keys(CONTENT_SCHEMAS).length;
   if (all !== 11) {
     return {
@@ -304,7 +304,7 @@ async function schemaCoverage(): Promise<DiagnosticResult> {
 }
 
 async function knowledgeBaseHealth(): Promise<DiagnosticResult> {
-  const { curatedKnowledgeSize, curatedKnowledgeByType } = await import("@/lib/worker");
+  const { curatedKnowledgeSize, curatedKnowledgeByType } = await import("@/lib/checklist");
   const total = curatedKnowledgeSize();
   const byType = curatedKnowledgeByType();
   const types = Object.keys(byType).length;

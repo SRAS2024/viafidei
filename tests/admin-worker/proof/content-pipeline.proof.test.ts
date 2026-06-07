@@ -18,9 +18,8 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/worker", () => ({
+vi.mock("@/lib/checklist", () => ({
   isApprovedAuthorityHost: vi.fn(() => true),
-  runOneBuildCycle: vi.fn(async () => ({ kind: "idle" as const })),
 }));
 
 vi.mock("@/lib/admin-worker/repair", () => ({

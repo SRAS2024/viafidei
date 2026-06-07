@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { parishDesignation } from "@/lib/admin-worker/extractors";
-import { parishSchema, PARISH_DESIGNATIONS } from "@/lib/worker/schemas/parish";
+import { parishSchema, PARISH_DESIGNATIONS } from "@/lib/checklist/schemas/parish";
 import { toChecklistContentType } from "@/lib/admin-worker/classifier";
 
 describe("parish content type", () => {

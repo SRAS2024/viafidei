@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 
-import { scanForJanitorFindings, filterByAction } from "@/lib/worker/janitor";
+import { scanForJanitorFindings, filterByAction } from "@/lib/checklist/janitor";
 
 function makePrisma(overrides: Record<string, unknown> = {}) {
   return {

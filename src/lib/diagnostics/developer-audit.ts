@@ -14,7 +14,7 @@
 import PDFDocument from "pdfkit";
 
 import { prisma } from "@/lib/db/client";
-import { curatedKnowledgeByType, curatedKnowledgeSize, totalChecklistItems } from "@/lib/worker";
+import { curatedKnowledgeByType, curatedKnowledgeSize, totalChecklistItems } from "@/lib/checklist";
 import { runAllDiagnostics, type DiagnosticResult } from "./index";
 
 export type AuditPeriod = "24h" | "week" | "month";

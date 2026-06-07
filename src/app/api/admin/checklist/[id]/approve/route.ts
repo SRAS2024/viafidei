@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
-import { approveForBuild } from "@/lib/worker";
+import { approveForBuild } from "@/lib/checklist";
 
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const admin = await requireAdmin();

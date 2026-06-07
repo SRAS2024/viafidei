@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
-import { bulkReject } from "@/lib/worker";
+import { bulkReject } from "@/lib/checklist";
 import type { ChecklistApprovalStatus, ChecklistContentType } from "@prisma/client";
 
 export async function POST(request: Request) {

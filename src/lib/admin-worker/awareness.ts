@@ -130,7 +130,7 @@ export function inspectUi(root = resolveBrainRoot() ?? process.cwd()): UiSummary
 
 /** Walk the worker source tree and summarise each module's line count. */
 export function inspectCode(root = resolveBrainRoot() ?? process.cwd()): CodeFileSummary[] {
-  const dirs = ["src/lib/admin-worker", "src/lib/worker"];
+  const dirs = ["src/lib/admin-worker", "src/lib/checklist"];
   const out: CodeFileSummary[] = [];
   const walk = (dir: string): void => {
     let entries;

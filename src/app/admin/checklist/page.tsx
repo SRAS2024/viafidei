@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
-import { bulkActionCounts } from "@/lib/worker";
+import { bulkActionCounts } from "@/lib/checklist";
 import { BulkActions } from "./BulkActions";
 
 export const dynamic = "force-dynamic";

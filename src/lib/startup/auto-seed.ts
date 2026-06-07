@@ -10,7 +10,7 @@ import { prisma } from "../db/client";
 import { checkRequiredTables } from "../db/tables";
 import { logger } from "../observability/logger";
 import { ensureAccountEmailTables } from "./ensure-email-tables";
-import { seedChecklistFirst } from "../worker/seed";
+import { seedChecklistFirst } from "../checklist/seed";
 
 let scheduled = false;
 

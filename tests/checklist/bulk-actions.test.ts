@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 
-import { bulkActionCounts, bulkVerifyAll, bulkReject } from "@/lib/worker";
+import { bulkActionCounts, bulkVerifyAll, bulkReject } from "@/lib/checklist";
 
 function makePrisma() {
   return {
