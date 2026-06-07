@@ -17,6 +17,8 @@ export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   declaration: "Declaration",
   council_document: "Council Document",
   catechism_section: "Catechism",
+  dogmatic_definition: "Dogmatic Definition",
+  dogmatic_constitution: "Dogmatic Constitution",
   instruction: "Instruction",
   vatican_document: "Vatican Document",
   uscb_pastoral_letter: "USCCB Pastoral Letter",
@@ -61,6 +63,13 @@ export const DOCUMENT_CATEGORIES: DocumentCategory[] = [
     matches: (p) => inTypes(p, ["catechism_section"]) || titleMatches(p, /catechism/i),
   },
   { key: "canon-law", label: "Canon Law", matches: (p) => titleMatches(p, /canon law/i) },
+  {
+    key: "dogma",
+    label: "Dogmas",
+    matches: (p) =>
+      inTypes(p, ["dogmatic_definition", "dogma", "dogmatic_constitution"]) ||
+      titleMatches(p, /\bdogma(tic)?\b/i),
+  },
   {
     key: "other",
     label: "Other",
