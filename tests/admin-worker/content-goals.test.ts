@@ -1,12 +1,16 @@
 /**
- * Content goal derivation + default seeds. The seeds must cover every
- * checklist content type the existing master checklists support so
- * the worker never finds a content type with no goal.
+ * Content goal target model. Only SACRAMENT is a closed content type with a
+ * true hard maximum (canonicalMax = 7). Every other type is open: the target
+ * is a growth milestone, not a cap, and the worker keeps growing past it.
  */
 
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_GOAL_SEEDS, deriveStatus } from "@/lib/admin-worker/content-goals";
+import {
+  DEFAULT_GOAL_SEEDS,
+  deriveStatus,
+  contentGoalStatusLabel,
+} from "@/lib/admin-worker/content-goals";
 import { ChecklistContentType } from "@prisma/client";
 
 describe("Default content goal seeds", () => {
@@ -17,17 +21,31 @@ describe("Default content goal seeds", () => {
     }
   });
 
-  it("every seed has a positive maximum cap", () => {
+  it("every seed has a positive target goal", () => {
     for (const seed of DEFAULT_GOAL_SEEDS) {
-      expect(seed.maximumTarget).toBeGreaterThan(0);
+      expect(seed.targetGoal).toBeGreaterThan(0);
     }
   });
 
-  it("pins fixed-by-the-faith caps exactly (7 sacraments, 37 doctors, 266 popes)", () => {
-    const cap = (t: string) => DEFAULT_GOAL_SEEDS.find((s) => s.contentType === t)?.maximumTarget;
-    expect(cap("SACRAMENT")).toBe(7);
-    expect(cap("DOCTOR")).toBe(37);
-    expect(cap("POPE")).toBe(266);
+  it("ONLY Sacrament has a hard maximum (canonicalMax) — every other type is open", () => {
+    for (const seed of DEFAULT_GOAL_SEEDS) {
+      if (seed.contentType === "SACRAMENT") {
+        expect(seed.canonicalMax).toBe(7);
+        expect(seed.targetGoal).toBe(7);
+      } else {
+        expect(seed.canonicalMax).toBeNull();
+      }
+    }
+  });
+
+  it("uses the spec's growth targets for key open types (no hard maximum)", () => {
+    const seed = (t: string) => DEFAULT_GOAL_SEEDS.find((s) => s.contentType === t);
+    expect(seed("PARISH")?.targetGoal).toBe(300000);
+    expect(seed("PARISH")?.canonicalMax).toBeNull();
+    expect(seed("PRAYER")?.targetGoal).toBeGreaterThanOrEqual(1000);
+    expect(seed("PRAYER")?.canonicalMax).toBeNull();
+    expect(seed("DOCTOR")?.canonicalMax).toBeNull();
+    expect(seed("POPE")?.canonicalMax).toBeNull();
   });
 
   it("every priority is unique so the planner ties always break the same way", () => {
@@ -36,18 +54,49 @@ describe("Default content goal seeds", () => {
   });
 });
 
-describe("deriveStatus (max-only: cap, no minimum)", () => {
-  it("returns NOT_STARTED for an empty bucket", () => {
-    expect(deriveStatus(0, 20)).toBe("NOT_STARTED");
+describe("deriveStatus — target model", () => {
+  it("NOT_STARTED for an empty bucket", () => {
+    expect(deriveStatus(0, 1000, null)).toBe("NOT_STARTED");
   });
-  it("returns IN_PROGRESS below 75% of the cap", () => {
-    expect(deriveStatus(3, 20)).toBe("IN_PROGRESS");
+
+  it("open type: IN_PROGRESS below 75% of the target", () => {
+    expect(deriveStatus(100, 1000, null)).toBe("IN_PROGRESS");
   });
-  it("returns NEAR_GOAL within the last quarter before the cap", () => {
-    expect(deriveStatus(15, 20)).toBe("NEAR_GOAL");
+
+  it("open type: NEAR_GOAL within the last quarter before the target", () => {
+    expect(deriveStatus(800, 1000, null)).toBe("NEAR_GOAL");
   });
-  it("returns MAINTENANCE at or above the cap", () => {
-    expect(deriveStatus(20, 20)).toBe("MAINTENANCE");
-    expect(deriveStatus(25, 20)).toBe("MAINTENANCE");
+
+  it("open type: TARGET_REACHED at the target — and STAYS target-reached past it (continued growth)", () => {
+    expect(deriveStatus(1000, 1000, null)).toBe("TARGET_REACHED");
+    // Past the target it is still "target reached", never "complete".
+    expect(deriveStatus(1500, 1000, null)).toBe("TARGET_REACHED");
+  });
+
+  it("closed type (Sacrament): CANONICAL_COMPLETE only at the hard maximum", () => {
+    expect(deriveStatus(3, 7, 7)).toBe("IN_PROGRESS");
+    expect(deriveStatus(6, 7, 7)).toBe("NEAR_GOAL");
+    expect(deriveStatus(7, 7, 7)).toBe("CANONICAL_COMPLETE");
+  });
+});
+
+describe("contentGoalStatusLabel — dashboard wording", () => {
+  it("open type that hit its target shows 'Target reached', never 'complete'", () => {
+    const label = contentGoalStatusLabel("TARGET_REACHED");
+    expect(label).toBe("Target reached");
+    expect(label.toLowerCase()).not.toContain("complete");
+  });
+
+  it("'Canonical complete' is reserved for closed types", () => {
+    expect(contentGoalStatusLabel("CANONICAL_COMPLETE")).toBe("Canonical complete");
+  });
+
+  it("maps the special statuses to readable labels", () => {
+    expect(contentGoalStatusLabel("NOT_STARTED")).toBe("Not started");
+    expect(contentGoalStatusLabel("IN_PROGRESS")).toBe("In progress");
+    expect(contentGoalStatusLabel("MAINTENANCE")).toBe("Maintenance");
+    expect(contentGoalStatusLabel("NEEDS_VERIFICATION")).toBe("Needs verification");
+    expect(contentGoalStatusLabel("SOURCE_BLOCKED")).toBe("Source blocked");
+    expect(contentGoalStatusLabel("STALLED")).toBe("Stalled");
   });
 });

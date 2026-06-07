@@ -1,59 +1,79 @@
 /**
- * Content goals. Each content type has a single **maximum** target — a cap the
- * worker fills toward and never exceeds. There is no minimum: the worker keeps
- * building a type until it reaches the cap, then leaves it in MAINTENANCE.
+ * Content goals.
  *
- * Some caps are fixed by the faith itself (exactly seven Sacraments, the set
- * list of Doctors of the Church and Popes); others are a sensible ceiling for a
- * curated catalog. The content type with the largest remaining gap to its cap
- * is prioritised. Caps ship as seeded defaults; admins can edit them via Prisma.
+ * Every content type has a **target goal** — the number the worker grows
+ * toward. Only *closed* content types (those fixed by the faith) carry a
+ * **canonicalMax**: a true hard maximum the worker never exceeds. Today the
+ * ONLY closed type is SACRAMENT (exactly seven). Every other type is *open*:
+ * `canonicalMax` is null, the target is a growth milestone, and the worker
+ * keeps building verified content past the target at a slower maintenance
+ * pace (it never treats the target as an absolute cap).
+ *
+ * The content type with the largest remaining gap to its target is
+ * prioritised. Targets ship as seeded defaults; admins can edit them via
+ * Prisma. The target is NEVER a reason to publish — content still has to pass
+ * every accuracy / approval / source / verification / QA / quality gate.
  */
 
 import type { ChecklistContentType, ContentGoalStatus, PrismaClient } from "@prisma/client";
 
 export interface ContentGoalSeed {
   contentType: ChecklistContentType;
-  /** The maximum number of published items for this type — the worker stops here. */
-  maximumTarget: number;
+  /** Growth target — the milestone the worker builds toward. */
+  targetGoal: number;
+  /**
+   * Hard maximum, only for *closed* content types fixed by the faith. `null`
+   * for every open type (the worker keeps growing past the target). Today
+   * only SACRAMENT has one.
+   */
+  canonicalMax: number | null;
   priority: number;
 }
 
 /**
- * Default caps. Fixed-by-the-faith counts (7 sacraments, 37 Doctors of the
- * Church, 266 popes) are exact; the rest are practical ceilings for a curated
- * catalog. The worker never publishes past these.
+ * Default targets. Only SACRAMENT is closed (canonicalMax 7). Every other
+ * type is open (canonicalMax null): the target is a growth milestone, not a
+ * ceiling — recognized, approved, verified content keeps flowing in past it.
  */
 export const DEFAULT_GOAL_SEEDS: readonly ContentGoalSeed[] = [
-  { contentType: "PRAYER", maximumTarget: 80, priority: 10 },
-  { contentType: "SAINT", maximumTarget: 150, priority: 20 },
-  { contentType: "DEVOTION", maximumTarget: 40, priority: 30 },
-  { contentType: "NOVENA", maximumTarget: 30, priority: 40 },
-  { contentType: "MARIAN_TITLE", maximumTarget: 25, priority: 50 },
-  { contentType: "APPARITION", maximumTarget: 20, priority: 60 },
-  { contentType: "SACRAMENT", maximumTarget: 7, priority: 5 }, // exactly seven
-  { contentType: "GUIDE", maximumTarget: 30, priority: 70 },
-  { contentType: "CHURCH_DOCUMENT", maximumTarget: 60, priority: 80 },
-  { contentType: "LITURGICAL", maximumTarget: 40, priority: 90 },
-  { contentType: "SPIRITUAL_PRACTICE", maximumTarget: 25, priority: 100 },
-  { contentType: "PARISH", maximumTarget: 100, priority: 110 },
-  { contentType: "POPE", maximumTarget: 266, priority: 120 }, // the set list of popes
-  { contentType: "DOCTOR", maximumTarget: 37, priority: 130 }, // the 37 Doctors of the Church
-  { contentType: "RITE", maximumTarget: 24, priority: 140 }, // the sui iuris churches
+  // Closed — fixed by the faith. The ONLY hard maximum.
+  { contentType: "SACRAMENT", targetGoal: 7, canonicalMax: 7, priority: 5 },
+  // Open — grow toward the target, then maintain + keep growing as verified
+  // content becomes available. No hard maximum.
+  { contentType: "PRAYER", targetGoal: 1000, canonicalMax: null, priority: 10 },
+  { contentType: "POPE", targetGoal: 267, canonicalMax: null, priority: 15 },
+  { contentType: "SAINT", targetGoal: 1000, canonicalMax: null, priority: 20 },
+  { contentType: "DOCTOR", targetGoal: 37, canonicalMax: null, priority: 25 },
+  { contentType: "DEVOTION", targetGoal: 100, canonicalMax: null, priority: 30 },
+  { contentType: "NOVENA", targetGoal: 100, canonicalMax: null, priority: 40 },
+  { contentType: "MARIAN_TITLE", targetGoal: 50, canonicalMax: null, priority: 50 },
+  { contentType: "APPARITION", targetGoal: 50, canonicalMax: null, priority: 60 },
+  { contentType: "GUIDE", targetGoal: 100, canonicalMax: null, priority: 70 },
+  { contentType: "CHURCH_DOCUMENT", targetGoal: 200, canonicalMax: null, priority: 80 },
+  { contentType: "LITURGICAL", targetGoal: 100, canonicalMax: null, priority: 90 },
+  { contentType: "SPIRITUAL_PRACTICE", targetGoal: 50, canonicalMax: null, priority: 100 },
+  { contentType: "PARISH", targetGoal: 300000, canonicalMax: null, priority: 110 },
+  { contentType: "RITE", targetGoal: 24, canonicalMax: null, priority: 140 },
 ] as const;
 
 export async function seedContentGoals(prisma: PrismaClient): Promise<number> {
   let seeded = 0;
   for (const seed of DEFAULT_GOAL_SEEDS) {
-    // Upsert so the max-only caps apply even to pre-existing goal rows.
-    // minimumTarget is pinned to 0 — the model has no minimum, only the cap
-    // stored in desiredTarget.
+    // `desiredTarget` stores the growth target; `canonicalMax` is the hard
+    // maximum (only for closed types). minimumTarget stays 0.
     await prisma.contentGoal.upsert({
       where: { contentType: seed.contentType },
-      update: { minimumTarget: 0, desiredTarget: seed.maximumTarget, priority: seed.priority },
+      update: {
+        minimumTarget: 0,
+        desiredTarget: seed.targetGoal,
+        canonicalMax: seed.canonicalMax,
+        priority: seed.priority,
+      },
       create: {
         contentType: seed.contentType,
         minimumTarget: 0,
-        desiredTarget: seed.maximumTarget,
+        desiredTarget: seed.targetGoal,
+        canonicalMax: seed.canonicalMax,
         priority: seed.priority,
         status: "NOT_STARTED",
       },
@@ -64,22 +84,39 @@ export async function seedContentGoals(prisma: PrismaClient): Promise<number> {
 }
 
 /**
- * Status from the live count against the maximum cap. No minimum: a type is
- * IN_PROGRESS until it nears the cap, NEAR_GOAL within the last quarter, and
- * MAINTENANCE once it reaches the cap.
+ * Status from the live count.
+ *
+ *   - Closed type (canonicalMax set): CANONICAL_COMPLETE once the count
+ *     reaches the hard maximum; otherwise IN_PROGRESS / NEAR_GOAL.
+ *   - Open type (canonicalMax null): TARGET_REACHED once the count reaches
+ *     the target (the worker keeps growing past it at a maintenance pace);
+ *     otherwise IN_PROGRESS / NEAR_GOAL.
+ *
+ * "complete" is reserved for closed types only — an open type that hit its
+ * target is "target reached", never "complete".
  */
-export function deriveStatus(current: number, maximum: number): ContentGoalStatus {
-  if (maximum <= 0) return "NOT_STARTED";
+export function deriveStatus(
+  current: number,
+  target: number,
+  canonicalMax: number | null,
+): ContentGoalStatus {
   if (current <= 0) return "NOT_STARTED";
-  if (current >= maximum) return "MAINTENANCE";
-  if (current >= Math.floor(maximum * 0.75)) return "NEAR_GOAL";
+  if (canonicalMax != null) {
+    if (current >= canonicalMax) return "CANONICAL_COMPLETE";
+    if (current >= Math.floor(canonicalMax * 0.75)) return "NEAR_GOAL";
+    return "IN_PROGRESS";
+  }
+  if (target > 0 && current >= target) return "TARGET_REACHED";
+  if (target > 0 && current >= Math.floor(target * 0.75)) return "NEAR_GOAL";
   return "IN_PROGRESS";
 }
 
 /**
  * Refresh every ContentGoal row from the live PublishedContent count.
- * Run before the planner picks a priority, so the planner sees current
- * gaps-to-the-cap rather than stale snapshots.
+ * Run before the planner picks a priority. For open types the gap is what
+ * remains up to the target; reaching the target leaves a zero gap (the worker
+ * deprioritises it to a maintenance pace but never hard-stops — new verified
+ * content still flows through the pipeline).
  */
 export async function refreshContentGoals(prisma: PrismaClient): Promise<void> {
   const goals = await prisma.contentGoal.findMany();
@@ -93,10 +130,9 @@ export async function refreshContentGoals(prisma: PrismaClient): Promise<void> {
 
   for (const goal of goals) {
     const current = countMap.get(goal.contentType) ?? 0;
-    // desiredTarget holds the maximum cap; the gap is what remains up to it.
-    const cap = goal.desiredTarget;
-    const gap = Math.max(0, cap - current);
-    const status = deriveStatus(current, cap);
+    const target = goal.desiredTarget;
+    const gap = Math.max(0, target - current);
+    const status = deriveStatus(current, target, goal.canonicalMax ?? null);
     await prisma.contentGoal.update({
       where: { id: goal.id },
       data: {
@@ -106,6 +142,39 @@ export async function refreshContentGoals(prisma: PrismaClient): Promise<void> {
         lastUpdatedAt: new Date(),
       },
     });
+  }
+}
+
+/**
+ * Human-readable label for a goal status. "complete" is reserved for closed
+ * content types (CANONICAL_COMPLETE); an open type that reached its target
+ * shows "Target reached", never "complete".
+ */
+export function contentGoalStatusLabel(status: ContentGoalStatus | string): string {
+  switch (status) {
+    case "NOT_STARTED":
+      return "Not started";
+    case "IN_PROGRESS":
+      return "In progress";
+    case "NEAR_GOAL":
+      return "Near target";
+    case "GOAL_MET":
+    case "TARGET_REACHED":
+      return "Target reached";
+    case "CANONICAL_COMPLETE":
+      return "Canonical complete";
+    case "NEEDS_VERIFICATION":
+      return "Needs verification";
+    case "SOURCE_BLOCKED":
+      return "Source blocked";
+    case "STALLED":
+      return "Stalled";
+    case "MAINTENANCE":
+      return "Maintenance";
+    case "PAUSED":
+      return "Paused";
+    default:
+      return String(status);
   }
 }
 
