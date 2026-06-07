@@ -328,6 +328,26 @@ rules, rollback, security, and database integrity. Concretely:
   outcome, repair-created, next action). `summarizeStageReliability`
   aggregates real per-stage success/failure so the brain scores from
   exact outcomes instead of guessed attribution.
+- **Every listed brain op is wired + recorded.** The worker calls the
+  Python brain for action ranking, candidate prioritization, semantic
+  duplicate detection, source comparison, quality review, missing-field
+  detection, relationship inference, source assessment, failure
+  classification, repair strategy, self-inspection, developer-request
+  generation, graph analysis, schema / UI / code awareness, and
+  learning-from-outcomes — each recorded to `AdminWorkerBrainCall`
+  (visible in IQ diagnostics). The brain only recommends/scores; it never
+  publishes, deletes, bans, mutates users, or bypasses a gate.
+- **Immediate, per-stage repair.** The repair orchestrator runs the
+  concrete recovery now whenever the data is present — re-extract from the
+  stored source read, re-classify and advance, retry persistence when the
+  DB is healthy, re-verify cache / sitemap / search / validation — and
+  defers only when recovery needs an external fetch or an unhealthy DB. A
+  successful repair advances the item; a failed one updates memory +
+  source reputation and is classified by the brain.
+- **Extractor-strategy learning.** Each extraction records a per-(host,
+  contentType) `BUILDER_PRIORITY` outcome (confidence + missing fields +
+  fatal) and recalls prior extractor confidence, so later passes prefer
+  hosts that reliably yield complete packages.
 - **Full quality model, stored and enforced.** `ContentQualityScore`
   stores all ten dimensions (completeness, correctness, formatting,
   source authority, field provenance, validation evidence, duplicate
