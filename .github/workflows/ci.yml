@@ -76,12 +76,15 @@ jobs:
         run: |
           set -e
           for f in \
-            tests/worker/build-engine.test.ts \
-            tests/worker/build-queue.test.ts \
-            tests/worker/publishing.test.ts \
-            tests/worker/qa-approval.test.ts \
-            tests/worker/source-validation.test.ts \
-            tests/worker/diagnostics.test.ts \
+            tests/checklist/build-queue.test.ts \
+            tests/checklist/source-validation.test.ts \
+            tests/checklist/diagnostics.test.ts \
+            tests/admin-worker/strict-qa.test.ts \
+            tests/admin-worker/quality-v2.test.ts \
+            tests/admin-worker/publish-orchestrator.test.ts \
+            tests/admin-worker/final-brain.test.ts \
+            tests/admin-worker/verifiers-fail-closed.test.ts \
+            tests/admin-worker/rollback-ledger.test.ts \
             tests/admin-worker/state.test.ts \
             tests/admin-worker/modes.test.ts \
             tests/admin-worker/decisions.test.ts \
