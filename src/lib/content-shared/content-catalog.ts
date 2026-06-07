@@ -6,6 +6,11 @@
  * admin can confirm that every page the site offers is represented and growing
  * — not just the raw content-type enum.
  *
+ * Order is the canonical site order (matches the navigation), so the console's
+ * content list reads the way the site does. `target` / `hardMax` mirror the
+ * content-goal model (DEFAULT_GOAL_SEEDS) so the console can show "have /
+ * target" for every row, including the derived views.
+ *
  * Counting:
  *   - Most categories map directly to one or more content types.
  *   - Derived categories carry a `predicate` over the published payload
@@ -21,6 +26,10 @@ export interface CatalogCategory {
   page: string;
   /** Underlying content type(s) the category draws from. */
   types: ChecklistContentType[];
+  /** Growth target shown as the denominator of "have / target". */
+  target: number;
+  /** Hard maximum (only Sacraments are capped); null otherwise. */
+  hardMax?: number;
   /** Payload predicate for view-based categories (Litanies, Chaplets, …). */
   predicate?: (payload: Record<string, unknown>) => boolean;
   /** True when this is a view over a type also listed as its own category. */
@@ -50,67 +59,75 @@ const isCalendarEntry = (p: Record<string, unknown>): boolean =>
   typeof p.kind === "string" && CALENDAR_KINDS.includes(p.kind);
 
 /**
- * Every category named on the public site, in display order. This list is what
- * the admin worker console shows, so a missing page here means a missing row in
- * the console.
+ * Every category named on the public site, in the site's display order. This
+ * list is what the admin worker console shows, so a missing page here means a
+ * missing row in the console. The first fifteen follow the navigation order
+ * exactly; Devotions, Novenas, and Chaplets (also real pages) follow.
  */
 export const CONTENT_CATALOG: CatalogCategory[] = [
-  { key: "prayers", label: "Prayers", page: "/prayers", types: ["PRAYER"] },
+  { key: "prayers", label: "Prayers", page: "/prayers", types: ["PRAYER"], target: 1000 },
   {
     key: "litanies",
     label: "Litanies",
     page: "/litanies",
     types: ["PRAYER"],
+    target: 100,
     derived: true,
     predicate: isLitany,
     note: "Prayers categorised as litanies",
   },
-  { key: "saints", label: "Saints", page: "/saints", types: ["SAINT"] },
+  { key: "saints", label: "Saints", page: "/saints", types: ["SAINT"], target: 1000 },
   {
     key: "our-lady",
     label: "Our Lady",
     page: "/our-lady",
     types: ["MARIAN_TITLE", "APPARITION"],
+    target: 100,
     note: "Marian titles + approved apparitions",
   },
-  { key: "doctors", label: "Doctors of the Church", page: "/doctors", types: ["DOCTOR"] },
-  { key: "popes", label: "Popes", page: "/popes", types: ["POPE"] },
-  { key: "sacraments", label: "Sacraments", page: "/sacraments", types: ["SACRAMENT"] },
-  { key: "parishes", label: "Parishes", page: "/parishes", types: ["PARISH"] },
+  {
+    key: "doctors",
+    label: "Doctors of the Church",
+    page: "/doctors",
+    types: ["DOCTOR"],
+    target: 37,
+  },
+  { key: "popes", label: "Popes", page: "/popes", types: ["POPE"], target: 267 },
+  {
+    key: "sacraments",
+    label: "Sacraments",
+    page: "/sacraments",
+    types: ["SACRAMENT"],
+    target: 7,
+    hardMax: 7,
+  },
+  { key: "parishes", label: "Parishes", page: "/parishes", types: ["PARISH"], target: 300000 },
   {
     key: "spiritual-life",
     label: "Spiritual Life",
     page: "/spiritual-life",
     types: ["SPIRITUAL_PRACTICE"],
+    target: 50,
   },
-  { key: "devotions", label: "Devotions", page: "/devotions", types: ["DEVOTION"] },
-  { key: "novenas", label: "Novenas", page: "/novenas", types: ["NOVENA"] },
-  { key: "guides", label: "Guides", page: "/guides", types: ["GUIDE"] },
-  {
-    key: "chaplets",
-    label: "Chaplets (incl. Divine Mercy)",
-    page: "/guides?filter=chaplets",
-    types: ["GUIDE"],
-    derived: true,
-    predicate: isChaplet,
-    note: "Guides that are chaplets",
-  },
-  { key: "liturgy", label: "Liturgy", page: "/liturgy", types: ["LITURGICAL"] },
+  { key: "guides", label: "Guides", page: "/guides", types: ["GUIDE"], target: 100 },
+  { key: "liturgy", label: "Liturgy", page: "/liturgy", types: ["LITURGICAL"], target: 100 },
   {
     key: "liturgical-calendar",
     label: "Liturgical Calendar",
     page: "/liturgical-calendar",
     types: ["LITURGICAL"],
+    target: 200,
     derived: true,
     predicate: isCalendarEntry,
     note: "Feasts, solemnities, memorials & seasons",
   },
-  { key: "rites", label: "Rites", page: "/rites", types: ["RITE"] },
+  { key: "rites", label: "Rites", page: "/rites", types: ["RITE"], target: 24 },
   {
     key: "history",
     label: "History",
     page: "/history",
     types: ["CHURCH_DOCUMENT"],
+    target: 200,
     derived: true,
     note: "Church-history timeline of magisterial documents",
   },
@@ -119,6 +136,20 @@ export const CONTENT_CATALOG: CatalogCategory[] = [
     label: "Church Documents",
     page: "/church-documents",
     types: ["CHURCH_DOCUMENT"],
+    target: 200,
+  },
+  // Also-real pages not named in the primary navigation list.
+  { key: "devotions", label: "Devotions", page: "/devotions", types: ["DEVOTION"], target: 100 },
+  { key: "novenas", label: "Novenas", page: "/novenas", types: ["NOVENA"], target: 100 },
+  {
+    key: "chaplets",
+    label: "Chaplets (incl. Divine Mercy)",
+    page: "/guides?filter=chaplets",
+    types: ["GUIDE"],
+    target: 50,
+    derived: true,
+    predicate: isChaplet,
+    note: "Guides that are chaplets",
   },
 ];
 
