@@ -353,7 +353,8 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     detail: reducedQualityGone
       ? "The full quality model is the only scorer; no reduced / V2 quality path remains."
       : "A reduced / V2 quality scoring path is still present — content could bypass the full model.",
-    repair: "Remove the reduced quality scorer; recordQualityScore (full model) must be the only one.",
+    repair:
+      "Remove the reduced quality scorer; recordQualityScore (full model) must be the only one.",
   });
 
   // (2) The Python brain is the only final action selector — no legacy
@@ -373,7 +374,8 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     detail: pythonFinalOnly
       ? "pythonFinalSelector is wired; an unavailable/invalid/unsafe decision enters safe degraded mode (no TS final brain)."
       : "The Python final-brain selector is missing — a TypeScript final-decision fallback may be in use.",
-    repair: "Restore pythonFinalSelector as the final action selector; never fall back to a TS argmax.",
+    repair:
+      "Restore pythonFinalSelector as the final action selector; never fall back to a TS argmax.",
   });
 
   // (3) The checklist foundation exposes no public-content writer — the
@@ -391,7 +393,8 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     detail: noFoundationPublish
       ? "The checklist foundation has no publish() writer; only runPublishOrchestrator creates public content."
       : "A legacy publish() writer still exists in the checklist foundation — content could publish outside the pipeline.",
-    repair: "Remove the foundation publish() writer; publishing must only happen via runPublishOrchestrator.",
+    repair:
+      "Remove the foundation publish() writer; publishing must only happen via runPublishOrchestrator.",
   });
 
   // (4) Live post-publish verification (search/sitemap/cache) is actually
@@ -415,7 +418,8 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
         : anyPublished
           ? "Content was published in the last 7d but no independent search/sitemap/cache verification ran."
           : "No content published recently; nothing to verify yet.",
-    repair: "Ensure the dispatcher runs SEARCH_VERIFY / SITEMAP_VERIFY / CACHE_REFRESH after publishing.",
+    repair:
+      "Ensure the dispatcher runs SEARCH_VERIFY / SITEMAP_VERIFY / CACHE_REFRESH after publishing.",
   });
 
   const passing = checks.filter((c) => c.status === "pass").length;

@@ -340,7 +340,8 @@ export async function verifyCacheFreshness(
     if (!base || !path) {
       return {
         ok: false,
-        reason: "Public route URL could not be built in production — cannot verify cache freshness.",
+        reason:
+          "Public route URL could not be built in production — cannot verify cache freshness.",
         detail: { expectedChecksum },
       };
     }

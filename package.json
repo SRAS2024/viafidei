@@ -41,7 +41,7 @@
     "admin-worker:proof:autonomy": "tsx scripts/admin-worker-autonomy-proof.ts",
     "admin-worker:proof:dry-run": "tsx scripts/admin-worker-live-dry-run.ts",
     "admin-worker:no-placeholders": "vitest run tests/admin-worker/no-placeholder-phrases.test.ts tests/admin-worker/dispatcher-no-placeholder-stages.test.ts",
-    "verify:all": "npm run db:validate && prisma validate && prisma generate && npm run brain:selftest && npm run brain:test && npm run typecheck && npm run lint && npm run admin-worker:no-placeholders && npm run test && npm run admin-worker:proof:content && npm run admin-worker:proof:all-content-types && npm run admin-worker:proof:security && npm run admin-worker:proof:reports && npm run admin-worker:proof:dry-run"
+    "verify:all": "npm run db:validate && prisma validate && prisma generate && npm run brain:selftest && npm run brain:test && npm run typecheck && npm run lint && npm run format:check && npm run admin-worker:no-placeholders && npm run test && npm run admin-worker:proof:content && npm run admin-worker:proof:all-content-types && npm run admin-worker:proof:security && npm run admin-worker:proof:reports && npm run admin-worker:proof:dry-run"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

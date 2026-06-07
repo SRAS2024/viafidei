@@ -122,7 +122,7 @@ design.
 
 **Checklist + published content** (`src/lib/checklist/`):
 
-| Model               | Role                                                              |
+| Model               | Role                                                             |
 | ------------------- | ---------------------------------------------------------------- |
 | `ChecklistItem`     | One row per concrete item (populated from package artifacts)     |
 | `AuthoritySource`   | Approved-source registry (Vatican, USCCB, …)                     |
@@ -232,17 +232,17 @@ Required environment variables (production):
 
 Optional environment variables:
 
-| Variable                     | Purpose                                                      |
-| ---------------------------- | ------------------------------------------------------------ |
-| `RESEND_API_KEY`             | Enables transactional + admin emails                         |
-| `ADMIN_EMAIL`                | Destination for Admin Worker monthly + security emails       |
-| `PUBLIC_BASE_URL`            | Base URL the post-publish probe + verifiers fetch from       |
-| `WORKER_ID`                  | Stable id for this worker process (auto-generated)           |
-| `ADMIN_WORKER_SKIP_NETWORK`  | Test-only: dispatcher skips real fetch + read calls when `1` |
+| Variable                          | Purpose                                                                                                                                            |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RESEND_API_KEY`                  | Enables transactional + admin emails                                                                                                               |
+| `ADMIN_EMAIL`                     | Destination for Admin Worker monthly + security emails                                                                                             |
+| `PUBLIC_BASE_URL`                 | Base URL the post-publish probe + verifiers fetch from                                                                                             |
+| `WORKER_ID`                       | Stable id for this worker process (auto-generated)                                                                                                 |
+| `ADMIN_WORKER_SKIP_NETWORK`       | Test-only: dispatcher skips real fetch + read calls when `1`                                                                                       |
 | `ADMIN_WORKER_DISABLE_LIVE_PROBE` | Local/dry-run only: skip the mandatory production live sitemap + cache probe when `1` (verification is otherwise live + fail-closed in production) |
-| `INTELLIGENCE_BRAIN_ENABLED` | Python intelligence brain on/off (default on; `0` disables)  |
-| `INTELLIGENCE_PYTHON`        | Python executable for the brain (default `python3`)          |
-| `INTELLIGENCE_TIMEOUT_MS`    | Per brain-call timeout (default `8000`)                      |
+| `INTELLIGENCE_BRAIN_ENABLED`      | Python intelligence brain on/off (default on; `0` disables)                                                                                        |
+| `INTELLIGENCE_PYTHON`             | Python executable for the brain (default `python3`)                                                                                                |
+| `INTELLIGENCE_TIMEOUT_MS`         | Per brain-call timeout (default `8000`)                                                                                                            |
 
 ---
 
@@ -826,7 +826,7 @@ publish writer and that every recent public row traces to an artifact.
 | **`verifier.ts`**                        | Sensitive-field whitelist + pre-publish verifier gate                                                     |
 | `packaging.ts`                           | Per-content-type structural validators                                                                    |
 | **`strict-qa.ts`**                       | Artifact-level strict QA (7 sub-scores + gate)                                                            |
-| `quality.ts`                             | 10-dim quality scoring (`computeFinalScore`)                                                            |
+| `quality.ts`                             | 10-dim quality scoring (`computeFinalScore`)                                                              |
 | **`publish-orchestrator.ts`**            | The only publish path; idempotent; updates all stores                                                     |
 | `publisher.ts`                           | Publish-gate evaluator used by the orchestrator                                                           |
 | `publish-safety.ts`                      | Pattern blockers (incomplete prayers, …)                                                                  |
@@ -863,7 +863,7 @@ publish writer and that every recent public row traces to an artifact.
 | `metrics.ts`                             | Command Center metric computation                                                                         |
 | `diagnostics.ts`                         | Subsystem ratings + diagnostics auditor                                                                   |
 | **`why-no-growth.ts`**                   | Live chain walk → first blocker + next automatic repair                                                   |
-| `readiness.ts`                           | Production-readiness sweep (single-pipeline + publish-gate guards)                                                                       |
+| `readiness.ts`                           | Production-readiness sweep (single-pipeline + publish-gate guards)                                        |
 | `rules.ts`                               | Versioned rules across categories                                                                         |
 | `logs.ts`                                | Structured AdminWorkerLog writer                                                                          |
 | `report-generator.ts`                    | Developer Audit data collection (incl. the Worker Requests section)                                       |
@@ -1312,23 +1312,23 @@ device known so subsequent navigation reads as expected activity.
 
 ## Migration history
 
-| Migration                                          | What it added                                                                                                                                    |
-| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `0001` – `0022`                                    | Original schema (auth, content, ingestion, …)                                                                                                    |
-| `0023_checklist_first_architecture`                | Checklist-first models (ChecklistItem, …)                                                                                                        |
-| `0024_admin_worker`                                | Admin Worker engine tables (15 + enums)                                                                                                          |
-| `0025_drop_legacy_system`                          | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent                                                                        |
-| `0026_admin_worker_brain`                          | Brain tables: SourceRead, PipelineStage, RepairPlan                                                                                              |
-| `0027_admin_worker_brain_ranking`                  | Brain ranked alternatives + AdminWorkerFetchResult / SourceBlock / CrossSourceVerification                                                       |
-| `0028_admin_worker_pipeline_and_orchestrators`     | Pipeline durability + candidate scoring fields + SourceCoverage + GrowthSnapshot                                                                 |
-| `0029_admin_worker_package_artifact`               | AdminWorkerPackageArtifact (built package as a first-class artifact)                                                                             |
-| `0030_admin_worker_strict_qa`                      | AdminWorkerStrictQAResult (durable strict-QA per artifact)                                                                                       |
-| `0031_admin_worker_repair_kinds_strict_qa_quality` | Added STRICT_QA_FAILED + QUALITY_SCORE_FAILED repair kinds                                                                                       |
-| `0032_admin_worker_source_coverage_active_counts`  | SourceCoverage: active / recently-successful / recently-failed source counts                                                                     |
-| `0033` – `0037`                                    | Action-score + reasoning-graph tables; parish / pope / doctor / rite content types                                                               |
-| `0038_intelligence_memory_graph`                   | Intelligence brain store: Embedding (vectors), GraphNode/GraphEdge, DeveloperRequest, BrainCall                                                  |
-| `0039_daily_readings`                              | DailyReading (daily liturgical readings as internal content)                                                                                     |
-| `0040_stage_outcomes_rollback_quality_v2`          | AdminWorkerStageOutcome + AdminWorkerRollbackLedger; full ContentQualityScore model; action `fallbackAction`; PublishedContent `contentChecksum` |
+| Migration                                          | What it added                                                                                                                                                  |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0001` – `0022`                                    | Original schema (auth, content, ingestion, …)                                                                                                                  |
+| `0023_checklist_first_architecture`                | Checklist-first models (ChecklistItem, …)                                                                                                                      |
+| `0024_admin_worker`                                | Admin Worker engine tables (15 + enums)                                                                                                                        |
+| `0025_drop_legacy_system`                          | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent                                                                                      |
+| `0026_admin_worker_brain`                          | Brain tables: SourceRead, PipelineStage, RepairPlan                                                                                                            |
+| `0027_admin_worker_brain_ranking`                  | Brain ranked alternatives + AdminWorkerFetchResult / SourceBlock / CrossSourceVerification                                                                     |
+| `0028_admin_worker_pipeline_and_orchestrators`     | Pipeline durability + candidate scoring fields + SourceCoverage + GrowthSnapshot                                                                               |
+| `0029_admin_worker_package_artifact`               | AdminWorkerPackageArtifact (built package as a first-class artifact)                                                                                           |
+| `0030_admin_worker_strict_qa`                      | AdminWorkerStrictQAResult (durable strict-QA per artifact)                                                                                                     |
+| `0031_admin_worker_repair_kinds_strict_qa_quality` | Added STRICT_QA_FAILED + QUALITY_SCORE_FAILED repair kinds                                                                                                     |
+| `0032_admin_worker_source_coverage_active_counts`  | SourceCoverage: active / recently-successful / recently-failed source counts                                                                                   |
+| `0033` – `0037`                                    | Action-score + reasoning-graph tables; parish / pope / doctor / rite content types                                                                             |
+| `0038_intelligence_memory_graph`                   | Intelligence brain store: Embedding (vectors), GraphNode/GraphEdge, DeveloperRequest, BrainCall                                                                |
+| `0039_daily_readings`                              | DailyReading (daily liturgical readings as internal content)                                                                                                   |
+| `0040_stage_outcomes_rollback_quality_v2`          | AdminWorkerStageOutcome + AdminWorkerRollbackLedger; full ContentQualityScore model; action `fallbackAction`; PublishedContent `contentChecksum`               |
 | `0041_drop_legacy_qa_buildlog_version_relation`    | Dropped the legacy WorkerBuildLog / ChecklistQAReport / ChecklistVersion / ChecklistRelation tables (superseded by AdminWorkerStrictQAResult + AdminWorkerLog) |
 
 The legacy scraper-first ingestion + legacy public-content models
