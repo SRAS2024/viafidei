@@ -150,6 +150,22 @@ export interface DeveloperAuditData {
     errorMessage: string | null;
     createdAt: Date;
   }>;
+  /** Python brain diagnostics (availability, latency, learning, etc.). */
+  pythonBrainDiagnostics: {
+    totalCalls: number;
+    okCalls: number;
+    failedCalls: number;
+    avgLatencyMs: number;
+    avgConfidence: number;
+    avgRisk: number;
+    safeToAutoExecuteRate: number;
+    selectActionCalls: number;
+    learningEvents: number;
+    strategyMemoryRows: number;
+    degradedEvents: number;
+    finalBrain: string;
+    byOp: Array<{ op: string; count: number }>;
+  };
   /** Spec: durable rollback ledger for the audit period. */
   rollbackLedger: Array<{
     contentType: string | null;
@@ -508,9 +524,93 @@ export async function collectDeveloperAuditData(
     workerRequestsRaw = [];
   }
 
+  // Python brain diagnostics (defensive — partial mocks yield zeros).
+  const pythonBrainDiagnostics = await (async () => {
+    const empty = {
+      totalCalls: 0,
+      okCalls: 0,
+      failedCalls: 0,
+      avgLatencyMs: 0,
+      avgConfidence: 0,
+      avgRisk: 0,
+      safeToAutoExecuteRate: 0,
+      selectActionCalls: 0,
+      learningEvents: 0,
+      strategyMemoryRows: 0,
+      degradedEvents: 0,
+      finalBrain: "unknown",
+      byOp: [] as Array<{ op: string; count: number }>,
+    };
+    try {
+      const [total, ok, safe, agg, selectCalls, learning, memory, degraded, byOpRaw, lastDecided] =
+        await Promise.all([
+          prisma.adminWorkerBrainCall.count({ where: { createdAt: { gte: since } } }),
+          prisma.adminWorkerBrainCall.count({ where: { createdAt: { gte: since }, ok: true } }),
+          prisma.adminWorkerBrainCall.count({
+            where: { createdAt: { gte: since }, safeToAutoExecute: true },
+          }),
+          prisma.adminWorkerBrainCall.aggregate({
+            where: { createdAt: { gte: since } },
+            _avg: { elapsedMs: true, confidence: true },
+          }),
+          prisma.adminWorkerBrainCall.count({
+            where: { createdAt: { gte: since }, op: "select_action" },
+          }),
+          prisma.adminWorkerBrainCall.count({
+            where: { createdAt: { gte: since }, op: "learn_from_outcome" },
+          }),
+          prisma.adminWorkerMemory.count(),
+          prisma.adminWorkerLog.count({
+            where: {
+              createdAt: { gte: since },
+              eventName: {
+                in: [
+                  "python_brain_unavailable",
+                  "python_brain_invalid_decision",
+                  "python_brain_rejected_action",
+                ],
+              },
+            },
+          }),
+          prisma.adminWorkerBrainCall.groupBy({
+            by: ["op"],
+            where: { createdAt: { gte: since } },
+            _count: { _all: true },
+          }),
+          prisma.adminWorkerLog.findFirst({
+            where: { eventName: "brain_decided" },
+            orderBy: { createdAt: "desc" },
+            select: { safeMetadata: true },
+          }),
+        ]);
+      return {
+        totalCalls: total,
+        okCalls: ok,
+        failedCalls: Math.max(0, total - ok),
+        avgLatencyMs: agg._avg.elapsedMs ?? 0,
+        avgConfidence: agg._avg.confidence ?? 0,
+        avgRisk: 0,
+        safeToAutoExecuteRate: total > 0 ? safe / total : 0,
+        selectActionCalls: selectCalls,
+        learningEvents: learning,
+        strategyMemoryRows: memory,
+        degradedEvents: degraded,
+        finalBrain:
+          (lastDecided?.safeMetadata as { finalBrain?: string } | null)?.finalBrain ?? "unknown",
+        byOp: (byOpRaw as Array<{ op: string; _count: { _all: number } }>).map((o) => ({
+          op: o.op,
+          count: o._count._all,
+        })),
+      };
+    } catch {
+      return empty;
+    }
+  })();
+
   return {
     generatedAt: new Date(),
     period,
+    pythonBrainDiagnostics,
     workerRequests: workerRequestsRaw,
     diagnosticsResults,
     diagnosticsSummary: summarizeRatings(diagnosticsResults),
@@ -701,6 +801,7 @@ export const DEVELOPER_AUDIT_SECTIONS = [
   "Executive Summary",
   "Diagnostics Results",
   "Admin Worker Brain Decisions",
+  "Python Brain Diagnostics",
   "Rejected Alternatives",
   "Reasoning Graph",
   "Mission Plans",
