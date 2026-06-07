@@ -52,9 +52,14 @@ export async function seedCuratedContent(
     errors: [],
   };
 
-  let entries = [...ALL_CURATED_ENTRIES];
+  // `?? []` keeps this safe when @/lib/checklist is module-mocked (unit tests)
+  // or the registry is otherwise unavailable: the seed becomes a clean no-op.
+  let entries = [...(ALL_CURATED_ENTRIES ?? [])];
   if (opts.contentType) entries = entries.filter((e) => e.contentType === opts.contentType);
-  if (opts.limit) entries = entries.slice(0, opts.limit);
+  // `opts.limit` caps the number of NEW publishes (enforced in the loop), not a
+  // slice of the entry list: this lets the worker call it with a small per-pass
+  // limit and keep making forward progress through the not-yet-published
+  // backlog across passes, instead of re-considering the same first N forever.
 
   // Idempotency: skip items already live (avoids the per-item dedup gate on
   // re-runs, so a second `seed:content` is fast and a no-op).
@@ -118,6 +123,11 @@ export async function seedCuratedContent(
         // Bulk seed: skip the per-item post-publish verifiers (non-gating;
         // the worker runs full live verification in its normal passes).
         skipPostPublishSideEffects: true,
+        // Curated ground-truth is the worker's OWN verified knowledge base, not
+        // an external source — skip the advisory brain screens (communion /
+        // dedupe) so this is brain-independent and fast even when invoked from
+        // the worker loop (brain enabled). All deterministic gates still run.
+        skipBrainScreens: true,
         verifier: {
           publishAllowed: true,
           missingRequired: [],
@@ -132,6 +142,8 @@ export async function seedCuratedContent(
       if (result.kind === "published") {
         out.published += 1;
         out.byType[entry.contentType] = (out.byType[entry.contentType] ?? 0) + 1;
+        // Bounded per-call growth: stop once we've published `limit` new items.
+        if (opts.limit && out.published >= opts.limit) break;
       } else {
         out.skipped += 1;
         out.errors.push(`${entry.contentType}/${entry.slug}: ${result.kind} (${result.reason})`);
