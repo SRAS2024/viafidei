@@ -4,10 +4,7 @@ import type { Translator } from "@/lib/i18n/translator";
 export function HomeHero({ t }: { t: Translator }) {
   return (
     <section className="pt-10 pb-6 text-center">
-      <p className="vf-eyebrow">{t("home.eyebrow")}</p>
-      <p className="mt-4 font-display text-2xl italic text-ink-soft sm:text-3xl">
-        {t("brand.tagline")}
-      </p>
+      <p className="font-display text-2xl italic text-ink-soft sm:text-3xl">{t("brand.tagline")}</p>
       <div className="vf-rule mx-auto my-6" />
       <h1 className="font-display text-balance text-5xl leading-[1.05] text-ink sm:text-6xl md:text-7xl">
         {t("home.title")}
