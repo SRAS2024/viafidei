@@ -1,6 +1,6 @@
 /**
- * Parish classification filters: Parish, Cathedral, Basilica. Cathedrals and
- * basilicas must be distinct from ordinary parishes.
+ * Parish classification filters: Parish, Cathedral, Basilica, Shrine. Each is
+ * distinct from an ordinary parish.
  */
 
 import { describe, expect, it } from "vitest";
@@ -20,17 +20,19 @@ describe("classifyParish", () => {
     expect(classifyParish("major-basilica")).toBe("basilica");
     expect(classifyParish("minor-basilica")).toBe("basilica");
   });
-  it("treats ordinary parishes / shrines / unknown as parish", () => {
+  it("classifies shrines as their own classification", () => {
+    expect(classifyParish("shrine")).toBe("shrine");
+  });
+  it("treats ordinary parishes / unknown as parish", () => {
     expect(classifyParish("parish")).toBe("parish");
-    expect(classifyParish("shrine")).toBe("parish");
     expect(classifyParish(undefined)).toBe("parish");
   });
 });
 
 describe("parish filter behavior", () => {
-  it("exposes all required filters", () => {
+  it("exposes all required filters in order (Parish, Cathedral, Basilica, Shrine)", () => {
     const keys = PARISH_FILTERS.map((f) => f.key);
-    for (const k of ["all", "parish", "cathedral", "basilica"]) expect(keys).toContain(k);
+    expect(keys).toEqual(["all", "parish", "cathedral", "basilica", "shrine"]);
   });
 
   it("a classification filter excludes other classifications", () => {
@@ -38,6 +40,10 @@ describe("parish filter behavior", () => {
     expect(parishMatchesFilter("parish", "cathedral")).toBe(false);
     expect(parishMatchesFilter("minor-basilica", "basilica")).toBe(true);
     expect(parishMatchesFilter("cathedral", "basilica")).toBe(false);
+    // Shrine is its own bucket — not lumped into Parishes.
+    expect(parishMatchesFilter("shrine", "shrine")).toBe(true);
+    expect(parishMatchesFilter("shrine", "parish")).toBe(false);
+    expect(parishMatchesFilter("parish", "shrine")).toBe(false);
   });
 
   it("'all' matches every classification", () => {
@@ -46,7 +52,8 @@ describe("parish filter behavior", () => {
     }
   });
 
-  it("falls back to 'all' for an unknown filter", () => {
+  it("resolves shrine and falls back to 'all' for an unknown filter", () => {
+    expect(resolveParishFilter("shrine")).toBe("shrine");
     expect(resolveParishFilter("garbage")).toBe("all");
   });
 });

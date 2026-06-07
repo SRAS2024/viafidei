@@ -271,7 +271,11 @@ export default async function AdminWorkerPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-baseline justify-between">
+      {/* z-30 lifts the header (and the Developer Report dropdown inside it)
+          above the following <section> cards, which globals.css puts at
+          position:relative; z-index:1 — otherwise the dropdown is trapped in the
+          header's stacking context and the later sections paint over it. */}
+      <header className="relative z-30 flex items-baseline justify-between">
         <div>
           <h1 className="font-display text-3xl text-ink">Admin Worker · Command Center</h1>
           <p className="mt-1 font-serif text-ink-soft">
