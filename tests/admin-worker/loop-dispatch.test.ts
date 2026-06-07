@@ -6,8 +6,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/checklist", () => ({
-}));
+vi.mock("@/lib/checklist", () => ({}));
 
 vi.mock("@/lib/admin-worker/homepage-mutator", () => ({
   redesignHomepage: vi.fn(async () => ({

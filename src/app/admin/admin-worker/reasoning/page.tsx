@@ -109,7 +109,10 @@ export default async function AdminWorkerReasoningPage({
             <h2 className="font-display text-xl text-ink">Rollbacks ({rollbacks.length})</h2>
             <ul className="mt-3 space-y-2">
               {rollbacks.map((r) => (
-                <li key={String(r.id)} className="rounded border border-rose-200 bg-white px-3 py-2">
+                <li
+                  key={String(r.id)}
+                  className="rounded border border-rose-200 bg-white px-3 py-2"
+                >
                   <div className="text-sm text-ink">
                     <span className="font-medium">{String(r.rollbackAction)}</span> →{" "}
                     <span className="font-mono">{String(r.rollbackResult)}</span>
