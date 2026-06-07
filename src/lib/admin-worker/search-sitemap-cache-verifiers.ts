@@ -200,8 +200,10 @@ function matchesTitle(stored: string, expected: string): boolean {
  * generated sitemap output (spec), not merely that a DB row qualifies.
  * It builds the expected URL with the route-URL builder, assembles the
  * generated sitemap's URL set (real generator ∪ authoritative mapping),
- * and fails (→ repair) when the URL is missing. In production it can
- * additionally probe and parse the live /sitemap.xml.
+ * and fails (→ repair) when the URL is missing. In production it FAILS
+ * CLOSED: the generated output must be inspectable AND the live /sitemap.xml
+ * must be probeable and contain the URL. The "row qualifies for inclusion"
+ * fallback is only allowed in local test / documented dry-run mode.
  */
 export async function verifySitemap(
   prisma: PrismaClient,
@@ -234,14 +236,23 @@ export async function verifySitemap(
   const { urls, authoritativeEnumerated } = await buildSitemapUrlSet(prisma, base);
 
   if (!urls.has(expected)) {
-    // A genuine miss only when we could read the authoritative published
-    // rows and the URL still wasn't among them. If we couldn't enumerate
-    // them here (e.g. a partial mock), fall back to the qualifies check
-    // rather than asserting a miss against a different data source.
+    // Fail closed in production: if we could not enumerate the authoritative
+    // generated output, we cannot PROVE the URL is present. The "row
+    // qualifies for inclusion" fallback is only acceptable in local test /
+    // documented dry-run mode (probeLive === false).
     if (!authoritativeEnumerated) {
+      if (opts.probeLive) {
+        return {
+          ok: false,
+          reason:
+            "Generated sitemap output is not inspectable in production — cannot verify inclusion.",
+          detail: { expected, inspected: false },
+        };
+      }
       return {
         ok: true,
-        reason: "Row qualifies for sitemap inclusion (generated output not inspectable from here).",
+        reason:
+          "Row qualifies for sitemap inclusion (generated output not inspectable; local/dry-run only).",
         detail: { expected, inspected: false },
       };
     }
@@ -252,10 +263,19 @@ export async function verifySitemap(
     };
   }
 
-  // Optional live probe in production: parse the served /sitemap.xml.
+  // Live probe: MANDATORY in production. Parse the served /sitemap.xml and
+  // confirm the URL is present. Fail closed if it cannot be probed — in
+  // production we never pass on the generated output alone.
   if (opts.probeLive) {
     const live = await fetchLiveSitemapUrls(base);
-    if (live && !live.has(expected)) {
+    if (!live) {
+      return {
+        ok: false,
+        reason: "Live /sitemap.xml could not be probed in production — cannot verify inclusion.",
+        detail: { expected, liveProbed: false },
+      };
+    }
+    if (!live.has(expected)) {
       return {
         ok: false,
         reason: `Public URL ${expected} is in the generated output but missing from live /sitemap.xml.`,
@@ -274,11 +294,12 @@ export async function verifySitemap(
 /**
  * Cache verification — proves the public route is fresh (spec). It
  * confirms the freshness marker stored at publish time (contentChecksum)
- * still matches the live row, and — when a base URL is reachable —
- * fetches the public route and confirms the latest title/checksum is
- * actually served, failing when stale content is still cached. When the
- * route can't be probed from here it falls back to confirming the stored
- * marker + a recent revalidation, so offline runs remain meaningful.
+ * still matches the live row, then fetches the public route and confirms
+ * the latest title/checksum is actually served, failing when stale content
+ * is cached. In production it FAILS CLOSED: the public route must be
+ * reachable and serving the latest content. The checksum + recent-
+ * revalidation fallback is only allowed in local test / documented dry-run
+ * mode (probeLive === false).
  */
 export async function verifyCacheFreshness(
   prisma: PrismaClient,
@@ -307,29 +328,41 @@ export async function verifyCacheFreshness(
     };
   }
 
-  // Probe the public route when asked (production). Default runs the
-  // offline-safe checksum + revalidation check below so a build/test
-  // with no reachable server still verifies meaningfully.
+  // Production: MANDATORY live probe. Fetch the public route and prove the
+  // latest content is served. Fail closed if the route can't be built or
+  // reached — in production we NEVER pass on the checksum + revalidation-log
+  // fallback alone (that fallback is local test / documented dry-run only).
   if (opts.probeLive) {
     const { appConfig } = await import("@/lib/config");
     const base = opts.base ?? appConfig.canonicalUrl;
     const { publicRouteFor } = await import("./public-routes");
     const path = publicRouteFor(opts.contentType, opts.slug).slugPath;
-    if (base && path) {
-      const fresh = await fetchPublicRouteFreshness({
-        url: `${base.replace(/\/$/, "")}${path}`,
-        expectedTitle: row.title,
-        checksum: row.contentChecksum ?? expectedChecksum,
-      });
-      if (fresh.reachable) {
-        return fresh.fresh
-          ? { ok: true, reason: fresh.reason, detail: { probed: true } }
-          : { ok: false, reason: fresh.reason, detail: { probed: true } };
-      }
+    if (!base || !path) {
+      return {
+        ok: false,
+        reason: "Public route URL could not be built in production — cannot verify cache freshness.",
+        detail: { expectedChecksum },
+      };
     }
+    const fresh = await fetchPublicRouteFreshness({
+      url: `${base.replace(/\/$/, "")}${path}`,
+      expectedTitle: row.title,
+      checksum: row.contentChecksum ?? expectedChecksum,
+    });
+    if (!fresh.reachable) {
+      return {
+        ok: false,
+        reason: `Public route not reachable in production — cannot prove fresh content for ${opts.contentType}:${opts.slug}.`,
+        detail: { probed: true, reachable: false },
+      };
+    }
+    return fresh.fresh
+      ? { ok: true, reason: fresh.reason, detail: { probed: true } }
+      : { ok: false, reason: fresh.reason, detail: { probed: true } };
   }
 
-  // Offline fallback: stored marker matches + a recent revalidation flag.
+  // Local test / documented dry-run only: offline fallback (stored marker
+  // matches + a recent revalidation flag). Never reached in production.
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const flagged = await prisma.adminWorkerLog
     .findFirst({
@@ -347,7 +380,7 @@ export async function verifyCacheFreshness(
   }
   return {
     ok: true,
-    reason: `Freshness marker matches; cache revalidated ${Math.round((Date.now() - flagged.createdAt.getTime()) / 60_000)}m ago.`,
+    reason: `Freshness marker matches; cache revalidated ${Math.round((Date.now() - flagged.createdAt.getTime()) / 60_000)}m ago (local/dry-run only).`,
     detail: { expectedChecksum, lastFlaggedAt: flagged.createdAt },
   };
 }

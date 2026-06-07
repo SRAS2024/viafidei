@@ -34,8 +34,8 @@ describe("live probing is mandatory in production", () => {
 });
 
 describe("full quality model is the only active publish gate", () => {
-  it("recordQualityScoreV2 stores every dimension + threshold + pass/fail + failed dimensions", async () => {
-    const { recordQualityScoreV2 } = await import("@/lib/admin-worker/quality");
+  it("recordQualityScore stores every dimension + threshold + pass/fail + failed dimensions", async () => {
+    const { recordQualityScore } = await import("@/lib/admin-worker/quality");
     const created: Array<Record<string, unknown>> = [];
     const prisma = {
       contentQualityScore: {
@@ -44,9 +44,9 @@ describe("full quality model is the only active publish gate", () => {
           return { id: "q1" };
         }),
       },
-    } as unknown as Parameters<typeof recordQualityScoreV2>[0];
+    } as unknown as Parameters<typeof recordQualityScore>[0];
 
-    await recordQualityScoreV2(prisma, {
+    await recordQualityScore(prisma, {
       contentType: "PRAYER",
       contentId: "c1",
       completenessScore: 1,
@@ -77,7 +77,7 @@ describe("full quality model is the only active publish gate", () => {
     expect(Array.isArray(row.failedDimensions)).toBe(true);
   });
 
-  it("the legacy recordQualityScore shim routes through the full model (no reduced path)", async () => {
+  it("the only quality scorer stores the full ten-dimension model (no reduced columns)", async () => {
     const { recordQualityScore } = await import("@/lib/admin-worker/quality");
     const created: Array<Record<string, unknown>> = [];
     const prisma = {
@@ -94,27 +94,48 @@ describe("full quality model is the only active publish gate", () => {
       completenessScore: 1,
       correctnessScore: 1,
       formattingScore: 1,
-      sourceEvidenceScore: 1,
-      validationScore: 1,
-      renderScore: 1,
+      sourceAuthorityScore: 1,
+      fieldProvenanceScore: 1,
+      validationEvidenceScore: 1,
+      duplicateSafetyScore: 1,
+      publicRenderingScore: 1,
+      doctrinalSensitivityScore: 1,
+      packageConsistencyScore: 1,
     });
-    // Even the six-dim shim stores the FULL model (threshold + passed +
-    // failed dimensions + the new dimensions) — there is no reduced row.
     const row = created[0];
-    expect(row.threshold).toBeDefined();
-    expect(row.passed).toBeDefined();
-    expect(row.failedDimensions).toBeDefined();
-    expect(row.doctrinalSensitivityScore).toBeDefined();
-    expect(row.packageConsistencyScore).toBeDefined();
+    for (const k of [
+      "completenessScore",
+      "correctnessScore",
+      "formattingScore",
+      "sourceAuthorityScore",
+      "fieldProvenanceScore",
+      "validationEvidenceScore",
+      "duplicateSafetyScore",
+      "publicRenderingScore",
+      "doctrinalSensitivityScore",
+      "packageConsistencyScore",
+      "finalScore",
+      "threshold",
+      "passed",
+      "failedDimensions",
+    ]) {
+      expect(row[k]).toBeDefined();
+    }
+    // The reduced-model columns no longer exist.
+    expect(row.sourceEvidenceScore).toBeUndefined();
+    expect(row.validationScore).toBeUndefined();
+    expect(row.renderScore).toBeUndefined();
   });
 
-  it("the reduced computeFinalScore scorer is removed from the barrel", async () => {
+  it("the only quality scorer is the full model — no reduced / V2 variants remain", async () => {
     const mod = (await import("@/lib/admin-worker")) as Record<string, unknown>;
-    expect(mod.computeFinalScore).toBeUndefined();
-    expect(typeof mod.computeFinalScoreV2).toBe("function");
+    expect(typeof mod.computeFinalScore).toBe("function");
+    expect(typeof mod.recordQualityScore).toBe("function");
+    expect(mod.computeFinalScoreV2).toBeUndefined();
+    expect(mod.recordQualityScoreV2).toBeUndefined();
   });
 
-  it("the publish orchestrator gates on the full quality model (recordQualityScoreV2)", async () => {
+  it("the publish orchestrator gates on the full quality model (recordQualityScore)", async () => {
     // A doctrinally-sensitive item with no verifier sign-off drives the
     // full-model doctrinalSensitivity dimension to 0 → finalScore 0 → the
     // publish is refused. (A reduced 6-dim model would have let it pass.)

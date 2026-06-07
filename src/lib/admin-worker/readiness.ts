@@ -334,6 +334,90 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
       "Run `npx vitest tests/admin-worker/no-placeholder-phrases.test.ts` to identify the offending files; replace placeholders with real implementations.",
   });
 
+  // Structural single-pipeline guards (spec): fail closed if any old/bypass
+  // path still exists in the code. These reflect the loaded modules at
+  // runtime so the dashboard surfaces a regression even if a future change
+  // re-introduces a removed path.
+
+  // (1) Only the full ten-dimension quality model exists — no reduced /
+  //     V2-suffixed scorer remains that content could publish through.
+  const qualityMod = (await import("./quality").catch(() => ({}))) as Record<string, unknown>;
+  const reducedQualityGone =
+    typeof qualityMod.recordQualityScore === "function" &&
+    qualityMod.recordQualityScoreV2 === undefined &&
+    qualityMod.computeFinalScoreV2 === undefined;
+  checks.push({
+    key: "single_quality_model",
+    label: "Only the full ten-dimension quality model exists",
+    status: reducedQualityGone ? "pass" : "fail",
+    detail: reducedQualityGone
+      ? "The full quality model is the only scorer; no reduced / V2 quality path remains."
+      : "A reduced / V2 quality scoring path is still present — content could bypass the full model.",
+    repair: "Remove the reduced quality scorer; recordQualityScore (full model) must be the only one.",
+  });
+
+  // (2) The Python brain is the only final action selector — no legacy
+  //     TypeScript final-brain fallback the worker could publish through.
+  const finalBrainMod = (await import("./final-brain").catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+  const pythonFinalOnly =
+    typeof finalBrainMod.pythonFinalSelector === "function" &&
+    typeof finalBrainMod.isPythonFinalDecision === "function" &&
+    typeof finalBrainMod.isDegraded === "function";
+  checks.push({
+    key: "python_final_brain_only",
+    label: "Python is the only final action brain (no TypeScript fallback)",
+    status: pythonFinalOnly ? "pass" : "fail",
+    detail: pythonFinalOnly
+      ? "pythonFinalSelector is wired; an unavailable/invalid/unsafe decision enters safe degraded mode (no TS final brain)."
+      : "The Python final-brain selector is missing — a TypeScript final-decision fallback may be in use.",
+    repair: "Restore pythonFinalSelector as the final action selector; never fall back to a TS argmax.",
+  });
+
+  // (3) The checklist foundation exposes no public-content writer — the
+  //     Admin Worker publish orchestrator is the only path to public content.
+  const foundationMod = (await import("@/lib/checklist").catch(() => ({}))) as Record<
+    string,
+    unknown
+  >;
+  const noFoundationPublish =
+    foundationMod.publish === undefined && typeof foundationMod.unpublish === "function";
+  checks.push({
+    key: "no_legacy_publish_writer",
+    label: "No legacy publish writer outside the Admin Worker pipeline",
+    status: noFoundationPublish ? "pass" : "fail",
+    detail: noFoundationPublish
+      ? "The checklist foundation has no publish() writer; only runPublishOrchestrator creates public content."
+      : "A legacy publish() writer still exists in the checklist foundation — content could publish outside the pipeline.",
+    repair: "Remove the foundation publish() writer; publishing must only happen via runPublishOrchestrator.",
+  });
+
+  // (4) Live post-publish verification (search/sitemap/cache) is actually
+  //     running — recent independent_verifiers logs prove the live checks fire.
+  const sinceVerify = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const verifierRuns = await Promise.resolve()
+    .then(() =>
+      prisma.adminWorkerLog.count({
+        where: { eventName: "independent_verifiers", createdAt: { gte: sinceVerify } },
+      }),
+    )
+    .catch(() => 0);
+  const anyPublished = recentPublished.length > 0;
+  checks.push({
+    key: "live_verification_active",
+    label: "Live search / sitemap / cache verification is running",
+    status: !anyPublished || verifierRuns > 0 ? "pass" : "fail",
+    detail:
+      verifierRuns > 0
+        ? `${verifierRuns} independent search/sitemap/cache verification pass(es) in the last 7d.`
+        : anyPublished
+          ? "Content was published in the last 7d but no independent search/sitemap/cache verification ran."
+          : "No content published recently; nothing to verify yet.",
+    repair: "Ensure the dispatcher runs SEARCH_VERIFY / SITEMAP_VERIFY / CACHE_REFRESH after publishing.",
+  });
+
   const passing = checks.filter((c) => c.status === "pass").length;
   const failing = checks.length - passing;
   return {

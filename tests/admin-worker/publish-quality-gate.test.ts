@@ -46,7 +46,7 @@ function makePrisma(opts: {
   // Real strict-QA rows carry the full dimension set; the full quality
   // model derives the ContentQualityScore from these. Tests drive the
   // gate by lowering a dimension (not by stubbing a returned finalScore,
-  // which recordQualityScoreV2 now computes itself).
+  // which recordQualityScore now computes itself).
   const dims = {
     completenessScore: 1,
     correctnessScore: 1,
@@ -140,22 +140,15 @@ describe("publish requires a passing strict-QA result (spec §6)", () => {
 });
 
 describe("publish requires a passing ContentQualityScore (spec §4)", () => {
-  it("blocks when ContentQualityScore is below threshold (no artifact id → not repairable)", async () => {
-    // No artifact id → not repairable. Pass explicit quality inputs with
-    // a weak completeness dimension so the full quality score lands below
-    // the PRAYER threshold while the publish gate itself still passes.
+  it("blocks when the full quality score is missing (no artifact id → not repairable)", async () => {
+    // No artifact id → not repairable. When the ContentQualityScore cannot be
+    // recorded the full quality score is missing, and publishing must fail
+    // closed (spec: publishing must fail if the quality score is missing).
     const prisma = makePrisma({});
-    const result = await runPublishOrchestrator(prisma, {
-      ...HEALTHY,
-      qualityInputs: {
-        completenessScore: 0.2,
-        correctnessScore: 1,
-        formattingScore: 1,
-        sourceEvidenceScore: 1,
-        validationScore: 1,
-        renderScore: 1,
-      },
-    });
+    (
+      prisma as unknown as { contentQualityScore: { create: ReturnType<typeof vi.fn> } }
+    ).contentQualityScore.create.mockRejectedValue(new Error("db unavailable"));
+    const result = await runPublishOrchestrator(prisma, { ...HEALTHY });
     expect(result.kind).toBe("blocked");
     if (result.kind === "blocked") expect(result.blockedBy).toBe("quality-score");
   });

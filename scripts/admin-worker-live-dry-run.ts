@@ -22,7 +22,7 @@ import { PrismaClient } from "@prisma/client";
 import { PrayerExtractor } from "../src/lib/admin-worker/extractors";
 import { buildContentPackage } from "../src/lib/admin-worker/content-builder";
 import { recordStrictQA } from "../src/lib/admin-worker/strict-qa";
-import { recordQualityScoreV2 } from "../src/lib/admin-worker/quality";
+import { recordQualityScore } from "../src/lib/admin-worker/quality";
 import { evaluatePublishGate } from "../src/lib/admin-worker/publisher";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
 
@@ -77,7 +77,7 @@ async function runScenario(prisma: PrismaClient, sc: DryRunScenario): Promise<bo
   console.log(`  strict QA: ${qa.status} (${qa.finalScore.toFixed(2)})`);
 
   // 4. Full quality score (diagnostics row — not public).
-  const quality = await recordQualityScoreV2(prisma, {
+  const quality = await recordQualityScore(prisma, {
     contentType: sc.contentType,
     contentId: `dry-${sc.slug}`,
     completenessScore: 1,
