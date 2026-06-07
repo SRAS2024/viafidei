@@ -46,8 +46,9 @@ export const QUALITY_THRESHOLDS: Record<string, number> = {
 };
 
 /**
- * Backwards-compatible input shape (six sub-scores) — see
- * computeFinalScore() for the legacy path.
+ * Six-sub-score input shape accepted by the `recordQualityScore` shim,
+ * which maps it onto the full ten-dimension model. There is no reduced
+ * scoring math anymore.
  */
 export interface QualityInputs {
   contentType: string;
@@ -78,41 +79,6 @@ export interface QualityInputsV2 {
   publicRenderingScore?: number;
   doctrinalSensitivityScore?: number;
   packageConsistencyScore?: number;
-}
-
-export function computeFinalScore(
-  inputs: Omit<QualityInputs, "contentType" | "contentId">,
-): number {
-  const dims = [
-    inputs.completenessScore,
-    inputs.correctnessScore,
-    inputs.formattingScore,
-    inputs.sourceEvidenceScore,
-    inputs.validationScore,
-    inputs.renderScore,
-  ];
-  // Hard "any-zero fails everything" gate. A missing critical dimension
-  // must drive the final score to zero so the publish gate refuses.
-  if (dims.some((d) => d <= 0)) return 0;
-
-  const weights = {
-    completeness: 0.25,
-    correctness: 0.25,
-    formatting: 0.1,
-    sourceEvidence: 0.2,
-    validation: 0.15,
-    render: 0.05,
-  };
-  // Weighted geometric mean over the strictly-positive sub-scores.
-  const log =
-    weights.completeness * Math.log(inputs.completenessScore) +
-    weights.correctness * Math.log(inputs.correctnessScore) +
-    weights.formatting * Math.log(inputs.formattingScore) +
-    weights.sourceEvidence * Math.log(inputs.sourceEvidenceScore) +
-    weights.validation * Math.log(inputs.validationScore) +
-    weights.render * Math.log(inputs.renderScore);
-  const score = Math.exp(log);
-  return Math.max(0, Math.min(1, score));
 }
 
 /**
@@ -275,16 +241,16 @@ export async function recordQualityScoreV2(
   return { id: row.id, finalScore, threshold, passed, failedDimensions };
 }
 
+/**
+ * Compatibility shim for the few callers that still pass the six-dim input
+ * shape: it maps them onto the full ten-dimension model. There is NO
+ * reduced scoring path — every score goes through `recordQualityScoreV2`.
+ */
 export async function recordQualityScore(
   prisma: PrismaClient,
   inputs: QualityInputs,
 ): Promise<{ id: string; finalScore: number }> {
-  // finalScore keeps the legacy six-dimension math (callers depend on
-  // it), but the row is enriched to the full model so every stored score
-  // carries threshold + pass/fail + failed dimensions.
-  const finalScore = computeFinalScore(inputs);
-  const threshold = thresholdFor(inputs.contentType);
-  const failedDimensions = failedDimensionsV2({
+  const v2 = await recordQualityScoreV2(prisma, {
     contentType: inputs.contentType,
     contentId: inputs.contentId,
     completenessScore: inputs.completenessScore,
@@ -294,21 +260,7 @@ export async function recordQualityScore(
     fieldProvenanceScore: inputs.sourceEvidenceScore,
     validationEvidenceScore: inputs.validationScore,
     publicRenderingScore: inputs.renderScore,
+    packageConsistencyScore: inputs.correctnessScore,
   });
-  const row = await prisma.contentQualityScore.create({
-    data: {
-      ...inputs,
-      sourceAuthorityScore: inputs.sourceEvidenceScore,
-      fieldProvenanceScore: inputs.sourceEvidenceScore,
-      duplicateSafetyScore: 1,
-      doctrinalSensitivityScore: 1,
-      packageConsistencyScore: inputs.correctnessScore,
-      finalScore,
-      threshold,
-      passed: finalScore >= threshold,
-      failedDimensions,
-    },
-    select: { id: true },
-  });
-  return { id: row.id, finalScore };
+  return { id: v2.id, finalScore: v2.finalScore };
 }

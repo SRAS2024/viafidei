@@ -77,6 +77,43 @@ describe("full quality model is the only active publish gate", () => {
     expect(Array.isArray(row.failedDimensions)).toBe(true);
   });
 
+  it("the legacy recordQualityScore shim routes through the full model (no reduced path)", async () => {
+    const { recordQualityScore } = await import("@/lib/admin-worker/quality");
+    const created: Array<Record<string, unknown>> = [];
+    const prisma = {
+      contentQualityScore: {
+        create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+          created.push(data);
+          return { id: "q1" };
+        }),
+      },
+    } as unknown as Parameters<typeof recordQualityScore>[0];
+    await recordQualityScore(prisma, {
+      contentType: "PRAYER",
+      contentId: "c1",
+      completenessScore: 1,
+      correctnessScore: 1,
+      formattingScore: 1,
+      sourceEvidenceScore: 1,
+      validationScore: 1,
+      renderScore: 1,
+    });
+    // Even the six-dim shim stores the FULL model (threshold + passed +
+    // failed dimensions + the new dimensions) — there is no reduced row.
+    const row = created[0];
+    expect(row.threshold).toBeDefined();
+    expect(row.passed).toBeDefined();
+    expect(row.failedDimensions).toBeDefined();
+    expect(row.doctrinalSensitivityScore).toBeDefined();
+    expect(row.packageConsistencyScore).toBeDefined();
+  });
+
+  it("the reduced computeFinalScore scorer is removed from the barrel", async () => {
+    const mod = (await import("@/lib/admin-worker")) as Record<string, unknown>;
+    expect(mod.computeFinalScore).toBeUndefined();
+    expect(typeof mod.computeFinalScoreV2).toBe("function");
+  });
+
   it("the publish orchestrator gates on the full quality model (recordQualityScoreV2)", async () => {
     // A doctrinally-sensitive item with no verifier sign-off drives the
     // full-model doctrinalSensitivity dimension to 0 → finalScore 0 → the
