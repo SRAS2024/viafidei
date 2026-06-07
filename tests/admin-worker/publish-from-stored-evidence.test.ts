@@ -149,7 +149,7 @@ describe("publish derives ContentQualityScore from strict-QA dimensions (spec §
     expect(captured.qualityScoreInputs).toMatchObject({ formattingScore: 0.8 });
   });
 
-  it("biases sourceEvidence by authority level and validation by verifier evidence strength (spec §6)", async () => {
+  it("captures source authority as its own first-class quality dimension (spec §6)", async () => {
     const { prisma, captured } = makePrisma({
       qaRow: {
         completenessScore: 1,
@@ -166,7 +166,7 @@ describe("publish derives ContentQualityScore from strict-QA dimensions (spec §
       title: "Our Father",
       slug: "our-father-bias",
       payload: {} as never,
-      // DIOCESAN authority → 0.88 factor on sourceEvidence
+      // DIOCESAN authority → 0.88 sourceAuthority dimension.
       authorityLevel: "DIOCESAN",
       finalScore: 0.92,
       qaPassed: true,
@@ -175,7 +175,10 @@ describe("publish derives ContentQualityScore from strict-QA dimensions (spec §
       confidence: 0.92,
       strictQAArtifactId: "art-bias",
     });
-    expect((captured.qualityScoreInputs?.sourceEvidenceScore as number).toFixed(2)).toBe("0.88");
+    // In the full quality model authority is its own dimension (no longer
+    // folded into sourceEvidence). fieldProvenance stays at the raw 1.0.
+    expect((captured.qualityScoreInputs?.sourceAuthorityScore as number).toFixed(2)).toBe("0.88");
+    expect(captured.qualityScoreInputs?.fieldProvenanceScore).toBe(1);
   });
 
   it("blocks when strictQAArtifactId is supplied but no row exists", async () => {

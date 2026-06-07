@@ -133,6 +133,7 @@ function makePrisma() {
     },
     publishedContent: {
       findFirst: vi.fn(async () => published[0] ?? null),
+      findMany: vi.fn(async () => published),
       create: vi.fn(async (args: { data: Record<string, unknown> }) => {
         const row = {
           id: `pub-${published.length + 1}`,

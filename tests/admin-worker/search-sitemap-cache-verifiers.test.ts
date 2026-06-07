@@ -36,6 +36,9 @@ function prismaWithPublished(opts: {
       // for slug / contentType. Default to 1 so the search-ok path
       // returns true; tests can override with mockResolvedValueOnce.
       count: vi.fn(async () => 1),
+      // Sitemap verification inspects the generated output, which is
+      // reproduced from the authoritative published rows.
+      findMany: vi.fn(async () => [{ contentType: "PRAYER", slug: "our-father" }]),
     },
     adminWorkerLog: {
       findFirst: vi.fn(async () =>
@@ -84,12 +87,27 @@ describe("verifySearchIndex (spec §8)", () => {
 });
 
 describe("verifySitemap (spec §8)", () => {
-  it("ok when the row exists with publishedAt and slug is URL-safe", async () => {
+  it("ok when the public URL appears in the generated sitemap output", async () => {
     const out = await verifySitemap(prismaWithPublished({}), {
       contentType: "PRAYER",
       slug: "our-father",
     });
     expect(out.ok).toBe(true);
+    expect(out.reason).toMatch(/generated sitemap/);
+  });
+
+  it("fails (→ repair) when the URL is missing from the generated sitemap", async () => {
+    // Authoritative enumeration returns a DIFFERENT row, so our URL is
+    // genuinely absent from the generated output.
+    const prisma = prismaWithPublished({});
+    (
+      prisma as unknown as { publishedContent: { findMany: ReturnType<typeof vi.fn> } }
+    ).publishedContent.findMany = vi.fn(async () => [
+      { contentType: "PRAYER", slug: "some-other-prayer" },
+    ]);
+    const out = await verifySitemap(prisma, { contentType: "PRAYER", slug: "our-father" });
+    expect(out.ok).toBe(false);
+    expect(out.reason).toMatch(/NOT in the generated sitemap/);
   });
 
   it("fails when slug is not URL-safe", async () => {
@@ -120,13 +138,13 @@ describe("verifyCacheFreshness (spec §8)", () => {
     expect(out.ok).toBe(true);
   });
 
-  it("fails when no recent cache refresh log row exists", async () => {
+  it("fails when the checksum matches but no recent revalidation and route unprobed", async () => {
     const out = await verifyCacheFreshness(prismaWithPublished({ cacheLog: null }), {
       contentType: "PRAYER",
       slug: "our-father",
     });
     expect(out.ok).toBe(false);
-    expect(out.reason).toContain("No cache_refresh_flagged");
+    expect(out.reason).toMatch(/no recent cache revalidation/);
   });
 });
 

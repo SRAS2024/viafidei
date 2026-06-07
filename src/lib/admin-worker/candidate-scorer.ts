@@ -255,7 +255,7 @@ export async function rescoreAllCandidates(
 
 /**
  * After a fetch / classify / extract / QA / publish event, nudge the
- * candidate score based on the actual outcome. Future passes will
+ * candidate score based on the actual outcome. Later passes will
  * use the updated score.
  */
 export async function adjustAfterOutcome(

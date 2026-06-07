@@ -381,9 +381,15 @@ async function scanAdminWorkerForPlaceholders(): Promise<number> {
   const csPhrases = ["T" + "ODO", "F" + "IXME", "X" + "XX"];
   const ciPhrases = [
     "not " + "implemented",
+    "not yet " + "implemented",
+    "to be " + "implemented",
     "placeholder " + "stage",
     "log intent " + "only",
+    "intent " + "only",
+    "log " + "only",
     "phase " + "2",
+    "future " + "pass",
+    "st" + "ub",
   ];
   const patterns: RegExp[] = [
     ...csPhrases.map((p) => new RegExp(`\\b${p}\\b`)),

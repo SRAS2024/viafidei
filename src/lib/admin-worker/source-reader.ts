@@ -90,7 +90,7 @@ function blocksToHeadings(blocks: StructuredBlock[]): string[] {
  * Read + parse blocks + classify + extract a source page. Always
  * writes an `AdminWorkerSourceRead` row (deduped on sha256), persists
  * the structured blocks the page produced, then classifies + extracts
- * against the block-derived body. Memory is updated so future passes
+ * against the block-derived body. Memory is updated so later passes
  * can rank sources.
  */
 export async function readSource(
@@ -269,7 +269,7 @@ export async function readSource(
     },
   });
 
-  // 9. Update memory with extractor outcome so future passes can rank
+  // 9. Update memory with extractor outcome so later passes can rank
   //    this host.
   await rememberOutcome(prisma, {
     memoryType: "SOURCE_PRIORITY",

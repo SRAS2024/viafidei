@@ -46,6 +46,9 @@ export async function persistActionScores(
     qualityExpectation: action.qualityExpectation,
     safe: action.safe,
     reason: action.reasonSummary,
+    // Spec: persist the fallback action the brain planned for each
+    // considered action (what it would do if this action failed).
+    fallbackAction: action.fallbackAction,
     // Spec §7.14: rejected reason if not selected. A safe but lower-
     // scoring alternative still gets a reason so the operator sees the
     // ranking logic, not a blank.

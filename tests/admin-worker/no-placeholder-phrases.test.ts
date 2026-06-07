@@ -1,10 +1,11 @@
 /**
- * Spec §19: no placeholder phrases in Admin Worker production modules.
- * Fails if any source file under src/lib/admin-worker/ contains
- * placeholder language (TODO, FIXME, "not implemented", "placeholder
- * stage", "log intent only", "stub", "phase 2", "future pass"). Tests
- * and documentation are allowed to mention these words; production
- * code is not.
+ * No placeholder phrases in Admin Worker production modules. Fails if
+ * any source file under src/lib/admin-worker/ contains unresolved
+ * implementation language (TODO, FIXME, XXX, "not implemented", "not
+ * yet implemented", "to be implemented", "placeholder stage", "intent
+ * only", "log only", "phase 2", "future pass", "stub").
+ * Tests and documentation are allowed to mention these words;
+ * production code is not.
  *
  * Note: harmless prefixes ("noop", "no-op" inside comments unrelated
  * to dispatcher work) and the "future" word in unrelated contexts are
@@ -26,9 +27,15 @@ const PLACEHOLDER_PATTERNS: Array<{ name: string; rx: RegExp }> = [
   { name: "FIXME comment", rx: /\bFIXME\b/ },
   { name: "XXX comment", rx: /\bXXX\b/ },
   { name: '"not implemented"', rx: /not implemented/i },
+  { name: '"not yet implemented"', rx: /not yet implemented/i },
+  { name: '"to be implemented"', rx: /to be implemented/i },
   { name: '"placeholder stage"', rx: /placeholder stage/i },
   { name: '"log intent only"', rx: /log intent only/i },
+  { name: '"intent only"', rx: /intent only/i },
+  { name: '"log only"', rx: /\blog only\b/i },
   { name: '"phase 2"', rx: /\bphase 2\b/i },
+  { name: '"future pass"', rx: /\bfuture pass(es)?\b/i },
+  { name: '"stub"', rx: /\bstub\b/i },
   { name: '"nothing extra to do here"', rx: /nothing extra to do here/i },
   { name: '"build engine runs QA inline; nothing"', rx: /build engine runs QA inline; nothing/i },
 ];

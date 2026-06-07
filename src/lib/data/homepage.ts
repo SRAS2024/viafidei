@@ -82,3 +82,80 @@ export function persistHomepageBlocks(pageId: string, blocks: HomepageBlockUpdat
     }),
   ]);
 }
+
+/* ------------------------------------------------------------------ *
+ * Worker-managed "featured" rails.
+ *
+ * The "Request Homepage Makeover" flow proposes featured-* blocks
+ * (heading + a short list of published items). When such a draft is
+ * published, those blocks land on the HomePage record and the live
+ * homepage renders them in place of the static featured prayers rail.
+ * If none are present (the common case), the homepage falls back to its
+ * static sections — so there is zero visual change until a makeover is
+ * explicitly published.
+ * ------------------------------------------------------------------ */
+
+/** Maps a featured block type to its public content route prefix. */
+const FEATURED_ROUTE_PREFIX: Record<string, string> = {
+  "featured-prayers": "/prayers",
+  "featured-saints": "/saints",
+  "featured-devotions": "/devotions",
+  "featured-novenas": "/novenas",
+  "featured-sacraments": "/sacraments",
+};
+
+export function featuredHrefFor(blockType: string, slug: string): string {
+  const prefix = FEATURED_ROUTE_PREFIX[blockType] ?? "/prayers";
+  return `${prefix}/${encodeURIComponent(slug)}`;
+}
+
+export type FeaturedItem = { slug: string; title: string };
+export type FeaturedBlockView = {
+  blockKey: string;
+  blockType: string;
+  heading: string;
+  items: FeaturedItem[];
+};
+
+function humanLabelFromKey(blockKey: string): string {
+  return blockKey
+    .replace(/^featured-/, "Featured ")
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Parse a stored featured block's configJson into a typed view. */
+export function parseFeaturedBlock(block: {
+  blockKey: string;
+  blockType: string;
+  configJson: unknown;
+}): FeaturedBlockView {
+  const cfg =
+    block.configJson && typeof block.configJson === "object"
+      ? (block.configJson as Record<string, unknown>)
+      : {};
+  const heading = typeof cfg.heading === "string" ? cfg.heading : humanLabelFromKey(block.blockKey);
+  const rawItems = Array.isArray(cfg.items) ? cfg.items : [];
+  const items: FeaturedItem[] = rawItems
+    .map((it) => (it && typeof it === "object" ? (it as Record<string, unknown>) : {}))
+    .filter((it) => typeof it.slug === "string" && typeof it.title === "string")
+    .map((it) => ({ slug: it.slug as string, title: it.title as string }));
+  return { blockKey: block.blockKey, blockType: block.blockType, heading, items };
+}
+
+/** Featured rails to render on the live homepage. Only returns blocks
+ *  once a makeover has been published (HomePage.status PUBLISHED) and
+ *  only those that actually have items, so empty rails never show. */
+export async function getPublishedFeaturedBlocks(): Promise<FeaturedBlockView[]> {
+  const page = await prisma.homePage.findUnique({
+    where: { slug: HOMEPAGE_SLUG },
+    include: {
+      blocks: {
+        where: { blockType: { startsWith: "featured-" } },
+        orderBy: { sortOrder: "asc" },
+      },
+    },
+  });
+  if (!page || page.status !== "PUBLISHED") return [];
+  return page.blocks.map(parseFeaturedBlock).filter((b) => b.items.length > 0);
+}

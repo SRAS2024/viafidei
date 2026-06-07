@@ -33,8 +33,30 @@ import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator"
 function makePrisma(opts: {
   qaStatus?: "PASSED" | "FAILED" | "NEEDS_REPAIR";
   qaMissing?: boolean;
-  qualityFinalScore?: number;
+  qaDims?: Partial<{
+    completenessScore: number;
+    correctnessScore: number;
+    formattingScore: number;
+    provenanceScore: number;
+    validationScore: number;
+    duplicateSafetyScore: number;
+    publicReadinessScore: number;
+  }>;
 }) {
+  // Real strict-QA rows carry the full dimension set; the full quality
+  // model derives the ContentQualityScore from these. Tests drive the
+  // gate by lowering a dimension (not by stubbing a returned finalScore,
+  // which recordQualityScoreV2 now computes itself).
+  const dims = {
+    completenessScore: 1,
+    correctnessScore: 1,
+    formattingScore: 1,
+    provenanceScore: 1,
+    validationScore: 1,
+    duplicateSafetyScore: 1,
+    publicReadinessScore: 1,
+    ...(opts.qaDims ?? {}),
+  };
   return {
     publishedContent: {
       findFirst: vi.fn(async () => null),
@@ -51,14 +73,12 @@ function makePrisma(opts: {
               finalScore: opts.qaStatus === "PASSED" ? 0.92 : 0.4,
               blockingReasons: [],
               repairSuggestions: [],
+              ...dims,
             },
       ),
     },
     contentQualityScore: {
-      create: vi.fn(async (args: { data: { finalScore: number } }) => ({
-        id: "q-1",
-        finalScore: opts.qualityFinalScore ?? args.data.finalScore,
-      })),
+      create: vi.fn(async () => ({ id: "q-1" })),
     },
   } as unknown as Parameters<typeof runPublishOrchestrator>[0];
 }
@@ -121,15 +141,29 @@ describe("publish requires a passing strict-QA result (spec §6)", () => {
 
 describe("publish requires a passing ContentQualityScore (spec §4)", () => {
   it("blocks when ContentQualityScore is below threshold (no artifact id → not repairable)", async () => {
-    // Override the mock to force a low finalScore.
-    const prisma = makePrisma({ qualityFinalScore: 0.3 });
-    const result = await runPublishOrchestrator(prisma, HEALTHY);
+    // No artifact id → not repairable. Pass explicit quality inputs with
+    // a weak completeness dimension so the full quality score lands below
+    // the PRAYER threshold while the publish gate itself still passes.
+    const prisma = makePrisma({});
+    const result = await runPublishOrchestrator(prisma, {
+      ...HEALTHY,
+      qualityInputs: {
+        completenessScore: 0.2,
+        correctnessScore: 1,
+        formattingScore: 1,
+        sourceEvidenceScore: 1,
+        validationScore: 1,
+        renderScore: 1,
+      },
+    });
     expect(result.kind).toBe("blocked");
     if (result.kind === "blocked") expect(result.blockedBy).toBe("quality-score");
   });
 
   it("routes to repair when quality is below threshold AND the artifact is repairable (spec §4)", async () => {
-    const prisma = makePrisma({ qualityFinalScore: 0.3, qaStatus: "PASSED" });
+    // A repairable artifact whose strict-QA completeness is weak → the
+    // full quality score lands below the PRAYER threshold → repair first.
+    const prisma = makePrisma({ qaStatus: "PASSED", qaDims: { completenessScore: 0.2 } });
     const result = await runPublishOrchestrator(prisma, {
       ...HEALTHY,
       strictQAArtifactId: "art-1",

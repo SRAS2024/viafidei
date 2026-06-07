@@ -118,6 +118,52 @@ describe("redesignHomepage", () => {
     expect(draft.mode).toBe("CONTENT_GAP_REPAIR");
   });
 
+  it("forces a draft even above threshold (admin-requested makeover)", async () => {
+    const { prisma, drafts } = makePrisma({
+      blocks: [
+        { blockKey: "hero", blockType: "hero", sortOrder: 0, configJson: {} },
+        { blockKey: "mission", blockType: "mission", sortOrder: 1, configJson: {} },
+        {
+          blockKey: "featured-prayers",
+          blockType: "featured-prayers",
+          sortOrder: 2,
+          configJson: {},
+        },
+        { blockKey: "featured-saints", blockType: "featured-saints", sortOrder: 3, configJson: {} },
+        {
+          blockKey: "featured-devotions",
+          blockType: "featured-devotions",
+          sortOrder: 4,
+          configJson: {},
+        },
+        {
+          blockKey: "featured-novenas",
+          blockType: "featured-novenas",
+          sortOrder: 5,
+          configJson: {},
+        },
+      ],
+      publishedByType: [
+        { contentType: "PRAYER", _count: 30 },
+        { contentType: "SAINT", _count: 30 },
+      ],
+      publishedRows: [
+        { contentType: "PRAYER", slug: "our-father", title: "Our Father", publishedAt: new Date() },
+        { contentType: "SAINT", slug: "st-francis", title: "St. Francis", publishedAt: new Date() },
+      ],
+    });
+    // Score is comfortably above 0.5, but force makes us draft anyway.
+    const out = await redesignHomepage(prisma, {
+      mode: "ADMIN_REQUESTED",
+      redesignThreshold: 0.5,
+      force: true,
+    });
+    expect(out.draftId).not.toBeNull();
+    expect(drafts).toHaveLength(1);
+    const draft = drafts[0] as { status: string };
+    expect(draft.status).toBe("AWAITING_REVIEW");
+  });
+
   it("never auto-publishes when removing existing sections", async () => {
     const { prisma, drafts } = makePrisma({
       blocks: [

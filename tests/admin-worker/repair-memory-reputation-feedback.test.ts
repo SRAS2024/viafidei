@@ -79,7 +79,11 @@ function makePrisma(plans: Array<Record<string, unknown>>) {
         safeMetadata: {},
       })),
     },
-    publishedContent: { findFirst: vi.fn(async () => null) },
+    publishedContent: {
+      // Cache freshness needs the published row; offline cache-log
+      // fallback then confirms freshness so the repair succeeds.
+      findFirst: vi.fn(async () => ({ title: "X", payload: {}, contentChecksum: null })),
+    },
     $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
       // The orchestrator's leaseNextPlan uses $transaction. Pass back a
       // tx that returns the next plan directly.

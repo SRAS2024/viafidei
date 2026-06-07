@@ -13,7 +13,7 @@
  *   - request search index refresh
  *   - request sitemap refresh
  *   - revalidate cache
- *   - record post-publish verification placeholder
+ *   - record post-publish verification result
  *
  * The orchestrator never approves doctrinally-sensitive content
  * without the cross-source verifier signing off — VerifierOutcome
@@ -33,6 +33,7 @@ import { writeAdminWorkerLog } from "./logs";
 import { publicRouteFor } from "./public-routes";
 import { evaluatePublishGate } from "./publisher";
 import { recordReasoningEdge } from "./reasoning-graph";
+import type { QualityInputsV2 } from "./quality";
 import type { VerifierOutcome } from "./verifier";
 
 export interface PublishOrchestratorInput {
@@ -235,8 +236,11 @@ export async function runPublishOrchestrator(
   //     pulled from strict-QA and combined with the geometric mean by
   //     dragging completeness down to zero on a duplicate-safety
   //     failure (= refusal to publish a duplicate).
-  let qualityInputs = input.qualityInputs;
-  if (!qualityInputs && input.strictQAArtifactId) {
+  // Build the full ten-dimension quality inputs (spec: store + enforce
+  // the full quality model). Prefer strict-QA-derived dimensions; fall
+  // back to a legacy six-dim input or coarse defaults.
+  let qualityV2: QualityInputsV2 | undefined;
+  if (!input.qualityInputs && input.strictQAArtifactId) {
     const { getStrictQAResult } = await import("./strict-qa");
     const qa = await getStrictQAResult(prisma, input.strictQAArtifactId);
     const qaRow = await prisma.adminWorkerStrictQAResult
@@ -244,67 +248,112 @@ export async function runPublishOrchestrator(
       .catch(() => null);
     if (qa && qaRow) {
       // Source-authority factor: VATICAN=1.0, CONFERENCE/MAGISTERIUM=0.95,
-      // DIOCESAN=0.88, PARISH/COMMUNITY=0.78 — folded into sourceEvidence
-      // so the geometric mean reflects authority rigor.
+      // DIOCESAN=0.88, PARISH/COMMUNITY=0.78.
       const authorityFactor = sourceAuthorityFactor(input.authorityLevel);
       // Verification-evidence-strength factor: when a verifier outcome
       // is supplied, missing required fields drag validation down even
       // if the strict-QA validation score was high.
       const evidenceStrength = verificationEvidenceStrength(input.verifier);
-      // Duplicate-safety failure → completenessScore=0 so the geometric
-      // mean is zero and the publish gate refuses (a duplicate is not a
-      // valid publish even if every other dimension passes). When the
-      // strict-QA row pre-dates the duplicateSafetyScore column we
-      // treat the absence as "not yet measured" and pass through.
+      // Duplicate-safety failure → completeness + duplicateSafety = 0 so
+      // the geometric mean is zero and the publish gate refuses (a
+      // duplicate is not a valid publish). A pre-column strict-QA row
+      // (undefined/null) is treated as "not yet measured" and passes.
       const duplicateOk =
         qaRow.duplicateSafetyScore === undefined || qaRow.duplicateSafetyScore === null
           ? true
           : qaRow.duplicateSafetyScore > 0;
-      qualityInputs = {
-        completenessScore: duplicateOk ? qaRow.completenessScore : 0,
-        correctnessScore: qaRow.correctnessScore,
-        formattingScore: qaRow.formattingScore,
-        sourceEvidenceScore: qaRow.provenanceScore * authorityFactor,
-        validationScore: qaRow.validationScore * evidenceStrength,
-        renderScore: qaRow.publicReadinessScore,
+      qualityV2 = {
+        contentType: input.contentType,
+        contentId: input.contentId,
+        completenessScore: duplicateOk ? (qaRow.completenessScore ?? 1) : 0,
+        correctnessScore: qaRow.correctnessScore ?? 1,
+        formattingScore: qaRow.formattingScore ?? 1,
+        sourceAuthorityScore: authorityFactor,
+        fieldProvenanceScore: qaRow.provenanceScore ?? 1,
+        validationEvidenceScore: (qaRow.validationScore ?? 1) * evidenceStrength,
+        duplicateSafetyScore: duplicateOk ? (qaRow.duplicateSafetyScore ?? 1) : 0,
+        publicRenderingScore: qaRow.publicReadinessScore ?? 1,
+        // Doctrinally-sensitive content cannot pass without the verifier
+        // signing off — drives doctrinalSensitivity (and the gate) to 0.
+        doctrinalSensitivityScore: input.isDoctrinallySensitive
+          ? input.verifier?.publishAllowed
+            ? 1
+            : 0
+          : 1,
+        packageConsistencyScore: qaRow.correctnessScore ?? 1,
       };
     }
   }
-  qualityInputs = qualityInputs ?? {
-    completenessScore: input.qaPassed ? 1 : 0.5,
-    correctnessScore: input.confidence,
-    formattingScore: 0.8,
-    sourceEvidenceScore: input.hasSourceEvidence ? 1 : 0,
-    validationScore: input.verifier?.publishAllowed ? 1 : input.isDoctrinallySensitive ? 0 : 0.8,
-    renderScore: 1,
-  };
-  const { recordQualityScore, thresholdFor } = await import("./quality");
-  const qualityScore = await recordQualityScore(prisma, {
-    contentType: input.contentType,
-    contentId: input.contentId,
-    ...qualityInputs,
-  }).catch(() => null);
-  const qualityThreshold = thresholdFor(input.contentType);
-  if (!qualityScore || qualityScore.finalScore < qualityThreshold) {
-    const reason = `ContentQualityScore ${qualityScore?.finalScore?.toFixed(2) ?? "missing"} below ${input.contentType} threshold ${qualityThreshold.toFixed(2)}`;
+  const legacy = input.qualityInputs;
+  const qualityV2Final: QualityInputsV2 =
+    qualityV2 ??
+    (legacy
+      ? {
+          contentType: input.contentType,
+          contentId: input.contentId,
+          completenessScore: legacy.completenessScore,
+          correctnessScore: legacy.correctnessScore,
+          formattingScore: legacy.formattingScore,
+          sourceAuthorityScore: legacy.sourceEvidenceScore,
+          fieldProvenanceScore: legacy.sourceEvidenceScore,
+          validationEvidenceScore: legacy.validationScore,
+          duplicateSafetyScore: 1,
+          publicRenderingScore: legacy.renderScore,
+          doctrinalSensitivityScore: input.isDoctrinallySensitive
+            ? legacy.validationScore > 0
+              ? 1
+              : 0
+            : 1,
+          packageConsistencyScore: legacy.correctnessScore,
+        }
+      : {
+          contentType: input.contentType,
+          contentId: input.contentId,
+          completenessScore: input.qaPassed ? 1 : 0.5,
+          correctnessScore: input.confidence,
+          formattingScore: 0.8,
+          sourceAuthorityScore: sourceAuthorityFactor(input.authorityLevel),
+          fieldProvenanceScore: input.hasSourceEvidence ? 1 : 0,
+          validationEvidenceScore: input.verifier?.publishAllowed
+            ? 1
+            : input.isDoctrinallySensitive
+              ? 0
+              : 0.8,
+          duplicateSafetyScore: 1,
+          publicRenderingScore: 1,
+          doctrinalSensitivityScore: input.isDoctrinallySensitive
+            ? input.verifier?.publishAllowed
+              ? 1
+              : 0
+            : 1,
+          packageConsistencyScore: input.qaPassed ? 1 : 0.8,
+        });
+  const { recordQualityScoreV2, thresholdFor } = await import("./quality");
+  const qualityScore = await recordQualityScoreV2(prisma, qualityV2Final).catch(() => null);
+  // Spec: publishing must use the FULL stored quality score. `passed`
+  // already folds in the per-content-type threshold.
+  if (!qualityScore || !qualityScore.passed) {
+    const failed = qualityScore?.failedDimensions ?? [];
+    const qualityThreshold = qualityScore?.threshold ?? thresholdFor(input.contentType);
+    const reason = `ContentQualityScore ${qualityScore?.finalScore?.toFixed(2) ?? "missing"} below ${input.contentType} threshold ${qualityThreshold.toFixed(2)}${failed.length ? ` (failed dimensions: ${failed.join(", ")})` : ""}`;
     await logBlocked(prisma, input, reason);
     // Spec §4 + §9: file a QUALITY_SCORE_FAILED repair plan so the
     // package goes to repair first rather than being silently
-    // rejected. The repair orchestrator resets the artifact for
-    // re-extraction. When the artifact is repairable (we have its id)
-    // the result is "repair", not "blocked" — spec §4 "go to repair
-    // first" / §6 distinct repair explanation.
+    // rejected. The repair handler inspects the failed dimension and
+    // chooses the targeted repair. When the artifact is repairable (we
+    // have its id) the result is "repair", not "blocked".
     if (input.strictQAArtifactId) {
       const { filePlan } = await import("./repair-plans");
       await filePlan(prisma, {
         kind: "QUALITY_SCORE_FAILED",
         failedEntity: input.strictQAArtifactId,
-        repairAction: `Re-extract ${input.contentType}/${input.slug}; quality score too low.`,
+        repairAction: `Re-extract ${input.contentType}/${input.slug}; quality score too low${failed.length ? ` (failed: ${failed.join(", ")})` : ""}.`,
         metadata: {
           contentType: input.contentType,
           slug: input.slug,
           finalScore: qualityScore?.finalScore ?? 0,
           threshold: qualityThreshold,
+          failedDimensions: failed,
         },
       }).catch(() => undefined);
       return { kind: "repair", reason };
@@ -322,6 +371,11 @@ export async function runPublishOrchestrator(
       reason: `no public route for content type ${input.contentType}`,
     };
   }
+
+  // Freshness marker written at publish time; cache verification later
+  // confirms this checksum is actually being served from the public route.
+  const { computeContentChecksum } = await import("./cache-freshness");
+  const contentChecksum = computeContentChecksum(input.title, input.payload);
 
   // 4. Duplicate check (slug + content type — schema-unique).
   const existing = await prisma.publishedContent
@@ -348,6 +402,7 @@ export async function runPublishOrchestrator(
           publishedAt: new Date(),
           payload: input.payload,
           title: input.title,
+          contentChecksum,
         },
       })
       .catch(() => null);
@@ -380,6 +435,7 @@ export async function runPublishOrchestrator(
         authorityLevel: input.authorityLevel as never,
         isPublished: true,
         publishedAt: new Date(),
+        contentChecksum,
         version: 1,
       },
     })

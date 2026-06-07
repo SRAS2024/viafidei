@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Period values map to the new POST /api/admin/developer-audit route
@@ -33,6 +33,24 @@ export function DeveloperAuditButton() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sections, setSections] = useState<Set<Section>>(new Set(ALL_SECTIONS));
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on Escape or click outside, so the panel never lingers over content.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   const toggleSection = (s: Section) => {
     setSections((prev) => {
@@ -78,7 +96,7 @@ export function DeveloperAuditButton() {
   };
 
   return (
-    <div className="relative inline-block">
+    <div className="relative z-50 inline-block" ref={ref}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -105,7 +123,7 @@ export function DeveloperAuditButton() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-10 mt-2 w-80 rounded border border-slate-300 bg-white p-3 text-sm shadow-lg">
+        <div className="absolute right-0 z-50 mt-2 max-h-[min(75vh,32rem)] w-80 overflow-y-auto rounded-lg border border-slate-300 bg-white p-3 text-sm shadow-xl">
           <fieldset className="space-y-1">
             <legend className="mb-1 text-xs uppercase text-ink-soft">Report period</legend>
             {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (

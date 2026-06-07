@@ -147,6 +147,64 @@ export default async function AdminWorkerPage() {
   // Spec §17: per-content-type growth execution funnel.
   const funnel = await computeContentFunnel(prisma).catch(() => []);
 
+  // Full quality model: most recent scores with the failed dimension(s)
+  // so the operator can see exactly which dimension dragged a score down.
+  const recentQualityScores = await prisma.contentQualityScore
+    .findMany({
+      orderBy: { createdAt: "desc" },
+      take: 12,
+      select: {
+        id: true,
+        contentType: true,
+        finalScore: true,
+        threshold: true,
+        passed: true,
+        failedDimensions: true,
+        createdAt: true,
+      },
+    })
+    .catch(() => []);
+
+  // Durable rollback ledger (spec: rollback guarantees) for diagnostics.
+  const recentRollbacks = await prisma.adminWorkerRollbackLedger
+    .findMany({
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        contentType: true,
+        slug: true,
+        rollbackResult: true,
+        rollbackAction: true,
+        failedVerificationReason: true,
+        restorable: true,
+        humanReviewCreated: true,
+        createdAt: true,
+      },
+    })
+    .catch(() => []);
+
+  // Exact stage-outcome ledger: the most recent precise per-stage results
+  // the brain learns from (spec: make brain feedback exact).
+  const recentStageOutcomes = await prisma.adminWorkerStageOutcome
+    .findMany({
+      orderBy: { createdAt: "desc" },
+      take: 15,
+      select: {
+        id: true,
+        stage: true,
+        result: true,
+        resultType: true,
+        contentType: true,
+        failureReason: true,
+        downstreamStage: true,
+        durationMs: true,
+        repairCreated: true,
+        createdAt: true,
+      },
+    })
+    .catch(() => []);
+
   const summary = summarizeRatings(ratings);
 
   return (
@@ -369,7 +427,20 @@ export default async function AdminWorkerPage() {
             </p>
           )}
           <div className="mt-3">
-            <RequestHomepageMakeoverButton />
+            <RequestHomepageMakeoverButton
+              initialDraft={
+                recentDraft &&
+                (recentDraft.status === "PROPOSED" || recentDraft.status === "AWAITING_REVIEW")
+                  ? {
+                      id: recentDraft.id,
+                      status: recentDraft.status,
+                      reasonSummary: recentDraft.reasonSummary ?? "",
+                      sectionsChanged: recentDraft.sectionsChanged,
+                      confidence: recentDraft.confidence,
+                    }
+                  : null
+              }
+            />
           </div>
         </article>
 
@@ -525,6 +596,140 @@ export default async function AdminWorkerPage() {
                     <td className="py-1 font-mono">
                       {m.lastUsedAt ? m.lastUsedAt.toISOString().slice(0, 19) : "—"}
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Durable rollback ledger (spec: rollback guarantees). */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Rollback ledger</h2>
+          {recentRollbacks.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No rollbacks recorded. Every post-publish rollback is logged here with whether it can
+              be safely restored.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Type</th>
+                  <th>Slug</th>
+                  <th>Result</th>
+                  <th>Restorable</th>
+                  <th>Review?</th>
+                  <th>Reason</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentRollbacks.map((r) => (
+                  <tr
+                    key={r.id}
+                    className={`border-t ${r.rollbackResult === "DELETED" ? "bg-rose-50" : "bg-amber-50"}`}
+                  >
+                    <td className="py-1 font-mono">{r.contentType ?? "—"}</td>
+                    <td className="py-1 font-mono">{(r.slug ?? "—").slice(0, 28)}</td>
+                    <td className="py-1 font-mono">{r.rollbackResult}</td>
+                    <td className="py-1 font-mono">{r.restorable ? "yes" : "no"}</td>
+                    <td className="py-1 font-mono">{r.humanReviewCreated ? "✓" : "—"}</td>
+                    <td className="py-1 font-serif">
+                      {(r.failedVerificationReason ?? r.rollbackAction).slice(0, 50)}
+                    </td>
+                    <td className="py-1 font-mono">{r.createdAt.toISOString().slice(0, 19)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Exact stage-outcome ledger (spec: make brain feedback exact). */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Stage outcomes (exact feedback)</h2>
+          {recentStageOutcomes.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No stage outcomes yet. Every dispatcher stage writes one precise outcome row.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Stage</th>
+                  <th>Result</th>
+                  <th>Type</th>
+                  <th className="text-right">ms</th>
+                  <th>Repair?</th>
+                  <th>Next / failure</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentStageOutcomes.map((s) => (
+                  <tr
+                    key={s.id}
+                    className={`border-t ${
+                      s.resultType === "failure"
+                        ? "bg-rose-50"
+                        : s.resultType === "needs_repair"
+                          ? "bg-amber-50"
+                          : ""
+                    }`}
+                  >
+                    <td className="py-1 font-mono">{s.stage}</td>
+                    <td className="py-1 font-mono">{s.result}</td>
+                    <td className="py-1 font-mono">{s.resultType}</td>
+                    <td className="py-1 text-right font-mono">{Math.round(s.durationMs)}</td>
+                    <td className="py-1 font-mono">{s.repairCreated ? "✓" : "—"}</td>
+                    <td className="py-1 font-serif">
+                      {s.failureReason ?? s.downstreamStage ?? "—"}
+                    </td>
+                    <td className="py-1 font-mono">{s.createdAt.toISOString().slice(11, 19)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </article>
+
+        {/* Full quality model — shows which dimension failed. */}
+        <article className="rounded border bg-white p-4 shadow-sm md:col-span-2">
+          <h2 className="font-display text-xl text-ink">Quality scores — failed dimensions</h2>
+          {recentQualityScores.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-soft">
+              No quality scores yet. Each built package records a full ten-dimension score.
+            </p>
+          ) : (
+            <table className="mt-2 w-full text-xs">
+              <thead>
+                <tr className="text-left uppercase text-ink-soft">
+                  <th>Content type</th>
+                  <th className="text-right">Score</th>
+                  <th className="text-right">Threshold</th>
+                  <th>Result</th>
+                  <th>Failed dimensions</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentQualityScores.map((q) => (
+                  <tr key={q.id} className={`border-t ${q.passed ? "" : "bg-rose-50"}`}>
+                    <td className="py-1 font-mono">{q.contentType}</td>
+                    <td className="py-1 text-right font-mono">{q.finalScore.toFixed(2)}</td>
+                    <td className="py-1 text-right font-mono">{q.threshold.toFixed(2)}</td>
+                    <td className="py-1 font-mono">
+                      {q.passed ? (
+                        <span className="text-emerald-700">PASS</span>
+                      ) : (
+                        <span className="text-rose-700">FAIL</span>
+                      )}
+                    </td>
+                    <td className="py-1 font-serif">
+                      {q.failedDimensions.length > 0 ? q.failedDimensions.join(", ") : "—"}
+                    </td>
+                    <td className="py-1 font-mono">{q.createdAt.toISOString().slice(0, 19)}</td>
                   </tr>
                 ))}
               </tbody>

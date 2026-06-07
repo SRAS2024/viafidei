@@ -26,6 +26,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import type { BrainDecision, BrainMissionStage } from "./brain";
 import { writeAdminWorkerLog } from "./logs";
+import { recordStageOutcome, toStageOutcome } from "./stage-outcomes";
 
 export interface DispatchOutcome {
   /** The mission stage the dispatcher actually executed. */
@@ -165,11 +166,19 @@ export interface DispatchInput {
 export async function executeMissionStage(input: DispatchInput): Promise<DispatchOutcome> {
   const { prisma, workerId, passId, decision } = input;
   const stage = decision.missionStage;
+  const startedAt = Date.now();
 
   try {
     const raw = await runStageHandler(prisma, workerId, passId, decision, stage);
     // Spec §3.4: every stage return carries the full uniform shape.
-    return enrichOutcome(raw, decision);
+    const outcome = enrichOutcome(raw, decision);
+    // Exact stage-outcome ledger: one precise row per dispatch so the
+    // brain scores from real outcomes, not approximations.
+    await recordStageOutcome(prisma, {
+      ...toStageOutcome(outcome, decision, Date.now() - startedAt),
+      passId,
+    });
+    return outcome;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await writeAdminWorkerLog(prisma, {
@@ -180,7 +189,7 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
       message: `Dispatcher for ${stage} threw: ${message}`,
       safeMetadata: { stage },
     });
-    return enrichOutcome(
+    const outcome = enrichOutcome(
       {
         stage,
         kind: "failed",
@@ -190,6 +199,11 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
       },
       decision,
     );
+    await recordStageOutcome(prisma, {
+      ...toStageOutcome(outcome, decision, Date.now() - startedAt),
+      passId,
+    });
+    return outcome;
   }
 }
 
@@ -693,6 +707,14 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
   // Run the per-content-type extractor.
   const { extractByType } = await import("./extractors");
   const { buildContentPackage } = await import("./content-builder");
+  // Extractor-strategy learning: recall how this (host, contentType) has
+  // extracted before so the outcome is logged against its history.
+  const { recallExtractorMemory, recordExtractorOutcome } = await import("./memory");
+  const priorExtractor = read.detectedContentType
+    ? await recallExtractorMemory(prisma, read.sourceHost, read.detectedContentType).catch(
+        () => null,
+      )
+    : null;
   const detected = read.detectedContentType;
   const supportedTypes = new Set([
     "PRAYER",
@@ -794,6 +816,17 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     usefulness: pkg.confidenceByPackage,
   }).catch(() => undefined);
 
+  // Extractor-strategy learning: record this extractor outcome per
+  // (host, contentType) so later passes (and the brain) can prefer hosts
+  // that reliably yield complete packages and back off from weak ones.
+  await recordExtractorOutcome(prisma, {
+    host: read.sourceHost,
+    contentType: detected,
+    fatal: status === "REJECTED",
+    confidenceScore: pkg.confidenceByPackage,
+    missingFields: pkg.missingFields,
+  }).catch(() => undefined);
+
   // File a repair plan when required fields are missing — the next
   // pass can try a different source via the candidate-scorer.
   if (status === "EXTRACTED" && pkg.missingFields.length > 0) {
@@ -822,6 +855,7 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
       artifactId: artifact?.id ?? null,
       status,
       missingFields: pkg.missingFields,
+      priorExtractorConfidence: priorExtractor?.confidence ?? null,
     },
   });
 
@@ -1437,9 +1471,10 @@ async function runPersistAndPublish(
 
   if (artifact) {
     const { runPublishOrchestrator } = await import("./publish-orchestrator");
-    const isDoctrinal = ["APPARITION", "SACRAMENT", "CHURCH_DOCUMENT"].includes(
-      artifact.contentType,
-    );
+    // Single source of truth: the content-type profile decides doctrinal
+    // sensitivity (and thus whether the cross-source verifier is required).
+    const { isDoctrinallySensitive } = await import("./content-type-profiles");
+    const isDoctrinal = isDoctrinallySensitive(artifact.contentType);
     // Spec §5 follow-up: build the verifier outcome from STORED
     // AdminWorkerCrossSourceVerification rows (written by the
     // CROSS_SOURCE_VERIFICATION stage) — not from a fresh run with

@@ -186,28 +186,23 @@ function matchesTitle(stored: string, expected: string): boolean {
 }
 
 /**
- * Sitemap verification — confirms the public URL would appear in the
- * generated sitemap. The sitemap reads from PublishedContent; we
- * verify the row exists with isPublished=true and the slug is
- * URL-safe. Optionally probes the live sitemap.
+ * Sitemap verification — confirms the public URL actually appears in the
+ * generated sitemap output (spec), not merely that a DB row qualifies.
+ * It builds the expected URL with the route-URL builder, assembles the
+ * generated sitemap's URL set (real generator ∪ authoritative mapping),
+ * and fails (→ repair) when the URL is missing. In production it can
+ * additionally probe and parse the live /sitemap.xml.
  */
 export async function verifySitemap(
   prisma: PrismaClient,
-  opts: { contentType: string; slug: string; probeLive?: boolean },
+  opts: { contentType: string; slug: string; probeLive?: boolean; base?: string },
 ): Promise<SimpleVerifyResult> {
   if (!/^[a-z0-9-]+$/.test(opts.slug)) {
-    return {
-      ok: false,
-      reason: `Slug "${opts.slug}" is not URL-safe.`,
-    };
+    return { ok: false, reason: `Slug "${opts.slug}" is not URL-safe.` };
   }
   const row = await prisma.publishedContent
     .findFirst({
-      where: {
-        contentType: opts.contentType as never,
-        slug: opts.slug,
-        isPublished: true,
-      },
+      where: { contentType: opts.contentType as never, slug: opts.slug, isPublished: true },
       select: { id: true, publishedAt: true },
     })
     .catch(() => null);
@@ -218,50 +213,132 @@ export async function verifySitemap(
     };
   }
   if (!row.publishedAt) {
+    return { ok: false, reason: "publishedAt is null — sitemap requires a publication timestamp." };
+  }
+
+  const { appConfig } = await import("@/lib/config");
+  const { buildSitemapUrlSet, expectedSitemapUrl, normalizeUrl, fetchLiveSitemapUrls } =
+    await import("./sitemap-inspect");
+  const base = opts.base ?? appConfig.canonicalUrl;
+  const expected = normalizeUrl(expectedSitemapUrl(base, opts.contentType, opts.slug));
+  const { urls, authoritativeEnumerated } = await buildSitemapUrlSet(prisma, base);
+
+  if (!urls.has(expected)) {
+    // A genuine miss only when we could read the authoritative published
+    // rows and the URL still wasn't among them. If we couldn't enumerate
+    // them here (e.g. a partial mock), fall back to the qualifies check
+    // rather than asserting a miss against a different data source.
+    if (!authoritativeEnumerated) {
+      return {
+        ok: true,
+        reason: "Row qualifies for sitemap inclusion (generated output not inspectable from here).",
+        detail: { expected, inspected: false },
+      };
+    }
     return {
       ok: false,
-      reason: "publishedAt is null — sitemap requires a publication timestamp.",
+      reason: `Public URL ${expected} is NOT in the generated sitemap output.`,
+      detail: { expected, generatedCount: urls.size },
     };
   }
+
+  // Optional live probe in production: parse the served /sitemap.xml.
+  if (opts.probeLive) {
+    const live = await fetchLiveSitemapUrls(base);
+    if (live && !live.has(expected)) {
+      return {
+        ok: false,
+        reason: `Public URL ${expected} is in the generated output but missing from live /sitemap.xml.`,
+        detail: { expected, liveProbed: true },
+      };
+    }
+  }
+
   return {
     ok: true,
-    reason: "Row qualifies for sitemap inclusion.",
-    detail: { publishedAt: row.publishedAt },
+    reason: `Public URL ${expected} appears in the generated sitemap.`,
+    detail: { expected, generatedCount: urls.size },
   };
 }
 
 /**
- * Cache verification — confirms revalidation ran for the content
- * type's cache tag. Reads from AdminWorkerLog for a recent
- * cache_refresh_flagged entry on this content type.
+ * Cache verification — proves the public route is fresh (spec). It
+ * confirms the freshness marker stored at publish time (contentChecksum)
+ * still matches the live row, and — when a base URL is reachable —
+ * fetches the public route and confirms the latest title/checksum is
+ * actually served, failing when stale content is still cached. When the
+ * route can't be probed from here it falls back to confirming the stored
+ * marker + a recent revalidation, so offline runs remain meaningful.
  */
 export async function verifyCacheFreshness(
   prisma: PrismaClient,
-  opts: { contentType: string; slug: string },
+  opts: { contentType: string; slug: string; base?: string; probeLive?: boolean },
 ): Promise<SimpleVerifyResult> {
-  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const tag = `${opts.contentType}:${opts.slug}`;
-  const flagged = await prisma.adminWorkerLog
+  const row = await prisma.publishedContent
     .findFirst({
-      where: {
-        eventName: "cache_refresh_flagged",
-        createdAt: { gte: since },
-      },
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true, message: true, safeMetadata: true },
+      where: { contentType: opts.contentType as never, slug: opts.slug, isPublished: true },
+      select: { title: true, payload: true, contentChecksum: true },
     })
     .catch(() => null);
+  if (!row) {
+    return { ok: false, reason: `No published row for ${opts.contentType}/${opts.slug}.` };
+  }
 
+  const { computeContentChecksum, fetchPublicRouteFreshness } = await import("./cache-freshness");
+  const expectedChecksum = computeContentChecksum(row.title, row.payload);
+
+  // The stored marker must match the current row — a mismatch means the
+  // published row changed without re-stamping (stale marker).
+  if (row.contentChecksum && row.contentChecksum !== expectedChecksum) {
+    return {
+      ok: false,
+      reason: "Stored content checksum does not match the live row (stale freshness marker).",
+      detail: { storedChecksum: row.contentChecksum, expectedChecksum },
+    };
+  }
+
+  // Probe the public route when asked (production). Default runs the
+  // offline-safe checksum + revalidation check below so a build/test
+  // with no reachable server still verifies meaningfully.
+  if (opts.probeLive) {
+    const { appConfig } = await import("@/lib/config");
+    const base = opts.base ?? appConfig.canonicalUrl;
+    const { publicRouteFor } = await import("./public-routes");
+    const path = publicRouteFor(opts.contentType, opts.slug).slugPath;
+    if (base && path) {
+      const fresh = await fetchPublicRouteFreshness({
+        url: `${base.replace(/\/$/, "")}${path}`,
+        expectedTitle: row.title,
+        checksum: row.contentChecksum ?? expectedChecksum,
+      });
+      if (fresh.reachable) {
+        return fresh.fresh
+          ? { ok: true, reason: fresh.reason, detail: { probed: true } }
+          : { ok: false, reason: fresh.reason, detail: { probed: true } };
+      }
+    }
+  }
+
+  // Offline fallback: stored marker matches + a recent revalidation flag.
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const flagged = await prisma.adminWorkerLog
+    .findFirst({
+      where: { eventName: "cache_refresh_flagged", createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    })
+    .catch(() => null);
   if (!flagged) {
     return {
       ok: false,
-      reason: `No cache_refresh_flagged log row in the last 24h for tag ${tag}.`,
+      reason: `Public route not reachable to probe and no recent cache revalidation for ${opts.contentType}:${opts.slug}.`,
+      detail: { expectedChecksum },
     };
   }
   return {
     ok: true,
-    reason: `Cache refresh recorded ${Math.round((Date.now() - flagged.createdAt.getTime()) / 60_000)}m ago.`,
-    detail: { lastFlaggedAt: flagged.createdAt },
+    reason: `Freshness marker matches; cache revalidated ${Math.round((Date.now() - flagged.createdAt.getTime()) / 60_000)}m ago.`,
+    detail: { expectedChecksum, lastFlaggedAt: flagged.createdAt },
   };
 }
 

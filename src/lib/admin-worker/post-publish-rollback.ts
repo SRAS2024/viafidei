@@ -24,6 +24,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import { fileHumanReview } from "./human-review";
 import { writeAdminWorkerLog } from "./logs";
+import { recordRollbackLedger } from "./rollback-ledger";
 
 export type RollbackDecisionKind = "REPAIRED" | "UNPUBLISHED" | "DELETED" | "HUMAN_REVIEW";
 
@@ -215,4 +216,19 @@ async function logRollback(
       kind: detail.kind,
     },
   }).catch(() => undefined);
+
+  // Durable rollback ledger row (spec: rollback guarantees). DELETED is
+  // the only non-restorable terminal state; everything else can be
+  // safely re-published after the underlying issue is fixed.
+  await recordRollbackLedger(prisma, {
+    contentId: detail.contentId,
+    contentType: detail.contentType,
+    slug: detail.slug,
+    previousPublicState: "PUBLISHED",
+    failedVerificationReason: `${detail.failedCheck}: ${detail.reason}`,
+    rollbackAction: detail.rollbackAction ?? detail.kind,
+    humanReviewCreated: detail.humanReviewFiled,
+    rollbackResult: detail.kind,
+    restorable: detail.kind !== "DELETED",
+  });
 }

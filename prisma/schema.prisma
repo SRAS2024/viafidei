@@ -1052,6 +1052,10 @@ model PublishedContent {
   isPublished     Boolean              @default(false)
   publishedAt     DateTime?
   unpublishedAt   DateTime?
+  // Freshness marker written at publish time. Cache verification fetches
+  // the public route and confirms this checksum is being served, failing
+  // (and repairing) when stale content is still cached.
+  contentChecksum String?
   version         Int                  @default(1)
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
@@ -1685,17 +1689,29 @@ model ContentQualityScore {
   id                  String   @id @default(cuid())
   contentType         String
   contentId           String
+  // Original six dimensions (kept for back-compat).
   completenessScore   Float    @default(0)
   correctnessScore    Float    @default(0)
   formattingScore     Float    @default(0)
   sourceEvidenceScore Float    @default(0)
   validationScore     Float    @default(0)
   renderScore         Float    @default(0)
+  // Full quality model (spec): the remaining dimensions so the worker
+  // can store + explain every dimension and which ones failed.
+  sourceAuthorityScore      Float    @default(0)
+  fieldProvenanceScore      Float    @default(0)
+  duplicateSafetyScore      Float    @default(0)
+  doctrinalSensitivityScore Float    @default(0)
+  packageConsistencyScore   Float    @default(0)
   finalScore          Float    @default(0)
+  threshold           Float    @default(0)
+  passed              Boolean  @default(false)
+  failedDimensions    String[] @default([])
   createdAt           DateTime @default(now())
 
   @@index([contentType, contentId])
   @@index([finalScore])
+  @@index([passed])
   @@index([createdAt])
 }
 
@@ -2124,6 +2140,7 @@ model AdminWorkerActionScore {
   safe               Boolean  @default(true)
   reason             String?
   rejectedReason     String?
+  fallbackAction     String?
   createdAt          DateTime @default(now())
 
   @@index([decisionId])
@@ -2169,6 +2186,68 @@ model AdminWorkerReasoningGraph {
   @@index([fromNodeType, fromNodeId])
   @@index([toNodeType, toNodeId])
   @@index([relation])
+  @@index([createdAt])
+}
+
+/// Exact per-stage outcome ledger (spec: "make brain feedback exact, not
+/// approximate"). Every dispatcher result writes one precise row so the
+/// Python brain scores future actions from real outcomes instead of
+/// guessed stage-failure attribution. `result` is a short status code
+/// (advanced / rejected / repair_planned / idle / skipped / failed),
+/// `resultType` is the dispatch kind, and `actualOutcome` records what
+/// truly happened (vs the `confidenceBefore` the brain expected).
+model AdminWorkerStageOutcome {
+  id               String   @id @default(cuid())
+  passId           String?
+  stage            String
+  action           String?
+  entityType       String?
+  entityId         String?
+  contentType      String?
+  result           String
+  resultType       String
+  failureReason    String?
+  downstreamStage  String?
+  durationMs       Float    @default(0)
+  confidenceBefore Float?
+  actualOutcome    String?
+  repairCreated    Boolean  @default(false)
+  repairPlanId     String?
+  nextAction       String?
+  createdAt        DateTime @default(now())
+
+  @@index([passId])
+  @@index([stage])
+  @@index([entityType, entityId])
+  @@index([contentType])
+  @@index([resultType])
+  @@index([createdAt])
+}
+
+/// Durable rollback ledger (spec: "add rollback guarantees"). Every
+/// post-publish rollback (unpublish / delete / human-review) writes one
+/// row capturing what was rolled back, why, and whether it can be safely
+/// restored later. Surfaced in Admin Worker diagnostics and the Developer
+/// Audit so autonomy stays safe and reversible.
+model AdminWorkerRollbackLedger {
+  id                       String   @id @default(cuid())
+  contentId                String?
+  contentType              String?
+  slug                     String?
+  previousPublicState      String
+  failedVerificationReason String?
+  rollbackAction           String
+  relatedPackageArtifactId String?
+  relatedRepairPlanId      String?
+  humanReviewCreated       Boolean  @default(false)
+  rollbackResult           String
+  restorable               Boolean  @default(false)
+  passId                   String?
+  createdAt                DateTime @default(now())
+
+  @@index([contentType])
+  @@index([contentId])
+  @@index([rollbackResult])
   @@index([createdAt])
 }
 

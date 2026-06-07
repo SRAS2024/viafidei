@@ -3,12 +3,14 @@
  * the doctrinal threshold lookups, and missing-dimension reporting.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   computeFinalScoreV2,
+  failedDimensionsV2,
   missingDimensions,
   QUALITY_THRESHOLDS,
+  recordQualityScoreV2,
   thresholdFor,
 } from "@/lib/admin-worker/quality";
 
@@ -138,5 +140,91 @@ describe("missingDimensions — exact missing-quality reporting (spec §12)", ()
     expect(out).toContain("completeness");
     expect(out).toContain("fieldProvenance");
     expect(out).not.toContain("correctness");
+  });
+});
+
+describe("failedDimensionsV2 — which dimension failed", () => {
+  const base = {
+    contentType: "PRAYER",
+    contentId: "c1",
+    completenessScore: 1,
+    correctnessScore: 1,
+    formattingScore: 1,
+  };
+
+  it("returns [] when every dimension clears the floor", () => {
+    expect(failedDimensionsV2({ ...base })).toEqual([]);
+  });
+
+  it("flags dimensions below the 0.5 floor (including the new ones)", () => {
+    const out = failedDimensionsV2({
+      ...base,
+      sourceAuthorityScore: 0.2,
+      duplicateSafetyScore: 0,
+      doctrinalSensitivityScore: 0.4,
+    });
+    expect(out).toContain("sourceAuthority");
+    expect(out).toContain("duplicateSafety");
+    expect(out).toContain("doctrinalSensitivity");
+    expect(out).not.toContain("completeness");
+  });
+});
+
+describe("recordQualityScoreV2 — full model persistence", () => {
+  function makePrisma() {
+    const created: Array<Record<string, unknown>> = [];
+    const prisma = {
+      contentQualityScore: {
+        // A deliberately minimal mock that does NOT echo the data back,
+        // proving the function returns its own computed verdict.
+        create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+          created.push(data);
+          return { id: "q1" };
+        }),
+      },
+    } as unknown as Parameters<typeof recordQualityScoreV2>[0];
+    return { prisma, created };
+  }
+
+  it("stores all dimensions + threshold + pass/fail + failed dimensions", async () => {
+    const { prisma, created } = makePrisma();
+    const res = await recordQualityScoreV2(prisma, {
+      contentType: "PRAYER",
+      contentId: "c1",
+      completenessScore: 1,
+      correctnessScore: 1,
+      formattingScore: 1,
+      sourceAuthorityScore: 1,
+      fieldProvenanceScore: 1,
+      validationEvidenceScore: 1,
+      duplicateSafetyScore: 1,
+      publicRenderingScore: 1,
+      doctrinalSensitivityScore: 1,
+      packageConsistencyScore: 1,
+    });
+    expect(res.passed).toBe(true);
+    expect(res.threshold).toBe(thresholdFor("PRAYER"));
+    expect(res.finalScore).toBeGreaterThanOrEqual(res.threshold);
+    expect(res.failedDimensions).toEqual([]);
+    const row = created[0];
+    expect(row.sourceAuthorityScore).toBe(1);
+    expect(row.packageConsistencyScore).toBe(1);
+    expect(row.passed).toBe(true);
+    expect(Array.isArray(row.failedDimensions)).toBe(true);
+  });
+
+  it("fails the gate + names the failed dimension when one dimension is zero", async () => {
+    const { prisma } = makePrisma();
+    const res = await recordQualityScoreV2(prisma, {
+      contentType: "APPARITION",
+      contentId: "c2",
+      completenessScore: 1,
+      correctnessScore: 1,
+      formattingScore: 1,
+      doctrinalSensitivityScore: 0, // sensitive content without verifier
+    });
+    expect(res.finalScore).toBe(0);
+    expect(res.passed).toBe(false);
+    expect(res.failedDimensions).toContain("doctrinalSensitivity");
   });
 });
