@@ -82,6 +82,7 @@ function makePrisma(
     adminWorkerCrossSourceVerification: {
       count: vi.fn(async () => opts.crossSourceVerifications),
     },
+    adminWorkerLog: { count: vi.fn(async () => 5) },
   } as unknown as Parameters<typeof runReadiness>[0];
 }
 
