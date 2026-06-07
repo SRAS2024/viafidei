@@ -52,9 +52,10 @@ REGISTRY: Dict[str, Handler] = {
     "self_inspect": inspection.self_inspect,
     "developer_requests": inspection.developer_requests,
     "iq_metrics": inspection.iq_metrics,
-    # planning + priority
+    # planning + priority + final action selection
     "plan": planning.plan,
     "prioritize": planning.prioritize,
+    "select_action": planning.select_action,
     # knowledge graph
     "analyze_graph": graph.analyze_graph,
     # security

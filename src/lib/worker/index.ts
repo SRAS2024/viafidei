@@ -31,7 +31,7 @@ import {
 } from "./build/queue";
 import { runBuildEngine } from "./build/engine";
 import { runQA } from "./qa";
-import { publish, isLegacyPublishAllowed, LEGACY_PUBLISH_DISABLED_MESSAGE } from "./publishing";
+import { publish, LEGACY_PUBLISH_DISABLED_MESSAGE } from "./publishing";
 import { extractRelationCandidates, persistRelations } from "./relations";
 import { authorityLevelForHost, isApprovedAuthorityHost } from "./sources/authority-registry";
 import { canonicalizeSlug } from "./slugs";
@@ -294,6 +294,11 @@ export async function rejectItem(
  * is no longer on any active path and throws unless the
  * ALLOW_LEGACY_PUBLISH escape hatch is set.
  */
+/** The legacy build+publish engine is permanently removed. */
+function legacyBuildPermanentlyRemoved(): boolean {
+  return true;
+}
+
 export async function runOneBuildCycle(
   prisma: PrismaClient,
   workerId: string,
@@ -308,7 +313,10 @@ export async function runOneBuildCycle(
       qaScore?: number;
     }
 > {
-  if (!isLegacyPublishAllowed()) {
+  // LEGACY build+publish engine is permanently removed (no escape hatch,
+  // no backwards compatibility). It always throws; the only content path
+  // is the Admin Worker artifact pipeline.
+  if (legacyBuildPermanentlyRemoved()) {
     throw new Error(LEGACY_PUBLISH_DISABLED_MESSAGE);
   }
   const job = await leaseNextBuildJob(prisma, workerId);

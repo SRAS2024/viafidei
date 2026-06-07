@@ -205,6 +205,39 @@ export default async function AdminWorkerPage() {
     })
     .catch(() => []);
 
+  // Final-brain status: the Python brain is the final decision brain. Show
+  // its latest provenance + warn loudly if it has been unavailable / had
+  // actions rejected recently (safe degraded mode).
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [latestBrainDecided, brainDegradedEvents24h, selectActionCalls24h] = await Promise.all([
+    prisma.adminWorkerLog
+      .findFirst({
+        where: { eventName: "brain_decided" },
+        orderBy: { createdAt: "desc" },
+        select: { safeMetadata: true, createdAt: true },
+      })
+      .catch(() => null),
+    prisma.adminWorkerLog
+      .count({
+        where: {
+          eventName: {
+            in: [
+              "python_brain_unavailable",
+              "python_brain_invalid_decision",
+              "python_brain_rejected_action",
+            ],
+          },
+          createdAt: { gte: since24h },
+        },
+      })
+      .catch(() => 0),
+    prisma.adminWorkerBrainCall
+      .count({ where: { op: "select_action", createdAt: { gte: since24h } } })
+      .catch(() => 0),
+  ]);
+  const latestFinalBrain =
+    (latestBrainDecided?.safeMetadata as { finalBrain?: string } | null)?.finalBrain ?? null;
+
   const summary = summarizeRatings(ratings);
 
   return (
@@ -233,6 +266,42 @@ export default async function AdminWorkerPage() {
       </header>
 
       <AdminWorkerPauseToggle initialPaused={state.paused} initialReason={state.pausedReason} />
+
+      {/* Final-brain banner: the Python brain is the final decision brain;
+          TypeScript validates + executes. Warn loudly in safe degraded mode. */}
+      <section
+        className={`rounded border p-3 text-sm shadow-sm ${
+          brainDegradedEvents24h > 0
+            ? "border-rose-300 bg-rose-50"
+            : latestFinalBrain === "python"
+              ? "border-emerald-300 bg-emerald-50"
+              : "border-slate-300 bg-white"
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-medium text-ink">
+            🧠 Final decision brain:{" "}
+            <span className="font-mono">
+              {latestFinalBrain === "python"
+                ? "Python (final brain)"
+                : latestFinalBrain === "degraded"
+                  ? "safe degraded mode"
+                  : "—"}
+            </span>
+          </span>
+          <span className="font-mono text-xs text-ink-soft">
+            {selectActionCalls24h} select_action call(s)/24h · TypeScript validates + executes
+          </span>
+        </div>
+        {brainDegradedEvents24h > 0 && (
+          <p className="mt-1 font-serif text-rose-800">
+            ⚠ PYTHON_BRAIN_UNAVAILABLE — the Python brain was unavailable / had{" "}
+            {brainDegradedEvents24h} action(s) rejected in the last 24h. The worker is in safe
+            degraded mode (security, diagnostics, reporting, repair only — no autonomous content
+            publishing). It does NOT fall back to a legacy brain.
+          </p>
+        )}
+      </section>
 
       <section className="grid grid-cols-2 gap-4 rounded border bg-white p-4 shadow-sm md:grid-cols-4">
         <Metric label="Publish rate (30d)" value={fmtPct(metrics.publishRate30d)} tone="emerald" />

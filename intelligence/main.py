@@ -157,6 +157,18 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
     "iq_metrics": {"stats": {"duplicatesPrevented": 8, "duplicateCandidates": 10, "repairsSucceeded": 3, "repairsAttempted": 4, "avgSourceAuthority": 0.82}},
     "plan": {"objective": "Build missing prayers safely", "available_tools": [{"name": "search", "cost": 0.12, "risk": 0.04, "expected_value": 0.78}]},
     "prioritize": {"candidates": [{"id": "1", "label": "Prayers", "missionImportance": 0.9, "weakness": 0.8}]},
+    "select_action": {
+        "candidates": [
+            {"missionStage": "DISCOVERY", "actionType": "DISCOVER_SOURCE", "finalScore": 0.7, "safe": True, "sourceTarget": "vatican.va"},
+            {"missionStage": "REPORTING", "actionType": "GENERATE_REPORT", "finalScore": 0.4, "safe": True},
+        ],
+        "world": {"isPaused": False},
+        "stageOutcomes": [{"stage": "DISCOVERY", "successRate": 0.9}],
+        "actionHistory": [{"missionStage": "DISCOVERY", "contentType": "PRAYER"}],
+        "sourceReputation": [{"host": "vatican.va", "tier": "TRUSTED"}],
+        "sourceFatigue": {"weak.example": 2},
+        "contentTypeProfiles": [{"contentType": "APPARITION", "doctrinallySensitive": True}],
+    },
     "analyze_graph": {
         "nodes": [{"id": "1", "label": "Virgin Mary", "type": "SAINT"}, {"id": "2", "label": "Memorare", "type": "PRAYER"}, {"id": "3", "label": "Orphan", "type": "PRAYER"}],
         "edges": [{"source": "1", "target": "2"}],

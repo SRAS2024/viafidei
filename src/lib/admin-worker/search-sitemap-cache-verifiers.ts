@@ -22,6 +22,16 @@ export interface SimpleVerifyResult {
   detail?: Record<string, unknown>;
 }
 
+/**
+ * Live sitemap/cache probing is MANDATORY in production: it probes the real
+ * generated sitemap output + the public route unless explicitly disabled
+ * for a documented test / local run via ADMIN_WORKER_DISABLE_LIVE_PROBE=1.
+ */
+export function liveProbeEnabled(): boolean {
+  if (process.env.ADMIN_WORKER_DISABLE_LIVE_PROBE === "1") return false;
+  return process.env.NODE_ENV === "production";
+}
+
 /** Spec §7/§8: per-query-form result for search verification. */
 export interface SearchVerifyResult extends SimpleVerifyResult {
   queryResults: {
@@ -356,10 +366,11 @@ export async function runIndependentVerifiers(
   cache: SimpleVerifyResult;
   allOk: boolean;
 }> {
+  const probeLive = liveProbeEnabled();
   const [search, sitemap, cache] = await Promise.all([
     verifySearchIndex(prisma, opts),
-    verifySitemap(prisma, opts),
-    verifyCacheFreshness(prisma, opts),
+    verifySitemap(prisma, { ...opts, probeLive }),
+    verifyCacheFreshness(prisma, { ...opts, probeLive }),
   ]);
   const allOk = search.ok && sitemap.ok && cache.ok;
   await writeAdminWorkerLog(prisma, {

@@ -1842,10 +1842,11 @@ async function runSitemapVerify(prisma: PrismaClient, passId: string): Promise<D
   if (!target) {
     return idle("SITEMAP_VERIFY", "No published content to verify.");
   }
-  const { verifySitemap } = await import("./search-sitemap-cache-verifiers");
+  const { verifySitemap, liveProbeEnabled } = await import("./search-sitemap-cache-verifiers");
   const result = await verifySitemap(prisma, {
     contentType: target.contentType,
     slug: target.slug,
+    probeLive: liveProbeEnabled(),
   });
   await writeAdminWorkerLog(prisma, {
     passId,
@@ -1885,10 +1886,12 @@ async function runCacheRefresh(prisma: PrismaClient, passId: string): Promise<Di
     };
   }
 
-  const { verifyCacheFreshness } = await import("./search-sitemap-cache-verifiers");
+  const { verifyCacheFreshness, liveProbeEnabled } =
+    await import("./search-sitemap-cache-verifiers");
   const result = await verifyCacheFreshness(prisma, {
     contentType: target.contentType,
     slug: target.slug,
+    probeLive: liveProbeEnabled(),
   }).catch(() => ({ ok: false, reason: "verification threw" }));
 
   await writeAdminWorkerLog(prisma, {

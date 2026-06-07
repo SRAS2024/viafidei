@@ -7,8 +7,6 @@
 
 import type { PrismaClient } from "@prisma/client";
 
-import { isLegacyPublishAllowed } from "@/lib/worker/publishing";
-
 export type ReadinessStatus = "pass" | "fail";
 
 export interface ReadinessCheck {
@@ -221,19 +219,20 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     repair: "Run a CROSS_SOURCE_VERIFICATION pass — verifier persists per-field evidence.",
   });
 
-  // Spec §1: production-readiness FAILS if content can still become
-  // public through a legacy path. The legacy publish writer is
-  // hard-disabled unless the ALLOW_LEGACY_PUBLISH escape hatch is set;
-  // if it is set in production the worker is NOT the only publish path.
-  const legacyAllowed = isLegacyPublishAllowed();
+  // Production-readiness FAILS if any legacy publish config is still
+  // present. The legacy build/publish engine is permanently removed (it
+  // always throws — there is no escape hatch), but a lingering
+  // ALLOW_LEGACY_PUBLISH env var indicates stale config that must be
+  // cleared so operators don't expect a path that no longer exists.
+  const legacyEnvPresent = Boolean(process.env.ALLOW_LEGACY_PUBLISH);
   checks.push({
     key: "legacy_publish_disabled",
-    label: "Legacy publish path disabled",
-    status: legacyAllowed ? "fail" : "pass",
-    detail: legacyAllowed
-      ? "ALLOW_LEGACY_PUBLISH=1 — the legacy build/publish engine can still create public content outside the Admin Worker artifact pipeline."
-      : "Legacy build/publish engine is hard-disabled; the Admin Worker artifact pipeline is the only path to public content.",
-    repair: "Unset ALLOW_LEGACY_PUBLISH so only runPublishOrchestrator() can publish.",
+    label: "Legacy publish path removed",
+    status: legacyEnvPresent ? "fail" : "pass",
+    detail: legacyEnvPresent
+      ? "ALLOW_LEGACY_PUBLISH is set but the legacy build/publish engine is permanently removed — clear this stale config."
+      : "Legacy build/publish engine is permanently removed; the Admin Worker artifact pipeline is the only path to public content.",
+    repair: "Unset ALLOW_LEGACY_PUBLISH; it no longer does anything.",
   });
 
   // Spec §1: every recently-published row must trace to an

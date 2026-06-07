@@ -268,6 +268,43 @@ export function prioritize(candidates: PriorityCandidate[], opts?: CallOpts) {
   return callBrain<PrioritizeResult>("prioritize", { candidates }, opts);
 }
 
+// ── Final action selection (the Python brain is the final brain) ──────
+export interface FinalActionCandidate {
+  missionStage: string;
+  actionType?: string | null;
+  contentType?: string | null;
+  sourceTarget?: string | null;
+  candidateUrl?: string | null;
+  packageArtifactId?: string | null;
+  expectedOutput?: string;
+  finalScore: number;
+  confidenceScore?: number;
+  riskScore?: number;
+  urgencyScore?: number;
+  sourceScore?: number;
+  qualityExpectation?: number;
+  repairScore?: number;
+  fallbackAction?: string | null;
+  stopCondition?: string | null;
+  safe: boolean;
+  rejectionReason?: string | null;
+}
+export interface SelectActionInput {
+  candidates: FinalActionCandidate[];
+  world?: Record<string, unknown>;
+  stageOutcomes?: Array<Record<string, unknown>>;
+  actionHistory?: Array<{ missionStage: string; contentType?: string | null }>;
+  sourceReputation?: Array<{ host: string; tier: string }>;
+  sourceFatigue?: Record<string, number>;
+  contentTypeProfiles?: Array<Record<string, unknown>>;
+  repairState?: Record<string, unknown>;
+}
+/** Ask the Python brain to select the final action. The result is parsed
+ *  with `BrainFinalDecisionSchema` by the caller (final-brain.ts). */
+export function selectAction(input: SelectActionInput, opts?: CallOpts) {
+  return callBrain<unknown>("select_action", input, opts);
+}
+
 // ── Knowledge graph ───────────────────────────────────────────────────
 export interface GraphNode {
   id: string | number;

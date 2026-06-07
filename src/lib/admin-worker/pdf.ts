@@ -293,6 +293,44 @@ export async function generateAdminWorkerDeveloperAuditPdf(
       }
     }
 
+    // ─── Python brain diagnostics ─────────────────────────────────────
+    if (sectionsToInclude.has("Python Brain Diagnostics")) {
+      builder.section("Python Brain Diagnostics");
+      const d = data.pythonBrainDiagnostics;
+      builder.table(
+        [
+          { header: "Metric", weight: 220 },
+          { header: "Value", weight: 200 },
+        ],
+        [
+          ["Final decision brain", d.finalBrain],
+          ["Brain calls (ok / failed)", `${d.okCalls} / ${d.failedCalls} of ${d.totalCalls}`],
+          ["select_action calls", String(d.selectActionCalls)],
+          ["Average latency", `${Math.round(d.avgLatencyMs)} ms`],
+          ["Average confidence", `${(d.avgConfidence * 100).toFixed(0)}%`],
+          ["Average risk", `${(d.avgRisk * 100).toFixed(0)}%`],
+          ["Safe-to-auto-execute rate", `${(d.safeToAutoExecuteRate * 100).toFixed(0)}%`],
+          ["Learning events", String(d.learningEvents)],
+          ["Strategy-memory rows", String(d.strategyMemoryRows)],
+          ["Degraded / rejected events", String(d.degradedEvents)],
+        ],
+      );
+      if (d.byOp.length > 0) {
+        builder.note(
+          "Brain op mix: " +
+            d.byOp
+              .slice(0, 16)
+              .map((o) => `${o.op}=${o.count}`)
+              .join(", "),
+        );
+      }
+      if (d.degradedEvents > 0) {
+        builder.note(
+          `⚠ PYTHON_BRAIN_UNAVAILABLE occurred ${d.degradedEvents} time(s) — safe degraded mode (no autonomous publishing).`,
+        );
+      }
+    }
+
     // ─── Rejected alternatives (spec §7 + §450) ───────────────────────
     if (sectionsToInclude.has("Rejected Alternatives")) {
       builder.section("Rejected Alternatives");
