@@ -357,9 +357,9 @@ falling back to a TypeScript final brain. Concretely:
   is down / actions are rejected); the Developer Audit has a **Python Brain
   Diagnostics** section (availability, ok/failed calls, `select_action`
   count, latency, confidence, safe-to-auto-execute rate, learning events,
-  strategy memory, degraded events, op mix). The reduced six-dimension
-  quality scorer is **removed** — `recordQualityScoreV2` (the full
-  ten-dimension model) is the only quality path.
+  strategy memory, degraded events, op mix). There is no reduced quality
+  scorer — `recordQualityScore` (the full ten-dimension model, all
+  dimensions required) is the only quality path.
 - **Every considered action is stored, not just the chosen one.**
   `AdminWorkerActionScore` records each ranked action with action type,
   mission stage, target content type / source / candidate, expected
@@ -401,18 +401,21 @@ falling back to a TypeScript final brain. Concretely:
   plus the threshold, the pass/fail verdict, and the **failed-dimension
   list**. Publishing uses the full stored score; the dashboard and
   Developer Audit show exactly which dimension failed.
-- **Generated sitemap is actually inspected.** `sitemap-inspect.ts`
-  builds the expected URL, assembles the generated sitemap's URL set
-  (real generator ∪ authoritative published-row mapping), and confirms
-  the public URL is present — a genuine miss files a sitemap repair that
-  re-verifies the generated output. A live `/sitemap.xml` probe + parser
-  runs in production.
-- **Cache freshness is proven against the public route.** A content
-  checksum is stamped on `PublishedContent.contentChecksum` at publish
-  time; cache verification confirms the marker matches the live row and
-  (with `probeLive`) fetches the public route to confirm the latest
-  title/checksum is served, failing → repairing → re-verifying when
-  stale.
+- **Generated sitemap is actually inspected — fail closed in production.**
+  `sitemap-inspect.ts` builds the expected URL, assembles the generated
+  sitemap's URL set (real generator ∪ authoritative published-row mapping),
+  and confirms the public URL is present. In production it FAILS CLOSED: if
+  the generated output can't be inspected, or the live `/sitemap.xml` can't
+  be probed, or the URL is missing from the live sitemap, verification fails
+  → files a sitemap repair → re-verifies. The "row qualifies for inclusion"
+  fallback is allowed only in local test / documented dry-run mode.
+- **Cache freshness is proven against the public route — fail closed in
+  production.** A content checksum is stamped on
+  `PublishedContent.contentChecksum` at publish time; cache verification
+  confirms the marker matches the live row and, in production, fetches the
+  public route to confirm the latest title/checksum is served. In production
+  an unreachable route or stale content FAILS (→ repair → re-verify); the
+  checksum + recent-revalidation-log fallback is local test / dry-run only.
 - **Rollback guarantees.** Every post-publish rollback writes an
   `AdminWorkerRollbackLedger` row (previous public state, failed reason,
   action, related artifact/repair, human-review, result, restorable).
@@ -562,7 +565,7 @@ falling back to a TypeScript final brain. Concretely:
   any-zero gate + per-content-type threshold.
 
 - **Scores quality across ten dimensions before publish.** `quality.ts`
-  `computeFinalScoreV2` rates completeness, correctness, formatting,
+  `computeFinalScore` rates completeness, correctness, formatting,
   field provenance, validation evidence, duplicate safety, route
   readiness, search readiness, sitemap readiness, and doctrinal
   sensitivity. Stricter thresholds apply to sacraments, Church
@@ -731,10 +734,16 @@ falling back to a TypeScript final brain. Concretely:
   configured, candidate URLs available, source reads exist, pipeline
   stages tracked, growth orchestrator active, source coverage scored,
   cross-source verifier wired, post-publish verification works, and
-  **every recent public row traces to a package artifact** — fails if
-  any content could become public outside the pipeline). Every failed
-  check returns a concrete repair instruction. The Command Center
-  surfaces the readiness score and failing checks.
+  **every recent public row traces to a package artifact + a strict-QA
+  PASS + a ContentQualityScore** — fails if any content could become
+  public outside the pipeline). It also runs **structural single-pipeline
+  guards** that fail closed if a removed path reappears: only the full
+  ten-dimension quality model exists (no reduced/V2 scorer), the Python
+  brain is the only final action selector (no TypeScript fallback), the
+  checklist foundation has no `publish()` writer, and live search/sitemap/
+  cache verification is actually running. Every failed check returns a
+  concrete repair instruction. The Command Center surfaces the readiness
+  score and failing checks.
 
 ### Single content path
 
@@ -816,7 +825,7 @@ publish writer and that every recent public row traces to an artifact.
 | **`verifier.ts`**                        | Sensitive-field whitelist + pre-publish verifier gate                                                     |
 | `packaging.ts`                           | Per-content-type structural validators                                                                    |
 | **`strict-qa.ts`**                       | Artifact-level strict QA (7 sub-scores + gate)                                                            |
-| `quality.ts`                             | 10-dim quality scoring (`computeFinalScoreV2`)                                                            |
+| `quality.ts`                             | 10-dim quality scoring (`computeFinalScore`)                                                            |
 | **`publish-orchestrator.ts`**            | The only publish path; idempotent; updates all stores                                                     |
 | `publisher.ts`                           | Publish-gate evaluator used by the orchestrator                                                           |
 | `publish-safety.ts`                      | Pattern blockers (incomplete prayers, …)                                                                  |
@@ -853,7 +862,7 @@ publish writer and that every recent public row traces to an artifact.
 | `metrics.ts`                             | Command Center metric computation                                                                         |
 | `diagnostics.ts`                         | Subsystem ratings + diagnostics auditor                                                                   |
 | **`why-no-growth.ts`**                   | Live chain walk → first blocker + next automatic repair                                                   |
-| `readiness.ts`                           | Production-readiness 12-check sweep                                                                       |
+| `readiness.ts`                           | Production-readiness sweep (single-pipeline + publish-gate guards)                                                                       |
 | `rules.ts`                               | Versioned rules across categories                                                                         |
 | `logs.ts`                                | Structured AdminWorkerLog writer                                                                          |
 | `report-generator.ts`                    | Developer Audit data collection (incl. the Worker Requests section)                                       |
@@ -1253,7 +1262,7 @@ The unit + component suite covers:
 - **App-wide** — API, auth, security, components, data, email,
   observability, i18n, cache test suites.
 
-Total: **2189 passing tests across 272 test files**.
+Total: **2195 passing tests across 273 test files**.
 
 ---
 
