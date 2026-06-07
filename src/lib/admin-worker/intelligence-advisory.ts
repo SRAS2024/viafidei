@@ -1,14 +1,13 @@
 /**
- * Pre-decision brain advisory (spec: the brain is "in play" for every major
- * decision — prioritisation, planning, next-best-action).
+ * Supplementary pre-pass brain consultation (prioritisation + planning).
  *
- * Runs at the start of each worker pass, before the TypeScript ranked-action
- * brain decides. It asks the permanent Python brain to prioritise the unmet
- * content goals and recommend a next-best-action, records both calls to the
- * audit trail, and logs the advisory. TypeScript remains the conductor and
- * still makes the final choice (spec: "policy decisions should not be left
- * entirely to Python") — the advisory is recorded, auditable, and shapes the
- * pass context. Best-effort and fail-open.
+ * Runs at the start of each worker pass to ask the Python brain to prioritise
+ * the unmet content goals and suggest a next-best-action, recording both calls
+ * to the audit trail for the reasoning view. This is a SUPPLEMENTARY signal —
+ * it does NOT select the action. The Python brain selects the FINAL action via
+ * `select_action` (see final-brain.ts / runBrain); TypeScript then validates
+ * that choice against the safety gate and executes it. Best-effort and
+ * non-blocking: a failure here never affects the pass's final decision.
  */
 
 import type { PrismaClient } from "@prisma/client";

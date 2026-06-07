@@ -96,17 +96,22 @@ The Admin Worker is split into three layers:
                                      (deterministic, stdlib)
 ```
 
-- **TypeScript executes; Python advises.** TypeScript calls the brain
-  through strict typed contracts (`src/lib/admin-worker/intelligence/`),
-  validates every response with Zod, and keeps all policy/publish
-  decisions. Python returns a structured envelope — `result`, `confidence`,
-  `reasoning`, `evidence`, `sources_used`, `risk_level`,
-  `recommended_next_action`, `safe_to_auto_execute` — and **never touches
-  the database or the network**.
-- **Always optional, never blocking.** The brain is behind
-  `INTELLIGENCE_BRAIN_ENABLED` (default on) and fails open: if Python is
-  absent, times out, or returns malformed output, the worker falls back to
-  its existing deterministic heuristics.
+- **Python decides; TypeScript enforces.** Each pass, TypeScript generates
+  and sub-scores the candidate actions, then the Python brain **selects the
+  final action** from them (`select_action`). TypeScript validates that
+  choice with Zod against the strict decision contract + a safety gate, and
+  **may reject an unsafe choice**; it then executes, persists, verifies,
+  publishes, rolls back, defends, reports, and enforces every
+  policy/publish/security gate. Python reasons, scores, ranks, and learns —
+  it **never touches the database or the network** and never executes.
+- **Safe degraded mode, never a TypeScript final brain.** The brain runs
+  as a permanent `python3 -m intelligence` process (`INTELLIGENCE_BRAIN_ENABLED`,
+  default on). If Python is unavailable, returns an invalid shape, or picks
+  an action that fails safety validation, the worker enters **safe degraded
+  mode** (`PYTHON_BRAIN_UNAVAILABLE`): security defense, diagnostics,
+  reporting, maintenance, and repair only — **never autonomous content
+  publishing**, and **never** a fallback to an older TypeScript
+  final-decision path.
 
 See [Intelligence brain (Python)](#intelligence-brain-python) for the full
 design.
@@ -375,8 +380,9 @@ falling back to a TypeScript final brain. Concretely:
   classification, repair strategy, self-inspection, developer-request
   generation, graph analysis, schema / UI / code awareness, and
   learning-from-outcomes — each recorded to `AdminWorkerBrainCall`
-  (visible in IQ diagnostics). The brain only recommends/scores; it never
-  publishes, deletes, bans, mutates users, or bypasses a gate.
+  (visible in IQ diagnostics). The brain reasons, scores, ranks, and selects
+  the final action; it never publishes, deletes, bans, mutates users, or
+  bypasses a gate — TypeScript executes and enforces every gate.
 - **Immediate, per-stage repair.** The repair orchestrator runs the
   concrete recovery now whenever the data is present — re-extract from the
   stored source read, re-classify and advance, retry persistence when the
@@ -988,10 +994,15 @@ release as the node base). TypeScript talks to it through a typed bridge:
 
 ### Where the brain is wired in
 
-- **Pre-decision, every pass** (`loop.ts` → `intelligence-advisory.ts`):
-  before the TypeScript ranked-action brain chooses, the Python brain
-  `prioritize`s the unmet content goals and returns a `plan` / next-best-
-  action, recorded to the audit trail. TypeScript remains the conductor.
+- **Final action selection, every pass** (`loop.ts` → `brain.ts` →
+  `final-brain.ts`): TypeScript generates + sub-scores the candidate actions
+  and the Python brain **selects the final action** (`select_action`);
+  TypeScript validates that choice against the safety gate and executes it
+  (see [Brain as the FINAL decision brain](#brain-as-the-final-decision-brain)).
+- **Supplementary pre-pass consultation** (`intelligence-advisory.ts`): the
+  Python brain also `prioritize`s the unmet content goals and returns a
+  `plan` / next-best-action, recorded to the audit trail for the reasoning
+  view. This does not select the action — it is a supplementary signal.
 - **Publish gate** (`publish-orchestrator.ts`): a **communion-risk** screen
   routes risky content to review, and a **semantic-duplicate** gate blocks
   near-duplicates the slug/canonical checks miss — both before the existing
@@ -1025,8 +1036,11 @@ release as the node base). TypeScript talks to it through a typed bridge:
 - **Daily readings** (`daily-readings.ts`): freshness classification +
   review-on-uncertainty.
 
-All of these are best-effort and fail open — they never block a pass — but
-the brain is always consulted when it is online (the default).
+All of the supplementary wirings above are best-effort and non-blocking —
+they never block a pass. The **final action selection** is separate: the
+Python brain selects it whenever it is online (the default); otherwise the
+worker enters safe degraded mode and never falls back to a TypeScript final
+brain.
 
 ### Postgres tables (migration `0038`)
 

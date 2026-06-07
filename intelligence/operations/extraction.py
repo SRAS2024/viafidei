@@ -17,7 +17,7 @@ from ..contracts import RISK_LOW, RISK_NONE, envelope, opt, require
 from ..core import normalize_text
 
 # 3–4 digit years (so ancient dates like 354 / 430 are captured too); filtered
-# to a plausible AD range in code. Extraction is advisory — TypeScript validates.
+# to a plausible AD range in code. TypeScript validates extraction output.
 _YEAR = re.compile(r"\b(\d{3,4})\b")
 _FULLDATE = re.compile(
     r"\b(?:January|February|March|April|May|June|July|August|September|October|November|December)"

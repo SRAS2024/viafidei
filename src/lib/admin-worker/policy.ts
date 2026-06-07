@@ -88,7 +88,7 @@ function isHighRisk(level: RiskLevel): boolean {
 
 /**
  * Decide what may happen with a proposed action. Pure + deterministic so the
- * conductor and tests can reason about it.
+ * executor and tests can reason about it.
  */
 export function evaluateAutonomy(input: PolicyInput): PolicyDecision {
   const current = input.currentLevel ?? currentAutonomyLevel();
