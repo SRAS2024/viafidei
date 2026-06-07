@@ -132,7 +132,7 @@ describe("spec §25 — acceptance capability exports", () => {
   });
 
   it("ships quality-v2 scoring with doctrinal thresholds (spec §12)", () => {
-    expect(typeof AdminWorker.computeFinalScoreV2).toBe("function");
+    expect(typeof AdminWorker.computeFinalScore).toBe("function");
     expect(typeof AdminWorker.thresholdFor).toBe("function");
     expect(typeof AdminWorker.missingDimensions).toBe("function");
     expect(AdminWorker.QUALITY_THRESHOLDS.APPARITION).toBe(0.95);

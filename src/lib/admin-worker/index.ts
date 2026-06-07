@@ -260,15 +260,13 @@ export {
 } from "./human-review";
 
 export {
-  computeFinalScoreV2,
+  computeFinalScore,
   thresholdFor,
   missingDimensions,
-  failedDimensionsV2,
+  failedDimensions,
   recordQualityScore,
-  recordQualityScoreV2,
   QUALITY_THRESHOLDS,
   type QualityInputs,
-  type QualityInputsV2,
   type QualityScoreResult,
 } from "./quality";
 

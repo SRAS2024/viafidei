@@ -46,9 +46,10 @@ export const QUALITY_THRESHOLDS: Record<string, number> = {
 };
 
 /**
- * Six-sub-score input shape accepted by the `recordQualityScore` shim,
- * which maps it onto the full ten-dimension model. There is no reduced
- * scoring math anymore.
+ * Full ten-dimension content quality input (spec §12). Every dimension is
+ * required — there is no reduced model and no optional-defaulting. The
+ * publish gate refuses when any dimension is zero or the weighted score is
+ * below the per-content-type threshold.
  */
 export interface QualityInputs {
   contentType: string;
@@ -56,29 +57,13 @@ export interface QualityInputs {
   completenessScore: number;
   correctnessScore: number;
   formattingScore: number;
-  sourceEvidenceScore: number;
-  validationScore: number;
-  renderScore: number;
-}
-
-/**
- * Spec §12 full input shape. Optional dimensions default to 1.0 so
- * existing callers keep working — the gate still refuses to publish
- * when any explicit sub-score is zero.
- */
-export interface QualityInputsV2 {
-  contentType: string;
-  contentId: string;
-  completenessScore: number;
-  correctnessScore: number;
-  formattingScore: number;
-  sourceAuthorityScore?: number;
-  fieldProvenanceScore?: number;
-  validationEvidenceScore?: number;
-  duplicateSafetyScore?: number;
-  publicRenderingScore?: number;
-  doctrinalSensitivityScore?: number;
-  packageConsistencyScore?: number;
+  sourceAuthorityScore: number;
+  fieldProvenanceScore: number;
+  validationEvidenceScore: number;
+  duplicateSafetyScore: number;
+  publicRenderingScore: number;
+  doctrinalSensitivityScore: number;
+  packageConsistencyScore: number;
 }
 
 /**
@@ -92,13 +77,12 @@ export interface QualityInputsV2 {
  *   duplicateSafety 0.06  publicRendering 0.06  doctrinalSensitivity 0.08
  *   packageConsistency 0.06
  */
-export function computeFinalScoreV2(
-  inputs: Omit<QualityInputsV2, "contentType" | "contentId">,
+export function computeFinalScore(
+  inputs: Omit<QualityInputs, "contentType" | "contentId">,
 ): number {
-  // Coerce unmeasured / non-finite dimensions to 1 (neutral). A required
-  // dimension that was never measured must not poison the geometric mean
-  // with NaN — an explicit 0 is the only "hard fail" signal.
-  const safe = (v: number | undefined): number => (Number.isFinite(v) ? (v as number) : 1);
+  // Coerce non-finite dimensions to 1 (neutral) so a NaN never poisons the
+  // geometric mean — an explicit 0 is the only "hard fail" signal.
+  const safe = (v: number): number => (Number.isFinite(v) ? v : 1);
   const d = {
     completeness: safe(inputs.completenessScore),
     correctness: safe(inputs.correctnessScore),
@@ -153,36 +137,36 @@ export function thresholdFor(contentType: string): number {
  * "exactly what went wrong" report (spec §12: rejection should be
  * logged with exact missing dimensions).
  */
-export function missingDimensions(inputs: QualityInputsV2): string[] {
+export function missingDimensions(inputs: QualityInputs): string[] {
   const out: string[] = [];
   if (inputs.completenessScore <= 0) out.push("completeness");
   if (inputs.correctnessScore <= 0) out.push("correctness");
   if (inputs.formattingScore <= 0) out.push("formatting");
-  if ((inputs.sourceAuthorityScore ?? 1) <= 0) out.push("sourceAuthority");
-  if ((inputs.fieldProvenanceScore ?? 1) <= 0) out.push("fieldProvenance");
-  if ((inputs.validationEvidenceScore ?? 1) <= 0) out.push("validationEvidence");
-  if ((inputs.duplicateSafetyScore ?? 1) <= 0) out.push("duplicateSafety");
-  if ((inputs.publicRenderingScore ?? 1) <= 0) out.push("publicRendering");
-  if ((inputs.doctrinalSensitivityScore ?? 1) <= 0) out.push("doctrinalSensitivity");
-  if ((inputs.packageConsistencyScore ?? 1) <= 0) out.push("packageConsistency");
+  if (inputs.sourceAuthorityScore <= 0) out.push("sourceAuthority");
+  if (inputs.fieldProvenanceScore <= 0) out.push("fieldProvenance");
+  if (inputs.validationEvidenceScore <= 0) out.push("validationEvidence");
+  if (inputs.duplicateSafetyScore <= 0) out.push("duplicateSafety");
+  if (inputs.publicRenderingScore <= 0) out.push("publicRendering");
+  if (inputs.doctrinalSensitivityScore <= 0) out.push("doctrinalSensitivity");
+  if (inputs.packageConsistencyScore <= 0) out.push("packageConsistency");
   return out;
 }
 
 /** Per-dimension "weak/failed" detector. A dimension counts as failed
  *  when its score is below `floor` (0.5 by default) — this is what the
  *  dashboard + Developer Audit surface as "which dimension failed". */
-export function failedDimensionsV2(inputs: QualityInputsV2, floor = 0.5): string[] {
+export function failedDimensions(inputs: QualityInputs, floor = 0.5): string[] {
   const d: Record<string, number> = {
     completeness: inputs.completenessScore,
     correctness: inputs.correctnessScore,
     formatting: inputs.formattingScore,
-    sourceAuthority: inputs.sourceAuthorityScore ?? 1,
-    fieldProvenance: inputs.fieldProvenanceScore ?? 1,
-    validationEvidence: inputs.validationEvidenceScore ?? 1,
-    duplicateSafety: inputs.duplicateSafetyScore ?? 1,
-    publicRendering: inputs.publicRenderingScore ?? 1,
-    doctrinalSensitivity: inputs.doctrinalSensitivityScore ?? 1,
-    packageConsistency: inputs.packageConsistencyScore ?? 1,
+    sourceAuthority: inputs.sourceAuthorityScore,
+    fieldProvenance: inputs.fieldProvenanceScore,
+    validationEvidence: inputs.validationEvidenceScore,
+    duplicateSafety: inputs.duplicateSafetyScore,
+    publicRendering: inputs.publicRenderingScore,
+    doctrinalSensitivity: inputs.doctrinalSensitivityScore,
+    packageConsistency: inputs.packageConsistencyScore,
   };
   return Object.entries(d)
     .filter(([, v]) => v < floor)
@@ -198,19 +182,20 @@ export interface QualityScoreResult {
 }
 
 /**
- * Record a full ten-dimension ContentQualityScore (spec: "store the full
- * quality score model in the database"). Stores every dimension, the
- * threshold, the pass/fail status, and the list of failed dimensions so
- * the dashboard, Developer Audit, publish gate, and Python brain can all
- * see exactly which dimension failed. The publish gate uses `passed`.
+ * Record the full ten-dimension ContentQualityScore (spec §12). Stores
+ * every dimension, the threshold, the pass/fail status, and the list of
+ * failed dimensions so the dashboard, Developer Audit, publish gate, and
+ * Python brain can all see exactly which dimension failed. The publish gate
+ * uses `passed`. This is the ONLY quality score function — there is no
+ * reduced model.
  */
-export async function recordQualityScoreV2(
+export async function recordQualityScore(
   prisma: PrismaClient,
-  inputs: QualityInputsV2,
+  inputs: QualityInputs,
 ): Promise<QualityScoreResult> {
-  const finalScore = computeFinalScoreV2(inputs);
+  const finalScore = computeFinalScore(inputs);
   const threshold = thresholdFor(inputs.contentType);
-  const failedDimensions = failedDimensionsV2(inputs);
+  const failed = failedDimensions(inputs);
   const passed = finalScore >= threshold;
   const row = await prisma.contentQualityScore.create({
     data: {
@@ -219,48 +204,21 @@ export async function recordQualityScoreV2(
       completenessScore: inputs.completenessScore,
       correctnessScore: inputs.correctnessScore,
       formattingScore: inputs.formattingScore,
-      // Legacy columns mirror the closest V2 dimension for back-compat.
-      sourceEvidenceScore: inputs.fieldProvenanceScore ?? 1,
-      validationScore: inputs.validationEvidenceScore ?? 1,
-      renderScore: inputs.publicRenderingScore ?? 1,
-      // Full model.
-      sourceAuthorityScore: inputs.sourceAuthorityScore ?? 1,
-      fieldProvenanceScore: inputs.fieldProvenanceScore ?? 1,
-      duplicateSafetyScore: inputs.duplicateSafetyScore ?? 1,
-      doctrinalSensitivityScore: inputs.doctrinalSensitivityScore ?? 1,
-      packageConsistencyScore: inputs.packageConsistencyScore ?? 1,
+      sourceAuthorityScore: inputs.sourceAuthorityScore,
+      fieldProvenanceScore: inputs.fieldProvenanceScore,
+      validationEvidenceScore: inputs.validationEvidenceScore,
+      duplicateSafetyScore: inputs.duplicateSafetyScore,
+      publicRenderingScore: inputs.publicRenderingScore,
+      doctrinalSensitivityScore: inputs.doctrinalSensitivityScore,
+      packageConsistencyScore: inputs.packageConsistencyScore,
       finalScore,
       threshold,
       passed,
-      failedDimensions,
+      failedDimensions: failed,
     },
     select: { id: true },
   });
   // Return the JS-computed verdict (not the persisted row) so the gate is
   // correct regardless of what a (mocked) create returns.
-  return { id: row.id, finalScore, threshold, passed, failedDimensions };
-}
-
-/**
- * Compatibility shim for the few callers that still pass the six-dim input
- * shape: it maps them onto the full ten-dimension model. There is NO
- * reduced scoring path — every score goes through `recordQualityScoreV2`.
- */
-export async function recordQualityScore(
-  prisma: PrismaClient,
-  inputs: QualityInputs,
-): Promise<{ id: string; finalScore: number }> {
-  const v2 = await recordQualityScoreV2(prisma, {
-    contentType: inputs.contentType,
-    contentId: inputs.contentId,
-    completenessScore: inputs.completenessScore,
-    correctnessScore: inputs.correctnessScore,
-    formattingScore: inputs.formattingScore,
-    sourceAuthorityScore: inputs.sourceEvidenceScore,
-    fieldProvenanceScore: inputs.sourceEvidenceScore,
-    validationEvidenceScore: inputs.validationScore,
-    publicRenderingScore: inputs.renderScore,
-    packageConsistencyScore: inputs.correctnessScore,
-  });
-  return { id: v2.id, finalScore: v2.finalScore };
+  return { id: row.id, finalScore, threshold, passed, failedDimensions: failed };
 }

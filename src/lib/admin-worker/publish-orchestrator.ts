@@ -33,7 +33,7 @@ import { writeAdminWorkerLog } from "./logs";
 import { publicRouteFor } from "./public-routes";
 import { evaluatePublishGate } from "./publisher";
 import { recordReasoningEdge } from "./reasoning-graph";
-import type { QualityInputsV2 } from "./quality";
+import type { QualityInputs } from "./quality";
 import type { VerifierOutcome } from "./verifier";
 
 export interface PublishOrchestratorInput {
@@ -51,16 +51,6 @@ export interface PublishOrchestratorInput {
   verifier?: VerifierOutcome;
   /** Spec §5: when supplied, gate requires status="PASSED". */
   strictQAArtifactId?: string;
-  /** Spec §4: optional precomputed quality inputs. When omitted, the
-   *  orchestrator derives them from the package artifact fields. */
-  qualityInputs?: {
-    completenessScore: number;
-    correctnessScore: number;
-    formattingScore: number;
-    sourceEvidenceScore: number;
-    validationScore: number;
-    renderScore: number;
-  };
 }
 
 export type OrchestratorResult =
@@ -229,18 +219,18 @@ export async function runPublishOrchestrator(
   //     gate refuse the publish above).
   //
   //     The mapping folds in source authority and verification evidence
-  //     strength as quality factors (spec §6): sourceEvidenceScore is
+  //     strength as quality factors (spec §6): sourceAuthorityScore is
   //     biased downward when the source authority is below VATICAN,
-  //     and validationScore is biased downward when the stored
+  //     and validationEvidenceScore is biased downward when the stored
   //     verifier outcome reports missing evidence. duplicate-safety is
   //     pulled from strict-QA and combined with the geometric mean by
   //     dragging completeness down to zero on a duplicate-safety
   //     failure (= refusal to publish a duplicate).
-  // Build the full ten-dimension quality inputs (spec: store + enforce
-  // the full quality model). Prefer strict-QA-derived dimensions; fall
-  // back to a legacy six-dim input or coarse defaults.
-  let qualityV2: QualityInputsV2 | undefined;
-  if (!input.qualityInputs && input.strictQAArtifactId) {
+  // Build the full ten-dimension quality inputs (spec §12: store + enforce
+  // the full quality model). Prefer strict-QA-derived dimensions; fall back
+  // to coarse package-artifact defaults. There is no reduced-model path.
+  let quality: QualityInputs | undefined;
+  if (input.strictQAArtifactId) {
     const { getStrictQAResult } = await import("./strict-qa");
     const qa = await getStrictQAResult(prisma, input.strictQAArtifactId);
     const qaRow = await prisma.adminWorkerStrictQAResult
@@ -262,7 +252,7 @@ export async function runPublishOrchestrator(
         qaRow.duplicateSafetyScore === undefined || qaRow.duplicateSafetyScore === null
           ? true
           : qaRow.duplicateSafetyScore > 0;
-      qualityV2 = {
+      quality = {
         contentType: input.contentType,
         contentId: input.contentId,
         completenessScore: duplicateOk ? (qaRow.completenessScore ?? 1) : 0,
@@ -284,52 +274,30 @@ export async function runPublishOrchestrator(
       };
     }
   }
-  const legacy = input.qualityInputs;
-  const qualityV2Final: QualityInputsV2 =
-    qualityV2 ??
-    (legacy
-      ? {
-          contentType: input.contentType,
-          contentId: input.contentId,
-          completenessScore: legacy.completenessScore,
-          correctnessScore: legacy.correctnessScore,
-          formattingScore: legacy.formattingScore,
-          sourceAuthorityScore: legacy.sourceEvidenceScore,
-          fieldProvenanceScore: legacy.sourceEvidenceScore,
-          validationEvidenceScore: legacy.validationScore,
-          duplicateSafetyScore: 1,
-          publicRenderingScore: legacy.renderScore,
-          doctrinalSensitivityScore: input.isDoctrinallySensitive
-            ? legacy.validationScore > 0
-              ? 1
-              : 0
-            : 1,
-          packageConsistencyScore: legacy.correctnessScore,
-        }
-      : {
-          contentType: input.contentType,
-          contentId: input.contentId,
-          completenessScore: input.qaPassed ? 1 : 0.5,
-          correctnessScore: input.confidence,
-          formattingScore: 0.8,
-          sourceAuthorityScore: sourceAuthorityFactor(input.authorityLevel),
-          fieldProvenanceScore: input.hasSourceEvidence ? 1 : 0,
-          validationEvidenceScore: input.verifier?.publishAllowed
-            ? 1
-            : input.isDoctrinallySensitive
-              ? 0
-              : 0.8,
-          duplicateSafetyScore: 1,
-          publicRenderingScore: 1,
-          doctrinalSensitivityScore: input.isDoctrinallySensitive
-            ? input.verifier?.publishAllowed
-              ? 1
-              : 0
-            : 1,
-          packageConsistencyScore: input.qaPassed ? 1 : 0.8,
-        });
-  const { recordQualityScoreV2, thresholdFor } = await import("./quality");
-  const qualityScore = await recordQualityScoreV2(prisma, qualityV2Final).catch(() => null);
+  const qualityFinal: QualityInputs = quality ?? {
+    contentType: input.contentType,
+    contentId: input.contentId,
+    completenessScore: input.qaPassed ? 1 : 0.5,
+    correctnessScore: input.confidence,
+    formattingScore: 0.8,
+    sourceAuthorityScore: sourceAuthorityFactor(input.authorityLevel),
+    fieldProvenanceScore: input.hasSourceEvidence ? 1 : 0,
+    validationEvidenceScore: input.verifier?.publishAllowed
+      ? 1
+      : input.isDoctrinallySensitive
+        ? 0
+        : 0.8,
+    duplicateSafetyScore: 1,
+    publicRenderingScore: 1,
+    doctrinalSensitivityScore: input.isDoctrinallySensitive
+      ? input.verifier?.publishAllowed
+        ? 1
+        : 0
+      : 1,
+    packageConsistencyScore: input.qaPassed ? 1 : 0.8,
+  };
+  const { recordQualityScore, thresholdFor } = await import("./quality");
+  const qualityScore = await recordQualityScore(prisma, qualityFinal).catch(() => null);
   // Spec: publishing must use the FULL stored quality score. `passed`
   // already folds in the per-content-type threshold.
   if (!qualityScore || !qualityScore.passed) {
@@ -557,7 +525,7 @@ async function logBlocked(
 }
 
 /**
- * Spec §6: source-authority factor used to bias sourceEvidenceScore
+ * Spec §6: source-authority factor used to bias sourceAuthorityScore
  * by where the content was sourced. VATICAN is the unconditional
  * baseline (1.0); conference / magisterium sources are slightly
  * deboosted; diocesan / parish / community sources are deboosted

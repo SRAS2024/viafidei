@@ -80,7 +80,7 @@ import { adminWorkerFetch } from "@/lib/admin-worker/fetcher";
 import { parseStructuredBlocks } from "@/lib/admin-worker/structured-source-reader";
 import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator";
 import { runVerifier } from "@/lib/admin-worker/verifier";
-import { computeFinalScoreV2, thresholdFor } from "@/lib/admin-worker/quality";
+import { computeFinalScore, thresholdFor } from "@/lib/admin-worker/quality";
 
 function makePrisma() {
   return {
@@ -239,7 +239,7 @@ describe("full chain end-to-end (spec §24)", () => {
   });
 
   it("Stage 9 — quality scorer produces a score above the prayer threshold", () => {
-    const score = computeFinalScoreV2({
+    const score = computeFinalScore({
       contentType: "PRAYER",
       contentId: "id-1",
       completenessScore: 0.95,

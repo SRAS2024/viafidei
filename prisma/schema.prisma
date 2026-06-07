@@ -1589,18 +1589,16 @@ model ContentQualityScore {
   id                        String   @id @default(cuid())
   contentType               String
   contentId                 String
-  // Original six dimensions (kept for back-compat).
+  // Full ten-dimension quality model (spec §12): every dimension is stored
+  // so the worker can explain the score and exactly which dimensions failed.
   completenessScore         Float    @default(0)
   correctnessScore          Float    @default(0)
   formattingScore           Float    @default(0)
-  sourceEvidenceScore       Float    @default(0)
-  validationScore           Float    @default(0)
-  renderScore               Float    @default(0)
-  // Full quality model (spec): the remaining dimensions so the worker
-  // can store + explain every dimension and which ones failed.
   sourceAuthorityScore      Float    @default(0)
   fieldProvenanceScore      Float    @default(0)
+  validationEvidenceScore   Float    @default(0)
   duplicateSafetyScore      Float    @default(0)
+  publicRenderingScore      Float    @default(0)
   doctrinalSensitivityScore Float    @default(0)
   packageConsistencyScore   Float    @default(0)
   finalScore                Float    @default(0)

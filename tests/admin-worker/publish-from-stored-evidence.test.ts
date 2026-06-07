@@ -118,9 +118,9 @@ describe("publish derives ContentQualityScore from strict-QA dimensions (spec §
       completenessScore: 0.88,
       correctnessScore: 0.93,
       formattingScore: 0.91,
-      sourceEvidenceScore: 0.9, // provenance → sourceEvidence
-      validationScore: 0.94,
-      renderScore: 0.95, // public readiness → render
+      fieldProvenanceScore: 0.9, // provenance
+      validationEvidenceScore: 0.94, // validation evidence (no verifier → strength 1.0)
+      publicRenderingScore: 0.95, // public rendering readiness
     });
   });
 

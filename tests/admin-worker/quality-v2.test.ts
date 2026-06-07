@@ -6,17 +6,17 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  computeFinalScoreV2,
-  failedDimensionsV2,
+  computeFinalScore,
+  failedDimensions,
   missingDimensions,
   QUALITY_THRESHOLDS,
-  recordQualityScoreV2,
+  recordQualityScore,
   thresholdFor,
 } from "@/lib/admin-worker/quality";
 
-describe("computeFinalScoreV2 — 10-dimension scoring (spec §12)", () => {
+describe("computeFinalScore — 10-dimension scoring (spec §12)", () => {
   it("returns ~1.0 when every dimension is perfect", () => {
-    const score = computeFinalScoreV2({
+    const score = computeFinalScore({
       completenessScore: 1,
       correctnessScore: 1,
       formattingScore: 1,
@@ -32,7 +32,7 @@ describe("computeFinalScoreV2 — 10-dimension scoring (spec §12)", () => {
   });
 
   it("returns 0 when any single dimension is 0 (any-zero gate)", () => {
-    const score = computeFinalScoreV2({
+    const score = computeFinalScore({
       completenessScore: 1,
       correctnessScore: 1,
       formattingScore: 1,
@@ -48,7 +48,7 @@ describe("computeFinalScoreV2 — 10-dimension scoring (spec §12)", () => {
   });
 
   it("optional dimensions default to 1 so legacy callers keep working", () => {
-    const score = computeFinalScoreV2({
+    const score = computeFinalScore({
       completenessScore: 0.9,
       correctnessScore: 0.95,
       formattingScore: 0.9,
@@ -57,7 +57,7 @@ describe("computeFinalScoreV2 — 10-dimension scoring (spec §12)", () => {
   });
 
   it("weighted geometric mean penalises a partial dimension", () => {
-    const high = computeFinalScoreV2({
+    const high = computeFinalScore({
       completenessScore: 0.95,
       correctnessScore: 0.95,
       formattingScore: 0.95,
@@ -69,7 +69,7 @@ describe("computeFinalScoreV2 — 10-dimension scoring (spec §12)", () => {
       doctrinalSensitivityScore: 0.95,
       packageConsistencyScore: 0.95,
     });
-    const partial = computeFinalScoreV2({
+    const partial = computeFinalScore({
       completenessScore: 0.5,
       correctnessScore: 0.95,
       formattingScore: 0.95,
@@ -143,7 +143,7 @@ describe("missingDimensions — exact missing-quality reporting (spec §12)", ()
   });
 });
 
-describe("failedDimensionsV2 — which dimension failed", () => {
+describe("failedDimensions — which dimension failed", () => {
   const base = {
     contentType: "PRAYER",
     contentId: "c1",
@@ -153,11 +153,11 @@ describe("failedDimensionsV2 — which dimension failed", () => {
   };
 
   it("returns [] when every dimension clears the floor", () => {
-    expect(failedDimensionsV2({ ...base })).toEqual([]);
+    expect(failedDimensions({ ...base })).toEqual([]);
   });
 
   it("flags dimensions below the 0.5 floor (including the new ones)", () => {
-    const out = failedDimensionsV2({
+    const out = failedDimensions({
       ...base,
       sourceAuthorityScore: 0.2,
       duplicateSafetyScore: 0,
@@ -170,7 +170,7 @@ describe("failedDimensionsV2 — which dimension failed", () => {
   });
 });
 
-describe("recordQualityScoreV2 — full model persistence", () => {
+describe("recordQualityScore — full model persistence", () => {
   function makePrisma() {
     const created: Array<Record<string, unknown>> = [];
     const prisma = {
@@ -182,13 +182,13 @@ describe("recordQualityScoreV2 — full model persistence", () => {
           return { id: "q1" };
         }),
       },
-    } as unknown as Parameters<typeof recordQualityScoreV2>[0];
+    } as unknown as Parameters<typeof recordQualityScore>[0];
     return { prisma, created };
   }
 
   it("stores all dimensions + threshold + pass/fail + failed dimensions", async () => {
     const { prisma, created } = makePrisma();
-    const res = await recordQualityScoreV2(prisma, {
+    const res = await recordQualityScore(prisma, {
       contentType: "PRAYER",
       contentId: "c1",
       completenessScore: 1,
@@ -215,7 +215,7 @@ describe("recordQualityScoreV2 — full model persistence", () => {
 
   it("fails the gate + names the failed dimension when one dimension is zero", async () => {
     const { prisma } = makePrisma();
-    const res = await recordQualityScoreV2(prisma, {
+    const res = await recordQualityScore(prisma, {
       contentType: "APPARITION",
       contentId: "c2",
       completenessScore: 1,

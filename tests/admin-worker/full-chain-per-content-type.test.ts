@@ -70,7 +70,7 @@ import { CONTENT_TYPE_STRATEGIES } from "@/lib/admin-worker/discovery-orchestrat
 import { adminWorkerFetch } from "@/lib/admin-worker/fetcher";
 import { parseStructuredBlocks } from "@/lib/admin-worker/structured-source-reader";
 import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator";
-import { computeFinalScoreV2, thresholdFor } from "@/lib/admin-worker/quality";
+import { computeFinalScore, thresholdFor } from "@/lib/admin-worker/quality";
 import { buildContentPackage } from "@/lib/admin-worker/content-builder";
 import { recordStrictQA } from "@/lib/admin-worker/strict-qa";
 import {
@@ -445,7 +445,7 @@ describe("full chain per content type (spec §24)", () => {
       });
 
       it("quality scorer puts the package above the content-type threshold", () => {
-        const score = computeFinalScoreV2({
+        const score = computeFinalScore({
           contentType: s.contentType,
           contentId: "test",
           ...HEALTHY_SCORES,
