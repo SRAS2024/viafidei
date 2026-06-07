@@ -36,6 +36,27 @@ export default async function AdminWorkerReasoningPage({
 
   if (pipelineKey || (contentType && contentId)) {
     const chain = await getReasoningChain(prisma, { pipelineKey, contentType, contentId });
+    // Rollback records for this item (spec §46-48: Worker Reasoning shows the
+    // rollback result when applicable).
+    const rollbacks = contentId
+      ? await prisma.adminWorkerRollbackLedger
+          .findMany({
+            where: { contentId },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+            select: {
+              id: true,
+              previousPublicState: true,
+              failedVerificationReason: true,
+              rollbackAction: true,
+              rollbackResult: true,
+              restorable: true,
+              humanReviewCreated: true,
+              createdAt: true,
+            },
+          })
+          .catch(() => [] as Array<Record<string, unknown>>)
+      : [];
     return (
       <div className="space-y-6">
         <header>
@@ -80,6 +101,30 @@ export default async function AdminWorkerReasoningPage({
                 </li>
               ))}
             </ol>
+          </section>
+        )}
+
+        {rollbacks.length > 0 && (
+          <section className="rounded border border-rose-200 bg-rose-50 p-4 shadow-sm">
+            <h2 className="font-display text-xl text-ink">Rollbacks ({rollbacks.length})</h2>
+            <ul className="mt-3 space-y-2">
+              {rollbacks.map((r) => (
+                <li key={String(r.id)} className="rounded border border-rose-200 bg-white px-3 py-2">
+                  <div className="text-sm text-ink">
+                    <span className="font-medium">{String(r.rollbackAction)}</span> →{" "}
+                    <span className="font-mono">{String(r.rollbackResult)}</span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-rose-800">
+                    {String(r.failedVerificationReason ?? "verification failed")}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-mono text-ink-soft">
+                    was {String(r.previousPublicState)} · restorable {String(r.restorable)} · human
+                    review {String(r.humanReviewCreated)} ·{" "}
+                    {new Date(r.createdAt as Date).toISOString().slice(0, 19)}
+                  </p>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
       </div>

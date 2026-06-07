@@ -239,6 +239,7 @@ Optional environment variables:
 | `PUBLIC_BASE_URL`            | Base URL the post-publish probe + verifiers fetch from       |
 | `WORKER_ID`                  | Stable id for this worker process (auto-generated)           |
 | `ADMIN_WORKER_SKIP_NETWORK`  | Test-only: dispatcher skips real fetch + read calls when `1` |
+| `ADMIN_WORKER_DISABLE_LIVE_PROBE` | Local/dry-run only: skip the mandatory production live sitemap + cache probe when `1` (verification is otherwise live + fail-closed in production) |
 | `INTELLIGENCE_BRAIN_ENABLED` | Python intelligence brain on/off (default on; `0` disables)  |
 | `INTELLIGENCE_PYTHON`        | Python executable for the brain (default `python3`)          |
 | `INTELLIGENCE_TIMEOUT_MS`    | Per brain-call timeout (default `8000`)                      |
