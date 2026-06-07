@@ -31,7 +31,7 @@ vi.mock("@/lib/worker", () => ({
 import { executeMissionStage } from "@/lib/admin-worker/dispatcher";
 import { runOneBuildCycle } from "@/lib/worker";
 import type { BrainDecision } from "@/lib/admin-worker/brain";
-import { publish, isLegacyPublishAllowed } from "@/lib/worker/publishing";
+import { publish } from "@/lib/worker/publishing";
 
 function decision(stage: string): BrainDecision {
   return {
@@ -58,29 +58,30 @@ function decision(stage: string): BrainDecision {
   } as unknown as BrainDecision;
 }
 
-describe("legacy publish writer is hard-disabled (spec §1)", () => {
-  it("publish() throws when ALLOW_LEGACY_PUBLISH is not set", async () => {
+describe("legacy publish writer is permanently removed (spec §1)", () => {
+  it("publish() always throws (no escape hatch, even with ALLOW_LEGACY_PUBLISH=1)", async () => {
     const prev = process.env.ALLOW_LEGACY_PUBLISH;
-    delete process.env.ALLOW_LEGACY_PUBLISH;
-    expect(isLegacyPublishAllowed()).toBe(false);
+    process.env.ALLOW_LEGACY_PUBLISH = "1";
     await expect(
       publish({} as never, {
         checklistItemId: "ci-1",
         pkg: {} as never,
         qa: {} as never,
       }),
-    ).rejects.toThrow(/disabled/i);
+    ).rejects.toThrow(/permanently removed/i);
     if (prev) process.env.ALLOW_LEGACY_PUBLISH = prev;
+    else delete process.env.ALLOW_LEGACY_PUBLISH;
   });
 
-  it("the legacy runOneBuildCycle build engine throws when disabled", async () => {
+  it("the legacy runOneBuildCycle build engine always throws", async () => {
     const prev = process.env.ALLOW_LEGACY_PUBLISH;
-    delete process.env.ALLOW_LEGACY_PUBLISH;
+    process.env.ALLOW_LEGACY_PUBLISH = "1";
     // Import the real module (not the @/lib/worker mock above) to hit
     // the guard at the legacy build-engine entry point.
     const real = await vi.importActual<typeof import("@/lib/worker/index")>("@/lib/worker/index");
-    await expect(real.runOneBuildCycle({} as never, "w1")).rejects.toThrow(/disabled/i);
+    await expect(real.runOneBuildCycle({} as never, "w1")).rejects.toThrow(/permanently removed/i);
     if (prev) process.env.ALLOW_LEGACY_PUBLISH = prev;
+    else delete process.env.ALLOW_LEGACY_PUBLISH;
   });
 });
 
