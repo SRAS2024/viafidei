@@ -42,7 +42,7 @@ function makePrisma(opts: {
       }),
       findFirst: vi.fn(async () => (lastPublishedAt ? { publishedAt: lastPublishedAt } : null)),
     },
-    checklistQAReport: { findMany: vi.fn(async () => []) },
+    adminWorkerStrictQAResult: { findMany: vi.fn(async () => []) },
     workerBuildJob: { count: vi.fn(async () => 0) },
     adminWorkerGrowthSnapshot: { create: vi.fn(async () => ({})) },
     adminWorkerRepairPlan: { create: vi.fn(async () => ({})) },

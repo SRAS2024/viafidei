@@ -27,8 +27,8 @@ async function fetchStats(): Promise<ChecklistStats> {
       by: ["status"],
       _count: true,
     }),
-    prisma.checklistQAReport.groupBy({
-      by: ["passed", "needsHumanReview"],
+    prisma.adminWorkerStrictQAResult.groupBy({
+      by: ["status"],
       _count: true,
     }),
     prisma.publishedContent.count({ where: { isPublished: true } }),
@@ -50,8 +50,8 @@ async function fetchStats(): Promise<ChecklistStats> {
   }
   const qa = { passed: 0, failed: 0, needsReview: 0 };
   for (const r of qaCounts) {
-    if (r.needsHumanReview) qa.needsReview += r._count;
-    else if (r.passed) qa.passed += r._count;
+    if (r.status === "PASSED") qa.passed += r._count;
+    else if (r.status === "NEEDS_REPAIR") qa.needsReview += r._count;
     else qa.failed += r._count;
   }
   return {

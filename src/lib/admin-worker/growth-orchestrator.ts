@@ -109,18 +109,19 @@ export async function runGrowthOrchestrator(
     const hoursSince = lastAt ? Math.round((now - lastAt.getTime()) / HOUR_MS) : null;
 
     // QA + publish rate signals — best-effort, default 0 when missing.
-    // contentType lives on the related ChecklistItem, not on QAReport.
-    const qaReports = await prisma.checklistQAReport
+    const qaResults = await prisma.adminWorkerStrictQAResult
       .findMany({
         where: {
           createdAt: { gte: new Date(now - 30 * DAY_MS) },
-          checklistItem: { contentType },
+          contentType,
         },
-        select: { passed: true },
+        select: { status: true },
       })
-      .catch(() => [] as Array<{ passed: boolean }>);
+      .catch(() => [] as Array<{ status: string }>);
     const qaPassRate30d =
-      qaReports.length === 0 ? 0 : qaReports.filter((q) => q.passed).length / qaReports.length;
+      qaResults.length === 0
+        ? 0
+        : qaResults.filter((q) => q.status === "PASSED").length / qaResults.length;
 
     const buildJobs = await prisma.workerBuildJob
       .count({

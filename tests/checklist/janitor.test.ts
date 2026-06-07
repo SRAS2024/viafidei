@@ -16,9 +16,6 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
       findUnique: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
     },
-    checklistQAReport: {
-      findMany: vi.fn().mockResolvedValue([]),
-    },
     checklistCitation: {
       findMany: vi.fn().mockResolvedValue([]),
     },
@@ -56,33 +53,6 @@ describe("scanForJanitorFindings", () => {
     expect(deletes[0].reason).toMatch(/REJECTED/);
   });
 
-  it("recommends EDIT for items whose latest QA score is low", async () => {
-    const prisma: any = makePrisma();
-    prisma.checklistQAReport.findMany.mockResolvedValue([
-      {
-        checklistItemId: "ci-1",
-        overallScore: 0.42,
-        issues: ["short body"],
-        checklistItem: {
-          contentType: "PRAYER",
-          canonicalSlug: "x",
-          canonicalName: "X",
-        },
-      },
-    ]);
-    prisma.publishedContent.findUnique.mockResolvedValue({
-      checklistItemId: "ci-1",
-      isPublished: true,
-      version: 1,
-      updatedAt: new Date(),
-    });
-
-    const findings = await scanForJanitorFindings(prisma);
-    const edits = filterByAction(findings, "edit");
-    expect(edits.length).toBeGreaterThanOrEqual(1);
-    expect(edits[0].lastQaScore).toBeCloseTo(0.42);
-  });
-
   it("returns an empty list when there are no published items", async () => {
     const prisma: any = makePrisma();
     const findings = await scanForJanitorFindings(prisma);
@@ -111,18 +81,6 @@ describe("scanForJanitorFindings", () => {
       version: 1,
       updatedAt: new Date(),
     });
-    prisma.checklistQAReport.findMany.mockResolvedValue([
-      {
-        checklistItemId: "ci-edit",
-        overallScore: 0.4,
-        issues: [],
-        checklistItem: {
-          contentType: "PRAYER",
-          canonicalSlug: "b",
-          canonicalName: "B",
-        },
-      },
-    ]);
 
     const findings = await scanForJanitorFindings(prisma);
     if (findings.length >= 2) {

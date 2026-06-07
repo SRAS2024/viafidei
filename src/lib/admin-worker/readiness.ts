@@ -35,7 +35,7 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     publishedContentCount,
     sourceReadCount,
     buildJobCount,
-    qaReportCount,
+    strictQaCount,
     postPublishCount,
     securityActionCount,
     homepageScoreCount,
@@ -52,7 +52,7 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     prisma.publishedContent.count({ where: { isPublished: true } }),
     prisma.adminWorkerSourceRead.count(),
     prisma.workerBuildJob.count(),
-    prisma.checklistQAReport.count(),
+    prisma.adminWorkerStrictQAResult.count(),
     prisma.postPublishVerification.count(),
     prisma.adminWorkerSecurityAction.count(),
     prisma.homepageQualityScore.count(),
@@ -130,10 +130,10 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
 
   checks.push({
     key: "qa_reports",
-    label: "QA reports exist",
-    status: qaReportCount > 0 ? "pass" : "fail",
-    detail: `${qaReportCount} ChecklistQAReport row(s).`,
-    repair: "Run a worker pass that completes at least one build → QA report.",
+    label: "Strict-QA results exist",
+    status: strictQaCount > 0 ? "pass" : "fail",
+    detail: `${strictQaCount} AdminWorkerStrictQAResult row(s).`,
+    repair: "Run a worker pass that takes an artifact through the STRICT_QA stage.",
   });
 
   checks.push({

@@ -173,23 +173,6 @@ export async function planMission(prisma: PrismaClient): Promise<MissionPlan> {
     };
   }
 
-  // 7. VALIDATE/QA: builds done but unreviewed QA reports waiting.
-  const pendingQA = await prisma.checklistQAReport.count({
-    where: { needsHumanReview: true, reviewedAt: null },
-  });
-  if (pendingQA > 0) {
-    return {
-      stage: "VALIDATE_QA",
-      contentType,
-      taskType: "VALIDATE_CONTENT",
-      reason: `${pendingQA} QA reports waiting on review.`,
-      expectedResult: "Run cross-source verification + strict QA; promote passing items.",
-      confidence: 0.75,
-      nextStep:
-        "Re-run packaging validators + verify scripture / feast day / approval / Rosary / Novena structure.",
-    };
-  }
-
   // 8. POST_PUBLISH: published items without recent verification.
   const publishedCount = await prisma.publishedContent.count({ where: { isPublished: true } });
   const verifiedContentIds = await prisma.postPublishVerification.findMany({

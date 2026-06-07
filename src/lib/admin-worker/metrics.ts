@@ -49,9 +49,9 @@ export async function loadCommandCenterMetrics(
     publishedContentLive,
     queueInFlight,
   ] = await Promise.all([
-    prisma.checklistQAReport.count({ where: { createdAt: { gte: since30d } } }),
-    prisma.checklistQAReport.count({
-      where: { createdAt: { gte: since30d }, passed: true },
+    prisma.adminWorkerStrictQAResult.count({ where: { createdAt: { gte: since30d } } }),
+    prisma.adminWorkerStrictQAResult.count({
+      where: { createdAt: { gte: since30d }, status: "PASSED" },
     }),
     prisma.adminWorkerLog.count({
       where: {

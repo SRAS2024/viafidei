@@ -17,7 +17,7 @@ vi.mock("@/lib/db/client", () => {
       count: vi.fn().mockResolvedValue(0),
       findFirst: vi.fn().mockResolvedValue(null),
     },
-    checklistQAReport: {
+    adminWorkerStrictQAResult: {
       findMany: vi.fn().mockResolvedValue([]),
       count: vi.fn().mockResolvedValue(0),
     },
@@ -30,7 +30,7 @@ vi.mock("@/lib/db/client", () => {
         { contentType: "SAINT", _count: 5 },
       ]),
     },
-    workerBuildLog: { count: vi.fn().mockResolvedValue(20) },
+    adminWorkerLog: { count: vi.fn().mockResolvedValue(20) },
     checklistCitation: { findMany: vi.fn().mockResolvedValue([]) },
   };
   return { prisma: stub };

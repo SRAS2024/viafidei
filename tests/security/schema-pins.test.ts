@@ -107,32 +107,8 @@ describe("Session.deviceCredentialHash supports ban-link session revocation", ()
   });
 });
 
-// `SourceDocument` and `ContentPackageBuildLog` schema pins were
-// dropped along with their tables in migration
-// 0025_drop_legacy_system. Equivalent provenance now lives on
-// WorkerBuildLog + ChecklistCitation, which are pinned by the
-// worker-build tests.
-
-describe("WorkerBuildLog — provenance fields are declared", () => {
-  const body = modelBlock("WorkerBuildLog");
-
-  const WORKER_BUILD_LOG_REQUIRED = [
-    "buildJobId",
-    "step",
-    "level",
-    "message",
-    "fieldName",
-    "sourceUrl",
-    "warnings",
-    "confidence",
-    "metadata",
-    "createdAt",
-  ];
-
-  for (const field of WORKER_BUILD_LOG_REQUIRED) {
-    it(`declares ${field}`, () => {
-      const re = new RegExp(`^\\s+${field}\\b`, "m");
-      expect(re.test(body)).toBe(true);
-    });
-  }
-});
+// `SourceDocument`, `ContentPackageBuildLog`, and the legacy
+// `WorkerBuildLog`/`ChecklistQAReport` provenance pins were dropped
+// along with their tables. Provenance now lives on ChecklistCitation
+// (pinned by the worker-build tests) and the Admin Worker artifact
+// tables (AdminWorkerStrictQAResult, AdminWorkerLog).

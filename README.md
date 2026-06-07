@@ -125,10 +125,11 @@ design.
 | `WorkerBuildJob`    | Build-intent signal the Admin Worker reads (enqueued on approve) |
 | `PublishedContent`  | The only table the public site reads from                        |
 
-A few tables from the prior engine (`WorkerBuildLog`, `ChecklistQAReport`,
-`ChecklistVersion`, `ChecklistRelation`) still exist in the schema but are
-no longer on the active path — the Admin Worker records QA, versioning,
-and relations in its own `AdminWorker*` tables.
+The prior engine's tables (`WorkerBuildLog`, `ChecklistQAReport`,
+`ChecklistVersion`, `ChecklistRelation`) were **dropped** (migration
+`0041`); the Admin Worker records strict QA in `AdminWorkerStrictQAResult`
+and activity in `AdminWorkerLog`, and the dashboard, diagnostics, audit,
+readiness, and growth surfaces all read those live tables.
 
 **Admin Worker engine** (`src/lib/admin-worker/`):
 
@@ -1304,6 +1305,7 @@ device known so subsequent navigation reads as expected activity.
 | `0038_intelligence_memory_graph`                   | Intelligence brain store: Embedding (vectors), GraphNode/GraphEdge, DeveloperRequest, BrainCall                                                  |
 | `0039_daily_readings`                              | DailyReading (daily liturgical readings as internal content)                                                                                     |
 | `0040_stage_outcomes_rollback_quality_v2`          | AdminWorkerStageOutcome + AdminWorkerRollbackLedger; full ContentQualityScore model; action `fallbackAction`; PublishedContent `contentChecksum` |
+| `0041_drop_legacy_qa_buildlog_version_relation`    | Dropped the legacy WorkerBuildLog / ChecklistQAReport / ChecklistVersion / ChecklistRelation tables (superseded by AdminWorkerStrictQAResult + AdminWorkerLog) |
 
 The legacy scraper-first ingestion + legacy public-content models
 (`Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,

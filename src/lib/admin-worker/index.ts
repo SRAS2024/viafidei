@@ -25,9 +25,9 @@
  *   - diagnostics + readiness                (diagnostics, readiness)
  *   - PDF reports                            (report-generator, pdf)
  *
- * Internal model names (ChecklistItem, WorkerBuildJob, WorkerBuildLog)
- * deliberately keep their existing names; the spec calls for renaming
- * only the admin-facing UI.
+ * Internal model names (ChecklistItem, WorkerBuildJob) deliberately keep
+ * their existing names; the spec calls for renaming only the
+ * admin-facing UI.
  */
 
 export { ADMIN_WORKER_MODES, describeMode, type ModeDescriptor } from "./modes";

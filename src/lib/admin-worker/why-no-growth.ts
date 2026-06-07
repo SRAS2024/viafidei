@@ -349,16 +349,18 @@ export async function diagnoseWhyNoGrowth(
   // 13. QA.
   const qaReports =
     blocker === "NONE"
-      ? await prisma.checklistQAReport
+      ? await prisma.adminWorkerStrictQAResult
           .findMany({
             where: { createdAt: { gte: since7d } },
-            select: { passed: true },
+            select: { status: true },
             take: 200,
           })
           .catch(() => [])
       : [];
   const qaPassRate =
-    qaReports.length === 0 ? 1 : qaReports.filter((r) => r.passed).length / qaReports.length;
+    qaReports.length === 0
+      ? 1
+      : qaReports.filter((r) => r.status === "PASSED").length / qaReports.length;
   checks.push({
     stage: "QA_REJECTING",
     label: "QA pass rate (7d)",
@@ -369,7 +371,7 @@ export async function diagnoseWhyNoGrowth(
   if (blocker === "NONE" && qaReports.length >= 5 && qaPassRate < 0.3) {
     blocker = "QA_REJECTING";
     blockerExplanation = `QA is rejecting more than 70% of builds in the last 7 days.`;
-    exactTable = "ChecklistQAReport";
+    exactTable = "AdminWorkerStrictQAResult";
     nextRepair = "Improve source selection + extractor strategy; review rejection reasons.";
   }
 

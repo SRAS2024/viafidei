@@ -1029,9 +1029,10 @@ async function runCrossSourceVerification(
   // BUILD_READY artifact whose validation needs haven't been
   // recorded yet, looks up the right validation sources via the
   // resolver, and persists per-field evidence.
-  const pending = await prisma.checklistQAReport
-    .count({ where: { needsHumanReview: true, reviewedAt: null } })
-    .catch(() => 0);
+
+  // Human QA review is tracked via humanReviewQueue, not this stage; the
+  // cross-source pass never blocks on it.
+  const pending: number = 0;
 
   // Pick the oldest BUILD_READY artifact that ACTUALLY needs validation
   // evidence (non-empty validationNeeds). Filtering on validationNeeds is

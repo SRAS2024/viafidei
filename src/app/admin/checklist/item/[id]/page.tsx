@@ -22,17 +22,6 @@ export default async function ChecklistItemDetail({ params }: { params: Promise<
         orderBy: { attempt: "desc" },
         take: 5,
       },
-      qaReports: {
-        orderBy: { createdAt: "desc" },
-        take: 3,
-      },
-      versions: {
-        orderBy: { version: "desc" },
-        take: 5,
-      },
-      relationsFrom: {
-        include: { toItem: { select: { canonicalName: true, contentType: true } } },
-      },
     },
   });
   if (!item) notFound();
@@ -142,73 +131,6 @@ export default async function ChecklistItemDetail({ params }: { params: Promise<
               ))}
             </tbody>
           </table>
-        )}
-      </section>
-
-      <section>
-        <h2 className="font-display text-xl text-ink">QA reports</h2>
-        {item.qaReports.length === 0 ? (
-          <p className="mt-2 text-sm text-ink-soft">No QA reports yet.</p>
-        ) : (
-          <div className="mt-3 space-y-3">
-            {item.qaReports.map((r) => (
-              <div key={r.id} className="rounded border border-slate-200 bg-white p-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="font-medium text-ink">
-                    {r.recommendation} (score {r.overallScore.toFixed(2)})
-                  </span>
-                  <span className="text-xs text-ink-soft">{r.createdAt.toISOString()}</span>
-                </div>
-                <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-ink-soft">
-                  <div>completeness: {r.completenessScore.toFixed(2)}</div>
-                  <div>accuracy: {r.accuracyScore.toFixed(2)}</div>
-                  <div>source coverage: {r.sourceCoverageScore.toFixed(2)}</div>
-                  <div>formatting: {r.formattingScore.toFixed(2)}</div>
-                  <div>readability: {r.readabilityScore.toFixed(2)}</div>
-                  <div>app compat: {r.appCompatScore.toFixed(2)}</div>
-                </div>
-                {r.issues.length > 0 && (
-                  <div className="mt-2 text-xs text-rose-700">
-                    Issues: {r.issues.slice(0, 5).join("; ")}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section>
-        <h2 className="font-display text-xl text-ink">Version history</h2>
-        {item.versions.length === 0 ? (
-          <p className="mt-2 text-sm text-ink-soft">No versions yet.</p>
-        ) : (
-          <ul className="mt-3 space-y-2 text-sm">
-            {item.versions.map((v) => (
-              <li key={v.id} className="rounded border border-slate-200 bg-white px-3 py-2">
-                <div>
-                  <span className="font-medium">v{v.version}</span> · {v.changeSummary ?? "—"} ·{" "}
-                  <span className="text-xs text-ink-soft">{v.createdAt.toISOString()}</span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section>
-        <h2 className="font-display text-xl text-ink">Relationships</h2>
-        {item.relationsFrom.length === 0 ? (
-          <p className="mt-2 text-sm text-ink-soft">No relations recorded.</p>
-        ) : (
-          <ul className="mt-3 space-y-1 text-sm">
-            {item.relationsFrom.map((rel) => (
-              <li key={rel.id} className="text-ink-soft">
-                <span className="rounded bg-slate-100 px-2 py-0.5 text-xs">{rel.relationType}</span>{" "}
-                {rel.toItem.canonicalName} ({rel.toItem.contentType})
-              </li>
-            ))}
-          </ul>
         )}
       </section>
 

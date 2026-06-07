@@ -39,7 +39,6 @@ export interface JanitorFinding {
   publishedUpdatedAt?: Date;
 }
 
-const EDIT_QA_THRESHOLD = 0.7;
 const STALE_DAYS = 90;
 
 export async function scanForJanitorFindings(prisma: PrismaClient): Promise<JanitorFinding[]> {
@@ -72,36 +71,7 @@ export async function scanForJanitorFindings(prisma: PrismaClient): Promise<Jani
     }
   }
 
-  // 2. Published content whose latest QA score is below threshold → EDIT
-  const qaWeakItems = await prisma.checklistQAReport.findMany({
-    where: { overallScore: { lt: EDIT_QA_THRESHOLD } },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    distinct: ["checklistItemId"],
-    include: { checklistItem: true },
-  });
-  for (const report of qaWeakItems) {
-    const pub = await prisma.publishedContent.findUnique({
-      where: { checklistItemId: report.checklistItemId },
-    });
-    if (!pub?.isPublished) continue;
-    findings.push({
-      checklistItemId: report.checklistItemId,
-      contentType: report.checklistItem.contentType,
-      slug: report.checklistItem.canonicalSlug,
-      title: report.checklistItem.canonicalName,
-      action: "edit",
-      severity: report.overallScore < 0.5 ? "high" : "medium",
-      reason: `QA score ${report.overallScore.toFixed(2)} is below threshold ${EDIT_QA_THRESHOLD}.`,
-      details: report.issues.slice(0, 4),
-      recommendation: "Rebuild this item to improve its QA score.",
-      lastQaScore: report.overallScore,
-      publishedVersion: pub.version,
-      publishedUpdatedAt: pub.updatedAt,
-    });
-  }
-
-  // 3. Published content whose payload no longer validates against the
+  // 2. Published content whose payload no longer validates against the
   //    current schema (schema drifted under an existing publication) → EDIT
   //    (checklistItem is fetched per row below — PublishedContent has only a
   //    checklistItemId scalar, not a checklistItem relation to include.)

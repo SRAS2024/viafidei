@@ -112,7 +112,6 @@ function makePrisma(opts: { pendingJobs?: number; failedJobs?: number; gap?: num
     postPublishVerification: {
       findMany: vi.fn(async () => []),
     },
-    checklistQAReport: { count: vi.fn(async () => 0) },
     contentGoal: {
       findMany: vi.fn(async () =>
         opts.gap ? [{ contentType: "PRAYER", gapCount: opts.gap, priority: 10 }] : [],

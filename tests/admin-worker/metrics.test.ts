@@ -33,9 +33,9 @@ function makePrisma(opts: {
     ...opts,
   };
   return {
-    checklistQAReport: {
-      count: vi.fn(async ({ where }: { where: { passed?: boolean } }) =>
-        where.passed === true ? o.qaPassed : o.qaTotal,
+    adminWorkerStrictQAResult: {
+      count: vi.fn(async ({ where }: { where: { status?: string } }) =>
+        where.status === "PASSED" ? o.qaPassed : o.qaTotal,
       ),
     },
     adminWorkerLog: {
