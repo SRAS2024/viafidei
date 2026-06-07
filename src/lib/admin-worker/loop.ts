@@ -198,6 +198,24 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     failedCount += dispatch.failed ?? 0;
     idle = dispatch.kind === "idle" || dispatch.kind === "skipped";
 
+    // Curated-knowledge ingest (supplementary, fail-open). The worker
+    // publishes a bounded batch of its own hand-verified ground-truth
+    // knowledge each pass through the REAL publish orchestrator, so content
+    // grows across every type — the canonical "first-pass content source" —
+    // even when live discovery/fetch is unavailable. Idempotent + bounded, so
+    // it makes steady forward progress and becomes a cheap no-op once the
+    // curated base is fully live. Counts toward the pass's published total.
+    try {
+      const { runCuratedIngest } = await import("./curated-ingest");
+      const ingest = await runCuratedIngest(prisma, { passId: pass.id });
+      if (ingest.published > 0) {
+        publishedCount += ingest.published;
+        idle = false;
+      }
+    } catch {
+      // best-effort — curated ingest must never break the pass
+    }
+
     await writeAdminWorkerLog(prisma, {
       passId: pass.id,
       category: "WORKER_PASS",

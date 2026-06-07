@@ -82,6 +82,7 @@ export {
   refreshContentGoals,
   nextPriorityContentType,
   deriveStatus,
+  contentGoalStatusLabel,
   type ContentGoalSeed,
 } from "./content-goals";
 

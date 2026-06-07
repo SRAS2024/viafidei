@@ -19,7 +19,7 @@ describe("curated knowledge base", () => {
     expect(curatedKnowledgeSize()).toBeGreaterThan(40);
   });
 
-  it("covers all 11 content types with at least one entry each", () => {
+  it("covers all 15 content types with at least one entry each", () => {
     const counts = curatedKnowledgeByType();
     const types = [
       "PRAYER",
@@ -33,10 +33,21 @@ describe("curated knowledge base", () => {
       "CHURCH_DOCUMENT",
       "LITURGICAL",
       "SPIRITUAL_PRACTICE",
+      "PARISH",
+      "POPE",
+      "DOCTOR",
+      "RITE",
     ] as const;
     for (const t of types) {
       expect(counts[t] ?? 0).toBeGreaterThan(0);
     }
+  });
+
+  it("locates the canonical Doctor, Pope, Rite, and Parish slugs", () => {
+    expect(findCuratedEntry("DOCTOR", "doctor-thomas-aquinas")).toBeDefined();
+    expect(findCuratedEntry("POPE", "pope-saint-john-paul-ii")).toBeDefined();
+    expect(findCuratedEntry("RITE", "rite-roman")).toBeDefined();
+    expect(findCuratedEntry("PARISH", "basilica-saint-peter-vatican")).toBeDefined();
   });
 
   it("every entry validates against its content schema", () => {

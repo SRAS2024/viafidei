@@ -1127,6 +1127,14 @@ enum ContentGoalStatus {
   IN_PROGRESS
   NEAR_GOAL
   GOAL_MET
+  // Open content type reached its growth target (keeps growing at a
+  // maintenance pace — never "complete").
+  TARGET_REACHED
+  // Closed content type reached its true hard maximum (Sacraments = 7).
+  CANONICAL_COMPLETE
+  NEEDS_VERIFICATION
+  SOURCE_BLOCKED
+  STALLED
   MAINTENANCE
   PAUSED
 }
@@ -1448,6 +1456,10 @@ model ContentGoal {
   contentType       String            @unique
   minimumTarget     Int               @default(0)
   desiredTarget     Int               @default(0)
+  // Hard maximum — ONLY for closed content types fixed by the faith (today
+  // only SACRAMENT = 7). Null for every open type (the worker keeps growing
+  // past the target; the target is a milestone, not a cap).
+  canonicalMax      Int?
   currentValidCount Int               @default(0)
   gapCount          Int               @default(0)
   priority          Int               @default(100)

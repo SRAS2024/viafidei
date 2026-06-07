@@ -150,16 +150,23 @@ export default async function ChecklistDashboard() {
 
       <section>
         <h2 className="font-display text-xl text-ink">By content type</h2>
+        <p className="mt-1 text-sm text-ink-soft">
+          Every content type the worker manages. Click a type to filter the published-content view
+          to just those items.
+        </p>
         <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-3">
-          {Object.entries(stats.byContentType).map(([type, count]) => (
-            <div
-              key={type}
-              className="flex items-center justify-between rounded border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              <span className="text-ink-soft">{type}</span>
-              <span className="font-semibold text-ink">{count}</span>
-            </div>
-          ))}
+          {Object.entries(stats.byContentType)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([type, count]) => (
+              <Link
+                key={type}
+                href={`/admin/checklist/published?contentType=${type}`}
+                className="flex items-center justify-between rounded border border-slate-200 bg-white px-3 py-2 text-sm transition hover:border-indigo-300 hover:shadow-sm"
+              >
+                <span className="text-ink-soft">{type}</span>
+                <span className="font-semibold text-ink">{count}</span>
+              </Link>
+            ))}
         </div>
       </section>
 

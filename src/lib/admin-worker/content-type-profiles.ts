@@ -17,6 +17,7 @@
 
 import { REQUIRED_FIELDS } from "./content-builder";
 import { thresholdFor } from "./quality";
+import { DEFAULT_GOAL_SEEDS } from "./content-goals";
 
 /** Doctrinally-sensitive types require cross-source verifier sign-off and
  *  the stricter 0.95 quality threshold. */
@@ -75,6 +76,16 @@ export interface ContentTypeProfile {
   minSourceAuthority: string;
   qaThreshold: number;
   qualityThreshold: number;
+  /**
+   * Hard maximum — only for *closed* content types fixed by the faith (today
+   * only SACRAMENT = 7). Null for every open type: the worker keeps growing
+   * past the target at a maintenance pace and never treats the target as a cap.
+   */
+  canonicalMax: number | null;
+  /** Growth target milestone (not a cap unless `canonicalMax` is set). */
+  targetGoal: number;
+  /** True when the worker may keep building past the target (open types). */
+  allowsContinuedGrowth: boolean;
   /** Recommended extraction strategy key (the per-type extractor). */
   extractionStrategy: string;
   /** Public route prefix (null when the type is not publicly routed). */
@@ -89,6 +100,8 @@ const KNOWN_TYPES = Object.keys(REQUIRED_FIELDS);
 
 function buildProfile(contentType: string): ContentTypeProfile {
   const sensitive = DOCTRINALLY_SENSITIVE_TYPES.has(contentType);
+  const goalSeed = DEFAULT_GOAL_SEEDS.find((s) => s.contentType === contentType);
+  const canonicalMax = goalSeed?.canonicalMax ?? null;
   return {
     contentType,
     requiredFields: REQUIRED_FIELDS[contentType] ?? [],
@@ -100,6 +113,9 @@ function buildProfile(contentType: string): ContentTypeProfile {
     minSourceAuthority: sensitive ? "USCCB" : "TRUSTED_PUBLISHER",
     qaThreshold: sensitive ? 0.95 : 0.85,
     qualityThreshold: thresholdFor(contentType),
+    canonicalMax,
+    targetGoal: goalSeed?.targetGoal ?? 0,
+    allowsContinuedGrowth: canonicalMax == null,
     extractionStrategy: `${contentType}Extractor`,
     publicRoutePrefix: ROUTE_PREFIX[contentType] ?? null,
     publishingRule: sensitive ? "review_required" : "auto_when_confident",

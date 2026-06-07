@@ -32,6 +32,7 @@
     "brain:selftest": "python3 -m intelligence --selftest",
     "brain:test": "python3 -m unittest discover -s intelligence/tests -t .",
     "seed:checklist": "tsx scripts/seed-checklist.ts",
+    "seed:content": "tsx scripts/seed-curated-content.ts",
     "admin-worker:proof": "tsx scripts/admin-worker-proof.ts",
     "admin-worker:proof:content": "vitest run tests/admin-worker/proof/content-pipeline.proof.test.ts",
     "admin-worker:proof:all-content-types": "vitest run tests/admin-worker/proof/all-content-types.proof.test.ts",

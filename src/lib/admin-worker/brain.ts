@@ -362,9 +362,24 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     // Human review is tracked via humanReviewQueue (see reviewQueuePending);
     // this world-state dimension is retained for the brain contract.
     Promise.resolve(0),
-    prisma.contentGoal.count({ where: { status: { in: ["GOAL_MET", "MAINTENANCE"] } } }),
     prisma.contentGoal.count({
-      where: { status: { in: ["NOT_STARTED", "IN_PROGRESS", "NEAR_GOAL"] } },
+      where: {
+        status: { in: ["GOAL_MET", "TARGET_REACHED", "CANONICAL_COMPLETE", "MAINTENANCE"] },
+      },
+    }),
+    prisma.contentGoal.count({
+      where: {
+        status: {
+          in: [
+            "NOT_STARTED",
+            "IN_PROGRESS",
+            "NEAR_GOAL",
+            "NEEDS_VERIFICATION",
+            "SOURCE_BLOCKED",
+            "STALLED",
+          ],
+        },
+      },
     }),
     prisma.publishedContent
       .findFirst({

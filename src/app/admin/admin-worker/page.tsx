@@ -5,6 +5,7 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
 import {
   computeContentFunnel,
+  contentGoalStatusLabel,
   countPendingReview,
   getAdminWorkerState,
   listRecentPasses,
@@ -405,6 +406,12 @@ export default async function AdminWorkerPage() {
 
         <article className="rounded border bg-white p-4 shadow-sm">
           <h2 className="font-display text-xl text-ink">Content goals</h2>
+          <p className="mt-1 text-xs text-ink-soft">
+            Only Sacraments have a hard maximum (7). Every other type has a growth{" "}
+            <span className="font-medium">target</span>, not a cap — verified content keeps growing
+            past it at a maintenance pace. A target is never a reason to publish; content must still
+            pass every accuracy / source / verification / QA / quality gate.
+          </p>
           {goals.length === 0 ? (
             <p className="mt-2 text-sm text-ink-soft">
               No content goals seeded yet. Use the diagnostics page or run a setup pass to seed.
@@ -415,7 +422,8 @@ export default async function AdminWorkerPage() {
                 <tr className="text-left text-xs uppercase text-ink-soft">
                   <th>Content type</th>
                   <th className="text-right">Have</th>
-                  <th className="text-right">Max</th>
+                  <th className="text-right">Target</th>
+                  <th className="text-right">Hard max</th>
                   <th className="text-right">Gap</th>
                   <th>Status</th>
                 </tr>
@@ -425,9 +433,12 @@ export default async function AdminWorkerPage() {
                   <tr key={g.id} className="border-t">
                     <td className="py-1 font-mono">{g.contentType}</td>
                     <td className="py-1 text-right font-mono">{g.currentValidCount}</td>
-                    <td className="py-1 text-right font-mono">{g.desiredTarget}</td>
-                    <td className="py-1 text-right font-mono">{g.gapCount}</td>
-                    <td className="py-1 text-xs">{g.status}</td>
+                    <td className="py-1 text-right font-mono">
+                      {g.desiredTarget.toLocaleString()}
+                    </td>
+                    <td className="py-1 text-right font-mono">{g.canonicalMax ?? "—"}</td>
+                    <td className="py-1 text-right font-mono">{g.gapCount.toLocaleString()}</td>
+                    <td className="py-1 text-xs">{contentGoalStatusLabel(g.status)}</td>
                   </tr>
                 ))}
               </tbody>

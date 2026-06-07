@@ -1,0 +1,297 @@
+import type { CuratedEntry } from "./index";
+
+const VATICAN = "https://www.vatican.va/";
+const NEWADVENT = "https://www.newadvent.org/cathen/";
+
+function doctor(
+  slug: string,
+  title: string,
+  doctorTitle: string,
+  feastDay: string,
+  background: string,
+): CuratedEntry {
+  return {
+    contentType: "DOCTOR",
+    slug,
+    authorityLevel: "VATICAN",
+    citations: [VATICAN, NEWADVENT],
+    payload: {
+      slug,
+      title,
+      doctorTitle,
+      feastDay,
+      background,
+      summary: `${title}, ${doctorTitle}, declared a Doctor of the Church.`,
+      citations: [VATICAN, NEWADVENT],
+    },
+  };
+}
+
+/**
+ * The thirty-seven Doctors of the Church — saints the Church has formally
+ * recognized for an eminent contribution to theology or doctrine. Each entry
+ * carries the saint's doctoral epithet, feast day, and a short biography drawn
+ * from the proclamation of the doctorate and standard Catholic reference
+ * sources. Ground-truth content the worker can publish without a live fetch.
+ */
+export const doctorKnowledge: CuratedEntry[] = [
+  doctor(
+    "doctor-athanasius-of-alexandria",
+    "Saint Athanasius of Alexandria",
+    "Father of Orthodoxy",
+    "May 2",
+    "Saint Athanasius (c. 296-373), bishop of Alexandria, was the great defender of the divinity of Christ against Arianism at the First Council of Nicaea (325) and through five exiles. His treatise On the Incarnation and his Life of St. Antony shaped Christian theology and monasticism. Named a Doctor of the Church by Pope Pius V in 1568.",
+  ),
+  doctor(
+    "doctor-ephrem-the-syrian",
+    "Saint Ephrem the Syrian",
+    "Harp of the Holy Spirit",
+    "June 9",
+    "Saint Ephrem (c. 306-373), a deacon of Edessa, was the greatest poet of the patristic age, composing hymns and biblical commentaries in Syriac that defended orthodoxy and enriched the liturgy. Declared a Doctor of the Church by Pope Benedict XV in 1920.",
+  ),
+  doctor(
+    "doctor-hilary-of-poitiers",
+    "Saint Hilary of Poitiers",
+    "Hammer of the Arians",
+    "January 13",
+    "Saint Hilary (c. 310-367), bishop of Poitiers, was the foremost Latin defender of Nicene orthodoxy against Arianism, for which he was exiled to Phrygia. His De Trinitate is a landmark of Trinitarian theology. Declared a Doctor of the Church by Pope Pius IX in 1851.",
+  ),
+  doctor(
+    "doctor-cyril-of-jerusalem",
+    "Saint Cyril of Jerusalem",
+    "Doctor of the Catechumens",
+    "March 18",
+    "Saint Cyril (c. 313-386), bishop of Jerusalem, is remembered for his Catechetical Lectures, a primary witness to the Church's baptismal and Eucharistic faith and practice in the fourth century. Declared a Doctor of the Church by Pope Leo XIII in 1883.",
+  ),
+  doctor(
+    "doctor-gregory-of-nazianzus",
+    "Saint Gregory of Nazianzus",
+    "The Theologian",
+    "January 2",
+    "Saint Gregory of Nazianzus (c. 329-390), one of the Cappadocian Fathers and archbishop of Constantinople, defended the divinity of the Holy Spirit and the full doctrine of the Trinity. His Five Theological Orations earned him the title 'the Theologian.' Declared a Doctor of the Church by Pope Pius V in 1568.",
+  ),
+  doctor(
+    "doctor-basil-the-great",
+    "Saint Basil the Great",
+    "Father of Eastern Monasticism",
+    "January 2",
+    "Saint Basil (c. 330-379), bishop of Caesarea and one of the Cappadocian Fathers, defended Nicene orthodoxy, wrote the monastic rule that still governs Eastern monasticism, and authored a Divine Liturgy that bears his name. Declared a Doctor of the Church by Pope Pius V in 1568.",
+  ),
+  doctor(
+    "doctor-ambrose-of-milan",
+    "Saint Ambrose of Milan",
+    "Doctor of the Church",
+    "December 7",
+    "Saint Ambrose (c. 339-397), bishop of Milan, was a great preacher and hymn-writer who confronted emperors, opposed Arianism, and baptized Saint Augustine in 387. One of the four original Latin Doctors of the Church, confirmed by Pope Boniface VIII in 1298.",
+  ),
+  doctor(
+    "doctor-john-chrysostom",
+    "Saint John Chrysostom",
+    "Golden-Mouthed",
+    "September 13",
+    "Saint John Chrysostom (c. 349-407), archbishop of Constantinople, was the most celebrated preacher of the early Church, called 'Golden-Mouthed' for his eloquence. His homilies and the Divine Liturgy that bears his name remain treasures of the Christian East. Declared a Doctor of the Church by Pope Pius V in 1568.",
+  ),
+  doctor(
+    "doctor-jerome",
+    "Saint Jerome",
+    "Doctor of Biblical Science",
+    "September 30",
+    "Saint Jerome (c. 347-420), priest and scholar, translated the Scriptures into Latin (the Vulgate) and wrote extensive biblical commentaries from his monastery in Bethlehem. One of the four original Latin Doctors of the Church, confirmed by Pope Boniface VIII in 1298.",
+  ),
+  doctor(
+    "doctor-augustine-of-hippo",
+    "Saint Augustine of Hippo",
+    "Doctor of Grace",
+    "August 28",
+    "Saint Augustine (354-430), bishop of Hippo, was the most influential of the Latin Fathers. His Confessions and City of God and his teaching on grace shaped Western theology for over a millennium. One of the four original Latin Doctors of the Church, confirmed by Pope Boniface VIII in 1298.",
+  ),
+  doctor(
+    "doctor-cyril-of-alexandria",
+    "Saint Cyril of Alexandria",
+    "Doctor of the Incarnation",
+    "June 27",
+    "Saint Cyril (c. 376-444), patriarch of Alexandria, led the Council of Ephesus (431) in defending the unity of Christ and the title Theotokos (Mother of God) for the Blessed Virgin Mary against Nestorius. Declared a Doctor of the Church by Pope Leo XIII in 1883.",
+  ),
+  doctor(
+    "doctor-peter-chrysologus",
+    "Saint Peter Chrysologus",
+    "Doctor of Homilies",
+    "July 30",
+    "Saint Peter Chrysologus (c. 380-450), bishop of Ravenna, was renowned for brief, luminous sermons that earned him the name 'Golden-Worded.' Declared a Doctor of the Church by Pope Benedict XIII in 1729.",
+  ),
+  doctor(
+    "doctor-leo-the-great",
+    "Saint Leo the Great",
+    "Doctor of the Church",
+    "November 10",
+    "Pope Saint Leo I (c. 400-461) defended the orthodox faith of the Incarnation in his Tome, accepted at the Council of Chalcedon (451), and famously turned back Attila the Hun from Rome. Declared a Doctor of the Church by Pope Benedict XIV in 1754.",
+  ),
+  doctor(
+    "doctor-gregory-the-great",
+    "Saint Gregory the Great",
+    "Father of the Medieval Papacy",
+    "September 3",
+    "Pope Saint Gregory I (c. 540-604) reformed the liturgy and Church administration, sent missionaries to England, and wrote the Pastoral Rule for bishops. One of the four original Latin Doctors of the Church, confirmed by Pope Boniface VIII in 1298.",
+  ),
+  doctor(
+    "doctor-isidore-of-seville",
+    "Saint Isidore of Seville",
+    "Schoolmaster of the Middle Ages",
+    "April 4",
+    "Saint Isidore (c. 560-636), archbishop of Seville, compiled the Etymologiae, an encyclopedia that preserved classical learning for the medieval world. Declared a Doctor of the Church by Pope Innocent XIII in 1722.",
+  ),
+  doctor(
+    "doctor-bede-the-venerable",
+    "Saint Bede the Venerable",
+    "Father of English History",
+    "May 25",
+    "Saint Bede (c. 673-735), an English Benedictine monk of Jarrow, wrote the Ecclesiastical History of the English People and numerous scriptural commentaries. Declared a Doctor of the Church by Pope Leo XIII in 1899.",
+  ),
+  doctor(
+    "doctor-john-of-damascus",
+    "Saint John of Damascus",
+    "Doctor of the Assumption",
+    "December 4",
+    "Saint John of Damascus (c. 676-749) was the last of the Greek Fathers. He defended the veneration of sacred images during the iconoclast controversy and synthesized Eastern theology in The Fount of Knowledge. Declared a Doctor of the Church by Pope Leo XIII in 1890.",
+  ),
+  doctor(
+    "doctor-peter-damian",
+    "Saint Peter Damian",
+    "Monitor of the Popes",
+    "February 21",
+    "Saint Peter Damian (c. 1007-1072), Benedictine reformer and cardinal-bishop of Ostia, was a leading force in the eleventh-century reform of the clergy. Declared a Doctor of the Church by Pope Leo XII in 1828.",
+  ),
+  doctor(
+    "doctor-anselm-of-canterbury",
+    "Saint Anselm of Canterbury",
+    "Father of Scholasticism",
+    "April 21",
+    "Saint Anselm (c. 1033-1109), archbishop of Canterbury, pioneered the scholastic method, formulated the ontological argument in the Proslogion, and explained the atonement in Cur Deus Homo. Declared a Doctor of the Church by Pope Clement XI in 1720.",
+  ),
+  doctor(
+    "doctor-bernard-of-clairvaux",
+    "Saint Bernard of Clairvaux",
+    "Mellifluous Doctor",
+    "August 20",
+    "Saint Bernard (1090-1153), Cistercian abbot of Clairvaux, was the most influential churchman of his age, a preacher of the Second Crusade and a great author of mystical works and Marian devotion. Declared a Doctor of the Church by Pope Pius VIII in 1830.",
+  ),
+  doctor(
+    "doctor-anthony-of-padua",
+    "Saint Anthony of Padua",
+    "Evangelical Doctor",
+    "June 13",
+    "Saint Anthony of Padua (1195-1231), a Franciscan preacher renowned for his command of Scripture, was canonized within a year of his death. Declared a Doctor of the Church by Pope Pius XII in 1946.",
+  ),
+  doctor(
+    "doctor-albert-the-great",
+    "Saint Albert the Great",
+    "Universal Doctor",
+    "November 15",
+    "Saint Albert the Great (c. 1200-1280), Dominican bishop and teacher of Saint Thomas Aquinas, mastered every science of his day and helped reconcile Aristotelian philosophy with Christian faith. Declared a Doctor of the Church by Pope Pius XI in 1931.",
+  ),
+  doctor(
+    "doctor-bonaventure",
+    "Saint Bonaventure",
+    "Seraphic Doctor",
+    "July 15",
+    "Saint Bonaventure (1221-1274), Franciscan minister general and cardinal, united theology and mysticism in works such as The Soul's Journey into God. Declared a Doctor of the Church by Pope Sixtus V in 1588.",
+  ),
+  doctor(
+    "doctor-thomas-aquinas",
+    "Saint Thomas Aquinas",
+    "Angelic Doctor",
+    "January 28",
+    "Saint Thomas Aquinas (1225-1274), Dominican friar, produced the Summa Theologiae, the most comprehensive synthesis of Christian doctrine. Pope Leo XIII made his thought normative for Catholic philosophy. Declared a Doctor of the Church by Pope Saint Pius V in 1567.",
+  ),
+  doctor(
+    "doctor-catherine-of-siena",
+    "Saint Catherine of Siena",
+    "Doctor of Unity",
+    "April 29",
+    "Saint Catherine of Siena (1347-1380), Dominican tertiary, mystic, and reformer, persuaded the pope to return from Avignon to Rome and wrote the Dialogue of Divine Providence. Declared a Doctor of the Church by Pope Paul VI in 1970, among the first women so honored.",
+  ),
+  doctor(
+    "doctor-teresa-of-avila",
+    "Saint Teresa of Ávila",
+    "Doctor of Prayer",
+    "October 15",
+    "Saint Teresa of Jesus (1515-1582), Discalced Carmelite reformer and author of The Interior Castle, renewed Carmelite life and taught the way of contemplative prayer. The first woman declared a Doctor of the Church, by Pope Paul VI in 1970.",
+  ),
+  doctor(
+    "doctor-peter-canisius",
+    "Saint Peter Canisius",
+    "Second Apostle of Germany",
+    "December 21",
+    "Saint Peter Canisius (1521-1597), a Jesuit, strengthened the Catholic faith in German-speaking lands during the Reformation through his widely-used catechisms. Declared a Doctor of the Church by Pope Pius XI in 1925.",
+  ),
+  doctor(
+    "doctor-john-of-the-cross",
+    "Saint John of the Cross",
+    "Mystical Doctor",
+    "December 14",
+    "Saint John of the Cross (1542-1591), Discalced Carmelite, poet, and co-reformer with Saint Teresa of Ávila, wrote The Dark Night of the Soul and The Ascent of Mount Carmel. Declared a Doctor of the Church by Pope Pius XI in 1926.",
+  ),
+  doctor(
+    "doctor-robert-bellarmine",
+    "Saint Robert Bellarmine",
+    "Doctor of Church-State Relations",
+    "September 17",
+    "Saint Robert Bellarmine (1542-1621), Jesuit cardinal and theologian, was a leading defender of the faith in the controversies following the Reformation. Declared a Doctor of the Church by Pope Pius XI in 1931.",
+  ),
+  doctor(
+    "doctor-lawrence-of-brindisi",
+    "Saint Lawrence of Brindisi",
+    "Apostolic Doctor",
+    "July 21",
+    "Saint Lawrence of Brindisi (1559-1619), a Capuchin Franciscan gifted in languages and Scripture, preached across Europe and served as a papal diplomat. Declared a Doctor of the Church by Pope John XXIII in 1959.",
+  ),
+  doctor(
+    "doctor-francis-de-sales",
+    "Saint Francis de Sales",
+    "Doctor of Charity",
+    "January 24",
+    "Saint Francis de Sales (1567-1622), bishop of Geneva, taught that holiness is for everyone in his Introduction to the Devout Life and Treatise on the Love of God. Patron of writers. Declared a Doctor of the Church by Pope Pius IX in 1877.",
+  ),
+  doctor(
+    "doctor-alphonsus-liguori",
+    "Saint Alphonsus Liguori",
+    "Most Zealous Doctor",
+    "August 1",
+    "Saint Alphonsus Liguori (1696-1787), bishop and founder of the Redemptorists, was the great moral theologian of the modern Church and a tireless author of devotional works. Declared a Doctor of the Church by Pope Pius IX in 1871.",
+  ),
+  doctor(
+    "doctor-therese-of-lisieux",
+    "Saint Thérèse of Lisieux",
+    "Doctor of Merciful Love",
+    "October 1",
+    "Saint Thérèse of the Child Jesus (1873-1897), a Discalced Carmelite who died at twenty-four, taught the 'Little Way' of trust and confidence in God's mercy in Story of a Soul. Declared a Doctor of the Church by Pope John Paul II in 1997, the youngest Doctor.",
+  ),
+  doctor(
+    "doctor-john-of-avila",
+    "Saint John of Ávila",
+    "Doctor of Evangelization",
+    "May 10",
+    "Saint John of Ávila (1499-1569), priest, preacher, and spiritual director in sixteenth-century Spain, guided many saints and reformers. Declared a Doctor of the Church by Pope Benedict XVI in 2012.",
+  ),
+  doctor(
+    "doctor-hildegard-of-bingen",
+    "Saint Hildegard of Bingen",
+    "Sibyl of the Rhine",
+    "September 17",
+    "Saint Hildegard of Bingen (1098-1179), Benedictine abbess, mystic, composer, and polymath, recorded her visions in Scivias and wrote on theology, medicine, and music. Declared a Doctor of the Church by Pope Benedict XVI in 2012.",
+  ),
+  doctor(
+    "doctor-gregory-of-narek",
+    "Saint Gregory of Narek",
+    "Doctor of the Church",
+    "February 27",
+    "Saint Gregory of Narek (c. 950-1003), an Armenian monk, poet, and mystic, composed the Book of Lamentations, a masterpiece of prayer beloved across the Christian East. Declared a Doctor of the Church by Pope Francis in 2015.",
+  ),
+  doctor(
+    "doctor-irenaeus-of-lyon",
+    "Saint Irenaeus of Lyon",
+    "Doctor of Unity",
+    "June 28",
+    "Saint Irenaeus (c. 130-202), bishop of Lyon and disciple of Saint Polycarp, refuted Gnosticism and articulated the rule of faith and apostolic succession in Against Heresies. Declared a Doctor of the Church — the Doctor of Unity — by Pope Francis in 2022.",
+  ),
+];

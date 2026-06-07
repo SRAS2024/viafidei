@@ -51,6 +51,27 @@ export interface PublishOrchestratorInput {
   verifier?: VerifierOutcome;
   /** Spec §5: when supplied, gate requires status="PASSED". */
   strictQAArtifactId?: string;
+  /**
+   * Skip the post-publish side effects (post-publish verification, search /
+   * sitemap / cache verification). These are non-gating follow-ups, so this is
+   * safe for bulk seeding where running them per item would be O(n²); the
+   * worker still runs full verification in its normal passes. The publish
+   * itself — safety gate + full quality gate + persist — is unchanged.
+   */
+  skipPostPublishSideEffects?: boolean;
+  /**
+   * Skip the brain-backed ADVISORY screens (communion-risk screen, semantic
+   * dedupe). These are best-effort, fail-open safety flags about an external
+   * SOURCE — not gates. For the worker's own curated ground-truth knowledge
+   * base (hand-verified Catholic content from Vatican/Catechism authorities,
+   * shipped with citations and a verifier sign-off) there is no external
+   * source to screen, so they are pure latency. The deterministic gates —
+   * communion screen's intent is preserved by the curated provenance, plus the
+   * safety gate, the full ten-dimension quality gate, and the verifier
+   * evidence — still run on every item. Defaults to false: the live-fetch
+   * pipeline always runs the brain screens.
+   */
+  skipBrainScreens?: boolean;
 }
 
 export type OrchestratorResult =
@@ -136,8 +157,9 @@ export async function runPublishOrchestrator(
   //     rather than auto-publishing ("communion risk, no publish" —
   //     prevent unsafe publishing until verified). Fail-open: when the
   //     brain is disabled or offline this is a no-op and the existing
-  //     gates below still apply.
-  {
+  //     gates below still apply. Skipped for the worker's own curated
+  //     ground-truth (skipBrainScreens): there is no external source to screen.
+  if (!input.skipBrainScreens) {
     const { screenCommunionRisk } = await import("./intelligence/service");
     const screenText = `${input.title}\n${JSON.stringify(input.payload)}`.slice(0, 8000);
     const screen = await screenCommunionRisk(
@@ -160,7 +182,9 @@ export async function runPublishOrchestrator(
   //     own slug is excluded so idempotent re-publish/update still works.
   //     Fully skipped (no DB query) when the brain is disabled, so it is
   //     inert in tests and non-blocking. "duplicate detected, no publish."
-  if (isBrainEnabled()) {
+  //     Also skipped for curated ground-truth (skipBrainScreens): the curated
+  //     slug uniqueness is already guaranteed by the registry + dedup gate.
+  if (isBrainEnabled() && !input.skipBrainScreens) {
     try {
       const { checkDuplicate } = await import("./intelligence/service");
       const candidates = await prisma.publishedContent
@@ -381,7 +405,9 @@ export async function runPublishOrchestrator(
         reason: "failed to update existing row to published",
       };
     }
-    await postPublishSideEffects(prisma, input, repub.id, route);
+    if (!input.skipPostPublishSideEffects) {
+      await postPublishSideEffects(prisma, input, repub.id, route);
+    }
     return {
       kind: "published",
       publishedContentId: repub.id,
@@ -426,7 +452,9 @@ export async function runPublishOrchestrator(
     };
   }
 
-  await postPublishSideEffects(prisma, input, created.id, route);
+  if (!input.skipPostPublishSideEffects) {
+    await postPublishSideEffects(prisma, input, created.id, route);
+  }
 
   return {
     kind: "published",

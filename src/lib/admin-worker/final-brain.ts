@@ -30,6 +30,10 @@ function compactProfiles() {
     requiresCrossSourceValidation: p.requiresCrossSourceValidation,
     qualityThreshold: p.qualityThreshold,
     minSourceAuthority: p.minSourceAuthority,
+    // Only closed types (Sacraments) carry a hard maximum; open types keep
+    // growing past the target, so the brain never treats a target as a cap.
+    canonicalMax: p.canonicalMax,
+    allowsContinuedGrowth: p.allowsContinuedGrowth,
   }));
 }
 
