@@ -1,14 +1,30 @@
 import Link from "next/link";
 
-import { PageHero, PaginatedGrid } from "@/components/ui";
+import { FilterChips, PageHero, PaginatedGrid } from "@/components/ui";
+import { RITE_FILTERS } from "@/lib/content-shared/rite-categories";
+import { applyPayloadFilter, resolvePayloadFilter } from "@/lib/content-shared/payload-filter";
 import { listPublished } from "@/lib/data/published";
 import { getRiteCookieValue } from "@/lib/i18n/rite-cookie";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Rites" };
 
-export default async function RitesPage() {
-  const [rites, selectedRite] = await Promise.all([listPublished("RITE"), getRiteCookieValue()]);
+export default async function RitesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>;
+}) {
+  const { filter } = await searchParams;
+  const selected = resolvePayloadFilter(RITE_FILTERS, filter);
+  const [all, selectedRite] = await Promise.all([listPublished("RITE"), getRiteCookieValue()]);
+  const rites = applyPayloadFilter(RITE_FILTERS, all, selected.key);
+
+  // Only offer a family chip when at least one rite falls under it.
+  const present = new Set<string>();
+  for (const f of RITE_FILTERS) {
+    if (f.key === "all") continue;
+    if (all.some((r) => f.matches(r.payload))) present.add(f.key);
+  }
 
   return (
     <div>
@@ -16,6 +32,17 @@ export default async function RitesPage() {
         eyebrow="The Catholic Church"
         title="Rites"
         subtitle="The liturgical traditions of the one Catholic Church — the Latin (Roman) Rite and the Eastern Catholic rites — each with its own history."
+      />
+
+      <FilterChips
+        ariaLabel="Filter rites by family"
+        activeKey={selected.key}
+        className="mt-8 mb-6"
+        items={RITE_FILTERS.filter((f) => f.key === "all" || present.has(f.key)).map((f) => ({
+          key: f.key,
+          label: f.label,
+          href: f.key === "all" ? "/rites" : `/rites?filter=${f.key}`,
+        }))}
       />
 
       {rites.length === 0 ? (
