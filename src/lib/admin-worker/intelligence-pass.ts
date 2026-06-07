@@ -16,13 +16,122 @@
 
 import type { PrismaClient } from "@prisma/client";
 
-import { isBrainEnabled } from "./intelligence";
+import {
+  analyzeGraph,
+  compareSources,
+  inferRelationships,
+  isBrainEnabled,
+  scanContent,
+} from "./intelligence";
 import {
   applyLearningFromOutcome,
   computeIqMetrics,
   inspectAndRecordRequests,
 } from "./intelligence/service";
+import { recordBrainCall } from "./intelligence/store";
 import { writeAdminWorkerLog } from "./logs";
+
+/**
+ * Advisory brain analyses run once per pass (best-effort, fail-open):
+ *   - infer_relationships over recent published content, and
+ *   - analyze_graph over the knowledge graph.
+ * Both only recommend/score; TypeScript records the brain call so the
+ * results are visible in IQ diagnostics + the Developer Audit.
+ */
+async function runGraphAndRelationshipAnalysis(
+  prisma: PrismaClient,
+  passId: string,
+): Promise<void> {
+  try {
+    const published = await prisma.publishedContent
+      .findMany({
+        where: { isPublished: true },
+        orderBy: { publishedAt: "desc" },
+        take: 12,
+        select: { id: true, contentType: true, title: true },
+      })
+      .catch(() => [] as Array<{ id: string; contentType: string; title: string }>);
+    if (published.length >= 2) {
+      const nodes = published.map((p) => ({
+        id: p.id,
+        contentType: p.contentType,
+        title: p.title,
+      }));
+      const env = await inferRelationships(nodes[0], nodes.slice(1), { max: 5 }).catch(() => null);
+      await recordBrainCall(prisma, "infer_relationships", env, { passId }).catch(() => undefined);
+    }
+
+    const [graphNodes, graphEdges] = await Promise.all([
+      prisma.adminWorkerGraphNode
+        .findMany({
+          take: 60,
+          orderBy: { updatedAt: "desc" },
+          select: { id: true, nodeType: true, label: true },
+        })
+        .catch(() => [] as Array<{ id: string; nodeType: string; label: string }>),
+      prisma.adminWorkerGraphEdge
+        .findMany({
+          take: 120,
+          orderBy: { updatedAt: "desc" },
+          select: { fromNodeId: true, toNodeId: true, edgeType: true },
+        })
+        .catch(() => [] as Array<{ fromNodeId: string; toNodeId: string; edgeType: string }>),
+    ]);
+    if (graphNodes.length > 0) {
+      const env = await analyzeGraph(
+        graphNodes.map((n) => ({ id: n.id, type: n.nodeType, label: n.label })),
+        graphEdges.map((e) => ({ source: e.fromNodeId, target: e.toNodeId, type: e.edgeType })),
+        { maxSuggestions: 5 },
+      ).catch(() => null);
+      await recordBrainCall(prisma, "analyze_graph", env, { passId }).catch(() => undefined);
+    }
+
+    // Source comparison: let the brain compare recent source hosts.
+    const reads = await prisma.adminWorkerSourceRead
+      .findMany({
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: {
+          sourceHost: true,
+          sourceUrl: true,
+          extractedText: true,
+          detectedContentType: true,
+        },
+      })
+      .catch(
+        () =>
+          [] as Array<{
+            sourceHost: string;
+            sourceUrl: string;
+            extractedText: string | null;
+            detectedContentType: string | null;
+          }>,
+      );
+    if (reads.length >= 2) {
+      const env = await compareSources(
+        reads.map((r) => ({
+          id: r.sourceHost,
+          url: r.sourceUrl,
+          text: (r.extractedText ?? "").slice(0, 400),
+        })),
+        { topic: reads[0].detectedContentType ?? undefined },
+      ).catch(() => null);
+      await recordBrainCall(prisma, "compare_sources", env, { passId }).catch(() => undefined);
+    }
+
+    // Content safety scan: an advisory brain scan of a recent read's text
+    // (the publish path still enforces the communion + quality gates).
+    const sample = reads.find((r) => (r.extractedText ?? "").length > 0);
+    if (sample) {
+      const env = await scanContent((sample.extractedText ?? "").slice(0, 2000), {
+        context: sample.detectedContentType ?? undefined,
+      }).catch(() => null);
+      await recordBrainCall(prisma, "scan_content", env, { passId }).catch(() => undefined);
+    }
+  } catch {
+    // advisory only — never break the pass
+  }
+}
 
 async function gatherIqStats(prisma: PrismaClient): Promise<Record<string, number>> {
   const stats: Record<string, number> = {};
@@ -99,6 +208,9 @@ export async function runPostPassIntelligence(
         { passId: opts.passId },
       ).catch(() => undefined);
     }
+
+    // Advisory brain analyses: relationship inference + graph analysis.
+    await runGraphAndRelationshipAnalysis(prisma, opts.passId);
 
     const stats = await gatherIqStats(prisma);
     const iq = await computeIqMetrics(prisma, stats, { passId: opts.passId });

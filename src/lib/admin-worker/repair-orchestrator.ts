@@ -181,6 +181,40 @@ export async function runRepairOrchestrator(
         }).catch(() => undefined);
       }
 
+      // Brain failure classification: ask the Python brain to categorise a
+      // failed repair (likely cause + ranked fixes) and remember its
+      // recommendation. The brain only classifies/recommends — TypeScript
+      // still drives the actual recovery.
+      if (!succeeded) {
+        const { isBrainEnabled, classifyFailure } = await import("./intelligence");
+        if (isBrainEnabled()) {
+          const env = await classifyFailure({
+            stage: plan.kind,
+            message: result.reason,
+            host: plan.failedEntity ?? undefined,
+          }).catch(() => null);
+          const { recordBrainCall } = await import("./intelligence/store");
+          await recordBrainCall(prisma, "classify_failure", env, {
+            entityType: "repair_plan",
+            entityId: plan.id,
+            passId: opts.passId ?? null,
+          }).catch(() => undefined);
+          if (env?.ok) {
+            await rememberOutcome(prisma, {
+              memoryType: "FAILURE_PATTERN",
+              memoryKey: `repair_classified:${plan.kind}`,
+              memoryValue: {
+                planId: plan.id,
+                recommended: env.recommendedNextAction ?? null,
+                reasoning: env.reasoning ?? null,
+                riskLevel: env.riskLevel ?? null,
+              },
+              outcome: "failure",
+            }).catch(() => undefined);
+          }
+        }
+      }
+
       if (succeeded) {
         out.plansSucceeded += 1;
       } else {
