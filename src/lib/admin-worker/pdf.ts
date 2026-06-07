@@ -308,6 +308,7 @@ export async function generateAdminWorkerDeveloperAuditPdf(
           ["select_action calls", String(d.selectActionCalls)],
           ["Average latency", `${Math.round(d.avgLatencyMs)} ms`],
           ["Average confidence", `${(d.avgConfidence * 100).toFixed(0)}%`],
+          ["Average risk", `${(d.avgRisk * 100).toFixed(0)}%`],
           ["Safe-to-auto-execute rate", `${(d.safeToAutoExecuteRate * 100).toFixed(0)}%`],
           ["Learning events", String(d.learningEvents)],
           ["Strategy-memory rows", String(d.strategyMemoryRows)],

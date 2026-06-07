@@ -110,6 +110,24 @@ export default async function AdminIntelligencePage() {
   const brainFailedCount = Math.max(0, brainCallTotal - brainOkCount);
   const brainSafeRate = brainCallTotal > 0 ? brainSafeCount / brainCallTotal : 0;
 
+  // Average brain risk across the risk ladder (none..critical → 0..1).
+  const brainRiskRows = (await prisma.adminWorkerBrainCall
+    .groupBy({ by: ["riskLevel"], _count: { _all: true } })
+    .catch(() => [])) as Array<{ riskLevel: string; _count: { _all: number } }>;
+  const riskWeight: Record<string, number> = {
+    none: 0,
+    low: 0.25,
+    medium: 0.5,
+    high: 0.75,
+    critical: 1,
+  };
+  const riskTotal = brainRiskRows.reduce((s, r) => s + r._count._all, 0);
+  const brainAvgRisk =
+    riskTotal > 0
+      ? brainRiskRows.reduce((s, r) => s + (riskWeight[r.riskLevel] ?? 0.5) * r._count._all, 0) /
+        riskTotal
+      : 0;
+
   // Live worker-IQ for display only — uses the read-only wrapper (no audit
   // row written on a page view). Falls back to "n/a" when the brain is off.
   let dupCandidates = 0;
@@ -214,6 +232,11 @@ export default async function AdminIntelligencePage() {
           tone="slate"
         />
         <StatCard label="Avg brain confidence" value={fmtPct(brainAvgConfidence)} tone="indigo" />
+        <StatCard
+          label="Avg brain risk"
+          value={fmtPct(brainAvgRisk)}
+          tone={brainAvgRisk > 0.5 ? "rose" : "slate"}
+        />
         <StatCard label="Safe-to-auto-execute" value={fmtPct(brainSafeRate)} tone="emerald" />
         <StatCard
           label="Learning events"

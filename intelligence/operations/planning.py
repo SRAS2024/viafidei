@@ -233,12 +233,19 @@ def select_action(payload: Dict[str, Any]) -> Dict[str, Any]:
             reli_adj = (sr - 0.5) * 0.4
             outcomes_used.append(f"{stage}:successRate={round(sr, 2)}")
 
-        # Source reputation tilt + source fatigue.
+        # Source reputation tilt + source fatigue + source recovery.
         src = c.get("sourceTarget")
         src_adj = 0.0
         if isinstance(src, str) and src in rep_by_host:
-            src_adj = tier_adj(rep_by_host[src])
-            reputation_used.append(f"{src}:{rep_by_host[src]}")
+            tier = rep_by_host[src]
+            src_adj = tier_adj(tier)
+            reputation_used.append(f"{src}:{tier}")
+            # Source recovery: a deprioritised (WATCH) source is NOT
+            # excluded (only BLOCKED is) and gets a small nudge so it is
+            # periodically retested and can prove itself again.
+            if tier == "WATCH":
+                src_adj += 0.02
+                memories_used.append(f"source_recovery:{src}")
         if isinstance(src, str) and src in source_fatigue:
             src_adj -= 0.05 * float(source_fatigue.get(src, 0) or 0)
             memories_used.append(f"source_fatigue:{src}")

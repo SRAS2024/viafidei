@@ -542,54 +542,85 @@ export async function collectDeveloperAuditData(
       byOp: [] as Array<{ op: string; count: number }>,
     };
     try {
-      const [total, ok, safe, agg, selectCalls, learning, memory, degraded, byOpRaw, lastDecided] =
-        await Promise.all([
-          prisma.adminWorkerBrainCall.count({ where: { createdAt: { gte: since } } }),
-          prisma.adminWorkerBrainCall.count({ where: { createdAt: { gte: since }, ok: true } }),
-          prisma.adminWorkerBrainCall.count({
-            where: { createdAt: { gte: since }, safeToAutoExecute: true },
-          }),
-          prisma.adminWorkerBrainCall.aggregate({
-            where: { createdAt: { gte: since } },
-            _avg: { elapsedMs: true, confidence: true },
-          }),
-          prisma.adminWorkerBrainCall.count({
-            where: { createdAt: { gte: since }, op: "select_action" },
-          }),
-          prisma.adminWorkerBrainCall.count({
-            where: { createdAt: { gte: since }, op: "learn_from_outcome" },
-          }),
-          prisma.adminWorkerMemory.count(),
-          prisma.adminWorkerLog.count({
-            where: {
-              createdAt: { gte: since },
-              eventName: {
-                in: [
-                  "python_brain_unavailable",
-                  "python_brain_invalid_decision",
-                  "python_brain_rejected_action",
-                ],
-              },
+      const [
+        total,
+        ok,
+        safe,
+        agg,
+        selectCalls,
+        learning,
+        memory,
+        degraded,
+        byOpRaw,
+        lastDecided,
+        byRiskRaw,
+      ] = await Promise.all([
+        prisma.adminWorkerBrainCall.count({ where: { createdAt: { gte: since } } }),
+        prisma.adminWorkerBrainCall.count({ where: { createdAt: { gte: since }, ok: true } }),
+        prisma.adminWorkerBrainCall.count({
+          where: { createdAt: { gte: since }, safeToAutoExecute: true },
+        }),
+        prisma.adminWorkerBrainCall.aggregate({
+          where: { createdAt: { gte: since } },
+          _avg: { elapsedMs: true, confidence: true },
+        }),
+        prisma.adminWorkerBrainCall.count({
+          where: { createdAt: { gte: since }, op: "select_action" },
+        }),
+        prisma.adminWorkerBrainCall.count({
+          where: { createdAt: { gte: since }, op: "learn_from_outcome" },
+        }),
+        prisma.adminWorkerMemory.count(),
+        prisma.adminWorkerLog.count({
+          where: {
+            createdAt: { gte: since },
+            eventName: {
+              in: [
+                "python_brain_unavailable",
+                "python_brain_invalid_decision",
+                "python_brain_rejected_action",
+              ],
             },
-          }),
-          prisma.adminWorkerBrainCall.groupBy({
-            by: ["op"],
-            where: { createdAt: { gte: since } },
-            _count: { _all: true },
-          }),
-          prisma.adminWorkerLog.findFirst({
-            where: { eventName: "brain_decided" },
-            orderBy: { createdAt: "desc" },
-            select: { safeMetadata: true },
-          }),
-        ]);
+          },
+        }),
+        prisma.adminWorkerBrainCall.groupBy({
+          by: ["op"],
+          where: { createdAt: { gte: since } },
+          _count: { _all: true },
+        }),
+        prisma.adminWorkerLog.findFirst({
+          where: { eventName: "brain_decided" },
+          orderBy: { createdAt: "desc" },
+          select: { safeMetadata: true },
+        }),
+        prisma.adminWorkerBrainCall.groupBy({
+          by: ["riskLevel"],
+          where: { createdAt: { gte: since } },
+          _count: { _all: true },
+        }),
+      ]);
+      // Average brain risk: map the risk ladder to 0..1 and weight by count.
+      const riskWeight: Record<string, number> = {
+        none: 0,
+        low: 0.25,
+        medium: 0.5,
+        high: 0.75,
+        critical: 1,
+      };
+      const riskRows = byRiskRaw as Array<{ riskLevel: string; _count: { _all: number } }>;
+      const riskTotal = riskRows.reduce((s, r) => s + r._count._all, 0);
+      const avgRisk =
+        riskTotal > 0
+          ? riskRows.reduce((s, r) => s + (riskWeight[r.riskLevel] ?? 0.5) * r._count._all, 0) /
+            riskTotal
+          : 0;
       return {
         totalCalls: total,
         okCalls: ok,
         failedCalls: Math.max(0, total - ok),
         avgLatencyMs: agg._avg.elapsedMs ?? 0,
         avgConfidence: agg._avg.confidence ?? 0,
-        avgRisk: 0,
+        avgRisk,
         safeToAutoExecuteRate: total > 0 ? safe / total : 0,
         selectActionCalls: selectCalls,
         learningEvents: learning,

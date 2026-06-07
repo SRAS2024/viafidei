@@ -105,5 +105,25 @@ class LearningChangesRanking(unittest.TestCase):
         self.assertEqual(learned["result"]["selected_action"], "REPORTING")
 
 
+
+class SourceRecovery(unittest.TestCase):
+    def test_watch_source_is_not_excluded_and_gets_a_recovery_nudge(self):
+        # A WATCH (deprioritised) source is penalised but NOT excluded, and
+        # gets a small recovery nudge so it is periodically retested.
+        env = select_action(
+            {
+                "candidates": [
+                    {"missionStage": "DISCOVERY", "actionType": "DISCOVER", "finalScore": 0.70,
+                     "safe": True, "sourceTarget": "watch.example", "contentType": "PRAYER"},
+                ],
+                "sourceReputation": [{"host": "watch.example", "tier": "WATCH"}],
+            }
+        )
+        # Still selectable (recovery), and the recovery is recorded.
+        self.assertEqual(env["result"]["selected_action"], "DISCOVERY")
+        self.assertTrue(any("source_recovery" in m for m in env["result"]["memories_used"]))
+
+
+
 if __name__ == "__main__":
     unittest.main()
