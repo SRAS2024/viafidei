@@ -19,7 +19,19 @@ import { BrainFinalDecisionSchema } from "./intelligence/contracts";
 import { isBrainEnabled, selectAction, type FinalActionCandidate } from "./intelligence";
 import { recordBrainCall } from "./intelligence/store";
 import { summarizeStageReliability } from "./stage-outcomes";
+import { allContentTypeProfiles } from "./content-type-profiles";
 import { writeAdminWorkerLog } from "./logs";
+
+/** Compact content-type profiles the Python brain uses in its decision. */
+function compactProfiles() {
+  return allContentTypeProfiles().map((p) => ({
+    contentType: p.contentType,
+    doctrinallySensitive: p.doctrinallySensitive,
+    requiresCrossSourceValidation: p.requiresCrossSourceValidation,
+    qualityThreshold: p.qualityThreshold,
+    minSourceAuthority: p.minSourceAuthority,
+  }));
+}
 
 function toCandidate(a: BrainAction): FinalActionCandidate {
   return {
@@ -86,26 +98,30 @@ export function pythonFinalSelector(prisma: PrismaClient): FinalActionSelector {
         where: { decisionType: "brain_pass" },
         orderBy: { createdAt: "desc" },
         take: 12,
-        select: { missionStage: true },
+        select: { missionStage: true, contentType: true },
       })
-      .then((rows) => rows.map((r) => ({ missionStage: r.missionStage ?? "UNKNOWN" })))
-      .catch(() => [] as Array<{ missionStage: string }>);
+      .then((rows) =>
+        // oldest-first so the Python brain's recency weighting is correct
+        rows
+          .reverse()
+          .map((r) => ({ missionStage: r.missionStage ?? "UNKNOWN", contentType: r.contentType })),
+      )
+      .catch(() => [] as Array<{ missionStage: string; contentType: string | null }>);
 
-    const env = await selectAction(
-      {
-        candidates: decision.rankedAlternatives.map(toCandidate),
-        world: {
-          isPaused: world.isPaused,
-          healthDegraded: world.failedBuildJobs > world.pendingBuildJobs,
-          securityThreat: world.recentSecurityBreaches24h > 0,
-          contentGoalGap: world.contentGoalGap,
-          contentGoalContentType: world.contentGoalContentType,
-        },
-        stageOutcomes: stageOutcomes as unknown as Array<Record<string, unknown>>,
-        actionHistory,
-        sourceReputation: world.topSourceReputation,
+    const env = await selectAction({
+      candidates: decision.rankedAlternatives.map(toCandidate),
+      world: {
+        isPaused: world.isPaused,
+        healthDegraded: world.failedBuildJobs > world.pendingBuildJobs,
+        securityThreat: world.recentSecurityBreaches24h > 0,
+        contentGoalGap: world.contentGoalGap,
+        contentGoalContentType: world.contentGoalContentType,
       },
-    ).catch(() => null);
+      stageOutcomes: stageOutcomes as unknown as Array<Record<string, unknown>>,
+      actionHistory,
+      sourceReputation: world.topSourceReputation,
+      contentTypeProfiles: compactProfiles(),
+    }).catch(() => null);
 
     await recordBrainCall(prisma, "select_action", env, { passId: passId ?? null }).catch(
       () => undefined,

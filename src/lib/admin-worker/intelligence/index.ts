@@ -293,8 +293,10 @@ export interface SelectActionInput {
   candidates: FinalActionCandidate[];
   world?: Record<string, unknown>;
   stageOutcomes?: Array<Record<string, unknown>>;
-  actionHistory?: Array<{ missionStage: string }>;
+  actionHistory?: Array<{ missionStage: string; contentType?: string | null }>;
   sourceReputation?: Array<{ host: string; tier: string }>;
+  sourceFatigue?: Record<string, number>;
+  contentTypeProfiles?: Array<Record<string, unknown>>;
   repairState?: Record<string, unknown>;
 }
 /** Ask the Python brain to select the final action. The result is parsed

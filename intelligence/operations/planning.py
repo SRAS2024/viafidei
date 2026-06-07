@@ -164,15 +164,28 @@ def select_action(payload: Dict[str, Any]) -> Dict[str, Any]:
     action_history = opt(payload, "actionHistory", []) or []
     source_rep = opt(payload, "sourceReputation", []) or []
     repair_state = opt(payload, "repairState", {}) or {}
+    source_fatigue = opt(payload, "sourceFatigue", {}) or {}
+    profiles_in = opt(payload, "contentTypeProfiles", []) or []
+    profiles: Dict[str, Dict[str, Any]] = {
+        str(p.get("contentType")): p for p in profiles_in if isinstance(p, dict) and p.get("contentType")
+    }
 
     paused = bool(world.get("isPaused"))
 
-    # Recent-selection fatigue: a stage chosen repeatedly in the last few
-    # passes is penalised so the worker does not loop on one action.
-    recent: Dict[str, int] = {}
-    for a in action_history[-12:]:
-        key = str(a.get("missionStage") if isinstance(a, dict) else a)
-        recent[key] = recent.get(key, 0) + 1
+    # Recency-weighted selection fatigue (memory decay: recent outcomes
+    # matter more). A stage/content-type chosen repeatedly in the last few
+    # passes is penalised so the worker does not loop on one action and
+    # rotates content types when one stalls.
+    recent: Dict[str, float] = {}
+    ct_recent: Dict[str, float] = {}
+    window = action_history[-12:]
+    for i, a in enumerate(window):
+        weight = (i + 1) / len(window)  # most-recent entries weigh more
+        stage_key = str(a.get("missionStage") if isinstance(a, dict) else a)
+        recent[stage_key] = recent.get(stage_key, 0.0) + weight
+        ct = a.get("contentType") if isinstance(a, dict) else None
+        if ct:
+            ct_recent[str(ct)] = ct_recent.get(str(ct), 0.0) + weight
 
     # Exact stage reliability (replaces approximate failure signals).
     reli: Dict[str, Dict[str, Any]] = {}
@@ -207,10 +220,12 @@ def select_action(payload: Dict[str, Any]) -> Dict[str, Any]:
         base = float(c.get("finalScore", 0.0))
         safe = bool(c.get("safe", True))
 
-        fatigue = 0.06 * recent.get(stage, 0)
-        if recent.get(stage, 0) >= 2:
-            memories_used.append(f"action_fatigue:{stage}={recent[stage]}")
+        # Action fatigue (recency-weighted).
+        fatigue = 0.06 * recent.get(stage, 0.0)
+        if recent.get(stage, 0.0) >= 1.5:
+            memories_used.append(f"action_fatigue:{stage}={round(recent[stage], 2)}")
 
+        # Exact stage reliability (replaces approximate failure signals).
         reli_adj = 0.0
         st = reli.get(stage)
         if st:
@@ -218,13 +233,33 @@ def select_action(payload: Dict[str, Any]) -> Dict[str, Any]:
             reli_adj = (sr - 0.5) * 0.4
             outcomes_used.append(f"{stage}:successRate={round(sr, 2)}")
 
+        # Source reputation tilt + source fatigue.
         src = c.get("sourceTarget")
         src_adj = 0.0
         if isinstance(src, str) and src in rep_by_host:
             src_adj = tier_adj(rep_by_host[src])
             reputation_used.append(f"{src}:{rep_by_host[src]}")
+        if isinstance(src, str) and src in source_fatigue:
+            src_adj -= 0.05 * float(source_fatigue.get(src, 0) or 0)
+            memories_used.append(f"source_fatigue:{src}")
 
-        final = clamp(base + reli_adj + src_adj - fatigue)
+        # Content-type rotation: deprioritise an over-worked content type so
+        # one blocked type does not stall the whole site.
+        ct = c.get("contentType")
+        ct_adj = 0.0
+        if isinstance(ct, str) and ct_recent.get(ct, 0.0) >= 2.0:
+            ct_adj -= 0.05
+            memories_used.append(f"content_type_rotation:{ct}")
+
+        # Content-type intelligence profile: doctrinally-sensitive types are
+        # scored conservatively (extra caution before autonomous work).
+        profile = profiles.get(str(ct)) if ct else None
+        profile_adj = 0.0
+        if profile and profile.get("doctrinallySensitive"):
+            profile_adj -= 0.03
+            memories_used.append(f"profile_caution:{ct}")
+
+        final = clamp(base + reli_adj + src_adj + ct_adj + profile_adj - fatigue)
         scored.append({**c, "_stage": stage, "_safe": safe, "_final": round(final, 4)})
 
     # Rank: safe first, then final score. Selected = best safe candidate.

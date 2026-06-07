@@ -164,8 +164,10 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
         ],
         "world": {"isPaused": False},
         "stageOutcomes": [{"stage": "DISCOVERY", "successRate": 0.9}],
-        "actionHistory": [{"missionStage": "DISCOVERY"}],
+        "actionHistory": [{"missionStage": "DISCOVERY", "contentType": "PRAYER"}],
         "sourceReputation": [{"host": "vatican.va", "tier": "TRUSTED"}],
+        "sourceFatigue": {"weak.example": 2},
+        "contentTypeProfiles": [{"contentType": "APPARITION", "doctrinallySensitive": True}],
     },
     "analyze_graph": {
         "nodes": [{"id": "1", "label": "Virgin Mary", "type": "SAINT"}, {"id": "2", "label": "Memorare", "type": "PRAYER"}, {"id": "3", "label": "Orphan", "type": "PRAYER"}],
