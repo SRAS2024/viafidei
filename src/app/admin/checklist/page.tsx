@@ -131,10 +131,7 @@ export default async function ChecklistDashboard() {
         </p>
       </header>
 
-      <BulkActions
-        verifyCount={bulkCounts.discoveredReadyToVerify}
-        buildCount={bulkCounts.verifiedReadyToBuild}
-      />
+      <BulkActions verifyCount={bulkCounts.discoveredReadyToVerify} />
 
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {cards.map((card) => (

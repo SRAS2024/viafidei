@@ -1,10 +1,10 @@
 /**
  * AdminWorkerDispatcher (spec §2). Executes the mission stage the
- * brain selected. The legacy planAndEnqueue() + runOneBuildCycle()
- * build/publish path is gone (spec §1) — the dispatcher walks every
- * stage of the artifact content chain and invokes the correct module
- * for the brain's chosen action. The ONLY way content becomes public
- * is EXTRACTION → STRICT_QA → PUBLIC_PUBLISH (runPublishOrchestrator).
+ * brain selected. There is no build/publish fallback (spec §1) — the
+ * dispatcher walks every stage of the artifact content chain and
+ * invokes the correct module for the brain's chosen action. The ONLY
+ * way content becomes public is EXTRACTION → STRICT_QA → PUBLIC_PUBLISH
+ * (runPublishOrchestrator).
  *
  * Each stage handler is small and delegates to the existing modules
  * (web-navigator, source-reader, classifier, extractors,
@@ -947,18 +947,17 @@ async function runPackageBuild(prisma: PrismaClient, passId: string): Promise<Di
     };
   }
 
-  // Spec §1: the legacy runOneBuildCycle / planAndEnqueue fallback is
-  // removed. The only way an item becomes a buildable package is the
-  // EXTRACTION stage materialising an AdminWorkerPackageArtifact. With
-  // no BUILD_READY artifact, PACKAGE_BUILD is idle — there is no
-  // legacy build/publish path to fall back to.
+  // Spec §1: there is no build/publish fallback. The only way an item
+  // becomes a buildable package is the EXTRACTION stage materialising an
+  // AdminWorkerPackageArtifact. With no BUILD_READY artifact,
+  // PACKAGE_BUILD is idle.
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "CONTENT_BUILD",
     severity: "INFO",
     eventName: "package_build_idle",
     message:
-      "No BUILD_READY artifact; PACKAGE_BUILD idle. (Legacy build queue removed — artifacts come from the EXTRACTION stage only.)",
+      "No BUILD_READY artifact; PACKAGE_BUILD idle. (Artifacts come from the EXTRACTION stage only.)",
   });
   return {
     stage: "PACKAGE_BUILD",
@@ -1452,10 +1451,9 @@ async function runPersistAndPublish(
   // quality-gate, duplicate, slug, public-route, persistence, content-
   // goal refresh, search, sitemap, and cache side effects in one
   // transaction. When no artifact is ready the publish stage is idle —
-  // the legacy runOneBuildCycle fallback has been removed.
-  // Spec §6: publish reads QA_PASSED artifacts. BUILD_READY remains
-  // queryable for backwards-compat tests, but the orchestrator gate
-  // requires a passing AdminWorkerStrictQAResult either way.
+  // there is no build/publish fallback.
+  // Spec §6: publish reads QA_PASSED artifacts; the orchestrator gate
+  // requires a passing AdminWorkerStrictQAResult.
   // Publish ONLY QA_PASSED artifacts. A BUILD_READY artifact has not yet
   // been through strict QA (it has no AdminWorkerStrictQAResult row), so
   // including it here caused the publish stage to pick it, fail the
@@ -1612,19 +1610,18 @@ async function runPersistAndPublish(
     };
   }
 
-  // Spec §6 follow-up: the legacy runOneBuildCycle fallback used to
-  // publish here. That path bypasses strict QA + ContentQualityScore,
-  // which the spec explicitly forbids. With no BUILD_READY or
-  // QA_PASSED artifact, publishing is idle — content gets built into
-  // an artifact first (PACKAGE_BUILD stage), strict-QA processes it,
-  // then this stage publishes via runPublishOrchestrator.
+  // Spec §6 follow-up: there is no publish fallback. A path that
+  // bypasses strict QA + ContentQualityScore is forbidden. With no
+  // BUILD_READY or QA_PASSED artifact, publishing is idle — content gets
+  // built into an artifact first (PACKAGE_BUILD stage), strict-QA
+  // processes it, then this stage publishes via runPublishOrchestrator.
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "PUBLISHING",
     severity: "INFO",
     eventName: "publish_pass_idle",
     message:
-      "No BUILD_READY/QA_PASSED artifacts; publish stage idle. (Legacy runOneBuildCycle fallback removed — strict-QA + quality-score gate is enforced.)",
+      "No BUILD_READY/QA_PASSED artifacts; publish stage idle. (Strict-QA + quality-score gate is enforced.)",
   });
   return idle(
     "PUBLIC_PUBLISH",

@@ -1,11 +1,10 @@
 /**
- * Tests for duplicate detection across checklist items.
+ * Tests for slug canonicalization and name normalization.
  */
 
 import { describe, it, expect } from "vitest";
 
 import { canonicalizeSlug, normalizeForComparison, suggestSlug } from "@/lib/worker/slugs";
-import { packagesAreDuplicates } from "@/lib/worker/duplicates";
 
 describe("canonicalizeSlug", () => {
   it("lowercases and dash-separates", () => {
@@ -39,21 +38,5 @@ describe("normalizeForComparison", () => {
 describe("suggestSlug", () => {
   it("matches canonicalizeSlug", () => {
     expect(suggestSlug("Our Father")).toBe("our-father");
-  });
-});
-
-describe("packagesAreDuplicates", () => {
-  it("matches identical checksums", () => {
-    expect(
-      packagesAreDuplicates({ contentChecksum: "abc123" }, { contentChecksum: "abc123" }),
-    ).toBe(true);
-  });
-  it("matches normalized titles when checksums are absent", () => {
-    expect(packagesAreDuplicates({ title: "Saint Joseph" }, { title: "St. Joseph" })).toBe(true);
-  });
-  it("does not consider unrelated titles as duplicates", () => {
-    expect(packagesAreDuplicates({ title: "Saint Joseph" }, { title: "Saint Michael" })).toBe(
-      false,
-    );
   });
 });

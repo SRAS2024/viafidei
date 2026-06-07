@@ -1,10 +1,10 @@
 /**
- * Tests for the dashboard bulk actions: verify-all, build-all, reject.
+ * Tests for the dashboard bulk actions: verify-all, reject.
  */
 
 import { describe, it, expect, vi } from "vitest";
 
-import { bulkActionCounts, bulkVerifyAll, bulkBuildAll, bulkReject } from "@/lib/worker";
+import { bulkActionCounts, bulkVerifyAll, bulkReject } from "@/lib/worker";
 
 function makePrisma() {
   return {
@@ -65,43 +65,6 @@ describe("bulkVerifyAll", () => {
     expect(result.succeeded).toBe(1);
     expect(result.failed).toBe(1);
     expect(result.errors[0]).toContain("x");
-  });
-});
-
-describe("bulkBuildAll", () => {
-  it("skips items whose schema requires human review unless overridden", async () => {
-    const prisma: any = makePrisma();
-    prisma.checklistItem.findMany.mockResolvedValue([
-      {
-        id: "1",
-        canonicalSlug: "saint-joseph",
-        contentType: "SAINT",
-        approvalStatus: "SOURCE_VERIFIED",
-      },
-      {
-        id: "2",
-        canonicalSlug: "fatima-apparition",
-        contentType: "APPARITION",
-        approvalStatus: "SOURCE_VERIFIED",
-      },
-    ]);
-    prisma.checklistItem.findUnique = vi.fn().mockImplementation(async (args: any) => ({
-      id: args.where.id,
-      contentType: args.where.id === "2" ? "APPARITION" : "SAINT",
-      approvalStatus: "SOURCE_VERIFIED",
-      citations: [{ id: "c1" }, { id: "c2" }],
-    }));
-    prisma.checklistItem.update.mockResolvedValue({});
-    prisma.workerBuildJob.findFirst.mockResolvedValue(null);
-    prisma.workerBuildJob.create.mockImplementation(async (args: any) => ({
-      id: `job-${args.data.checklistItemId}`,
-    }));
-
-    const result = await bulkBuildAll(prisma, {});
-    expect(result.attempted).toBe(2);
-    // APPARITION schema has requiresHumanReview=true, so it is skipped
-    expect(result.failed).toBeGreaterThanOrEqual(1);
-    expect(result.errors.some((e) => e.includes("fatima"))).toBe(true);
   });
 });
 

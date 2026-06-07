@@ -1,9 +1,9 @@
 /**
- * Tests for the authority source validation gate.
+ * Tests for the authority source registry.
  *
  * Covers:
  *   - Approved hosts pass.
- *   - Unapproved hosts are rejected by the fetcher.
+ *   - Unapproved hosts are rejected.
  *   - The authority level is correctly inferred.
  *   - Subdomains of approved hosts are accepted.
  */
@@ -15,7 +15,6 @@ import {
   isApprovedAuthorityHost,
   findAuthoritySource,
 } from "@/lib/worker/sources/authority-registry";
-import { fetchApprovedSource, UnapprovedSourceError } from "@/lib/worker/sources/fetcher";
 
 describe("authority source registry", () => {
   it("accepts vatican.va as VATICAN authority", () => {
@@ -40,34 +39,5 @@ describe("authority source registry", () => {
     const src = findAuthoritySource("usccb.org");
     expect(src?.authorityLevel).toBe("USCCB");
     expect(src?.name).toMatch(/Catholic Bishops/i);
-  });
-});
-
-describe("fetchApprovedSource", () => {
-  it("throws UnapprovedSourceError for non-allowlisted hosts", async () => {
-    await expect(
-      fetchApprovedSource({
-        citationId: "test",
-        url: "https://not-on-allowlist.example.com/page",
-      }),
-    ).rejects.toBeInstanceOf(UnapprovedSourceError);
-  });
-
-  it("uses an injected fetcher for testability", async () => {
-    const stubFetcher = async (_input: string | Request | URL, _init?: RequestInit) => {
-      return new Response(
-        "<html><head><title>Test</title></head><body><p>hello</p></body></html>",
-        { status: 200 },
-      );
-    };
-    const result = await fetchApprovedSource({
-      citationId: "c1",
-      url: "https://www.vatican.va/test",
-      fetcher: stubFetcher as never,
-    });
-    expect(result.status).toBe(200);
-    expect(result.authorityLevel).toBe("VATICAN");
-    expect(result.title).toBe("Test");
-    expect(result.checksum).toHaveLength(64);
   });
 });

@@ -219,25 +219,9 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     repair: "Run a CROSS_SOURCE_VERIFICATION pass — verifier persists per-field evidence.",
   });
 
-  // Production-readiness FAILS if any legacy publish config is still
-  // present. The legacy build/publish engine is permanently removed (it
-  // always throws — there is no escape hatch), but a lingering
-  // ALLOW_LEGACY_PUBLISH env var indicates stale config that must be
-  // cleared so operators don't expect a path that no longer exists.
-  const legacyEnvPresent = Boolean(process.env.ALLOW_LEGACY_PUBLISH);
-  checks.push({
-    key: "legacy_publish_disabled",
-    label: "Legacy publish path removed",
-    status: legacyEnvPresent ? "fail" : "pass",
-    detail: legacyEnvPresent
-      ? "ALLOW_LEGACY_PUBLISH is set but the legacy build/publish engine is permanently removed — clear this stale config."
-      : "Legacy build/publish engine is permanently removed; the Admin Worker artifact pipeline is the only path to public content.",
-    repair: "Unset ALLOW_LEGACY_PUBLISH; it no longer does anything.",
-  });
-
   // Spec §1: every recently-published row must trace to an
   // AdminWorkerPackageArtifact. A published row in the last 7 days with
-  // no artifact came from a legacy path — readiness fails.
+  // no artifact bypassed the pipeline — readiness fails.
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const recentPublished = await prisma.publishedContent
     .findMany({
@@ -260,7 +244,7 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     detail:
       orphanPublished === 0
         ? `All ${recentPublished.length} row(s) published in the last 7d trace to an AdminWorkerPackageArtifact.`
-        : `${orphanPublished} of ${recentPublished.length} row(s) published in the last 7d have NO package artifact — a legacy path published them.`,
+        : `${orphanPublished} of ${recentPublished.length} row(s) published in the last 7d have NO package artifact — they bypassed the pipeline.`,
     repair:
       "Investigate the orphan rows; ensure publishing only happens via runPublishOrchestrator with a linked artifact.",
   });

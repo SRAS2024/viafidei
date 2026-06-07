@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface Props {
   verifyCount: number;
-  buildCount: number;
 }
 
 interface BulkResult {
@@ -15,16 +15,11 @@ interface BulkResult {
   errors: string[];
 }
 
-export function BulkActions({ verifyCount, buildCount }: Props) {
+export function BulkActions({ verifyCount }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ kind: string; result: BulkResult } | null>(null);
-
-  // When there is nothing more to verify but items are sitting in
-  // SOURCE_VERIFIED, the Build All button is "highlighted" so the operator
-  // notices the next step.
-  const allVerified = verifyCount === 0 && buildCount > 0;
 
   const call = (kind: string, url: string, body: object = {}) => {
     setError(null);
@@ -51,10 +46,14 @@ export function BulkActions({ verifyCount, buildCount }: Props) {
 
   return (
     <section className="rounded border border-slate-200 bg-white p-4">
-      <h2 className="font-display text-lg text-ink">Bulk actions</h2>
+      <h2 className="font-display text-lg text-ink">Bulk source curation</h2>
       <p className="mt-1 text-xs text-ink-soft">
-        Operate on every item that is ready to advance. The worker advances items autonomously when
-        the queue is idle, but these buttons let you kick the whole list at once.
+        These actions curate checklist sources. Building, QA, and publishing are handled
+        autonomously by the{" "}
+        <Link className="text-indigo-600 underline" href="/admin/admin-worker">
+          Admin Worker
+        </Link>{" "}
+        — approved items are built and published by its artifact pipeline.
       </p>
       <div className="mt-3 flex flex-wrap gap-3">
         <button
@@ -69,32 +68,6 @@ export function BulkActions({ verifyCount, buildCount }: Props) {
         >
           Verify all
           <span className="ml-2 rounded bg-white/20 px-1.5 py-0.5 text-xs">{verifyCount}</span>
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() =>
-            call("build-all", "/api/admin/checklist/bulk/build-all", { includeReview: false })
-          }
-          className={`rounded px-4 py-2 text-sm text-white disabled:opacity-50 ${
-            allVerified
-              ? "bg-emerald-600 hover:bg-emerald-700 ring-2 ring-emerald-300 ring-offset-2 animate-pulse"
-              : buildCount > 0
-                ? "bg-emerald-600 hover:bg-emerald-700"
-                : "bg-emerald-400 hover:bg-emerald-500"
-          }`}
-        >
-          Build all
-          <span className="ml-2 rounded bg-white/20 px-1.5 py-0.5 text-xs">{buildCount}</span>
-          {allVerified && <span className="ml-2 text-xs">⚡ ready</span>}
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => call("run-autonomous", "/api/admin/checklist/bulk/run-autonomous")}
-          className="rounded bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-700 disabled:opacity-50"
-        >
-          ⚡ Run autonomous cycle
         </button>
         <button
           type="button"
