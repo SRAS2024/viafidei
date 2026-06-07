@@ -203,6 +203,10 @@ npx prisma migrate deploy
 # Seed the master checklists + authority sources
 npm run seed:checklist
 
+# Publish the in-repo curated knowledge base through the real publish pipeline
+# (grows content across every type even with no outbound network). Idempotent.
+npm run seed:content
+
 # Run the public site (port 3000)
 npm run dev
 
@@ -274,16 +278,16 @@ are read-only views of the data the worker populates, plus bulk
 **source-curation** actions (verify sources, reject) — building, QA, and
 publishing are handled autonomously by the Admin Worker.
 
-| Card                | Route                              | Purpose                           |
-| ------------------- | ---------------------------------- | --------------------------------- |
-| Checklist dashboard | `/admin/checklist`                 | Counts by status + type           |
-| Build queue         | `/admin/checklist/queue`           | `WorkerBuildJob` (build-intent)   |
-| QA reports          | `/admin/checklist/qa`              | Unreviewed reports                |
-| Published content   | `/admin/checklist/published`       | Items live on the public site     |
-| Approved sources    | `/admin/checklist/sources`         | Authority registry                |
-| Janitor: edits      | `/admin/checklist/janitor/edits`   | Items the worker wants to rebuild |
-| Janitor: deletes    | `/admin/checklist/janitor/deletes` | Items the worker wants to remove  |
-| Failed builds       | `/admin/checklist/failed`          | Exhausted retry budgets           |
+| Card                | Route                              | Purpose                                                                      |
+| ------------------- | ---------------------------------- | ---------------------------------------------------------------------------- |
+| Checklist dashboard | `/admin/checklist`                 | Counts by status + type (each type links to its filtered published view)     |
+| Build queue         | `/admin/checklist/queue`           | `WorkerBuildJob` (build-intent)                                              |
+| QA reports          | `/admin/checklist/qa`              | Unreviewed reports                                                           |
+| Published content   | `/admin/checklist/published`       | Items live on the public site, filterable by content type (`?contentType=…`) |
+| Approved sources    | `/admin/checklist/sources`         | Authority registry                                                           |
+| Janitor: edits      | `/admin/checklist/janitor/edits`   | Items the worker wants to rebuild                                            |
+| Janitor: deletes    | `/admin/checklist/janitor/deletes` | Items the worker wants to remove                                             |
+| Failed builds       | `/admin/checklist/failed`          | Exhausted retry budgets                                                      |
 
 **Site surfaces:**
 
@@ -765,8 +769,14 @@ source / verification / strict-QA / full-quality gate first.
 - **Statuses**: `TARGET_REACHED` for an open type at its target (it keeps
   growing — never "complete"), `CANONICAL_COMPLETE` only for a closed type at
   its hard maximum, plus `NEEDS_VERIFICATION` / `SOURCE_BLOCKED` / `STALLED`.
-  The command-center "Content goals" table shows Have / Target / Hard max
-  (— for open types) / Gap / status, and reserves "complete" for Sacraments.
+  The command-center "Content goals" table is driven by the **content catalog**
+  (`src/lib/content-shared/content-catalog.ts`) so it lists **every page the
+  site offers in navigation order** — including the view-based categories that
+  are not their own content type (Litanies = prayers of type `litany`, Our Lady
+  = Marian titles + apparitions, Liturgical Calendar = feasts/seasons, History
+  = the Church-documents timeline, tagged `view`). Each row shows a single
+  legible `Have / Target` column, Hard max (— for open types), Gap, and status,
+  and reserves "complete" for Sacraments.
 - The content-type profiles + the Python brain's `select_action` input carry
   `canonicalMax` + `allowsContinuedGrowth`, so the brain knows only
   Sacraments are capped and keeps growing the open types after their targets.
@@ -806,6 +816,34 @@ Because the legacy engine no longer exists as code, the single-content-path
 guarantee is **structural**: `tests/admin-worker/production-mandates.test.ts`
 and the readiness checks prove `runPublishOrchestrator()` is the only
 publish writer and that every recent public row traces to an artifact.
+
+### Curated knowledge as the offline first-pass source
+
+The repo ships a hand-verified curated knowledge base
+(`src/lib/checklist/knowledge/`, `ALL_CURATED_ENTRIES`) of ground-truth,
+schema-valid Catholic content with authority citations — the Church's fixed
+texts and canonical lists: prayers, litanies, the seven sacraments, saints,
+the 37 Doctors, the line of popes, the recognized rites, major basilicas,
+Marian titles, approved apparitions, and more. This is the worker's
+**first-pass content source**, so canonical content can be published without a
+live fetch, while live discovery + cross-source verification grows everything
+beyond the curated set.
+
+- The worker publishes it through the **real** pipeline, not a back door:
+  `runCuratedIngest()` (`src/lib/admin-worker/curated-ingest.ts`) runs each
+  loop pass as a bounded, idempotent, fail-open step that publishes the next
+  batch of not-yet-live curated entries through `runPublishOrchestrator()`
+  (full safety + ten-dimension quality gate + verifier evidence + persist),
+  then refreshes the content goals. So `npm run worker` grows content across
+  every type even where outbound HTTP is unavailable.
+- The curated entries carry citations and a verifier sign-off, so the
+  orchestrator's brain-backed _advisory_ screens (communion-risk, semantic
+  dedupe) are skipped for them (`skipBrainScreens`) while every deterministic
+  gate still runs — the brain remains the final action selector for the
+  worker's autonomous discovery/fetch missions.
+- `npm run seed:content` runs the same publish path once from the CLI
+  (`scripts/seed-curated-content.ts`) for a fresh local DB or any offline
+  environment.
 
 ### Internal modules
 
@@ -1116,6 +1154,7 @@ Every public page renders directly from `PublishedContent`:
 
 ```
 /prayers              → PublishedContent where contentType=PRAYER
+/litanies             → PRAYER where prayerType=litany (a view of /prayers)
 /saints               → PublishedContent where contentType=SAINT
 /our-lady             → PublishedContent where contentType=MARIAN_TITLE or APPARITION
 /doctors              → PublishedContent where contentType=DOCTOR
@@ -1126,10 +1165,13 @@ Every public page renders directly from `PublishedContent`:
 /devotions            → PublishedContent where contentType=DEVOTION
 /novenas              → PublishedContent where contentType=NOVENA
 /guides               → PublishedContent where contentType=GUIDE
-/rites                → PublishedContent where contentType=RITE
+/liturgy              → PublishedContent where contentType=LITURGICAL
 /liturgical-calendar  → computed General Roman Calendar (per selected rite)
-/liturgy-history      → LITURGICAL + CHURCH_DOCUMENT slugs (same /[slug] route)
+/liturgy/readings     → internal daily Mass readings (DailyReading; ?date=…)
+/rites                → PublishedContent where contentType=RITE
+/history              → CHURCH_DOCUMENT as a chronological timeline
 /church-documents     → PublishedContent where contentType=CHURCH_DOCUMENT
+/liturgy-history      → LITURGICAL + CHURCH_DOCUMENT slugs (same /[slug] route)
 /search?q=...         → full-text search across PublishedContent
 /api/prayers?take=N   → public list endpoint (clamped at 200)
 ```
@@ -1139,6 +1181,20 @@ Guides · Liturgy · History**, with dropdowns (desktop) and inline expanders
 (mobile) for the grouped tabs (Saints → Our Lady / Doctors / Popes;
 Sacraments → Parishes / Spiritual Life; Liturgy → Liturgical Calendar /
 Rites; History → Church Documents).
+
+**Category filters.** Content-rich tabs split their items into the Church's
+natural groupings via URL-driven filter chips (`?filter=…`, the shared
+`FilterChips` component + `src/lib/content-shared/*-categories.ts`): Saints by
+type, Guides by kind (**Chaplets** surfaces the Divine Mercy Chaplet), Rites by
+family (Latin / Eastern), Liturgy by kind, Spiritual Life by practice, Our Lady
+by titles/apparitions, Church Documents by category (incl. Dogmas), and
+Parishes by designation. Each tab only shows a chip when at least one published
+item falls under it.
+
+**Daily readings.** The Liturgical Calendar's "Official Mass readings for this
+day" button links to the **internal** `/liturgy/readings?date=…` page (kept
+current by the worker's `maybeRefreshDailyReadings` each pass), not an external
+site; that page carries a modest source link at the bottom.
 
 There is no other code path from the database to the public site.
 
