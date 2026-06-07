@@ -20,6 +20,24 @@ function utcMidnight(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
+/** Parse an optional ?date=YYYY-MM-DD param (from the liturgical calendar);
+ *  fall back to today when absent or invalid. */
+function parseDateParam(raw: string | undefined): Date {
+  if (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split("-").map(Number);
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    if (
+      !Number.isNaN(dt.getTime()) &&
+      dt.getUTCFullYear() === y &&
+      dt.getUTCMonth() === m - 1 &&
+      dt.getUTCDate() === d
+    ) {
+      return dt;
+    }
+  }
+  return utcMidnight(new Date());
+}
+
 function longDate(date: Date): string {
   return new Intl.DateTimeFormat("en", {
     weekday: "long",
@@ -37,8 +55,13 @@ function longDate(date: Date): string {
  * otherwise it shows the section structure with a modest link to the
  * authoritative source at the bottom (never fabricated text).
  */
-export default async function DailyReadingsPage() {
-  const date = utcMidnight(new Date());
+export default async function DailyReadingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>;
+}) {
+  const { date: dateParam } = await searchParams;
+  const date = parseDateParam(dateParam);
   const framing = buildReadingFraming(date);
 
   const row = await prisma.dailyReading

@@ -17,6 +17,7 @@ import {
 } from "@/lib/admin-worker";
 import { loadCommandCenterMetrics } from "@/lib/admin-worker/metrics";
 import { planMission } from "@/lib/admin-worker/mission-planner";
+import { CATALOG_DERIVED_TYPES, computeContentCatalog } from "@/lib/content-shared/content-catalog";
 import { AdminWorkerPauseToggle } from "./AdminWorkerPauseToggle";
 import { AdminWorkerControls } from "./AdminWorkerControls";
 import { RequestHomepageMakeoverButton } from "./RequestHomepageMakeoverButton";
@@ -241,6 +242,32 @@ export default async function AdminWorkerPage() {
 
   const summary = summarizeRatings(ratings);
 
+  // Content catalog: live published count for EVERY user-facing category,
+  // including the view-based ones that are not their own content type
+  // (Litanies, Our Lady, Chaplets, Liturgical Calendar, History). This proves
+  // every page the site offers is represented and growing in the console.
+  const [catalogGrouped, catalogDerivedRows] = await Promise.all([
+    prisma.publishedContent
+      .groupBy({ by: ["contentType"], where: { isPublished: true }, _count: { _all: true } })
+      .catch(() => [] as Array<{ contentType: string; _count: { _all: number } }>),
+    prisma.publishedContent
+      .findMany({
+        where: { isPublished: true, contentType: { in: CATALOG_DERIVED_TYPES } },
+        select: { contentType: true, payload: true },
+      })
+      .catch(() => [] as Array<{ contentType: string; payload: unknown }>),
+  ]);
+  const contentCatalog = computeContentCatalog(
+    catalogGrouped.map((g) => ({ contentType: g.contentType, count: g._count._all })),
+    catalogDerivedRows.map((r) => ({
+      contentType: r.contentType,
+      payload: (r.payload ?? {}) as Record<string, unknown>,
+    })),
+  );
+  const catalogTotal = contentCatalog
+    .filter((c) => !c.derived)
+    .reduce((sum, c) => sum + c.count, 0);
+
   return (
     <div className="space-y-6">
       <header className="flex items-baseline justify-between">
@@ -444,6 +471,46 @@ export default async function AdminWorkerPage() {
               </tbody>
             </table>
           )}
+        </article>
+
+        <article className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">Content catalog</h2>
+          <p className="mt-1 text-xs text-ink-soft">
+            Every content page the site offers, with its live published count — including the
+            view-based categories that are not their own content type (Litanies, Our Lady, Chaplets,
+            Liturgical Calendar, History). {catalogTotal.toLocaleString()} item(s) across the
+            primary content types.
+          </p>
+          <table className="mt-2 w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase text-ink-soft">
+                <th>Category</th>
+                <th className="text-right">Published</th>
+                <th>Page</th>
+              </tr>
+            </thead>
+            <tbody>
+              {contentCatalog.map((c) => (
+                <tr key={c.key} className="border-t">
+                  <td className="py-1">
+                    <span className={c.count === 0 ? "text-rose-600" : "text-ink"}>{c.label}</span>
+                    {c.derived ? (
+                      <span className="ml-1 text-[10px] uppercase tracking-wide text-ink-faint">
+                        view
+                      </span>
+                    ) : null}
+                    {c.note ? <div className="text-[11px] text-ink-faint">{c.note}</div> : null}
+                  </td>
+                  <td className="py-1 text-right font-mono">{c.count.toLocaleString()}</td>
+                  <td className="py-1">
+                    <Link href={c.page} className="text-indigo-600 underline">
+                      {c.page}
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </article>
 
         <article className="rounded border bg-white p-4 shadow-sm">

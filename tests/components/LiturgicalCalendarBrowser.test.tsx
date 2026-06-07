@@ -22,8 +22,10 @@ describe("LiturgicalCalendarBrowser", () => {
     expect(screen.getByText("Sacred Triduum")).toBeInTheDocument();
     expect(screen.getByText("Red")).toBeInTheDocument();
 
+    // The readings button routes to the INTERNAL daily-readings page for the
+    // chosen day (the worker keeps it current) — not an external site.
     const link = screen.getByRole("link", { name: /Official Mass readings/ });
-    expect(link).toHaveAttribute("href", "https://bible.usccb.org/bible/readings/040326.cfm");
+    expect(link).toHaveAttribute("href", "/liturgy/readings?date=2026-04-03");
   });
 
   it("is toggleable by rite, showing the proper-calendar note only for non-Roman rites", () => {
