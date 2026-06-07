@@ -6,7 +6,7 @@
 
 import { PrismaClient } from "@prisma/client";
 
-import { seedChecklistFirst } from "../src/lib/worker/seed";
+import { seedChecklistFirst } from "../src/lib/checklist/seed";
 
 async function main() {
   const prisma = new PrismaClient();

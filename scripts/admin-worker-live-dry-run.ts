@@ -114,7 +114,7 @@ async function runScenario(prisma: PrismaClient, sc: DryRunScenario): Promise<bo
 
   // 6. Diagnostics + Developer Audit entry (no public row written).
   await writeAdminWorkerLog(prisma, {
-    category: "REPORTING",
+    category: "REPORT",
     severity: "INFO",
     eventName: "dry_run_publish_decision",
     message: `[DRY RUN] ${sc.contentType} "${sc.title}": ${wouldPublish ? "would publish" : "would NOT publish"} — ${decision.reason}`,
