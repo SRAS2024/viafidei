@@ -203,4 +203,125 @@ export const parishKnowledge: CuratedEntry[] = [
       citations: [USCCB, GCATHOLIC],
     },
   ),
+  parish(
+    "basilica-our-lady-of-guadalupe-mexico-city",
+    "Basilica of Our Lady of Guadalupe",
+    "minor-basilica",
+    "Plaza de las Américas 1, Villa de Guadalupe",
+    "Mexico City",
+    {
+      country: "Mexico",
+      diocese: "Primatial Archdiocese of Mexico",
+      latitude: 19.4847,
+      longitude: -99.1177,
+      background:
+        "The Basilica of Our Lady of Guadalupe houses the miraculous tilma of Saint Juan Diego bearing the image of the Blessed Virgin from the 1531 apparitions at Tepeyac. It is the most visited Catholic shrine in the world and the spiritual heart of the Americas.",
+      citations: [VATICAN, GCATHOLIC],
+    },
+  ),
+  parish(
+    "sanctuary-our-lady-of-lourdes",
+    "Sanctuary of Our Lady of Lourdes",
+    "shrine",
+    "1 Avenue Monseigneur Théas",
+    "Lourdes",
+    {
+      country: "France",
+      diocese: "Diocese of Tarbes and Lourdes",
+      latitude: 43.0975,
+      longitude: -0.0589,
+      background:
+        "The Sanctuary of Our Lady of Lourdes marks the 1858 apparitions of the Immaculate Conception to Saint Bernadette Soubirous at the grotto of Massabielle. Millions of pilgrims, many seeking healing, come each year to its spring and basilicas.",
+      citations: [VATICAN, GCATHOLIC],
+    },
+  ),
+  parish(
+    "sanctuary-of-fatima",
+    "Sanctuary of Our Lady of Fátima",
+    "shrine",
+    "Santuário de Fátima",
+    "Fátima",
+    {
+      country: "Portugal",
+      diocese: "Diocese of Leiria-Fátima",
+      latitude: 39.6317,
+      longitude: -8.6722,
+      background:
+        "The Sanctuary of Fátima commemorates the 1917 apparitions of the Blessed Virgin Mary to three shepherd children, Saints Francisco and Jacinta Marto and Lúcia dos Santos. One of the world's great Marian pilgrimage sites.",
+      citations: [VATICAN, GCATHOLIC],
+    },
+  ),
+  parish(
+    "basilica-of-saint-francis-of-assisi",
+    "Papal Basilica of Saint Francis of Assisi",
+    "minor-basilica",
+    "Piazza San Francesco 2",
+    "Assisi",
+    {
+      country: "Italy",
+      diocese: "Diocese of Assisi-Nocera Umbra-Gualdo Tadino",
+      latitude: 43.0749,
+      longitude: 12.6055,
+      background:
+        "The Papal Basilica of Saint Francis of Assisi, begun in 1228, is the burial place of Saint Francis and a treasury of the frescoes of Giotto and the Italian masters. A papal basilica and UNESCO World Heritage Site.",
+      citations: [VATICAN, GCATHOLIC],
+    },
+  ),
+  parish(
+    "basilica-sacred-heart-montmartre",
+    "Basilica of the Sacred Heart of Paris (Sacré-Cœur)",
+    "minor-basilica",
+    "35 Rue du Chevalier de la Barre",
+    "Paris",
+    {
+      country: "France",
+      diocese: "Archdiocese of Paris",
+      latitude: 48.8867,
+      longitude: 2.3431,
+      background:
+        "The Basilica of the Sacred Heart, crowning the hill of Montmartre, was built as a national act of devotion and consecration to the Sacred Heart of Jesus. Perpetual Eucharistic adoration has continued there since 1885.",
+      citations: [VATICAN, GCATHOLIC],
+    },
+  ),
+  parish(
+    "cathedral-notre-dame-de-paris",
+    "Cathedral of Notre-Dame de Paris",
+    "cathedral",
+    "6 Parvis Notre-Dame - Place Jean-Paul II",
+    "Paris",
+    {
+      country: "France",
+      diocese: "Archdiocese of Paris",
+      latitude: 48.853,
+      longitude: 2.3499,
+      background:
+        "Notre-Dame de Paris, a masterpiece of French Gothic architecture begun in 1163, is the cathedral of the Archdiocese of Paris. Damaged by fire in 2019, it was restored and reopened for worship in 2024.",
+      citations: [VATICAN, GCATHOLIC],
+    },
+  ),
+  parish("cologne-cathedral", "Cologne Cathedral", "cathedral", "Domkloster 4", "Cologne", {
+    country: "Germany",
+    diocese: "Archdiocese of Cologne",
+    latitude: 50.9413,
+    longitude: 6.9583,
+    background:
+      "Cologne Cathedral, a High Gothic landmark and UNESCO World Heritage Site, is the seat of the Archbishop of Cologne and the reputed shrine of the relics of the Three Magi. Its construction spanned from 1248 to 1880.",
+    citations: [VATICAN, GCATHOLIC],
+  }),
+  parish(
+    "westminster-cathedral",
+    "Westminster Cathedral",
+    "cathedral",
+    "42 Francis Street",
+    "London",
+    {
+      country: "United Kingdom",
+      diocese: "Archdiocese of Westminster",
+      latitude: 51.4963,
+      longitude: -0.1397,
+      background:
+        "Westminster Cathedral is the mother church of the Catholic Church in England and Wales and the seat of the Archbishop of Westminster. Built in a Neo-Byzantine style and opened in 1903, it is famed for its mosaics and music.",
+      citations: [VATICAN, GCATHOLIC],
+    },
+  ),
 ];
