@@ -746,6 +746,31 @@ falling back to a TypeScript final brain. Concretely:
   concrete repair instruction. The Command Center surfaces the readiness
   score and failing checks.
 
+### Content goal model (targets, not caps)
+
+Every content type has a **growth target**, not a hard maximum. The single
+exception is **Sacraments**, the one *closed* type fixed by the faith: it
+carries a true `canonicalMax` of **7**. Every other type is *open* —
+`canonicalMax` is `null`, the target is a milestone, and the worker keeps
+building verified content past the target at a slower **maintenance** pace.
+The worker never treats a target as an absolute cap, and a gap is **never** a
+reason to publish — content still has to pass every accuracy / approval /
+source / verification / strict-QA / full-quality gate first.
+
+- **Targets** (`src/lib/admin-worker/content-goals.ts`): Sacrament 7
+  (canonicalMax 7); Parish 300,000; Prayer 1,000; Pope 267; Saint 1,000;
+  Doctor 37; Rite 24; Church Document 200; Devotion / Novena / Guide /
+  Liturgical 100; Marian Title / Apparition / Spiritual Practice 50 — all
+  with **no hard maximum**.
+- **Statuses**: `TARGET_REACHED` for an open type at its target (it keeps
+  growing — never "complete"), `CANONICAL_COMPLETE` only for a closed type at
+  its hard maximum, plus `NEEDS_VERIFICATION` / `SOURCE_BLOCKED` / `STALLED`.
+  The command-center "Content goals" table shows Have / Target / Hard max
+  (— for open types) / Gap / status, and reserves "complete" for Sacraments.
+- The content-type profiles + the Python brain's `select_action` input carry
+  `canonicalMax` + `allowsContinuedGrowth`, so the brain knows only
+  Sacraments are capped and keeps growing the open types after their targets.
+
 ### Single content path
 
 The Admin Worker artifact pipeline is the **only** way content becomes
