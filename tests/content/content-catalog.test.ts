@@ -38,6 +38,36 @@ describe("content catalog", () => {
     }
   });
 
+  it("lists the primary pages in the site's navigation order", () => {
+    const order = CONTENT_CATALOG.slice(0, 15).map((c) => c.key);
+    expect(order).toEqual([
+      "prayers",
+      "litanies",
+      "saints",
+      "our-lady",
+      "doctors",
+      "popes",
+      "sacraments",
+      "parishes",
+      "spiritual-life",
+      "guides",
+      "liturgy",
+      "liturgical-calendar",
+      "rites",
+      "history",
+      "church-documents",
+    ]);
+  });
+
+  it("gives every category a growth target; only Sacraments are hard-capped", () => {
+    for (const c of CONTENT_CATALOG) {
+      expect(c.target, `${c.key} target`).toBeGreaterThan(0);
+    }
+    const sacraments = CONTENT_CATALOG.find((c) => c.key === "sacraments")!;
+    expect(sacraments.hardMax).toBe(7);
+    expect(CONTENT_CATALOG.filter((c) => c.hardMax != null)).toHaveLength(1);
+  });
+
   it("flags derived (view) categories and lists their base types", () => {
     const litanies = CONTENT_CATALOG.find((c) => c.key === "litanies")!;
     expect(litanies.derived).toBe(true);

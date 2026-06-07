@@ -67,7 +67,14 @@ function renderValue(value: unknown): React.ReactNode {
   return <p>{String(value)}</p>;
 }
 
-const HIDDEN_FIELDS = new Set(["slug", "title", "citations"]);
+// Never rendered, even when a page lists them explicitly in primary/secondary
+// fields. These are pure internal references with no user-facing meaning —
+// slug/title/citations are handled elsewhere, and *Key fields (e.g.
+// sacramentKey, riteKey) are routing links between content, not content. This
+// is the hard guard behind isMetaField: isMetaField only filters the catch-all
+// "remaining" section, so an internal key a page named directly (the
+// "Sacrament Key: reconciliation" leak) still needs blocking here.
+const HIDDEN_FIELDS = new Set(["slug", "title", "citations", "sacramentKey", "riteKey"]);
 
 // Structural / worker-metadata keys that must never auto-render in the
 // catch-all "remaining" section (they would surface as stray headings like

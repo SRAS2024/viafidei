@@ -93,17 +93,35 @@ describe("PublishedDetail — stray metadata is never rendered as a section", ()
     expect(screen.getByText("Short summary.")).toBeInTheDocument();
   });
 
-  it("still renders a metadata-looking key when a page requests it explicitly", () => {
-    // Guides legitimately surface sacramentKey via secondaryFields; explicit
-    // requests bypass the catch-all metadata filter.
+  it("still renders a metadata-looking field when a page requests it explicitly", () => {
+    // Display fields that merely match the metadata suffix (e.g. a Doctor's
+    // doctorTitle ends in "Title") are legitimately surfaced via secondary
+    // fields; explicit requests bypass the catch-all metadata filter.
     render(
       <PublishedDetail
-        item={makeItem({ steps: ["Step one"], sacramentKey: "baptism" })}
-        primaryFields={["steps"]}
-        secondaryFields={["sacramentKey"]}
+        item={makeItem({ background: "A life of grace.", doctorTitle: "Angelic Doctor" })}
+        primaryFields={["background"]}
+        secondaryFields={["doctorTitle"]}
       />,
     );
-    expect(screen.getByRole("heading", { name: /sacrament key/i })).toBeInTheDocument();
-    expect(screen.getByText("baptism")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /doctor title/i })).toBeInTheDocument();
+    expect(screen.getByText("Angelic Doctor")).toBeInTheDocument();
+  });
+
+  it("never renders internal routing keys (sacramentKey, riteKey) even if listed", () => {
+    // These are links between content, not content. The "Sacrament Key:
+    // reconciliation" leak must not recur even when a page names them.
+    render(
+      <PublishedDetail
+        item={makeItem({ steps: ["Step one"], sacramentKey: "reconciliation", riteKey: "roman" })}
+        primaryFields={["steps"]}
+        secondaryFields={["sacramentKey", "riteKey"]}
+      />,
+    );
+    expect(screen.queryByRole("heading", { name: /sacrament key/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("reconciliation")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /rite key/i })).not.toBeInTheDocument();
+    // The real content (the steps) still renders.
+    expect(screen.getByText("Step one")).toBeInTheDocument();
   });
 });

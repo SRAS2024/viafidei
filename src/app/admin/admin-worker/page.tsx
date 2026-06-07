@@ -7,6 +7,7 @@ import {
   computeContentFunnel,
   contentGoalStatusLabel,
   countPendingReview,
+  deriveStatus,
   getAdminWorkerState,
   listRecentPasses,
   listRecentSecurityActions,
@@ -434,81 +435,53 @@ export default async function AdminWorkerPage() {
         <article className="rounded border bg-white p-4 shadow-sm">
           <h2 className="font-display text-xl text-ink">Content goals</h2>
           <p className="mt-1 text-xs text-ink-soft">
-            Only Sacraments have a hard maximum (7). Every other type has a growth{" "}
-            <span className="font-medium">target</span>, not a cap — verified content keeps growing
-            past it at a maintenance pace. A target is never a reason to publish; content must still
-            pass every accuracy / source / verification / QA / quality gate.
-          </p>
-          {goals.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-soft">
-              No content goals seeded yet. Use the diagnostics page or run a setup pass to seed.
-            </p>
-          ) : (
-            <table className="mt-2 w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase text-ink-soft">
-                  <th>Content type</th>
-                  <th className="text-right">Have</th>
-                  <th className="text-right">Target</th>
-                  <th className="text-right">Hard max</th>
-                  <th className="text-right">Gap</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {goals.map((g) => (
-                  <tr key={g.id} className="border-t">
-                    <td className="py-1 font-mono">{g.contentType}</td>
-                    <td className="py-1 text-right font-mono">{g.currentValidCount}</td>
-                    <td className="py-1 text-right font-mono">
-                      {g.desiredTarget.toLocaleString()}
-                    </td>
-                    <td className="py-1 text-right font-mono">{g.canonicalMax ?? "—"}</td>
-                    <td className="py-1 text-right font-mono">{g.gapCount.toLocaleString()}</td>
-                    <td className="py-1 text-xs">{contentGoalStatusLabel(g.status)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </article>
-
-        <article className="rounded border bg-white p-4 shadow-sm">
-          <h2 className="font-display text-xl text-ink">Content catalog</h2>
-          <p className="mt-1 text-xs text-ink-soft">
-            Every content page the site offers, with its live published count — including the
-            view-based categories that are not their own content type (Litanies, Our Lady, Chaplets,
-            Liturgical Calendar, History). {catalogTotal.toLocaleString()} item(s) across the
+            Every content page the site offers — including the view-based categories that are not
+            their own content type (Litanies, Our Lady, Liturgical Calendar, History, marked{" "}
+            <span className="uppercase">view</span>) — with its live count over its growth target.
+            Only Sacraments have a hard maximum (7); every other type has a target, not a cap. A
+            target is never a reason to publish; content must still pass every accuracy / source /
+            verification / QA / quality gate. {catalogTotal.toLocaleString()} item(s) across the
             primary content types.
           </p>
           <table className="mt-2 w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase text-ink-soft">
-                <th>Category</th>
-                <th className="text-right">Published</th>
-                <th>Page</th>
+                <th>Content</th>
+                <th className="text-right">Have / Target</th>
+                <th className="text-right">Hard max</th>
+                <th className="text-right">Gap</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {contentCatalog.map((c) => (
-                <tr key={c.key} className="border-t">
-                  <td className="py-1">
-                    <span className={c.count === 0 ? "text-rose-600" : "text-ink"}>{c.label}</span>
-                    {c.derived ? (
-                      <span className="ml-1 text-[10px] uppercase tracking-wide text-ink-faint">
-                        view
-                      </span>
-                    ) : null}
-                    {c.note ? <div className="text-[11px] text-ink-faint">{c.note}</div> : null}
-                  </td>
-                  <td className="py-1 text-right font-mono">{c.count.toLocaleString()}</td>
-                  <td className="py-1">
-                    <Link href={c.page} className="text-indigo-600 underline">
-                      {c.page}
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              {contentCatalog.map((c) => {
+                const hardMax = c.hardMax ?? null;
+                const gap = Math.max(0, c.target - c.count);
+                const status = deriveStatus(c.count, c.target, hardMax);
+                return (
+                  <tr key={c.key} className="border-t">
+                    <td className="py-1">
+                      <Link href={c.page} className="text-indigo-600 underline">
+                        {c.label}
+                      </Link>
+                      {c.derived ? (
+                        <span className="ml-1 text-[10px] uppercase tracking-wide text-ink-faint">
+                          view
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="py-1 text-right font-mono">
+                      <span className={c.count === 0 ? "text-rose-600" : "text-ink"}>
+                        {c.count.toLocaleString()}
+                      </span>{" "}
+                      / {c.target.toLocaleString()}
+                    </td>
+                    <td className="py-1 text-right font-mono">{hardMax ?? "—"}</td>
+                    <td className="py-1 text-right font-mono">{gap.toLocaleString()}</td>
+                    <td className="py-1 text-xs">{contentGoalStatusLabel(status)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </article>

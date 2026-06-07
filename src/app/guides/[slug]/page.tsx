@@ -17,7 +17,7 @@ export default async function GuideDetailPage({ params }: Props) {
       <PublishedDetail
         item={guide}
         primaryFields={["steps"]}
-        secondaryFields={["sacramentKey", "durationMinutes", "relatedPrayers"]}
+        secondaryFields={["durationMinutes", "relatedPrayers"]}
       />
       {isRosaryGuide(guide.payload) && (
         <div className="mx-auto max-w-3xl px-4 pb-10">
