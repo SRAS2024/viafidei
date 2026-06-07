@@ -21,7 +21,7 @@ import type {
   PrismaClient,
 } from "@prisma/client";
 
-import { AUTHORITY_SOURCES, isApprovedAuthorityHost } from "@/lib/worker";
+import { AUTHORITY_SOURCES, isApprovedAuthorityHost } from "@/lib/checklist";
 import { writeAdminWorkerLog } from "./logs";
 import { discoverCandidate, isJunkUrl, type DiscoverCandidateInput } from "./web-navigator";
 

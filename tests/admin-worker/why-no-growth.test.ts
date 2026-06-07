@@ -20,7 +20,7 @@ function makePrisma(opts: {
   artifactCount?: number;
   bridgedCount?: number;
   verificationCount?: number;
-  qaReports?: Array<{ passed: boolean }>;
+  qaReports?: Array<{ status: string }>;
   qualityScores?: Array<{ finalScore: number }>;
   publishedCount?: number;
   recentVerifications?: number;
@@ -71,7 +71,7 @@ function makePrisma(opts: {
     adminWorkerCrossSourceVerification: {
       count: vi.fn(async () => opts.verificationCount ?? 0),
     },
-    checklistQAReport: {
+    adminWorkerStrictQAResult: {
       findMany: vi.fn(async () => opts.qaReports ?? []),
     },
     contentQualityScore: {
@@ -109,7 +109,7 @@ describe("diagnoseWhyNoGrowth (spec §15)", () => {
         classifiedCount: 9,
         artifactCount: 5,
         verificationCount: 3,
-        qaReports: [{ passed: true }, { passed: true }, { passed: true }],
+        qaReports: [{ status: "PASSED" }, { status: "PASSED" }, { status: "PASSED" }],
         publishedCount: 3,
         recentVerifications: 3,
         failedVerifications: 0,
@@ -188,8 +188,8 @@ describe("diagnoseWhyNoGrowth (spec §15)", () => {
 
   it("blocks on QA_REJECTING when QA pass rate is below 30%", async () => {
     const reports = [
-      ...Array.from({ length: 8 }, () => ({ passed: false })),
-      ...Array.from({ length: 2 }, () => ({ passed: true })),
+      ...Array.from({ length: 8 }, () => ({ status: "FAILED" })),
+      ...Array.from({ length: 2 }, () => ({ status: "PASSED" })),
     ];
     const out = await diagnoseWhyNoGrowth(
       makePrisma({
@@ -259,7 +259,7 @@ describe("diagnoseWhyNoGrowth (spec §15)", () => {
         artifactCount: 3,
         bridgedCount: 3,
         verificationCount: 1,
-        qaReports: [{ passed: true }, { passed: true }, { passed: true }],
+        qaReports: [{ status: "PASSED" }, { status: "PASSED" }, { status: "PASSED" }],
         qualityScores: scores,
       }),
     );

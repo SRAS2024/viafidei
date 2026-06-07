@@ -35,7 +35,7 @@ export default async function AdminLogsHub() {
   const [accountLogCount, adminActionCount, buildLogCount] = await Promise.all([
     prisma.adminAuditLog.count().catch(() => 0),
     prisma.adminActionLog.count().catch(() => 0),
-    prisma.workerBuildLog.count().catch(() => 0),
+    prisma.adminWorkerLog.count().catch(() => 0),
   ]);
 
   return (

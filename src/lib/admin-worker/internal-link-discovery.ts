@@ -13,7 +13,7 @@
 
 import type { CandidateSourceDiscoveryMethod, PrismaClient } from "@prisma/client";
 
-import { isApprovedAuthorityHost } from "@/lib/worker";
+import { isApprovedAuthorityHost } from "@/lib/checklist";
 import { discoverCandidate, isJunkUrl } from "./web-navigator";
 import { writeAdminWorkerLog } from "./logs";
 

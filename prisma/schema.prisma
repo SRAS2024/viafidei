@@ -849,10 +849,6 @@ model ChecklistItem {
   duplicates          ChecklistItem[]         @relation("ChecklistDuplicate")
   citations           ChecklistCitation[]
   buildJobs           WorkerBuildJob[]
-  qaReports           ChecklistQAReport[]
-  versions            ChecklistVersion[]
-  relationsFrom       ChecklistRelation[]     @relation("RelationFrom")
-  relationsTo         ChecklistRelation[]     @relation("RelationTo")
 
   @@unique([contentType, canonicalSlug])
   @@index([contentType, approvalStatus])
@@ -914,13 +910,13 @@ model ChecklistCitation {
 /// One build job per (checklist item, attempt). Survives restarts via the
 /// pending/running/partial/succeeded/failed/retrying lifecycle.
 model WorkerBuildJob {
-  id              String              @id @default(cuid())
+  id              String            @id @default(cuid())
   checklistItemId String
-  status          WorkerBuildStatus   @default(pending)
-  attempt         Int                 @default(1)
-  maxAttempts     Int                 @default(5)
-  priority        Int                 @default(100)
-  runAt           DateTime            @default(now())
+  status          WorkerBuildStatus @default(pending)
+  attempt         Int               @default(1)
+  maxAttempts     Int               @default(5)
+  priority        Int               @default(100)
+  runAt           DateTime          @default(now())
   startedAt       DateTime?
   finishedAt      DateTime?
   durationMs      Int?
@@ -930,111 +926,15 @@ model WorkerBuildJob {
   resultPayload   Json?
   errorMessage    String?
   confidence      Float?
-  triggeredBy     String              @default("automatic")
+  triggeredBy     String            @default("automatic")
   actorUsername   String?
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  checklistItem   ChecklistItem       @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
-  buildLogs       WorkerBuildLog[]
-  qaReports       ChecklistQAReport[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  checklistItem   ChecklistItem     @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
 
   @@index([status, priority, runAt])
   @@index([checklistItemId, attempt])
   @@index([status, leaseExpiresAt])
-}
-
-/// Structured worker build log — one row per significant step. The worker
-/// writes a row when it picks a source, extracts a field, detects a
-/// duplicate, raises a warning, or finalises a confidence value. Replaces
-/// the legacy ContentPackageBuildLog for the checklist-driven flow.
-model WorkerBuildLog {
-  id         String         @id @default(cuid())
-  buildJobId String
-  step       String
-  level      String         @default("info")
-  message    String
-  fieldName  String?
-  sourceUrl  String?
-  warnings   String[]       @default([])
-  confidence Float?
-  metadata   Json?
-  createdAt  DateTime       @default(now())
-  buildJob   WorkerBuildJob @relation(fields: [buildJobId], references: [id], onDelete: Cascade)
-
-  @@index([buildJobId, createdAt])
-  @@index([level])
-  @@index([step])
-}
-
-/// QA report generated after every worker build. Stores per-dimension
-/// scores so admins can sort the dashboard by the weakest signal.
-model ChecklistQAReport {
-  id                  String          @id @default(cuid())
-  checklistItemId     String
-  buildJobId          String?
-  passed              Boolean
-  completenessScore   Float
-  accuracyScore       Float
-  sourceCoverageScore Float
-  formattingScore     Float
-  readabilityScore    Float
-  appCompatScore      Float
-  overallScore        Float
-  issues              String[]        @default([])
-  warnings            String[]        @default([])
-  fieldsValidated     String[]        @default([])
-  recommendation      String
-  needsHumanReview    Boolean         @default(false)
-  reviewedByUsername  String?
-  reviewedAt          DateTime?
-  reviewerNotes       String?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  checklistItem       ChecklistItem   @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
-  buildJob            WorkerBuildJob? @relation(fields: [buildJobId], references: [id], onDelete: SetNull)
-
-  @@index([checklistItemId, createdAt])
-  @@index([passed])
-  @@index([needsHumanReview])
-  @@index([overallScore])
-}
-
-/// Snapshot of every checklist build/edit so any item can be audited and
-/// rolled back. Stores the full package payload before each change.
-model ChecklistVersion {
-  id              String        @id @default(cuid())
-  checklistItemId String
-  version         Int
-  payload         Json
-  buildJobId      String?
-  authorUsername  String?
-  changeSummary   String?
-  createdAt       DateTime      @default(now())
-  checklistItem   ChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
-
-  @@unique([checklistItemId, version])
-  @@index([checklistItemId, createdAt])
-}
-
-/// Typed relationship between two checklist items. Examples:
-///   saint --HAS_FEAST_DAY--> liturgical
-///   devotion --USES_PRAYER--> prayer
-///   marian_title --LINKED_TO_APPARITION--> apparition
-///   guide --COVERS_SACRAMENT--> sacrament
-model ChecklistRelation {
-  id           String        @id @default(cuid())
-  fromItemId   String
-  toItemId     String
-  relationType String
-  notes        String?
-  createdAt    DateTime      @default(now())
-  fromItem     ChecklistItem @relation("RelationFrom", fields: [fromItemId], references: [id], onDelete: Cascade)
-  toItem       ChecklistItem @relation("RelationTo", fields: [toItemId], references: [id], onDelete: Cascade)
-
-  @@unique([fromItemId, toItemId, relationType])
-  @@index([fromItemId])
-  @@index([toItemId])
-  @@index([relationType])
 }
 
 /// Published content store. The worker writes the final, QA-approved
@@ -1471,24 +1371,24 @@ model AdminWorkerSourceReputation {
 /// summary the admin UI surfaces next to the chosen action; brainFailure
 /// is non-null when the brain could not find any safe action.
 model AdminWorkerDecision {
-  id                  String   @id @default(cuid())
-  passId              String?
-  taskId              String?
-  decisionType        String
-  inputSummary        String
-  rulesEvaluated      Json?
-  chosenAction        String
-  confidence          Float    @default(0)
-  reason              String?
-  fallbackAction      String?
-  rankedAlternatives  Json?
-  brainExplanation    String?
-  brainFailure        String?
-  riskScore           Float    @default(0)
-  expectedResult      String?
-  contentType         String?
-  missionStage        String?
-  createdAt           DateTime @default(now())
+  id                 String   @id @default(cuid())
+  passId             String?
+  taskId             String?
+  decisionType       String
+  inputSummary       String
+  rulesEvaluated     Json?
+  chosenAction       String
+  confidence         Float    @default(0)
+  reason             String?
+  fallbackAction     String?
+  rankedAlternatives Json?
+  brainExplanation   String?
+  brainFailure       String?
+  riskScore          Float    @default(0)
+  expectedResult     String?
+  contentType        String?
+  missionStage       String?
+  createdAt          DateTime @default(now())
 
   pass AdminWorkerPass? @relation(fields: [passId], references: [id], onDelete: SetNull)
   task AdminWorkerTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
@@ -1509,28 +1409,28 @@ model AdminWorkerDecision {
 /// after fetch / classification / extraction / QA / publishing so the
 /// fetcher always reaches for the best safe candidate first (spec §5).
 model CandidateSourceUrl {
-  id                      String                         @id @default(cuid())
-  discoveredUrl           String                         @unique
-  sourceHost              String
-  sourceId                String?
-  discoveryMethod         CandidateSourceDiscoveryMethod @default(INTERNAL_LINK)
-  predictedContentType    String?
-  predictedUsefulness     Float                          @default(0)
-  status                  CandidateSourceUrlStatus       @default(DISCOVERED)
-  fetchAttempts           Int                            @default(0)
-  lastFetchedAt           DateTime?
-  rejectionReason         String?
-  rejectionPattern        String?
-  contentTypeLikelihood   Float                          @default(0)
-  junkRisk                Float                          @default(0)
-  duplicateRisk           Float                          @default(0)
-  sourceAuthorityScore    Float                          @default(0)
-  fetchPriority           Float                          @default(0)
-  expectedPackageCompleteness Float                      @default(0)
-  expectedValidationValue Float                          @default(0)
-  scoreUpdatedAt          DateTime?
-  createdAt               DateTime                       @default(now())
-  updatedAt               DateTime                       @updatedAt
+  id                          String                         @id @default(cuid())
+  discoveredUrl               String                         @unique
+  sourceHost                  String
+  sourceId                    String?
+  discoveryMethod             CandidateSourceDiscoveryMethod @default(INTERNAL_LINK)
+  predictedContentType        String?
+  predictedUsefulness         Float                          @default(0)
+  status                      CandidateSourceUrlStatus       @default(DISCOVERED)
+  fetchAttempts               Int                            @default(0)
+  lastFetchedAt               DateTime?
+  rejectionReason             String?
+  rejectionPattern            String?
+  contentTypeLikelihood       Float                          @default(0)
+  junkRisk                    Float                          @default(0)
+  duplicateRisk               Float                          @default(0)
+  sourceAuthorityScore        Float                          @default(0)
+  fetchPriority               Float                          @default(0)
+  expectedPackageCompleteness Float                          @default(0)
+  expectedValidationValue     Float                          @default(0)
+  scoreUpdatedAt              DateTime?
+  createdAt                   DateTime                       @default(now())
+  updatedAt                   DateTime                       @updatedAt
 
   @@index([status])
   @@index([sourceHost])
@@ -1686,16 +1586,16 @@ model PostPublishVerification {
 /// scores are repaired or rejected, and only ambiguous cases reach the
 /// human review queue.
 model ContentQualityScore {
-  id                  String   @id @default(cuid())
-  contentType         String
-  contentId           String
+  id                        String   @id @default(cuid())
+  contentType               String
+  contentId                 String
   // Original six dimensions (kept for back-compat).
-  completenessScore   Float    @default(0)
-  correctnessScore    Float    @default(0)
-  formattingScore     Float    @default(0)
-  sourceEvidenceScore Float    @default(0)
-  validationScore     Float    @default(0)
-  renderScore         Float    @default(0)
+  completenessScore         Float    @default(0)
+  correctnessScore          Float    @default(0)
+  formattingScore           Float    @default(0)
+  sourceEvidenceScore       Float    @default(0)
+  validationScore           Float    @default(0)
+  renderScore               Float    @default(0)
   // Full quality model (spec): the remaining dimensions so the worker
   // can store + explain every dimension and which ones failed.
   sourceAuthorityScore      Float    @default(0)
@@ -1703,11 +1603,11 @@ model ContentQualityScore {
   duplicateSafetyScore      Float    @default(0)
   doctrinalSensitivityScore Float    @default(0)
   packageConsistencyScore   Float    @default(0)
-  finalScore          Float    @default(0)
-  threshold           Float    @default(0)
-  passed              Boolean  @default(false)
-  failedDimensions    String[] @default([])
-  createdAt           DateTime @default(now())
+  finalScore                Float    @default(0)
+  threshold                 Float    @default(0)
+  passed                    Boolean  @default(false)
+  failedDimensions          String[] @default([])
+  createdAt                 DateTime @default(now())
 
   @@index([contentType, contentId])
   @@index([finalScore])
@@ -1907,25 +1807,25 @@ model AdminWorkerRepairPlan {
 /// changed) or skip (checksum unchanged), and surfaces fetch quality
 /// in the diagnostics card. Spec §6.
 model AdminWorkerFetchResult {
-  id                String   @id @default(cuid())
-  sourceUrl         String
-  sourceHost        String
-  candidateUrlId    String?
-  httpStatus        Int?
-  contentType       String?
-  contentLength     Int?
-  checksum          String?
-  etag              String?
+  id                 String   @id @default(cuid())
+  sourceUrl          String
+  sourceHost         String
+  candidateUrlId     String?
+  httpStatus         Int?
+  contentType        String?
+  contentLength      Int?
+  checksum           String?
+  etag               String?
   lastModifiedHeader String?
-  redirectChain     String[] @default([])
-  durationMs        Int?
-  attempt           Int      @default(1)
-  succeeded         Boolean  @default(false)
-  unchanged         Boolean  @default(false)
-  rejectionReason   String?
-  errorClass        String?
-  errorMessage      String?
-  createdAt         DateTime @default(now())
+  redirectChain      String[] @default([])
+  durationMs         Int?
+  attempt            Int      @default(1)
+  succeeded          Boolean  @default(false)
+  unchanged          Boolean  @default(false)
+  rejectionReason    String?
+  errorClass         String?
+  errorMessage       String?
+  createdAt          DateTime @default(now())
 
   @@index([sourceUrl])
   @@index([sourceHost])
@@ -1962,20 +1862,20 @@ model AdminWorkerSourceBlock {
 /// records the match / mismatch / conflict so the publishing gate can
 /// require evidence before going live. Spec §11.
 model AdminWorkerCrossSourceVerification {
-  id                  String   @id @default(cuid())
-  contentType         String
-  contentId           String?
-  packageChecksum     String?
-  fieldName           String
-  valueChecked        String
+  id                   String   @id @default(cuid())
+  contentType          String
+  contentId            String?
+  packageChecksum      String?
+  fieldName            String
+  valueChecked         String
   validationSourceHost String
   validationSourceUrl  String?
-  matchResult         String
-  mismatchReason      String?
-  confidenceScore     Float    @default(0)
-  conflictReason      String?
-  finalDecision       String
-  createdAt           DateTime @default(now())
+  matchResult          String
+  mismatchReason       String?
+  confidenceScore      Float    @default(0)
+  conflictReason       String?
+  finalDecision        String
+  createdAt            DateTime @default(now())
 
   @@index([contentType, contentId])
   @@index([validationSourceHost])
@@ -1990,23 +1890,23 @@ model AdminWorkerCrossSourceVerification {
 /// low (the answer to "lowering quality won't fix this — bring more
 /// sources").
 model AdminWorkerSourceCoverage {
-  id                      String   @id @default(cuid())
-  contentType             String   @unique
-  primarySources          Int      @default(0)
-  validationSources       Int      @default(0)
-  enrichmentSources       Int      @default(0)
-  activeSourceCount       Int      @default(0)
-  recentlySuccessfulSources Int    @default(0)
-  recentlyFailedSources   Int      @default(0)
-  recentCandidates7d      Int      @default(0)
-  recentValidPackages7d   Int      @default(0)
-  recentPublishes7d       Int      @default(0)
-  coverageScore           Float    @default(0)
-  blockedByCoverage       Boolean  @default(false)
-  blockReason             String?
-  recommendation          String?
-  updatedAt               DateTime @updatedAt
-  createdAt               DateTime @default(now())
+  id                        String   @id @default(cuid())
+  contentType               String   @unique
+  primarySources            Int      @default(0)
+  validationSources         Int      @default(0)
+  enrichmentSources         Int      @default(0)
+  activeSourceCount         Int      @default(0)
+  recentlySuccessfulSources Int      @default(0)
+  recentlyFailedSources     Int      @default(0)
+  recentCandidates7d        Int      @default(0)
+  recentValidPackages7d     Int      @default(0)
+  recentPublishes7d         Int      @default(0)
+  coverageScore             Float    @default(0)
+  blockedByCoverage         Boolean  @default(false)
+  blockReason               String?
+  recommendation            String?
+  updatedAt                 DateTime @updatedAt
+  createdAt                 DateTime @default(now())
 
   @@index([contentType])
   @@index([blockedByCoverage])
@@ -2018,23 +1918,23 @@ model AdminWorkerSourceCoverage {
 /// and the brain can fire on "no growth in 24h" / "no growth in 7d"
 /// without scanning publishedContent.
 model AdminWorkerGrowthSnapshot {
-  id                  String   @id @default(cuid())
-  contentType         String
-  publishedCount      Int      @default(0)
-  validCount          Int      @default(0)
-  minimumTarget       Int      @default(0)
-  desiredTarget       Int      @default(0)
-  gap                 Int      @default(0)
-  growth24h           Int      @default(0)
-  growth7d            Int      @default(0)
-  growth30d           Int      @default(0)
+  id                   String   @id @default(cuid())
+  contentType          String
+  publishedCount       Int      @default(0)
+  validCount           Int      @default(0)
+  minimumTarget        Int      @default(0)
+  desiredTarget        Int      @default(0)
+  gap                  Int      @default(0)
+  growth24h            Int      @default(0)
+  growth7d             Int      @default(0)
+  growth30d            Int      @default(0)
   hoursSinceLastGrowth Int?
-  qaPassRate30d       Float    @default(0)
-  publishRate30d      Float    @default(0)
-  pipelineHealth      Float    @default(0)
-  status              String
-  recommendation      String?
-  createdAt           DateTime @default(now())
+  qaPassRate30d        Float    @default(0)
+  publishRate30d       Float    @default(0)
+  pipelineHealth       Float    @default(0)
+  status               String
+  recommendation       String?
+  createdAt            DateTime @default(now())
 
   @@index([contentType, createdAt])
   @@index([status])
@@ -2046,29 +1946,29 @@ model AdminWorkerGrowthSnapshot {
 /// stable artifact to act on. Replaces the previous "extraction was
 /// only logged, not stored" gap.
 model AdminWorkerPackageArtifact {
-  id                   String   @id @default(cuid())
-  sourceReadId         String?
-  candidateUrlId       String?
-  contentType          String
-  normalizedTitle      String
-  normalizedSlug       String
-  extractedFields      Json
-  fieldProvenance      Json?
-  missingFields        String[] @default([])
-  validationNeeds      String[] @default([])
-  formattingMetadata   Json?
-  confidenceScore      Float    @default(0)
-  packageChecksum      String
-  status               String   @default("EXTRACTED")
+  id                 String   @id @default(cuid())
+  sourceReadId       String?
+  candidateUrlId     String?
+  contentType        String
+  normalizedTitle    String
+  normalizedSlug     String
+  extractedFields    Json
+  fieldProvenance    Json?
+  missingFields      String[] @default([])
+  validationNeeds    String[] @default([])
+  formattingMetadata Json?
+  confidenceScore    Float    @default(0)
+  packageChecksum    String
+  status             String   @default("EXTRACTED")
   /// "EXTRACTED" → "CHECKLIST_READY" → "BUILD_READY" → "BUILT" →
   ///   "VERIFIED" → "PUBLISHED" or "REJECTED" with reason on
   ///   `rejectionReason`.
-  rejectionReason      String?
-  repairSuggestions    String[] @default([])
-  checklistItemId      String?
-  publishedContentId   String?
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  rejectionReason    String?
+  repairSuggestions  String[] @default([])
+  checklistItemId    String?
+  publishedContentId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   @@unique([contentType, normalizedSlug, packageChecksum])
   @@index([contentType, status])
@@ -2082,22 +1982,22 @@ model AdminWorkerPackageArtifact {
 /// follow-up). The publish gate refuses any artifact that doesn't
 /// carry a passing AdminWorkerStrictQAResult.
 model AdminWorkerStrictQAResult {
-  id                  String   @id @default(cuid())
-  packageArtifactId   String
-  contentType         String
-  completenessScore   Float    @default(0)
-  correctnessScore    Float    @default(0)
-  formattingScore     Float    @default(0)
-  provenanceScore     Float    @default(0)
-  validationScore     Float    @default(0)
-  duplicateSafetyScore Float   @default(0)
-  publicReadinessScore Float   @default(0)
-  finalScore          Float    @default(0)
-  status              String   @default("PENDING")
+  id                   String   @id @default(cuid())
+  packageArtifactId    String
+  contentType          String
+  completenessScore    Float    @default(0)
+  correctnessScore     Float    @default(0)
+  formattingScore      Float    @default(0)
+  provenanceScore      Float    @default(0)
+  validationScore      Float    @default(0)
+  duplicateSafetyScore Float    @default(0)
+  publicReadinessScore Float    @default(0)
+  finalScore           Float    @default(0)
+  status               String   @default("PENDING")
   /// "PASSED" | "FAILED" | "PENDING" | "NEEDS_REPAIR"
-  blockingReasons     String[] @default([])
-  repairSuggestions   String[] @default([])
-  createdAt           DateTime @default(now())
+  blockingReasons      String[] @default([])
+  repairSuggestions    String[] @default([])
+  createdAt            DateTime @default(now())
 
   @@unique([packageArtifactId])
   @@index([contentType, status])

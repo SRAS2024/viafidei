@@ -6,8 +6,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/worker", () => ({
-  runOneBuildCycle: vi.fn(async () => ({ kind: "idle" as const })),
+vi.mock("@/lib/checklist", () => ({
 }));
 
 vi.mock("@/lib/admin-worker/homepage-mutator", () => ({
@@ -113,7 +112,6 @@ function makePrisma(opts: { pendingJobs?: number; failedJobs?: number; gap?: num
     postPublishVerification: {
       findMany: vi.fn(async () => []),
     },
-    checklistQAReport: { count: vi.fn(async () => 0) },
     contentGoal: {
       findMany: vi.fn(async () =>
         opts.gap ? [{ contentType: "PRAYER", gapCount: opts.gap, priority: 10 }] : [],

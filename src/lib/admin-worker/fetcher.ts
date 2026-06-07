@@ -22,7 +22,7 @@ import { createHash } from "node:crypto";
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import { isApprovedAuthorityHost } from "@/lib/worker";
+import { isApprovedAuthorityHost } from "@/lib/checklist";
 import { writeAdminWorkerLog } from "./logs";
 import { recordSourceOutcome } from "./source-reputation";
 

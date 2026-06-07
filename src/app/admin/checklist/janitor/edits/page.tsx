@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
-import { scanForJanitorFindings, filterByAction } from "@/lib/worker";
+import { scanForJanitorFindings, filterByAction } from "@/lib/checklist";
 import { JanitorActions } from "../JanitorActions";
 
 export const dynamic = "force-dynamic";

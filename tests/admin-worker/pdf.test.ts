@@ -53,7 +53,6 @@ function makePrisma() {
     homepageQualityScore: { findFirst: vi.fn(async () => null) },
     securityEvent: { count: vi.fn(async () => 0) },
     contentValidationEvidence: { count: vi.fn(async () => 0) },
-    checklistQAReport: { findFirst: vi.fn(async () => null) },
     contentQualityScore: {
       findFirst: vi.fn(async () => null),
       findMany: vi.fn(async () => []),

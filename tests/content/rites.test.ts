@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { extractByType, type ExtractorInput } from "@/lib/admin-worker/extractors";
-import { riteSchema } from "@/lib/worker/schemas/rite";
-import { ritesChecklist } from "@/lib/worker/checklists/rites";
+import { riteSchema } from "@/lib/checklist/schemas/rite";
+import { ritesChecklist } from "@/lib/checklist/checklists/rites";
 import { CATHOLIC_RITES } from "@/lib/content-shared/rites";
 import { toChecklistContentType } from "@/lib/admin-worker/classifier";
 

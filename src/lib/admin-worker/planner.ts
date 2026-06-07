@@ -23,7 +23,7 @@
 
 import type { ChecklistApprovalStatus, ChecklistContentType, PrismaClient } from "@prisma/client";
 
-import { enqueueBuild } from "@/lib/worker";
+import { enqueueBuild } from "@/lib/checklist";
 import { refreshContentGoals } from "./content-goals";
 import { writeAdminWorkerLog } from "./logs";
 import { createTask } from "./tasks";

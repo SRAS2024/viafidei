@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
-import { seedChecklistFirst } from "@/lib/worker/seed";
+import { seedChecklistFirst } from "@/lib/checklist/seed";
 
 export async function POST() {
   const admin = await requireAdmin();

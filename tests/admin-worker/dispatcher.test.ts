@@ -14,8 +14,7 @@ beforeAll(() => {
   process.env.ADMIN_WORKER_SKIP_NETWORK = "1";
 });
 
-vi.mock("@/lib/worker", () => ({
-  runOneBuildCycle: vi.fn(async () => ({ kind: "idle" as const })),
+vi.mock("@/lib/checklist", () => ({
   isApprovedAuthorityHost: vi.fn(() => true),
 }));
 
@@ -241,7 +240,6 @@ function makePrismaForDispatch(opts: { candidates?: number; unclassified?: numbe
       ),
       update: vi.fn(async () => ({})),
     },
-    checklistQAReport: { count: vi.fn(async () => 0) },
     publishedContent: {
       findMany: vi.fn(async () => []),
       findFirst: vi.fn(async () => null),

@@ -6,7 +6,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/worker", () => ({
+vi.mock("@/lib/checklist", () => ({
   isApprovedAuthorityHost: (host: string) => host === "www.vatican.va" || host === "vatican.va",
   AUTHORITY_SOURCES: [{ host: "vatican.va" }],
 }));

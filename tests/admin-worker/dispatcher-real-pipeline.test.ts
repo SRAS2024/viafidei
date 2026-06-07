@@ -6,7 +6,7 @@
  *   - SOURCE_FETCH calls adminWorkerFetch + readSource
  *   - EXTRACTION materialises an AdminWorkerPackageArtifact
  *   - PUBLIC_PUBLISH calls runPublishOrchestrator on a BUILD_READY
- *     artifact (not just runOneBuildCycle)
+ *     artifact via the orchestrator
  *   - POST_PUBLISH_VERIFY does NOT pass skipNetwork: true unless
  *     ADMIN_WORKER_SKIP_NETWORK=1 is set
  */
@@ -17,8 +17,7 @@ beforeAll(() => {
   process.env.ADMIN_WORKER_SKIP_NETWORK = "1";
 });
 
-vi.mock("@/lib/worker", () => ({
-  runOneBuildCycle: vi.fn(async () => ({ kind: "idle" as const })),
+vi.mock("@/lib/checklist", () => ({
   isApprovedAuthorityHost: vi.fn(() => true),
 }));
 
@@ -396,7 +395,7 @@ describe("EXTRACTION materialises an AdminWorkerPackageArtifact", () => {
 });
 
 describe("PUBLIC_PUBLISH calls runPublishOrchestrator on BUILD_READY artifacts", () => {
-  it("invokes runPublishOrchestrator and not runOneBuildCycle when an artifact is ready", async () => {
+  it("invokes runPublishOrchestrator when an artifact is ready", async () => {
     vi.mocked(runPublishOrchestrator).mockClear();
     const prisma = makePrisma({
       artifact: { id: "art-1", status: "BUILD_READY", contentType: "PRAYER" },

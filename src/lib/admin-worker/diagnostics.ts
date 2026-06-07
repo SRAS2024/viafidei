@@ -515,9 +515,8 @@ async function ratingCrossSource(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingStrictQa(prisma: PrismaClient): Promise<HealthRating> {
-  // Spec §3: Prefer the artifact-level AdminWorkerStrictQAResult
-  // (the new durable strict-QA stage). Fall back to ChecklistQAReport
-  // when no artifact-level results exist (transitional).
+  // Spec §3: the artifact-level AdminWorkerStrictQAResult is the durable
+  // strict-QA record (written by the STRICT_QA stage).
   const now = new Date();
   const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
   const [total, passed, latest] = await Promise.all([
@@ -531,21 +530,15 @@ async function ratingStrictQa(prisma: PrismaClient): Promise<HealthRating> {
   ]);
 
   if (total === 0 && !latest) {
-    // No artifact-level QA yet — fall back to legacy ChecklistQAReport
-    // so existing installations still see a value.
-    const recent = await prisma.checklistQAReport.findFirst({ orderBy: { createdAt: "desc" } });
-    const score = recent?.overallScore ?? 0;
     return {
       key: "admin_worker_strict_qa",
       label: "Strict QA",
-      status: score >= 0.8 ? "pass" : score >= 0.5 ? "warn" : "fail",
-      score,
+      status: "warn",
+      score: 0,
       lastCheckedAt: now,
-      dataSource: "ChecklistQAReport (transitional)",
-      summary: recent
-        ? `Legacy QA score ${score.toFixed(2)}; no artifact-level results yet.`
-        : "No QA reports yet.",
-      recommendedRepair: "Run a content-goal pass; STRICT_QA stage will create artifact results.",
+      dataSource: "AdminWorkerStrictQAResult",
+      summary: "No strict-QA results yet.",
+      recommendedRepair: "Run a content-goal pass; the STRICT_QA stage creates artifact results.",
     };
   }
 

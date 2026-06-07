@@ -1,6 +1,6 @@
 /**
  * Publishing wrapper. Adds the Admin Worker confidence gates on top
- * of the existing `publish()` from `src/lib/worker/publishing`.
+ * of the existing `publish()` from `src/lib/checklist/publishing`.
  *
  * The publish gate refuses to ship content unless:
  *   - complete package (existing schema validation)

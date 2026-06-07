@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import type { JanitorAction } from "@/lib/worker";
+import type { JanitorAction } from "@/lib/checklist";
 
 interface Props {
   itemId: string;

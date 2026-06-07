@@ -14,7 +14,7 @@
  */
 
 import { prisma } from "@/lib/db/client";
-import { AUTHORITY_SOURCES } from "@/lib/worker";
+import { AUTHORITY_SOURCES } from "@/lib/checklist";
 
 export type DiagnosticStatus = "pass" | "warn" | "fail";
 
@@ -156,17 +156,17 @@ async function workerQueue(): Promise<DiagnosticResult> {
 async function qaPipeline(): Promise<DiagnosticResult> {
   const [needsReview, failedQa, recentReports] = await Promise.all([
     prisma.checklistItem.count({ where: { needsHumanReview: true, approvalStatus: "QA_PENDING" } }),
-    prisma.checklistQAReport.count({ where: { passed: false, reviewedAt: null } }),
-    prisma.checklistQAReport.findMany({
+    prisma.adminWorkerStrictQAResult.count({ where: { status: { not: "PASSED" } } }),
+    prisma.adminWorkerStrictQAResult.findMany({
       orderBy: { createdAt: "desc" },
       take: 50,
-      select: { overallScore: true },
+      select: { finalScore: true },
     }),
   ]);
   const avg =
     recentReports.length === 0
       ? 1
-      : recentReports.reduce((s, r) => s + r.overallScore, 0) / recentReports.length;
+      : recentReports.reduce((s, r) => s + r.finalScore, 0) / recentReports.length;
   if (avg < 0.6) {
     return {
       key: "qa",
@@ -229,7 +229,7 @@ async function publishingHealth(): Promise<DiagnosticResult> {
 }
 
 async function janitorFindings(): Promise<DiagnosticResult> {
-  const { scanForJanitorFindings } = await import("@/lib/worker/janitor");
+  const { scanForJanitorFindings } = await import("@/lib/checklist/janitor");
   const findings = await scanForJanitorFindings(prisma);
   const high = findings.filter((f) => f.severity === "high").length;
   const deletes = findings.filter((f) => f.action === "delete").length;
@@ -263,7 +263,7 @@ async function janitorFindings(): Promise<DiagnosticResult> {
 
 async function buildLogActivity(): Promise<DiagnosticResult> {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const recent = await prisma.workerBuildLog.count({
+  const recent = await prisma.adminWorkerLog.count({
     where: { createdAt: { gte: cutoff } },
   });
   if (recent === 0) {
@@ -285,7 +285,7 @@ async function buildLogActivity(): Promise<DiagnosticResult> {
 }
 
 async function schemaCoverage(): Promise<DiagnosticResult> {
-  const { CONTENT_SCHEMAS } = await import("@/lib/worker/schemas");
+  const { CONTENT_SCHEMAS } = await import("@/lib/checklist/schemas");
   const all = Object.keys(CONTENT_SCHEMAS).length;
   if (all !== 11) {
     return {
@@ -304,7 +304,7 @@ async function schemaCoverage(): Promise<DiagnosticResult> {
 }
 
 async function knowledgeBaseHealth(): Promise<DiagnosticResult> {
-  const { curatedKnowledgeSize, curatedKnowledgeByType } = await import("@/lib/worker");
+  const { curatedKnowledgeSize, curatedKnowledgeByType } = await import("@/lib/checklist");
   const total = curatedKnowledgeSize();
   const byType = curatedKnowledgeByType();
   const types = Object.keys(byType).length;

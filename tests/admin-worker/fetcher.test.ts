@@ -7,7 +7,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/worker", () => ({
+vi.mock("@/lib/checklist", () => ({
   isApprovedAuthorityHost: vi.fn((host: string) =>
     ["www.vatican.va", "vatican.va", "www.usccb.org"].includes(host),
   ),

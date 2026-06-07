@@ -319,7 +319,7 @@ export async function recreateMissingSourceJobs(prisma: PrismaClient): Promise<R
       reason: "no orphaned approved items",
     };
   }
-  const { enqueueBuild } = await import("@/lib/worker");
+  const { enqueueBuild } = await import("@/lib/checklist");
   let enqueued = 0;
   for (const item of candidates) {
     try {

@@ -167,26 +167,9 @@ export async function planMission(prisma: PrismaClient): Promise<MissionPlan> {
       contentType,
       taskType: "BUILD_CONTENT",
       reason: `${readyForBuild} ${contentType} items ready to build.`,
-      expectedResult: "Enqueue build jobs and run them through the existing build engine.",
+      expectedResult: "Enqueue build intents and drive them through the artifact pipeline.",
       confidence: 0.9,
-      nextStep: "Enqueue build jobs (planAndEnqueue) and call runOneBuildCycle.",
-    };
-  }
-
-  // 7. VALIDATE/QA: builds done but unreviewed QA reports waiting.
-  const pendingQA = await prisma.checklistQAReport.count({
-    where: { needsHumanReview: true, reviewedAt: null },
-  });
-  if (pendingQA > 0) {
-    return {
-      stage: "VALIDATE_QA",
-      contentType,
-      taskType: "VALIDATE_CONTENT",
-      reason: `${pendingQA} QA reports waiting on review.`,
-      expectedResult: "Run cross-source verification + strict QA; promote passing items.",
-      confidence: 0.75,
-      nextStep:
-        "Re-run packaging validators + verify scripture / feast day / approval / Rosary / Novena structure.",
+      nextStep: "Enqueue build intents (planAndEnqueue); the dispatcher runs the artifact chain.",
     };
   }
 

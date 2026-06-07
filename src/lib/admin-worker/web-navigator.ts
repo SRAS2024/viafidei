@@ -23,7 +23,7 @@ import type {
   PrismaClient,
 } from "@prisma/client";
 
-import { isApprovedAuthorityHost } from "@/lib/worker";
+import { isApprovedAuthorityHost } from "@/lib/checklist";
 
 export class UnapprovedHostError extends Error {
   constructor(host: string) {

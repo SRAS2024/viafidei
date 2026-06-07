@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { planAndEnqueue } from "@/lib/admin-worker/planner";
 
-vi.mock("@/lib/worker", () => ({
+vi.mock("@/lib/checklist", () => ({
   enqueueBuild: vi.fn(async () => ({})),
 }));
 

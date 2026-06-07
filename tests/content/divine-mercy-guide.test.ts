@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { validatePayload } from "@/lib/worker/schemas";
-import { findCuratedEntry } from "@/lib/worker/knowledge";
+import { validatePayload } from "@/lib/checklist/schemas";
+import { findCuratedEntry } from "@/lib/checklist/knowledge";
 
 describe("Divine Mercy Chaplet guide", () => {
   const entry = findCuratedEntry("GUIDE", "how-to-pray-the-divine-mercy-chaplet");

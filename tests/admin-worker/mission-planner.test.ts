@@ -60,7 +60,6 @@ function makePrisma(opts: MockOpts = {}) {
         return opts.itemsForType ?? 0;
       }),
     },
-    checklistQAReport: { count: vi.fn(async () => opts.pendingQA ?? 0) },
     postPublishVerification: {
       findMany: vi.fn(async () =>
         Array.from({ length: opts.verifiedDistinct ?? 0 }, (_, i) => ({ contentId: `c${i}` })),

@@ -64,7 +64,7 @@ function makePrisma(
     adminWorkerPackageArtifact: { count: vi.fn(async () => 0) },
     adminWorkerSourceRead: { count: vi.fn(async () => opts.sourceReads) },
     workerBuildJob: { count: vi.fn(async () => opts.buildJobs) },
-    checklistQAReport: { count: vi.fn(async () => opts.qaReports) },
+    adminWorkerStrictQAResult: { count: vi.fn(async () => opts.qaReports) },
     postPublishVerification: { count: vi.fn(async () => opts.postPublish) },
     adminWorkerSecurityAction: { count: vi.fn(async () => opts.securityActions) },
     homepageQualityScore: { count: vi.fn(async () => opts.homepageScores) },

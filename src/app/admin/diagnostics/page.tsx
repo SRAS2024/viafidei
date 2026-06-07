@@ -11,7 +11,6 @@ import {
 } from "@/lib/admin-worker";
 import { prisma } from "@/lib/db/client";
 import { DeveloperAuditButton } from "./DeveloperAuditButton";
-import { RunAutonomousButton } from "./RunAutonomousButton";
 import { AdminWorkerPauseToggle } from "../admin-worker/AdminWorkerPauseToggle";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +62,6 @@ export default async function DiagnosticsPage() {
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <DeveloperAuditButton />
-        <RunAutonomousButton />
       </div>
 
       <section>

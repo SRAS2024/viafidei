@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { extractByType, type ExtractorInput } from "@/lib/admin-worker/extractors";
-import { doctorSchema } from "@/lib/worker/schemas/doctor";
+import { doctorSchema } from "@/lib/checklist/schemas/doctor";
 import { toChecklistContentType } from "@/lib/admin-worker/classifier";
 
 const base = (over: Partial<ExtractorInput>): ExtractorInput => ({
