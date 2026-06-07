@@ -749,8 +749,8 @@ falling back to a TypeScript final brain. Concretely:
 ### Content goal model (targets, not caps)
 
 Every content type has a **growth target**, not a hard maximum. The single
-exception is **Sacraments**, the one *closed* type fixed by the faith: it
-carries a true `canonicalMax` of **7**. Every other type is *open* —
+exception is **Sacraments**, the one _closed_ type fixed by the faith: it
+carries a true `canonicalMax` of **7**. Every other type is _open_ —
 `canonicalMax` is `null`, the target is a milestone, and the worker keeps
 building verified content past the target at a slower **maintenance** pace.
 The worker never treats a target as an absolute cap, and a gap is **never** a
