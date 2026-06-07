@@ -335,10 +335,25 @@ and repair only, **never autonomous content publishing** — rather than
 falling back to a legacy brain. Concretely:
 
 - **The Python brain makes the final selection.** `select_action` ranks
-  the candidate set with exact stage outcomes, action fatigue, and source
-  reputation; the strict `BrainFinalDecisionSchema` is validated before
-  execution; the chosen action's provenance (`finalBrain: "python"` /
-  `"degraded"`) is recorded on every pass.
+  the candidate set with exact stage outcomes, recency-weighted action
+  fatigue, source fatigue + reputation, content-type rotation (so one
+  blocked type can't stall the site), and the content-type intelligence
+  profiles (doctrinal caution). The strict `BrainFinalDecisionSchema` is
+  validated before execution; the chosen action's provenance
+  (`finalBrain: "python"` / `"degraded"`) is recorded on every pass.
+  `intelligence/tests/test_select_action.py` proves the brain ranks every
+  candidate and that **learning changes the ranking** (a low exact
+  stage-success rate + action fatigue flips the selection; a BLOCKED source
+  deprioritises its candidate).
+- **The brain is the only quality + decision authority that's surfaced.**
+  The command center shows a "Final decision brain: Python" banner (and a
+  loud `PYTHON_BRAIN_UNAVAILABLE` safe-degraded-mode warning when the brain
+  is down / actions are rejected); the Developer Audit has a **Python Brain
+  Diagnostics** section (availability, ok/failed calls, `select_action`
+  count, latency, confidence, safe-to-auto-execute rate, learning events,
+  strategy memory, degraded events, op mix). The reduced six-dimension
+  quality scorer is **removed** — `recordQualityScoreV2` (the full
+  ten-dimension model) is the only quality path.
 - **Every considered action is stored, not just the chosen one.**
   `AdminWorkerActionScore` records each ranked action with action type,
   mission stage, target content type / source / candidate, expected
