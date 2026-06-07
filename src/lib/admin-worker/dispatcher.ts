@@ -707,6 +707,14 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
   // Run the per-content-type extractor.
   const { extractByType } = await import("./extractors");
   const { buildContentPackage } = await import("./content-builder");
+  // Extractor-strategy learning: recall how this (host, contentType) has
+  // extracted before so the outcome is logged against its history.
+  const { recallExtractorMemory, recordExtractorOutcome } = await import("./memory");
+  const priorExtractor = read.detectedContentType
+    ? await recallExtractorMemory(prisma, read.sourceHost, read.detectedContentType).catch(
+        () => null,
+      )
+    : null;
   const detected = read.detectedContentType;
   const supportedTypes = new Set([
     "PRAYER",
@@ -808,6 +816,17 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     usefulness: pkg.confidenceByPackage,
   }).catch(() => undefined);
 
+  // Extractor-strategy learning: record this extractor outcome per
+  // (host, contentType) so later passes (and the brain) can prefer hosts
+  // that reliably yield complete packages and back off from weak ones.
+  await recordExtractorOutcome(prisma, {
+    host: read.sourceHost,
+    contentType: detected,
+    fatal: status === "REJECTED",
+    confidenceScore: pkg.confidenceByPackage,
+    missingFields: pkg.missingFields,
+  }).catch(() => undefined);
+
   // File a repair plan when required fields are missing — the next
   // pass can try a different source via the candidate-scorer.
   if (status === "EXTRACTED" && pkg.missingFields.length > 0) {
@@ -836,6 +855,7 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
       artifactId: artifact?.id ?? null,
       status,
       missingFields: pkg.missingFields,
+      priorExtractorConfidence: priorExtractor?.confidence ?? null,
     },
   });
 
