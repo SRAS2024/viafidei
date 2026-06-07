@@ -34,6 +34,7 @@ export const BRAIN_OPS = [
   "iq_metrics",
   "plan",
   "prioritize",
+  "select_action",
   "analyze_graph",
   "scan_content",
   "classify_freshness",
@@ -364,3 +365,82 @@ export interface CodeAnalysisResult {
   };
   developer_requests: DeveloperRequest[];
 }
+
+/**
+ * Strict Python-brain FINAL DECISION contract (snake_case from Python →
+ * camelCase). The Python brain is the final action selector; TypeScript
+ * validates this shape with `BrainFinalDecisionSchema` and refuses to
+ * execute anything that does not parse (no silent fallback to a legacy
+ * TS brain — an invalid shape routes to safe diagnostics/repair).
+ */
+const RejectedAlternativeSchema = z
+  .object({
+    mission_stage: z.string(),
+    action_type: z.string().nullish(),
+    final_score: z.number(),
+    safe: z.boolean().default(true),
+    rejected_reason: z.string().nullish(),
+  })
+  .transform((a) => ({
+    missionStage: a.mission_stage,
+    actionType: a.action_type ?? null,
+    finalScore: a.final_score,
+    safe: a.safe,
+    rejectedReason: a.rejected_reason ?? null,
+  }));
+
+export const BrainFinalDecisionSchema = z
+  .object({
+    selected_action: z.string().min(1),
+    mission_stage: z.string().min(1),
+    action_type: z.string().nullish(),
+    target_content_type: z.string().nullish(),
+    target_source: z.string().nullish(),
+    target_candidate_url: z.string().nullish(),
+    target_package_artifact: z.string().nullish(),
+    expected_result: z.string(),
+    final_score: z.number(),
+    confidence_score: z.number(),
+    risk_score: z.number(),
+    urgency_score: z.number(),
+    source_score: z.number(),
+    quality_expectation: z.number(),
+    repair_likelihood: z.number(),
+    fallback_action: z.string().nullish(),
+    stop_condition: z.string().nullish(),
+    rejected_alternatives: z.array(RejectedAlternativeSchema).default([]),
+    reasoning: z.string().default(""),
+    evidence_used: z.array(z.string()).default([]),
+    memories_used: z.array(z.string()).default([]),
+    source_reputation_used: z.array(z.string()).default([]),
+    stage_outcomes_used: z.array(z.string()).default([]),
+    safety_notes: z.array(z.string()).default([]),
+  })
+  .transform((d) => ({
+    selectedAction: d.selected_action,
+    missionStage: d.mission_stage,
+    actionType: d.action_type ?? null,
+    targetContentType: d.target_content_type ?? null,
+    targetSource: d.target_source ?? null,
+    targetCandidateUrl: d.target_candidate_url ?? null,
+    targetPackageArtifact: d.target_package_artifact ?? null,
+    expectedResult: d.expected_result,
+    finalScore: d.final_score,
+    confidenceScore: d.confidence_score,
+    riskScore: d.risk_score,
+    urgencyScore: d.urgency_score,
+    sourceScore: d.source_score,
+    qualityExpectation: d.quality_expectation,
+    repairLikelihood: d.repair_likelihood,
+    fallbackAction: d.fallback_action ?? null,
+    stopCondition: d.stop_condition ?? null,
+    rejectedAlternatives: d.rejected_alternatives,
+    reasoning: d.reasoning,
+    evidenceUsed: d.evidence_used,
+    memoriesUsed: d.memories_used,
+    sourceReputationUsed: d.source_reputation_used,
+    stageOutcomesUsed: d.stage_outcomes_used,
+    safetyNotes: d.safety_notes,
+  }));
+
+export type BrainFinalDecision = z.infer<typeof BrainFinalDecisionSchema>;

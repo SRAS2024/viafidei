@@ -138,3 +138,168 @@ def prioritize(payload: Dict[str, Any]) -> Dict[str, Any]:
         recommended_next_action="work-top-candidate" if top else "no-work-available",
         safe_to_auto_execute=False,
     )
+
+
+def select_action(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Final action selector — the Python brain's authoritative choice.
+
+    TypeScript samples world state and computes deterministic per-candidate
+    sub-scores (truth/safety inputs). This op is the FINAL ranker: it
+    re-scores every candidate using learned signals (exact stage outcomes,
+    action fatigue, source fatigue, reputation) and selects the action the
+    Admin Worker should run next. TypeScript then validates + executes it.
+
+    Required payload: ``candidates`` — a list of action dicts, each with at
+    least ``missionStage`` and the TS sub-scores. Optional: ``world``,
+    ``stageOutcomes``, ``actionHistory``, ``sourceReputation``,
+    ``repairState``, ``memory``.
+
+    Returns the strict decision contract in ``result``.
+    """
+    candidates = require(payload, "candidates")
+    if not isinstance(candidates, list):
+        candidates = []
+    world = opt(payload, "world", {}) or {}
+    stage_outcomes = opt(payload, "stageOutcomes", []) or []
+    action_history = opt(payload, "actionHistory", []) or []
+    source_rep = opt(payload, "sourceReputation", []) or []
+    repair_state = opt(payload, "repairState", {}) or {}
+
+    paused = bool(world.get("isPaused"))
+
+    # Recent-selection fatigue: a stage chosen repeatedly in the last few
+    # passes is penalised so the worker does not loop on one action.
+    recent: Dict[str, int] = {}
+    for a in action_history[-12:]:
+        key = str(a.get("missionStage") if isinstance(a, dict) else a)
+        recent[key] = recent.get(key, 0) + 1
+
+    # Exact stage reliability (replaces approximate failure signals).
+    reli: Dict[str, Dict[str, Any]] = {}
+    for s in stage_outcomes:
+        if isinstance(s, dict) and s.get("stage"):
+            reli[str(s["stage"])] = s
+
+    # Source reputation tilt by host.
+    rep_by_host: Dict[str, str] = {}
+    for r in source_rep:
+        if isinstance(r, dict) and r.get("host"):
+            rep_by_host[str(r["host"])] = str(r.get("tier", ""))
+
+    def tier_adj(tier: str) -> float:
+        return {
+            "TRUSTED": 0.08,
+            "RELIABLE": 0.04,
+            "NEUTRAL": 0.0,
+            "WATCH": -0.06,
+            "BLOCKED": -0.5,
+        }.get(tier, 0.0)
+
+    memories_used: List[str] = []
+    reputation_used: List[str] = []
+    outcomes_used: List[str] = []
+
+    scored: List[Dict[str, Any]] = []
+    for c in candidates:
+        if not isinstance(c, dict):
+            continue
+        stage = str(c.get("missionStage") or c.get("actionType") or "UNKNOWN")
+        base = float(c.get("finalScore", 0.0))
+        safe = bool(c.get("safe", True))
+
+        fatigue = 0.06 * recent.get(stage, 0)
+        if recent.get(stage, 0) >= 2:
+            memories_used.append(f"action_fatigue:{stage}={recent[stage]}")
+
+        reli_adj = 0.0
+        st = reli.get(stage)
+        if st:
+            sr = float(st.get("successRate", 0.5))
+            reli_adj = (sr - 0.5) * 0.4
+            outcomes_used.append(f"{stage}:successRate={round(sr, 2)}")
+
+        src = c.get("sourceTarget")
+        src_adj = 0.0
+        if isinstance(src, str) and src in rep_by_host:
+            src_adj = tier_adj(rep_by_host[src])
+            reputation_used.append(f"{src}:{rep_by_host[src]}")
+
+        final = clamp(base + reli_adj + src_adj - fatigue)
+        scored.append({**c, "_stage": stage, "_safe": safe, "_final": round(final, 4)})
+
+    # Rank: safe first, then final score. Selected = best safe candidate.
+    ranked = sorted(scored, key=lambda x: (1 if x["_safe"] else 0, x["_final"]), reverse=True)
+    selected = next((s for s in ranked if s["_safe"] and s["_final"] > 0), None)
+    if selected is None:
+        selected = next((s for s in ranked if s["_safe"]), ranked[0] if ranked else None)
+
+    safety_notes: List[str] = []
+    if paused:
+        safety_notes.append("worker paused — only security/diagnostics/maintenance are safe")
+    if selected is None:
+        return envelope(
+            result={"selected_action": None, "rejected_alternatives": [], "safety_notes": ["no candidates supplied"]},
+            confidence=0.0,
+            reasoning="No candidate actions supplied to the final brain.",
+            evidence=["candidates=0"],
+            risk_level=RISK_NONE,
+            recommended_next_action="no-action-available",
+            safe_to_auto_execute=False,
+        )
+
+    def alt_view(s: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "mission_stage": s["_stage"],
+            "action_type": s.get("actionType"),
+            "final_score": s["_final"],
+            "safe": s["_safe"],
+            "rejected_reason": (
+                None
+                if s is selected
+                else (s.get("rejectionReason") or f"lower final score ({s['_final']})")
+            ),
+        }
+
+    rejected = [alt_view(s) for s in ranked if s is not selected][:8]
+
+    result = {
+        "selected_action": selected["_stage"],
+        "mission_stage": selected["_stage"],
+        "action_type": selected.get("actionType"),
+        "target_content_type": selected.get("contentType"),
+        "target_source": selected.get("sourceTarget"),
+        "target_candidate_url": selected.get("candidateUrl"),
+        "target_package_artifact": selected.get("packageArtifactId"),
+        "expected_result": selected.get("expectedOutput") or "advance the pipeline",
+        "final_score": selected["_final"],
+        "confidence_score": float(selected.get("confidenceScore", selected["_final"])),
+        "risk_score": float(selected.get("riskScore", 0.1)),
+        "urgency_score": float(selected.get("urgencyScore", 0.5)),
+        "source_score": float(selected.get("sourceScore", 0.5)),
+        "quality_expectation": float(selected.get("qualityExpectation", 0.5)),
+        "repair_likelihood": float(selected.get("repairScore", 0.0)),
+        "fallback_action": selected.get("fallbackAction"),
+        "stop_condition": selected.get("stopCondition"),
+        "rejected_alternatives": rejected,
+        "reasoning": (
+            f"Final brain selected {selected['_stage']} (score {selected['_final']}) "
+            f"from {len(ranked)} candidate(s) using exact stage outcomes, action fatigue, "
+            f"and source reputation."
+        ),
+        "evidence_used": [f"{s['_stage']}={s['_final']}" for s in ranked[:4]],
+        "memories_used": memories_used[:10],
+        "source_reputation_used": reputation_used[:10],
+        "stage_outcomes_used": outcomes_used[:10],
+        "safety_notes": safety_notes,
+    }
+
+    return envelope(
+        result=result,
+        confidence=clamp(selected["_final"]),
+        reasoning=result["reasoning"],
+        evidence=result["evidence_used"],
+        risk_level=RISK_LOW,
+        recommended_next_action=str(selected["_stage"]),
+        # Truth + safety gates live in TypeScript; the brain only recommends.
+        safe_to_auto_execute=False,
+    )

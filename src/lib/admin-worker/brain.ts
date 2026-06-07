@@ -143,6 +143,89 @@ export interface BrainDecision {
   missionStage: BrainMissionStage;
   brainExplanation: string;
   brainFailure: string | null;
+  /**
+   * Which layer made the FINAL selection:
+   *   - "python":   the Python brain (the final brain) chose the action.
+   *   - "degraded": Python was unavailable/invalid → safe degraded mode.
+   *   - "candidate": no final selector applied (candidate generation only;
+   *      used by unit tests of the deterministic ranker).
+   */
+  finalBrain?: "python" | "degraded" | "candidate";
+}
+
+/**
+ * Hook that lets the Python brain make the FINAL action selection over the
+ * TS-generated candidate set. Returns the chosen action + which layer
+ * decided. The loop always supplies this; the deterministic ranker
+ * (`decide`) only generates + sub-scores candidates.
+ */
+export type FinalActionSelector = (input: {
+  world: WorldState;
+  decision: BrainDecision;
+  passId?: string;
+}) => Promise<{
+  chosen: BrainAction;
+  source: "python" | "degraded";
+  failure?: string | null;
+} | null>;
+
+/**
+ * Stages that are safe to run when the Python brain is unavailable — they
+ * never autonomously publish public content. Degraded mode is restricted
+ * to these (spec: safe degraded mode does diagnostics, security defense,
+ * reporting, and repair, but NOT autonomous content publishing).
+ */
+export const SAFE_DEGRADED_STAGES: ReadonlySet<BrainMissionStage> = new Set([
+  "SECURITY_DEFENSE",
+  "REPAIR",
+  "REPORTING",
+  "MAINTENANCE",
+  "PAUSED",
+]);
+
+/** Pick the best safe, non-publishing action for degraded mode. */
+export function safeDegradedAction(decision: BrainDecision): BrainAction {
+  const safe = decision.rankedAlternatives
+    .filter((a) => SAFE_DEGRADED_STAGES.has(a.missionStage) && a.safe)
+    .sort((a, b) => b.finalScore - a.finalScore);
+  const pick =
+    safe[0] ??
+    decision.rankedAlternatives.find((a) => a.missionStage === "MAINTENANCE") ??
+    decision.rankedAlternatives[decision.rankedAlternatives.length - 1] ??
+    decision.chosenAction;
+  return {
+    ...pick,
+    reasonSummary: `Safe degraded mode (PYTHON_BRAIN_UNAVAILABLE): ${pick.reasonSummary}`,
+    fallbackAction: "maintenance",
+  };
+}
+
+/** Re-derive the decision's top-level fields from a newly-chosen action. */
+export function applyFinalChosen(
+  decision: BrainDecision,
+  chosen: BrainAction,
+  source: "python" | "degraded",
+  failure?: string | null,
+): BrainDecision {
+  return {
+    ...decision,
+    chosenMode: chosen.mode,
+    chosenPriority: chosen.priority,
+    chosenTaskType: chosen.actionType === "PAUSED" ? null : chosen.actionType,
+    passType: chosen.passType,
+    contentType: chosen.contentType,
+    sourceTarget: chosen.sourceTarget,
+    expectedResult: chosen.expectedOutput,
+    confidenceScore: chosen.confidenceScore,
+    riskScore: chosen.riskScore,
+    reason: chosen.reasonSummary,
+    fallbackAction: chosen.fallbackAction,
+    repairAction: chosen.missionStage === "REPAIR" ? chosen.expectedOutput : null,
+    chosenAction: chosen,
+    missionStage: chosen.missionStage,
+    brainFailure: failure ?? decision.brainFailure,
+    finalBrain: source,
+  };
 }
 
 export interface WorldState {
@@ -656,7 +739,7 @@ function buildExplanation(chosen: BrainAction, rejected: BrainAction[], world: W
  */
 export async function runBrain(
   prisma: PrismaClient,
-  opts: { passId?: string } = {},
+  opts: { passId?: string; finalSelect?: FinalActionSelector } = {},
 ): Promise<BrainDecision> {
   const [world, feedback] = await Promise.all([
     sampleWorld(prisma),
@@ -664,7 +747,27 @@ export async function runBrain(
       () => ({ recentFailedStages: {}, recentlyAdvanced: new Set<string>() }) as ExecutionFeedback,
     ),
   ]);
-  const decision = decide(world, feedback);
+  // The deterministic ranker only GENERATES + sub-scores candidates now.
+  const candidateDecision = { ...decide(world, feedback), finalBrain: "candidate" as const };
+
+  // The Python brain is the FINAL action selector. The loop always supplies
+  // `finalSelect`; if it returns a choice we use it (python or safe-degraded
+  // mode), otherwise we degrade to a safe action — never the legacy TS argmax
+  // for autonomous content work.
+  let decision: BrainDecision = candidateDecision;
+  if (opts.finalSelect) {
+    const picked = await opts
+      .finalSelect({ world, decision: candidateDecision, passId: opts.passId })
+      .catch(() => null);
+    decision = picked
+      ? applyFinalChosen(candidateDecision, picked.chosen, picked.source, picked.failure)
+      : applyFinalChosen(
+          candidateDecision,
+          safeDegradedAction(candidateDecision),
+          "degraded",
+          "PYTHON_BRAIN_UNAVAILABLE",
+        );
+  }
 
   const { id: decisionId } = await recordDecision(prisma, {
     passId: opts.passId,

@@ -137,8 +137,17 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // advisory only — never blocks the decision
   }
 
+  // The Python intelligence brain is the FINAL action selector. TypeScript
+  // generates + sub-scores candidates (runBrain) and validates + executes
+  // the Python choice; if the brain is unavailable/invalid the worker
+  // enters safe degraded mode (PYTHON_BRAIN_UNAVAILABLE) — never a legacy
+  // TS final brain.
   const { runBrain } = await import("./brain");
-  const brain = await runBrain(prisma, { passId: pass.id });
+  const { pythonFinalSelector } = await import("./final-brain");
+  const brain = await runBrain(prisma, {
+    passId: pass.id,
+    finalSelect: pythonFinalSelector(prisma),
+  });
 
   await setPriority(prisma, brain.chosenPriority);
   await setMode(prisma, brain.chosenMode);
@@ -156,6 +165,8 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     safeMetadata: {
       missionStage: brain.missionStage,
       chosenScore: brain.chosenAction.finalScore,
+      finalBrain: brain.finalBrain,
+      degraded: brain.finalBrain === "degraded",
       explanation: brain.brainExplanation,
       brainFailure: brain.brainFailure,
       topRejected: topRejected.map((a) => ({
