@@ -45,19 +45,18 @@ See [Intelligence brain (Python)](#intelligence-brain-python).
 
 ## Architecture
 
-The **Admin Worker artifact pipeline** is the only active path from a
-source page to a public page. The pre-Admin-Worker checklist-first
-build/publish engine in `src/lib/worker/` is **permanently removed** (see
-[Single content path](#single-content-path-no-legacy)): the legacy
-`publish()` writer and `runOneBuildCycle` build engine **always throw** —
-there is **no `ALLOW_LEGACY_PUBLISH` escape hatch and no backwards
-compatibility**, the old build/publish admin routes return `410 Gone`, and
-production readiness fails if a stale `ALLOW_LEGACY_PUBLISH` env is even
-present. The checklist-first data models (`ChecklistItem`,
-`ChecklistCitation`, `AuthoritySource`, `PublishedContent`) remain —
-the Admin Worker pipeline populates `ChecklistItem` + `ChecklistCitation`
-from package artifacts and publishes to `PublishedContent` through the
-Publish Orchestrator.
+The **Admin Worker artifact pipeline** is the only path from a source
+page to a public page (see [Single content path](#single-content-path)).
+There is no other build/publish engine: the pre-Admin-Worker
+build/QA/publish engine has been **deleted outright** — no fallback, no
+escape hatch, no backwards compatibility. What remains under
+`src/lib/checklist/` is purely the **checklist-first content foundation**
+(the master checklists, curated knowledge, content schemas, the authority
+source registry, the janitor, seeding, the build-intent queue, and the
+checklist lifecycle CRUD). The Admin Worker pipeline builds from that
+foundation: it populates `ChecklistItem` + `ChecklistCitation` from
+package artifacts and publishes to `PublishedContent` through the Publish
+Orchestrator.
 
 ```
    ┌──────────────────────────────────────────────────────────────────┐
@@ -116,19 +115,20 @@ design.
 
 ## Data model
 
-**Checklist + published content** (`src/lib/worker/`):
+**Checklist + published content** (`src/lib/checklist/`):
 
-| Model               | Role                                                           |
-| ------------------- | -------------------------------------------------------------- |
-| `ChecklistItem`     | One row per concrete item (populated from package artifacts)   |
-| `AuthoritySource`   | Approved-source registry (Vatican, USCCB, …)                   |
-| `ChecklistCitation` | One citation per (item, URL) with authority level              |
-| `WorkerBuildJob`    | Legacy build-queue row (legacy build engine hard-disabled)     |
-| `WorkerBuildLog`    | Legacy structured build log                                    |
-| `ChecklistQAReport` | Legacy per-build QA score (artifact strict QA is the live one) |
-| `ChecklistVersion`  | Per-publish snapshot for audit & rollback                      |
-| `ChecklistRelation` | Typed relations (saint→feast day, devotion→prayer, …)          |
-| `PublishedContent`  | The only table the public site reads from                      |
+| Model               | Role                                                              |
+| ------------------- | ---------------------------------------------------------------- |
+| `ChecklistItem`     | One row per concrete item (populated from package artifacts)     |
+| `AuthoritySource`   | Approved-source registry (Vatican, USCCB, …)                     |
+| `ChecklistCitation` | One citation per (item, URL) with authority level                |
+| `WorkerBuildJob`    | Build-intent signal the Admin Worker reads (enqueued on approve) |
+| `PublishedContent`  | The only table the public site reads from                        |
+
+A few tables from the prior engine (`WorkerBuildLog`, `ChecklistQAReport`,
+`ChecklistVersion`, `ChecklistRelation`) still exist in the schema but are
+no longer on the active path — the Admin Worker records QA, versioning,
+and relations in its own `AdminWorker*` tables.
 
 **Admin Worker engine** (`src/lib/admin-worker/`):
 
@@ -260,17 +260,17 @@ The public **daily readings** page lives at `/liturgy/readings` (the
 homepage + liturgical calendar link to it); the worker keeps it current and
 routes uncertain days to review.
 
-**Checklist (read-only management surfaces):**
+**Checklist (management surfaces):**
 
-The legacy build/publish admin actions (`worker-run`, per-item
-`publish`, `bulk/build-all`, `bulk/run-autonomous`) return `410 Gone`
-— content is created only by the Admin Worker pipeline. The remaining
-checklist pages are read-only views of the data the worker populates.
+Content is created only by the Admin Worker pipeline. The checklist pages
+are read-only views of the data the worker populates, plus bulk
+**source-curation** actions (verify sources, reject) — building, QA, and
+publishing are handled autonomously by the Admin Worker.
 
 | Card                | Route                              | Purpose                           |
 | ------------------- | ---------------------------------- | --------------------------------- |
 | Checklist dashboard | `/admin/checklist`                 | Counts by status + type           |
-| Build queue         | `/admin/checklist/queue`           | `WorkerBuildJob` state (legacy)   |
+| Build queue         | `/admin/checklist/queue`           | `WorkerBuildJob` (build-intent)   |
 | QA reports          | `/admin/checklist/qa`              | Unreviewed reports                |
 | Published content   | `/admin/checklist/published`       | Items live on the public site     |
 | Approved sources    | `/admin/checklist/sources`         | Authority registry                |
@@ -304,7 +304,7 @@ fully coded and operating **without any AI APIs**. Code lives under
 `src/lib/admin-worker/`. The operator surface is at `/admin/admin-worker`
 (Command Center) and `/admin/diagnostics` (per-subsystem ratings +
 pause toggle). It is the **only** system that creates public content
-(see [Single content path](#single-content-path-no-legacy)).
+(see [Single content path](#single-content-path)).
 
 ### Brain as the FINAL decision brain
 
@@ -332,7 +332,7 @@ or picks a disallowed/unsafe action, TS rejects it (logged for the
 Developer Audit) and enters **safe degraded mode**
 (`PYTHON_BRAIN_UNAVAILABLE`) — security defense, diagnostics, reporting,
 and repair only, **never autonomous content publishing** — rather than
-falling back to a legacy brain. Concretely:
+falling back to a TypeScript final brain. Concretely:
 
 - **The Python brain makes the final selection.** `select_action` ranks
   the candidate set with exact stage outcomes, recency-weighted action
@@ -723,48 +723,47 @@ falling back to a legacy brain. Concretely:
   (heartbeat, brain has run, content goals exist, source discovery
   configured, candidate URLs available, source reads exist, pipeline
   stages tracked, growth orchestrator active, source coverage scored,
-  cross-source verifier wired, post-publish verification works,
-  **legacy publish path disabled**, and **every recent public row
-  traces to a package artifact** — the last two fail if any content
-  could become public through an old path). Every failed check returns
-  a concrete repair instruction. The Command Center surfaces the
-  readiness score and failing checks.
+  cross-source verifier wired, post-publish verification works, and
+  **every recent public row traces to a package artifact** — fails if
+  any content could become public outside the pipeline). Every failed
+  check returns a concrete repair instruction. The Command Center
+  surfaces the readiness score and failing checks.
 
-### Single content path (no legacy)
+### Single content path
 
 The Admin Worker artifact pipeline is the **only** way content becomes
-public. The pre-Admin-Worker build/publish engine is **permanently
-removed — no escape hatch, no backwards compatibility**:
+public. The pre-Admin-Worker build/QA/publish engine has been **deleted
+outright** — there is no second engine, no fallback, and no escape hatch:
 
-- `src/lib/worker/publishing/index.ts` `publish()` — the only writer
-  that ever wrote public rows outside the pipeline — **always throws**.
-  The `ALLOW_LEGACY_PUBLISH` escape hatch and `isLegacyPublishAllowed()`
-  are deleted; the legacy publish body is gone.
-- `runOneBuildCycle` (the legacy build entry point) **always throws**.
+- The legacy build engine, QA scorer, build logger, relation extractor,
+  duplicate detector, source fetcher, and `publish()` writer are all
+  gone from the tree. The only writer of public rows is
+  `runPublishOrchestrator()`.
 - The legacy build/publish admin routes (`checklist/worker-run`,
-  `checklist/[id]/publish`, `bulk/build-all`, `bulk/run-autonomous`)
-  return `410 Gone` (`src/lib/worker/legacy-disabled.ts`).
-- The dispatcher no longer imports `@/lib/worker`; with no
-  `BUILD_READY` / `QA_PASSED` artifact, PACKAGE_BUILD and
-  PUBLIC_PUBLISH return idle rather than falling back to a legacy
-  build.
-- Production readiness **fails** if a stale `ALLOW_LEGACY_PUBLISH` env is
-  present, or if any row published in the last 7 days has no linked
-  `AdminWorkerPackageArtifact`.
-- The checklist / authority-source / content-schema / seed modules under
-  `src/lib/worker` are **retained** — they are the foundation the new
-  pipeline + admin UI build on (`ChecklistItem` → `PublishedContent`),
-  not a legacy publish path.
+  `checklist/[id]/publish`, `bulk/build-all`, `bulk/run-autonomous`) and
+  the dashboard "Build all" / "Run autonomous cycle" buttons have been
+  removed — building and publishing are autonomous.
+- With no `BUILD_READY` / `QA_PASSED` artifact, the PACKAGE_BUILD and
+  PUBLIC_PUBLISH stages return idle — there is nothing to fall back to.
+- Production readiness **fails** if any row published in the last 7 days
+  has no linked `AdminWorkerPackageArtifact` (i.e. something bypassed
+  the pipeline).
+- `src/lib/checklist/` is the **content foundation** the pipeline + admin
+  UI build on (checklists, curated knowledge, content schemas, the
+  authority source registry, the janitor, seeding, the build-intent
+  queue, and the checklist lifecycle CRUD). `unpublish()` (a safe admin
+  op that only flips `isPublished=false`) is the one publishing-adjacent
+  function it keeps.
 
 Live sitemap + cache verification is **mandatory in production**
 (`liveProbeEnabled()` probes the real generated sitemap output + the
 public route unless `ADMIN_WORKER_DISABLE_LIVE_PROBE=1` is set for a
 documented test/local run).
 
-`tests/admin-worker/legacy-system-disabled.test.ts` proves `publish()`
-and `runOneBuildCycle` always throw (even with `ALLOW_LEGACY_PUBLISH=1`),
-PACKAGE_BUILD never runs a legacy build, readiness fails on the stale env,
-and the legacy routes return `410`.
+Because the legacy engine no longer exists as code, the single-content-path
+guarantee is **structural**: `tests/admin-worker/production-mandates.test.ts`
+and the readiness checks prove `runPublishOrchestrator()` is the only
+publish writer and that every recent public row traces to an artifact.
 
 ### Internal modules
 
@@ -910,8 +909,8 @@ tsx scripts/run-worker.ts --worker-id X  # stable worker id
 ```
 
 `run-worker.ts` drives `runAdminWorkerLoop` — each pass runs the
-ranked-action brain then the mission dispatcher (the legacy
-build-queue engine is removed). It is safe to run with multiple
+ranked-action brain then the mission dispatcher, which walks the artifact
+pipeline (there is no separate build-queue engine). It is safe to run with multiple
 replicas; per-stage work is idempotent and durable. The monthly Admin
 Worker Report fires once per worker startup when `isLastDayOfMonth(today)`
 is true, so a restart on the last day of the month still sends the
@@ -1149,7 +1148,7 @@ determinism; brain-specific tests opt back in. Integration tests run with
 ```bash
 npm run admin-worker:proof                    # full gate: prisma validate + typecheck + lint
                                               #   + unit/integration/full-pipeline tests
-                                              #   + no-legacy + no-placeholder tests
+                                              #   + no-placeholder tests
                                               #   + offline brain dry run + content-growth proof
 npm run admin-worker:proof:content            # one content item through all 16 pipeline stages
 npm run admin-worker:proof:all-content-types  # one full pipeline proof per content type (real extractor)
@@ -1224,23 +1223,22 @@ The unit + component suite covers:
   actually fetched and compared, `runPublishOrchestrator()` is the
   normal publish path, post-publish verification performs live
   checks, Developer Audit includes all required sections.
-- **Single-content-path guards** — no legacy system can create,
-  publish, or mutate public content (`legacy-system-disabled.test.ts`);
-  no dispatcher handler only logs without doing work
-  (`dispatcher-no-placeholder-stages.test.ts`); every stage returns
-  the full §3.4 result shape (`dispatcher-outcome-shape.test.ts`);
-  source reputation updates after all ten stages
-  (`source-reputation-stage-coverage.test.ts`); content funnel +
+- **Single-content-path guards** — `runPublishOrchestrator()` is the only
+  publish writer and every recent public row traces to an artifact
+  (`production-mandates.test.ts`, readiness checks); no dispatcher handler
+  only logs without doing work (`dispatcher-no-placeholder-stages.test.ts`);
+  every stage returns the full §3.4 result shape
+  (`dispatcher-outcome-shape.test.ts`); source reputation updates after all
+  ten stages (`source-reputation-stage-coverage.test.ts`); content funnel +
   bottleneck (`content-growth-monitor.test.ts`).
-- **Worker (checklist + publish gate)** — build engine, publish-gate
-  evaluator, QA approval, source validation, diagnostics, janitor,
-  cross-source, duplicate detection, schema compliance, knowledge
-  base, relations, Catholic accuracy (legacy build/publish exercised
-  behind the `ALLOW_LEGACY_PUBLISH` escape hatch).
+- **Checklist foundation** — slug canonicalization, the authority source
+  registry, the build-intent queue (`enqueueBuild`), bulk source curation
+  (verify / reject), the curated knowledge base, content-schema
+  compliance, the janitor, and the master checklists.
 - **App-wide** — API, auth, security, components, data, email,
   observability, i18n, cache test suites.
 
-Total: **1803 passing tests across 220 test files**.
+Total: **2189 passing tests across 272 test files**.
 
 ---
 

@@ -7,10 +7,9 @@
  *   2. Type check
  *   3. Lint
  *   4. Unit + integration + full-pipeline tests
- *   5. No legacy publish path test
- *   6. No placeholder production code test
- *   7. Local worker dry run (offline brain reasoning)
- *   8. Local content growth proof (one item + every content type)
+ *   5. No placeholder production code test
+ *   6. Local worker dry run (offline brain reasoning)
+ *   7. Local content growth proof (one item + every content type)
  *
  * Each step runs to completion; the summary at the end lists every
  * step's status and the process exits non-zero if any step failed, so
@@ -33,16 +32,6 @@ const steps: Step[] = [
     label: "Unit + integration + full-pipeline tests",
     cmd: "npx",
     args: ["vitest", "run"],
-  },
-  {
-    label: "No legacy publish path test",
-    cmd: "npx",
-    args: [
-      "vitest",
-      "run",
-      "tests/admin-worker/legacy-publish-removed.test.ts",
-      "tests/admin-worker/legacy-system-disabled.test.ts",
-    ],
   },
   {
     label: "No placeholder production code test",
