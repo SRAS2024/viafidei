@@ -35,6 +35,11 @@ import { guideKnowledge } from "./guides";
 import { novenaKnowledge } from "./novenas";
 import { apparitionKnowledge } from "./apparitions";
 import { churchDocumentKnowledge } from "./church-documents";
+import { doctorKnowledge } from "./doctors";
+import { popeKnowledge } from "./popes";
+import { riteKnowledge } from "./rites";
+import { parishKnowledge } from "./parishes";
+import { litanyKnowledge } from "./litanies";
 
 export interface CuratedEntry {
   contentType: ChecklistContentType;
@@ -56,6 +61,11 @@ const ALL: CuratedEntry[] = [
   ...novenaKnowledge,
   ...apparitionKnowledge,
   ...churchDocumentKnowledge,
+  ...doctorKnowledge,
+  ...popeKnowledge,
+  ...riteKnowledge,
+  ...parishKnowledge,
+  ...litanyKnowledge,
 ];
 
 const INDEX = new Map<string, CuratedEntry>();

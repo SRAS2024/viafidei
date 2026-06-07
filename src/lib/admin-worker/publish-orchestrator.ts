@@ -51,6 +51,14 @@ export interface PublishOrchestratorInput {
   verifier?: VerifierOutcome;
   /** Spec §5: when supplied, gate requires status="PASSED". */
   strictQAArtifactId?: string;
+  /**
+   * Skip the post-publish side effects (post-publish verification, search /
+   * sitemap / cache verification). These are non-gating follow-ups, so this is
+   * safe for bulk seeding where running them per item would be O(n²); the
+   * worker still runs full verification in its normal passes. The publish
+   * itself — safety gate + full quality gate + persist — is unchanged.
+   */
+  skipPostPublishSideEffects?: boolean;
 }
 
 export type OrchestratorResult =
@@ -381,7 +389,9 @@ export async function runPublishOrchestrator(
         reason: "failed to update existing row to published",
       };
     }
-    await postPublishSideEffects(prisma, input, repub.id, route);
+    if (!input.skipPostPublishSideEffects) {
+      await postPublishSideEffects(prisma, input, repub.id, route);
+    }
     return {
       kind: "published",
       publishedContentId: repub.id,
@@ -426,7 +436,9 @@ export async function runPublishOrchestrator(
     };
   }
 
-  await postPublishSideEffects(prisma, input, created.id, route);
+  if (!input.skipPostPublishSideEffects) {
+    await postPublishSideEffects(prisma, input, created.id, route);
+  }
 
   return {
     kind: "published",
