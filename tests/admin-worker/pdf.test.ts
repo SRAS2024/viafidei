@@ -11,6 +11,7 @@ import type { AdminDeveloperReportLog } from "@prisma/client";
 import { describe, expect, it, vi } from "vitest";
 
 import { generateAdminWorkerDeveloperAuditPdf } from "@/lib/admin-worker/pdf";
+import { DEVELOPER_AUDIT_SECTIONS } from "@/lib/admin-worker/report-generator";
 
 function makePrisma() {
   const reportRow: Partial<AdminDeveloperReportLog> = { id: "r1", status: "PENDING" };
@@ -137,5 +138,37 @@ describe("generateAdminWorkerDeveloperAuditPdf", () => {
       includedSections: ["Diagnostics Results"],
     });
     expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
+  });
+
+  it("renders every declared section, including the granular per-stage logs", async () => {
+    // Guards against declared-but-unrendered drift: each section in
+    // DEVELOPER_AUDIT_SECTIONS must produce a valid PDF when requested alone.
+    for (const section of DEVELOPER_AUDIT_SECTIONS) {
+      const prisma = makePrisma();
+      const { pdf } = await generateAdminWorkerDeveloperAuditPdf(prisma, "LAST_24_HOURS", "admin", {
+        includedSections: [section],
+      });
+      expect(pdf.subarray(0, 4).toString(), `section "${section}" failed to render`).toBe("%PDF");
+    }
+  });
+
+  it("includes the granular pipeline-log sections + brain Worker Requests", () => {
+    for (const required of [
+      "Discovery Logs",
+      "Fetch Logs",
+      "Source Read Logs",
+      "Classification Logs",
+      "Extraction Logs",
+      "Verification Logs",
+      "QA Logs",
+      "Publishing Logs",
+      "Cache Logs",
+      "Content Goal Progress",
+      "Mission Plans",
+      "Executive Summary",
+      "Worker Requests",
+    ]) {
+      expect(DEVELOPER_AUDIT_SECTIONS as readonly string[]).toContain(required);
+    }
   });
 });

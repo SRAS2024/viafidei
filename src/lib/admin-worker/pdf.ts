@@ -102,6 +102,66 @@ export async function generateAdminWorkerDeveloperAuditPdf(
       reportVersion: "admin-worker/0.2",
     });
 
+    const has = (s: string) => sectionsToInclude.has(s);
+
+    // Generic renderer for a category of worker logs, so every declared
+    // per-stage log section actually appears in the report (nothing the worker
+    // recorded in the period is silently dropped). `cap` is generous; the
+    // collector already bounds the period to 1000 rows.
+    type WLog = (typeof data.workerLogs)[number];
+    const renderLogs = (name: string, logs: WLog[], empty: string, cap = 300) => {
+      builder.section(name);
+      builder.paragraph(
+        `${logs.length} log entr${logs.length === 1 ? "y" : "ies"} in this period.`,
+      );
+      if (logs.length === 0) {
+        builder.note(empty);
+        return;
+      }
+      builder.table(
+        [
+          { header: "When", weight: 120 },
+          { header: "Sev", weight: 42 },
+          { header: "Event", weight: 130 },
+          { header: "Message", weight: 158 },
+        ],
+        logs
+          .slice(0, cap)
+          .map((l) => [
+            fmtTime(l.createdAt),
+            l.severity,
+            l.eventName,
+            redactString(l.message).slice(0, 90),
+          ]),
+      );
+      if (logs.length > cap) builder.note(`… ${logs.length - cap} more not shown.`);
+    };
+    const inCat = (cat: string) => data.workerLogs.filter((l) => l.category === cat);
+
+    // ─── Table of Contents ────────────────────────────────────────────
+    if (has("Table of Contents")) {
+      builder.section("Table of Contents");
+      for (const s of options.includedSections ?? DEVELOPER_AUDIT_SECTIONS) {
+        if (s !== "Table of Contents") builder.paragraph(`• ${s}`);
+      }
+    }
+
+    // ─── Executive Summary ────────────────────────────────────────────
+    if (has("Executive Summary")) {
+      builder.section("Executive Summary");
+      builder.keyValue([
+        { label: "Period", value: periodLabel(period) },
+        { label: "Worker passes", value: String(data.recentPasses.length) },
+        { label: "Worker log entries", value: String(data.workerLogs.length) },
+        { label: "Brain decisions", value: String(data.brainDecisions.length) },
+        { label: "Pipeline stage rows", value: String(data.pipelineStages.length) },
+        { label: "Strict-QA results", value: String(data.strictQAResults.length) },
+        { label: "Repairs filed", value: String(data.repairPlans.length) },
+        { label: "Current blockers", value: String(data.currentBlockers?.length ?? 0) },
+        { label: "Open worker requests", value: String((data.workerRequests ?? []).length) },
+      ]);
+    }
+
     // ─── Section 1: Diagnostics Results ───────────────────────────────
     if (sectionsToInclude.has("Diagnostics Results")) {
       builder.section("Diagnostics Results");
@@ -150,7 +210,7 @@ export async function generateAdminWorkerDeveloperAuditPdf(
       if (workerLogs.length === 0) {
         builder.note("No worker log entries in this period.");
       } else {
-        for (const log of workerLogs.slice(0, 250)) {
+        for (const log of workerLogs.slice(0, 500)) {
           builder.paragraph(
             redactString(
               `[${log.createdAt.toISOString()}] ${log.severity} ${log.category} ` +
@@ -164,10 +224,20 @@ export async function generateAdminWorkerDeveloperAuditPdf(
     // ─── Section 3: System Logs (errors + repairs) ─────────────────────
     if (sectionsToInclude.has("System Logs")) {
       builder.section("System Logs");
-      const repairs = data.workerLogs.filter((l) => l.category === "REPAIR");
-      builder.paragraph(`${repairs.length} repair log entries in this period.`);
-      for (const log of repairs.slice(0, 200)) {
-        builder.paragraph(redactString(`[${log.createdAt.toISOString()}] ${log.message}`));
+      const system = data.workerLogs.filter(
+        (l) => l.category === "REPAIR" || l.category === "ERROR",
+      );
+      builder.paragraph(`${system.length} system (error + repair) log entries in this period.`);
+      if (system.length === 0) {
+        builder.note("No error or repair log entries in this period.");
+      } else {
+        for (const log of system.slice(0, 300)) {
+          builder.paragraph(
+            redactString(
+              `[${log.createdAt.toISOString()}] ${log.severity} ${log.category}: ${log.message}`,
+            ),
+          );
+        }
       }
     }
 
@@ -703,6 +773,131 @@ export async function generateAdminWorkerDeveloperAuditPdf(
         builder.paragraph("No current blockers — the chain is unobstructed.");
       } else {
         for (const b of data.currentBlockers.slice(0, 20)) builder.note(b);
+      }
+    }
+
+    // ─── Per-stage pipeline logs (every artifact-chain stage) ─────────
+    // The worker records each stage as an AdminWorkerLog; render one section
+    // per declared stage so the full chain is auditable for the period. Shared
+    // categories (SOURCE_READING, CONTENT_BUILD, POST_PUBLISH) split by event.
+    if (has("Discovery Logs"))
+      renderLogs("Discovery Logs", inCat("SOURCE_DISCOVERY"), "No discovery logs in this period.");
+    if (has("Fetch Logs"))
+      renderLogs(
+        "Fetch Logs",
+        data.workerLogs.filter(
+          (l) => l.category === "SOURCE_READING" && /^fetch/.test(l.eventName),
+        ),
+        "No fetch logs in this period.",
+      );
+    if (has("Source Read Logs"))
+      renderLogs(
+        "Source Read Logs",
+        data.workerLogs.filter(
+          (l) => l.category === "SOURCE_READING" && !/^fetch/.test(l.eventName),
+        ),
+        "No source-read logs in this period.",
+      );
+    if (has("Classification Logs"))
+      renderLogs(
+        "Classification Logs",
+        inCat("CONTENT_CLASSIFICATION"),
+        "No classification logs in this period.",
+      );
+    if (has("Extraction Logs"))
+      renderLogs(
+        "Extraction Logs",
+        data.workerLogs.filter(
+          (l) => l.category === "CONTENT_BUILD" && /extract/i.test(l.eventName),
+        ),
+        "No extraction logs in this period.",
+      );
+    if (has("Package Artifact Logs"))
+      renderLogs(
+        "Package Artifact Logs",
+        data.workerLogs.filter(
+          (l) =>
+            l.category === "CONTENT_BUILD" && /(package|artifact|build_from)/i.test(l.eventName),
+        ),
+        "No package-artifact logs in this period.",
+      );
+    if (has("Checklist and Citation Logs"))
+      renderLogs(
+        "Checklist and Citation Logs",
+        data.workerLogs.filter(
+          (l) => l.category === "CONTENT_BUILD" && /(checklist|citation)/i.test(l.eventName),
+        ),
+        "No checklist/citation logs in this period.",
+      );
+    if (has("Verification Logs"))
+      renderLogs("Verification Logs", inCat("VALIDATION"), "No verification logs in this period.");
+    if (has("QA Logs")) renderLogs("QA Logs", inCat("QA"), "No QA logs in this period.");
+    if (has("Publishing Logs"))
+      renderLogs("Publishing Logs", inCat("PUBLISHING"), "No publishing logs in this period.");
+    if (has("Search and Sitemap Logs"))
+      renderLogs(
+        "Search and Sitemap Logs",
+        data.workerLogs.filter(
+          (l) => l.category === "POST_PUBLISH" && /(search|sitemap)/i.test(l.eventName),
+        ),
+        "No search/sitemap logs in this period.",
+      );
+    if (has("Cache Logs"))
+      renderLogs(
+        "Cache Logs",
+        data.workerLogs.filter((l) => l.category === "POST_PUBLISH" && /cache/i.test(l.eventName)),
+        "No cache logs in this period.",
+      );
+    if (has("Homepage Logs"))
+      renderLogs("Homepage Logs", inCat("HOMEPAGE"), "No homepage logs in this period.");
+
+    // ─── Content Goal Progress ────────────────────────────────────────
+    if (has("Content Goal Progress")) {
+      builder.section("Content Goal Progress");
+      if (data.contentGoals.length === 0) {
+        builder.note("No content goals seeded.");
+      } else {
+        builder.table(
+          [
+            { header: "Content type", weight: 150 },
+            { header: "Have / Target", weight: 110, align: "right" },
+            { header: "Hard max", weight: 70, align: "right" },
+            { header: "Gap", weight: 70, align: "right" },
+            { header: "Status", weight: 100 },
+          ],
+          data.contentGoals.map((g) => [
+            g.contentType,
+            `${g.currentValidCount} / ${g.desiredTarget}`,
+            g.canonicalMax == null ? "—" : String(g.canonicalMax),
+            String(g.gapCount),
+            g.status,
+          ]),
+        );
+      }
+    }
+
+    // ─── Mission Plans (the brain's chosen mission each pass) ──────────
+    if (has("Mission Plans")) {
+      builder.section("Mission Plans");
+      if (data.brainDecisions.length === 0) {
+        builder.note("No mission plans (brain decisions) in this period.");
+      } else {
+        builder.table(
+          [
+            { header: "When", weight: 120 },
+            { header: "Mission stage", weight: 130 },
+            { header: "Type", weight: 80 },
+            { header: "Reason", weight: 130 },
+          ],
+          data.brainDecisions
+            .slice(0, 50)
+            .map((d) => [
+              fmtTime(d.createdAt),
+              d.missionStage ?? "—",
+              d.contentType ?? "—",
+              (d.reason ?? "").slice(0, 70),
+            ]),
+        );
       }
     }
 

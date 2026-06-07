@@ -97,6 +97,7 @@ export interface DeveloperAuditData {
     contentType: string;
     minimumTarget: number;
     desiredTarget: number;
+    canonicalMax: number | null;
     currentValidCount: number;
     gapCount: number;
     status: string;
@@ -664,6 +665,7 @@ export async function collectDeveloperAuditData(
       contentType: g.contentType,
       minimumTarget: g.minimumTarget,
       desiredTarget: g.desiredTarget,
+      canonicalMax: g.canonicalMax ?? null,
       currentValidCount: g.currentValidCount,
       gapCount: g.gapCount,
       status: g.status,
