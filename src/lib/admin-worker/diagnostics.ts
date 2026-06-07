@@ -1042,6 +1042,37 @@ async function ratingSourceCoverage(prisma: PrismaClient): Promise<HealthRating>
   };
 }
 
+async function ratingRollback(prisma: PrismaClient): Promise<HealthRating> {
+  // Rollback durability + recent activity (spec: rollback records appear in
+  // diagnostics). Recent rollbacks mean content failed verification and was
+  // pulled back — surfaced as a warn so operators notice, never a hard fail
+  // (rollback is the safety mechanism working).
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [total, recent, pendingReview] = await Promise.all([
+    prisma.adminWorkerRollbackLedger.count().catch(() => 0),
+    prisma.adminWorkerRollbackLedger.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.adminWorkerRollbackLedger
+      .count({ where: { humanReviewCreated: true, createdAt: { gte: since } } })
+      .catch(() => 0),
+  ]);
+  return {
+    key: "admin_worker_rollback",
+    label: "Rollback ledger",
+    status: recent === 0 ? "pass" : pendingReview > 0 ? "warn" : "pass",
+    score: recent === 0 ? 1 : pendingReview > 0 ? 0.6 : 0.85,
+    lastCheckedAt: new Date(),
+    dataSource: "AdminWorkerRollbackLedger",
+    summary:
+      recent === 0
+        ? `${total} rollback record(s); none in the last 7d.`
+        : `${recent} rollback(s) in the last 7d${pendingReview > 0 ? `, ${pendingReview} awaiting human review` : ""}.`,
+    recommendedRepair:
+      pendingReview > 0
+        ? "Review the human-review rollbacks in the rollback ledger and decide restore vs delete."
+        : undefined,
+  };
+}
+
 const RATINGS: ReadonlyArray<RatingFn> = [
   ratingOverall,
   ratingBrain,
@@ -1086,6 +1117,7 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingGrowthOrchestrator,
   ratingRepairOrchestrator,
   ratingPostPublish,
+  ratingRollback,
 ];
 
 export async function runAdminWorkerDiagnostics(prisma: PrismaClient): Promise<HealthRating[]> {

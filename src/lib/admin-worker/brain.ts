@@ -49,6 +49,7 @@ import { persistActionScores } from "./action-scores";
 import { recordReasoningEdges } from "./reasoning-graph";
 import { enumerateCandidateActions } from "./brain-candidates";
 import { scoreAction } from "./brain-scoring";
+import { summarizeStageReliability } from "./stage-outcomes";
 
 /**
  * The pipeline stage the brain decided to advance. Mirrors the
@@ -570,24 +571,37 @@ export async function sampleExecutionFeedback(
     })
     .catch(() => [] as Array<{ missionStage: string | null }>);
 
-  // Join brain decisions with their downstream stage_dispatched log
-  // to attribute failures per missionStage. We approximate by
-  // counting consecutive decisions choosing the same stage — the
-  // assumption is that if the brain keeps picking the same stage
-  // and growth isn't happening, that stage is failing.
+  // Exact stage-failure attribution is the NORMAL learning path: the real
+  // AdminWorkerStageOutcome ledger tells us precisely which stages failed /
+  // needed repair. The approximate "consecutive same-stage runs" heuristic
+  // below is emergency-only — used solely when no exact outcomes exist yet.
+  const exactReliability = await summarizeStageReliability(prisma, { sinceHours: 48 }).catch(
+    () => [],
+  );
   const stageRuns: Record<string, number> = {};
-  let prev: string | null = null;
-  let run = 0;
-  for (const d of recentDecisions) {
-    if (!d.missionStage) continue;
-    if (d.missionStage === prev) {
-      run += 1;
-    } else {
-      run = 1;
-      prev = d.missionStage;
+  if (exactReliability.length > 0) {
+    for (const s of exactReliability) {
+      const bad = s.failures + s.needsRepair;
+      if (bad > 0) stageRuns[s.stage] = bad;
     }
-    if (run >= 3) {
-      stageRuns[d.missionStage] = (stageRuns[d.missionStage] ?? 0) + 1;
+  } else {
+    // Emergency fallback (no exact stage outcomes recorded yet): approximate
+    // by counting consecutive decisions choosing the same stage — if the
+    // brain keeps picking the same stage and growth isn't happening, that
+    // stage is likely failing.
+    let prev: string | null = null;
+    let run = 0;
+    for (const d of recentDecisions) {
+      if (!d.missionStage) continue;
+      if (d.missionStage === prev) {
+        run += 1;
+      } else {
+        run = 1;
+        prev = d.missionStage;
+      }
+      if (run >= 3) {
+        stageRuns[d.missionStage] = (stageRuns[d.missionStage] ?? 0) + 1;
+      }
     }
   }
 
