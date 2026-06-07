@@ -256,6 +256,56 @@ function isLikelyHost(entity: string): boolean {
   return true;
 }
 
+/** Read a string field from a repair plan's JSON metadata, if present. */
+function readPlanMetaString(plan: AdminWorkerRepairPlan, key: string): string | null {
+  const meta = plan.metadata;
+  if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+    const v = (meta as Record<string, unknown>)[key];
+    if (typeof v === "string") return v;
+  }
+  return null;
+}
+
+interface RepairSourceRead {
+  id: string;
+  sourceUrl: string;
+  sourceHost: string;
+  extractedTitle: string | null;
+  extractedText: string | null;
+  extractedHeadings: unknown;
+  detectedContentType: string | null;
+}
+
+/**
+ * Resolve the source read a CLASSIFY/EXTRACT repair should re-run against.
+ * Prefers the `sourceReadId` recorded on the plan's metadata; falls back to
+ * treating failedEntity as a read id. Returns null when no read is
+ * resolvable (the handler then defers to a different source).
+ */
+async function loadSourceReadForPlan(
+  prisma: PrismaClient,
+  plan: AdminWorkerRepairPlan,
+): Promise<RepairSourceRead | null> {
+  const readId =
+    readPlanMetaString(plan, "sourceReadId") ??
+    (plan.failedEntity && !isLikelyHost(plan.failedEntity) ? plan.failedEntity : null);
+  if (!readId) return null;
+  return prisma.adminWorkerSourceRead
+    .findUnique({
+      where: { id: readId },
+      select: {
+        id: true,
+        sourceUrl: true,
+        sourceHost: true,
+        extractedTitle: true,
+        extractedText: true,
+        extractedHeadings: true,
+        detectedContentType: true,
+      },
+    })
+    .catch(() => null);
+}
+
 async function executePlan(
   prisma: PrismaClient,
   plan: AdminWorkerRepairPlan,
@@ -456,16 +506,85 @@ async function executePlan(
       }
       return { ok: true, reason: `${plan.kind} → reputation deboosted` };
     }
-    case "CLASSIFY_FAILED":
-    case "EXTRACT_FAILED": {
-      // The next dispatcher pass will re-classify / re-extract. We
-      // record a memory failure pattern so the brain notices.
+    case "CLASSIFY_FAILED": {
+      // Immediate recovery (spec): re-run classification from the stored
+      // source read NOW. On a usable result the read gains a content type
+      // and auto-advances to extraction. Otherwise record the pattern.
+      const read = await loadSourceReadForPlan(prisma, plan);
+      if (read) {
+        const { classify } = await import("./classifier");
+        const result = classify({
+          url: read.sourceUrl,
+          title: read.extractedTitle,
+          bodyText: read.extractedText ?? "",
+          headings: Array.isArray(read.extractedHeadings)
+            ? (read.extractedHeadings as string[])
+            : [],
+        });
+        if (result.contentType !== "WRONG" && result.contentType !== "UNUSABLE") {
+          await prisma.adminWorkerSourceRead
+            .update({
+              where: { id: read.id },
+              data: { detectedContentType: result.contentType, confidenceScore: result.confidence },
+            })
+            .catch(() => undefined);
+          return {
+            ok: true,
+            reason: `re-classified ${read.sourceUrl} as ${result.contentType} → advanced to extraction`,
+          };
+        }
+      }
       const { rememberFailurePattern } = await import("./memory");
       await rememberFailurePattern(prisma, {
         patternKey: `${plan.kind}|${plan.failedEntity ?? "unknown"}`,
         details: { plan: plan.id },
       }).catch(() => undefined);
-      return { ok: true, reason: `${plan.kind} → failure pattern recorded` };
+      return {
+        ok: false,
+        reason: read
+          ? "re-classification still unusable — needs a different source"
+          : "no source read available to re-classify",
+      };
+    }
+    case "EXTRACT_FAILED": {
+      // Immediate recovery (spec): re-run extraction from the stored read
+      // for its detected type NOW. If the required fields are recovered we
+      // reset the artifact so the build advances; if the source genuinely
+      // lacks them, fall through to deferred (pull from another source).
+      const read = await loadSourceReadForPlan(prisma, plan);
+      if (read?.detectedContentType) {
+        const { extractByType } = await import("./extractors");
+        try {
+          const extracted = extractByType(read.detectedContentType as never, {
+            url: read.sourceUrl,
+            host: read.sourceHost,
+            title: read.extractedTitle ?? "",
+            bodyText: read.extractedText ?? "",
+          });
+          if (extracted.fatalReasons.length === 0) {
+            // Recovered — clear the stale artifact so the EXTRACTION stage
+            // rebuilds a complete package from this read (auto-advance).
+            await prisma.adminWorkerPackageArtifact
+              .deleteMany({ where: { sourceReadId: read.id, status: "EXTRACTED" } })
+              .catch(() => undefined);
+            return {
+              ok: true,
+              reason: `re-extracted ${read.detectedContentType} from ${read.sourceUrl} → artifact reset to rebuild`,
+            };
+          }
+        } catch {
+          /* fall through to deferred recovery */
+        }
+      }
+      const { rememberFailurePattern } = await import("./memory");
+      await rememberFailurePattern(prisma, {
+        patternKey: `${plan.kind}|${plan.failedEntity ?? "unknown"}`,
+        details: { plan: plan.id, sourceReadId: readPlanMetaString(plan, "sourceReadId") },
+      }).catch(() => undefined);
+      return {
+        ok: false,
+        reason: "re-extraction could not recover required fields — deferring to another source",
+      };
     }
     case "QA_MISSING_FIELDS": {
       return { ok: true, reason: "QA gap recorded for review" };
@@ -510,8 +629,25 @@ async function executePlan(
       return { ok: false, reason: "no failedEntity host provided" };
     }
     case "PERSIST_FAILED": {
-      // Pure DB issue — log + retry on the next pass.
-      return { ok: true, reason: "persist failure logged for retry" };
+      // Immediate retry once if the database is healthy (spec). A pure
+      // DB blip clears on retry; an unhealthy DB defers (external wait).
+      const healthy = await prisma
+        .$queryRawUnsafe("SELECT 1")
+        .then(() => true)
+        .catch(() => false);
+      if (!healthy) {
+        return { ok: false, reason: "database unhealthy — deferring persist retry" };
+      }
+      // Reset a NEEDS_REPAIR artifact so the PERSISTENCE stage retries it.
+      if (plan.failedEntity) {
+        await prisma.adminWorkerPackageArtifact
+          .updateMany({
+            where: { id: plan.failedEntity, status: "NEEDS_REPAIR" },
+            data: { status: "BUILD_READY" },
+          })
+          .catch(() => undefined);
+      }
+      return { ok: true, reason: "database healthy — persist retried" };
     }
     default:
       return { ok: false, reason: `no handler for ${plan.kind}` };

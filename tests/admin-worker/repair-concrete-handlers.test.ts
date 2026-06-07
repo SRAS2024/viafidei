@@ -354,4 +354,73 @@ describe("repair-orchestrator concrete handlers (spec §9)", () => {
     expect(out.plansSucceeded).toBe(1);
     expect(out.results[0].reason).toContain("refreshed + verified");
   });
+
+  it("EXTRACT_FAILED immediately re-extracts from the stored read + resets the artifact", async () => {
+    const MEMORARE =
+      "Remember, O most gracious Virgin Mary, that never was it known that anyone who fled to thy " +
+      "protection, implored thy help, or sought thy intercession was left unaided. Amen.";
+    const deleteMany = vi.fn(async () => ({ count: 1 }));
+    const prisma = {
+      adminWorkerRepairPlan: {
+        findMany: vi.fn(async () => [
+          {
+            id: "plan-ex-1",
+            kind: "EXTRACT_FAILED",
+            failedEntity: "vatican.va",
+            repairAction: "re-extract",
+            status: "PENDING",
+            attempts: 0,
+            maxAttempts: 5,
+            lastAttemptAt: null,
+            nextAttemptAt: null,
+            metadata: { sourceReadId: "read-1" },
+          },
+        ]),
+        update: vi.fn(async () => undefined),
+      },
+      adminWorkerSourceRead: {
+        findUnique: vi.fn(async () => ({
+          id: "read-1",
+          sourceUrl: "https://www.vatican.va/memorare.html",
+          sourceHost: "vatican.va",
+          extractedTitle: "The Memorare",
+          extractedText: MEMORARE,
+          extractedHeadings: [],
+          detectedContentType: "PRAYER",
+        })),
+      },
+      adminWorkerPackageArtifact: { deleteMany },
+    } as unknown as Parameters<typeof runRepairOrchestrator>[0];
+    const out = await runRepairOrchestrator(prisma);
+    expect(out.plansSucceeded).toBe(1);
+    expect(deleteMany).toHaveBeenCalled();
+    expect(out.results[0].reason).toContain("re-extracted");
+  });
+
+  it("PERSIST_FAILED retries immediately when the database is healthy", async () => {
+    const updateMany = vi.fn(async () => ({ count: 1 }));
+    const prisma = {
+      adminWorkerRepairPlan: {
+        findMany: vi.fn(async () => [
+          {
+            id: "plan-persist-1",
+            kind: "PERSIST_FAILED",
+            failedEntity: "artifact-1",
+            repairAction: "retry persist",
+            status: "PENDING",
+            attempts: 0,
+            maxAttempts: 5,
+            lastAttemptAt: null,
+            nextAttemptAt: null,
+          },
+        ]),
+        update: vi.fn(async () => undefined),
+      },
+      adminWorkerPackageArtifact: { updateMany },
+      $queryRawUnsafe: vi.fn(async () => [{ "?column?": 1 }]),
+    } as unknown as Parameters<typeof runRepairOrchestrator>[0];
+    const out = await runRepairOrchestrator(prisma);
+    expect(out.plansSucceeded).toBe(1);
+    expect(out.results[0].reason).toContain("persist retried");
+  });
 });
