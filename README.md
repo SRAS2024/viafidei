@@ -1296,7 +1296,19 @@ python3 -m intelligence --selftest   # run every op against a sample payload
 python3 -m intelligence --list-ops   # list ops + protocol version
 npm run brain:test                   # python unit tests (stdlib unittest)
 npm run brain:selftest               # same as --selftest
+npm run brain:proof                  # unified-intelligence proof (spec proof points 3-13)
+npm run admin-worker:proof:brain     # proof points 1-2 (Python is the final brain; no legacy path)
 ```
+
+**Proof suite.** `intelligence/tests/test_unified_proof.py` +
+`tests/admin-worker/proof/unified-intelligence.proof.test.ts` are a single,
+auditable demonstration of the spec's 13 proof points: the Python brain is the
+unified final decision brain, there is no old competing intelligence path, and
+the brain creates a SelfModel, explains its own architecture, finds its own
+weaknesses, ranks its own upgrades, detects stuckness, simulates actions,
+calibrates confidence, detects missing tests, reasons through Catholic authority,
+detects claim conflicts, and stays safe / auditable / review-gated. Both run in
+`npm run verify:all`.
 
 The Python runtime ships **inside the worker image** (`Dockerfile.worker`
 copies the `python:3.11-slim-bookworm` interpreter + stdlib, the same Debian

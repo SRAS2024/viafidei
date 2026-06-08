@@ -31,6 +31,7 @@
     "readings:refresh": "tsx scripts/refresh-daily-readings.ts",
     "brain:selftest": "python3 -m intelligence --selftest",
     "brain:test": "python3 -m unittest discover -s intelligence/tests -t .",
+    "brain:proof": "python3 -m unittest intelligence.tests.test_unified_proof",
     "seed:checklist": "tsx scripts/seed-checklist.ts",
     "seed:content": "tsx scripts/seed-curated-content.ts",
     "admin-worker:proof": "tsx scripts/admin-worker-proof.ts",
@@ -38,11 +39,12 @@
     "admin-worker:proof:all-content-types": "vitest run tests/admin-worker/proof/all-content-types.proof.test.ts",
     "admin-worker:proof:security": "vitest run tests/admin-worker/proof/security.proof.test.ts",
     "admin-worker:proof:reports": "vitest run tests/admin-worker/proof/reports.proof.test.ts",
+    "admin-worker:proof:brain": "vitest run tests/admin-worker/proof/unified-intelligence.proof.test.ts",
     "admin-worker:proof:live": "tsx scripts/admin-worker-live-content-proof.ts",
     "admin-worker:proof:autonomy": "tsx scripts/admin-worker-autonomy-proof.ts",
     "admin-worker:proof:dry-run": "tsx scripts/admin-worker-live-dry-run.ts",
     "admin-worker:no-placeholders": "vitest run tests/admin-worker/no-placeholder-phrases.test.ts tests/admin-worker/dispatcher-no-placeholder-stages.test.ts",
-    "verify:all": "npm run db:validate && prisma validate && prisma generate && npm run brain:selftest && npm run brain:test && npm run typecheck && npm run lint && npm run format:check && npm run admin-worker:no-placeholders && npm run test && npm run admin-worker:proof:content && npm run admin-worker:proof:all-content-types && npm run admin-worker:proof:security && npm run admin-worker:proof:reports && npm run admin-worker:proof:dry-run"
+    "verify:all": "npm run db:validate && prisma validate && prisma generate && npm run brain:selftest && npm run brain:test && npm run brain:proof && npm run typecheck && npm run lint && npm run format:check && npm run admin-worker:no-placeholders && npm run test && npm run admin-worker:proof:content && npm run admin-worker:proof:all-content-types && npm run admin-worker:proof:security && npm run admin-worker:proof:reports && npm run admin-worker:proof:brain && npm run admin-worker:proof:dry-run"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
