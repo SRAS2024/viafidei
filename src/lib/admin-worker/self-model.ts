@@ -341,29 +341,45 @@ export async function runSelfModelPass(
     }));
     const { created, bumped } = await recordDeveloperRequests(prisma, devRequests, "self_model");
 
-    // Durable self-model snapshot (Postgres audit trail). A dedicated snapshot
-    // table can replace this log row in a later migration.
+    // Durable self-model snapshot — the dedicated AdminWorkerSelfModelSnapshot
+    // table is the source of truth (Postgres owns SelfModel snapshots); the
+    // audit log keeps only a timeline marker.
+    const m = modelEnv.result;
+    const importCycles = (callEnv?.result as { cycle_count?: number } | null)?.cycle_count ?? 0;
+    await prisma.adminWorkerSelfModelSnapshot
+      .create({
+        data: {
+          passId: ctx.passId ?? null,
+          fileCount: m.file_count,
+          totalLines: m.total_lines,
+          routeCount: m.route_count,
+          prismaModelCount: m.prisma_model_count,
+          scriptCount: m.script_count,
+          workerStageCount: m.worker_stage_count,
+          brainOpCount: m.brain_op_count,
+          coverageRatio,
+          weakCount: weakEnv?.result?.weak_count ?? 0,
+          untestedCount: untestedEnv?.result?.untested_count ?? 0,
+          orphanCount: orphanEnv?.result?.orphan_count ?? 0,
+          duplicatePairs: dupEnv?.result?.pair_count ?? 0,
+          importCycles,
+          architecture: archEnv?.result?.layers ?? [],
+          topUpgrades: upgrades.slice(0, 5).map((u) => u.title),
+          model: JSON.parse(JSON.stringify(m)),
+        },
+      })
+      .catch(() => undefined);
+
     await writeAdminWorkerLog(prisma, {
       passId: ctx.passId ?? undefined,
       category: "REPORT",
       severity: weakEnv?.result?.weak_count ? "WARN" : "INFO",
       eventName: "self_model_built",
       message:
-        `Self-model: ${modelEnv.result.file_count} files, ${modelEnv.result.brain_op_count} brain ops, ` +
-        `${modelEnv.result.route_count} routes, ${modelEnv.result.prisma_model_count} models; ` +
-        `coverage ${Math.round(coverageRatio * 100)}%; ${weakEnv?.result?.weak_count ?? 0} weak, ` +
-        `${untestedEnv?.result?.untested_count ?? 0} untested; ${created} new + ${bumped} bumped upgrade request(s).`,
-      safeMetadata: {
-        model: JSON.parse(JSON.stringify(modelEnv.result)),
-        weak_count: weakEnv?.result?.weak_count ?? 0,
-        untested_count: untestedEnv?.result?.untested_count ?? 0,
-        orphan_count: orphanEnv?.result?.orphan_count ?? 0,
-        duplicate_pairs: dupEnv?.result?.pair_count ?? 0,
-        import_cycles: (callEnv?.result as { cycle_count?: number } | null)?.cycle_count ?? 0,
-        coverage_ratio: coverageRatio,
-        architecture: archEnv?.result?.layers ?? [],
-        top_upgrades: upgrades.slice(0, 5).map((u) => u.title),
-      },
+        `Self-model: ${m.file_count} files, ${m.brain_op_count} brain ops, ${m.route_count} routes, ` +
+        `${m.prisma_model_count} models; coverage ${Math.round(coverageRatio * 100)}%; ` +
+        `${weakEnv?.result?.weak_count ?? 0} weak, ${untestedEnv?.result?.untested_count ?? 0} untested; ` +
+        `${created} new + ${bumped} bumped upgrade request(s).`,
     }).catch(() => undefined);
 
     return {

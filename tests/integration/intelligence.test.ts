@@ -75,6 +75,13 @@ afterAll(async () => {
   await prisma.adminWorkerRepairPlan.deleteMany({});
   await prisma.adminWorkerPass.deleteMany({});
   await prisma.contentGoal.deleteMany({});
+  // Dedicated unified-intelligence tables.
+  await prisma.adminWorkerSelfModelSnapshot.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerMissionState.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerCapabilityScore.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerCalibrationHistory.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerTestGapRecord.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerStucknessRecord.deleteMany({}).catch(() => undefined);
   await prisma.adminWorkerSourceBlock.deleteMany({}).catch(() => undefined);
   await prisma.adminWorkerSourceRead.deleteMany({}).catch(() => undefined);
   // Tear down the persistent brain process so vitest can exit cleanly.
@@ -350,11 +357,13 @@ describe("schema/UI awareness + content custody", () => {
       where: { op: "build_call_graph" },
     });
     expect(callGraph).not.toBeNull();
-    // A durable self-model snapshot was persisted (Postgres audit trail).
-    const snapshot = await prisma.adminWorkerLog.findFirst({
-      where: { eventName: "self_model_built" },
+    // A durable self-model snapshot was persisted to its dedicated table.
+    const snapshot = await prisma.adminWorkerSelfModelSnapshot.findFirst({
+      orderBy: { createdAt: "desc" },
     });
     expect(snapshot).not.toBeNull();
+    expect(snapshot!.fileCount).toBeGreaterThan(0);
+    expect(snapshot!.brainOpCount).toBeGreaterThan(0);
     // The worker turns ranked self-upgrades into developer requests — each a
     // complete, structured product-manager record (spec item 7).
     const req = await prisma.adminWorkerDeveloperRequest.findFirst({
@@ -429,9 +438,14 @@ describe("mission control + stuckness (wired into the loop)", () => {
       where: { op: "recommend_next_mission_action" },
     });
     expect(nextAction).not.toBeNull();
-    // A durable mission-control snapshot was persisted (dashboard surfaces it).
+    // Durable mission state was persisted to its dedicated table.
     const snap = await prisma.adminWorkerLog.findFirst({ where: { eventName: "mission_control" } });
     expect(snap).not.toBeNull();
+    const prayerMission = await prisma.adminWorkerMissionState.findUnique({
+      where: { contentType: "PRAYER" },
+    });
+    expect(prayerMission).not.toBeNull();
+    expect(prayerMission!.completionPct).toBeGreaterThanOrEqual(0);
     // The least-complete open mission (PRAYER) is the next target, not the
     // already-complete SACRAMENT.
     expect(res.nextContentType).toBe("PRAYER");
@@ -471,6 +485,12 @@ describe("mission control + stuckness (wired into the loop)", () => {
       where: { source: "stuckness" },
     });
     expect(dr).not.toBeNull();
+    // Durable stuckness record persisted to its dedicated table.
+    const stuckRow = await prisma.adminWorkerStucknessRecord.findFirst({
+      orderBy: { createdAt: "desc" },
+    });
+    expect(stuckRow).not.toBeNull();
+    expect(stuckRow!.signals.length).toBeGreaterThan(0);
   });
 });
 
@@ -541,6 +561,13 @@ describe("post-pass reflection (self-explanation + test gaps)", () => {
       where: { source: "test_gaps" },
     });
     expect(dr).not.toBeNull();
+    // Durable test-gap record + capability scores + calibration history persisted.
+    const gapRow = await prisma.adminWorkerTestGapRecord.findFirst();
+    expect(gapRow).not.toBeNull();
+    const capRow = await prisma.adminWorkerCapabilityScore.findFirst();
+    expect(capRow).not.toBeNull();
+    const calRow = await prisma.adminWorkerCalibrationHistory.findFirst();
+    expect(calRow).not.toBeNull();
 
     // Replay & resilience reasoning ran over the event-sourced record.
     const cmp = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "compare_decisions" } });

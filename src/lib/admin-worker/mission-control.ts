@@ -122,6 +122,33 @@ export async function runMissionControlPass(
       nextAction = (actionEnv?.result as { action?: string } | undefined)?.action;
     }
 
+    // Durable mission state — one row per content type (Postgres owns mission
+    // state); upserted each pass.
+    for (const m of missions) {
+      if (!m.content_type) continue;
+      const isNext = m.content_type === nextContentType;
+      await prisma.adminWorkerMissionState
+        .upsert({
+          where: { contentType: m.content_type },
+          create: {
+            contentType: m.content_type,
+            goal: `Build complete ${m.content_type.toLowerCase()} section`,
+            existingContent: m.existing_content ?? 0,
+            completionPct: m.completion_pct ?? 0,
+            status: m.status ?? "in_progress",
+            blockers: isNext ? blockers : [],
+            nextAction: isNext ? (nextAction ?? null) : null,
+          },
+          update: {
+            existingContent: m.existing_content ?? 0,
+            completionPct: m.completion_pct ?? 0,
+            status: m.status ?? "in_progress",
+            ...(isNext ? { blockers, nextAction: nextAction ?? null } : {}),
+          },
+        })
+        .catch(() => undefined);
+    }
+
     await writeAdminWorkerLog(prisma, {
       passId: ctx.passId ?? undefined,
       category: "REPORT",
@@ -223,6 +250,18 @@ export async function runStucknessPass(
       ],
       "stuckness",
     ).catch(() => undefined);
+
+    // Durable stuckness record (Postgres owns stuckness records).
+    await prisma.adminWorkerStucknessRecord
+      .create({
+        data: {
+          passId: ctx.passId ?? null,
+          signals,
+          strategy,
+          publishedDelta,
+        },
+      })
+      .catch(() => undefined);
 
     await writeAdminWorkerLog(prisma, {
       passId: ctx.passId ?? undefined,

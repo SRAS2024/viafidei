@@ -1256,14 +1256,27 @@ Python brain selects it whenever it is online (the default); otherwise the
 worker enters safe degraded mode and never falls back to a TypeScript final
 brain.
 
-### Postgres tables (migration `0038`)
+### Postgres tables (Postgres owns the durable memory + audit store)
 
-`AdminWorkerEmbedding` (vector/semantic-memory store, JSON embeddings — no
-pgvector required), `AdminWorkerGraphNode` / `AdminWorkerGraphEdge`
-(knowledge graph; inferred edges land `PROPOSED` until approved),
-`AdminWorkerDeveloperRequest` (the worker's requests to the developer,
-deduped by fingerprint), and `AdminWorkerBrainCall` (audit trail of every
-brain call).
+Core intelligence stores (migration `0038`): `AdminWorkerEmbedding`
+(vector/semantic-memory store, JSON embeddings — no pgvector required),
+`AdminWorkerGraphNode` / `AdminWorkerGraphEdge` (knowledge graph; inferred edges
+land `PROPOSED` until approved), `AdminWorkerMemory` (multi-layer learning),
+`AdminWorkerDeveloperRequest` (the worker's requests to the developer, deduped by
+fingerprint, with the full 20-field structure in `metadata`),
+`AdminWorkerBrainCall` (audit trail of every brain call),
+`AdminWorkerDecision` (decision **event-sourcing** / replay records, with the
+full ranked candidate list), `AdminWorkerStageOutcome` (action-outcome records),
+and `AdminWorkerSourceReputation` (source memory).
+
+Dedicated unified-intelligence stores (migration `0044`) — so Postgres, not a
+generic log, owns each dataset the spec assigns to it:
+`AdminWorkerSelfModelSnapshot` (SelfModel snapshots), `AdminWorkerMissionState`
+(mission state, one row per content type), `AdminWorkerCapabilityScore`
+(capability scores), `AdminWorkerCalibrationHistory` (confidence-calibration
+history), `AdminWorkerTestGapRecord` (test-gap records), and
+`AdminWorkerStucknessRecord` (stuckness records). The worker writes these as the
+source of truth each pass; the dashboard and Developer Audit read from them.
 
 ### Admin surface
 

@@ -148,43 +148,30 @@ async function collectIntelligence(since: Date): Promise<IntelligenceAudit> {
           select: { safeMetadata: true },
         })
         .catch(() => null),
-      prisma.adminWorkerLog
-        .findFirst({
-          where: { eventName: "self_model_built" },
-          orderBy: { createdAt: "desc" },
-          select: { safeMetadata: true },
-        })
+      prisma.adminWorkerSelfModelSnapshot
+        .findFirst({ orderBy: { createdAt: "desc" } })
         .catch(() => null),
-      prisma.adminWorkerLog
-        .findFirst({
-          where: { eventName: "mission_control" },
-          orderBy: { createdAt: "desc" },
-          select: { safeMetadata: true },
-        })
+      prisma.adminWorkerMissionState
+        .findFirst({ where: { nextAction: { not: null } }, orderBy: { completionPct: "asc" } })
         .catch(() => null),
-      prisma.adminWorkerLog
-        .findFirst({
-          where: { eventName: "worker_stuck", createdAt: { gte: since } },
-          orderBy: { createdAt: "desc" },
-          select: { safeMetadata: true },
-        })
+      prisma.adminWorkerStucknessRecord
+        .findFirst({ where: { createdAt: { gte: since } }, orderBy: { createdAt: "desc" } })
         .catch(() => null),
     ]);
 
   const iqMeta = (intelLog?.safeMetadata ?? null) as { iqIndex?: number | null } | null;
-  const sm = (selfLog?.safeMetadata ?? null) as {
-    model?: { file_count?: number };
-    coverage_ratio?: number;
-    weak_count?: number;
-    untested_count?: number;
-    import_cycles?: number;
-    top_upgrades?: string[];
-  } | null;
-  const mission = (missionLog?.safeMetadata ?? null) as { next_action?: string | null } | null;
-  const stuck = (stuckLog?.safeMetadata ?? null) as {
-    signals?: string[];
-    strategy?: string;
-  } | null;
+  const sm = selfLog
+    ? {
+        model: { file_count: selfLog.fileCount },
+        coverage_ratio: selfLog.coverageRatio,
+        weak_count: selfLog.weakCount,
+        untested_count: selfLog.untestedCount,
+        import_cycles: selfLog.importCycles,
+        top_upgrades: selfLog.topUpgrades,
+      }
+    : null;
+  const mission = missionLog ? { next_action: missionLog.nextAction } : null;
+  const stuck = stuckLog ? { signals: stuckLog.signals, strategy: stuckLog.strategy ?? "" } : null;
 
   return {
     brainCalls: calls,

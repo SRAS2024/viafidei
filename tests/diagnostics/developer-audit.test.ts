@@ -26,24 +26,24 @@ vi.mock("@/lib/db/client", () => {
       adminWorkerLog: {
         findMany: vi.fn(async () => []),
         findFirst: vi.fn(async ({ where }: { where: { eventName: string } }) => {
-          if (where.eventName === "self_model_built") {
-            return {
-              safeMetadata: {
-                model: { file_count: 974 },
-                coverage_ratio: 0.65,
-                weak_count: 12,
-                untested_count: 7,
-                top_upgrades: ["Split the oversized dispatcher", "Add PDF regression tests"],
-              },
-            };
-          }
           if (where.eventName === "intelligence_pass") return { safeMetadata: { iqIndex: 137 } };
-          if (where.eventName === "mission_control")
-            return { safeMetadata: { next_action: "Discover more PRAYER content." } };
-          if (where.eventName === "worker_stuck") return null;
           return null;
         }),
       },
+      adminWorkerSelfModelSnapshot: {
+        findFirst: vi.fn(async () => ({
+          fileCount: 974,
+          coverageRatio: 0.65,
+          weakCount: 12,
+          untestedCount: 7,
+          importCycles: 1,
+          topUpgrades: ["Split the oversized dispatcher", "Add PDF regression tests"],
+        })),
+      },
+      adminWorkerMissionState: {
+        findFirst: vi.fn(async () => ({ nextAction: "Discover more PRAYER content." })),
+      },
+      adminWorkerStucknessRecord: { findFirst: vi.fn(async () => null) },
       adminWorkerStrictQAResult: { findMany: vi.fn(async () => []) },
       publishedContent: { count: zeroCount },
       checklistItem: { count: zeroCount },

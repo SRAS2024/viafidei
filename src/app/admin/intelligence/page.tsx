@@ -150,21 +150,18 @@ export default async function AdminIntelligencePage() {
   // reliability, recent self-explanations, stuckness/blocker signals, mission
   // progress, and the replay-simulation snapshot.
   const [
-    selfModelLog,
+    selfModelSnap,
     memoryByType,
     repTiers,
     repAgg,
     recentExplanations,
     stucknessCalls,
-    missionLog,
+    missionStates,
     replayLog,
+    capabilityScores,
   ] = await Promise.all([
-    prisma.adminWorkerLog
-      .findFirst({
-        where: { eventName: "self_model_built" },
-        orderBy: { createdAt: "desc" },
-        select: { message: true, safeMetadata: true, severity: true, createdAt: true },
-      })
+    prisma.adminWorkerSelfModelSnapshot
+      .findFirst({ orderBy: { createdAt: "desc" } })
       .catch(() => null),
     prisma.adminWorkerMemory
       .groupBy({ by: ["memoryType"], _count: { _all: true }, _avg: { confidence: true } })
@@ -208,13 +205,9 @@ export default async function AdminIntelligencePage() {
         },
       })
       .catch(() => []),
-    prisma.adminWorkerLog
-      .findFirst({
-        where: { eventName: "mission_control" },
-        orderBy: { createdAt: "desc" },
-        select: { safeMetadata: true, createdAt: true },
-      })
-      .catch(() => null),
+    prisma.adminWorkerMissionState
+      .findMany({ orderBy: { completionPct: "asc" }, take: 16 })
+      .catch(() => []),
     prisma.adminWorkerLog
       .findFirst({
         where: { eventName: "replay_simulation" },
@@ -222,14 +215,31 @@ export default async function AdminIntelligencePage() {
         select: { safeMetadata: true, createdAt: true },
       })
       .catch(() => null),
+    prisma.adminWorkerCapabilityScore.findMany({ orderBy: { capability: "asc" } }).catch(() => []),
   ]);
 
-  const snap = (selfModelLog?.safeMetadata ?? null) as SelfModelSnapshot | null;
+  // Self-model snapshot (dedicated table is the source of truth).
+  const snap: SelfModelSnapshot | null = selfModelSnap
+    ? {
+        model: (selfModelSnap.model ?? undefined) as SelfModelResult | undefined,
+        weak_count: selfModelSnap.weakCount,
+        untested_count: selfModelSnap.untestedCount,
+        orphan_count: selfModelSnap.orphanCount,
+        duplicate_pairs: selfModelSnap.duplicatePairs,
+        import_cycles: selfModelSnap.importCycles,
+        coverage_ratio: selfModelSnap.coverageRatio,
+        architecture: selfModelSnap.architecture,
+        top_upgrades: selfModelSnap.topUpgrades,
+      }
+    : null;
   const model = snap?.model ?? null;
 
-  // Mission progress (from the latest mission-control snapshot) + replay sim.
-  const missions = ((missionLog?.safeMetadata as { missions?: unknown[] } | null)?.missions ??
-    []) as Array<{ content_type?: string; completion_pct?: number; status?: string }>;
+  // Mission progress (dedicated AdminWorkerMissionState) + replay sim.
+  const missions = missionStates.map((m) => ({
+    content_type: m.contentType,
+    completion_pct: m.completionPct,
+    status: m.status,
+  }));
   const replaySim = (replayLog?.safeMetadata ?? null) as {
     replayed?: number;
     reproduced?: number;
@@ -354,6 +364,18 @@ export default async function AdminIntelligencePage() {
             : "degraded";
     return { name: fam.name, status, calls, failures, confidence };
   });
+  // Prefer the persisted capability scores (Postgres owns capability scores);
+  // fall back to the live computation when the table has not been populated yet.
+  const capabilities =
+    capabilityScores.length > 0
+      ? capabilityScores.map((c) => ({
+          name: c.capability,
+          status: c.status,
+          calls: c.calls,
+          failures: c.failures,
+          confidence: c.confidence,
+        }))
+      : capabilityRows;
 
   // Live worker-IQ for display only — uses the read-only wrapper (no audit
   // row written on a page view). Falls back to "n/a" when the brain is off.
@@ -511,8 +533,8 @@ export default async function AdminIntelligencePage() {
           </span>
           <span className="text-ink-soft">
             self-model:{" "}
-            {selfModelLog ? (
-              <strong className="text-ink">{fmtAgo(selfModelLog.createdAt)}</strong>
+            {selfModelSnap ? (
+              <strong className="text-ink">{fmtAgo(selfModelSnap.createdAt)}</strong>
             ) : (
               <span className="text-amber-700">not built yet</span>
             )}
@@ -582,8 +604,8 @@ export default async function AdminIntelligencePage() {
         <p className="mb-3 font-serif text-sm text-ink-soft">
           What the brain knows about its own codebase — ingested by TypeScript, reasoned over by
           Python, persisted to Postgres.{" "}
-          {selfModelLog
-            ? `Last built ${fmtAgo(selfModelLog.createdAt)}.`
+          {selfModelSnap
+            ? `Last built ${fmtAgo(selfModelSnap.createdAt)}.`
             : "Run a worker pass to build it."}
         </p>
         {model ? (
@@ -719,7 +741,7 @@ export default async function AdminIntelligencePage() {
               </tr>
             </thead>
             <tbody>
-              {capabilityRows.map((c) => (
+              {capabilities.map((c) => (
                 <tr key={c.name} className="border-b border-stone-100 align-top">
                   <td className="py-2 pr-3 text-ink">{c.name}</td>
                   <td className="py-2 pr-3">

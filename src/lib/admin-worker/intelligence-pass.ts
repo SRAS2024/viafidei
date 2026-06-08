@@ -232,10 +232,144 @@ async function runBrainReflection(
           })),
           "test_gaps",
         );
+        // Durable test-gap records (Postgres owns test-gap records).
+        for (const g of gaps) {
+          await prisma.adminWorkerTestGapRecord
+            .upsert({
+              where: { failureKind: g.failure_kind },
+              create: {
+                failureKind: g.failure_kind,
+                missingTest: g.missing_test,
+                occurrences: g.occurrences,
+              },
+              update: { missingTest: g.missing_test, occurrences: g.occurrences, status: "OPEN" },
+            })
+            .catch(() => undefined);
+        }
       }
     }
   } catch {
     // reflection is advisory — never break the pass
+  }
+}
+
+/** Capability families → the brain ops that implement them (shared with the dashboard view). */
+const CAPABILITY_FAMILIES: Array<{ name: string; ops: string[] }> = [
+  { name: "Final action selection", ops: ["select_action", "compare_counterfactual_actions"] },
+  { name: "Duplicate detection", ops: ["detect_duplicates"] },
+  {
+    name: "Source + communion intelligence",
+    ops: [
+      "assess_source",
+      "detect_communion_risk",
+      "compare_sources",
+      "rank_catholic_source_authority",
+    ],
+  },
+  {
+    name: "Claim verification",
+    ops: ["extract_claims", "compare_claims", "resolve_claim_with_authority"],
+  },
+  { name: "Quality + specialist review", ops: ["score_quality", "specialist_reviews"] },
+  { name: "Repair intelligence", ops: ["classify_failure", "diagnose_fetch"] },
+  {
+    name: "Self-model + code awareness",
+    ops: [
+      "build_self_model",
+      "ingest_codebase",
+      "build_call_graph",
+      "find_weak_modules",
+      "rank_self_upgrades",
+    ],
+  },
+  {
+    name: "Mission control",
+    ops: ["build_mission_tree", "rank_subgoals", "recommend_next_mission_action"],
+  },
+  {
+    name: "Catholic extraction",
+    ops: ["identify_document_type", "extract_structured_catholic_document"],
+  },
+  {
+    name: "Replay + resilience",
+    ops: [
+      "compare_decisions",
+      "detect_decision_drift",
+      "check_replay_integrity",
+      "recommend_circuit_break",
+    ],
+  },
+];
+
+/**
+ * Persist capability scores + calibration history to their dedicated Postgres
+ * tables (spec: "Postgres should own Capability scores, Calibration history").
+ * Capability status/confidence/failures per family come from the brain-call
+ * audit; calibration compares each family's avg confidence (predicted) against
+ * its ok-rate (actual) and records whether it is calibrated.
+ */
+async function persistCapabilityAndCalibration(prisma: PrismaClient): Promise<void> {
+  try {
+    const byOp = (await prisma.adminWorkerBrainCall
+      .groupBy({ by: ["op"], _count: { _all: true }, _avg: { confidence: true } })
+      .catch(() => [])) as Array<{
+      op: string;
+      _count: { _all: number };
+      _avg: { confidence: number | null };
+    }>;
+    const byOpOk = (await prisma.adminWorkerBrainCall
+      .groupBy({ by: ["op", "ok"], _count: { _all: true } })
+      .catch(() => [])) as Array<{ op: string; ok: boolean; _count: { _all: number } }>;
+    const conf = new Map(
+      byOp.map((r) => [r.op, { calls: r._count._all, confidence: r._avg.confidence ?? 0 }]),
+    );
+    const okByOp = new Map<string, number>();
+    for (const r of byOpOk) if (r.ok) okByOp.set(r.op, (okByOp.get(r.op) ?? 0) + r._count._all);
+
+    for (const fam of CAPABILITY_FAMILIES) {
+      let calls = 0;
+      let ok = 0;
+      let confWeighted = 0;
+      for (const op of fam.ops) {
+        const c = conf.get(op);
+        if (c) {
+          calls += c.calls;
+          confWeighted += c.confidence * c.calls;
+        }
+        ok += okByOp.get(op) ?? 0;
+      }
+      if (calls === 0) continue;
+      const failures = Math.max(0, calls - ok);
+      const okRate = ok / calls;
+      const confidence = confWeighted / calls;
+      const status =
+        okRate >= 0.95 && failures === 0 ? "healthy" : okRate >= 0.8 ? "watch" : "degraded";
+      await prisma.adminWorkerCapabilityScore
+        .upsert({
+          where: { capability: fam.name },
+          create: { capability: fam.name, status, calls, failures, confidence },
+          update: { status, calls, failures, confidence },
+        })
+        .catch(() => undefined);
+
+      // Calibration history: predicted (avg confidence) vs actual (ok-rate).
+      const gap = confidence - okRate;
+      await prisma.adminWorkerCalibrationHistory
+        .create({
+          data: {
+            op: fam.name,
+            predicted: Number(confidence.toFixed(4)),
+            actual: Number(okRate.toFixed(4)),
+            sampleSize: calls,
+            calibrated: Math.abs(gap) <= 0.1,
+            gapDirection:
+              gap > 0.1 ? "overconfident" : gap < -0.1 ? "underconfident" : "calibrated",
+          },
+        })
+        .catch(() => undefined);
+    }
+  } catch {
+    // capability/calibration persistence is advisory — never break the pass
   }
 }
 
@@ -412,6 +546,9 @@ export async function runPostPassIntelligence(
     // Replay & resilience: compare/explain decision changes, detect drift, check
     // stored-output integrity, and recommend per-stage circuit breaks.
     await runReplayResilience(prisma, opts.passId);
+
+    // Persist capability scores + calibration history to their dedicated tables.
+    await persistCapabilityAndCalibration(prisma);
 
     const stats = await gatherIqStats(prisma);
     const iq = await computeIqMetrics(prisma, stats, { passId: opts.passId });
