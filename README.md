@@ -1098,6 +1098,61 @@ automatically; the brain only recommends (human-review gated). The legacy
 summary-only code-awareness path (`analyze_code` / `runCodeAwareness` /
 `inspectCode`) was removed outright.
 
+### Unified brain capabilities (125 operations)
+
+Beyond the self-model, the unified brain reasons across these areas — every
+operation returns the same strict envelope (`ok`, `result`, `confidence`,
+`reasoning`, `evidence`, `sources_used`, `risk_level`,
+`recommended_next_action`, `safe_to_auto_execute`, `error`,
+`protocol_version`, `elapsed_ms`), validated by TypeScript before use:
+
+- **Catholic authority graph** (`authority.py`): one shared authority ladder
+  (Vatican → Catechism → Liturgical → USCCB → Diocesan → Religious order →
+  Trusted publisher → Academic → Community) used to rank sources, classify
+  document/source authority, and gate auto-publish.
+- **Claim-level verification** (`claims.py`): extract structured claims
+  (subject/predicate/value/source/authority/citation), compare them, and resolve
+  conflicts by authority — the higher authority wins, the lower is blocked
+  pending review; ties route to human review. Used before publishing factual
+  Catholic content.
+- **Action simulation** (`simulation.py`): expected value, failure/publish/
+  safety/source risk, repair + time cost, likely next stage/blocker, and a
+  counterfactual comparison that explains why the best action wins.
+- **Confidence calibration** (`calibration.py`): measures whether predictions
+  came true and raises/lowers per-op confidence; grades decisions; tracks
+  false-positive/negative risk.
+- **Stuckness detection** (`stuckness.py` + `detect_stuckness`): action/source/
+  repair loops + no-growth detection → a change-strategy recommendation.
+- **Mission control** (`mission.py`): a mission tree above action selection
+  (subgoals, existing vs missing content, blockers, completion %, next best
+  action) driving each content section to completion.
+- **Self-explanation** (`explanation.py`): every decision explained — what,
+  why, rejected alternatives, evidence/memories used, safety basis, and what
+  would change its mind.
+- **Upgrade-request engine** (`upgrades.py`): the worker's internal product
+  manager — rank, explain, dedupe, ROI-score, and flag neglected requests.
+- **Test-gap detection** (`testgaps.py`): repeated failures become review-gated
+  regression-test recommendations (PDF, dynamic fetch, duplicate, schema,
+  publish, QA …).
+- **Specialist reviewers** (`specialists.py`): a 12-member deterministic panel
+  combined into one decision envelope.
+- **Multi-layer memory** (`memory_layers.py`): episodic / semantic / procedural
+  / source / self / admin-feedback / mission / safety layers with consolidation,
+  dedup, conflict detection, retirement, ranking, and context-pack retrieval.
+- **Hybrid retrieval** (`retrieval.py`): keyword + sparse vector + graph +
+  authority/citation/freshness/feedback/historical-success weighting.
+- **Catholic content extraction** (`catholic_extraction.py`): document-type
+  identification + structured metadata for papal/council documents, canon law,
+  catechism, saints, parishes, prayers, novenas, litanies, and history-timeline
+  entries.
+- **Review-gated self-improvement** (`patches.py`): the brain proposes code /
+  schema / test patches with risk review + rollback plan, but never applies or
+  deploys them (`safe_to_auto_execute` is always false; human review required).
+
+Each phase is forward-only and verified before the next: `npm run brain:selftest`
+(every op returns a valid envelope) + `npm run brain:test` (per-op unit tests),
+with the TypeScript `BRAIN_OPS` list kept in sync with the Python registry.
+
 ### Where the brain is wired in
 
 - **Final action selection, every pass** (`loop.ts` → `brain.ts` →
