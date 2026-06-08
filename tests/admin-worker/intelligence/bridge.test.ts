@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  BRAIN_OPS,
   BrainEnvelopeSchema,
   callBrain,
   detectCommunionRisk,
@@ -92,6 +93,18 @@ describe("configuration + fallback", () => {
 });
 
 describe("round-trip with the Python brain", () => {
+  it("TS BRAIN_OPS exactly matches the Python registry (no drift)", async () => {
+    if (!brainOnline) return;
+    const probe = await probeBrain();
+    const pyOps = new Set(probe!.ops);
+    const tsOps = new Set<string>(BRAIN_OPS);
+    const missingInTs = [...pyOps].filter((o) => !tsOps.has(o)).sort();
+    const missingInPy = [...tsOps].filter((o) => !pyOps.has(o)).sort();
+    expect(missingInTs).toEqual([]); // every Python op has a TS contract entry
+    expect(missingInPy).toEqual([]); // no TS entry without a Python op
+    expect(tsOps.size).toBe(pyOps.size);
+  });
+
   it("flags an Old Catholic source as a communion risk", async () => {
     if (!brainOnline) return; // python3 not available — skip
     const env = await detectCommunionRisk({
