@@ -761,4 +761,147 @@ export function rankMissingTests(gaps: Array<Record<string, unknown>>, opts?: Ca
   return callBrain("rank_missing_tests", { gaps }, opts);
 }
 
+// ── Specialist reviewers ──────────────────────────────────────────────
+export function specialistReviews(candidate: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("specialist_reviews", { candidate }, opts);
+}
+export function combineSpecialistReviews(reviews: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("combine_specialist_reviews", { reviews }, opts);
+}
+
+// ── Multi-layer memory ────────────────────────────────────────────────
+type MemoryList = Array<Record<string, unknown>>;
+export function consolidateMemories(memories: MemoryList, opts?: CallOpts) {
+  return callBrain("consolidate_memories", { memories }, opts);
+}
+export function summarizeRepeatedLessons(memories: MemoryList, opts?: CallOpts) {
+  return callBrain("summarize_repeated_lessons", { memories }, opts);
+}
+export function mergeDuplicateMemories(
+  memories: MemoryList,
+  opts?: CallOpts & { threshold?: number },
+) {
+  return callBrain("merge_duplicate_memories", { memories, threshold: opts?.threshold }, opts);
+}
+export function detectConflictingMemories(memories: MemoryList, opts?: CallOpts) {
+  return callBrain("detect_conflicting_memories", { memories }, opts);
+}
+export function retireStaleMemories(
+  memories: MemoryList,
+  opts?: CallOpts & { maxAgeDays?: number },
+) {
+  return callBrain("retire_stale_memories", { memories, max_age_days: opts?.maxAgeDays }, opts);
+}
+export function rankMemoryImportance(memories: MemoryList, opts?: CallOpts) {
+  return callBrain("rank_memory_importance", { memories }, opts);
+}
+export function retrieveContextPack(
+  input: { query?: string; memories: MemoryList; k?: number },
+  opts?: CallOpts,
+) {
+  return callBrain("retrieve_context_pack", input, opts);
+}
+export function extractUpgradeRequestsFromMemory(memories: MemoryList, opts?: CallOpts) {
+  return callBrain("extract_upgrade_requests_from_memory", { memories }, opts);
+}
+
+// ── Hybrid retrieval ──────────────────────────────────────────────────
+export function hybridSearch(
+  input: { query?: string; candidates: MemoryList; weights?: Record<string, number>; k?: number },
+  opts?: CallOpts,
+) {
+  return callBrain("hybrid_search", input, opts);
+}
+export function rankMemoryCandidates(
+  input: { query?: string; candidates: MemoryList },
+  opts?: CallOpts,
+) {
+  return callBrain("rank_memory_candidates", input, opts);
+}
+export function rankSourceCandidates(
+  input: { query?: string; candidates: MemoryList },
+  opts?: CallOpts,
+) {
+  return callBrain("rank_source_candidates", input, opts);
+}
+export function rankRelatedContent(
+  input: { query?: string; candidates: MemoryList },
+  opts?: CallOpts,
+) {
+  return callBrain("rank_related_content", input, opts);
+}
+export function explainRetrievalResult(result: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_retrieval_result", { result }, opts);
+}
+export function detectMemoryGap(
+  input: { query: string; candidates?: MemoryList; min_similarity?: number },
+  opts?: CallOpts,
+) {
+  return callBrain("detect_memory_gap", input, opts);
+}
+
+// ── Catholic content extraction ───────────────────────────────────────
+export function identifyDocumentType(text: string, opts?: CallOpts) {
+  return callBrain("identify_document_type", { text }, opts);
+}
+export function extractStructuredCatholicDocument(text: string, opts?: CallOpts) {
+  return callBrain("extract_structured_catholic_document", { text }, opts);
+}
+export function extractLiturgicalDate(text: string, opts?: CallOpts) {
+  return callBrain("extract_liturgical_date", { text }, opts);
+}
+export function extractCanonLawReference(text: string, opts?: CallOpts) {
+  return callBrain("extract_canon_law_reference", { text }, opts);
+}
+export function extractCatechismReference(text: string, opts?: CallOpts) {
+  return callBrain("extract_catechism_reference", { text }, opts);
+}
+export function extractPapalDocumentMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_papal_document_metadata", { text }, opts);
+}
+export function extractCouncilDocumentMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_council_document_metadata", { text }, opts);
+}
+export function extractSaintMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_saint_metadata", { text }, opts);
+}
+export function extractParishMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_parish_metadata", { text }, opts);
+}
+export function extractPrayerMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_prayer_metadata", { text }, opts);
+}
+export function extractNovenaMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_novena_metadata", { text }, opts);
+}
+export function extractLitanyMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_litany_metadata", { text }, opts);
+}
+export function buildChurchHistoryTimelineEntry(text: string, opts?: CallOpts) {
+  return callBrain("build_church_history_timeline_entry", { text }, opts);
+}
+
+// ── Review-gated self-improvement (propose only; never auto-deploy) ────
+export function proposeCodePatch(
+  input: { request: Record<string, unknown>; affected_files?: string[]; approach?: string },
+  opts?: CallOpts,
+) {
+  return callBrain("propose_code_patch", input, opts);
+}
+export function proposeSchemaMigration(
+  input: { change: string; affected_models?: string[]; backfill_required?: boolean },
+  opts?: CallOpts,
+) {
+  return callBrain("propose_schema_migration", input, opts);
+}
+export function reviewPatchRisk(patch: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("review_patch_risk", { patch }, opts);
+}
+export function generateRollbackPlan(patch: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("generate_rollback_plan", { patch }, opts);
+}
+export function explainPatchValue(patch: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_patch_value", { patch }, opts);
+}
+
 export type { BrainEnvelope };

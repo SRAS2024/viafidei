@@ -120,6 +120,45 @@ export const BRAIN_OPS = [
   "generate_test_fixture_plan",
   "propose_test_patch",
   "rank_missing_tests",
+  // specialist reviewers
+  "specialist_reviews",
+  "combine_specialist_reviews",
+  // multi-layer memory
+  "consolidate_memories",
+  "summarize_repeated_lessons",
+  "merge_duplicate_memories",
+  "detect_conflicting_memories",
+  "retire_stale_memories",
+  "rank_memory_importance",
+  "retrieve_context_pack",
+  "extract_upgrade_requests_from_memory",
+  // hybrid retrieval
+  "hybrid_search",
+  "rank_memory_candidates",
+  "rank_source_candidates",
+  "rank_related_content",
+  "explain_retrieval_result",
+  "detect_memory_gap",
+  // Catholic content extraction
+  "identify_document_type",
+  "extract_structured_catholic_document",
+  "extract_liturgical_date",
+  "extract_canon_law_reference",
+  "extract_catechism_reference",
+  "extract_papal_document_metadata",
+  "extract_council_document_metadata",
+  "extract_saint_metadata",
+  "extract_parish_metadata",
+  "extract_prayer_metadata",
+  "extract_novena_metadata",
+  "extract_litany_metadata",
+  "build_church_history_timeline_entry",
+  // review-gated self-improvement
+  "propose_code_patch",
+  "propose_schema_migration",
+  "review_patch_risk",
+  "generate_rollback_plan",
+  "explain_patch_value",
 ] as const;
 export type BrainOp = (typeof BRAIN_OPS)[number];
 

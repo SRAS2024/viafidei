@@ -477,6 +477,89 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
             {"failure_kind": "schema", "occurrences": 1, "missing_test": "Prisma validation test"},
         ]
     },
+    # ── specialist reviewers ──────────────────────────────────────────
+    "specialist_reviews": {
+        "candidate": {"contentType": "APPARITION", "finalScore": 0.7, "confidence": 0.8, "communionRisk": 0.1, "duplicateScore": 0.1, "completeness": 0.8, "citationCount": 2},
+    },
+    "combine_specialist_reviews": {
+        "reviews": [
+            {"specialist": "planner", "score": 0.8, "confidence": 0.7, "risk": "none", "recommendation": "proceed"},
+            {"specialist": "skeptic", "score": 0.6, "confidence": 0.6, "risk": "low", "recommendation": "ok"},
+        ]
+    },
+    # ── multi-layer memory ────────────────────────────────────────────
+    "consolidate_memories": {
+        "memories": [
+            {"id": "1", "layer": "episodic", "text": "fetched vatican.va", "importance": 0.6, "confidence": 0.7},
+            {"id": "2", "layer": "source", "text": "blog.example failed", "importance": 0.5, "confidence": 0.6},
+        ]
+    },
+    "summarize_repeated_lessons": {
+        "memories": [
+            {"id": "1", "text": "pdf extraction failed for vatican document"},
+            {"id": "2", "text": "pdf extraction failed for council document"},
+        ]
+    },
+    "merge_duplicate_memories": {
+        "threshold": 0.5,
+        "memories": [
+            {"id": "1", "text": "source blog.example failed to fetch"},
+            {"id": "2", "text": "source blog.example failed fetch repeatedly"},
+        ],
+    },
+    "detect_conflicting_memories": {
+        "memories": [
+            {"id": "1", "key": "source:blog", "signal": 0.9},
+            {"id": "2", "key": "source:blog", "signal": 0.1},
+        ]
+    },
+    "retire_stale_memories": {
+        "max_age_days": 1,
+        "memories": [{"id": "1", "importance": 0.2, "last_used": 0, "created_at": 0}],
+    },
+    "rank_memory_importance": {
+        "memories": [{"id": "1", "text": "x", "importance": 0.9, "confidence": 0.8}]
+    },
+    "retrieve_context_pack": {
+        "query": "prayer to our lady",
+        "memories": [{"id": "1", "layer": "semantic", "text": "Hail Mary prayer to our lady"}],
+    },
+    "extract_upgrade_requests_from_memory": {
+        "memories": [{"id": "1", "layer": "self", "text": "need a PDF parser", "importance": 0.7, "occurrences": 4}]
+    },
+    # ── hybrid retrieval ──────────────────────────────────────────────
+    "hybrid_search": {
+        "query": "prayer to our lady",
+        "candidates": [
+            {"id": "1", "text": "Hail Mary full of grace", "authorityLevel": "VATICAN", "citationCount": 2},
+            {"id": "2", "text": "Saint Joseph the worker", "authorityLevel": "COMMUNITY"},
+        ],
+    },
+    "rank_memory_candidates": {"query": "fetch", "candidates": [{"id": "1", "text": "fetch succeeded", "historicalSuccess": 0.9}]},
+    "rank_source_candidates": {"candidates": [{"id": "1", "text": "vatican", "authorityLevel": "VATICAN", "freshness": 0.8}]},
+    "rank_related_content": {"query": "rosary", "candidates": [{"id": "1", "text": "rosary mysteries", "graph_relatedness": 0.7}]},
+    "explain_retrieval_result": {"result": {"id": "1", "score": 0.8, "components": {"sparse": 0.4, "authority": 0.3}}},
+    "detect_memory_gap": {"query": "obscure topic xyz", "candidates": [{"id": "1", "text": "unrelated content"}]},
+    # ── Catholic content extraction ───────────────────────────────────
+    "identify_document_type": {"text": "This encyclical letter of the Holy Father..."},
+    "extract_structured_catholic_document": {"text": "Rerum Novarum. Encyclical. 1891. See canon 1234. CCC 2419. https://www.vatican.va/x"},
+    "extract_liturgical_date": {"text": "The feast is celebrated on May 13 and October 7."},
+    "extract_canon_law_reference": {"text": "According to canon 915 and canon 1247 § 2 ..."},
+    "extract_catechism_reference": {"text": "As the Catechism teaches (CCC 1324), the Eucharist..."},
+    "extract_papal_document_metadata": {"text": "Pope Leo XIII issued this encyclical in 1891."},
+    "extract_council_document_metadata": {"text": "The Council of Trent in 1545 defined..."},
+    "extract_saint_metadata": {"text": "Saint Thomas Aquinas (1225-1274), patron saint of students. Feast January 28."},
+    "extract_parish_metadata": {"text": "St Patrick's Cathedral, Archdiocese of New York, a cathedral in Manhattan."},
+    "extract_prayer_metadata": {"text": "Litany of the Blessed Virgin Mary. Pray for us."},
+    "extract_novena_metadata": {"text": "Day one ... day two ... day three ... day four ... day five ... day six ... day seven ... day eight ... day nine."},
+    "extract_litany_metadata": {"text": "Lord have mercy on us. Holy Mary pray for us. Mother of God pray for us."},
+    "build_church_history_timeline_entry": {"text": "Council of Nicaea in 325 affirmed the divinity of Christ."},
+    # ── review-gated self-improvement ─────────────────────────────────
+    "propose_code_patch": {"request": {"title": "Add PDF parser", "detail": "pdf extraction fails"}, "affected_files": ["src/lib/admin-worker/extractors.ts"]},
+    "propose_schema_migration": {"change": "add index to PublishedContent.slug", "affected_models": ["PublishedContent"]},
+    "review_patch_risk": {"patch": {"affected_files": ["a.ts", "b.ts"], "tests_required": True}},
+    "generate_rollback_plan": {"patch": {"affected_models": ["PublishedContent"]}},
+    "explain_patch_value": {"patch": {"title": "Add PDF parser", "expected_gain": "handles PDF documents"}},
 }
 
 
