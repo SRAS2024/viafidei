@@ -248,13 +248,14 @@ async function runBrainReflection(
  */
 async function runReplayResilience(prisma: PrismaClient, passId: string): Promise<void> {
   try {
-    const {
-      compareDecisions,
-      explainDecisionChange,
-      detectDecisionDrift,
-      checkReplayIntegrity,
-      recommendCircuitBreak,
-    } = await import("./intelligence");
+    const { compareDecisions, explainDecisionChange, checkReplayIntegrity, recommendCircuitBreak } =
+      await import("./intelligence");
+    const { replayLastPass, replayRecentPasses } = await import("./replay-runner");
+
+    // 0. Replay the last pass + replay the last 50 passes in simulation
+    //    (event-sourced, read-only). replayRecentPasses also runs decision-drift.
+    await replayLastPass(prisma, { passId });
+    await replayRecentPasses(prisma, 50, { passId });
 
     // 1. Compare the last two decisions; explain the change if any.
     const recent = await prisma.adminWorkerDecision
@@ -292,15 +293,7 @@ async function runReplayResilience(prisma: PrismaClient, passId: string): Promis
       }
     }
 
-    // 2. Decision drift over the recent window.
-    if (recent.length >= 4) {
-      const driftEnv = await detectDecisionDrift(
-        recent.map((r) => ({ missionStage: r.missionStage ?? "" })),
-      );
-      await recordBrainCall(prisma, "detect_decision_drift", driftEnv, { passId });
-    }
-
-    // 3. Replay-integrity / corruption check over recent stored brain output.
+    // 2. Replay-integrity / corruption check over recent stored brain output.
     const calls = await prisma.adminWorkerBrainCall
       .findMany({
         orderBy: { createdAt: "desc" },

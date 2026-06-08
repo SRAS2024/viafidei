@@ -34,6 +34,7 @@ import {
 import { resetSelfModelThrottle, runSelfModelPass } from "@/lib/admin-worker/self-model";
 import { resetCustodyThrottle, runCustodyPass } from "@/lib/admin-worker/custody";
 import { runMissionControlPass, runStucknessPass } from "@/lib/admin-worker/mission-control";
+import { replayLastPass, replayRecentPasses } from "@/lib/admin-worker/replay-runner";
 
 let brainOnline = false;
 
@@ -66,6 +67,7 @@ afterAll(async () => {
           "self_model_built",
           "extract_failed",
           "intelligence_pass",
+          "replay_simulation",
         ],
       },
     },
@@ -547,5 +549,40 @@ describe("post-pass reflection (self-explanation + test gaps)", () => {
       where: { op: "check_replay_integrity" },
     });
     expect(integrity).not.toBeNull();
+  });
+});
+
+describe("replay orchestration (last pass + 50-pass simulation)", () => {
+  it("replays the last decision from its stored candidates and reproduces it", async () => {
+    if (!brainOnline) return;
+    await prisma.adminWorkerDecision.create({
+      data: {
+        decisionType: "brain_pass",
+        inputSummary: "replay-test",
+        chosenAction: "CONTENT_GROWTH:CONTENT",
+        missionStage: "DISCOVERY",
+        confidence: 0.7,
+        rankedAlternatives: [
+          { missionStage: "DISCOVERY", finalScore: 0.8, safe: true },
+          { missionStage: "REPORTING", finalScore: 0.4, safe: true },
+        ],
+      },
+    });
+
+    const res = await replayLastPass(prisma);
+    expect(res.ran).toBe(true);
+    expect(res.reproduced).toBe(true); // top-scored safe candidate matches the chosen stage
+    const call = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "replay_decision" } });
+    expect(call).not.toBeNull();
+
+    // Replay the recent window in simulation → reproduction rate + snapshot.
+    const sim = await replayRecentPasses(prisma, 50);
+    expect(sim.ran).toBe(true);
+    expect(sim.replayed).toBeGreaterThanOrEqual(1);
+    expect(sim.reproductionRate).toBeGreaterThan(0);
+    const snap = await prisma.adminWorkerLog.findFirst({
+      where: { eventName: "replay_simulation" },
+    });
+    expect(snap).not.toBeNull();
   });
 });

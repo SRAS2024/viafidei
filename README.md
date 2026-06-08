@@ -1158,13 +1158,17 @@ operation returns the same strict envelope (`ok`, `result`, `confidence`,
 - **Review-gated self-improvement** (`patches.py`): the brain proposes code /
   schema / test patches with risk review + rollback plan, but never applies or
   deploys them (`safe_to_auto_execute` is always false; human review required).
-- **Replayability & resilience** (`replay.py`): reasons over the event-sourced
-  record in Postgres — `replay_decision` (reproduce a stored decision),
-  `compare_decisions` + `explain_decision_change` (why a decision changed),
-  `detect_decision_drift` (oscillation / fixation), `recommend_circuit_break`
-  (per host / stage / content-type), and `check_replay_integrity` (stored
-  brain-output corruption check). Runs in the post-pass; see also the chaos
-  tests below.
+- **Replayability & resilience** (`replay.py` + `replay-runner.ts`): the brain
+  reasons over the event-sourced record in Postgres (`AdminWorkerDecision` stores
+  each chosen stage + the full ranked candidate list) — `replay_decision`
+  (reproduce a stored decision), `compare_decisions` + `explain_decision_change`
+  (why a decision changed), `detect_decision_drift` (oscillation / fixation),
+  `recommend_circuit_break` (per host / stage / content-type), and
+  `check_replay_integrity` (stored brain-output corruption check). Each post-pass
+  the worker **replays the last pass** and **replays the last 50 passes in
+  simulation** (read-only) and records the reproduction rate; **idempotency keys**
+  (`actionIdempotencyKey`) dedupe replayed actions so a pass is never
+  double-counted. Surfaced on the dashboard; see also the chaos tests below.
 
 Each phase is forward-only and verified before the next: `npm run brain:selftest`
 (every op returns a valid envelope) + `npm run brain:test` (per-op unit tests),

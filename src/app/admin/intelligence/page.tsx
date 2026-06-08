@@ -147,62 +147,95 @@ export default async function AdminIntelligencePage() {
   ]);
 
   // Unified-brain data: self-model snapshot, multi-layer memory, source
-  // reliability, recent self-explanations, and stuckness/blocker signals.
-  const [selfModelLog, memoryByType, repTiers, repAgg, recentExplanations, stucknessCalls] =
-    await Promise.all([
-      prisma.adminWorkerLog
-        .findFirst({
-          where: { eventName: "self_model_built" },
-          orderBy: { createdAt: "desc" },
-          select: { message: true, safeMetadata: true, severity: true, createdAt: true },
-        })
-        .catch(() => null),
-      prisma.adminWorkerMemory
-        .groupBy({ by: ["memoryType"], _count: { _all: true }, _avg: { confidence: true } })
-        .catch(
-          () =>
-            [] as Array<{
-              memoryType: string;
-              _count: { _all: number };
-              _avg: { confidence: number | null };
-            }>,
-        ),
-      prisma.adminWorkerSourceReputation
-        .groupBy({ by: ["reputationTier"], _count: { _all: true } })
-        .catch(() => [] as Array<{ reputationTier: string; _count: { _all: number } }>),
-      prisma.adminWorkerSourceReputation
-        .aggregate({
-          _avg: { contentBuildSuccessRate: true, qaPassRate: true, duplicateRate: true },
-        })
-        .catch(() => ({
-          _avg: { contentBuildSuccessRate: null, qaPassRate: null, duplicateRate: null },
-        })),
-      prisma.adminWorkerBrainCall
-        .findMany({
-          where: { op: { in: EXPLANATION_OPS } },
-          orderBy: { createdAt: "desc" },
-          take: 8,
-          select: { op: true, reasoning: true, confidence: true, createdAt: true },
-        })
-        .catch(() => []),
-      prisma.adminWorkerBrainCall
-        .findMany({
-          where: { op: { in: STUCKNESS_OPS } },
-          orderBy: { createdAt: "desc" },
-          take: 6,
-          select: {
-            op: true,
-            reasoning: true,
-            riskLevel: true,
-            recommendedNextAction: true,
-            createdAt: true,
-          },
-        })
-        .catch(() => []),
-    ]);
+  // reliability, recent self-explanations, stuckness/blocker signals, mission
+  // progress, and the replay-simulation snapshot.
+  const [
+    selfModelLog,
+    memoryByType,
+    repTiers,
+    repAgg,
+    recentExplanations,
+    stucknessCalls,
+    missionLog,
+    replayLog,
+  ] = await Promise.all([
+    prisma.adminWorkerLog
+      .findFirst({
+        where: { eventName: "self_model_built" },
+        orderBy: { createdAt: "desc" },
+        select: { message: true, safeMetadata: true, severity: true, createdAt: true },
+      })
+      .catch(() => null),
+    prisma.adminWorkerMemory
+      .groupBy({ by: ["memoryType"], _count: { _all: true }, _avg: { confidence: true } })
+      .catch(
+        () =>
+          [] as Array<{
+            memoryType: string;
+            _count: { _all: number };
+            _avg: { confidence: number | null };
+          }>,
+      ),
+    prisma.adminWorkerSourceReputation
+      .groupBy({ by: ["reputationTier"], _count: { _all: true } })
+      .catch(() => [] as Array<{ reputationTier: string; _count: { _all: number } }>),
+    prisma.adminWorkerSourceReputation
+      .aggregate({
+        _avg: { contentBuildSuccessRate: true, qaPassRate: true, duplicateRate: true },
+      })
+      .catch(() => ({
+        _avg: { contentBuildSuccessRate: null, qaPassRate: null, duplicateRate: null },
+      })),
+    prisma.adminWorkerBrainCall
+      .findMany({
+        where: { op: { in: EXPLANATION_OPS } },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: { op: true, reasoning: true, confidence: true, createdAt: true },
+      })
+      .catch(() => []),
+    prisma.adminWorkerBrainCall
+      .findMany({
+        where: { op: { in: STUCKNESS_OPS } },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+        select: {
+          op: true,
+          reasoning: true,
+          riskLevel: true,
+          recommendedNextAction: true,
+          createdAt: true,
+        },
+      })
+      .catch(() => []),
+    prisma.adminWorkerLog
+      .findFirst({
+        where: { eventName: "mission_control" },
+        orderBy: { createdAt: "desc" },
+        select: { safeMetadata: true, createdAt: true },
+      })
+      .catch(() => null),
+    prisma.adminWorkerLog
+      .findFirst({
+        where: { eventName: "replay_simulation" },
+        orderBy: { createdAt: "desc" },
+        select: { safeMetadata: true, createdAt: true },
+      })
+      .catch(() => null),
+  ]);
 
   const snap = (selfModelLog?.safeMetadata ?? null) as SelfModelSnapshot | null;
   const model = snap?.model ?? null;
+
+  // Mission progress (from the latest mission-control snapshot) + replay sim.
+  const missions = ((missionLog?.safeMetadata as { missions?: unknown[] } | null)?.missions ??
+    []) as Array<{ content_type?: string; completion_pct?: number; status?: string }>;
+  const replaySim = (replayLog?.safeMetadata ?? null) as {
+    replayed?: number;
+    reproduced?: number;
+    reproductionRate?: number;
+    drift?: boolean;
+  } | null;
 
   const brainAvgLatencyMs = brainLatencyAgg._avg.elapsedMs ?? 0;
   const brainAvgConfidence = brainLatencyAgg._avg.confidence ?? 0;
@@ -705,6 +738,61 @@ export default async function AdminIntelligencePage() {
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* Mission progress + replay/resilience */}
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">Mission progress</h2>
+          <p className="mb-3 font-serif text-sm text-ink-soft">
+            Long-term content missions and their completion (from mission control).
+          </p>
+          {missions.length === 0 ? (
+            <Empty>No mission snapshot yet — run a worker pass.</Empty>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {missions
+                .slice()
+                .sort((a, b) => (a.completion_pct ?? 0) - (b.completion_pct ?? 0))
+                .slice(0, 14)
+                .map((m, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <span className="w-40 truncate font-mono text-xs">{m.content_type}</span>
+                    <span className="h-2 flex-1 overflow-hidden rounded bg-stone-100">
+                      <span
+                        className="block h-full bg-indigo-500"
+                        style={{ width: `${Math.round((m.completion_pct ?? 0) * 100)}%` }}
+                      />
+                    </span>
+                    <span className="w-10 text-right text-xs text-ink-soft">
+                      {Math.round((m.completion_pct ?? 0) * 100)}%
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+        <div className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">Replay &amp; resilience</h2>
+          <p className="mb-3 font-serif text-sm text-ink-soft">
+            Decisions are event-sourced and replayed in simulation each pass to prove they
+            reproduce.
+          </p>
+          {replaySim ? (
+            <div className="grid grid-cols-2 gap-3">
+              <CodeHealth label="Passes replayed" value={`${replaySim.replayed ?? 0}`} invert />
+              <CodeHealth
+                label="Reproduction rate"
+                value={fmtPct(replaySim.reproductionRate ?? 0)}
+                invert
+              />
+              <CodeHealth label="Reproduced" value={`${replaySim.reproduced ?? 0}`} invert />
+              <CodeHealth label="Decision drift" value={replaySim.drift ? 1 : 0} />
+            </div>
+          ) : (
+            <Empty>No replay simulation recorded yet.</Empty>
+          )}
         </div>
       </section>
 
