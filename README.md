@@ -28,10 +28,13 @@ operations report.
 The Admin Worker is driven by a **permanent Python intelligence brain**
 ([`intelligence/`](intelligence/)) — a deterministic, pure-stdlib core (no
 AI APIs, no network) that TypeScript holds open as an always-on service and
-consults on every meaningful decision: semantic memory + vector search,
-duplicate detection, source intelligence with **Catholic communion-risk**
-screening, quality scoring, relationship inference, knowledge-graph and
-schema/UI/code awareness, repair analysis, learning, and self-inspection.
+consults on every meaningful decision: **final action selection**, planning +
+**mission control**, semantic memory + hybrid retrieval, duplicate detection,
+source intelligence with a **Catholic authority graph** + **communion-risk**
+screening, **claim-level verification**, quality + **specialist-panel** review,
+action **simulation**, **confidence calibration**, knowledge-graph and
+schema/UI awareness, a whole-app **self-model**, repair + **stuckness**
+analysis, learning, and self-inspection (125 operations).
 The split is **TypeScript = the body** (execution, Prisma/DB, queues,
 policy, publishing, safety, app + admin integration), **Python = the brain**
 (it analyses and recommends through strict typed contracts; it never touches
@@ -256,16 +259,16 @@ Optional environment variables:
 
 **Admin Worker (autonomous system):**
 
-| Card                | Route                           | Purpose                                                                                                  |
-| ------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Command Center      | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls         |
-| System diagnostics  | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF                     |
-| Worker Reasoning    | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph          |
-| Pipeline map        | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                                       |
-| Package artifacts   | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                                    |
-| Admin Worker logs   | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                                    |
-| Admin Worker rules  | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                                 |
-| Worker Intelligence | `/admin/intelligence`           | Brain status, worker-IQ, recent decisions, developer requests, communion-risk flags, memory/graph counts |
+| Card                | Route                           | Purpose                                                                                                                                                             |
+| ------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command Center      | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls                                                                    |
+| System diagnostics  | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF                                                                                |
+| Worker Reasoning    | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph                                                                     |
+| Pipeline map        | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                                                                                                  |
+| Package artifacts   | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                                                                                               |
+| Admin Worker logs   | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                                                                                               |
+| Admin Worker rules  | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                                                                                            |
+| Worker Intelligence | `/admin/intelligence`           | Live capability dashboard: brain status, self-model, capability strengths/weaknesses, memory, source reliability, decisions, self-explanations, stuckness, upgrades |
 
 The public **daily readings** page lives at `/liturgy/readings` (the
 homepage + liturgical calendar link to it); the worker keeps it current and
@@ -1153,6 +1156,15 @@ Each phase is forward-only and verified before the next: `npm run brain:selftest
 (every op returns a valid envelope) + `npm run brain:test` (per-op unit tests),
 with the TypeScript `BRAIN_OPS` list kept in sync with the Python registry.
 
+**Resilience / chaos tests** prove the brain degrades safely rather than
+crashing: `intelligence/tests/test_chaos.py` feeds every op empty /
+type-confused / nested-garbage payloads (all 125 survive), isolates a crashing
+op to an error envelope, and recovers the stdio loop from malformed lines;
+`tests/admin-worker/intelligence/resilience.test.ts` drives a configurable fake
+brain through protocol mismatch, malformed output, timeout, and the restart
+circuit breaker, and proves real-brain op-error round-trips, process death +
+auto-recovery, and concurrent id-multiplexing.
+
 ### Where the brain is wired in
 
 - **Final action selection, every pass** (`loop.ts` → `brain.ts` →
@@ -1160,35 +1172,52 @@ with the TypeScript `BRAIN_OPS` list kept in sync with the Python registry.
   and the Python brain **selects the final action** (`select_action`);
   TypeScript validates that choice against the safety gate and executes it
   (see [Brain as the FINAL decision brain](#brain-as-the-final-decision-brain)).
+  Around the choice the brain **forward-simulates** the chosen vs the top
+  alternatives (`compare_counterfactual_actions`) and records the prediction.
 - **Supplementary pre-pass consultation** (`intelligence-advisory.ts`): the
   Python brain also `prioritize`s the unmet content goals and returns a
   `plan` / next-best-action, recorded to the audit trail for the reasoning
   view. This does not select the action — it is a supplementary signal.
 - **Publish gate** (`publish-orchestrator.ts`): a **communion-risk** screen
-  routes risky content to review, and a **semantic-duplicate** gate blocks
-  near-duplicates the slug/canonical checks miss — both before the existing
-  quality/QA gates.
+  routes risky content to review, a **semantic-duplicate** gate blocks
+  near-duplicates the slug/canonical checks miss, and the **12-member
+  specialist panel** (`specialist_reviews`) routes a candidate to review when a
+  blocking specialist objects (e.g. an uncited sensitive type, a security or
+  duplicate flag) — all before the existing quality/QA gates.
+- **Source reading** (`source-reader.ts`): on every new read the brain runs
+  **Catholic content extraction** (`identify_document_type` +
+  `extract_structured_catholic_document`) over the source text — document type
+  - canon-law / catechism / papal / council references — recorded to the audit.
+- **Cross-source verification** (`dispatcher.ts`): when validation sources
+  disagree, the brain's **claim-level authority resolution**
+  (`resolve_claim_with_authority`) adjudicates by Catholic authority (advisory;
+  it never overrides the deterministic verifier that gates publishing).
 - **Post-pass, every pass** (`loop.ts` → `intelligence-pass.ts`):
   self-inspects recent failures/blocked actions, persists deduped
-  **developer requests**, computes **worker-IQ** metrics, and turns the
-  dominant repeated failure into a **learning signal** (`learn_from_outcome`)
-  that adjusts source-ranking memory the planner consults.
+  **developer requests**, computes **worker-IQ** metrics, turns the dominant
+  repeated failure into a **learning signal** (`learn_from_outcome`), then runs
+  **mission control** (`build_mission_tree` → `rank_subgoals` →
+  `detect_mission_blockers` → `recommend_next_mission_action`, persisted as a
+  snapshot) and **stuckness detection** (`detect_stuckness` →
+  `recommend_unblock_strategy`, filing a developer request when stuck).
 - **Admin feedback as training signal** (`service.recordAdminFeedback`):
   an admin approve/reject/edit/unpublish/repair becomes a learned outcome
   that changes future behaviour.
-- **Developer report — Worker Requests section** (`report-generator.ts` +
-  `pdf.ts`): every Developer Audit ends with the worker's own self-aware
-  requests for what it needs to be better/smarter/more capable (parser,
-  schema, source, UI, safety, capability, and code/refactor needs), drawn
-  from self-inspection + schema/UI/code awareness. Also surfaced live on the
+- **Developer audit — Intelligence section** (`diagnostics/developer-audit.ts`):
+  the Developer Audit PDF has an **"Intelligence (the unified brain)"** section —
+  brain decision count + ok-rate + avg confidence + Worker IQ, the self-model
+  summary (files, coverage, weak/untested), next mission action, any stuckness
+  signal, the brain operation mix, the top self-requested upgrades, and the open
+  developer-request queue (parser, schema, source, UI, safety, capability,
+  code/refactor, and process needs). Also surfaced live on the
   `/admin/intelligence` dashboard.
-- **Maintenance intelligence, throttled** (`awareness.ts` + `custody.ts`):
-  **schema-awareness** (parses the Prisma schema → isolated/under-indexed
-  models), **UI-awareness** (scans routes/admin pages → content types with
-  no public page), **code-awareness** (walks the worker modules → oversized
-  files; the worker flags `dispatcher.ts`/`brain.ts` itself and files a
-  review-gated refactor request — code changes require human review), and
-  **content custody** (`detect_missing` over published records → improvement
+- **Maintenance intelligence, throttled** (`awareness.ts` + `self-model.ts` +
+  `custody.ts`): **schema-awareness** (parses the Prisma schema →
+  isolated/under-indexed models), **UI-awareness** (scans routes/admin pages →
+  content types with no public page), the **unified self-model** (ingests the
+  whole codebase → weak/untested/orphaned/duplicate modules + ranked
+  review-gated upgrade requests; replaced the old summary-only code-awareness),
+  and **content custody** (`detect_missing` over published records → improvement
   requests). Each files deduped developer requests.
 - **Autonomy + policy engine** (`policy.ts`): `evaluateAutonomy()` turns the
   brain's confidence/risk/communion/duplicate signals into an
@@ -1214,9 +1243,14 @@ brain call).
 
 ### Admin surface
 
-`/admin/intelligence` shows brain status, worker-IQ, recent decisions with
-confidence + risk, the developer-request queue, communion-risk flags, the
-operation mix, and memory/graph counts.
+`/admin/intelligence` is a **live capability dashboard**: brain status +
+protocol + op count + self-model freshness, worker-IQ, the **self-model
+snapshot** (files, lines, routes, models, test coverage, weak/untested/orphan/
+duplicate counts, architecture layers, largest modules), a deterministic
+**capability strengths/weaknesses** map, the **top self-requested upgrades**,
+**multi-layer memory** by type, learned **source reliability**, recent
+decisions with confidence + risk, recent **self-explanations**,
+**stuckness/blocker** signals, communion-risk flags, and the operation mix.
 
 ### Commands
 
