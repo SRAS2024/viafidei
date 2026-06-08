@@ -58,7 +58,17 @@ afterAll(async () => {
   // Mission-control / stuckness fixtures (decisions before passes — SetNull FK).
   await prisma.adminWorkerDecision.deleteMany({ where: { decisionType: "brain_pass" } });
   await prisma.adminWorkerLog.deleteMany({
-    where: { eventName: { in: ["mission_control", "worker_stuck", "self_model_built"] } },
+    where: {
+      eventName: {
+        in: [
+          "mission_control",
+          "worker_stuck",
+          "self_model_built",
+          "extract_failed",
+          "intelligence_pass",
+        ],
+      },
+    },
   });
   await prisma.adminWorkerRepairPlan.deleteMany({});
   await prisma.adminWorkerPass.deleteMany({});
@@ -463,5 +473,48 @@ describe("Catholic-extraction enrichment (source reading)", () => {
       where: { op: "extract_structured_catholic_document" },
     });
     expect(structCall).not.toBeNull();
+  });
+});
+
+describe("post-pass reflection (self-explanation + test gaps)", () => {
+  it("explains the final decision and turns recurring failures into test-gap requests", async () => {
+    if (!brainOnline) return;
+    await prisma.adminWorkerDecision.create({
+      data: {
+        decisionType: "brain_pass",
+        inputSummary: "reflection-test",
+        chosenAction: "FETCH_SOURCE",
+        missionStage: "SOURCE_FETCH",
+        confidence: 0.8,
+        reason: "trusted source, highest expected value",
+      },
+    });
+    for (let i = 0; i < 3; i++) {
+      await prisma.adminWorkerLog.create({
+        data: {
+          category: "ERROR",
+          severity: "ERROR",
+          eventName: "extract_failed",
+          message: "pdf extraction failed for council document",
+        },
+      });
+    }
+
+    const { runPostPassIntelligence } = await import("@/lib/admin-worker/intelligence-pass");
+    const pass = await prisma.adminWorkerPass.create({
+      data: { passType: "AUTONOMOUS", status: "SUCCEEDED" },
+    });
+    await runPostPassIntelligence(prisma, { passId: pass.id, workerId: "reflection-test" });
+
+    // The brain explained its real decision (dashboard self-explanations).
+    const expl = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "explain_decision" } });
+    expect(expl).not.toBeNull();
+    // Recurring failures became a test-gap → a regression-test developer request.
+    const gap = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "detect_test_gap" } });
+    expect(gap).not.toBeNull();
+    const dr = await prisma.adminWorkerDeveloperRequest.findFirst({
+      where: { source: "test_gaps" },
+    });
+    expect(dr).not.toBeNull();
   });
 });

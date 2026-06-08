@@ -29,7 +29,7 @@ import {
   computeIqMetrics,
   inspectAndRecordRequests,
 } from "./intelligence/service";
-import { recordBrainCall } from "./intelligence/store";
+import { recordBrainCall, recordDeveloperRequests } from "./intelligence/store";
 import { writeAdminWorkerLog } from "./logs";
 
 /**
@@ -164,6 +164,81 @@ async function gatherIqStats(prisma: PrismaClient): Promise<Record<string, numbe
   return stats;
 }
 
+/**
+ * Reflection pass: the brain explains the real final decision it made this pass
+ * (so the dashboard's self-explanations are live, not synthetic) and converts
+ * recurring failures into ranked test-gap → regression-test developer requests.
+ * Advisory + fail-open; records every brain call.
+ */
+async function runBrainReflection(
+  prisma: PrismaClient,
+  passId: string,
+  failures: Array<{ category: string; message: string }>,
+): Promise<void> {
+  try {
+    const { explainDecision, explainWhatWouldChangeMyMind, detectTestGap, rankMissingTests } =
+      await import("./intelligence");
+
+    // 1. Explain the actual final decision + what would change the brain's mind.
+    const lastDecision = await prisma.adminWorkerDecision
+      .findFirst({
+        where: { decisionType: "brain_pass" },
+        orderBy: { createdAt: "desc" },
+        select: { missionStage: true, chosenAction: true, reason: true, confidence: true },
+      })
+      .catch(() => null);
+    if (lastDecision) {
+      const [explEnv, mindEnv] = await Promise.all([
+        explainDecision({
+          selectedAction: lastDecision.chosenAction,
+          missionStage: lastDecision.missionStage ?? "UNKNOWN",
+          reasoning: lastDecision.reason ?? "",
+          confidenceScore: lastDecision.confidence,
+        }),
+        explainWhatWouldChangeMyMind({
+          decision: lastDecision.chosenAction,
+          deciding_factors: ["source authority", "duplicate score", "stage success rate"],
+        }),
+      ]);
+      await Promise.all([
+        recordBrainCall(prisma, "explain_decision", explEnv, { passId }),
+        recordBrainCall(prisma, "explain_what_would_change_my_mind", mindEnv, { passId }),
+      ]);
+    }
+
+    // 2. Test-gap detection from recurring failures → regression-test requests.
+    if (failures.length > 0) {
+      const gapEnv = await detectTestGap({
+        failures: failures as unknown as Array<Record<string, unknown>>,
+      });
+      await recordBrainCall(prisma, "detect_test_gap", gapEnv, { passId });
+      const gaps =
+        (
+          gapEnv?.result as {
+            test_gaps?: Array<{ failure_kind: string; occurrences: number; missing_test: string }>;
+          } | null
+        )?.test_gaps ?? [];
+      if (gaps.length > 0) {
+        const rankEnv = await rankMissingTests(gaps as Array<Record<string, unknown>>);
+        await recordBrainCall(prisma, "rank_missing_tests", rankEnv, { passId });
+        await recordDeveloperRequests(
+          prisma,
+          gaps.slice(0, 5).map((g) => ({
+            kind: "code" as const,
+            title: `Add ${g.missing_test}`,
+            detail: `Recurring ${g.failure_kind} failures (×${g.occurrences}) lack a regression test.`,
+            severity: (g.occurrences >= 4 ? "high" : "medium") as "high" | "medium" | "low",
+            evidence: `${g.failure_kind} ×${g.occurrences}`,
+          })),
+          "test_gaps",
+        );
+      }
+    }
+  } catch {
+    // reflection is advisory — never break the pass
+  }
+}
+
 export async function runPostPassIntelligence(
   prisma: PrismaClient,
   opts: { passId: string; workerId: string },
@@ -220,6 +295,12 @@ export async function runPostPassIntelligence(
     const { runMissionControlPass, runStucknessPass } = await import("./mission-control");
     await runMissionControlPass(prisma, { passId: opts.passId });
     await runStucknessPass(prisma, { passId: opts.passId });
+
+    // Reflection: explain the actual final decision the brain made this pass,
+    // and turn recurring failures into test-gap → regression-test developer
+    // requests. Advisory + recorded so the dashboard's self-explanations and
+    // the developer-request queue reflect real activity. Fail-open.
+    await runBrainReflection(prisma, opts.passId, failures);
 
     const stats = await gatherIqStats(prisma);
     const iq = await computeIqMetrics(prisma, stats, { passId: opts.passId });
