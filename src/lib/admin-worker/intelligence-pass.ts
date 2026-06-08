@@ -214,6 +214,13 @@ export async function runPostPassIntelligence(
     // Supplementary brain analyses: relationship inference + graph analysis.
     await runGraphAndRelationshipAnalysis(prisma, opts.passId);
 
+    // Unified higher-order reasoning: mission control (mission tree → subgoals →
+    // blockers → next action) and stuckness detection (loop / no-growth → unblock
+    // strategy → developer request). Both fail-open and record their brain calls.
+    const { runMissionControlPass, runStucknessPass } = await import("./mission-control");
+    await runMissionControlPass(prisma, { passId: opts.passId });
+    await runStucknessPass(prisma, { passId: opts.passId });
+
     const stats = await gatherIqStats(prisma);
     const iq = await computeIqMetrics(prisma, stats, { passId: opts.passId });
 

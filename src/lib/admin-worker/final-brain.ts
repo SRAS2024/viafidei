@@ -16,7 +16,12 @@ import type { PrismaClient } from "@prisma/client";
 
 import type { BrainAction, BrainDecision, FinalActionSelector } from "./brain";
 import { BrainFinalDecisionSchema } from "./intelligence/contracts";
-import { isBrainEnabled, selectAction, type FinalActionCandidate } from "./intelligence";
+import {
+  compareCounterfactualActions,
+  isBrainEnabled,
+  selectAction,
+  type FinalActionCandidate,
+} from "./intelligence";
 import { recordBrainCall } from "./intelligence/store";
 import { summarizeStageReliability } from "./stage-outcomes";
 import { allContentTypeProfiles } from "./content-type-profiles";
@@ -192,6 +197,27 @@ export function pythonFinalSelector(prisma: PrismaClient): FinalActionSelector {
       reasonSummary: parsed.data.reasoning || match.reasonSummary,
       fallbackAction: parsed.data.fallbackAction ?? match.fallbackAction,
     };
+
+    // Forward simulation of the chosen vs the top alternatives: the brain
+    // predicts each action's outcome/risk before the executor runs it. Recorded
+    // to the audit trail (dashboard) — best-effort, never blocks execution.
+    try {
+      const simEnv = await compareCounterfactualActions(
+        decision.rankedAlternatives.slice(0, 5).map(toCandidate) as unknown as Array<
+          Record<string, unknown>
+        >,
+        {
+          stage_outcomes: stageOutcomes as unknown as Array<Record<string, unknown>>,
+          source_reputation: world.topSourceReputation,
+        },
+      );
+      await recordBrainCall(prisma, "compare_counterfactual_actions", simEnv, {
+        passId: passId ?? null,
+      }).catch(() => undefined);
+    } catch {
+      // simulation is advisory — never block the chosen action
+    }
+
     return { chosen, source: "python", failure: null };
   };
 }

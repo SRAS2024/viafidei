@@ -33,6 +33,7 @@ import {
 } from "@/lib/admin-worker/awareness";
 import { resetSelfModelThrottle, runSelfModelPass } from "@/lib/admin-worker/self-model";
 import { resetCustodyThrottle, runCustodyPass } from "@/lib/admin-worker/custody";
+import { runMissionControlPass, runStucknessPass } from "@/lib/admin-worker/mission-control";
 
 let brainOnline = false;
 
@@ -54,6 +55,14 @@ afterAll(async () => {
   await prisma.humanReviewQueue.deleteMany({ where: { contentType: "READING" } });
   await prisma.adminWorkerMemory.deleteMany({});
   await prisma.publishedContent.deleteMany({ where: { slug: { startsWith: "custody-test-" } } });
+  // Mission-control / stuckness fixtures (decisions before passes — SetNull FK).
+  await prisma.adminWorkerDecision.deleteMany({ where: { decisionType: "brain_pass" } });
+  await prisma.adminWorkerLog.deleteMany({
+    where: { eventName: { in: ["mission_control", "worker_stuck", "self_model_built"] } },
+  });
+  await prisma.adminWorkerRepairPlan.deleteMany({});
+  await prisma.adminWorkerPass.deleteMany({});
+  await prisma.contentGoal.deleteMany({});
   // Tear down the persistent brain process so vitest can exit cleanly.
   resetBrainStatus();
 });
@@ -351,6 +360,79 @@ describe("schema/UI awareness + content custody", () => {
     expect(res.scanned).toBeGreaterThanOrEqual(1);
     expect(res.weak).toBeGreaterThanOrEqual(1);
     const dr = await prisma.adminWorkerDeveloperRequest.findFirst({ where: { source: "custody" } });
+    expect(dr).not.toBeNull();
+  });
+});
+
+describe("mission control + stuckness (wired into the loop)", () => {
+  it("builds the mission tree from content goals and recommends the next action", async () => {
+    if (!brainOnline) return;
+    await prisma.contentGoal.createMany({
+      data: [
+        { contentType: "PRAYER", desiredTarget: 1000, currentValidCount: 5, priority: 90 },
+        {
+          contentType: "SACRAMENT",
+          desiredTarget: 7,
+          currentValidCount: 7,
+          canonicalMax: 7,
+          priority: 50,
+        },
+      ],
+      skipDuplicates: true,
+    });
+
+    const res = await runMissionControlPass(prisma);
+    expect(res.ran).toBe(true);
+    // The brain built the mission tree + recommended the next mission action.
+    const tree = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "build_mission_tree" },
+    });
+    expect(tree).not.toBeNull();
+    const nextAction = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "recommend_next_mission_action" },
+    });
+    expect(nextAction).not.toBeNull();
+    // A durable mission-control snapshot was persisted (dashboard surfaces it).
+    const snap = await prisma.adminWorkerLog.findFirst({ where: { eventName: "mission_control" } });
+    expect(snap).not.toBeNull();
+    // The least-complete open mission (PRAYER) is the next target, not the
+    // already-complete SACRAMENT.
+    expect(res.nextContentType).toBe("PRAYER");
+  });
+
+  it("detects an action loop with no content growth and files a developer request", async () => {
+    if (!brainOnline) return;
+    // Seed a stuck history: the same mission stage repeated with zero growth.
+    for (let i = 0; i < 6; i++) {
+      await prisma.adminWorkerDecision.create({
+        data: {
+          decisionType: "brain_pass",
+          inputSummary: "stuck-test",
+          chosenAction: "DISCOVER_SOURCE",
+          missionStage: "DISCOVERY",
+        },
+      });
+    }
+    for (let i = 0; i < 4; i++) {
+      await prisma.adminWorkerPass.create({
+        data: { passType: "AUTONOMOUS", status: "SUCCEEDED", contentPublished: 0 },
+      });
+    }
+
+    const res = await runStucknessPass(prisma);
+    expect(res.ran).toBe(true);
+    expect(res.stuck).toBe(true);
+    // The brain call + unblock strategy were recorded.
+    const stuckCall = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "detect_stuckness" },
+    });
+    expect(stuckCall).not.toBeNull();
+    // A worker_stuck log + a developer request surface the blocker for review.
+    const log = await prisma.adminWorkerLog.findFirst({ where: { eventName: "worker_stuck" } });
+    expect(log).not.toBeNull();
+    const dr = await prisma.adminWorkerDeveloperRequest.findFirst({
+      where: { source: "stuckness" },
+    });
     expect(dr).not.toBeNull();
   });
 });

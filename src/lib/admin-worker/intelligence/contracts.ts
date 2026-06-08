@@ -304,7 +304,16 @@ export interface FetchDiagnosis {
 }
 
 export interface DeveloperRequest {
-  kind: "parser" | "schema" | "source" | "ui" | "safety" | "capability" | "code" | "data";
+  kind:
+    | "parser"
+    | "schema"
+    | "source"
+    | "ui"
+    | "safety"
+    | "capability"
+    | "code"
+    | "data"
+    | "process";
   title: string;
   detail: string;
   severity: "low" | "medium" | "high";
