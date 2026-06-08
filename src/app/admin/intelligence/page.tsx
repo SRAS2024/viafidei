@@ -228,6 +228,100 @@ export default async function AdminIntelligencePage() {
         riskTotal
       : 0;
 
+  // Per-op ok/fail counts for the capability matrix (status + recent failures).
+  const byOpOk = (await prisma.adminWorkerBrainCall
+    .groupBy({ by: ["op", "ok"], _count: { _all: true } })
+    .catch(() => [])) as Array<{ op: string; ok: boolean; _count: { _all: number } }>;
+  const opStats = new Map<string, { calls: number; ok: number; confidence: number }>();
+  for (const row of byOp) {
+    opStats.set(row.op, {
+      calls: row._count._all,
+      ok: 0,
+      confidence: row._avg.confidence ?? 0,
+    });
+  }
+  for (const row of byOpOk) {
+    const s = opStats.get(row.op) ?? { calls: 0, ok: 0, confidence: 0 };
+    if (row.ok) s.ok += row._count._all;
+    opStats.set(row.op, s);
+  }
+
+  // Capability families → the brain ops that implement them. Each row reports
+  // status / confidence / calls / recent failures (spec item 13).
+  const CAPABILITY_FAMILIES: Array<{ name: string; ops: string[] }> = [
+    { name: "Final action selection", ops: ["select_action", "compare_counterfactual_actions"] },
+    { name: "Duplicate detection", ops: ["detect_duplicates"] },
+    {
+      name: "Source + communion intelligence",
+      ops: [
+        "assess_source",
+        "detect_communion_risk",
+        "compare_sources",
+        "rank_catholic_source_authority",
+      ],
+    },
+    {
+      name: "Claim verification",
+      ops: ["extract_claims", "compare_claims", "resolve_claim_with_authority"],
+    },
+    { name: "Quality + specialist review", ops: ["score_quality", "specialist_reviews"] },
+    { name: "Repair intelligence", ops: ["classify_failure", "diagnose_fetch"] },
+    {
+      name: "Self-model + code awareness",
+      ops: [
+        "build_self_model",
+        "ingest_codebase",
+        "build_call_graph",
+        "find_weak_modules",
+        "rank_self_upgrades",
+      ],
+    },
+    {
+      name: "Mission control",
+      ops: ["build_mission_tree", "rank_subgoals", "recommend_next_mission_action"],
+    },
+    {
+      name: "Catholic extraction",
+      ops: ["identify_document_type", "extract_structured_catholic_document"],
+    },
+    {
+      name: "Replay + resilience",
+      ops: [
+        "compare_decisions",
+        "detect_decision_drift",
+        "check_replay_integrity",
+        "recommend_circuit_break",
+      ],
+    },
+    { name: "Learning + calibration", ops: ["learn_from_outcome", "calibrate_confidence"] },
+    { name: "Self-explanation", ops: EXPLANATION_OPS },
+  ];
+  const capabilityRows = CAPABILITY_FAMILIES.map((fam) => {
+    let calls = 0;
+    let ok = 0;
+    let confWeighted = 0;
+    for (const op of fam.ops) {
+      const s = opStats.get(op);
+      if (s) {
+        calls += s.calls;
+        ok += s.ok;
+        confWeighted += s.confidence * s.calls;
+      }
+    }
+    const failures = Math.max(0, calls - ok);
+    const okRate = calls > 0 ? ok / calls : 0;
+    const confidence = calls > 0 ? confWeighted / calls : 0;
+    const status =
+      calls === 0
+        ? "untested"
+        : okRate >= 0.95 && failures === 0
+          ? "healthy"
+          : okRate >= 0.8
+            ? "watch"
+            : "degraded";
+    return { name: fam.name, status, calls, failures, confidence };
+  });
+
   // Live worker-IQ for display only — uses the read-only wrapper (no audit
   // row written on a page view). Falls back to "n/a" when the brain is off.
   let dupCandidates = 0;
@@ -573,6 +667,47 @@ export default async function AdminIntelligencePage() {
         </div>
       </section>
 
+      {/* Capability matrix — per-capability health */}
+      <section className="rounded border bg-white p-4 shadow-sm">
+        <h2 className="font-display text-xl text-ink">Capability matrix</h2>
+        <p className="mb-3 font-serif text-sm text-ink-soft">
+          Each capability&rsquo;s live health from the brain-call audit: status, calls, recent
+          failures, and average confidence.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b text-left text-ink-soft">
+                <th className="py-2 pr-3">Capability</th>
+                <th className="py-2 pr-3">Status</th>
+                <th className="py-2 pr-3">Calls</th>
+                <th className="py-2 pr-3">Recent failures</th>
+                <th className="py-2 pr-3">Confidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {capabilityRows.map((c) => (
+                <tr key={c.name} className="border-b border-stone-100 align-top">
+                  <td className="py-2 pr-3 text-ink">{c.name}</td>
+                  <td className="py-2 pr-3">
+                    <CapabilityStatus status={c.status} />
+                  </td>
+                  <td className="py-2 pr-3 text-ink-soft">{c.calls.toLocaleString()}</td>
+                  <td
+                    className={`py-2 pr-3 ${c.failures > 0 ? "text-amber-700" : "text-ink-soft"}`}
+                  >
+                    {c.failures}
+                  </td>
+                  <td className="py-2 pr-3 text-ink-soft">
+                    {c.calls > 0 ? fmtPct(c.confidence) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       {/* Top requested upgrades (from the self-model) */}
       {snap?.top_upgrades && snap.top_upgrades.length > 0 && (
         <section className="rounded border bg-white p-4 shadow-sm">
@@ -890,6 +1025,20 @@ function CodeHealth({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="font-serif text-sm text-ink-soft">{children}</p>;
+}
+
+function CapabilityStatus({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    healthy: "bg-emerald-100 text-emerald-700",
+    watch: "bg-amber-100 text-amber-800",
+    degraded: "bg-rose-100 text-rose-800",
+    untested: "bg-stone-100 text-stone-600",
+  };
+  return (
+    <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${map[status] ?? map.untested}`}>
+      {status}
+    </span>
+  );
 }
 
 /**
