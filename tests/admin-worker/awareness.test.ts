@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { inspectCode, inspectSchema, inspectUi } from "@/lib/admin-worker/awareness";
+import { inspectSchema, inspectUi } from "@/lib/admin-worker/awareness";
+import { buildSelfModelCorpus } from "@/lib/admin-worker/self-model";
 
 // These inspectors are pure filesystem reads over the real repo (no brain).
 
@@ -35,15 +36,29 @@ describe("UI awareness — inspectUi", () => {
   });
 });
 
-describe("code awareness — inspectCode", () => {
-  it("summarises worker modules and surfaces the oversized ones", () => {
-    const files = inspectCode();
-    expect(files.length).toBeGreaterThan(20);
-    const dispatcher = files.find((f) => f.path.endsWith("admin-worker/dispatcher.ts"));
+describe("self-model corpus — buildSelfModelCorpus", () => {
+  it("ingests the codebase into a structured self-model corpus", () => {
+    const corpus = buildSelfModelCorpus();
+    expect(corpus.files.length).toBeGreaterThan(50);
+
+    const dispatcher = corpus.files.find((f) => f.path.endsWith("admin-worker/dispatcher.ts"));
     expect(dispatcher).toBeDefined();
     // dispatcher.ts is the canonical oversized module the spec calls out.
     expect(dispatcher!.lines).toBeGreaterThan(800);
-    // .test.ts and .d.ts files are excluded.
-    expect(files.some((f) => f.path.includes(".test."))).toBe(false);
+    // Deep awareness: real exports + imports, not just a line count.
+    expect(dispatcher!.exports).toContain("executeMissionStage");
+    expect(dispatcher!.imports.length).toBeGreaterThan(0);
+
+    // Test files are marked; the corpus links coverage.
+    expect(corpus.files.some((f) => f.isTest)).toBe(true);
+    expect(corpus.files.some((f) => !f.isTest && f.referencedByTests)).toBe(true);
+
+    // The whole-app model inputs are populated.
+    expect(corpus.routes.length).toBeGreaterThan(5);
+    expect(corpus.models.length).toBeGreaterThan(40);
+    expect(corpus.scripts).toContain("test");
+    expect(corpus.brain_ops).toContain("build_self_model");
+    expect(corpus.brain_ops).not.toContain("analyze_code"); // legacy op removed
+    expect(corpus.stages).toContain("PUBLIC_PUBLISH");
   });
 });

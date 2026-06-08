@@ -138,6 +138,7 @@ export async function upsertDeveloperRequest(
       where: { fingerprint },
       select: { id: true },
     });
+    const metadata = (req.metadata ?? undefined) as never;
     if (existing) {
       await prisma.adminWorkerDeveloperRequest.update({
         where: { fingerprint },
@@ -145,6 +146,7 @@ export async function upsertDeveloperRequest(
           detail: req.detail,
           severity: req.severity,
           evidence: req.evidence,
+          ...(req.metadata ? { metadata } : {}),
           occurrences: { increment: 1 },
           // re-open if it had been resolved but is recurring
           status: "OPEN",
@@ -162,6 +164,7 @@ export async function upsertDeveloperRequest(
         evidence: req.evidence,
         source: source ?? null,
         fingerprint,
+        ...(req.metadata ? { metadata } : {}),
       },
       select: { id: true },
     });

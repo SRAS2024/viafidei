@@ -289,15 +289,17 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // ignore — readings refresh is best-effort and must not affect the pass
   }
 
-  // Maintenance intelligence: schema-awareness, UI-awareness, and content
+  // Maintenance intelligence: schema-awareness, UI-awareness, the unified
+  // self-model (deep code awareness + self-upgrade requests), and content
   // custody. Each is throttled internally and non-blocking — supplementary
   // analyses that never affect the pass's final action.
   try {
-    const { runSchemaAwareness, runUiAwareness, runCodeAwareness } = await import("./awareness");
+    const { runSchemaAwareness, runUiAwareness } = await import("./awareness");
+    const { runSelfModelPass } = await import("./self-model");
     const { runCustodyPass } = await import("./custody");
     await runSchemaAwareness(prisma, { passId: pass.id });
     await runUiAwareness(prisma, { passId: pass.id });
-    await runCodeAwareness(prisma, { passId: pass.id });
+    await runSelfModelPass(prisma, { passId: pass.id });
     await runCustodyPass(prisma, { passId: pass.id });
   } catch {
     // best-effort — maintenance intelligence must not affect the pass

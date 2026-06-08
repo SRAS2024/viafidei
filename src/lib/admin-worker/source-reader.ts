@@ -147,6 +147,36 @@ export async function readSource(
       .catch(() => undefined);
   }
 
+  // 5b. Catholic document-type enrichment (intelligence brain). On a NEW read,
+  //     the brain identifies the document type and extracts structured Catholic
+  //     references (canon law, Catechism, papal / council metadata) from the
+  //     source text — so the unified Catholic-extraction capability genuinely
+  //     runs on the live source-reading path. Recorded to the audit trail
+  //     (dashboard op-mix). Advisory + fail-open; new reads only, brain-gated.
+  if (!sourceRead.reused) {
+    const { isBrainEnabled } = await import("./intelligence");
+    const enrichText = (blockBody || input.rawBody).trim();
+    if (isBrainEnabled() && enrichText.length > 0) {
+      try {
+        const { identifyDocumentType, extractStructuredCatholicDocument } =
+          await import("./intelligence");
+        const { recordBrainCall } = await import("./intelligence/store");
+        const text = enrichText.slice(0, 6000);
+        const ctx = { contentType: classification.contentType, entityId: sourceRead.id };
+        const [docEnv, structEnv] = await Promise.all([
+          identifyDocumentType(text),
+          extractStructuredCatholicDocument(text),
+        ]);
+        await Promise.all([
+          recordBrainCall(prisma, "identify_document_type", docEnv, ctx),
+          recordBrainCall(prisma, "extract_structured_catholic_document", structEnv, ctx),
+        ]);
+      } catch {
+        // Catholic-extraction enrichment is advisory — never break a read.
+      }
+    }
+  }
+
   const totalBlocks = structured.blocks.length + structured.rejectedBlocks.length;
   const acceptedBlocks = structured.blocks.length;
   const rejectedBlockCount = structured.rejectedBlocks.length;

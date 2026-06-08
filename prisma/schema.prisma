@@ -2311,6 +2311,113 @@ model AdminWorkerBrainCall {
   @@index([createdAt])
 }
 
+/// Durable SelfModel snapshots (spec: "Postgres should own SelfModel
+/// snapshots"). One row per self-model pass; the dashboard + developer audit
+/// read the latest. `model` holds the full structured self-model envelope.
+model AdminWorkerSelfModelSnapshot {
+  id              String   @id @default(cuid())
+  passId          String?
+  fileCount       Int      @default(0)
+  totalLines      Int      @default(0)
+  routeCount      Int      @default(0)
+  prismaModelCount Int     @default(0)
+  scriptCount     Int      @default(0)
+  workerStageCount Int     @default(0)
+  brainOpCount    Int      @default(0)
+  coverageRatio   Float    @default(0)
+  weakCount       Int      @default(0)
+  untestedCount   Int      @default(0)
+  orphanCount     Int      @default(0)
+  duplicatePairs  Int      @default(0)
+  importCycles    Int      @default(0)
+  architecture    String[] @default([])
+  topUpgrades     String[] @default([])
+  model           Json?
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Durable mission state (spec: "Postgres should own Mission state"). One row
+/// per content type, upserted each mission-control pass.
+model AdminWorkerMissionState {
+  id              String   @id @default(cuid())
+  contentType     String   @unique
+  goal            String?
+  existingContent Int      @default(0)
+  target          Int      @default(0)
+  completionPct   Float    @default(0)
+  status          String   @default("in_progress")
+  blockers        String[] @default([])
+  nextAction      String?
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  @@index([status])
+  @@index([completionPct])
+}
+
+/// Durable capability scores (spec: "Postgres should own Capability scores").
+/// One row per capability family, upserted each post-pass.
+model AdminWorkerCapabilityScore {
+  id         String   @id @default(cuid())
+  capability String   @unique
+  status     String   @default("untested")
+  calls      Int      @default(0)
+  failures   Int      @default(0)
+  confidence Float    @default(0)
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+
+  @@index([status])
+}
+
+/// Durable confidence-calibration history (spec: "Postgres should own
+/// Calibration history"). One row per (op) calibration measurement over time.
+model AdminWorkerCalibrationHistory {
+  id           String   @id @default(cuid())
+  op           String
+  predicted    Float    @default(0)
+  actual       Float    @default(0)
+  sampleSize   Int      @default(0)
+  calibrated   Boolean  @default(true)
+  gapDirection String?
+  createdAt    DateTime @default(now())
+
+  @@index([op])
+  @@index([createdAt])
+}
+
+/// Durable test-gap records (spec: "Postgres should own Test gap records").
+/// One row per failure kind; occurrences bump on repeat.
+model AdminWorkerTestGapRecord {
+  id          String    @id @default(cuid())
+  failureKind String    @unique
+  missingTest String
+  occurrences Int       @default(1)
+  status      String    @default("OPEN")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  resolvedAt  DateTime?
+
+  @@index([status])
+}
+
+/// Durable stuckness records (spec: "Postgres should own Stuckness records").
+/// One row per detected stuckness episode.
+model AdminWorkerStucknessRecord {
+  id             String   @id @default(cuid())
+  passId         String?
+  signals        String[] @default([])
+  strategy       String?
+  publishedDelta Int      @default(0)
+  resolved       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([resolved])
+  @@index([createdAt])
+}
+
 /// Daily liturgical readings stored as internal app content (spec: "Add
 /// daily liturgical readings as internal app content"). The worker
 /// refreshes one row per (date, calendar, locale). `sections` is an

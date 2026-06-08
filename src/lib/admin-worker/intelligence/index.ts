@@ -29,7 +29,6 @@ import {
   MissingResult,
   PlanResult,
   PrioritizeResult,
-  CodeAnalysisResult,
   QualityResult,
   RelationshipResult,
   SchemaAnalysisResult,
@@ -40,6 +39,16 @@ import {
   StructureResult,
   UiAnalysisResult,
   VariantsResult,
+  // Unified self-model + deep code awareness
+  SelfModelResult,
+  WeakModulesResult,
+  UntestedModulesResult,
+  OrphanResult,
+  DuplicateLogicResult,
+  CoverageGraphResult,
+  SelfUpgradesResult,
+  ArchitectureResult,
+  StucknessResult,
 } from "./contracts";
 
 export * from "./contracts";
@@ -421,23 +430,527 @@ export function analyzeUi(
   return callBrain<UiAnalysisResult>("analyze_ui", input, opts);
 }
 
-export interface CodeFileSummary {
+// ── Unified self-model + deep code awareness (replaces analyze_code) ───
+/** One ingested module: TypeScript reads the file (it owns the filesystem). */
+export interface SelfModelFile {
   path: string;
   lines: number;
+  exports: string[];
+  imports: string[];
+  isTest?: boolean;
+  referencedByTests?: boolean;
 }
-export function analyzeCode(
-  files: CodeFileSummary[],
-  opts?: CallOpts & { oversizedThreshold?: number; largeThreshold?: number },
+export interface SelfModelCorpus {
+  files: SelfModelFile[];
+  routes: Array<{ path: string; file?: string }>;
+  models: Array<{ name: string; usedByFiles: number }>;
+  scripts: string[];
+  stages: string[];
+  brain_ops: string[];
+}
+
+export function ingestCodebase(corpus: SelfModelCorpus, opts?: CallOpts) {
+  return callBrain("ingest_codebase", corpus, opts);
+}
+export function buildSelfModel(corpus: SelfModelCorpus, opts?: CallOpts) {
+  return callBrain<SelfModelResult>("build_self_model", corpus, opts);
+}
+export function buildSymbolGraph(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain("build_symbol_graph", { files }, opts);
+}
+export function buildCallGraph(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain("build_call_graph", { files }, opts);
+}
+export function buildRouteGraph(routes: SelfModelCorpus["routes"], opts?: CallOpts) {
+  return callBrain("build_route_graph", { routes }, opts);
+}
+export function buildSchemaGraph(models: SelfModelCorpus["models"], opts?: CallOpts) {
+  return callBrain("build_schema_graph", { models }, opts);
+}
+export function buildTestCoverageGraph(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain<CoverageGraphResult>("build_test_coverage_graph", { files }, opts);
+}
+export function explainOwnArchitecture(model: SelfModelResult, opts?: CallOpts) {
+  return callBrain<ArchitectureResult>("explain_own_architecture", { model }, opts);
+}
+export function findWeakModules(
+  files: SelfModelFile[],
+  opts?: CallOpts & { oversizedThreshold?: number },
 ) {
-  return callBrain<CodeAnalysisResult>(
-    "analyze_code",
-    {
-      files,
-      oversized_threshold: opts?.oversizedThreshold,
-      large_threshold: opts?.largeThreshold,
-    },
+  return callBrain<WeakModulesResult>(
+    "find_weak_modules",
+    { files, oversized_threshold: opts?.oversizedThreshold },
     opts,
   );
+}
+export function findUntestedModules(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain<UntestedModulesResult>("find_untested_modules", { files }, opts);
+}
+export function findOrphanedCode(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain<OrphanResult>("find_orphaned_code", { files }, opts);
+}
+export function findDuplicateLogic(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain<DuplicateLogicResult>("find_duplicate_logic", { files }, opts);
+}
+export function rankSelfUpgrades(
+  findings: {
+    weak_modules?: unknown[];
+    untested_modules?: unknown[];
+    orphan_candidates?: unknown[];
+    duplicate_pairs?: unknown[];
+    coverage_ratio?: number;
+  },
+  opts?: CallOpts,
+) {
+  return callBrain<SelfUpgradesResult>("rank_self_upgrades", findings, opts);
+}
+export function detectStuckness(
+  input: {
+    recent_decisions?: Array<{ missionStage?: string }>;
+    recent_repairs?: Array<{ kind?: string; status?: string }>;
+    published_delta?: number;
+    pass_count?: number;
+    source_fatigue?: Record<string, number>;
+  },
+  opts?: CallOpts,
+) {
+  return callBrain<StucknessResult>("detect_stuckness", input, opts);
+}
+
+// ── Catholic authority graph ──────────────────────────────────────────
+export function buildCatholicAuthorityGraph(opts?: CallOpts) {
+  return callBrain("build_catholic_authority_graph", {}, opts);
+}
+export function rankCatholicSourceAuthority(
+  sources: Array<Record<string, unknown>>,
+  opts?: CallOpts,
+) {
+  return callBrain("rank_catholic_source_authority", { sources }, opts);
+}
+export function resolveAuthorityChain(levels: string[], opts?: CallOpts) {
+  return callBrain("resolve_authority_chain", { levels }, opts);
+}
+export function classifyDocumentAuthority(documentType: string, opts?: CallOpts) {
+  return callBrain("classify_document_authority", { document_type: documentType }, opts);
+}
+export function classifySourceRole(
+  input: { url?: string; authorityLevel?: string },
+  opts?: CallOpts,
+) {
+  return callBrain("classify_source_role", input, opts);
+}
+export function explainAuthorityDecision(chosen: string, over: string[], opts?: CallOpts) {
+  return callBrain("explain_authority_decision", { chosen, over }, opts);
+}
+
+// ── Claim-level verification ──────────────────────────────────────────
+export interface ClaimInput {
+  subject?: string;
+  predicate: string;
+  value: string;
+  source?: string;
+  authority_level?: string;
+  citation?: string;
+}
+export function extractClaims(
+  input: {
+    text: string;
+    subject?: string;
+    source?: string;
+    authority_level?: string;
+    citation?: string;
+  },
+  opts?: CallOpts,
+) {
+  return callBrain("extract_claims", input, opts);
+}
+export function normalizeClaim(claim: ClaimInput, opts?: CallOpts) {
+  return callBrain("normalize_claim", { claim }, opts);
+}
+export function compareClaims(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("compare_claims", { claims }, opts);
+}
+export function detectDateConflict(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("detect_date_conflict", { claims }, opts);
+}
+export function detectEntityConflict(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("detect_entity_conflict", { claims }, opts);
+}
+export function detectTitleConflict(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("detect_title_conflict", { claims }, opts);
+}
+export function detectLiturgicalConflict(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("detect_liturgical_conflict", { claims }, opts);
+}
+export function resolveClaimWithAuthority(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("resolve_claim_with_authority", { claims }, opts);
+}
+export function buildClaimEvidencePack(
+  input: { subject: string; predicate?: string; claims?: ClaimInput[] },
+  opts?: CallOpts,
+) {
+  return callBrain("build_claim_evidence_pack", input, opts);
+}
+
+// ── Action simulation ─────────────────────────────────────────────────
+export interface SimContext {
+  stage_outcomes?: Array<Record<string, unknown>>;
+  source_reputation?: Array<Record<string, unknown>>;
+  source_fatigue?: Record<string, number>;
+  sensitive_content_types?: string[];
+}
+export function simulateAction(action: Record<string, unknown>, ctx?: SimContext, opts?: CallOpts) {
+  return callBrain("simulate_action", { action, ...(ctx ?? {}) }, opts);
+}
+export function predictActionOutcome(
+  action: Record<string, unknown>,
+  ctx?: SimContext,
+  opts?: CallOpts,
+) {
+  return callBrain("predict_action_outcome", { action, ...(ctx ?? {}) }, opts);
+}
+export function estimateFailureModes(
+  action: Record<string, unknown>,
+  ctx?: SimContext,
+  opts?: CallOpts,
+) {
+  return callBrain("estimate_failure_modes", { action, ...(ctx ?? {}) }, opts);
+}
+export function estimatePublishRisk(
+  action: Record<string, unknown>,
+  ctx?: SimContext,
+  opts?: CallOpts,
+) {
+  return callBrain("estimate_publish_risk", { action, ...(ctx ?? {}) }, opts);
+}
+export function compareCounterfactualActions(
+  actions: Array<Record<string, unknown>>,
+  ctx?: SimContext,
+  opts?: CallOpts,
+) {
+  return callBrain("compare_counterfactual_actions", { actions, ...(ctx ?? {}) }, opts);
+}
+
+// ── Confidence calibration ────────────────────────────────────────────
+export interface PredictionRecord {
+  op: string;
+  predicted: boolean | string;
+  actual: boolean | string;
+  confidence?: number;
+}
+export function calibrateConfidence(records: PredictionRecord[], opts?: CallOpts) {
+  return callBrain("calibrate_confidence", { records }, opts);
+}
+export function measurePredictionAccuracy(records: PredictionRecord[], opts?: CallOpts) {
+  return callBrain("measure_prediction_accuracy", { records }, opts);
+}
+export function scoreDecisionQuality(records: PredictionRecord[], opts?: CallOpts) {
+  return callBrain("score_decision_quality", { records }, opts);
+}
+export function gradeBrainDecision(decision: PredictionRecord, opts?: CallOpts) {
+  return callBrain("grade_brain_decision", { decision }, opts);
+}
+
+// ── Stuckness detection ───────────────────────────────────────────────
+export function detectActionLoop(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("detect_action_loop", input, opts);
+}
+export function detectSourceLoop(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("detect_source_loop", input, opts);
+}
+export function detectRepairLoop(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("detect_repair_loop", input, opts);
+}
+export function detectNoGrowth(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("detect_no_growth", input, opts);
+}
+export function explainNoGrowth(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_no_growth", input, opts);
+}
+export function recommendUnblockStrategy(signals: string[], opts?: CallOpts) {
+  return callBrain("recommend_unblock_strategy", { signals }, opts);
+}
+
+// ── Mission control ───────────────────────────────────────────────────
+export function buildMissionTree(goals: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("build_mission_tree", { goals }, opts);
+}
+export function updateMissionProgress(
+  input: { content_type: string; existing: number; target: number },
+  opts?: CallOpts,
+) {
+  return callBrain("update_mission_progress", input, opts);
+}
+export function detectMissionBlockers(mission: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("detect_mission_blockers", { mission }, opts);
+}
+export function rankSubgoals(missions: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("rank_subgoals", { missions }, opts);
+}
+export function recommendNextMissionAction(
+  input: { mission: Record<string, unknown>; blockers?: string[] },
+  opts?: CallOpts,
+) {
+  return callBrain("recommend_next_mission_action", input, opts);
+}
+
+// ── Self-explanation ──────────────────────────────────────────────────
+export function explainDecision(decision: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_decision", { decision }, opts);
+}
+export function explainRejectedAlternatives(
+  input: { chosen_score?: number; alternatives: Array<Record<string, unknown>> },
+  opts?: CallOpts,
+) {
+  return callBrain("explain_rejected_alternatives", input, opts);
+}
+export function explainSafetyGate(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_safety_gate", input, opts);
+}
+export function explainConfidence(
+  input: { confidence: number; drivers?: string[] },
+  opts?: CallOpts,
+) {
+  return callBrain("explain_confidence", input, opts);
+}
+export function explainWhatWouldChangeMyMind(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_what_would_change_my_mind", input, opts);
+}
+
+// ── Upgrade-request engine ────────────────────────────────────────────
+export function rankUpgradeRequests(requests: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("rank_upgrade_requests", { requests }, opts);
+}
+export function explainUpgradeRequest(request: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_upgrade_request", { request }, opts);
+}
+export function mergeDuplicateUpgradeRequests(
+  requests: Array<Record<string, unknown>>,
+  opts?: CallOpts & { threshold?: number },
+) {
+  return callBrain(
+    "merge_duplicate_upgrade_requests",
+    { requests, threshold: opts?.threshold },
+    opts,
+  );
+}
+export function detectIgnoredUpgradeRequests(
+  requests: Array<Record<string, unknown>>,
+  opts?: CallOpts,
+) {
+  return callBrain("detect_ignored_upgrade_requests", { requests }, opts);
+}
+export function estimateUpgradeRoi(request: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("estimate_upgrade_roi", { request }, opts);
+}
+
+// ── Test-gap detection ────────────────────────────────────────────────
+export function detectTestGap(
+  input: { failures: Array<Record<string, unknown>>; min_occurrences?: number },
+  opts?: CallOpts,
+) {
+  return callBrain("detect_test_gap", input, opts);
+}
+export function suggestRegressionTest(failure: string, opts?: CallOpts) {
+  return callBrain("suggest_regression_test", { failure }, opts);
+}
+export function generateTestFixturePlan(failure: string, opts?: CallOpts) {
+  return callBrain("generate_test_fixture_plan", { failure }, opts);
+}
+export function proposeTestPatch(
+  input: { failure: string; target_file?: string },
+  opts?: CallOpts,
+) {
+  return callBrain("propose_test_patch", input, opts);
+}
+export function rankMissingTests(gaps: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("rank_missing_tests", { gaps }, opts);
+}
+
+// ── Specialist reviewers ──────────────────────────────────────────────
+export function specialistReviews(candidate: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("specialist_reviews", { candidate }, opts);
+}
+export function combineSpecialistReviews(reviews: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("combine_specialist_reviews", { reviews }, opts);
+}
+
+// ── Multi-layer memory ────────────────────────────────────────────────
+type MemoryList = Array<Record<string, unknown>>;
+export function consolidateMemories(memories: MemoryList, opts?: CallOpts) {
+  return callBrain("consolidate_memories", { memories }, opts);
+}
+export function summarizeRepeatedLessons(memories: MemoryList, opts?: CallOpts) {
+  return callBrain("summarize_repeated_lessons", { memories }, opts);
+}
+export function mergeDuplicateMemories(
+  memories: MemoryList,
+  opts?: CallOpts & { threshold?: number },
+) {
+  return callBrain("merge_duplicate_memories", { memories, threshold: opts?.threshold }, opts);
+}
+export function detectConflictingMemories(memories: MemoryList, opts?: CallOpts) {
+  return callBrain("detect_conflicting_memories", { memories }, opts);
+}
+export function retireStaleMemories(
+  memories: MemoryList,
+  opts?: CallOpts & { maxAgeDays?: number },
+) {
+  return callBrain("retire_stale_memories", { memories, max_age_days: opts?.maxAgeDays }, opts);
+}
+export function rankMemoryImportance(memories: MemoryList, opts?: CallOpts) {
+  return callBrain("rank_memory_importance", { memories }, opts);
+}
+export function retrieveContextPack(
+  input: { query?: string; memories: MemoryList; k?: number },
+  opts?: CallOpts,
+) {
+  return callBrain("retrieve_context_pack", input, opts);
+}
+export function extractUpgradeRequestsFromMemory(memories: MemoryList, opts?: CallOpts) {
+  return callBrain("extract_upgrade_requests_from_memory", { memories }, opts);
+}
+
+// ── Hybrid retrieval ──────────────────────────────────────────────────
+export function hybridSearch(
+  input: { query?: string; candidates: MemoryList; weights?: Record<string, number>; k?: number },
+  opts?: CallOpts,
+) {
+  return callBrain("hybrid_search", input, opts);
+}
+export function rankMemoryCandidates(
+  input: { query?: string; candidates: MemoryList },
+  opts?: CallOpts,
+) {
+  return callBrain("rank_memory_candidates", input, opts);
+}
+export function rankSourceCandidates(
+  input: { query?: string; candidates: MemoryList },
+  opts?: CallOpts,
+) {
+  return callBrain("rank_source_candidates", input, opts);
+}
+export function rankRelatedContent(
+  input: { query?: string; candidates: MemoryList },
+  opts?: CallOpts,
+) {
+  return callBrain("rank_related_content", input, opts);
+}
+export function explainRetrievalResult(result: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_retrieval_result", { result }, opts);
+}
+export function detectMemoryGap(
+  input: { query: string; candidates?: MemoryList; min_similarity?: number },
+  opts?: CallOpts,
+) {
+  return callBrain("detect_memory_gap", input, opts);
+}
+
+// ── Catholic content extraction ───────────────────────────────────────
+export function identifyDocumentType(text: string, opts?: CallOpts) {
+  return callBrain("identify_document_type", { text }, opts);
+}
+export function extractStructuredCatholicDocument(text: string, opts?: CallOpts) {
+  return callBrain("extract_structured_catholic_document", { text }, opts);
+}
+export function extractLiturgicalDate(text: string, opts?: CallOpts) {
+  return callBrain("extract_liturgical_date", { text }, opts);
+}
+export function extractCanonLawReference(text: string, opts?: CallOpts) {
+  return callBrain("extract_canon_law_reference", { text }, opts);
+}
+export function extractCatechismReference(text: string, opts?: CallOpts) {
+  return callBrain("extract_catechism_reference", { text }, opts);
+}
+export function extractPapalDocumentMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_papal_document_metadata", { text }, opts);
+}
+export function extractCouncilDocumentMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_council_document_metadata", { text }, opts);
+}
+export function extractSaintMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_saint_metadata", { text }, opts);
+}
+export function extractParishMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_parish_metadata", { text }, opts);
+}
+export function extractPrayerMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_prayer_metadata", { text }, opts);
+}
+export function extractNovenaMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_novena_metadata", { text }, opts);
+}
+export function extractLitanyMetadata(text: string, opts?: CallOpts) {
+  return callBrain("extract_litany_metadata", { text }, opts);
+}
+export function buildChurchHistoryTimelineEntry(text: string, opts?: CallOpts) {
+  return callBrain("build_church_history_timeline_entry", { text }, opts);
+}
+
+// ── Review-gated self-improvement (propose only; never auto-deploy) ────
+export function proposeCodePatch(
+  input: { request: Record<string, unknown>; affected_files?: string[]; approach?: string },
+  opts?: CallOpts,
+) {
+  return callBrain("propose_code_patch", input, opts);
+}
+export function proposeSchemaMigration(
+  input: { change: string; affected_models?: string[]; backfill_required?: boolean },
+  opts?: CallOpts,
+) {
+  return callBrain("propose_schema_migration", input, opts);
+}
+export function reviewPatchRisk(patch: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("review_patch_risk", { patch }, opts);
+}
+export function generateRollbackPlan(patch: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("generate_rollback_plan", { patch }, opts);
+}
+export function explainPatchValue(patch: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_patch_value", { patch }, opts);
+}
+
+// ── Replayability & resilience ────────────────────────────────────────
+export function replayDecision(
+  input: { chosen_stage: string; candidates: Array<Record<string, unknown>> },
+  opts?: CallOpts,
+) {
+  return callBrain("replay_decision", input, opts);
+}
+export function compareDecisions(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+  opts?: CallOpts,
+) {
+  return callBrain("compare_decisions", { a, b }, opts);
+}
+export function explainDecisionChange(
+  input: {
+    previous: Record<string, unknown>;
+    current: Record<string, unknown>;
+    world_changes?: string[];
+  },
+  opts?: CallOpts,
+) {
+  return callBrain("explain_decision_change", input, opts);
+}
+export function detectDecisionDrift(decisions: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("detect_decision_drift", { decisions }, opts);
+}
+export function recommendCircuitBreak(
+  input: {
+    scope: "host" | "stage" | "content_type";
+    key: string;
+    attempts: number;
+    failures: number;
+    consecutive_failures?: number;
+  },
+  opts?: CallOpts,
+) {
+  return callBrain("recommend_circuit_break", input, opts);
+}
+export function checkReplayIntegrity(records: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("check_replay_integrity", { records }, opts);
 }
 
 export type { BrainEnvelope };

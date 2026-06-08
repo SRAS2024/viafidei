@@ -1,10 +1,13 @@
 """
-Schema-, UI- and code-awareness analysis.
+Schema- and UI-awareness analysis.
 
-TypeScript inspects the Prisma schema, the route/page tree, and the worker
-modules (it owns the filesystem); Python analyses the *summary* it passes in
-and returns findings + structured developer requests. Deterministic and
-stdlib-only; it recommends, it never edits code or schema.
+TypeScript inspects the Prisma schema and the route/page tree (it owns the
+filesystem); Python analyses the *summary* it passes in and returns findings +
+structured developer requests. Deterministic and stdlib-only; it recommends, it
+never edits code or schema.
+
+Deep CODE awareness now lives in ``intelligence.operations.self_model`` (the
+unified self-model), which replaced the old summary-only ``analyze_code``.
 """
 
 from __future__ import annotations
@@ -132,62 +135,4 @@ def analyze_ui(payload: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
-def analyze_code(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Code-awareness: flag oversized modules + recommend refactors.
-
-    TypeScript supplies a per-file line summary; this returns refactor
-    developer requests. Recommendation-only — production code changes always
-    require human review (the spec's guardrail), so the worker *requests*
-    refactors of oversized files rather than rewriting them itself.
-    """
-    files = require(payload, "files")
-    if not isinstance(files, list):
-        files = []
-    oversized_threshold = int(opt(payload, "oversized_threshold", 800))
-    large_threshold = int(opt(payload, "large_threshold", 400))
-
-    oversized: List[Dict[str, Any]] = []
-    large: List[Dict[str, Any]] = []
-    total_lines = 0
-    for f in files:
-        path = str(f.get("path") or "")
-        lines = int(f.get("lines") or 0)
-        total_lines += lines
-        if lines > oversized_threshold:
-            oversized.append({"path": path, "lines": lines})
-        elif lines > large_threshold:
-            large.append({"path": path, "lines": lines})
-
-    oversized.sort(key=lambda x: x["lines"], reverse=True)
-    requests: List[Dict[str, Any]] = []
-    for f in oversized[:6]:
-        requests.append(
-            _dev_request(
-                "code",
-                f"Refactor oversized module {f['path']}",
-                f"{f['path']} is {f['lines']} lines — split it into focused modules for "
-                "maintainability. Production code changes require human review.",
-                "high" if f["lines"] > 1500 else "medium",
-                f"{f['lines']} lines",
-            )
-        )
-
-    findings = {
-        "file_count": len(files),
-        "total_lines": total_lines,
-        "oversized_files": oversized[:20],
-        "large_files": large[:20],
-    }
-    return envelope(
-        result={"findings": findings, "developer_requests": requests},
-        confidence=0.75 if files else 0.2,
-        reasoning=(
-            f"Scanned {len(files)} module(s) / {total_lines} lines; "
-            f"{len(oversized)} oversized (> {oversized_threshold}), {len(large)} large."
-        ),
-        evidence=[r["title"] for r in requests] or ["no oversized modules"],
-        risk_level=RISK_LOW if requests else RISK_NONE,
-        recommended_next_action="open-refactor-tasks" if requests else "code-healthy",
-        safe_to_auto_execute=False,  # code changes always require review
-    )
 

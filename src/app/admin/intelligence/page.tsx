@@ -4,19 +4,59 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
 import { iqMetrics, isBrainEnabled, probeBrain } from "@/lib/admin-worker/intelligence";
+import type { SelfModelResult } from "@/lib/admin-worker/intelligence/contracts";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Intelligence Dashboard (spec: "Add an intelligence dashboard in the
- * admin area"). Surfaces the Python brain's activity that TypeScript has
- * persisted: brain online status, worker-IQ metrics, recent decisions
- * with confidence + risk, the developer-request queue, communion-risk
- * flags, and semantic-memory / knowledge-graph counts.
+ * Live capability dashboard (spec: "Upgrade the admin intelligence dashboard
+ * to show the brain's current capabilities and weaknesses"). The Python brain
+ * is the unified reasoning core; this page surfaces what TypeScript has
+ * persisted about it: brain status + protocol + op count, the self-model
+ * snapshot (deep code awareness), a capability strengths/weaknesses map,
+ * multi-layer memory + source reliability, the developer-request queue, recent
+ * decisions and self-explanations, stuckness/blocker signals, and
+ * communion-risk flags.
  *
  * Read-only and resilient: every query is guarded so the page renders even
  * when the brain is offline (it then shows stored audit data only).
  */
+
+/** Shape persisted by runSelfModelPass into AdminWorkerLog.safeMetadata. */
+interface SelfModelSnapshot {
+  model?: SelfModelResult;
+  weak_count?: number;
+  untested_count?: number;
+  orphan_count?: number;
+  duplicate_pairs?: number;
+  import_cycles?: number;
+  coverage_ratio?: number;
+  architecture?: string[];
+  top_upgrades?: string[];
+}
+
+const EXPLANATION_OPS = [
+  "explain_decision",
+  "explain_own_architecture",
+  "explain_rejected_alternatives",
+  "explain_safety_gate",
+  "explain_confidence",
+  "explain_what_would_change_my_mind",
+  "explain_authority_decision",
+  "explain_retrieval_result",
+  "explain_upgrade_request",
+  "explain_decision_change",
+];
+
+const STUCKNESS_OPS = [
+  "detect_stuckness",
+  "detect_action_loop",
+  "detect_source_loop",
+  "detect_repair_loop",
+  "detect_no_growth",
+  "recommend_unblock_strategy",
+];
+
 export default async function AdminIntelligencePage() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
@@ -83,6 +123,7 @@ export default async function AdminIntelligencePage() {
           occurrences: true,
           source: true,
           updatedAt: true,
+          metadata: true,
         },
       })
       .catch(() => []),
@@ -105,10 +146,112 @@ export default async function AdminIntelligencePage() {
     prisma.adminWorkerMemory.count().catch(() => 0),
   ]);
 
+  // Unified-brain data: self-model snapshot, multi-layer memory, source
+  // reliability, recent self-explanations, stuckness/blocker signals, mission
+  // progress, and the replay-simulation snapshot.
+  const [
+    selfModelSnap,
+    memoryByType,
+    repTiers,
+    repAgg,
+    recentExplanations,
+    stucknessCalls,
+    missionStates,
+    replayLog,
+    capabilityScores,
+  ] = await Promise.all([
+    prisma.adminWorkerSelfModelSnapshot
+      .findFirst({ orderBy: { createdAt: "desc" } })
+      .catch(() => null),
+    prisma.adminWorkerMemory
+      .groupBy({ by: ["memoryType"], _count: { _all: true }, _avg: { confidence: true } })
+      .catch(
+        () =>
+          [] as Array<{
+            memoryType: string;
+            _count: { _all: number };
+            _avg: { confidence: number | null };
+          }>,
+      ),
+    prisma.adminWorkerSourceReputation
+      .groupBy({ by: ["reputationTier"], _count: { _all: true } })
+      .catch(() => [] as Array<{ reputationTier: string; _count: { _all: number } }>),
+    prisma.adminWorkerSourceReputation
+      .aggregate({
+        _avg: { contentBuildSuccessRate: true, qaPassRate: true, duplicateRate: true },
+      })
+      .catch(() => ({
+        _avg: { contentBuildSuccessRate: null, qaPassRate: null, duplicateRate: null },
+      })),
+    prisma.adminWorkerBrainCall
+      .findMany({
+        where: { op: { in: EXPLANATION_OPS } },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: { op: true, reasoning: true, confidence: true, createdAt: true },
+      })
+      .catch(() => []),
+    prisma.adminWorkerBrainCall
+      .findMany({
+        where: { op: { in: STUCKNESS_OPS } },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+        select: {
+          op: true,
+          reasoning: true,
+          riskLevel: true,
+          recommendedNextAction: true,
+          createdAt: true,
+        },
+      })
+      .catch(() => []),
+    prisma.adminWorkerMissionState
+      .findMany({ orderBy: { completionPct: "asc" }, take: 16 })
+      .catch(() => []),
+    prisma.adminWorkerLog
+      .findFirst({
+        where: { eventName: "replay_simulation" },
+        orderBy: { createdAt: "desc" },
+        select: { safeMetadata: true, createdAt: true },
+      })
+      .catch(() => null),
+    prisma.adminWorkerCapabilityScore.findMany({ orderBy: { capability: "asc" } }).catch(() => []),
+  ]);
+
+  // Self-model snapshot (dedicated table is the source of truth).
+  const snap: SelfModelSnapshot | null = selfModelSnap
+    ? {
+        model: (selfModelSnap.model ?? undefined) as SelfModelResult | undefined,
+        weak_count: selfModelSnap.weakCount,
+        untested_count: selfModelSnap.untestedCount,
+        orphan_count: selfModelSnap.orphanCount,
+        duplicate_pairs: selfModelSnap.duplicatePairs,
+        import_cycles: selfModelSnap.importCycles,
+        coverage_ratio: selfModelSnap.coverageRatio,
+        architecture: selfModelSnap.architecture,
+        top_upgrades: selfModelSnap.topUpgrades,
+      }
+    : null;
+  const model = snap?.model ?? null;
+
+  // Mission progress (dedicated AdminWorkerMissionState) + replay sim.
+  const missions = missionStates.map((m) => ({
+    content_type: m.contentType,
+    completion_pct: m.completionPct,
+    status: m.status,
+  }));
+  const replaySim = (replayLog?.safeMetadata ?? null) as {
+    replayed?: number;
+    reproduced?: number;
+    reproductionRate?: number;
+    drift?: boolean;
+  } | null;
+
   const brainAvgLatencyMs = brainLatencyAgg._avg.elapsedMs ?? 0;
   const brainAvgConfidence = brainLatencyAgg._avg.confidence ?? 0;
   const brainFailedCount = Math.max(0, brainCallTotal - brainOkCount);
   const brainSafeRate = brainCallTotal > 0 ? brainSafeCount / brainCallTotal : 0;
+  const brainOkRate = brainCallTotal > 0 ? brainOkCount / brainCallTotal : 0;
 
   // Average brain risk across the risk ladder (none..critical → 0..1).
   const brainRiskRows = (await prisma.adminWorkerBrainCall
@@ -127,6 +270,112 @@ export default async function AdminIntelligencePage() {
       ? brainRiskRows.reduce((s, r) => s + (riskWeight[r.riskLevel] ?? 0.5) * r._count._all, 0) /
         riskTotal
       : 0;
+
+  // Per-op ok/fail counts for the capability matrix (status + recent failures).
+  const byOpOk = (await prisma.adminWorkerBrainCall
+    .groupBy({ by: ["op", "ok"], _count: { _all: true } })
+    .catch(() => [])) as Array<{ op: string; ok: boolean; _count: { _all: number } }>;
+  const opStats = new Map<string, { calls: number; ok: number; confidence: number }>();
+  for (const row of byOp) {
+    opStats.set(row.op, {
+      calls: row._count._all,
+      ok: 0,
+      confidence: row._avg.confidence ?? 0,
+    });
+  }
+  for (const row of byOpOk) {
+    const s = opStats.get(row.op) ?? { calls: 0, ok: 0, confidence: 0 };
+    if (row.ok) s.ok += row._count._all;
+    opStats.set(row.op, s);
+  }
+
+  // Capability families → the brain ops that implement them. Each row reports
+  // status / confidence / calls / recent failures (spec item 13).
+  const CAPABILITY_FAMILIES: Array<{ name: string; ops: string[] }> = [
+    { name: "Final action selection", ops: ["select_action", "compare_counterfactual_actions"] },
+    { name: "Duplicate detection", ops: ["detect_duplicates"] },
+    {
+      name: "Source + communion intelligence",
+      ops: [
+        "assess_source",
+        "detect_communion_risk",
+        "compare_sources",
+        "rank_catholic_source_authority",
+      ],
+    },
+    {
+      name: "Claim verification",
+      ops: ["extract_claims", "compare_claims", "resolve_claim_with_authority"],
+    },
+    { name: "Quality + specialist review", ops: ["score_quality", "specialist_reviews"] },
+    { name: "Repair intelligence", ops: ["classify_failure", "diagnose_fetch"] },
+    {
+      name: "Self-model + code awareness",
+      ops: [
+        "build_self_model",
+        "ingest_codebase",
+        "build_call_graph",
+        "find_weak_modules",
+        "rank_self_upgrades",
+      ],
+    },
+    {
+      name: "Mission control",
+      ops: ["build_mission_tree", "rank_subgoals", "recommend_next_mission_action"],
+    },
+    {
+      name: "Catholic extraction",
+      ops: ["identify_document_type", "extract_structured_catholic_document"],
+    },
+    {
+      name: "Replay + resilience",
+      ops: [
+        "compare_decisions",
+        "detect_decision_drift",
+        "check_replay_integrity",
+        "recommend_circuit_break",
+      ],
+    },
+    { name: "Learning + calibration", ops: ["learn_from_outcome", "calibrate_confidence"] },
+    { name: "Self-explanation", ops: EXPLANATION_OPS },
+  ];
+  const capabilityRows = CAPABILITY_FAMILIES.map((fam) => {
+    let calls = 0;
+    let ok = 0;
+    let confWeighted = 0;
+    for (const op of fam.ops) {
+      const s = opStats.get(op);
+      if (s) {
+        calls += s.calls;
+        ok += s.ok;
+        confWeighted += s.confidence * s.calls;
+      }
+    }
+    const failures = Math.max(0, calls - ok);
+    const okRate = calls > 0 ? ok / calls : 0;
+    const confidence = calls > 0 ? confWeighted / calls : 0;
+    const status =
+      calls === 0
+        ? "untested"
+        : okRate >= 0.95 && failures === 0
+          ? "healthy"
+          : okRate >= 0.8
+            ? "watch"
+            : "degraded";
+    return { name: fam.name, status, calls, failures, confidence };
+  });
+  // Prefer the persisted capability scores (Postgres owns capability scores);
+  // fall back to the live computation when the table has not been populated yet.
+  const capabilities =
+    capabilityScores.length > 0
+      ? capabilityScores.map((c) => ({
+          name: c.capability,
+          status: c.status,
+          calls: c.calls,
+          failures: c.failures,
+          confidence: c.confidence,
+        }))
+      : capabilityRows;
 
   // Live worker-IQ for display only — uses the read-only wrapper (no audit
   // row written on a page view). Falls back to "n/a" when the brain is off.
@@ -159,14 +408,104 @@ export default async function AdminIntelligencePage() {
   }).catch(() => null);
   const metrics = iq?.ok ? (iq.result?.metrics ?? null) : null;
 
+  // Capability map: deterministic strengths/weaknesses derived from the
+  // self-model snapshot + the brain-call audit (no fabrication — every line
+  // cites a stored count). This is the "what is the brain good/bad at?" view.
+  const coverage = snap?.coverage_ratio ?? model?.test_coverage_ratio ?? null;
+  const strengths: Array<{ label: string; detail: string }> = [];
+  const weaknesses: Array<{ label: string; detail: string }> = [];
+
+  if (probe)
+    strengths.push({
+      label: "Unified reasoning core",
+      detail: `${probe.ops.length} brain operations online (protocol v${probe.protocolVersion})`,
+    });
+  if (coverage != null) {
+    if (coverage >= 0.7)
+      strengths.push({
+        label: "Test coverage",
+        detail: `${fmtPct(coverage)} of source modules are referenced by tests`,
+      });
+    else
+      weaknesses.push({
+        label: "Test coverage gap",
+        detail: `only ${fmtPct(coverage)} of source modules are referenced by tests`,
+      });
+  }
+  if (nodeCount > 0)
+    strengths.push({ label: "Knowledge graph", detail: `${nodeCount} nodes / ${edgeCount} edges` });
+  else weaknesses.push({ label: "Sparse knowledge graph", detail: "no graph nodes recorded yet" });
+  if (embeddingCount > 0)
+    strengths.push({ label: "Semantic memory", detail: `${embeddingCount} embeddings indexed` });
+  if (brainCallTotal > 0) {
+    if (brainOkRate >= 0.95)
+      strengths.push({
+        label: "Brain reliability",
+        detail: `${fmtPct(brainOkRate)} of ${brainCallTotal.toLocaleString()} calls succeeded`,
+      });
+    else
+      weaknesses.push({
+        label: "Brain errors",
+        detail: `${brainFailedCount} of ${brainCallTotal.toLocaleString()} brain calls failed`,
+      });
+  }
+  if (brainCallTotal > 5) {
+    const calGap = Math.abs(brainAvgConfidence - brainOkRate);
+    if (calGap <= 0.1)
+      strengths.push({
+        label: "Confidence calibration",
+        detail: `avg confidence ${fmtPct(brainAvgConfidence)} ≈ success ${fmtPct(brainOkRate)}`,
+      });
+    else
+      weaknesses.push({
+        label: "Confidence miscalibration",
+        detail: `avg confidence ${fmtPct(brainAvgConfidence)} vs success ${fmtPct(brainOkRate)} (gap ${fmtPct(calGap)})`,
+      });
+  }
+  if (snap?.weak_count)
+    weaknesses.push({
+      label: "Over-coupled modules",
+      detail: `${snap.weak_count} large / over-imported modules flagged for refactor`,
+    });
+  if (snap?.untested_count)
+    weaknesses.push({
+      label: "Untested modules",
+      detail: `${snap.untested_count} source modules lack a direct test`,
+    });
+  if (snap?.orphan_count)
+    weaknesses.push({
+      label: "Possible orphans",
+      detail: `${snap.orphan_count} modules look unreferenced`,
+    });
+  if (snap?.duplicate_pairs)
+    weaknesses.push({
+      label: "Duplicate logic",
+      detail: `${snap.duplicate_pairs} near-duplicate module pairs`,
+    });
+  if (snap?.import_cycles)
+    weaknesses.push({
+      label: "Import cycles",
+      detail: `${snap.import_cycles} module import cycle(s) — fragile, hard-to-test coupling`,
+    });
+  if (openRequests > 0)
+    weaknesses.push({
+      label: "Open upgrade requests",
+      detail: `${openRequests} self-identified improvements pending review`,
+    });
+
+  const repAvgBuild = repAgg._avg.contentBuildSuccessRate ?? null;
+  const repAvgQa = repAgg._avg.qaPassRate ?? null;
+  const repAvgDup = repAgg._avg.duplicateRate ?? null;
+
   return (
     <div className="space-y-6">
       <header className="flex items-baseline justify-between">
         <div>
           <h1 className="font-display text-3xl text-ink">Worker Intelligence</h1>
           <p className="mt-1 font-serif text-ink-soft">
-            The Python intelligence brain that advises the Admin Worker — memory, source
-            intelligence, duplicate detection, quality, repair, and self-inspection.
+            The unified Python brain reasons; TypeScript executes safely; Postgres remembers. This
+            dashboard shows the brain&rsquo;s live capabilities and weaknesses — self-model, memory,
+            source intelligence, calibration, and the upgrades it is asking for.
           </p>
         </div>
         <Link className="text-indigo-600 underline" href="/admin">
@@ -191,6 +530,14 @@ export default async function AdminIntelligencePage() {
             <code className="rounded bg-stone-100 px-1">
               {isBrainEnabled() ? "enabled" : "disabled"}
             </code>
+          </span>
+          <span className="text-ink-soft">
+            self-model:{" "}
+            {selfModelSnap ? (
+              <strong className="text-ink">{fmtAgo(selfModelSnap.createdAt)}</strong>
+            ) : (
+              <span className="text-amber-700">not built yet</span>
+            )}
           </span>
         </div>
       </section>
@@ -249,11 +596,297 @@ export default async function AdminIntelligencePage() {
           tone="slate"
         />
         <StatCard label="Protocol" value={`v${probe?.protocolVersion ?? "?"}`} tone="slate" />
-        <StatCard
-          label="Brain"
-          value={probe ? "online" : "fallback"}
-          tone={probe ? "emerald" : "amber"}
-        />
+      </section>
+
+      {/* Self-model & deep code awareness */}
+      <section className="rounded border bg-white p-4 shadow-sm">
+        <h2 className="font-display text-xl text-ink">Self-model &amp; deep code awareness</h2>
+        <p className="mb-3 font-serif text-sm text-ink-soft">
+          What the brain knows about its own codebase — ingested by TypeScript, reasoned over by
+          Python, persisted to Postgres.{" "}
+          {selfModelSnap
+            ? `Last built ${fmtAgo(selfModelSnap.createdAt)}.`
+            : "Run a worker pass to build it."}
+        </p>
+        {model ? (
+          <>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <StatCard label="Files" value={model.file_count.toLocaleString()} tone="slate" />
+              <StatCard
+                label="Lines of code"
+                value={model.total_lines.toLocaleString()}
+                tone="slate"
+              />
+              <StatCard label="Routes" value={model.route_count.toLocaleString()} tone="slate" />
+              <StatCard
+                label="Prisma models"
+                value={model.prisma_model_count.toLocaleString()}
+                tone="slate"
+              />
+              <StatCard
+                label="Brain ops"
+                value={model.brain_op_count.toLocaleString()}
+                tone="indigo"
+              />
+              <StatCard
+                label="Worker stages"
+                value={model.worker_stage_count.toLocaleString()}
+                tone="slate"
+              />
+              <StatCard
+                label="Test coverage"
+                value={coverage != null ? fmtPct(coverage) : "n/a"}
+                tone={coverage != null && coverage >= 0.7 ? "emerald" : "amber"}
+              />
+              <StatCard label="Scripts" value={model.script_count.toLocaleString()} tone="slate" />
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-5">
+              <CodeHealth label="Weak modules" value={snap?.weak_count ?? 0} />
+              <CodeHealth label="Untested modules" value={snap?.untested_count ?? 0} />
+              <CodeHealth label="Possible orphans" value={snap?.orphan_count ?? 0} />
+              <CodeHealth label="Duplicate pairs" value={snap?.duplicate_pairs ?? 0} />
+              <CodeHealth label="Import cycles" value={snap?.import_cycles ?? 0} />
+            </div>
+
+            {snap?.architecture && snap.architecture.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-xs uppercase tracking-wide text-ink-soft">
+                  Architecture layers
+                </h3>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {snap.architecture.map((layer, i) => (
+                    <span
+                      key={i}
+                      className="rounded border border-stone-200 bg-stone-50 px-2 py-1 font-mono text-xs text-ink-soft"
+                    >
+                      {layer}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {model.largest_modules && model.largest_modules.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-xs uppercase tracking-wide text-ink-soft">Largest modules</h3>
+                <ul className="mt-1 space-y-1 text-sm">
+                  {model.largest_modules.slice(0, 6).map((m, i) => (
+                    <li key={i} className="flex justify-between gap-3">
+                      <span className="truncate font-mono text-xs text-ink-soft">{m.path}</span>
+                      <span className="shrink-0 text-ink-soft">{m.lines.toLocaleString()} ln</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        ) : (
+          <Empty>
+            No self-model snapshot recorded yet. The worker builds one on its maintenance pass.
+          </Empty>
+        )}
+      </section>
+
+      {/* Capability map */}
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-emerald-800">Capability strengths</h2>
+          {strengths.length === 0 ? (
+            <Empty>No strengths recorded yet — run a worker pass.</Empty>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {strengths.map((s, i) => (
+                <li key={i} className="rounded border border-emerald-200 bg-emerald-50 p-2 text-sm">
+                  <strong className="text-emerald-900">{s.label}</strong>
+                  <p className="font-serif text-emerald-800">{s.detail}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-rose-800">Capability weaknesses</h2>
+          {weaknesses.length === 0 ? (
+            <Empty>No weaknesses flagged. (Or no self-model snapshot yet.)</Empty>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {weaknesses.map((w, i) => (
+                <li key={i} className="rounded border border-rose-200 bg-rose-50 p-2 text-sm">
+                  <strong className="text-rose-900">{w.label}</strong>
+                  <p className="font-serif text-rose-800">{w.detail}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      {/* Capability matrix — per-capability health */}
+      <section className="rounded border bg-white p-4 shadow-sm">
+        <h2 className="font-display text-xl text-ink">Capability matrix</h2>
+        <p className="mb-3 font-serif text-sm text-ink-soft">
+          Each capability&rsquo;s live health from the brain-call audit: status, calls, recent
+          failures, and average confidence.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b text-left text-ink-soft">
+                <th className="py-2 pr-3">Capability</th>
+                <th className="py-2 pr-3">Status</th>
+                <th className="py-2 pr-3">Calls</th>
+                <th className="py-2 pr-3">Recent failures</th>
+                <th className="py-2 pr-3">Confidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {capabilities.map((c) => (
+                <tr key={c.name} className="border-b border-stone-100 align-top">
+                  <td className="py-2 pr-3 text-ink">{c.name}</td>
+                  <td className="py-2 pr-3">
+                    <CapabilityStatus status={c.status} />
+                  </td>
+                  <td className="py-2 pr-3 text-ink-soft">{c.calls.toLocaleString()}</td>
+                  <td
+                    className={`py-2 pr-3 ${c.failures > 0 ? "text-amber-700" : "text-ink-soft"}`}
+                  >
+                    {c.failures}
+                  </td>
+                  <td className="py-2 pr-3 text-ink-soft">
+                    {c.calls > 0 ? fmtPct(c.confidence) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Mission progress + replay/resilience */}
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">Mission progress</h2>
+          <p className="mb-3 font-serif text-sm text-ink-soft">
+            Long-term content missions and their completion (from mission control).
+          </p>
+          {missions.length === 0 ? (
+            <Empty>No mission snapshot yet — run a worker pass.</Empty>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {missions
+                .slice()
+                .sort((a, b) => (a.completion_pct ?? 0) - (b.completion_pct ?? 0))
+                .slice(0, 14)
+                .map((m, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <span className="w-40 truncate font-mono text-xs">{m.content_type}</span>
+                    <span className="h-2 flex-1 overflow-hidden rounded bg-stone-100">
+                      <span
+                        className="block h-full bg-indigo-500"
+                        style={{ width: `${Math.round((m.completion_pct ?? 0) * 100)}%` }}
+                      />
+                    </span>
+                    <span className="w-10 text-right text-xs text-ink-soft">
+                      {Math.round((m.completion_pct ?? 0) * 100)}%
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+        <div className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">Replay &amp; resilience</h2>
+          <p className="mb-3 font-serif text-sm text-ink-soft">
+            Decisions are event-sourced and replayed in simulation each pass to prove they
+            reproduce.
+          </p>
+          {replaySim ? (
+            <div className="grid grid-cols-2 gap-3">
+              <CodeHealth label="Passes replayed" value={`${replaySim.replayed ?? 0}`} invert />
+              <CodeHealth
+                label="Reproduction rate"
+                value={fmtPct(replaySim.reproductionRate ?? 0)}
+                invert
+              />
+              <CodeHealth label="Reproduced" value={`${replaySim.reproduced ?? 0}`} invert />
+              <CodeHealth label="Decision drift" value={replaySim.drift ? 1 : 0} />
+            </div>
+          ) : (
+            <Empty>No replay simulation recorded yet.</Empty>
+          )}
+        </div>
+      </section>
+
+      {/* Top requested upgrades (from the self-model) */}
+      {snap?.top_upgrades && snap.top_upgrades.length > 0 && (
+        <section className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">Top self-requested upgrades</h2>
+          <p className="mb-3 font-serif text-sm text-ink-soft">
+            Ranked by the brain from its own self-model. Code changes stay human-reviewed.
+          </p>
+          <ol className="list-inside list-decimal space-y-1 text-sm text-ink">
+            {snap.top_upgrades.map((u, i) => (
+              <li key={i}>{u}</li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      {/* Multi-layer memory + source reliability */}
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">Multi-layer memory</h2>
+          <p className="mb-3 font-serif text-sm text-ink-soft">
+            Durable learning the brain consolidates and retrieves.
+          </p>
+          {memoryByType.length === 0 ? (
+            <Empty>No memory recorded yet.</Empty>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {memoryByType
+                .slice()
+                .sort((a, b) => b._count._all - a._count._all)
+                .map((m) => (
+                  <li
+                    key={m.memoryType}
+                    className="flex justify-between rounded border border-stone-200 px-3 py-1.5"
+                  >
+                    <span className="font-mono text-xs">{m.memoryType.toLowerCase()}</span>
+                    <span className="text-ink-soft">
+                      {m._count._all} · {fmtPct(m._avg.confidence ?? 0)}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </div>
+        <div className="rounded border bg-white p-4 shadow-sm">
+          <h2 className="font-display text-xl text-ink">Source reliability</h2>
+          <p className="mb-3 font-serif text-sm text-ink-soft">
+            Learned reputation that gates which sources the worker trusts.
+          </p>
+          <div className="grid grid-cols-3 gap-2 text-sm">
+            <CodeHealth label="Avg build success" value={fmtPct(repAvgBuild ?? 0)} invert />
+            <CodeHealth label="Avg QA pass" value={fmtPct(repAvgQa ?? 0)} invert />
+            <CodeHealth label="Avg dup rate" value={fmtPct(repAvgDup ?? 0)} />
+          </div>
+          {repTiers.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {repTiers
+                .slice()
+                .sort((a, b) => b._count._all - a._count._all)
+                .map((t) => (
+                  <span
+                    key={t.reputationTier}
+                    className="rounded border border-stone-200 bg-stone-50 px-2 py-1 text-xs text-ink-soft"
+                  >
+                    {t.reputationTier.toLowerCase()}: {t._count._all}
+                  </span>
+                ))}
+            </div>
+          )}
+        </div>
       </section>
 
       {/* Developer requests */}
@@ -277,8 +910,12 @@ export default async function AdminIntelligencePage() {
                   {r.occurrences > 1 && (
                     <span className="text-xs text-ink-soft">×{r.occurrences}</span>
                   )}
+                  {r.source && (
+                    <span className="ml-auto font-mono text-xs text-ink-soft">{r.source}</span>
+                  )}
                 </div>
                 <p className="mt-1 font-serif text-sm text-ink-soft">{r.detail}</p>
+                <DevRequestMeta metadata={r.metadata} />
               </li>
             ))}
           </ul>
@@ -322,6 +959,59 @@ export default async function AdminIntelligencePage() {
         )}
       </section>
 
+      {/* Recent self-explanations */}
+      <section className="rounded border bg-white p-4 shadow-sm">
+        <h2 className="font-display text-xl text-ink">Recent self-explanations</h2>
+        <p className="mb-3 font-serif text-sm text-ink-soft">
+          The brain explaining its own decisions, safety gates, and what would change its mind.
+        </p>
+        {recentExplanations.length === 0 ? (
+          <Empty>No self-explanations recorded yet.</Empty>
+        ) : (
+          <ul className="space-y-2">
+            {recentExplanations.map((e, i) => (
+              <li key={i} className="rounded border border-stone-200 p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs text-indigo-700">{e.op}</span>
+                  <span className="text-xs text-ink-soft">{fmtPct(e.confidence)}</span>
+                  <span className="ml-auto text-xs text-ink-soft">{fmtTime(e.createdAt)}</span>
+                </div>
+                {e.reasoning && <p className="mt-1 font-serif text-ink-soft">{e.reasoning}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Stuckness / blockers */}
+      <section className="rounded border bg-white p-4 shadow-sm">
+        <h2 className="font-display text-xl text-ink">Stuckness &amp; blockers</h2>
+        <p className="mb-3 font-serif text-sm text-ink-soft">
+          Loop/no-growth detection and the unblock strategy the brain recommends.
+        </p>
+        {stucknessCalls.length === 0 ? (
+          <Empty>No stuckness signals — the worker is making progress.</Empty>
+        ) : (
+          <ul className="space-y-2">
+            {stucknessCalls.map((s, i) => (
+              <li key={i} className="rounded border border-amber-200 bg-amber-50 p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <RiskPill risk={s.riskLevel} />
+                  <span className="font-mono text-xs">{s.op}</span>
+                  {s.recommendedNextAction && (
+                    <span className="font-mono text-xs text-ink-soft">
+                      → {s.recommendedNextAction}
+                    </span>
+                  )}
+                  <span className="ml-auto text-xs text-ink-soft">{fmtTime(s.createdAt)}</span>
+                </div>
+                {s.reasoning && <p className="mt-1 font-serif text-ink-soft">{s.reasoning}</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {/* Communion-risk flags */}
       <section className="rounded border bg-white p-4 shadow-sm">
         <h2 className="font-display text-xl text-ink">Catholic communion-risk flags</h2>
@@ -351,6 +1041,9 @@ export default async function AdminIntelligencePage() {
       {byOp.length > 0 && (
         <section className="rounded border bg-white p-4 shadow-sm">
           <h2 className="font-display text-xl text-ink">Operation mix</h2>
+          <p className="mb-2 font-serif text-sm text-ink-soft">
+            {byOp.length} of {probe?.ops.length ?? "?"} brain operations exercised.
+          </p>
           <div className="mt-2 grid grid-cols-2 gap-2 text-sm md:grid-cols-3">
             {byOp
               .slice()
@@ -381,6 +1074,14 @@ function fmtTime(d: Date): string {
   return new Date(d).toISOString().slice(0, 16).replace("T", " ");
 }
 
+function fmtAgo(d: Date): string {
+  const ms = Date.now() - new Date(d).getTime();
+  const h = ms / 3_600_000;
+  if (h < 1) return `${Math.max(1, Math.round(ms / 60_000))}m ago`;
+  if (h < 24) return `${Math.round(h)}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+
 function StatusDot({ online }: { online: boolean }) {
   return (
     <span
@@ -407,8 +1108,93 @@ function StatCard({ label, value, tone }: { label: string; value: string; tone: 
   );
 }
 
+/**
+ * A small code-health counter: green at zero, amber otherwise (so "0 untested"
+ * reads as good). `invert` flips it for rate metrics where higher is better.
+ */
+function CodeHealth({
+  label,
+  value,
+  invert = false,
+}: {
+  label: string;
+  value: number | string;
+  invert?: boolean;
+}) {
+  const num = typeof value === "number" ? value : Number(String(value).replace("%", ""));
+  const good = invert ? num >= 50 : num === 0;
+  return (
+    <div className="rounded border border-stone-200 p-3">
+      <div className="text-xs uppercase tracking-wide text-ink-soft">{label}</div>
+      <div className={`mt-1 font-display text-xl ${good ? "text-emerald-700" : "text-amber-700"}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="font-serif text-sm text-ink-soft">{children}</p>;
+}
+
+function CapabilityStatus({ status }: { status: string }) {
+  const map: Record<string, string> = {
+    healthy: "bg-emerald-100 text-emerald-700",
+    watch: "bg-amber-100 text-amber-800",
+    degraded: "bg-rose-100 text-rose-800",
+    untested: "bg-stone-100 text-stone-600",
+  };
+  return (
+    <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${map[status] ?? map.untested}`}>
+      {status}
+    </span>
+  );
+}
+
+/**
+ * Renders the structured upgrade-request fields (spec item 7) the brain
+ * persists to AdminWorkerDeveloperRequest.metadata: affected surfaces, priority,
+ * confidence, expected gain, and the implementation/test/rollback plan.
+ */
+function DevRequestMeta({ metadata }: { metadata: unknown }) {
+  if (!metadata || typeof metadata !== "object") return null;
+  const m = metadata as Record<string, unknown>;
+  const surfaces = (key: string) => (Array.isArray(m[key]) ? (m[key] as string[]) : []);
+  const chips = (
+    [
+      ["files", surfaces("affected_files")],
+      ["models", surfaces("affected_models")],
+      ["stages", surfaces("affected_worker_stages")],
+      ["ops", surfaces("affected_brain_operations")],
+      ["routes", [...surfaces("affected_public_routes"), ...surfaces("affected_admin_routes")]],
+    ] as Array<[string, string[]]>
+  ).filter(([, v]) => v.length > 0);
+  const priority = typeof m.priority_score === "number" ? m.priority_score : null;
+  const confidence = typeof m.confidence_score === "number" ? m.confidence_score : null;
+  if (chips.length === 0 && priority == null) return null;
+  return (
+    <div className="mt-2 space-y-1 border-t border-stone-100 pt-2 text-xs text-ink-soft">
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {priority != null && <span>priority {fmtPct(priority)}</span>}
+        {confidence != null && <span>confidence {fmtPct(confidence)}</span>}
+        {typeof m.implementation_difficulty === "string" && (
+          <span>difficulty {m.implementation_difficulty}</span>
+        )}
+      </div>
+      {chips.map(([label, vals]) => (
+        <div key={label}>
+          <span className="uppercase tracking-wide">{label}:</span>{" "}
+          <span className="font-mono">{vals.slice(0, 4).join(", ")}</span>
+          {vals.length > 4 && <span> +{vals.length - 4}</span>}
+        </div>
+      ))}
+      {typeof m.expected_user_value === "string" && (
+        <div>
+          <span className="uppercase tracking-wide">user value:</span> {m.expected_user_value}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function RiskPill({ risk }: { risk: string }) {

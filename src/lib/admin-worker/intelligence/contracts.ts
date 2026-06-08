@@ -45,7 +45,129 @@ export const BRAIN_OPS = [
   "learn_from_outcome",
   "analyze_schema",
   "analyze_ui",
-  "analyze_code",
+  // Unified self-model + deep code awareness (replaced summary-only analyze_code).
+  "ingest_codebase",
+  "build_self_model",
+  "build_symbol_graph",
+  "build_call_graph",
+  "build_route_graph",
+  "build_schema_graph",
+  "build_test_coverage_graph",
+  "explain_own_architecture",
+  "find_weak_modules",
+  "find_untested_modules",
+  "find_orphaned_code",
+  "find_duplicate_logic",
+  "rank_self_upgrades",
+  "detect_stuckness",
+  // Catholic authority graph
+  "build_catholic_authority_graph",
+  "rank_catholic_source_authority",
+  "resolve_authority_chain",
+  "classify_document_authority",
+  "classify_source_role",
+  "explain_authority_decision",
+  // claim-level verification
+  "extract_claims",
+  "normalize_claim",
+  "compare_claims",
+  "detect_date_conflict",
+  "detect_entity_conflict",
+  "detect_title_conflict",
+  "detect_liturgical_conflict",
+  "resolve_claim_with_authority",
+  "build_claim_evidence_pack",
+  // action simulation
+  "simulate_action",
+  "predict_action_outcome",
+  "estimate_failure_modes",
+  "estimate_repair_cost",
+  "estimate_publish_risk",
+  "compare_counterfactual_actions",
+  // confidence calibration
+  "calibrate_confidence",
+  "measure_prediction_accuracy",
+  "grade_brain_decision",
+  "track_false_positive_risk",
+  "track_false_negative_risk",
+  "score_decision_quality",
+  // stuckness detection
+  "detect_action_loop",
+  "detect_source_loop",
+  "detect_repair_loop",
+  "detect_no_growth",
+  "explain_no_growth",
+  "recommend_unblock_strategy",
+  // mission control
+  "build_mission_tree",
+  "update_mission_progress",
+  "detect_mission_blockers",
+  "rank_subgoals",
+  "recommend_next_mission_action",
+  // self-explanation
+  "explain_decision",
+  "explain_rejected_alternatives",
+  "explain_safety_gate",
+  "explain_confidence",
+  "explain_what_would_change_my_mind",
+  // upgrade-request engine
+  "rank_upgrade_requests",
+  "explain_upgrade_request",
+  "merge_duplicate_upgrade_requests",
+  "detect_ignored_upgrade_requests",
+  "estimate_upgrade_roi",
+  // test-gap detection
+  "detect_test_gap",
+  "suggest_regression_test",
+  "generate_test_fixture_plan",
+  "propose_test_patch",
+  "rank_missing_tests",
+  // specialist reviewers
+  "specialist_reviews",
+  "combine_specialist_reviews",
+  // multi-layer memory
+  "consolidate_memories",
+  "summarize_repeated_lessons",
+  "merge_duplicate_memories",
+  "detect_conflicting_memories",
+  "retire_stale_memories",
+  "rank_memory_importance",
+  "retrieve_context_pack",
+  "extract_upgrade_requests_from_memory",
+  // hybrid retrieval
+  "hybrid_search",
+  "rank_memory_candidates",
+  "rank_source_candidates",
+  "rank_related_content",
+  "explain_retrieval_result",
+  "detect_memory_gap",
+  // Catholic content extraction
+  "identify_document_type",
+  "extract_structured_catholic_document",
+  "extract_liturgical_date",
+  "extract_canon_law_reference",
+  "extract_catechism_reference",
+  "extract_papal_document_metadata",
+  "extract_council_document_metadata",
+  "extract_saint_metadata",
+  "extract_parish_metadata",
+  "extract_prayer_metadata",
+  "extract_novena_metadata",
+  "extract_litany_metadata",
+  "build_church_history_timeline_entry",
+  // review-gated self-improvement
+  "propose_code_patch",
+  "propose_schema_migration",
+  "review_patch_risk",
+  "generate_rollback_plan",
+  "explain_patch_value",
+  // replayability & resilience
+  "replay_decision",
+  "compare_decisions",
+  "explain_decision_change",
+  "detect_decision_drift",
+  "recommend_circuit_break",
+  "check_replay_integrity",
 ] as const;
 export type BrainOp = (typeof BRAIN_OPS)[number];
 
@@ -191,11 +313,28 @@ export interface FetchDiagnosis {
 }
 
 export interface DeveloperRequest {
-  kind: "parser" | "schema" | "source" | "ui" | "safety" | "capability" | "code" | "data";
+  kind:
+    | "parser"
+    | "schema"
+    | "source"
+    | "ui"
+    | "safety"
+    | "capability"
+    | "code"
+    | "data"
+    | "process";
   title: string;
   detail: string;
   severity: "low" | "medium" | "high";
   evidence: string;
+  /**
+   * Full structured request (spec item 7: affected files/models/stages/ops/
+   * routes, expected gain + user value, risk, difficulty, plan, tests,
+   * migration, rollback, priority + confidence). Persisted to
+   * AdminWorkerDeveloperRequest.metadata so the request is a complete,
+   * actionable product-manager record, not just a title + detail string.
+   */
+  metadata?: Record<string, unknown> | null;
 }
 export interface SelfInspectResult {
   summary: Record<string, number>;
@@ -356,14 +495,93 @@ export interface UiAnalysisResult {
   developer_requests: DeveloperRequest[];
 }
 
-export interface CodeAnalysisResult {
-  findings: {
-    file_count: number;
-    total_lines: number;
-    oversized_files: Array<{ path: string; lines: number }>;
-    large_files: Array<{ path: string; lines: number }>;
-  };
-  developer_requests: DeveloperRequest[];
+// ── Unified self-model + deep code awareness result types ─────────────
+export interface SelfModelResult {
+  file_count: number;
+  source_file_count: number;
+  test_file_count: number;
+  total_lines: number;
+  route_count: number;
+  prisma_model_count: number;
+  script_count: number;
+  worker_stage_count: number;
+  brain_op_count: number;
+  test_coverage_ratio: number;
+  largest_modules: Array<{ path: string; lines: number }>;
+}
+
+export interface WeakModule {
+  path: string;
+  lines: number;
+  importers: number;
+  why: string;
+  suggested_split: string;
+  refactor_risk: RiskLevel;
+  suggested_tests: string;
+}
+export interface WeakModulesResult {
+  weak_modules: WeakModule[];
+  weak_count: number;
+}
+
+export interface UntestedModulesResult {
+  untested_modules: Array<{ path: string; lines: number }>;
+  untested_count: number;
+}
+
+export interface OrphanResult {
+  orphan_candidates: Array<{ path: string; exports: string[] }>;
+  orphan_count: number;
+}
+
+export interface DuplicateLogicResult {
+  duplicate_pairs: Array<{ a: string; b: string; overlap: number }>;
+  pair_count: number;
+}
+
+export interface CoverageGraphResult {
+  source_modules: number;
+  covered_modules: number;
+  uncovered_modules: string[];
+  coverage_ratio: number;
+}
+
+export interface SelfUpgrade {
+  title: string;
+  category: string;
+  problem: string;
+  evidence: string[];
+  affected_files: string[];
+  affected_models: string[];
+  affected_worker_stages: string[];
+  affected_brain_operations: string[];
+  affected_public_routes: string[];
+  affected_admin_routes: string[];
+  expected_intelligence_gain: string;
+  expected_user_value: string;
+  risk_if_not_fixed: string;
+  implementation_difficulty: string;
+  suggested_implementation_plan: string;
+  suggested_tests: string;
+  suggested_migration: string;
+  rollback_plan: string;
+  priority_score: number;
+  confidence_score: number;
+}
+export interface SelfUpgradesResult {
+  upgrades: SelfUpgrade[];
+  upgrade_count: number;
+}
+
+export interface ArchitectureResult {
+  layers: string[];
+  evidence_counts: Record<string, number>;
+}
+
+export interface StucknessResult {
+  stuck: boolean;
+  signals: string[];
+  recommended_unblock: string;
 }
 
 /**

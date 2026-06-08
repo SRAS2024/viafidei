@@ -976,6 +976,20 @@ async function runPackageBuild(prisma: PrismaClient, passId: string): Promise<Di
  * lists the mysteries individually, so it contains that token, whereas it
  * would never contain the exact comma-joined concatenation of all five.
  */
+/**
+ * Coarse host → Catholic authority level for advisory claim resolution. The
+ * Python brain owns the full authority ladder; this is just the seed signal so
+ * it can weigh a validation source's claim. Conservative default: COMMUNITY.
+ */
+function hostAuthorityLevel(host: string): string {
+  const h = host.toLowerCase();
+  if (h.includes("vatican.va")) return "VATICAN";
+  if (h.includes("usccb.org")) return "USCCB";
+  if (h.includes("newadvent.org") || h.includes("catholic.com")) return "RELIABLE";
+  if (/diocese|archdiocese|\.va$/.test(h)) return "DIOCESAN";
+  return "COMMUNITY";
+}
+
 function verifiableExpectedString(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value;
@@ -1141,6 +1155,53 @@ async function runCrossSourceVerification(
         validationSources,
       }).catch(() => null);
       blockingFields = result?.blockingSensitiveFields ?? [];
+
+      // Claim-level authority resolution (intelligence brain, ADVISORY). Build
+      // claims from the candidate + each validation source and let the brain
+      // resolve conflicts by Catholic authority (e.g. vatican.va outranks a
+      // community source). Recorded to the audit trail (dashboard); it never
+      // overrides the deterministic verifier outcome above. Fail-open +
+      // brain-gated.
+      try {
+        const { isBrainEnabled } = await import("./intelligence");
+        if (isBrainEnabled() && validationSources.length > 0) {
+          const { resolveClaimWithAuthority } = await import("./intelligence");
+          const { recordBrainCall } = await import("./intelligence/store");
+          const claims: Array<{
+            subject: string;
+            predicate: string;
+            value: string;
+            authority_level: string;
+            source: string;
+          }> = [];
+          const subject = artifact.normalizedSlug;
+          // One claim per (validation source, field): each source's value
+          // carries its host's Catholic authority, so the brain can adjudicate
+          // disagreements by authority rather than by majority vote.
+          for (const field of fieldsToVerify) {
+            for (const vs of validationSources) {
+              const v = vs.fields[field];
+              if (v != null && v !== "")
+                claims.push({
+                  subject,
+                  predicate: field,
+                  value: String(v),
+                  authority_level: hostAuthorityLevel(vs.host),
+                  source: vs.host,
+                });
+            }
+          }
+          if (claims.length >= 2) {
+            const env = await resolveClaimWithAuthority(claims);
+            await recordBrainCall(prisma, "resolve_claim_with_authority", env, {
+              contentType: artifact.contentType,
+              entityId: artifact.id,
+            });
+          }
+        }
+      } catch {
+        // Claim-level resolution is advisory — never break verification.
+      }
 
       const { pushReputation } = await import("./source-reputation-hooks");
       for (const host of usedHosts) {

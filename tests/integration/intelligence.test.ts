@@ -28,11 +28,13 @@ import {
 } from "@/lib/admin-worker/intelligence/service";
 import {
   resetAwarenessThrottle,
-  runCodeAwareness,
   runSchemaAwareness,
   runUiAwareness,
 } from "@/lib/admin-worker/awareness";
+import { resetSelfModelThrottle, runSelfModelPass } from "@/lib/admin-worker/self-model";
 import { resetCustodyThrottle, runCustodyPass } from "@/lib/admin-worker/custody";
+import { runMissionControlPass, runStucknessPass } from "@/lib/admin-worker/mission-control";
+import { replayLastPass, replayRecentPasses } from "@/lib/admin-worker/replay-runner";
 
 let brainOnline = false;
 
@@ -54,6 +56,34 @@ afterAll(async () => {
   await prisma.humanReviewQueue.deleteMany({ where: { contentType: "READING" } });
   await prisma.adminWorkerMemory.deleteMany({});
   await prisma.publishedContent.deleteMany({ where: { slug: { startsWith: "custody-test-" } } });
+  // Mission-control / stuckness fixtures (decisions before passes — SetNull FK).
+  await prisma.adminWorkerDecision.deleteMany({ where: { decisionType: "brain_pass" } });
+  await prisma.adminWorkerLog.deleteMany({
+    where: {
+      eventName: {
+        in: [
+          "mission_control",
+          "worker_stuck",
+          "self_model_built",
+          "extract_failed",
+          "intelligence_pass",
+          "replay_simulation",
+        ],
+      },
+    },
+  });
+  await prisma.adminWorkerRepairPlan.deleteMany({});
+  await prisma.adminWorkerPass.deleteMany({});
+  await prisma.contentGoal.deleteMany({});
+  // Dedicated unified-intelligence tables.
+  await prisma.adminWorkerSelfModelSnapshot.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerMissionState.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerCapabilityScore.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerCalibrationHistory.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerTestGapRecord.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerStucknessRecord.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerSourceBlock.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerSourceRead.deleteMany({}).catch(() => undefined);
   // Tear down the persistent brain process so vitest can exit cleanly.
   resetBrainStatus();
 });
@@ -311,18 +341,49 @@ describe("schema/UI awareness + content custody", () => {
     expect(call).not.toBeNull();
   });
 
-  it("runs code awareness and requests refactors of oversized modules", async () => {
+  it("runs the unified self-model pass and requests its own upgrades", async () => {
     if (!brainOnline) return;
-    resetAwarenessThrottle();
-    const res = await runCodeAwareness(prisma);
+    resetSelfModelThrottle();
+    const res = await runSelfModelPass(prisma);
     expect(res.ran).toBe(true);
-    const call = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "analyze_code" } });
+    // The brain ingested the corpus, built the self-model, and built the call graph.
+    const call = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "build_self_model" } });
     expect(call).not.toBeNull();
-    // The worker should flag its own oversized modules (dispatcher/brain).
+    const ingest = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "ingest_codebase" },
+    });
+    expect(ingest).not.toBeNull();
+    const callGraph = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "build_call_graph" },
+    });
+    expect(callGraph).not.toBeNull();
+    // A durable self-model snapshot was persisted to its dedicated table.
+    const snapshot = await prisma.adminWorkerSelfModelSnapshot.findFirst({
+      orderBy: { createdAt: "desc" },
+    });
+    expect(snapshot).not.toBeNull();
+    expect(snapshot!.fileCount).toBeGreaterThan(0);
+    expect(snapshot!.brainOpCount).toBeGreaterThan(0);
+    // The worker turns ranked self-upgrades into developer requests — each a
+    // complete, structured product-manager record (spec item 7).
     const req = await prisma.adminWorkerDeveloperRequest.findFirst({
-      where: { source: "code_awareness", kind: "code" },
+      where: { source: "self_model" },
     });
     expect(req).not.toBeNull();
+    const meta = (req!.metadata ?? {}) as Record<string, unknown>;
+    for (const key of [
+      "affected_files",
+      "affected_models",
+      "affected_brain_operations",
+      "expected_user_value",
+      "risk_if_not_fixed",
+      "suggested_implementation_plan",
+      "suggested_migration",
+      "priority_score",
+      "confidence_score",
+    ]) {
+      expect(meta).toHaveProperty(key);
+    }
   });
 
   it("custody flags weak published content and files an improvement request", async () => {
@@ -346,5 +407,209 @@ describe("schema/UI awareness + content custody", () => {
     expect(res.weak).toBeGreaterThanOrEqual(1);
     const dr = await prisma.adminWorkerDeveloperRequest.findFirst({ where: { source: "custody" } });
     expect(dr).not.toBeNull();
+  });
+});
+
+describe("mission control + stuckness (wired into the loop)", () => {
+  it("builds the mission tree from content goals and recommends the next action", async () => {
+    if (!brainOnline) return;
+    await prisma.contentGoal.createMany({
+      data: [
+        { contentType: "PRAYER", desiredTarget: 1000, currentValidCount: 5, priority: 90 },
+        {
+          contentType: "SACRAMENT",
+          desiredTarget: 7,
+          currentValidCount: 7,
+          canonicalMax: 7,
+          priority: 50,
+        },
+      ],
+      skipDuplicates: true,
+    });
+
+    const res = await runMissionControlPass(prisma);
+    expect(res.ran).toBe(true);
+    // The brain built the mission tree + recommended the next mission action.
+    const tree = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "build_mission_tree" },
+    });
+    expect(tree).not.toBeNull();
+    const nextAction = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "recommend_next_mission_action" },
+    });
+    expect(nextAction).not.toBeNull();
+    // Durable mission state was persisted to its dedicated table.
+    const snap = await prisma.adminWorkerLog.findFirst({ where: { eventName: "mission_control" } });
+    expect(snap).not.toBeNull();
+    const prayerMission = await prisma.adminWorkerMissionState.findUnique({
+      where: { contentType: "PRAYER" },
+    });
+    expect(prayerMission).not.toBeNull();
+    expect(prayerMission!.completionPct).toBeGreaterThanOrEqual(0);
+    // The least-complete open mission (PRAYER) is the next target, not the
+    // already-complete SACRAMENT.
+    expect(res.nextContentType).toBe("PRAYER");
+  });
+
+  it("detects an action loop with no content growth and files a developer request", async () => {
+    if (!brainOnline) return;
+    // Seed a stuck history: the same mission stage repeated with zero growth.
+    for (let i = 0; i < 6; i++) {
+      await prisma.adminWorkerDecision.create({
+        data: {
+          decisionType: "brain_pass",
+          inputSummary: "stuck-test",
+          chosenAction: "DISCOVER_SOURCE",
+          missionStage: "DISCOVERY",
+        },
+      });
+    }
+    for (let i = 0; i < 4; i++) {
+      await prisma.adminWorkerPass.create({
+        data: { passType: "AUTONOMOUS", status: "SUCCEEDED", contentPublished: 0 },
+      });
+    }
+
+    const res = await runStucknessPass(prisma);
+    expect(res.ran).toBe(true);
+    expect(res.stuck).toBe(true);
+    // The brain call + unblock strategy were recorded.
+    const stuckCall = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "detect_stuckness" },
+    });
+    expect(stuckCall).not.toBeNull();
+    // A worker_stuck log + a developer request surface the blocker for review.
+    const log = await prisma.adminWorkerLog.findFirst({ where: { eventName: "worker_stuck" } });
+    expect(log).not.toBeNull();
+    const dr = await prisma.adminWorkerDeveloperRequest.findFirst({
+      where: { source: "stuckness" },
+    });
+    expect(dr).not.toBeNull();
+    // Durable stuckness record persisted to its dedicated table.
+    const stuckRow = await prisma.adminWorkerStucknessRecord.findFirst({
+      orderBy: { createdAt: "desc" },
+    });
+    expect(stuckRow).not.toBeNull();
+    expect(stuckRow!.signals.length).toBeGreaterThan(0);
+  });
+});
+
+describe("Catholic-extraction enrichment (source reading)", () => {
+  it("identifies the document type + extracts structured Catholic refs on a new read", async () => {
+    if (!brainOnline) return;
+    const { readSource } = await import("@/lib/admin-worker/source-reader");
+    const body = (
+      "<h1>Rerum Novarum</h1><p>This encyclical letter of Pope Leo XIII, given in 1891, " +
+      "teaches on capital and labor. See canon 1234. As the Catechism teaches (CCC 2419), " +
+      "the Church judges economic questions in the light of the Gospel.</p>"
+    ).repeat(3);
+    const res = await readSource(prisma, {
+      sourceUrl: "https://www.vatican.va/test-rerum-novarum",
+      sourceHost: "vatican.va",
+      rawBody: body,
+    });
+    expect(res.sourceReadId).toBeTruthy();
+    // The brain ran Catholic extraction on the live read and recorded both calls.
+    const idCall = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "identify_document_type" },
+    });
+    expect(idCall).not.toBeNull();
+    const structCall = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "extract_structured_catholic_document" },
+    });
+    expect(structCall).not.toBeNull();
+  });
+});
+
+describe("post-pass reflection (self-explanation + test gaps)", () => {
+  it("explains the final decision and turns recurring failures into test-gap requests", async () => {
+    if (!brainOnline) return;
+    await prisma.adminWorkerDecision.create({
+      data: {
+        decisionType: "brain_pass",
+        inputSummary: "reflection-test",
+        chosenAction: "FETCH_SOURCE",
+        missionStage: "SOURCE_FETCH",
+        confidence: 0.8,
+        reason: "trusted source, highest expected value",
+      },
+    });
+    for (let i = 0; i < 3; i++) {
+      await prisma.adminWorkerLog.create({
+        data: {
+          category: "ERROR",
+          severity: "ERROR",
+          eventName: "extract_failed",
+          message: "pdf extraction failed for council document",
+        },
+      });
+    }
+
+    const { runPostPassIntelligence } = await import("@/lib/admin-worker/intelligence-pass");
+    const pass = await prisma.adminWorkerPass.create({
+      data: { passType: "AUTONOMOUS", status: "SUCCEEDED" },
+    });
+    await runPostPassIntelligence(prisma, { passId: pass.id, workerId: "reflection-test" });
+
+    // The brain explained its real decision (dashboard self-explanations).
+    const expl = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "explain_decision" } });
+    expect(expl).not.toBeNull();
+    // Recurring failures became a test-gap → a regression-test developer request.
+    const gap = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "detect_test_gap" } });
+    expect(gap).not.toBeNull();
+    const dr = await prisma.adminWorkerDeveloperRequest.findFirst({
+      where: { source: "test_gaps" },
+    });
+    expect(dr).not.toBeNull();
+    // Durable test-gap record + capability scores + calibration history persisted.
+    const gapRow = await prisma.adminWorkerTestGapRecord.findFirst();
+    expect(gapRow).not.toBeNull();
+    const capRow = await prisma.adminWorkerCapabilityScore.findFirst();
+    expect(capRow).not.toBeNull();
+    const calRow = await prisma.adminWorkerCalibrationHistory.findFirst();
+    expect(calRow).not.toBeNull();
+
+    // Replay & resilience reasoning ran over the event-sourced record.
+    const cmp = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "compare_decisions" } });
+    expect(cmp).not.toBeNull();
+    const integrity = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "check_replay_integrity" },
+    });
+    expect(integrity).not.toBeNull();
+  });
+});
+
+describe("replay orchestration (last pass + 50-pass simulation)", () => {
+  it("replays the last decision from its stored candidates and reproduces it", async () => {
+    if (!brainOnline) return;
+    await prisma.adminWorkerDecision.create({
+      data: {
+        decisionType: "brain_pass",
+        inputSummary: "replay-test",
+        chosenAction: "CONTENT_GROWTH:CONTENT",
+        missionStage: "DISCOVERY",
+        confidence: 0.7,
+        rankedAlternatives: [
+          { missionStage: "DISCOVERY", finalScore: 0.8, safe: true },
+          { missionStage: "REPORTING", finalScore: 0.4, safe: true },
+        ],
+      },
+    });
+
+    const res = await replayLastPass(prisma);
+    expect(res.ran).toBe(true);
+    expect(res.reproduced).toBe(true); // top-scored safe candidate matches the chosen stage
+    const call = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "replay_decision" } });
+    expect(call).not.toBeNull();
+
+    // Replay the recent window in simulation → reproduction rate + snapshot.
+    const sim = await replayRecentPasses(prisma, 50);
+    expect(sim.ran).toBe(true);
+    expect(sim.replayed).toBeGreaterThanOrEqual(1);
+    expect(sim.reproductionRate).toBeGreaterThan(0);
+    const snap = await prisma.adminWorkerLog.findFirst({
+      where: { eventName: "replay_simulation" },
+    });
+    expect(snap).not.toBeNull();
   });
 });
