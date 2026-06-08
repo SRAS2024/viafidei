@@ -58,6 +58,37 @@ export const BRAIN_OPS = [
   "find_duplicate_logic",
   "rank_self_upgrades",
   "detect_stuckness",
+  // Catholic authority graph
+  "build_catholic_authority_graph",
+  "rank_catholic_source_authority",
+  "resolve_authority_chain",
+  "classify_document_authority",
+  "classify_source_role",
+  "explain_authority_decision",
+  // claim-level verification
+  "extract_claims",
+  "normalize_claim",
+  "compare_claims",
+  "detect_date_conflict",
+  "detect_entity_conflict",
+  "detect_title_conflict",
+  "detect_liturgical_conflict",
+  "resolve_claim_with_authority",
+  "build_claim_evidence_pack",
+  // action simulation
+  "simulate_action",
+  "predict_action_outcome",
+  "estimate_failure_modes",
+  "estimate_repair_cost",
+  "estimate_publish_risk",
+  "compare_counterfactual_actions",
+  // confidence calibration
+  "calibrate_confidence",
+  "measure_prediction_accuracy",
+  "grade_brain_decision",
+  "track_false_positive_risk",
+  "track_false_negative_risk",
+  "score_decision_quality",
 ] as const;
 export type BrainOp = (typeof BRAIN_OPS)[number];
 

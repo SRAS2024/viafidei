@@ -12,7 +12,10 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List
 
 from .operations import (
+    authority,
     awareness,
+    calibration,
+    claims,
     duplicates,
     embeddings,
     extraction,
@@ -26,6 +29,7 @@ from .operations import (
     repair,
     security,
     self_model,
+    simulation,
     sources,
     quality,
 )
@@ -87,6 +91,37 @@ REGISTRY: Dict[str, Handler] = {
     "find_duplicate_logic": self_model.find_duplicate_logic,
     "rank_self_upgrades": self_model.rank_self_upgrades,
     "detect_stuckness": self_model.detect_stuckness,
+    # Catholic authority graph
+    "build_catholic_authority_graph": authority.build_catholic_authority_graph,
+    "rank_catholic_source_authority": authority.rank_catholic_source_authority,
+    "resolve_authority_chain": authority.resolve_authority_chain,
+    "classify_document_authority": authority.classify_document_authority,
+    "classify_source_role": authority.classify_source_role,
+    "explain_authority_decision": authority.explain_authority_decision,
+    # claim-level verification
+    "extract_claims": claims.extract_claims,
+    "normalize_claim": claims.normalize_claim,
+    "compare_claims": claims.compare_claims,
+    "detect_date_conflict": claims.detect_date_conflict,
+    "detect_entity_conflict": claims.detect_entity_conflict,
+    "detect_title_conflict": claims.detect_title_conflict,
+    "detect_liturgical_conflict": claims.detect_liturgical_conflict,
+    "resolve_claim_with_authority": claims.resolve_claim_with_authority,
+    "build_claim_evidence_pack": claims.build_claim_evidence_pack,
+    # action simulation before execution
+    "simulate_action": simulation.simulate_action,
+    "predict_action_outcome": simulation.predict_action_outcome,
+    "estimate_failure_modes": simulation.estimate_failure_modes,
+    "estimate_repair_cost": simulation.estimate_repair_cost,
+    "estimate_publish_risk": simulation.estimate_publish_risk,
+    "compare_counterfactual_actions": simulation.compare_counterfactual_actions,
+    # confidence calibration + outcome grading
+    "calibrate_confidence": calibration.calibrate_confidence,
+    "measure_prediction_accuracy": calibration.measure_prediction_accuracy,
+    "grade_brain_decision": calibration.grade_brain_decision,
+    "track_false_positive_risk": calibration.track_false_positive_risk,
+    "track_false_negative_risk": calibration.track_false_negative_risk,
+    "score_decision_quality": calibration.score_decision_quality,
 }
 
 

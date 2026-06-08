@@ -279,6 +279,121 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
         "pass_count": 6,
         "source_fatigue": {"weak.example": 4},
     },
+    # ── Catholic authority graph ──────────────────────────────────────
+    "build_catholic_authority_graph": {},
+    "rank_catholic_source_authority": {
+        "sources": [
+            {"id": "a", "name": "The Holy See", "url": "https://www.vatican.va", "authorityLevel": "VATICAN"},
+            {"id": "b", "name": "Some Blog", "url": "https://blog.example.com", "contradictions": 3},
+        ]
+    },
+    "resolve_authority_chain": {"levels": ["DIOCESAN", "VATICAN", "COMMUNITY"]},
+    "classify_document_authority": {"document_type": "encyclical"},
+    "classify_source_role": {"url": "https://www.usccb.org", "authorityLevel": "USCCB"},
+    "explain_authority_decision": {"chosen": "VATICAN", "over": ["DIOCESAN", "COMMUNITY"]},
+    # ── claim-level verification ──────────────────────────────────────
+    "extract_claims": {
+        "text": "Our Lady of Lourdes: the apparition occurred in 1858. Saint Bernadette was born in 1844 and canonized in 1933.",
+        "subject": "Our Lady of Lourdes",
+        "source": "vatican.va",
+        "authority_level": "VATICAN",
+        "citation": "https://www.vatican.va/x",
+    },
+    "normalize_claim": {"claim": {"subject": "Our Lady of Lourdes", "predicate": "apparition_year", "value": "1858"}},
+    "compare_claims": {
+        "claims": [
+            {"subject": "Lourdes", "predicate": "apparition_year", "value": "1858", "authority_level": "VATICAN", "source": "a"},
+            {"subject": "Lourdes", "predicate": "apparition_year", "value": "1854", "authority_level": "COMMUNITY", "source": "b"},
+        ]
+    },
+    "detect_date_conflict": {
+        "claims": [
+            {"subject": "Lourdes", "predicate": "apparition_year", "value": "1858", "authority_level": "VATICAN"},
+            {"subject": "Lourdes", "predicate": "apparition_year", "value": "1854", "authority_level": "COMMUNITY"},
+        ]
+    },
+    "detect_entity_conflict": {
+        "claims": [{"subject": "X", "predicate": "founder", "value": "A", "authority_level": "VATICAN"}]
+    },
+    "detect_title_conflict": {
+        "claims": [{"subject": "X", "predicate": "title", "value": "A", "authority_level": "VATICAN"}]
+    },
+    "detect_liturgical_conflict": {
+        "claims": [
+            {"subject": "Feast", "predicate": "feast_day", "value": "May 13", "authority_level": "LITURGICAL_BOOK"},
+            {"subject": "Feast", "predicate": "feast_day", "value": "May 14", "authority_level": "COMMUNITY"},
+        ]
+    },
+    "resolve_claim_with_authority": {
+        "claims": [
+            {"subject": "Lourdes", "predicate": "apparition_year", "value": "1858", "authority_level": "VATICAN", "source": "a"},
+            {"subject": "Lourdes", "predicate": "apparition_year", "value": "1854", "authority_level": "COMMUNITY", "source": "b"},
+        ]
+    },
+    "build_claim_evidence_pack": {
+        "subject": "Our Lady of Lourdes",
+        "predicate": "apparition_year",
+        "claims": [
+            {"subject": "Our Lady of Lourdes", "predicate": "apparition_year", "value": "1858", "authority_level": "VATICAN", "source": "a", "citation": "u"},
+        ],
+    },
+    # ── action simulation ─────────────────────────────────────────────
+    "simulate_action": {
+        "action": {"missionStage": "SOURCE_FETCH", "actionType": "FETCH", "finalScore": 0.7, "safe": True, "sourceTarget": "vatican.va", "contentType": "PRAYER"},
+        "stage_outcomes": [{"stage": "SOURCE_FETCH", "successRate": 0.8}],
+        "source_reputation": [{"host": "vatican.va", "tier": "TRUSTED"}],
+        "source_fatigue": {},
+    },
+    "predict_action_outcome": {
+        "action": {"missionStage": "STRICT_QA", "finalScore": 0.6, "safe": True},
+        "stage_outcomes": [{"stage": "STRICT_QA", "successRate": 0.7}],
+    },
+    "estimate_failure_modes": {
+        "action": {"missionStage": "SOURCE_FETCH", "sourceTarget": "weak.example", "contentType": "APPARITION", "safe": True},
+        "source_fatigue": {"weak.example": 4},
+    },
+    "estimate_repair_cost": {"action": {"missionStage": "EXTRACTION", "finalScore": 0.5}},
+    "estimate_publish_risk": {"action": {"missionStage": "PUBLIC_PUBLISH", "contentType": "APPARITION", "safe": True}},
+    "compare_counterfactual_actions": {
+        "actions": [
+            {"missionStage": "PUBLIC_PUBLISH", "actionType": "PUBLISH", "finalScore": 0.8, "safe": True, "contentType": "PRAYER"},
+            {"missionStage": "DISCOVERY", "actionType": "DISCOVER", "finalScore": 0.4, "safe": True},
+        ],
+        "stage_outcomes": [{"stage": "PUBLIC_PUBLISH", "successRate": 0.85}],
+    },
+    # ── confidence calibration ────────────────────────────────────────
+    "calibrate_confidence": {
+        "records": [
+            {"op": "detect_duplicates", "predicted": True, "actual": True, "confidence": 0.6},
+            {"op": "detect_duplicates", "predicted": True, "actual": True, "confidence": 0.6},
+            {"op": "detect_duplicates", "predicted": False, "actual": True, "confidence": 0.9},
+        ]
+    },
+    "measure_prediction_accuracy": {
+        "records": [
+            {"op": "score_quality", "predicted": "success", "actual": "success", "confidence": 0.8},
+            {"op": "score_quality", "predicted": "success", "actual": "failure", "confidence": 0.8},
+        ]
+    },
+    "grade_brain_decision": {"decision": {"predicted": "success", "actual": "failure", "confidence": 0.9}},
+    "track_false_positive_risk": {
+        "records": [
+            {"op": "detect_communion_risk", "predicted": "risk", "actual": "clean", "confidence": 0.7},
+            {"op": "detect_communion_risk", "predicted": "risk", "actual": "risk", "confidence": 0.7},
+        ]
+    },
+    "track_false_negative_risk": {
+        "records": [
+            {"op": "detect_duplicates", "predicted": "distinct", "actual": "duplicate", "confidence": 0.6},
+            {"op": "detect_duplicates", "predicted": "distinct", "actual": "distinct", "confidence": 0.6},
+        ]
+    },
+    "score_decision_quality": {
+        "records": [
+            {"op": "select_action", "predicted": "success", "actual": "success", "confidence": 0.8},
+            {"op": "select_action", "predicted": "failure", "actual": "failure", "confidence": 0.7},
+        ]
+    },
 }
 
 

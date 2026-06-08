@@ -511,4 +511,138 @@ export function detectStuckness(
   return callBrain<StucknessResult>("detect_stuckness", input, opts);
 }
 
+// ── Catholic authority graph ──────────────────────────────────────────
+export function buildCatholicAuthorityGraph(opts?: CallOpts) {
+  return callBrain("build_catholic_authority_graph", {}, opts);
+}
+export function rankCatholicSourceAuthority(
+  sources: Array<Record<string, unknown>>,
+  opts?: CallOpts,
+) {
+  return callBrain("rank_catholic_source_authority", { sources }, opts);
+}
+export function resolveAuthorityChain(levels: string[], opts?: CallOpts) {
+  return callBrain("resolve_authority_chain", { levels }, opts);
+}
+export function classifyDocumentAuthority(documentType: string, opts?: CallOpts) {
+  return callBrain("classify_document_authority", { document_type: documentType }, opts);
+}
+export function classifySourceRole(
+  input: { url?: string; authorityLevel?: string },
+  opts?: CallOpts,
+) {
+  return callBrain("classify_source_role", input, opts);
+}
+export function explainAuthorityDecision(chosen: string, over: string[], opts?: CallOpts) {
+  return callBrain("explain_authority_decision", { chosen, over }, opts);
+}
+
+// ── Claim-level verification ──────────────────────────────────────────
+export interface ClaimInput {
+  subject?: string;
+  predicate: string;
+  value: string;
+  source?: string;
+  authority_level?: string;
+  citation?: string;
+}
+export function extractClaims(
+  input: {
+    text: string;
+    subject?: string;
+    source?: string;
+    authority_level?: string;
+    citation?: string;
+  },
+  opts?: CallOpts,
+) {
+  return callBrain("extract_claims", input, opts);
+}
+export function normalizeClaim(claim: ClaimInput, opts?: CallOpts) {
+  return callBrain("normalize_claim", { claim }, opts);
+}
+export function compareClaims(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("compare_claims", { claims }, opts);
+}
+export function detectDateConflict(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("detect_date_conflict", { claims }, opts);
+}
+export function detectEntityConflict(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("detect_entity_conflict", { claims }, opts);
+}
+export function detectTitleConflict(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("detect_title_conflict", { claims }, opts);
+}
+export function detectLiturgicalConflict(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("detect_liturgical_conflict", { claims }, opts);
+}
+export function resolveClaimWithAuthority(claims: ClaimInput[], opts?: CallOpts) {
+  return callBrain("resolve_claim_with_authority", { claims }, opts);
+}
+export function buildClaimEvidencePack(
+  input: { subject: string; predicate?: string; claims?: ClaimInput[] },
+  opts?: CallOpts,
+) {
+  return callBrain("build_claim_evidence_pack", input, opts);
+}
+
+// ── Action simulation ─────────────────────────────────────────────────
+export interface SimContext {
+  stage_outcomes?: Array<Record<string, unknown>>;
+  source_reputation?: Array<Record<string, unknown>>;
+  source_fatigue?: Record<string, number>;
+  sensitive_content_types?: string[];
+}
+export function simulateAction(action: Record<string, unknown>, ctx?: SimContext, opts?: CallOpts) {
+  return callBrain("simulate_action", { action, ...(ctx ?? {}) }, opts);
+}
+export function predictActionOutcome(
+  action: Record<string, unknown>,
+  ctx?: SimContext,
+  opts?: CallOpts,
+) {
+  return callBrain("predict_action_outcome", { action, ...(ctx ?? {}) }, opts);
+}
+export function estimateFailureModes(
+  action: Record<string, unknown>,
+  ctx?: SimContext,
+  opts?: CallOpts,
+) {
+  return callBrain("estimate_failure_modes", { action, ...(ctx ?? {}) }, opts);
+}
+export function estimatePublishRisk(
+  action: Record<string, unknown>,
+  ctx?: SimContext,
+  opts?: CallOpts,
+) {
+  return callBrain("estimate_publish_risk", { action, ...(ctx ?? {}) }, opts);
+}
+export function compareCounterfactualActions(
+  actions: Array<Record<string, unknown>>,
+  ctx?: SimContext,
+  opts?: CallOpts,
+) {
+  return callBrain("compare_counterfactual_actions", { actions, ...(ctx ?? {}) }, opts);
+}
+
+// ── Confidence calibration ────────────────────────────────────────────
+export interface PredictionRecord {
+  op: string;
+  predicted: boolean | string;
+  actual: boolean | string;
+  confidence?: number;
+}
+export function calibrateConfidence(records: PredictionRecord[], opts?: CallOpts) {
+  return callBrain("calibrate_confidence", { records }, opts);
+}
+export function measurePredictionAccuracy(records: PredictionRecord[], opts?: CallOpts) {
+  return callBrain("measure_prediction_accuracy", { records }, opts);
+}
+export function scoreDecisionQuality(records: PredictionRecord[], opts?: CallOpts) {
+  return callBrain("score_decision_quality", { records }, opts);
+}
+export function gradeBrainDecision(decision: PredictionRecord, opts?: CallOpts) {
+  return callBrain("grade_brain_decision", { decision }, opts);
+}
+
 export type { BrainEnvelope };
