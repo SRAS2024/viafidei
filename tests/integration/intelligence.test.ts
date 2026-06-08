@@ -63,6 +63,8 @@ afterAll(async () => {
   await prisma.adminWorkerRepairPlan.deleteMany({});
   await prisma.adminWorkerPass.deleteMany({});
   await prisma.contentGoal.deleteMany({});
+  await prisma.adminWorkerSourceBlock.deleteMany({}).catch(() => undefined);
+  await prisma.adminWorkerSourceRead.deleteMany({}).catch(() => undefined);
   // Tear down the persistent brain process so vitest can exit cleanly.
   resetBrainStatus();
 });
@@ -434,5 +436,32 @@ describe("mission control + stuckness (wired into the loop)", () => {
       where: { source: "stuckness" },
     });
     expect(dr).not.toBeNull();
+  });
+});
+
+describe("Catholic-extraction enrichment (source reading)", () => {
+  it("identifies the document type + extracts structured Catholic refs on a new read", async () => {
+    if (!brainOnline) return;
+    const { readSource } = await import("@/lib/admin-worker/source-reader");
+    const body = (
+      "<h1>Rerum Novarum</h1><p>This encyclical letter of Pope Leo XIII, given in 1891, " +
+      "teaches on capital and labor. See canon 1234. As the Catechism teaches (CCC 2419), " +
+      "the Church judges economic questions in the light of the Gospel.</p>"
+    ).repeat(3);
+    const res = await readSource(prisma, {
+      sourceUrl: "https://www.vatican.va/test-rerum-novarum",
+      sourceHost: "vatican.va",
+      rawBody: body,
+    });
+    expect(res.sourceReadId).toBeTruthy();
+    // The brain ran Catholic extraction on the live read and recorded both calls.
+    const idCall = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "identify_document_type" },
+    });
+    expect(idCall).not.toBeNull();
+    const structCall = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "extract_structured_catholic_document" },
+    });
+    expect(structCall).not.toBeNull();
   });
 });
