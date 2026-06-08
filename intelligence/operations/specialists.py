@@ -46,10 +46,14 @@ def _skeptic(c: Dict[str, Any]) -> Dict[str, Any]:
 def _catholic_safety(c: Dict[str, Any]) -> Dict[str, Any]:
     sensitive = str(c.get("contentType", "")) in SENSITIVE
     risk = float(c.get("communionRisk", 0.0))
-    score = clamp(1.0 - risk - (0.2 if sensitive else 0.0))
-    return _r("catholic_safety", score, 0.8, risk_from_score(risk + (0.2 if sensitive else 0)),
+    # Sensitivity raises scrutiny (lower score, higher nominal risk band) but it
+    # is NOT a blocker on its own — provenance, the communion screen and the
+    # quality gate already cover sensitive types, so blocking every prayer/pope
+    # would be wrong. Only a real communion-risk signal routes to review.
+    score = clamp(1.0 - risk - (0.1 if sensitive else 0.0))
+    return _r("catholic_safety", score, 0.8, risk_from_score(risk + (0.1 if sensitive else 0)),
               [f"communion risk {round(risk,2)}", f"sensitive={sensitive}"],
-              "route to review" if (sensitive or risk > 0.3) else "safe",
+              "route to review" if risk > 0.3 else "safe",
               "a communion-risk flag or contradicting authority")
 
 

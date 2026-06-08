@@ -159,6 +159,7 @@ export async function runPublishOrchestrator(
   //     brain is disabled or offline this is a no-op and the existing
   //     gates below still apply. Skipped for the worker's own curated
   //     ground-truth (skipBrainScreens): there is no external source to screen.
+  let communionRiskScore = 0;
   if (!input.skipBrainScreens) {
     const { screenCommunionRisk } = await import("./intelligence/service");
     const screenText = `${input.title}\n${JSON.stringify(input.payload)}`.slice(0, 8000);
@@ -167,6 +168,7 @@ export async function runPublishOrchestrator(
       { name: input.title, text: screenText },
       { contentType: input.contentType, entityId: input.contentId },
     );
+    if (screen.available) communionRiskScore = screen.risk;
     if (screen.available && screen.block) {
       const reason = `communion risk ${screen.risk.toFixed(2)} (${screen.verdict}); requires human verification before publish — flags: ${
         screen.flags.slice(0, 3).join("; ") || "n/a"
@@ -213,6 +215,51 @@ export async function runPublishOrchestrator(
       }
     } catch {
       // Intelligence dedupe is a best-effort safety check; never block publishing on its failure.
+    }
+  }
+
+  // 1e. Specialist panel review (intelligence brain). The unified 12-member
+  //     reviewer panel (planner, skeptic, Catholic-safety, source-authority,
+  //     duplicate, completeness, citation, repair, codebase, test-coverage,
+  //     security, mission) weighs the candidate; when it returns
+  //     "block-or-review" (a blocking specialist objected — e.g. a sensitive
+  //     type with no citations) we route to human review rather than
+  //     auto-publishing. Advisory + fail-open; skipped for curated ground-truth.
+  if (isBrainEnabled() && !input.skipBrainScreens) {
+    try {
+      let citationCount = 0;
+      const p = input.payload as Record<string, unknown> | null;
+      const cits = (p?.citations ?? p?.sources) as unknown;
+      if (Array.isArray(cits)) citationCount = cits.length;
+
+      const { specialistReviews } = await import("./intelligence");
+      const { recordBrainCall } = await import("./intelligence/store");
+      const panel = await specialistReviews({
+        contentType: input.contentType,
+        finalScore: input.finalScore,
+        confidence: input.confidence,
+        citationCount,
+        communionRisk: communionRiskScore,
+      }).catch(() => null);
+      await recordBrainCall(prisma, "specialist_reviews", panel, {
+        contentType: input.contentType,
+        entityId: input.contentId,
+      }).catch(() => undefined);
+
+      const decision = (
+        panel?.result as { decision?: string; blocking_specialists?: string[] } | null
+      )?.decision;
+      if (panel?.ok && decision === "block-or-review") {
+        const blockers =
+          (panel.result as { blocking_specialists?: string[] }).blocking_specialists ?? [];
+        const reason = `specialist panel routed to review (objections: ${
+          blockers.slice(0, 3).join(", ") || "panel"
+        })`;
+        await logBlocked(prisma, input, reason);
+        return { kind: "review", reason };
+      }
+    } catch {
+      // Specialist review is a best-effort safety check; never block on failure.
     }
   }
 

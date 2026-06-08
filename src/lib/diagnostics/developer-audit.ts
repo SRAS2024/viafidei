@@ -70,6 +70,137 @@ interface AuditData {
     title: string;
     contentType: string;
   }>;
+  intelligence: IntelligenceAudit;
+}
+
+/** The unified-brain audit section (spec: "developer audit intelligence section"). */
+interface IntelligenceAudit {
+  brainCalls: number;
+  brainOkRate: number;
+  avgConfidence: number;
+  topOps: Array<{ op: string; count: number; avgConfidence: number }>;
+  iqIndex: number | null;
+  openRequests: Array<{
+    kind: string;
+    title: string;
+    severity: string;
+    occurrences: number;
+    source: string | null;
+  }>;
+  selfModel: {
+    fileCount: number;
+    coverage: number;
+    weak: number;
+    untested: number;
+    topUpgrades: string[];
+  } | null;
+  missionNext: string | null;
+  stuck: { signals: string[]; strategy: string } | null;
+}
+
+/** Best-effort intelligence snapshot for the audit (all queries guarded). */
+async function collectIntelligence(since: Date): Promise<IntelligenceAudit> {
+  const [calls, okCalls, confAgg, byOp, requests, intelLog, selfLog, missionLog, stuckLog] =
+    await Promise.all([
+      prisma.adminWorkerBrainCall.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+      prisma.adminWorkerBrainCall
+        .count({ where: { createdAt: { gte: since }, ok: true } })
+        .catch(() => 0),
+      prisma.adminWorkerBrainCall
+        .aggregate({ where: { createdAt: { gte: since } }, _avg: { confidence: true } })
+        .catch(() => ({ _avg: { confidence: null } })),
+      prisma.adminWorkerBrainCall
+        .groupBy({
+          by: ["op"],
+          where: { createdAt: { gte: since } },
+          _count: { _all: true },
+          _avg: { confidence: true },
+        })
+        .catch(
+          () =>
+            [] as Array<{
+              op: string;
+              _count: { _all: number };
+              _avg: { confidence: number | null };
+            }>,
+        ),
+      prisma.adminWorkerDeveloperRequest
+        .findMany({
+          where: { status: "OPEN" },
+          orderBy: [{ severity: "desc" }, { occurrences: "desc" }, { updatedAt: "desc" }],
+          take: 30,
+          select: { kind: true, title: true, severity: true, occurrences: true, source: true },
+        })
+        .catch(() => []),
+      prisma.adminWorkerLog
+        .findFirst({
+          where: { eventName: "intelligence_pass" },
+          orderBy: { createdAt: "desc" },
+          select: { safeMetadata: true },
+        })
+        .catch(() => null),
+      prisma.adminWorkerLog
+        .findFirst({
+          where: { eventName: "self_model_built" },
+          orderBy: { createdAt: "desc" },
+          select: { safeMetadata: true },
+        })
+        .catch(() => null),
+      prisma.adminWorkerLog
+        .findFirst({
+          where: { eventName: "mission_control" },
+          orderBy: { createdAt: "desc" },
+          select: { safeMetadata: true },
+        })
+        .catch(() => null),
+      prisma.adminWorkerLog
+        .findFirst({
+          where: { eventName: "worker_stuck", createdAt: { gte: since } },
+          orderBy: { createdAt: "desc" },
+          select: { safeMetadata: true },
+        })
+        .catch(() => null),
+    ]);
+
+  const iqMeta = (intelLog?.safeMetadata ?? null) as { iqIndex?: number | null } | null;
+  const sm = (selfLog?.safeMetadata ?? null) as {
+    model?: { file_count?: number };
+    coverage_ratio?: number;
+    weak_count?: number;
+    untested_count?: number;
+    top_upgrades?: string[];
+  } | null;
+  const mission = (missionLog?.safeMetadata ?? null) as { next_action?: string | null } | null;
+  const stuck = (stuckLog?.safeMetadata ?? null) as {
+    signals?: string[];
+    strategy?: string;
+  } | null;
+
+  return {
+    brainCalls: calls,
+    brainOkRate: calls > 0 ? okCalls / calls : 0,
+    avgConfidence: confAgg._avg.confidence ?? 0,
+    topOps: byOp
+      .slice()
+      .sort((a, b) => b._count._all - a._count._all)
+      .slice(0, 12)
+      .map((o) => ({ op: o.op, count: o._count._all, avgConfidence: o._avg.confidence ?? 0 })),
+    iqIndex: iqMeta?.iqIndex ?? null,
+    openRequests: requests,
+    selfModel: sm
+      ? {
+          fileCount: sm.model?.file_count ?? 0,
+          coverage: sm.coverage_ratio ?? 0,
+          weak: sm.weak_count ?? 0,
+          untested: sm.untested_count ?? 0,
+          topUpgrades: sm.top_upgrades ?? [],
+        }
+      : null,
+    missionNext: mission?.next_action ?? null,
+    stuck: stuck?.signals?.length
+      ? { signals: stuck.signals, strategy: stuck.strategy ?? "" }
+      : null,
+  };
 }
 
 async function collectAuditData(period: AuditPeriod): Promise<AuditData> {
@@ -173,6 +304,7 @@ async function collectAuditData(period: AuditPeriod): Promise<AuditData> {
       title: b.checklistItem.canonicalName,
       contentType: b.checklistItem.contentType,
     })),
+    intelligence: await collectIntelligence(since),
   };
 }
 
@@ -229,6 +361,77 @@ export async function generateDeveloperAuditPdf(period: AuditPeriod): Promise<Bu
     doc.text(`Published in this period: ${data.publishedSummary.recent}`);
     doc.text(`Curated knowledge entries available to the worker: ${data.knowledgeSummary.total}`);
     doc.text(`Checklist seed total: ${totalChecklistItems()} items across 11 content types.`);
+    doc.moveDown();
+
+    // ----- Intelligence (the unified brain) -----------------------------
+    const intel = data.intelligence;
+    doc.font(FONT_TITLE).fontSize(14).fillColor("#1a1a1a");
+    doc.text("Intelligence (the unified brain)");
+    doc.font(FONT_BODY).fontSize(10).fillColor("#222");
+    doc.moveDown(0.3);
+    doc.text(
+      `Brain decisions in this period: ${intel.brainCalls} ` +
+        `(${(intel.brainOkRate * 100).toFixed(0)}% ok, avg confidence ${(intel.avgConfidence * 100).toFixed(0)}%)` +
+        `${intel.iqIndex != null ? ` · Worker IQ index ${intel.iqIndex}` : ""}`,
+    );
+    if (intel.selfModel) {
+      const sm = intel.selfModel;
+      doc.text(
+        `Self-model: ${sm.fileCount} files · test coverage ${(sm.coverage * 100).toFixed(0)}% · ` +
+          `${sm.weak} weak module(s) · ${sm.untested} untested module(s).`,
+      );
+    } else {
+      doc.fillColor("#666").text("Self-model: not built yet.").fillColor("#222");
+    }
+    if (intel.missionNext) doc.text(`Next mission action: ${intel.missionNext}`);
+    if (intel.stuck) {
+      doc
+        .fillColor("#a86b00")
+        .text(
+          `Stuckness: ${intel.stuck.signals.slice(0, 2).join("; ")}` +
+            `${intel.stuck.strategy ? ` → ${intel.stuck.strategy}` : ""}`,
+        );
+      doc.fillColor("#222");
+    }
+    doc.moveDown(0.4);
+
+    // Operation mix (which brain capabilities were exercised).
+    doc.font(FONT_TITLE).fontSize(11).fillColor("#1a1a1a").text("Brain operation mix");
+    doc.font(FONT_BODY).fontSize(9).fillColor("#222").moveDown(0.2);
+    if (intel.topOps.length === 0) {
+      doc.fillColor("#666").text("(no brain calls in this period)").fillColor("#222");
+    } else {
+      for (const o of intel.topOps) {
+        doc.text(
+          `${o.op}: ${o.count} call(s) · avg confidence ${(o.avgConfidence * 100).toFixed(0)}%`,
+        );
+      }
+    }
+    doc.moveDown(0.4);
+
+    // Self-requested upgrades + the open developer-request queue (what the
+    // brain says it needs to do its job better).
+    doc.font(FONT_TITLE).fontSize(11).fillColor("#1a1a1a");
+    doc.text(`Developer requests from the brain (${intel.openRequests.length} open)`);
+    doc.font(FONT_BODY).fontSize(9).fillColor("#222").moveDown(0.2);
+    if (intel.selfModel && intel.selfModel.topUpgrades.length > 0) {
+      doc.fillColor("#444").text("Top self-requested upgrades:");
+      intel.selfModel.topUpgrades.slice(0, 5).forEach((u, i) => doc.text(`  ${i + 1}. ${u}`));
+      doc.fillColor("#222").moveDown(0.2);
+    }
+    if (intel.openRequests.length === 0) {
+      doc.fillColor("#666").text("(no open developer requests)").fillColor("#222");
+    } else {
+      for (const r of intel.openRequests) {
+        const times = r.occurrences > 1 ? ` ×${r.occurrences}` : "";
+        const src = r.source ? ` [${r.source}]` : "";
+        doc.fillColor(
+          r.severity === "high" ? "#a8000c" : r.severity === "medium" ? "#a86b00" : "#222",
+        );
+        doc.text(`[${r.severity}] ${r.kind}: ${r.title}${times}${src}`);
+      }
+      doc.fillColor("#222");
+    }
     doc.moveDown();
 
     // ----- Diagnostics --------------------------------------------------
