@@ -169,7 +169,29 @@ class TestSelfModel(unittest.TestCase):
         self._check_envelope(r)
         self.assertGreaterEqual(r["result"]["upgrade_count"], 1)
         first = r["result"]["upgrades"][0]
-        for key in ("title", "category", "problem", "evidence", "affected_files", "priority_score"):
+        # Spec item 7: every developer request carries the full 20-field structure.
+        for key in (
+            "title",
+            "category",
+            "problem",
+            "evidence",
+            "affected_files",
+            "affected_models",
+            "affected_worker_stages",
+            "affected_brain_operations",
+            "affected_public_routes",
+            "affected_admin_routes",
+            "expected_intelligence_gain",
+            "expected_user_value",
+            "risk_if_not_fixed",
+            "implementation_difficulty",
+            "suggested_implementation_plan",
+            "suggested_tests",
+            "suggested_migration",
+            "rollback_plan",
+            "priority_score",
+            "confidence_score",
+        ):
             self.assertIn(key, first)
 
     def test_explain_own_architecture(self):

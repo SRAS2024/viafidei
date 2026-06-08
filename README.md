@@ -1133,8 +1133,14 @@ operation returns the same strict envelope (`ok`, `result`, `confidence`,
 - **Self-explanation** (`explanation.py`): every decision explained — what,
   why, rejected alternatives, evidence/memories used, safety basis, and what
   would change its mind.
-- **Upgrade-request engine** (`upgrades.py`): the worker's internal product
-  manager — rank, explain, dedupe, ROI-score, and flag neglected requests.
+- **Upgrade-request engine** (`upgrades.py` + `rank_self_upgrades`): the
+  worker's internal product manager — rank, explain, dedupe, ROI-score, and flag
+  neglected requests. Every request is a complete 20-field record (title,
+  category, problem, evidence, affected files / models / worker-stages /
+  brain-ops / public+admin routes, expected intelligence gain + user value, risk
+  if not fixed, difficulty, implementation plan, suggested tests + migration,
+  rollback plan, priority + confidence) persisted to
+  `AdminWorkerDeveloperRequest.metadata` and surfaced on the dashboard + audit.
 - **Test-gap detection** (`testgaps.py`): repeated failures become review-gated
   regression-test recommendations (PDF, dynamic fetch, duplicate, schema,
   publish, QA …).

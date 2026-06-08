@@ -353,11 +353,26 @@ describe("schema/UI awareness + content custody", () => {
       where: { eventName: "self_model_built" },
     });
     expect(snapshot).not.toBeNull();
-    // The worker turns ranked self-upgrades into developer requests.
+    // The worker turns ranked self-upgrades into developer requests — each a
+    // complete, structured product-manager record (spec item 7).
     const req = await prisma.adminWorkerDeveloperRequest.findFirst({
       where: { source: "self_model" },
     });
     expect(req).not.toBeNull();
+    const meta = (req!.metadata ?? {}) as Record<string, unknown>;
+    for (const key of [
+      "affected_files",
+      "affected_models",
+      "affected_brain_operations",
+      "expected_user_value",
+      "risk_if_not_fixed",
+      "suggested_implementation_plan",
+      "suggested_migration",
+      "priority_score",
+      "confidence_score",
+    ]) {
+      expect(meta).toHaveProperty(key);
+    }
   });
 
   it("custody flags weak published content and files an improvement request", async () => {

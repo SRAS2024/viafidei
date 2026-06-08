@@ -327,6 +327,14 @@ export interface DeveloperRequest {
   detail: string;
   severity: "low" | "medium" | "high";
   evidence: string;
+  /**
+   * Full structured request (spec item 7: affected files/models/stages/ops/
+   * routes, expected gain + user value, risk, difficulty, plan, tests,
+   * migration, rollback, priority + confidence). Persisted to
+   * AdminWorkerDeveloperRequest.metadata so the request is a complete,
+   * actionable product-manager record, not just a title + detail string.
+   */
+  metadata?: Record<string, unknown> | null;
 }
 export interface SelfInspectResult {
   summary: Record<string, number>;
@@ -544,12 +552,21 @@ export interface SelfUpgrade {
   problem: string;
   evidence: string[];
   affected_files: string[];
+  affected_models: string[];
+  affected_worker_stages: string[];
+  affected_brain_operations: string[];
+  affected_public_routes: string[];
+  affected_admin_routes: string[];
   expected_intelligence_gain: string;
+  expected_user_value: string;
+  risk_if_not_fixed: string;
   implementation_difficulty: string;
+  suggested_implementation_plan: string;
+  suggested_tests: string;
+  suggested_migration: string;
+  rollback_plan: string;
   priority_score: number;
   confidence_score: number;
-  suggested_tests: string;
-  rollback_plan: string;
 }
 export interface SelfUpgradesResult {
   upgrades: SelfUpgrade[];

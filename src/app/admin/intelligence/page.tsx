@@ -123,6 +123,7 @@ export default async function AdminIntelligencePage() {
           occurrences: true,
           source: true,
           updatedAt: true,
+          metadata: true,
         },
       })
       .catch(() => []),
@@ -669,6 +670,7 @@ export default async function AdminIntelligencePage() {
                   )}
                 </div>
                 <p className="mt-1 font-serif text-sm text-ink-soft">{r.detail}</p>
+                <DevRequestMeta metadata={r.metadata} />
               </li>
             ))}
           </ul>
@@ -888,6 +890,52 @@ function CodeHealth({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return <p className="font-serif text-sm text-ink-soft">{children}</p>;
+}
+
+/**
+ * Renders the structured upgrade-request fields (spec item 7) the brain
+ * persists to AdminWorkerDeveloperRequest.metadata: affected surfaces, priority,
+ * confidence, expected gain, and the implementation/test/rollback plan.
+ */
+function DevRequestMeta({ metadata }: { metadata: unknown }) {
+  if (!metadata || typeof metadata !== "object") return null;
+  const m = metadata as Record<string, unknown>;
+  const surfaces = (key: string) => (Array.isArray(m[key]) ? (m[key] as string[]) : []);
+  const chips = (
+    [
+      ["files", surfaces("affected_files")],
+      ["models", surfaces("affected_models")],
+      ["stages", surfaces("affected_worker_stages")],
+      ["ops", surfaces("affected_brain_operations")],
+      ["routes", [...surfaces("affected_public_routes"), ...surfaces("affected_admin_routes")]],
+    ] as Array<[string, string[]]>
+  ).filter(([, v]) => v.length > 0);
+  const priority = typeof m.priority_score === "number" ? m.priority_score : null;
+  const confidence = typeof m.confidence_score === "number" ? m.confidence_score : null;
+  if (chips.length === 0 && priority == null) return null;
+  return (
+    <div className="mt-2 space-y-1 border-t border-stone-100 pt-2 text-xs text-ink-soft">
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {priority != null && <span>priority {fmtPct(priority)}</span>}
+        {confidence != null && <span>confidence {fmtPct(confidence)}</span>}
+        {typeof m.implementation_difficulty === "string" && (
+          <span>difficulty {m.implementation_difficulty}</span>
+        )}
+      </div>
+      {chips.map(([label, vals]) => (
+        <div key={label}>
+          <span className="uppercase tracking-wide">{label}:</span>{" "}
+          <span className="font-mono">{vals.slice(0, 4).join(", ")}</span>
+          {vals.length > 4 && <span> +{vals.length - 4}</span>}
+        </div>
+      ))}
+      {typeof m.expected_user_value === "string" && (
+        <div>
+          <span className="uppercase tracking-wide">user value:</span> {m.expected_user_value}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function RiskPill({ risk }: { risk: string }) {

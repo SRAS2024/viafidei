@@ -86,6 +86,7 @@ interface IntelligenceAudit {
     severity: string;
     occurrences: number;
     source: string | null;
+    priority: number | null;
   }>;
   selfModel: {
     fileCount: number;
@@ -130,7 +131,14 @@ async function collectIntelligence(since: Date): Promise<IntelligenceAudit> {
           where: { status: "OPEN" },
           orderBy: [{ severity: "desc" }, { occurrences: "desc" }, { updatedAt: "desc" }],
           take: 30,
-          select: { kind: true, title: true, severity: true, occurrences: true, source: true },
+          select: {
+            kind: true,
+            title: true,
+            severity: true,
+            occurrences: true,
+            source: true,
+            metadata: true,
+          },
         })
         .catch(() => []),
       prisma.adminWorkerLog
@@ -188,7 +196,17 @@ async function collectIntelligence(since: Date): Promise<IntelligenceAudit> {
       .slice(0, 12)
       .map((o) => ({ op: o.op, count: o._count._all, avgConfidence: o._avg.confidence ?? 0 })),
     iqIndex: iqMeta?.iqIndex ?? null,
-    openRequests: requests,
+    openRequests: requests.map((r) => {
+      const meta = (r.metadata ?? null) as { priority_score?: number } | null;
+      return {
+        kind: r.kind,
+        title: r.title,
+        severity: r.severity,
+        occurrences: r.occurrences,
+        source: r.source,
+        priority: typeof meta?.priority_score === "number" ? meta.priority_score : null,
+      };
+    }),
     selfModel: sm
       ? {
           fileCount: sm.model?.file_count ?? 0,
@@ -428,10 +446,11 @@ export async function generateDeveloperAuditPdf(period: AuditPeriod): Promise<Bu
       for (const r of intel.openRequests) {
         const times = r.occurrences > 1 ? ` ×${r.occurrences}` : "";
         const src = r.source ? ` [${r.source}]` : "";
+        const pri = r.priority != null ? ` · priority ${(r.priority * 100).toFixed(0)}%` : "";
         doc.fillColor(
           r.severity === "high" ? "#a8000c" : r.severity === "medium" ? "#a86b00" : "#222",
         );
-        doc.text(`[${r.severity}] ${r.kind}: ${r.title}${times}${src}`);
+        doc.text(`[${r.severity}] ${r.kind}: ${r.title}${times}${src}${pri}`);
       }
       doc.fillColor("#222");
     }

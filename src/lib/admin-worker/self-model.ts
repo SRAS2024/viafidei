@@ -36,7 +36,7 @@ import {
   type SelfModelCorpus,
   type SelfModelFile,
 } from "./intelligence";
-import { BRAIN_OPS } from "./intelligence/contracts";
+import { BRAIN_OPS, type DeveloperRequest } from "./intelligence/contracts";
 import { BrainCallContext, recordBrainCall, recordDeveloperRequests } from "./intelligence/store";
 import { inspectSchema } from "./awareness";
 import { writeAdminWorkerLog } from "./logs";
@@ -315,17 +315,29 @@ export async function runSelfModelPass(
     await recordBrainCall(prisma, "explain_own_architecture", archEnv, ctx);
 
     // Ranked self-upgrades → developer requests (the unified upgrade-request
-    // engine; code changes stay human-reviewed).
+    // engine; code changes stay human-reviewed). The full 20-field structure is
+    // persisted to metadata so each request is a complete, actionable record.
     const upgrades = upgradesEnv?.result?.upgrades ?? [];
+    const KINDS = new Set([
+      "parser",
+      "schema",
+      "source",
+      "ui",
+      "safety",
+      "capability",
+      "code",
+      "data",
+    ]);
     const devRequests = upgrades.slice(0, 8).map((u) => ({
-      kind: "code" as const,
+      kind: (KINDS.has(u.category) ? u.category : "code") as DeveloperRequest["kind"],
       title: u.title,
-      detail: `${u.problem} | gain: ${u.expected_intelligence_gain} | tests: ${u.suggested_tests} | rollback: ${u.rollback_plan}`,
+      detail: `${u.problem} | gain: ${u.expected_intelligence_gain} | user value: ${u.expected_user_value} | risk if unfixed: ${u.risk_if_not_fixed} | plan: ${u.suggested_implementation_plan} | tests: ${u.suggested_tests} | migration: ${u.suggested_migration} | rollback: ${u.rollback_plan}`,
       severity: (u.priority_score >= 0.75 ? "high" : u.priority_score >= 0.5 ? "medium" : "low") as
         | "high"
         | "medium"
         | "low",
       evidence: (u.evidence ?? []).join("; ").slice(0, 300),
+      metadata: u as unknown as Record<string, unknown>,
     }));
     const { created, bumped } = await recordDeveloperRequests(prisma, devRequests, "self_model");
 

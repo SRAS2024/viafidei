@@ -540,8 +540,70 @@ def find_duplicate_logic(payload: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
+def _route_from_app_path(path: str) -> str:
+    """Derive a URL route from a Next.js app-router page path."""
+    p = path.replace("\\", "/")
+    if "src/app/" not in p:
+        return ""
+    seg = p.split("src/app/", 1)[1]
+    seg = seg.rsplit("/", 1)[0]  # drop page.tsx / route.ts
+    parts = [s for s in seg.split("/") if s and not (s.startswith("(") and s.endswith(")"))]
+    return "/" + "/".join(parts) if parts else "/"
+
+
+def _surfaces(files: List[str]) -> Dict[str, List[str]]:
+    """Cross-reference affected file paths to the surfaces they touch: Prisma
+    models, worker stages, brain ops, public routes, admin routes."""
+    models: set = set()
+    stages: set = set()
+    ops: set = set()
+    public_routes: set = set()
+    admin_routes: set = set()
+    for raw in files:
+        p = str(raw).replace("\\", "/")
+        if "intelligence/operations/" in p and p.endswith(".py"):
+            ops.add(p.rsplit("/", 1)[-1][:-3])
+        if "prisma/schema" in p or p.endswith(".prisma"):
+            models.add("prisma/schema.prisma")
+        if "/admin-worker/" in p:
+            stages.add("admin-worker dispatcher stages")
+        if "src/app/admin/" in p and ("page.tsx" in p or "route.ts" in p):
+            r = _route_from_app_path(p)
+            if r:
+                admin_routes.add(r)
+        elif "src/app/" in p and ("page.tsx" in p or "route.ts" in p):
+            r = _route_from_app_path(p)
+            if r:
+                public_routes.add(r)
+    return {
+        "affected_models": sorted(models),
+        "affected_worker_stages": sorted(stages),
+        "affected_brain_operations": sorted(ops),
+        "affected_public_routes": sorted(public_routes),
+        "affected_admin_routes": sorted(admin_routes),
+    }
+
+
+_USER_VALUE = {
+    "code": "more reliable, faster-evolving worker → fewer broken publishes",
+    "test": "regressions caught before they reach the public site",
+    "schema": "unblocks data the worker cannot currently model or publish",
+    "parser": "new content the worker currently cannot extract becomes publishable",
+    "source": "higher-authority, more reliable sources feeding content",
+    "ui": "content the worker builds actually appears for users",
+    "capability": "the worker can do something it currently cannot",
+}
+
+
 def rank_self_upgrades(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Synthesize weak/untested/orphan/duplicate findings into ranked upgrades."""
+    """Synthesize weak/untested/orphan/duplicate findings into ranked upgrades.
+
+    Each upgrade is a complete developer request (spec: 20 fields) — title,
+    category, problem, evidence, affected files/models/stages/ops/routes,
+    expected intelligence gain + user value, risk if not fixed, difficulty,
+    implementation plan, suggested tests + migration, rollback plan, and
+    priority + confidence scores.
+    """
     weak = opt(payload, "weak_modules", []) or []
     untested = opt(payload, "untested_modules", []) or []
     orphans = opt(payload, "orphan_candidates", []) or []
@@ -550,7 +612,16 @@ def rank_self_upgrades(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     upgrades: List[Dict[str, Any]] = []
 
-    def add(title, category, problem, evidence, files, gain, difficulty, priority, confidence):
+    def add(title, category, problem, evidence, files, gain, difficulty, priority, confidence,
+            plan="", migration="none — code-only change"):
+        pr = round(max(0.0, min(1.0, priority)), 3)
+        risk = (
+            "high — worsens reliability / blocks growth if ignored"
+            if pr >= 0.75
+            else "medium — accumulating drag on the worker"
+            if pr >= 0.5
+            else "low — quality-of-life improvement"
+        )
         upgrades.append(
             {
                 "title": title,
@@ -558,12 +629,20 @@ def rank_self_upgrades(payload: Dict[str, Any]) -> Dict[str, Any]:
                 "problem": problem,
                 "evidence": evidence,
                 "affected_files": files,
+                **_surfaces(files),
                 "expected_intelligence_gain": gain,
+                "expected_user_value": _USER_VALUE.get(category, "a more capable worker"),
+                "risk_if_not_fixed": risk,
                 "implementation_difficulty": difficulty,
-                "priority_score": round(priority, 3),
-                "confidence_score": round(confidence, 3),
+                "suggested_implementation_plan": plan
+                or f"Scope the change to {len(files)} file(s); add tests first; refactor behind the existing contracts; verify with the full suite.",
                 "suggested_tests": "Add/extend tests covering the affected files before changing them.",
-                "rollback_plan": "Revert the commit; no schema/data migration required.",
+                "suggested_migration": migration,
+                "rollback_plan": "Revert the commit; no schema/data migration required."
+                if migration.startswith("none")
+                else "Revert the commit and roll back the migration (down migration / restore).",
+                "priority_score": pr,
+                "confidence_score": round(confidence, 3),
             }
         )
 
