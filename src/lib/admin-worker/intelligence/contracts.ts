@@ -45,7 +45,19 @@ export const BRAIN_OPS = [
   "learn_from_outcome",
   "analyze_schema",
   "analyze_ui",
-  "analyze_code",
+  // Unified self-model + deep code awareness (replaced summary-only analyze_code).
+  "build_self_model",
+  "build_symbol_graph",
+  "build_route_graph",
+  "build_schema_graph",
+  "build_test_coverage_graph",
+  "explain_own_architecture",
+  "find_weak_modules",
+  "find_untested_modules",
+  "find_orphaned_code",
+  "find_duplicate_logic",
+  "rank_self_upgrades",
+  "detect_stuckness",
 ] as const;
 export type BrainOp = (typeof BRAIN_OPS)[number];
 
@@ -356,14 +368,84 @@ export interface UiAnalysisResult {
   developer_requests: DeveloperRequest[];
 }
 
-export interface CodeAnalysisResult {
-  findings: {
-    file_count: number;
-    total_lines: number;
-    oversized_files: Array<{ path: string; lines: number }>;
-    large_files: Array<{ path: string; lines: number }>;
-  };
-  developer_requests: DeveloperRequest[];
+// ── Unified self-model + deep code awareness result types ─────────────
+export interface SelfModelResult {
+  file_count: number;
+  source_file_count: number;
+  test_file_count: number;
+  total_lines: number;
+  route_count: number;
+  prisma_model_count: number;
+  script_count: number;
+  worker_stage_count: number;
+  brain_op_count: number;
+  test_coverage_ratio: number;
+  largest_modules: Array<{ path: string; lines: number }>;
+}
+
+export interface WeakModule {
+  path: string;
+  lines: number;
+  importers: number;
+  why: string;
+  suggested_split: string;
+  refactor_risk: RiskLevel;
+  suggested_tests: string;
+}
+export interface WeakModulesResult {
+  weak_modules: WeakModule[];
+  weak_count: number;
+}
+
+export interface UntestedModulesResult {
+  untested_modules: Array<{ path: string; lines: number }>;
+  untested_count: number;
+}
+
+export interface OrphanResult {
+  orphan_candidates: Array<{ path: string; exports: string[] }>;
+  orphan_count: number;
+}
+
+export interface DuplicateLogicResult {
+  duplicate_pairs: Array<{ a: string; b: string; overlap: number }>;
+  pair_count: number;
+}
+
+export interface CoverageGraphResult {
+  source_modules: number;
+  covered_modules: number;
+  uncovered_modules: string[];
+  coverage_ratio: number;
+}
+
+export interface SelfUpgrade {
+  title: string;
+  category: string;
+  problem: string;
+  evidence: string[];
+  affected_files: string[];
+  expected_intelligence_gain: string;
+  implementation_difficulty: string;
+  priority_score: number;
+  confidence_score: number;
+  suggested_tests: string;
+  rollback_plan: string;
+}
+export interface SelfUpgradesResult {
+  upgrades: SelfUpgrade[];
+  upgrade_count: number;
+}
+
+export interface ArchitectureResult {
+  layers: string[];
+  evidence_counts: Record<string, number>;
+}
+
+export interface StucknessResult {
+  stuck: boolean;
+  signals: string[];
+  recommended_unblock: string;
 }
 
 /**

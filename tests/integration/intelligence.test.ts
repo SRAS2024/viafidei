@@ -28,10 +28,10 @@ import {
 } from "@/lib/admin-worker/intelligence/service";
 import {
   resetAwarenessThrottle,
-  runCodeAwareness,
   runSchemaAwareness,
   runUiAwareness,
 } from "@/lib/admin-worker/awareness";
+import { resetSelfModelThrottle, runSelfModelPass } from "@/lib/admin-worker/self-model";
 import { resetCustodyThrottle, runCustodyPass } from "@/lib/admin-worker/custody";
 
 let brainOnline = false;
@@ -311,16 +311,22 @@ describe("schema/UI awareness + content custody", () => {
     expect(call).not.toBeNull();
   });
 
-  it("runs code awareness and requests refactors of oversized modules", async () => {
+  it("runs the unified self-model pass and requests its own upgrades", async () => {
     if (!brainOnline) return;
-    resetAwarenessThrottle();
-    const res = await runCodeAwareness(prisma);
+    resetSelfModelThrottle();
+    const res = await runSelfModelPass(prisma);
     expect(res.ran).toBe(true);
-    const call = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "analyze_code" } });
+    // The brain built the self-model from the ingested codebase corpus.
+    const call = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "build_self_model" } });
     expect(call).not.toBeNull();
-    // The worker should flag its own oversized modules (dispatcher/brain).
+    // A durable self-model snapshot was persisted (Postgres audit trail).
+    const snapshot = await prisma.adminWorkerLog.findFirst({
+      where: { eventName: "self_model_built" },
+    });
+    expect(snapshot).not.toBeNull();
+    // The worker turns ranked self-upgrades into developer requests.
     const req = await prisma.adminWorkerDeveloperRequest.findFirst({
-      where: { source: "code_awareness", kind: "code" },
+      where: { source: "self_model" },
     });
     expect(req).not.toBeNull();
   });

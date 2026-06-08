@@ -126,21 +126,9 @@ class TestAwareness(unittest.TestCase):
         # prayers + saints routes cover PRAYER + SAINT.
         self.assertNotIn("PRAYER", r["result"]["findings"]["unexposed_content_types"])
 
-    def test_analyze_code_flags_oversized_and_requests_refactor(self):
-        r = awareness.analyze_code(
-            {
-                "files": [
-                    {"path": "dispatcher.ts", "lines": 2026},
-                    {"path": "brain.ts", "lines": 1503},
-                    {"path": "small.ts", "lines": 90},
-                ]
-            }
-        )
-        paths = [f["path"] for f in r["result"]["findings"]["oversized_files"]]
-        self.assertIn("dispatcher.ts", paths)
-        titles = [d["title"] for d in r["result"]["developer_requests"]]
-        self.assertTrue(any("Refactor oversized" in t for t in titles))
-        self.assertFalse(r["safe_to_auto_execute"])  # code changes need review
+    def test_analyze_code_removed_in_favor_of_self_model(self):
+        # Forward-only unification: the weak summary-only code awareness is gone.
+        self.assertFalse(hasattr(awareness, "analyze_code"))
 
 
 if __name__ == "__main__":

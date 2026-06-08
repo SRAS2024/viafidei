@@ -199,11 +199,85 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
         "admin_pages": ["/admin/intelligence"],
         "content_types": ["PRAYER", "SAINT", "NOVENA"],
     },
-    "analyze_code": {
+    # ── unified self-model + deep code awareness ──────────────────────
+    "build_self_model": {
         "files": [
-            {"path": "dispatcher.ts", "lines": 2000},
-            {"path": "small.ts", "lines": 80},
+            {"path": "a.ts", "lines": 1200, "exports": ["foo", "bar"], "imports": ["b.ts"], "referencedByTests": True},
+            {"path": "b.ts", "lines": 90, "exports": ["baz"], "imports": [], "referencedByTests": False},
+            {"path": "a.test.ts", "lines": 60, "exports": [], "imports": ["a.ts"], "isTest": True},
         ],
+        "routes": [{"path": "/prayers", "file": "prayers/page.tsx"}],
+        "models": [{"name": "Prayer", "usedByFiles": 4}],
+        "scripts": ["dev", "test"],
+        "stages": ["DISCOVERY", "PUBLIC_PUBLISH"],
+        "brain_ops": ["select_action", "build_self_model"],
+    },
+    "build_symbol_graph": {
+        "files": [
+            {"path": "a.ts", "exports": ["foo"], "imports": ["b.ts"]},
+            {"path": "b.ts", "exports": ["bar"], "imports": []},
+        ]
+    },
+    "build_route_graph": {
+        "routes": [{"path": "/prayers", "file": "prayers/page.tsx"}, {"path": "/ghost"}],
+    },
+    "build_schema_graph": {
+        "models": [{"name": "Prayer", "usedByFiles": 4}, {"name": "Unused", "usedByFiles": 0}],
+    },
+    "build_test_coverage_graph": {
+        "files": [
+            {"path": "a.ts", "referencedByTests": True},
+            {"path": "b.ts", "referencedByTests": False},
+            {"path": "a.test.ts", "isTest": True},
+        ]
+    },
+    "explain_own_architecture": {
+        "model": {
+            "file_count": 300,
+            "route_count": 30,
+            "prisma_model_count": 60,
+            "brain_op_count": 40,
+            "worker_stage_count": 18,
+        }
+    },
+    "find_weak_modules": {
+        "files": [
+            {"path": "huge.ts", "lines": 2000, "exports": ["a", "b", "c", "d", "e", "f", "g"], "imports": [], "referencedByTests": False},
+            {"path": "ok.ts", "lines": 120, "exports": ["x"], "imports": [], "referencedByTests": True},
+        ]
+    },
+    "find_untested_modules": {
+        "files": [
+            {"path": "a.ts", "lines": 100, "referencedByTests": False},
+            {"path": "b.ts", "lines": 50, "referencedByTests": True},
+        ]
+    },
+    "find_orphaned_code": {
+        "files": [
+            {"path": "used.ts", "exports": ["a"], "imports": []},
+            {"path": "caller.ts", "exports": ["b"], "imports": ["used.ts"]},
+            {"path": "orphan.ts", "exports": ["z"], "imports": []},
+        ]
+    },
+    "find_duplicate_logic": {
+        "files": [
+            {"path": "x/parish-filter.ts", "exports": ["resolveFilter", "applyFilter"]},
+            {"path": "y/parish-filter.ts", "exports": ["resolveFilter", "applyFilter"]},
+        ]
+    },
+    "rank_self_upgrades": {
+        "weak_modules": [{"path": "huge.ts", "why": "oversized (2000 lines)", "importers": 3}],
+        "untested_modules": [{"path": "a.ts"}],
+        "orphan_candidates": [{"path": "orphan.ts"}],
+        "duplicate_pairs": [{"a": "x.ts", "b": "y.ts"}],
+        "coverage_ratio": 0.5,
+    },
+    "detect_stuckness": {
+        "recent_decisions": [{"missionStage": "DISCOVERY"}] * 6,
+        "recent_repairs": [{"kind": "FETCH_FAILED", "status": "FAILED"}] * 3,
+        "published_delta": 0,
+        "pass_count": 6,
+        "source_fatigue": {"weak.example": 4},
     },
 }
 

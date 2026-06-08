@@ -25,6 +25,7 @@ from .operations import (
     relationships,
     repair,
     security,
+    self_model,
     sources,
     quality,
 )
@@ -70,10 +71,22 @@ REGISTRY: Dict[str, Handler] = {
     "detect_missing": gaps.detect_missing,
     # learning from outcomes (incl. admin feedback)
     "learn_from_outcome": learning.learn_from_outcome,
-    # schema / UI / code awareness
+    # schema / UI awareness (code awareness is the unified self-model below)
     "analyze_schema": awareness.analyze_schema,
     "analyze_ui": awareness.analyze_ui,
-    "analyze_code": awareness.analyze_code,
+    # unified self-model + deep code awareness (replaces summary-only analyze_code)
+    "build_self_model": self_model.build_self_model,
+    "build_symbol_graph": self_model.build_symbol_graph,
+    "build_route_graph": self_model.build_route_graph,
+    "build_schema_graph": self_model.build_schema_graph,
+    "build_test_coverage_graph": self_model.build_test_coverage_graph,
+    "explain_own_architecture": self_model.explain_own_architecture,
+    "find_weak_modules": self_model.find_weak_modules,
+    "find_untested_modules": self_model.find_untested_modules,
+    "find_orphaned_code": self_model.find_orphaned_code,
+    "find_duplicate_logic": self_model.find_duplicate_logic,
+    "rank_self_upgrades": self_model.rank_self_upgrades,
+    "detect_stuckness": self_model.detect_stuckness,
 }
 
 

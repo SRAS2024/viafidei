@@ -29,7 +29,6 @@ import {
   MissingResult,
   PlanResult,
   PrioritizeResult,
-  CodeAnalysisResult,
   QualityResult,
   RelationshipResult,
   SchemaAnalysisResult,
@@ -40,6 +39,16 @@ import {
   StructureResult,
   UiAnalysisResult,
   VariantsResult,
+  // Unified self-model + deep code awareness
+  SelfModelResult,
+  WeakModulesResult,
+  UntestedModulesResult,
+  OrphanResult,
+  DuplicateLogicResult,
+  CoverageGraphResult,
+  SelfUpgradesResult,
+  ArchitectureResult,
+  StucknessResult,
 } from "./contracts";
 
 export * from "./contracts";
@@ -421,23 +430,85 @@ export function analyzeUi(
   return callBrain<UiAnalysisResult>("analyze_ui", input, opts);
 }
 
-export interface CodeFileSummary {
+// ── Unified self-model + deep code awareness (replaces analyze_code) ───
+/** One ingested module: TypeScript reads the file (it owns the filesystem). */
+export interface SelfModelFile {
   path: string;
   lines: number;
+  exports: string[];
+  imports: string[];
+  isTest?: boolean;
+  referencedByTests?: boolean;
 }
-export function analyzeCode(
-  files: CodeFileSummary[],
-  opts?: CallOpts & { oversizedThreshold?: number; largeThreshold?: number },
+export interface SelfModelCorpus {
+  files: SelfModelFile[];
+  routes: Array<{ path: string; file?: string }>;
+  models: Array<{ name: string; usedByFiles: number }>;
+  scripts: string[];
+  stages: string[];
+  brain_ops: string[];
+}
+
+export function buildSelfModel(corpus: SelfModelCorpus, opts?: CallOpts) {
+  return callBrain<SelfModelResult>("build_self_model", corpus, opts);
+}
+export function buildSymbolGraph(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain("build_symbol_graph", { files }, opts);
+}
+export function buildRouteGraph(routes: SelfModelCorpus["routes"], opts?: CallOpts) {
+  return callBrain("build_route_graph", { routes }, opts);
+}
+export function buildSchemaGraph(models: SelfModelCorpus["models"], opts?: CallOpts) {
+  return callBrain("build_schema_graph", { models }, opts);
+}
+export function buildTestCoverageGraph(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain<CoverageGraphResult>("build_test_coverage_graph", { files }, opts);
+}
+export function explainOwnArchitecture(model: SelfModelResult, opts?: CallOpts) {
+  return callBrain<ArchitectureResult>("explain_own_architecture", { model }, opts);
+}
+export function findWeakModules(
+  files: SelfModelFile[],
+  opts?: CallOpts & { oversizedThreshold?: number },
 ) {
-  return callBrain<CodeAnalysisResult>(
-    "analyze_code",
-    {
-      files,
-      oversized_threshold: opts?.oversizedThreshold,
-      large_threshold: opts?.largeThreshold,
-    },
+  return callBrain<WeakModulesResult>(
+    "find_weak_modules",
+    { files, oversized_threshold: opts?.oversizedThreshold },
     opts,
   );
+}
+export function findUntestedModules(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain<UntestedModulesResult>("find_untested_modules", { files }, opts);
+}
+export function findOrphanedCode(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain<OrphanResult>("find_orphaned_code", { files }, opts);
+}
+export function findDuplicateLogic(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain<DuplicateLogicResult>("find_duplicate_logic", { files }, opts);
+}
+export function rankSelfUpgrades(
+  findings: {
+    weak_modules?: unknown[];
+    untested_modules?: unknown[];
+    orphan_candidates?: unknown[];
+    duplicate_pairs?: unknown[];
+    coverage_ratio?: number;
+  },
+  opts?: CallOpts,
+) {
+  return callBrain<SelfUpgradesResult>("rank_self_upgrades", findings, opts);
+}
+export function detectStuckness(
+  input: {
+    recent_decisions?: Array<{ missionStage?: string }>;
+    recent_repairs?: Array<{ kind?: string; status?: string }>;
+    published_delta?: number;
+    pass_count?: number;
+    source_fatigue?: Record<string, number>;
+  },
+  opts?: CallOpts,
+) {
+  return callBrain<StucknessResult>("detect_stuckness", input, opts);
 }
 
 export type { BrainEnvelope };
