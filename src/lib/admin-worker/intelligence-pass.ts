@@ -239,6 +239,120 @@ async function runBrainReflection(
   }
 }
 
+/**
+ * Replay & resilience pass: the brain reasons over the event-sourced record in
+ * Postgres — comparing the last two decisions and explaining any change,
+ * detecting decision drift, checking stored brain-output integrity, and
+ * recommending a per-stage circuit break for the worst-performing stage.
+ * Advisory + fail-open; records every brain call.
+ */
+async function runReplayResilience(prisma: PrismaClient, passId: string): Promise<void> {
+  try {
+    const {
+      compareDecisions,
+      explainDecisionChange,
+      detectDecisionDrift,
+      checkReplayIntegrity,
+      recommendCircuitBreak,
+    } = await import("./intelligence");
+
+    // 1. Compare the last two decisions; explain the change if any.
+    const recent = await prisma.adminWorkerDecision
+      .findMany({
+        where: { decisionType: "brain_pass" },
+        orderBy: { createdAt: "desc" },
+        take: 8,
+        select: { missionStage: true, chosenAction: true, confidence: true },
+      })
+      .catch(
+        () =>
+          [] as Array<{ missionStage: string | null; chosenAction: string; confidence: number }>,
+      );
+    if (recent.length >= 2) {
+      const [curr, prev] = recent;
+      const cmpEnv = await compareDecisions(
+        {
+          missionStage: prev.missionStage ?? "",
+          chosenAction: prev.chosenAction,
+          confidence: prev.confidence,
+        },
+        {
+          missionStage: curr.missionStage ?? "",
+          chosenAction: curr.chosenAction,
+          confidence: curr.confidence,
+        },
+      );
+      await recordBrainCall(prisma, "compare_decisions", cmpEnv, { passId });
+      if ((cmpEnv?.result as { changed?: boolean } | null)?.changed) {
+        const expEnv = await explainDecisionChange({
+          previous: { missionStage: prev.missionStage ?? "", confidence: prev.confidence },
+          current: { missionStage: curr.missionStage ?? "", confidence: curr.confidence },
+        });
+        await recordBrainCall(prisma, "explain_decision_change", expEnv, { passId });
+      }
+    }
+
+    // 2. Decision drift over the recent window.
+    if (recent.length >= 4) {
+      const driftEnv = await detectDecisionDrift(
+        recent.map((r) => ({ missionStage: r.missionStage ?? "" })),
+      );
+      await recordBrainCall(prisma, "detect_decision_drift", driftEnv, { passId });
+    }
+
+    // 3. Replay-integrity / corruption check over recent stored brain output.
+    const calls = await prisma.adminWorkerBrainCall
+      .findMany({
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          ok: true,
+          confidence: true,
+          riskLevel: true,
+          recommendedNextAction: true,
+          safeToAutoExecute: true,
+          reasoning: true,
+          error: true,
+        },
+      })
+      .catch(() => []);
+    if (calls.length > 0) {
+      const records = calls.map((c) => ({
+        ok: c.ok,
+        result: {},
+        confidence: c.confidence,
+        reasoning: c.reasoning ?? "",
+        evidence: [],
+        sources_used: [],
+        risk_level: c.riskLevel,
+        recommended_next_action: c.recommendedNextAction ?? "",
+        safe_to_auto_execute: c.safeToAutoExecute,
+        error: c.error,
+      }));
+      const intEnv = await checkReplayIntegrity(records);
+      await recordBrainCall(prisma, "check_replay_integrity", intEnv, { passId });
+    }
+
+    // 4. Per-stage circuit breaker on the worst-performing stage.
+    const { summarizeStageReliability } = await import("./stage-outcomes");
+    const stages = await summarizeStageReliability(prisma, { sinceHours: 48 }).catch(() => []);
+    const worst = stages
+      .filter((s) => s.total >= 3)
+      .sort((a, b) => a.successRate - b.successRate)[0];
+    if (worst && worst.successRate < 0.5) {
+      const cbEnv = await recommendCircuitBreak({
+        scope: "stage",
+        key: worst.stage,
+        attempts: worst.total,
+        failures: worst.failures,
+      });
+      await recordBrainCall(prisma, "recommend_circuit_break", cbEnv, { passId });
+    }
+  } catch {
+    // replay/resilience analysis is advisory — never break the pass
+  }
+}
+
 export async function runPostPassIntelligence(
   prisma: PrismaClient,
   opts: { passId: string; workerId: string },
@@ -301,6 +415,10 @@ export async function runPostPassIntelligence(
     // requests. Advisory + recorded so the dashboard's self-explanations and
     // the developer-request queue reflect real activity. Fail-open.
     await runBrainReflection(prisma, opts.passId, failures);
+
+    // Replay & resilience: compare/explain decision changes, detect drift, check
+    // stored-output integrity, and recommend per-stage circuit breaks.
+    await runReplayResilience(prisma, opts.passId);
 
     const stats = await gatherIqStats(prisma);
     const iq = await computeIqMetrics(prisma, stats, { passId: opts.passId });

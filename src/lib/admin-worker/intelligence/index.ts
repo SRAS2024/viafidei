@@ -449,11 +449,17 @@ export interface SelfModelCorpus {
   brain_ops: string[];
 }
 
+export function ingestCodebase(corpus: SelfModelCorpus, opts?: CallOpts) {
+  return callBrain("ingest_codebase", corpus, opts);
+}
 export function buildSelfModel(corpus: SelfModelCorpus, opts?: CallOpts) {
   return callBrain<SelfModelResult>("build_self_model", corpus, opts);
 }
 export function buildSymbolGraph(files: SelfModelFile[], opts?: CallOpts) {
   return callBrain("build_symbol_graph", { files }, opts);
+}
+export function buildCallGraph(files: SelfModelFile[], opts?: CallOpts) {
+  return callBrain("build_call_graph", { files }, opts);
 }
 export function buildRouteGraph(routes: SelfModelCorpus["routes"], opts?: CallOpts) {
   return callBrain("build_route_graph", { routes }, opts);
@@ -902,6 +908,49 @@ export function generateRollbackPlan(patch: Record<string, unknown>, opts?: Call
 }
 export function explainPatchValue(patch: Record<string, unknown>, opts?: CallOpts) {
   return callBrain("explain_patch_value", { patch }, opts);
+}
+
+// ── Replayability & resilience ────────────────────────────────────────
+export function replayDecision(
+  input: { chosen_stage: string; candidates: Array<Record<string, unknown>> },
+  opts?: CallOpts,
+) {
+  return callBrain("replay_decision", input, opts);
+}
+export function compareDecisions(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+  opts?: CallOpts,
+) {
+  return callBrain("compare_decisions", { a, b }, opts);
+}
+export function explainDecisionChange(
+  input: {
+    previous: Record<string, unknown>;
+    current: Record<string, unknown>;
+    world_changes?: string[];
+  },
+  opts?: CallOpts,
+) {
+  return callBrain("explain_decision_change", input, opts);
+}
+export function detectDecisionDrift(decisions: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("detect_decision_drift", { decisions }, opts);
+}
+export function recommendCircuitBreak(
+  input: {
+    scope: "host" | "stage" | "content_type";
+    key: string;
+    attempts: number;
+    failures: number;
+    consecutive_failures?: number;
+  },
+  opts?: CallOpts,
+) {
+  return callBrain("recommend_circuit_break", input, opts);
+}
+export function checkReplayIntegrity(records: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("check_replay_integrity", { records }, opts);
 }
 
 export type { BrainEnvelope };

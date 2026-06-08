@@ -337,9 +337,17 @@ describe("schema/UI awareness + content custody", () => {
     resetSelfModelThrottle();
     const res = await runSelfModelPass(prisma);
     expect(res.ran).toBe(true);
-    // The brain built the self-model from the ingested codebase corpus.
+    // The brain ingested the corpus, built the self-model, and built the call graph.
     const call = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "build_self_model" } });
     expect(call).not.toBeNull();
+    const ingest = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "ingest_codebase" },
+    });
+    expect(ingest).not.toBeNull();
+    const callGraph = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "build_call_graph" },
+    });
+    expect(callGraph).not.toBeNull();
     // A durable self-model snapshot was persisted (Postgres audit trail).
     const snapshot = await prisma.adminWorkerLog.findFirst({
       where: { eventName: "self_model_built" },
@@ -516,5 +524,13 @@ describe("post-pass reflection (self-explanation + test gaps)", () => {
       where: { source: "test_gaps" },
     });
     expect(dr).not.toBeNull();
+
+    // Replay & resilience reasoning ran over the event-sourced record.
+    const cmp = await prisma.adminWorkerBrainCall.findFirst({ where: { op: "compare_decisions" } });
+    expect(cmp).not.toBeNull();
+    const integrity = await prisma.adminWorkerBrainCall.findFirst({
+      where: { op: "check_replay_integrity" },
+    });
+    expect(integrity).not.toBeNull();
   });
 });

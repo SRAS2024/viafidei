@@ -34,7 +34,7 @@ source intelligence with a **Catholic authority graph** + **communion-risk**
 screening, **claim-level verification**, quality + **specialist-panel** review,
 action **simulation**, **confidence calibration**, knowledge-graph and
 schema/UI awareness, a whole-app **self-model**, repair + **stuckness**
-analysis, learning, and self-inspection (125 operations).
+analysis, learning, and self-inspection (133 operations).
 The split is **TypeScript = the body** (execution, Prisma/DB, queues,
 policy, publishing, safety, app + admin integration), **Python = the brain**
 (it analyses and recommends through strict typed contracts; it never touches
@@ -1045,32 +1045,33 @@ release as the node base). TypeScript talks to it through a typed bridge:
 
 ### Operations (`intelligence/operations/`)
 
-| Op                                                                                           | Purpose                                                                           |
-| -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `embed`, `semantic_search`                                                                   | semantic memory / vector search                                                   |
-| `detect_duplicates`                                                                          | exact + slug + fuzzy + semantic + alias + source/citation duplicate scoring       |
-| `score_quality`                                                                              | per-record quality profile + hard publish gates                                   |
-| `assess_source`, `detect_communion_risk`, `compare_sources`                                  | source authority, **Catholic communion-risk screening**, contradiction detection  |
-| `infer_relationships`                                                                        | recommend knowledge-graph edges                                                   |
-| `classify_failure`, `diagnose_fetch`                                                         | repair intelligence + webpage-fetch diagnosis                                     |
-| `self_inspect`, `developer_requests`, `iq_metrics`                                           | self-inspection, the worker's developer requests, worker-IQ metrics               |
-| `plan`, `prioritize`                                                                         | planning + priority intelligence                                                  |
-| `analyze_graph`                                                                              | orphans, weak links, hubs, components, duplicate clusters, missing edges          |
-| `scan_content`                                                                               | prompt-injection / manipulation detection on sanitised text                       |
-| `classify_freshness`                                                                         | refresh-cadence classification                                                    |
-| `extract_knowledge`                                                                          | extract dates, names, citations, sources, claims, sections from sanitised text    |
-| `suggest_structure`                                                                          | content-structure intelligence (sections, split recommendations)                  |
-| `detect_variants`                                                                            | structural title variants (flags that real translations need source verification) |
-| `detect_missing`                                                                             | missing-information detection per record (gaps + severity + completeness)         |
-| `learn_from_outcome`                                                                         | turn an outcome / admin feedback into score adjustments + a learned memory        |
-| `analyze_schema`                                                                             | schema-awareness: isolated/under-indexed models → schema developer requests       |
-| `analyze_ui`                                                                                 | UI-awareness: content types with no public route → UI developer requests          |
-| `build_self_model`                                                                           | whole-app self-model from the ingested corpus (files, routes, models, ops, …)     |
-| `build_symbol_graph`, `build_route_graph`, `build_schema_graph`, `build_test_coverage_graph` | module/route/model/test graphs (depended-on, orphans, unused, coverage)           |
-| `explain_own_architecture`                                                                   | narrate the Python-brain / TS-body / Postgres-memory layering with evidence       |
-| `find_weak_modules`, `find_untested_modules`, `find_orphaned_code`, `find_duplicate_logic`   | deep code awareness: why a module is weak + split plan + risk + tests             |
-| `rank_self_upgrades`                                                                         | rank the worker's own upgrade requests (evidence, gain, difficulty, rollback)     |
-| `detect_stuckness`                                                                           | stage/source/repair loops + no-growth detection → change-strategy recommendation  |
+| Op                                                                                                               | Purpose                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `embed`, `semantic_search`                                                                                       | semantic memory / vector search                                                                         |
+| `detect_duplicates`                                                                                              | exact + slug + fuzzy + semantic + alias + source/citation duplicate scoring                             |
+| `score_quality`                                                                                                  | per-record quality profile + hard publish gates                                                         |
+| `assess_source`, `detect_communion_risk`, `compare_sources`                                                      | source authority, **Catholic communion-risk screening**, contradiction detection                        |
+| `infer_relationships`                                                                                            | recommend knowledge-graph edges                                                                         |
+| `classify_failure`, `diagnose_fetch`                                                                             | repair intelligence + webpage-fetch diagnosis                                                           |
+| `self_inspect`, `developer_requests`, `iq_metrics`                                                               | self-inspection, the worker's developer requests, worker-IQ metrics                                     |
+| `plan`, `prioritize`                                                                                             | planning + priority intelligence                                                                        |
+| `analyze_graph`                                                                                                  | orphans, weak links, hubs, components, duplicate clusters, missing edges                                |
+| `scan_content`                                                                                                   | prompt-injection / manipulation detection on sanitised text                                             |
+| `classify_freshness`                                                                                             | refresh-cadence classification                                                                          |
+| `extract_knowledge`                                                                                              | extract dates, names, citations, sources, claims, sections from sanitised text                          |
+| `suggest_structure`                                                                                              | content-structure intelligence (sections, split recommendations)                                        |
+| `detect_variants`                                                                                                | structural title variants (flags that real translations need source verification)                       |
+| `detect_missing`                                                                                                 | missing-information detection per record (gaps + severity + completeness)                               |
+| `learn_from_outcome`                                                                                             | turn an outcome / admin feedback into score adjustments + a learned memory                              |
+| `analyze_schema`                                                                                                 | schema-awareness: isolated/under-indexed models → schema developer requests                             |
+| `analyze_ui`                                                                                                     | UI-awareness: content types with no public route → UI developer requests                                |
+| `ingest_codebase`                                                                                                | normalise + integrity-check the corpus (by dir/lang, export index, duplicate basenames)                 |
+| `build_self_model`                                                                                               | whole-app self-model from the ingested corpus (files, routes, models, ops, …)                           |
+| `build_symbol_graph`, `build_call_graph`, `build_route_graph`, `build_schema_graph`, `build_test_coverage_graph` | module/call/route/model/test graphs (depended-on, fan-in/out, import cycles, orphans, unused, coverage) |
+| `explain_own_architecture`                                                                                       | narrate the Python-brain / TS-body / Postgres-memory layering with evidence                             |
+| `find_weak_modules`, `find_untested_modules`, `find_orphaned_code`, `find_duplicate_logic`                       | deep code awareness: why a module is weak + split plan + risk + tests                                   |
+| `rank_self_upgrades`                                                                                             | rank the worker's own upgrade requests (evidence, gain, difficulty, rollback)                           |
+| `detect_stuckness`                                                                                               | stage/source/repair loops + no-growth detection → change-strategy recommendation                        |
 
 > **Communion-risk note.** `detect_communion_risk` emits a _verification
 > flag_, never a canonical/doctrinal ruling. Sources or content that may not
@@ -1101,7 +1102,7 @@ automatically; the brain only recommends (human-review gated). The legacy
 summary-only code-awareness path (`analyze_code` / `runCodeAwareness` /
 `inspectCode`) was removed outright.
 
-### Unified brain capabilities (125 operations)
+### Unified brain capabilities (133 operations)
 
 Beyond the self-model, the unified brain reasons across these areas — every
 operation returns the same strict envelope (`ok`, `result`, `confidence`,
@@ -1151,6 +1152,13 @@ operation returns the same strict envelope (`ok`, `result`, `confidence`,
 - **Review-gated self-improvement** (`patches.py`): the brain proposes code /
   schema / test patches with risk review + rollback plan, but never applies or
   deploys them (`safe_to_auto_execute` is always false; human review required).
+- **Replayability & resilience** (`replay.py`): reasons over the event-sourced
+  record in Postgres — `replay_decision` (reproduce a stored decision),
+  `compare_decisions` + `explain_decision_change` (why a decision changed),
+  `detect_decision_drift` (oscillation / fixation), `recommend_circuit_break`
+  (per host / stage / content-type), and `check_replay_integrity` (stored
+  brain-output corruption check). Runs in the post-pass; see also the chaos
+  tests below.
 
 Each phase is forward-only and verified before the next: `npm run brain:selftest`
 (every op returns a valid envelope) + `npm run brain:test` (per-op unit tests),
@@ -1199,7 +1207,13 @@ auto-recovery, and concurrent id-multiplexing.
   **mission control** (`build_mission_tree` → `rank_subgoals` →
   `detect_mission_blockers` → `recommend_next_mission_action`, persisted as a
   snapshot) and **stuckness detection** (`detect_stuckness` →
-  `recommend_unblock_strategy`, filing a developer request when stuck).
+  `recommend_unblock_strategy`, filing a developer request when stuck). It then
+  **reflects** — explaining the real decision it made (`explain_decision` +
+  `explain_what_would_change_my_mind`) and turning recurring failures into
+  test-gap → regression-test requests (`detect_test_gap` → `rank_missing_tests`)
+  — and runs **replay & resilience** (`compare_decisions` /
+  `explain_decision_change` / `detect_decision_drift` / `check_replay_integrity`
+  / `recommend_circuit_break`) over the event-sourced record.
 - **Admin feedback as training signal** (`service.recordAdminFeedback`):
   an admin approve/reject/edit/unpublish/repair becomes a learned outcome
   that changes future behaviour.

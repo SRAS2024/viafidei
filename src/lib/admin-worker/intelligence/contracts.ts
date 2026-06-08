@@ -46,8 +46,10 @@ export const BRAIN_OPS = [
   "analyze_schema",
   "analyze_ui",
   // Unified self-model + deep code awareness (replaced summary-only analyze_code).
+  "ingest_codebase",
   "build_self_model",
   "build_symbol_graph",
+  "build_call_graph",
   "build_route_graph",
   "build_schema_graph",
   "build_test_coverage_graph",
@@ -159,6 +161,13 @@ export const BRAIN_OPS = [
   "review_patch_risk",
   "generate_rollback_plan",
   "explain_patch_value",
+  // replayability & resilience
+  "replay_decision",
+  "compare_decisions",
+  "explain_decision_change",
+  "detect_decision_drift",
+  "recommend_circuit_break",
+  "check_replay_integrity",
 ] as const;
 export type BrainOp = (typeof BRAIN_OPS)[number];
 

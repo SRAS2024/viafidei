@@ -32,6 +32,7 @@ from .operations import (
     planning,
     relationships,
     repair,
+    replay,
     retrieval,
     security,
     self_model,
@@ -89,8 +90,10 @@ REGISTRY: Dict[str, Handler] = {
     "analyze_schema": awareness.analyze_schema,
     "analyze_ui": awareness.analyze_ui,
     # unified self-model + deep code awareness (replaces summary-only analyze_code)
+    "ingest_codebase": self_model.ingest_codebase,
     "build_self_model": self_model.build_self_model,
     "build_symbol_graph": self_model.build_symbol_graph,
+    "build_call_graph": self_model.build_call_graph,
     "build_route_graph": self_model.build_route_graph,
     "build_schema_graph": self_model.build_schema_graph,
     "build_test_coverage_graph": self_model.build_test_coverage_graph,
@@ -202,6 +205,13 @@ REGISTRY: Dict[str, Handler] = {
     "review_patch_risk": patches.review_patch_risk,
     "generate_rollback_plan": patches.generate_rollback_plan,
     "explain_patch_value": patches.explain_patch_value,
+    # replayability & resilience (event-sourced decision/brain-call reasoning)
+    "replay_decision": replay.replay_decision,
+    "compare_decisions": replay.compare_decisions,
+    "explain_decision_change": replay.explain_decision_change,
+    "detect_decision_drift": replay.detect_decision_drift,
+    "recommend_circuit_break": replay.recommend_circuit_break,
+    "check_replay_integrity": replay.check_replay_integrity,
 }
 
 

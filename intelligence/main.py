@@ -200,6 +200,20 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
         "content_types": ["PRAYER", "SAINT", "NOVENA"],
     },
     # ── unified self-model + deep code awareness ──────────────────────
+    "ingest_codebase": {
+        "files": [
+            {"path": "src/lib/a.ts", "lines": 1200, "exports": ["foo", "bar"], "imports": ["b.ts"]},
+            {"path": "src/lib/b.ts", "lines": 90, "exports": ["baz"], "imports": []},
+            {"path": "src/lib/a.test.ts", "lines": 60, "exports": [], "imports": ["a.ts"], "isTest": True},
+        ]
+    },
+    "build_call_graph": {
+        "files": [
+            {"path": "a.ts", "exports": ["foo"], "imports": ["b.ts"]},
+            {"path": "b.ts", "exports": ["bar"], "imports": ["a.ts"]},
+            {"path": "c.ts", "exports": ["baz"], "imports": ["a.ts", "b.ts"]},
+        ]
+    },
     "build_self_model": {
         "files": [
             {"path": "a.ts", "lines": 1200, "exports": ["foo", "bar"], "imports": ["b.ts"], "referencedByTests": True},
@@ -560,6 +574,55 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
     "review_patch_risk": {"patch": {"affected_files": ["a.ts", "b.ts"], "tests_required": True}},
     "generate_rollback_plan": {"patch": {"affected_models": ["PublishedContent"]}},
     "explain_patch_value": {"patch": {"title": "Add PDF parser", "expected_gain": "handles PDF documents"}},
+    # ── replayability & resilience ────────────────────────────────────
+    "replay_decision": {
+        "chosen_stage": "DISCOVERY",
+        "candidates": [
+            {"missionStage": "DISCOVERY", "finalScore": 0.7, "safe": True},
+            {"missionStage": "REPORTING", "finalScore": 0.4, "safe": True},
+        ],
+    },
+    "compare_decisions": {
+        "a": {"missionStage": "DISCOVERY", "chosenAction": "DISCOVER_SOURCE", "finalScore": 0.7},
+        "b": {"missionStage": "SOURCE_FETCH", "chosenAction": "FETCH", "finalScore": 0.8},
+    },
+    "explain_decision_change": {
+        "previous": {"missionStage": "DISCOVERY", "finalScore": 0.6},
+        "current": {"missionStage": "SOURCE_FETCH", "finalScore": 0.8},
+        "world_changes": ["new trusted source available"],
+    },
+    "detect_decision_drift": {
+        "decisions": [
+            {"missionStage": "DISCOVERY"},
+            {"missionStage": "REPORTING"},
+            {"missionStage": "DISCOVERY"},
+            {"missionStage": "REPORTING"},
+        ]
+    },
+    "recommend_circuit_break": {
+        "scope": "host",
+        "key": "weak.example",
+        "attempts": 5,
+        "failures": 4,
+        "consecutive_failures": 3,
+    },
+    "check_replay_integrity": {
+        "records": [
+            {
+                "ok": True,
+                "result": {},
+                "confidence": 0.8,
+                "reasoning": "x",
+                "evidence": [],
+                "sources_used": [],
+                "risk_level": "low",
+                "recommended_next_action": "",
+                "safe_to_auto_execute": False,
+                "error": None,
+            },
+            {"ok": True, "confidence": 2.0},
+        ]
+    },
 }
 
 

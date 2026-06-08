@@ -29,6 +29,7 @@ interface SelfModelSnapshot {
   untested_count?: number;
   orphan_count?: number;
   duplicate_pairs?: number;
+  import_cycles?: number;
   coverage_ratio?: number;
   architecture?: string[];
   top_upgrades?: string[];
@@ -44,6 +45,7 @@ const EXPLANATION_OPS = [
   "explain_authority_decision",
   "explain_retrieval_result",
   "explain_upgrade_request",
+  "explain_decision_change",
 ];
 
 const STUCKNESS_OPS = [
@@ -330,6 +332,11 @@ export default async function AdminIntelligencePage() {
       label: "Duplicate logic",
       detail: `${snap.duplicate_pairs} near-duplicate module pairs`,
     });
+  if (snap?.import_cycles)
+    weaknesses.push({
+      label: "Import cycles",
+      detail: `${snap.import_cycles} module import cycle(s) — fragile, hard-to-test coupling`,
+    });
   if (openRequests > 0)
     weaknesses.push({
       label: "Open upgrade requests",
@@ -484,11 +491,12 @@ export default async function AdminIntelligencePage() {
               <StatCard label="Scripts" value={model.script_count.toLocaleString()} tone="slate" />
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm md:grid-cols-5">
               <CodeHealth label="Weak modules" value={snap?.weak_count ?? 0} />
               <CodeHealth label="Untested modules" value={snap?.untested_count ?? 0} />
               <CodeHealth label="Possible orphans" value={snap?.orphan_count ?? 0} />
               <CodeHealth label="Duplicate pairs" value={snap?.duplicate_pairs ?? 0} />
+              <CodeHealth label="Import cycles" value={snap?.import_cycles ?? 0} />
             </div>
 
             {snap?.architecture && snap.architecture.length > 0 && (

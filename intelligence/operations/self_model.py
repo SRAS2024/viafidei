@@ -61,7 +61,95 @@ def _import_index(files: List[Dict[str, Any]]) -> Dict[str, int]:
     return counts
 
 
+def _top_dir(path: str) -> str:
+    """Top two path segments, e.g. 'src/lib/x/y.ts' → 'src/lib'."""
+    parts = path.replace("\\", "/").split("/")
+    return "/".join(parts[:2]) if len(parts) >= 2 else (parts[0] if parts else "")
+
+
+def _ext(path: str) -> str:
+    seg = path.replace("\\", "/").rsplit("/", 1)[-1]
+    return seg.rsplit(".", 1)[-1] if "." in seg else ""
+
+
 # ── ops ──────────────────────────────────────────────────────────────
+def ingest_codebase(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalise + validate the raw codebase corpus into a queryable model.
+
+    The ingestion entrypoint the rest of the self-model builds on: it indexes
+    the corpus (counts by extension / top directory / language, export + import
+    edge totals, an export→file index) and runs integrity checks (duplicate
+    module basenames, source files with no exports) so the brain can reason over
+    a clean, validated picture of the whole repository.
+    """
+    files = _files(payload)
+    by_ext: Dict[str, int] = {}
+    by_dir: Dict[str, int] = {}
+    by_lang: Dict[str, int] = {"ts": 0, "tsx": 0, "py": 0, "other": 0}
+    export_index: Dict[str, List[str]] = {}
+    base_count: Dict[str, int] = {}
+    export_total = 0
+    import_total = 0
+    files_without_exports: List[str] = []
+
+    for f in files:
+        p = str(f.get("path") or "")
+        if not p:
+            continue
+        ext = _ext(p)
+        by_ext[ext] = by_ext.get(ext, 0) + 1
+        by_dir[_top_dir(p)] = by_dir.get(_top_dir(p), 0) + 1
+        by_lang[ext if ext in by_lang else "other"] = by_lang.get(
+            ext if ext in by_lang else "other", 0
+        ) + 1
+        base_count[_basename(p)] = base_count.get(_basename(p), 0) + 1
+        exports = _str_list(f, "exports")
+        imports = _str_list(f, "imports")
+        export_total += len(exports)
+        import_total += len(imports)
+        for e in exports:
+            export_index.setdefault(e, []).append(p)
+        if not f.get("isTest") and not exports and _ext(p) in ("ts", "tsx") and not _is_entrypoint(p):
+            files_without_exports.append(p)
+
+    duplicate_basenames = {b: n for b, n in base_count.items() if n > 1}
+    ambiguous_exports = {e: ps for e, ps in export_index.items() if len(ps) > 1}
+    warnings: List[str] = []
+    if files_without_exports:
+        warnings.append(f"{len(files_without_exports)} source module(s) export nothing")
+    if duplicate_basenames:
+        warnings.append(f"{len(duplicate_basenames)} module basename(s) are duplicated")
+
+    return envelope(
+        result={
+            "ingested": True,
+            "file_count": len(files),
+            "by_extension": by_ext,
+            "by_top_directory": dict(sorted(by_dir.items(), key=lambda kv: kv[1], reverse=True)),
+            "by_language": by_lang,
+            "export_count": export_total,
+            "import_edge_count": import_total,
+            "unique_exported_symbols": len(export_index),
+            "duplicate_basenames": dict(
+                sorted(duplicate_basenames.items(), key=lambda kv: kv[1], reverse=True)[:25]
+            ),
+            "ambiguous_export_count": len(ambiguous_exports),
+            "files_without_exports": files_without_exports[:25],
+            "integrity_warnings": warnings,
+        },
+        confidence=0.85 if files else 0.2,
+        reasoning=(
+            f"Ingested {len(files)} files across {len(by_dir)} top-level areas: "
+            f"{export_total} exports, {import_total} import edges, "
+            f"{len(export_index)} unique exported symbols."
+        ),
+        evidence=[f"{d}: {n}" for d, n in sorted(by_dir.items(), key=lambda kv: kv[1], reverse=True)[:6]]
+        or ["empty corpus"],
+        risk_level=RISK_LOW if warnings else RISK_NONE,
+        recommended_next_action="build-self-model",
+    )
+
+
 def build_self_model(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Assemble the whole-application self-model from the ingested corpus."""
     files = _files(payload)
@@ -133,6 +221,77 @@ def build_symbol_graph(payload: Dict[str, Any]) -> Dict[str, Any]:
         evidence=[f"{p} ← {n} importers" for p, n in most_depended[:5]],
         risk_level=RISK_NONE,
         recommended_next_action="find-orphaned-code",
+    )
+
+
+def build_call_graph(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Directed module call graph from imports that resolve to repo files.
+
+    Where ``build_symbol_graph`` counts importers, this builds the directed
+    adjacency (who calls whom), reports fan-in/fan-out, finds the most
+    highly-coupled modules (high fan-in + fan-out — refactor candidates), and
+    detects import cycles (two modules that import each other), which are
+    fragile, hard-to-test execution paths.
+    """
+    files = _files(payload)
+    by_base: Dict[str, List[str]] = {}
+    for f in files:
+        p = str(f.get("path") or "")
+        if p:
+            by_base.setdefault(_basename(p), []).append(p)
+
+    adjacency: Dict[str, List[str]] = {}
+    fan_in: Dict[str, int] = {}
+    edge_count = 0
+    for f in files:
+        p = str(f.get("path") or "")
+        if not p:
+            continue
+        targets: List[str] = []
+        for imp in _str_list(f, "imports"):
+            for tgt in by_base.get(_basename(imp), ()):
+                if tgt != p and tgt not in targets:
+                    targets.append(tgt)
+                    fan_in[tgt] = fan_in.get(tgt, 0) + 1
+                    edge_count += 1
+        adjacency[p] = targets
+
+    # Two-cycles: A → B and B → A (the common, detectable fragile coupling).
+    adj_set = {p: set(t) for p, t in adjacency.items()}
+    cycles: List[List[str]] = []
+    seen: set = set()
+    for a, ts in adj_set.items():
+        for b in ts:
+            if a in adj_set.get(b, set()) and (b, a) not in seen:
+                seen.add((a, b))
+                cycles.append(sorted([a, b]))
+
+    coupled = sorted(
+        adjacency.keys(),
+        key=lambda p: len(adjacency.get(p, [])) + fan_in.get(p, 0),
+        reverse=True,
+    )[:10]
+
+    return envelope(
+        result={
+            "node_count": len(adjacency),
+            "edge_count": edge_count,
+            "cycle_count": len(cycles),
+            "cycles": cycles[:15],
+            "most_coupled": [
+                {"path": p, "fan_out": len(adjacency.get(p, [])), "fan_in": fan_in.get(p, 0)}
+                for p in coupled
+            ],
+        },
+        confidence=0.8 if files else 0.2,
+        reasoning=(
+            f"Call graph: {len(adjacency)} modules, {edge_count} resolved call edges, "
+            f"{len(cycles)} import cycle(s)."
+        ),
+        evidence=[f"{' ↔ '.join(c)}" for c in cycles[:5]]
+        or [f"{p}: out {len(adjacency.get(p, []))}/in {fan_in.get(p, 0)}" for p in coupled[:5]],
+        risk_level=RISK_MEDIUM if cycles else RISK_NONE,
+        recommended_next_action="find-weak-modules" if cycles else "call-graph-ready",
     )
 
 

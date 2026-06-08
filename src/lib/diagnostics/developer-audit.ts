@@ -92,6 +92,7 @@ interface IntelligenceAudit {
     coverage: number;
     weak: number;
     untested: number;
+    cycles: number;
     topUpgrades: string[];
   } | null;
   missionNext: string | null;
@@ -168,6 +169,7 @@ async function collectIntelligence(since: Date): Promise<IntelligenceAudit> {
     coverage_ratio?: number;
     weak_count?: number;
     untested_count?: number;
+    import_cycles?: number;
     top_upgrades?: string[];
   } | null;
   const mission = (missionLog?.safeMetadata ?? null) as { next_action?: string | null } | null;
@@ -193,6 +195,7 @@ async function collectIntelligence(since: Date): Promise<IntelligenceAudit> {
           coverage: sm.coverage_ratio ?? 0,
           weak: sm.weak_count ?? 0,
           untested: sm.untested_count ?? 0,
+          cycles: sm.import_cycles ?? 0,
           topUpgrades: sm.top_upgrades ?? [],
         }
       : null,
@@ -378,7 +381,7 @@ export async function generateDeveloperAuditPdf(period: AuditPeriod): Promise<Bu
       const sm = intel.selfModel;
       doc.text(
         `Self-model: ${sm.fileCount} files · test coverage ${(sm.coverage * 100).toFixed(0)}% · ` +
-          `${sm.weak} weak module(s) · ${sm.untested} untested module(s).`,
+          `${sm.weak} weak module(s) · ${sm.untested} untested module(s) · ${sm.cycles} import cycle(s).`,
       );
     } else {
       doc.fillColor("#666").text("Self-model: not built yet.").fillColor("#222");

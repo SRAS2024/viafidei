@@ -77,6 +77,30 @@ class TestSelfModel(unittest.TestCase):
         self.assertTrue(r["ok"])
         self.assertTrue(0.0 <= r["confidence"] <= 1.0)
 
+    def test_ingest_codebase_indexes_and_warns(self):
+        r = self_model.ingest_codebase(CORPUS)
+        self._check_envelope(r)
+        res = r["result"]
+        self.assertTrue(res["ingested"])
+        self.assertEqual(res["file_count"], 6)
+        self.assertGreater(res["export_count"], 0)
+        self.assertIn("by_top_directory", res)
+
+    def test_build_call_graph_detects_cycle(self):
+        r = self_model.build_call_graph(
+            {
+                "files": [
+                    {"path": "a.ts", "exports": ["x"], "imports": ["b.ts"]},
+                    {"path": "b.ts", "exports": ["y"], "imports": ["a.ts"]},
+                    {"path": "c.ts", "exports": ["z"], "imports": ["a.ts", "b.ts"]},
+                ]
+            }
+        )
+        self._check_envelope(r)
+        self.assertEqual(r["result"]["cycle_count"], 1)
+        self.assertEqual(sorted(r["result"]["cycles"][0]), ["a.ts", "b.ts"])
+        self.assertGreater(r["result"]["edge_count"], 0)
+
     def test_build_self_model_counts(self):
         r = self_model.build_self_model(CORPUS)
         self._check_envelope(r)

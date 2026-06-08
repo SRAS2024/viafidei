@@ -21,6 +21,7 @@ import path from "node:path";
 import type { PrismaClient } from "@prisma/client";
 
 import {
+  buildCallGraph,
   buildSelfModel,
   buildTestCoverageGraph,
   explainOwnArchitecture,
@@ -28,6 +29,7 @@ import {
   findOrphanedCode,
   findUntestedModules,
   findWeakModules,
+  ingestCodebase,
   isBrainEnabled,
   rankSelfUpgrades,
   resolveBrainRoot,
@@ -272,16 +274,22 @@ export async function runSelfModelPass(
     const corpus = buildSelfModelCorpus();
     if (corpus.files.length === 0) return { ran: false, requests: 0 };
 
+    // Ingest the corpus first (normalise + integrity-check), then build the
+    // self-model the rest of the pass reasons over.
+    const ingestEnv = await ingestCodebase(corpus);
+    await recordBrainCall(prisma, "ingest_codebase", ingestEnv, ctx);
+
     const modelEnv = await buildSelfModel(corpus);
     await recordBrainCall(prisma, "build_self_model", modelEnv, ctx);
     if (!modelEnv || !modelEnv.ok || !modelEnv.result) return { ran: false, requests: 0 };
 
-    const [weakEnv, untestedEnv, orphanEnv, dupEnv, coverageEnv] = await Promise.all([
+    const [weakEnv, untestedEnv, orphanEnv, dupEnv, coverageEnv, callEnv] = await Promise.all([
       findWeakModules(corpus.files),
       findUntestedModules(corpus.files),
       findOrphanedCode(corpus.files),
       findDuplicateLogic(corpus.files),
       buildTestCoverageGraph(corpus.files),
+      buildCallGraph(corpus.files),
     ]);
     await Promise.all([
       recordBrainCall(prisma, "find_weak_modules", weakEnv, ctx),
@@ -289,6 +297,7 @@ export async function runSelfModelPass(
       recordBrainCall(prisma, "find_orphaned_code", orphanEnv, ctx),
       recordBrainCall(prisma, "find_duplicate_logic", dupEnv, ctx),
       recordBrainCall(prisma, "build_test_coverage_graph", coverageEnv, ctx),
+      recordBrainCall(prisma, "build_call_graph", callEnv, ctx),
     ]);
 
     const coverageRatio =
@@ -338,6 +347,7 @@ export async function runSelfModelPass(
         untested_count: untestedEnv?.result?.untested_count ?? 0,
         orphan_count: orphanEnv?.result?.orphan_count ?? 0,
         duplicate_pairs: dupEnv?.result?.pair_count ?? 0,
+        import_cycles: (callEnv?.result as { cycle_count?: number } | null)?.cycle_count ?? 0,
         coverage_ratio: coverageRatio,
         architecture: archEnv?.result?.layers ?? [],
         top_upgrades: upgrades.slice(0, 5).map((u) => u.title),
