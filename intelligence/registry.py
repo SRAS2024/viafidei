@@ -18,12 +18,14 @@ from .operations import (
     claims,
     duplicates,
     embeddings,
+    explanation,
     extraction,
     freshness,
     gaps,
     graph,
     inspection,
     learning,
+    mission,
     planning,
     relationships,
     repair,
@@ -31,6 +33,9 @@ from .operations import (
     self_model,
     simulation,
     sources,
+    stuckness,
+    testgaps,
+    upgrades,
     quality,
 )
 
@@ -122,6 +127,37 @@ REGISTRY: Dict[str, Handler] = {
     "track_false_positive_risk": calibration.track_false_positive_risk,
     "track_false_negative_risk": calibration.track_false_negative_risk,
     "score_decision_quality": calibration.score_decision_quality,
+    # stuckness detection (granular loops; detect_stuckness is the umbrella above)
+    "detect_action_loop": stuckness.detect_action_loop,
+    "detect_source_loop": stuckness.detect_source_loop,
+    "detect_repair_loop": stuckness.detect_repair_loop,
+    "detect_no_growth": stuckness.detect_no_growth,
+    "explain_no_growth": stuckness.explain_no_growth,
+    "recommend_unblock_strategy": stuckness.recommend_unblock_strategy,
+    # mission control
+    "build_mission_tree": mission.build_mission_tree,
+    "update_mission_progress": mission.update_mission_progress,
+    "detect_mission_blockers": mission.detect_mission_blockers,
+    "rank_subgoals": mission.rank_subgoals,
+    "recommend_next_mission_action": mission.recommend_next_mission_action,
+    # richer self-explanation
+    "explain_decision": explanation.explain_decision,
+    "explain_rejected_alternatives": explanation.explain_rejected_alternatives,
+    "explain_safety_gate": explanation.explain_safety_gate,
+    "explain_confidence": explanation.explain_confidence,
+    "explain_what_would_change_my_mind": explanation.explain_what_would_change_my_mind,
+    # upgrade-request engine (internal product manager)
+    "rank_upgrade_requests": upgrades.rank_upgrade_requests,
+    "explain_upgrade_request": upgrades.explain_upgrade_request,
+    "merge_duplicate_upgrade_requests": upgrades.merge_duplicate_upgrade_requests,
+    "detect_ignored_upgrade_requests": upgrades.detect_ignored_upgrade_requests,
+    "estimate_upgrade_roi": upgrades.estimate_upgrade_roi,
+    # test-gap detection → regression-test recommendations
+    "detect_test_gap": testgaps.detect_test_gap,
+    "suggest_regression_test": testgaps.suggest_regression_test,
+    "generate_test_fixture_plan": testgaps.generate_test_fixture_plan,
+    "propose_test_patch": testgaps.propose_test_patch,
+    "rank_missing_tests": testgaps.rank_missing_tests,
 }
 
 

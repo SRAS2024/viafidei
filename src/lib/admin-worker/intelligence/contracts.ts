@@ -89,6 +89,37 @@ export const BRAIN_OPS = [
   "track_false_positive_risk",
   "track_false_negative_risk",
   "score_decision_quality",
+  // stuckness detection
+  "detect_action_loop",
+  "detect_source_loop",
+  "detect_repair_loop",
+  "detect_no_growth",
+  "explain_no_growth",
+  "recommend_unblock_strategy",
+  // mission control
+  "build_mission_tree",
+  "update_mission_progress",
+  "detect_mission_blockers",
+  "rank_subgoals",
+  "recommend_next_mission_action",
+  // self-explanation
+  "explain_decision",
+  "explain_rejected_alternatives",
+  "explain_safety_gate",
+  "explain_confidence",
+  "explain_what_would_change_my_mind",
+  // upgrade-request engine
+  "rank_upgrade_requests",
+  "explain_upgrade_request",
+  "merge_duplicate_upgrade_requests",
+  "detect_ignored_upgrade_requests",
+  "estimate_upgrade_roi",
+  // test-gap detection
+  "detect_test_gap",
+  "suggest_regression_test",
+  "generate_test_fixture_plan",
+  "propose_test_patch",
+  "rank_missing_tests",
 ] as const;
 export type BrainOp = (typeof BRAIN_OPS)[number];
 

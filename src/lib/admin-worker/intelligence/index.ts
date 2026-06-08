@@ -645,4 +645,120 @@ export function gradeBrainDecision(decision: PredictionRecord, opts?: CallOpts) 
   return callBrain("grade_brain_decision", { decision }, opts);
 }
 
+// ── Stuckness detection ───────────────────────────────────────────────
+export function detectActionLoop(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("detect_action_loop", input, opts);
+}
+export function detectSourceLoop(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("detect_source_loop", input, opts);
+}
+export function detectRepairLoop(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("detect_repair_loop", input, opts);
+}
+export function detectNoGrowth(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("detect_no_growth", input, opts);
+}
+export function explainNoGrowth(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_no_growth", input, opts);
+}
+export function recommendUnblockStrategy(signals: string[], opts?: CallOpts) {
+  return callBrain("recommend_unblock_strategy", { signals }, opts);
+}
+
+// ── Mission control ───────────────────────────────────────────────────
+export function buildMissionTree(goals: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("build_mission_tree", { goals }, opts);
+}
+export function updateMissionProgress(
+  input: { content_type: string; existing: number; target: number },
+  opts?: CallOpts,
+) {
+  return callBrain("update_mission_progress", input, opts);
+}
+export function detectMissionBlockers(mission: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("detect_mission_blockers", { mission }, opts);
+}
+export function rankSubgoals(missions: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("rank_subgoals", { missions }, opts);
+}
+export function recommendNextMissionAction(
+  input: { mission: Record<string, unknown>; blockers?: string[] },
+  opts?: CallOpts,
+) {
+  return callBrain("recommend_next_mission_action", input, opts);
+}
+
+// ── Self-explanation ──────────────────────────────────────────────────
+export function explainDecision(decision: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_decision", { decision }, opts);
+}
+export function explainRejectedAlternatives(
+  input: { chosen_score?: number; alternatives: Array<Record<string, unknown>> },
+  opts?: CallOpts,
+) {
+  return callBrain("explain_rejected_alternatives", input, opts);
+}
+export function explainSafetyGate(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_safety_gate", input, opts);
+}
+export function explainConfidence(
+  input: { confidence: number; drivers?: string[] },
+  opts?: CallOpts,
+) {
+  return callBrain("explain_confidence", input, opts);
+}
+export function explainWhatWouldChangeMyMind(input: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_what_would_change_my_mind", input, opts);
+}
+
+// ── Upgrade-request engine ────────────────────────────────────────────
+export function rankUpgradeRequests(requests: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("rank_upgrade_requests", { requests }, opts);
+}
+export function explainUpgradeRequest(request: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("explain_upgrade_request", { request }, opts);
+}
+export function mergeDuplicateUpgradeRequests(
+  requests: Array<Record<string, unknown>>,
+  opts?: CallOpts & { threshold?: number },
+) {
+  return callBrain(
+    "merge_duplicate_upgrade_requests",
+    { requests, threshold: opts?.threshold },
+    opts,
+  );
+}
+export function detectIgnoredUpgradeRequests(
+  requests: Array<Record<string, unknown>>,
+  opts?: CallOpts,
+) {
+  return callBrain("detect_ignored_upgrade_requests", { requests }, opts);
+}
+export function estimateUpgradeRoi(request: Record<string, unknown>, opts?: CallOpts) {
+  return callBrain("estimate_upgrade_roi", { request }, opts);
+}
+
+// ── Test-gap detection ────────────────────────────────────────────────
+export function detectTestGap(
+  input: { failures: Array<Record<string, unknown>>; min_occurrences?: number },
+  opts?: CallOpts,
+) {
+  return callBrain("detect_test_gap", input, opts);
+}
+export function suggestRegressionTest(failure: string, opts?: CallOpts) {
+  return callBrain("suggest_regression_test", { failure }, opts);
+}
+export function generateTestFixturePlan(failure: string, opts?: CallOpts) {
+  return callBrain("generate_test_fixture_plan", { failure }, opts);
+}
+export function proposeTestPatch(
+  input: { failure: string; target_file?: string },
+  opts?: CallOpts,
+) {
+  return callBrain("propose_test_patch", input, opts);
+}
+export function rankMissingTests(gaps: Array<Record<string, unknown>>, opts?: CallOpts) {
+  return callBrain("rank_missing_tests", { gaps }, opts);
+}
+
 export type { BrainEnvelope };

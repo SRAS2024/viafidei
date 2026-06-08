@@ -394,6 +394,89 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
             {"op": "select_action", "predicted": "failure", "actual": "failure", "confidence": 0.7},
         ]
     },
+    # ── stuckness detection ───────────────────────────────────────────
+    "detect_action_loop": {"recent_decisions": [{"missionStage": "DISCOVERY"}] * 6},
+    "detect_source_loop": {"source_fatigue": {"weak.example": 4, "ok.example": 1}},
+    "detect_repair_loop": {"recent_repairs": [{"kind": "FETCH_FAILED", "status": "FAILED"}] * 3},
+    "detect_no_growth": {"pass_count": 6, "published_delta": 0},
+    "explain_no_growth": {"candidate_count": 0, "pending_artifacts": 2, "blockers": ["source gap"]},
+    "recommend_unblock_strategy": {"signals": ["source loop: weak.example failing", "no content growth"]},
+    # ── mission control ───────────────────────────────────────────────
+    "build_mission_tree": {
+        "goals": [
+            {"contentType": "PRAYER", "currentValidCount": 28, "desiredTarget": 1000},
+            {"contentType": "SACRAMENT", "currentValidCount": 7, "desiredTarget": 7, "canonicalMax": 7},
+        ]
+    },
+    "update_mission_progress": {"content_type": "POPE", "existing": 38, "target": 267},
+    "detect_mission_blockers": {
+        "mission": {"content_type": "PARISH", "source_coverage": False, "public_route": True, "schema_support": True, "ui_support": True}
+    },
+    "rank_subgoals": {
+        "missions": [
+            {"content_type": "PRAYER", "completion_pct": 0.03, "priority": 0.9},
+            {"content_type": "DOCTOR", "completion_pct": 1.0, "priority": 0.5},
+        ]
+    },
+    "recommend_next_mission_action": {
+        "mission": {"content_type": "LITANY", "existing_content": 4},
+        "blockers": [],
+    },
+    # ── richer self-explanation ───────────────────────────────────────
+    "explain_decision": {
+        "decision": {
+            "selectedAction": "FETCH_SOURCE",
+            "missionStage": "SOURCE_FETCH",
+            "reasoning": "highest expected value, trusted source",
+            "evidenceUsed": ["vatican.va trusted"],
+            "memoriesUsed": ["prior fetch success"],
+            "confidenceScore": 0.8,
+            "rejectedAlternatives": [{"missionStage": "REPORTING"}],
+        }
+    },
+    "explain_rejected_alternatives": {
+        "chosen_score": 0.8,
+        "alternatives": [{"missionStage": "REPORTING", "finalScore": 0.4, "rejectedReason": "no content value"}],
+    },
+    "explain_safety_gate": {"risk_level": "medium", "confidence": 0.6, "sensitive": True, "safety_notes": ["doctrinally sensitive"]},
+    "explain_confidence": {"confidence": 0.82, "drivers": ["trusted source", "stage success 0.9"]},
+    "explain_what_would_change_my_mind": {"decision": "publish", "deciding_factors": ["source authority", "duplicate score"]},
+    # ── upgrade-request engine ────────────────────────────────────────
+    "rank_upgrade_requests": {
+        "requests": [
+            {"title": "Add PDF parser", "kind": "parser", "severity": "high", "occurrences": 7, "difficulty": "medium"},
+            {"title": "Index a model", "kind": "schema", "severity": "low", "occurrences": 1, "difficulty": "low"},
+        ]
+    },
+    "explain_upgrade_request": {
+        "request": {"title": "Add PDF parser", "kind": "parser", "detail": "PDF extraction fails repeatedly", "severity": "high"}
+    },
+    "merge_duplicate_upgrade_requests": {
+        "requests": [
+            {"title": "Add PDF parser", "detail": "pdf extraction fails", "occurrences": 3},
+            {"title": "PDF parser needed", "detail": "pdf extraction fails repeatedly", "occurrences": 2},
+        ]
+    },
+    "detect_ignored_upgrade_requests": {
+        "requests": [{"title": "Add PDF parser", "occurrences": 6, "status": "open", "age_days": 30}]
+    },
+    "estimate_upgrade_roi": {
+        "request": {"title": "Add PDF parser", "severity": "high", "occurrences": 7, "difficulty": "medium"}
+    },
+    # ── test-gap detection ────────────────────────────────────────────
+    "detect_test_gap": {
+        "failures": [{"category": "extraction", "error": "pdf extraction failed"}] * 3
+        + [{"category": "publish", "error": "publish verification failed"}] * 2,
+    },
+    "suggest_regression_test": {"failure": "pdf extraction failed repeatedly"},
+    "generate_test_fixture_plan": {"failure": "duplicate missed by slug matching"},
+    "propose_test_patch": {"failure": "schema mismatch on payload", "target_file": "src/lib/checklist/schemas/prayer.ts"},
+    "rank_missing_tests": {
+        "gaps": [
+            {"failure_kind": "pdf", "occurrences": 5, "missing_test": "PDF regression test"},
+            {"failure_kind": "schema", "occurrences": 1, "missing_test": "Prisma validation test"},
+        ]
+    },
 }
 
 
