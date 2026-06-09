@@ -10,6 +10,12 @@ interface Props {
   status: ChecklistApprovalStatus;
 }
 
+// Source-curation actions only. There is intentionally NO manual "publish"
+// control here: publishing is autonomous and flows solely through the Admin
+// Worker's Publish Orchestrator (full strict-QA + ten-dimension quality gate).
+// The legacy bypass-QA publish route was removed with the pre-worker engine —
+// admins approve/verify/reject sources and the worker builds + publishes.
+
 async function postAction(itemId: string, action: string, body: Record<string, unknown> = {}) {
   const res = await fetch(`/api/admin/checklist/${itemId}/${action}`, {
     method: "POST",
@@ -68,14 +74,6 @@ export function ItemActionsClient({ itemId, status }: Props) {
           onClick={() => run("rebuild")}
         >
           Rebuild
-        </button>
-        <button
-          type="button"
-          className="rounded bg-green-600 px-3 py-1 text-sm text-white disabled:opacity-50"
-          disabled={pending || status === "PUBLISHED"}
-          onClick={() => run("publish")}
-        >
-          Publish (bypass QA review)
         </button>
         <button
           type="button"
