@@ -21,14 +21,23 @@ beforeEach(() => {
 afterEach(() => resetSkillsForTest());
 
 describe("skill planner", () => {
-  it("includes the certified extractor and names the not-yet-certified steps", () => {
+  it("produces a fully-executable source-to-page plan for a backed content type", () => {
     const plan = planForDecision({ missionStage: "EXTRACTION", contentType: "PRAYER" });
-    const extract = plan.steps.find((s) => s.skillName === "extract_prayer");
-    expect(extract?.certified).toBe(true);
-    // Pipeline skills not yet certified → plan is honestly non-executable.
+    const names = plan.steps.map((s) => s.skillName);
+    // Every step of the build plan is certified end to end.
+    expect(names).toContain("fetch_static_html");
+    expect(names).toContain("extract_prayer");
+    expect(names).toContain("publish_content");
+    expect(plan.steps.every((s) => s.certified)).toBe(true);
+    expect(plan.executable).toBe(true);
+    expect(plan.missingSkills).toEqual([]);
+    expect(plan.rejectedReason).toBeNull();
+  });
+
+  it("is honestly non-executable for a type with no certified extractor (DIOCESE)", () => {
+    const plan = planForDecision({ missionStage: "EXTRACTION", contentType: "DIOCESE" });
     expect(plan.executable).toBe(false);
-    expect(plan.missingSkills).toContain("fetch_static_html");
-    expect(plan.missingSkills).toContain("publish_content");
+    expect(plan.missingSkills).toContain("extract_diocese");
     expect(plan.rejectedReason).toMatch(/missing certified skills/);
   });
 
