@@ -359,6 +359,39 @@ export function classifyFreshness(record: FreshnessRecord, opts?: CallOpts) {
   return callBrain<FreshnessResult>("classify_freshness", { record }, opts);
 }
 
+// ── Liturgical calendar + lectionary ──────────────────────────────────
+export interface LiturgicalDayResult {
+  date: string;
+  season: string;
+  seasonLabel: string;
+  color: string;
+  sundayCycle: string;
+  weekdayCycle: string;
+  dayOfWeek: number;
+  isSunday: boolean;
+  weekOfSeason: number;
+  rank: string;
+  celebration: string;
+  lectionaryKey: string;
+}
+export interface LectionaryReadingsResult {
+  date: string;
+  lectionaryKey: string;
+  celebration: string;
+  sundayCycle: string;
+  weekdayCycle: string;
+  covered: boolean;
+  sections: Array<{ kind: string; label: string; citation: string }>;
+}
+/** The brain's precise liturgical day (General Roman Calendar) for an ISO date. */
+export function liturgicalDay(date: string, opts?: CallOpts) {
+  return callBrain<LiturgicalDayResult>("liturgical_day", { date }, opts);
+}
+/** The brain's Mass-reading citations for an ISO date (the body resolves text). */
+export function lectionaryReadings(date: string, opts?: CallOpts) {
+  return callBrain<LectionaryReadingsResult>("lectionary_readings", { date }, opts);
+}
+
 // ── Knowledge extraction / structure / variants ───────────────────────
 export function extractKnowledge(text: string, opts?: CallOpts & { maxItems?: number }) {
   return callBrain<ExtractKnowledgeResult>(

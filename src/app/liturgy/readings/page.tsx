@@ -8,6 +8,7 @@ import {
   mergeSections,
   type ReadingSection,
 } from "@/lib/content-shared/daily-readings";
+import { resolveReadings } from "@/lib/content-shared/lectionary";
 
 export const dynamic = "force-dynamic";
 
@@ -70,9 +71,13 @@ export default async function DailyReadingsPage({
     })
     .catch(() => null);
 
+  // Prefer the worker's stored row; otherwise resolve the readings on demand
+  // from the deterministic lectionary so ANY covered day (past or future)
+  // shows its readings the moment it's selected, not only after a refresh.
   const storedSections = (row?.sections as ReadingSection[] | undefined) ?? null;
-  const sections = mergeSections(framing.sections, storedSections);
-  const published = row?.status === "PUBLISHED" && hasAnyBody(sections);
+  const onDemand = storedSections ?? resolveReadings(framing.lectionaryKey)?.sections ?? null;
+  const sections = mergeSections(framing.sections, onDemand);
+  const published = hasAnyBody(sections);
   const sourceUrl = row?.sourceUrl ?? framing.sourceUrl;
   const sourceName = row?.sourceName ?? framing.sourceName;
 
@@ -80,7 +85,8 @@ export default async function DailyReadingsPage({
     <main className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6">
       <div className="text-center">
         <p className="vf-eyebrow text-ink-faint">Daily Readings</p>
-        <h1 className="mt-2 font-display text-2xl text-ink sm:text-3xl">{longDate(date)}</h1>
+        <h1 className="mt-2 font-display text-2xl text-ink sm:text-3xl">{framing.celebration}</h1>
+        <p className="mt-1 font-serif text-sm text-ink-soft">{longDate(date)}</p>
         <p className="mt-2 font-serif text-sm text-ink-soft">
           {framing.seasonLabel} · Sunday Cycle {framing.sundayCycle} · Weekday Cycle{" "}
           {framing.weekdayCycle}

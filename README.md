@@ -34,7 +34,7 @@ source intelligence with a **Catholic authority graph** + **communion-risk**
 screening, **claim-level verification**, quality + **specialist-panel** review,
 action **simulation**, **confidence calibration**, knowledge-graph and
 schema/UI awareness, a whole-app **self-model**, repair + **stuckness**
-analysis, learning, and self-inspection (133 operations).
+analysis, learning, and self-inspection (135 operations).
 The split is **TypeScript = the body** (execution, Prisma/DB, queues,
 policy, publishing, safety, app + admin integration), **Python = the brain**
 (it analyses and recommends through strict typed contracts; it never touches
@@ -270,9 +270,27 @@ Optional environment variables:
 | Admin Worker rules  | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                                                                                            |
 | Worker Intelligence | `/admin/intelligence`           | Live capability dashboard: brain status, self-model, capability strengths/weaknesses, memory, source reliability, decisions, self-explanations, stuckness, upgrades |
 
-The public **daily readings** page lives at `/liturgy/readings` (the
-homepage + liturgical calendar link to it); the worker keeps it current and
-routes uncertain days to review.
+The public **daily readings** page lives at `/liturgy/readings?date=…` (the
+homepage + liturgical calendar link to it), and the worker owns it end to end.
+A deterministic **liturgical-calendar engine**
+(`content-shared/liturgical-calendar.ts`, mirrored in the Python brain)
+computes the exact day of the **General Roman Calendar** for any date in any
+year — season, Sunday cycle (A/B/C), weekday cycle (I/II), colour, moveable
+feasts, and the principal fixed-date solemnities (a Proper-of-Saints overlay) —
+and a **lectionary** (`content-shared/lectionary.ts`) maps each day to its Mass
+readings, with the Scripture text from the public-domain **Douay-Rheims**. The
+worker **stores readings ahead of time**: `backfillDailyReadings` fills a
+rolling ~year-ahead window into `DailyReading`, re-verifies it on every scan,
+**self-corrects any drift, and never downgrades a verified day** — so once the
+window is filled the worker only keeps it current and cycles it forward. The
+page also resolves any day **on-demand**, so the whole calendar is viewable
+immediately. Coverage grows through a pluggable **readings-source framework**
+(`readings-source.ts`): the offline table first, then any authoritative dataset
+configured via `LECTIONARY_DATA_URL`, which the worker fetches, validates,
+ingests, and manages itself — no code change. Days without verified readings
+show the liturgical framing + a link to the official source; a reading is never
+fabricated. Today the table covers the principal solemnities and feasts; the
+rest fills automatically as a dataset is configured or the table is expanded.
 
 **Checklist (management surfaces):**
 
@@ -903,7 +921,9 @@ beyond the curated set.
 | `homepage-designer.ts`                   | Homepage scoring + draft decision + preview/edit/publish/discard actions                                  |
 | `homepage-mutator.ts`                    | Builds proposed homepage snapshots (`force` for admin makeovers)                                          |
 | **`homepage-publish-orchestrator.ts`**   | 10-axis inspect + snapshot + verify + rollback                                                            |
-| `liturgical-calendar.ts`                 | Meeus-based liturgical calendar engine                                                                    |
+| `liturgical-calendar.ts`                 | Meeus-based liturgical calendar engine (homepage seasonal scorer)                                         |
+| `daily-readings.ts`                      | Daily Mass readings: resolve + store + autonomous backfill/self-correct                                   |
+| **`readings-source.ts`**                 | Pluggable readings sources (offline table + `LECTIONARY_DATA_URL` dataset)                                |
 | `security-defender.ts`                   | Defender + automatic ban + email                                                                          |
 | `security-detectors.ts`                  | 10 deterministic detector functions                                                                       |
 | **`request-defender.ts`**                | 7 helpers (failed login, brute force, mutation, …)                                                        |
@@ -1102,7 +1122,7 @@ automatically; the brain only recommends (human-review gated). The legacy
 summary-only code-awareness path (`analyze_code` / `runCodeAwareness` /
 `inspectCode`) was removed outright.
 
-### Unified brain capabilities (133 operations)
+### Unified brain capabilities (135 operations)
 
 Beyond the self-model, the unified brain reasons across these areas — every
 operation returns the same strict envelope (`ok`, `result`, `confidence`,
@@ -1155,6 +1175,14 @@ operation returns the same strict envelope (`ok`, `result`, `confidence`,
   identification + structured metadata for papal/council documents, canon law,
   catechism, saints, parishes, prayers, novenas, litanies, and history-timeline
   entries.
+- **Liturgical calendar + lectionary** (`lectionary.py` → `liturgical_day`,
+  `lectionary_readings`): the brain's deterministic knowledge of the Church's
+  year. For any date it computes the exact liturgical day of the General Roman
+  Calendar (season, Sunday cycle A/B/C, weekday cycle I/II, colour, moveable
+  feasts, and a Proper-of-Saints overlay) and the day's Mass-reading citations,
+  keyed on a shared `lectionaryKey` that mirrors the TypeScript engine
+  (`content-shared/liturgical-calendar.ts` + `lectionary.ts`). Pure stdlib — the
+  body resolves the public-domain Scripture text and stores it.
 - **Review-gated self-improvement** (`patches.py`): the brain proposes code /
   schema / test patches with risk review + rollback plan, but never applies or
   deploys them (`safe_to_auto_execute` is always false; human review required).
@@ -1247,8 +1275,14 @@ auto-recovery, and concurrent id-multiplexing.
   brain's confidence/risk/communion/duplicate signals into an
   auto/draft/escalate/block decision bounded by the worker's autonomy level
   (`ADMIN_WORKER_AUTONOMY`). Policy stays in TypeScript.
-- **Daily readings** (`daily-readings.ts`): freshness classification +
-  review-on-uncertainty.
+- **Daily readings** (`daily-readings.ts`, `readings-source.ts`,
+  `content-shared/lectionary.ts`): the worker computes the exact liturgical day,
+  resolves its readings (Douay-Rheims), and autonomously fills a rolling
+  ~year-ahead window into `DailyReading` — re-verifying + self-correcting each
+  scan, never downgrading a verified day. Coverage is extensible at runtime via
+  `LECTIONARY_DATA_URL`. The brain owns the calendar/lectionary knowledge
+  (`liturgical_day`, `lectionary_readings`); the worker consults it each refresh
+  and records it, plus freshness classification + review-on-uncertainty.
 
 All of the supplementary wirings above are best-effort and non-blocking —
 they never block a pass. The **final action selection** is separate: the
@@ -1363,9 +1397,14 @@ Parishes by designation. Each tab only shows a chip when at least one published
 item falls under it.
 
 **Daily readings.** The Liturgical Calendar's "Official Mass readings for this
-day" button links to the **internal** `/liturgy/readings?date=…` page (kept
-current by the worker's `maybeRefreshDailyReadings` each pass), not an external
-site; that page carries a modest source link at the bottom.
+day" button links to the **internal** `/liturgy/readings?date=…` page, not an
+external site. The page shows the exact celebration, the readings in
+proclamation order (public-domain Douay-Rheims for covered days), and a modest
+source link at the bottom. The worker keeps it current with
+`maybeRefreshDailyReadings` (today) **and** `maybeBackfillDailyReadings` (a
+rolling ~year-ahead window, re-verified + self-corrected each scan); any day not
+yet covered resolves on-demand to the framing + the official source link, never
+fabricated text.
 
 There is no other code path from the database to the public site.
 

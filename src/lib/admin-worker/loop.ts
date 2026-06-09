@@ -283,8 +283,18 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   // Throttled (≈once per 30 min/process) and fail-open; routes to review
   // rather than ever publishing uncertain readings.
   try {
-    const { maybeRefreshDailyReadings } = await import("./daily-readings");
+    const { maybeRefreshDailyReadings, maybeBackfillDailyReadings } =
+      await import("./daily-readings");
+    // Register the worker's readings sources (the offline lectionary table +
+    // any authoritative dataset configured via LECTIONARY_DATA_URL) so it can
+    // acquire, store, and manage readings for every day it can reach.
+    const { initReadingsSources } = await import("./readings-source");
+    initReadingsSources();
     await maybeRefreshDailyReadings(prisma, { passId: pass.id });
+    // Autonomously fill + re-verify the whole forward window (≈a liturgical
+    // year): creates missing days, upgrades them to verified readings as
+    // coverage grows, and self-corrects any drifted row. Throttled (~6h).
+    await maybeBackfillDailyReadings(prisma, { passId: pass.id });
   } catch {
     // ignore — readings refresh is best-effort and must not affect the pass
   }
