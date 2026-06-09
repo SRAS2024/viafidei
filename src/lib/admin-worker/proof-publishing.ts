@@ -18,6 +18,7 @@ import type { PrismaClient } from "@prisma/client";
 import { callBrain } from "./intelligence/client";
 import { isBrainEnabled } from "./intelligence";
 import { recordBrainCall } from "./intelligence/store";
+import { persistProofPacket } from "./intelligence-lab-store";
 
 /** Categories that require proof-based publishing (the spec's list). */
 export const PROOF_REQUIRED_TYPES: ReadonlySet<string> = new Set([
@@ -104,9 +105,13 @@ export async function evaluateSensitivePublish(
 
   const proof = await callBrain<{
     proven?: boolean;
+    claim?: unknown;
     recommended_action?: string;
     human_review_required?: boolean;
+    risk_level?: string;
+    conditions_satisfied?: string[];
     conditions_failed?: string[];
+    what_would_change?: string[];
   }>("build_proof_packet", {
     claim: input.claim ?? { contentType },
     content_type: contentType,
@@ -119,6 +124,22 @@ export async function evaluateSensitivePublish(
       entityId: input.contentId ?? null,
       passId: input.passId ?? null,
     }).catch(() => undefined);
+    // Durable LabProofPacket row — every sensitive-publish decision is auditable.
+    await persistProofPacket(prisma, {
+      passId: input.passId ?? null,
+      contentId: input.contentId ?? null,
+      contentType,
+      claim: typeof proof.result?.claim === "string" ? proof.result.claim : null,
+      sensitive: true,
+      conditionsSatisfied: proof.result?.conditions_satisfied ?? [],
+      conditionsFailed: proof.result?.conditions_failed ?? [],
+      riskLevel: proof.result?.risk_level ?? "medium",
+      recommendedAction: proof.result?.recommended_action ?? "review",
+      humanReviewRequired: proof.result?.human_review_required ?? false,
+      proven: proof.result?.proven ?? false,
+      whatWouldChange: proof.result?.what_would_change ?? [],
+      payload: proof.result ?? {},
+    });
   }
 
   const invariants = await callBrain<{ all_pass?: boolean; failed?: Array<{ id: string }> }>(

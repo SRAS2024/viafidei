@@ -392,6 +392,55 @@ export function lectionaryReadings(date: string, opts?: CallOpts) {
   return callBrain<LectionaryReadingsResult>("lectionary_readings", { date }, opts);
 }
 
+// ── Intelligence Laboratory (typed wrappers over the lab ops) ──────────────
+type Lab = Record<string, unknown>;
+
+/** Causal: trace a symptom to its root cause + the breaking intervention. */
+export function explainRootCause(
+  symptom: string,
+  signals?: Record<string, number>,
+  opts?: CallOpts,
+) {
+  return callBrain<Lab>("explain_root_cause", { symptom, signals: signals ?? {} }, opts);
+}
+export function buildCausalGraph(signals?: Record<string, number>, opts?: CallOpts) {
+  return callBrain<Lab>("build_causal_graph", { signals: signals ?? {} }, opts);
+}
+/** Counterfactual: estimate the alternatives to what happened. */
+export function runCounterfactualAnalysis(payload: Lab, opts?: CallOpts) {
+  return callBrain<Lab>("run_counterfactual_analysis", payload, opts);
+}
+/** Proof: build a proof packet / check publish eligibility. */
+export function buildProofPacket(payload: Lab, opts?: CallOpts) {
+  return callBrain<Lab>("build_proof_packet", payload, opts);
+}
+export function checkInvariants(state: Lab, opts?: CallOpts) {
+  return callBrain<Lab>("check_invariants", { state }, opts);
+}
+/** Epistemic: assign a claim its epistemic status. */
+export function assignEpistemicStatus(claim: Lab, opts?: CallOpts) {
+  return callBrain<Lab>("assign_epistemic_status", { claim }, opts);
+}
+/** Strategy / benchmark / leverage / architecture / capability. */
+export function runStrategyTournament(payload: Lab, opts?: CallOpts) {
+  return callBrain<Lab>("run_strategy_tournament", payload, opts);
+}
+export function runIntelligenceBenchmark(results: Record<string, number>, opts?: CallOpts) {
+  return callBrain<Lab>("run_intelligence_benchmark", { results }, opts);
+}
+export function compareBrainVersions(payload: Lab, opts?: CallOpts) {
+  return callBrain<Lab>("compare_brain_versions", payload, opts);
+}
+export function rankHighestLeverageChange(payload?: Lab, opts?: CallOpts) {
+  return callBrain<Lab>("rank_highest_leverage_change", payload ?? {}, opts);
+}
+export function generateArchitectureReport(report: Lab, opts?: CallOpts) {
+  return callBrain<Lab>("generate_architecture_report", { report }, opts);
+}
+export function inventCapability(payload: Lab, opts?: CallOpts) {
+  return callBrain<Lab>("invent_capability", payload, opts);
+}
+
 // ── Knowledge extraction / structure / variants ───────────────────────
 export function extractKnowledge(text: string, opts?: CallOpts & { maxItems?: number }) {
   return callBrain<ExtractKnowledgeResult>(

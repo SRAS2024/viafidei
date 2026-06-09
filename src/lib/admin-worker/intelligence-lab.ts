@@ -16,6 +16,7 @@ import type { PrismaClient } from "@prisma/client";
 import { callBrain } from "./intelligence/client";
 import { isBrainEnabled } from "./intelligence";
 import { recordBrainCall } from "./intelligence/store";
+import { persistArchitectureReport, persistCausalGraph } from "./intelligence-lab-store";
 import { writeAdminWorkerLog } from "./logs";
 
 export interface LabPassResult {
@@ -67,6 +68,14 @@ export async function runIntelligenceLabPass(
       entityId: "lab",
       passId: opts.passId ?? null,
     }).catch(() => undefined);
+    // Durable LabArchitectureIntegrityReport row (auditable + dashboard).
+    const integrity = arch.result?.integrity ?? 1;
+    await persistArchitectureReport(prisma, {
+      passId: opts.passId ?? null,
+      integrity,
+      clean: integrity >= 1,
+      violations: (arch.result as { violations?: unknown } | undefined)?.violations ?? [],
+    });
   }
 
   // 3. Causal root cause for the worker's current dominant symptom (if any).
@@ -82,6 +91,11 @@ export async function runIntelligenceLabPass(
         entityId: symptom,
         passId: opts.passId ?? null,
       }).catch(() => undefined);
+      // Durable LabCausalGraph row capturing the diagnosed chain.
+      await persistCausalGraph(prisma, {
+        passId: opts.passId ?? null,
+        payload: root.result ?? {},
+      });
     }
   }
 
