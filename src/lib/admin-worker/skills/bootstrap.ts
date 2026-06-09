@@ -12,6 +12,9 @@ import { extractionSkills } from "./extraction-skills";
 import { verificationSkills } from "./verification-skills";
 import { sourceSkills } from "./source-skills";
 import { publishingSkills } from "./publishing-skills";
+import { repairSkills } from "./repair-skills";
+import { homepageSkills } from "./homepage-skills";
+import { securitySkills } from "./security-skills";
 import type { CertifiedSkill } from "./types";
 
 let registered = false;
@@ -25,6 +28,9 @@ export function ensureSkillsRegistered(): void {
   registerSkills(verificationSkills as unknown as CertifiedSkill[]);
   registerSkills(sourceSkills);
   registerSkills(publishingSkills);
+  registerSkills(repairSkills);
+  registerSkills(homepageSkills);
+  registerSkills(securitySkills);
   registered = true;
 }
 
