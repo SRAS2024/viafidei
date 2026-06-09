@@ -41,6 +41,14 @@ export const BRAIN_OPS = [
   // liturgical calendar + lectionary
   "liturgical_day",
   "lectionary_readings",
+  // Intelligence Laboratory — Causal Intelligence Core
+  "build_causal_graph",
+  "infer_causal_factors",
+  "explain_root_cause",
+  "detect_causal_chain",
+  "rank_causal_factors",
+  "update_causal_model",
+  "explain_causal_model",
   "extract_knowledge",
   "suggest_structure",
   "detect_variants",

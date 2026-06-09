@@ -16,6 +16,7 @@ from .operations import (
     awareness,
     calibration,
     catholic_extraction,
+    causal,
     claims,
     duplicates,
     embeddings,
@@ -82,6 +83,15 @@ REGISTRY: Dict[str, Handler] = {
     # liturgical calendar + lectionary (the brain's knowledge of the Church year)
     "liturgical_day": lectionary.liturgical_day,
     "lectionary_readings": lectionary.lectionary_readings,
+    # ── Intelligence Laboratory ──────────────────────────────────────────
+    # Causal Intelligence Core (why things happen, not just what happened)
+    "build_causal_graph": causal.build_causal_graph,
+    "infer_causal_factors": causal.infer_causal_factors,
+    "explain_root_cause": causal.explain_root_cause,
+    "detect_causal_chain": causal.detect_causal_chain,
+    "rank_causal_factors": causal.rank_causal_factors,
+    "update_causal_model": causal.update_causal_model,
+    "explain_causal_model": causal.explain_causal_model,
     # knowledge extraction + structure + variants
     "extract_knowledge": extraction.extract_knowledge,
     "suggest_structure": extraction.suggest_structure,

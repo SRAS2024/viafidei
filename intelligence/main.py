@@ -177,6 +177,14 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
     "classify_freshness": {"record": {"contentType": "LITURGICAL", "title": "Today's Mass Readings"}},
     "liturgical_day": {"date": "2025-12-25"},
     "lectionary_readings": {"date": "2025-12-25"},
+    # Intelligence Laboratory — Causal Intelligence Core
+    "build_causal_graph": {"signals": {"missing_fields": 12, "strict_qa_failure": 5}},
+    "infer_causal_factors": {"effect": "strict_qa_failure"},
+    "explain_root_cause": {"symptom": "mission_stagnation"},
+    "detect_causal_chain": {"factor": "source_type"},
+    "rank_causal_factors": {"signals": {"missing_fields": 8}},
+    "update_causal_model": {"cause": "missing_fields", "effect": "strict_qa_failure", "confirmed": True},
+    "explain_causal_model": {"cause": "missing_fields", "effect": "strict_qa_failure"},
     "extract_knowledge": {
         "text": "Saint Thérèse of Lisieux was born in 1873 and canonized in 1925. See Jn 3:16. https://www.vatican.va/x",
     },
