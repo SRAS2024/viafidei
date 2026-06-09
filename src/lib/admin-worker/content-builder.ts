@@ -69,6 +69,9 @@ export const REQUIRED_FIELDS: Record<string, string[]> = {
   POPE: ["popeName", "papacyStart"],
   DOCTOR: ["doctorName"],
   RITE: ["riteName"],
+  MARIAN_TITLE: ["marianTitleName", "background"],
+  GUIDE: ["title", "body"],
+  SPIRITUAL_PRACTICE: ["title", "body"],
 };
 
 /**
@@ -103,6 +106,9 @@ const OPTIONAL_FIELDS: Record<string, string[]> = {
   POPE: ["papacyEnd", "birthName", "background"],
   DOCTOR: ["doctorTitle", "feastDay", "background"],
   RITE: ["history", "background", "riteKey"],
+  MARIAN_TITLE: ["feastDay", "patronage"],
+  GUIDE: ["summary"],
+  SPIRITUAL_PRACTICE: ["howToPractice"],
 };
 
 export interface ContentPackage {
@@ -228,6 +234,7 @@ function extractTitle(fields: Record<string, unknown>): string {
     "devotionTitle",
     "consecrationTitle",
     "sacramentTitle",
+    "marianTitleName",
     "title",
     "liturgyTitle",
     "parishName",

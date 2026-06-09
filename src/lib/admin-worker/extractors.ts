@@ -11,6 +11,7 @@
  * acceptance criteria is satisfied.
  */
 
+import type { ExtractableContentType } from "./content-types";
 import { makeProvenance, type FieldProvenance } from "./provenance";
 import type { StructuredBlock, SourceBlockType } from "./structured-source-reader";
 
@@ -1432,23 +1433,220 @@ export function RiteExtractor(input: ExtractorInput): ExtractorOutput<RiteFields
   };
 }
 
+// ─── MarianTitleExtractor ────────────────────────────────────────────────────
+export interface MarianTitleFields {
+  marianTitleName: string;
+  background?: string;
+  feastDay?: string;
+  patronage?: string;
+  sourceUrl: string;
+  sourceHost: string;
+}
+
+export function MarianTitleExtractor(input: ExtractorInput): ExtractorOutput<MarianTitleFields> {
+  const body = blockAwareBody(input, ["PARAGRAPH", "LIST_ITEM", "METADATA"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
+  const evidence: FieldProvenance[] = [];
+  const fields: Partial<MarianTitleFields> = { sourceUrl: input.url, sourceHost: input.host };
+  const fatal: string[] = [];
+
+  if (input.title && input.title.trim()) {
+    fields.marianTitleName = input.title.trim();
+    evidence.push(
+      makeProvenance({
+        fieldName: "marianTitleName",
+        sourceUrl: input.url,
+        sourceHost: input.host,
+        snippet: input.title,
+        method: "TITLE_REGEX",
+        confidence: 0.85,
+        checksum: input.checksum,
+      }),
+    );
+  } else {
+    fatal.push("No Marian title found.");
+  }
+
+  // Background: the first substantial sentence describing the title.
+  const bio = matchBody(kept, /([A-Z][^.]{60,400}\.)/);
+  if (bio) {
+    fields.background = bio.value;
+    evidence.push(provenanceFor("background", bio, input));
+  }
+
+  const feast = matchBody(
+    kept,
+    /\bfeast(?:\s+day)?\s+(?:is\s+)?(?:on\s+)?((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2})/i,
+  );
+  if (feast) {
+    fields.feastDay = feast.value;
+    evidence.push(provenanceFor("feastDay", feast, input));
+  }
+
+  const patron = matchBody(
+    kept,
+    /patron(?:ess)?\s+(?:saint\s+)?of\s+([A-Za-z][A-Za-z ,'-]{2,60})/i,
+  );
+  if (patron) {
+    fields.patronage = patron.value;
+    evidence.push(provenanceFor("patronage", patron, input));
+  }
+
+  const required = ["marianTitleName", "background"];
+  const missing = required.filter((f) => !(f in fields));
+  const confidence = (required.length - missing.length) / required.length;
+  return {
+    fields,
+    missingFields: missing,
+    confidenceScore: confidence,
+    sourceEvidence: evidence,
+    rejectedSections: rejected,
+    formatting: {},
+    warnings: [],
+    fatalReasons: fatal,
+  };
+}
+
+// ─── GuideExtractor ──────────────────────────────────────────────────────────
+export interface GuideFields {
+  title: string;
+  body?: string;
+  summary?: string;
+  sourceUrl: string;
+  sourceHost: string;
+}
+
+export function GuideExtractor(input: ExtractorInput): ExtractorOutput<GuideFields> {
+  const body = blockAwareBody(input, ["PARAGRAPH", "HEADING", "LIST_ITEM"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
+  const evidence: FieldProvenance[] = [];
+  const fields: Partial<GuideFields> = { sourceUrl: input.url, sourceHost: input.host };
+  const fatal: string[] = [];
+
+  if (input.title && input.title.trim()) {
+    fields.title = input.title.trim();
+    evidence.push(
+      makeProvenance({
+        fieldName: "title",
+        sourceUrl: input.url,
+        sourceHost: input.host,
+        snippet: input.title,
+        method: "TITLE_REGEX",
+        confidence: 0.85,
+        checksum: input.checksum,
+      }),
+    );
+  } else {
+    fatal.push("No guide title found.");
+  }
+
+  // The guide body must be a substantial prose passage — a single line is
+  // not a guide, so an absent body is fatal (proves junk fails).
+  const prose = matchBody(kept, /([A-Z][\s\S]{120,4000}\.)/);
+  if (prose) {
+    fields.body = prose.value.trim();
+    evidence.push(provenanceFor("body", prose, input));
+    const summary = matchBody(kept, /([A-Z][^.]{40,300}\.)/);
+    if (summary) {
+      fields.summary = summary.value;
+      evidence.push(provenanceFor("summary", summary, input));
+    }
+  } else {
+    fatal.push("No substantial guide body found.");
+  }
+
+  const required = ["title", "body"];
+  const missing = required.filter((f) => !(f in fields));
+  const confidence = (required.length - missing.length) / required.length;
+  return {
+    fields,
+    missingFields: missing,
+    confidenceScore: confidence,
+    sourceEvidence: evidence,
+    rejectedSections: rejected,
+    formatting: {},
+    warnings: [],
+    fatalReasons: fatal,
+  };
+}
+
+// ─── SpiritualPracticeExtractor ──────────────────────────────────────────────
+export interface SpiritualPracticeFields {
+  title: string;
+  body?: string;
+  howToPractice?: string;
+  sourceUrl: string;
+  sourceHost: string;
+}
+
+export function SpiritualPracticeExtractor(
+  input: ExtractorInput,
+): ExtractorOutput<SpiritualPracticeFields> {
+  const body = blockAwareBody(input, ["PARAGRAPH", "LIST_ITEM", "HEADING"]);
+  if (!body) return blank(input, "No body text supplied.");
+  const { kept, rejected } = stripJunk(body);
+  const evidence: FieldProvenance[] = [];
+  const fields: Partial<SpiritualPracticeFields> = {
+    sourceUrl: input.url,
+    sourceHost: input.host,
+  };
+  const fatal: string[] = [];
+
+  if (input.title && input.title.trim()) {
+    fields.title = input.title.trim();
+    evidence.push(
+      makeProvenance({
+        fieldName: "title",
+        sourceUrl: input.url,
+        sourceHost: input.host,
+        snippet: input.title,
+        method: "TITLE_REGEX",
+        confidence: 0.85,
+        checksum: input.checksum,
+      }),
+    );
+  } else {
+    fatal.push("No spiritual-practice title found.");
+  }
+
+  const prose = matchBody(kept, /([A-Z][\s\S]{120,4000}\.)/);
+  if (prose) {
+    fields.body = prose.value.trim();
+    evidence.push(provenanceFor("body", prose, input));
+  } else {
+    fatal.push("No substantial spiritual-practice body found.");
+  }
+
+  // Optional step-by-step instructions ("how to practice").
+  const how = matchBody(
+    kept,
+    /(?:how to (?:practice|pray|begin)|to (?:practice|begin))[:\s]+([A-Za-z][\s\S]{40,800}?\.)/i,
+  );
+  if (how) {
+    fields.howToPractice = how.value.trim();
+    evidence.push(provenanceFor("howToPractice", how, input));
+  }
+
+  const required = ["title", "body"];
+  const missing = required.filter((f) => !(f in fields));
+  const confidence = (required.length - missing.length) / required.length;
+  return {
+    fields,
+    missingFields: missing,
+    confidenceScore: confidence,
+    sourceEvidence: evidence,
+    rejectedSections: rejected,
+    formatting: {},
+    warnings: [],
+    fatalReasons: fatal,
+  };
+}
+
 /** Single dispatcher for picking the right extractor by content type. */
 export function extractByType(
-  type:
-    | "PRAYER"
-    | "SAINT"
-    | "APPARITION"
-    | "DEVOTION"
-    | "NOVENA"
-    | "ROSARY"
-    | "CONSECRATION"
-    | "SACRAMENT"
-    | "CHURCH_DOCUMENT"
-    | "LITURGICAL"
-    | "PARISH"
-    | "POPE"
-    | "DOCTOR"
-    | "RITE",
+  type: ExtractableContentType,
   input: ExtractorInput,
 ): ExtractorOutput {
   switch (type) {
@@ -1480,5 +1678,11 @@ export function extractByType(
       return DoctorExtractor(input) as ExtractorOutput;
     case "RITE":
       return RiteExtractor(input) as ExtractorOutput;
+    case "MARIAN_TITLE":
+      return MarianTitleExtractor(input) as ExtractorOutput;
+    case "GUIDE":
+      return GuideExtractor(input) as ExtractorOutput;
+    case "SPIRITUAL_PRACTICE":
+      return SpiritualPracticeExtractor(input) as ExtractorOutput;
   }
 }

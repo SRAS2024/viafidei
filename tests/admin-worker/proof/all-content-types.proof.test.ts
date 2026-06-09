@@ -285,6 +285,57 @@ Joyful Mysteries
     },
     junk: base({ title: "Gift Shop", bodyText: "" }),
   },
+  {
+    label: "MARIAN_TITLE — title + background + feast day + patronage",
+    type: "MARIAN_TITLE",
+    packageType: "MARIAN_TITLE",
+    pass: base({
+      url: "https://catholic.example/our-lady-of-guadalupe",
+      title: "Our Lady of Guadalupe",
+      bodyText:
+        "Our Lady of Guadalupe is one of the most beloved titles of the Blessed Virgin Mary, honoring her apparition to Saint Juan Diego in 1531 on the hill of Tepeyac near Mexico City, where her image was imprinted on his tilma. Her feast day is December 12. She is the patroness of the Americas.",
+    }),
+    assertFields: (f) => {
+      expect(f.marianTitleName).toBe("Our Lady of Guadalupe");
+      expect(String(f.background)).toMatch(/Blessed Virgin Mary/);
+      expect(f.feastDay).toBe("December 12");
+      expect(String(f.patronage)).toMatch(/Americas/);
+    },
+    junk: base({ title: "Our Lady Gift Shop", bodyText: "" }),
+  },
+  {
+    label: "GUIDE — title + substantial body",
+    type: "GUIDE",
+    packageType: "GUIDE",
+    pass: base({
+      url: "https://catholic.example/guides/examination-of-conscience",
+      title: "A Guide to the Examination of Conscience",
+      bodyText:
+        "An examination of conscience is a prayerful review of one's life since the last confession, measuring thoughts, words, and deeds against the Ten Commandments and the teachings of the Church in order to recognize sin, make a good confession, and grow in holiness. Begin in a quiet place, ask the Holy Spirit for light, and review each commandment slowly with honesty and contrition.",
+    }),
+    assertFields: (f) => {
+      expect(f.title).toBe("A Guide to the Examination of Conscience");
+      expect(String(f.body)).toMatch(/examination of conscience/i);
+    },
+    junk: base({ title: "Guide", bodyText: "" }),
+  },
+  {
+    label: "SPIRITUAL_PRACTICE — title + body + how-to-practice",
+    type: "SPIRITUAL_PRACTICE",
+    packageType: "SPIRITUAL_PRACTICE",
+    pass: base({
+      url: "https://catholic.example/spiritual-practice/lectio-divina",
+      title: "Lectio Divina",
+      bodyText:
+        "Lectio Divina, meaning divine reading, is an ancient monastic practice of prayerfully reading Sacred Scripture so that the word of God may become a means of union with him. The practice unfolds in four movements: reading the passage slowly, meditating on its meaning, praying in response, and resting silently in contemplation. How to practice: choose a short passage, read it aloud, and pause whenever a word or phrase draws your heart toward prayer.",
+    }),
+    assertFields: (f) => {
+      expect(f.title).toBe("Lectio Divina");
+      expect(String(f.body)).toMatch(/Sacred Scripture/);
+      expect(String(f.howToPractice)).toMatch(/short passage/);
+    },
+    junk: base({ title: "Adoration Chapel Hours", bodyText: "" }),
+  },
 ];
 
 describe("admin-worker:proof:all-content-types", () => {

@@ -53,6 +53,9 @@ const ROUTE_PREFIX: Record<string, string> = {
   DOCTOR: "/doctors",
   RITE: "/rites",
   APPARITION: "/our-lady",
+  MARIAN_TITLE: "/our-lady",
+  GUIDE: "/guides",
+  SPIRITUAL_PRACTICE: "/spiritual-life",
 };
 
 /** Junk / placeholder content patterns no published item may contain. */

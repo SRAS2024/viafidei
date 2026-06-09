@@ -255,6 +255,43 @@ const RULES: TypeRule[] = [
     requiredTerms: ["marian", "our lady", "mary"],
   },
   {
+    // A concrete spiritual practice or discipline — Lectio Divina, the
+    // Examen, Eucharistic adoration / a holy hour, mental prayer, fasting,
+    // almsgiving. Listed before GUIDE so a genuine practice page outscores
+    // the generic "guide to ..." rule; an ordinary how-to guide matches none
+    // of these specific markers and falls through to GUIDE.
+    type: "SPIRITUAL_PRACTICE",
+    urlPatterns: [
+      /\/(lectio-divina|examen|adoration|holy-hour|mental-prayer|fasting|almsgiving)/i,
+      /\/spiritual-practice/i,
+    ],
+    titlePatterns: [
+      /lectio divina/i,
+      /\bexamen\b/i,
+      /eucharistic adoration/i,
+      /holy hour/i,
+      /mental prayer/i,
+      /\bfasting\b/i,
+      /\balmsgiving\b/i,
+    ],
+    headingPatterns: [/how to practice/i, /daily practice/i, /examination of conscience/i],
+    bodyPatterns: [
+      /lectio divina/i,
+      /examination of conscience/i,
+      /blessed sacrament/i,
+      /\bfast(?:ing)?\b/i,
+      /\balmsgiving\b/i,
+    ],
+    requiredTerms: [
+      "lectio",
+      "examen",
+      "adoration",
+      "fasting",
+      "almsgiving",
+      "spiritual discipline",
+    ],
+  },
+  {
     type: "GUIDE",
     urlPatterns: [/\/guide/i, /\/spiritual-(life|practice|guide)/i, /\/how-to/i],
     titlePatterns: [/guide to/i, /how to/i, /spiritual life/i, /spiritual practice/i],

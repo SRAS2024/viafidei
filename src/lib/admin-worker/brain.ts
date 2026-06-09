@@ -43,6 +43,7 @@ import type {
 } from "@prisma/client";
 
 import { getAdminWorkerState } from "./state";
+import { EXTRACTABLE_CONTENT_TYPES } from "./content-types";
 import { refreshContentGoals, nextPriorityContentType } from "./content-goals";
 import { recordDecision } from "./decisions";
 import { persistActionScores } from "./action-scores";
@@ -326,9 +327,14 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     nextPriorityContentType(prisma),
     prisma.adminWorkerSourceRead.count({ where: { detectedContentType: null } }),
     prisma.publishedContent.count({ where: { isPublished: true } }).catch(() => 0),
-    // Content-pipeline ladder counts (artifacts by state).
+    // Content-pipeline ladder counts (artifacts by state). Only EXTRACTABLE
+    // reads count toward the extraction backlog (readsAwaitingExtraction):
+    // a read classified UNUSABLE / WRONG (or any type without an extractor)
+    // never produces an artifact, so counting it here would keep
+    // readsAwaitingExtraction permanently > 0 and make the brain score
+    // EXTRACTION forever even though the stage can never advance.
     prisma.adminWorkerSourceRead
-      .count({ where: { detectedContentType: { not: null } } })
+      .count({ where: { detectedContentType: { in: [...EXTRACTABLE_CONTENT_TYPES] } } })
       .catch(() => 0),
     prisma.adminWorkerPackageArtifact
       .count({ where: { sourceReadId: { not: null } } })
