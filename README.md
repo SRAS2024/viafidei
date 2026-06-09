@@ -1519,13 +1519,31 @@ route/sitemap/cache, with a proof-packet step for sensitive Catholic types). If
 a required skill is missing, the plan is **not executable** and the worker files
 a developer request — it never pretends it can do the task.
 
-Today the **extraction pack is certified** for every content type backed by a
-real extractor (`extract_prayer` … `extract_church_history_event`, wrapping the
-deterministic `extractByType`). The source / verification / publishing / repair
-/ homepage / reporting / security / maintenance packs are being added on the
-same contract; until a pack is certified the **capability matrix reports those
-capabilities as MISSING and files developer requests** rather than overstating
-what the worker can do.
+The **source, extraction, verification, and publishing packs are certified**,
+so the full content build plan runs end to end through certified skills:
+
+- **Source** (`source-skills.ts`): `fetch_static_html`, `fetch_text_document`
+  (approved-host fetcher), `read_source_page` (structured blocks),
+  `detect_dynamic_page` (stops JS-only-page loops and files a dynamic-fetcher
+  developer request), `classify_fetch_failure`.
+- **Extraction** (`extraction-skills.ts`): one `extract_<type>` per content type
+  backed by a real extractor, wrapping the deterministic `extractByType`.
+- **Verification** (`verification-skills.ts`): 13 real gates — required fields,
+  citations, source + Catholic authority, claims, epistemic status, duplicate
+  safety, communion risk, route/schema/UI support, ontology links, and the
+  sensitive-content proof packet.
+- **Publishing** (`publishing-skills.ts`): `run_strict_qa`, `publish_content`
+  (the single Publish Orchestrator path — full safety + ten-dimension quality +
+  proof-based publishing; high-risk with a real unpublish rollback),
+  `verify_public_route` / `verify_search_index` / `verify_sitemap` /
+  `verify_cache`, and `rollback_publish`.
+
+The repair / homepage / reporting / security / maintenance packs are being added
+on the same contract; until a pack is certified the **capability matrix reports
+those capabilities as MISSING and files developer requests** rather than
+overstating what the worker can do. The worker registers the skills and
+refreshes the capability matrix on every pass, so the dashboard and Developer
+Audit always reflect live coverage.
 
 ### Durable ledger + capability matrix (Postgres)
 
@@ -1547,12 +1565,15 @@ Migration `0046` adds two tables:
 `/admin/skills` is the **Certified Admin Skill Runtime dashboard**: the
 final-brain state, coverage summary, per-content-type coverage, the blocked
 types (with developer requests filed), the certified-skill catalogue, and recent
-skill executions from the ledger. `npm run admin-worker:proof:skills` proves the
-runtime — final-brain reachability, no silent reversion, safe-degraded publish
-blocking, the skill lifecycle (preflight/execute/verify/rollback/retry/
-idempotency/circuit breaker), the ledger + capability matrix, missing-skill
-developer requests, sensitive-content proof requirement, and honest coverage —
-and runs in `npm run verify:all`.
+skill executions from the ledger. The **Developer Audit PDF** has a matching
+**Certified Admin Skill Runtime** section (the Worker Capability Report:
+certified vs missing vs blocked counts, per-content-type coverage, and recent
+ledger executions). `npm run admin-worker:proof:skills` proves the runtime —
+final-brain reachability, no silent reversion, safe-degraded publish blocking,
+the skill lifecycle (preflight/execute/verify/rollback/retry/idempotency/circuit
+breaker), the ledger + capability matrix, missing-skill developer requests,
+sensitive-content proof requirement, the end-to-end source-to-page build plan,
+and honest coverage — and runs in `npm run verify:all`.
 
 > **Aesthetic consistency.** Every selected filter across the app (the shared
 > `FilterChips`, the admin log tabs, the language / rosary toggles) now fills
