@@ -204,6 +204,27 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
     "evaluate_hypothesis_result": {"hypothesis": {"key": "x"}, "observed": {"met_criteria": True}},
     "accept_or_reject_hypothesis": {"verdict": "SUPPORTED", "confidence": 0.8},
     "store_hypothesis_lesson": {"hypothesis": {"key": "x", "statement": "s", "expected_result": "e"}},
+    # Proof packets
+    "build_proof_packet": {"claim": {"text": "St Francis feast is Oct 4", "contentType": "SAINT"}, "evidence": {"sources": ["vatican.va"], "authorities": ["VATICAN"], "citations": ["c1"]}},
+    "prove_claim_support": {"claim": {"contentType": "SAINT"}, "evidence": {"sources": ["a"], "citations": ["c"]}},
+    "prove_publish_eligibility": {"content_type": "CHURCH_DOCUMENT", "evidence": {"sources": ["vatican.va", "usccb.org"], "authorities": ["VATICAN"], "citations": ["c"], "agreements": 1}},
+    "prove_block_reason": {"content_type": "SAINT", "evidence": {"conflicts": ["date mismatch"]}},
+    "prove_review_requirement": {"content_type": "APPARITION", "evidence": {"sources": ["a", "b"], "authorities": ["DIOCESAN"], "citations": ["c"], "agreements": 1}},
+    "explain_failed_proof": {"content_type": "PAPAL_DOCUMENT", "evidence": {"sources": []}},
+    # Formal logic rules
+    "build_logic_rules": {},
+    "check_invariants": {"state": {"contentType": "CHURCH_DOCUMENT", "title": "x", "authority": "VATICAN", "documentType": "ENCYCLICAL", "citation": "c", "sourceUrl": "u", "route": "/r"}},
+    "evaluate_logic_rule": {"rule_id": "duplicate_block", "state": {"duplicateScore": 0.9, "duplicateThreshold": 0.85}},
+    "detect_rule_conflict": {"state": {"duplicateScore": 0.95, "duplicateThreshold": 0.85}},
+    "prove_rule_satisfaction": {"rule_id": "route_required", "state": {"publicContentType": True, "route": "/x"}},
+    "explain_rule_failure": {"rule_id": "duplicate_block", "state": {"duplicateScore": 0.95}},
+    # Epistemic status
+    "assign_epistemic_status": {"claim": {"text": "x", "authority": "VATICAN", "citations": ["c"], "contentType": "SAINT"}},
+    "update_epistemic_status": {"claim": {"text": "x", "authority": "USCCB", "citations": ["c"], "agreements": 1}},
+    "explain_uncertainty": {"claim": {"text": "x", "authority": "COMMUNITY"}},
+    "detect_overconfidence": {"claim": {"text": "x", "confidence": 0.9, "authority": "COMMUNITY"}},
+    "require_more_evidence": {"claim": {"text": "x", "authority": "ACADEMIC"}},
+    "rank_claim_certainty": {"claims": [{"text": "a", "authority": "VATICAN", "citations": ["c"]}, {"text": "b", "authority": "COMMUNITY"}]},
     "extract_knowledge": {
         "text": "Saint Thérèse of Lisieux was born in 1873 and canonized in 1925. See Jn 3:16. https://www.vatican.va/x",
     },
