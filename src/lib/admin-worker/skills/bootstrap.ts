@@ -9,6 +9,7 @@
 
 import { registerSkills, clearRegistry } from "./registry";
 import { extractionSkills } from "./extraction-skills";
+import { verificationSkills } from "./verification-skills";
 import type { CertifiedSkill } from "./types";
 
 let registered = false;
@@ -19,6 +20,7 @@ export function ensureSkillsRegistered(): void {
   // the registry + executor treat the output as unknown (verify/rollback read it
   // structurally), so we erase the output type at the registration boundary.
   registerSkills(extractionSkills as unknown as CertifiedSkill[]);
+  registerSkills(verificationSkills as unknown as CertifiedSkill[]);
   registered = true;
 }
 
