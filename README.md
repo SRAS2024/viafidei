@@ -1538,11 +1538,37 @@ so the full content build plan runs end to end through certified skills:
   `verify_public_route` / `verify_search_index` / `verify_sitemap` /
   `verify_cache`, and `rollback_publish`.
 
-The repair / homepage / reporting / security / maintenance packs are being added
-on the same contract; until a pack is certified the **capability matrix reports
-those capabilities as MISSING and files developer requests** rather than
-overstating what the worker can do. The worker registers the skills and
-refreshes the capability matrix on every pass, so the dashboard and Developer
+The **repair, homepage, reporting, security, and maintenance packs are also
+certified** — **85 certified skills** across all nine categories:
+
+- **Repair** (`repair-skills.ts`): infra repairs flag a real cache / sitemap /
+  search refresh; content-field repairs file a durable, targeted repair plan the
+  orchestrator executes.
+- **Homepage + reporting** (`homepage-skills.ts`): `create_homepage_draft` runs
+  a real makeover and files an AWAITING_REVIEW draft to preview / publish /
+  discard (the live homepage is never mutated autonomously); refresh + verify
+  daily readings; `generate_developer_report` / `generate_monthly_report` /
+  `run_diagnostics`.
+- **Security + maintenance** (`security-skills.ts`): `run_security_defense` plus
+  database / brain / public-site / admin-surface health checks, stale-job
+  cleanup, repair-plan closure, and capability-matrix refresh — most allowed in
+  safe degraded mode.
+
+**Content subtitles** are generated, stored, and rendered: a deterministic
+`generateContentSubtitle` produces an accurate type/subtype-aware subtitle
+(Doctor → "Bishop, Doctor of the Church"; encyclical → "Encyclical of Pope Leo
+XIII"), `PublishedContent.subtitle` (migration `0047`) stores it, the
+`publish_content_subtitle` skill writes it during the build, and
+`PublishedDetail` renders it under the title.
+
+Anything still without a certified skill (e.g. PDF + discovery packs, and the
+content types with no extractor — creed, diocese, religious order, homepage
+block) is reported **MISSING** and a developer request is filed, rather than
+overstating what the worker can do. A **no-placeholder enforcement** test proves
+every certified skill has real preflight / execution / verification / declared
+tests, and that the matrix never marks a capability CERTIFIED without a
+resolvable skill. The worker registers the skills and refreshes the capability
+matrix on every pass, so the dashboard and Developer
 Audit always reflect live coverage.
 
 ### Durable ledger + capability matrix (Postgres)
