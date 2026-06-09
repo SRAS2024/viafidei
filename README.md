@@ -259,16 +259,17 @@ Optional environment variables:
 
 **Admin Worker (autonomous system):**
 
-| Card                | Route                           | Purpose                                                                                                                                                             |
-| ------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Command Center      | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls                                                                    |
-| System diagnostics  | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF                                                                                |
-| Worker Reasoning    | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph                                                                     |
-| Pipeline map        | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                                                                                                  |
-| Package artifacts   | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                                                                                               |
-| Admin Worker logs   | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                                                                                               |
-| Admin Worker rules  | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                                                                                            |
-| Worker Intelligence | `/admin/intelligence`           | Live capability dashboard: brain status, self-model, capability strengths/weaknesses, memory, source reliability, decisions, self-explanations, stuckness, upgrades |
+| Card                | Route                           | Purpose                                                                                                                                                                                                                                       |
+| ------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command Center      | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls                                                                                                                                              |
+| System diagnostics  | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF                                                                                                                                                          |
+| Worker Reasoning    | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph                                                                                                                                               |
+| Pipeline map        | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                                                                                                                                                                            |
+| Package artifacts   | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                                                                                                                                                                         |
+| Admin Worker logs   | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                                                                                                                                                                         |
+| Admin Worker rules  | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                                                                                                                                                                      |
+| Worker Intelligence | `/admin/intelligence`           | Live capability dashboard: brain status, self-model, capability strengths/weaknesses, memory, source reliability, decisions, self-explanations, stuckness, upgrades                                                                           |
+| Intelligence Lab    | `/admin/intelligence/lab`       | Intelligence Laboratory surfaces: highest-leverage change, causal/root-cause, hypotheses, experiments, proof packets, strategy tournaments, benchmarks + brain versions, capability proposals, adversarial weaknesses, architecture integrity |
 
 The public **daily readings** page lives at `/liturgy/readings?date=…` (the
 homepage + liturgical calendar link to it), and the worker owns it end to end.
@@ -1226,10 +1227,16 @@ auto-recovery, and concurrent id-multiplexing.
   view. This does not select the action — it is a supplementary signal.
 - **Publish gate** (`publish-orchestrator.ts`): a **communion-risk** screen
   routes risky content to review, a **semantic-duplicate** gate blocks
-  near-duplicates the slug/canonical checks miss, and the **12-member
+  near-duplicates the slug/canonical checks miss, the **12-member
   specialist panel** (`specialist_reviews`) routes a candidate to review when a
   blocking specialist objects (e.g. an uncited sensitive type, a security or
-  duplicate flag) — all before the existing quality/QA gates.
+  duplicate flag), and a **proof-based publishing** gate (`proof-publishing.ts`)
+  holds the sensitive Catholic categories (apparitions, doctrine, papal /
+  council documents, canon law, liturgical norms, …) to a **passing proof
+  packet** (`build_proof_packet` + `check_invariants`) before they may go
+  public — **fail-closed**: if the proof can't be built, the item routes to
+  human review rather than publishing. All of these run before the existing
+  quality/QA gates.
 - **Source reading** (`source-reader.ts`): on every new read the brain runs
   **Catholic content extraction** (`identify_document_type` +
   `extract_structured_catholic_document`) over the source text — document type
@@ -1392,6 +1399,25 @@ history), `AdminWorkerTestGapRecord` (test-gap records), and
 `AdminWorkerStucknessRecord` (stuckness records). The worker writes these as the
 source of truth each pass; the dashboard and Developer Audit read from them.
 
+Intelligence Laboratory store (migration `0045`) — **26** `Lab*` tables, one
+group per lab capability, so the lab's reasoning is durable and auditable rather
+than ephemeral: causal model (`LabCausalGraph`, `LabCausalFactor`),
+counterfactuals (`LabCounterfactualRun`), safe experiments (`LabExperimentPlan`,
+`LabExperimentResult`), hypotheses (`LabHypothesis`), proof packets
+(`LabProofPacket`), formal logic rules (`LabLogicRule`, `LabRuleEvaluation`),
+Catholic ontology (`LabCatholicOntologyNode`, `LabCatholicOntologyEdge`),
+claim/epistemic status (`LabClaimRecord`, `LabClaimEvidence`,
+`LabEpistemicStatusHistory`), strategy tournaments (`LabStrategyCandidate`,
+`LabStrategyTournament`), benchmark arena + brain-version scores
+(`LabBenchmarkCase`, `LabBenchmarkRun`, `LabBrainVersionScore`), digital twin
+(`LabDigitalTwinScenario`, `LabDigitalTwinRun`), capability invention
+(`LabCapabilityProposal`), self-generated curriculum (`LabCurriculumCase`,
+`LabCurriculumRun`), adversarial self-testing (`LabAdversarialCase`), and the
+architecture governor (`LabArchitectureIntegrityReport`). The loose-coupling
+convention (no cross-FKs, string refs to passes / brain-calls, JSON payloads)
+matches the other audit-store tables; `intelligence-lab-store.ts` owns every
+read/write and the `/admin/intelligence/lab` dashboard renders them.
+
 ### Admin surface
 
 `/admin/intelligence` is a **live capability dashboard**: brain status +
@@ -1401,7 +1427,17 @@ duplicate counts, architecture layers, largest modules), a deterministic
 **capability strengths/weaknesses** map, the **top self-requested upgrades**,
 **multi-layer memory** by type, learned **source reliability**, recent
 decisions with confidence + risk, recent **self-explanations**,
-**stuckness/blocker** signals, communion-risk flags, and the operation mix.
+**stuckness/blocker** signals, communion-risk flags, and the operation mix. It
+links to the **Intelligence Laboratory** sub-dashboard.
+
+`/admin/intelligence/lab` is the **Intelligence Laboratory** dashboard — 20
+read-only surfaces over the `Lab*` store: the highest-leverage next change,
+architecture-integrity reports, proof packets (+ failed-proof count), active
+hypotheses, strategy tournaments, benchmark + brain-version scores,
+review-gated capability proposals, adversarial weaknesses, counterfactual
+insights, experiments, digital-twin runs, curriculum progress, logic-rule
+failures, and claim epistemic statuses. Every panel is guarded so the page
+renders even before the lab has recorded anything.
 
 ### Commands
 
