@@ -2449,3 +2449,379 @@ model DailyReading {
   @@index([status])
   @@index([date])
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Intelligence Laboratory durable store (spec item 19). One table per lab
+// artifact, following the worker's loose-coupling audit convention: no hard
+// FKs — passId / brainCallId / missionId / developerRequestId are string
+// references so rows are auditable + replayable and connected to worker passes,
+// brain calls, missions, developer requests, and admin review. `payload` holds
+// the full structured brain envelope for replay. Names are `Lab`-prefixed to
+// group them as the Intelligence Laboratory store (CausalGraph, Hypothesis, …).
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LabCausalGraph {
+  id        String   @id @default(cuid())
+  passId    String?
+  brainCallId String?
+  factorCount Int    @default(0)
+  edgeCount Int      @default(0)
+  payload   Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([passId])
+  @@index([createdAt])
+}
+
+model LabCausalFactor {
+  id         String   @id @default(cuid())
+  graphId    String?
+  factor     String
+  effect     String?
+  mechanism  String?
+  strength   Float    @default(0)
+  intervention String?
+  leverage   Float    @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([graphId])
+  @@index([factor])
+}
+
+model LabCounterfactualRun {
+  id           String   @id @default(cuid())
+  passId       String?
+  decisionId   String?
+  brainCallId  String?
+  actualValue  Float    @default(0)
+  bestAlternative String?
+  regret       Float    @default(0)
+  payload      Json     @default("{}")
+  createdAt    DateTime @default(now())
+
+  @@index([passId])
+  @@index([decisionId])
+  @@index([createdAt])
+}
+
+model LabExperimentPlan {
+  id          String   @id @default(cuid())
+  passId      String?
+  question    String
+  metric      String?
+  groups      String[] @default([])
+  samplePerGroup Int   @default(0)
+  bounded     Boolean  @default(true)
+  publishes   Boolean  @default(false)
+  status      String   @default("DESIGNED")
+  /// "DESIGNED" | "RUNNING" | "COMPLETE" | "ABANDONED"
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model LabExperimentResult {
+  id          String   @id @default(cuid())
+  planId      String?
+  leader      String?
+  margin      Float    @default(0)
+  conclusive  Boolean  @default(false)
+  lesson      String?
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([planId])
+  @@index([createdAt])
+}
+
+model LabHypothesis {
+  id           String   @id @default(cuid())
+  passId       String?
+  hkey         String
+  statement    String
+  evidence     String[] @default([])
+  confidence   Float    @default(0)
+  impact       Float    @default(0)
+  expectedResult String?
+  experimentPlan String?
+  successCriteria String?
+  status       String   @default("PROPOSED")
+  /// "PROPOSED" | "TESTING" | "SUPPORTED" | "NOT_SUPPORTED" | "ACCEPTED" | "REJECTED"
+  verdict      String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([hkey])
+}
+
+model LabProofPacket {
+  id          String   @id @default(cuid())
+  passId      String?
+  contentId   String?
+  contentType String?
+  claim       String?
+  sensitive   Boolean  @default(false)
+  conditionsSatisfied String[] @default([])
+  conditionsFailed    String[] @default([])
+  riskLevel   String   @default("low")
+  recommendedAction String?
+  /// "publish" | "review" | "block"
+  humanReviewRequired Boolean @default(false)
+  proven      Boolean  @default(false)
+  whatWouldChange String[] @default([])
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([passId])
+  @@index([contentId])
+  @@index([recommendedAction])
+  @@index([createdAt])
+}
+
+model LabLogicRule {
+  id          String   @id @default(cuid())
+  ruleId      String   @unique
+  description String
+  category    String?
+  createdAt   DateTime @default(now())
+}
+
+model LabRuleEvaluation {
+  id          String   @id @default(cuid())
+  passId      String?
+  contentId   String?
+  ruleId      String
+  applies     Boolean  @default(true)
+  ok          Boolean  @default(true)
+  detail      String?
+  createdAt   DateTime @default(now())
+
+  @@index([ruleId])
+  @@index([ok])
+  @@index([contentId])
+}
+
+model LabCatholicOntologyNode {
+  id         String   @id @default(cuid())
+  entityType String
+  name       String?
+  contentId  String?
+  payload    Json     @default("{}")
+  createdAt  DateTime @default(now())
+
+  @@index([entityType])
+  @@index([contentId])
+}
+
+model LabCatholicOntologyEdge {
+  id          String   @id @default(cuid())
+  subjectType String
+  relation    String
+  objectType  String
+  subjectId   String?
+  objectId    String?
+  valid       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([subjectType])
+  @@index([relation])
+}
+
+model LabClaimRecord {
+  id           String   @id @default(cuid())
+  passId       String?
+  contentId    String?
+  text         String
+  subject      String?
+  predicate    String?
+  value        String?
+  source       String?
+  authorityLevel String?
+  confidence   Float    @default(0)
+  epistemicStatus String @default("UNCERTAIN")
+  reviewRequired Boolean @default(false)
+  whatWouldChange String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([epistemicStatus])
+  @@index([contentId])
+}
+
+model LabClaimEvidence {
+  id          String   @id @default(cuid())
+  claimId     String
+  kind        String
+  /// "source" | "authority" | "citation" | "agreement" | "conflict"
+  detail      String?
+  authorityLevel String?
+  createdAt   DateTime @default(now())
+
+  @@index([claimId])
+  @@index([kind])
+}
+
+model LabEpistemicStatusHistory {
+  id          String   @id @default(cuid())
+  claimId     String
+  fromStatus  String?
+  toStatus    String
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  @@index([claimId])
+  @@index([createdAt])
+}
+
+model LabStrategyCandidate {
+  id          String   @id @default(cuid())
+  tournamentId String?
+  name        String
+  score       Float    @default(0)
+  dimensions  Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([tournamentId])
+  @@index([name])
+}
+
+model LabStrategyTournament {
+  id          String   @id @default(cuid())
+  passId      String?
+  winner      String?
+  margin      Float    @default(0)
+  rationale   String?
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([passId])
+  @@index([createdAt])
+}
+
+model LabBenchmarkCase {
+  id          String   @id @default(cuid())
+  task        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model LabBenchmarkRun {
+  id          String   @id @default(cuid())
+  brainVersion String?
+  overall     Float    @default(0)
+  weakest     Json     @default("[]")
+  regression  Boolean  @default(false)
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([brainVersion])
+  @@index([createdAt])
+}
+
+model LabBrainVersionScore {
+  id          String   @id @default(cuid())
+  version     String
+  score       Float    @default(0)
+  metrics     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([version])
+  @@index([createdAt])
+}
+
+model LabDigitalTwinScenario {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([name])
+}
+
+model LabDigitalTwinRun {
+  id            String   @id @default(cuid())
+  passId        String?
+  scenarioCount Int      @default(0)
+  touchesProduction Boolean @default(false)
+  fidelity      Float    @default(0)
+  payload       Json     @default("{}")
+  createdAt     DateTime @default(now())
+
+  @@index([passId])
+  @@index([createdAt])
+}
+
+model LabCapabilityProposal {
+  id            String   @id @default(cuid())
+  passId        String?
+  developerRequestId String?
+  name          String
+  problem       String?
+  expectedIntelligenceGain Float @default(0)
+  expectedGrowthGain Float  @default(0)
+  expectedSafetyGain Float  @default(0)
+  difficulty    Float    @default(0)
+  risk          Float    @default(0)
+  reviewRequired Boolean  @default(true)
+  status        String   @default("PROPOSED")
+  /// "PROPOSED" | "APPROVED" | "REJECTED" | "MERGED"
+  payload       Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([name])
+}
+
+model LabCurriculumCase {
+  id          String   @id @default(cuid())
+  skill       String
+  level       String
+  difficulty  Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([skill])
+}
+
+model LabCurriculumRun {
+  id          String   @id @default(cuid())
+  passId      String?
+  overall     Float    @default(0)
+  skillScores Json     @default("{}")
+  plateaus    String[] @default([])
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model LabAdversarialCase {
+  id          String   @id @default(cuid())
+  name        String
+  targetGate  String?
+  held        Boolean  @default(false)
+  regressionRequested Boolean @default(false)
+  developerRequestId String?
+  payload     Json     @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([targetGate])
+  @@index([held])
+}
+
+model LabArchitectureIntegrityReport {
+  id          String   @id @default(cuid())
+  passId      String?
+  integrity   Float    @default(1)
+  clean       Boolean  @default(true)
+  violations  Json     @default("[]")
+  createdAt   DateTime @default(now())
+
+  @@index([clean])
+  @@index([createdAt])
+}
+

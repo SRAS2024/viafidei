@@ -34,7 +34,7 @@ source intelligence with a **Catholic authority graph** + **communion-risk**
 screening, **claim-level verification**, quality + **specialist-panel** review,
 action **simulation**, **confidence calibration**, knowledge-graph and
 schema/UI awareness, a whole-app **self-model**, repair + **stuckness**
-analysis, learning, and self-inspection (135 operations).
+analysis, learning, and self-inspection (233 operations).
 The split is **TypeScript = the body** (execution, Prisma/DB, queues,
 policy, publishing, safety, app + admin integration), **Python = the brain**
 (it analyses and recommends through strict typed contracts; it never touches
@@ -259,16 +259,17 @@ Optional environment variables:
 
 **Admin Worker (autonomous system):**
 
-| Card                | Route                           | Purpose                                                                                                                                                             |
-| ------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Command Center      | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls                                                                    |
-| System diagnostics  | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF                                                                                |
-| Worker Reasoning    | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph                                                                     |
-| Pipeline map        | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                                                                                                  |
-| Package artifacts   | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                                                                                               |
-| Admin Worker logs   | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                                                                                               |
-| Admin Worker rules  | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                                                                                            |
-| Worker Intelligence | `/admin/intelligence`           | Live capability dashboard: brain status, self-model, capability strengths/weaknesses, memory, source reliability, decisions, self-explanations, stuckness, upgrades |
+| Card                | Route                           | Purpose                                                                                                                                                                                                                                       |
+| ------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command Center      | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls                                                                                                                                              |
+| System diagnostics  | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF                                                                                                                                                          |
+| Worker Reasoning    | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph                                                                                                                                               |
+| Pipeline map        | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                                                                                                                                                                            |
+| Package artifacts   | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                                                                                                                                                                         |
+| Admin Worker logs   | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                                                                                                                                                                         |
+| Admin Worker rules  | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                                                                                                                                                                      |
+| Worker Intelligence | `/admin/intelligence`           | Live capability dashboard: brain status, self-model, capability strengths/weaknesses, memory, source reliability, decisions, self-explanations, stuckness, upgrades                                                                           |
+| Intelligence Lab    | `/admin/intelligence/lab`       | Intelligence Laboratory surfaces: highest-leverage change, causal/root-cause, hypotheses, experiments, proof packets, strategy tournaments, benchmarks + brain versions, capability proposals, adversarial weaknesses, architecture integrity |
 
 The public **daily readings** page lives at `/liturgy/readings?date=…` (the
 homepage + liturgical calendar link to it), and the worker owns it end to end.
@@ -1122,7 +1123,7 @@ automatically; the brain only recommends (human-review gated). The legacy
 summary-only code-awareness path (`analyze_code` / `runCodeAwareness` /
 `inspectCode`) was removed outright.
 
-### Unified brain capabilities (135 operations)
+### Unified brain capabilities (233 operations)
 
 Beyond the self-model, the unified brain reasons across these areas — every
 operation returns the same strict envelope (`ok`, `result`, `confidence`,
@@ -1226,10 +1227,16 @@ auto-recovery, and concurrent id-multiplexing.
   view. This does not select the action — it is a supplementary signal.
 - **Publish gate** (`publish-orchestrator.ts`): a **communion-risk** screen
   routes risky content to review, a **semantic-duplicate** gate blocks
-  near-duplicates the slug/canonical checks miss, and the **12-member
+  near-duplicates the slug/canonical checks miss, the **12-member
   specialist panel** (`specialist_reviews`) routes a candidate to review when a
   blocking specialist objects (e.g. an uncited sensitive type, a security or
-  duplicate flag) — all before the existing quality/QA gates.
+  duplicate flag), and a **proof-based publishing** gate (`proof-publishing.ts`)
+  holds the sensitive Catholic categories (apparitions, doctrine, papal /
+  council documents, canon law, liturgical norms, …) to a **passing proof
+  packet** (`build_proof_packet` + `check_invariants`) before they may go
+  public — **fail-closed**: if the proof can't be built, the item routes to
+  human review rather than publishing. All of these run before the existing
+  quality/QA gates.
 - **Source reading** (`source-reader.ts`): on every new read the brain runs
   **Catholic content extraction** (`identify_document_type` +
   `extract_structured_catholic_document`) over the source text — document type
@@ -1290,6 +1297,86 @@ Python brain selects it whenever it is online (the default); otherwise the
 worker enters safe degraded mode and never falls back to a TypeScript final
 brain.
 
+### Intelligence Laboratory (causal + experimental self-evaluation)
+
+The Intelligence Laboratory is a **complete expansion of the one unified
+brain** — not a sidecar, second brain, or optional add-on. Every capability is
+a registered brain operation behind the same strict envelope contract and the
+same TS↔Python parity test; TypeScript stays the safe execution / validation /
+persistence / enforcement layer, and **human review remains required for code
+changes, schema changes, production deployment, and review-gated
+self-improvement.** The lab is wired into the worker loop as a throttled,
+fail-open, **advisory** pass (`intelligence-lab.ts`) that records its findings
+to the audit trail and routes any code/schema/architecture recommendation
+through a developer request — it never deploys, mutates schema, or publishes.
+
+- **Causal Intelligence Core** (`causal.py`): reasons about _why_, not just
+  what. A curated causal model of the pipeline (cause → effect edges with
+  mechanism, strength, and the breaking intervention) powers
+  `build_causal_graph`, `infer_causal_factors`, `explain_root_cause`,
+  `detect_causal_chain`, `rank_causal_factors`, `update_causal_model`,
+  `explain_causal_model` — e.g. it traces _mission stagnation_ back through
+  publish delay → strict-QA failure → missing fields → extraction difficulty →
+  **source type**, and names the exact fix.
+- **Counterfactual reasoning** (`counterfactual.py`): estimates what another
+  choice would have done (different source/type, repair-first, human review,
+  pause + switch) and the regret, to improve future action choice.
+- **Safe experiments** (`experiments.py`): bounded (≤10/group), measure-only,
+  reversible A/B trials — design / run-bounds-check / compare / evaluate /
+  extract-lesson / follow-up. They never bypass the publish gates.
+- **Hypothesis engine** (`hypotheses.py`): forms, ranks, tests, and evaluates
+  explanations for success/failure, each with evidence, confidence, an
+  experiment plan, and success criteria.
+- **Proof packets** (`proof.py`): evidence-based proof for sensitive decisions
+  (source / authority / citation / agreement / conflict → conditions
+  satisfied vs failed → risk → action → review → what-would-change). Sensitive
+  Catholic categories require a passing proof packet to publish.
+- **Formal logic rules** (`logic_rules.py`): the app's critical invariants as
+  checkable predicates (doctrinal trusted-support, communion-risk block,
+  feast/calendar match, document/saint/papal completeness, duplicate block,
+  route-required, mission-growth, developer-request evidence) +
+  conflict detection where a hard block always wins.
+- **Catholic ontology** (`catholic_ontology.py`): a 38-type entity taxonomy +
+  relationship grammar (pope authored encyclical, saint is_a doctor, apparition
+  has_status, feast varies_by rite, sacrament = one of seven, …) for
+  classifying, linking, validating, and inferring Catholic relationships.
+- **Epistemic status** (`epistemic.py`): every claim is graded Certain →
+  Well-supported → Likely → Uncertain → Conflicting → Needs-more-evidence →
+  Requires-human-review → Blocked, with overconfidence detection so the worker
+  never treats a weak claim like a verified one.
+- **Strategy tournament** (`strategy.py`): scores candidate long-term
+  strategies on 15 dimensions (growth, source quality, Catholic safety risk,
+  parser difficulty, maintainability, …) and explains why the winner beats the
+  alternatives.
+- **Benchmark arena + brain-version comparison** (`benchmark.py`): a 25-task
+  arena + 15 version metrics, so an upgrade can be _proven_ better or worse;
+  benchmark/version regressions block auto-adoption.
+- **Digital twin** (`digital_twin.py`): a simulated worker environment for safe
+  practice — every op asserts production is untouched and nothing publishes.
+- **Capability invention** (`capability.py`): full review-gated capability
+  proposals (problem, evidence, gains, affected files/models/ops/stages,
+  contracts, tests, migrations, difficulty, risk, rollback) — invented, not
+  just listed.
+- **Self-generated curriculum** (`curriculum.py`): progressively harder
+  self-training + plateau detection + training-focus recommendations.
+- **Adversarial self-testing** (`adversarial.py`): a 20-case library that
+  attacks the worker's own gates; every exposed weakness becomes a
+  review-gated regression-test request.
+- **Architecture governor** (`architecture.py`): 18 architecture invariants
+  (no competing paths, no legacy fallback, no untested stage, no route-less
+  public type, no unproven sensitive publish, no untested/uncontracted op, no
+  unreviewed patch, …) that keep the one unified brain unified and surface
+  drift to the dashboard.
+- **Highest-leverage change ranking** (`leverage.py`): ranks interventions by
+  value ÷ cost and explains the single most valuable change — not a wish list.
+
+**Review-gated adoption.** Lab recommendations flow through: developer request →
+evidence pack → capability proposal → test plan → (optional patch proposal) →
+risk review → **human approval** → tests → merge → post-merge benchmark
+comparison. Code/schema/architecture changes always require human review; only
+safe ranking/learning/memory/source-reputation adjustments may be adopted
+automatically under TypeScript policy.
+
 ### Postgres tables (Postgres owns the durable memory + audit store)
 
 Core intelligence stores (migration `0038`): `AdminWorkerEmbedding`
@@ -1312,6 +1399,25 @@ history), `AdminWorkerTestGapRecord` (test-gap records), and
 `AdminWorkerStucknessRecord` (stuckness records). The worker writes these as the
 source of truth each pass; the dashboard and Developer Audit read from them.
 
+Intelligence Laboratory store (migration `0045`) — **26** `Lab*` tables, one
+group per lab capability, so the lab's reasoning is durable and auditable rather
+than ephemeral: causal model (`LabCausalGraph`, `LabCausalFactor`),
+counterfactuals (`LabCounterfactualRun`), safe experiments (`LabExperimentPlan`,
+`LabExperimentResult`), hypotheses (`LabHypothesis`), proof packets
+(`LabProofPacket`), formal logic rules (`LabLogicRule`, `LabRuleEvaluation`),
+Catholic ontology (`LabCatholicOntologyNode`, `LabCatholicOntologyEdge`),
+claim/epistemic status (`LabClaimRecord`, `LabClaimEvidence`,
+`LabEpistemicStatusHistory`), strategy tournaments (`LabStrategyCandidate`,
+`LabStrategyTournament`), benchmark arena + brain-version scores
+(`LabBenchmarkCase`, `LabBenchmarkRun`, `LabBrainVersionScore`), digital twin
+(`LabDigitalTwinScenario`, `LabDigitalTwinRun`), capability invention
+(`LabCapabilityProposal`), self-generated curriculum (`LabCurriculumCase`,
+`LabCurriculumRun`), adversarial self-testing (`LabAdversarialCase`), and the
+architecture governor (`LabArchitectureIntegrityReport`). The loose-coupling
+convention (no cross-FKs, string refs to passes / brain-calls, JSON payloads)
+matches the other audit-store tables; `intelligence-lab-store.ts` owns every
+read/write and the `/admin/intelligence/lab` dashboard renders them.
+
 ### Admin surface
 
 `/admin/intelligence` is a **live capability dashboard**: brain status +
@@ -1321,7 +1427,17 @@ duplicate counts, architecture layers, largest modules), a deterministic
 **capability strengths/weaknesses** map, the **top self-requested upgrades**,
 **multi-layer memory** by type, learned **source reliability**, recent
 decisions with confidence + risk, recent **self-explanations**,
-**stuckness/blocker** signals, communion-risk flags, and the operation mix.
+**stuckness/blocker** signals, communion-risk flags, and the operation mix. It
+links to the **Intelligence Laboratory** sub-dashboard.
+
+`/admin/intelligence/lab` is the **Intelligence Laboratory** dashboard — 20
+read-only surfaces over the `Lab*` store: the highest-leverage next change,
+architecture-integrity reports, proof packets (+ failed-proof count), active
+hypotheses, strategy tournaments, benchmark + brain-version scores,
+review-gated capability proposals, adversarial weaknesses, counterfactual
+insights, experiments, digital-twin runs, curriculum progress, logic-rule
+failures, and claim epistemic statuses. Every panel is guarded so the page
+renders even before the lab has recorded anything.
 
 ### Commands
 

@@ -8,6 +8,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { liveProbeEnabled } from "@/lib/admin-worker/search-sitemap-cache-verifiers";
+// Hoisted to module scope on purpose: the admin-worker barrel transitively
+// loads the whole pipeline, so its first-time transform/evaluation is heavy.
+// Paying that cost once here (during file load) instead of inside a timed test
+// body keeps the export-surface assertion below from intermittently tripping
+// the per-test timeout under full-suite parallel load.
+import * as adminWorkerBarrel from "@/lib/admin-worker";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -127,8 +133,8 @@ describe("full quality model is the only active publish gate", () => {
     expect(row.renderScore).toBeUndefined();
   });
 
-  it("the only quality scorer is the full model — no reduced / V2 variants remain", async () => {
-    const mod = (await import("@/lib/admin-worker")) as Record<string, unknown>;
+  it("the only quality scorer is the full model — no reduced / V2 variants remain", () => {
+    const mod = adminWorkerBarrel as unknown as Record<string, unknown>;
     expect(typeof mod.computeFinalScore).toBe("function");
     expect(typeof mod.recordQualityScore).toBe("function");
     expect(mod.computeFinalScoreV2).toBeUndefined();

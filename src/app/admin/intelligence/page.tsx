@@ -508,9 +508,14 @@ export default async function AdminIntelligencePage() {
             source intelligence, calibration, and the upgrades it is asking for.
           </p>
         </div>
-        <Link className="text-indigo-600 underline" href="/admin">
-          ← dashboard
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link className="text-indigo-600 underline" href="/admin/intelligence/lab">
+            Intelligence Laboratory →
+          </Link>
+          <Link className="text-indigo-600 underline" href="/admin">
+            ← dashboard
+          </Link>
+        </div>
       </header>
 
       {/* Brain status */}

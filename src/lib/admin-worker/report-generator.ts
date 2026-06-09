@@ -19,6 +19,7 @@ import type { AdminDeveloperReportPeriod, PrismaClient } from "@prisma/client";
 import { listAdminWorkerLogs } from "./logs";
 import { listRecentPasses } from "./passes";
 import { runAdminWorkerDiagnostics, summarizeRatings } from "./diagnostics";
+import { collectIntelligenceLabData, type IntelligenceLabData } from "./intelligence-lab-store";
 
 const SECRET_KEYS = [
   "password",
@@ -255,6 +256,12 @@ export interface DeveloperAuditData {
     occurrences: number;
     source: string | null;
   }>;
+  /** Intelligence Laboratory summary (spec: "The Developer Audit report should
+   *  include a major Intelligence Laboratory section"): top root causes, active
+   *  hypotheses, proof packets + failed proofs, logic-rule failures, strategy
+   *  tournaments, benchmark/version changes, capability proposals, adversarial
+   *  weaknesses, architecture integrity, and the highest-leverage next change. */
+  intelligenceLab: IntelligenceLabData;
 }
 
 export async function collectDeveloperAuditData(
@@ -639,10 +646,13 @@ export async function collectDeveloperAuditData(
     }
   })();
 
+  const intelligenceLab = await collectIntelligenceLabData(prisma, { limit: 10 });
+
   return {
     generatedAt: new Date(),
     period,
     pythonBrainDiagnostics,
+    intelligenceLab,
     workerRequests: workerRequestsRaw,
     diagnosticsResults,
     diagnosticsSummary: summarizeRatings(diagnosticsResults),
@@ -838,6 +848,7 @@ export const DEVELOPER_AUDIT_SECTIONS = [
   "Rejected Alternatives",
   "Reasoning Graph",
   "Mission Plans",
+  "Intelligence Laboratory",
   "Pipeline Stage History",
   "Content Goal Progress",
   "Content Growth Funnel",

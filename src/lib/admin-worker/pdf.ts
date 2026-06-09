@@ -901,6 +901,188 @@ export async function generateAdminWorkerDeveloperAuditPdf(
       }
     }
 
+    // ─── Intelligence Laboratory (spec: "the Developer Audit report should
+    //     include a major Intelligence Laboratory section"): causal/root-cause,
+    //     proof packets, hypotheses, strategy tournaments, benchmarks + brain
+    //     versions, capability proposals, adversarial weaknesses, architecture
+    //     integrity, and the single highest-leverage next change. Everything here
+    //     is advisory + review-gated — the lab reasons, proves, benchmarks, and
+    //     ranks, but never deploys code, mutates schema, or publishes. ──────────
+    if (has("Intelligence Laboratory")) {
+      const lab = data.intelligenceLab;
+      builder.section("Intelligence Laboratory");
+      builder.paragraph(
+        "The unified brain's causal + experimental self-evaluation. Every finding " +
+          "here is advisory and review-gated: humans approve code, schema, and " +
+          "production changes — the lab only recommends.",
+      );
+      builder.keyValue([
+        {
+          label: "Highest-leverage next change",
+          value: lab.highestLeverage ?? "— (awaiting next lab pass)",
+        },
+        {
+          label: "Architecture integrity",
+          value:
+            lab.latestArchitectureIntegrity == null
+              ? "not yet evaluated"
+              : `${(lab.latestArchitectureIntegrity * 100).toFixed(0)}% · ` +
+                `${lab.architectureReports.length} report(s)`,
+        },
+        { label: "Proof packets on record", value: String(lab.proofPackets.length) },
+        { label: "Failed proofs", value: String(lab.failedProofCount) },
+        { label: "Active hypotheses", value: String(lab.hypotheses.length) },
+        {
+          label: "Capability proposals (review-gated)",
+          value: String(lab.capabilityProposals.length),
+        },
+        {
+          label: "Adversarial weaknesses",
+          value: String(lab.adversarialCases.filter((a) => !a.held).length),
+        },
+        { label: "Ontology gaps", value: String(lab.ontologyGaps) },
+      ]);
+
+      builder.subsection("Architecture integrity");
+      if (lab.architectureReports.length === 0) {
+        builder.note("No architecture-integrity reports recorded yet.");
+      } else {
+        for (const r of lab.architectureReports.slice(0, 10)) {
+          builder.statusLine(
+            r.clean ? "clean" : "violations present",
+            r.clean ? "pass" : "warn",
+            `${(r.integrity * 100).toFixed(0)}% · ${fmtTime(r.createdAt)}`,
+          );
+        }
+      }
+
+      builder.subsection("Proof packets (sensitive-content publishing)");
+      builder.paragraph(`${lab.failedProofCount} failed proof(s) on record.`);
+      if (lab.proofPackets.length === 0) {
+        builder.note("No proof packets recorded yet.");
+      } else {
+        builder.table(
+          [
+            { header: "When", weight: 110 },
+            { header: "Content type", weight: 110 },
+            { header: "Action", weight: 70 },
+            { header: "Proven", weight: 60 },
+            { header: "Risk", weight: 60 },
+          ],
+          lab.proofPackets
+            .slice(0, 20)
+            .map((p) => [
+              fmtTime(p.createdAt),
+              p.contentType ?? "—",
+              p.recommendedAction ?? "?",
+              p.proven ? "yes" : "no",
+              p.riskLevel,
+            ]),
+        );
+      }
+
+      builder.subsection("Active hypotheses");
+      if (lab.hypotheses.length === 0) {
+        builder.note("No hypotheses recorded yet.");
+      } else {
+        builder.table(
+          [
+            { header: "Statement", weight: 250 },
+            { header: "Status", weight: 90 },
+            { header: "Conf", weight: 50, align: "right" },
+          ],
+          lab.hypotheses
+            .slice(0, 15)
+            .map((h) => [h.statement.slice(0, 80), h.status, h.confidence.toFixed(2)]),
+        );
+      }
+
+      builder.subsection("Strategy tournaments");
+      if (lab.strategyTournaments.length === 0) {
+        builder.note("No strategy tournaments recorded yet.");
+      } else {
+        for (const t of lab.strategyTournaments.slice(0, 10)) {
+          builder.paragraph(
+            `Winner: ${t.winner ?? "—"} (margin ${t.margin.toFixed(3)}) · ${fmtTime(t.createdAt)}`,
+          );
+        }
+      }
+
+      builder.subsection("Benchmark + brain versions");
+      if (lab.benchmarkRuns.length === 0 && lab.brainVersions.length === 0) {
+        builder.note("No benchmark runs or brain-version scores recorded yet.");
+      } else {
+        for (const b of lab.benchmarkRuns.slice(0, 10)) {
+          builder.statusLine(
+            `benchmark ${b.overall.toFixed(3)}${b.regression ? " — REGRESSION" : ""}`,
+            b.regression ? "warn" : "pass",
+            b.brainVersion ?? fmtTime(b.createdAt),
+          );
+        }
+        for (const v of lab.brainVersions.slice(0, 10)) {
+          builder.paragraph(`version ${v.version}: score ${v.score.toFixed(3)}`);
+        }
+      }
+
+      builder.subsection("Capability proposals (review-gated)");
+      if (lab.capabilityProposals.length === 0) {
+        builder.note("No capability proposals recorded yet.");
+      } else {
+        builder.table(
+          [
+            { header: "Capability", weight: 210 },
+            { header: "Status", weight: 90 },
+            { header: "Risk", weight: 50, align: "right" },
+          ],
+          lab.capabilityProposals
+            .slice(0, 15)
+            .map((c) => [c.name.slice(0, 70), c.status, c.risk.toFixed(2)]),
+        );
+      }
+
+      builder.subsection("Adversarial self-testing");
+      if (lab.adversarialCases.length === 0) {
+        builder.note("No adversarial cases recorded yet.");
+      } else {
+        for (const a of lab.adversarialCases.slice(0, 15)) {
+          builder.statusLine(
+            `${a.name} (${a.targetGate ?? "—"})`,
+            a.held ? "pass" : "fail",
+            a.held ? "held" : "WEAKNESS — regression test requested",
+          );
+        }
+      }
+
+      builder.subsection("Other lab surfaces");
+      builder.keyValue([
+        { label: "Counterfactual runs", value: String(lab.counterfactualRuns.length) },
+        { label: "Experiments", value: String(lab.experimentPlans.length) },
+        { label: "Digital-twin runs", value: String(lab.digitalTwinRuns.length) },
+        { label: "Curriculum runs", value: String(lab.curriculumRuns.length) },
+        { label: "Logic-rule failures", value: String(lab.logicRuleFailures.length) },
+      ]);
+      const claimEntries = Object.entries(lab.claimsByStatus);
+      if (claimEntries.length > 0) {
+        builder.paragraph(
+          "Claim epistemic statuses: " + claimEntries.map(([s, n]) => `${s} ${n}`).join(", "),
+        );
+      }
+      if (lab.logicRuleFailures.length > 0) {
+        builder.paragraph(
+          "Failing logic rules: " +
+            lab.logicRuleFailures
+              .slice(0, 10)
+              .map((r) => r.ruleId)
+              .join(", "),
+        );
+      }
+      if (lab.digitalTwinRuns.some((d) => d.touchesProduction)) {
+        builder.note(
+          "A digital-twin run reported touching production — investigate (the twin must stay isolated).",
+        );
+      }
+    }
+
     // ─── Worker Requests (spec: the "worker request section" at the END of
     //     the report — what the worker believes it needs to be better, smarter,
     //     and more capable). Generated by the brain's self-inspection +
