@@ -185,6 +185,25 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
     "rank_causal_factors": {"signals": {"missing_fields": 8}},
     "update_causal_model": {"cause": "missing_fields", "effect": "strict_qa_failure", "confirmed": True},
     "explain_causal_model": {"cause": "missing_fields", "effect": "strict_qa_failure"},
+    # Counterfactual reasoning
+    "run_counterfactual_analysis": {"actual": {"outcome": "idle"}},
+    "estimate_alternative_outcome": {"alternative": "different_source", "actual": {"outcome": "failed"}},
+    "explain_counterfactual_difference": {"alternative": "repair_first", "actual": {"outcome": "rejected"}},
+    "rank_counterfactual_paths": {"actual": {"outcome": "idle"}},
+    # Safe experiments
+    "design_safe_experiment": {"question": "vatican vs usccb for documents", "groups": ["vatican", "usccb"]},
+    "run_experiment_plan": {"plan": {"groups": ["a", "b"], "sample_per_group": 5, "publishes": False}},
+    "evaluate_experiment_result": {"groups": [{"name": "a", "successes": 4, "n": 5}, {"name": "b", "successes": 1, "n": 5}]},
+    "compare_experiment_groups": {"groups": [{"name": "a", "successes": 4, "n": 5}, {"name": "b", "successes": 1, "n": 5}]},
+    "extract_experiment_lesson": {"question": "vatican vs usccb", "groups": [{"name": "vatican", "successes": 5, "n": 5}, {"name": "usccb", "successes": 2, "n": 5}]},
+    "recommend_experiment_followup": {"groups": [{"name": "a", "successes": 3, "n": 5}, {"name": "b", "successes": 3, "n": 5}]},
+    # Hypothesis engine
+    "generate_hypothesis": {"signals": {"church_document_gap": 1}},
+    "rank_hypotheses": {"hypotheses": [{"key": "x", "confidence": 0.6, "impact": 0.8}]},
+    "test_hypothesis": {"hypothesis": {"key": "x", "experiment_plan": "compare", "success_criteria": "+20%"}},
+    "evaluate_hypothesis_result": {"hypothesis": {"key": "x"}, "observed": {"met_criteria": True}},
+    "accept_or_reject_hypothesis": {"verdict": "SUPPORTED", "confidence": 0.8},
+    "store_hypothesis_lesson": {"hypothesis": {"key": "x", "statement": "s", "expected_result": "e"}},
     "extract_knowledge": {
         "text": "Saint Thérèse of Lisieux was born in 1873 and canonized in 1925. See Jn 3:16. https://www.vatican.va/x",
     },
