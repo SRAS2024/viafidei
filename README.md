@@ -1539,7 +1539,13 @@ so the full content build plan runs end to end through certified skills:
   `verify_cache`, and `rollback_publish`.
 
 The **repair, homepage, reporting, security, and maintenance packs are also
-certified** — **85 certified skills** across all nine categories:
+certified** — **102 certified skills** across all nine categories (including the
+**discovery** pack — `discover_from_sitemap` / `_rss` / `_internal_links` /
+`_configured_urls` / `_directory_page` / `_search_page` + `request_dynamic_
+fetcher_upgrade` — and the **PDF** pack — detect / fetch / classify / verify
+PDFs for real; since the runtime has no PDF text parser, `extract_text_pdf` /
+`extract_vatican_pdf_document` and scanned PDFs honestly file a PDF-text-
+extraction developer request rather than faking):
 
 - **Repair** (`repair-skills.ts`): infra repairs flag a real cache / sitemap /
   search refresh; content-field repairs file a durable, targeted repair plan the
@@ -1561,10 +1567,19 @@ XIII"), `PublishedContent.subtitle` (migration `0047`) stores it, the
 `publish_content_subtitle` skill writes it during the build, and
 `PublishedDetail` renders it under the title.
 
-Anything still without a certified skill (e.g. PDF + discovery packs, and the
-content types with no extractor — creed, diocese, religious order, homepage
-block) is reported **MISSING** and a developer request is filed, rather than
-overstating what the worker can do. A **no-placeholder enforcement** test proves
+The **skill orchestrator** (`runSkillPlan`) is the dispatcher's skill-execution
+path: it asks the planner for a certified plan, runs each step through the
+executor + Prisma deps (preflight → execute → verify → ledger → feedback), and
+stops safely on the first failure — an e2e proof drives a full prayer
+source-to-page build through certified skills and records every step to the
+ledger, blocks a non-executable plan rather than faking it, and routes a publish
+"review" result to human review without publishing.
+
+Anything still without a certified skill (PDF _text extraction_ / OCR, a dynamic
+fetcher, and the content types with no extractor — creed, diocese, religious
+order, homepage block) is reported **MISSING** and a developer request is filed,
+rather than overstating what the worker can do. A **no-placeholder enforcement**
+test proves
 every certified skill has real preflight / execution / verification / declared
 tests, and that the matrix never marks a capability CERTIFIED without a
 resolvable skill. The worker registers the skills and refreshes the capability
