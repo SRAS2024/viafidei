@@ -18,6 +18,7 @@ import { subtitleSkills } from "./subtitle-skills";
 import { repairSkills } from "./repair-skills";
 import { homepageSkills } from "./homepage-skills";
 import { securitySkills } from "./security-skills";
+import { namedSkills } from "./named-skills";
 import type { CertifiedSkill } from "./types";
 
 let registered = false;
@@ -37,6 +38,7 @@ export function ensureSkillsRegistered(): void {
   registerSkills(repairSkills);
   registerSkills(homepageSkills);
   registerSkills(securitySkills);
+  registerSkills(namedSkills);
   registered = true;
 }
 
