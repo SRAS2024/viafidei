@@ -25,6 +25,8 @@ import {
   isoDate,
   type ReadingSection,
 } from "@/lib/content-shared/daily-readings";
+import { resolveLiturgicalDay } from "@/lib/content-shared/liturgical-calendar";
+import { resolveReadings } from "@/lib/content-shared/lectionary";
 
 import { classifyFreshness, isBrainEnabled } from "./intelligence";
 import { recordBrainCall, upsertDeveloperRequest } from "./intelligence/store";
@@ -52,18 +54,24 @@ function utcMidnight(date: Date): Date {
 }
 
 /**
- * Pluggable readings fetcher. By default returns null — no trusted parser
- * is configured, so the worker routes to review rather than guessing.
- * A real implementation (a verified USCCB/Universalis/Vatican parser,
- * managed by TypeScript with rate limits + sandboxing) can be slotted in
- * here; it must return verified bodies with a confidence score, never
- * fabricated text.
+ * Deterministic readings resolver. Computes the exact liturgical day (General
+ * Roman Calendar) and looks the readings up in the in-repo lectionary table,
+ * assembling each day's sections in proclamation order with the vendored
+ * Douay-Rheims text — no network, no fabrication. Returns null when the day
+ * isn't covered yet, so the caller routes to review + the official link.
+ *
+ * Only the universal calendar in English (Douay-Rheims) is encoded today; a
+ * national calendar or another translation would key a different table.
  */
 export async function fetchReadingsForDate(
-  _date: Date,
-  _opts: { calendar: string; locale: string },
+  date: Date,
+  opts: { calendar: string; locale: string },
 ): Promise<FetchedReadings | null> {
-  return null;
+  if (opts.calendar !== "roman-ordinary" || opts.locale !== "en") return null;
+  const day = resolveLiturgicalDay(date);
+  const resolved = resolveReadings(day.lectionaryKey);
+  if (!resolved) return null;
+  return { sections: resolved.sections, confidence: resolved.confidence };
 }
 
 async function ensureReviewTask(
