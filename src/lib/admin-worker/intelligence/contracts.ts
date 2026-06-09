@@ -750,6 +750,18 @@ export const BrainFinalDecisionSchema = z
     source_reputation_used: z.array(z.string()).default([]),
     stage_outcomes_used: z.array(z.string()).default([]),
     safety_notes: z.array(z.string()).default([]),
+    // Skill-planner hints (optional): enough for the Skill Planner to map the
+    // decision to certified skills. Validated by TS before execution.
+    intended_skill: z.string().nullish(),
+    acceptable_skills: z.array(z.string()).default([]),
+    content_subtype: z.string().nullish(),
+    target_entity_type: z.string().nullish(),
+    target_entity_id: z.string().nullish(),
+    requires_proof_packet: z.boolean().nullish(),
+    requires_human_review: z.boolean().nullish(),
+    verification_required: z.boolean().nullish(),
+    rollback_required: z.boolean().nullish(),
+    skill_plan_hint: z.array(z.string()).default([]),
   })
   .transform((d) => ({
     selectedAction: d.selected_action,
@@ -776,6 +788,17 @@ export const BrainFinalDecisionSchema = z
     sourceReputationUsed: d.source_reputation_used,
     stageOutcomesUsed: d.stage_outcomes_used,
     safetyNotes: d.safety_notes,
+    // Skill-planner hints.
+    intendedSkill: d.intended_skill ?? null,
+    acceptableSkills: d.acceptable_skills,
+    contentSubtype: d.content_subtype ?? null,
+    targetEntityType: d.target_entity_type ?? null,
+    targetEntityId: d.target_entity_id ?? null,
+    requiresProofPacket: d.requires_proof_packet ?? null,
+    requiresHumanReview: d.requires_human_review ?? null,
+    verificationRequired: d.verification_required ?? null,
+    rollbackRequired: d.rollback_required ?? null,
+    skillPlanHint: d.skill_plan_hint,
   }));
 
 export type BrainFinalDecision = z.infer<typeof BrainFinalDecisionSchema>;

@@ -333,6 +333,18 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // best-effort — the lab pass must never affect the pass
   }
 
+  // Certified Admin Skill Runtime: register the certified skills and refresh the
+  // capability coverage matrix each pass, so the /admin/skills dashboard and the
+  // Developer Audit report what the worker can actually do right now — and file a
+  // developer request for every capability that has no certified skill yet.
+  try {
+    const { ensureSkillsRegistered, refreshCapabilityMatrix } = await import("./skills");
+    ensureSkillsRegistered();
+    await refreshCapabilityMatrix(prisma);
+  } catch {
+    // best-effort — the capability refresh must never affect the pass
+  }
+
   return { built, published: publishedCount, failed: failedCount, idle };
 }
 
