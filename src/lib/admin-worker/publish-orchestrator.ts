@@ -119,6 +119,29 @@ export async function runPublishOrchestrator(
     }
   }
 
+  // 0b. Proof-based publishing for sensitive Catholic content (spec). When the
+  // brain is online, doctrinally / liturgically / authority-sensitive types
+  // must pass a proof packet AND the logic-rule invariants, or they route to
+  // review (or block on an unresolved conflict). Offline, the verifier + QA
+  // gates below still protect sensitive content.
+  if (isBrainEnabled() && !input.skipBrainScreens) {
+    const { evaluateSensitivePublish, isProofRequired } = await import("./proof-publishing");
+    if (isProofRequired(input.contentType)) {
+      const decision = await evaluateSensitivePublish(prisma, {
+        contentType: input.contentType,
+        contentId: input.contentId,
+        claim: { contentType: input.contentType, text: input.slug },
+        state: { contentType: input.contentType },
+      });
+      if (decision.action === "block") {
+        return { kind: "blocked", blockedBy: "proof", reason: decision.reasons.join("; ") };
+      }
+      if (!decision.allow) {
+        return { kind: "review", reason: `proof-based publishing: ${decision.reasons.join("; ")}` };
+      }
+    }
+  }
+
   // 1. Sensitive content requires verifier sign-off.
   if (input.isDoctrinallySensitive) {
     if (!input.verifier) {
