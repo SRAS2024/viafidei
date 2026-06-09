@@ -8,6 +8,7 @@ import {
   mergeSections,
   type ReadingSection,
 } from "@/lib/content-shared/daily-readings";
+import { resolveReadings } from "@/lib/content-shared/lectionary";
 
 export const dynamic = "force-dynamic";
 
@@ -70,9 +71,13 @@ export default async function DailyReadingsPage({
     })
     .catch(() => null);
 
+  // Prefer the worker's stored row; otherwise resolve the readings on demand
+  // from the deterministic lectionary so ANY covered day (past or future)
+  // shows its readings the moment it's selected, not only after a refresh.
   const storedSections = (row?.sections as ReadingSection[] | undefined) ?? null;
-  const sections = mergeSections(framing.sections, storedSections);
-  const published = row?.status === "PUBLISHED" && hasAnyBody(sections);
+  const onDemand = storedSections ?? resolveReadings(framing.lectionaryKey)?.sections ?? null;
+  const sections = mergeSections(framing.sections, onDemand);
+  const published = hasAnyBody(sections);
   const sourceUrl = row?.sourceUrl ?? framing.sourceUrl;
   const sourceName = row?.sourceName ?? framing.sourceName;
 
