@@ -42,3 +42,10 @@ export {
   type CapabilityRow,
 } from "./capability";
 export { makeSkillRuntimeDeps } from "./store";
+export {
+  planForDecision,
+  defaultBuildPlan,
+  type SkillPlan,
+  type SkillPlanStep,
+  type PlanInput,
+} from "./planner";
