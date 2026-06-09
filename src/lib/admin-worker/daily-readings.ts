@@ -27,7 +27,7 @@ import {
 } from "@/lib/content-shared/daily-readings";
 
 import { acquireReadings } from "./readings-source";
-import { classifyFreshness, isBrainEnabled } from "./intelligence";
+import { classifyFreshness, isBrainEnabled, lectionaryReadings } from "./intelligence";
 import { recordBrainCall, upsertDeveloperRequest } from "./intelligence/store";
 import { writeAdminWorkerLog } from "./logs";
 
@@ -152,6 +152,15 @@ export async function refreshDailyReadings(
         title: `Daily Mass Readings ${iso}`,
       }).catch(() => null);
       await recordBrainCall(prisma, "classify_freshness", fr, {
+        contentType: "READING",
+        entityId: iso,
+        passId: opts.passId ?? null,
+      }).catch(() => undefined);
+      // Consult the Python brain's lectionary knowledge for this day and record
+      // it to the audit trail — the brain independently reviews which readings
+      // the day calls for (the body resolves the text + stores it).
+      const lec = await lectionaryReadings(iso).catch(() => null);
+      await recordBrainCall(prisma, "lectionary_readings", lec, {
         contentType: "READING",
         entityId: iso,
         passId: opts.passId ?? null,

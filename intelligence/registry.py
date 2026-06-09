@@ -26,6 +26,7 @@ from .operations import (
     graph,
     inspection,
     learning,
+    lectionary,
     memory_layers,
     mission,
     patches,
@@ -78,6 +79,9 @@ REGISTRY: Dict[str, Handler] = {
     "scan_content": security.scan_content,
     # freshness
     "classify_freshness": freshness.classify_freshness,
+    # liturgical calendar + lectionary (the brain's knowledge of the Church year)
+    "liturgical_day": lectionary.liturgical_day,
+    "lectionary_readings": lectionary.lectionary_readings,
     # knowledge extraction + structure + variants
     "extract_knowledge": extraction.extract_knowledge,
     "suggest_structure": extraction.suggest_structure,

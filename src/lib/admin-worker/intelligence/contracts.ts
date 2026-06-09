@@ -38,6 +38,9 @@ export const BRAIN_OPS = [
   "analyze_graph",
   "scan_content",
   "classify_freshness",
+  // liturgical calendar + lectionary
+  "liturgical_day",
+  "lectionary_readings",
   "extract_knowledge",
   "suggest_structure",
   "detect_variants",
