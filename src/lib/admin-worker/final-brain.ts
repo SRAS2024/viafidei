@@ -15,6 +15,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import type { BrainAction, BrainDecision, FinalActionSelector } from "./brain";
+import { safeDegradedAction } from "./brain";
 import { BrainFinalDecisionSchema } from "./intelligence/contracts";
 import {
   compareCounterfactualActions,
@@ -228,6 +229,49 @@ export function isPythonFinalDecision(decision: BrainDecision): boolean {
 }
 
 export const PYTHON_BRAIN_UNAVAILABLE = "PYTHON_BRAIN_UNAVAILABLE" as const;
+
+/**
+ * The Admin Worker has exactly TWO valid runtime states for autonomous work.
+ * There is no third "legacy fallback" state: when Python is not the final
+ * brain, the worker is in safe degraded mode and does not publish, make new
+ * source-trust decisions, or approve sensitive Catholic content.
+ */
+export type FinalBrainMode =
+  | "PYTHON_FINAL_BRAIN_ACTIVE"
+  | "PYTHON_BRAIN_UNAVAILABLE_SAFE_DEGRADED_MODE";
+
+export const PYTHON_FINAL_BRAIN_ACTIVE = "PYTHON_FINAL_BRAIN_ACTIVE" as const;
+export const PYTHON_BRAIN_UNAVAILABLE_SAFE_DEGRADED_MODE =
+  "PYTHON_BRAIN_UNAVAILABLE_SAFE_DEGRADED_MODE" as const;
+
+/** Resolve the worker's runtime state from a decision's final-brain provenance. */
+export function finalBrainMode(decision: Pick<BrainDecision, "finalBrain">): FinalBrainMode {
+  return decision.finalBrain === "python"
+    ? PYTHON_FINAL_BRAIN_ACTIVE
+    : PYTHON_BRAIN_UNAVAILABLE_SAFE_DEGRADED_MODE;
+}
+
+/**
+ * New autonomous content publishing, new source-trust decisions, and sensitive
+ * Catholic content approval are only permitted when the Python final brain is
+ * active. Safe degraded mode blocks them (security/diagnostics/reporting/
+ * maintenance/repair of known-safe items only).
+ */
+export function autonomousPublishingAllowed(decision: Pick<BrainDecision, "finalBrain">): boolean {
+  return finalBrainMode(decision) === PYTHON_FINAL_BRAIN_ACTIVE;
+}
+
+/**
+ * What the worker does when the final selector returns null: pick a safe,
+ * non-publishing degraded action. Mirrors `runBrain`'s null→degraded path so
+ * the two-state guarantee (active vs safe-degraded) is provable in isolation.
+ */
+export function safeDegradedActionFromNull(decision: BrainDecision): {
+  chosen: BrainAction;
+  source: "degraded";
+} {
+  return { chosen: safeDegradedAction(decision), source: "degraded" };
+}
 
 /** Whether a world state permits a given (already-safe) world to run the
  *  full autonomous pipeline. Degraded mode disables content publishing. */

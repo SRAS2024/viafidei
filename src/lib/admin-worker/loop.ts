@@ -205,15 +205,22 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // even when live discovery/fetch is unavailable. Idempotent + bounded, so
     // it makes steady forward progress and becomes a cheap no-op once the
     // curated base is fully live. Counts toward the pass's published total.
-    try {
-      const { runCuratedIngest } = await import("./curated-ingest");
-      const ingest = await runCuratedIngest(prisma, { passId: pass.id });
-      if (ingest.published > 0) {
-        publishedCount += ingest.published;
-        idle = false;
+    // Gated on PYTHON_FINAL_BRAIN_ACTIVE: curated ingest PUBLISHES content, so
+    // it is new autonomous publishing and must NOT run in safe degraded mode
+    // (PYTHON_BRAIN_UNAVAILABLE_SAFE_DEGRADED_MODE). When the final brain is
+    // unavailable the worker only does security/diagnostics/reporting/
+    // maintenance/repair — never new publishing.
+    if (brain.finalBrain === "python") {
+      try {
+        const { runCuratedIngest } = await import("./curated-ingest");
+        const ingest = await runCuratedIngest(prisma, { passId: pass.id });
+        if (ingest.published > 0) {
+          publishedCount += ingest.published;
+          idle = false;
+        }
+      } catch {
+        // best-effort — curated ingest must never break the pass
       }
-    } catch {
-      // best-effort — curated ingest must never break the pass
     }
 
     await writeAdminWorkerLog(prisma, {
