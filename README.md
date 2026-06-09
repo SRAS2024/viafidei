@@ -1469,6 +1469,98 @@ simply uses its deterministic fallbacks. Override the interpreter with
 
 ---
 
+## Certified Admin Skill Runtime
+
+The Admin Worker performs real autonomous work through **certified skills**:
+typed, executable, verifiable, reversible units under
+[`src/lib/admin-worker/skills/`](src/lib/admin-worker/skills/). The architecture
+is unchanged — **Python is the final brain, TypeScript is the safe execution
+body, Postgres is the durable store** — and the runtime adds the practical layer
+that proves work actually happened, repairs failures, learns from outcomes, and
+**reports honestly what the worker can and cannot do**.
+
+### Two valid states — no silent reversion
+
+The worker has exactly two runtime states (`final-brain.ts`); there is no third
+"legacy fallback" that makes final decisions when Python fails:
+
+- **`PYTHON_FINAL_BRAIN_ACTIVE`** — the Python brain's `select_action` is the
+  final selector; the decision records `finalBrain: "python"`.
+- **`PYTHON_BRAIN_UNAVAILABLE_SAFE_DEGRADED_MODE`** — when the brain is
+  disabled, unreachable, times out, returns an invalid shape, or selects a
+  disallowed/unsafe action, the worker enters safe degraded mode: security
+  defense, diagnostics, reporting, maintenance, and known-safe repair only.
+  **It does not publish, make new source-trust decisions, or approve sensitive
+  Catholic content** — including the curated-ingest publish path, which is now
+  gated on `finalBrain === "python"`.
+
+`tests/admin-worker/proof/final-brain-reachability.proof.test.ts` proves the
+worker reaches the Python brain, validates the contract, records the final
+decision, and on every failure mode falls into safe degraded mode without ever
+reverting to a TypeScript final-decision path.
+
+### Certified skills
+
+Each skill (`skills/types.ts`) declares all of: name, purpose, supported content
+types + subtypes, inputs, outputs, preconditions, required permissions, risk
+level, idempotency key, execution, verification, rollback/repair, retry policy,
+failure classifier, success metrics, required tests, brain ops used, safety
+gates, and whether human review is required. The **executor** (`skills/executor.ts`)
+runs one lifecycle — **preflight → execute → verify → ledger → outcome learning**
+— with a bounded retry loop and failure routing (repair / human review /
+developer request / circuit breaker). A skill is **never "successful" until its
+verification passes**; medium+ risk failures roll back.
+
+The hard rule (enforced by the **Skill Planner**, `skills/planner.ts`): the
+worker may only do autonomous operational work through certified skills. The
+planner maps a brain decision to an ordered skill plan (a content build expands
+to fetch → read → `extract_<type>` → verify → strict-QA → publish → verify
+route/sitemap/cache, with a proof-packet step for sensitive Catholic types). If
+a required skill is missing, the plan is **not executable** and the worker files
+a developer request — it never pretends it can do the task.
+
+Today the **extraction pack is certified** for every content type backed by a
+real extractor (`extract_prayer` … `extract_church_history_event`, wrapping the
+deterministic `extractByType`). The source / verification / publishing / repair
+/ homepage / reporting / security / maintenance packs are being added on the
+same contract; until a pack is certified the **capability matrix reports those
+capabilities as MISSING and files developer requests** rather than overstating
+what the worker can do.
+
+### Durable ledger + capability matrix (Postgres)
+
+Migration `0046` adds two tables:
+
+- **`AdminWorkerSkillExecution`** — one row per skill execution attempt
+  (preflight / execution / verification / rollback status, risk, idempotency
+  key, attempt count, duration, failure reason, brain op, output entity).
+  Auditable + replayable; loose-coupled string refs to the pass / decision /
+  task / entity.
+- **`AdminWorkerSkillCapability`** — the coverage matrix: one row per capability
+  with `coverageStatus` (`CERTIFIED` / `PARTIAL` / `MISSING` / `BLOCKED` /
+  `REQUIRES_HUMAN_REVIEW` / `REQUIRES_DEVELOPER_WORK`), the certified skill,
+  success/verification rates, rollback availability, and the developer request
+  filed for a gap.
+
+### Admin surface + proof
+
+`/admin/skills` is the **Certified Admin Skill Runtime dashboard**: the
+final-brain state, coverage summary, per-content-type coverage, the blocked
+types (with developer requests filed), the certified-skill catalogue, and recent
+skill executions from the ledger. `npm run admin-worker:proof:skills` proves the
+runtime — final-brain reachability, no silent reversion, safe-degraded publish
+blocking, the skill lifecycle (preflight/execute/verify/rollback/retry/
+idempotency/circuit breaker), the ledger + capability matrix, missing-skill
+developer requests, sensitive-content proof requirement, and honest coverage —
+and runs in `npm run verify:all`.
+
+> **Aesthetic consistency.** Every selected filter across the app (the shared
+> `FilterChips`, the admin log tabs, the language / rosary toggles) now fills
+> with the action/Marian blue (`--action-blue`, via the `vf-filter-active`
+> utility), so "selected = blue" is uniform site-wide.
+
+---
+
 ## Public site
 
 Every public page renders directly from `PublishedContent`:
