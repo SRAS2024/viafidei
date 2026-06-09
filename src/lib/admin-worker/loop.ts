@@ -283,8 +283,13 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   // Throttled (≈once per 30 min/process) and fail-open; routes to review
   // rather than ever publishing uncertain readings.
   try {
-    const { maybeRefreshDailyReadings } = await import("./daily-readings");
+    const { maybeRefreshDailyReadings, maybeBackfillDailyReadings } =
+      await import("./daily-readings");
     await maybeRefreshDailyReadings(prisma, { passId: pass.id });
+    // Autonomously fill + re-verify the whole forward window (≈a liturgical
+    // year): creates missing days, upgrades them to verified readings as
+    // coverage grows, and self-corrects any drifted row. Throttled (~6h).
+    await maybeBackfillDailyReadings(prisma, { passId: pass.id });
   } catch {
     // ignore — readings refresh is best-effort and must not affect the pass
   }

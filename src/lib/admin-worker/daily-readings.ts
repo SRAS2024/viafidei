@@ -266,6 +266,173 @@ export async function maybeRefreshDailyReadings(
   return refreshDailyReadings(prisma, { passId: opts.passId });
 }
 
+export interface BackfillResult {
+  scanned: number;
+  created: number;
+  updated: number;
+  unchanged: number;
+  published: number;
+  review: number;
+}
+
+interface StoredRowShape {
+  status?: string | null;
+  seasonLabel?: string | null;
+  sundayCycle?: string | null;
+  weekdayCycle?: string | null;
+  color?: string | null;
+  sourceConfidence?: number | null;
+  sections?: unknown;
+  verifiedAt?: Date | null;
+}
+
+interface DesiredRow {
+  seasonLabel: string;
+  sundayCycle: string;
+  weekdayCycle: string;
+  color: string;
+  sourceUrl: string;
+  sourceName: string;
+  sourceConfidence: number;
+  status: string;
+  sections: ReadingSection[];
+}
+
+/** True when the stored row no longer matches what the engine now produces. */
+function readingRowDiffers(existing: StoredRowShape, desired: DesiredRow): boolean {
+  return (
+    (existing.status ?? "") !== desired.status ||
+    (existing.seasonLabel ?? "") !== desired.seasonLabel ||
+    (existing.sundayCycle ?? "") !== desired.sundayCycle ||
+    (existing.weekdayCycle ?? "") !== desired.weekdayCycle ||
+    (existing.color ?? "") !== desired.color ||
+    (existing.sourceConfidence ?? 0) !== desired.sourceConfidence ||
+    JSON.stringify(existing.sections ?? null) !== JSON.stringify(desired.sections)
+  );
+}
+
+/**
+ * Autonomously fill + verify a forward window of daily readings (spec: the
+ * Admin Worker manages the liturgical calendar and stores every day's
+ * readings). For each date in the window it derives the day from the verified
+ * calendar engine, resolves the readings from the lectionary, and:
+ *   - creates the DailyReading row if missing,
+ *   - UPDATES it if it has drifted from the engine's current output — e.g. a
+ *     day upgrades REVIEW → PUBLISHED the moment its lectionary entry is added,
+ *     or a stale/incorrect row is corrected (the worker "reviews + adjusts"),
+ *   - leaves unchanged rows untouched (idempotent — most scans write nothing).
+ * It never downgrades a PUBLISHED day to REVIEW, so coverage can only improve.
+ * Covered days store verified text; the rest store framing + the official link.
+ */
+export async function backfillDailyReadings(
+  prisma: PrismaClient,
+  opts: { from?: Date; days?: number; passId?: string } = {},
+): Promise<BackfillResult> {
+  const calendar = "roman-ordinary";
+  const locale = "en";
+  const start = utcMidnight(opts.from ?? new Date());
+  const days = Math.max(1, opts.days ?? 400);
+  const end = new Date(start.getTime() + (days - 1) * 86_400_000);
+
+  const existingRows = await prisma.dailyReading
+    .findMany({ where: { calendar, locale, date: { gte: start, lte: end } } })
+    .catch(() => [] as Array<StoredRowShape & { date: Date }>);
+  const byIso = new Map<string, StoredRowShape>();
+  for (const r of existingRows as Array<StoredRowShape & { date: Date }>) {
+    byIso.set(isoDate(new Date(r.date)), r);
+  }
+
+  const result: BackfillResult = {
+    scanned: days,
+    created: 0,
+    updated: 0,
+    unchanged: 0,
+    published: 0,
+    review: 0,
+  };
+
+  for (let i = 0; i < days; i++) {
+    const date = new Date(start.getTime() + i * 86_400_000);
+    const framing = buildReadingFraming(date);
+    const fetched = await fetchReadingsForDate(date, { calendar, locale });
+    const hasText = !!fetched && fetched.confidence >= 0.7;
+    const sections = hasText && fetched ? fetched.sections : framing.sections;
+    const desired: DesiredRow = {
+      seasonLabel: framing.seasonLabel,
+      sundayCycle: framing.sundayCycle,
+      weekdayCycle: framing.weekdayCycle,
+      color: framing.color,
+      sourceUrl: framing.sourceUrl,
+      sourceName: framing.sourceName,
+      sourceConfidence: hasText && fetched ? fetched.confidence : 0,
+      status: hasText ? "PUBLISHED" : "REVIEW",
+      sections,
+    };
+    if (hasText) result.published++;
+    else result.review++;
+
+    const existing = byIso.get(framing.date);
+    // Never blank a previously verified day if its coverage regresses.
+    if (existing && (existing.status ?? "") === "PUBLISHED" && desired.status === "REVIEW") {
+      result.unchanged++;
+      continue;
+    }
+    const payload = {
+      calendar,
+      locale,
+      seasonLabel: desired.seasonLabel,
+      sundayCycle: desired.sundayCycle,
+      weekdayCycle: desired.weekdayCycle,
+      color: desired.color,
+      sourceUrl: desired.sourceUrl,
+      sourceName: desired.sourceName,
+      sourceConfidence: desired.sourceConfidence,
+      status: desired.status,
+      sections: desired.sections as unknown as Prisma.InputJsonValue,
+      verifiedAt: hasText ? new Date() : (existing?.verifiedAt ?? null),
+    };
+    if (!existing) {
+      await prisma.dailyReading
+        .create({ data: { date, ...payload } })
+        .then(() => result.created++)
+        .catch(() => undefined);
+    } else if (readingRowDiffers(existing, desired)) {
+      await prisma.dailyReading
+        .update({ where: { date_calendar_locale: { date, calendar, locale } }, data: payload })
+        .then(() => result.updated++)
+        .catch(() => undefined);
+    } else {
+      result.unchanged++;
+    }
+  }
+
+  await writeAdminWorkerLog(prisma, {
+    passId: opts.passId,
+    category: "CONTENT_BUILD",
+    severity: "INFO",
+    eventName: "daily_readings_backfill",
+    message: `Daily-readings scan of ${result.scanned} day(s): ${result.created} created, ${result.updated} adjusted, ${result.published} with verified text, ${result.review} on the official link.`,
+    safeMetadata: { ...result },
+  }).catch(() => undefined);
+
+  return result;
+}
+
+// Backfill is heavier than the today-refresh, so it runs on a slower cadence;
+// each run re-verifies the whole forward window and self-corrects any drift.
+let lastBackfillAt = 0;
+const BACKFILL_THROTTLE_MS = 6 * 60 * 60 * 1000;
+
+/** Loop-friendly throttled wrapper around {@link backfillDailyReadings}. */
+export async function maybeBackfillDailyReadings(
+  prisma: PrismaClient,
+  opts: { passId?: string } = {},
+): Promise<BackfillResult | null> {
+  if (Date.now() - lastBackfillAt < BACKFILL_THROTTLE_MS) return null;
+  lastBackfillAt = Date.now();
+  return backfillDailyReadings(prisma, { passId: opts.passId });
+}
+
 /** Read the stored DailyReading row for a date (any status), for the page. */
 export async function getStoredReading(
   prisma: PrismaClient,
