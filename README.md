@@ -34,7 +34,7 @@ source intelligence with a **Catholic authority graph** + **communion-risk**
 screening, **claim-level verification**, quality + **specialist-panel** review,
 action **simulation**, **confidence calibration**, knowledge-graph and
 schema/UI awareness, a whole-app **self-model**, repair + **stuckness**
-analysis, learning, and self-inspection (135 operations).
+analysis, learning, and self-inspection (233 operations).
 The split is **TypeScript = the body** (execution, Prisma/DB, queues,
 policy, publishing, safety, app + admin integration), **Python = the brain**
 (it analyses and recommends through strict typed contracts; it never touches
@@ -1122,7 +1122,7 @@ automatically; the brain only recommends (human-review gated). The legacy
 summary-only code-awareness path (`analyze_code` / `runCodeAwareness` /
 `inspectCode`) was removed outright.
 
-### Unified brain capabilities (135 operations)
+### Unified brain capabilities (233 operations)
 
 Beyond the self-model, the unified brain reasons across these areas — every
 operation returns the same strict envelope (`ok`, `result`, `confidence`,
@@ -1289,6 +1289,86 @@ they never block a pass. The **final action selection** is separate: the
 Python brain selects it whenever it is online (the default); otherwise the
 worker enters safe degraded mode and never falls back to a TypeScript final
 brain.
+
+### Intelligence Laboratory (causal + experimental self-evaluation)
+
+The Intelligence Laboratory is a **complete expansion of the one unified
+brain** — not a sidecar, second brain, or optional add-on. Every capability is
+a registered brain operation behind the same strict envelope contract and the
+same TS↔Python parity test; TypeScript stays the safe execution / validation /
+persistence / enforcement layer, and **human review remains required for code
+changes, schema changes, production deployment, and review-gated
+self-improvement.** The lab is wired into the worker loop as a throttled,
+fail-open, **advisory** pass (`intelligence-lab.ts`) that records its findings
+to the audit trail and routes any code/schema/architecture recommendation
+through a developer request — it never deploys, mutates schema, or publishes.
+
+- **Causal Intelligence Core** (`causal.py`): reasons about _why_, not just
+  what. A curated causal model of the pipeline (cause → effect edges with
+  mechanism, strength, and the breaking intervention) powers
+  `build_causal_graph`, `infer_causal_factors`, `explain_root_cause`,
+  `detect_causal_chain`, `rank_causal_factors`, `update_causal_model`,
+  `explain_causal_model` — e.g. it traces _mission stagnation_ back through
+  publish delay → strict-QA failure → missing fields → extraction difficulty →
+  **source type**, and names the exact fix.
+- **Counterfactual reasoning** (`counterfactual.py`): estimates what another
+  choice would have done (different source/type, repair-first, human review,
+  pause + switch) and the regret, to improve future action choice.
+- **Safe experiments** (`experiments.py`): bounded (≤10/group), measure-only,
+  reversible A/B trials — design / run-bounds-check / compare / evaluate /
+  extract-lesson / follow-up. They never bypass the publish gates.
+- **Hypothesis engine** (`hypotheses.py`): forms, ranks, tests, and evaluates
+  explanations for success/failure, each with evidence, confidence, an
+  experiment plan, and success criteria.
+- **Proof packets** (`proof.py`): evidence-based proof for sensitive decisions
+  (source / authority / citation / agreement / conflict → conditions
+  satisfied vs failed → risk → action → review → what-would-change). Sensitive
+  Catholic categories require a passing proof packet to publish.
+- **Formal logic rules** (`logic_rules.py`): the app's critical invariants as
+  checkable predicates (doctrinal trusted-support, communion-risk block,
+  feast/calendar match, document/saint/papal completeness, duplicate block,
+  route-required, mission-growth, developer-request evidence) +
+  conflict detection where a hard block always wins.
+- **Catholic ontology** (`catholic_ontology.py`): a 38-type entity taxonomy +
+  relationship grammar (pope authored encyclical, saint is_a doctor, apparition
+  has_status, feast varies_by rite, sacrament = one of seven, …) for
+  classifying, linking, validating, and inferring Catholic relationships.
+- **Epistemic status** (`epistemic.py`): every claim is graded Certain →
+  Well-supported → Likely → Uncertain → Conflicting → Needs-more-evidence →
+  Requires-human-review → Blocked, with overconfidence detection so the worker
+  never treats a weak claim like a verified one.
+- **Strategy tournament** (`strategy.py`): scores candidate long-term
+  strategies on 15 dimensions (growth, source quality, Catholic safety risk,
+  parser difficulty, maintainability, …) and explains why the winner beats the
+  alternatives.
+- **Benchmark arena + brain-version comparison** (`benchmark.py`): a 25-task
+  arena + 15 version metrics, so an upgrade can be _proven_ better or worse;
+  benchmark/version regressions block auto-adoption.
+- **Digital twin** (`digital_twin.py`): a simulated worker environment for safe
+  practice — every op asserts production is untouched and nothing publishes.
+- **Capability invention** (`capability.py`): full review-gated capability
+  proposals (problem, evidence, gains, affected files/models/ops/stages,
+  contracts, tests, migrations, difficulty, risk, rollback) — invented, not
+  just listed.
+- **Self-generated curriculum** (`curriculum.py`): progressively harder
+  self-training + plateau detection + training-focus recommendations.
+- **Adversarial self-testing** (`adversarial.py`): a 20-case library that
+  attacks the worker's own gates; every exposed weakness becomes a
+  review-gated regression-test request.
+- **Architecture governor** (`architecture.py`): 18 architecture invariants
+  (no competing paths, no legacy fallback, no untested stage, no route-less
+  public type, no unproven sensitive publish, no untested/uncontracted op, no
+  unreviewed patch, …) that keep the one unified brain unified and surface
+  drift to the dashboard.
+- **Highest-leverage change ranking** (`leverage.py`): ranks interventions by
+  value ÷ cost and explains the single most valuable change — not a wish list.
+
+**Review-gated adoption.** Lab recommendations flow through: developer request →
+evidence pack → capability proposal → test plan → (optional patch proposal) →
+risk review → **human approval** → tests → merge → post-merge benchmark
+comparison. Code/schema/architecture changes always require human review; only
+safe ranking/learning/memory/source-reputation adjustments may be adopted
+automatically under TypeScript policy.
 
 ### Postgres tables (Postgres owns the durable memory + audit store)
 
