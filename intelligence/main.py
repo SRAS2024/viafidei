@@ -273,6 +273,24 @@ _SELFTEST_CASES: Dict[str, Dict[str, Any]] = {
     "score_skill_progress": {"previous": {"duplicate_detection": 0.6}, "current": {"duplicate_detection": 0.8}},
     "identify_skill_plateau": {"history": {"reasoning": [0.7, 0.71, 0.7, 0.72]}},
     "recommend_training_focus": {"skill_scores": {"duplicate_detection": 0.9, "reasoning": 0.6}},
+    # Adversarial self-testing
+    "generate_adversarial_case": {"target": "duplicate"},
+    "attack_decision": {"case": "duplicate_different_title", "active_defenses": ["duplicate"]},
+    "find_reasoning_weakness": {"active_defenses": ["duplicate", "source_authority"]},
+    "harden_rule": {"case": "fake_official_source"},
+    "create_regression_from_attack": {"case": "saint_one_wrong_date"},
+    # Architecture governor
+    "check_architecture_integrity": {"report": {"competingPaths": [], "untestedStages": []}},
+    "detect_competing_paths": {"report": {"competingPaths": ["legacy-final-brain"]}},
+    "detect_unowned_module": {"report": {"unownedModels": []}},
+    "detect_unverified_stage": {"report": {"untestedStages": []}},
+    "enforce_unified_brain_boundary": {"report": {"competingPaths": []}},
+    "generate_architecture_report": {"report": {"competingPaths": []}},
+    # Highest-leverage change ranking
+    "rank_highest_leverage_change": {},
+    "estimate_intervention_value": {"name": "new_parser"},
+    "compare_intervention_costs": {},
+    "explain_highest_leverage_change": {},
     "extract_knowledge": {
         "text": "Saint Thérèse of Lisieux was born in 1873 and canonized in 1925. See Jn 3:16. https://www.vatican.va/x",
     },

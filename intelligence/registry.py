@@ -12,6 +12,8 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, List
 
 from .operations import (
+    adversarial,
+    architecture,
     authority,
     awareness,
     benchmark,
@@ -37,6 +39,7 @@ from .operations import (
     inspection,
     learning,
     lectionary,
+    leverage,
     logic_rules,
     memory_layers,
     mission,
@@ -192,6 +195,24 @@ REGISTRY: Dict[str, Handler] = {
     "score_skill_progress": curriculum.score_skill_progress,
     "identify_skill_plateau": curriculum.identify_skill_plateau,
     "recommend_training_focus": curriculum.recommend_training_focus,
+    # Adversarial self-testing
+    "generate_adversarial_case": adversarial.generate_adversarial_case,
+    "attack_decision": adversarial.attack_decision,
+    "find_reasoning_weakness": adversarial.find_reasoning_weakness,
+    "harden_rule": adversarial.harden_rule,
+    "create_regression_from_attack": adversarial.create_regression_from_attack,
+    # Architecture governor
+    "check_architecture_integrity": architecture.check_architecture_integrity,
+    "detect_competing_paths": architecture.detect_competing_paths,
+    "detect_unowned_module": architecture.detect_unowned_module,
+    "detect_unverified_stage": architecture.detect_unverified_stage,
+    "enforce_unified_brain_boundary": architecture.enforce_unified_brain_boundary,
+    "generate_architecture_report": architecture.generate_architecture_report,
+    # Highest-leverage change ranking
+    "rank_highest_leverage_change": leverage.rank_highest_leverage_change,
+    "estimate_intervention_value": leverage.estimate_intervention_value,
+    "compare_intervention_costs": leverage.compare_intervention_costs,
+    "explain_highest_leverage_change": leverage.explain_highest_leverage_change,
     # knowledge extraction + structure + variants
     "extract_knowledge": extraction.extract_knowledge,
     "suggest_structure": extraction.suggest_structure,
