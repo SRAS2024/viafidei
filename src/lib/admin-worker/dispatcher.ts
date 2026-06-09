@@ -25,6 +25,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import type { BrainDecision, BrainMissionStage } from "./brain";
+import { EXTRACTABLE_CONTENT_TYPES, isExtractableContentType } from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
 import { recordStageOutcome, toStageOutcome } from "./stage-outcomes";
 
@@ -683,8 +684,15 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
   // first so the longest-waiting read is always processed next: even if
   // the take-window doesn't cover the whole backlog, the oldest pending
   // read is guaranteed to be in it, so the queue always drains forward.
+  //
+  // Only EXTRACTABLE detected types are eligible: a read classified
+  // UNUSABLE / WRONG (or any type without an extractor) can never yield an
+  // artifact, so if it were selected it would be rejected without being
+  // marked done and — being oldest — re-selected on every pass forever,
+  // blocking the whole queue behind it (the EXTRACTION stuck loop). Filtering
+  // here keeps those terminal reads out of the queue entirely.
   const candidates = await prisma.adminWorkerSourceRead.findMany({
-    where: { detectedContentType: { not: null } },
+    where: { detectedContentType: { in: [...EXTRACTABLE_CONTENT_TYPES] } },
     orderBy: { createdAt: "asc" },
     take: 200,
   });
@@ -716,23 +724,11 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
       )
     : null;
   const detected = read.detectedContentType;
-  const supportedTypes = new Set([
-    "PRAYER",
-    "SAINT",
-    "APPARITION",
-    "DEVOTION",
-    "NOVENA",
-    "ROSARY",
-    "CONSECRATION",
-    "SACRAMENT",
-    "CHURCH_DOCUMENT",
-    "LITURGICAL",
-    "PARISH",
-    "POPE",
-    "DOCTOR",
-    "RITE",
-  ]);
-  if (!detected || !supportedTypes.has(detected)) {
+  // Defensive: the candidate query already restricts to extractable types,
+  // but guard again so `detected` is a typed ExtractableContentType for the
+  // extractor dispatch below (and so a future query change can't silently
+  // reintroduce the poison-read loop).
+  if (!isExtractableContentType(detected)) {
     return {
       stage: "EXTRACTION",
       kind: "rejected",
@@ -755,7 +751,7 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     blockOrder: (b as { blockOrder: number }).blockOrder,
     confidenceScore: (b as { confidenceScore: number }).confidenceScore,
   }));
-  const extractor = extractByType(detected as never, {
+  const extractor = extractByType(detected, {
     url: read.sourceUrl,
     host: read.sourceHost,
     title: read.extractedTitle,

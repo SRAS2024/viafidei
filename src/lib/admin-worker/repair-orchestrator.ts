@@ -30,6 +30,7 @@
 
 import type { AdminWorkerRepairKind, AdminWorkerRepairPlan, PrismaClient } from "@prisma/client";
 
+import { isExtractableContentType } from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
 
 export interface RepairOrchestratorOutcome {
@@ -586,10 +587,10 @@ async function executePlan(
       // reset the artifact so the build advances; if the source genuinely
       // lacks them, fall through to deferred (pull from another source).
       const read = await loadSourceReadForPlan(prisma, plan);
-      if (read?.detectedContentType) {
+      if (read && isExtractableContentType(read.detectedContentType)) {
         const { extractByType } = await import("./extractors");
         try {
-          const extracted = extractByType(read.detectedContentType as never, {
+          const extracted = extractByType(read.detectedContentType, {
             url: read.sourceUrl,
             host: read.sourceHost,
             title: read.extractedTitle ?? "",

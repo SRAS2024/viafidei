@@ -392,6 +392,32 @@ describe("EXTRACTION materialises an AdminWorkerPackageArtifact", () => {
     });
     expect(out.kind).toBe("idle");
   });
+
+  it("scopes the extraction queue to extractable types so a UNUSABLE read can't block it", async () => {
+    // Regression: a read classified UNUSABLE / WRONG (or any non-extractable
+    // type) used to sit at the head of the oldest-first queue and be
+    // re-selected (then rejected without being marked done) on every pass —
+    // the EXTRACTION stuck loop. The candidate query must restrict to
+    // EXTRACTABLE types so those terminal reads are never picked.
+    const prisma = makePrisma({ read: true });
+    const findMany = prisma.adminWorkerSourceRead.findMany as ReturnType<typeof vi.fn>;
+    await executeMissionStage({
+      prisma,
+      workerId: "w1",
+      passId: "p1",
+      decision: decision("EXTRACTION"),
+    });
+    const whereArg = findMany.mock.calls[0]?.[0]?.where as
+      | { detectedContentType?: { in?: string[] } }
+      | undefined;
+    const inList = whereArg?.detectedContentType?.in ?? [];
+    expect(inList).toContain("PRAYER");
+    expect(inList).toContain("MARIAN_TITLE");
+    expect(inList).toContain("GUIDE");
+    expect(inList).toContain("SPIRITUAL_PRACTICE");
+    expect(inList).not.toContain("UNUSABLE");
+    expect(inList).not.toContain("WRONG");
+  });
 });
 
 describe("PUBLIC_PUBLISH calls runPublishOrchestrator on BUILD_READY artifacts", () => {
