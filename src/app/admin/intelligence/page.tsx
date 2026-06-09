@@ -509,6 +509,9 @@ export default async function AdminIntelligencePage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          <Link className="text-indigo-600 underline" href="/admin/skills">
+            Skill Runtime →
+          </Link>
           <Link className="text-indigo-600 underline" href="/admin/intelligence/lab">
             Intelligence Laboratory →
           </Link>
