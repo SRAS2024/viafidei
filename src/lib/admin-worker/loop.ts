@@ -315,6 +315,17 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // best-effort — maintenance intelligence must not affect the pass
   }
 
+  // Intelligence Laboratory: throttled, advisory self-evaluation (causal root
+  // cause, architecture integrity, highest-leverage next change). Recorded to
+  // the audit trail; never deploys code or publishes — recommendations flow
+  // through developer requests + human review.
+  try {
+    const { maybeRunIntelligenceLabPass } = await import("./intelligence-lab");
+    await maybeRunIntelligenceLabPass(prisma, { passId: pass.id });
+  } catch {
+    // best-effort — the lab pass must never affect the pass
+  }
+
   return { built, published: publishedCount, failed: failedCount, idle };
 }
 
