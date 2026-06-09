@@ -11,6 +11,8 @@ import { registerSkills, clearRegistry } from "./registry";
 import { extractionSkills } from "./extraction-skills";
 import { verificationSkills } from "./verification-skills";
 import { sourceSkills } from "./source-skills";
+import { discoverySkills } from "./discovery-skills";
+import { pdfSkills } from "./pdf-skills";
 import { publishingSkills } from "./publishing-skills";
 import { subtitleSkills } from "./subtitle-skills";
 import { repairSkills } from "./repair-skills";
@@ -28,6 +30,8 @@ export function ensureSkillsRegistered(): void {
   registerSkills(extractionSkills as unknown as CertifiedSkill[]);
   registerSkills(verificationSkills as unknown as CertifiedSkill[]);
   registerSkills(sourceSkills);
+  registerSkills(discoverySkills);
+  registerSkills(pdfSkills);
   registerSkills(publishingSkills);
   registerSkills(subtitleSkills);
   registerSkills(repairSkills);

@@ -49,3 +49,8 @@ export {
   type SkillPlanStep,
   type PlanInput,
 } from "./planner";
+export {
+  runSkillPlan,
+  type SkillOrchestrationInput,
+  type SkillOrchestrationResult,
+} from "./orchestrator";
