@@ -285,6 +285,11 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   try {
     const { maybeRefreshDailyReadings, maybeBackfillDailyReadings } =
       await import("./daily-readings");
+    // Register the worker's readings sources (the offline lectionary table +
+    // any authoritative dataset configured via LECTIONARY_DATA_URL) so it can
+    // acquire, store, and manage readings for every day it can reach.
+    const { initReadingsSources } = await import("./readings-source");
+    initReadingsSources();
     await maybeRefreshDailyReadings(prisma, { passId: pass.id });
     // Autonomously fill + re-verify the whole forward window (≈a liturgical
     // year): creates missing days, upgrades them to verified readings as

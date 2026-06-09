@@ -25,9 +25,8 @@ import {
   isoDate,
   type ReadingSection,
 } from "@/lib/content-shared/daily-readings";
-import { resolveLiturgicalDay } from "@/lib/content-shared/liturgical-calendar";
-import { resolveReadings } from "@/lib/content-shared/lectionary";
 
+import { acquireReadings } from "./readings-source";
 import { classifyFreshness, isBrainEnabled } from "./intelligence";
 import { recordBrainCall, upsertDeveloperRequest } from "./intelligence/store";
 import { writeAdminWorkerLog } from "./logs";
@@ -54,24 +53,22 @@ function utcMidnight(date: Date): Date {
 }
 
 /**
- * Deterministic readings resolver. Computes the exact liturgical day (General
- * Roman Calendar) and looks the readings up in the in-repo lectionary table,
- * assembling each day's sections in proclamation order with the vendored
- * Douay-Rheims text — no network, no fabrication. Returns null when the day
- * isn't covered yet, so the caller routes to review + the official link.
- *
- * Only the universal calendar in English (Douay-Rheims) is encoded today; a
- * national calendar or another translation would key a different table.
+ * Resolve a day's readings through the worker's readings-source framework
+ * (see readings-source.ts): the offline deterministic lectionary table first,
+ * then any configured authoritative dataset. No fabrication — null when no
+ * source has the day, so the caller routes to review + the official link.
  */
 export async function fetchReadingsForDate(
   date: Date,
   opts: { calendar: string; locale: string },
 ): Promise<FetchedReadings | null> {
-  if (opts.calendar !== "roman-ordinary" || opts.locale !== "en") return null;
-  const day = resolveLiturgicalDay(date);
-  const resolved = resolveReadings(day.lectionaryKey, day.sundayCycle);
-  if (!resolved) return null;
-  return { sections: resolved.sections, confidence: resolved.confidence };
+  const acquired = await acquireReadings(date, opts);
+  if (!acquired) return null;
+  return {
+    sections: acquired.sections,
+    sourceName: acquired.source === "lectionary-table" ? undefined : acquired.source,
+    confidence: acquired.confidence,
+  };
 }
 
 async function ensureReviewTask(
