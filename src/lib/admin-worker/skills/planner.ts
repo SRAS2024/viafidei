@@ -51,6 +51,7 @@ function buildPlan(contentType: string): string[] {
   const tail = [
     "run_strict_qa",
     "publish_content",
+    "publish_content_subtitle",
     "verify_public_route",
     "verify_sitemap",
     "verify_cache",

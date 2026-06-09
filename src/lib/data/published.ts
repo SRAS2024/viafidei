@@ -9,6 +9,7 @@
 import type { ChecklistContentType } from "@prisma/client";
 
 import { prisma } from "@/lib/db/client";
+import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
 
 export interface PublishedItem {
   id: string;
@@ -16,6 +17,8 @@ export interface PublishedItem {
   contentType: ChecklistContentType;
   slug: string;
   title: string;
+  /** One-line descriptive subtitle (stored, or generated as a fallback). */
+  subtitle: string;
   payload: Record<string, unknown>;
   authorityLevel: string;
   version: number;
@@ -26,13 +29,22 @@ function deserialize(
   row: Awaited<ReturnType<typeof prisma.publishedContent.findFirst>>,
 ): PublishedItem | null {
   if (!row) return null;
+  const payload = (row.payload ?? {}) as Record<string, unknown>;
   return {
     id: row.id,
     checklistItemId: row.checklistItemId,
     contentType: row.contentType,
     slug: row.slug,
     title: row.title,
-    payload: (row.payload ?? {}) as Record<string, unknown>,
+    subtitle:
+      (row as { subtitle?: string | null }).subtitle ??
+      generateContentSubtitle({
+        contentType: row.contentType,
+        contentSubtype: (payload.contentSubtype as string | null) ?? null,
+        title: row.title,
+        fields: payload,
+      }),
+    payload,
     authorityLevel: row.authorityLevel,
     version: row.version,
     publishedAt: row.publishedAt,

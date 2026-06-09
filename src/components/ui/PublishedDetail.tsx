@@ -199,6 +199,9 @@ export function PublishedDetail({
           <div>
             <p className="vf-eyebrow">{item.contentType}</p>
             <h1 className="mt-2 font-display text-4xl text-ink">{item.title}</h1>
+            {item.subtitle ? (
+              <p className="mt-1 font-serif text-base italic text-ink-soft">{item.subtitle}</p>
+            ) : null}
           </div>
           {action ? <div className="shrink-0 pt-1">{action}</div> : null}
         </div>
