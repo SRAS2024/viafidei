@@ -1539,7 +1539,7 @@ so the full content build plan runs end to end through certified skills:
   `verify_cache`, and `rollback_publish`.
 
 The **repair, homepage, reporting, security, and maintenance packs are also
-certified** — **102 certified skills** across all nine categories (including the
+certified** — **112 certified skills** across all nine categories (including the
 **discovery** pack — `discover_from_sitemap` / `_rss` / `_internal_links` /
 `_configured_urls` / `_directory_page` / `_search_page` + `request_dynamic_
 fetcher_upgrade` — and the **PDF** pack — detect / fetch / classify / verify
@@ -1573,7 +1573,11 @@ executor + Prisma deps (preflight → execute → verify → ledger → feedback
 stops safely on the first failure — an e2e proof drives a full prayer
 source-to-page build through certified skills and records every step to the
 ledger, blocks a non-executable plan rather than faking it, and routes a publish
-"review" result to human review without publishing.
+"review" result to human review without publishing. The live dispatcher itself
+consults the planner on every stage and records the certified-skill plan (which
+stages route through certified skills, which still need one), so the dashboard
+and Developer Audit show real coverage; the per-stage internals are migrated to
+the executor incrementally so the heavily-tested publish path is never regressed.
 
 Anything still without a certified skill (PDF _text extraction_ / OCR, a dynamic
 fetcher, and the content types with no extractor — creed, diocese, religious

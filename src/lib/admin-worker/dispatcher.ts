@@ -173,6 +173,34 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
     const raw = await runStageHandler(prisma, workerId, passId, decision, stage);
     // Spec §3.4: every stage return carries the full uniform shape.
     const outcome = enrichOutcome(raw, decision);
+
+    // Dispatcher-as-skill-orchestrator: consult the Skill Planner for the
+    // certified-skill plan that backs this stage and record it (so the
+    // dashboard + Developer Audit show which stages route through certified
+    // skills and which still need one). Best-effort + non-blocking; a
+    // non-executable plan means the capability refresh files a developer
+    // request for the missing skill rather than the worker pretending.
+    try {
+      const { planForDecision } = await import("./skills");
+      const plan = planForDecision({ missionStage: stage, contentType: decision.contentType });
+      await writeAdminWorkerLog(prisma, {
+        passId,
+        category: "WORKER_PASS",
+        severity: "INFO",
+        eventName: "skill_plan",
+        message: `Stage ${stage}: certified-skill plan ${plan.executable ? "executable" : "not executable"} (${plan.steps.length} step(s))`,
+        contentType: decision.contentType ?? undefined,
+        safeMetadata: {
+          stage,
+          executable: plan.executable,
+          steps: plan.steps.map((s) => s.skillName),
+          missingSkills: plan.missingSkills,
+          requiresProofPacket: plan.requiresProofPacket,
+        },
+      }).catch(() => undefined);
+    } catch {
+      // planner consultation is best-effort and must not affect the dispatch
+    }
     // Exact stage-outcome ledger: one precise row per dispatch so the
     // brain scores from real outcomes, not approximations.
     await recordStageOutcome(prisma, {
