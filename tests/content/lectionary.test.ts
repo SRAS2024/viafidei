@@ -49,10 +49,32 @@ describe("resolveReadings", () => {
     expect(resolveReadings("nonexistent-key")).toBeNull();
   });
 
-  it("covers the seeded principal solemnities", () => {
+  it("covers the principal fixed-reading days (Temporal + sanctoral)", () => {
     expect(coveredLectionaryKeys().sort()).toEqual(
-      ["easter-sunday", "epiphany", "nativity", "pentecost"].sort(),
+      [
+        "all-saints",
+        "ash-wednesday",
+        "assumption",
+        "easter-sunday",
+        "epiphany",
+        "good-friday",
+        "holy-thursday",
+        "immaculate-conception",
+        "mary-mother-of-god",
+        "nativity",
+        "pentecost",
+      ].sort(),
     );
+  });
+
+  it("resolves the newly added days with real Douay-Rheims text", () => {
+    expect(resolveReadings("good-friday")!.sections.find((s) => s.kind === "GOSPEL")!.body).toMatch(
+      /Jesus/,
+    );
+    expect(resolveReadings("assumption")!.sections.find((s) => s.kind === "GOSPEL")!.body).toMatch(
+      /Mary/,
+    );
+    expect(resolveReadings("ash-wednesday")!.sections[0].body).toMatch(/Lord/);
   });
 
   it("end-to-end: a civil date resolves through the calendar to its readings", () => {
@@ -63,6 +85,10 @@ describe("resolveReadings", () => {
     // Easter Sunday 2026 (5 Apr) → the empty-tomb Gospel.
     expect(at("2026-04-05").lectionaryKey).toBe("easter-sunday");
     expect(resolveReadings(at("2026-04-05").lectionaryKey)!.sections[0].body).toMatch(/Peter/);
+    // The Assumption (15 Aug 2025) resolves via the sanctoral overlay → the
+    // Visitation Gospel with the Magnificat.
+    expect(at("2025-08-15").lectionaryKey).toBe("assumption");
+    expect(resolveReadings(at("2025-08-15").lectionaryKey)!.sections[3].body).toMatch(/magnif/i);
   });
 });
 

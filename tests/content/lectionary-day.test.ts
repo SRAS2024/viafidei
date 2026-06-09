@@ -66,6 +66,17 @@ describe("resolveLiturgicalDay — Proper of Time (General Roman Calendar)", () 
     expect(key("2025-12-17")).toBe("advent-weekday-1217"); // O Antiphons, keyed by date
   });
 
+  it("applies the sanctoral overlay for principal fixed-date solemnities", () => {
+    expect(key("2025-08-15")).toBe("assumption"); // Friday, Ordinary Time
+    expect(key("2025-11-01")).toBe("all-saints"); // Saturday
+    expect(key("2025-12-08")).toBe("immaculate-conception"); // Monday of Advent
+    expect(at("2025-08-15").rank).toBe("SOLEMNITY");
+    expect(at("2025-08-15").color).toBe("White");
+    // Precedence: 8 Dec 2024 is the 2nd Sunday of Advent, which outranks the
+    // Immaculate Conception (it transfers), so the temporal Sunday wins.
+    expect(key("2024-12-08")).toBe("advent-2-sunday");
+  });
+
   it("Christmas season (keyed by date) + its solemnities and feasts", () => {
     expect(key("2024-12-25")).toBe("nativity");
     expect(key("2024-12-29")).toBe("holy-family"); // first Sunday after Christmas 2024

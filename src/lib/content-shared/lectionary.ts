@@ -84,6 +84,48 @@ const LECTIONARY: Record<string, ReadingSpec[]> = {
     { kind: "SECOND_READING", label: "Second Reading", citation: "1 Corinthians 12:3b-7, 12-13" },
     { kind: "GOSPEL", label: "Gospel", citation: "John 20:19-23" },
   ],
+  "ash-wednesday": [
+    { kind: "FIRST_READING", label: "First Reading", citation: "Joel 2:12-18" },
+    { kind: "PSALM", label: "Responsorial Psalm", citation: "Psalm 51:3-6, 12-14, 17" },
+    { kind: "SECOND_READING", label: "Second Reading", citation: "2 Corinthians 5:20—6:2" },
+    { kind: "GOSPEL", label: "Gospel", citation: "Matthew 6:1-6, 16-18" },
+  ],
+  "holy-thursday": [
+    { kind: "FIRST_READING", label: "First Reading", citation: "Exodus 12:1-8, 11-14" },
+    { kind: "PSALM", label: "Responsorial Psalm", citation: "Psalm 116:12-13, 15-18" },
+    { kind: "SECOND_READING", label: "Second Reading", citation: "1 Corinthians 11:23-26" },
+    { kind: "GOSPEL", label: "Gospel", citation: "John 13:1-15" },
+  ],
+  "good-friday": [
+    { kind: "FIRST_READING", label: "First Reading", citation: "Isaiah 52:13—53:12" },
+    { kind: "PSALM", label: "Responsorial Psalm", citation: "Psalm 31:2, 6, 12-13, 15-17, 25" },
+    { kind: "SECOND_READING", label: "Second Reading", citation: "Hebrews 4:14-16; 5:7-9" },
+    { kind: "GOSPEL", label: "Gospel", citation: "John 18:1—19:42" },
+  ],
+  "mary-mother-of-god": [
+    { kind: "FIRST_READING", label: "First Reading", citation: "Numbers 6:22-27" },
+    { kind: "PSALM", label: "Responsorial Psalm", citation: "Psalm 67:2-3, 5-6, 8" },
+    { kind: "SECOND_READING", label: "Second Reading", citation: "Galatians 4:4-7" },
+    { kind: "GOSPEL", label: "Gospel", citation: "Luke 2:16-21" },
+  ],
+  assumption: [
+    { kind: "FIRST_READING", label: "First Reading", citation: "Revelation 11:19a; 12:1-6a, 10ab" },
+    { kind: "PSALM", label: "Responsorial Psalm", citation: "Psalm 45:10-12, 16" },
+    { kind: "SECOND_READING", label: "Second Reading", citation: "1 Corinthians 15:20-27" },
+    { kind: "GOSPEL", label: "Gospel", citation: "Luke 1:39-56" },
+  ],
+  "all-saints": [
+    { kind: "FIRST_READING", label: "First Reading", citation: "Revelation 7:2-4, 9-14" },
+    { kind: "PSALM", label: "Responsorial Psalm", citation: "Psalm 24:1-6" },
+    { kind: "SECOND_READING", label: "Second Reading", citation: "1 John 3:1-3" },
+    { kind: "GOSPEL", label: "Gospel", citation: "Matthew 5:1-12a" },
+  ],
+  "immaculate-conception": [
+    { kind: "FIRST_READING", label: "First Reading", citation: "Genesis 3:9-15, 20" },
+    { kind: "PSALM", label: "Responsorial Psalm", citation: "Psalm 98:1-4" },
+    { kind: "SECOND_READING", label: "Second Reading", citation: "Ephesians 1:3-6, 11-12" },
+    { kind: "GOSPEL", label: "Gospel", citation: "Luke 1:26-38" },
+  ],
 };
 
 export interface ResolvedReadings {
@@ -96,9 +138,18 @@ export interface ResolvedReadings {
  * Resolve the readings for a liturgical day. Returns the ordered sections
  * (citation always set; body set when the Douay-Rheims text is vendored), or
  * null when the day isn't in the table yet (caller falls back to the link).
+ *
+ * Cycle-aware: Sundays/solemnities whose readings vary by year are keyed
+ * `${lectionaryKey}|${cycle}` (e.g. "ordinary-2-sunday|C"); a cycle-independent
+ * entry is keyed by the bare lectionaryKey. We try the cycle-specific entry
+ * first, then fall back to the bare key.
  */
-export function resolveReadings(lectionaryKey: string): ResolvedReadings | null {
-  const specs = LECTIONARY[lectionaryKey];
+export function resolveReadings(
+  lectionaryKey: string,
+  cycle?: "A" | "B" | "C",
+): ResolvedReadings | null {
+  const specs =
+    (cycle ? LECTIONARY[`${lectionaryKey}|${cycle}`] : undefined) ?? LECTIONARY[lectionaryKey];
   if (!specs || specs.length === 0) return null;
   const sections: ReadingSection[] = specs.map((s) => ({
     kind: s.kind,

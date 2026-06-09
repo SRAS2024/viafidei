@@ -480,14 +480,75 @@ function holyFamilySunday(year: number): Date {
   return addDays(christmas, 7 - christmas.getUTCDay());
 }
 
+interface SanctoralFeast {
+  month: number;
+  day: number;
+  key: string;
+  celebration: string;
+  color: string;
+}
+
 /**
- * The precise liturgical day (Proper of Time) for a civil date — the stable key
- * a verified lectionary table maps to Scripture citations. General Roman
- * Calendar; the sanctoral (fixed feasts) is applied as a separate overlay.
+ * Principal fixed-date solemnities of the Proper of Saints. These outrank an
+ * Ordinary-Time Sunday, so they override the temporal day — except where a
+ * higher-ranking Advent/Lent/Easter Sunday would win (the feast then transfers,
+ * which we conservatively decline to override rather than show wrong readings).
+ */
+const SANCTORAL: readonly SanctoralFeast[] = [
+  {
+    month: 8,
+    day: 15,
+    key: "assumption",
+    celebration: "The Assumption of the Blessed Virgin Mary",
+    color: "White",
+  },
+  { month: 11, day: 1, key: "all-saints", celebration: "All Saints", color: "White" },
+  {
+    month: 12,
+    day: 8,
+    key: "immaculate-conception",
+    celebration: "The Immaculate Conception of the Blessed Virgin Mary",
+    color: "White",
+  },
+];
+
+function sanctoralOverride(date: Date): SanctoralFeast | null {
+  const month = date.getUTCMonth() + 1;
+  const day = date.getUTCDate();
+  const feast = SANCTORAL.find((f) => f.month === month && f.day === day);
+  if (!feast) return null;
+  // Privileged Advent/Lent/Easter Sundays outrank these solemnities (the feast
+  // transfers); don't override them. Aug 15 / Nov 1 are always in Ordinary
+  // Time, where the solemnity wins even on a Sunday.
+  const season = liturgicalSeasonFor(date);
+  const privileged = season === "advent" || season === "lent" || season === "easter";
+  if (privileged && date.getUTCDay() === 0) return null;
+  return feast;
+}
+
+/**
+ * The precise liturgical day for a civil date — the stable key a verified
+ * lectionary table maps to Scripture citations. General Roman Calendar, with a
+ * Proper-of-Saints overlay for the principal fixed-date solemnities.
  */
 export function resolveLiturgicalDay(input: Date): LiturgicalDayDetail {
   const date = startOfUtcDay(input);
   const base = liturgicalDay(date);
+
+  const sanctoral = sanctoralOverride(date);
+  if (sanctoral) {
+    return {
+      ...base,
+      color: sanctoral.color,
+      dayOfWeek: date.getUTCDay(),
+      isSunday: date.getUTCDay() === 0,
+      weekOfSeason: 0,
+      rank: "SOLEMNITY",
+      celebration: sanctoral.celebration,
+      lectionaryKey: sanctoral.key,
+    };
+  }
+
   const t = temporalCelebration(date);
   return {
     ...base,

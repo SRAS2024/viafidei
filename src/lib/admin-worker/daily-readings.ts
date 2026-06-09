@@ -69,7 +69,7 @@ export async function fetchReadingsForDate(
 ): Promise<FetchedReadings | null> {
   if (opts.calendar !== "roman-ordinary" || opts.locale !== "en") return null;
   const day = resolveLiturgicalDay(date);
-  const resolved = resolveReadings(day.lectionaryKey);
+  const resolved = resolveReadings(day.lectionaryKey, day.sundayCycle);
   if (!resolved) return null;
   return { sections: resolved.sections, confidence: resolved.confidence };
 }
