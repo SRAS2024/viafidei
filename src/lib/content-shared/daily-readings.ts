@@ -7,7 +7,7 @@
  * the worker — these helpers never invent it.
  */
 
-import { liturgicalDay, usccbReadingsUrl } from "./liturgical-calendar";
+import { resolveLiturgicalDay, usccbReadingsUrl } from "./liturgical-calendar";
 
 export type ReadingKind =
   | "FIRST_READING"
@@ -29,6 +29,13 @@ export interface ReadingSection {
 export interface ReadingFraming {
   /** ISO civil date (YYYY-MM-DD). */
   date: string;
+  /** The exact liturgical celebration, e.g. "The Most Holy Trinity",
+   *  "Tuesday of the 23rd Week in Ordinary Time" (General Roman Calendar). */
+  celebration: string;
+  /** Stable Proper-of-Time key the lectionary is indexed on. */
+  lectionaryKey: string;
+  /** "SOLEMNITY" | "FEAST" | "SUNDAY" | "WEEKDAY". */
+  rank: string;
   seasonLabel: string;
   sundayCycle: string;
   weekdayCycle: string;
@@ -54,12 +61,18 @@ export function isSunday(date: Date): boolean {
  * requires the full calendar, which a trusted source supplies). Bodies and
  * citations start null and are filled only from a verified source.
  */
-export function buildReadingSkeleton(date: Date): ReadingSection[] {
+export function buildReadingSkeleton(
+  date: Date,
+  opts?: { secondReading?: boolean },
+): ReadingSection[] {
   const sections: ReadingSection[] = [
     { kind: "FIRST_READING", label: "First Reading", citation: null, body: null },
     { kind: "PSALM", label: "Responsorial Psalm", citation: null, body: null },
   ];
-  if (isSunday(date)) {
+  // Sundays AND solemnities carry a Second Reading (the latter even on
+  // weekdays — e.g. the Ascension, the Nativity, Mary Mother of God). When the
+  // caller hasn't resolved the rank, fall back to the Sunday rule.
+  if (opts?.secondReading ?? isSunday(date)) {
     sections.push({ kind: "SECOND_READING", label: "Second Reading", citation: null, body: null });
   }
   sections.push({ kind: "ACCLAMATION", label: "Gospel Acclamation", citation: null, body: null });
@@ -69,9 +82,12 @@ export function buildReadingSkeleton(date: Date): ReadingSection[] {
 
 /** Deterministic liturgical framing + skeleton for a date (no network). */
 export function buildReadingFraming(date: Date): ReadingFraming {
-  const day = liturgicalDay(date);
+  const day = resolveLiturgicalDay(date);
   return {
     date: isoDate(date),
+    celebration: day.celebration,
+    lectionaryKey: day.lectionaryKey,
+    rank: day.rank,
     seasonLabel: day.seasonLabel,
     sundayCycle: day.sundayCycle,
     weekdayCycle: day.weekdayCycle,
@@ -80,7 +96,9 @@ export function buildReadingFraming(date: Date): ReadingFraming {
     isSunday: isSunday(date),
     sourceUrl: usccbReadingsUrl(date),
     sourceName: "USCCB",
-    sections: buildReadingSkeleton(date),
+    sections: buildReadingSkeleton(date, {
+      secondReading: day.rank === "SOLEMNITY" || isSunday(date),
+    }),
   };
 }
 

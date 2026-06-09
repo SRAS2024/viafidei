@@ -80,7 +80,8 @@ export default async function DailyReadingsPage({
     <main className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6">
       <div className="text-center">
         <p className="vf-eyebrow text-ink-faint">Daily Readings</p>
-        <h1 className="mt-2 font-display text-2xl text-ink sm:text-3xl">{longDate(date)}</h1>
+        <h1 className="mt-2 font-display text-2xl text-ink sm:text-3xl">{framing.celebration}</h1>
+        <p className="mt-1 font-serif text-sm text-ink-soft">{longDate(date)}</p>
         <p className="mt-2 font-serif text-sm text-ink-soft">
           {framing.seasonLabel} · Sunday Cycle {framing.sundayCycle} · Weekday Cycle{" "}
           {framing.weekdayCycle}
