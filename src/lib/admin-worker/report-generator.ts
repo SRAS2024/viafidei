@@ -848,6 +848,7 @@ export const DEVELOPER_AUDIT_SECTIONS = [
   "Rejected Alternatives",
   "Reasoning Graph",
   "Mission Plans",
+  "Intelligence Laboratory",
   "Pipeline Stage History",
   "Content Goal Progress",
   "Content Growth Funnel",
