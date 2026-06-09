@@ -1479,6 +1479,60 @@ body, Postgres is the durable store** — and the runtime adds the practical lay
 that proves work actually happened, repairs failures, learns from outcomes, and
 **reports honestly what the worker can and cannot do**.
 
+### Autonomous content lifecycle — every content type the site offers
+
+The worker runs a **continuous loop** (`run-worker.ts` → `runAdminWorkerLoop`,
+`maxPasses: Infinity`): it starts the Python brain, then on **every pass** the
+brain selects the next safest action and the worker executes the full content
+lifecycle and the ongoing-management work:
+
+```
+find → fetch → read → classify → extract (per type + subtype) → build package →
+verify (fields, citations, authority, claims, duplicate, communion, proof) →
+strict QA → publish → verify route + sitemap + search + cache → repair → learn
+```
+
+…plus, each pass: **curated-knowledge ingest** (publishes the hand-verified
+ground-truth for every type through the real Publish Orchestrator — the
+first-pass content source, gated on `PYTHON_FINAL_BRAIN_ACTIVE`), **daily
+readings** refresh + year-ahead backfill, **learning** (memory + source
+reputation + confidence calibration + capability scores), **self-model + code
+awareness**, the **Intelligence Laboratory** pass, and a **capability-matrix
+refresh**. Live discovery (seven methods) grows content beyond the curated base.
+
+This covers **every content type the site offers**. Each public category maps to
+a publishable `ChecklistContentType`, and all of them have an extractor, a
+content-type profile, a public route, curated content, a content goal, and a
+certified extraction skill:
+
+| Site category         | Publishable type              | Site category                 | Publishable type     |
+| --------------------- | ----------------------------- | ----------------------------- | -------------------- |
+| Prayers / Litanies    | `PRAYER`                      | Liturgy / Liturgical Calendar | `LITURGICAL`         |
+| Saints                | `SAINT`                       | Rites                         | `RITE`               |
+| Our Lady              | `MARIAN_TITLE` + `APPARITION` | History / Church Documents    | `CHURCH_DOCUMENT`    |
+| Doctors of the Church | `DOCTOR`                      | Devotions                     | `DEVOTION`           |
+| Popes                 | `POPE`                        | Novenas                       | `NOVENA`             |
+| Sacraments            | `SACRAMENT`                   | Chaplets                      | `GUIDE`              |
+| Parishes              | `PARISH`                      | Spiritual Life                | `SPIRITUAL_PRACTICE` |
+| Guides                | `GUIDE`                       |                               |                      |
+
+…and their **subtypes** — litany / rosary / consecration; common / Marian /
+Eucharistic / saint / liturgical prayers; novena day vs full novena; apparition
+approval statuses; encyclical / exhortation / constitution / motu proprio /
+council documents; catechism + canon-law references; daily / Sunday readings;
+solemnity / memorial / feast / optional memorial; pope / saint / doctor /
+parish profiles — each carried on the content type via the catalog and rendered
+with a generated **subtitle**.
+
+So with a connected database the worker **continuously and autonomously finds,
+builds, verifies, publishes, manages, and repairs all of the site's content**,
+across every type and subtype. The only catalogued types it does **not** publish
+are four that the site has **no pages for** (creed, diocese, religious order,
+homepage block); these have no extractor, so the worker reports them MISSING and
+files a developer request rather than fabricating coverage — adding them would
+mean new public pages + a schema change, which (per the safety mandate) is a
+human decision.
+
 ### Two valid states — no silent reversion
 
 The worker has exactly two runtime states (`final-brain.ts`); there is no third
