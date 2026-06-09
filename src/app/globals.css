@@ -333,6 +333,20 @@
     border-color: var(--action-blue-hover);
   }
 
+  /* Selected filter — one consistent "selected = blue" look for every filter,
+     chip, facet, and tab across the app (public + admin). Fills with the
+     action/Marian blue so a selected filter is unmistakable everywhere. */
+  .vf-filter-active {
+    background: var(--action-blue);
+    color: #ffffff;
+    border-color: var(--action-blue);
+  }
+
+  .vf-filter-active:hover:not(:disabled) {
+    background: var(--action-blue-hover);
+    border-color: var(--action-blue-hover);
+  }
+
   /* Ghost — neutral / cancel / back */
   .vf-btn-ghost {
     background: transparent;
