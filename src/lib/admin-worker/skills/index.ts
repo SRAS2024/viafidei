@@ -25,3 +25,20 @@ export { runPreflight } from "./preflight";
 export { runVerification, check, decideFromChecks } from "./verification";
 export { runRollback, requiresRollback } from "./rollback";
 export { executeCertifiedSkill, noopSkillDeps, hashInput } from "./executor";
+export { ensureSkillsRegistered, resetSkillsForTest } from "./bootstrap";
+export {
+  CONTENT_TYPE_CATALOG,
+  allCatalogTypes,
+  allCatalogSubtypes,
+  catalogEntry,
+  isSensitiveType,
+} from "./catalog";
+export {
+  buildCapabilityRows,
+  refreshCapabilityMatrix,
+  collectSkillCapabilityData,
+  emptySkillCapabilityData,
+  type SkillCapabilityData,
+  type CapabilityRow,
+} from "./capability";
+export { makeSkillRuntimeDeps } from "./store";

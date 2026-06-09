@@ -2825,3 +2825,81 @@ model LabArchitectureIntegrityReport {
   @@index([createdAt])
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// Certified Admin Skill Runtime (skill ledger + capability matrix). Loose
+// coupling (no cross-FKs, string refs to passes / decisions / tasks / entities)
+// matches the other audit-store tables. The worker performs all autonomous
+// operational work through certified skills; every execution is recorded here
+// so it is auditable + replayable, and the capability matrix answers "what can
+// the worker actually do right now?".
+// ───────────────────────────────────────────────────────────────────────────
+
+/// One row per certified-skill execution attempt.
+model AdminWorkerSkillExecution {
+  id                  String   @id @default(cuid())
+  passId              String?
+  decisionId          String?
+  taskId              String?
+  skillName           String
+  skillVersion        String   @default("1")
+  contentType         String?
+  contentSubtype      String?
+  targetEntityType    String?
+  targetEntityId      String?
+  inputHash           String
+  idempotencyKey      String
+  /// PROCEED | BLOCK | HUMAN_REVIEW | SKIP_IDEMPOTENT
+  preflightStatus     String
+  /// SUCCEEDED | FAILED | SKIPPED | BLOCKED | HUMAN_REVIEW
+  executionStatus     String
+  /// PROCEED | RETRY | REPAIR | ROLLBACK | HUMAN_REVIEW | FAILED | NOT_RUN
+  verificationStatus  String
+  /// ROLLED_BACK | NOT_NEEDED | NOT_POSSIBLE | FAILED | NOT_RUN
+  rollbackStatus      String
+  riskLevel           String   @default("low")
+  safeToAutoExecute   Boolean  @default(false)
+  humanReviewRequired Boolean  @default(false)
+  attemptCount        Int      @default(0)
+  durationMs          Int      @default(0)
+  failureReason       String?
+  brainOpUsed         String?
+  outputEntityType    String?
+  outputEntityId      String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([skillName])
+  @@index([passId])
+  @@index([executionStatus])
+  @@index([contentType])
+  @@index([idempotencyKey])
+  @@index([createdAt])
+}
+
+/// Capability coverage matrix — one row per (capability) the worker tracks.
+model AdminWorkerSkillCapability {
+  id                  String    @id @default(cuid())
+  /// Stable capability key, e.g. "extract:PRAYER" or "publish:CHURCH_DOCUMENT".
+  capability          String    @unique
+  category            String
+  contentType         String?
+  contentSubtype      String?
+  /// CERTIFIED | PARTIAL | MISSING | BLOCKED | REQUIRES_HUMAN_REVIEW | REQUIRES_DEVELOPER_WORK
+  coverageStatus      String
+  certifiedSkillName  String?
+  lastSuccessfulAt    DateTime?
+  lastFailedAt        DateTime?
+  successRate         Float     @default(0)
+  verificationRate    Float     @default(0)
+  rollbackAvailable   Boolean   @default(false)
+  humanReviewRequired Boolean   @default(false)
+  missingReason       String?
+  developerRequestId  String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([coverageStatus])
+  @@index([category])
+  @@index([contentType])
+}
+
