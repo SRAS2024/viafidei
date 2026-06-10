@@ -259,17 +259,17 @@ Optional environment variables:
 
 **Admin Worker (autonomous system):**
 
-| Card                | Route                           | Purpose                                                                                                                                                                                                                                       |
-| ------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Command Center      | `/admin/admin-worker`           | Mission + chosen action + ranked alternatives + content-growth funnel + Why-No-Growth + controls                                                                                                                                              |
-| System diagnostics  | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF                                                                                                                                                          |
-| Worker Reasoning    | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph                                                                                                                                               |
-| Pipeline map        | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                                                                                                                                                                            |
-| Package artifacts   | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                                                                                                                                                                         |
-| Admin Worker logs   | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                                                                                                                                                                         |
-| Admin Worker rules  | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                                                                                                                                                                      |
-| Worker Intelligence | `/admin/intelligence`           | Live capability dashboard: brain status, self-model, capability strengths/weaknesses, memory, source reliability, decisions, self-explanations, stuckness, upgrades                                                                           |
-| Intelligence Lab    | `/admin/intelligence/lab`       | Intelligence Laboratory surfaces: highest-leverage change, causal/root-cause, hypotheses, experiments, proof packets, strategy tournaments, benchmarks + brain versions, capability proposals, adversarial weaknesses, architecture integrity |
+| Card                | Route                           | Purpose                                                                                                                                                                                                                                                                                                            |
+| ------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Command Center      | `/admin/admin-worker`           | Organised into labelled sections — worker-health banner (accurate brain/heartbeat/publishing state), at-a-glance metrics, mission & control, content & coverage (catalogue + **daily-readings calendar coverage** + growth funnel + Why-No-Growth), pipeline & diagnostics, quality & safety, and brain & learning |
+| System diagnostics  | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF                                                                                                                                                                                                                               |
+| Worker Reasoning    | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph                                                                                                                                                                                                                    |
+| Pipeline map        | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                                                                                                                                                                                                                                                 |
+| Package artifacts   | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                                                                                                                                                                                                                                              |
+| Admin Worker logs   | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                                                                                                                                                                                                                                              |
+| Admin Worker rules  | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                                                                                                                                                                                                                                           |
+| Worker Intelligence | `/admin/intelligence`           | Live capability dashboard: brain status, self-model, capability strengths/weaknesses, memory, source reliability, decisions, self-explanations, stuckness, upgrades                                                                                                                                                |
+| Intelligence Lab    | `/admin/intelligence/lab`       | Intelligence Laboratory surfaces: highest-leverage change, causal/root-cause, hypotheses, experiments, proof packets, strategy tournaments, benchmarks + brain versions, capability proposals, adversarial weaknesses, architecture integrity                                                                      |
 
 The public **daily readings** page lives at `/liturgy/readings?date=…` (the
 homepage + liturgical calendar link to it), and the worker owns it end to end.
@@ -292,6 +292,13 @@ ingests, and manages itself — no code change. Days without verified readings
 show the liturgical framing + a link to the official source; a reading is never
 fabricated. Today the table covers the principal solemnities and feasts; the
 rest fills automatically as a dataset is configured or the table is expanded.
+
+The Command Center's **Daily readings** card tracks this coverage live
+(`dailyReadingsCoverage`): how many days are framed, how many carry verified
+text vs are on the official link, today's status, the covered date range, and
+the verified-text coverage of the next 30 / 90 days. There is **no target
+count** — the goal is simply to cover the whole liturgical calendar — so the
+card reports the span the worker has reached rather than a quota.
 
 **Checklist (management surfaces):**
 
@@ -373,7 +380,13 @@ falling back to a TypeScript final brain. Concretely:
   blocked type can't stall the site), and the content-type intelligence
   profiles (doctrinal caution). The strict `BrainFinalDecisionSchema` is
   validated before execution; the chosen action's provenance
-  (`finalBrain: "python"` / `"degraded"`) is recorded on every pass.
+  (`finalBrain: "python"` / `"degraded"`) is recorded on every pass. The
+  Command Center's worker-health banner derives its **current** state from this
+  latest-pass provenance plus the worker heartbeat — so a single transient
+  rejection in the last 24h shows only as an informational footnote, never as a
+  false "offline / not publishing" alarm, and the loud safe-degraded warning
+  appears only when the latest pass actually degraded (or the worker process is
+  not running).
   `intelligence/tests/test_select_action.py` proves the brain ranks every
   candidate and that **learning changes the ranking** (a low exact
   stage-success rate + action fatigue flips the selection; a BLOCKED source

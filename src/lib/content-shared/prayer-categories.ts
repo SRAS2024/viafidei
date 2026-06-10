@@ -38,20 +38,25 @@ export function categorizePrayer(input: {
   body?: string | null;
   category?: string | null;
 }): string {
-  // Prefer an already-canonical stored category.
-  const stored = (input.category ?? "").toLowerCase().trim();
-  if (CANONICAL.has(stored)) return stored;
-
   const pt = (input.prayerType ?? "").toLowerCase();
-  const hay = `${input.title ?? ""} ${input.body ?? ""}`.toLowerCase();
-  const has = (...words: string[]) => words.some((w) => hay.includes(w));
 
-  // Litanies (the /litanies tab) take priority — a "Litany of …" title or a
-  // litany prayerType marks a litany regardless of its thematic content (e.g.
-  // the Litany of Loreto is Marian, but it belongs in the Litany tab).
+  // Litanies (the /litanies tab) take priority over everything, INCLUDING a
+  // stored thematic category — a "Litany of …" title or a `litany` prayerType
+  // marks a litany regardless of its theme (the Litany of the Blessed Virgin
+  // Mary is Marian and the Litany of Humility's stored category is "general",
+  // but both belong in the Litany tab). This must run before the stored-category
+  // shortcut below, or those litanies are hijacked into their theme and the
+  // /litanies tab silently drops them.
   if (pt === "litany" || (input.title ?? "").toLowerCase().includes("litany")) {
     return "litany";
   }
+
+  // Otherwise, prefer an already-canonical stored category.
+  const stored = (input.category ?? "").toLowerCase().trim();
+  if (CANONICAL.has(stored)) return stored;
+
+  const hay = `${input.title ?? ""} ${input.body ?? ""}`.toLowerCase();
+  const has = (...words: string[]) => words.some((w) => hay.includes(w));
 
   if (
     pt === "marian" ||
