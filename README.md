@@ -1773,6 +1773,22 @@ by titles/apparitions, Church Documents by category (incl. Dogmas), and
 Parishes by designation. Each tab only shows a chip when at least one published
 item falls under it.
 
+The **Saints** filters are the Church's groupings that don't already have their
+own tab — Martyrs, Apostles & Evangelists, Popes, Bishops, Religious & Founders,
+Virgins, Laity. **Doctors of the Church and Our Lady are deliberately not Saints
+filters** (each has its own `/doctors` and `/our-lady` tab): a doctor-saint still
+appears in the Saints catalogue under "All", and Marian titles + apparitions live
+only under Our Lady — so the Saints filters never duplicate a dedicated tab.
+
+**Collapsing long filter rows.** `FilterChips` keeps three or fewer filters as
+inline chips, but once a tab offers **more than three** it collapses them into a
+single **dropdown filter button** (`collapseAfter`, default 3) so the row never
+clutters the page. The button shows the active filter (filled blue) or "Filter"
+when nothing is selected; opening it lists every option, choosing one fills it
+blue and closes the panel, and re-selecting the active one deselects it (back to
+"All"). It works in both link mode (server pages) and client mode (favorites,
+history); the reset/all key is excluded from the count via `resetKey`.
+
 **Daily readings.** The Liturgical Calendar's "Official Mass readings for this
 day" button links to the **internal** `/liturgy/readings?date=…` page, not an
 external site. The page shows the exact celebration, the readings in

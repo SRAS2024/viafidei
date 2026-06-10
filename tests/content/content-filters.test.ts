@@ -40,13 +40,21 @@ describe("shared payload-filter factory", () => {
 describe("Saint categories", () => {
   it("routes each saintType to its category", () => {
     expect(keyFor(SAINT_FILTERS, item({ saintType: "martyr" }))).toBe("martyrs");
-    expect(keyFor(SAINT_FILTERS, item({ saintType: "doctor_of_the_church" }))).toBe("doctors");
     expect(keyFor(SAINT_FILTERS, item({ saintType: "apostle" }))).toBe("apostles");
     expect(keyFor(SAINT_FILTERS, item({ saintType: "evangelist" }))).toBe("apostles");
     expect(keyFor(SAINT_FILTERS, item({ saintType: "pope" }))).toBe("popes");
     expect(keyFor(SAINT_FILTERS, item({ saintType: "founder" }))).toBe("religious");
     expect(keyFor(SAINT_FILTERS, item({ saintType: "virgin" }))).toBe("virgins");
     expect(keyFor(SAINT_FILTERS, item({ saintType: "lay" }))).toBe("laity");
+  });
+
+  it("does NOT offer Doctors or Our Lady as Saints filters (each has its own tab)", () => {
+    // Doctors of the Church have a dedicated /doctors tab — a doctor-saint still
+    // shows under All but matches no Saints category filter.
+    expect(SAINT_FILTERS.some((f) => f.key === "doctors")).toBe(false);
+    expect(keyFor(SAINT_FILTERS, item({ saintType: "doctor_of_the_church" }))).toBeUndefined();
+    // Our Lady (Marian titles + apparitions) lives only under /our-lady.
+    expect(SAINT_FILTERS.some((f) => f.key === "lady" || f.key === "marian")).toBe(false);
   });
   it("a specific category is a strict subset of All", () => {
     const items = [

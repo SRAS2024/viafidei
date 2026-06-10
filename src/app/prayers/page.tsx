@@ -59,6 +59,7 @@ export default async function PrayersPage({ searchParams }: Props) {
           activeKey={selected ?? "__all__"}
           items={filterChips}
           className="mb-8"
+          resetKey="__all__"
         />
       ) : null}
 

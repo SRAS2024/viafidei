@@ -72,6 +72,7 @@ export function FavoritesBrowser({ items: initial }: { items: FavoriteItem[] }) 
         ariaLabel="Filter favorites by type"
         activeKey={filter}
         className="mb-6"
+        resetKey="ALL"
         onSelect={(k) => setFilter(k as Filter)}
         items={FILTERS.map((f) => ({ key: f.key, label: f.label, count: counts[f.key] }))}
       />
