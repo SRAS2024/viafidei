@@ -107,6 +107,10 @@ export const PRAYER_TRANSLATIONS: Record<string, PrayerTranslation> = {
     latin:
       "Agimus tibi gratias, omnipotens Deus,\npro universis beneficiis tuis,\nqui vivis et regnas in saecula saeculorum.\nAmen.",
   },
+  "te-deum": {
+    latin:
+      "Te Deum laudamus: te Dominum confitemur.\nTe aeternum Patrem omnis terra veneratur.\nTibi omnes Angeli, tibi Caeli et universae Potestates:\ntibi Cherubim et Seraphim incessabili voce proclamant:\nSanctus, Sanctus, Sanctus Dominus Deus Sabaoth.\nPleni sunt caeli et terra maiestatis gloriae tuae.\nTe gloriosus Apostolorum chorus,\nte Prophetarum laudabilis numerus,\nte Martyrum candidatus laudat exercitus.\nTe per orbem terrarum sancta confitetur Ecclesia,\nPatrem immensae maiestatis;\nvenerandum tuum verum et unicum Filium;\nSanctum quoque Paraclitum Spiritum.\nTu Rex gloriae, Christe.\nTu Patris sempiternus es Filius.\nTu, ad liberandum suscepturus hominem, non horruisti Virginis uterum.\nTu, devicto mortis aculeo, aperuisti credentibus regna caelorum.\nTu ad dexteram Dei sedes, in gloria Patris.\nIudex crederis esse venturus.\nTe ergo quaesumus, tuis famulis subveni,\nquos pretioso sanguine redemisti.\nAeterna fac cum sanctis tuis in gloria numerari.\nSalvum fac populum tuum, Domine, et benedic hereditati tuae.\nEt rege eos, et extolle illos usque in aeternum.\nPer singulos dies benedicimus te;\net laudamus nomen tuum in saeculum, et in saeculum saeculi.\nDignare, Domine, die isto sine peccato nos custodire.\nMiserere nostri, Domine, miserere nostri.\nFiat misericordia tua, Domine, super nos,\nquemadmodum speravimus in te.\nIn te, Domine, speravi: non confundar in aeternum.",
+  },
 };
 
 /** Slugs that intentionally carry no curated Latin/Greek yet (need a curator). */

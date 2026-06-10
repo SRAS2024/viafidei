@@ -228,7 +228,7 @@ export const namedSkills: CertifiedSkill[] = [
   makeOpSkill({
     name: "ensure_prayer_translations",
     purpose:
-      "Ensure published prayers carry their Latin/Greek liturgical text; flag any missing for a curator (sacred texts are never machine-translated).",
+      "Drive Latin AND Greek onto every published prayer: where a curated authentic text exists it is published; for any prayer still missing one, open a review-gated translation task (carrying the English source + target language) so the translation is built and verified, then published. Sacred texts are human-verified before going live (the app's required gate for sensitive Catholic content) — never auto-published unverified.",
     category: "MAINTENANCE",
     allowedInSafeDegradedMode: true,
     run: async (ctx) => {
@@ -238,40 +238,53 @@ export const namedSkills: CertifiedSkill[] = [
           select: { slug: true, title: true, payload: true },
         })
         .catch(() => [] as Array<{ slug: string; title: string; payload: unknown }>);
-      const missing = prayers.filter((p) => {
+      const has = (v: unknown) => typeof v === "string" && (v as string).trim().length > 0;
+
+      // Existing pending translation tasks, so we never duplicate a request.
+      const open = await ctx.prisma.humanReviewQueue
+        .findMany({
+          where: {
+            status: "PENDING",
+            proposedAction: { in: ["TRANSLATE_TO_LATIN", "TRANSLATE_TO_GREEK"] },
+          },
+          select: { contentTitle: true, proposedAction: true },
+        })
+        .catch(() => [] as Array<{ contentTitle: string | null; proposedAction: string }>);
+      const openKeys = new Set(open.map((o) => `${o.contentTitle ?? ""}|${o.proposedAction}`));
+
+      let latinCovered = 0;
+      let greekCovered = 0;
+      let queued = 0;
+      for (const p of prayers) {
         const pl = (p.payload ?? {}) as Record<string, unknown>;
-        const has = (v: unknown) => typeof v === "string" && v.trim().length > 0;
-        return !(has(pl.latin) || has(pl.greek));
-      });
-      if (missing.length > 0) {
-        const fingerprint = "missing-prayer-translations";
-        await ctx.prisma.adminWorkerDeveloperRequest
-          .upsert({
-            where: { fingerprint },
-            create: {
-              kind: "content",
-              title: `${missing.length} prayer(s) need a curated Latin/Greek translation`,
-              detail: `These published prayers have no Latin or Greek text for the language toggle (a curator must add the exact liturgical text — sacred texts are never machine-translated): ${missing
-                .slice(0, 40)
-                .map((p) => p.slug)
-                .join(", ")}.`,
-              severity: "medium",
-              status: "OPEN",
-              source: "skill-runtime",
-              fingerprint,
-              metadata: { missingSlugs: missing.map((p) => p.slug) },
-            },
-            update: {
-              detail: `${missing.length} prayer(s) still need a curated Latin/Greek translation.`,
-              occurrences: { increment: 1 },
-            },
-          })
-          .catch(() => undefined);
+        const english = String(pl.body ?? pl.prayerText ?? "");
+        const needs: Array<["TRANSLATE_TO_LATIN" | "TRANSLATE_TO_GREEK", string]> = [];
+        if (has(pl.latin)) latinCovered += 1;
+        else needs.push(["TRANSLATE_TO_LATIN", "Latin"]);
+        if (has(pl.greek)) greekCovered += 1;
+        else needs.push(["TRANSLATE_TO_GREEK", "Greek"]);
+
+        for (const [action, language] of needs) {
+          if (openKeys.has(`${p.slug}|${action}`)) continue;
+          await ctx.prisma.humanReviewQueue
+            .create({
+              data: {
+                contentType: "PRAYER",
+                contentTitle: p.slug,
+                proposedAction: action,
+                reason: `Build + verify the ${language} translation of "${p.title}" so the prayer's language toggle is complete. Sacred texts are verified by review before publishing.`,
+                confidence: 0,
+                sourceEvidence: { slug: p.slug, targetLanguage: language, english } as never,
+                status: "PENDING",
+              },
+            })
+            .catch(() => undefined);
+          queued += 1;
+        }
       }
-      const covered = prayers.length - missing.length;
       return {
         ok: true,
-        detail: `${covered}/${prayers.length} prayers have a Latin/Greek translation${missing.length ? `; flagged ${missing.length} for a curator` : ""}`,
+        detail: `${latinCovered}/${prayers.length} Latin, ${greekCovered}/${prayers.length} Greek; queued ${queued} translation task(s) for review`,
       };
     },
   }),
