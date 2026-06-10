@@ -795,3 +795,56 @@ export function classifyHostAuthority(host: string): SourceAuthorityLevel {
   if (/cathol|katholisch|catholique|catolic|cattolic/.test(h)) return "TRUSTED_PUBLISHER";
   return "COMMUNITY";
 }
+
+/**
+ * Hosts the worker never fetches, even in open-internet mode: local / internal
+ * addresses and social / login / commerce destinations that never carry citable
+ * Catholic reference content. Keeps "look across the whole internet" from
+ * wandering into unsafe or useless territory.
+ */
+const NON_CONTENT_HOST_PATTERNS: RegExp[] = [
+  /(^|\.)localhost$/,
+  /^127\./,
+  /^10\./,
+  /^192\.168\./,
+  /\.local$/,
+  /(^|\.)facebook\.com$/,
+  /(^|\.)instagram\.com$/,
+  /(^|\.)x\.com$/,
+  /(^|\.)twitter\.com$/,
+  /(^|\.)tiktok\.com$/,
+  /(^|\.)pinterest\.[a-z.]+$/,
+  /(^|\.)reddit\.com$/,
+  /(^|\.)amazon\.[a-z.]+$/,
+  /(^|\.)ebay\.[a-z.]+$/,
+  /(^|\.)login\./,
+  /(^|\.)accounts\./,
+];
+
+/**
+ * Whether the operator has opened the worker up to the wider internet. When on,
+ * the worker may fetch sources beyond the explicit registry — any conference of
+ * bishops, diocese, EWTN, a Catholic database, or even a general site — because
+ * ACCURACY is enforced downstream by cross-source verification + strict QA, not
+ * by the fetch allow-list. Default OFF (registry-only). Only "1"/"true" enables.
+ */
+export function openInternetEnabled(): boolean {
+  const v = (process.env.ADMIN_WORKER_OPEN_INTERNET ?? "").trim().toLowerCase();
+  return v === "1" || v === "true";
+}
+
+/**
+ * Whether the worker may FETCH a host. The explicit registry + the Holy See
+ * `.va` TLD are ALWAYS allowed. With open-internet mode enabled the worker may
+ * also reach any host that is not obviously non-content (local / social /
+ * commerce), so it can pull from lesser-known but accurate sources anywhere —
+ * the content still has to pass cross-source verification and strict QA before
+ * it can publish, so opening the fetch list never lowers the accuracy bar.
+ */
+export function isFetchableHost(host: string): boolean {
+  const h = (host || "").toLowerCase();
+  if (!h) return false;
+  if (NON_CONTENT_HOST_PATTERNS.some((re) => re.test(h))) return false;
+  if (isApprovedAuthorityHost(h)) return true;
+  return openInternetEnabled();
+}

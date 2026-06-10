@@ -22,7 +22,7 @@ import { createHash } from "node:crypto";
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import { isApprovedAuthorityHost } from "@/lib/checklist";
+import { isFetchableHost } from "@/lib/checklist";
 import { writeAdminWorkerLog } from "./logs";
 import { recordSourceOutcome } from "./source-reputation";
 
@@ -123,7 +123,12 @@ export async function adminWorkerFetch(
     });
   }
 
-  if (!isApprovedAuthorityHost(host)) {
+  // Fetch gate: the explicit registry + the Holy See `.va` TLD are always
+  // allowed; with ADMIN_WORKER_OPEN_INTERNET enabled the worker may also reach
+  // lesser-known hosts anywhere on the web (accuracy is enforced downstream by
+  // cross-source verification + strict QA, not by this list). Local / social /
+  // commerce hosts are always blocked.
+  if (!isFetchableHost(host)) {
     return persistAndReturn(prisma, {
       url,
       finalUrl: url,
@@ -140,7 +145,7 @@ export async function adminWorkerFetch(
       unchanged: false,
       rejectionReason: "unapproved host",
       errorClass: "UNAPPROVED_HOST",
-      errorMessage: `Host ${host} is not on the approved authority list.`,
+      errorMessage: `Host ${host} is not fetchable (registry-only mode; set ADMIN_WORKER_OPEN_INTERNET to widen).`,
       fetchResultRowId: null,
       redirectChain: [],
       candidateUrlId: input.candidateUrlId,
