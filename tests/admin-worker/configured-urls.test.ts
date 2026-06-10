@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/checklist", () => ({
   isApprovedAuthorityHost: (host: string) => host.includes("vatican.va"),
+  isFetchableHost: (host: string) => host.includes("vatican.va"),
 }));
 
 vi.mock("@/lib/admin-worker/web-navigator", async () => {

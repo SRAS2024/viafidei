@@ -13,7 +13,7 @@
 
 import type { CandidateSourceDiscoveryMethod, PrismaClient } from "@prisma/client";
 
-import { isApprovedAuthorityHost } from "@/lib/checklist";
+import { isFetchableHost } from "@/lib/checklist";
 import { discoverCandidate, isJunkUrl } from "./web-navigator";
 import { writeAdminWorkerLog } from "./logs";
 
@@ -98,13 +98,16 @@ export async function discoverFromInternalLinks(
   } catch {
     return { seedUrl, fetched: false, inserted: 0, rejected: 0, reason: "invalid URL" };
   }
-  if (!isApprovedAuthorityHost(seedHost)) {
+  // Registry-only by default; in open-internet mode any fetchable page can seed
+  // a crawl (so the worker can spider outward from a Catholic page into the
+  // wider web). isFetchableHost == isApprovedAuthorityHost when open mode is off.
+  if (!isFetchableHost(seedHost)) {
     return {
       seedUrl,
       fetched: false,
       inserted: 0,
       rejected: 0,
-      reason: "seed host not approved",
+      reason: "seed host not fetchable",
     };
   }
 
@@ -124,7 +127,14 @@ export async function discoverFromInternalLinks(
       rejected += 1;
       continue;
     }
-    if (!isApprovedAuthorityHost(host)) {
+    // Follow links to any fetchable host. In open-internet mode this lets the
+    // crawler cross from a known Catholic site (a diocese, EWTN, a bishops'
+    // conference) out to the new sites, databases, and online libraries they
+    // link to — across .com / .net / .org / .va / .edu and any TLD. Accuracy is
+    // still enforced downstream (classification, cross-source verification,
+    // strict QA) and junk / social / commerce hosts are filtered here + in
+    // isFetchableHost. When open mode is off this stays registry-only.
+    if (!isFetchableHost(host)) {
       rejected += 1;
       continue;
     }
