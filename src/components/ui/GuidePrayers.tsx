@@ -56,10 +56,8 @@ export function GuidePrayers({ prayers }: { prayers: GuidePrayerData[] }) {
                 type="button"
                 aria-pressed={lang === l.code}
                 onClick={() => setLang(l.code)}
-                className={`rounded-sm border px-3 py-1 text-xs font-medium uppercase tracking-liturgical transition ${
-                  lang === l.code
-                    ? "vf-filter-active"
-                    : "border-transparent bg-ink/5 text-ink-soft hover:bg-ink/10 hover:text-ink"
+                className={`vf-btn !px-3 !py-1 text-xs ${
+                  lang === l.code ? "vf-btn-primary" : "vf-btn-ghost"
                 }`}
               >
                 {l.label}

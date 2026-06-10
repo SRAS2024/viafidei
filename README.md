@@ -1715,6 +1715,25 @@ Guides · Liturgy · History**, with dropdowns (desktop) and inline expanders
 Sacraments → Parishes / Spiritual Life; Liturgy → Liturgical Calendar /
 Rites; History → Church Documents).
 
+**Liturgical languages (Latin / Greek).** Every prayer can carry its
+vernacular text plus authentic, verbatim **Latin** and **Greek** liturgical
+text (`payload.latin` / `payload.greek`). `buildPrayerVariants`
+(`content-shared/prayer-language.ts`) flattens these into the
+`PrayerLanguageToggle`, which switches the displayed text — Latin/Greek are
+marked `translate="no"` so they are never auto-translated. The texts are
+curated public-domain liturgical texts (`knowledge/prayer-translations.ts` —
+Pater Noster / Ave Maria / Gloria Patri in both languages, plus the Creed,
+Salve Regina, Memorare, Anima Christi, St Michael, Confiteor, …) that the Admin
+Worker publishes with the prayer; the `ensure_prayer_translations` skill scans
+published prayers and files a developer request for any still missing a text,
+so a curator adds the exact wording (sacred texts are never machine-translated).
+
+**Guide prayers.** Every guide (Rosary, Divine Mercy Chaplet, Confession, …)
+lists its applicable prayers at the bottom in the order they are prayed, each a
+**dropdown** (`GuidePrayers` + `Disclosure`) so the full text is readily
+available, with **one universal language toggle** (English / Latin / Greek) that
+switches every prayer at once.
+
 **Category filters.** Content-rich tabs split their items into the Church's
 natural groupings via URL-driven filter chips (`?filter=…`, the shared
 `FilterChips` component + `src/lib/content-shared/*-categories.ts`): Saints by
