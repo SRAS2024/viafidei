@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/checklist", () => ({
   isApprovedAuthorityHost: (host: string) => host.includes("vatican.va"),
+  isFetchableHost: (host: string) => host.includes("vatican.va"),
 }));
 
 vi.mock("@/lib/admin-worker/web-navigator", async () => {
@@ -64,10 +65,10 @@ describe("extractInternalLinks", () => {
 });
 
 describe("discoverFromInternalLinks", () => {
-  it("rejects an unapproved seed host", async () => {
+  it("rejects an un-fetchable seed host (registry-only mode)", async () => {
     const out = await discoverFromInternalLinks(makePrisma(), "https://evil.example/x");
     expect(out.fetched).toBe(false);
-    expect(out.reason).toBe("seed host not approved");
+    expect(out.reason).toBe("seed host not fetchable");
   });
 
   it("fetches the seed page, extracts links, filters junk + cross-host", async () => {

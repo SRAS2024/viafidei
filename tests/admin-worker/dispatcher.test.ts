@@ -16,6 +16,7 @@ beforeAll(() => {
 
 vi.mock("@/lib/checklist", () => ({
   isApprovedAuthorityHost: vi.fn(() => true),
+  isFetchableHost: vi.fn(() => true),
 }));
 
 vi.mock("@/lib/admin-worker/fetcher", () => ({

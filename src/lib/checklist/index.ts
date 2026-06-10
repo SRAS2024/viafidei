@@ -37,6 +37,9 @@ export {
   AUTHORITY_SOURCES,
   authorityLevelForHost,
   isApprovedAuthorityHost,
+  isFetchableHost,
+  openInternetEnabled,
+  classifyHostAuthority,
   findAuthoritySource,
 } from "./sources/authority-registry";
 export { canonicalizeSlug, normalizeForComparison, suggestSlug } from "./slugs";

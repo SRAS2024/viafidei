@@ -42,7 +42,7 @@ export const DEFAULT_GOAL_SEEDS: readonly ContentGoalSeed[] = [
   // content becomes available. No hard maximum.
   { contentType: "PRAYER", targetGoal: 1000, canonicalMax: null, priority: 10 },
   { contentType: "POPE", targetGoal: 267, canonicalMax: null, priority: 15 },
-  { contentType: "SAINT", targetGoal: 1000, canonicalMax: null, priority: 20 },
+  { contentType: "SAINT", targetGoal: 10000, canonicalMax: null, priority: 20 },
   { contentType: "DOCTOR", targetGoal: 37, canonicalMax: null, priority: 25 },
   { contentType: "DEVOTION", targetGoal: 100, canonicalMax: null, priority: 30 },
   { contentType: "NOVENA", targetGoal: 100, canonicalMax: null, priority: 40 },
@@ -183,9 +183,35 @@ export async function nextPriorityContentType(
 ): Promise<{ contentType: string; gap: number } | null> {
   const goals = await prisma.contentGoal.findMany({
     where: { gapCount: { gt: 0 } },
-    orderBy: [{ gapCount: "desc" }, { priority: "asc" }],
-    take: 1,
   });
   if (goals.length === 0) return null;
-  return { contentType: goals[0].contentType, gap: goals[0].gapCount };
+
+  // Rank by gap FRACTION (gap / desiredTarget), not absolute gap, so a type
+  // with a very large target (Parish 300k, Saint 10k) cannot permanently
+  // monopolize discovery over the other below-goal types. Ties break on raw
+  // gap, then declared priority.
+  const ranked = goals
+    .map((g) => ({
+      contentType: g.contentType,
+      gap: g.gapCount,
+      frac: g.desiredTarget > 0 ? g.gapCount / g.desiredTarget : 1,
+      priority: g.priority,
+    }))
+    .sort((a, b) => b.frac - a.frac || b.gap - a.gap || a.priority - b.priority);
+
+  // Rotation: spread discovery across types instead of fixating on the single
+  // neediest one (the live worker was looping DISCOVERY on PARISH forever).
+  // Skip the types targeted in the last few discovery decisions so the worker
+  // visits each below-goal type in turn — but never exclude every option.
+  const recent = await prisma.adminWorkerDecision
+    .findMany({
+      where: { missionStage: "DISCOVERY", contentType: { not: null } },
+      orderBy: { createdAt: "desc" },
+      take: Math.max(0, Math.min(3, ranked.length - 1)),
+      select: { contentType: true },
+    })
+    .catch(() => [] as Array<{ contentType: string | null }>);
+  const recentTypes = new Set(recent.map((r) => r.contentType));
+  const pick = ranked.find((g) => !recentTypes.has(g.contentType)) ?? ranked[0];
+  return { contentType: pick.contentType, gap: pick.gap };
 }

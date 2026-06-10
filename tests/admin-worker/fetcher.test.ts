@@ -7,11 +7,15 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/checklist", () => ({
-  isApprovedAuthorityHost: vi.fn((host: string) =>
-    ["www.vatican.va", "vatican.va", "www.usccb.org"].includes(host),
-  ),
-}));
+vi.mock("@/lib/checklist", () => {
+  const approved = (host: string) =>
+    ["www.vatican.va", "vatican.va", "www.usccb.org"].includes(host);
+  return {
+    isApprovedAuthorityHost: vi.fn(approved),
+    // Registry-only mode (open-internet off) → fetchable === approved.
+    isFetchableHost: vi.fn(approved),
+  };
+});
 
 vi.mock("@/lib/admin-worker/source-reputation", () => ({
   recordSourceOutcome: vi.fn(async () => undefined),

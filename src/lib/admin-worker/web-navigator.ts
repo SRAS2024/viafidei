@@ -23,7 +23,7 @@ import type {
   PrismaClient,
 } from "@prisma/client";
 
-import { isApprovedAuthorityHost } from "@/lib/checklist";
+import { isFetchableHost } from "@/lib/checklist";
 
 export class UnapprovedHostError extends Error {
   constructor(host: string) {
@@ -83,7 +83,7 @@ export async function discoverCandidate(
   } catch {
     return null;
   }
-  if (!isApprovedAuthorityHost(host)) {
+  if (!isFetchableHost(host)) {
     return null;
   }
   const junk = isJunkUrl(input.url);

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { MapsAddressLink } from "@/components/ui/MapsAddressLink";
 import { formatMiles, haversineMiles } from "@/lib/content-shared/geo";
 
 export type ParishCard = {
@@ -118,7 +119,13 @@ export function ParishLocator({ parishes }: { parishes: ParishCard[] }) {
               </div>
               <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{p.title}</h2>
               {p.location ? (
-                <p className="mt-3 font-serif leading-relaxed text-ink-soft">{p.location}</p>
+                <MapsAddressLink
+                  variant="inline"
+                  address={p.location}
+                  latitude={p.latitude}
+                  longitude={p.longitude}
+                  className="mt-3 inline-flex items-start gap-1.5 font-serif leading-relaxed text-liturgical-blue underline-offset-2 hover:underline"
+                />
               ) : null}
             </Link>
           </li>

@@ -273,6 +273,26 @@ export async function runDiscoveryOrchestrator(
     }
   }
 
+  // Open keyword web-search discovery. When a search-engine key is configured
+  // (GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID, or BING_SEARCH_API_KEY),
+  // the worker queries a real search engine for this content type's topics and
+  // seeds the results — so it can find authoritative sources that nothing it
+  // already knows links to. A no-op when no key is set. Results are unverified
+  // candidates that still pass the full pipeline (host/junk filter →
+  // classification → cross-source verification → strict QA) before publishing.
+  if (!strategy || strategy.preferDiscoverers.includes("SEARCH")) {
+    try {
+      const { webSearchEnabled, discoverFromWebSearch } = await import("./search-discovery");
+      if (webSearchEnabled()) {
+        const r = await discoverFromWebSearch(prisma, contentType ?? undefined);
+        surfaced += r.inserted;
+        if (r.errors.length) errors.push(`web_search: ${r.errors.join("; ")}`);
+      }
+    } catch (e) {
+      errors.push(`web_search: ${(e as Error).message}`);
+    }
+  }
+
   // Official API discovery (spec §4). discoverFromApis() is a fully
   // implemented adapter-dispatch loop (host-allowlist check → fetch →
   // junk filter → candidate insert); it simply has no adapters

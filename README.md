@@ -12,9 +12,10 @@ approved Catholic publishers and verified at multiple stages before it
 reaches the public. The site is run by the **Admin Worker** — a fully
 coded, deterministic, autonomous administrator that operates **without
 any AI APIs**. With a fresh database the Admin Worker fills the site
-by itself: it ranks the next safest action, discovers approved Catholic
-sources across seven discovery methods, fetches and reads pages into
-structured source blocks, classifies content with confusion detection,
+by itself: it ranks the next safest action, discovers Catholic sources
+across eight discovery methods (including open keyword web-search), fetches
+and reads pages into structured source blocks, classifies content with
+confusion detection,
 builds complete package artifacts, fetches validation pages from
 higher-authority hosts to verify sensitive facts, runs strict QA as a
 durable artifact-level stage, scores quality across ten dimensions,
@@ -239,22 +240,25 @@ Required environment variables (production):
 
 Optional environment variables:
 
-| Variable                                         | Purpose                                                                                                                                                |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `RESEND_API_KEY`                                 | Enables transactional + admin emails                                                                                                                   |
-| `ADMIN_EMAIL`                                    | Destination for Admin Worker monthly + security emails                                                                                                 |
-| `PUBLIC_BASE_URL`                                | Base URL the post-publish probe + verifiers fetch from                                                                                                 |
-| `WORKER_ID`                                      | Stable id for this worker process (auto-generated)                                                                                                     |
-| `ADMIN_WORKER_SKIP_NETWORK`                      | Test-only: dispatcher skips real fetch + read calls when `1`                                                                                           |
-| `ADMIN_WORKER_DISABLE_LIVE_PROBE`                | Local/dry-run only: skip the mandatory production live sitemap + cache probe when `1` (verification is otherwise live + fail-closed in production)     |
-| `INTELLIGENCE_BRAIN_ENABLED`                     | Python intelligence brain on/off (default on; `0` disables)                                                                                            |
-| `INTELLIGENCE_PYTHON`                            | Python executable for the brain (default `python3`)                                                                                                    |
-| `INTELLIGENCE_TIMEOUT_MS`                        | Per brain-call timeout (default `8000`)                                                                                                                |
-| `GOOGLE_PLACES_API_KEY`                          | Enables Google Maps parish discovery (Places API). Unset → the `discover_parishes_via_maps` skill is a no-op                                           |
-| `PARISH_DISCOVERY_LOCATIONS`                     | Optional `;`-separated localities to search for parishes (e.g. `Boston, MA; Rome, Italy`). Unset → seeds derive from the cities already in the catalog |
-| `GOOGLE_TRANSLATE_API_KEY`                       | Enables the Google Translate fallback for prayer Latin/Greek the curated corpus can't resolve (review-gated by default)                                |
-| `TRANSLATION_AI_API_URL` / `_API_KEY` / `_MODEL` | Optional OpenAI-compatible AI translation provider (preferred over Google for the liturgical register; review-gated by default)                        |
-| `TRANSLATION_AUTOPUBLISH_MACHINE`                | `1`/`true` to auto-publish machine-translation drafts without human review (default off — drafts go to review)                                         |
+| Variable                                            | Purpose                                                                                                                                                                                                                                                                                                |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `RESEND_API_KEY`                                    | Enables transactional + admin emails                                                                                                                                                                                                                                                                   |
+| `ADMIN_EMAIL`                                       | Destination for Admin Worker monthly + security emails                                                                                                                                                                                                                                                 |
+| `PUBLIC_BASE_URL`                                   | Base URL the post-publish probe + verifiers fetch from                                                                                                                                                                                                                                                 |
+| `WORKER_ID`                                         | Stable id for this worker process (auto-generated)                                                                                                                                                                                                                                                     |
+| `ADMIN_WORKER_SKIP_NETWORK`                         | Test-only: dispatcher skips real fetch + read calls when `1`                                                                                                                                                                                                                                           |
+| `ADMIN_WORKER_DISABLE_LIVE_PROBE`                   | Local/dry-run only: skip the mandatory production live sitemap + cache probe when `1` (verification is otherwise live + fail-closed in production)                                                                                                                                                     |
+| `ADMIN_WORKER_OPEN_INTERNET`                        | `1`/`true` lets the worker fetch sources beyond the registry (any diocese, conference, EWTN, database, accurate site) and follow links across the open web. Accuracy is still enforced by cross-source verification + strict QA; local/social/commerce hosts stay blocked. Default off (registry-only) |
+| `GOOGLE_SEARCH_API_KEY` + `GOOGLE_SEARCH_ENGINE_ID` | Enables open keyword web-search discovery via Google Programmable Search — the worker queries a real search engine per content type to find sources nothing it knows links to. No-op when unset                                                                                                        |
+| `BING_SEARCH_API_KEY`                               | Alternative search-engine provider for open keyword web-search discovery (Bing Web Search)                                                                                                                                                                                                             |
+| `INTELLIGENCE_BRAIN_ENABLED`                        | Python intelligence brain on/off (default on; `0` disables)                                                                                                                                                                                                                                            |
+| `INTELLIGENCE_PYTHON`                               | Python executable for the brain (default `python3`)                                                                                                                                                                                                                                                    |
+| `INTELLIGENCE_TIMEOUT_MS`                           | Per brain-call timeout (default `8000`)                                                                                                                                                                                                                                                                |
+| `GOOGLE_PLACES_API_KEY`                             | Enables Google Maps parish discovery (Places API). Unset → the `discover_parishes_via_maps` skill is a no-op                                                                                                                                                                                           |
+| `PARISH_DISCOVERY_LOCATIONS`                        | Optional `;`-separated localities to search for parishes (e.g. `Boston, MA; Rome, Italy`). Unset → seeds derive from the cities already in the catalog                                                                                                                                                 |
+| `GOOGLE_TRANSLATE_API_KEY`                          | Enables the Google Translate fallback for prayer Latin/Greek the curated corpus can't resolve (review-gated by default)                                                                                                                                                                                |
+| `TRANSLATION_AI_API_URL` / `_API_KEY` / `_MODEL`    | Optional OpenAI-compatible AI translation provider (preferred over Google for the liturgical register; review-gated by default)                                                                                                                                                                        |
+| `TRANSLATION_AUTOPUBLISH_MACHINE`                   | `1`/`true` to auto-publish machine-translation drafts without human review (default off — drafts go to review)                                                                                                                                                                                         |
 
 ---
 
@@ -524,16 +528,26 @@ falling back to a TypeScript final brain. Concretely:
   advanced/rejected/repaired counts, blocker, next stage, logs created.
 
 - **Discovers approved Catholic sources.** `discovery-orchestrator.ts`
-  runs seven discovery methods end-to-end with per-content-type
+  runs eight discovery methods end-to-end with per-content-type
   strategies and cadence: **configured fixed URL lists**, **sitemap**,
   **RSS / Atom**, **approved Catholic content directories**, **internal
-  links**, **approved-source search pages**, and **official source
-  APIs**. Discovery prioritises content types below goal and slows
-  down for types at goal. Junk URLs (livestreams, donations, bulletins,
-  store pages, event listings, staff pages, schools, login pages,
-  generic news, unrelated blog posts) are rejected before fetch.
-  Every method writes which sources were scanned, which were skipped
-  (with reason), which candidates were found, rejected, and prioritised.
+  links**, **approved-source search pages**, **official source APIs**,
+  and **open keyword web-search** (`search-discovery.ts` — Google
+  Programmable Search / Bing, gated on a search-API key) so the worker can
+  find sources that nothing it already knows links to ("search the whole
+  internet for X"). With `ADMIN_WORKER_OPEN_INTERNET` on, internal-link
+  discovery follows links **across hosts** so the worker spiders out from a
+  known Catholic page into the wider web; the search seed and the cross-host
+  crawl together let it reach genuinely new sites, databases, and online
+  libraries across any TLD. Discovery prioritises content types below goal
+  and slows down for types at goal. Junk URLs (livestreams, donations,
+  bulletins, store pages, event listings, staff pages, schools, login pages,
+  generic news, unrelated blog posts) are rejected before fetch. Every
+  search result and link is still an **unverified candidate** that must pass
+  classification → cross-source verification → strict QA before it can
+  publish — search widens reach, never the accuracy bar. Every method writes
+  which sources were scanned, which were skipped (with reason), which
+  candidates were found, rejected, and prioritised.
 
   The trusted registry (`checklist/sources/authority-registry.ts`,
   `AUTHORITY_SOURCES`) spans the **global** Catholic source ecosystem — the
@@ -543,11 +557,16 @@ falling back to a TypeScript final brain. Concretely:
   universities**, and reputable **reference databases** (Catholic Culture, CNA,
   Aleteia, Papal Encyclicals Online, …). The whole Holy See **`.va`** TLD is
   approved by pattern, so the worker can follow links to any dicastery domain.
-  The worker NEVER auto-fetches an unlisted host (the allow-list is the safety
-  gate), but `classifyHostAuthority` lets it **judge the quality of any
-  lesser-known source it encounters** — diocesan / order / university domains are
-  recognised by pattern and weighed accordingly in cross-source verification,
-  while the reputation system (below) vets each source's reliability over time.
+  By default the worker fetches only registry hosts; with
+  **`ADMIN_WORKER_OPEN_INTERNET`** enabled it may reach **across the whole web**
+  to any conference of bishops, diocese, EWTN, Catholic database, or lesser-known
+  but accurate source (`isFetchableHost`) — local / social / commerce hosts stay
+  blocked, and **accuracy is enforced downstream by cross-source verification +
+  strict QA, not by the allow-list**, so opening the fetch list never lowers the
+  bar. `classifyHostAuthority` lets it **judge the quality of any lesser-known
+  source it encounters** — diocesan / order / university domains are recognised by
+  pattern and weighed accordingly in cross-source verification, while the
+  reputation system (below) vets each source's reliability over time.
 
 - **Finds parishes on Google Maps — and verifies communion with Rome.**
   When `GOOGLE_PLACES_API_KEY` is set, `discover_parishes_via_maps`
@@ -565,7 +584,11 @@ falling back to a TypeScript final brain. Concretely:
   statement, USCCB / Holy See, a named Catholic diocese) → published through the
   real orchestrator; anything ambiguous, or canonically irregular (SSPX), → human
   review. ("Catholic" alone is never enough — Old Catholics call themselves
-  Catholic too.) A no-op when no key is configured.
+  Catholic too.) A no-op when no key is configured. On the public site every
+  parish / shrine / cathedral / basilica card and detail page shows the address
+  as a tappable link (`MapsAddressLink`) that opens turn-by-turn directions in
+  **Apple Maps on iPhone/iPad** and **Google Maps** everywhere else, using the
+  record's exact coordinates when present so the pin lands on the right building.
 
 - **Reads PDFs from the web.** The runtime has a dependency-free PDF text
   extractor ([`pdf-extract.ts`](src/lib/admin-worker/pdf-extract.ts)) built on
@@ -843,7 +866,7 @@ reason to publish — content still has to pass every accuracy / approval /
 source / verification / strict-QA / full-quality gate first.
 
 - **Targets** (`src/lib/admin-worker/content-goals.ts`): Sacrament 7
-  (canonicalMax 7); Parish 300,000; Prayer 1,000; Pope 267; Saint 1,000;
+  (canonicalMax 7); Parish 300,000; Prayer 1,000; Pope 267; Saint 10,000;
   Doctor 37; Rite 24; Church Document 200; Devotion / Novena / Guide /
   Liturgical 100; Marian Title / Apparition / Spiritual Practice 50 — all
   with **no hard maximum**.
@@ -902,20 +925,21 @@ publish writer and that every recent public row traces to an artifact.
 
 The repo ships a large, hand-verified curated knowledge base
 (`src/lib/checklist/knowledge/`, `ALL_CURATED_ENTRIES`) of ground-truth,
-schema-valid Catholic content with authority citations — **~448 entries
+schema-valid Catholic content with authority citations — **~507 entries
 spanning every content type**: the Church's fixed texts and canonical lists.
-Representative depth: 128 saints, 57 popes, the complete sets of the 37 Doctors
+Representative depth: 167 saints, 57 popes, the complete sets of the 37 Doctors
 of the Church and the 7 sacraments, 42 prayers (with Latin/Greek where an
-authentic form exists), 30 liturgical feasts & seasons, 27 basilicas & shrines,
-25 church documents (encyclicals, conciliar texts, the Catechism), 22 Marian
-titles, plus litanies, devotions, novenas, approved apparitions, how-to guides,
-spiritual practices, and the recognized rites. Every entry validates against its
-per-type content schema (`tests/checklist/knowledge.test.ts`) and publishes
-through the real orchestrator. The curated set is the worker's **first-pass
-content source** (canonical content can be published without a live fetch), while
-live discovery + cross-source verification — **plus the runtime growth engines
-below (Google Maps parish discovery and web-PDF reading)** — grows everything far
-beyond it.
+authentic form exists), 34 Marian titles, 30 liturgical feasts & seasons, 27
+basilicas & shrines, 25 church documents (encyclicals, conciliar texts, the
+Catechism), 23 devotions, plus litanies, novenas, approved apparitions, how-to
+guides, spiritual practices, and the recognized rites. Every entry validates
+against its per-type content schema (`tests/checklist/knowledge.test.ts`) and
+publishes through the real orchestrator. The curated set is the worker's
+**first-pass content source** (canonical content can be published without a live
+fetch), while live discovery + cross-source verification — **plus the runtime
+growth engines below (open-internet + keyword web-search discovery, Google Maps
+parish discovery, and web-PDF reading)** — grows everything far beyond it (the
+saint target alone is 10,000).
 
 - The worker publishes it through the **real** pipeline, not a back door:
   `runCuratedIngest()` (`src/lib/admin-worker/curated-ingest.ts`) runs each
