@@ -286,7 +286,7 @@ async function runStageHandler(
     case "REPORTING":
       return await runReporting(prisma, passId);
     case "MAINTENANCE":
-      return await runMaintenance(prisma, passId);
+      return await runMaintenance(prisma, passId, decision);
     default:
       return idle(stage, `No dispatcher registered for ${stage}.`);
   }
@@ -2116,7 +2116,11 @@ async function runReporting(prisma: PrismaClient, passId: string): Promise<Dispa
   };
 }
 
-async function runMaintenance(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
+async function runMaintenance(
+  prisma: PrismaClient,
+  passId: string,
+  decision: BrainDecision,
+): Promise<DispatchOutcome> {
   const { runCleanupPass } = await import("./cleanup");
   const { decayMemory } = await import("./memory");
   const { decaySourceReputation } = await import("./source-reputation");
@@ -2129,19 +2133,44 @@ async function runMaintenance(prisma: PrismaClient, passId: string): Promise<Dis
     decayMemory(prisma).catch(() => ({ decayed: 0, pruned: 0 })),
     decaySourceReputation(prisma).catch(() => ({ decayed: 0, demoted: 0, retestable: 0 })),
   ]);
+
+  // Prayer language coverage. Drive Latin/Greek onto every published prayer
+  // through the certified skill runtime (so it is recorded in the skill ledger +
+  // capability matrix like any other certified work). When the Python final
+  // brain is active (full autonomy) the worker BUILDS the authentic translation
+  // itself with the deterministic liturgical engine and publishes it into the
+  // prayer's payload; in safe-degraded mode it still reports coverage and routes
+  // any genuine gap to review. Best-effort — never breaks the maintenance pass.
+  const brainActive = decision.finalBrain === "python";
+  let translationDetail = "prayer translations: skipped";
+  try {
+    const { runSkillPlan } = await import("./skills");
+    const t = await runSkillPlan(prisma, {
+      missionStage: "MAINTENANCE",
+      intendedSkill: "ensure_prayer_translations",
+      passId,
+      brainActive,
+      input: {},
+    });
+    const step = t.executed.find((e) => e.skill === "ensure_prayer_translations");
+    translationDetail = `prayer translations: ${step?.outcome ?? (t.blocked ? "blocked" : "not executed")}`;
+  } catch {
+    // best-effort — translation coverage must never break the maintenance pass
+  }
+
   const safe = JSON.parse(JSON.stringify({ cleanup, memoryDecay, reputationDecay }));
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "CLEANUP",
     severity: "INFO",
     eventName: "maintenance_dispatch",
-    message: `Maintenance: ${cleanup.staleCandidatesRemoved} stale candidate(s), ${cleanup.expiredReviewsClosed} expired review(s) closed; memory decayed=${memoryDecay.decayed}, pruned=${memoryDecay.pruned}; reputation decayed=${reputationDecay.decayed}, demoted=${reputationDecay.demoted}, retestable=${reputationDecay.retestable}.`,
+    message: `Maintenance: ${cleanup.staleCandidatesRemoved} stale candidate(s), ${cleanup.expiredReviewsClosed} expired review(s) closed; memory decayed=${memoryDecay.decayed}, pruned=${memoryDecay.pruned}; reputation decayed=${reputationDecay.decayed}, demoted=${reputationDecay.demoted}, retestable=${reputationDecay.retestable}; ${translationDetail}.`,
     safeMetadata: safe,
   });
   return {
     stage: "MAINTENANCE",
     kind: "advanced",
-    summary: `Maintenance: cleanup + memory decay (${memoryDecay.decayed} rows) + reputation decay (${reputationDecay.decayed} rows, ${reputationDecay.demoted} demoted).`,
+    summary: `Maintenance: cleanup + memory decay (${memoryDecay.decayed} rows) + reputation decay (${reputationDecay.decayed} rows, ${reputationDecay.demoted} demoted); ${translationDetail}.`,
     metadata: safe,
   };
 }
