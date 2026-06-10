@@ -9,6 +9,7 @@
 
 import { defend, type DefendInput } from "../security-defender";
 import { redesignHomepage } from "../homepage-mutator";
+import { translatePrayer } from "../prayer-translator";
 import { makeOpSkill } from "./skill-helpers";
 import type { CertifiedSkill, SkillContext } from "./types";
 
@@ -222,6 +223,98 @@ export const namedSkills: CertifiedSkill[] = [
       return {
         ok: true,
         detail: `verification rate ${(rate * 100).toFixed(0)}% over ${total} run(s)`,
+      };
+    },
+  }),
+  makeOpSkill({
+    name: "ensure_prayer_translations",
+    purpose:
+      "Give every published prayer its Latin AND Greek. For any prayer missing one, the worker BUILDS the translation itself with the deterministic liturgical engine (whole-prayer match against the received corpus, then authoritative segment assembly) and publishes it into the prayer's payload so the language toggle renders it — exactly as if the prayer had shipped with it. The engine only ever emits authentic received liturgical text; if it cannot render a text faithfully (no authentic Latin/Greek form is derivable — e.g. free-prose modern prayers, or Greek for a Latin-Rite devotion that has no Greek liturgical form), it does NOT fabricate sacred text: it opens a review-gated task carrying the English source and the unresolved lines so a curator supplies the exact text.",
+    category: "MAINTENANCE",
+    allowedInSafeDegradedMode: true,
+    run: async (ctx) => {
+      const prayers = await ctx.prisma.publishedContent
+        .findMany({
+          where: { contentType: "PRAYER" as never, isPublished: true },
+          select: { id: true, slug: true, title: true, payload: true },
+        })
+        .catch(
+          () => [] as Array<{ id: string; slug: string; title: string; payload: unknown }>,
+        );
+      const has = (v: unknown) => typeof v === "string" && (v as string).trim().length > 0;
+
+      // Existing pending translation tasks, so we never duplicate a request.
+      const open = await ctx.prisma.humanReviewQueue
+        .findMany({
+          where: {
+            status: "PENDING",
+            proposedAction: { in: ["TRANSLATE_TO_LATIN", "TRANSLATE_TO_GREEK"] },
+          },
+          select: { contentTitle: true, proposedAction: true },
+        })
+        .catch(() => [] as Array<{ contentTitle: string | null; proposedAction: string }>);
+      const openKeys = new Set(open.map((o) => `${o.contentTitle ?? ""}|${o.proposedAction}`));
+
+      const targets = [
+        { code: "la", field: "latin", action: "TRANSLATE_TO_LATIN", language: "Latin" },
+        { code: "el", field: "greek", action: "TRANSLATE_TO_GREEK", language: "Greek" },
+      ] as const;
+
+      let latinCovered = 0;
+      let greekCovered = 0;
+      let built = 0;
+      let queued = 0;
+      for (const p of prayers) {
+        const pl = (p.payload ?? {}) as Record<string, unknown>;
+        const english = String(pl.body ?? pl.prayerText ?? "");
+        const writes: Record<string, string> = {};
+
+        for (const t of targets) {
+          if (has(pl[t.field])) continue;
+          const result = english ? translatePrayer(english, t.code) : null;
+          // The worker built an authentic translation itself — publish it into
+          // the prayer's payload. Gated on an active final brain (full autonomy);
+          // in safe-degraded mode the worker still reports + routes gaps.
+          if (result?.accurate && result.text && ctx.brainActive) {
+            writes[t.field] = result.text;
+            built += 1;
+            continue;
+          }
+          // Cannot render faithfully (or publishing not permitted) → route to
+          // review with the English source and the lines that didn't resolve.
+          if (openKeys.has(`${p.slug}|${t.action}`)) continue;
+          await ctx.prisma.humanReviewQueue
+            .create({
+              data: {
+                contentType: "PRAYER",
+                contentTitle: p.slug,
+                proposedAction: t.action,
+                reason: `Build + verify the ${t.language} translation of "${p.title}" so the prayer's language toggle is complete. Sacred texts are verified by review before publishing.`,
+                confidence: 0,
+                sourceEvidence: {
+                  slug: p.slug,
+                  targetLanguage: t.language,
+                  english,
+                  unresolved: result?.unresolved ?? [],
+                } as never,
+                status: "PENDING",
+              },
+            })
+            .catch(() => undefined);
+          queued += 1;
+        }
+
+        if (Object.keys(writes).length > 0) {
+          await ctx.prisma.publishedContent
+            .update({ where: { id: p.id }, data: { payload: { ...pl, ...writes } as never } })
+            .catch(() => undefined);
+        }
+        if (has(pl.latin) || writes.latin) latinCovered += 1;
+        if (has(pl.greek) || writes.greek) greekCovered += 1;
+      }
+      return {
+        ok: true,
+        detail: `${latinCovered}/${prayers.length} Latin, ${greekCovered}/${prayers.length} Greek; built ${built} authentic translation(s), queued ${queued} for review`,
       };
     },
   }),

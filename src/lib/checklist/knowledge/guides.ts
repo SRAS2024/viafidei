@@ -3,6 +3,29 @@ import type { CuratedEntry } from "./index";
 const USCCB = "https://www.usccb.org/";
 const VATICAN = "https://www.vatican.va/";
 
+/**
+ * The prayers each kind of guide uses, in the order they are prayed (first to
+ * last). The guide page renders these at the bottom as dropdown toggles with a
+ * universal Latin/Greek language switch, so a user has every prayer of the
+ * guide readily available even if they don't know it by heart.
+ */
+const RELATED_PRAYERS_BY_KIND: Record<string, string[]> = {
+  rosary: [
+    "apostles-creed",
+    "our-father",
+    "hail-mary",
+    "glory-be",
+    "salve-regina",
+    "prayer-to-saint-michael",
+  ],
+  chaplet: ["our-father", "hail-mary", "apostles-creed"],
+  confession: ["confiteor", "act-of-contrition"],
+  adoration: ["anima-christi", "our-father", "glory-be"],
+  consecration: ["memorare", "hail-mary", "glory-be"],
+  discernment: ["veni-creator-spiritus", "our-father"],
+  vocation: ["veni-creator-spiritus", "our-father"],
+};
+
 function guide(
   slug: string,
   title: string,
@@ -42,7 +65,7 @@ function guide(
       kind,
       ...(sacramentKey ? { sacramentKey } : {}),
       steps,
-      relatedPrayers: [],
+      relatedPrayers: RELATED_PRAYERS_BY_KIND[kind] ?? [],
       citations: [USCCB, VATICAN],
     },
   };

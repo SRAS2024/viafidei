@@ -435,10 +435,18 @@ export async function runPublishOrchestrator(
     };
   }
 
+  // For PRAYER content, the worker fills in the authentic Latin (and Greek where
+  // an authentic liturgical form exists) it can build itself — the deterministic
+  // liturgical engine — before persisting, so the language toggle is populated
+  // the moment the prayer is published, "as if it already had it". Anything the
+  // engine cannot render faithfully is left untouched (the
+  // ensure_prayer_translations maintenance skill routes those gaps to review).
+  const payload = await enrichPrayerLanguages(input.contentType, input.payload);
+
   // Freshness marker written at publish time; cache verification later
   // confirms this checksum is actually being served from the public route.
   const { computeContentChecksum } = await import("./cache-freshness");
-  const contentChecksum = computeContentChecksum(input.title, input.payload);
+  const contentChecksum = computeContentChecksum(input.title, payload);
 
   // 4. Duplicate check (slug + content type — schema-unique).
   const existing = await prisma.publishedContent
@@ -463,7 +471,7 @@ export async function runPublishOrchestrator(
         data: {
           isPublished: true,
           publishedAt: new Date(),
-          payload: input.payload,
+          payload,
           title: input.title,
           subtitle: generateContentSubtitle({
             contentType: input.contentType,
@@ -514,7 +522,7 @@ export async function runPublishOrchestrator(
         slug: input.slug,
         title: input.title,
         subtitle: publishedSubtitle,
-        payload: input.payload,
+        payload,
         authorityLevel: input.authorityLevel as never,
         isPublished: true,
         publishedAt: new Date(),
@@ -552,6 +560,38 @@ export async function runPublishOrchestrator(
     route,
     reason: `published with finalScore=${input.finalScore.toFixed(2)}`,
   };
+}
+
+/**
+ * Fill in the Latin / Greek the worker can build itself for a PRAYER payload
+ * that is missing one. Uses the deterministic liturgical translation engine,
+ * which only ever emits authentic received text (whole-prayer match or
+ * fully-resolved authoritative segments) — never a fabricated/guessed text. A
+ * curated or already-present translation is never overwritten, and a prayer the
+ * engine cannot translate faithfully is returned unchanged.
+ */
+async function enrichPrayerLanguages(
+  contentType: string,
+  payload: Prisma.InputJsonValue,
+): Promise<Prisma.InputJsonValue> {
+  if (contentType !== "PRAYER") return payload;
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return payload;
+  const p = payload as Record<string, unknown>;
+  const hasLatin = typeof p.latin === "string" && p.latin.trim().length > 0;
+  const hasGreek = typeof p.greek === "string" && p.greek.trim().length > 0;
+  if (hasLatin && hasGreek) return payload;
+  const english =
+    typeof p.body === "string" ? p.body : typeof p.prayerText === "string" ? p.prayerText : "";
+  if (!english.trim()) return payload;
+
+  const { translatePrayerLanguages } = await import("./prayer-translator");
+  const t = translatePrayerLanguages(english);
+  if ((hasLatin || !t.latin) && (hasGreek || !t.greek)) return payload;
+  return {
+    ...p,
+    ...(!hasLatin && t.latin ? { latin: t.latin } : {}),
+    ...(!hasGreek && t.greek ? { greek: t.greek } : {}),
+  } as Prisma.InputJsonValue;
 }
 
 async function postPublishSideEffects(
