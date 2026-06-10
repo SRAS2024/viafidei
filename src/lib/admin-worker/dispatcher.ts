@@ -431,6 +431,32 @@ async function runDiscovery(
   passId: string,
   decision: BrainDecision,
 ): Promise<DispatchOutcome> {
+  // Parishes have no sitemap/RSS directory the worker can crawl, so for PARISH
+  // discovery it goes to Google Maps directly (when GOOGLE_PLACES_API_KEY is
+  // configured): find Catholic churches, verify each is in communion with Rome
+  // from its own website, and publish the verified ones. This is what keeps the
+  // PARISH gap from spinning discovery forever.
+  if (decision.contentType === "PARISH") {
+    const { placesEnabled } = await import("./parish-places");
+    if (placesEnabled()) {
+      const { runMapsParishDiscovery } = await import("./parish-discovery-runner");
+      const r = await runMapsParishDiscovery(prisma, { brainActive: true }).catch(() => null);
+      if (r) {
+        return {
+          stage: "DISCOVERY",
+          kind: r.published > 0 || r.candidates > 0 ? "advanced" : "idle",
+          summary: `Google Maps parish discovery: ${r.detail}`,
+          metadata: {
+            surfaced: r.candidates,
+            published: r.published,
+            routedToReview: r.routedToReview,
+            rejected: r.rejected,
+          },
+        };
+      }
+    }
+  }
+
   // Delegate to the DiscoveryOrchestrator (spec §4) which knows
   // content-type-specific strategies, source ranking, skip rules,
   // and the candidate scorer wiring.
