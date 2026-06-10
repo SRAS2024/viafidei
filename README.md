@@ -239,17 +239,22 @@ Required environment variables (production):
 
 Optional environment variables:
 
-| Variable                          | Purpose                                                                                                                                            |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RESEND_API_KEY`                  | Enables transactional + admin emails                                                                                                               |
-| `ADMIN_EMAIL`                     | Destination for Admin Worker monthly + security emails                                                                                             |
-| `PUBLIC_BASE_URL`                 | Base URL the post-publish probe + verifiers fetch from                                                                                             |
-| `WORKER_ID`                       | Stable id for this worker process (auto-generated)                                                                                                 |
-| `ADMIN_WORKER_SKIP_NETWORK`       | Test-only: dispatcher skips real fetch + read calls when `1`                                                                                       |
-| `ADMIN_WORKER_DISABLE_LIVE_PROBE` | Local/dry-run only: skip the mandatory production live sitemap + cache probe when `1` (verification is otherwise live + fail-closed in production) |
-| `INTELLIGENCE_BRAIN_ENABLED`      | Python intelligence brain on/off (default on; `0` disables)                                                                                        |
-| `INTELLIGENCE_PYTHON`             | Python executable for the brain (default `python3`)                                                                                                |
-| `INTELLIGENCE_TIMEOUT_MS`         | Per brain-call timeout (default `8000`)                                                                                                            |
+| Variable                                         | Purpose                                                                                                                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `RESEND_API_KEY`                                 | Enables transactional + admin emails                                                                                                                   |
+| `ADMIN_EMAIL`                                    | Destination for Admin Worker monthly + security emails                                                                                                 |
+| `PUBLIC_BASE_URL`                                | Base URL the post-publish probe + verifiers fetch from                                                                                                 |
+| `WORKER_ID`                                      | Stable id for this worker process (auto-generated)                                                                                                     |
+| `ADMIN_WORKER_SKIP_NETWORK`                      | Test-only: dispatcher skips real fetch + read calls when `1`                                                                                           |
+| `ADMIN_WORKER_DISABLE_LIVE_PROBE`                | Local/dry-run only: skip the mandatory production live sitemap + cache probe when `1` (verification is otherwise live + fail-closed in production)     |
+| `INTELLIGENCE_BRAIN_ENABLED`                     | Python intelligence brain on/off (default on; `0` disables)                                                                                            |
+| `INTELLIGENCE_PYTHON`                            | Python executable for the brain (default `python3`)                                                                                                    |
+| `INTELLIGENCE_TIMEOUT_MS`                        | Per brain-call timeout (default `8000`)                                                                                                                |
+| `GOOGLE_PLACES_API_KEY`                          | Enables Google Maps parish discovery (Places API). Unset → the `discover_parishes_via_maps` skill is a no-op                                           |
+| `PARISH_DISCOVERY_LOCATIONS`                     | Optional `;`-separated localities to search for parishes (e.g. `Boston, MA; Rome, Italy`). Unset → seeds derive from the cities already in the catalog |
+| `GOOGLE_TRANSLATE_API_KEY`                       | Enables the Google Translate fallback for prayer Latin/Greek the curated corpus can't resolve (review-gated by default)                                |
+| `TRANSLATION_AI_API_URL` / `_API_KEY` / `_MODEL` | Optional OpenAI-compatible AI translation provider (preferred over Google for the liturgical register; review-gated by default)                        |
+| `TRANSLATION_AUTOPUBLISH_MACHINE`                | `1`/`true` to auto-publish machine-translation drafts without human review (default off — drafts go to review)                                         |
 
 ---
 
@@ -543,6 +548,33 @@ falling back to a TypeScript final brain. Concretely:
   lesser-known source it encounters** — diocesan / order / university domains are
   recognised by pattern and weighed accordingly in cross-source verification,
   while the reputation system (below) vets each source's reliability over time.
+
+- **Finds parishes on Google Maps — and verifies communion with Rome.**
+  When `GOOGLE_PLACES_API_KEY` is set, `discover_parishes_via_maps`
+  ([`parish-places.ts`](src/lib/admin-worker/parish-places.ts) +
+  [`parish-discovery-runner.ts`](src/lib/admin-worker/parish-discovery-runner.ts))
+  text-searches the Places API for Catholic churches in a locality (from
+  `PARISH_DISCOVERY_LOCATIONS` or, absent that, the cities/states already in the
+  catalog). Maps lists "Catholic" churches that are **not** in communion with
+  Rome, so every candidate is run through a **communion-with-Rome verifier**
+  ([`communion-verifier.ts`](src/lib/admin-worker/communion-verifier.ts)) that
+  reads the parish's own website: disqualifying signals (Old Catholic / Union of
+  Utrecht, Polish National Catholic, sedevacantist, independent/national
+  "Catholic" bodies, women's ordination, Orthodox/Anglican identity) → **rejected,
+  never published**; a clear Roman signal ("Roman Catholic", an explicit communion
+  statement, USCCB / Holy See, a named Catholic diocese) → published through the
+  real orchestrator; anything ambiguous, or canonically irregular (SSPX), → human
+  review. ("Catholic" alone is never enough — Old Catholics call themselves
+  Catholic too.) A no-op when no key is configured.
+
+- **Reads PDFs from the web.** The runtime has a dependency-free PDF text
+  extractor ([`pdf-extract.ts`](src/lib/admin-worker/pdf-extract.ts)) built on
+  Node's `zlib`: the PDF skills fetch a document (a bounded, host-allowlisted GET,
+  since the normal fetcher rejects binary) and pull its text out of the content
+  streams — covering the digitally-generated text PDFs the Holy See and USCCB
+  publish, for more data across every content type. Scanned or encrypted PDFs that
+  yield no usable text fall back to a specific OCR developer request rather than
+  feeding the pipeline noise.
 
 - **Scores every candidate.** `candidate-scorer.ts` rates each
   discovered URL across seven dimensions (host authority, content-type
@@ -870,18 +902,20 @@ publish writer and that every recent public row traces to an artifact.
 
 The repo ships a large, hand-verified curated knowledge base
 (`src/lib/checklist/knowledge/`, `ALL_CURATED_ENTRIES`) of ground-truth,
-schema-valid Catholic content with authority citations — **~416 entries
+schema-valid Catholic content with authority citations — **~448 entries
 spanning every content type**: the Church's fixed texts and canonical lists.
-Representative depth: 96 saints, 57 popes, the complete sets of the 37 Doctors
+Representative depth: 128 saints, 57 popes, the complete sets of the 37 Doctors
 of the Church and the 7 sacraments, 42 prayers (with Latin/Greek where an
 authentic form exists), 30 liturgical feasts & seasons, 27 basilicas & shrines,
 25 church documents (encyclicals, conciliar texts, the Catechism), 22 Marian
-titles, plus devotions, novenas, approved apparitions, how-to guides, spiritual
-practices, and the recognized rites. Every entry validates against its per-type
-content schema (`tests/checklist/knowledge.test.ts`) and publishes through the
-real orchestrator. This is the worker's **first-pass content source**, so
-canonical content can be published without a live fetch, while live discovery +
-cross-source verification grows everything beyond the curated set.
+titles, plus litanies, devotions, novenas, approved apparitions, how-to guides,
+spiritual practices, and the recognized rites. Every entry validates against its
+per-type content schema (`tests/checklist/knowledge.test.ts`) and publishes
+through the real orchestrator. The curated set is the worker's **first-pass
+content source** (canonical content can be published without a live fetch), while
+live discovery + cross-source verification — **plus the runtime growth engines
+below (Google Maps parish discovery and web-PDF reading)** — grows everything far
+beyond it.
 
 - The worker publishes it through the **real** pipeline, not a back door:
   `runCuratedIngest()` (`src/lib/admin-worker/curated-ingest.ts`) runs each
@@ -1627,13 +1661,17 @@ so the full content build plan runs end to end through certified skills:
   `verify_cache`, and `rollback_publish`.
 
 The **repair, homepage, reporting, security, and maintenance packs are also
-certified** — **112 certified skills** across all nine categories (including the
+certified** — **114 certified skills** across all nine categories (including the
 **discovery** pack — `discover_from_sitemap` / `_rss` / `_internal_links` /
 `_configured_urls` / `_directory_page` / `_search_page` + `request_dynamic_
-fetcher_upgrade` — and the **PDF** pack — detect / fetch / classify / verify
-PDFs for real; since the runtime has no PDF text parser, `extract_text_pdf` /
-`extract_vatican_pdf_document` and scanned PDFs honestly file a PDF-text-
-extraction developer request rather than faking):
+fetcher_upgrade` + **`discover_parishes_via_maps`** (Google Maps parish discovery
+with a communion-with-Rome website check — see below) — and the **PDF** pack —
+detect / fetch / classify / verify PDFs for real, and now **read them**:
+`extract_text_pdf` / `extract_vatican_pdf_document` fetch the document and pull
+its text with the runtime's dependency-free zlib extractor
+([`pdf-extract.ts`](src/lib/admin-worker/pdf-extract.ts)); only a scanned or
+encrypted PDF that yields no usable text falls back to a specific OCR developer
+request):
 
 - **Repair** (`repair-skills.ts`): infra repairs flag a real cache / sitemap /
   search refresh; content-field repairs file a durable, targeted repair plan the
@@ -1753,48 +1791,63 @@ Guides · Liturgy · History**, with dropdowns (desktop) and inline expanders
 Sacraments → Parishes / Spiritual Life; Liturgy → Liturgical Calendar /
 Rites; History → Church Documents).
 
-**Liturgical languages (Latin / Greek).** Every prayer carries its vernacular
-text plus authentic, verbatim **Latin** and **Greek** liturgical text
-(`payload.latin` / `payload.greek`). `buildPrayerVariants`
+**Liturgical languages (Latin / Greek).** Every prayer, **litany**, and guide
+carries its vernacular text plus authentic, verbatim **Latin** and **Greek**
+liturgical text (`payload.latin` / `payload.greek`). `buildPrayerVariants`
 (`content-shared/prayer-language.ts`) flattens these into the
-`PrayerLanguageToggle`, which switches the displayed text — Latin/Greek are
-marked `translate="no"` so they are never auto-translated.
+`PrayerLanguageToggle`. The toggle is **Latin/Greek-only**: the vernacular is
+the implicit default and gets **no chip** — only Latin and Greek are offered, and
+re-selecting the active chip (or never choosing one) falls back to the
+vernacular. The choice is session-persisted, so picking Latin once opens every
+prayer that has it in Latin. Latin/Greek are marked `translate="no"` so device or
+auto-translation never rewrites the verbatim sacred text.
 
-The worker **builds these translations itself** — no AI/LLM, no network —
-through a deterministic **liturgical translation engine**
-([`admin-worker/prayer-translator.ts`](src/lib/admin-worker/prayer-translator.ts)).
-It emits **only the Church's received text**: it folds a prayer's English and
-matches it against the curated corpus
+The worker **builds these translations itself** through a deterministic
+**liturgical translation engine**
+([`admin-worker/prayer-translator.ts`](src/lib/admin-worker/prayer-translator.ts))
+that emits **only the Church's received text** — no AI, no network on this path.
+It folds a prayer's English and matches it against the curated corpus
 ([`knowledge/prayer-translations.ts`](src/lib/checklist/knowledge/prayer-translations.ts)
 — Pater Noster / Ave Maria / Gloria Patri in both languages, plus the Creeds,
 Salve Regina, Memorare, Anima Christi, St Michael, Confiteor, Magnificat, Te
-Deum, the Acts, …) and emits that prayer's verbatim Latin/Greek, or it assembles
-a composite devotion from authoritative segments (the doxologies, the stock
+Deum, Sub Tuum Praesidium's ancient Greek, the Angelus, Come Holy Spirit, the
+Acts, …) and emits that prayer's verbatim Latin/Greek, or it assembles a
+composite devotion from authoritative segments (the doxologies, the stock litany
 responses and closings — `Per Christum Dominum nostrum. Amen.`, `Ora pro nobis.`,
-`Kyrie, eleison.` — and the embedded sub-prayers). It reports honest coverage and
-**never fabricates**: when no authentic form is derivable — free-prose modern
-prayers, or Greek for a Latin-Rite prayer that has no received Greek text — it
-emits nothing and returns the unresolved lines, rather than guessing declensions
-or inventing a sacred text.
+`Kyrie, eleison.`, `Agnus Dei, qui tollis peccata mundi, miserere nobis.` — and
+the embedded sub-prayers). It reports honest coverage and **never fabricates**:
+when no authentic received form is derivable it emits nothing and returns the
+unresolved lines, rather than guessing declensions or inventing a sacred text.
+
+For the long tail the corpus can't resolve, an **explicitly-authorized
+machine-translation fallback** is available
+([`admin-worker/translation-provider.ts`](src/lib/admin-worker/translation-provider.ts)):
+a pluggable Google Translate / OpenAI-compatible AI provider, gated on an env var
+(no key → disabled). Because accuracy is paramount for sacred text, machine
+output is **never auto-published by default** — the worker attaches the machine
+draft to a `HumanReviewQueue` task for a curator to confirm against an
+authoritative source. An operator may set `TRANSLATION_AUTOPUBLISH_MACHINE=1` to
+accept direct publishing of machine drafts at their own risk.
 
 The engine is wired into the worker two ways. The **Publish Orchestrator**
 auto-fills the Latin (and Greek where it exists) it can build on **every** prayer
 publish, so a prayer ships with its language toggle already populated "as if it
 had it". The **`ensure_prayer_translations`** maintenance skill backfills
-already-published prayers each maintenance pass: the dispatcher's `runMaintenance`
-runs it through the **certified skill runtime** (ledger + verify), it writes
-accurate output into the prayer's payload when the Python final brain is active
-(full autonomy), and for any genuine gap it opens a review-gated
-`HumanReviewQueue` task carrying the English source + the unresolved lines so a
-curator supplies the exact wording. Latin therefore covers the whole canonical
-corpus + composites; Greek covers the texts with an authentic received Greek
-form, and the rest route to human review — sacred texts are never machine-guessed.
+**already-published** prayers and litanies each maintenance pass (guides inherit
+coverage from the prayers they reference): the dispatcher's `runMaintenance` runs
+it through the **certified skill runtime** (ledger + verify), it writes accurate
+corpus output into the payload when the Python final brain is active (full
+autonomy), and for any genuine gap it routes to review — with the machine draft
+attached when the fallback is configured. Latin therefore covers the whole
+canonical corpus + composites; Greek covers the texts with an authentic received
+Greek form, and the rest route to human review — sacred texts are never
+machine-guessed onto a live page.
 
 **Guide prayers.** Every guide (Rosary, Divine Mercy Chaplet, Confession, …)
 lists its applicable prayers at the bottom in the order they are prayed, each a
 **dropdown** (`GuidePrayers` + `Disclosure`) so the full text is readily
-available, with **one universal language toggle** (English / Latin / Greek) that
-switches every prayer at once.
+available, with **one universal Latin/Greek toggle** that switches every prayer
+at once (defaulting to the vernacular when neither is selected).
 
 **Category filters.** Content-rich tabs split their items into the Church's
 natural groupings via URL-driven filter chips (`?filter=…`, the shared
