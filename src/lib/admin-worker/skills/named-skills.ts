@@ -238,9 +238,7 @@ export const namedSkills: CertifiedSkill[] = [
           where: { contentType: "PRAYER" as never, isPublished: true },
           select: { id: true, slug: true, title: true, payload: true },
         })
-        .catch(
-          () => [] as Array<{ id: string; slug: string; title: string; payload: unknown }>,
-        );
+        .catch(() => [] as Array<{ id: string; slug: string; title: string; payload: unknown }>);
       const has = (v: unknown) => typeof v === "string" && (v as string).trim().length > 0;
 
       // Existing pending translation tasks, so we never duplicate a request.
