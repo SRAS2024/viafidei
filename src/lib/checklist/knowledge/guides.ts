@@ -251,4 +251,134 @@ export const guideKnowledge: CuratedEntry[] = [
     ],
     "reconciliation",
   ),
+  guide(
+    "how-to-pray-the-stations-of-the-cross",
+    "How to Pray the Stations of the Cross",
+    "general",
+    "A guide to the Way of the Cross, a devotion that walks with Christ through the fourteen stations of his Passion from condemnation to burial.",
+    [
+      {
+        order: 1,
+        title: "Begin in a spirit of prayer",
+        body: "Make the Sign of the Cross and ask for the grace to walk with Christ in his Passion. The Stations may be prayed before the images mounted in a church, or privately with a booklet.",
+      },
+      {
+        order: 2,
+        title: "Move from station to station",
+        body: "At each of the fourteen stations, genuflect or pause and pray: 'We adore you, O Christ, and we bless you, because by your holy Cross you have redeemed the world.' Then meditate briefly on that moment of the Passion.",
+      },
+      {
+        order: 3,
+        title: "The fourteen stations",
+        body: "1. Jesus is condemned to death. 2. Jesus takes up his Cross. 3. Jesus falls the first time. 4. Jesus meets his Mother. 5. Simon helps carry the Cross. 6. Veronica wipes the face of Jesus. 7. Jesus falls the second time. 8. Jesus meets the women of Jerusalem. 9. Jesus falls the third time. 10. Jesus is stripped of his garments. 11. Jesus is nailed to the Cross. 12. Jesus dies on the Cross. 13. Jesus is taken down from the Cross. 14. Jesus is laid in the tomb.",
+      },
+      {
+        order: 4,
+        title: "Conclude",
+        body: "Many add a fifteenth station, the Resurrection. Conclude with prayer for the intentions of the Holy Father and an Our Father, Hail Mary, and Glory Be.",
+      },
+    ],
+  ),
+  guide(
+    "how-to-make-a-holy-hour",
+    "How to Make a Holy Hour",
+    "adoration",
+    "A guide to spending an hour in adoration before the Blessed Sacrament, keeping watch with the Lord as he asked of his disciples in Gethsemane.",
+    [
+      {
+        order: 1,
+        title: "Come into the Lord's presence",
+        body: "Genuflect before the Blessed Sacrament (on both knees if it is exposed in the monstrance) and quiet your heart, aware that you are before the Lord truly present in the Eucharist.",
+      },
+      {
+        order: 2,
+        title: "Adore and give thanks",
+        body: "Begin with adoration and thanksgiving — perhaps with a hymn such as O Salutaris Hostia, a psalm, or simply resting in silent love before the Lord.",
+      },
+      {
+        order: 3,
+        title: "Pray with Scripture and intercession",
+        body: "Read slowly from Scripture (lectio divina), bring your needs and the needs of the world before the Lord, and listen for his voice in the silence. The Rosary or the Liturgy of the Hours may also be prayed.",
+      },
+      {
+        order: 4,
+        title: "Conclude",
+        body: "If a priest or deacon gives Benediction, adore as the Tantum Ergo is sung and receive the blessing with the Blessed Sacrament. Otherwise, conclude with thanksgiving and a genuflection.",
+      },
+    ],
+  ),
+  guide(
+    "how-to-pray-the-angelus",
+    "How to Pray the Angelus",
+    "general",
+    "A guide to the Angelus, a traditional Marian prayer commemorating the Incarnation, prayed three times daily at six in the morning, noon, and six in the evening.",
+    [
+      {
+        order: 1,
+        title: "The versicles and Hail Marys",
+        body: "Pray in three exchanges, each followed by a Hail Mary: 'The Angel of the Lord declared unto Mary, and she conceived of the Holy Spirit.' 'Behold the handmaid of the Lord; be it done unto me according to thy word.' 'And the Word was made flesh, and dwelt among us.'",
+      },
+      {
+        order: 2,
+        title: "The concluding prayer",
+        body: "Conclude with: 'Pray for us, O holy Mother of God, that we may be made worthy of the promises of Christ.' Then pray the collect, 'Pour forth, we beseech thee, O Lord, thy grace into our hearts…'",
+      },
+      {
+        order: 3,
+        title: "During the Easter season",
+        body: "From Easter Sunday to Pentecost, the Regina Caeli is prayed in place of the Angelus, rejoicing in the Resurrection of the Lord.",
+      },
+    ],
+  ),
+  guide(
+    "how-to-make-a-marian-consecration",
+    "How to Make a Marian Consecration",
+    "consecration",
+    "A guide to entrusting oneself entirely to Jesus through Mary, following the 'total consecration' taught by Saint Louis de Montfort.",
+    [
+      {
+        order: 1,
+        title: "Understand the consecration",
+        body: "Marian consecration is the giving of oneself entirely to Jesus Christ through the hands of his Mother, so that she may form us into the image of her Son. It does not replace devotion to Christ but deepens it.",
+      },
+      {
+        order: 2,
+        title: "Prepare over several weeks",
+        body: "Saint Louis de Montfort's method involves a period of preparation (traditionally 33 days) of prayer and meditation — renouncing the spirit of the world, growing in knowledge of self, of Mary, and of Jesus.",
+      },
+      {
+        order: 3,
+        title: "Make the act of consecration",
+        body: "On the chosen Marian feast, pray the act of consecration, entrusting your body and soul, your goods and merits, to Jesus through Mary. Renew it often, and live it through faithful daily devotion such as the Rosary.",
+      },
+    ],
+  ),
+  guide(
+    "understanding-the-parts-of-the-mass",
+    "Understanding the Parts of the Mass",
+    "general",
+    "A guide to the structure and meaning of the Holy Mass, the source and summit of the Christian life, in its two great parts: the Liturgy of the Word and the Liturgy of the Eucharist.",
+    [
+      {
+        order: 1,
+        title: "The Introductory Rites",
+        body: "The Entrance, the Sign of the Cross and Greeting, the Penitential Act, the Gloria (on Sundays and feasts), and the Collect gather the faithful and prepare them to hear God's Word and celebrate the Eucharist.",
+      },
+      {
+        order: 2,
+        title: "The Liturgy of the Word",
+        body: "God speaks to his people in the readings from Scripture: the First Reading, Responsorial Psalm, Second Reading (on Sundays), the Gospel, the Homily, the Profession of Faith (Creed), and the Universal Prayer.",
+      },
+      {
+        order: 3,
+        title: "The Liturgy of the Eucharist",
+        body: "The Preparation of the Gifts, the Eucharistic Prayer (in which the bread and wine become the Body and Blood of Christ), and the Communion Rite (the Our Father, Sign of Peace, Lamb of God, and reception of Holy Communion) make present the sacrifice of Christ.",
+      },
+      {
+        order: 4,
+        title: "The Concluding Rites",
+        body: "The Blessing and the Dismissal send the faithful out to love and serve the Lord, carrying the grace of the Eucharist into the world.",
+      },
+    ],
+  ),
 ];

@@ -178,4 +178,98 @@ export const novenaKnowledge: CuratedEntry[] = [
       citations: [VATICAN, USCCB],
     },
   },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-anthony",
+    authorityLevel: "VATICAN",
+    citations: [VATICAN, USCCB],
+    payload: {
+      slug: "novena-saint-anthony",
+      title: "Novena to Saint Anthony of Padua",
+      summary:
+        "A nine-day novena to Saint Anthony of Padua, the wonder-worker and Doctor of the Church, invoked for lost things, the poor, and pressing needs. Often prayed on nine consecutive Tuesdays.",
+      background:
+        "Saint Anthony (1195-1231), a Franciscan and renowned preacher, was canonized within a year of his death and declared a Doctor of the Church in 1946. The 'Tuesday devotion' to him dates from the seventeenth century.",
+      intentionTheme: "the intercession of St. Anthony for those in need",
+      days: nineDays(
+        "the intercession of St. Anthony of Padua for the poor, the lost, and those in urgent need",
+      ),
+      associatedSaintSlug: "saint-anthony-of-padua",
+      citations: [VATICAN, USCCB],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-jude",
+    authorityLevel: "VATICAN",
+    citations: [VATICAN, USCCB],
+    payload: {
+      slug: "novena-saint-jude",
+      title: "Novena to Saint Jude Thaddeus",
+      summary:
+        "A nine-day novena to Saint Jude, the Apostle invoked as the patron of desperate and hopeless causes, asking his powerful intercession in the most difficult situations.",
+      background:
+        "Saint Jude Thaddeus, one of the Twelve Apostles, has been venerated since antiquity; devotion to him as the patron of hopeless causes spread widely in the twentieth century.",
+      intentionTheme: "the intercession of St. Jude in difficult and hopeless causes",
+      days: nineDays(
+        "the intercession of St. Jude the Apostle in desperate and seemingly hopeless situations",
+      ),
+      associatedSaintSlug: "saint-jude-thaddeus",
+      citations: [VATICAN, USCCB],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-immaculate-conception",
+    authorityLevel: "VATICAN",
+    citations: [VATICAN, USCCB],
+    payload: {
+      slug: "novena-immaculate-conception",
+      title: "Novena of the Immaculate Conception",
+      summary:
+        "A nine-day novena honoring the Blessed Virgin Mary, conceived without sin, prayed in preparation for the Solemnity of the Immaculate Conception (December 8).",
+      background:
+        "Pope Pius IX solemnly defined the dogma of the Immaculate Conception in 1854 in the bull Ineffabilis Deus. At Lourdes in 1858, Our Lady confirmed the title: 'I am the Immaculate Conception.'",
+      intentionTheme: "the intercession of Mary Immaculate",
+      days: nineDays("the intercession of the Immaculate Virgin Mary, conceived without sin"),
+      citations: [VATICAN, USCCB],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-our-lady-of-perpetual-help",
+    authorityLevel: "VATICAN",
+    citations: [VATICAN, USCCB],
+    payload: {
+      slug: "novena-our-lady-of-perpetual-help",
+      title: "Novena to Our Lady of Perpetual Help",
+      summary:
+        "A nine-day novena to the Blessed Virgin Mary under her title of Perpetual Help, entrusting every need to her unfailing maternal intercession.",
+      background:
+        "The ancient icon of Our Lady of Perpetual Help was entrusted by Pope Pius IX to the Redemptorists in 1866 with the charge to 'make her known throughout the world.' The perpetual-help novena became one of the most widespread Marian devotions.",
+      intentionTheme: "the perpetual help of the Blessed Virgin Mary",
+      days: nineDays("the unfailing maternal help of Our Lady of Perpetual Help in every need"),
+      citations: [VATICAN, USCCB],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-saint-therese",
+    authorityLevel: "VATICAN",
+    citations: [VATICAN, USCCB],
+    payload: {
+      slug: "novena-saint-therese",
+      title: "Novena to Saint Thérèse of Lisieux",
+      summary:
+        "A nine-day novena to Saint Thérèse of the Child Jesus, the Little Flower and Doctor of the Church, who promised to 'let fall a shower of roses' and to spend her heaven doing good upon earth.",
+      background:
+        "Saint Thérèse of Lisieux (1873-1897), a Carmelite who taught the 'little way' of spiritual childhood, was canonized in 1925 and declared a Doctor of the Church in 1997. She is a patroness of the missions.",
+      intentionTheme: "the intercession of St. Thérèse and her 'little way' of confidence",
+      days: nineDays(
+        "the intercession of St. Thérèse of Lisieux and the grace to follow her little way of trust and love",
+      ),
+      associatedSaintSlug: "saint-therese-of-lisieux",
+      citations: [VATICAN, USCCB],
+    },
+  },
 ];

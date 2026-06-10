@@ -125,13 +125,13 @@ design.
 
 **Checklist + published content** (`src/lib/checklist/`):
 
-| Model               | Role                                                             |
-| ------------------- | ---------------------------------------------------------------- |
-| `ChecklistItem`     | One row per concrete item (populated from package artifacts)     |
-| `AuthoritySource`   | Approved-source registry (Vatican, USCCB, …)                     |
-| `ChecklistCitation` | One citation per (item, URL) with authority level                |
-| `WorkerBuildJob`    | Build-intent signal the Admin Worker reads (enqueued on approve) |
-| `PublishedContent`  | The only table the public site reads from                        |
+| Model               | Role                                                                                                                                            |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ChecklistItem`     | One row per concrete item (populated from package artifacts)                                                                                    |
+| `AuthoritySource`   | Global approved-source registry (Holy See & dicasteries, bishops' conferences, Eastern Churches, orders, universities, dioceses, reference DBs) |
+| `ChecklistCitation` | One citation per (item, URL) with authority level                                                                                               |
+| `WorkerBuildJob`    | Build-intent signal the Admin Worker reads (enqueued on approve)                                                                                |
+| `PublishedContent`  | The only table the public site reads from                                                                                                       |
 
 The prior engine's tables (`WorkerBuildLog`, `ChecklistQAReport`,
 `ChecklistVersion`, `ChecklistRelation`) were **dropped** (migration
@@ -530,6 +530,20 @@ falling back to a TypeScript final brain. Concretely:
   Every method writes which sources were scanned, which were skipped
   (with reason), which candidates were found, rejected, and prioritised.
 
+  The trusted registry (`checklist/sources/authority-registry.ts`,
+  `AUTHORITY_SOURCES`) spans the **global** Catholic source ecosystem — the
+  Holy See and Roman Curia dicasteries, national & continental **bishops'
+  conferences** (USCCB, CCCB, CBCEW, CELAM, CCEE, FABC, SECAM, …), **Eastern
+  Catholic Churches**, major **(arch)dioceses**, **religious orders**, **Catholic
+  universities**, and reputable **reference databases** (Catholic Culture, CNA,
+  Aleteia, Papal Encyclicals Online, …). The whole Holy See **`.va`** TLD is
+  approved by pattern, so the worker can follow links to any dicastery domain.
+  The worker NEVER auto-fetches an unlisted host (the allow-list is the safety
+  gate), but `classifyHostAuthority` lets it **judge the quality of any
+  lesser-known source it encounters** — diocesan / order / university domains are
+  recognised by pattern and weighed accordingly in cross-source verification,
+  while the reputation system (below) vets each source's reliability over time.
+
 - **Scores every candidate.** `candidate-scorer.ts` rates each
   discovered URL across seven dimensions (host authority, content-type
   signal, freshness, depth, duplicate risk, past success at this host,
@@ -854,15 +868,20 @@ publish writer and that every recent public row traces to an artifact.
 
 ### Curated knowledge as the offline first-pass source
 
-The repo ships a hand-verified curated knowledge base
+The repo ships a large, hand-verified curated knowledge base
 (`src/lib/checklist/knowledge/`, `ALL_CURATED_ENTRIES`) of ground-truth,
-schema-valid Catholic content with authority citations — the Church's fixed
-texts and canonical lists: prayers, litanies, the seven sacraments, saints,
-the 37 Doctors, the line of popes, the recognized rites, major basilicas,
-Marian titles, approved apparitions, and more. This is the worker's
-**first-pass content source**, so canonical content can be published without a
-live fetch, while live discovery + cross-source verification grows everything
-beyond the curated set.
+schema-valid Catholic content with authority citations — **~416 entries
+spanning every content type**: the Church's fixed texts and canonical lists.
+Representative depth: 96 saints, 57 popes, the complete sets of the 37 Doctors
+of the Church and the 7 sacraments, 42 prayers (with Latin/Greek where an
+authentic form exists), 30 liturgical feasts & seasons, 27 basilicas & shrines,
+25 church documents (encyclicals, conciliar texts, the Catechism), 22 Marian
+titles, plus devotions, novenas, approved apparitions, how-to guides, spiritual
+practices, and the recognized rites. Every entry validates against its per-type
+content schema (`tests/checklist/knowledge.test.ts`) and publishes through the
+real orchestrator. This is the worker's **first-pass content source**, so
+canonical content can be published without a live fetch, while live discovery +
+cross-source verification grows everything beyond the curated set.
 
 - The worker publishes it through the **real** pipeline, not a back door:
   `runCuratedIngest()` (`src/lib/admin-worker/curated-ingest.ts`) runs each
