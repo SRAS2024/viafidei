@@ -89,7 +89,7 @@ export default async function AdminWorkerLogsPage({ searchParams }: PageProps) {
               key={s.category}
               href={buildLink({ category: s.category })}
               className={`rounded px-2 py-1 ${
-                active ? "bg-slate-900 text-white" : "bg-slate-100 hover:bg-slate-200"
+                active ? "vf-filter-active" : "bg-slate-100 hover:bg-slate-200"
               }`}
             >
               {s.label}

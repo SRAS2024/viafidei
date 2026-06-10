@@ -30,13 +30,13 @@ type Props = {
   className?: string;
 };
 
-// One calm grey "box" look for every filter on the site. The selected chip
-// stays visible and highlighted (a darker grey box with a defined edge) — never
-// hidden behind a dropdown.
+// One consistent look for every filter on the site. The selected chip fills
+// with the action/Marian blue (`vf-filter-active`) so "selected = blue" is
+// uniform across the whole app; the unselected chips stay a calm grey box.
 const BASE =
   "inline-flex items-center gap-1.5 rounded-sm border px-4 py-1.5 text-xs font-medium uppercase tracking-liturgical transition";
 const INACTIVE = "border-transparent bg-ink/5 text-ink-soft hover:bg-ink/10 hover:text-ink";
-const ACTIVE = "border-ink/30 bg-ink/10 text-ink";
+const ACTIVE = "vf-filter-active";
 
 /**
  * Uniform filter chips used across the site (prayers, church documents,
@@ -56,7 +56,7 @@ export function FilterChips({ items, activeKey, ariaLabel, onSelect, className }
           <>
             <span>{item.label}</span>
             {typeof item.count === "number" ? (
-              <span className="tabular-nums font-semibold text-ink-faint">{item.count}</span>
+              <span className="font-semibold tabular-nums opacity-70">{item.count}</span>
             ) : null}
           </>
         );

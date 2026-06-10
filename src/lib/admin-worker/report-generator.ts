@@ -20,6 +20,7 @@ import { listAdminWorkerLogs } from "./logs";
 import { listRecentPasses } from "./passes";
 import { runAdminWorkerDiagnostics, summarizeRatings } from "./diagnostics";
 import { collectIntelligenceLabData, type IntelligenceLabData } from "./intelligence-lab-store";
+import { collectSkillCapabilityData, type SkillCapabilityData } from "./skills";
 
 const SECRET_KEYS = [
   "password",
@@ -262,6 +263,10 @@ export interface DeveloperAuditData {
    *  tournaments, benchmark/version changes, capability proposals, adversarial
    *  weaknesses, architecture integrity, and the highest-leverage next change. */
   intelligenceLab: IntelligenceLabData;
+  /** Certified Admin Skill Runtime summary (spec: "Worker Capability Report"):
+   *  final-brain availability, certified vs missing skills, coverage by content
+   *  type, recent skill executions, and whether autonomous publishing is safe. */
+  skillRuntime: SkillCapabilityData;
 }
 
 export async function collectDeveloperAuditData(
@@ -647,12 +652,14 @@ export async function collectDeveloperAuditData(
   })();
 
   const intelligenceLab = await collectIntelligenceLabData(prisma, { limit: 10 });
+  const skillRuntime = await collectSkillCapabilityData(prisma, { limit: 15 });
 
   return {
     generatedAt: new Date(),
     period,
     pythonBrainDiagnostics,
     intelligenceLab,
+    skillRuntime,
     workerRequests: workerRequestsRaw,
     diagnosticsResults,
     diagnosticsSummary: summarizeRatings(diagnosticsResults),
@@ -849,6 +856,7 @@ export const DEVELOPER_AUDIT_SECTIONS = [
   "Reasoning Graph",
   "Mission Plans",
   "Intelligence Laboratory",
+  "Certified Admin Skill Runtime",
   "Pipeline Stage History",
   "Content Goal Progress",
   "Content Growth Funnel",

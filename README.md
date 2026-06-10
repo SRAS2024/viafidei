@@ -1469,6 +1469,218 @@ simply uses its deterministic fallbacks. Override the interpreter with
 
 ---
 
+## Certified Admin Skill Runtime
+
+The Admin Worker performs real autonomous work through **certified skills**:
+typed, executable, verifiable, reversible units under
+[`src/lib/admin-worker/skills/`](src/lib/admin-worker/skills/). The architecture
+is unchanged — **Python is the final brain, TypeScript is the safe execution
+body, Postgres is the durable store** — and the runtime adds the practical layer
+that proves work actually happened, repairs failures, learns from outcomes, and
+**reports honestly what the worker can and cannot do**.
+
+### Autonomous content lifecycle — every content type the site offers
+
+The worker runs a **continuous loop** (`run-worker.ts` → `runAdminWorkerLoop`,
+`maxPasses: Infinity`): it starts the Python brain, then on **every pass** the
+brain selects the next safest action and the worker executes the full content
+lifecycle and the ongoing-management work:
+
+```
+find → fetch → read → classify → extract (per type + subtype) → build package →
+verify (fields, citations, authority, claims, duplicate, communion, proof) →
+strict QA → publish → verify route + sitemap + search + cache → repair → learn
+```
+
+…plus, each pass: **curated-knowledge ingest** (publishes the hand-verified
+ground-truth for every type through the real Publish Orchestrator — the
+first-pass content source, gated on `PYTHON_FINAL_BRAIN_ACTIVE`), **daily
+readings** refresh + year-ahead backfill, **learning** (memory + source
+reputation + confidence calibration + capability scores), **self-model + code
+awareness**, the **Intelligence Laboratory** pass, and a **capability-matrix
+refresh**. Live discovery (seven methods) grows content beyond the curated base.
+
+This covers **every content type the site offers**. Each public category maps to
+a publishable `ChecklistContentType`, and all of them have an extractor, a
+content-type profile, a public route, curated content, a content goal, and a
+certified extraction skill:
+
+| Site category         | Publishable type              | Site category                 | Publishable type     |
+| --------------------- | ----------------------------- | ----------------------------- | -------------------- |
+| Prayers / Litanies    | `PRAYER`                      | Liturgy / Liturgical Calendar | `LITURGICAL`         |
+| Saints                | `SAINT`                       | Rites                         | `RITE`               |
+| Our Lady              | `MARIAN_TITLE` + `APPARITION` | History / Church Documents    | `CHURCH_DOCUMENT`    |
+| Doctors of the Church | `DOCTOR`                      | Devotions                     | `DEVOTION`           |
+| Popes                 | `POPE`                        | Novenas                       | `NOVENA`             |
+| Sacraments            | `SACRAMENT`                   | Chaplets                      | `GUIDE`              |
+| Parishes              | `PARISH`                      | Spiritual Life                | `SPIRITUAL_PRACTICE` |
+| Guides                | `GUIDE`                       |                               |                      |
+
+…and their **subtypes** — litany / rosary / consecration; common / Marian /
+Eucharistic / saint / liturgical prayers; novena day vs full novena; apparition
+approval statuses; encyclical / exhortation / constitution / motu proprio /
+council documents; catechism + canon-law references; daily / Sunday readings;
+solemnity / memorial / feast / optional memorial; pope / saint / doctor /
+parish profiles — each carried on the content type via the catalog and rendered
+with a generated **subtitle**.
+
+So with a connected database the worker **continuously and autonomously finds,
+builds, verifies, publishes, manages, and repairs all of the site's content**,
+across every type and subtype. The only catalogued types it does **not** publish
+are four that the site has **no pages for** (creed, diocese, religious order,
+homepage block); these have no extractor, so the worker reports them MISSING and
+files a developer request rather than fabricating coverage — adding them would
+mean new public pages + a schema change, which (per the safety mandate) is a
+human decision.
+
+### Two valid states — no silent reversion
+
+The worker has exactly two runtime states (`final-brain.ts`); there is no third
+"legacy fallback" that makes final decisions when Python fails:
+
+- **`PYTHON_FINAL_BRAIN_ACTIVE`** — the Python brain's `select_action` is the
+  final selector; the decision records `finalBrain: "python"`.
+- **`PYTHON_BRAIN_UNAVAILABLE_SAFE_DEGRADED_MODE`** — when the brain is
+  disabled, unreachable, times out, returns an invalid shape, or selects a
+  disallowed/unsafe action, the worker enters safe degraded mode: security
+  defense, diagnostics, reporting, maintenance, and known-safe repair only.
+  **It does not publish, make new source-trust decisions, or approve sensitive
+  Catholic content** — including the curated-ingest publish path, which is now
+  gated on `finalBrain === "python"`.
+
+`tests/admin-worker/proof/final-brain-reachability.proof.test.ts` proves the
+worker reaches the Python brain, validates the contract, records the final
+decision, and on every failure mode falls into safe degraded mode without ever
+reverting to a TypeScript final-decision path.
+
+### Certified skills
+
+Each skill (`skills/types.ts`) declares all of: name, purpose, supported content
+types + subtypes, inputs, outputs, preconditions, required permissions, risk
+level, idempotency key, execution, verification, rollback/repair, retry policy,
+failure classifier, success metrics, required tests, brain ops used, safety
+gates, and whether human review is required. The **executor** (`skills/executor.ts`)
+runs one lifecycle — **preflight → execute → verify → ledger → outcome learning**
+— with a bounded retry loop and failure routing (repair / human review /
+developer request / circuit breaker). A skill is **never "successful" until its
+verification passes**; medium+ risk failures roll back.
+
+The hard rule (enforced by the **Skill Planner**, `skills/planner.ts`): the
+worker may only do autonomous operational work through certified skills. The
+planner maps a brain decision to an ordered skill plan (a content build expands
+to fetch → read → `extract_<type>` → verify → strict-QA → publish → verify
+route/sitemap/cache, with a proof-packet step for sensitive Catholic types). If
+a required skill is missing, the plan is **not executable** and the worker files
+a developer request — it never pretends it can do the task.
+
+The **source, extraction, verification, and publishing packs are certified**,
+so the full content build plan runs end to end through certified skills:
+
+- **Source** (`source-skills.ts`): `fetch_static_html`, `fetch_text_document`
+  (approved-host fetcher), `read_source_page` (structured blocks),
+  `detect_dynamic_page` (stops JS-only-page loops and files a dynamic-fetcher
+  developer request), `classify_fetch_failure`.
+- **Extraction** (`extraction-skills.ts`): one `extract_<type>` per content type
+  backed by a real extractor, wrapping the deterministic `extractByType`.
+- **Verification** (`verification-skills.ts`): 13 real gates — required fields,
+  citations, source + Catholic authority, claims, epistemic status, duplicate
+  safety, communion risk, route/schema/UI support, ontology links, and the
+  sensitive-content proof packet.
+- **Publishing** (`publishing-skills.ts`): `run_strict_qa`, `publish_content`
+  (the single Publish Orchestrator path — full safety + ten-dimension quality +
+  proof-based publishing; high-risk with a real unpublish rollback),
+  `verify_public_route` / `verify_search_index` / `verify_sitemap` /
+  `verify_cache`, and `rollback_publish`.
+
+The **repair, homepage, reporting, security, and maintenance packs are also
+certified** — **112 certified skills** across all nine categories (including the
+**discovery** pack — `discover_from_sitemap` / `_rss` / `_internal_links` /
+`_configured_urls` / `_directory_page` / `_search_page` + `request_dynamic_
+fetcher_upgrade` — and the **PDF** pack — detect / fetch / classify / verify
+PDFs for real; since the runtime has no PDF text parser, `extract_text_pdf` /
+`extract_vatican_pdf_document` and scanned PDFs honestly file a PDF-text-
+extraction developer request rather than faking):
+
+- **Repair** (`repair-skills.ts`): infra repairs flag a real cache / sitemap /
+  search refresh; content-field repairs file a durable, targeted repair plan the
+  orchestrator executes.
+- **Homepage + reporting** (`homepage-skills.ts`): `create_homepage_draft` runs
+  a real makeover and files an AWAITING_REVIEW draft to preview / publish /
+  discard (the live homepage is never mutated autonomously); refresh + verify
+  daily readings; `generate_developer_report` / `generate_monthly_report` /
+  `run_diagnostics`.
+- **Security + maintenance** (`security-skills.ts`): `run_security_defense` plus
+  database / brain / public-site / admin-surface health checks, stale-job
+  cleanup, repair-plan closure, and capability-matrix refresh — most allowed in
+  safe degraded mode.
+
+**Content subtitles** are generated, stored, and rendered: a deterministic
+`generateContentSubtitle` produces an accurate type/subtype-aware subtitle
+(Doctor → "Bishop, Doctor of the Church"; encyclical → "Encyclical of Pope Leo
+XIII"), `PublishedContent.subtitle` (migration `0047`) stores it, the
+`publish_content_subtitle` skill writes it during the build, and
+`PublishedDetail` renders it under the title.
+
+The **skill orchestrator** (`runSkillPlan`) is the dispatcher's skill-execution
+path: it asks the planner for a certified plan, runs each step through the
+executor + Prisma deps (preflight → execute → verify → ledger → feedback), and
+stops safely on the first failure — an e2e proof drives a full prayer
+source-to-page build through certified skills and records every step to the
+ledger, blocks a non-executable plan rather than faking it, and routes a publish
+"review" result to human review without publishing. The live dispatcher itself
+consults the planner on every stage and records the certified-skill plan (which
+stages route through certified skills, which still need one), so the dashboard
+and Developer Audit show real coverage; the per-stage internals are migrated to
+the executor incrementally so the heavily-tested publish path is never regressed.
+
+Anything still without a certified skill (PDF _text extraction_ / OCR, a dynamic
+fetcher, and the content types with no extractor — creed, diocese, religious
+order, homepage block) is reported **MISSING** and a developer request is filed,
+rather than overstating what the worker can do. A **no-placeholder enforcement**
+test proves
+every certified skill has real preflight / execution / verification / declared
+tests, and that the matrix never marks a capability CERTIFIED without a
+resolvable skill. The worker registers the skills and refreshes the capability
+matrix on every pass, so the dashboard and Developer
+Audit always reflect live coverage.
+
+### Durable ledger + capability matrix (Postgres)
+
+Migration `0046` adds two tables:
+
+- **`AdminWorkerSkillExecution`** — one row per skill execution attempt
+  (preflight / execution / verification / rollback status, risk, idempotency
+  key, attempt count, duration, failure reason, brain op, output entity).
+  Auditable + replayable; loose-coupled string refs to the pass / decision /
+  task / entity.
+- **`AdminWorkerSkillCapability`** — the coverage matrix: one row per capability
+  with `coverageStatus` (`CERTIFIED` / `PARTIAL` / `MISSING` / `BLOCKED` /
+  `REQUIRES_HUMAN_REVIEW` / `REQUIRES_DEVELOPER_WORK`), the certified skill,
+  success/verification rates, rollback availability, and the developer request
+  filed for a gap.
+
+### Admin surface + proof
+
+`/admin/skills` is the **Certified Admin Skill Runtime dashboard**: the
+final-brain state, coverage summary, per-content-type coverage, the blocked
+types (with developer requests filed), the certified-skill catalogue, and recent
+skill executions from the ledger. The **Developer Audit PDF** has a matching
+**Certified Admin Skill Runtime** section (the Worker Capability Report:
+certified vs missing vs blocked counts, per-content-type coverage, and recent
+ledger executions). `npm run admin-worker:proof:skills` proves the runtime —
+final-brain reachability, no silent reversion, safe-degraded publish blocking,
+the skill lifecycle (preflight/execute/verify/rollback/retry/idempotency/circuit
+breaker), the ledger + capability matrix, missing-skill developer requests,
+sensitive-content proof requirement, the end-to-end source-to-page build plan,
+and honest coverage — and runs in `npm run verify:all`.
+
+> **Aesthetic consistency.** Every selected filter across the app (the shared
+> `FilterChips`, the admin log tabs, the language / rosary toggles) now fills
+> with the action/Marian blue (`--action-blue`, via the `vf-filter-active`
+> utility), so "selected = blue" is uniform site-wide.
+
+---
+
 ## Public site
 
 Every public page renders directly from `PublishedContent`:

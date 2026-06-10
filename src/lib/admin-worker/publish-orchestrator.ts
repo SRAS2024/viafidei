@@ -31,6 +31,7 @@ import { refreshContentGoals } from "./content-goals";
 import { isBrainEnabled } from "./intelligence";
 import { writeAdminWorkerLog } from "./logs";
 import { publicRouteFor } from "./public-routes";
+import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
 import { evaluatePublishGate } from "./publisher";
 import { recordReasoningEdge } from "./reasoning-graph";
 import type { QualityInputs } from "./quality";
@@ -464,6 +465,14 @@ export async function runPublishOrchestrator(
           publishedAt: new Date(),
           payload: input.payload,
           title: input.title,
+          subtitle: generateContentSubtitle({
+            contentType: input.contentType,
+            contentSubtype: (input.payload as Record<string, unknown> | null)?.contentSubtype as
+              | string
+              | null,
+            title: input.title,
+            fields: (input.payload as Record<string, unknown> | null) ?? {},
+          }),
           contentChecksum,
         },
       })
@@ -487,7 +496,16 @@ export async function runPublishOrchestrator(
     };
   }
 
-  // 5. Persist a new PublishedContent row.
+  // 5. Persist a new PublishedContent row. The descriptive subtitle is generated
+  // and stored at publish time (rendered under the title on the public page).
+  const publishedSubtitle = generateContentSubtitle({
+    contentType: input.contentType,
+    contentSubtype: (input.payload as Record<string, unknown> | null)?.contentSubtype as
+      | string
+      | null,
+    title: input.title,
+    fields: (input.payload as Record<string, unknown> | null) ?? {},
+  });
   const created = await prisma.publishedContent
     .create({
       data: {
@@ -495,6 +513,7 @@ export async function runPublishOrchestrator(
         contentType: input.contentType as never,
         slug: input.slug,
         title: input.title,
+        subtitle: publishedSubtitle,
         payload: input.payload,
         authorityLevel: input.authorityLevel as never,
         isPublished: true,
