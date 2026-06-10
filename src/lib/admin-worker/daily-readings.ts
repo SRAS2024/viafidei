@@ -451,3 +451,87 @@ export async function getStoredReading(
     .findUnique({ where: { date_calendar_locale: { date: utcMidnight(date), calendar, locale } } })
     .catch(() => null);
 }
+
+export interface DailyReadingsCoverage {
+  /** Total day-rows the worker has framed (verified text OR official-link). */
+  total: number;
+  /** Days with verified readings text (status PUBLISHED). */
+  published: number;
+  /** Days framed + linked to the official source, awaiting verified text (REVIEW). */
+  review: number;
+  /** Earliest / latest day covered, and how many days that span. */
+  earliest: Date | null;
+  latest: Date | null;
+  spanDays: number;
+  /** Today's coverage. */
+  todayHasRow: boolean;
+  todayHasText: boolean;
+  /** Verified-text coverage of the upcoming window. */
+  next30WithText: number;
+  next90WithText: number;
+  /** When the worker last touched a reading row. */
+  lastUpdatedAt: Date | null;
+}
+
+/**
+ * Coverage of the daily-readings calendar for the admin console. There is no
+ * target count — the goal is simply to cover the whole liturgical calendar — so
+ * this reports the span the worker has framed, how many days carry verified text
+ * vs are on the official link, and the upcoming-window coverage. Read-only.
+ */
+export async function dailyReadingsCoverage(
+  prisma: PrismaClient,
+  opts: { calendar?: string; locale?: string } = {},
+): Promise<DailyReadingsCoverage> {
+  const calendar = opts.calendar ?? "roman-ordinary";
+  const locale = opts.locale ?? "en";
+  const where = { calendar, locale };
+  const DAY = 24 * 60 * 60 * 1000;
+  const today = utcMidnight(new Date());
+  const in30 = utcMidnight(new Date(Date.now() + 30 * DAY));
+  const in90 = utcMidnight(new Date(Date.now() + 90 * DAY));
+
+  const [total, published, review, agg, latestRow, todayRow, next30WithText, next90WithText] =
+    await Promise.all([
+      prisma.dailyReading.count({ where }).catch(() => 0),
+      prisma.dailyReading.count({ where: { ...where, status: "PUBLISHED" } }).catch(() => 0),
+      prisma.dailyReading.count({ where: { ...where, status: "REVIEW" } }).catch(() => 0),
+      prisma.dailyReading
+        .aggregate({ where, _min: { date: true }, _max: { date: true } })
+        .catch(() => null),
+      prisma.dailyReading
+        .findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } })
+        .catch(() => null),
+      prisma.dailyReading
+        .findUnique({
+          where: { date_calendar_locale: { date: today, calendar, locale } },
+          select: { status: true },
+        })
+        .catch(() => null),
+      prisma.dailyReading
+        .count({ where: { ...where, status: "PUBLISHED", date: { gte: today, lt: in30 } } })
+        .catch(() => 0),
+      prisma.dailyReading
+        .count({ where: { ...where, status: "PUBLISHED", date: { gte: today, lt: in90 } } })
+        .catch(() => 0),
+    ]);
+
+  const earliest = agg?._min.date ?? null;
+  const latest = agg?._max.date ?? null;
+  const spanDays =
+    earliest && latest ? Math.round((latest.getTime() - earliest.getTime()) / DAY) + 1 : 0;
+
+  return {
+    total,
+    published,
+    review,
+    earliest,
+    latest,
+    spanDays,
+    todayHasRow: todayRow != null,
+    todayHasText: todayRow?.status === "PUBLISHED",
+    next30WithText,
+    next90WithText,
+    lastUpdatedAt: latestRow?.updatedAt ?? null,
+  };
+}

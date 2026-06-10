@@ -71,4 +71,30 @@ describe("prayer categorisation (drives the /prayers filter)", () => {
     // A non-canonical stored category ("PRAYER") is ignored and derived.
     expect(categorizePrayer({ title: "The Memorare", category: "PRAYER" })).toBe("marian");
   });
+
+  it("classifies litanies as litany even when the stored category is a canonical theme", () => {
+    // Regression: the Litany of the BVM's stored category is "marian" and the
+    // Litany of Humility's is "general" — both canonical. The stored-category
+    // shortcut used to hijack them into their theme, so the /litanies tab showed
+    // only the litanies whose theme was NOT canonical (2 of 4). Litanies must
+    // take priority over the stored category.
+    expect(
+      categorizePrayer({
+        title: "Litany of the Blessed Virgin Mary",
+        prayerType: "litany",
+        category: "marian",
+      }),
+    ).toBe("litany");
+    expect(
+      categorizePrayer({
+        title: "Litany of Humility",
+        prayerType: "litany",
+        category: "general",
+      }),
+    ).toBe("litany");
+    // Detected by title too, even with a canonical stored category.
+    expect(categorizePrayer({ title: "Litany of the Sacred Heart", category: "general" })).toBe(
+      "litany",
+    );
+  });
 });
