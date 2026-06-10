@@ -28,6 +28,7 @@ import type { BrainDecision, BrainMissionStage } from "./brain";
 import { EXTRACTABLE_CONTENT_TYPES, isExtractableContentType } from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
 import { recordStageOutcome, toStageOutcome } from "./stage-outcomes";
+import { classifyHostAuthority } from "@/lib/checklist/sources/authority-registry";
 
 export interface DispatchOutcome {
   /** The mission stage the dispatcher actually executed. */
@@ -1006,12 +1007,11 @@ async function runPackageBuild(prisma: PrismaClient, passId: string): Promise<Di
  * it can weigh a validation source's claim. Conservative default: COMMUNITY.
  */
 function hostAuthorityLevel(host: string): string {
-  const h = host.toLowerCase();
-  if (h.includes("vatican.va")) return "VATICAN";
-  if (h.includes("usccb.org")) return "USCCB";
-  if (h.includes("newadvent.org") || h.includes("catholic.com")) return "RELIABLE";
-  if (/diocese|archdiocese|\.va$/.test(h)) return "DIOCESAN";
-  return "COMMUNITY";
+  // Delegate to the shared classifier so cross-source claim weighting recognises
+  // the full global Catholic source ecosystem (the explicit registry, the Holy
+  // See `.va` TLD, and diocesan/order/university patterns for lesser-known
+  // sources) rather than a handful of hard-coded hosts.
+  return classifyHostAuthority(host);
 }
 
 function verifiableExpectedString(value: unknown): string {

@@ -530,6 +530,20 @@ falling back to a TypeScript final brain. Concretely:
   Every method writes which sources were scanned, which were skipped
   (with reason), which candidates were found, rejected, and prioritised.
 
+  The trusted registry (`checklist/sources/authority-registry.ts`,
+  `AUTHORITY_SOURCES`) spans the **global** Catholic source ecosystem — the
+  Holy See and Roman Curia dicasteries, national & continental **bishops'
+  conferences** (USCCB, CCCB, CBCEW, CELAM, CCEE, FABC, SECAM, …), **Eastern
+  Catholic Churches**, major **(arch)dioceses**, **religious orders**, **Catholic
+  universities**, and reputable **reference databases** (Catholic Culture, CNA,
+  Aleteia, Papal Encyclicals Online, …). The whole Holy See **`.va`** TLD is
+  approved by pattern, so the worker can follow links to any dicastery domain.
+  The worker NEVER auto-fetches an unlisted host (the allow-list is the safety
+  gate), but `classifyHostAuthority` lets it **judge the quality of any
+  lesser-known source it encounters** — diocesan / order / university domains are
+  recognised by pattern and weighed accordingly in cross-source verification,
+  while the reputation system (below) vets each source's reliability over time.
+
 - **Scores every candidate.** `candidate-scorer.ts` rates each
   discovered URL across seven dimensions (host authority, content-type
   signal, freshness, depth, duplicate risk, past success at this host,
