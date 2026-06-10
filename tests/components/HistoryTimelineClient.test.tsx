@@ -38,12 +38,17 @@ describe("HistoryTimelineClient (document-fed)", () => {
 
   it("filters councils vs doctrine by documentType", () => {
     render(<HistoryTimelineClient events={events} minYear={30} maxYear={2026} />);
+    // Five themes → the filters collapse into a dropdown; open it to choose.
+    const openMenu = () =>
+      fireEvent.click(screen.getByRole("button", { name: "Filter the timeline by theme" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Councils" }));
+    openMenu();
+    fireEvent.click(screen.getByRole("option", { name: "Councils" }));
     expect(screen.getByText("First Council of Nicaea")).toBeInTheDocument();
     expect(screen.queryByText("Rerum Novarum")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Doctrine & Magisterium" }));
+    openMenu();
+    fireEvent.click(screen.getByRole("option", { name: "Doctrine & Magisterium" }));
     expect(screen.getByText("Rerum Novarum")).toBeInTheDocument();
     expect(screen.queryByText("First Council of Nicaea")).not.toBeInTheDocument();
   });

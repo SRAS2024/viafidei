@@ -53,15 +53,20 @@ describe("FavoritesBrowser", () => {
     expect(screen.getByText("The Memorare")).toBeInTheDocument();
     expect(screen.getByText("Saint Francis")).toBeInTheDocument();
     expect(screen.getByText("Our Lady of Lourdes")).toBeInTheDocument();
-    // "All" chip is selected and counts everything.
-    const allChip = screen.getByRole("button", { name: /All/ });
-    expect(allChip).toHaveAttribute("aria-pressed", "true");
-    expect(allChip).toHaveTextContent("3");
+    // Six type filters → a single dropdown trigger (unfiltered shows "Filter").
+    const trigger = screen.getByRole("button", { name: "Filter favorites by type" });
+    expect(trigger).toHaveTextContent("Filter");
+    // Inside the dropdown, "All" is selected and counts everything.
+    fireEvent.click(trigger);
+    const allOption = screen.getByRole("option", { name: /All/ });
+    expect(allOption).toHaveAttribute("aria-selected", "true");
+    expect(allOption).toHaveTextContent("3");
   });
 
   it("filters to a single content type when its chip is selected", () => {
     render(<FavoritesBrowser items={ITEMS} />);
-    fireEvent.click(screen.getByRole("button", { name: /Saints/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter favorites by type" }));
+    fireEvent.click(screen.getByRole("option", { name: /Saints/ }));
     expect(screen.getByText("Saint Francis")).toBeInTheDocument();
     expect(screen.queryByText("The Memorare")).not.toBeInTheDocument();
     expect(screen.queryByText("Our Lady of Lourdes")).not.toBeInTheDocument();
@@ -102,7 +107,8 @@ describe("FavoritesBrowser", () => {
       savedAt: "2026-01-04T00:00:00.000Z",
     };
     render(<FavoritesBrowser items={[...ITEMS, parish]} />);
-    fireEvent.click(screen.getByRole("button", { name: /Parishes/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Filter favorites by type" }));
+    fireEvent.click(screen.getByRole("option", { name: /Parishes/ }));
     expect(screen.getByText("St. Mary's Cathedral")).toBeInTheDocument();
     expect(screen.queryByText("The Memorare")).not.toBeInTheDocument();
   });
