@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Logo } from "../icons/Logo";
+import { Crucifix } from "../icons/Crucifix";
 
 type Props = {
   brandName: string;
@@ -8,30 +8,24 @@ type Props = {
 };
 
 export function HeaderBrand({ brandName, locale, centered = false }: Props) {
-  if (centered) {
-    return (
-      <Link
-        href="/"
-        aria-label={brandName}
-        lang={locale}
-        className="group flex flex-col items-center gap-2"
-      >
-        <Logo size={56} className="shrink-0" />
-        <span className="vf-wordmark text-[1.05rem] leading-none text-ink sm:text-[1.45rem]">
-          {brandName}
-        </span>
-      </Link>
-    );
-  }
+  // The sketched crucifix sits to the LEFT of the wordmark in both layouts; the
+  // homepage hero just renders it larger and centers the pair as a group.
   return (
     <Link
       href="/"
       aria-label={brandName}
       lang={locale}
-      className="group flex items-center gap-3 sm:gap-4"
+      className={`group inline-flex items-center ${centered ? "gap-3 sm:gap-4" : "gap-2.5 sm:gap-3.5"}`}
     >
-      <Logo size={44} className="shrink-0" />
-      <span className="vf-wordmark text-[1.1rem] leading-none text-ink sm:text-[1.35rem]">
+      <Crucifix
+        size={centered ? 56 : 40}
+        className="shrink-0 transition-transform duration-300 ease-out group-hover:-translate-y-0.5"
+      />
+      <span
+        className={`vf-wordmark leading-none text-ink ${
+          centered ? "text-[1.2rem] sm:text-[1.7rem]" : "text-[1.1rem] sm:text-[1.35rem]"
+        }`}
+      >
         {brandName}
       </span>
     </Link>
