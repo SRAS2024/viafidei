@@ -41,7 +41,7 @@ describe("prayer translations", () => {
     const translated = prayerKnowledge.filter(
       (p) => typeof p.payload.latin === "string" || typeof p.payload.greek === "string",
     );
-    expect(translated.length).toBeGreaterThanOrEqual(8);
+    expect(translated.length).toBeGreaterThanOrEqual(20);
   });
 });
 
