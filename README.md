@@ -12,9 +12,10 @@ approved Catholic publishers and verified at multiple stages before it
 reaches the public. The site is run by the **Admin Worker** — a fully
 coded, deterministic, autonomous administrator that operates **without
 any AI APIs**. With a fresh database the Admin Worker fills the site
-by itself: it ranks the next safest action, discovers approved Catholic
-sources across seven discovery methods, fetches and reads pages into
-structured source blocks, classifies content with confusion detection,
+by itself: it ranks the next safest action, discovers Catholic sources
+across eight discovery methods (including open keyword web-search), fetches
+and reads pages into structured source blocks, classifies content with
+confusion detection,
 builds complete package artifacts, fetches validation pages from
 higher-authority hosts to verify sensitive facts, runs strict QA as a
 durable artifact-level stage, scores quality across ten dimensions,
@@ -583,7 +584,11 @@ falling back to a TypeScript final brain. Concretely:
   statement, USCCB / Holy See, a named Catholic diocese) → published through the
   real orchestrator; anything ambiguous, or canonically irregular (SSPX), → human
   review. ("Catholic" alone is never enough — Old Catholics call themselves
-  Catholic too.) A no-op when no key is configured.
+  Catholic too.) A no-op when no key is configured. On the public site every
+  parish / shrine / cathedral / basilica card and detail page shows the address
+  as a tappable link (`MapsAddressLink`) that opens turn-by-turn directions in
+  **Apple Maps on iPhone/iPad** and **Google Maps** everywhere else, using the
+  record's exact coordinates when present so the pin lands on the right building.
 
 - **Reads PDFs from the web.** The runtime has a dependency-free PDF text
   extractor ([`pdf-extract.ts`](src/lib/admin-worker/pdf-extract.ts)) built on
@@ -920,20 +925,21 @@ publish writer and that every recent public row traces to an artifact.
 
 The repo ships a large, hand-verified curated knowledge base
 (`src/lib/checklist/knowledge/`, `ALL_CURATED_ENTRIES`) of ground-truth,
-schema-valid Catholic content with authority citations — **~448 entries
+schema-valid Catholic content with authority citations — **~507 entries
 spanning every content type**: the Church's fixed texts and canonical lists.
 Representative depth: 167 saints, 57 popes, the complete sets of the 37 Doctors
 of the Church and the 7 sacraments, 42 prayers (with Latin/Greek where an
-authentic form exists), 30 liturgical feasts & seasons, 27 basilicas & shrines,
-25 church documents (encyclicals, conciliar texts, the Catechism), 22 Marian
-titles, plus litanies, devotions, novenas, approved apparitions, how-to guides,
-spiritual practices, and the recognized rites. Every entry validates against its
-per-type content schema (`tests/checklist/knowledge.test.ts`) and publishes
-through the real orchestrator. The curated set is the worker's **first-pass
-content source** (canonical content can be published without a live fetch), while
-live discovery + cross-source verification — **plus the runtime growth engines
-below (Google Maps parish discovery and web-PDF reading)** — grows everything far
-beyond it.
+authentic form exists), 34 Marian titles, 30 liturgical feasts & seasons, 27
+basilicas & shrines, 25 church documents (encyclicals, conciliar texts, the
+Catechism), 23 devotions, plus litanies, novenas, approved apparitions, how-to
+guides, spiritual practices, and the recognized rites. Every entry validates
+against its per-type content schema (`tests/checklist/knowledge.test.ts`) and
+publishes through the real orchestrator. The curated set is the worker's
+**first-pass content source** (canonical content can be published without a live
+fetch), while live discovery + cross-source verification — **plus the runtime
+growth engines below (open-internet + keyword web-search discovery, Google Maps
+parish discovery, and web-PDF reading)** — grows everything far beyond it (the
+saint target alone is 10,000).
 
 - The worker publishes it through the **real** pipeline, not a back door:
   `runCuratedIngest()` (`src/lib/admin-worker/curated-ingest.ts`) runs each
