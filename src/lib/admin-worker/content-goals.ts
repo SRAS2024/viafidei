@@ -203,15 +203,20 @@ export async function nextPriorityContentType(
   // neediest one (the live worker was looping DISCOVERY on PARISH forever).
   // Skip the types targeted in the last few discovery decisions so the worker
   // visits each below-goal type in turn — but never exclude every option.
-  const recent = await prisma.adminWorkerDecision
-    .findMany({
+  // Defensive: tolerate a prisma client without the decision model (tests /
+  // degraded) — fall back to no rotation rather than throwing.
+  let recentTypes = new Set<string | null>();
+  try {
+    const recent = await prisma.adminWorkerDecision.findMany({
       where: { missionStage: "DISCOVERY", contentType: { not: null } },
       orderBy: { createdAt: "desc" },
       take: Math.max(0, Math.min(3, ranked.length - 1)),
       select: { contentType: true },
-    })
-    .catch(() => [] as Array<{ contentType: string | null }>);
-  const recentTypes = new Set(recent.map((r) => r.contentType));
+    });
+    recentTypes = new Set(recent.map((r) => r.contentType));
+  } catch {
+    recentTypes = new Set();
+  }
   const pick = ranked.find((g) => !recentTypes.has(g.contentType)) ?? ranked[0];
   return { contentType: pick.contentType, gap: pick.gap };
 }
