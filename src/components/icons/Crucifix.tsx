@@ -78,6 +78,19 @@ export function Crucifix({ size = 44, className, bare = false }: CrucifixProps) 
             strokeLinecap="round"
             strokeLinejoin="round"
           >
+            {/* Faint flesh shading so the limbs and torso read as rounded
+                volume — the body modelled on the cross, not a stick figure. */}
+            <g fill="currentColor" fillOpacity="0.07" stroke="none">
+              {/* arms */}
+              <path d="M30.4 26.6 Q24 26.2 18 27.2 Q15 27.7 12.9 28.7 Q12.2 29.1 12.5 29.7 Q12.9 30.4 13.9 30.3 Q18 29.9 24 29.6 Q28 29.4 30.6 29.2 Z" />
+              <path d="M33.6 26.6 Q40 26.2 46 27.2 Q49 27.7 51.1 28.7 Q51.8 29.1 51.5 29.7 Q51.1 30.4 50.1 30.3 Q46 29.9 40 29.6 Q36 29.4 33.4 29.2 Z" />
+              {/* torso */}
+              <path d="M30.2 26.8 Q28.4 31 28.7 37 Q28.9 42 30.2 46 L33.8 46 Q35.1 42 35.3 37 Q35.6 31 33.8 26.8 Z" />
+              {/* legs */}
+              <path d="M30.4 53.2 Q28.9 54.6 28.7 57.8 Q28.6 60 29.5 60.6 Q29.7 63.4 30.6 65.6 Q31 67 31.5 68 L32 67.6 Q31.5 64 31.2 60.4 Q31 56.6 31.8 53.4 Z" />
+              <path d="M33.6 53.2 Q35.1 54.6 35.3 57.8 Q35.4 60 34.5 60.6 Q34.3 63.4 33.4 65.6 Q33 67 32.5 68 L32 67.6 Q32.5 64 32.8 60.4 Q33 56.6 32.2 53.4 Z" />
+            </g>
+
             {/* Bowed head — face outline, left open where the beard takes over */}
             <path
               d="M30 23.6 Q28.4 22.2 28.5 19.3 Q28.7 15.9 31.7 15.3 Q34.7 15.9 34.9 19.3 Q35 22.2 33.4 23.6"
@@ -122,50 +135,44 @@ export function Crucifix({ size = 44, className, bare = false }: CrucifixProps) 
               strokeWidth="0.42"
               opacity="0.85"
             />
-            <path
-              d="M30.2 23.6 Q31.9 24.7 33.6 23.6 M30.9 25 q1 0.55 2 0"
-              strokeWidth="0.4"
-              opacity="0.8"
-            />
+            <path d="M30.2 23.6 Q31.9 24.7 33.6 23.6" strokeWidth="0.4" opacity="0.8" />
 
             {/* Neck + shoulders */}
             <path d="M30.6 25.9 L30.5 27 M33.2 25.9 L33.3 27" strokeWidth="0.55" opacity="0.9" />
-            <path d="M30.3 27.1 Q32 26.4 33.7 27.1" strokeWidth="0.7" />
 
-            {/* Arms with volume, tapering to the nailed hands along the beam */}
-            <path d="M30.2 27.2 Q22 27 13.5 29" />
-            <path d="M30 28.9 Q22 29.3 13.7 30.3" />
-            <path d="M13.5 29 Q12.7 29.6 13.7 30.3" strokeWidth="0.7" />
-            <path d="M33.8 27.2 Q42 27 50.5 29" />
-            <path d="M34 28.9 Q42 29.3 50.3 30.3" />
-            <path d="M50.5 29 Q51.3 29.6 50.3 30.3" strokeWidth="0.7" />
+            {/* Arms — tapered silhouettes (deltoid → forearm → nailed hand) */}
+            <path d="M30.4 26.6 Q24 26.2 18 27.2 Q15 27.7 12.9 28.7 Q12.2 29.1 12.5 29.7 Q12.9 30.4 13.9 30.3 Q18 29.9 24 29.6 Q28 29.4 30.6 29.2" />
+            <path d="M33.6 26.6 Q40 26.2 46 27.2 Q49 27.7 51.1 28.7 Q51.8 29.1 51.5 29.7 Q51.1 30.4 50.1 30.3 Q46 29.9 40 29.6 Q36 29.4 33.4 29.2" />
+            <path d="M22 28 Q17 28.4 13.6 29.2" strokeWidth="0.35" opacity="0.5" />
+            <path d="M42 28 Q47 28.4 50.4 29.2" strokeWidth="0.35" opacity="0.5" />
             {/* Hands + nail wounds */}
             <path
-              d="M13.4 30.3 q-1.1 0.5 -0.7 1.5 M13.1 29.7 l0.3 1.4"
-              strokeWidth="0.55"
-              opacity="0.9"
+              d="M12.9 29 q-1 0.3 -1.1 1 q0 0.7 1 0.9 M12.4 28.9 l0.3 1.6"
+              strokeWidth="0.5"
+              opacity="0.95"
             />
             <path
-              d="M50.6 30.3 q1.1 0.5 0.7 1.5 M50.9 29.7 l-0.3 1.4"
-              strokeWidth="0.55"
-              opacity="0.9"
+              d="M51.1 29 q1 0.3 1.1 1 q0 0.7 -1 0.9 M51.6 28.9 l-0.3 1.6"
+              strokeWidth="0.5"
+              opacity="0.95"
             />
 
             {/* Torso — chest bulging then narrowing to the waist */}
-            <path d="M30 28.9 Q28.5 33 28.9 38 Q29.1 42.5 30.4 46" />
-            <path d="M34 28.9 Q35.5 33 35.1 38 Q34.9 42.5 33.6 46" />
-            {/* Ribcage arcs + faint sternum + navel */}
+            <path d="M30.2 26.8 Q28.4 31 28.7 37 Q28.9 42 30.2 46" />
+            <path d="M33.8 26.8 Q35.6 31 35.3 37 Q35.1 42 33.8 46" />
+            {/* Ribcage arcs + sternum + flank + navel */}
             <g strokeWidth="0.45" opacity="0.8">
-              <path d="M32 29.8 L32 33" strokeWidth="0.35" opacity="0.6" />
-              <path d="M29.6 33.6 Q32 34.8 34.4 33.6" />
-              <path d="M29.6 35.4 Q32 36.5 34.4 35.4" />
-              <path d="M29.9 37.2 Q32 38.2 34.1 37.2" />
-              <path d="M31 40.2 q1 0.5 2 0" opacity="0.7" />
-              <path d="M31.95 42.8 l0 0.1" strokeWidth="0.6" />
+              <path d="M32 28.4 L32 33" strokeWidth="0.35" opacity="0.6" />
+              <path d="M29.7 33.4 Q32 34.6 34.3 33.4" />
+              <path d="M29.7 35.4 Q32 36.5 34.3 35.4" />
+              <path d="M30 37.4 Q32 38.4 34 37.4" />
+              <path d="M30.8 31 Q29.6 33.6 30 37.6" strokeWidth="0.3" opacity="0.5" />
+              <path d="M31 40.4 q1 0.5 2 0" opacity="0.7" />
+              <path d="M31.95 43 l0 0.1" strokeWidth="0.55" />
             </g>
             {/* Side wound */}
             <path
-              d="M34.5 38.7 q1.1 0.3 0.3 1.2 q-1 0.2 -0.3 -1.2 Z"
+              d="M34.4 38.6 q1.1 0.3 0.3 1.2 q-1 0.2 -0.3 -1.2 Z"
               strokeWidth="0.4"
               opacity="0.85"
             />
@@ -183,34 +190,35 @@ export function Crucifix({ size = 44, className, bare = false }: CrucifixProps) 
               opacity="0.8"
             />
 
-            {/* Legs, knees slightly bent and together, to the crossed feet */}
-            <path d="M29.9 52.8 Q28.6 58.5 30 63 Q30.8 66 31.7 68" />
+            {/* Legs — tapered silhouettes (thigh → knee → calf), feet together */}
+            <path d="M30.4 53.2 Q28.9 54.6 28.7 57.8 Q28.6 60 29.5 60.6 Q29.7 63.4 30.6 65.6 Q31 67 31.5 68" />
             <path
-              d="M31.9 53 Q31.6 58.5 31.7 63 Q31.9 65.5 32 67"
-              strokeWidth="0.6"
-              opacity="0.85"
+              d="M31.8 53.4 Q31 56.6 31.2 60.4 Q31.5 64 32 67.6"
+              strokeWidth="0.5"
+              opacity="0.8"
             />
-            <path d="M34.1 52.8 Q35.4 58.5 34 63 Q33.2 66 32.3 68" />
+            <path d="M33.6 53.2 Q35.1 54.6 35.3 57.8 Q35.4 60 34.5 60.6 Q34.3 63.4 33.4 65.6 Q33 67 32.5 68" />
             <path
-              d="M32.1 53 Q32.4 58.5 32.3 63 Q32.1 65.5 32 67"
-              strokeWidth="0.6"
-              opacity="0.85"
+              d="M32.2 53.4 Q33 56.6 32.8 60.4 Q32.5 64 32 67.6"
+              strokeWidth="0.5"
+              opacity="0.8"
             />
+            {/* Knee caps */}
             <path
-              d="M29.5 59.8 q1.1 0.45 1.9 0 M32.6 59.8 q1.1 0.45 1.9 0"
-              strokeWidth="0.4"
-              opacity="0.75"
+              d="M28.9 59.4 q1.3 0.6 2.3 0.2 M32.8 59.6 q1.3 0.4 2.3 -0.2"
+              strokeWidth="0.35"
+              opacity="0.55"
             />
 
             {/* Crossed feet pierced by a single nail */}
-            <path d="M30 67.3 Q32 68.2 34 67.3" strokeWidth="0.7" />
-            <path d="M30.2 68.4 Q32 69.9 33.8 68.4" strokeWidth="0.8" />
+            <path d="M30 67.4 Q32 68.4 34 67.4" strokeWidth="0.7" />
+            <path d="M30.2 68.5 Q32 70 33.8 68.5" strokeWidth="0.8" />
             <path
-              d="M30.9 69.7 l-0.3 1.6 M33.1 69.7 l0.3 1.6 M32 70.1 l0 1.5"
+              d="M30.9 69.8 l-0.3 1.5 M33.1 69.8 l0.3 1.5 M32 70.2 l0 1.4"
               strokeWidth="0.5"
               opacity="0.85"
             />
-            <path d="M32 67.6 l0 2.6" strokeWidth="0.8" />
+            <path d="M32 67.7 l0 2.5" strokeWidth="0.8" />
           </g>
         </>
       )}
