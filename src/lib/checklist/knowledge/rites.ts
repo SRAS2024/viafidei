@@ -119,4 +119,18 @@ export const riteKnowledge: CuratedEntry[] = [
     "The Ruthenian (Byzantine Catholic) Church traces its communion with Rome to the Union of Uzhhorod (1646). It follows the Byzantine liturgical tradition and is established in Central Europe and the United States.",
     "The Ruthenian Rite is a usage of the Byzantine liturgical tradition, served in Church Slavonic and English.",
   ),
+  rite(
+    "rite-ambrosian",
+    "ambrosian",
+    "Ambrosian Rite",
+    "The Ambrosian Rite is the ancient Latin liturgical tradition of the Archdiocese of Milan, named for Saint Ambrose (d. 397). It preserves distinctive chant, calendar, and ceremonies and survived the general adoption of the Roman Rite in the West.",
+    "The Ambrosian Rite is a Latin (Western) liturgical use proper to Milan and parts of its region, with its own missal, lectionary, and chant tradition (Ambrosian chant).",
+  ),
+  rite(
+    "rite-mozarabic",
+    "mozarabic",
+    "Mozarabic Rite",
+    "The Mozarabic (Hispano-Visigothic) Rite is the ancient Latin liturgy of the Iberian Peninsula, developed before the Muslim conquest and preserved by Christians under Moorish rule. Cardinal Cisneros revived it at Toledo around 1500.",
+    "The Mozarabic Rite is a Latin (Western) liturgical use still celebrated in a chapel of the Cathedral of Toledo and in a few other places in Spain, with its own ancient texts and chant.",
+  ),
 ];

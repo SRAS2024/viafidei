@@ -621,6 +621,126 @@ const RAW_PRAYERS: CuratedEntry[] = [
       citations: ["https://www.usccb.org/"],
     },
   },
+  {
+    contentType: "PRAYER",
+    slug: "o-salutaris-hostia",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: ["https://www.vatican.va/"],
+    payload: {
+      slug: "o-salutaris-hostia",
+      title: "O Salutaris Hostia (O Saving Victim)",
+      body: "O saving Victim, opening wide\nthe gate of heaven to man below;\nour foes press on from every side;\nthine aid supply, thy strength bestow.\nTo thy great name be endless praise,\nimmortal Godhead, One in Three;\nO grant us endless length of days\nin our true native land with thee.\nAmen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      latin:
+        "O salutaris Hostia,\nquae caeli pandis ostium:\nbella premunt hostilia,\nda robur, fer auxilium.\nUni trinoque Domino\nsit sempiterna gloria,\nqui vitam sine termino\nnobis donet in patria.\nAmen.",
+      summary:
+        "A Eucharistic hymn (the last two stanzas of St. Thomas Aquinas's Verbum Supernum), sung at the exposition of the Blessed Sacrament.",
+      occasions: ["adoration", "benediction"],
+      relatedSaints: ["saint-thomas-aquinas"],
+      citations: ["https://www.vatican.va/"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "tantum-ergo",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: ["https://www.vatican.va/"],
+    payload: {
+      slug: "tantum-ergo",
+      title: "Tantum Ergo (Down in Adoration Falling)",
+      body: "Down in adoration falling,\nlo, the sacred Host we hail;\nlo, o'er ancient forms departing,\nnewer rites of grace prevail;\nfaith for all defects supplying,\nwhere the feeble senses fail.\nTo the everlasting Father,\nand the Son who reigns on high,\nwith the Holy Spirit proceeding\nforth from each eternally,\nbe salvation, honor, blessing,\nmight and endless majesty.\nAmen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      latin:
+        "Tantum ergo Sacramentum\nveneremur cernui:\net antiquum documentum\nnovo cedat ritui:\npraestet fides supplementum\nsensuum defectui.\nGenitori, Genitoque\nlaus et iubilatio,\nsalus, honor, virtus quoque\nsit et benedictio:\nprocedenti ab utroque\ncompar sit laudatio.\nAmen.",
+      summary:
+        "The final two stanzas of St. Thomas Aquinas's hymn Pange Lingua, sung at Benediction of the Blessed Sacrament.",
+      occasions: ["adoration", "benediction"],
+      relatedSaints: ["saint-thomas-aquinas"],
+      citations: ["https://www.vatican.va/"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "adoro-te-devote",
+    authorityLevel: "LITURGICAL_BOOK",
+    citations: ["https://www.vatican.va/"],
+    payload: {
+      slug: "adoro-te-devote",
+      title: "Adoro Te Devote (Godhead Here in Hiding)",
+      body: "Godhead here in hiding, whom I do adore\nmasked by these bare shadows, shape and nothing more,\nsee, Lord, at thy service low lies here a heart\nlost, all lost in wonder at the God thou art.\nSeeing, touching, tasting are in thee deceived;\nhow says trusty hearing? That shall be believed;\nwhat God's Son has told me, take for truth I do;\ntruth himself speaks truly or there's nothing true.\nAmen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      latin:
+        "Adoro te devote, latens Deitas,\nquae sub his figuris vere latitas:\ntibi se cor meum totum subiicit,\nquia te contemplans totum deficit.\nVisus, tactus, gustus in te fallitur,\nsed auditu solo tuto creditur:\ncredo quidquid dixit Dei Filius:\nnil hoc verbo Veritatis verius.\nAmen.",
+      summary:
+        "A Eucharistic hymn of St. Thomas Aquinas in adoration of Christ hidden in the Blessed Sacrament (English translation by Gerard Manley Hopkins).",
+      occasions: ["adoration", "after-communion"],
+      relatedSaints: ["saint-thomas-aquinas"],
+      citations: ["https://www.vatican.va/"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "benedictus-canticle-of-zechariah",
+    authorityLevel: "VATICAN",
+    citations: ["https://www.vatican.va/"],
+    payload: {
+      slug: "benedictus-canticle-of-zechariah",
+      title: "Benedictus (Canticle of Zechariah)",
+      body: "Blessed be the Lord, the God of Israel;\nhe has come to his people and set them free.\nHe has raised up for us a mighty Savior,\nborn of the house of his servant David.\nThrough his holy prophets he promised of old\nthat he would save us from our enemies,\nfrom the hands of all who hate us.\nHe promised to show mercy to our fathers\nand to remember his holy covenant.\nThis was the oath he swore to our father Abraham:\nto set us free from the hands of our enemies,\nfree to worship him without fear,\nholy and righteous in his sight\nall the days of our life.\nAnd you, child, will be called the prophet of the Most High,\nfor you will go before the Lord to prepare his way,\nto give his people knowledge of salvation\nby the forgiveness of their sins.\nIn the tender compassion of our God\nthe dawn from on high shall break upon us,\nto shine on those who dwell in darkness and the shadow of death,\nand to guide our feet into the way of peace.",
+      prayerType: "general",
+      category: "canticle",
+      language: "en",
+      summary:
+        "The canticle of Zechariah (Luke 1:68-79), the Gospel Canticle of Morning Prayer (Lauds) in the Liturgy of the Hours.",
+      occasions: ["lauds", "morning"],
+      relatedSaints: [],
+      citations: ["https://www.vatican.va/"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "nunc-dimittis",
+    authorityLevel: "VATICAN",
+    citations: ["https://www.vatican.va/"],
+    payload: {
+      slug: "nunc-dimittis",
+      title: "Nunc Dimittis (Canticle of Simeon)",
+      body: "Lord, now you let your servant go in peace;\nyour word has been fulfilled.\nMy own eyes have seen the salvation\nwhich you have prepared in the sight of every people:\na light to reveal you to the nations\nand the glory of your people Israel.",
+      prayerType: "general",
+      category: "canticle",
+      language: "en",
+      summary:
+        "The canticle of Simeon (Luke 2:29-32), the Gospel Canticle of Night Prayer (Compline) in the Liturgy of the Hours.",
+      occasions: ["compline", "evening"],
+      relatedSaints: [],
+      citations: ["https://www.vatican.va/"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "de-profundis",
+    authorityLevel: "VATICAN",
+    citations: ["https://www.vatican.va/"],
+    payload: {
+      slug: "de-profundis",
+      title: "De Profundis (Psalm 130)",
+      body: "Out of the depths I cry to you, O Lord;\nLord, hear my voice!\nLet your ears be attentive\nto the voice of my supplications.\nIf you, O Lord, should mark iniquities,\nLord, who could stand?\nBut with you there is forgiveness,\nthat you may be revered.\nI wait for the Lord, my soul waits,\nand in his word I hope;\nmy soul waits for the Lord\nmore than those who watch for the morning.\nO Israel, hope in the Lord!\nFor with the Lord there is steadfast love,\nand with him is plenteous redemption.\nAnd he will redeem Israel\nfrom all its iniquities.",
+      prayerType: "intercession",
+      category: "penitential",
+      language: "en",
+      summary:
+        "Psalm 130, one of the seven Penitential Psalms, prayed for the forgiveness of sins and for the faithful departed.",
+      occasions: ["all-souls", "funerals", "penance"],
+      relatedSaints: [],
+      citations: ["https://www.vatican.va/"],
+    },
+  },
 ];
 
 /**
