@@ -15,7 +15,9 @@ import { prayerKnowledge } from "@/lib/checklist/knowledge/prayers";
 import { translatePrayer, translatePrayerLanguages } from "@/lib/admin-worker/prayer-translator";
 
 function body(slug: string): string {
-  return String((prayerKnowledge.find((p) => p.slug === slug)!.payload as Record<string, unknown>).body);
+  return String(
+    (prayerKnowledge.find((p) => p.slug === slug)!.payload as Record<string, unknown>).body,
+  );
 }
 
 describe("prayer translation engine — authentic whole-prayer match", () => {
