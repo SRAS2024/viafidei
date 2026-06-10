@@ -1495,9 +1495,11 @@ strict QA → publish → verify route + sitemap + search + cache → repair →
 …plus, each pass: **curated-knowledge ingest** (publishes the hand-verified
 ground-truth for every type through the real Publish Orchestrator — the
 first-pass content source, gated on `PYTHON_FINAL_BRAIN_ACTIVE`), **daily
-readings** refresh + year-ahead backfill, **learning** (memory + source
-reputation + confidence calibration + capability scores), **self-model + code
-awareness**, the **Intelligence Laboratory** pass, and a **capability-matrix
+readings** refresh + year-ahead backfill, **prayer Latin/Greek coverage** (the
+deterministic liturgical translation engine builds + publishes any missing
+prayer translation, routing only genuine gaps to review), **learning** (memory +
+source reputation + confidence calibration + capability scores), **self-model +
+code awareness**, the **Intelligence Laboratory** pass, and a **capability-matrix
 refresh**. Live discovery (seven methods) grows content beyond the curated base.
 
 This covers **every content type the site offers**. Each public category maps to
@@ -1609,9 +1611,13 @@ extraction developer request rather than faking):
   discard (the live homepage is never mutated autonomously); refresh + verify
   daily readings; `generate_developer_report` / `generate_monthly_report` /
   `run_diagnostics`.
-- **Security + maintenance** (`security-skills.ts`): `run_security_defense` plus
-  database / brain / public-site / admin-surface health checks, stale-job
-  cleanup, repair-plan closure, and capability-matrix refresh — most allowed in
+- **Security + maintenance** (`security-skills.ts`, `named-skills.ts`):
+  `run_security_defense` plus database / brain / public-site / admin-surface
+  health checks, stale-job cleanup, repair-plan closure, capability-matrix
+  refresh, and **`ensure_prayer_translations`** — which builds + publishes the
+  Latin/Greek for every published prayer via the deterministic liturgical
+  translation engine (`runMaintenance` runs it through the certified runtime each
+  pass; gaps with no authentic form route to human review). Most are allowed in
   safe degraded mode.
 
 **Content subtitles** are generated, stored, and rendered: a deterministic
@@ -1715,18 +1721,42 @@ Guides · Liturgy · History**, with dropdowns (desktop) and inline expanders
 Sacraments → Parishes / Spiritual Life; Liturgy → Liturgical Calendar /
 Rites; History → Church Documents).
 
-**Liturgical languages (Latin / Greek).** Every prayer can carry its
-vernacular text plus authentic, verbatim **Latin** and **Greek** liturgical
-text (`payload.latin` / `payload.greek`). `buildPrayerVariants`
+**Liturgical languages (Latin / Greek).** Every prayer carries its vernacular
+text plus authentic, verbatim **Latin** and **Greek** liturgical text
+(`payload.latin` / `payload.greek`). `buildPrayerVariants`
 (`content-shared/prayer-language.ts`) flattens these into the
 `PrayerLanguageToggle`, which switches the displayed text — Latin/Greek are
-marked `translate="no"` so they are never auto-translated. The texts are
-curated public-domain liturgical texts (`knowledge/prayer-translations.ts` —
-Pater Noster / Ave Maria / Gloria Patri in both languages, plus the Creed,
-Salve Regina, Memorare, Anima Christi, St Michael, Confiteor, …) that the Admin
-Worker publishes with the prayer; the `ensure_prayer_translations` skill scans
-published prayers and files a developer request for any still missing a text,
-so a curator adds the exact wording (sacred texts are never machine-translated).
+marked `translate="no"` so they are never auto-translated.
+
+The worker **builds these translations itself** — no AI/LLM, no network —
+through a deterministic **liturgical translation engine**
+([`admin-worker/prayer-translator.ts`](src/lib/admin-worker/prayer-translator.ts)).
+It emits **only the Church's received text**: it folds a prayer's English and
+matches it against the curated corpus
+([`knowledge/prayer-translations.ts`](src/lib/checklist/knowledge/prayer-translations.ts)
+— Pater Noster / Ave Maria / Gloria Patri in both languages, plus the Creeds,
+Salve Regina, Memorare, Anima Christi, St Michael, Confiteor, Magnificat, Te
+Deum, the Acts, …) and emits that prayer's verbatim Latin/Greek, or it assembles
+a composite devotion from authoritative segments (the doxologies, the stock
+responses and closings — `Per Christum Dominum nostrum. Amen.`, `Ora pro nobis.`,
+`Kyrie, eleison.` — and the embedded sub-prayers). It reports honest coverage and
+**never fabricates**: when no authentic form is derivable — free-prose modern
+prayers, or Greek for a Latin-Rite prayer that has no received Greek text — it
+emits nothing and returns the unresolved lines, rather than guessing declensions
+or inventing a sacred text.
+
+The engine is wired into the worker two ways. The **Publish Orchestrator**
+auto-fills the Latin (and Greek where it exists) it can build on **every** prayer
+publish, so a prayer ships with its language toggle already populated "as if it
+had it". The **`ensure_prayer_translations`** maintenance skill backfills
+already-published prayers each maintenance pass: the dispatcher's `runMaintenance`
+runs it through the **certified skill runtime** (ledger + verify), it writes
+accurate output into the prayer's payload when the Python final brain is active
+(full autonomy), and for any genuine gap it opens a review-gated
+`HumanReviewQueue` task carrying the English source + the unresolved lines so a
+curator supplies the exact wording. Latin therefore covers the whole canonical
+corpus + composites; Greek covers the texts with an authentic received Greek
+form, and the rest route to human review — sacred texts are never machine-guessed.
 
 **Guide prayers.** Every guide (Rosary, Divine Mercy Chaplet, Confession, …)
 lists its applicable prayers at the bottom in the order they are prayed, each a
