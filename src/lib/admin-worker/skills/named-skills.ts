@@ -225,4 +225,54 @@ export const namedSkills: CertifiedSkill[] = [
       };
     },
   }),
+  makeOpSkill({
+    name: "ensure_prayer_translations",
+    purpose:
+      "Ensure published prayers carry their Latin/Greek liturgical text; flag any missing for a curator (sacred texts are never machine-translated).",
+    category: "MAINTENANCE",
+    allowedInSafeDegradedMode: true,
+    run: async (ctx) => {
+      const prayers = await ctx.prisma.publishedContent
+        .findMany({
+          where: { contentType: "PRAYER" as never, isPublished: true },
+          select: { slug: true, title: true, payload: true },
+        })
+        .catch(() => [] as Array<{ slug: string; title: string; payload: unknown }>);
+      const missing = prayers.filter((p) => {
+        const pl = (p.payload ?? {}) as Record<string, unknown>;
+        const has = (v: unknown) => typeof v === "string" && v.trim().length > 0;
+        return !(has(pl.latin) || has(pl.greek));
+      });
+      if (missing.length > 0) {
+        const fingerprint = "missing-prayer-translations";
+        await ctx.prisma.adminWorkerDeveloperRequest
+          .upsert({
+            where: { fingerprint },
+            create: {
+              kind: "content",
+              title: `${missing.length} prayer(s) need a curated Latin/Greek translation`,
+              detail: `These published prayers have no Latin or Greek text for the language toggle (a curator must add the exact liturgical text — sacred texts are never machine-translated): ${missing
+                .slice(0, 40)
+                .map((p) => p.slug)
+                .join(", ")}.`,
+              severity: "medium",
+              status: "OPEN",
+              source: "skill-runtime",
+              fingerprint,
+              metadata: { missingSlugs: missing.map((p) => p.slug) },
+            },
+            update: {
+              detail: `${missing.length} prayer(s) still need a curated Latin/Greek translation.`,
+              occurrences: { increment: 1 },
+            },
+          })
+          .catch(() => undefined);
+      }
+      const covered = prayers.length - missing.length;
+      return {
+        ok: true,
+        detail: `${covered}/${prayers.length} prayers have a Latin/Greek translation${missing.length ? `; flagged ${missing.length} for a curator` : ""}`,
+      };
+    },
+  }),
 ];

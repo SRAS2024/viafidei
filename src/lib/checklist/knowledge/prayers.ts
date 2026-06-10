@@ -1,9 +1,10 @@
 import type { CuratedEntry } from "./index";
+import { PRAYER_TRANSLATIONS } from "./prayer-translations";
 
 const VATICAN_CCC_PRAYERS = "https://www.vatican.va/archive/ENG0015/__P9.HTM";
 const USCCB_PRAYERS = "https://www.usccb.org/prayer-and-worship/prayers-and-devotions/prayers";
 
-export const prayerKnowledge: CuratedEntry[] = [
+const RAW_PRAYERS: CuratedEntry[] = [
   {
     contentType: "PRAYER",
     slug: "our-father",
@@ -465,3 +466,22 @@ export const prayerKnowledge: CuratedEntry[] = [
     },
   },
 ];
+
+/**
+ * Merge the curated liturgical (Latin/Greek) translations into each prayer's
+ * payload so the worker publishes them and the language toggle renders them.
+ * Prayers without a curated translation are left as-is (a content-custody check
+ * flags them for a curator).
+ */
+export const prayerKnowledge: CuratedEntry[] = RAW_PRAYERS.map((entry) => {
+  const t = PRAYER_TRANSLATIONS[entry.slug];
+  if (!t) return entry;
+  return {
+    ...entry,
+    payload: {
+      ...entry.payload,
+      ...(t.latin ? { latin: t.latin } : {}),
+      ...(t.greek ? { greek: t.greek } : {}),
+    },
+  };
+});
