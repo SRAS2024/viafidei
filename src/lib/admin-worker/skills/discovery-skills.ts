@@ -105,4 +105,28 @@ export const discoverySkills: CertifiedSkill[] = [
       };
     },
   }),
+  makeOpSkill({
+    name: "discover_parishes_via_maps",
+    purpose:
+      "Find Catholic parishes through Google Maps (Places API), then visit each parish's own website to verify it is a Roman Catholic parish in communion with the Holy See before publishing. Parishes showing disqualifying signals (Old Catholic / Union of Utrecht, Polish National Catholic, sedevacantist, independent/national 'Catholic' bodies, women's ordination, Orthodox/Anglican identity) are rejected and never published; in-communion parishes are published; anything ambiguous (or canonically irregular, e.g. SSPX) is routed to human review. Requires GOOGLE_PLACES_API_KEY; a no-op when it is unset.",
+    category: "SOURCE",
+    brainOps: ["prioritize"],
+    run: async (ctx) => {
+      const { runMapsParishDiscovery } = await import("../parish-discovery-runner");
+      const r = await runMapsParishDiscovery(ctx.prisma, {
+        brainActive: ctx.brainActive,
+      }).catch((e) => {
+        return {
+          enabled: true,
+          queriesRun: 0,
+          candidates: 0,
+          published: 0,
+          routedToReview: 0,
+          rejected: 0,
+          detail: e instanceof Error ? e.message : "maps discovery failed",
+        };
+      });
+      return { ok: r.enabled, detail: r.detail };
+    },
+  }),
 ];
