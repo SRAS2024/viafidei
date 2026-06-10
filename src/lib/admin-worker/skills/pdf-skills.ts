@@ -1,15 +1,21 @@
 /**
  * PDF handling skill pack. The worker can fetch + detect + classify PDFs and
- * route them correctly. There is no PDF *text* parser in the runtime (only
- * pdfkit, which generates PDFs), so extract_text_pdf / extract_vatican_pdf
- * honestly file a developer request for a PDF text-extraction / OCR capability
- * rather than pretending to parse — PDF failures create specific requests, not
- * generic extraction failures.
+ * read their text. Text extraction uses the runtime's dependency-free extractor
+ * (`pdf-extract`, built on Node's zlib) for the digitally-generated text PDFs
+ * the Holy See / USCCB publish; only when a PDF is scanned, encrypted, or
+ * otherwise unreadable does the worker fall back to filing a specific OCR /
+ * parser developer request rather than feeding the pipeline noise.
  */
 
+import { isApprovedAuthorityHost } from "@/lib/checklist";
 import { adminWorkerFetch, type FetcherInput, type FetchedPage } from "../fetcher";
+import { writeAdminWorkerLog } from "../logs";
+import { extractPdfText } from "../pdf-extract";
 import { makeOpSkill } from "./skill-helpers";
 import type { CertifiedSkill, SkillContext } from "./types";
+
+const PDF_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 function body(ctx: SkillContext): string {
   const i = ctx.input as Record<string, unknown>;
@@ -17,6 +23,52 @@ function body(ctx: SkillContext): string {
 }
 function url(ctx: SkillContext): string {
   return String((ctx.input as Record<string, unknown>).url ?? "");
+}
+
+/**
+ * Fetch raw PDF bytes from an approved host. The normal fetcher rejects binary
+ * content types, so PDF reading gets its own bounded GET (host-allowlisted,
+ * timed out, size-capped). Honours ADMIN_WORKER_SKIP_NETWORK.
+ */
+async function fetchPdfBytes(pdfUrl: string): Promise<Buffer | null> {
+  if (!pdfUrl || process.env.ADMIN_WORKER_SKIP_NETWORK === "1") return null;
+  let host = "";
+  try {
+    host = new URL(pdfUrl).host;
+  } catch {
+    return null;
+  }
+  if (!isApprovedAuthorityHost(host)) return null;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const res = await fetch(pdfUrl, {
+      redirect: "follow",
+      signal: controller.signal,
+      headers: { "User-Agent": PDF_USER_AGENT, Accept: "application/pdf,*/*" },
+    });
+    if (!res.ok) return null;
+    const ab = await res.arrayBuffer();
+    if (ab.byteLength > 40_000_000) return null; // 40 MB cap
+    return Buffer.from(ab);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Resolve PDF bytes for a skill: from the URL (fetch) or an inlined %PDF body. */
+async function resolvePdfBytes(ctx: SkillContext): Promise<Buffer | null> {
+  const u = url(ctx);
+  if (u) {
+    const fetched = await fetchPdfBytes(u);
+    if (fetched) return fetched;
+  }
+  const b = body(ctx);
+  if (b.startsWith("%PDF")) return Buffer.from(b, "latin1");
+  return null;
 }
 function isPdf(ctx: SkillContext): boolean {
   const i = ctx.input as Record<string, unknown>;
@@ -34,8 +86,8 @@ async function fileOcrRequest(ctx: SkillContext, why: string) {
       where: { fingerprint },
       create: {
         kind: "capability",
-        title: "PDF text extraction / OCR capability needed",
-        detail: `${why}. The runtime has no PDF text parser; a pdf-parse/OCR capability is required to extract this document.`,
+        title: "PDF OCR capability needed",
+        detail: `${why}. The runtime's text extractor could not read this PDF (scanned or encrypted); an OCR capability is required to extract this document.`,
         severity: "high",
         status: "OPEN",
         source: "skill-runtime",
@@ -145,19 +197,57 @@ export const pdfSkills: CertifiedSkill[] = [
   }),
   makeOpSkill({
     name: "extract_text_pdf",
-    purpose: "Extract text from a PDF (routes to a developer request — no parser yet).",
+    purpose:
+      "Read a PDF from the web and extract its text with the runtime's zlib-based extractor. Scanned / encrypted PDFs (no usable text) fall back to an OCR developer request.",
     category: "EXTRACTION",
     contentTypes: ["CHURCH_DOCUMENT", "PAPAL_DOCUMENT", "COUNCIL_DOCUMENT"],
     onVerifyFail: "HUMAN_REVIEW",
-    run: async (ctx) => fileOcrRequest(ctx, "PDF text extraction requested"),
+    run: async (ctx) => extractPdfSkill(ctx, "PDF text extraction requested"),
   }),
   makeOpSkill({
     name: "extract_vatican_pdf_document",
     purpose:
-      "Extract a structured Vatican PDF document (routes to a developer request — no parser yet).",
+      "Read a structured Vatican PDF and extract its text. Scanned / encrypted documents fall back to an OCR developer request.",
     category: "EXTRACTION",
     contentTypes: ["CHURCH_DOCUMENT", "PAPAL_DOCUMENT", "COUNCIL_DOCUMENT"],
     onVerifyFail: "HUMAN_REVIEW",
-    run: async (ctx) => fileOcrRequest(ctx, "Vatican PDF structured extraction requested"),
+    run: async (ctx) => extractPdfSkill(ctx, "Vatican PDF structured extraction requested"),
   }),
 ];
+
+/**
+ * Shared body for the PDF text-extraction skills: fetch + extract; on a clean
+ * read, record a text sample and succeed; otherwise file the OCR request.
+ */
+async function extractPdfSkill(ctx: SkillContext, requestWhy: string) {
+  const buf = await resolvePdfBytes(ctx);
+  if (!buf) return fileOcrRequest(ctx, `${requestWhy} (PDF could not be fetched)`);
+
+  const r = extractPdfText(buf);
+  if (!r.ok) {
+    return fileOcrRequest(
+      ctx,
+      `${requestWhy} — no usable text (${r.pages || "?"} page(s), ${r.decoded}/${r.streams} streams decoded; likely scanned or encrypted)`,
+    );
+  }
+
+  await writeAdminWorkerLog(ctx.prisma, {
+    category: "SOURCE_READING",
+    severity: "INFO",
+    eventName: "pdf_text_extracted",
+    message: `Extracted ${r.text.length} chars from ${r.pages || "?"} page(s) of ${url(ctx) || "an inlined PDF"}.`,
+    sourceUrl: url(ctx) || undefined,
+    safeMetadata: {
+      chars: r.text.length,
+      pages: r.pages,
+      streams: r.streams,
+      decoded: r.decoded,
+      sample: r.text.slice(0, 600),
+    },
+  }).catch(() => undefined);
+
+  return {
+    ok: true,
+    detail: `extracted ${r.text.length} chars from ${r.pages || "?"} page(s) (${r.decoded}/${r.streams} streams)`,
+  };
+}

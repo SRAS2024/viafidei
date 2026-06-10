@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 type Props = {
   open: boolean;
@@ -27,7 +27,8 @@ export function LoginRequiredPopup({
   registerLabel = DEFAULTS.registerLabel,
   closeLabel = DEFAULTS.closeLabel,
 }: Props) {
-  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!open) return;
@@ -40,6 +41,16 @@ export function LoginRequiredPopup({
 
   if (!open) return null;
 
+  // Send the user back to where they were after they log in / register.
+  const next = pathname ? `?next=${encodeURIComponent(pathname)}` : "";
+  // Navigate programmatically: a <Link> here was being unmounted by onClose in
+  // the same click, which cancelled the client navigation (the links "did
+  // nothing"). router.push is dispatched immediately and is unaffected.
+  const go = (base: string) => {
+    router.push(`${base}${next}`);
+    onClose();
+  };
+
   return (
     <div
       className="vf-login-popup-backdrop"
@@ -49,27 +60,12 @@ export function LoginRequiredPopup({
       }}
     >
       <div
-        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="vf-login-popup-msg"
         className="vf-login-popup"
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <p id="vf-login-popup-msg" className="vf-login-popup-msg">
-          {message}
-        </p>
-        <div className="vf-login-popup-links">
-          <Link href="/login" className="vf-login-popup-link" onClick={onClose}>
-            {loginLabel}
-          </Link>
-          <span aria-hidden="true" className="vf-login-popup-sep">
-            ·
-          </span>
-          <Link href="/register" className="vf-login-popup-link" onClick={onClose}>
-            {registerLabel}
-          </Link>
-        </div>
         <button
           type="button"
           aria-label={closeLabel}
@@ -92,6 +88,21 @@ export function LoginRequiredPopup({
             <line x1="18" y1="6" x2="6" y2="18" />
           </svg>
         </button>
+        <p id="vf-login-popup-msg" className="vf-login-popup-msg">
+          {message}
+        </p>
+        <div className="vf-login-popup-actions">
+          <button
+            type="button"
+            className="vf-login-popup-btn vf-login-popup-btn-primary"
+            onClick={() => go("/login")}
+          >
+            {loginLabel}
+          </button>
+          <button type="button" className="vf-login-popup-btn" onClick={() => go("/register")}>
+            {registerLabel}
+          </button>
+        </div>
       </div>
     </div>
   );

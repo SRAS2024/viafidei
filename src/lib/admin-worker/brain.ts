@@ -600,16 +600,23 @@ export async function sampleExecutionFeedback(
     () => [],
   );
   const stageRuns: Record<string, number> = {};
+  // (1) Exact stage failures — the normal learning signal.
   if (exactReliability.length > 0) {
     for (const s of exactReliability) {
       const bad = s.failures + s.needsRepair;
       if (bad > 0) stageRuns[s.stage] = bad;
     }
-  } else {
-    // Emergency fallback (no exact stage outcomes recorded yet): approximate
-    // by counting consecutive decisions choosing the same stage — if the
-    // brain keeps picking the same stage and growth isn't happening, that
-    // stage is likely failing.
+  }
+  // (2) Loop detection — ALWAYS applied, not just as a fallback. A stage chosen
+  // many times in a row is stuck even when each dispatch "succeeds": e.g.
+  // discovery that keeps surfacing candidates but never yields a publishable
+  // one (a content type whose sources have nothing extractable). Without this,
+  // a successful-but-unproductive stage is never fatigued and the brain spins
+  // on it forever. Folding the run length into the fatigue signal makes the
+  // brain rotate to other productive work (publish/verify/maintenance) and stop
+  // hammering a dead-end. We take the max with any exact-failure signal rather
+  // than summing, so the penalty stays bounded.
+  {
     let prev: string | null = null;
     let run = 0;
     for (const d of recentDecisions) {
@@ -621,7 +628,7 @@ export async function sampleExecutionFeedback(
         prev = d.missionStage;
       }
       if (run >= 3) {
-        stageRuns[d.missionStage] = (stageRuns[d.missionStage] ?? 0) + 1;
+        stageRuns[d.missionStage] = Math.max(stageRuns[d.missionStage] ?? 0, run - 1);
       }
     }
   }

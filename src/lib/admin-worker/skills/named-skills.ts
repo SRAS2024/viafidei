@@ -10,6 +10,7 @@
 import { defend, type DefendInput } from "../security-defender";
 import { redesignHomepage } from "../homepage-mutator";
 import { translatePrayer } from "../prayer-translator";
+import { autoPublishMachineTranslations, proposeMachineTranslation } from "../translation-provider";
 import { makeOpSkill } from "./skill-helpers";
 import type { CertifiedSkill, SkillContext } from "./types";
 
@@ -258,9 +259,11 @@ export const namedSkills: CertifiedSkill[] = [
         { code: "el", field: "greek", action: "TRANSLATE_TO_GREEK", language: "Greek" },
       ] as const;
 
+      const autoPublishMachine = ctx.brainActive && autoPublishMachineTranslations();
       let latinCovered = 0;
       let greekCovered = 0;
       let built = 0;
+      let machinePublished = 0;
       let queued = 0;
       for (const p of prayers) {
         const pl = (p.payload ?? {}) as Record<string, unknown>;
@@ -278,8 +281,24 @@ export const namedSkills: CertifiedSkill[] = [
             built += 1;
             continue;
           }
-          // Cannot render faithfully (or publishing not permitted) → route to
-          // review with the English source and the lines that didn't resolve.
+          // The deterministic corpus could not render it faithfully. Try the
+          // explicitly-authorized machine-translation fallback (Google / AI) as
+          // a *proposal*. It returns null instantly when no provider is
+          // configured, so this adds no cost in the default deployment.
+          const proposal =
+            english && !result?.accurate ? await proposeMachineTranslation(english, t.code) : null;
+          // Auto-publish a machine draft ONLY when the operator has explicitly
+          // opted in (TRANSLATION_AUTOPUBLISH_MACHINE). The safe default routes
+          // every machine draft to human review first — sacred text must not be
+          // mistranslated into a live page.
+          if (proposal && autoPublishMachine) {
+            writes[t.field] = proposal.text;
+            machinePublished += 1;
+            continue;
+          }
+          // Otherwise route to review with the English source, the unresolved
+          // lines, and (when available) the machine draft for the curator to
+          // confirm against an authoritative source rather than write anew.
           if (openKeys.has(`${p.slug}|${t.action}`)) continue;
           await ctx.prisma.humanReviewQueue
             .create({
@@ -287,13 +306,18 @@ export const namedSkills: CertifiedSkill[] = [
                 contentType: "PRAYER",
                 contentTitle: p.slug,
                 proposedAction: t.action,
-                reason: `Build + verify the ${t.language} translation of "${p.title}" so the prayer's language toggle is complete. Sacred texts are verified by review before publishing.`,
+                reason: proposal
+                  ? `Confirm the proposed ${t.language} translation of "${p.title}" (machine draft via ${proposal.provider}) against an authoritative liturgical source, then publish so the language toggle is complete.`
+                  : `Build + verify the ${t.language} translation of "${p.title}" so the prayer's language toggle is complete. Sacred texts are verified by review before publishing.`,
                 confidence: 0,
                 sourceEvidence: {
                   slug: p.slug,
                   targetLanguage: t.language,
                   english,
                   unresolved: result?.unresolved ?? [],
+                  ...(proposal
+                    ? { proposedTranslation: proposal.text, proposedBy: proposal.provider }
+                    : {}),
                 } as never,
                 status: "PENDING",
               },
@@ -312,7 +336,7 @@ export const namedSkills: CertifiedSkill[] = [
       }
       return {
         ok: true,
-        detail: `${latinCovered}/${prayers.length} Latin, ${greekCovered}/${prayers.length} Greek; built ${built} authentic translation(s), queued ${queued} for review`,
+        detail: `${latinCovered}/${prayers.length} Latin, ${greekCovered}/${prayers.length} Greek; built ${built} authentic translation(s)${machinePublished ? `, published ${machinePublished} machine draft(s)` : ""}, queued ${queued} for review`,
       };
     },
   }),

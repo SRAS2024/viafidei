@@ -111,6 +111,37 @@ export const PRAYER_TRANSLATIONS: Record<string, PrayerTranslation> = {
     latin:
       "Te Deum laudamus: te Dominum confitemur.\nTe aeternum Patrem omnis terra veneratur.\nTibi omnes Angeli, tibi Caeli et universae Potestates:\ntibi Cherubim et Seraphim incessabili voce proclamant:\nSanctus, Sanctus, Sanctus Dominus Deus Sabaoth.\nPleni sunt caeli et terra maiestatis gloriae tuae.\nTe gloriosus Apostolorum chorus,\nte Prophetarum laudabilis numerus,\nte Martyrum candidatus laudat exercitus.\nTe per orbem terrarum sancta confitetur Ecclesia,\nPatrem immensae maiestatis;\nvenerandum tuum verum et unicum Filium;\nSanctum quoque Paraclitum Spiritum.\nTu Rex gloriae, Christe.\nTu Patris sempiternus es Filius.\nTu, ad liberandum suscepturus hominem, non horruisti Virginis uterum.\nTu, devicto mortis aculeo, aperuisti credentibus regna caelorum.\nTu ad dexteram Dei sedes, in gloria Patris.\nIudex crederis esse venturus.\nTe ergo quaesumus, tuis famulis subveni,\nquos pretioso sanguine redemisti.\nAeterna fac cum sanctis tuis in gloria numerari.\nSalvum fac populum tuum, Domine, et benedic hereditati tuae.\nEt rege eos, et extolle illos usque in aeternum.\nPer singulos dies benedicimus te;\net laudamus nomen tuum in saeculum, et in saeculum saeculi.\nDignare, Domine, die isto sine peccato nos custodire.\nMiserere nostri, Domine, miserere nostri.\nFiat misericordia tua, Domine, super nos,\nquemadmodum speravimus in te.\nIn te, Domine, speravi: non confundar in aeternum.",
   },
+  // The oldest Marian prayer (3rd-c. Egyptian papyrus): its received ancient
+  // Greek text. The Latin is carried inline on the prayer entry already.
+  "sub-tuum-praesidium": {
+    greek:
+      "Ὑπὸ τὴν σὴν εὐσπλαγχνίαν καταφεύγομεν, Θεοτόκε·\nτὰς ἡμῶν ἱκεσίας μὴ παρίδῃς ἐν περιστάσει,\nἀλλ' ἐκ κινδύνων λύτρωσαι ἡμᾶς,\nμόνη ἁγνή, μόνη εὐλογημένη.",
+  },
+  "guardian-angel-prayer": {
+    latin:
+      "Angele Dei, qui custos es mei,\nme tibi commissum pietate superna,\nillumina, custodi, rege et guberna.\nAmen.",
+  },
+  "eternal-rest": {
+    latin:
+      "Requiem aeternam dona eis, Domine,\net lux perpetua luceat eis.\nRequiescant in pace.\nAmen.",
+  },
+  "fatima-prayer": {
+    latin:
+      "O mi Iesu, dimitte nobis debita nostra,\nlibera nos ab igne inferni,\nconduc in caelum omnes animas,\npraesertim illas quae maxime indigent misericordia tua.\nAmen.",
+  },
+  "prayer-to-the-holy-spirit": {
+    latin:
+      "Veni, Sancte Spiritus, reple tuorum corda fidelium,\net tui amoris in eis ignem accende.\nV. Emitte Spiritum tuum et creabuntur;\nR. Et renovabis faciem terrae.\nOremus. Deus, qui corda fidelium Sancti Spiritus illustratione docuisti,\nda nobis in eodem Spiritu recta sapere,\net de eius semper consolatione gaudere.\nPer Christum Dominum nostrum.\nAmen.",
+  },
+  "prayer-before-a-crucifix": {
+    latin:
+      "En ego, o bone et dulcissime Iesu,\nante conspectum tuum genibus me provolvo,\nac maximo animi ardore te oro atque obtestor,\nut meum in cor vividos fidei, spei et caritatis sensus,\natque veram peccatorum meorum paenitentiam,\neaque emendandi firmissimam voluntatem velis imprimere;\ndum magno animi affectu et dolore tua quinque vulnera mecum ipse considero,\nac mente contemplor, illud prae oculis habens,\nquod iam in ore ponebat tuo David propheta de te, o bone Iesu:\nFoderunt manus meas et pedes meos;\ndinumeraverunt omnia ossa mea.\nAmen.",
+  },
+  // Canticle of Simeon (Luke 2:29-32), the received Vulgate text.
+  "nunc-dimittis": {
+    latin:
+      "Nunc dimittis servum tuum, Domine,\nsecundum verbum tuum in pace,\nquia viderunt oculi mei salutare tuum,\nquod parasti ante faciem omnium populorum,\nlumen ad revelationem gentium,\net gloriam plebis tuae Israel.",
+  },
 };
 
 /** Slugs that intentionally carry no curated Latin/Greek yet (need a curator). */

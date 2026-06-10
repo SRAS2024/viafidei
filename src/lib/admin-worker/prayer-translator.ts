@@ -99,6 +99,29 @@ const STOCK_SEGMENTS: Segment[] = [
   { en: "Have mercy on us.", la: "Miserere nobis." },
   { en: "Pray for us.", la: "Ora pro nobis." },
   { en: "Let us pray.", la: "Oremus." },
+  // Stock litany invocations / responses — the verbatim received forms that
+  // recur across the approved litanies, so segment assembly can render them.
+  { en: "Christ, hear us.", la: "Christe, audi nos." },
+  { en: "Christ, graciously hear us.", la: "Christe, exaudi nos." },
+  {
+    en: "Christ, hear us. Christ, graciously hear us.",
+    la: "Christe, audi nos. Christe, exaudi nos.",
+  },
+  { en: "Spare us, O Lord.", la: "Parce nobis, Domine." },
+  { en: "Graciously hear us, O Lord.", la: "Exaudi nos, Domine." },
+  { en: "We beseech Thee, hear us.", la: "Te rogamus, audi nos." },
+  {
+    en: "Lamb of God, who takest away the sins of the world, spare us, O Lord.",
+    la: "Agnus Dei, qui tollis peccata mundi, parce nobis, Domine.",
+  },
+  {
+    en: "Lamb of God, who takest away the sins of the world, graciously hear us, O Lord.",
+    la: "Agnus Dei, qui tollis peccata mundi, exaudi nos, Domine.",
+  },
+  {
+    en: "Lamb of God, who takest away the sins of the world, have mercy on us.",
+    la: "Agnus Dei, qui tollis peccata mundi, miserere nobis.",
+  },
   { en: "Through Christ our Lord. Amen.", la: "Per Christum Dominum nostrum. Amen." },
   {
     en: "Through the same Christ our Lord. Amen.",

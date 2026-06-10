@@ -51,4 +51,24 @@ describe("PrayerLanguageToggle", () => {
     expect(latin).toHaveAttribute("translate", "no");
     expect(latin).toHaveAttribute("lang", "la");
   });
+
+  it("never renders the vernacular as a toggle button (it is the implicit default)", () => {
+    render(<PrayerLanguageToggle variants={[EN, LA]} />);
+    // Only Latin gets a chip; English is the default and has no button.
+    expect(screen.getByRole("button", { name: "Latin" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "English" })).not.toBeInTheDocument();
+  });
+
+  it("toggles back to the vernacular when the active language chip is re-selected", () => {
+    render(<PrayerLanguageToggle variants={[EN, LA]} />);
+    const latinBtn = screen.getByRole("button", { name: "Latin" });
+
+    fireEvent.click(latinBtn);
+    expect(screen.getByText("Ave Maria...")).toBeInTheDocument();
+
+    fireEvent.click(latinBtn);
+    expect(screen.getByText("Hail Mary...")).toBeInTheDocument();
+    expect(latinBtn).toHaveAttribute("aria-pressed", "false");
+    expect(window.sessionStorage.getItem("vf_prayer_lang")).toBe("vernacular");
+  });
 });
