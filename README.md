@@ -569,6 +569,25 @@ falling back to a TypeScript final brain. Concretely:
   pattern and weighed accordingly in cross-source verification, while the
   reputation system (below) vets each source's reliability over time.
 
+- **Ingests structured knowledge directly — keyless, deterministic, no ceiling.**
+  The biggest deterministic lever is not "read messy HTML" but "ingest structured
+  knowledge." The structured-knowledge engine
+  ([`structured/`](src/lib/admin-worker/structured)) queries **Wikidata** (free,
+  CC0, citable) and pulls **Wikipedia** lead-abstracts for narrative fields, maps
+  each entity to a schema-valid record, and publishes the not-yet-live ones
+  through the **same real gate** as everything else — no API key, no model, no
+  hallucination surface. It is **self-advancing** (a per-ingestor cursor in
+  `AdminWorkerMemory` walks the whole corpus across passes and wraps to re-sweep),
+  **self-improving** (the same row accumulates a success/failure learning signal),
+  and **self-expanding** (each ingested entity's official website is added to the
+  worker's own discovery queue, so it learns new places to pull from). Adding a
+  content type is "add an ingestor to the registry." Accuracy stays paramount: a
+  mapper returns nothing on any incomplete row, doctrinally-sensitive facts (a
+  saint's feast day) must be **corroborated in an independent source's own text**
+  before they publish, and every record still passes the strict schema + publish
+  gate. Types that can't be safely sourced from structured data (e.g. an
+  apparition's official approval status) are deliberately left to live verification.
+
 - **AI-assisted extraction + single-source verification removes the publish
   ceiling.** The deterministic extractors only fill fields a regex can pin down,
   so most messy open-web pages stall with "missing fields" and never publish —

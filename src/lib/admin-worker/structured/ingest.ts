@@ -46,9 +46,50 @@ export interface StructuredIngestResult {
   alreadyPublished: number;
   skipped: number;
   failed: number;
+  /** Authoritative source URLs added to the discovery queue this pass. */
+  discoveredSources: number;
   /** True when the source is fully ingested (nothing new produced this pass). */
   exhausted: boolean;
   errors: string[];
+}
+
+/**
+ * Add the authoritative source URLs an ingestor surfaced for a row to the
+ * worker's own discovery queue — the self-expansion of where it pulls content
+ * from. Routed through the normal candidate guard (host allow-list + junk
+ * filter), so opening the source list never lowers the bar. Best-effort; never
+ * throws. Returns how many were accepted.
+ */
+async function enqueueDiscoveredSources(
+  prisma: PrismaClient,
+  ingestor: StructuredIngestor,
+  row: Parameters<NonNullable<StructuredIngestor["discoveredSources"]>>[0],
+): Promise<number> {
+  if (!ingestor.discoveredSources) return 0;
+  let urls: string[] = [];
+  try {
+    urls = ingestor.discoveredSources(row);
+  } catch {
+    urls = [];
+  }
+  if (urls.length === 0) return 0;
+  let added = 0;
+  const { discoverCandidate } = await import("../web-navigator");
+  for (const url of urls.slice(0, 5)) {
+    try {
+      const r = await discoverCandidate(prisma, {
+        url,
+        sourceHost: "",
+        discoveryMethod: "API",
+        predictedContentType: ingestor.contentType,
+        predictedUsefulness: 0.6,
+      });
+      if (r) added += 1;
+    } catch {
+      // best-effort — a rejected/unreachable source is expected, not an error
+    }
+  }
+  return added;
 }
 
 /** Read the saved corpus offset for an ingestor (0 when unset). */
@@ -188,6 +229,7 @@ export async function runStructuredIngest(
     alreadyPublished: 0,
     skipped: 0,
     failed: 0,
+    discoveredSources: 0,
     exhausted: true,
     errors: [],
   };
@@ -238,6 +280,9 @@ export async function runStructuredIngest(
     }
     if (seen.has(entry.slug)) continue;
     seen.add(entry.slug);
+    // Self-expansion: learn new authoritative sources from every entity we map,
+    // whether or not it is newly published this pass.
+    out.discoveredSources += await enqueueDiscoveredSources(prisma, ingestor, row);
     if (live.has(entry.slug)) {
       out.alreadyPublished += 1;
       continue;
@@ -278,6 +323,7 @@ export async function runStructuredIngest(
         alreadyPublished: out.alreadyPublished,
         skipped: out.skipped,
         failed: out.failed,
+        discoveredSources: out.discoveredSources,
         nextOffset,
       },
     }).catch(() => undefined);

@@ -25,6 +25,7 @@ import type { ChecklistContentType, SourceAuthorityLevel } from "@prisma/client"
 import type { CuratedEntry } from "@/lib/checklist/knowledge";
 import { bindingValue, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { fetchSummaryForArticleUrl } from "./wikipedia";
+import { feastDayInText, mapCanonizationStatus, parseFeastValue } from "./corroboration";
 
 /** Reserved for future context (locale, calendar) passed into a mapper. */
 export type IngestContext = Record<string, never>;
@@ -43,6 +44,13 @@ export interface StructuredIngestor {
   sparql(limit: number, offset: number): string;
   /** Map one row → a curated-style entry, or null when it can't yield one. */
   map(row: SparqlBinding, ctx: IngestContext): Promise<CuratedEntry | null>;
+  /**
+   * Authoritative source URLs the worker should ADD to its own discovery queue
+   * from this row (e.g. an entity's official website) — the self-expansion of
+   * the knowledge base: the worker learns new places to pull content from as it
+   * ingests. Optional; returns [] when the row carries none.
+   */
+  discoveredSources?(row: SparqlBinding): string[];
 }
 
 /** ASCII slug from a label (matches the curated knowledge slug convention). */
@@ -64,17 +72,22 @@ const popeIngestor: StructuredIngestor = {
   // stored quality breakdown.
   authorityLevel: "TRUSTED_PUBLISHER",
   sparql: (limit, offset) =>
-    `SELECT ?pope ?popeLabel (YEAR(?start) AS ?startYear) (YEAR(?end) AS ?endYear) ?birthName ?article WHERE {
+    `SELECT ?pope ?popeLabel (YEAR(?start) AS ?startYear) (YEAR(?end) AS ?endYear) ?birthName ?article ?website WHERE {
   ?pope p:P39 ?statement .
   ?statement ps:P39 wd:Q19546 .
   OPTIONAL { ?statement pq:P580 ?start . }
   OPTIONAL { ?statement pq:P582 ?end . }
   OPTIONAL { ?pope wdt:P1477 ?birthName . }
+  OPTIONAL { ?pope wdt:P856 ?website . }
   OPTIONAL { ?article schema:about ?pope ; schema:isPartOf <https://en.wikipedia.org/> . }
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en" . }
 }
 ORDER BY ?start ?pope
 LIMIT ${limit} OFFSET ${offset}`,
+  discoveredSources(row) {
+    const website = bindingValue(row, "website");
+    return website ? [website] : [];
+  },
   async map(row) {
     const label = bindingValue(row, "popeLabel");
     const entity = bindingValue(row, "pope");
@@ -127,8 +140,125 @@ LIMIT ${limit} OFFSET ${offset}`,
   },
 };
 
+type SaintType =
+  | "martyr"
+  | "doctor_of_the_church"
+  | "virgin"
+  | "confessor"
+  | "religious"
+  | "lay"
+  | "bishop"
+  | "pope"
+  | "apostle"
+  | "evangelist"
+  | "founder"
+  | "missionary"
+  | "other";
+
+/**
+ * Classify a saint's type from the source text deterministically. Reads only
+ * the Wikipedia abstract — never invents — and falls back to the always-valid
+ * "other" when no marker is present. Ordered most-specific first.
+ */
+export function classifySaintType(text: string): SaintType {
+  const t = text.toLowerCase();
+  if (/\bmartyr/.test(t)) return "martyr";
+  if (/doctor of the church/.test(t)) return "doctor_of_the_church";
+  if (/\bapostle\b/.test(t)) return "apostle";
+  if (/\bevangelist\b/.test(t)) return "evangelist";
+  if (/\bpope\b/.test(t)) return "pope";
+  if (/\b(arch)?bishop\b/.test(t)) return "bishop";
+  if (/\b(founder|foundress|co-founder)\b|\bfounded the\b/.test(t)) return "founder";
+  if (/\bmissionar/.test(t)) return "missionary";
+  if (/\bvirgin\b/.test(t)) return "virgin";
+  if (/\b(priest|monk|nun|friar|abbot|abbess|religious order|consecrated)\b/.test(t)) {
+    return "religious";
+  }
+  return "other";
+}
+
+const saintIngestor: StructuredIngestor = {
+  contentType: "SAINT",
+  id: "wikidata-saints",
+  authorityLevel: "TRUSTED_PUBLISHER",
+  // One row per saint (GROUP BY) carrying canonization status, feast day, the
+  // English Wikipedia article (for the biography + a second citation), and the
+  // optional official website (self-expansion).
+  sparql: (limit, offset) =>
+    `SELECT ?s (SAMPLE(?sLabel) AS ?label) (SAMPLE(?feast) AS ?feastVal) (SAMPLE(?feastName0) AS ?feastName) (SAMPLE(?statusLabel) AS ?status) (SAMPLE(?article) AS ?art) (SAMPLE(?website) AS ?site) WHERE {
+  ?s wdt:P411 ?statusItem .
+  ?statusItem rdfs:label ?statusLabel . FILTER(LANG(?statusLabel) = "en")
+  ?s wdt:P841 ?feast .
+  OPTIONAL { ?feast rdfs:label ?feastName0 . FILTER(LANG(?feastName0) = "en") }
+  ?s rdfs:label ?sLabel . FILTER(LANG(?sLabel) = "en")
+  OPTIONAL { ?article schema:about ?s ; schema:isPartOf <https://en.wikipedia.org/> . }
+  OPTIONAL { ?s wdt:P856 ?website . }
+}
+GROUP BY ?s
+ORDER BY ?s
+LIMIT ${limit} OFFSET ${offset}`,
+  discoveredSources(row) {
+    const site = bindingValue(row, "site");
+    return site ? [site] : [];
+  },
+  async map(row) {
+    const entity = bindingValue(row, "s");
+    const label = bindingValue(row, "label");
+    const statusLabel = bindingValue(row, "status");
+    if (!entity || !label || !statusLabel) return null;
+
+    const canonizationStatus = mapCanonizationStatus(statusLabel);
+    if (!canonizationStatus) return null;
+
+    const feast = parseFeastValue({
+      literal: bindingValue(row, "feastVal"),
+      label: bindingValue(row, "feastName"),
+    });
+    if (!feast) return null;
+
+    // A Wikipedia article is required: it supplies the ≥100-char biography, the
+    // independent corroboration text for the feast day, and the second citation.
+    const article = bindingValue(row, "art");
+    if (!article) return null;
+    const summary = await fetchSummaryForArticleUrl(article);
+    if (!summary || summary.extract.length < 100) return null;
+
+    // Accuracy guardrail: the sensitive feast day MUST be stated, in words, in
+    // the independent article text. No corroboration → not published.
+    if (!feastDayInText(feast.feastMonth, feast.feastDayOfMonth, summary.extract)) return null;
+
+    const base = slugify(label);
+    if (!base) return null;
+    const slug = base.startsWith("saint-") ? base : `saint-${base}`;
+
+    const citations = [wikidataEntityUrl(entity), summary.url];
+    const payload: Record<string, unknown> = {
+      slug,
+      canonicalName: label,
+      feastDay: feast.feastDay,
+      feastMonth: feast.feastMonth,
+      feastDayOfMonth: feast.feastDayOfMonth,
+      patronages: [],
+      biography: summary.extract,
+      saintType: classifySaintType(summary.extract),
+      canonizationStatus,
+      relatedPrayers: [],
+      relatedDevotions: [],
+      citations,
+    };
+
+    return {
+      contentType: "SAINT",
+      slug,
+      authorityLevel: "TRUSTED_PUBLISHER",
+      citations,
+      payload,
+    };
+  },
+};
+
 /** All registered structured ingestors. Extend this to cover more types. */
-export const STRUCTURED_INGESTORS: StructuredIngestor[] = [popeIngestor];
+export const STRUCTURED_INGESTORS: StructuredIngestor[] = [popeIngestor, saintIngestor];
 
 export function ingestorFor(contentType: string): StructuredIngestor | undefined {
   return STRUCTURED_INGESTORS.find((i) => i.contentType === contentType);
