@@ -223,6 +223,26 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       }
     }
 
+    // Structured-knowledge ingest: the keyless, deterministic procurement engine
+    // that lifts the publish ceiling. Each pass it pulls a bounded batch from a
+    // structured source (Wikidata + Wikipedia) and publishes the not-yet-live,
+    // schema-valid records through the same real gate as everything else — from
+    // a source with no ceiling. Gated like curated ingest (PUBLISHES content, so
+    // it must not run in safe degraded mode) and best-effort so it never breaks
+    // a pass.
+    if (brain.finalBrain === "python") {
+      try {
+        const { runStructuredIngest } = await import("./structured/ingest");
+        const structured = await runStructuredIngest(prisma, { passId: pass.id });
+        if (structured.published > 0) {
+          publishedCount += structured.published;
+          idle = false;
+        }
+      } catch {
+        // best-effort — structured ingest must never break the pass
+      }
+    }
+
     await writeAdminWorkerLog(prisma, {
       passId: pass.id,
       category: "WORKER_PASS",
