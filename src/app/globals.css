@@ -245,6 +245,19 @@
     font-weight: 500;
   }
 
+  /* Brand crucifix logo: the sepia sketch shows on the light papyrus theme; a
+     warm gold version shows on the dark theme. Swapped by the site theme
+     attribute (always "light" or "dark"). */
+  .vf-logo-dark {
+    display: none;
+  }
+  html[data-theme="dark"] .vf-logo-light {
+    display: none;
+  }
+  html[data-theme="dark"] .vf-logo-dark {
+    display: inline-block;
+  }
+
   .vf-rule {
     height: 1px;
     width: 3.5rem;
