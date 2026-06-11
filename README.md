@@ -258,6 +258,7 @@ Optional environment variables:
 | `PARISH_DISCOVERY_LOCATIONS`                        | Optional `;`-separated localities to search for parishes (e.g. `Boston, MA; Rome, Italy`). Unset → seeds derive from the cities already in the catalog                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `ADMIN_WORKER_OSM_PARISHES`                         | Keyless OpenStreetMap (Overpass) parish discovery — on by default; the fallback used when `GOOGLE_PLACES_API_KEY` is unset. Set `0`/`false`/`off` to disable. Same communion + schema + publish gates as the Maps flow                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `ADMIN_WORKER_LITURGICAL_API`                       | Keyless Liturgical Calendar ingest (the open Liturgical Calendar API → General Roman Calendar feasts of the Lord + solemnities) — on by default; set `0`/`false`/`off` to disable                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `ADMIN_WORKER_ARCHIVE_FALLBACK`                     | Keyless Internet Archive (Wayback Machine) fetch fallback — when a live fetch 404s, errors, or hits a login wall, the worker serves the most recent archived snapshot of that exact URL instead of parking the artifact in repair (`finalUrl` honestly shows web.archive.org). On by default; set `0`/`false`/`off` to disable                                                                                                                                                                                                                                                                                                              |
 | `LITURGICAL_CALENDAR_API_URL`                       | Override the Liturgical Calendar API endpoint (default: the public litcal General Roman Calendar, US adaptation). Any endpoint returning the litcal `{ litcal: [...] }` shape works                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `GOOGLE_TRANSLATE_API_KEY`                          | Enables the Google Translate fallback for prayer Latin/Greek the curated corpus can't resolve (review-gated by default)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `TRANSLATION_AI_API_URL` / `_API_KEY` / `_MODEL`    | Optional OpenAI-compatible AI translation provider (preferred over Google for the liturgical register; review-gated by default)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -592,7 +593,11 @@ falling back to a TypeScript final brain. Concretely:
   self-expansion), and **DOCTOR** (Doctors of the Church). Accuracy stays
   paramount: a mapper returns nothing on any incomplete row, doctrinally-sensitive
   facts (a saint's feast day) must be **corroborated in an independent source's
-  own text** before they publish, sensitive types must clear the stricter 0.95
+  own statement** — the article's prose **or its parsed infobox**
+  ([`wikipedia-infobox.ts`](src/lib/admin-worker/structured/wikipedia-infobox.ts),
+  a deterministic wikitext parser that also enriches records with cited
+  patronage, birth/death, and canonization fields) — before they publish,
+  sensitive types must clear the stricter 0.95
   doctrinal publish bar, a name-normalized dedup keeps a structured record from
   ever duplicating a curated page under a different slug, and every record still
   passes the strict schema + publish gate. Types whose required content can't be
@@ -658,6 +663,18 @@ falling back to a TypeScript final brain. Concretely:
   default (`ADMIN_WORKER_OSM_PARISHES=0` opts out). Two independent parish
   sources — keyed Maps and keyless OSM — so the worker always has a way to grow
   the directory.
+
+- **Rescues dead and walled pages from the Internet Archive — keyless.** The
+  live pipeline's most common stalls are pages that 404 after a site
+  reorganisation or moved behind a login wall. When a fetch fails that way, the
+  fetcher ([`archive-fallback.ts`](src/lib/admin-worker/archive-fallback.ts))
+  asks the free Wayback Machine availability API for the most recent snapshot of
+  that exact URL and serves the archived body instead — same document, same
+  authoritative host, served verbatim by the archive, with `finalUrl` honestly
+  set to web.archive.org for the provenance trail. The content still faces
+  extraction, cross-source verification, and strict QA like any live page. On by
+  default (`ADMIN_WORKER_ARCHIVE_FALLBACK=0` opts out), fail-open, a no-op
+  offline.
 
 - **Reads PDFs from the web.** The runtime has a dependency-free PDF text
   extractor ([`pdf-extract.ts`](src/lib/admin-worker/pdf-extract.ts)) built on

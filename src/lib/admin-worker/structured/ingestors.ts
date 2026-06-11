@@ -25,6 +25,7 @@ import type { ChecklistContentType, SourceAuthorityLevel } from "@prisma/client"
 import type { CuratedEntry } from "@/lib/checklist/knowledge";
 import { bindingValue, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { fetchSummaryForArticleUrl } from "./wikipedia";
+import { fetchArticleInfobox } from "./wikipedia-infobox";
 import { feastDayInText, mapCanonizationStatus, parseFeastValue } from "./corroboration";
 
 /** Reserved for future context (locale, calendar) passed into a mapper. */
@@ -240,13 +241,45 @@ LIMIT ${limit} OFFSET ${offset}`,
     const summary = await fetchSummaryForArticleUrl(article);
     if (!summary || summary.extract.length < 100) return null;
 
-    // Accuracy guardrail: the sensitive feast day MUST be stated, in words, in
-    // the independent article text. No corroboration → not published.
-    if (!feastDayInText(feast.feastMonth, feast.feastDayOfMonth, summary.extract)) return null;
+    // Accuracy guardrail: the sensitive feast day MUST also be stated in the
+    // article itself — in the prose OR in its infobox (where it usually lives;
+    // the abstract often omits it). Either way it is an independent statement
+    // of the fact: no corroboration → not published.
+    let corroborated = feastDayInText(feast.feastMonth, feast.feastDayOfMonth, summary.extract);
+    let infobox: Record<string, string> = {};
+    if (!corroborated) {
+      infobox = await fetchArticleInfobox(article).catch(() => ({}));
+      const infoboxFeast = infobox.feast_day ?? infobox.feast ?? "";
+      corroborated =
+        Boolean(infoboxFeast) &&
+        (parseFeastValue({ label: infoboxFeast })?.feastDay === feast.feastDay ||
+          feastDayInText(feast.feastMonth, feast.feastDayOfMonth, infoboxFeast));
+    } else {
+      // Corroborated by prose; still read the infobox for the optional
+      // enrichment fields below (fail-open).
+      infobox = await fetchArticleInfobox(article).catch(() => ({}));
+    }
+    if (!corroborated) return null;
 
     const base = slugify(label);
     if (!base) return null;
     const slug = base.startsWith("saint-") ? base : `saint-${base}`;
+
+    // Optional enrichment, straight from the article's infobox (cited via the
+    // article itself): patronage list, birth/death, canonization details.
+    const patronages = (infobox.patronage ?? "")
+      .split(/[;,]| and /)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 1 && s.length <= 80)
+      .slice(0, 12);
+    const yearish = (s: string | undefined): string | undefined => {
+      const t = (s ?? "").trim();
+      return t && /\d{3,4}/.test(t) && t.length <= 60 ? t : undefined;
+    };
+    const birthDate = yearish(infobox.birth_date);
+    const deathDate = yearish(infobox.death_date);
+    const canonizationDate = yearish(infobox.canonized_date);
+    const canonizedBy = (infobox.canonized_by ?? "").trim() || undefined;
 
     const citations = [wikidataEntityUrl(entity), summary.url];
     const payload: Record<string, unknown> = {
@@ -255,7 +288,7 @@ LIMIT ${limit} OFFSET ${offset}`,
       feastDay: feast.feastDay,
       feastMonth: feast.feastMonth,
       feastDayOfMonth: feast.feastDayOfMonth,
-      patronages: [],
+      patronages,
       biography: summary.extract,
       saintType: classifySaintType(summary.extract),
       canonizationStatus,
@@ -263,6 +296,10 @@ LIMIT ${limit} OFFSET ${offset}`,
       relatedDevotions: [],
       citations,
     };
+    if (birthDate) payload.birthDate = birthDate;
+    if (deathDate) payload.deathDate = deathDate;
+    if (canonizationDate) payload.canonizationDate = canonizationDate;
+    if (canonizedBy && canonizedBy.length <= 80) payload.canonizedBy = canonizedBy;
 
     return {
       contentType: "SAINT",
