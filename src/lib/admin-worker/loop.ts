@@ -243,6 +243,22 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       }
     }
 
+    // Liturgical calendar ingest: the great feasts of the Lord + solemnities from
+    // the open Liturgical Calendar API (keyless). Self-throttled (~daily), so
+    // calling it every pass is cheap. Same publish gate as everything else.
+    if (brain.finalBrain === "python") {
+      try {
+        const { runLiturgicalCalendarIngest } = await import("./liturgical-calendar-ingest");
+        const lit = await runLiturgicalCalendarIngest(prisma);
+        if (lit.published > 0) {
+          publishedCount += lit.published;
+          idle = false;
+        }
+      } catch {
+        // best-effort — liturgical ingest must never break the pass
+      }
+    }
+
     await writeAdminWorkerLog(prisma, {
       passId: pass.id,
       category: "WORKER_PASS",
