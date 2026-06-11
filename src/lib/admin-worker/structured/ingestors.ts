@@ -257,8 +257,139 @@ LIMIT ${limit} OFFSET ${offset}`,
   },
 };
 
+type DocumentType =
+  | "encyclical"
+  | "apostolic_exhortation"
+  | "apostolic_constitution"
+  | "motu_proprio"
+  | "apostolic_letter"
+  | "decree"
+  | "declaration";
+
+/**
+ * Map Wikidata instance-of type labels to the schema's documentType enum.
+ * Reads concatenated labels (most-specific first) and returns null on anything
+ * unrecognised so the caller skips rather than mislabels.
+ */
+export function mapDocumentType(typeLabels: string): DocumentType | null {
+  const t = typeLabels.toLowerCase();
+  if (t.includes("encyclical")) return "encyclical";
+  if (t.includes("apostolic exhortation")) return "apostolic_exhortation";
+  if (t.includes("apostolic constitution")) return "apostolic_constitution";
+  if (t.includes("motu proprio")) return "motu_proprio";
+  if (t.includes("apostolic letter")) return "apostolic_letter";
+  if (t.includes("decree")) return "decree";
+  if (t.includes("declaration")) return "declaration";
+  return null;
+}
+
+const churchDocumentIngestor: StructuredIngestor = {
+  contentType: "CHURCH_DOCUMENT",
+  id: "wikidata-church-documents",
+  authorityLevel: "TRUSTED_PUBLISHER",
+  // Official Church documents (encyclicals, exhortations, constitutions, motu
+  // proprios, apostolic letters). Bibliographic facts come straight from
+  // Wikidata (type, author, day-precision date, main subjects, canonical text
+  // URL); the narrative summary comes verbatim + cited from Wikipedia. The
+  // date is required at day precision (P577 value node) so a year-only date is
+  // never padded to a fabricated month/day.
+  sparql: (limit, offset) =>
+    `SELECT ?doc (SAMPLE(?docLabel) AS ?label) (GROUP_CONCAT(DISTINCT ?typeLabel; SEPARATOR="||") AS ?types) (SAMPLE(?authorLabel) AS ?author) (SAMPLE(?date) AS ?pubDate) (SAMPLE(?canonical) AS ?canon) (GROUP_CONCAT(DISTINCT ?subjectLabel; SEPARATOR="||") AS ?themes) (SAMPLE(?article) AS ?art) WHERE {
+  ?doc wdt:P31 ?type .
+  ?type rdfs:label ?typeLabel . FILTER(LANG(?typeLabel) = "en")
+  FILTER(CONTAINS(LCASE(?typeLabel), "encyclical") || CONTAINS(LCASE(?typeLabel), "apostolic exhortation") || CONTAINS(LCASE(?typeLabel), "apostolic constitution") || CONTAINS(LCASE(?typeLabel), "motu proprio") || CONTAINS(LCASE(?typeLabel), "apostolic letter"))
+  ?doc rdfs:label ?docLabel . FILTER(LANG(?docLabel) = "en")
+  ?doc wdt:P50 ?author . ?author rdfs:label ?authorLabel . FILTER(LANG(?authorLabel) = "en")
+  ?doc p:P577 ?pubSt . ?pubSt psv:P577 ?pubVal . ?pubVal wikibase:timeValue ?date ; wikibase:timePrecision ?prec . FILTER(?prec >= 11)
+  ?doc wdt:P921 ?subject . ?subject rdfs:label ?subjectLabel . FILTER(LANG(?subjectLabel) = "en")
+  OPTIONAL { ?doc wdt:P953 ?canonical . }
+  OPTIONAL { ?article schema:about ?doc ; schema:isPartOf <https://en.wikipedia.org/> . }
+}
+GROUP BY ?doc
+ORDER BY ?doc
+LIMIT ${limit} OFFSET ${offset}`,
+  discoveredSources(row) {
+    // The canonical document URL is usually the actual Vatican text — a
+    // high-value extraction source to add to the worker's own discovery queue.
+    const canon = bindingValue(row, "canon");
+    return canon ? [canon] : [];
+  },
+  async map(row) {
+    const entity = bindingValue(row, "doc");
+    const label = bindingValue(row, "label");
+    const types = bindingValue(row, "types");
+    const author = bindingValue(row, "author");
+    const pubDate = bindingValue(row, "pubDate");
+    const canon = bindingValue(row, "canon");
+    const themesRaw = bindingValue(row, "themes");
+    const article = bindingValue(row, "art");
+    if (!entity || !label || !types || !author || !pubDate || !themesRaw) return null;
+
+    const documentType = mapDocumentType(types);
+    if (!documentType) return null;
+
+    const dateMatch = pubDate.match(/^\+?(\d{4}-\d{2}-\d{2})T/);
+    if (!dateMatch) return null;
+    const issuedDate = dateMatch[1];
+
+    const keyThemes = [
+      ...new Set(
+        themesRaw
+          .split("||")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    ].slice(0, 8);
+    if (keyThemes.length === 0) return null;
+
+    // canonicalUrl is required + must be a valid URL.
+    if (!canon) return null;
+    let canonicalUrl: string;
+    try {
+      canonicalUrl = new URL(canon).toString();
+    } catch {
+      return null;
+    }
+
+    if (!article) return null;
+    const summary = await fetchSummaryForArticleUrl(article);
+    if (!summary || summary.extract.length < 100) return null;
+
+    const slug = slugify(label);
+    if (!slug) return null;
+
+    const citations = [wikidataEntityUrl(entity), canonicalUrl];
+    if (!citations.includes(summary.url)) citations.push(summary.url);
+
+    const payload: Record<string, unknown> = {
+      slug,
+      title: label,
+      documentType,
+      issuingAuthority: author,
+      issuedDate,
+      summary: summary.extract,
+      keyThemes,
+      canonicalUrl,
+      relatedDocuments: [],
+      citations,
+    };
+
+    return {
+      contentType: "CHURCH_DOCUMENT",
+      slug,
+      authorityLevel: "TRUSTED_PUBLISHER",
+      citations,
+      payload,
+    };
+  },
+};
+
 /** All registered structured ingestors. Extend this to cover more types. */
-export const STRUCTURED_INGESTORS: StructuredIngestor[] = [popeIngestor, saintIngestor];
+export const STRUCTURED_INGESTORS: StructuredIngestor[] = [
+  popeIngestor,
+  saintIngestor,
+  churchDocumentIngestor,
+];
 
 export function ingestorFor(contentType: string): StructuredIngestor | undefined {
   return STRUCTURED_INGESTORS.find((i) => i.contentType === contentType);

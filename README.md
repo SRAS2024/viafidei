@@ -581,12 +581,18 @@ falling back to a TypeScript final brain. Concretely:
   **self-improving** (the same row accumulates a success/failure learning signal),
   and **self-expanding** (each ingested entity's official website is added to the
   worker's own discovery queue, so it learns new places to pull from). Adding a
-  content type is "add an ingestor to the registry." Accuracy stays paramount: a
-  mapper returns nothing on any incomplete row, doctrinally-sensitive facts (a
-  saint's feast day) must be **corroborated in an independent source's own text**
-  before they publish, and every record still passes the strict schema + publish
-  gate. Types that can't be safely sourced from structured data (e.g. an
-  apparition's official approval status) are deliberately left to live verification.
+  content type is "add an ingestor to the registry" — currently **POPE** (the
+  line of Roman Pontiffs), **SAINT** (canonization status + feast day, the largest
+  goal), and **CHURCH_DOCUMENT** (encyclicals, exhortations, … — whose canonical
+  Vatican text URL also feeds self-expansion). Accuracy stays paramount: a mapper
+  returns nothing on any incomplete row, doctrinally-sensitive facts (a saint's
+  feast day) must be **corroborated in an independent source's own text** before
+  they publish, sensitive types must clear the stricter 0.95 doctrinal publish
+  bar, and every record still passes the strict schema + publish gate. Types whose
+  required content can't be safely sourced from structured data — an apparition's
+  official approval status, a Marian title's theological significance, a devotion's
+  practice text — are **deliberately excluded** from auto-ingest and left to
+  curation + live verification.
 
 - **AI-assisted extraction + single-source verification removes the publish
   ceiling.** The deterministic extractors only fill fields a regex can pin down,
