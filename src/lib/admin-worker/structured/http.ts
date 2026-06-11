@@ -22,6 +22,39 @@ export function structuredNetworkEnabled(): boolean {
 }
 
 /**
+ * GET a URL and return the raw text body. Returns null on any failure
+ * (network, non-2xx, timeout, non-text content) and when network is disabled.
+ * Never throws. Bounded to `maxBytes` (default 2 MB) by truncation.
+ */
+export async function fetchText(
+  url: string,
+  opts: { maxBytes?: number } = {},
+): Promise<string | null> {
+  if (!structuredNetworkEnabled()) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+      redirect: "follow",
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType && !/text|html|xml|json/i.test(contentType)) return null;
+    const body = await res.text();
+    const max = opts.maxBytes ?? 2_000_000;
+    return body.length > max ? body.slice(0, max) : body;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+/**
  * GET a URL and parse the JSON body. Returns null on any failure (network,
  * non-2xx, timeout, parse) and when network is disabled. Never throws.
  */

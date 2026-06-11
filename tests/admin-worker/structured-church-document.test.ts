@@ -11,13 +11,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/admin-worker/structured/wikipedia", () => ({
   fetchSummaryForArticleUrl: vi.fn(),
 }));
+vi.mock("@/lib/admin-worker/structured/document-excerpt", () => ({
+  fetchDocumentExcerpt: vi.fn(async () => null),
+}));
 
 import { validatePayload } from "@/lib/checklist";
 import { ingestorFor, mapDocumentType } from "@/lib/admin-worker/structured/ingestors";
 import { fetchSummaryForArticleUrl } from "@/lib/admin-worker/structured/wikipedia";
+import { fetchDocumentExcerpt } from "@/lib/admin-worker/structured/document-excerpt";
 import type { SparqlBinding } from "@/lib/admin-worker/structured/wikidata";
 
 const mockedSummary = vi.mocked(fetchSummaryForArticleUrl);
+const mockedExcerpt = vi.mocked(fetchDocumentExcerpt);
 
 const EXTRACT =
   "Rerum novarum is an encyclical issued by Pope Leo XIII in 1891 on the conditions of labour, " +
@@ -47,6 +52,8 @@ const FULL = {
 
 beforeEach(() => {
   mockedSummary.mockReset();
+  mockedExcerpt.mockReset();
+  mockedExcerpt.mockResolvedValue(null);
 });
 afterEach(() => {
   vi.restoreAllMocks();
@@ -108,5 +115,27 @@ describe("CHURCH_DOCUMENT ingestor mapping", () => {
     expect(await docMap(row(FULL))).toBeNull();
     mockedSummary.mockResolvedValue({ extract: "short", url: FULL.art });
     expect(await docMap(row(FULL))).toBeNull();
+  });
+
+  it("attaches a verbatim bodyExcerpt from the canonical document when available", async () => {
+    mockedSummary.mockResolvedValue({ extract: EXTRACT, url: FULL.art });
+    const VERBATIM =
+      "That the spirit of revolutionary change, which has long been disturbing the nations of the world, should have passed beyond the sphere of politics is not surprising.";
+    mockedExcerpt.mockResolvedValue(VERBATIM);
+
+    const entry = await docMap(row(FULL));
+
+    expect(entry).not.toBeNull();
+    expect(entry!.payload.bodyExcerpt).toBe(VERBATIM);
+    expect(mockedExcerpt).toHaveBeenCalledWith(FULL.canon);
+    expect(validatePayload("CHURCH_DOCUMENT", entry!.payload).ok).toBe(true);
+  });
+
+  it("ships metadata-only when no excerpt can be extracted", async () => {
+    mockedSummary.mockResolvedValue({ extract: EXTRACT, url: FULL.art });
+    const entry = await docMap(row(FULL));
+    expect(entry).not.toBeNull();
+    expect(entry!.payload.bodyExcerpt).toBeUndefined();
+    expect(validatePayload("CHURCH_DOCUMENT", entry!.payload).ok).toBe(true);
   });
 });

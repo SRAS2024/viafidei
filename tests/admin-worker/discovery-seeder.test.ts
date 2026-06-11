@@ -103,4 +103,20 @@ describe("runDiscoverySeeder", () => {
     expect(out.enqueued).toBe(0);
     expect(mockedSparql).not.toHaveBeenCalled();
   });
+
+  it("covers every gap content type (devotion, Marian title, apparition, novena, prayer, spiritual practice, rite)", async () => {
+    mockedSparql.mockResolvedValue([]);
+    const out = await runDiscoverySeeder(makePrisma(), { force: true });
+    expect(Object.keys(out.bySeed).sort()).toEqual(
+      [
+        "seed-apparitions",
+        "seed-devotions",
+        "seed-marian-titles",
+        "seed-novenas",
+        "seed-prayers",
+        "seed-rites",
+        "seed-spiritual-practices",
+      ].sort(),
+    );
+  });
 });
