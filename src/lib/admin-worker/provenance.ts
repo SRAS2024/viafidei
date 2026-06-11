@@ -14,6 +14,7 @@ export type ExtractionMethod =
   | "BODY_REGEX"
   | "STRUCTURED_DATA"
   | "INTERNAL_RULE"
+  | "AI_EXTRACTION"
   | "OPERATOR";
 
 export interface FieldProvenance {

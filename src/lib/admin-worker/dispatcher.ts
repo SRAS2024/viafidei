@@ -22,13 +22,16 @@
  * to fall through to maintenance.
  */
 
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { BrainDecision, BrainMissionStage } from "./brain";
 import { EXTRACTABLE_CONTENT_TYPES, isExtractableContentType } from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
 import { recordStageOutcome, toStageOutcome } from "./stage-outcomes";
-import { classifyHostAuthority } from "@/lib/checklist/sources/authority-registry";
+import {
+  authorityLevelForHost,
+  classifyHostAuthority,
+} from "@/lib/checklist/sources/authority-registry";
 
 export interface DispatchOutcome {
   /** The mission stage the dispatcher actually executed. */
@@ -806,7 +809,7 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     blockOrder: (b as { blockOrder: number }).blockOrder,
     confidenceScore: (b as { confidenceScore: number }).confidenceScore,
   }));
-  const extractor = extractByType(detected, {
+  let extractor = extractByType(detected, {
     url: read.sourceUrl,
     host: read.sourceHost,
     title: read.extractedTitle,
@@ -815,6 +818,29 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     blocks: blocks.length > 0 ? (blocks as never) : undefined,
     checksum: read.checksum,
   });
+
+  // AI-assisted extraction (authorized fallback): when the deterministic
+  // extractor leaves required fields missing, let the AI provider fill them
+  // strictly from the page text so messy real-world pages can still produce a
+  // complete record. No-op unless EXTRACTION_AI_* / TRANSLATION_AI_* is set.
+  // The enriched artifact still passes verification + strict QA + the full
+  // quality score before it can publish — AI widens extraction, not the gates.
+  if (extractor.missingFields.length > 0) {
+    try {
+      const { enrichExtractorWithAI } = await import("./extraction-provider");
+      const enriched = await enrichExtractorWithAI(extractor, {
+        contentType: detected,
+        text: read.extractedText ?? "",
+        title: read.extractedTitle,
+        url: read.sourceUrl,
+        host: read.sourceHost,
+        checksum: read.checksum,
+      });
+      extractor = enriched.output;
+    } catch {
+      // AI unavailable / failed — proceed with the deterministic extraction.
+    }
+  }
 
   const pkg = buildContentPackage({
     contentType: detected,
@@ -1084,6 +1110,135 @@ function representativeString(el: unknown): string {
   return "";
 }
 
+/** Top Catholic authorities whose single source is strong enough to verify on. */
+const TOP_AUTHORITY_LEVELS: ReadonlySet<string> = new Set([
+  "VATICAN",
+  "CATECHISM",
+  "LITURGICAL_BOOK",
+  "USCCB",
+]);
+
+/**
+ * AI cross-source verification assist (single-authoritative-source basis).
+ *
+ * The hand-curated ground-truth content publishes on the strength of one top
+ * Catholic authority. Live-extracted content faces a stricter bar: it needs an
+ * INDEPENDENT validation source to confirm each sensitive fact. When those
+ * independent sources are simply unreachable — a Vatican page 404s, a login wall
+ * — the artifact stalls forever even though its OWN source is the Holy See or a
+ * bishops' conference. This assist closes that gap WITHOUT lowering accuracy:
+ *
+ *   - gated on an AI key (no-op by default / in skip-network / test mode),
+ *   - restricted to artifacts whose own source host is a TOP authority,
+ *   - only when NO source actually disagreed (zero MISMATCH rows),
+ *
+ * it asks the AI to confirm each still-unverified sensitive value is explicitly
+ * stated in the artifact's own source text, and records a PASS row per confirmed
+ * field. Anything the AI will not confirm stays blocked. Fail-open and
+ * fail-closed where it matters: any error — including an inability to check for
+ * mismatches — leaves the artifact blocked. Returns the confirmed field names.
+ *
+ * Exported for direct testing of the ceiling-removing path.
+ */
+export async function runAiVerificationAssist(
+  prisma: PrismaClient,
+  artifact: {
+    id: string;
+    contentType: string;
+    sourceReadId: string | null;
+    packageChecksum: string;
+    extractedFields: unknown;
+  },
+  blockingFields: string[],
+): Promise<string[]> {
+  const { extractionAiEnabled, aiConfirmFields } = await import("./extraction-provider");
+  if (!extractionAiEnabled() || !artifact.sourceReadId) return [];
+
+  // Gate 1: the artifact's own source must be a TOP Catholic authority. A
+  // single-source verification is only as trustworthy as that one source.
+  const read = await prisma.adminWorkerSourceRead
+    .findUnique({
+      where: { id: artifact.sourceReadId },
+      select: { sourceHost: true, sourceUrl: true, extractedText: true },
+    })
+    .catch(() => null);
+  if (!read?.extractedText || !read.sourceHost) return [];
+  const level = authorityLevelForHost(read.sourceHost);
+  if (!level || !TOP_AUTHORITY_LEVELS.has(level)) return [];
+
+  // Gate 2: never override a real disagreement. If ANY validation source
+  // returned a MISMATCH for this artifact, the AI must not paper over it.
+  // Fail closed: on a count error, assume a mismatch and skip the assist.
+  const mismatchCount = await prisma.adminWorkerCrossSourceVerification
+    .count({
+      where: { contentType: artifact.contentType, contentId: artifact.id, matchResult: "MISMATCH" },
+    })
+    .catch(() => 1);
+  if (mismatchCount > 0) return [];
+
+  // Which fields still need confirming: the required + sensitive facts for this
+  // type, present in the package, that don't already carry a MATCH/PASS row.
+  const { REQUIRED_FACTS } = await import("./cross-source-verifier");
+  const { SENSITIVE_FIELDS } = await import("./verifier");
+  const fields = (artifact.extractedFields as Record<string, unknown>) ?? {};
+  const required = (REQUIRED_FACTS as Record<string, string[]>)[artifact.contentType] ?? [];
+  const sensitive = SENSITIVE_FIELDS[artifact.contentType] ?? [];
+  const candidateFields = [...new Set([...required, ...sensitive, ...blockingFields])];
+
+  const alreadyOk = await prisma.adminWorkerCrossSourceVerification
+    .findMany({
+      where: {
+        contentType: artifact.contentType,
+        contentId: artifact.id,
+        matchResult: { in: ["MATCH", "PASS"] },
+      },
+      select: { fieldName: true },
+    })
+    .catch(() => [] as Array<{ fieldName: string }>);
+  const okSet = new Set(alreadyOk.map((r) => r.fieldName));
+
+  const pairs: Array<{ field: string; value: string }> = [];
+  for (const field of candidateFields) {
+    if (okSet.has(field)) continue;
+    const value = verifiableExpectedString(fields[field]);
+    if (!value) continue;
+    pairs.push({ field, value: value.slice(0, 200) });
+  }
+  if (pairs.length === 0) return [];
+
+  const confirmed = await aiConfirmFields({
+    contentType: artifact.contentType,
+    text: read.extractedText,
+    pairs,
+  }).catch(() => [] as string[]);
+  if (confirmed.length === 0) return [];
+
+  // Record a PASS row per confirmed field, attributed to the artifact's own
+  // top-authority source. matchResult "PASS" feeds the same matchCount the
+  // advance decision reads; finalDecision ACCEPT mirrors a deterministic MATCH.
+  for (const field of confirmed) {
+    await prisma.adminWorkerCrossSourceVerification
+      .create({
+        data: {
+          contentType: artifact.contentType,
+          contentId: artifact.id,
+          packageChecksum: artifact.packageChecksum,
+          fieldName: field,
+          valueChecked: pairs.find((p) => p.field === field)?.value ?? "",
+          validationSourceHost: read.sourceHost,
+          validationSourceUrl: read.sourceUrl ?? null,
+          matchResult: "PASS",
+          mismatchReason: null,
+          confidenceScore: 0.7,
+          conflictReason: "AI-confirmed against the artifact's own top-authority source text.",
+          finalDecision: "ACCEPT",
+        } as Prisma.AdminWorkerCrossSourceVerificationUncheckedCreateInput,
+      })
+      .catch(() => undefined);
+  }
+  return confirmed;
+}
+
 async function runCrossSourceVerification(
   prisma: PrismaClient,
   passId: string,
@@ -1265,9 +1420,37 @@ async function runCrossSourceVerification(
     }
 
     // Recount MATCH/PASS evidence after any fetch this pass.
-    const matchCount = await prisma.adminWorkerCrossSourceVerification
+    let matchCount = await prisma.adminWorkerCrossSourceVerification
       .count({ where: { ...evidenceWhere, matchResult: { in: ["MATCH", "PASS"] } } })
       .catch(() => 0);
+
+    // AI single-authoritative-source assist. When the deterministic pass did NOT
+    // clear the artifact — its independent validation sources were unreachable,
+    // not disagreeing — and its OWN source is a top Catholic authority, let the
+    // AI confirm the still-unverified sensitive values against that source text
+    // and recount. This is how the hand-curated content already verifies (one
+    // authoritative source); it lets live-extracted content from the Holy See or
+    // a bishops' conference do the same instead of stalling forever. Gated and a
+    // no-op by default — see runAiVerificationAssist.
+    if (!(matchCount > 0 && blockingFields.length === 0)) {
+      const confirmed = await runAiVerificationAssist(
+        prisma,
+        {
+          id: artifact.id,
+          contentType: artifact.contentType,
+          sourceReadId: artifact.sourceReadId,
+          packageChecksum: artifact.packageChecksum,
+          extractedFields: artifact.extractedFields,
+        },
+        blockingFields,
+      ).catch(() => [] as string[]);
+      if (confirmed.length > 0) {
+        blockingFields = blockingFields.filter((f) => !confirmed.includes(f));
+        matchCount = await prisma.adminWorkerCrossSourceVerification
+          .count({ where: { ...evidenceWhere, matchResult: { in: ["MATCH", "PASS"] } } })
+          .catch(() => matchCount);
+      }
+    }
     verifiedFieldCount = matchCount;
 
     // The artifact MUST leave BUILD_READY on this pass so the brain stops
