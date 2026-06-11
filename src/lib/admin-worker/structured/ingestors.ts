@@ -63,6 +63,23 @@ export function slugify(s: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * Normalise a display name for cross-slug duplicate detection: strip honorific
+ * prefixes (Saint, Pope, Blessed, …) and punctuation so "Pope Saint John Paul
+ * II" and "Pope John Paul II" collapse to the same key, while distinguishing
+ * tokens (regnal numbers, surnames) are kept.
+ */
+export function normalizeName(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\b(pope|saint|st|blessed|bl|venerable|ven|servant of god)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
 const popeIngestor: StructuredIngestor = {
   contentType: "POPE",
   id: "wikidata-popes",
@@ -384,11 +401,75 @@ LIMIT ${limit} OFFSET ${offset}`,
   },
 };
 
+const doctorIngestor: StructuredIngestor = {
+  contentType: "DOCTOR",
+  id: "wikidata-doctors",
+  authorityLevel: "TRUSTED_PUBLISHER",
+  // Doctors of the Church — matched by the honorific label (position held P39
+  // or award P166 containing "Doctor of the Church"), so it doesn't depend on a
+  // single hard-coded QID. The schema is permissive (name + citations); the
+  // biography comes verbatim + cited from Wikipedia when available.
+  sparql: (limit, offset) =>
+    `SELECT ?d (SAMPLE(?dLabel) AS ?label) (SAMPLE(?article) AS ?art) (SAMPLE(?website) AS ?site) WHERE {
+  ?d (wdt:P39|wdt:P166) ?honor .
+  ?honor rdfs:label ?honorLabel . FILTER(LANG(?honorLabel) = "en")
+  FILTER(CONTAINS(LCASE(?honorLabel), "doctor of the church"))
+  ?d rdfs:label ?dLabel . FILTER(LANG(?dLabel) = "en")
+  OPTIONAL { ?article schema:about ?d ; schema:isPartOf <https://en.wikipedia.org/> . }
+  OPTIONAL { ?d wdt:P856 ?website . }
+}
+GROUP BY ?d
+ORDER BY ?d
+LIMIT ${limit} OFFSET ${offset}`,
+  discoveredSources(row) {
+    const site = bindingValue(row, "site");
+    return site ? [site] : [];
+  },
+  async map(row) {
+    const entity = bindingValue(row, "d");
+    const label = bindingValue(row, "label");
+    if (!entity || !label) return null;
+    if (/^Q\d+$/.test(label)) return null;
+
+    const title = /\b(saint|st\.?|pope|blessed)\b/i.test(label) ? label : `Saint ${label}`;
+    const citations = [wikidataEntityUrl(entity)];
+    let summary: string | undefined;
+    const article = bindingValue(row, "art");
+    if (article) {
+      const s = await fetchSummaryForArticleUrl(article);
+      if (s) {
+        summary = s.extract;
+        if (!citations.includes(s.url)) citations.push(s.url);
+      } else if (!citations.includes(article)) {
+        citations.push(article);
+      }
+    }
+
+    const slug = `doctor-${slugify(label)}`;
+    if (slug === "doctor-") return null;
+
+    const payload: Record<string, unknown> = { slug, title, citations };
+    if (summary) {
+      payload.summary = summary;
+      payload.background = summary;
+    }
+
+    return {
+      contentType: "DOCTOR",
+      slug,
+      authorityLevel: "TRUSTED_PUBLISHER",
+      citations,
+      payload,
+    };
+  },
+};
+
 /** All registered structured ingestors. Extend this to cover more types. */
 export const STRUCTURED_INGESTORS: StructuredIngestor[] = [
   popeIngestor,
   saintIngestor,
   churchDocumentIngestor,
+  doctorIngestor,
 ];
 
 export function ingestorFor(contentType: string): StructuredIngestor | undefined {

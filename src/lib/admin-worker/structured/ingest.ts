@@ -29,7 +29,12 @@ import { refreshContentGoals, seedContentGoals } from "../content-goals";
 import { runPublishOrchestrator } from "../publish-orchestrator";
 import { writeAdminWorkerLog } from "../logs";
 import { runSparql } from "./wikidata";
-import { STRUCTURED_INGESTORS, ingestorFor, type StructuredIngestor } from "./ingestors";
+import {
+  STRUCTURED_INGESTORS,
+  ingestorFor,
+  normalizeName,
+  type StructuredIngestor,
+} from "./ingestors";
 
 /** Rows fetched from the structured source per pass. */
 export const DEFAULT_STRUCTURED_BATCH = 50;
@@ -137,21 +142,42 @@ async function writeCursor(
     .catch(() => undefined);
 }
 
-/** Pick the ingestor whose content type has the most headroom (fewest live). */
+/** The display name an entry should dedup on (title / canonicalName / slug). */
+function entryDisplayName(entry: CuratedEntry): string {
+  const p = entry.payload;
+  const title = typeof p.title === "string" ? p.title : "";
+  const canonical = typeof p.canonicalName === "string" ? p.canonicalName : "";
+  return title || canonical || entry.slug;
+}
+
+/**
+ * Pick the ingestor whose content type is furthest from its goal (by gap
+ * fraction), so the worker focuses where the headroom actually is instead of
+ * re-sweeping a type that has already reached its target. Falls back to
+ * fewest-live when goals aren't available. This is the learning lever: as a
+ * type fills, its gap shrinks and the worker rotates to the next.
+ */
 async function pickIngestor(prisma: PrismaClient): Promise<StructuredIngestor | undefined> {
   if (STRUCTURED_INGESTORS.length <= 1) return STRUCTURED_INGESTORS[0];
   let best: StructuredIngestor | undefined;
-  let bestCount = Number.POSITIVE_INFINITY;
+  let bestScore = Number.NEGATIVE_INFINITY;
   for (const ing of STRUCTURED_INGESTORS) {
-    const n = await prisma.publishedContent
+    const live = await prisma.publishedContent
       .count({ where: { isPublished: true, contentType: ing.contentType } })
       .catch(() => 0);
-    if (n < bestCount) {
-      bestCount = n;
+    const goal = await prisma.contentGoal
+      .findUnique({ where: { contentType: ing.contentType }, select: { desiredTarget: true } })
+      .catch(() => null);
+    const target = goal?.desiredTarget ?? 0;
+    // Gap fraction (1 = nothing yet … 0 = at/over goal). With no target, prefer
+    // the emptiest type but keep it just below any real positive gap.
+    const score = target > 0 ? Math.max(0, (target - live) / target) : 1 / (live + 1) - 1e-6;
+    if (score > bestScore) {
+      bestScore = score;
       best = ing;
     }
   }
-  return best;
+  return best ?? STRUCTURED_INGESTORS[0];
 }
 
 /** Publish one structured entry through the real gate. Mirrors curated seed. */
@@ -259,18 +285,21 @@ export async function runStructuredIngest(
     return out;
   }
 
-  const live = new Set(
-    (
-      await prisma.publishedContent
-        .findMany({
-          where: { isPublished: true, contentType: ingestor.contentType },
-          select: { slug: true },
-        })
-        .catch(() => [] as Array<{ slug: string }>)
-    ).map((r) => r.slug),
-  );
+  // Load already-live items of this type by BOTH slug and normalized name. The
+  // name index is the safety net against slug-convention drift: a structured
+  // "pope-john-paul-ii" must not become a second page when the curated
+  // "pope-saint-john-paul-ii" is already live. Both normalize to the same key.
+  const published = await prisma.publishedContent
+    .findMany({
+      where: { isPublished: true, contentType: ingestor.contentType },
+      select: { slug: true, title: true },
+    })
+    .catch(() => [] as Array<{ slug: string; title: string }>);
+  const liveSlugs = new Set(published.map((r) => r.slug));
+  const liveNames = new Set(published.map((r) => normalizeName(r.title ?? "")).filter(Boolean));
 
-  const seen = new Set<string>();
+  const seenSlugs = new Set<string>();
+  const seenNames = new Set<string>();
   for (const row of rows) {
     if (out.published >= limit) break;
     let entry: CuratedEntry | null = null;
@@ -283,12 +312,17 @@ export async function runStructuredIngest(
       out.skipped += 1;
       continue;
     }
-    if (seen.has(entry.slug)) continue;
-    seen.add(entry.slug);
+    if (seenSlugs.has(entry.slug)) continue;
+    seenSlugs.add(entry.slug);
+    const name = normalizeName(entryDisplayName(entry));
+    if (name) {
+      if (seenNames.has(name)) continue; // same entity, different slug, this batch
+      seenNames.add(name);
+    }
     // Self-expansion: learn new authoritative sources from every entity we map,
     // whether or not it is newly published this pass.
     out.discoveredSources += await enqueueDiscoveredSources(prisma, ingestor, row);
-    if (live.has(entry.slug)) {
+    if (liveSlugs.has(entry.slug) || (name && liveNames.has(name))) {
       out.alreadyPublished += 1;
       continue;
     }
