@@ -372,6 +372,10 @@ export async function adminWorkerFetch(
       }
 
       if (LOGIN_PAGE_PATTERNS.some((p) => p.test(body))) {
+        // A login wall often went up AFTER the content was public — the
+        // Internet Archive may hold the pre-wall page. Try it before rejecting.
+        const rescued = await archiveRescue(prisma, input, start, attempt);
+        if (rescued) return rescued;
         return persistAndReturn(prisma, {
           url,
           finalUrl: response.url,
@@ -426,6 +430,12 @@ export async function adminWorkerFetch(
     }
   }
 
+  // Dead page (404 after a site reorganisation), hard error, or network
+  // failure — the page usually still exists in the Internet Archive. Serve the
+  // most recent snapshot instead of parking the artifact in repair.
+  const rescued = await archiveRescue(prisma, input, start, attempt);
+  if (rescued) return rescued;
+
   return persistAndReturn(prisma, {
     url,
     finalUrl: url,
@@ -447,6 +457,55 @@ export async function adminWorkerFetch(
     redirectChain: [],
     candidateUrlId: input.candidateUrlId,
   });
+}
+
+/**
+ * Wayback Machine rescue: fetch the most recent archived snapshot of the URL
+ * (keyless; see archive-fallback.ts) and return it as a successful page with
+ * `finalUrl` honestly set to the web.archive.org URL. Returns null when the
+ * fallback is disabled, no usable snapshot exists, or the snapshot is itself a
+ * login page. Fail-open: any error means "no rescue".
+ */
+async function archiveRescue(
+  prisma: PrismaClient,
+  input: FetcherInput,
+  start: number,
+  attempt: number,
+): Promise<FetchedPage | null> {
+  if (input.skipNetwork) return null;
+  try {
+    const { archiveFallbackEnabled, fetchArchivedPage } = await import("./archive-fallback");
+    if (!archiveFallbackEnabled()) return null;
+    const archived = await fetchArchivedPage(input.url);
+    if (!archived) return null;
+    if (LOGIN_PAGE_PATTERNS.some((p) => p.test(archived.body))) return null;
+    const bytes = Buffer.byteLength(archived.body, "utf8");
+    if (bytes < MIN_BODY_BYTES) return null;
+    const checksum = createHash("sha256").update(archived.body).digest("hex");
+    return await persistAndReturn(prisma, {
+      url: input.url,
+      finalUrl: archived.archiveUrl,
+      httpStatus: archived.httpStatus,
+      contentType: archived.contentType,
+      contentLength: bytes,
+      checksum,
+      etag: null,
+      lastModifiedHeader: null,
+      body: archived.body,
+      durationMs: Date.now() - start,
+      attempt,
+      succeeded: true,
+      unchanged: input.previousChecksum != null && input.previousChecksum === checksum,
+      rejectionReason: null,
+      errorClass: null,
+      errorMessage: null,
+      fetchResultRowId: null,
+      redirectChain: [archived.archiveUrl],
+      candidateUrlId: input.candidateUrlId,
+    });
+  } catch {
+    return null;
+  }
 }
 
 function backoffMs(attempt: number): number {
