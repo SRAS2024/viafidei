@@ -822,15 +822,19 @@ const NON_CONTENT_HOST_PATTERNS: RegExp[] = [
 ];
 
 /**
- * Whether the operator has opened the worker up to the wider internet. When on,
- * the worker may fetch sources beyond the explicit registry — any conference of
- * bishops, diocese, EWTN, a Catholic database, or even a general site — because
- * ACCURACY is enforced downstream by cross-source verification + strict QA, not
- * by the fetch allow-list. Default OFF (registry-only). Only "1"/"true" enables.
+ * Whether the worker may reach beyond the explicit registry to the wider
+ * internet — any conference of bishops, diocese, EWTN, a Catholic database, or a
+ * general site. ACCURACY is enforced downstream by cross-source verification +
+ * strict QA, not by the fetch allow-list, so opening the fetch reach never lowers
+ * the bar. This now defaults ON so the worker can actually procure data for every
+ * content type rather than stalling when the registry hosts are down; set
+ * ADMIN_WORKER_OPEN_INTERNET=0 (or "false"/"off") to restrict it to the registry.
+ * Local / social / commerce hosts are always blocked regardless (see isFetchableHost).
  */
 export function openInternetEnabled(): boolean {
   const v = (process.env.ADMIN_WORKER_OPEN_INTERNET ?? "").trim().toLowerCase();
-  return v === "1" || v === "true";
+  if (v === "0" || v === "false" || v === "off") return false;
+  return true;
 }
 
 /**

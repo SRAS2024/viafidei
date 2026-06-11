@@ -26,6 +26,7 @@ const HEALTHY: WorldState = {
   lastFailureAgeMs: null,
   currentBlocker: null,
   candidateUrlsAvailable: 10,
+  candidatesNeedingPrioritization: 0,
   pendingRepairPlans: 0,
   pipelineStagesBlocked: 0,
   unclassifiedReads: 0,
@@ -115,5 +116,44 @@ describe("rankActions execution feedback (spec §12)", () => {
     const noFatigueLeader = noFatigue[0].missionStage;
     const heavyLeader = heavy.find((a) => a.missionStage === noFatigueLeader);
     expect(heavyLeader!.finalScore).toBeLessThan(noFatigue[0].finalScore);
+  });
+
+  it("dislodges a stuck high-urgency stage that keeps returning no-op", () => {
+    // Two artifacts await cross-source evidence (urgency 54) but their
+    // validation sources are down, so the stage keeps no-op'ing while raw
+    // candidates wait to be fetched. The stuck penalty must push it below the
+    // productive fetch/prioritize work so the catalogue doesn't plateau.
+    const stuckWorld: WorldState = {
+      ...HEALTHY,
+      artifactsAwaitingVerification: 2,
+      candidatesNeedingPrioritization: 5,
+    };
+    const noFeedback = rankActions(stuckWorld);
+    expect(noFeedback[0].missionStage).toBe("CROSS_SOURCE_VERIFICATION");
+
+    const stuck: ExecutionFeedback = {
+      recentFailedStages: {},
+      recentlyAdvanced: new Set(),
+      stuckStages: { CROSS_SOURCE_VERIFICATION: 8 },
+    };
+    const after = rankActions(stuckWorld, stuck);
+    // The stuck verification no longer leads; a productive content action does.
+    expect(after[0].missionStage).not.toBe("CROSS_SOURCE_VERIFICATION");
+    expect(["CANDIDATE_PRIORITIZATION", "SOURCE_FETCH"]).toContain(after[0].missionStage);
+  });
+
+  it("chooses CANDIDATE_PRIORITIZATION when discovered candidates are unscored", () => {
+    // Candidates exist but were never scored — without this action the fetcher
+    // has nothing to fetch and the pipeline stalls at "none prioritized".
+    const world: WorldState = {
+      ...HEALTHY,
+      candidatesNeedingPrioritization: 50,
+      artifactsAwaitingVerification: 0,
+      artifactsAwaitingQA: 0,
+      artifactsAwaitingPublish: 0,
+    };
+    const ranked = rankActions(world);
+    expect(ranked[0].missionStage).toBe("CANDIDATE_PRIORITIZATION");
+    expect(ranked[0].safe).toBe(true);
   });
 });

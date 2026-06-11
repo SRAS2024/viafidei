@@ -102,6 +102,20 @@ export function scoreAction(action: BrainAction, world: WorldState): BrainAction
       }
       break;
     }
+    case "CANDIDATE_PRIORITIZATION": {
+      // Scoring discovered candidates is the prerequisite for fetching them, so
+      // it must outrank DISCOVERY (don't keep discovering when raw candidates
+      // are waiting to be scored). Cheap + idempotent; once scored, the count
+      // drops to zero and this becomes unsafe (no re-fire loop).
+      const n = world.candidatesNeedingPrioritization;
+      urgency = n > 0 ? Math.min(52, 24 + n * 2) : 0;
+      sourceScore = n > 0 ? 0.6 : 0;
+      if (n === 0) {
+        safe = false;
+        rejection = "No unscored candidates to prioritize.";
+      }
+      break;
+    }
     case "SOURCE_FETCH": {
       const trusted = world.trustedSources;
       // Fetching available candidates is the path that closes the gap

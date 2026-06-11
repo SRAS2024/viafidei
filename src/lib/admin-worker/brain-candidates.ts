@@ -123,6 +123,36 @@ export function enumerateCandidateActions(world: WorldState): BrainAction[] {
       safe: true,
       rejectionReason: null,
     },
+    // Candidate prioritization — discovered URLs exist that have never been
+    // scored. Without this the fetcher has nothing to fetch (every candidate
+    // sits DISCOVERED with fetchPriority 0) and the whole pipeline stalls at
+    // "candidates exist but none prioritized".
+    {
+      actionType: "DISCOVER_SOURCE",
+      missionStage: "CANDIDATE_PRIORITIZATION",
+      mode: "CONSTANT_FILL",
+      priority: "CONTENT_GOAL",
+      passType: "CONTENT_GOAL",
+      contentType: ct,
+      sourceTarget: null,
+      candidateUrl: null,
+      expectedOutput: "Score discovered candidates so the fetcher can sort by fetchPriority.",
+      confidenceScore: 0.8,
+      riskScore: 0.1,
+      qualityExpectation: 0.6,
+      urgencyScore: 0,
+      sourceScore: 0,
+      repairScore: 0,
+      finalScore: 0,
+      fallbackAction: "discovery",
+      stopCondition: "all discovered candidates scored",
+      reasonSummary: `${world.candidatesNeedingPrioritization} candidate(s) need scoring/prioritization.`,
+      rulesEvaluated: {
+        candidatesNeedingPrioritization: world.candidatesNeedingPrioritization,
+      },
+      safe: true,
+      rejectionReason: null,
+    },
     // Source read — candidates available, no source-read row yet for them.
     {
       actionType: "READ_SOURCE",

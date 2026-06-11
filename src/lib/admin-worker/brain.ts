@@ -248,6 +248,8 @@ export interface WorldState {
   lastFailureAgeMs: number | null;
   currentBlocker: string | null;
   candidateUrlsAvailable: number;
+  /** DISCOVERED candidates that have never been scored (need prioritization). */
+  candidatesNeedingPrioritization: number;
   pendingRepairPlans: number;
   pipelineStagesBlocked: number;
   // New world signals for richer scoring.
@@ -288,6 +290,7 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     recentSecurityBreaches24h,
     recentHomepageScore,
     candidateUrlsAvailable,
+    candidatesNeedingPrioritization,
     pendingRepairPlans,
     pipelineStagesBlocked,
     nextGoal,
@@ -322,6 +325,13 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     }),
     prisma.homepageQualityScore.findFirst({ orderBy: { createdAt: "desc" } }),
     prisma.candidateSourceUrl.count({ where: { status: { in: ["DISCOVERED", "PRIORITIZED"] } } }),
+    // Candidates that still need the scorer to run (never scored). Drives the
+    // CANDIDATE_PRIORITIZATION action so discovered URLs actually get a
+    // fetchPriority and can be fetched — without it the pipeline stalls with
+    // "candidates exist but none prioritized".
+    prisma.candidateSourceUrl
+      .count({ where: { status: "DISCOVERED", scoreUpdatedAt: null } })
+      .catch(() => 0),
     prisma.adminWorkerRepairPlan.count({ where: { status: { in: ["PENDING", "RUNNING"] } } }),
     prisma.adminWorkerPipelineStage.count({ where: { status: "BLOCKED" } }),
     nextPriorityContentType(prisma),
@@ -423,6 +433,7 @@ export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
     lastFailureAgeMs: state.lastFailedAt ? now - state.lastFailedAt.getTime() : null,
     currentBlocker: state.currentBlocker,
     candidateUrlsAvailable,
+    candidatesNeedingPrioritization,
     pendingRepairPlans,
     pipelineStagesBlocked,
     unclassifiedReads,
@@ -476,6 +487,13 @@ export interface ExecutionFeedback {
   recentFailedStages: Record<string, number>;
   /** Stages that recently advanced — the brain prefers fresh winners. */
   recentlyAdvanced: Set<string>;
+  /**
+   * Stages stuck on repeated no-op / idle (stage → recent no-op count). A stage
+   * the brain keeps choosing that never advances — e.g. cross-source
+   * verification whose validation sources are all down (404) — is dislodged by a
+   * stronger penalty than ordinary fatigue, so it can't starve new-content work.
+   */
+  stuckStages?: Record<string, number>;
   /** Spec §10: 0..1 pass rate of the strict-QA stage over the last 7d. */
   strictQAPassRate?: number;
   /** Spec §10: 0..1 pass rate of ContentQualityScore over the last 7d. */
@@ -522,6 +540,13 @@ function applyExecutionFeedback(action: BrainAction, feedback: ExecutionFeedback
   const fatigue = Math.min(20, failed * 5);
   const advancedBonus = feedback.recentlyAdvanced.has(action.missionStage) ? 3 : 0;
 
+  // Stuck-stage penalty (separate from the capped fatigue): a stage with several
+  // recent no-op/idle dispatches is stuck and must be pushed below productive
+  // actions so the worker rotates to fetching/prioritizing new content instead
+  // of re-attempting a stage that cannot advance.
+  const stuckNoOps = feedback.stuckStages?.[action.missionStage] ?? 0;
+  const stuckPenalty = stuckNoOps >= 3 ? Math.min(40, stuckNoOps * 6) : 0;
+
   // Spec §10: pass-rate influence. A 0.5 pass rate is neutral; below
   // it penalises (the stage is unreliable), above it boosts (the
   // stage is winning). Range: -8 to +5.
@@ -531,7 +556,7 @@ function applyExecutionFeedback(action: BrainAction, feedback: ExecutionFeedback
 
   return {
     ...action,
-    finalScore: action.finalScore - fatigue + advancedBonus + passRateAdjustment,
+    finalScore: action.finalScore - fatigue + advancedBonus + passRateAdjustment - stuckPenalty,
     rulesEvaluated: {
       ...action.rulesEvaluated,
       executionFeedback: {
@@ -540,6 +565,8 @@ function applyExecutionFeedback(action: BrainAction, feedback: ExecutionFeedback
         recentFailures: failed,
         passRate: passRate ?? null,
         passRateAdjustment,
+        stuckPenalty,
+        stuckNoOps,
       },
     },
   };
@@ -684,9 +711,27 @@ export async function sampleExecutionFeedback(
     total === 0 ? undefined : passed / total;
   const publishAttempts = publishedRecent + publishBlocks;
 
+  // Stuck-stage signal: stages with several recent no-op/idle dispatches — chosen
+  // but not advancing (e.g. cross-source verification whose validation sources
+  // are all down). Drives the stronger stuck penalty in applyExecutionFeedback.
+  // Defensive: tolerate a prisma client without the stage-outcome model (tests /
+  // degraded) — fall back to no stuck signal rather than throwing.
+  const stuckStages: Record<string, number> = {};
+  try {
+    const recentNoOps = await prisma.adminWorkerStageOutcome.groupBy({
+      by: ["stage"],
+      where: { resultType: "no_op", createdAt: { gte: new Date(Date.now() - 30 * 60_000) } },
+      _count: { stage: true },
+    });
+    for (const r of recentNoOps) stuckStages[r.stage] = r._count.stage;
+  } catch {
+    // no stage-outcome model available — leave stuckStages empty
+  }
+
   return {
     recentFailedStages: stageRuns,
     recentlyAdvanced,
+    stuckStages,
     strictQAPassRate: rate(strictQaPassed, strictQaTotal),
     qualityScorePassRate: rate(qualityPassed, qualityTotal),
     publishPassRate: rate(publishedRecent, publishAttempts),
