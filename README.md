@@ -256,6 +256,7 @@ Optional environment variables:
 | `INTELLIGENCE_TIMEOUT_MS`                           | Per brain-call timeout (default `8000`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `GOOGLE_PLACES_API_KEY`                             | Enables Google Maps parish discovery (Places API). Unset → the `discover_parishes_via_maps` skill is a no-op                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `PARISH_DISCOVERY_LOCATIONS`                        | Optional `;`-separated localities to search for parishes (e.g. `Boston, MA; Rome, Italy`). Unset → seeds derive from the cities already in the catalog                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `ADMIN_WORKER_OSM_PARISHES`                         | Keyless OpenStreetMap (Overpass) parish discovery — on by default; the fallback used when `GOOGLE_PLACES_API_KEY` is unset. Set `0`/`false`/`off` to disable. Same communion + schema + publish gates as the Maps flow                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `GOOGLE_TRANSLATE_API_KEY`                          | Enables the Google Translate fallback for prayer Latin/Greek the curated corpus can't resolve (review-gated by default)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `TRANSLATION_AI_API_URL` / `_API_KEY` / `_MODEL`    | Optional OpenAI-compatible AI translation provider (preferred over Google for the liturgical register; review-gated by default)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `TRANSLATION_AUTOPUBLISH_MACHINE`                   | `1`/`true` to auto-publish machine-translation drafts without human review (default off — drafts go to review)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -580,13 +581,23 @@ falling back to a TypeScript final brain. Concretely:
   `AdminWorkerMemory` walks the whole corpus across passes and wraps to re-sweep),
   **self-improving** (the same row accumulates a success/failure learning signal),
   and **self-expanding** (each ingested entity's official website is added to the
-  worker's own discovery queue, so it learns new places to pull from). Adding a
-  content type is "add an ingestor to the registry." Accuracy stays paramount: a
-  mapper returns nothing on any incomplete row, doctrinally-sensitive facts (a
-  saint's feast day) must be **corroborated in an independent source's own text**
-  before they publish, and every record still passes the strict schema + publish
-  gate. Types that can't be safely sourced from structured data (e.g. an
-  apparition's official approval status) are deliberately left to live verification.
+  worker's own discovery queue, so it learns new places to pull from), and it
+  selects the ingestor whose content type is **furthest from its goal** so it
+  works where the headroom is. Adding a content type is "add an ingestor to the
+  registry" — currently **POPE** (the line of Roman Pontiffs), **SAINT**
+  (canonization status + feast day, the largest goal), **CHURCH_DOCUMENT**
+  (encyclicals, exhortations, … — whose canonical Vatican text URL also feeds
+  self-expansion), and **DOCTOR** (Doctors of the Church). Accuracy stays
+  paramount: a mapper returns nothing on any incomplete row, doctrinally-sensitive
+  facts (a saint's feast day) must be **corroborated in an independent source's
+  own text** before they publish, sensitive types must clear the stricter 0.95
+  doctrinal publish bar, a name-normalized dedup keeps a structured record from
+  ever duplicating a curated page under a different slug, and every record still
+  passes the strict schema + publish gate. Types whose required content can't be
+  safely sourced from structured data — an apparition's official approval status,
+  a Marian title's theological significance, a devotion's
+  practice text — are **deliberately excluded** from auto-ingest and left to
+  curation + live verification.
 
 - **AI-assisted extraction + single-source verification removes the publish
   ceiling.** The deterministic extractors only fill fields a regex can pin down,
@@ -630,6 +641,21 @@ falling back to a TypeScript final brain. Concretely:
   as a tappable link (`MapsAddressLink`) that opens turn-by-turn directions in
   **Apple Maps on iPhone/iPad** and **Google Maps** everywhere else, using the
   record's exact coordinates when present so the pin lands on the right building.
+
+- **Finds parishes keyless via OpenStreetMap — versatility without an API key.**
+  When no `GOOGLE_PLACES_API_KEY` is configured, parish discovery falls back to
+  the free, public **OpenStreetMap Overpass API**
+  ([`parish-osm.ts`](src/lib/admin-worker/parish-osm.ts)): it queries churches
+  tagged `amenity=place_of_worship` + `religion=christian` +
+  `denomination=roman_catholic` in a locality and feeds the candidates through the
+  **same** gates as the Maps flow — communion verification against the parish
+  website (a site that proves not-in-communion is rejected; an entry with no
+  website is trusted on the explicit `roman_catholic` tag, which already excludes
+  Old Catholic / sedevacantist / Orthodox), the strict parish schema, and the real
+  publish orchestrator. It is self-throttled for Overpass fair-use and on by
+  default (`ADMIN_WORKER_OSM_PARISHES=0` opts out). Two independent parish
+  sources — keyed Maps and keyless OSM — so the worker always has a way to grow
+  the directory.
 
 - **Reads PDFs from the web.** The runtime has a dependency-free PDF text
   extractor ([`pdf-extract.ts`](src/lib/admin-worker/pdf-extract.ts)) built on

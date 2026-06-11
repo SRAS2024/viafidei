@@ -458,6 +458,27 @@ async function runDiscovery(
         };
       }
     }
+
+    // Keyless fallback: OpenStreetMap (Overpass) parish discovery — no API key
+    // required, same communion + schema + publish gates as the Maps flow. Runs
+    // when Places isn't configured (and is self-throttled for Overpass fair-use).
+    const { osmParishDiscoveryEnabled, runOsmParishDiscovery } = await import("./parish-osm");
+    if (osmParishDiscoveryEnabled()) {
+      const r = await runOsmParishDiscovery(prisma, { brainActive: true }).catch(() => null);
+      if (r && (r.published > 0 || r.candidates > 0)) {
+        return {
+          stage: "DISCOVERY",
+          kind: "advanced",
+          summary: `OpenStreetMap parish discovery: ${r.detail}`,
+          metadata: {
+            surfaced: r.candidates,
+            published: r.published,
+            routedToReview: r.routedToReview,
+            rejected: r.rejected,
+          },
+        };
+      }
+    }
   }
 
   // Delegate to the DiscoveryOrchestrator (spec §4) which knows
