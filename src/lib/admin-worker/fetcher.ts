@@ -30,6 +30,7 @@ const DEFAULT_TIMEOUT_MS = 8_000;
 const DEFAULT_RETRIES = 2;
 const MIN_BODY_BYTES = 400;
 const MAX_BODY_BYTES = 5_000_000; // 5 MB
+const MAX_PDF_BYTES = 40_000_000; // 40 MB — PDFs (encyclicals etc.) run larger
 
 const LOGIN_PAGE_PATTERNS: RegExp[] = [
   /<input[^>]*type=["']password["']/i,
@@ -245,8 +246,15 @@ export async function adminWorkerFetch(
         break;
       }
 
-      // Reject binary content types up front.
-      if (contentType && BINARY_CONTENT_TYPES.some((p) => p.test(contentType))) {
+      // PDFs are NOT junk: the Holy See / USCCB publish documents (encyclicals,
+      // conciliar texts, catechetical material) as PDFs. Read + extract their
+      // text instead of rejecting, so they flow into the pipeline like any page.
+      const isPdf =
+        /application\/pdf/i.test(contentType ?? "") || /\.pdf($|\?)/i.test(response.url);
+
+      // Reject genuinely-unusable binary (images / audio / video / zip) — but
+      // never PDFs (handled below).
+      if (contentType && !isPdf && BINARY_CONTENT_TYPES.some((p) => p.test(contentType))) {
         return persistAndReturn(prisma, {
           url,
           finalUrl: response.url,
@@ -270,7 +278,48 @@ export async function adminWorkerFetch(
         });
       }
 
-      const body = await response.text();
+      let body: string;
+      if (isPdf) {
+        const failPdf = (rejectionReason: string, errorClass: string) =>
+          persistAndReturn(prisma, {
+            url,
+            finalUrl: response.url,
+            httpStatus,
+            contentType,
+            contentLength: contentLengthHeader ? Number(contentLengthHeader) : null,
+            checksum: null,
+            etag,
+            lastModifiedHeader,
+            body: "",
+            durationMs: Date.now() - start,
+            attempt,
+            succeeded: false,
+            unchanged: false,
+            rejectionReason,
+            errorClass,
+            errorMessage: null,
+            fetchResultRowId: null,
+            redirectChain: [],
+            candidateUrlId: input.candidateUrlId,
+          });
+        let pdfText: string;
+        try {
+          const ab = await response.arrayBuffer();
+          if (ab.byteLength > MAX_PDF_BYTES) return await failPdf("pdf too large", "PDF_TOO_LARGE");
+          const { extractPdfText } = await import("./pdf-extract");
+          const extracted = extractPdfText(Buffer.from(ab));
+          if (!extracted.ok || !extracted.text) {
+            // Scanned / encrypted / image-only PDF — route to OCR elsewhere.
+            return await failPdf("pdf not machine-readable (scanned/encrypted)", "PDF_UNREADABLE");
+          }
+          pdfText = extracted.text;
+        } catch {
+          return await failPdf("pdf read failed", "PDF_READ_FAILED");
+        }
+        body = pdfText;
+      } else {
+        body = await response.text();
+      }
       const bytes = Buffer.byteLength(body, "utf8");
       const checksum = createHash("sha256").update(body).digest("hex");
 
