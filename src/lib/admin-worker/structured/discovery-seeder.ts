@@ -72,6 +72,32 @@ const SEED_QUERIES: SeedQuery[] = [
     contentType: "APPARITION",
     sparql: seedSparql(`CONTAINS(LCASE(?tl), "apparition")`),
   },
+  {
+    id: "seed-novenas",
+    contentType: "NOVENA",
+    sparql: seedSparql(`CONTAINS(LCASE(?tl), "novena")`),
+  },
+  {
+    id: "seed-prayers",
+    contentType: "PRAYER",
+    sparql: seedSparql(
+      `CONTAINS(LCASE(?tl), "catholic prayer") || CONTAINS(LCASE(?tl), "christian prayer") || CONTAINS(LCASE(?tl), "litany")`,
+    ),
+  },
+  {
+    id: "seed-spiritual-practices",
+    contentType: "SPIRITUAL_PRACTICE",
+    sparql: seedSparql(
+      `CONTAINS(LCASE(?tl), "spiritual practice") || CONTAINS(LCASE(?tl), "christian pilgrimage")`,
+    ),
+  },
+  {
+    id: "seed-rites",
+    contentType: "RITE",
+    sparql: seedSparql(
+      `CONTAINS(LCASE(?tl), "catholic rite") || CONTAINS(LCASE(?tl), "liturgical rite") || CONTAINS(LCASE(?tl), "church sui iuris")`,
+    ),
+  },
 ];
 
 export interface DiscoverySeedResult {

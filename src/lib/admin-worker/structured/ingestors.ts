@@ -26,6 +26,7 @@ import type { CuratedEntry } from "@/lib/checklist/knowledge";
 import { bindingValue, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { fetchSummaryForArticleUrl } from "./wikipedia";
 import { fetchArticleInfobox } from "./wikipedia-infobox";
+import { fetchDocumentExcerpt } from "./document-excerpt";
 import { feastDayInText, mapCanonizationStatus, parseFeastValue } from "./corroboration";
 
 /** Reserved for future context (locale, calendar) passed into a mapper. */
@@ -427,6 +428,12 @@ LIMIT ${limit} OFFSET ${offset}`,
       relatedDocuments: [],
       citations,
     };
+
+    // Verbatim opening excerpt from the canonical document text itself
+    // (usually vatican.va) — cited via canonicalUrl, zero fabrication surface.
+    // Fail-open: no excerpt just means the record ships metadata-only.
+    const excerpt = await fetchDocumentExcerpt(canonicalUrl).catch(() => null);
+    if (excerpt) payload.bodyExcerpt = excerpt;
 
     return {
       contentType: "CHURCH_DOCUMENT",
