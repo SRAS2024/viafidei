@@ -46,7 +46,7 @@ interface RunOptions {
   maxPublishPerPass?: number;
 }
 
-function slugify(value: string): string {
+export function slugify(value: string): string {
   return value
     .toLowerCase()
     .normalize("NFKD")
@@ -56,7 +56,7 @@ function slugify(value: string): string {
     .slice(0, 80);
 }
 
-function designationFor(name: string): "parish" | "shrine" | "cathedral" | "minor-basilica" {
+export function designationFor(name: string): "parish" | "shrine" | "cathedral" | "minor-basilica" {
   if (/\bbasilica\b/i.test(name)) return "minor-basilica";
   if (/\bcathedral\b/i.test(name)) return "cathedral";
   if (/\bshrine\b/i.test(name)) return "shrine";
@@ -97,7 +97,7 @@ async function buildQueries(prisma: PrismaClient, maxQueries: number): Promise<s
   return queries;
 }
 
-async function fileReview(
+export async function fileReview(
   prisma: PrismaClient,
   candidate: PlaceParish,
   slug: string,
