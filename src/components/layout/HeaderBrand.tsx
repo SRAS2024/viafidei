@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Crucifix } from "../icons/Crucifix";
 
 type Props = {
   brandName: string;
@@ -8,8 +7,13 @@ type Props = {
 };
 
 export function HeaderBrand({ brandName, locale, centered = false }: Props) {
-  // The sketched crucifix sits to the LEFT of the wordmark in both layouts; the
-  // homepage hero just renders it larger and centers the pair as a group.
+  // The sketched crucifix logo sits to the LEFT of the wordmark in both layouts.
+  // Two theme variants — the sepia sketch for the light papyrus theme and a warm
+  // gold version for the dark theme — swap via html[data-theme] (see globals.css).
+  const w = centered ? 56 : 40;
+  const h = Math.round((w * 491) / 360); // preserve the artwork's aspect ratio
+  const imgClass =
+    "shrink-0 transition-transform duration-300 ease-out group-hover:-translate-y-0.5";
   return (
     <Link
       href="/"
@@ -17,9 +21,23 @@ export function HeaderBrand({ brandName, locale, centered = false }: Props) {
       lang={locale}
       className={`group inline-flex items-center ${centered ? "gap-3 sm:gap-4" : "gap-2.5 sm:gap-3.5"}`}
     >
-      <Crucifix
-        size={centered ? 56 : 40}
-        className="shrink-0 transition-transform duration-300 ease-out group-hover:-translate-y-0.5"
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/crucifix-logo.png"
+        alt=""
+        aria-hidden="true"
+        width={w}
+        height={h}
+        className={`vf-logo-light ${imgClass}`}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/crucifix-logo-dark.png"
+        alt=""
+        aria-hidden="true"
+        width={w}
+        height={h}
+        className={`vf-logo-dark ${imgClass}`}
       />
       <span
         className={`vf-wordmark leading-none text-ink ${
