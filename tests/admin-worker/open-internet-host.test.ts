@@ -25,16 +25,17 @@ describe("open-internet fetch gate", () => {
     expect(isFetchableHost("www.usccb.org")).toBe(true);
   });
 
-  it("unknown hosts are blocked in registry-only mode (default)", () => {
-    expect(openInternetEnabled()).toBe(false);
-    expect(isFetchableHost("some-parish-blog.example")).toBe(false);
-  });
-
-  it("unknown hosts become fetchable once open-internet mode is on", () => {
-    process.env.ADMIN_WORKER_OPEN_INTERNET = "1";
+  it("reaches unknown hosts by default (open-internet is on so the worker can procure data)", () => {
     expect(openInternetEnabled()).toBe(true);
     expect(isFetchableHost("some-parish-blog.example")).toBe(true);
     expect(isFetchableHost("a-diocese-somewhere.org")).toBe(true);
+  });
+
+  it("can be restricted to the registry with ADMIN_WORKER_OPEN_INTERNET=0", () => {
+    process.env.ADMIN_WORKER_OPEN_INTERNET = "0";
+    expect(openInternetEnabled()).toBe(false);
+    expect(isFetchableHost("some-parish-blog.example")).toBe(false);
+    expect(isFetchableHost("www.vatican.va")).toBe(true); // registry still fetchable
   });
 
   it("local / social / commerce hosts stay blocked even in open mode", () => {
