@@ -259,6 +259,20 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       }
     }
 
+    // Structured discovery seeder: feed the live extraction pipeline with
+    // authoritative source URLs for the content types that have no structured
+    // ingestor (devotion, Marian title, apparition) — discovery only, every
+    // candidate still faces extraction + verification + QA. Keyless,
+    // self-throttled (~30 min). Best-effort so it never breaks a pass.
+    if (brain.finalBrain === "python") {
+      try {
+        const { runDiscoverySeeder } = await import("./structured/discovery-seeder");
+        await runDiscoverySeeder(prisma);
+      } catch {
+        // best-effort — discovery seeding must never break the pass
+      }
+    }
+
     await writeAdminWorkerLog(prisma, {
       passId: pass.id,
       category: "WORKER_PASS",
