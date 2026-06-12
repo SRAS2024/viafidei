@@ -13,3 +13,4 @@ export { PrayerLanguageToggle } from "./PrayerLanguageToggle";
 export { FilterChips, type FilterChipItem } from "./FilterChips";
 export { RosaryMysteries } from "./RosaryMysteries";
 export { GuidePrayers, type GuidePrayerData } from "./GuidePrayers";
+export { PrayerLinkedText } from "./PrayerLinkedText";

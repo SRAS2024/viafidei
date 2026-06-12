@@ -7,6 +7,8 @@ import type { PublishedItem } from "@/lib/data/published";
 import { toDisclosureItems } from "@/lib/content-shared/structured-content";
 
 import { Disclosure } from "./Disclosure";
+import { PrayerLinkedText } from "./PrayerLinkedText";
+import type { GuidePrayerData } from "./GuidePrayers";
 
 export interface PublishedDetailProps {
   item: PublishedItem;
@@ -14,6 +16,13 @@ export interface PublishedDetailProps {
   secondaryFields?: string[];
   /** Optional header action (e.g. the Save/Add button) shown beside the title. */
   action?: React.ReactNode;
+  /**
+   * Prayers this item uses (guides / novenas). When provided, any prayer named
+   * inside a disclosure body (a step or a day) becomes inline-expandable — tap
+   * the name to drop the full prayer open in place. Omitted everywhere else, so
+   * those pages render exactly as before.
+   */
+  linkedPrayers?: GuidePrayerData[];
 }
 
 function renderValue(value: unknown): React.ReactNode {
@@ -148,6 +157,7 @@ export function PublishedDetail({
   primaryFields,
   secondaryFields,
   action,
+  linkedPrayers,
 }: PublishedDetailProps) {
   const payload = item.payload;
   const summary = payload.summary as string | undefined;
@@ -174,7 +184,11 @@ export function PublishedDetail({
           <div className="mt-3 flex flex-col gap-3">
             {disclosures.map((d, i) => (
               <Disclosure key={`${key}-${i}`} title={d.title}>
-                <p className="whitespace-pre-line">{d.body}</p>
+                {linkedPrayers && linkedPrayers.length > 0 ? (
+                  <PrayerLinkedText text={d.body} prayers={linkedPrayers} />
+                ) : (
+                  <p className="whitespace-pre-line">{d.body}</p>
+                )}
               </Disclosure>
             ))}
           </div>
