@@ -15,6 +15,7 @@ const RELATED_PRAYERS_BY_KIND: Record<string, string[]> = {
     "our-father",
     "hail-mary",
     "glory-be",
+    "fatima-prayer",
     "salve-regina",
     "prayer-to-saint-michael",
   ],
