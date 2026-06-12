@@ -115,8 +115,13 @@ LIMIT ${limit} OFFSET ${offset}`,
     // entity, or reign-start year → can't build a valid POPE record.
     if (!label || !entity || !startYear) return null;
     if (/^Q\d+$/.test(label)) return null;
+    // Wikidata tags ANTIPOPES with the papal position too — exclude them so the
+    // count reflects the real line of Roman Pontiffs, not disputed claimants.
+    if (/\bantipope\b/i.test(label)) return null;
 
-    const title = /pope/i.test(label) ? label : `Pope ${label}`;
+    // "Pope " only when the label doesn't already carry a papal title (and never
+    // double-prefixes "Pope Saint …"); antipopes are already excluded above.
+    const title = /\bpope\b/i.test(label) ? label : `Pope ${label}`;
     const endYear = bindingValue(row, "endYear");
     const birthName = bindingValue(row, "birthName");
     const article = bindingValue(row, "article");
