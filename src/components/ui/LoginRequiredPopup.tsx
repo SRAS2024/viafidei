@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 type Props = {
@@ -27,7 +27,6 @@ export function LoginRequiredPopup({
   registerLabel = DEFAULTS.registerLabel,
   closeLabel = DEFAULTS.closeLabel,
 }: Props) {
-  const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -43,12 +42,15 @@ export function LoginRequiredPopup({
 
   // Send the user back to where they were after they log in / register.
   const next = pathname ? `?next=${encodeURIComponent(pathname)}` : "";
-  // Navigate programmatically: a <Link> here was being unmounted by onClose in
-  // the same click, which cancelled the client navigation (the links "did
-  // nothing"). router.push is dispatched immediately and is unaffected.
-  const go = (base: string) => {
-    router.push(`${base}${next}`);
-    onClose();
+  // Hard navigation: both a <Link> (unmounted by onClose in the same click) and
+  // router.push (cancelled when this popup unmounts, or swallowed by an ancestor
+  // card link) "did nothing". window.location.assign is a browser-level
+  // navigation that no unmount or competing handler can cancel — and logging in
+  // is a full context switch anyway. Mirrors AccountRequiredButton's authed path.
+  const go = (e: React.MouseEvent, base: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof window !== "undefined") window.location.assign(`${base}${next}`);
   };
 
   return (
@@ -95,11 +97,11 @@ export function LoginRequiredPopup({
           <button
             type="button"
             className="vf-login-popup-btn vf-login-popup-btn-primary"
-            onClick={() => go("/login")}
+            onClick={(e) => go(e, "/login")}
           >
             {loginLabel}
           </button>
-          <button type="button" className="vf-login-popup-btn" onClick={() => go("/register")}>
+          <button type="button" className="vf-login-popup-btn" onClick={(e) => go(e, "/register")}>
             {registerLabel}
           </button>
         </div>
