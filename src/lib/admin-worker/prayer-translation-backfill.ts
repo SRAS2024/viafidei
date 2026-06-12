@@ -21,6 +21,7 @@
 
 import type { PrismaClient, Prisma } from "@prisma/client";
 
+import { computeContentChecksum } from "./cache-freshness";
 import { translatePrayerLanguages, type TargetLang } from "./prayer-translator";
 import {
   autoPublishMachineTranslations,
@@ -101,8 +102,22 @@ async function fileTranslationReview(
   lang: TargetLang,
   text: string,
   provider: string,
-): Promise<void> {
+): Promise<boolean> {
   const langName = lang === "la" ? "Latin" : "Greek";
+  // The backfill re-sweeps the catalogue forever — don't re-file a proposal
+  // that is already sitting in the queue for this prayer + language.
+  const existing = await prisma.humanReviewQueue
+    .findFirst({
+      where: {
+        status: "PENDING",
+        proposedAction: "CONFIRM_TRANSLATION",
+        contentTitle: title,
+        reason: { contains: langName },
+      },
+      select: { id: true },
+    })
+    .catch(() => null);
+  if (existing) return false;
   await prisma.humanReviewQueue
     .create({
       data: {
@@ -116,6 +131,7 @@ async function fileTranslationReview(
       },
     })
     .catch(() => undefined);
+  return true;
 }
 
 /**
@@ -143,12 +159,12 @@ export async function runPrayerTranslationBackfill(
   const rows = await prisma.publishedContent
     .findMany({
       where: { contentType: "PRAYER", isPublished: true },
-      select: { id: true, title: true, payload: true },
+      select: { id: true, title: true, slug: true, payload: true },
       orderBy: { id: "asc" },
       skip: offset,
       take: batch,
     })
-    .catch(() => [] as Array<{ id: string; title: string; payload: unknown }>);
+    .catch(() => [] as Array<{ id: string; title: string; slug: string; payload: unknown }>);
 
   // Walk forward; wrap to 0 at the end so the whole catalogue is re-swept.
   const nextOffset = rows.length < batch ? 0 : offset + rows.length;
@@ -193,20 +209,35 @@ export async function runPrayerTranslationBackfill(
         if (autoMachine) {
           update[lang === "la" ? "latin" : "greek"] = proposal.text;
           out.filledMachine += 1;
-        } else {
-          await fileTranslationReview(prisma, r.title, lang, proposal.text, proposal.provider);
+        } else if (
+          await fileTranslationReview(prisma, r.title, lang, proposal.text, proposal.provider)
+        ) {
           out.routedToReview += 1;
         }
       }
     }
 
     if (Object.keys(update).length > 0) {
+      // Recompute the freshness marker — contentChecksum is derived from the
+      // payload, and cache verification confirms the stored marker matches the
+      // live row. Updating the payload without it would fail verification.
+      const newPayload = { ...p, ...update };
       await prisma.publishedContent
         .update({
           where: { id: r.id },
-          data: { payload: { ...p, ...update } as Prisma.InputJsonValue },
+          data: {
+            payload: newPayload as Prisma.InputJsonValue,
+            contentChecksum: computeContentChecksum(r.title, newPayload),
+          },
         })
         .catch(() => undefined);
+      // Nudge the public route to revalidate so the new translations serve.
+      try {
+        const { flagCacheRefresh } = await import("./repair");
+        await flagCacheRefresh(prisma, `PRAYER:${r.slug}`).catch(() => undefined);
+      } catch {
+        // best-effort
+      }
     }
   }
 

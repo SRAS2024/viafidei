@@ -48,7 +48,7 @@ function makePrisma(rows: Array<{ id: string; title: string; payload: unknown }>
     prisma: {
       adminWorkerMemory: { findUnique: vi.fn(async () => null), upsert: vi.fn(async () => ({})) },
       publishedContent: { findMany: vi.fn(async () => rows), update },
-      humanReviewQueue: { create },
+      humanReviewQueue: { findFirst: vi.fn(async () => null), create },
       adminWorkerLog: { create: vi.fn(async () => ({})) },
     } as unknown as PrismaClient,
   };
@@ -56,21 +56,30 @@ function makePrisma(rows: Array<{ id: string; title: string; payload: unknown }>
 
 describe("runPrayerTranslationBackfill", () => {
   it("fills canonical Latin + Greek directly (keyless, accurate)", async () => {
-    const { prisma, update } = makePrisma([{ id: "p1", title: "Kyrie", payload: { body: KYRIE } }]);
+    const { prisma, update } = makePrisma([
+      { id: "p1", title: "Kyrie", slug: "kyrie", payload: { body: KYRIE } },
+    ]);
 
     const out = await runPrayerTranslationBackfill(prisma, { force: true });
 
     expect(out.scanned).toBe(1);
     expect(out.filledCanonical).toBeGreaterThanOrEqual(2); // latin + greek
     expect(update).toHaveBeenCalledTimes(1);
-    const data = (update.mock.calls[0][0] as { data: { payload: Record<string, string> } }).data;
+    const data = (
+      update.mock.calls[0][0] as {
+        data: { payload: Record<string, string>; contentChecksum: string };
+      }
+    ).data;
     expect(data.payload.latin).toContain("Kyrie, eleison.");
     expect(data.payload.greek).toContain("Κύριε");
+    // The freshness marker must be recomputed with the new payload, or cache
+    // verification would fail against the stored row.
+    expect(data.contentChecksum).toMatch(/^[0-9a-f]{16}$/);
   });
 
   it("skips prayers that already have both translations", async () => {
     const { prisma, update } = makePrisma([
-      { id: "p1", title: "Done", payload: { body: KYRIE, latin: "x", greek: "y" } },
+      { id: "p1", title: "Done", slug: "done", payload: { body: KYRIE, latin: "x", greek: "y" } },
     ]);
     const out = await runPrayerTranslationBackfill(prisma, { force: true });
     expect(out.scanned).toBe(0);
@@ -91,6 +100,7 @@ describe("runPrayerTranslationBackfill", () => {
       {
         id: "p2",
         title: "Obscure Prayer",
+        slug: "obscure-prayer",
         payload: { body: "An entirely novel prayer text here." },
       },
     ]);
@@ -113,7 +123,12 @@ describe("runPrayerTranslationBackfill", () => {
       accurate: false,
     });
     const { prisma, update } = makePrisma([
-      { id: "p3", title: "Obscure", payload: { body: "An entirely novel prayer text here." } },
+      {
+        id: "p3",
+        title: "Obscure",
+        slug: "obscure",
+        payload: { body: "An entirely novel prayer text here." },
+      },
     ]);
 
     const out = await runPrayerTranslationBackfill(prisma, { force: true });
