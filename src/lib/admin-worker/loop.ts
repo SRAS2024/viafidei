@@ -259,6 +259,18 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       }
     }
 
+    // Prayer/litany translation backfill: fill Latin + Greek on every prayer
+    // over time — canonical (keyless) first, then the AI/Google fallback for what
+    // the corpus can't resolve (review-gated by default). Self-throttled (~hourly).
+    if (brain.finalBrain === "python") {
+      try {
+        const { runPrayerTranslationBackfill } = await import("./prayer-translation-backfill");
+        await runPrayerTranslationBackfill(prisma);
+      } catch {
+        // best-effort — translation backfill must never break the pass
+      }
+    }
+
     // Prune antipope records the earlier ingestor mistakenly published, so the
     // pope count reflects the real line of Roman Pontiffs. Cheap + idempotent.
     if (brain.finalBrain === "python") {
