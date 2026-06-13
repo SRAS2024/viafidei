@@ -82,6 +82,27 @@ export function normalizeName(s: string): string {
     .replace(/\s+/g, " ");
 }
 
+/**
+ * Reduce a rite / Church-sui-iuris name to its distinguishing core, dropping the
+ * generic words ("rite", "(Greek) Catholic Church", …) so the structured slug
+ * lines up with the curated convention (`rite-roman`, `rite-byzantine`, …).
+ * This is the dedup safety net: a Wikidata "Byzantine Rite" maps to `rite-byzantine`
+ * and collapses onto the curated entry instead of becoming a second page, while a
+ * genuinely new sui iuris church ("Italo-Albanian") yields a fresh `rite-italo-albanian`.
+ */
+export function riteCoreSlug(label: string): string {
+  const core = label
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(
+      /\b(rite|church|catholic|greek|ge'?ez|byzantine-rite|sui|iuris|eastern|major|archiepiscopal|metropolitan)\b/g,
+      " ",
+    )
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return slugify(core);
+}
+
 const popeIngestor: StructuredIngestor = {
   contentType: "POPE",
   id: "wikidata-popes",
@@ -513,12 +534,76 @@ LIMIT ${limit} OFFSET ${offset}`,
   },
 };
 
+const riteIngestor: StructuredIngestor = {
+  contentType: "RITE",
+  id: "wikidata-rites",
+  authorityLevel: "TRUSTED_PUBLISHER",
+  // The recognized Catholic rites + the Eastern Catholic Churches sui iuris — a
+  // fixed, factual, low-sensitivity set Wikidata covers well. The RITE schema is
+  // permissive (name + citations; description optional), so a cited Wikipedia
+  // abstract for the narrative is a complete, accurate record. The instance-of
+  // filter requires "catholic"/"sui iuris"/"eastern catholic church" so no
+  // non-Catholic rite is pulled, and a Wikipedia article is required for the
+  // cited description.
+  sparql: (limit, offset) =>
+    `SELECT ?r (SAMPLE(?rLabel) AS ?label) (SAMPLE(?article) AS ?art) (SAMPLE(?website) AS ?site) WHERE {
+  ?r wdt:P31 ?type .
+  ?type rdfs:label ?tl . FILTER(LANG(?tl) = "en")
+  FILTER(CONTAINS(LCASE(?tl), "sui iuris") || CONTAINS(LCASE(?tl), "eastern catholic church") || (CONTAINS(LCASE(?tl), "catholic") && (CONTAINS(LCASE(?tl), "rite") || CONTAINS(LCASE(?tl), "church"))))
+  ?r rdfs:label ?rLabel . FILTER(LANG(?rLabel) = "en")
+  ?article schema:about ?r ; schema:isPartOf <https://en.wikipedia.org/> .
+  OPTIONAL { ?r wdt:P856 ?website . }
+}
+GROUP BY ?r
+ORDER BY ?r
+LIMIT ${limit} OFFSET ${offset}`,
+  discoveredSources(row) {
+    const site = bindingValue(row, "site");
+    return site ? [site] : [];
+  },
+  async map(row) {
+    const entity = bindingValue(row, "r");
+    const label = bindingValue(row, "label");
+    if (!entity || !label) return null;
+    if (/^Q\d+$/.test(label)) return null;
+
+    // The cited descriptive narrative comes verbatim from Wikipedia; a rite with
+    // only a name and no sourced description isn't publishable quality.
+    const article = bindingValue(row, "art");
+    if (!article) return null;
+    const summary = await fetchSummaryForArticleUrl(article);
+    if (!summary || summary.extract.length < 80) return null;
+
+    const core = riteCoreSlug(label);
+    if (!core) return null;
+    const slug = `rite-${core}`;
+
+    const citations = [wikidataEntityUrl(entity), summary.url];
+    const payload: Record<string, unknown> = {
+      slug,
+      title: label,
+      summary: summary.extract,
+      background: summary.extract,
+      citations,
+    };
+
+    return {
+      contentType: "RITE",
+      slug,
+      authorityLevel: "TRUSTED_PUBLISHER",
+      citations,
+      payload,
+    };
+  },
+};
+
 /** All registered structured ingestors. Extend this to cover more types. */
 export const STRUCTURED_INGESTORS: StructuredIngestor[] = [
   popeIngestor,
   saintIngestor,
   churchDocumentIngestor,
   doctorIngestor,
+  riteIngestor,
 ];
 
 export function ingestorFor(contentType: string): StructuredIngestor | undefined {

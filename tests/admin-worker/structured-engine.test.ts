@@ -141,12 +141,14 @@ describe("runStructuredIngest — goal-aware selection", () => {
       SAINT: 100,
       CHURCH_DOCUMENT: 50,
       DOCTOR: 37,
+      RITE: 20,
     };
     const target: Record<string, number> = {
       POPE: 264,
       SAINT: 10000,
       CHURCH_DOCUMENT: 200,
       DOCTOR: 37,
+      RITE: 24,
     };
     const prisma = {
       adminWorkerMemory: { findUnique: vi.fn(async () => null), upsert: vi.fn(async () => ({})) },
