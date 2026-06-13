@@ -978,9 +978,13 @@ source / verification / strict-QA / full-quality gate first.
   site offers in navigation order** — including the view-based categories that
   are not their own content type (Litanies = prayers of type `litany`, Our Lady
   = Marian titles + apparitions, Liturgical Calendar = feasts/seasons, History
-  = the Church-documents timeline, tagged `view`). Each row shows a single
-  legible `Have / Target` column, Hard max (— for open types), Gap, and status,
-  and reserves "complete" for Sacraments.
+  = the Church-documents timeline, tagged `view`). Each non-view row's
+  `Target` / `Hard max` is **locked to `DEFAULT_GOAL_SEEDS`** — the same goal the
+  growth orchestrator drives toward — by a drift-guard test, so the console can
+  never show a stale denominator (Saints reads `/10,000`, the real goal, not a
+  hard-coded `/1,000`). Each row shows a single legible `Have / Target` column,
+  Hard max (— for open types), Gap, and status, and reserves "complete" for
+  Sacraments.
 - The content-type profiles + the Python brain's `select_action` input carry
   `canonicalMax` + `allowsContinuedGrowth`, so the brain knows only
   Sacraments are capped and keeps growing the open types after their targets.

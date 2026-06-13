@@ -1,15 +1,17 @@
 /**
  * Content catalog — the single source of truth for every user-facing content
  * category the site publishes, INCLUDING the view-based categories that are not
- * their own `ChecklistContentType` (Litanies, Our Lady, Chaplets, the
- * Liturgical Calendar, History). The admin worker console renders this so an
- * admin can confirm that every page the site offers is represented and growing
- * — not just the raw content-type enum.
+ * their own `ChecklistContentType` (Litanies, Our Lady, the Liturgical Calendar,
+ * History). The admin worker console renders this so an admin can confirm that
+ * every page the site offers is represented and growing — not just the raw
+ * content-type enum.
  *
  * Order is the canonical site order (matches the navigation), so the console's
- * content list reads the way the site does. `target` / `hardMax` mirror the
- * content-goal model (DEFAULT_GOAL_SEEDS) so the console can show "have /
- * target" for every row, including the derived views.
+ * content list reads the way the site does. For every non-view category the
+ * `target` / `hardMax` MUST equal the growth goal the orchestrator actually
+ * drives toward (DEFAULT_GOAL_SEEDS) — a drift-guard test enforces this, so the
+ * console can never show e.g. Saints at /1,000 while the worker builds toward
+ * /10,000. Derived VIEW categories keep their own curatorial sub-target.
  *
  * Counting:
  *   - Most categories map directly to one or more content types.
@@ -30,7 +32,7 @@ export interface CatalogCategory {
   target: number;
   /** Hard maximum (only Sacraments are capped); null otherwise. */
   hardMax?: number;
-  /** Payload predicate for view-based categories (Litanies, Chaplets, …). */
+  /** Payload predicate for view-based categories (Litanies, …). */
   predicate?: (payload: Record<string, unknown>) => boolean;
   /** True when this is a view over a type also listed as its own category. */
   derived?: boolean;
@@ -73,7 +75,7 @@ export const CONTENT_CATALOG: CatalogCategory[] = [
     predicate: isLitany,
     note: "Prayers categorised as litanies",
   },
-  { key: "saints", label: "Saints", page: "/saints", types: ["SAINT"], target: 1000 },
+  { key: "saints", label: "Saints", page: "/saints", types: ["SAINT"], target: 10000 },
   {
     key: "our-lady",
     label: "Our Lady",
