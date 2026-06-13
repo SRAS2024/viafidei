@@ -299,6 +299,24 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       }
     }
 
+    // Keyless parish discovery (OpenStreetMap): grow the PARISH directory —
+    // parishes, shrines, cathedrals, basilicas — every pass instead of only when
+    // the brain happens to choose the parish stage. Free (Overpass), communion-
+    // verified, schema-validated, and published through the real gate. Self-
+    // throttled (~10 min for Overpass fair-use) and bounded; best-effort.
+    if (brain.finalBrain === "python") {
+      try {
+        const { runOsmParishDiscovery } = await import("./parish-osm");
+        const osm = await runOsmParishDiscovery(prisma, { brainActive: true });
+        if (osm.published > 0) {
+          publishedCount += osm.published;
+          idle = false;
+        }
+      } catch {
+        // best-effort — parish discovery must never break the pass
+      }
+    }
+
     await writeAdminWorkerLog(prisma, {
       passId: pass.id,
       category: "WORKER_PASS",
@@ -396,6 +414,18 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     await runCustodyPass(prisma, { passId: pass.id });
   } catch {
     // best-effort — maintenance intelligence must not affect the pass
+  }
+
+  // Reporting pass: record a growth snapshot per content type + the source
+  // coverage scorecard so the Developer Audit reflects live growth, and file
+  // repair plans for any content type that has stalled (keeps pressure on the
+  // types that are behind). Throttled (~hourly) and fail-open. Reporting +
+  // maintenance only — safe to run regardless of brain mode.
+  try {
+    const { maybeRunReportingPass } = await import("./reporting-pass");
+    await maybeRunReportingPass(prisma, { passId: pass.id });
+  } catch {
+    // best-effort — the reporting pass must never affect the pass
   }
 
   // Intelligence Laboratory: throttled, advisory self-evaluation (causal root
