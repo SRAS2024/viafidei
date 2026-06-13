@@ -142,6 +142,10 @@ describe("runStructuredIngest — goal-aware selection", () => {
       CHURCH_DOCUMENT: 50,
       DOCTOR: 37,
       RITE: 20,
+      // The descriptive ingestors are at goal here, so SAINT stays the neediest.
+      DEVOTION: 100,
+      MARIAN_TITLE: 50,
+      SPIRITUAL_PRACTICE: 50,
     };
     const target: Record<string, number> = {
       POPE: 264,
@@ -149,6 +153,9 @@ describe("runStructuredIngest — goal-aware selection", () => {
       CHURCH_DOCUMENT: 200,
       DOCTOR: 37,
       RITE: 24,
+      DEVOTION: 100,
+      MARIAN_TITLE: 50,
+      SPIRITUAL_PRACTICE: 50,
     };
     const prisma = {
       adminWorkerMemory: { findUnique: vi.fn(async () => null), upsert: vi.fn(async () => ({})) },

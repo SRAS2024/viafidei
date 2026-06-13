@@ -53,6 +53,7 @@ describe("guide applicable prayers", () => {
       "our-father",
       "hail-mary",
       "glory-be",
+      "fatima-prayer",
       "salve-regina",
       "prayer-to-saint-michael",
     ]);

@@ -1,17 +1,22 @@
 /**
  * Structured discovery seeder — bridges Wikidata's coverage to the content types
- * that have NO structured ingestor of their own.
+ * that have NO structured ingestor of their own AND whose accuracy rules require
+ * approved sources rather than an encyclopedic abstract: apparitions (a Church
+ * approval status), novenas (verbatim nine-day prayer text), and prayers
+ * (verbatim prayer text). Their text/status can't be safely auto-published from
+ * structured data — but Wikidata DOES know which of them exist and carries their
+ * **authoritative source URLs** — official shrine/confraternity websites (P856)
+ * and "described at URL" references (P973). This seeder pulls those URLs and adds
+ * them to the worker's own candidate queue, tagged with the predicted content
+ * type, so the live extraction pipeline (discovery → fetch → extract →
+ * cross-source verify → strict QA) can build them from the right sources instead
+ * of waiting to stumble across one.
  *
- * A devotion's practice text, a Marian title's theology, and an apparition's
- * approval status can't be safely auto-published from structured data (their
- * accuracy rules require approved sources, not a Wikipedia abstract). But
- * Wikidata DOES know which devotions / Marian titles / apparitions exist, and it
- * carries their **authoritative source URLs** — official shrine/confraternity
- * websites (P856) and "described at URL" references (P973). This seeder pulls
- * those URLs and adds them to the worker's own candidate queue, tagged with the
- * predicted content type, so the live extraction pipeline (discovery → fetch →
- * extract → cross-source verify → strict QA) can build them from the right
- * sources instead of waiting to stumble across one.
+ * The descriptive types (devotion, Marian title, spiritual practice) and the
+ * factual ones (pope, saint, doctor, rite, church document) are NOT seeded here:
+ * each has its own structured ingestor (`ingestors.ts`) that publishes it
+ * directly — the descriptive ones reading the entity's own official source first
+ * and Wikipedia only as a last resort, citing every source for cross-reference.
  *
  * It is DISCOVERY ONLY — it never publishes. Every candidate still passes the
  * full extraction + verification + QA gauntlet before anything goes live, so a
@@ -56,18 +61,6 @@ LIMIT ${limit} OFFSET ${offset}`;
 
 const SEED_QUERIES: SeedQuery[] = [
   {
-    id: "seed-devotions",
-    contentType: "DEVOTION",
-    sparql: seedSparql(`CONTAINS(LCASE(?tl), "devotion")`),
-  },
-  {
-    id: "seed-marian-titles",
-    contentType: "MARIAN_TITLE",
-    sparql: seedSparql(
-      `CONTAINS(LCASE(?tl), "title of mary") || CONTAINS(LCASE(?tl), "marian title") || CONTAINS(LCASE(?tl), "title of the blessed virgin")`,
-    ),
-  },
-  {
     id: "seed-apparitions",
     contentType: "APPARITION",
     sparql: seedSparql(`CONTAINS(LCASE(?tl), "apparition")`),
@@ -82,20 +75,6 @@ const SEED_QUERIES: SeedQuery[] = [
     contentType: "PRAYER",
     sparql: seedSparql(
       `CONTAINS(LCASE(?tl), "catholic prayer") || CONTAINS(LCASE(?tl), "christian prayer") || CONTAINS(LCASE(?tl), "litany")`,
-    ),
-  },
-  {
-    id: "seed-spiritual-practices",
-    contentType: "SPIRITUAL_PRACTICE",
-    sparql: seedSparql(
-      `CONTAINS(LCASE(?tl), "spiritual practice") || CONTAINS(LCASE(?tl), "christian pilgrimage")`,
-    ),
-  },
-  {
-    id: "seed-rites",
-    contentType: "RITE",
-    sparql: seedSparql(
-      `CONTAINS(LCASE(?tl), "catholic rite") || CONTAINS(LCASE(?tl), "liturgical rite") || CONTAINS(LCASE(?tl), "church sui iuris")`,
     ),
   },
 ];
