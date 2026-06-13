@@ -36,6 +36,7 @@ export default async function NovenaDetailPage({ params }: Props) {
         primaryFields={["background", "purpose", "days"]}
         secondaryFields={["duration", "intentions", "intentionTheme", "typicalStartDate"]}
         action={<SaveContentButton contentType="NOVENA" slug={slug} />}
+        linkedPrayers={prayers}
       />
       <GuidePrayers prayers={prayers} />
     </>
