@@ -157,18 +157,24 @@ async function ratingQueue(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingTaskPlanning(prisma: PrismaClient): Promise<HealthRating> {
-  const recent = await prisma.adminWorkerTask.count({
-    where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
-  });
-  const status: HealthStatus = recent > 0 ? "pass" : "warn";
+  // The worker plans its next action every pass through the brain (an
+  // AdminWorkerDecision), not the legacy AdminWorkerTask queue. Count either, so
+  // the check reflects real planning under the current per-pass architecture.
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [decisions, tasks] = await Promise.all([
+    prisma.adminWorkerDecision.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.adminWorkerTask.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+  ]);
+  const planned = decisions + tasks;
+  const status: HealthStatus = planned > 0 ? "pass" : "warn";
   return {
     key: "admin_worker_task_planning",
     label: "Task planning",
     status,
     score: status === "pass" ? 1 : 0.5,
     lastCheckedAt: new Date(),
-    dataSource: "AdminWorkerTask",
-    summary: `${recent} tasks created in last 24h.`,
+    dataSource: "AdminWorkerDecision + AdminWorkerTask",
+    summary: `${planned} work item(s) planned in last 24h (${decisions} brain decision(s), ${tasks} task(s)).`,
   };
 }
 
@@ -372,12 +378,19 @@ async function ratingContentGoals(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingCleanupCustodian(prisma: PrismaClient): Promise<HealthRating> {
-  const recent = await prisma.adminWorkerPass.count({
-    where: {
-      passType: "CLEANUP",
-      startedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-    },
-  });
+  // Custody/cleanup runs every pass inside the autonomous loop (runCustodyPass)
+  // and logs a CLEANUP-category event, rather than starting a separate
+  // CLEANUP-typed pass. Count either signal so the check reflects real cleanup.
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [cleanupPasses, cleanupLogs] = await Promise.all([
+    prisma.adminWorkerPass
+      .count({ where: { passType: "CLEANUP", startedAt: { gte: since } } })
+      .catch(() => 0),
+    prisma.adminWorkerLog
+      .count({ where: { category: "CLEANUP", createdAt: { gte: since } } })
+      .catch(() => 0),
+  ]);
+  const recent = cleanupPasses + cleanupLogs;
   const status: HealthStatus = recent > 0 ? "pass" : "warn";
   return {
     key: "admin_worker_cleanup",
@@ -385,8 +398,8 @@ async function ratingCleanupCustodian(prisma: PrismaClient): Promise<HealthRatin
     status,
     score: status === "pass" ? 1 : 0.5,
     lastCheckedAt: new Date(),
-    dataSource: "AdminWorkerPass",
-    summary: `${recent} cleanup pass(es) in last 7 days.`,
+    dataSource: "AdminWorkerPass + AdminWorkerLog(CLEANUP)",
+    summary: `${recent} cleanup action(s) in last 7 days.`,
   };
 }
 
@@ -451,15 +464,24 @@ async function ratingEmailHealth(): Promise<HealthRating> {
 }
 
 async function ratingClassification(prisma: PrismaClient): Promise<HealthRating> {
-  const count = await prisma.adminWorkerTask.count({ where: { taskType: "CLASSIFY_CONTENT" } });
+  // Classification now happens inline in the discovery/extraction pipeline: each
+  // candidate URL is tagged with a predictedContentType rather than spawning a
+  // CLASSIFY_CONTENT task. Count classified candidates (plus any legacy tasks).
+  const [classified, tasks] = await Promise.all([
+    prisma.candidateSourceUrl
+      .count({ where: { predictedContentType: { not: null } } })
+      .catch(() => 0),
+    prisma.adminWorkerTask.count({ where: { taskType: "CLASSIFY_CONTENT" } }).catch(() => 0),
+  ]);
+  const count = classified + tasks;
   return {
     key: "admin_worker_classification",
     label: "Content classification",
     status: count > 0 ? "pass" : "warn",
     score: count > 0 ? 1 : 0.5,
     lastCheckedAt: new Date(),
-    dataSource: "AdminWorkerTask",
-    summary: `${count} classification tasks recorded.`,
+    dataSource: "CandidateSourceUrl.predictedContentType",
+    summary: `${classified} candidate(s) classified by content type${tasks > 0 ? ` (+${tasks} legacy task(s))` : ""}.`,
   };
 }
 
@@ -847,10 +869,30 @@ async function ratingLastPassTime(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingLastTaskTime(prisma: PrismaClient): Promise<HealthRating> {
-  const recent = await prisma.adminWorkerTask.findFirst({
-    orderBy: { createdAt: "desc" },
-    select: { createdAt: true, taskType: true },
-  });
+  // The worker's most recent unit of planned work is its latest brain decision
+  // (one per pass), not the legacy AdminWorkerTask queue — take whichever is more
+  // recent so this reflects the live per-pass cadence instead of a defunct table.
+  const [lastDecision, lastTask] = await Promise.all([
+    prisma.adminWorkerDecision
+      .findFirst({
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true, chosenAction: true },
+      })
+      .catch(() => null),
+    prisma.adminWorkerTask
+      .findFirst({ orderBy: { createdAt: "desc" }, select: { createdAt: true, taskType: true } })
+      .catch(() => null),
+  ]);
+  const recent =
+    lastDecision && lastTask
+      ? lastDecision.createdAt >= lastTask.createdAt
+        ? { createdAt: lastDecision.createdAt, kind: lastDecision.chosenAction }
+        : { createdAt: lastTask.createdAt, kind: lastTask.taskType }
+      : lastDecision
+        ? { createdAt: lastDecision.createdAt, kind: lastDecision.chosenAction }
+        : lastTask
+          ? { createdAt: lastTask.createdAt, kind: lastTask.taskType }
+          : null;
   const now = new Date();
   const ageMs = recent ? now.getTime() - recent.createdAt.getTime() : Infinity;
   const status: HealthStatus =
@@ -861,10 +903,10 @@ async function ratingLastTaskTime(prisma: PrismaClient): Promise<HealthRating> {
     status,
     score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
     lastCheckedAt: now,
-    dataSource: "AdminWorkerTask.createdAt",
+    dataSource: "AdminWorkerDecision + AdminWorkerTask",
     latestSuccess: recent?.createdAt ?? null,
     summary: recent
-      ? `Last task ${Math.round(ageMs / 60_000)}min ago (type: ${recent.taskType}).`
+      ? `Last planned action ${Math.round(ageMs / 60_000)}min ago (${recent.kind}).`
       : "No tasks recorded yet.",
   };
 }

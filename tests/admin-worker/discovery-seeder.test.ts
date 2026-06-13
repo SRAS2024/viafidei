@@ -1,10 +1,10 @@
 /**
  * The structured discovery seeder bridges Wikidata's coverage to the content
- * types with no structured ingestor (devotion, Marian title, apparition) by
- * enqueueing their authoritative source URLs for the live extraction pipeline.
- * These tests pin: it is discovery-only (routes URLs through the candidate
- * guard, tagged with the predicted content type), bounded + cursor-advancing,
- * and a no-op when disabled.
+ * types with no structured ingestor whose accuracy rules need approved sources
+ * (apparition, novena, prayer) by enqueueing their authoritative source URLs for
+ * the live extraction pipeline. These tests pin: it is discovery-only (routes
+ * URLs through the candidate guard, tagged with the predicted content type),
+ * bounded + cursor-advancing, and a no-op when disabled.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -59,14 +59,14 @@ function makePrisma() {
 
 describe("runDiscoverySeeder", () => {
   it("enqueues authoritative source URLs tagged with the predicted content type", async () => {
-    // First seed (DEVOTION) returns one entity with a website + article; the
-    // other two seeds return nothing.
+    // First seed (APPARITION) returns one entity with a website + article; the
+    // other seeds return nothing.
     mockedSparql
       .mockResolvedValueOnce([
         row({
           x: "http://www.wikidata.org/entity/Q42",
-          site: "https://divinemercy.example",
-          art: "https://en.wikipedia.org/wiki/Divine_Mercy",
+          site: "https://lourdes-france.example",
+          art: "https://en.wikipedia.org/wiki/Our_Lady_of_Lourdes",
         }),
       ])
       .mockResolvedValue([]);
@@ -80,8 +80,8 @@ describe("runDiscoverySeeder", () => {
       url: string;
       predictedContentType: string;
     };
-    expect(firstCall.url).toBe("https://divinemercy.example");
-    expect(firstCall.predictedContentType).toBe("DEVOTION");
+    expect(firstCall.url).toBe("https://lourdes-france.example");
+    expect(firstCall.predictedContentType).toBe("APPARITION");
   });
 
   it("skips entities that carry no source URL", async () => {
@@ -104,19 +104,11 @@ describe("runDiscoverySeeder", () => {
     expect(mockedSparql).not.toHaveBeenCalled();
   });
 
-  it("covers every gap content type (devotion, Marian title, apparition, novena, prayer, spiritual practice, rite)", async () => {
+  it("covers every approved-source gap content type (apparition, novena, prayer)", async () => {
     mockedSparql.mockResolvedValue([]);
     const out = await runDiscoverySeeder(makePrisma(), { force: true });
     expect(Object.keys(out.bySeed).sort()).toEqual(
-      [
-        "seed-apparitions",
-        "seed-devotions",
-        "seed-marian-titles",
-        "seed-novenas",
-        "seed-prayers",
-        "seed-rites",
-        "seed-spiritual-practices",
-      ].sort(),
+      ["seed-apparitions", "seed-novenas", "seed-prayers"].sort(),
     );
   });
 });

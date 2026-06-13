@@ -123,7 +123,7 @@ export function DeveloperAuditButton() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-2 max-h-[min(75vh,32rem)] w-80 overflow-y-auto rounded-lg border border-slate-300 bg-white p-3 text-sm shadow-xl">
+        <div className="absolute left-0 right-auto z-50 mt-2 max-h-[min(75vh,32rem)] w-[min(20rem,calc(100vw-1.5rem))] overflow-y-auto rounded-lg border border-slate-300 bg-white p-3 text-sm shadow-xl sm:left-auto sm:right-0">
           <fieldset className="space-y-1">
             <legend className="mb-1 text-xs uppercase text-ink-soft">Report period</legend>
             {(Object.keys(PERIOD_LABELS) as Period[]).map((p) => (

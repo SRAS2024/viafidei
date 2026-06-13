@@ -1,7 +1,7 @@
 /**
  * Content catalog — the admin worker console's complete list of user-facing
  * content categories, including the view-based ones that are not their own
- * content type (Litanies, Our Lady, Chaplets, Liturgical Calendar, History).
+ * content type (Litanies, Our Lady, Liturgical Calendar, History).
  * Guards that none of these go missing and that counts are computed correctly.
  */
 
@@ -27,7 +27,6 @@ describe("content catalog", () => {
       "parishes",
       "spiritual-life",
       "guides",
-      "chaplets",
       "liturgy",
       "liturgical-calendar",
       "rites",
@@ -73,7 +72,6 @@ describe("content catalog", () => {
     expect(litanies.derived).toBe(true);
     expect(litanies.types).toEqual(["PRAYER"]);
     expect(CATALOG_DERIVED_TYPES).toContain("PRAYER");
-    expect(CATALOG_DERIVED_TYPES).toContain("GUIDE");
     expect(CATALOG_DERIVED_TYPES).toContain("LITURGICAL");
   });
 
@@ -91,9 +89,6 @@ describe("content catalog", () => {
       { contentType: "PRAYER", payload: { prayerType: "litany", title: "Litany of the Saints" } },
       { contentType: "PRAYER", payload: { prayerType: "litany", title: "Litany of Humility" } },
       { contentType: "PRAYER", payload: { prayerType: "general", title: "Our Father" } },
-      // Chaplets (GUIDE kind chaplet)
-      { contentType: "GUIDE", payload: { kind: "chaplet", title: "Divine Mercy Chaplet" } },
-      { contentType: "GUIDE", payload: { kind: "rosary", title: "How to pray the Rosary" } },
       // Liturgical-calendar entries
       { contentType: "LITURGICAL", payload: { kind: "solemnity", title: "Easter" } },
       { contentType: "LITURGICAL", payload: { kind: "glossary_term", title: "Ambo" } },
@@ -105,7 +100,6 @@ describe("content catalog", () => {
     expect(get("saints").count).toBe(46); // direct
     expect(get("our-lady").count).toBe(22); // combined 14 + 8
     expect(get("litanies").count).toBe(2); // derived predicate
-    expect(get("chaplets").count).toBe(1); // derived predicate
     expect(get("liturgical-calendar").count).toBe(1); // derived predicate
     expect(get("history").count).toBe(0); // CHURCH_DOCUMENT not in grouped → 0
   });

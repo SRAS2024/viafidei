@@ -44,9 +44,6 @@ const titleHas = (p: Record<string, unknown>, re: RegExp): boolean =>
 const isLitany = (p: Record<string, unknown>): boolean =>
   p.prayerType === "litany" || titleHas(p, /litany/i);
 
-const isChaplet = (p: Record<string, unknown>): boolean =>
-  p.kind === "chaplet" || titleHas(p, /chaplet|divine mercy/i);
-
 const CALENDAR_KINDS = [
   "feast",
   "solemnity",
@@ -62,7 +59,7 @@ const isCalendarEntry = (p: Record<string, unknown>): boolean =>
  * Every category named on the public site, in the site's display order. This
  * list is what the admin worker console shows, so a missing page here means a
  * missing row in the console. The first fifteen follow the navigation order
- * exactly; Devotions, Novenas, and Chaplets (also real pages) follow.
+ * exactly; Devotions and Novenas (also real pages) follow.
  */
 export const CONTENT_CATALOG: CatalogCategory[] = [
   { key: "prayers", label: "Prayers", page: "/prayers", types: ["PRAYER"], target: 1000 },
@@ -141,16 +138,6 @@ export const CONTENT_CATALOG: CatalogCategory[] = [
   // Also-real pages not named in the primary navigation list.
   { key: "devotions", label: "Devotions", page: "/devotions", types: ["DEVOTION"], target: 100 },
   { key: "novenas", label: "Novenas", page: "/novenas", types: ["NOVENA"], target: 100 },
-  {
-    key: "chaplets",
-    label: "Chaplets (incl. Divine Mercy)",
-    page: "/guides?filter=chaplets",
-    types: ["GUIDE"],
-    target: 50,
-    derived: true,
-    predicate: isChaplet,
-    note: "Guides that are chaplets",
-  },
 ];
 
 /** The content types that need payloads loaded to count a derived category. */

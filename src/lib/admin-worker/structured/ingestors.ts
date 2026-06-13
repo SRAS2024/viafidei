@@ -82,6 +82,27 @@ export function normalizeName(s: string): string {
     .replace(/\s+/g, " ");
 }
 
+/**
+ * Reduce a rite / Church-sui-iuris name to its distinguishing core, dropping the
+ * generic words ("rite", "(Greek) Catholic Church", …) so the structured slug
+ * lines up with the curated convention (`rite-roman`, `rite-byzantine`, …).
+ * This is the dedup safety net: a Wikidata "Byzantine Rite" maps to `rite-byzantine`
+ * and collapses onto the curated entry instead of becoming a second page, while a
+ * genuinely new sui iuris church ("Italo-Albanian") yields a fresh `rite-italo-albanian`.
+ */
+export function riteCoreSlug(label: string): string {
+  const core = label
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(
+      /\b(rite|church|catholic|greek|ge'?ez|byzantine-rite|sui|iuris|eastern|major|archiepiscopal|metropolitan)\b/g,
+      " ",
+    )
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  return slugify(core);
+}
+
 const popeIngestor: StructuredIngestor = {
   contentType: "POPE",
   id: "wikidata-popes",
@@ -513,12 +534,419 @@ LIMIT ${limit} OFFSET ${offset}`,
   },
 };
 
+const riteIngestor: StructuredIngestor = {
+  contentType: "RITE",
+  id: "wikidata-rites",
+  authorityLevel: "TRUSTED_PUBLISHER",
+  // The recognized Catholic rites + the Eastern Catholic Churches sui iuris — a
+  // fixed, factual, low-sensitivity set Wikidata covers well. The RITE schema is
+  // permissive (name + citations; description optional), so a cited Wikipedia
+  // abstract for the narrative is a complete, accurate record. The instance-of
+  // filter requires "catholic"/"sui iuris"/"eastern catholic church" so no
+  // non-Catholic rite is pulled, and a Wikipedia article is required for the
+  // cited description.
+  sparql: (limit, offset) =>
+    `SELECT ?r (SAMPLE(?rLabel) AS ?label) (SAMPLE(?article) AS ?art) (SAMPLE(?website) AS ?site) WHERE {
+  ?r wdt:P31 ?type .
+  ?type rdfs:label ?tl . FILTER(LANG(?tl) = "en")
+  FILTER(CONTAINS(LCASE(?tl), "sui iuris") || CONTAINS(LCASE(?tl), "eastern catholic church") || (CONTAINS(LCASE(?tl), "catholic") && (CONTAINS(LCASE(?tl), "rite") || CONTAINS(LCASE(?tl), "church"))))
+  ?r rdfs:label ?rLabel . FILTER(LANG(?rLabel) = "en")
+  ?article schema:about ?r ; schema:isPartOf <https://en.wikipedia.org/> .
+  OPTIONAL { ?r wdt:P856 ?website . }
+}
+GROUP BY ?r
+ORDER BY ?r
+LIMIT ${limit} OFFSET ${offset}`,
+  discoveredSources(row) {
+    const site = bindingValue(row, "site");
+    return site ? [site] : [];
+  },
+  async map(row) {
+    const entity = bindingValue(row, "r");
+    const label = bindingValue(row, "label");
+    if (!entity || !label) return null;
+    if (/^Q\d+$/.test(label)) return null;
+
+    // The cited descriptive narrative comes verbatim from Wikipedia; a rite with
+    // only a name and no sourced description isn't publishable quality.
+    const article = bindingValue(row, "art");
+    if (!article) return null;
+    const summary = await fetchSummaryForArticleUrl(article);
+    if (!summary || summary.extract.length < 80) return null;
+
+    const core = riteCoreSlug(label);
+    if (!core) return null;
+    const slug = `rite-${core}`;
+
+    const citations = [wikidataEntityUrl(entity), summary.url];
+    const payload: Record<string, unknown> = {
+      slug,
+      title: label,
+      summary: summary.extract,
+      background: summary.extract,
+      citations,
+    };
+
+    return {
+      contentType: "RITE",
+      slug,
+      authorityLevel: "TRUSTED_PUBLISHER",
+      citations,
+      payload,
+    };
+  },
+};
+
+/* ── Multi-source narrative resolution ──────────────────────────────────────
+ * The descriptive content types (devotion, Marian title, spiritual practice)
+ * carry narrative fields whose accuracy rules ask for authoritative sources —
+ * not an encyclopedia. So their ingestors resolve the narrative from MULTIPLE
+ * sources in priority order and cross-reference: the entity's official website
+ * (P856) and "described at URL" (P973) FIRST — read verbatim with the same
+ * conservative document extractor used for Church-document excerpts — and the
+ * Wikipedia abstract only as the LAST resort. Every authoritative URL the entity
+ * carries is cited, so each published record is cross-referenceable against more
+ * than one source. A record with no sourced narrative from ANY source is
+ * skipped, never invented. Network-gated + fail-open like the rest of the engine.
+ */
+
+interface SourcedNarrative {
+  /** Narrative text, verbatim from the winning source. */
+  text: string;
+  /** URL the narrative text came from. */
+  sourceUrl: string;
+  /** Every authoritative URL for the entity (for multi-source citations). */
+  citations: string[];
+  /** True when the only narrative available was the Wikipedia fallback. */
+  wikipediaFallback: boolean;
+}
+
+/** Normalise to a valid URL string, or null when the value isn't one. */
+function validUrl(u: string | undefined | null): string | null {
+  if (!u) return null;
+  try {
+    return new URL(u).toString();
+  } catch {
+    return null;
+  }
+}
+
+/** First sentence(s) of a source text up to ~maxChars, cut on a boundary. */
+export function leadText(text: string, maxChars: number): string {
+  const t = text.trim().replace(/\s+/g, " ");
+  if (t.length <= maxChars) return t;
+  const slice = t.slice(0, maxChars);
+  const stop = Math.max(slice.lastIndexOf(". "), slice.lastIndexOf("? "), slice.lastIndexOf("! "));
+  return stop > 40 ? slice.slice(0, stop + 1) : slice;
+}
+
+/**
+ * Resolve the narrative for a descriptive entity from its row's sources, in
+ * accuracy order: official website → described-at URL → Wikipedia (last). Reads
+ * the authoritative pages verbatim via the document extractor; the Wikipedia
+ * abstract is the final fallback but is always cited (when present) for
+ * cross-reference. Returns null when no source yields enough prose.
+ */
+async function resolveSourcedNarrative(
+  row: SparqlBinding,
+  opts: { minChars?: number } = {},
+): Promise<SourcedNarrative | null> {
+  const minChars = opts.minChars ?? 120;
+  const site = validUrl(bindingValue(row, "site"));
+  const desc = validUrl(bindingValue(row, "desc"));
+  const art = bindingValue(row, "art");
+
+  // 1) Authoritative sources first. fetchDocumentExcerpt is conservative (real
+  //    prose only) and fail-open, so a flaky/empty official page just falls
+  //    through to the next source.
+  let text: string | null = null;
+  let sourceUrl = "";
+  for (const url of [site, desc].filter((u): u is string => Boolean(u))) {
+    const excerpt = await fetchDocumentExcerpt(url).catch(() => null);
+    if (excerpt && excerpt.trim().length >= minChars) {
+      text = excerpt.trim();
+      sourceUrl = url;
+      break;
+    }
+  }
+
+  // 2) Wikipedia — the LAST resort for the narrative, but always read + cite it
+  //    (when present) so the record carries an independent cross-reference.
+  let wikiUrl: string | null = null;
+  if (art) {
+    const summary = await fetchSummaryForArticleUrl(art).catch(() => null);
+    if (summary) {
+      wikiUrl = validUrl(summary.url) ?? validUrl(art);
+      if (!text && summary.extract.trim().length >= minChars) {
+        text = summary.extract.trim();
+        sourceUrl = wikiUrl ?? "";
+      }
+    }
+  }
+
+  if (!text || !sourceUrl) return null;
+
+  const citations: string[] = [];
+  for (const u of [site, desc, wikiUrl].filter((u): u is string => Boolean(u))) {
+    if (!citations.includes(u)) citations.push(u);
+  }
+  return { text, sourceUrl, citations, wikipediaFallback: sourceUrl === wikiUrl };
+}
+
+/** Common SPARQL projection of an entity's authoritative source URLs. */
+function sourcedEntitySources(row: SparqlBinding): string[] {
+  const out: string[] = [];
+  const site = bindingValue(row, "site");
+  const desc = bindingValue(row, "desc");
+  if (site) out.push(site);
+  if (desc) out.push(desc);
+  return out;
+}
+
+/**
+ * Classify a devotion's type from its name + sourced text into the schema's
+ * free-text `devotionType`. Reads only the source text — never invents — and
+ * falls back to the always-valid "Catholic devotion".
+ */
+export function classifyDevotionType(text: string): string {
+  const t = text.toLowerCase();
+  if (/sacred heart/.test(t)) return "Devotion to the Sacred Heart";
+  if (/immaculate heart/.test(t)) return "Devotion to the Immaculate Heart";
+  if (/divine mercy/.test(t)) return "Divine Mercy devotion";
+  if (/holy face/.test(t)) return "Devotion to the Holy Face";
+  if (/precious blood/.test(t)) return "Devotion to the Precious Blood";
+  if (/blessed sacrament|eucharist|adoration|forty hours|corpus christi/.test(t)) {
+    return "Eucharistic devotion";
+  }
+  if (
+    /rosary|scapular|our lady|blessed virgin|\bmary\b|marian|guadalupe|fátima|fatima|lourdes/.test(
+      t,
+    )
+  ) {
+    return "Marian devotion";
+  }
+  if (/\bsaint\b|\bst\.\s/.test(t)) return "Devotion to a saint";
+  return "Catholic devotion";
+}
+
+const devotionIngestor: StructuredIngestor = {
+  contentType: "DEVOTION",
+  id: "wikidata-devotions",
+  authorityLevel: "TRUSTED_PUBLISHER",
+  // Catholic devotions — enumerated by an instance-of label containing
+  // "devotion" (robust to QID drift, like the rite/church-document filters).
+  // The narrative comes from the devotion's official source first and Wikipedia
+  // only as a last resort; both source URLs are cited for cross-reference.
+  sparql: (limit, offset) =>
+    `SELECT ?d (SAMPLE(?dLabel) AS ?label) (GROUP_CONCAT(DISTINCT ?typeLabel; SEPARATOR="||") AS ?types) (SAMPLE(?site) AS ?site) (SAMPLE(?described) AS ?desc) (SAMPLE(?article) AS ?art) WHERE {
+  ?d wdt:P31 ?type .
+  ?type rdfs:label ?typeLabel . FILTER(LANG(?typeLabel) = "en")
+  FILTER(CONTAINS(LCASE(?typeLabel), "devotion"))
+  ?d rdfs:label ?dLabel . FILTER(LANG(?dLabel) = "en")
+  OPTIONAL { ?d wdt:P856 ?site . }
+  OPTIONAL { ?d wdt:P973 ?described . }
+  OPTIONAL { ?article schema:about ?d ; schema:isPartOf <https://en.wikipedia.org/> . }
+}
+GROUP BY ?d
+ORDER BY ?d
+LIMIT ${limit} OFFSET ${offset}`,
+  discoveredSources: sourcedEntitySources,
+  async map(row) {
+    const entity = bindingValue(row, "d");
+    const label = bindingValue(row, "label");
+    if (!entity || !label || /^Q\d+$/.test(label)) return null;
+
+    const narrative = await resolveSourcedNarrative(row);
+    if (!narrative) return null;
+
+    const slug = slugify(label);
+    if (!slug) return null;
+
+    const types = bindingValue(row, "types") ?? "";
+    const citations = [...new Set([wikidataEntityUrl(entity), ...narrative.citations])];
+    const payload: Record<string, unknown> = {
+      slug,
+      title: label,
+      summary: leadText(narrative.text, 280),
+      background: narrative.text,
+      devotionType: classifyDevotionType(`${label} ${types} ${narrative.text}`),
+      practiceInstructions: narrative.text,
+      relatedPrayers: [],
+      relatedSaints: [],
+      citations,
+    };
+    return {
+      contentType: "DEVOTION",
+      slug,
+      authorityLevel: "TRUSTED_PUBLISHER",
+      citations,
+      payload,
+    };
+  },
+};
+
+const marianTitleIngestor: StructuredIngestor = {
+  contentType: "MARIAN_TITLE",
+  id: "wikidata-marian-titles",
+  authorityLevel: "TRUSTED_PUBLISHER",
+  // Titles / invocations of the Blessed Virgin Mary, enumerated by an
+  // instance-of label naming a Marian title. Narrative + cross-reference resolve
+  // exactly as for devotions (official source first, Wikipedia last).
+  sparql: (limit, offset) =>
+    `SELECT ?m (SAMPLE(?mLabel) AS ?label) (SAMPLE(?site) AS ?site) (SAMPLE(?described) AS ?desc) (SAMPLE(?article) AS ?art) WHERE {
+  ?m wdt:P31 ?type .
+  ?type rdfs:label ?typeLabel . FILTER(LANG(?typeLabel) = "en")
+  FILTER(CONTAINS(LCASE(?typeLabel), "title of mary") || CONTAINS(LCASE(?typeLabel), "title of the blessed virgin") || CONTAINS(LCASE(?typeLabel), "marian title") || CONTAINS(LCASE(?typeLabel), "epithet of mary"))
+  ?m rdfs:label ?mLabel . FILTER(LANG(?mLabel) = "en")
+  OPTIONAL { ?m wdt:P856 ?site . }
+  OPTIONAL { ?m wdt:P973 ?described . }
+  OPTIONAL { ?article schema:about ?m ; schema:isPartOf <https://en.wikipedia.org/> . }
+}
+GROUP BY ?m
+ORDER BY ?m
+LIMIT ${limit} OFFSET ${offset}`,
+  discoveredSources: sourcedEntitySources,
+  async map(row) {
+    const entity = bindingValue(row, "m");
+    const label = bindingValue(row, "label");
+    if (!entity || !label || /^Q\d+$/.test(label)) return null;
+
+    const narrative = await resolveSourcedNarrative(row);
+    if (!narrative) return null;
+
+    const slug = slugify(label);
+    if (!slug) return null;
+
+    const citations = [...new Set([wikidataEntityUrl(entity), ...narrative.citations])];
+    const payload: Record<string, unknown> = {
+      slug,
+      title: label,
+      summary: leadText(narrative.text, 280),
+      origin: narrative.text,
+      theologicalSignificance: narrative.text,
+      associatedPrayers: [],
+      citations,
+    };
+    return {
+      contentType: "MARIAN_TITLE",
+      slug,
+      authorityLevel: "TRUSTED_PUBLISHER",
+      citations,
+      payload,
+    };
+  },
+};
+
+type PracticeKind =
+  | "contemplative_prayer"
+  | "lectio_divina"
+  | "examen"
+  | "fasting"
+  | "almsgiving"
+  | "pilgrimage"
+  | "stations_of_the_cross"
+  | "spiritual_direction"
+  | "discernment"
+  | "vocation"
+  | "mortification"
+  | "other";
+
+/**
+ * Map a practice's name + sourced text to the schema's `practiceKind` enum, or
+ * null when it is NOT a recognised Catholic practice — so the ingestor skips it
+ * rather than publish a non-Catholic meditation technique (the schema's explicit
+ * accuracy rule). Ordered most-specific first.
+ */
+export function classifyPracticeKind(text: string): PracticeKind | null {
+  const t = text.toLowerCase();
+  if (/lectio divina/.test(t)) return "lectio_divina";
+  if (/examen|examination of conscience/.test(t)) return "examen";
+  if (/stations of the cross|way of the cross|via crucis/.test(t)) return "stations_of_the_cross";
+  if (/\bfasting\b|\bfast\b|abstinence/.test(t)) return "fasting";
+  if (/almsgiving|\balms\b/.test(t)) return "almsgiving";
+  if (/pilgrimage|\bpilgrim\b/.test(t)) return "pilgrimage";
+  if (/spiritual direction|spiritual director/.test(t)) return "spiritual_direction";
+  if (/\bdiscernment\b/.test(t)) return "discernment";
+  if (
+    /contemplative prayer|contemplation|eucharistic adoration|\badoration\b|mental prayer/.test(t)
+  ) {
+    return "contemplative_prayer";
+  }
+  if (/mortification|\bpenance\b|penitential/.test(t)) return "mortification";
+  if (/\bvocation\b/.test(t)) return "vocation";
+  return null;
+}
+
+const spiritualPracticeIngestor: StructuredIngestor = {
+  contentType: "SPIRITUAL_PRACTICE",
+  id: "wikidata-spiritual-practices",
+  authorityLevel: "TRUSTED_PUBLISHER",
+  // Catholic spiritual practices, enumerated broadly by instance-of label and
+  // then narrowed by `classifyPracticeKind` (an unrecognised practice is
+  // skipped, keeping non-Catholic techniques out). Multi-source narrative as
+  // above; the practice's own approved source is preferred over Wikipedia.
+  sparql: (limit, offset) =>
+    `SELECT ?p (SAMPLE(?pLabel) AS ?label) (SAMPLE(?site) AS ?site) (SAMPLE(?described) AS ?desc) (SAMPLE(?article) AS ?art) WHERE {
+  ?p wdt:P31 ?type .
+  ?type rdfs:label ?typeLabel . FILTER(LANG(?typeLabel) = "en")
+  FILTER(CONTAINS(LCASE(?typeLabel), "spiritual practice") || CONTAINS(LCASE(?typeLabel), "christian practice") || CONTAINS(LCASE(?typeLabel), "ascetical practice") || CONTAINS(LCASE(?typeLabel), "form of prayer"))
+  ?p rdfs:label ?pLabel . FILTER(LANG(?pLabel) = "en")
+  OPTIONAL { ?p wdt:P856 ?site . }
+  OPTIONAL { ?p wdt:P973 ?described . }
+  OPTIONAL { ?article schema:about ?p ; schema:isPartOf <https://en.wikipedia.org/> . }
+}
+GROUP BY ?p
+ORDER BY ?p
+LIMIT ${limit} OFFSET ${offset}`,
+  discoveredSources: sourcedEntitySources,
+  async map(row) {
+    const entity = bindingValue(row, "p");
+    const label = bindingValue(row, "label");
+    if (!entity || !label || /^Q\d+$/.test(label)) return null;
+
+    // summary + instructions both require ≥50 chars, so demand a fuller source.
+    const narrative = await resolveSourcedNarrative(row, { minChars: 140 });
+    if (!narrative) return null;
+
+    const practiceKind = classifyPracticeKind(`${label} ${narrative.text}`);
+    if (!practiceKind) return null;
+
+    const slug = slugify(label);
+    if (!slug) return null;
+
+    const lead = leadText(narrative.text, 300);
+    const summary = lead.length >= 50 ? lead : narrative.text;
+    const citations = [...new Set([wikidataEntityUrl(entity), ...narrative.citations])];
+    const payload: Record<string, unknown> = {
+      slug,
+      title: label,
+      summary,
+      practiceKind,
+      instructions: narrative.text,
+      relatedPrayers: [],
+      relatedSaints: [],
+      citations,
+    };
+    return {
+      contentType: "SPIRITUAL_PRACTICE",
+      slug,
+      authorityLevel: "TRUSTED_PUBLISHER",
+      citations,
+      payload,
+    };
+  },
+};
+
 /** All registered structured ingestors. Extend this to cover more types. */
 export const STRUCTURED_INGESTORS: StructuredIngestor[] = [
   popeIngestor,
   saintIngestor,
   churchDocumentIngestor,
   doctorIngestor,
+  riteIngestor,
+  devotionIngestor,
+  marianTitleIngestor,
+  spiritualPracticeIngestor,
 ];
 
 export function ingestorFor(contentType: string): StructuredIngestor | undefined {
