@@ -55,20 +55,22 @@
   html[data-theme="dark"] {
     color-scheme: dark;
 
-    /* Core surface tokens — remapped to the new sacred-quiet dark palette */
-    --paper: #0a0a0e;
-    --paper-rgb: 10 10 14;
-    --paper-warm-rgb: 17 17 22;
-    --paper-bright: #18181f;
-    --paper-bright-rgb: 24 24 31;
-    --ink: #e8e8ed;
-    --ink-rgb: 232 232 237;
+    /* Core surface tokens — a charcoal-grey background with the site's own
+       off-white (#fbf8f1) for lettering, so the type reads the same warm
+       off-white in dark mode that the page uses in light mode. */
+    --paper: #2e2e2e;
+    --paper-rgb: 46 46 46;
+    --paper-warm-rgb: 52 52 52;
+    --paper-bright: #3a3a3a;
+    --paper-bright-rgb: 58 58 58;
+    --ink: #fbf8f1;
+    --ink-rgb: 251 248 241;
     --ink-deep-rgb: 255 255 255;
-    --ink-soft: #c5c5cb;
-    --ink-soft-rgb: 197 197 203;
-    --ink-faint: #8a8a99;
-    --ink-faint-rgb: 138 138 153;
-    --rule: rgba(255, 255, 255, 0.07);
+    --ink-soft: #ece8df;
+    --ink-soft-rgb: 236 232 223;
+    --ink-faint: #b9b4a8;
+    --ink-faint-rgb: 185 180 168;
+    --rule: rgba(251, 248, 241, 0.1);
 
     /* Semantic action accents lean into the deep liturgical purple in dark mode */
     --action-blue: #5b2d8e;
@@ -84,24 +86,24 @@
     --liturgical-gold-rgb: 182 141 64;
     --liturgical-red-rgb: 224 112 112;
 
-    /* Extended dark-mode design tokens */
-    --bg: #0a0a0e;
-    --bg-secondary: #111116;
-    --bg-modal: #18181f;
+    /* Extended dark-mode design tokens (charcoal surfaces, off-white text) */
+    --bg: #2e2e2e;
+    --bg-secondary: #343434;
+    --bg-modal: #3a3a3a;
 
-    --card-bg: rgba(255, 255, 255, 0.025);
-    --card-bg-hover: rgba(255, 255, 255, 0.05);
-    --surface-soft: rgba(255, 255, 255, 0.02);
-    --surface-subtle: rgba(0, 0, 0, 0.1);
-    --surface-input: rgba(0, 0, 0, 0.18);
-    --surface-code: rgba(0, 0, 0, 0.2);
+    --card-bg: rgba(255, 255, 255, 0.04);
+    --card-bg-hover: rgba(255, 255, 255, 0.07);
+    --surface-soft: rgba(255, 255, 255, 0.03);
+    --surface-subtle: rgba(0, 0, 0, 0.12);
+    --surface-input: rgba(0, 0, 0, 0.22);
+    --surface-code: rgba(0, 0, 0, 0.24);
 
-    --text-main: #e8e8ed;
-    --text-body: rgba(232, 232, 237, 0.92);
-    --text-soft: rgba(232, 232, 237, 0.85);
-    --text-muted: #8a8a99;
-    --text-muted-soft: rgba(138, 138, 153, 0.75);
-    --text-muted-faint: rgba(138, 138, 153, 0.5);
+    --text-main: #fbf8f1;
+    --text-body: rgba(251, 248, 241, 0.92);
+    --text-soft: rgba(251, 248, 241, 0.85);
+    --text-muted: #b9b4a8;
+    --text-muted-soft: rgba(185, 180, 168, 0.75);
+    --text-muted-faint: rgba(185, 180, 168, 0.5);
 
     --border: rgba(255, 255, 255, 0.07);
     --border-card: rgba(255, 255, 255, 0.06);
@@ -245,18 +247,8 @@
     font-weight: 500;
   }
 
-  /* Brand crucifix logo: the sepia sketch shows on the light papyrus theme; a
-     warm gold version shows on the dark theme. Swapped by the site theme
-     attribute (always "light" or "dark"). */
-  .vf-logo-dark {
-    display: none;
-  }
-  html[data-theme="dark"] .vf-logo-light {
-    display: none;
-  }
-  html[data-theme="dark"] .vf-logo-dark {
-    display: inline-block;
-  }
+  /* Brand crucifix logo: the SAME sepia artwork is shown in both themes — its
+     colours are never altered. (No light/dark image swap.) */
 
   .vf-rule {
     height: 1px;
