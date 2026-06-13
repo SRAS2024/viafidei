@@ -12,6 +12,7 @@ import {
   CATALOG_DERIVED_TYPES,
   computeContentCatalog,
 } from "@/lib/content-shared/content-catalog";
+import { DEFAULT_GOAL_SEEDS } from "@/lib/admin-worker/content-goals";
 
 describe("content catalog", () => {
   it("includes every page the user named, including the view-based ones", () => {
@@ -65,6 +66,27 @@ describe("content catalog", () => {
     const sacraments = CONTENT_CATALOG.find((c) => c.key === "sacraments")!;
     expect(sacraments.hardMax).toBe(7);
     expect(CONTENT_CATALOG.filter((c) => c.hardMax != null)).toHaveLength(1);
+  });
+
+  // Drift guard: the console must show the SAME target the growth orchestrator
+  // actually drives toward. A non-view category's target/hardMax must equal the
+  // sum of its types' DEFAULT_GOAL_SEEDS — so e.g. Saints reads /10,000 (the real
+  // goal), never a stale /1,000. Derived VIEW categories keep a curatorial target.
+  it("locks every non-view category's target + hardMax to DEFAULT_GOAL_SEEDS", () => {
+    const seedFor = (t: string) => DEFAULT_GOAL_SEEDS.find((s) => s.contentType === t);
+    for (const cat of CONTENT_CATALOG) {
+      if (cat.derived) continue;
+      const expectedTarget = cat.types.reduce((sum, t) => sum + (seedFor(t)?.targetGoal ?? 0), 0);
+      expect(cat.target, `${cat.key} target must mirror DEFAULT_GOAL_SEEDS`).toBe(expectedTarget);
+
+      const expectedMax = cat.types.reduce<number | null>((acc, t) => {
+        const m = seedFor(t)?.canonicalMax ?? null;
+        return m == null ? acc : (acc ?? 0) + m;
+      }, null);
+      expect(cat.hardMax ?? null, `${cat.key} hardMax must mirror DEFAULT_GOAL_SEEDS`).toBe(
+        expectedMax,
+      );
+    }
   });
 
   it("flags derived (view) categories and lists their base types", () => {
