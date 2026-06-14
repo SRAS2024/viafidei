@@ -159,8 +159,7 @@ function entryDisplayName(entry: CuratedEntry): string {
  */
 async function pickIngestor(prisma: PrismaClient): Promise<StructuredIngestor | undefined> {
   if (STRUCTURED_INGESTORS.length <= 1) return STRUCTURED_INGESTORS[0];
-  let best: StructuredIngestor | undefined;
-  let bestScore = Number.NEGATIVE_INFINITY;
+  const scored: Array<{ ing: StructuredIngestor; score: number; lastUsed: number }> = [];
   for (const ing of STRUCTURED_INGESTORS) {
     const live = await prisma.publishedContent
       .count({ where: { isPublished: true, contentType: ing.contentType } })
@@ -172,12 +171,23 @@ async function pickIngestor(prisma: PrismaClient): Promise<StructuredIngestor | 
     // Gap fraction (1 = nothing yet … 0 = at/over goal). With no target, prefer
     // the emptiest type but keep it just below any real positive gap.
     const score = target > 0 ? Math.max(0, (target - live) / target) : 1 / (live + 1) - 1e-6;
-    if (score > bestScore) {
-      bestScore = score;
-      best = ing;
-    }
+    // Least-recently-used tiebreak: when two ingestors share a content type and
+    // therefore the same gap fraction (e.g. documents + councils, both
+    // CHURCH_DOCUMENT), the one whose cursor was used longer ago wins — so BOTH
+    // get worked over passes instead of the first one always winning.
+    const mem = await prisma.adminWorkerMemory
+      .findUnique({
+        where: {
+          memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: `${CURSOR_PREFIX}${ing.id}` },
+        },
+        select: { lastUsedAt: true },
+      })
+      .catch(() => null);
+    const lastUsed = mem?.lastUsedAt ? new Date(mem.lastUsedAt).getTime() : 0;
+    scored.push({ ing, score, lastUsed });
   }
-  return best ?? STRUCTURED_INGESTORS[0];
+  scored.sort((a, b) => b.score - a.score || a.lastUsed - b.lastUsed);
+  return scored[0]?.ing ?? STRUCTURED_INGESTORS[0];
 }
 
 /** Publish one structured entry through the real gate. Mirrors curated seed. */

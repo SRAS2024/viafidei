@@ -937,11 +937,85 @@ LIMIT ${limit} OFFSET ${offset}`,
   },
 };
 
+const councilIngestor: StructuredIngestor = {
+  contentType: "CHURCH_DOCUMENT",
+  id: "wikidata-councils",
+  authorityLevel: "TRUSTED_PUBLISHER",
+  // The ecumenical councils of the Catholic Church — Nicaea through Vatican II —
+  // as `council_document` records, so the Church-history timeline fills with the
+  // great councils, not just modern encyclicals. The council's inception year
+  // (P571) is the historically certain fact and the timeline sorts on it; when
+  // the source only records year precision the day is a sortable placeholder
+  // (YYYY-01-01), never a fabricated exact date. The narrative is the verbatim,
+  // cited Wikipedia abstract. A separate ingestor (not the document one) so its
+  // own cursor walks the council corpus; the LRU tiebreak in `pickIngestor` lets
+  // both CHURCH_DOCUMENT ingestors run.
+  sparql: (limit, offset) =>
+    `SELECT ?c (SAMPLE(?cLabel) AS ?label) (SAMPLE(?tv) AS ?inception) (SAMPLE(?prec) AS ?precision) (SAMPLE(?article) AS ?art) (SAMPLE(?canonical) AS ?canon) WHERE {
+  ?c wdt:P31 ?type .
+  ?type rdfs:label ?tl . FILTER(LANG(?tl) = "en")
+  FILTER(CONTAINS(LCASE(?tl), "council") && (CONTAINS(LCASE(?tl), "ecumenical") || CONTAINS(LCASE(?tl), "catholic")))
+  ?c rdfs:label ?cLabel . FILTER(LANG(?cLabel) = "en")
+  ?c p:P571 ?incSt . ?incSt psv:P571 ?incNode . ?incNode wikibase:timeValue ?tv ; wikibase:timePrecision ?prec .
+  ?article schema:about ?c ; schema:isPartOf <https://en.wikipedia.org/> .
+  OPTIONAL { ?c wdt:P953 ?canonical . }
+}
+GROUP BY ?c
+ORDER BY ?c
+LIMIT ${limit} OFFSET ${offset}`,
+  async map(row) {
+    const entity = bindingValue(row, "c");
+    const label = bindingValue(row, "label");
+    if (!entity || !label || /^Q\d+$/.test(label)) return null;
+
+    const inception = bindingValue(row, "inception");
+    if (!inception) return null;
+    const precision = Number(bindingValue(row, "precision") ?? "0");
+    const m = inception.match(/^[+-]?(\d{1,4})-(\d{2})-(\d{2})T/);
+    if (!m) return null;
+    const year = m[1].padStart(4, "0");
+    // Day precision (≥11) keeps the real opening date; coarser precision keeps
+    // only the certain year and uses a sortable Jan-1 placeholder.
+    const issuedDate = precision >= 11 ? `${year}-${m[2]}-${m[3]}` : `${year}-01-01`;
+
+    const article = bindingValue(row, "art");
+    if (!article) return null;
+    const summary = await fetchSummaryForArticleUrl(article);
+    if (!summary || summary.extract.length < 100) return null;
+
+    const slug = slugify(label);
+    if (!slug) return null;
+
+    const canonicalUrl = validUrl(bindingValue(row, "canon")) ?? summary.url;
+    const citations = [...new Set([wikidataEntityUrl(entity), summary.url, canonicalUrl])];
+    const payload: Record<string, unknown> = {
+      slug,
+      title: label,
+      documentType: "council_document",
+      issuingAuthority: "Catholic Church",
+      issuedDate,
+      summary: summary.extract,
+      keyThemes: ["Ecumenical council"],
+      canonicalUrl,
+      relatedDocuments: [],
+      citations,
+    };
+    return {
+      contentType: "CHURCH_DOCUMENT",
+      slug,
+      authorityLevel: "TRUSTED_PUBLISHER",
+      citations,
+      payload,
+    };
+  },
+};
+
 /** All registered structured ingestors. Extend this to cover more types. */
 export const STRUCTURED_INGESTORS: StructuredIngestor[] = [
   popeIngestor,
   saintIngestor,
   churchDocumentIngestor,
+  councilIngestor,
   doctorIngestor,
   riteIngestor,
   devotionIngestor,

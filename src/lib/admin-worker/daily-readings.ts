@@ -336,8 +336,14 @@ export async function backfillDailyReadings(
 ): Promise<BackfillResult> {
   const calendar = "roman-ordinary";
   const locale = "en";
-  const start = utcMidnight(opts.from ?? new Date());
-  const days = Math.max(1, opts.days ?? 400);
+  // Default to the FULL liturgical year in BOTH directions: a year back so the
+  // days already elapsed this liturgical year are filled too (not just the
+  // future), plus a year forward. There is exactly one row per
+  // (date, calendar, locale) — a reading that recurs on a later day is never
+  // stored twice. Callers may still pass explicit `from` / `days`.
+  const days = Math.max(1, opts.days ?? 770);
+  const defaultFrom = new Date(utcMidnight(new Date()).getTime() - 365 * 86_400_000);
+  const start = utcMidnight(opts.from ?? defaultFrom);
   const end = new Date(start.getTime() + (days - 1) * 86_400_000);
 
   const existingRows = await prisma.dailyReading
