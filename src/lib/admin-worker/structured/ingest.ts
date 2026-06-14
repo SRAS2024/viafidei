@@ -29,6 +29,7 @@ import { refreshContentGoals, seedContentGoals } from "../content-goals";
 import { runPublishOrchestrator } from "../publish-orchestrator";
 import { writeAdminWorkerLog } from "../logs";
 import { runSparql } from "./wikidata";
+import { structuredNetworkEnabled } from "./http";
 import {
   STRUCTURED_INGESTORS,
   ingestorFor,
@@ -292,6 +293,27 @@ export async function runStructuredIngest(
   const nextOffset = rows.length < batch ? 0 : offset + rows.length;
   if (rows.length === 0) {
     await writeCursor(prisma, ingestor.id, nextOffset, 0, 0);
+    // Fetched nothing. With network ENABLED this is the silent production
+    // failure: the structured source is unreachable (e.g. a network egress
+    // policy that doesn't allow query.wikidata.org), which would otherwise leave
+    // no trace at all — so log the real reason structured content can't grow.
+    if (structuredNetworkEnabled()) {
+      await writeAdminWorkerLog(prisma, {
+        passId: opts.passId,
+        category: "CONTENT_BUILD",
+        severity: "WARN",
+        eventName: "structured_knowledge_ingest",
+        message: `Structured-knowledge ingest (${ingestor.id}): fetched 0 rows — the structured source appears UNREACHABLE. If this persists, the worker's network egress likely does not allow query.wikidata.org / en.wikipedia.org, so structured content cannot grow.`,
+        safeMetadata: {
+          ingestorId: ingestor.id,
+          contentType: ingestor.contentType,
+          fetched: 0,
+          published: 0,
+          sourceUnreachable: true,
+          nextOffset,
+        },
+      }).catch(() => undefined);
+    }
     return out;
   }
 
@@ -358,6 +380,12 @@ export async function runStructuredIngest(
   if (out.published > 0) {
     await seedContentGoals(prisma).catch(() => undefined);
     await refreshContentGoals(prisma).catch(() => undefined);
+  }
+
+  // Steady-state success log. (The "fetched 0 / source unreachable" case is
+  // logged at the early return above; the benign "fetched > 0 but all already
+  // live" case stays unlogged to avoid per-pass noise.)
+  if (out.published > 0) {
     await writeAdminWorkerLog(prisma, {
       passId: opts.passId,
       category: "CONTENT_BUILD",
