@@ -178,4 +178,62 @@ describe("runStructuredIngest — goal-aware selection", () => {
     expect(out.contentType).toBe("SAINT");
     expect(out.ingestorId).toBe("wikidata-saints");
   });
+
+  it("deprioritises a high-gap ingestor that keeps publishing nothing", async () => {
+    process.env[SKIP] = "1";
+    mockedSparql.mockResolvedValue([]);
+    // DEVOTION has the LARGEST goal gap (0.77) but has produced nothing for 10
+    // passes (broken/empty source); SAINT has a smaller gap (0.72) but is
+    // productive. The worker must pick SAINT, not spin on the dead DEVOTION.
+    const live: Record<string, number> = {
+      SAINT: 2780,
+      DEVOTION: 23,
+      POPE: 267,
+      DOCTOR: 37,
+      RITE: 24,
+      CHURCH_DOCUMENT: 200,
+      MARIAN_TITLE: 50,
+      SPIRITUAL_PRACTICE: 50,
+    };
+    const target: Record<string, number> = {
+      SAINT: 10000,
+      DEVOTION: 100,
+      POPE: 267,
+      DOCTOR: 37,
+      RITE: 24,
+      CHURCH_DOCUMENT: 200,
+      MARIAN_TITLE: 50,
+      SPIRITUAL_PRACTICE: 50,
+    };
+    const prisma = {
+      adminWorkerMemory: {
+        findUnique: vi.fn(
+          async (args: { where: { memoryType_memoryKey: { memoryKey: string } } }) => {
+            const id = args.where.memoryType_memoryKey.memoryKey.replace("structured-cursor:", "");
+            const zeroStreak = id === "wikidata-devotions" ? 10 : 0;
+            return { lastUsedAt: null, memoryValue: { offset: 0, zeroStreak } };
+          },
+        ),
+        upsert: vi.fn(async () => ({})),
+      },
+      publishedContent: {
+        count: vi.fn(
+          async (args: { where: { contentType: string } }) => live[args.where.contentType] ?? 0,
+        ),
+        findMany: vi.fn(async () => []),
+      },
+      contentGoal: {
+        findUnique: vi.fn(async (args: { where: { contentType: string } }) => ({
+          desiredTarget: target[args.where.contentType] ?? 0,
+        })),
+      },
+      adminWorkerLog: { create: vi.fn(async () => ({})) },
+    } as unknown as PrismaClient;
+
+    const out = await runStructuredIngest(prisma, {});
+
+    // Without dampening DEVOTION (gap 0.77) would win; dampened to 0.77/11≈0.07
+    // it falls below SAINT (0.72), so the productive ingestor is chosen.
+    expect(out.contentType).toBe("SAINT");
+  });
 });

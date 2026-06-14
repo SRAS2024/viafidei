@@ -112,7 +112,14 @@ async function readCursor(prisma: PrismaClient, id: string): Promise<number> {
   return typeof value?.offset === "number" && value.offset >= 0 ? value.offset : 0;
 }
 
-/** Persist the next offset and accumulate the learning counters. */
+/**
+ * Persist the next offset, accumulate the learning counters, and maintain a
+ * CONSECUTIVE-EMPTY streak: passes in a row where this ingestor published
+ * nothing. The streak resets to 0 on any publish. `pickIngestor` uses it to
+ * rotate AWAY from an ingestor that keeps producing nothing (a broken/timed-out
+ * SPARQL, an unreachable source, or a data-exhausted corpus) so it can never
+ * starve the productive ingestors just because it has the largest goal gap.
+ */
 async function writeCursor(
   prisma: PrismaClient,
   id: string,
@@ -120,21 +127,28 @@ async function writeCursor(
   published: number,
   failed: number,
 ): Promise<void> {
+  const key = `${CURSOR_PREFIX}${id}`;
+  const prev = await prisma.adminWorkerMemory
+    .findUnique({
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: key } },
+      select: { memoryValue: true },
+    })
+    .catch(() => null);
+  const prevStreak = (prev?.memoryValue as { zeroStreak?: number } | null)?.zeroStreak ?? 0;
+  const zeroStreak = published > 0 ? 0 : prevStreak + 1;
   await prisma.adminWorkerMemory
     .upsert({
-      where: {
-        memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: `${CURSOR_PREFIX}${id}` },
-      },
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: key } },
       update: {
-        memoryValue: { offset },
+        memoryValue: { offset, zeroStreak },
         successCount: { increment: published },
         failureCount: { increment: failed },
         lastUsedAt: new Date(),
       },
       create: {
         memoryType: "GENERIC",
-        memoryKey: `${CURSOR_PREFIX}${id}`,
-        memoryValue: { offset },
+        memoryKey: key,
+        memoryValue: { offset, zeroStreak },
         successCount: published,
         failureCount: failed,
         lastUsedAt: new Date(),
@@ -153,10 +167,15 @@ function entryDisplayName(entry: CuratedEntry): string {
 
 /**
  * Pick the ingestor whose content type is furthest from its goal (by gap
- * fraction), so the worker focuses where the headroom actually is instead of
- * re-sweeping a type that has already reached its target. Falls back to
- * fewest-live when goals aren't available. This is the learning lever: as a
- * type fills, its gap shrinks and the worker rotates to the next.
+ * fraction), so the worker focuses where the headroom actually is — but DAMPENED
+ * by recent productivity so it can never get starved. An ingestor that keeps
+ * publishing nothing (broken/timed-out SPARQL, unreachable source, or a
+ * data-exhausted corpus) has its score divided by `1 + consecutiveEmptyPasses`,
+ * so after a few empty passes a high-gap-but-dead ingestor falls below the ones
+ * that ARE producing and the worker rotates to them instead of spinning. A
+ * least-recently-used tiebreak then spreads work across equally-scored ingestors
+ * (e.g. documents + councils, both CHURCH_DOCUMENT). The dampening decays as
+ * soon as an ingestor produces again (its streak resets to 0).
  */
 async function pickIngestor(prisma: PrismaClient): Promise<StructuredIngestor | undefined> {
   if (STRUCTURED_INGESTORS.length <= 1) return STRUCTURED_INGESTORS[0];
@@ -171,20 +190,21 @@ async function pickIngestor(prisma: PrismaClient): Promise<StructuredIngestor | 
     const target = goal?.desiredTarget ?? 0;
     // Gap fraction (1 = nothing yet … 0 = at/over goal). With no target, prefer
     // the emptiest type but keep it just below any real positive gap.
-    const score = target > 0 ? Math.max(0, (target - live) / target) : 1 / (live + 1) - 1e-6;
-    // Least-recently-used tiebreak: when two ingestors share a content type and
-    // therefore the same gap fraction (e.g. documents + councils, both
-    // CHURCH_DOCUMENT), the one whose cursor was used longer ago wins — so BOTH
-    // get worked over passes instead of the first one always winning.
+    const gap = target > 0 ? Math.max(0, (target - live) / target) : 1 / (live + 1) - 1e-6;
     const mem = await prisma.adminWorkerMemory
       .findUnique({
         where: {
           memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: `${CURSOR_PREFIX}${ing.id}` },
         },
-        select: { lastUsedAt: true },
+        select: { lastUsedAt: true, memoryValue: true },
       })
       .catch(() => null);
     const lastUsed = mem?.lastUsedAt ? new Date(mem.lastUsedAt).getTime() : 0;
+    const zeroStreak = (mem?.memoryValue as { zeroStreak?: number } | null)?.zeroStreak ?? 0;
+    // Productivity dampening: a fresh/productive ingestor (streak 0) keeps its
+    // full gap score; one that has produced nothing for N passes is divided by
+    // N + 1, so it can't monopolise the worker just because its goal gap is big.
+    const score = gap / (1 + Math.max(0, zeroStreak));
     scored.push({ ing, score, lastUsed });
   }
   scored.sort((a, b) => b.score - a.score || a.lastUsed - b.lastUsed);
