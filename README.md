@@ -896,9 +896,14 @@ falling back to a TypeScript final brain. Concretely:
   `why-no-growth.ts` walks the chain top-to-bottom on every Command
   Center render — returning the _first blocked stage_, the exact
   table + count, the most recent failure, the next automatic repair,
-  the last brain decision, and the next planned decision. The
-  Why-No-Growth panel appears on the Command Center and is included
-  in every Developer Audit PDF.
+  the last brain decision, and the next planned decision. It checks
+  the **worker-level gates first** — `WORKER_NOT_RUNNING` (stale
+  heartbeat), `WORKER_PAUSED`, and `BRAIN_DEGRADED` (the Python final
+  brain in safe-degraded mode) — because all three turn off _every_
+  publishing path (curated, structured, AND the fetcher chain), so they
+  are the real reason a worker that was growing suddenly plateaus and the
+  pipeline walk underneath can't see them. The Why-No-Growth panel appears
+  on the Command Center and is included in every Developer Audit PDF.
 
 - **Creates Developer Audit PDFs** for the last 24 hours / 7 days /
   30 days. All declared sections are actually rendered: table of
