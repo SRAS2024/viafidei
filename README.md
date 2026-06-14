@@ -594,7 +594,11 @@ falling back to a TypeScript final brain. Concretely:
   self-expansion, and whose records carry a **verbatim, cited opening excerpt**
   pulled from the canonical document text itself —
   [`document-excerpt.ts`](src/lib/admin-worker/structured/document-excerpt.ts),
-  zero fabrication surface), **DOCTOR** (Doctors of the Church), **RITE** (the
+  zero fabrication surface) — and the **ecumenical councils** (Nicaea → Vatican II)
+  as `council_document` records that fill the Church-history timeline with the
+  great councils, keeping each council's historically certain inception year (a
+  Jan-1 placeholder only when the source records mere year precision, never a
+  fabricated exact day), **DOCTOR** (Doctors of the Church), **RITE** (the
   recognized rites + the Eastern Catholic Churches sui iuris), and the
   **descriptive types** — **DEVOTION**, **MARIAN_TITLE**, and **SPIRITUAL_PRACTICE**
   — which resolve their narrative from **multiple sources, cross-referenced**: the
@@ -1691,9 +1695,13 @@ ground-truth for every type through the real Publish Orchestrator — the
 first-pass content source, gated on `PYTHON_FINAL_BRAIN_ACTIVE`),
 **structured-knowledge ingest** (keyless Wikidata + cross-referenced
 authoritative sources — popes, saints, doctors, rites, church documents,
-devotions, Marian titles, and spiritual practices — published through the same
-gate, growing each open type toward its target), **daily readings** refresh +
-year-ahead backfill, **prayer Latin/Greek coverage** (the
+**ecumenical councils**, devotions, Marian titles, and spiritual practices —
+published through the same gate, growing each open type toward its target;
+two CHURCH_DOCUMENT ingestors, documents + councils, alternate via a
+least-recently-used tiebreak so both keep advancing), **daily readings** refresh +
+**full-liturgical-year** backfill (a year back so elapsed days are filled too,
+plus a year forward; one row per day, so a repeated reading is never stored
+twice), **prayer Latin/Greek coverage** (the
 deterministic liturgical translation engine builds + publishes any missing
 prayer translation, routing only genuine gaps to review), **learning** (memory +
 source reputation + confidence calibration + capability scores), **self-model +
