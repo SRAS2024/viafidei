@@ -28,6 +28,9 @@ import type { PrismaClient } from "@prisma/client";
 
 export type GrowthBlockerStage =
   | "NONE"
+  | "WORKER_NOT_RUNNING"
+  | "WORKER_PAUSED"
+  | "BRAIN_DEGRADED"
   | "NO_CONTENT_GOALS"
   | "NO_APPROVED_SOURCES"
   | "NO_DISCOVERY_RUN"
@@ -98,6 +101,85 @@ export async function diagnoseWhyNoGrowth(
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
+  // 0. The worker itself must be RUNNING, UNPAUSED, and in ACTIVE (non-degraded)
+  //    brain mode. Every publishing path — curated ingest, structured ingest,
+  //    AND the fetcher chain below — is gated on all three, so when one of them
+  //    is the cause, the pipeline walk underneath can't see it and would mislead.
+  //    These are the most common reason a worker that WAS growing suddenly
+  //    plateaus, so they are checked first. (Skipped only when a minimal test
+  //    harness stubs a prisma without the worker-state model; production always
+  //    has it.)
+  const stateModel = (prisma as { adminWorkerState?: { findFirst?: unknown } }).adminWorkerState;
+  if (typeof stateModel?.findFirst === "function") {
+    const state = await prisma.adminWorkerState.findFirst().catch(() => null);
+    const heartbeatAgeMs = state?.lastHeartbeatAt
+      ? Date.now() - new Date(state.lastHeartbeatAt).getTime()
+      : null;
+    const workerLive = heartbeatAgeMs != null && heartbeatAgeMs <= 10 * 60_000;
+    checks.push({
+      stage: "WORKER_NOT_RUNNING",
+      label: "Worker process running (recent heartbeat)",
+      ok: workerLive,
+      count: heartbeatAgeMs == null ? 0 : Math.round(heartbeatAgeMs / 1000),
+      detail: state?.lastHeartbeatAt
+        ? `Last heartbeat ${Math.round((heartbeatAgeMs ?? 0) / 1000)}s ago.`
+        : "No heartbeat has ever been recorded.",
+    });
+    if (!workerLive) {
+      blocker = "WORKER_NOT_RUNNING";
+      blockerExplanation =
+        "The Admin Worker process is not running (no heartbeat in the last 10 minutes). Nothing — curated, structured, or fetched — can publish until the worker service is up.";
+      exactTable = "AdminWorkerState.lastHeartbeatAt";
+      nextRepair = "Start / restart the Admin Worker service (the worker container).";
+    }
+
+    if (blocker === "NONE" && state?.paused) {
+      checks.push({
+        stage: "WORKER_PAUSED",
+        label: "Worker not paused",
+        ok: false,
+        count: 0,
+        detail: state.pausedReason ? `Paused: ${state.pausedReason}` : "Paused by an operator.",
+      });
+      blocker = "WORKER_PAUSED";
+      blockerExplanation = `The worker is paused by an operator${
+        state.pausedReason ? ` (${state.pausedReason})` : ""
+      }. Content publishing stays off until it is resumed (security defense still runs).`;
+      exactTable = "AdminWorkerState.paused";
+      nextRepair = "Resume the worker (Command Center → Resume).";
+    }
+
+    if (blocker === "NONE") {
+      const latestBrain = await prisma.adminWorkerLog
+        .findFirst({
+          where: { eventName: "brain_decided" },
+          orderBy: { createdAt: "desc" },
+          select: { safeMetadata: true },
+        })
+        .catch(() => null);
+      const finalBrain =
+        (latestBrain?.safeMetadata as { finalBrain?: string } | null)?.finalBrain ?? null;
+      const degraded = finalBrain != null && finalBrain !== "python";
+      checks.push({
+        stage: "BRAIN_DEGRADED",
+        label: "Python final brain active (publishing allowed)",
+        ok: !degraded,
+        count: 0,
+        detail: finalBrain
+          ? `Latest finalBrain = ${finalBrain}.`
+          : "No brain decision recorded yet.",
+      });
+      if (degraded) {
+        blocker = "BRAIN_DEGRADED";
+        blockerExplanation =
+          "The worker is live but the Python final brain is unavailable, so it is in safe-degraded mode: it runs diagnostics / security / maintenance but does NOT publish new content. Every publishing path (curated, structured, fetched) is gated on the brain being active.";
+        exactTable = "AdminWorkerLog(eventName=brain_decided).safeMetadata.finalBrain";
+        nextRepair =
+          "Restore the Python intelligence service so the final brain returns to active (PYTHON_FINAL_BRAIN_ACTIVE).";
+      }
+    }
+  }
+
   // 1. Content goals.
   const goalCount = await prisma.contentGoal.count().catch(() => 0);
   checks.push({
@@ -107,7 +189,7 @@ export async function diagnoseWhyNoGrowth(
     count: goalCount,
     detail: `${goalCount} ContentGoal row(s).`,
   });
-  if (goalCount === 0) {
+  if (blocker === "NONE" && goalCount === 0) {
     blocker = "NO_CONTENT_GOALS";
     blockerExplanation = "No ContentGoal rows. Call seedContentGoals() before running the worker.";
     exactTable = "ContentGoal";
