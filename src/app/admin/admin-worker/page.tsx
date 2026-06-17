@@ -352,7 +352,11 @@ export default async function AdminWorkerPage() {
             <Field label="Last failure">{ago(state.lastFailedAt)}</Field>
             <Field label="Blocker">{state.currentBlocker ?? "none"}</Field>
             <Field label="Recovery">{state.recoveryAction ?? "—"}</Field>
-            <Field label="Review queue">{pendingReview} pending</Field>
+            <Field label="Review queue">
+              <Link className="text-indigo-600 underline" href="/admin/admin-worker/review">
+                {pendingReview} pending — review
+              </Link>
+            </Field>
           </dl>
         </Card>
 
@@ -365,6 +369,7 @@ export default async function AdminWorkerPage() {
           </div>
           <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1.5 text-xs">
             {[
+              ["/admin/admin-worker/review", "Review queue"],
               ["/admin/admin-worker/logs", "Worker logs"],
               ["/admin/admin-worker/pipeline", "Pipeline map"],
               ["/admin/admin-worker/reasoning", "Reasoning"],

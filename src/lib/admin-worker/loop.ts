@@ -271,6 +271,19 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       }
     }
 
+    // Human-review auto-resolve: clear the review items the worker can safely
+    // decide on its own (a redundant/moot translation proposal, or one the
+    // canonical engine can now resolve authentically) so the queue doesn't pile
+    // up waiting for a human. Genuine machine-only proposals are left for review.
+    if (brain.finalBrain === "python") {
+      try {
+        const { runReviewAutoResolve } = await import("./human-review");
+        await runReviewAutoResolve(prisma);
+      } catch {
+        // best-effort — review auto-resolve must never break the pass
+      }
+    }
+
     // Reconcile the pope catalogue so the count reflects the real line of Roman
     // Pontiffs exactly — unpublish antipope rows the earlier ingestor published,
     // and collapse duplicate rows for the same pontiff. Cheap + idempotent.
