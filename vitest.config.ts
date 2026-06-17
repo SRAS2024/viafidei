@@ -28,6 +28,11 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Integration tests all share ONE Postgres, and several mutate shared rows
+    // (content goals, published content). Run their files SEQUENTIALLY so they
+    // can't race each other — e.g. one test seeding all content goals while
+    // another asserts on a hand-seeded subset. Unit tests stay fully parallel.
+    fileParallelism: !runIntegration,
     setupFiles: runIntegration
       ? ["tests/setup.ts", "tests/setup.dom.ts", "tests/setup.integration.ts"]
       : ["tests/setup.ts", "tests/setup.dom.ts"],
