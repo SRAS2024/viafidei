@@ -26,7 +26,7 @@ jobs:
       DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
       SESSION_SECRET: ci-build-only-32-character-placeholder-value
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -119,7 +119,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -141,7 +141,7 @@ jobs:
     # advisory ever needs to become a hard gate.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -175,7 +175,7 @@ jobs:
       TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/viafidei_test
       SESSION_SECRET: integration-test-only-secret-must-be-32-characters
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -210,7 +210,7 @@ jobs:
       E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/viafidei_e2e_test
       SESSION_SECRET: e2e-test-only-secret-must-be-32-characters-long-x
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
