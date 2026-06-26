@@ -1,12 +1,18 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublishedDetail } from "@/components/ui";
 import { SaveContentButton } from "@/components/profile";
-import { getPublishedBySlug } from "@/lib/data/published";
+import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  return buildPublishedMetadata(await getPublishedBySlug("SAINT", slug));
+}
 
 export default async function SaintDetailPage({ params }: Props) {
   const { slug } = await params;

@@ -1,11 +1,23 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { PublishedDetail } from "@/components/ui";
-import { getPublishedBySlug } from "@/lib/data/published";
+import {
+  getPublishedBySlug,
+  getAnyPublishedBySlug,
+  buildPublishedMetadata,
+} from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  return buildPublishedMetadata(
+    await getAnyPublishedBySlug(slug, ["LITURGICAL", "CHURCH_DOCUMENT"]),
+  );
+}
 
 export default async function LiturgyHistoryDetailPage({ params }: Props) {
   const { slug } = await params;

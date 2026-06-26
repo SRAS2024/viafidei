@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import {
@@ -7,12 +8,17 @@ import {
   type GuidePrayerData,
 } from "@/components/ui";
 import { isRosaryGuide } from "@/lib/content-shared/rosary";
-import { getPublishedBySlug } from "@/lib/data/published";
+import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  return buildPublishedMetadata(await getPublishedBySlug("GUIDE", slug));
+}
 
 export default async function GuideDetailPage({ params }: Props) {
   const { slug } = await params;

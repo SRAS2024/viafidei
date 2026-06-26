@@ -8,6 +8,7 @@ import { toDisclosureItems } from "@/lib/content-shared/structured-content";
 
 import { Disclosure } from "./Disclosure";
 import { PrayerLinkedText } from "./PrayerLinkedText";
+import { ShareButton } from "./ShareButton";
 import type { GuidePrayerData } from "./GuidePrayers";
 
 export interface PublishedDetailProps {
@@ -128,6 +129,7 @@ const META_FIELDS = new Set([
   "accuracyRules",
   "claimed",
   "dropdownMetadata",
+  "machineTranslated",
   "version",
   "status",
   "id",
@@ -161,7 +163,6 @@ export function PublishedDetail({
 }: PublishedDetailProps) {
   const payload = item.payload;
   const summary = payload.summary as string | undefined;
-  const citations = (payload.citations as string[] | undefined) ?? [];
 
   const keysShown = new Set<string>();
   const renderField = (key: string) => {
@@ -217,7 +218,10 @@ export function PublishedDetail({
               <p className="mt-1 font-serif text-base italic text-ink-soft">{item.subtitle}</p>
             ) : null}
           </div>
-          {action ? <div className="shrink-0 pt-1">{action}</div> : null}
+          <div className="flex shrink-0 items-center gap-2 pt-1">
+            <ShareButton title={item.title} text={summary ?? item.title} />
+            {action}
+          </div>
         </div>
         {summary && <p className="mt-3 font-serif leading-relaxed text-ink-soft">{summary}</p>}
       </header>
@@ -225,24 +229,6 @@ export function PublishedDetail({
       {primary.map(renderField)}
       {secondary.map(renderField)}
       {remaining.map(renderField)}
-
-      {citations.length > 0 && (
-        <footer className="mt-12 border-t border-slate-200 pt-4 text-xs text-ink-faint">
-          <p className="font-medium uppercase tracking-wide">Approved sources</p>
-          <ul className="mt-2 space-y-1">
-            {citations.map((url) => (
-              <li key={url}>
-                <a href={url} className="break-all underline">
-                  {url}
-                </a>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-[10px] uppercase tracking-wide">
-            Authority level: {item.authorityLevel} · v{item.version}
-          </p>
-        </footer>
-      )}
     </article>
   );
 }

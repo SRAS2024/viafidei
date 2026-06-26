@@ -1,8 +1,10 @@
 /**
  * Prayer translation backfill: fills Latin + Greek on published prayers using
  * the layered engine. These tests pin the keyless canonical path (authentic
- * received text written directly to the payload) and the machine path being
- * review-gated by default (a proposal is filed, not written).
+ * received text written directly to the payload) and both machine modes — filled
+ * directly (the default, to complete coverage) or routed to review when the
+ * operator opts out (TRANSLATION_AUTOPUBLISH_MACHINE=0). The flag is mocked here
+ * so each mode is exercised explicitly.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -135,5 +137,8 @@ describe("runPrayerTranslationBackfill", () => {
 
     expect(out.filledMachine).toBe(2);
     expect(update).toHaveBeenCalledTimes(1);
+    // Machine-filled fields are recorded as provenance for later curation.
+    const data = (update.mock.calls[0][0] as { data: { payload: Record<string, unknown> } }).data;
+    expect(data.payload.machineTranslated).toEqual(expect.arrayContaining(["latin", "greek"]));
   });
 });

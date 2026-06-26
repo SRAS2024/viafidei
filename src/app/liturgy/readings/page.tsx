@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { ShareButton } from "@/components/ui";
 import { prisma } from "@/lib/db/client";
 import {
   buildReadingFraming,
@@ -93,6 +94,12 @@ export default async function DailyReadingsPage({
           {framing.isJubileeYear ? " · Jubilee Year" : ""}
         </p>
         <p className="mt-1 font-serif text-xs text-ink-faint">Liturgical colour: {framing.color}</p>
+        <div className="mt-4 flex justify-center">
+          <ShareButton
+            title={`${framing.celebration} — ${longDate(date)}`}
+            text={`Today's Mass readings — ${framing.celebration}`}
+          />
+        </div>
         <div className="vf-rule mx-auto my-7" />
       </div>
 

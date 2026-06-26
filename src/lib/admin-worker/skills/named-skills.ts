@@ -287,10 +287,10 @@ export const namedSkills: CertifiedSkill[] = [
           // configured, so this adds no cost in the default deployment.
           const proposal =
             english && !result?.accurate ? await proposeMachineTranslation(english, t.code) : null;
-          // Auto-publish a machine draft ONLY when the operator has explicitly
-          // opted in (TRANSLATION_AUTOPUBLISH_MACHINE). The safe default routes
-          // every machine draft to human review first — sacred text must not be
-          // mistranslated into a live page.
+          // Fill the gap with the machine draft so the prayer ends up with both
+          // Latin and Greek (the authentic corpus is always tried first). This is
+          // the default; set TRANSLATION_AUTOPUBLISH_MACHINE=0 to instead route
+          // every machine draft to human review before it goes live.
           if (proposal && autoPublishMachine) {
             writes[t.field] = proposal.text;
             machinePublished += 1;
