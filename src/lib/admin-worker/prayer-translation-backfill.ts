@@ -11,9 +11,11 @@
  *   1. CANONICAL (keyless, always on): `translatePrayerLanguages` — authentic
  *      received liturgical text only. Auto-filled; this can never mistranslate.
  *   2. AI engine, then Google Translate (`proposeMachineTranslation`): the
- *      explicitly-authorised fallback for what the corpus can't resolve. Machine
- *      output is review-gated by default (filed to the human-review queue) and
- *      only written directly when TRANSLATION_AUTOPUBLISH_MACHINE is set.
+ *      authorised fallback for what the corpus can't resolve, so every prayer
+ *      and litany ends up with both Latin and Greek. Machine output is
+ *      auto-published by default to fill the gap (recorded with machine
+ *      provenance); set TRANSLATION_AUTOPUBLISH_MACHINE=0 to route machine drafts
+ *      to human review instead.
  *
  * Bounded + self-throttled + cursor-walked across passes, so it works through the
  * whole catalogue without re-doing finished prayers. Fail-open.
@@ -186,6 +188,7 @@ export async function runPrayerTranslationBackfill(
     out.scanned += 1;
 
     const update: Record<string, string> = {};
+    const machineFilled: Array<"latin" | "greek"> = [];
 
     // 1) Canonical (keyless, accurate-only).
     const canonical = translatePrayerLanguages(english);
@@ -207,7 +210,9 @@ export async function runPrayerTranslationBackfill(
         const proposal = await proposeMachineTranslation(english, lang).catch(() => null);
         if (!proposal) continue;
         if (autoMachine) {
-          update[lang === "la" ? "latin" : "greek"] = proposal.text;
+          const field = lang === "la" ? "latin" : "greek";
+          update[field] = proposal.text;
+          machineFilled.push(field);
           out.filledMachine += 1;
         } else if (
           await fileTranslationReview(prisma, r.title, lang, proposal.text, proposal.provider)
@@ -218,10 +223,22 @@ export async function runPrayerTranslationBackfill(
     }
 
     if (Object.keys(update).length > 0) {
+      // Record which fields were machine-filled (never the authentic-corpus
+      // ones), so a curator can later find + verify them. Kept out of the public
+      // render via the PublishedDetail meta-field filter.
+      const priorMachine = Array.isArray(p.machineTranslated)
+        ? (p.machineTranslated as unknown[]).filter((v): v is string => typeof v === "string")
+        : [];
       // Recompute the freshness marker — contentChecksum is derived from the
       // payload, and cache verification confirms the stored marker matches the
       // live row. Updating the payload without it would fail verification.
-      const newPayload = { ...p, ...update };
+      const newPayload = {
+        ...p,
+        ...update,
+        ...(machineFilled.length > 0
+          ? { machineTranslated: Array.from(new Set([...priorMachine, ...machineFilled])) }
+          : {}),
+      };
       await prisma.publishedContent
         .update({
           where: { id: r.id },

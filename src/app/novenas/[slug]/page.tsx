@@ -1,13 +1,19 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { SaveContentButton } from "@/components/profile";
 import { PublishedDetail, GuidePrayers, type GuidePrayerData } from "@/components/ui";
-import { getPublishedBySlug } from "@/lib/data/published";
+import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  return buildPublishedMetadata(await getPublishedBySlug("NOVENA", slug));
+}
 
 // The prayers prayed every day of a novena (opening / closing). Shown at the
 // bottom as dropdowns with the universal English / Latin / Greek toggle, so the

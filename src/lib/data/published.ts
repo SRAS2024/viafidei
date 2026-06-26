@@ -6,6 +6,7 @@
  * other path from the database to the public site.
  */
 
+import type { Metadata } from "next";
 import type { ChecklistContentType } from "@prisma/client";
 
 import { prisma } from "@/lib/db/client";
@@ -67,6 +68,48 @@ export async function getPublishedBySlug(
     where: { contentType, slug, isPublished: true },
   });
   return deserialize(row);
+}
+
+/**
+ * Resolve a published item by slug across several candidate content types, in
+ * order — used by the routes that serve more than one type from one path
+ * (Our Lady = Marian title or apparition; Liturgy & History = liturgical entry
+ * or church document). Returns the first match, or null.
+ */
+export async function getAnyPublishedBySlug(
+  slug: string,
+  contentTypes: ChecklistContentType[],
+): Promise<PublishedItem | null> {
+  for (const contentType of contentTypes) {
+    const item = await getPublishedBySlug(contentType, slug);
+    if (item) return item;
+  }
+  return null;
+}
+
+/**
+ * Build per-page share/SEO metadata for a published content card, so that a
+ * shared link unfurls with the card's own title and summary (and the site
+ * favicon + Open Graph defaults inherited from the root layout) rather than the
+ * generic site title. Returns empty metadata for a missing item, letting the
+ * page fall through to notFound().
+ */
+export function buildPublishedMetadata(item: PublishedItem | null): Metadata {
+  if (!item) return {};
+  const rawSummary =
+    typeof item.payload.summary === "string" && item.payload.summary.trim()
+      ? item.payload.summary.trim()
+      : item.subtitle || item.title;
+  const description = rawSummary.length > 200 ? `${rawSummary.slice(0, 197)}…` : rawSummary;
+  return {
+    title: item.title,
+    description,
+    openGraph: {
+      title: `${item.title} · Via Fidei`,
+      description,
+      type: "article",
+    },
+  };
 }
 
 export async function listAllPublishedSlugs(contentType: ChecklistContentType): Promise<string[]> {

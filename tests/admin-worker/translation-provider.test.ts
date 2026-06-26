@@ -1,8 +1,10 @@
 /**
- * The machine-translation provider seam is the explicitly-authorized fallback
- * for prayers the deterministic corpus cannot render. These tests pin its
- * SAFE DEFAULTS: with nothing configured it is disabled and proposes nothing,
- * and machine output is never auto-published unless the operator opts in.
+ * The machine-translation provider seam is the authorized fallback for prayers
+ * the deterministic corpus cannot render. These tests pin its behaviour: with
+ * nothing configured it is disabled and proposes nothing, and — per the site
+ * owner's directive that every prayer/litany carry both Latin and Greek — a
+ * configured machine translation is auto-published by default (opt-out), filling
+ * the gap the authentic corpus leaves.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -16,6 +18,9 @@ const KEYS = [
   "TRANSLATION_AI_API_URL",
   "TRANSLATION_AI_API_KEY",
   "TRANSLATION_AI_MODEL",
+  "EXTRACTION_AI_API_URL",
+  "EXTRACTION_AI_API_KEY",
+  "EXTRACTION_AI_MODEL",
   "GOOGLE_TRANSLATE_API_KEY",
   "TRANSLATION_AUTOPUBLISH_MACHINE",
 ] as const;
@@ -49,16 +54,20 @@ describe("translation provider (machine fallback)", () => {
     expect(machineTranslationEnabled()).toBe(true);
   });
 
-  it("never auto-publishes machine output by default", () => {
-    expect(autoPublishMachineTranslations()).toBe(false);
-  });
-
-  it("auto-publishes machine output only when explicitly opted in", () => {
+  it("auto-publishes machine output by default to fill the gap (opt-out)", () => {
+    expect(autoPublishMachineTranslations()).toBe(true);
     process.env.TRANSLATION_AUTOPUBLISH_MACHINE = "1";
     expect(autoPublishMachineTranslations()).toBe(true);
     process.env.TRANSLATION_AUTOPUBLISH_MACHINE = "true";
     expect(autoPublishMachineTranslations()).toBe(true);
+  });
+
+  it("routes machine drafts to review only when explicitly opted out", () => {
     process.env.TRANSLATION_AUTOPUBLISH_MACHINE = "0";
+    expect(autoPublishMachineTranslations()).toBe(false);
+    process.env.TRANSLATION_AUTOPUBLISH_MACHINE = "false";
+    expect(autoPublishMachineTranslations()).toBe(false);
+    process.env.TRANSLATION_AUTOPUBLISH_MACHINE = "off";
     expect(autoPublishMachineTranslations()).toBe(false);
   });
 });

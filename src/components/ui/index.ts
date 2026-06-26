@@ -6,6 +6,7 @@ export { ExpandableTimelineEvent } from "./ExpandableTimelineEvent";
 export { Pagination } from "./Pagination";
 export { OfficialSourceLink } from "./OfficialSourceLink";
 export { PublishedDetail } from "./PublishedDetail";
+export { ShareButton } from "./ShareButton";
 export { PublishedList } from "./PublishedList";
 export { PaginatedGrid } from "./PaginatedGrid";
 export { Disclosure } from "./Disclosure";

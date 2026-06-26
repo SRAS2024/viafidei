@@ -1,13 +1,19 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { SaveContentButton } from "@/components/profile";
 import { PublishedDetail } from "@/components/ui";
 import { MapsAddressLink } from "@/components/ui/MapsAddressLink";
-import { getPublishedBySlug } from "@/lib/data/published";
+import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  return buildPublishedMetadata(await getPublishedBySlug("PARISH", slug));
+}
 
 export default async function ParishDetailPage({ params }: Props) {
   const { slug } = await params;

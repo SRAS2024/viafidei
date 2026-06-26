@@ -9,16 +9,19 @@
  * on an environment variable the operator sets. With no key configured the
  * fallback is simply disabled and every call returns `null`.
  *
- * Accuracy mandate ("it is vital that it doesn't mistranslate"): machine output
- * is NEVER auto-published by default. `proposeMachineTranslation` returns the
- * text flagged `source:"machine"` so the worker routes it to the human review
- * queue as a *proposed* draft for a curator to confirm against an authoritative
- * source before it ever goes live. An operator who explicitly sets
- * `TRANSLATION_AUTOPUBLISH_MACHINE=1` accepts the risk of publishing machine
- * translations directly; otherwise a human confirms the sacred text first.
+ * Accuracy mandate ("it is vital that it doesn't mistranslate"): the authentic
+ * corpus (`prayer-translator`) is ALWAYS tried first and is the only source that
+ * can be mistaken for received text. This fallback runs only for what the corpus
+ * cannot resolve, and its output is always flagged `source:"machine"` so it is
+ * auditable and can be corrected. Per the site owner's directive — every prayer
+ * and litany should carry BOTH a Latin and a Greek text — a configured machine
+ * translation is auto-published by default to fill the remaining gap; set
+ * `TRANSLATION_AUTOPUBLISH_MACHINE=0` (or `false`/`off`) to instead route machine
+ * drafts to human review before they go live.
  *
  * Two providers, tried in order of configuration:
- *   1. A generic AI chat endpoint (`TRANSLATION_AI_API_URL`, OpenAI-compatible)
+ *   1. A generic AI chat endpoint (`TRANSLATION_AI_API_URL`, OpenAI-compatible,
+ *      falling back to the `EXTRACTION_AI_*` provider so one AI key powers both)
  *      — preferred, because it can be prompted for *ecclesiastical* Latin and
  *      *liturgical / Koine* Greek rather than the modern register a generic MT
  *      engine targets.
@@ -53,21 +56,43 @@ export function machineTranslationEnabled(): boolean {
 }
 
 /**
- * Whether the operator has explicitly opted into publishing machine
- * translations without human review. Defaults to FALSE — the safe default that
- * honours the accuracy mandate. Only "1" / "true" turns it on.
+ * Whether the worker may publish a machine (AI / Google) translation directly to
+ * fill a Latin/Greek gap the authentic corpus can't resolve.
+ *
+ * Per the site owner's directive — every prayer and litany should end up with
+ * both a Latin and a Greek text — this defaults to ON (opt-out). The authentic
+ * corpus is always tried first; only the genuine remainder is machine-filled,
+ * recorded with `source:"machine"` provenance so it stays auditable. Set
+ * `TRANSLATION_AUTOPUBLISH_MACHINE=0` (or `false`/`off`/`no`) to instead route
+ * machine drafts to human review before they go live.
  */
 export function autoPublishMachineTranslations(): boolean {
   const v = (process.env.TRANSLATION_AUTOPUBLISH_MACHINE ?? "").trim().toLowerCase();
-  return v === "1" || v === "true";
+  return !(v === "0" || v === "false" || v === "off" || v === "no");
 }
 
 function aiConfig(): { url: string; key: string; model: string } | null {
-  const url = (process.env.TRANSLATION_AI_API_URL ?? "").trim();
-  const key = (process.env.TRANSLATION_AI_API_KEY ?? "").trim();
+  // Prefer the dedicated translation config (it can be steered to the
+  // liturgical register), but fall back to the EXTRACTION_AI_* provider so a
+  // single AI key configured under either name powers translation too — the
+  // mirror of extraction-provider, which already falls back to TRANSLATION_AI_*.
+  const url = (
+    process.env.TRANSLATION_AI_API_URL ??
+    process.env.EXTRACTION_AI_API_URL ??
+    ""
+  ).trim();
+  const key = (
+    process.env.TRANSLATION_AI_API_KEY ??
+    process.env.EXTRACTION_AI_API_KEY ??
+    ""
+  ).trim();
   if (!url || !key) return null;
-  const model = (process.env.TRANSLATION_AI_MODEL ?? "gpt-4o-mini").trim() || "gpt-4o-mini";
-  return { url, key, model };
+  const model = (
+    process.env.TRANSLATION_AI_MODEL ??
+    process.env.EXTRACTION_AI_MODEL ??
+    "gpt-4o-mini"
+  ).trim();
+  return { url, key, model: model || "gpt-4o-mini" };
 }
 
 function googleKey(): string | null {

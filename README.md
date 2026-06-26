@@ -261,9 +261,9 @@ Optional environment variables:
 | `ADMIN_WORKER_ARCHIVE_FALLBACK`                     | Keyless Internet Archive (Wayback Machine) fetch fallback — when a live fetch 404s, errors, or hits a login wall, the worker serves the most recent archived snapshot of that exact URL instead of parking the artifact in repair (`finalUrl` honestly shows web.archive.org). On by default; set `0`/`false`/`off` to disable                                                                                                                                                                                                                                                                                                                                     |
 | `ADMIN_WORKER_DISCOVERY_SEEDER`                     | Keyless structured discovery seeder — queries Wikidata for apparitions / novenas / prayers & litanies (the types whose verbatim or approval-status content needs an approved source, not an abstract) and enqueues their authoritative source URLs (official websites, reference URLs) for the live extraction pipeline, so the content types with no structured ingestor still get fed authoritative sources. Devotions, Marian titles, and spiritual practices now have their own keyless ingestors and are no longer seeded here. Discovery only (every candidate still passes extraction + verification + QA). On by default; set `0`/`false`/`off` to disable |
 | `LITURGICAL_CALENDAR_API_URL`                       | Override the Liturgical Calendar API endpoint (default: the public litcal General Roman Calendar, US adaptation). Any endpoint returning the litcal `{ litcal: [...] }` shape works                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `GOOGLE_TRANSLATE_API_KEY`                          | Enables the Google Translate fallback for prayer Latin/Greek the curated corpus can't resolve (review-gated by default)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `TRANSLATION_AI_API_URL` / `_API_KEY` / `_MODEL`    | Optional OpenAI-compatible AI translation provider (preferred over Google for the liturgical register; review-gated by default)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `TRANSLATION_AUTOPUBLISH_MACHINE`                   | `1`/`true` to auto-publish machine-translation drafts without human review (default off — drafts go to review)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `GOOGLE_TRANSLATE_API_KEY`                          | Enables the Google Translate fallback for prayer/litany Latin/Greek the curated corpus can't resolve                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `TRANSLATION_AI_API_URL` / `_API_KEY` / `_MODEL`    | Optional OpenAI-compatible AI translation provider (preferred over Google for the liturgical register). Reuses the `EXTRACTION_AI_*` provider when unset (and vice-versa), so one AI key powers both translation and extraction                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `TRANSLATION_AUTOPUBLISH_MACHINE`                   | Machine-translation drafts **auto-publish by default** so every prayer and litany ends up with both Latin and Greek (the authentic corpus is always tried first; machine fills carry `machineTranslated` provenance for later curation). Set `0`/`false`/`off` to instead route machine drafts to human review before they go live                                                                                                                                                                                                                                                                                                                                 |
 | `EXTRACTION_AI_API_URL` / `_API_KEY` / `_MODEL`     | Optional OpenAI-compatible AI provider for content extraction + single-source verification. Removes the publish ceiling: when the deterministic extractors leave required fields missing, the AI fills ONLY what the page text supports (never invents); and when a top-authority source's independent cross-checks are merely unreachable (not disagreeing), the AI confirms the sensitive values against that source's own text so the artifact can verify. Falls back to the `TRANSLATION_AI_*` config when unset. No-op when neither is set; accuracy is still enforced by the content schema, cross-source verification, and strict QA                        |
 
 ---
@@ -1829,11 +1829,13 @@ request):
 - **Security + maintenance** (`security-skills.ts`, `named-skills.ts`):
   `run_security_defense` plus database / brain / public-site / admin-surface
   health checks, stale-job cleanup, repair-plan closure, capability-matrix
-  refresh, and **`ensure_prayer_translations`** — which builds + publishes the
-  Latin/Greek for every published prayer via the deterministic liturgical
-  translation engine (`runMaintenance` runs it through the certified runtime each
-  pass; gaps with no authentic form route to human review). Most are allowed in
-  safe degraded mode.
+  refresh, and **`ensure_prayer_translations`** — which gives every published
+  prayer and litany both Latin and Greek via the deterministic liturgical
+  translation engine first, then the AI/Google fallback for the remainder
+  (`runMaintenance` runs it through the certified runtime each pass; the machine
+  fill auto-publishes by default with `machineTranslated` provenance, or routes to
+  review when `TRANSLATION_AUTOPUBLISH_MACHINE=0`). Most are allowed in safe
+  degraded mode.
 
 **Content subtitles** are generated, stored, and rendered: a deterministic
 `generateContentSubtitle` produces an accurate type/subtype-aware subtitle
@@ -1964,35 +1966,70 @@ the embedded sub-prayers). It reports honest coverage and **never fabricates**:
 when no authentic received form is derivable it emits nothing and returns the
 unresolved lines, rather than guessing declensions or inventing a sacred text.
 
-For the long tail the corpus can't resolve, an **explicitly-authorized
-machine-translation fallback** is available
-([`admin-worker/translation-provider.ts`](src/lib/admin-worker/translation-provider.ts)):
-a pluggable Google Translate / OpenAI-compatible AI provider, gated on an env var
-(no key → disabled). Because accuracy is paramount for sacred text, machine
-output is **never auto-published by default** — the worker attaches the machine
-draft to a `HumanReviewQueue` task for a curator to confirm against an
-authoritative source. An operator may set `TRANSLATION_AUTOPUBLISH_MACHINE=1` to
-accept direct publishing of machine drafts at their own risk.
+**Every prayer and litany ends up with both Latin and Greek.** Per the site
+owner's directive, the worker uses the official/received text first and, for the
+long tail the corpus can't resolve, fills the remaining gap with a **machine
+translation** so no prayer or litany is left without a Latin or Greek text. The
+fallback
+([`admin-worker/translation-provider.ts`](src/lib/admin-worker/translation-provider.ts))
+is a pluggable Google Translate / OpenAI-compatible AI provider (the AI endpoint
+is preferred — it can be steered to the ecclesiastical/liturgical register — and
+a single AI key configured under either `TRANSLATION_AI_*` or `EXTRACTION_AI_*`
+powers both). The authentic corpus is **always tried first** and is the only
+source that can be mistaken for received text; machine fills are recorded with
+`source:"machine"` / a `machineTranslated` payload marker so they stay auditable
+and a curator can later verify or correct them. Machine drafts **auto-publish by
+default** to complete coverage; set `TRANSLATION_AUTOPUBLISH_MACHINE=0` to instead
+route them to the `HumanReviewQueue` for confirmation before they go live. When
+no translation provider is configured, the authentic corpus still covers
+everything it can and the genuine remainder is surfaced for review — the worker
+never stalls and never silently drops a gap.
 
-The engine is wired into the worker two ways. The **Publish Orchestrator**
-auto-fills the Latin (and Greek where it exists) it can build on **every** prayer
-publish, so a prayer ships with its language toggle already populated "as if it
-had it". The **`ensure_prayer_translations`** maintenance skill backfills
-**already-published** prayers and litanies each maintenance pass (guides inherit
-coverage from the prayers they reference): the dispatcher's `runMaintenance` runs
-it through the **certified skill runtime** (ledger + verify), it writes accurate
-corpus output into the payload when the Python final brain is active (full
-autonomy), and for any genuine gap it routes to review — with the machine draft
-attached when the fallback is configured. Latin therefore covers the whole
-canonical corpus + composites; Greek covers the texts with an authentic received
-Greek form, and the rest route to human review — sacred texts are never
-machine-guessed onto a live page.
+The engine is wired into the worker three ways, all running autonomously:
+
+- The **Publish Orchestrator** auto-fills the authentic Latin (and Greek where it
+  exists) on **every** prayer publish, so a prayer ships with its language toggle
+  already populated "as if it had it".
+- The **`runPrayerTranslationBackfill`** pass runs on **every loop pass**
+  (throttled ~hourly, cursor-walked across the whole catalogue so it never
+  re-does finished prayers and never gets stuck): authentic corpus first, then the
+  machine fallback (auto-filled by default, or routed to review when opted out).
+  Covers litanies (published as `PRAYER` with `prayerType:"litany"`) and both
+  languages.
+- The **`ensure_prayer_translations`** maintenance skill backfills
+  **already-published** prayers and litanies each maintenance pass (guides inherit
+  coverage from the prayers they reference) through the **certified skill runtime**
+  (ledger + verify).
+
+Latin covers the whole canonical corpus + composites; Greek covers the authentic
+received forms first and is then completed by the configured translation
+provider — sacred texts are never guessed onto a live page without that machine
+provenance recorded for review.
 
 **Guide prayers.** Every guide (Rosary, Divine Mercy Chaplet, Confession, …)
 lists its applicable prayers at the bottom in the order they are prayed, each a
 **dropdown** (`GuidePrayers` + `Disclosure`) so the full text is readily
 available, with **one universal Latin/Greek toggle** that switches every prayer
 at once (defaulting to the vernacular when neither is selected).
+
+**Sharing.** Every content card carries a **Share** control
+([`ui/ShareButton.tsx`](src/components/ui/ShareButton.tsx)) — a hand-drawn
+box-with-upward-arrow share glyph (stroked in the same sketched style as the
+crucifix favicon) to the left of the word "Share", placed beside the Save
+control in the card header (and centred under the title on the daily-readings
+page). On a device with the Web Share API it opens the native share sheet; on
+everything else it copies the page link and briefly confirms "Link copied". It
+shares the current card — no account required. Each public detail page also
+exports `generateMetadata` (via `buildPublishedMetadata`) so a shared link
+unfurls with that card's own title and summary, alongside the site favicon and
+Open Graph defaults from the root layout.
+
+**Source attribution.** Content cards no longer print an "Approved sources" /
+"Sources" citation list at the bottom — the worker's verification provenance
+lives in the admin surfaces (checklist, artifacts, audit), not on the reader
+page. The **one exception is the daily-readings page**, which keeps its modest
+"Source: …" link (the authoritative liturgical source for that day's readings),
+so a reader can always go to the official text.
 
 **Category filters.** Content-rich tabs split their items into the Church's
 natural groupings via URL-driven filter chips (`?filter=…`, the shared

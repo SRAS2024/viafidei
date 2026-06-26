@@ -1,11 +1,17 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { PublishedDetail } from "@/components/ui";
-import { getPublishedBySlug } from "@/lib/data/published";
+import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  return buildPublishedMetadata(await getPublishedBySlug("SPIRITUAL_PRACTICE", slug));
+}
 
 export default async function SpiritualLifeDetailPage({ params }: Props) {
   const { slug } = await params;
