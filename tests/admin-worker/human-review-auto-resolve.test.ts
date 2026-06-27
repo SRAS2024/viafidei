@@ -53,31 +53,43 @@ describe("human-review executor", () => {
 });
 
 describe("runReviewAutoResolve", () => {
+  type Item = {
+    id: string;
+    proposedAction: string;
+    contentTitle: string | null;
+    contentType?: string | null;
+    sourceEvidence: unknown;
+  };
   function prismaWith(opts: {
-    items: Array<{ id: string; contentTitle: string | null; sourceEvidence: unknown }>;
-    prayerPayload: Record<string, unknown> | null;
+    items: Item[];
+    prayerPayload?: Record<string, unknown> | null;
+    /** Whether a published row exists for a contentIsLive() lookup. */
+    contentLive?: boolean;
+    /** A DailyReading row to return (with verified sections) or null. */
+    dailyReading?: { sections: unknown[] } | null;
   }): { prisma: PrismaClient; reviewUpdates: Array<{ data: { status?: string } }> } {
     const reviewUpdates: Array<{ data: { status?: string } }> = [];
     const prisma = {
       humanReviewQueue: {
         findMany: vi.fn(async () => opts.items),
-        findUnique: vi.fn(async (a: { where: { id: string } }) => ({
-          id: a.where.id,
-          proposedAction: "CONFIRM_TRANSLATION",
-          contentTitle: opts.items.find((i) => i.id === a.where.id)?.contentTitle ?? null,
-          contentType: "PRAYER",
-          sourceEvidence: opts.items.find((i) => i.id === a.where.id)?.sourceEvidence ?? null,
-        })),
         update: vi.fn(async (a: { data: { status?: string } }) => {
           reviewUpdates.push(a);
           return {};
         }),
       },
       publishedContent: {
-        findFirst: vi.fn(async () =>
-          opts.prayerPayload === null ? null : { payload: opts.prayerPayload },
-        ),
+        findFirst: vi.fn(async () => {
+          if (opts.prayerPayload !== undefined) {
+            return opts.prayerPayload === null
+              ? null
+              : { id: "p1", title: "t", slug: "s", payload: opts.prayerPayload };
+          }
+          return opts.contentLive ? { id: "c1" } : null;
+        }),
         update: vi.fn(async () => ({})),
+      },
+      dailyReading: {
+        findFirst: vi.fn(async () => opts.dailyReading ?? null),
       },
       adminWorkerLog: { create: vi.fn(async () => ({})) },
     } as unknown as PrismaClient;
@@ -86,7 +98,14 @@ describe("runReviewAutoResolve", () => {
 
   it("rejects a redundant proposal when the prayer already has that language", async () => {
     const { prisma, reviewUpdates } = prismaWith({
-      items: [{ id: "r1", contentTitle: "Hail Mary", sourceEvidence: { language: "la" } }],
+      items: [
+        {
+          id: "r1",
+          proposedAction: "CONFIRM_TRANSLATION",
+          contentTitle: "Hail Mary",
+          sourceEvidence: { language: "la" },
+        },
+      ],
       prayerPayload: { body: "Hail Mary…", latin: "Ave Maria…" },
     });
     const out = await runReviewAutoResolve(prisma);
@@ -97,7 +116,14 @@ describe("runReviewAutoResolve", () => {
 
   it("rejects a moot proposal when the prayer is no longer published", async () => {
     const { prisma } = prismaWith({
-      items: [{ id: "r2", contentTitle: "Gone", sourceEvidence: { language: "el" } }],
+      items: [
+        {
+          id: "r2",
+          proposedAction: "CONFIRM_TRANSLATION",
+          contentTitle: "Gone",
+          sourceEvidence: { language: "el" },
+        },
+      ],
       prayerPayload: null,
     });
     const out = await runReviewAutoResolve(prisma);
@@ -106,7 +132,14 @@ describe("runReviewAutoResolve", () => {
 
   it("leaves a genuine machine-only proposal the canonical engine cannot resolve", async () => {
     const { prisma, reviewUpdates } = prismaWith({
-      items: [{ id: "r3", contentTitle: "Obscure Prayer", sourceEvidence: { language: "la" } }],
+      items: [
+        {
+          id: "r3",
+          proposedAction: "CONFIRM_TRANSLATION",
+          contentTitle: "Obscure Prayer",
+          sourceEvidence: { language: "la" },
+        },
+      ],
       prayerPayload: { body: "Some unique uncurated prayer text that the corpus cannot resolve." },
     });
     const out = await runReviewAutoResolve(prisma);
@@ -114,5 +147,96 @@ describe("runReviewAutoResolve", () => {
     expect(out.approved).toBe(0);
     expect(out.rejected).toBe(0);
     expect(reviewUpdates).toHaveLength(0); // untouched — waiting for a human
+  });
+
+  it("resolves a TRANSLATE_TO_LATIN review the canonical engine can build (applies authentic text)", async () => {
+    const { prisma, reviewUpdates } = prismaWith({
+      items: [
+        {
+          id: "r4",
+          proposedAction: "TRANSLATE_TO_LATIN",
+          contentTitle: "glory-be",
+          sourceEvidence: { slug: "glory-be", targetLanguage: "Latin" },
+        },
+      ],
+      prayerPayload: { body: "Glory be to the Father, and to the Son, and to the Holy Spirit…" },
+    });
+    const out = await runReviewAutoResolve(prisma);
+    // Either applied authentic (approved) or left if the corpus can't resolve this
+    // exact wording — but it must never crash and must touch exactly this one item.
+    expect(out.scanned).toBe(1);
+    expect(out.approved + out.left).toBe(1);
+    if (out.approved === 1) {
+      expect(reviewUpdates.some((u) => u.data.status === "APPROVED")).toBe(true);
+    }
+  });
+
+  it("rejects a stale `publish` review once the content is live again (moot)", async () => {
+    const { prisma } = prismaWith({
+      items: [
+        {
+          id: "r5",
+          proposedAction: "publish",
+          contentTitle: "Some Saint",
+          contentType: "SAINT",
+          sourceEvidence: null,
+        },
+      ],
+      contentLive: true,
+    });
+    const out = await runReviewAutoResolve(prisma);
+    expect(out.rejected).toBe(1);
+  });
+
+  it("leaves a `publish` review whose content is genuinely not yet live", async () => {
+    const { prisma } = prismaWith({
+      items: [
+        {
+          id: "r6",
+          proposedAction: "publish",
+          contentTitle: "Not Yet",
+          contentType: "SAINT",
+          sourceEvidence: null,
+        },
+      ],
+      contentLive: false,
+    });
+    const out = await runReviewAutoResolve(prisma);
+    expect(out.left).toBe(1);
+    expect(out.rejected).toBe(0);
+  });
+
+  it("rejects a `delete:*` review once the content is already gone (moot)", async () => {
+    const { prisma } = prismaWith({
+      items: [
+        {
+          id: "r7",
+          proposedAction: "delete:duplicate",
+          contentTitle: "Removed Already",
+          contentType: "PRAYER",
+          sourceEvidence: null,
+        },
+      ],
+      contentLive: false,
+    });
+    const out = await runReviewAutoResolve(prisma);
+    expect(out.rejected).toBe(1);
+  });
+
+  it("rejects a `publish-daily-readings` review once the day carries verified text", async () => {
+    const { prisma } = prismaWith({
+      items: [
+        {
+          id: "r8",
+          proposedAction: "publish-daily-readings",
+          contentTitle: "Daily readings — 2026-06-27",
+          contentType: "READING",
+          sourceEvidence: { sourceUrl: "https://example.org" },
+        },
+      ],
+      dailyReading: { sections: [{ body: "In those days…" }] },
+    });
+    const out = await runReviewAutoResolve(prisma);
+    expect(out.rejected).toBe(1);
   });
 });

@@ -902,8 +902,32 @@ falling back to a TypeScript final brain. Concretely:
   brain in safe-degraded mode) — because all three turn off _every_
   publishing path (curated, structured, AND the fetcher chain), so they
   are the real reason a worker that was growing suddenly plateaus and the
-  pipeline walk underneath can't see them. The Why-No-Growth panel appears
-  on the Command Center and is included in every Developer Audit PDF.
+  pipeline walk underneath can't see them. When the blocker is a stage a missing
+  **outward capability** explains (no candidates to fetch, fetches failing on
+  unapproved hosts, extraction unable to complete required fields, validation
+  sources unreachable, publish gated on evidence), it appends the **exact env /
+  network remediation** ([`capability-gaps.ts`](src/lib/admin-worker/capability-gaps.ts)):
+  e.g. _"set `EXTRACTION_AI_API_URL` + `EXTRACTION_AI_API_KEY`"_ or _"set
+  `ADMIN_WORKER_OPEN_INTERNET=1`"_. The Why-No-Growth panel appears on the
+  Command Center and is included in every Developer Audit PDF.
+
+- **Recognises stuckness and acts on it — not just logs it.** Every pass the
+  Python brain runs `detect_stuckness` (action/repair loops + no-growth). When it
+  fires, the worker now takes **real corrective action** before asking for help
+  ([`mission-control.ts`](src/lib/admin-worker/mission-control.ts) →
+  `runStucknessPass`): it runs an aggressive **review-queue auto-resolve** sweep
+  (so a pile-up of safely-resolvable items is never what holds growth), diagnoses
+  the missing **growth capability**, and files a high-priority developer request
+  whose detail names the precise remediation (the env var / network to enable) —
+  the honest version of "figure out a resolution on its own", since the worker
+  cannot grant itself an API key or open a firewall. The **review auto-resolve**
+  ([`human-review.ts`](src/lib/admin-worker/human-review.ts) →
+  `runReviewAutoResolve`) drains every kind of item it can decide safely: it
+  applies the authentic Latin/Greek the canonical engine can build, and rejects
+  as moot/redundant any translation, `publish`, `PUBLISH_PARISH`,
+  `delete:*`, `investigate_post_publish_failure`, or `publish-daily-readings`
+  proposal whose content is already live (or already gone, or now verified) —
+  leaving only genuine human judgements for a person.
 
 - **Creates Developer Audit PDFs** for the last 24 hours / 7 days /
   30 days. All declared sections are actually rendered: table of
