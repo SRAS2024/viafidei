@@ -104,6 +104,12 @@ export async function fileReview(
   verdict: CommunionVerdict,
   note: string,
 ): Promise<boolean> {
+  // Full autonomy (default): the worker does not queue an ambiguous parish for a
+  // person. A parish whose communion-with-Rome status isn't clearly positive is
+  // simply NOT published (the safe decision) — never queued. Only
+  // ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1 routes it to a human.
+  const { requireHumanReview } = await import("./policy");
+  if (!requireHumanReview()) return false;
   const existing = await prisma.humanReviewQueue
     .findFirst({
       where: { status: "PENDING", proposedAction: "PUBLISH_PARISH", contentTitle: slug },

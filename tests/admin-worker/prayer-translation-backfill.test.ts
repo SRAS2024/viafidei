@@ -30,13 +30,20 @@ const mockedEnabled = vi.mocked(machineTranslationEnabled);
 const mockedAuto = vi.mocked(autoPublishMachineTranslations);
 const mockedPropose = vi.mocked(proposeMachineTranslation);
 
+let savedReviewEnv: string | undefined;
 beforeEach(() => {
   mockedEnabled.mockReturnValue(false);
   mockedAuto.mockReturnValue(false);
   mockedPropose.mockReset();
   mockedPropose.mockResolvedValue(null);
+  savedReviewEnv = process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW;
+  delete process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW; // default: fully autonomous
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  if (savedReviewEnv === undefined) delete process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW;
+  else process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = savedReviewEnv;
+});
 
 // Three stock segments that all resolve to authentic Latin + Greek.
 const KYRIE = "Lord, have mercy.\nChrist, have mercy.\nLord, have mercy.";
@@ -88,7 +95,34 @@ describe("runPrayerTranslationBackfill", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("routes a machine proposal to review (does not write it) by default", async () => {
+  it("in full autonomy (default) does NOT queue a machine proposal — leaves the gap unfilled, no review", async () => {
+    mockedEnabled.mockReturnValue(true);
+    mockedAuto.mockReturnValue(false); // autopublish off
+    mockedPropose.mockResolvedValue({
+      text: "Oratio ignota",
+      source: "machine",
+      provider: "ai",
+      accurate: false,
+    });
+    const { prisma, update, create } = makePrisma([
+      {
+        id: "p2",
+        title: "Obscure Prayer",
+        slug: "obscure-prayer",
+        payload: { body: "An entirely novel prayer text here." },
+      },
+    ]);
+
+    const out = await runPrayerTranslationBackfill(prisma, { force: true });
+
+    expect(out.filledCanonical).toBe(0);
+    expect(out.routedToReview).toBe(0); // never queued — fully autonomous
+    expect(create).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("routes a machine proposal to review ONLY when human review is required", async () => {
+    process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = "1";
     mockedEnabled.mockReturnValue(true);
     mockedAuto.mockReturnValue(false);
     mockedPropose.mockResolvedValue({
@@ -97,10 +131,9 @@ describe("runPrayerTranslationBackfill", () => {
       provider: "ai",
       accurate: false,
     });
-    // A body the canonical engine cannot resolve.
     const { prisma, update, create } = makePrisma([
       {
-        id: "p2",
+        id: "p2b",
         title: "Obscure Prayer",
         slug: "obscure-prayer",
         payload: { body: "An entirely novel prayer text here." },

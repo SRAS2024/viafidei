@@ -9,6 +9,7 @@
 
 import { defend, type DefendInput } from "../security-defender";
 import { redesignHomepage } from "../homepage-mutator";
+import { requireHumanReview } from "../policy";
 import { translatePrayer } from "../prayer-translator";
 import { autoPublishMachineTranslations, proposeMachineTranslation } from "../translation-provider";
 import { makeOpSkill } from "./skill-helpers";
@@ -296,6 +297,11 @@ export const namedSkills: CertifiedSkill[] = [
             machinePublished += 1;
             continue;
           }
+          // Full autonomy (default): the worker does NOT queue a translation gap
+          // for a person. The prayer keeps the languages it has; the backfill
+          // fills the rest on its own once a translation provider is configured.
+          // Only ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1 routes the gap to review.
+          if (!requireHumanReview()) continue;
           // Otherwise route to review with the English source, the unresolved
           // lines, and (when available) the machine draft for the curator to
           // confirm against an authoritative source rather than write anew.

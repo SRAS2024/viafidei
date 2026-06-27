@@ -78,6 +78,12 @@ async function ensureReviewTask(
 ): Promise<boolean> {
   const contentTitle = `Daily readings — ${iso}`;
   try {
+    // Full autonomy (default): the worker does not queue a day's readings for a
+    // person. Until the text is verifiable the page already shows the liturgical
+    // framing + the official source link (never fabricated text), so no human is
+    // needed. Only ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1 files it for review.
+    const { requireHumanReview } = await import("./policy");
+    if (!requireHumanReview()) return false;
     const existing = await prisma.humanReviewQueue.findFirst({
       where: { status: "PENDING", contentType: "READING", contentTitle },
       select: { id: true },

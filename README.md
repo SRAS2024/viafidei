@@ -265,6 +265,7 @@ Optional environment variables:
 | `TRANSLATION_AI_API_URL` / `_API_KEY` / `_MODEL`    | Optional OpenAI-compatible AI translation provider (preferred over Google for the liturgical register). Reuses the `EXTRACTION_AI_*` provider when unset (and vice-versa), so one AI key powers both translation and extraction                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `TRANSLATION_AUTOPUBLISH_MACHINE`                   | Machine-translation drafts **auto-publish by default** so every prayer and litany ends up with both Latin and Greek (the authentic corpus is always tried first; machine fills carry `machineTranslated` provenance for later curation). Set `0`/`false`/`off` to instead route machine drafts to human review before they go live                                                                                                                                                                                                                                                                                                                                 |
 | `EXTRACTION_AI_API_URL` / `_API_KEY` / `_MODEL`     | Optional OpenAI-compatible AI provider for content extraction + single-source verification. Removes the publish ceiling: when the deterministic extractors leave required fields missing, the AI fills ONLY what the page text supports (never invents); and when a top-authority source's independent cross-checks are merely unreachable (not disagreeing), the AI confirms the sensitive values against that source's own text so the artifact can verify. Falls back to the `TRANSLATION_AI_*` config when unset. No-op when neither is set; accuracy is still enforced by the content schema, cross-source verification, and strict QA                        |
+| `ADMIN_WORKER_REQUIRE_HUMAN_REVIEW`                 | **Off by default — the worker is fully independent and never parks work for a human.** Every situation that would otherwise need review gets the worker's own terminal decision: publish when the evidence clears the bar, otherwise SKIP (never publish unverified, never delete on uncertainty) and revisit autonomously. The human-review UI still exists (a human _may_ act), but the worker never depends on it, so the queue never blocks growth. Set `1`/`true`/`on` to restore human-gated review (uncertain items are queued for a person)                                                                                                                |
 
 ---
 
@@ -926,8 +927,24 @@ falling back to a TypeScript final brain. Concretely:
   applies the authentic Latin/Greek the canonical engine can build, and rejects
   as moot/redundant any translation, `publish`, `PUBLISH_PARISH`,
   `delete:*`, `investigate_post_publish_failure`, or `publish-daily-readings`
-  proposal whose content is already live (or already gone, or now verified) —
-  leaving only genuine human judgements for a person.
+  proposal whose content is already live (or already gone, or now verified).
+
+- **Fully independent of human review (default).** The worker **never parks work
+  for a person** ([`policy.ts`](src/lib/admin-worker/policy.ts) →
+  `requireHumanReview`, off by default). For every situation that would otherwise
+  need a human it makes its own terminal decision: publish when the evidence
+  clears the bar, otherwise **skip** — never publish unverified, never delete on
+  uncertainty — and revisit autonomously when better evidence or a capability
+  arrives. `fileHumanReview` records that decision as an audit log instead of
+  queueing; the four direct review-filers (translation backfill, OSM parish,
+  daily readings, `ensure_prayer_translations`) are likewise gated; and the
+  per-pass auto-resolve gives every still-pending item its own safe terminal
+  decision, so the queue **drains to zero and never blocks growth**. The
+  human-review UI still exists (a human _may_ act), and setting
+  `ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1` restores the human-gated behaviour. The
+  worker cannot grant itself an API key or open a firewall, so when growth is
+  capped by a missing capability it says exactly what to enable (see the
+  capability self-diagnosis above) — but it is never _stuck_ waiting on a person.
 
 - **Creates Developer Audit PDFs** for the last 24 hours / 7 days /
   30 days. All declared sections are actually rendered: table of
