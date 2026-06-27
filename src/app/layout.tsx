@@ -38,8 +38,28 @@ export const metadata: Metadata = {
     url: appConfig.canonicalUrl,
     siteName: "Via Fidei",
     type: "website",
+    // Default branded share image (the crucifix mark + wordmark) for pages
+    // without their own — content detail pages override this with the item's
+    // own title via buildPublishedMetadata.
+    images: [
+      {
+        url: "/api/og?title=Via+Fidei&type=The+Way+of+Faith",
+        width: 1200,
+        height: 630,
+        alt: "Via Fidei",
+      },
+    ],
   },
-  icons: { icon: "/favicon.svg" },
+  twitter: {
+    card: "summary_large_image",
+    title: "Via Fidei",
+    description:
+      "A multilingual Catholic companion — prayers, saints, liturgy, and parish discovery.",
+    images: ["/api/og?title=Via+Fidei&type=The+Way+of+Faith"],
+  },
+  // `icon` is the crucifix favicon; `apple` (the touch icon) is the crucifix
+  // logo so a shared link's small-icon fallback is branded, not a generic glyph.
+  icons: { icon: "/favicon.svg", apple: "/crucifix-logo.png" },
   robots: { index: true, follow: true },
 };
 
