@@ -18,6 +18,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { dynamicFetcherEnabled } from "./dynamic-fetcher";
 import { extractionAiEnabled } from "./extraction-provider";
 import { machineTranslationEnabled } from "./translation-provider";
 
@@ -55,6 +56,9 @@ export async function diagnoseCapabilityGaps(prisma: PrismaClient): Promise<{
   const searchKeys =
     (envSet("GOOGLE_SEARCH_API_KEY") && envSet("GOOGLE_SEARCH_ENGINE_ID")) ||
     envSet("BING_SEARCH_API_KEY");
+  // Keyless capability, on by default. Kept env-only (no runtime browser probe)
+  // so this diagnostic stays dependency-free and cheap on every pass.
+  const dynamicFetch = dynamicFetcherEnabled();
 
   // Has the structured source (Wikidata/Wikipedia) reported itself unreachable
   // in the last 24h? The structured ingest logs this explicitly when it fetches
@@ -90,6 +94,13 @@ export async function diagnoseCapabilityGaps(prisma: PrismaClient): Promise<{
       env: "ADMIN_WORKER_OPEN_INTERNET=1",
       remediation:
         "Set ADMIN_WORKER_OPEN_INTERNET=1 so the worker may fetch approved Catholic sources beyond the built-in registry (any diocese, conference, database, EWTN). Accuracy is still enforced downstream by cross-source verification + strict QA.",
+    },
+    {
+      capability: "Dynamic (JS-rendering) fetcher",
+      ok: dynamicFetch,
+      env: "ADMIN_WORKER_DYNAMIC_FETCHER=1 (default) + a Chromium binary",
+      remediation:
+        "Keyless capability, on by default: the worker re-renders JavaScript-only pages in a headless browser so it can ingest client-rendered Catholic sources without any API key. The worker image ships Chromium (Dockerfile.worker); set ADMIN_WORKER_CHROMIUM_PATH if the browser lives elsewhere. Shows missing only when explicitly disabled (ADMIN_WORKER_DYNAMIC_FETCHER=0) or in offline mode (ADMIN_WORKER_SKIP_NETWORK=1).",
     },
     {
       capability: "Keyword web-search discovery",
