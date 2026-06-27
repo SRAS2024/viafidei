@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   autoPublishMachineTranslations,
   machineTranslationEnabled,
+  parseKeylessGoogleResponse,
   proposeMachineTranslation,
 } from "@/lib/admin-worker/translation-provider";
 
@@ -23,6 +24,8 @@ const KEYS = [
   "EXTRACTION_AI_MODEL",
   "GOOGLE_TRANSLATE_API_KEY",
   "TRANSLATION_AUTOPUBLISH_MACHINE",
+  "ADMIN_WORKER_KEYLESS_TRANSLATE",
+  "ADMIN_WORKER_SKIP_NETWORK",
 ] as const;
 
 let saved: Record<string, string | undefined>;
@@ -43,13 +46,25 @@ afterEach(() => {
 });
 
 describe("translation provider (machine fallback)", () => {
-  it("is disabled and proposes nothing when no provider is configured", async () => {
+  it("is KEYLESS-enabled by default — no provider key required", () => {
+    // The keyless Google endpoint fills the gap with zero configuration.
+    expect(machineTranslationEnabled()).toBe(true);
+  });
+
+  it("is fully disabled (proposes nothing) only when keyless is opted out and no key is set", async () => {
+    process.env.ADMIN_WORKER_KEYLESS_TRANSLATE = "0";
     expect(machineTranslationEnabled()).toBe(false);
     const r = await proposeMachineTranslation("Our Father, who art in heaven...", "la");
     expect(r).toBeNull();
   });
 
+  it("disables the keyless endpoint in skip-network mode", () => {
+    process.env.ADMIN_WORKER_SKIP_NETWORK = "1";
+    expect(machineTranslationEnabled()).toBe(false);
+  });
+
   it("reports enabled once a provider key is present", () => {
+    process.env.ADMIN_WORKER_KEYLESS_TRANSLATE = "0";
     process.env.GOOGLE_TRANSLATE_API_KEY = "test-key";
     expect(machineTranslationEnabled()).toBe(true);
   });
@@ -69,5 +84,27 @@ describe("translation provider (machine fallback)", () => {
     expect(autoPublishMachineTranslations()).toBe(false);
     process.env.TRANSLATION_AUTOPUBLISH_MACHINE = "off";
     expect(autoPublishMachineTranslations()).toBe(false);
+  });
+});
+
+describe("parseKeylessGoogleResponse", () => {
+  it("joins the translated segments from the free-endpoint array shape", () => {
+    // Shape: [[ [translated, source, ...], ... ], ...]
+    const body = JSON.stringify([
+      [
+        ["Pater noster, ", "Our Father, ", null, null],
+        ["qui es in caelis", "who art in heaven", null, null],
+      ],
+      null,
+      "en",
+    ]);
+    expect(parseKeylessGoogleResponse(body)).toBe("Pater noster, qui es in caelis");
+  });
+
+  it("returns null for malformed or empty responses", () => {
+    expect(parseKeylessGoogleResponse("not json")).toBeNull();
+    expect(parseKeylessGoogleResponse("{}")).toBeNull();
+    expect(parseKeylessGoogleResponse("[null]")).toBeNull();
+    expect(parseKeylessGoogleResponse(JSON.stringify([[]]))).toBeNull();
   });
 });

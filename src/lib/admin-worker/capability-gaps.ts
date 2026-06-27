@@ -18,8 +18,10 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { openInternetEnabled } from "@/lib/checklist";
 import { dynamicFetcherEnabled } from "./dynamic-fetcher";
 import { extractionAiEnabled } from "./extraction-provider";
+import { webSearchEnabled } from "./search-discovery";
 import { machineTranslationEnabled } from "./translation-provider";
 
 export interface CapabilityGap {
@@ -31,11 +33,6 @@ export interface CapabilityGap {
   env: string;
   /** One-line, operator-facing remediation. */
   remediation: string;
-}
-
-function envFlag(name: string): boolean {
-  const v = (process.env[name] ?? "").trim().toLowerCase();
-  return v === "1" || v === "true" || v === "on" || v === "yes";
 }
 
 function envSet(name: string): boolean {
@@ -52,10 +49,13 @@ export async function diagnoseCapabilityGaps(prisma: PrismaClient): Promise<{
   missing: CapabilityGap[];
   summary: string;
 }> {
-  const openInternet = envFlag("ADMIN_WORKER_OPEN_INTERNET");
-  const searchKeys =
+  // Open internet, web search, and translation are all keyless and ON by default
+  // now, so these reflect the real runtime gate rather than "is a key set".
+  const openInternet = openInternetEnabled();
+  const searchKeysSet =
     (envSet("GOOGLE_SEARCH_API_KEY") && envSet("GOOGLE_SEARCH_ENGINE_ID")) ||
     envSet("BING_SEARCH_API_KEY");
+  const webSearch = webSearchEnabled();
   // Keyless capability, on by default. Kept env-only (no runtime browser probe)
   // so this diagnostic stays dependency-free and cheap on every pass.
   const dynamicFetch = dynamicFetcherEnabled();
@@ -91,9 +91,9 @@ export async function diagnoseCapabilityGaps(prisma: PrismaClient): Promise<{
     {
       capability: "Open-internet fetching",
       ok: openInternet,
-      env: "ADMIN_WORKER_OPEN_INTERNET=1",
+      env: "ADMIN_WORKER_OPEN_INTERNET=1 (default)",
       remediation:
-        "Set ADMIN_WORKER_OPEN_INTERNET=1 so the worker may fetch approved Catholic sources beyond the built-in registry (any diocese, conference, database, EWTN). Accuracy is still enforced downstream by cross-source verification + strict QA.",
+        "On by default — the worker may fetch approved Catholic sources beyond the built-in registry (any diocese, conference, database, EWTN) and follow links across the open web. Accuracy is still enforced downstream by cross-source verification + strict QA. Shows missing only when explicitly restricted with ADMIN_WORKER_OPEN_INTERNET=0.",
     },
     {
       capability: "Dynamic (JS-rendering) fetcher",
@@ -104,17 +104,18 @@ export async function diagnoseCapabilityGaps(prisma: PrismaClient): Promise<{
     },
     {
       capability: "Keyword web-search discovery",
-      ok: searchKeys,
-      env: "GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID (or BING_SEARCH_API_KEY)",
-      remediation:
-        "Set GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID (or BING_SEARCH_API_KEY) so the worker can discover sources nothing it already links to, instead of only spidering known hosts.",
+      ok: webSearch,
+      env: "keyless DuckDuckGo (default), or GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID / BING_SEARCH_API_KEY",
+      remediation: searchKeysSet
+        ? "Configured with a keyed search provider."
+        : "Keyless by default — the worker discovers sources nothing it already links to via DuckDuckGo, with no API key. Add GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID (or BING_SEARCH_API_KEY) for higher-volume, higher-quality results. Shows missing only when disabled (ADMIN_WORKER_KEYLESS_WEB_SEARCH=0) or offline (ADMIN_WORKER_SKIP_NETWORK=1).",
     },
     {
       capability: "Latin/Greek translation provider",
       ok: machineTranslationEnabled(),
-      env: "TRANSLATION_AI_API_URL + TRANSLATION_AI_API_KEY (or GOOGLE_TRANSLATE_API_KEY)",
+      env: "keyless Google translate (default), or TRANSLATION_AI_API_URL + TRANSLATION_AI_API_KEY / GOOGLE_TRANSLATE_API_KEY",
       remediation:
-        "Set TRANSLATION_AI_API_URL + TRANSLATION_AI_API_KEY (or GOOGLE_TRANSLATE_API_KEY) so the worker can complete the Latin/Greek for prayers/litanies that have no authentic received form, instead of leaving those review items pending.",
+        "Keyless by default — the worker completes the Latin/Greek for prayers/litanies with no authentic received form by translating the exact stored text, no API key. Add TRANSLATION_AI_API_URL + TRANSLATION_AI_API_KEY (or GOOGLE_TRANSLATE_API_KEY) for the higher-quality liturgical register. Shows missing only when disabled (ADMIN_WORKER_KEYLESS_TRANSLATE=0) or offline (ADMIN_WORKER_SKIP_NETWORK=1).",
     },
     {
       capability: "Structured source reachable",

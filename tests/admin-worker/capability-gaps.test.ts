@@ -48,16 +48,30 @@ function prismaWithLog(unreachable: boolean): PrismaClient {
 }
 
 describe("diagnoseCapabilityGaps", () => {
-  it("flags every outward capability as missing when nothing is configured", async () => {
+  it("with nothing configured, only the keyed AI-extraction capability is missing (rest are keyless)", async () => {
     const cap = await diagnoseCapabilityGaps(prismaWithLog(false));
     const names = cap.missing.map((g) => g.capability);
+    // AI extraction is the one genuinely keyed quality booster.
     expect(names).toContain("AI-assisted extraction");
-    expect(names).toContain("Open-internet fetching");
-    expect(names).toContain("Keyword web-search discovery");
-    expect(names).toContain("Latin/Greek translation provider");
+    // These are all keyless and ON by default now — not missing with no config.
+    expect(names).not.toContain("Open-internet fetching");
+    expect(names).not.toContain("Keyword web-search discovery");
+    expect(names).not.toContain("Latin/Greek translation provider");
+    expect(names).not.toContain("Dynamic (JS-rendering) fetcher");
     // Structured source is "reachable" (no recent unreachable log).
     expect(names).not.toContain("Structured source reachable");
     expect(cap.summary).toMatch(/gap/i);
+  });
+
+  it("keyless capabilities show missing when explicitly disabled / offline", async () => {
+    process.env.ADMIN_WORKER_OPEN_INTERNET = "0";
+    process.env.ADMIN_WORKER_KEYLESS_WEB_SEARCH = "0";
+    process.env.ADMIN_WORKER_KEYLESS_TRANSLATE = "0";
+    const cap = await diagnoseCapabilityGaps(prismaWithLog(false));
+    const names = cap.missing.map((g) => g.capability);
+    expect(names).toContain("Open-internet fetching");
+    expect(names).toContain("Keyword web-search discovery");
+    expect(names).toContain("Latin/Greek translation provider");
   });
 
   it("reports all-configured when the env is fully set", async () => {
