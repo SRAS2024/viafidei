@@ -2021,8 +2021,16 @@ page). On a device with the Web Share API it opens the native share sheet; on
 everything else it copies the page link and briefly confirms "Link copied". It
 shares the current card — no account required. Each public detail page also
 exports `generateMetadata` (via `buildPublishedMetadata`) so a shared link
-unfurls with that card's own title and summary, alongside the site favicon and
-Open Graph defaults from the root layout.
+unfurls with that card's own title and summary plus a **branded share image**:
+a dynamic Open Graph card ([`app/api/og`](src/app/api/og/route.tsx), built on
+`next/og`) showing the **crucifix mark with the content item's own title in it**
+(e.g. "Litany of Humility") and a "VIA FIDEI · <type>" label, set as both the
+`og:image` and the `summary_large_image` `twitter:image`. The image is
+self-contained (the favicon inlined as a data URI, `next/og`'s built-in font)
+and falls back to the static crucifix asset on any error, so a shared link never
+unfurls broken or as the browser's generic page icon. The root layout supplies a
+default branded card for non-content pages and an `apple-touch-icon` so the
+small-icon fallback is the crucifix too.
 
 **Source attribution.** Content cards no longer print an "Approved sources" /
 "Sources" citation list at the bottom — the worker's verification provenance
