@@ -105,6 +105,12 @@ async function fileTranslationReview(
   text: string,
   provider: string,
 ): Promise<boolean> {
+  // Full autonomy (default): the worker never queues a machine draft for a
+  // person. The prayer simply keeps the languages it already has; the worker
+  // fills the rest on its own once a translation provider is configured. Only
+  // ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1 routes the draft to a human first.
+  const { requireHumanReview } = await import("./policy");
+  if (!requireHumanReview()) return false;
   const langName = lang === "la" ? "Latin" : "Greek";
   // The backfill re-sweeps the catalogue forever — don't re-file a proposal
   // that is already sitting in the queue for this prayer + language.

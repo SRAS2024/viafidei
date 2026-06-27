@@ -245,32 +245,42 @@ describe("intelligence service (TS -> Python -> Postgres)", () => {
 
 describe("daily readings (worker refresh)", () => {
   it("routes to review and never fabricates text when no parser is configured", async () => {
-    const { refreshDailyReadings, getStoredReading } =
-      await import("@/lib/admin-worker/daily-readings");
-    const date = new Date(Date.UTC(2026, 5, 7)); // a Sunday
+    // This exercises the human-gated path explicitly: by default the worker is
+    // fully autonomous and would NOT queue a person (it shows the framing +
+    // official source link instead). Opt into human review for this assertion.
+    const prevReview = process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW;
+    process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = "1";
+    try {
+      const { refreshDailyReadings, getStoredReading } =
+        await import("@/lib/admin-worker/daily-readings");
+      const date = new Date(Date.UTC(2026, 5, 7)); // a Sunday
 
-    const res = await refreshDailyReadings(prisma, { date });
-    expect(res.status).toBe("review");
-    expect(res.reviewQueued).toBe(true);
+      const res = await refreshDailyReadings(prisma, { date });
+      expect(res.status).toBe("review");
+      expect(res.reviewQueued).toBe(true);
 
-    const row = await getStoredReading(prisma, date);
-    expect(row?.status).toBe("REVIEW");
-    const sections = (row?.sections as Array<{ kind: string; body: string | null }>) ?? [];
-    expect(sections.length).toBeGreaterThanOrEqual(5); // Sunday includes a 2nd reading
-    expect(sections.every((s) => s.body === null)).toBe(true); // never fabricated
+      const row = await getStoredReading(prisma, date);
+      expect(row?.status).toBe("REVIEW");
+      const sections = (row?.sections as Array<{ kind: string; body: string | null }>) ?? [];
+      expect(sections.length).toBeGreaterThanOrEqual(5); // Sunday includes a 2nd reading
+      expect(sections.every((s) => s.body === null)).toBe(true); // never fabricated
 
-    // A human-review task and a developer request were filed.
-    const task = await prisma.humanReviewQueue.findFirst({ where: { contentType: "READING" } });
-    expect(task).not.toBeNull();
-    const dr = await prisma.adminWorkerDeveloperRequest.findFirst({
-      where: { source: "daily_readings" },
-    });
-    expect(dr).not.toBeNull();
+      // A human-review task and a developer request were filed.
+      const task = await prisma.humanReviewQueue.findFirst({ where: { contentType: "READING" } });
+      expect(task).not.toBeNull();
+      const dr = await prisma.adminWorkerDeveloperRequest.findFirst({
+        where: { source: "daily_readings" },
+      });
+      expect(dr).not.toBeNull();
 
-    // Re-running does not duplicate the review task.
-    await refreshDailyReadings(prisma, { date });
-    const taskCount = await prisma.humanReviewQueue.count({ where: { contentType: "READING" } });
-    expect(taskCount).toBe(1);
+      // Re-running does not duplicate the review task.
+      await refreshDailyReadings(prisma, { date });
+      const taskCount = await prisma.humanReviewQueue.count({ where: { contentType: "READING" } });
+      expect(taskCount).toBe(1);
+    } finally {
+      if (prevReview === undefined) delete process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW;
+      else process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = prevReview;
+    }
   });
 });
 

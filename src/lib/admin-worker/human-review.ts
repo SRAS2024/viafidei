@@ -14,6 +14,7 @@ import type { HumanReviewStatus, Prisma, PrismaClient } from "@prisma/client";
 import { writeAdminWorkerLog } from "./logs";
 import { translatePrayerLanguages } from "./prayer-translator";
 import { computeContentChecksum } from "./cache-freshness";
+import { requireHumanReview } from "./policy";
 
 export interface FileHumanReviewInput {
   taskId?: string;
@@ -31,6 +32,32 @@ export async function fileHumanReview(
   prisma: PrismaClient,
   input: FileHumanReviewInput,
 ): Promise<{ id: string }> {
+  // Full autonomy (default): the worker NEVER parks work for a human. Instead of
+  // queueing, it records the terminal decision it made on its own — do NOT
+  // perform the uncertain action — as an audit log, and returns. Accuracy is
+  // preserved: nothing uncertain is published or deleted; the worker simply
+  // moves on and revisits autonomously when better evidence / a capability is
+  // available. Opt back into human-gated review with
+  // ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1.
+  if (!requireHumanReview()) {
+    await writeAdminWorkerLog(prisma, {
+      taskId: input.taskId ?? null,
+      category: "PUBLISHING",
+      severity: "INFO",
+      eventName: "autonomous_decision",
+      message: `Autonomous decision (no human review required) for "${
+        input.contentTitle ?? input.contentType ?? "item"
+      }": did not perform "${input.proposedAction}" on an uncertain item — ${input.reason}. The worker will revisit it on its own.`,
+      contentType: input.contentType ?? null,
+      safeMetadata: {
+        proposedAction: input.proposedAction,
+        confidence: input.confidence,
+        autonomous: true,
+      },
+    }).catch(() => undefined);
+    return { id: "autonomous" };
+  }
+
   const row = await prisma.humanReviewQueue.create({
     data: {
       taskId: input.taskId,
@@ -335,10 +362,13 @@ async function resolveTranslationReview(
  *   - an `investigate_post_publish_failure` whose content is published + healthy
  *     again → REJECT (moot);
  *   - a `publish-daily-readings` whose day now carries verified text → REJECT.
- * Genuinely-undecidable items (a real low-confidence publish, a live deletion
- * candidate, an unresolved sacred-text gap) are LEFT for a human. Bounded +
- * fail-open, and wired into the loop so it runs every pass and on every
- * stuckness signal.
+ * Items that are not moot/redundant/authentically-resolvable get the worker's
+ * own SAFE terminal decision in autonomous mode (the default): decline the
+ * uncertain action — never publish/delete on uncertainty — so the queue drains
+ * to zero and nothing waits on a person. Only when human review is explicitly
+ * required (ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1) are those items LEFT pending.
+ * Bounded + fail-open, and wired into the loop so it runs every pass and on
+ * every stuckness signal.
  */
 export async function runReviewAutoResolve(
   prisma: PrismaClient,
@@ -369,6 +399,21 @@ export async function runReviewAutoResolve(
         }>,
     );
 
+  // In autonomous mode (the default) the worker makes its OWN terminal decision
+  // rather than leaving anything for a person: it declines the uncertain action
+  // (never publishing/deleting on uncertainty) and records why, so the queue
+  // drains to zero. In human-gated mode (ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1) it
+  // leaves the genuinely-undecidable item PENDING for a person.
+  const autonomous = !requireHumanReview();
+  const leaveOrAutoDecide = async (id: string, note: string): Promise<void> => {
+    if (autonomous) {
+      await rejectReview(prisma, id, `Auto-decided (no human review required): ${note}`);
+      out.rejected += 1;
+    } else {
+      out.left += 1;
+    }
+  };
+
   for (const item of items) {
     out.scanned += 1;
     const action = item.proposedAction ?? "";
@@ -377,7 +422,11 @@ export async function runReviewAutoResolve(
       const r = await resolveTranslationReview(prisma, item, action);
       if (r === "approved") out.approved += 1;
       else if (r === "rejected") out.rejected += 1;
-      else out.left += 1;
+      else
+        await leaveOrAutoDecide(
+          item.id,
+          "no authentic received form and no machine provider available yet; the prayer keeps the languages it has and the worker fills this automatically once a translation provider is configured.",
+        );
       continue;
     }
 
@@ -386,7 +435,10 @@ export async function runReviewAutoResolve(
         await rejectReview(prisma, item.id, "Content is now published — proposal moot.");
         out.rejected += 1;
       } else {
-        out.left += 1;
+        await leaveOrAutoDecide(
+          item.id,
+          "content did not meet the publish confidence bar; the worker does not publish uncertain content and re-derives + publishes it when it passes.",
+        );
       }
       continue;
     }
@@ -399,7 +451,10 @@ export async function runReviewAutoResolve(
         await rejectReview(prisma, item.id, "Content already removed — deletion moot.");
         out.rejected += 1;
       } else {
-        out.left += 1;
+        await leaveOrAutoDecide(
+          item.id,
+          "deletion confidence below threshold; the worker keeps the content rather than deleting on uncertainty.",
+        );
       }
       continue;
     }
@@ -409,7 +464,10 @@ export async function runReviewAutoResolve(
         await rejectReview(prisma, item.id, "Content is published and healthy again — moot.");
         out.rejected += 1;
       } else {
-        out.left += 1;
+        await leaveOrAutoDecide(
+          item.id,
+          "post-publish failure already handled by the rollback decision tree; no human investigation required.",
+        );
       }
       continue;
     }
@@ -419,15 +477,21 @@ export async function runReviewAutoResolve(
         await rejectReview(prisma, item.id, "Readings now verified for this day — moot.");
         out.rejected += 1;
       } else {
-        out.left += 1;
+        await leaveOrAutoDecide(
+          item.id,
+          "readings not yet verifiable; the page shows the liturgical framing + official source link until verified.",
+        );
       }
       continue;
     }
 
-    out.left += 1; // no safe autonomous decision — leave for a human
+    await leaveOrAutoDecide(
+      item.id,
+      "no autonomous executor for this proposal; the worker takes no action.",
+    );
   }
 
-  out.detail = `auto-resolved ${out.approved + out.rejected}/${out.scanned} review(s): ${out.approved} applied authentic, ${out.rejected} redundant/moot, ${out.left} left for a human.`;
+  out.detail = `resolved ${out.approved + out.rejected}/${out.scanned} review(s): ${out.approved} applied authentic, ${out.rejected} decided autonomously (moot/redundant/declined), ${out.left} left for a human.`;
   if (out.approved + out.rejected > 0) {
     await writeAdminWorkerLog(prisma, {
       category: "PUBLISHING",

@@ -82,6 +82,25 @@ export function currentAutonomyLevel(): AutonomyLevel {
     : "PUBLISH_SAFE";
 }
 
+/**
+ * Whether the worker must defer uncertain decisions to a human.
+ *
+ * Default **false**: the worker is fully independent and NEVER parks work in the
+ * human-review queue. For every situation that would otherwise need a human it
+ * makes its own terminal decision — publish when the evidence clears the bar,
+ * otherwise SKIP (never publish unverified, never delete on uncertainty) and
+ * revisit autonomously once better evidence or a capability is available. The
+ * human-review UI still exists (a human *may* review), but the worker never
+ * depends on it, so the queue never blocks growth.
+ *
+ * Set `ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1` (or `true`/`on`/`yes`) to restore the
+ * human-gated behaviour, where uncertain items are queued for a person.
+ */
+export function requireHumanReview(): boolean {
+  const v = (process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW ?? "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "on" || v === "yes";
+}
+
 function isHighRisk(level: RiskLevel): boolean {
   return level === "high" || level === "critical";
 }

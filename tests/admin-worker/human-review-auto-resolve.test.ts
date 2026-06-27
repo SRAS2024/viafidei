@@ -3,12 +3,68 @@
  * translation actually writes it onto the prayer — so the queue stops piling up
  * and "approve" is not a no-op. Accuracy is preserved: a machine proposal is only
  * auto-applied when the deterministic canonical engine confirms it; otherwise it
- * is rejected as redundant/moot or left for a human.
+ * is rejected as redundant/moot. In full autonomy (the default) every otherwise-
+ * undecidable item is auto-decided (the worker declines the uncertain action) so
+ * the queue drains to zero; only ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1 leaves it
+ * pending for a person.
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PrismaClient } from "@prisma/client";
-import { executeApprovedReview, runReviewAutoResolve } from "@/lib/admin-worker/human-review";
+import {
+  executeApprovedReview,
+  fileHumanReview,
+  runReviewAutoResolve,
+} from "@/lib/admin-worker/human-review";
+
+let savedReviewEnv: string | undefined;
+beforeEach(() => {
+  savedReviewEnv = process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW;
+  delete process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW; // default: fully autonomous
+});
+afterEach(() => {
+  if (savedReviewEnv === undefined) delete process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW;
+  else process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = savedReviewEnv;
+});
+
+describe("fileHumanReview — full autonomy", () => {
+  it("does NOT create a pending review row by default (logs the decision instead)", async () => {
+    const create = vi.fn(async () => ({ id: "x" }));
+    const logCreate = vi.fn(async () => ({}));
+    const prisma = {
+      humanReviewQueue: { create },
+      adminWorkerLog: { create: logCreate },
+    } as unknown as PrismaClient;
+    const res = await fileHumanReview(prisma, {
+      contentType: "SAINT",
+      contentTitle: "Some Saint",
+      proposedAction: "publish",
+      reason: "confidence below threshold",
+      confidence: 0.5,
+    });
+    expect(create).not.toHaveBeenCalled(); // never queued
+    expect(logCreate).toHaveBeenCalled(); // decision recorded as a log
+    expect(res.id).toBe("autonomous");
+  });
+
+  it("creates a pending review row when human review is explicitly required", async () => {
+    process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = "1";
+    const create = vi.fn(async () => ({ id: "rev1" }));
+    const prisma = {
+      humanReviewQueue: { create },
+      adminWorkerLog: { create: vi.fn(async () => ({})) },
+    } as unknown as PrismaClient;
+    const res = await fileHumanReview(prisma, {
+      contentType: "SAINT",
+      contentTitle: "Some Saint",
+      proposedAction: "publish",
+      reason: "confidence below threshold",
+      confidence: 0.5,
+    });
+    expect(create).toHaveBeenCalled();
+    expect(res.id).toBe("rev1");
+  });
+});
 
 describe("human-review executor", () => {
   it("writes the confirmed translation onto the published prayer", async () => {
@@ -130,11 +186,31 @@ describe("runReviewAutoResolve", () => {
     expect(out.rejected).toBe(1);
   });
 
-  it("leaves a genuine machine-only proposal the canonical engine cannot resolve", async () => {
+  it("auto-decides a genuine machine-only proposal in full autonomy (declines, drains the queue)", async () => {
     const { prisma, reviewUpdates } = prismaWith({
       items: [
         {
           id: "r3",
+          proposedAction: "CONFIRM_TRANSLATION",
+          contentTitle: "Obscure Prayer",
+          sourceEvidence: { language: "la" },
+        },
+      ],
+      prayerPayload: { body: "Some unique uncurated prayer text that the corpus cannot resolve." },
+    });
+    const out = await runReviewAutoResolve(prisma);
+    // Default (no env) is fully autonomous: it declines (rejects) rather than leaving.
+    expect(out.left).toBe(0);
+    expect(out.rejected).toBe(1);
+    expect(reviewUpdates.some((u) => u.data.status === "REJECTED")).toBe(true);
+  });
+
+  it("leaves a genuine machine-only proposal for a human ONLY when review is required", async () => {
+    process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = "1";
+    const { prisma, reviewUpdates } = prismaWith({
+      items: [
+        {
+          id: "r3b",
           proposedAction: "CONFIRM_TRANSLATION",
           contentTitle: "Obscure Prayer",
           sourceEvidence: { language: "la" },
@@ -162,10 +238,10 @@ describe("runReviewAutoResolve", () => {
       prayerPayload: { body: "Glory be to the Father, and to the Son, and to the Holy Spirit…" },
     });
     const out = await runReviewAutoResolve(prisma);
-    // Either applied authentic (approved) or left if the corpus can't resolve this
-    // exact wording — but it must never crash and must touch exactly this one item.
+    // Either applied authentic (approved) or auto-declined (rejected) in full
+    // autonomy — but it must never crash and must touch exactly this one item.
     expect(out.scanned).toBe(1);
-    expect(out.approved + out.left).toBe(1);
+    expect(out.approved + out.rejected + out.left).toBe(1);
     if (out.approved === 1) {
       expect(reviewUpdates.some((u) => u.data.status === "APPROVED")).toBe(true);
     }
@@ -188,11 +264,30 @@ describe("runReviewAutoResolve", () => {
     expect(out.rejected).toBe(1);
   });
 
-  it("leaves a `publish` review whose content is genuinely not yet live", async () => {
+  it("auto-declines a not-yet-live `publish` review in full autonomy (never publishes uncertain content)", async () => {
     const { prisma } = prismaWith({
       items: [
         {
           id: "r6",
+          proposedAction: "publish",
+          contentTitle: "Not Yet",
+          contentType: "SAINT",
+          sourceEvidence: null,
+        },
+      ],
+      contentLive: false,
+    });
+    const out = await runReviewAutoResolve(prisma);
+    expect(out.left).toBe(0);
+    expect(out.rejected).toBe(1);
+  });
+
+  it("leaves a not-yet-live `publish` review for a human ONLY when review is required", async () => {
+    process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = "1";
+    const { prisma } = prismaWith({
+      items: [
+        {
+          id: "r6b",
           proposedAction: "publish",
           contentTitle: "Not Yet",
           contentType: "SAINT",
