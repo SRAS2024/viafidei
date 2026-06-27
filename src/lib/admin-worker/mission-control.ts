@@ -237,13 +237,52 @@ export async function runStucknessPass(
       result?.recommended_unblock ??
       "Vary mission stage / source selection to break the loop.";
 
+    // CORRECTIVE ACTION — the worker tries to unblock ITSELF before asking for
+    // help, rather than only logging. (1) Drain the review queue of everything it
+    // can safely decide, so a pile-up of resolvable items is never what holds
+    // growth.
+    let drained = 0;
+    try {
+      const { runReviewAutoResolve } = await import("./human-review");
+      const r = await runReviewAutoResolve(prisma, { limit: 200 });
+      drained = r.approved + r.rejected;
+    } catch {
+      // best-effort
+    }
+
+    // (2) Diagnose which outward CAPABILITY is missing, so "stuck" becomes an
+    // actionable instruction. The worker can't grant itself an API key or open a
+    // firewall, but it names the exact remediation (env var / network) — the
+    // honest version of "figure out a resolution on its own."
+    const { diagnoseCapabilityGaps } = await import("./capability-gaps");
+    const cap = await diagnoseCapabilityGaps(prisma).catch(() => ({
+      gaps: [],
+      missing: [] as Array<{ capability: string; remediation: string }>,
+      summary: "",
+    }));
+    const remediations = cap.missing.slice(0, 3).map((g) => `${g.capability} — ${g.remediation}`);
+
+    const detail = [
+      `${signals.join("; ") || "loop/no-growth detected"}.`,
+      `Recommended unblock: ${strategy}.`,
+      drained > 0 ? `Auto-resolved ${drained} review item(s) this sweep.` : "",
+      cap.missing.length > 0
+        ? `Most likely cause — missing capability. ${cap.summary} Remediation: ${remediations.join(" | ")}`
+        : "All growth capabilities are configured; the remaining blocker is in-pipeline (see Why-No-Growth).",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
     await recordDeveloperRequests(
       prisma,
       [
         {
-          kind: "process",
-          title: "Worker appears stuck — intervention may help",
-          detail: `${signals.join("; ") || "loop/no-growth detected"}. Recommended unblock: ${strategy}`,
+          kind: cap.missing.length > 0 ? "capability" : "process",
+          title:
+            cap.missing.length > 0
+              ? `Worker plateaued — enable: ${cap.missing.map((g) => g.capability).join(", ")}`
+              : "Worker appears stuck — intervention may help",
+          detail,
           severity: "high",
           evidence: signals.slice(0, 5).join("; ").slice(0, 300),
         },
@@ -268,8 +307,16 @@ export async function runStucknessPass(
       category: "REPORT",
       severity: "WARN",
       eventName: "worker_stuck",
-      message: `Stuckness detected: ${signals[0] ?? "loop"}. Unblock: ${strategy}`,
-      safeMetadata: { signals, strategy, published_delta: publishedDelta },
+      message: `Stuckness detected: ${signals[0] ?? "loop"}. Unblock: ${strategy}.${
+        cap.missing.length > 0 ? ` ${cap.summary}` : ""
+      }${drained > 0 ? ` Auto-resolved ${drained} review item(s).` : ""}`,
+      safeMetadata: {
+        signals,
+        strategy,
+        published_delta: publishedDelta,
+        review_items_drained: drained,
+        capability_gaps: cap.missing.map((g) => g.capability),
+      },
     }).catch(() => undefined);
 
     return { ran: true, stuck: true };

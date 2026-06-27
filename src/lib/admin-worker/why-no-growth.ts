@@ -563,6 +563,36 @@ export async function diagnoseWhyNoGrowth(
     })
     .catch(() => null);
 
+  // When the blocker is a stage a missing outward CAPABILITY explains
+  // (no candidates to fetch, fetches failing on unapproved hosts, extraction
+  // can't complete required fields, validation sources unreachable, quality/
+  // publish gated on evidence) append the EXACT env/network remediation, so the
+  // operator sees what to enable. The worker can't grant itself a key or open a
+  // firewall — but it names the precise fix instead of a generic "run the stage".
+  const CAPABILITY_GATED: GrowthBlockerStage[] = [
+    "NO_CANDIDATE_URLS",
+    "NO_CANDIDATES_PRIORITIZED",
+    "FETCH_FAILING",
+    "NO_SOURCE_READS",
+    "EXTRACTION_FAILING",
+    "NO_PACKAGE_ARTIFACTS",
+    "VALIDATION_EVIDENCE_MISSING",
+    "QUALITY_SCORE_TOO_LOW",
+    "PUBLISH_BLOCKED",
+  ];
+  if (CAPABILITY_GATED.includes(blocker)) {
+    try {
+      const { diagnoseCapabilityGaps } = await import("./capability-gaps");
+      const cap = await diagnoseCapabilityGaps(prisma);
+      if (cap.missing.length > 0) {
+        const top = cap.missing[0];
+        nextRepair = `${nextRepair ? `${nextRepair} ` : ""}Likely capability gap — ${top.capability}: set ${top.env}.`;
+      }
+    } catch {
+      // best-effort — the capability hint is additive
+    }
+  }
+
   // Last + next worker decision.
   const lastDecision = await prisma.adminWorkerDecision
     .findFirst({
