@@ -6,11 +6,14 @@
  * to*, by querying a real search engine for a content type's topics and seeding
  * the results as candidate URLs — true "search the whole internet for X."
  *
- * Gated on a search-API key; a no-op when none is configured. Providers, first
- * configured wins:
+ * Providers, first that returns wins:
  *   1. Google Programmable Search (Custom Search JSON API):
  *      GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID
  *   2. Bing Web Search: BING_SEARCH_API_KEY
+ *   3. KEYLESS DuckDuckGo HTML endpoint — no API key required, so the worker can
+ *      "search the whole web" out of the box (the keyless default the site owner
+ *      asked for). Fail-open and on by default; set
+ *      `ADMIN_WORKER_KEYLESS_WEB_SEARCH=0` (or `false`/`off`/`no`) to opt out.
  *
  * Accuracy is unchanged: search only SEEDS candidate URLs. Every result still
  * runs the full pipeline — `isFetchableHost` / junk-host filtering on insert,
@@ -45,10 +48,21 @@ function bingKey(): string | null {
   return k || null;
 }
 
-/** Is any open keyword web-search provider configured? */
+/**
+ * Whether the keyless DuckDuckGo provider may run. Default ON — it needs no API
+ * key, so open web search works with zero configuration. Disabled by an explicit
+ * opt-out or offline mode.
+ */
+export function keylessWebSearchEnabled(): boolean {
+  if (process.env.ADMIN_WORKER_SKIP_NETWORK === "1") return false;
+  const v = (process.env.ADMIN_WORKER_KEYLESS_WEB_SEARCH ?? "").trim().toLowerCase();
+  return !(v === "0" || v === "false" || v === "off" || v === "no");
+}
+
+/** Is any open keyword web-search provider available (keyed OR keyless)? */
 export function webSearchEnabled(): boolean {
   if (process.env.ADMIN_WORKER_SKIP_NETWORK === "1") return false;
-  return Boolean(googleConfig() || bingKey());
+  return Boolean(googleConfig() || bingKey()) || keylessWebSearchEnabled();
 }
 
 function withTimeout(): { signal: AbortSignal; clear: () => void } {
@@ -66,12 +80,17 @@ export async function webSearch(query: string, count = 10): Promise<WebSearchRes
   const google = googleConfig();
   if (google) {
     const r = await viaGoogle(query, count, google).catch(() => null);
-    if (r) return r;
+    if (r && r.length) return r;
   }
   const bing = bingKey();
   if (bing) {
     const r = await viaBing(query, count, bing).catch(() => null);
-    if (r) return r;
+    if (r && r.length) return r;
+  }
+  // Keyless fallback — no API key required.
+  if (keylessWebSearchEnabled()) {
+    const r = await viaDuckDuckGo(query, count).catch(() => null);
+    if (r && r.length) return r;
   }
   return [];
 }
@@ -134,6 +153,77 @@ async function viaBing(
 }
 
 /**
+ * Parse DuckDuckGo's HTML SERP into results. The HTML endpoint renders each hit
+ * as an `<a class="result__a" href="...">Title</a>`, where the href is a
+ * `/l/?uddg=<url-encoded-target>` redirect. Exported so the parser is
+ * unit-testable without a network call.
+ */
+export function parseDuckDuckGoHtml(html: string): WebSearchResult[] {
+  const results: WebSearchResult[] = [];
+  const seen = new Set<string>();
+  const anchorRe =
+    /<a\b[^>]*class="[^"]*\bresult__a\b[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = anchorRe.exec(html)) !== null) {
+    const rawHref = m[1].replace(/&amp;/g, "&");
+    let url = "";
+    const uddg = /[?&]uddg=([^&]+)/.exec(rawHref);
+    if (uddg) {
+      try {
+        url = decodeURIComponent(uddg[1]);
+      } catch {
+        url = "";
+      }
+    } else if (rawHref.startsWith("//")) {
+      url = `https:${rawHref}`;
+    } else if (/^https?:\/\//i.test(rawHref)) {
+      url = rawHref;
+    }
+    if (!url || seen.has(url)) continue;
+    // Skip DuckDuckGo's own ad/redirect chrome.
+    let host = "";
+    try {
+      host = new URL(url).host;
+    } catch {
+      continue;
+    }
+    if (/(^|\.)duckduckgo\.com$/i.test(host)) continue;
+    seen.add(url);
+    const title = m[2]
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&")
+      .replace(/&#x27;|&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/\s+/g, " ")
+      .trim();
+    results.push({ url, title, snippet: "" });
+  }
+  return results;
+}
+
+async function viaDuckDuckGo(query: string, count: number): Promise<WebSearchResult[] | null> {
+  const { signal, clear } = withTimeout();
+  try {
+    // POST to the HTML endpoint (avoids the JS-only main site and is keyless).
+    const res = await fetch("https://html.duckduckgo.com/html/", {
+      method: "POST",
+      signal,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "User-Agent": USER_AGENT,
+      },
+      body: `q=${encodeURIComponent(query)}`,
+    });
+    if (!res.ok) return null;
+    return parseDuckDuckGoHtml(await res.text()).slice(0, count);
+  } finally {
+    clear();
+  }
+}
+
+/**
  * Keyword templates per content type — phrased to surface authoritative Catholic
  * content and the index/listing pages the link-crawler can then spider. Every
  * query is biased "catholic" so the result set is on-topic; relevance and
@@ -142,24 +232,61 @@ async function viaBing(
 export function queriesForContentType(contentType?: string): string[] {
   const ct = (contentType ?? "").toUpperCase();
   const map: Record<string, string[]> = {
-    SAINT: ["Catholic saint biography feast day", "lives of the saints Catholic index"],
-    DOCTOR: ["Doctors of the Church Catholic list biography"],
-    POPE: ["list of popes Catholic biography", "papal biographies Vatican"],
-    PRAYER: ["traditional Catholic prayers texts", "Catholic prayer book index"],
-    LITANY: ["approved Catholic litanies texts"],
-    NOVENA: ["Catholic novena prayers nine days"],
+    SAINT: [
+      "Catholic saint biography feast day",
+      "lives of the saints Catholic index",
+      "list of Catholic saints A to Z",
+    ],
+    DOCTOR: ["Doctors of the Church Catholic list biography", "33 Doctors of the Church explained"],
+    POPE: ["list of popes Catholic biography", "papal biographies Vatican", "every pope in order"],
+    PRAYER: [
+      "traditional Catholic prayers texts",
+      "Catholic prayer book index",
+      "complete list of Catholic prayers with text",
+    ],
+    LITANY: ["approved Catholic litanies texts", "list of Catholic litanies full text"],
+    NOVENA: ["Catholic novena prayers nine days", "list of Catholic novenas full text"],
     GUIDE: ["how to pray Catholic guide", "Catholic devotional how-to"],
-    DEVOTION: ["Catholic devotions list explained"],
-    SPIRITUAL_PRACTICE: ["Catholic spiritual practices disciplines"],
-    MARIAN_TITLE: ["titles of the Blessed Virgin Mary Catholic list"],
-    APPARITION: ["approved Marian apparitions Catholic Church"],
-    CHURCH_DOCUMENT: ["papal encyclical full text", "Vatican magisterial documents list"],
-    LITURGICAL: ["Catholic liturgical calendar feasts seasons"],
-    RITE: ["Catholic rites Latin Eastern liturgical"],
+    DEVOTION: ["Catholic devotions list explained", "popular Catholic devotions index"],
+    SPIRITUAL_PRACTICE: [
+      "Catholic spiritual practices disciplines",
+      "Catholic spiritual disciplines list",
+    ],
+    MARIAN_TITLE: [
+      "titles of the Blessed Virgin Mary Catholic list",
+      "names and titles of Mary Catholic",
+    ],
+    APPARITION: ["approved Marian apparitions Catholic Church", "Church-approved apparitions list"],
+    CHURCH_DOCUMENT: [
+      "papal encyclical full text",
+      "Vatican magisterial documents list",
+      "list of papal encyclicals full text",
+    ],
+    LITURGICAL: [
+      "Catholic liturgical calendar feasts seasons",
+      "General Roman Calendar feast days",
+    ],
+    RITE: ["Catholic rites Latin Eastern liturgical", "list of liturgical rites Catholic Church"],
     SACRAMENT: ["seven sacraments of the Catholic Church"],
-    PARISH: ["Catholic parish directory diocese"],
+    PARISH: [
+      "Catholic parish directory diocese",
+      "list of Catholic parishes diocese website",
+      "Catholic diocese parish finder directory",
+    ],
   };
-  return map[ct] ?? ["Catholic Church teaching reference"];
+  const base = map[ct] ?? ["Catholic Church teaching reference"];
+  // Parish coverage benefits most from locality — mirror how a person would
+  // search city by city. Seed location-aware queries from the operator list.
+  if (ct === "PARISH") {
+    const locations = (process.env.PARISH_DISCOVERY_LOCATIONS ?? "")
+      .split(";")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 5);
+    // Locality first — that's how a person hunts down every parish, city by city.
+    return [...locations.map((loc) => `Catholic parishes in ${loc} parish directory`), ...base];
+  }
+  return base;
 }
 
 export interface WebSearchDiscoveryResult {

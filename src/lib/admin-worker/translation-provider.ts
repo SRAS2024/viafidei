@@ -13,19 +13,30 @@
  * corpus (`prayer-translator`) is ALWAYS tried first and is the only source that
  * can be mistaken for received text. This fallback runs only for what the corpus
  * cannot resolve, and its output is always flagged `source:"machine"` so it is
- * auditable and can be corrected. Per the site owner's directive — every prayer
- * and litany should carry BOTH a Latin and a Greek text — a configured machine
+ * auditable and can be corrected. It translates the EXACT stored prayer text
+ * (word-for-word), never a paraphrase. Per the site owner's directive — every
+ * prayer and litany should carry BOTH a Latin and a Greek text — a machine
  * translation is auto-published by default to fill the remaining gap; set
  * `TRANSLATION_AUTOPUBLISH_MACHINE=0` (or `false`/`off`) to instead route machine
  * drafts to human review before they go live.
  *
- * Two providers, tried in order of configuration:
+ * Three providers, tried in order of quality:
  *   1. A generic AI chat endpoint (`TRANSLATION_AI_API_URL`, OpenAI-compatible,
  *      falling back to the `EXTRACTION_AI_*` provider so one AI key powers both)
  *      — preferred, because it can be prompted for *ecclesiastical* Latin and
  *      *liturgical / Koine* Greek rather than the modern register a generic MT
  *      engine targets.
  *   2. Google Cloud Translation v2 (`GOOGLE_TRANSLATE_API_KEY`).
+ *   3. KEYLESS Google translate endpoint — the same free endpoint the public
+ *      Translate website uses, needing no API key. This makes Latin/Greek
+ *      coverage work out of the box with zero configuration (the keyless
+ *      default the site owner asked for). It is fail-open and on by default;
+ *      set `ADMIN_WORKER_KEYLESS_TRANSLATE=0` (or `false`/`off`/`no`) to opt out,
+ *      or `ADMIN_WORKER_SKIP_NETWORK=1` (tests/offline) to force it off.
+ *
+ * Register caveat: the keyless endpoint targets *modern* Latin/Greek, not the
+ * received liturgical register an AI key can be steered to — hence the AI/keyed
+ * providers run first and the keyless output stays flagged `accurate:false`.
  */
 
 import type { TargetLang } from "./prayer-translator";
@@ -50,9 +61,25 @@ const GOOGLE_CODE: Record<TargetLang, string> = { la: "la", el: "el" };
 
 const TIMEOUT_MS = 12_000;
 
-/** Is any machine-translation provider configured? */
+// A mainstream browser UA for the keyless endpoint (it varies output for unknown
+// clients). Matches the worker's other fetchers.
+const KEYLESS_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+/** Is any machine-translation provider available (keyed OR the keyless endpoint)? */
 export function machineTranslationEnabled(): boolean {
-  return Boolean(aiConfig() || googleKey());
+  return Boolean(aiConfig() || googleKey() || keylessTranslationEnabled());
+}
+
+/**
+ * Whether the keyless Google translate endpoint may run. Default ON — it needs
+ * no API key, so Latin/Greek coverage works with zero configuration. Disabled
+ * by an explicit opt-out or offline/test mode.
+ */
+export function keylessTranslationEnabled(): boolean {
+  if (process.env.ADMIN_WORKER_SKIP_NETWORK === "1") return false;
+  const v = (process.env.ADMIN_WORKER_KEYLESS_TRANSLATE ?? "").trim().toLowerCase();
+  return !(v === "0" || v === "false" || v === "off" || v === "no");
 }
 
 /**
@@ -131,6 +158,14 @@ export async function proposeMachineTranslation(
     if (text) return { text, source: "machine", provider: "google-translate", accurate: false };
   }
 
+  // Keyless fallback — no API key required. Translates the exact stored text.
+  if (keylessTranslationEnabled()) {
+    const text = await viaKeylessGoogle(english, target).catch(() => null);
+    if (text) {
+      return { text, source: "machine", provider: "google-translate-free", accurate: false };
+    }
+  }
+
   return null;
 }
 
@@ -200,4 +235,73 @@ async function viaGoogle(english: string, target: TargetLang, key: string): Prom
   } finally {
     clear();
   }
+}
+
+/**
+ * Parse the free (`client=gtx`) Google translate response. Its shape is a
+ * nested array `[[ [translatedChunk, sourceChunk, ...], ... ], ...]`; the
+ * translation is every `segment[0]` of `data[0]` joined together. Exported so
+ * the parser can be unit-tested without a network call.
+ */
+export function parseKeylessGoogleResponse(jsonText: string): string | null {
+  let data: unknown;
+  try {
+    data = JSON.parse(jsonText);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(data) || !Array.isArray(data[0])) return null;
+  const parts: string[] = [];
+  for (const seg of data[0] as unknown[]) {
+    if (Array.isArray(seg) && typeof seg[0] === "string") parts.push(seg[0]);
+  }
+  const text = parts.join("").trim();
+  return text || null;
+}
+
+/**
+ * Split text into request-sized chunks on line boundaries (the free endpoint is
+ * a GET, so the query string is length-limited). Keeps whole lines together so
+ * a prayer's structure survives the round-trip.
+ */
+function chunkForTranslate(text: string, maxChars = 1500): string[] {
+  if (text.length <= maxChars) return [text];
+  const chunks: string[] = [];
+  let current = "";
+  for (const line of text.split("\n")) {
+    const candidate = current ? `${current}\n${line}` : line;
+    if (candidate.length > maxChars && current) {
+      chunks.push(current);
+      current = line;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+async function viaKeylessGoogle(english: string, target: TargetLang): Promise<string | null> {
+  const chunks = chunkForTranslate(english);
+  const out: string[] = [];
+  for (const chunk of chunks) {
+    const { signal, clear } = abortableTimeout();
+    try {
+      const url =
+        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en` +
+        `&tl=${GOOGLE_CODE[target]}&dt=t&q=${encodeURIComponent(chunk)}`;
+      const res = await fetch(url, {
+        signal,
+        headers: { "User-Agent": KEYLESS_USER_AGENT },
+      });
+      if (!res.ok) return null;
+      const parsed = parseKeylessGoogleResponse(await res.text());
+      if (!parsed) return null;
+      out.push(parsed);
+    } finally {
+      clear();
+    }
+  }
+  const joined = out.join("\n").trim();
+  return joined || null;
 }
