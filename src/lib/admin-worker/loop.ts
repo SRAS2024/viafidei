@@ -330,6 +330,23 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       }
     }
 
+    // Always-on web discovery: run the full discovery orchestrator (all 8
+    // methods, incl. open-web keyword search + cross-host crawl) EVERY pass
+    // instead of only when the brain picks the DISCOVERY stage, so the worker is
+    // constantly scanning for new sources and the fetch/extract pipeline never
+    // starves for candidates. Throttled (~5 min, configurable) + fail-open;
+    // surfaced URLs are unverified leads that still face the full pipeline
+    // (classify → cross-source verify → strict QA → publish) before anything
+    // goes public — scanning widens reach, never the accuracy bar.
+    if (brain.finalBrain === "python") {
+      try {
+        const { runAlwaysOnDiscovery } = await import("./always-on-discovery");
+        await runAlwaysOnDiscovery(prisma, { passId: pass.id });
+      } catch {
+        // best-effort — always-on discovery must never break the pass
+      }
+    }
+
     await writeAdminWorkerLog(prisma, {
       passId: pass.id,
       category: "WORKER_PASS",

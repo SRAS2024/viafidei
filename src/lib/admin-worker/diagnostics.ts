@@ -819,33 +819,6 @@ async function ratingCacheFreshness(prisma: PrismaClient): Promise<HealthRating>
   };
 }
 
-/**
- * Spec §18 — legacy `WorkerHeartbeat` table. The Admin Worker writes
- * a compatibility heartbeat there too, so this rating distinguishes
- * "build-queue worker has a heartbeat" from the Admin Worker's own
- * heartbeat (ratingHeartbeat above).
- */
-async function ratingLegacyWorkerHeartbeat(prisma: PrismaClient): Promise<HealthRating> {
-  const recent = await prisma.workerHeartbeat
-    .findFirst({ orderBy: { lastHeartbeatAt: "desc" } })
-    .catch(() => null);
-  const now = new Date();
-  const ageMs = recent ? now.getTime() - recent.lastHeartbeatAt.getTime() : Infinity;
-  const status: HealthStatus = ageMs < 5 * 60_000 ? "pass" : ageMs < 60 * 60_000 ? "warn" : "fail";
-  return {
-    key: "admin_worker_legacy_heartbeat",
-    label: "Build queue worker heartbeat (legacy)",
-    status,
-    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
-    lastCheckedAt: now,
-    dataSource: "WorkerHeartbeat",
-    latestSuccess: recent?.lastHeartbeatAt ?? null,
-    summary: recent
-      ? `Legacy heartbeat ${Math.round(ageMs / 1000)}s ago.`
-      : "No legacy worker heartbeat — only Admin Worker heartbeat in use.",
-  };
-}
-
 async function ratingLastPassTime(prisma: PrismaClient): Promise<HealthRating> {
   const recent = await prisma.adminWorkerPass.findFirst({
     orderBy: { startedAt: "desc" },
@@ -1120,7 +1093,6 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingBrain,
   ratingMissionPlanner,
   ratingHeartbeat,
-  ratingLegacyWorkerHeartbeat,
   ratingLastPassTime,
   ratingLastTaskTime,
   ratingQueue,

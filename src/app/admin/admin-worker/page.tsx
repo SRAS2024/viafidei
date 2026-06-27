@@ -137,6 +137,9 @@ export default async function AdminWorkerPage() {
     .catch(() => null);
   const funnel = await computeContentFunnel(prisma).catch(() => []);
   const readingsCoverage = await dailyReadingsCoverage(prisma).catch(() => null);
+  const capabilityGaps = await (await import("@/lib/admin-worker/capability-gaps"))
+    .diagnoseCapabilityGaps(prisma)
+    .catch(() => null);
 
   const recentQualityScores = await prisma.contentQualityScore
     .findMany({
@@ -545,6 +548,44 @@ export default async function AdminWorkerPage() {
             </>
           ) : (
             <Empty>Diagnostic unavailable.</Empty>
+          )}
+        </Card>
+
+        <Card title="Worker capabilities" eyebrow="Independence" span={2}>
+          {capabilityGaps ? (
+            <>
+              <p className="mb-2 text-xs italic text-ink-faint">
+                What the worker can do on its own right now. Missing capabilities never make it wait
+                on a human — it keeps doing everything it can and names exactly what to enable to
+                grow further. It manages and improves its own system but never modifies it.
+              </p>
+              <DataTable
+                head={
+                  <>
+                    <th className="py-1.5">Capability</th>
+                    <th className="py-1.5">Status</th>
+                    <th className="py-1.5">To enable</th>
+                  </>
+                }
+              >
+                {capabilityGaps.gaps.map((g) => (
+                  <tr
+                    key={g.capability}
+                    className={`border-t border-ink/5 ${g.ok ? "" : "bg-amber-50"}`}
+                  >
+                    <td className="py-1 font-serif">{g.capability}</td>
+                    <td className="py-1">
+                      <StatusPill tone={g.ok ? "ok" : "warn"}>
+                        {g.ok ? "enabled" : "missing"}
+                      </StatusPill>
+                    </td>
+                    <td className="py-1 font-serif text-ink-soft">{g.ok ? "—" : g.remediation}</td>
+                  </tr>
+                ))}
+              </DataTable>
+            </>
+          ) : (
+            <Empty>Capability check unavailable.</Empty>
           )}
         </Card>
 

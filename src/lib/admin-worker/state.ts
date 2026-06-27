@@ -75,35 +75,14 @@ export async function setPriority(
 }
 
 export async function writeHeartbeat(prisma: PrismaClient): Promise<void> {
-  const now = new Date();
-  // Primary source of truth: AdminWorkerState.lastHeartbeatAt (spec §18).
+  // The single source of truth for worker liveness is
+  // AdminWorkerState.lastHeartbeatAt (spec §18). The legacy WorkerHeartbeat
+  // dual-write (and its diagnostics rating) were removed once the
+  // heartbeat-unification transition completed — nothing reads that table now.
   await prisma.adminWorkerState.update({
     where: { id: SINGLETON_ID },
-    data: { lastHeartbeatAt: now },
+    data: { lastHeartbeatAt: new Date() },
   });
-  // Compatibility write into the legacy WorkerHeartbeat table so any
-  // dashboard / diagnostic that still reads from there does not show
-  // a false "worker is dead" while the Admin Worker is alive. Safe to
-  // remove in a future release once nothing reads WorkerHeartbeat.
-  const workerHeartbeat = (prisma as { workerHeartbeat?: PrismaClient["workerHeartbeat"] })
-    .workerHeartbeat;
-  if (workerHeartbeat) {
-    const workerId = process.env.WORKER_ID ?? "admin-worker";
-    await workerHeartbeat
-      .upsert({
-        where: { workerId },
-        create: {
-          workerId,
-          startedAt: now,
-          lastHeartbeatAt: now,
-          status: "idle",
-          hostname: process.env.HOSTNAME ?? null,
-          version: "admin-worker/0.2",
-        },
-        update: { lastHeartbeatAt: now },
-      })
-      .catch(() => undefined);
-  }
 }
 
 export async function recordSuccess(
