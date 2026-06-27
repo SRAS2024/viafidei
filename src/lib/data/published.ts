@@ -87,12 +87,48 @@ export async function getAnyPublishedBySlug(
   return null;
 }
 
+/** Short, human label per content type for the share-card "VIA FIDEI · …" line. */
+const CONTENT_TYPE_LABEL: Record<ChecklistContentType, string> = {
+  PRAYER: "Prayer",
+  SAINT: "Saint",
+  APPARITION: "Apparition",
+  MARIAN_TITLE: "Our Lady",
+  POPE: "Pope",
+  DOCTOR: "Doctor of the Church",
+  PARISH: "Parish",
+  DEVOTION: "Devotion",
+  NOVENA: "Novena",
+  GUIDE: "Guide",
+  SACRAMENT: "Sacrament",
+  LITURGICAL: "Liturgy",
+  CHURCH_DOCUMENT: "Church Document",
+  RITE: "Rite",
+  SPIRITUAL_PRACTICE: "Spiritual Life",
+};
+
+/** The label shown on the share image — litanies (PRAYER + prayerType "litany") read "Litany". */
+function shareTypeLabel(item: PublishedItem): string {
+  if (item.contentType === "PRAYER" && item.payload.prayerType === "litany") return "Litany";
+  return CONTENT_TYPE_LABEL[item.contentType] ?? "Via Fidei";
+}
+
+/**
+ * The branded share-image URL for a content card: the Via Fidei crucifix mark
+ * with the item's own title rendered in it (see `app/api/og`). Relative so Next
+ * resolves it against `metadataBase` (the canonical domain) in the meta tag.
+ */
+export function shareImageUrl(title: string, typeLabel: string): string {
+  const q = new URLSearchParams({ title, type: typeLabel });
+  return `/api/og?${q.toString()}`;
+}
+
 /**
  * Build per-page share/SEO metadata for a published content card, so that a
- * shared link unfurls with the card's own title and summary (and the site
- * favicon + Open Graph defaults inherited from the root layout) rather than the
- * generic site title. Returns empty metadata for a missing item, letting the
- * page fall through to notFound().
+ * shared link unfurls with the card's own title and summary, a branded share
+ * image (the crucifix mark with the item's title in it), and the site favicon /
+ * Open Graph defaults inherited from the root layout — rather than the generic
+ * site title and the browser's default page icon. Returns empty metadata for a
+ * missing item, letting the page fall through to notFound().
  */
 export function buildPublishedMetadata(item: PublishedItem | null): Metadata {
   if (!item) return {};
@@ -101,6 +137,7 @@ export function buildPublishedMetadata(item: PublishedItem | null): Metadata {
       ? item.payload.summary.trim()
       : item.subtitle || item.title;
   const description = rawSummary.length > 200 ? `${rawSummary.slice(0, 197)}…` : rawSummary;
+  const image = shareImageUrl(item.title, shareTypeLabel(item));
   return {
     title: item.title,
     description,
@@ -108,6 +145,13 @@ export function buildPublishedMetadata(item: PublishedItem | null): Metadata {
       title: `${item.title} · Via Fidei`,
       description,
       type: "article",
+      images: [{ url: image, width: 1200, height: 630, alt: item.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${item.title} · Via Fidei`,
+      description,
+      images: [image],
     },
   };
 }
