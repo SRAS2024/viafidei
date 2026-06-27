@@ -7,6 +7,7 @@
  */
 
 import { runDiscoveryOrchestrator } from "../discovery-orchestrator";
+import { dynamicFetcherAvailable } from "../dynamic-fetcher";
 import { discoverFromAllAuthorities } from "../sitemap-discovery";
 import { discoverFromFeed } from "../rss-discovery";
 import { makeOpSkill } from "./skill-helpers";
@@ -74,11 +75,21 @@ export const discoverySkills: CertifiedSkill[] = [
   }),
   makeOpSkill({
     name: "request_dynamic_fetcher_upgrade",
-    purpose: "File a developer request for a dynamic (JS-rendering) fetcher when one is needed.",
+    purpose:
+      "File a developer request for a dynamic (JS-rendering) fetcher — but only when that capability is genuinely unavailable. The keyless headless-browser fetcher now ships with the worker, so when it is present this is a no-op (no request filed).",
     category: "SOURCE",
     allowedInSafeDegradedMode: true,
     run: async (ctx) => {
       const host = String((ctx.input as Record<string, unknown>).host ?? "an approved host");
+      // The capability now exists in-process. When it is available, JS-only
+      // pages are re-rendered automatically by the fetcher — there is nothing
+      // to request, so don't spam the developer queue.
+      if (await dynamicFetcherAvailable()) {
+        return {
+          ok: true,
+          detail: `dynamic fetcher available — ${host} will be re-rendered automatically; no request filed`,
+        };
+      }
       const fingerprint = `missing-skill:dynamic_fetcher:${host}`;
       const req = await ctx.prisma.adminWorkerDeveloperRequest
         .upsert({

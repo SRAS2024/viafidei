@@ -1,11 +1,13 @@
 /**
  * Source acquisition skill pack. Real wrappers over the worker's fetch + read
  * pipeline: fetch a page through the approved-host fetcher, read it into
- * structured blocks, detect dynamic pages (so the worker doesn't loop on JS-only
- * pages — it files a developer request for a dynamic fetcher instead), and
- * classify fetch failures. Each skill verifies the result was actually stored.
+ * structured blocks, detect dynamic pages (the keyless dynamic fetcher renders
+ * JS-only pages automatically; only when that capability is genuinely
+ * unavailable does the worker file a developer request), and classify fetch
+ * failures. Each skill verifies the result was actually stored.
  */
 
+import { looksDynamic } from "../dynamic-fetcher";
 import { adminWorkerFetch, type FetcherInput, type FetchedPage } from "../fetcher";
 import { readSource, type ReadSourceInput, type ReadSourceOutcome } from "../source-reader";
 import { check, decideFromChecks } from "./verification";
@@ -219,24 +221,15 @@ export const sourceSkills: CertifiedSkill[] = [
     testsRequired: ["source: detect_dynamic_page"],
     execute: async (ctx) => {
       const body = String(input(ctx).rawBody ?? input(ctx).body ?? "");
-      const textLen = body
-        .replace(/<script[\s\S]*?<\/script>/gi, " ")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim().length;
-      const dynamicMarkers =
-        /enable javascript|please wait|loading\.\.\.|window\.__INITIAL_STATE__|<div id="root">\s*<\/div>|<div id="app">\s*<\/div>/i.test(
-          body,
-        );
-      const dynamic = textLen < 200 && (dynamicMarkers || /<script/i.test(body));
+      const { dynamic, textLength } = looksDynamic(body);
       if (dynamic) {
         return {
           status: "FAILED",
           failureReason: "dynamic page: no usable static text — a dynamic fetcher is required",
-          evidence: { textLen },
+          evidence: { textLen: textLength },
         };
       }
-      return { status: "SUCCEEDED", output: { dynamic: false, textLength: textLen } };
+      return { status: "SUCCEEDED", output: { dynamic: false, textLength } };
     },
     verify: async (_ctx, result) =>
       decideFromChecks([check("usable_static_text", result.output != null)], "FAILED"),

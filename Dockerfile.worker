@@ -49,6 +49,20 @@ RUN if [ -f package-lock.json ]; then npm ci --include=dev; else npm install --i
 
 RUN npx prisma generate
 
+# Headless Chromium for the keyless dynamic (JS-rendering) fetcher
+# (src/lib/admin-worker/dynamic-fetcher.ts). Many authoritative Catholic
+# sources render their text client-side; rendering them in a real browser lets
+# the worker ingest them WITHOUT any API key. Installed best-effort and fully
+# fail-open — consistent with the openssl/Python copies above: if the browser
+# or its OS libraries can't be fetched (e.g. a Debian-mirror hiccup) the build
+# still succeeds and the dynamic fetcher degrades to a runtime no-op (the worker
+# falls back to static fetch, exactly as before). Playwright is pulled in
+# transitively by the @playwright/test devDependency, kept by --include=dev.
+# Installed before USER worker (apt needs root); a+rx lets the worker read it.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN (npx playwright install --with-deps chromium && chmod -R a+rx /ms-playwright) \
+  || echo "WARN: Chromium install failed; the dynamic fetcher will be a runtime no-op"
+
 COPY --chown=worker:nodejs src ./src
 COPY --chown=worker:nodejs scripts ./scripts
 COPY --chown=worker:nodejs intelligence ./intelligence

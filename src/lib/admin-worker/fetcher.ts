@@ -23,6 +23,7 @@ import { createHash } from "node:crypto";
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { isFetchableHost } from "@/lib/checklist";
+import { dynamicFetcherEnabled, looksDynamic, renderPage } from "./dynamic-fetcher";
 import { writeAdminWorkerLog } from "./logs";
 import { recordSourceOutcome } from "./source-reputation";
 
@@ -186,6 +187,7 @@ export async function adminWorkerFetch(
 
   while (attempt <= DEFAULT_RETRIES) {
     attempt += 1;
+    let dynamicUpgraded = false;
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
@@ -319,9 +321,37 @@ export async function adminWorkerFetch(
         body = pdfText;
       } else {
         body = await response.text();
+        // Keyless dynamic-fetch upgrade: when the static HTML is a JS-only
+        // shell with no usable text, re-render it in a headless browser so
+        // JS-rendered sources flow through the normal pipeline instead of being
+        // abandoned. Fail-open — when the capability is disabled/unavailable or
+        // the render still has no text, we keep the static body unchanged.
+        if (!input.skipNetwork && dynamicFetcherEnabled() && looksDynamic(body).dynamic) {
+          const rendered = await renderPage(response.url).catch(() => null);
+          if (
+            rendered &&
+            !looksDynamic(rendered.html).dynamic &&
+            Buffer.byteLength(rendered.html, "utf8") >= MIN_BODY_BYTES
+          ) {
+            body = rendered.html;
+            dynamicUpgraded = true;
+          }
+        }
       }
       const bytes = Buffer.byteLength(body, "utf8");
       const checksum = createHash("sha256").update(body).digest("hex");
+
+      if (dynamicUpgraded) {
+        await writeAdminWorkerLog(prisma, {
+          category: "SOURCE_READING",
+          severity: "INFO",
+          eventName: "dynamic_fetch_upgrade",
+          message: `Re-rendered JS-only page ${response.url} via headless browser (${bytes}B usable text).`,
+          sourceHost: host,
+          sourceUrl: url,
+          safeMetadata: { renderedBytes: bytes },
+        }).catch(() => undefined);
+      }
 
       if (bytes < MIN_BODY_BYTES) {
         return persistAndReturn(prisma, {
