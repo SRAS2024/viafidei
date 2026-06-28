@@ -624,7 +624,10 @@ falling back to a TypeScript final brain. Concretely:
   as `council_document` records that fill the Church-history timeline with the
   great councils, keeping each council's historically certain inception year (a
   Jan-1 placeholder only when the source records mere year precision, never a
-  fabricated exact day), **DOCTOR** (Doctors of the Church), **RITE** (the
+  fabricated exact day). All **21 ecumenical councils** also ship as a **curated
+  backbone** ([`knowledge/church-history.ts`](src/lib/checklist/knowledge/church-history.ts)),
+  so the timeline fills from 325 → 1965 even with no network at all. The registry
+  further covers **DOCTOR** (Doctors of the Church), **RITE** (the
   recognized rites + the Eastern Catholic Churches sui iuris), and the
   **descriptive types** — **DEVOTION**, **MARIAN_TITLE**, and **SPIRITUAL_PRACTICE**
   — which resolve their narrative from **multiple sources, cross-referenced**: the
@@ -692,6 +695,19 @@ falling back to a TypeScript final brain. Concretely:
   as a tappable link (`MapsAddressLink`) that opens turn-by-turn directions in
   **Apple Maps on iPhone/iPad** and **Google Maps** everywhere else, using the
   record's exact coordinates when present so the pin lands on the right building.
+
+- **Free, keyless data sources — no API key for any of it.** The worker reaches
+  its growth targets entirely on free, public endpoints, with paid keys only ever
+  an optional quality/volume upgrade: **Wikidata** (SPARQL, CC0) + **Wikipedia
+  REST** for structured entity facts and abstracts; the open **Liturgical
+  Calendar API** for the General Roman Calendar; **OpenStreetMap Overpass** for
+  parishes; **DuckDuckGo** for open web search; the **Internet Archive** Wayback
+  API for dead/walled pages; the free **Google translate endpoint** for
+  Latin/Greek; and **schema.org / OpenGraph / microdata** embedded in the pages
+  it already fetches. There is no widely-available free _Catholic-specific_ REST
+  API beyond these — Vatican.va, the USCCB, and most diocesan sites expose no
+  API — so the worker treats those as HTML/PDF sources (now incl. JS-rendered
+  pages via the headless fetcher) and lifts their structured data directly.
 
 - **Finds parishes keyless via OpenStreetMap — versatility without an API key.**
   When no `GOOGLE_PLACES_API_KEY` is configured, parish discovery falls back to
@@ -768,6 +784,22 @@ falling back to a TypeScript final brain. Concretely:
   livestream embeds are stripped with explicit `rejected` markers.
   Extractors consume structured blocks first, raw text only as
   fallback.
+
+- **Lifts machine-readable structured data from every page — keyless.**
+  Alongside the prose reader, a structured-data toolkit
+  ([`structured-data-extractors.ts`](src/lib/admin-worker/structured-data-extractors.ts))
+  parses the machine-readable facts most real Catholic pages already embed but
+  that plain text discards: **schema.org JSON-LD** (incl. `@graph`), **OpenGraph
+  / Twitter cards**, **microdata** (`itemprop`), **Dublin Core + standard
+  `<meta>`**, and **definition lists / two-column fact tables** (how feast days,
+  patronages, and reign/birth/death dates are usually presented). It normalises
+  them into one `StructuredFacts` object — title, description, type, author,
+  publication/modification dates, names, and labelled properties — which the
+  source reader folds into extraction (and uses to recover a missing page
+  title). Pure, deterministic, no API key, no model, and a **strict no-op** on
+  pages with no structured data, so it only ever adds accurate signal. This lets
+  the worker "determine the right info from what it scrapes" across **every**
+  content type.
 
 - **Classifies content with confusion detection.** `classifier.ts`
   (extended `classifyDetailed`) decides whether a source page is a

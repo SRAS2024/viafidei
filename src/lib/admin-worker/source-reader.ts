@@ -24,6 +24,11 @@ import { rememberOutcome } from "./memory";
 import { recordStage } from "./pipeline-stages";
 import { upsertSourceRead } from "./source-reads";
 import {
+  extractStructuredData,
+  hasStructuredFacts,
+  structuredFactsToText,
+} from "./structured-data-extractors";
+import {
   parseStructuredBlocks,
   persistStructuredBlocks,
   type StructuredBlock,
@@ -104,7 +109,13 @@ export async function readSource(
     input.headings && input.headings.length > 0
       ? input.headings
       : blocksToHeadings(structured.blocks);
-  const title = input.title ?? structured.title ?? null;
+
+  // 1b. Lift machine-readable structured data (schema.org JSON-LD, OpenGraph,
+  //     microdata, Dublin Core meta). Keyless + deterministic; a no-op on pages
+  //     with no structured data (so existing behaviour is unchanged), and a
+  //     source of clean titles, dates, and names where a page marks them up.
+  const structuredData = extractStructuredData(input.rawBody);
+  const title = input.title ?? structured.title ?? structuredData.facts.title ?? null;
 
   // 2. Persist the raw read. Cleaned extracted text comes from the
   //    structured-block body (forensic raw text is on rawBody).
@@ -242,16 +253,23 @@ export async function readSource(
     | "LITURGICAL"
     | "PARISH";
 
+  // Fold the structured-data facts into the extractor body as labelled signal.
+  // structuredFactsToText() returns "" when the page has no structured data, so
+  // this is a strict no-op there and only enriches pages that mark facts up.
+  const factsText = structuredFactsToText(structuredData.facts);
+  const extractionBody = factsText ? `${classifierBody}\n\n${factsText}` : classifierBody;
+
   const extractorInput: ExtractorInput = {
     url: input.sourceUrl,
     host: input.sourceHost,
     title,
     headings,
-    bodyText: classifierBody,
+    bodyText: extractionBody,
     blocks: structured.blocks,
     scriptureReferences: structured.scriptureReferences,
     checksum: sourceRead.checksum,
     language: input.language,
+    structuredData: hasStructuredFacts(structuredData.facts) ? structuredData.facts : undefined,
   };
 
   // GUIDE and MARIAN_TITLE skip extraction (the checklist already builds

@@ -13,6 +13,7 @@
 
 import type { ExtractableContentType } from "./content-types";
 import { makeProvenance, type FieldProvenance } from "./provenance";
+import type { StructuredFacts } from "./structured-data-extractors";
 import type { StructuredBlock, SourceBlockType } from "./structured-source-reader";
 
 export interface ExtractorInput {
@@ -26,6 +27,13 @@ export interface ExtractorInput {
   scriptureReferences?: string[];
   checksum?: string;
   language?: string;
+  /**
+   * Normalised facts lifted from the page's machine-readable structured data
+   * (schema.org JSON-LD, OpenGraph, microdata, Dublin Core meta). Optional and
+   * advisory — present only when a page carries structured data. See
+   * `structured-data-extractors.ts`.
+   */
+  structuredData?: StructuredFacts;
 }
 
 /**

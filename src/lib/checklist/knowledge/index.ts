@@ -35,6 +35,7 @@ import { guideKnowledge } from "./guides";
 import { novenaKnowledge } from "./novenas";
 import { apparitionKnowledge } from "./apparitions";
 import { churchDocumentKnowledge } from "./church-documents";
+import { churchHistoryKnowledge } from "./church-history";
 import { doctorKnowledge } from "./doctors";
 import { popeKnowledge } from "./popes";
 import { riteKnowledge } from "./rites";
@@ -61,6 +62,7 @@ const ALL: CuratedEntry[] = [
   ...novenaKnowledge,
   ...apparitionKnowledge,
   ...churchDocumentKnowledge,
+  ...churchHistoryKnowledge,
   ...doctorKnowledge,
   ...popeKnowledge,
   ...riteKnowledge,
