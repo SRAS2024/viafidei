@@ -22,21 +22,24 @@
  * advanced in the window, it intervenes:
  *
  *   1. Force the highest-priority DOWNSTREAM stage that has queued work and is
- *      itself productive (publish-first: PUBLIC_PUBLISH → STRICT_QA →
+ *      itself making progress (publish-first: PUBLIC_PUBLISH → STRICT_QA →
  *      CROSS_SOURCE_VERIFICATION → … → SOURCE_FETCH), draining in-flight work
  *      toward published content.
- *   2. If nothing downstream is productive, force the keyless ground-truth
- *      ingest (curated + structured) to run even when the brain is degraded, and
- *      run a terminal diagnostic stage (REPAIR → REPORTING → MAINTENANCE) that
- *      can never itself loop into publishing.
+ *   2. If nothing downstream is making progress, run a terminal diagnostic stage
+ *      (REPAIR → REPORTING → MAINTENANCE) for this pass's main slot — one that
+ *      can never itself loop into publishing — so the slot isn't wasted on the
+ *      fixated stage. The keyless ground-truth ingest (curated + structured)
+ *      already runs every active pass, so content keeps growing meanwhile.
  *
  * SAFETY. The governor only changes WHICH deterministic stage handler runs — it
  * never bypasses a gate. Forced PUBLIC_PUBLISH still publishes only QA_PASSED
  * artifacts through `evaluatePublishGate`; forced STRICT_QA still runs the full
- * quality gate; the curated/structured ingest it un-gates publish only
- * pre-verified ground-truth corpus through the same publish orchestrator. It
- * never recommends a publishing stage as its escape hatch, so it converges
- * rather than oscillates. Deterministic (a pure function of the ledger + world),
+ * quality gate. It acts ONLY when the brain is active
+ * (PYTHON_FINAL_BRAIN_ACTIVE) and NEVER when paused, so it fully respects the
+ * safe-degraded-mode contract — it introduces no new publishing path the brain
+ * wouldn't already take in active mode. It never forces a stage that is itself
+ * spinning, so it converges (down the ladder to a terminal diagnostic) rather
+ * than oscillating. Deterministic (a pure function of the ledger + world),
  * fail-open (any error → no intervention), and env-toggleable (default ON).
  */
 
@@ -102,11 +105,8 @@ export interface GovernorVerdict {
   forcedStage: BrainMissionStage | null;
   /** Bias the forced stage toward this content type (the live largest gap). */
   forcedContentType: string | null;
-  /** Run the keyless ground-truth ingest (curated + structured) this pass even
-   * when the brain is degraded — the lever that keeps content growing when live
-   * discovery/extraction are starved. */
-  forceSupplementaryIngest: boolean;
-  /** An entity (e.g. a poison source read) processed past the retry limit. */
+  /** An entity (e.g. a poison source read) processed past the retry limit,
+   * across any stage in the window — surfaced for the audit trail. */
   exhaustedEntityId: string | null;
   reason: string;
 }
@@ -116,7 +116,6 @@ const NO_INTERVENTION: GovernorVerdict = {
   fixatedStage: null,
   forcedStage: null,
   forcedContentType: null,
-  forceSupplementaryIngest: false,
   exhaustedEntityId: null,
   reason: "",
 };
@@ -132,9 +131,11 @@ export function governorEnabled(): boolean {
   return !(v === "0" || v === "false" || v === "off" || v === "no");
 }
 
-/** A row counts as forward progress when the stage advanced an item. */
+/** A row counts as forward progress when the stage advanced an item. resultType
+ * is the canonical coarse bucket (advanced → "success"), so it is the single
+ * source of truth. */
 function isProductive(row: GovernorOutcomeRow): boolean {
-  return row.resultType === "success" || row.result === "advanced";
+  return row.resultType === "success";
 }
 
 /**
@@ -151,6 +152,10 @@ export function computeGovernorVerdict(args: {
 }): GovernorVerdict {
   const { world, chosenStage, rows, windowMinutes, minSamples, maxEntityRetries } = args;
 
+  // Never intervene while paused — the loop's pause guard already returns early,
+  // but this keeps the verdict correct for any direct caller.
+  if (world.isPaused) return NO_INTERVENTION;
+
   const chosen = new Map<string, number>();
   const productive = new Map<string, number>();
   const entityNonAdvance = new Map<string, number>();
@@ -163,7 +168,9 @@ export function computeGovernorVerdict(args: {
     if (GOVERNED_CONTENT_STAGES.has(row.stage as BrainMissionStage) && prod) {
       windowContentProductive += 1;
     }
-    if (row.stage === chosenStage && !prod && row.entityId) {
+    // Track a poison entity across ALL stages in the window (a malformed source
+    // read that never advances anywhere), not just the current stage.
+    if (!prod && row.entityId) {
       entityNonAdvance.set(row.entityId, (entityNonAdvance.get(row.entityId) ?? 0) + 1);
     }
   }
@@ -175,31 +182,31 @@ export function computeGovernorVerdict(args: {
 
   const fixatedChosen = isFixated(chosenStage);
   // Growth stall: there is content to build, the worker has had enough passes to
-  // show output, yet nothing advanced — the worker is spinning overall (covers
-  // the degraded-brain + starved-discovery case where it loops on operational
-  // stages while goals go unmet).
+  // show output, yet nothing advanced — the worker is spinning overall.
   const growthStall =
     world.contentGoalGap > 0 && windowContentProductive === 0 && rows.length >= minSamples;
 
   if (!fixatedChosen && !growthStall) return NO_INTERVENTION;
 
-  // Pick the highest-priority downstream stage with queued work that is not
-  // itself fixated — drain in-flight artifacts toward published content.
+  // Pick the highest-priority downstream stage with queued work that is itself
+  // making progress (advanced ≥1 in the window) OR untried in the window — never
+  // a stage that has only spun, so the governor converges down the ladder to a
+  // terminal diagnostic rather than ping-ponging between two stuck stages.
   let forcedStage: BrainMissionStage | null = null;
   for (const [stage, field] of DOWNSTREAM_LADDER) {
     if (stage === chosenStage) continue;
     const queued = world[field];
-    if (typeof queued === "number" && queued > 0 && !isFixated(stage)) {
+    const productiveHere = (productive.get(stage) ?? 0) > 0;
+    const untried = (chosen.get(stage) ?? 0) === 0;
+    if (typeof queued === "number" && queued > 0 && (productiveHere || untried)) {
       forcedStage = stage;
       break;
     }
   }
 
-  let forceSupplementaryIngest = false;
   if (!forcedStage) {
-    // Nothing downstream is productive: keep content growing from the keyless
-    // ground-truth corpus and run a terminal diagnostic that can't loop.
-    forceSupplementaryIngest = true;
+    // Nothing downstream is making progress: run a terminal diagnostic for the
+    // main slot (the keyless ground-truth ingest still runs this active pass).
     forcedStage = terminalStage(chosenStage, world);
   }
 
@@ -220,7 +227,6 @@ export function computeGovernorVerdict(args: {
     fixatedStage: chosenStage,
     forcedStage,
     forcedContentType: world.contentGoalContentType,
-    forceSupplementaryIngest,
     exhaustedEntityId,
     reason,
   };
@@ -254,6 +260,12 @@ export interface GovernorInput {
  */
 export async function evaluateGovernor(input: GovernorInput): Promise<GovernorVerdict> {
   if (!governorEnabled()) return NO_INTERVENTION;
+  // Act ONLY when the brain is active. In safe degraded mode the worker does no
+  // new publishing by contract, so the governor must not force a content stage
+  // or otherwise widen what the worker would do — it stays out entirely.
+  if (input.decision.finalBrain !== undefined && input.decision.finalBrain !== "python") {
+    return NO_INTERVENTION;
+  }
   try {
     const windowMinutes =
       input.windowMinutes ?? envInt("ADMIN_WORKER_GOVERNOR_WINDOW_MIN", DEFAULT_WINDOW_MIN);

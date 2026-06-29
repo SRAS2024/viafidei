@@ -103,8 +103,17 @@ describe("computeGovernorVerdict", () => {
     expect(v.intervene).toBe(true);
     expect(v.fixatedStage).toBe("EXTRACTION");
     expect(v.forcedStage).toBe("STRICT_QA");
-    expect(v.forceSupplementaryIngest).toBe(false);
     expect(v.reason).toMatch(/EXTRACTION/);
+  });
+
+  it("never intervenes when paused", () => {
+    const v = computeGovernorVerdict({
+      world: world({ isPaused: true, contentGoalGap: 99, artifactsAwaitingQA: 5 }),
+      chosenStage: "EXTRACTION",
+      rows: rows("EXTRACTION", 5, "needs_repair"),
+      ...BASE,
+    });
+    expect(v.intervene).toBe(false);
   });
 
   it("prefers PUBLIC_PUBLISH over QA when publishable work waits", () => {
@@ -117,7 +126,7 @@ describe("computeGovernorVerdict", () => {
     expect(v.forcedStage).toBe("PUBLIC_PUBLISH");
   });
 
-  it("forces ground-truth ingest + a terminal stage when nothing downstream is productive", () => {
+  it("forces a terminal diagnostic stage when nothing downstream is productive", () => {
     const v = computeGovernorVerdict({
       world: world({ contentGoalGap: 40 }), // all queues empty
       chosenStage: "EXTRACTION",
@@ -125,22 +134,36 @@ describe("computeGovernorVerdict", () => {
       ...BASE,
     });
     expect(v.intervene).toBe(true);
-    expect(v.forceSupplementaryIngest).toBe(true);
     expect(v.forcedStage).toBe("REPORTING"); // no repair work pending
   });
 
-  it("never forces into another fixated stage", () => {
+  it("never forces into a stage that has only spun (no advance) in the window", () => {
     const v = computeGovernorVerdict({
       world: world({ artifactsAwaitingQA: 5 }), // only QA has queued work
       chosenStage: "EXTRACTION",
       rows: [...rows("EXTRACTION", 3, "needs_repair"), ...rows("STRICT_QA", 3, "needs_repair")],
       ...BASE,
     });
+    // STRICT_QA only spun → ineligible → falls through to a terminal stage.
     expect(v.forcedStage).not.toBe("STRICT_QA");
-    expect(v.forceSupplementaryIngest).toBe(true); // fell through to the keyless lever
+    expect(["REPAIR", "REPORTING", "MAINTENANCE"]).toContain(v.forcedStage);
   });
 
-  it("breaks a stall on operational stages when goals are unmet (degraded mode)", () => {
+  it("still forces a stage that advanced at least once even if it also spun", () => {
+    const v = computeGovernorVerdict({
+      world: world({ artifactsAwaitingQA: 5 }),
+      chosenStage: "EXTRACTION",
+      rows: [
+        ...rows("EXTRACTION", 3, "needs_repair"),
+        ...rows("STRICT_QA", 2, "needs_repair"),
+        ...rows("STRICT_QA", 1, "success"), // advanced once → eligible
+      ],
+      ...BASE,
+    });
+    expect(v.forcedStage).toBe("STRICT_QA");
+  });
+
+  it("breaks a growth stall while the brain idles on operational work", () => {
     const v = computeGovernorVerdict({
       world: world({ contentGoalGap: 50 }),
       chosenStage: "REPORTING", // operational, never itself 'fixated'
@@ -148,7 +171,6 @@ describe("computeGovernorVerdict", () => {
       ...BASE,
     });
     expect(v.intervene).toBe(true);
-    expect(v.forceSupplementaryIngest).toBe(true);
     expect(v.forcedStage).toBe("MAINTENANCE"); // chosen was REPORTING → drop to MAINTENANCE
     expect(v.reason).toMatch(/stall/i);
   });
@@ -160,7 +182,6 @@ describe("computeGovernorVerdict", () => {
       rows: rows("EXTRACTION", 3, "no_op"),
       ...BASE,
     });
-    expect(v.forceSupplementaryIngest).toBe(true);
     expect(v.forcedStage).toBe("REPAIR");
   });
 
@@ -237,7 +258,7 @@ describe("evaluateGovernor (IO seam)", () => {
     const prisma = { adminWorkerStageOutcome: { findMany } } as unknown as PrismaClient;
     const v = await evaluateGovernor({
       prisma,
-      decision: { missionStage: "EXTRACTION" },
+      decision: { missionStage: "EXTRACTION", finalBrain: "python" },
       world: world({ artifactsAwaitingQA: 3 }),
       recentOutcomes: rows("EXTRACTION", 3, "needs_repair"),
     });
@@ -251,11 +272,24 @@ describe("evaluateGovernor (IO seam)", () => {
     const prisma = { adminWorkerStageOutcome: { findMany } } as unknown as PrismaClient;
     const v = await evaluateGovernor({
       prisma,
-      decision: { missionStage: "EXTRACTION" },
+      decision: { missionStage: "EXTRACTION", finalBrain: "python" },
       world: world({ artifactsAwaitingPublish: 1 }),
     });
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(v.intervene).toBe(true);
     expect(v.forcedStage).toBe("PUBLIC_PUBLISH");
+  });
+
+  it("stays out entirely in safe degraded mode (respects the no-publish contract)", async () => {
+    const findMany = vi.fn();
+    const prisma = { adminWorkerStageOutcome: { findMany } } as unknown as PrismaClient;
+    const v = await evaluateGovernor({
+      prisma,
+      decision: { missionStage: "EXTRACTION", finalBrain: "degraded" },
+      world: world({ contentGoalGap: 99, artifactsAwaitingQA: 5 }),
+      recentOutcomes: rows("EXTRACTION", 5, "needs_repair"),
+    });
+    expect(findMany).not.toHaveBeenCalled();
+    expect(v.intervene).toBe(false);
   });
 });
