@@ -711,19 +711,25 @@ export async function sampleExecutionFeedback(
     total === 0 ? undefined : passed / total;
   const publishAttempts = publishedRecent + publishBlocks;
 
-  // Stuck-stage signal: stages with several recent no-op/idle dispatches — chosen
-  // but not advancing (e.g. cross-source verification whose validation sources
-  // are all down). Drives the stronger stuck penalty in applyExecutionFeedback.
-  // Defensive: tolerate a prisma client without the stage-outcome model (tests /
-  // degraded) — fall back to no stuck signal rather than throwing.
+  // Stuck-stage signal: stages chosen repeatedly but NOT advancing. Counts both
+  // no-op/idle dispatches AND needs_repair (repair-planned) outcomes — the
+  // latter is the dominant real fixation (e.g. EXTRACTION re-planning a poison
+  // read, or cross-source verification whose validation sources are all down),
+  // which a no-op-only signal missed entirely. Drives the stronger stuck penalty
+  // in applyExecutionFeedback (and complements the pipeline governor, which is
+  // the hard real-time loop-breaker). Defensive: tolerate a prisma client
+  // without the stage-outcome model (tests / degraded) — fall back to no signal.
   const stuckStages: Record<string, number> = {};
   try {
-    const recentNoOps = await prisma.adminWorkerStageOutcome.groupBy({
+    const recentStuck = await prisma.adminWorkerStageOutcome.groupBy({
       by: ["stage"],
-      where: { resultType: "no_op", createdAt: { gte: new Date(Date.now() - 30 * 60_000) } },
+      where: {
+        resultType: { in: ["no_op", "needs_repair"] },
+        createdAt: { gte: new Date(Date.now() - 30 * 60_000) },
+      },
       _count: { stage: true },
     });
-    for (const r of recentNoOps) stuckStages[r.stage] = r._count.stage;
+    for (const r of recentStuck) stuckStages[r.stage] = r._count.stage;
   } catch {
     // no stage-outcome model available — leave stuckStages empty
   }

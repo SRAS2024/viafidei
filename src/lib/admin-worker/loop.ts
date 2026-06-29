@@ -179,6 +179,41 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     },
   });
 
+  // Pipeline governor (spec: "force productive forward movement; never fixate").
+  // After the brain picks a stage and before dispatch, the governor reads the
+  // exact per-stage outcome ledger over a short window: if the chosen content
+  // stage has spun N+ passes with no forward progress, or content growth has
+  // stalled despite an unmet gap, it overrides the stage choice with the
+  // highest-priority productive downstream stage (draining toward publish) and,
+  // when nothing downstream is productive, un-gates the keyless ground-truth
+  // ingest so content keeps growing. It only changes WHICH gated handler runs —
+  // every QA/publish gate is unchanged. Deterministic + fail-open + default-on.
+  const { evaluateGovernor, governorEnabled } = await import("./governor");
+  let forceSupplementaryIngest = false;
+  if (governorEnabled()) {
+    const verdict = await evaluateGovernor({ prisma, decision: brain }).catch(() => null);
+    if (verdict?.intervene && verdict.forcedStage) {
+      forceSupplementaryIngest = verdict.forceSupplementaryIngest;
+      await writeAdminWorkerLog(prisma, {
+        passId: pass.id,
+        category: "WORKER_PASS",
+        severity: "WARN",
+        eventName: "governor_forced_stage",
+        message: `Governor: ${brain.missionStage} → ${verdict.forcedStage} (${verdict.reason}).`,
+        contentType: verdict.forcedContentType ?? brain.contentType ?? undefined,
+        safeMetadata: {
+          from: brain.missionStage,
+          to: verdict.forcedStage,
+          reason: verdict.reason,
+          forceSupplementaryIngest: verdict.forceSupplementaryIngest,
+          exhaustedEntityId: verdict.exhaustedEntityId,
+        },
+      }).catch(() => undefined);
+      brain.missionStage = verdict.forcedStage;
+      if (verdict.forcedContentType) brain.contentType = verdict.forcedContentType;
+    }
+  }
+
   let built = 0;
   let publishedCount = 0;
   let failedCount = 0;
@@ -210,7 +245,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // (PYTHON_BRAIN_UNAVAILABLE_SAFE_DEGRADED_MODE). When the final brain is
     // unavailable the worker only does security/diagnostics/reporting/
     // maintenance/repair — never new publishing.
-    if (brain.finalBrain === "python") {
+    if (brain.finalBrain === "python" || forceSupplementaryIngest) {
       try {
         const { runCuratedIngest } = await import("./curated-ingest");
         const ingest = await runCuratedIngest(prisma, { passId: pass.id });
@@ -230,7 +265,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // a source with no ceiling. Gated like curated ingest (PUBLISHES content, so
     // it must not run in safe degraded mode) and best-effort so it never breaks
     // a pass.
-    if (brain.finalBrain === "python") {
+    if (brain.finalBrain === "python" || forceSupplementaryIngest) {
       try {
         const { runStructuredIngest } = await import("./structured/ingest");
         const structured = await runStructuredIngest(prisma, { passId: pass.id });
@@ -338,7 +373,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // surfaced URLs are unverified leads that still face the full pipeline
     // (classify → cross-source verify → strict QA → publish) before anything
     // goes public — scanning widens reach, never the accuracy bar.
-    if (brain.finalBrain === "python") {
+    if (brain.finalBrain === "python" || forceSupplementaryIngest) {
       try {
         const { runAlwaysOnDiscovery } = await import("./always-on-discovery");
         await runAlwaysOnDiscovery(prisma, { passId: pass.id });
