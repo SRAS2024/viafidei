@@ -23,6 +23,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { rescoreAllCandidates } from "./candidate-scorer";
+import { computeCoverageModel } from "./coverage-model";
 import { discoverFromConfiguredUrls } from "./configured-urls";
 import { discoverFromDirectories } from "./directory-discovery";
 import { writeAdminWorkerLog } from "./logs";
@@ -144,6 +145,24 @@ export async function runDiscoveryOrchestrator(
       })
       .catch(() => null);
     contentType = nextGoal?.contentType ?? null;
+  }
+
+  // Self-governance: consult the per-(type, subtype) coverage model so discovery
+  // steers toward the SUBTYPE that is missing, not just the type. If every type
+  // goal is met but a subtype sits at zero, target that — so the worker keeps
+  // covering every subtype rather than declaring a type "done". The subtype
+  // biases the open web-search queries below.
+  let subtype: string | null = null;
+  const coverage = await computeCoverageModel(prisma).catch(() => null);
+  if (coverage) {
+    if (!contentType && coverage.nextTarget) {
+      contentType = coverage.nextTarget.contentType;
+      subtype = coverage.nextTarget.subtype;
+    } else if (contentType) {
+      subtype =
+        coverage.types.find((t) => t.contentType === contentType)?.missingSubtypes[0] ?? null;
+    }
+    if (subtype) strategies.push(`fill missing subtype ${contentType}/${subtype}`);
   }
 
   const strategy = contentType ? CONTENT_TYPE_STRATEGIES[contentType] : null;
@@ -284,7 +303,9 @@ export async function runDiscoveryOrchestrator(
     try {
       const { webSearchEnabled, discoverFromWebSearch } = await import("./search-discovery");
       if (webSearchEnabled()) {
-        const r = await discoverFromWebSearch(prisma, contentType ?? undefined);
+        const r = await discoverFromWebSearch(prisma, contentType ?? undefined, {
+          subtype: subtype ?? undefined,
+        });
         surfaced += r.inserted;
         if (r.errors.length) errors.push(`web_search: ${r.errors.join("; ")}`);
       }
@@ -324,6 +345,9 @@ export async function runDiscoveryOrchestrator(
     safeMetadata: {
       strategy: strategy?.description,
       surfaced,
+      targetSubtype: subtype,
+      coverageSummary: coverage?.summary,
+      missingSubtypes: coverage ? coverage.prioritizedMissing.length : null,
       rejectedByScorer: rescored.rejected,
       prioritized: rescored.prioritized,
       hostsSkipped: hostsSkipped.map((h) => h.host),

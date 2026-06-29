@@ -1146,6 +1146,20 @@ source / verification / strict-QA / full-quality gate first.
 - The content-type profiles + the Python brain's `select_action` input carry
   `canonicalMax` + `allowsContinuedGrowth`, so the brain knows only
   Sacraments are capped and keeps growing the open types after their targets.
+- **Per-subtype coverage self-knowledge** (`coverage-model.ts`). Goals are
+  type-level, but the catalog (`skills/catalog.ts`) declares the **subtypes**
+  each type must cover (PRAYER → common / marian / eucharistic / saint /
+  liturgical; CHURCH*DOCUMENT → encyclical / exhortation / council constitution
+  / …). A type can hit its numeric target while a whole subtype sits at zero. So
+  each pass the worker counts published items per `(contentType, contentSubtype)`
+  in one grouped query, compares against the catalog, and builds a coverage map:
+  which subtypes are present, which are **missing**, ranked neediest-type-first.
+  Discovery then **steers toward the missing subtype** — even for a type already
+  at its numeric target — biasing the open web-search query toward it (e.g.
+  `eucharistic_prayer` → *"Catholic eucharistic prayer full text list"\_), so the
+  worker methodically fills **every type and subtype** instead of over-serving
+  the easy ones. Deterministic, fail-open, surfaced on the discovery log
+  (`targetSubtype` + `coverageSummary`) and exposed via `computeCoverageModel`.
 
 ### Single content path
 

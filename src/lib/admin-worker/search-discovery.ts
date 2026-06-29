@@ -229,7 +229,10 @@ async function viaDuckDuckGo(query: string, count: number): Promise<WebSearchRes
  * query is biased "catholic" so the result set is on-topic; relevance and
  * communion are still judged downstream.
  */
-export function queriesForContentType(contentType?: string): string[] {
+export function queriesForContentType(
+  contentType?: string,
+  opts: { subtype?: string } = {},
+): string[] {
   const ct = (contentType ?? "").toUpperCase();
   const map: Record<string, string[]> = {
     SAINT: [
@@ -277,6 +280,7 @@ export function queriesForContentType(contentType?: string): string[] {
   const base = map[ct] ?? ["Catholic Church teaching reference"];
   // Parish coverage benefits most from locality — mirror how a person would
   // search city by city. Seed location-aware queries from the operator list.
+  let result: string[];
   if (ct === "PARISH") {
     const locations = (process.env.PARISH_DISCOVERY_LOCATIONS ?? "")
       .split(";")
@@ -284,9 +288,20 @@ export function queriesForContentType(contentType?: string): string[] {
       .filter(Boolean)
       .slice(0, 5);
     // Locality first — that's how a person hunts down every parish, city by city.
-    return [...locations.map((loc) => `Catholic parishes in ${loc} parish directory`), ...base];
+    result = [...locations.map((loc) => `Catholic parishes in ${loc} parish directory`), ...base];
+  } else {
+    result = base;
   }
-  return base;
+  // Subtype bias: when the coverage model points at a specific missing subtype,
+  // lead with a query that targets it (e.g. "eucharistic_prayer" → "Catholic
+  // eucharistic prayer full text list"), so discovery fills the thin corner
+  // instead of padding the well-covered ones.
+  const subtype = (opts.subtype ?? "").trim();
+  if (subtype) {
+    const human = subtype.replace(/_/g, " ").trim();
+    if (human) result = [`Catholic ${human} full text list`, ...result];
+  }
+  return result;
 }
 
 export interface WebSearchDiscoveryResult {
@@ -305,7 +320,7 @@ export interface WebSearchDiscoveryResult {
 export async function discoverFromWebSearch(
   prisma: PrismaClient,
   contentType?: string,
-  opts: { maxQueries?: number; resultsPerQuery?: number } = {},
+  opts: { maxQueries?: number; resultsPerQuery?: number; subtype?: string } = {},
 ): Promise<WebSearchDiscoveryResult> {
   const out: WebSearchDiscoveryResult = {
     enabled: webSearchEnabled(),
@@ -316,7 +331,10 @@ export async function discoverFromWebSearch(
   };
   if (!out.enabled) return out;
 
-  const queries = queriesForContentType(contentType).slice(0, opts.maxQueries ?? 2);
+  const queries = queriesForContentType(contentType, { subtype: opts.subtype }).slice(
+    0,
+    opts.maxQueries ?? 2,
+  );
   for (const query of queries) {
     try {
       const results = await webSearch(query, opts.resultsPerQuery ?? 10);
