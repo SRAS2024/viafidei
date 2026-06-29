@@ -274,6 +274,10 @@ Optional environment variables:
 | `TRANSLATION_AUTOPUBLISH_MACHINE`                   | Machine-translation drafts **auto-publish by default** so every prayer and litany ends up with both Latin and Greek (the authentic corpus is always tried first; machine fills carry `machineTranslated` provenance for later curation). Set `0`/`false`/`off` to instead route machine drafts to human review before they go live                                                                                                                                                                                                                                                                                                                                 |
 | `EXTRACTION_AI_API_URL` / `_API_KEY` / `_MODEL`     | Optional OpenAI-compatible AI provider for content extraction + single-source verification. Removes the publish ceiling: when the deterministic extractors leave required fields missing, the AI fills ONLY what the page text supports (never invents); and when a top-authority source's independent cross-checks are merely unreachable (not disagreeing), the AI confirms the sensitive values against that source's own text so the artifact can verify. Falls back to the `TRANSLATION_AI_*` config when unset. No-op when neither is set; accuracy is still enforced by the content schema, cross-source verification, and strict QA                        |
 | `ADMIN_WORKER_REQUIRE_HUMAN_REVIEW`                 | **Off by default — the worker is fully independent and never parks work for a human.** Every situation that would otherwise need review gets the worker's own terminal decision: publish when the evidence clears the bar, otherwise SKIP (never publish unverified, never delete on uncertainty) and revisit autonomously. The human-review UI still exists (a human _may_ act), but the worker never depends on it, so the queue never blocks growth. Set `1`/`true`/`on` to restore human-gated review (uncertain items are queued for a person)                                                                                                                |
+| `ADMIN_WORKER_GOVERNOR_ENABLED`                     | Pipeline governor — on by default. Each pass, just before dispatch, it reads the per-stage outcome ledger over a sliding window; if the brain's chosen content stage has spun without forward progress (or growth stalled despite an open gap) it overrides the choice with the highest-priority productive downstream stage, or a terminal diagnostic when nothing downstream is making progress. Only changes which already-gated handler runs (never bypasses QA/publish); acts only in active mode and never when paused. Set `0`/`false`/`off` to disable                                                                                                     |
+| `ADMIN_WORKER_GOVERNOR_WINDOW_MIN`                  | Governor sliding-window size in minutes (default `15`) — how far back it looks when judging whether a stage is advancing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `ADMIN_WORKER_GOVERNOR_MIN_SAMPLES`                 | How many non-productive runs of a stage in the window before the governor intervenes (default `3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `ADMIN_WORKER_GOVERNOR_MAX_ENTITY_RETRIES`          | How many non-advancing attempts on the same entity (e.g. a poison source read) before it is flagged exhausted in the governor verdict (default `3`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 ---
 
@@ -984,6 +988,37 @@ falling back to a TypeScript final brain. Concretely:
   e.g. _"set `EXTRACTION_AI_API_URL` + `EXTRACTION_AI_API_KEY`"_ or _"set
   `ADMIN_WORKER_OPEN_INTERNET=1`"_. The Why-No-Growth panel appears on the
   Command Center and is included in every Developer Audit PDF.
+
+- **Pipeline governor — forces productive forward movement every pass.** The
+  brain's anti-fixation feedback is scoring-only: it can lower a stage's score
+  but never _forbid_ it, so a stage with a high baseline (EXTRACTION/DISCOVERY
+  tied to an open content gap) could still win pass after pass while producing
+  nothing — re-planning a poison source read, or re-attempting a cross-source
+  verification whose sources are all down. The governor
+  ([`governor.ts`](src/lib/admin-worker/governor.ts)) closes that gap. Just
+  before dispatch it reads the exact per-stage outcome ledger
+  (`AdminWorkerStageOutcome`) over a short sliding window and, if the chosen
+  content stage has been picked `MIN_SAMPLES`+ times with **zero** forward
+  progress — or content growth has stalled despite an open gap — it overrides
+  the choice: it forces the highest-priority **productive downstream** stage that
+  has queued work (publish-first: PUBLIC_PUBLISH → STRICT_QA → cross-source
+  verification → … → fetch), draining in-flight artifacts toward published
+  content; and when nothing downstream is making progress it runs a terminal
+  diagnostic (REPAIR → REPORTING → MAINTENANCE) for the main slot — one that can
+  never loop into publishing — while the keyless ground-truth ingest that
+  already runs every active pass keeps content growing. It only changes **which**
+  already-gated handler runs — every QA/publish gate is unchanged, so forced
+  publishing still requires `QA_PASSED` — and it acts **only in active mode and
+  never when paused**, so it fully respects the safe-degraded-mode contract and
+  introduces no publishing path the brain wouldn't already take. It never forces
+  a stage that is itself spinning (so it converges down the ladder instead of
+  oscillating), never overrides a stage that advanced even once in the window,
+  and is deterministic, fail-open, and default-on
+  (`ADMIN_WORKER_GOVERNOR_ENABLED=0` opts out). Every override writes a
+  `governor_forced_stage` log so the audit trail shows "brain chose X →
+  governor forced Y, because …". The brain's own stuck signal now also counts
+  `needs_repair` (repair-planned) outcomes, not just `no_op`, so its soft penalty
+  finally fires on the most common fixation too.
 
 - **Recognises stuckness and acts on it — not just logs it.** Every pass the
   Python brain runs `detect_stuckness` (action/repair loops + no-growth). When it

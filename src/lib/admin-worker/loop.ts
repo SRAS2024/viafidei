@@ -179,6 +179,40 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     },
   });
 
+  // Pipeline governor (spec: "force productive forward movement; never fixate").
+  // After the brain picks a stage and before dispatch, the governor reads the
+  // exact per-stage outcome ledger over a short window: if the chosen content
+  // stage has spun N+ passes with no forward progress, or content growth has
+  // stalled despite an unmet gap, it overrides the stage choice with the
+  // highest-priority productive downstream stage (draining toward publish), or a
+  // terminal diagnostic when nothing downstream is making progress. It only
+  // changes WHICH already-gated handler runs — every QA/publish gate is
+  // unchanged — and it acts only in active mode, so it never introduces a
+  // publishing path the brain wouldn't already take. Deterministic, fail-open,
+  // default-on.
+  const { evaluateGovernor, governorEnabled } = await import("./governor");
+  if (governorEnabled()) {
+    const verdict = await evaluateGovernor({ prisma, decision: brain }).catch(() => null);
+    if (verdict?.intervene && verdict.forcedStage) {
+      await writeAdminWorkerLog(prisma, {
+        passId: pass.id,
+        category: "WORKER_PASS",
+        severity: "WARN",
+        eventName: "governor_forced_stage",
+        message: `Governor: ${brain.missionStage} → ${verdict.forcedStage} (${verdict.reason}).`,
+        contentType: verdict.forcedContentType ?? brain.contentType ?? undefined,
+        safeMetadata: {
+          from: brain.missionStage,
+          to: verdict.forcedStage,
+          reason: verdict.reason,
+          exhaustedEntityId: verdict.exhaustedEntityId,
+        },
+      }).catch(() => undefined);
+      brain.missionStage = verdict.forcedStage;
+      if (verdict.forcedContentType) brain.contentType = verdict.forcedContentType;
+    }
+  }
+
   let built = 0;
   let publishedCount = 0;
   let failedCount = 0;
