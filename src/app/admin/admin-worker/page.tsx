@@ -24,7 +24,17 @@ import { AdminWorkerPauseToggle } from "./AdminWorkerPauseToggle";
 import { AdminWorkerControls } from "./AdminWorkerControls";
 import { RequestHomepageMakeoverButton } from "./RequestHomepageMakeoverButton";
 import { DeveloperAuditButton } from "../diagnostics/DeveloperAuditButton";
-import { Card, DataTable, Empty, Field, SectionHeading, Stat, StatusPill, type Tone } from "./_ui";
+import {
+  AdminWorkerIcon,
+  Card,
+  DataTable,
+  Empty,
+  Field,
+  SectionHeading,
+  Stat,
+  StatusPill,
+  type Tone,
+} from "./_ui";
 
 export const dynamic = "force-dynamic";
 
@@ -136,6 +146,21 @@ export default async function AdminWorkerPage() {
     .diagnoseWhyNoGrowth(prisma)
     .catch(() => null);
   const funnel = await computeContentFunnel(prisma).catch(() => []);
+
+  // Pipeline artifact backlog by status — powers the "Pending builds" stat and
+  // the BUILD_READY→QA stall banner, so a pile-up of built-but-unpublished
+  // artifacts is visible at a glance (the exact symptom the developer audit
+  // flagged: many BUILD_READY, zero QA_PASSED / published).
+  const artifactStatusRows = await prisma.adminWorkerPackageArtifact
+    .groupBy({ by: ["status"], _count: { _all: true } })
+    .catch(() => [] as Array<{ status: string; _count: { _all: number } }>);
+  const artifactStatus = Object.fromEntries(
+    artifactStatusRows.map((r) => [r.status, r._count._all]),
+  ) as Record<string, number>;
+  const buildReadyCount =
+    (artifactStatus.BUILD_READY ?? 0) + (artifactStatus.VERIFICATION_READY ?? 0);
+  const qaPassedCount = artifactStatus.QA_PASSED ?? 0;
+  const needsRepairCount = artifactStatus.NEEDS_REPAIR ?? 0;
   const readingsCoverage = await dailyReadingsCoverage(prisma).catch(() => null);
   const capabilityGaps = await (await import("@/lib/admin-worker/capability-gaps"))
     .diagnoseCapabilityGaps(prisma)
@@ -241,6 +266,11 @@ export default async function AdminWorkerPage() {
         : "unknown";
   const publishingOn = workerLive && brainCurrent === "active" && !state.paused;
 
+  // A pipeline stall = built artifacts waiting but nothing passing QA and
+  // nothing being published, WHILE the worker is live (a dead worker is already
+  // flagged by the offline banner, so don't double-report it here).
+  const buildReadyStalled = workerLive && buildReadyCount >= 3 && qaPassedCount === 0;
+
   const summary = summarizeRatings(ratings);
 
   // Content catalog: live published count for EVERY user-facing category.
@@ -291,7 +321,12 @@ export default async function AdminWorkerPage() {
         </div>
       </header>
 
-      <AdminWorkerPauseToggle initialPaused={state.paused} initialReason={state.pausedReason} />
+      <AdminWorkerPauseToggle
+        initialPaused={state.paused}
+        initialReason={state.pausedReason}
+        workerLive={workerLive}
+        heartbeatAgo={ago(state.lastHeartbeatAt)}
+      />
 
       {/* ── Worker health ─────────────────────────────────────────────────── */}
       <BrainHealthBanner
@@ -336,7 +371,35 @@ export default async function AdminWorkerPage() {
               : undefined
           }
         />
+        <Stat
+          label="Pending builds"
+          value={String(buildReadyCount)}
+          tone={buildReadyStalled ? "bad" : buildReadyCount > 0 ? "warn" : "neutral"}
+          hint={
+            buildReadyCount > 0
+              ? `${qaPassedCount} QA-passed · ${needsRepairCount} need repair`
+              : "no artifacts waiting"
+          }
+        />
       </section>
+
+      {buildReadyStalled ? (
+        <section className="rounded-sm border border-rose-300 bg-rose-50 p-4">
+          <div className="flex items-center gap-2">
+            <AdminWorkerIcon className="h-5 w-5 shrink-0 text-rose-800" />
+            <span className="font-display text-base text-rose-900">
+              Pipeline stall — {buildReadyCount} artifact(s) built but none QA-passed or published
+            </span>
+          </div>
+          <p className="mt-2 font-serif text-sm text-rose-900">
+            Artifacts are reaching BUILD_READY but not advancing through cross-source verification
+            and strict QA to publication. The pipeline governor forces the downstream drain when the
+            intelligence layer is active — confirm the Admin Worker is online and its brain is
+            active (above). If the backlog persists, the blocker is usually validation evidence:
+            check the Content growth funnel bottleneck column and Repair plans below.
+          </p>
+        </section>
+      ) : null}
 
       {/* ── Mission & control ─────────────────────────────────────────────── */}
       <SectionHeading
@@ -389,7 +452,7 @@ export default async function AdminWorkerPage() {
           </div>
         </Card>
 
-        <Card title="Mission planner" eyebrow="Next">
+        <Card title="Mission planner — forecast" eyebrow="Prediction">
           {mission ? (
             <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
               <Field label="Stage">{mission.stage}</Field>
@@ -406,7 +469,7 @@ export default async function AdminWorkerPage() {
           )}
         </Card>
 
-        <Card title="What the worker will do next" eyebrow="Plan">
+        <Card title="Latest decision — chosen" eyebrow="Actual">
           {recentBrainDecision ? (
             <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
               <Field label="Mission stage">{recentBrainDecision.missionStage ?? "—"}</Field>
@@ -816,21 +879,38 @@ export default async function AdminWorkerPage() {
                 <>
                   <th className="py-1.5">Pass</th>
                   <th className="py-1.5">Status</th>
+                  <th className="py-1.5">Started</th>
                   <th className="py-1.5 text-right">Built</th>
                   <th className="py-1.5 text-right">Pub</th>
                   <th className="py-1.5 text-right">Failed</th>
                 </>
               }
             >
-              {recentPasses.map((p) => (
-                <tr key={p.id} className="border-t border-ink/5">
-                  <td className="py-1 font-mono">{p.passType}</td>
-                  <td className="py-1">{p.status}</td>
-                  <td className="py-1 text-right">{p.contentBuilt}</td>
-                  <td className="py-1 text-right">{p.contentPublished}</td>
-                  <td className="py-1 text-right">{p.tasksFailed}</td>
-                </tr>
-              ))}
+              {recentPasses.map((p) => {
+                // A pass still RUNNING well past the liveness cutoff is stuck
+                // (the process likely died mid-pass) — flag it in rose so it is
+                // visible before the startup reaper closes it.
+                const stuck =
+                  p.status === "RUNNING" && Date.now() - p.startedAt.getTime() > 10 * 60 * 1000;
+                return (
+                  <tr
+                    key={p.id}
+                    className={`border-t border-ink/5 ${stuck ? "bg-rose-50 text-rose-900" : ""}`}
+                  >
+                    <td className="py-1 font-mono">{p.passType}</td>
+                    <td className="py-1">
+                      {p.status}
+                      {stuck ? " ⚠ stale" : ""}
+                    </td>
+                    <td className="py-1 font-mono text-ink-faint">
+                      {p.startedAt.toISOString().slice(11, 19)}
+                    </td>
+                    <td className="py-1 text-right">{p.contentBuilt}</td>
+                    <td className="py-1 text-right">{p.contentPublished}</td>
+                    <td className="py-1 text-right">{p.tasksFailed}</td>
+                  </tr>
+                );
+              })}
             </DataTable>
           )}
         </Card>
@@ -1037,13 +1117,13 @@ export default async function AdminWorkerPage() {
         </Card>
       </section>
 
-      {/* ── Brain & learning ──────────────────────────────────────────────── */}
+      {/* ── Admin Worker · decisions & learning ───────────────────────────── */}
       <SectionHeading
-        title="Brain & learning"
-        description="The Python brain's most recent decision, what it rejected and why, and what the worker has learned."
+        title="Admin Worker · Decisions & Learning"
+        description="The Admin Worker's most recent decision, what it rejected and why, and what it has learned."
       />
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card title="Last brain decision" eyebrow="Why" span={2}>
+        <Card title="Latest Admin Worker decision" eyebrow="Why" span={2}>
           {recentBrainDecision ? (
             <>
               <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm md:grid-cols-4">
@@ -1070,7 +1150,7 @@ export default async function AdminWorkerPage() {
               )}
               {recentBrainDecision.brainFailure && (
                 <p className="mt-3 rounded-sm border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-serif text-rose-900">
-                  <span className="font-semibold">Brain failure:</span>{" "}
+                  <span className="font-semibold">Intelligence-layer failure:</span>{" "}
                   {recentBrainDecision.brainFailure}
                 </p>
               )}
@@ -1178,30 +1258,30 @@ function BrainHealthBanner(props: {
   let detail: string;
   if (!workerLive) {
     tone = "warn";
-    headline = "Worker offline — no recent heartbeat";
+    headline = "Admin Worker offline — no recent heartbeat";
     detail = `Last heartbeat ${props.heartbeatAgo}. Start the worker process (\`npm run worker\`) so it resumes autonomous passes. Nothing publishes while the loop is not running.`;
   } else if (paused) {
     tone = "warn";
-    headline = "Worker paused by operator";
+    headline = "Admin Worker paused by operator";
     detail =
       "Content / homepage / cleanup work is paused. Security defense still runs. Resume to continue autonomous publishing.";
   } else if (brainCurrent === "active") {
     tone = "ok";
-    headline = "Python brain active — autonomous publishing enabled";
+    headline = "Admin Worker online — intelligence layer active, autonomous publishing enabled";
     detail =
-      "The Python brain is the final decision-maker; TypeScript validates + executes. The worker is publishing and managing content across every type and subtype." +
+      "The intelligence layer (Python brain) is making the final decisions; TypeScript validates + executes. The worker is publishing and managing content across every type and subtype." +
       (degradedEvents24h > 0
-        ? ` (${degradedEvents24h} transient brain blip(s) auto-recovered in the last 24h.)`
+        ? ` (${degradedEvents24h} transient intelligence blip(s) auto-recovered in the last 24h.)`
         : "");
   } else if (brainCurrent === "degraded") {
     tone = "bad";
-    headline = "Safe degraded mode — Python brain unavailable";
+    headline = "Admin Worker degraded — intelligence layer unavailable";
     detail =
       "The latest pass could not use the Python brain (disabled, unreachable, timed out, or returned an invalid/unsafe action), so the worker is running security, diagnostics, reporting, and repair only — no new autonomous publishing. It does NOT fall back to a legacy brain. Confirm python3 is on PATH and INTELLIGENCE_BRAIN_ENABLED is not '0'.";
   } else {
     tone = "neutral";
-    headline = "Brain state unknown";
-    detail = "No brain decision recorded yet. Run a worker pass to populate.";
+    headline = "Admin Worker state unknown";
+    detail = "No decision recorded yet. Run a worker pass to populate.";
   }
 
   return (
@@ -1218,7 +1298,7 @@ function BrainHealthBanner(props: {
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-lg">🧠</span>
+          <AdminWorkerIcon className="h-6 w-6 shrink-0 text-ink" />
           <span className="font-display text-base text-ink">{headline}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -1228,7 +1308,7 @@ function BrainHealthBanner(props: {
           <StatusPill tone={publishingOn ? "ok" : "neutral"}>
             publishing {publishingOn ? "on" : "off"}
           </StatusPill>
-          <StatusPill tone="neutral">{selectActionCalls24h} brain calls/24h</StatusPill>
+          <StatusPill tone="neutral">{selectActionCalls24h} decisions/24h</StatusPill>
         </div>
       </div>
       <p className="mt-2 font-serif text-sm text-ink-soft">{detail}</p>

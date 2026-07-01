@@ -2,6 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { runOnePass, runCleanupPass, getAdminWorkerState } from "@/lib/admin-worker";
+import {
+  runOperatorPass,
+  FORCED_OPERATOR_PASSES,
+  type OperatorPassType,
+} from "@/lib/admin-worker/operator-passes";
 import { prisma } from "@/lib/db/client";
 import { writeAudit } from "@/lib/audit";
 
@@ -51,15 +56,29 @@ export async function POST(req: NextRequest) {
     actorUsername: admin.username,
   });
 
+  const workerId = `admin-${admin.username}-${Date.now()}`;
+
   if (passType === "cleanup") {
     const out = await runCleanupPass(prisma);
     return NextResponse.json({ ok: true, kind: "cleanup", result: out });
   }
 
-  // Other pass types route through the central loop. The loop honours
-  // the worker state and picks the priority that matches available
-  // work; the operator-triggered pass nudges it for one cycle.
-  const workerId = `admin-${admin.username}-${Date.now()}`;
+  // Deterministic operator control: the six single-stage buttons dispatch the
+  // EXACT requested stage (forced), rather than routing through the brain's
+  // scoring — so "Run diagnostics" always runs diagnostics, "Run source
+  // discovery" always runs discovery, etc. Each runs through the same
+  // dispatcher + pass lifecycle as an autonomous pass, so it shows correctly in
+  // Recent Passes and is liveness-safe.
+  if (FORCED_OPERATOR_PASSES.includes(passType as OperatorPassType)) {
+    const result = await runOperatorPass(prisma, passType as OperatorPassType, {
+      workerId,
+      source: "operator",
+    });
+    return NextResponse.json({ ok: result.ok, kind: "operator_pass", result });
+  }
+
+  // content_goal: run the full autonomous pipeline — advancing content toward
+  // its goals IS the whole brain-driven pass, not a single stage.
   const outcome = await runOnePass(prisma, workerId);
   return NextResponse.json({ ok: true, kind: "loop_pass", result: outcome });
 }

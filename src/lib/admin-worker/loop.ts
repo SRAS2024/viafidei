@@ -71,14 +71,27 @@ export async function runAdminWorkerLoop(
   let failed = 0;
 
   while (passes < maxPasses) {
-    const passOutcome = await runOnePass(prisma, workerId);
     passes += 1;
-    built += passOutcome.built;
-    published += passOutcome.published;
-    failed += passOutcome.failed;
+    try {
+      const passOutcome = await runOnePass(prisma, workerId);
+      built += passOutcome.built;
+      published += passOutcome.published;
+      failed += passOutcome.failed;
 
-    if (oneShot) break;
-    if (passOutcome.idle) {
+      if (oneShot) break;
+      if (passOutcome.idle) {
+        await sleep(idleBackoffMs);
+      }
+    } catch (err) {
+      // A single pass throwing must NEVER kill the loop — that is exactly how
+      // the process died in the field, orphaning a RUNNING pass and going
+      // silent for 16h. runOnePass owns closing its own pass row (try/finally
+      // above); here we just isolate the loop: count the failure, back off so a
+      // hard-failing pass doesn't hot-loop the CPU/DB, and continue. In one-shot
+      // (test) mode we surface the outcome and stop rather than spinning.
+      failed += 1;
+      console.error(`[admin-worker:${workerId}] pass ${passes} threw; continuing:`, err);
+      if (oneShot) break;
       await sleep(idleBackoffMs);
     }
   }
@@ -127,99 +140,111 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   // ranked alternatives) lands in AdminWorkerDecision for the audit view.
   const pass = await startPass(prisma, { passType: "AUTONOMOUS" });
 
-  // Supplementary pre-pass consultation: ask the Python brain to prioritise
-  // unmet content goals and suggest a next-best-action, recorded to the audit
-  // trail for the reasoning view. This is NOT the final decision — the Python
-  // brain selects the final action via select_action below. Best-effort and
-  // non-blocking.
-  try {
-    const { adviseNextWork } = await import("./intelligence-advisory");
-    await adviseNextWork(prisma, { passId: pass.id });
-  } catch {
-    // supplementary only — never blocks the final decision
-  }
-
-  // The Python intelligence brain is the FINAL action selector. TypeScript
-  // generates + sub-scores candidates (runBrain) and validates + executes
-  // the Python choice; if the brain is unavailable/invalid the worker
-  // enters safe degraded mode (PYTHON_BRAIN_UNAVAILABLE) — never a legacy
-  // TS final brain.
-  const { runBrain } = await import("./brain");
-  const { pythonFinalSelector } = await import("./final-brain");
-  const brain = await runBrain(prisma, {
-    passId: pass.id,
-    finalSelect: pythonFinalSelector(prisma),
-  });
-
-  await setPriority(prisma, brain.chosenPriority);
-  await setMode(prisma, brain.chosenMode);
-
-  // Log the brain decision + the top rejected alternatives so the
-  // audit view always has a paper trail of "why this and not that".
-  const topRejected = brain.rankedAlternatives.filter((a) => a !== brain.chosenAction).slice(0, 3);
-  await writeAdminWorkerLog(prisma, {
-    passId: pass.id,
-    category: "WORKER_PASS",
-    severity: "INFO",
-    eventName: "brain_decided",
-    message: `Brain chose ${brain.missionStage} (${brain.chosenMode}/${brain.chosenPriority}): ${brain.reason}`,
-    contentType: brain.contentType ?? undefined,
-    safeMetadata: {
-      missionStage: brain.missionStage,
-      chosenScore: brain.chosenAction.finalScore,
-      finalBrain: brain.finalBrain,
-      degraded: brain.finalBrain === "degraded",
-      explanation: brain.brainExplanation,
-      brainFailure: brain.brainFailure,
-      topRejected: topRejected.map((a) => ({
-        missionStage: a.missionStage,
-        score: a.finalScore,
-        rejection: a.rejectionReason,
-      })),
-    },
-  });
-
-  // Pipeline governor (spec: "force productive forward movement; never fixate").
-  // After the brain picks a stage and before dispatch, the governor reads the
-  // exact per-stage outcome ledger over a short window: if the chosen content
-  // stage has spun N+ passes with no forward progress, or content growth has
-  // stalled despite an unmet gap, it overrides the stage choice with the
-  // highest-priority productive downstream stage (draining toward publish), or a
-  // terminal diagnostic when nothing downstream is making progress. It only
-  // changes WHICH already-gated handler runs — every QA/publish gate is
-  // unchanged — and it acts only in active mode, so it never introduces a
-  // publishing path the brain wouldn't already take. Deterministic, fail-open,
-  // default-on.
-  const { evaluateGovernor, governorEnabled } = await import("./governor");
-  if (governorEnabled()) {
-    const verdict = await evaluateGovernor({ prisma, decision: brain }).catch(() => null);
-    if (verdict?.intervene && verdict.forcedStage) {
-      await writeAdminWorkerLog(prisma, {
-        passId: pass.id,
-        category: "WORKER_PASS",
-        severity: "WARN",
-        eventName: "governor_forced_stage",
-        message: `Governor: ${brain.missionStage} → ${verdict.forcedStage} (${verdict.reason}).`,
-        contentType: verdict.forcedContentType ?? brain.contentType ?? undefined,
-        safeMetadata: {
-          from: brain.missionStage,
-          to: verdict.forcedStage,
-          reason: verdict.reason,
-          exhaustedEntityId: verdict.exhaustedEntityId,
-        },
-      }).catch(() => undefined);
-      brain.missionStage = verdict.forcedStage;
-      if (verdict.forcedContentType) brain.contentType = verdict.forcedContentType;
-    }
-  }
-
+  // Pass-critical accumulators. Declared before the try so the post-pass
+  // supplementary section and the return can read them regardless of outcome.
   let built = 0;
   let publishedCount = 0;
   let failedCount = 0;
   let idle = false;
   let dispatch: DispatchOutcome | null = null;
+  // Liveness guard: a pass row is created RUNNING and MUST reach a terminal
+  // status before this function returns. `completed` flips true the moment a
+  // terminal completePass runs (success OR failure path); the `finally` below
+  // is the backstop that closes the row if any earlier code — the brain run,
+  // the governor, a decision log, even the catch block itself — throws before
+  // a terminal status is written. Without this, a crash orphaned the row as
+  // RUNNING forever (the "Last pass … (status: RUNNING)" the audit flagged).
+  let completed = false;
 
   try {
+    // Supplementary pre-pass consultation: ask the Python brain to prioritise
+    // unmet content goals and suggest a next-best-action, recorded to the audit
+    // trail for the reasoning view. This is NOT the final decision — the Python
+    // brain selects the final action via select_action below. Best-effort and
+    // non-blocking.
+    try {
+      const { adviseNextWork } = await import("./intelligence-advisory");
+      await adviseNextWork(prisma, { passId: pass.id });
+    } catch {
+      // supplementary only — never blocks the final decision
+    }
+
+    // The Python intelligence brain is the FINAL action selector. TypeScript
+    // generates + sub-scores candidates (runBrain) and validates + executes
+    // the Python choice; if the brain is unavailable/invalid the worker
+    // enters safe degraded mode (PYTHON_BRAIN_UNAVAILABLE) — never a legacy
+    // TS final brain.
+    const { runBrain } = await import("./brain");
+    const { pythonFinalSelector } = await import("./final-brain");
+    const brain = await runBrain(prisma, {
+      passId: pass.id,
+      finalSelect: pythonFinalSelector(prisma),
+    });
+
+    await setPriority(prisma, brain.chosenPriority);
+    await setMode(prisma, brain.chosenMode);
+
+    // Log the brain decision + the top rejected alternatives so the
+    // audit view always has a paper trail of "why this and not that".
+    const topRejected = brain.rankedAlternatives
+      .filter((a) => a !== brain.chosenAction)
+      .slice(0, 3);
+    await writeAdminWorkerLog(prisma, {
+      passId: pass.id,
+      category: "WORKER_PASS",
+      severity: "INFO",
+      eventName: "brain_decided",
+      message: `Admin Worker chose ${brain.missionStage} (${brain.chosenMode}/${brain.chosenPriority}): ${brain.reason}`,
+      contentType: brain.contentType ?? undefined,
+      safeMetadata: {
+        missionStage: brain.missionStage,
+        chosenScore: brain.chosenAction.finalScore,
+        finalBrain: brain.finalBrain,
+        degraded: brain.finalBrain === "degraded",
+        explanation: brain.brainExplanation,
+        brainFailure: brain.brainFailure,
+        topRejected: topRejected.map((a) => ({
+          missionStage: a.missionStage,
+          score: a.finalScore,
+          rejection: a.rejectionReason,
+        })),
+      },
+    });
+
+    // Pipeline governor (spec: "force productive forward movement; never fixate").
+    // After the brain picks a stage and before dispatch, the governor reads the
+    // exact per-stage outcome ledger over a short window: if the chosen content
+    // stage has spun N+ passes with no forward progress, or content growth has
+    // stalled despite an unmet gap, it overrides the stage choice with the
+    // highest-priority productive downstream stage (draining toward publish), or a
+    // terminal diagnostic when nothing downstream is making progress. It only
+    // changes WHICH already-gated handler runs — every QA/publish gate is
+    // unchanged — and it acts only in active mode, so it never introduces a
+    // publishing path the brain wouldn't already take. Deterministic, fail-open,
+    // default-on.
+    const { evaluateGovernor, governorEnabled } = await import("./governor");
+    if (governorEnabled()) {
+      const verdict = await evaluateGovernor({ prisma, decision: brain }).catch(() => null);
+      if (verdict?.intervene && verdict.forcedStage) {
+        await writeAdminWorkerLog(prisma, {
+          passId: pass.id,
+          category: "WORKER_PASS",
+          severity: "WARN",
+          eventName: "governor_forced_stage",
+          message: `Governor: ${brain.missionStage} → ${verdict.forcedStage} (${verdict.reason}).`,
+          contentType: verdict.forcedContentType ?? brain.contentType ?? undefined,
+          safeMetadata: {
+            from: brain.missionStage,
+            to: verdict.forcedStage,
+            reason: verdict.reason,
+            exhaustedEntityId: verdict.exhaustedEntityId,
+          },
+        }).catch(() => undefined);
+        brain.missionStage = verdict.forcedStage;
+        if (verdict.forcedContentType) brain.contentType = verdict.forcedContentType;
+      }
+    }
+
     dispatch = await executeMissionStage({
       prisma,
       workerId,
@@ -409,28 +434,56 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       homepageActions: dispatch.stage === "HOMEPAGE_WORK" ? 1 : 0,
       summary: `${brain.missionStage}: ${dispatch.summary}`,
     });
+    completed = true;
     await recordSuccess(prisma, { summary: dispatch.summary });
   } catch (err) {
     failedCount += 1;
     const message = err instanceof Error ? err.message : String(err);
-    await completePass(prisma, {
-      passId: pass.id,
-      status: "FAILED",
-      tasksFailed: 1,
-      errorMessage: message,
-      summary: `pass failed: ${message.slice(0, 200)}`,
-    });
+    // Only write the FAILED terminal status if a terminal status hasn't
+    // already been written (e.g. the pass SUCCEEDED and only a downstream
+    // state write like recordSuccess threw — don't overwrite it with FAILED).
+    // Set `completed` ONLY on a successful write, so a failed write here leaves
+    // `completed` false and the `finally` below retries (and, failing that, the
+    // startup reaper closes the row).
+    if (!completed) {
+      try {
+        await completePass(prisma, {
+          passId: pass.id,
+          status: "FAILED",
+          tasksFailed: 1,
+          errorMessage: message,
+          summary: `pass failed: ${message.slice(0, 200)}`,
+        });
+        completed = true;
+      } catch {
+        // leave completed=false — the finally backstop retries the close
+      }
+    }
     await recordFailure(prisma, {
       blocker: message.slice(0, 500),
       recoveryAction: "Investigate logs at /admin/admin-worker.",
-    });
+    }).catch(() => undefined);
     await writeAdminWorkerLog(prisma, {
       passId: pass.id,
       category: "ERROR",
       severity: "ERROR",
       eventName: "loop_pass_failed",
       message,
-    });
+    }).catch(() => undefined);
+  } finally {
+    // Backstop: guarantee the RUNNING row reaches a terminal status even if
+    // both the try and the catch above threw before writing one. Without this,
+    // a throw inside the catch (e.g. a DB blip during completePass) would leave
+    // the pass RUNNING forever.
+    if (!completed) {
+      await completePass(prisma, {
+        passId: pass.id,
+        status: "FAILED",
+        tasksFailed: 1,
+        errorMessage: "pass did not reach a terminal status (unexpected error path)",
+        summary: "pass failed: unexpected error path",
+      }).catch(() => undefined);
+    }
   }
 
   // Post-pass intelligence: self-inspection + developer requests +

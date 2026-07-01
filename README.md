@@ -374,6 +374,17 @@ fully coded and operating **without any AI APIs**. Code lives under
 pause toggle). It is the **only** system that creates public content
 (see [Single content path](#single-content-path)).
 
+The whole intelligence layer is presented as **one identity: the Admin
+Worker**. The console marks it with a single sketched, no-colour **atom**
+glyph — a nucleus with a crossed hammer and wrench inside it
+(`AdminWorkerIcon` in `_ui.tsx`), rendered in `currentColor` so it inherits
+the surrounding tone — in place of the old 🧠 "brain" emoji, and every
+identity label reads "Admin Worker" rather than "brain" / "final brain".
+The Python brain is still named accurately as the _intelligence layer_ in
+contextual notes (e.g. "intelligence layer unavailable — the Python brain
+could not be used"), because that is a true, actionable description; only
+the top-level identity was renamed.
+
 ### Brain as the FINAL decision brain
 
 The Python intelligence brain is the **final action selector**; the
@@ -1333,18 +1344,67 @@ the site is never unprotected. When paused, the Admin Worker writes a
 single "Admin Worker is paused (reason)" log entry per pass and skips
 the rest of the loop. Resume the worker via the same toggle.
 
+The status banner reflects the worker's **real** liveness, not just the
+pause flag: **Running** (fresh heartbeat, not paused), **Offline** (not
+paused but no heartbeat within 10 min — the process isn't running, so it
+says so and points at `npm run worker`), or **Paused** (operator-paused).
+It no longer reads "Active" while the heartbeat is stale.
+
+### Liveness & crash resilience
+
+A pass row is created `RUNNING` at the top of each cycle and only reaches a
+terminal status when the pass finishes. Three guarantees keep a crash from
+poisoning that state (the developer audit had found a pass orphaned
+`RUNNING` for 16 h after the process died mid-pass):
+
+- **`runOnePass` always reaches a terminal status.** Everything after
+  `startPass` runs inside a `try/catch/finally`; the `finally` closes the
+  row as `FAILED` if any earlier step — the brain run, the governor, a
+  decision log, even the catch block — throws before a terminal status is
+  written. A pass can never be left `RUNNING`.
+- **One throwing pass never kills the loop.** `runAdminWorkerLoop` isolates
+  each iteration in `try/catch`: a throw is counted, backed off, and the
+  loop continues instead of exiting the process.
+- **Stale passes are reaped at startup.** `reapStaleRunningPasses`
+  (`passes.ts`) runs before the loop and marks any pass still `RUNNING`
+  past the 10-minute liveness cutoff as `FAILED` (it can't belong to a
+  fresh process). The worker also logs a `brain_startup` event so the audit
+  can tell "brain never started this process" apart from "brain made no
+  recent decision". The Command Center's Recent Passes table flags any
+  stuck `RUNNING` row in rose before the reaper closes it.
+
+The Command Center also surfaces productivity at a glance: a **Pending
+builds** stat (built artifacts awaiting QA/publish, with the QA-passed and
+needs-repair split) and, when the worker is live but built artifacts are
+piling up with nothing passing QA, a **pipeline-stall banner** that points
+the operator at the funnel bottleneck and repair plans. The pipeline
+governor (`governor.ts`) forces the downstream drain
+(publish → strict QA → cross-source verification → …) whenever the
+intelligence layer is active, so a live, active worker never fixates while
+built artifacts wait.
+
 ### Operator actions
 
-The Command Center exposes one-click actions for every named pass:
+The Command Center exposes one-click actions for every named pass. Each of
+these is **also run autonomously** by the loop on its own cadence — the
+buttons only let the operator drive one on demand. The six single-stage
+buttons **force the exact requested stage** (they do not route through the
+brain's scoring, so "Run diagnostics" always runs diagnostics rather than
+whatever the brain would have scored highest), via `runOperatorPass`
+(`operator-passes.ts`), which dispatches the forced stage through the same
+dispatcher + pass lifecycle as an autonomous pass — so operator passes show
+correctly in Recent Passes with their real type and are liveness-safe:
 
-- **Run diagnostic pass** — refreshes subsystem ratings + writes diagnostic snapshots
-- **Run content goal pass** — recomputes gaps + refreshes content goals
-- **Run source discovery pass** — runs the discovery orchestrator
-- **Run homepage pass** — invokes the homepage publish orchestrator
-- **Run source repair pass** — drains durable repair plans
-- **Run report generation** — generates a monthly report on demand
-- **Run cleanup pass** — runs the custodian
-- **Run security defense pass** — invokes the defender (even when paused)
+- **Run diagnostic pass** → forces `REPORTING` (diagnostics + growth + coverage)
+- **Run source discovery pass** → forces `DISCOVERY` (the discovery orchestrator)
+- **Run homepage pass** → forces `HOMEPAGE_WORK` (homepage publish orchestrator)
+- **Run source repair pass** → forces `REPAIR` (drains durable repair plans)
+- **Run report generation** → forces `REPORTING` (report on demand)
+- **Run security defense pass** → forces `SECURITY_DEFENSE` (even when paused)
+- **Run content goal pass** — runs the full autonomous pipeline (`runOnePass`);
+  advancing content toward its goals _is_ the whole brain-driven pass, not one
+  stage
+- **Run cleanup pass** — runs the custodian directly (`runCleanupPass`)
 - **Request Homepage Makeover** — operator-triggered redesign that
   files a reviewable draft, then offers Preview / Discard / Publish
   (with an editable full-screen preview)
@@ -1380,11 +1440,13 @@ tsx scripts/run-worker.ts --worker-id X  # stable worker id
 
 `run-worker.ts` drives `runAdminWorkerLoop` — each pass runs the
 ranked-action brain then the mission dispatcher, which walks the artifact
-pipeline (there is no separate build-queue engine). It is safe to run with multiple
-replicas; per-stage work is idempotent and durable. The monthly Admin
-Worker Report fires once per worker startup when `isLastDayOfMonth(today)`
-is true, so a restart on the last day of the month still sends the
-email.
+pipeline (there is no separate build-queue engine). On startup it first
+**reaps stale `RUNNING` passes** left by a previous crashed process and
+logs a `brain_startup` event recording whether the intelligence layer came
+online. It is safe to run with multiple replicas; per-stage work is
+idempotent and durable. The monthly Admin Worker Report fires once per
+worker startup when `isLastDayOfMonth(today)` is true, so a restart on the
+last day of the month still sends the email.
 
 ---
 
