@@ -35,6 +35,8 @@
 
 import { runAdminWorkerLoop, runMonthlyReportJobIfDue } from "../src/lib/admin-worker";
 import { ensureBrainStarted, shutdownBrain } from "../src/lib/admin-worker/intelligence";
+import { reapStaleRunningPasses } from "../src/lib/admin-worker/passes";
+import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
 import { prisma } from "../src/lib/db/client";
 
 function parseArgs(argv: string[]): {
@@ -76,6 +78,16 @@ async function main() {
       `[admin-worker:${args.workerId}] starting (oneShot=${args.oneShot}, maxJobs=${args.maxJobs ?? "∞"})`,
     );
 
+    // Reap any pass left RUNNING by a previous process that crashed or was
+    // killed mid-pass. Those rows can never complete on their own and otherwise
+    // show forever as "Last pass … (status: RUNNING)" in the audit. A fresh
+    // process owns none of them, so anything older than the liveness cutoff is
+    // closed as FAILED. Fail-open — must not block boot.
+    const reaped = await reapStaleRunningPasses(prisma);
+    if (reaped > 0) {
+      console.log(`[admin-worker:${args.workerId}] reaped ${reaped} stale RUNNING pass(es)`);
+    }
+
     // Bring the permanent intelligence brain online up front so it is
     // available for the first decision — it stays resident for the life of
     // the worker rather than being spawned per call.
@@ -83,6 +95,19 @@ async function main() {
     console.log(
       `[admin-worker:${args.workerId}] intelligence brain: ${brainUp ? "online" : "disabled/unavailable (deterministic fallbacks)"}`,
     );
+    // Record the intelligence-layer boot state to the audit trail so the admin
+    // UI / diagnostics can distinguish "brain never started this process" from
+    // "brain made no recent decision" — the two look identical from decisions
+    // alone. Fail-open.
+    await writeAdminWorkerLog(prisma, {
+      category: "OVERVIEW",
+      severity: brainUp ? "INFO" : "WARN",
+      eventName: "brain_startup",
+      message: brainUp
+        ? "Admin Worker intelligence layer started (Python brain online)."
+        : "Admin Worker intelligence layer unavailable at startup — running deterministic fallbacks.",
+      safeMetadata: { available: brainUp },
+    }).catch(() => undefined);
 
     // Best-effort monthly report check on startup. The job gates itself
     // on "is today the last day of the month?" so calling it daily is

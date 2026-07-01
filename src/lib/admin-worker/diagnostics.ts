@@ -894,28 +894,28 @@ async function ratingBrain(prisma: PrismaClient): Promise<HealthRating> {
   if (!decision) {
     return {
       key: "admin_worker_brain",
-      label: "Brain (ranked-action engine)",
+      label: "Admin Worker decision engine",
       status: "fail",
       score: 0,
       lastCheckedAt: now,
       dataSource: "AdminWorkerDecision.decisionType=brain_pass",
-      summary: "No brain decisions recorded yet.",
-      recommendedRepair: "Run a worker pass — the brain writes a decision on every cycle.",
+      summary: "No Admin Worker decisions recorded yet.",
+      recommendedRepair: "Run a worker pass — the Admin Worker writes a decision on every cycle.",
     };
   }
   const ageMs = now.getTime() - decision.createdAt.getTime();
   const status: HealthStatus = ageMs < 10 * 60_000 ? "pass" : ageMs < 60 * 60_000 ? "warn" : "fail";
   return {
     key: "admin_worker_brain",
-    label: "Brain (ranked-action engine)",
+    label: "Admin Worker decision engine",
     status,
     score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
     lastCheckedAt: now,
     dataSource: "AdminWorkerDecision.createdAt",
     latestSuccess: decision.createdAt,
-    summary: `Last brain decision ${Math.round(ageMs / 60_000)}min ago: ${decision.chosenAction}.`,
+    summary: `Last Admin Worker decision ${Math.round(ageMs / 60_000)}min ago: ${decision.chosenAction}.`,
     recommendedRepair:
-      status === "pass" ? undefined : "Run a worker pass to refresh the brain decision.",
+      status === "pass" ? undefined : "Run a worker pass to refresh the Admin Worker decision.",
   };
 }
 

@@ -77,6 +77,12 @@ describe("web-search discovery", () => {
     expect(webSearchEnabled()).toBe(false);
   });
 
+  it("leads with a subtype-targeted query when a missing subtype is supplied", () => {
+    const qs = queriesForContentType("PRAYER", { subtype: "eucharistic_prayer" });
+    expect(qs[0]).toMatch(/eucharistic prayer/i); // humanized, leads the list
+    expect(qs.length).toBeGreaterThan(1); // base queries still follow
+  });
+
   it("seeds location-aware parish queries from PARISH_DISCOVERY_LOCATIONS, locality first", () => {
     process.env.PARISH_DISCOVERY_LOCATIONS = "Boston, MA; Rome, Italy";
     const qs = queriesForContentType("PARISH");

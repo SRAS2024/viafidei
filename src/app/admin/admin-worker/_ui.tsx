@@ -8,6 +8,55 @@ import type { ReactNode } from "react";
 
 export type Tone = "ok" | "warn" | "bad" | "info" | "neutral";
 
+/**
+ * The Admin Worker mark: a sketched, no-colour atom (three electron orbits + a
+ * nucleus) with a crossed hammer and wrench inside the nucleus — "intelligence
+ * that builds and maintains". Drawn entirely with `currentColor` strokes and no
+ * fill, so it inherits whatever tone the surrounding banner/heading uses (ink,
+ * emerald, amber, rose…) and stays monochrome/sketched everywhere. This is the
+ * single canonical identity for the worker's intelligence layer — it replaces
+ * the old 🧠 "brain" emoji across the console.
+ */
+export function AdminWorkerIcon({
+  className,
+  title = "Admin Worker",
+}: {
+  className?: string;
+  title?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 48 48"
+      className={className}
+      role="img"
+      aria-label={title}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <title>{title}</title>
+      {/* Electron orbits — three ellipses rotated about the centre. */}
+      <ellipse cx="24" cy="24" rx="21" ry="7.6" />
+      <ellipse cx="24" cy="24" rx="21" ry="7.6" transform="rotate(60 24 24)" />
+      <ellipse cx="24" cy="24" rx="21" ry="7.6" transform="rotate(120 24 24)" />
+      {/* Nucleus. */}
+      <circle cx="24" cy="24" r="10.5" />
+      {/* Crossed tools inside the nucleus. Wrench on the "/" diagonal (open jaw
+          top-right); hammer on the "\" diagonal (head top-left). */}
+      <g strokeWidth={1.8}>
+        {/* wrench handle + open jaw */}
+        <line x1="19.4" y1="28.6" x2="26.6" y2="21.4" />
+        <path d="M26.6 21.4a2.5 2.5 0 1 1 2.4-2.4l-2.1 2.1z" />
+        {/* hammer handle + head */}
+        <line x1="19.8" y1="19.8" x2="27.4" y2="27.4" />
+        <path d="M17.2 22.4l5.2-5.2 2.2 2.2-5.2 5.2z" />
+      </g>
+    </svg>
+  );
+}
+
 const PILL: Record<Tone, string> = {
   ok: "border-emerald-300 bg-emerald-100 text-emerald-900",
   warn: "border-amber-300 bg-amber-100 text-amber-900",

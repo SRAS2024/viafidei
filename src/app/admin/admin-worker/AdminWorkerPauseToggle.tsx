@@ -2,26 +2,47 @@
 
 import { useState, useTransition } from "react";
 
+import { AdminWorkerIcon } from "./_ui";
+
 interface AdminWorkerPauseToggleProps {
   /** Initial paused state read from the AdminWorkerState singleton. */
   initialPaused: boolean;
   /** Optional reason shown when paused. */
   initialReason: string | null;
+  /** Whether the worker process is live (recent heartbeat). */
+  workerLive: boolean;
+  /** Human "17h ago" string for the last heartbeat. */
+  heartbeatAgo: string;
 }
 
 /**
- * Pause / resume toggle. Sits above the Developer Audit button on the
- * diagnostics page per the operator's spec. Pausing the Admin Worker
- * stops non-security work; the security defender continues to run.
+ * Pause / resume toggle + live status banner. Sits at the top of the Command
+ * Center. It shows the worker's REAL state, not just the pause flag:
+ *   - Paused   — an operator paused it (only security runs).
+ *   - Offline  — not paused, but no recent heartbeat (the process isn't
+ *                running), so it says so and points at `npm run worker`.
+ *   - Running  — not paused and the heartbeat is fresh.
+ * This is why the banner no longer says "Active" while the heartbeat is 17h
+ * stale (the bug the audit + screenshots surfaced).
  */
 export function AdminWorkerPauseToggle({
   initialPaused,
   initialReason,
+  workerLive,
+  heartbeatAgo,
 }: AdminWorkerPauseToggleProps) {
   const [paused, setPaused] = useState(initialPaused);
   const [reason, setReason] = useState<string | null>(initialReason);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  // Three-way live state. "Offline" only applies when NOT paused (a paused
+  // worker is intentionally idle, not crashed).
+  const status: "paused" | "offline" | "running" = paused
+    ? "paused"
+    : workerLive
+      ? "running"
+      : "offline";
 
   const toggle = () => {
     setError(null);
@@ -46,23 +67,33 @@ export function AdminWorkerPauseToggle({
     });
   };
 
+  const frame =
+    status === "running"
+      ? "border-emerald-500 bg-emerald-50 text-emerald-900"
+      : status === "paused"
+        ? "border-amber-500 bg-amber-50 text-amber-900"
+        : "border-rose-500 bg-rose-50 text-rose-900";
+  const label = status === "running" ? "Running" : status === "paused" ? "Paused" : "Offline";
+  const detail =
+    status === "running"
+      ? "Autonomous content, diagnostics, design, security, and maintenance system is running."
+      : status === "paused"
+        ? `Non-security tasks are paused${reason ? ` — ${reason}` : ""}. Security defense keeps running.`
+        : `No heartbeat for ${heartbeatAgo} — the worker process is not running. Start it with \`npm run worker\`. Nothing publishes while the loop is down.`;
+
   return (
     <div
-      className={`flex items-center justify-between gap-3 rounded border-l-4 px-4 py-3 ${
-        paused
-          ? "border-amber-500 bg-amber-50 text-amber-900"
-          : "border-emerald-500 bg-emerald-50 text-emerald-900"
-      }`}
+      className={`flex items-center justify-between gap-3 rounded border-l-4 px-4 py-3 ${frame}`}
       data-testid="admin-worker-pause-toggle"
       data-paused={paused ? "true" : "false"}
+      data-status={status}
     >
-      <div className="flex flex-col text-sm">
-        <span className="font-display text-base">Admin Worker: {paused ? "Paused" : "Active"}</span>
-        <span className="font-serif text-xs">
-          {paused
-            ? `Non-security tasks are paused${reason ? ` — ${reason}` : ""}. Security defense keeps running.`
-            : "Autonomous content, diagnostics, design, security, and maintenance system is running."}
-        </span>
+      <div className="flex items-center gap-3 text-sm">
+        <AdminWorkerIcon className="h-7 w-7 shrink-0" />
+        <div className="flex flex-col">
+          <span className="font-display text-base">Admin Worker: {label}</span>
+          <span className="font-serif text-xs">{detail}</span>
+        </div>
       </div>
       <div className="flex items-center gap-2">
         <button

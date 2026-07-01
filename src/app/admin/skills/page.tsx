@@ -97,15 +97,15 @@ export default async function SkillsPage() {
       </p>
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2">
-        <Panel title="Final decision brain">
+        <Panel title="Admin Worker · decision engine">
           <Row
             left={brainState}
             right={brainState.startsWith("PYTHON_FINAL") ? "active" : "degraded / unknown"}
           />
           <p className="text-ink-faint">
-            Autonomous publishing only runs when the Python final brain is active. In safe degraded
-            mode the worker does security, diagnostics, reporting, maintenance, and known-safe
-            repair only.
+            Autonomous publishing only runs when the Admin Worker&rsquo;s intelligence layer (the
+            Python final brain) is active. In safe degraded mode the worker does security,
+            diagnostics, reporting, maintenance, and known-safe repair only.
           </p>
         </Panel>
 

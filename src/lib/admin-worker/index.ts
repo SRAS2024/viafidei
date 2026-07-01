@@ -55,7 +55,14 @@ export {
   type ListLogsOptions,
 } from "./logs";
 
-export { startPass, completePass, listRecentPasses } from "./passes";
+export { startPass, completePass, listRecentPasses, reapStaleRunningPasses } from "./passes";
+
+export {
+  runOperatorPass,
+  FORCED_OPERATOR_PASSES,
+  type OperatorPassType,
+  type OperatorPassResult,
+} from "./operator-passes";
 
 export { createTask, startTask, completeTask, listPendingTasks } from "./tasks";
 

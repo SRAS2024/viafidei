@@ -29,6 +29,22 @@ export default async function DiagnosticsPage() {
   for (const r of results) counts[r.status]++;
   const awSummary = summarizeRatings(adminWorkerRatings);
 
+  // Worker liveness for the pause/status banner (matches the Command Center's
+  // 10-minute heartbeat cutoff), so it reads "Offline" rather than "Active"
+  // when the process isn't running.
+  const heartbeatAgeMs = state.lastHeartbeatAt
+    ? Date.now() - state.lastHeartbeatAt.getTime()
+    : null;
+  const workerLive = heartbeatAgeMs != null && heartbeatAgeMs <= 10 * 60 * 1000;
+  const heartbeatAgo =
+    heartbeatAgeMs == null
+      ? "never"
+      : heartbeatAgeMs < 60_000
+        ? "just now"
+        : heartbeatAgeMs < 3_600_000
+          ? `${Math.round(heartbeatAgeMs / 60_000)}m ago`
+          : `${Math.round(heartbeatAgeMs / 3_600_000)}h ago`;
+
   return (
     <div className="space-y-6">
       <header className="flex items-baseline justify-between">
@@ -58,7 +74,12 @@ export default async function DiagnosticsPage() {
         can shut the worker down without leaving the diagnostics page.
         Security defense continues to run when paused.
       */}
-      <AdminWorkerPauseToggle initialPaused={state.paused} initialReason={state.pausedReason} />
+      <AdminWorkerPauseToggle
+        initialPaused={state.paused}
+        initialReason={state.pausedReason}
+        workerLive={workerLive}
+        heartbeatAgo={heartbeatAgo}
+      />
 
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <DeveloperAuditButton />
