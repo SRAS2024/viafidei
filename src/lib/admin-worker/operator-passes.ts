@@ -16,12 +16,14 @@
  * records a stage-outcome ledger row, and is fully liveness-safe (a throw can
  * never leave the pass RUNNING).
  *
- * Because it is a plain function that forces one stage, the loop can also call
- * it on a throttle to guarantee the worker SELF-RUNS each operator pass
- * autonomously (see `runScheduledOperatorPasses`), not only when a human clicks
- * a button. Forced stages here are non-publishing (reporting / security /
- * repair / homepage / discovery), so they honour the safe-degraded contract:
- * they never introduce a new autonomous public-publishing path.
+ * Because it is a plain function that forces one stage, the same forced-stage
+ * dispatch is what the worker already SELF-RUNS autonomously every loop, not
+ * only when a human clicks a button. None of the forced stages (reporting /
+ * security / repair / homepage / discovery) create new public `PublishedContent`,
+ * so they never introduce a new autonomous content-publishing path. (HOMEPAGE_WORK
+ * can flip a homepage draft live, but that only reorders already-published
+ * content and is itself verification-gated + rollback-protected — the same
+ * behaviour as the autonomous loop's homepage stage.)
  */
 
 import type { PrismaClient } from "@prisma/client";

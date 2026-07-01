@@ -406,6 +406,9 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       }
     }
 
+    // Best-effort: a blip writing this audit log must not send an
+    // already-successful (possibly content-producing) dispatch into the catch
+    // and get it mislabelled FAILED. The dispatch outcome is what matters here.
     await writeAdminWorkerLog(prisma, {
       passId: pass.id,
       category: "WORKER_PASS",
@@ -421,7 +424,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
         rejected: dispatch.rejected,
         repairsPlanned: dispatch.repairsPlanned,
       },
-    });
+    }).catch(() => undefined);
 
     await completePass(prisma, {
       passId: pass.id,
