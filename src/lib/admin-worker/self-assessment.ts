@@ -167,21 +167,27 @@ export async function buildSelfAssessment(
       const growthStaleMs = world?.timeSinceLastGrowthMs ?? (publishedDelta === 0 ? Infinity : 0);
       const noGrowth = publishedDelta === 0;
 
-      // LOOPING — a content stage with real activity but a near-zero success
-      // rate is spinning without advancing.
+      // LOOPING — a stage that keeps FAILING / needing repair without ever
+      // advancing. Keyed off (failures + needsRepair), NOT off a low success
+      // rate: `total`/`successRate` include no_op outcomes (idle/skipped
+      // dispatches), so a stage that merely has nothing to do would look like
+      // 0% success and be mislabelled as looping. Real non-advancing activity
+      // is failure/needs-repair with zero successes.
+      const loopMin = envNum("ADMIN_WORKER_LOOP_MIN_ATTEMPTS", 6);
       const loopStage = reliability.find(
-        (r) => r.total >= envNum("ADMIN_WORKER_LOOP_MIN_ATTEMPTS", 6) && r.successRate <= 0.05,
+        (r) => r.failures + r.needsRepair >= loopMin && r.successes === 0,
       );
       if (loopStage) {
+        const badRuns = loopStage.failures + loopStage.needsRepair;
         warnings.push({
           kind: "LOOPING",
-          severity: loopStage.total >= 20 ? "ERROR" : "WARN",
-          detail: `Stage ${loopStage.stage} ran ${loopStage.total}× in ${windowHours}h with a ${(loopStage.successRate * 100).toFixed(0)}% success rate — it is looping without advancing.`,
+          severity: badRuns >= 20 ? "ERROR" : "WARN",
+          detail: `Stage ${loopStage.stage} failed/needed-repair ${badRuns}× in ${windowHours}h with 0 successes — it is looping without advancing.`,
           signals: [
             `stage=${loopStage.stage}`,
-            `attempts=${loopStage.total}`,
-            `needsRepair=${loopStage.needsRepair}`,
             `failures=${loopStage.failures}`,
+            `needsRepair=${loopStage.needsRepair}`,
+            `successes=${loopStage.successes}`,
           ],
           contentType,
         });

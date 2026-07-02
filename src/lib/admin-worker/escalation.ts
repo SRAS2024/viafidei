@@ -187,9 +187,16 @@ export async function runEscalationCheckIfDue(
     out.ran = true;
 
     const self = await buildSelfAssessment(prisma);
-    // Resolve escalations whose condition has cleared (independent of whether
-    // this pass raises a new one).
-    out.resolved = await resolveClearedEscalations(prisma, self);
+    // Auto-resolve cleared escalations ONLY when the assessment is authoritative
+    // — i.e. the worker is live and not paused. An empty warning set from a
+    // paused/offline/failed-open assessment does NOT mean the conditions
+    // cleared; resolving on it would wrongly close still-open issues and cause a
+    // duplicate email on recovery (the fingerprint would no longer dedup). This
+    // is exactly the state the forced startup check sees before the first
+    // heartbeat, so the gate is essential.
+    if (self.workerLive && !self.paused) {
+      out.resolved = await resolveClearedEscalations(prisma, self);
+    }
 
     const decision = decideGovernance(self);
     if (!decision.escalate || !decision.escalation) {
@@ -293,7 +300,15 @@ export async function runEscalationCheckIfDue(
           occurrences,
           emailDelivery,
           resolvedAt: null,
-          ...(emailDelivery === "sent" ? { emailSentAt: new Date() } : {}),
+          // Mirror the create branch: set emailSentAt to now ONLY on a real
+          // send, and clear it to null otherwise. This update branch is reached
+          // only for a genuinely new send attempt (new fingerprint, a reopened
+          // previously-resolved row, or an open row whose earlier send was
+          // skipped) — never for the dedup-skip path — so a stale emailSentAt
+          // from a PRIOR episode must be cleared, otherwise a skipped/failed
+          // re-send would be wrongly treated as already-notified and never
+          // retried.
+          emailSentAt: emailDelivery === "sent" ? new Date() : null,
         },
         create: {
           fingerprint,

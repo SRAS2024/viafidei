@@ -146,4 +146,57 @@ describe("runEscalationCheckIfDue", () => {
     expect(r.escalated).toBe(false);
     expect(h.sendEmail).not.toHaveBeenCalled();
   });
+
+  it("does NOT auto-resolve open escalations when the worker is offline (no mass-resolve)", async () => {
+    // Offline assessment → empty warnings for a NON-cleared reason. Resolving on
+    // it would wrongly close still-open issues and cause a duplicate email on
+    // recovery. The resolve step must be skipped entirely.
+    h.buildSelfAssessment.mockResolvedValue({
+      ...defaultAssessment(),
+      workerLive: false,
+      warnings: [],
+    });
+    const prisma = makePrisma(null);
+    const r = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(r.resolved).toBe(0);
+    expect(prisma.adminWorkerEscalation.findMany).not.toHaveBeenCalled();
+    expect(prisma.adminWorkerEscalation.update).not.toHaveBeenCalled();
+  });
+
+  it("does NOT auto-resolve open escalations when the worker is paused", async () => {
+    h.buildSelfAssessment.mockResolvedValue({
+      ...defaultAssessment(),
+      paused: true,
+      warnings: [],
+    });
+    const prisma = makePrisma(null);
+    const r = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(r.resolved).toBe(0);
+    expect(prisma.adminWorkerEscalation.findMany).not.toHaveBeenCalled();
+  });
+
+  it("clears a stale emailSentAt when a reopened escalation's re-send is skipped (retries next time)", async () => {
+    // A previously-emailed issue was resolved (resolvedAt set, stale emailSentAt).
+    // It recurs; the re-send is skipped (no ADMIN_EMAIL). The reopened row MUST
+    // NOT keep the stale emailSentAt, or it would be treated as already-notified
+    // and never retried.
+    h.sendEmail.mockResolvedValue({ ok: true, delivery: "skipped" });
+    let upsertArg: { update?: { emailSentAt?: unknown; resolvedAt?: unknown } } = {};
+    const prisma = makePrisma({
+      resolvedAt: new Date(0),
+      emailSentAt: new Date(0),
+      occurrences: 1,
+    });
+    prisma.adminWorkerEscalation.upsert = vi.fn(async (arg: unknown) => {
+      upsertArg = arg as typeof upsertArg;
+      return {};
+    });
+    const r = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(r.escalated).toBe(true);
+    expect(r.deduped).toBe(false); // resolved row → not deduped, re-attempts send
+    expect(h.sendEmail).toHaveBeenCalledTimes(1);
+    expect(r.emailed).toBe(false); // skipped, not sent
+    expect(upsertArg.update?.resolvedAt).toBeNull();
+    expect(upsertArg.update?.emailSentAt).toBeNull(); // stale timestamp cleared
+  });
 });

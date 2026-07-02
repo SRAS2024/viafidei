@@ -88,6 +88,58 @@ describe("buildSelfAssessment", () => {
     expect(a.warnings).toHaveLength(0);
   });
 
+  it("does NOT flag LOOPING for a purely idle (no_op) stage", async () => {
+    // A stage that ran 30× but only idled (no failures/needs-repair) is not
+    // looping — it just had nothing to do. `total`/`successRate` include no_op,
+    // so keying off successRate would misfire; keying off failures+needsRepair
+    // must not.
+    h.getAdminWorkerState.mockResolvedValue({
+      paused: false,
+      currentMode: "CONSTANT_FILL",
+      currentTask: null,
+      currentBlocker: null,
+    });
+    h.sampleWorld.mockResolvedValue(world());
+    h.summarizeStageReliability.mockResolvedValueOnce([
+      {
+        stage: "PUBLIC_PUBLISH",
+        total: 30,
+        successes: 0,
+        failures: 0,
+        needsRepair: 0,
+        successRate: 0,
+        avgDurationMs: 0,
+      },
+    ]);
+    const prisma = makePrisma({ published: 0, stageCounts: [] });
+    const a = await buildSelfAssessment(prisma);
+    expect(a.warnings.map((w) => w.kind)).not.toContain("LOOPING");
+  });
+
+  it("flags LOOPING when a stage fails/needs-repair repeatedly with no successes", async () => {
+    h.getAdminWorkerState.mockResolvedValue({
+      paused: false,
+      currentMode: "CONSTANT_FILL",
+      currentTask: null,
+      currentBlocker: null,
+    });
+    h.sampleWorld.mockResolvedValue(world());
+    h.summarizeStageReliability.mockResolvedValueOnce([
+      {
+        stage: "EXTRACTION",
+        total: 10,
+        successes: 0,
+        failures: 8,
+        needsRepair: 0,
+        successRate: 0,
+        avgDurationMs: 5,
+      },
+    ]);
+    const prisma = makePrisma({ published: 0, stageCounts: [] });
+    const a = await buildSelfAssessment(prisma);
+    expect(a.warnings.map((w) => w.kind)).toContain("LOOPING");
+  });
+
   it("reports productive when content published in the window", async () => {
     h.getAdminWorkerState.mockResolvedValue({
       paused: false,
