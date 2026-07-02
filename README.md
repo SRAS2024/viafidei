@@ -1383,6 +1383,76 @@ governor (`governor.ts`) forces the downstream drain
 intelligence layer is active, so a live, active worker never fixates while
 built artifacts wait.
 
+### Self-monitoring, governance & escalation
+
+Above the in-pass governor sits a higher-order self-monitoring → governance →
+escalation layer that decides how to respond to the worker's OVERALL state and
+recent history, and pages the human admin when something is seriously wrong.
+
+- **Self-assessment (`self-assessment.ts`).** A composer — it adds no new
+  scoring, it folds the signals the worker already records (operational state,
+  the sampled world, the exact per-stage outcome ledger, quality scores, growth)
+  into one `SelfAssessment`: current task/content-type, idle time, retry
+  patterns, duplicate work, in-flight backlog, and whether it is actually moving
+  **published** content forward. It classifies typed WARNINGS —
+  `LOOPING`, `EXTRACTING_WITHOUT_PUBLISHING`, `PUBLISHING_LOW_QUALITY`,
+  `BURNING_STORAGE`, `REPEATED_TYPE_FAILURE`, `NO_VALUE` — every threshold
+  env-tunable, and stays silent when the worker is paused or offline (that is
+  expected idleness, surfaced by the banner, not a productivity fault).
+- **Governance (`governance.ts`).** A pure, deterministic layer that turns the
+  assessment into ONE decision — continue · retry · skip · pause · escalate ·
+  changeStrategy. `escalate` is reserved for SERIOUS conditions (any ERROR-level
+  warning, or a "no value / wasting resources" warning); it never escalates when
+  paused/offline. It can recommend a pause on the worst cases, which the loop
+  honours only when explicitly enabled (auto-pause is destructive, so it is off
+  by default).
+- **Escalation (`escalation.ts`).** When governance decides to escalate, the
+  engine **deduplicates by a stable fingerprint** (`kind + content-type + build
+SHA`) via the `AdminWorkerEscalation` table: an issue that is already open and
+  already emailed only bumps its occurrence count — **the admin is emailed at
+  most once per open issue**. When the condition clears, the escalation
+  auto-resolves so a genuine recurrence can escalate afresh. A "skipped"
+  delivery (no `ADMIN_EMAIL` configured) is retried; a "sent" one is not.
+- **Escalation email + PDF.** A serious escalation emails the admin using the
+  shared admin-email aesthetic (`sendAdminWorkerEscalation`, reusing
+  `renderAdminEmail`/`sendAdminEmail`) with four sections — **what happened /
+  what the system detected / what the worker needs / action required** — plus a
+  version-context row, and attaches **`Admin Worker Escalation.pdf`**
+  (`generateAdminWorkerEscalationPdf`, reusing the same `ReportBuilder` as the
+  Developer Audit). The PDF documents the escalation, live worker state, the
+  code/version context, current diagnostics, the "why content isn't growing"
+  chain, the worker logs for the timeframe, AND the full developer report for
+  that same timeframe. Everything is fail-open and throttled (~15 min); it runs
+  every pass and once at startup, and never affects the pass outcome.
+
+The Developer Audit gains an **Open Escalations** section, and diagnostics gains
+a **Worker escalations** rating, so open escalations are visible in-app as well
+as by email.
+
+### Code / version memory
+
+The platform remembers its OWN code (`code-version.ts` + the
+`AdminWorkerCodeVersion` table). At boot and once per pass it resolves the
+running build — git SHA from the deploy env, a build-time `.build-version`
+file, or `git rev-parse HEAD`, plus `npm_package_version` — and computes a
+deterministic **corpus fingerprint** (a sorted hash of the self-model corpus:
+source files + exports + Prisma models + routes + stages + brain ops). When the
+SHA or fingerprint changes it records a new row with a human diff summary
+(files/routes/models added or removed, commit moved), updates
+`AdminWorkerState.workerVersion` (previously a static default), and logs the
+upgrade. This lets the system recognize when its worker code changed and what
+changed between versions, and it feeds:
+
+- **diagnostics** — a "Code / version memory" rating,
+- **the Developer Audit** — a "Code Version History" section,
+- **escalation context** — an escalation raised shortly after an upgrade is
+  annotated as possibly upgrade-related (build + last-change summary in both the
+  email and the PDF).
+
+Set `ARG GIT_SHA` at image build (or `RAILWAY_GIT_COMMIT_SHA` / `GIT_SHA` /
+`GIT_COMMIT` in the environment) so the recorded version carries a real commit;
+without it the fingerprint alone still detects code-shape changes.
+
 ### Operator actions
 
 The Command Center exposes one-click actions for every named pass. Each of
@@ -2525,6 +2595,8 @@ device known so subsequent navigation reads as expected activity.
 | `0039_daily_readings`                              | DailyReading (daily liturgical readings as internal content)                                                                                                   |
 | `0040_stage_outcomes_rollback_quality_v2`          | AdminWorkerStageOutcome + AdminWorkerRollbackLedger; full ContentQualityScore model; action `fallbackAction`; PublishedContent `contentChecksum`               |
 | `0041_drop_legacy_qa_buildlog_version_relation`    | Dropped the legacy WorkerBuildLog / ChecklistQAReport / ChecklistVersion / ChecklistRelation tables (superseded by AdminWorkerStrictQAResult + AdminWorkerLog) |
+| `0042` – `0047`                                    | Content-goal target model; unified intelligence tables; Intelligence Laboratory; certified skill runtime; PublishedContent subtitle                            |
+| `0048_admin_worker_escalation_and_code_version`    | AdminWorkerEscalation (dedup escalation memory) + AdminWorkerCodeVersion (system/code-update version memory)                                                   |
 
 The legacy scraper-first ingestion + legacy public-content models
 (`Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,

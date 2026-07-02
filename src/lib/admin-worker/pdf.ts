@@ -23,10 +23,16 @@ import type { PrismaClient } from "@prisma/client";
 import { ReportBuilder, toReportStatus } from "@/lib/pdf/report";
 import {
   collectDeveloperAuditData,
+  periodToSince,
   redactSecrets,
   type DeveloperAuditSection,
   DEVELOPER_AUDIT_SECTIONS,
 } from "./report-generator";
+import { runAdminWorkerDiagnostics, summarizeRatings } from "./diagnostics";
+import { diagnoseWhyNoGrowth } from "./why-no-growth";
+import { listAdminWorkerLogs } from "./logs";
+import { getAdminWorkerState } from "./state";
+import { getVersionContext } from "./code-version";
 import type { AdminDeveloperReportPeriod } from "@prisma/client";
 
 function periodLabel(p: AdminDeveloperReportPeriod): string {
@@ -449,6 +455,62 @@ export async function generateAdminWorkerDeveloperAuditPdf(
               e.relation,
               e.explanation.slice(0, 70),
             ]),
+        );
+      }
+    }
+
+    // ─── Code Version History (spec bullet 4) ─────────────────────────
+    if (has("Code Version History")) {
+      builder.section("Code Version History");
+      if (data.codeVersions.length === 0) {
+        builder.note("No code-version history recorded yet.");
+      } else {
+        builder.paragraph(
+          `The worker records its running build and what changed between versions. ${data.codeVersions.length} recent build(s).`,
+        );
+        builder.table(
+          [
+            { header: "Recorded", weight: 120 },
+            { header: "Version", weight: 110 },
+            { header: "Commit", weight: 66 },
+            { header: "Change", weight: 154 },
+          ],
+          data.codeVersions.map((v) => [
+            fmtTime(v.capturedAt),
+            v.versionLabel,
+            v.sha ? v.sha.slice(0, 8) : "—",
+            (v.changedSummary ?? "—").slice(0, 92),
+          ]),
+        );
+      }
+    }
+
+    // ─── Open Escalations (spec bullets 5-8) ──────────────────────────
+    if (has("Open Escalations")) {
+      builder.section("Open Escalations");
+      if (data.openEscalations.length === 0) {
+        builder.note("No open escalations — the worker is not currently paging the admin.");
+      } else {
+        builder.paragraph(
+          `${data.openEscalations.length} unresolved escalation(s). Each is emailed to the admin at most once while open.`,
+        );
+        builder.table(
+          [
+            { header: "When", weight: 110 },
+            { header: "Kind", weight: 120 },
+            { header: "Sev", weight: 40 },
+            { header: "×", weight: 24, align: "right" },
+            { header: "Email", weight: 56 },
+            { header: "Detail", weight: 100 },
+          ],
+          data.openEscalations.map((e) => [
+            fmtTime(e.createdAt),
+            e.kind,
+            e.severity,
+            String(e.occurrences),
+            e.emailDelivery ?? "—",
+            e.detail.slice(0, 60),
+          ]),
         );
       }
     }
@@ -1393,5 +1455,241 @@ function* enumerateDays(start: Date, end: Date): Iterable<Date> {
   while (cursor.getTime() <= stop.getTime()) {
     yield new Date(cursor);
     cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+}
+
+export interface EscalationPdfContext {
+  kind: string;
+  severity: "WARN" | "ERROR";
+  detail: string;
+  signals: string[];
+  contentType: string | null;
+  occurrences: number;
+  whatNeeded: string;
+  actionRequired: string;
+}
+
+/**
+ * "Admin Worker Escalation.pdf" (spec bullet 7). Thoroughly documents an
+ * escalation: the escalation itself, the live worker state, the code/version
+ * context, current diagnostics, the "why content isn't growing" chain, the
+ * worker logs for the timeframe, AND the developer report for that same
+ * timeframe (reusing `collectDeveloperAuditData`) — so a single attachment
+ * explains what was going on. Reuses the same `ReportBuilder` + `redactSecrets`
+ * as the audit PDF, and records generation in `AdminDeveloperReportLog`.
+ */
+export async function generateAdminWorkerEscalationPdf(
+  prisma: PrismaClient,
+  period: AdminDeveloperReportPeriod,
+  ctx: EscalationPdfContext,
+): Promise<{ pdf: Buffer; reportLogId: string }> {
+  const logRow = await prisma.adminDeveloperReportLog.create({
+    data: {
+      reportPeriod: period,
+      generatedBy: "admin-worker/escalation",
+      status: "PENDING",
+      includedSections: [
+        "Escalation",
+        "Worker State",
+        "Code Version",
+        "Diagnostics",
+        "Why No Growth",
+        "Worker Logs",
+        "Developer Report",
+      ],
+    },
+    select: { id: true },
+  });
+
+  try {
+    const since = periodToSince(period);
+    const [state, diagnostics, whyNoGrowth, logs, version, auditData] = await Promise.all([
+      getAdminWorkerState(prisma).catch(() => null),
+      runAdminWorkerDiagnostics(prisma).catch(
+        () => [] as Awaited<ReturnType<typeof runAdminWorkerDiagnostics>>,
+      ),
+      diagnoseWhyNoGrowth(prisma).catch(() => null),
+      listAdminWorkerLogs(prisma, { since, limit: 400 }).catch(
+        () => [] as Awaited<ReturnType<typeof listAdminWorkerLogs>>,
+      ),
+      getVersionContext(prisma).catch(() => null),
+      collectDeveloperAuditData(prisma, period).catch(() => null),
+    ]);
+    const summary =
+      diagnostics.length > 0
+        ? summarizeRatings(diagnostics)
+        : { pass: 0, warn: 0, fail: 0, unknown: 0 };
+
+    const builder = new ReportBuilder({
+      reportTitle: "Admin Worker Escalation",
+      period: periodLabel(period),
+      generatedAt: new Date().toISOString(),
+      environment: process.env.NODE_ENV ?? "development",
+      appName: "Via Fidei · Admin Worker",
+      dashboardSection: "Escalation",
+      reportVersion: version?.current?.label ?? "admin-worker/0.2",
+    });
+
+    // ── 1. Escalation ────────────────────────────────────────────────
+    builder.section("Escalation", ctx.severity === "ERROR" ? "Critical" : "Warning");
+    builder.keyValue([
+      { label: "Kind", value: ctx.kind },
+      { label: "Severity", value: ctx.severity },
+      { label: "Content type", value: ctx.contentType ?? "—" },
+      { label: "Occurrences", value: String(ctx.occurrences) },
+      { label: "Timeframe", value: periodLabel(period) },
+    ]);
+    builder.paragraph(ctx.detail);
+    if (ctx.signals.length > 0) builder.note(`Signals: ${ctx.signals.join("; ")}`);
+    builder.paragraph(`What the worker needs: ${ctx.whatNeeded}`);
+    builder.paragraph(`Action required: ${ctx.actionRequired}`);
+
+    // ── 2. Worker State ──────────────────────────────────────────────
+    builder.section("Worker State");
+    if (state) {
+      builder.keyValue([
+        { label: "Mode", value: String(state.currentMode) },
+        { label: "Priority", value: String(state.currentPriority) },
+        { label: "Task", value: state.currentTask ?? "—" },
+        { label: "Goal", value: state.currentGoal ?? "—" },
+        { label: "Blocker", value: state.currentBlocker ?? "none" },
+        { label: "Version", value: state.workerVersion },
+        { label: "Heartbeat", value: fmtTime(state.lastHeartbeatAt) },
+        { label: "Last success", value: fmtTime(state.lastSuccessfulAt) },
+        { label: "Last failure", value: fmtTime(state.lastFailedAt) },
+        { label: "Paused", value: state.paused ? "yes" : "no" },
+      ]);
+    } else {
+      builder.note("Worker state unavailable.");
+    }
+
+    // ── 3. Code / Version ────────────────────────────────────────────
+    builder.section("Code / Version");
+    if (version?.current) {
+      builder.keyValue([
+        { label: "Current build", value: version.current.label },
+        { label: "Commit", value: version.current.sha ?? "—" },
+        { label: "Recorded", value: fmtTime(version.current.capturedAt) },
+        { label: "Previous build", value: version.previous?.label ?? "—" },
+        { label: "Upgraded recently", value: version.upgradedRecently ? "yes" : "no" },
+      ]);
+      if (version.current.changedSummary) builder.paragraph(version.current.changedSummary);
+      if (version.upgradedRecently) {
+        builder.note(
+          "This escalation occurred shortly after a code upgrade — the change may be related.",
+        );
+      }
+    } else {
+      builder.note("No code-version history recorded yet.");
+    }
+
+    // ── 4. Diagnostics ───────────────────────────────────────────────
+    builder.section("Diagnostics");
+    builder.paragraph(
+      `${summary.pass} pass, ${summary.warn} warn, ${summary.fail} fail, ${summary.unknown} unknown.`,
+    );
+    for (const r of diagnostics) {
+      builder.statusLine(r.label, toReportStatus(r.status), r.summary);
+      if (r.recommendedRepair) builder.note(`Repair: ${r.recommendedRepair}`);
+    }
+
+    // ── 5. Why content isn't growing ─────────────────────────────────
+    if (whyNoGrowth) {
+      builder.section("Why Content Isn't Growing");
+      builder.keyValue([
+        { label: "Focus type", value: whyNoGrowth.contentType ?? "—" },
+        { label: "Blocker", value: whyNoGrowth.blocker },
+        { label: "At", value: `${whyNoGrowth.exactTable} (${whyNoGrowth.exactCount})` },
+        { label: "Next repair", value: whyNoGrowth.nextAutomaticRepair ?? "—" },
+      ]);
+      builder.paragraph(whyNoGrowth.blockerExplanation);
+      builder.paragraph(`Next worker decision: ${whyNoGrowth.nextWorkerDecision}`);
+    }
+
+    // ── 6. Worker Logs (timeframe) ───────────────────────────────────
+    builder.section("Worker Logs");
+    builder.paragraph(
+      `${logs.length} log entr${logs.length === 1 ? "y" : "ies"} in ${periodLabel(period)}.`,
+    );
+    if (logs.length > 0) {
+      builder.table(
+        [
+          { header: "When", weight: 120 },
+          { header: "Sev", weight: 42 },
+          { header: "Event", weight: 130 },
+          { header: "Message", weight: 158 },
+        ],
+        logs
+          .slice(0, 250)
+          .map((l) => [
+            fmtTime(l.createdAt),
+            l.severity,
+            l.eventName,
+            redactString(l.message).slice(0, 90),
+          ]),
+      );
+      if (logs.length > 250) builder.note(`… ${logs.length - 250} more not shown.`);
+    } else {
+      builder.note("No worker logs in this timeframe.");
+    }
+
+    // ── 7. Developer report for the timeframe (embedded) ─────────────
+    builder.section(`Developer Report — ${periodLabel(period)}`);
+    if (auditData) {
+      builder.keyValue([
+        { label: "Worker passes", value: String(auditData.recentPasses.length) },
+        { label: "Brain decisions", value: String(auditData.brainDecisions.length) },
+        { label: "Pipeline stage rows", value: String(auditData.pipelineStages.length) },
+        { label: "Strict-QA results", value: String(auditData.strictQAResults.length) },
+        { label: "Repairs filed", value: String(auditData.repairPlans.length) },
+        { label: "Rollback ledger rows", value: String(auditData.rollbackLedger.length) },
+      ]);
+      if (auditData.contentGoals.length > 0) {
+        builder.paragraph("Content goal progress:");
+        builder.table(
+          [
+            { header: "Type", weight: 120 },
+            { header: "Have", weight: 50, align: "right" },
+            { header: "Gap", weight: 50, align: "right" },
+            { header: "Status", weight: 130 },
+          ],
+          auditData.contentGoals
+            .slice(0, 30)
+            .map((g) => [g.contentType, String(g.currentValidCount), String(g.gapCount), g.status]),
+        );
+      }
+      if (auditData.repairPlans.length > 0) {
+        builder.paragraph("Recent repair plans:");
+        builder.table(
+          [
+            { header: "Kind", weight: 140 },
+            { header: "Status", weight: 90 },
+            { header: "Attempts", weight: 70, align: "right" },
+            { header: "Result", weight: 100 },
+          ],
+          auditData.repairPlans
+            .slice(0, 25)
+            .map((r) => [r.kind, r.status, `${r.attempts}/${r.maxAttempts}`, r.finalResult ?? "—"]),
+        );
+      }
+    } else {
+      builder.note("Developer report data unavailable for this timeframe.");
+    }
+
+    const pdf = builder.build();
+    await prisma.adminDeveloperReportLog.update({
+      where: { id: logRow.id },
+      data: { status: "GENERATED", fileSize: pdf.length },
+    });
+    return { pdf, reportLogId: logRow.id };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await prisma.adminDeveloperReportLog
+      .update({
+        where: { id: logRow.id },
+        data: { status: "FAILED", errorMessage: message.slice(0, 500) },
+      })
+      .catch(() => undefined);
+    throw err;
   }
 }

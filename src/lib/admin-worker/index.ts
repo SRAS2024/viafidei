@@ -64,6 +64,32 @@ export {
   type OperatorPassResult,
 } from "./operator-passes";
 
+// Intelligence / governance / escalation / version-memory upgrade.
+export {
+  buildSelfAssessment,
+  type SelfAssessment,
+  type WorkerWarning,
+  type WarningKind,
+} from "./self-assessment";
+export {
+  decideGovernance,
+  type GovernanceDecision,
+  type GovernanceKind,
+  type EscalationPayload,
+} from "./governance";
+export {
+  recordCodeVersionIfChanged,
+  getVersionContext,
+  resolveBuildVersion,
+  type VersionContext,
+  type CodeVersionResult,
+} from "./code-version";
+export {
+  runEscalationCheckIfDue,
+  computeEscalationFingerprint,
+  type EscalationCheckResult,
+} from "./escalation";
+
 export { createTask, startTask, completeTask, listPendingTasks } from "./tasks";
 
 export { recordDecision, CONFIDENCE_THRESHOLDS, type RecordDecisionInput } from "./decisions";
