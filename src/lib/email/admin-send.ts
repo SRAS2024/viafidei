@@ -1162,6 +1162,105 @@ export async function sendAdminWorkerMonthlyReport(
 }
 
 /**
+ * Serious Admin Worker escalation (spec bullets 6-8). Sent to the human admin
+ * when the worker is looping, extracting-without-publishing, publishing
+ * low-quality output, burning storage, repeatedly failing on a content type,
+ * or otherwise producing no value. Reuses the shared admin-email aesthetic
+ * (`renderAdminEmail`) and the fail-open `sendAdminEmail` transport, and ships
+ * the escalation PDF via the existing `attachments` param — no new mailer or
+ * template. The PDF filename is the literal `Admin Worker Escalation.pdf`.
+ *
+ * The caller (escalation engine) is responsible for dedup — this function just
+ * sends; it does not decide whether to send.
+ */
+export interface AdminWorkerEscalationInput {
+  kind: string;
+  severity: "WARN" | "ERROR";
+  /** "What happened" narrative. */
+  whatHappened: string;
+  /** "What the system detected" — one line per signal. */
+  whatDetected: string[];
+  /** "What the worker needs". */
+  whatNeeded: string;
+  /** "Action required" for the human admin. */
+  actionRequired: string;
+  contentType?: string | null;
+  timeframe: string;
+  occurrences: number;
+  versionLabel?: string | null;
+  versionNote?: string | null;
+  /** Base64 PDF attachment. */
+  pdfBase64: string;
+}
+
+export async function sendAdminWorkerEscalation(
+  input: AdminWorkerEscalationInput,
+): Promise<AdminSendOutcome> {
+  const sevWord = input.severity === "ERROR" ? "Critical" : "Warning";
+  const subject = `Admin Worker Escalation (${sevWord}): ${input.kind}`;
+  const intro =
+    `The Admin Worker raised a ${input.severity.toLowerCase()} escalation (${input.kind}) ` +
+    `over ${input.timeframe}. Full escalation, worker state, logs, diagnostics, and the ` +
+    `developer report for this timeframe are attached as "Admin Worker Escalation.pdf".`;
+
+  const sections: AdminEmailSection[] = [
+    { title: "What happened", paragraphs: [input.whatHappened] },
+    {
+      title: "What the system detected",
+      table: {
+        columns: [{ key: "signal", label: "Detected signal" }],
+        rows: (input.whatDetected.length > 0 ? input.whatDetected : ["(no discrete signals)"]).map(
+          (s) => ({ signal: s }),
+        ),
+      },
+    },
+    { title: "What the worker needs", paragraphs: [input.whatNeeded] },
+    { title: "Action required", paragraphs: [input.actionRequired] },
+    {
+      title: "Context",
+      table: {
+        columns: [
+          { key: "metric", label: "Metric" },
+          { key: "value", label: "Value", align: "right" },
+        ],
+        rows: [
+          { metric: "Escalation kind", value: input.kind },
+          { metric: "Severity", value: input.severity },
+          { metric: "Content type", value: input.contentType ?? "—" },
+          { metric: "Timeframe", value: input.timeframe },
+          { metric: "Occurrences", value: String(input.occurrences) },
+          { metric: "Worker version", value: input.versionLabel ?? "unknown" },
+          ...(input.versionNote ? [{ metric: "Recent upgrade", value: input.versionNote }] : []),
+        ],
+      },
+    },
+  ];
+
+  const rendered = renderAdminEmail({
+    subject,
+    heading: `Admin Worker Escalation — ${sevWord}`,
+    intro,
+    sections,
+    signoff:
+      "This escalation was raised autonomously by the Admin Worker's self-monitoring + governance layer. It will not be re-sent for the same issue while it remains open.",
+  });
+
+  return sendAdminEmail({
+    flow: "admin_worker_escalation",
+    subject: rendered.subject,
+    textBody: rendered.textBody,
+    htmlBody: rendered.htmlBody,
+    attachments: [
+      {
+        filename: "Admin Worker Escalation.pdf",
+        content: input.pdfBase64,
+        contentType: "application/pdf",
+      },
+    ],
+  });
+}
+
+/**
  * Fired when the Admin Worker automatically bans a confirmed brute-force
  * device. Distinct from `sendSecurityBreachAlert` (which fires for the
  * underlying event itself) so the operator can tell at a glance "the

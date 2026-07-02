@@ -68,6 +68,15 @@ COPY --chown=worker:nodejs scripts ./scripts
 COPY --chown=worker:nodejs intelligence ./intelligence
 COPY --chown=worker:nodejs tsconfig.json ./
 
+# System/code-update version memory: bake the build's git commit into a
+# `.build-version` file the worker reads at boot (`code-version.ts`) so the
+# recorded AdminWorkerCodeVersion carries a real commit even when there is no
+# `.git` in the runtime image. Pass with `--build-arg GIT_SHA=$(git rev-parse HEAD)`
+# (Railway/most CI inject a commit env var too). Fail-open: absent → empty file,
+# and the corpus fingerprint still detects code-shape changes.
+ARG GIT_SHA=""
+RUN printf '%s' "$GIT_SHA" > .build-version && chown worker:nodejs .build-version
+
 USER worker
 
 CMD ["sh", "-c", "set -e; echo 'viafidei worker service started'; sh scripts/migrate-deploy.sh; echo 'migrations complete'; node scripts/validate-db.js; echo 'database validation complete'; exec npm run worker"]

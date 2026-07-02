@@ -267,6 +267,29 @@ export interface DeveloperAuditData {
    *  final-brain availability, certified vs missing skills, coverage by content
    *  type, recent skill executions, and whether autonomous publishing is safe. */
   skillRuntime: SkillCapabilityData;
+  /** System/code-update version memory: recent recorded builds + the change
+   *  summary between them (spec bullet 4). */
+  codeVersions: Array<{
+    versionLabel: string;
+    sha: string | null;
+    changedSummary: string | null;
+    fileCount: number;
+    routeCount: number;
+    prismaModelCount: number;
+    capturedAt: Date;
+  }>;
+  /** Open (unresolved) worker escalations that paged the admin (spec bullets
+   *  5-8): what was detected, severity, occurrences, and email delivery. */
+  openEscalations: Array<{
+    kind: string;
+    severity: string;
+    contentType: string | null;
+    detail: string;
+    occurrences: number;
+    emailDelivery: string | null;
+    emailSentAt: Date | null;
+    createdAt: Date;
+  }>;
 }
 
 export async function collectDeveloperAuditData(
@@ -654,12 +677,57 @@ export async function collectDeveloperAuditData(
   const intelligenceLab = await collectIntelligenceLabData(prisma, { limit: 10 });
   const skillRuntime = await collectSkillCapabilityData(prisma, { limit: 15 });
 
+  // System/code-update version memory + open escalations (spec bullets 4-8).
+  // Guarded so a partial Prisma mock (or a delegate missing before migration
+  // 0048 is applied) degrades to empty rather than throwing synchronously on
+  // member access — the `.catch` alone can't catch a missing-delegate throw.
+  const safeRows = async (fn: () => Promise<unknown>): Promise<Array<Record<string, unknown>>> => {
+    try {
+      return (await fn()) as Array<Record<string, unknown>>;
+    } catch {
+      return [];
+    }
+  };
+  const [codeVersionRows, openEscalationRows] = await Promise.all([
+    safeRows(() =>
+      prisma.adminWorkerCodeVersion.findMany({ orderBy: { capturedAt: "desc" }, take: 10 }),
+    ),
+    safeRows(() =>
+      prisma.adminWorkerEscalation.findMany({
+        where: { resolvedAt: null },
+        orderBy: { createdAt: "desc" },
+        take: 25,
+      }),
+    ),
+  ]);
+  const codeVersions = codeVersionRows.map((v) => ({
+    versionLabel: String(v.versionLabel),
+    sha: (v.sha as string | null) ?? null,
+    changedSummary: (v.changedSummary as string | null) ?? null,
+    fileCount: Number(v.fileCount) || 0,
+    routeCount: Number(v.routeCount) || 0,
+    prismaModelCount: Number(v.prismaModelCount) || 0,
+    capturedAt: v.capturedAt as Date,
+  }));
+  const openEscalations = openEscalationRows.map((e) => ({
+    kind: String(e.kind),
+    severity: String(e.severity),
+    contentType: (e.contentType as string | null) ?? null,
+    detail: String(e.detail),
+    occurrences: Number(e.occurrences) || 1,
+    emailDelivery: (e.emailDelivery as string | null) ?? null,
+    emailSentAt: (e.emailSentAt as Date | null) ?? null,
+    createdAt: e.createdAt as Date,
+  }));
+
   return {
     generatedAt: new Date(),
     period,
     pythonBrainDiagnostics,
     intelligenceLab,
     skillRuntime,
+    codeVersions,
+    openEscalations,
     workerRequests: workerRequestsRaw,
     diagnosticsResults,
     diagnosticsSummary: summarizeRatings(diagnosticsResults),
@@ -857,6 +925,8 @@ export const DEVELOPER_AUDIT_SECTIONS = [
   "Mission Plans",
   "Intelligence Laboratory",
   "Certified Admin Skill Runtime",
+  "Code Version History",
+  "Open Escalations",
   "Pipeline Stage History",
   "Content Goal Progress",
   "Content Growth Funnel",

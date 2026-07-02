@@ -109,6 +109,19 @@ async function main() {
       safeMetadata: { available: brainUp },
     }).catch(() => undefined);
 
+    // System/code-update version memory: record the running build at startup so
+    // an upgrade-at-deploy is captured immediately (before the first pass) and
+    // is available as escalation/diagnostics context. Fail-open.
+    try {
+      const { recordCodeVersionIfChanged } = await import("../src/lib/admin-worker/code-version");
+      const v = await recordCodeVersionIfChanged(prisma);
+      if (v.changed) {
+        console.log(`[admin-worker:${args.workerId}] code version: ${v.label} — ${v.summary}`);
+      }
+    } catch (err) {
+      console.error(`[admin-worker:${args.workerId}] code-version check failed:`, err);
+    }
+
     // Best-effort monthly report check on startup. The job gates itself
     // on "is today the last day of the month?" so calling it daily is
     // safe; we trigger once on start so a restart on the last day of
@@ -116,6 +129,15 @@ async function main() {
     await runMonthlyReportJobIfDue(prisma).catch((err) => {
       console.error(`[admin-worker:${args.workerId}] monthly report check failed:`, err);
     });
+
+    // Best-effort escalation check on startup (forced past the throttle) so a
+    // freshly-restarted worker immediately surfaces any serious standing issue.
+    try {
+      const { runEscalationCheckIfDue } = await import("../src/lib/admin-worker/escalation");
+      await runEscalationCheckIfDue(prisma, { force: true });
+    } catch (err) {
+      console.error(`[admin-worker:${args.workerId}] startup escalation check failed:`, err);
+    }
 
     const result = await runAdminWorkerLoop(prisma, {
       workerId: args.workerId,

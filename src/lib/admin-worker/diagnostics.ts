@@ -1088,6 +1088,60 @@ async function ratingRollback(prisma: PrismaClient): Promise<HealthRating> {
   };
 }
 
+async function ratingEscalations(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const [open, latest] = await Promise.all([
+    prisma.adminWorkerEscalation.count({ where: { resolvedAt: null } }).catch(() => 0),
+    prisma.adminWorkerEscalation
+      .findFirst({
+        where: { resolvedAt: null },
+        orderBy: { createdAt: "desc" },
+        select: { kind: true, severity: true, emailDelivery: true, occurrences: true },
+      })
+      .catch(() => null),
+  ]);
+  const status: HealthStatus = open === 0 ? "pass" : latest?.severity === "ERROR" ? "fail" : "warn";
+  return {
+    key: "admin_worker_escalations",
+    label: "Worker escalations",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerEscalation",
+    summary:
+      open === 0
+        ? "No open escalations."
+        : `${open} open escalation(s); latest ${latest?.kind ?? "?"} (${latest?.severity ?? "?"}), ×${latest?.occurrences ?? 1}, email ${latest?.emailDelivery ?? "?"}.`,
+    recommendedRepair:
+      open > 0
+        ? "Review the escalation email + Admin Worker Escalation.pdf and resolve the underlying condition; it auto-resolves once the condition clears."
+        : undefined,
+  };
+}
+
+async function ratingCodeVersion(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const latest = await prisma.adminWorkerCodeVersion
+    .findFirst({ orderBy: { capturedAt: "desc" } })
+    .catch(() => null);
+  const status: HealthStatus = latest ? "pass" : "unknown";
+  return {
+    key: "admin_worker_code_version",
+    label: "Code / version memory",
+    status,
+    score: latest ? 1 : 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerCodeVersion",
+    latestSuccess: latest?.capturedAt ?? null,
+    summary: latest
+      ? `Running ${latest.versionLabel}${latest.sha ? ` (${latest.sha.slice(0, 8)})` : ""}; recorded ${latest.capturedAt
+          .toISOString()
+          .slice(0, 19)}.${latest.changedSummary ? ` ${latest.changedSummary}` : ""}`
+      : "No code-version recorded yet — the worker records its running build at boot and on change.",
+    recommendedRepair: latest ? undefined : "Restart the worker so it records its running build.",
+  };
+}
+
 const RATINGS: ReadonlyArray<RatingFn> = [
   ratingOverall,
   ratingBrain,
@@ -1132,6 +1186,8 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingRepairOrchestrator,
   ratingPostPublish,
   ratingRollback,
+  ratingEscalations,
+  ratingCodeVersion,
 ];
 
 export async function runAdminWorkerDiagnostics(prisma: PrismaClient): Promise<HealthRating[]> {

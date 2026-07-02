@@ -571,6 +571,28 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // best-effort — the capability refresh must never affect the pass
   }
 
+  // System/code-update version memory: detect when the worker's own codebase
+  // changed and record what changed between versions, so diagnostics, reporting,
+  // governance, and escalation can use it. Idempotent (no-op when unchanged) and
+  // fail-open.
+  try {
+    const { recordCodeVersionIfChanged } = await import("./code-version");
+    await recordCodeVersionIfChanged(prisma);
+  } catch {
+    // best-effort — version memory must never affect the pass
+  }
+
+  // Self-monitoring → governance → escalation. Builds the self-assessment,
+  // decides continue/retry/skip/pause/escalate/change-strategy, and — on a
+  // serious, deduplicated escalation — emails the admin the escalation + PDF.
+  // Throttled (~15 min) and fail-open, so it never affects the pass outcome.
+  try {
+    const { runEscalationCheckIfDue } = await import("./escalation");
+    await runEscalationCheckIfDue(prisma, { passId: pass.id });
+  } catch {
+    // best-effort — the escalation check must never affect the pass
+  }
+
   return { built, published: publishedCount, failed: failedCount, idle };
 }
 
