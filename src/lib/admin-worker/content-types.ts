@@ -61,3 +61,29 @@ export function isExtractableContentType(
 ): contentType is ExtractableContentType {
   return contentType != null && EXTRACTABLE_SET.has(contentType);
 }
+
+/**
+ * Content types that are BUILT FROM CURATED / STRUCTURED KNOWLEDGE, not from
+ * live web extraction. They keep a real extractor (so the capability exists and
+ * `isExtractableContentType` stays true — see content-types.test.ts), but the
+ * EXTRACTION stage must NOT pull discovered web pages of these types: arbitrary
+ * "how-to" / devotional pages classified GUIDE (a near-catch-all) or MARIAN_TITLE
+ * rarely yield a complete, publishable record, so every extraction returns
+ * `needs_repair` and the stage loops with zero successes (the real "EXTRACTION
+ * LOOPING on GUIDE" escalation). These types grow from their authoritative
+ * sources instead — the curated knowledge base (`checklist/knowledge/guides.ts`
+ * via curated-ingest) and the keyless structured (Wikidata) ingestors — which
+ * `source-reader.ts` already skips extraction for. Kept in sync there.
+ */
+export const CURATED_BUILT_CONTENT_TYPES: ReadonlySet<string> = new Set(["GUIDE", "MARIAN_TITLE"]);
+
+/**
+ * The types the live pipeline may web-extract: extractable MINUS the
+ * curated/structured-built ones. Both the dispatcher's extraction candidate
+ * query AND the brain's `readsAwaitingExtraction` backlog count use THIS set
+ * (not `EXTRACTABLE_CONTENT_TYPES`) so they agree and neither loops on nor
+ * over-scores extraction for a type that will never yield a web artifact.
+ */
+export const WEB_EXTRACTION_CONTENT_TYPES = EXTRACTABLE_CONTENT_TYPES.filter(
+  (t) => !CURATED_BUILT_CONTENT_TYPES.has(t),
+) as ReadonlyArray<ExtractableContentType>;

@@ -394,12 +394,18 @@ describe("EXTRACTION materialises an AdminWorkerPackageArtifact", () => {
     expect(out.kind).toBe("idle");
   });
 
-  it("scopes the extraction queue to extractable types so a UNUSABLE read can't block it", async () => {
+  it("scopes the extraction queue to WEB-extractable types (excludes terminal AND curated-built types)", async () => {
     // Regression: a read classified UNUSABLE / WRONG (or any non-extractable
     // type) used to sit at the head of the oldest-first queue and be
     // re-selected (then rejected without being marked done) on every pass —
-    // the EXTRACTION stuck loop. The candidate query must restrict to
-    // EXTRACTABLE types so those terminal reads are never picked.
+    // the EXTRACTION stuck loop. The candidate query restricts to
+    // WEB_EXTRACTION types so those terminal reads are never picked.
+    //
+    // It ALSO excludes the curated/structured-built types GUIDE + MARIAN_TITLE:
+    // arbitrary discovered pages of those never yield a complete record, so they
+    // extracted to needs_repair on every pass and looped with zero successes
+    // (the "EXTRACTION LOOPING on GUIDE" escalation). They grow from curated /
+    // structured ingest instead.
     const prisma = makePrisma({ read: true });
     const findMany = prisma.adminWorkerSourceRead.findMany as ReturnType<typeof vi.fn>;
     await executeMissionStage({
@@ -413,9 +419,11 @@ describe("EXTRACTION materialises an AdminWorkerPackageArtifact", () => {
       | undefined;
     const inList = whereArg?.detectedContentType?.in ?? [];
     expect(inList).toContain("PRAYER");
-    expect(inList).toContain("MARIAN_TITLE");
-    expect(inList).toContain("GUIDE");
     expect(inList).toContain("SPIRITUAL_PRACTICE");
+    // Curated/structured-built types are NOT web-extracted (no loop).
+    expect(inList).not.toContain("GUIDE");
+    expect(inList).not.toContain("MARIAN_TITLE");
+    // Terminal verdicts are never picked.
     expect(inList).not.toContain("UNUSABLE");
     expect(inList).not.toContain("WRONG");
   });

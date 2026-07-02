@@ -10,6 +10,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   EXTRACTABLE_CONTENT_TYPES,
+  WEB_EXTRACTION_CONTENT_TYPES,
+  CURATED_BUILT_CONTENT_TYPES,
   isExtractableContentType,
 } from "@/lib/admin-worker/content-types";
 
@@ -58,5 +60,28 @@ describe("every ChecklistContentType is extractable", () => {
   it("has no growth-goal content type that the extraction pipeline can't build", () => {
     const missing = CHECKLIST_CONTENT_TYPES.filter((t) => !isExtractableContentType(t));
     expect(missing).toEqual([]);
+  });
+});
+
+describe("web-extraction vs curated-built content types", () => {
+  it("excludes the curated/structured-built types (GUIDE, MARIAN_TITLE) from web extraction", () => {
+    // These loop with zero successes when web-extracted from arbitrary pages;
+    // they grow from curated/structured sources instead. They stay EXTRACTABLE
+    // (the capability + the every-type-buildable guarantee) but are NOT pulled
+    // into the live extraction queue.
+    expect(CURATED_BUILT_CONTENT_TYPES.has("GUIDE")).toBe(true);
+    expect(CURATED_BUILT_CONTENT_TYPES.has("MARIAN_TITLE")).toBe(true);
+    for (const t of CURATED_BUILT_CONTENT_TYPES) {
+      expect(isExtractableContentType(t)).toBe(true); // capability preserved
+      expect(WEB_EXTRACTION_CONTENT_TYPES).not.toContain(t); // but not web-extracted
+    }
+  });
+
+  it("web-extraction set is exactly extractable minus curated-built", () => {
+    const expected = EXTRACTABLE_CONTENT_TYPES.filter((t) => !CURATED_BUILT_CONTENT_TYPES.has(t));
+    expect([...WEB_EXTRACTION_CONTENT_TYPES]).toEqual([...expected]);
+    // Sanity: the everyday web-extracted types are still present.
+    expect(WEB_EXTRACTION_CONTENT_TYPES).toContain("PRAYER");
+    expect(WEB_EXTRACTION_CONTENT_TYPES).toContain("SAINT");
   });
 });

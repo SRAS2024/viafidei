@@ -1243,6 +1243,18 @@ saint target alone is 10,000).
 - `npm run seed:content` runs the same publish path once from the CLI
   (`scripts/seed-curated-content.ts`) for a fresh local DB or any offline
   environment.
+- **Curated/structured-built types are not web-extracted.** `GUIDE` and
+  `MARIAN_TITLE` grow from the curated knowledge base (and, for Marian titles,
+  the keyless structured Wikidata ingestor) — not from live discovery. Arbitrary
+  discovered "how-to" / devotional pages classified into these near-catch-all
+  types rarely yield a complete, publishable record, so web-extracting them
+  produced `needs_repair` on every pass and the EXTRACTION stage looped with zero
+  successes (a real self-monitoring escalation). They keep a real extractor (the
+  capability + the "every type is buildable" guarantee hold — see
+  `tests/admin-worker/content-types.test.ts`), but `CURATED_BUILT_CONTENT_TYPES`
+  excludes them from `WEB_EXTRACTION_CONTENT_TYPES`, which is the set BOTH the
+  extraction dispatcher and the brain's extraction-backlog count use — so the
+  worker never loops on them.
 
 ### Internal modules
 
