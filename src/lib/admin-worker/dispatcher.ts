@@ -25,7 +25,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import type { BrainDecision, BrainMissionStage } from "./brain";
-import { EXTRACTABLE_CONTENT_TYPES, isExtractableContentType } from "./content-types";
+import { WEB_EXTRACTION_CONTENT_TYPES, isExtractableContentType } from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
 import { recordStageOutcome, toStageOutcome } from "./stage-outcomes";
 import {
@@ -764,14 +764,21 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
   // the take-window doesn't cover the whole backlog, the oldest pending
   // read is guaranteed to be in it, so the queue always drains forward.
   //
-  // Only EXTRACTABLE detected types are eligible: a read classified
+  // Only WEB-EXTRACTABLE detected types are eligible: a read classified
   // UNUSABLE / WRONG (or any type without an extractor) can never yield an
   // artifact, so if it were selected it would be rejected without being
   // marked done and — being oldest — re-selected on every pass forever,
   // blocking the whole queue behind it (the EXTRACTION stuck loop). Filtering
   // here keeps those terminal reads out of the queue entirely.
+  //
+  // The set is WEB_EXTRACTION_CONTENT_TYPES, NOT EXTRACTABLE_CONTENT_TYPES:
+  // curated/structured-built types (GUIDE, MARIAN_TITLE) are excluded because
+  // arbitrary discovered pages of those types never yield a complete record, so
+  // they would extract to `needs_repair` on every pass and loop with zero
+  // successes (the "EXTRACTION LOOPING on GUIDE" escalation). They grow from the
+  // curated knowledge base + structured ingestors instead.
   const candidates = await prisma.adminWorkerSourceRead.findMany({
-    where: { detectedContentType: { in: [...EXTRACTABLE_CONTENT_TYPES] } },
+    where: { detectedContentType: { in: [...WEB_EXTRACTION_CONTENT_TYPES] } },
     orderBy: { createdAt: "asc" },
     take: 200,
   });
