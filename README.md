@@ -1661,9 +1661,29 @@ recent history, and pages the human admin when something is seriously wrong.
   engine **deduplicates by a stable fingerprint** (`kind + content-type + build
 SHA`) via the `AdminWorkerEscalation` table: an issue that is already open and
   already emailed only bumps its occurrence count — **the admin is emailed at
-  most once per open issue**. When the condition clears, the escalation
-  auto-resolves so a genuine recurrence can escalate afresh. A "skipped"
-  delivery (no `ADMIN_EMAIL` configured) is retried; a "sent" one is not.
+  most once per open issue**. A "skipped" delivery (no `ADMIN_EMAIL` configured)
+  is retried; a "sent" one is not.
+- **Knowing when something is fixed (code-update aware).** The worker records
+  every build it runs (`code-version.ts`: git SHA + a deterministic corpus
+  fingerprint of the code shape, so a change is detected even with no `.git`),
+  and the escalation engine uses that to close issues the moment a fix ships. An
+  open escalation is resolved — with a recorded **`resolvedReason`** — when
+  either (a) the warning is **gone from the live assessment**
+  (`condition_cleared`, gated to a live, non-paused worker so an offline lull
+  never mass-closes real issues), or (b) a **newer build is running**
+  (`superseded_by_upgrade`): a code update may well have fixed it, and because
+  the build SHA is in the dedup fingerprint, a genuinely-persistent issue simply
+  re-escalates afresh under the new build (a new email), so closing the
+  prior-build row loses no signal.
+- **Post-upgrade grace.** Every warning is computed over a rolling window, so
+  right after a fix deploys the window still contains pre-upgrade activity and
+  can't yet tell a shipped fix from a still-broken issue. When an upgrade landed
+  **inside** the assessment window, the engine **holds the page** for a grace
+  window (defaults to the assessment window;
+  `ADMIN_WORKER_ESCALATION_UPGRADE_GRACE_HOURS` overrides, `0` disables) and logs
+  `escalation_deferred_post_upgrade`. Once the window fully post-dates the
+  upgrade, a genuinely-persistent issue escalates for real — so a deployed fix is
+  never spuriously re-escalated on stale data, and a real regression still pages.
 - **Escalation email + PDF.** A serious escalation emails the admin using the
   shared admin-email aesthetic (`sendAdminWorkerEscalation`, reusing
   `renderAdminEmail`/`sendAdminEmail`) with four sections — **what happened /
