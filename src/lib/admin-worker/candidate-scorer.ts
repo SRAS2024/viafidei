@@ -27,7 +27,7 @@
  *                        sourceAuthorityScore via reputation
  */
 
-import type { CandidateSourceUrl, ChecklistContentType, PrismaClient } from "@prisma/client";
+import type { CandidateSourceUrl, PrismaClient } from "@prisma/client";
 
 import { isJunkUrl } from "./web-navigator";
 
@@ -177,16 +177,23 @@ export async function scoreAndPersist(
     })
     .catch(() => null);
 
-  const duplicateMatches = candidate.predictedContentType
-    ? await prisma.publishedContent
-        .count({
-          where: {
-            contentType: candidate.predictedContentType as ChecklistContentType,
-            isPublished: true,
-          },
-        })
-        .catch(() => 0)
-    : 0;
+  // Duplicate risk must reflect whether THIS candidate's type is already
+  // SATURATED (at/over its growth target) — NOT the raw published count. Using
+  // the published count made every new candidate of a healthy, still-growing
+  // type look like a duplicate (e.g. 2797 published saints → duplicateRisk=1.0 →
+  // fetchPriority below the 0.45 promotion gate → nothing ever became
+  // PRIORITIZED → the whole pipeline froze at "candidates exist but none
+  // prioritized"). A type that is still below its target should carry zero
+  // duplicate penalty; only a target-reached type is deprioritised.
+  const goal = candidate.predictedContentType
+    ? await prisma.contentGoal
+        .findUnique({ where: { contentType: candidate.predictedContentType } })
+        .catch(() => null)
+    : null;
+  // gapCount > 0 → still growing → no duplicate penalty. gap 0 (target reached)
+  // → a modest penalty so the worker prefers below-target types, without ever
+  // hard-blocking (new verified content still flows).
+  const duplicateMatches = goal && goal.gapCount <= 0 ? 3 : 0;
 
   const score = scoreCandidate({
     url: candidate.discoveredUrl,

@@ -362,18 +362,31 @@ async function ratingContentGoals(prisma: PrismaClient): Promise<HealthRating> {
       recommendedRepair: "Call `seedContentGoals(prisma)`.",
     };
   }
-  const totalMin = goals.reduce((sum, g) => sum + g.minimumTarget, 0);
+  // The growth target is `desiredTarget` (minimumTarget is intentionally 0 for
+  // every seed — see content-goals.ts). Reading minimumTarget made this rating
+  // report "N / 0 (100%)" — a false all-clear that masked real, large gaps.
+  const totalTarget = goals.reduce((sum, g) => sum + g.desiredTarget, 0);
   const totalCurrent = goals.reduce((sum, g) => sum + g.currentValidCount, 0);
-  const pct = totalMin === 0 ? 1 : Math.min(1, totalCurrent / totalMin);
+  const totalGap = goals.reduce((sum, g) => sum + g.gapCount, 0);
+  const pct = totalTarget === 0 ? 1 : Math.min(1, totalCurrent / totalTarget);
   const status: HealthStatus = pct >= 0.95 ? "pass" : pct >= 0.5 ? "warn" : "fail";
+  const behind = goals
+    .filter((g) => g.gapCount > 0)
+    .sort((a, b) => b.gapCount - a.gapCount)
+    .slice(0, 4)
+    .map((g) => `${g.contentType} +${g.gapCount}`);
   return {
     key: "admin_worker_content_goals",
     label: "Content goals",
     status,
     score: pct,
     lastCheckedAt: new Date(),
-    dataSource: "ContentGoal",
-    summary: `${totalCurrent} / ${totalMin} minimum target (${Math.round(pct * 100)}%).`,
+    dataSource: "ContentGoal.desiredTarget",
+    summary: `${totalCurrent} / ${totalTarget} target (${Math.round(pct * 100)}%); ${totalGap} still to build${behind.length ? ` — largest gaps: ${behind.join(", ")}` : ""}.`,
+    recommendedRepair:
+      totalGap > 0
+        ? "Advance the pipeline for the below-target types (prioritize + fetch existing candidates, extract, build, publish) — do not keep re-discovering."
+        : undefined,
   };
 }
 

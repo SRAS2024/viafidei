@@ -6,11 +6,44 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { isNonContentHost } from "@/lib/checklist/sources/authority-registry";
 import { writeAdminWorkerLog } from "./logs";
 
 export interface CleanupOutcome {
   staleCandidatesRemoved: number;
   expiredReviewsClosed: number;
+  junkHostRowsPurged: number;
+}
+
+/**
+ * Purge already-ingested pollution from non-content hosts (social / commerce /
+ * free personal-site builders like the gabiula.pl.tl runaway). Deletes their
+ * candidate URLs and neutralizes their source-reads (nulling detectedContentType
+ * so they can never re-seed the internal-link crawler). Self-healing: runs every
+ * maintenance pass, so once the host block ships the existing junk drains without
+ * operator action. Fail-open.
+ */
+async function purgeNonContentHostRows(prisma: PrismaClient): Promise<number> {
+  try {
+    const hosts = await prisma.candidateSourceUrl
+      .findMany({ distinct: ["sourceHost"], select: { sourceHost: true }, take: 2000 })
+      .catch(() => [] as Array<{ sourceHost: string }>);
+    const blocked = hosts.map((h) => h.sourceHost).filter((h) => isNonContentHost(h));
+    if (blocked.length === 0) return 0;
+    const delCandidates = await prisma.candidateSourceUrl
+      .deleteMany({ where: { sourceHost: { in: blocked } } })
+      .catch(() => ({ count: 0 }));
+    // Neutralize reads so they drop out of the internal-link seed query.
+    await prisma.adminWorkerSourceRead
+      .updateMany({
+        where: { sourceHost: { in: blocked }, detectedContentType: { not: null } },
+        data: { detectedContentType: null },
+      })
+      .catch(() => undefined);
+    return delCandidates.count;
+  } catch {
+    return 0;
+  }
 }
 
 const CANDIDATE_STALE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -28,15 +61,18 @@ export async function runCleanupPass(prisma: PrismaClient): Promise<CleanupOutco
     data: { status: "EXPIRED", reviewedAt: new Date() },
   });
 
+  const junkHostRowsPurged = await purgeNonContentHostRows(prisma);
+
   await writeAdminWorkerLog(prisma, {
     category: "CLEANUP",
-    severity: "INFO",
+    severity: junkHostRowsPurged > 0 ? "WARN" : "INFO",
     eventName: "cleanup_completed",
-    message: `Cleanup pass: removed ${staleCandidates.count} stale rejected candidates, expired ${expiredReviews.count} review items.`,
+    message: `Cleanup pass: removed ${staleCandidates.count} stale rejected candidates, expired ${expiredReviews.count} review items, purged ${junkHostRowsPurged} non-content-host candidate(s).`,
   });
 
   return {
     staleCandidatesRemoved: staleCandidates.count,
     expiredReviewsClosed: expiredReviews.count,
+    junkHostRowsPurged,
   };
 }

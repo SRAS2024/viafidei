@@ -819,6 +819,14 @@ const NON_CONTENT_HOST_PATTERNS: RegExp[] = [
   /(^|\.)ebay\.[a-z.]+$/,
   /(^|\.)login\./,
   /(^|\.)accounts\./,
+  // Free personal-site builders — never a Catholic authority, and the exact
+  // vector of the gabiula.pl.tl runaway (a `<name>.<lang>.tl` free-subdomain
+  // service). Blocking the family stops the worker fetching/crawling/seeding
+  // from it anywhere in the pipeline (defense-in-depth alongside the
+  // authority-gated internal-link crawl).
+  /\.[a-z]{2}\.tl$/,
+  /(^|\.)ucoz\.[a-z.]+$/,
+  /(^|\.)narod\.ru$/,
 ];
 
 /**
@@ -835,6 +843,18 @@ export function openInternetEnabled(): boolean {
   const v = (process.env.ADMIN_WORKER_OPEN_INTERNET ?? "").trim().toLowerCase();
   if (v === "0" || v === "false" || v === "off") return false;
   return true;
+}
+
+/**
+ * True when a host is explicitly non-content (local / social / commerce / free
+ * personal-site builder) and must NEVER be fetched, crawled, or seeded —
+ * regardless of open-internet mode. Used to purge already-ingested junk
+ * (candidates + reads) for such hosts, e.g. the gabiula.pl.tl pollution.
+ */
+export function isNonContentHost(host: string): boolean {
+  const h = (host || "").toLowerCase();
+  if (!h) return true;
+  return NON_CONTENT_HOST_PATTERNS.some((re) => re.test(h));
 }
 
 /**

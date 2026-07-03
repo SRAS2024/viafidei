@@ -68,6 +68,21 @@ const GOVERNED_CONTENT_STAGES: ReadonlySet<BrainMissionStage> = new Set<BrainMis
   "POST_PUBLISH_VERIFY",
 ]);
 
+/**
+ * The stages that count as GENUINE forward movement toward published content —
+ * the growth-stall check keys on these only. DISCOVERY and
+ * CANDIDATE_PRIORITIZATION are top-of-funnel PREP: surfacing candidate URLs (or
+ * scoring them) does not move a single item toward the public site. Counting
+ * discovery as "productive" was the exact bug that froze the pipeline at 3403:
+ * discovery "succeeds" every pass by surfacing candidates, so windowContent
+ * Productive was never 0, `growthStall` never tripped, and the governor never
+ * forced SOURCE_FETCH — the worker discovered forever while 600 candidates sat
+ * unfetched and nothing published. Real progress = fetch → read → … → publish.
+ */
+const FORWARD_PROGRESS_STAGES: ReadonlySet<BrainMissionStage> = new Set<BrainMissionStage>(
+  [...GOVERNED_CONTENT_STAGES].filter((s) => s !== "DISCOVERY" && s !== "CANDIDATE_PRIORITIZATION"),
+);
+
 /** Downstream stages in publish-first priority, each paired with the WorldState
  * queue field that signals it has work to do. The governor forces the first
  * stage here that has queued work and is not itself fixated — pulling in-flight
@@ -165,7 +180,10 @@ export function computeGovernorVerdict(args: {
     chosen.set(row.stage, (chosen.get(row.stage) ?? 0) + 1);
     const prod = isProductive(row);
     if (prod) productive.set(row.stage, (productive.get(row.stage) ?? 0) + 1);
-    if (GOVERNED_CONTENT_STAGES.has(row.stage as BrainMissionStage) && prod) {
+    // Only DOWNSTREAM advancement counts toward "content is moving". Discovery /
+    // prioritization successes are excluded (see FORWARD_PROGRESS_STAGES) so a
+    // discovery-only spin is correctly seen as a growth stall.
+    if (FORWARD_PROGRESS_STAGES.has(row.stage as BrainMissionStage) && prod) {
       windowContentProductive += 1;
     }
     // Track a poison entity across ALL stages in the window (a malformed source

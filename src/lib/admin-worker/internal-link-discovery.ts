@@ -13,7 +13,7 @@
 
 import type { CandidateSourceDiscoveryMethod, PrismaClient } from "@prisma/client";
 
-import { isFetchableHost } from "@/lib/checklist";
+import { isApprovedAuthorityHost, isFetchableHost } from "@/lib/checklist";
 import { discoverCandidate, isJunkUrl } from "./web-navigator";
 import { writeAdminWorkerLog } from "./logs";
 
@@ -127,14 +127,17 @@ export async function discoverFromInternalLinks(
       rejected += 1;
       continue;
     }
-    // Follow links to any fetchable host. In open-internet mode this lets the
-    // crawler cross from a known Catholic site (a diocese, EWTN, a bishops'
-    // conference) out to the new sites, databases, and online libraries they
-    // link to — across .com / .net / .org / .va / .edu and any TLD. Accuracy is
-    // still enforced downstream (classification, cross-source verification,
-    // strict QA) and junk / social / commerce hosts are filtered here + in
-    // isFetchableHost. When open mode is off this stays registry-only.
-    if (!isFetchableHost(host)) {
+    // Follow a link ONLY when it stays on the seed's own host or points at an
+    // already-approved Catholic authority. Following links to arbitrary
+    // fetchable hosts is what let the crawler spider an unrelated free-hosting
+    // site end-to-end (the gabiula.pl.tl runaway: one followed cross-host link →
+    // its read gets typed → it re-seeds → 100 junk candidates/page). Same-host
+    // internal navigation + jumps to KNOWN authorities keep discovery useful
+    // without turning the worker into an open-web spider. New unknown hosts are
+    // still discovered via search / sitemap / directory, which are gated
+    // separately. Accuracy downstream (classify → verify → QA) is unchanged.
+    const sameHost = host === seedHost;
+    if (!(sameHost || isApprovedAuthorityHost(host)) || !isFetchableHost(host)) {
       rejected += 1;
       continue;
     }
