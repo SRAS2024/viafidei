@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
-import { PIPELINE_ORDER, pipelineMapFor } from "@/lib/admin-worker";
+import { PIPELINE_ORDER, getLaneStates, pipelineMapFor } from "@/lib/admin-worker";
 
 export const dynamic = "force-dynamic";
 
@@ -78,22 +78,25 @@ export default async function AdminWorkerPipelinePage({
   }
 
   // No pipelineKey — list the 30 most-recently-touched pipeline items.
-  const recent = await prisma.adminWorkerPipelineStage
-    .findMany({
-      where: { pipelineKey: { not: null } },
-      orderBy: { updatedAt: "desc" },
-      distinct: ["pipelineKey"],
-      take: 30,
-      select: {
-        pipelineKey: true,
-        stageName: true,
-        status: true,
-        contentType: true,
-        updatedAt: true,
-        failureReason: true,
-      },
-    })
-    .catch(() => []);
+  const [recent, lanes] = await Promise.all([
+    prisma.adminWorkerPipelineStage
+      .findMany({
+        where: { pipelineKey: { not: null } },
+        orderBy: { updatedAt: "desc" },
+        distinct: ["pipelineKey"],
+        take: 30,
+        select: {
+          pipelineKey: true,
+          stageName: true,
+          status: true,
+          contentType: true,
+          updatedAt: true,
+          failureReason: true,
+        },
+      })
+      .catch(() => []),
+    getLaneStates(prisma),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -112,6 +115,61 @@ export default async function AdminWorkerPipelinePage({
           ))}
         </div>
       </header>
+
+      {/* Internal worker lanes (adaptive-worker Phase B): the parallel lanes the
+          worker runs each pass, with live status, capacity, and last outcome —
+          the operational-self-awareness surface. */}
+      <section className="space-y-2">
+        <h2 className="font-display text-xl text-ink">Internal worker lanes</h2>
+        {lanes.length === 0 ? (
+          <p className="text-sm text-ink-soft">
+            No lane state recorded yet — the worker records each lane&apos;s status on its next
+            pass.
+          </p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left uppercase text-ink-soft">
+                <th>Lane</th>
+                <th>Status</th>
+                <th className="text-right">Capacity</th>
+                <th className="text-right">In-flight</th>
+                <th>Last outcome</th>
+                <th className="text-right">Duration</th>
+                <th>Finished</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lanes.map((l) => (
+                <tr
+                  key={l.lane}
+                  className={`border-t ${
+                    l.status === "error"
+                      ? "bg-rose-50"
+                      : l.status === "running"
+                        ? "bg-amber-50"
+                        : ""
+                  }`}
+                >
+                  <td className="py-1 font-mono">{l.lane}</td>
+                  <td className="py-1 font-mono">{l.status}</td>
+                  <td className="py-1 text-right font-mono">{l.capacity}</td>
+                  <td className="py-1 text-right font-mono">{l.concurrentTasks}</td>
+                  <td className="py-1 font-serif">
+                    {l.status === "error" ? (l.lastError ?? "error") : (l.lastOutcome ?? "—")}
+                  </td>
+                  <td className="py-1 text-right font-mono">
+                    {l.lastDurationMs != null ? `${l.lastDurationMs}ms` : "—"}
+                  </td>
+                  <td className="py-1 font-mono">
+                    {l.lastFinishedAt ? l.lastFinishedAt.toISOString().slice(11, 19) : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
 
       {recent.length === 0 ? (
         <p className="text-sm text-ink-soft">
