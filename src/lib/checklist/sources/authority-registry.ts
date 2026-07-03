@@ -157,8 +157,9 @@ export const AUTHORITY_SOURCES: AuthoritySourceSeed[] = [
     host: "vaticannews.va",
     baseUrl: "https://www.vaticannews.va",
     authorityLevel: "VATICAN",
-    description: "Official Vatican news service.",
-    contentTypes: ["CHURCH_DOCUMENT", "SAINT", "LITURGICAL"],
+    description:
+      "Official Vatican news service — also hosts a large library of Catholic prayers and devotions.",
+    contentTypes: ["CHURCH_DOCUMENT", "SAINT", "LITURGICAL", "PRAYER", "DEVOTION"],
   },
   {
     name: "Press Office of the Holy See",

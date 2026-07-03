@@ -12,7 +12,7 @@
 
 import type { CandidateSourceDiscoveryMethod, PrismaClient } from "@prisma/client";
 
-import { isApprovedAuthorityHost } from "@/lib/checklist";
+import { isFetchableHost } from "@/lib/checklist";
 import { discoverCandidate, isJunkUrl } from "./web-navigator";
 import { writeAdminWorkerLog } from "./logs";
 
@@ -46,7 +46,9 @@ export async function discoverFromApis(prisma: PrismaClient): Promise<ApiDiscove
   let inserted = 0;
   let rejected = 0;
   for (const adapter of ADAPTERS) {
-    if (!isApprovedAuthorityHost(adapter.host)) {
+    // Open-internet mode (default) lets any API adapter run; when open mode is
+    // off this is the registry allow-list (isFetchableHost === approved-host).
+    if (!isFetchableHost(adapter.host)) {
       rejected += 1;
       continue;
     }
@@ -71,7 +73,7 @@ export async function discoverFromApis(prisma: PrismaClient): Promise<ApiDiscove
         rejected += 1;
         continue;
       }
-      if (!isApprovedAuthorityHost(host)) {
+      if (!isFetchableHost(host)) {
         rejected += 1;
         continue;
       }

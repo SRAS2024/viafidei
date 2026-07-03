@@ -35,10 +35,10 @@ function makePrisma() {
 }
 
 describe("discoverFromHost", () => {
-  it("rejects an unapproved host before fetching", async () => {
+  it("rejects an unfetchable host before fetching", async () => {
     const out = await discoverFromHost(makePrisma(), "evil.example");
     expect(out.fetched).toBe(0);
-    expect(out.reason).toBe("host not approved");
+    expect(out.reason).toBe("host not fetchable");
   });
 
   it("parses <loc> entries from the sitemap and skips junk + cross-host URLs", async () => {

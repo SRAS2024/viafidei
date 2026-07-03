@@ -12,7 +12,7 @@
 
 import type { CandidateSourceDiscoveryMethod, PrismaClient } from "@prisma/client";
 
-import { isApprovedAuthorityHost } from "@/lib/checklist";
+import { isFetchableHost } from "@/lib/checklist";
 import { discoverCandidate, isJunkUrl } from "./web-navigator";
 import { writeAdminWorkerLog } from "./logs";
 
@@ -89,14 +89,16 @@ export async function discoverFromFeed(
   } catch {
     return { host: "", feedUrl, fetched: false, inserted: 0, rejected: 0, reason: "invalid URL" };
   }
-  if (!isApprovedAuthorityHost(parsedHost)) {
+  // Open-internet mode (default) lets the worker read a feed on any fetchable
+  // host; when open mode is off this is exactly the registry allow-list.
+  if (!isFetchableHost(parsedHost)) {
     return {
       host: parsedHost,
       feedUrl,
       fetched: false,
       inserted: 0,
       rejected: 0,
-      reason: "host not approved",
+      reason: "host not fetchable",
     };
   }
 
@@ -124,7 +126,7 @@ export async function discoverFromFeed(
         return null;
       }
     })();
-    if (!urlHost || !isApprovedAuthorityHost(urlHost)) {
+    if (!urlHost || !isFetchableHost(urlHost)) {
       rejected += 1;
       continue;
     }

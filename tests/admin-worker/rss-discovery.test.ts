@@ -58,10 +58,10 @@ describe("extractFeedUrls", () => {
 });
 
 describe("discoverFromFeed", () => {
-  it("rejects feeds on unapproved hosts", async () => {
+  it("rejects feeds on unfetchable hosts", async () => {
     const out = await discoverFromFeed(makePrisma(), "https://evil.example/feed.xml");
     expect(out.fetched).toBe(false);
-    expect(out.reason).toBe("host not approved");
+    expect(out.reason).toBe("host not fetchable");
   });
 
   it("inserts approved-host items, rejects cross-host items + junk URLs", async () => {
