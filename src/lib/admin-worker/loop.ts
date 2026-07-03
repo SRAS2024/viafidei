@@ -163,6 +163,30 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   const contentGoalsMet =
     (await prisma.contentGoal.count({ where: { gapCount: { gt: 0 } } }).catch(() => 1)) === 0;
 
+  // Major-goal campaign: when a goal has a big enough gap to be "getting in the
+  // way of sustainable progress" (PARISH's 300k today, then the next biggest),
+  // the worker runs a campaign — DRAIN the in-flight funnel (no new discovery),
+  // then SURGE ALL resources on that goal until its gap closes, then move to the
+  // next biggest. SURGE forces the mission target onto the campaign goal
+  // (nextPriorityContentType); DRAIN pauses the discovery lanes. Fail-open.
+  const { evaluateMajorGoalCampaign } = await import("./major-goal-campaign");
+  const campaign = await evaluateMajorGoalCampaign(prisma).catch(() => ({
+    phase: "NORMAL" as const,
+    majorType: null,
+    majorGap: 0,
+    builtFunnel: 0,
+  }));
+  if (campaign.phase !== "NORMAL") {
+    await writeAdminWorkerLog(prisma, {
+      category: "WORKER_PASS",
+      severity: "INFO",
+      eventName: "major_goal_campaign",
+      message: `Major-goal campaign ${campaign.phase} on ${campaign.majorType} (gap ${campaign.majorGap}${campaign.phase === "DRAIN" ? `, draining ${campaign.builtFunnel} built artifact(s) first` : ", all resources allocated"}).`,
+      contentType: campaign.majorType ?? undefined,
+      safeMetadata: { ...campaign },
+    }).catch(() => undefined);
+  }
+
   // Run the Admin Worker brain pass. TypeScript generates + sub-scores the
   // candidate actions; the Python brain selects the final action from them
   // (see runBrain + pythonFinalSelector below). The decision (including
@@ -307,6 +331,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
         workerId,
         active: brain.finalBrain === "python",
         contentGoalsMet,
+        campaignPhase: campaign.phase,
       });
       if (laneResult.published > 0) {
         publishedCount += laneResult.published;
@@ -413,6 +438,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       workerId,
       active: activeMode,
       contentGoalsMet,
+      campaignPhase: campaign.phase,
     });
     publishedCount += laneResult.published;
     if (laneResult.published > 0 || laneResult.advanced > 0) idle = false;

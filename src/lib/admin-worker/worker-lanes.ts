@@ -115,6 +115,7 @@ export const CONTENT_LANES: LaneDef[] = [
     capacity: 2,
     activeOnly: true,
     growth: true,
+    discovery: true,
     async run({ prisma }) {
       const { runDiscoverySeeder } = await import("./structured/discovery-seeder");
       await runDiscoverySeeder(prisma);
@@ -126,6 +127,7 @@ export const CONTENT_LANES: LaneDef[] = [
     capacity: 2,
     activeOnly: true,
     growth: true,
+    discovery: true,
     async run({ prisma }) {
       const { runOsmParishDiscovery } = await import("./parish-osm");
       const published = (await runOsmParishDiscovery(prisma, { brainActive: true })).published;
@@ -137,6 +139,7 @@ export const CONTENT_LANES: LaneDef[] = [
     capacity: 4,
     activeOnly: true,
     growth: true,
+    discovery: true,
     async run({ prisma, passId }) {
       const { runAlwaysOnDiscovery } = await import("./always-on-discovery");
       await runAlwaysOnDiscovery(prisma, { passId });

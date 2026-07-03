@@ -1475,6 +1475,27 @@ idles to `MAINTENANCE`. Security response is always-on independent of the loop
 throttled, so quality/upkeep (review auto-resolve, translations, daily-readings
 refresh, custody) continues regardless.
 
+**Major-goal campaigns (`major-goal-campaign.ts`).** When a single goal has a gap
+big enough to be "getting in the way of sustainable progress" — the unmet,
+web-growable goal with the largest absolute gap, ≥ `ADMIN_WORKER_CAMPAIGN_MIN_GAP`
+(default 1000: PARISH's 300k today, then the next-biggest like the remaining
+saints / church history) — the worker runs it as a **campaign** instead of
+letting it trickle:
+
+1. **DRAIN** — first finish everything already built and waiting to publish (the
+   funnel) and take on **no new discovery** (the `discovery: true` lanes are
+   paused), so nothing in-flight is abandoned.
+2. **SURGE** — once the funnel is clear, **all** discovery + pipeline resources
+   point at the campaign goal: `nextPriorityContentType` forces the mission
+   target onto it (overriding the normal de-rank + rotation) until its gap
+   closes.
+3. Then the **next-biggest** goal becomes the campaign; when every remaining gap
+   is below the threshold the worker returns to NORMAL rotation.
+
+It is generic (any type, picked by gap size), read-only + fail-open (any error ⇒
+NORMAL), curated-built types are never campaign targets (a web surge can't close
+their gap), and the active phase + goal are logged (`major_goal_campaign`).
+
 Concurrency is made **safe by construction, not by luck**:
 
 - Lanes touch **disjoint work domains** (curated vs structured vs OSM vs

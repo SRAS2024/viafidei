@@ -11,10 +11,22 @@ import { nextPriorityContentType } from "@/lib/admin-worker/content-goals";
 
 type Goal = { contentType: string; gapCount: number; desiredTarget: number; priority: number };
 
-function fakePrisma(goals: Goal[], recentDiscoveryTypes: string[], blockedTypes: string[] = []) {
+function fakePrisma(
+  goals: Goal[],
+  recentDiscoveryTypes: string[],
+  blockedTypes: string[] = [],
+  opts: { campaign?: boolean } = {},
+) {
   return {
     contentGoal: {
-      findMany: async () => goals,
+      findMany: async ({ where }: { where?: { gapCount?: { gt?: number; gte?: number } } }) => {
+        // The major-goal campaign queries with `gapCount: { gte }`. In NORMAL-mode
+        // tests we return [] for that query so no campaign fires and the de-rank +
+        // rotation below is what's under test; in the campaign test we return the
+        // goals so a SURGE fires and overrides the ranking.
+        if (where?.gapCount?.gte !== undefined) return opts.campaign ? goals : [];
+        return goals; // nextPriorityContentType's own `gapCount: { gt: 0 }` query
+      },
     },
     adminWorkerDecision: {
       findMany: async ({ take }: { take: number }) =>
@@ -22,6 +34,10 @@ function fakePrisma(goals: Goal[], recentDiscoveryTypes: string[], blockedTypes:
     },
     adminWorkerSourceCoverage: {
       findMany: async () => blockedTypes.map((contentType) => ({ contentType })),
+    },
+    // Built funnel empty ⇒ a fired campaign goes straight to SURGE.
+    adminWorkerPackageArtifact: {
+      count: async () => 0,
     },
   } as never;
 }
@@ -66,6 +82,16 @@ describe("nextPriorityContentType", () => {
       fakePrisma(goals, [], ["PARISH", "SAINT", "PRAYER"]),
     );
     expect(pick?.contentType).toBe("PARISH"); // all blocked → ranking unchanged (highest fraction)
+  });
+
+  it("SURGE campaign forces the mission target onto the campaign goal (overrides rotation + de-rank)", async () => {
+    // A major-goal campaign is SURGING on PARISH. Even though PARISH was just
+    // discovered (rotation would skip it) AND is source-blocked (de-rank would
+    // demote it), the campaign forces the worker to throw everything at it.
+    const pick = await nextPriorityContentType(
+      fakePrisma(goals, ["PARISH"], ["PARISH"], { campaign: true }),
+    );
+    expect(pick?.contentType).toBe("PARISH");
   });
 
   it("never excludes the only remaining option", async () => {
