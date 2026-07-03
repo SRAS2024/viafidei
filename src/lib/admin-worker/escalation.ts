@@ -33,6 +33,13 @@ import { writeAdminWorkerLog } from "./logs";
 const THROTTLE_MS = 15 * 60 * 1000; // ~15 min between full escalation checks
 const THROTTLE_KEY = "escalation-check-lastrun";
 
+function envNum(key: string, fallback: number): number {
+  const v = process.env[key];
+  if (v === undefined || v === "") return fallback;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 /** Map the escalation window to a developer-report period for the PDF. */
 function periodForWindow(windowHours: number): AdminDeveloperReportPeriod {
   if (windowHours <= 24) return "LAST_24_HOURS";
@@ -148,7 +155,46 @@ async function resolveClearedEscalations(
   for (const row of open) {
     if (!activeKinds.has(row.kind)) {
       await prisma.adminWorkerEscalation
-        .update({ where: { id: row.id }, data: { resolvedAt: new Date() } })
+        .update({
+          where: { id: row.id },
+          data: { resolvedAt: new Date(), resolvedReason: "condition_cleared" },
+        })
+        .catch(() => undefined);
+      resolved += 1;
+    }
+  }
+  return resolved;
+}
+
+/**
+ * Resolve open escalations raised on a PRIOR build once a new build ships. This
+ * is how the worker's self-monitoring "knows when something is fixed": a code
+ * update may well have addressed the issue, and because the dedup fingerprint
+ * includes the build SHA, a genuinely-persistent issue re-escalates afresh under
+ * the NEW build (a new fingerprint → a new email). So closing prior-build rows
+ * loses no signal — it just stops an already-shipped fix from showing a stale,
+ * still-open escalation. Signal-based (a distinct newer build exists), so it is
+ * safe to run regardless of live/paused, unlike the empty-warning clear above.
+ */
+async function resolveSupersededByUpgrade(
+  prisma: PrismaClient,
+  currentSha: string | null,
+): Promise<number> {
+  if (!currentSha) return 0;
+  const open = await prisma.adminWorkerEscalation
+    .findMany({ where: { resolvedAt: null }, select: { id: true, versionSha: true } })
+    .catch(() => [] as Array<{ id: string; versionSha: string | null }>);
+  let resolved = 0;
+  for (const row of open) {
+    // Only rows stamped with a DIFFERENT, non-null build SHA are provably from a
+    // prior build. Null-SHA rows can't be attributed to a build, so leave them
+    // to the condition-cleared path.
+    if (row.versionSha && row.versionSha !== currentSha) {
+      await prisma.adminWorkerEscalation
+        .update({
+          where: { id: row.id },
+          data: { resolvedAt: new Date(), resolvedReason: "superseded_by_upgrade" },
+        })
         .catch(() => undefined);
       resolved += 1;
     }
@@ -162,6 +208,10 @@ export interface EscalationCheckResult {
   emailed: boolean;
   deduped: boolean;
   resolved: number;
+  /** True when a would-be escalation was held back because a code upgrade landed
+   * inside the assessment window — the windowed signal can't yet tell a shipped
+   * fix from a still-broken issue, so the fix is given a window to prove out. */
+  deferredForUpgrade: boolean;
   kind?: string;
   reason?: string;
 }
@@ -181,22 +231,30 @@ export async function runEscalationCheckIfDue(
     emailed: false,
     deduped: false,
     resolved: 0,
+    deferredForUpgrade: false,
   };
   try {
     if (!(await throttleOk(prisma, opts.force ?? false))) return out;
     out.ran = true;
 
     const self = await buildSelfAssessment(prisma);
-    // Auto-resolve cleared escalations ONLY when the assessment is authoritative
-    // — i.e. the worker is live and not paused. An empty warning set from a
-    // paused/offline/failed-open assessment does NOT mean the conditions
-    // cleared; resolving on it would wrongly close still-open issues and cause a
-    // duplicate email on recovery (the fingerprint would no longer dedup). This
-    // is exactly the state the forced startup check sees before the first
-    // heartbeat, so the gate is essential.
+    const version = await getVersionContext(prisma).catch(() => null);
+    const versionSha = version?.current?.sha ?? null;
+
+    // (a) Auto-resolve cleared escalations ONLY when the assessment is
+    // authoritative — i.e. the worker is live and not paused. An empty warning
+    // set from a paused/offline/failed-open assessment does NOT mean the
+    // conditions cleared; resolving on it would wrongly close still-open issues
+    // and cause a duplicate email on recovery. This is exactly the state the
+    // forced startup check sees before the first heartbeat, so the gate matters.
     if (self.workerLive && !self.paused) {
-      out.resolved = await resolveClearedEscalations(prisma, self);
+      out.resolved += await resolveClearedEscalations(prisma, self);
     }
+    // (b) Resolve prior-build escalations whenever a newer build is running. This
+    // is signal-based (a concrete newer build SHA), not absence-of-warnings, so
+    // it runs regardless of live/paused. Recognises "a fix shipped" — a
+    // still-broken issue simply re-escalates under the new SHA below.
+    out.resolved += await resolveSupersededByUpgrade(prisma, versionSha);
 
     const decision = decideGovernance(self);
     if (!decision.escalate || !decision.escalation) {
@@ -207,8 +265,42 @@ export async function runEscalationCheckIfDue(
     out.kind = payload.kind;
     out.reason = decision.reason;
 
-    const version = await getVersionContext(prisma).catch(() => null);
-    const versionSha = version?.current?.sha ?? null;
+    // (c) Post-upgrade grace: every warning is computed over a rolling window. If
+    // a code upgrade landed INSIDE that window, the signal still reflects
+    // pre-upgrade activity, so it cannot yet distinguish a just-shipped fix from
+    // a still-broken issue. Hold the page for one grace window (defaults to the
+    // assessment window; ADMIN_WORKER_ESCALATION_UPGRADE_GRACE_HOURS overrides, 0
+    // disables) so the fix can prove out. Once the window fully post-dates the
+    // upgrade, a genuinely-persistent issue escalates for real. Requires a real
+    // PRIOR build (not the initial version record) so first boot never defers.
+    const graceHours = envNum("ADMIN_WORKER_ESCALATION_UPGRADE_GRACE_HOURS", self.windowHours);
+    const upgradeAgeMs =
+      version?.current && version.previous
+        ? Date.now() - new Date(version.current.capturedAt).getTime()
+        : Infinity;
+    if (graceHours > 0 && upgradeAgeMs < graceHours * 60 * 60 * 1000) {
+      out.deferredForUpgrade = true;
+      await writeAdminWorkerLog(prisma, {
+        passId: opts.passId,
+        category: "REPORT",
+        severity: "INFO",
+        eventName: "escalation_deferred_post_upgrade",
+        message: `Deferring ${payload.kind} escalation: code upgrade landed ${Math.round(
+          upgradeAgeMs / 60000,
+        )}m ago (within the ${self.windowHours}h assessment window) — giving the shipped change time to prove out before paging. ${
+          version?.recentUpgradeSummary ?? version?.current?.changedSummary ?? ""
+        }`.trim(),
+        contentType: payload.contentType ?? undefined,
+        safeMetadata: {
+          kind: payload.kind,
+          upgradeAgeMinutes: Math.round(upgradeAgeMs / 60000),
+          graceHours,
+          versionLabel: version?.current?.label ?? null,
+        },
+      }).catch(() => undefined);
+      return out;
+    }
+
     const fingerprint = computeEscalationFingerprint({
       kind: payload.kind,
       contentType: payload.contentType,

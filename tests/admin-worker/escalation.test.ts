@@ -147,32 +147,42 @@ describe("runEscalationCheckIfDue", () => {
     expect(h.sendEmail).not.toHaveBeenCalled();
   });
 
-  it("does NOT auto-resolve open escalations when the worker is offline (no mass-resolve)", async () => {
+  it("does NOT resolve open escalations via the empty-warning path when offline", async () => {
     // Offline assessment → empty warnings for a NON-cleared reason. Resolving on
     // it would wrongly close still-open issues and cause a duplicate email on
-    // recovery. The resolve step must be skipped entirely.
+    // recovery. The cleared-path must be gated. (The signal-based
+    // superseded-by-upgrade path is separate and here leaves the row alone
+    // because it is stamped with the CURRENT build sha.)
     h.buildSelfAssessment.mockResolvedValue({
       ...defaultAssessment(),
       workerLive: false,
       warnings: [],
     });
     const prisma = makePrisma(null);
+    // A stuck LOOPING escalation on the current build — the cleared-path WOULD
+    // resolve it (LOOPING not in the empty warning set) if the offline gate were
+    // broken; the superseded-path won't (same sha).
+    prisma.adminWorkerEscalation.findMany = vi.fn(async () => [
+      { id: "e1", kind: "LOOPING", versionSha: "abc123" },
+    ]);
     const r = await runEscalationCheckIfDue(prisma as never, { force: true });
     expect(r.resolved).toBe(0);
-    expect(prisma.adminWorkerEscalation.findMany).not.toHaveBeenCalled();
     expect(prisma.adminWorkerEscalation.update).not.toHaveBeenCalled();
   });
 
-  it("does NOT auto-resolve open escalations when the worker is paused", async () => {
+  it("does NOT resolve open escalations via the empty-warning path when paused", async () => {
     h.buildSelfAssessment.mockResolvedValue({
       ...defaultAssessment(),
       paused: true,
       warnings: [],
     });
     const prisma = makePrisma(null);
+    prisma.adminWorkerEscalation.findMany = vi.fn(async () => [
+      { id: "e1", kind: "LOOPING", versionSha: "abc123" },
+    ]);
     const r = await runEscalationCheckIfDue(prisma as never, { force: true });
     expect(r.resolved).toBe(0);
-    expect(prisma.adminWorkerEscalation.findMany).not.toHaveBeenCalled();
+    expect(prisma.adminWorkerEscalation.update).not.toHaveBeenCalled();
   });
 
   it("clears a stale emailSentAt when a reopened escalation's re-send is skipped (retries next time)", async () => {
@@ -198,5 +208,90 @@ describe("runEscalationCheckIfDue", () => {
     expect(r.emailed).toBe(false); // skipped, not sent
     expect(upsertArg.update?.resolvedAt).toBeNull();
     expect(upsertArg.update?.emailSentAt).toBeNull(); // stale timestamp cleared
+  });
+});
+
+/**
+ * Code-update awareness: the escalation system must recognise when a fix has
+ * shipped. (1) A newer build resolves prior-build escalations (they may be
+ * fixed; if not, they re-escalate under the new sha via the fingerprint). (2) A
+ * would-be escalation is HELD for a grace window right after an upgrade, because
+ * the windowed signal still contains pre-upgrade activity and can't yet tell a
+ * shipped fix from a still-broken issue.
+ */
+describe("runEscalationCheckIfDue — code-update awareness", () => {
+  it("resolves prior-build open escalations once a newer build ships", async () => {
+    h.getVersionContext.mockResolvedValue({
+      current: {
+        label: "admin-worker/new",
+        sha: "newsha",
+        capturedAt: new Date(0),
+        changedSummary: "Upgrade: commit old → new.",
+      },
+      previous: { label: "admin-worker/old", sha: "oldsha", capturedAt: new Date(0) },
+      upgradedRecently: false,
+      recentUpgradeSummary: null,
+    });
+    // Paused → the empty-warning cleared-path is gated off, isolating the
+    // signal-based superseded-by-upgrade path under test.
+    h.buildSelfAssessment.mockResolvedValue({ ...defaultAssessment(), paused: true, warnings: [] });
+    const prisma = makePrisma(null);
+    const updates: Array<{ where: { id: string }; data: { resolvedReason?: string } }> = [];
+    prisma.adminWorkerEscalation.findMany = vi.fn(async () => [
+      { id: "old1", kind: "EXTRACTING_WITHOUT_PUBLISHING", versionSha: "oldsha" }, // prior build → resolve
+      { id: "cur1", kind: "LOOPING", versionSha: "newsha" }, // current build → keep
+      { id: "nul1", kind: "NO_VALUE", versionSha: null }, // unknown build → keep
+    ]);
+    prisma.adminWorkerEscalation.update = vi.fn(async (arg: unknown) => {
+      updates.push(arg as (typeof updates)[number]);
+      return {};
+    });
+    const r = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(r.resolved).toBe(1);
+    expect(updates.map((u) => u.where.id)).toEqual(["old1"]);
+    expect(updates[0].data.resolvedReason).toBe("superseded_by_upgrade");
+  });
+
+  it("defers a would-be escalation while a fresh upgrade proves out (in-window)", async () => {
+    h.getVersionContext.mockResolvedValue({
+      current: {
+        label: "admin-worker/new",
+        sha: "newsha",
+        capturedAt: new Date(), // just now → inside the 6h assessment window
+        changedSummary: "Upgrade: fix shipped.",
+      },
+      previous: { label: "admin-worker/old", sha: "oldsha", capturedAt: new Date(0) },
+      upgradedRecently: true,
+      recentUpgradeSummary: "Upgrade: fix shipped.",
+    });
+    const prisma = makePrisma(null); // default assessment: EXTRACTING_WITHOUT_PUBLISHING (ERROR)
+    const r = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(r.escalated).toBe(true); // governance still says escalate…
+    expect(r.deferredForUpgrade).toBe(true); // …but paging is held for the fix
+    expect(h.sendEmail).not.toHaveBeenCalled();
+    expect(prisma.adminWorkerEscalation.upsert).not.toHaveBeenCalled();
+  });
+
+  it("escalates for real once the window fully post-dates the upgrade", async () => {
+    h.getVersionContext.mockResolvedValue({
+      current: {
+        label: "admin-worker/new",
+        sha: "newsha",
+        capturedAt: new Date(Date.now() - 7 * 60 * 60 * 1000), // 7h ago > 6h window
+        changedSummary: "Upgrade: commit old → new.",
+      },
+      previous: {
+        label: "admin-worker/old",
+        sha: "oldsha",
+        capturedAt: new Date(Date.now() - 8 * 60 * 60 * 1000),
+      },
+      upgradedRecently: false,
+      recentUpgradeSummary: null,
+    });
+    const prisma = makePrisma(null);
+    const r = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(r.deferredForUpgrade).toBe(false);
+    expect(r.escalated).toBe(true);
+    expect(h.sendEmail).toHaveBeenCalledTimes(1);
   });
 });

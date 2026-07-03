@@ -2554,6 +2554,11 @@ model AdminWorkerEscalation {
   emailDelivery String?
   occurrences   Int                    @default(1)
   resolvedAt    DateTime?
+  /// Why this escalation was closed: "condition_cleared" (the warning is gone
+  /// from the live assessment) or "superseded_by_upgrade" (a new build shipped,
+  /// which may have fixed it — a genuinely-persistent issue re-escalates afresh
+  /// under the new build SHA). Null while open.
+  resolvedReason String?
   createdAt     DateTime               @default(now())
   updatedAt     DateTime               @updatedAt
 
