@@ -1267,7 +1267,7 @@ export async function runAiVerificationAssist(
   return confirmed;
 }
 
-async function runCrossSourceVerification(
+export async function runCrossSourceVerification(
   prisma: PrismaClient,
   passId: string,
 ): Promise<DispatchOutcome> {
@@ -1547,7 +1547,7 @@ async function runCrossSourceVerification(
   };
 }
 
-async function runStrictQA(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
+export async function runStrictQA(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
   // Spec §3: find BUILD_READY / VERIFICATION_READY artifacts without a
   // strict-QA result, score the 7 dimensions, persist the result via
   // recordStrictQA, and transition the artifact status:
@@ -1764,7 +1764,7 @@ async function runStrictQA(prisma: PrismaClient, passId: string): Promise<Dispat
   };
 }
 
-async function runPersistAndPublish(
+export async function runPersistAndPublish(
   prisma: PrismaClient,
   _workerId: string,
   passId: string,

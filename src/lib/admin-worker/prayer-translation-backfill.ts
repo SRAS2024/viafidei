@@ -23,7 +23,6 @@
 
 import type { PrismaClient, Prisma } from "@prisma/client";
 
-import { computeContentChecksum } from "./cache-freshness";
 import { translatePrayerLanguages, type TargetLang } from "./prayer-translator";
 import {
   autoPublishMachineTranslations,
@@ -245,15 +244,17 @@ export async function runPrayerTranslationBackfill(
           ? { machineTranslated: Array.from(new Set([...priorMachine, ...machineFilled])) }
           : {}),
       };
-      await prisma.publishedContent
-        .update({
-          where: { id: r.id },
-          data: {
-            payload: newPayload as Prisma.InputJsonValue,
-            contentChecksum: computeContentChecksum(r.title, newPayload),
-          },
-        })
-        .catch(() => undefined);
+      // Route the live-row edit through the content-protection gate: it
+      // snapshots the current payload first (so this enrichment is reversible)
+      // and, being purely additive (fill latin/greek), applies as an "enrich"
+      // with a version bump. A destructive change would be refused, but these
+      // fills never remove or shorten existing content.
+      const { applyProtectedContentUpdate } = await import("./content-protection");
+      await applyProtectedContentUpdate(prisma, {
+        contentId: r.id,
+        proposedPayload: newPayload,
+        reason: "prayer-translation-backfill",
+      }).catch(() => undefined);
       // Nudge the public route to revalidate so the new translations serve.
       try {
         const { flagCacheRefresh } = await import("./repair");

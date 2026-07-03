@@ -1088,6 +1088,219 @@ async function ratingRollback(prisma: PrismaClient): Promise<HealthRating> {
   };
 }
 
+async function ratingBuildReadyDrain(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const [stuck, readyToPublish, gateRows] = await Promise.all([
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } } })
+      .catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "QA_PASSED" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .groupBy({
+        by: ["gateDiagnosis"],
+        where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } },
+        _count: { _all: true },
+      })
+      .catch(() => [] as Array<{ gateDiagnosis: string | null; _count: { _all: number } }>),
+  ]);
+  const backlog = stuck + readyToPublish;
+  // Warn when a backlog is accumulating; the drain runs every pass, so a
+  // persistent large backlog means a gate genuinely needs attention.
+  const status: HealthStatus = backlog === 0 ? "pass" : backlog >= 25 ? "warn" : "pass";
+  const gates = gateRows
+    .filter((r) => r.gateDiagnosis)
+    .map((r) => `${r.gateDiagnosis}=${r._count._all}`)
+    .join(", ");
+  return {
+    key: "admin_worker_build_ready_drain",
+    label: "Build → publish drain",
+    status,
+    score: status === "pass" ? 1 : 0.5,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerPackageArtifact.status + gateDiagnosis",
+    summary:
+      backlog === 0
+        ? "No built artifacts waiting; the pipeline is draining to publish."
+        : `${stuck} awaiting QA/verification, ${readyToPublish} QA-passed awaiting publish.${gates ? ` Gates: ${gates}.` : ""}`,
+    recommendedRepair:
+      backlog >= 25
+        ? "Inspect the per-gate breakdown; the drain routes repairable items automatically — a persistent backlog means missing validation evidence or an unmet QA dimension."
+        : undefined,
+  };
+}
+
+async function ratingWorkerLanes(prisma: PrismaClient): Promise<HealthRating> {
+  // Adaptive-worker Phase B: the internal-lane scheduler records each lane's
+  // live state (status, current item/gate/strategy, last outcome/error). This
+  // rating surfaces lane health + is the operational-self-awareness signal:
+  // which lanes ran, which are in error-backoff, and what each last did.
+  const now = new Date();
+  const lanes = await prisma.adminWorkerLaneState
+    .findMany({
+      orderBy: { lane: "asc" },
+      select: {
+        lane: true,
+        status: true,
+        currentStrategy: true,
+        lastOutcome: true,
+        lastError: true,
+        lastFinishedAt: true,
+        concurrentTasks: true,
+        capacity: true,
+      },
+    })
+    .catch(
+      () =>
+        [] as Array<{
+          lane: string;
+          status: string;
+          currentStrategy: string | null;
+          lastOutcome: string | null;
+          lastError: string | null;
+          lastFinishedAt: Date | null;
+          concurrentTasks: number;
+          capacity: number;
+        }>,
+    );
+
+  if (lanes.length === 0) {
+    return {
+      key: "admin_worker_lanes",
+      label: "Internal worker lanes",
+      status: "warn",
+      score: 0.5,
+      lastCheckedAt: now,
+      dataSource: "AdminWorkerLaneState",
+      summary: "No lane state recorded yet — the worker runs lanes on its next pass.",
+      recommendedRepair: "Run a worker pass; runWorkerLanes records each lane's live state.",
+    };
+  }
+
+  const errored = lanes.filter((l) => l.status === "error");
+  const running = lanes.filter((l) => l.status === "running");
+  // A lane stuck "running" long after its last finish likely crashed mid-lane;
+  // surface as warn (its artifact leases expire and get reaped regardless).
+  const status: HealthStatus = errored.length > 2 ? "fail" : errored.length > 0 ? "warn" : "pass";
+  const detail = lanes
+    .map((l) => `${l.lane}:${l.status}${l.status === "error" && l.lastError ? "(!)" : ""}`)
+    .join(", ");
+  return {
+    key: "admin_worker_lanes",
+    label: "Internal worker lanes",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.6 : 0.2,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerLaneState",
+    latestFailure: errored[0]?.lastFinishedAt ?? null,
+    currentBlocker: errored[0]?.lastError ?? undefined,
+    summary: `${lanes.length} lane(s): ${running.length} running, ${errored.length} in error-backoff. ${detail}`,
+    recommendedRepair:
+      errored.length > 0
+        ? `Lanes in error-backoff auto-retry after their cooldown; inspect ${errored.map((l) => l.lane).join(", ")} if the error persists across passes.`
+        : undefined,
+  };
+}
+
+async function ratingStrategyMemory(prisma: PrismaClient): Promise<HealthRating> {
+  // Adaptive-worker Phase C/D: per-method strategy memory + innovation lab.
+  // Surfaces how much the worker has learned about which METHOD works
+  // (AdminWorkerStrategyStat) and the most recent bounded experiment's verdict.
+  const now = new Date();
+  const [stats, lastExperiment] = await Promise.all([
+    prisma.adminWorkerStrategyStat
+      .findMany({
+        orderBy: [{ dimension: "asc" }, { ewma: "desc" }],
+        take: 50,
+        select: { dimension: true, method: true, ewma: true, attempts: true },
+      })
+      .catch(
+        () => [] as Array<{ dimension: string; method: string; ewma: number; attempts: number }>,
+      ),
+    prisma.labExperimentResult
+      .findFirst({
+        orderBy: { createdAt: "desc" },
+        select: { leader: true, conclusive: true, lesson: true, createdAt: true },
+      })
+      .catch(() => null),
+  ]);
+
+  if (stats.length === 0) {
+    return {
+      key: "admin_worker_strategy_memory",
+      label: "Strategy memory + innovation",
+      status: "warn",
+      score: 0.5,
+      lastCheckedAt: now,
+      dataSource: "AdminWorkerStrategyStat + LabExperimentResult",
+      summary: "No per-method strategy stats yet — the worker records method outcomes as it runs.",
+      recommendedRepair: "Run discovery passes; each records which method surfaced candidates.",
+    };
+  }
+
+  // Best method per dimension (stats are pre-sorted ewma desc within dimension).
+  const bestByDim = new Map<string, { method: string; ewma: number }>();
+  for (const s of stats) {
+    if (!bestByDim.has(s.dimension)) bestByDim.set(s.dimension, { method: s.method, ewma: s.ewma });
+  }
+  const summary = [...bestByDim.entries()]
+    .map(([dim, b]) => `${dim}:${b.method}(${b.ewma.toFixed(2)})`)
+    .join(", ");
+
+  return {
+    key: "admin_worker_strategy_memory",
+    label: "Strategy memory + innovation",
+    status: "pass",
+    score: 1,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerStrategyStat + LabExperimentResult",
+    latestSuccess: lastExperiment?.createdAt ?? null,
+    summary: `${stats.length} method stat(s). Best per dimension: ${summary}.${
+      lastExperiment
+        ? ` Last experiment: ${lastExperiment.conclusive ? `winner ${lastExperiment.leader}` : "inconclusive"}.`
+        : ""
+    }`,
+  };
+}
+
+async function ratingContentProtection(prisma: PrismaClient): Promise<HealthRating> {
+  // Adaptive-worker Phase E: every automated edit to live published content is
+  // snapshotted (PublishedContentVersion) so it is reversible, and destructive
+  // overwrites are refused unless backed by quality + evidence. This rating
+  // surfaces recent protection activity: versions captured (reversibility) and
+  // destructive edits refused (good content preserved).
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [versions, recentVersions, blocked] = await Promise.all([
+    prisma.publishedContentVersion.count().catch(() => 0),
+    prisma.publishedContentVersion.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.adminWorkerLog
+      .count({
+        where: { eventName: "protected_update_blocked", createdAt: { gte: since } },
+      })
+      .catch(() => 0),
+  ]);
+  // Always pass: protection is a safety mechanism working. Blocked overwrites
+  // are surfaced (warn) so an operator can review whether a genuine improvement
+  // is being held back, but a preserved-content decision is never a failure.
+  const status: HealthStatus = blocked > 10 ? "warn" : "pass";
+  return {
+    key: "admin_worker_content_protection",
+    label: "Published-content protection",
+    status,
+    score: status === "pass" ? 1 : 0.7,
+    lastCheckedAt: now,
+    dataSource: "PublishedContentVersion + AdminWorkerLog(protected_update_blocked)",
+    summary:
+      versions === 0
+        ? "No content versions captured yet — no live content has been edited."
+        : `${versions} version snapshot(s) (reversible edits); ${recentVersions} in last 7d, ${blocked} destructive overwrite(s) refused.`,
+    recommendedRepair:
+      blocked > 10
+        ? "Many destructive edits were refused — review whether legitimate improvements need higher quality/evidence to clear the protection gate."
+        : undefined,
+  };
+}
+
 async function ratingEscalations(prisma: PrismaClient): Promise<HealthRating> {
   const now = new Date();
   const [open, latest] = await Promise.all([
@@ -1186,6 +1399,10 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingRepairOrchestrator,
   ratingPostPublish,
   ratingRollback,
+  ratingBuildReadyDrain,
+  ratingWorkerLanes,
+  ratingStrategyMemory,
+  ratingContentProtection,
   ratingEscalations,
   ratingCodeVersion,
 ];

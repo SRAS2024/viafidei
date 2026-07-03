@@ -89,6 +89,66 @@ export {
   computeEscalationFingerprint,
   type EscalationCheckResult,
 } from "./escalation";
+export {
+  runBuildReadyDrain,
+  diagnoseArtifactGate,
+  type DrainResult,
+  type ArtifactGateDiagnosis,
+  type GateKind,
+  type GateOutcome,
+} from "./build-ready-drain";
+
+// Internal worker lanes + concurrency controls (adaptive-worker Phase B).
+export {
+  runWorkerLanes,
+  claimArtifact,
+  releaseArtifact,
+  reapArtifactLeases,
+  recordLaneState,
+  getLaneStates,
+  type LaneDef,
+  type LaneOutcome,
+  type LaneRunContext,
+  type LanesResult,
+} from "./lanes";
+export { CONTENT_LANES, OPS_LANES } from "./worker-lanes";
+
+// Operational self-awareness summary (adaptive-worker Phase A/F capstone).
+export {
+  buildOperationalSummary,
+  deriveNextBestAction,
+  type OperationalSummary,
+} from "./operational-summary";
+
+// Per-method strategy memory + adaptive selection (adaptive-worker Phase C/D).
+export {
+  recordMethodOutcome,
+  rankMethods,
+  chooseMethodWithExploration,
+  listStrategyStats,
+  ANY_CONTENT_TYPE,
+  type RankedMethod,
+  type MethodChoice,
+  type MethodOutcomeInput,
+} from "./method-memory";
+export {
+  runInnovationExperiment,
+  maybeRunInnovationExperiment,
+  type InnovationExperimentResult,
+} from "./innovation-lab";
+
+// Published-content protection (adaptive-worker Phase E).
+export {
+  evaluateContentChange,
+  snapshotPublishedContent,
+  applyProtectedContentUpdate,
+  restorePublishedContentVersion,
+  listContentVersions,
+  type ContentChangeKind,
+  type ContentChangeAssessment,
+  type ProtectedUpdateInput,
+  type ProtectedUpdateResult,
+} from "./content-protection";
 
 export { createTask, startTask, completeTask, listPendingTasks } from "./tasks";
 

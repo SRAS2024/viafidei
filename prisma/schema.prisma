@@ -1490,6 +1490,15 @@ model HumanReviewQueue {
   sourceEvidence     Json?
   currentVersion     Json?
   proposedVersion    Json?
+  /// Review-queue intelligence: every item explains itself so it never sits
+  /// unexplained. `blockingGate` = the pipeline gate that stopped it;
+  /// `neededAction` = what must happen to clear it; `repairSuggestion` = the
+  /// concrete fix; `nextAutomatedAction` = what the worker will try next on its
+  /// own (so repairable items move to repair instead of waiting on a human).
+  blockingGate        String?
+  neededAction        String?
+  repairSuggestion    String?
+  nextAutomatedAction String?
   status             HumanReviewStatus @default(PENDING)
   createdAt          DateTime          @default(now())
   reviewedAt         DateTime?
@@ -1973,13 +1982,26 @@ model AdminWorkerPackageArtifact {
   confidenceScore    Float    @default(0)
   packageChecksum    String
   status             String   @default("EXTRACTED")
-  /// "EXTRACTED" → "CHECKLIST_READY" → "BUILD_READY" → "BUILT" →
-  ///   "VERIFIED" → "PUBLISHED" or "REJECTED" with reason on
-  ///   `rejectionReason`.
+  /// "EXTRACTED" → "CHECKLIST_READY" → "BUILD_READY" → "VERIFICATION_READY" →
+  ///   "QA_PASSED" → "PUBLISHED", or "NEEDS_REPAIR" / "NEEDS_REVIEW" /
+  ///   "REJECTED" with reason on `rejectionReason`.
   rejectionReason    String?
   repairSuggestions  String[] @default([])
   checklistItemId    String?
   publishedContentId String?
+  /// BUILD_READY-drain triage (build-ready-drain.ts): the exact gate blocking
+  /// this artifact from advancing, e.g. "AWAITING_QA", "AWAITING_VERIFICATION",
+  /// "MISSING_REQUIRED_FIELDS", "DUPLICATE" — surfaced so the operator can see
+  /// WHY each built item is not yet published.
+  gateDiagnosis      String?
+  gateCheckedAt      DateTime?
+  /// Task ownership / lease (lanes.ts): a lane claims an artifact before
+  /// mutating it so two concurrent lanes (or worker processes) never double-work
+  /// or double-publish the same item. `leasedBy` = lane/worker id; the claim is
+  /// atomic (a conditional updateMany) and expires at `leaseExpiresAt` so a
+  /// crashed lane's items are reclaimable.
+  leasedBy           String?
+  leaseExpiresAt     DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -1987,6 +2009,7 @@ model AdminWorkerPackageArtifact {
   @@index([contentType, status])
   @@index([candidateUrlId])
   @@index([sourceReadId])
+  @@index([leaseExpiresAt])
   @@index([checklistItemId])
   @@index([createdAt])
 }
@@ -2404,6 +2427,93 @@ model AdminWorkerTestGapRecord {
   resolvedAt  DateTime?
 
   @@index([status])
+}
+
+/// Internal worker lanes (lanes.ts): one row per lane so the dashboard,
+/// diagnostics, and developer/escalation reports can show what each lane is
+/// doing right now — its status, the item + gate + strategy it is working, its
+/// capacity and current concurrent-task count, and its last outcome. This is
+/// the practical "operational self-awareness" surface: which lane, what item,
+/// which gate, what strategy, is it working, what next.
+model AdminWorkerLaneState {
+  id              String   @id @default(cuid())
+  lane            String   @unique
+  status          String   @default("idle")
+  currentItem     String?
+  currentStrategy String?
+  currentGate     String?
+  capacity        Int      @default(1)
+  concurrentTasks Int      @default(0)
+  lastOutcome     String?
+  lastError       String?
+  lastDurationMs  Int?
+  lastStartedAt   DateTime?
+  lastFinishedAt  DateTime?
+  updatedAt       DateTime @updatedAt
+
+  @@index([status])
+}
+
+/// Per-METHOD strategy memory (adaptive-worker Phase C/D). Records how well each
+/// concrete method performs within a dimension (fetch / discovery / extraction /
+/// verification / quality / repair / publishing), per content type, so the
+/// worker can rank methods, switch strategy when one underperforms, and remember
+/// "which method worked and why". contentType uses the sentinel "*" for a
+/// content-type-agnostic aggregate (kept non-null so the unique key is stable).
+model AdminWorkerStrategyStat {
+  id          String   @id @default(cuid())
+  dimension   String
+  method      String
+  contentType String   @default("*")
+  attempts    Int      @default(0)
+  successes   Int      @default(0)
+  failures    Int      @default(0)
+  /// EWMA of the success signal (0..1) — recency-weighted success rate.
+  ewma        Float    @default(0.5)
+  lastOutcome String?
+  lastReason  String?
+  lastUsedAt  DateTime?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([dimension, method, contentType])
+  @@index([dimension, contentType])
+}
+
+/// Published-content protection (adaptive-worker Phase E). A durable, append-only
+/// SNAPSHOT of a PublishedContent row taken BEFORE the worker modifies live
+/// content, so every automated edit is reversible: the prior title/subtitle/
+/// payload/checksum are preserved and can be restored. Replaces the legacy
+/// ContentVersion table (dropped in 0025) with a worker-owned, evidence-annotated
+/// version history. One row per version of a given published item.
+model PublishedContentVersion {
+  id                 String   @id @default(cuid())
+  publishedContentId String
+  contentType        String
+  slug               String
+  /// The version number this snapshot preserves (the value of
+  /// PublishedContent.version at snapshot time — i.e. the state BEFORE the edit
+  /// that triggered the snapshot).
+  version            Int
+  title              String
+  subtitle           String?
+  payload            Json
+  contentChecksum    String?
+  /// Short machine summary of the change that this snapshot precedes
+  /// (e.g. "enrich: +latin,+greek", "replace: body").
+  changeSummary      String?
+  /// Why the change was made (source of the edit — enrichment lane, repair, etc.).
+  reason             String?
+  /// Classification of the change relative to the prior version:
+  /// "enrich" (additive), "replace" (destructive), "restore" (rollback).
+  changeKind         String?
+  /// Quality/evidence snapshot at change time (observability; may be null).
+  qualityScore       Float?
+  evidenceCount      Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  @@index([publishedContentId, version])
+  @@index([contentType, slug])
+  @@index([createdAt])
 }
 
 /// Durable stuckness records (spec: "Postgres should own Stuckness records").

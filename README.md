@@ -1395,6 +1395,164 @@ governor (`governor.ts`) forces the downstream drain
 intelligence layer is active, so a live, active worker never fixates while
 built artifacts wait.
 
+### BUILD_READY drain + per-item gate triage
+
+The governor forces the _right stage_; the **drain** (`build-ready-drain.ts`,
+run every pass) makes sure the built-artifact backlog actually clears and that
+every stuck item explains itself. Each pass it triages every artifact in
+`BUILD_READY` / `VERIFICATION_READY` / `QA_PASSED`:
+
+- **`diagnoseArtifactGate`** (pure, unit-tested) names the EXACT gate blocking
+  each item — `READY_TO_PUBLISH`, `AWAITING_QA`, `AWAITING_VERIFICATION`,
+  `VERIFICATION_INCOMPLETE`, `MISSING_REQUIRED_FIELDS`, `MISSING_CITATIONS`,
+  `LOW_CONFIDENCE`, or `DUPLICATE` — and the outcome to route it to. The gate is
+  written to the artifact (`gateDiagnosis`) so the operator can see, per item,
+  **why it isn't publishing** (surfaced by the "Build → publish drain"
+  diagnostics rating and the developer audit).
+- It then **routes** each item: publish · run strict QA · run cross-source
+  verification · create validation-evidence repair · file a repair plan · move
+  to human review with a clear reason · mark duplicate · block — and **drives
+  the real gate handlers** (verification → QA → publish) in a bounded loop to
+  drain the backlog, prioritising the downstream drain over more upstream
+  extraction. It never bypasses a gate (it just runs the same handlers over the
+  backlog), and publishing runs only in active/python mode (safe-degraded
+  contract).
+
+### Review-queue intelligence
+
+Review items never sit unexplained. Every `HumanReviewQueue` row now carries a
+**blocking gate**, **needed action**, **repair suggestion**, and **next
+automated action** alongside its reason and before/after version — and the drain
+routes an item to review only when it needs human judgment; anything repairable
+goes to a repair plan instead of waiting on a human.
+
+### Internal worker lanes + concurrency controls
+
+The worker used to run its per-pass supplementary workstreams strictly serially —
+one `await` after another, one task type at a time. They now run as **parallel
+lanes inside the same worker process** (no extra deployed service), so the worker
+advances several task types at once where it is safe to (`lanes.ts` +
+`worker-lanes.ts`):
+
+- **Content lanes** (`activeOnly` — they publish, so they run only when the
+  Python final brain is active): **ingestion** (curated + structured + liturgical),
+  **enrichment** (prayer-translation backfill + review auto-resolve + pope cleanup),
+  **discovery** (structured discovery-seeder + OSM parish + always-on web sweep).
+- **Ops lanes** (every pass, regardless of mode): **drain** (the BUILD_READY drain
+  above), **readings**, **maintenance** (schema/UI awareness + self-model +
+  custody), **reporting**, **intelligence** (post-pass analysis + lab + skill
+  matrix + code-version), **escalation**.
+
+Concurrency is made **safe by construction, not by luck**:
+
+- Lanes touch **disjoint work domains** (curated vs structured vs OSM vs
+  liturgical ingest publish different content sets; the drain owns artifacts;
+  discovery owns candidates), so they don't fight over the same rows.
+- `PublishedContent @@unique([contentType, slug])` makes double-publishing
+  **impossible at the DB level** even under a race — idempotency by constraint.
+- **Artifact leases** (`claimArtifact`, `AdminWorkerPackageArtifact.leasedBy` /
+  `leaseExpiresAt`) give explicit **task ownership**: a lane claims an artifact via
+  an atomic conditional `updateMany` before mutating it, so two lanes (or two
+  worker processes) never double-work the same item. A crashed lane's lease
+  **expires and is reclaimed** (`reapArtifactLeases`).
+- A global **concurrency cap** (`ADMIN_WORKER_LANE_CONCURRENCY`, default 4) bounds
+  resource use — extra lanes queue and run as slots free.
+- Every lane is **isolated** (its own try/catch): a failing lane never kills the
+  others (self-repair), and it enters a **backoff cooldown** before retrying, so a
+  hard-failing lane can't hot-loop.
+- **Brain-calling work lives in one lane** so it never issues concurrent calls to
+  the single Python brain subprocess.
+
+Each lane records its live state to `AdminWorkerLaneState` — status, current
+item/gate/strategy, capacity, concurrent tasks, last outcome/error/duration —
+which is the practical **operational-self-awareness** surface the "Internal worker
+lanes" diagnostics rating + the pipeline page show: which lanes ran, which are in
+error-backoff, and what each last did.
+
+### Adaptive strategy memory + innovation lab
+
+The worker already has strong _per-source_ adaptivity (reputation, host memory)
+and two fixed fallback chains (fetch: static → headless Chromium → Wayback
+archive; extraction: deterministic → AI). Phase C/D adds _per-**method**_
+learning so the worker knows which approach works and gets better over time:
+
+- **Per-method memory (`method-memory.ts` → `AdminWorkerStrategyStat`).** Every
+  method records its outcome per _(dimension, method, content type)_ —
+  `recordMethodOutcome` maintains attempts/successes/failures and a
+  recency-weighted success rate (EWMA). Discovery already feeds it: each pass
+  records which discovery method (SITEMAP / RSS / INTERNAL_LINK / SEARCH_PAGE /
+  WEB_SEARCH / DIRECTORY / CONFIGURED / API) surfaced candidates for that content
+  type — "which method worked, and why".
+- **Adaptive selection with explore/exploit — and it is APPLIED.** `rankMethods`
+  orders methods by EWMA (preferring content-type-specific data over the `*`
+  aggregate); `chooseMethodWithExploration` picks with an ε-greedy policy; and
+  `planMethods` is consulted by the **discovery orchestrator each pass** to
+  actually change behaviour: it runs the surviving methods best-first and **skips
+  a method with a strong failure history** for that content type (EWMA below the
+  floor after enough attempts), saving wasted fetches. With probability ε
+  (`ADMIN_WORKER_STRATEGY_EPSILON`, default 0.15) a skipped method is re-trialled,
+  so a recovering source always comes back, and unseen methods always run — the
+  loop is fail-open, so learning never silently reduces coverage. This closes the
+  loop: record which method worked → remember it → **apply the better one / switch
+  away from the failing one**.
+- **Innovation lab (`innovation-lab.ts`).** A throttled, **measure-only** ops
+  lane that runs a bounded 2-group experiment over the recorded stats (never a
+  live traffic split, never publishes): it picks the dimension with the most
+  competing methods, compares the top two, and persists a `LabExperimentPlan` +
+  `LabExperimentResult`. When the margin is decisive with enough data on both
+  sides, it **remembers the winner** (`AdminWorkerMemory` `strategy_winner:*`),
+  which selection + ranking then apply. This is the TypeScript runner the schema
+  and Python brain were designed for but never had.
+
+The "Strategy memory + innovation" diagnostics rating surfaces the best method
+per dimension and the most recent experiment's verdict.
+
+### Published-content protection (versioned, reversible, conservative)
+
+The worker enriches and repairs already-published content — but it must never
+quietly destroy good content. `content-protection.ts` makes every automated edit
+to a live `PublishedContent` row **conservative, versioned, and reversible**:
+
+- **`evaluateContentChange`** (pure, unit-tested) classifies a proposed change vs
+  the current payload as **enrich** (fill an empty field, extend an existing
+  one), **replace** (an existing non-empty field would be removed, shortened, or
+  swapped for different content), or **noop**.
+- **`applyProtectedContentUpdate`** routes the write through the gate:
+  - _enrich_ → **snapshot the current row** to `PublishedContentVersion`, bump
+    `PublishedContent.version`, then apply. The prior title/subtitle/payload/
+    checksum are preserved, so the edit is **reversible**.
+  - _replace_ (destructive) → **refused** and logged (`protected_update_blocked`)
+    unless it is _explicitly allowed_ AND backed by `qualityScore` +
+    `evidenceCount` above the floor. Good content is preserved, not overwritten.
+  - _noop_ → nothing happens.
+- **`restorePublishedContentVersion`** rolls a live row back to any prior
+  snapshot (snapshotting the current state first, so the restore is itself
+  reversible) — the payload-level rollback the unpublish-only path was missing.
+
+The prayer-translation enrichment now writes through this gate, so its Latin/Greek
+fills are snapshotted and reversible. The "Published-content protection"
+diagnostics rating surfaces how many versions were captured (reversibility) and
+how many destructive overwrites were refused (content preserved).
+
+### Operational self-awareness (what am I doing / why / what's next)
+
+`operational-summary.ts` composes all of the above into ONE answer to the
+operator's real questions — surfaced on the pipeline page and available to
+reports:
+
+- **Am I working?** heartbeat freshness + paused + blocker, and how many lanes
+  are active vs in error-backoff.
+- **What am I doing?** the current mission stage + reason (from the brain's
+  selected action) and the live lane states.
+- **Which strategy?** the best-performing method per learned dimension.
+- **Why isn't more publishing?** the BUILD_READY backlog broken down by blocking
+  gate (`AWAITING_QA`, `AWAITING_VERIFICATION`, `MISSING_CITATIONS`, …).
+- **What changed after a deploy?** the latest recorded running code version.
+- **What next?** `deriveNextBestAction` returns a single mission-aware
+  recommendation, prioritising meaningful progress: resume-if-paused → address
+  escalations → clear errored lanes → **drain the built backlog (naming the
+  dominant gate)** → fix liveness → continue/generate.
+
 ### Self-monitoring, governance & escalation
 
 Above the in-pass governor sits a higher-order self-monitoring → governance →
