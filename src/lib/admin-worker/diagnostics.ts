@@ -1088,6 +1088,47 @@ async function ratingRollback(prisma: PrismaClient): Promise<HealthRating> {
   };
 }
 
+async function ratingBuildReadyDrain(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const [stuck, readyToPublish, gateRows] = await Promise.all([
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } } })
+      .catch(() => 0),
+    prisma.adminWorkerPackageArtifact.count({ where: { status: "QA_PASSED" } }).catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .groupBy({
+        by: ["gateDiagnosis"],
+        where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } },
+        _count: { _all: true },
+      })
+      .catch(() => [] as Array<{ gateDiagnosis: string | null; _count: { _all: number } }>),
+  ]);
+  const backlog = stuck + readyToPublish;
+  // Warn when a backlog is accumulating; the drain runs every pass, so a
+  // persistent large backlog means a gate genuinely needs attention.
+  const status: HealthStatus = backlog === 0 ? "pass" : backlog >= 25 ? "warn" : "pass";
+  const gates = gateRows
+    .filter((r) => r.gateDiagnosis)
+    .map((r) => `${r.gateDiagnosis}=${r._count._all}`)
+    .join(", ");
+  return {
+    key: "admin_worker_build_ready_drain",
+    label: "Build → publish drain",
+    status,
+    score: status === "pass" ? 1 : 0.5,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerPackageArtifact.status + gateDiagnosis",
+    summary:
+      backlog === 0
+        ? "No built artifacts waiting; the pipeline is draining to publish."
+        : `${stuck} awaiting QA/verification, ${readyToPublish} QA-passed awaiting publish.${gates ? ` Gates: ${gates}.` : ""}`,
+    recommendedRepair:
+      backlog >= 25
+        ? "Inspect the per-gate breakdown; the drain routes repairable items automatically — a persistent backlog means missing validation evidence or an unmet QA dimension."
+        : undefined,
+  };
+}
+
 async function ratingEscalations(prisma: PrismaClient): Promise<HealthRating> {
   const now = new Date();
   const [open, latest] = await Promise.all([
@@ -1186,6 +1227,7 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingRepairOrchestrator,
   ratingPostPublish,
   ratingRollback,
+  ratingBuildReadyDrain,
   ratingEscalations,
   ratingCodeVersion,
 ];

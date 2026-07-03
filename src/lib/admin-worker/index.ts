@@ -89,6 +89,14 @@ export {
   computeEscalationFingerprint,
   type EscalationCheckResult,
 } from "./escalation";
+export {
+  runBuildReadyDrain,
+  diagnoseArtifactGate,
+  type DrainResult,
+  type ArtifactGateDiagnosis,
+  type GateKind,
+  type GateOutcome,
+} from "./build-ready-drain";
 
 export { createTask, startTask, completeTask, listPendingTasks } from "./tasks";
 

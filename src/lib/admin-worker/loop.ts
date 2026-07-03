@@ -147,6 +147,10 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   let failedCount = 0;
   let idle = false;
   let dispatch: DispatchOutcome | null = null;
+  // Whether the Python final brain is active this pass — captured so the
+  // post-pass supplementary section (which runs after the try) can gate
+  // publishing steps on the safe-degraded contract.
+  let activeMode = false;
   // Liveness guard: a pass row is created RUNNING and MUST reach a terminal
   // status before this function returns. `completed` flips true the moment a
   // terminal completePass runs (success OR failure path); the `finally` below
@@ -180,6 +184,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       passId: pass.id,
       finalSelect: pythonFinalSelector(prisma),
     });
+    activeMode = brain.finalBrain === "python";
 
     await setPriority(prisma, brain.chosenPriority);
     await setMode(prisma, brain.chosenMode);
@@ -569,6 +574,22 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     await refreshCapabilityMatrix(prisma);
   } catch {
     // best-effort — the capability refresh must never affect the pass
+  }
+
+  // BUILD_READY drain: triage every stuck built artifact (recording the exact
+  // gate blocking each so the operator can see WHY it isn't publishing), route
+  // terminal/repairable items, and drive the real gate handlers (cross-source
+  // verification → strict QA → publish) to drain the backlog — prioritising the
+  // downstream drain over more upstream extraction. Publishing is gated on
+  // active (python) mode; diagnosis + repair/review routing run regardless.
+  // Early-returns cheaply when there is no backlog. Fail-open.
+  try {
+    const { runBuildReadyDrain } = await import("./build-ready-drain");
+    const drain = await runBuildReadyDrain(prisma, { passId: pass.id, active: activeMode });
+    publishedCount += drain.published;
+    if (drain.published > 0 || drain.advanced > 0) idle = false;
+  } catch {
+    // best-effort — the drain must never affect the pass
   }
 
   // System/code-update version memory: detect when the worker's own codebase

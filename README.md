@@ -1395,6 +1395,37 @@ governor (`governor.ts`) forces the downstream drain
 intelligence layer is active, so a live, active worker never fixates while
 built artifacts wait.
 
+### BUILD_READY drain + per-item gate triage
+
+The governor forces the _right stage_; the **drain** (`build-ready-drain.ts`,
+run every pass) makes sure the built-artifact backlog actually clears and that
+every stuck item explains itself. Each pass it triages every artifact in
+`BUILD_READY` / `VERIFICATION_READY` / `QA_PASSED`:
+
+- **`diagnoseArtifactGate`** (pure, unit-tested) names the EXACT gate blocking
+  each item — `READY_TO_PUBLISH`, `AWAITING_QA`, `AWAITING_VERIFICATION`,
+  `VERIFICATION_INCOMPLETE`, `MISSING_REQUIRED_FIELDS`, `MISSING_CITATIONS`,
+  `LOW_CONFIDENCE`, or `DUPLICATE` — and the outcome to route it to. The gate is
+  written to the artifact (`gateDiagnosis`) so the operator can see, per item,
+  **why it isn't publishing** (surfaced by the "Build → publish drain"
+  diagnostics rating and the developer audit).
+- It then **routes** each item: publish · run strict QA · run cross-source
+  verification · create validation-evidence repair · file a repair plan · move
+  to human review with a clear reason · mark duplicate · block — and **drives
+  the real gate handlers** (verification → QA → publish) in a bounded loop to
+  drain the backlog, prioritising the downstream drain over more upstream
+  extraction. It never bypasses a gate (it just runs the same handlers over the
+  backlog), and publishing runs only in active/python mode (safe-degraded
+  contract).
+
+### Review-queue intelligence
+
+Review items never sit unexplained. Every `HumanReviewQueue` row now carries a
+**blocking gate**, **needed action**, **repair suggestion**, and **next
+automated action** alongside its reason and before/after version — and the drain
+routes an item to review only when it needs human judgment; anything repairable
+goes to a repair plan instead of waiting on a human.
+
 ### Self-monitoring, governance & escalation
 
 Above the in-pass governor sits a higher-order self-monitoring → governance →

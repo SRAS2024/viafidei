@@ -1490,6 +1490,15 @@ model HumanReviewQueue {
   sourceEvidence     Json?
   currentVersion     Json?
   proposedVersion    Json?
+  /// Review-queue intelligence: every item explains itself so it never sits
+  /// unexplained. `blockingGate` = the pipeline gate that stopped it;
+  /// `neededAction` = what must happen to clear it; `repairSuggestion` = the
+  /// concrete fix; `nextAutomatedAction` = what the worker will try next on its
+  /// own (so repairable items move to repair instead of waiting on a human).
+  blockingGate        String?
+  neededAction        String?
+  repairSuggestion    String?
+  nextAutomatedAction String?
   status             HumanReviewStatus @default(PENDING)
   createdAt          DateTime          @default(now())
   reviewedAt         DateTime?
@@ -1973,13 +1982,19 @@ model AdminWorkerPackageArtifact {
   confidenceScore    Float    @default(0)
   packageChecksum    String
   status             String   @default("EXTRACTED")
-  /// "EXTRACTED" → "CHECKLIST_READY" → "BUILD_READY" → "BUILT" →
-  ///   "VERIFIED" → "PUBLISHED" or "REJECTED" with reason on
-  ///   `rejectionReason`.
+  /// "EXTRACTED" → "CHECKLIST_READY" → "BUILD_READY" → "VERIFICATION_READY" →
+  ///   "QA_PASSED" → "PUBLISHED", or "NEEDS_REPAIR" / "NEEDS_REVIEW" /
+  ///   "REJECTED" with reason on `rejectionReason`.
   rejectionReason    String?
   repairSuggestions  String[] @default([])
   checklistItemId    String?
   publishedContentId String?
+  /// BUILD_READY-drain triage (build-ready-drain.ts): the exact gate blocking
+  /// this artifact from advancing, e.g. "AWAITING_QA", "AWAITING_VERIFICATION",
+  /// "MISSING_REQUIRED_FIELDS", "DUPLICATE" — surfaced so the operator can see
+  /// WHY each built item is not yet published.
+  gateDiagnosis      String?
+  gateCheckedAt      DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

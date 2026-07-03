@@ -26,6 +26,12 @@ export interface FileHumanReviewInput {
   sourceEvidence?: Prisma.InputJsonValue;
   currentVersion?: Prisma.InputJsonValue;
   proposedVersion?: Prisma.InputJsonValue;
+  // Review-queue intelligence: so every queued item explains itself and never
+  // sits unexplained (adaptive-worker Phase A).
+  blockingGate?: string;
+  neededAction?: string;
+  repairSuggestion?: string;
+  nextAutomatedAction?: string;
 }
 
 export async function fileHumanReview(
@@ -69,6 +75,10 @@ export async function fileHumanReview(
       sourceEvidence: input.sourceEvidence,
       currentVersion: input.currentVersion,
       proposedVersion: input.proposedVersion,
+      blockingGate: input.blockingGate,
+      neededAction: input.neededAction,
+      repairSuggestion: input.repairSuggestion,
+      nextAutomatedAction: input.nextAutomatedAction,
       status: "PENDING",
     },
     select: { id: true },
