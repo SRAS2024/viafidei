@@ -30,6 +30,11 @@ const ALL_TYPES: ChecklistContentType[] = [
   "CHURCH_DOCUMENT",
   "LITURGICAL",
   "SPIRITUAL_PRACTICE",
+  // The top authorities (Vatican, USCCB, EWTN, …) genuinely cover the papacy,
+  // the Doctors of the Church, and the liturgical rites too.
+  "POPE",
+  "DOCTOR",
+  "RITE",
 ];
 
 // Content-type groupings reused across the global registry below.
@@ -52,6 +57,11 @@ const REFERENCE_TYPES: ChecklistContentType[] = [
   "CHURCH_DOCUMENT",
   "LITURGICAL",
   "SPIRITUAL_PRACTICE",
+  // Broad Catholic reference works (Catholic Culture, Aleteia, …) also carry
+  // papal, Doctor-of-the-Church, and liturgical-rite material.
+  "POPE",
+  "DOCTOR",
+  "RITE",
 ];
 
 /** Compact constructor for a registry entry (baseUrl defaults to https://host). */
@@ -664,8 +674,8 @@ export const AUTHORITY_SOURCES: AuthoritySourceSeed[] = [
     "CatholicSaints.Info",
     "catholicsaints.info",
     "TRUSTED_PUBLISHER",
-    ["SAINT", "DEVOTION", "PRAYER"],
-    "Reference database of saints, feast days, and patronages.",
+    ["SAINT", "DEVOTION", "PRAYER", "DOCTOR", "MARIAN_TITLE"],
+    "Reference database of saints, blesseds, Doctors of the Church, feast days, and patronages.",
   ),
   src(
     "Universalis",
@@ -701,6 +711,287 @@ export const AUTHORITY_SOURCES: AuthoritySourceSeed[] = [
     "TRUSTED_PUBLISHER",
     ["DEVOTION", "PRAYER", "CHURCH_DOCUMENT"],
     "Knights of Columbus — Catholic fraternal resources and devotions.",
+  ),
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EXPANDED COVERAGE — a large registry of authoritative Catholic sources so
+  // every content type + subtype has an abundant well of approved hosts to draw
+  // from. All are real, reputable Catholic institutions, publishers, orders,
+  // shrines, and reference works. Accuracy is still enforced downstream (classify
+  // → cross-source verify → strict QA); breadth here only widens what the worker
+  // MAY read, never what it may publish.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // ── More episcopal (bishops') conferences (USCCB tier). ────────────────────
+
+  // ── Major (arch)dioceses — chiefly PARISH + local prayer/saint content. ────
+  src(
+    "Archdiocese of Washington",
+    "adw.org",
+    "DIOCESAN",
+    ["PARISH", "PRAYER", "SAINT", "LITURGICAL"],
+    "Archdiocese of Washington, D.C.",
+  ),
+  src(
+    "Archdiocese of Baltimore",
+    "archbalt.org",
+    "DIOCESAN",
+    ["PARISH", "PRAYER", "SAINT"],
+    "Premier see of the United States.",
+  ),
+  src(
+    "Archdiocese of Philadelphia",
+    "archphila.org",
+    "DIOCESAN",
+    ["PARISH", "PRAYER", "SAINT"],
+    "Archdiocese of Philadelphia.",
+  ),
+  src(
+    "Archdiocese of Boston",
+    "rcab.org",
+    "DIOCESAN",
+    ["PARISH", "PRAYER", "SAINT"],
+    "Archdiocese of Boston.",
+  ),
+  src(
+    "Archdiocese of San Antonio",
+    "archsa.org",
+    "DIOCESAN",
+    ["PARISH", "PRAYER", "SAINT"],
+    "Archdiocese of San Antonio.",
+  ),
+  src(
+    "Archdiocese of Galveston-Houston",
+    "archgh.org",
+    "DIOCESAN",
+    ["PARISH", "PRAYER", "SAINT"],
+    "Archdiocese of Galveston-Houston.",
+  ),
+  src(
+    "Archdiocese of St. Louis",
+    "archstl.org",
+    "DIOCESAN",
+    ["PARISH", "PRAYER", "SAINT"],
+    "Archdiocese of St. Louis.",
+  ),
+  src(
+    "Archdiocese of Denver",
+    "archdenver.org",
+    "DIOCESAN",
+    ["PARISH", "PRAYER", "SAINT"],
+    "Archdiocese of Denver.",
+  ),
+  src(
+    "Archdiocese of Newark",
+    "rcan.org",
+    "DIOCESAN",
+    ["PARISH", "PRAYER", "SAINT"],
+    "Archdiocese of Newark.",
+  ),
+
+  // ── Parish / hierarchy directories — high-yield PARISH + POPE + RITE. ──────
+  src(
+    "GCatholic",
+    "gcatholic.org",
+    "TRUSTED_PUBLISHER",
+    ["PARISH", "POPE", "RITE", "CHURCH_DOCUMENT", "SAINT"],
+    "GCatholic.org — comprehensive directory of the Catholic hierarchy, dioceses, and churches worldwide.",
+  ),
+  src(
+    "Catholic-Hierarchy",
+    "catholic-hierarchy.org",
+    "TRUSTED_PUBLISHER",
+    ["PARISH", "POPE", "SAINT", "CHURCH_DOCUMENT"],
+    "Catholic-Hierarchy.org — database of dioceses, bishops, and the papacy.",
+  ),
+  src(
+    "Mass Times",
+    "masstimes.org",
+    "COMMUNITY",
+    ["PARISH"],
+    "Directory of Catholic parishes and Mass times.",
+  ),
+  src(
+    "Parishes Online",
+    "parishesonline.com",
+    "COMMUNITY",
+    ["PARISH"],
+    "Directory of Catholic parishes (bulletins + contact).",
+  ),
+  src(
+    "The Catholic Directory",
+    "thecatholicdirectory.com",
+    "COMMUNITY",
+    ["PARISH"],
+    "Directory of Catholic parishes and institutions.",
+  ),
+
+  // ── More religious orders. ─────────────────────────────────────────────────
+  src(
+    "Redemptorists (CSsR)",
+    "cssr.org",
+    "RELIGIOUS_ORDER",
+    ["SAINT", "DEVOTION", "PRAYER"],
+    "Congregation of the Most Holy Redeemer (St. Alphonsus Liguori).",
+  ),
+  src(
+    "Opus Dei",
+    "opusdei.org",
+    "RELIGIOUS_ORDER",
+    ["SPIRITUAL_PRACTICE", "PRAYER", "SAINT", "DEVOTION"],
+    "Prelature of Opus Dei — sanctification of ordinary work (St. Josemaría).",
+  ),
+  src(
+    "Maryknoll",
+    "maryknoll.org",
+    "RELIGIOUS_ORDER",
+    ["SAINT", "SPIRITUAL_PRACTICE", "PRAYER"],
+    "Catholic Foreign Mission Society of America.",
+  ),
+  src(
+    "Dominican House of Studies",
+    "dhspriory.org",
+    "ACADEMIC",
+    ["SAINT", "DOCTOR", "CHURCH_DOCUMENT", "SPIRITUAL_PRACTICE"],
+    "Dominican House of Studies — texts of St. Thomas Aquinas and the Fathers.",
+  ),
+
+  // ── Marian titles, apparitions, and shrines. ───────────────────────────────
+  src(
+    "University of Dayton — Marian Library",
+    "udayton.edu",
+    "ACADEMIC",
+    ["MARIAN_TITLE", "APPARITION", "PRAYER", "DEVOTION"],
+    "International Marian Research Institute — the largest Marian resource collection.",
+  ),
+  src(
+    "Sanctuary of Our Lady of Lourdes",
+    "lourdes-france.org",
+    "DIOCESAN",
+    ["APPARITION", "MARIAN_TITLE", "PRAYER"],
+    "Official sanctuary of Lourdes.",
+  ),
+  src(
+    "Sanctuary of Fátima",
+    "fatima.pt",
+    "DIOCESAN",
+    ["APPARITION", "MARIAN_TITLE", "PRAYER", "DEVOTION"],
+    "Shrine of Our Lady of Fátima.",
+  ),
+  src(
+    "Knock Shrine",
+    "knock-shrine.ie",
+    "DIOCESAN",
+    ["APPARITION", "MARIAN_TITLE", "PRAYER"],
+    "National Marian Shrine of Ireland.",
+  ),
+  src(
+    "Miraculous Medal Shrine",
+    "miraculousmedal.org",
+    "TRUSTED_PUBLISHER",
+    ["DEVOTION", "MARIAN_TITLE", "PRAYER", "NOVENA"],
+    "Central Association of the Miraculous Medal.",
+  ),
+  src(
+    "Rosary Center & Confraternity",
+    "rosarycenter.org",
+    "TRUSTED_PUBLISHER",
+    ["DEVOTION", "PRAYER", "MARIAN_TITLE"],
+    "Dominican Rosary Confraternity.",
+  ),
+
+  // ── Prayers, devotions, and the Liturgy of the Hours. ──────────────────────
+  src(
+    "Thesaurus Precum Latinarum",
+    "preces-latinae.org",
+    "COMMUNITY",
+    ["PRAYER", "DEVOTION", "LITURGICAL"],
+    "A treasury of traditional Latin prayers with English translations.",
+  ),
+  src(
+    "Crossroads Initiative",
+    "crossroadsinitiative.com",
+    "TRUSTED_PUBLISHER",
+    ["SAINT", "CHURCH_DOCUMENT", "SPIRITUAL_PRACTICE", "DOCTOR"],
+    "Dr. Marcellino D'Ambrosio — Church Fathers and Catholic teaching.",
+  ),
+  src(
+    "Pray More Novenas",
+    "praymorenovenas.com",
+    "COMMUNITY",
+    ["NOVENA", "PRAYER", "DEVOTION"],
+    "Catalogue of Catholic novenas.",
+  ),
+
+  // ── Church documents, councils, and the papacy. ────────────────────────────
+  src(
+    "Documenta Catholica Omnia",
+    "documentacatholicaomnia.eu",
+    "ACADEMIC",
+    ["CHURCH_DOCUMENT", "DOCTOR", "SAINT", "POPE"],
+    "Vast archive of magisterial, patristic, and doctoral texts (Latin + translations).",
+  ),
+
+  // ── Doctors of the Church, Fathers, and academic theology. ─────────────────
+  src(
+    "Christian Classics Ethereal Library",
+    "ccel.org",
+    "ACADEMIC",
+    ["CHURCH_DOCUMENT", "DOCTOR", "SAINT"],
+    "Full texts of the Church Fathers and classic Christian writers.",
+  ),
+  src(
+    "Corpus Thomisticum",
+    "corpusthomisticum.org",
+    "ACADEMIC",
+    ["DOCTOR", "CHURCH_DOCUMENT"],
+    "The complete works of St. Thomas Aquinas.",
+  ),
+
+  // ── Liturgy, rites, and sacraments. ────────────────────────────────────────
+  src(
+    "Adoremus",
+    "adoremus.org",
+    "TRUSTED_PUBLISHER",
+    ["LITURGICAL", "SACRAMENT", "RITE"],
+    "Society for the Renewal of the Sacred Liturgy.",
+  ),
+  src(
+    "Corpus Christi Watershed",
+    "ccwatershed.org",
+    "TRUSTED_PUBLISHER",
+    ["LITURGICAL", "RITE"],
+    "Sacred music and liturgical resources.",
+  ),
+  src(
+    "Liturgy Office (England & Wales)",
+    "liturgyoffice.org.uk",
+    "DIOCESAN",
+    ["LITURGICAL", "RITE", "SACRAMENT"],
+    "Liturgy Office of the Bishops' Conference of England and Wales.",
+  ),
+
+  // ── Spiritual practices and formation. ─────────────────────────────────────
+  src(
+    "Ignatian Spirituality",
+    "ignatianspirituality.com",
+    "TRUSTED_PUBLISHER",
+    ["SPIRITUAL_PRACTICE", "PRAYER", "SAINT"],
+    "Loyola Press — the Spiritual Exercises and Ignatian prayer.",
+  ),
+  src(
+    "Word on Fire",
+    "wordonfire.org",
+    "TRUSTED_PUBLISHER",
+    ["SPIRITUAL_PRACTICE", "CHURCH_DOCUMENT", "SAINT", "DEVOTION"],
+    "Bishop Robert Barron's evangelization ministry.",
+  ),
+  src(
+    "Catholic Exchange",
+    "catholicexchange.com",
+    "TRUSTED_PUBLISHER",
+    ["SPIRITUAL_PRACTICE", "DEVOTION", "PRAYER", "SAINT"],
+    "Catholic formation and spiritual living.",
   ),
 ];
 
