@@ -1173,6 +1173,11 @@ source / verification / strict-QA / full-quality gate first.
   worker methodically fills **every type and subtype** instead of over-serving
   the easy ones. Deterministic, fail-open, surfaced on the discovery log
   (`targetSubtype` + `coverageSummary`) and exposed via `computeCoverageModel`.
+  Every published item is **stamped with its subtype at publish time**
+  (`content-subtype.ts`, applied in the publish orchestrator): single-subtype
+  types get their sole subtype, prayers/apparitions/church-documents are
+  classified by clear signals (never a guess for a doctrinal document), so the
+  coverage map reads real per-subtype counts instead of "untagged".
 
 ### Single content path
 
