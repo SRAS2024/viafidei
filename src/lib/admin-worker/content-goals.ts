@@ -17,6 +17,8 @@
 
 import type { ChecklistContentType, ContentGoalStatus, PrismaClient } from "@prisma/client";
 
+import { CURATED_BUILT_CONTENT_TYPES } from "./content-types";
+
 export interface ContentGoalSeed {
   contentType: ChecklistContentType;
   /** Growth target — the milestone the worker builds toward. */
@@ -181,9 +183,19 @@ export function contentGoalStatusLabel(status: ContentGoalStatus | string): stri
 export async function nextPriorityContentType(
   prisma: PrismaClient,
 ): Promise<{ contentType: string; gap: number } | null> {
-  const goals = await prisma.contentGoal.findMany({
+  const allGoals = await prisma.contentGoal.findMany({
     where: { gapCount: { gt: 0 } },
   });
+  // Curated-built types (GUIDE, MARIAN_TITLE) must NEVER become the WEB-pipeline
+  // mission target: they are not web-extracted (WEB_EXTRACTION_CONTENT_TYPES
+  // excludes them), so targeting them makes the brain pick DISCOVERY/EXTRACTION
+  // for a type that can't advance — every EXTRACTION outcome then gets stamped
+  // with that type and the stage shows "0 successes" forever, which is the
+  // recurring "EXTRACTION LOOPING on GUIDE" escalation. Their growth comes from
+  // the curated (and, for MARIAN_TITLE, structured) ingestion lanes instead, so
+  // excluding them here does not stop them growing — it just keeps them out of
+  // the web-extraction pipeline they can never satisfy.
+  const goals = allGoals.filter((g) => !CURATED_BUILT_CONTENT_TYPES.has(g.contentType));
   if (goals.length === 0) return null;
 
   // Rank by gap FRACTION (gap / desiredTarget), not absolute gap, so a type

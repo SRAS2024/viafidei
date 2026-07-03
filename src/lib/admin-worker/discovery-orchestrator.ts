@@ -280,14 +280,22 @@ export async function runDiscoveryOrchestrator(
   if (!strategy || strategy.preferDiscoverers.includes("INTERNAL_LINK")) {
     try {
       const { discoverFromInternalLinks } = await import("./internal-link-discovery");
-      const seeds = await prisma.adminWorkerSourceRead
+      const { isApprovedAuthorityHost } =
+        await import("@/lib/checklist/sources/authority-registry");
+      const rawSeeds = await prisma.adminWorkerSourceRead
         .findMany({
           where: { detectedContentType: { not: null } },
           orderBy: { createdAt: "desc" },
-          take: 5,
-          select: { sourceUrl: true },
+          take: 20,
+          select: { sourceUrl: true, sourceHost: true },
         })
-        .catch(() => [] as Array<{ sourceUrl: string }>);
+        .catch(() => [] as Array<{ sourceUrl: string; sourceHost: string }>);
+      // Only APPROVED Catholic-authority hosts may seed an internal-link crawl.
+      // Without this, any page the worker happened to read (e.g. a non-Catholic
+      // free-hosting site whose links were followed once) re-armed the crawler
+      // and it spidered the whole site — the gabiula.pl.tl runaway. Restricting
+      // the seed to authorities stops that at the source.
+      const seeds = rawSeeds.filter((s) => isApprovedAuthorityHost(s.sourceHost)).slice(0, 5);
       for (const seed of seeds) {
         const r = await discoverFromInternalLinks(prisma, seed.sourceUrl).catch(() => null);
         if (r?.fetched) tally("INTERNAL_LINK", r.inserted);

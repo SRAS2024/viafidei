@@ -1005,7 +1005,13 @@ falling back to a TypeScript final brain. Concretely:
   (`AdminWorkerStageOutcome`) over a short sliding window and, if the chosen
   content stage has been picked `MIN_SAMPLES`+ times with **zero** forward
   progress — or content growth has stalled despite an open gap — it overrides
-  the choice: it forces the highest-priority **productive downstream** stage that
+  the choice. **Discovery does not count as forward progress**: surfacing
+  candidate URLs (or scoring them) is top-of-funnel prep, not movement toward the
+  public site, so only `SOURCE_FETCH → … → PUBLIC_PUBLISH` advancement clears the
+  growth-stall check. (This was the exact freeze behind the "3403" incident:
+  discovery "succeeded" every pass by surfacing candidates, so the stall never
+  tripped and the fetcher was never forced while 600 candidates sat unfetched.)
+  On a stall it forces the highest-priority **productive downstream** stage that
   has queued work (publish-first: PUBLIC_PUBLISH → STRICT_QA → cross-source
   verification → … → fetch), draining in-flight artifacts toward published
   content; and when nothing downstream is making progress it runs a terminal
