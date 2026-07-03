@@ -11,7 +11,7 @@ import { nextPriorityContentType } from "@/lib/admin-worker/content-goals";
 
 type Goal = { contentType: string; gapCount: number; desiredTarget: number; priority: number };
 
-function fakePrisma(goals: Goal[], recentDiscoveryTypes: string[]) {
+function fakePrisma(goals: Goal[], recentDiscoveryTypes: string[], blockedTypes: string[] = []) {
   return {
     contentGoal: {
       findMany: async () => goals,
@@ -19,6 +19,9 @@ function fakePrisma(goals: Goal[], recentDiscoveryTypes: string[]) {
     adminWorkerDecision: {
       findMany: async ({ take }: { take: number }) =>
         recentDiscoveryTypes.slice(0, take).map((contentType) => ({ contentType })),
+    },
+    adminWorkerSourceCoverage: {
+      findMany: async () => blockedTypes.map((contentType) => ({ contentType })),
     },
   } as never;
 }
@@ -47,6 +50,22 @@ describe("nextPriorityContentType", () => {
 
   it("returns null when every goal is met", async () => {
     expect(await nextPriorityContentType(fakePrisma([], []))).toBeNull();
+  });
+
+  it("de-ranks source-blocked types so the worker grows what it can reach (NO_VALUE fix)", async () => {
+    // PARISH has by far the largest gap fraction, but its source is BLOCKED
+    // (e.g. query.wikidata.org egress-blocked) — targeting it produces no value.
+    // The worker must instead target a reachable type it can actually grow.
+    const pick = await nextPriorityContentType(fakePrisma(goals, [], ["PARISH"]));
+    expect(pick?.contentType).not.toBe("PARISH");
+    expect(["SAINT", "PRAYER"]).toContain(pick?.contentType);
+  });
+
+  it("still returns a blocked type when EVERY type is blocked (no idle/deadlock)", async () => {
+    const pick = await nextPriorityContentType(
+      fakePrisma(goals, [], ["PARISH", "SAINT", "PRAYER"]),
+    );
+    expect(pick?.contentType).toBe("PARISH"); // all blocked → ranking unchanged (highest fraction)
   });
 
   it("never excludes the only remaining option", async () => {
