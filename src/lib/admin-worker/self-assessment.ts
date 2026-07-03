@@ -131,6 +131,7 @@ export async function buildSelfAssessment(
 
     const unpublishedBacklog = world
       ? (world.readsAwaitingExtraction ?? 0) +
+        (world.artifactsAwaitingChecklist ?? 0) +
         (world.artifactsAwaitingBuild ?? 0) +
         (world.artifactsAwaitingVerification ?? 0) +
         (world.artifactsAwaitingQA ?? 0) +

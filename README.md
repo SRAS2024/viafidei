@@ -1407,11 +1407,21 @@ built artifacts wait.
 
 The governor forces the _right stage_; the **drain** (`build-ready-drain.ts`,
 run every pass) makes sure the built-artifact backlog actually clears and that
-every stuck item explains itself. Each pass it triages every artifact in
-`BUILD_READY` / `VERIFICATION_READY` / `QA_PASSED`:
+every stuck item explains itself. Each pass it owns the **whole downstream
+funnel** — `CHECKLIST_READY → BUILD_READY → VERIFICATION_READY → QA_PASSED →
+published`:
 
+- **Bridges `CHECKLIST_READY` → `BUILD_READY`.** The EXTRACTION stage stamps a
+  fully-populated package `CHECKLIST_READY`, but the checklist/citation
+  orchestrator that promotes it to `BUILD_READY` was previously _only_ reachable
+  when the brain happened to pick the checklist stage that pass. If the brain
+  fixated elsewhere, complete artifacts piled up at `CHECKLIST_READY` — extraction
+  succeeding while **nothing published** (the `EXTRACTING_WITHOUT_PUBLISHING`
+  escalation). The drain now runs that bridge itself every pass, so a complete
+  artifact is promoted, QA'd and published deterministically without depending on
+  brain stage selection. (`bridged` is reported on every drain.)
 - **`diagnoseArtifactGate`** (pure, unit-tested) names the EXACT gate blocking
-  each item — `READY_TO_PUBLISH`, `AWAITING_QA`, `AWAITING_VERIFICATION`,
+  each built item — `READY_TO_PUBLISH`, `AWAITING_QA`, `AWAITING_VERIFICATION`,
   `VERIFICATION_INCOMPLETE`, `MISSING_REQUIRED_FIELDS`, `MISSING_CITATIONS`,
   `LOW_CONFIDENCE`, or `DUPLICATE` — and the outcome to route it to. The gate is
   written to the artifact (`gateDiagnosis`) so the operator can see, per item,
@@ -1420,11 +1430,17 @@ every stuck item explains itself. Each pass it triages every artifact in
 - It then **routes** each item: publish · run strict QA · run cross-source
   verification · create validation-evidence repair · file a repair plan · move
   to human review with a clear reason · mark duplicate · block — and **drives
-  the real gate handlers** (verification → QA → publish) in a bounded loop to
-  drain the backlog, prioritising the downstream drain over more upstream
-  extraction. It never bypasses a gate (it just runs the same handlers over the
-  backlog), and publishing runs only in active/python mode (safe-degraded
-  contract).
+  the real gate handlers** (checklist bridge → verification → QA → publish) in a
+  bounded loop to drain the backlog, prioritising the downstream drain over more
+  upstream extraction. It never bypasses a gate (it just runs the same handlers
+  over the backlog), and publishing runs only in active/python mode
+  (safe-degraded contract).
+
+The **Package-artifacts diagnostic** now reports the `CHECKLIST_READY` and
+`EXTRACTED` counts alongside `BUILD_READY` / `QA_PASSED` / `NEEDS_REPAIR` /
+`REJECTED`, so a stall _before_ `BUILD_READY` is visible instead of reading as
+"0 BUILD_READY" with no explanation; `CHECKLIST_READY` is likewise counted in the
+self-assessment publish backlog.
 
 ### Review-queue intelligence
 
