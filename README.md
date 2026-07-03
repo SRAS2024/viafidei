@@ -1483,26 +1483,27 @@ learning so the worker knows which approach works and gets better over time:
   records which discovery method (SITEMAP / RSS / INTERNAL_LINK / SEARCH_PAGE /
   WEB_SEARCH / DIRECTORY / CONFIGURED / API) surfaced candidates for that content
   type — "which method worked, and why".
-- **Adaptive selection with explore/exploit — and it is APPLIED.** `rankMethods`
+- **Ranking + advisory use (deliberately not auto-disabling).** `rankMethods`
   orders methods by EWMA (preferring content-type-specific data over the `*`
-  aggregate); `chooseMethodWithExploration` picks with an ε-greedy policy; and
-  `planMethods` is consulted by the **discovery orchestrator each pass** to
-  actually change behaviour: it runs the surviving methods best-first and **skips
-  a method with a strong failure history** for that content type (EWMA below the
-  floor after enough attempts), saving wasted fetches. With probability ε
-  (`ADMIN_WORKER_STRATEGY_EPSILON`, default 0.15) a skipped method is re-trialled,
-  so a recovering source always comes back, and unseen methods always run — the
-  loop is fail-open, so learning never silently reduces coverage. This closes the
-  loop: record which method worked → remember it → **apply the better one / switch
-  away from the failing one**.
+  aggregate) to answer "which method is most productive for this type," surfaced
+  in diagnostics + the operational summary. It is intentionally **not** used to
+  disable a live discovery method: for a coverage-maximising worker, "a method
+  surfaced nothing this pass" is the normal steady state of a source that is
+  simply caught up — not a failure — so skipping on it would stop the worker
+  polling healthy sources for newly-published content. Active method-switching on
+  hard failure is already handled where it is safe: the fetch chain
+  (static → headless → archive), the extraction chain (deterministic → AI), and
+  the source-reputation layer that pauses genuinely-bad hosts.
 - **Innovation lab (`innovation-lab.ts`).** A throttled, **measure-only** ops
   lane that runs a bounded 2-group experiment over the recorded stats (never a
   live traffic split, never publishes): it picks the dimension with the most
   competing methods, compares the top two, and persists a `LabExperimentPlan` +
   `LabExperimentResult`. When the margin is decisive with enough data on both
-  sides, it **remembers the winner** (`AdminWorkerMemory` `strategy_winner:*`),
-  which selection + ranking then apply. This is the TypeScript runner the schema
-  and Python brain were designed for but never had.
+  sides, it **remembers the winner** (`AdminWorkerMemory` `strategy_winner:*`) as
+  a durable, operator-visible recommendation surfaced in diagnostics and the
+  operational summary (advisory — not auto-applied to disable a live method).
+  This is the TypeScript experiment runner the schema and Python brain were
+  designed for but never had.
 
 The "Strategy memory + innovation" diagnostics rating surfaces the best method
 per dimension and the most recent experiment's verdict.
