@@ -220,6 +220,75 @@ export async function chooseMethodWithExploration(
   };
 }
 
+/** A chronic failure is skippable only with strong evidence. */
+const CHRONIC_FAILURE_EWMA = 0.15;
+const CHRONIC_FAILURE_MIN_ATTEMPTS = 8;
+
+export interface MethodPlan {
+  /** Candidate methods to RUN this pass, ordered best-first (apply the winner). */
+  run: string[];
+  /** Methods skipped this pass because they are chronic failures for this type. */
+  skipped: string[];
+  reasons: Record<string, string>;
+}
+
+/**
+ * Plan which candidate methods to run this pass, APPLYING what the worker has
+ * learned (this is the "apply the better one / switch when a method fails" step):
+ *   - Orders the survivors best-first by recency-weighted success rate.
+ *   - SKIPS a method only with strong failure evidence (EWMA below the floor
+ *     after enough attempts) — mirroring the existing low-reputation host skip.
+ *   - Never abandons a method permanently: with probability ε it re-trials a
+ *     chronic failure (exploration), so a recovering source comes back.
+ *   - Unseen methods always run (optimistic — worth exploring).
+ * `rand` is injectable for deterministic tests. Fail-open: on any error it
+ * returns all candidates (run everything), so learning never reduces coverage
+ * by accident.
+ */
+export async function planMethods(
+  prisma: PrismaClient,
+  opts: {
+    dimension: string;
+    contentType?: string | null;
+    candidates: string[];
+    epsilon?: number;
+    rand?: () => number;
+  },
+): Promise<MethodPlan> {
+  const candidates = [...new Set(opts.candidates)].filter(Boolean);
+  const epsilon = opts.epsilon ?? defaultEpsilon();
+  const rand = opts.rand ?? Math.random;
+  let ranked: RankedMethod[] = [];
+  try {
+    ranked = await rankMethods(prisma, {
+      dimension: opts.dimension,
+      contentType: opts.contentType,
+    });
+  } catch {
+    return { run: candidates, skipped: [], reasons: {} };
+  }
+  const byMethod = new Map(ranked.map((r) => [r.method, r]));
+
+  const skipped: string[] = [];
+  const reasons: Record<string, string> = {};
+  const survivors: string[] = [];
+  for (const method of candidates) {
+    const r = byMethod.get(method);
+    const chronic =
+      r && r.ewma < CHRONIC_FAILURE_EWMA && r.attempts >= CHRONIC_FAILURE_MIN_ATTEMPTS;
+    if (chronic && rand() >= epsilon) {
+      skipped.push(method);
+      reasons[method] = `chronic failure (ewma ${r!.ewma.toFixed(2)} over ${r!.attempts} attempts)`;
+      continue;
+    }
+    if (chronic) reasons[method] = `re-trialling chronic failure (ε-explore)`;
+    survivors.push(method);
+  }
+  // Order survivors best-first: known EWMA desc, unseen (optimistic) first among ties.
+  survivors.sort((a, b) => (byMethod.get(b)?.ewma ?? 1) - (byMethod.get(a)?.ewma ?? 1));
+  return { run: survivors, skipped, reasons };
+}
+
 /** Read-view: all strategy stats for a dimension (dashboard / diagnostics). */
 export async function listStrategyStats(prisma: PrismaClient, dimension?: string) {
   return prisma.adminWorkerStrategyStat

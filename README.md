@@ -1483,13 +1483,18 @@ learning so the worker knows which approach works and gets better over time:
   records which discovery method (SITEMAP / RSS / INTERNAL_LINK / SEARCH_PAGE /
   WEB_SEARCH / DIRECTORY / CONFIGURED / API) surfaced candidates for that content
   type — "which method worked, and why".
-- **Adaptive selection with explore/exploit.** `rankMethods` orders methods by
-  EWMA (preferring content-type-specific data over the `*` aggregate), and
-  `chooseMethodWithExploration` picks with an ε-greedy policy: mostly use the best
-  known method (exploit), but with probability ε (`ADMIN_WORKER_STRATEGY_EPSILON`,
-  default 0.15) trial an alternative (explore) — so a winner is applied without
-  locking out a method that might be better, and unseen methods always get a
-  first trial.
+- **Adaptive selection with explore/exploit — and it is APPLIED.** `rankMethods`
+  orders methods by EWMA (preferring content-type-specific data over the `*`
+  aggregate); `chooseMethodWithExploration` picks with an ε-greedy policy; and
+  `planMethods` is consulted by the **discovery orchestrator each pass** to
+  actually change behaviour: it runs the surviving methods best-first and **skips
+  a method with a strong failure history** for that content type (EWMA below the
+  floor after enough attempts), saving wasted fetches. With probability ε
+  (`ADMIN_WORKER_STRATEGY_EPSILON`, default 0.15) a skipped method is re-trialled,
+  so a recovering source always comes back, and unseen methods always run — the
+  loop is fail-open, so learning never silently reduces coverage. This closes the
+  loop: record which method worked → remember it → **apply the better one / switch
+  away from the failing one**.
 - **Innovation lab (`innovation-lab.ts`).** A throttled, **measure-only** ops
   lane that runs a bounded 2-group experiment over the recorded stats (never a
   live traffic split, never publishes): it picks the dimension with the most

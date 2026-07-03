@@ -197,9 +197,51 @@ export async function runDiscoveryOrchestrator(
     surfaced += n;
   };
 
+  // Adaptive-worker Phase C (apply): consult the learned per-method memory to
+  // decide which discovery methods to run this pass. A method with a strong
+  // failure history for this content type is skipped (saving wasted fetches),
+  // but ε-exploration re-trials it periodically so a recovering source returns,
+  // and unseen methods always run. Fail-open → runs everything on any error, so
+  // learning never silently reduces coverage. `skipMethod(m)` is consulted by
+  // each discoverer block below.
+  const CANDIDATE_DISCOVERY_METHODS = [
+    "SITEMAP",
+    "CONFIGURED",
+    "DIRECTORY",
+    "RSS",
+    "INTERNAL_LINK",
+    "SEARCH_PAGE",
+    "WEB_SEARCH",
+    "API",
+  ];
+  const skipMethodSet = new Set<string>();
+  try {
+    const { planMethods } = await import("./method-memory");
+    const plan = await planMethods(prisma, {
+      dimension: "discovery",
+      contentType: contentType ?? undefined,
+      candidates: CANDIDATE_DISCOVERY_METHODS,
+    });
+    for (const m of plan.skipped) skipMethodSet.add(m);
+    if (plan.skipped.length > 0) {
+      await writeAdminWorkerLog(prisma, {
+        passId: opts.passId ?? null,
+        category: "SOURCE_DISCOVERY",
+        severity: "INFO",
+        eventName: "discovery_method_plan",
+        message: `Applying learned discovery strategy: skipping ${plan.skipped.join(", ")} for ${contentType ?? "any type"} this pass (chronic failure); running ${plan.run.join(", ")}.`,
+        contentType: contentType ?? undefined,
+        safeMetadata: { run: plan.run, skipped: plan.skipped, reasons: plan.reasons },
+      }).catch(() => undefined);
+    }
+  } catch {
+    /* fail-open — run everything */
+  }
+  const skipMethod = (method: string) => skipMethodSet.has(method);
+
   // Sitemap discovery for each top host. We skip hosts whose recent
   // fetch success rate is too low ("unproductive sources").
-  if (!strategy || strategy.preferDiscoverers.includes("SITEMAP")) {
+  if ((!strategy || strategy.preferDiscoverers.includes("SITEMAP")) && !skipMethod("SITEMAP")) {
     for (const host of rankedHosts) {
       if (host.fetchSuccessRate < 0.2 && host.reputationTier !== "NEUTRAL") {
         hostsSkipped.push({
@@ -228,7 +270,10 @@ export async function runDiscoveryOrchestrator(
 
   // Configured URL discovery — always runs because configured URLs
   // are explicit operator-curated entries.
-  if (!strategy || strategy.preferDiscoverers.includes("CONFIGURED")) {
+  if (
+    (!strategy || strategy.preferDiscoverers.includes("CONFIGURED")) &&
+    !skipMethod("CONFIGURED")
+  ) {
     try {
       const outcome = await discoverFromConfiguredUrls(prisma);
       tally("CONFIGURED", outcome.inserted);
@@ -238,7 +283,7 @@ export async function runDiscoveryOrchestrator(
   }
 
   // Directory discovery for content types whose strategy asks for it.
-  if (strategy?.preferDiscoverers.includes("DIRECTORY")) {
+  if (strategy?.preferDiscoverers.includes("DIRECTORY") && !skipMethod("DIRECTORY")) {
     try {
       const outcome = await discoverFromDirectories(prisma);
       tally("DIRECTORY", outcome.inserted);
@@ -249,7 +294,7 @@ export async function runDiscoveryOrchestrator(
 
   // RSS discovery (spec §4) — probe /feed on each approved host.
   // Hosts without a feed get a recorded skip reason.
-  if (!strategy || strategy.preferDiscoverers.includes("RSS")) {
+  if ((!strategy || strategy.preferDiscoverers.includes("RSS")) && !skipMethod("RSS")) {
     try {
       const { discoverFromFeed } = await import("./rss-discovery");
       for (const host of rankedHosts.slice(0, 5)) {
@@ -268,7 +313,10 @@ export async function runDiscoveryOrchestrator(
 
   // Internal-link discovery (spec §4) — expand from already-known
   // good URLs to find related content on the same host.
-  if (!strategy || strategy.preferDiscoverers.includes("INTERNAL_LINK")) {
+  if (
+    (!strategy || strategy.preferDiscoverers.includes("INTERNAL_LINK")) &&
+    !skipMethod("INTERNAL_LINK")
+  ) {
     try {
       const { discoverFromInternalLinks } = await import("./internal-link-discovery");
       const seeds = await prisma.adminWorkerSourceRead
@@ -289,7 +337,7 @@ export async function runDiscoveryOrchestrator(
   }
 
   // Approved-source search-page discovery (spec §4).
-  if (!strategy || strategy.preferDiscoverers.includes("SEARCH")) {
+  if ((!strategy || strategy.preferDiscoverers.includes("SEARCH")) && !skipMethod("SEARCH_PAGE")) {
     try {
       const { discoverFromSearchPages } = await import("./search-page-discovery");
       // Use the strategy's first hint as a search query when available.
@@ -308,7 +356,7 @@ export async function runDiscoveryOrchestrator(
   // already knows links to. A no-op when no key is set. Results are unverified
   // candidates that still pass the full pipeline (host/junk filter →
   // classification → cross-source verification → strict QA) before publishing.
-  if (!strategy || strategy.preferDiscoverers.includes("SEARCH")) {
+  if ((!strategy || strategy.preferDiscoverers.includes("SEARCH")) && !skipMethod("WEB_SEARCH")) {
     try {
       const { webSearchEnabled, discoverFromWebSearch } = await import("./search-discovery");
       if (webSearchEnabled()) {
@@ -330,7 +378,7 @@ export async function runDiscoveryOrchestrator(
   // its own reviewed PR. With zero adapters it returns inserted=0
   // without side effects — it is not a placeholder, it is an
   // implemented registry awaiting adapter registration.
-  if (!strategy || strategy.preferDiscoverers.includes("API")) {
+  if ((!strategy || strategy.preferDiscoverers.includes("API")) && !skipMethod("API")) {
     try {
       const { discoverFromApis } = await import("./source-apis");
       const r = await discoverFromApis(prisma);
