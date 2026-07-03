@@ -1173,6 +1173,11 @@ source / verification / strict-QA / full-quality gate first.
   worker methodically fills **every type and subtype** instead of over-serving
   the easy ones. Deterministic, fail-open, surfaced on the discovery log
   (`targetSubtype` + `coverageSummary`) and exposed via `computeCoverageModel`.
+  Every published item is **stamped with its subtype at publish time**
+  (`content-subtype.ts`, applied in the publish orchestrator): single-subtype
+  types get their sole subtype, prayers/apparitions/church-documents are
+  classified by clear signals (never a guess for a doctrinal document), so the
+  coverage map reads real per-subtype counts instead of "untagged".
 
 ### Single content path
 
@@ -1455,6 +1460,20 @@ serial sub-workstreams inside "ingestion"/"enrichment"/"discovery"/"maintenance"
 now run concurrently. The worker keeps mining continuously (the loop runs forever
 with idle backoff, `oneShot=false`) until every content goal's gap is closed.
 
+**Priority: content goals first, then management + security.** Meeting the content
+goals is the worker's first job — while any goal has an open gap the growth lanes
+(`ingest-*`, `discover-*`, tagged `growth: true`) run at full pace every active
+pass. Once **every** content goal is met (`contentGoalsMet` — no `ContentGoal`
+row has `gapCount > 0`), those growth lanes drop to a slow maintenance sweep
+(`ADMIN_WORKER_GROWTH_SWEEP_MS`, default 30 min) that still catches newly-added
+feasts/saints without building past target at full pace, and the worker's active
+work becomes the management + security lanes (drain, readings, the maintenance
+lanes, reporting, intelligence, escalation) — while the decision brain itself
+idles to `MAINTENANCE`. Security response is always-on independent of the loop
+(request-path middleware + the `escalation` lane). Non-growth lanes are never
+throttled, so quality/upkeep (review auto-resolve, translations, daily-readings
+refresh, custody) continues regardless.
+
 Concurrency is made **safe by construction, not by luck**:
 
 - Lanes touch **disjoint work domains** (curated vs structured vs OSM vs
@@ -1478,6 +1497,11 @@ Concurrency is made **safe by construction, not by luck**:
 - Every lane is **isolated** (its own try/catch): a failing lane never kills the
   others (self-repair), and it enters a **backoff cooldown** before retrying, so a
   hard-failing lane can't hot-loop.
+- Every lane is raced against a **watchdog** (`ADMIN_WORKER_LANE_TIMEOUT_MS`,
+  default 120 s): a lane whose `run()` never settles is timed out + recorded as
+  errored, and the others proceed — a hung lane can never wedge the pass or
+  orphan a RUNNING row. A lane that legitimately runs long (the `drain` over a
+  large backlog) sets a higher per-lane watchdog so real progress is never cut.
 - **Brain-calling work lives in one lane** so it never issues concurrent calls to
   the single Python brain subprocess.
 

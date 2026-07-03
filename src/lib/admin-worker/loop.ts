@@ -155,6 +155,14 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   await seedContentGoals(prisma).catch(() => 0);
   await refreshContentGoals(prisma);
 
+  // First priority is meeting content goals. Once EVERY goal's gap is closed,
+  // the growth lanes (ingest/discovery) drop to a slow maintenance sweep so the
+  // worker focuses on management + security instead of building past target at
+  // full pace. If the count can't be read, assume goals are NOT met (keep
+  // growing) — the safe default.
+  const contentGoalsMet =
+    (await prisma.contentGoal.count({ where: { gapCount: { gt: 0 } } }).catch(() => 1)) === 0;
+
   // Run the Admin Worker brain pass. TypeScript generates + sub-scores the
   // candidate actions; the Python brain selects the final action from them
   // (see runBrain + pythonFinalSelector below). The decision (including
@@ -298,6 +306,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
         passId: pass.id,
         workerId,
         active: brain.finalBrain === "python",
+        contentGoalsMet,
       });
       if (laneResult.published > 0) {
         publishedCount += laneResult.published;
@@ -403,6 +412,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       passId: pass.id,
       workerId,
       active: activeMode,
+      contentGoalsMet,
     });
     publishedCount += laneResult.published;
     if (laneResult.published > 0 || laneResult.advanced > 0) idle = false;

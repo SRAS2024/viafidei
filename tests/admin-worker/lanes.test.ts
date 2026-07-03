@@ -120,6 +120,7 @@ const active = { active: true } as const;
 
 afterEach(() => {
   delete process.env.ADMIN_WORKER_LANE_CONCURRENCY;
+  delete process.env.ADMIN_WORKER_LANE_TIMEOUT_MS;
 });
 
 describe("runWorkerLanes", () => {
@@ -214,6 +215,71 @@ describe("runWorkerLanes", () => {
     const res2 = await runWorkerLanes(prisma as FakePrisma, lanes, active);
     expect(res2.ran).toContain("flaky");
     expect(ran).toBe(1);
+  });
+
+  it("watchdog: a hung lane is timed out + recorded errored, never wedges the others", async () => {
+    process.env.ADMIN_WORKER_LANE_TIMEOUT_MS = "50";
+    const prisma = fakePrisma();
+    let okRan = false;
+    const lanes: LaneDef[] = [
+      // Never settles — must be abandoned by the watchdog, not block the pass.
+      { name: "hang", capacity: 1, run: () => new Promise<void>(() => {}) },
+      {
+        name: "ok",
+        capacity: 1,
+        run: async () => {
+          okRan = true;
+          return { advanced: 1 };
+        },
+      },
+    ];
+
+    const res = await runWorkerLanes(prisma as FakePrisma, lanes, active);
+
+    expect(res.errored).toContain("hang");
+    expect(res.ran).toContain("ok");
+    expect(okRan).toBe(true);
+    expect(res.advanced).toBe(1);
+    expect(prisma.laneStates.get("hang")?.status).toBe("error");
+    expect(prisma.laneStates.get("hang")?.lastError).toMatch(/watchdog/);
+  });
+
+  it("throttles growth lanes to a slow sweep once all content goals are met", async () => {
+    // A growth lane that ran 1 minute ago; the maintenance sweep is 30 min.
+    const recentGrowth: LaneStateRow = {
+      lane: "grow",
+      status: "idle",
+      lastError: null,
+      lastFinishedAt: new Date(Date.now() - 60_000),
+      capacity: 1,
+      concurrentTasks: 0,
+    };
+    const prisma = fakePrisma({ laneStates: [recentGrowth] });
+    let grew = 0;
+    let managed = 0;
+    const lanes: LaneDef[] = [
+      { name: "grow", capacity: 1, growth: true, run: async () => void grew++ },
+      { name: "manage", capacity: 1, run: async () => void managed++ },
+    ];
+
+    // Goals met → the recently-run growth lane is throttled (skipped); the
+    // management lane keeps running.
+    const met = await runWorkerLanes(prisma as FakePrisma, lanes, {
+      active: true,
+      contentGoalsMet: true,
+    });
+    expect(met.skipped).toContain("grow");
+    expect(met.ran).toContain("manage");
+    expect(grew).toBe(0);
+    expect(managed).toBe(1);
+
+    // Goals NOT met → the growth lane runs at full pace (first priority).
+    const unmet = await runWorkerLanes(prisma as FakePrisma, lanes, {
+      active: true,
+      contentGoalsMet: false,
+    });
+    expect(unmet.ran).toContain("grow");
+    expect(grew).toBe(1);
   });
 
   it("bounds concurrency to ADMIN_WORKER_LANE_CONCURRENCY", async () => {

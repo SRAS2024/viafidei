@@ -28,6 +28,7 @@ import type { ChecklistContentType, Prisma, PrismaClient } from "@prisma/client"
 
 import { CONFIDENCE_THRESHOLDS } from "./decisions";
 import { refreshContentGoals } from "./content-goals";
+import { resolveContentSubtype } from "./content-subtype";
 import { isBrainEnabled } from "./intelligence";
 import { writeAdminWorkerLog } from "./logs";
 import { publicRouteFor } from "./public-routes";
@@ -442,6 +443,18 @@ export async function runPublishOrchestrator(
   // engine cannot render faithfully is left untouched (the
   // ensure_prayer_translations maintenance skill routes those gaps to review).
   const payload = await enrichPrayerLanguages(input.contentType, input.payload);
+
+  // Stamp the content subtype so the coverage model can track per-subtype
+  // breadth (nothing else writes it, so subtype coverage read "untagged" for
+  // every item). Deterministic + conservative — never guesses a doctrinal
+  // document's kind. Only sets it when the payload doesn't already carry one.
+  if (payload && typeof payload === "object") {
+    const p = payload as Record<string, unknown>;
+    if (p.contentSubtype == null) {
+      const subtype = resolveContentSubtype(input.contentType, p);
+      if (subtype) p.contentSubtype = subtype;
+    }
+  }
 
   // Freshness marker written at publish time; cache verification later
   // confirms this checksum is actually being served from the public route.
