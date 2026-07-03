@@ -81,6 +81,34 @@ const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000;
 // management + security. Overridable via ADMIN_WORKER_GROWTH_SWEEP_MS.
 const GROWTH_MAINTENANCE_SWEEP_MS = 30 * 60 * 1000;
 
+// Per-lane watchdog: a lane whose run() never settles must NOT wedge the pass
+// (content lanes run inside the pass before completePass, so a hung lane would
+// otherwise orphan the RUNNING row — the exact failure the loop was hardened
+// against). Every lane is raced against this timeout; on expiry the lane is
+// recorded as errored (→ cooldown) and the others proceed. Generous by default
+// so only a genuine hang trips it; overridable via ADMIN_WORKER_LANE_TIMEOUT_MS.
+const LANE_WATCHDOG_MS = 120_000;
+
+/**
+ * Race a lane's run() against the watchdog. Rejects if it exceeds `ms`; the
+ * timer is always cleared when the run settles so no dangling timer leaks. The
+ * underlying work may still complete in the background (JS promises can't be
+ * cancelled), but its network/DB calls are themselves timeout-bounded, so this
+ * only guarantees the PASS never blocks on a stuck lane.
+ */
+function withWatchdog<T>(p: Promise<T>, ms: number, lane: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const watchdog = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`lane watchdog: '${lane}' exceeded ${ms}ms`)), ms);
+  });
+  return Promise.race([
+    p.finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    watchdog,
+  ]);
+}
+
 // ── Artifact lease (task ownership) ──────────────────────────────────────────
 
 /**
@@ -239,6 +267,7 @@ export async function runWorkerLanes(
   // connection pool (P2037); raise BOTH together for bigger deployments.
   const maxConcurrent = envInt("ADMIN_WORKER_LANE_CONCURRENCY", 8);
   const growthSweepMs = envInt("ADMIN_WORKER_GROWTH_SWEEP_MS", GROWTH_MAINTENANCE_SWEEP_MS);
+  const watchdogMs = envInt("ADMIN_WORKER_LANE_TIMEOUT_MS", LANE_WATCHDOG_MS);
 
   // Read current lane states to honour per-lane error cooldown (backoff).
   const states = await getLaneStates(prisma);
@@ -284,13 +313,19 @@ export async function runWorkerLanes(
     });
     try {
       const result =
-        (await lane.run({
-          prisma,
-          passId: ctx.passId,
-          workerId: ctx.workerId,
-          active: ctx.active,
-          contentGoalsMet: ctx.contentGoalsMet,
-        })) || {};
+        (await withWatchdog(
+          Promise.resolve(
+            lane.run({
+              prisma,
+              passId: ctx.passId,
+              workerId: ctx.workerId,
+              active: ctx.active,
+              contentGoalsMet: ctx.contentGoalsMet,
+            }),
+          ),
+          watchdogMs,
+          lane.name,
+        )) || {};
       out.ran.push(lane.name);
       out.published += result.published ?? 0;
       out.advanced += result.advanced ?? 0;

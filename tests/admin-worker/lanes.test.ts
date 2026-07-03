@@ -120,6 +120,7 @@ const active = { active: true } as const;
 
 afterEach(() => {
   delete process.env.ADMIN_WORKER_LANE_CONCURRENCY;
+  delete process.env.ADMIN_WORKER_LANE_TIMEOUT_MS;
 });
 
 describe("runWorkerLanes", () => {
@@ -214,6 +215,33 @@ describe("runWorkerLanes", () => {
     const res2 = await runWorkerLanes(prisma as FakePrisma, lanes, active);
     expect(res2.ran).toContain("flaky");
     expect(ran).toBe(1);
+  });
+
+  it("watchdog: a hung lane is timed out + recorded errored, never wedges the others", async () => {
+    process.env.ADMIN_WORKER_LANE_TIMEOUT_MS = "50";
+    const prisma = fakePrisma();
+    let okRan = false;
+    const lanes: LaneDef[] = [
+      // Never settles — must be abandoned by the watchdog, not block the pass.
+      { name: "hang", capacity: 1, run: () => new Promise<void>(() => {}) },
+      {
+        name: "ok",
+        capacity: 1,
+        run: async () => {
+          okRan = true;
+          return { advanced: 1 };
+        },
+      },
+    ];
+
+    const res = await runWorkerLanes(prisma as FakePrisma, lanes, active);
+
+    expect(res.errored).toContain("hang");
+    expect(res.ran).toContain("ok");
+    expect(okRan).toBe(true);
+    expect(res.advanced).toBe(1);
+    expect(prisma.laneStates.get("hang")?.status).toBe("error");
+    expect(prisma.laneStates.get("hang")?.lastError).toMatch(/watchdog/);
   });
 
   it("throttles growth lanes to a slow sweep once all content goals are met", async () => {

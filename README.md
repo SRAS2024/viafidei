@@ -1492,6 +1492,10 @@ Concurrency is made **safe by construction, not by luck**:
 - Every lane is **isolated** (its own try/catch): a failing lane never kills the
   others (self-repair), and it enters a **backoff cooldown** before retrying, so a
   hard-failing lane can't hot-loop.
+- Every lane is raced against a **watchdog** (`ADMIN_WORKER_LANE_TIMEOUT_MS`,
+  default 120 s): a lane whose `run()` never settles is timed out + recorded as
+  errored, and the others proceed — a hung lane can never wedge the pass or
+  orphan a RUNNING row.
 - **Brain-calling work lives in one lane** so it never issues concurrent calls to
   the single Python brain subprocess.
 
