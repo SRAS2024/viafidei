@@ -65,6 +65,13 @@ export interface LaneDef {
   growth?: boolean;
   /** Cooldown after an error before this lane retries (ms). */
   cooldownMs?: number;
+  /**
+   * Per-lane watchdog override (ms). A lane that legitimately runs long (e.g.
+   * the BUILD_READY drain over a large backlog) sets a higher value so the
+   * watchdog never interrupts real progress. Defaults to the global
+   * ADMIN_WORKER_LANE_TIMEOUT_MS.
+   */
+  watchdogMs?: number;
   run: (ctx: LaneRunContext) => Promise<LaneOutcome | void>;
 }
 
@@ -323,7 +330,7 @@ export async function runWorkerLanes(
               contentGoalsMet: ctx.contentGoalsMet,
             }),
           ),
-          watchdogMs,
+          lane.watchdogMs ?? watchdogMs,
           lane.name,
         )) || {};
       out.ran.push(lane.name);

@@ -1495,7 +1495,8 @@ Concurrency is made **safe by construction, not by luck**:
 - Every lane is raced against a **watchdog** (`ADMIN_WORKER_LANE_TIMEOUT_MS`,
   default 120 s): a lane whose `run()` never settles is timed out + recorded as
   errored, and the others proceed — a hung lane can never wedge the pass or
-  orphan a RUNNING row.
+  orphan a RUNNING row. A lane that legitimately runs long (the `drain` over a
+  large backlog) sets a higher per-lane watchdog so real progress is never cut.
 - **Brain-calling work lives in one lane** so it never issues concurrent calls to
   the single Python brain subprocess.
 

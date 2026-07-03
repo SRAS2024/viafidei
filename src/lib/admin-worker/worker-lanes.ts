@@ -153,6 +153,10 @@ export const OPS_LANES: LaneDef[] = [
   {
     name: "drain",
     capacity: 5,
+    // The drain can legitimately run long over a large BUILD_READY backlog
+    // (round-based verify → QA → publish), so it gets a generous watchdog so a
+    // big-but-progressing drain is never interrupted.
+    watchdogMs: 10 * 60 * 1000,
     async run({ prisma, passId, active }) {
       const { runBuildReadyDrain } = await import("./build-ready-drain");
       const r = await runBuildReadyDrain(prisma, { passId, active });
