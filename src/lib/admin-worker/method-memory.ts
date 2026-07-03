@@ -8,12 +8,18 @@
  * and switch strategy accordingly.
  *
  * This module records per-(dimension, method, contentType) outcomes to
- * AdminWorkerStrategyStat, ranks methods by a recency-weighted success rate
- * (EWMA), and chooses among candidate methods with an EXPLORE/EXPLOIT policy so
- * the worker mostly uses the current best method but occasionally trials an
- * alternative to keep learning (avoiding lock-in to a stale winner). The
- * innovation lab (innovation-lab.ts) consumes these stats to run bounded A/B
- * experiments and remember the winner.
+ * AdminWorkerStrategyStat and ranks methods by a recency-weighted success rate
+ * (EWMA). It is an OBSERVABILITY + research signal: the innovation lab
+ * (innovation-lab.ts) consumes these stats to run bounded, measure-only A/B
+ * experiments and remember the more productive method, and the operational
+ * summary + diagnostics surface the best method per dimension.
+ *
+ * Deliberately NOT used to disable a live method: for a coverage-maximising
+ * worker, "a method surfaced nothing this pass" is the normal steady state of a
+ * source that is caught up — not a failure — so acting on it would stop the
+ * worker polling healthy sources. Genuinely-bad SOURCES are handled separately
+ * by the reputation/host layer; the fetch/extraction fallback chains already
+ * switch method on hard failure.
  *
  *   dimension ∈ fetch | discovery | extraction | verification | quality | repair
  *               | publishing
@@ -26,12 +32,6 @@ export const ANY_CONTENT_TYPE = "*";
 
 /** EWMA weight for the newest outcome (higher = more reactive). */
 const EWMA_ALPHA = 0.25;
-
-/** Default exploration probability (env-tunable). */
-function defaultEpsilon(): number {
-  const raw = Number((process.env.ADMIN_WORKER_STRATEGY_EPSILON ?? "").trim());
-  return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 0.15;
-}
 
 export interface MethodOutcomeInput {
   dimension: string;
@@ -154,148 +154,4 @@ export async function rankMethods(
 
 function isSpecific(r: RankedMethod, contentType: string): boolean {
   return r.contentType === contentType && contentType !== ANY_CONTENT_TYPE;
-}
-
-export interface MethodChoice {
-  method: string;
-  mode: "explore" | "exploit";
-  reason: string;
-}
-
-/**
- * Choose one method from `candidates` using an ε-greedy explore/exploit policy:
- * with probability ε trial a non-best candidate (explore, to keep learning),
- * otherwise pick the best-ranked known method (exploit). Unseen candidates are
- * treated as optimistic (worth exploring). `rand` is injectable for tests.
- */
-export async function chooseMethodWithExploration(
-  prisma: PrismaClient,
-  opts: {
-    dimension: string;
-    contentType?: string | null;
-    candidates: string[];
-    epsilon?: number;
-    rand?: () => number;
-  },
-): Promise<MethodChoice> {
-  const candidates = [...new Set(opts.candidates)].filter(Boolean);
-  if (candidates.length === 0) {
-    return { method: "", mode: "exploit", reason: "no candidates" };
-  }
-  if (candidates.length === 1) {
-    return { method: candidates[0], mode: "exploit", reason: "only candidate" };
-  }
-  const epsilon = opts.epsilon ?? defaultEpsilon();
-  const rand = opts.rand ?? Math.random;
-
-  const ranked = await rankMethods(prisma, {
-    dimension: opts.dimension,
-    contentType: opts.contentType,
-  });
-  const rankByMethod = new Map(ranked.map((r) => [r.method, r]));
-
-  // Unseen candidates are optimistic → always worth an exploration pass.
-  const unseen = candidates.filter((c) => !rankByMethod.has(c));
-  if (unseen.length > 0 && rand() < Math.max(epsilon, 0.5)) {
-    const pick = unseen[Math.floor(rand() * unseen.length) % unseen.length];
-    return { method: pick, mode: "explore", reason: "trialling an unseen method" };
-  }
-
-  // Best known candidate (exploit) vs a random other candidate (explore).
-  const best = candidates
-    .map((c) => ({ c, ewma: rankByMethod.get(c)?.ewma ?? 0.5 }))
-    .sort((a, b) => b.ewma - a.ewma)[0].c;
-
-  if (rand() < epsilon) {
-    const others = candidates.filter((c) => c !== best);
-    if (others.length > 0) {
-      const pick = others[Math.floor(rand() * others.length) % others.length];
-      return { method: pick, mode: "explore", reason: `ε-greedy explore (ε=${epsilon})` };
-    }
-  }
-  return {
-    method: best,
-    mode: "exploit",
-    reason: `best known method (ewma ${(rankByMethod.get(best)?.ewma ?? 0.5).toFixed(2)})`,
-  };
-}
-
-/** A chronic failure is skippable only with strong evidence. */
-const CHRONIC_FAILURE_EWMA = 0.15;
-const CHRONIC_FAILURE_MIN_ATTEMPTS = 8;
-
-export interface MethodPlan {
-  /** Candidate methods to RUN this pass, ordered best-first (apply the winner). */
-  run: string[];
-  /** Methods skipped this pass because they are chronic failures for this type. */
-  skipped: string[];
-  reasons: Record<string, string>;
-}
-
-/**
- * Plan which candidate methods to run this pass, APPLYING what the worker has
- * learned (this is the "apply the better one / switch when a method fails" step):
- *   - Orders the survivors best-first by recency-weighted success rate.
- *   - SKIPS a method only with strong failure evidence (EWMA below the floor
- *     after enough attempts) — mirroring the existing low-reputation host skip.
- *   - Never abandons a method permanently: with probability ε it re-trials a
- *     chronic failure (exploration), so a recovering source comes back.
- *   - Unseen methods always run (optimistic — worth exploring).
- * `rand` is injectable for deterministic tests. Fail-open: on any error it
- * returns all candidates (run everything), so learning never reduces coverage
- * by accident.
- */
-export async function planMethods(
-  prisma: PrismaClient,
-  opts: {
-    dimension: string;
-    contentType?: string | null;
-    candidates: string[];
-    epsilon?: number;
-    rand?: () => number;
-  },
-): Promise<MethodPlan> {
-  const candidates = [...new Set(opts.candidates)].filter(Boolean);
-  const epsilon = opts.epsilon ?? defaultEpsilon();
-  const rand = opts.rand ?? Math.random;
-  let ranked: RankedMethod[] = [];
-  try {
-    ranked = await rankMethods(prisma, {
-      dimension: opts.dimension,
-      contentType: opts.contentType,
-    });
-  } catch {
-    return { run: candidates, skipped: [], reasons: {} };
-  }
-  const byMethod = new Map(ranked.map((r) => [r.method, r]));
-
-  const skipped: string[] = [];
-  const reasons: Record<string, string> = {};
-  const survivors: string[] = [];
-  for (const method of candidates) {
-    const r = byMethod.get(method);
-    const chronic =
-      r && r.ewma < CHRONIC_FAILURE_EWMA && r.attempts >= CHRONIC_FAILURE_MIN_ATTEMPTS;
-    if (chronic && rand() >= epsilon) {
-      skipped.push(method);
-      reasons[method] = `chronic failure (ewma ${r!.ewma.toFixed(2)} over ${r!.attempts} attempts)`;
-      continue;
-    }
-    if (chronic) reasons[method] = `re-trialling chronic failure (ε-explore)`;
-    survivors.push(method);
-  }
-  // Order survivors best-first: known EWMA desc, unseen (optimistic) first among ties.
-  survivors.sort((a, b) => (byMethod.get(b)?.ewma ?? 1) - (byMethod.get(a)?.ewma ?? 1));
-  return { run: survivors, skipped, reasons };
-}
-
-/** Read-view: all strategy stats for a dimension (dashboard / diagnostics). */
-export async function listStrategyStats(prisma: PrismaClient, dimension?: string) {
-  return prisma.adminWorkerStrategyStat
-    .findMany({
-      where: dimension ? { dimension } : undefined,
-      orderBy: [{ dimension: "asc" }, { ewma: "desc" }],
-      take: 200,
-    })
-    .catch(() => []);
 }

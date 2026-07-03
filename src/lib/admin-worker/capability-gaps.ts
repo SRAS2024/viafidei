@@ -20,9 +20,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import { openInternetEnabled } from "@/lib/checklist";
 import { dynamicFetcherEnabled } from "./dynamic-fetcher";
-import { extractionAiEnabled } from "./extraction-provider";
 import { webSearchEnabled } from "./search-discovery";
-import { machineTranslationEnabled } from "./translation-provider";
 
 export interface CapabilityGap {
   /** Short capability name. */
@@ -82,13 +80,6 @@ export async function diagnoseCapabilityGaps(prisma: PrismaClient): Promise<{
 
   const gaps: CapabilityGap[] = [
     {
-      capability: "AI-assisted extraction",
-      ok: extractionAiEnabled(),
-      env: "EXTRACTION_AI_API_URL + EXTRACTION_AI_API_KEY (or TRANSLATION_AI_*)",
-      remediation:
-        "Configure EXTRACTION_AI_API_URL + EXTRACTION_AI_API_KEY (or reuse TRANSLATION_AI_*). Without it, messy real-world pages leave required fields missing and never publish — this is the main publish ceiling past the curated/structured base, and the most likely reason the published count has plateaued.",
-    },
-    {
       capability: "Open-internet fetching",
       ok: openInternet,
       env: "ADMIN_WORKER_OPEN_INTERNET=1 (default)",
@@ -109,13 +100,6 @@ export async function diagnoseCapabilityGaps(prisma: PrismaClient): Promise<{
       remediation: searchKeysSet
         ? "Configured with a keyed search provider."
         : "Keyless by default — the worker discovers sources nothing it already links to via DuckDuckGo, with no API key. Add GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_ENGINE_ID (or BING_SEARCH_API_KEY) for higher-volume, higher-quality results. Shows missing only when disabled (ADMIN_WORKER_KEYLESS_WEB_SEARCH=0) or offline (ADMIN_WORKER_SKIP_NETWORK=1).",
-    },
-    {
-      capability: "Latin/Greek translation provider",
-      ok: machineTranslationEnabled(),
-      env: "keyless Google translate (default), or TRANSLATION_AI_API_URL + TRANSLATION_AI_API_KEY / GOOGLE_TRANSLATE_API_KEY",
-      remediation:
-        "Keyless by default — the worker completes the Latin/Greek for prayers/litanies with no authentic received form by translating the exact stored text, no API key. Add TRANSLATION_AI_API_URL + TRANSLATION_AI_API_KEY (or GOOGLE_TRANSLATE_API_KEY) for the higher-quality liturgical register. Shows missing only when disabled (ADMIN_WORKER_KEYLESS_TRANSLATE=0) or offline (ADMIN_WORKER_SKIP_NETWORK=1).",
     },
     {
       capability: "Structured source reachable",

@@ -1,8 +1,10 @@
 /**
- * The worker's growth-capability self-check. It recognises which outward
- * capability is missing (AI extraction, open-internet, search, translation,
- * structured-source reachability) so a plateau becomes an actionable
- * instruction instead of a silent stall.
+ * The worker's growth-capability self-check. Every remaining capability is
+ * KEYLESS and on by default (open-internet, dynamic fetcher, keyword web-search,
+ * structured-source reachability) — there is NO external-AI capability, because
+ * the Admin Worker resolves growth through its own coded logic. A plateau
+ * therefore points at a disabled toggle or a network-reachability problem, never
+ * at a missing AI/API key.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,18 +12,13 @@ import type { PrismaClient } from "@prisma/client";
 import { diagnoseCapabilityGaps } from "@/lib/admin-worker/capability-gaps";
 
 const ENV_KEYS = [
-  "EXTRACTION_AI_API_URL",
-  "EXTRACTION_AI_API_KEY",
-  "EXTRACTION_AI_MODEL",
-  "TRANSLATION_AI_API_URL",
-  "TRANSLATION_AI_API_KEY",
-  "TRANSLATION_AI_MODEL",
-  "GOOGLE_TRANSLATE_API_KEY",
   "ADMIN_WORKER_OPEN_INTERNET",
+  "ADMIN_WORKER_KEYLESS_WEB_SEARCH",
+  "ADMIN_WORKER_DYNAMIC_FETCHER",
+  "ADMIN_WORKER_SKIP_NETWORK",
   "GOOGLE_SEARCH_API_KEY",
   "GOOGLE_SEARCH_ENGINE_ID",
   "BING_SEARCH_API_KEY",
-  "ADMIN_WORKER_SKIP_NETWORK",
 ] as const;
 
 let saved: Record<string, string | undefined>;
@@ -48,43 +45,31 @@ function prismaWithLog(unreachable: boolean): PrismaClient {
 }
 
 describe("diagnoseCapabilityGaps", () => {
-  it("with nothing configured, only the keyed AI-extraction capability is missing (rest are keyless)", async () => {
+  it("with nothing configured, NO capability is missing — every one is keyless + on by default", async () => {
     const cap = await diagnoseCapabilityGaps(prismaWithLog(false));
     const names = cap.missing.map((g) => g.capability);
-    // AI extraction is the one genuinely keyed quality booster.
-    expect(names).toContain("AI-assisted extraction");
-    // These are all keyless and ON by default now — not missing with no config.
+    // There is no AI-extraction / translation-provider capability anymore.
+    expect(names).not.toContain("AI-assisted extraction");
+    expect(names).not.toContain("Latin/Greek translation provider");
+    // The keyless capabilities are all on by default.
     expect(names).not.toContain("Open-internet fetching");
     expect(names).not.toContain("Keyword web-search discovery");
-    expect(names).not.toContain("Latin/Greek translation provider");
     expect(names).not.toContain("Dynamic (JS-rendering) fetcher");
-    // Structured source is "reachable" (no recent unreachable log).
     expect(names).not.toContain("Structured source reachable");
-    expect(cap.summary).toMatch(/gap/i);
+    expect(cap.missing).toHaveLength(0);
+    expect(cap.summary).toMatch(/all growth capabilities/i);
   });
 
-  it("keyless capabilities show missing when explicitly disabled / offline", async () => {
+  it("keyless capabilities show missing only when explicitly disabled / offline", async () => {
     process.env.ADMIN_WORKER_OPEN_INTERNET = "0";
     process.env.ADMIN_WORKER_KEYLESS_WEB_SEARCH = "0";
-    process.env.ADMIN_WORKER_KEYLESS_TRANSLATE = "0";
     const cap = await diagnoseCapabilityGaps(prismaWithLog(false));
     const names = cap.missing.map((g) => g.capability);
     expect(names).toContain("Open-internet fetching");
     expect(names).toContain("Keyword web-search discovery");
-    expect(names).toContain("Latin/Greek translation provider");
-  });
-
-  it("reports all-configured when the env is fully set", async () => {
-    process.env.EXTRACTION_AI_API_URL = "https://ai.example/v1/chat/completions";
-    process.env.EXTRACTION_AI_API_KEY = "sk-test";
-    process.env.TRANSLATION_AI_API_URL = "https://ai.example/v1/chat/completions";
-    process.env.TRANSLATION_AI_API_KEY = "sk-test";
-    process.env.ADMIN_WORKER_OPEN_INTERNET = "1";
-    process.env.GOOGLE_SEARCH_API_KEY = "g-key";
-    process.env.GOOGLE_SEARCH_ENGINE_ID = "g-cx";
-    const cap = await diagnoseCapabilityGaps(prismaWithLog(false));
-    expect(cap.missing).toHaveLength(0);
-    expect(cap.summary).toMatch(/all growth capabilities/i);
+    // The remediation is a keyless toggle — it never asks for an AI/API key.
+    const openGap = cap.missing.find((g) => g.capability === "Open-internet fetching");
+    expect(openGap?.env ?? "").not.toMatch(/AI_API_KEY/);
   });
 
   it("flags the structured source as unreachable when a recent warn log exists", async () => {

@@ -208,9 +208,10 @@ export async function diagnoseWhyNoGrowth(
   });
   if (blocker === "NONE" && authorityCount === 0) {
     blocker = "NO_APPROVED_SOURCES";
-    blockerExplanation = "No approved sources are configured.";
+    blockerExplanation = "No approved sources are configured yet.";
     exactTable = "AuthoritySource";
-    nextRepair = "Add approved sources via the source registry.";
+    nextRepair =
+      "The worker seeds its built-in Catholic source registry automatically — run a discovery pass to populate it. Only if it genuinely stays empty, add approved sources via the registry.";
   }
 
   // 3 + 4. Discovery + candidate URLs.
@@ -586,7 +587,7 @@ export async function diagnoseWhyNoGrowth(
       const cap = await diagnoseCapabilityGaps(prisma);
       if (cap.missing.length > 0) {
         const top = cap.missing[0];
-        nextRepair = `${nextRepair ? `${nextRepair} ` : ""}Likely capability gap — ${top.capability}: set ${top.env}.`;
+        nextRepair = `${nextRepair ? `${nextRepair} ` : ""}The worker's own capability "${top.capability}" looks unavailable (${top.env}) — a keyless capability/network-reachability toggle, not an external AI dependency. Otherwise the fix is internal: reroute the blocked item to a different approved source and re-run the pipeline.`;
       }
     } catch {
       // best-effort — the capability hint is additive

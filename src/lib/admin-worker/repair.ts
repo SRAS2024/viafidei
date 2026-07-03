@@ -25,7 +25,8 @@ export type RepairKind =
   | "public_display_failed"
   | "cache_failed"
   | "sitemap_failed"
-  | "search_failed";
+  | "search_failed"
+  | "extraction_rerouted";
 
 export interface RepairOutcome {
   kind: RepairKind;
@@ -163,6 +164,87 @@ export async function rotateSourceForMissingFields(
     succeeded: true,
     reason: `flagged ${failedFields.length} field(s) for source rotation`,
   };
+}
+
+/**
+ * Active source rerouting (self-reliant replacement for AI extraction).
+ *
+ * When deterministic extraction leaves required fields missing on `failedHost`,
+ * the worker does NOT invent the fields with an external AI — it switches to a
+ * DIFFERENT approved source. This finds the best still-unfetched candidate of
+ * the same content type on another host and boosts its fetch priority so the
+ * next SOURCE_FETCH pass reads it instead. If no alternate exists yet, it is a
+ * no-op (the EXTRACT_FAILED repair plan + discovery will surface one). Fail-open.
+ *
+ * This is the concrete "when a method/source fails, try another" step that keeps
+ * the pipeline moving through the worker's own logic:
+ *   DISCOVERY → CANDIDATE_PRIORITIZATION → SOURCE_FETCH → SOURCE_READ → EXTRACTION
+ */
+export async function rerouteToAlternateSource(
+  prisma: PrismaClient,
+  input: { contentType: string; failedHost: string; missingFields?: string[] },
+): Promise<RepairOutcome & { reroutedTo: string | null }> {
+  try {
+    // Best unfetched candidate of the same type on a DIFFERENT host, least-tried
+    // first (so we genuinely rotate rather than re-hammer one alternate).
+    const alt = await prisma.candidateSourceUrl.findFirst({
+      where: {
+        predictedContentType: input.contentType,
+        sourceHost: { not: input.failedHost },
+        status: { in: ["DISCOVERED", "PRIORITIZED"] },
+      },
+      orderBy: [{ fetchAttempts: "asc" }, { fetchPriority: "desc" }],
+      select: { id: true, discoveredUrl: true, sourceHost: true, fetchPriority: true },
+    });
+    if (!alt) {
+      return {
+        kind: "extraction_rerouted",
+        attempted: true,
+        succeeded: false,
+        reason: `no alternate ${input.contentType} source beyond ${input.failedHost} yet — discovery will surface one`,
+        reroutedTo: null,
+      };
+    }
+    // Boost it above the current queue so SOURCE_FETCH picks it next, and mark it
+    // PRIORITIZED so candidate prioritization reflects the reroute.
+    await prisma.candidateSourceUrl
+      .update({
+        where: { id: alt.id },
+        data: { fetchPriority: Math.max(alt.fetchPriority, 0) + 1000, status: "PRIORITIZED" },
+      })
+      .catch(() => undefined);
+    await writeAdminWorkerLog(prisma, {
+      category: "REPAIR",
+      severity: "INFO",
+      eventName: "extraction_reroute",
+      contentType: input.contentType,
+      sourceHost: alt.sourceHost,
+      message: `Extraction on ${input.failedHost} left ${input.contentType} fields ${
+        input.missingFields?.length ? `[${input.missingFields.join(", ")}] ` : ""
+      }missing — rerouting to ${alt.sourceHost} (${alt.discoveredUrl}) instead of using an external AI.`,
+      safeMetadata: {
+        failedHost: input.failedHost,
+        reroutedTo: alt.sourceHost,
+        candidateId: alt.id,
+        missingFields: input.missingFields ?? [],
+      },
+    }).catch(() => undefined);
+    return {
+      kind: "extraction_rerouted",
+      attempted: true,
+      succeeded: true,
+      reason: `rerouted ${input.contentType} extraction from ${input.failedHost} to ${alt.sourceHost}`,
+      reroutedTo: alt.sourceHost,
+    };
+  } catch (err) {
+    return {
+      kind: "extraction_rerouted",
+      attempted: true,
+      succeeded: false,
+      reason: err instanceof Error ? err.message : String(err),
+      reroutedTo: null,
+    };
+  }
 }
 
 /**

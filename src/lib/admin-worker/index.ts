@@ -120,15 +120,13 @@ export {
   type OperationalSummary,
 } from "./operational-summary";
 
-// Per-method strategy memory + adaptive selection (adaptive-worker Phase C/D).
+// Per-method strategy memory (adaptive-worker Phase C/D) — observability +
+// innovation-lab input; not used to disable live methods.
 export {
   recordMethodOutcome,
   rankMethods,
-  chooseMethodWithExploration,
-  listStrategyStats,
   ANY_CONTENT_TYPE,
   type RankedMethod,
-  type MethodChoice,
   type MethodOutcomeInput,
 } from "./method-memory";
 export {
@@ -447,6 +445,7 @@ export {
   checkHeartbeatHealth,
   reportDiscoveryGap,
   rotateSourceForMissingFields,
+  rerouteToAlternateSource,
   flagCacheRefresh,
   flagSitemapRefresh,
   flagSearchRefresh,

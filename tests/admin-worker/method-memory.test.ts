@@ -1,17 +1,14 @@
 /**
- * Per-method strategy memory + adaptive selection (adaptive-worker Phase C/D).
+ * Per-method strategy memory (adaptive-worker Phase C/D).
  *
  * Pins: outcomes update the EWMA success rate; ranking prefers content-type-
- * specific rows over the "*" aggregate and sorts by EWMA; and the ε-greedy
- * chooser exploits the best method by default but explores when ε fires or an
- * unseen candidate exists.
+ * specific rows over the "*" aggregate and sorts by EWMA. This memory is an
+ * observability + innovation-lab signal — it is not used to disable live methods.
  */
 import { describe, expect, it } from "vitest";
 
 import {
   ANY_CONTENT_TYPE,
-  chooseMethodWithExploration,
-  planMethods,
   rankMethods,
   recordMethodOutcome,
 } from "@/lib/admin-worker/method-memory";
@@ -155,49 +152,6 @@ describe("rankMethods", () => {
   });
 });
 
-describe("chooseMethodWithExploration", () => {
-  it("exploits the best known method when ε does not fire", async () => {
-    const prisma = fakePrisma([
-      mk("fetch", "static", "*", 0.9, 20),
-      mk("fetch", "dynamic", "*", 0.4, 20),
-    ]);
-    const choice = await chooseMethodWithExploration(prisma as FakePrisma, {
-      dimension: "fetch",
-      candidates: ["static", "dynamic"],
-      epsilon: 0.15,
-      rand: () => 0.99, // never explore
-    });
-    expect(choice.method).toBe("static");
-    expect(choice.mode).toBe("exploit");
-  });
-
-  it("explores a non-best candidate when ε fires", async () => {
-    const prisma = fakePrisma([
-      mk("fetch", "static", "*", 0.9, 20),
-      mk("fetch", "dynamic", "*", 0.4, 20),
-    ]);
-    const choice = await chooseMethodWithExploration(prisma as FakePrisma, {
-      dimension: "fetch",
-      candidates: ["static", "dynamic"],
-      epsilon: 0.15,
-      // First rand() < ε triggers explore; there are no unseen candidates here.
-      rand: () => 0.01,
-    });
-    expect(choice.method).toBe("dynamic");
-    expect(choice.mode).toBe("explore");
-  });
-
-  it("returns the single candidate without exploring", async () => {
-    const prisma = fakePrisma();
-    const choice = await chooseMethodWithExploration(prisma as FakePrisma, {
-      dimension: "fetch",
-      candidates: ["static"],
-    });
-    expect(choice.method).toBe("static");
-    expect(choice.mode).toBe("exploit");
-  });
-});
-
 function mk(
   dimension: string,
   method: string,
@@ -217,62 +171,6 @@ function mk(
     lastReason: null,
   };
 }
-
-describe("planMethods (apply the learned preference)", () => {
-  it("runs everything (best-first) when no method is a chronic failure", async () => {
-    const prisma = fakePrisma([
-      mk("discovery", "SITEMAP", "*", 0.8, 10),
-      mk("discovery", "RSS", "*", 0.5, 10),
-    ]);
-    const plan = await planMethods(prisma as FakePrisma, {
-      dimension: "discovery",
-      candidates: ["RSS", "SITEMAP", "API"], // API unseen
-      rand: () => 0.99,
-    });
-    expect(plan.skipped).toEqual([]);
-    // Best-first: SITEMAP (0.8) before RSS (0.5); unseen API is optimistic (>= 1).
-    expect(plan.run[0]).toBe("API");
-    expect(plan.run.indexOf("SITEMAP")).toBeLessThan(plan.run.indexOf("RSS"));
-  });
-
-  it("skips a chronic-failure method (strong evidence) when ε does not fire", async () => {
-    const prisma = fakePrisma([
-      mk("discovery", "SITEMAP", "*", 0.9, 12),
-      mk("discovery", "API", "*", 0.05, 20), // chronic failure: low ewma, many attempts
-    ]);
-    const plan = await planMethods(prisma as FakePrisma, {
-      dimension: "discovery",
-      candidates: ["SITEMAP", "API"],
-      epsilon: 0.15,
-      rand: () => 0.99, // no exploration
-    });
-    expect(plan.skipped).toEqual(["API"]);
-    expect(plan.run).toEqual(["SITEMAP"]);
-  });
-
-  it("re-trials a chronic failure when ε fires (never abandons permanently)", async () => {
-    const prisma = fakePrisma([mk("discovery", "API", "*", 0.05, 20)]);
-    const plan = await planMethods(prisma as FakePrisma, {
-      dimension: "discovery",
-      candidates: ["API"],
-      epsilon: 0.15,
-      rand: () => 0.01, // explore → re-trial
-    });
-    expect(plan.skipped).toEqual([]);
-    expect(plan.run).toEqual(["API"]);
-  });
-
-  it("does not skip a low score that lacks enough attempts (avoids premature judgement)", async () => {
-    const prisma = fakePrisma([mk("discovery", "API", "*", 0.05, 3)]); // only 3 attempts
-    const plan = await planMethods(prisma as FakePrisma, {
-      dimension: "discovery",
-      candidates: ["API"],
-      rand: () => 0.99,
-    });
-    expect(plan.skipped).toEqual([]);
-    expect(plan.run).toEqual(["API"]);
-  });
-});
 
 // eslint sanity: ANY_CONTENT_TYPE export is the sentinel used by callers.
 it("exports the aggregate sentinel", () => {

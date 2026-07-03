@@ -13,9 +13,10 @@
  *   - BOUNDED. Exactly two groups, a capped sample, `publishes:false`.
  *   - REMEMBERS THE WINNER. When a comparison is conclusive (clear margin +
  *     enough attempts on both), it records "prefer method X for this dimension /
- *     content type" into AdminWorkerMemory, which chooseMethodWithExploration and
- *     future ranking consult — so the better approach is actually applied, while
- *     the ε-greedy policy keeps occasionally trialling alternatives.
+ *     content type" into AdminWorkerMemory as a durable, operator-visible
+ *     recommendation. It is advisory: nothing auto-disables a live method on it
+ *     (see method-memory.ts for why that would hurt coverage) — it informs the
+ *     diagnostics + operational summary and is available for future use.
  *
  * Wired as the `innovation` ops lane (throttled), so the worker continuously
  * researches which of its methods works best without ever risking production.
@@ -116,8 +117,8 @@ export async function runInnovationExperiment(
       groups: { a, b },
     });
 
-    // Remember + apply the winner: chooseMethodWithExploration / ranking consult
-    // this GENERIC memory so the better method is preferred going forward.
+    // Remember the winner as a durable, operator-visible recommendation
+    // (advisory — surfaced in diagnostics/operational summary, not auto-applied).
     if (conclusive) {
       await rememberOutcome(prisma, {
         memoryType: "GENERIC",
