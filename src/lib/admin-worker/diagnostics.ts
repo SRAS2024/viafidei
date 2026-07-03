@@ -631,14 +631,23 @@ async function ratingQualityScoring(prisma: PrismaClient): Promise<HealthRating>
 async function ratingPackageArtifacts(prisma: PrismaClient): Promise<HealthRating> {
   // Spec §13: surface the per-status counts of AdminWorkerPackageArtifact.
   const now = new Date();
-  const [total, buildReady, qaPassed, needsRepair, rejected, published] = await Promise.all([
-    prisma.adminWorkerPackageArtifact.count().catch(() => 0),
-    prisma.adminWorkerPackageArtifact.count({ where: { status: "BUILD_READY" } }).catch(() => 0),
-    prisma.adminWorkerPackageArtifact.count({ where: { status: "QA_PASSED" } }).catch(() => 0),
-    prisma.adminWorkerPackageArtifact.count({ where: { status: "NEEDS_REPAIR" } }).catch(() => 0),
-    prisma.adminWorkerPackageArtifact.count({ where: { status: "REJECTED" } }).catch(() => 0),
-    prisma.adminWorkerPackageArtifact.count({ where: { status: "PUBLISHED" } }).catch(() => 0),
-  ]);
+  const [total, extracted, checklistReady, buildReady, qaPassed, needsRepair, rejected, published] =
+    await Promise.all([
+      prisma.adminWorkerPackageArtifact.count().catch(() => 0),
+      prisma.adminWorkerPackageArtifact.count({ where: { status: "EXTRACTED" } }).catch(() => 0),
+      prisma.adminWorkerPackageArtifact
+        .count({ where: { status: "CHECKLIST_READY" } })
+        .catch(() => 0),
+      prisma.adminWorkerPackageArtifact.count({ where: { status: "BUILD_READY" } }).catch(() => 0),
+      prisma.adminWorkerPackageArtifact.count({ where: { status: "QA_PASSED" } }).catch(() => 0),
+      prisma.adminWorkerPackageArtifact.count({ where: { status: "NEEDS_REPAIR" } }).catch(() => 0),
+      prisma.adminWorkerPackageArtifact.count({ where: { status: "REJECTED" } }).catch(() => 0),
+      prisma.adminWorkerPackageArtifact.count({ where: { status: "PUBLISHED" } }).catch(() => 0),
+    ]);
+  // A pile at CHECKLIST_READY/EXTRACTED means extraction is working but the
+  // downstream funnel is stalled (EXTRACTING_WITHOUT_PUBLISHING). The always-on
+  // drain now bridges CHECKLIST_READY → BUILD_READY → publish every pass, so a
+  // persistent CHECKLIST_READY backlog is worth surfacing.
   const status: HealthStatus = total === 0 ? "warn" : "pass";
   return {
     key: "admin_worker_package_artifacts",
@@ -650,7 +659,7 @@ async function ratingPackageArtifacts(prisma: PrismaClient): Promise<HealthRatin
     summary:
       total === 0
         ? "No package artifacts yet."
-        : `Artifacts: ${published} published, ${qaPassed} QA_PASSED, ${buildReady} BUILD_READY, ${needsRepair} NEEDS_REPAIR, ${rejected} REJECTED.`,
+        : `Artifacts: ${published} published, ${qaPassed} QA_PASSED, ${buildReady} BUILD_READY, ${checklistReady} CHECKLIST_READY, ${extracted} EXTRACTED, ${needsRepair} NEEDS_REPAIR, ${rejected} REJECTED.`,
     recommendedRepair:
       needsRepair > 0
         ? "Repair NEEDS_REPAIR artifacts before they fall through to rare human review."

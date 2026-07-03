@@ -15,3 +15,12 @@ process.env.DATABASE_URL = process.env.DATABASE_URL || "postgresql://test:test@l
 // don't pay per-call spawn cost. Brain-specific tests opt back IN explicitly
 // (see tests/admin-worker/intelligence/* and tests/integration/intelligence*).
 process.env.INTELLIGENCE_BRAIN_ENABLED = process.env.INTELLIGENCE_BRAIN_ENABLED ?? "0";
+
+// External network is skipped by default so the unit suite is hermetic + fast
+// and never flakes on a real fetch. In particular the diagnostics
+// outbound-reachability probe (runAdminWorkerDiagnostics → ratingOutboundNetwork)
+// would otherwise do multi-second real requests on a cold cache and blow a
+// test's 5s budget. Tests that exercise a network path opt back IN by deleting
+// this var (with a mocked global.fetch) — see structured-sparql-fallback,
+// archive-fallback, dispatcher-real-pipeline.
+process.env.ADMIN_WORKER_SKIP_NETWORK = process.env.ADMIN_WORKER_SKIP_NETWORK ?? "1";

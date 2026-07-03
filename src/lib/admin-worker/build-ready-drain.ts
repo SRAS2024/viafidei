@@ -27,6 +27,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { runChecklistAndCitationOrchestrator } from "./checklist-citation-orchestrator";
 import { writeAdminWorkerLog } from "./logs";
 import { filePlan } from "./repair-plans";
 import { runCrossSourceVerification, runStrictQA, runPersistAndPublish } from "./dispatcher";
@@ -183,6 +184,8 @@ export interface DrainResult {
   stuck: number;
   byGate: Record<string, number>;
   byOutcome: Record<string, number>;
+  /** CHECKLIST_READY artifacts promoted into the built funnel this drain. */
+  bridged: number;
   published: number;
   advanced: number;
   repaired: number;
@@ -214,6 +217,7 @@ export async function runBuildReadyDrain(
     stuck: 0,
     byGate: {},
     byOutcome: {},
+    bridged: 0,
     published: 0,
     advanced: 0,
     repaired: 0,
@@ -240,7 +244,18 @@ export async function runBuildReadyDrain(
         extractedFields: true,
       },
     });
-    if (stuck.length === 0) return out;
+    // Complete-but-unbridged artifacts: the EXTRACTION stage stamps a fully
+    // populated package CHECKLIST_READY, but the CHECKLIST_READY → BUILD_READY
+    // bridge (checklist/citation orchestrator) is otherwise only brain-dispatched
+    // one-stage-per-pass. If the brain fixates elsewhere, complete artifacts sit
+    // at CHECKLIST_READY forever — extraction succeeding while nothing publishes
+    // (the EXTRACTING_WITHOUT_PUBLISHING escalation). The drain must own that
+    // bridge too, so it drains the WHOLE downstream funnel every pass.
+    const checklistReady = await prisma.adminWorkerPackageArtifact
+      .count({ where: { status: "CHECKLIST_READY", checklistItemId: null } })
+      .catch(() => 0);
+
+    if (stuck.length === 0 && checklistReady === 0) return out;
     out.ran = true;
     out.stuck = stuck.length;
 
@@ -348,6 +363,29 @@ export async function runBuildReadyDrain(
     for (let round = 0; round < driveRounds; round++) {
       let progressed = false;
 
+      // 0. Bridge complete CHECKLIST_READY artifacts into the built funnel. This
+      //    is the fix for EXTRACTING_WITHOUT_PUBLISHING: a fully-extracted
+      //    artifact must not depend on the brain happening to pick the checklist
+      //    stage — the always-on drain promotes it (creates its checklist item +
+      //    citations → BUILD_READY) so it can be QA'd and published this same
+      //    pass. Bounded per round; `checklistItemId: null` guarantees no reloop.
+      const pendingChecklist = await prisma.adminWorkerPackageArtifact
+        .count({ where: { status: "CHECKLIST_READY", checklistItemId: null } })
+        .catch(() => 0);
+      if (pendingChecklist > 0) {
+        const outcomes = await runChecklistAndCitationOrchestrator(prisma, {
+          passId: opts.passId ?? "drain",
+          limit: 100,
+        }).catch(() => []);
+        const promoted = outcomes.filter(
+          (o) => o.status === "created" || o.status === "updated",
+        ).length;
+        if (promoted > 0) {
+          progressed = true;
+          out.bridged += promoted;
+        }
+      }
+
       // 1. Gather evidence for BUILD_READY items that still need it.
       const needVerify = await prisma.adminWorkerPackageArtifact
         .count({ where: { status: "BUILD_READY", validationNeeds: { isEmpty: false } } })
@@ -402,7 +440,7 @@ export async function runBuildReadyDrain(
       category: "VALIDATION",
       severity: "INFO",
       eventName: "build_ready_drain",
-      message: `BUILD_READY drain: ${out.stuck} stuck triaged → ${out.published} published, ${out.advanced} QA-advanced, ${out.repaired} repaired, ${out.reviewed} to review, ${out.rejectedDuplicate} duplicate. Gates: ${Object.entries(
+      message: `BUILD_READY drain: ${out.bridged} bridged from CHECKLIST_READY, ${out.stuck} stuck triaged → ${out.published} published, ${out.advanced} QA-advanced, ${out.repaired} repaired, ${out.reviewed} to review, ${out.rejectedDuplicate} duplicate. Gates: ${Object.entries(
         out.byGate,
       )
         .map(([g, n]) => `${g}=${n}`)
@@ -411,6 +449,7 @@ export async function runBuildReadyDrain(
         stuck: out.stuck,
         byGate: out.byGate,
         byOutcome: out.byOutcome,
+        bridged: out.bridged,
         published: out.published,
         advanced: out.advanced,
         repaired: out.repaired,

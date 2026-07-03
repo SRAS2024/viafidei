@@ -3,9 +3,24 @@
  * the correct blocking gate + routing outcome, so the "15 built, 0 published"
  * stall is explained per-item and each item is routed to a resolution.
  */
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diagnoseArtifactGate, type DrainArtifact } from "@/lib/admin-worker/build-ready-drain";
+
+// The drain drives the real gate handlers; mock them so the bridge test is
+// hermetic and asserts only the CHECKLIST_READY → BUILD_READY promotion path.
+const runChecklistAndCitationOrchestrator = vi.fn();
+vi.mock("@/lib/admin-worker/checklist-citation-orchestrator", () => ({
+  runChecklistAndCitationOrchestrator: (...args: unknown[]) =>
+    runChecklistAndCitationOrchestrator(...args),
+}));
+vi.mock("@/lib/admin-worker/dispatcher", () => ({
+  runCrossSourceVerification: vi.fn(async () => ({ kind: "idle" })),
+  runStrictQA: vi.fn(async () => ({ kind: "idle" })),
+  runPersistAndPublish: vi.fn(async () => ({ kind: "idle" })),
+}));
+vi.mock("@/lib/admin-worker/logs", () => ({ writeAdminWorkerLog: vi.fn(async () => undefined) }));
+vi.mock("@/lib/admin-worker/repair-plans", () => ({ filePlan: vi.fn(async () => undefined) }));
 
 function artifact(overrides: Partial<DrainArtifact> = {}): DrainArtifact {
   return {
@@ -114,5 +129,59 @@ describe("diagnoseArtifactGate", () => {
     for (const c of cases) {
       expect(outcomes.has(diagnoseArtifactGate(c, ctx()).outcome)).toBe(true);
     }
+  });
+});
+
+/**
+ * The always-on drain must own the CHECKLIST_READY → BUILD_READY bridge, not
+ * just BUILD_READY+ artifacts. This is the EXTRACTING_WITHOUT_PUBLISHING fix: a
+ * fully-extracted artifact sitting at CHECKLIST_READY (because the brain didn't
+ * happen to pick the checklist stage) must still be promoted + driven toward
+ * publication by the drain that runs every pass.
+ */
+describe("runBuildReadyDrain — CHECKLIST_READY bridge", () => {
+  beforeEach(() => {
+    runChecklistAndCitationOrchestrator.mockReset();
+  });
+
+  // Stateful fake prisma: N artifacts at CHECKLIST_READY, none built yet. The
+  // bridge mock promotes them (drops the CHECKLIST_READY count to 0), mirroring
+  // the real orchestrator's `checklistItemId: null` filter that prevents reloop.
+  function fakePrisma(initialChecklistReady: number) {
+    let checklistReady = initialChecklistReady;
+    const countFor = (where: Record<string, unknown> = {}) => {
+      if (where.status === "CHECKLIST_READY") return checklistReady;
+      return 0; // no BUILD_READY / VERIFICATION_READY / QA_PASSED work
+    };
+    runChecklistAndCitationOrchestrator.mockImplementation(async () => {
+      const promoted = checklistReady;
+      checklistReady = 0;
+      return Array.from({ length: promoted }, () => ({ status: "created" as const }));
+    });
+    return {
+      adminWorkerPackageArtifact: {
+        findMany: async () => [], // 0 BUILD_READY+ artifacts
+        count: async ({ where }: { where?: Record<string, unknown> } = {}) => countFor(where),
+        update: async () => undefined,
+      },
+      adminWorkerCrossSourceVerification: { groupBy: async () => [] },
+      publishedContent: { findMany: async () => [] },
+    } as never;
+  }
+
+  it("bridges CHECKLIST_READY artifacts even with zero BUILD_READY+ backlog", async () => {
+    const { runBuildReadyDrain } = await import("@/lib/admin-worker/build-ready-drain");
+    const r = await runBuildReadyDrain(fakePrisma(3), { passId: "t", active: true });
+    expect(r.ran).toBe(true); // the pre-fix drain returned early (ran=false) here
+    expect(r.bridged).toBe(3);
+    expect(runChecklistAndCitationOrchestrator).toHaveBeenCalled();
+  });
+
+  it("does nothing when neither built nor CHECKLIST_READY artifacts exist", async () => {
+    const { runBuildReadyDrain } = await import("@/lib/admin-worker/build-ready-drain");
+    const r = await runBuildReadyDrain(fakePrisma(0), { passId: "t", active: true });
+    expect(r.ran).toBe(false);
+    expect(r.bridged).toBe(0);
+    expect(runChecklistAndCitationOrchestrator).not.toHaveBeenCalled();
   });
 });
