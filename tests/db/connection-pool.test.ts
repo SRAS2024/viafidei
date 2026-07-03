@@ -11,7 +11,8 @@ describe("databaseUrlWithPool (caps the Prisma pool to avoid P2037)", () => {
   it("adds a bounded connection_limit and pool_timeout when absent", () => {
     const out = databaseUrlWithPool("postgresql://u:p@host:5432/db");
     const url = new URL(out!);
-    expect(url.searchParams.get("connection_limit")).toBe("5");
+    // Default raised to 10 to back the worker's concurrent lane set.
+    expect(url.searchParams.get("connection_limit")).toBe("10");
     expect(url.searchParams.get("pool_timeout")).toBe("20");
   });
 

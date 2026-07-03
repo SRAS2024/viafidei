@@ -1,118 +1,149 @@
 /**
- * The concrete internal worker lanes (adaptive-worker Phase B).
+ * The concrete internal worker lanes (adaptive-worker Phase B, fine-grained).
  *
- * Each lane groups related, independent, fail-open workstreams that used to run
- * one-after-another in the loop. Grouped so that lanes touch DISJOINT domains
- * (safe to run concurrently) and so brain-calling work stays in a single lane
- * (never issues concurrent calls to the one Python brain subprocess).
+ * Each lane is ONE independent, fail-open workstream that used to run
+ * one-after-another inside a coarse grouped lane (or serially in the loop).
+ * Splitting the old grouped lanes ("ingestion", "enrichment", "discovery",
+ * "maintenance") into a lane PER workstream means the worker now runs far more
+ * tasks at once — curated / structured / liturgical ingest fire in parallel,
+ * the three discovery methods fire in parallel, the four awareness/custody
+ * passes fire in parallel — instead of blocking on each other. Every lane
+ * records its OWN live `AdminWorkerLaneState` row, so the dashboard/diagnostics
+ * show exactly what each one is doing, its last outcome, and its last error.
  *
- *   CONTENT lanes (activeOnly — publish content, so only in python/active mode):
- *     - ingestion:  curated + structured + liturgical ingest (publishes)
- *     - enrichment: prayer-translation backfill + review auto-resolve + pope cleanup
- *     - discovery:  structured discovery-seeder + OSM parish + always-on web discovery
+ * Safety is by construction, unchanged from the grouped design:
+ *   - Lanes touch DISJOINT domains (curated vs structured vs liturgical ingest
+ *     publish different content sets; the drain owns artifacts; the three
+ *     discovery methods only INSERT candidates, deduped by the URL unique
+ *     constraint), so concurrent lanes never fight over the same rows.
+ *   - `PublishedContent @@unique([contentType, slug])` makes double-publishing
+ *     impossible at the DB level even under a race.
+ *   - ALL Python-brain-calling work stays in the SINGLE `intelligence` lane, so
+ *     the one resident brain subprocess never gets concurrent calls. (The main
+ *     decision/dispatch brain call happens in the loop BEFORE the lanes run.)
+ *   - Each lane is isolated + enters an error-backoff cooldown on failure
+ *     (runWorkerLanes), so a failing lane never kills the others and retries on
+ *     its own cadence — per-lane self-repair.
  *
- *   OPS lanes (run regardless of mode — no new public publishing except the
- *   drain's publish step, which self-gates on `active`):
- *     - drain:        BUILD_READY drain + triage (Phase A)
- *     - readings:     daily-readings refresh + backfill
- *     - maintenance:  schema/ui awareness + self-model + content custody
- *     - reporting:    growth + source-coverage reporting pass
- *     - intelligence: post-pass intelligence + lab + skill matrix (brain-calling → serial)
- *     - escalation:   self-monitoring → governance → escalation check
- *
- * Every lane is invoked through `runWorkerLanes` (lanes.ts), which runs them
- * concurrently under a global cap, isolates failures, applies error-backoff, and
- * records each lane's live state.
+ * Lanes are invoked through `runWorkerLanes` (lanes.ts), which runs them
+ * concurrently under the global cap (ADMIN_WORKER_LANE_CONCURRENCY), isolates
+ * failures, applies the cooldown, and records each lane's live state.
  */
 
 import type { LaneDef } from "./lanes";
 
-/** Content lanes — only run when the Python final brain is active. */
+/**
+ * CONTENT lanes — publish or grow public content, so they only run when the
+ * Python final brain is active (safe-degraded contract). One lane per
+ * workstream, all touching disjoint domains → safe to run concurrently.
+ */
 export const CONTENT_LANES: LaneDef[] = [
+  // ── Ingestion: curated, structured, and liturgical ingest each publish a
+  //    DISJOINT content set, so they run as three parallel lanes. ────────────
   {
-    name: "ingestion",
-    capacity: 3,
+    name: "ingest-curated",
+    capacity: 4,
     activeOnly: true,
     async run({ prisma, passId }) {
-      let published = 0;
-      try {
-        const { runCuratedIngest } = await import("./curated-ingest");
-        published += (await runCuratedIngest(prisma, { passId })).published;
-      } catch {
-        /* fail-open */
-      }
-      try {
-        const { runStructuredIngest } = await import("./structured/ingest");
-        published += (await runStructuredIngest(prisma, { passId })).published;
-      } catch {
-        /* fail-open */
-      }
-      try {
-        const { runLiturgicalCalendarIngest } = await import("./liturgical-calendar-ingest");
-        published += (await runLiturgicalCalendarIngest(prisma)).published;
-      } catch {
-        /* fail-open */
-      }
-      return { published, detail: `ingestion +${published}` };
+      const { runCuratedIngest } = await import("./curated-ingest");
+      const published = (await runCuratedIngest(prisma, { passId })).published;
+      return { published, detail: `curated ingest +${published}` };
     },
   },
   {
-    name: "enrichment",
-    capacity: 3,
+    name: "ingest-structured",
+    capacity: 4,
+    activeOnly: true,
+    async run({ prisma, passId }) {
+      const { runStructuredIngest } = await import("./structured/ingest");
+      const published = (await runStructuredIngest(prisma, { passId })).published;
+      return { published, detail: `structured ingest +${published}` };
+    },
+  },
+  {
+    name: "ingest-liturgical",
+    capacity: 1,
     activeOnly: true,
     async run({ prisma }) {
-      try {
-        const { runPrayerTranslationBackfill } = await import("./prayer-translation-backfill");
-        await runPrayerTranslationBackfill(prisma);
-      } catch {
-        /* fail-open */
-      }
-      try {
-        const { runReviewAutoResolve } = await import("./human-review");
-        await runReviewAutoResolve(prisma);
-      } catch {
-        /* fail-open */
-      }
-      try {
-        const { pruneAntipopeRecords, pruneDuplicatePopeRecords } = await import("./pope-cleanup");
-        await pruneAntipopeRecords(prisma);
-        await pruneDuplicatePopeRecords(prisma);
-      } catch {
-        /* fail-open */
-      }
-      return { detail: "enrichment ran" };
+      const { runLiturgicalCalendarIngest } = await import("./liturgical-calendar-ingest");
+      const published = (await runLiturgicalCalendarIngest(prisma)).published;
+      return { published, detail: `liturgical ingest +${published}` };
+    },
+  },
+
+  // ── Enrichment: translation backfill, review auto-resolve, and pope-record
+  //    cleanup are independent domains → three parallel lanes. ────────────────
+  {
+    name: "enrich-translations",
+    capacity: 2,
+    activeOnly: true,
+    async run({ prisma }) {
+      const { runPrayerTranslationBackfill } = await import("./prayer-translation-backfill");
+      await runPrayerTranslationBackfill(prisma);
+      return { detail: "prayer-translation backfill ran" };
     },
   },
   {
-    name: "discovery",
-    capacity: 3,
+    name: "enrich-reviews",
+    capacity: 2,
+    activeOnly: true,
+    async run({ prisma }) {
+      const { runReviewAutoResolve } = await import("./human-review");
+      await runReviewAutoResolve(prisma);
+      return { detail: "review auto-resolve ran" };
+    },
+  },
+  {
+    name: "enrich-pope-cleanup",
+    capacity: 1,
+    activeOnly: true,
+    async run({ prisma }) {
+      const { pruneAntipopeRecords, pruneDuplicatePopeRecords } = await import("./pope-cleanup");
+      await pruneAntipopeRecords(prisma);
+      await pruneDuplicatePopeRecords(prisma);
+      return { detail: "pope-record cleanup ran" };
+    },
+  },
+
+  // ── Discovery: the structured seeder, OSM parish discovery, and the always-on
+  //    web sweep only INSERT candidates (deduped by URL) → three parallel
+  //    lanes keep the funnel full from every angle at once. ───────────────────
+  {
+    name: "discover-structured",
+    capacity: 2,
+    activeOnly: true,
+    async run({ prisma }) {
+      const { runDiscoverySeeder } = await import("./structured/discovery-seeder");
+      await runDiscoverySeeder(prisma);
+      return { detail: "structured discovery-seeder ran" };
+    },
+  },
+  {
+    name: "discover-parish-osm",
+    capacity: 2,
+    activeOnly: true,
+    async run({ prisma }) {
+      const { runOsmParishDiscovery } = await import("./parish-osm");
+      const published = (await runOsmParishDiscovery(prisma, { brainActive: true })).published;
+      return { published, detail: `OSM parish discovery +${published}` };
+    },
+  },
+  {
+    name: "discover-web",
+    capacity: 4,
     activeOnly: true,
     async run({ prisma, passId }) {
-      let published = 0;
-      try {
-        const { runDiscoverySeeder } = await import("./structured/discovery-seeder");
-        await runDiscoverySeeder(prisma);
-      } catch {
-        /* fail-open */
-      }
-      try {
-        const { runOsmParishDiscovery } = await import("./parish-osm");
-        published += (await runOsmParishDiscovery(prisma, { brainActive: true })).published;
-      } catch {
-        /* fail-open */
-      }
-      try {
-        const { runAlwaysOnDiscovery } = await import("./always-on-discovery");
-        await runAlwaysOnDiscovery(prisma, { passId });
-      } catch {
-        /* fail-open */
-      }
-      return { published, detail: `discovery +${published}` };
+      const { runAlwaysOnDiscovery } = await import("./always-on-discovery");
+      await runAlwaysOnDiscovery(prisma, { passId });
+      return { detail: "always-on web discovery ran" };
     },
   },
 ];
 
-/** Ops lanes — run every pass regardless of brain mode. */
+/**
+ * OPS lanes — run every pass regardless of brain mode. None publish NEW public
+ * content except the drain's publish step, which self-gates on `active`.
+ */
 export const OPS_LANES: LaneDef[] = [
   {
     name: "drain",
@@ -140,18 +171,43 @@ export const OPS_LANES: LaneDef[] = [
       return { detail: "readings refreshed" };
     },
   },
+
+  // ── Maintenance: schema awareness, UI awareness, the self-model refresh, and
+  //    content custody are independent → four parallel lanes. ────────────────
   {
-    name: "maintenance",
+    name: "maint-schema",
     capacity: 1,
     async run({ prisma, passId }) {
-      const { runSchemaAwareness, runUiAwareness } = await import("./awareness");
-      const { runSelfModelPass } = await import("./self-model");
-      const { runCustodyPass } = await import("./custody");
+      const { runSchemaAwareness } = await import("./awareness");
       await runSchemaAwareness(prisma, { passId });
+      return { detail: "schema awareness ran" };
+    },
+  },
+  {
+    name: "maint-ui",
+    capacity: 1,
+    async run({ prisma, passId }) {
+      const { runUiAwareness } = await import("./awareness");
       await runUiAwareness(prisma, { passId });
+      return { detail: "UI awareness ran" };
+    },
+  },
+  {
+    name: "maint-self-model",
+    capacity: 1,
+    async run({ prisma, passId }) {
+      const { runSelfModelPass } = await import("./self-model");
       await runSelfModelPass(prisma, { passId });
+      return { detail: "self-model refreshed" };
+    },
+  },
+  {
+    name: "maint-custody",
+    capacity: 1,
+    async run({ prisma, passId }) {
+      const { runCustodyPass } = await import("./custody");
       await runCustodyPass(prisma, { passId });
-      return { detail: "maintenance ran" };
+      return { detail: "content custody ran" };
     },
   },
   {
@@ -164,8 +220,8 @@ export const OPS_LANES: LaneDef[] = [
     },
   },
   {
-    // Brain-calling work lives in ONE lane so it never issues concurrent calls
-    // to the single Python brain subprocess.
+    // ALL Python-brain-calling work lives in ONE lane so it never issues
+    // concurrent calls to the single resident brain subprocess.
     name: "intelligence",
     capacity: 1,
     async run({ prisma, passId, workerId }) {
@@ -225,3 +281,12 @@ export const OPS_LANES: LaneDef[] = [
     },
   },
 ];
+
+/**
+ * Every active lane name across both groups — used to prune stale lane-state
+ * rows left over from earlier lane layouts so the dashboard only ever shows the
+ * lanes that are actually running.
+ */
+export const ALL_LANE_NAMES: readonly string[] = [...CONTENT_LANES, ...OPS_LANES].map(
+  (l) => l.name,
+);
