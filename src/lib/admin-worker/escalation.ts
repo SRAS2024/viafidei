@@ -61,16 +61,16 @@ function guidanceFor(kind: WarningKind | "GENERIC"): { needs: string; action: st
     case "LOOPING":
       return {
         needs:
-          "A way out of the fixated stage — usually a fresh source, a repaired candidate, or a strategy change the governor can't self-apply.",
+          "A way out of the fixated stage through the worker's OWN pipeline — reroute the blocked item to a different approved source, repair the candidate, or force the next productive stage. This is a workflow problem, not a missing API key.",
         action:
-          "Review the looping stage in the attached diagnostics; if it is source-starved, add a source/API key, otherwise inspect the stage's repeated failures.",
+          "Let the governor force the internal corrective path (DISCOVERY → CANDIDATE_PRIORITIZATION → SOURCE_FETCH → SOURCE_READ → EXTRACTION → VALIDATION → BUILD → QA → PUBLISH): reroute the fixated item to an alternate source, drain the built backlog, and resolve the repeated failures. The worker resolves this itself — no external AI/source key is required.",
       };
     case "EXTRACTING_WITHOUT_PUBLISHING":
       return {
         needs:
-          "The publish gate to accept work already built — commonly blocked on cross-source validation evidence or strict-QA.",
+          "The downstream pipeline drained so built work reaches publish — commonly blocked on cross-source validation evidence or strict-QA, not on any external service.",
         action:
-          "Check the 'Why Content Isn't Growing' section for the exact blocked stage and drain it (add validation sources or resolve QA blockers).",
+          "Check the 'Why Content Isn't Growing' section for the exact blocked stage and let the worker drain it via the internal path (SOURCE_READ → EXTRACTION → VALIDATION → BUILD → QA → PUBLISH): the BUILD_READY drain runs cross-source verification + strict QA and reroutes items missing evidence to another source. No API key needed.",
       };
     case "PUBLISHING_LOW_QUALITY":
       return {
@@ -89,9 +89,9 @@ function guidanceFor(kind: WarningKind | "GENERIC"): { needs: string; action: st
     case "REPEATED_TYPE_FAILURE":
       return {
         needs:
-          "A working source or extractor for the failing content type — it repeatedly fails and never publishes.",
+          "The failing content type routed through a DIFFERENT source via the worker's own logic — it keeps failing on the current source and never publishes.",
         action:
-          "Confirm the content type has a reachable, parseable source; consider adding a structured ingestor or an API key for it.",
+          "Let the worker reroute the type to an alternate approved source (candidate prioritization + source reputation already rank them) and re-run SOURCE_FETCH → SOURCE_READ → EXTRACTION deterministically. If every known source genuinely fails, the structured (Wikidata/Wikipedia) ingestor covers this type — no external AI extraction key is involved.",
       };
     case "NO_VALUE":
       return {

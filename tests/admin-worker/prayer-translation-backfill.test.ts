@@ -1,18 +1,13 @@
 /**
  * Prayer translation backfill: fills Latin + Greek on published prayers using
- * the layered engine. These tests pin the keyless canonical path (authentic
- * received text written directly to the payload) and both machine modes — filled
- * directly (the default, to complete coverage) or routed to review when the
- * operator opts out (TRANSLATION_AUTOPUBLISH_MACHINE=0). The flag is mocked here
- * so each mode is exercised explicitly.
+ * the worker's OWN deterministic engine only. These tests pin the keyless
+ * canonical path (authentic received text written directly to the payload) and
+ * that there is NO external AI/machine-translation fallback — a prayer the
+ * corpus can't resolve is simply left as-is (or routed to human review only when
+ * ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1, without any machine draft).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/admin-worker/translation-provider", () => ({
-  machineTranslationEnabled: vi.fn(() => false),
-  autoPublishMachineTranslations: vi.fn(() => false),
-  proposeMachineTranslation: vi.fn(async () => null),
-}));
 vi.mock("@/lib/admin-worker/logs", () => ({
   writeAdminWorkerLog: vi.fn(async () => undefined),
 }));
@@ -20,22 +15,9 @@ vi.mock("@/lib/admin-worker/logs", () => ({
 import type { PrismaClient } from "@prisma/client";
 
 import { runPrayerTranslationBackfill } from "@/lib/admin-worker/prayer-translation-backfill";
-import {
-  autoPublishMachineTranslations,
-  machineTranslationEnabled,
-  proposeMachineTranslation,
-} from "@/lib/admin-worker/translation-provider";
-
-const mockedEnabled = vi.mocked(machineTranslationEnabled);
-const mockedAuto = vi.mocked(autoPublishMachineTranslations);
-const mockedPropose = vi.mocked(proposeMachineTranslation);
 
 let savedReviewEnv: string | undefined;
 beforeEach(() => {
-  mockedEnabled.mockReturnValue(false);
-  mockedAuto.mockReturnValue(false);
-  mockedPropose.mockReset();
-  mockedPropose.mockResolvedValue(null);
   savedReviewEnv = process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW;
   delete process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW; // default: fully autonomous
 });
@@ -45,14 +27,14 @@ afterEach(() => {
   else process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = savedReviewEnv;
 });
 
-// Three stock segments that all resolve to authentic Latin + Greek.
+// A stock segment that resolves to authentic Latin + Greek via the deterministic
+// corpus (no network, no AI).
 const KYRIE = "Lord, have mercy.\nChrist, have mercy.\nLord, have mercy.";
 
 function makePrisma(rows: Array<{ id: string; title: string; slug?: string; payload: unknown }>) {
-  // The live-row write now routes through the content-protection gate
-  // (applyProtectedContentUpdate → snapshotPublishedContent), which reads the
-  // row via findUnique, writes a PublishedContentVersion snapshot, bumps the
-  // version, then updates the payload. Model all of that here.
+  // The live-row write routes through the content-protection gate
+  // (applyProtectedContentUpdate → snapshotPublishedContent): read via findUnique,
+  // write a PublishedContentVersion snapshot, bump version, then update payload.
   const store = rows.map((r) => ({
     contentType: "PRAYER",
     slug: r.slug ?? r.id,
@@ -104,7 +86,7 @@ function payloadUpdate(update: ReturnType<typeof vi.fn>) {
 }
 
 describe("runPrayerTranslationBackfill", () => {
-  it("fills canonical Latin + Greek directly (keyless, accurate)", async () => {
+  it("fills canonical Latin + Greek directly (keyless, deterministic)", async () => {
     const { prisma, update } = makePrisma([
       { id: "p1", title: "Kyrie", slug: "kyrie", payload: { body: KYRIE } },
     ]);
@@ -120,8 +102,7 @@ describe("runPrayerTranslationBackfill", () => {
     expect(data).toBeTruthy();
     expect(data.payload.latin).toContain("Kyrie, eleison.");
     expect(data.payload.greek).toContain("Κύριε");
-    // The freshness marker must be recomputed with the new payload, or cache
-    // verification would fail against the stored row.
+    // The freshness marker must be recomputed with the new payload.
     expect(data.contentChecksum).toMatch(/^[0-9a-f]{16}$/);
   });
 
@@ -134,83 +115,21 @@ describe("runPrayerTranslationBackfill", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("in full autonomy (default) does NOT queue a machine proposal — leaves the gap unfilled, no review", async () => {
-    mockedEnabled.mockReturnValue(true);
-    mockedAuto.mockReturnValue(false); // autopublish off
-    mockedPropose.mockResolvedValue({
-      text: "Oratio ignota",
-      source: "machine",
-      provider: "ai",
-      accurate: false,
-    });
+  it("leaves an unresolvable prayer UNFILLED — no external AI, no write (full autonomy)", async () => {
     const { prisma, update, create } = makePrisma([
       {
         id: "p2",
         title: "Obscure Prayer",
         slug: "obscure-prayer",
-        payload: { body: "An entirely novel prayer text here." },
+        payload: { body: "An entirely novel prayer text the corpus cannot resolve." },
       },
     ]);
 
     const out = await runPrayerTranslationBackfill(prisma, { force: true });
 
+    // The corpus couldn't resolve it → nothing filled, nothing written, no AI call.
     expect(out.filledCanonical).toBe(0);
-    expect(out.routedToReview).toBe(0); // never queued — fully autonomous
+    expect(update).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
-    expect(update).not.toHaveBeenCalled();
-  });
-
-  it("routes a machine proposal to review ONLY when human review is required", async () => {
-    process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = "1";
-    mockedEnabled.mockReturnValue(true);
-    mockedAuto.mockReturnValue(false);
-    mockedPropose.mockResolvedValue({
-      text: "Oratio ignota",
-      source: "machine",
-      provider: "ai",
-      accurate: false,
-    });
-    const { prisma, update, create } = makePrisma([
-      {
-        id: "p2b",
-        title: "Obscure Prayer",
-        slug: "obscure-prayer",
-        payload: { body: "An entirely novel prayer text here." },
-      },
-    ]);
-
-    const out = await runPrayerTranslationBackfill(prisma, { force: true });
-
-    expect(out.filledCanonical).toBe(0);
-    expect(out.routedToReview).toBe(2); // latin + greek proposals filed
-    expect(create).toHaveBeenCalledTimes(2);
-    expect(update).not.toHaveBeenCalled();
-  });
-
-  it("writes machine output directly when autopublish is enabled", async () => {
-    mockedEnabled.mockReturnValue(true);
-    mockedAuto.mockReturnValue(true);
-    mockedPropose.mockResolvedValue({
-      text: "Oratio",
-      source: "machine",
-      provider: "ai",
-      accurate: false,
-    });
-    const { prisma, update } = makePrisma([
-      {
-        id: "p3",
-        title: "Obscure",
-        slug: "obscure",
-        payload: { body: "An entirely novel prayer text here." },
-      },
-    ]);
-
-    const out = await runPrayerTranslationBackfill(prisma, { force: true });
-
-    expect(out.filledMachine).toBe(2);
-    // Machine-filled fields are recorded as provenance for later curation.
-    const data = payloadUpdate(update)?.data as { payload: Record<string, unknown> };
-    expect(data).toBeTruthy();
-    expect(data.payload.machineTranslated).toEqual(expect.arrayContaining(["latin", "greek"]));
   });
 });

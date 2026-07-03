@@ -11,7 +11,6 @@ import { defend, type DefendInput } from "../security-defender";
 import { redesignHomepage } from "../homepage-mutator";
 import { requireHumanReview } from "../policy";
 import { translatePrayer } from "../prayer-translator";
-import { autoPublishMachineTranslations, proposeMachineTranslation } from "../translation-provider";
 import { makeOpSkill } from "./skill-helpers";
 import type { CertifiedSkill, SkillContext } from "./types";
 
@@ -260,11 +259,9 @@ export const namedSkills: CertifiedSkill[] = [
         { code: "el", field: "greek", action: "TRANSLATE_TO_GREEK", language: "Greek" },
       ] as const;
 
-      const autoPublishMachine = ctx.brainActive && autoPublishMachineTranslations();
       let latinCovered = 0;
       let greekCovered = 0;
       let built = 0;
-      let machinePublished = 0;
       let queued = 0;
       for (const p of prayers) {
         const pl = (p.payload ?? {}) as Record<string, unknown>;
@@ -282,29 +279,12 @@ export const namedSkills: CertifiedSkill[] = [
             built += 1;
             continue;
           }
-          // The deterministic corpus could not render it faithfully. Try the
-          // explicitly-authorized machine-translation fallback (Google / AI) as
-          // a *proposal*. It returns null instantly when no provider is
-          // configured, so this adds no cost in the default deployment.
-          const proposal =
-            english && !result?.accurate ? await proposeMachineTranslation(english, t.code) : null;
-          // Fill the gap with the machine draft so the prayer ends up with both
-          // Latin and Greek (the authentic corpus is always tried first). This is
-          // the default; set TRANSLATION_AUTOPUBLISH_MACHINE=0 to instead route
-          // every machine draft to human review before it goes live.
-          if (proposal && autoPublishMachine) {
-            writes[t.field] = proposal.text;
-            machinePublished += 1;
-            continue;
-          }
-          // Full autonomy (default): the worker does NOT queue a translation gap
-          // for a person. The prayer keeps the languages it has; the backfill
-          // fills the rest on its own once a translation provider is configured.
-          // Only ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1 routes the gap to review.
+          // The deterministic corpus could not render it faithfully. There is NO
+          // external AI/machine-translation fallback — the worker never fabricates
+          // liturgical text. Full autonomy (default): leave the prayer with the
+          // languages it has. Only ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1 routes the
+          // gap to a curator to source + verify an authentic translation.
           if (!requireHumanReview()) continue;
-          // Otherwise route to review with the English source, the unresolved
-          // lines, and (when available) the machine draft for the curator to
-          // confirm against an authoritative source rather than write anew.
           if (openKeys.has(`${p.slug}|${t.action}`)) continue;
           await ctx.prisma.humanReviewQueue
             .create({
@@ -312,18 +292,13 @@ export const namedSkills: CertifiedSkill[] = [
                 contentType: "PRAYER",
                 contentTitle: p.slug,
                 proposedAction: t.action,
-                reason: proposal
-                  ? `Confirm the proposed ${t.language} translation of "${p.title}" (machine draft via ${proposal.provider}) against an authoritative liturgical source, then publish so the language toggle is complete.`
-                  : `Build + verify the ${t.language} translation of "${p.title}" so the prayer's language toggle is complete. Sacred texts are verified by review before publishing.`,
+                reason: `Source + verify the authentic ${t.language} translation of "${p.title}" so the prayer's language toggle is complete. Sacred texts are verified against an authoritative source before publishing.`,
                 confidence: 0,
                 sourceEvidence: {
                   slug: p.slug,
                   targetLanguage: t.language,
                   english,
                   unresolved: result?.unresolved ?? [],
-                  ...(proposal
-                    ? { proposedTranslation: proposal.text, proposedBy: proposal.provider }
-                    : {}),
                 } as never,
                 status: "PENDING",
               },
@@ -342,7 +317,7 @@ export const namedSkills: CertifiedSkill[] = [
       }
       return {
         ok: true,
-        detail: `${latinCovered}/${prayers.length} Latin, ${greekCovered}/${prayers.length} Greek; built ${built} authentic translation(s)${machinePublished ? `, published ${machinePublished} machine draft(s)` : ""}, queued ${queued} for review`,
+        detail: `${latinCovered}/${prayers.length} Latin, ${greekCovered}/${prayers.length} Greek; built ${built} authentic translation(s), queued ${queued} for review`,
       };
     },
   }),

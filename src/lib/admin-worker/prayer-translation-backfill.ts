@@ -1,34 +1,23 @@
 /**
- * Prayer/litany translation backfill — fills Latin + Greek on EVERY prayer over
- * time, using the worker's layered translation engine.
+ * Prayer/litany translation backfill — fills Latin + Greek on published prayers
+ * over time, using the worker's OWN deterministic translation engine only.
  *
  * The publish orchestrator already fills the canonical (deterministic) Latin/
- * Greek at publish time, but that leaves two gaps: prayers published before the
- * engine existed, and prayers whose text the canonical corpus can't resolve.
- * This pass closes both. For each published prayer still missing a translation
- * it walks the layers the operator authorised, strongest first:
- *
- *   1. CANONICAL (keyless, always on): `translatePrayerLanguages` — authentic
- *      received liturgical text only. Auto-filled; this can never mistranslate.
- *   2. AI engine, then Google Translate (`proposeMachineTranslation`): the
- *      authorised fallback for what the corpus can't resolve, so every prayer
- *      and litany ends up with both Latin and Greek. Machine output is
- *      auto-published by default to fill the gap (recorded with machine
- *      provenance); set TRANSLATION_AUTOPUBLISH_MACHINE=0 to route machine drafts
- *      to human review instead.
+ * Greek at publish time, but that leaves prayers published before the engine
+ * existed. This pass closes that gap using `translatePrayerLanguages` — the
+ * internal, keyless, network-free engine that renders only authentic received
+ * liturgical text (it can never mistranslate). There is NO external AI or
+ * machine-translation fallback: the Admin Worker does not call an external
+ * service to invent liturgical text. A prayer the corpus can't resolve simply
+ * keeps the languages it has, rather than being filled with fabricated text.
  *
  * Bounded + self-throttled + cursor-walked across passes, so it works through the
  * whole catalogue without re-doing finished prayers. Fail-open.
  */
 
-import type { PrismaClient, Prisma } from "@prisma/client";
+import type { PrismaClient } from "@prisma/client";
 
-import { translatePrayerLanguages, type TargetLang } from "./prayer-translator";
-import {
-  autoPublishMachineTranslations,
-  machineTranslationEnabled,
-  proposeMachineTranslation,
-} from "./translation-provider";
+import { translatePrayerLanguages } from "./prayer-translator";
 import { writeAdminWorkerLog } from "./logs";
 
 const THROTTLE_MS = 60 * 60 * 1000; // hourly
@@ -38,8 +27,6 @@ const CURSOR_KEY = "prayer-translation-backfill-cursor";
 export interface TranslationBackfillResult {
   scanned: number;
   filledCanonical: number;
-  filledMachine: number;
-  routedToReview: number;
   detail: string;
 }
 
@@ -97,53 +84,10 @@ function has(value: unknown): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-async function fileTranslationReview(
-  prisma: PrismaClient,
-  title: string,
-  lang: TargetLang,
-  text: string,
-  provider: string,
-): Promise<boolean> {
-  // Full autonomy (default): the worker never queues a machine draft for a
-  // person. The prayer simply keeps the languages it already has; the worker
-  // fills the rest on its own once a translation provider is configured. Only
-  // ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1 routes the draft to a human first.
-  const { requireHumanReview } = await import("./policy");
-  if (!requireHumanReview()) return false;
-  const langName = lang === "la" ? "Latin" : "Greek";
-  // The backfill re-sweeps the catalogue forever — don't re-file a proposal
-  // that is already sitting in the queue for this prayer + language.
-  const existing = await prisma.humanReviewQueue
-    .findFirst({
-      where: {
-        status: "PENDING",
-        proposedAction: "CONFIRM_TRANSLATION",
-        contentTitle: title,
-        reason: { contains: langName },
-      },
-      select: { id: true },
-    })
-    .catch(() => null);
-  if (existing) return false;
-  await prisma.humanReviewQueue
-    .create({
-      data: {
-        contentType: "PRAYER",
-        contentTitle: title,
-        proposedAction: "CONFIRM_TRANSLATION",
-        reason: `Proposed ${langName} translation (${provider}) — confirm against an authoritative source before it goes live.`,
-        confidence: 0.5,
-        sourceEvidence: { language: lang, provider, text } as Prisma.InputJsonValue,
-        status: "PENDING",
-      },
-    })
-    .catch(() => undefined);
-  return true;
-}
-
 /**
- * Run one translation-backfill pass. Fills canonical translations directly,
- * routes machine proposals to review (or fills them when autopublish is on).
+ * Run one translation-backfill pass. Fills canonical (authentic, deterministic)
+ * Latin/Greek directly; anything the corpus can't resolve is left as-is (no
+ * external AI/machine translation).
  */
 export async function runPrayerTranslationBackfill(
   prisma: PrismaClient,
@@ -152,8 +96,6 @@ export async function runPrayerTranslationBackfill(
   const out: TranslationBackfillResult = {
     scanned: 0,
     filledCanonical: 0,
-    filledMachine: 0,
-    routedToReview: 0,
     detail: "",
   };
   if (!opts.force && !(await throttleOk(prisma))) {
@@ -176,9 +118,6 @@ export async function runPrayerTranslationBackfill(
   // Walk forward; wrap to 0 at the end so the whole catalogue is re-swept.
   const nextOffset = rows.length < batch ? 0 : offset + rows.length;
 
-  const machineOn = machineTranslationEnabled();
-  const autoMachine = autoPublishMachineTranslations();
-
   for (const r of rows) {
     const p = (r.payload ?? {}) as Record<string, unknown>;
     const english = has(p.body)
@@ -193,9 +132,8 @@ export async function runPrayerTranslationBackfill(
     out.scanned += 1;
 
     const update: Record<string, string> = {};
-    const machineFilled: Array<"latin" | "greek"> = [];
 
-    // 1) Canonical (keyless, accurate-only).
+    // Canonical (keyless, deterministic, accurate-only). No AI/machine fallback.
     const canonical = translatePrayerLanguages(english);
     if (needLatin && canonical.latin) {
       update.latin = canonical.latin;
@@ -206,44 +144,8 @@ export async function runPrayerTranslationBackfill(
       out.filledCanonical += 1;
     }
 
-    // 2) Machine fallback for whatever canonical couldn't resolve.
-    if (machineOn) {
-      const langs: TargetLang[] = [];
-      if (needLatin && !update.latin) langs.push("la");
-      if (needGreek && !update.greek) langs.push("el");
-      for (const lang of langs) {
-        const proposal = await proposeMachineTranslation(english, lang).catch(() => null);
-        if (!proposal) continue;
-        if (autoMachine) {
-          const field = lang === "la" ? "latin" : "greek";
-          update[field] = proposal.text;
-          machineFilled.push(field);
-          out.filledMachine += 1;
-        } else if (
-          await fileTranslationReview(prisma, r.title, lang, proposal.text, proposal.provider)
-        ) {
-          out.routedToReview += 1;
-        }
-      }
-    }
-
     if (Object.keys(update).length > 0) {
-      // Record which fields were machine-filled (never the authentic-corpus
-      // ones), so a curator can later find + verify them. Kept out of the public
-      // render via the PublishedDetail meta-field filter.
-      const priorMachine = Array.isArray(p.machineTranslated)
-        ? (p.machineTranslated as unknown[]).filter((v): v is string => typeof v === "string")
-        : [];
-      // Recompute the freshness marker — contentChecksum is derived from the
-      // payload, and cache verification confirms the stored marker matches the
-      // live row. Updating the payload without it would fail verification.
-      const newPayload = {
-        ...p,
-        ...update,
-        ...(machineFilled.length > 0
-          ? { machineTranslated: Array.from(new Set([...priorMachine, ...machineFilled])) }
-          : {}),
-      };
+      const newPayload = { ...p, ...update };
       // Route the live-row edit through the content-protection gate: it
       // snapshots the current payload first (so this enrichment is reversible)
       // and, being purely additive (fill latin/greek), applies as an "enrich"
@@ -267,8 +169,8 @@ export async function runPrayerTranslationBackfill(
 
   await setMemInt(prisma, CURSOR_KEY, nextOffset);
 
-  out.detail = `scanned ${out.scanned} prayer(s): ${out.filledCanonical} canonical fill(s), ${out.filledMachine} machine fill(s), ${out.routedToReview} routed to review.`;
-  if (out.filledCanonical > 0 || out.filledMachine > 0) {
+  out.detail = `scanned ${out.scanned} prayer(s): ${out.filledCanonical} canonical fill(s) (deterministic; no external AI).`;
+  if (out.filledCanonical > 0) {
     await writeAdminWorkerLog(prisma, {
       category: "CONTENT_BUILD",
       severity: "INFO",

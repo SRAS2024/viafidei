@@ -445,6 +445,7 @@ export {
   checkHeartbeatHealth,
   reportDiscoveryGap,
   rotateSourceForMissingFields,
+  rerouteToAlternateSource,
   flagCacheRefresh,
   flagSitemapRefresh,
   flagSearchRefresh,

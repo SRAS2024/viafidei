@@ -268,11 +268,7 @@ Optional environment variables:
 | `ADMIN_WORKER_DYNAMIC_FETCHER_TIMEOUT_MS`           | Navigation timeout (ms) for the dynamic fetcher (default `15000`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `ADMIN_WORKER_DISCOVERY_SEEDER`                     | Keyless structured discovery seeder — queries Wikidata for apparitions / novenas / prayers & litanies (the types whose verbatim or approval-status content needs an approved source, not an abstract) and enqueues their authoritative source URLs (official websites, reference URLs) for the live extraction pipeline, so the content types with no structured ingestor still get fed authoritative sources. Devotions, Marian titles, and spiritual practices now have their own keyless ingestors and are no longer seeded here. Discovery only (every candidate still passes extraction + verification + QA). On by default; set `0`/`false`/`off` to disable |
 | `LITURGICAL_CALENDAR_API_URL`                       | Override the Liturgical Calendar API endpoint (default: the public litcal General Roman Calendar, US adaptation). Any endpoint returning the litcal `{ litcal: [...] }` shape works                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `GOOGLE_TRANSLATE_API_KEY`                          | OPTIONAL higher-quality (keyed) Google Translate for the prayer/litany Latin/Greek the curated corpus can't resolve. Translation is keyless by default; this is only a quality upgrade                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `ADMIN_WORKER_KEYLESS_TRANSLATE`                    | Keyless Latin/Greek machine translation via the free Google translate endpoint — on by default, no API key. Translates the EXACT stored prayer text word-for-word for prayers/litanies with no authentic received form; output is flagged `source:"machine"` (auditable, never mistaken for received text). Set `0`/`false`/`off` to disable; forced off by `ADMIN_WORKER_SKIP_NETWORK=1`                                                                                                                                                                                                                                                                          |
-| `TRANSLATION_AI_API_URL` / `_API_KEY` / `_MODEL`    | Optional OpenAI-compatible AI translation provider (preferred over Google for the liturgical register). Reuses the `EXTRACTION_AI_*` provider when unset (and vice-versa), so one AI key powers both translation and extraction                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `TRANSLATION_AUTOPUBLISH_MACHINE`                   | Machine-translation drafts **auto-publish by default** so every prayer and litany ends up with both Latin and Greek (the authentic corpus is always tried first; machine fills carry `machineTranslated` provenance for later curation). Set `0`/`false`/`off` to instead route machine drafts to human review before they go live                                                                                                                                                                                                                                                                                                                                 |
-| `EXTRACTION_AI_API_URL` / `_API_KEY` / `_MODEL`     | Optional OpenAI-compatible AI provider for content extraction + single-source verification. Removes the publish ceiling: when the deterministic extractors leave required fields missing, the AI fills ONLY what the page text supports (never invents); and when a top-authority source's independent cross-checks are merely unreachable (not disagreeing), the AI confirms the sensitive values against that source's own text so the artifact can verify. Falls back to the `TRANSLATION_AI_*` config when unset. No-op when neither is set; accuracy is still enforced by the content schema, cross-source verification, and strict QA                        |
+| _(no AI extraction/translation env vars)_           | The Admin Worker uses **no external AI API** — no OpenAI/LLM extraction, no AI/machine translation. Extraction is deterministic (typed extractors + structured-data blocks); when a source leaves required fields missing the worker **reroutes to another approved source**, it never invents fields. Latin/Greek is filled only from the internal, keyless, network-free `prayer-translator` corpus (authentic received text); prayers it can't resolve are left as-is. There is intentionally nothing to configure here                                                                                                                                         |
 | `ADMIN_WORKER_REQUIRE_HUMAN_REVIEW`                 | **Off by default — the worker is fully independent and never parks work for a human.** Every situation that would otherwise need review gets the worker's own terminal decision: publish when the evidence clears the bar, otherwise SKIP (never publish unverified, never delete on uncertainty) and revisit autonomously. The human-review UI still exists (a human _may_ act), but the worker never depends on it, so the queue never blocks growth. Set `1`/`true`/`on` to restore human-gated review (uncertain items are queued for a person)                                                                                                                |
 | `ADMIN_WORKER_GOVERNOR_ENABLED`                     | Pipeline governor — on by default. Each pass, just before dispatch, it reads the per-stage outcome ledger over a sliding window; if the brain's chosen content stage has spun without forward progress (or growth stalled despite an open gap) it overrides the choice with the highest-priority productive downstream stage, or a terminal diagnostic when nothing downstream is making progress. Only changes which already-gated handler runs (never bypasses QA/publish); acts only in active mode and never when paused. Set `0`/`false`/`off` to disable                                                                                                     |
 | `ADMIN_WORKER_GOVERNOR_WINDOW_MIN`                  | Governor sliding-window size in minutes (default `15`) — how far back it looks when judging whether a stage is advancing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -668,26 +664,22 @@ falling back to a TypeScript final brain. Concretely:
   URLs** to the live extraction + cross-source-verification pipeline, so they grow
   from approved sources rather than an encyclopedia.
 
-- **AI-assisted extraction + single-source verification removes the publish
-  ceiling.** The deterministic extractors only fill fields a regex can pin down,
-  so most messy open-web pages stall with "missing fields" and never publish —
-  the published count tracks only what the curated corpus already carries. With
-  **`EXTRACTION_AI_API_URL`/`_API_KEY`** set (it reuses the `TRANSLATION_AI_*`
-  config when a dedicated key isn't given), an OpenAI-compatible provider reads
-  the fetched page text and fills **only** the missing fields, strictly from what
-  the text states — it is instructed never to invent, guess, or use outside
-  knowledge, and AI-filled fields carry `AI_EXTRACTION` provenance in the audit
-  trail ([`extraction-provider.ts`](src/lib/admin-worker/extraction-provider.ts)).
-  A second assist closes the verification ceiling: when an artifact's **own
-  source is a top Catholic authority** (the Holy See, an episcopal conference)
-  and its independent cross-check sources are merely **unreachable** (a Vatican
-  page 404s, a login wall) rather than **disagreeing**, the AI confirms the
-  sensitive values are explicitly stated in that source's text and records `PASS`
-  evidence — the same single-authoritative-source basis the hand-curated content
-  already verifies on. Both are **gated, no-ops by default, and conservative**:
-  they never override a real `MISMATCH`, and AI widens only what the worker can
-  _extract_ — the content schema, cross-source verification, and strict QA still
-  decide what publishes, so accuracy is never lowered.
+- **No external AI — the worker escapes EXTRACTION by switching sources, not by
+  inventing fields.** The Admin Worker deliberately uses **no OpenAI/LLM
+  extraction and no AI/machine translation**; wiring content growth to an
+  external AI would defeat the point of a self-contained worker. Extraction is
+  fully deterministic (typed extractors + JSON-LD/microdata/OpenGraph
+  structured-data blocks). When a source leaves required fields missing, the
+  worker does **not** fabricate them — it files an `EXTRACT_FAILED` repair **and
+  actively reroutes**: `rerouteToAlternateSource`
+  ([`repair.ts`](src/lib/admin-worker/repair.ts)) boosts the best still-unfetched
+  candidate of the same content type on a **different** approved host so the next
+  `SOURCE_FETCH` reads it instead. Verification is by **cross-source evidence
+  only** — an artifact clears when independent approved sources agree; when they
+  don't (unreachable or disagreeing) it stays blocked and routes to another
+  source, never waved through by an AI. This is the worker's own coded path
+  (`DISCOVERY → CANDIDATE_PRIORITIZATION → SOURCE_FETCH → SOURCE_READ → EXTRACTION
+→ VALIDATION → BUILD → QA → PUBLISH`) doing the work end-to-end.
 
 - **Finds parishes on Google Maps — and verifies communion with Rome.**
   When `GOOGLE_PLACES_API_KEY` is set, `discover_parishes_via_maps`
@@ -993,12 +985,14 @@ falling back to a TypeScript final brain. Concretely:
   are the real reason a worker that was growing suddenly plateaus and the
   pipeline walk underneath can't see them. When the blocker is a stage a missing
   **outward capability** explains (no candidates to fetch, fetches failing on
-  unapproved hosts, extraction unable to complete required fields, validation
-  sources unreachable, publish gated on evidence), it appends the **exact env /
-  network remediation** ([`capability-gaps.ts`](src/lib/admin-worker/capability-gaps.ts)):
-  e.g. _"set `EXTRACTION_AI_API_URL` + `EXTRACTION_AI_API_KEY`"_ or _"set
-  `ADMIN_WORKER_OPEN_INTERNET=1`"_. The Why-No-Growth panel appears on the
-  Command Center and is included in every Developer Audit PDF.
+  unapproved hosts, validation sources unreachable, publish gated on evidence),
+  it appends the **internal corrective path** first and, only for a genuine
+  keyless/network toggle, the exact remediation
+  ([`capability-gaps.ts`](src/lib/admin-worker/capability-gaps.ts)): e.g.
+  _"reroute the blocked item to a different approved source and re-run the
+  pipeline"_ or _"set `ADMIN_WORKER_OPEN_INTERNET=1`"_. It never recommends an
+  external AI/API key — there is none to add. The Why-No-Growth panel appears on
+  the Command Center and is included in every Developer Audit PDF.
 
 - **Pipeline governor — forces productive forward movement every pass.** The
   brain's anti-fixation feedback is scoring-only: it can lower a stage's score
@@ -2297,13 +2291,13 @@ request):
 - **Security + maintenance** (`security-skills.ts`, `named-skills.ts`):
   `run_security_defense` plus database / brain / public-site / admin-surface
   health checks, stale-job cleanup, repair-plan closure, capability-matrix
-  refresh, and **`ensure_prayer_translations`** — which gives every published
-  prayer and litany both Latin and Greek via the deterministic liturgical
-  translation engine first, then the AI/Google fallback for the remainder
-  (`runMaintenance` runs it through the certified runtime each pass; the machine
-  fill auto-publishes by default with `machineTranslated` provenance, or routes to
-  review when `TRANSLATION_AUTOPUBLISH_MACHINE=0`). Most are allowed in safe
-  degraded mode.
+  refresh, and **`ensure_prayer_translations`** — which fills published prayers
+  and litanies with authentic Latin and Greek via the deterministic, keyless,
+  network-free liturgical translation engine (`runMaintenance` runs it through
+  the certified runtime each pass). There is no AI/machine-translation fallback:
+  a prayer the corpus can't resolve keeps the languages it has (or, only under
+  `ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1`, is surfaced for a curator to source an
+  authentic translation). Most are allowed in safe degraded mode.
 
 **Content subtitles** are generated, stored, and rendered: a deterministic
 `generateContentSubtitle` produces an accurate type/subtype-aware subtitle
@@ -2434,33 +2428,17 @@ the embedded sub-prayers). It reports honest coverage and **never fabricates**:
 when no authentic received form is derivable it emits nothing and returns the
 unresolved lines, rather than guessing declensions or inventing a sacred text.
 
-**Every prayer and litany ends up with both Latin and Greek.** Per the site
-owner's directive, the worker uses the official/received text first and, for the
-long tail the corpus can't resolve, fills the remaining gap with a **machine
-translation** so no prayer or litany is left without a Latin or Greek text. The
-fallback
-([`admin-worker/translation-provider.ts`](src/lib/admin-worker/translation-provider.ts))
-tries three providers in order of quality: an OpenAI-compatible AI endpoint
-(preferred — it can be steered to the ecclesiastical/liturgical register; a
-single AI key under either `TRANSLATION_AI_*` or `EXTRACTION_AI_*` powers both),
-then a keyed Google Translate (`GOOGLE_TRANSLATE_API_KEY`), then a **keyless**
-Google translate endpoint that needs **no API key at all** — so Latin/Greek
-coverage now completes out of the box with zero configuration. The keyless
-provider translates the **exact stored prayer text word-for-word** (chunked on
-line boundaries to preserve structure) and is on by default
-(`ADMIN_WORKER_KEYLESS_TRANSLATE=0` opts out; `ADMIN_WORKER_SKIP_NETWORK=1`
-forces it off). The authentic corpus is **always tried first** and is the only
-source that can be mistaken for received text; machine fills are recorded with
-`source:"machine"` / a `machineTranslated` payload marker so they stay auditable
-and a curator can later verify or correct them. Machine drafts **auto-publish by
-default** to complete coverage; set `TRANSLATION_AUTOPUBLISH_MACHINE=0` to instead
-route them to the `HumanReviewQueue` for confirmation before they go live. Even
-with no key configured the keyless endpoint completes the long tail; if the
-keyless path is also disabled, the authentic corpus still covers everything it
-can and the genuine remainder is surfaced for review — the worker never stalls
-and never silently drops a gap. The keyed register caveat applies: the keyless
-machine output is modern Latin/Greek, flagged `source:"machine"` for later
-review, so add an AI/Translate key when you want the received liturgical wording.
+**Prayers and litanies are filled with authentic Latin and Greek — using the
+worker's own engine only.** The engine renders Latin/Greek from the internal,
+keyless, **network-free** corpus + rules ([`admin-worker/prayer-translator.ts`](src/lib/admin-worker/prayer-translator.ts)):
+received texts (Pater Noster, Ave Maria, Gloria Patri, the Te Deum, Sub Tuum
+Praesidium's ancient Greek, …) and composites assembled from authoritative
+segments. There is **no external AI or machine-translation fallback** — the
+Admin Worker never calls OpenAI, an LLM, or Google Translate to invent
+liturgical text. A prayer whose text the corpus can't faithfully resolve is left
+with the languages it has (or, only under `ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1`,
+surfaced to a curator to source + verify an authentic translation). The worker
+reports honest coverage and never fabricates a sacred text.
 
 The engine is wired into the worker three ways, all running autonomously:
 
