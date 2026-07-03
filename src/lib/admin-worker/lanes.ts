@@ -46,6 +46,8 @@ export interface LaneRunContext {
   active: boolean;
   /** True when every content goal's gap is closed (all targets met). */
   contentGoalsMet?: boolean;
+  /** Major-goal campaign phase: DRAIN skips discovery lanes; SURGE/NORMAL run them. */
+  campaignPhase?: "DRAIN" | "SURGE" | "NORMAL";
 }
 
 export interface LaneDef {
@@ -63,6 +65,13 @@ export interface LaneDef {
    * reporting) keep running every pass.
    */
   growth?: boolean;
+  /**
+   * A DISCOVERY lane — it takes on NEW work by surfacing fresh candidates. During
+   * a major-goal campaign's DRAIN phase the worker finishes its in-flight funnel
+   * and takes on no new discovery, so discovery lanes are skipped until the
+   * campaign SURGEs (or returns to NORMAL).
+   */
+  discovery?: boolean;
   /** Cooldown after an error before this lane retries (ms). */
   cooldownMs?: number;
   /**
@@ -265,7 +274,13 @@ export interface LanesResult {
 export async function runWorkerLanes(
   prisma: PrismaClient,
   lanes: LaneDef[],
-  ctx: { passId?: string; workerId?: string; active: boolean; contentGoalsMet?: boolean },
+  ctx: {
+    passId?: string;
+    workerId?: string;
+    active: boolean;
+    contentGoalsMet?: boolean;
+    campaignPhase?: "DRAIN" | "SURGE" | "NORMAL";
+  },
 ): Promise<LanesResult> {
   const out: LanesResult = { ran: [], skipped: [], errored: [], published: 0, advanced: 0 };
   // Default cap of 8 lets the fine-grained lane set (9 content + 11 ops lanes)
@@ -287,6 +302,12 @@ export async function runWorkerLanes(
       return false;
     }
     const st = stateByLane.get(lane.name);
+    // Major-goal campaign DRAIN: finish the in-flight funnel and take on NO new
+    // work, so discovery lanes are paused until the campaign SURGEs (or NORMAL).
+    if (lane.discovery && ctx.campaignPhase === "DRAIN") {
+      out.skipped.push(lane.name);
+      return false;
+    }
     // Content goals are the first priority. Once they are ALL met, growth lanes
     // (ingest/discovery) drop to a slow maintenance sweep so the worker focuses
     // on management + security instead of building past target every pass.
@@ -328,6 +349,7 @@ export async function runWorkerLanes(
               workerId: ctx.workerId,
               active: ctx.active,
               contentGoalsMet: ctx.contentGoalsMet,
+              campaignPhase: ctx.campaignPhase,
             }),
           ),
           lane.watchdogMs ?? watchdogMs,

@@ -198,6 +198,21 @@ export async function nextPriorityContentType(
   const goals = allGoals.filter((g) => !CURATED_BUILT_CONTENT_TYPES.has(g.contentType));
   if (goals.length === 0) return null;
 
+  // Major-goal campaign: when a big goal is SURGING, focus the mission target
+  // ENTIRELY on it (overriding the de-rank + rotation below) so the worker
+  // throws everything at completing that one goal before moving to the next
+  // biggest. DRAIN/NORMAL phases fall through to the normal ranking. Fail-open.
+  try {
+    const { evaluateMajorGoalCampaign } = await import("./major-goal-campaign");
+    const campaign = await evaluateMajorGoalCampaign(prisma);
+    if (campaign.phase === "SURGE" && campaign.majorType) {
+      const target = goals.find((g) => g.contentType === campaign.majorType);
+      if (target) return { contentType: target.contentType, gap: target.gapCount };
+    }
+  } catch {
+    // fall through to normal ranking
+  }
+
   // De-prioritise types whose source coverage is BLOCKED (their sources are
   // unreachable / insufficient — e.g. PARISH when its structured source
   // query.wikidata.org is egress-blocked). Otherwise the type with the biggest

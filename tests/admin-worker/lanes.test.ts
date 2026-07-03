@@ -244,6 +244,34 @@ describe("runWorkerLanes", () => {
     expect(prisma.laneStates.get("hang")?.lastError).toMatch(/watchdog/);
   });
 
+  it("pauses discovery lanes during a major-goal campaign DRAIN, runs them otherwise", async () => {
+    const prisma = fakePrisma();
+    let discovered = 0;
+    let drained = 0;
+    const lanes: LaneDef[] = [
+      { name: "discover", capacity: 1, discovery: true, run: async () => void discovered++ },
+      { name: "drain", capacity: 1, run: async () => void drained++ },
+    ];
+
+    // DRAIN → finish the funnel, take on no new discovery.
+    const draining = await runWorkerLanes(prisma as FakePrisma, lanes, {
+      active: true,
+      campaignPhase: "DRAIN",
+    });
+    expect(draining.skipped).toContain("discover");
+    expect(draining.ran).toContain("drain");
+    expect(discovered).toBe(0);
+    expect(drained).toBe(1);
+
+    // SURGE → discovery runs again (now aimed at the campaign goal).
+    const surging = await runWorkerLanes(prisma as FakePrisma, lanes, {
+      active: true,
+      campaignPhase: "SURGE",
+    });
+    expect(surging.ran).toContain("discover");
+    expect(discovered).toBe(1);
+  });
+
   it("throttles growth lanes to a slow sweep once all content goals are met", async () => {
     // A growth lane that ran 1 minute ago; the maintenance sweep is 30 min.
     const recentGrowth: LaneStateRow = {
