@@ -1426,6 +1426,49 @@ automated action** alongside its reason and before/after version — and the dra
 routes an item to review only when it needs human judgment; anything repairable
 goes to a repair plan instead of waiting on a human.
 
+### Internal worker lanes + concurrency controls
+
+The worker used to run its per-pass supplementary workstreams strictly serially —
+one `await` after another, one task type at a time. They now run as **parallel
+lanes inside the same worker process** (no extra deployed service), so the worker
+advances several task types at once where it is safe to (`lanes.ts` +
+`worker-lanes.ts`):
+
+- **Content lanes** (`activeOnly` — they publish, so they run only when the
+  Python final brain is active): **ingestion** (curated + structured + liturgical),
+  **enrichment** (prayer-translation backfill + review auto-resolve + pope cleanup),
+  **discovery** (structured discovery-seeder + OSM parish + always-on web sweep).
+- **Ops lanes** (every pass, regardless of mode): **drain** (the BUILD_READY drain
+  above), **readings**, **maintenance** (schema/UI awareness + self-model +
+  custody), **reporting**, **intelligence** (post-pass analysis + lab + skill
+  matrix + code-version), **escalation**.
+
+Concurrency is made **safe by construction, not by luck**:
+
+- Lanes touch **disjoint work domains** (curated vs structured vs OSM vs
+  liturgical ingest publish different content sets; the drain owns artifacts;
+  discovery owns candidates), so they don't fight over the same rows.
+- `PublishedContent @@unique([contentType, slug])` makes double-publishing
+  **impossible at the DB level** even under a race — idempotency by constraint.
+- **Artifact leases** (`claimArtifact`, `AdminWorkerPackageArtifact.leasedBy` /
+  `leaseExpiresAt`) give explicit **task ownership**: a lane claims an artifact via
+  an atomic conditional `updateMany` before mutating it, so two lanes (or two
+  worker processes) never double-work the same item. A crashed lane's lease
+  **expires and is reclaimed** (`reapArtifactLeases`).
+- A global **concurrency cap** (`ADMIN_WORKER_LANE_CONCURRENCY`, default 4) bounds
+  resource use — extra lanes queue and run as slots free.
+- Every lane is **isolated** (its own try/catch): a failing lane never kills the
+  others (self-repair), and it enters a **backoff cooldown** before retrying, so a
+  hard-failing lane can't hot-loop.
+- **Brain-calling work lives in one lane** so it never issues concurrent calls to
+  the single Python brain subprocess.
+
+Each lane records its live state to `AdminWorkerLaneState` — status, current
+item/gate/strategy, capacity, concurrent tasks, last outcome/error/duration —
+which is the practical **operational-self-awareness** surface the "Internal worker
+lanes" diagnostics rating shows: which lanes ran, which are in error-backoff, and
+what each last did.
+
 ### Self-monitoring, governance & escalation
 
 Above the in-pass governor sits a higher-order self-monitoring → governance →

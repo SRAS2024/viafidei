@@ -1995,6 +1995,13 @@ model AdminWorkerPackageArtifact {
   /// WHY each built item is not yet published.
   gateDiagnosis      String?
   gateCheckedAt      DateTime?
+  /// Task ownership / lease (lanes.ts): a lane claims an artifact before
+  /// mutating it so two concurrent lanes (or worker processes) never double-work
+  /// or double-publish the same item. `leasedBy` = lane/worker id; the claim is
+  /// atomic (a conditional updateMany) and expires at `leaseExpiresAt` so a
+  /// crashed lane's items are reclaimable.
+  leasedBy           String?
+  leaseExpiresAt     DateTime?
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -2002,6 +2009,7 @@ model AdminWorkerPackageArtifact {
   @@index([contentType, status])
   @@index([candidateUrlId])
   @@index([sourceReadId])
+  @@index([leaseExpiresAt])
   @@index([checklistItemId])
   @@index([createdAt])
 }
@@ -2417,6 +2425,31 @@ model AdminWorkerTestGapRecord {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   resolvedAt  DateTime?
+
+  @@index([status])
+}
+
+/// Internal worker lanes (lanes.ts): one row per lane so the dashboard,
+/// diagnostics, and developer/escalation reports can show what each lane is
+/// doing right now — its status, the item + gate + strategy it is working, its
+/// capacity and current concurrent-task count, and its last outcome. This is
+/// the practical "operational self-awareness" surface: which lane, what item,
+/// which gate, what strategy, is it working, what next.
+model AdminWorkerLaneState {
+  id              String   @id @default(cuid())
+  lane            String   @unique
+  status          String   @default("idle")
+  currentItem     String?
+  currentStrategy String?
+  currentGate     String?
+  capacity        Int      @default(1)
+  concurrentTasks Int      @default(0)
+  lastOutcome     String?
+  lastError       String?
+  lastDurationMs  Int?
+  lastStartedAt   DateTime?
+  lastFinishedAt  DateTime?
+  updatedAt       DateTime @updatedAt
 
   @@index([status])
 }

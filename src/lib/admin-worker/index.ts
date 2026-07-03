@@ -98,6 +98,21 @@ export {
   type GateOutcome,
 } from "./build-ready-drain";
 
+// Internal worker lanes + concurrency controls (adaptive-worker Phase B).
+export {
+  runWorkerLanes,
+  claimArtifact,
+  releaseArtifact,
+  reapArtifactLeases,
+  recordLaneState,
+  getLaneStates,
+  type LaneDef,
+  type LaneOutcome,
+  type LaneRunContext,
+  type LanesResult,
+} from "./lanes";
+export { CONTENT_LANES, OPS_LANES } from "./worker-lanes";
+
 export { createTask, startTask, completeTask, listPendingTasks } from "./tasks";
 
 export { recordDecision, CONFIDENCE_THRESHOLDS, type RecordDecisionInput } from "./decisions";

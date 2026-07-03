@@ -1129,6 +1129,78 @@ async function ratingBuildReadyDrain(prisma: PrismaClient): Promise<HealthRating
   };
 }
 
+async function ratingWorkerLanes(prisma: PrismaClient): Promise<HealthRating> {
+  // Adaptive-worker Phase B: the internal-lane scheduler records each lane's
+  // live state (status, current item/gate/strategy, last outcome/error). This
+  // rating surfaces lane health + is the operational-self-awareness signal:
+  // which lanes ran, which are in error-backoff, and what each last did.
+  const now = new Date();
+  const lanes = await prisma.adminWorkerLaneState
+    .findMany({
+      orderBy: { lane: "asc" },
+      select: {
+        lane: true,
+        status: true,
+        currentStrategy: true,
+        lastOutcome: true,
+        lastError: true,
+        lastFinishedAt: true,
+        concurrentTasks: true,
+        capacity: true,
+      },
+    })
+    .catch(
+      () =>
+        [] as Array<{
+          lane: string;
+          status: string;
+          currentStrategy: string | null;
+          lastOutcome: string | null;
+          lastError: string | null;
+          lastFinishedAt: Date | null;
+          concurrentTasks: number;
+          capacity: number;
+        }>,
+    );
+
+  if (lanes.length === 0) {
+    return {
+      key: "admin_worker_lanes",
+      label: "Internal worker lanes",
+      status: "warn",
+      score: 0.5,
+      lastCheckedAt: now,
+      dataSource: "AdminWorkerLaneState",
+      summary: "No lane state recorded yet — the worker runs lanes on its next pass.",
+      recommendedRepair: "Run a worker pass; runWorkerLanes records each lane's live state.",
+    };
+  }
+
+  const errored = lanes.filter((l) => l.status === "error");
+  const running = lanes.filter((l) => l.status === "running");
+  // A lane stuck "running" long after its last finish likely crashed mid-lane;
+  // surface as warn (its artifact leases expire and get reaped regardless).
+  const status: HealthStatus = errored.length > 2 ? "fail" : errored.length > 0 ? "warn" : "pass";
+  const detail = lanes
+    .map((l) => `${l.lane}:${l.status}${l.status === "error" && l.lastError ? "(!)" : ""}`)
+    .join(", ");
+  return {
+    key: "admin_worker_lanes",
+    label: "Internal worker lanes",
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.6 : 0.2,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerLaneState",
+    latestFailure: errored[0]?.lastFinishedAt ?? null,
+    currentBlocker: errored[0]?.lastError ?? undefined,
+    summary: `${lanes.length} lane(s): ${running.length} running, ${errored.length} in error-backoff. ${detail}`,
+    recommendedRepair:
+      errored.length > 0
+        ? `Lanes in error-backoff auto-retry after their cooldown; inspect ${errored.map((l) => l.lane).join(", ")} if the error persists across passes.`
+        : undefined,
+  };
+}
+
 async function ratingEscalations(prisma: PrismaClient): Promise<HealthRating> {
   const now = new Date();
   const [open, latest] = await Promise.all([
@@ -1228,6 +1300,7 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingPostPublish,
   ratingRollback,
   ratingBuildReadyDrain,
+  ratingWorkerLanes,
   ratingEscalations,
   ratingCodeVersion,
 ];
