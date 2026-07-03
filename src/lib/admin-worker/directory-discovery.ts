@@ -37,6 +37,94 @@ export const DIRECTORY_PAGES: readonly DirectoryPage[] = [
     expectedContentType: "CHURCH_DOCUMENT",
     note: "Catechism — index of paragraphs",
   },
+
+  // ── Expanded directories — landing/index pages on approved authority hosts
+  //    that link to large numbers of items for the crawler to follow. ─────────
+  {
+    url: "https://www.newadvent.org/cathen/",
+    expectedContentType: "SAINT",
+    note: "Catholic Encyclopedia — A–Z index",
+  },
+  {
+    url: "https://www.catholic.org/saints/",
+    expectedContentType: "SAINT",
+    note: "Catholic Online — saints directory",
+  },
+  {
+    url: "https://www.catholic.org/saints/patron.php",
+    expectedContentType: "SAINT",
+    note: "Catholic Online — patron saints directory",
+  },
+  {
+    url: "https://catholicsaints.info/",
+    expectedContentType: "SAINT",
+    note: "CatholicSaints.Info — saints index",
+  },
+  {
+    url: "https://www.franciscanmedia.org/saint-of-the-day/",
+    expectedContentType: "SAINT",
+    note: "Franciscan Media — Saint of the Day archive",
+  },
+  {
+    url: "https://www.catholic.org/prayers/",
+    expectedContentType: "PRAYER",
+    note: "Catholic Online — prayers directory",
+  },
+  {
+    url: "https://www.ewtn.com/catholicism/devotions",
+    expectedContentType: "DEVOTION",
+    note: "EWTN — devotions & prayers directory",
+  },
+  {
+    url: "http://www.preces-latinae.org/thesaurus/thesaurus.html",
+    expectedContentType: "PRAYER",
+    note: "Thesaurus Precum Latinarum — Latin prayers index",
+  },
+  {
+    url: "https://www.praymorenovenas.com/list-of-novenas",
+    expectedContentType: "NOVENA",
+    note: "Pray More Novenas — full novena list",
+  },
+  {
+    url: "https://www.papalencyclicals.net/",
+    expectedContentType: "CHURCH_DOCUMENT",
+    note: "Papal Encyclicals — full archive index",
+  },
+  {
+    url: "https://www.papalencyclicals.net/councils/",
+    expectedContentType: "CHURCH_DOCUMENT",
+    note: "Ecumenical councils index",
+  },
+  {
+    url: "https://www.newadvent.org/fathers/",
+    expectedContentType: "DOCTOR",
+    note: "New Advent — Church Fathers index",
+  },
+  {
+    url: "https://www.newadvent.org/summa/",
+    expectedContentType: "DOCTOR",
+    note: "Summa Theologica — index",
+  },
+  {
+    url: "https://www.ewtn.com/catholicism/teachings/marian",
+    expectedContentType: "MARIAN_TITLE",
+    note: "EWTN — Marian titles index",
+  },
+  {
+    url: "https://gcatholic.org/dioceses/",
+    expectedContentType: "PARISH",
+    note: "GCatholic — worldwide dioceses & churches",
+  },
+  {
+    url: "https://www.catholic-hierarchy.org/",
+    expectedContentType: "PARISH",
+    note: "Catholic-Hierarchy — dioceses index",
+  },
+  {
+    url: "https://www.universalis.com/",
+    expectedContentType: "LITURGICAL",
+    note: "Universalis — Liturgy of the Hours index",
+  },
 ] as const;
 
 export interface DirectoryDiscoveryOutcome {
