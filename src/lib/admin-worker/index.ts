@@ -113,6 +113,19 @@ export {
 } from "./lanes";
 export { CONTENT_LANES, OPS_LANES } from "./worker-lanes";
 
+// Published-content protection (adaptive-worker Phase E).
+export {
+  evaluateContentChange,
+  snapshotPublishedContent,
+  applyProtectedContentUpdate,
+  restorePublishedContentVersion,
+  listContentVersions,
+  type ContentChangeKind,
+  type ContentChangeAssessment,
+  type ProtectedUpdateInput,
+  type ProtectedUpdateResult,
+} from "./content-protection";
+
 export { createTask, startTask, completeTask, listPendingTasks } from "./tasks";
 
 export { recordDecision, CONFIDENCE_THRESHOLDS, type RecordDecisionInput } from "./decisions";

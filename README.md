@@ -1466,8 +1466,35 @@ Concurrency is made **safe by construction, not by luck**:
 Each lane records its live state to `AdminWorkerLaneState` — status, current
 item/gate/strategy, capacity, concurrent tasks, last outcome/error/duration —
 which is the practical **operational-self-awareness** surface the "Internal worker
-lanes" diagnostics rating shows: which lanes ran, which are in error-backoff, and
-what each last did.
+lanes" diagnostics rating + the pipeline page show: which lanes ran, which are in
+error-backoff, and what each last did.
+
+### Published-content protection (versioned, reversible, conservative)
+
+The worker enriches and repairs already-published content — but it must never
+quietly destroy good content. `content-protection.ts` makes every automated edit
+to a live `PublishedContent` row **conservative, versioned, and reversible**:
+
+- **`evaluateContentChange`** (pure, unit-tested) classifies a proposed change vs
+  the current payload as **enrich** (fill an empty field, extend an existing
+  one), **replace** (an existing non-empty field would be removed, shortened, or
+  swapped for different content), or **noop**.
+- **`applyProtectedContentUpdate`** routes the write through the gate:
+  - _enrich_ → **snapshot the current row** to `PublishedContentVersion`, bump
+    `PublishedContent.version`, then apply. The prior title/subtitle/payload/
+    checksum are preserved, so the edit is **reversible**.
+  - _replace_ (destructive) → **refused** and logged (`protected_update_blocked`)
+    unless it is _explicitly allowed_ AND backed by `qualityScore` +
+    `evidenceCount` above the floor. Good content is preserved, not overwritten.
+  - _noop_ → nothing happens.
+- **`restorePublishedContentVersion`** rolls a live row back to any prior
+  snapshot (snapshotting the current state first, so the restore is itself
+  reversible) — the payload-level rollback the unpublish-only path was missing.
+
+The prayer-translation enrichment now writes through this gate, so its Latin/Greek
+fills are snapshotted and reversible. The "Published-content protection"
+diagnostics rating surfaces how many versions were captured (reversibility) and
+how many destructive overwrites were refused (content preserved).
 
 ### Self-monitoring, governance & escalation
 

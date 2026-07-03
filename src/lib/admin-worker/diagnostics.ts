@@ -1201,6 +1201,45 @@ async function ratingWorkerLanes(prisma: PrismaClient): Promise<HealthRating> {
   };
 }
 
+async function ratingContentProtection(prisma: PrismaClient): Promise<HealthRating> {
+  // Adaptive-worker Phase E: every automated edit to live published content is
+  // snapshotted (PublishedContentVersion) so it is reversible, and destructive
+  // overwrites are refused unless backed by quality + evidence. This rating
+  // surfaces recent protection activity: versions captured (reversibility) and
+  // destructive edits refused (good content preserved).
+  const now = new Date();
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [versions, recentVersions, blocked] = await Promise.all([
+    prisma.publishedContentVersion.count().catch(() => 0),
+    prisma.publishedContentVersion.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.adminWorkerLog
+      .count({
+        where: { eventName: "protected_update_blocked", createdAt: { gte: since } },
+      })
+      .catch(() => 0),
+  ]);
+  // Always pass: protection is a safety mechanism working. Blocked overwrites
+  // are surfaced (warn) so an operator can review whether a genuine improvement
+  // is being held back, but a preserved-content decision is never a failure.
+  const status: HealthStatus = blocked > 10 ? "warn" : "pass";
+  return {
+    key: "admin_worker_content_protection",
+    label: "Published-content protection",
+    status,
+    score: status === "pass" ? 1 : 0.7,
+    lastCheckedAt: now,
+    dataSource: "PublishedContentVersion + AdminWorkerLog(protected_update_blocked)",
+    summary:
+      versions === 0
+        ? "No content versions captured yet — no live content has been edited."
+        : `${versions} version snapshot(s) (reversible edits); ${recentVersions} in last 7d, ${blocked} destructive overwrite(s) refused.`,
+    recommendedRepair:
+      blocked > 10
+        ? "Many destructive edits were refused — review whether legitimate improvements need higher quality/evidence to clear the protection gate."
+        : undefined,
+  };
+}
+
 async function ratingEscalations(prisma: PrismaClient): Promise<HealthRating> {
   const now = new Date();
   const [open, latest] = await Promise.all([
@@ -1301,6 +1340,7 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingRollback,
   ratingBuildReadyDrain,
   ratingWorkerLanes,
+  ratingContentProtection,
   ratingEscalations,
   ratingCodeVersion,
 ];

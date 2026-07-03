@@ -2454,6 +2454,43 @@ model AdminWorkerLaneState {
   @@index([status])
 }
 
+/// Published-content protection (adaptive-worker Phase E). A durable, append-only
+/// SNAPSHOT of a PublishedContent row taken BEFORE the worker modifies live
+/// content, so every automated edit is reversible: the prior title/subtitle/
+/// payload/checksum are preserved and can be restored. Replaces the legacy
+/// ContentVersion table (dropped in 0025) with a worker-owned, evidence-annotated
+/// version history. One row per version of a given published item.
+model PublishedContentVersion {
+  id                 String   @id @default(cuid())
+  publishedContentId String
+  contentType        String
+  slug               String
+  /// The version number this snapshot preserves (the value of
+  /// PublishedContent.version at snapshot time — i.e. the state BEFORE the edit
+  /// that triggered the snapshot).
+  version            Int
+  title              String
+  subtitle           String?
+  payload            Json
+  contentChecksum    String?
+  /// Short machine summary of the change that this snapshot precedes
+  /// (e.g. "enrich: +latin,+greek", "replace: body").
+  changeSummary      String?
+  /// Why the change was made (source of the edit — enrichment lane, repair, etc.).
+  reason             String?
+  /// Classification of the change relative to the prior version:
+  /// "enrich" (additive), "replace" (destructive), "restore" (rollback).
+  changeKind         String?
+  /// Quality/evidence snapshot at change time (observability; may be null).
+  qualityScore       Float?
+  evidenceCount      Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  @@index([publishedContentId, version])
+  @@index([contentType, slug])
+  @@index([createdAt])
+}
+
 /// Durable stuckness records (spec: "Postgres should own Stuckness records").
 /// One row per detected stuckness episode.
 model AdminWorkerStucknessRecord {

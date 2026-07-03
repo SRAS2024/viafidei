@@ -48,19 +48,59 @@ afterEach(() => {
 // Three stock segments that all resolve to authentic Latin + Greek.
 const KYRIE = "Lord, have mercy.\nChrist, have mercy.\nLord, have mercy.";
 
-function makePrisma(rows: Array<{ id: string; title: string; payload: unknown }>) {
-  const update = vi.fn(async () => ({}));
+function makePrisma(rows: Array<{ id: string; title: string; slug?: string; payload: unknown }>) {
+  // The live-row write now routes through the content-protection gate
+  // (applyProtectedContentUpdate → snapshotPublishedContent), which reads the
+  // row via findUnique, writes a PublishedContentVersion snapshot, bumps the
+  // version, then updates the payload. Model all of that here.
+  const store = rows.map((r) => ({
+    contentType: "PRAYER",
+    slug: r.slug ?? r.id,
+    subtitle: null as string | null,
+    version: 1,
+    contentChecksum: "old" as string | null,
+    ...r,
+  }));
+  const update = vi.fn(
+    async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+      const row = store.find((r) => r.id === where.id);
+      if (row) {
+        if (data.version && typeof data.version === "object") {
+          row.version += (data.version as { increment: number }).increment;
+        }
+        if (typeof data.payload !== "undefined") row.payload = data.payload;
+        if (typeof data.title === "string") row.title = data.title;
+        if ("contentChecksum" in data) row.contentChecksum = data.contentChecksum as string | null;
+      }
+      return row ?? {};
+    },
+  );
   const create = vi.fn(async () => ({}));
   return {
     update,
     create,
     prisma: {
       adminWorkerMemory: { findUnique: vi.fn(async () => null), upsert: vi.fn(async () => ({})) },
-      publishedContent: { findMany: vi.fn(async () => rows), update },
+      publishedContent: {
+        findMany: vi.fn(async () => rows),
+        findUnique: vi.fn(
+          async ({ where }: { where: { id: string } }) =>
+            store.find((r) => r.id === where.id) ?? null,
+        ),
+        update,
+      },
+      publishedContentVersion: { create: vi.fn(async () => ({ id: "v1" })) },
       humanReviewQueue: { findFirst: vi.fn(async () => null), create },
       adminWorkerLog: { create: vi.fn(async () => ({})) },
     } as unknown as PrismaClient,
   };
+}
+
+/** The payload-bearing update call (the content write, not the version bump). */
+function payloadUpdate(update: ReturnType<typeof vi.fn>) {
+  return update.mock.calls
+    .map((c) => c[0] as { data?: { payload?: Record<string, unknown>; contentChecksum?: string } })
+    .find((arg) => arg?.data?.payload);
 }
 
 describe("runPrayerTranslationBackfill", () => {
@@ -73,12 +113,11 @@ describe("runPrayerTranslationBackfill", () => {
 
     expect(out.scanned).toBe(1);
     expect(out.filledCanonical).toBeGreaterThanOrEqual(2); // latin + greek
-    expect(update).toHaveBeenCalledTimes(1);
-    const data = (
-      update.mock.calls[0][0] as {
-        data: { payload: Record<string, string>; contentChecksum: string };
-      }
-    ).data;
+    const data = payloadUpdate(update)?.data as {
+      payload: Record<string, string>;
+      contentChecksum: string;
+    };
+    expect(data).toBeTruthy();
     expect(data.payload.latin).toContain("Kyrie, eleison.");
     expect(data.payload.greek).toContain("Κύριε");
     // The freshness marker must be recomputed with the new payload, or cache
@@ -169,9 +208,9 @@ describe("runPrayerTranslationBackfill", () => {
     const out = await runPrayerTranslationBackfill(prisma, { force: true });
 
     expect(out.filledMachine).toBe(2);
-    expect(update).toHaveBeenCalledTimes(1);
     // Machine-filled fields are recorded as provenance for later curation.
-    const data = (update.mock.calls[0][0] as { data: { payload: Record<string, unknown> } }).data;
+    const data = payloadUpdate(update)?.data as { payload: Record<string, unknown> };
+    expect(data).toBeTruthy();
     expect(data.payload.machineTranslated).toEqual(expect.arrayContaining(["latin", "greek"]));
   });
 });
