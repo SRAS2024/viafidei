@@ -208,4 +208,20 @@ export const OPS_LANES: LaneDef[] = [
       return { detail: "escalation checked" };
     },
   },
+  {
+    // Innovation lane (adaptive-worker Phase D): a throttled, MEASURE-ONLY
+    // experiment over recorded per-method stats that remembers the winning
+    // method. Never publishes or mutates content — pure research.
+    name: "innovation",
+    capacity: 1,
+    async run({ prisma, passId }) {
+      const { maybeRunInnovationExperiment } = await import("./innovation-lab");
+      const r = await maybeRunInnovationExperiment(prisma, { passId });
+      return {
+        detail: r.ran
+          ? `experiment: ${r.dimension} → ${r.conclusive ? `winner ${r.leader}` : "inconclusive"}`
+          : `innovation ${r.reason ?? "skipped"}`,
+      };
+    },
+  },
 ];

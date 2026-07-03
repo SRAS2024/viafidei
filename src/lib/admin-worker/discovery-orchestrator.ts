@@ -187,6 +187,15 @@ export async function runDiscoveryOrchestrator(
     );
 
   let surfaced = 0;
+  // Adaptive-worker Phase C: tally what each DISCOVERY METHOD surfaced this
+  // pass so we can record per-method success/failure (recordMethodOutcome) —
+  // "which method worked and why", per content type. `tally` both accumulates
+  // per-method counts and keeps the overall `surfaced` total in sync.
+  const methodTally: Record<string, number> = {};
+  const tally = (method: string, n: number) => {
+    methodTally[method] = (methodTally[method] ?? 0) + n;
+    surfaced += n;
+  };
 
   // Sitemap discovery for each top host. We skip hosts whose recent
   // fetch success rate is too low ("unproductive sources").
@@ -201,7 +210,7 @@ export async function runDiscoveryOrchestrator(
       }
       try {
         const outcome = await discoverFromHost(prisma, host.sourceHost);
-        surfaced += outcome.inserted;
+        tally("SITEMAP", outcome.inserted);
         // Spec §19: source reputation updates after the discovery stage
         // — a host that surfaces candidates is more productive.
         const { pushReputation } = await import("./source-reputation-hooks");
@@ -222,7 +231,7 @@ export async function runDiscoveryOrchestrator(
   if (!strategy || strategy.preferDiscoverers.includes("CONFIGURED")) {
     try {
       const outcome = await discoverFromConfiguredUrls(prisma);
-      surfaced += outcome.inserted;
+      tally("CONFIGURED", outcome.inserted);
     } catch (e) {
       errors.push(`configured: ${(e as Error).message}`);
     }
@@ -232,7 +241,7 @@ export async function runDiscoveryOrchestrator(
   if (strategy?.preferDiscoverers.includes("DIRECTORY")) {
     try {
       const outcome = await discoverFromDirectories(prisma);
-      surfaced += outcome.inserted;
+      tally("DIRECTORY", outcome.inserted);
     } catch (e) {
       errors.push(`directory: ${(e as Error).message}`);
     }
@@ -247,7 +256,7 @@ export async function runDiscoveryOrchestrator(
         const r = await discoverFromFeed(prisma, `https://${host.sourceHost}/feed`).catch(
           () => null,
         );
-        if (r?.fetched) surfaced += r.inserted;
+        if (r?.fetched) tally("RSS", r.inserted);
         else if (r?.reason) {
           hostsSkipped.push({ host: host.sourceHost, reason: `rss: ${r.reason}` });
         }
@@ -272,7 +281,7 @@ export async function runDiscoveryOrchestrator(
         .catch(() => [] as Array<{ sourceUrl: string }>);
       for (const seed of seeds) {
         const r = await discoverFromInternalLinks(prisma, seed.sourceUrl).catch(() => null);
-        if (r?.fetched) surfaced += r.inserted;
+        if (r?.fetched) tally("INTERNAL_LINK", r.inserted);
       }
     } catch (e) {
       errors.push(`internal_link: ${(e as Error).message}`);
@@ -286,7 +295,7 @@ export async function runDiscoveryOrchestrator(
       // Use the strategy's first hint as a search query when available.
       const query = strategy?.hints[0] ?? contentType ?? "catholic";
       const r = await discoverFromSearchPages(prisma, query);
-      surfaced += r.inserted;
+      tally("SEARCH_PAGE", r.inserted);
     } catch (e) {
       errors.push(`search: ${(e as Error).message}`);
     }
@@ -306,7 +315,7 @@ export async function runDiscoveryOrchestrator(
         const r = await discoverFromWebSearch(prisma, contentType ?? undefined, {
           subtype: subtype ?? undefined,
         });
-        surfaced += r.inserted;
+        tally("WEB_SEARCH", r.inserted);
         if (r.errors.length) errors.push(`web_search: ${r.errors.join("; ")}`);
       }
     } catch (e) {
@@ -325,10 +334,29 @@ export async function runDiscoveryOrchestrator(
     try {
       const { discoverFromApis } = await import("./source-apis");
       const r = await discoverFromApis(prisma);
-      surfaced += r.inserted;
+      tally("API", r.inserted);
     } catch (e) {
       errors.push(`api: ${(e as Error).message}`);
     }
+  }
+
+  // Adaptive-worker Phase C: record per-method discovery outcomes so the worker
+  // learns which discovery METHOD works for each content type
+  // (recordMethodOutcome → AdminWorkerStrategyStat). ok = the method surfaced at
+  // least one candidate this pass. Fail-open — a learning signal, never a gate.
+  try {
+    const { recordMethodOutcome } = await import("./method-memory");
+    for (const [method, count] of Object.entries(methodTally)) {
+      await recordMethodOutcome(prisma, {
+        dimension: "discovery",
+        method,
+        contentType: contentType ?? undefined,
+        ok: count > 0,
+        reason: `surfaced ${count}`,
+      }).catch(() => undefined);
+    }
+  } catch {
+    /* fail-open */
   }
 
   // Score every newly-discovered candidate so the fetcher can pick

@@ -1201,6 +1201,67 @@ async function ratingWorkerLanes(prisma: PrismaClient): Promise<HealthRating> {
   };
 }
 
+async function ratingStrategyMemory(prisma: PrismaClient): Promise<HealthRating> {
+  // Adaptive-worker Phase C/D: per-method strategy memory + innovation lab.
+  // Surfaces how much the worker has learned about which METHOD works
+  // (AdminWorkerStrategyStat) and the most recent bounded experiment's verdict.
+  const now = new Date();
+  const [stats, lastExperiment] = await Promise.all([
+    prisma.adminWorkerStrategyStat
+      .findMany({
+        orderBy: [{ dimension: "asc" }, { ewma: "desc" }],
+        take: 50,
+        select: { dimension: true, method: true, ewma: true, attempts: true },
+      })
+      .catch(
+        () => [] as Array<{ dimension: string; method: string; ewma: number; attempts: number }>,
+      ),
+    prisma.labExperimentResult
+      .findFirst({
+        orderBy: { createdAt: "desc" },
+        select: { leader: true, conclusive: true, lesson: true, createdAt: true },
+      })
+      .catch(() => null),
+  ]);
+
+  if (stats.length === 0) {
+    return {
+      key: "admin_worker_strategy_memory",
+      label: "Strategy memory + innovation",
+      status: "warn",
+      score: 0.5,
+      lastCheckedAt: now,
+      dataSource: "AdminWorkerStrategyStat + LabExperimentResult",
+      summary: "No per-method strategy stats yet — the worker records method outcomes as it runs.",
+      recommendedRepair: "Run discovery passes; each records which method surfaced candidates.",
+    };
+  }
+
+  // Best method per dimension (stats are pre-sorted ewma desc within dimension).
+  const bestByDim = new Map<string, { method: string; ewma: number }>();
+  for (const s of stats) {
+    if (!bestByDim.has(s.dimension)) bestByDim.set(s.dimension, { method: s.method, ewma: s.ewma });
+  }
+  const summary = [...bestByDim.entries()]
+    .map(([dim, b]) => `${dim}:${b.method}(${b.ewma.toFixed(2)})`)
+    .join(", ");
+
+  return {
+    key: "admin_worker_strategy_memory",
+    label: "Strategy memory + innovation",
+    status: "pass",
+    score: 1,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerStrategyStat + LabExperimentResult",
+    latestSuccess: lastExperiment?.createdAt ?? null,
+    summary: `${stats.length} method stat(s). Best per dimension: ${summary}.${
+      lastExperiment
+        ? ` Last experiment: ${lastExperiment.conclusive ? `winner ${lastExperiment.leader}` : "inconclusive"}.`
+        : ""
+    }`,
+  };
+}
+
 async function ratingContentProtection(prisma: PrismaClient): Promise<HealthRating> {
   // Adaptive-worker Phase E: every automated edit to live published content is
   // snapshotted (PublishedContentVersion) so it is reversible, and destructive
@@ -1340,6 +1401,7 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingRollback,
   ratingBuildReadyDrain,
   ratingWorkerLanes,
+  ratingStrategyMemory,
   ratingContentProtection,
   ratingEscalations,
   ratingCodeVersion,

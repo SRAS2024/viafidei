@@ -2454,6 +2454,31 @@ model AdminWorkerLaneState {
   @@index([status])
 }
 
+/// Per-METHOD strategy memory (adaptive-worker Phase C/D). Records how well each
+/// concrete method performs within a dimension (fetch / discovery / extraction /
+/// verification / quality / repair / publishing), per content type, so the
+/// worker can rank methods, switch strategy when one underperforms, and remember
+/// "which method worked and why". contentType uses the sentinel "*" for a
+/// content-type-agnostic aggregate (kept non-null so the unique key is stable).
+model AdminWorkerStrategyStat {
+  id          String   @id @default(cuid())
+  dimension   String
+  method      String
+  contentType String   @default("*")
+  attempts    Int      @default(0)
+  successes   Int      @default(0)
+  failures    Int      @default(0)
+  /// EWMA of the success signal (0..1) — recency-weighted success rate.
+  ewma        Float    @default(0.5)
+  lastOutcome String?
+  lastReason  String?
+  lastUsedAt  DateTime?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([dimension, method, contentType])
+  @@index([dimension, contentType])
+}
+
 /// Published-content protection (adaptive-worker Phase E). A durable, append-only
 /// SNAPSHOT of a PublishedContent row taken BEFORE the worker modifies live
 /// content, so every automated edit is reversible: the prior title/subtitle/

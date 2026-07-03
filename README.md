@@ -1469,6 +1469,39 @@ which is the practical **operational-self-awareness** surface the "Internal work
 lanes" diagnostics rating + the pipeline page show: which lanes ran, which are in
 error-backoff, and what each last did.
 
+### Adaptive strategy memory + innovation lab
+
+The worker already has strong _per-source_ adaptivity (reputation, host memory)
+and two fixed fallback chains (fetch: static → headless Chromium → Wayback
+archive; extraction: deterministic → AI). Phase C/D adds _per-**method**_
+learning so the worker knows which approach works and gets better over time:
+
+- **Per-method memory (`method-memory.ts` → `AdminWorkerStrategyStat`).** Every
+  method records its outcome per _(dimension, method, content type)_ —
+  `recordMethodOutcome` maintains attempts/successes/failures and a
+  recency-weighted success rate (EWMA). Discovery already feeds it: each pass
+  records which discovery method (SITEMAP / RSS / INTERNAL_LINK / SEARCH_PAGE /
+  WEB_SEARCH / DIRECTORY / CONFIGURED / API) surfaced candidates for that content
+  type — "which method worked, and why".
+- **Adaptive selection with explore/exploit.** `rankMethods` orders methods by
+  EWMA (preferring content-type-specific data over the `*` aggregate), and
+  `chooseMethodWithExploration` picks with an ε-greedy policy: mostly use the best
+  known method (exploit), but with probability ε (`ADMIN_WORKER_STRATEGY_EPSILON`,
+  default 0.15) trial an alternative (explore) — so a winner is applied without
+  locking out a method that might be better, and unseen methods always get a
+  first trial.
+- **Innovation lab (`innovation-lab.ts`).** A throttled, **measure-only** ops
+  lane that runs a bounded 2-group experiment over the recorded stats (never a
+  live traffic split, never publishes): it picks the dimension with the most
+  competing methods, compares the top two, and persists a `LabExperimentPlan` +
+  `LabExperimentResult`. When the margin is decisive with enough data on both
+  sides, it **remembers the winner** (`AdminWorkerMemory` `strategy_winner:*`),
+  which selection + ranking then apply. This is the TypeScript runner the schema
+  and Python brain were designed for but never had.
+
+The "Strategy memory + innovation" diagnostics rating surfaces the best method
+per dimension and the most recent experiment's verdict.
+
 ### Published-content protection (versioned, reversible, conservative)
 
 The worker enriches and repairs already-published content — but it must never

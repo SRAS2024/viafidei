@@ -113,6 +113,23 @@ export {
 } from "./lanes";
 export { CONTENT_LANES, OPS_LANES } from "./worker-lanes";
 
+// Per-method strategy memory + adaptive selection (adaptive-worker Phase C/D).
+export {
+  recordMethodOutcome,
+  rankMethods,
+  chooseMethodWithExploration,
+  listStrategyStats,
+  ANY_CONTENT_TYPE,
+  type RankedMethod,
+  type MethodChoice,
+  type MethodOutcomeInput,
+} from "./method-memory";
+export {
+  runInnovationExperiment,
+  maybeRunInnovationExperiment,
+  type InnovationExperimentResult,
+} from "./innovation-lab";
+
 // Published-content protection (adaptive-worker Phase E).
 export {
   evaluateContentChange,
