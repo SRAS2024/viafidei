@@ -113,6 +113,13 @@ export {
 } from "./lanes";
 export { CONTENT_LANES, OPS_LANES } from "./worker-lanes";
 
+// Operational self-awareness summary (adaptive-worker Phase A/F capstone).
+export {
+  buildOperationalSummary,
+  deriveNextBestAction,
+  type OperationalSummary,
+} from "./operational-summary";
+
 // Per-method strategy memory + adaptive selection (adaptive-worker Phase C/D).
 export {
   recordMethodOutcome,

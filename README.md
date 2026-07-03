@@ -1529,6 +1529,25 @@ fills are snapshotted and reversible. The "Published-content protection"
 diagnostics rating surfaces how many versions were captured (reversibility) and
 how many destructive overwrites were refused (content preserved).
 
+### Operational self-awareness (what am I doing / why / what's next)
+
+`operational-summary.ts` composes all of the above into ONE answer to the
+operator's real questions — surfaced on the pipeline page and available to
+reports:
+
+- **Am I working?** heartbeat freshness + paused + blocker, and how many lanes
+  are active vs in error-backoff.
+- **What am I doing?** the current mission stage + reason (from the brain's
+  selected action) and the live lane states.
+- **Which strategy?** the best-performing method per learned dimension.
+- **Why isn't more publishing?** the BUILD_READY backlog broken down by blocking
+  gate (`AWAITING_QA`, `AWAITING_VERIFICATION`, `MISSING_CITATIONS`, …).
+- **What changed after a deploy?** the latest recorded running code version.
+- **What next?** `deriveNextBestAction` returns a single mission-aware
+  recommendation, prioritising meaningful progress: resume-if-paused → address
+  escalations → clear errored lanes → **drain the built backlog (naming the
+  dominant gate)** → fix liveness → continue/generate.
+
 ### Self-monitoring, governance & escalation
 
 Above the in-pass governor sits a higher-order self-monitoring → governance →

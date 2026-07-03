@@ -3,7 +3,12 @@ import Link from "next/link";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
-import { PIPELINE_ORDER, getLaneStates, pipelineMapFor } from "@/lib/admin-worker";
+import {
+  PIPELINE_ORDER,
+  buildOperationalSummary,
+  getLaneStates,
+  pipelineMapFor,
+} from "@/lib/admin-worker";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +83,7 @@ export default async function AdminWorkerPipelinePage({
   }
 
   // No pipelineKey — list the 30 most-recently-touched pipeline items.
-  const [recent, lanes] = await Promise.all([
+  const [recent, lanes, summary] = await Promise.all([
     prisma.adminWorkerPipelineStage
       .findMany({
         where: { pipelineKey: { not: null } },
@@ -96,6 +101,7 @@ export default async function AdminWorkerPipelinePage({
       })
       .catch(() => []),
     getLaneStates(prisma),
+    buildOperationalSummary(prisma).catch(() => null),
   ]);
 
   return (
@@ -115,6 +121,66 @@ export default async function AdminWorkerPipelinePage({
           ))}
         </div>
       </header>
+
+      {/* Operational self-awareness (adaptive-worker Phase A/F capstone): one
+          composed answer to "what am I doing, why isn't more publishing, what's
+          next" — working state, best strategy per dimension, the BUILD_READY
+          per-gate backlog, and the derived next-best-action. */}
+      {summary && (
+        <section className="space-y-2 rounded-lg border border-ink/10 bg-ink/[0.02] p-4">
+          <h2 className="font-display text-xl text-ink">Operational self-awareness</h2>
+          <div className="grid gap-2 text-xs sm:grid-cols-2">
+            <div>
+              <span className="uppercase text-ink-soft">Status</span>
+              <p className="font-mono">
+                {summary.paused ? "paused" : summary.working ? "working" : "idle / not fresh"}
+                {summary.heartbeatAgeSeconds != null
+                  ? ` · heartbeat ${summary.heartbeatAgeSeconds}s ago`
+                  : ""}
+                {` · ${summary.activeLaneCount} lane(s) active, ${summary.erroredLaneCount} in error`}
+              </p>
+            </div>
+            <div>
+              <span className="uppercase text-ink-soft">Current action</span>
+              <p className="font-mono">
+                {summary.currentAction?.missionStage ?? "—"}
+                {summary.currentAction?.reason ? ` — ${summary.currentAction.reason}` : ""}
+              </p>
+            </div>
+            <div>
+              <span className="uppercase text-ink-soft">Best strategy / dimension</span>
+              <p className="font-mono">
+                {summary.bestStrategies.length
+                  ? summary.bestStrategies
+                      .map((s) => `${s.dimension}:${s.method}(${s.ewma.toFixed(2)})`)
+                      .join(", ")
+                  : "learning…"}
+              </p>
+            </div>
+            <div>
+              <span className="uppercase text-ink-soft">
+                BUILD_READY backlog ({summary.buildReadyBacklog})
+              </span>
+              <p className="font-mono">
+                {summary.buildReadyGates.length
+                  ? summary.buildReadyGates.map((g) => `${g.gate}=${g.count}`).join(", ")
+                  : "none — draining to publish"}
+              </p>
+            </div>
+          </div>
+          <p className="mt-1 text-sm">
+            <span className="uppercase text-ink-soft">Next best action:</span>{" "}
+            <span className="font-serif text-ink">{summary.nextBestAction}</span>
+          </p>
+          {summary.codeVersion && (
+            <p className="text-xs text-ink-soft">
+              Running {summary.codeVersion.versionLabel}
+              {summary.codeVersion.sha ? ` (${summary.codeVersion.sha.slice(0, 8)})` : ""}
+              {summary.codeVersion.changedSummary ? ` — ${summary.codeVersion.changedSummary}` : ""}
+            </p>
+          )}
+        </section>
+      )}
 
       {/* Internal worker lanes (adaptive-worker Phase B): the parallel lanes the
           worker runs each pass, with live status, capacity, and last outcome —
