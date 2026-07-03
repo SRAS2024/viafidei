@@ -1455,6 +1455,20 @@ serial sub-workstreams inside "ingestion"/"enrichment"/"discovery"/"maintenance"
 now run concurrently. The worker keeps mining continuously (the loop runs forever
 with idle backoff, `oneShot=false`) until every content goal's gap is closed.
 
+**Priority: content goals first, then management + security.** Meeting the content
+goals is the worker's first job — while any goal has an open gap the growth lanes
+(`ingest-*`, `discover-*`, tagged `growth: true`) run at full pace every active
+pass. Once **every** content goal is met (`contentGoalsMet` — no `ContentGoal`
+row has `gapCount > 0`), those growth lanes drop to a slow maintenance sweep
+(`ADMIN_WORKER_GROWTH_SWEEP_MS`, default 30 min) that still catches newly-added
+feasts/saints without building past target at full pace, and the worker's active
+work becomes the management + security lanes (drain, readings, the maintenance
+lanes, reporting, intelligence, escalation) — while the decision brain itself
+idles to `MAINTENANCE`. Security response is always-on independent of the loop
+(request-path middleware + the `escalation` lane). Non-growth lanes are never
+throttled, so quality/upkeep (review auto-resolve, translations, daily-readings
+refresh, custody) continues regardless.
+
 Concurrency is made **safe by construction, not by luck**:
 
 - Lanes touch **disjoint work domains** (curated vs structured vs OSM vs

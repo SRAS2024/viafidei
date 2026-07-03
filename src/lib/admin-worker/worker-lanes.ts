@@ -44,6 +44,7 @@ export const CONTENT_LANES: LaneDef[] = [
     name: "ingest-curated",
     capacity: 4,
     activeOnly: true,
+    growth: true,
     async run({ prisma, passId }) {
       const { runCuratedIngest } = await import("./curated-ingest");
       const published = (await runCuratedIngest(prisma, { passId })).published;
@@ -54,6 +55,7 @@ export const CONTENT_LANES: LaneDef[] = [
     name: "ingest-structured",
     capacity: 4,
     activeOnly: true,
+    growth: true,
     async run({ prisma, passId }) {
       const { runStructuredIngest } = await import("./structured/ingest");
       const published = (await runStructuredIngest(prisma, { passId })).published;
@@ -112,6 +114,7 @@ export const CONTENT_LANES: LaneDef[] = [
     name: "discover-structured",
     capacity: 2,
     activeOnly: true,
+    growth: true,
     async run({ prisma }) {
       const { runDiscoverySeeder } = await import("./structured/discovery-seeder");
       await runDiscoverySeeder(prisma);
@@ -122,6 +125,7 @@ export const CONTENT_LANES: LaneDef[] = [
     name: "discover-parish-osm",
     capacity: 2,
     activeOnly: true,
+    growth: true,
     async run({ prisma }) {
       const { runOsmParishDiscovery } = await import("./parish-osm");
       const published = (await runOsmParishDiscovery(prisma, { brainActive: true })).published;
@@ -132,6 +136,7 @@ export const CONTENT_LANES: LaneDef[] = [
     name: "discover-web",
     capacity: 4,
     activeOnly: true,
+    growth: true,
     async run({ prisma, passId }) {
       const { runAlwaysOnDiscovery } = await import("./always-on-discovery");
       await runAlwaysOnDiscovery(prisma, { passId });

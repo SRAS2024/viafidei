@@ -44,6 +44,8 @@ export interface LaneRunContext {
   passId?: string;
   workerId?: string;
   active: boolean;
+  /** True when every content goal's gap is closed (all targets met). */
+  contentGoalsMet?: boolean;
 }
 
 export interface LaneDef {
@@ -52,6 +54,15 @@ export interface LaneDef {
   capacity: number;
   /** Only run when the Python final brain is active (publishing lanes). */
   activeOnly?: boolean;
+  /**
+   * A GROWTH lane — it adds NEW content (ingest/discovery). Once every content
+   * goal is met the worker's first priority is done, so growth lanes drop to a
+   * slow maintenance sweep (see ADMIN_WORKER_GROWTH_SWEEP_MS) and the worker
+   * focuses on management + security instead of building past target at full
+   * pace. Non-growth lanes (enrichment, drain, readings, maintenance, security,
+   * reporting) keep running every pass.
+   */
+  growth?: boolean;
   /** Cooldown after an error before this lane retries (ms). */
   cooldownMs?: number;
   run: (ctx: LaneRunContext) => Promise<LaneOutcome | void>;
@@ -63,6 +74,12 @@ function envInt(name: string, fallback: number): number {
 }
 
 const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000;
+
+// When all content goals are met, growth lanes (ingest/discovery) run at most
+// this often — a slow sweep that still catches newly-added feasts/saints/etc.
+// without building past target at full pace, so the worker shifts focus to
+// management + security. Overridable via ADMIN_WORKER_GROWTH_SWEEP_MS.
+const GROWTH_MAINTENANCE_SWEEP_MS = 30 * 60 * 1000;
 
 // ── Artifact lease (task ownership) ──────────────────────────────────────────
 
@@ -213,7 +230,7 @@ export interface LanesResult {
 export async function runWorkerLanes(
   prisma: PrismaClient,
   lanes: LaneDef[],
-  ctx: { passId?: string; workerId?: string; active: boolean },
+  ctx: { passId?: string; workerId?: string; active: boolean; contentGoalsMet?: boolean },
 ): Promise<LanesResult> {
   const out: LanesResult = { ran: [], skipped: [], errored: [], published: 0, advanced: 0 };
   // Default cap of 8 lets the fine-grained lane set (9 content + 11 ops lanes)
@@ -221,6 +238,7 @@ export async function runWorkerLanes(
   // (PRISMA_CONNECTION_LIMIT, default 10) so concurrent lanes never starve the
   // connection pool (P2037); raise BOTH together for bigger deployments.
   const maxConcurrent = envInt("ADMIN_WORKER_LANE_CONCURRENCY", 8);
+  const growthSweepMs = envInt("ADMIN_WORKER_GROWTH_SWEEP_MS", GROWTH_MAINTENANCE_SWEEP_MS);
 
   // Read current lane states to honour per-lane error cooldown (backoff).
   const states = await getLaneStates(prisma);
@@ -233,6 +251,16 @@ export async function runWorkerLanes(
       return false;
     }
     const st = stateByLane.get(lane.name);
+    // Content goals are the first priority. Once they are ALL met, growth lanes
+    // (ingest/discovery) drop to a slow maintenance sweep so the worker focuses
+    // on management + security instead of building past target every pass.
+    if (lane.growth && ctx.contentGoalsMet) {
+      const lastRun = st?.lastFinishedAt ? new Date(st.lastFinishedAt).getTime() : 0;
+      if (now - lastRun < growthSweepMs) {
+        out.skipped.push(lane.name);
+        return false;
+      }
+    }
     const cooldown = lane.cooldownMs ?? DEFAULT_COOLDOWN_MS;
     if (
       st?.lastError &&
@@ -261,6 +289,7 @@ export async function runWorkerLanes(
           passId: ctx.passId,
           workerId: ctx.workerId,
           active: ctx.active,
+          contentGoalsMet: ctx.contentGoalsMet,
         })) || {};
       out.ran.push(lane.name);
       out.published += result.published ?? 0;
