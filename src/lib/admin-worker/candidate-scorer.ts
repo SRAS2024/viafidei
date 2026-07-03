@@ -245,7 +245,13 @@ export async function rescoreAllCandidates(
 ): Promise<{ scored: number; rejected: number; prioritized: number }> {
   const candidates = await prisma.candidateSourceUrl.findMany({
     where: { status: { in: ["DISCOVERED", "PRIORITIZED"] } },
-    orderBy: { createdAt: "asc" },
+    // Score the UNSCORED backlog first (fetchPriority defaults to 0), then the
+    // oldest. Previously this re-scored only the oldest N every pass, so when
+    // discovery outran scoring the newer candidates stayed at fetchPriority 0
+    // forever and the fetcher had nothing prioritized to pull — the "18% of
+    // candidates carry a non-zero fetchPriority" stall. Now every candidate
+    // eventually gets a real score.
+    orderBy: [{ fetchPriority: "asc" }, { createdAt: "asc" }],
     take: opts.limit ?? 100,
   });
   let scored = 0;

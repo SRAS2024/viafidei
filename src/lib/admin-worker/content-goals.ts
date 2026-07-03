@@ -198,18 +198,47 @@ export async function nextPriorityContentType(
   const goals = allGoals.filter((g) => !CURATED_BUILT_CONTENT_TYPES.has(g.contentType));
   if (goals.length === 0) return null;
 
-  // Rank by gap FRACTION (gap / desiredTarget), not absolute gap, so a type
-  // with a very large target (Parish 300k, Saint 10k) cannot permanently
-  // monopolize discovery over the other below-goal types. Ties break on raw
-  // gap, then declared priority.
+  // De-prioritise types whose source coverage is BLOCKED (their sources are
+  // unreachable / insufficient — e.g. PARISH when its structured source
+  // query.wikidata.org is egress-blocked). Otherwise the type with the biggest
+  // gap fraction (PARISH: 300k target, ~1 fraction) permanently wins the mission
+  // target, the worker fetches/extracts a type it can't advance, and it goes
+  // NO_VALUE — "active but publishing nothing". We DE-RANK rather than exclude:
+  // blocked types fall to the back so the worker first grows what it CAN reach
+  // (SAINT, PRAYER, CHURCH_DOCUMENT), but a blocked type is never permanently
+  // abandoned (avoids a deadlock where a type blocked only for low recent
+  // activity could never be worked again). If EVERY type is blocked, ranking is
+  // unchanged. Fail-open: any error → treat nothing as blocked.
+  let blockedSet = new Set<string>();
+  try {
+    const blockedRows = await prisma.adminWorkerSourceCoverage.findMany({
+      where: { blockedByCoverage: true },
+      select: { contentType: true },
+    });
+    blockedSet = new Set(blockedRows.map((r) => r.contentType));
+  } catch {
+    blockedSet = new Set();
+  }
+
+  // Rank reachable-first, then by gap FRACTION (gap / desiredTarget), not
+  // absolute gap, so a type with a very large target (Parish 300k, Saint 10k)
+  // cannot permanently monopolize discovery over the other below-goal types.
+  // Ties break on raw gap, then declared priority.
   const ranked = goals
     .map((g) => ({
       contentType: g.contentType,
       gap: g.gapCount,
       frac: g.desiredTarget > 0 ? g.gapCount / g.desiredTarget : 1,
       priority: g.priority,
+      blocked: blockedSet.has(g.contentType),
     }))
-    .sort((a, b) => b.frac - a.frac || b.gap - a.gap || a.priority - b.priority);
+    .sort(
+      (a, b) =>
+        Number(a.blocked) - Number(b.blocked) ||
+        b.frac - a.frac ||
+        b.gap - a.gap ||
+        a.priority - b.priority,
+    );
 
   // Rotation: spread discovery across types instead of fixating on the single
   // neediest one (the live worker was looping DISCOVERY on PARISH forever).

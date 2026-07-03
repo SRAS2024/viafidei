@@ -508,7 +508,11 @@ async function runCandidatePrioritization(
   // candidates to REJECTED (visible in the rejected-candidate
   // dashboard) — spec §5.
   const { rescoreAllCandidates } = await import("./candidate-scorer");
-  const result = await rescoreAllCandidates(prisma, { limit: 200 });
+  // Score a large batch (unscored-first) so scoring keeps up with discovery —
+  // otherwise a big discovered backlog leaves most candidates at fetchPriority 0
+  // and the fetcher has little to prioritize. Overridable via env for big backlogs.
+  const scoreLimit = Number(process.env.ADMIN_WORKER_SCORE_BATCH ?? "") || 600;
+  const result = await rescoreAllCandidates(prisma, { limit: scoreLimit });
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "SOURCE_DISCOVERY",
