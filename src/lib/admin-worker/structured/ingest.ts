@@ -323,7 +323,7 @@ export async function runStructuredIngest(
         category: "CONTENT_BUILD",
         severity: "WARN",
         eventName: "structured_knowledge_ingest",
-        message: `Structured-knowledge ingest (${ingestor.id}): fetched 0 rows — the structured source appears UNREACHABLE. If this persists, the worker's network egress likely does not allow query.wikidata.org / en.wikipedia.org, so structured content cannot grow.`,
+        message: `Structured-knowledge ingest (${ingestor.id}): fetched 0 rows — the structured source appears UNREACHABLE. If this persists, the deployment's network egress does not allow query.wikidata.org / en.wikipedia.org. Fix in the environment (not code): allow outbound HTTPS to those hosts, OR set HTTPS_PROXY (+ NODE_EXTRA_CA_CERTS if the proxy uses a private CA) so the worker reaches them through the proxy. See the "Outbound internet reachability" diagnostic for the live per-host status.`,
         safeMetadata: {
           ingestorId: ingestor.id,
           contentType: ingestor.contentType,

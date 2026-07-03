@@ -65,6 +65,27 @@ export async function runAdminWorkerLoop(
   const maxPasses = opts.maxPasses ?? Infinity;
   const idleBackoffMs = opts.idleBackoffMs ?? 1000;
 
+  // Enable outbound egress through a proxy when the deployment provides one
+  // (HTTPS_PROXY/HTTP_PROXY/ALL_PROXY). Idempotent + fail-open + a no-op when no
+  // proxy is set. Without this, Node's fetch ignores the proxy and every
+  // outbound request fails in a proxied environment — starving discovery,
+  // extraction, and the Wikidata/Wikipedia structured ingest.
+  try {
+    const { installOutboundProxy } = await import("./outbound-network");
+    const state = await installOutboundProxy();
+    if (state.installed) {
+      await writeAdminWorkerLog(prisma, {
+        category: "OVERVIEW",
+        severity: "INFO",
+        eventName: "outbound_proxy_installed",
+        message: `Outbound fetch routed through proxy ${state.proxyUrl ?? "?"} (${state.mode}).`,
+        safeMetadata: { mode: state.mode, proxyUrl: state.proxyUrl },
+      }).catch(() => undefined);
+    }
+  } catch {
+    // fail-open — direct egress
+  }
+
   let passes = 0;
   let built = 0;
   let published = 0;
