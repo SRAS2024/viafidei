@@ -125,6 +125,16 @@ export const DIRECTORY_PAGES: readonly DirectoryPage[] = [
     expectedContentType: "LITURGICAL",
     note: "Universalis — Liturgy of the Hours index",
   },
+  {
+    url: "https://www.vaticannews.va/en/prayers.html",
+    expectedContentType: "PRAYER",
+    note: "Vatican News — prayers & devotions index (links out to individual prayers)",
+  },
+  {
+    url: "https://masstimes.org/",
+    expectedContentType: "PARISH",
+    note: "Mass Times — parish/shrine/cathedral/basilica directory (links out to locations)",
+  },
 ] as const;
 
 export interface DirectoryDiscoveryOutcome {

@@ -21,7 +21,7 @@ import type {
   PrismaClient,
 } from "@prisma/client";
 
-import { AUTHORITY_SOURCES, isApprovedAuthorityHost } from "@/lib/checklist";
+import { AUTHORITY_SOURCES, isFetchableHost } from "@/lib/checklist";
 import { writeAdminWorkerLog } from "./logs";
 import { discoverCandidate, isJunkUrl, type DiscoverCandidateInput } from "./web-navigator";
 
@@ -127,8 +127,10 @@ export async function discoverFromHost(
   prisma: PrismaClient,
   host: string,
 ): Promise<SitemapDiscoveryOutcome> {
-  if (!isApprovedAuthorityHost(host)) {
-    return { host, fetched: 0, inserted: 0, rejected: 0, reason: "host not approved" };
+  // Open-internet mode (default) lets the worker read a sitemap on any fetchable
+  // host; when open mode is off this is exactly the registry allow-list.
+  if (!isFetchableHost(host)) {
+    return { host, fetched: 0, inserted: 0, rejected: 0, reason: "host not fetchable" };
   }
 
   const robots = await readRobots(host);
@@ -153,7 +155,7 @@ export async function discoverFromHost(
           return null;
         }
       })();
-      if (!parsedHost || !isApprovedAuthorityHost(parsedHost)) {
+      if (!parsedHost || !isFetchableHost(parsedHost)) {
         rejected += 1;
         continue;
       }

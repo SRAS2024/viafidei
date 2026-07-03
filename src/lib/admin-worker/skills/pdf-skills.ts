@@ -7,7 +7,7 @@
  * parser developer request rather than feeding the pipeline noise.
  */
 
-import { isApprovedAuthorityHost } from "@/lib/checklist";
+import { isFetchableHost } from "@/lib/checklist";
 import { adminWorkerFetch, type FetcherInput, type FetchedPage } from "../fetcher";
 import { writeAdminWorkerLog } from "../logs";
 import { extractPdfText } from "../pdf-extract";
@@ -38,7 +38,10 @@ async function fetchPdfBytes(pdfUrl: string): Promise<Buffer | null> {
   } catch {
     return null;
   }
-  if (!isApprovedAuthorityHost(host)) return null;
+  // Open-internet mode (default) lets the worker read a PDF from any fetchable
+  // host (papal PDFs, diocesan documents, etc.); with open mode off this is the
+  // registry allow-list. Non-content hosts are always blocked either way.
+  if (!isFetchableHost(host)) return null;
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);

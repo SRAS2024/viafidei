@@ -397,8 +397,8 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   // the others — self-repair) and enters an error-backoff cooldown; each records
   // its live state. The drain self-gates its publish step on active mode.
   {
-    const { runWorkerLanes } = await import("./lanes");
-    const { OPS_LANES } = await import("./worker-lanes");
+    const { runWorkerLanes, pruneUnknownLaneStates } = await import("./lanes");
+    const { OPS_LANES, ALL_LANE_NAMES } = await import("./worker-lanes");
     const laneResult = await runWorkerLanes(prisma, OPS_LANES, {
       passId: pass.id,
       workerId,
@@ -406,6 +406,10 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     });
     publishedCount += laneResult.published;
     if (laneResult.published > 0 || laneResult.advanced > 0) idle = false;
+    // Keep the live lane board honest: drop lane-state rows from any earlier
+    // lane layout (ALL_LANE_NAMES covers both content + ops lanes) so the
+    // dashboard only shows lanes that are actually running.
+    await pruneUnknownLaneStates(prisma, ALL_LANE_NAMES).catch(() => 0);
   }
 
   return { built, published: publishedCount, failed: failedCount, idle };

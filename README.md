@@ -1431,19 +1431,29 @@ goes to a repair plan instead of waiting on a human.
 ### Internal worker lanes + concurrency controls
 
 The worker used to run its per-pass supplementary workstreams strictly serially —
-one `await` after another, one task type at a time. They now run as **parallel
-lanes inside the same worker process** (no extra deployed service), so the worker
-advances several task types at once where it is safe to (`lanes.ts` +
-`worker-lanes.ts`):
+one `await` after another, one task type at a time. They now run as **many
+fine-grained parallel lanes inside the same worker process** (no extra deployed
+service): every independent workstream is its own lane, so the worker fires a lot
+of tasks at once instead of blocking on each other (`lanes.ts` + `worker-lanes.ts`).
+Each lane is individually tracked, so you can see exactly what every one is doing.
 
 - **Content lanes** (`activeOnly` — they publish, so they run only when the
-  Python final brain is active): **ingestion** (curated + structured + liturgical),
-  **enrichment** (prayer-translation backfill + review auto-resolve + pope cleanup),
-  **discovery** (structured discovery-seeder + OSM parish + always-on web sweep).
+  Python final brain is active), one lane per workstream so they all run at once:
+  **ingest-curated**, **ingest-structured**, **ingest-liturgical** (each publishes
+  a disjoint content set); **enrich-translations**, **enrich-reviews**,
+  **enrich-pope-cleanup**; **discover-structured**, **discover-parish-osm**,
+  **discover-web** (the three discovery methods, keeping the candidate funnel full
+  from every angle simultaneously).
 - **Ops lanes** (every pass, regardless of mode): **drain** (the BUILD_READY drain
-  above), **readings**, **maintenance** (schema/UI awareness + self-model +
-  custody), **reporting**, **intelligence** (post-pass analysis + lab + skill
-  matrix + code-version), **escalation**.
+  above), **readings**, the four maintenance lanes **maint-schema** / **maint-ui** /
+  **maint-self-model** / **maint-custody**, **reporting**, **intelligence**
+  (post-pass analysis + lab + skill matrix + code-version — the single
+  brain-calling lane), **escalation**, and the measure-only **innovation** lane.
+
+That is ~20 lanes (was two coarse groups of three + seven), so the previously
+serial sub-workstreams inside "ingestion"/"enrichment"/"discovery"/"maintenance"
+now run concurrently. The worker keeps mining continuously (the loop runs forever
+with idle backoff, `oneShot=false`) until every content goal's gap is closed.
 
 Concurrency is made **safe by construction, not by luck**:
 
@@ -1457,8 +1467,14 @@ Concurrency is made **safe by construction, not by luck**:
   an atomic conditional `updateMany` before mutating it, so two lanes (or two
   worker processes) never double-work the same item. A crashed lane's lease
   **expires and is reclaimed** (`reapArtifactLeases`).
-- A global **concurrency cap** (`ADMIN_WORKER_LANE_CONCURRENCY`, default 4) bounds
-  resource use — extra lanes queue and run as slots free.
+- A global **concurrency cap** (`ADMIN_WORKER_LANE_CONCURRENCY`, default 8) bounds
+  resource use — extra lanes queue and run as slots free. It is kept at/below the
+  Prisma connection pool (`PRISMA_CONNECTION_LIMIT`, default 10) so many
+  concurrent lanes never starve the pool (`P2037`); raise **both together** on a
+  bigger machine to run even more at once.
+- Stale lane rows from an earlier lane layout are pruned each pass
+  (`pruneUnknownLaneStates`), so the live board only ever shows lanes that are
+  actually running.
 - Every lane is **isolated** (its own try/catch): a failing lane never kills the
   others (self-repair), and it enters a **backoff cooldown** before retrying, so a
   hard-failing lane can't hot-loop.

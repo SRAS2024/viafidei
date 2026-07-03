@@ -14,13 +14,20 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
  * Capping `connection_limit` keeps each process' footprint small; `pool_timeout`
  * makes queries wait briefly for a free connection instead of failing. An
  * explicit `connection_limit` already present in the URL is respected.
+ *
+ * The default is 10 (was 5) so the worker's concurrent lane set
+ * (ADMIN_WORKER_LANE_CONCURRENCY, default 8) has enough pooled connections to
+ * run many workstreams at once plus the main decision pass + heartbeat, without
+ * hitting `P2037`. Still bounded and modest (Postgres `max_connections` is ~100
+ * by default). Raise `PRISMA_CONNECTION_LIMIT` (and the lane cap) together on
+ * bigger machines; lower it if several web instances share a small Postgres.
  */
 export function databaseUrlWithPool(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
   try {
     const url = new URL(raw);
     if (!url.searchParams.has("connection_limit")) {
-      url.searchParams.set("connection_limit", process.env.PRISMA_CONNECTION_LIMIT ?? "5");
+      url.searchParams.set("connection_limit", process.env.PRISMA_CONNECTION_LIMIT ?? "10");
     }
     if (!url.searchParams.has("pool_timeout")) {
       url.searchParams.set("pool_timeout", process.env.PRISMA_POOL_TIMEOUT ?? "20");

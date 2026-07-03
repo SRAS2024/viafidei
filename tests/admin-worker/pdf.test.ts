@@ -110,47 +110,76 @@ function makePrisma() {
 }
 
 describe("generateAdminWorkerDeveloperAuditPdf", () => {
-  it("emits a valid PDF for LAST_24_HOURS", async () => {
-    const prisma = makePrisma();
-    const { pdf, reportLogId } = await generateAdminWorkerDeveloperAuditPdf(
-      prisma,
-      "LAST_24_HOURS",
-      "admin",
-    );
-    expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
-    expect(reportLogId).toBe("r1");
-  });
+  // Real PDF rendering: the first invocation lazy-loads a large dependency
+  // graph (diagnostics + why-no-growth + report builder + pdf-writer) and does
+  // genuine layout/render work. That cold start can exceed vitest's 5s default
+  // on a contended CI runner (it passes in ~1s warm locally), so the
+  // generator-invoking tests get an explicit, generous timeout to stay
+  // deterministic under load.
+  const PDF_TIMEOUT_MS = 30_000;
 
-  it("records a PENDING then GENERATED log row", async () => {
-    const prisma = makePrisma();
-    await generateAdminWorkerDeveloperAuditPdf(prisma, "LAST_7_DAYS", "admin");
-    // create called once with status=PENDING, update called once with GENERATED.
-    expect(prisma.adminDeveloperReportLog.create).toHaveBeenCalledTimes(1);
-    expect(prisma.adminDeveloperReportLog.update).toHaveBeenCalledTimes(1);
-    const updateCall = vi.mocked(prisma.adminDeveloperReportLog.update).mock.calls[0][0];
-    expect(updateCall.data).toMatchObject({ status: "GENERATED" });
-    expect(updateCall.data.fileSize).toBeGreaterThan(100);
-  });
-
-  it("supports filtering to a subset of sections", async () => {
-    const prisma = makePrisma();
-    const { pdf } = await generateAdminWorkerDeveloperAuditPdf(prisma, "LAST_30_DAYS", "admin", {
-      includedSections: ["Diagnostics Results"],
-    });
-    expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
-  });
-
-  it("renders every declared section, including the granular per-stage logs", async () => {
-    // Guards against declared-but-unrendered drift: each section in
-    // DEVELOPER_AUDIT_SECTIONS must produce a valid PDF when requested alone.
-    for (const section of DEVELOPER_AUDIT_SECTIONS) {
+  it(
+    "emits a valid PDF for LAST_24_HOURS",
+    async () => {
       const prisma = makePrisma();
-      const { pdf } = await generateAdminWorkerDeveloperAuditPdf(prisma, "LAST_24_HOURS", "admin", {
-        includedSections: [section],
+      const { pdf, reportLogId } = await generateAdminWorkerDeveloperAuditPdf(
+        prisma,
+        "LAST_24_HOURS",
+        "admin",
+      );
+      expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
+      expect(reportLogId).toBe("r1");
+    },
+    PDF_TIMEOUT_MS,
+  );
+
+  it(
+    "records a PENDING then GENERATED log row",
+    async () => {
+      const prisma = makePrisma();
+      await generateAdminWorkerDeveloperAuditPdf(prisma, "LAST_7_DAYS", "admin");
+      // create called once with status=PENDING, update called once with GENERATED.
+      expect(prisma.adminDeveloperReportLog.create).toHaveBeenCalledTimes(1);
+      expect(prisma.adminDeveloperReportLog.update).toHaveBeenCalledTimes(1);
+      const updateCall = vi.mocked(prisma.adminDeveloperReportLog.update).mock.calls[0][0];
+      expect(updateCall.data).toMatchObject({ status: "GENERATED" });
+      expect(updateCall.data.fileSize).toBeGreaterThan(100);
+    },
+    PDF_TIMEOUT_MS,
+  );
+
+  it(
+    "supports filtering to a subset of sections",
+    async () => {
+      const prisma = makePrisma();
+      const { pdf } = await generateAdminWorkerDeveloperAuditPdf(prisma, "LAST_30_DAYS", "admin", {
+        includedSections: ["Diagnostics Results"],
       });
-      expect(pdf.subarray(0, 4).toString(), `section "${section}" failed to render`).toBe("%PDF");
-    }
-  });
+      expect(pdf.subarray(0, 4).toString()).toBe("%PDF");
+    },
+    PDF_TIMEOUT_MS,
+  );
+
+  it(
+    "renders every declared section, including the granular per-stage logs",
+    async () => {
+      // Guards against declared-but-unrendered drift: each section in
+      // DEVELOPER_AUDIT_SECTIONS must produce a valid PDF when requested alone.
+      for (const section of DEVELOPER_AUDIT_SECTIONS) {
+        const prisma = makePrisma();
+        const { pdf } = await generateAdminWorkerDeveloperAuditPdf(
+          prisma,
+          "LAST_24_HOURS",
+          "admin",
+          {
+            includedSections: [section],
+          },
+        );
+        expect(pdf.subarray(0, 4).toString(), `section "${section}" failed to render`).toBe("%PDF");
+      }
+    },
+    PDF_TIMEOUT_MS,
+  );
 
   it("includes the granular pipeline-log sections + brain Worker Requests", () => {
     for (const required of [

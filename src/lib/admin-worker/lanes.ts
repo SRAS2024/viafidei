@@ -156,6 +156,25 @@ export async function getLaneStates(prisma: PrismaClient) {
   }
 }
 
+/**
+ * Delete lane-state rows whose lane name is no longer part of the active lane
+ * set — e.g. after lanes are split/renamed, so the dashboard never shows stale
+ * "ghost" lanes that will never update again. Observability only, fail-open.
+ */
+export async function pruneUnknownLaneStates(
+  prisma: PrismaClient,
+  knownLanes: readonly string[],
+): Promise<number> {
+  try {
+    const res = await prisma.adminWorkerLaneState.deleteMany({
+      where: { lane: { notIn: [...knownLanes] } },
+    });
+    return res.count;
+  } catch {
+    return 0;
+  }
+}
+
 // ── Concurrency-capped runner ────────────────────────────────────────────────
 
 /** Run `fn` over `items` with at most `limit` in flight at once. */
@@ -197,7 +216,11 @@ export async function runWorkerLanes(
   ctx: { passId?: string; workerId?: string; active: boolean },
 ): Promise<LanesResult> {
   const out: LanesResult = { ran: [], skipped: [], errored: [], published: 0, advanced: 0 };
-  const maxConcurrent = envInt("ADMIN_WORKER_LANE_CONCURRENCY", 4);
+  // Default cap of 8 lets the fine-grained lane set (9 content + 11 ops lanes)
+  // run many workstreams truly at once. Keep it at/below the Prisma pool
+  // (PRISMA_CONNECTION_LIMIT, default 10) so concurrent lanes never starve the
+  // connection pool (P2037); raise BOTH together for bigger deployments.
+  const maxConcurrent = envInt("ADMIN_WORKER_LANE_CONCURRENCY", 8);
 
   // Read current lane states to honour per-lane error cooldown (backoff).
   const states = await getLaneStates(prisma);

@@ -15,7 +15,7 @@ import type {
   PrismaClient,
 } from "@prisma/client";
 
-import { isApprovedAuthorityHost } from "@/lib/checklist";
+import { isFetchableHost } from "@/lib/checklist";
 import { discoverCandidate, isJunkUrl } from "./web-navigator";
 import { writeAdminWorkerLog } from "./logs";
 
@@ -244,6 +244,16 @@ export const BUILTIN_CONFIGURED_URLS: readonly ConfiguredUrlEntry[] = [
     predictedContentType: "PARISH",
     note: "Catholic-Hierarchy — dioceses & bishops",
   },
+  {
+    url: "https://www.vaticannews.va/en/prayers.html",
+    predictedContentType: "PRAYER",
+    note: "Vatican News — official library of Catholic prayers & devotions",
+  },
+  {
+    url: "https://masstimes.org/",
+    predictedContentType: "PARISH",
+    note: "Mass Times — worldwide directory of parishes, shrines, cathedrals & basilicas",
+  },
 ] as const;
 
 const RUNTIME_EXTRA: ConfiguredUrlEntry[] = [];
@@ -276,7 +286,11 @@ export async function discoverFromConfiguredUrls(
       rejected += 1;
       continue;
     }
-    if (!isApprovedAuthorityHost(host)) {
+    // Open-internet mode (the always-on default) lets a configured URL live on
+    // any fetchable host; when open mode is off this is exactly the registry
+    // allow-list (isFetchableHost === isApprovedAuthorityHost). Non-content
+    // hosts (local / social / commerce / free-site builders) are always blocked.
+    if (!isFetchableHost(host)) {
       rejected += 1;
       continue;
     }
