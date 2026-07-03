@@ -113,6 +113,16 @@ export {
 } from "./lanes";
 export { CONTENT_LANES, OPS_LANES } from "./worker-lanes";
 
+// Outbound egress through a proxy (restricted/proxied deployments) + reachability.
+export {
+  installOutboundProxy,
+  probeOutboundReachability,
+  resolveProxyUrl,
+  redactProxyUrl,
+  type OutboundProxyState,
+  type HostReachability,
+} from "./outbound-network";
+
 // Operational self-awareness summary (adaptive-worker Phase A/F capstone).
 export {
   buildOperationalSummary,

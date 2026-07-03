@@ -1142,6 +1142,62 @@ async function ratingBuildReadyDrain(prisma: PrismaClient): Promise<HealthRating
   };
 }
 
+// Cache the outbound reachability probe so diagnostics renders don't hit the
+// network on every call (one probe per process per interval).
+type OutboundProbeResult = Awaited<
+  ReturnType<typeof import("./outbound-network").probeOutboundReachability>
+>;
+let outboundProbeCache: { at: number; result: OutboundProbeResult } | null = null;
+const OUTBOUND_PROBE_TTL_MS = 5 * 60 * 1000;
+
+async function ratingOutboundNetwork(): Promise<HealthRating> {
+  const now = new Date();
+  try {
+    const { probeOutboundReachability } = await import("./outbound-network");
+    if (!outboundProbeCache || Date.now() - outboundProbeCache.at > OUTBOUND_PROBE_TTL_MS) {
+      outboundProbeCache = { at: Date.now(), result: await probeOutboundReachability(6000) };
+    }
+    const { proxy, hosts } = outboundProbeCache.result;
+    const reachable = hosts.filter((h) => h.reachable).length;
+    const skipped = hosts.every((h) => h.detail.startsWith("skipped"));
+    const status: HealthStatus = skipped
+      ? "warn"
+      : reachable === hosts.length
+        ? "pass"
+        : reachable === 0
+          ? "fail"
+          : "warn";
+    const proxyNote = proxy.installed
+      ? `via proxy (${proxy.mode})`
+      : "direct egress (no proxy env set)";
+    return {
+      key: "admin_worker_outbound_network",
+      label: "Outbound internet reachability",
+      status,
+      score: skipped ? 0.5 : reachable / Math.max(1, hosts.length),
+      lastCheckedAt: now,
+      dataSource: "live probe: wikidata / wikipedia / vatican.va",
+      summary: `${reachable}/${hosts.length} key hosts reachable ${proxyNote}. ${hosts
+        .map((h) => `${h.host}=${h.reachable ? "ok" : "blocked"}`)
+        .join(", ")}.`,
+      recommendedRepair:
+        !skipped && reachable < hosts.length
+          ? "The deployment's network policy is blocking outbound egress. Allow outbound HTTPS to these hosts, or set HTTPS_PROXY (+ NODE_EXTRA_CA_CERTS if the proxy uses a private CA) so the worker reaches the open internet — the worker code already permits any host."
+          : undefined,
+    };
+  } catch (err) {
+    return {
+      key: "admin_worker_outbound_network",
+      label: "Outbound internet reachability",
+      status: "unknown",
+      score: 0,
+      lastCheckedAt: now,
+      dataSource: "live probe",
+      summary: `Probe error: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
 async function ratingWorkerLanes(prisma: PrismaClient): Promise<HealthRating> {
   // Adaptive-worker Phase B: the internal-lane scheduler records each lane's
   // live state (status, current item/gate/strategy, last outcome/error). This
@@ -1414,6 +1470,7 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingRollback,
   ratingBuildReadyDrain,
   ratingWorkerLanes,
+  ratingOutboundNetwork,
   ratingStrategyMemory,
   ratingContentProtection,
   ratingEscalations,

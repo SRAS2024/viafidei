@@ -78,6 +78,19 @@ async function main() {
       `[admin-worker:${args.workerId}] starting (oneShot=${args.oneShot}, maxJobs=${args.maxJobs ?? "∞"})`,
     );
 
+    // Enable outbound egress through a proxy when the deployment provides one
+    // (HTTPS_PROXY/HTTP_PROXY/ALL_PROXY) — before any outbound call at startup
+    // (email, escalation) or in the loop. No-op when no proxy is set.
+    try {
+      const { installOutboundProxy } = await import("../src/lib/admin-worker/outbound-network");
+      const proxy = await installOutboundProxy();
+      console.log(
+        `[admin-worker:${args.workerId}] outbound egress: ${proxy.installed ? `proxied (${proxy.mode}) ${proxy.proxyUrl ?? ""}` : "direct"}`,
+      );
+    } catch {
+      /* fail-open — direct egress */
+    }
+
     // Reap any pass left RUNNING by a previous process that crashed or was
     // killed mid-pass. Those rows can never complete on their own and otherwise
     // show forever as "Last pass … (status: RUNNING)" in the audit. A fresh
