@@ -1,0 +1,13 @@
+{
+  "name": "Via Fidei · The Way of Faith",
+  "short_name": "Via Fidei",
+  "description": "A multilingual Catholic platform — prayers, saints, sacramental guidance, liturgy, and parish discovery.",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ],
+  "theme_color": "#fbf8f1",
+  "background_color": "#fbf8f1",
+  "display": "standalone",
+  "start_url": "/"
+}
