@@ -36,38 +36,40 @@ export default async function FailedBuilds() {
         </Link>
       </header>
 
-      <table className="w-full table-auto border-collapse text-sm">
-        <thead>
-          <tr className="bg-slate-50 text-left">
-            <th className="border-b px-3 py-2">Item</th>
-            <th className="border-b px-3 py-2">Type</th>
-            <th className="border-b px-3 py-2">Attempts</th>
-            <th className="border-b px-3 py-2">Error</th>
-          </tr>
-        </thead>
-        <tbody>
-          {jobs.map((job) => (
-            <tr key={job.id} className="border-b">
-              <td className="px-3 py-2">
-                <Link
-                  href={`/admin/checklist/item/${job.checklistItemId}`}
-                  className="underline text-ink"
-                >
-                  {job.checklistItem.canonicalName}
-                </Link>
-                <div className="text-xs text-ink-soft">{job.checklistItem.canonicalSlug}</div>
-              </td>
-              <td className="px-3 py-2 text-ink-soft">{job.checklistItem.contentType}</td>
-              <td className="px-3 py-2 text-ink-soft">
-                {job.attempt}/{job.maxAttempts}
-              </td>
-              <td className="px-3 py-2 text-xs text-rose-700 max-w-md break-words">
-                {job.errorMessage ?? "—"}
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full table-auto border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50 text-left">
+              <th className="border-b px-3 py-2">Item</th>
+              <th className="border-b px-3 py-2">Type</th>
+              <th className="border-b px-3 py-2">Attempts</th>
+              <th className="border-b px-3 py-2">Error</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {jobs.map((job) => (
+              <tr key={job.id} className="border-b">
+                <td className="px-3 py-2">
+                  <Link
+                    href={`/admin/checklist/item/${job.checklistItemId}`}
+                    className="underline text-ink"
+                  >
+                    {job.checklistItem.canonicalName}
+                  </Link>
+                  <div className="text-xs text-ink-soft">{job.checklistItem.canonicalSlug}</div>
+                </td>
+                <td className="px-3 py-2 text-ink-soft">{job.checklistItem.contentType}</td>
+                <td className="px-3 py-2 text-ink-soft">
+                  {job.attempt}/{job.maxAttempts}
+                </td>
+                <td className="px-3 py-2 text-xs text-rose-700 max-w-md break-words">
+                  {job.errorMessage ?? "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

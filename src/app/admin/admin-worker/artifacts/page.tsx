@@ -55,26 +55,32 @@ export default async function AdminWorkerArtifactsPage({
         <article className="rounded border bg-white p-4 shadow-sm">
           <h2 className="font-display text-xl text-ink">Artifact</h2>
           <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm md:grid-cols-4">
-            <dt className="text-ink-soft">Content type</dt>
-            <dd className="font-mono">{artifact.contentType}</dd>
-            <dt className="text-ink-soft">Status</dt>
-            <dd className="font-mono">{artifact.status}</dd>
-            <dt className="text-ink-soft">Title</dt>
-            <dd className="font-mono">{artifact.normalizedTitle}</dd>
-            <dt className="text-ink-soft">Slug</dt>
-            <dd className="font-mono">{artifact.normalizedSlug}</dd>
-            <dt className="text-ink-soft">Confidence</dt>
-            <dd className="font-mono">{artifact.confidenceScore.toFixed(2)}</dd>
-            <dt className="text-ink-soft">Checksum</dt>
-            <dd className="truncate font-mono">{artifact.packageChecksum}</dd>
-            <dt className="text-ink-soft">Missing fields</dt>
-            <dd className="font-mono">{artifact.missingFields.join(", ") || "none"}</dd>
-            <dt className="text-ink-soft">Validation needs</dt>
-            <dd className="font-mono">{artifact.validationNeeds.join(", ") || "none"}</dd>
-            <dt className="text-ink-soft">Rejection reason</dt>
-            <dd className="font-serif md:col-span-3">{artifact.rejectionReason ?? "—"}</dd>
-            <dt className="text-ink-soft">Repair suggestions</dt>
-            <dd className="font-serif md:col-span-3">
+            <dt className="min-w-0 break-words text-ink-soft">Content type</dt>
+            <dd className="min-w-0 break-words font-mono">{artifact.contentType}</dd>
+            <dt className="min-w-0 break-words text-ink-soft">Status</dt>
+            <dd className="min-w-0 break-words font-mono">{artifact.status}</dd>
+            <dt className="min-w-0 break-words text-ink-soft">Title</dt>
+            <dd className="min-w-0 break-words font-mono">{artifact.normalizedTitle}</dd>
+            <dt className="min-w-0 break-words text-ink-soft">Slug</dt>
+            <dd className="min-w-0 break-words font-mono">{artifact.normalizedSlug}</dd>
+            <dt className="min-w-0 break-words text-ink-soft">Confidence</dt>
+            <dd className="min-w-0 break-words font-mono">{artifact.confidenceScore.toFixed(2)}</dd>
+            <dt className="min-w-0 break-words text-ink-soft">Checksum</dt>
+            <dd className="min-w-0 break-words font-mono">{artifact.packageChecksum}</dd>
+            <dt className="min-w-0 break-words text-ink-soft">Missing fields</dt>
+            <dd className="min-w-0 break-words font-mono">
+              {artifact.missingFields.join(", ") || "none"}
+            </dd>
+            <dt className="min-w-0 break-words text-ink-soft">Validation needs</dt>
+            <dd className="min-w-0 break-words font-mono">
+              {artifact.validationNeeds.join(", ") || "none"}
+            </dd>
+            <dt className="min-w-0 break-words text-ink-soft">Rejection reason</dt>
+            <dd className="min-w-0 break-words font-serif md:col-span-3">
+              {artifact.rejectionReason ?? "—"}
+            </dd>
+            <dt className="min-w-0 break-words text-ink-soft">Repair suggestions</dt>
+            <dd className="min-w-0 break-words font-serif md:col-span-3">
               {artifact.repairSuggestions.join("; ") || "—"}
             </dd>
           </dl>
@@ -84,30 +90,36 @@ export default async function AdminWorkerArtifactsPage({
           <h2 className="font-display text-xl text-ink">Strict QA result (spec §12)</h2>
           {qa ? (
             <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-sm md:grid-cols-4">
-              <dt className="text-ink-soft">Status</dt>
-              <dd className="font-mono">{qa.status}</dd>
-              <dt className="text-ink-soft">Final score</dt>
-              <dd className="font-mono">{qa.finalScore.toFixed(2)}</dd>
-              <dt className="text-ink-soft">Completeness</dt>
-              <dd className="font-mono">{qa.completenessScore.toFixed(2)}</dd>
-              <dt className="text-ink-soft">Correctness</dt>
-              <dd className="font-mono">{qa.correctnessScore.toFixed(2)}</dd>
-              <dt className="text-ink-soft">Formatting</dt>
-              <dd className="font-mono">{qa.formattingScore.toFixed(2)}</dd>
-              <dt className="text-ink-soft">Provenance</dt>
-              <dd className="font-mono">{qa.provenanceScore.toFixed(2)}</dd>
-              <dt className="text-ink-soft">Validation</dt>
-              <dd className="font-mono">{qa.validationScore.toFixed(2)}</dd>
-              <dt className="text-ink-soft">Duplicate safety</dt>
-              <dd className="font-mono">{qa.duplicateSafetyScore.toFixed(2)}</dd>
-              <dt className="text-ink-soft">Public readiness</dt>
-              <dd className="font-mono">{qa.publicReadinessScore.toFixed(2)}</dd>
-              <dt className="text-ink-soft">Blocking reasons</dt>
-              <dd className="font-serif md:col-span-3">
+              <dt className="min-w-0 break-words text-ink-soft">Status</dt>
+              <dd className="min-w-0 break-words font-mono">{qa.status}</dd>
+              <dt className="min-w-0 break-words text-ink-soft">Final score</dt>
+              <dd className="min-w-0 break-words font-mono">{qa.finalScore.toFixed(2)}</dd>
+              <dt className="min-w-0 break-words text-ink-soft">Completeness</dt>
+              <dd className="min-w-0 break-words font-mono">{qa.completenessScore.toFixed(2)}</dd>
+              <dt className="min-w-0 break-words text-ink-soft">Correctness</dt>
+              <dd className="min-w-0 break-words font-mono">{qa.correctnessScore.toFixed(2)}</dd>
+              <dt className="min-w-0 break-words text-ink-soft">Formatting</dt>
+              <dd className="min-w-0 break-words font-mono">{qa.formattingScore.toFixed(2)}</dd>
+              <dt className="min-w-0 break-words text-ink-soft">Provenance</dt>
+              <dd className="min-w-0 break-words font-mono">{qa.provenanceScore.toFixed(2)}</dd>
+              <dt className="min-w-0 break-words text-ink-soft">Validation</dt>
+              <dd className="min-w-0 break-words font-mono">{qa.validationScore.toFixed(2)}</dd>
+              <dt className="min-w-0 break-words text-ink-soft">Duplicate safety</dt>
+              <dd className="min-w-0 break-words font-mono">
+                {qa.duplicateSafetyScore.toFixed(2)}
+              </dd>
+              <dt className="min-w-0 break-words text-ink-soft">Public readiness</dt>
+              <dd className="min-w-0 break-words font-mono">
+                {qa.publicReadinessScore.toFixed(2)}
+              </dd>
+              <dt className="min-w-0 break-words text-ink-soft">Blocking reasons</dt>
+              <dd className="min-w-0 break-words font-serif md:col-span-3">
                 {qa.blockingReasons.join("; ") || "none"}
               </dd>
-              <dt className="text-ink-soft">Repair suggestions</dt>
-              <dd className="font-serif md:col-span-3">{qa.repairSuggestions.join("; ") || "—"}</dd>
+              <dt className="min-w-0 break-words text-ink-soft">Repair suggestions</dt>
+              <dd className="min-w-0 break-words font-serif md:col-span-3">
+                {qa.repairSuggestions.join("; ") || "—"}
+              </dd>
             </dl>
           ) : (
             <p className="mt-2 text-sm italic text-ink-soft">

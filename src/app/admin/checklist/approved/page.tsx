@@ -38,39 +38,41 @@ export default async function ApprovedForBuild() {
         </Link>
       </header>
 
-      <table className="w-full table-auto border-collapse text-sm">
-        <thead>
-          <tr className="bg-slate-50 text-left">
-            <th className="border-b px-3 py-2">Item</th>
-            <th className="border-b px-3 py-2">Type</th>
-            <th className="border-b px-3 py-2">Citations</th>
-            <th className="border-b px-3 py-2">Last attempt</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => {
-            const last = item.buildJobs[0];
-            return (
-              <tr key={item.id} className="border-b">
-                <td className="px-3 py-2">
-                  <Link
-                    href={`/admin/checklist/item/${item.id}`}
-                    className="font-medium text-ink underline"
-                  >
-                    {item.canonicalName}
-                  </Link>
-                  <div className="text-xs text-ink-soft">{item.canonicalSlug}</div>
-                </td>
-                <td className="px-3 py-2 text-ink-soft">{item.contentType}</td>
-                <td className="px-3 py-2 text-ink-soft">{item.citations.length}</td>
-                <td className="px-3 py-2 text-ink-soft">
-                  {last ? `${last.status} (attempt ${last.attempt}/${last.maxAttempts})` : "—"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="overflow-x-auto">
+        <table className="w-full table-auto border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50 text-left">
+              <th className="border-b px-3 py-2">Item</th>
+              <th className="border-b px-3 py-2">Type</th>
+              <th className="border-b px-3 py-2">Citations</th>
+              <th className="border-b px-3 py-2">Last attempt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => {
+              const last = item.buildJobs[0];
+              return (
+                <tr key={item.id} className="border-b">
+                  <td className="px-3 py-2">
+                    <Link
+                      href={`/admin/checklist/item/${item.id}`}
+                      className="font-medium text-ink underline"
+                    >
+                      {item.canonicalName}
+                    </Link>
+                    <div className="text-xs text-ink-soft">{item.canonicalSlug}</div>
+                  </td>
+                  <td className="px-3 py-2 text-ink-soft">{item.contentType}</td>
+                  <td className="px-3 py-2 text-ink-soft">{item.citations.length}</td>
+                  <td className="px-3 py-2 text-ink-soft">
+                    {last ? `${last.status} (attempt ${last.attempt}/${last.maxAttempts})` : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

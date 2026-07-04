@@ -28,11 +28,11 @@ export function EmailNotConfiguredBanner() {
         <code>RESEND_API_KEY</code> is not set on this deployment, so welcome, password-reset, and
         email-verification messages are skipped — the user-visible flow surfaces{" "}
         <code>email_not_configured</code> so the user knows delivery did not happen. Set{" "}
-        <code>RESEND_API_KEY</code> in your hosting dashboard, redeploy, then{" "}
-        <Link href="/admin/email" className="underline">
-          run a test send
+        <code>RESEND_API_KEY</code> in your hosting dashboard, redeploy, then check the{" "}
+        <Link href="/admin/diagnostics" className="underline">
+          Diagnostics
         </Link>{" "}
-        to confirm.
+        page — its <em>Email reports</em> row confirms the key + admin address are detected.
       </p>
     </div>
   );

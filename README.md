@@ -356,11 +356,21 @@ publishing are handled autonomously by the Admin Worker.
 
 **Admin operations:**
 
-| Card          | Route          | Purpose          |
-| ------------- | -------------- | ---------------- |
-| Logs          | `/admin/logs`  | Application logs |
-| User accounts | `/admin/users` | Registered users |
-| Audit log     | `/admin/audit` | Admin actions    |
+| Card          | Route          | Purpose                                                         |
+| ------------- | -------------- | --------------------------------------------------------------- |
+| Logs          | `/admin/logs`  | Logs hub — account, **admin-action audit**, and worker sub-logs |
+| User accounts | `/admin/users` | Registered users                                                |
+
+**Console formatting + wiring.** The admin console is responsive and
+overflow-safe on phone / tablet / laptop / desktop. The shared key-value
+`Field` primitive and every diagnostic value cell carry `min-w-0 break-words`,
+so long unbreakable tokens (enums like `NO_CANDIDATES_PRIORITIZED`, table names,
+URLs, checksums) wrap **inside** their card instead of spilling past the border;
+all data tables scroll horizontally in their own container. Every dashboard card
+and in-page link resolves to a live route and every action button is wired to a
+real handler/API route — the legacy `/admin/audit` and `/admin/email` redirect
+stubs (and the "Audit" nav card that duplicated Logs) have been removed, and the
+email-not-configured banner points to the real **Diagnostics** page.
 
 ---
 

@@ -164,12 +164,18 @@ export function Stat({
   );
 }
 
-/** A definition-list row helper for the key/value cards. */
+/** A definition-list row helper for the key/value cards.
+ *
+ * `min-w-0` + `break-words` are essential: these cards live in CSS grids where a
+ * grid item defaults to `min-width:auto`, so a long unbreakable value (an enum
+ * like NO_CANDIDATES_PRIORITIZED, a table name, a URL) would force the column
+ * wider than the card and spill past its border. Allowing the cell to shrink and
+ * the token to wrap keeps every value inside the card on any screen width. */
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <>
-      <dt className="text-ink-faint">{label}</dt>
-      <dd className="font-mono text-ink">{children}</dd>
+      <dt className="min-w-0 break-words text-ink-faint">{label}</dt>
+      <dd className="min-w-0 break-words font-mono text-ink">{children}</dd>
     </>
   );
 }

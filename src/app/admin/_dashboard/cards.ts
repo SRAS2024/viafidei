@@ -63,13 +63,14 @@ export const DASHBOARD_CARDS: DashboardCard[] = [
   // ── Admin operations ─────────────────────────────────────────────
   { href: "/admin/logs", labelKey: "admin.card.logs", eyebrow: "XVI." },
   { href: "/admin/users", labelKey: "admin.card.users", eyebrow: "XVII." },
-  { href: "/admin/audit", labelKey: "admin.card.audit", eyebrow: "XVIII." },
+  // (The former "Audit" card was removed — it only 308-redirected to
+  // /admin/logs/accounts, which the Logs card above already reaches.)
 
   // ── Worker intelligence (the Python brain) ───────────────────────
   {
     href: "/admin/intelligence",
     labelKey: "admin.card.intelligence",
     descriptionKey: "admin.card.intelligence.desc",
-    eyebrow: "XIX.",
+    eyebrow: "XVIII.",
   },
 ];

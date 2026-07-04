@@ -39,35 +39,39 @@ export default async function AuthoritySources() {
         sync.
       </p>
 
-      <table className="w-full table-auto border-collapse text-sm">
-        <thead>
-          <tr className="bg-slate-50 text-left">
-            <th className="border-b px-3 py-2">Source</th>
-            <th className="border-b px-3 py-2">Host</th>
-            <th className="border-b px-3 py-2">Authority</th>
-            <th className="border-b px-3 py-2">Active</th>
-            <th className="border-b px-3 py-2">Content types</th>
-          </tr>
-        </thead>
-        <tbody>
-          {stored.map((src) => (
-            <tr key={src.id} className="border-b">
-              <td className="px-3 py-2">
-                <div className="font-medium text-ink">{src.name}</div>
-                {src.description && <div className="text-xs text-ink-soft">{src.description}</div>}
-              </td>
-              <td className="px-3 py-2 text-ink-soft">{src.host}</td>
-              <td className="px-3 py-2">
-                <span className="rounded bg-indigo-100 px-2 py-0.5 text-xs text-indigo-800">
-                  {src.authorityLevel}
-                </span>
-              </td>
-              <td className="px-3 py-2 text-ink-soft">{src.isActive ? "✓" : "—"}</td>
-              <td className="px-3 py-2 text-xs text-ink-soft">{src.contentTypes.join(", ")}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full table-auto border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50 text-left">
+              <th className="border-b px-3 py-2">Source</th>
+              <th className="border-b px-3 py-2">Host</th>
+              <th className="border-b px-3 py-2">Authority</th>
+              <th className="border-b px-3 py-2">Active</th>
+              <th className="border-b px-3 py-2">Content types</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {stored.map((src) => (
+              <tr key={src.id} className="border-b">
+                <td className="px-3 py-2">
+                  <div className="font-medium text-ink">{src.name}</div>
+                  {src.description && (
+                    <div className="text-xs text-ink-soft">{src.description}</div>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-ink-soft">{src.host}</td>
+                <td className="px-3 py-2">
+                  <span className="rounded bg-indigo-100 px-2 py-0.5 text-xs text-indigo-800">
+                    {src.authorityLevel}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-ink-soft">{src.isActive ? "✓" : "—"}</td>
+                <td className="px-3 py-2 text-xs text-ink-soft">{src.contentTypes.join(", ")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
