@@ -172,6 +172,46 @@ describe("runRepairOrchestrator — durable plan execution (spec §17)", () => {
     expect(result.results[0].status).toBe("ABANDONED");
   });
 
+  it("drives an abandoned artifact-repair plan's artifact to terminal REJECTED (unsticks NEEDS_REPAIR)", async () => {
+    const artifactUpdates: Array<{
+      where: { id: string; status: { in: string[] } };
+      data: { status: string };
+    }> = [];
+    const prisma = {
+      adminWorkerRepairPlan: {
+        findMany: vi.fn(async () => [
+          {
+            id: "ap1",
+            kind: "STRICT_QA_FAILED",
+            failedEntity: "artifact-123", // an artifact id, not a host
+            repairAction: "x",
+            status: "PENDING",
+            attempts: 5,
+            maxAttempts: 5,
+            lastAttemptAt: new Date(),
+            nextAttemptAt: null,
+            metadata: {},
+          },
+        ]),
+        update: vi.fn(async () => ({})),
+      },
+      adminWorkerPackageArtifact: {
+        updateMany: vi.fn(async (args: (typeof artifactUpdates)[number]) => {
+          artifactUpdates.push(args);
+          return { count: 1 };
+        }),
+      },
+      adminWorkerLog: { create: vi.fn(async () => ({})), findFirst: vi.fn(async () => null) },
+    } as unknown as Parameters<typeof runRepairOrchestrator>[0];
+
+    const out = await runRepairOrchestrator(prisma);
+    expect(out.plansAbandoned).toBe(1);
+    expect(artifactUpdates).toHaveLength(1);
+    expect(artifactUpdates[0].where.id).toBe("artifact-123");
+    expect(artifactUpdates[0].where.status.in).toContain("NEEDS_REPAIR");
+    expect(artifactUpdates[0].data.status).toBe("REJECTED");
+  });
+
   it("schedules a backoff retry when execution fails", async () => {
     // Replace cache flag to throw.
     const { flagCacheRefresh } = await import("@/lib/admin-worker/repair");

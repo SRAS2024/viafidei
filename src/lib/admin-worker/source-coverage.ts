@@ -61,6 +61,15 @@ export async function runSourceCoverage(prisma: PrismaClient): Promise<CoverageR
   const now = Date.now();
   const since = new Date(now - SEVEN_DAYS_MS);
 
+  // The curated knowledge base is a GUARANTEED, always-reachable content source
+  // (it ships in-repo, no network needed). A type with curated entries can never
+  // be "blocked by source coverage" — it has a source of truth to build from.
+  // Crediting it stops the score from flagging types as blocked merely because
+  // they had no fresh web activity in the last 7 days.
+  const curatedByType: Record<string, number> = await import("@/lib/checklist")
+    .then((m) => m.curatedKnowledgeByType() as Record<string, number>)
+    .catch(() => ({}));
+
   const rows: CoverageRow[] = [];
 
   for (const goal of goals) {
@@ -155,6 +164,9 @@ export async function runSourceCoverage(prisma: PrismaClient): Promise<CoverageR
     const primaryRatio = Math.min(1, primary / minPrimary);
     const validationRatio = Math.min(1, validation / 1);
     const enrichmentRatio = Math.min(1, enrichment / 1);
+    const curatedCount = curatedByType[ct] ?? 0;
+    // 3+ curated entries = a solid always-available source of truth for the type.
+    const curatedRatio = Math.min(1, curatedCount / 3);
 
     // Healthy candidate / build / publish activity is also part of
     // coverage — having sources configured is not the same as having
@@ -165,26 +177,29 @@ export async function runSourceCoverage(prisma: PrismaClient): Promise<CoverageR
       Math.min(1, recentPublishes / 2) * 0.4;
 
     const coverageScore =
-      primaryRatio * 0.35 + validationRatio * 0.15 + enrichmentRatio * 0.1 + activitySignal * 0.4;
+      primaryRatio * 0.3 +
+      curatedRatio * 0.2 +
+      validationRatio * 0.1 +
+      enrichmentRatio * 0.05 +
+      activitySignal * 0.35;
 
-    const blockedByCoverage = coverageScore < 0.4 && goal.gapCount > 0;
+    // A type is only genuinely "blocked by source coverage" when it has NO way
+    // to produce content: no curated knowledge base AND too few primary sources.
+    // A weak score with a curated KB (or enough primaries) is a scheduling/idle
+    // state — the worker just hasn't prioritised the type recently — NOT a
+    // coverage block, so it must not read as a hard failure demanding "add
+    // sources" when sources already exist.
+    const hasContentSource = curatedCount > 0 || primary >= minPrimary;
+    const blockedByCoverage = goal.gapCount > 0 && !hasContentSource && coverageScore < 0.4;
 
     const blockReason = blockedByCoverage
       ? primary < minPrimary
-        ? `${ct} has ${primary}/${minPrimary} primary sources configured.`
-        : recentCandidates === 0
-          ? `${ct} has primary sources but no candidate URLs surfaced in last 7 days.`
-          : recentPublishes === 0 && recentBuilds === 0
-            ? `${ct} has candidates but no successful builds or publishes in last 7 days.`
-            : `${ct} source coverage score ${coverageScore.toFixed(2)} below threshold.`
+        ? `${ct} has ${primary}/${minPrimary} primary sources configured and no curated knowledge.`
+        : `${ct} source coverage score ${coverageScore.toFixed(2)} below threshold with no curated fallback.`
       : null;
 
     const recommendation = blockedByCoverage
-      ? primary < minPrimary
-        ? `Add ${minPrimary - primary} more approved primary source(s) for ${ct} via the source registry.`
-        : recentCandidates === 0
-          ? `Run a DiscoveryOrchestrator pass; check that approved hosts have sitemaps that surface ${ct} URLs.`
-          : `Check classifier + extractor: candidates exist but builds aren't completing for ${ct}.`
+      ? `Add ${Math.max(1, minPrimary - primary)} approved primary source(s) for ${ct} via the source registry, or seed curated ${ct} entries.`
       : null;
 
     const row: CoverageRow = {

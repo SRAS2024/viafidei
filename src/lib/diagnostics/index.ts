@@ -286,20 +286,27 @@ async function buildLogActivity(): Promise<DiagnosticResult> {
 
 async function schemaCoverage(): Promise<DiagnosticResult> {
   const { CONTENT_SCHEMAS } = await import("@/lib/checklist/schemas");
-  const all = Object.keys(CONTENT_SCHEMAS).length;
-  if (all !== 11) {
+  const { ChecklistContentType } = await import("@prisma/client");
+  // The real invariant is COMPLETENESS: every ChecklistContentType must have a
+  // registered schema. The old check hard-coded "expected 11" and failed the
+  // moment the catalog legitimately grew (POPE/DOCTOR/RITE/PARISH → 15), which
+  // is growth, not a fault. Verify against the live enum instead.
+  const registered = Object.keys(CONTENT_SCHEMAS).length;
+  const allTypes = Object.values(ChecklistContentType) as string[];
+  const missing = allTypes.filter((t) => !(t in CONTENT_SCHEMAS));
+  if (missing.length > 0) {
     return {
       key: "schemas",
       label: "Content schemas",
       status: "fail",
-      summary: `Expected 11 schemas, found ${all}.`,
+      summary: `${missing.length} content type(s) missing a schema: ${missing.join(", ")}.`,
     };
   }
   return {
     key: "schemas",
     label: "Content schemas",
     status: "pass",
-    summary: `All ${all} content schemas registered.`,
+    summary: `All ${registered} content schemas registered (every ChecklistContentType covered).`,
   };
 }
 
@@ -328,15 +335,23 @@ async function knowledgeBaseHealth(): Promise<DiagnosticResult> {
 }
 
 async function autonomyProgress(): Promise<DiagnosticResult> {
-  const [discovered, sourceVerified, approved, published, total] = await Promise.all([
-    prisma.checklistItem.count({ where: { approvalStatus: "DISCOVERED" } }),
-    prisma.checklistItem.count({ where: { approvalStatus: "SOURCE_VERIFIED" } }),
-    prisma.checklistItem.count({ where: { approvalStatus: "APPROVED_FOR_BUILD" } }),
-    prisma.checklistItem.count({ where: { approvalStatus: "PUBLISHED" } }),
-    prisma.checklistItem.count(),
-  ]);
-  const pct = total === 0 ? 0 : Math.round((published / total) * 100);
-  const summary = `${published}/${total} (${pct}%) published · ${discovered} discovered · ${sourceVerified} verified · ${approved} approved for build.`;
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const [discovered, sourceVerified, approved, published, total, recentPublishes] =
+    await Promise.all([
+      prisma.checklistItem.count({ where: { approvalStatus: "DISCOVERED" } }),
+      prisma.checklistItem.count({ where: { approvalStatus: "SOURCE_VERIFIED" } }),
+      prisma.checklistItem.count({ where: { approvalStatus: "APPROVED_FOR_BUILD" } }),
+      prisma.checklistItem.count({ where: { approvalStatus: "PUBLISHED" } }),
+      prisma.checklistItem.count(),
+      // Real forward motion: content actually published in the last 7 days. The
+      // master checklist is a huge, long-horizon target (3600+ items, incl. the
+      // 300k-parish goal), so raw "% of checklist published" is a completion
+      // ratio, NOT a health signal — it reads red for years while the worker
+      // fills correctly. Health = is the autonomous custodian still MOVING.
+      prisma.publishedContent
+        .count({ where: { isPublished: true, publishedAt: { gte: since7d } } })
+        .catch(() => 0),
+    ]);
   if (total === 0) {
     return {
       key: "autonomy",
@@ -345,33 +360,26 @@ async function autonomyProgress(): Promise<DiagnosticResult> {
       summary: "No checklist items exist. Run `npm run seed:checklist`.",
     };
   }
-  if (pct < 10) {
-    return {
-      key: "autonomy",
-      label: "Autonomous progress",
-      status: "warn",
-      summary,
-      details: [
-        "Run `npm run worker` to let the autonomous custodian fill the site,",
-        "or press ⚡ Run autonomous cycle on the checklist dashboard.",
-      ],
-    };
-  }
-  if (pct < 60) {
-    return {
-      key: "autonomy",
-      label: "Autonomous progress",
-      status: "warn",
-      summary,
-      metric: pct,
-    };
+  const pct = Math.round((published / total) * 100);
+  const progressing = recentPublishes > 0;
+  const summary = `${published}/${total} checklist items published (${pct}%) · ${discovered} discovered · ${sourceVerified} verified · ${approved} approved for build · +${recentPublishes} published in last 7d${
+    progressing ? " (progressing)" : " (stalled)"
+  }.`;
+  // Progressing (any publish in the last 7d) is healthy even at a low completion
+  // ratio — it's a marathon target. Red only when genuinely STALLED.
+  if (progressing || pct >= 60) {
+    return { key: "autonomy", label: "Autonomous progress", status: "pass", summary, metric: pct };
   }
   return {
     key: "autonomy",
     label: "Autonomous progress",
-    status: "pass",
+    status: "warn",
     summary,
-    metric: pct,
+    details: [
+      "No content published in the last 7 days.",
+      "Run `npm run worker` to let the autonomous custodian fill the site,",
+      "or press ⚡ Run autonomous cycle on the checklist dashboard.",
+    ],
   };
 }
 

@@ -129,20 +129,35 @@ export interface HostReachability {
   reachable: boolean;
   status: number | null;
   detail: string;
+  /** Critical hosts must be reachable for growth; best-effort hosts have a
+   * working fallback, so their being blocked is tolerated (informational). */
+  critical: boolean;
 }
 
 /**
  * The keyless data sources the worker depends on for bulk growth. If these are
  * unreachable, structured ingest (saints/popes/etc.) and web extraction can't
  * grow — which is exactly what the operator needs to see to fix egress.
+ *
+ * `query.wikidata.org` is best-effort, NOT critical: many managed hosts'
+ * datacenter IPs are rate-limited/blocked by Wikidata's WDQS specifically, and
+ * the worker already falls back to alternate SPARQL endpoints (structured/
+ * wikidata.ts) and to en.wikipedia.org for the same structured facts. So a
+ * blocked WDQS with reachable Wikipedia + Vatican is a HEALTHY, handled state,
+ * not an egress failure.
  */
-const KEY_OUTBOUND_HOSTS: ReadonlyArray<{ host: string; url: string }> = [
-  { host: "query.wikidata.org", url: "https://query.wikidata.org/bigdata/namespace/wdq/sparql" },
+const KEY_OUTBOUND_HOSTS: ReadonlyArray<{ host: string; url: string; critical: boolean }> = [
+  {
+    host: "query.wikidata.org",
+    url: "https://query.wikidata.org/bigdata/namespace/wdq/sparql",
+    critical: false,
+  },
   {
     host: "en.wikipedia.org",
     url: "https://en.wikipedia.org/api/rest_v1/page/summary/Catholic_Church",
+    critical: true,
   },
-  { host: "www.vatican.va", url: "https://www.vatican.va/content/vatican/en.html" },
+  { host: "www.vatican.va", url: "https://www.vatican.va/content/vatican/en.html", critical: true },
 ];
 
 /**
@@ -163,11 +178,12 @@ export async function probeOutboundReachability(
         reachable: false,
         status: null,
         detail: "skipped (ADMIN_WORKER_SKIP_NETWORK=1)",
+        critical: h.critical,
       })),
     };
   }
   const hosts = await Promise.all(
-    KEY_OUTBOUND_HOSTS.map(async ({ host, url }): Promise<HostReachability> => {
+    KEY_OUTBOUND_HOSTS.map(async ({ host, url, critical }): Promise<HostReachability> => {
       try {
         const res = await fetch(url, {
           method: "GET",
@@ -176,12 +192,18 @@ export async function probeOutboundReachability(
         });
         // Any HTTP response (even 4xx) means egress reached the host — the
         // network path is open. Only a thrown error is a true reachability fail.
-        return { host, reachable: true, status: res.status, detail: `HTTP ${res.status}` };
+        return {
+          host,
+          reachable: true,
+          status: res.status,
+          detail: `HTTP ${res.status}`,
+          critical,
+        };
       } catch (err) {
         const code =
           (err as { cause?: { code?: string } })?.cause?.code ??
           (err instanceof Error ? err.name : "error");
-        return { host, reachable: false, status: null, detail: `blocked: ${code}` };
+        return { host, reachable: false, status: null, detail: `blocked: ${code}`, critical };
       }
     }),
   );
