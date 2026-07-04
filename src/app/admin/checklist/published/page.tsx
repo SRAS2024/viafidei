@@ -77,38 +77,40 @@ export default async function PublishedItems({
           No published content for this type yet.
         </p>
       ) : (
-        <table className="w-full table-auto border-collapse text-sm">
-          <thead>
-            <tr className="bg-slate-50 text-left">
-              <th className="border-b px-3 py-2">Title</th>
-              <th className="border-b px-3 py-2">Type</th>
-              <th className="border-b px-3 py-2">Authority</th>
-              <th className="border-b px-3 py-2">Version</th>
-              <th className="border-b px-3 py-2">Published at</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-b">
-                <td className="px-3 py-2">
-                  <Link
-                    href={`/admin/checklist/item/${item.checklistItemId}`}
-                    className="underline text-ink"
-                  >
-                    {item.title}
-                  </Link>
-                  <div className="text-xs text-ink-soft">{item.slug}</div>
-                </td>
-                <td className="px-3 py-2 text-ink-soft">{item.contentType}</td>
-                <td className="px-3 py-2 text-ink-soft">{item.authorityLevel}</td>
-                <td className="px-3 py-2 text-ink-soft">v{item.version}</td>
-                <td className="px-3 py-2 text-xs text-ink-soft">
-                  {item.publishedAt?.toISOString() ?? "—"}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full table-auto border-collapse text-sm">
+            <thead>
+              <tr className="bg-slate-50 text-left">
+                <th className="border-b px-3 py-2">Title</th>
+                <th className="border-b px-3 py-2">Type</th>
+                <th className="border-b px-3 py-2">Authority</th>
+                <th className="border-b px-3 py-2">Version</th>
+                <th className="border-b px-3 py-2">Published at</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id} className="border-b">
+                  <td className="px-3 py-2">
+                    <Link
+                      href={`/admin/checklist/item/${item.checklistItemId}`}
+                      className="underline text-ink"
+                    >
+                      {item.title}
+                    </Link>
+                    <div className="text-xs text-ink-soft">{item.slug}</div>
+                  </td>
+                  <td className="px-3 py-2 text-ink-soft">{item.contentType}</td>
+                  <td className="px-3 py-2 text-ink-soft">{item.authorityLevel}</td>
+                  <td className="px-3 py-2 text-ink-soft">v{item.version}</td>
+                  <td className="px-3 py-2 text-xs text-ink-soft">
+                    {item.publishedAt?.toISOString() ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

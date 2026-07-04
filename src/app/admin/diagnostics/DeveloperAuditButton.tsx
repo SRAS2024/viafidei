@@ -3,10 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Period values map to the new POST /api/admin/developer-audit route
- * (uppercase enum) plus the legacy GET /api/admin/diagnostics/developer-audit
- * (lowercase string). The button targets the new route; the legacy
- * route stays for backwards compatibility but is no longer used.
+ * Period values map to the POST /api/admin/developer-audit route (uppercase
+ * enum). The button targets that route to generate the developer audit PDF.
  */
 type Period = "LAST_24_HOURS" | "LAST_7_DAYS" | "LAST_30_DAYS";
 

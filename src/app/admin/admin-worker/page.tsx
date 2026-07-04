@@ -561,30 +561,34 @@ export default async function AdminWorkerPage() {
           {whyNoGrowth ? (
             <>
               <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm md:grid-cols-4">
-                <dt className="text-ink-faint">Blocker stage</dt>
+                <dt className="min-w-0 break-words text-ink-faint">Blocker stage</dt>
                 <dd
-                  className={`font-mono ${whyNoGrowth.blocker === "NONE" ? "text-emerald-700" : "text-rose-700"}`}
+                  className={`min-w-0 break-words font-mono ${whyNoGrowth.blocker === "NONE" ? "text-emerald-700" : "text-rose-700"}`}
                 >
                   {whyNoGrowth.blocker}
                 </dd>
                 <Field label="Content type">{whyNoGrowth.contentType ?? "(all types)"}</Field>
                 <Field label="Exact table">{whyNoGrowth.exactTable || "—"}</Field>
-                <dt className="text-ink-faint">Most recent failure</dt>
-                <dd className="font-serif text-ink">
+                <dt className="min-w-0 break-words text-ink-faint">Most recent failure</dt>
+                <dd className="min-w-0 break-words font-serif text-ink">
                   {whyNoGrowth.mostRecentFailure
                     ? `${whyNoGrowth.mostRecentFailure.when.toISOString().slice(0, 19)} — ${whyNoGrowth.mostRecentFailure.reason}`
                     : "none in window"}
                 </dd>
-                <dt className="text-ink-faint md:col-span-1">Explanation</dt>
-                <dd className="font-serif text-ink md:col-span-3">
+                <dt className="min-w-0 break-words text-ink-faint md:col-span-1">Explanation</dt>
+                <dd className="min-w-0 break-words font-serif text-ink md:col-span-3">
                   {whyNoGrowth.blockerExplanation}
                 </dd>
-                <dt className="text-ink-faint md:col-span-1">Next automatic repair</dt>
-                <dd className="font-serif text-ink md:col-span-3">
+                <dt className="min-w-0 break-words text-ink-faint md:col-span-1">
+                  Next automatic repair
+                </dt>
+                <dd className="min-w-0 break-words font-serif text-ink md:col-span-3">
                   {whyNoGrowth.nextAutomaticRepair ?? "no repair queued"}
                 </dd>
-                <dt className="text-ink-faint md:col-span-1">Next worker decision</dt>
-                <dd className="font-serif text-ink md:col-span-3">
+                <dt className="min-w-0 break-words text-ink-faint md:col-span-1">
+                  Next worker decision
+                </dt>
+                <dd className="min-w-0 break-words font-serif text-ink md:col-span-3">
                   {whyNoGrowth.nextWorkerDecision}
                 </dd>
               </dl>

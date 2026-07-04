@@ -36,47 +36,49 @@ export default async function QADashboard({
         </Link>
       </header>
 
-      <table className="w-full table-auto border-collapse text-sm">
-        <thead>
-          <tr className="bg-slate-50 text-left">
-            <th className="border-b px-3 py-2">Type</th>
-            <th className="border-b px-3 py-2">Score</th>
-            <th className="border-b px-3 py-2">Status</th>
-            <th className="border-b px-3 py-2">Blocking reasons</th>
-          </tr>
-        </thead>
-        <tbody>
-          {reports.map((report) => (
-            <tr key={report.id} className="border-b">
-              <td className="px-3 py-2 text-ink-soft">{report.contentType}</td>
-              <td className="px-3 py-2">
-                <span
-                  className={`rounded px-2 py-0.5 text-xs ${
-                    report.finalScore >= 0.8
-                      ? "bg-green-100 text-green-800"
-                      : report.finalScore >= 0.6
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-rose-100 text-rose-800"
-                  }`}
-                >
-                  {report.finalScore.toFixed(2)}
-                </span>
-              </td>
-              <td className="px-3 py-2 text-ink-soft">
-                {report.status}
-                {report.status === "NEEDS_REPAIR" && (
-                  <span className="ml-2 inline-block rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-800">
-                    needs repair
-                  </span>
-                )}
-              </td>
-              <td className="px-3 py-2 text-xs text-rose-700 max-w-md">
-                {report.blockingReasons.slice(0, 3).join("; ") || "—"}
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full table-auto border-collapse text-sm">
+          <thead>
+            <tr className="bg-slate-50 text-left">
+              <th className="border-b px-3 py-2">Type</th>
+              <th className="border-b px-3 py-2">Score</th>
+              <th className="border-b px-3 py-2">Status</th>
+              <th className="border-b px-3 py-2">Blocking reasons</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {reports.map((report) => (
+              <tr key={report.id} className="border-b">
+                <td className="px-3 py-2 text-ink-soft">{report.contentType}</td>
+                <td className="px-3 py-2">
+                  <span
+                    className={`rounded px-2 py-0.5 text-xs ${
+                      report.finalScore >= 0.8
+                        ? "bg-green-100 text-green-800"
+                        : report.finalScore >= 0.6
+                          ? "bg-amber-100 text-amber-800"
+                          : "bg-rose-100 text-rose-800"
+                    }`}
+                  >
+                    {report.finalScore.toFixed(2)}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-ink-soft">
+                  {report.status}
+                  {report.status === "NEEDS_REPAIR" && (
+                    <span className="ml-2 inline-block rounded bg-purple-100 px-2 py-0.5 text-xs text-purple-800">
+                      needs repair
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-xs text-rose-700 max-w-md">
+                  {report.blockingReasons.slice(0, 3).join("; ") || "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -75,30 +75,32 @@ export default async function ChecklistItemDetail({ params }: { params: Promise<
             No citations yet. Add at least one before approving for build.
           </p>
         ) : (
-          <table className="mt-3 w-full table-auto border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-left">
-                <th className="border-b px-3 py-2">URL</th>
-                <th className="border-b px-3 py-2">Authority</th>
-                <th className="border-b px-3 py-2">Validated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {item.citations.map((c) => (
-                <tr key={c.id} className="border-b">
-                  <td className="px-3 py-2">
-                    <a className="text-indigo-600 underline break-all" href={c.sourceUrl}>
-                      {c.sourceUrl}
-                    </a>
-                  </td>
-                  <td className="px-3 py-2 text-xs text-ink-soft">{c.authorityLevel}</td>
-                  <td className="px-3 py-2 text-xs">
-                    {c.validated ? "✓" : <span className="text-amber-600">pending</span>}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="mt-3 w-full table-auto border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-left">
+                  <th className="border-b px-3 py-2">URL</th>
+                  <th className="border-b px-3 py-2">Authority</th>
+                  <th className="border-b px-3 py-2">Validated</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {item.citations.map((c) => (
+                  <tr key={c.id} className="border-b">
+                    <td className="px-3 py-2">
+                      <a className="text-indigo-600 underline break-all" href={c.sourceUrl}>
+                        {c.sourceUrl}
+                      </a>
+                    </td>
+                    <td className="px-3 py-2 text-xs text-ink-soft">{c.authorityLevel}</td>
+                    <td className="px-3 py-2 text-xs">
+                      {c.validated ? "✓" : <span className="text-amber-600">pending</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -107,30 +109,32 @@ export default async function ChecklistItemDetail({ params }: { params: Promise<
         {item.buildJobs.length === 0 ? (
           <p className="mt-2 text-sm text-ink-soft">No build jobs yet.</p>
         ) : (
-          <table className="mt-3 w-full table-auto border-collapse text-sm">
-            <thead>
-              <tr className="bg-slate-50 text-left">
-                <th className="border-b px-3 py-2">Attempt</th>
-                <th className="border-b px-3 py-2">Status</th>
-                <th className="border-b px-3 py-2">Confidence</th>
-                <th className="border-b px-3 py-2">Error</th>
-              </tr>
-            </thead>
-            <tbody>
-              {item.buildJobs.map((job) => (
-                <tr key={job.id} className="border-b">
-                  <td className="px-3 py-2 text-ink-soft">
-                    {job.attempt}/{job.maxAttempts}
-                  </td>
-                  <td className="px-3 py-2 text-ink-soft">{job.status}</td>
-                  <td className="px-3 py-2 text-ink-soft">{job.confidence?.toFixed(2) ?? "—"}</td>
-                  <td className="px-3 py-2 text-xs text-rose-700 max-w-xs truncate">
-                    {job.errorMessage ?? "—"}
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="mt-3 w-full table-auto border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-left">
+                  <th className="border-b px-3 py-2">Attempt</th>
+                  <th className="border-b px-3 py-2">Status</th>
+                  <th className="border-b px-3 py-2">Confidence</th>
+                  <th className="border-b px-3 py-2">Error</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {item.buildJobs.map((job) => (
+                  <tr key={job.id} className="border-b">
+                    <td className="px-3 py-2 text-ink-soft">
+                      {job.attempt}/{job.maxAttempts}
+                    </td>
+                    <td className="px-3 py-2 text-ink-soft">{job.status}</td>
+                    <td className="px-3 py-2 text-ink-soft">{job.confidence?.toFixed(2) ?? "—"}</td>
+                    <td className="px-3 py-2 text-xs text-rose-700 max-w-xs truncate">
+                      {job.errorMessage ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

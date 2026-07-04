@@ -681,7 +681,9 @@ export default async function AdminIntelligencePage() {
                 <ul className="mt-1 space-y-1 text-sm">
                   {model.largest_modules.slice(0, 6).map((m, i) => (
                     <li key={i} className="flex justify-between gap-3">
-                      <span className="truncate font-mono text-xs text-ink-soft">{m.path}</span>
+                      <span className="min-w-0 truncate font-mono text-xs text-ink-soft">
+                        {m.path}
+                      </span>
                       <span className="shrink-0 text-ink-soft">{m.lines.toLocaleString()} ln</span>
                     </li>
                   ))}
