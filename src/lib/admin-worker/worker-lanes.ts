@@ -232,6 +232,19 @@ export const OPS_LANES: LaneDef[] = [
     },
   },
   {
+    // Parish directory upkeep: continuous address-dedup maintenance every pass,
+    // plus the end-of-month refresh of Mass/confession times + phone during the
+    // last 7 days of the month. Both self-gate (throttle / date window) and fail
+    // open, and the refresh stops the moment it finishes so the worker returns
+    // to normal tasks. Website re-reads are bounded per pass.
+    name: "refresh-parishes",
+    capacity: 1,
+    async run({ prisma, passId }) {
+      const { runParishRefreshLane } = await import("./parish-refresh");
+      return runParishRefreshLane(prisma, { passId });
+    },
+  },
+  {
     // ALL Python-brain-calling work lives in ONE lane so it never issues
     // concurrent calls to the single resident brain subprocess.
     name: "intelligence",

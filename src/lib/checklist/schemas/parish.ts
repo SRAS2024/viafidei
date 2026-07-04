@@ -23,6 +23,16 @@ export const parishSchema: ContentSchema = {
     diocese: z.string().optional(),
     background: z.string().optional(),
     summary: z.string().optional(),
+    // Best-effort contact + schedule details. Optional by design: a parish is
+    // publishable on just its name + address, so a missing phone / Mass time /
+    // confession time never blocks it. Filled when found on the parish website
+    // (or an OSM tag) and re-checked by the monthly refresh sweep.
+    phone: z.string().optional(),
+    massTimes: z.string().optional(),
+    confessionTimes: z.string().optional(),
+    // Normalized address fingerprint for duplicate detection: two parishes with
+    // the same addressKey are the same place and must not both be published.
+    addressKey: z.string().optional(),
     // Geocoordinates (when the directory source supplies them) power the
     // "use my location → nearest parish" feature.
     latitude: z.number().min(-90).max(90).optional(),
@@ -46,6 +56,10 @@ export const parishSchema: ContentSchema = {
       "state",
       "country",
       "website",
+      "phone",
+      "massTimes",
+      "confessionTimes",
+      "addressKey",
       "latitude",
       "longitude",
     ],

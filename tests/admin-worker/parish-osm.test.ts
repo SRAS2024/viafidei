@@ -11,17 +11,35 @@ vi.mock("@/lib/admin-worker/publish-orchestrator", () => ({
   runPublishOrchestrator: vi.fn(async () => ({ kind: "published" })),
 }));
 vi.mock("@/lib/admin-worker/communion-verifier", () => ({
-  verifyParishCommunion: vi.fn(),
+  // The OSM runner now fetches the site ONCE via inspectParishWebsite, which
+  // returns both the communion verdict and best-effort contact/schedule details.
+  inspectParishWebsite: vi.fn(),
 }));
 
 import type { PrismaClient } from "@prisma/client";
 
 import { osmElementToParish, runOsmParishDiscovery } from "@/lib/admin-worker/parish-osm";
 import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator";
-import { verifyParishCommunion } from "@/lib/admin-worker/communion-verifier";
+import { inspectParishWebsite } from "@/lib/admin-worker/communion-verifier";
 
 const mockedPublish = vi.mocked(runPublishOrchestrator);
-const mockedVerify = vi.mocked(verifyParishCommunion);
+const mockedInspect = vi.mocked(inspectParishWebsite);
+
+/** Build the {verdict, details} shape inspectParishWebsite returns. */
+function inspectResult(
+  status: "in-communion" | "not-in-communion" | "unknown",
+  details: Record<string, string> = {},
+) {
+  return {
+    verdict: {
+      status,
+      confidence: status === "unknown" ? 0 : 0.8,
+      signals: { positive: [], negative: [], review: [] },
+      reason: `${status} (test)`,
+    },
+    details,
+  } as never;
+}
 
 const KEYS = [
   "ADMIN_WORKER_SKIP_NETWORK",
@@ -39,7 +57,7 @@ beforeEach(() => {
   }
   mockedPublish.mockReset();
   mockedPublish.mockResolvedValue({ kind: "published" } as never);
-  mockedVerify.mockReset();
+  mockedInspect.mockReset();
 });
 afterEach(() => {
   for (const k of KEYS) {
@@ -163,7 +181,7 @@ describe("runOsmParishDiscovery", () => {
     expect(out.enabled).toBe(true);
     expect(out.published).toBe(1);
     expect(mockedPublish).toHaveBeenCalledTimes(1);
-    expect(mockedVerify).not.toHaveBeenCalled(); // no website → trust the tag
+    expect(mockedInspect).not.toHaveBeenCalled(); // no website → trust the tag
   });
 
   it("publishes a candidate whose website is unreadable (unknown) by trusting the OSM tag", async () => {
@@ -175,12 +193,7 @@ describe("runOsmParishDiscovery", () => {
     global.fetch = stubOverpass([
       { type: "node", id: 12, tags: { ...FULL_TAGS, website: "https://unreachable.example" } },
     ]);
-    mockedVerify.mockResolvedValue({
-      status: "unknown",
-      confidence: 0,
-      signals: { positive: [], negative: [], review: ["site unreachable"] },
-      reason: "Could not read website.",
-    });
+    mockedInspect.mockResolvedValue(inspectResult("unknown"));
     const prisma = makePrisma();
 
     const out = await runOsmParishDiscovery(prisma, {
@@ -189,7 +202,7 @@ describe("runOsmParishDiscovery", () => {
       maxQueries: 1,
     });
 
-    expect(mockedVerify).toHaveBeenCalledTimes(1); // it DID try the website first
+    expect(mockedInspect).toHaveBeenCalledTimes(1); // it DID try the website first
     expect(out.published).toBe(1); // …then fell back to the OSM tag and published
     expect(out.rejected).toBe(0);
     expect(mockedPublish).toHaveBeenCalledTimes(1);
@@ -199,12 +212,7 @@ describe("runOsmParishDiscovery", () => {
     global.fetch = stubOverpass([
       { type: "node", id: 11, tags: { ...FULL_TAGS, website: "https://schismatic.example" } },
     ]);
-    mockedVerify.mockResolvedValue({
-      status: "not-in-communion",
-      confidence: 0.9,
-      signals: { positive: [], negative: ["sedevacantist"], review: [] },
-      reason: "Disqualifying signal.",
-    });
+    mockedInspect.mockResolvedValue(inspectResult("not-in-communion"));
     const prisma = makePrisma();
 
     const out = await runOsmParishDiscovery(prisma, {
@@ -216,6 +224,69 @@ describe("runOsmParishDiscovery", () => {
     expect(out.rejected).toBe(1);
     expect(out.published).toBe(0);
     expect(mockedPublish).not.toHaveBeenCalled();
+  });
+
+  it("skips a candidate whose address duplicates an already-published parish", async () => {
+    // No website → verdict comes from the roman_catholic tag (in-communion),
+    // so the ONLY thing keeping it from publishing is the address-duplicate gate.
+    global.fetch = stubOverpass([
+      { type: "node", id: 13, lat: 42.34, lon: -71.07, tags: FULL_TAGS },
+    ]);
+    const prisma = {
+      adminWorkerMemory: { findUnique: vi.fn(async () => null), upsert: vi.fn(async () => ({})) },
+      publishedContent: {
+        findMany: vi.fn(async () => [] as Array<{ payload: unknown }>),
+        // Slug-exists check (no payload filter) → null; address-key dedup check
+        // (payload path filter) → a matching already-published parish.
+        findFirst: vi.fn(async (args: { where?: { payload?: unknown } }) =>
+          args?.where?.payload ? { id: "dup1", slug: "existing", title: "Existing Parish" } : null,
+        ),
+      },
+      checklistItem: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: "ci1" })),
+      },
+      humanReviewQueue: { findFirst: vi.fn(async () => null), create: vi.fn(async () => ({})) },
+      adminWorkerLog: { create: vi.fn(async () => ({})) },
+    } as unknown as PrismaClient;
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(out.published).toBe(0);
+    expect(out.rejected).toBe(1);
+    expect(mockedPublish).not.toHaveBeenCalled();
+  });
+
+  it("carries scraped phone / Mass / confession details into the published payload", async () => {
+    global.fetch = stubOverpass([
+      { type: "node", id: 14, tags: { ...FULL_TAGS, website: "https://good.example" } },
+    ]);
+    mockedInspect.mockResolvedValue(
+      inspectResult("in-communion", {
+        phone: "(555) 111-2222",
+        massTimes: "Sunday 9:00 am",
+        confessionTimes: "Saturday 4:00 pm",
+      }),
+    );
+    const prisma = makePrisma();
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(out.published).toBe(1);
+    const payload = (mockedPublish.mock.calls[0]![1] as { payload: Record<string, unknown> })
+      .payload;
+    expect(payload.phone).toBe("(555) 111-2222");
+    expect(payload.massTimes).toBe("Sunday 9:00 am");
+    expect(payload.confessionTimes).toBe("Saturday 4:00 pm");
+    expect(payload.addressKey).toBeTruthy();
   });
 
   it("is a no-op when disabled (skip-network)", async () => {

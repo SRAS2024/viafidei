@@ -24,8 +24,9 @@ import type { PrismaClient } from "@prisma/client";
 import { validatePayload } from "@/lib/checklist";
 import { isDoctrinallySensitive } from "./content-type-profiles";
 import { runPublishOrchestrator } from "./publish-orchestrator";
-import { verifyParishCommunion, type CommunionVerdict } from "./communion-verifier";
+import { inspectParishWebsite, type CommunionVerdict } from "./communion-verifier";
 import { designationFor, fileReview, slugify } from "./parish-discovery-runner";
+import { parishAddressKey, findPublishedParishByAddressKey } from "./parish-address";
 import type { PlaceParish } from "./parish-places";
 
 const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
@@ -87,6 +88,10 @@ export function osmElementToParish(el: OverpassElement): PlaceParish | null {
     }
   }
 
+  // Phone is often right there in the OSM tags — take it as a best-effort start
+  // (the website scrape may still refine it). Never required.
+  const phone = (tags.phone || tags["contact:phone"] || "").trim() || undefined;
+
   const osmRef = `${el.type}/${el.id}`;
   return {
     name,
@@ -97,6 +102,7 @@ export function osmElementToParish(el: OverpassElement): PlaceParish | null {
     latitude: typeof lat === "number" ? lat : undefined,
     longitude: typeof lon === "number" ? lon : undefined,
     website: website || undefined,
+    phone,
     placeId: `osm:${osmRef}`,
     types: ["place_of_worship"],
     mapsUri: `https://www.openstreetmap.org/${osmRef}`,
@@ -241,10 +247,19 @@ async function publishOsmParish(
       websiteChecked ? "; communion with the Holy See checked against the parish website" : ""
     }.`,
     citations,
+    addressKey: parishAddressKey({
+      address: candidate.formattedAddress,
+      city,
+      state: candidate.state,
+    }),
   };
   if (candidate.state) payload.state = candidate.state;
   if (candidate.country) payload.country = candidate.country;
   if (candidate.website) payload.website = candidate.website;
+  // Best-effort contact / schedule details (never required to publish).
+  if (candidate.phone) payload.phone = candidate.phone;
+  if (candidate.massTimes) payload.massTimes = candidate.massTimes;
+  if (candidate.confessionTimes) payload.confessionTimes = candidate.confessionTimes;
   if (typeof candidate.latitude === "number") payload.latitude = candidate.latitude;
   if (typeof candidate.longitude === "number") payload.longitude = candidate.longitude;
 
@@ -360,15 +375,35 @@ export async function runOsmParishDiscovery(
         .catch(() => null);
       if (exists) continue;
 
-      // Communion: verify the website when present; otherwise trust the explicit
-      // roman_catholic denomination tag.
+      // Duplicate by ADDRESS: if an already-published parish sits at this exact
+      // address, it is the same place under a different name — skip it (the
+      // operator's rule: same address ⇒ not published again).
+      const addressKey = parishAddressKey({
+        address: candidate.formattedAddress,
+        city: candidate.city,
+        state: candidate.state,
+      });
+      if (await findPublishedParishByAddressKey(prisma, addressKey)) {
+        base.rejected += 1;
+        continue;
+      }
+
+      // Communion + best-effort details from ONE website fetch when present;
+      // otherwise trust the explicit roman_catholic denomination tag.
       let verdict: CommunionVerdict;
       if (candidate.website) {
-        verdict = await verifyParishCommunion(candidate.website);
+        const inspected = await inspectParishWebsite(candidate.website);
+        verdict = inspected.verdict;
         if (verdict.status === "not-in-communion") {
           base.rejected += 1;
           continue;
         }
+        // Fold in whatever contact/schedule details the site yielded (OSM phone
+        // stays unless the site gave a better one).
+        if (inspected.details.phone) candidate.phone = inspected.details.phone;
+        if (inspected.details.massTimes) candidate.massTimes = inspected.details.massTimes;
+        if (inspected.details.confessionTimes)
+          candidate.confessionTimes = inspected.details.confessionTimes;
         // "unknown" means the website could NOT be read (blocked egress, site
         // down, non-HTML) — that is NOT evidence against communion. Fall back to
         // OSM's explicit denomination=roman_catholic tag, exactly as we already
