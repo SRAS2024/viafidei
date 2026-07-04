@@ -304,6 +304,18 @@ async function publishOsmParish(
  * communion-check candidates, and publish the in-communion ones (routing the
  * rest to review). Self-throttled and bounded.
  */
+/** In-communion verdict backed by OSM's curated `denomination=roman_catholic`
+ * tag — used both for parishes with no website and for those whose website
+ * can't be read (an unreadable site is no evidence against communion). */
+function osmDenominationVerdict(reason: string): CommunionVerdict {
+  return {
+    status: "in-communion",
+    confidence: 0.8,
+    signals: { positive: ["OpenStreetMap denomination=roman_catholic"], negative: [], review: [] },
+    reason,
+  };
+}
+
 export async function runOsmParishDiscovery(
   prisma: PrismaClient,
   opts: {
@@ -357,17 +369,20 @@ export async function runOsmParishDiscovery(
           base.rejected += 1;
           continue;
         }
+        // "unknown" means the website could NOT be read (blocked egress, site
+        // down, non-HTML) — that is NOT evidence against communion. Fall back to
+        // OSM's explicit denomination=roman_catholic tag, exactly as we already
+        // trust it for parishes with no website. Otherwise an unreadable site is
+        // MORE restrictive than no site, stranding nearly every OSM parish in
+        // review whenever arbitrary parish-website egress is unavailable — which
+        // is why parishes weren't publishing.
+        if (verdict.status === "unknown") {
+          verdict = osmDenominationVerdict(
+            `website unreadable (${verdict.reason}) — trusting OSM denomination=roman_catholic`,
+          );
+        }
       } else {
-        verdict = {
-          status: "in-communion",
-          confidence: 0.8,
-          signals: {
-            positive: ["OpenStreetMap denomination=roman_catholic"],
-            negative: [],
-            review: [],
-          },
-          reason: "OpenStreetMap denomination=roman_catholic.",
-        };
+        verdict = osmDenominationVerdict("OpenStreetMap denomination=roman_catholic.");
       }
 
       if (verdict.status === "in-communion" && opts.brainActive && base.published < maxPublish) {

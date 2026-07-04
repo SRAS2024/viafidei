@@ -2105,6 +2105,7 @@ async function runRepair(prisma: PrismaClient, passId: string): Promise<Dispatch
         succeeded: orchestrator.plansSucceeded,
         failed: orchestrator.plansFailed,
         abandoned: orchestrator.plansAbandoned,
+        reconciled: orchestrator.plansReconciled,
       },
       stuckQueue: JSON.parse(JSON.stringify(recovery)),
     },

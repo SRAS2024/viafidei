@@ -166,6 +166,35 @@ describe("runOsmParishDiscovery", () => {
     expect(mockedVerify).not.toHaveBeenCalled(); // no website → trust the tag
   });
 
+  it("publishes a candidate whose website is unreadable (unknown) by trusting the OSM tag", async () => {
+    // An unreadable website (blocked egress / down / non-HTML) yields "unknown".
+    // That is NOT evidence against communion, so the runner must fall back to
+    // OSM's denomination=roman_catholic tag and publish — otherwise nearly every
+    // OSM parish with a website strands in review whenever parish-site egress is
+    // unavailable, which is exactly why parishes weren't publishing.
+    global.fetch = stubOverpass([
+      { type: "node", id: 12, tags: { ...FULL_TAGS, website: "https://unreachable.example" } },
+    ]);
+    mockedVerify.mockResolvedValue({
+      status: "unknown",
+      confidence: 0,
+      signals: { positive: [], negative: [], review: ["site unreachable"] },
+      reason: "Could not read website.",
+    });
+    const prisma = makePrisma();
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(mockedVerify).toHaveBeenCalledTimes(1); // it DID try the website first
+    expect(out.published).toBe(1); // …then fell back to the OSM tag and published
+    expect(out.rejected).toBe(0);
+    expect(mockedPublish).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects a candidate whose website proves not-in-communion", async () => {
     global.fetch = stubOverpass([
       { type: "node", id: 11, tags: { ...FULL_TAGS, website: "https://schismatic.example" } },
