@@ -25,7 +25,8 @@ import { validatePayload } from "@/lib/checklist";
 import { isDoctrinallySensitive } from "./content-type-profiles";
 import { runPublishOrchestrator } from "./publish-orchestrator";
 import { placesEnabled, searchCatholicParishes, type PlaceParish } from "./parish-places";
-import { verifyParishCommunion, type CommunionVerdict } from "./communion-verifier";
+import { inspectParishWebsite, type CommunionVerdict } from "./communion-verifier";
+import { parishAddressKey, findPublishedParishByAddressKey } from "./parish-address";
 import { writeAdminWorkerLog } from "./logs";
 
 export interface MapsParishDiscoveryResult {
@@ -163,10 +164,18 @@ async function publishParish(
     city,
     summary: `${candidate.name} is a Roman Catholic ${designationFor(candidate.name).replace("-", " ")} in ${city}, in communion with the Holy See (verified from the parish website).`,
     citations,
+    addressKey: parishAddressKey({
+      address: candidate.formattedAddress,
+      city,
+      state: candidate.state,
+    }),
   };
   if (candidate.state) payload.state = candidate.state;
   if (candidate.country) payload.country = candidate.country;
   if (candidate.website) payload.website = candidate.website;
+  if (candidate.phone) payload.phone = candidate.phone;
+  if (candidate.massTimes) payload.massTimes = candidate.massTimes;
+  if (candidate.confessionTimes) payload.confessionTimes = candidate.confessionTimes;
   if (typeof candidate.latitude === "number") payload.latitude = candidate.latitude;
   if (typeof candidate.longitude === "number") payload.longitude = candidate.longitude;
 
@@ -251,7 +260,7 @@ export async function runMapsParishDiscovery(
       const slug = slugify(`${candidate.name} ${city}`);
       if (!slug) continue;
 
-      // De-dupe against the catalog.
+      // De-dupe against the catalog by slug…
       const exists = await prisma.publishedContent
         .findFirst({
           where: { contentType: "PARISH" as never, slug },
@@ -259,6 +268,18 @@ export async function runMapsParishDiscovery(
         })
         .catch(() => null);
       if (exists) continue;
+
+      // …and by ADDRESS: same address as an already-published parish ⇒ same
+      // place, not published again.
+      const addressKey = parishAddressKey({
+        address: candidate.formattedAddress,
+        city,
+        state: candidate.state,
+      });
+      if (await findPublishedParishByAddressKey(prisma, addressKey)) {
+        base.rejected += 1;
+        continue;
+      }
 
       // Can't render or can't verify → human review, never a blind publish.
       if (!candidate.website || !candidate.formattedAddress || !city) {
@@ -275,7 +296,12 @@ export async function runMapsParishDiscovery(
         continue;
       }
 
-      const verdict = await verifyParishCommunion(candidate.website);
+      const inspected = await inspectParishWebsite(candidate.website);
+      const verdict = inspected.verdict;
+      if (inspected.details.phone) candidate.phone = inspected.details.phone;
+      if (inspected.details.massTimes) candidate.massTimes = inspected.details.massTimes;
+      if (inspected.details.confessionTimes)
+        candidate.confessionTimes = inspected.details.confessionTimes;
       if (verdict.status === "not-in-communion") {
         base.rejected += 1;
         await writeAdminWorkerLog(prisma, {

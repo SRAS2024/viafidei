@@ -7,7 +7,11 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { assessCommunionFromText, htmlToText } from "@/lib/admin-worker/communion-verifier";
+import {
+  assessCommunionFromText,
+  extractParishDetailsFromText,
+  htmlToText,
+} from "@/lib/admin-worker/communion-verifier";
 
 describe("communion verifier", () => {
   it("rejects Old Catholic parishes", () => {
@@ -61,12 +65,65 @@ describe("communion verifier", () => {
     expect(v.status).toBe("unknown");
   });
 
-  it("routes the SSPX to review rather than auto-publishing or rejecting", () => {
+  it("rejects the SSPX (not in communion at present)", () => {
     const v = assessCommunionFromText(
       "A chapel of the Society of Saint Pius X (SSPX) offering the traditional Latin Mass.",
     );
-    expect(v.status).toBe("unknown");
-    expect(v.signals.review.join(" ")).toMatch(/SSPX/i);
+    expect(v.status).toBe("not-in-communion");
+    expect(v.signals.negative.join(" ")).toMatch(/SSPX/i);
+  });
+
+  it("confirms communion from a named diocese alone (no explicit communion claim)", () => {
+    const v = assessCommunionFromText(
+      "St. Anne Parish is a community in the Diocese of Trenton. Join us for Mass this Sunday.",
+    );
+    expect(v.status).toBe("in-communion");
+  });
+
+  it("confirms communion from an Eastern Catholic eparchy", () => {
+    const v = assessCommunionFromText(
+      "Our parish belongs to the Eparchy of Passaic. All are welcome to the Divine Liturgy.",
+    );
+    expect(v.status).toBe("in-communion");
+  });
+
+  it("confirms the 24 sui iuris churches / rites by name", () => {
+    for (const phrase of [
+      "St. Maron Maronite Catholic Church",
+      "A Melkite Greek Catholic parish",
+      "Ukrainian Greek Catholic Church of the Holy Family",
+      "St. Thomas Syro-Malabar Catholic parish",
+      "Our Byzantine Catholic community",
+      "Chaldean Catholic parish of St. Peter",
+    ]) {
+      expect(assessCommunionFromText(phrase).status).toBe("in-communion");
+    }
+  });
+
+  it("still rejects a disqualified body even when it names a 'diocese'", () => {
+    const v = assessCommunionFromText(
+      "The Old Catholic Diocese of St. Paul, in the Union of Utrecht tradition.",
+    );
+    expect(v.status).toBe("not-in-communion");
+  });
+
+  it("extracts phone, Mass times, and confession times (best-effort)", () => {
+    const details = extractParishDetailsFromText(
+      "Parish Office. Phone: (555) 123-4567. " +
+        "Mass Times: Sunday 8:00 am, 10:30 am and 5 pm. " +
+        "Confessions: Saturday 3:30 pm to 4:30 pm or by appointment.",
+    );
+    expect(details.phone).toMatch(/555/);
+    expect(details.massTimes).toMatch(/8:00 am/i);
+    expect(details.confessionTimes).toMatch(/3:30 pm/i);
+  });
+
+  it("returns no schedule when there is no clock time near the heading", () => {
+    const details = extractParishDetailsFromText(
+      "Mass is celebrated regularly. Confessions available. Call the office.",
+    );
+    expect(details.massTimes).toBeUndefined();
+    expect(details.confessionTimes).toBeUndefined();
   });
 
   it("strips HTML to scannable text", () => {

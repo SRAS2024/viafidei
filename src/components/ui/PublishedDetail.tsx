@@ -24,6 +24,18 @@ export interface PublishedDetailProps {
    * those pages render exactly as before.
    */
   linkedPrayers?: GuidePrayerData[];
+  /**
+   * Per-field renderers: override how a named payload field's value is rendered
+   * (e.g. an address that opens native Maps, a phone as a tel: link). The
+   * section heading is still shown; only the value body is replaced. Fields not
+   * listed here render normally.
+   */
+  fieldRenderers?: Record<string, (value: unknown) => React.ReactNode>;
+  /**
+   * Optional footer content rendered left-aligned at the bottom of the card
+   * (e.g. a parish's "Go to site" button). Omitted everywhere else.
+   */
+  footer?: React.ReactNode;
 }
 
 function renderValue(value: unknown): React.ReactNode {
@@ -160,6 +172,8 @@ export function PublishedDetail({
   secondaryFields,
   action,
   linkedPrayers,
+  fieldRenderers,
+  footer,
 }: PublishedDetailProps) {
   const payload = item.payload;
   const summary = payload.summary as string | undefined;
@@ -173,6 +187,20 @@ export function PublishedDetail({
     if (value == null) return null;
     if (typeof value === "string" && !value.trim()) return null;
     if (Array.isArray(value) && value.length === 0) return null;
+    // Caller-supplied renderer for this field (e.g. address → Maps link).
+    const custom = fieldRenderers?.[key];
+    if (custom) {
+      const rendered = custom(value);
+      if (rendered == null) return null;
+      return (
+        <section key={key} className="mt-6">
+          <h2 className="font-display text-xl capitalize text-ink">
+            {key.replace(/([A-Z])/g, " $1").trim()}
+          </h2>
+          <div className="mt-2 font-serif leading-relaxed text-ink">{rendered}</div>
+        </section>
+      );
+    }
     // Novena days / guide prayers / rosary mysteries → expandable dropdowns
     // (title + chevron → full text), so guides stay concise.
     const disclosures = toDisclosureItems(value);
@@ -229,6 +257,12 @@ export function PublishedDetail({
       {primary.map(renderField)}
       {secondary.map(renderField)}
       {remaining.map(renderField)}
+
+      {footer ? (
+        <footer className="mt-10 flex flex-wrap items-center gap-3 border-t border-[rgba(17,17,17,0.12)] pt-6">
+          {footer}
+        </footer>
+      ) : null}
     </article>
   );
 }

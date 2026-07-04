@@ -24,6 +24,11 @@ export interface PlaceParish {
   types: string[];
   /** A stable Maps URL for the citation trail. */
   mapsUri?: string;
+  /** Best-effort contact/schedule details (OSM tags and/or website scrape). All
+   * optional — never required to publish. */
+  phone?: string;
+  massTimes?: string;
+  confessionTimes?: string;
 }
 
 const ENDPOINT = "https://places.googleapis.com/v1/places:searchText";

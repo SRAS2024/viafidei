@@ -703,18 +703,21 @@ falling back to a TypeScript final brain. Concretely:
   catalog). Maps lists "Catholic" churches that are **not** in communion with
   Rome, so every candidate is run through a **communion-with-Rome verifier**
   ([`communion-verifier.ts`](src/lib/admin-worker/communion-verifier.ts)) that
-  reads the parish's own website: disqualifying signals (Old Catholic / Union of
-  Utrecht, Polish National Catholic, sedevacantist, independent/national
-  "Catholic" bodies, women's ordination, Orthodox/Anglican identity) → **rejected,
-  never published**; a clear Roman signal ("Roman Catholic", an explicit communion
-  statement, USCCB / Holy See, a named Catholic diocese) → published through the
-  real orchestrator; anything ambiguous, or canonically irregular (SSPX), → human
-  review. ("Catholic" alone is never enough — Old Catholics call themselves
-  Catholic too.) A no-op when no key is configured. On the public site every
-  parish / shrine / cathedral / basilica card and detail page shows the address
-  as a tappable link (`MapsAddressLink`) that opens turn-by-turn directions in
-  **Apple Maps on iPhone/iPad** and **Google Maps** everywhere else, using the
-  record's exact coordinates when present so the pin lands on the right building.
+  reads the parish's own website. It does **not** require an explicit "in
+  communion with Rome" statement — a site rarely says that. Instead it confirms
+  communion the way a real parish identifies itself: the name of the
+  **(arch)diocese or (arch)eparchy** it belongs to, or the name of **any of the
+  24 sui iuris Churches / rites** of the Catholic communion (Roman/Latin,
+  Maronite, Melkite, Ukrainian & other Byzantine/Greek Catholic, Chaldean,
+  Syro-Malabar, Syro-Malankara, Coptic, Armenian, Syriac, Ethiopian/Eritrean, …),
+  as well as "Roman Catholic", USCCB / Holy See, or an explicit communion
+  statement. Any one of those confirms it (so the worker keeps publishing);
+  disqualifying signals — Old Catholic / Union of Utrecht, Polish National
+  Catholic, sedevacantist, **the SSPX (not in communion at present)**,
+  independent/national "Catholic" bodies, women's ordination, Orthodox/Anglican
+  identity — are checked first and always win → **rejected, never published**. A
+  bare "Catholic" alone is still never enough (Old Catholics call themselves
+  Catholic too) and stays unknown. A no-op when no key is configured.
 
 - **Free, keyless data sources — no API key for any of it.** The worker reaches
   its growth targets entirely on free, public endpoints, with paid keys only ever
@@ -737,12 +740,58 @@ falling back to a TypeScript final brain. Concretely:
   `denomination=roman_catholic` in a locality and feeds the candidates through the
   **same** gates as the Maps flow — communion verification against the parish
   website (a site that proves not-in-communion is rejected; an entry with no
-  website is trusted on the explicit `roman_catholic` tag, which already excludes
-  Old Catholic / sedevacantist / Orthodox), the strict parish schema, and the real
-  publish orchestrator. It is self-throttled for Overpass fair-use and on by
-  default (`ADMIN_WORKER_OSM_PARISHES=0` opts out). Two independent parish
-  sources — keyed Maps and keyless OSM — so the worker always has a way to grow
-  the directory.
+  website, or one whose website can't be read, is trusted on the explicit
+  `roman_catholic` tag, which already excludes Old Catholic / sedevacantist /
+  Orthodox), the strict parish schema, and the real publish orchestrator. It is
+  self-throttled for Overpass fair-use and on by default
+  (`ADMIN_WORKER_OSM_PARISHES=0` opts out). Two independent parish sources —
+  keyed Maps and keyless OSM — so the worker always has a way to grow the
+  directory.
+
+- **A parish publishes on just its name + address — it never gets stuck on
+  missing detail.** Name + address (+ city) is the minimum publishable record;
+  **phone, Mass times, and confession times are best-effort extras** — pulled
+  from OSM tags and scraped from the parish website in the same single fetch that
+  runs the communion check ([`inspectParishWebsite`](src/lib/admin-worker/communion-verifier.ts)),
+  and simply omitted when not found. Nothing about a missing phone or schedule
+  ever blocks a publish or routes a parish to review.
+
+- **Duplicates are judged by address, not name.** Two parishes at the same
+  address are the same place however their names are spelled ("St. Mary" vs
+  "Saint Mary Catholic Church"), so every parish carries a normalized
+  `addressKey` ([`parish-address.ts`](src/lib/admin-worker/parish-address.ts):
+  lower-cased, de-accented, street-type/directional words folded to a canonical
+  form). A candidate whose `addressKey` matches an already-published parish is
+  **not published again**. A continuous, keyless maintenance sweep
+  ([`parish-refresh.ts`](src/lib/admin-worker/parish-refresh.ts)) walks the whole
+  published catalog, back-stamping `addressKey` on every row and unpublishing any
+  duplicate — so _previously_ published parishes are de-duplicated too, not just
+  new discoveries.
+
+- **End-of-month parish refresh — with an email report, and never a time sink.**
+  During the **last 7 days of each month** the worker re-reads every published
+  parish's website and refreshes its **Mass times, confession times, and phone**
+  when they've changed, cursoring through the catalog a batch per pass so it
+  covers all parishes across the window (`runParishMonthlyRefresh`). The **moment
+  it finishes it stops for the month** and the worker returns to its normal tasks
+  — it never burns the remaining days. If anything actually changed, the
+  developer gets a **"Parish Directory Monthly Update" email** in the standard
+  admin-email aesthetic stating how many parishes were updated
+  ([`sendAdminWorkerParishRefreshReport`](src/lib/email/admin-send.ts)); if
+  nothing changed, no email is sent. If the sweep can't make progress (repeated
+  hard errors, or the month ends before it finishes) it **escalates to the
+  developer**. Batch sizes are tunable via `ADMIN_WORKER_PARISH_REFRESH_BATCH`
+  and `ADMIN_WORKER_PARISH_DEDUP_BATCH`; both sweeps run in the `refresh-parishes`
+  ops lane and are fail-open.
+
+- **The parish card is built for a visitor standing outside.** Every parish /
+  shrine / cathedral / basilica detail page shows the **address as a tappable
+  link** (`MapsAddressLink`) that opens turn-by-turn directions in **Apple Maps
+  on iPhone/iPad** and **Google Maps** everywhere else (using the record's exact
+  coordinates when present so the pin lands on the right building), the **phone as
+  a `tel:` link**, the **Mass and confession times**, and — when the parish has a
+  website — a **"Go to site" button at the bottom-left of the card** linking to
+  it.
 
 - **Rescues dead and walled pages from the Internet Archive — keyless.** The
   live pipeline's most common stalls are pages that 404 after a site

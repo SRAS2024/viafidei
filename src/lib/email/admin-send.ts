@@ -1162,6 +1162,73 @@ export async function sendAdminWorkerMonthlyReport(
 }
 
 /**
+ * End-of-month parish directory refresh report. Sent once, after the worker
+ * finishes its end-of-month sweep of every published parish, ONLY when it
+ * actually changed something — it states how many parishes were updated and
+ * which fields moved. Same paper/serif admin aesthetic as every other report.
+ */
+export interface ParishRefreshReportInput {
+  monthLabel: string;
+  parishesChecked: number;
+  parishesUpdated: number;
+  fieldChanges: {
+    massTimes: number;
+    confessionTimes: number;
+    phone: number;
+    address: number;
+  };
+  duplicatesRemoved: number;
+}
+
+export async function sendAdminWorkerParishRefreshReport(
+  input: ParishRefreshReportInput,
+): Promise<AdminSendOutcome> {
+  const subject = "Parish Directory Monthly Update";
+  const intro =
+    `The end-of-month parish directory sweep for ${input.monthLabel} is complete. ` +
+    `${input.parishesUpdated} of ${input.parishesChecked} published parishes had an update to ` +
+    `their Mass times, confession times, address, or phone number.`;
+
+  const sections: AdminEmailSection[] = [
+    {
+      title: "Summary",
+      table: {
+        columns: [
+          { key: "metric", label: "Metric" },
+          { key: "value", label: "Value", align: "right" },
+        ],
+        rows: [
+          { metric: "Month", value: input.monthLabel },
+          { metric: "Parishes checked", value: String(input.parishesChecked) },
+          { metric: "Parishes updated", value: String(input.parishesUpdated) },
+          { metric: "Mass-time updates", value: String(input.fieldChanges.massTimes) },
+          { metric: "Confession-time updates", value: String(input.fieldChanges.confessionTimes) },
+          { metric: "Phone updates", value: String(input.fieldChanges.phone) },
+          { metric: "Address updates", value: String(input.fieldChanges.address) },
+          { metric: "Duplicates removed", value: String(input.duplicatesRemoved) },
+        ],
+      },
+    },
+  ];
+
+  const rendered = renderAdminEmail({
+    subject,
+    heading: "Parish Directory Monthly Update",
+    intro,
+    sections,
+    signoff:
+      "No action required — the worker refreshes the parish directory automatically at the end of each month.",
+  });
+
+  return sendAdminEmail({
+    flow: "admin_worker_parish_refresh",
+    subject: rendered.subject,
+    textBody: rendered.textBody,
+    htmlBody: rendered.htmlBody,
+  });
+}
+
+/**
  * Serious Admin Worker escalation (spec bullets 6-8). Sent to the human admin
  * when the worker is looping, extracting-without-publishing, publishing
  * low-quality output, burning storage, repeatedly failing on a content type,
