@@ -212,6 +212,55 @@ describe("runRepairOrchestrator — durable plan execution (spec §17)", () => {
     expect(artifactUpdates[0].data.status).toBe("REJECTED");
   });
 
+  it("resolves (does NOT retry/abandon) an EXTRACT_FAILED plan for a structured-built type", async () => {
+    // PARISH is grown from OSM, not web extraction, so re-extracting its web
+    // read is futile. The plan must resolve terminally instead of churning
+    // toward abandonment (the root of the Repair-orchestrator FAIL).
+    const updates: Array<{ data: { status?: string } }> = [];
+    const prisma = {
+      adminWorkerRepairPlan: {
+        findMany: vi.fn(async () => [
+          {
+            id: "ep1",
+            kind: "EXTRACT_FAILED",
+            failedEntity: "diocese.example",
+            repairAction: "re-extract",
+            status: "PENDING",
+            attempts: 1,
+            maxAttempts: 5,
+            lastAttemptAt: new Date(),
+            nextAttemptAt: null,
+            metadata: { sourceReadId: "read-parish" },
+          },
+        ]),
+        update: vi.fn(async (arg: (typeof updates)[number]) => {
+          updates.push(arg);
+          return {};
+        }),
+      },
+      adminWorkerSourceRead: {
+        findUnique: vi.fn(async () => ({
+          id: "read-parish",
+          sourceUrl: "https://diocese.example/parish",
+          sourceHost: "diocese.example",
+          extractedTitle: "St. Mary",
+          extractedText: "…",
+          extractedHeadings: [],
+          detectedContentType: "PARISH",
+        })),
+      },
+      adminWorkerLog: { create: vi.fn(async () => ({})), findFirst: vi.fn(async () => null) },
+    } as unknown as Parameters<typeof runRepairOrchestrator>[0];
+
+    const out = await runRepairOrchestrator(prisma);
+    expect(out.plansAbandoned).toBe(0);
+    expect(out.plansSucceeded).toBe(1); // resolved terminally, not retried
+    // The RUNNING→resolved update carries SUCCEEDED (ok:true), not PENDING retry.
+    const statuses = updates.map((u) => u.data.status).filter(Boolean);
+    expect(statuses).toContain("SUCCEEDED");
+    expect(statuses).not.toContain("PENDING");
+  });
+
   it("schedules a backoff retry when execution fails", async () => {
     // Replace cache flag to throw.
     const { flagCacheRefresh } = await import("@/lib/admin-worker/repair");

@@ -30,7 +30,7 @@
 
 import type { AdminWorkerRepairKind, AdminWorkerRepairPlan, PrismaClient } from "@prisma/client";
 
-import { isExtractableContentType } from "./content-types";
+import { isExtractableContentType, STRUCTURED_BUILT_CONTENT_TYPES } from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
 
 export interface RepairOrchestratorOutcome {
@@ -617,6 +617,17 @@ async function executePlan(
       // reset the artifact so the build advances; if the source genuinely
       // lacks them, fall through to deferred (pull from another source).
       const read = await loadSourceReadForPlan(prisma, plan);
+      // A structured-feed-built type (PARISH) is no longer web-extracted — it
+      // grows from its dedicated ingest lane (OSM). Re-extracting the web read
+      // is futile and only churns toward abandonment, so resolve the plan
+      // terminally instead of looping. (Root fix for the Repair-orchestrator
+      // FAIL: these plans were the ones abandoning after maxAttempts.)
+      if (read && STRUCTURED_BUILT_CONTENT_TYPES.has(read.detectedContentType ?? "")) {
+        return {
+          ok: true,
+          reason: `${read.detectedContentType} is structured-feed-built (not web-extracted) — repair closed; grows via its ingest lane.`,
+        };
+      }
       if (read && isExtractableContentType(read.detectedContentType)) {
         const { extractByType } = await import("./extractors");
         try {

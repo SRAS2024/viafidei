@@ -1273,6 +1273,21 @@ saint target alone is 10,000).
   excludes them from `WEB_EXTRACTION_CONTENT_TYPES`, which is the set BOTH the
   extraction dispatcher and the brain's extraction-backlog count use — so the
   worker never loops on them.
+- **Structured-feed-built types are not web-extracted either.** `PARISH` grows
+  from **OpenStreetMap** via `parish-osm.ts` (the `discover-parish-osm` lane
+  publishes clean, deduplicated records), not from arbitrary parish web pages.
+  Web-extracting parishes was the root of two simultaneous escalations: pages
+  with a parseable address produced artifacts that collide on generic names
+  (many "St. Mary Catholic Church") → `duplicateSafety=0` → never published
+  (`EXTRACTING_WITHOUT_PUBLISHING`), and pages without one produced
+  missing-field artifacts whose `EXTRACT_FAILED` repair plans re-extracted the
+  same source, failed, and abandoned (`Repair orchestrator` FAIL). `PARISH` now
+  lives in a separate `STRUCTURED_BUILT_CONTENT_TYPES` set — excluded from
+  `WEB_EXTRACTION_CONTENT_TYPES` like the curated-built types, but (unlike them)
+  **still a targetable growth goal + campaign target**, since its OSM lane fills
+  it toward the 300k goal. The repair orchestrator also short-circuits an
+  `EXTRACT_FAILED` plan for a structured-built type (re-extraction is futile) so
+  those plans resolve instead of churning to abandonment.
 
 ### Internal modules
 
