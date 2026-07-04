@@ -124,6 +124,36 @@ export async function runRepairOrchestrator(
           message: `Repair plan ${plan.kind} for ${plan.failedEntity} abandoned after ${plan.attempts} attempts; source paused and fallback selection triggered.`,
           safeMetadata: { planId: plan.id, host: plan.failedEntity, kind: plan.kind },
         }).catch(() => undefined);
+      } else if (plan.failedEntity) {
+        // The abandoned plan may have targeted an ARTIFACT (failedEntity is an
+        // artifact id, not a host). Drive that artifact to a terminal REJECTED
+        // state so it stops sitting in NEEDS_REPAIR/EXTRACTED limbo forever —
+        // otherwise the artifact and its dead plan pile up as a permanent
+        // unrepairable backlog. Scoped by id + status, so a non-artifact
+        // failedEntity (e.g. a cache tag) simply matches nothing. Fail-open.
+        let terminatedCount = 0;
+        try {
+          const terminated = await prisma.adminWorkerPackageArtifact.updateMany({
+            where: { id: plan.failedEntity, status: { in: ["NEEDS_REPAIR", "EXTRACTED"] } },
+            data: {
+              status: "REJECTED",
+              rejectionReason: `repair exhausted after ${plan.attempts} attempts (${plan.kind})`,
+            },
+          });
+          terminatedCount = terminated?.count ?? 0;
+        } catch {
+          /* failedEntity wasn't an artifact id, or the store is unavailable */
+        }
+        if (terminatedCount > 0) {
+          await writeAdminWorkerLog(prisma, {
+            passId: opts.passId ?? null,
+            category: "REPAIR",
+            severity: "WARN",
+            eventName: "repair_abandoned_artifact_rejected",
+            message: `Repair plan ${plan.kind} abandoned after ${plan.attempts} attempts; artifact ${plan.failedEntity} moved to REJECTED (terminal) so it stops blocking the funnel.`,
+            safeMetadata: { planId: plan.id, artifactId: plan.failedEntity, kind: plan.kind },
+          }).catch(() => undefined);
+        }
       }
       continue;
     }

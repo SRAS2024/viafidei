@@ -1700,6 +1700,36 @@ The Developer Audit gains an **Open Escalations** section, and diagnostics gains
 a **Worker escalations** rating, so open escalations are visible in-app as well
 as by email.
 
+#### Diagnostics report reality, not false alarms
+
+Several health ratings are deliberately **context-aware** so the board reflects
+genuine problems, not stale assertions or "no work to do" states:
+
+- **Content schemas** verifies COMPLETENESS against the live
+  `ChecklistContentType` enum (every type has a registered schema) instead of a
+  hard-coded count — growing the catalog is not a failure.
+- **Content goals** and **Autonomous progress** are long-horizon targets
+  dominated by the 300k-parish goal, so they score by **health (is the worker
+  still making forward progress)**, not raw completion %: green while content is
+  being published (progress in the last 7d), red only when genuinely STALLED.
+  The true completion count/percent stays in the summary.
+- **Cross-source verifier** and **Strict QA** pass when there is **no eligible
+  artifact work** (an empty build funnel is healthy — most content publishes via
+  curated/structured ingest, which doesn't route through those stages); they warn
+  only when artifacts are actually waiting and not being processed.
+- **Source coverage** credits the always-available curated knowledge base, so a
+  type is flagged "blocked by source coverage" only when it genuinely has **no
+  way to produce content** (no curated entries AND too few primary sources) — not
+  merely because it had no fresh web activity this week.
+- **Outbound reachability** treats `query.wikidata.org` as **best-effort** (its
+  WDQS commonly rate-limits datacenter IPs, and the worker already falls back to
+  alternate SPARQL endpoints + Wikipedia); the rating passes when the CRITICAL
+  hosts (Wikipedia, Vatican) are reachable and notes the handled fallback.
+- **Repair orchestrator** measures repair failures in a **rolling 7-day window**
+  (abandoned plans are terminal history that accumulates forever), and when a
+  plan is abandoned its linked artifact is driven to a terminal `REJECTED` state
+  so it stops sitting in `NEEDS_REPAIR` limbo and inflating the backlog.
+
 ### Code / version memory
 
 The platform remembers its OWN code (`code-version.ts` + the

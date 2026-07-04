@@ -68,9 +68,11 @@ function makePrisma(opts: {
 }
 
 describe("runSourceCoverage — spec §23", () => {
-  it("flags blocked-by-coverage when there are zero primary sources", async () => {
+  it("flags blocked-by-coverage only when there are NO sources AND no curated knowledge", async () => {
+    // A type the curated KB does NOT cover (fictional) with zero primary sources
+    // genuinely has no way to produce content → blocked.
     const prisma = makePrisma({
-      goals: [{ contentType: "PRAYER", gapCount: 30 }],
+      goals: [{ contentType: "UNKNOWN_UNCURATED_TYPE", gapCount: 30 }],
       primary: 0,
       recentCandidates: 0,
       recentBuilds: 0,
@@ -79,21 +81,36 @@ describe("runSourceCoverage — spec §23", () => {
     const rows = await runSourceCoverage(prisma);
     expect(rows[0].blockedByCoverage).toBe(true);
     expect(rows[0].coverageScore).toBeLessThan(0.4);
-    expect(rows[0].blockReason).toMatch(/primary source/);
-    expect(rows[0].recommendation).toMatch(/Add/);
+    expect(rows[0].blockReason).toMatch(/primary source|curated/);
+    expect(rows[0].recommendation).toMatch(/Add|curated/);
   });
 
-  it("flags blocked-by-coverage when primaries exist but no candidates surfaced", async () => {
+  it("does NOT flag a curated-KB type as blocked even with zero primary sources", async () => {
+    // PRAYER (and every real type) ships curated entries — an always-available
+    // source of truth — so it can never be "blocked by source coverage".
     const prisma = makePrisma({
       goals: [{ contentType: "PRAYER", gapCount: 30 }],
+      primary: 0,
+      recentCandidates: 0,
+      recentBuilds: 0,
+      recentPublishes: 0,
+    });
+    const rows = await runSourceCoverage(prisma);
+    expect(rows[0].blockedByCoverage).toBe(false);
+  });
+
+  it("does NOT flag blocked when a type has primary sources but is merely idle (idle != blocked)", async () => {
+    // Sources exist; no recent web activity is a scheduling/rotation state, not
+    // a coverage failure, so it must not demand "add sources".
+    const prisma = makePrisma({
+      goals: [{ contentType: "UNKNOWN_UNCURATED_TYPE", gapCount: 30 }],
       primary: 3,
       recentCandidates: 0,
       recentBuilds: 0,
       recentPublishes: 0,
     });
     const rows = await runSourceCoverage(prisma);
-    expect(rows[0].blockedByCoverage).toBe(true);
-    expect(rows[0].recommendation).toMatch(/DiscoveryOrchestrator/);
+    expect(rows[0].blockedByCoverage).toBe(false);
   });
 
   it("does not flag blocked-by-coverage when coverage is healthy", async () => {

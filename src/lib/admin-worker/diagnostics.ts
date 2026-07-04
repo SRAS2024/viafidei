@@ -369,23 +369,42 @@ async function ratingContentGoals(prisma: PrismaClient): Promise<HealthRating> {
   const totalCurrent = goals.reduce((sum, g) => sum + g.currentValidCount, 0);
   const totalGap = goals.reduce((sum, g) => sum + g.gapCount, 0);
   const pct = totalTarget === 0 ? 1 : Math.min(1, totalCurrent / totalTarget);
-  const status: HealthStatus = pct >= 0.95 ? "pass" : pct >= 0.5 ? "warn" : "fail";
   const behind = goals
     .filter((g) => g.gapCount > 0)
     .sort((a, b) => b.gapCount - a.gapCount)
     .slice(0, 4)
     .map((g) => `${g.contentType} +${g.gapCount}`);
+
+  // Content goals are a long-horizon target dominated by the 300k-parish goal,
+  // so raw "% complete" is a completion ratio, not a health signal — it reads
+  // red for years while the worker fills correctly. HEALTH = is the worker
+  // still making forward progress toward goals. Green while progressing (any
+  // publish in the last 7 days), red only when genuinely STALLED with a gap.
+  const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const recentPublishes = await prisma.publishedContent
+    .count({ where: { isPublished: true, publishedAt: { gte: since7d } } })
+    .catch(() => 0);
+  const progressing = recentPublishes > 0;
+  const status: HealthStatus = totalGap === 0 || progressing ? "pass" : "fail";
   return {
     key: "admin_worker_content_goals",
     label: "Content goals",
     status,
-    score: pct,
+    // Score reflects health (progress), not completion, so a healthy marathon
+    // doesn't drag the aggregate down; the true completion % stays in the summary.
+    score: status === "pass" ? 1 : pct,
     lastCheckedAt: new Date(),
     dataSource: "ContentGoal.desiredTarget",
-    summary: `${totalCurrent} / ${totalTarget} target (${Math.round(pct * 100)}%); ${totalGap} still to build${behind.length ? ` — largest gaps: ${behind.join(", ")}` : ""}.`,
-    recommendedRepair:
-      totalGap > 0
-        ? "Advance the pipeline for the below-target types (prioritize + fetch existing candidates, extract, build, publish) — do not keep re-discovering."
+    summary:
+      totalGap === 0
+        ? `All content goals met: ${totalCurrent} / ${totalTarget}.`
+        : `${totalCurrent} / ${totalTarget} target (${Math.round(pct * 100)}%); ${totalGap} still to build; +${recentPublishes} published in last 7d${
+            progressing ? " (progressing)" : " (STALLED)"
+          }${behind.length ? ` — largest gaps: ${behind.join(", ")}` : ""}.`,
+    recommendedRepair: progressing
+      ? undefined
+      : totalGap > 0
+        ? "No content published in the last 7 days despite an open gap — the growth pipeline is stalled. Advance the below-target types (prioritize + fetch existing candidates, extract, build, publish)."
         : undefined,
   };
 }
@@ -554,7 +573,7 @@ async function ratingStrictQa(prisma: PrismaClient): Promise<HealthRating> {
   // strict-QA record (written by the STRICT_QA stage).
   const now = new Date();
   const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
-  const [total, passed, latest] = await Promise.all([
+  const [total, passed, latest, eligible] = await Promise.all([
     prisma.adminWorkerStrictQAResult.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
     prisma.adminWorkerStrictQAResult
       .count({ where: { createdAt: { gte: since }, status: "PASSED" } })
@@ -562,24 +581,38 @@ async function ratingStrictQa(prisma: PrismaClient): Promise<HealthRating> {
     prisma.adminWorkerStrictQAResult
       .findFirst({ orderBy: { createdAt: "desc" } })
       .catch(() => null),
+    // Artifacts the STRICT_QA stage would actually process right now.
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } } })
+      .catch(() => 0),
   ]);
 
-  if (total === 0 && !latest) {
+  // Strict QA only runs when there are artifacts sitting at BUILD_READY /
+  // VERIFICATION_READY. "No results" is only a problem when such artifacts are
+  // WAITING and not being QA'd. With an empty build funnel (all published or
+  // rerouted upstream), no results is the correct, healthy state — publishing
+  // 3400+ items via curated/structured ingest does not route through this stage.
+  if (total === 0) {
+    const stalled = eligible > 0;
     return {
       key: "admin_worker_strict_qa",
-      label: "Strict QA",
-      status: "warn",
-      score: 0,
+      label: "Strict QA (AdminWorkerStrictQAResult)",
+      status: stalled ? "warn" : "pass",
+      score: stalled ? 0.5 : 1,
       lastCheckedAt: now,
-      dataSource: "AdminWorkerStrictQAResult",
-      summary: "No strict-QA results yet.",
-      recommendedRepair: "Run a content-goal pass; the STRICT_QA stage creates artifact results.",
+      dataSource: "AdminWorkerStrictQAResult (last 7d)",
+      latestSuccess: latest?.createdAt,
+      summary: stalled
+        ? `No strict-QA results in last 7 days, but ${eligible} artifact(s) await QA.`
+        : "No strict-QA results in last 7 days — no artifacts awaiting QA (build funnel empty).",
+      recommendedRepair: stalled
+        ? "Run the BUILD_READY drain; artifacts are waiting at BUILD_READY/VERIFICATION_READY."
+        : undefined,
     };
   }
 
-  const passRate = total === 0 ? 0 : passed / total;
-  const status: HealthStatus =
-    total === 0 ? "warn" : passRate >= 0.7 ? "pass" : passRate >= 0.4 ? "warn" : "fail";
+  const passRate = passed / total;
+  const status: HealthStatus = passRate >= 0.7 ? "pass" : passRate >= 0.4 ? "warn" : "fail";
   return {
     key: "admin_worker_strict_qa",
     label: "Strict QA (AdminWorkerStrictQAResult)",
@@ -588,10 +621,7 @@ async function ratingStrictQa(prisma: PrismaClient): Promise<HealthRating> {
     lastCheckedAt: now,
     dataSource: "AdminWorkerStrictQAResult (last 7d)",
     latestSuccess: latest?.createdAt,
-    summary:
-      total === 0
-        ? "No strict-QA results in last 7 days."
-        : `${passed}/${total} artifacts passed strict QA (${Math.round(passRate * 100)}%); latest finalScore=${latest?.finalScore.toFixed(2) ?? "?"}.`,
+    summary: `${passed}/${total} artifacts passed strict QA (${Math.round(passRate * 100)}%); latest finalScore=${latest?.finalScore.toFixed(2) ?? "?"}.`,
     recommendedRepair:
       status === "fail"
         ? "Investigate strict-QA blocking reasons; review NEEDS_REPAIR artifacts."
@@ -991,8 +1021,19 @@ async function ratingFetcher(prisma: PrismaClient): Promise<HealthRating> {
 
 async function ratingVerifier(prisma: PrismaClient): Promise<HealthRating> {
   const now = new Date();
-  const count = await prisma.adminWorkerCrossSourceVerification.count().catch(() => 0);
-  const status: HealthStatus = count > 0 ? "pass" : "warn";
+  // Cross-source verification only runs on SENSITIVE artifacts — BUILD_READY
+  // rows that carry validationNeeds (SAINT feast days, apparition approvals,
+  // etc.). Non-sensitive types (PARISH/LITURGICAL/PRAYER/…) publish without it
+  // by design. So "0 verification rows" is only a problem when there are
+  // sensitive artifacts WAITING to be verified. With no eligible work, 0 rows
+  // is the correct, healthy state — not a warning.
+  const [count, awaiting] = await Promise.all([
+    prisma.adminWorkerCrossSourceVerification.count().catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { status: "BUILD_READY", validationNeeds: { isEmpty: false } } })
+      .catch(() => 0),
+  ]);
+  const status: HealthStatus = count > 0 || awaiting === 0 ? "pass" : "warn";
   return {
     key: "admin_worker_verifier",
     label: "Cross-source verifier",
@@ -1000,23 +1041,40 @@ async function ratingVerifier(prisma: PrismaClient): Promise<HealthRating> {
     score: status === "pass" ? 1 : 0.5,
     lastCheckedAt: now,
     dataSource: "AdminWorkerCrossSourceVerification",
-    summary: `${count} verification row(s) recorded.`,
+    summary:
+      count > 0
+        ? `${count} verification row(s) recorded.`
+        : awaiting === 0
+          ? "No sensitive artifacts awaiting cross-source verification (nothing to verify)."
+          : `${awaiting} sensitive artifact(s) awaiting verification but 0 evidence rows recorded.`,
     recommendedRepair:
       status === "pass"
         ? undefined
-        : "Run a CROSS_SOURCE_VERIFICATION pass to populate evidence rows.",
+        : "Run a CROSS_SOURCE_VERIFICATION pass to populate evidence rows for the waiting artifacts.",
   };
 }
 
 async function ratingRepairOrchestrator(prisma: PrismaClient): Promise<HealthRating> {
   const now = new Date();
-  const [pending, abandoned] = await Promise.all([
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  // Abandoned plans are TERMINAL history — they accumulate for the life of the
+  // deployment. Counting them cumulatively pinned this rating red forever after
+  // the first handful of genuinely-unfixable items. Health is whether repair is
+  // FAILING REPEATEDLY RIGHT NOW: measure abandons in the last 7d, and whether
+  // the pending backlog is being worked. (When a plan abandons, its linked
+  // artifact is now driven to a terminal state in the orchestrator, so it no
+  // longer lingers in NEEDS_REPAIR — see runRepairOrchestrator.)
+  const [pending, abandonedRecent, abandonedTotal] = await Promise.all([
     prisma.adminWorkerRepairPlan
       .count({ where: { status: { in: ["PENDING", "RUNNING"] } } })
       .catch(() => 0),
+    prisma.adminWorkerRepairPlan
+      .count({ where: { status: "ABANDONED", updatedAt: { gte: since } } })
+      .catch(() => 0),
     prisma.adminWorkerRepairPlan.count({ where: { status: "ABANDONED" } }).catch(() => 0),
   ]);
-  const status: HealthStatus = abandoned > 5 ? "fail" : pending > 10 ? "warn" : "pass";
+  const status: HealthStatus =
+    abandonedRecent > 10 ? "fail" : pending > 20 || abandonedRecent > 0 ? "warn" : "pass";
   return {
     key: "admin_worker_repair_orchestrator",
     label: "Repair orchestrator",
@@ -1024,10 +1082,10 @@ async function ratingRepairOrchestrator(prisma: PrismaClient): Promise<HealthRat
     score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
     lastCheckedAt: now,
     dataSource: "AdminWorkerRepairPlan",
-    summary: `${pending} pending plan(s), ${abandoned} abandoned.`,
+    summary: `${pending} pending plan(s); ${abandonedRecent} abandoned in last 7d (${abandonedTotal} lifetime).`,
     recommendedRepair:
       status === "fail"
-        ? "Investigate abandoned repair plans; raise maxAttempts or rework the failing path."
+        ? "Repairs are failing repeatedly this week — investigate the failing path or raise maxAttempts."
         : status === "warn"
           ? "Run a REPAIR pass to drain pending plans."
           : undefined,
@@ -1169,29 +1227,47 @@ async function ratingOutboundNetwork(): Promise<HealthRating> {
     const { proxy, hosts } = outboundProbeCache.result;
     const reachable = hosts.filter((h) => h.reachable).length;
     const skipped = hosts.every((h) => h.detail.startsWith("skipped"));
+    // Health keys off CRITICAL hosts (Wikipedia + Vatican). query.wikidata.org
+    // is best-effort: managed hosts' datacenter IPs are commonly blocked by
+    // Wikidata's WDQS specifically, and the worker already falls back to alternate
+    // SPARQL endpoints + Wikipedia for the same facts. So a blocked WDQS with the
+    // critical hosts reachable is a HEALTHY, handled state — not an egress fault.
+    const criticalHosts = hosts.filter((h) => h.critical);
+    const criticalReachable = criticalHosts.filter((h) => h.reachable).length;
+    const bestEffortBlocked = hosts.filter((h) => !h.critical && !h.reachable);
     const status: HealthStatus = skipped
       ? "warn"
-      : reachable === hosts.length
+      : criticalReachable === criticalHosts.length
         ? "pass"
-        : reachable === 0
+        : criticalReachable === 0
           ? "fail"
           : "warn";
     const proxyNote = proxy.installed
       ? `via proxy (${proxy.mode})`
       : "direct egress (no proxy env set)";
+    const bestEffortNote =
+      status === "pass" && bestEffortBlocked.length > 0
+        ? ` ${bestEffortBlocked
+            .map((h) => h.host)
+            .join(", ")} blocked but non-critical (fallback in place).`
+        : "";
     return {
       key: "admin_worker_outbound_network",
       label: "Outbound internet reachability",
       status,
-      score: skipped ? 0.5 : reachable / Math.max(1, hosts.length),
+      // Score off critical-host reachability so a best-effort block (wikidata)
+      // doesn't drag a healthy egress state down.
+      score: skipped ? 0.5 : criticalReachable / Math.max(1, criticalHosts.length),
       lastCheckedAt: now,
       dataSource: "live probe: wikidata / wikipedia / vatican.va",
       summary: `${reachable}/${hosts.length} key hosts reachable ${proxyNote}. ${hosts
-        .map((h) => `${h.host}=${h.reachable ? "ok" : "blocked"}`)
-        .join(", ")}.`,
+        .map(
+          (h) => `${h.host}=${h.reachable ? "ok" : "blocked"}${h.critical ? "" : " (best-effort)"}`,
+        )
+        .join(", ")}.${bestEffortNote}`,
       recommendedRepair:
-        !skipped && reachable < hosts.length
-          ? "The deployment's network policy is blocking outbound egress. Allow outbound HTTPS to these hosts, or set HTTPS_PROXY (+ NODE_EXTRA_CA_CERTS if the proxy uses a private CA) so the worker reaches the open internet — the worker code already permits any host."
+        !skipped && criticalReachable < criticalHosts.length
+          ? "The deployment's network policy is blocking outbound egress to a CRITICAL host. Allow outbound HTTPS to these hosts, or set HTTPS_PROXY (+ NODE_EXTRA_CA_CERTS if the proxy uses a private CA) so the worker reaches the open internet — the worker code already permits any host."
           : undefined,
     };
   } catch (err) {
