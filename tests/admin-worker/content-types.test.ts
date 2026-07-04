@@ -12,6 +12,7 @@ import {
   EXTRACTABLE_CONTENT_TYPES,
   WEB_EXTRACTION_CONTENT_TYPES,
   CURATED_BUILT_CONTENT_TYPES,
+  STRUCTURED_BUILT_CONTENT_TYPES,
   isExtractableContentType,
 } from "@/lib/admin-worker/content-types";
 
@@ -77,8 +78,22 @@ describe("web-extraction vs curated-built content types", () => {
     }
   });
 
-  it("web-extraction set is exactly extractable minus curated-built", () => {
-    const expected = EXTRACTABLE_CONTENT_TYPES.filter((t) => !CURATED_BUILT_CONTENT_TYPES.has(t));
+  it("excludes the structured-feed-built type (PARISH) from web extraction but keeps it a goal", () => {
+    // Parishes come from OSM (parish-osm.ts), not arbitrary web pages: web
+    // extraction produced collision-prone / incomplete artifacts that never
+    // published and fed an EXTRACT_FAILED repair loop. PARISH stays EXTRACTABLE
+    // (capability) and — unlike curated-built types — is NOT in
+    // CURATED_BUILT_CONTENT_TYPES, so it remains a targetable growth goal.
+    expect(STRUCTURED_BUILT_CONTENT_TYPES.has("PARISH")).toBe(true);
+    expect(isExtractableContentType("PARISH")).toBe(true); // capability preserved
+    expect(WEB_EXTRACTION_CONTENT_TYPES).not.toContain("PARISH"); // but not web-extracted
+    expect(CURATED_BUILT_CONTENT_TYPES.has("PARISH")).toBe(false); // still goal/campaign-targetable
+  });
+
+  it("web-extraction set is exactly extractable minus curated-built minus structured-built", () => {
+    const expected = EXTRACTABLE_CONTENT_TYPES.filter(
+      (t) => !CURATED_BUILT_CONTENT_TYPES.has(t) && !STRUCTURED_BUILT_CONTENT_TYPES.has(t),
+    );
     expect([...WEB_EXTRACTION_CONTENT_TYPES]).toEqual([...expected]);
     // Sanity: the everyday web-extracted types are still present.
     expect(WEB_EXTRACTION_CONTENT_TYPES).toContain("PRAYER");

@@ -78,12 +78,32 @@ export function isExtractableContentType(
 export const CURATED_BUILT_CONTENT_TYPES: ReadonlySet<string> = new Set(["GUIDE", "MARIAN_TITLE"]);
 
 /**
+ * Types grown from a STRUCTURED FEED (a dedicated ingest lane), not from
+ * arbitrary web pages — but which ARE still real content goals (unlike the
+ * curated-built types above, which is why they are a SEPARATE set: these stay
+ * targetable by `nextPriorityContentType` + the major-goal campaign).
+ *
+ * PARISH is the case: parishes come from OpenStreetMap via `parish-osm.ts`
+ * (the `discover-parish-osm` lane publishes clean, deduplicated records every
+ * pass). Web-extracting arbitrary parish pages is the WRONG path and was the
+ * root of two escalations at once: pages with a parseable address produced
+ * CHECKLIST_READY artifacts that collide on generic parish names (St. Mary…) →
+ * `duplicateSafety=0` → never publish (EXTRACTING_WITHOUT_PUBLISHING), and pages
+ * without one produced EXTRACTED-missing artifacts whose EXTRACT_FAILED repair
+ * plans re-extract the same source, fail, and abandon (Repair-orchestrator
+ * FAIL). Excluding PARISH from web extraction stops both while OSM keeps growing
+ * it toward the goal.
+ */
+export const STRUCTURED_BUILT_CONTENT_TYPES: ReadonlySet<string> = new Set(["PARISH"]);
+
+/**
  * The types the live pipeline may web-extract: extractable MINUS the
- * curated/structured-built ones. Both the dispatcher's extraction candidate
- * query AND the brain's `readsAwaitingExtraction` backlog count use THIS set
- * (not `EXTRACTABLE_CONTENT_TYPES`) so they agree and neither loops on nor
- * over-scores extraction for a type that will never yield a web artifact.
+ * curated-built ones AND the structured-feed-built ones. Both the dispatcher's
+ * extraction candidate query AND the brain's `readsAwaitingExtraction` backlog
+ * count use THIS set (not `EXTRACTABLE_CONTENT_TYPES`) so they agree and neither
+ * loops on nor over-scores extraction for a type that will never yield a usable
+ * web artifact.
  */
 export const WEB_EXTRACTION_CONTENT_TYPES = EXTRACTABLE_CONTENT_TYPES.filter(
-  (t) => !CURATED_BUILT_CONTENT_TYPES.has(t),
+  (t) => !CURATED_BUILT_CONTENT_TYPES.has(t) && !STRUCTURED_BUILT_CONTENT_TYPES.has(t),
 ) as ReadonlyArray<ExtractableContentType>;
