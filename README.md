@@ -1289,6 +1289,36 @@ saint target alone is 10,000).
   `EXTRACT_FAILED` plan for a structured-built type (re-extraction is futile) so
   those plans resolve instead of churning to abandonment.
 
+- **The worker reconciles the old plans a code update makes moot — it "knows
+  we fixed it."** Making `PARISH` structured-built stops _new_ un-repairable
+  plans, but historical `EXTRACT_FAILED` plans filed before the fix still sat in
+  the repair queue pinning the `Repair orchestrator` health red. So every repair
+  pass now begins with `reconcileObsoletePlans`
+  ([`repair-orchestrator.ts`](src/lib/admin-worker/repair-orchestrator.ts)): it
+  scans open plans (`PENDING`/`RUNNING`/`ABANDONED`), resolves each one's content
+  type from the cheapest reliable signal (the type recorded on the plan's
+  metadata → the source read behind it → the artifact it targeted), and closes
+  any that target a now-structured-built type as `SUCCEEDED` with a
+  `reconciled: … closed after code update` note (surfaced as
+  `repair_plans_reconciled` + `plansReconciled` in the pass log). This clears the
+  historical backlog automatically the first pass after the fix ships — the
+  general mechanism for "the worker escalated something, we pushed a fix, and it
+  recognises the old items are resolved" without a human draining the queue.
+
+- **OSM parishes publish even when their website can't be read.** A candidate
+  carries OpenStreetMap's curated `denomination=roman_catholic` tag; the runner
+  still tries the parish website for a communion verdict, but an _unreadable_
+  site (blocked egress, site down, non-HTML) returns `unknown` — which is **not**
+  evidence against communion. Treating `unknown` as "route to review" made an
+  unreadable site _more_ restrictive than no site at all, stranding nearly every
+  OSM parish in review whenever arbitrary parish-website egress was unavailable
+  (why parishes weren't publishing). `runOsmParishDiscovery` now falls back to
+  the OSM denomination tag on `unknown`, exactly as it already does for parishes
+  with no website; only a verdict that _proves_ not-in-communion rejects. The
+  bulk `overpass-api.de` source is also probed by the outbound-reachability
+  diagnostic (best-effort, non-critical) so an egress block on the parish feed is
+  visible rather than silent.
+
 ### Internal modules
 
 `src/lib/admin-worker/` ships every module of the autonomous pipeline.

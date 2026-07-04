@@ -39,12 +39,110 @@ export interface RepairOrchestratorOutcome {
   plansSucceeded: number;
   plansFailed: number;
   plansAbandoned: number;
+  /** Stale plans closed because the code changed such that they can no longer
+   * be repaired the old way (e.g. a type moved to a structured feed). */
+  plansReconciled: number;
   results: Array<{
     id: string;
     kind: AdminWorkerRepairKind;
     status: "SUCCEEDED" | "FAILED" | "ABANDONED" | "SKIPPED";
     reason: string;
   }>;
+}
+
+/**
+ * Auto-reconcile plans made obsolete by a code update: a plan targeting a
+ * content type that is no longer web-repairable (it moved to a structured feed,
+ * e.g. PARISH → OSM) can never succeed by re-extraction. Close PENDING /
+ * RUNNING / ABANDONED such plans terminally so they stop churning toward
+ * abandonment and stop pinning the repair-orchestrator health red — this is how
+ * the worker "knows we fixed it": when the fix ships, the next repair pass
+ * recognises the now-invalid plans and reconciles them itself. Fail-open.
+ */
+async function reconcileObsoletePlans(prisma: PrismaClient, passId?: string): Promise<number> {
+  if (STRUCTURED_BUILT_CONTENT_TYPES.size === 0) return 0;
+  const open = await prisma.adminWorkerRepairPlan
+    .findMany({
+      where: { status: { in: ["PENDING", "RUNNING", "ABANDONED"] } },
+      select: { id: true, failedEntity: true, metadata: true },
+    })
+    .catch(() => [] as Array<{ id: string; failedEntity: string | null; metadata: unknown }>);
+  if (open.length === 0) return 0;
+
+  const metaString = (m: unknown, key: string): string | null => {
+    if (m && typeof m === "object" && !Array.isArray(m)) {
+      const v = (m as Record<string, unknown>)[key];
+      if (typeof v === "string") return v;
+    }
+    return null;
+  };
+  // Resolve each plan's content type from the cheapest reliable signal in this
+  // order: (1) the type recorded straight on the plan's metadata (how the
+  // BUILD_READY drain files these — survives even if the artifact is later
+  // deleted); (2) the source read behind it; (3) the artifact it targeted.
+  const readIds = new Set<string>();
+  const artifactIds = new Set<string>();
+  for (const p of open) {
+    if (metaString(p.metadata, "contentType")) continue; // already known
+    const rid = metaString(p.metadata, "sourceReadId");
+    if (rid) readIds.add(rid);
+    else if (p.failedEntity && !isLikelyHost(p.failedEntity)) artifactIds.add(p.failedEntity);
+  }
+  const [reads, artifacts] = await Promise.all([
+    readIds.size && typeof prisma.adminWorkerSourceRead?.findMany === "function"
+      ? prisma.adminWorkerSourceRead
+          .findMany({
+            where: { id: { in: [...readIds] } },
+            select: { id: true, detectedContentType: true },
+          })
+          .catch(() => [] as Array<{ id: string; detectedContentType: string | null }>)
+      : Promise.resolve([] as Array<{ id: string; detectedContentType: string | null }>),
+    artifactIds.size && typeof prisma.adminWorkerPackageArtifact?.findMany === "function"
+      ? prisma.adminWorkerPackageArtifact
+          .findMany({
+            where: { id: { in: [...artifactIds] } },
+            select: { id: true, contentType: true },
+          })
+          .catch(() => [] as Array<{ id: string; contentType: string }>)
+      : Promise.resolve([] as Array<{ id: string; contentType: string }>),
+  ]);
+  const readType = new Map(reads.map((r) => [r.id, r.detectedContentType]));
+  const artType = new Map(artifacts.map((a) => [a.id, a.contentType]));
+
+  let reconciled = 0;
+  for (const p of open) {
+    const rid = metaString(p.metadata, "sourceReadId");
+    const ct =
+      metaString(p.metadata, "contentType") ??
+      (rid
+        ? readType.get(rid)
+        : p.failedEntity && !isLikelyHost(p.failedEntity)
+          ? artType.get(p.failedEntity)
+          : null);
+    if (ct && STRUCTURED_BUILT_CONTENT_TYPES.has(ct)) {
+      await prisma.adminWorkerRepairPlan
+        .update({
+          where: { id: p.id },
+          data: {
+            status: "SUCCEEDED",
+            finalResult: `reconciled: ${ct} is structured-feed-built (not web-repairable) — closed after code update`,
+          },
+        })
+        .catch(() => undefined);
+      reconciled += 1;
+    }
+  }
+  if (reconciled > 0) {
+    await writeAdminWorkerLog(prisma, {
+      passId: passId ?? null,
+      category: "REPAIR",
+      severity: "INFO",
+      eventName: "repair_plans_reconciled",
+      message: `Reconciled ${reconciled} obsolete repair plan(s) for structured-feed-built types (no longer web-repairable) — closed after a code update.`,
+      safeMetadata: { reconciled },
+    }).catch(() => undefined);
+  }
+  return reconciled;
 }
 
 /**
@@ -56,6 +154,9 @@ export async function runRepairOrchestrator(
   opts: { passId?: string; limit?: number } = {},
 ): Promise<RepairOrchestratorOutcome> {
   const now = new Date();
+  // First close out any plans a code update rendered un-repairable, so they
+  // neither re-run below nor keep the health rating red.
+  const plansReconciled = await reconcileObsoletePlans(prisma, opts.passId);
   const plans = await prisma.adminWorkerRepairPlan.findMany({
     where: {
       status: { in: ["PENDING", "RUNNING"] },
@@ -71,6 +172,7 @@ export async function runRepairOrchestrator(
     plansSucceeded: 0,
     plansFailed: 0,
     plansAbandoned: 0,
+    plansReconciled,
     results: [],
   };
 
@@ -286,12 +388,13 @@ export async function runRepairOrchestrator(
     category: "REPAIR",
     severity: out.plansFailed > 0 ? "WARN" : "INFO",
     eventName: "repair_orchestrator",
-    message: `Repair orchestrator: ${out.plansSucceeded}/${out.plansConsidered} succeeded, ${out.plansFailed} failed, ${out.plansAbandoned} abandoned.`,
+    message: `Repair orchestrator: ${out.plansSucceeded}/${out.plansConsidered} succeeded, ${out.plansFailed} failed, ${out.plansAbandoned} abandoned${out.plansReconciled > 0 ? `, ${out.plansReconciled} reconciled (obsolete after code update)` : ""}.`,
     safeMetadata: {
       plansConsidered: out.plansConsidered,
       plansSucceeded: out.plansSucceeded,
       plansFailed: out.plansFailed,
       plansAbandoned: out.plansAbandoned,
+      plansReconciled: out.plansReconciled,
     },
   }).catch(() => undefined);
 

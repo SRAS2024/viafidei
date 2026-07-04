@@ -261,6 +261,70 @@ describe("runRepairOrchestrator — durable plan execution (spec §17)", () => {
     expect(statuses).not.toContain("PENDING");
   });
 
+  it("auto-reconciles a stale plan whose type moved to a structured feed (knows we fixed it)", async () => {
+    // A historical EXTRACT_FAILED plan for a PARISH read can never succeed by
+    // re-extraction now that PARISH is OSM-built. When the fix ships, the next
+    // repair pass must recognise the now-invalid plan and close it terminally —
+    // that is how the worker "knows we fixed it" — instead of letting it pin the
+    // repair-orchestrator health red forever.
+    const updates: Array<{ where: { id: string }; data: Record<string, unknown> }> = [];
+    let findManyCall = 0;
+    const prisma = {
+      adminWorkerRepairPlan: {
+        findMany: vi.fn(async () => {
+          findManyCall += 1;
+          // 1st call = reconcile sweep (PENDING/RUNNING/ABANDONED); 2nd call =
+          // the main due-plan fetch, which sees nothing left to run.
+          if (findManyCall === 1) {
+            return [
+              // Drain-filed shape: contentType recorded straight on metadata
+              // (the primary, artifact-independent path).
+              {
+                id: "stale-meta",
+                failedEntity: "artifact-parish-1",
+                metadata: {
+                  artifactId: "artifact-parish-1",
+                  gate: "MISSING_CITATIONS",
+                  contentType: "PARISH",
+                },
+              },
+              // Read-backed shape: type resolved via the source read behind it.
+              {
+                id: "stale-read",
+                failedEntity: "diocese.example",
+                metadata: { sourceReadId: "read-parish" },
+              },
+              // A genuinely web-repairable plan must be left untouched.
+              { id: "keep-guide", failedEntity: "some.host", metadata: { contentType: "SAINT" } },
+            ];
+          }
+          return [];
+        }),
+        update: vi.fn(async (arg: { where: { id: string }; data: Record<string, unknown> }) => {
+          updates.push(arg);
+          return {};
+        }),
+      },
+      adminWorkerSourceRead: {
+        findMany: vi.fn(async () => [{ id: "read-parish", detectedContentType: "PARISH" }]),
+      },
+      adminWorkerPackageArtifact: { findMany: vi.fn(async () => []) },
+      adminWorkerLog: { create: vi.fn(async () => ({})), findFirst: vi.fn(async () => null) },
+    } as unknown as Parameters<typeof runRepairOrchestrator>[0];
+
+    const out = await runRepairOrchestrator(prisma);
+    expect(out.plansReconciled).toBe(2); // both PARISH plans, not the SAINT one
+    // It never re-ran the stale plans as due repairs.
+    expect(out.plansAbandoned).toBe(0);
+    expect(out.plansExecuted).toBe(0);
+    for (const id of ["stale-meta", "stale-read"]) {
+      const reconciled = updates.find((u) => u.where.id === id);
+      expect(reconciled?.data.status).toBe("SUCCEEDED");
+      expect(String(reconciled?.data.finalResult)).toContain("structured-feed-built");
+    }
+    expect(updates.find((u) => u.where.id === "keep-guide")).toBeUndefined();
+  });
+
   it("schedules a backoff retry when execution fails", async () => {
     // Replace cache flag to throw.
     const { flagCacheRefresh } = await import("@/lib/admin-worker/repair");
@@ -319,9 +383,10 @@ describe("runRepairOrchestrator — durable plan execution (spec §17)", () => {
         nextAttemptAt: future,
       },
     ]);
-    // findMany default returns all rows in our mock — to simulate
-    // "no plans due", return an empty array.
-    (prisma.adminWorkerRepairPlan.findMany as ReturnType<typeof vi.fn>).mockResolvedValueOnce([]);
+    // findMany default returns all rows in our mock — to simulate "no plans
+    // due", return an empty array for BOTH the reconcile sweep and the main
+    // due-plan fetch.
+    (prisma.adminWorkerRepairPlan.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
     const result = await runRepairOrchestrator(prisma);
     expect(result.plansConsidered).toBe(0);
     expect(result.plansExecuted).toBe(0);

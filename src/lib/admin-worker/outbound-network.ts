@@ -158,6 +158,15 @@ const KEY_OUTBOUND_HOSTS: ReadonlyArray<{ host: string; url: string; critical: b
     critical: true,
   },
   { host: "www.vatican.va", url: "https://www.vatican.va/content/vatican/en.html", critical: true },
+  // Best-effort: the OpenStreetMap Overpass API is the bulk PARISH source
+  // (parish-osm.ts). If it's egress-blocked, parishes can't grow at scale — but
+  // it's not critical for the rest of the catalog and parishes have a curated
+  // fallback, so surface it without failing the overall reachability rating.
+  {
+    host: "overpass-api.de",
+    url: "https://overpass-api.de/api/status",
+    critical: false,
+  },
 ];
 
 /**
