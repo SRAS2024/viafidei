@@ -57,9 +57,21 @@ export const metadata: Metadata = {
       "A multilingual Catholic companion — prayers, saints, liturgy, and parish discovery.",
     images: ["/api/og?title=Via+Fidei&type=The+Way+of+Faith"],
   },
-  // `icon` is the crucifix favicon; `apple` (the touch icon) is the crucifix
-  // logo so a shared link's small-icon fallback is branded, not a generic glyph.
-  icons: { icon: "/favicon.svg", apple: "/crucifix-logo.png" },
+  // The crucifix logo is the universal favicon EVERYWHERE — browser tab + address
+  // bar (favicon.ico / 32px PNG), iOS home-screen (apple-touch-icon 180px),
+  // Android/PWA + share fallbacks (192/512 PNG via the web manifest). All are
+  // the crucifix centered on the brand cream, generated from crucifix-logo.png.
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon-512.png", type: "image/png", sizes: "512x512" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: ["/favicon.ico"],
+  },
+  manifest: "/site.webmanifest",
   robots: { index: true, follow: true },
 };
 

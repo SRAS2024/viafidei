@@ -2614,14 +2614,24 @@ shares the current card — no account required. Each public detail page also
 exports `generateMetadata` (via `buildPublishedMetadata`) so a shared link
 unfurls with that card's own title and summary plus a **branded share image**:
 a dynamic Open Graph card ([`app/api/og`](src/app/api/og/route.tsx), built on
-`next/og`) showing the **crucifix mark with the content item's own title in it**
+`next/og`) showing the **crucifix logo with the content item's own title in it**
 (e.g. "Litany of Humility") and a "VIA FIDEI · <type>" label, set as both the
 `og:image` and the `summary_large_image` `twitter:image`. The image is
-self-contained (the favicon inlined as a data URI, `next/og`'s built-in font)
-and falls back to the static crucifix asset on any error, so a shared link never
-unfurls broken or as the browser's generic page icon. The root layout supplies a
-default branded card for non-content pages and an `apple-touch-icon` so the
-small-icon fallback is the crucifix too.
+self-contained (the crucifix logo `crucifix-logo.png` inlined as a data URI at
+module load, `next/og`'s built-in font) and falls back to the static crucifix
+asset on any error, so a shared link never unfurls broken or as the browser's
+generic page icon. The root layout supplies a default branded card for
+non-content pages.
+
+**Favicon everywhere.** The site logo — the crucifix (`crucifix-logo.png`) — is
+the universal favicon across every surface and device, so a shared/opened link
+shows the crucifix next to the address bar, in the tab, on the iOS home screen,
+and as the Android/PWA icon. The root layout's `icons` metadata + a
+`site.webmanifest` point every size at the crucifix centred on the brand cream:
+`favicon.ico` (16/32/48, for classic `/favicon.ico` requests and email clients),
+`favicon-32.png`, `apple-touch-icon.png` (180), and `icon-192.png` /
+`icon-512.png` (manifest / Android / share fallback). All are generated from the
+one logo, so there is a single source of truth for the mark.
 
 **Source attribution.** Content cards no longer print an "Approved sources" /
 "Sources" citation list at the bottom — the worker's verification provenance
