@@ -4,8 +4,9 @@
  * When a content goal has a large enough gap to be "getting in the way of
  * sustainable progress", the worker treats it as a campaign rather than letting
  * it trickle behind everything else — and this is GENERIC, not tied to any one
- * type (PARISH's 200k today; the rest of the saints, church-history, etc.
- * tomorrow):
+ * type (saints today; church-history, prayers, etc. next). It applies only to
+ * WEB-growable goals; the biggest gap overall (PARISH) grows on its own OSM lane
+ * and is deliberately excluded (see below):
  *
  *   1. DRAIN  — first finish everything already built and waiting to publish
  *               (the funnel), taking on NO new discovery, so nothing in-flight
@@ -17,12 +18,20 @@
  *
  * The campaign goal is the unmet goal with the LARGEST absolute gap, as long as
  * that gap is at least ADMIN_WORKER_CAMPAIGN_MIN_GAP (default 1000) — so the
- * worker runs a full campaign for the big blockers (parishes, then saints, then
- * church history, …) and finishes them one at a time, but does not launch a
+ * worker runs a full campaign for the big blockers (saints, then church
+ * history, …) and finishes them one at a time, but does not launch a
  * heavyweight drain→surge for a handful of missing items (those are handled by
- * the normal rotation). Curated-built types (GUIDE, MARIAN_TITLE) are never
- * campaign targets — they grow from the curated/structured lanes, not the web
- * pipeline a surge drives, so surging on them can't close their gap.
+ * the normal rotation). Curated-built types (GUIDE, MARIAN_TITLE) AND
+ * structured-feed-built types (PARISH) are never campaign targets — they grow
+ * from the curated / OSM ingest lanes, not the web pipeline a surge drives, so
+ * surging on them can't close their gap. PARISH in particular has by far the
+ * largest gap (200k), so leaving it eligible pinned the campaign on PARISH
+ * forever: the surge commandeered every web-pipeline resource for a goal the web
+ * pipeline can't grow, the worker looped SOURCE_FETCH→EXTRACTION with 0 published
+ * while its OSM lane was starved, and the gap never shrank so the campaign never
+ * escaped (the recurring EXTRACTING_WITHOUT_PUBLISHING escalation). Excluding it
+ * lets the campaign surge on the biggest WEB-growable gap while PARISH keeps
+ * growing on its own OSM lane every pass.
  *
  * Everything here is read-only + fail-open: any error yields NORMAL so the
  * worker never wedges on the campaign layer.
@@ -30,7 +39,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
-import { CURATED_BUILT_CONTENT_TYPES } from "./content-types";
+import { CURATED_BUILT_CONTENT_TYPES, STRUCTURED_BUILT_CONTENT_TYPES } from "./content-types";
 
 export type CampaignPhase = "DRAIN" | "SURGE" | "NORMAL";
 
@@ -65,8 +74,15 @@ export async function evaluateMajorGoalCampaign(prisma: PrismaClient): Promise<C
       where: { gapCount: { gte: minGap } },
       orderBy: { gapCount: "desc" },
     });
-    // Skip curated-built types — a web-pipeline surge can't close their gap.
-    const target = goals.find((g) => !CURATED_BUILT_CONTENT_TYPES.has(g.contentType));
+    // Skip curated-built AND structured-feed-built types — a web-pipeline surge
+    // can't close their gap (they grow from the curated / OSM ingest lanes). The
+    // campaign target must be a type the surge can actually advance, or the
+    // worker loops the web pipeline on an ungrowable goal forever (PARISH).
+    const target = goals.find(
+      (g) =>
+        !CURATED_BUILT_CONTENT_TYPES.has(g.contentType) &&
+        !STRUCTURED_BUILT_CONTENT_TYPES.has(g.contentType),
+    );
     if (!target) return NORMAL;
 
     // The funnel = work already built and waiting to publish. Drain THAT before

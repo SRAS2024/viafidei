@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONTENT_TYPE_STRATEGIES,
   discoveryCadenceMinutes,
+  runDiscoveryOrchestrator,
 } from "@/lib/admin-worker/discovery-orchestrator";
 
 describe("CONTENT_TYPE_STRATEGIES — per-content-type discovery hints (spec §4)", () => {
@@ -50,6 +51,29 @@ describe("CONTENT_TYPE_STRATEGIES — per-content-type discovery hints (spec §4
   it("history strategy prioritizes official Church documents", () => {
     const s = CONTENT_TYPE_STRATEGIES.CHURCH_DOCUMENT;
     expect(s.hints.some((h) => /encyclical|council|canon-law|catechism/.test(h))).toBe(true);
+  });
+});
+
+describe("runDiscoveryOrchestrator — never web-discovers a non-web-built type", () => {
+  // A minimal prisma: $queryRaw is absent so the coverage model degrades to
+  // "everything missing" (fail-open), and no discoverer/host query is reached
+  // because the guard returns first. If the guard were removed, the run would
+  // fall through to host ranking (findMany) and throw on this stub — so a clean
+  // surfaced:0 return proves the early bail-out fired.
+  const stubPrisma = {
+    contentGoal: { findFirst: async () => null },
+  } as never;
+
+  it("bails out for the structured-feed-built PARISH (grown by its OSM lane)", async () => {
+    const r = await runDiscoveryOrchestrator(stubPrisma, { contentType: "PARISH" });
+    expect(r.surfaced).toBe(0);
+    expect(r.strategies.join(" ")).toMatch(/skip: PARISH is not web-discovered/);
+  });
+
+  it("bails out for a curated-built type (GUIDE)", async () => {
+    const r = await runDiscoveryOrchestrator(stubPrisma, { contentType: "GUIDE" });
+    expect(r.surfaced).toBe(0);
+    expect(r.strategies.join(" ")).toMatch(/skip: GUIDE is not web-discovered/);
   });
 });
 

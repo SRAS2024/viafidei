@@ -1,8 +1,13 @@
 /**
- * Major-goal campaign controller. A goal with a campaign-sized gap drives the
- * worker into DRAIN (finish the built funnel, no new discovery) then SURGE (all
- * resources on that goal), generically for the biggest blocker — parishes today,
- * saints/church-history next — and NORMAL when every remaining gap is small.
+ * Major-goal campaign controller. A WEB-growable goal with a campaign-sized gap
+ * drives the worker into DRAIN (finish the built funnel, no new discovery) then
+ * SURGE (all resources on that goal), generically for the biggest web blocker —
+ * saints today, church-history next — and NORMAL when every remaining gap is
+ * small. Curated-built (GUIDE) and structured-feed-built (PARISH) types are
+ * never campaign targets: a web surge can't close their gap, so pinning the
+ * campaign on PARISH's huge 200k gap starved the web pipeline and published
+ * nothing (the recurring EXTRACTING_WITHOUT_PUBLISHING escalation). PARISH grows
+ * on its own OSM lane instead.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -32,35 +37,40 @@ afterEach(() => {
 });
 
 describe("evaluateMajorGoalCampaign", () => {
+  // PARISH has by far the biggest gap, but it is structured-feed-built (grows on
+  // the OSM lane, NOT the web pipeline) so it is NEVER a campaign target — the
+  // campaign surges on the biggest WEB-growable gap (SAINT here).
   const big: Goal[] = [
     { contentType: "PARISH", gapCount: 199_973, desiredTarget: 200_000, priority: 110 },
     { contentType: "SAINT", gapCount: 7_203, desiredTarget: 10_000, priority: 20 },
     { contentType: "CHURCH_DOCUMENT", gapCount: 123, desiredTarget: 500, priority: 10 },
   ];
 
-  it("SURGEs on the largest-gap goal when the built funnel is clear", async () => {
+  it("SURGEs on the largest WEB-growable gap, skipping the bigger structured PARISH gap", async () => {
     const s = await evaluateMajorGoalCampaign(fakePrisma(big, 0));
     expect(s.phase).toBe("SURGE");
-    expect(s.majorType).toBe("PARISH");
-    expect(s.majorGap).toBe(199_973);
+    expect(s.majorType).toBe("SAINT");
+    expect(s.majorGap).toBe(7_203);
   });
 
   it("DRAINs first while built artifacts still wait to publish", async () => {
     const s = await evaluateMajorGoalCampaign(fakePrisma(big, 5));
     expect(s.phase).toBe("DRAIN");
-    expect(s.majorType).toBe("PARISH");
+    expect(s.majorType).toBe("SAINT");
     expect(s.builtFunnel).toBe(5);
   });
 
-  it("moves to the next-biggest goal once the first is met (generic, not parish-only)", async () => {
-    // PARISH met (gap 0) → SAINT is now the biggest campaign-sized gap.
-    const afterParish: Goal[] = [
-      { contentType: "PARISH", gapCount: 0, desiredTarget: 200_000, priority: 110 },
-      { contentType: "SAINT", gapCount: 7_203, desiredTarget: 10_000, priority: 20 },
+  it("moves to the next-biggest WEB-growable goal once the first is met (generic)", async () => {
+    // SAINT met (gap 0) → CHURCH_DOCUMENT is now the biggest campaign-sized gap
+    // (PARISH stays excluded regardless).
+    const afterSaint: Goal[] = [
+      { contentType: "PARISH", gapCount: 199_973, desiredTarget: 200_000, priority: 110 },
+      { contentType: "SAINT", gapCount: 0, desiredTarget: 10_000, priority: 20 },
+      { contentType: "CHURCH_DOCUMENT", gapCount: 4_500, desiredTarget: 5_000, priority: 10 },
     ];
-    const s = await evaluateMajorGoalCampaign(fakePrisma(afterParish, 0));
+    const s = await evaluateMajorGoalCampaign(fakePrisma(afterSaint, 0));
     expect(s.phase).toBe("SURGE");
-    expect(s.majorType).toBe("SAINT");
+    expect(s.majorType).toBe("CHURCH_DOCUMENT");
   });
 
   it("is NORMAL when every remaining gap is below the campaign threshold", async () => {
@@ -78,5 +88,18 @@ describe("evaluateMajorGoalCampaign", () => {
     ];
     const s = await evaluateMajorGoalCampaign(fakePrisma(curatedBig, 0));
     expect(s.phase).toBe("NORMAL");
+  });
+
+  it("never campaigns on a structured-built type — PARISH alone yields NORMAL (OSM grows it)", async () => {
+    // The recurring EXTRACTING_WITHOUT_PUBLISHING escalation: PARISH's 200k gap
+    // dwarfs everything, but surging the web pipeline on it can't close the gap
+    // (parishes come from the OSM lane), so with only PARISH over-threshold the
+    // campaign must stay NORMAL rather than pin the web pipeline on PARISH.
+    const parishOnly: Goal[] = [
+      { contentType: "PARISH", gapCount: 199_973, desiredTarget: 200_000, priority: 110 },
+    ];
+    const s = await evaluateMajorGoalCampaign(fakePrisma(parishOnly, 0));
+    expect(s.phase).toBe("NORMAL");
+    expect(s.majorType).toBeNull();
   });
 });
