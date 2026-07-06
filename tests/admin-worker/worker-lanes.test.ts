@@ -29,8 +29,20 @@ describe("worker lane set", () => {
     expect(OPS_LANES.length).toBeGreaterThanOrEqual(10);
   });
 
-  it("every content lane is activeOnly (safe-degraded publishing contract)", () => {
-    for (const lane of CONTENT_LANES) expect(lane.activeOnly).toBe(true);
+  it("every content lane is activeOnly EXCEPT the deterministic parish lane", () => {
+    // Content lanes gate on the Python brain (safe-degraded contract) — with one
+    // deliberate exception: `discover-parish-osm` grows parishes deterministically
+    // (OSM roman_catholic tag + communion verifier + strict schema + publish
+    // orchestrator, no brain judgement), so it keeps publishing even when the
+    // brain is degraded. That is required so a Python outage never stalls the
+    // parish directory (the EXTRACTING_WITHOUT_PUBLISHING failure mode).
+    for (const lane of CONTENT_LANES) {
+      if (lane.name === "discover-parish-osm") {
+        expect(lane.activeOnly).toBeFalsy();
+      } else {
+        expect(lane.activeOnly).toBe(true);
+      }
+    }
   });
 
   it("splits the old coarse ingestion/enrichment/discovery/maintenance lanes", () => {

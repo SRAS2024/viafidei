@@ -125,7 +125,12 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "discover-parish-osm",
     capacity: 2,
-    activeOnly: true,
+    // NOT activeOnly: parishes are grown deterministically from OpenStreetMap's
+    // curated roman_catholic tag + the communion verifier + the strict parish
+    // schema + the publish orchestrator — no brain judgement is involved — so
+    // the directory keeps growing even when the Python brain is degraded
+    // (`brainActive: true` here means "publishing is allowed", which it always
+    // is for this deterministic lane).
     growth: true,
     discovery: true,
     async run({ prisma }) {

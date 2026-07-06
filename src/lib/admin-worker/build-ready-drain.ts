@@ -20,9 +20,13 @@
  *      downstream drain over more upstream extraction.
  *
  * It never bypasses a gate: draining just runs the SAME handlers repeatedly over
- * the backlog. Publishing is gated on `active` (the Python final brain), so it
- * honours the safe-degraded contract; diagnosis + repair/review routing run
- * regardless. Fail-open throughout.
+ * the backlog. Publishing runs the DETERMINISTIC funnel (verify → strict QA →
+ * publish) regardless of the Python brain — content at QA_PASSED has already
+ * cleared strict QA + the publish orchestrator's own gates, so it must not be
+ * held hostage to brain availability (that stall is the EXTRACTING_WITHOUT_
+ * PUBLISHING escalation). The only safe-degraded carve-out is doctrinally-
+ * sensitive content, which still requires the active brain (`allowSensitive =
+ * opts.active`). Fail-open throughout.
  */
 
 import type { PrismaClient } from "@prisma/client";
@@ -416,19 +420,25 @@ export async function runBuildReadyDrain(
         }
       }
 
-      // 3. Publish QA-passed items (active mode only — safe-degraded contract).
-      if (opts.active) {
-        const readyToPublish = await prisma.adminWorkerPackageArtifact
-          .count({ where: { status: "QA_PASSED" } })
-          .catch(() => 0);
-        if (readyToPublish > 0) {
-          const r = await runPersistAndPublish(prisma, "drain", opts.passId ?? "drain").catch(
-            () => null,
-          );
-          if (r && r.kind !== "idle") {
-            progressed = true;
-            out.published += r.published ?? 0;
-          }
+      // 3. Publish QA-passed items. Deterministic publish is NOT gated on the
+      //    Python brain: an artifact at QA_PASSED has cleared strict 7-dimension
+      //    QA + (for sensitive types) stored cross-source evidence, and the
+      //    publish orchestrator independently enforces its own gates — so
+      //    already-vetted content must publish even when the brain is degraded
+      //    (otherwise a Python outage silently stalls ALL publishing → the
+      //    EXTRACTING_WITHOUT_PUBLISHING escalation). The one carve-out honoring
+      //    the safe-degraded contract: doctrinally-sensitive content still waits
+      //    for the active brain, so we pass allowSensitive = opts.active.
+      const readyToPublish = await prisma.adminWorkerPackageArtifact
+        .count({ where: { status: "QA_PASSED" } })
+        .catch(() => 0);
+      if (readyToPublish > 0) {
+        const r = await runPersistAndPublish(prisma, "drain", opts.passId ?? "drain", {
+          allowSensitive: opts.active,
+        }).catch(() => null);
+        if (r && r.kind !== "idle") {
+          progressed = true;
+          out.published += r.published ?? 0;
         }
       }
 

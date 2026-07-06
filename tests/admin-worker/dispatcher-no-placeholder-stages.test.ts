@@ -63,12 +63,32 @@ const WORK_SIGNALS = [
 ];
 
 /**
- * Extract a function body by brace-matching from `async function NAME`.
+ * Extract a function body by brace-matching from `async function NAME`. The
+ * parameter list is skipped first (via paren-matching) so an object-typed
+ * parameter — e.g. `opts: { allowSensitive?: boolean } = {}` — doesn't fool the
+ * matcher into grabbing the type-annotation braces instead of the real body.
  */
 function extractBody(src: string, fnName: string): string {
   const start = src.indexOf(`async function ${fnName}`);
   if (start === -1) return "";
-  const braceStart = src.indexOf("{", start);
+  // Skip the whole parameter list by matching its parentheses.
+  const parenStart = src.indexOf("(", start);
+  if (parenStart === -1) return "";
+  let pd = 0;
+  let afterParams = -1;
+  for (let i = parenStart; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "(") pd++;
+    else if (ch === ")") {
+      pd--;
+      if (pd === 0) {
+        afterParams = i + 1;
+        break;
+      }
+    }
+  }
+  if (afterParams === -1) return "";
+  const braceStart = src.indexOf("{", afterParams);
   if (braceStart === -1) return "";
   let depth = 0;
   for (let i = braceStart; i < src.length; i++) {

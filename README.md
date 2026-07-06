@@ -112,10 +112,24 @@ The Admin Worker is split into three layers:
   as a permanent `python3 -m intelligence` process (`INTELLIGENCE_BRAIN_ENABLED`,
   default on). If Python is unavailable, returns an invalid shape, or picks
   an action that fails safety validation, the worker enters **safe degraded
-  mode** (`PYTHON_BRAIN_UNAVAILABLE`): security defense, diagnostics,
-  reporting, maintenance, and repair only — **never autonomous content
-  publishing**, and **never** a fallback to an older TypeScript
-  final-decision path.
+  mode** (`PYTHON_BRAIN_UNAVAILABLE`), and **never** falls back to an older
+  TypeScript final-decision path. If the brain crashes / times out / mismatches
+  protocol it is marked down, but **re-probes and self-heals** after a short
+  cooldown (`INTELLIGENCE_DOWN_RETRY_MS`, default 60 s) so a transient outage
+  can't pin the worker degraded for the process lifetime.
+- **Degraded mode still publishes already-vetted content — the deterministic
+  funnel is the quality gate, not the brain's availability.** The Python brain is
+  the intelligent _action selector_ (what to work on next) and the approver of
+  new source-trust + doctrinally-sensitive content — it is **not** a per-item
+  publish veto. So content that has cleared the deterministic pipeline (strict
+  7-dimension QA + stored cross-source evidence + the publish orchestrator's own
+  gates) **publishes even when the brain is degraded**. Without this, a Python
+  outage silently stalls _all_ publishing while extraction keeps building — the
+  recurring `EXTRACTING_WITHOUT_PUBLISHING` failure. The only safe-degraded
+  carve-out on publishing is **doctrinally-sensitive content**
+  (`APPARITION` / `SACRAMENT` / `CHURCH_DOCUMENT`), which still waits for the
+  active brain; parishes (deterministically verified) and every other type keep
+  flowing.
 
 See [Intelligence brain (Python)](#intelligence-brain-python) for the full
 design.
@@ -1537,8 +1551,11 @@ published`:
   the real gate handlers** (checklist bridge → verification → QA → publish) in a
   bounded loop to drain the backlog, prioritising the downstream drain over more
   upstream extraction. It never bypasses a gate (it just runs the same handlers
-  over the backlog), and publishing runs only in active/python mode
-  (safe-degraded contract).
+  over the backlog). The publish step runs **regardless of brain mode** — a
+  `QA_PASSED` artifact has already cleared strict QA + the publish orchestrator's
+  gates, so it publishes even when the Python brain is degraded (the fix for the
+  recurring `EXTRACTING_WITHOUT_PUBLISHING` stall). Only doctrinally-sensitive
+  content is held for the active brain (`allowSensitive = active`).
 
 The **Package-artifacts diagnostic** now reports the `CHECKLIST_READY` and
 `EXTRACTED` counts alongside `BUILD_READY` / `QA_PASSED` / `NEEDS_REPAIR` /

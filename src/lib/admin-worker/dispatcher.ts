@@ -1611,6 +1611,7 @@ export async function runPersistAndPublish(
   prisma: PrismaClient,
   _workerId: string,
   passId: string,
+  opts: { allowSensitive?: boolean } = {},
 ): Promise<DispatchOutcome> {
   // Spec §13: PERSIST/PUBLIC_PUBLISH route through runPublishOrchestrator
   // when a BUILD_READY artifact exists. The orchestrator handles the
@@ -1626,9 +1627,21 @@ export async function runPersistAndPublish(
   // strict-QA gate ("no AdminWorkerStrictQAResult row"), and wrongly
   // REJECT a perfectly good artifact that was simply waiting its turn at
   // the STRICT_QA stage.
+  // Deterministic publish is decoupled from the Python brain: content that has
+  // passed strict QA (+ stored cross-source evidence, enforced by the publish
+  // orchestrator) is safe to publish regardless of brain mode. The ONLY carve-
+  // out is doctrinally-sensitive content (APPARITION / SACRAMENT /
+  // CHURCH_DOCUMENT), which still waits for the active brain — so when the caller
+  // is degraded (`allowSensitive === false`) those types are skipped here.
+  const { DOCTRINALLY_SENSITIVE_TYPES } = await import("./content-type-profiles");
   const artifact = await prisma.adminWorkerPackageArtifact
     .findFirst({
-      where: { status: "QA_PASSED" },
+      where: {
+        status: "QA_PASSED",
+        ...(opts.allowSensitive === false
+          ? { contentType: { notIn: [...DOCTRINALLY_SENSITIVE_TYPES] } }
+          : {}),
+      },
       orderBy: { createdAt: "asc" },
     })
     .catch(() => null);
