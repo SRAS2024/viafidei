@@ -1092,6 +1092,38 @@ async function ratingRepairOrchestrator(prisma: PrismaClient): Promise<HealthRat
   };
 }
 
+async function ratingSchemaIntegrity(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  const { checkSchemaIntegrity } = await import("./schema-integrity");
+  const res = await checkSchemaIntegrity(prisma).catch(() => ({
+    ok: true,
+    drifts: [] as Array<{ model: string; detail: string }>,
+    checked: 0,
+  }));
+  // A drift is CRITICAL: the deployed DB is behind the Prisma schema, so full-row
+  // reads throw P2022, the funnel's fail-open catches swallow them as "no rows",
+  // and publishing silently stalls (the recurring EXTRACTING_WITHOUT_PUBLISHING).
+  const status: HealthStatus = res.drifts.length > 0 ? "fail" : "pass";
+  return {
+    key: "admin_worker_schema_integrity",
+    label: "Database schema integrity",
+    status,
+    score: status === "pass" ? 1 : 0,
+    lastCheckedAt: now,
+    dataSource: "Prisma schema vs database",
+    summary:
+      res.drifts.length === 0
+        ? `All ${res.checked} critical tables match the Prisma schema.`
+        : `Schema drift on ${res.drifts.length} table(s): ${res.drifts
+            .map((d) => `${d.model} (${d.detail})`)
+            .join("; ")}.`,
+    recommendedRepair:
+      status === "fail"
+        ? "The deployed database is behind the Prisma schema — run `prisma migrate deploy`. Full-row reads throw P2022 and the publish funnel silently stalls until the missing columns exist."
+        : undefined,
+  };
+}
+
 async function ratingGrowthOrchestrator(prisma: PrismaClient): Promise<HealthRating> {
   const now = new Date();
   const count = await prisma.adminWorkerGrowthSnapshot.count().catch(() => 0);
@@ -1547,6 +1579,7 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingEmailHealth,
   ratingMonthlyReport,
   ratingDatabaseHealth,
+  ratingSchemaIntegrity,
   ratingEnvironmentHealth,
   ratingContentGoals,
   ratingGrowthOrchestrator,

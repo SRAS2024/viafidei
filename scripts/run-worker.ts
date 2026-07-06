@@ -135,6 +135,43 @@ async function main() {
       console.error(`[admin-worker:${args.workerId}] code-version check failed:`, err);
     }
 
+    // Schema-integrity self-check: if the deployed DB is behind the Prisma
+    // schema (a migration didn't apply / a column is missing), full-row reads
+    // throw P2022, the funnel's fail-open catches swallow them as "no rows", and
+    // NOTHING publishes while builds keep succeeding — the recurring
+    // EXTRACTING_WITHOUT_PUBLISHING escalation with no surfaced error. Surface it
+    // LOUDLY at boot (critical log + email) naming the exact column so it is
+    // instantly actionable (`prisma migrate deploy`). Fail-open — never blocks
+    // boot; the per-pass diagnostics rating keeps it visible until resolved.
+    try {
+      const { checkSchemaIntegrity, summarizeDrift } =
+        await import("../src/lib/admin-worker/schema-integrity");
+      const schema = await checkSchemaIntegrity(prisma);
+      if (!schema.ok) {
+        const detail = summarizeDrift(schema);
+        console.error(`[admin-worker:${args.workerId}] SCHEMA DRIFT — ${detail}`);
+        await writeAdminWorkerLog(prisma, {
+          category: "OVERVIEW",
+          severity: "ERROR",
+          eventName: "schema_drift_detected",
+          message: detail,
+          safeMetadata: { drifts: JSON.parse(JSON.stringify(schema.drifts)) },
+        }).catch(() => undefined);
+        try {
+          const { sendCriticalFailureAlert } = await import("../src/lib/email/admin-send");
+          await sendCriticalFailureAlert({
+            kind: "Database schema drift — publishing is stalled",
+            message: detail,
+            context: Object.fromEntries(schema.drifts.map((d) => [d.model, d.detail])),
+          });
+        } catch {
+          /* fail-open */
+        }
+      }
+    } catch (err) {
+      console.error(`[admin-worker:${args.workerId}] schema-integrity check failed:`, err);
+    }
+
     // Best-effort monthly report check on startup. The job gates itself
     // on "is today the last day of the month?" so calling it daily is
     // safe; we trigger once on start so a restart on the last day of
