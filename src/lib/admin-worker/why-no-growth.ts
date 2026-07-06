@@ -26,6 +26,8 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { CURATED_BUILT_CONTENT_TYPES, STRUCTURED_BUILT_CONTENT_TYPES } from "./content-types";
+
 export type GrowthBlockerStage =
   | "NONE"
   | "WORKER_NOT_RUNNING"
@@ -79,12 +81,25 @@ export async function diagnoseWhyNoGrowth(
   prisma: PrismaClient,
   opts: { contentType?: string } = {},
 ): Promise<WhyNoGrowthReport> {
-  // Pick the focus content type (largest gap if none specified).
+  // Pick the focus content type (largest gap if none specified). This walk
+  // diagnoses the WEB fetch/extract/publish chain, so when auto-selecting we
+  // skip curated-built (GUIDE, MARIAN_TITLE) and structured-feed-built (PARISH)
+  // types: their growth doesn't flow through this chain (PARISH grows on the OSM
+  // lane), so auto-focusing PARISH — the largest gap by far — reported a
+  // permanent "NO_CANDIDATES_PRIORITIZED" blocker for a type that was never
+  // meant to have web candidates (a misleading line in the escalation). An
+  // explicit `opts.contentType` is always honoured, so a PARISH diagnosis is
+  // still available on request.
   let contentType = opts.contentType ?? null;
   if (!contentType) {
     const goal = await prisma.contentGoal
       .findFirst({
-        where: { gapCount: { gt: 0 } },
+        where: {
+          gapCount: { gt: 0 },
+          contentType: {
+            notIn: [...CURATED_BUILT_CONTENT_TYPES, ...STRUCTURED_BUILT_CONTENT_TYPES],
+          },
+        },
         orderBy: { gapCount: "desc" },
       })
       .catch(() => null);

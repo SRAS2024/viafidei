@@ -79,9 +79,13 @@ export const CURATED_BUILT_CONTENT_TYPES: ReadonlySet<string> = new Set(["GUIDE"
 
 /**
  * Types grown from a STRUCTURED FEED (a dedicated ingest lane), not from
- * arbitrary web pages — but which ARE still real content goals (unlike the
- * curated-built types above, which is why they are a SEPARATE set: these stay
- * targetable by `nextPriorityContentType` + the major-goal campaign).
+ * arbitrary web pages. They ARE still real content goals (their gap counts
+ * toward "goals met" and drives continued growth), which is why they are a
+ * SEPARATE set from the curated-built types above — but, exactly like the
+ * curated-built ones, they must NOT drive the WEB pipeline: they are excluded
+ * from `nextPriorityContentType`'s mission target AND from the major-goal
+ * campaign target, because a web-pipeline surge/target can never close their
+ * gap. Their growth lane runs independently every pass regardless.
  *
  * PARISH is the case: parishes come from OpenStreetMap via `parish-osm.ts`
  * (the `discover-parish-osm` lane publishes clean, deduplicated records every
@@ -91,8 +95,11 @@ export const CURATED_BUILT_CONTENT_TYPES: ReadonlySet<string> = new Set(["GUIDE"
  * `duplicateSafety=0` → never publish (EXTRACTING_WITHOUT_PUBLISHING), and pages
  * without one produced EXTRACTED-missing artifacts whose EXTRACT_FAILED repair
  * plans re-extract the same source, fail, and abandon (Repair-orchestrator
- * FAIL). Excluding PARISH from web extraction stops both while OSM keeps growing
- * it toward the goal.
+ * FAIL). And because PARISH's ~200k gap dwarfs every other goal, leaving it
+ * eligible as a campaign/mission target pinned the whole web pipeline on it
+ * forever (SURGE on PARISH, 0 published) — so it is excluded from BOTH selectors.
+ * Excluding PARISH from web extraction + web targeting stops all three failure
+ * modes while OSM keeps growing it toward the goal.
  */
 export const STRUCTURED_BUILT_CONTENT_TYPES: ReadonlySet<string> = new Set(["PARISH"]);
 

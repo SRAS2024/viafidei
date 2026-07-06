@@ -23,6 +23,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { rescoreAllCandidates } from "./candidate-scorer";
+import { CURATED_BUILT_CONTENT_TYPES, STRUCTURED_BUILT_CONTENT_TYPES } from "./content-types";
 import { computeCoverageModel } from "./coverage-model";
 import { discoverFromConfiguredUrls } from "./configured-urls";
 import { discoverFromDirectories } from "./directory-discovery";
@@ -135,12 +136,22 @@ export async function runDiscoveryOrchestrator(
   const hostsSkipped: Array<{ host: string; reason: string }> = [];
 
   // Determine which content type to target. Prefer the explicit
-  // request, otherwise pick the goal with the biggest gap.
+  // request, otherwise pick the WEB-growable goal with the biggest gap.
+  // Curated-built (GUIDE, MARIAN_TITLE) and structured-feed-built (PARISH)
+  // types are excluded here just as they are from `nextPriorityContentType`:
+  // this orchestrator only runs WEB discoverers (sitemap / RSS / directory /
+  // search …), and those types are not web-extracted. Without this, the
+  // always-on web-discovery lane — which calls this with no explicit
+  // contentType — would fall back to the single biggest gap (PARISH, ~200k) and
+  // surface parish web pages that can never be extracted, re-creating the
+  // EXTRACTING_WITHOUT_PUBLISHING loop from a different entry point. PARISH grows
+  // via its own OSM discovery lane instead.
+  const NON_WEB_BUILT = [...CURATED_BUILT_CONTENT_TYPES, ...STRUCTURED_BUILT_CONTENT_TYPES];
   let contentType = opts.contentType ?? null;
   if (!contentType) {
     const nextGoal = await prisma.contentGoal
       .findFirst({
-        where: { gapCount: { gt: 0 } },
+        where: { gapCount: { gt: 0 }, contentType: { notIn: NON_WEB_BUILT } },
         orderBy: [{ gapCount: "desc" }, { priority: "asc" }],
       })
       .catch(() => null);
@@ -155,14 +166,39 @@ export async function runDiscoveryOrchestrator(
   let subtype: string | null = null;
   const coverage = await computeCoverageModel(prisma).catch(() => null);
   if (coverage) {
-    if (!contentType && coverage.nextTarget) {
-      contentType = coverage.nextTarget.contentType;
-      subtype = coverage.nextTarget.subtype;
-    } else if (contentType) {
+    if (!contentType) {
+      // Fall back to the neediest missing (type, subtype) — but only among
+      // WEB-growable types, for the same reason as the gap fallback above:
+      // a curated/structured-built type here would run web discoverers that
+      // can't feed extraction.
+      const webTarget = coverage.prioritizedMissing.find(
+        (t) => !NON_WEB_BUILT.includes(t.contentType),
+      );
+      if (webTarget) {
+        contentType = webTarget.contentType;
+        subtype = webTarget.subtype;
+      }
+    } else {
       subtype =
         coverage.types.find((t) => t.contentType === contentType)?.missingSubtypes[0] ?? null;
     }
     if (subtype) strategies.push(`fill missing subtype ${contentType}/${subtype}`);
+  }
+
+  // Hard invariant: this orchestrator only runs WEB discoverers, so it must
+  // NEVER run for a curated-built or structured-feed-built type — no matter which
+  // caller asked (an explicit `contentType` from a repair plan, the always-on
+  // lane's null fallback, etc.). Web-discovering PARISH surfaces parish pages that
+  // can't be extracted (EXTRACTING_WITHOUT_PUBLISHING); PARISH grows on its OSM
+  // lane instead. Bail out cleanly rather than churn.
+  if (contentType && NON_WEB_BUILT.includes(contentType)) {
+    return {
+      surfaced: 0,
+      rejected: 0,
+      hostsSkipped: [],
+      strategies: [`skip: ${contentType} is not web-discovered (grown by its own ingest lane)`],
+      errors: [],
+    };
   }
 
   const strategy = contentType ? CONTENT_TYPE_STRATEGIES[contentType] : null;

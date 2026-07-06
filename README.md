@@ -1346,11 +1346,22 @@ saint target alone is 10,000).
   missing-field artifacts whose `EXTRACT_FAILED` repair plans re-extracted the
   same source, failed, and abandoned (`Repair orchestrator` FAIL). `PARISH` now
   lives in a separate `STRUCTURED_BUILT_CONTENT_TYPES` set — excluded from
-  `WEB_EXTRACTION_CONTENT_TYPES` like the curated-built types, but (unlike them)
-  **still a targetable growth goal + campaign target**, since its OSM lane fills
-  it toward the 200k goal. The repair orchestrator also short-circuits an
-  `EXTRACT_FAILED` plan for a structured-built type (re-extraction is futile) so
-  those plans resolve instead of churning to abandonment.
+  `WEB_EXTRACTION_CONTENT_TYPES` like the curated-built types, and (like them)
+  **never the web-pipeline mission target or a major-goal campaign target**: a
+  web surge can't close a gap that only the OSM lane fills, and because `PARISH`'s
+  ~200k gap dwarfs every other goal, leaving it eligible pinned both selectors on
+  `PARISH` forever — the campaign SURGE'd on `PARISH`, the whole web pipeline
+  chased a type it can't grow, `0` published, and the gap never shrank so it never
+  escaped (the recurring `EXTRACTING_WITHOUT_PUBLISHING` escalation, build
+  `9e7d3cd`: `major_goal_campaign SURGE on PARISH (gap 199972)` → `governor_forced_stage
+SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
+  still a real growth goal (its gap counts toward "goals met" and keeps the worker
+  growing), just grown by its OSM lane, which runs every pass regardless of the
+  campaign phase — so the campaign is free to surge on the biggest **web-growable**
+  gap (saints, prayers, …) and actually publish. The repair orchestrator also
+  short-circuits an `EXTRACT_FAILED` plan for a structured-built type
+  (re-extraction is futile) so those plans resolve instead of churning to
+  abandonment.
 
 - **The worker reconciles the old plans a code update makes moot — it "knows
   we fixed it."** Making `PARISH` structured-built stops _new_ un-repairable
@@ -1636,9 +1647,9 @@ refresh, custody) continues regardless.
 **Major-goal campaigns (`major-goal-campaign.ts`).** When a single goal has a gap
 big enough to be "getting in the way of sustainable progress" — the unmet,
 web-growable goal with the largest absolute gap, ≥ `ADMIN_WORKER_CAMPAIGN_MIN_GAP`
-(default 1000: PARISH's 200k today, then the next-biggest like the remaining
-saints / church history) — the worker runs it as a **campaign** instead of
-letting it trickle:
+(default 1000: the remaining saints today, then the next-biggest like church
+history / prayers) — the worker runs it as a **campaign** instead of letting it
+trickle:
 
 1. **DRAIN** — first finish everything already built and waiting to publish (the
    funnel) and take on **no new discovery** (the `discovery: true` lanes are
@@ -1650,9 +1661,20 @@ letting it trickle:
 3. Then the **next-biggest** goal becomes the campaign; when every remaining gap
    is below the threshold the worker returns to NORMAL rotation.
 
-It is generic (any type, picked by gap size), read-only + fail-open (any error ⇒
-NORMAL), curated-built types are never campaign targets (a web surge can't close
-their gap), and the active phase + goal are logged (`major_goal_campaign`).
+It is generic (any **web-growable** type, picked by gap size), read-only +
+fail-open (any error ⇒ NORMAL), and the active phase + goal are logged
+(`major_goal_campaign`). Curated-built (GUIDE, MARIAN_TITLE) **and
+structured-feed-built (PARISH)** types are never campaign targets — a web surge
+can't close a gap that only their own ingest lane fills. `PARISH` matters most
+here: its ~200k gap dwarfs every other goal, so leaving it eligible pinned the
+campaign on `PARISH` forever — the surge commandeered the entire web pipeline for
+a type the web pipeline can't grow, `0` published while the OSM lane was starved,
+and the gap never shrank so it never escaped (the recurring
+`EXTRACTING_WITHOUT_PUBLISHING` escalation). It is excluded from **both** the
+campaign target and `nextPriorityContentType`'s mission target (and from the
+`discovery-orchestrator` fallback + `why-no-growth` auto-focus), so the campaign
+surges on the biggest goal it can actually publish while `PARISH` keeps growing on
+its OSM lane every pass.
 
 Concurrency is made **safe by construction, not by luck**:
 
