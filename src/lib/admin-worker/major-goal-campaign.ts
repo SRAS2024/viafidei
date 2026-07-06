@@ -4,7 +4,7 @@
  * When a content goal has a large enough gap to be "getting in the way of
  * sustainable progress", the worker treats it as a campaign rather than letting
  * it trickle behind everything else — and this is GENERIC, not tied to any one
- * type (PARISH's 300k today; the rest of the saints, church-history, etc.
+ * type (PARISH's 200k today; the rest of the saints, church-history, etc.
  * tomorrow):
  *
  *   1. DRAIN  — first finish everything already built and waiting to publish

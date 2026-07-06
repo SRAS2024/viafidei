@@ -1,7 +1,7 @@
 /**
  * nextPriorityContentType must spread discovery across content types instead of
  * fixating on the single largest absolute gap — the bug that had the live worker
- * looping DISCOVERY on PARISH (gap 299,973) forever. It ranks by gap FRACTION
+ * looping DISCOVERY on PARISH (gap 199,973) forever. It ranks by gap FRACTION
  * and rotates away from the types targeted in the most recent discovery
  * decisions.
  */
@@ -44,7 +44,7 @@ function fakePrisma(
 
 describe("nextPriorityContentType", () => {
   const goals: Goal[] = [
-    { contentType: "PARISH", gapCount: 299_973, desiredTarget: 300_000, priority: 110 },
+    { contentType: "PARISH", gapCount: 199_973, desiredTarget: 200_000, priority: 110 },
     { contentType: "SAINT", gapCount: 9_872, desiredTarget: 10_000, priority: 20 },
     { contentType: "PRAYER", gapCount: 950, desiredTarget: 1_000, priority: 10 },
   ];
@@ -96,7 +96,7 @@ describe("nextPriorityContentType", () => {
 
   it("never excludes the only remaining option", async () => {
     const one: Goal[] = [
-      { contentType: "PARISH", gapCount: 10, desiredTarget: 300_000, priority: 110 },
+      { contentType: "PARISH", gapCount: 10, desiredTarget: 200_000, priority: 110 },
     ];
     // Even though PARISH was just discovered, with one option it must still be returned.
     const pick = await nextPriorityContentType(fakePrisma(one, ["PARISH"]));

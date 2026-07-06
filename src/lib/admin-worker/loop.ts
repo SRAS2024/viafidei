@@ -164,7 +164,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     (await prisma.contentGoal.count({ where: { gapCount: { gt: 0 } } }).catch(() => 1)) === 0;
 
   // Major-goal campaign: when a goal has a big enough gap to be "getting in the
-  // way of sustainable progress" (PARISH's 300k today, then the next biggest),
+  // way of sustainable progress" (PARISH's 200k today, then the next biggest),
   // the worker runs a campaign — DRAIN the in-flight funnel (no new discovery),
   // then SURGE ALL resources on that goal until its gap closes, then move to the
   // next biggest. SURGE forces the mission target onto the campaign goal

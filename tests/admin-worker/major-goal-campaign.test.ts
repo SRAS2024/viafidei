@@ -33,7 +33,7 @@ afterEach(() => {
 
 describe("evaluateMajorGoalCampaign", () => {
   const big: Goal[] = [
-    { contentType: "PARISH", gapCount: 299_973, desiredTarget: 300_000, priority: 110 },
+    { contentType: "PARISH", gapCount: 199_973, desiredTarget: 200_000, priority: 110 },
     { contentType: "SAINT", gapCount: 7_203, desiredTarget: 10_000, priority: 20 },
     { contentType: "CHURCH_DOCUMENT", gapCount: 123, desiredTarget: 500, priority: 10 },
   ];
@@ -42,7 +42,7 @@ describe("evaluateMajorGoalCampaign", () => {
     const s = await evaluateMajorGoalCampaign(fakePrisma(big, 0));
     expect(s.phase).toBe("SURGE");
     expect(s.majorType).toBe("PARISH");
-    expect(s.majorGap).toBe(299_973);
+    expect(s.majorGap).toBe(199_973);
   });
 
   it("DRAINs first while built artifacts still wait to publish", async () => {
@@ -55,7 +55,7 @@ describe("evaluateMajorGoalCampaign", () => {
   it("moves to the next-biggest goal once the first is met (generic, not parish-only)", async () => {
     // PARISH met (gap 0) → SAINT is now the biggest campaign-sized gap.
     const afterParish: Goal[] = [
-      { contentType: "PARISH", gapCount: 0, desiredTarget: 300_000, priority: 110 },
+      { contentType: "PARISH", gapCount: 0, desiredTarget: 200_000, priority: 110 },
       { contentType: "SAINT", gapCount: 7_203, desiredTarget: 10_000, priority: 20 },
     ];
     const s = await evaluateMajorGoalCampaign(fakePrisma(afterParish, 0));
