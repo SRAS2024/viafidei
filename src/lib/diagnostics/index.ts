@@ -345,7 +345,7 @@ async function autonomyProgress(): Promise<DiagnosticResult> {
       prisma.checklistItem.count(),
       // Real forward motion: content actually published in the last 7 days. The
       // master checklist is a huge, long-horizon target (3600+ items, incl. the
-      // 300k-parish goal), so raw "% of checklist published" is a completion
+      // 200k-parish goal), so raw "% of checklist published" is a completion
       // ratio, NOT a health signal — it reads red for years while the worker
       // fills correctly. Health = is the autonomous custodian still MOVING.
       prisma.publishedContent

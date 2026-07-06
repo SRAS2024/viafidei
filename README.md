@@ -1211,7 +1211,7 @@ reason to publish — content still has to pass every accuracy / approval /
 source / verification / strict-QA / full-quality gate first.
 
 - **Targets** (`src/lib/admin-worker/content-goals.ts`): Sacrament 7
-  (canonicalMax 7); Parish 300,000; Prayer 1,000; Pope 267; Saint 10,000;
+  (canonicalMax 7); Parish 200,000; Prayer 1,000; Pope 267; Saint 10,000;
   Doctor 37; Rite 24; Church Document 200; Devotion / Novena / Guide /
   Liturgical 100; Marian Title / Apparition / Spiritual Practice 50 — all
   with **no hard maximum**.
@@ -1348,7 +1348,7 @@ saint target alone is 10,000).
   lives in a separate `STRUCTURED_BUILT_CONTENT_TYPES` set — excluded from
   `WEB_EXTRACTION_CONTENT_TYPES` like the curated-built types, but (unlike them)
   **still a targetable growth goal + campaign target**, since its OSM lane fills
-  it toward the 300k goal. The repair orchestrator also short-circuits an
+  it toward the 200k goal. The repair orchestrator also short-circuits an
   `EXTRACT_FAILED` plan for a structured-built type (re-extraction is futile) so
   those plans resolve instead of churning to abandonment.
 
@@ -1636,7 +1636,7 @@ refresh, custody) continues regardless.
 **Major-goal campaigns (`major-goal-campaign.ts`).** When a single goal has a gap
 big enough to be "getting in the way of sustainable progress" — the unmet,
 web-growable goal with the largest absolute gap, ≥ `ADMIN_WORKER_CAMPAIGN_MIN_GAP`
-(default 1000: PARISH's 300k today, then the next-biggest like the remaining
+(default 1000: PARISH's 200k today, then the next-biggest like the remaining
 saints / church history) — the worker runs it as a **campaign** instead of
 letting it trickle:
 
@@ -1851,7 +1851,7 @@ genuine problems, not stale assertions or "no work to do" states:
   `ChecklistContentType` enum (every type has a registered schema) instead of a
   hard-coded count — growing the catalog is not a failure.
 - **Content goals** and **Autonomous progress** are long-horizon targets
-  dominated by the 300k-parish goal, so they score by **health (is the worker
+  dominated by the 200k-parish goal, so they score by **health (is the worker
   still making forward progress)**, not raw completion %: green while content is
   being published (progress in the last 7d), red only when genuinely STALLED.
   The true completion count/percent stays in the summary.

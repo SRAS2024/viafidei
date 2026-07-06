@@ -54,7 +54,7 @@ export const DEFAULT_GOAL_SEEDS: readonly ContentGoalSeed[] = [
   { contentType: "CHURCH_DOCUMENT", targetGoal: 200, canonicalMax: null, priority: 80 },
   { contentType: "LITURGICAL", targetGoal: 100, canonicalMax: null, priority: 90 },
   { contentType: "SPIRITUAL_PRACTICE", targetGoal: 50, canonicalMax: null, priority: 100 },
-  { contentType: "PARISH", targetGoal: 300000, canonicalMax: null, priority: 110 },
+  { contentType: "PARISH", targetGoal: 200000, canonicalMax: null, priority: 110 },
   { contentType: "RITE", targetGoal: 24, canonicalMax: null, priority: 140 },
 ] as const;
 
@@ -216,7 +216,7 @@ export async function nextPriorityContentType(
   // De-prioritise types whose source coverage is BLOCKED (their sources are
   // unreachable / insufficient — e.g. PARISH when its structured source
   // query.wikidata.org is egress-blocked). Otherwise the type with the biggest
-  // gap fraction (PARISH: 300k target, ~1 fraction) permanently wins the mission
+  // gap fraction (PARISH: 200k target, ~1 fraction) permanently wins the mission
   // target, the worker fetches/extracts a type it can't advance, and it goes
   // NO_VALUE — "active but publishing nothing". We DE-RANK rather than exclude:
   // blocked types fall to the back so the worker first grows what it CAN reach
@@ -236,7 +236,7 @@ export async function nextPriorityContentType(
   }
 
   // Rank reachable-first, then by gap FRACTION (gap / desiredTarget), not
-  // absolute gap, so a type with a very large target (Parish 300k, Saint 10k)
+  // absolute gap, so a type with a very large target (Parish 200k, Saint 10k)
   // cannot permanently monopolize discovery over the other below-goal types.
   // Ties break on raw gap, then declared priority.
   const ranked = goals

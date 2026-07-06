@@ -375,7 +375,7 @@ async function ratingContentGoals(prisma: PrismaClient): Promise<HealthRating> {
     .slice(0, 4)
     .map((g) => `${g.contentType} +${g.gapCount}`);
 
-  // Content goals are a long-horizon target dominated by the 300k-parish goal,
+  // Content goals are a long-horizon target dominated by the 200k-parish goal,
   // so raw "% complete" is a completion ratio, not a health signal — it reads
   // red for years while the worker fills correctly. HEALTH = is the worker
   // still making forward progress toward goals. Green while progressing (any

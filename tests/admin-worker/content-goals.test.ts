@@ -40,7 +40,7 @@ describe("Default content goal seeds", () => {
 
   it("uses the spec's growth targets for key open types (no hard maximum)", () => {
     const seed = (t: string) => DEFAULT_GOAL_SEEDS.find((s) => s.contentType === t);
-    expect(seed("PARISH")?.targetGoal).toBe(300000);
+    expect(seed("PARISH")?.targetGoal).toBe(200000);
     expect(seed("PARISH")?.canonicalMax).toBeNull();
     expect(seed("PRAYER")?.targetGoal).toBeGreaterThanOrEqual(1000);
     expect(seed("PRAYER")?.canonicalMax).toBeNull();

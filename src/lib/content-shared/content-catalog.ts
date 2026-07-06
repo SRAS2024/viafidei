@@ -100,7 +100,7 @@ export const CONTENT_CATALOG: CatalogCategory[] = [
     target: 7,
     hardMax: 7,
   },
-  { key: "parishes", label: "Parishes", page: "/parishes", types: ["PARISH"], target: 300000 },
+  { key: "parishes", label: "Parishes", page: "/parishes", types: ["PARISH"], target: 200000 },
   {
     key: "spiritual-life",
     label: "Spiritual Life",
