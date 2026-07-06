@@ -1563,6 +1563,27 @@ The **Package-artifacts diagnostic** now reports the `CHECKLIST_READY` and
 "0 BUILD_READY" with no explanation; `CHECKLIST_READY` is likewise counted in the
 self-assessment publish backlog.
 
+### Database schema-integrity guard (silent-stall prevention)
+
+Almost every funnel read is fail-open (`.catch(() => [])`) so a transient hiccup
+can't wedge a pass — but that has a sharp edge: if the **deployed database is
+behind the Prisma schema** (a migration didn't apply, a column is missing), a
+full-row `findMany` throws `P2022`, the fail-open catch swallows it as "no rows",
+strict QA sees "no artifacts pending", and **nothing publishes while builds keep
+succeeding** — the recurring `EXTRACTING_WITHOUT_PUBLISHING` escalation with no
+error surfaced anywhere. Two guards make that failure impossible to be silent:
+
+- **A schema-integrity self-check** ([`schema-integrity.ts`](src/lib/admin-worker/schema-integrity.ts))
+  probes every critical table with a full-row read at **worker startup** and on
+  **every diagnostics pass**. On a drift it names the exact missing column, logs
+  a critical `schema_drift_detected` event, emails the developer, and turns the
+  **Database schema integrity** diagnostic **red** with the fix
+  (`prisma migrate deploy`) — instead of a mysterious no-publish.
+- **The publish-path reads no longer mask DB errors as empty**: the strict-QA
+  candidate fetch and the BUILD_READY drain now `reportQueryError` (loud
+  `console.error` with the Prisma code) on a schema/DB error before failing open,
+  so a `P2022` can never again read as "nothing to do".
+
 ### Review-queue intelligence
 
 Review items never sit unexplained. Every `HumanReviewQueue` row now carries a

@@ -470,7 +470,12 @@ export async function runBuildReadyDrain(
     }).catch(() => undefined);
 
     return out;
-  } catch {
+  } catch (err) {
+    // A schema/DB error must not silently look like "nothing to drain" — that is
+    // the invisible publish stall. Log it loudly (the schema-integrity rating
+    // names the exact column); still fail open so the pass never crashes.
+    const { reportQueryError } = await import("./schema-integrity");
+    reportQueryError("BUILD_READY drain", err);
     return out;
   }
 }

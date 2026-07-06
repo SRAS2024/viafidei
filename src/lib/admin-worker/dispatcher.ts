@@ -27,6 +27,7 @@ import type { PrismaClient } from "@prisma/client";
 import type { BrainDecision, BrainMissionStage } from "./brain";
 import { WEB_EXTRACTION_CONTENT_TYPES, isExtractableContentType } from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
+import { reportQueryError } from "./schema-integrity";
 import { recordStageOutcome, toStageOutcome } from "./stage-outcomes";
 import { classifyHostAuthority } from "@/lib/checklist/sources/authority-registry";
 
@@ -1405,9 +1406,14 @@ export async function runStrictQA(prisma: PrismaClient, passId: string): Promise
       orderBy: { createdAt: "asc" },
       take: 10,
     })
-    .catch(
-      () => [] as Array<Awaited<ReturnType<typeof prisma.adminWorkerPackageArtifact.findFirst>>>,
-    );
+    .catch((err) => {
+      // A schema/DB error here (e.g. P2022: a column the client selects is
+      // missing from the deployed DB) must NOT be silently read as "no
+      // artifacts" — that stalls the whole publish funnel invisibly. Log it
+      // loudly; the schema-integrity rating + startup alert name the column.
+      reportQueryError("STRICT_QA candidate fetch", err);
+      return [] as Array<Awaited<ReturnType<typeof prisma.adminWorkerPackageArtifact.findFirst>>>;
+    });
 
   if (!candidates || candidates.length === 0) {
     await writeAdminWorkerLog(prisma, {
