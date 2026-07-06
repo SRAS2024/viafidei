@@ -84,6 +84,7 @@ afterEach(() => {
   // Always restore the real interpreter + clean state between tests.
   delete process.env.INTELLIGENCE_PYTHON;
   delete process.env.FAKE_BRAIN_MODE;
+  delete process.env.INTELLIGENCE_DOWN_RETRY_MS;
   process.env.INTELLIGENCE_BRAIN_ENABLED = "1";
   resetBrainStatus();
 });
@@ -142,6 +143,28 @@ describe("bridge resilience — fake brain", () => {
     }
     expect(lastEnv).toBeNull();
     expect(brainStatus().status).toBe("down");
+  });
+
+  it("recovers from a latched-down brain after the retry cooldown (self-heal)", async () => {
+    if (!brainOnline) return;
+    // 1. Crash-loop until the brain latches "down".
+    process.env.INTELLIGENCE_PYTHON = fakePath;
+    process.env.FAKE_BRAIN_MODE = "crash";
+    resetBrainStatus();
+    for (let i = 0; i < 7; i++) {
+      await callBrain("iq_metrics", { stats: {} }, { timeoutMs: 300 });
+    }
+    expect(brainStatus().status).toBe("down");
+
+    // 2. Heal the brain + zero the cooldown. The next call must RE-PROBE instead
+    //    of staying latched forever — a transient outage can't permanently
+    //    disable the brain (and thus block publishing). NOTE: deliberately no
+    //    resetBrainStatus() here, so we prove the latch itself recovers.
+    process.env.FAKE_BRAIN_MODE = "normal";
+    process.env.INTELLIGENCE_DOWN_RETRY_MS = "0";
+    const env = await callBrain("iq_metrics", { stats: {} }, { timeoutMs: 2000 });
+    expect(env).not.toBeNull();
+    expect(brainStatus().status).toBe("up");
   });
 });
 

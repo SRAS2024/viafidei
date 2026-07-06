@@ -6,6 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diagnoseArtifactGate, type DrainArtifact } from "@/lib/admin-worker/build-ready-drain";
+import { runPersistAndPublish } from "@/lib/admin-worker/dispatcher";
 
 // The drain drives the real gate handlers; mock them so the bridge test is
 // hermetic and asserts only the CHECKLIST_READY → BUILD_READY promotion path.
@@ -183,5 +184,68 @@ describe("runBuildReadyDrain — CHECKLIST_READY bridge", () => {
     expect(r.ran).toBe(false);
     expect(r.bridged).toBe(0);
     expect(runChecklistAndCitationOrchestrator).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Deterministic publish is decoupled from the Python brain: a QA_PASSED artifact
+ * must publish even in degraded mode (the fix for the recurring
+ * EXTRACTING_WITHOUT_PUBLISHING escalation — build succeeds, nothing publishes).
+ * The only carve-out is doctrinally-sensitive content, so the drain passes
+ * `allowSensitive = active`.
+ */
+describe("runBuildReadyDrain — publish is not gated on the brain", () => {
+  const mockedPublish = vi.mocked(runPersistAndPublish);
+  beforeEach(() => {
+    mockedPublish.mockReset();
+    mockedPublish.mockResolvedValue({
+      stage: "PUBLIC_PUBLISH",
+      kind: "advanced",
+      published: 1,
+    } as never);
+  });
+
+  // One QA_PASSED artifact ready to publish; every other stage count is 0.
+  function fakePrismaQaPassed() {
+    return {
+      adminWorkerPackageArtifact: {
+        findMany: async () => [
+          {
+            id: "qa1",
+            contentType: "PARISH",
+            normalizedSlug: "st-x",
+            status: "QA_PASSED",
+            missingFields: [],
+            validationNeeds: [],
+            confidenceScore: 0.9,
+            extractedFields: { title: "X", citations: ["https://e.org"] },
+          },
+        ],
+        count: async ({ where }: { where?: Record<string, unknown> } = {}) =>
+          where?.status === "QA_PASSED" ? 1 : 0,
+        update: async () => undefined,
+      },
+      adminWorkerCrossSourceVerification: { groupBy: async () => [] },
+      publishedContent: { findMany: async () => [] },
+    } as never;
+  }
+
+  it("publishes QA_PASSED content even when degraded (active=false), sensitive excluded", async () => {
+    const { runBuildReadyDrain } = await import("@/lib/admin-worker/build-ready-drain");
+    const r = await runBuildReadyDrain(fakePrismaQaPassed(), {
+      passId: "t",
+      active: false,
+      driveRounds: 1,
+    });
+    expect(mockedPublish).toHaveBeenCalled(); // publish ran despite degraded mode
+    expect(r.published).toBeGreaterThanOrEqual(1);
+    // 4th arg gates sensitive content on the (absent) brain.
+    expect(mockedPublish.mock.calls[0]![3]).toEqual({ allowSensitive: false });
+  });
+
+  it("allows sensitive content through when the brain is active", async () => {
+    const { runBuildReadyDrain } = await import("@/lib/admin-worker/build-ready-drain");
+    await runBuildReadyDrain(fakePrismaQaPassed(), { passId: "t", active: true, driveRounds: 1 });
+    expect(mockedPublish.mock.calls[0]![3]).toEqual({ allowSensitive: true });
   });
 });

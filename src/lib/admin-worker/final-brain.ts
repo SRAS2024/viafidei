@@ -252,10 +252,17 @@ export function finalBrainMode(decision: Pick<BrainDecision, "finalBrain">): Fin
 }
 
 /**
- * New autonomous content publishing, new source-trust decisions, and sensitive
- * Catholic content approval are only permitted when the Python final brain is
- * active. Safe degraded mode blocks them (security/diagnostics/reporting/
- * maintenance/repair of known-safe items only).
+ * Brain-APPROVED autonomous actions — new source-trust decisions and
+ * doctrinally-sensitive Catholic content approval — are only permitted when the
+ * Python final brain is active.
+ *
+ * NOTE: this is NOT a gate on publishing already-vetted content. Content that
+ * has cleared the DETERMINISTIC pipeline (strict 7-dimension QA + stored cross-
+ * source evidence + the publish orchestrator's own gates) publishes regardless
+ * of brain availability — otherwise a Python outage silently stalls ALL
+ * publishing (the EXTRACTING_WITHOUT_PUBLISHING failure). Safe-degraded mode
+ * only holds back brain-JUDGEMENT work: action selection, new source trust, and
+ * the doctrinally-sensitive types (APPARITION / SACRAMENT / CHURCH_DOCUMENT).
  */
 export function autonomousPublishingAllowed(decision: Pick<BrainDecision, "finalBrain">): boolean {
   return finalBrainMode(decision) === PYTHON_FINAL_BRAIN_ACTIVE;

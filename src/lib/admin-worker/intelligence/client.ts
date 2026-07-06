@@ -40,6 +40,21 @@ type Status = "unknown" | "up" | "down";
 
 let _status: Status = "unknown";
 let _downReason: string | null = null;
+let _downAt = 0;
+
+// A "down" brain must NOT be latched down for the whole process lifetime. A
+// transient crash-loop, timeout, or protocol skew would otherwise pin the
+// worker in safe-degraded mode forever (→ nothing publishes) until a restart.
+// After this cooldown we re-arm to "unknown" so the next call re-probes and the
+// brain can self-heal. Overridable for tests via INTELLIGENCE_DOWN_RETRY_MS.
+const DOWN_RETRY_COOLDOWN_MS = 60_000;
+
+function downRetryCooldownMs(): number {
+  const raw = (process.env.INTELLIGENCE_DOWN_RETRY_MS ?? "").trim();
+  if (!raw) return DOWN_RETRY_COOLDOWN_MS; // unset — Number("") is 0, so guard first
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : DOWN_RETRY_COOLDOWN_MS;
+}
 
 let _proc: ChildProcessWithoutNullStreams | null = null;
 const _pending = new Map<
@@ -92,6 +107,7 @@ function markDown(reason: string): void {
   if (_status !== "down") brainLog("warn", `brain unavailable: ${reason}`);
   _status = "down";
   _downReason = reason;
+  _downAt = Date.now();
 }
 
 export function brainStatus(): { status: Status; reason: string | null; running: boolean } {
@@ -129,6 +145,7 @@ export function resetBrainStatus(): void {
   shutdownBrain();
   _status = "unknown";
   _downReason = null;
+  _downAt = 0;
   _restarts = 0;
   _restartWindowStart = 0;
   _cache.clear();
@@ -253,7 +270,13 @@ export async function callBrain<T = unknown>(
   opts: CallOpts = {},
 ): Promise<BrainEnvelope<T> | null> {
   if (!isBrainEnabled()) return null;
-  if (_status === "down" && !opts.force) return null;
+  if (_status === "down" && !opts.force) {
+    // Latched down — but re-probe once the cooldown elapses so a transient
+    // failure can't disable the brain (and thus publishing) forever.
+    if (Date.now() - _downAt < downRetryCooldownMs()) return null;
+    _status = "unknown";
+    _restarts = 0; // give the restart budget a fresh window on recovery
+  }
 
   if (opts.cacheKey) {
     const hit = cacheGet(opts.cacheKey);
