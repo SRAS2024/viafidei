@@ -197,6 +197,72 @@ async function fetchOneAndCompare(
   };
 }
 
+/**
+ * Corpus fallback: use the worker's OWN stored source-reads as independent
+ * witnesses. A read fetched from a DIFFERENT approved host whose text states
+ * both the entity (title/slug hint) and the expected value IS cross-source
+ * evidence — an independent source asserting the same fact — and the corpus
+ * grows with every discovery pass, so evidence-gathering converges instead of
+ * depending on a handful of hardcoded probe paths that rarely match real site
+ * structures (the live system had sensitive artifacts parking NEEDS_REPAIR
+ * because "Could not fetch any probe URL" left every field MISSING). Reads
+ * only ever come from approved, host-gated fetches, so every corpus witness
+ * is already an approved source. Deterministic, offline, no AI.
+ */
+export async function findCorpusValidationEvidence(
+  prisma: PrismaClient,
+  input: {
+    field: string;
+    expectedValue: string;
+    /** The entity the fact must be stated ABOUT (title — required context). */
+    entityHint: string;
+    /** The artifact's own source host — never a witness for itself. */
+    excludeHost?: string | null;
+    limit?: number;
+  },
+): Promise<ValidationEvidenceRecord[]> {
+  const expected = normaliseForCompare(input.expectedValue);
+  const entity = normaliseForCompare(input.entityHint);
+  if (!expected || !entity) return [];
+  try {
+    const reads = await prisma.adminWorkerSourceRead.findMany({
+      where: {
+        ...(input.excludeHost ? { sourceHost: { not: input.excludeHost } } : {}),
+        AND: [
+          { extractedText: { contains: input.entityHint, mode: "insensitive" } },
+          { extractedText: { contains: input.expectedValue, mode: "insensitive" } },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+      take: Math.max(1, Math.min(input.limit ?? 2, 5)),
+      select: { sourceUrl: true, sourceHost: true, extractedText: true },
+    });
+    const evidence: ValidationEvidenceRecord[] = [];
+    const seenHosts = new Set<string>();
+    for (const read of reads) {
+      // Re-check on the normalised text so markup/whitespace differences in
+      // the stored body can't fabricate a match the page doesn't really make.
+      const body = normaliseForCompare(read.extractedText ?? "");
+      if (!body.includes(expected) || !body.includes(entity)) continue;
+      if (seenHosts.has(read.sourceHost)) continue; // one witness per host
+      seenHosts.add(read.sourceHost);
+      evidence.push({
+        host: read.sourceHost,
+        url: read.sourceUrl,
+        authority: "TRUSTED_PUBLISHER",
+        matchStatus: "MATCH",
+        expected: input.expectedValue,
+        found: input.expectedValue,
+        confidence: 0.75,
+        reason: `Corroborated by stored source-read ${read.sourceUrl} (independent host states "${input.expectedValue.slice(0, 60)}" about ${input.entityHint.slice(0, 60)}).`,
+      });
+    }
+    return evidence;
+  } catch {
+    return [];
+  }
+}
+
 function normaliseForCompare(value: string): string {
   return value
     .toLowerCase()

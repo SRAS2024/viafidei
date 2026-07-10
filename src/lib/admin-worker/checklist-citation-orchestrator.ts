@@ -17,6 +17,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { toChecklistContentType } from "./classifier";
 import { writeAdminWorkerLog } from "./logs";
+import { reportQueryError } from "./schema-integrity";
 
 export interface ChecklistCitationOutcome {
   artifactId: string;
@@ -89,11 +90,30 @@ export async function runChecklistAndCitationOrchestrator(
       // Map the extractor/classifier content type to the publishable
       // catalog enum (ROSARY / CONSECRATION → SPIRITUAL_PRACTICE).
       // ChecklistItem.contentType is the ChecklistContentType enum, so an
-      // unmapped extractor type would fail the create() and strand the
-      // artifact at CHECKLIST_READY forever.
-      const checklistType =
-        toChecklistContentType(artifact.contentType as never) ?? artifact.contentType;
-      const created = await prisma.checklistItem
+      // unmapped extractor type can never bridge: mark it terminally instead
+      // of re-attempting an always-throwing create() every pass (which
+      // stranded the artifact at CHECKLIST_READY forever).
+      const checklistType = toChecklistContentType(artifact.contentType as never);
+      if (!checklistType) {
+        await prisma.adminWorkerPackageArtifact
+          .update({
+            where: { id: artifact.id },
+            data: {
+              status: "REJECTED",
+              rejectionReason: `content type ${artifact.contentType} has no publishable checklist mapping`,
+            },
+          })
+          .catch(() => undefined);
+        outcomes.push({
+          artifactId: artifact.id,
+          checklistItemId: null,
+          citationsCreated: 0,
+          status: "failed",
+          reason: `unmappable content type ${artifact.contentType} — artifact rejected`,
+        });
+        continue;
+      }
+      let created = await prisma.checklistItem
         .create({
           data: {
             contentType: checklistType as never,
@@ -105,7 +125,21 @@ export async function runChecklistAndCitationOrchestrator(
           } as Prisma.ChecklistItemUncheckedCreateInput,
           select: { id: true },
         })
-        .catch(() => null);
+        .catch(async (err) => {
+          // A slug-unique race means a concurrent bridge won — adopt its row
+          // instead of failing. Anything else is a real DB problem: surface it
+          // loudly rather than silently stranding the artifact.
+          if ((err as { code?: string }).code === "P2002") {
+            return prisma.checklistItem
+              .findUnique({
+                where: { canonicalSlug: artifact.normalizedSlug },
+                select: { id: true },
+              })
+              .catch(() => null);
+          }
+          reportQueryError("checklistBridge.checklistItemCreate", err);
+          return null;
+        });
       if (!created) {
         outcomes.push({
           artifactId: artifact.id,

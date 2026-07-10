@@ -19,6 +19,7 @@
 
 import type { ChecklistContentType, Prisma, PrismaClient } from "@prisma/client";
 
+import { CURATED_BUILT_CONTENT_TYPES, STRUCTURED_BUILT_CONTENT_TYPES } from "./content-types";
 import { filePlan } from "./repair-plans";
 import { writeAdminWorkerLog } from "./logs";
 
@@ -188,8 +189,15 @@ export async function runGrowthOrchestrator(
       })
       .catch(() => undefined);
 
-    // Trigger side-effects per status.
-    if (status === "STUCK_7D") {
+    // Trigger side-effects per status. A DISCOVERY_FAILED plan re-runs WEB
+    // discovery, so it is only meaningful for web-growable types — filing one
+    // for a curated/structured-built type (PARISH every pass, given its 200k
+    // gap) just churned plans that downstream reconciliation had to close.
+    if (
+      status === "STUCK_7D" &&
+      !STRUCTURED_BUILT_CONTENT_TYPES.has(contentType) &&
+      !CURATED_BUILT_CONTENT_TYPES.has(contentType)
+    ) {
       await filePlan(prisma, {
         kind: "DISCOVERY_FAILED",
         failedEntity: contentType,

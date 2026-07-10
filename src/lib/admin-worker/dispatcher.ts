@@ -875,27 +875,154 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
         ? "CHECKLIST_READY"
         : "EXTRACTED";
 
-  const artifact = await prisma.adminWorkerPackageArtifact
-    .create({
-      data: {
-        sourceReadId: read.id,
-        candidateUrlId: candidate?.id ?? null,
-        contentType: detected,
-        normalizedTitle: pkg.normalizedTitle,
-        normalizedSlug: pkg.normalizedSlug,
-        extractedFields: pkg.displayFields as never,
-        fieldProvenance: pkg.fieldProvenance as never,
-        missingFields: pkg.missingFields,
-        validationNeeds: pkg.validationNeeds,
-        formattingMetadata: pkg.formattingMetadata as never,
-        confidenceScore: pkg.confidenceByPackage,
-        packageChecksum: pkg.duplicateKeys.titleHash,
-        status,
-        rejectionReason: pkg.rejectionReasons[0] ?? null,
-        repairSuggestions: pkg.repairSuggestions,
-      },
+  // Artifacts are unique on (contentType, normalizedSlug, packageChecksum) —
+  // effectively (type, normalized title). The SAME entity routinely arrives via
+  // a second source-read: a mirror/alternate URL with the same title, or a
+  // re-fetch of a page whose body changed (new checksum ⇒ new read row). A
+  // blind `create` then throws P2002, and when that error was swallowed the
+  // read never got an artifact, stayed the oldest classified read, and was
+  // re-picked on EVERY pass — wedging the whole extraction stage on one poison
+  // read while the funnel starved (the live "package artifact (?)" loop:
+  // extraction logged CHECKLIST_READY every ~15s with 0 artifacts created and
+  // 0 published). So: detect the duplicate FIRST, consume the redundant read,
+  // and use the fresh extraction to HEAL a broken existing artifact when it
+  // can. Any other persistence error is loud (reportQueryError) and returns
+  // kind "failed" — never a silent fake success.
+  const duplicateKey = {
+    contentType: detected,
+    normalizedSlug: pkg.normalizedSlug,
+    packageChecksum: pkg.duplicateKeys.titleHash,
+  };
+  const consumeDuplicateRead = () =>
+    prisma.adminWorkerSourceRead
+      .update({ where: { id: read.id }, data: { detectedContentType: "DUPLICATE" } })
+      .catch((err) => {
+        reportQueryError("extraction.consumeDuplicateRead", err);
+        return null;
+      });
+
+  let artifact: { id: string } | null = null;
+  let existing = await prisma.adminWorkerPackageArtifact
+    .findUnique({
+      where: { contentType_normalizedSlug_packageChecksum: duplicateKey },
+      select: { id: true, status: true, sourceReadId: true, missingFields: true },
     })
-    .catch(() => null);
+    .catch((err) => {
+      reportQueryError("extraction.duplicateLookup", err);
+      return null;
+    });
+
+  if (!existing) {
+    try {
+      artifact = await prisma.adminWorkerPackageArtifact.create({
+        data: {
+          sourceReadId: read.id,
+          candidateUrlId: candidate?.id ?? null,
+          contentType: detected,
+          normalizedTitle: pkg.normalizedTitle,
+          normalizedSlug: pkg.normalizedSlug,
+          extractedFields: pkg.displayFields as never,
+          fieldProvenance: pkg.fieldProvenance as never,
+          missingFields: pkg.missingFields,
+          validationNeeds: pkg.validationNeeds,
+          formattingMetadata: pkg.formattingMetadata as never,
+          confidenceScore: pkg.confidenceByPackage,
+          packageChecksum: pkg.duplicateKeys.titleHash,
+          status,
+          rejectionReason: pkg.rejectionReasons[0] ?? null,
+          repairSuggestions: pkg.repairSuggestions,
+        },
+      });
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      if (code === "P2002") {
+        // Raced with a concurrent create — fall through to the duplicate path.
+        existing = await prisma.adminWorkerPackageArtifact
+          .findUnique({
+            where: { contentType_normalizedSlug_packageChecksum: duplicateKey },
+            select: { id: true, status: true, sourceReadId: true, missingFields: true },
+          })
+          .catch(() => null);
+      }
+      if (!existing) {
+        // A real persistence failure (schema drift, connection, constraint we
+        // don't understand). Surface it loudly and report the stage as FAILED —
+        // the old silent-null here is what masked the production wedge.
+        reportQueryError("extraction.artifactCreate", err);
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          stage: "EXTRACTION",
+          kind: "failed",
+          summary: `Extraction could not persist artifact for ${read.sourceUrl}: ${message.slice(0, 160)}`,
+          failed: 1,
+          metadata: { sourceReadId: read.id, error: message.slice(0, 500) },
+        };
+      }
+    }
+  }
+
+  if (!artifact && existing) {
+    // Duplicate: this entity already has an artifact (from another URL/read).
+    // 1. Consume THIS read so it can never wedge the queue again — "DUPLICATE"
+    //    is a terminal verdict like UNUSABLE/WRONG, outside
+    //    WEB_EXTRACTION_CONTENT_TYPES, so the extraction picker and the brain's
+    //    backlog count both skip it from now on.
+    // 2. If the existing artifact is still broken pre-funnel (EXTRACTED /
+    //    NEEDS_REPAIR / REJECTED) and THIS extraction is complete (no fatal, no
+    //    missing fields), heal it in place: fresh fields + CHECKLIST_READY. A
+    //    duplicate source is a second witness, not waste. Artifacts already in
+    //    or past the funnel (CHECKLIST_READY → PUBLISHED, NEEDS_REVIEW) are
+    //    never touched.
+    await consumeDuplicateRead();
+    const healable = ["EXTRACTED", "NEEDS_REPAIR", "REJECTED"].includes(existing.status);
+    const newIsComplete = pkg.rejectionReasons.length === 0 && pkg.missingFields.length === 0;
+    let healed = false;
+    if (healable && newIsComplete) {
+      healed = Boolean(
+        await prisma.adminWorkerPackageArtifact
+          .update({
+            where: { id: existing.id },
+            data: {
+              extractedFields: pkg.displayFields as never,
+              fieldProvenance: pkg.fieldProvenance as never,
+              missingFields: [],
+              validationNeeds: pkg.validationNeeds,
+              formattingMetadata: pkg.formattingMetadata as never,
+              confidenceScore: pkg.confidenceByPackage,
+              status: "CHECKLIST_READY",
+              rejectionReason: null,
+              repairSuggestions: [],
+              gateDiagnosis: null,
+            },
+          })
+          .catch((err) => {
+            reportQueryError("extraction.duplicateHeal", err);
+            return null;
+          }),
+      );
+    }
+    await writeAdminWorkerLog(prisma, {
+      passId,
+      category: "CONTENT_BUILD",
+      severity: "INFO",
+      eventName: "extraction_duplicate",
+      message: healed
+        ? `Duplicate of artifact ${existing.id} (${existing.status}) — healed in place to CHECKLIST_READY from ${read.sourceUrl}.`
+        : `Duplicate of artifact ${existing.id} (${existing.status}) — read ${read.id} consumed, artifact untouched.`,
+      sourceUrl: read.sourceUrl,
+      sourceHost: read.sourceHost,
+      contentType: detected,
+      safeMetadata: { artifactId: existing.id, existingStatus: existing.status, healed },
+    }).catch(() => undefined);
+    return {
+      stage: "EXTRACTION",
+      kind: healed ? "advanced" : "skipped",
+      summary: healed
+        ? `Duplicate extraction healed artifact ${existing.id} → CHECKLIST_READY (${read.sourceUrl}).`
+        : `Duplicate of artifact ${existing.id} (${existing.status}); redundant read consumed.`,
+      metadata: { artifactId: existing.id, duplicate: true, healed },
+    };
+  }
 
   // Feed source reputation — extraction success/failure (spec §16).
   const { pushReputation } = await import("./source-reputation-hooks");
@@ -1173,10 +1300,18 @@ export async function runCrossSourceVerification(
     // First verification pass for this artifact — fetch + compare.
     if (priorRows === 0) {
       const { runVerifier } = await import("./verifier");
-      const { fetchAndCompareValidation } = await import("./validation-fetcher");
+      const { fetchAndCompareValidation, findCorpusValidationEvidence } =
+        await import("./validation-fetcher");
       const { REQUIRED_FACTS } = await import("./cross-source-verifier");
       const fields = (artifact.extractedFields as Record<string, unknown>) ?? {};
       const skipNetwork = process.env.ADMIN_WORKER_SKIP_NETWORK === "1";
+      // The artifact's own source host — a corpus witness must be INDEPENDENT,
+      // so reads from this host are never counted as evidence for it.
+      const primaryRead = artifact.sourceReadId
+        ? await prisma.adminWorkerSourceRead
+            .findUnique({ where: { id: artifact.sourceReadId }, select: { sourceHost: true } })
+            .catch(() => null)
+        : null;
 
       // Fetch validation for EXACTLY the fields the verifier will check
       // (REQUIRED_FACTS) — unioned with the package's validationNeeds.
@@ -1216,7 +1351,23 @@ export async function runCrossSourceVerification(
           slugHint: artifact.normalizedSlug,
           maxSources: 2,
           skipNetwork,
-        }).catch(() => []);
+        }).catch(() => [] as Awaited<ReturnType<typeof fetchAndCompareValidation>>);
+        // Corpus fallback: when the live probes produced no MATCH for this
+        // field, consult the worker's stored source-reads — an independent
+        // approved host whose page states this fact about this entity is
+        // cross-source evidence too (see findCorpusValidationEvidence). This
+        // is what lets evidence-gathering converge as the corpus grows,
+        // instead of sensitive artifacts parking NEEDS_REPAIR forever because
+        // a handful of hardcoded probe URLs 404'd.
+        if (!evidence.some((e) => e.matchStatus === "MATCH")) {
+          const corpus = await findCorpusValidationEvidence(prisma, {
+            field,
+            expectedValue: expectedValue.slice(0, 200),
+            entityHint: artifact.normalizedTitle,
+            excludeHost: primaryRead?.sourceHost ?? null,
+          }).catch(() => []);
+          evidence.push(...corpus);
+        }
         for (const e of evidence) {
           // A source we could NOT fetch (MISSING_EVIDENCE) is not
           // evidence of anything — it must never be translated into a

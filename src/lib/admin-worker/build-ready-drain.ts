@@ -77,6 +77,17 @@ export interface DrainArtifact {
   validationNeeds: string[];
   confidenceScore: number;
   extractedFields: unknown;
+  /**
+   * The artifact's per-field provenance column (`fieldProvenance`) — THE place
+   * extraction records which source each field came from. The citations gate
+   * must read THIS, not `extractedFields`: display fields carry the content
+   * (prayer text, feast day, …), not the sourcing, so checking them for
+   * citations misdiagnosed every fully-provenanced artifact as
+   * MISSING_CITATIONS → NEEDS_REPAIR → an unrepairable plan → abandoned →
+   * REJECTED (the live "repairs failing repeatedly" + nothing-publishes
+   * spiral).
+   */
+  fieldProvenance?: unknown;
 }
 
 export interface GateContext {
@@ -88,10 +99,14 @@ export interface GateContext {
   confidenceFloor: number;
 }
 
-/** True when the payload carries no provenance (citations / source URL). */
-function lacksCitations(extractedFields: unknown): boolean {
-  if (!extractedFields || typeof extractedFields !== "object") return true;
-  const f = extractedFields as Record<string, unknown>;
+/** True when the artifact carries no provenance (citations / source URL). */
+function lacksCitations(a: Pick<DrainArtifact, "extractedFields" | "fieldProvenance">): boolean {
+  // Primary evidence store: the fieldProvenance column extraction writes
+  // (one entry per sourced field). Non-empty ⇒ the artifact is cited.
+  if (Array.isArray(a.fieldProvenance) && a.fieldProvenance.length > 0) return false;
+  // Fallback for artifacts whose payload embeds sourcing directly.
+  if (!a.extractedFields || typeof a.extractedFields !== "object") return true;
+  const f = a.extractedFields as Record<string, unknown>;
   const citations = f.citations;
   const hasCitations = Array.isArray(citations) && citations.length > 0;
   const hasSource =
@@ -137,7 +152,7 @@ export function diagnoseArtifactGate(a: DrainArtifact, ctx: GateContext): Artifa
   }
 
   // No provenance at all → cannot verify; repair to attach a source.
-  if (lacksCitations(a.extractedFields)) {
+  if (lacksCitations(a)) {
     return {
       gate: "MISSING_CITATIONS",
       outcome: "repair",
@@ -246,6 +261,8 @@ export async function runBuildReadyDrain(
         validationNeeds: true,
         confidenceScore: true,
         extractedFields: true,
+        fieldProvenance: true,
+        sourceReadId: true,
       },
     });
     // Complete-but-unbridged artifacts: the EXTRACTION stage stamps a fully
@@ -294,6 +311,7 @@ export async function runBuildReadyDrain(
           validationNeeds: a.validationNeeds ?? [],
           confidenceScore: a.confidenceScore ?? 0,
           extractedFields: a.extractedFields,
+          fieldProvenance: a.fieldProvenance,
         },
         {
           evidenceCount: evidenceByArtifact.get(a.id) ?? 0,
@@ -324,11 +342,21 @@ export async function runBuildReadyDrain(
         out.rejectedDuplicate += 1;
       } else if (diag.outcome === "repair" || diag.outcome === "create_evidence") {
         const kind = REPAIR_KIND_BY_GATE[diag.gate] ?? "EXTRACT_FAILED";
+        // Carry BOTH the artifact id and its sourceReadId: the EXTRACT_FAILED
+        // handler repairs by re-extracting the source read and healing the
+        // artifact, so a plan without a resolvable read is unrepairable by
+        // construction (it burned its 5 attempts and abandoned every time —
+        // the "Repair orchestrator FAIL" rating).
         await filePlan(prisma, {
           kind,
           failedEntity: a.id,
           repairAction: diag.recommendedAction,
-          metadata: { artifactId: a.id, gate: diag.gate, contentType: a.contentType },
+          metadata: {
+            artifactId: a.id,
+            sourceReadId: a.sourceReadId,
+            gate: diag.gate,
+            contentType: a.contentType,
+          },
         }).catch(() => undefined);
         await prisma.adminWorkerPackageArtifact
           .update({

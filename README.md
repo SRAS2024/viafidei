@@ -1379,6 +1379,72 @@ SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
   general mechanism for "the worker escalated something, we pushed a fix, and it
   recognises the old items are resolved" without a human draining the queue.
 
+- **A duplicate source can never wedge the extraction queue — it heals instead.**
+  Artifacts are unique on `(contentType, normalizedSlug, packageChecksum)` ≈
+  (type, normalized title), and the SAME entity routinely arrives via a second
+  source-read: a mirror/alternate URL with the same title, or a re-fetch of a
+  page whose body changed (new checksum ⇒ new read row). A blind `create` then
+  threw `P2002`; with that error silently swallowed, the read never got an
+  artifact, stayed the oldest classified read, and was re-picked on EVERY pass —
+  extraction logged `→ CHECKLIST_READY` every ~15 s while `0` artifacts were
+  actually created and `0` published (the live `package artifact (?)` loop, the
+  real EXTRACTING_WITHOUT_PUBLISHING wedge on build `fc87335`). `runExtraction`
+  now detects the duplicate FIRST: the redundant read is consumed with a
+  terminal **`DUPLICATE`** verdict (like `UNUSABLE`/`WRONG` — it leaves the
+  extraction queue and the brain's backlog count permanently), and when the
+  existing artifact is still broken pre-funnel (`EXTRACTED`/`NEEDS_REPAIR`/
+  `REJECTED`) and the new extraction is complete, the duplicate **heals it in
+  place** to `CHECKLIST_READY` — a second source is a second witness, not waste.
+  Any real persistence error is loud (`reportQueryError`) and the stage reports
+  `failed` — never a silent fake success (`extraction_duplicate` log events).
+
+- **The BUILD_READY drain diagnoses citations from the right column.** The
+  drain's `MISSING_CITATIONS` gate read `extractedFields` (the display payload)
+  for citations, but extraction records sourcing in the **`fieldProvenance`**
+  column — so every fully-provenanced artifact was misdiagnosed as citation-less
+  → `NEEDS_REPAIR` → an unrepairable repair plan → abandoned → `REJECTED`
+  (the census: 15 NEEDS_REPAIR / 4 REJECTED / 31 abandoned plans, "Repair
+  orchestrator FAIL"). `diagnoseArtifactGate` now treats non-empty
+  `fieldProvenance` as citations, with the embedded-payload check kept as a
+  fallback.
+
+- **Repair plans can actually repair now.** The drain files `EXTRACT_FAILED`
+  plans keyed by ARTIFACT id; the handler only knew how to resolve a source-read
+  id, so those plans failed all 5 attempts by construction and abandoned.
+  `loadSourceReadForPlan` now resolves `metadata.artifactId` (and an artifact-id
+  `failedEntity`) → the artifact's `sourceReadId` → the read; the drain also
+  records `sourceReadId` on the plans it files. Repair success is honest —
+  re-extraction (now block-aware, same strength as the dispatcher's) must yield
+  a COMPLETE package (no fatal reasons AND no missing fields); the old test
+  checked fatal reasons only, so a still-broken re-extraction "succeeded",
+  deleted the artifact, the stage rebuilt the same broken artifact, and a fresh
+  plan was filed — churn forever. On success the artifact is **healed in place**
+  to `CHECKLIST_READY` (no delete/rebuild). And `reconcileObsoletePlans` now
+  also closes artifact-scoped plans that are moot: target artifact already
+  in/past the funnel (repair achieved), source read consumed as `DUPLICATE`, or
+  both targets gone (dangling).
+
+- **Cross-source verification can use the worker's own corpus as a witness.**
+  Evidence-gathering depended on a handful of hardcoded probe URLs per
+  (type, field) — when those 404'd, every sensitive field came back MISSING and
+  the artifact parked `NEEDS_REPAIR` (eventually `REJECTED`) no matter how true
+  its facts were. `findCorpusValidationEvidence` adds a deterministic fallback:
+  a stored source-read from a DIFFERENT approved host whose page states both
+  the entity and the expected value IS independent cross-source evidence, and
+  the corpus grows with every discovery pass, so verification converges instead
+  of starving. The gate itself is unchanged — sensitive facts still never
+  publish without stored MATCH evidence from an independent source; the network
+  probes still run first.
+
+- **Reports and advisories only name work the web pipeline can act on.**
+  `mission_control` ranked its "next" mission over ALL goals, so `next = PARISH`
+  was the permanent (and misleading) recommendation; `adviseNextWork` likewise
+  advised the biggest raw gap; and the growth orchestrator filed a
+  `DISCOVERY_FAILED` plan for `PARISH` every stuck-week. All three now exclude
+  curated/structured-built types — the mission tree still shows every mission
+  (parishes included; they grow on the OSM lane), but "next action" style
+  outputs only ever name goals the web pipeline can actually advance.
+
 - **OSM parishes publish even when their website can't be read.** A candidate
   carries OpenStreetMap's curated `denomination=roman_catholic` tag; the runner
   still tries the parish website for a communion verdict, but an _unreadable_

@@ -64,10 +64,32 @@ describe("diagnoseArtifactGate", () => {
     expect(d.explanation).toMatch(/body/);
   });
 
-  it("no provenance → MISSING_CITATIONS / repair", () => {
-    const d = diagnoseArtifactGate(artifact({ extractedFields: { title: "T", body: "B" } }), ctx());
+  it("no provenance anywhere → MISSING_CITATIONS / repair", () => {
+    const d = diagnoseArtifactGate(
+      artifact({ extractedFields: { title: "T", body: "B" }, fieldProvenance: [] }),
+      ctx(),
+    );
     expect(d.gate).toBe("MISSING_CITATIONS");
     expect(d.outcome).toBe("repair");
+  });
+
+  it("provenance in the fieldProvenance COLUMN counts as citations (the live misdiagnosis fix)", () => {
+    // Extraction stores per-field sourcing in fieldProvenance, NOT inside
+    // extractedFields (which carries only the display payload). Reading the
+    // wrong column misdiagnosed every fully-provenanced artifact as
+    // MISSING_CITATIONS → NEEDS_REPAIR → unrepairable plan → abandoned →
+    // REJECTED, so nothing ever published.
+    const d = diagnoseArtifactGate(
+      artifact({
+        extractedFields: { title: "T", body: "B" }, // no citations embedded
+        fieldProvenance: [
+          { fieldName: "body", sourceUrl: "https://vatican.va/x", confidence: 0.9 },
+        ],
+      }),
+      ctx(),
+    );
+    expect(d.gate).toBe("AWAITING_QA");
+    expect(d.outcome).toBe("run_qa");
   });
 
   it("validation needs + no evidence → AWAITING_VERIFICATION / run_verification", () => {

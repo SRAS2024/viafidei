@@ -355,11 +355,17 @@ describe("repair-orchestrator concrete handlers (spec §9)", () => {
     expect(out.results[0].reason).toContain("refreshed + verified");
   });
 
-  it("EXTRACT_FAILED immediately re-extracts from the stored read + resets the artifact", async () => {
-    const MEMORARE =
-      "Remember, O most gracious Virgin Mary, that never was it known that anyone who fled to thy " +
-      "protection, implored thy help, or sought thy intercession was left unaided. Amen.";
-    const deleteMany = vi.fn(async () => ({ count: 1 }));
+  it("EXTRACT_FAILED re-extracts from the stored read + HEALS the artifact in place", async () => {
+    // A body the CHURCH_DOCUMENT extractor turns into a COMPLETE package
+    // (missing=0) — required, because repair success now demands completeness,
+    // not merely "no fatal reasons".
+    const POPULORUM =
+      "Populorum Progressio. Encyclical of Pope Paul VI on the development of peoples, 26 March 1967. " +
+      "On the Development of Peoples. The development of peoples has the Church's close attention, " +
+      "particularly the development of those peoples who are striving to escape from hunger, misery, " +
+      "endemic diseases and ignorance. The progressive development of peoples is an object of deep " +
+      "interest and concern to the Church.";
+    const updateMany = vi.fn(async () => ({ count: 1 }));
     const prisma = {
       adminWorkerRepairPlan: {
         findMany: vi.fn(async () => [
@@ -381,20 +387,30 @@ describe("repair-orchestrator concrete handlers (spec §9)", () => {
       adminWorkerSourceRead: {
         findUnique: vi.fn(async () => ({
           id: "read-1",
-          sourceUrl: "https://www.vatican.va/memorare.html",
+          sourceUrl: "https://www.vatican.va/populorum.html",
           sourceHost: "vatican.va",
-          extractedTitle: "The Memorare",
-          extractedText: MEMORARE,
-          extractedHeadings: [],
-          detectedContentType: "PRAYER",
+          extractedTitle: "Populorum Progressio",
+          extractedText: POPULORUM,
+          extractedHeadings: ["Populorum Progressio"],
+          detectedContentType: "CHURCH_DOCUMENT",
         })),
       },
-      adminWorkerPackageArtifact: { deleteMany },
+      adminWorkerSourceBlock: { findMany: vi.fn(async () => []) },
+      adminWorkerPackageArtifact: { updateMany },
     } as unknown as Parameters<typeof runRepairOrchestrator>[0];
     const out = await runRepairOrchestrator(prisma);
     expect(out.plansSucceeded).toBe(1);
-    expect(deleteMany).toHaveBeenCalled();
+    // Success requires a COMPLETE re-extraction (no fatal reasons AND no
+    // missing fields), and the recovered package heals the broken artifact IN
+    // PLACE (status → CHECKLIST_READY, fresh fields) instead of the old
+    // delete-and-rebuild churn.
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: "CHECKLIST_READY" }),
+      }),
+    );
     expect(out.results[0].reason).toContain("re-extracted");
+    expect(out.results[0].reason).toContain("healed");
   });
 
   it("PERSIST_FAILED retries immediately when the database is healthy", async () => {
