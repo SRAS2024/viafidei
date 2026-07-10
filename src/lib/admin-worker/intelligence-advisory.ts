@@ -12,6 +12,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { CURATED_BUILT_CONTENT_TYPES, STRUCTURED_BUILT_CONTENT_TYPES } from "./content-types";
 import { isBrainEnabled, plan, prioritize } from "./intelligence";
 import { recordBrainCall } from "./intelligence/store";
 import { writeAdminWorkerLog } from "./logs";
@@ -38,8 +39,17 @@ export async function adviseNextWork(
   if (!isBrainEnabled()) return empty;
 
   try {
+    // Advise only on goals the WEB pipeline (this pass's action space) can act
+    // on: curated-built (GUIDE, MARIAN_TITLE) and structured-feed-built
+    // (PARISH) grow on their own ingest lanes, so "Brain prioritises PARISH
+    // next" was a permanently misleading advisory for un-actionable work.
     const goals = await prisma.contentGoal.findMany({
-      where: { gapCount: { gt: 0 } },
+      where: {
+        gapCount: { gt: 0 },
+        contentType: {
+          notIn: [...CURATED_BUILT_CONTENT_TYPES, ...STRUCTURED_BUILT_CONTENT_TYPES],
+        },
+      },
       orderBy: { priority: "asc" },
       take: 40,
       select: {

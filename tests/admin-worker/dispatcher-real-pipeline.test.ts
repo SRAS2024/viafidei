@@ -249,6 +249,10 @@ function makePrisma(opts: {
     adminWorkerPackageArtifact: {
       findFirst: vi.fn(async () => opts.artifact ?? null),
       findMany: vi.fn(async () => (opts.artifact ? [opts.artifact] : [])),
+      // The extraction duplicate pre-check looks up the unique
+      // (contentType, normalizedSlug, packageChecksum) triple; null = no
+      // duplicate, so the create path runs.
+      findUnique: vi.fn(async () => null),
       create: vi.fn(async () => ({ id: "art1" })),
       update: vi.fn(async () => ({})),
     },

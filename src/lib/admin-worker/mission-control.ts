@@ -27,6 +27,7 @@ import {
   recommendUnblockStrategy,
 } from "./intelligence";
 import { BrainCallContext, recordBrainCall, recordDeveloperRequests } from "./intelligence/store";
+import { CURATED_BUILT_CONTENT_TYPES, STRUCTURED_BUILT_CONTENT_TYPES } from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
 
 interface MissionRow {
@@ -84,11 +85,23 @@ export async function runMissionControlPass(
       priority: (goals.find((g) => g.contentType === m.content_type)?.priority ?? 100) / 100,
     }));
 
-    const rankedEnv = await rankSubgoals(missions as Array<Record<string, unknown>>);
+    // "Next" ranks only the goals the WEB pipeline can act on. The full tree
+    // (including PARISH, GUIDE, MARIAN_TITLE) is still recorded for the
+    // dashboard — those are real missions, grown by their own curated/OSM
+    // lanes — but recommending one as the NEXT ACTION is misleading: PARISH's
+    // 200k gap made "next = PARISH" the permanent recommendation for work the
+    // web pipeline is deliberately excluded from doing.
+    const actionable = missions.filter(
+      (m) =>
+        m.content_type &&
+        !STRUCTURED_BUILT_CONTENT_TYPES.has(m.content_type) &&
+        !CURATED_BUILT_CONTENT_TYPES.has(m.content_type),
+    );
+    const rankedEnv = await rankSubgoals(actionable as Array<Record<string, unknown>>);
     await recordBrainCall(prisma, "rank_subgoals", rankedEnv, ctx);
     const nextSubgoal =
       ((rankedEnv?.result as { next_subgoal?: MissionRow } | undefined)?.next_subgoal ??
-        missions[0]) ||
+        actionable[0]) ||
       null;
 
     let nextAction: string | undefined;

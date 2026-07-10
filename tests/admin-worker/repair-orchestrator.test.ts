@@ -325,6 +325,91 @@ describe("runRepairOrchestrator — durable plan execution (spec §17)", () => {
     expect(updates.find((u) => u.where.id === "keep-guide")).toBeUndefined();
   });
 
+  it("auto-reconciles moot artifact plans: healed / duplicate-consumed / dangling", async () => {
+    // Three EXTRACT_FAILED plans that can no longer achieve anything:
+    //  1. its artifact is already CHECKLIST_READY (healed by a duplicate
+    //     extraction) — repair achieved;
+    //  2. its source read was consumed as DUPLICATE — nothing to re-extract;
+    //  3. neither the read nor the artifact exists any more (dangling).
+    // Without reconciliation each burns 5 attempts and abandons — the live
+    // "Repair orchestrator FAIL: 31 abandoned in last 7d" spiral.
+    const updates: Array<{ where: { id: string }; data: Record<string, unknown> }> = [];
+    let findManyCall = 0;
+    const prisma = {
+      adminWorkerRepairPlan: {
+        findMany: vi.fn(async () => {
+          findManyCall += 1;
+          if (findManyCall === 1) {
+            return [
+              {
+                id: "plan-healed",
+                kind: "EXTRACT_FAILED",
+                failedEntity: "art-healed",
+                metadata: { artifactId: "art-healed", contentType: "CHURCH_DOCUMENT" },
+              },
+              {
+                id: "plan-dup",
+                kind: "EXTRACT_FAILED",
+                failedEntity: "www.vatican.va",
+                metadata: { sourceReadId: "read-dup" },
+              },
+              {
+                id: "plan-dangling",
+                kind: "EXTRACT_FAILED",
+                failedEntity: "art-gone",
+                metadata: { artifactId: "art-gone", contentType: "SAINT" },
+              },
+              // Still-live plan (artifact broken, read present) — untouched.
+              {
+                id: "plan-live",
+                kind: "EXTRACT_FAILED",
+                failedEntity: "art-live",
+                metadata: {
+                  artifactId: "art-live",
+                  sourceReadId: "read-live",
+                  contentType: "SAINT",
+                },
+                // Not due (future nextAttemptAt) so the main loop skips it.
+                nextAttemptAt: new Date(Date.now() + 3_600_000),
+                attempts: 0,
+                maxAttempts: 5,
+              },
+            ];
+          }
+          return [];
+        }),
+        update: vi.fn(async (arg: { where: { id: string }; data: Record<string, unknown> }) => {
+          updates.push(arg);
+          return {};
+        }),
+      },
+      adminWorkerSourceRead: {
+        findMany: vi.fn(async () => [
+          { id: "read-dup", detectedContentType: "DUPLICATE" },
+          { id: "read-live", detectedContentType: "SAINT" },
+        ]),
+      },
+      adminWorkerPackageArtifact: {
+        findMany: vi.fn(async () => [
+          { id: "art-healed", contentType: "CHURCH_DOCUMENT", status: "CHECKLIST_READY" },
+          { id: "art-live", contentType: "SAINT", status: "NEEDS_REPAIR" },
+        ]),
+      },
+      adminWorkerLog: { create: vi.fn(async () => ({})), findFirst: vi.fn(async () => null) },
+    } as unknown as Parameters<typeof runRepairOrchestrator>[0];
+
+    const out = await runRepairOrchestrator(prisma);
+    expect(out.plansReconciled).toBe(3);
+    const byId = (id: string) => updates.find((u) => u.where.id === id);
+    expect(byId("plan-healed")?.data.status).toBe("SUCCEEDED");
+    expect(String(byId("plan-healed")?.data.finalResult)).toContain("repair already achieved");
+    expect(byId("plan-dup")?.data.status).toBe("SUCCEEDED");
+    expect(String(byId("plan-dup")?.data.finalResult)).toContain("DUPLICATE");
+    expect(byId("plan-dangling")?.data.status).toBe("SUCCEEDED");
+    expect(String(byId("plan-dangling")?.data.finalResult)).toContain("dangling");
+    expect(byId("plan-live")).toBeUndefined();
+  });
+
   it("schedules a backoff retry when execution fails", async () => {
     // Replace cache flag to throw.
     const { flagCacheRefresh } = await import("@/lib/admin-worker/repair");

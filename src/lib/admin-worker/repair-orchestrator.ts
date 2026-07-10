@@ -60,13 +60,15 @@ export interface RepairOrchestratorOutcome {
  * recognises the now-invalid plans and reconciles them itself. Fail-open.
  */
 async function reconcileObsoletePlans(prisma: PrismaClient, passId?: string): Promise<number> {
-  if (STRUCTURED_BUILT_CONTENT_TYPES.size === 0) return 0;
   const open = await prisma.adminWorkerRepairPlan
     .findMany({
       where: { status: { in: ["PENDING", "RUNNING", "ABANDONED"] } },
-      select: { id: true, failedEntity: true, metadata: true },
+      select: { id: true, kind: true, failedEntity: true, metadata: true },
     })
-    .catch(() => [] as Array<{ id: string; failedEntity: string | null; metadata: unknown }>);
+    .catch(
+      () =>
+        [] as Array<{ id: string; kind: string; failedEntity: string | null; metadata: unknown }>,
+    );
   if (open.length === 0) return 0;
 
   const metaString = (m: unknown, key: string): string | null => {
@@ -76,17 +78,20 @@ async function reconcileObsoletePlans(prisma: PrismaClient, passId?: string): Pr
     }
     return null;
   };
-  // Resolve each plan's content type from the cheapest reliable signal in this
-  // order: (1) the type recorded straight on the plan's metadata (how the
-  // BUILD_READY drain files these — survives even if the artifact is later
-  // deleted); (2) the source read behind it; (3) the artifact it targeted.
+  // Resolve each plan's targets from the cheapest reliable signals: the
+  // metadata contentType / sourceReadId / artifactId the filers record, plus
+  // failedEntity when it is an artifact/read id rather than a host.
   const readIds = new Set<string>();
   const artifactIds = new Set<string>();
   for (const p of open) {
-    if (metaString(p.metadata, "contentType")) continue; // already known
     const rid = metaString(p.metadata, "sourceReadId");
     if (rid) readIds.add(rid);
-    else if (p.failedEntity && !isLikelyHost(p.failedEntity)) artifactIds.add(p.failedEntity);
+    const aid = metaString(p.metadata, "artifactId");
+    if (aid) artifactIds.add(aid);
+    if (p.failedEntity && !isLikelyHost(p.failedEntity)) {
+      readIds.add(p.failedEntity);
+      artifactIds.add(p.failedEntity);
+    }
   }
   const [reads, artifacts] = await Promise.all([
     readIds.size && typeof prisma.adminWorkerSourceRead?.findMany === "function"
@@ -101,35 +106,83 @@ async function reconcileObsoletePlans(prisma: PrismaClient, passId?: string): Pr
       ? prisma.adminWorkerPackageArtifact
           .findMany({
             where: { id: { in: [...artifactIds] } },
-            select: { id: true, contentType: true },
+            select: { id: true, contentType: true, status: true },
           })
-          .catch(() => [] as Array<{ id: string; contentType: string }>)
-      : Promise.resolve([] as Array<{ id: string; contentType: string }>),
+          .catch(() => [] as Array<{ id: string; contentType: string; status: string }>)
+      : Promise.resolve([] as Array<{ id: string; contentType: string; status: string }>),
   ]);
   const readType = new Map(reads.map((r) => [r.id, r.detectedContentType]));
-  const artType = new Map(artifacts.map((a) => [a.id, a.contentType]));
+  const artById = new Map(artifacts.map((a) => [a.id, a]));
+  // An artifact in (or past) the funnel needs no repair — the plan's goal is
+  // already achieved (e.g. a duplicate extraction healed it in place).
+  const HEALTHY = new Set([
+    "CHECKLIST_READY",
+    "BUILD_READY",
+    "VERIFICATION_READY",
+    "QA_PASSED",
+    "PUBLISHED",
+  ]);
+  // Kinds whose whole purpose is fixing one artifact/read — these are the ones
+  // that go moot when their target is healed, consumed, or gone.
+  const ARTIFACT_SCOPED = new Set(["EXTRACT_FAILED", "VALIDATION_EVIDENCE_MISSING"]);
 
   let reconciled = 0;
+  const closePlan = async (id: string, finalResult: string) => {
+    await prisma.adminWorkerRepairPlan
+      .update({ where: { id }, data: { status: "SUCCEEDED", finalResult } })
+      .catch(() => undefined);
+    reconciled += 1;
+  };
+
   for (const p of open) {
     const rid = metaString(p.metadata, "sourceReadId");
-    const ct =
-      metaString(p.metadata, "contentType") ??
-      (rid
-        ? readType.get(rid)
-        : p.failedEntity && !isLikelyHost(p.failedEntity)
-          ? artType.get(p.failedEntity)
-          : null);
+    const aid =
+      metaString(p.metadata, "artifactId") ??
+      (p.failedEntity && !isLikelyHost(p.failedEntity) && artById.has(p.failedEntity)
+        ? p.failedEntity
+        : null);
+    const artifact = aid ? artById.get(aid) : null;
+    const readCt = rid
+      ? readType.get(rid)
+      : p.failedEntity && !isLikelyHost(p.failedEntity)
+        ? readType.get(p.failedEntity)
+        : null;
+    const ct = metaString(p.metadata, "contentType") ?? readCt ?? artifact?.contentType ?? null;
+
+    // 1. Structured-feed-built types (PARISH) are not web-repairable at all.
     if (ct && STRUCTURED_BUILT_CONTENT_TYPES.has(ct)) {
-      await prisma.adminWorkerRepairPlan
-        .update({
-          where: { id: p.id },
-          data: {
-            status: "SUCCEEDED",
-            finalResult: `reconciled: ${ct} is structured-feed-built (not web-repairable) — closed after code update`,
-          },
-        })
-        .catch(() => undefined);
-      reconciled += 1;
+      await closePlan(
+        p.id,
+        `reconciled: ${ct} is structured-feed-built (not web-repairable) — closed after code update`,
+      );
+      continue;
+    }
+    if (!ARTIFACT_SCOPED.has(p.kind)) continue;
+
+    // 2. Target artifact is already in/past the funnel → repair achieved.
+    if (artifact && HEALTHY.has(artifact.status)) {
+      await closePlan(
+        p.id,
+        `reconciled: artifact ${artifact.id} is ${artifact.status} — repair already achieved`,
+      );
+      continue;
+    }
+    // 3. The source read was consumed as a DUPLICATE (the entity already has
+    //    an artifact from another source) → nothing left to repair here.
+    if (readCt === "DUPLICATE") {
+      await closePlan(p.id, "reconciled: source read consumed as DUPLICATE — plan is moot");
+      continue;
+    }
+    // 4. Dangling: neither the read nor the artifact exists any more (and the
+    //    plan isn't host-scoped). Unrepairable by construction — without this
+    //    it burns all its attempts and abandons, pinning the health rating red.
+    const hasRead = Boolean(
+      (rid && readType.has(rid)) ||
+      (p.failedEntity && !isLikelyHost(p.failedEntity) && readType.has(p.failedEntity)),
+    );
+    const hostScoped = Boolean(p.failedEntity && isLikelyHost(p.failedEntity));
+    if (!hasRead && !artifact && !hostScoped) {
+      await closePlan(p.id, "reconciled: repair target no longer exists (dangling plan)");
     }
   }
   if (reconciled > 0) {
@@ -138,7 +191,7 @@ async function reconcileObsoletePlans(prisma: PrismaClient, passId?: string): Pr
       category: "REPAIR",
       severity: "INFO",
       eventName: "repair_plans_reconciled",
-      message: `Reconciled ${reconciled} obsolete repair plan(s) for structured-feed-built types (no longer web-repairable) — closed after a code update.`,
+      message: `Reconciled ${reconciled} obsolete repair plan(s) (structured-built / already-repaired / duplicate-consumed / dangling).`,
       safeMetadata: { reconciled },
     }).catch(() => undefined);
   }
@@ -447,31 +500,53 @@ interface RepairSourceRead {
 /**
  * Resolve the source read a CLASSIFY/EXTRACT repair should re-run against.
  * Prefers the `sourceReadId` recorded on the plan's metadata; falls back to
- * treating failedEntity as a read id. Returns null when no read is
- * resolvable (the handler then defers to a different source).
+ * the artifact recorded on the metadata (`artifactId` — the shape the
+ * BUILD_READY drain files, whose failedEntity is the ARTIFACT id) and finally
+ * to treating failedEntity as a read id, then an artifact id. Returns null
+ * when no read is resolvable (the handler then defers to a different source).
+ * Before the artifact fallbacks existed, every drain-filed EXTRACT_FAILED
+ * plan was unrepairable by construction — the handler could never find a
+ * read, failed all 5 attempts, and abandoned (the "Repair orchestrator FAIL:
+ * repairs failing repeatedly" rating).
  */
 async function loadSourceReadForPlan(
   prisma: PrismaClient,
   plan: AdminWorkerRepairPlan,
 ): Promise<RepairSourceRead | null> {
-  const readId =
-    readPlanMetaString(plan, "sourceReadId") ??
-    (plan.failedEntity && !isLikelyHost(plan.failedEntity) ? plan.failedEntity : null);
-  if (!readId) return null;
-  return prisma.adminWorkerSourceRead
-    .findUnique({
-      where: { id: readId },
-      select: {
-        id: true,
-        sourceUrl: true,
-        sourceHost: true,
-        extractedTitle: true,
-        extractedText: true,
-        extractedHeadings: true,
-        detectedContentType: true,
-      },
-    })
-    .catch(() => null);
+  const readSelect = {
+    id: true,
+    sourceUrl: true,
+    sourceHost: true,
+    extractedTitle: true,
+    extractedText: true,
+    extractedHeadings: true,
+    detectedContentType: true,
+  } as const;
+  const byReadId = (id: string) =>
+    prisma.adminWorkerSourceRead
+      .findUnique({ where: { id }, select: readSelect })
+      .catch(() => null);
+  const byArtifactId = async (id: string) => {
+    const artifact = await prisma.adminWorkerPackageArtifact
+      .findUnique({ where: { id }, select: { sourceReadId: true } })
+      .catch(() => null);
+    return artifact?.sourceReadId ? byReadId(artifact.sourceReadId) : null;
+  };
+
+  const metaReadId = readPlanMetaString(plan, "sourceReadId");
+  if (metaReadId) {
+    const read = await byReadId(metaReadId);
+    if (read) return read;
+  }
+  const metaArtifactId = readPlanMetaString(plan, "artifactId");
+  if (metaArtifactId) {
+    const read = await byArtifactId(metaArtifactId);
+    if (read) return read;
+  }
+  if (plan.failedEntity && !isLikelyHost(plan.failedEntity)) {
+    return (await byReadId(plan.failedEntity)) ?? (await byArtifactId(plan.failedEntity));
+  }
+  return null;
 }
 
 async function executePlan(
@@ -733,22 +808,74 @@ async function executePlan(
       }
       if (read && isExtractableContentType(read.detectedContentType)) {
         const { extractByType } = await import("./extractors");
+        const { buildContentPackage } = await import("./content-builder");
         try {
+          // Re-run the SAME extraction the dispatcher runs — including the
+          // persisted structured blocks — so this attempt is as strong as the
+          // original, then build the package to judge completeness honestly.
+          const blockRows = await prisma.adminWorkerSourceBlock
+            .findMany({ where: { sourceReadId: read.id }, orderBy: { blockOrder: "asc" } })
+            .catch(() => [] as Array<Record<string, unknown>>);
+          const blocks = blockRows.map((b) => ({
+            blockType: (b as { blockType: string }).blockType as never,
+            text: (b as { text: string }).text,
+            isRejected: (b as { isRejected: boolean }).isRejected,
+            blockOrder: (b as { blockOrder: number }).blockOrder,
+            confidenceScore: (b as { confidenceScore: number }).confidenceScore,
+          }));
           const extracted = extractByType(read.detectedContentType, {
             url: read.sourceUrl,
             host: read.sourceHost,
             title: read.extractedTitle ?? "",
+            headings: Array.isArray(read.extractedHeadings)
+              ? (read.extractedHeadings as string[])
+              : [],
             bodyText: read.extractedText ?? "",
+            blocks: blocks.length > 0 ? (blocks as never) : undefined,
           });
-          if (extracted.fatalReasons.length === 0) {
-            // Recovered — clear the stale artifact so the EXTRACTION stage
-            // rebuilds a complete package from this read (auto-advance).
-            await prisma.adminWorkerPackageArtifact
-              .deleteMany({ where: { sourceReadId: read.id, status: "EXTRACTED" } })
-              .catch(() => undefined);
+          const pkg = buildContentPackage({
+            contentType: read.detectedContentType,
+            extractor: extracted,
+            title: read.extractedTitle ?? undefined,
+          });
+          // Success means the package is now COMPLETE — no fatal reasons AND
+          // no missing required fields. The old test checked fatalReasons
+          // only, so a deterministic re-extraction that was still missing the
+          // same fields "succeeded", deleted the artifact, the stage rebuilt
+          // the identical broken artifact, and a fresh plan was filed —
+          // success/refile churn forever with nothing actually repaired.
+          if (pkg.rejectionReasons.length === 0 && pkg.missingFields.length === 0) {
+            // Recovered — heal the broken artifact IN PLACE to CHECKLIST_READY
+            // (no delete/rebuild churn; identity keys stay stable). Only
+            // pre-funnel broken statuses are touched.
+            const healed = await prisma.adminWorkerPackageArtifact
+              .updateMany({
+                where: {
+                  status: { in: ["EXTRACTED", "NEEDS_REPAIR", "REJECTED"] },
+                  OR: [
+                    { sourceReadId: read.id },
+                    ...(readPlanMetaString(plan, "artifactId")
+                      ? [{ id: readPlanMetaString(plan, "artifactId") as string }]
+                      : []),
+                  ],
+                },
+                data: {
+                  extractedFields: pkg.displayFields as never,
+                  fieldProvenance: pkg.fieldProvenance as never,
+                  missingFields: [],
+                  validationNeeds: pkg.validationNeeds,
+                  formattingMetadata: pkg.formattingMetadata as never,
+                  confidenceScore: pkg.confidenceByPackage,
+                  status: "CHECKLIST_READY",
+                  rejectionReason: null,
+                  repairSuggestions: [],
+                  gateDiagnosis: null,
+                },
+              })
+              .catch(() => ({ count: 0 }));
             return {
               ok: true,
-              reason: `re-extracted ${read.detectedContentType} from ${read.sourceUrl} → artifact reset to rebuild`,
+              reason: `re-extracted ${read.detectedContentType} from ${read.sourceUrl} complete → ${healed.count} artifact(s) healed to CHECKLIST_READY`,
             };
           }
         } catch {

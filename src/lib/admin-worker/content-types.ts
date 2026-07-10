@@ -52,9 +52,12 @@ const EXTRACTABLE_SET: ReadonlySet<string> = new Set(EXTRACTABLE_CONTENT_TYPES);
 
 /**
  * True when `detectedContentType` has a real extractor — i.e. the EXTRACTION
- * stage can turn it into a package artifact. False for null, UNUSABLE, WRONG,
- * and any unrecognised value, all of which must be skipped by extraction so
- * they never block the queue.
+ * stage can turn it into a package artifact. False for null and for the
+ * terminal verdicts — UNUSABLE, WRONG, and DUPLICATE (a read whose extracted
+ * entity already has a package artifact from another source; the extraction
+ * stage stamps it so the redundant read can never wedge the oldest-first
+ * queue) — and any unrecognised value, all of which must be skipped by
+ * extraction so they never block the queue.
  */
 export function isExtractableContentType(
   contentType: string | null | undefined,
