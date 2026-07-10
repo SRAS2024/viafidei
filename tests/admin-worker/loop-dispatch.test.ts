@@ -146,9 +146,12 @@ describe("runOnePass — mode dispatch", () => {
     vi.mocked(runMonthlyReportJobIfDue).mockClear();
     const prisma = makePrisma({});
     await runOnePass(prisma, "test-worker");
-    // Under the current selector REPORTING is never the chosen
-    // mode unless the operator forces it; the worker startup hook
-    // calls runMonthlyReportJobIfDue directly. This documents that.
+    // Under the current selector REPORTING is never the chosen mode unless
+    // the operator forces it. The monthly report is NOT dispatched through
+    // the brain's stage selection at all — it runs from the always-on
+    // reporting LANE every pass (self-gated + idempotent per month), plus a
+    // best-effort check at worker startup. This documents that the DISPATCH
+    // path stays out of it.
     expect(runMonthlyReportJobIfDue).not.toHaveBeenCalled();
   });
 

@@ -233,6 +233,16 @@ export const OPS_LANES: LaneDef[] = [
     async run({ prisma, passId }) {
       const { maybeRunReportingPass } = await import("./reporting-pass");
       await maybeRunReportingPass(prisma, { passId });
+      // Monthly Admin Worker Report: checked EVERY pass, not only at process
+      // startup. The startup-only check meant the report fired only if the
+      // worker container happened to restart on the last calendar day of the
+      // month — a continuously-running worker silently skipped month-end (the
+      // June 2026 report that never arrived). The job self-gates (last day of
+      // month, or catch-up for a missed month) and is idempotent via a
+      // durable per-month marker, so calling it here is cheap and can never
+      // double-send.
+      const { runMonthlyReportJobIfDue } = await import("./monthly-report-job");
+      await runMonthlyReportJobIfDue(prisma).catch(() => undefined);
       return { detail: "reporting ran" };
     },
   },
