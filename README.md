@@ -1158,7 +1158,17 @@ falling back to a TypeScript final brain. Concretely:
   day of each month. Daily sections + monthly summary (total content
   growth, best / weakest content type growth, best / worst sources, QA
   pass rate, publish rate, worker uptime, security events, homepage
-  improvements, remaining blockers).
+  improvements, remaining blockers). The due-check runs from the always-on
+  **reporting lane on every pass** (plus a best-effort check at startup) —
+  originally it ran ONLY at process startup, so the report fired only if the
+  worker container happened to restart on the last day of the month, and a
+  continuously-running worker silently skipped month-end (the June 2026
+  report that never arrived). The job is idempotent per month via a durable
+  `AdminDeveloperReportLog` marker (`MONTH:<yyyy-mm>` — at most one email no
+  matter how many passes hit the gate), **catches up a missed month** on a
+  later pass (only when the worker actually ran that month), and backs off
+  6h between retries after a failed send. The "Monthly report generation"
+  diagnostic now tracks these job rows, not manual audit pulls.
 
 - **Tracks source coverage per content type.**
   `source-coverage.ts` scores primary + validation + enrichment

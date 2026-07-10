@@ -303,12 +303,17 @@ async function ratingSecurity(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingMonthlyReport(prisma: PrismaClient): Promise<HealthRating> {
-  const last = await prisma.adminDeveloperReportLog.findFirst({
-    where: { reportPeriod: "LAST_30_DAYS" },
+  // Track the MONTHLY EMAIL JOB's own durable rows (generatedBy stamp from
+  // monthly-report-job.ts), not manual 30-day audit pulls — the old query
+  // matched any LAST_30_DAYS row, so an operator pulling an audit made this
+  // read "pass" while the actual month-end email had silently never sent.
+  const { MONTHLY_REPORT_GENERATED_BY } = await import("./monthly-report-job");
+  const lastMonthly = await prisma.adminDeveloperReportLog.findFirst({
+    where: { generatedBy: MONTHLY_REPORT_GENERATED_BY, status: "GENERATED" },
     orderBy: { generatedAt: "desc" },
   });
-  const status: HealthStatus = last
-    ? Date.now() - last.generatedAt.getTime() < 32 * 24 * 60 * 60 * 1000
+  const status: HealthStatus = lastMonthly
+    ? Date.now() - lastMonthly.generatedAt.getTime() < 32 * 24 * 60 * 60 * 1000
       ? "pass"
       : "warn"
     : "warn";
@@ -319,9 +324,9 @@ async function ratingMonthlyReport(prisma: PrismaClient): Promise<HealthRating> 
     score: status === "pass" ? 1 : 0.5,
     lastCheckedAt: new Date(),
     dataSource: "AdminDeveloperReportLog",
-    summary: last
-      ? `Last 30-day report generated ${last.generatedAt.toISOString().slice(0, 10)}.`
-      : "No monthly report has been generated yet.",
+    summary: lastMonthly
+      ? `Last monthly report emailed ${lastMonthly.generatedAt.toISOString().slice(0, 10)} (${(lastMonthly.includedSections ?? []).find((s) => s.startsWith("MONTH:")) ?? "month unknown"}).`
+      : "No monthly report has been emailed yet (the month-end job sends it; a missed month catches up automatically).",
   };
 }
 
