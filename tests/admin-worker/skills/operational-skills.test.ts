@@ -30,10 +30,13 @@ function ctx(prisma: unknown, input: Record<string, unknown> = {}): SkillContext
 describe("repair pack", () => {
   it("repair_missing_citation files a durable repair plan", async () => {
     const create = vi.fn(async () => ({ id: "rp-1" }));
+    // filePlan (now used instead of a raw create) first checks for an existing
+    // open plan and a recently-abandoned one; both miss here so it creates.
+    const findFirst = vi.fn(async () => null);
     const skill = getSkill("repair_missing_citation")!;
     const out = await executeCertifiedSkill(
       skill,
-      ctx({ adminWorkerRepairPlan: { create } }, { slug: "hail-mary" }),
+      ctx({ adminWorkerRepairPlan: { create, findFirst } }, { slug: "hail-mary" }),
       noopSkillDeps(),
     );
     expect(out.outcome).toBe("SUCCEEDED");

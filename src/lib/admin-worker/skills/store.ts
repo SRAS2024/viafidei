@@ -93,22 +93,25 @@ export function makeSkillRuntimeDeps(prisma: PrismaClient): SkillRuntimeDeps {
     },
 
     async fileRepairPlan(skill: CertifiedSkill, ctx: SkillContext, reason: string) {
-      await prisma.adminWorkerRepairPlan
-        .create({
-          data: {
-            kind: repairKindForCategory(skill.category) as never,
-            failedEntity: ctx.targetEntityId ?? skill.name,
-            repairAction: `Re-run certified skill ${skill.name}: ${reason}`.slice(0, 400),
-            status: "PENDING",
-            metadata: {
-              skillName: skill.name,
-              contentType: ctx.contentType ?? null,
-              contentSubtype: ctx.contentSubtype ?? null,
-              reason,
-            },
-          },
-        })
-        .catch(() => undefined);
+      // Route through filePlan (not a raw create) so the PENDING/RUNNING
+      // coalesce AND the recently-ABANDONED cooldown apply. A skill that keeps
+      // failing otherwise mints a fresh maxAttempts cycle every pass, and each
+      // deterministic dead-end abandons — a Repair-orchestrator FAIL driver.
+      const { filePlan } = await import("../repair-plans");
+      await filePlan(prisma, {
+        kind: repairKindForCategory(skill.category) as never,
+        failedEntity: ctx.targetEntityId ?? skill.name,
+        repairAction: `Re-run certified skill ${skill.name}: ${reason}`.slice(0, 400),
+        metadata: {
+          skillName: skill.name,
+          contentType: ctx.contentType ?? null,
+          contentSubtype: ctx.contentSubtype ?? null,
+          reason,
+          // Carry the artifact id (when the target IS one) so verification-repair
+          // handlers can resolve/terminalize it instead of dead-ending.
+          ...(ctx.targetEntityId ? { artifactId: ctx.targetEntityId } : {}),
+        },
+      }).catch(() => undefined);
     },
   };
 }

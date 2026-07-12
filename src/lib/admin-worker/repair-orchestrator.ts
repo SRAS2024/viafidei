@@ -128,7 +128,11 @@ async function reconcileObsoletePlans(prisma: PrismaClient, passId?: string): Pr
   ]);
   // Kinds whose whole purpose is fixing one artifact/read — these are the ones
   // that go moot when their target is healed, consumed, or gone.
-  const ARTIFACT_SCOPED = new Set(["EXTRACT_FAILED", "VALIDATION_EVIDENCE_MISSING"]);
+  const ARTIFACT_SCOPED = new Set([
+    "EXTRACT_FAILED",
+    "VALIDATION_EVIDENCE_MISSING",
+    "VALIDATION_FAILED",
+  ]);
 
   let reconciled = 0;
   const closePlan = async (id: string, finalResult: string) => {
@@ -704,9 +708,22 @@ async function executePlan(
         passId,
         contentType: plan.failedEntity ?? null,
       });
+      // "surfaced 0 new" is the NORMAL steady state of a SATURATED type (its
+      // approved-host sources are exhausted for now), NOT a repair failure.
+      // Treating it as ok:false marched the plan to ABANDONED on every attempt —
+      // a Repair-orchestrator FAIL driver. Only a genuine discovery ERROR is a
+      // failure worth retrying; a clean run that surfaced nothing resolves
+      // terminally (new sources arrive via the always-on discovery sweep, not by
+      // retrying this plan).
+      const errored = Array.isArray(r.errors) && r.errors.length > 0;
       return {
-        ok: r.surfaced > 0,
-        reason: `discovery surfaced ${r.surfaced}, rejected ${r.rejected}`,
+        ok: r.surfaced > 0 || !errored,
+        reason:
+          r.surfaced > 0
+            ? `discovery surfaced ${r.surfaced}, rejected ${r.rejected}`
+            : errored
+              ? `discovery errored (${r.errors.length}) — will retry`
+              : `discovery ran clean but surfaced 0 (sources saturated) — closed; not a repair failure`,
       };
     }
     case "PUBLIC_DISPLAY_FAILED": {
@@ -753,8 +770,13 @@ async function executePlan(
       // verification rows for this artifact and reset its status so
       // the dispatcher's CROSS_SOURCE_VERIFICATION stage re-runs the
       // verifier with fresh stored evidence on the next pass.
+      // A verification plan with no resolvable artifact target is a deterministic
+      // dead-end — re-checking a missing/unaddressable id is futile and only
+      // burns maxAttempts toward ABANDONED (a Repair-orchestrator FAIL driver,
+      // common when a skill files under skill.name rather than an artifact id).
+      // Resolve terminally instead of retrying.
       if (!plan.failedEntity) {
-        return { ok: false, reason: "no failedEntity to re-verify" };
+        return { ok: true, reason: "no artifact target to re-verify — repair closed" };
       }
       const artifact = await prisma.adminWorkerPackageArtifact
         .findUnique({
@@ -763,7 +785,10 @@ async function executePlan(
         })
         .catch(() => null);
       if (!artifact) {
-        return { ok: false, reason: "artifact missing — cannot re-verify" };
+        return {
+          ok: true,
+          reason: "target artifact no longer exists — nothing to re-verify; repair closed",
+        };
       }
       await prisma.adminWorkerCrossSourceVerification
         .deleteMany({ where: { contentId: artifact.id } })
@@ -821,16 +846,28 @@ async function executePlan(
           };
         }
       }
+      // Deterministic dead-end (parity with EXTRACT_FAILED): classify() is a pure
+      // function of the immutable stored read, so a read that classifies
+      // WRONG/UNUSABLE once does so every attempt. Retrying only burns
+      // maxAttempts toward ABANDONED, so resolve terminally in one attempt —
+      // terminalize the stuck artifact and defer the alternate source to
+      // discovery — rather than looping.
       const { rememberFailurePattern } = await import("./memory");
       await rememberFailurePattern(prisma, {
         patternKey: `${plan.kind}|${plan.failedEntity ?? "unknown"}`,
         details: { plan: plan.id },
       }).catch(() => undefined);
+      const classifyRejected = await terminalizeStuckArtifacts(
+        prisma,
+        plan,
+        read,
+        read ? "source classifies as unusable (deterministic)" : "no source read to re-classify",
+      );
       return {
-        ok: false,
-        reason: read
-          ? "re-classification still unusable — needs a different source"
-          : "no source read available to re-classify",
+        ok: true,
+        reason:
+          `${read ? "re-classification still unusable" : "no source read to re-classify"} — repair closed terminally` +
+          `${classifyRejected > 0 ? `; ${classifyRejected} artifact(s) rejected` : ""}; an alternate source is pursued by discovery.`,
       };
     }
     case "EXTRACT_FAILED": {
