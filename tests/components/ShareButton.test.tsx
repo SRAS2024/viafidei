@@ -26,7 +26,7 @@ describe("ShareButton", () => {
     expect(button.querySelector("svg")).toBeInTheDocument();
   });
 
-  it("uses the native share sheet when the Web Share API is available", async () => {
+  it("shares ONLY the url + title (never text) so iOS sends just the rich link card", async () => {
     const share = vi.fn().mockResolvedValue(undefined);
     defineNavigator("share", share);
 
@@ -36,8 +36,10 @@ describe("ShareButton", () => {
     await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
     const data = share.mock.calls[0][0];
     expect(data.title).toBe("The Memorare");
-    expect(data.text).toBe("A prayer to Our Lady");
     expect(typeof data.url).toBe("string");
+    // `text` must NOT be shared: iOS Messages renders it as a separate bubble on
+    // top of the Open Graph link preview. Omitting it leaves only the link card.
+    expect(data.text).toBeUndefined();
   });
 
   it("falls back to copying the link and confirms when no share API exists", async () => {
