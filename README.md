@@ -2044,8 +2044,8 @@ genuine problems, not stale assertions or "no work to do" states:
   burn all `maxAttempts` reproducing the gap and then abandon, the handler now
   resolves such a plan **terminally in one attempt** (rejecting the stuck
   artifact so it leaves the funnel, and deferring the alternate source to
-  discovery), and curated-built types (GUIDE / MARIAN_TITLE) short-circuit like
-  PARISH. (2) `filePlan` will not **re-file** a `(kind, failedEntity)` that
+  discovery), and curated-built types (`GUIDE` / `MARIAN_TITLE`) short-circuit
+  like PARISH. (2) `filePlan` will not **re-file** a `(kind, failedEntity)` that
   ABANDONED within a 7-day cooldown, so a proven dead-end can't re-flood the
   window with fresh maxAttempts cycles; after the cooldown a genuine retry is
   allowed again. The same terminal-resolution rule now covers every deterministic
@@ -2054,7 +2054,7 @@ genuine problems, not stale assertions or "no work to do" states:
   on an unresolvable artifact (re-checking a vanished id is futile — also added
   to the reconcile sweep), and `DISCOVERY_FAILED` when a clean run surfaces 0 for
   a saturated type (the normal steady state, not a repair failure — only a
-  genuine discovery *error* is retried). And the two skill-runtime filers now go
+  genuine discovery error is retried). And the two skill-runtime filers now go
   through `filePlan` (not a raw create), so the coalesce + cooldown apply to
   skill-driven repairs too instead of minting a fresh cycle every pass.
 
