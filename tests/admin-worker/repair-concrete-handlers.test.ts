@@ -183,7 +183,7 @@ describe("repair-orchestrator concrete handlers (spec §9)", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
-  it("VALIDATION_FAILED fails when artifact is missing", async () => {
+  it("VALIDATION_FAILED resolves terminally (never fails/abandons) when the artifact is missing", async () => {
     const prisma = {
       adminWorkerRepairPlan: {
         findMany: vi.fn(async () => [
@@ -197,16 +197,22 @@ describe("repair-orchestrator concrete handlers (spec §9)", () => {
             maxAttempts: 5,
             lastAttemptAt: null,
             nextAttemptAt: null,
+            metadata: {},
           },
         ]),
         update: vi.fn(async () => undefined),
       },
       adminWorkerPackageArtifact: { findUnique: vi.fn(async () => null) },
       adminWorkerCrossSourceVerification: { deleteMany: vi.fn() },
+      adminWorkerLog: { create: vi.fn(async () => ({})), findFirst: vi.fn(async () => null) },
     } as unknown as Parameters<typeof runRepairOrchestrator>[0];
     const out = await runRepairOrchestrator(prisma);
-    expect(out.plansFailed).toBe(1);
-    expect(out.results[0].reason).toContain("artifact missing");
+    // A missing/unresolvable artifact is a deterministic dead-end: re-checking a
+    // vanished id is futile, so the plan is resolved terminally (reconciled or
+    // closed by the handler), NEVER left as a repeated failure that marches to
+    // ABANDONED (the Repair-orchestrator FAIL driver).
+    expect(out.plansFailed).toBe(0);
+    expect(out.plansAbandoned).toBe(0);
   });
 
   it("CACHE_FAILED refreshes AND re-verifies via verifyCacheFreshness", async () => {

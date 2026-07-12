@@ -819,6 +819,19 @@ falling back to a TypeScript final brain. Concretely:
   default (`ADMIN_WORKER_ARCHIVE_FALLBACK=0` opts out), fail-open, a no-op
   offline.
 
+- **Polite, resilient transport on approved hosts.** Authority hosts throttle
+  or bot-block a worker that fetches too fast, and those failures — not junk
+  candidates — are what the Fetcher health rating measures. So the static
+  fetcher ([`fetcher.ts`](src/lib/admin-worker/fetcher.ts)) paces consecutive
+  requests to the SAME host (`ADMIN_WORKER_FETCH_HOST_PACE_MS`, default 750ms;
+  different hosts still run in parallel), **retries `429` (rate-limited) honoring
+  the `Retry-After` header** instead of treating it as a hard client error, and
+  retries `5xx`/network/timeout with exponential backoff. The per-request timeout
+  is tunable (`ADMIN_WORKER_FETCH_TIMEOUT_MS`, default 15s) so a slow-but-alive
+  authority host or a large encyclical PDF isn't failed by an over-aggressive
+  cap. Deterministic `4xx` (404/403/…) are not retried; a genuine transport
+  failure still falls through to the Wayback rescue below.
+
 - **Renders JavaScript-only pages in a headless browser — keyless.** Many
   authoritative Catholic sources render their text client-side, so the static
   HTML is an empty shell (`<div id="root"></div>` + a script bundle) with no
@@ -2035,7 +2048,15 @@ genuine problems, not stale assertions or "no work to do" states:
   PARISH. (2) `filePlan` will not **re-file** a `(kind, failedEntity)` that
   ABANDONED within a 7-day cooldown, so a proven dead-end can't re-flood the
   window with fresh maxAttempts cycles; after the cooldown a genuine retry is
-  allowed again.
+  allowed again. The same terminal-resolution rule now covers every deterministic
+  dead-end so none of them abandons: `CLASSIFY_FAILED` (re-classifying the same
+  stored read is deterministic), `VALIDATION_FAILED`/`VALIDATION_EVIDENCE_MISSING`
+  on an unresolvable artifact (re-checking a vanished id is futile — also added
+  to the reconcile sweep), and `DISCOVERY_FAILED` when a clean run surfaces 0 for
+  a saturated type (the normal steady state, not a repair failure — only a
+  genuine discovery *error* is retried). And the two skill-runtime filers now go
+  through `filePlan` (not a raw create), so the coalesce + cooldown apply to
+  skill-driven repairs too instead of minting a fresh cycle every pass.
 
 ### Code / version memory
 

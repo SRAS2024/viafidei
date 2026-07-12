@@ -27,8 +27,54 @@ import { dynamicFetcherEnabled, looksDynamic, renderPage } from "./dynamic-fetch
 import { writeAdminWorkerLog } from "./logs";
 import { recordSourceOutcome } from "./source-reputation";
 
-const DEFAULT_TIMEOUT_MS = 8_000;
+const DEFAULT_TIMEOUT_MS = 15_000;
 const DEFAULT_RETRIES = 2;
+
+/**
+ * Per-request timeout. Env-tunable (`ADMIN_WORKER_FETCH_TIMEOUT_MS`) so slow
+ * authority hosts and large encyclical PDFs don't get an aggressive AbortError
+ * manufactured against them — a hardcoded 8s cap was tripping genuine
+ * slow-but-alive fetches on approved hosts.
+ */
+function fetchTimeoutMs(): number {
+  const n = Number((process.env.ADMIN_WORKER_FETCH_TIMEOUT_MS ?? "").trim());
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_TIMEOUT_MS;
+}
+
+// ── Per-host politeness pacing ───────────────────────────────────────────────
+// Nothing else spaces requests to the same host, so a burst of same-host fetches
+// (discovery + extraction hammering one authority site) provokes 403/429
+// bot-blocks — which then tank the Fetcher transport-health rating. A shared
+// per-host minimum interval spaces consecutive fetches to the SAME host while
+// different hosts still run in parallel. Default 750ms; env-tunable; 0 disables.
+// (Tests set skipNetwork and short-circuit before this runs.)
+const hostNextAllowedAt = new Map<string, number>();
+function hostPaceMs(): number {
+  const raw = (process.env.ADMIN_WORKER_FETCH_HOST_PACE_MS ?? "").trim();
+  if (raw === "") return 750;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : 750;
+}
+async function awaitHostSlot(host: string): Promise<void> {
+  const pace = hostPaceMs();
+  if (pace <= 0) return;
+  const now = Date.now();
+  const nextAt = hostNextAllowedAt.get(host) ?? 0;
+  // Reserve this host's slot up front so concurrent callers queue in order.
+  hostNextAllowedAt.set(host, Math.max(now, nextAt) + pace);
+  const wait = nextAt - now;
+  if (wait > 0) await sleep(wait);
+}
+
+/** Parse a `Retry-After` header (delta-seconds or HTTP-date) to ms, capped at 30s. */
+function parseRetryAfterMs(header: string | null): number | null {
+  if (!header) return null;
+  const secs = Number(header.trim());
+  if (Number.isFinite(secs) && secs >= 0) return Math.min(secs * 1000, 30_000);
+  const when = Date.parse(header);
+  if (!Number.isNaN(when)) return Math.min(Math.max(0, when - Date.now()), 30_000);
+  return null;
+}
 const MIN_BODY_BYTES = 400;
 const MAX_BODY_BYTES = 5_000_000; // 5 MB
 const MAX_PDF_BYTES = 40_000_000; // 40 MB — PDFs (encyclicals etc.) run larger
@@ -181,6 +227,9 @@ export async function adminWorkerFetch(
   }
 
   const userAgent = input.userAgent ?? USER_AGENT_DEFAULT;
+  // Politeness: space consecutive fetches to the same host before the clock
+  // starts, so recorded durationMs reflects the fetch, not the queue wait.
+  await awaitHostSlot(host);
   const start = Date.now();
   let attempt = 0;
   let lastError: Error | null = null;
@@ -190,7 +239,7 @@ export async function adminWorkerFetch(
     let dynamicUpgraded = false;
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+      const timer = setTimeout(() => controller.abort(), fetchTimeoutMs());
       const headers: Record<string, string> = {
         "User-Agent": userAgent,
         Accept:
@@ -239,10 +288,14 @@ export async function adminWorkerFetch(
 
       if (!response.ok) {
         lastError = new Error(`HTTP ${httpStatus}`);
-        // Don't retry 4xx (client errors are deterministic).
-        if (httpStatus >= 400 && httpStatus < 500) break;
+        // 429 (rate limited) is NOT a deterministic client error — it means
+        // "slow down", so retry it, honoring Retry-After. All other 4xx are
+        // deterministic (don't retry); 5xx are transient (retry with backoff).
+        const retryable = httpStatus === 429 || httpStatus >= 500;
+        if (!retryable) break;
         if (attempt <= DEFAULT_RETRIES) {
-          await sleep(backoffMs(attempt));
+          const retryAfter = parseRetryAfterMs(response.headers.get("retry-after"));
+          await sleep(retryAfter ?? backoffMs(attempt));
           continue;
         }
         break;

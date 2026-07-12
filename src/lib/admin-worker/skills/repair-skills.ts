@@ -22,19 +22,24 @@ function makeFieldRepair(name: string, kind: string, blocker: string): Certified
     purpose: `Repair ${blocker} by filing a targeted re-build the repair-orchestrator executes.`,
     category: "REPAIR",
     run: async (ctx) => {
-      const plan = await ctx.prisma.adminWorkerRepairPlan
-        .create({
-          data: {
-            kind: kind as never,
-            failedEntity: ctx.targetEntityId ?? slug(ctx),
-            repairAction:
-              `Repair ${blocker} for ${ctx.contentType ?? "content"} (${slug(ctx)})`.slice(0, 400),
-            status: "PENDING",
-            metadata: { blocker, contentType: ctx.contentType ?? null, slug: slug(ctx) },
-          },
-          select: { id: true },
-        })
-        .catch(() => null);
+      // Route through filePlan so the coalesce + recently-ABANDONED cooldown
+      // apply — a repeatedly-failing field repair must not mint a fresh
+      // maxAttempts cycle (and re-abandon) every pass.
+      const { filePlan } = await import("../repair-plans");
+      const plan = await filePlan(ctx.prisma, {
+        kind: kind as never,
+        failedEntity: ctx.targetEntityId ?? slug(ctx),
+        repairAction: `Repair ${blocker} for ${ctx.contentType ?? "content"} (${slug(ctx)})`.slice(
+          0,
+          400,
+        ),
+        metadata: {
+          blocker,
+          contentType: ctx.contentType ?? null,
+          slug: slug(ctx),
+          ...(ctx.targetEntityId ? { artifactId: ctx.targetEntityId } : {}),
+        },
+      }).catch(() => null);
       return {
         ok: plan != null,
         detail: plan ? `repair plan ${plan.id} filed` : "could not file repair plan",
