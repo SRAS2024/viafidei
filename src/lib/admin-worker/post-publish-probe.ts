@@ -77,7 +77,22 @@ async function probePublicPage(
     }
     return { result: "PASS" };
   } catch (err) {
-    return { result: "FAIL", error: err instanceof Error ? err.message : String(err) };
+    // The probe could NOT REACH the page — fetch threw (DNS failure, connection
+    // refused, TLS error, timeout/abort, or the worker simply cannot loop back
+    // to its own public host because its egress is proxied/firewalled or the
+    // site is mid-deploy). This is an ENVIRONMENTAL / transport failure, NOT
+    // evidence that the content is broken. Returning "FAIL" here made
+    // `publicPageCheck` FAIL → `rollbackPlan` = unpublish_and_delete → the
+    // vetted, QA-passed, freshly-published item was DELETED just because the
+    // worker couldn't connect. In an environment where the worker can't reach
+    // the public site, that silently flattens all growth: publish → probe can't
+    // connect → delete → republish → delete, forever. Treat an unreachable
+    // probe as UNVERIFIED (WARN): it does not aggregate to FAIL, so no rollback
+    // fires and the content stays published to be re-verified on a later pass.
+    // A genuine HTTP error response (handled above, `!res.ok`) still FAILs —
+    // that is the site actively reporting the page is broken/missing, which is
+    // real evidence, unlike an unreachable host.
+    return { result: "WARN", error: err instanceof Error ? err.message : String(err) };
   }
 }
 

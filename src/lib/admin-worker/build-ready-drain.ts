@@ -210,6 +210,64 @@ export interface DrainResult {
   repaired: number;
   reviewed: number;
   rejectedDuplicate: number;
+  /**
+   * NEEDS_REVIEW artifacts the (now-fixed) specialist citation gate wrongly
+   * parked, recovered to QA_PASSED this drain so the fixed publish path retries
+   * them.
+   */
+  recovered: number;
+}
+
+/**
+ * Recover artifacts the specialist citation gate wrongly parked at NEEDS_REVIEW.
+ *
+ * Before the publish-orchestrator citation-count fix, a fully-provenanced
+ * artifact whose payload carried no `citations`/`sources` ARRAY was scored as
+ * 0-citation; the citation specialist objected, the panel returned
+ * "block-or-review", and the publish step parked the item at NEEDS_REVIEW —
+ * where NOTHING recovers it. That stranded a backlog of QA-passed, cited content
+ * that never published (the "built/QA-passed but none published" plateau).
+ *
+ * These items are safe to re-publish: each already holds a PASSED strict-QA row
+ * (the mandatory 7-dimension gate) AND carries field provenance, so the citation
+ * objection was a false positive. Reset them to QA_PASSED so the drive phase
+ * re-publishes them THIS pass. Scoped tightly by the exact rejectionReason so
+ * genuine QA review-band holds (a different NEEDS_REVIEW reason) are untouched.
+ * Fail-open.
+ */
+async function recoverCitationMisroutedReviews(
+  prisma: PrismaClient,
+  limit: number,
+): Promise<number> {
+  const candidates = await prisma.adminWorkerPackageArtifact
+    .findMany({
+      where: {
+        status: "NEEDS_REVIEW",
+        // The exact reason string logged by publish-orchestrator's specialist
+        // route: `specialist panel routed to review (objections: citation…)`.
+        rejectionReason: { contains: "objections: citation" },
+      },
+      take: limit,
+      select: { id: true, fieldProvenance: true },
+    })
+    .catch(() => [] as Array<{ id: string; fieldProvenance: unknown }>);
+
+  let recovered = 0;
+  for (const a of candidates) {
+    const hasProvenance = Array.isArray(a.fieldProvenance) && a.fieldProvenance.length > 0;
+    if (!hasProvenance) continue;
+    // Only recover items that genuinely passed strict QA — never resurrect
+    // something that failed a real quality dimension.
+    const qa = await prisma.adminWorkerStrictQAResult
+      .findUnique({ where: { packageArtifactId: a.id }, select: { status: true } })
+      .catch(() => null);
+    if (qa?.status !== "PASSED") continue;
+    await prisma.adminWorkerPackageArtifact
+      .update({ where: { id: a.id }, data: { status: "QA_PASSED", rejectionReason: null } })
+      .catch(() => undefined);
+    recovered += 1;
+  }
+  return recovered;
 }
 
 const REPAIR_KIND_BY_GATE: Partial<
@@ -242,12 +300,18 @@ export async function runBuildReadyDrain(
     repaired: 0,
     reviewed: 0,
     rejectedDuplicate: 0,
+    recovered: 0,
   };
   const limit = opts.limit ?? 100;
   const driveRounds = opts.driveRounds ?? 6;
   const confidenceFloor = Number(process.env.ADMIN_WORKER_DRAIN_CONF_FLOOR ?? "0.4") || 0.4;
 
   try {
+    // Recover any content the (now-fixed) citation specialist wrongly parked at
+    // NEEDS_REVIEW BEFORE snapshotting the stuck set, so the recovered
+    // QA_PASSED items are drained + published in this same pass.
+    out.recovered = await recoverCitationMisroutedReviews(prisma, limit);
+
     const stuck = await prisma.adminWorkerPackageArtifact.findMany({
       where: { status: { in: ["BUILD_READY", "VERIFICATION_READY", "QA_PASSED"] } },
       orderBy: { createdAt: "asc" },
@@ -276,7 +340,7 @@ export async function runBuildReadyDrain(
       .count({ where: { status: "CHECKLIST_READY", checklistItemId: null } })
       .catch(() => 0);
 
-    if (stuck.length === 0 && checklistReady === 0) return out;
+    if (stuck.length === 0 && checklistReady === 0 && out.recovered === 0) return out;
     out.ran = true;
     out.stuck = stuck.length;
 
@@ -478,7 +542,7 @@ export async function runBuildReadyDrain(
       category: "VALIDATION",
       severity: "INFO",
       eventName: "build_ready_drain",
-      message: `BUILD_READY drain: ${out.bridged} bridged from CHECKLIST_READY, ${out.stuck} stuck triaged → ${out.published} published, ${out.advanced} QA-advanced, ${out.repaired} repaired, ${out.reviewed} to review, ${out.rejectedDuplicate} duplicate. Gates: ${Object.entries(
+      message: `BUILD_READY drain: ${out.recovered} recovered from misrouted review, ${out.bridged} bridged from CHECKLIST_READY, ${out.stuck} stuck triaged → ${out.published} published, ${out.advanced} QA-advanced, ${out.repaired} repaired, ${out.reviewed} to review, ${out.rejectedDuplicate} duplicate. Gates: ${Object.entries(
         out.byGate,
       )
         .map(([g, n]) => `${g}=${n}`)
@@ -487,6 +551,7 @@ export async function runBuildReadyDrain(
         stuck: out.stuck,
         byGate: out.byGate,
         byOutcome: out.byOutcome,
+        recovered: out.recovered,
         bridged: out.bridged,
         published: out.published,
         advanced: out.advanced,
