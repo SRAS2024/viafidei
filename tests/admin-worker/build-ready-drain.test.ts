@@ -271,3 +271,109 @@ describe("runBuildReadyDrain — publish is not gated on the brain", () => {
     expect(mockedPublish.mock.calls[0]![3]).toEqual({ allowSensitive: true });
   });
 });
+
+/**
+ * The specialist citation gate used to wrongly park fully-provenanced content
+ * at NEEDS_REVIEW (0-citation false positive), where nothing recovered it — the
+ * "QA-passed but never published" plateau. The drain now recovers those items
+ * (PASSED strict-QA + field provenance + the specific citation reason) back to
+ * QA_PASSED so the fixed publish path re-publishes them the same pass.
+ */
+describe("runBuildReadyDrain — recovers citation-misrouted reviews", () => {
+  const mockedPublish = vi.mocked(runPersistAndPublish);
+  beforeEach(() => {
+    mockedPublish.mockReset();
+    mockedPublish.mockResolvedValue({
+      stage: "PUBLIC_PUBLISH",
+      kind: "advanced",
+      published: 1,
+    } as never);
+  });
+
+  // One artifact stranded at NEEDS_REVIEW by the old citation gate. `qaStatus`
+  // controls whether it earned a PASSED strict-QA row; `provenance` whether it
+  // carries field provenance. Tracks status so the recovery→publish flow is
+  // observable through the two findMany call shapes.
+  function fakePrismaStranded(opts: { qaStatus: string | null; provenance: boolean }) {
+    let status = "NEEDS_REVIEW";
+    const fieldProvenance = opts.provenance
+      ? [{ field: "prayerText", sourceHost: "vatican.va" }]
+      : [];
+    return {
+      adminWorkerPackageArtifact: {
+        findMany: async ({ where }: { where?: Record<string, unknown> } = {}) => {
+          // Recovery query: status === "NEEDS_REVIEW" + citation reason.
+          if (where?.status === "NEEDS_REVIEW") {
+            return status === "NEEDS_REVIEW" ? [{ id: "misrouted-1", fieldProvenance }] : [];
+          }
+          // Stuck query: status { in: [...] }.
+          const inList = (where?.status as { in?: string[] } | undefined)?.in;
+          if (Array.isArray(inList)) {
+            return status === "QA_PASSED"
+              ? [
+                  {
+                    id: "misrouted-1",
+                    contentType: "PRAYER",
+                    normalizedSlug: "our-lady",
+                    status,
+                    missingFields: [],
+                    validationNeeds: [],
+                    confidenceScore: 0.9,
+                    extractedFields: { prayerText: "…", sourceHost: "vatican.va" },
+                    fieldProvenance,
+                    sourceReadId: null,
+                  },
+                ]
+              : [];
+          }
+          return [];
+        },
+        count: async ({ where }: { where?: Record<string, unknown> } = {}) =>
+          where?.status === "QA_PASSED" && status === "QA_PASSED" ? 1 : 0,
+        update: async ({ data }: { data?: Record<string, unknown> } = {}) => {
+          if (typeof data?.status === "string") status = data.status;
+          return undefined;
+        },
+      },
+      adminWorkerStrictQAResult: {
+        findUnique: async () => (opts.qaStatus ? { status: opts.qaStatus } : null),
+      },
+      adminWorkerCrossSourceVerification: { groupBy: async () => [] },
+      publishedContent: { findMany: async () => [] },
+    } as never;
+  }
+
+  it("recovers a QA-passed, provenanced citation-misrouted item and publishes it", async () => {
+    const { runBuildReadyDrain } = await import("@/lib/admin-worker/build-ready-drain");
+    const r = await runBuildReadyDrain(
+      fakePrismaStranded({ qaStatus: "PASSED", provenance: true }),
+      {
+        passId: "t",
+        active: true,
+        driveRounds: 1,
+      },
+    );
+    expect(r.recovered).toBe(1);
+    expect(mockedPublish).toHaveBeenCalled();
+    expect(r.published).toBeGreaterThanOrEqual(1);
+  });
+
+  it("does NOT recover an item that never earned a PASSED strict-QA row", async () => {
+    const { runBuildReadyDrain } = await import("@/lib/admin-worker/build-ready-drain");
+    const r = await runBuildReadyDrain(fakePrismaStranded({ qaStatus: null, provenance: true }), {
+      passId: "t",
+      active: true,
+      driveRounds: 1,
+    });
+    expect(r.recovered).toBe(0);
+  });
+
+  it("does NOT recover an item lacking field provenance (genuinely uncited)", async () => {
+    const { runBuildReadyDrain } = await import("@/lib/admin-worker/build-ready-drain");
+    const r = await runBuildReadyDrain(
+      fakePrismaStranded({ qaStatus: "PASSED", provenance: false }),
+      { passId: "t", active: true, driveRounds: 1 },
+    );
+    expect(r.recovered).toBe(0);
+  });
+});

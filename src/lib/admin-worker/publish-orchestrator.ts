@@ -256,6 +256,28 @@ export async function runPublishOrchestrator(
       const p = input.payload as Record<string, unknown> | null;
       const cits = (p?.citations ?? p?.sources) as unknown;
       if (Array.isArray(cits)) citationCount = cits.length;
+      // The pipeline-wide provenance store is the artifact's `fieldProvenance`
+      // column (one entry per sourced field) — surfaced to the orchestrator as
+      // `hasSourceEvidence` — plus any `sourceUrl`/`sourceHost` embedded in the
+      // payload. Strict QA's provenance dimension AND the BUILD_READY drain's
+      // citation gate (`lacksCitations`) both treat these as valid citations,
+      // so the specialist panel MUST too. Without this, a fully-provenanced
+      // item whose `extractedFields` simply carries no `citations`/`sources`
+      // ARRAY was scored as 0-citation → the citation specialist objected →
+      // the panel returned "block-or-review" → the item was routed to
+      // NEEDS_REVIEW and NEVER published. That is the "built (QA-passed) but
+      // none published" stall: every artifact cleared strict QA (finalScore
+      // ~0.94) yet was parked in review at the publish step. Fold provenance
+      // into the count so the panel's notion of "cited" matches the rest of
+      // the pipeline. Genuinely uncited content (no provenance, no payload
+      // source) still scores 0 and can still be objected to.
+      if (citationCount === 0) {
+        const hasPayloadSource =
+          (typeof p?.sourceUrl === "string" && p.sourceUrl.length > 0) ||
+          (typeof p?.sourceHost === "string" && p.sourceHost.length > 0);
+        if (input.hasSourceEvidence) citationCount = 2;
+        else if (hasPayloadSource) citationCount = 1;
+      }
 
       const { specialistReviews } = await import("./intelligence");
       const { recordBrainCall } = await import("./intelligence/store");

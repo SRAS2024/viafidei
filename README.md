@@ -1431,6 +1431,52 @@ SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
   `fieldProvenance` as citations, with the embedded-payload check kept as a
   fallback.
 
+- **The publish specialist panel counts provenance as citations (the real
+  "built but never published" plateau).** At the publish step the
+  orchestrator runs a 12-member specialist panel; its citation specialist
+  objects — routing the item to `NEEDS_REVIEW` — when `citationCount === 0`.
+  That count was derived **only** from a `citations`/`sources` array inside the
+  payload, which live-extracted artifacts don't populate (they store sourcing
+  in the `fieldProvenance` column, surfaced to the orchestrator as
+  `hasSourceEvidence`). So a fully-provenanced item that had **already cleared
+  strict QA** (finalScore ~0.94) was scored 0-citation, objected to, and parked
+  at `NEEDS_REVIEW` — where nothing recovered it. Curated + structured ingest
+  publish fine because they pass `skipBrainScreens: true`; only the live-fetch
+  path hit this, so every web-extracted item silently stalled at publish. The
+  fix folds the provenance signal into `citationCount` (matching the drain's
+  `lacksCitations` and strict-QA's provenance dimension), so the panel's notion
+  of "cited" is consistent with the rest of the pipeline; genuinely uncited
+  content still scores 0 and can still be objected to. Proven end-to-end against
+  a live Postgres: a seeded `BUILD_READY` prayer now flows
+  `BUILD_READY → QA_PASSED → PUBLISHED` and `publishedContent` increments.
+
+- **The drain self-heals the misrouted-review backlog.** Items the old citation
+  gate stranded at `NEEDS_REVIEW` are not seen by the funnel (which scans
+  `BUILD_READY` / `VERIFICATION_READY` / `QA_PASSED`), so the fix alone wouldn't
+  free the existing backlog. `runBuildReadyDrain` now recovers them: a
+  `NEEDS_REVIEW` artifact parked with the specific citation-objection reason that
+  **holds a `PASSED` strict-QA row and carries field provenance** is reset to
+  `QA_PASSED` (a proven false positive) so the fixed publish path re-publishes it
+  the same pass. Scoped tightly by the exact reason string so genuine QA
+  review-band holds are untouched; also proven end-to-end against live Postgres.
+
+- **Post-publish verification no longer deletes content it merely couldn't
+  reach.** After publishing, the worker HTTP-probes the live public page. The
+  probe's `catch` branch (fetch threw — DNS/connection-refused/TLS/timeout, or
+  the worker simply can't loop back to its own public host because its egress is
+  proxied/firewalled, or the site is mid-deploy) returned `FAIL`, which drove
+  `rollbackPlan` to **unpublish-and-delete** the freshly-published, QA-passed
+  item. In any environment where the worker can't reach the site that silently
+  flattens all growth — publish → probe can't connect → delete → republish →
+  delete — and destroys vetted content on a transient blip. An **unreachable**
+  probe now returns `WARN` (unverified, not failed): it does not aggregate to
+  `FAIL`, so no rollback fires and the content stays published to be re-verified
+  on a later pass. A genuine HTTP **error response** (`!res.ok`) still `FAIL`s —
+  that is the site actively reporting the page is broken, which is real evidence,
+  unlike an unreachable host. (Observed first-hand: running the worker without
+  the web service up rolled back curated council documents purely because the
+  probe couldn't connect.)
+
 - **Repair plans can actually repair now.** The drain files `EXTRACT_FAILED`
   plans keyed by ARTIFACT id; the handler only knew how to resolve a source-read
   id, so those plans failed all 5 attempts by construction and abandoned.

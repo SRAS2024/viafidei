@@ -34,14 +34,23 @@ vi.mock("@/lib/admin-worker/public-routes", () => ({
   })),
 }));
 
-// Brain layer: enabled, with controllable specialist-panel output.
-const panelState = vi.hoisted(() => ({ decision: "proceed" as string }));
+// Brain layer: enabled, with controllable specialist-panel output. `lastInput`
+// captures the exact args the orchestrator hands the panel so we can assert on
+// the derived citationCount (the real regression: provenance-backed content
+// must be counted as cited, not 0).
+const panelState = vi.hoisted(() => ({
+  decision: "proceed" as string,
+  lastInput: null as Record<string, unknown> | null,
+}));
 vi.mock("@/lib/admin-worker/intelligence", () => ({
   isBrainEnabled: () => true,
-  specialistReviews: vi.fn(async () => ({
-    ok: true,
-    result: { decision: panelState.decision, blocking_specialists: ["citation"] },
-  })),
+  specialistReviews: vi.fn(async (arg: Record<string, unknown>) => {
+    panelState.lastInput = arg;
+    return {
+      ok: true,
+      result: { decision: panelState.decision, blocking_specialists: ["citation"] },
+    };
+  }),
 }));
 vi.mock("@/lib/admin-worker/intelligence/service", () => ({
   // Communion screen + dedupe are no-ops here so the specialist gate is isolated.
@@ -113,5 +122,36 @@ describe("publish gate — specialist panel wiring", () => {
     panelState.decision = "proceed";
     const result = await runPublishOrchestrator(makePrisma(), INPUT);
     expect(result.kind).toBe("published");
+  });
+
+  it("counts fieldProvenance-backed content as CITED (no `citations` array needed)", async () => {
+    // The live-fetch stall: an artifact stores provenance in its
+    // `fieldProvenance` column (surfaced as hasSourceEvidence) with NO
+    // `citations`/`sources` array in the payload. The citation specialist must
+    // NOT see this as 0 citations (which would make it a blocker → review →
+    // never published). Regression for the "QA-passed but never published" bug.
+    panelState.decision = "proceed";
+    panelState.lastInput = null;
+    const result = await runPublishOrchestrator(makePrisma(), {
+      ...INPUT,
+      payload: { prayerText: "Glory be to the Father. Amen.", sourceHost: "vatican.va" },
+      hasSourceEvidence: true,
+    });
+    expect(result.kind).toBe("published");
+    // The count handed to the panel reflects the provenance, not 0.
+    expect(panelState.lastInput?.citationCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it("still counts genuinely-uncited content as 0 citations", async () => {
+    // No citations array, no payload source, no field provenance → the panel
+    // legitimately sees 0 and can still object. (Safety intent preserved.)
+    panelState.decision = "proceed";
+    panelState.lastInput = null;
+    await runPublishOrchestrator(makePrisma(), {
+      ...INPUT,
+      payload: { prayerText: "Some text with no provenance at all." },
+      hasSourceEvidence: false,
+    });
+    expect(panelState.lastInput?.citationCount).toBe(0);
   });
 });

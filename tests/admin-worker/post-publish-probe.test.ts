@@ -77,6 +77,29 @@ describe("verifyPublished", () => {
     globalThis.fetch = realFetch;
   });
 
+  it("emits WARN and does NOT roll back when the page is unreachable (fetch throws)", async () => {
+    // The worker could not connect (no server / proxied egress / mid-deploy).
+    // That is NOT evidence the content is broken, so vetted content must stay
+    // published — never deleted because the probe couldn't reach the host.
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("fetch failed");
+    }) as unknown as typeof fetch;
+
+    const { prisma } = makePrisma();
+    const out = await verifyPublished(prisma, {
+      contentType: "PRAYER",
+      contentId: "p1",
+      slug: "our-father",
+      expectedTitle: "Our Father",
+    });
+    expect(out.result).toBe("WARN");
+    // No rollback: the published row is left untouched.
+    expect(prisma.publishedContent.updateMany).not.toHaveBeenCalled();
+
+    globalThis.fetch = realFetch;
+  });
+
   it("emits WARN when the page loads but the title is missing", async () => {
     const realFetch = globalThis.fetch;
     globalThis.fetch = vi.fn(async () => ({
