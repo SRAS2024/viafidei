@@ -15,6 +15,15 @@ import type {
 const BASE_BACKOFF_MS = 60_000; // 1 min
 const MAX_BACKOFF_MS = 60 * 60_000; // 1h
 
+// A (kind, failedEntity) that ABANDONED recently is a proven dead-end for now
+// (e.g. a source that deterministically can't yield a required field, or a
+// content type with no newly-discoverable sources). Re-filing it immediately
+// just burns another maxAttempts cycle and re-abandons — the churn that pinned
+// the "Repair orchestrator FAIL" rating red. Suppress the re-file for this
+// cooldown; after it elapses (the source may have improved, or code changed) a
+// fresh attempt is allowed again.
+const ABANDON_REFILE_COOLDOWN_MS = 7 * 24 * 60 * 60_000; // 7 days
+
 function nextBackoff(attempts: number): Date {
   const delay = Math.min(BASE_BACKOFF_MS * 2 ** attempts, MAX_BACKOFF_MS);
   return new Date(Date.now() + delay);
@@ -32,9 +41,9 @@ export async function filePlan(
   prisma: PrismaClient,
   input: FilePlanInput,
 ): Promise<{ id: string }> {
-  // Coalesce: if there is already a PENDING / RUNNING plan for the same
-  // (kind, failedEntity), don't file a duplicate.
   if (input.failedEntity) {
+    // Coalesce: if there is already a PENDING / RUNNING plan for the same
+    // (kind, failedEntity), don't file a duplicate.
     const existing = await prisma.adminWorkerRepairPlan.findFirst({
       where: {
         kind: input.kind,
@@ -44,6 +53,21 @@ export async function filePlan(
       select: { id: true },
     });
     if (existing) return existing;
+    // Cooldown: if the same (kind, failedEntity) ABANDONED within the cooldown,
+    // it is a proven dead-end right now — don't re-file a fresh maxAttempts cycle
+    // that will only re-abandon. Return the abandoned plan so callers still get
+    // an id but no new attempt is queued.
+    const recentlyAbandoned = await prisma.adminWorkerRepairPlan.findFirst({
+      where: {
+        kind: input.kind,
+        failedEntity: input.failedEntity,
+        status: "ABANDONED",
+        updatedAt: { gte: new Date(Date.now() - ABANDON_REFILE_COOLDOWN_MS) },
+      },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true },
+    });
+    if (recentlyAbandoned) return recentlyAbandoned;
   }
   return prisma.adminWorkerRepairPlan.create({
     data: {

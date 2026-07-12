@@ -1995,7 +1995,24 @@ genuine problems, not stale assertions or "no work to do" states:
 - **Cross-source verifier** and **Strict QA** pass when there is **no eligible
   artifact work** (an empty build funnel is healthy — most content publishes via
   curated/structured ingest, which doesn't route through those stages); they warn
-  only when artifacts are actually waiting and not being processed.
+  only when artifacts are actually waiting and not being processed. **Strict QA**
+  further measures its pass rate over artifacts that remain **viable** — an
+  artifact QA correctly caught as junk and that was then terminally `REJECTED` is
+  QA _working_, so it is excluded from the rate rather than counted as a QA
+  failure (and small windows never hard-fail).
+- **Fetcher** measures **transport health**, not candidate quality: benign
+  policy rejections (unapproved host, login wall, binary/PDF, or a JS-only shell
+  the dynamic fetcher couldn't render) are the fetcher _correctly refusing_
+  unusable content and are excluded from the failure denominator. Only genuine
+  network / HTTP / timeout failures on approved hosts count — so the rating no
+  longer reads red merely because discovery surfaced off-registry or dynamic
+  candidates.
+- **Checklist + citation bridge** scores by **current backlog**, not lifetime
+  yield: the only artifacts the CHECKLIST_CREATION / CITATION_CREATION stage
+  still owes are those sitting at `CHECKLIST_READY` without a `checklistItemId`.
+  An empty backlog is caught-up (pass); a growing one is a genuine stall. The old
+  `bridged / all-artifacts-ever` ratio pinned this red forever once normal
+  web-extract rejects accumulated, even while the bridge worked perfectly.
 - **Source coverage** credits the always-available curated knowledge base, so a
   type is flagged "blocked by source coverage" only when it genuinely has **no
   way to produce content** (no curated entries AND too few primary sources) — not
@@ -2007,7 +2024,18 @@ genuine problems, not stale assertions or "no work to do" states:
 - **Repair orchestrator** measures repair failures in a **rolling 7-day window**
   (abandoned plans are terminal history that accumulates forever), and when a
   plan is abandoned its linked artifact is driven to a terminal `REJECTED` state
-  so it stops sitting in `NEEDS_REPAIR` limbo and inflating the backlog.
+  so it stops sitting in `NEEDS_REPAIR` limbo and inflating the backlog. Two
+  further fixes stop plans from _reaching_ abandonment needlessly: (1) an
+  `EXTRACT_FAILED` plan re-extracts the SAME stored read, which is deterministic
+  — so if a required field is missing once it is missing every time. Rather than
+  burn all `maxAttempts` reproducing the gap and then abandon, the handler now
+  resolves such a plan **terminally in one attempt** (rejecting the stuck
+  artifact so it leaves the funnel, and deferring the alternate source to
+  discovery), and curated-built types (GUIDE / MARIAN_TITLE) short-circuit like
+  PARISH. (2) `filePlan` will not **re-file** a `(kind, failedEntity)` that
+  ABANDONED within a 7-day cooldown, so a proven dead-end can't re-flood the
+  window with fresh maxAttempts cycles; after the cooldown a genuine retry is
+  allowed again.
 
 ### Code / version memory
 

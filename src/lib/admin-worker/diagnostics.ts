@@ -578,11 +578,13 @@ async function ratingStrictQa(prisma: PrismaClient): Promise<HealthRating> {
   // strict-QA record (written by the STRICT_QA stage).
   const now = new Date();
   const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
-  const [total, passed, latest, eligible] = await Promise.all([
-    prisma.adminWorkerStrictQAResult.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+  const [rows, latest, eligible] = await Promise.all([
     prisma.adminWorkerStrictQAResult
-      .count({ where: { createdAt: { gte: since }, status: "PASSED" } })
-      .catch(() => 0),
+      .findMany({
+        where: { createdAt: { gte: since } },
+        select: { packageArtifactId: true, status: true },
+      })
+      .catch(() => [] as Array<{ packageArtifactId: string; status: string }>),
     prisma.adminWorkerStrictQAResult
       .findFirst({ orderBy: { createdAt: "desc" } })
       .catch(() => null),
@@ -597,7 +599,7 @@ async function ratingStrictQa(prisma: PrismaClient): Promise<HealthRating> {
   // WAITING and not being QA'd. With an empty build funnel (all published or
   // rerouted upstream), no results is the correct, healthy state — publishing
   // 3400+ items via curated/structured ingest does not route through this stage.
-  if (total === 0) {
+  if (rows.length === 0) {
     const stalled = eligible > 0;
     return {
       key: "admin_worker_strict_qa",
@@ -616,8 +618,45 @@ async function ratingStrictQa(prisma: PrismaClient): Promise<HealthRating> {
     };
   }
 
+  // A strict-QA non-pass that ended with the artifact TERMINALLY REJECTED is QA
+  // WORKING — it correctly caught junk (arbitrary web extraction always yields
+  // some). Counting those against the pass rate kept this rating amber even when
+  // QA was doing exactly its job. HEALTH = pass rate among artifacts QA
+  // evaluated that remain VIABLE (not terminally rejected); the volume of junk
+  // upstream is the extractors' rating, not QA's. (There is no Prisma relation
+  // from the result to the artifact, so resolve REJECTED ids in a second read.)
+  const ids = Array.from(new Set(rows.map((r) => r.packageArtifactId)));
+  const rejectedIds = new Set(
+    (
+      await prisma.adminWorkerPackageArtifact
+        .findMany({ where: { id: { in: ids }, status: "REJECTED" }, select: { id: true } })
+        .catch(() => [] as Array<{ id: string }>)
+    ).map((a) => a.id),
+  );
+  const viable = rows.filter((r) => !rejectedIds.has(r.packageArtifactId));
+  const total = viable.length;
+  const passed = viable.filter((r) => r.status === "PASSED").length;
+
+  if (total === 0) {
+    // Every artifact QA saw was correctly rejected as junk — QA gating working.
+    return {
+      key: "admin_worker_strict_qa",
+      label: "Strict QA (AdminWorkerStrictQAResult)",
+      status: "pass",
+      score: 1,
+      lastCheckedAt: now,
+      dataSource: "AdminWorkerStrictQAResult (last 7d)",
+      latestSuccess: latest?.createdAt,
+      summary: `All ${rows.length} strict-QA result(s) in last 7d were on artifacts since rejected as junk — QA gating is working.`,
+    };
+  }
+
   const passRate = passed / total;
-  const status: HealthStatus = passRate >= 0.7 ? "pass" : passRate >= 0.4 ? "warn" : "fail";
+  // Small windows are noisy — a couple of not-yet-repaired artifacts must not
+  // hard-FAIL the rating; cap at warn until there are enough viable artifacts.
+  const status: HealthStatus =
+    passRate >= 0.7 ? "pass" : passRate >= 0.4 || total < 5 ? "warn" : "fail";
+  const rejectedCount = rows.length - total;
   return {
     key: "admin_worker_strict_qa",
     label: "Strict QA (AdminWorkerStrictQAResult)",
@@ -626,10 +665,12 @@ async function ratingStrictQa(prisma: PrismaClient): Promise<HealthRating> {
     lastCheckedAt: now,
     dataSource: "AdminWorkerStrictQAResult (last 7d)",
     latestSuccess: latest?.createdAt,
-    summary: `${passed}/${total} artifacts passed strict QA (${Math.round(passRate * 100)}%); latest finalScore=${latest?.finalScore.toFixed(2) ?? "?"}.`,
+    summary:
+      `${passed}/${total} viable artifacts passed strict QA (${Math.round(passRate * 100)}%)` +
+      `${rejectedCount > 0 ? `; ${rejectedCount} correctly rejected as junk (excluded)` : ""}; latest finalScore=${latest?.finalScore.toFixed(2) ?? "?"}.`,
     recommendedRepair:
       status === "fail"
-        ? "Investigate strict-QA blocking reasons; review NEEDS_REPAIR artifacts."
+        ? "Investigate strict-QA blocking reasons; review NEEDS_REPAIR artifacts so they are repaired or terminally rejected."
         : undefined,
   };
 }
@@ -794,33 +835,52 @@ async function ratingExtractors(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingChecklistBridge(prisma: PrismaClient): Promise<HealthRating> {
-  // Spec §13: checklist + citation bridge — artifacts with a
-  // checklistItemId have been promoted to checklist items.
+  // Spec §13: checklist + citation bridge — the CHECKLIST_CREATION /
+  // CITATION_CREATION stage promotes CHECKLIST_READY artifacts to BUILD_READY
+  // and stamps `checklistItemId` (checklist-citation-orchestrator.ts).
+  //
+  // HEALTH = is the bridge KEEPING UP, not a lifetime funnel-yield. The old
+  // metric was `bridged / ALL artifacts ever`, so every historical REJECTED junk
+  // artifact and every stuck EXTRACTED row sat permanently in the denominator
+  // yet could never be bridged — pinning this red forever once normal web-extract
+  // rejects accumulated, even while the bridge stage worked perfectly. (Same
+  // trap already corrected for content-goals + the repair orchestrator.)
+  //
+  // The only artifacts the bridge still OWES are those sitting at CHECKLIST_READY
+  // without a checklistItemId — exactly the backlog the BUILD_READY drain targets
+  // every pass. An empty backlog means the bridge is caught up (healthy); a
+  // growing one means it is genuinely stalled. REJECTED / EXTRACTED / NEEDS_REPAIR
+  // never reach the bridge and must not count against it.
   const now = new Date();
-  const [total, bridged] = await Promise.all([
-    prisma.adminWorkerPackageArtifact.count().catch(() => 0),
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60_000);
+  const [waitingUnbridged, bridgedTotal, bridgedRecent] = await Promise.all([
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { status: "CHECKLIST_READY", checklistItemId: null } })
+      .catch(() => 0),
     prisma.adminWorkerPackageArtifact
       .count({ where: { checklistItemId: { not: null } } })
       .catch(() => 0),
+    prisma.adminWorkerPackageArtifact
+      .count({ where: { checklistItemId: { not: null }, updatedAt: { gte: since } } })
+      .catch(() => 0),
   ]);
-  const rate = total === 0 ? 0 : bridged / total;
   const status: HealthStatus =
-    total === 0 ? "warn" : rate >= 0.6 ? "pass" : rate >= 0.3 ? "warn" : "fail";
+    waitingUnbridged === 0 ? "pass" : waitingUnbridged > 25 ? "fail" : "warn";
   return {
     key: "admin_worker_checklist_bridge",
     label: "Checklist + citation bridge",
     status,
     score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
     lastCheckedAt: now,
-    dataSource: "AdminWorkerPackageArtifact.checklistItemId",
+    dataSource: "AdminWorkerPackageArtifact.checklistItemId + status",
     summary:
-      total === 0
-        ? "No package artifacts to bridge yet."
-        : `${bridged}/${total} artifacts bridged to ChecklistItem (${Math.round(rate * 100)}%).`,
+      waitingUnbridged === 0
+        ? `Bridge caught up: ${bridgedTotal} artifact(s) bridged to ChecklistItem (${bridgedRecent} in last 7d); none awaiting.`
+        : `${waitingUnbridged} artifact(s) at CHECKLIST_READY awaiting the bridge (${bridgedTotal} already bridged).`,
     recommendedRepair:
-      status === "fail"
-        ? "Run the CHECKLIST_CREATION / CITATION_CREATION dispatcher stages."
-        : undefined,
+      status === "pass"
+        ? undefined
+        : "Run the CHECKLIST_CREATION / CITATION_CREATION dispatcher stages (or the BUILD_READY drain) to bridge the waiting CHECKLIST_READY artifacts.",
   };
 }
 
@@ -992,18 +1052,60 @@ async function ratingMissionPlanner(prisma: PrismaClient): Promise<HealthRating>
   };
 }
 
+// errorClass values that are the fetcher CORRECTLY refusing off-policy or
+// unusable content, NOT a transport failure: a candidate on an unapproved host,
+// a login wall, a binary, an unreadable/oversized PDF, or a JS-only shell the
+// (graceful-optional) dynamic fetcher couldn't render. The old rate counted
+// these as "fetch failures" alongside real network errors, so the Fetcher
+// rating read red whenever discovery surfaced lots of off-registry / dynamic
+// candidates — conflating "the pipeline is broken" with "the URLs were junk".
+const FETCH_POLICY_REJECTIONS = [
+  "INVALID_URL",
+  "UNAPPROVED_HOST",
+  "BINARY_REJECTED",
+  "PDF_TOO_LARGE",
+  "PDF_UNREADABLE",
+  "PDF_READ_FAILED",
+  "TOO_SMALL",
+  "TOO_LARGE_NO_STRUCTURE",
+  "LOGIN_PAGE",
+];
+
 async function ratingFetcher(prisma: PrismaClient): Promise<HealthRating> {
   const now = new Date();
   const since = new Date(now.getTime() - 24 * 60 * 60_000);
-  const [recent, succeeded] = await Promise.all([
+  const [total, succeeded, policyRejected] = await Promise.all([
     prisma.adminWorkerFetchResult.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
     prisma.adminWorkerFetchResult
       .count({ where: { createdAt: { gte: since }, succeeded: true } })
       .catch(() => 0),
+    prisma.adminWorkerFetchResult
+      .count({
+        where: {
+          createdAt: { gte: since },
+          succeeded: false,
+          errorClass: { in: FETCH_POLICY_REJECTIONS },
+        },
+      })
+      .catch(() => 0),
   ]);
-  const rate = recent === 0 ? 0 : succeeded / recent;
+  // Transport health = of the fetches that SHOULD have worked (approved host,
+  // usable content), what fraction actually retrieved a response. Benign policy
+  // rejections are excluded from the denominator — the fetcher refusing junk is
+  // it WORKING, not failing. What remains is genuine transport (network / HTTP /
+  // timeout) failure, which is what "check approved hosts and rate limits" means.
+  const attempted = Math.max(0, total - policyRejected);
+  const rate = attempted === 0 ? 1 : succeeded / attempted;
   const status: HealthStatus =
-    recent === 0 ? "warn" : rate >= 0.8 ? "pass" : rate >= 0.5 ? "warn" : "fail";
+    total === 0
+      ? "warn"
+      : attempted === 0
+        ? "pass" // every row was a benign policy rejection — transport is fine
+        : rate >= 0.8
+          ? "pass"
+          : rate >= 0.5
+            ? "warn"
+            : "fail";
   return {
     key: "admin_worker_fetcher",
     label: "Fetcher",
@@ -1012,14 +1114,15 @@ async function ratingFetcher(prisma: PrismaClient): Promise<HealthRating> {
     lastCheckedAt: now,
     dataSource: "AdminWorkerFetchResult (last 24h)",
     summary:
-      recent === 0
+      total === 0
         ? "No fetch attempts in last 24h."
-        : `${succeeded}/${recent} fetches succeeded (${Math.round(rate * 100)}%).`,
+        : `${succeeded}/${attempted} genuine fetches succeeded (${Math.round(rate * 100)}%)` +
+          `${policyRejected > 0 ? `; ${policyRejected} off-policy/unusable candidate(s) skipped` : ""}.`,
     recommendedRepair:
       status === "fail"
-        ? "Investigate fetch failures; check approved hosts and rate limits."
+        ? "Transport is failing on approved hosts — check egress/proxy reachability, host bot-blocks (403), and rate limits."
         : status === "warn"
-          ? "Schedule a discovery pass to surface new candidates."
+          ? "Some fetches on approved hosts are failing — check egress/proxy and rate limits."
           : undefined,
   };
 }

@@ -30,7 +30,11 @@
 
 import type { AdminWorkerRepairKind, AdminWorkerRepairPlan, PrismaClient } from "@prisma/client";
 
-import { isExtractableContentType, STRUCTURED_BUILT_CONTENT_TYPES } from "./content-types";
+import {
+  CURATED_BUILT_CONTENT_TYPES,
+  isExtractableContentType,
+  STRUCTURED_BUILT_CONTENT_TYPES,
+} from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
 
 export interface RepairOrchestratorOutcome {
@@ -498,6 +502,46 @@ interface RepairSourceRead {
 }
 
 /**
+ * Drive any artifact still stuck PRE-FUNNEL (EXTRACTED / NEEDS_REPAIR) on a
+ * deterministically-unrepairable EXTRACT_FAILED plan to terminal REJECTED, so it
+ * leaves the funnel instead of lingering forever (host-scoped dispatcher plans
+ * previously left their artifact at EXTRACTED indefinitely, invisible to the
+ * drain). Matches by the plan's read, its metadata `artifactId`, and an
+ * artifact-shaped `failedEntity`, so it covers both the drain (artifact-scoped)
+ * and dispatcher (host-scoped) plan shapes. Also deboosts the source so the
+ * ranker prefers an alternate next time. Fail-open; returns artifacts rejected.
+ */
+async function terminalizeStuckArtifacts(
+  prisma: PrismaClient,
+  plan: AdminWorkerRepairPlan,
+  read: RepairSourceRead | null,
+  why: string,
+): Promise<number> {
+  const artifactId = readPlanMetaString(plan, "artifactId");
+  const or: Array<Record<string, string>> = [];
+  if (read) or.push({ sourceReadId: read.id });
+  if (artifactId) or.push({ id: artifactId });
+  if (plan.failedEntity && !isLikelyHost(plan.failedEntity)) or.push({ id: plan.failedEntity });
+  if (or.length === 0) return 0;
+  const terminated = await prisma.adminWorkerPackageArtifact
+    .updateMany({
+      where: { status: { in: ["EXTRACTED", "NEEDS_REPAIR"] }, OR: or },
+      data: { status: "REJECTED", rejectionReason: `repair closed: ${why}`.slice(0, 480) },
+    })
+    .catch(() => ({ count: 0 }));
+  if (read?.sourceHost) {
+    const { pushReputation } = await import("./source-reputation-hooks");
+    await pushReputation(prisma, {
+      sourceHost: read.sourceHost,
+      contentType: read.detectedContentType ?? undefined,
+      stage: "extraction",
+      ok: false,
+    }).catch(() => undefined);
+  }
+  return terminated?.count ?? 0;
+}
+
+/**
  * Resolve the source read a CLASSIFY/EXTRACT repair should re-run against.
  * Prefers the `sourceReadId` recorded on the plan's metadata; falls back to
  * the artifact recorded on the metadata (`artifactId` — the shape the
@@ -806,6 +850,24 @@ async function executePlan(
           reason: `${read.detectedContentType} is structured-feed-built (not web-extracted) — repair closed; grows via its ingest lane.`,
         };
       }
+      // Curated-built types (GUIDE, MARIAN_TITLE) rarely yield a complete,
+      // publishable record from a scraped web page — the same deterministic
+      // dead-end as PARISH. Re-extracting the stored read can't invent the
+      // missing curated fields, so resolve terminally instead of burning
+      // maxAttempts toward an abandon (another driver of the Repair-orchestrator
+      // FAIL). These types grow from their curated builders, not web extraction.
+      if (read && CURATED_BUILT_CONTENT_TYPES.has(read.detectedContentType ?? "")) {
+        await terminalizeStuckArtifacts(
+          prisma,
+          plan,
+          read,
+          "curated-built type not web-extractable",
+        );
+        return {
+          ok: true,
+          reason: `${read.detectedContentType} is curated-built (not reliably web-extracted) — repair closed; grows via its curated builder.`,
+        };
+      }
       if (read && isExtractableContentType(read.detectedContentType)) {
         const { extractByType } = await import("./extractors");
         const { buildContentPackage } = await import("./content-builder");
@@ -882,14 +944,32 @@ async function executePlan(
           /* fall through to deferred recovery */
         }
       }
+      // Deterministic dead-end. Re-extracting the SAME stored read + blocks is a
+      // pure function of immutable bytes: if a required field is missing on this
+      // attempt, every retry reproduces the identical gap and the plan ABANDONS
+      // after maxAttempts — the dominant driver of the "Repair orchestrator FAIL"
+      // rating. There is nothing to retry, so resolve the plan TERMINALLY in one
+      // attempt: record the pattern, terminalize the stuck artifact so it leaves
+      // the funnel (covering the host-scoped plans whose artifact previously
+      // lingered at EXTRACTED forever), and deboost the source. Pulling the field
+      // from a DIFFERENT source is new discovery/extraction work, not a retry of
+      // this dead read — so this closes as resolved (ok), never as a failure.
       const { rememberFailurePattern } = await import("./memory");
       await rememberFailurePattern(prisma, {
         patternKey: `${plan.kind}|${plan.failedEntity ?? "unknown"}`,
         details: { plan: plan.id, sourceReadId: readPlanMetaString(plan, "sourceReadId") },
       }).catch(() => undefined);
+      const rejected = await terminalizeStuckArtifacts(
+        prisma,
+        plan,
+        read,
+        "source deterministically lacks required fields (re-extraction incomplete)",
+      );
       return {
-        ok: false,
-        reason: "re-extraction could not recover required fields — deferring to another source",
+        ok: true,
+        reason:
+          `re-extraction from the stored source could not recover required fields — repair closed terminally` +
+          `${rejected > 0 ? `; ${rejected} artifact(s) rejected` : ""}; an alternate source is pursued by discovery, not by retrying this read.`,
       };
     }
     case "QA_MISSING_FIELDS": {
