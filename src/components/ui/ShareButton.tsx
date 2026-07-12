@@ -59,9 +59,16 @@ export function ShareButton({ title, text, url, className }: Props) {
   async function onShare() {
     if (typeof window === "undefined") return;
     const shareUrl = url ?? window.location.href;
+    // Share ONLY the URL (plus a title for the share-sheet / mail subject).
+    // Deliberately DO NOT pass `text`: iOS Messages puts `text` into the message
+    // body as a SEPARATE bubble on top of the rich link preview, whereas the URL
+    // alone renders as just the beautifully-designed Open Graph card. `title` is
+    // used by the OS share sheet (and Mail as a subject) but is not added to the
+    // Messages body, so the recipient sees only the link card. (`text` is kept as
+    // a prop for API compatibility but is intentionally not sent.)
+    void text;
     const data: ShareData = {
       title,
-      text: text ?? title,
       url: shareUrl,
     };
     setPending(true);
