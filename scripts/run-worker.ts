@@ -37,6 +37,10 @@ import { runAdminWorkerLoop, runMonthlyReportJobIfDue } from "../src/lib/admin-w
 import { ensureBrainStarted, shutdownBrain } from "../src/lib/admin-worker/intelligence";
 import { reapStaleRunningPasses } from "../src/lib/admin-worker/passes";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
+import {
+  installProcessSafetyNet,
+  runLoopSupervised,
+} from "../src/lib/admin-worker/worker-supervisor";
 import { prisma } from "../src/lib/db/client";
 
 function parseArgs(argv: string[]): {
@@ -72,6 +76,31 @@ async function main() {
   };
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+  // Install the process-level safety net BEFORE anything else runs, so a stray
+  // throw during startup or in the loop can never silently kill the worker.
+  // (The worker is a bare `tsx` process; the Next-runtime handlers in
+  // instrumentation.ts never load here — see worker-supervisor.ts.)
+  installProcessSafetyNet({
+    workerId: args.workerId,
+    register: (event, handler) => process.on(event, handler as never),
+    errorLog: (m) => console.error(m),
+    onEvent: (kind, detail) =>
+      writeAdminWorkerLog(prisma, {
+        category: "ERROR",
+        severity: "ERROR",
+        eventName: `worker_${kind}`,
+        message: `Process-level ${kind} caught; worker kept alive: ${detail.slice(0, 480)}`,
+      }).then(() => undefined),
+    onAlert: (kind, detail) =>
+      import("../src/lib/email/admin-send").then(({ sendCriticalFailureAlert }) =>
+        sendCriticalFailureAlert({
+          kind: `Admin Worker ${kind} (process kept alive by safety net)`,
+          message: detail.slice(0, 1000),
+          context: { workerId: args.workerId },
+        }).then(() => undefined),
+      ),
+  });
 
   try {
     console.log(
@@ -189,12 +218,31 @@ async function main() {
       console.error(`[admin-worker:${args.workerId}] startup escalation check failed:`, err);
     }
 
-    const result = await runAdminWorkerLoop(prisma, {
+    // Supervised: in continuous mode the loop is re-entered after a bounded
+    // backoff if its machinery ever throws, so the worker self-heals in-process
+    // rather than exiting the container (whose restart policy may back off).
+    const maxPasses = args.maxJobs ?? Infinity;
+    await runLoopSupervised({
       workerId: args.workerId,
       oneShot: args.oneShot,
-      maxPasses: args.maxJobs ?? Infinity,
+      maxPasses,
+      runLoop: () =>
+        runAdminWorkerLoop(prisma, {
+          workerId: args.workerId,
+          oneShot: args.oneShot,
+          maxPasses,
+        }),
+      isShuttingDown: () => shuttingDown,
+      log: (m) => console.log(m),
+      errorLog: (m) => console.error(m),
+      onLoopRestart: (detail) =>
+        writeAdminWorkerLog(prisma, {
+          category: "ERROR",
+          severity: "ERROR",
+          eventName: "worker_loop_restart",
+          message: `Admin Worker loop threw and was restarted in-process: ${detail.slice(0, 480)}`,
+        }).then(() => undefined),
     });
-    console.log(`[admin-worker:${args.workerId}] result:`, result);
   } finally {
     shutdownBrain();
     await prisma.$disconnect();

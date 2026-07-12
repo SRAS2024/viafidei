@@ -151,6 +151,16 @@ export function resetBrainStatus(): void {
   _cache.clear();
 }
 
+/**
+ * Test-only accessor for the live brain child process. Lets a resilience test
+ * assert that the stdio pipes carry an 'error' listener (so an EPIPE/EIO from a
+ * dying brain can never crash the worker) without exposing the process to
+ * production callers.
+ */
+export function __getBrainProcForTest(): ChildProcessWithoutNullStreams | null {
+  return _proc;
+}
+
 /** Ensure the long-lived brain process is running; returns it or null. */
 function ensureProc(): ChildProcessWithoutNullStreams | null {
   if (_proc && _proc.exitCode === null && !_proc.killed) return _proc;
@@ -225,7 +235,19 @@ function ensureProc(): ChildProcessWithoutNullStreams | null {
       markDown(`spawn error: ${e.message}`);
       handleGone(null, null);
     });
-    child.stdin.on("error", () => undefined); // swallow EPIPE on a dying child
+    // Swallow pipe errors on ALL THREE stdio streams. A Node stream that emits
+    // 'error' with no listener THROWS, and in a bare worker process (no
+    // uncaughtException net — instrumentation.ts is gated to the Next runtime)
+    // that terminates the whole worker, "cleanly between passes," with no
+    // catchable error and no restart. When the Python brain dies abruptly the
+    // OS pipe backing stdout/stderr can emit EPIPE/EIO — previously only stdin
+    // was guarded, so a stdout/stderr error killed the worker. `handleGone`
+    // (child 'exit'/'error') already fails pending calls and clears `_proc` so
+    // the next call respawns; these listeners just stop the dying pipe from
+    // crashing the process.
+    child.stdin.on("error", () => undefined);
+    child.stdout.on("error", () => undefined);
+    child.stderr.on("error", () => undefined);
 
     _proc = child;
     _restarts += 1;
@@ -352,6 +374,11 @@ export async function probeBrain(
       }, timeoutMs);
       child.stdout.on("data", (d) => (buf += d.toString()));
       child.stderr.on("data", (d) => (errBuf += d.toString()));
+      // Guard the stdio pipes too (see ensureProc): an unhandled stream
+      // 'error' on the probe child would otherwise crash the worker.
+      child.stdout.on("error", () => undefined);
+      child.stderr.on("error", () => undefined);
+      if (child.stdin) child.stdin.on("error", () => undefined);
       child.on("error", (e) => {
         clearTimeout(timer);
         reject(e);

@@ -61,6 +61,7 @@ export {
   resolveBrainRoot,
   ensureBrainStarted,
   shutdownBrain,
+  __getBrainProcForTest,
 } from "./client";
 export type { CallOpts } from "./client";
 export * from "./store";
