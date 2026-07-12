@@ -62,6 +62,32 @@ function renderTimeoutMs(): number {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_TIMEOUT_MS;
 }
 
+// ── Concurrency cap ──────────────────────────────────────────────────────────
+// Each renderPage launches a FULL headless Chromium. Nothing else bounds how
+// many run at once, so N concurrent worker lanes could fan out N browsers and
+// spike memory into an OS OOM-kill of the whole worker (SIGKILL — uncatchable
+// in JS, the credible cause of a worker dying between passes with no error).
+// A hand-off semaphore caps concurrent renders (default 1; env-tunable).
+let activeRenders = 0;
+const renderWaiters: Array<() => void> = [];
+function maxConcurrentRenders(): number {
+  const n = Number((process.env.ADMIN_WORKER_DYNAMIC_FETCHER_CONCURRENCY ?? "").trim());
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+}
+async function acquireRenderSlot(): Promise<void> {
+  if (activeRenders < maxConcurrentRenders()) {
+    activeRenders += 1;
+    return;
+  }
+  await new Promise<void>((resolve) => renderWaiters.push(resolve));
+  // Slot handed directly from releaseRenderSlot (activeRenders left unchanged).
+}
+function releaseRenderSlot(): void {
+  const next = renderWaiters.shift();
+  if (next) next();
+  else activeRenders = Math.max(0, activeRenders - 1);
+}
+
 /**
  * Resolve the Chromium executable, in priority order:
  *   1. `ADMIN_WORKER_CHROMIUM_PATH` (explicit operator override), if it exists.
@@ -101,9 +127,22 @@ export async function dynamicFetcherAvailable(): Promise<boolean> {
   return availabilityCache;
 }
 
-/** Test hook: clear the memoised availability probe. */
+/** Test hook: clear the memoised availability probe + release any held slots. */
 export function __resetDynamicFetcherCache(): void {
   availabilityCache = null;
+  activeRenders = 0;
+  renderWaiters.length = 0;
+}
+
+// Test-only injection seam for the Chromium launcher. Production ALWAYS resolves
+// the launcher by importing Playwright lazily (below); this stays null. Tests
+// inject a controllable fake so the concurrency cap, hard-timeout, and teardown
+// logic can be exercised deterministically without a real browser — and without
+// depending on the test runner intercepting the dynamic import of an external
+// native module (Playwright), which it does not do reliably.
+let chromiumLauncherForTest: ChromiumLauncher | null = null;
+export function __setChromiumLauncherForTest(launcher: ChromiumLauncher | null): void {
+  chromiumLauncherForTest = launcher;
 }
 
 /**
@@ -154,19 +193,55 @@ export async function renderPage(
   // Defence-in-depth: never render an unapproved host even if a caller slips.
   if (!isFetchableHost(host)) return null;
 
-  let pw: unknown;
-  try {
-    pw = await import("playwright");
-  } catch {
-    availabilityCache = false;
-    return null;
+  let chromium: ChromiumLauncher | undefined = chromiumLauncherForTest ?? undefined;
+  if (!chromium) {
+    let pw: unknown;
+    try {
+      pw = await import("playwright");
+    } catch {
+      availabilityCache = false;
+      return null;
+    }
+    chromium = (pw as { chromium?: ChromiumLauncher }).chromium;
   }
-  const chromium = (pw as { chromium?: ChromiumLauncher }).chromium;
   if (!chromium) return null;
 
   const timeoutMs = opts.timeoutMs ?? renderTimeoutMs();
+  // Hard wall-clock cap over the WHOLE render. Only page.goto/waitForLoadState
+  // take a per-call timeout; launch()/newContext()/newPage()/content() do not,
+  // so a wedged Chromium (which is what a memory-pressured/zombie browser
+  // becomes) would hang renderPage forever — holding a concurrency slot and
+  // leaking the subprocess. The cap covers launch + navigate + settle + content
+  // with headroom over the navigation timeout (env-overridable).
+  const hardCapMs = (() => {
+    const n = Number((process.env.ADMIN_WORKER_DYNAMIC_FETCHER_HARD_CAP_MS ?? "").trim());
+    return Number.isFinite(n) && n > 0 ? n : timeoutMs + 20_000;
+  })();
+
+  await acquireRenderSlot();
   let browser: PwBrowser | null = null;
-  try {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  // Tear the browser down HARD: bound close() (a wedged browser can hang it
+  // forever), then SIGKILL the underlying Chromium process as a fallback so we
+  // never accumulate zombie browsers across many fetches (the OOM path). Safe
+  // to call more than once.
+  const teardown = async (): Promise<void> => {
+    const b = browser;
+    if (!b) return;
+    browser = null;
+    await Promise.race([
+      b.close().catch(() => undefined),
+      new Promise<void>((r) => setTimeout(r, 5_000).unref?.()),
+    ]);
+    try {
+      b.process?.()?.kill?.("SIGKILL");
+    } catch {
+      /* already gone */
+    }
+  };
+
+  const core = (async (): Promise<DynamicRenderResult | null> => {
     browser = await chromium.launch({
       headless: true,
       executablePath: chromiumExecutablePath(),
@@ -179,16 +254,24 @@ export async function renderPage(
         ...(opts.extraLaunchArgs ?? []),
       ],
     });
+    // A browser EventEmitter emitting 'disconnected'/'error' with no listener
+    // would throw and, in the bare worker process (no uncaughtException net),
+    // crash it. A no-op listener makes the event harmless.
+    browser.on?.("disconnected", () => undefined);
     const context = await browser.newContext({
       userAgent: opts.userAgent ?? USER_AGENT,
       javaScriptEnabled: true,
     });
     const page = await context.newPage();
     // Skip heavy assets we never read — faster, lighter, less likely to hang.
+    // route.abort()/continue() reject if the page is torn down mid-flight; that
+    // rejection is NOT awaited by Playwright, so swallow it here or it becomes
+    // an unhandledRejection that crashes the worker.
     await page.route("**/*", (route: PwRoute) => {
       const type = route.request().resourceType();
-      if (type === "image" || type === "media" || type === "font") return route.abort();
-      return route.continue();
+      const p =
+        type === "image" || type === "media" || type === "font" ? route.abort() : route.continue();
+      void Promise.resolve(p).catch(() => undefined);
     });
     const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     // Let client-side rendering settle, capped so a long-polling page can't hang us.
@@ -201,10 +284,25 @@ export async function renderPage(
     const trimmed =
       Buffer.byteLength(html, "utf8") > MAX_RENDER_BYTES ? html.slice(0, MAX_RENDER_BYTES) : html;
     return { html: trimmed, finalUrl, httpStatus };
+  })();
+
+  // Whenever core settles — including LATE, after a hard-timeout already made us
+  // return null — tear the browser down. Observing core here also means its
+  // rejection is always handled (never an unhandledRejection).
+  void core.finally(() => teardown()).catch(() => undefined);
+
+  try {
+    return await Promise.race([
+      core,
+      new Promise<null>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("renderPage hard timeout")), hardCapMs);
+      }),
+    ]);
   } catch {
     return null;
   } finally {
-    if (browser) await browser.close().catch(() => undefined);
+    if (timer) clearTimeout(timer);
+    releaseRenderSlot();
   }
 }
 
@@ -234,6 +332,12 @@ interface PwContext {
 interface PwBrowser {
   newContext(opts: { userAgent: string; javaScriptEnabled: boolean }): Promise<PwContext>;
   close(): Promise<void>;
+  // Optional in this structural view: real Playwright browsers expose both, but
+  // test doubles may not. `on` lets us silence stray 'disconnected'/'error'
+  // events; `process()` gives the underlying child so teardown can SIGKILL a
+  // wedged Chromium that close() can't reap.
+  on?(event: string, handler: (...args: unknown[]) => void): void;
+  process?(): { kill?(signal?: string): void } | null;
 }
 interface ChromiumLauncher {
   launch(opts: {

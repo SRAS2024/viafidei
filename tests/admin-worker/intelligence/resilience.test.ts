@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  __getBrainProcForTest,
   brainStatus,
   callBrain,
   iqMetrics,
@@ -203,5 +204,31 @@ describe("bridge resilience — real brain", () => {
     const envs = await Promise.all(calls);
     expect(envs.every((e) => e != null && e.ok)).toBe(true);
     expect(envs).toHaveLength(12);
+  });
+
+  it("stdio pipes carry an 'error' listener so a dying brain's EPIPE can't crash the worker", async () => {
+    if (!brainOnline) return;
+    // Start the resident brain.
+    const env = await iqMetrics({ duplicatesPrevented: 1, duplicateCandidates: 2 });
+    expect(env).not.toBeNull();
+    const child = __getBrainProcForTest();
+    expect(child).not.toBeNull();
+
+    // Regression for the 2026-07-12 silent worker death: ALL THREE stdio streams
+    // must carry an 'error' listener. A Node stream that emits 'error' with no
+    // listener THROWS, and in the bare worker process (no uncaughtException net —
+    // instrumentation.ts is gated to the Next runtime) that terminates the whole
+    // worker "cleanly between passes". Previously only stdin was guarded.
+    expect(child!.stdout.listenerCount("error")).toBeGreaterThan(0);
+    expect(child!.stderr.listenerCount("error")).toBeGreaterThan(0);
+    expect(child!.stdin.listenerCount("error")).toBeGreaterThan(0);
+
+    // Emitting the pipe error must be swallowed (never thrown) …
+    expect(() => child!.stdout.emit("error", new Error("EPIPE"))).not.toThrow();
+    expect(() => child!.stderr.emit("error", new Error("EIO"))).not.toThrow();
+
+    // … and the brain still answers on the next call — the worker survived.
+    const after = await iqMetrics({ duplicatesPrevented: 2, duplicateCandidates: 3 });
+    expect(after).not.toBeNull();
   });
 });

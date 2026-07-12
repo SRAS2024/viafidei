@@ -1598,6 +1598,45 @@ poisoning that state (the developer audit had found a pass orphaned
   recent decision". The Command Center's Recent Passes table flags any
   stuck `RUNNING` row in rose before the reaper closes it.
 
+#### Keeping the process itself alive
+
+The three guarantees above assume the Node process is still running. The
+2026-07-12 audit showed it wasn't: the worker died "cleanly between passes"
+and stayed dark for ~28 h. The worker is a bare `tsx` process, so the
+`uncaughtException`/`unhandledRejection` handlers in `src/instrumentation.ts`
+(gated to `NEXT_RUNTIME === "nodejs"`) never load for it — **any** stray
+process-level throw terminated it silently with no catchable error and no
+restart. Four layers now prevent that (`worker-supervisor.ts`,
+`intelligence/client.ts`, `dynamic-fetcher.ts`):
+
+- **Process-level safety net.** `installProcessSafetyNet` registers
+  `uncaughtException`/`unhandledRejection` handlers that convert a fatal,
+  silent exit into a loud, survivable event — console + audit-log + a
+  throttled (15-min) critical-failure email — and **keep the process alive**.
+  Safe because every pass re-reads all state from Postgres, so no in-memory
+  invariant can be corrupted across passes by a single stray throw.
+- **Supervisor restart.** In continuous mode `runLoopSupervised` re-enters
+  `runAdminWorkerLoop` after a bounded exponential backoff (2s → 60s cap) if
+  the loop **machinery itself** throws or returns unexpectedly, so the worker
+  self-heals in-process rather than exiting the container (whose restart
+  policy may back off or give up). One-shot / `--max-jobs` runs still execute
+  exactly once and propagate errors.
+- **Brain stdio never crashes the worker.** The resident Python brain is a
+  long-lived child; a Node stream that emits `'error'` with no listener
+  throws. When the brain dies abruptly the OS pipe can emit `EPIPE`/`EIO` on
+  stdout/stderr, so **all three** stdio streams (not just stdin) now carry an
+  `'error'` swallow — the dying pipe can't take the worker with it.
+- **Headless-Chromium OOM prevention.** The dynamic fetcher launches a full
+  Chromium per render; unbounded, N concurrent lanes could fan out N browsers
+  and trip an OS OOM-kill (SIGKILL — uncatchable in JS, a credible cause of a
+  silent death and the `LOOPING SOURCE_FETCH` escalation). `renderPage` now
+  bounds concurrent renders with a hand-off semaphore (default 1, env
+  `ADMIN_WORKER_DYNAMIC_FETCHER_CONCURRENCY`), enforces a hard wall-clock cap
+  over the whole render (`ADMIN_WORKER_DYNAMIC_FETCHER_HARD_CAP_MS`) so a
+  wedged browser can't hang forever holding a slot, and tears each browser
+  down hard — bounded `close()` then `SIGKILL` of the underlying process — so
+  zombie browsers never accumulate.
+
 The Command Center also surfaces productivity at a glance: a **Pending
 builds** stat (built artifacts awaiting QA/publish, with the QA-passed and
 needs-repair split) and, when the worker is live but built artifacts are
