@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
@@ -74,6 +74,16 @@ export const metadata: Metadata = {
   manifest: "/site.webmanifest",
   robots: { index: true, follow: true },
 };
+
+// Match the mobile browser chrome (iOS status-bar / address-bar area) to the
+// resolved theme's page background, so dark mode doesn't leave a light "strip"
+// at the very top of the screen. Driven by the SAME theme cookie that sets
+// `data-theme`, so it is exact whether the theme came from the system or an
+// in-app toggle. `#fbf8f1` / `#2e2e2e` are the light / dark `--paper` values.
+export async function generateViewport(): Promise<Viewport> {
+  const theme = await getThemeCookieValue();
+  return { themeColor: theme === "dark" ? "#2e2e2e" : "#fbf8f1" };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();

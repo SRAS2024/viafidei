@@ -86,6 +86,15 @@
     --liturgical-gold-rgb: 182 141 64;
     --liturgical-red-rgb: 224 112 112;
 
+    /* Filled BLUE action buttons (primary CTA, selected filters) stay BLUE in
+       dark mode — a touch LIGHTER than the light-theme navy so they read clearly
+       on the charcoal surface. The purple accent tokens above intentionally
+       drive links / nav / borders (the dark look is unchanged); only the solid
+       "affirmative action" buttons are blue, matching how they look in light
+       mode instead of the washed translucent purple they used to be. */
+    --btn-blue: #5b82d6;
+    --btn-blue-hover: #7098e4;
+
     /* Extended dark-mode design tokens (charcoal surfaces, off-white text) */
     --bg: #2e2e2e;
     --bg-secondary: #343434;
@@ -1045,17 +1054,22 @@
     border-color: var(--accent-purple-border);
   }
 
-  /* Buttons — translucent surfaces with thin borders. Primary picks up
-     the soft purple wash. */
-  html[data-theme="dark"] .vf-btn-primary {
-    background: var(--accent-purple-soft);
-    color: var(--text-main);
-    border-color: var(--accent-purple-border);
+  /* Primary CTA + selected filters are SOLID BLUE in dark mode (filled, white
+     text) — the same "affirmative = blue" language as light mode, just a lighter
+     blue for contrast on charcoal. Previously these took a translucent purple
+     wash that read as gray. Ghost / cancel / danger keep their neutral dark
+     treatments below. */
+  html[data-theme="dark"] .vf-btn-primary,
+  html[data-theme="dark"] .vf-filter-active {
+    background: var(--btn-blue);
+    color: #ffffff;
+    border-color: var(--btn-blue);
   }
 
-  html[data-theme="dark"] .vf-btn-primary:hover:not(:disabled) {
-    background: var(--accent-purple-hover);
-    border-color: var(--accent-purple-border-hover);
+  html[data-theme="dark"] .vf-btn-primary:hover:not(:disabled),
+  html[data-theme="dark"] .vf-filter-active:hover:not(:disabled) {
+    background: var(--btn-blue-hover);
+    border-color: var(--btn-blue-hover);
   }
 
   html[data-theme="dark"] .vf-btn-ghost {
