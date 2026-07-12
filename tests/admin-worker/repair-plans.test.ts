@@ -65,6 +65,42 @@ describe("filePlan", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("suppresses a re-file when the same kind+entity ABANDONED within the cooldown", async () => {
+    // First findFirst = the PENDING/RUNNING coalesce lookup (none). Second =
+    // the recently-ABANDONED cooldown lookup (a proven dead-end). Re-filing it
+    // would just burn another maxAttempts cycle and re-abandon — the churn that
+    // pinned the Repair-orchestrator FAIL rating — so no new plan is created.
+    const findFirst = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "abandoned-1" });
+    const create = vi.fn();
+    const prisma = makePrismaMock({ findFirst, create });
+    const res = await filePlan(prisma, {
+      kind: "EXTRACT_FAILED",
+      failedEntity: "weak-source.example",
+      repairAction: "re-extract",
+    });
+    expect(res.id).toBe("abandoned-1");
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("still files when the only ABANDONED plan is older than the cooldown", async () => {
+    // Both lookups miss (no open plan; no ABANDONED within the cooldown window),
+    // so a fresh attempt is allowed again — a dead-end can recover after the
+    // cooldown (source improved, code fixed).
+    const findFirst = vi.fn().mockResolvedValue(null);
+    const create = vi.fn(async () => ({ id: "refiled-1" }));
+    const prisma = makePrismaMock({ findFirst, create });
+    const res = await filePlan(prisma, {
+      kind: "EXTRACT_FAILED",
+      failedEntity: "weak-source.example",
+      repairAction: "re-extract",
+    });
+    expect(res.id).toBe("refiled-1");
+    expect(create).toHaveBeenCalledOnce();
+  });
+
   it("skips the coalesce lookup when no failedEntity is provided", async () => {
     const findFirst = vi.fn();
     const create = vi.fn(async () => ({ id: "created-2" }));
