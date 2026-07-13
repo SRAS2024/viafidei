@@ -29,13 +29,107 @@ import { designationFor, fileReview, slugify } from "./parish-discovery-runner";
 import { parishAddressKey, findPublishedParishByAddressKey } from "./parish-address";
 import type { PlaceParish } from "./parish-places";
 
-const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
-const TIMEOUT_MS = 30_000;
-const THROTTLE_MS = 10 * 60 * 1000; // respect Overpass fair-use: at most ~every 10 min
+/**
+ * Overpass endpoints to try, in order. The primary public instance
+ * (overpass-api.de) is frequently overloaded — it returns 504s and, even when
+ * it answers 200, an area query can take 30s+ or (with a lagging area index)
+ * come back EMPTY for a locality that plainly has Catholic parishes. Rotating
+ * through the well-known mirrors turns a single flaky host into a reliable
+ * pool: the first endpoint that returns a non-empty result wins. Operators can
+ * prepend their own via OVERPASS_ENDPOINTS (comma-separated).
+ */
+function overpassEndpoints(): string[] {
+  const extra = (process.env.OVERPASS_ENDPOINTS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return [
+    ...extra,
+    "https://overpass-api.de/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.private.coffee/api/interpreter",
+  ].filter((v, i, a) => a.indexOf(v) === i);
+}
+// Overpass area queries legitimately take 20-40s; the old 30s client timeout
+// aborted a slow-but-successful query and read it as "0 parishes". Give it a
+// 55s budget (server-side [timeout:50] below leaves margin) — still under the
+// 120s per-lane watchdog.
+const TIMEOUT_MS = 55_000;
+/** Positive integer from an env var, or the fallback. */
+function osmEnvInt(name: string, fallback: number): number {
+  const n = Number((process.env[name] ?? "").trim());
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+// Overpass fair-use throttle. Default ~10 min between runs; env-tunable
+// (`ADMIN_WORKER_OSM_THROTTLE_MS`) so an operator with a self-hosted/paid
+// Overpass (see OVERPASS_ENDPOINTS) can grow the 200k-parish directory faster.
+const THROTTLE_MS = osmEnvInt("ADMIN_WORKER_OSM_THROTTLE_MS", 10 * 60 * 1000);
+// Max parish elements returned per bbox query. Env-tunable
+// (`ADMIN_WORKER_OSM_OUT_CAP`) — a dense metro/region has hundreds of parishes,
+// so a higher cap drains each locality in fewer sweeps.
+const OUT_CAP = osmEnvInt("ADMIN_WORKER_OSM_OUT_CAP", 500);
 const THROTTLE_KEY = "osm-parish-lastrun";
+const LOCALITY_CURSOR_KEY = "osm-parish-locality-cursor";
 
-/** A few Catholic-dense localities to seed discovery on a fresh catalog. */
-const DEFAULT_OSM_CITIES = ["Rome", "Boston", "Dublin", "Manila", "Kraków", "Buenos Aires"];
+/** A locality to sweep: a display name plus an optional bounding box. */
+interface OsmLocality {
+  name: string;
+  /** [south, west, north, east] — when set, a fast spatial-index query is used. */
+  bbox?: [number, number, number, number];
+}
+
+/**
+ * Catholic-dense metro areas to sweep, each as a BOUNDING BOX. A bbox query hits
+ * Overpass's spatial index directly and returns in ~3s with dozens of parishes,
+ * where the old `area["name"=…]` lookup took 30-55s, was rate-limited, and often
+ * returned 0 (a lagging/ambiguous area index). The worker rotates through this
+ * list across passes (a saved cursor), so the directory grows worldwide instead
+ * of re-querying the same two cities. This is a seed set — the catalog's own
+ * published parishes expand coverage further via nearby-tile queries.
+ */
+const SEED_LOCALITIES: OsmLocality[] = [
+  { name: "Rome", bbox: [41.79, 12.34, 42.0, 12.65] },
+  { name: "Boston", bbox: [42.2, -71.2, 42.45, -70.95] },
+  { name: "New York", bbox: [40.5, -74.05, 40.92, -73.7] },
+  { name: "Chicago", bbox: [41.64, -87.94, 42.02, -87.52] },
+  { name: "Philadelphia", bbox: [39.87, -75.28, 40.14, -74.96] },
+  { name: "Los Angeles", bbox: [33.7, -118.5, 34.34, -118.15] },
+  { name: "Dublin", bbox: [53.28, -6.4, 53.41, -6.1] },
+  { name: "Manila", bbox: [14.5, 120.94, 14.68, 121.05] },
+  { name: "Kraków", bbox: [49.98, 19.79, 50.12, 20.09] },
+  { name: "Warsaw", bbox: [52.13, 20.85, 52.37, 21.27] },
+  { name: "Madrid", bbox: [40.31, -3.83, 40.56, -3.55] },
+  { name: "Paris", bbox: [48.8, 2.22, 48.91, 2.47] },
+  { name: "Milan", bbox: [45.4, 9.07, 45.54, 9.28] },
+  { name: "Naples", bbox: [40.8, 14.14, 40.92, 14.34] },
+  { name: "Lisbon", bbox: [38.69, -9.23, 38.8, -9.09] },
+  { name: "Vienna", bbox: [48.12, 16.24, 48.32, 16.51] },
+  { name: "Munich", bbox: [48.06, 11.36, 48.25, 11.72] },
+  { name: "Buenos Aires", bbox: [-34.71, -58.53, -34.53, -58.33] },
+  { name: "Mexico City", bbox: [19.24, -99.28, 19.59, -98.94] },
+  { name: "São Paulo", bbox: [-23.75, -46.83, -23.43, -46.36] },
+  { name: "Montreal", bbox: [45.4, -73.77, 45.7, -73.47] },
+  { name: "Toronto", bbox: [43.58, -79.64, 43.85, -79.12] },
+  { name: "Sydney", bbox: [-33.95, 151.1, -33.78, 151.3] },
+  { name: "Malta", bbox: [35.79, 14.18, 36.08, 14.58] },
+  // Region-level sweeps over Catholic-dense areas with strong OpenStreetMap
+  // address coverage. A region bbox returns far more parishes per query than a
+  // single metro (Ireland alone ~190 with full addresses), so these give the
+  // directory real headroom toward the 200k target without hand-listing every
+  // city. Kept to moderate-size areas so the query stays within the request
+  // timeout; a slow/empty one simply falls through the mirror race.
+  { name: "Ireland", bbox: [51.4, -10.6, 55.4, -5.4] },
+  { name: "Belgium", bbox: [49.5, 2.5, 51.5, 6.4] },
+  { name: "Netherlands", bbox: [50.75, 3.35, 53.5, 7.2] },
+  { name: "Austria", bbox: [46.4, 9.5, 49.0, 17.2] },
+  { name: "Switzerland", bbox: [45.8, 5.95, 47.8, 10.5] },
+  { name: "Portugal", bbox: [37.0, -9.5, 42.15, -6.2] },
+  { name: "Catalonia", bbox: [40.5, 0.15, 42.9, 3.35] },
+  { name: "Slovenia", bbox: [45.42, 13.38, 46.88, 16.6] },
+  { name: "Croatia", bbox: [42.4, 13.5, 46.55, 19.45] },
+  { name: "Slovakia", bbox: [47.7, 16.8, 49.6, 22.6] },
+];
 
 /** Keyless + on by default; disabled in skip-network and via opt-out env. */
 export function osmParishDiscoveryEnabled(): boolean {
@@ -113,20 +207,45 @@ export function osmElementToParish(el: OverpassElement): PlaceParish | null {
  * Search OpenStreetMap (Overpass) for Roman Catholic churches in a locality.
  * Returns [] offline / disabled / on any failure. Candidates are unverified.
  */
-export async function searchCatholicParishesOsm(locality: string): Promise<PlaceParish[]> {
-  if (!osmParishDiscoveryEnabled() || !locality.trim()) return [];
-  // Overpass area names match a single token best; keep letters/numbers/space.
-  const safe = locality.replace(/[^\p{L}\p{N}\s.'-]/gu, "").trim();
-  if (!safe) return [];
-  const query = `[out:json][timeout:25];
+export async function searchCatholicParishesOsm(
+  locality: string,
+  bbox?: [number, number, number, number],
+): Promise<PlaceParish[]> {
+  if (!osmParishDiscoveryEnabled()) return [];
+  let query: string;
+  if (bbox) {
+    // Fast path: bounding-box query straight against Overpass's spatial index —
+    // ~3s and dozens of parishes, no area lookup. The OUT_CAP result limit lets
+    // a dense metro yield plenty of candidates per pass.
+    const [s, w, n, e] = bbox;
+    query = `[out:json][timeout:50];
+nwr["amenity"="place_of_worship"]["religion"="christian"]["denomination"="roman_catholic"]["name"](${s},${w},${n},${e});
+out center tags ${OUT_CAP};`;
+  } else {
+    if (!locality.trim()) return [];
+    // Fallback: area-name lookup (slower, less reliable) for catalog-derived
+    // localities that have no bbox. Overpass area names match a single token
+    // best; keep letters/numbers/space.
+    const safe = locality.replace(/[^\p{L}\p{N}\s.'-]/gu, "").trim();
+    if (!safe) return [];
+    query = `[out:json][timeout:50];
 area["name"="${safe}"]->.a;
 nwr["amenity"="place_of_worship"]["religion"="christian"]["denomination"="roman_catholic"]["name"](area.a);
-out center tags 60;`;
+out center tags ${OUT_CAP};`;
+  }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const res = await fetch(OVERPASS_ENDPOINT, {
+  // Race every mirror in PARALLEL and take the first NON-EMPTY result. The
+  // public Overpass instances are individually unreliable — one is overloaded
+  // (504), another is slow (30s+), a third has a lagging area index and returns
+  // 0 rows — but at any moment at least one usually answers quickly with data.
+  // Querying them sequentially with a per-endpoint timeout could take
+  // endpoints×timeout (well over the 120s lane watchdog); racing them means the
+  // fastest healthy mirror wins in ~20s. One request per mirror per 10-min
+  // throttle window respects each host's fair-use policy.
+  const attempt = (endpoint: string): Promise<PlaceParish[]> => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    return fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
@@ -134,20 +253,44 @@ out center tags 60;`;
       },
       body: query,
       signal: controller.signal,
-    });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { elements?: OverpassElement[] };
-    const out: PlaceParish[] = [];
-    for (const el of data.elements ?? []) {
-      const p = osmElementToParish(el);
-      if (p) out.push(p);
+    })
+      .then(async (res) => {
+        if (!res.ok) return [] as PlaceParish[];
+        // Skip only when the server explicitly declares a non-JSON body (an HTML
+        // error/rate-limit page). A missing/empty content-type falls through to
+        // the parse, where a non-JSON body rejects and is caught below.
+        const contentType = res.headers?.get?.("content-type") ?? "";
+        if (contentType && !/json/i.test(contentType)) return [] as PlaceParish[];
+        const data = (await res.json()) as { elements?: OverpassElement[] };
+        const out: PlaceParish[] = [];
+        for (const el of data.elements ?? []) {
+          const p = osmElementToParish(el);
+          if (p) out.push(p);
+        }
+        return out;
+      })
+      .catch(() => [] as PlaceParish[])
+      .finally(() => clearTimeout(timer));
+  };
+
+  const pending = overpassEndpoints().map((ep) => attempt(ep));
+  // Resolve as soon as any mirror returns a non-empty result; otherwise wait for
+  // all and return [] (nothing reachable / no data for this locality this pass).
+  return await new Promise<PlaceParish[]>((resolve) => {
+    let settled = 0;
+    let resolved = false;
+    for (const p of pending) {
+      p.then((rows) => {
+        settled += 1;
+        if (!resolved && rows.length > 0) {
+          resolved = true;
+          resolve(rows);
+        } else if (settled === pending.length && !resolved) {
+          resolve([]);
+        }
+      });
     }
-    return out;
-  } catch {
-    return [];
-  } finally {
-    clearTimeout(timer);
-  }
+  });
 }
 
 export interface OsmParishResult {
@@ -185,41 +328,70 @@ async function throttleOk(prisma: PrismaClient): Promise<boolean> {
   return true;
 }
 
-/** Localities to query this pass: operator-configured, else catalog cities, else seeds. */
-async function buildOsmCityQueries(prisma: PrismaClient, max: number): Promise<string[]> {
-  const cities: string[] = [];
-  const seen = new Set<string>();
-  const push = (raw: string) => {
-    const city = (raw.split(",")[0] ?? "").trim();
-    if (city && !seen.has(city.toLowerCase())) {
-      seen.add(city.toLowerCase());
-      cities.push(city);
-    }
-  };
+/** Read the rotating locality-sweep cursor (0 when unset). */
+async function readLocalityCursor(prisma: PrismaClient): Promise<number> {
+  const row = await prisma.adminWorkerMemory
+    .findUnique({
+      where: {
+        memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: LOCALITY_CURSOR_KEY },
+      },
+      select: { memoryValue: true },
+    })
+    .catch(() => null);
+  const v = (row?.memoryValue as { index?: number } | null)?.index;
+  return typeof v === "number" && v >= 0 ? v : 0;
+}
 
+/** Persist the next locality-sweep cursor so each pass covers new metros. */
+async function writeLocalityCursor(prisma: PrismaClient, index: number): Promise<void> {
+  await prisma.adminWorkerMemory
+    .upsert({
+      where: {
+        memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: LOCALITY_CURSOR_KEY },
+      },
+      update: { memoryValue: { index }, lastUsedAt: new Date() },
+      create: {
+        memoryType: "GENERIC",
+        memoryKey: LOCALITY_CURSOR_KEY,
+        memoryValue: { index },
+        lastUsedAt: new Date(),
+      },
+    })
+    .catch(() => undefined);
+}
+
+/**
+ * Localities to query this pass. Operator-configured names win (area lookup);
+ * otherwise the worker rotates through the bbox-backed SEED_LOCALITIES via a
+ * saved cursor so it sweeps a new set of metros every pass and covers the world
+ * over time instead of re-querying the same city forever.
+ */
+async function buildOsmCityQueries(prisma: PrismaClient, max: number): Promise<OsmLocality[]> {
   const configured = (process.env.PARISH_DISCOVERY_LOCATIONS ?? "")
     .split(/[;\n]+/)
     .map((s) => s.trim())
     .filter(Boolean);
   if (configured.length > 0) {
-    configured.forEach(push);
-    return cities.slice(0, max);
+    const seen = new Set<string>();
+    const out: OsmLocality[] = [];
+    for (const raw of configured) {
+      const city = (raw.split(",")[0] ?? "").trim();
+      if (city && !seen.has(city.toLowerCase())) {
+        seen.add(city.toLowerCase());
+        out.push({ name: city });
+      }
+    }
+    return out.slice(0, max);
   }
 
-  const rows = await prisma.publishedContent
-    .findMany({
-      where: { contentType: "PARISH" as never, isPublished: true },
-      select: { payload: true },
-      take: 500,
-    })
-    .catch(() => [] as Array<{ payload: unknown }>);
-  for (const r of rows) {
-    const p = (r.payload ?? {}) as Record<string, unknown>;
-    if (typeof p.city === "string") push(p.city);
-    if (cities.length >= max) break;
+  // Rotate through the seed metros: start at the saved cursor, wrap around.
+  const start = (await readLocalityCursor(prisma)) % SEED_LOCALITIES.length;
+  const out: OsmLocality[] = [];
+  for (let i = 0; i < Math.min(max, SEED_LOCALITIES.length); i++) {
+    out.push(SEED_LOCALITIES[(start + i) % SEED_LOCALITIES.length]);
   }
-  if (cities.length === 0) DEFAULT_OSM_CITIES.forEach(push);
-  return cities.slice(0, max);
+  await writeLocalityCursor(prisma, (start + out.length) % SEED_LOCALITIES.length);
+  return out;
 }
 
 /** Publish one OSM parish through the real gate (OSM-accurate citations + summary). */
@@ -353,17 +525,33 @@ export async function runOsmParishDiscovery(
     base.detail = "OSM parish discovery disabled (skip-network or opt-out).";
     return base;
   }
+  // Sprint scheduler: grow parishes in bounded sprints, then stand down for a
+  // cooldown window during which the worker grows the OTHER content types
+  // (unless every other goal is already met, in which case parishes run
+  // continuously). `force` bypasses the cooldown for manual/proof runs.
+  if (!opts.force) {
+    const { evaluateParishSprint } = await import("./parish-sprint");
+    const sprint = await evaluateParishSprint(prisma);
+    if (!sprint.active) {
+      base.detail = sprint.reason;
+      return base;
+    }
+  }
   if (!opts.force && !(await throttleOk(prisma))) {
     base.detail = "throttled (Overpass fair-use)";
     return base;
   }
 
-  const maxQueries = opts.maxQueries ?? 2;
-  const maxPublish = opts.maxPublishPerPass ?? 8;
-  const cities = await buildOsmCityQueries(prisma, maxQueries);
+  // Localities queried per run and NEW parishes published per run — env-tunable
+  // (`ADMIN_WORKER_OSM_MAX_QUERIES` / `ADMIN_WORKER_OSM_MAX_PUBLISH`) so parish
+  // growth toward the 200k target can be dialled up where Overpass fair-use
+  // allows (the mirror race spreads the load). Conservative defaults.
+  const maxQueries = opts.maxQueries ?? osmEnvInt("ADMIN_WORKER_OSM_MAX_QUERIES", 2);
+  const maxPublish = opts.maxPublishPerPass ?? osmEnvInt("ADMIN_WORKER_OSM_MAX_PUBLISH", 8);
+  const localities = await buildOsmCityQueries(prisma, maxQueries);
 
-  for (const city of cities) {
-    const candidates = await searchCatholicParishesOsm(city);
+  for (const locality of localities) {
+    const candidates = await searchCatholicParishesOsm(locality.name, locality.bbox);
     base.queriesRun += 1;
     for (const candidate of candidates) {
       base.candidates += 1;
@@ -441,6 +629,14 @@ export async function runOsmParishDiscovery(
         base.routedToReview += 1;
       }
     }
+  }
+
+  // Record this run's publishes toward the current sprint; when the sprint size
+  // is reached the scheduler starts the cooldown so the worker moves to the
+  // other content types. Skipped for `force` runs (manual/proof, not sprints).
+  if (!opts.force && base.published > 0) {
+    const { recordParishSprintProgress } = await import("./parish-sprint");
+    await recordParishSprintProgress(prisma, base.published).catch(() => undefined);
   }
 
   base.detail = `${base.candidates} candidate(s) over ${base.queriesRun} locality query(ies): published ${base.published}, ${base.routedToReview} to review, ${base.rejected} rejected.`;

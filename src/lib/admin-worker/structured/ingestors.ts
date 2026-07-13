@@ -376,9 +376,14 @@ const churchDocumentIngestor: StructuredIngestor = {
   // never padded to a fabricated month/day.
   sparql: (limit, offset) =>
     `SELECT ?doc (SAMPLE(?docLabel) AS ?label) (GROUP_CONCAT(DISTINCT ?typeLabel; SEPARATOR="||") AS ?types) (SAMPLE(?authorLabel) AS ?author) (SAMPLE(?date) AS ?pubDate) (SAMPLE(?canonical) AS ?canon) (GROUP_CONCAT(DISTINCT ?subjectLabel; SEPARATOR="||") AS ?themes) (SAMPLE(?article) AS ?art) WHERE {
+  # Match the specific document-type items directly (encyclical, apostolic
+  # exhortation, apostolic constitution, motu proprio, apostolic letter, papal
+  # bull) via the P31 index. The previous "?type rdfs:label ?l . FILTER(CONTAINS
+  # (?l, …))" scanned every instance-of label in Wikidata and reliably timed out
+  # (60s+), so the whole CHURCH_DOCUMENT type published 0.
+  VALUES ?type { wd:Q221409 wd:Q2116256 wd:Q620035 wd:Q18643 wd:Q2731728 wd:Q189867 }
   ?doc wdt:P31 ?type .
   ?type rdfs:label ?typeLabel . FILTER(LANG(?typeLabel) = "en")
-  FILTER(CONTAINS(LCASE(?typeLabel), "encyclical") || CONTAINS(LCASE(?typeLabel), "apostolic exhortation") || CONTAINS(LCASE(?typeLabel), "apostolic constitution") || CONTAINS(LCASE(?typeLabel), "motu proprio") || CONTAINS(LCASE(?typeLabel), "apostolic letter"))
   ?doc rdfs:label ?docLabel . FILTER(LANG(?docLabel) = "en")
   ?doc wdt:P50 ?author . ?author rdfs:label ?authorLabel . FILTER(LANG(?authorLabel) = "en")
   ?doc p:P577 ?pubSt . ?pubSt psv:P577 ?pubVal . ?pubVal wikibase:timeValue ?date ; wikibase:timePrecision ?prec . FILTER(?prec >= 11)
@@ -481,9 +486,13 @@ const doctorIngestor: StructuredIngestor = {
   // biography comes verbatim + cited from Wikipedia when available.
   sparql: (limit, offset) =>
     `SELECT ?d (SAMPLE(?dLabel) AS ?label) (SAMPLE(?article) AS ?art) (SAMPLE(?website) AS ?site) WHERE {
-  ?d (wdt:P39|wdt:P166) ?honor .
-  ?honor rdfs:label ?honorLabel . FILTER(LANG(?honorLabel) = "en")
-  FILTER(CONTAINS(LCASE(?honorLabel), "doctor of the church"))
+  # "Doctor of the Church" (Q192499) as award received (P166), matched directly
+  # via the index. The old "(P39|P166) ?honor . FILTER(CONTAINS(label,
+  # 'doctor of the church'))" scanned every position/award label in Wikidata
+  # (P39/P166 are among the most-used properties) and timed out at 60s+; the
+  # 37-strong Doctors set is fully covered by curated content, so a fast,
+  # precise query is what matters here.
+  ?d wdt:P166 wd:Q192499 .
   ?d rdfs:label ?dLabel . FILTER(LANG(?dLabel) = "en")
   OPTIONAL { ?article schema:about ?d ; schema:isPartOf <https://en.wikipedia.org/> . }
   OPTIONAL { ?d wdt:P856 ?website . }
@@ -547,9 +556,10 @@ const riteIngestor: StructuredIngestor = {
   // cited description.
   sparql: (limit, offset) =>
     `SELECT ?r (SAMPLE(?rLabel) AS ?label) (SAMPLE(?article) AS ?art) (SAMPLE(?website) AS ?site) WHERE {
-  ?r wdt:P31 ?type .
-  ?type rdfs:label ?tl . FILTER(LANG(?tl) = "en")
-  FILTER(CONTAINS(LCASE(?tl), "sui iuris") || CONTAINS(LCASE(?tl), "eastern catholic church") || (CONTAINS(LCASE(?tl), "catholic") && (CONTAINS(LCASE(?tl), "rite") || CONTAINS(LCASE(?tl), "church"))))
+  # "liturgical rite" (Q3937326) via the P31 index. The old label-CONTAINS scan
+  # over every instance-of type ("sui iuris" / "eastern catholic church" / …)
+  # timed out at 60s+ and published 0 rites.
+  ?r wdt:P31 wd:Q3937326 .
   ?r rdfs:label ?rLabel . FILTER(LANG(?rLabel) = "en")
   ?article schema:about ?r ; schema:isPartOf <https://en.wikipedia.org/> .
   OPTIONAL { ?r wdt:P856 ?website . }
@@ -573,6 +583,11 @@ LIMIT ${limit} OFFSET ${offset}`,
     if (!article) return null;
     const summary = await fetchSummaryForArticleUrl(article);
     if (!summary || summary.extract.length < 80) return null;
+
+    // Accuracy guard: the generic "liturgical rite" class (Q3937326) also
+    // contains non-Catholic rites (Orthodox / Anglican / Lutheran); only
+    // publish ones that read as Catholic / in communion with Rome.
+    if (!isCatholicRiteContext(`${label} ${summary.extract}`)) return null;
 
     const core = riteCoreSlug(label);
     if (!core) return null;
@@ -739,9 +754,12 @@ const devotionIngestor: StructuredIngestor = {
   // only as a last resort; both source URLs are cited for cross-reference.
   sparql: (limit, offset) =>
     `SELECT ?d (SAMPLE(?dLabel) AS ?label) (GROUP_CONCAT(DISTINCT ?typeLabel; SEPARATOR="||") AS ?types) (SAMPLE(?site) AS ?site) (SAMPLE(?described) AS ?desc) (SAMPLE(?article) AS ?art) WHERE {
+  # Marian devotion (Q1898047) + Catholic devotion (Q3054723) via the P31 index.
+  # The old "?type rdfs:label ?l . FILTER(CONTAINS(?l,'devotion'))" scanned every
+  # instance-of label in Wikidata and timed out at 60s+, publishing 0 devotions.
+  VALUES ?type { wd:Q1898047 wd:Q3054723 }
   ?d wdt:P31 ?type .
   ?type rdfs:label ?typeLabel . FILTER(LANG(?typeLabel) = "en")
-  FILTER(CONTAINS(LCASE(?typeLabel), "devotion"))
   ?d rdfs:label ?dLabel . FILTER(LANG(?dLabel) = "en")
   OPTIONAL { ?d wdt:P856 ?site . }
   OPTIONAL { ?d wdt:P973 ?described . }
@@ -755,6 +773,13 @@ LIMIT ${limit} OFFSET ${offset}`,
     const entity = bindingValue(row, "d");
     const label = bindingValue(row, "label");
     if (!entity || !label || /^Q\d+$/.test(label)) return null;
+
+    // De-overlap with the MARIAN_TITLE ingestor: both draw from the
+    // Marian-devotion class (Q1898047). A Marian-title-named entity ("Our Lady
+    // …", a Marian "Litany …") is owned by the MARIAN_TITLE ingestor, so skip
+    // it here — otherwise the same entity would publish as BOTH a DEVOTION and
+    // a MARIAN_TITLE under the same slug.
+    if (MARIAN_TITLE_LABEL_RE.test(label)) return null;
 
     const narrative = await resolveSourcedNarrative(row);
     if (!narrative) return null;
@@ -794,10 +819,15 @@ const marianTitleIngestor: StructuredIngestor = {
   // exactly as for devotions (official source first, Wikipedia last).
   sparql: (limit, offset) =>
     `SELECT ?m (SAMPLE(?mLabel) AS ?label) (SAMPLE(?site) AS ?site) (SAMPLE(?described) AS ?desc) (SAMPLE(?article) AS ?art) WHERE {
-  ?m wdt:P31 ?type .
-  ?type rdfs:label ?typeLabel . FILTER(LANG(?typeLabel) = "en")
-  FILTER(CONTAINS(LCASE(?typeLabel), "title of mary") || CONTAINS(LCASE(?typeLabel), "title of the blessed virgin") || CONTAINS(LCASE(?typeLabel), "marian title") || CONTAINS(LCASE(?typeLabel), "epithet of mary"))
+  # Marian titles / invocations, taken from the Marian-devotion class (Q1898047)
+  # and narrowed to title-like entities by name ("Our Lady …", "Madonna …",
+  # "Virgin …", a Marian "Litany …"). The name FILTER is applied AFTER the P31
+  # index has already reduced to the small Marian-devotion set, so it is fast —
+  # unlike the old "?type rdfs:label ?l . FILTER(CONTAINS(?l,'title of mary'))"
+  # scan over every instance-of label, which timed out at 60s+.
+  ?m wdt:P31 wd:Q1898047 .
   ?m rdfs:label ?mLabel . FILTER(LANG(?mLabel) = "en")
+  FILTER(CONTAINS(?mLabel, "Our Lady") || CONTAINS(?mLabel, "Madonna") || CONTAINS(?mLabel, "Virgin") || CONTAINS(?mLabel, "Blessed Virgin") || CONTAINS(?mLabel, "Litany"))
   OPTIONAL { ?m wdt:P856 ?site . }
   OPTIONAL { ?m wdt:P973 ?described . }
   OPTIONAL { ?article schema:about ?m ; schema:isPartOf <https://en.wikipedia.org/> . }
@@ -857,6 +887,63 @@ type PracticeKind =
  * rather than publish a non-Catholic meditation technique (the schema's explicit
  * accuracy rule). Ordered most-specific first.
  */
+/**
+ * True only when the text reads as a Catholic/Christian practice. The generic
+ * Wikidata "spiritual practice" class (Q2270606) also contains Islamic (dhikr),
+ * Mandaean (ṣauma), Breton-folk (pardon), Hindu, Buddhist, and New-Age
+ * practices, and `classifyPracticeKind` matches on the practice *kind*
+ * (fasting / prayer / pilgrimage) which those share — so without this guard a
+ * non-Catholic practice would publish as a Catholic one. Requires a positive
+ * Christian signal AND the absence of another religion's signal (skip-on-doubt,
+ * consistent with the worker's accuracy-first rule).
+ */
+/**
+ * Label pattern for a Marian title/invocation ("Our Lady …", "Madonna …",
+ * a Marian "Litany …", "Virgin …"). Shared so the MARIAN_TITLE ingestor's
+ * SPARQL and the DEVOTION ingestor's de-overlap guard use the SAME definition:
+ * a Marian-devotion-class entity matching this is published as a MARIAN_TITLE,
+ * and the DEVOTION ingestor skips it, so the two never emit the same entity
+ * (same slug) under two content types.
+ */
+export const MARIAN_TITLE_LABEL_RE = /our lady|madonna|blessed virgin|\bvirgin\b|\blitany\b/i;
+
+/**
+ * True only when the text reads as a *Catholic* liturgical rite. The generic
+ * Wikidata "liturgical rite" class (Q3937326) also contains non-Catholic rites
+ * (Eastern Orthodox, Oriental Orthodox, Anglican, Lutheran), so — exactly like
+ * the spiritual-practice guard — the rite ingestor must screen for Catholicity
+ * or it would publish a non-Catholic rite as a Catholic one (a doctrinal
+ * accuracy violation). Accepts an explicit Catholic / in-communion marker;
+ * rejects a clear non-Catholic tradition; skips on doubt (accuracy-first).
+ */
+export function isCatholicRiteContext(text: string): boolean {
+  const t = text.toLowerCase();
+  if (
+    /catholic|sui iuris|sui juris|in full communion|in communion with (rome|the (roman )?catholic|the holy see)|holy see|\bvatican|latin (church|rite)|roman rite|eastern catholic/.test(
+      t,
+    )
+  ) {
+    return true;
+  }
+  // No Catholic marker: reject when it clearly belongs to another tradition;
+  // otherwise skip (uncertain → not published).
+  return false;
+}
+
+export function isCatholicPracticeContext(text: string): boolean {
+  const t = text.toLowerCase();
+  const otherReligion =
+    /\bislam|islamic|muslim|sufi|qur'?an|\bhindu|hinduism|buddhis|\bzen\b|taoism|taoist|shinto|sikh|\bjain|mandaean|mandaeism|pagan|wicca|neopagan|new age|kabbalah|shaman/.test(
+      t,
+    );
+  if (otherReligion) return false;
+  const christian =
+    /catholic|christian|christ\b|\bchurch\b|\bgospel|\bliturg|sacrament|\bmonast|benedictine|ignatian|carmelite|franciscan|dominican|jesuit|\bmass\b|rosary|eucharist|scripture|\bbible|apostol|\bsaint|holy see|\bvatican|desert father/.test(
+      t,
+    );
+  return christian;
+}
+
 export function classifyPracticeKind(text: string): PracticeKind | null {
   const t = text.toLowerCase();
   if (/lectio divina/.test(t)) return "lectio_divina";
@@ -887,9 +974,11 @@ const spiritualPracticeIngestor: StructuredIngestor = {
   // above; the practice's own approved source is preferred over Wikipedia.
   sparql: (limit, offset) =>
     `SELECT ?p (SAMPLE(?pLabel) AS ?label) (SAMPLE(?site) AS ?site) (SAMPLE(?described) AS ?desc) (SAMPLE(?article) AS ?art) WHERE {
-  ?p wdt:P31 ?type .
-  ?type rdfs:label ?typeLabel . FILTER(LANG(?typeLabel) = "en")
-  FILTER(CONTAINS(LCASE(?typeLabel), "spiritual practice") || CONTAINS(LCASE(?typeLabel), "christian practice") || CONTAINS(LCASE(?typeLabel), "ascetical practice") || CONTAINS(LCASE(?typeLabel), "form of prayer"))
+  # "spiritual practice" (Q2270606) via the P31 index; map()'s
+  # classifyPracticeKind then keeps only recognised Catholic practices and skips
+  # the rest. The old label-CONTAINS scan over every instance-of type timed out
+  # at 60s+ and published 0.
+  ?p wdt:P31 wd:Q2270606 .
   ?p rdfs:label ?pLabel . FILTER(LANG(?pLabel) = "en")
   OPTIONAL { ?p wdt:P856 ?site . }
   OPTIONAL { ?p wdt:P973 ?described . }
@@ -907,6 +996,10 @@ LIMIT ${limit} OFFSET ${offset}`,
     // summary + instructions both require ≥50 chars, so demand a fuller source.
     const narrative = await resolveSourcedNarrative(row, { minChars: 140 });
     if (!narrative) return null;
+
+    // Accuracy guard: the generic "spiritual practice" class contains other
+    // religions' practices; only publish ones that read as Catholic/Christian.
+    if (!isCatholicPracticeContext(`${label} ${narrative.text}`)) return null;
 
     const practiceKind = classifyPracticeKind(`${label} ${narrative.text}`);
     if (!practiceKind) return null;
@@ -952,9 +1045,10 @@ const councilIngestor: StructuredIngestor = {
   // both CHURCH_DOCUMENT ingestors run.
   sparql: (limit, offset) =>
     `SELECT ?c (SAMPLE(?cLabel) AS ?label) (SAMPLE(?tv) AS ?inception) (SAMPLE(?prec) AS ?precision) (SAMPLE(?article) AS ?art) (SAMPLE(?canonical) AS ?canon) WHERE {
-  ?c wdt:P31 ?type .
-  ?type rdfs:label ?tl . FILTER(LANG(?tl) = "en")
-  FILTER(CONTAINS(LCASE(?tl), "council") && (CONTAINS(LCASE(?tl), "ecumenical") || CONTAINS(LCASE(?tl), "catholic")))
+  # Ecumenical councils: "ecumenical council" (Q51645) and its subclasses, via
+  # the P31/P279* index. The old label-CONTAINS scan over every instance-of type
+  # timed out at 60s+ and published 0 councils.
+  ?c wdt:P31/wdt:P279* wd:Q51645 .
   ?c rdfs:label ?cLabel . FILTER(LANG(?cLabel) = "en")
   ?c p:P571 ?incSt . ?incSt psv:P571 ?incNode . ?incNode wikibase:timeValue ?tv ; wikibase:timePrecision ?prec .
   ?article schema:about ?c ; schema:isPartOf <https://en.wikipedia.org/> .

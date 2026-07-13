@@ -199,10 +199,26 @@ export function computeGovernorVerdict(args: {
     (productive.get(stage) ?? 0) === 0;
 
   const fixatedChosen = isFixated(chosenStage);
+  // Real growth via ANY path. The structured / OSM / curated ingest LANES
+  // publish straight to PublishedContent WITHOUT emitting mission-stage
+  // outcomes, so their output never appears in `windowContentProductive` —
+  // yet `world.timeSinceLastGrowthMs` (the age of the newest PublishedContent
+  // row) does reflect them. If content actually published within the window,
+  // the worker is NOT stalled; only its mission-pipeline slot is idle, which is
+  // fine while the lanes carry growth. Without this guard the governor
+  // force-redirected the web-extraction stage to a diagnostic on EVERY pass —
+  // starving that pipeline (0 artifacts) and flooding the log with
+  // "growth stalled" warnings — even as thousands of items published.
+  const windowMs = windowMinutes * 60_000;
+  const grewInWindow =
+    world.timeSinceLastGrowthMs != null && world.timeSinceLastGrowthMs <= windowMs;
   // Growth stall: there is content to build, the worker has had enough passes to
-  // show output, yet nothing advanced — the worker is spinning overall.
+  // show output, yet nothing advanced by ANY path — the worker is spinning.
   const growthStall =
-    world.contentGoalGap > 0 && windowContentProductive === 0 && rows.length >= minSamples;
+    world.contentGoalGap > 0 &&
+    windowContentProductive === 0 &&
+    !grewInWindow &&
+    rows.length >= minSamples;
 
   if (!fixatedChosen && !growthStall) return NO_INTERVENTION;
 

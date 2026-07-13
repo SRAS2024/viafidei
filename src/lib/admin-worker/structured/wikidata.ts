@@ -16,6 +16,21 @@ import { fetchJson } from "./http";
 const DEFAULT_SPARQL_ENDPOINT = "https://query.wikidata.org/sparql";
 
 /**
+ * SPARQL client timeout. The Wikidata Query Service applies its OWN 60s
+ * server-side query timeout, and the worker's grouped, aggregated queries
+ * (GROUP BY + SAMPLE over the full saint/document corpus, sorted) legitimately
+ * take 15-30s to return — comfortably under the old shared 20s HTTP timeout on
+ * a fast day, but aborting the moment the query service is under load or the
+ * connection is slow. An abort was then indistinguishable from "the source is
+ * unreachable", so the entire structured-ingest engine (saints, popes,
+ * doctors, church documents, …) silently published 0 and the catalog plateaued.
+ * Give SPARQL a 55s budget (just under WDQS's own 60s limit, and under the 120s
+ * per-lane watchdog) so a slow-but-successful query completes instead of being
+ * killed.
+ */
+const SPARQL_TIMEOUT_MS = 55_000;
+
+/**
  * The SPARQL endpoints to try, in order. The canonical Wikidata Query Service
  * (query.wikidata.org) is tried first, but it aggressively rate-limits / blocks
  * datacenter IPs, so on a cloud host (e.g. Railway) it is often unreachable even
@@ -52,14 +67,29 @@ interface SparqlResponse {
 export async function runSparql(query: string): Promise<SparqlBinding[]> {
   for (const endpoint of sparqlEndpoints()) {
     const url = `${endpoint}?format=json&query=${encodeURIComponent(query)}`;
-    const data = await fetchJson<SparqlResponse>(url, {
-      accept: "application/sparql-results+json",
-    });
-    // A non-null response means this endpoint was reachable — accept it (even an
-    // empty binding set is a valid answer). Only fall through when unreachable.
-    if (data) return data.results?.bindings ?? [];
+    // One retry per endpoint: WDQS routinely returns a transient 429/503 (or the
+    // request is slow enough to abort) on the first hit for a heavy query, then
+    // succeeds on a second attempt a moment later. Without a retry a single
+    // transient blip reads as "source unreachable" and the whole content type
+    // publishes 0 for the pass. A short backoff keeps us well under the WDQS
+    // rate limit and the lane watchdog.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const data = await fetchJson<SparqlResponse>(url, {
+        accept: "application/sparql-results+json",
+        timeoutMs: SPARQL_TIMEOUT_MS,
+      });
+      // A non-null response means this endpoint was reachable — accept it (even
+      // an empty binding set is a valid answer). Only fall through when
+      // unreachable.
+      if (data) return data.results?.bindings ?? [];
+      if (attempt === 0) await sleep(1_500);
+    }
   }
   return [];
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Read a trimmed, non-empty binding value, or undefined. */

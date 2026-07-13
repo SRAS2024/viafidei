@@ -28,11 +28,11 @@ export function structuredNetworkEnabled(): boolean {
  */
 export async function fetchText(
   url: string,
-  opts: { maxBytes?: number } = {},
+  opts: { maxBytes?: number; timeoutMs?: number } = {},
 ): Promise<string | null> {
   if (!structuredNetworkEnabled()) return null;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? TIMEOUT_MS);
   try {
     const res = await fetch(url, {
       headers: {
@@ -60,11 +60,11 @@ export async function fetchText(
  */
 export async function fetchJson<T = unknown>(
   url: string,
-  opts: { accept?: string } = {},
+  opts: { accept?: string; timeoutMs?: number } = {},
 ): Promise<T | null> {
   if (!structuredNetworkEnabled()) return null;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? TIMEOUT_MS);
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": USER_AGENT, Accept: opts.accept ?? "application/json" },

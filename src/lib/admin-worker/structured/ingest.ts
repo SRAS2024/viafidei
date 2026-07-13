@@ -37,10 +37,26 @@ import {
   type StructuredIngestor,
 } from "./ingestors";
 
-/** Rows fetched from the structured source per pass. */
-export const DEFAULT_STRUCTURED_BATCH = 50;
-/** Max NEW publishes per pass (steady, bounded forward progress). */
-export const DEFAULT_STRUCTURED_LIMIT = 15;
+/** Positive integer from an env var, or the fallback. */
+function envInt(name: string, fallback: number): number {
+  const n = Number((process.env[name] ?? "").trim());
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+/**
+ * Rows fetched from the structured source per pass. Env-tunable
+ * (`ADMIN_WORKER_STRUCTURED_BATCH`) so an operator can widen the sweep when the
+ * source is reachable and fast (a bigger batch = more candidates considered per
+ * pass); the per-row Wikipedia fetches run concurrently, so a larger batch does
+ * not linearly slow the pass.
+ */
+export const DEFAULT_STRUCTURED_BATCH = envInt("ADMIN_WORKER_STRUCTURED_BATCH", 50);
+/**
+ * Max NEW publishes per pass. Env-tunable (`ADMIN_WORKER_STRUCTURED_LIMIT`) so
+ * throughput can be raised to close a large gap faster (e.g. the 10k SAINT
+ * target) without editing code. Defaults to a steady, conservative 15.
+ */
+export const DEFAULT_STRUCTURED_LIMIT = envInt("ADMIN_WORKER_STRUCTURED_LIMIT", 15);
 
 const CURSOR_PREFIX = "structured-cursor:";
 
@@ -223,7 +239,14 @@ async function publishStructuredEntry(
     where: { contentType: entry.contentType, canonicalSlug: entry.slug },
     select: { id: true },
   });
-  const title = (typeof entry.payload.title === "string" && entry.payload.title) || entry.slug;
+  // Prefer the payload's own display name. SAINT records carry the name in
+  // `canonicalName` (not `title`), so without this fallback every structured
+  // saint's stored title — and therefore its page <h1>, <title>, and share
+  // image — was its slug ("saint-innocent-xi" instead of "Innocent XI").
+  const title =
+    (typeof entry.payload.title === "string" && entry.payload.title) ||
+    (typeof entry.payload.canonicalName === "string" && entry.payload.canonicalName) ||
+    entry.slug;
   const item =
     existing ??
     (await prisma.checklistItem.create({
@@ -350,16 +373,31 @@ export async function runStructuredIngest(
   const liveSlugs = new Set(published.map((r) => r.slug));
   const liveNames = new Set(published.map((r) => normalizeName(r.title ?? "")).filter(Boolean));
 
+  // Map rows to entries in PARALLEL (bounded concurrency). Each map() does one
+  // or two Wikipedia REST fetches (summary + infobox), which sequentially
+  // dominated the pass (~1s × batch); running them concurrently turns a
+  // ~40-50s pass into a few seconds. Downstream dedup + publish stay strictly
+  // sequential (below), so nothing about correctness changes — only latency.
+  const MAP_CONCURRENCY = 8;
+  const mappedEntries: Array<CuratedEntry | null> = new Array(rows.length).fill(null);
+  for (let start = 0; start < rows.length; start += MAP_CONCURRENCY) {
+    const slice = rows.slice(start, start + MAP_CONCURRENCY);
+    const results = await Promise.all(
+      slice.map((row) =>
+        ingestor.map(row, {} as Record<string, never>).catch(() => null as CuratedEntry | null),
+      ),
+    );
+    results.forEach((e, i) => {
+      mappedEntries[start + i] = e;
+    });
+  }
+
   const seenSlugs = new Set<string>();
   const seenNames = new Set<string>();
-  for (const row of rows) {
+  for (let idx = 0; idx < rows.length; idx++) {
     if (out.published >= limit) break;
-    let entry: CuratedEntry | null = null;
-    try {
-      entry = await ingestor.map(row, {} as Record<string, never>);
-    } catch {
-      entry = null;
-    }
+    const row = rows[idx];
+    const entry = mappedEntries[idx];
     if (!entry) {
       out.skipped += 1;
       continue;
