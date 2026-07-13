@@ -88,10 +88,21 @@ async function funnelFor(prisma: PrismaClient, contentType: string): Promise<Con
   ]);
 
   // Structured blocks + citations are linked indirectly; count via the
-  // owning rows for this content type, best-effort.
-  const structuredBlocksCreated = await prisma.adminWorkerSourceBlock
-    .count({ where: { sourceRead: { detectedContentType: ct } } } as never)
-    .catch(() => 0);
+  // owning rows for this content type, best-effort. AdminWorkerSourceBlock has
+  // no `sourceRead` relation (only the scalar `sourceReadId`), so the old
+  // `where: { sourceRead: { detectedContentType } }` filter was invalid and
+  // threw on every call (`Unknown argument sourceRead`) — silently swallowed by
+  // the catch as 0, which made the structured-blocks growth signal permanently
+  // read zero. Resolve the read ids for this content type first, then count the
+  // blocks that belong to them.
+  const readIdsForType = await prisma.adminWorkerSourceRead
+    .findMany({ where: { detectedContentType: ct }, select: { id: true } })
+    .catch(() => [] as Array<{ id: string }>);
+  const structuredBlocksCreated = readIdsForType.length
+    ? await prisma.adminWorkerSourceBlock
+        .count({ where: { sourceReadId: { in: readIdsForType.map((r) => r.id) } } })
+        .catch(() => 0)
+    : 0;
   const citationsCreated = await prisma.checklistCitation
     .count({ where: { checklistItem: { contentType: ctEnum } } } as never)
     .catch(() => 0);

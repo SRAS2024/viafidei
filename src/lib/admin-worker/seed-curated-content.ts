@@ -91,7 +91,14 @@ export async function seedCuratedContent(
         where: { contentType: entry.contentType, canonicalSlug: entry.slug },
         select: { id: true },
       });
-      const title = (typeof entry.payload.title === "string" && entry.payload.title) || entry.slug;
+      // Prefer the payload's own display name. SAINT records carry the name in
+      // `canonicalName` (not `title`), so without this fallback every saint's
+      // stored title — and therefore its page <h1>, <title>, and share image —
+      // was its slug ("saint-joseph" instead of "Saint Joseph").
+      const title =
+        (typeof entry.payload.title === "string" && entry.payload.title) ||
+        (typeof entry.payload.canonicalName === "string" && entry.payload.canonicalName) ||
+        entry.slug;
       const item =
         existing ??
         (await prisma.checklistItem.create({

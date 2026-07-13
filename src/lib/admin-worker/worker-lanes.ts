@@ -116,6 +116,14 @@ export const CONTENT_LANES: LaneDef[] = [
     activeOnly: true,
     growth: true,
     discovery: true,
+    // The seeder issues several SPARQL queries sequentially, and each runSparql
+    // now spends up to ~55s per attempt (×2 with the transient-blip retry)
+    // against a slow/unreachable Query Service — worst case well over the
+    // default 120s watchdog, which would kill the lane mid-progress and drop it
+    // into error-backoff. Give it a generous budget like the other
+    // network-heavy lanes (discover-parish-osm, drain); it self-throttles and
+    // every candidate it enqueues is durable.
+    watchdogMs: 6 * 60 * 1000,
     async run({ prisma }) {
       const { runDiscoverySeeder } = await import("./structured/discovery-seeder");
       await runDiscoverySeeder(prisma);
@@ -125,6 +133,13 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "discover-parish-osm",
     capacity: 2,
+    // A productive parish sweep legitimately runs long: each published parish
+    // with a website is communion-checked with a live fetch, so a run that
+    // publishes many parishes can exceed the default 120s watchdog and get
+    // killed mid-progress (then backs off), stalling the directory. Give it a
+    // generous watchdog like the drain lane so a big-but-progressing sweep
+    // completes; it self-throttles between runs and every publish is durable.
+    watchdogMs: 8 * 60 * 1000,
     // NOT activeOnly: parishes are grown deterministically from OpenStreetMap's
     // curated roman_catholic tag + the communion verifier + the strict parish
     // schema + the publish orchestrator — no brain judgement is involved — so

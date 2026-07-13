@@ -37,6 +37,12 @@ function makePrisma(counts: Record<string, number>, opts: { goals?: string[] } =
     count: vi.fn(async (args: { where?: Record<string, unknown> } = {}) =>
       resolver(name, args.where ?? {}),
     ),
+    // The structured-block funnel resolves the source-read ids for a content
+    // type via findMany, then counts blocks by sourceReadId. Return `count`-many
+    // stub rows so the two-step lookup exercises the same numbers.
+    findMany: vi.fn(async (args: { where?: Record<string, unknown> } = {}) =>
+      Array.from({ length: resolver(name, args.where ?? {}) }, (_, i) => ({ id: `${name}-${i}` })),
+    ),
   });
   return {
     contentGoal: {
