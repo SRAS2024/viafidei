@@ -7,6 +7,8 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { readExecutionStatus } from "./execution-host";
+
 export type ReadinessStatus = "pass" | "fail";
 
 export interface ReadinessCheck {
@@ -73,15 +75,22 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
   const heartbeatAgeMs = state?.lastHeartbeatAt
     ? Date.now() - state.lastHeartbeatAt.getTime()
     : Infinity;
+  // Local execution is the supported architecture (spec §24): an absent
+  // heartbeat while the master switch is OFF is intentional, not a failure.
+  const execution = await readExecutionStatus(prisma).catch(() => null);
+  const workerOff = execution?.state === "OFF";
   checks.push({
     key: "heartbeat",
     label: "Admin Worker heartbeat",
-    status: heartbeatAgeMs < FIVE_MIN_MS ? "pass" : "fail",
-    detail: state?.lastHeartbeatAt
-      ? `Last heartbeat ${Math.round(heartbeatAgeMs / 1000)}s ago.`
-      : "No heartbeat recorded.",
+    status: workerOff || heartbeatAgeMs < FIVE_MIN_MS ? "pass" : "fail",
+    detail: workerOff
+      ? "Admin Worker intentionally inactive (master switch OFF — no local runtime, no cloud worker)."
+      : state?.lastHeartbeatAt
+        ? `Last heartbeat ${Math.round(heartbeatAgeMs / 1000)}s ago${execution?.executingLocally ? " (running locally)" : ""}.`
+        : "No heartbeat recorded.",
     repair:
-      "Start or restart the worker process: `npm run worker` (or redeploy the worker service on Railway).",
+      "Open the Via Fidei application on the operator's MacBook and switch the Admin Worker ON " +
+      "(or run `npm run worker:local` in the repository).",
   });
 
   // Brain has run (any AdminWorkerDecision)
@@ -91,7 +100,7 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     label: "Admin Worker brain has run",
     status: decisionCount > 0 ? "pass" : "fail",
     detail: `${decisionCount} brain decisions recorded.`,
-    repair: "Run a worker pass — Command Center → Run diagnostic / content-goal pass.",
+    repair: "Run a pass from the Admin Worker command center in the Via Fidei application.",
   });
 
   checks.push({

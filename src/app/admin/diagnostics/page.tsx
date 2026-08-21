@@ -6,12 +6,11 @@ import { runAllDiagnostics } from "@/lib/diagnostics";
 import {
   getAdminWorkerState,
   listRecentPasses,
+  readExecutionStatus,
   runAdminWorkerDiagnostics,
   summarizeRatings,
 } from "@/lib/admin-worker";
 import { prisma } from "@/lib/db/client";
-import { DeveloperAuditButton } from "./DeveloperAuditButton";
-import { AdminWorkerPauseToggle } from "../admin-worker/AdminWorkerPauseToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +18,12 @@ export default async function DiagnosticsPage() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
 
-  const [results, adminWorkerRatings, state, recentPasses] = await Promise.all([
+  const [results, adminWorkerRatings, state, recentPasses, execution] = await Promise.all([
     runAllDiagnostics(),
     runAdminWorkerDiagnostics(prisma),
     getAdminWorkerState(prisma),
     listRecentPasses(prisma, { limit: 15 }),
+    readExecutionStatus(prisma),
   ]);
   const counts = { pass: 0, warn: 0, fail: 0 };
   for (const r of results) counts[r.status]++;
@@ -35,7 +35,10 @@ export default async function DiagnosticsPage() {
   const heartbeatAgeMs = state.lastHeartbeatAt
     ? Date.now() - state.lastHeartbeatAt.getTime()
     : null;
-  const workerLive = heartbeatAgeMs != null && heartbeatAgeMs <= 10 * 60 * 1000;
+  // Liveness means "the LOCAL runtime on the operator's Mac is alive". A fresh
+  // heartbeat with no live local lease is not an active worker.
+  const workerLive =
+    execution.executingLocally && heartbeatAgeMs != null && heartbeatAgeMs <= 10 * 60 * 1000;
   const heartbeatAgo =
     heartbeatAgeMs == null
       ? "never"
@@ -59,8 +62,8 @@ export default async function DiagnosticsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <Link className="text-indigo-600 underline" href="/admin/admin-worker">
-            Command Center →
+          <Link className="text-indigo-600 underline" href="/admin/logs/worker">
+            Worker logs →
           </Link>
           <Link className="text-indigo-600 underline" href="/admin/checklist">
             ← dashboard
@@ -69,21 +72,34 @@ export default async function DiagnosticsPage() {
       </header>
 
       {/*
-        Admin Worker on/off toggle. Sits directly above the Developer
-        Report button per the operator's spec — the human super-admin
-        can shut the worker down without leaving the diagnostics page.
-        Security defense continues to run when paused.
+        Execution status — READ ONLY. The Admin Worker's controls (activation,
+        passes, homepage makeover, reports, file ingestion) live in the native
+        Via Fidei application, which runs the worker on the operator's MacBook.
+        The browser admin deliberately exposes no way to start worker work on
+        the production web service.
       */}
-      <AdminWorkerPauseToggle
-        initialPaused={state.paused}
-        initialReason={state.pausedReason}
-        workerLive={workerLive}
-        heartbeatAgo={heartbeatAgo}
-      />
-
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <DeveloperAuditButton />
-      </div>
+      <section
+        className="rounded-sm border p-4"
+        data-execution-state={execution.state}
+        style={{
+          borderColor: execution.state === "LOCAL_ACTIVE" ? "#185c2a" : "#94908a",
+          backgroundColor: execution.state === "LOCAL_ACTIVE" ? "#f0f7f1" : "#f4f3f0",
+        }}
+      >
+        <h2 className="font-display text-xl text-ink">Admin Worker execution</h2>
+        <p className="mt-1 font-serif text-sm text-ink-soft">{execution.label}</p>
+        <p className="mt-1 text-xs text-ink-soft">
+          Heartbeat {heartbeatAgo} ·{" "}
+          {workerLive ? "local runtime healthy" : "no active local runtime"}
+          {execution.lease ? ` · host ${execution.lease.host.label}` : ""}
+          {state.paused ? " · paused" : ""}
+        </p>
+        <p className="mt-2 text-xs italic text-ink-soft">
+          The Admin Worker runs on the operator&apos;s MacBook, under the native Via Fidei
+          application. Turning it off means no worker runs anywhere — the production service never
+          takes the work over.
+        </p>
+      </section>
 
       <section>
         <h2 className="font-display text-2xl text-ink">Admin Worker health</h2>
@@ -116,8 +132,8 @@ export default async function DiagnosticsPage() {
         </p>
         {recentPasses.length === 0 ? (
           <p className="rounded border border-dashed border-slate-300 p-4 text-sm italic text-ink-soft">
-            No passes recorded yet. Start the Admin Worker (or trigger a pass from the Command
-            Center) to populate this list.
+            No passes recorded yet. Switch the Admin Worker on in the native Via Fidei application
+            to populate this list.
           </p>
         ) : (
           <table className="w-full text-xs">
@@ -156,7 +172,7 @@ export default async function DiagnosticsPage() {
                   <td>
                     <Link
                       className="text-indigo-600 underline"
-                      href={`/admin/admin-worker/logs?passId=${p.id}`}
+                      href={`/admin/logs/worker?passId=${p.id}`}
                     >
                       view
                     </Link>

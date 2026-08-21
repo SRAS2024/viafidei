@@ -5,7 +5,8 @@
     "dockerfilePath": "Dockerfile.worker"
   },
   "deploy": {
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 5
+    "startCommand": "sh scripts/worker-service-parked.sh",
+    "numReplicas": 0,
+    "restartPolicyType": "NEVER"
   }
 }

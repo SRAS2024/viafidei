@@ -28,6 +28,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { assertWorkerExecutionAllowed } from "./execution-context";
 import type { BrainAction, BrainDecision, BrainMissionStage } from "./brain";
 import type {
   AdminWorkerMode,
@@ -194,6 +195,7 @@ export async function runOperatorPass(
   passType: OperatorPassType,
   opts: { workerId?: string; source?: "operator" | "scheduler" } = {},
 ): Promise<OperatorPassResult> {
+  assertWorkerExecutionAllowed(`run the ${passType} operator pass`);
   const mapping = FORCED_STAGE[passType];
   if (!mapping) {
     return { ok: false, passType, stage: "MAINTENANCE", outcome: null, error: "no forced stage" };

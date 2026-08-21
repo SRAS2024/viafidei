@@ -24,6 +24,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { BrainEnvelope, BrainEnvelopeSchema, BrainOp, PROTOCOL_VERSION } from "./contracts";
+import { workerExecutionAllowed, workerExecutionOrigin } from "../execution-context";
 
 export interface CallOpts {
   /** Per-call timeout (ms). Defaults to INTELLIGENCE_TIMEOUT_MS or 8000. */
@@ -75,8 +76,14 @@ function brainLog(level: "warn" | "info", msg: string): void {
   console[level](`[intelligence] ${msg}`);
 }
 
-/** Whether the brain is enabled by configuration. Default: on. */
+/**
+ * Whether the brain is enabled *here*. Default: on — but never inside the
+ * production web service. The Python intelligence brain is Admin Worker
+ * computation and belongs to the local (MacBook) runtime (spec §1, §7); the
+ * Railway web process must not hold a resident Python process.
+ */
 export function isBrainEnabled(): boolean {
+  if (!workerExecutionAllowed()) return false;
   const v = (process.env.INTELLIGENCE_BRAIN_ENABLED ?? "").toLowerCase();
   if (["0", "false", "off", "no"].includes(v)) return false;
   return true;
@@ -164,6 +171,12 @@ export function __getBrainProcForTest(): ChildProcessWithoutNullStreams | null {
 /** Ensure the long-lived brain process is running; returns it or null. */
 function ensureProc(): ChildProcessWithoutNullStreams | null {
   if (_proc && _proc.exitCode === null && !_proc.killed) return _proc;
+
+  // Hard boundary: only a permitted worker runtime may spawn Python.
+  if (!workerExecutionAllowed()) {
+    markDown(`brain not available in the ${workerExecutionOrigin()} runtime`);
+    return null;
+  }
 
   const root = resolveBrainRoot();
   if (!root) {
@@ -358,6 +371,10 @@ export async function callBrain<T = unknown>(
 export async function probeBrain(
   timeoutMs = 5000,
 ): Promise<{ protocolVersion: number; ops: string[] } | null> {
+  if (!workerExecutionAllowed()) {
+    markDown(`brain not available in the ${workerExecutionOrigin()} runtime`);
+    return null;
+  }
   const root = resolveBrainRoot();
   if (!root) {
     markDown("intelligence/ package not found");

@@ -15,6 +15,8 @@ import type {
   PrismaClient,
 } from "@prisma/client";
 
+import { workerExecutionOrigin } from "./execution-context";
+
 export interface AdminWorkerLogInput {
   passId?: string | null;
   taskId?: string | null;
@@ -27,6 +29,26 @@ export interface AdminWorkerLogInput {
   sourceUrl?: string | null;
   relatedEntityId?: string | null;
   safeMetadata?: Prisma.InputJsonValue | null;
+}
+
+/**
+ * Stamp every log row with the runtime that produced it (spec §24: "logs
+ * should indicate whether an operation was executed locally or by another
+ * runtime"). Uses the existing `safeMetadata` column, so no schema change.
+ */
+function withExecutionOrigin(
+  metadata: Prisma.InputJsonValue | null | undefined,
+): Prisma.InputJsonValue {
+  const origin = workerExecutionOrigin();
+  if (metadata && typeof metadata === "object" && !Array.isArray(metadata)) {
+    return {
+      ...(metadata as Record<string, unknown>),
+      executedBy: origin,
+    } as Prisma.InputJsonValue;
+  }
+  return (
+    metadata == null ? { executedBy: origin } : { value: metadata, executedBy: origin }
+  ) as Prisma.InputJsonValue;
 }
 
 export async function writeAdminWorkerLog(
@@ -45,7 +67,7 @@ export async function writeAdminWorkerLog(
       sourceHost: input.sourceHost ?? null,
       sourceUrl: input.sourceUrl ?? null,
       relatedEntityId: input.relatedEntityId ?? null,
-      safeMetadata: input.safeMetadata ?? undefined,
+      safeMetadata: withExecutionOrigin(input.safeMetadata),
     },
   });
 }

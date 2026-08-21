@@ -49,6 +49,12 @@ See [Intelligence brain (Python)](#intelligence-brain-python).
 
 ## Architecture
 
+**Where things run.** Railway is the public home and the durable store; the
+operator's MacBook is the Admin Worker's body and brain host; Postgres is the
+worker's long-term memory and the application's source of truth; the native
+Via Fidei application is the worker's command center and power switch. See
+[Admin Worker execution host](#admin-worker-execution-host--the-operators-macbook).
+
 The **Admin Worker artifact pipeline** is the only path from a source
 page to a public page (see [Single content path](#single-content-path)).
 There is no other build/publish engine: the pre-Admin-Worker
@@ -239,8 +245,13 @@ npm run seed:content
 # Run the public site (port 3000)
 npm run dev
 
-# Run the Admin Worker in another terminal
-npm run worker
+# Run the Admin Worker in another terminal. It executes on THIS machine — the
+# plain `npm run worker` entry point refuses to run (see Worker entry point).
+npm run worker:local
+
+# …or run the full local host + Admin Worker command center (what the native
+# Via Fidei application launches when the green pill is switched ON):
+npm run worker:host
 
 # Refresh today's daily readings (the worker also does this on a schedule)
 npm run readings:refresh
@@ -328,29 +339,132 @@ Because PARISH is so much larger than the rest, it grows on its own keyless Open
 
 Two automatic overrides keep it sensible: if **every other goal is already met** the parish lane runs continuously (nothing else to do); if the **PARISH goal itself is met** the lane idles. The structured-knowledge campaign ([`major-goal-campaign.ts`](src/lib/admin-worker/major-goal-campaign.ts)) independently DRAIN→SURGEs the largest web-growable gap, so the non-parish types are always being worked during a parish cooldown.
 
-## Desktop developer app (macOS)
+## Admin Worker execution host — the operator's MacBook
 
-A native WebKit app — **"Via Fidei.app"** — is the developer's window onto the **live deployed site** (`https://etviafidei.com`). It runs no local server and holds no local state: it is purely an interface to the deployed app, so every change that is merged to `main` and deployed to Railway is reflected in the app on the next load. A top toggle switches between **Standard Site** (`/`) and **Admin Site** (`/admin`); the web session (admin login cookie) persists across launches. Source: a small AppKit + `WKWebView` program built with `swiftc` (`scripts/desktop-app/`), packaged as `Via Fidei.app` with the crucifix icon. This is a personal developer tool, not part of the deployment — local dev still uses the local stack (`npm run dev` + `npm run worker` against a local Postgres), and Railway's 24 GB / 512 GB is ample for the production worker, so the app deliberately does **not** expose this machine to the internet.
+The Admin Worker is **not** a cloud workload. Its active execution host is the
+operator's MacBook, through the native **"Via Fidei.app"**:
+
+```
+   Railway (web service)        Postgres (Railway)          MacBook (Via Fidei.app)
+   public site, auth,      ◄──► durable source of truth ◄──► THE ADMIN WORKER
+   sessions, user data,         content, worker memory,      TypeScript body +
+   lightweight APIs,            knowledge graph, logs,       Python brain +
+   request-time security        provenance, artifacts        browser rendering,
+                                                             discovery, QA,
+   receives results ────────────────────────────────────────  publishing
+```
+
+- **Railway runs the website and the database.** It serves public requests,
+  authentication, sessions, user data and the lightweight APIs, and it keeps
+  every request-time protection (auth, CSRF, headers, validation, rate limits,
+  banned devices, the request defender). It does **not** run the autonomous
+  loop, the Python brain, Chromium, discovery, verification, homepage analysis,
+  worker reports or worker email.
+- **The MacBook runs the worker.** Discovery, crawling, rendering, parsing,
+  reasoning, extraction, verification, classification, comparison, formatting,
+  security analysis, document processing and report generation all consume this
+  machine's CPU, memory, disk and internet connection.
+- **Postgres stays the long-term memory.** Shutting the Mac down does not erase
+  what the worker learned; switching it back on resumes from the durable state.
+
+### The master switch
+
+The app's toolbar carries one green **ON / OFF pill**. It is the master
+activation control for the entire Admin Worker.
+
+| State   | What exists                                                                                                                                                                                                                                                  |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **OFF** | No worker loop, no Python brain, no Chromium, no discovery, no security scans, no diagnostics passes, no reports, no worker email — **on this Mac or anywhere else**. Railway does not take over.                                                            |
+| **ON**  | The app launches `scripts/local-worker-host.ts`, which claims the single execution lease, starts `scripts/run-worker.ts --origin local`, and brings the brain, acquisition tools and browser rendering online — resuming from the state already in Postgres. |
+
+There is **no automatic cloud failover** (spec §5). If the Mac sleeps, quits or
+loses its connection, the worker is simply unavailable: the site, accounts,
+logins and published content are unaffected. If the local runtime crashes while
+the switch is ON, the app restarts it locally and says so.
+
+### What the app contains
+
+- The complete **Admin Worker command center** — worker status, mode, priority,
+  heartbeat, content goals and coverage, pipeline state, current task, recent
+  passes and decisions, brain reasoning and ranked alternatives, source
+  reputation and coverage, knowledge and memory, logs, rules, skills, repair
+  plans, review queue, package artifacts, quality scores, strict QA, rollbacks,
+  security activity, homepage drafts, diagnostics, intelligence status, current
+  source activity, publishing activity, content growth, and live local resource
+  usage (`scripts/desktop-app/dashboard.html`, served by the local runtime).
+- **Manual passes and the homepage makeover run locally.** A button in the app
+  starts a local operation; it never calls a server endpoint that would do the
+  work on Railway.
+- **File ingestion.** Drag a file onto the window (or use ⌘I) and the local
+  worker reads it — see [Operator file ingestion](#operator-file-ingestion).
+- The original **Standard Site / Admin Site** tabs onto `https://etviafidei.com`,
+  unchanged.
+
+### Wiring
+
+```bash
+npm install                       # the app launches the worker from this repo
+bash scripts/desktop-app/build.sh # build "Via Fidei.app" onto the Desktop
+open "$HOME/Desktop/Via Fidei.app"
+```
+
+The app talks to the local runtime over **127.0.0.1 only**, on an ephemeral
+port, with a token generated per launch and handed to the app on stdout.
+Nothing is exposed to the internet, no credential is stored in the app or the
+WebView, and **no new environment variable is introduced** — the local runtime
+reads this repository's existing configuration exactly as the cloud worker did.
+The repository path is baked into the bundle at build time and can be changed
+from the app's **Admin Worker → Choose Repository Folder…** menu.
+
+The same runtime can be driven from a terminal when useful:
+
+```bash
+npm run worker:host    # the local host + command center (what the app launches)
+npm run worker:local   # the worker loop alone, on this machine
+```
+
+### The retained Railway worker service
+
+The Railway worker service is **kept, not deleted** — `Dockerfile.worker` and
+`railway.worker.json` still build and deploy — but its normal state is parked:
+`scripts/worker-service-parked.sh`, zero replicas, no Node, no Python, no
+Prisma, no Chromium. Restoring cloud execution in the future is a deliberate,
+manual change (`npm run worker -- --force-remote-execution "reason"`), and the
+execution lease guarantees the two can never both drain the same queue.
 
 ---
 
 ## Admin UI
 
-`/admin` renders a card grid grouped into four sections:
+There are now **two** admin surfaces, and the split is deliberate:
 
-**Admin Worker (autonomous system):**
+- the **native Via Fidei application** holds the Admin Worker command center —
+  everything that makes the worker _do_ something (see
+  [Admin Worker execution host](#admin-worker-execution-host--the-operators-macbook));
+- the **browser `/admin`** holds the surfaces the operator wants reachable from
+  any machine, and exposes **no way to start Admin Worker work**.
 
-| Card                | Route                           | Purpose                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Command Center      | `/admin/admin-worker`           | Organised into labelled sections — worker-health banner (accurate brain/heartbeat/publishing state), at-a-glance metrics, mission & control, content & coverage (catalogue + **daily-readings calendar coverage** + growth funnel + Why-No-Growth + **Worker capabilities** — which outward capabilities are enabled vs. need an env/network to grow), pipeline & diagnostics, quality & safety, and brain & learning |
-| System diagnostics  | `/admin/diagnostics`            | Subsystem ratings (incl. automatic-repair status), pause toggle, Developer Audit PDF                                                                                                                                                                                                                                                                                                                                  |
-| Worker Reasoning    | `/admin/admin-worker/reasoning` | Full "why" chain for any content item (candidate → … → publish), drawn from the reasoning graph                                                                                                                                                                                                                                                                                                                       |
-| Pipeline map        | `/admin/admin-worker/pipeline`  | Per-stage queue snapshot across the 22-stage chain                                                                                                                                                                                                                                                                                                                                                                    |
-| Package artifacts   | `/admin/admin-worker/artifacts` | Every built artifact + its strict-QA result; per-artifact detail view                                                                                                                                                                                                                                                                                                                                                 |
-| Admin Worker logs   | `/admin/admin-worker/logs`      | 16-category log viewer with period + severity filters                                                                                                                                                                                                                                                                                                                                                                 |
-| Admin Worker rules  | `/admin/admin-worker/rules`     | Versioned rule catalogue                                                                                                                                                                                                                                                                                                                                                                                              |
-| Worker Intelligence | `/admin/intelligence`           | Live capability dashboard: brain status, self-model, capability strengths/weaknesses, memory, source reliability, decisions, self-explanations, stuckness, upgrades                                                                                                                                                                                                                                                   |
-| Intelligence Lab    | `/admin/intelligence/lab`       | Intelligence Laboratory surfaces: highest-leverage change, causal/root-cause, hypotheses, experiments, proof packets, strategy tournaments, benchmarks + brain versions, capability proposals, adversarial weaknesses, architecture integrity                                                                                                                                                                         |
+This is a structural separation, not hidden buttons: the worker pages
+(`/admin/admin-worker/**`, `/admin/intelligence`, `/admin/skills`) and the
+worker control routes (`/api/admin/admin-worker/**`,
+`/api/admin/developer-audit`) were removed from the web application, and
+`tests/admin-worker/web-admin-has-no-worker-controls.test.ts` fails the build if
+one comes back.
+
+**Browser admin (`/admin`):**
+
+| Card                   | Route                           | Purpose                                                                                                   |
+| ---------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| User Accounts          | `/admin/users`                  | User management                                                                                           |
+| System diagnostics     | `/admin/diagnostics`            | Subsystem ratings + a **read-only** Admin Worker execution panel (local / off / disconnected)             |
+| Logs                   | `/admin/logs`                   | Account, admin and worker logs                                                                            |
+| Admin Worker logs      | `/admin/logs/worker`            | Read-only worker log, filterable by severity / step / pass, showing which runtime executed each operation |
+| Checklist surfaces     | `/admin/checklist/**`           | Read-only views of what the worker produced, plus source curation (row marking, no worker compute)        |
+| Homepage mirror editor | `/admin/homepage`               | Hand-edited homepage blocks                                                                               |
+| Search index / Media   | `/admin/search`, `/admin/media` | Site surfaces edited by hand                                                                              |
+| Banned devices         | `/admin/banned-devices`         | Request-time security enforcement records                                                                 |
+
+Admin authentication and sign-out are unchanged.
 
 The public **daily readings** page lives at `/liturgy/readings?date=…` (the
 homepage + liturgical calendar link to it), and the worker owns it end to end.
@@ -432,9 +546,11 @@ email-not-configured banner points to the real **Diagnostics** page.
 
 The **Admin Worker** is the autonomous website-administrator system,
 fully coded and operating **without any AI APIs**. Code lives under
-`src/lib/admin-worker/`. The operator surface is at `/admin/admin-worker`
-(Command Center) and `/admin/diagnostics` (per-subsystem ratings +
-pause toggle). It is the **only** system that creates public content
+`src/lib/admin-worker/`. The operator surface is the **command center in the
+native Via Fidei application** on the operator's MacBook, which is also where
+the worker executes; the browser keeps `/admin/diagnostics` (per-subsystem
+ratings + a read-only execution panel). It is the **only** system that creates
+public content
 (see [Single content path](#single-content-path)).
 
 The whole intelligence layer is presented as **one identity: the Admin
@@ -569,7 +685,7 @@ falling back to a TypeScript final brain. Concretely:
   cross-source-validation requirements, QA + quality thresholds,
   extraction strategy, public route, and publishing / repair / rollback /
   human-review rules.
-- **Brain IQ diagnostics.** `/admin/intelligence` shows brain
+- **Brain IQ diagnostics.** The command center's intelligence panel shows brain
   availability + protocol, ok/failed call counts, average latency,
   average + safe-to-auto-execute confidence, learning events, and
   strategy-memory size, drawn from the `AdminWorkerBrainCall` ledger.
@@ -1101,8 +1217,8 @@ falling back to a TypeScript final brain. Concretely:
     refused (409) so a stale tab cannot double-apply. Review actions
     live in `homepage-designer.ts`
     (`getHomepageDraft` / `saveHomepageDraftEdits` /
-    `applyHomepageDraft` / `discardHomepageDraft`) behind
-    `POST|PATCH /api/admin/admin-worker/homepage-draft/[id]`.
+    `applyHomepageDraft` / `discardHomepageDraft`), driven from the local
+    command center (`POST /api/homepage-draft/[id]` on 127.0.0.1).
 
 - **Defends the admin site without harassing the admin.** The
   defender runs at three layers: (1) the security defender pipeline
@@ -1682,18 +1798,21 @@ SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
 
 ### Pause + override
 
-The human admin is the site's super-admin. They can pause the Admin
-Worker at any time via the toggle on `/admin/diagnostics`. Pausing
-stops all non-security work — the security defender keeps running so
-the site is never unprotected. When paused, the Admin Worker writes a
-single "Admin Worker is paused (reason)" log entry per pass and skips
-the rest of the loop. Resume the worker via the same toggle.
+The human admin is the site's super-admin. The **master ON/OFF pill** in the
+native application is the primary control: OFF stops the entire local workload —
+loop, Python brain, browser rendering, discovery, scans, reports and worker
+email — and nothing takes over in the cloud.
 
-The status banner reflects the worker's **real** liveness, not just the
-pause flag: **Running** (fresh heartbeat, not paused), **Offline** (not
-paused but no heartbeat within 10 min — the process isn't running, so it
-says so and points at `npm run worker`), or **Paused** (operator-paused).
-It no longer reads "Active" while the heartbeat is stale.
+The finer-grained `paused` flag remains in `AdminWorkerState` for the running
+worker: when paused it stops all non-security work — the security defender keeps
+running so the site is never unprotected — writes a single "Admin Worker is
+paused (reason)" log entry per pass, and skips the rest of the loop.
+
+Liveness now means "the LOCAL runtime is alive": a fresh heartbeat only counts
+while a live local execution lease exists. Diagnostics distinguishes **Admin
+Worker intentionally inactive** (master switch OFF — reported as healthy, not a
+production failure), **active locally**, **switched on but disconnected**
+(a genuine local failure), and **paused**.
 
 ### Liveness & crash resilience
 
@@ -2191,9 +2310,11 @@ without it the fingerprint alone still detects code-shape changes.
 
 ### Operator actions
 
-The Command Center exposes one-click actions for every named pass. Each of
-these is **also run autonomously** by the loop on its own cadence — the
-buttons only let the operator drive one on demand. The six single-stage
+The Command Center — in the native application, executing on the operator's
+MacBook — exposes one-click actions for every named pass. Each button starts a
+**local** operation; none of them calls a server endpoint that would do the work
+on Railway. Each is **also run autonomously** by the loop on its own cadence —
+the buttons only let the operator drive one on demand. The six single-stage
 buttons **force the exact requested stage** (they do not route through the
 brain's scoring, so "Run diagnostics" always runs diagnostics rather than
 whatever the brain would have scored highest), via `runOperatorPass`
@@ -2214,7 +2335,13 @@ correctly in Recent Passes with their real type and are liveness-safe:
 - **Request Homepage Makeover** — operator-triggered redesign that
   files a reviewable draft, then offers Preview / Discard / Publish
   (with an editable full-screen preview)
-- **Download Developer Audit** — last 24 h / 7 d / 30 d PDF
+- **Download Developer Audit** — last 24 h / 7 d / 30 d PDF, generated on this
+  Mac (the server-side `/api/admin/developer-audit` route is gone)
+- **Give the worker a file** — drag-and-drop or ⌘I; see
+  [Operator file ingestion](#operator-file-ingestion)
+
+Every one of these obeys the master switch: with the Admin Worker OFF the local
+runtime answers `409 worker_off` rather than starting work.
 
 ### Modes
 
@@ -2238,11 +2365,26 @@ ladder — the brain re-scores every cycle.
 ## Worker entry point
 
 ```bash
-tsx scripts/run-worker.ts                # loop forever
-tsx scripts/run-worker.ts --one-shot     # one pass then exit
-tsx scripts/run-worker.ts --max-jobs N   # exit after N passes
-tsx scripts/run-worker.ts --worker-id X  # stable worker id
+npm run worker:host                        # the local host + command center (what the app launches)
+npm run worker:local                       # the worker loop on this machine
+
+tsx scripts/run-worker.ts --origin local   # claim the local (MacBook) runtime
+tsx scripts/run-worker.ts --one-shot       # one pass then exit
+tsx scripts/run-worker.ts --max-jobs N     # exit after N passes
+tsx scripts/run-worker.ts --worker-id X    # stable worker id / lease holder
+tsx scripts/run-worker.ts --switch-on      # also flip the master switch on (CLI use)
 ```
+
+Run without `--origin local` and the process **refuses to execute**: the Admin
+Worker's execution host is the operator's MacBook, and there is no automatic
+cloud failover. Restoring cloud execution is deliberate and manual:
+`npm run worker -- --force-remote-execution "reason"`.
+
+Every entry point is gated twice — by the process-level rule in
+`execution-context.ts` (the Next.js server runtime can never run worker
+computation, spawn the Python brain or launch Chromium) and by the durable rule
+in `execution-host.ts` (the master switch must be ON and this runtime must hold
+the single execution lease, stored in `AdminWorkerMemory` — no schema change).
 
 `run-worker.ts` drives `runAdminWorkerLoop` — each pass runs the
 ranked-action brain then the mission dispatcher, which walks the artifact
@@ -2502,8 +2644,8 @@ auto-recovery, and concurrent id-multiplexing.
   summary (files, coverage, weak/untested), next mission action, any stuckness
   signal, the brain operation mix, the top self-requested upgrades, and the open
   developer-request queue (parser, schema, source, UI, safety, capability,
-  code/refactor, and process needs). Also surfaced live on the
-  `/admin/intelligence` dashboard.
+  code/refactor, and process needs). Also surfaced live on the command
+  center's intelligence panel.
 - **Maintenance intelligence, throttled** (`awareness.ts` + `self-model.ts` +
   `custody.ts`): **schema-awareness** (parses the Prisma schema →
   isolated/under-indexed models), **UI-awareness** (scans routes/admin pages →
@@ -2650,11 +2792,11 @@ claim/epistemic status (`LabClaimRecord`, `LabClaimEvidence`,
 architecture governor (`LabArchitectureIntegrityReport`). The loose-coupling
 convention (no cross-FKs, string refs to passes / brain-calls, JSON payloads)
 matches the other audit-store tables; `intelligence-lab-store.ts` owns every
-read/write and the `/admin/intelligence/lab` dashboard renders them.
+read/write; the command center renders them.
 
 ### Admin surface
 
-`/admin/intelligence` is a **live capability dashboard**: brain status +
+The command center's **intelligence** panel is a live capability view: brain status +
 protocol + op count + self-model freshness, worker-IQ, the **self-model
 snapshot** (files, lines, routes, models, test coverage, weak/untested/orphan/
 duplicate counts, architecture layers, largest modules), a deterministic
@@ -2664,8 +2806,8 @@ decisions with confidence + risk, recent **self-explanations**,
 **stuckness/blocker** signals, communion-risk flags, and the operation mix. It
 links to the **Intelligence Laboratory** sub-dashboard.
 
-`/admin/intelligence/lab` is the **Intelligence Laboratory** dashboard — 20
-read-only surfaces over the `Lab*` store: the highest-leverage next change,
+The **Intelligence Laboratory** surfaces sit alongside it — 20 read-only views
+over the `Lab*` store: the highest-leverage next change,
 architecture-integrity reports, proof packets (+ failed-proof count), active
 hypotheses, strategy tournaments, benchmark + brain-version scores,
 review-gated capability proposals, adversarial weaknesses, counterfactual
@@ -2917,7 +3059,7 @@ Migration `0046` adds two tables:
 
 ### Admin surface + proof
 
-`/admin/skills` is the **Certified Admin Skill Runtime dashboard**: the
+The command center's **skills** panel is the Certified Admin Skill Runtime view: the
 final-brain state, coverage summary, per-content-type coverage, the blocked
 types (with developer requests filed), the certified-skill catalogue, and recent
 skill executions from the ledger. The **Developer Audit PDF** has a matching
@@ -2934,6 +3076,87 @@ and honest coverage — and runs in `npm run verify:all`.
 > `FilterChips`, the admin log tabs, the language / rosary toggles) now fills
 > with the action/Marian blue (`--action-blue`, via the `vf-filter-active`
 > utility), so "selected = blue" is uniform site-wide.
+
+---
+
+## Operator file ingestion
+
+Files handed to the worker — dragged onto the app, or chosen with ⌘I — are
+processed **locally** and enter the same intellectual and quality framework as
+anything discovered on the internet. A file does not get a shortcut into
+published content because a human supplied it.
+
+`file-extractors.ts` identifies the type from magic bytes (then the extension)
+and extracts text with Node built-ins only: text, Markdown, HTML, JSON/JSON-LD,
+XML/RSS/Atom, CSV/TSV, PDF (the existing dependency-free extractor), and the
+ZIP-based office formats (DOCX, PPTX, XLSX, ODT) through a bounded reader.
+`file-ingest.ts` then:
+
+1. records provenance — `OPERATOR`, with the operator, filename and sha256;
+2. re-expresses the document's title/headings/paragraphs as simple markup and
+   hands it to the **existing** `readSource` — one parser, one classifier, one
+   extractor set, one pipeline;
+3. compares it with live content (exact + near-duplicate by normalised title);
+4. adjudicates contradictions against published values through the conflict
+   resolver;
+5. requires external corroboration before publishing, because operator-supplied
+   material carries no external authority of its own;
+6. queues it on the normal chain — classification → package → cross-source
+   verification → strict QA → publish gate — or routes it to **review** when
+   classification confidence is below threshold or a contradiction is
+   unresolved. It never invents a type or a missing field.
+
+**Files are untrusted data.** Nothing inside one is executed: no macros, no
+scripts, no embedded programs, no shell commands. Macro-bearing office
+documents are reported and read as data; `<script>` blocks are stripped;
+instruction-shaped text (`ignore all previous instructions`, `publish this
+immediately`, `skip QA`, embedded shell commands) is **flagged, logged as a
+SECURITY event, and never obeyed** — it is source material, not authority.
+Size, entry-count and compression-ratio ceilings guard against decompression
+bombs and memory exhaustion, and a malformed document degrades to a reported
+failure rather than an exception.
+
+---
+
+## Eyes, ears, legs — how the worker acquires information
+
+The worker already owned a static fetcher, a headless renderer, structured
+extractors, Wikidata/Wikipedia/Overpass ingestors, RSS + sitemap discovery, a
+PDF extractor and a durable source-read cache. What it lacked was a single
+place that decides **which** of them to use, and a memory of what worked.
+
+- **Ears — noticing change** (`change-sensing.ts`). Every source read already
+  stored a sha256, an ETag and a Last-Modified header; those now feed a change
+  sense. `senseUrl` answers "is this worth a request, and with which
+  conditional headers?", `recordObservation` learns each host's real change
+  cadence (a page that changes yearly stops being polled hourly),
+  `senseFeedChange` diffs a feed/sitemap against what has already been read, and
+  `runFreshnessSweep` re-queues genuinely overdue sources at the head of the
+  discovery stage. A caught-up corpus produces no work at all.
+- **Adaptive acquisition** (`acquisition-planner.ts`). `planAcquisition`
+  returns an ordered, cheapest-first plan — durable read → conditional HTTP →
+  structured API → feed → sitemap → static HTML → PDF → headless browser →
+  archive — with a cost and a learned success probability per step. Outcomes
+  are written back to the existing per-method strategy memory plus a per-host
+  preference, so "this host needs a browser" and "this host has a JSON
+  endpoint" become durable knowledge. The fetch stage now skips the request
+  entirely when the durable read still covers the URL.
+- **Information gain** (`information-gain.ts`). Before spending resources the
+  worker asks what it would actually learn: goal gap, source authority,
+  whether the material is already known, whether this method already failed,
+  and whether a cheaper untried method exists. `applyInformationGainToCandidates`
+  blends that into the candidate queue's priority, so a URL behind a met goal
+  loses to one that closes a real gap.
+- **Conflict handling** (`conflict-resolution.ts`). When two sources disagree
+  the worker records **both** claims, compares Catholic authority, then
+  recency (supersession), then corroboration, assigns a confidence, escalates a
+  genuine standoff to review rather than keeping whichever page it read first,
+  and **remembers** the adjudication so the same uncertainty is not
+  re-litigated. Wired into the cross-source verification stage and into file
+  ingestion.
+
+None of this replaces an existing system: there is still one crawler, one
+publishing pipeline, one knowledge graph, one QA system and one brain.
 
 ---
 

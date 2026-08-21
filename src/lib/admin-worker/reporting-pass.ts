@@ -16,6 +16,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { workerExecutionAllowed } from "./execution-context";
 import { runGrowthOrchestrator } from "./growth-orchestrator";
 import { runSourceCoverage } from "./source-coverage";
 
@@ -68,6 +69,8 @@ export async function maybeRunReportingPass(
     repairPlansFiled: 0,
     coverageRows: 0,
   };
+  // Scheduled Admin Worker reporting is worker computation — local only.
+  if (!workerExecutionAllowed()) return out;
   if (!(await throttleOk(prisma, opts.force ?? false))) return out;
   out.ran = true;
 

@@ -13,6 +13,8 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { readExecutionStatus } from "./execution-host";
+
 export type HealthStatus = "pass" | "warn" | "fail" | "unknown";
 
 export interface HealthRating {
@@ -101,26 +103,70 @@ async function ratingOverall(prisma: PrismaClient): Promise<HealthRating> {
   };
 }
 
+/**
+ * Heartbeat rating, aware of where the Admin Worker actually executes.
+ *
+ * The supported production architecture is local execution (spec §24): the
+ * worker runs on the operator's MacBook under the native application. So an
+ * absent heartbeat is only a FAILURE when the worker is supposed to be running.
+ *
+ *   master switch OFF            → "Admin Worker intentionally inactive" (pass)
+ *   ON + live local lease + beat  → "Admin Worker active locally" (pass)
+ *   ON + no lease / no heartbeat  → genuine local worker failure (fail)
+ */
 async function ratingHeartbeat(prisma: PrismaClient): Promise<HealthRating> {
-  const state = await prisma.adminWorkerState
-    .findUnique({ where: { id: "singleton" } })
-    .catch(() => null);
+  const [state, execution] = await Promise.all([
+    prisma.adminWorkerState.findUnique({ where: { id: "singleton" } }).catch(() => null),
+    readExecutionStatus(prisma).catch(() => null),
+  ]);
   const last = state?.lastHeartbeatAt ?? null;
   const now = new Date();
   const ageMs = last ? now.getTime() - last.getTime() : Infinity;
+
+  if (execution && execution.state === "OFF") {
+    return {
+      key: "admin_worker_heartbeat",
+      label: "Heartbeat",
+      status: "pass",
+      score: 1,
+      lastCheckedAt: now,
+      dataSource: "AdminWorkerState.lastHeartbeatAt + AdminWorkerMemory(worker.execution.*)",
+      latestSuccess: last,
+      summary:
+        "Admin Worker intentionally inactive — the master switch is OFF, so no worker runs " +
+        "locally and none runs in production.",
+    };
+  }
+
   let status: HealthStatus = "fail";
   if (ageMs < 60_000) status = "pass";
   else if (ageMs < 5 * 60_000) status = "warn";
+
+  const localLive = execution?.executingLocally === true;
+  if (!localLive && status === "pass") status = "warn";
+
+  const summary = last
+    ? `Last heartbeat ${Math.round(ageMs / 1000)}s ago${
+        localLive
+          ? " — Admin Worker active locally."
+          : " — no live local runtime holds the execution lease."
+      }`
+    : "No heartbeat recorded.";
+
   return {
     key: "admin_worker_heartbeat",
     label: "Heartbeat",
     status,
     score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
     lastCheckedAt: now,
-    dataSource: "AdminWorkerState.lastHeartbeatAt",
+    dataSource: "AdminWorkerState.lastHeartbeatAt + AdminWorkerMemory(worker.execution.*)",
     latestSuccess: last,
-    summary: last ? `Last heartbeat ${Math.round(ageMs / 1000)}s ago.` : "No heartbeat recorded.",
-    recommendedRepair: status === "fail" ? "Restart the Admin Worker process." : undefined,
+    summary,
+    recommendedRepair:
+      status === "pass"
+        ? undefined
+        : "Open the Via Fidei application on the operator's MacBook and switch the Admin Worker ON. " +
+          "Production never takes this work over.",
   };
 }
 

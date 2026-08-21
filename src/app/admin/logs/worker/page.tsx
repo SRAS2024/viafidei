@@ -18,16 +18,17 @@ const LEVEL_COLORS: Record<string, string> = {
 export default async function AdminWorkerLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ level?: string; step?: string }>;
+  searchParams: Promise<{ level?: string; step?: string; passId?: string }>;
 }) {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
 
-  const { level, step } = await searchParams;
+  const { level, step, passId } = await searchParams;
 
   const where: Prisma.AdminWorkerLogWhereInput = {
     ...(level ? { severity: level.toUpperCase() as AdminWorkerLogSeverity } : {}),
     ...(step ? { eventName: { contains: step, mode: "insensitive" } } : {}),
+    ...(passId ? { passId } : {}),
   };
 
   const logs = await prisma.adminWorkerLog.findMany({
@@ -43,8 +44,11 @@ export default async function AdminWorkerLogPage({
           <h1 className="font-display text-3xl text-ink">Admin Worker log</h1>
           <p className="mt-1 font-serif text-ink-soft">
             Last {logs.length} entries. Filter via{" "}
-            <code className="px-1 py-0.5 bg-slate-100 rounded">?level=warn</code> or{" "}
-            <code className="px-1 py-0.5 bg-slate-100 rounded">?step=publish</code>.
+            <code className="px-1 py-0.5 bg-slate-100 rounded">?level=warn</code>,{" "}
+            <code className="px-1 py-0.5 bg-slate-100 rounded">?step=publish</code> or{" "}
+            <code className="px-1 py-0.5 bg-slate-100 rounded">?passId=…</code>. Each row records
+            the runtime that executed it — the Admin Worker itself runs on the operator&apos;s
+            MacBook.
           </p>
         </div>
         <Link className="text-sm text-indigo-600 underline" href="/admin/logs">
@@ -81,6 +85,10 @@ export default async function AdminWorkerLogPage({
               </div>
               <p className="mt-1 font-serif text-ink">{log.message}</p>
               <div className="mt-1 flex flex-wrap gap-3 text-xs text-ink-soft">
+                <span>
+                  executed by:{" "}
+                  {(log.safeMetadata as { executedBy?: string } | null)?.executedBy ?? "unrecorded"}
+                </span>
                 {log.sourceHost && <span>host: {log.sourceHost}</span>}
                 {log.sourceUrl && (
                   <a className="text-indigo-600 underline break-all" href={log.sourceUrl}>
