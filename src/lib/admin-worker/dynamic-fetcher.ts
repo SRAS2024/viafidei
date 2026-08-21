@@ -28,7 +28,7 @@
  * `ADMIN_WORKER_SKIP_NETWORK=1` (tests / offline) to force it off.
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 
 import { isFetchableHost } from "@/lib/checklist";
 
@@ -123,10 +123,38 @@ export function chromiumExecutablePath(): string | undefined {
   if (explicit && existsSync(explicit)) return explicit;
   const browsersPath = (process.env.PLAYWRIGHT_BROWSERS_PATH ?? "").trim();
   if (browsersPath) {
-    const symlink = `${browsersPath.replace(/\/+$/, "")}/chromium`;
+    const root = browsersPath.replace(/\/+$/, "");
+    const symlink = `${root}/chromium`;
     if (existsSync(symlink)) return symlink;
+    // A real `playwright install` under a pinned path uses versioned
+    // directories, so look for the standard layouts too rather than only the
+    // convenience symlink the worker image creates.
+    for (const dir of readdirSafe(root).filter((d) => d.startsWith("chromium"))) {
+      for (const rel of [
+        "chrome-mac/Chromium.app/Contents/MacOS/Chromium",
+        "chrome-mac-arm64/Chromium.app/Contents/MacOS/Chromium",
+        "chrome-linux/chrome",
+        "chrome-headless-shell-mac/chrome-headless-shell",
+      ]) {
+        const candidate = `${root}/${dir}/${rel}`;
+        if (existsSync(candidate)) return candidate;
+      }
+    }
   }
   return undefined;
+}
+
+/** True when the operator/image has pinned where browsers live. */
+function browsersPathIsPinned(): boolean {
+  return (process.env.PLAYWRIGHT_BROWSERS_PATH ?? "").trim().length > 0;
+}
+
+function readdirSafe(dir: string): string[] {
+  try {
+    return readdirSync(dir);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -192,7 +220,12 @@ export async function chromiumStatus(): Promise<ChromiumStatus> {
   // Explicit path / PLAYWRIGHT_BROWSERS_PATH first (how the cloud image ships
   // it), then Playwright's own resolved location (how a laptop gets it).
   let resolved = chromiumExecutablePath() ?? null;
-  if (!resolved) {
+  // Only consult Playwright's own resolution when the operator has NOT pinned a
+  // browsers path. Playwright reads PLAYWRIGHT_BROWSERS_PATH once, when the
+  // module is first imported, so its answer can point outside a pin that was
+  // set afterwards — honouring the pin ourselves keeps "I told you where the
+  // browsers are" meaningful, and makes the capability probe deterministic.
+  if (!resolved && !browsersPathIsPinned()) {
     try {
       const candidate = launcher?.executablePath?.();
       if (candidate && existsSync(candidate)) resolved = candidate;

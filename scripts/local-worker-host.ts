@@ -893,6 +893,29 @@ async function main(): Promise<void> {
       // crashed/failed would keep every surface reporting "active locally" for a
       // machine that is doing nothing.
       if (host.runState !== "running") return;
+
+      // OFF is authoritative wherever it was flipped (spec §4). The pill in THIS
+      // app stops the worker directly, but the switch is a durable fact in
+      // Postgres and can be turned off from somewhere else entirely — the app on
+      // another computer, `npm run worker:local`, or an operator resetting state.
+      // Without this check the host keeps its worker child alive until the
+      // child's loop happens to notice between passes, which can be minutes of
+      // crawling, rendering and publishing after the operator said stop.
+      // Fail-open on a read error, for the same reason lease renewal does below.
+      try {
+        const master = await readMasterSwitch(prisma);
+        if (!master.on) {
+          pushLog("host", "master switch is OFF — stopping the local Admin Worker");
+          await stopWorkerChild("master switch turned OFF");
+          await shutdownLocalBrain();
+          await releaseExecutionLease(prisma, RUNTIME_ID).catch(() => undefined);
+          broadcast("status", statusPayload());
+          return;
+        }
+      } catch {
+        pushLog("host", "could not read the master switch (database unreachable) — continuing");
+      }
+
       let renewed: boolean;
       try {
         renewed = await renewExecutionLease(prisma, RUNTIME_ID);
