@@ -114,8 +114,45 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 PLIST
 
 # 4. Clear quarantine + ad-hoc sign so it launches without Gatekeeper friction.
-xattr -cr "$APP" 2>/dev/null || true
-codesign --force --deep --sign - "$APP" 2>/dev/null || true
+#
+# Two traps here, both of which silently produced an UNSIGNED app before:
+#
+#   * `lipo -create` invalidates the linker's ad-hoc signature on each input
+#     slice, so the merged universal binary must be re-signed as a bundle —
+#     otherwise `codesign -dv` reports "linker-signed" with no sealed
+#     resources and Gatekeeper reports "no usable signature".
+#   * codesign REFUSES to sign anything carrying Finder info or a resource
+#     fork ("resource fork, Finder information, or similar detritus not
+#     allowed"). An iCloud-synced Desktop re-adds com.apple.FinderInfo almost
+#     immediately, so the attributes are stripped here, immediately before
+#     signing, and again on retry.
+#
+# --identifier pins the code identifier to the bundle id; without it the
+# identifier is inherited from the lipo input filename (e.g. "ViaFidei-arm64"),
+# which no longer matches the bundle the WebKit data store is keyed on.
+# Failures are reported, never swallowed: an unsigned bundle is a real defect.
+sign_app() {
+  xattr -cr "$APP" 2>/dev/null || true
+  codesign --force --sign - --identifier com.viafidei.devapp "$APP" 2>&1
+}
+
+SIGN_OUT="$(sign_app || true)"
+if ! codesign --verify --strict "$APP" >/dev/null 2>&1; then
+  # One retry: the usual cause is an extended attribute landing between the
+  # strip and the sign (iCloud/Finder), which a second pass clears.
+  sleep 1
+  SIGN_OUT="$(sign_app || true)"
+fi
+
+if codesign --verify --strict "$APP" >/dev/null 2>&1; then
+  echo "Signed (ad-hoc) and verified."
+else
+  echo "WARNING: could not produce a valid signature for $APP"
+  [ -n "$SIGN_OUT" ] && echo "         codesign said: $SIGN_OUT"
+  echo "         The app may still launch, but macOS will treat it as unsigned."
+  echo "         If the Desktop is iCloud-synced, build to a local folder instead:"
+  echo "           bash scripts/desktop-app/install.sh \"$HOME/Applications\""
+fi
 
 rm -rf "$BUILD"
 
