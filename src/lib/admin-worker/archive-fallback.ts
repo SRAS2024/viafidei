@@ -40,8 +40,19 @@ interface AvailabilityResponse {
  * Returns the raw-content snapshot URL (the `id_` form, which serves the
  * original bytes without the Wayback toolbar), or null. Never throws.
  */
+/**
+ * Only real web pages can have been archived. Operator-supplied files live under
+ * `operator-file://…` and their URL carries the operator's own filename, so
+ * asking a third party about them would leak a local filename off the machine
+ * for a lookup that can never succeed.
+ */
+export function isArchivableUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
 export async function findArchivedSnapshotUrl(url: string): Promise<string | null> {
   if (!archiveFallbackEnabled()) return null;
+  if (!isArchivableUrl(url)) return null;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -76,6 +87,7 @@ export interface ArchivedPage {
  * the body is too small to be a real page. Never throws.
  */
 export async function fetchArchivedPage(url: string): Promise<ArchivedPage | null> {
+  if (!isArchivableUrl(url)) return null;
   const archiveUrl = await findArchivedSnapshotUrl(url);
   if (!archiveUrl) return null;
   const controller = new AbortController();

@@ -103,6 +103,12 @@ export interface FetcherInput {
   previousChecksum?: string;
   /** Previous etag — sent as If-None-Match. */
   previousEtag?: string | null;
+  /**
+   * Previous Last-Modified header — sent as If-Modified-Since. Plenty of
+   * authoritative sources publish Last-Modified but no ETag; without this they
+   * can never answer 304 and every revalidation costs a full body download.
+   */
+  previousLastModified?: string | null;
 }
 
 export interface FetchedPage {
@@ -248,6 +254,7 @@ export async function adminWorkerFetch(
         "Upgrade-Insecure-Requests": "1",
       };
       if (input.previousEtag) headers["If-None-Match"] = input.previousEtag;
+      if (input.previousLastModified) headers["If-Modified-Since"] = input.previousLastModified;
 
       const response = await fetch(url, {
         headers,

@@ -403,10 +403,25 @@ the switch is ON, the app restarts it locally and says so.
 ### Wiring
 
 ```bash
-npm install                       # the app launches the worker from this repo
-bash scripts/desktop-app/build.sh # build "Via Fidei.app" onto the Desktop
+npm install                        # the app launches the worker from this repo
+npx playwright install chromium    # headless rendering for JavaScript-only sources
+bash scripts/desktop-app/build.sh  # build "Via Fidei.app" onto the Desktop
 open "$HOME/Desktop/Via Fidei.app"
 ```
+
+The Chromium step is what the cloud image used to do at build time. It is
+optional — everything else works without it — but until it is done, sources that
+render their text client-side fall back to their static shell. The command
+center says so explicitly (`Browser rendering: unavailable`) rather than
+reporting the capability as present, and the worker files a developer request
+for the gap instead of silently abandoning those sources.
+
+The app builds a **universal binary** (arm64 + x86_64), so the bundle runs on
+Apple Silicon and Intel Macs, and it finds Node through Homebrew, the official
+installer, nvm, volta, fnm, asdf or `n`. It looks for the repository in the path
+baked in at build time, then `~/Desktop`, `~/Documents`, `~/Developer`,
+`~/Projects`, `~/src`, `~/code`, `~/repos` and `~` — and if it still cannot find
+one it opens a folder picker rather than sitting there.
 
 The app talks to the local runtime over **127.0.0.1 only**, on an ephemeral
 port, with a token generated per launch and handed to the app on stdout.
@@ -440,10 +455,16 @@ Note the one non-obvious constraint: Railway's own schema requires
 parked start command is what delivers the near-zero footprint, and
 `tests/admin-worker/railway-worker-service-parked.test.ts` pins both facts.
 
-Restoring cloud execution later is a deliberate, manual change (set the start
-command to `npm run worker -- --force-remote-execution "reason"`), and the
-execution lease guarantees the two runtimes can never both drain the same
-queue.
+Restoring cloud execution later is a deliberate, manual change: switch the
+local worker OFF, set `deploy.sleepApplication` to `false` (a worker service
+receives no inbound traffic, so app-sleep would park a restored worker
+permanently), and set the start command to
+`npm run worker -- --force-remote-execution "reason"`. The execution lease
+guarantees the two runtimes can never both drain the same queue.
+
+`npm run worker` without that flag exits **non-zero** rather than pretending to
+work, so a cron entry or deploy hook wrapped around it fails visibly instead of
+silently doing nothing.
 
 ---
 

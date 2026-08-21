@@ -24,7 +24,9 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { REQUIRED_FACTS } from "./cross-source-verifier";
 import { assertWorkerExecutionAllowed } from "./execution-context";
+import { OPERATOR_FILE_HOST } from "./file-ingest";
 import type { BrainDecision, BrainMissionStage } from "./brain";
 import { WEB_EXTRACTION_CONTENT_TYPES, isExtractableContentType } from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
@@ -606,7 +608,7 @@ async function runSourceFetchRead(
     .findFirst({
       where: { sourceUrl: candidate.discoveredUrl, succeeded: true },
       orderBy: { createdAt: "desc" },
-      select: { checksum: true, etag: true },
+      select: { checksum: true, etag: true, lastModifiedHeader: true },
     })
     .catch(() => null);
 
@@ -685,6 +687,7 @@ async function runSourceFetchRead(
     candidateUrlId: candidate.id,
     previousChecksum: previousFetch?.checksum ?? undefined,
     previousEtag: previousFetch?.etag ?? null,
+    previousLastModified: previousFetch?.lastModifiedHeader ?? null,
     skipNetwork,
   });
 
@@ -822,6 +825,32 @@ async function runSourceFetchRead(
     },
     rejected: readOutcome.rejected ? 1 : 0,
   };
+}
+
+/**
+ * Operator-supplied material has no external authority of its own, so it must
+ * be corroborated by an approved source before it can publish (spec §13.9-10,
+ * §22). The pipeline already enforces exactly that for any artifact with a
+ * non-empty `validationNeeds`: cross-source verification gathers evidence, and
+ * strict QA scores the validation dimension 0 without a MATCH.
+ *
+ * The catch is that most content types declare no validationNeeds at all, so an
+ * operator file would otherwise sail through as its own sole witness. Widening
+ * the needs for operator reads makes the promise the ingestion path logs
+ * ("external corroboration required before publishing") the thing the existing
+ * gate actually checks — no new gate, no second pipeline.
+ */
+function validationNeedsForRead(
+  sourceHost: string,
+  contentType: string,
+  packageNeeds: string[],
+): string[] {
+  if (sourceHost !== OPERATOR_FILE_HOST) return packageNeeds;
+  const required = REQUIRED_FACTS[contentType as keyof typeof REQUIRED_FACTS] ?? [];
+  // Fall back to the title when a type declares no required facts: a corroborating
+  // source must at least confirm the thing exists under that name.
+  const fallback = required.length > 0 ? required : ["title"];
+  return [...new Set([...packageNeeds, ...fallback])];
 }
 
 async function runClassification(prisma: PrismaClient, passId: string): Promise<DispatchOutcome> {
@@ -1043,7 +1072,7 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
           extractedFields: pkg.displayFields as never,
           fieldProvenance: pkg.fieldProvenance as never,
           missingFields: pkg.missingFields,
-          validationNeeds: pkg.validationNeeds,
+          validationNeeds: validationNeedsForRead(read.sourceHost, detected, pkg.validationNeeds),
           formattingMetadata: pkg.formattingMetadata as never,
           confidenceScore: pkg.confidenceByPackage,
           packageChecksum: pkg.duplicateKeys.titleHash,
@@ -1105,7 +1134,11 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
               extractedFields: pkg.displayFields as never,
               fieldProvenance: pkg.fieldProvenance as never,
               missingFields: [],
-              validationNeeds: pkg.validationNeeds,
+              validationNeeds: validationNeedsForRead(
+                read.sourceHost,
+                detected,
+                pkg.validationNeeds,
+              ),
               formattingMetadata: pkg.formattingMetadata as never,
               confidenceScore: pkg.confidenceByPackage,
               status: "CHECKLIST_READY",

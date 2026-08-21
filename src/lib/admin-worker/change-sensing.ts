@@ -191,19 +191,43 @@ export async function senseUrl(
   opts: { force?: boolean } = {},
 ): Promise<UrlChangeSense> {
   const host = hostOf(url);
-  const [read, cadence] = await Promise.all([
+  const [read, lastAttempt, cadence] = await Promise.all([
     prisma.adminWorkerSourceRead
       .findFirst({
         where: { sourceUrl: url },
         orderBy: { createdAt: "desc" },
-        select: { checksum: true, etag: true, lastModifiedHeader: true, createdAt: true },
+        select: {
+          checksum: true,
+          etag: true,
+          lastModifiedHeader: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
+      .catch(() => null),
+    // The last time this URL was actually CHECKED, which for an unchanged page
+    // is a 304 recorded as a fetch result rather than a new source-read row.
+    prisma.adminWorkerFetchResult
+      .findFirst({
+        where: { sourceUrl: url, succeeded: true },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true },
       })
       .catch(() => null),
     readCadence(prisma, host),
   ]);
 
   const rereadIntervalMs = rereadIntervalFor(cadence);
-  const lastReadAt = read?.createdAt ?? null;
+  // Freshness is "when did we last confirm this page", so take the most recent
+  // of: the stored body, the row's last refresh, and the last successful fetch.
+  // Using only the body's createdAt would leave an unchanged page permanently
+  // overdue — it would be re-fetched on every pass forever.
+  const checkedAtCandidates = [read?.createdAt, read?.updatedAt, lastAttempt?.createdAt].filter(
+    (d): d is Date => d instanceof Date,
+  );
+  const lastReadAt = checkedAtCandidates.length
+    ? new Date(Math.max(...checkedAtCandidates.map((d) => d.getTime())))
+    : null;
   const ageMs = lastReadAt ? Date.now() - lastReadAt.getTime() : null;
 
   const conditionalHeaders: ConditionalHeaders = {};
@@ -326,9 +350,33 @@ export async function rankStaleSources(
       distinct: ["sourceUrl"],
       orderBy: { createdAt: "desc" },
       take: opts.scan ?? 400,
-      select: { sourceUrl: true, sourceHost: true, createdAt: true },
+      select: { sourceUrl: true, sourceHost: true, createdAt: true, updatedAt: true },
     })
-    .catch(() => [] as Array<{ sourceUrl: string; sourceHost: string; createdAt: Date }>);
+    .catch(
+      () =>
+        [] as Array<{
+          sourceUrl: string;
+          sourceHost: string;
+          createdAt: Date;
+          updatedAt: Date;
+        }>,
+    );
+  if (rows.length === 0) return [];
+
+  // One batched read of the last successful check per URL, so an unchanged page
+  // that keeps answering 304 stops looking permanently overdue.
+  const attempts = await prisma.adminWorkerFetchResult
+    .findMany({
+      where: { sourceUrl: { in: rows.map((r) => r.sourceUrl) }, succeeded: true },
+      orderBy: { createdAt: "desc" },
+      select: { sourceUrl: true, createdAt: true },
+      take: 4_000,
+    })
+    .catch(() => [] as Array<{ sourceUrl: string; createdAt: Date }>);
+  const lastAttemptAt = new Map<string, Date>();
+  for (const a of attempts) {
+    if (!lastAttemptAt.has(a.sourceUrl)) lastAttemptAt.set(a.sourceUrl, a.createdAt);
+  }
 
   const cadenceCache = new Map<string, number>();
   const out: StaleSource[] = [];
@@ -338,13 +386,18 @@ export async function rankStaleSources(
       interval = rereadIntervalFor(await readCadence(prisma, row.sourceHost));
       cadenceCache.set(row.sourceHost, interval);
     }
-    const ageMs = Date.now() - row.createdAt.getTime();
+    const checkedAt = Math.max(
+      row.createdAt.getTime(),
+      row.updatedAt.getTime(),
+      lastAttemptAt.get(row.sourceUrl)?.getTime() ?? 0,
+    );
+    const ageMs = Date.now() - checkedAt;
     const overdueRatio = interval > 0 ? ageMs / interval : 0;
     if (overdueRatio >= 1) {
       out.push({
         sourceUrl: row.sourceUrl,
         sourceHost: row.sourceHost,
-        lastReadAt: row.createdAt,
+        lastReadAt: new Date(checkedAt),
         ageMs,
         rereadIntervalMs: interval,
         overdueRatio,
@@ -373,7 +426,10 @@ export async function runFreshnessSweep(
   prisma: PrismaClient,
   opts: { limit?: number } = {},
 ): Promise<FreshnessSweepResult> {
-  const stale = await rankStaleSources(prisma, { limit: opts.limit ?? 25 });
+  const all = await rankStaleSources(prisma, { limit: (opts.limit ?? 25) * 2 });
+  // Operator-supplied files are not web pages: they cannot be re-fetched, and
+  // queueing them would put an unfetchable URL at the head of the fetch queue.
+  const stale = all.filter((s) => /^https?:\/\//i.test(s.sourceUrl)).slice(0, opts.limit ?? 25);
   const out: FreshnessSweepResult = { overdue: stale.length, requeued: 0, hosts: [] };
   if (stale.length === 0) return out;
 

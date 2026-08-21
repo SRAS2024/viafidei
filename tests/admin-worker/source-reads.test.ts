@@ -17,6 +17,7 @@ function makePrismaMock(opts: {
   findUnique?: ReturnType<typeof vi.fn>;
   create?: ReturnType<typeof vi.fn>;
   findMany?: ReturnType<typeof vi.fn>;
+  update?: ReturnType<typeof vi.fn>;
 }) {
   const table = {
     findUnique: opts.findUnique ?? vi.fn(async () => null),
@@ -27,6 +28,9 @@ function makePrismaMock(opts: {
         checksum: args.data.checksum,
       })),
     findMany: opts.findMany ?? vi.fn(async () => []),
+    // Reusing a read refreshes its validators + freshness clock, so the
+    // unchanged path issues an update as well as a lookup.
+    update: opts.update ?? vi.fn(async () => ({})),
   };
   return {
     adminWorkerSourceRead: table,

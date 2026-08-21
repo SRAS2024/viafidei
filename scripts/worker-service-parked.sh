@@ -23,6 +23,11 @@
 #
 #   npm run worker -- --force-remote-execution "reason for the change"
 #
+# and ALSO set `deploy.sleepApplication` to false in railway.worker.json first:
+# a worker service receives no inbound traffic, so with app-sleep enabled a
+# restored worker would be slept during any idle or backoff window and nothing
+# would ever wake it.
+#
 # and make sure the local worker is switched OFF first, so only one runtime
 # holds the execution lease.
 set -eu

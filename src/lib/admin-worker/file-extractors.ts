@@ -167,34 +167,61 @@ function readZipEntries(buffer: Buffer, wanted: (name: string) => boolean): ZipE
 
     const name = buffer.subarray(nameStart, nameStart + nameLen).toString("utf8");
     const encrypted = (flags & 0x1) !== 0;
-    const streamed = (flags & 0x8) !== 0; // sizes in a trailing data descriptor
+    // General-purpose bit 3: the sizes live in a trailing data descriptor, so
+    // the local header carries zeros. Plenty of real .docx/.xlsx files are
+    // written this way by streaming writers, and skipping them made perfectly
+    // valid documents extract to nothing. Read to the next header instead.
+    const streamed = (flags & 0x8) !== 0;
+
+    const unsafeName = name.includes("..") || name.startsWith("/");
+    let end = dataStart + compressedSize;
+    let declaredUncompressed = uncompressedSize;
+
+    if (streamed) {
+      // The member ends at the data descriptor / next local header, whichever
+      // comes first. Search from dataStart so an empty member is handled too.
+      const nextHeader = buffer.indexOf(Buffer.from([0x50, 0x4b, 0x03, 0x04]), dataStart);
+      const descriptor = buffer.indexOf(Buffer.from([0x50, 0x4b, 0x07, 0x08]), dataStart);
+      const central = buffer.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]), dataStart);
+      const stops = [nextHeader, descriptor, central].filter((n) => n > dataStart);
+      end = stops.length > 0 ? Math.min(...stops) : buffer.length;
+      // A data descriptor states the real sizes; use them for the bomb guard.
+      if (descriptor === end && descriptor + 16 <= buffer.length) {
+        declaredUncompressed = buffer.readUInt32LE(descriptor + 12);
+      } else {
+        declaredUncompressed = 0; // unknown — the output cap below still applies
+      }
+    }
 
     // Bomb + traversal guards.
-    const ratio = compressedSize > 0 ? uncompressedSize / compressedSize : 0;
-    const unsafeName = name.includes("..") || name.startsWith("/");
-    const oversized = totalOut + uncompressedSize > MAX_ZIP_TOTAL_BYTES;
+    const compressed = Math.max(0, end - dataStart);
+    const ratio = compressed > 0 ? declaredUncompressed / compressed : 0;
+    const oversized = totalOut + declaredUncompressed > MAX_ZIP_TOTAL_BYTES;
 
-    if (
-      !encrypted &&
-      !streamed &&
-      !unsafeName &&
-      !oversized &&
-      ratio <= MAX_COMPRESSION_RATIO &&
-      wanted(name)
-    ) {
-      const raw = buffer.subarray(dataStart, dataStart + compressedSize);
+    if (!encrypted && !unsafeName && !oversized && ratio <= MAX_COMPRESSION_RATIO && wanted(name)) {
+      const raw = buffer.subarray(dataStart, end);
       try {
         const data = method === 0 ? Buffer.from(raw) : inflateRawSync(raw);
-        totalOut += data.length;
-        entries.push({ name, data });
+        // Hard output cap: protects against a bomb whose declared sizes lie.
+        if (totalOut + data.length <= MAX_ZIP_TOTAL_BYTES) {
+          totalOut += data.length;
+          entries.push({ name, data });
+        }
       } catch {
         // Unreadable member — skip it rather than failing the whole document.
       }
     }
 
-    offset = dataStart + compressedSize;
+    offset = end;
     if (streamed) {
-      // Data-descriptor form: scan forward to the next local header signature.
+      // Skip a data descriptor if that is where we stopped (signature + 3 words).
+      if (
+        offset + 4 <= buffer.length &&
+        buffer.readUInt32LE(offset) === 0x08074b50 &&
+        offset + 16 <= buffer.length
+      ) {
+        offset += 16;
+      }
       const next = buffer.indexOf(Buffer.from([0x50, 0x4b, 0x03, 0x04]), offset);
       if (next < 0) break;
       offset = next;

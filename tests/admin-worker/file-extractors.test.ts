@@ -18,7 +18,9 @@ import {
 } from "@/lib/admin-worker/file-extractors";
 
 /** Build a minimal ZIP (stored or deflated) the bounded reader understands. */
-function makeZip(entries: Array<{ name: string; content: string; deflate?: boolean }>): Buffer {
+function makeZip(
+  entries: Array<{ name: string; content: string; deflate?: boolean; streamed?: boolean }>,
+): Buffer {
   const parts: Buffer[] = [];
   for (const entry of entries) {
     const raw = Buffer.from(entry.content, "utf8");
@@ -27,14 +29,24 @@ function makeZip(entries: Array<{ name: string; content: string; deflate?: boole
     const header = Buffer.alloc(30);
     header.writeUInt32LE(0x04034b50, 0);
     header.writeUInt16LE(20, 4); // version
-    header.writeUInt16LE(0, 6); // flags
+    // Bit 3 = sizes deferred to a trailing data descriptor, which is how many
+    // real-world writers emit .docx/.xlsx.
+    header.writeUInt16LE(entry.streamed ? 0x8 : 0, 6);
     header.writeUInt16LE(entry.deflate ? 8 : 0, 8); // method
     header.writeUInt32LE(0, 14); // crc (unchecked by the reader)
-    header.writeUInt32LE(data.length, 18);
-    header.writeUInt32LE(raw.length, 22);
+    header.writeUInt32LE(entry.streamed ? 0 : data.length, 18);
+    header.writeUInt32LE(entry.streamed ? 0 : raw.length, 22);
     header.writeUInt16LE(name.length, 26);
     header.writeUInt16LE(0, 28);
     parts.push(header, name, data);
+    if (entry.streamed) {
+      const descriptor = Buffer.alloc(16);
+      descriptor.writeUInt32LE(0x08074b50, 0); // descriptor signature
+      descriptor.writeUInt32LE(0, 4); // crc
+      descriptor.writeUInt32LE(data.length, 8);
+      descriptor.writeUInt32LE(raw.length, 12);
+      parts.push(descriptor);
+    }
   }
   return Buffer.concat(parts);
 }
@@ -112,6 +124,24 @@ describe("extractFile", () => {
     expect(out.ok).toBe(true);
     expect(out.text).toContain("Angelus");
     expect(out.safetyNotes.join(" ")).toMatch(/macros/i);
+  });
+
+  it("reads an office document whose ZIP defers its sizes to a data descriptor", () => {
+    // The regression this pins: streamed members were skipped outright, so a
+    // perfectly valid .docx from a streaming writer extracted to zero text and
+    // was reported unreadable.
+    const zip = makeZip([
+      {
+        name: "word/document.xml",
+        content: `<?xml version="1.0"?><w:document><w:p>${prose}</w:p></w:document>`,
+        deflate: true,
+        streamed: true,
+      },
+    ]);
+    const out = extractFile("streamed.docx", zip);
+    expect(out.kind).toBe("docx");
+    expect(out.ok).toBe(true);
+    expect(out.text).toContain("Angelus");
   });
 
   it("refuses empty and oversized files", () => {

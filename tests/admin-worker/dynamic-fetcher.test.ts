@@ -16,6 +16,7 @@ import type { PrismaClient } from "@prisma/client";
 import {
   __resetDynamicFetcherCache,
   chromiumExecutablePath,
+  chromiumStatus,
   dynamicFetcherEnabled,
   looksDynamic,
   renderPage,
@@ -153,13 +154,35 @@ describe("request_dynamic_fetcher_upgrade is capability-aware", () => {
     } as unknown as SkillContext;
   }
 
-  it("files NO developer request when the dynamic fetcher is available", async () => {
-    // Default (enabled) + Playwright importable in the test env → available.
+  it("files NO developer request when a real browser is available", async () => {
+    // Availability now requires an actual browser binary, not merely that the
+    // playwright module imports — so point the resolver at a real file.
+    const dir = mkdtempSync(join(tmpdir(), "pw-avail-"));
+    const fake = join(dir, "chromium");
+    writeFileSync(fake, "#!/bin/sh\n");
+    process.env.ADMIN_WORKER_CHROMIUM_PATH = fake;
+    __resetDynamicFetcherCache();
+
     const upsert = vi.fn(async () => ({ id: "should-not-be-called" }));
     const result = await skill.execute(ctxWithUpsert(upsert));
     expect(upsert).not.toHaveBeenCalled();
     expect(result.status).toBe("SUCCEEDED");
     expect((result.output as { detail?: string }).detail).toMatch(/available/i);
+  });
+
+  it("DOES file a developer request when the module is present but no browser is installed", async () => {
+    // The regression this pins: the old probe passed on `import("playwright")`
+    // alone, so on a machine with no browser the worker reported the capability
+    // as present, silently degraded every JS-only source to its static shell,
+    // AND suppressed the escalation that would have surfaced the gap.
+    process.env.PLAYWRIGHT_BROWSERS_PATH = mkdtempSync(join(tmpdir(), "pw-empty-"));
+    __resetDynamicFetcherCache();
+
+    const upsert = vi.fn(async () => ({ id: "req-browser" }));
+    const result = await skill.execute(ctxWithUpsert(upsert));
+    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe("SUCCEEDED");
+    expect((result.output as { detail?: string }).detail).toMatch(/filed/i);
   });
 
   it("files a developer request when the capability is disabled", async () => {
@@ -169,6 +192,37 @@ describe("request_dynamic_fetcher_upgrade is capability-aware", () => {
     expect(upsert).toHaveBeenCalledTimes(1);
     expect(result.status).toBe("SUCCEEDED");
     expect((result.output as { detail?: string }).detail).toMatch(/filed/i);
+  });
+});
+
+describe("chromiumStatus reports WHY rendering is or is not usable", () => {
+  it("is unavailable, with a reason, when no browser binary exists", async () => {
+    process.env.PLAYWRIGHT_BROWSERS_PATH = mkdtempSync(join(tmpdir(), "pw-none-"));
+    __resetDynamicFetcherCache();
+    const status = await chromiumStatus();
+    expect(status.available).toBe(false);
+    expect(status.detail).toMatch(/playwright install chromium|not installed/i);
+    expect(status.executablePath).toBeNull();
+  });
+
+  it("is available, and names the binary, when one exists", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "pw-ok-"));
+    const fake = join(dir, "chromium");
+    writeFileSync(fake, "#!/bin/sh\n");
+    process.env.ADMIN_WORKER_CHROMIUM_PATH = fake;
+    __resetDynamicFetcherCache();
+    const status = await chromiumStatus();
+    expect(status.available).toBe(true);
+    expect(status.executablePath).toBe(fake);
+    expect(status.detail).toContain(fake);
+  });
+
+  it("says so plainly when the capability is switched off", async () => {
+    process.env.ADMIN_WORKER_DYNAMIC_FETCHER = "0";
+    __resetDynamicFetcherCache();
+    const status = await chromiumStatus();
+    expect(status.available).toBe(false);
+    expect(status.detail).toMatch(/disabled|not available/i);
   });
 });
 

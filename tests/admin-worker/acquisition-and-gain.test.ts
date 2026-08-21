@@ -35,7 +35,10 @@ function fakePrisma(opts: {
     etag: string | null;
     lastModifiedHeader: string | null;
     createdAt: Date;
+    updatedAt?: Date;
   }>;
+  /** Successful fetch attempts, which is how an unchanged (304) check is recorded. */
+  attempts?: Array<{ sourceUrl: string; createdAt: Date }>;
   memory?: MemoryRow[];
   strategyStats?: Array<{
     dimension: string;
@@ -52,9 +55,17 @@ function fakePrisma(opts: {
   return {
     memory,
     adminWorkerSourceRead: {
+      findFirst: async ({ where }: { where: { sourceUrl: string } }) => {
+        const row = (opts.reads ?? []).find((r) => r.sourceUrl === where.sourceUrl);
+        return row ? { ...row, updatedAt: row.updatedAt ?? row.createdAt } : null;
+      },
+      findMany: async () =>
+        (opts.reads ?? []).map((r) => ({ ...r, updatedAt: r.updatedAt ?? r.createdAt })),
+    },
+    adminWorkerFetchResult: {
       findFirst: async ({ where }: { where: { sourceUrl: string } }) =>
-        (opts.reads ?? []).find((r) => r.sourceUrl === where.sourceUrl) ?? null,
-      findMany: async () => opts.reads ?? [],
+        (opts.attempts ?? []).find((a) => a.sourceUrl === where.sourceUrl) ?? null,
+      findMany: async () => opts.attempts ?? [],
     },
     adminWorkerMemory: {
       findUnique: async ({
@@ -127,6 +138,30 @@ describe("change sensing", () => {
     const sense = await senseUrl(prisma, "https://www.vatican.va/a");
     expect(sense.shouldRead).toBe(true);
     expect(sense.conditionalHeaders["If-None-Match"]).toBe('"v1"');
+  });
+
+  it("does not re-read a page that was just revalidated, even though its body is old", async () => {
+    // The regression this pins: freshness was measured from the stored body's
+    // createdAt, which never advances for an unchanged page — so once a URL
+    // passed its interval it was re-fetched on every pass forever.
+    const prisma = fakePrisma({
+      reads: [
+        {
+          sourceUrl: "https://www.vatican.va/static",
+          checksum: "abc",
+          etag: '"v1"',
+          lastModifiedHeader: null,
+          createdAt: new Date(Date.now() - 90 * 24 * 3_600_000), // body 90 days old
+        },
+      ],
+      attempts: [
+        // …but the origin confirmed it unchanged a minute ago (a 304).
+        { sourceUrl: "https://www.vatican.va/static", createdAt: new Date(Date.now() - 60_000) },
+      ],
+    });
+    const sense = await senseUrl(prisma, "https://www.vatican.va/static");
+    expect(sense.shouldRead).toBe(false);
+    expect(sense.ageMs).toBeLessThan(5 * 60_000);
   });
 
   it("lengthens the interval for sources that never change", () => {

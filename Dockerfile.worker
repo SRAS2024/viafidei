@@ -89,5 +89,7 @@ USER worker
 # Restoring cloud execution is a deliberate, manual change: set the service
 # start command to
 #   npm run worker -- --force-remote-execution "reason"
-# (and switch the local worker OFF first so only one runtime holds the lease).
+# (switch the local worker OFF first so only one runtime holds the lease, and
+# set deploy.sleepApplication to false in railway.worker.json — a worker service
+# gets no inbound traffic, so app-sleep would park a restored worker for good).
 CMD ["sh", "scripts/worker-service-parked.sh"]
