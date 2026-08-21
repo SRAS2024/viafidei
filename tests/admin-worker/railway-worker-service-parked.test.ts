@@ -15,9 +15,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
-const workerConfig = JSON.parse(
-  readFileSync(path.join(ROOT, "railway.worker.json"), "utf8"),
-) as {
+const workerConfig = JSON.parse(readFileSync(path.join(ROOT, "railway.worker.json"), "utf8")) as {
   build?: { builder?: string; dockerfilePath?: string };
   deploy?: Record<string, unknown>;
 };
