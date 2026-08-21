@@ -2,6 +2,19 @@
 /**
  * Via Fidei Admin Worker entry point.
  *
+ * EXECUTION HOST: this process now runs on the OPERATOR'S MACBOOK, launched and
+ * supervised by the native Via Fidei application through
+ * `scripts/local-worker-host.ts`. It is the same worker it has always been —
+ * TypeScript body, Python brain, browser rendering, discovery, verification,
+ * publishing, security and repair — but the CPU, memory and network it consumes
+ * are the MacBook's, not Railway's.
+ *
+ * Pass `--origin local` (the local host does) to claim the local runtime. Run
+ * without it and the process refuses to execute: the retained Railway worker
+ * service is deliberately parked, and there is no automatic cloud failover
+ * (spec §5). `--force-remote-execution "<reason>"` is the documented, manual
+ * escape hatch for deliberately restoring cloud execution in the future.
+ *
  * Drives the autonomous content / diagnostics / design / security /
  * maintenance system. Each pass:
  *
@@ -33,7 +46,30 @@
  * "Admin Worker".
  */
 
+import {
+  allowRemoteExecutionOverride,
+  markWorkerExecutionOrigin,
+} from "../src/lib/admin-worker/execution-context";
+
+// Claim the execution origin BEFORE the worker library is imported, so every
+// guard in the module tree evaluates against the right runtime.
+const ORIGIN_ARG_INDEX = process.argv.indexOf("--origin");
+const ORIGIN_ARG = ORIGIN_ARG_INDEX >= 0 ? (process.argv[ORIGIN_ARG_INDEX + 1] ?? "") : "";
+const FORCE_REMOTE_INDEX = process.argv.indexOf("--force-remote-execution");
+markWorkerExecutionOrigin(ORIGIN_ARG === "local" ? "LOCAL_MACBOOK" : "RAILWAY_WORKER");
+if (ORIGIN_ARG !== "local" && FORCE_REMOTE_INDEX >= 0) {
+  allowRemoteExecutionOverride(process.argv[FORCE_REMOTE_INDEX + 1] ?? "operator override");
+}
+
 import { runAdminWorkerLoop, runMonthlyReportJobIfDue } from "../src/lib/admin-worker";
+import {
+  acquireExecutionLease,
+  holdsExecutionLease,
+  readMasterSwitch,
+  releaseExecutionLease,
+  setMasterSwitch,
+} from "../src/lib/admin-worker/execution-host";
+import { localHostLabel } from "../src/lib/admin-worker/local-resources";
 import { ensureBrainStarted, shutdownBrain } from "../src/lib/admin-worker/intelligence";
 import { reapStaleRunningPasses } from "../src/lib/admin-worker/passes";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
@@ -47,10 +83,16 @@ function parseArgs(argv: string[]): {
   oneShot: boolean;
   maxJobs: number | null;
   workerId: string;
+  local: boolean;
+  switchOn: boolean;
+  forceRemote: boolean;
 } {
   let oneShot = false;
   let maxJobs: number | null = null;
   let workerId = process.env.WORKER_ID ?? `admin-worker-${process.pid}-${Date.now()}`;
+  let local = false;
+  let switchOn = false;
+  let forceRemote = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--one-shot") oneShot = true;
@@ -58,13 +100,76 @@ function parseArgs(argv: string[]): {
       maxJobs = parseInt(argv[++i] ?? "0", 10);
     } else if (arg === "--worker-id") {
       workerId = argv[++i] ?? workerId;
+    } else if (arg === "--origin") {
+      local = (argv[++i] ?? "") === "local";
+    } else if (arg === "--switch-on") {
+      switchOn = true;
+    } else if (arg === "--force-remote-execution") {
+      forceRemote = true;
+      i += 1;
     }
   }
-  return { oneShot, maxJobs, workerId };
+  return { oneShot, maxJobs, workerId, local, switchOn, forceRemote };
+}
+
+/**
+ * Durable-state gate (spec §4, §5, §25): the master switch must be ON, and this
+ * runtime must hold the single execution lease. Returns false when the process
+ * should exit instead of running.
+ */
+async function claimExecutionAuthority(args: ReturnType<typeof parseArgs>): Promise<boolean> {
+  if (!args.local && !args.forceRemote) {
+    console.error(
+      "[admin-worker] refusing to run: the Admin Worker executes on the operator's MacBook.\n" +
+        "               Start it from the Via Fidei application (or run `npm run worker:local`).\n" +
+        "               Cloud execution requires the deliberate --force-remote-execution flag.",
+    );
+    return false;
+  }
+
+  const master = await readMasterSwitch(prisma);
+  if (!master.on) {
+    if (args.switchOn) {
+      await setMasterSwitch(prisma, { on: true, actor: "cli", from: "run-worker" });
+      console.log("[admin-worker] master switch turned ON by --switch-on");
+    } else {
+      console.error(
+        "[admin-worker] refusing to run: the Admin Worker master switch is OFF.\n" +
+          "               Turn it on in the Via Fidei application, or pass --switch-on.",
+      );
+      return false;
+    }
+  }
+
+  if (await holdsExecutionLease(prisma, args.workerId)) return true;
+
+  const claim = await acquireExecutionLease(prisma, {
+    runtimeId: args.workerId,
+    origin: args.local ? "LOCAL_MACBOOK" : "RAILWAY_WORKER",
+    host: {
+      label: localHostLabel(),
+      platform: process.platform,
+      arch: process.arch,
+      cpuCount: (await import("node:os")).cpus().length,
+      launchedBy: args.local ? "cli" : "remote-override",
+    },
+  });
+  if (!claim.acquired) {
+    console.error(`[admin-worker] refusing to run: ${claim.refusedBecause}`);
+    return false;
+  }
+  return true;
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+
+  if (!(await claimExecutionAuthority(args))) {
+    await prisma.$disconnect().catch(() => undefined);
+    process.exitCode = 0;
+    return;
+  }
+
   // Reuse the shared, connection-pool-capped client so the worker and the web
   // service don't exhaust Postgres (P2037 "too many clients already").
   let shuttingDown = false;
@@ -104,7 +209,8 @@ async function main() {
 
   try {
     console.log(
-      `[admin-worker:${args.workerId}] starting (oneShot=${args.oneShot}, maxJobs=${args.maxJobs ?? "∞"})`,
+      `[admin-worker:${args.workerId}] starting on ${args.local ? `LOCAL MacBook runtime (${localHostLabel()})` : "an operator-overridden remote runtime"} ` +
+        `(oneShot=${args.oneShot}, maxJobs=${args.maxJobs ?? "∞"})`,
     );
 
     // Enable outbound egress through a proxy when the deployment provides one
@@ -245,6 +351,9 @@ async function main() {
     });
   } finally {
     shutdownBrain();
+    // Release the lease so the next local launch can claim it immediately
+    // (a stale lease would otherwise block until its TTL expires).
+    await releaseExecutionLease(prisma, args.workerId).catch(() => undefined);
     await prisma.$disconnect();
   }
 }

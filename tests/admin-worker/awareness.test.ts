@@ -29,8 +29,10 @@ describe("UI awareness — inspectUi", () => {
     const ui = inspectUi();
     expect(ui.public_routes).toContain("/prayers");
     expect(ui.public_routes).toContain("/saints");
-    // The new intelligence dashboard is an admin page.
-    expect(ui.admin_pages).toContain("/admin/intelligence");
+    // Admin Worker control surfaces moved to the native application, so the
+    // browser admin keeps only its permitted pages.
+    expect(ui.admin_pages).toContain("/admin/diagnostics");
+    expect(ui.admin_pages).not.toContain("/admin/admin-worker");
     // api + private route groups are excluded.
     expect(ui.public_routes).not.toContain("/api");
   });

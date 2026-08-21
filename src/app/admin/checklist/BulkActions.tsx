@@ -48,12 +48,13 @@ export function BulkActions({ verifyCount }: Props) {
     <section className="rounded border border-slate-200 bg-white p-4">
       <h2 className="font-display text-lg text-ink">Bulk source curation</h2>
       <p className="mt-1 text-xs text-ink-soft">
-        These actions curate checklist sources. Building, QA, and publishing are handled
-        autonomously by the{" "}
-        <Link className="text-indigo-600 underline" href="/admin/admin-worker">
-          Admin Worker
+        These actions curate checklist sources — they mark rows, they do not run worker computation.
+        Building, QA, and publishing are handled autonomously by the Admin Worker, which runs on the
+        operator&apos;s MacBook under the native Via Fidei application; its{" "}
+        <Link className="text-indigo-600 underline" href="/admin/logs/worker">
+          logs
         </Link>{" "}
-        — approved items are built and published by its artifact pipeline.
+        stay readable here.
       </p>
       <div className="mt-3 flex flex-wrap gap-3">
         <button

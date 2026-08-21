@@ -24,6 +24,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { assertWorkerExecutionAllowed } from "./execution-context";
 import type { BrainDecision, BrainMissionStage } from "./brain";
 import { WEB_EXTRACTION_CONTENT_TYPES, isExtractableContentType } from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
@@ -167,6 +168,7 @@ export interface DispatchInput {
  * exactly one handler; new stages slot into the switch below.
  */
 export async function executeMissionStage(input: DispatchInput): Promise<DispatchOutcome> {
+  assertWorkerExecutionAllowed("execute an Admin Worker mission stage");
   const { prisma, workerId, passId, decision } = input;
   const stage = decision.missionStage;
   const startedAt = Date.now();
@@ -479,6 +481,31 @@ async function runDiscovery(
     }
   }
 
+  // Ears first (spec §14): before looking for anything new, notice what has
+  // CHANGED in what the worker already knows. Sources whose learned change
+  // interval has elapsed are moved back into the queue; a caught-up corpus
+  // produces no work here at all, which is exactly the intent.
+  const { runFreshnessSweep } = await import("./change-sensing");
+  const freshness = await runFreshnessSweep(prisma).catch(() => ({
+    overdue: 0,
+    requeued: 0,
+    hosts: [] as string[],
+  }));
+  if (freshness.requeued > 0) {
+    await writeAdminWorkerLog(prisma, {
+      passId,
+      category: "SOURCE_DISCOVERY",
+      severity: "INFO",
+      eventName: "freshness_sweep",
+      message: `Freshness sweep: ${freshness.requeued} of ${freshness.overdue} overdue source(s) re-queued across ${freshness.hosts.length} host(s).`,
+      safeMetadata: {
+        overdue: freshness.overdue,
+        requeued: freshness.requeued,
+        hosts: freshness.hosts.slice(0, 10),
+      },
+    }).catch(() => undefined);
+  }
+
   // Delegate to the DiscoveryOrchestrator (spec §4) which knows
   // content-type-specific strategies, source ranking, skip rules,
   // and the candidate scorer wiring.
@@ -514,13 +541,34 @@ async function runCandidatePrioritization(
   // and the fetcher has little to prioritize. Overridable via env for big backlogs.
   const scoreLimit = Number(process.env.ADMIN_WORKER_SCORE_BATCH ?? "") || 600;
   const result = await rescoreAllCandidates(prisma, { limit: scoreLimit });
+
+  // Information gain (spec §17): the scorer judges the URL; this judges whether
+  // what is behind it would actually teach Via Fidei something it still needs.
+  const { applyInformationGainToCandidates } = await import("./information-gain");
+  const gain = await applyInformationGainToCandidates(prisma).catch(() => ({
+    considered: 0,
+    adjusted: 0,
+    demoted: 0,
+    examples: [] as string[],
+  }));
+
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "SOURCE_DISCOVERY",
     severity: "INFO",
     eventName: "candidates_prioritized",
-    message: `Candidate scorer: ${result.scored} scored, ${result.prioritized} prioritized, ${result.rejected} rejected.`,
-    safeMetadata: result,
+    message:
+      `Candidate scorer: ${result.scored} scored, ${result.prioritized} prioritized, ${result.rejected} rejected. ` +
+      `Information gain re-ranked ${gain.adjusted}/${gain.considered} candidate(s) (${gain.demoted} demoted).`,
+    safeMetadata: {
+      ...result,
+      informationGain: {
+        considered: gain.considered,
+        adjusted: gain.adjusted,
+        demoted: gain.demoted,
+        examples: gain.examples,
+      },
+    },
   });
   return {
     stage: "CANDIDATE_PRIORITIZATION",
@@ -571,12 +619,52 @@ async function runSourceFetchRead(
     })
     .catch(() => null);
 
+  // Adaptive acquisition (spec §16): choose the cheapest reader that can
+  // plausibly answer, using what this worker has learned about the host, and
+  // reuse the durable source read when nothing has changed. The plan is logged
+  // so "why did it use a browser here?" always has an answer.
+  const { planAcquisition, recordAcquisitionOutcome } = await import("./acquisition-planner");
+  const { recordObservation } = await import("./change-sensing");
+  const plan = await planAcquisition(prisma, {
+    url: candidate.discoveredUrl,
+    hints: {
+      contentType: decision.contentType ?? candidate.predictedContentType ?? null,
+      isPdf: /\.pdf($|\?)/i.test(candidate.discoveredUrl),
+    },
+  }).catch(() => null);
+
+  if (plan && plan.satisfiedByCache && process.env.ADMIN_WORKER_SKIP_NETWORK !== "1") {
+    await writeAdminWorkerLog(prisma, {
+      passId,
+      category: "SOURCE_READING",
+      severity: "INFO",
+      eventName: "fetch_skipped_cache_fresh",
+      message: `Skipped fetching ${candidate.discoveredUrl}: ${plan.sense.reason}`,
+      sourceHost: candidate.sourceHost,
+      sourceUrl: candidate.discoveredUrl,
+      safeMetadata: {
+        candidateId: candidate.id,
+        rereadIntervalMs: plan.sense.rereadIntervalMs,
+        lastReadAt: plan.sense.lastReadAt?.toISOString() ?? null,
+      },
+    }).catch(() => undefined);
+    await prisma.candidateSourceUrl
+      .update({ where: { id: candidate.id }, data: { lastFetchedAt: new Date() } })
+      .catch(() => undefined);
+    return {
+      stage: "SOURCE_FETCH",
+      kind: "advanced",
+      summary: `Reused the durable source read for ${candidate.discoveredUrl} (no change expected yet).`,
+      metadata: { candidateId: candidate.id, url: candidate.discoveredUrl, cacheSatisfied: true },
+    };
+  }
+
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "SOURCE_READING",
     severity: "INFO",
     eventName: "fetch_started",
-    message: `Fetching ${candidate.discoveredUrl}.`,
+    message: `Fetching ${candidate.discoveredUrl}${plan ? ` — ${plan.rationale}` : ""}.`,
     sourceHost: candidate.sourceHost,
     sourceUrl: candidate.discoveredUrl,
     contentType: decision.contentType ?? undefined,
@@ -630,6 +718,13 @@ async function runSourceFetchRead(
         rejectionReason: fetched.rejectionReason,
       },
     }).catch(() => undefined);
+    await recordAcquisitionOutcome(prisma, {
+      url: candidate.discoveredUrl,
+      method: "static-http",
+      ok: false,
+      contentType: decision.contentType ?? null,
+      reason: fetched.rejectionReason ?? fetched.errorClass ?? "fetch_failed",
+    }).catch(() => undefined);
     return {
       stage: "SOURCE_FETCH",
       kind: "repair-planned",
@@ -648,6 +743,16 @@ async function runSourceFetchRead(
   // this as advancing the chain because the previous source-read
   // row is still valid.
   if (fetched.unchanged) {
+    await recordObservation(prisma, { url: candidate.discoveredUrl, changed: false }).catch(
+      () => undefined,
+    );
+    await recordAcquisitionOutcome(prisma, {
+      url: candidate.discoveredUrl,
+      method: "conditional-http",
+      ok: true,
+      contentType: decision.contentType ?? null,
+      reason: "304/unchanged checksum",
+    }).catch(() => undefined);
     return {
       stage: "SOURCE_FETCH",
       kind: "advanced",
@@ -686,6 +791,20 @@ async function runSourceFetchRead(
       failed: 1,
     };
   }
+
+  await recordObservation(prisma, { url: candidate.discoveredUrl, changed: true }).catch(
+    () => undefined,
+  );
+  await recordAcquisitionOutcome(prisma, {
+    url: candidate.discoveredUrl,
+    method: "static-http",
+    ok: !readOutcome.rejected,
+    contentType: readOutcome.classifierContentType,
+    reason: readOutcome.rejectionReason ?? "read ok",
+    // A body that produced no usable prose is the signature of a JS-rendered
+    // page: remember it so the planner escalates to the browser next time.
+    observedJsOnly: readOutcome.rejected && readOutcome.acceptedBlocks === 0,
+  }).catch(() => undefined);
 
   return {
     stage: "SOURCE_FETCH",
@@ -1451,6 +1570,42 @@ export async function runCrossSourceVerification(
         }
       } catch {
         // Claim-level resolution is advisory — never break verification.
+      }
+
+      // Deterministic conflict adjudication (spec §19). Where two validation
+      // sources assert DIFFERENT values for the same field, the worker records
+      // both claims, compares source authority, then recency, then
+      // corroboration — and escalates a genuinely unresolved disagreement to
+      // review instead of quietly keeping whichever page it read first. The
+      // adjudication is remembered, so the same disagreement is not
+      // re-escalated every time the artifact is verified again.
+      try {
+        const { adjudicateAndRecord } = await import("./conflict-resolution");
+        for (const field of fieldsToVerify) {
+          const claims = validationSources
+            .map((vs) => ({ host: vs.host, url: vs.url, value: vs.fields[field] }))
+            .filter((c): c is { host: string; url: string; value: unknown } => {
+              return c.value != null && String(c.value).trim() !== "";
+            });
+          const distinct = new Set(claims.map((c) => String(c.value).trim().toLowerCase()));
+          if (claims.length < 2 || distinct.size < 2) continue;
+
+          await adjudicateAndRecord(prisma, {
+            field: `${artifact.contentType}.${field}`,
+            contentType: artifact.contentType,
+            contentTitle: artifact.normalizedTitle,
+            passId,
+            candidates: claims.map((c) => ({
+              value: String(c.value),
+              sourceUrl: c.url,
+              sourceHost: c.host,
+              authorityLevel: hostAuthorityLevel(c.host),
+              corroborations: 1,
+            })),
+          });
+        }
+      } catch {
+        // Conflict adjudication must never break the verification stage.
       }
 
       const { pushReputation } = await import("./source-reputation-hooks");

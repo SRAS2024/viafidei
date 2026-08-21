@@ -22,6 +22,8 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { assertWorkerExecutionAllowed } from "./execution-context";
+import { readExecutionStatus, renewExecutionLease } from "./execution-host";
 import { writeAdminWorkerLog } from "./logs";
 import {
   getAdminWorkerState,
@@ -60,6 +62,10 @@ export async function runAdminWorkerLoop(
   prisma: PrismaClient,
   opts: LoopOptions = {},
 ): Promise<LoopResult> {
+  // Execution boundary (spec §1, §25): the loop only ever runs on the local
+  // (MacBook) runtime. The production web service must never enter here.
+  assertWorkerExecutionAllowed("run the Admin Worker loop");
+
   const workerId = opts.workerId ?? `admin-worker-${process.pid}-${Date.now()}`;
   const oneShot = opts.oneShot ?? true;
   const maxPasses = opts.maxPasses ?? Infinity;
@@ -92,6 +98,23 @@ export async function runAdminWorkerLoop(
   let failed = 0;
 
   while (passes < maxPasses) {
+    // Sole-executor check (spec §25) + OFF-means-OFF check (spec §4). Both are
+    // durable facts in Postgres, so a switch-off or a lease take-over stops the
+    // loop on its next cycle no matter which runtime flipped it. Fail-open on a
+    // transient DB blip: a read failure must not silently stop a healthy worker.
+    if (!oneShot && opts.workerId) {
+      const authority = await checkLoopAuthority(prisma, opts.workerId);
+      if (!authority.ok) {
+        await writeAdminWorkerLog(prisma, {
+          category: "OVERVIEW",
+          severity: "INFO",
+          eventName: "loop_execution_authority_lost",
+          message: `Admin Worker loop stopping: ${authority.reason}`,
+        }).catch(() => undefined);
+        break;
+      }
+    }
+
     passes += 1;
     try {
       const passOutcome = await runOnePass(prisma, workerId);
@@ -120,6 +143,33 @@ export async function runAdminWorkerLoop(
   return { passes, built, published, failed };
 }
 
+/**
+ * Is this runtime still allowed to keep looping? Returns ok=false only for a
+ * definitive answer (switch OFF, or the lease now belongs to someone else) —
+ * never for a transient database error.
+ */
+async function checkLoopAuthority(
+  prisma: PrismaClient,
+  workerId: string,
+): Promise<{ ok: boolean; reason: string }> {
+  try {
+    const status = await readExecutionStatus(prisma);
+    if (!status.switch.on) {
+      return { ok: false, reason: "the master switch is OFF (no cloud failover — spec §5)." };
+    }
+    const renewed = await renewExecutionLease(prisma, workerId);
+    if (!renewed) {
+      return {
+        ok: false,
+        reason: `the execution lease is held by ${status.lease?.runtimeId ?? "another runtime"}.`,
+      };
+    }
+    return { ok: true, reason: "" };
+  } catch {
+    return { ok: true, reason: "" };
+  }
+}
+
 interface PassOutcome {
   built: number;
   published: number;
@@ -132,6 +182,7 @@ interface PassOutcome {
  * records the pass + decision rows. Exported for tests.
  */
 export async function runOnePass(prisma: PrismaClient, workerId: string): Promise<PassOutcome> {
+  assertWorkerExecutionAllowed("run an Admin Worker pass");
   await writeHeartbeat(prisma);
   const state = await getAdminWorkerState(prisma);
 

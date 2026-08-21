@@ -713,3 +713,112 @@ export {
   rememberFailurePattern,
   type RankedHost,
 } from "./memory";
+
+// ── Local execution boundary (the Admin Worker runs on the operator's Mac) ──
+export {
+  assertWorkerExecutionAllowed,
+  allowRemoteExecutionOverride,
+  isLocalWorkerRuntime,
+  markWorkerExecutionOrigin,
+  remoteExecutionOverride,
+  workerExecutionAllowed,
+  workerExecutionOrigin,
+  WorkerExecutionForbiddenError,
+  type WorkerExecutionOrigin,
+} from "./execution-context";
+
+export {
+  acquireExecutionLease,
+  assertExecutionAuthority,
+  describeExecutionState,
+  holdsExecutionLease,
+  readExecutionStatus,
+  readMasterSwitch,
+  releaseExecutionLease,
+  renewExecutionLease,
+  setMasterSwitch,
+  LEASE_RENEW_INTERVAL_MS,
+  LEASE_TTL_MS,
+  type ExecutionHostInfo,
+  type ExecutionLease,
+  type ExecutionState,
+  type ExecutionStatus,
+  type MasterSwitch,
+} from "./execution-host";
+
+export { loadCommandCenterSnapshot, type CommandCenterSnapshot } from "./command-center";
+
+export {
+  localHostLabel,
+  recommendedConcurrency,
+  sampleLocalResources,
+  type LocalResourceSample,
+} from "./local-resources";
+
+// ── Broader agent anatomy: ears, adaptive acquisition, gain, conflicts ─────
+export {
+  rankStaleSources,
+  recordObservation,
+  rereadIntervalFor,
+  runFreshnessSweep,
+  senseFeedChange,
+  senseUrl,
+  type FeedChange,
+  type FreshnessSweepResult,
+  type StaleSource,
+  type UrlChangeSense,
+} from "./change-sensing";
+
+export {
+  discourageMethod,
+  planAcquisition,
+  recallHostStrategy,
+  recordAcquisitionOutcome,
+  METHOD_COST,
+  type AcquisitionHints,
+  type AcquisitionMethod,
+  type AcquisitionPlan,
+  type AcquisitionStep,
+} from "./acquisition-planner";
+
+export {
+  applyInformationGainToCandidates,
+  estimateGainFromState,
+  estimateInformationGain,
+  rankByInformationGain,
+  MIN_WORTHWHILE_RATIO,
+  type GainEstimate,
+  type GainInput,
+} from "./information-gain";
+
+export {
+  adjudicateAndRecord,
+  conflictKey,
+  normalizeClaim,
+  recallConflict,
+  resolveConflict,
+  type ClaimCandidate,
+  type ConflictResolution,
+  type ConflictVerdict,
+} from "./conflict-resolution";
+
+// ── Operator file ingestion (drag-and-drop into the local command center) ──
+export {
+  detectInstructionInjection,
+  detectContradictions,
+  findDuplicates,
+  ingestOperatorFile,
+  toStructuredBody,
+  OPERATOR_FILE_HOST,
+  type FileIngestInput,
+  type FileIngestResult,
+} from "./file-ingest";
+
+export {
+  detectFileKind,
+  extractFile,
+  parseDelimited,
+  MAX_FILE_BYTES,
+  type FileExtraction,
+  type FileKind,
+} from "./file-extractors";

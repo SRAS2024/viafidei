@@ -1,9 +1,14 @@
 /**
- * Admin dashboard cards.
+ * Admin dashboard cards (browser admin).
  *
- * Grouped by purpose: the Admin Worker comes first (it's the
- * autonomous brain that runs the site), then the checklist tools
- * the worker reads from, then the other admin surfaces.
+ * The Admin Worker's control surfaces are deliberately NOT here. The worker
+ * executes on the operator's MacBook, under the native Via Fidei application,
+ * which holds the complete command center — activation, passes, homepage
+ * makeover, rules, skills, review, artifacts, intelligence and file ingestion.
+ *
+ * What remains in the browser is what the operator asked to keep there: user
+ * management, diagnostics, logs, and the read-only content surfaces that do not
+ * cause Admin Worker computation to run on the production web service.
  */
 
 export type DashboardCard = {
@@ -15,62 +20,33 @@ export type DashboardCard = {
 };
 
 export const DASHBOARD_CARDS: DashboardCard[] = [
-  // ── Admin Worker (autonomous system) ──────────────────────────────
-  {
-    href: "/admin/admin-worker",
-    labelKey: "admin.card.adminWorker",
-    descriptionKey: "admin.card.adminWorker.desc",
-    eyebrow: "I.",
-  },
+  // ── Admin operations (the browser admin's purpose) ────────────────
+  { href: "/admin/users", labelKey: "admin.card.users", eyebrow: "I." },
   {
     href: "/admin/diagnostics",
     labelKey: "admin.card.diagnostics",
     descriptionKey: "admin.card.diagnostics.desc",
     eyebrow: "II.",
   },
+  { href: "/admin/logs", labelKey: "admin.card.logs", eyebrow: "III." },
   {
-    href: "/admin/admin-worker/logs",
+    href: "/admin/logs/worker",
     labelKey: "admin.card.adminWorkerLogs",
     descriptionKey: "admin.card.adminWorkerLogs.desc",
-    eyebrow: "III.",
-  },
-  {
-    href: "/admin/admin-worker/rules",
-    labelKey: "admin.card.adminWorkerRules",
-    descriptionKey: "admin.card.adminWorkerRules.desc",
     eyebrow: "IV.",
   },
 
-  // ── Checklist (content the worker builds) ────────────────────────
+  // ── Checklist (read-only views of what the worker produced) ───────
   { href: "/admin/checklist", labelKey: "admin.card.checklist", eyebrow: "V." },
   { href: "/admin/checklist/queue", labelKey: "admin.card.queue", eyebrow: "VI." },
   { href: "/admin/checklist/qa", labelKey: "admin.card.qa", eyebrow: "VII." },
   { href: "/admin/checklist/published", labelKey: "admin.card.published", eyebrow: "VIII." },
   { href: "/admin/checklist/sources", labelKey: "admin.card.sources", eyebrow: "IX." },
-  { href: "/admin/checklist/janitor/edits", labelKey: "admin.card.janitorEdits", eyebrow: "X." },
-  {
-    href: "/admin/checklist/janitor/deletes",
-    labelKey: "admin.card.janitorDeletes",
-    eyebrow: "XI.",
-  },
-  { href: "/admin/checklist/failed", labelKey: "admin.card.failed", eyebrow: "XII." },
+  { href: "/admin/checklist/failed", labelKey: "admin.card.failed", eyebrow: "X." },
 
-  // ── Site surfaces ────────────────────────────────────────────────
-  { href: "/admin/homepage", labelKey: "admin.card.homepage", eyebrow: "XIII." },
-  { href: "/admin/search", labelKey: "admin.card.search", eyebrow: "XIV." },
-  { href: "/admin/media", labelKey: "admin.card.media", eyebrow: "XV." },
-
-  // ── Admin operations ─────────────────────────────────────────────
-  { href: "/admin/logs", labelKey: "admin.card.logs", eyebrow: "XVI." },
-  { href: "/admin/users", labelKey: "admin.card.users", eyebrow: "XVII." },
-  // (The former "Audit" card was removed — it only 308-redirected to
-  // /admin/logs/accounts, which the Logs card above already reaches.)
-
-  // ── Worker intelligence (the Python brain) ───────────────────────
-  {
-    href: "/admin/intelligence",
-    labelKey: "admin.card.intelligence",
-    descriptionKey: "admin.card.intelligence.desc",
-    eyebrow: "XVIII.",
-  },
+  // ── Site surfaces edited by hand (no worker computation) ─────────
+  { href: "/admin/homepage", labelKey: "admin.card.homepage", eyebrow: "XI." },
+  { href: "/admin/search", labelKey: "admin.card.search", eyebrow: "XII." },
+  { href: "/admin/media", labelKey: "admin.card.media", eyebrow: "XIII." },
+  { href: "/admin/banned-devices", labelKey: "admin.bannedDevices.title", eyebrow: "XIV." },
 ];

@@ -32,6 +32,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { sendAdminWorkerMonthlyReport } from "@/lib/email/admin-send";
+import { workerExecutionAllowed } from "./execution-context";
 import { isLastDayOfMonth, buildMonthlySummary } from "./report-generator";
 import { generateMonthlyAdminWorkerReportPdf } from "./pdf";
 import { writeAdminWorkerLog } from "./logs";
@@ -160,6 +161,14 @@ export async function runMonthlyReportJobIfDue(
   prisma: PrismaClient,
   opts: { now?: Date; force?: boolean } = {},
 ): Promise<MonthlyReportRunOutcome> {
+  // Admin Worker email belongs to the local worker (spec §9): the production
+  // web service never generates worker reports as a background workload.
+  if (!workerExecutionAllowed()) {
+    return {
+      ran: false,
+      reason: "Monthly Admin Worker report runs only on the local worker runtime.",
+    };
+  }
   const now = opts.now ?? new Date();
 
   const target = opts.force

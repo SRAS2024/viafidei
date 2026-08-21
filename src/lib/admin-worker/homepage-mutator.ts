@@ -24,6 +24,7 @@ import {
   HOMEPAGE_REDESIGN_THRESHOLD,
   computeHomepageFinalScore,
 } from "./homepage-designer";
+import { assertWorkerExecutionAllowed } from "./execution-context";
 import { seasonalRelevance } from "./liturgical-calendar";
 import { writeAdminWorkerLog } from "./logs";
 
@@ -146,6 +147,9 @@ export async function redesignHomepage(
     force?: boolean;
   } = {},
 ): Promise<RedesignResult> {
+  // Spec §12: the homepage makeover is expensive Admin Worker computation and
+  // therefore runs on the local (MacBook) runtime, never on the web server.
+  assertWorkerExecutionAllowed("run a homepage makeover");
   const homepage = await prisma.homePage
     .findUnique({ where: { slug: "homepage" }, include: { blocks: true } })
     .catch(() => null);

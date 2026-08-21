@@ -32,6 +32,8 @@ import { existsSync } from "node:fs";
 
 import { isFetchableHost } from "@/lib/checklist";
 
+import { workerExecutionAllowed } from "./execution-context";
+
 const DEFAULT_TIMEOUT_MS = 15_000;
 const NETWORK_IDLE_SETTLE_MS = 3_000;
 const MAX_RENDER_BYTES = 5_000_000; // mirror the static fetcher's cap
@@ -50,6 +52,9 @@ let availabilityCache: boolean | null = null;
  * capability — so only an explicit opt-out (or offline/test mode) disables it.
  */
 export function dynamicFetcherEnabled(): boolean {
+  // Headless Chromium is Admin Worker computation: it only ever runs on the
+  // local (MacBook) runtime, never inside the production web service (spec §7).
+  if (!workerExecutionAllowed()) return false;
   if (process.env.ADMIN_WORKER_SKIP_NETWORK === "1") return false;
   const v = (process.env.ADMIN_WORKER_DYNAMIC_FETCHER ?? "").trim().toLowerCase();
   return !(v === "0" || v === "false" || v === "off" || v === "no");
@@ -82,6 +87,23 @@ async function acquireRenderSlot(): Promise<void> {
   await new Promise<void>((resolve) => renderWaiters.push(resolve));
   // Slot handed directly from releaseRenderSlot (activeRenders left unchanged).
 }
+/**
+ * Live browser-rendering activity, surfaced on the local Admin Worker
+ * dashboard (spec §20.4) so the operator can see exactly how much Chromium
+ * work the MacBook is doing right now.
+ */
+export function browserRenderActivity(): {
+  active: number;
+  waiting: number;
+  maxConcurrent: number;
+} {
+  return {
+    active: activeRenders,
+    waiting: renderWaiters.length,
+    maxConcurrent: maxConcurrentRenders(),
+  };
+}
+
 function releaseRenderSlot(): void {
   const next = renderWaiters.shift();
   if (next) next();

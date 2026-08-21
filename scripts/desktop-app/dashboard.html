@@ -1,0 +1,1307 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Via Fidei · Admin Worker Command Center</title>
+    <style>
+      :root {
+        --paper: #2e2e2e;
+        --paper-warm: #343434;
+        --paper-bright: #3a3a3a;
+        --ink: #fbf8f1;
+        --ink-soft: #ece8df;
+        --ink-faint: #b9b4a8;
+        --rule: rgba(251, 248, 241, 0.1);
+        --gold: #b68d40;
+        --purple: #a88bd4;
+        --green: #4ba36a;
+        --amber: #d09a3c;
+        --red: #e07070;
+        --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: var(--paper);
+        color: var(--ink);
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Inter", system-ui, sans-serif;
+        font-size: 13px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: var(--purple);
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: "Cormorant Garamond", Georgia, serif;
+        font-weight: 600;
+        margin: 0;
+      }
+      .wrap {
+        padding: 18px 22px 60px;
+        max-width: 1600px;
+        margin: 0 auto;
+      }
+
+      header.top {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        padding-bottom: 14px;
+        border-bottom: 1px solid var(--rule);
+        margin-bottom: 18px;
+      }
+      header.top h1 {
+        font-size: 25px;
+        letter-spacing: 0.02em;
+      }
+      .eyebrow {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        color: var(--ink-faint);
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        border: 1px solid var(--rule);
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .pill .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--ink-faint);
+      }
+      .pill.on {
+        border-color: rgba(75, 163, 106, 0.5);
+        color: #9fdcb4;
+      }
+      .pill.on .dot {
+        background: var(--green);
+        box-shadow: 0 0 8px rgba(75, 163, 106, 0.8);
+      }
+      .pill.warn {
+        border-color: rgba(208, 154, 60, 0.5);
+        color: #e8c68a;
+      }
+      .pill.warn .dot {
+        background: var(--amber);
+      }
+      .pill.off .dot {
+        background: #6f6f6f;
+      }
+      .pill.bad {
+        border-color: rgba(224, 112, 112, 0.5);
+        color: #f0a5a5;
+      }
+      .pill.bad .dot {
+        background: var(--red);
+      }
+      .spacer {
+        flex: 1;
+      }
+
+      .strip {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+      .metric {
+        background: var(--paper-warm);
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        padding: 9px 11px;
+      }
+      .metric .label {
+        font-size: 9.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--ink-faint);
+      }
+      .metric .value {
+        font-size: 19px;
+        font-family: var(--mono);
+        margin-top: 3px;
+      }
+      .metric .sub {
+        font-size: 10.5px;
+        color: var(--ink-faint);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+        align-items: center;
+      }
+      button {
+        font: inherit;
+        font-size: 12px;
+        color: var(--ink);
+        background: var(--paper-bright);
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        padding: 6px 12px;
+        cursor: pointer;
+        transition:
+          background 140ms ease,
+          border-color 140ms ease;
+      }
+      button:hover:not(:disabled) {
+        background: #474747;
+        border-color: rgba(182, 141, 64, 0.6);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      button.primary {
+        background: rgba(182, 141, 64, 0.18);
+        border-color: rgba(182, 141, 64, 0.55);
+      }
+
+      #drop {
+        border: 1px dashed rgba(251, 248, 241, 0.25);
+        border-radius: 4px;
+        padding: 12px 14px;
+        margin-bottom: 18px;
+        color: var(--ink-faint);
+        font-size: 12px;
+        text-align: center;
+      }
+      #drop.hot {
+        border-color: var(--gold);
+        color: var(--ink);
+        background: rgba(182, 141, 64, 0.08);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+        gap: 14px;
+      }
+      section.card {
+        background: var(--paper-warm);
+        border: 1px solid var(--rule);
+        border-radius: 3px;
+        padding: 13px 15px;
+        overflow: hidden;
+      }
+      section.card > h2 {
+        font-size: 15px;
+        margin-bottom: 9px;
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+      section.card > h2 .count {
+        font-size: 10px;
+        color: var(--ink-faint);
+        font-family: var(--mono);
+      }
+      .scroll {
+        max-height: 320px;
+        overflow: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11.5px;
+      }
+      th {
+        text-align: left;
+        font-size: 9.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.13em;
+        color: var(--ink-faint);
+        font-weight: 500;
+        padding: 4px 8px 4px 0;
+        border-bottom: 1px solid var(--rule);
+        position: sticky;
+        top: 0;
+        background: var(--paper-warm);
+      }
+      td {
+        padding: 4px 8px 4px 0;
+        border-bottom: 1px solid rgba(251, 248, 241, 0.05);
+        vertical-align: top;
+      }
+      td.mono,
+      .mono {
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+      .muted {
+        color: var(--ink-faint);
+      }
+      .ok {
+        color: #9fdcb4;
+      }
+      .warnc {
+        color: #e8c68a;
+      }
+      .bad {
+        color: #f0a5a5;
+      }
+      .empty {
+        color: var(--ink-faint);
+        font-style: italic;
+        padding: 6px 0;
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 3px 12px;
+        font-size: 12px;
+      }
+      .kv dt {
+        color: var(--ink-faint);
+      }
+      .kv dd {
+        margin: 0;
+      }
+      pre.log {
+        margin: 0;
+        font-family: var(--mono);
+        font-size: 10.5px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 340px;
+        overflow: auto;
+        color: var(--ink-soft);
+      }
+      .log-host {
+        color: var(--gold);
+      }
+      #toast {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        background: var(--paper-bright);
+        border: 1px solid var(--rule);
+        border-left: 3px solid var(--gold);
+        border-radius: 3px;
+        padding: 10px 14px;
+        font-size: 12px;
+        max-width: 460px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 200ms ease;
+        white-space: pre-wrap;
+      }
+      #toast.show {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <div>
+          <div class="eyebrow">Via Fidei</div>
+          <h1>Admin Worker Command Center</h1>
+        </div>
+        <span id="execPill" class="pill off"
+          ><span class="dot"></span><span id="execLabel">connecting…</span></span
+        >
+        <span id="hostPill" class="pill"
+          ><span class="dot"></span><span id="hostLabel">local host</span></span
+        >
+        <div class="spacer"></div>
+        <span class="eyebrow" id="generatedAt"></span>
+        <button id="refresh">Refresh</button>
+      </header>
+
+      <div class="strip" id="strip"></div>
+
+      <div class="actions" id="actions"></div>
+
+      <div id="drop">
+        Drop a file here — or <button id="pick" style="padding: 3px 9px">choose a file</button> — to
+        hand it to the local Admin Worker. Files are processed on this Mac and enter the normal
+        classification, verification and publishing standards. Nothing inside a file is ever
+        executed.
+        <input id="file" type="file" hidden />
+      </div>
+
+      <div class="grid" id="grid"></div>
+    </div>
+    <div id="toast"></div>
+
+    <script>
+      const TOKEN = "__CONTROL_TOKEN__";
+      const api = (p, opts = {}) =>
+        fetch(p, {
+          ...opts,
+          headers: { Authorization: "Bearer " + TOKEN, ...(opts.headers || {}) },
+        });
+
+      const el = (tag, attrs = {}, ...kids) => {
+        const n = document.createElement(tag);
+        for (const [k, v] of Object.entries(attrs)) {
+          if (k === "class") n.className = v;
+          else if (k === "html") n.innerHTML = v;
+          else n.setAttribute(k, v);
+        }
+        for (const kid of kids.flat()) {
+          if (kid == null) continue;
+          n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+        }
+        return n;
+      };
+
+      const fmtBytes = (b) =>
+        b == null
+          ? "—"
+          : b > 1e9
+            ? (b / 1073741824).toFixed(1) + " GB"
+            : (b / 1048576).toFixed(0) + " MB";
+      const fmtDur = (ms) => {
+        if (ms == null) return "—";
+        const s = Math.floor(ms / 1000);
+        if (s < 60) return s + "s";
+        if (s < 3600) return Math.floor(s / 60) + "m " + (s % 60) + "s";
+        if (s < 86400) return Math.floor(s / 3600) + "h " + Math.floor((s % 3600) / 60) + "m";
+        return Math.floor(s / 86400) + "d " + Math.floor((s % 86400) / 3600) + "h";
+      };
+      const ago = (iso) => (iso ? fmtDur(Date.now() - new Date(iso).getTime()) + " ago" : "never");
+      const pct = (n) => (n == null ? "—" : (n * 100).toFixed(0) + "%");
+      const short = (v, n = 68) => {
+        const s = v == null ? "" : String(v);
+        return s.length > n ? s.slice(0, n - 1) + "…" : s;
+      };
+
+      let toastTimer;
+      function toast(msg) {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove("show"), 6000);
+      }
+
+      /* ---------------- status strip ---------------- */
+
+      function renderStatus(s) {
+        const ex = s.execution || {};
+        const pill = document.getElementById("execPill");
+        const label = document.getElementById("execLabel");
+        const state = ex.state || "OFF";
+        pill.className =
+          "pill " +
+          (state === "LOCAL_ACTIVE"
+            ? "on"
+            : state === "OFF"
+              ? "off"
+              : state === "LOCAL_DISCONNECTED"
+                ? "warn"
+                : "bad");
+        label.textContent =
+          state === "LOCAL_ACTIVE"
+            ? "Running locally on this Mac"
+            : state === "OFF"
+              ? "Admin Worker OFF"
+              : state === "LOCAL_DISCONNECTED"
+                ? "ON — local runtime disconnected"
+                : "Remote runtime (overridden)";
+        document.getElementById("hostLabel").textContent =
+          (s.hostLabel || "local") + " · " + (s.runState || "off");
+
+        const r = s.resources || {};
+        const strip = document.getElementById("strip");
+        const items = [
+          ["Worker memory", fmtBytes(r.processRssBytes), "resident set of the local host"],
+          [
+            "CPU (worker)",
+            (r.processCpuPercent ?? 0) + "%",
+            "system load " + (r.systemLoadPercent ?? 0) + "%",
+          ],
+          ["Free memory", fmtBytes(r.freeMemoryBytes), "of " + fmtBytes(r.totalMemoryBytes)],
+          ["Cores", r.cpuCount ?? "—", "concurrency " + (r.recommendedConcurrency ?? "—")],
+          ["Active jobs", (s.activeJobs || []).length, (s.activeJobs || []).join(", ") || "idle"],
+          ["Uptime", fmtDur(s.uptimeMs), "restarts " + (s.restarts ?? 0)],
+          [
+            "Items processed",
+            s.counters?.itemsProcessed ?? 0,
+            "published " + (s.counters?.itemsPublished ?? 0),
+          ],
+          ["Errors", s.counters?.errors ?? 0, s.lastError ? short(s.lastError, 30) : "none"],
+        ];
+        strip.replaceChildren(
+          ...items.map(([label, value, sub]) =>
+            el(
+              "div",
+              { class: "metric" },
+              el("div", { class: "label" }, label),
+              el("div", { class: "value" }, String(value)),
+              el("div", { class: "sub" }, short(sub, 34)),
+            ),
+          ),
+        );
+      }
+
+      /* ---------------- actions ---------------- */
+
+      const PASSES = [
+        ["content_goal", "Run full pass"],
+        ["diagnostics", "Diagnostics"],
+        ["source_discovery", "Source discovery"],
+        ["homepage", "Homepage pass"],
+        ["source_repair", "Source repair"],
+        ["security", "Security pass"],
+        ["report", "Report"],
+        ["cleanup", "Cleanup"],
+      ];
+
+      function renderActions() {
+        const bar = document.getElementById("actions");
+        const buttons = PASSES.map(([type, label]) => el("button", { "data-pass": type }, label));
+        const makeover = el(
+          "button",
+          { class: "primary", id: "makeover" },
+          "Request homepage makeover",
+        );
+        const report = el("button", { id: "audit" }, "Developer audit PDF");
+        bar.replaceChildren(
+          el("span", { class: "eyebrow" }, "Local operations"),
+          ...buttons,
+          makeover,
+          report,
+        );
+        bar
+          .querySelectorAll("button[data-pass]")
+          .forEach((b) => b.addEventListener("click", () => runPass(b.dataset.pass, b)));
+        makeover.addEventListener("click", () => runMakeover(makeover));
+        report.addEventListener("click", () => downloadAudit(report));
+      }
+
+      async function runPass(passType, button) {
+        button.disabled = true;
+        const original = button.textContent;
+        button.textContent = "Running locally…";
+        try {
+          const res = await api("/api/pass", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ passType }),
+          });
+          const data = await res.json();
+          toast(
+            res.ok
+              ? passType + " pass executed on this Mac: " + short(JSON.stringify(data.result), 320)
+              : "Pass refused: " + (data.error || res.status),
+          );
+          loadSnapshot();
+        } catch (err) {
+          toast("Pass failed: " + err.message);
+        } finally {
+          button.disabled = false;
+          button.textContent = original;
+        }
+      }
+
+      async function runMakeover(button) {
+        button.disabled = true;
+        button.textContent = "Analysing homepage locally…";
+        try {
+          const res = await api("/api/homepage-makeover", { method: "POST" });
+          const data = await res.json();
+          toast(
+            res.ok
+              ? "Homepage makeover computed on this Mac. Draft " +
+                  (data.draftId || "—") +
+                  " · status " +
+                  (data.status || "—") +
+                  " · score " +
+                  (data.finalScore ?? "—")
+              : "Makeover failed: " + (data.detail || res.status),
+          );
+          loadSnapshot();
+        } catch (err) {
+          toast("Makeover failed: " + err.message);
+        } finally {
+          button.disabled = false;
+          button.textContent = "Request homepage makeover";
+        }
+      }
+
+      async function downloadAudit(button) {
+        button.disabled = true;
+        button.textContent = "Generating locally…";
+        try {
+          const res = await api("/api/report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ period: "LAST_30_DAYS" }),
+          });
+          if (!res.ok) throw new Error("status " + res.status);
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          window.open(url, "_blank");
+          toast("Developer audit generated on this Mac (" + Math.round(blob.size / 1024) + " KB).");
+        } catch (err) {
+          toast("Report failed: " + err.message);
+        } finally {
+          button.disabled = false;
+          button.textContent = "Developer audit PDF";
+        }
+      }
+
+      /* ---------------- file ingestion ---------------- */
+
+      async function ingest(file) {
+        toast("Reading " + file.name + " locally…");
+        const buf = await file.arrayBuffer();
+        try {
+          const res = await api("/api/ingest", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/octet-stream",
+              "X-Filename": encodeURIComponent(file.name),
+              "X-Operator": "operator",
+            },
+            body: buf,
+          });
+          const data = await res.json();
+          toast(
+            "Ingested " +
+              file.name +
+              "\n" +
+              "type: " +
+              (data.fileKind || "?") +
+              " · classified: " +
+              (data.classification?.contentType || "—") +
+              " (" +
+              (data.classification?.confidence?.toFixed?.(2) ?? "—") +
+              ")\n" +
+              "disposition: " +
+              (data.disposition || "?") +
+              " — " +
+              (data.reason || "") +
+              (data.duplicates?.length ? "\nduplicates: " + data.duplicates.length : "") +
+              (data.conflicts?.length ? "\ncontradictions: " + data.conflicts.length : "") +
+              (data.injectionFlags?.length
+                ? "\n⚠ instruction text found (ignored): " + data.injectionFlags.join(", ")
+                : ""),
+          );
+          loadSnapshot();
+        } catch (err) {
+          toast("Ingestion failed: " + err.message);
+        }
+      }
+
+      const drop = document.getElementById("drop");
+      const fileInput = document.getElementById("file");
+      document.getElementById("pick").addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", () => {
+        if (fileInput.files?.[0]) ingest(fileInput.files[0]);
+        fileInput.value = "";
+      });
+      ["dragenter", "dragover"].forEach((e) =>
+        drop.addEventListener(e, (ev) => {
+          ev.preventDefault();
+          drop.classList.add("hot");
+        }),
+      );
+      ["dragleave", "drop"].forEach((e) =>
+        drop.addEventListener(e, (ev) => {
+          ev.preventDefault();
+          drop.classList.remove("hot");
+        }),
+      );
+      drop.addEventListener("drop", (ev) => {
+        const f = ev.dataTransfer?.files?.[0];
+        if (f) ingest(f);
+      });
+
+      /* ---------------- snapshot rendering ---------------- */
+
+      function table(columns, rows, render) {
+        if (!rows || rows.length === 0)
+          return el("div", { class: "empty" }, "Nothing recorded yet.");
+        const head = el("tr", {}, ...columns.map((c) => el("th", {}, c)));
+        const body = rows.map((r) =>
+          el(
+            "tr",
+            {},
+            ...render(r).map((cell) =>
+              el(
+                "td",
+                { class: typeof cell === "object" && cell?.mono ? "mono" : "" },
+                typeof cell === "object" && cell !== null && !cell.nodeType
+                  ? String(cell.v ?? "")
+                  : cell,
+              ),
+            ),
+          ),
+        );
+        return el(
+          "div",
+          { class: "scroll" },
+          el("table", {}, el("thead", {}, head), el("tbody", {}, ...body)),
+        );
+      }
+
+      function card(title, count, content) {
+        return el(
+          "section",
+          { class: "card" },
+          el("h2", {}, title, count != null ? el("span", { class: "count" }, String(count)) : null),
+          content,
+        );
+      }
+
+      function statusClass(s) {
+        const v = String(s || "").toLowerCase();
+        if (
+          ["pass", "passed", "succeeded", "published", "ok", "healthy", "approved"].some((k) =>
+            v.includes(k),
+          )
+        )
+          return "ok";
+        if (["warn", "pending", "running", "review", "probation"].some((k) => v.includes(k)))
+          return "warnc";
+        if (["fail", "error", "reject", "blocked", "crash"].some((k) => v.includes(k)))
+          return "bad";
+        return "";
+      }
+
+      function renderSnapshot(s) {
+        document.getElementById("generatedAt").textContent =
+          "snapshot " + new Date(s.generatedAt).toLocaleTimeString();
+        const grid = document.getElementById("grid");
+        const cards = [];
+
+        // Worker status
+        cards.push(
+          card(
+            "Worker status",
+            null,
+            el(
+              "dl",
+              { class: "kv" },
+              el("dt", {}, "Execution"),
+              el("dd", {}, s.execution?.label || "—"),
+              el("dt", {}, "Mode"),
+              el("dd", {}, s.state?.currentMode || "—"),
+              el("dt", {}, "Priority"),
+              el("dd", {}, s.state?.currentPriority || "—"),
+              el("dt", {}, "Current goal"),
+              el("dd", {}, short(s.state?.currentGoal || "—", 90)),
+              el("dt", {}, "Current task"),
+              el("dd", {}, short(s.state?.currentTask || "—", 120)),
+              el("dt", {}, "Heartbeat"),
+              el("dd", {}, s.state?.lastHeartbeatAt ? ago(s.state.lastHeartbeatAt) : "never"),
+              el("dt", {}, "Last success"),
+              el("dd", {}, ago(s.state?.lastSuccessfulAt)),
+              el("dt", {}, "Blocker"),
+              el(
+                "dd",
+                { class: s.state?.currentBlocker ? "bad" : "muted" },
+                short(s.state?.currentBlocker || "none", 120),
+              ),
+              el("dt", {}, "Lease"),
+              el(
+                "dd",
+                { class: "mono" },
+                (s.execution?.lease?.runtimeId || "—") +
+                  " · " +
+                  (s.execution?.lease?.host?.label || ""),
+              ),
+            ),
+          ),
+        );
+
+        // Intelligence
+        cards.push(
+          card(
+            "Intelligence status",
+            null,
+            el(
+              "dl",
+              { class: "kv" },
+              el("dt", {}, "Final brain"),
+              el(
+                "dd",
+                { class: statusClass(s.brain?.latestFinalBrain) },
+                s.brain?.latestFinalBrain || "unknown",
+              ),
+              el("dt", {}, "select_action calls 24h"),
+              el("dd", { class: "mono" }, s.brain?.selectActionCalls24h ?? 0),
+              el("dt", {}, "Degraded events 24h"),
+              el(
+                "dd",
+                { class: s.brain?.degradedEvents24h ? "warnc" : "muted" },
+                s.brain?.degradedEvents24h ?? 0,
+              ),
+              el("dt", {}, "Mission stage"),
+              el("dd", {}, s.mission?.stage || s.mission?.missionStage || "—"),
+              el("dt", {}, "Mission target"),
+              el("dd", {}, s.mission?.contentType || "—"),
+              el("dt", {}, "Review queue"),
+              el("dd", {}, String(s.metrics?.reviewQueueCount ?? 0)),
+              el("dt", {}, "Published live"),
+              el("dd", { class: "mono" }, String(s.metrics?.publishedContentLive ?? 0)),
+              el("dt", {}, "Publish rate 30d"),
+              el("dd", {}, pct(s.metrics?.publishRate30d)),
+              el("dt", {}, "QA pass rate 30d"),
+              el("dd", {}, pct(s.metrics?.qaPassRate30d)),
+            ),
+          ),
+        );
+
+        // Ranked alternatives / reasoning
+        cards.push(
+          card(
+            "Brain reasoning · ranked alternatives",
+            s.brain?.rankedAlternatives?.length,
+            table(["Action", "Score", "Why"], s.brain?.rankedAlternatives?.slice(0, 12), (a) => [
+              short(a.action || a.missionStage || a.name, 30),
+              { mono: true, v: a.score ?? a.value ?? "—" },
+              short(a.reason || a.rationale || "", 70),
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Reasoning graph",
+            s.brain?.reasoning?.length,
+            table(["From", "Edge", "To"], s.brain?.reasoning?.slice(0, 20), (r) => [
+              short(r.fromNode || r.sourceNode || r.from, 26),
+              short(r.edgeType || r.relation || "", 18),
+              short(r.toNode || r.targetNode || r.to, 26),
+            ]),
+          ),
+        );
+
+        // Content goals
+        cards.push(
+          card(
+            "Content goals",
+            s.goals?.length,
+            table(["Type", "Live", "Gap", "Status"], s.goals?.slice(0, 40), (g) => [
+              g.contentType,
+              { mono: true, v: g.currentValidCount },
+              { mono: true, v: g.gapCount },
+              el("span", { class: statusClass(g.status) }, String(g.status)),
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Content funnel",
+            s.funnel?.length,
+            table(["Type", "Discovered", "Built", "Published"], s.funnel?.slice(0, 30), (f) => [
+              f.contentType,
+              { mono: true, v: f.discovered ?? f.candidates ?? "—" },
+              { mono: true, v: f.built ?? "—" },
+              { mono: true, v: f.published ?? "—" },
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Content growth",
+            s.growth?.length,
+            table(["Type", "Count", "Delta", "When"], s.growth?.slice(0, 25), (g) => [
+              g.contentType,
+              { mono: true, v: g.publishedCount ?? g.count ?? "—" },
+              { mono: true, v: g.delta ?? "—" },
+              ago(g.createdAt),
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Source coverage",
+            s.coverage?.length,
+            table(["Host / type", "Coverage", "Blocked"], s.coverage?.slice(0, 30), (c) => [
+              short(c.sourceHost || c.contentType, 34),
+              {
+                mono: true,
+                v: (c.coverageScore ?? 0).toFixed ? c.coverageScore.toFixed(2) : c.coverageScore,
+              },
+              el(
+                "span",
+                { class: c.blockedByCoverage ? "bad" : "muted" },
+                c.blockedByCoverage ? "yes" : "no",
+              ),
+            ]),
+          ),
+        );
+
+        // Pipeline
+        cards.push(
+          card(
+            "Pipeline state",
+            s.pipeline?.length,
+            table(["Stage", "Status", "Count"], s.pipeline?.slice(0, 40), (p) => [
+              short(p.stageName || p.stage, 28),
+              el("span", { class: statusClass(p.status) }, String(p.status ?? "—")),
+              { mono: true, v: p.count ?? p._count?._all ?? "—" },
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Package artifacts",
+            Object.keys(s.artifactStatus || {}).length,
+            table(["Status", "Count"], Object.entries(s.artifactStatus || {}), ([k, v]) => [
+              el("span", { class: statusClass(k) }, k),
+              { mono: true, v },
+            ]),
+          ),
+        );
+
+        // Passes + decisions
+        cards.push(
+          card(
+            "Recent passes",
+            s.passes?.length,
+            table(["Type", "Status", "Built", "Published", "When"], s.passes?.slice(0, 15), (p) => [
+              short(p.passType, 20),
+              el("span", { class: statusClass(p.status) }, String(p.status)),
+              { mono: true, v: p.contentBuilt },
+              { mono: true, v: p.contentPublished },
+              ago(p.startedAt),
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Recent decisions",
+            s.decisions?.length,
+            table(["Decision", "Confidence", "When"], s.decisions?.slice(0, 15), (d) => [
+              short(d.chosenAction || d.decisionType, 44),
+              {
+                mono: true,
+                v: (d.confidence ?? 0).toFixed ? d.confidence.toFixed(2) : d.confidence,
+              },
+              ago(d.createdAt),
+            ]),
+          ),
+        );
+
+        // Sources
+        cards.push(
+          card(
+            "Source reputation",
+            s.sourceReputation?.length,
+            table(["Host", "Tier", "QA", "Publish"], s.sourceReputation?.slice(0, 25), (r) => [
+              short(r.sourceHost, 30),
+              el("span", { class: statusClass(r.reputationTier) }, String(r.reputationTier)),
+              { mono: true, v: pct(r.qaPassRate) },
+              { mono: true, v: pct(r.publicPublishRate) },
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Current source activity",
+            s.sourceActivity?.length,
+            table(["Source", "Detected", "Conf.", "When"], s.sourceActivity?.slice(0, 20), (r) => [
+              short(r.sourceUrl, 46),
+              short(r.detectedContentType || "—", 16),
+              { mono: true, v: (r.confidenceScore ?? 0).toFixed(2) },
+              ago(r.createdAt),
+            ]),
+          ),
+        );
+
+        // Knowledge + memory
+        cards.push(
+          card(
+            "Knowledge graph",
+            (s.knowledge?.nodes ?? 0) + " nodes / " + (s.knowledge?.edges ?? 0) + " edges",
+            table(["Node", "Type", "Updated"], s.knowledge?.recentNodes?.slice(0, 15), (n) => [
+              short(n.label || n.nodeKey || n.id, 38),
+              short(n.nodeType || "—", 16),
+              ago(n.updatedAt),
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Worker memory",
+            s.memory?.length,
+            table(["Key", "Type", "Conf.", "Used"], s.memory?.slice(0, 25), (m) => [
+              short(m.memoryKey, 40),
+              short(m.memoryType, 18),
+              { mono: true, v: (m.confidence ?? 0).toFixed(2) },
+              ago(m.lastUsedAt),
+            ]),
+          ),
+        );
+
+        // Quality + safety
+        cards.push(
+          card(
+            "Quality scores",
+            s.qualityScores?.length,
+            table(["Type", "Score", "Threshold", "Passed"], s.qualityScores?.slice(0, 15), (q) => [
+              short(q.contentType, 20),
+              { mono: true, v: (q.finalScore ?? 0).toFixed(2) },
+              { mono: true, v: q.threshold },
+              el("span", { class: q.passed ? "ok" : "bad" }, q.passed ? "yes" : "no"),
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Strict QA",
+            s.strictQA?.length,
+            table(["Artifact", "Status", "When"], s.strictQA?.slice(0, 15), (q) => [
+              short(q.packageArtifactId || q.id, 30),
+              el("span", { class: statusClass(q.status) }, String(q.status)),
+              ago(q.createdAt),
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Rollbacks",
+            s.rollbacks?.length,
+            table(["Slug", "Action", "Result", "When"], s.rollbacks?.slice(0, 12), (r) => [
+              short(r.slug, 28),
+              short(r.rollbackAction, 18),
+              el("span", { class: statusClass(r.rollbackResult) }, String(r.rollbackResult)),
+              ago(r.createdAt),
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Repair plans",
+            s.repairPlans?.length,
+            table(["Kind", "Status", "Attempts", "Updated"], s.repairPlans?.slice(0, 15), (r) => [
+              short(r.kind, 24),
+              el("span", { class: statusClass(r.status) }, String(r.status)),
+              { mono: true, v: (r.attempts ?? 0) + "/" + (r.maxAttempts ?? "—") },
+              ago(r.updatedAt),
+            ]),
+          ),
+        );
+
+        // Review queue with actions
+        const reviewRows = (s.reviewQueue || [])
+          .slice(0, 15)
+          .map((r) =>
+            el(
+              "tr",
+              {},
+              el("td", {}, short(r.contentTitle || r.proposedAction, 44)),
+              el("td", {}, short(r.reason, 46)),
+              el(
+                "td",
+                { class: "mono" },
+                (r.confidence ?? 0).toFixed ? r.confidence.toFixed(2) : r.confidence,
+              ),
+              el(
+                "td",
+                {},
+                el(
+                  "button",
+                  { "data-review": r.id, "data-action": "approve", style: "padding:2px 7px" },
+                  "Approve",
+                ),
+                " ",
+                el(
+                  "button",
+                  { "data-review": r.id, "data-action": "reject", style: "padding:2px 7px" },
+                  "Reject",
+                ),
+              ),
+            ),
+          );
+        cards.push(
+          card(
+            "Review queue",
+            s.reviewQueue?.length,
+            reviewRows.length
+              ? el(
+                  "div",
+                  { class: "scroll" },
+                  el(
+                    "table",
+                    {},
+                    el(
+                      "thead",
+                      {},
+                      el("tr", {}, ...["Item", "Reason", "Conf.", ""].map((h) => el("th", {}, h))),
+                    ),
+                    el("tbody", {}, ...reviewRows),
+                  ),
+                )
+              : el("div", { class: "empty" }, "Empty — the worker resolves its own uncertainty."),
+          ),
+        );
+
+        // Security
+        cards.push(
+          card(
+            "Security activity",
+            s.security?.length,
+            table(["Action", "Severity", "When"], s.security?.slice(0, 15), (a) => [
+              short(a.actionType || a.action, 30),
+              el("span", { class: statusClass(a.severity) }, String(a.severity ?? "—")),
+              ago(a.createdAt),
+            ]),
+          ),
+        );
+
+        // Homepage drafts with actions
+        const draftRows = (s.homepageDrafts || [])
+          .slice(0, 8)
+          .map((d) =>
+            el(
+              "tr",
+              {},
+              el("td", { class: "mono" }, short(d.id, 12)),
+              el("td", {}, el("span", { class: statusClass(d.status) }, String(d.status))),
+              el("td", {}, short(d.reasonSummary, 44)),
+              el(
+                "td",
+                {},
+                el(
+                  "button",
+                  { "data-draft": d.id, "data-action": "publish", style: "padding:2px 7px" },
+                  "Publish",
+                ),
+                " ",
+                el(
+                  "button",
+                  { "data-draft": d.id, "data-action": "discard", style: "padding:2px 7px" },
+                  "Discard",
+                ),
+              ),
+            ),
+          );
+        cards.push(
+          card(
+            "Homepage drafts",
+            s.homepageDrafts?.length,
+            draftRows.length
+              ? el(
+                  "div",
+                  { class: "scroll" },
+                  el(
+                    "table",
+                    {},
+                    el(
+                      "thead",
+                      {},
+                      el(
+                        "tr",
+                        {},
+                        ...["Draft", "Status", "Reason", ""].map((h) => el("th", {}, h)),
+                      ),
+                    ),
+                    el("tbody", {}, ...draftRows),
+                  ),
+                )
+              : el(
+                  "div",
+                  { class: "empty" },
+                  "No drafts. Use “Request homepage makeover” — it runs on this Mac.",
+                ),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Publishing activity",
+            s.publishing?.length,
+            table(["Title", "Type", "Updated"], s.publishing?.slice(0, 15), (p) => [
+              short(p.title, 40),
+              short(p.contentType, 16),
+              ago(p.updatedAt),
+            ]),
+          ),
+        );
+
+        // Diagnostics
+        const ratings = s.diagnostics?.ratings || [];
+        cards.push(
+          card(
+            "Diagnostics",
+            (s.diagnostics?.summary?.passed ?? "—") + "/" + ratings.length + " passing",
+            table(["Check", "Status", "Summary"], ratings.slice(0, 40), (r) => [
+              short(r.label, 26),
+              el("span", { class: statusClass(r.status) }, String(r.status)),
+              short(r.summary, 60),
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Worker rules",
+            s.rules?.length,
+            table(["Rule", "Category", "v"], s.rules?.slice(0, 30), (r) => [
+              short(r.id, 34),
+              short(r.category, 18),
+              { mono: true, v: r.version },
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Certified skills",
+            s.skills?.length,
+            table(["Skill", "Result", "When"], s.skills?.slice(0, 20), (k) => [
+              short(k.skillName, 30),
+              el(
+                "span",
+                { class: statusClass(k.status || k.result) },
+                String(k.status || k.result || "—"),
+              ),
+              ago(k.createdAt),
+            ]),
+          ),
+        );
+
+        cards.push(
+          card(
+            "Worker logs (database)",
+            s.logs?.length,
+            table(["Event", "Category", "Message", "When"], s.logs?.slice(0, 60), (l) => [
+              short(l.eventName, 26),
+              short(l.category, 16),
+              short(l.message, 64),
+              ago(l.createdAt),
+            ]),
+          ),
+        );
+
+        // Live local log
+        cards.push(card("Local runtime log", null, el("pre", { class: "log", id: "liveLog" }, "")));
+
+        grid.replaceChildren(...cards);
+
+        grid.querySelectorAll("button[data-review]").forEach((b) =>
+          b.addEventListener("click", async () => {
+            b.disabled = true;
+            const res = await api("/api/review/" + b.dataset.review, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: b.dataset.action, actor: "operator" }),
+            });
+            const data = await res.json().catch(() => ({}));
+            toast("Review " + b.dataset.action + ": " + (data.detail || res.status));
+            loadSnapshot();
+          }),
+        );
+        grid.querySelectorAll("button[data-draft]").forEach((b) =>
+          b.addEventListener("click", async () => {
+            b.disabled = true;
+            const res = await api("/api/homepage-draft/" + b.dataset.draft, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: b.dataset.action }),
+            });
+            const data = await res.json().catch(() => ({}));
+            toast("Homepage draft " + b.dataset.action + ": " + JSON.stringify(data).slice(0, 220));
+            loadSnapshot();
+          }),
+        );
+        paintLiveLog();
+      }
+
+      /* ---------------- live log + polling ---------------- */
+
+      const liveLines = [];
+      function paintLiveLog() {
+        const pre = document.getElementById("liveLog");
+        if (!pre) return;
+        pre.replaceChildren(
+          ...liveLines
+            .slice(-300)
+            .map((l) =>
+              el(
+                "div",
+                { class: l.stream === "host" ? "log-host" : "" },
+                new Date(l.at).toLocaleTimeString() + "  " + l.line,
+              ),
+            ),
+        );
+        pre.scrollTop = pre.scrollHeight;
+      }
+
+      async function loadSnapshot() {
+        try {
+          const res = await api("/api/snapshot");
+          if (!res.ok) throw new Error("status " + res.status);
+          renderSnapshot(await res.json());
+        } catch (err) {
+          toast("Snapshot failed: " + err.message);
+        }
+      }
+
+      async function loadStatus() {
+        try {
+          const res = await api("/api/status");
+          if (res.ok) renderStatus(await res.json());
+        } catch {
+          /* transient */
+        }
+      }
+
+      document.getElementById("refresh").addEventListener("click", () => {
+        loadStatus();
+        loadSnapshot();
+      });
+
+      const events = new EventSource("/api/events?token=" + TOKEN);
+      events.addEventListener("status", (e) => renderStatus(JSON.parse(e.data)));
+      events.addEventListener("log", (e) => {
+        liveLines.push(JSON.parse(e.data));
+        paintLiveLog();
+      });
+
+      renderActions();
+      loadStatus();
+      loadSnapshot();
+      api("/api/logs?limit=200")
+        .then((r) => r.json())
+        .then((d) => {
+          liveLines.push(...(d.lines || []));
+          paintLiveLog();
+        })
+        .catch(() => {});
+      setInterval(loadStatus, 4000);
+      setInterval(loadSnapshot, 20000);
+    </script>
+  </body>
+</html>

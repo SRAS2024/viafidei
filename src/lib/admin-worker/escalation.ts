@@ -23,6 +23,7 @@ import { createHash } from "node:crypto";
 
 import type { AdminDeveloperReportPeriod, PrismaClient } from "@prisma/client";
 
+import { workerExecutionAllowed } from "./execution-context";
 import { buildSelfAssessment, type SelfAssessment, type WarningKind } from "./self-assessment";
 import { decideGovernance, type EscalationPayload } from "./governance";
 import { getVersionContext } from "./code-version";
@@ -234,6 +235,9 @@ export async function runEscalationCheckIfDue(
     deferredForUpgrade: false,
   };
   try {
+    // Autonomous escalation (and its email) is Admin Worker work — it runs on
+    // the local runtime only, never as a production server workload (spec §9).
+    if (!workerExecutionAllowed()) return out;
     if (!(await throttleOk(prisma, opts.force ?? false))) return out;
     out.ran = true;
 

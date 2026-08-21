@@ -370,14 +370,14 @@ const admin: Dict = {
     "Pause, resume, run a pass, see content goals + publish/QA/deletion rates.",
   "admin.card.adminWorkerLogs": "Admin Worker logs",
   "admin.card.adminWorkerLogs.desc":
-    "Structured worker logs grouped by section, filterable by period and severity.",
+    "Read-only worker logs, filterable by severity, step and pass — including which runtime ran each operation.",
   "admin.card.adminWorkerRules": "Admin Worker rules",
   "admin.card.adminWorkerRules.desc":
     "Versioned, testable rules the worker evaluates for every major decision.",
   "admin.card.checklist": "Checklist dashboard",
   "admin.card.diagnostics": "System diagnostics",
   "admin.card.diagnostics.desc":
-    "27 live health ratings, pass breakdown, pause toggle, Developer Report download.",
+    "Live health ratings, Admin Worker execution status, and the recent pass breakdown.",
   "admin.card.queue": "Admin Worker build queue",
   "admin.card.qa": "QA reports",
   "admin.card.published": "Published content",
