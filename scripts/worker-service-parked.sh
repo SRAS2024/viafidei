@@ -12,9 +12,11 @@
 #   - no Prisma client and no database polling,
 #   - no Chromium.
 #
-# It parks on `sleep`, which holds a few hundred KB of RSS and zero CPU. The
-# preferred production state is still ZERO replicas — this script only makes a
-# stray replica harmless.
+# It parks on `sleep`, which holds a few hundred KB of RSS and zero CPU. This is
+# the mechanism that makes the footprint negligible: Railway's config schema
+# requires numReplicas >= 1, so the service cannot be scaled to zero from
+# railway.worker.json. `deploy.sleepApplication: true` additionally asks Railway
+# to sleep the idle service.
 #
 # To deliberately restore cloud execution in the future (there is no automatic
 # failover — spec §5), change the service start command to:
@@ -28,7 +30,7 @@ set -eu
 echo "viafidei worker service: PARKED."
 echo "The Admin Worker executes on the operator's MacBook via the Via Fidei application."
 echo "This container intentionally runs no worker, no Python brain and no browser."
-echo "Preferred state: 0 replicas. See README §Admin Worker execution host."
+echo "See README - Admin Worker execution host - for how to restore cloud execution."
 
 # `sleep infinity` is not portable to every BusyBox build; loop on a long sleep.
 while true; do

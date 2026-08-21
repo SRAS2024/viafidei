@@ -426,11 +426,24 @@ npm run worker:local   # the worker loop alone, on this machine
 ### The retained Railway worker service
 
 The Railway worker service is **kept, not deleted** — `Dockerfile.worker` and
-`railway.worker.json` still build and deploy — but its normal state is parked:
-`scripts/worker-service-parked.sh`, zero replicas, no Node, no Python, no
-Prisma, no Chromium. Restoring cloud execution in the future is a deliberate,
-manual change (`npm run worker -- --force-remote-execution "reason"`), and the
-execution lease guarantees the two can never both drain the same queue.
+`railway.worker.json` still build and deploy, and the image still contains
+everything a cloud worker would need (Node, tsx, the Prisma client, Python 3.11
+for the brain, Chromium for the dynamic fetcher) so the service stays genuinely
+recoverable. What changed is what it _runs_: `scripts/worker-service-parked.sh`
+— a `sleep` loop with no Node, no Python, no Prisma client, no database polling
+and no browser — plus `deploy.sleepApplication: true` so Railway sleeps the
+idle service.
+
+Note the one non-obvious constraint: Railway's own schema requires
+`deploy.numReplicas >= 1`, so "run nothing" **cannot** be expressed as
+`numReplicas: 0` — that value makes the service fail to deploy at all. The
+parked start command is what delivers the near-zero footprint, and
+`tests/admin-worker/railway-worker-service-parked.test.ts` pins both facts.
+
+Restoring cloud execution later is a deliberate, manual change (set the start
+command to `npm run worker -- --force-remote-execution "reason"`), and the
+execution lease guarantees the two runtimes can never both drain the same
+queue.
 
 ---
 
