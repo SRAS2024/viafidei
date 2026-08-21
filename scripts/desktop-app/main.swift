@@ -52,16 +52,37 @@ final class LocalWorkerRuntime {
     /// scripts/desktop-app/build.sh; overridable by the operator if the repo
     /// is moved (stored in UserDefaults, never a shared secret).
     static func repositoryPath() -> String? {
-        if let saved = UserDefaults.standard.string(forKey: "ViaFideiRepoPath"),
-           FileManager.default.fileExists(atPath: saved + "/package.json") {
+        // A directory only counts as the repository if it can actually host the
+        // worker — package.json alone could be any project.
+        func isRepo(_ path: String) -> Bool {
+            let fm = FileManager.default
+            return fm.fileExists(atPath: path + "/package.json")
+                && fm.fileExists(atPath: path + "/scripts/local-worker-host.ts")
+        }
+
+        // 1. An explicit choice the operator made in this app, on this machine.
+        if let saved = UserDefaults.standard.string(forKey: "ViaFideiRepoPath"), isRepo(saved) {
             return saved
         }
+        // 2. The path baked in when the app was built (correct on the build machine).
         if let baked = Bundle.main.object(forInfoDictionaryKey: "ViaFideiRepoPath") as? String,
-           FileManager.default.fileExists(atPath: baked + "/package.json") {
+           isRepo(baked) {
             return baked
         }
-        let fallback = NSHomeDirectory() + "/Desktop/Via Fidei"
-        if FileManager.default.fileExists(atPath: fallback + "/package.json") { return fallback }
+        // 3. Common locations, so an app bundle copied to another computer still
+        //    finds a checkout without the operator having to hunt for the menu.
+        let home = NSHomeDirectory()
+        let names = ["Via Fidei", "viafidei", "Via-Fidei"]
+        let parents = [
+            "/Desktop", "/Documents", "/Developer", "/Projects", "/projects",
+            "/src", "/code", "/repos", "",
+        ]
+        for parent in parents {
+            for name in names {
+                let candidate = home + parent + "/" + name
+                if isRepo(candidate) { return candidate }
+            }
+        }
         return nil
     }
 
@@ -452,7 +473,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
     private func startLocalRuntime() {
         guard let repo = LocalWorkerRuntime.repositoryPath() else {
-            statusLabel.stringValue = "Via Fidei repository not found — choose it from the Admin Worker menu."
+            statusLabel.stringValue =
+                "Via Fidei repository not found on this computer — choose its folder to enable the Admin Worker."
+            resourceLabel.stringValue =
+                "looked in ~/Desktop, ~/Documents, ~/Developer, ~/Projects, ~/src, ~/code, ~/repos and the build path"
+            // Ask once, rather than leaving the operator to find the menu item.
+            chooseRepository()
             return
         }
         do {

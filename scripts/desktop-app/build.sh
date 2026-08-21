@@ -27,8 +27,19 @@ BUILD="$(mktemp -d)"
 
 echo "Building Via Fidei.app -> $APP"
 
-# 1. Compile the Swift WebView program.
-swiftc "$SCRIPT_DIR/main.swift" -o "$BUILD/ViaFidei" -framework Cocoa -framework WebKit
+# 1. Compile the Swift program as a UNIVERSAL binary (arm64 + x86_64) so the
+#    built app runs on any Mac it is copied to, not only on the machine that
+#    built it. Falls back to a native-only build if a cross-compile is
+#    unavailable (older Command Line Tools / missing SDK slice).
+FRAMEWORKS="-framework Cocoa -framework WebKit"
+if swiftc -target arm64-apple-macos12 "$SCRIPT_DIR/main.swift" -o "$BUILD/ViaFidei-arm64" $FRAMEWORKS 2>/dev/null \
+  && swiftc -target x86_64-apple-macos12 "$SCRIPT_DIR/main.swift" -o "$BUILD/ViaFidei-x86_64" $FRAMEWORKS 2>/dev/null \
+  && lipo -create "$BUILD/ViaFidei-arm64" "$BUILD/ViaFidei-x86_64" -output "$BUILD/ViaFidei" 2>/dev/null; then
+  echo "Compiled universal binary (arm64 + x86_64)."
+else
+  echo "Universal build unavailable; compiling for this machine only."
+  swiftc "$SCRIPT_DIR/main.swift" -o "$BUILD/ViaFidei" $FRAMEWORKS
+fi
 
 # 2. Build the .icns from the crucifix logo.
 ICONSET="$BUILD/ViaFidei.iconset"; mkdir -p "$ICONSET"
@@ -40,7 +51,34 @@ done
 iconutil -c icns "$ICONSET" -o "$BUILD/AppIcon.icns" 2>/dev/null || true
 
 # 3. Assemble the bundle.
-rm -rf "$APP"
+#
+# macOS "App Management" (Ventura+) blocks a process from replacing an app
+# bundle it did not install unless that process has been granted App
+# Management permission, and a RUNNING app cannot be replaced safely at all.
+# Handle both cases with a clear message instead of a bare "Operation not
+# permitted" from rm.
+if [ -d "$APP" ]; then
+  if pgrep -f "$APP/Contents/MacOS/ViaFidei" >/dev/null 2>&1; then
+    echo "Via Fidei.app is running — quitting it before replacing the bundle."
+    osascript -e 'tell application "Via Fidei" to quit' >/dev/null 2>&1 || true
+    sleep 2
+    pkill -f "$APP/Contents/MacOS/ViaFidei" >/dev/null 2>&1 || true
+    sleep 1
+  fi
+  if ! rm -rf "$APP" 2>/dev/null; then
+    echo "ERROR: cannot replace the existing bundle at:"
+    echo "         $APP"
+    echo
+    echo "macOS is protecting it (App Management). Fix it in ONE of these ways:"
+    echo "  1. Run this script from Terminal.app and approve the permission prompt, or"
+    echo "     enable your terminal under System Settings > Privacy & Security >"
+    echo "     App Management, then run it again."
+    echo "  2. Move the old \"Via Fidei.app\" to the Trash in Finder, then run this again."
+    echo "  3. Build somewhere writable and swap it in Finder:"
+    echo "       bash scripts/desktop-app/build.sh \"\$HOME/Downloads\""
+    exit 1
+  fi
+fi
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BUILD/ViaFidei" "$APP/Contents/MacOS/ViaFidei"; chmod +x "$APP/Contents/MacOS/ViaFidei"
 [ -f "$BUILD/AppIcon.icns" ] && cp "$BUILD/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
@@ -55,6 +93,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>ViaFidei</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>LSApplicationCategoryType</key><string>public.app-category.reference</string>
   <key>CFBundleShortVersionString</key><string>1.0.0</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
