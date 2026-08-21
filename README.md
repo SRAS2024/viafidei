@@ -403,11 +403,24 @@ the switch is ON, the app restarts it locally and says so.
 ### Wiring
 
 ```bash
-npm install                        # the app launches the worker from this repo
-npx playwright install chromium    # headless rendering for JavaScript-only sources
-bash scripts/desktop-app/build.sh  # build "Via Fidei.app" onto the Desktop
+npm install                          # the app launches the worker from this repo
+npx playwright install chromium      # headless rendering for JavaScript-only sources
+bash scripts/desktop-app/install.sh  # install/update the app, leaving exactly one copy
 open "$HOME/Desktop/Via Fidei.app"
 ```
+
+`install.sh` is the whole install step: it quits a running instance, removes
+every other `Via Fidei*.app` copy it can find (Desktop, Downloads,
+`~/Applications`, `/Applications`, Documents), builds a fresh universal bundle
+from the checkout, then verifies the result and refuses to finish unless exactly
+one copy exists. `build.sh` remains available when you just want a bundle
+somewhere without touching what is installed.
+
+Run it from **Terminal.app**: macOS App Management stops one program from
+replacing another program's bundle, so a terminal (or IDE) needs that permission
+under System Settings → Privacy & Security → App Management — and because the
+grant only applies to a newly launched process, quit and reopen the terminal
+after enabling it. The script says exactly this if it is blocked.
 
 The Chromium step is what the cloud image used to do at build time. It is
 optional — everything else works without it — but until it is done, sources that
