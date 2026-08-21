@@ -47,6 +47,22 @@ export async function upsertSourceRead(
   const checksum = checksumOf(input.rawBody);
   const existing = await findExistingRead(prisma, input.sourceUrl, checksum);
   if (existing) {
+    // The page is byte-identical to what we already hold. Refresh the row so
+    // (a) the validators we send next time are the ones the origin just gave
+    // us, and (b) `updatedAt` records that the source WAS checked just now.
+    // Without (b) the freshness clock never advances for an unchanged page, so
+    // it looks permanently overdue and gets re-fetched on every single pass —
+    // the opposite of "do not repeatedly reread unchanged material".
+    await prisma.adminWorkerSourceRead
+      .update({
+        where: { id: existing.id },
+        data: {
+          fetchStatus: input.fetchStatus ?? existing.fetchStatus,
+          etag: input.etag ?? existing.etag,
+          lastModifiedHeader: input.lastModifiedHeader ?? existing.lastModifiedHeader,
+        },
+      })
+      .catch(() => undefined);
     return { id: existing.id, checksum, reused: true };
   }
   const row = await prisma.adminWorkerSourceRead.create({

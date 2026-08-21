@@ -403,10 +403,38 @@ the switch is ON, the app restarts it locally and says so.
 ### Wiring
 
 ```bash
-npm install                       # the app launches the worker from this repo
-bash scripts/desktop-app/build.sh # build "Via Fidei.app" onto the Desktop
+npm install                          # the app launches the worker from this repo
+npx playwright install chromium      # headless rendering for JavaScript-only sources
+bash scripts/desktop-app/install.sh  # install/update the app, leaving exactly one copy
 open "$HOME/Desktop/Via Fidei.app"
 ```
+
+`install.sh` is the whole install step: it quits a running instance, removes
+every other `Via Fidei*.app` copy it can find (Desktop, Downloads,
+`~/Applications`, `/Applications`, Documents), builds a fresh universal bundle
+from the checkout, then verifies the result and refuses to finish unless exactly
+one copy exists. `build.sh` remains available when you just want a bundle
+somewhere without touching what is installed.
+
+Run it from **Terminal.app**: macOS App Management stops one program from
+replacing another program's bundle, so a terminal (or IDE) needs that permission
+under System Settings → Privacy & Security → App Management — and because the
+grant only applies to a newly launched process, quit and reopen the terminal
+after enabling it. The script says exactly this if it is blocked.
+
+The Chromium step is what the cloud image used to do at build time. It is
+optional — everything else works without it — but until it is done, sources that
+render their text client-side fall back to their static shell. The command
+center says so explicitly (`Browser rendering: unavailable`) rather than
+reporting the capability as present, and the worker files a developer request
+for the gap instead of silently abandoning those sources.
+
+The app builds a **universal binary** (arm64 + x86_64), so the bundle runs on
+Apple Silicon and Intel Macs, and it finds Node through Homebrew, the official
+installer, nvm, volta, fnm, asdf or `n`. It looks for the repository in the path
+baked in at build time, then `~/Desktop`, `~/Documents`, `~/Developer`,
+`~/Projects`, `~/src`, `~/code`, `~/repos` and `~` — and if it still cannot find
+one it opens a folder picker rather than sitting there.
 
 The app talks to the local runtime over **127.0.0.1 only**, on an ephemeral
 port, with a token generated per launch and handed to the app on stdout.
@@ -426,11 +454,30 @@ npm run worker:local   # the worker loop alone, on this machine
 ### The retained Railway worker service
 
 The Railway worker service is **kept, not deleted** — `Dockerfile.worker` and
-`railway.worker.json` still build and deploy — but its normal state is parked:
-`scripts/worker-service-parked.sh`, zero replicas, no Node, no Python, no
-Prisma, no Chromium. Restoring cloud execution in the future is a deliberate,
-manual change (`npm run worker -- --force-remote-execution "reason"`), and the
-execution lease guarantees the two can never both drain the same queue.
+`railway.worker.json` still build and deploy, and the image still contains
+everything a cloud worker would need (Node, tsx, the Prisma client, Python 3.11
+for the brain, Chromium for the dynamic fetcher) so the service stays genuinely
+recoverable. What changed is what it _runs_: `scripts/worker-service-parked.sh`
+— a `sleep` loop with no Node, no Python, no Prisma client, no database polling
+and no browser — plus `deploy.sleepApplication: true` so Railway sleeps the
+idle service.
+
+Note the one non-obvious constraint: Railway's own schema requires
+`deploy.numReplicas >= 1`, so "run nothing" **cannot** be expressed as
+`numReplicas: 0` — that value makes the service fail to deploy at all. The
+parked start command is what delivers the near-zero footprint, and
+`tests/admin-worker/railway-worker-service-parked.test.ts` pins both facts.
+
+Restoring cloud execution later is a deliberate, manual change: switch the
+local worker OFF, set `deploy.sleepApplication` to `false` (a worker service
+receives no inbound traffic, so app-sleep would park a restored worker
+permanently), and set the start command to
+`npm run worker -- --force-remote-execution "reason"`. The execution lease
+guarantees the two runtimes can never both drain the same queue.
+
+`npm run worker` without that flag exits **non-zero** rather than pretending to
+work, so a cron entry or deploy hook wrapped around it fails visibly instead of
+silently doing nothing.
 
 ---
 

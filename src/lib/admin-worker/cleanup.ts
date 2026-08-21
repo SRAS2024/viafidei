@@ -7,6 +7,8 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { isNonContentHost } from "@/lib/checklist/sources/authority-registry";
+
+import { OPERATOR_FILE_HOST } from "./file-ingest";
 import { writeAdminWorkerLog } from "./logs";
 
 export interface CleanupOutcome {
@@ -28,7 +30,15 @@ async function purgeNonContentHostRows(prisma: PrismaClient): Promise<number> {
     const hosts = await prisma.candidateSourceUrl
       .findMany({ distinct: ["sourceHost"], select: { sourceHost: true }, take: 2000 })
       .catch(() => [] as Array<{ sourceHost: string }>);
-    const blocked = hosts.map((h) => h.sourceHost).filter((h) => isNonContentHost(h));
+    // `operator-file.local` is a SYNTHETIC provenance host for files the operator
+    // handed the worker directly — not a network host. It matches the
+    // non-content `/\.local$/` pattern (correctly: the worker must never try to
+    // fetch it), but purging it here would delete the operator's own material
+    // and null the classification off every ingested document, silently undoing
+    // an ingestion hours after it succeeded. Exclude it explicitly.
+    const blocked = hosts
+      .map((h) => h.sourceHost)
+      .filter((h) => h !== OPERATOR_FILE_HOST && isNonContentHost(h));
     if (blocked.length === 0) return 0;
     const delCandidates = await prisma.candidateSourceUrl
       .deleteMany({ where: { sourceHost: { in: blocked } } })
@@ -36,7 +46,10 @@ async function purgeNonContentHostRows(prisma: PrismaClient): Promise<number> {
     // Neutralize reads so they drop out of the internal-link seed query.
     await prisma.adminWorkerSourceRead
       .updateMany({
-        where: { sourceHost: { in: blocked }, detectedContentType: { not: null } },
+        where: {
+          sourceHost: { in: blocked, not: OPERATOR_FILE_HOST },
+          detectedContentType: { not: null },
+        },
         data: { detectedContentType: null },
       })
       .catch(() => undefined);

@@ -82,9 +82,14 @@ USER worker
 # PARKED BY DEFAULT (spec §6). The Admin Worker now executes on the operator's
 # MacBook under the native Via Fidei application; this image is retained so the
 # cloud worker remains recoverable, but its normal production state runs no
-# worker, no Python brain, no Prisma client and no Chromium — and the preferred
-# replica count is zero. Restoring cloud execution is a deliberate, manual
-# change: set the service start command to
+# worker, no Python brain, no Prisma client and no Chromium, and the service is
+# asked to sleep while idle (railway.worker.json deploy.sleepApplication).
+# Railway's schema requires numReplicas >= 1, so the parked command — not a zero
+# replica count — is what makes the footprint negligible.
+# Restoring cloud execution is a deliberate, manual change: set the service
+# start command to
 #   npm run worker -- --force-remote-execution "reason"
-# (and switch the local worker OFF first so only one runtime holds the lease).
+# (switch the local worker OFF first so only one runtime holds the lease, and
+# set deploy.sleepApplication to false in railway.worker.json — a worker service
+# gets no inbound traffic, so app-sleep would park a restored worker for good).
 CMD ["sh", "scripts/worker-service-parked.sh"]

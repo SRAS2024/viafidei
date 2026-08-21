@@ -131,21 +131,35 @@ export async function diagnoseWhyNoGrowth(
       ? Date.now() - new Date(state.lastHeartbeatAt).getTime()
       : null;
     const workerLive = heartbeatAgeMs != null && heartbeatAgeMs <= 10 * 60_000;
+
+    // The worker's execution host is the operator's computer, and OFF is a
+    // deliberate state — not a production fault. "No growth because the
+    // operator switched the worker off" is an ANSWER, not a blocker to repair,
+    // and it must not read as "restart the worker container".
+    const { readMasterSwitch } = await import("./execution-host");
+    const master = await readMasterSwitch(prisma).catch(() => null);
+    const intentionallyOff = master ? !master.on : false;
+
     checks.push({
       stage: "WORKER_NOT_RUNNING",
-      label: "Worker process running (recent heartbeat)",
-      ok: workerLive,
+      label: intentionallyOff
+        ? "Admin Worker switched on (execution host reporting)"
+        : "Worker process running (recent heartbeat)",
+      ok: workerLive || intentionallyOff,
       count: heartbeatAgeMs == null ? 0 : Math.round(heartbeatAgeMs / 1000),
-      detail: state?.lastHeartbeatAt
-        ? `Last heartbeat ${Math.round((heartbeatAgeMs ?? 0) / 1000)}s ago.`
-        : "No heartbeat has ever been recorded.",
+      detail: intentionallyOff
+        ? "Admin Worker intentionally inactive — the master switch is OFF, so nothing is expected to publish."
+        : state?.lastHeartbeatAt
+          ? `Last heartbeat ${Math.round((heartbeatAgeMs ?? 0) / 1000)}s ago.`
+          : "No heartbeat has ever been recorded.",
     });
-    if (!workerLive) {
+    if (!workerLive && !intentionallyOff) {
       blocker = "WORKER_NOT_RUNNING";
       blockerExplanation =
-        "The Admin Worker process is not running (no heartbeat in the last 10 minutes). Nothing — curated, structured, or fetched — can publish until the worker service is up.";
+        "The Admin Worker is switched ON but its local runtime is not reporting (no heartbeat in the last 10 minutes). Nothing — curated, structured, or fetched — can publish until it is running again. Production never takes this work over.";
       exactTable = "AdminWorkerState.lastHeartbeatAt";
-      nextRepair = "Start / restart the Admin Worker service (the worker container).";
+      nextRepair =
+        "Open the Via Fidei application on the operator's computer and switch the Admin Worker off and on again (or run `npm run worker:local`).";
     }
 
     if (blocker === "NONE" && state?.paused) {

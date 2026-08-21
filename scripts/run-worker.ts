@@ -166,7 +166,10 @@ async function main() {
 
   if (!(await claimExecutionAuthority(args))) {
     await prisma.$disconnect().catch(() => undefined);
-    process.exitCode = 0;
+    // Exit NON-ZERO. Refusing to run is a failure from the caller's point of
+    // view: a cron entry, deploy hook or script wrapping `npm run worker` must
+    // be able to notice that no work happened instead of reading success.
+    process.exitCode = 3;
     return;
   }
 

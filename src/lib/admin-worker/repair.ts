@@ -93,11 +93,12 @@ export async function pauseChronicallyFailingSource(
 
 /**
  * Stale-heartbeat repair. The Admin Worker process is supposed to
- * write a heartbeat on every pass; if the most recent heartbeat is
- * older than the threshold and the process is still alive, log it so
- * Railway's restart-on-unhealthy hook (railway.worker.json
- * restartPolicy=on_failure) can act. We do not call `process.exit()`
- * from here — that's the caller's choice.
+ * write a heartbeat on every pass; if the most recent heartbeat is older than
+ * the threshold while the worker is switched ON, log it so the local
+ * supervisor's restart path and the diagnostics surfaces can act. A stale
+ * heartbeat with the master switch OFF is the intended idle state and is not
+ * reported as a fault. We do not call `process.exit()` from here — that's the
+ * caller's choice.
  */
 export async function checkHeartbeatHealth(prisma: PrismaClient): Promise<RepairOutcome> {
   const state = await prisma.adminWorkerState
@@ -107,11 +108,29 @@ export async function checkHeartbeatHealth(prisma: PrismaClient): Promise<Repair
   if (ageMs < 5 * 60_000) {
     return { kind: "heartbeat_stale", attempted: false, succeeded: true, reason: "fresh" };
   }
+
+  // A stale heartbeat while the master switch is OFF is the intended state, not
+  // a fault to repair — and the worker no longer runs on Railway, so the old
+  // "Railway should restart the worker" advice would send the operator to the
+  // wrong machine.
+  const { readMasterSwitch } = await import("./execution-host");
+  const master = await readMasterSwitch(prisma).catch(() => null);
+  if (master && !master.on) {
+    return {
+      kind: "heartbeat_stale",
+      attempted: false,
+      succeeded: true,
+      reason: "Admin Worker intentionally inactive (master switch OFF)",
+    };
+  }
+
   await writeAdminWorkerLog(prisma, {
     category: "REPAIR",
     severity: "ERROR",
     eventName: "heartbeat_stale",
-    message: `Heartbeat is ${Math.round(ageMs / 1000)}s old. Railway should restart the worker.`,
+    message:
+      `Heartbeat is ${Math.round(ageMs / 1000)}s old while the Admin Worker is switched ON — ` +
+      `its local runtime is not reporting. The local supervisor restarts it; execution never moves to the cloud.`,
   });
   return {
     kind: "heartbeat_stale",

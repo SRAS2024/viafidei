@@ -52,17 +52,67 @@ final class LocalWorkerRuntime {
     /// scripts/desktop-app/build.sh; overridable by the operator if the repo
     /// is moved (stored in UserDefaults, never a shared secret).
     static func repositoryPath() -> String? {
-        if let saved = UserDefaults.standard.string(forKey: "ViaFideiRepoPath"),
-           FileManager.default.fileExists(atPath: saved + "/package.json") {
+        // A directory only counts as the repository if it can actually host the
+        // worker — package.json alone could be any project.
+        func isRepo(_ path: String) -> Bool {
+            let fm = FileManager.default
+            return fm.fileExists(atPath: path + "/package.json")
+                && fm.fileExists(atPath: path + "/scripts/local-worker-host.ts")
+        }
+
+        // 1. An explicit choice the operator made in this app, on this machine.
+        if let saved = UserDefaults.standard.string(forKey: "ViaFideiRepoPath"), isRepo(saved) {
             return saved
         }
+        // 2. The path baked in when the app was built (correct on the build machine).
         if let baked = Bundle.main.object(forInfoDictionaryKey: "ViaFideiRepoPath") as? String,
-           FileManager.default.fileExists(atPath: baked + "/package.json") {
+           isRepo(baked) {
             return baked
         }
-        let fallback = NSHomeDirectory() + "/Desktop/Via Fidei"
-        if FileManager.default.fileExists(atPath: fallback + "/package.json") { return fallback }
+        // 3. Common locations, so an app bundle copied to another computer still
+        //    finds a checkout without the operator having to hunt for the menu.
+        let home = NSHomeDirectory()
+        let names = ["Via Fidei", "viafidei", "Via-Fidei"]
+        let parents = [
+            "/Desktop", "/Documents", "/Developer", "/Projects", "/projects",
+            "/src", "/code", "/repos", "",
+        ]
+        for parent in parents {
+            for name in names {
+                let candidate = home + parent + "/" + name
+                if isRepo(candidate) { return candidate }
+            }
+        }
         return nil
+    }
+
+    /// PATH covering Homebrew, the official installer and the usual version
+    /// managers (nvm, volta, fnm, asdf, n), newest nvm version first.
+    static func candidateNodePaths(existing: String?) -> String {
+        let home = NSHomeDirectory()
+        let fm = FileManager.default
+        var dirs: [String] = []
+
+        // nvm keeps one directory per installed version.
+        let nvmRoot = home + "/.nvm/versions/node"
+        if let versions = try? fm.contentsOfDirectory(atPath: nvmRoot) {
+            for version in versions.sorted(by: >) { dirs.append(nvmRoot + "/" + version + "/bin") }
+        }
+        dirs += [
+            home + "/.volta/bin",
+            home + "/.asdf/shims",
+            home + "/Library/Application Support/fnm/aliases/default/bin",
+            home + "/.local/share/fnm/aliases/default/bin",
+            home + "/n/bin",
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+        ]
+        let usable = dirs.filter { fm.fileExists(atPath: $0) }
+        return ([existing].compactMap { $0 } + usable).joined(separator: ":")
     }
 
     func start(repoPath: String) throws {
@@ -84,11 +134,12 @@ final class LocalWorkerRuntime {
         proc.standardError = outPipe
         proc.standardInput = inPipe
 
-        // Node and tsx live under the user's shell PATH; Finder-launched apps
-        // get a minimal PATH, so widen it to the usual install locations.
+        // Node lives wherever the operator installed it, and a Finder-launched
+        // app inherits almost no PATH. Cover Homebrew (both architectures), the
+        // official installer, and the common version managers — otherwise the
+        // spawn fails with a bare "env: node: No such file or directory".
         var env = ProcessInfo.processInfo.environment
-        let extraPath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-        env["PATH"] = (env["PATH"].map { $0 + ":" } ?? "") + extraPath
+        env["PATH"] = Self.candidateNodePaths(existing: env["PATH"])
         proc.environment = env
 
         outPipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
@@ -308,6 +359,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     var statusTimer: Timer?
     var dashboardURL: URL?
     var pendingSwitchOn = false
+    /// The last refusal / failure worth keeping on screen. The 3-second status
+    /// poll would otherwise overwrite the only explanation the operator gets.
+    var stickyError: String?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildWindow()
@@ -440,7 +494,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             self.control.handshake = nil
             self.pill.isOn = false
             self.pill.isBusy = false
-            self.statusLabel.stringValue = "Local runtime stopped (exit \(code)). The website is unaffected."
+            if code == 127 {
+                // /usr/bin/env could not find node on the PATH we built.
+                self.stickyError =
+                    "Node.js was not found on this computer. Install Node 20–22, run `npm install` in the Via Fidei repository, then try again."
+            }
+            self.statusLabel.stringValue =
+                self.stickyError
+                ?? "Local runtime stopped (exit \(code)). The website is unaffected."
             self.resourceLabel.stringValue = "no local worker · no cloud fallback"
         }
         runtime.onLog = { line in
@@ -452,7 +513,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
     private func startLocalRuntime() {
         guard let repo = LocalWorkerRuntime.repositoryPath() else {
-            statusLabel.stringValue = "Via Fidei repository not found — choose it from the Admin Worker menu."
+            statusLabel.stringValue =
+                "Via Fidei repository not found on this computer — choose its folder to enable the Admin Worker."
+            resourceLabel.stringValue =
+                "looked in ~/Desktop, ~/Documents, ~/Developer, ~/Projects, ~/src, ~/code, ~/repos and the build path"
+            // Ask once, rather than leaving the operator to find the menu item.
+            chooseRepository()
             return
         }
         do {
@@ -478,13 +544,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             guard let self else { return }
             self.pill.isBusy = false
             if ok {
+                self.stickyError = nil
                 self.pill.isOn = on
                 self.statusLabel.stringValue = on
-                    ? "Admin Worker ON — executing on this Mac"
+                    ? "Admin Worker ON — executing on this computer"
                     : "Admin Worker OFF — no local workload, no cloud fallback"
             } else {
                 self.pill.isOn = !on
-                self.statusLabel.stringValue = "Switch refused: \(detail ?? "unknown error")"
+                self.stickyError = "Switch refused: \(detail ?? "unknown error")"
+                self.statusLabel.stringValue = self.stickyError!
             }
             self.pollStatus()
         }
@@ -510,10 +578,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         panel.canChooseDirectories = true
         panel.title = "Choose the Via Fidei repository folder"
         panel.begin { [weak self] response in
-            guard response == .OK, let url = panel.urls.first else { return }
+            guard let self, response == .OK, let url = panel.urls.first else { return }
+            let fm = FileManager.default
+            let looksRight = fm.fileExists(atPath: url.path + "/package.json")
+                && fm.fileExists(atPath: url.path + "/scripts/local-worker-host.ts")
+            guard looksRight else {
+                self.notify(
+                    "That folder is not the Via Fidei repository",
+                    "\(url.path)\n\nExpected to find package.json and scripts/local-worker-host.ts inside it. "
+                        + "Choose the folder you cloned the repository into.")
+                return
+            }
             UserDefaults.standard.set(url.path, forKey: "ViaFideiRepoPath")
-            self?.runtime.stop()
-            self?.startLocalRuntime()
+            self.stickyError = nil
+            self.runtime.stop()
+            self.startLocalRuntime()
         }
     }
 
@@ -548,22 +627,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             let runState = json["runState"] as? String ?? "off"
             if !self.pill.isBusy { self.pill.isOn = (state == "LOCAL_ACTIVE" || runState == "running") }
 
+            let failureReason = json["failureReason"] as? String
+            if let failureReason { self.stickyError = failureReason }
             let label = execution?["label"] as? String ?? "Admin Worker status unknown"
-            self.statusLabel.stringValue = label
+            self.statusLabel.stringValue = self.stickyError ?? label
+            if runState == "failed" || runState == "crashed" { self.pill.isOn = false }
 
             let resources = json["resources"] as? [String: Any] ?? [:]
-            let rss = (resources["processRssBytes"] as? Double ?? 0) / 1_048_576
-            let cpu = resources["processCpuPercent"] as? Double ?? 0
+            let worker = json["worker"] as? [String: Any]
+            let browser = json["browser"] as? [String: Any] ?? [:]
+            // The worker tree's own footprint (worker + Python brain + browser),
+            // falling back to this supervisor's when nothing is running.
+            let rss = ((worker?["rssBytes"] as? Double) ?? (resources["processRssBytes"] as? Double ?? 0)) / 1_048_576
+            let cpu = (worker?["cpuPercent"] as? Double) ?? (resources["processCpuPercent"] as? Double ?? 0)
+            let procs = worker?["processes"] as? Int ?? 0
             let free = (resources["freeMemoryBytes"] as? Double ?? 0) / 1_073_741_824
             let cores = resources["cpuCount"] as? Int ?? 0
             let jobs = (json["activeJobs"] as? [String])?.count ?? 0
             let uptime = (json["uptimeMs"] as? Double ?? 0) / 1000
+            let restarts = json["restarts"] as? Int ?? 0
             let counters = json["counters"] as? [String: Any] ?? [:]
             let published = counters["itemsPublished"] as? Int ?? 0
             let errors = counters["errors"] as? Int ?? 0
+            let render = (browser["available"] as? Bool ?? false)
+                ? "browser \(browser["active"] as? Int ?? 0)"
+                : "no browser"
             self.resourceLabel.stringValue = String(
-                format: "local · %.0f MB · CPU %.0f%% · %d cores · %.1f GB free · jobs %d · published %d · errors %d · up %.0fs",
-                rss, cpu, cores, free, jobs, published, errors, uptime)
+                format: "worker %.0f MB (%d proc) · CPU %.0f%% · %d cores · %.1f GB free · %@ · jobs %d · published %d · errors %d · restarts %d · up %.0fs",
+                rss, procs, cpu, cores, free, render, jobs, published, errors, restarts, uptime)
         }
     }
 

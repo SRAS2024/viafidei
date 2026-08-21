@@ -28,7 +28,7 @@
  *   tsx scripts/local-worker-host.ts --port N   # bind a fixed local port
  */
 
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -70,7 +70,10 @@ const LOG_RING_SIZE = 800;
 /* supervisor state                                                     */
 /* ------------------------------------------------------------------ */
 
-type RunState = "off" | "starting" | "running" | "stopping" | "crashed";
+type RunState = "off" | "starting" | "running" | "stopping" | "crashed" | "failed";
+
+/** Give up after this many consecutive crashes rather than looping forever. */
+const MAX_CONSECUTIVE_RESTARTS = 5;
 
 interface HostState {
   runState: RunState;
@@ -79,6 +82,8 @@ interface HostState {
   restarts: number;
   lastExit: { code: number | null; signal: string | null; at: number } | null;
   lastError: string | null;
+  /** Set when the host has stopped trying to keep the worker alive. */
+  failureReason: string | null;
   activeJobs: Set<string>;
   itemsProcessed: number;
   itemsPublished: number;
@@ -92,6 +97,7 @@ const host: HostState = {
   restarts: 0,
   lastExit: null,
   lastError: null,
+  failureReason: null,
   activeJobs: new Set(),
   itemsProcessed: 0,
   itemsPublished: 0,
@@ -99,6 +105,8 @@ const host: HostState = {
 };
 
 const logRing: Array<{ at: string; stream: "worker" | "host"; line: string }> = [];
+let snapshotInFlight = false;
+let lastSnapshot: unknown = null;
 const sseClients = new Set<ServerResponse>();
 
 function pushLog(stream: "worker" | "host", line: string): void {
@@ -158,6 +166,10 @@ function startWorkerChild(): void {
   host.child = child;
   host.startedAt = Date.now();
   host.runState = "running";
+  // If it stays up for a while, treat the crash streak as over.
+  setTimeout(() => {
+    if (host.child === child && host.runState === "running") host.restarts = 0;
+  }, 120_000).unref();
 
   const onLine = (chunk: Buffer) => {
     for (const line of chunk.toString("utf8").split("\n")) {
@@ -190,6 +202,30 @@ function startWorkerChild(): void {
         const master = await readMasterSwitch(prisma).catch(() => ({ on: false }) as const);
         if (!master.on || shuttingDown) return;
         host.restarts += 1;
+
+        if (host.restarts > MAX_CONSECUTIVE_RESTARTS) {
+          // Stop pretending. A worker that dies on every launch (missing Python,
+          // bad DATABASE_URL, no Chromium) must surface as a failure rather than
+          // an eternally-restarting "active" worker.
+          host.runState = "failed";
+          host.failureReason =
+            `The local Admin Worker exited ${host.restarts} times in a row ` +
+            `(last: code=${code ?? "null"}, signal=${signal ?? "none"}). Giving up — ` +
+            `check the runtime log, then switch the Admin Worker off and on again.`;
+          pushLog("host", host.failureReason);
+          await writeAdminWorkerLog(prisma, {
+            category: "ERROR",
+            severity: "ERROR",
+            eventName: "local_worker_gave_up",
+            message: host.failureReason,
+            safeMetadata: { restarts: host.restarts, runtimeId: RUNTIME_ID },
+          }).catch(() => undefined);
+          // Release the lease so no surface claims this machine is executing.
+          await releaseExecutionLease(prisma, RUNTIME_ID).catch(() => undefined);
+          broadcast("status", statusPayload());
+          return;
+        }
+
         const backoffMs = Math.min(60_000, 2_000 * host.restarts);
         pushLog(
           "host",
@@ -211,7 +247,12 @@ function startWorkerChild(): void {
 
   child.on("error", (err) => {
     host.lastError = err.message;
-    pushLog("host", `failed to start the worker process: ${err.message}`);
+    host.runState = "failed";
+    host.failureReason =
+      `Could not start the Admin Worker process: ${err.message}. ` +
+      `Check that Node and this repository's dependencies are installed (npm install).`;
+    pushLog("host", host.failureReason);
+    broadcast("status", statusPayload());
   });
 }
 
@@ -272,12 +313,74 @@ async function shutdownLocalBrain(): Promise<void> {
 /* status                                                              */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Resident size + CPU of the supervised worker child (and its own children: the
+ * Python brain and any Chromium), read from the OS. Without this the dashboard
+ * would report only the small supervisor process and understate what the
+ * machine is actually doing — which is the opposite of spec §20's intent.
+ * Sampled on a timer rather than per request so a poll never blocks on `ps`.
+ */
+let workerProcessSample: { rssBytes: number; cpuPercent: number; processes: number } | null = null;
+
+function sampleWorkerProcessTree(): void {
+  const pid = host.child?.pid;
+  if (pid == null) {
+    workerProcessSample = null;
+    return;
+  }
+  // `ps` is cheap, universally present on macOS, and needs no dependency.
+  execFile(
+    "/bin/ps",
+    ["-Ao", "pid=,ppid=,rss=,pcpu="],
+    { timeout: 4_000, maxBuffer: 4 * 1024 * 1024 },
+    (err, stdout) => {
+      if (err) return;
+      const rows: Array<{ pid: number; ppid: number; rss: number; cpu: number }> = [];
+      for (const line of stdout.split("\n")) {
+        const parts = line.trim().split(/\s+/);
+        if (parts.length < 4) continue;
+        const [p, pp, rss, cpu] = parts.map(Number);
+        if (!Number.isFinite(p)) continue;
+        rows.push({ pid: p, ppid: pp, rss, cpu });
+      }
+      // Walk the tree from the worker child downwards (brain, browser, helpers).
+      const byParent = new Map<number, Array<{ pid: number; rss: number; cpu: number }>>();
+      for (const r of rows) {
+        const list = byParent.get(r.ppid) ?? [];
+        list.push({ pid: r.pid, rss: r.rss, cpu: r.cpu });
+        byParent.set(r.ppid, list);
+      }
+      let rssKb = 0;
+      let cpu = 0;
+      let processes = 0;
+      const stack = [pid];
+      const seen = new Set<number>();
+      while (stack.length > 0) {
+        const current = stack.pop()!;
+        if (seen.has(current)) continue;
+        seen.add(current);
+        const self = rows.find((r) => r.pid === current);
+        if (self) {
+          rssKb += self.rss;
+          cpu += self.cpu;
+          processes += 1;
+        }
+        for (const child of byParent.get(current) ?? []) stack.push(child.pid);
+      }
+      workerProcessSample =
+        processes > 0
+          ? { rssBytes: rssKb * 1024, cpuPercent: Number(cpu.toFixed(1)), processes }
+          : null;
+    },
+  );
+}
+
 function statusPayload() {
-  const workerRss = null; // resident size of the child is sampled by the OS view below
-  const resources = sampleLocalResources(workerRss);
+  const resources = sampleLocalResources(workerProcessSample?.rssBytes ?? null);
   return {
     runtimeId: RUNTIME_ID,
     runState: host.runState,
+    failureReason: host.failureReason,
     executionHost: "LOCAL_MACBOOK" as const,
     hostLabel: localHostLabel(),
     startedAt: host.startedAt ? new Date(host.startedAt).toISOString() : null,
@@ -291,8 +394,50 @@ function statusPayload() {
       itemsPublished: host.itemsPublished,
       errors: host.errors,
     },
+    // What the WORKER (and its brain/browser children) is consuming, distinct
+    // from this supervisor's own footprint.
+    worker: workerProcessSample,
+    // Headless-browser rendering activity + whether a browser is even usable
+    // here (spec §20.4). Both matter: without a browser binary every JS-rendered
+    // source silently degrades to its static shell.
+    browser: browserStatus,
     resources,
   };
+}
+
+let browserStatus: {
+  available: boolean;
+  detail: string;
+  active: number;
+  waiting: number;
+  maxConcurrent: number;
+} = { available: false, detail: "not checked yet", active: 0, waiting: 0, maxConcurrent: 1 };
+
+/**
+ * Check whether headless rendering can actually work on this machine, and keep
+ * the live render counters fresh. The cloud image installed Chromium at build
+ * time; a laptop has to be told to, so the honest thing is to check and say so
+ * rather than let every JS-rendered source quietly fall back to its static
+ * shell.
+ */
+async function refreshBrowserStatus(): Promise<void> {
+  try {
+    const { browserRenderActivity, chromiumStatus } =
+      await import("../src/lib/admin-worker/dynamic-fetcher");
+    const activity = browserRenderActivity();
+    const status = await chromiumStatus();
+    const wasAvailable = browserStatus.available;
+    browserStatus = { ...activity, available: status.available, detail: status.detail };
+    if (!status.available && wasAvailable !== false) {
+      pushLog("host", `headless browser rendering unavailable: ${status.detail}`);
+    }
+  } catch (err) {
+    browserStatus = {
+      ...browserStatus,
+      available: false,
+      detail: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -423,12 +568,26 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       }
 
       case "GET /api/snapshot": {
-        const snapshot = await withJob("command-center-snapshot", () =>
-          loadCommandCenterSnapshot(prisma, {
-            refreshGoals: url.searchParams.get("refresh") === "1",
-          }),
-        );
-        json(res, 200, snapshot);
+        // The console polls this. Two guards keep an open window from becoming a
+        // workload of its own: never refresh goals (a write) unless asked, and
+        // never run two snapshots at once — a slow remote database would
+        // otherwise stack them up every 20 seconds.
+        if (snapshotInFlight) {
+          json(res, 200, { ...(lastSnapshot ?? {}), reusedInFlight: true });
+          return;
+        }
+        snapshotInFlight = true;
+        try {
+          const snapshot = await withJob("command-center-snapshot", () =>
+            loadCommandCenterSnapshot(prisma, {
+              refreshGoals: url.searchParams.get("refresh") === "1",
+            }),
+          );
+          lastSnapshot = snapshot;
+          json(res, 200, snapshot);
+        } finally {
+          snapshotInFlight = false;
+        }
         return;
       }
 
@@ -441,8 +600,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       case "POST /api/switch": {
         const body = await readJson<{ on?: boolean; actor?: string }>(req);
         const on = body.on === true;
-        await setMasterSwitch(prisma, { on, actor: body.actor ?? "operator", from: "swift-app" });
         if (on) {
+          // Claim the lease FIRST. The master switch is shared state: if another
+          // computer is already executing, writing the switch here (and then
+          // rolling it back to OFF) would stop that machine's worker mid-pass.
           const claim = await acquireExecutionLease(prisma, {
             runtimeId: RUNTIME_ID,
             origin: "LOCAL_MACBOOK",
@@ -455,11 +616,22 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
             },
           });
           if (!claim.acquired) {
-            await setMasterSwitch(prisma, { on: false, actor: "system", from: "local-host" });
-            json(res, 409, { error: "lease_unavailable", detail: claim.refusedBecause });
+            // Leave the switch exactly as it was — the other computer keeps working.
+            json(res, 409, {
+              error: "lease_unavailable",
+              detail:
+                `${claim.refusedBecause ?? "Another runtime holds the execution lease."} ` +
+                `Switch the Admin Worker OFF there first; nothing was changed here.`,
+            });
             return;
           }
+          await setMasterSwitch(prisma, {
+            on: true,
+            actor: body.actor ?? "operator",
+            from: "swift-app",
+          });
           host.restarts = 0;
+          host.failureReason = null;
           startWorkerChild();
           await writeAdminWorkerLog(prisma, {
             category: "OVERVIEW",
@@ -469,6 +641,11 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
             safeMetadata: { runtimeId: RUNTIME_ID, origin: "LOCAL_MACBOOK" },
           }).catch(() => undefined);
         } else {
+          await setMasterSwitch(prisma, {
+            on: false,
+            actor: body.actor ?? "operator",
+            from: "swift-app",
+          });
           await stopWorkerChild("master switch OFF");
           // The host itself keeps a resident Python brain while it runs
           // operator work (ingestion, manual passes, makeovers). OFF means OFF:
@@ -651,6 +828,23 @@ async function main(): Promise<void> {
     void handle(req, res);
   });
 
+  // Never die silently: the parent application is watching stdout, so a listen
+  // failure has to be said out loud or the operator just sees a blank console.
+  server.on("error", (err: NodeJS.ErrnoException) => {
+    const detail =
+      err.code === "EADDRINUSE"
+        ? `port ${port} is already in use — start the app again to pick a free port`
+        : err.message;
+    process.stdout.write(`${JSON.stringify({ viafideiLocalHostError: detail })}\n`);
+    console.error(`[local-host] cannot listen: ${detail}`);
+    process.exitCode = 1;
+    void (async () => {
+      await releaseExecutionLease(prisma, RUNTIME_ID).catch(() => undefined);
+      await prisma.$disconnect().catch(() => undefined);
+      process.exit(1);
+    })();
+  });
+
   server.listen(port, "127.0.0.1", () => {
     const address = server.address();
     const boundPort = typeof address === "object" && address ? address.port : port;
@@ -695,12 +889,24 @@ async function main(): Promise<void> {
   // Keep the lease warm while this host owns execution, and push live status.
   const leaseTimer = setInterval(() => {
     void (async () => {
-      if (host.runState === "off") return;
-      const renewed = await renewExecutionLease(prisma, RUNTIME_ID).catch(() => false);
-      if (!renewed && host.runState === "running") {
+      // Renew ONLY while the worker is actually running: renewing while it is
+      // crashed/failed would keep every surface reporting "active locally" for a
+      // machine that is doing nothing.
+      if (host.runState !== "running") return;
+      let renewed: boolean;
+      try {
+        renewed = await renewExecutionLease(prisma, RUNTIME_ID);
+      } catch {
+        // A transient Postgres error is NOT proof that someone took the lease.
+        // The loop fails open on the identical error; do the same here rather
+        // than killing a healthy worker over one bad round-trip.
+        pushLog("host", "lease renewal failed (database unreachable) — keeping the worker running");
+        return;
+      }
+      if (!renewed) {
         pushLog(
           "host",
-          "execution lease lost — stopping the local worker to avoid double execution",
+          "execution lease is held by another runtime — stopping the local worker to avoid double execution",
         );
         await stopWorkerChild("execution lease lost");
       }
@@ -710,6 +916,15 @@ async function main(): Promise<void> {
 
   const statusTimer = setInterval(() => broadcast("status", statusPayload()), 2_000);
   statusTimer.unref();
+
+  // Sample what the worker tree is really consuming, and keep the browser
+  // capability + render counters current.
+  const sampleTimer = setInterval(() => {
+    sampleWorkerProcessTree();
+    void refreshBrowserStatus();
+  }, 3_000);
+  sampleTimer.unref();
+  void refreshBrowserStatus();
 
   const shutdown = (signal: string) => {
     if (shuttingDown) return;
@@ -726,6 +941,16 @@ async function main(): Promise<void> {
   };
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
+  // A crash in the supervisor must not leave an orphaned worker tree holding a
+  // lease that makes every surface report "active locally".
+  process.on("uncaughtException", (err) => {
+    console.error("[local-host] uncaught exception:", err);
+    shutdown("uncaughtException");
+  });
+  process.on("unhandledRejection", (reason) => {
+    console.error("[local-host] unhandled rejection:", reason);
+    shutdown("unhandledRejection");
+  });
 
   // When the native application supervises this host it passes --watch-parent
   // and keeps a pipe on our stdin; closing that pipe (the app quitting) is the

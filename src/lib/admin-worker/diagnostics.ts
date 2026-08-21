@@ -13,6 +13,7 @@
 
 import type { PrismaClient } from "@prisma/client";
 
+import { workerExecutionAllowed } from "./execution-context";
 import { readExecutionStatus } from "./execution-host";
 
 export type HealthStatus = "pass" | "warn" | "fail" | "unknown";
@@ -1403,8 +1404,71 @@ type OutboundProbeResult = Awaited<
 let outboundProbeCache: { at: number; result: OutboundProbeResult } | null = null;
 const OUTBOUND_PROBE_TTL_MS = 5 * 60 * 1000;
 
-async function ratingOutboundNetwork(): Promise<HealthRating> {
+/**
+ * Outbound reachability is a property of the machine that RUNS the worker, and
+ * that machine is now the operator's Mac (spec §1). So:
+ *
+ *   - in a worker runtime we probe live and PERSIST the result, and
+ *   - anywhere else (notably the Railway web service rendering
+ *     /admin/diagnostics) we report the worker's last recorded measurement and
+ *     make no outbound requests at all.
+ *
+ * That keeps the production web service from spending network calls on worker
+ * telemetry, and stops the page reporting Railway's egress as if it were the
+ * worker's — which in the new architecture would simply be wrong.
+ */
+const EGRESS_MEMORY_KEY = "worker.egress.probe";
+
+async function ratingOutboundNetworkFromMemory(prisma: PrismaClient): Promise<HealthRating> {
   const now = new Date();
+  const row = await prisma.adminWorkerMemory
+    .findUnique({
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: EGRESS_MEMORY_KEY } },
+      select: { memoryValue: true, updatedAt: true },
+    })
+    .catch(() => null);
+  const value = (row?.memoryValue ?? null) as {
+    at?: string;
+    hostLabel?: string;
+    summary?: string;
+    status?: HealthStatus;
+    score?: number;
+  } | null;
+
+  if (!value?.summary) {
+    return {
+      key: "admin_worker_outbound_network",
+      label: "Outbound internet reachability",
+      status: "unknown",
+      score: 0,
+      lastCheckedAt: now,
+      dataSource: "measured on the Admin Worker's execution host",
+      summary:
+        "Not measured here. Outbound reachability belongs to the machine running the Admin Worker " +
+        "(the operator's Mac); switch the worker on to record it. The production web service makes " +
+        "no probe requests.",
+    };
+  }
+  const ageMs = value.at ? now.getTime() - Date.parse(value.at) : null;
+  const ageNote =
+    ageMs != null && Number.isFinite(ageMs)
+      ? ` (measured ${ageMs < 3_600_000 ? `${Math.round(ageMs / 60_000)}m` : `${Math.round(ageMs / 3_600_000)}h`} ago on ${value.hostLabel ?? "the worker host"})`
+      : "";
+  return {
+    key: "admin_worker_outbound_network",
+    label: "Outbound internet reachability",
+    status: value.status ?? "unknown",
+    score: value.score ?? 0,
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerMemory(worker.egress.probe) — recorded by the local worker",
+    summary: `${value.summary}${ageNote}`,
+  };
+}
+
+async function ratingOutboundNetwork(prisma: PrismaClient): Promise<HealthRating> {
+  const now = new Date();
+  // Never probe from the production web service.
+  if (!workerExecutionAllowed()) return ratingOutboundNetworkFromMemory(prisma);
   try {
     const { probeOutboundReachability } = await import("./outbound-network");
     if (!outboundProbeCache || Date.now() - outboundProbeCache.at > OUTBOUND_PROBE_TTL_MS) {
@@ -1437,13 +1501,54 @@ async function ratingOutboundNetwork(): Promise<HealthRating> {
             .map((h) => h.host)
             .join(", ")} blocked but non-critical (fallback in place).`
         : "";
+    const score = skipped ? 0.5 : criticalReachable / Math.max(1, criticalHosts.length);
+    const summary = `${reachable}/${hosts.length} key hosts reachable ${proxyNote}. ${hosts
+      .map(
+        (h) => `${h.host}=${h.reachable ? "ok" : "blocked"}${h.critical ? "" : " (best-effort)"}`,
+      )
+      .join(", ")}.${bestEffortNote}`;
+
+    // Record it so the browser diagnostics page can show the worker host's real
+    // egress without making any request of its own. Fail-open.
+    try {
+      const { localHostLabel } = await import("./local-resources");
+      await prisma.adminWorkerMemory.upsert({
+        where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: EGRESS_MEMORY_KEY } },
+        create: {
+          memoryType: "GENERIC",
+          memoryKey: EGRESS_MEMORY_KEY,
+          memoryValue: {
+            at: now.toISOString(),
+            hostLabel: localHostLabel(),
+            status,
+            score,
+            summary,
+          },
+          confidence: 1,
+          lastUsedAt: now,
+        },
+        update: {
+          memoryValue: {
+            at: now.toISOString(),
+            hostLabel: localHostLabel(),
+            status,
+            score,
+            summary,
+          },
+          lastUsedAt: now,
+        },
+      });
+    } catch {
+      /* telemetry only */
+    }
+
     return {
       key: "admin_worker_outbound_network",
       label: "Outbound internet reachability",
       status,
       // Score off critical-host reachability so a best-effort block (wikidata)
       // doesn't drag a healthy egress state down.
-      score: skipped ? 0.5 : criticalReachable / Math.max(1, criticalHosts.length),
+      score,
       lastCheckedAt: now,
       dataSource: "live probe: wikidata / wikipedia / vatican.va",
       summary: `${reachable}/${hosts.length} key hosts reachable ${proxyNote}. ${hosts

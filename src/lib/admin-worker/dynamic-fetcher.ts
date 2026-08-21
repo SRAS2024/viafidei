@@ -43,9 +43,8 @@ const MAX_RENDER_BYTES = 5_000_000; // mirror the static fetcher's cap
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-// Memoised "is Playwright importable" probe. Reset between tests via
-// __resetDynamicFetcherCache().
-let availabilityCache: boolean | null = null;
+// Memoised capability probe (module + a real browser binary). Reset between
+// tests via __resetDynamicFetcherCache().
 
 /**
  * True when the dynamic fetcher may run. Default ON — it is a keyless
@@ -138,20 +137,85 @@ export function chromiumExecutablePath(): string | undefined {
  * renderPage(), which fails open if the launch fails.
  */
 export async function dynamicFetcherAvailable(): Promise<boolean> {
-  if (!dynamicFetcherEnabled()) return false;
-  if (availabilityCache !== null) return availabilityCache;
-  try {
-    await import("playwright");
-    availabilityCache = true;
-  } catch {
-    availabilityCache = false;
+  return (await chromiumStatus()).available;
+}
+
+export interface ChromiumStatus {
+  available: boolean;
+  /** Why it is or is not usable — shown on the local command center. */
+  detail: string;
+  /** Resolved browser binary, when one was found. */
+  executablePath: string | null;
+}
+
+let statusCache: ChromiumStatus | null = null;
+
+/**
+ * Is headless rendering genuinely usable here?
+ *
+ * The old check passed as soon as `import("playwright")` resolved. That module
+ * is present in any checkout (a transitive of the @playwright/test
+ * devDependency) while the BROWSER is a separate ~150 MB download that the
+ * cloud image installed at build time and a laptop does not have by default.
+ * So the capability reported itself as present while every JS-rendered source
+ * quietly degraded to its static shell — and the skill that would otherwise
+ * escalate a JS-only source was suppressed for the same reason.
+ *
+ * Now the module AND a launchable browser must both exist, and the reason is
+ * reported either way.
+ */
+export async function chromiumStatus(): Promise<ChromiumStatus> {
+  if (!dynamicFetcherEnabled()) {
+    return {
+      available: false,
+      detail: workerExecutionAllowed()
+        ? "disabled by configuration (ADMIN_WORKER_DYNAMIC_FETCHER / SKIP_NETWORK)"
+        : "not available outside the Admin Worker runtime",
+      executablePath: null,
+    };
   }
-  return availabilityCache;
+  if (statusCache !== null) return statusCache;
+
+  let launcher: { executablePath?: () => string } | null = null;
+  try {
+    const mod = (await import("playwright")) as { chromium?: { executablePath?: () => string } };
+    launcher = mod.chromium ?? null;
+  } catch {
+    statusCache = {
+      available: false,
+      detail: "the playwright module is not installed (run `npm install`)",
+      executablePath: null,
+    };
+    return statusCache;
+  }
+
+  // Explicit path / PLAYWRIGHT_BROWSERS_PATH first (how the cloud image ships
+  // it), then Playwright's own resolved location (how a laptop gets it).
+  let resolved = chromiumExecutablePath() ?? null;
+  if (!resolved) {
+    try {
+      const candidate = launcher?.executablePath?.();
+      if (candidate && existsSync(candidate)) resolved = candidate;
+    } catch {
+      /* Playwright throws when no browser is installed */
+    }
+  }
+
+  statusCache = resolved
+    ? { available: true, detail: `Chromium ready at ${resolved}`, executablePath: resolved }
+    : {
+        available: false,
+        detail:
+          "no Chromium binary on this machine — run `npx playwright install chromium` to enable " +
+          "rendering of JavaScript-only sources (everything else keeps working)",
+        executablePath: null,
+      };
+  return statusCache;
 }
 
 /** Test hook: clear the memoised availability probe + release any held slots. */
 export function __resetDynamicFetcherCache(): void {
-  availabilityCache = null;
+  statusCache = null;
   activeRenders = 0;
   renderWaiters.length = 0;
 }
@@ -221,7 +285,11 @@ export async function renderPage(
     try {
       pw = await import("playwright");
     } catch {
-      availabilityCache = false;
+      statusCache = {
+        available: false,
+        detail: "the playwright module is not installed (run `npm install`)",
+        executablePath: null,
+      };
       return null;
     }
     chromium = (pw as { chromium?: ChromiumLauncher }).chromium;

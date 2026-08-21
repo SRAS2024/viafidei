@@ -3,13 +3,15 @@ import Link from "next/link";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import { runAllDiagnostics } from "@/lib/diagnostics";
-import {
-  getAdminWorkerState,
-  listRecentPasses,
-  readExecutionStatus,
-  runAdminWorkerDiagnostics,
-  summarizeRatings,
-} from "@/lib/admin-worker";
+// Deep module imports, deliberately NOT the `@/lib/admin-worker` barrel.
+// The barrel re-exports the whole ~150-module worker tree (dispatcher, Python
+// brain bridge, headless-browser fetcher, PDF report generator, skills), so a
+// single barrel import drags all of it into the production web server's bundle
+// and resident memory — for a page that only needs four cheap Postgres reads.
+import { runAdminWorkerDiagnostics, summarizeRatings } from "@/lib/admin-worker/diagnostics";
+import { readExecutionStatus } from "@/lib/admin-worker/execution-host";
+import { listRecentPasses } from "@/lib/admin-worker/passes";
+import { getAdminWorkerState } from "@/lib/admin-worker/state";
 import { prisma } from "@/lib/db/client";
 
 export const dynamic = "force-dynamic";

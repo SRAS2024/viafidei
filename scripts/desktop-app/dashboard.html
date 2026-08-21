@@ -332,6 +332,19 @@
         <button id="refresh">Refresh</button>
       </header>
 
+      <div
+        id="notices"
+        style="
+          display: none;
+          background: rgba(224, 112, 112, 0.12);
+          border: 1px solid rgba(224, 112, 112, 0.4);
+          border-radius: 3px;
+          padding: 9px 12px;
+          margin-bottom: 14px;
+          font-size: 12px;
+        "
+      ></div>
+
       <div class="strip" id="strip"></div>
 
       <div class="actions" id="actions"></div>
@@ -402,8 +415,13 @@
 
       /* ---------------- status strip ---------------- */
 
+      let lastExec = {};
       function renderStatus(s) {
-        const ex = s.execution || {};
+        // SSE status frames legitimately omit `execution` (it costs a DB read),
+        // so keep the last known value instead of falling back to OFF and making
+        // the pill flap between "running locally" and "OFF" every two seconds.
+        if (s.execution) lastExec = s.execution;
+        const ex = s.execution || lastExec;
         const pill = document.getElementById("execPill");
         const label = document.getElementById("execLabel");
         const state = ex.state || "OFF";
@@ -427,17 +445,48 @@
         document.getElementById("hostLabel").textContent =
           (s.hostLabel || "local") + " · " + (s.runState || "off");
 
+        const notices = [];
+        if (s.runState === "failed" && s.failureReason) notices.push("⚠ " + s.failureReason);
+        else if (s.runState === "crashed")
+          notices.push(
+            "⚠ The local worker exited unexpectedly and is being restarted here — execution did not move to the cloud.",
+          );
+        if (
+          s.browser &&
+          s.browser.available === false &&
+          (ex.state === "LOCAL_ACTIVE" || s.runState === "running")
+        ) {
+          notices.push("Headless browser rendering is off: " + s.browser.detail);
+        }
+        const noticeBox = document.getElementById("notices");
+        noticeBox.textContent = notices.join("  ·  ");
+        noticeBox.style.display = notices.length ? "block" : "none";
+
         const r = s.resources || {};
         const strip = document.getElementById("strip");
+        const w = s.worker;
+        const br = s.browser || {};
         const items = [
-          ["Worker memory", fmtBytes(r.processRssBytes), "resident set of the local host"],
           [
-            "CPU (worker)",
-            (r.processCpuPercent ?? 0) + "%",
+            "Worker memory",
+            w ? fmtBytes(w.rssBytes) : "—",
+            w ? w.processes + " process(es): worker, brain, browser" : "worker not running",
+          ],
+          [
+            "Worker CPU",
+            w ? w.cpuPercent + "%" : "—",
             "system load " + (r.systemLoadPercent ?? 0) + "%",
           ],
+          ["Supervisor", fmtBytes(r.processRssBytes), "this control process"],
           ["Free memory", fmtBytes(r.freeMemoryBytes), "of " + fmtBytes(r.totalMemoryBytes)],
           ["Cores", r.cpuCount ?? "—", "concurrency " + (r.recommendedConcurrency ?? "—")],
+          [
+            "Browser rendering",
+            br.available ? (br.active ?? 0) + " active" : "unavailable",
+            br.available
+              ? "cap " + (br.maxConcurrent ?? 1) + ", waiting " + (br.waiting ?? 0)
+              : short(br.detail, 34),
+          ],
           ["Active jobs", (s.activeJobs || []).length, (s.activeJobs || []).join(", ") || "idle"],
           ["Uptime", fmtDur(s.uptimeMs), "restarts " + (s.restarts ?? 0)],
           [
@@ -445,7 +494,15 @@
             s.counters?.itemsProcessed ?? 0,
             "published " + (s.counters?.itemsPublished ?? 0),
           ],
-          ["Errors", s.counters?.errors ?? 0, s.lastError ? short(s.lastError, 30) : "none"],
+          [
+            "Errors",
+            s.counters?.errors ?? 0,
+            s.failureReason
+              ? short(s.failureReason, 34)
+              : s.lastError
+                ? short(s.lastError, 30)
+                : "none",
+          ],
         ];
         strip.replaceChildren(
           ...items.map(([label, value, sub]) =>
@@ -787,11 +844,20 @@
           card(
             "Reasoning graph",
             s.brain?.reasoning?.length,
-            table(["From", "Edge", "To"], s.brain?.reasoning?.slice(0, 20), (r) => [
-              short(r.fromNode || r.sourceNode || r.from, 26),
-              short(r.edgeType || r.relation || "", 18),
-              short(r.toNode || r.targetNode || r.to, 26),
-            ]),
+            table(
+              ["From", "Relation", "To", "Why", "Conf."],
+              s.brain?.reasoning?.slice(0, 20),
+              (r) => [
+                short(r.fromNodeLabel || r.fromNodeType, 22),
+                short(r.relation, 16),
+                short(r.toNodeLabel || r.toNodeType, 22),
+                short(r.explanation, 52),
+                {
+                  mono: true,
+                  v: (r.confidence ?? 0).toFixed ? r.confidence.toFixed(2) : r.confidence,
+                },
+              ],
+            ),
           ),
         );
 
@@ -813,12 +879,18 @@
           card(
             "Content funnel",
             s.funnel?.length,
-            table(["Type", "Discovered", "Built", "Published"], s.funnel?.slice(0, 30), (f) => [
-              f.contentType,
-              { mono: true, v: f.discovered ?? f.candidates ?? "—" },
-              { mono: true, v: f.built ?? "—" },
-              { mono: true, v: f.published ?? "—" },
-            ]),
+            table(
+              ["Type", "Discovered", "Read", "Artifacts", "QA", "Published"],
+              s.funnel?.slice(0, 30),
+              (f) => [
+                f.contentType,
+                { mono: true, v: f.candidatesDiscovered ?? 0 },
+                { mono: true, v: f.sourceReadsCreated ?? 0 },
+                { mono: true, v: f.packageArtifactsCreated ?? 0 },
+                { mono: true, v: f.strictQAPasses ?? 0 },
+                { mono: true, v: f.publishedItems ?? 0 },
+              ],
+            ),
           ),
         );
 
@@ -826,12 +898,18 @@
           card(
             "Content growth",
             s.growth?.length,
-            table(["Type", "Count", "Delta", "When"], s.growth?.slice(0, 25), (g) => [
-              g.contentType,
-              { mono: true, v: g.publishedCount ?? g.count ?? "—" },
-              { mono: true, v: g.delta ?? "—" },
-              ago(g.createdAt),
-            ]),
+            table(
+              ["Type", "Published", "Gap", "24h", "7d", "Status"],
+              s.growth?.slice(0, 25),
+              (g) => [
+                g.contentType,
+                { mono: true, v: g.publishedCount ?? 0 },
+                { mono: true, v: g.gap ?? 0 },
+                { mono: true, v: g.growth24h ?? 0 },
+                { mono: true, v: g.growth7d ?? 0 },
+                el("span", { class: statusClass(g.status) }, String(g.status ?? "—")),
+              ],
+            ),
           ),
         );
 
@@ -839,18 +917,24 @@
           card(
             "Source coverage",
             s.coverage?.length,
-            table(["Host / type", "Coverage", "Blocked"], s.coverage?.slice(0, 30), (c) => [
-              short(c.sourceHost || c.contentType, 34),
-              {
-                mono: true,
-                v: (c.coverageScore ?? 0).toFixed ? c.coverageScore.toFixed(2) : c.coverageScore,
-              },
-              el(
-                "span",
-                { class: c.blockedByCoverage ? "bad" : "muted" },
-                c.blockedByCoverage ? "yes" : "no",
-              ),
-            ]),
+            table(
+              ["Content type", "Coverage", "Active", "Publishes 7d", "Blocked"],
+              s.coverage?.slice(0, 30),
+              (c) => [
+                short(c.contentType, 22),
+                {
+                  mono: true,
+                  v: (c.coverageScore ?? 0).toFixed ? c.coverageScore.toFixed(2) : c.coverageScore,
+                },
+                { mono: true, v: c.activeSourceCount ?? 0 },
+                { mono: true, v: c.recentPublishes7d ?? 0 },
+                el(
+                  "span",
+                  { class: c.blockedByCoverage ? "bad" : "muted" },
+                  c.blockedByCoverage ? short(c.blockReason || "yes", 24) : "no",
+                ),
+              ],
+            ),
           ),
         );
 
@@ -859,11 +943,18 @@
           card(
             "Pipeline state",
             s.pipeline?.length,
-            table(["Stage", "Status", "Count"], s.pipeline?.slice(0, 40), (p) => [
-              short(p.stageName || p.stage, 28),
-              el("span", { class: statusClass(p.status) }, String(p.status ?? "—")),
-              { mono: true, v: p.count ?? p._count?._all ?? "—" },
-            ]),
+            table(
+              ["Stage", "Pending", "Running", "OK", "Failed", "Blocked"],
+              s.pipeline?.slice(0, 40),
+              (p) => [
+                short(p.stage || p.stageName, 24),
+                { mono: true, v: p.pending ?? 0 },
+                { mono: true, v: p.running ?? 0 },
+                { mono: true, v: p.succeeded ?? 0 },
+                { mono: true, v: p.failed ?? 0 },
+                { mono: true, v: p.blocked ?? 0 },
+              ],
+            ),
           ),
         );
 
@@ -897,8 +988,9 @@
           card(
             "Recent decisions",
             s.decisions?.length,
-            table(["Decision", "Confidence", "When"], s.decisions?.slice(0, 15), (d) => [
-              short(d.chosenAction || d.decisionType, 44),
+            table(["Chosen action", "Why", "Conf.", "When"], s.decisions?.slice(0, 15), (d) => [
+              short(d.chosenAction || d.decisionType, 30),
+              short(d.reason || d.brainExplanation, 52),
               {
                 mono: true,
                 v: (d.confidence ?? 0).toFixed ? d.confidence.toFixed(2) : d.confidence,
@@ -940,11 +1032,16 @@
           card(
             "Knowledge graph",
             (s.knowledge?.nodes ?? 0) + " nodes / " + (s.knowledge?.edges ?? 0) + " edges",
-            table(["Node", "Type", "Updated"], s.knowledge?.recentNodes?.slice(0, 15), (n) => [
-              short(n.label || n.nodeKey || n.id, 38),
-              short(n.nodeType || "—", 16),
-              ago(n.updatedAt),
-            ]),
+            table(
+              ["Node", "Type", "Entity", "Updated"],
+              s.knowledge?.recentNodes?.slice(0, 15),
+              (n) => [
+                short(n.label || n.entityId || n.id, 32),
+                short(n.nodeType || "—", 14),
+                short(n.entityType || "—", 14),
+                ago(n.updatedAt),
+              ],
+            ),
           ),
         );
 
@@ -979,11 +1076,20 @@
           card(
             "Strict QA",
             s.strictQA?.length,
-            table(["Artifact", "Status", "When"], s.strictQA?.slice(0, 15), (q) => [
-              short(q.packageArtifactId || q.id, 30),
-              el("span", { class: statusClass(q.status) }, String(q.status)),
-              ago(q.createdAt),
-            ]),
+            table(
+              ["Artifact", "Type", "Score", "Status", "When"],
+              s.strictQA?.slice(0, 15),
+              (q) => [
+                short(q.packageArtifactId || q.id, 16),
+                short(q.contentType, 14),
+                {
+                  mono: true,
+                  v: (q.finalScore ?? 0).toFixed ? q.finalScore.toFixed(2) : q.finalScore,
+                },
+                el("span", { class: statusClass(q.status) }, String(q.status)),
+                ago(q.createdAt),
+              ],
+            ),
           ),
         );
 
@@ -1152,10 +1258,11 @@
 
         // Diagnostics
         const ratings = s.diagnostics?.ratings || [];
+        const dsum = s.diagnostics?.summary || {};
         cards.push(
           card(
             "Diagnostics",
-            (s.diagnostics?.summary?.passed ?? "—") + "/" + ratings.length + " passing",
+            `${dsum.pass ?? 0} pass · ${dsum.warn ?? 0} warn · ${dsum.fail ?? 0} fail`,
             table(["Check", "Status", "Summary"], ratings.slice(0, 40), (r) => [
               short(r.label, 26),
               el("span", { class: statusClass(r.status) }, String(r.status)),
@@ -1180,13 +1287,19 @@
           card(
             "Certified skills",
             s.skills?.length,
-            table(["Skill", "Result", "When"], s.skills?.slice(0, 20), (k) => [
-              short(k.skillName, 30),
+            table(["Skill", "Execution", "Verify", "Risk", "When"], s.skills?.slice(0, 20), (k) => [
+              short(k.skillName, 26),
               el(
                 "span",
-                { class: statusClass(k.status || k.result) },
-                String(k.status || k.result || "—"),
+                { class: statusClass(k.executionStatus) },
+                String(k.executionStatus ?? "—"),
               ),
+              el(
+                "span",
+                { class: statusClass(k.verificationStatus) },
+                String(k.verificationStatus ?? "—"),
+              ),
+              short(k.riskLevel, 10),
               ago(k.createdAt),
             ]),
           ),
