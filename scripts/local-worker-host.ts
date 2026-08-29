@@ -42,6 +42,32 @@ import { markWorkerExecutionOrigin } from "../src/lib/admin-worker/execution-con
 // imported and evaluated, so every guard in the tree sees the right runtime.
 markWorkerExecutionOrigin("LOCAL_MACBOOK");
 
+/**
+ * Where this runtime's configuration came from — captured BEFORE anything
+ * imports @prisma/client, because Prisma loads the repository .env itself and
+ * would otherwise mask the distinction.
+ *
+ * Verified precedence: Prisma does NOT overwrite a variable already present in
+ * the environment, so values injected by `railway run` win and a local .env is
+ * only the fallback. That is what lets Railway stay the single source of truth
+ * with nothing re-entered on this computer.
+ */
+const CONFIG_AT_BOOT = {
+  source: process.env.VIAFIDEI_CONFIG_SOURCE ?? "direct",
+  // Recorded by the launcher BEFORE node starts, because it cannot be recovered
+  // here: ES imports are hoisted, so @prisma/client has already loaded the
+  // repository .env into process.env by the time this line executes, which
+  // makes a local .env indistinguishable from an injected environment.
+  // null means "launched directly, so genuinely unknown" — not "no".
+  databaseUrlFromEnvironment:
+    process.env.VIAFIDEI_DB_FROM_ENV === "1"
+      ? true
+      : process.env.VIAFIDEI_DB_FROM_ENV === "0"
+        ? false
+        : null,
+  publicBaseUrl: process.env.PUBLIC_BASE_URL ?? null,
+};
+
 import {
   acquireExecutionLease,
   readExecutionStatus,
@@ -375,6 +401,52 @@ function sampleWorkerProcessTree(): void {
   );
 }
 
+/**
+ * Non-sensitive description of the effective configuration: which source it
+ * came from, which database host it points at (host and database name only —
+ * never the credentials), and whether published pages will be verified against
+ * the real site. Surfaced in the app so a misconfiguration is visible rather
+ * than silently wrong.
+ */
+function configPayload() {
+  const raw = process.env.DATABASE_URL ?? "";
+  let databaseHost: string | null = null;
+  try {
+    const url = new URL(raw);
+    databaseHost = `${url.hostname}${url.port ? `:${url.port}` : ""}${url.pathname}`;
+  } catch {
+    databaseHost = raw ? "unparseable" : null;
+  }
+  const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? null;
+  const remoteDatabase =
+    databaseHost != null && !/^(localhost|127\.0\.0\.1|\[::1\])/.test(databaseHost);
+
+  const warnings: string[] = [];
+  if (!databaseHost) {
+    warnings.push(
+      "No database configured. Link this checkout to Railway (railway login && railway link) " +
+        "so the worker inherits production configuration, or provide a local .env.",
+    );
+  }
+  if (remoteDatabase && !publicBaseUrl) {
+    // publicOrigin() falls back to http://localhost:3000 outside production, so
+    // post-publish verification would check a site that is not there.
+    warnings.push(
+      "Connected to a remote database but PUBLIC_BASE_URL is unset — published pages would be " +
+        "verified against http://localhost:3000 instead of the live site.",
+    );
+  }
+
+  return {
+    source: CONFIG_AT_BOOT.source,
+    databaseUrlFromEnvironment: CONFIG_AT_BOOT.databaseUrlFromEnvironment,
+    databaseHost,
+    remoteDatabase,
+    publicBaseUrl,
+    warnings,
+  };
+}
+
 function statusPayload() {
   const resources = sampleLocalResources(workerProcessSample?.rssBytes ?? null);
   return {
@@ -389,6 +461,7 @@ function statusPayload() {
     lastExit: host.lastExit,
     lastError: host.lastError,
     activeJobs: Array.from(host.activeJobs),
+    config: configPayload(),
     counters: {
       itemsProcessed: host.itemsProcessed,
       itemsPublished: host.itemsPublished,
@@ -861,6 +934,13 @@ async function main(): Promise<void> {
       })}\n`,
     );
     pushLog("host", `control surface listening on 127.0.0.1:${boundPort} (loopback only)`);
+    const cfg = configPayload();
+    pushLog(
+      "host",
+      `configuration source: ${cfg.source}; database ${cfg.databaseHost ?? "NOT CONFIGURED"}` +
+        `${cfg.publicBaseUrl ? `; verifying against ${cfg.publicBaseUrl}` : ""}`,
+    );
+    for (const warning of cfg.warnings) pushLog("host", `WARNING: ${warning}`);
   });
 
   // Resume a previously-ON switch: if the operator left the worker ON and the
