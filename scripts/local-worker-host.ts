@@ -42,6 +42,32 @@ import { markWorkerExecutionOrigin } from "../src/lib/admin-worker/execution-con
 // imported and evaluated, so every guard in the tree sees the right runtime.
 markWorkerExecutionOrigin("LOCAL_MACBOOK");
 
+/**
+ * Where this runtime's configuration came from — captured BEFORE anything
+ * imports @prisma/client, because Prisma loads the repository .env itself and
+ * would otherwise mask the distinction.
+ *
+ * Verified precedence: Prisma does NOT overwrite a variable already present in
+ * the environment, so values injected by `railway run` win and a local .env is
+ * only the fallback. That is what lets Railway stay the single source of truth
+ * with nothing re-entered on this computer.
+ */
+const CONFIG_AT_BOOT = {
+  source: process.env.VIAFIDEI_CONFIG_SOURCE ?? "direct",
+  // Recorded by the launcher BEFORE node starts, because it cannot be recovered
+  // here: ES imports are hoisted, so @prisma/client has already loaded the
+  // repository .env into process.env by the time this line executes, which
+  // makes a local .env indistinguishable from an injected environment.
+  // null means "launched directly, so genuinely unknown" — not "no".
+  databaseUrlFromEnvironment:
+    process.env.VIAFIDEI_DB_FROM_ENV === "1"
+      ? true
+      : process.env.VIAFIDEI_DB_FROM_ENV === "0"
+        ? false
+        : null,
+  publicBaseUrl: process.env.PUBLIC_BASE_URL ?? null,
+};
+
 import {
   acquireExecutionLease,
   readExecutionStatus,
@@ -375,6 +401,52 @@ function sampleWorkerProcessTree(): void {
   );
 }
 
+/**
+ * Non-sensitive description of the effective configuration: which source it
+ * came from, which database host it points at (host and database name only —
+ * never the credentials), and whether published pages will be verified against
+ * the real site. Surfaced in the app so a misconfiguration is visible rather
+ * than silently wrong.
+ */
+function configPayload() {
+  const raw = process.env.DATABASE_URL ?? "";
+  let databaseHost: string | null = null;
+  try {
+    const url = new URL(raw);
+    databaseHost = `${url.hostname}${url.port ? `:${url.port}` : ""}${url.pathname}`;
+  } catch {
+    databaseHost = raw ? "unparseable" : null;
+  }
+  const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? null;
+  const remoteDatabase =
+    databaseHost != null && !/^(localhost|127\.0\.0\.1|\[::1\])/.test(databaseHost);
+
+  const warnings: string[] = [];
+  if (!databaseHost) {
+    warnings.push(
+      "No database configured. Link this checkout to Railway (railway login && railway link) " +
+        "so the worker inherits production configuration, or provide a local .env.",
+    );
+  }
+  if (remoteDatabase && !publicBaseUrl) {
+    // publicOrigin() falls back to http://localhost:3000 outside production, so
+    // post-publish verification would check a site that is not there.
+    warnings.push(
+      "Connected to a remote database but PUBLIC_BASE_URL is unset — published pages would be " +
+        "verified against http://localhost:3000 instead of the live site.",
+    );
+  }
+
+  return {
+    source: CONFIG_AT_BOOT.source,
+    databaseUrlFromEnvironment: CONFIG_AT_BOOT.databaseUrlFromEnvironment,
+    databaseHost,
+    remoteDatabase,
+    publicBaseUrl,
+    warnings,
+  };
+}
+
 function statusPayload() {
   const resources = sampleLocalResources(workerProcessSample?.rssBytes ?? null);
   return {
@@ -389,6 +461,7 @@ function statusPayload() {
     lastExit: host.lastExit,
     lastError: host.lastError,
     activeJobs: Array.from(host.activeJobs),
+    config: configPayload(),
     counters: {
       itemsProcessed: host.itemsProcessed,
       itemsPublished: host.itemsPublished,
@@ -861,6 +934,13 @@ async function main(): Promise<void> {
       })}\n`,
     );
     pushLog("host", `control surface listening on 127.0.0.1:${boundPort} (loopback only)`);
+    const cfg = configPayload();
+    pushLog(
+      "host",
+      `configuration source: ${cfg.source}; database ${cfg.databaseHost ?? "NOT CONFIGURED"}` +
+        `${cfg.publicBaseUrl ? `; verifying against ${cfg.publicBaseUrl}` : ""}`,
+    );
+    for (const warning of cfg.warnings) pushLog("host", `WARNING: ${warning}`);
   });
 
   // Resume a previously-ON switch: if the operator left the worker ON and the
@@ -893,6 +973,29 @@ async function main(): Promise<void> {
       // crashed/failed would keep every surface reporting "active locally" for a
       // machine that is doing nothing.
       if (host.runState !== "running") return;
+
+      // OFF is authoritative wherever it was flipped (spec §4). The pill in THIS
+      // app stops the worker directly, but the switch is a durable fact in
+      // Postgres and can be turned off from somewhere else entirely — the app on
+      // another computer, `npm run worker:local`, or an operator resetting state.
+      // Without this check the host keeps its worker child alive until the
+      // child's loop happens to notice between passes, which can be minutes of
+      // crawling, rendering and publishing after the operator said stop.
+      // Fail-open on a read error, for the same reason lease renewal does below.
+      try {
+        const master = await readMasterSwitch(prisma);
+        if (!master.on) {
+          pushLog("host", "master switch is OFF — stopping the local Admin Worker");
+          await stopWorkerChild("master switch turned OFF");
+          await shutdownLocalBrain();
+          await releaseExecutionLease(prisma, RUNTIME_ID).catch(() => undefined);
+          broadcast("status", statusPayload());
+          return;
+        }
+      } catch {
+        pushLog("host", "could not read the master switch (database unreachable) — continuing");
+      }
+
       let renewed: boolean;
       try {
         renewed = await renewExecutionLease(prisma, RUNTIME_ID);

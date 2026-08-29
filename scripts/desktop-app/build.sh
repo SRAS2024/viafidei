@@ -79,10 +79,14 @@ if [ -d "$APP" ]; then
     exit 1
   fi
 fi
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BUILD/ViaFidei" "$APP/Contents/MacOS/ViaFidei"; chmod +x "$APP/Contents/MacOS/ViaFidei"
-[ -f "$BUILD/AppIcon.icns" ] && cp "$BUILD/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
-cat > "$APP/Contents/Info.plist" <<PLIST
+# Assemble in the staging directory (a mktemp -d under /var/folders, which
+# nothing syncs), never in the destination — see the signing step below.
+STAGED="$BUILD/staged/Via Fidei.app"
+rm -rf "$STAGED"
+mkdir -p "$STAGED/Contents/MacOS" "$STAGED/Contents/Resources"
+cp "$BUILD/ViaFidei" "$STAGED/Contents/MacOS/ViaFidei"; chmod +x "$STAGED/Contents/MacOS/ViaFidei"
+[ -f "$BUILD/AppIcon.icns" ] && cp "$BUILD/AppIcon.icns" "$STAGED/Contents/Resources/AppIcon.icns"
+cat > "$STAGED/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -113,48 +117,53 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# 4. Clear quarantine + ad-hoc sign so it launches without Gatekeeper friction.
+# 4. Sign in the STAGING directory, then move the finished bundle into place.
 #
-# Two traps here, both of which silently produced an UNSIGNED app before:
+# Signing must not happen in the destination when the destination is an
+# iCloud-synced folder such as ~/Desktop. codesign refuses to sign anything
+# carrying Finder information ("resource fork, Finder information, or similar
+# detritus not allowed"), and iCloud re-adds com.apple.FinderInfo within
+# milliseconds — so signing there fails, and because the failure was previously
+# swallowed the app was installed UNSIGNED (linker-signed, Sealed Resources=none).
 #
-#   * `lipo -create` invalidates the linker's ad-hoc signature on each input
-#     slice, so the merged universal binary must be re-signed as a bundle —
-#     otherwise `codesign -dv` reports "linker-signed" with no sealed
-#     resources and Gatekeeper reports "no usable signature".
-#   * codesign REFUSES to sign anything carrying Finder info or a resource
-#     fork ("resource fork, Finder information, or similar detritus not
-#     allowed"). An iCloud-synced Desktop re-adds com.apple.FinderInfo almost
-#     immediately, so the attributes are stripped here, immediately before
-#     signing, and again on retry.
+# The staging directory is a mktemp -d under /var/folders, which nothing syncs.
+# A signature lives inside the bundle, so moving it afterwards preserves it.
 #
-# --identifier pins the code identifier to the bundle id; without it the
-# identifier is inherited from the lipo input filename (e.g. "ViaFidei-arm64"),
+# --identifier pins the code identifier to the bundle id; without it the merged
+# universal binary inherits the lipo input filename (e.g. "ViaFidei-arm64"),
 # which no longer matches the bundle the WebKit data store is keyed on.
-# Failures are reported, never swallowed: an unsigned bundle is a real defect.
-sign_app() {
-  xattr -cr "$APP" 2>/dev/null || true
-  codesign --force --sign - --identifier com.viafidei.devapp "$APP" 2>&1
-}
-
-SIGN_OUT="$(sign_app || true)"
-if ! codesign --verify --strict "$APP" >/dev/null 2>&1; then
-  # One retry: the usual cause is an extended attribute landing between the
-  # strip and the sign (iCloud/Finder), which a second pass clears.
-  sleep 1
-  SIGN_OUT="$(sign_app || true)"
-fi
-
-if codesign --verify --strict "$APP" >/dev/null 2>&1; then
-  echo "Signed (ad-hoc) and verified."
+xattr -cr "$STAGED" 2>/dev/null || true
+if SIGN_OUT="$(codesign --force --sign - --identifier com.viafidei.devapp "$STAGED" 2>&1)"; then
+  :
 else
-  echo "WARNING: could not produce a valid signature for $APP"
-  [ -n "$SIGN_OUT" ] && echo "         codesign said: $SIGN_OUT"
-  echo "         The app may still launch, but macOS will treat it as unsigned."
-  echo "         If the Desktop is iCloud-synced, build to a local folder instead:"
-  echo "           bash scripts/desktop-app/install.sh \"$HOME/Applications\""
+  echo "WARNING: codesign failed: $SIGN_OUT"
 fi
 
-rm -rf "$BUILD"
+if codesign --verify --strict "$STAGED" >/dev/null 2>&1; then
+  echo "Signed (ad-hoc) and verified in staging."
+else
+  echo "WARNING: the staged bundle did not verify; it will be installed unsigned."
+  [ -n "${SIGN_OUT:-}" ] && echo "         codesign said: $SIGN_OUT"
+fi
+
+# Move into place. ditto preserves the bundle's metadata and signature.
+rm -rf "$APP"
+mkdir -p "$OUT_DIR"
+ditto "$STAGED" "$APP"
+
+# Clear the quarantine flag so it opens without a Gatekeeper prompt, then report
+# the state at the DESTINATION. On a synced folder the sealed signature survives
+# but a later-added FinderInfo can still fail --strict; that is a different (and
+# much less serious) condition than being unsigned, so distinguish them.
+xattr -cr "$APP" 2>/dev/null || true
+if codesign --verify --strict "$APP" >/dev/null 2>&1; then
+  echo "Installed bundle verified."
+elif codesign -dv "$APP" 2>&1 | grep -q "Sealed Resources version"; then
+  echo "Installed bundle is signed; strict verification is blocked by folder metadata"
+  echo "(iCloud re-adds com.apple.FinderInfo). The app is signed and will launch."
+else
+  echo "WARNING: the installed bundle is NOT signed."
+fi
 
 # 5. Sanity check: the app can only run the Admin Worker if the repository it
 #    was built from still has its dependencies installed.

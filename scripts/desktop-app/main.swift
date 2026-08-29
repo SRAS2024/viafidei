@@ -117,17 +117,29 @@ final class LocalWorkerRuntime {
 
     func start(repoPath: String) throws {
         guard !isRunning else { return }
-        let tsx = repoPath + "/node_modules/.bin/tsx"
         let proc = Process()
         let outPipe = Pipe()
         let inPipe = Pipe()
 
-        if FileManager.default.isExecutableFile(atPath: tsx) {
-            proc.executableURL = URL(fileURLWithPath: tsx)
-            proc.arguments = ["scripts/local-worker-host.ts", "--watch-parent"]
+        // Always go through the launcher script. It decides where configuration
+        // comes from — `railway run` when this checkout is linked to the Railway
+        // project, otherwise the repository .env — so that logic lives in one
+        // readable place instead of being duplicated in Swift, and can be run
+        // and debugged from a terminal exactly as the app runs it.
+        let launcher = repoPath + "/scripts/desktop-app/launch-worker-host.sh"
+        if FileManager.default.fileExists(atPath: launcher) {
+            proc.executableURL = URL(fileURLWithPath: "/bin/bash")
+            proc.arguments = [launcher, "--watch-parent"]
         } else {
-            proc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            proc.arguments = ["npx", "--yes", "tsx", "scripts/local-worker-host.ts", "--watch-parent"]
+            // A checkout predating the launcher: fall back to the direct spawn.
+            let tsx = repoPath + "/node_modules/.bin/tsx"
+            if FileManager.default.isExecutableFile(atPath: tsx) {
+                proc.executableURL = URL(fileURLWithPath: tsx)
+                proc.arguments = ["scripts/local-worker-host.ts", "--watch-parent"]
+            } else {
+                proc.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                proc.arguments = ["npx", "--yes", "tsx", "scripts/local-worker-host.ts", "--watch-parent"]
+            }
         }
         proc.currentDirectoryURL = URL(fileURLWithPath: repoPath)
         proc.standardOutput = outPipe
@@ -352,11 +364,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     var pill: PillSwitch!
     var statusLabel: NSTextField!
     var resourceLabel: NSTextField!
+    var configLabel: NSTextField!
     var progress: NSProgressIndicator!
 
     let runtime = LocalWorkerRuntime()
     let control = ControlClient()
     var statusTimer: Timer?
+    var handshakeWatchdog: Timer?
     var dashboardURL: URL?
     var pendingSwitchOn = false
     /// The last refusal / failure worth keeping on screen. The 3-second status
@@ -387,42 +401,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         window.center()
         window.setFrameAutosaveName("ViaFideiMainWindow")
 
-        let bar = NSView(frame: NSRect(x: 0, y: rect.height - 52, width: rect.width, height: 52))
+        let bar = NSView(frame: NSRect(x: 0, y: rect.height - 62, width: rect.width, height: 62))
         bar.autoresizingMask = [.width, .minYMargin]
         bar.wantsLayer = true
         bar.layer?.backgroundColor = NSColor(calibratedRed: 0.09, green: 0.09, blue: 0.11, alpha: 1).cgColor
 
-        pill = PillSwitch(frame: NSRect(x: 14, y: 12, width: 78, height: 28))
+        pill = PillSwitch(frame: NSRect(x: 14, y: 22, width: 78, height: 28))
         pill.onToggle = { [weak self] next in self?.toggleWorker(on: next) }
         bar.addSubview(pill)
 
         statusLabel = NSTextField(labelWithString: "Admin Worker OFF")
-        statusLabel.frame = NSRect(x: 102, y: 24, width: 560, height: 16)
+        statusLabel.frame = NSRect(x: 102, y: 34, width: 700, height: 16)
         statusLabel.font = NSFont.systemFont(ofSize: 12, weight: .medium)
         statusLabel.textColor = NSColor(calibratedWhite: 0.95, alpha: 1)
         bar.addSubview(statusLabel)
 
         resourceLabel = NSTextField(labelWithString: "local runtime not started")
-        resourceLabel.frame = NSRect(x: 102, y: 8, width: 560, height: 14)
+        resourceLabel.frame = NSRect(x: 102, y: 16, width: 700, height: 14)
         resourceLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
         resourceLabel.textColor = NSColor(calibratedWhite: 0.62, alpha: 1)
         bar.addSubview(resourceLabel)
+
+        configLabel = NSTextField(labelWithString: "config: resolving…")
+        configLabel.frame = NSRect(x: 102, y: -4, width: 700, height: 13)
+        configLabel.font = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .regular)
+        configLabel.textColor = NSColor(calibratedWhite: 0.62, alpha: 1)
+        configLabel.lineBreakMode = .byTruncatingTail
+        bar.addSubview(configLabel)
 
         segmented = NSSegmentedControl(labels: ["Admin Worker", "Standard Site", "Admin Site"],
                                        trackingMode: .selectOne,
                                        target: self, action: #selector(switchView(_:)))
         segmented.selectedSegment = 0
-        segmented.frame = NSRect(x: rect.width - 386, y: 12, width: 300, height: 28)
+        segmented.frame = NSRect(x: rect.width - 386, y: 22, width: 300, height: 28)
         segmented.autoresizingMask = [.minXMargin]
         bar.addSubview(segmented)
 
         let reload = NSButton(title: "\u{21BB}", target: self, action: #selector(reloadPage))
         reload.bezelStyle = .rounded
-        reload.frame = NSRect(x: rect.width - 78, y: 12, width: 36, height: 28)
+        reload.frame = NSRect(x: rect.width - 78, y: 22, width: 36, height: 28)
         reload.autoresizingMask = [.minXMargin]
         bar.addSubview(reload)
 
-        progress = NSProgressIndicator(frame: NSRect(x: rect.width - 34, y: 16, width: 18, height: 18))
+        progress = NSProgressIndicator(frame: NSRect(x: rect.width - 34, y: 26, width: 18, height: 18))
         progress.style = .spinning
         progress.isDisplayedWhenStopped = false
         progress.autoresizingMask = [.minXMargin]
@@ -430,7 +451,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default() // persistent cookies -> admin stays logged in
-        webView = WKWebView(frame: NSRect(x: 0, y: 0, width: rect.width, height: rect.height - 52),
+        webView = WKWebView(frame: NSRect(x: 0, y: 0, width: rect.width, height: rect.height - 62),
                             configuration: config)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
@@ -479,6 +500,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     private func wireRuntime() {
         runtime.onHandshake = { [weak self] shake in
             guard let self else { return }
+            self.handshakeWatchdog?.invalidate()
+            self.handshakeWatchdog = nil
             self.control.handshake = shake
             self.dashboardURL = URL(string: "http://127.0.0.1:\(shake.port)/?token=\(shake.token)")
             self.statusLabel.stringValue = "Local runtime connected · \(shake.hostLabel)"
@@ -511,6 +534,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         }
     }
 
+    /// Watchdog for the runtime handshake. The local host prints its port and
+    /// token on stdout within a second or two of starting; if nothing arrives,
+    /// something upstream is wrong and the operator has to be told, not left
+    /// watching a spinner. The most common cause is macOS holding the launch
+    /// pending a privacy consent for the folder the repository lives in — the
+    /// open() syscall blocks until that dialog is answered, so the process sits
+    /// alive with no output.
+    private func startHandshakeWatchdog() {
+        handshakeWatchdog?.invalidate()
+        handshakeWatchdog = Timer.scheduledTimer(withTimeInterval: 25, repeats: false) { [weak self] _ in
+            guard let self, self.control.handshake == nil else { return }
+            let running = self.runtime.isRunning
+            self.statusLabel.stringValue = running
+                ? "The local runtime started but has not reported in — check for a macOS permission prompt."
+                : "The local runtime could not be started."
+            self.configLabel.stringValue = running
+                ? "macOS may be asking permission to access the folder holding the repository; approve it, then press Reload."
+                : "Check that Node is installed and 'npm install' has been run in the repository."
+            self.configLabel.textColor = NSColor(calibratedRed: 0.88, green: 0.6, blue: 0.24, alpha: 1)
+        }
+    }
+
     private func startLocalRuntime() {
         guard let repo = LocalWorkerRuntime.repositoryPath() else {
             statusLabel.stringValue =
@@ -524,6 +569,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         do {
             try runtime.start(repoPath: repo)
             statusLabel.stringValue = "Starting the local Admin Worker runtime…"
+            startHandshakeWatchdog()
             resourceLabel.stringValue = repo
         } catch {
             statusLabel.stringValue = "Could not start the local runtime: \(error.localizedDescription)"
@@ -649,6 +695,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             let counters = json["counters"] as? [String: Any] ?? [:]
             let published = counters["itemsPublished"] as? Int ?? 0
             let errors = counters["errors"] as? Int ?? 0
+
+            // Configuration provenance: which source, which database, and any
+            // warning the host raised (for example a remote database with no
+            // PUBLIC_BASE_URL, which would verify published pages against
+            // localhost). A misconfiguration must be visible, not silent.
+            if let config = json["config"] as? [String: Any] {
+                let source = config["source"] as? String ?? "unknown"
+                let db = config["databaseHost"] as? String ?? "not configured"
+                let warnings = (config["warnings"] as? [String]) ?? []
+                self.configLabel.stringValue =
+                    "config: \(source) · db \(db)"
+                    + ((config["publicBaseUrl"] as? String).map { " · verifying \($0)" } ?? "")
+                if let first = warnings.first {
+                    self.configLabel.stringValue = "⚠ " + first
+                    self.configLabel.textColor = NSColor(calibratedRed: 0.88, green: 0.6, blue: 0.24, alpha: 1)
+                } else {
+                    self.configLabel.textColor = NSColor(calibratedWhite: 0.62, alpha: 1)
+                }
+            }
             let render = (browser["available"] as? Bool ?? false)
                 ? "browser \(browser["active"] as? Int ?? 0)"
                 : "no browser"
@@ -721,6 +786,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         // Quitting the app stops the local worker. It does NOT move execution
         // back to Railway — the website simply carries on without the worker.
         statusTimer?.invalidate()
+        handshakeWatchdog?.invalidate()
         runtime.stop()
     }
 }
