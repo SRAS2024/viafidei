@@ -49,24 +49,28 @@ export async function runCuratedIngest(
 ): Promise<CuratedIngestResult> {
   const limit = opts.limit ?? DEFAULT_CURATED_INGEST_BATCH;
   const res = await seedCuratedContent(prisma, { limit });
-  const exhausted = res.published === 0;
+  const updated = res.updated ?? 0;
+  const exhausted = res.published === 0 && updated === 0;
 
-  // Only log when the worker actually did something (published this pass) or
-  // hit a problem — a steady stream of "nothing to do" rows would be noise
-  // once the curated base is fully live.
-  if (res.published > 0 || res.failed > 0) {
+  // Only log when the worker actually did something (published or updated
+  // this pass) or hit a problem — a steady stream of "nothing to do" rows
+  // would be noise once the curated base is fully live.
+  if (res.published > 0 || updated > 0 || res.failed > 0) {
     await writeAdminWorkerLog(prisma, {
       passId: opts.passId,
       category: "CONTENT_BUILD",
       severity: res.failed > 0 ? "WARN" : "INFO",
       eventName: "curated_knowledge_ingest",
       message: `Curated knowledge ingest: published ${res.published} new item(s)${
+        updated > 0 ? `, re-published ${updated} updated item(s)` : ""
+      }${
         res.failed > 0 ? `, ${res.failed} failed` : ""
       } from the worker's ground-truth knowledge base (${Object.entries(res.byType)
         .map(([t, n]) => `${t}:${n}`)
         .join(", ")}).`,
       safeMetadata: {
         published: res.published,
+        updated,
         alreadyPublished: res.alreadyPublished,
         failed: res.failed,
         byType: res.byType,

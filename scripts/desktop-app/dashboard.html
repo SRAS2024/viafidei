@@ -451,6 +451,11 @@
           notices.push(
             "⚠ The local worker exited unexpectedly and is being restarted here — execution did not move to the cloud.",
           );
+        // Configuration provenance: a worker pointed at the wrong database (a
+        // laptop .env → localhost) or at Railway's private network must be the
+        // first thing on screen, not something to discover from empty growth.
+        const cfg = s.config || {};
+        for (const w of cfg.warnings || []) notices.push("⚠ " + w);
         if (
           s.browser &&
           s.browser.available === false &&
@@ -466,7 +471,15 @@
         const strip = document.getElementById("strip");
         const w = s.worker;
         const br = s.browser || {};
+        const db = cfg.database || {};
         const items = [
+          [
+            "Database",
+            db.reachable ? "connected" : cfg.databaseHost ? "unreachable" : "not configured",
+            (cfg.databaseHost || "—") +
+              (db.reachable && db.latencyMs != null ? " · " + db.latencyMs + "ms" : "") +
+              (cfg.source ? " · via " + cfg.source : ""),
+          ],
           [
             "Worker memory",
             w ? fmtBytes(w.rssBytes) : "—",

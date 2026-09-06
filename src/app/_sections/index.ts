@@ -6,3 +6,4 @@ export { HomeWorkerFeatured } from "./HomeWorkerFeatured";
 export { HomeNewcomer } from "./HomeNewcomer";
 export { HomeToday } from "./HomeToday";
 export { LiturgicalToday } from "./LiturgicalToday";
+export { HomePrayerOfTheDay } from "./HomePrayerOfTheDay";

@@ -9,6 +9,7 @@ import {
   HomeWorkerFeatured,
   HomeNewcomer,
   HomeToday,
+  HomePrayerOfTheDay,
   LiturgicalToday,
 } from "./_sections";
 import type { FeaturedPrayer } from "./_sections/HomeFeatured";
@@ -43,6 +44,7 @@ export default async function HomePage() {
       )}
       <HomeNewcomer t={t} />
       <LiturgicalToday />
+      <HomePrayerOfTheDay />
       <HomeToday />
     </div>
   );

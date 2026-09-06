@@ -81,6 +81,7 @@ import { localHostLabel, sampleLocalResources } from "../src/lib/admin-worker/lo
 import { loadCommandCenterSnapshot } from "../src/lib/admin-worker/command-center";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
 import { MAX_FILE_BYTES } from "../src/lib/admin-worker/file-extractors";
+import { appConfig } from "../src/lib/config";
 import { prisma } from "../src/lib/db/client";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -177,6 +178,7 @@ function startWorkerChild(): void {
   ];
 
   host.runState = "starting";
+  ensurePublicBaseUrl();
   pushLog("host", `starting the Admin Worker loop locally (${cmd} ${args.join(" ")})`);
 
   // detached: the worker gets its own process group, so stopping the switch can
@@ -401,25 +403,108 @@ function sampleWorkerProcessTree(): void {
   );
 }
 
+/** Host[:port]/database of the configured connection string — never the credentials. */
+function describeDatabaseHost(raw: string): string | null {
+  try {
+    const url = new URL(raw);
+    return `${url.hostname}${url.port ? `:${url.port}` : ""}${url.pathname}`;
+  } catch {
+    return raw ? "unparseable" : null;
+  }
+}
+
+function isLocalDatabaseHost(databaseHost: string | null): boolean {
+  return databaseHost != null && /^(localhost|127\.0\.0\.1|\[::1\])/.test(databaseHost);
+}
+
+/**
+ * Result of the last database preflight. The worker must never be started
+ * against a database that cannot be reached: it would crash-loop five times,
+ * release the lease and report "failed" with a stack trace, when the real
+ * problem is one line of configuration. Probed at boot, before every switch-ON,
+ * and on demand from the console.
+ */
+let dbProbe: { reachable: boolean; latencyMs: number | null; error: string | null; at: string } = {
+  reachable: false,
+  latencyMs: null,
+  error: "not checked yet",
+  at: new Date(0).toISOString(),
+};
+
+async function probeDatabase(timeoutMs = 15_000): Promise<typeof dbProbe> {
+  const started = Date.now();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      prisma.$queryRaw`SELECT 1`,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`no answer from the database within ${timeoutMs / 1000}s`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+    dbProbe = {
+      reachable: true,
+      latencyMs: Date.now() - started,
+      error: null,
+      at: new Date().toISOString(),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    dbProbe = {
+      reachable: false,
+      latencyMs: null,
+      // Prisma's connection errors quote the host but never the password; keep
+      // the first line only so the console shows the cause, not a stack.
+      error:
+        message
+          .split("\n")
+          .find((l) => l.trim())
+          ?.trim()
+          .slice(0, 300) ?? "unreachable",
+      at: new Date().toISOString(),
+    };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+  return dbProbe;
+}
+
+/**
+ * Where published pages are verified. A worker connected to the production
+ * database is working on the production site, so when nothing sets
+ * PUBLIC_BASE_URL the canonical public origin is the only sensible default —
+ * `publicOrigin()` would otherwise fall back to http://localhost:3000 outside
+ * NODE_ENV=production and every post-publish probe would check a site that is
+ * not there. Applied to this process (operator work runs in-process) and
+ * inherited by the worker child.
+ */
+function ensurePublicBaseUrl(): void {
+  if (process.env.PUBLIC_BASE_URL) return;
+  const databaseHost = describeDatabaseHost(process.env.DATABASE_URL ?? "");
+  if (databaseHost && !isLocalDatabaseHost(databaseHost)) {
+    process.env.PUBLIC_BASE_URL = appConfig.canonicalUrl;
+  }
+}
+
 /**
  * Non-sensitive description of the effective configuration: which source it
  * came from, which database host it points at (host and database name only —
- * never the credentials), and whether published pages will be verified against
- * the real site. Surfaced in the app so a misconfiguration is visible rather
- * than silently wrong.
+ * never the credentials), whether that database answered, and where published
+ * pages will be verified. Surfaced in the app so a misconfiguration is visible
+ * rather than silently wrong — in particular the trap where a laptop .env
+ * points at a LOCAL Postgres and the worker "publishes" into it while every
+ * dashboard reports success.
  */
 function configPayload() {
   const raw = process.env.DATABASE_URL ?? "";
-  let databaseHost: string | null = null;
-  try {
-    const url = new URL(raw);
-    databaseHost = `${url.hostname}${url.port ? `:${url.port}` : ""}${url.pathname}`;
-  } catch {
-    databaseHost = raw ? "unparseable" : null;
-  }
+  const databaseHost = describeDatabaseHost(raw);
   const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? null;
-  const remoteDatabase =
-    databaseHost != null && !/^(localhost|127\.0\.0\.1|\[::1\])/.test(databaseHost);
+  const localDatabase = isLocalDatabaseHost(databaseHost);
+  const remoteDatabase = databaseHost != null && !localDatabase;
+  const route = process.env.VIAFIDEI_DB_ROUTE ?? "unknown";
+  const internalHost = /\.railway\.internal/.test(raw);
 
   const warnings: string[] = [];
   if (!databaseHost) {
@@ -427,10 +512,22 @@ function configPayload() {
       "No database configured. Link this checkout to Railway (railway login && railway link) " +
         "so the worker inherits production configuration, or provide a local .env.",
     );
+  } else if (internalHost) {
+    warnings.push(
+      `DATABASE_URL points at Railway's private network (${databaseHost}), which this computer cannot reach. ` +
+        "Link the Railway project (railway link) so the launcher can resolve the Postgres service's " +
+        "DATABASE_PUBLIC_URL, then switch the Admin Worker off and on again.",
+    );
+  } else if (localDatabase) {
+    warnings.push(
+      `The worker is pointed at a LOCAL database (${databaseHost}) from the repository .env — ` +
+        "production (etviafidei.com) is NOT being updated. Run `railway login` and `railway link` " +
+        "in the repository, then relaunch the app.",
+    );
+  } else if (!dbProbe.reachable && dbProbe.error) {
+    warnings.push(`The database at ${databaseHost} is not answering: ${dbProbe.error}`);
   }
   if (remoteDatabase && !publicBaseUrl) {
-    // publicOrigin() falls back to http://localhost:3000 outside production, so
-    // post-publish verification would check a site that is not there.
     warnings.push(
       "Connected to a remote database but PUBLIC_BASE_URL is unset — published pages would be " +
         "verified against http://localhost:3000 instead of the live site.",
@@ -442,6 +539,8 @@ function configPayload() {
     databaseUrlFromEnvironment: CONFIG_AT_BOOT.databaseUrlFromEnvironment,
     databaseHost,
     remoteDatabase,
+    route,
+    database: dbProbe,
     publicBaseUrl,
     warnings,
   };
@@ -670,10 +769,33 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
         return;
       }
 
+      case "GET /api/db-check": {
+        const probe = await withJob("database-check", () => probeDatabase());
+        json(res, 200, { ...probe, config: configPayload() });
+        return;
+      }
+
       case "POST /api/switch": {
         const body = await readJson<{ on?: boolean; actor?: string }>(req);
         const on = body.on === true;
         if (on) {
+          // Preflight: never start a worker against a database that does not
+          // answer (or a local one masquerading as production). The refusal is
+          // the whole message — the switch stays OFF and the reason is shown.
+          const probe = await probeDatabase();
+          const cfg = configPayload();
+          const blocking = cfg.warnings.find((w) =>
+            /private network|LOCAL database|No database|not answering/.test(w),
+          );
+          if (!probe.reachable || blocking) {
+            json(res, 503, {
+              error: "database_unavailable",
+              detail:
+                blocking ??
+                `The database at ${cfg.databaseHost ?? "?"} is not answering: ${probe.error ?? "unreachable"}. The Admin Worker was not started.`,
+            });
+            return;
+          }
           // Claim the lease FIRST. The master switch is shared state: if another
           // computer is already executing, writing the switch here (and then
           // rolling it back to OFF) would stop that machine's worker mid-pass.
@@ -934,19 +1056,42 @@ async function main(): Promise<void> {
       })}\n`,
     );
     pushLog("host", `control surface listening on 127.0.0.1:${boundPort} (loopback only)`);
+  });
+
+  // Decide where published pages are verified BEFORE anything reads the
+  // configuration (the worker child inherits this process's environment).
+  ensurePublicBaseUrl();
+
+  // Preflight the database once at boot so the console can say, in one line,
+  // whether this Mac is actually talking to production.
+  await probeDatabase();
+  {
     const cfg = configPayload();
     pushLog(
       "host",
-      `configuration source: ${cfg.source}; database ${cfg.databaseHost ?? "NOT CONFIGURED"}` +
+      `configuration source: ${cfg.source} (${cfg.route}); database ${cfg.databaseHost ?? "NOT CONFIGURED"} ` +
+        `${cfg.database.reachable ? `reachable in ${cfg.database.latencyMs}ms` : `UNREACHABLE (${cfg.database.error ?? "?"})`}` +
         `${cfg.publicBaseUrl ? `; verifying against ${cfg.publicBaseUrl}` : ""}`,
     );
     for (const warning of cfg.warnings) pushLog("host", `WARNING: ${warning}`);
-  });
+  }
 
   // Resume a previously-ON switch: if the operator left the worker ON and the
   // application is relaunched, pick the work back up where Postgres says it was.
+  // Never resume against a database that is unreachable or plainly not
+  // production — the switch is durable, so it stays ON and the console shows why.
   const master = await readMasterSwitch(prisma).catch(() => ({ on: false }) as const);
-  if (master.on) {
+  const bootConfig = configPayload();
+  const bootBlocked = bootConfig.warnings.find((w) =>
+    /private network|LOCAL database|No database|not answering/.test(w),
+  );
+  if (master.on && (bootBlocked || !bootConfig.database.reachable)) {
+    host.runState = "failed";
+    host.failureReason =
+      bootBlocked ??
+      `The database at ${bootConfig.databaseHost ?? "?"} is not answering — the Admin Worker was not started.`;
+    pushLog("host", `cannot resume: ${host.failureReason}`);
+  } else if (master.on) {
     const claim = await acquireExecutionLease(prisma, {
       runtimeId: RUNTIME_ID,
       origin: "LOCAL_MACBOOK",

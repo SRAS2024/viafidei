@@ -47,8 +47,12 @@ export const CONTENT_LANES: LaneDef[] = [
     growth: true,
     async run({ prisma, passId }) {
       const { runCuratedIngest } = await import("./curated-ingest");
-      const published = (await runCuratedIngest(prisma, { passId })).published;
-      return { published, detail: `curated ingest +${published}` };
+      const r = await runCuratedIngest(prisma, { passId });
+      return {
+        published: r.published,
+        advanced: r.updated ?? 0,
+        detail: `curated ingest +${r.published}${r.updated ? `, ${r.updated} updated` : ""}`,
+      };
     },
   },
   {
@@ -240,6 +244,21 @@ export const OPS_LANES: LaneDef[] = [
       const { runCustodyPass } = await import("./custody");
       await runCustodyPass(prisma, { passId });
       return { detail: "content custody ran" };
+    },
+  },
+  {
+    // Self-healing display repairs on already-published rows: titles that are
+    // still slugs (the pre-fix structured saints) and subtitles that fell
+    // behind the generator. Bounded per pass; every title repair is versioned.
+    name: "maint-hygiene",
+    capacity: 1,
+    async run({ prisma, passId }) {
+      const { runContentHygiene } = await import("./content-hygiene");
+      const r = await runContentHygiene(prisma, { passId });
+      return {
+        advanced: r.titlesRepaired + r.subtitlesRefreshed,
+        detail: `hygiene: ${r.titlesRepaired} title(s) repaired, ${r.subtitlesRefreshed} subtitle(s) refreshed`,
+      };
     },
   },
   {
