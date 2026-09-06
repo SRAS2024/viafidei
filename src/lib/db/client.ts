@@ -32,10 +32,38 @@ export function databaseUrlWithPool(raw: string | undefined): string | undefined
     if (!url.searchParams.has("pool_timeout")) {
       url.searchParams.set("pool_timeout", process.env.PRISMA_POOL_TIMEOUT ?? "20");
     }
+    // A database reached over the internet (the Admin Worker on the operator's
+    // Mac talking to Railway's public TCP proxy) must never fall back to a
+    // plaintext session: Prisma's default `sslmode=prefer` silently downgrades
+    // when TLS negotiation fails. Require TLS for every non-local host (Railway's
+    // Postgres presents its own certificate, which `require` accepts without a
+    // CA bundle), and bound the connect attempt so an unreachable host fails in
+    // seconds rather than hanging a pass. Explicit parameters in the URL win.
+    if (!isLocalHost(url.hostname)) {
+      if (!url.searchParams.has("sslmode")) url.searchParams.set("sslmode", "require");
+      if (!url.searchParams.has("connect_timeout")) {
+        url.searchParams.set("connect_timeout", process.env.PRISMA_CONNECT_TIMEOUT ?? "15");
+      }
+    }
     return url.toString();
   } catch {
     return raw; // non-URL DSN — leave it untouched
   }
+}
+
+/** localhost / loopback / private-network hosts get no forced TLS. */
+export function isLocalHost(hostname: string): boolean {
+  const h = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  return (
+    h === "localhost" ||
+    h === "::1" ||
+    h.startsWith("127.") ||
+    h.startsWith("10.") ||
+    h.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(h) ||
+    h.endsWith(".internal") ||
+    h.endsWith(".local")
+  );
 }
 
 function createPrismaClient(): PrismaClient {

@@ -219,8 +219,8 @@ describe("master switch + execution lease", () => {
       origin: "LOCAL_MACBOOK",
       host: HOST,
     });
-    expect(await renewExecutionLease(prisma, "local-1")).toBe(true);
-    expect(await renewExecutionLease(prisma, "someone-else")).toBe(false);
+    expect(await renewExecutionLease(prisma, "local-1")).toBe("renewed");
+    expect(await renewExecutionLease(prisma, "someone-else")).toBe("lost");
 
     await releaseExecutionLease(prisma, "local-1");
     expect(await holdsExecutionLease(prisma, "local-1")).toBe(false);
@@ -239,5 +239,51 @@ describe("master switch + execution lease", () => {
     const status = await readExecutionStatus(prisma);
     expect(status.state).toBe("OFF");
     expect(status.executingLocally).toBe(false);
+  });
+});
+
+describe("execution host — an unreachable database is never mistaken for OFF", () => {
+  const broken = {
+    adminWorkerMemory: {
+      findUnique: async () => {
+        throw new Error("P1001: Can't reach database server at `db.example`:5432");
+      },
+      upsert: async () => {
+        throw new Error("P1001");
+      },
+      updateMany: async () => {
+        throw new Error("P1001");
+      },
+      delete: async () => {
+        throw new Error("P1001");
+      },
+    },
+  } as unknown as Parameters<typeof readMasterSwitch>[0];
+
+  it("readMasterSwitch reports known:false with the error instead of OFF", async () => {
+    const m = await readMasterSwitch(broken);
+    expect(m.known).toBe(false);
+    expect(m.on).toBe(false);
+    expect(m.error).toMatch(/P1001/);
+  });
+
+  it("renewExecutionLease answers 'unknown', not 'lost'", async () => {
+    expect(await renewExecutionLease(broken, "local-1")).toBe("unknown");
+  });
+
+  it("readExecutionStatus is marked unknown and says why", async () => {
+    const s = await readExecutionStatus(broken);
+    expect(s.known).toBe(false);
+    expect(s.label).toMatch(/could not be read/);
+  });
+
+  it("acquireExecutionLease refuses with a database reason rather than claiming", async () => {
+    const claim = await acquireExecutionLease(broken, {
+      runtimeId: "local-1",
+      origin: "LOCAL_MACBOOK",
+      host: HOST,
+    });
+    expect(claim.acquired).toBe(false);
+    expect(claim.refusedBecause).toMatch(/could not be reached/);
   });
 });

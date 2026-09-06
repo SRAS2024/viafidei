@@ -227,8 +227,24 @@ function startWorkerChild(): void {
     // work back to Railway (spec §5: no automatic cloud failover).
     if (!wasStopping) {
       void (async () => {
-        const master = await readMasterSwitch(prisma).catch(() => ({ on: false }) as const);
-        if (!master.on || shuttingDown) return;
+        const master = await readMasterSwitch(prisma).catch(
+          () => ({ on: false, known: false }) as const,
+        );
+        if (shuttingDown) return;
+        if (!master.known) {
+          // The database is unreachable: neither restart-loop nor give up. Wait
+          // for it to come back and re-check (the lease tick keeps probing).
+          host.runState = "crashed";
+          host.failureReason =
+            "The worker stopped and the database cannot be reached right now — it will be restarted when the database answers again.";
+          pushLog("host", host.failureReason);
+          broadcast("status", statusPayload());
+          setTimeout(() => {
+            if (!shuttingDown && !host.child) void resumeIfSwitchOn();
+          }, 30_000).unref();
+          return;
+        }
+        if (!master.on) return;
         host.restarts += 1;
 
         if (host.restarts > MAX_CONSECUTIVE_RESTARTS) {
@@ -319,6 +335,30 @@ async function stopWorkerChild(reason: string): Promise<void> {
   });
   host.child = null;
   host.runState = "off";
+}
+
+/**
+ * After a database outage: if the switch is still ON (a durable fact we can
+ * now read again), start the worker; otherwise stay off. Used by the
+ * crash-handler's deferred retry so an outage never ends in "gave up".
+ */
+async function resumeIfSwitchOn(): Promise<void> {
+  const master = await readMasterSwitch(prisma).catch(() => ({ on: false, known: false }) as const);
+  if (!master.known) {
+    setTimeout(() => {
+      if (!shuttingDown && !host.child) void resumeIfSwitchOn();
+    }, 30_000).unref();
+    return;
+  }
+  if (master.on && !host.child) {
+    host.failureReason = null;
+    pushLog("host", "database reachable again and the switch is ON — restarting the worker");
+    startWorkerChild();
+  } else if (!master.on) {
+    host.runState = "off";
+    host.failureReason = null;
+    broadcast("status", statusPayload());
+  }
 }
 
 /**
@@ -1080,7 +1120,7 @@ async function main(): Promise<void> {
   // application is relaunched, pick the work back up where Postgres says it was.
   // Never resume against a database that is unreachable or plainly not
   // production — the switch is durable, so it stays ON and the console shows why.
-  const master = await readMasterSwitch(prisma).catch(() => ({ on: false }) as const);
+  const master = await readMasterSwitch(prisma).catch(() => ({ on: false, known: false }) as const);
   const bootConfig = configPayload();
   const bootBlocked = bootConfig.warnings.find((w) =>
     /private network|LOCAL database|No database|not answering/.test(w),
@@ -1129,6 +1169,10 @@ async function main(): Promise<void> {
       // Fail-open on a read error, for the same reason lease renewal does below.
       try {
         const master = await readMasterSwitch(prisma);
+        if (!master.known) {
+          pushLog("host", "could not read the master switch (database unreachable) — continuing");
+          return;
+        }
         if (!master.on) {
           pushLog("host", "master switch is OFF — stopping the local Admin Worker");
           await stopWorkerChild("master switch turned OFF");
@@ -1141,17 +1185,15 @@ async function main(): Promise<void> {
         pushLog("host", "could not read the master switch (database unreachable) — continuing");
       }
 
-      let renewed: boolean;
-      try {
-        renewed = await renewExecutionLease(prisma, RUNTIME_ID);
-      } catch {
+      const renewed = await renewExecutionLease(prisma, RUNTIME_ID).catch(() => "unknown" as const);
+      if (renewed === "unknown") {
         // A transient Postgres error is NOT proof that someone took the lease.
         // The loop fails open on the identical error; do the same here rather
         // than killing a healthy worker over one bad round-trip.
         pushLog("host", "lease renewal failed (database unreachable) — keeping the worker running");
         return;
       }
-      if (!renewed) {
+      if (renewed === "lost") {
         pushLog(
           "host",
           "execution lease is held by another runtime — stopping the local worker to avoid double execution",

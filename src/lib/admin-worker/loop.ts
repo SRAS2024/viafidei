@@ -154,11 +154,14 @@ async function checkLoopAuthority(
 ): Promise<{ ok: boolean; reason: string }> {
   try {
     const status = await readExecutionStatus(prisma);
+    // An unreadable database is not a decision: keep working and try again on
+    // the next pass (the lease TTL is generous enough to ride out a blip).
+    if (!status.known) return { ok: true, reason: "" };
     if (!status.switch.on) {
       return { ok: false, reason: "the master switch is OFF (no cloud failover — spec §5)." };
     }
     const renewed = await renewExecutionLease(prisma, workerId);
-    if (!renewed) {
+    if (renewed === "lost") {
       return {
         ok: false,
         reason: `the execution lease is held by ${status.lease?.runtimeId ?? "another runtime"}.`,

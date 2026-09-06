@@ -128,6 +128,13 @@ async function claimExecutionAuthority(args: ReturnType<typeof parseArgs>): Prom
   }
 
   const master = await readMasterSwitch(prisma);
+  if (!master.known) {
+    console.error(
+      `[admin-worker] refusing to run: the database could not be reached (${master.error ?? "error"}).`,
+    );
+    process.exitCode = 4;
+    return false;
+  }
   if (!master.on) {
     if (args.switchOn) {
       await setMasterSwitch(prisma, { on: true, actor: "cli", from: "run-worker" });
@@ -169,7 +176,9 @@ async function main() {
     // Exit NON-ZERO. Refusing to run is a failure from the caller's point of
     // view: a cron entry, deploy hook or script wrapping `npm run worker` must
     // be able to notice that no work happened instead of reading success.
-    process.exitCode = 3;
+    // Exit 4 (set above) means "database unreachable" — a different problem
+    // from "switch OFF / lease held" (3), and the host treats it differently.
+    if (process.exitCode !== 4) process.exitCode = 3;
     return;
   }
 

@@ -33,6 +33,7 @@ import { isBrainEnabled } from "./intelligence";
 import { writeAdminWorkerLog } from "./logs";
 import { publicRouteFor } from "./public-routes";
 import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
+import { derivedColumnsFor } from "@/lib/content-shared/derived-columns";
 import { evaluatePublishGate } from "./publisher";
 import { recordReasoningEdge } from "./reasoning-graph";
 import type { QualityInputs } from "./quality";
@@ -482,6 +483,15 @@ export async function runPublishOrchestrator(
   // confirms this checksum is actually being served from the public route.
   const { computeContentChecksum } = await import("./cache-freshness");
   const contentChecksum = computeContentChecksum(input.title, payload);
+  // Indexed query columns (feast day, sort year, subtype, geo, provenance) are
+  // derived from the payload here, at the single publish choke point, so every
+  // path that publishes writes them identically.
+  const derived = derivedColumnsFor(
+    input.contentType,
+    (payload && typeof payload === "object" && !Array.isArray(payload)
+      ? (payload as Record<string, unknown>)
+      : null) ?? null,
+  );
 
   // 4. Duplicate check (slug + content type — schema-unique).
   const existing = await prisma.publishedContent
@@ -517,6 +527,7 @@ export async function runPublishOrchestrator(
             fields: (input.payload as Record<string, unknown> | null) ?? {},
           }),
           contentChecksum,
+          ...derived,
         },
       })
       .catch(() => null);
@@ -563,6 +574,7 @@ export async function runPublishOrchestrator(
         publishedAt: new Date(),
         contentChecksum,
         version: 1,
+        ...derived,
       },
     })
     .catch((e) => {

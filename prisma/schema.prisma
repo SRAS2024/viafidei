@@ -960,6 +960,19 @@ model PublishedContent {
   // (and repairing) when stale content is still cached.
   contentChecksum String?
   version         Int                  @default(1)
+  // Query columns derived from the payload at publish time (see
+  // src/lib/content-shared/derived-columns.ts) so the site's hot filters run
+  // as indexed scans: saints by feast day, chronological order, filter chips by
+  // kind, parishes by location, structured-source provenance for dedup.
+  feastMonth      Int?
+  feastDayOfMonth Int?
+  sortYear        Int?
+  subtype         String?
+  latitude        Float?
+  longitude       Float?
+  region          String?
+  sourceRef       String?
+  addressKey      String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
@@ -967,6 +980,13 @@ model PublishedContent {
   @@index([contentType, isPublished])
   @@index([isPublished])
   @@index([authorityLevel])
+  @@index([contentType, feastMonth, feastDayOfMonth])
+  @@index([contentType, subtype])
+  @@index([contentType, sortYear, title])
+  @@index([latitude, longitude])
+  @@index([contentType, title])
+  @@index([sourceRef])
+  @@index([addressKey])
 }
 
 // =============================================================================

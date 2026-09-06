@@ -28,6 +28,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
+import { derivedColumnsFor, type DerivedColumns } from "@/lib/content-shared/derived-columns";
 
 import { computeContentChecksum } from "./cache-freshness";
 import { snapshotPublishedContent } from "./content-protection";
@@ -185,16 +186,37 @@ async function writeCursor(prisma: PrismaClient, afterId: string): Promise<void>
     .catch(() => undefined);
 }
 
-async function refreshSubtitles(prisma: PrismaClient, limit: number): Promise<number> {
+type DerivedKey = keyof DerivedColumns;
+const DERIVED_KEYS: DerivedKey[] = [
+  "feastMonth",
+  "feastDayOfMonth",
+  "sortYear",
+  "subtype",
+  "latitude",
+  "longitude",
+  "region",
+  "sourceRef",
+  "addressKey",
+];
+
+/**
+ * Rolling sweep: re-derive the subtitle AND the indexed query columns for a
+ * bounded batch, writing only rows where something actually changed. This is
+ * how rows published before a column existed (or before a generator improved)
+ * catch up without a one-off script — the worker keeps its own catalog honest.
+ */
+async function refreshDerived(prisma: PrismaClient, limit: number): Promise<number> {
   const afterId = await readCursor(prisma);
-  let rows: Array<{
-    id: string;
-    contentType: string;
-    slug: string;
-    title: string;
-    subtitle: string | null;
-    payload: unknown;
-  }> = [];
+  let rows: Array<
+    {
+      id: string;
+      contentType: string;
+      slug: string;
+      title: string;
+      subtitle: string | null;
+      payload: unknown;
+    } & Partial<DerivedColumns>
+  > = [];
   try {
     rows = await prisma.publishedContent.findMany({
       where: { isPublished: true, ...(afterId ? { id: { gt: afterId } } : {}) },
@@ -207,6 +229,15 @@ async function refreshSubtitles(prisma: PrismaClient, limit: number): Promise<nu
         title: true,
         subtitle: true,
         payload: true,
+        feastMonth: true,
+        feastDayOfMonth: true,
+        sortYear: true,
+        subtype: true,
+        latitude: true,
+        longitude: true,
+        region: true,
+        sourceRef: true,
+        addressKey: true,
       },
     });
   } catch {
@@ -227,9 +258,15 @@ async function refreshSubtitles(prisma: PrismaClient, limit: number): Promise<nu
       title: row.title,
       fields: payload,
     });
-    if (subtitle === (row.subtitle ?? "")) continue;
+    const derived = derivedColumnsFor(String(row.contentType), payload);
+    const data: Record<string, unknown> = {};
+    if (subtitle !== (row.subtitle ?? "")) data.subtitle = subtitle;
+    for (const key of DERIVED_KEYS) {
+      if ((row[key] ?? null) !== derived[key]) data[key] = derived[key];
+    }
+    if (Object.keys(data).length === 0) continue;
     try {
-      await prisma.publishedContent.update({ where: { id: row.id }, data: { subtitle } });
+      await prisma.publishedContent.update({ where: { id: row.id }, data });
       refreshed += 1;
     } catch {
       /* next pass */
@@ -250,6 +287,6 @@ export async function runContentHygiene(
   const titleLimit = opts.titleLimit ?? 100;
   const subtitleLimit = opts.subtitleLimit ?? 200;
   const titlesRepaired = await repairSlugTitles(prisma, titleLimit, opts.passId).catch(() => 0);
-  const subtitlesRefreshed = await refreshSubtitles(prisma, subtitleLimit).catch(() => 0);
+  const subtitlesRefreshed = await refreshDerived(prisma, subtitleLimit).catch(() => 0);
   return { titlesRepaired, subtitlesRefreshed, scanned: titleLimit + subtitleLimit };
 }

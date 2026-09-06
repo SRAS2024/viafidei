@@ -27,6 +27,8 @@
 
 import type { PrismaClient, Prisma } from "@prisma/client";
 
+import { derivedColumnsFor } from "@/lib/content-shared/derived-columns";
+
 import { computeContentChecksum } from "./cache-freshness";
 import { writeAdminWorkerLog } from "./logs";
 
@@ -295,6 +297,7 @@ export async function applyProtectedContentUpdate(
         title: newTitle,
         ...(input.proposedSubtitle !== undefined ? { subtitle: input.proposedSubtitle } : {}),
         contentChecksum: computeContentChecksum(newTitle, input.proposedPayload),
+        ...derivedColumnsFor(String(row.contentType), input.proposedPayload),
       },
     });
   } catch {
@@ -343,6 +346,12 @@ export async function restorePublishedContentVersion(
         payload: version.payload as Prisma.InputJsonValue,
         contentChecksum:
           version.contentChecksum ?? computeContentChecksum(version.title, version.payload),
+        ...derivedColumnsFor(
+          String(version.contentType),
+          (version.payload && typeof version.payload === "object" && !Array.isArray(version.payload)
+            ? (version.payload as Record<string, unknown>)
+            : null) ?? null,
+        ),
       },
     });
     await writeAdminWorkerLog(prisma, {

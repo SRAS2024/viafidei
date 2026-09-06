@@ -67,6 +67,14 @@ export interface MasterSwitch {
   changedBy: string | null;
   /** Where the switch was flipped from, e.g. "swift-app". */
   changedFrom: string | null;
+  /**
+   * False when the database could not be read: `on` is then only a default
+   * (false), NOT a durable fact. Callers that stop work on "OFF" must treat
+   * `known: false` as "keep doing what you were doing" and surface the error.
+   */
+  known: boolean;
+  /** The database error when `known` is false. */
+  error?: string;
 }
 
 export type ExecutionState =
@@ -89,6 +97,9 @@ export interface ExecutionStatus {
   executingLocally: boolean;
   /** Human-readable one-liner for dashboards and diagnostics. */
   label: string;
+  /** False when the database could not be read — `state` is then unknown, not OFF. */
+  known: boolean;
+  error?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -100,13 +111,31 @@ interface RawRow {
   updatedAt: Date;
 }
 
+/**
+ * Read a memory row. A database error is NOT the same thing as "no row": the
+ * former is a transient fact about the network, the latter a durable fact about
+ * the switch or lease. Swallowing the error as null made every caller read an
+ * unreachable database as "switch OFF" / "lease lost" and stop a healthy worker
+ * (or refuse to start one) over a single bad round-trip. Errors propagate;
+ * every caller decides — and says — how it fails.
+ */
 async function readRow(prisma: PrismaClient, key: string): Promise<RawRow | null> {
-  return prisma.adminWorkerMemory
-    .findUnique({
-      where: { memoryType_memoryKey: { memoryType: MEMORY_TYPE, memoryKey: key } },
-      select: { memoryValue: true, updatedAt: true },
-    })
-    .catch(() => null);
+  return prisma.adminWorkerMemory.findUnique({
+    where: { memoryType_memoryKey: { memoryType: MEMORY_TYPE, memoryKey: key } },
+    select: { memoryValue: true, updatedAt: true },
+  });
+}
+
+/** True for a Prisma/network failure (as opposed to a normal null row). */
+function describeDbError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  return (
+    message
+      .split("\n")
+      .find((l) => l.trim())
+      ?.trim()
+      .slice(0, 240) ?? "database error"
+  );
 }
 
 async function writeRow(prisma: PrismaClient, key: string, value: object): Promise<void> {
@@ -164,15 +193,33 @@ function leaseAge(lease: ExecutionLease | null): number | null {
 /* master switch                                                       */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Read the master switch. Never throws: when the database cannot be read the
+ * result carries `known: false` (and the error) so that an unreachable
+ * database is never mistaken for a deliberate OFF.
+ */
 export async function readMasterSwitch(prisma: PrismaClient): Promise<MasterSwitch> {
-  const row = await readRow(prisma, SWITCH_KEY);
+  let row: RawRow | null;
+  try {
+    row = await readRow(prisma, SWITCH_KEY);
+  } catch (err) {
+    return {
+      on: false,
+      changedAt: null,
+      changedBy: null,
+      changedFrom: null,
+      known: false,
+      error: describeDbError(err),
+    };
+  }
   const rec = asRecord(row?.memoryValue);
-  if (!rec) return { on: false, changedAt: null, changedBy: null, changedFrom: null };
+  if (!rec) return { on: false, changedAt: null, changedBy: null, changedFrom: null, known: true };
   return {
     on: rec.on === true,
     changedAt: typeof rec.changedAt === "string" ? rec.changedAt : null,
     changedBy: typeof rec.changedBy === "string" ? rec.changedBy : null,
     changedFrom: typeof rec.changedFrom === "string" ? rec.changedFrom : null,
+    known: true,
   };
 }
 
@@ -180,14 +227,14 @@ export async function setMasterSwitch(
   prisma: PrismaClient,
   opts: { on: boolean; actor?: string; from?: string },
 ): Promise<MasterSwitch> {
-  const next: MasterSwitch = {
+  const stored = {
     on: opts.on,
     changedAt: new Date().toISOString(),
     changedBy: opts.actor ?? "operator",
     changedFrom: opts.from ?? "swift-app",
   };
-  await writeRow(prisma, SWITCH_KEY, next);
-  return next;
+  await writeRow(prisma, SWITCH_KEY, stored);
+  return { ...stored, known: true };
 }
 
 /* ------------------------------------------------------------------ */
@@ -214,7 +261,16 @@ export async function acquireExecutionLease(
     workerVersion?: string | null;
   },
 ): Promise<LeaseClaim> {
-  const existingRow = await readRow(prisma, LEASE_KEY);
+  let existingRow: RawRow | null;
+  try {
+    existingRow = await readRow(prisma, LEASE_KEY);
+  } catch (err) {
+    return {
+      acquired: false,
+      lease: null,
+      refusedBecause: `The database could not be reached to claim the execution lease: ${describeDbError(err)}`,
+    };
+  }
   const existing = parseLease(existingRow?.memoryValue);
   const age = leaseAge(existing);
 
@@ -251,7 +307,7 @@ export async function acquireExecutionLease(
       data: { memoryValue: lease as never, lastUsedAt: new Date() },
     });
     if (updated.count === 0) {
-      const nowRow = await readRow(prisma, LEASE_KEY);
+      const nowRow = await readRow(prisma, LEASE_KEY).catch(() => null);
       const holder = parseLease(nowRow?.memoryValue);
       if (holder && holder.runtimeId !== input.runtimeId) {
         return {
@@ -268,16 +324,32 @@ export async function acquireExecutionLease(
   return { acquired: true, lease };
 }
 
-/** Renew a lease this runtime already owns. Returns false if it was lost. */
+export type LeaseRenewal = "renewed" | "lost" | "unknown";
+
+/**
+ * Renew a lease this runtime already owns. "lost" is a definitive answer (the
+ * row now names another runtime, or is gone); "unknown" means the database
+ * could not be reached — the caller must keep running and retry, never treat
+ * it as a takeover.
+ */
 export async function renewExecutionLease(
   prisma: PrismaClient,
   runtimeId: string,
-): Promise<boolean> {
-  const row = await readRow(prisma, LEASE_KEY);
+): Promise<LeaseRenewal> {
+  let row: RawRow | null;
+  try {
+    row = await readRow(prisma, LEASE_KEY);
+  } catch {
+    return "unknown";
+  }
   const lease = parseLease(row?.memoryValue);
-  if (!lease || lease.runtimeId !== runtimeId) return false;
-  await writeRow(prisma, LEASE_KEY, { ...lease, renewedAt: new Date().toISOString() });
-  return true;
+  if (!lease || lease.runtimeId !== runtimeId) return "lost";
+  try {
+    await writeRow(prisma, LEASE_KEY, { ...lease, renewedAt: new Date().toISOString() });
+  } catch {
+    return "unknown";
+  }
+  return "renewed";
 }
 
 /** Release the lease if this runtime holds it (idempotent, fail-open). */
@@ -285,7 +357,7 @@ export async function releaseExecutionLease(
   prisma: PrismaClient,
   runtimeId: string,
 ): Promise<void> {
-  const row = await readRow(prisma, LEASE_KEY);
+  const row = await readRow(prisma, LEASE_KEY).catch(() => null);
   const lease = parseLease(row?.memoryValue);
   if (!lease || lease.runtimeId !== runtimeId) return;
   await prisma.adminWorkerMemory
@@ -300,7 +372,7 @@ export async function holdsExecutionLease(
   prisma: PrismaClient,
   runtimeId: string,
 ): Promise<boolean> {
-  const row = await readRow(prisma, LEASE_KEY);
+  const row = await readRow(prisma, LEASE_KEY).catch(() => null);
   const lease = parseLease(row?.memoryValue);
   if (!lease || lease.runtimeId !== runtimeId) return false;
   const age = leaseAge(lease);
@@ -312,7 +384,17 @@ export async function holdsExecutionLease(
 /* ------------------------------------------------------------------ */
 
 export async function readExecutionStatus(prisma: PrismaClient): Promise<ExecutionStatus> {
-  const [master, row] = await Promise.all([readMasterSwitch(prisma), readRow(prisma, LEASE_KEY)]);
+  const master = await readMasterSwitch(prisma);
+  let row: RawRow | null = null;
+  let error = master.error;
+  if (master.known) {
+    try {
+      row = await readRow(prisma, LEASE_KEY);
+    } catch (err) {
+      error = describeDbError(err);
+    }
+  }
+  const known = master.known && error === undefined;
   const lease = parseLease(row?.memoryValue);
   const age = leaseAge(lease);
   const live = lease !== null && age !== null && age < LEASE_TTL_MS;
@@ -330,7 +412,11 @@ export async function readExecutionStatus(prisma: PrismaClient): Promise<Executi
     leaseAgeMs: age,
     leaseLive: live,
     executingLocally: state === "LOCAL_ACTIVE",
-    label: describeExecutionState(state, lease),
+    label: known
+      ? describeExecutionState(state, lease)
+      : `Admin Worker state unknown — the database could not be read (${error ?? "error"}).`,
+    known,
+    ...(error !== undefined ? { error } : {}),
   };
 }
 
@@ -360,6 +446,11 @@ export async function assertExecutionAuthority(
   input: { runtimeId: string; operation: string },
 ): Promise<void> {
   const master = await readMasterSwitch(prisma);
+  if (!master.known) {
+    throw new Error(
+      `The database could not be read to check the Admin Worker master switch — refusing to ${input.operation}: ${master.error ?? "database error"}`,
+    );
+  }
   if (!master.on) {
     throw new Error(
       `Admin Worker master switch is OFF — refusing to ${input.operation}. ` +
