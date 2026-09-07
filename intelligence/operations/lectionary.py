@@ -1,23 +1,40 @@
 """
-Liturgical-calendar + lectionary intelligence (General Roman Calendar).
+Liturgical-calendar + lectionary intelligence.
 
 The brain's deterministic knowledge of the Church's year: for any civil date
-it computes the exact liturgical day (season, week, Sunday A/B/C + weekday I/II
-cycle, colour, moveable feasts, and a Proper-of-Saints overlay) and the day's
-Mass-reading citations. Pure stdlib — no network, no database. TypeScript (the
-body) consults these ops, resolves the Scripture *text* from its public-domain
-store, persists to DailyReading, and cycles/self-corrects daily.
+it gives the exact liturgical day (season, week, Sunday A/B/C + weekday I/II
+cycle, colour, the celebration observed, the Proper-of-Time and lectionary
+keys) and the day's Mass-reading citations. Pure stdlib — no network, no
+database. TypeScript (the body) consults these ops, resolves the Scripture
+*text* from its public-domain store, persists to DailyReading, and
+cycles/self-corrects daily.
 
-This mirrors src/lib/content-shared/liturgical-calendar.ts + lectionary.ts so
-the body and brain agree; the lectionaryKey is the shared join key.
+SINGLE SOURCE OF TRUTH: the TypeScript engine
+(src/lib/content-shared/liturgical-calendar.ts). `scripts/lectionary/
+export-golden.ts` exports its answer for every day of 2000–2100 (calendar of
+the Dioceses of the United States, the readings source's calendar) to
+intelligence/data/liturgical-days.json, and `resolve_day` reads that table —
+so the brain and the body can never disagree. Only when the table is missing
+does it FAIL OPEN to the legacy in-module computation kept below (a General
+Roman Calendar approximation without the sanctoral/US rules), so the ops keep
+answering; the `source` field of the result says which path answered.
 """
 
 from __future__ import annotations
 
+import json
+import os
 from datetime import date, timedelta
+from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..contracts import RISK_NONE, BrainError, envelope, require
+
+#: The exported golden table (see module docstring). Override with the
+#: VIAFIDEI_LITURGICAL_DAYS_JSON environment variable (tests use it).
+GOLDEN_TABLE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "liturgical-days.json"
+)
 
 _WEEKDAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
 _WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -292,8 +309,72 @@ def _sanctoral_override(d: date) -> Optional[Tuple[str, str]]:
     return None
 
 
+@lru_cache(maxsize=1)
+def _golden_table() -> Optional[Dict[str, Any]]:
+    """Load intelligence/data/liturgical-days.json once; None when unavailable."""
+    path = os.environ.get("VIAFIDEI_LITURGICAL_DAYS_JSON") or GOLDEN_TABLE_PATH
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            table = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(table, dict) or not isinstance(table.get("rows"), list):
+        return None
+    try:
+        table["_start"] = date.fromisoformat(str(table["start"]))
+    except (KeyError, ValueError):
+        return None
+    return table
+
+
+def golden_table_available() -> bool:
+    return _golden_table() is not None
+
+
+def golden_day(d: date) -> Optional[Dict[str, Any]]:
+    """The exported engine answer for a date, or None (no table / out of range)."""
+    table = _golden_table()
+    if table is None:
+        return None
+    offset = (d - table["_start"]).days
+    rows = table["rows"]
+    if offset < 0 or offset >= len(rows):
+        return None
+    key, temporal_key, celebration, rank, color, season, week, sunday_cycle, weekday_cycle = rows[offset]
+    season_name = table["seasons"][season]
+    return {
+        "date": d.isoformat(),
+        "calendar": table.get("calendar", "roman-us"),
+        "season": season_name,
+        "seasonLabel": _SEASON_LABELS.get(season_name, season_name),
+        "color": table["colors"][color],
+        "sundayCycle": table["sundayCycles"][sunday_cycle],
+        "weekdayCycle": table["weekdayCycles"][weekday_cycle],
+        "dayOfWeek": _dow(d),
+        "isSunday": _dow(d) == 0,
+        "weekOfSeason": week,
+        "rank": table["ranks"][rank],
+        "celebration": table["celebrations"][celebration],
+        "lectionaryKey": table["keys"][key],
+        "temporalKey": table["keys"][temporal_key],
+        "source": "golden-table",
+    }
+
+
 def resolve_day(d: date) -> Dict[str, Any]:
-    """The precise liturgical day for a civil date (the shared lectionaryKey)."""
+    """The precise liturgical day for a civil date (the shared lectionaryKey).
+
+    Reads the exported golden table; falls back to the legacy computation only
+    when the table is missing or does not cover the date.
+    """
+    day = golden_day(d)
+    if day is not None:
+        return day
+    return _resolve_day_computed(d)
+
+
+def _resolve_day_computed(d: date) -> Dict[str, Any]:
+    """Legacy fail-open computation (General Roman Calendar approximation)."""
     sanctoral = _sanctoral_override(d)
     if sanctoral is not None:
         key, celebration = sanctoral
@@ -310,6 +391,8 @@ def resolve_day(d: date) -> Dict[str, Any]:
             "rank": "SOLEMNITY",
             "celebration": celebration,
             "lectionaryKey": key,
+            "temporalKey": key,
+            "source": "computed",
         }
     rank, celebration, key, week = _temporal_celebration(d)
     season = _season(d)
@@ -326,6 +409,8 @@ def resolve_day(d: date) -> Dict[str, Any]:
         "rank": rank,
         "celebration": celebration,
         "lectionaryKey": key,
+        "temporalKey": key,
+        "source": "computed",
     }
 
 
@@ -421,14 +506,18 @@ def _parse_date(payload: Dict[str, Any]) -> date:
 
 
 def liturgical_day(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Compute the precise liturgical day (General Roman Calendar) for a date."""
+    """The precise liturgical day for a date (US calendar, from the golden table)."""
     d = _parse_date(payload)
     day = resolve_day(d)
     return envelope(
         result=day,
-        confidence=1.0,
+        confidence=1.0 if day.get("source") == "golden-table" else 0.6,
         reasoning=f"{day['celebration']} ({day['seasonLabel']}, cycle {day['sundayCycle']}/{day['weekdayCycle']}).",
-        evidence=[f"lectionaryKey={day['lectionaryKey']}", f"color={day['color']}"],
+        evidence=[
+            f"lectionaryKey={day['lectionaryKey']}",
+            f"color={day['color']}",
+            f"source={day.get('source', 'computed')}",
+        ],
         risk_level=RISK_NONE,
         recommended_next_action="resolve-readings",
         safe_to_auto_execute=True,

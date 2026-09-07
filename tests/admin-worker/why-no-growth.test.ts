@@ -19,6 +19,8 @@ function makePrisma(opts: {
   classifiedCount?: number;
   artifactCount?: number;
   bridgedCount?: number;
+  /** BUILD_READY artifacts carrying validationNeeds (the only ones verification runs on). */
+  sensitiveAwaiting?: number;
   verificationCount?: number;
   qaReports?: Array<{ status: string }>;
   qualityScores?: Array<{ finalScore: number }>;
@@ -62,11 +64,17 @@ function makePrisma(opts: {
       count: vi.fn(async () => opts.blockCount ?? (opts.sourceReadCount ?? 0) * 4),
     },
     adminWorkerPackageArtifact: {
-      count: vi.fn(async ({ where }: { where?: { checklistItemId?: unknown } } = {}) => {
-        // The bridge check filters on checklistItemId: { not: null }.
-        if (where?.checklistItemId) return opts.bridgedCount ?? opts.artifactCount ?? 0;
-        return opts.artifactCount ?? 0;
-      }),
+      count: vi.fn(
+        async ({
+          where,
+        }: { where?: { checklistItemId?: unknown; validationNeeds?: unknown } } = {}) => {
+          // The bridge check filters on checklistItemId: { not: null }.
+          if (where?.checklistItemId) return opts.bridgedCount ?? opts.artifactCount ?? 0;
+          // The verification check counts BUILD_READY rows with validationNeeds.
+          if (where?.validationNeeds) return opts.sensitiveAwaiting ?? 0;
+          return opts.artifactCount ?? 0;
+        },
+      ),
     },
     adminWorkerCrossSourceVerification: {
       count: vi.fn(async () => opts.verificationCount ?? 0),
@@ -283,5 +291,33 @@ describe("diagnoseWhyNoGrowth (spec §15)", () => {
     const out = await diagnoseWhyNoGrowth(makePrisma({ goalCount: 0 }));
     expect(out.nextWorkerDecision.length).toBeGreaterThan(10);
     expect(out.nextAutomaticRepair).toBeTruthy();
+  });
+
+  it("names VALIDATION_EVIDENCE_MISSING only while SENSITIVE artifacts await verification", async () => {
+    const base = {
+      goalCount: 11,
+      authorityCount: 5,
+      candidateCount: 20,
+      prioritizedCount: 15,
+      recentFetches: 10,
+      successfulFetches: 9,
+      sourceReadCount: 10,
+      classifiedCount: 9,
+      artifactCount: 5,
+      verificationCount: 0,
+      qaReports: [{ status: "PASSED" }],
+      publishedCount: 3,
+    };
+    // Non-sensitive builds only (PRAYER/LITURGICAL): 0 evidence rows is the
+    // correct state, not the blocker.
+    const nonSensitive = await diagnoseWhyNoGrowth(makePrisma({ ...base, sensitiveAwaiting: 0 }));
+    expect(nonSensitive.blocker).not.toBe("VALIDATION_EVIDENCE_MISSING");
+    expect(nonSensitive.checks.find((c) => c.stage === "VALIDATION_EVIDENCE_MISSING")?.ok).toBe(
+      true,
+    );
+    // Sensitive artifacts waiting with no evidence ever recorded → the blocker.
+    const sensitive = await diagnoseWhyNoGrowth(makePrisma({ ...base, sensitiveAwaiting: 4 }));
+    expect(sensitive.blocker).toBe("VALIDATION_EVIDENCE_MISSING");
+    expect(sensitive.blockerExplanation).toMatch(/4 sensitive artifact/);
   });
 });

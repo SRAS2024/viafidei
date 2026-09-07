@@ -1,17 +1,19 @@
 /**
- * Liturgical calendar engine. Computes the current liturgical season
- * and a small "seasonal relevance" score the homepage scorer uses.
+ * Liturgical calendar context for the Admin Worker's homepage scorer: the
+ * current season plus a small "seasonal relevance" score.
  *
- * Deterministic, no external dependencies. The algorithm:
- *   - Easter via the Gregorian Meeus algorithm
- *   - Ash Wednesday = Easter − 46 days
- *   - Lent = Ash Wednesday → Holy Saturday
- *   - Easter Season = Easter → Pentecost (49 days)
- *   - Advent = 4th Sunday before Christmas → Christmas Eve
- *   - Christmas Season = Christmas → Baptism of the Lord
- *     (approximated as Christmas + 14 days)
- *   - Ordinary Time otherwise
+ * Thin adapter over the shared engine (src/lib/content-shared/
+ * liturgical-calendar.ts) — Easter, Advent and the season boundaries are
+ * computed there, once, for the whole platform; this module only maps the
+ * shared season names onto the worker's upper-case vocabulary and derives
+ * the scoring flags. Deterministic, no external dependencies.
  */
+
+import {
+  easterSunday,
+  liturgicalSeasonFor,
+  type LiturgicalSeason as SharedSeason,
+} from "@/lib/content-shared/liturgical-calendar";
 
 export type LiturgicalSeason =
   | "ADVENT"
@@ -21,53 +23,23 @@ export type LiturgicalSeason =
   | "EASTER"
   | "ORDINARY_TIME";
 
-/** Gregorian Easter date (Meeus / Jones / Butcher algorithm). */
-export function gregorianEaster(year: number): Date {
-  const a = year % 19;
-  const b = Math.floor(year / 100);
-  const c = year % 100;
-  const d = Math.floor(b / 4);
-  const e = b % 4;
-  const f = Math.floor((b + 8) / 25);
-  const g = Math.floor((b - f + 1) / 3);
-  const h = (19 * a + b - d - g + 15) % 30;
-  const i = Math.floor(c / 4);
-  const k = c % 4;
-  const l = (32 + 2 * e + 2 * i - h - k) % 7;
-  const m = Math.floor((a + 11 * h + 22 * l) / 451);
-  const month = Math.floor((h + l - 7 * m + 114) / 31);
-  const day = ((h + l - 7 * m + 114) % 31) + 1;
-  return new Date(Date.UTC(year, month - 1, day));
-}
+const SEASON_MAP: Record<SharedSeason, LiturgicalSeason> = {
+  advent: "ADVENT",
+  christmas: "CHRISTMAS",
+  lent: "LENT",
+  triduum: "TRIDUUM",
+  easter: "EASTER",
+  ordinary: "ORDINARY_TIME",
+};
 
-function addDays(d: Date, n: number): Date {
-  const out = new Date(d);
-  out.setUTCDate(out.getUTCDate() + n);
-  return out;
+/** Gregorian Easter date (Meeus / Jones / Butcher algorithm) at UTC midnight. */
+export function gregorianEaster(year: number): Date {
+  const { month, day } = easterSunday(year);
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
 function startOfDay(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-}
-
-function between(d: Date, start: Date, end: Date): boolean {
-  const t = startOfDay(d).getTime();
-  return t >= startOfDay(start).getTime() && t <= startOfDay(end).getTime();
-}
-
-/**
- * First Sunday of Advent for the supplied liturgical year. Computed as
- * the Sunday nearest to St. Andrew (Nov 30) — Catholic convention.
- */
-function firstSundayOfAdvent(year: number): Date {
-  const standard = new Date(Date.UTC(year, 10, 30)); // Nov 30
-  const dow = standard.getUTCDay(); // 0 = Sunday
-  // Sunday on or before Nov 30 closer than Sunday after.
-  const offsetBefore = dow;
-  const offsetAfter = (7 - dow) % 7;
-  return offsetBefore <= offsetAfter
-    ? addDays(standard, -offsetBefore)
-    : addDays(standard, offsetAfter);
 }
 
 export interface LiturgicalContext {
@@ -92,37 +64,11 @@ export interface LiturgicalContext {
 
 export function computeLiturgicalContext(date = new Date()): LiturgicalContext {
   const day = startOfDay(date);
-  const year = day.getUTCFullYear();
-  const easter = gregorianEaster(year);
-  const ashWednesday = addDays(easter, -46);
-  const holySaturday = addDays(easter, -1);
-  const triduumStart = addDays(easter, -3); // Holy Thursday
-  const pentecost = addDays(easter, 49);
-  // Christmas season spans late December → ~Jan 8 of the next year.
-  // We handle both directions so a day in early January of `year`
-  // sees the previous year's Christmas season, and a day in late
-  // December sees the current year's.
-  const christmasThisYear = new Date(Date.UTC(year, 11, 25));
-  const lastDayOfYear = new Date(Date.UTC(year, 11, 31));
-  const christmasPrevYear = new Date(Date.UTC(year - 1, 11, 25));
-  const baptismOfTheLordThisYear = addDays(christmasPrevYear, 14); // ≈ Jan 8 of `year`
-  const advent = firstSundayOfAdvent(year);
-  const adventEnd = new Date(Date.UTC(year, 11, 24));
-
-  let season: LiturgicalSeason = "ORDINARY_TIME";
-  // Easter Sunday wins over Triduum so it can be classified as EASTER.
-  if (between(day, easter, pentecost)) season = "EASTER";
-  else if (between(day, triduumStart, holySaturday)) season = "TRIDUUM";
-  else if (between(day, ashWednesday, holySaturday)) season = "LENT";
-  else if (between(day, christmasThisYear, lastDayOfYear)) season = "CHRISTMAS";
-  else if (between(day, new Date(Date.UTC(year, 0, 1)), baptismOfTheLordThisYear))
-    season = "CHRISTMAS";
-  else if (between(day, advent, adventEnd)) season = "ADVENT";
-
+  const easter = gregorianEaster(day.getUTCFullYear());
   return {
-    season,
+    season: SEASON_MAP[liturgicalSeasonFor(day)],
     isSunday: day.getUTCDay() === 0,
-    isChristmas: day.getTime() === christmasThisYear.getTime(),
+    isChristmas: day.getUTCMonth() === 11 && day.getUTCDate() === 25,
     isEaster: day.getTime() === easter.getTime(),
     isAnnunciation: day.getUTCMonth() === 2 && day.getUTCDate() === 25,
     isImmaculateConception: day.getUTCMonth() === 11 && day.getUTCDate() === 8,

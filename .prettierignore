@@ -11,3 +11,9 @@ package-lock.json
 
 # Vendored public-domain Scripture store (compact one-line JSON per book)
 src/lib/content-shared/bible/dra/*.json
+
+# Generated liturgical-day golden table (one row per line, ~37k rows)
+intelligence/data/*.json
+
+# USCCB daily-readings title fixture (one date per line)
+tests/content/fixtures/*.json

@@ -41,7 +41,9 @@ describe("findPublishedParishByAddressKey", () => {
     expect(findFirst).not.toHaveBeenCalled();
   });
 
-  it("looks up a published parish by the addressKey JSON path", async () => {
+  it("looks up a published parish by the indexed addressKey column", async () => {
+    // Was a JSON-path filter (a sequential scan per candidate); the column is
+    // written at publish time and by the hygiene sweep, so probe it instead.
     const findFirst = vi.fn(async () => ({ id: "x1", slug: "st-mary", title: "St. Mary" }));
     const prisma = { publishedContent: { findFirst } } as unknown as PrismaClient;
     const hit = await findPublishedParishByAddressKey(prisma, "123 main st boston", {
@@ -50,7 +52,8 @@ describe("findPublishedParishByAddressKey", () => {
     expect(hit?.slug).toBe("st-mary");
     const where = (findFirst.mock.calls[0]![0] as { where: Record<string, unknown> }).where;
     expect(where.isPublished).toBe(true);
-    expect(where.payload).toEqual({ path: ["addressKey"], equals: "123 main st boston" });
+    expect(where.addressKey).toBe("123 main st boston");
+    expect(where.payload).toBeUndefined();
     expect(where.slug).toEqual({ not: "other" });
   });
 });

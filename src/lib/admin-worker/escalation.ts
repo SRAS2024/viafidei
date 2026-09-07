@@ -11,8 +11,12 @@
  *      once while open
  *   4. otherwise generate "Admin Worker Escalation.pdf" and email it, then
  *      stamp `emailSentAt`/`emailDelivery`
- *   5. auto-resolve escalations whose condition has cleared, so a future
- *      recurrence can escalate afresh
+ *   5. auto-resolve escalations whose condition has cleared — only after it
+ *      has been absent for several consecutive checks, so a warning flapping
+ *      at its window edge does not resolve/re-email every 15 minutes
+ *   6. a per-(kind, contentType) re-email cooldown (24h) that holds even when
+ *      the build SHA — and so the fingerprint — changed, and a cap of one
+ *      grace window of post-upgrade deferral per issue kind
  *
  * Reuses existing infra: the self-assessment composer, the governance layer,
  * the escalation PDF generator (which embeds the timeframe developer report),
@@ -21,7 +25,7 @@
 
 import { createHash } from "node:crypto";
 
-import type { AdminDeveloperReportPeriod, PrismaClient } from "@prisma/client";
+import type { AdminDeveloperReportPeriod, Prisma, PrismaClient } from "@prisma/client";
 
 import { workerExecutionAllowed } from "./execution-context";
 import { buildSelfAssessment, type SelfAssessment, type WarningKind } from "./self-assessment";
@@ -33,6 +37,14 @@ import { writeAdminWorkerLog } from "./logs";
 
 const THROTTLE_MS = 15 * 60 * 1000; // ~15 min between full escalation checks
 const THROTTLE_KEY = "escalation-check-lastrun";
+/** Memory row: `{ [escalationId]: consecutiveAbsentChecks }`. */
+const ABSENT_KEY = "escalation-absent-checks";
+/** Memory row: `{ [kind]: firstDeferredAtISO }`. */
+const DEFERRAL_KEY = "escalation-deferral";
+/** Consecutive checks (~15 min apart) a warning must be absent before its escalation resolves. */
+const RESOLVE_AFTER_ABSENT_CHECKS = 3;
+/** Same kind + content type is emailed at most once per cooldown, whatever the build SHA. */
+const REEMAIL_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
 function envNum(key: string, fallback: number): number {
   const v = process.env[key];
@@ -142,8 +154,43 @@ async function throttleOk(prisma: PrismaClient, force: boolean): Promise<boolean
   return true;
 }
 
-/** Auto-resolve open escalations whose kind is no longer present in the live
- * assessment, so the same issue can escalate again if it recurs later. */
+type MemoryMap = Record<string, unknown>;
+
+/** Read one GENERIC memory row's object value (fail-open → empty). */
+async function readMemoryMap(prisma: PrismaClient, key: string): Promise<MemoryMap> {
+  try {
+    const row = await prisma.adminWorkerMemory.findUnique({
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: key } },
+      select: { memoryValue: true },
+    });
+    const v = row?.memoryValue;
+    return v && typeof v === "object" && !Array.isArray(v) ? (v as MemoryMap) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function writeMemoryMap(prisma: PrismaClient, key: string, value: MemoryMap): Promise<void> {
+  const memoryValue = value as Prisma.InputJsonObject;
+  await prisma.adminWorkerMemory
+    .upsert({
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: key } },
+      update: { memoryValue, lastUsedAt: new Date() },
+      create: { memoryType: "GENERIC", memoryKey: key, memoryValue, lastUsedAt: new Date() },
+    })
+    .catch(() => undefined);
+}
+
+/**
+ * Auto-resolve open escalations whose kind has been absent from the live
+ * assessment for RESOLVE_AFTER_ABSENT_CHECKS consecutive checks, so the same
+ * issue can escalate again if it genuinely recurs later. One absent check is
+ * not enough: every warning is computed over a sliding window, so a condition
+ * sitting at its threshold flickers present/absent as rows age out, and
+ * resolving on the first absence re-opened (and re-emailed) it 15 minutes
+ * later. The streak lives in AdminWorkerMemory keyed by escalation id and is
+ * cleared whenever the kind is seen again.
+ */
 async function resolveClearedEscalations(
   prisma: PrismaClient,
   self: SelfAssessment,
@@ -152,9 +199,14 @@ async function resolveClearedEscalations(
   const open = await prisma.adminWorkerEscalation
     .findMany({ where: { resolvedAt: null }, select: { id: true, kind: true } })
     .catch(() => [] as Array<{ id: string; kind: string }>);
+  const streaks = await readMemoryMap(prisma, ABSENT_KEY);
+  const next: MemoryMap = {};
   let resolved = 0;
   for (const row of open) {
-    if (!activeKinds.has(row.kind)) {
+    if (activeKinds.has(row.kind)) continue; // still present → streak resets
+    const prev = typeof streaks[row.id] === "number" ? (streaks[row.id] as number) : 0;
+    const absent = prev + 1;
+    if (absent >= RESOLVE_AFTER_ABSENT_CHECKS) {
       await prisma.adminWorkerEscalation
         .update({
           where: { id: row.id },
@@ -162,9 +214,37 @@ async function resolveClearedEscalations(
         })
         .catch(() => undefined);
       resolved += 1;
+    } else {
+      next[row.id] = absent;
     }
   }
+  // Entries for rows no longer open drop out naturally (only open rows are rewritten).
+  if (Object.keys(next).length > 0 || Object.keys(streaks).length > 0) {
+    await writeMemoryMap(prisma, ABSENT_KEY, next);
+  }
   return resolved;
+}
+
+/**
+ * The most recent email for this kind + content type, ignoring the build SHA
+ * (the fingerprint includes the SHA, so a commit alone would otherwise open a
+ * fresh fingerprint and a fresh email for an unchanged condition).
+ */
+async function lastEmailFor(
+  prisma: PrismaClient,
+  kind: string,
+  contentType: string | null,
+): Promise<Date | null> {
+  try {
+    const row = await prisma.adminWorkerEscalation.findFirst({
+      where: { kind, contentType, emailSentAt: { not: null } },
+      orderBy: { emailSentAt: "desc" },
+      select: { emailSentAt: true },
+    });
+    return row?.emailSentAt ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -213,6 +293,9 @@ export interface EscalationCheckResult {
    * inside the assessment window — the windowed signal can't yet tell a shipped
    * fix from a still-broken issue, so the fix is given a window to prove out. */
   deferredForUpgrade: boolean;
+  /** True when the row was (re)opened but the email was withheld by the 24h
+   * per-(kind, contentType) cooldown. */
+  cooldown: boolean;
   kind?: string;
   reason?: string;
 }
@@ -233,6 +316,7 @@ export async function runEscalationCheckIfDue(
     deduped: false,
     resolved: 0,
     deferredForUpgrade: false,
+    cooldown: false,
   };
   try {
     // Autonomous escalation (and its email) is Admin Worker work — it runs on
@@ -277,13 +361,34 @@ export async function runEscalationCheckIfDue(
     // disables) so the fix can prove out. Once the window fully post-dates the
     // upgrade, a genuinely-persistent issue escalates for real. Requires a real
     // PRIOR build (not the initial version record) so first boot never defers.
+    // Deferral is capped at ONE grace window per issue kind: on the operator's
+    // Mac every commit is an "upgrade", and a commit every few hours would
+    // otherwise restart the grace forever so a genuine issue was never paged.
+    // The first deferral time per kind is remembered in AdminWorkerMemory and
+    // cleared once the kind escalates for real.
     const graceHours = envNum("ADMIN_WORKER_ESCALATION_UPGRADE_GRACE_HOURS", self.windowHours);
+    const graceMs = graceHours * 60 * 60 * 1000;
     const upgradeAgeMs =
       version?.current && version.previous
         ? Date.now() - new Date(version.current.capturedAt).getTime()
         : Infinity;
-    if (graceHours > 0 && upgradeAgeMs < graceHours * 60 * 60 * 1000) {
+    const deferrals = await readMemoryMap(prisma, DEFERRAL_KEY);
+    const firstDeferredAt =
+      typeof deferrals[payload.kind] === "string"
+        ? new Date(deferrals[payload.kind] as string).getTime()
+        : null;
+    const deferralExhausted =
+      firstDeferredAt != null &&
+      Number.isFinite(firstDeferredAt) &&
+      Date.now() - firstDeferredAt >= graceMs;
+    if (graceHours > 0 && upgradeAgeMs < graceMs && !deferralExhausted) {
       out.deferredForUpgrade = true;
+      if (firstDeferredAt == null) {
+        await writeMemoryMap(prisma, DEFERRAL_KEY, {
+          ...deferrals,
+          [payload.kind]: new Date().toISOString(),
+        });
+      }
       await writeAdminWorkerLog(prisma, {
         passId: opts.passId,
         category: "REPORT",
@@ -303,6 +408,11 @@ export async function runEscalationCheckIfDue(
         },
       }).catch(() => undefined);
       return out;
+    }
+    if (firstDeferredAt != null) {
+      const rest = { ...deferrals };
+      delete rest[payload.kind];
+      await writeMemoryMap(prisma, DEFERRAL_KEY, rest);
     }
 
     const fingerprint = computeEscalationFingerprint({
@@ -341,6 +451,59 @@ export async function runEscalationCheckIfDue(
     // ADMIN_EMAIL): (re)attempt the email. Upsert the row first (occurrences
     // resets to 1 for a genuinely new fingerprint; a reopened one keeps count).
     const occurrences = existing && !existing.resolvedAt ? existing.occurrences + 1 : 1;
+
+    // Re-email cooldown: the same kind + content type was emailed within the
+    // last 24h (possibly under a different SHA / fingerprint, or on a row that
+    // has since been resolved and flapped back). Keep the row open and count
+    // the occurrence, but do not send — the operator already has this page.
+    const lastEmailedAt = await lastEmailFor(prisma, payload.kind, payload.contentType);
+    if (lastEmailedAt && Date.now() - lastEmailedAt.getTime() < REEMAIL_COOLDOWN_MS) {
+      out.cooldown = true;
+      await prisma.adminWorkerEscalation
+        .upsert({
+          where: { fingerprint },
+          update: {
+            kind: payload.kind,
+            severity: payload.severity,
+            contentType: payload.contentType,
+            detail: payload.detail,
+            signals: payload.signals,
+            versionSha,
+            occurrences,
+            emailDelivery: "cooldown",
+            resolvedAt: null,
+          },
+          create: {
+            fingerprint,
+            kind: payload.kind,
+            severity: payload.severity,
+            contentType: payload.contentType,
+            detail: payload.detail,
+            signals: payload.signals,
+            versionSha,
+            occurrences,
+            emailDelivery: "cooldown",
+            emailSentAt: null,
+          },
+        })
+        .catch(() => undefined);
+      await writeAdminWorkerLog(prisma, {
+        passId: opts.passId,
+        category: "REPORT",
+        severity: "INFO",
+        eventName: "escalation_cooldown",
+        message: `Escalation ${payload.kind} recorded without email — the same issue was emailed ${Math.round(
+          (Date.now() - lastEmailedAt.getTime()) / 60000,
+        )}m ago (24h per-issue cooldown).`,
+        contentType: payload.contentType ?? undefined,
+        safeMetadata: {
+          fingerprint,
+          kind: payload.kind,
+          lastEmailedAt: lastEmailedAt.toISOString(),
+        },
+      }).catch(() => undefined);
+      return out;
+    }
 
     const period = periodForWindow(self.windowHours);
     const guidance = guidanceFor(payload.kind);

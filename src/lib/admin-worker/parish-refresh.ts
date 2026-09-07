@@ -13,10 +13,12 @@
  * 2. `runParishMonthlyRefresh` (last 7 days of each month): re-reads every
  *    published parish's website and refreshes its Mass times, confession times,
  *    and phone number when they have changed. It cursors through the catalog a
- *    batch per pass so it can cover all parishes across the window, and the
- *    moment it finishes it marks the month done and stops — freeing the worker
- *    to return to its normal tasks instead of burning the remaining days. If it
- *    cannot make progress (repeated hard errors, or the month ends before it
+ *    small batch per pass, persisting the cursor after EVERY site and stopping
+ *    at a wall-clock budget below the lane watchdog (so a slow batch can never
+ *    be killed mid-way and then re-fetch the same sites), and the moment it
+ *    finishes it marks the month done and stops — freeing the worker to return
+ *    to its normal tasks instead of burning the remaining days. If it cannot
+ *    make progress (repeated hard errors, or the month ends before it
  *    finishes) it escalates to the developer. When it finishes and anything
  *    actually changed, it emails the developer a report of how many parishes
  *    were updated, in the standard admin-email aesthetic.
@@ -173,13 +175,15 @@ export async function runParishAddressMaintenance(
 
       // Is there an EARLIER published parish at this same address? (Lower id =
       // seen first = the keeper.) If so, this row is the duplicate → unpublish.
+      // Probes the indexed `addressKey` column (written at publish time and by
+      // the hygiene sweep), not the JSON payload — one index lookup per row.
       const earlier = await prisma.publishedContent
         .findFirst({
           where: {
             contentType: "PARISH" as never,
             isPublished: true,
             id: { lt: row.id },
-            payload: { path: ["addressKey"], equals: key },
+            addressKey: key,
           },
           select: { id: true },
         })
@@ -195,11 +199,11 @@ export async function runParishAddressMaintenance(
         continue;
       }
 
-      // Stamp the addressKey if it isn't already correct.
+      // Stamp the addressKey (payload + indexed column) if it isn't already correct.
       if (payload.addressKey !== key) {
         payload.addressKey = key;
         await prisma.publishedContent
-          .update({ where: { id: row.id }, data: { payload: payload as never } })
+          .update({ where: { id: row.id }, data: { payload: payload as never, addressKey: key } })
           .catch(() => undefined);
         out.keyed += 1;
       }
@@ -271,8 +275,14 @@ export interface MonthlyRefreshResult {
   detail: string;
 }
 
-/** How many parishes to re-check per pass (bounds per-pass website fetches). */
-const REFRESH_BATCH_DEFAULT = 40;
+/**
+ * How many parishes to re-check per pass. Each site fetch can take up to 10 s,
+ * so the batch × 10 s must stay under the lane's watchdog (120 s by default):
+ * 10 sites, plus the wall-clock budget below as the hard stop.
+ */
+const REFRESH_BATCH_DEFAULT = 10;
+/** Wall-clock budget per refresh run (env `ADMIN_WORKER_PARISH_REFRESH_BUDGET_MS`). */
+const REFRESH_BUDGET_DEFAULT_MS = 90_000;
 /** Consecutive failed runs before we escalate that the sweep is stuck. */
 const ESCALATE_AFTER_ERROR_RUNS = 5;
 
@@ -318,7 +328,10 @@ export async function runParishMonthlyRefresh(
   }
 
   const batchSize = envInt("ADMIN_WORKER_PARISH_REFRESH_BATCH", REFRESH_BATCH_DEFAULT);
+  const deadline =
+    Date.now() + envInt("ADMIN_WORKER_PARISH_REFRESH_BUDGET_MS", REFRESH_BUDGET_DEFAULT_MS);
   let hardError = false;
+  let stoppedEarly = false;
   try {
     const rows = await prisma.publishedContent.findMany({
       where: {
@@ -333,8 +346,17 @@ export async function runParishMonthlyRefresh(
     out.ran = true;
 
     for (const row of rows) {
+      // Stop before the watchdog would: the cursor already points past every
+      // site handled so far, so the next pass simply carries on from here.
+      if (Date.now() > deadline) {
+        stoppedEarly = true;
+        break;
+      }
       state.checked += 1;
       out.checkedThisRun += 1;
+      // Persist the cursor per site (not per batch) so a killed run never
+      // re-fetches the same sites.
+      state.cursorId = row.id;
       try {
         const payload = payloadObj(row.payload);
         const website = typeof payload.website === "string" ? payload.website : "";
@@ -348,7 +370,10 @@ export async function runParishMonthlyRefresh(
           if (key && payload.addressKey !== key) {
             payload.addressKey = key;
             await prisma.publishedContent
-              .update({ where: { id: row.id }, data: { payload: payload as never } })
+              .update({
+                where: { id: row.id },
+                data: { payload: payload as never, addressKey: key },
+              })
               .catch(() => undefined);
           }
           continue;
@@ -381,7 +406,13 @@ export async function runParishMonthlyRefresh(
         if (Object.keys(changes).length > 0) {
           const updated = { ...payload, ...changes };
           await prisma.publishedContent
-            .update({ where: { id: row.id }, data: { payload: updated as never } })
+            .update({
+              where: { id: row.id },
+              data: {
+                payload: updated as never,
+                ...("addressKey" in changes ? { addressKey: changes.addressKey as string } : {}),
+              },
+            })
             .catch(() => undefined);
           // Count as an "updated parish" only when a user-facing field moved
           // (not a bare addressKey backfill).
@@ -392,15 +423,15 @@ export async function runParishMonthlyRefresh(
         }
       } catch {
         /* fail-open per parish — one bad site never stalls the sweep */
+      } finally {
+        await writeMemory(prisma, MONTHLY_REFRESH_KEY, state);
       }
     }
 
-    // Advance the cursor. A short batch means we've reached the end → done.
-    if (rows.length < batchSize) {
+    // A short batch fully consumed means we've reached the end → done.
+    if (!stoppedEarly && rows.length < batchSize) {
       state.done = true;
       out.done = true;
-    } else {
-      state.cursorId = rows[rows.length - 1]!.id;
     }
     state.errorRuns = 0; // a successful run clears the stuck counter
   } catch {

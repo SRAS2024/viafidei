@@ -17,6 +17,9 @@ export interface PlaceParish {
   city?: string;
   state?: string;
   country?: string;
+  /** ISO-3166 alpha-2 when the source supplies it. */
+  countryCode?: string;
+  postcode?: string;
   latitude?: number;
   longitude?: number;
   website?: string;

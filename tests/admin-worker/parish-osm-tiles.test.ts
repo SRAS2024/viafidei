@@ -1,0 +1,195 @@
+/**
+ * The persistent tile-grid sweep: a deterministic world catalogue (seed metros
+ * first), quadtree splitting for dense tiles, per-tile state in
+ * AdminWorkerMemory, and a bounded claim algorithm (active → split queue →
+ * catalogue cursor) that re-sweeps quarterly and parks when nothing is due.
+ */
+import { describe, expect, it, vi } from "vitest";
+
+import type { PrismaClient } from "@prisma/client";
+
+import {
+  CATHOLIC_REGIONS,
+  MIN_TILE_DEG,
+  claimDueTiles,
+  enqueueTiles,
+  freshTileState,
+  markTileActive,
+  osmTileCatalogue,
+  parseTileId,
+  readTileRow,
+  splitTile,
+  tileId,
+  tileIsDue,
+  writeTileState,
+} from "@/lib/admin-worker/parish-osm-tiles";
+
+function makePrisma() {
+  const store = new Map<string, { memoryValue: unknown; lastUsedAt: Date }>();
+  const prisma = {
+    adminWorkerMemory: {
+      findUnique: vi.fn(
+        async ({ where }: { where: { memoryType_memoryKey: { memoryKey: string } } }) => {
+          const v = store.get(where.memoryType_memoryKey.memoryKey);
+          return v ? { memoryValue: v.memoryValue, lastUsedAt: v.lastUsedAt } : null;
+        },
+      ),
+      upsert: vi.fn(
+        async ({
+          where,
+          update,
+        }: {
+          where: { memoryType_memoryKey: { memoryKey: string } };
+          update: { memoryValue: unknown };
+        }) => {
+          store.set(where.memoryType_memoryKey.memoryKey, {
+            memoryValue: update.memoryValue,
+            lastUsedAt: new Date(),
+          });
+          return {};
+        },
+      ),
+    },
+  } as unknown as PrismaClient;
+  return { prisma, store };
+}
+
+describe("tile catalogue", () => {
+  it("covers the Catholic world with seed metros first and no duplicate ids", () => {
+    const c = osmTileCatalogue();
+    expect(c.length).toBeGreaterThan(3000);
+    expect(c[0]!.id).toBe("m:rome");
+    expect(c.slice(0, 24).every((t) => t.id.startsWith("m:"))).toBe(true);
+    expect(new Set(c.map((t) => t.id)).size).toBe(c.length);
+    // Every named region contributes at least one tile.
+    for (const r of CATHOLIC_REGIONS) {
+      expect(
+        c.some((t) => t.country === r.name),
+        r.name,
+      ).toBe(true);
+    }
+    // Representative places are inside the sweep.
+    const covers = (lat: number, lon: number) =>
+      c.some((t) => lat >= t.bbox[0] && lat < t.bbox[2] && lon >= t.bbox[1] && lon < t.bbox[3]);
+    expect(covers(9.93, 76.27)).toBe(true); // Kochi, Kerala
+    expect(covers(-8.55, 125.58)).toBe(true); // Dili, East Timor
+    expect(covers(33.89, 35.5)).toBe(true); // Beirut
+    expect(covers(6.52, 3.38)).toBe(true); // Lagos
+    expect(covers(37.57, 126.98)).toBe(true); // Seoul
+    expect(covers(-17.8, 31.05)).toBe(true); // Harare
+    expect(covers(50.45, 30.52)).toBe(true); // Kyiv
+  });
+
+  it("snaps grid tiles to the integer grid so overlapping regions collapse", () => {
+    const c = osmTileCatalogue();
+    const irelandTile = c.find((t) => t.id === "t:1:53:-7");
+    expect(irelandTile?.bbox).toEqual([53, -7, 54, -6]);
+    expect(parseTileId("t:1:53:-7")).toEqual({ deg: 1, bbox: [53, -7, 54, -6] });
+    expect(parseTileId("m:rome")).toBeNull();
+    expect(tileId(0.5, 41.5, 12)).toBe("t:0.5:41.5:12");
+  });
+
+  it("quarters a tile down to the minimum size and then stops", () => {
+    const [a] = osmTileCatalogue().filter((t) => t.deg === 1);
+    const kids = splitTile(a!);
+    expect(kids).toHaveLength(4);
+    expect(kids.every((k) => k.deg === 0.5 && k.country === a!.country)).toBe(true);
+    let t = a!;
+    for (let i = 0; i < 10; i++) {
+      const next = splitTile(t);
+      if (next.length === 0) break;
+      t = next[0]!;
+    }
+    expect(t.deg).toBe(MIN_TILE_DEG);
+    expect(splitTile(t)).toEqual([]);
+  });
+});
+
+describe("claimDueTiles", () => {
+  it("walks the catalogue in order, then skips swept tiles until they are due again", async () => {
+    const { prisma } = makePrisma();
+    const first = await claimDueTiles(prisma, 2);
+    expect(first.tiles.map((t) => t.tile.id)).toEqual(["m:rome", "m:boston"]);
+
+    // Sweep Rome (due in 90 days) and leave Boston pending.
+    await writeTileState(prisma, first.tiles[0]!.tile, {
+      ...freshTileState(),
+      status: "SWEPT",
+      lastSweptAt: Date.now(),
+      nextDueAt: Date.now() + 1000,
+    });
+    const second = await claimDueTiles(prisma, 1);
+    // The cursor stays on the last claimed tile, so Boston (still PENDING) is next.
+    expect(second.tiles[0]!.tile.id).toBe("m:boston");
+
+    // Once due, a swept tile is claimed again.
+    const third = await claimDueTiles(prisma, 1, Date.now() + 5000);
+    expect(third.tiles.map((t) => t.tile.id)).toContain("m:new-york");
+  });
+
+  it("claims a tile a run stopped inside (IN_PROGRESS) before anything else", async () => {
+    const { prisma } = makePrisma();
+    const [{ tile }] = (await claimDueTiles(prisma, 1)).tiles;
+    await writeTileState(prisma, tile, {
+      ...freshTileState(),
+      status: "IN_PROGRESS",
+      resumeAfter: "node/5",
+    });
+    await markTileActive(prisma, tile.id);
+    const next = await claimDueTiles(prisma, 1);
+    expect(next.tiles[0]!.tile.id).toBe(tile.id);
+    expect(next.tiles[0]!.state.resumeAfter).toBe("node/5");
+    const row = await readTileRow(prisma, tile.id);
+    expect(row?.tile.bbox).toEqual(tile.bbox);
+  });
+
+  it("drains queued split children (LIFO) ahead of the catalogue and expands DENSE_SPLIT parents", async () => {
+    const { prisma } = makePrisma();
+    const parent = osmTileCatalogue().find((t) => t.deg === 1)!;
+    await writeTileState(prisma, parent, { ...freshTileState(), status: "DENSE_SPLIT" });
+    const kids = splitTile(parent);
+    await enqueueTiles(prisma, kids);
+
+    const claimed = await claimDueTiles(prisma, 2);
+    expect(claimed.tiles.map((t) => t.tile.id)).toEqual([kids[3]!.id, kids[2]!.id]);
+    expect(tileIsDue({ ...freshTileState(), status: "DENSE_SPLIT" })).toBe(false);
+
+    // A DENSE_SPLIT child in the queue is itself expanded into its quarters.
+    await writeTileState(prisma, kids[1]!, { ...freshTileState(), status: "DENSE_SPLIT" });
+    const more = await claimDueTiles(prisma, 1);
+    expect(more.tiles[0]!.tile.deg).toBe(0.25);
+  });
+
+  it("parks the sweep until the earliest nextDueAt once a full wrap finds nothing due", async () => {
+    const { prisma, store } = makePrisma();
+    // Pretend the catalogue is tiny by pre-positioning the cursor near its end
+    // and marking the last tiles swept far in the future.
+    const catalogue = osmTileCatalogue();
+    const tail = catalogue.slice(-3);
+    const due = Date.now() + 60 * 60 * 1000;
+    for (const t of tail) {
+      await writeTileState(prisma, t, { ...freshTileState(), status: "SWEPT", nextDueAt: due });
+    }
+    store.set("osm-tile-cursor", {
+      memoryValue: {
+        pos: catalogue.length - 3,
+        size: catalogue.length,
+        idleUntil: null,
+        minDueSeen: null,
+      },
+      lastUsedAt: new Date(),
+    });
+    // The wrap lands on m:rome (pending) — so mark it swept too for this check.
+    for (const t of catalogue.slice(0, 200)) {
+      await writeTileState(prisma, t, { ...freshTileState(), status: "SWEPT", nextDueAt: due });
+    }
+    const first = await claimDueTiles(prisma, 1);
+    expect(first.tiles).toHaveLength(0);
+    // Scanning is bounded per run; the cursor made progress and persisted it.
+    const cursor = store.get("osm-tile-cursor")!.memoryValue as {
+      pos: number;
+      minDueSeen: number | null;
+    };
+    expect(cursor.minDueSeen).toBe(due);
+  });
+});

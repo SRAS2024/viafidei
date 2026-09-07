@@ -6,10 +6,21 @@
  * the weakest records are surfaced as a deduped improvement request.
  *
  * Throttled + fail-open; never blocks a pass.
+ *
+ * The scan walks the catalogue with a persisted CURSOR (AdminWorkerMemory
+ * `custody-cursor`, ordered by id) and wraps around at the end. The pass never
+ * writes to the rows it inspects, so the old "25 oldest-updated rows" query
+ * returned the identical 25 records every hour for the life of the deployment
+ * and 99% of the catalogue was never looked at.
+ *
+ * Runs in its own ops lane, outside the `intelligence` lane, so each brain
+ * call is taken under `withBrainMutex` (the resident brain serves one request
+ * at a time and the bridge does not queue).
  */
 
 import type { PrismaClient } from "@prisma/client";
 
+import { withBrainMutex } from "./brain-mutex";
 import { isBrainEnabled } from "./intelligence";
 import { BrainCallContext, recordDeveloperRequests } from "./intelligence/store";
 import { detectMissingFor } from "./intelligence/service";
@@ -18,15 +29,57 @@ import { writeAdminWorkerLog } from "./logs";
 const COMPLETENESS_FLOOR = 0.7;
 let _lastCustodyAt = 0;
 const THROTTLE_MS = 60 * 60 * 1000; // hourly
+const PAGE_SIZE = 25;
+const CURSOR_KEY = "custody-cursor";
 
 export interface CustodyResult {
   ran: boolean;
   scanned: number;
   weak: number;
+  /** True when the cursor reached the end of the catalogue and wrapped. */
+  wrapped?: boolean;
 }
 
 function asArray(v: unknown): unknown[] {
   return Array.isArray(v) ? v : [];
+}
+
+const cursorWhere = {
+  memoryType_memoryKey: { memoryType: "GENERIC" as const, memoryKey: CURSOR_KEY },
+};
+
+/** The id the previous scan stopped at, or null to start from the beginning. */
+async function readCursor(prisma: PrismaClient): Promise<string | null> {
+  try {
+    const row = await prisma.adminWorkerMemory.findUnique({
+      where: cursorWhere,
+      select: { memoryValue: true },
+    });
+    const value = row?.memoryValue;
+    const afterId =
+      value && typeof value === "object" && !Array.isArray(value)
+        ? (value as { afterId?: unknown }).afterId
+        : null;
+    return typeof afterId === "string" && afterId ? afterId : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeCursor(prisma: PrismaClient, afterId: string | null): Promise<void> {
+  const memoryValue = { afterId, updatedAt: new Date().toISOString() };
+  await prisma.adminWorkerMemory
+    .upsert({
+      where: cursorWhere,
+      update: { memoryValue, lastUsedAt: new Date() },
+      create: {
+        memoryType: "GENERIC",
+        memoryKey: CURSOR_KEY,
+        memoryValue,
+        lastUsedAt: new Date(),
+      },
+    })
+    .catch(() => undefined);
 }
 
 export async function runCustodyPass(
@@ -38,25 +91,33 @@ export async function runCustodyPass(
   }
   _lastCustodyAt = Date.now();
   try {
-    const rows = await prisma.publishedContent
+    const afterId = await readCursor(prisma);
+    const select = { id: true, contentType: true, title: true, slug: true, payload: true };
+    type Row = { id: string; contentType: string; title: string; slug: string; payload: unknown };
+    let rows: Row[] = await prisma.publishedContent
       .findMany({
-        where: { isPublished: true },
-        orderBy: { updatedAt: "asc" }, // oldest-touched first (custody)
-        take: 25,
-        select: { id: true, contentType: true, title: true, slug: true, payload: true },
+        where: { isPublished: true, ...(afterId ? { id: { gt: afterId } } : {}) },
+        orderBy: { id: "asc" },
+        take: PAGE_SIZE,
+        select,
       })
-      .catch(
-        () =>
-          [] as Array<{
-            id: string;
-            contentType: string;
-            title: string;
-            slug: string;
-            payload: unknown;
-          }>,
-      );
+      .catch(() => [] as Row[]);
 
-    if (rows.length === 0) return { ran: true, scanned: 0, weak: 0 };
+    // End of the catalogue: wrap to the start so the next pages are fresh
+    // again, and finish this pass with the first page rather than idling.
+    let wrapped = false;
+    if (rows.length === 0 && afterId) {
+      wrapped = true;
+      rows = await prisma.publishedContent
+        .findMany({ where: { isPublished: true }, orderBy: { id: "asc" }, take: PAGE_SIZE, select })
+        .catch(() => [] as Row[]);
+    }
+    if (rows.length === 0) {
+      if (afterId) await writeCursor(prisma, null);
+      return { ran: true, scanned: 0, weak: 0, wrapped };
+    }
+    // A short page means this was the last one — start over next time.
+    await writeCursor(prisma, rows.length < PAGE_SIZE ? null : rows[rows.length - 1].id);
 
     const weak: Array<{ id: string; completeness: number; missing: string[] }> = [];
     for (const row of rows) {
@@ -64,21 +125,28 @@ export async function runCustodyPass(
         string,
         unknown
       >;
-      const res = await detectMissingFor(
-        prisma,
-        {
-          contentType: String(row.contentType),
-          title: row.title,
-          slug: row.slug,
-          summary: typeof p.summary === "string" ? p.summary : undefined,
-          body:
-            typeof p.body === "string" ? p.body : typeof p.text === "string" ? p.text : undefined,
-          sources: asArray(p.sources),
-          citations: asArray(p.citations),
-          relationships: asArray(p.relationships),
-          translations: asArray(p.translations),
-        },
-        { ...ctx, entityType: "PUBLISHED", entityId: row.id, contentType: String(row.contentType) },
+      const res = await withBrainMutex(() =>
+        detectMissingFor(
+          prisma,
+          {
+            contentType: String(row.contentType),
+            title: row.title,
+            slug: row.slug,
+            summary: typeof p.summary === "string" ? p.summary : undefined,
+            body:
+              typeof p.body === "string" ? p.body : typeof p.text === "string" ? p.text : undefined,
+            sources: asArray(p.sources),
+            citations: asArray(p.citations),
+            relationships: asArray(p.relationships),
+            translations: asArray(p.translations),
+          },
+          {
+            ...ctx,
+            entityType: "PUBLISHED",
+            entityId: row.id,
+            contentType: String(row.contentType),
+          },
+        ),
       );
       if (res.available && res.completeness < COMPLETENESS_FLOOR) {
         weak.push({
@@ -113,11 +181,11 @@ export async function runCustodyPass(
       category: "CLEANUP",
       severity: weak.length > 0 ? "WARN" : "INFO",
       eventName: "custody_pass",
-      message: `Custody scanned ${rows.length} record(s); ${weak.length} below completeness ${COMPLETENESS_FLOOR}.`,
-      safeMetadata: { scanned: rows.length, weak: weak.length },
+      message: `Custody scanned ${rows.length} record(s)${wrapped ? " (cursor wrapped to the start)" : ""}; ${weak.length} below completeness ${COMPLETENESS_FLOOR}.`,
+      safeMetadata: { scanned: rows.length, weak: weak.length, wrapped },
     }).catch(() => undefined);
 
-    return { ran: true, scanned: rows.length, weak: weak.length };
+    return { ran: true, scanned: rows.length, weak: weak.length, wrapped };
   } catch {
     return { ran: false, scanned: 0, weak: 0 };
   }

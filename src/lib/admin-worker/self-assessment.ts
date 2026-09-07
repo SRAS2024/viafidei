@@ -195,15 +195,24 @@ export async function buildSelfAssessment(
       }
 
       // EXTRACTING_WITHOUT_PUBLISHING — building artifacts but nothing reaches
-      // publication.
-      if (extractionsInWindow >= envNum("ADMIN_WORKER_EXTRACT_MIN", 5) && publishesInWindow === 0) {
+      // publication. `publishesInWindow` only sees the mission-stage ledger,
+      // which the BUILD_READY drain and the ingest lanes (the paths that publish
+      // most content) never write, so it is 0 while thousands publish. The
+      // PublishedContent delta is the real measure of publication; this
+      // warning — which emails the admin — must never fire while it is moving.
+      if (
+        extractionsInWindow >= envNum("ADMIN_WORKER_EXTRACT_MIN", 5) &&
+        publishesInWindow === 0 &&
+        publishedDelta === 0
+      ) {
         warnings.push({
           kind: "EXTRACTING_WITHOUT_PUBLISHING",
           severity: extractionsInWindow >= 20 ? "ERROR" : "WARN",
-          detail: `${extractionsInWindow} extraction/build step(s) succeeded in ${windowHours}h but 0 items were published — content is stuck before publication.`,
+          detail: `${extractionsInWindow} extraction/build step(s) succeeded in ${windowHours}h but 0 items were published (no new PublishedContent) — content is stuck before publication.`,
           signals: [
             `extractions=${extractionsInWindow}`,
             `publishes=${publishesInWindow}`,
+            `publishedDelta=${publishedDelta}`,
             `backlog=${unpublishedBacklog}`,
           ],
           contentType,

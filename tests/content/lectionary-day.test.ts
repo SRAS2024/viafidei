@@ -17,7 +17,10 @@ import { describe, expect, it } from "vitest";
 
 import { resolveLiturgicalDay } from "@/lib/content-shared/liturgical-calendar";
 
-const at = (iso: string) => resolveLiturgicalDay(new Date(`${iso}T00:00:00Z`));
+// This file pins the GENERAL Roman Calendar; the engine defaults to the US
+// calendar (the readings source), so the calendar is passed explicitly.
+const at = (iso: string) =>
+  resolveLiturgicalDay(new Date(`${iso}T00:00:00Z`), { calendar: "roman-general" });
 const key = (iso: string) => at(iso).lectionaryKey;
 
 describe("resolveLiturgicalDay — Proper of Time (General Roman Calendar)", () => {
@@ -40,7 +43,7 @@ describe("resolveLiturgicalDay — Proper of Time (General Roman Calendar)", () 
 
   it("Lent 2025 (Ash Wednesday = 5 Mar, 1st Sunday = 9 Mar)", () => {
     expect(key("2025-03-05")).toBe("ash-wednesday");
-    expect(key("2025-03-06")).toBe("lent-after-ashes-thursday");
+    expect(key("2025-03-06")).toBe("after-ashes-thursday");
     expect(key("2025-03-09")).toBe("lent-1-sunday");
     expect(key("2025-03-14")).toBe("lent-1-friday");
     expect(key("2025-04-06")).toBe("lent-5-sunday"); // Easter − 14
@@ -63,7 +66,7 @@ describe("resolveLiturgicalDay — Proper of Time (General Roman Calendar)", () 
     // Advent 2025 begins 30 Nov; Christ the King = 23 Nov.
     expect(key("2025-11-23")).toBe("christ-the-king");
     expect(key("2025-11-30")).toBe("advent-1-sunday");
-    expect(key("2025-12-17")).toBe("advent-weekday-1217"); // O Antiphons, keyed by date
+    expect(key("2025-12-17")).toBe("advent-1217"); // O Antiphons, keyed by date
   });
 
   it("applies the sanctoral overlay for principal fixed-date solemnities", () => {
@@ -73,8 +76,10 @@ describe("resolveLiturgicalDay — Proper of Time (General Roman Calendar)", () 
     expect(at("2025-08-15").rank).toBe("SOLEMNITY");
     expect(at("2025-08-15").color).toBe("White");
     // Precedence: 8 Dec 2024 is the 2nd Sunday of Advent, which outranks the
-    // Immaculate Conception (it transfers), so the temporal Sunday wins.
+    // Immaculate Conception, so the temporal Sunday wins and the solemnity
+    // transfers to Monday 9 Dec.
     expect(key("2024-12-08")).toBe("advent-2-sunday");
+    expect(key("2024-12-09")).toBe("immaculate-conception");
   });
 
   it("Christmas season (keyed by date) + its solemnities and feasts", () => {

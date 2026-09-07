@@ -4,7 +4,7 @@
  * The lead abstract often omits the very facts the corroboration gate needs —
  * a saint's feast day usually lives in the article's INFOBOX, not its prose.
  * This module fetches an article's wikitext (same keyless Wikimedia API family)
- * and parses the first infobox into a cleaned field map, so the ingestors can
+ * and parses its infoboxes into a cleaned field map, so the ingestors can
  * corroborate sensitive facts against it and enrich records with cited optional
  * fields (birth/death dates, canonization details, patronage).
  *
@@ -15,23 +15,55 @@
  */
 
 import { fetchJson, structuredNetworkEnabled } from "./http";
+import { parseWikipediaArticleUrl } from "./wikipedia-url";
+
+/**
+ * Template names that act as a person/saint infobox across the language
+ * editions the ingest reads: enwiki `{{Infobox saint}}`, itwiki `{{Santo}}` /
+ * `{{Bio}}`, eswiki `{{Ficha de santo}}`, frwiki `{{Infobox Saint}}`, plwiki
+ * `{{Święty infobox}}`, dewiki `{{Infobox …}}` (rare for persons).
+ */
+const INFOBOX_START_RE = /\{\{\s*(?:Infobox|Ficha de|Santo\b|Bio\b|Święty infobox|Personendaten)/i;
 
 /** Extract the first `{{Infobox …}}` block from wikitext (brace-balanced). */
 export function extractInfoboxBlock(wikitext: string): string | null {
-  const start = wikitext.search(/\{\{\s*Infobox/i);
-  if (start === -1) return null;
-  let depth = 0;
-  for (let i = start; i < wikitext.length - 1; i += 1) {
-    if (wikitext[i] === "{" && wikitext[i + 1] === "{") {
-      depth += 1;
-      i += 1;
-    } else if (wikitext[i] === "}" && wikitext[i + 1] === "}") {
-      depth -= 1;
-      i += 1;
-      if (depth === 0) return wikitext.slice(start, i + 1);
+  return extractInfoboxBlocks(wikitext)[0] ?? null;
+}
+
+/**
+ * Extract EVERY infobox-like template block from wikitext (brace-balanced, in
+ * document order). Saint articles regularly carry a second infobox (a
+ * `{{Infobox saint}}` after an `{{Infobox person}}`, or a papal infobox first);
+ * reading only the first one silently dropped the feast day that lived in the
+ * second, so the corroboration gate skipped a perfectly documented saint.
+ */
+export function extractInfoboxBlocks(wikitext: string): string[] {
+  const blocks: string[] = [];
+  let from = 0;
+  for (let guard = 0; guard < 8; guard += 1) {
+    const rel = wikitext.slice(from).search(INFOBOX_START_RE);
+    if (rel === -1) break;
+    const start = from + rel;
+    let depth = 0;
+    let end = -1;
+    for (let i = start; i < wikitext.length - 1; i += 1) {
+      if (wikitext[i] === "{" && wikitext[i + 1] === "{") {
+        depth += 1;
+        i += 1;
+      } else if (wikitext[i] === "}" && wikitext[i + 1] === "}") {
+        depth -= 1;
+        i += 1;
+        if (depth === 0) {
+          end = i + 1;
+          break;
+        }
+      }
     }
+    if (end === -1) break; // unbalanced — stop rather than guess
+    blocks.push(wikitext.slice(start, end));
+    from = end;
   }
-  return null;
+  return blocks;
 }
 
 /** Clean one infobox value: refs, links, templates, markup → plain text. */
@@ -65,13 +97,8 @@ export function cleanInfoboxValue(raw: string): string {
   return v.replace(/\s+/g, " ").trim();
 }
 
-/**
- * Parse an infobox block into a key → cleaned-value map. Parameter names are
- * lower-cased with spaces/dashes normalised to underscores.
- */
-export function parseInfobox(wikitext: string): Record<string, string> {
-  const block = extractInfoboxBlock(wikitext);
-  if (!block) return {};
+/** Parse ONE infobox block into a key → cleaned-value map. */
+function parseInfoboxBlock(block: string): Record<string, string> {
   // Strip the outer {{ … }} and split on TOP-LEVEL pipes only.
   const inner = block.slice(2, -2);
   const parts: string[] = [];
@@ -122,24 +149,60 @@ export function parseInfobox(wikitext: string): Record<string, string> {
   return out;
 }
 
+/**
+ * Parse the infoboxes of a page into ONE key → cleaned-value map. Parameter
+ * names are lower-cased with spaces/dashes normalised to underscores. Every
+ * infobox on the page contributes; when two carry the same parameter the FIRST
+ * (top-most) infobox wins, matching how a reader sees the page.
+ */
+export function parseInfobox(wikitext: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const block of extractInfoboxBlocks(wikitext)) {
+    for (const [k, v] of Object.entries(parseInfoboxBlock(block))) {
+      if (!(k in out)) out[k] = v;
+    }
+  }
+  return out;
+}
+
 interface ParseApiResponse {
   parse?: { wikitext?: string };
 }
 
 /**
- * Fetch and parse the infobox of an English Wikipedia article URL. Returns {}
- * when offline/disabled, the article has no infobox, or anything fails.
+ * Fetch the raw wikitext of a Wikipedia article URL (any language edition).
+ * Returns null when offline/disabled, the URL isn't an article, or the fetch
+ * fails. Bounded to `maxChars` so a huge article never becomes a huge payload.
  */
-export async function fetchArticleInfobox(articleUrl: string): Promise<Record<string, string>> {
-  if (!structuredNetworkEnabled()) return {};
-  const m = articleUrl.match(/\/wiki\/(.+)$/);
-  if (!m) return {};
-  const title = decodeURIComponent(m[1]);
+export async function fetchArticleWikitext(
+  articleUrl: string,
+  opts: { maxChars?: number } = {},
+): Promise<string | null> {
+  if (!structuredNetworkEnabled()) return null;
+  const parsed = parseWikipediaArticleUrl(articleUrl);
+  if (!parsed) return null;
+  let title: string;
+  try {
+    title = decodeURIComponent(parsed.title);
+  } catch {
+    title = parsed.title;
+  }
   const api =
-    `https://en.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}` +
+    `https://${parsed.lang}.wikipedia.org/w/api.php?action=parse&page=${encodeURIComponent(title)}` +
     `&prop=wikitext&format=json&formatversion=2&redirects=1`;
   const data = await fetchJson<ParseApiResponse>(api);
   const wikitext = data?.parse?.wikitext;
+  if (!wikitext) return null;
+  const max = opts.maxChars ?? 400_000;
+  return wikitext.length > max ? wikitext.slice(0, max) : wikitext;
+}
+
+/**
+ * Fetch and parse the infoboxes of a Wikipedia article URL. Returns {} when
+ * offline/disabled, the article has no infobox, or anything fails.
+ */
+export async function fetchArticleInfobox(articleUrl: string): Promise<Record<string, string>> {
+  const wikitext = await fetchArticleWikitext(articleUrl);
   if (!wikitext) return {};
   try {
     return parseInfobox(wikitext);

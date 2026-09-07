@@ -5,7 +5,7 @@
  * keyless OpenStreetMap lane, independent of the web-extraction campaign that
  * drives the other types. Left unbounded it would run every pass forever, so
  * the operator's policy is: grow parishes in **sprints** (a bounded batch), then
- * **stand down for a cooldown window** (about a week) during which the worker
+ * **stand down for a cooldown window** (a day by default) during which the worker
  * pours its effort into the OTHER content types, then come back for the next
  * parish sprint — and so on toward 200k.
  *
@@ -25,8 +25,14 @@ import type { PrismaClient } from "@prisma/client";
 const SPRINT_KEY = "parish-sprint-state";
 /** Parishes published per sprint before standing down for the cooldown. */
 export const DEFAULT_PARISH_SPRINT_SIZE = 10_000;
-/** Cooldown after a completed sprint — the worker grows other types meanwhile. */
-export const DEFAULT_PARISH_SPRINT_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // ~1 week
+/**
+ * Cooldown after a completed sprint — the worker grows other types meanwhile.
+ * One day by default (env `ADMIN_WORKER_PARISH_SPRINT_COOLDOWN_MS`): Overpass
+ * politeness is enforced by the persisted daily query budget in
+ * parish-osm-overpass.ts, not by idling the lane for a week, and PARISH is by
+ * far the largest goal gap, so a long stand-down only delays it.
+ */
+export const DEFAULT_PARISH_SPRINT_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 1 day
 
 function envInt(name: string, fallback: number): number {
   const n = Number((process.env[name] ?? "").trim());

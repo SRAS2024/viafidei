@@ -1,135 +1,93 @@
 /**
- * Keyless OpenStreetMap (Overpass API) parish discovery.
+ * Keyless OpenStreetMap (Overpass API) parish discovery — the tile sweep.
  *
- * Google Maps parish discovery (parish-discovery-runner.ts) is powerful but
- * needs a `GOOGLE_PLACES_API_KEY`. This is the keyless, free, public-data
- * alternative: it queries the OpenStreetMap Overpass API for churches tagged
- * `amenity=place_of_worship` + `religion=christian` + `denomination=roman_catholic`
- * in a locality, and feeds the candidates through the SAME accuracy gates as the
- * Maps flow — communion verification against the parish website + the strict
- * parish schema + the real publish orchestrator. More sources, more versatility,
- * no key, same accuracy bar.
+ * Google Maps parish discovery (parish-discovery-runner.ts) needs a
+ * `GOOGLE_PLACES_API_KEY`. This is the keyless, free, public-data path: a
+ * persistent sweep of ~1° tiles over the Catholic world (parish-osm-tiles.ts)
+ * asks Overpass (parish-osm-overpass.ts, one polite query at a time under a
+ * daily budget) for churches tagged `amenity=place_of_worship` +
+ * `religion=christian` + `denomination=roman_catholic|catholic`, and publishes
+ * the named ones deterministically on that tag through the strict parish
+ * schema + the real publish orchestrator.
  *
- * Communion handling mirrors the Maps flow: a candidate with a website is
- * verified against it (a site that reveals it is NOT in communion with Rome is
- * rejected), while a candidate with no website is trusted on the strength of the
- * explicit `roman_catholic` denomination tag (which, unlike Google's coarse
- * "Catholic", already excludes Old Catholic / sedevacantist / Orthodox). Either
- * way it still passes the schema + publish gate. Network-gated (a no-op offline)
- * and self-throttled so it respects Overpass fair-use.
+ * What this lane does NOT do: fetch parish websites. That is the separate,
+ * bounded `runParishWebsiteVerification` lane (parish-website-verification.ts),
+ * which checks communion with Rome against each site over time and
+ * unpublishes (with a review row) anything that proves NOT to be in
+ * communion. Splitting the two is what lets discovery publish hundreds per
+ * run within its watchdog instead of stalling on 10-second site fetches.
+ *
+ * Nothing is invented: a candidate needs its OSM name plus EITHER a locality
+ * tag OR coordinates; a missing city may be filled from `is_in` or one
+ * bounded Nominatim reverse lookup, else the record publishes on its
+ * coordinates with an empty city. Dedup runs cheapest-first — sourceRef,
+ * addressKey, same-name-within-200 m, then slug (a collision gets a stable
+ * suffix, never a silent skip) — and a re-swept parish enriches its own row
+ * in place. Every run is bounded (publish cap checked BEFORE any per-candidate
+ * work, a wall-clock deadline under the lane watchdog) and resumable
+ * (per-tile progress is persisted).
  */
 
 import type { PrismaClient } from "@prisma/client";
 
 import { validatePayload } from "@/lib/checklist";
 import { isDoctrinallySensitive } from "./content-type-profiles";
+import { applyProtectedContentUpdate } from "./content-protection";
 import { runPublishOrchestrator } from "./publish-orchestrator";
-import { inspectParishWebsite, type CommunionVerdict } from "./communion-verifier";
 import { designationFor, fileReview, slugify } from "./parish-discovery-runner";
 import { parishAddressKey, findPublishedParishByAddressKey } from "./parish-address";
 import type { PlaceParish } from "./parish-places";
+import { writeAdminWorkerLog } from "./logs";
+import {
+  claimDueTiles,
+  clearTileActive,
+  emptyResweepMs,
+  enqueueTiles,
+  markTileActive,
+  osmTileProgress,
+  resweepMs,
+  splitTile,
+  writeTileState,
+  type OsmTile,
+  type OsmTileState,
+} from "./parish-osm-tiles";
+import {
+  buildTileQuery,
+  overpassBudgetRemaining,
+  runOverpassQuery,
+  type OverpassElement,
+} from "./parish-osm-overpass";
+import {
+  reverseLookupCapPerRun,
+  reverseLookupCity,
+  type ReverseLookupBudget,
+} from "./parish-geocode";
 
-/**
- * Overpass endpoints to try, in order. The primary public instance
- * (overpass-api.de) is frequently overloaded — it returns 504s and, even when
- * it answers 200, an area query can take 30s+ or (with a lagging area index)
- * come back EMPTY for a locality that plainly has Catholic parishes. Rotating
- * through the well-known mirrors turns a single flaky host into a reliable
- * pool: the first endpoint that returns a non-empty result wins. Operators can
- * prepend their own via OVERPASS_ENDPOINTS (comma-separated).
- */
-function overpassEndpoints(): string[] {
-  const extra = (process.env.OVERPASS_ENDPOINTS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return [
-    ...extra,
-    "https://overpass-api.de/api/interpreter",
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter",
-  ].filter((v, i, a) => a.indexOf(v) === i);
-}
-// Overpass area queries legitimately take 20-40s; the old 30s client timeout
-// aborted a slow-but-successful query and read it as "0 parishes". Give it a
-// 55s budget (server-side [timeout:50] below leaves margin) — still under the
-// 120s per-lane watchdog.
-const TIMEOUT_MS = 55_000;
 /** Positive integer from an env var, or the fallback. */
 function osmEnvInt(name: string, fallback: number): number {
   const n = Number((process.env[name] ?? "").trim());
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
-// Overpass fair-use throttle. Default ~10 min between runs; env-tunable
-// (`ADMIN_WORKER_OSM_THROTTLE_MS`) so an operator with a self-hosted/paid
-// Overpass (see OVERPASS_ENDPOINTS) can grow the 200k-parish directory faster.
-const THROTTLE_MS = osmEnvInt("ADMIN_WORKER_OSM_THROTTLE_MS", 10 * 60 * 1000);
-// Max parish elements returned per bbox query. Env-tunable
-// (`ADMIN_WORKER_OSM_OUT_CAP`) — a dense metro/region has hundreds of parishes,
-// so a higher cap drains each locality in fewer sweeps.
+
+// Lane cadence. Politeness toward Overpass is enforced by the persisted
+// daily query budget + request spacing (parish-osm-overpass.ts), so the run
+// throttle can be short: 3 min by default, env-tunable
+// (`ADMIN_WORKER_OSM_THROTTLE_MS`).
+const THROTTLE_MS = osmEnvInt("ADMIN_WORKER_OSM_THROTTLE_MS", 3 * 60 * 1000);
+// Max elements per tile query. A tile that returns exactly this many is
+// DENSE and gets quartered, so no element is ever silently truncated.
 const OUT_CAP = osmEnvInt("ADMIN_WORKER_OSM_OUT_CAP", 500);
+// Wall-clock budget per run — comfortably under the lane's 8-minute watchdog
+// so a run always persists its own progress instead of being killed mid-tile.
+const RUN_BUDGET_MS = osmEnvInt("ADMIN_WORKER_OSM_RUN_BUDGET_MS", 6 * 60 * 1000);
+// A candidate that fails the publish gate is remembered for this long so the
+// sweep does not retry it (and its DB lookups) on every visit to its tile.
+const SKIP_DAYS = osmEnvInt("ADMIN_WORKER_OSM_SKIP_DAYS", 7);
+const DAY_MS = 24 * 60 * 60 * 1000;
 const THROTTLE_KEY = "osm-parish-lastrun";
-const LOCALITY_CURSOR_KEY = "osm-parish-locality-cursor";
-
-/** A locality to sweep: a display name plus an optional bounding box. */
-interface OsmLocality {
-  name: string;
-  /** [south, west, north, east] — when set, a fast spatial-index query is used. */
-  bbox?: [number, number, number, number];
-}
-
-/**
- * Catholic-dense metro areas to sweep, each as a BOUNDING BOX. A bbox query hits
- * Overpass's spatial index directly and returns in ~3s with dozens of parishes,
- * where the old `area["name"=…]` lookup took 30-55s, was rate-limited, and often
- * returned 0 (a lagging/ambiguous area index). The worker rotates through this
- * list across passes (a saved cursor), so the directory grows worldwide instead
- * of re-querying the same two cities. This is a seed set — the catalog's own
- * published parishes expand coverage further via nearby-tile queries.
- */
-const SEED_LOCALITIES: OsmLocality[] = [
-  { name: "Rome", bbox: [41.79, 12.34, 42.0, 12.65] },
-  { name: "Boston", bbox: [42.2, -71.2, 42.45, -70.95] },
-  { name: "New York", bbox: [40.5, -74.05, 40.92, -73.7] },
-  { name: "Chicago", bbox: [41.64, -87.94, 42.02, -87.52] },
-  { name: "Philadelphia", bbox: [39.87, -75.28, 40.14, -74.96] },
-  { name: "Los Angeles", bbox: [33.7, -118.5, 34.34, -118.15] },
-  { name: "Dublin", bbox: [53.28, -6.4, 53.41, -6.1] },
-  { name: "Manila", bbox: [14.5, 120.94, 14.68, 121.05] },
-  { name: "Kraków", bbox: [49.98, 19.79, 50.12, 20.09] },
-  { name: "Warsaw", bbox: [52.13, 20.85, 52.37, 21.27] },
-  { name: "Madrid", bbox: [40.31, -3.83, 40.56, -3.55] },
-  { name: "Paris", bbox: [48.8, 2.22, 48.91, 2.47] },
-  { name: "Milan", bbox: [45.4, 9.07, 45.54, 9.28] },
-  { name: "Naples", bbox: [40.8, 14.14, 40.92, 14.34] },
-  { name: "Lisbon", bbox: [38.69, -9.23, 38.8, -9.09] },
-  { name: "Vienna", bbox: [48.12, 16.24, 48.32, 16.51] },
-  { name: "Munich", bbox: [48.06, 11.36, 48.25, 11.72] },
-  { name: "Buenos Aires", bbox: [-34.71, -58.53, -34.53, -58.33] },
-  { name: "Mexico City", bbox: [19.24, -99.28, 19.59, -98.94] },
-  { name: "São Paulo", bbox: [-23.75, -46.83, -23.43, -46.36] },
-  { name: "Montreal", bbox: [45.4, -73.77, 45.7, -73.47] },
-  { name: "Toronto", bbox: [43.58, -79.64, 43.85, -79.12] },
-  { name: "Sydney", bbox: [-33.95, 151.1, -33.78, 151.3] },
-  { name: "Malta", bbox: [35.79, 14.18, 36.08, 14.58] },
-  // Region-level sweeps over Catholic-dense areas with strong OpenStreetMap
-  // address coverage. A region bbox returns far more parishes per query than a
-  // single metro (Ireland alone ~190 with full addresses), so these give the
-  // directory real headroom toward the 200k target without hand-listing every
-  // city. Kept to moderate-size areas so the query stays within the request
-  // timeout; a slow/empty one simply falls through the mirror race.
-  { name: "Ireland", bbox: [51.4, -10.6, 55.4, -5.4] },
-  { name: "Belgium", bbox: [49.5, 2.5, 51.5, 6.4] },
-  { name: "Netherlands", bbox: [50.75, 3.35, 53.5, 7.2] },
-  { name: "Austria", bbox: [46.4, 9.5, 49.0, 17.2] },
-  { name: "Switzerland", bbox: [45.8, 5.95, 47.8, 10.5] },
-  { name: "Portugal", bbox: [37.0, -9.5, 42.15, -6.2] },
-  { name: "Catalonia", bbox: [40.5, 0.15, 42.9, 3.35] },
-  { name: "Slovenia", bbox: [45.42, 13.38, 46.88, 16.6] },
-  { name: "Croatia", bbox: [42.4, 13.5, 46.55, 19.45] },
-  { name: "Slovakia", bbox: [47.7, 16.8, 49.6, 22.6] },
-];
+const SKIP_PREFIX = "osm-skip:";
+/** Same-name proximity window (~200 m) for the geo dedup. */
+const NEARBY_DEG = 0.002;
 
 /** Keyless + on by default; disabled in skip-network and via opt-out env. */
 export function osmParishDiscoveryEnabled(): boolean {
@@ -138,39 +96,90 @@ export function osmParishDiscoveryEnabled(): boolean {
   return v !== "0" && v !== "false" && v !== "off";
 }
 
-interface OverpassElement {
-  type?: string;
-  id?: number;
-  lat?: number;
-  lon?: number;
-  center?: { lat?: number; lon?: number };
-  tags?: Record<string, string>;
+// ── Acceptance: map an OSM element to a candidate, inventing nothing ────────
+
+/** Exactly `roman_catholic` or `catholic`; every other value (old_catholic,
+ * independent_catholic, polish_national_catholic, …) is a different body. */
+const ACCEPTED_DENOMINATION_RE = /^(roman_catholic|catholic)$/;
+
+const LOCALITY_TAGS = [
+  "addr:city",
+  "addr:town",
+  "addr:place",
+  "addr:suburb",
+  "addr:village",
+  "addr:hamlet",
+  "is_in:city",
+  "is_in:town",
+  "is_in:village",
+] as const;
+
+/** Locality from the element's own tags (never derived from a county/state). */
+export function localityFromTags(tags: Record<string, string>): string {
+  for (const key of LOCALITY_TAGS) {
+    const v = (tags[key] ?? "").trim();
+    if (v) return v;
+  }
+  // `is_in` is "City, Region, Country": only a multi-part value names a city.
+  const isIn = (tags.is_in ?? "").split(/[,;]/).map((s) => s.trim());
+  if (isIn.length >= 2 && isIn[0]) return isIn[0];
+  return "";
+}
+
+/** English display name for an ISO-3166 alpha-2 code ("PL" → "Poland"). */
+export function countryNameFor(code: string | undefined): string | undefined {
+  if (!code || !/^[A-Z]{2}$/.test(code)) return undefined;
+  try {
+    const name = new Intl.DisplayNames(["en"], { type: "region" }).of(code);
+    return name && name !== code ? name : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export interface OsmCandidate extends PlaceParish {
+  /** The OSM denomination value that admitted it (`roman_catholic` | `catholic`). */
+  denomination: string;
+  osmType: string;
+  osmId: number;
+  /** Slug base derived from the English name when the local one is non-Latin. */
+  slugBase: string;
+  /** From OSM tags (`building`, `cathedral`, `church:type`) and the name. */
+  designation: ReturnType<typeof designationFor>;
 }
 
 /**
- * Map one Overpass element to a parish candidate, or null when it isn't an
- * explicitly Roman Catholic church with a usable name + street address + city.
- * Exported for testing.
+ * Map one Overpass element to a parish candidate, or null when it is not an
+ * explicitly Catholic, named church that can be located (a locality tag OR
+ * coordinates). `fallback` supplies the tile's country when the element has
+ * no `addr:country`. Exported for testing.
  */
-export function osmElementToParish(el: OverpassElement): PlaceParish | null {
+export function osmElementToParish(
+  el: OverpassElement,
+  fallback: { countryCode?: string } = {},
+): OsmCandidate | null {
   const tags = el.tags ?? {};
   const name = (tags.name ?? "").trim();
   if (!name) return null;
-  // Strict: only the explicit Roman Catholic denomination tag (excludes
-  // "old_catholic", the ambiguous bare "catholic", Orthodox, etc.).
-  if ((tags.denomination ?? "").toLowerCase() !== "roman_catholic") return null;
-
-  const city = (tags["addr:city"] ?? tags["addr:town"] ?? "").trim();
-  if (!city) return null;
-  const full = (tags["addr:full"] ?? "").trim();
-  const street = (tags["addr:street"] ?? "").trim();
-  const houseNumber = (tags["addr:housenumber"] ?? "").trim();
-  const address = full || [houseNumber, street].filter(Boolean).join(" ").trim();
-  if (!address) return null;
+  const denomination = (tags.denomination ?? "").trim().toLowerCase();
+  if (!ACCEPTED_DENOMINATION_RE.test(denomination)) return null;
+  const religion = (tags.religion ?? "").trim().toLowerCase();
+  if (religion && religion !== "christian") return null;
+  // A ruin or a closed church is not a parish anyone can attend.
+  if (tags.ruins === "yes" || tags.disused === "yes" || tags.abandoned === "yes") return null;
+  if (tags["disused:amenity"] || tags["abandoned:amenity"]) return null;
   if (!el.type || el.id == null) return null;
 
   const lat = typeof el.lat === "number" ? el.lat : el.center?.lat;
   const lon = typeof el.lon === "number" ? el.lon : el.center?.lon;
+  const hasCoords = typeof lat === "number" && typeof lon === "number";
+  const city = localityFromTags(tags);
+  if (!city && !hasCoords) return null;
+
+  const full = (tags["addr:full"] ?? "").trim();
+  const street = (tags["addr:street"] ?? "").trim();
+  const houseNumber = (tags["addr:housenumber"] ?? "").trim();
+  const address = full || [houseNumber, street].filter(Boolean).join(" ").trim();
 
   let website = (tags.website || tags["contact:website"] || "").trim();
   if (website && !/^https?:\/\//i.test(website)) website = "";
@@ -181,261 +190,291 @@ export function osmElementToParish(el: OverpassElement): PlaceParish | null {
       website = "";
     }
   }
-
-  // Phone is often right there in the OSM tags — take it as a best-effort start
-  // (the website scrape may still refine it). Never required.
   const phone = (tags.phone || tags["contact:phone"] || "").trim() || undefined;
 
+  const rawCountry = (tags["addr:country"] ?? "").trim().toUpperCase();
+  const countryCode = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : fallback.countryCode;
   const osmRef = `${el.type}/${el.id}`;
+  const englishName = (tags["name:en"] ?? "").trim();
+  const slugBase = slugify(`${name} ${city}`) || slugify(`${englishName} ${city}`);
+
   return {
     name,
     formattedAddress: address,
-    city,
-    state: (tags["addr:state"] ?? "").trim() || undefined,
-    country: (tags["addr:country"] ?? "").trim() || undefined,
-    latitude: typeof lat === "number" ? lat : undefined,
-    longitude: typeof lon === "number" ? lon : undefined,
+    city: city || undefined,
+    state: (tags["addr:state"] ?? tags["addr:province"] ?? "").trim() || undefined,
+    country: countryNameFor(countryCode),
+    countryCode,
+    postcode: (tags["addr:postcode"] ?? "").trim() || undefined,
+    latitude: hasCoords ? lat : undefined,
+    longitude: hasCoords ? lon : undefined,
     website: website || undefined,
     phone,
     placeId: `osm:${osmRef}`,
     types: ["place_of_worship"],
     mapsUri: `https://www.openstreetmap.org/${osmRef}`,
+    denomination,
+    osmType: el.type,
+    osmId: el.id,
+    slugBase: slugBase || `parish-${el.type}-${el.id}`,
+    designation: designationFor(name, tags),
   };
+}
+
+// ── Dedup helpers ───────────────────────────────────────────────────────────
+
+const NAME_STOP_WORDS = new Set([
+  "st",
+  "saint",
+  "san",
+  "santa",
+  "santo",
+  "sao",
+  "ste",
+  "sainte",
+  "sankt",
+  "sw",
+  "church",
+  "parish",
+  "parroquia",
+  "paroisse",
+  "eglise",
+  "pfarrkirche",
+  "pfarrei",
+  "kirche",
+  "iglesia",
+  "igreja",
+  "chiesa",
+  "parrocchia",
+  "kosciol",
+  "parafia",
+  "catholic",
+  "roman",
+  "rc",
+  "of",
+  "the",
+  "de",
+  "del",
+  "della",
+  "di",
+  "da",
+  "do",
+  "dos",
+  "das",
+  "la",
+  "le",
+  "les",
+  "el",
+  "los",
+  "las",
+  "and",
+  "y",
+  "e",
+  "et",
+  "und",
+]);
+
+/**
+ * Fold a parish name to its distinctive words so "St. Mary Catholic Church"
+ * and "Parish of Saint Mary" compare equal. Empty when nothing distinctive
+ * remains (then no name-based dedup is possible).
+ */
+export function normalizedParishName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter((w) => w && !NAME_STOP_WORDS.has(w))
+    .sort() // "Holy Cross Cathedral" ≡ "Cathedral of the Holy Cross"
+    .join(" ");
+}
+
+type ExistingRow = {
+  id: string;
+  slug: string;
+  title: string;
+  isPublished: boolean;
+  sourceRef: string | null;
+  payload: unknown;
+};
+
+const ROW_SELECT = {
+  id: true,
+  slug: true,
+  title: true,
+  isPublished: true,
+  sourceRef: true,
+  payload: true,
+} as const;
+
+async function findBySourceRef(prisma: PrismaClient, ref: string): Promise<ExistingRow | null> {
+  return prisma.publishedContent
+    .findFirst({ where: { contentType: "PARISH" as never, sourceRef: ref }, select: ROW_SELECT })
+    .catch(() => null) as Promise<ExistingRow | null>;
+}
+
+async function findBySlug(prisma: PrismaClient, slug: string): Promise<ExistingRow | null> {
+  return prisma.publishedContent
+    .findFirst({ where: { contentType: "PARISH" as never, slug }, select: ROW_SELECT })
+    .catch(() => null) as Promise<ExistingRow | null>;
+}
+
+/** A LIVE parish with the same distinctive name within ~200 m. */
+async function findNearbySameName(
+  prisma: PrismaClient,
+  candidate: OsmCandidate,
+): Promise<ExistingRow | null> {
+  if (typeof candidate.latitude !== "number" || typeof candidate.longitude !== "number")
+    return null;
+  const key = normalizedParishName(candidate.name);
+  if (!key) return null;
+  const rows = (await prisma.publishedContent
+    .findMany({
+      where: {
+        contentType: "PARISH" as never,
+        isPublished: true,
+        latitude: { gte: candidate.latitude - NEARBY_DEG, lte: candidate.latitude + NEARBY_DEG },
+        longitude: { gte: candidate.longitude - NEARBY_DEG, lte: candidate.longitude + NEARBY_DEG },
+      },
+      select: ROW_SELECT,
+      take: 25,
+    })
+    .catch(() => [])) as ExistingRow[];
+  return rows.find((r) => normalizedParishName(r.title) === key) ?? null;
+}
+
+function payloadOf(row: ExistingRow): Record<string, unknown> {
+  return row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+    ? { ...(row.payload as Record<string, unknown>) }
+    : {};
+}
+
+function isBlank(v: unknown): boolean {
+  return v == null || (typeof v === "string" && v.trim() === "");
 }
 
 /**
- * Search OpenStreetMap (Overpass) for Roman Catholic churches in a locality.
- * Returns [] offline / disabled / on any failure. Candidates are unverified.
+ * Enrich an existing row from a re-swept OSM element: fill ONLY empty fields
+ * (phone, website, coordinates, city, address, country, sourceRef, addressKey)
+ * through the protection gate. Never overwrites; returns true when applied.
  */
-export async function searchCatholicParishesOsm(
-  locality: string,
-  bbox?: [number, number, number, number],
-): Promise<PlaceParish[]> {
-  if (!osmParishDiscoveryEnabled()) return [];
-  let query: string;
-  if (bbox) {
-    // Fast path: bounding-box query straight against Overpass's spatial index —
-    // ~3s and dozens of parishes, no area lookup. The OUT_CAP result limit lets
-    // a dense metro yield plenty of candidates per pass.
-    const [s, w, n, e] = bbox;
-    query = `[out:json][timeout:50];
-nwr["amenity"="place_of_worship"]["religion"="christian"]["denomination"="roman_catholic"]["name"](${s},${w},${n},${e});
-out center tags ${OUT_CAP};`;
-  } else {
-    if (!locality.trim()) return [];
-    // Fallback: area-name lookup (slower, less reliable) for catalog-derived
-    // localities that have no bbox. Overpass area names match a single token
-    // best; keep letters/numbers/space.
-    const safe = locality.replace(/[^\p{L}\p{N}\s.'-]/gu, "").trim();
-    if (!safe) return [];
-    query = `[out:json][timeout:50];
-area["name"="${safe}"]->.a;
-nwr["amenity"="place_of_worship"]["religion"="christian"]["denomination"="roman_catholic"]["name"](area.a);
-out center tags ${OUT_CAP};`;
-  }
-
-  // Race every mirror in PARALLEL and take the first NON-EMPTY result. The
-  // public Overpass instances are individually unreliable — one is overloaded
-  // (504), another is slow (30s+), a third has a lagging area index and returns
-  // 0 rows — but at any moment at least one usually answers quickly with data.
-  // Querying them sequentially with a per-endpoint timeout could take
-  // endpoints×timeout (well over the 120s lane watchdog); racing them means the
-  // fastest healthy mirror wins in ~20s. One request per mirror per 10-min
-  // throttle window respects each host's fair-use policy.
-  const attempt = (endpoint: string): Promise<PlaceParish[]> => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    return fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "User-Agent": "ViaFideiAdminWorker/1.0 (+https://etviafidei.com; parish directory)",
-      },
-      body: query,
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) return [] as PlaceParish[];
-        // Skip only when the server explicitly declares a non-JSON body (an HTML
-        // error/rate-limit page). A missing/empty content-type falls through to
-        // the parse, where a non-JSON body rejects and is caught below.
-        const contentType = res.headers?.get?.("content-type") ?? "";
-        if (contentType && !/json/i.test(contentType)) return [] as PlaceParish[];
-        const data = (await res.json()) as { elements?: OverpassElement[] };
-        const out: PlaceParish[] = [];
-        for (const el of data.elements ?? []) {
-          const p = osmElementToParish(el);
-          if (p) out.push(p);
-        }
-        return out;
-      })
-      .catch(() => [] as PlaceParish[])
-      .finally(() => clearTimeout(timer));
+async function enrichExistingRow(
+  prisma: PrismaClient,
+  row: ExistingRow,
+  candidate: OsmCandidate,
+  passId?: string,
+): Promise<boolean> {
+  const current = payloadOf(row);
+  const proposed = { ...current };
+  const fill = (key: string, value: unknown) => {
+    if (isBlank(current[key]) && !isBlank(value)) proposed[key] = value;
   };
-
-  const pending = overpassEndpoints().map((ep) => attempt(ep));
-  // Resolve as soon as any mirror returns a non-empty result; otherwise wait for
-  // all and return [] (nothing reachable / no data for this locality this pass).
-  return await new Promise<PlaceParish[]>((resolve) => {
-    let settled = 0;
-    let resolved = false;
-    for (const p of pending) {
-      p.then((rows) => {
-        settled += 1;
-        if (!resolved && rows.length > 0) {
-          resolved = true;
-          resolve(rows);
-        } else if (settled === pending.length && !resolved) {
-          resolve([]);
-        }
-      });
-    }
+  fill("phone", candidate.phone);
+  fill("website", candidate.website);
+  fill("latitude", candidate.latitude);
+  fill("longitude", candidate.longitude);
+  fill("city", candidate.city);
+  fill("address", candidate.formattedAddress);
+  fill("state", candidate.state);
+  fill("country", candidate.country);
+  fill("countryCode", candidate.countryCode);
+  fill("sourceRef", candidate.placeId);
+  const key = parishAddressKey({
+    address: (proposed.address as string | undefined) ?? candidate.formattedAddress,
+    city: (proposed.city as string | undefined) ?? candidate.city,
+    state: (proposed.state as string | undefined) ?? candidate.state,
   });
+  fill("addressKey", key);
+  if (Object.keys(proposed).length === Object.keys(current).length) return false;
+  if (!validatePayload("PARISH", proposed).ok) return false;
+  const res = await applyProtectedContentUpdate(prisma, {
+    contentId: row.id,
+    proposedPayload: proposed,
+    reason: "osm-resweep",
+    qualityScore: 0.88,
+    evidenceCount: 1,
+    passId,
+  }).catch(() => null);
+  return Boolean(res?.applied);
 }
 
-export interface OsmParishResult {
-  enabled: boolean;
-  queriesRun: number;
-  candidates: number;
-  published: number;
-  routedToReview: number;
-  rejected: number;
-  detail: string;
-}
+// ── Per-slug skip memory (gate failures are not retried every sweep) ─────────
 
-/** Self-throttle so the loop can call this every pass without hammering Overpass. */
-async function throttleOk(prisma: PrismaClient): Promise<boolean> {
-  const where = {
-    memoryType_memoryKey: { memoryType: "GENERIC" as const, memoryKey: THROTTLE_KEY },
-  };
-  const row = await prisma.adminWorkerMemory
-    .findUnique({ where, select: { lastUsedAt: true } })
-    .catch(() => null);
-  const last = row?.lastUsedAt ? new Date(row.lastUsedAt).getTime() : 0;
-  if (Date.now() - last < THROTTLE_MS) return false;
-  await prisma.adminWorkerMemory
-    .upsert({
-      where,
-      update: { lastUsedAt: new Date() },
-      create: {
-        memoryType: "GENERIC",
-        memoryKey: THROTTLE_KEY,
-        memoryValue: {},
-        lastUsedAt: new Date(),
-      },
-    })
-    .catch(() => undefined);
-  return true;
-}
-
-/** Read the rotating locality-sweep cursor (0 when unset). */
-async function readLocalityCursor(prisma: PrismaClient): Promise<number> {
+async function readSkip(prisma: PrismaClient, slug: string): Promise<boolean> {
   const row = await prisma.adminWorkerMemory
     .findUnique({
-      where: {
-        memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: LOCALITY_CURSOR_KEY },
-      },
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: SKIP_PREFIX + slug } },
       select: { memoryValue: true },
     })
     .catch(() => null);
-  const v = (row?.memoryValue as { index?: number } | null)?.index;
-  return typeof v === "number" && v >= 0 ? v : 0;
+  const until = (row?.memoryValue as { retryAfter?: number } | null)?.retryAfter;
+  return typeof until === "number" && until > Date.now();
 }
 
-/** Persist the next locality-sweep cursor so each pass covers new metros. */
-async function writeLocalityCursor(prisma: PrismaClient, index: number): Promise<void> {
+export async function writeOsmSkip(
+  prisma: PrismaClient,
+  slug: string,
+  reason: string,
+  retryAfterMs: number = SKIP_DAYS * DAY_MS,
+): Promise<void> {
+  const key = SKIP_PREFIX + slug;
+  const value = { retryAfter: Date.now() + retryAfterMs, reason: reason.slice(0, 240) };
   await prisma.adminWorkerMemory
     .upsert({
-      where: {
-        memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: LOCALITY_CURSOR_KEY },
-      },
-      update: { memoryValue: { index }, lastUsedAt: new Date() },
-      create: {
-        memoryType: "GENERIC",
-        memoryKey: LOCALITY_CURSOR_KEY,
-        memoryValue: { index },
-        lastUsedAt: new Date(),
-      },
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: key } },
+      update: { memoryValue: value, lastUsedAt: new Date() },
+      create: { memoryType: "GENERIC", memoryKey: key, memoryValue: value, lastUsedAt: new Date() },
     })
     .catch(() => undefined);
 }
 
-/**
- * Localities to query this pass. Operator-configured names win (area lookup);
- * otherwise the worker rotates through the bbox-backed SEED_LOCALITIES via a
- * saved cursor so it sweeps a new set of metros every pass and covers the world
- * over time instead of re-querying the same city forever.
- */
-async function buildOsmCityQueries(prisma: PrismaClient, max: number): Promise<OsmLocality[]> {
-  const configured = (process.env.PARISH_DISCOVERY_LOCATIONS ?? "")
-    .split(/[;\n]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  if (configured.length > 0) {
-    const seen = new Set<string>();
-    const out: OsmLocality[] = [];
-    for (const raw of configured) {
-      const city = (raw.split(",")[0] ?? "").trim();
-      if (city && !seen.has(city.toLowerCase())) {
-        seen.add(city.toLowerCase());
-        out.push({ name: city });
-      }
-    }
-    return out.slice(0, max);
-  }
-
-  // Rotate through the seed metros: start at the saved cursor, wrap around.
-  const start = (await readLocalityCursor(prisma)) % SEED_LOCALITIES.length;
-  const out: OsmLocality[] = [];
-  for (let i = 0; i < Math.min(max, SEED_LOCALITIES.length); i++) {
-    out.push(SEED_LOCALITIES[(start + i) % SEED_LOCALITIES.length]);
-  }
-  await writeLocalityCursor(prisma, (start + out.length) % SEED_LOCALITIES.length);
-  return out;
-}
+// ── Publishing ──────────────────────────────────────────────────────────────
 
 /** Publish one OSM parish through the real gate (OSM-accurate citations + summary). */
 async function publishOsmParish(
   prisma: PrismaClient,
-  candidate: PlaceParish,
+  candidate: OsmCandidate,
   slug: string,
-  verdict: CommunionVerdict,
-): Promise<boolean> {
+): Promise<{ kind: string; reason: string }> {
   const city = candidate.city ?? "";
   const citations = [candidate.mapsUri, candidate.website].filter(
     (c): c is string => typeof c === "string" && c.length > 0,
   );
-  if (citations.length === 0) return false;
-  const designation = designationFor(candidate.name);
-  const websiteChecked = Boolean(candidate.website) && verdict.status === "in-communion";
+  if (citations.length === 0) return { kind: "blocked", reason: "no citation" };
+  const designation = candidate.designation;
+  const kindWord = designation.replace("-", " ");
+  const bodyWord = candidate.denomination === "roman_catholic" ? "Roman Catholic" : "Catholic";
+  const where = [city, candidate.country].filter(Boolean).join(", ");
 
   const payload: Record<string, unknown> = {
     slug,
     title: candidate.name,
     designation,
+    // The summary states exactly what the source says and nothing more.
+    summary: `${candidate.name} is a ${bodyWord} ${kindWord}${where ? ` in ${where}` : ""}, listed in OpenStreetMap as a Catholic place of worship (denomination "${candidate.denomination}").`,
+    citations,
+    sourceRef: candidate.placeId,
+  };
+  if (candidate.formattedAddress) payload.address = candidate.formattedAddress;
+  if (city) payload.city = city;
+  const addressKey = parishAddressKey({
     address: candidate.formattedAddress,
     city,
-    summary: `${candidate.name} is a Roman Catholic ${designation.replace("-", " ")} in ${city}, listed in OpenStreetMap (denomination "roman_catholic")${
-      websiteChecked ? "; communion with the Holy See checked against the parish website" : ""
-    }.`,
-    citations,
-    addressKey: parishAddressKey({
-      address: candidate.formattedAddress,
-      city,
-      state: candidate.state,
-    }),
-  };
+    state: candidate.state,
+  });
+  if (addressKey) payload.addressKey = addressKey;
   if (candidate.state) payload.state = candidate.state;
   if (candidate.country) payload.country = candidate.country;
+  if (candidate.countryCode) payload.countryCode = candidate.countryCode;
   if (candidate.website) payload.website = candidate.website;
-  // Best-effort contact / schedule details (never required to publish).
   if (candidate.phone) payload.phone = candidate.phone;
-  if (candidate.massTimes) payload.massTimes = candidate.massTimes;
-  if (candidate.confessionTimes) payload.confessionTimes = candidate.confessionTimes;
   if (typeof candidate.latitude === "number") payload.latitude = candidate.latitude;
   if (typeof candidate.longitude === "number") payload.longitude = candidate.longitude;
 
-  if (!validatePayload("PARISH", payload).ok) return false;
+  const valid = validatePayload("PARISH", payload);
+  if (!valid.ok) return { kind: "blocked", reason: `schema: ${valid.errors.join("; ")}` };
 
   const item = await prisma.checklistItem
     .findFirst({
@@ -456,7 +495,7 @@ async function publishOsmParish(
         select: { id: true },
       })
       .catch(() => null));
-  if (!checklistItem) return false;
+  if (!checklistItem) return { kind: "blocked", reason: "checklist item unavailable" };
 
   const result = await runPublishOrchestrator(prisma, {
     contentType: "PARISH",
@@ -467,9 +506,14 @@ async function publishOsmParish(
     authorityLevel: "COMMUNITY",
     finalScore: 0.88,
     qaPassed: true,
-    hasSourceEvidence: citations.length > 0,
+    hasSourceEvidence: true,
     isDoctrinallySensitive: isDoctrinallySensitive("PARISH"),
-    confidence: verdict.confidence || 0.8,
+    confidence: 0.8,
+    // Deterministic, tag-derived data: the brain's live-fetch screens add
+    // nothing here (and would cost a brain call per parish at 250/run); the
+    // per-publish side effects are batched once per run below.
+    skipBrainScreens: true,
+    skipPostPublishSideEffects: true,
     verifier: {
       publishAllowed: true,
       missingRequired: [],
@@ -477,48 +521,311 @@ async function publishOsmParish(
       verificationRowIds: [],
       evidence: [],
       hasConflict: false,
-      summary: `Discovered via OpenStreetMap (denomination roman_catholic)${
-        candidate.website ? `; ${verdict.reason}` : ""
-      }.`,
+      summary: `Discovered via OpenStreetMap (denomination ${candidate.denomination}); website communion check pending in the verification lane.`,
     },
   }).catch(() => null);
+  if (!result) return { kind: "error", reason: "orchestrator threw" };
+  return { kind: result.kind, reason: result.reason };
+}
 
-  return result?.kind === "published";
+export type CandidateOutcome =
+  | "published"
+  | "updated"
+  | "duplicate"
+  | "skipped"
+  | "failed"
+  | "review";
+
+interface RunContext {
+  brainActive: boolean;
+  passId?: string;
+  reverse: ReverseLookupBudget;
+}
+
+/** Stable, source-derived suffix for a slug collision (postcode, else OSM id). */
+function collisionSuffix(candidate: OsmCandidate): string {
+  const pc = candidate.postcode ? slugify(candidate.postcode) : "";
+  return pc || String(candidate.osmId).slice(-4);
 }
 
 /**
- * Run one keyless OSM parish-discovery pass: query a couple of localities,
- * communion-check candidates, and publish the in-communion ones (routing the
- * rest to review). Self-throttled and bounded.
+ * Run one candidate through dedup and (when new) the publish gate. Order is
+ * cheapest-first and every branch is an indexed lookup.
  */
-/** In-communion verdict backed by OSM's curated `denomination=roman_catholic`
- * tag — used both for parishes with no website and for those whose website
- * can't be read (an unreadable site is no evidence against communion). */
-function osmDenominationVerdict(reason: string): CommunionVerdict {
-  return {
-    status: "in-communion",
-    confidence: 0.8,
-    signals: { positive: ["OpenStreetMap denomination=roman_catholic"], negative: [], review: [] },
-    reason,
-  };
+export async function processOsmCandidate(
+  prisma: PrismaClient,
+  candidate: OsmCandidate,
+  ctx: RunContext,
+): Promise<CandidateOutcome> {
+  // 1. Same OSM element already in the catalog → enrich in place (re-sweep).
+  const bySource = await findBySourceRef(prisma, candidate.placeId);
+  if (bySource?.isPublished) {
+    return (await enrichExistingRow(prisma, bySource, candidate, ctx.passId))
+      ? "updated"
+      : "duplicate";
+  }
+
+  // 2. Same street address → same place under another name (or source).
+  const addressKey = parishAddressKey({
+    address: candidate.formattedAddress,
+    city: candidate.city,
+    state: candidate.state,
+  });
+  const byAddress = addressKey ? await findPublishedParishByAddressKey(prisma, addressKey) : null;
+  if (byAddress) {
+    const row = await findBySlug(prisma, byAddress.slug);
+    if (row?.isPublished && !row.sourceRef)
+      await enrichExistingRow(prisma, row, candidate, ctx.passId);
+    return "duplicate";
+  }
+
+  // 3. Same distinctive name within ~200 m (Maps vs OSM, addr:full vs street).
+  const nearby = await findNearbySameName(prisma, candidate);
+  if (nearby) {
+    if (!nearby.sourceRef) await enrichExistingRow(prisma, nearby, candidate, ctx.passId);
+    return "duplicate";
+  }
+
+  // City fallback for coordinate-only candidates: one bounded reverse lookup
+  // (address.city|town|village|municipality only). Runs AFTER the dedup so a
+  // known parish never spends a lookup.
+  if (
+    !candidate.city &&
+    typeof candidate.latitude === "number" &&
+    typeof candidate.longitude === "number"
+  ) {
+    const r = await reverseLookupCity(prisma, candidate.latitude, candidate.longitude, ctx.reverse);
+    if (r.city) {
+      candidate.city = r.city;
+      candidate.slugBase = slugify(`${candidate.name} ${r.city}`) || candidate.slugBase;
+    }
+    if (!candidate.countryCode && r.countryCode) {
+      candidate.countryCode = r.countryCode;
+      candidate.country = countryNameFor(r.countryCode);
+    }
+  }
+
+  // 4. Slug. Its own row may exist unpublished (a rollback): republish it under
+  //    its slug — the orchestrator's update branch flips it live again. Else a
+  //    live collision with a DIFFERENT parish gets a stable suffix instead of
+  //    a silent skip, while an unpublished row with no other source is reused.
+  let slug = candidate.slugBase;
+  if (bySource && !bySource.isPublished) {
+    slug = bySource.slug;
+  } else {
+    const taken = (row: ExistingRow | null) =>
+      Boolean(row && (row.isPublished || (row.sourceRef && row.sourceRef !== candidate.placeId)));
+    if (taken(await findBySlug(prisma, slug))) {
+      slug = `${slug.slice(0, 74)}-${collisionSuffix(candidate)}`;
+      if (taken(await findBySlug(prisma, slug))) return "duplicate";
+    }
+  }
+  if (await readSkip(prisma, slug)) return "skipped";
+  if (!ctx.brainActive) return "review";
+
+  const res = await publishOsmParish(prisma, candidate, slug);
+  if (res.kind === "published") return "published";
+  if (res.kind === "duplicate") return "duplicate";
+  await writeOsmSkip(prisma, slug, `${res.kind}: ${res.reason}`);
+  if (
+    await fileReview(
+      prisma,
+      candidate,
+      slug,
+      {
+        status: "in-communion",
+        confidence: 0.8,
+        signals: {
+          positive: [`OpenStreetMap denomination=${candidate.denomination}`],
+          negative: [],
+          review: [],
+        },
+        reason: res.reason,
+      },
+      "Confirm and publish parish (OpenStreetMap; publish gate did not pass)",
+    )
+  ) {
+    return "review";
+  }
+  return "failed";
 }
 
+// ── The run ─────────────────────────────────────────────────────────────────
+
+export interface OsmParishResult {
+  enabled: boolean;
+  queriesRun: number;
+  tilesSwept: number;
+  candidates: number;
+  published: number;
+  updated: number;
+  duplicates: number;
+  skipped: number;
+  routedToReview: number;
+  rejected: number;
+  budgetExhausted: boolean;
+  detail: string;
+}
+
+/** Self-throttle so the loop can call this every pass without hammering Overpass. */
+async function throttleOk(prisma: PrismaClient): Promise<boolean> {
+  const where = {
+    memoryType_memoryKey: { memoryType: "GENERIC" as const, memoryKey: THROTTLE_KEY },
+  };
+  const row = await prisma.adminWorkerMemory
+    .findUnique({ where, select: { lastUsedAt: true } })
+    .catch(() => null);
+  const last = row?.lastUsedAt ? new Date(row.lastUsedAt).getTime() : 0;
+  if (Date.now() - last < THROTTLE_MS) return false;
+  await stampThrottle(prisma);
+  return true;
+}
+
+async function stampThrottle(prisma: PrismaClient): Promise<void> {
+  const where = {
+    memoryType_memoryKey: { memoryType: "GENERIC" as const, memoryKey: THROTTLE_KEY },
+  };
+  await prisma.adminWorkerMemory
+    .upsert({
+      where,
+      update: { lastUsedAt: new Date() },
+      create: {
+        memoryType: "GENERIC",
+        memoryKey: THROTTLE_KEY,
+        memoryValue: {},
+        lastUsedAt: new Date(),
+      },
+    })
+    .catch(() => undefined);
+}
+
+function elementRef(el: OverpassElement): string {
+  return `${el.type ?? "?"}/${el.id ?? "?"}`;
+}
+
+/**
+ * Sweep one tile: query it, split it when dense, and run its elements through
+ * `processOsmCandidate` until the publish cap or the deadline. Progress is
+ * persisted on the tile so a stopped run resumes where it left off.
+ */
+async function sweepTile(
+  prisma: PrismaClient,
+  tile: OsmTile,
+  state: OsmTileState,
+  base: OsmParishResult,
+  ctx: RunContext & { maxPublish: number; deadline: number },
+): Promise<"done" | "stopped" | "failed" | "budget"> {
+  const now = Date.now();
+  const res = await runOverpassQuery(prisma, buildTileQuery(tile.bbox, OUT_CAP));
+  base.queriesRun += res.attempts;
+  if (!res.ok) {
+    if (res.budgetExhausted) {
+      base.budgetExhausted = true;
+      return "budget";
+    }
+    const failures = state.failures + 1;
+    await writeTileState(prisma, tile, {
+      ...state,
+      status: "FAILED",
+      failures,
+      lastError: res.error,
+      nextDueAt: now + Math.min(6 * 60 * 60 * 1000 * 2 ** (failures - 1), 7 * DAY_MS),
+    });
+    await clearTileActive(prisma, tile.id);
+    return "failed";
+  }
+
+  const elements = res.elements;
+  const children = elements.length >= OUT_CAP ? splitTile(tile) : [];
+  if (children.length > 0) {
+    // Dense: the cap truncated this tile. Queue the quarters (they re-fetch
+    // everything here without a cap) — but still use the elements we already
+    // have, since dedup makes the overlap free.
+    await enqueueTiles(prisma, children);
+  }
+
+  let resumeAfter = state.resumeAfter;
+  let lastProcessed: string | null = null;
+  for (const el of elements) {
+    const ref = elementRef(el);
+    if (resumeAfter) {
+      if (ref === resumeAfter) resumeAfter = null;
+      continue;
+    }
+    // Bound the run BEFORE any per-candidate work.
+    if (base.published >= ctx.maxPublish || Date.now() > ctx.deadline) {
+      await writeTileState(prisma, tile, {
+        ...state,
+        status: "IN_PROGRESS",
+        elementCount: elements.length,
+        resumeAfter: lastProcessed,
+        lastError: null,
+      });
+      // The next run picks this tile up first, ahead of the cursor/queue.
+      await markTileActive(prisma, tile.id);
+      return "stopped";
+    }
+    const candidate = osmElementToParish(el, { countryCode: tile.countryCode });
+    lastProcessed = ref;
+    if (!candidate) continue;
+    base.candidates += 1;
+    state.accepted += 1;
+    const outcome = await processOsmCandidate(prisma, candidate, ctx).catch(
+      (): CandidateOutcome => "failed",
+    );
+    if (outcome === "published") {
+      base.published += 1;
+      state.published += 1;
+    } else if (outcome === "updated") base.updated += 1;
+    else if (outcome === "duplicate") base.duplicates += 1;
+    else if (outcome === "skipped") base.skipped += 1;
+    else if (outcome === "review") base.routedToReview += 1;
+    else base.rejected += 1;
+  }
+
+  await writeTileState(prisma, tile, {
+    ...state,
+    status: children.length > 0 ? "DENSE_SPLIT" : "SWEPT",
+    elementCount: elements.length,
+    resumeAfter: null,
+    lastSweptAt: now,
+    nextDueAt: now + (elements.length === 0 ? emptyResweepMs() : resweepMs()),
+    failures: 0,
+    lastError: null,
+  });
+  await clearTileActive(prisma, tile.id);
+  return "done";
+}
+
+/**
+ * Run one OSM parish-discovery pass: claim the next due tile(s), sweep them,
+ * publish what is new (cap ~250/run), enrich what is known. Self-throttled,
+ * budgeted, bounded, resumable, and fail-open.
+ */
 export async function runOsmParishDiscovery(
   prisma: PrismaClient,
   opts: {
     brainActive: boolean;
+    /** Tiles queried per run (default 1; env `ADMIN_WORKER_OSM_MAX_QUERIES`). */
     maxQueries?: number;
+    /** New parishes published per run (default 250; env `ADMIN_WORKER_OSM_MAX_PUBLISH`). */
     maxPublishPerPass?: number;
     force?: boolean;
+    passId?: string;
   },
 ): Promise<OsmParishResult> {
   const base: OsmParishResult = {
     enabled: osmParishDiscoveryEnabled(),
     queriesRun: 0,
+    tilesSwept: 0,
     candidates: 0,
     published: 0,
+    updated: 0,
+    duplicates: 0,
+    skipped: 0,
     routedToReview: 0,
     rejected: 0,
+    budgetExhausted: false,
     detail: "",
   };
   if (!base.enabled) {
@@ -526,9 +833,8 @@ export async function runOsmParishDiscovery(
     return base;
   }
   // Sprint scheduler: grow parishes in bounded sprints, then stand down for a
-  // cooldown window during which the worker grows the OTHER content types
-  // (unless every other goal is already met, in which case parishes run
-  // continuously). `force` bypasses the cooldown for manual/proof runs.
+  // (short) cooldown during which the worker grows the OTHER content types.
+  // `force` bypasses it for manual/proof runs.
   if (!opts.force) {
     const { evaluateParishSprint } = await import("./parish-sprint");
     const sprint = await evaluateParishSprint(prisma);
@@ -541,104 +847,81 @@ export async function runOsmParishDiscovery(
     base.detail = "throttled (Overpass fair-use)";
     return base;
   }
+  const remaining = await overpassBudgetRemaining(prisma);
+  if (remaining <= 0) {
+    base.budgetExhausted = true;
+    base.detail = "daily Overpass query budget spent — resuming tomorrow";
+    return base;
+  }
 
-  // Localities queried per run and NEW parishes published per run — env-tunable
-  // (`ADMIN_WORKER_OSM_MAX_QUERIES` / `ADMIN_WORKER_OSM_MAX_PUBLISH`) so parish
-  // growth toward the 200k target can be dialled up where Overpass fair-use
-  // allows (the mirror race spreads the load). Conservative defaults.
-  const maxQueries = opts.maxQueries ?? osmEnvInt("ADMIN_WORKER_OSM_MAX_QUERIES", 2);
-  const maxPublish = opts.maxPublishPerPass ?? osmEnvInt("ADMIN_WORKER_OSM_MAX_PUBLISH", 8);
-  const localities = await buildOsmCityQueries(prisma, maxQueries);
+  const maxTiles = opts.maxQueries ?? osmEnvInt("ADMIN_WORKER_OSM_MAX_QUERIES", 1);
+  const maxPublish = opts.maxPublishPerPass ?? osmEnvInt("ADMIN_WORKER_OSM_MAX_PUBLISH", 250);
+  const ctx = {
+    brainActive: opts.brainActive,
+    passId: opts.passId,
+    reverse: { remaining: reverseLookupCapPerRun() },
+    maxPublish,
+    deadline: Date.now() + RUN_BUDGET_MS,
+  };
 
-  for (const locality of localities) {
-    const candidates = await searchCatholicParishesOsm(locality.name, locality.bbox);
-    base.queriesRun += 1;
-    for (const candidate of candidates) {
-      base.candidates += 1;
-      const slug = slugify(`${candidate.name} ${candidate.city ?? ""}`);
-      if (!slug) continue;
+  const claimed = await claimDueTiles(prisma, Math.min(maxTiles, remaining));
+  const swept: string[] = [];
+  for (const { tile, state } of claimed.tiles) {
+    if (base.published >= maxPublish || Date.now() > ctx.deadline) break;
+    const outcome = await sweepTile(prisma, tile, state, base, ctx).catch(() => "failed" as const);
+    base.tilesSwept += 1;
+    swept.push(`${tile.id} (${tile.country}): ${outcome}`);
+    if (outcome === "budget") break;
+  }
 
-      const exists = await prisma.publishedContent
-        .findFirst({ where: { contentType: "PARISH" as never, slug }, select: { id: true } })
-        .catch(() => null);
-      if (exists) continue;
-
-      // Duplicate by ADDRESS: if an already-published parish sits at this exact
-      // address, it is the same place under a different name — skip it (the
-      // operator's rule: same address ⇒ not published again).
-      const addressKey = parishAddressKey({
-        address: candidate.formattedAddress,
-        city: candidate.city,
-        state: candidate.state,
-      });
-      if (await findPublishedParishByAddressKey(prisma, addressKey)) {
-        base.rejected += 1;
-        continue;
-      }
-
-      // Communion + best-effort details from ONE website fetch when present;
-      // otherwise trust the explicit roman_catholic denomination tag.
-      let verdict: CommunionVerdict;
-      if (candidate.website) {
-        const inspected = await inspectParishWebsite(candidate.website);
-        verdict = inspected.verdict;
-        if (verdict.status === "not-in-communion") {
-          base.rejected += 1;
-          continue;
-        }
-        // Fold in whatever contact/schedule details the site yielded (OSM phone
-        // stays unless the site gave a better one).
-        if (inspected.details.phone) candidate.phone = inspected.details.phone;
-        if (inspected.details.massTimes) candidate.massTimes = inspected.details.massTimes;
-        if (inspected.details.confessionTimes)
-          candidate.confessionTimes = inspected.details.confessionTimes;
-        // "unknown" means the website could NOT be read (blocked egress, site
-        // down, non-HTML) — that is NOT evidence against communion. Fall back to
-        // OSM's explicit denomination=roman_catholic tag, exactly as we already
-        // trust it for parishes with no website. Otherwise an unreadable site is
-        // MORE restrictive than no site, stranding nearly every OSM parish in
-        // review whenever arbitrary parish-website egress is unavailable — which
-        // is why parishes weren't publishing.
-        if (verdict.status === "unknown") {
-          verdict = osmDenominationVerdict(
-            `website unreadable (${verdict.reason}) — trusting OSM denomination=roman_catholic`,
-          );
-        }
-      } else {
-        verdict = osmDenominationVerdict("OpenStreetMap denomination=roman_catholic.");
-      }
-
-      if (verdict.status === "in-communion" && opts.brainActive && base.published < maxPublish) {
-        if (await publishOsmParish(prisma, candidate, slug, verdict)) {
-          base.published += 1;
-          continue;
-        }
-      }
-
-      if (
-        await fileReview(
-          prisma,
-          candidate,
-          slug,
-          verdict,
-          verdict.status === "in-communion"
-            ? "Confirm and publish parish (OpenStreetMap, in communion with Rome)"
-            : "Verify parish communion with Rome before publishing",
-        )
-      ) {
-        base.routedToReview += 1;
-      }
+  if (base.published > 0) {
+    // Batched once per run (the orchestrator's per-publish side effects were
+    // skipped): close the goal gap and flag search/sitemap refresh.
+    const { refreshContentGoals } = await import("./content-goals");
+    await refreshContentGoals(prisma).catch(() => undefined);
+    const { flagSearchRefresh, flagSitemapRefresh } = await import("./repair");
+    await Promise.all([
+      flagSearchRefresh(prisma).catch(() => undefined),
+      flagSitemapRefresh(prisma).catch(() => undefined),
+    ]);
+    if (!opts.force) {
+      const { recordParishSprintProgress } = await import("./parish-sprint");
+      await recordParishSprintProgress(prisma, base.published).catch(() => undefined);
     }
   }
+  // Stamp the throttle at the END too so the next run cannot start until the
+  // throttle window has elapsed after this one finished (no overlapping runs).
+  if (!opts.force) await stampThrottle(prisma);
 
-  // Record this run's publishes toward the current sprint; when the sprint size
-  // is reached the scheduler starts the cooldown so the worker moves to the
-  // other content types. Skipped for `force` runs (manual/proof, not sprints).
-  if (!opts.force && base.published > 0) {
-    const { recordParishSprintProgress } = await import("./parish-sprint");
-    await recordParishSprintProgress(prisma, base.published).catch(() => undefined);
+  const progress = await osmTileProgress(prisma).catch(() => null);
+  base.detail =
+    `${base.candidates} candidate(s) over ${base.tilesSwept} tile(s) [${swept.join("; ") || claimed.detail}]: ` +
+    `published ${base.published}, updated ${base.updated}, ${base.duplicates} duplicate(s), ${base.skipped} skipped, ` +
+    `${base.routedToReview} to review, ${base.rejected} rejected` +
+    (progress
+      ? `; sweep ${progress.cursor}/${progress.catalogue} tiles, ${progress.queued} split tile(s) queued`
+      : "") +
+    (base.budgetExhausted ? "; daily Overpass budget spent" : "") +
+    ".";
+  if (base.tilesSwept > 0) {
+    await writeAdminWorkerLog(prisma, {
+      passId: opts.passId ?? null,
+      category: "PUBLISHING",
+      severity: "INFO",
+      eventName: "osm_parish_sweep",
+      message: `OSM parish sweep: ${base.detail}`,
+      contentType: "PARISH",
+      safeMetadata: {
+        tiles: base.tilesSwept,
+        queries: base.queriesRun,
+        candidates: base.candidates,
+        published: base.published,
+        updated: base.updated,
+        duplicates: base.duplicates,
+        skipped: base.skipped,
+        rejected: base.rejected,
+      },
+    }).catch(() => undefined);
   }
-
-  base.detail = `${base.candidates} candidate(s) over ${base.queriesRun} locality query(ies): published ${base.published}, ${base.routedToReview} to review, ${base.rejected} rejected.`;
   return base;
 }

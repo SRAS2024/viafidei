@@ -295,3 +295,157 @@ describe("runEscalationCheckIfDue — code-update awareness", () => {
     expect(h.sendEmail).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * Flap + commit protections:
+ *   - an open escalation resolves only after its warning has been absent for
+ *     3 consecutive checks (a condition at its window threshold flickers);
+ *   - the same kind + content type is emailed at most once per 24h, whatever
+ *     the build SHA — a commit changes the fingerprint, not the issue;
+ *   - post-upgrade deferral is capped at one grace window per kind, so a
+ *     commit every few hours cannot postpone a genuine page forever.
+ */
+describe("runEscalationCheckIfDue — flap and re-email protections", () => {
+  // The earlier code-update tests leave getVersionContext on a NEW sha, which
+  // would supersede every "abc123" row here; pin the same-build context.
+  beforeEach(() => {
+    h.getVersionContext.mockResolvedValue({
+      current: {
+        label: "admin-worker/abc",
+        sha: "abc123",
+        capturedAt: new Date(0),
+        changedSummary: null,
+      },
+      previous: null,
+      upgradedRecently: false,
+      recentUpgradeSummary: null,
+    });
+  });
+
+  /** Memory-backed prisma: escalation-absent / deferral maps live in AdminWorkerMemory. */
+  function memoryPrisma(existing: unknown) {
+    const memory = new Map<string, Record<string, unknown>>();
+    const prisma = makePrisma(existing);
+    prisma.adminWorkerMemory.findUnique = vi.fn(
+      async (arg: { where: { memoryType_memoryKey: { memoryKey: string } } }) => {
+        const v = memory.get(arg.where.memoryType_memoryKey.memoryKey);
+        return v ? { memoryValue: v, lastUsedAt: null } : null;
+      },
+    );
+    prisma.adminWorkerMemory.upsert = vi.fn(
+      async (arg: {
+        where: { memoryType_memoryKey: { memoryKey: string } };
+        update: { memoryValue?: Record<string, unknown> };
+      }) => {
+        if (arg.update.memoryValue) {
+          memory.set(arg.where.memoryType_memoryKey.memoryKey, arg.update.memoryValue);
+        }
+        return {};
+      },
+    );
+    return { prisma, memory };
+  }
+
+  it("resolves a cleared escalation only on the 3rd consecutive absent check", async () => {
+    h.buildSelfAssessment.mockResolvedValue({ ...defaultAssessment(), warnings: [] });
+    const { prisma, memory } = memoryPrisma(null);
+    prisma.adminWorkerEscalation.findMany = vi.fn(async () => [
+      { id: "e1", kind: "LOOPING", versionSha: "abc123" },
+    ]);
+    const first = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(first.resolved).toBe(0);
+    expect(memory.get("escalation-absent-checks")).toEqual({ e1: 1 });
+    const second = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(second.resolved).toBe(0);
+    expect(prisma.adminWorkerEscalation.update).not.toHaveBeenCalled();
+    const third = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(third.resolved).toBe(1);
+    expect(prisma.adminWorkerEscalation.update).toHaveBeenCalledTimes(1);
+    expect(memory.get("escalation-absent-checks")).toEqual({});
+  });
+
+  it("resets the absent streak when the warning reappears", async () => {
+    const { prisma, memory } = memoryPrisma({
+      resolvedAt: null,
+      emailSentAt: new Date(0),
+      occurrences: 1,
+    });
+    prisma.adminWorkerEscalation.findMany = vi.fn(async () => [
+      { id: "e1", kind: "EXTRACTING_WITHOUT_PUBLISHING", versionSha: "abc123" },
+    ]);
+    h.buildSelfAssessment.mockResolvedValue({ ...defaultAssessment(), warnings: [] });
+    await runEscalationCheckIfDue(prisma as never, { force: true });
+    await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(memory.get("escalation-absent-checks")).toEqual({ e1: 2 });
+    // Present again → the streak is dropped, nothing is resolved.
+    h.buildSelfAssessment.mockResolvedValue(defaultAssessment());
+    const r = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(r.resolved).toBe(0);
+    expect(memory.get("escalation-absent-checks")).toEqual({});
+  });
+
+  it("does not re-email the same kind + content type within 24h even under a new build SHA", async () => {
+    const { prisma } = memoryPrisma(null); // new fingerprint (e.g. a fresh SHA)
+    const findFirst = vi.fn(async () => ({ emailSentAt: new Date(Date.now() - 60 * 60_000) }));
+    (prisma.adminWorkerEscalation as Record<string, unknown>).findFirst = findFirst;
+    const r = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(r.escalated).toBe(true);
+    expect(r.cooldown).toBe(true);
+    expect(r.emailed).toBe(false);
+    expect(h.sendEmail).not.toHaveBeenCalled();
+    expect(h.generatePdf).not.toHaveBeenCalled();
+    // The row is still (re)opened so the condition stays visible.
+    expect(prisma.adminWorkerEscalation.upsert).toHaveBeenCalledTimes(1);
+    const arg = prisma.adminWorkerEscalation.upsert.mock.calls[0][0] as {
+      create: { emailDelivery: string; emailSentAt: unknown };
+    };
+    expect(arg.create.emailDelivery).toBe("cooldown");
+    expect(arg.create.emailSentAt).toBeNull();
+    expect(findFirst.mock.calls[0][0]).toMatchObject({
+      where: { kind: "EXTRACTING_WITHOUT_PUBLISHING", contentType: "PRAYER" },
+    });
+  });
+
+  it("emails again once the 24h cooldown has elapsed", async () => {
+    const { prisma } = memoryPrisma(null);
+    (prisma.adminWorkerEscalation as Record<string, unknown>).findFirst = vi.fn(async () => ({
+      emailSentAt: new Date(Date.now() - 25 * 60 * 60_000),
+    }));
+    const r = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(r.cooldown).toBe(false);
+    expect(r.emailed).toBe(true);
+    expect(h.sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("caps post-upgrade deferral at one grace window per kind", async () => {
+    h.getVersionContext.mockResolvedValue({
+      current: {
+        label: "admin-worker/new",
+        sha: "newsha",
+        capturedAt: new Date(), // a commit just landed → would defer
+        changedSummary: "Upgrade: commit old → new.",
+      },
+      previous: { label: "admin-worker/old", sha: "oldsha", capturedAt: new Date(0) },
+      upgradedRecently: true,
+      recentUpgradeSummary: "Upgrade: commit old → new.",
+    });
+    const { prisma, memory } = memoryPrisma(null);
+    // First sighting: deferred, and the deferral start is remembered per kind.
+    const first = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(first.deferredForUpgrade).toBe(true);
+    expect(h.sendEmail).not.toHaveBeenCalled();
+    expect(typeof memory.get("escalation-deferral")?.EXTRACTING_WITHOUT_PUBLISHING).toBe("string");
+
+    // Seven hours of deferral already spent on this kind (window is 6h) while
+    // commits kept landing: the grace is exhausted → page for real.
+    memory.set("escalation-deferral", {
+      EXTRACTING_WITHOUT_PUBLISHING: new Date(Date.now() - 7 * 60 * 60_000).toISOString(),
+    });
+    const second = await runEscalationCheckIfDue(prisma as never, { force: true });
+    expect(second.deferredForUpgrade).toBe(false);
+    expect(second.emailed).toBe(true);
+    expect(h.sendEmail).toHaveBeenCalledTimes(1);
+    // …and the deferral marker for the kind is cleared.
+    expect(memory.get("escalation-deferral")).toEqual({});
+  });
+});

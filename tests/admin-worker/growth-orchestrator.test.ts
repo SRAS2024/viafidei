@@ -20,13 +20,51 @@ function makePrisma(opts: {
   growth24h?: number;
   growth7d?: number;
   growth30d?: number;
+  /** Age of the newest existing snapshot (ms); undefined → no snapshot model in the harness. */
+  latestSnapshotAgeMs?: number | null;
+  /** Worker liveness inputs; undefined → models absent (fail-open to wall-clock). */
+  heartbeatAgeHours?: number | null;
+  firstPassAfterGrowthHoursAgo?: number | null;
 }) {
   const now = Date.now();
   const lastPublishedAt =
     opts.hoursSinceLastGrowth == null
       ? null
       : new Date(now - opts.hoursSinceLastGrowth * 60 * 60 * 1000);
+  const snapshotFindFirst =
+    opts.latestSnapshotAgeMs === undefined
+      ? {}
+      : {
+          findFirst: vi.fn(async () =>
+            opts.latestSnapshotAgeMs == null
+              ? null
+              : { createdAt: new Date(now - opts.latestSnapshotAgeMs) },
+          ),
+        };
+  const liveness =
+    opts.heartbeatAgeHours === undefined
+      ? {}
+      : {
+          adminWorkerState: {
+            findUnique: vi.fn(async () => ({
+              lastHeartbeatAt:
+                opts.heartbeatAgeHours == null
+                  ? null
+                  : new Date(now - opts.heartbeatAgeHours * 60 * 60 * 1000),
+            })),
+          },
+          adminWorkerPass: {
+            findFirst: vi.fn(async () =>
+              opts.firstPassAfterGrowthHoursAgo == null
+                ? null
+                : {
+                    startedAt: new Date(now - opts.firstPassAfterGrowthHoursAgo * 60 * 60 * 1000),
+                  },
+            ),
+          },
+        };
   return {
+    ...liveness,
     contentGoal: {
       findMany: vi.fn(async () => opts.goals),
       update: vi.fn(async () => ({})),
@@ -44,7 +82,7 @@ function makePrisma(opts: {
     },
     adminWorkerStrictQAResult: { findMany: vi.fn(async () => []) },
     workerBuildJob: { count: vi.fn(async () => 0) },
-    adminWorkerGrowthSnapshot: { create: vi.fn(async () => ({})) },
+    adminWorkerGrowthSnapshot: { create: vi.fn(async () => ({})), ...snapshotFindFirst },
     adminWorkerRepairPlan: { create: vi.fn(async () => ({})) },
     adminWorkerLog: { create: vi.fn(async () => ({})) },
   } as unknown as Parameters<typeof runGrowthOrchestrator>[0];
@@ -171,5 +209,99 @@ describe("runGrowthOrchestrator — spec §22", () => {
     });
     const out = await runGrowthOrchestrator(prisma);
     expect(out.assessments[0].recommendation.length).toBeGreaterThan(10);
+  });
+});
+
+const goal = {
+  contentType: "PRAYER",
+  minimumTarget: 50,
+  desiredTarget: 100,
+  currentValidCount: 5,
+  gapCount: 45,
+  priority: 10,
+  status: "IN_PROGRESS",
+};
+
+/**
+ * Staleness is measured against WORKER-ACTIVE time: the execution host is the
+ * operator's computer and OFF is a designed state, so a week with the lid
+ * closed must not file DISCOVERY_FAILED plans for every type.
+ */
+describe("runGrowthOrchestrator — worker-active staleness", () => {
+  it("does not report STUCK_7D when the worker only ran for an hour since the last growth", async () => {
+    const prisma = makePrisma({
+      goals: [goal],
+      hoursSinceLastGrowth: 8 * 24, // 8 days wall-clock
+      heartbeatAgeHours: 0, // running now
+      firstPassAfterGrowthHoursAgo: 1, // …but switched on an hour ago
+    });
+    const out = await runGrowthOrchestrator(prisma);
+    expect(out.assessments[0].status).not.toBe("STUCK_7D");
+    expect(out.assessments[0].activeHoursSinceLastGrowth).toBe(1);
+    expect(out.repairPlansFiled).toBe(0);
+  });
+
+  it("reports WORKER_IDLE when the worker has not run at all since the last growth", async () => {
+    const prisma = makePrisma({
+      goals: [goal],
+      hoursSinceLastGrowth: 3 * 24,
+      heartbeatAgeHours: 4 * 24, // last heartbeat predates the last publish
+      firstPassAfterGrowthHoursAgo: null,
+    });
+    const out = await runGrowthOrchestrator(prisma);
+    expect(out.assessments[0].status).toBe("WORKER_IDLE");
+    expect(out.assessments[0].recommendation).toMatch(/not a pipeline stall/);
+    expect(out.repairPlansFiled).toBe(0);
+  });
+
+  it("still reports STUCK_7D when the worker ran the whole week without growth", async () => {
+    const prisma = makePrisma({
+      goals: [goal],
+      hoursSinceLastGrowth: 8 * 24,
+      heartbeatAgeHours: 0,
+      firstPassAfterGrowthHoursAgo: 8 * 24, // first pass right after the growth → active all week
+    });
+    const out = await runGrowthOrchestrator(prisma);
+    expect(out.assessments[0].status).toBe("STUCK_7D");
+    expect(out.repairPlansFiled).toBe(1);
+  });
+
+  it("falls back to wall-clock time when liveness cannot be read (fail-open, existing behaviour)", async () => {
+    const prisma = makePrisma({ goals: [goal], hoursSinceLastGrowth: 8 * 24 });
+    const out = await runGrowthOrchestrator(prisma);
+    expect(out.assessments[0].status).toBe("STUCK_7D");
+    expect(out.assessments[0].activeHoursSinceLastGrowth).toBeNull();
+  });
+});
+
+/** Snapshot writes are spaced ≥15 min apart whoever calls the orchestrator. */
+describe("runGrowthOrchestrator — snapshot interval", () => {
+  it("reuses recent snapshots instead of writing new rows every pass", async () => {
+    const prisma = makePrisma({
+      goals: [goal],
+      hoursSinceLastGrowth: 2,
+      latestSnapshotAgeMs: 5 * 60_000,
+    });
+    const out = await runGrowthOrchestrator(prisma);
+    expect(out.snapshotsWritten).toBe(false);
+    expect(out.assessments).toHaveLength(1); // assessments are still produced
+    expect(
+      (prisma as unknown as { adminWorkerGrowthSnapshot: { create: unknown } })
+        .adminWorkerGrowthSnapshot.create,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("writes snapshots once the newest one is older than the interval", async () => {
+    const prisma = makePrisma({
+      goals: [goal],
+      hoursSinceLastGrowth: 2,
+      latestSnapshotAgeMs: 20 * 60_000,
+    });
+    const out = await runGrowthOrchestrator(prisma);
+    expect(out.snapshotsWritten).toBe(true);
+    expect(
+      (prisma as unknown as { adminWorkerGrowthSnapshot: { create: unknown } })
+        .adminWorkerGrowthSnapshot.create,
+    ).toHaveBeenCalledTimes(1);
   });
 });

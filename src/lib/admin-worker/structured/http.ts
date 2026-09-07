@@ -54,6 +54,76 @@ export async function fetchText(
     clearTimeout(timer);
   }
 }
+
+/**
+ * Outcome of a JSON GET that keeps the failure DETAIL the SPARQL client needs:
+ * a 429 carries a `Retry-After` the query service expects us to honour, a 504
+ * (or a client-side abort) means the server is still executing the query and an
+ * immediate retry only doubles its load. `fetchJson` below flattens this to
+ * data-or-null for callers that don't care.
+ */
+export type FetchJsonResult<T> =
+  | { ok: true; status: number; data: T }
+  | {
+      ok: false;
+      /** HTTP status, or null when no response arrived (network error / abort). */
+      status: number | null;
+      /** Parsed `Retry-After` in ms (429/503), or null when absent. */
+      retryAfterMs: number | null;
+      /** True when the request was aborted by our own timeout. */
+      aborted: boolean;
+      /** True when the network gate is closed (ADMIN_WORKER_SKIP_NETWORK=1). */
+      disabled: boolean;
+    };
+
+/** Parse an HTTP `Retry-After` header (delta-seconds or HTTP-date) to ms. */
+export function parseRetryAfterMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const v = value.trim();
+  if (/^\d+$/.test(v)) return Number(v) * 1000;
+  const at = Date.parse(v);
+  if (Number.isFinite(at)) return Math.max(0, at - Date.now());
+  return null;
+}
+
+/**
+ * GET a URL and parse the JSON body, reporting HOW it failed. Never throws.
+ */
+export async function fetchJsonDetailed<T = unknown>(
+  url: string,
+  opts: { accept?: string; timeoutMs?: number } = {},
+): Promise<FetchJsonResult<T>> {
+  if (!structuredNetworkEnabled()) {
+    return { ok: false, status: null, retryAfterMs: null, aborted: false, disabled: true };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT, Accept: opts.accept ?? "application/json" },
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      // Test doubles often stub only `ok`/`status`; tolerate a missing headers bag.
+      const header = typeof res.headers?.get === "function" ? res.headers.get("retry-after") : null;
+      return {
+        ok: false,
+        status: typeof res.status === "number" ? res.status : null,
+        retryAfterMs: parseRetryAfterMs(header),
+        aborted: false,
+        disabled: false,
+      };
+    }
+    return { ok: true, status: res.status, data: (await res.json()) as T };
+  } catch (err) {
+    const aborted =
+      controller.signal.aborted || (err instanceof Error && err.name === "AbortError");
+    return { ok: false, status: null, retryAfterMs: null, aborted, disabled: false };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * GET a URL and parse the JSON body. Returns null on any failure (network,
  * non-2xx, timeout, parse) and when network is disabled. Never throws.
@@ -62,19 +132,6 @@ export async function fetchJson<T = unknown>(
   url: string,
   opts: { accept?: string; timeoutMs?: number } = {},
 ): Promise<T | null> {
-  if (!structuredNetworkEnabled()) return null;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT, Accept: opts.accept ?? "application/json" },
-      signal: controller.signal,
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-  }
+  const r = await fetchJsonDetailed<T>(url, opts);
+  return r.ok ? r.data : null;
 }

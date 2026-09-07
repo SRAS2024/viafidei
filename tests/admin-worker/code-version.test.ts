@@ -25,6 +25,8 @@ import {
   resolveBuildVersion,
   corpusFingerprint,
   recordCodeVersionIfChanged,
+  resetCodeVersionThrottle,
+  resetCorpusFingerprintCache,
 } from "@/lib/admin-worker/code-version";
 
 const VERSION_ENVS = [
@@ -42,6 +44,9 @@ beforeEach(() => {
     saved[k] = process.env[k];
     delete process.env[k];
   }
+  // The compare is throttled to once an hour per process; each test is a fresh hour.
+  resetCodeVersionThrottle();
+  resetCorpusFingerprintCache();
 });
 afterEach(() => {
   for (const k of VERSION_ENVS) {
@@ -84,6 +89,7 @@ function makePrisma(latest: unknown) {
     adminWorkerCodeVersion: {
       findFirst: vi.fn(async () => latest),
       create: vi.fn(async () => ({ id: "cv1" })),
+      update: vi.fn(async () => ({ id: "cv0" })),
     },
     adminWorkerState: { update: vi.fn(async () => ({})) },
     adminWorkerLog: { create: vi.fn(async () => ({ id: "l1" })) },
@@ -118,5 +124,80 @@ describe("recordCodeVersionIfChanged", () => {
     const r = await recordCodeVersionIfChanged(prisma as never);
     expect(r.changed).toBe(true);
     expect(prisma.adminWorkerCodeVersion.create).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Cost + coalescing controls: the worker runs on the operator's Mac from the
+ * checkout the operator develops in, so the compare must be cheap and a burst
+ * of commits must count as ONE upgrade (escalation's post-upgrade grace is one
+ * window per burst, not per commit).
+ */
+describe("recordCodeVersionIfChanged — throttle, cache, coalescing", () => {
+  it("compares at most once per hour per process (force bypasses)", async () => {
+    process.env.GIT_SHA = "sha-one-000000";
+    const prisma = makePrisma(null);
+    const first = await recordCodeVersionIfChanged(prisma as never);
+    expect(first.changed).toBe(true);
+    const second = await recordCodeVersionIfChanged(prisma as never);
+    expect(second.changed).toBe(false);
+    expect(second.throttled).toBe(true);
+    expect(second.label).toBe(first.label);
+    expect(prisma.adminWorkerCodeVersion.findFirst).toHaveBeenCalledTimes(1);
+    const forced = await recordCodeVersionIfChanged(prisma as never, { force: true });
+    expect(forced.throttled).toBeUndefined();
+    expect(prisma.adminWorkerCodeVersion.findFirst).toHaveBeenCalledTimes(2);
+  });
+
+  it("folds a change landing within an hour of the last row into that row (coalesce)", async () => {
+    process.env.GIT_SHA = "sha-two-111111";
+    const fp = corpusFingerprint();
+    const prisma = makePrisma({
+      id: "cv0",
+      corpusHash: fp.hash,
+      sha: "sha-one-000000",
+      fileCount: 2,
+      capturedAt: new Date(Date.now() - 10 * 60_000), // 10 min ago → same upgrade burst
+    });
+    const r = await recordCodeVersionIfChanged(prisma as never);
+    expect(r.changed).toBe(true);
+    expect(r.coalesced).toBe(true);
+    expect(prisma.adminWorkerCodeVersion.update).toHaveBeenCalledTimes(1);
+    expect(prisma.adminWorkerCodeVersion.create).not.toHaveBeenCalled();
+    const arg = prisma.adminWorkerCodeVersion.update.mock.calls[0][0] as {
+      where: { id: string };
+      data: { sha: string; changedSummary: string };
+    };
+    expect(arg.where.id).toBe("cv0");
+    expect(arg.data.sha).toBe("sha-two-111111");
+    expect(arg.data.changedSummary).toMatch(/coalesced/);
+  });
+
+  it("records a NEW row when the previous one is older than the coalesce window", async () => {
+    process.env.GIT_SHA = "sha-two-111111";
+    const fp = corpusFingerprint();
+    const prisma = makePrisma({
+      id: "cv0",
+      corpusHash: fp.hash,
+      sha: "sha-one-000000",
+      fileCount: 2,
+      capturedAt: new Date(Date.now() - 3 * 60 * 60_000), // 3h ago → a distinct upgrade
+    });
+    const r = await recordCodeVersionIfChanged(prisma as never);
+    expect(r.changed).toBe(true);
+    expect(r.coalesced).toBe(false);
+    expect(prisma.adminWorkerCodeVersion.create).toHaveBeenCalledTimes(1);
+    expect(prisma.adminWorkerCodeVersion.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("corpusFingerprint cache", () => {
+  it("reuses the fingerprint for the same (sha, mtimes) key and recomputes when the sha changes", () => {
+    const a = corpusFingerprint({ sha: "same" });
+    const b = corpusFingerprint({ sha: "same" });
+    expect(b).toBe(a); // identical object → served from the per-process cache
+    const c = corpusFingerprint({ sha: "other" });
+    expect(c).not.toBe(a); // new key → recomputed…
+    expect(c.hash).toBe(a.hash); // …with the same deterministic hash
   });
 });

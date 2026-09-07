@@ -69,4 +69,17 @@ describe("deriveNextBestAction", () => {
   it("suggests generating work when idle with no current action", () => {
     expect(deriveNextBestAction({ ...base, currentAction: null })).toMatch(/generate new work/i);
   });
+
+  it("puts undecided unpublished content ahead of pipeline work (below escalations)", () => {
+    const r = deriveNextBestAction({
+      ...base,
+      unpublishedAwaitingDecision: 2,
+      buildReadyBacklog: 10,
+      buildReadyGates: [{ gate: "AWAITING_QA", count: 10 }],
+    });
+    expect(r).toMatch(/restore-vs-delete for 2 unpublished/);
+    expect(
+      deriveNextBestAction({ ...base, unpublishedAwaitingDecision: 2, openEscalations: 1 }),
+    ).toMatch(/escalation/i);
+  });
 });

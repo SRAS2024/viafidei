@@ -113,10 +113,126 @@ export function feastDayInText(month: number, day: number, text: string): boolea
 }
 
 /**
- * Map a Wikidata `canonization status` (P411) label to the schema enum.
- * Order matters — "Servant of God", "Venerable", and "Blessed" are checked
- * before the broad "saint"/"canonized". Returns null for an unknown label so
- * the caller skips rather than guesses.
+ * Month names of the non-English Wikipedia editions the saint ingest can
+ * corroborate against. Polish is listed in the GENITIVE ("14 lipca"), which is
+ * how a date is written in running text; German accepts "14. Juli" and the
+ * Austrian "Jänner"; Spanish accepts the "14 de julio" particle.
+ */
+const LOCALIZED_MONTHS: Record<string, string[][]> = {
+  it: [
+    ["gennaio"],
+    ["febbraio"],
+    ["marzo"],
+    ["aprile"],
+    ["maggio"],
+    ["giugno"],
+    ["luglio"],
+    ["agosto"],
+    ["settembre"],
+    ["ottobre"],
+    ["novembre"],
+    ["dicembre"],
+  ],
+  es: [
+    ["enero"],
+    ["febrero"],
+    ["marzo"],
+    ["abril"],
+    ["mayo"],
+    ["junio"],
+    ["julio"],
+    ["agosto"],
+    ["septiembre", "setiembre"],
+    ["octubre"],
+    ["noviembre"],
+    ["diciembre"],
+  ],
+  fr: [
+    ["janvier"],
+    ["février", "fevrier"],
+    ["mars"],
+    ["avril"],
+    ["mai"],
+    ["juin"],
+    ["juillet"],
+    ["août", "aout"],
+    ["septembre"],
+    ["octobre"],
+    ["novembre"],
+    ["décembre", "decembre"],
+  ],
+  de: [
+    ["januar", "jänner"],
+    ["februar"],
+    ["märz", "marz"],
+    ["april"],
+    ["mai"],
+    ["juni"],
+    ["juli"],
+    ["august"],
+    ["september"],
+    ["oktober"],
+    ["november"],
+    ["dezember"],
+  ],
+  pl: [
+    ["stycznia", "styczeń"],
+    ["lutego", "luty"],
+    ["marca", "marzec"],
+    ["kwietnia", "kwiecień"],
+    ["maja", "maj"],
+    ["czerwca", "czerwiec"],
+    ["lipca", "lipiec"],
+    ["sierpnia", "sierpień"],
+    ["września", "wrzesień"],
+    ["października", "październik"],
+    ["listopada", "listopad"],
+    ["grudnia", "grudzień"],
+  ],
+};
+
+/** Languages `feastDayInTextLocalized` understands (plus "en"). */
+export const CORROBORATION_LANGS = ["en", ...Object.keys(LOCALIZED_MONTHS)];
+
+/**
+ * Corroboration in a non-English Wikipedia edition: is the (month, day) feast
+ * stated, in words, in `text` written in `lang`? Falls back to the English
+ * matcher for "en" and returns false for an unsupported language — never
+ * guesses from a language it can't read.
+ */
+export function feastDayInTextLocalized(
+  month: number,
+  day: number,
+  text: string,
+  lang: string,
+): boolean {
+  if (lang === "en") return feastDayInText(month, day, text);
+  const months = LOCALIZED_MONTHS[lang]?.[month - 1];
+  if (!months || !text) return false;
+  const t = text.toLowerCase();
+  const d = String(day);
+  return months.some((name) => {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // "14 luglio", "14 de julio", "14. Juli", "1er juillet", "14 lipca".
+    const dayFirst = new RegExp(
+      `(?<!\\d)${d}(?:\\.|er|º|°)?(?:\\s+de)?\\s+${escaped}(?![a-zà-ž])`,
+      "u",
+    );
+    // "Juli 14" is unusual in these languages but harmless to accept.
+    const monthFirst = new RegExp(`(?<![a-zà-ž])${escaped}\\s+${d}(?!\\d)`, "u");
+    return dayFirst.test(t) || monthFirst.test(t);
+  });
+}
+
+/**
+ * Map a Wikidata `canonization status` (P411) LABEL to the schema enum.
+ *
+ * Retained for callers that only have a label; the SAINT ingest itself no
+ * longer uses it — it maps by QID (`saint-facts.ts`) because label matching
+ * turned every "…saint" item (Orthodox, Anglican, Coptic, folk) into a
+ * Catholic `canonized`. Order matters — "Servant of God", "Venerable", and
+ * "Blessed" are checked before the broad "saint"/"canonized". Returns null for
+ * an unknown label so the caller skips rather than guesses.
  */
 export function mapCanonizationStatus(
   label: string,

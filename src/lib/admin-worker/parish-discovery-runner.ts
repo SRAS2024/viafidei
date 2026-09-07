@@ -57,10 +57,48 @@ export function slugify(value: string): string {
     .slice(0, 80);
 }
 
-export function designationFor(name: string): "parish" | "shrine" | "cathedral" | "minor-basilica" {
-  if (/\bbasilica\b/i.test(name)) return "minor-basilica";
-  if (/\bcathedral\b/i.test(name)) return "cathedral";
-  if (/\bshrine\b/i.test(name)) return "shrine";
+export type ParishDesignation =
+  | "parish"
+  | "shrine"
+  | "cathedral"
+  | "major-basilica"
+  | "minor-basilica";
+
+/** The four papal (major) basilicas — the only churches that are ever
+ * "major-basilica"; every other basilica is minor. */
+const PAPAL_BASILICA_RE =
+  /\b(san pietro in vaticano|st\.? ?peter'?s basilica|basilica of (saint|st\.?) peter|san giovanni in laterano|st\.? ?john lateran|santa maria maggiore|st\.? ?mary major|san paolo fuori le mura|st\.? ?paul outside the walls|papal basilica|basilica papale|arcibasilica)\b/i;
+/** Multilingual, accent-tolerant designation words (OSM names are local). */
+const BASILICA_RE = /\b(basilica|bas[ií]lica|basilika|bazylika|basilique|bazilika|bazilica)\b/i;
+const CATHEDRAL_RE =
+  /\b(cathedral|catedral|cattedrale|kathedrale|katedra|cath[ée]drale|katedr[áa]la|catedrala|duomo|kathedraal|domkirche)\b/i;
+const SHRINE_RE =
+  /\b(shrine|santuario|santu[áa]rio|sanctuaire|sanktuarium|wallfahrtskirche|heiligdom|santuari)\b/i;
+
+/**
+ * Designation from the source's own words: OSM tags first (`building=cathedral`,
+ * `cathedral=yes`, `church:type=…`), then the name in any of the directory's
+ * main languages. Never guesses "major": only the papal basilicas qualify.
+ */
+export function designationFor(name: string, tags: Record<string, string> = {}): ParishDesignation {
+  const tag = (k: string) => (tags[k] ?? "").trim().toLowerCase();
+  const churchType = tag("church:type");
+  if (PAPAL_BASILICA_RE.test(name)) return "major-basilica";
+  if (
+    tag("building") === "basilica" ||
+    churchType === "basilica" ||
+    churchType === "minor_basilica" ||
+    BASILICA_RE.test(name)
+  )
+    return "minor-basilica";
+  if (
+    tag("building") === "cathedral" ||
+    tag("cathedral") === "yes" ||
+    churchType === "cathedral" ||
+    CATHEDRAL_RE.test(name)
+  )
+    return "cathedral";
+  if (churchType === "shrine" || SHRINE_RE.test(name)) return "shrine";
   return "parish";
 }
 
@@ -260,10 +298,12 @@ export async function runMapsParishDiscovery(
       const slug = slugify(`${candidate.name} ${city}`);
       if (!slug) continue;
 
-      // De-dupe against the catalog by slug…
+      // De-dupe against the catalog by LIVE slug. A row that was unpublished
+      // (e.g. by a spurious post-publish rollback) must not block the parish
+      // forever: the orchestrator's update branch republishes it.
       const exists = await prisma.publishedContent
         .findFirst({
-          where: { contentType: "PARISH" as never, slug },
+          where: { contentType: "PARISH" as never, slug, isPublished: true },
           select: { id: true },
         })
         .catch(() => null);

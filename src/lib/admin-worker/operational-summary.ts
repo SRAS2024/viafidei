@@ -37,46 +37,69 @@ export interface OperationalSummary {
   /** Latest running code version (what changed after a deploy). */
   codeVersion: { versionLabel: string; sha: string | null; changedSummary: string | null } | null;
   openEscalations: number;
+  /**
+   * Content the worker unpublished after a post-publish failure whose
+   * restore-vs-delete review has EXPIRED without a decision: hidden from the
+   * public site with no open signal anywhere else, so it is surfaced here.
+   */
+  unpublishedAwaitingDecision: number;
   /** One-line derived recommendation of the highest-value next action. */
   nextBestAction: string;
 }
 
+/** Review actions the post-publish rollback files after unpublishing (post-publish-rollback.ts). */
+const ROLLBACK_REVIEW_ACTIONS = [
+  "restore_or_delete_unpublished_content",
+  "investigate_post_publish_failure",
+];
+
 export async function buildOperationalSummary(prisma: PrismaClient): Promise<OperationalSummary> {
   const now = Date.now();
 
-  const [state, lanes, lastDecision, strategyStats, gateRows, codeVersion, openEscalations] =
-    await Promise.all([
-      prisma.adminWorkerState.findUnique({ where: { id: "singleton" } }).catch(() => null),
-      getLaneStates(prisma),
-      prisma.adminWorkerActionScore
-        .findFirst({
-          where: { selected: true },
-          orderBy: { createdAt: "desc" },
-          select: { missionStage: true, reason: true, createdAt: true },
-        })
-        .catch(() => null),
-      prisma.adminWorkerStrategyStat
-        .findMany({
-          orderBy: [{ dimension: "asc" }, { ewma: "desc" }],
-          select: { dimension: true, method: true, ewma: true },
-          take: 60,
-        })
-        .catch(() => [] as Array<{ dimension: string; method: string; ewma: number }>),
-      prisma.adminWorkerPackageArtifact
-        .groupBy({
-          by: ["gateDiagnosis"],
-          where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } },
-          _count: { _all: true },
-        })
-        .catch(() => [] as Array<{ gateDiagnosis: string | null; _count: { _all: number } }>),
-      prisma.adminWorkerCodeVersion
-        .findFirst({
-          orderBy: { capturedAt: "desc" },
-          select: { versionLabel: true, sha: true, changedSummary: true },
-        })
-        .catch(() => null),
-      prisma.adminWorkerEscalation.count({ where: { resolvedAt: null } }).catch(() => 0),
-    ]);
+  const [
+    state,
+    lanes,
+    lastDecision,
+    strategyStats,
+    gateRows,
+    codeVersion,
+    openEscalations,
+    unpublishedAwaitingDecision,
+  ] = await Promise.all([
+    prisma.adminWorkerState.findUnique({ where: { id: "singleton" } }).catch(() => null),
+    getLaneStates(prisma),
+    prisma.adminWorkerActionScore
+      .findFirst({
+        where: { selected: true },
+        orderBy: { createdAt: "desc" },
+        select: { missionStage: true, reason: true, createdAt: true },
+      })
+      .catch(() => null),
+    prisma.adminWorkerStrategyStat
+      .findMany({
+        orderBy: [{ dimension: "asc" }, { ewma: "desc" }],
+        select: { dimension: true, method: true, ewma: true },
+        take: 60,
+      })
+      .catch(() => [] as Array<{ dimension: string; method: string; ewma: number }>),
+    prisma.adminWorkerPackageArtifact
+      .groupBy({
+        by: ["gateDiagnosis"],
+        where: { status: { in: ["BUILD_READY", "VERIFICATION_READY"] } },
+        _count: { _all: true },
+      })
+      .catch(() => [] as Array<{ gateDiagnosis: string | null; _count: { _all: number } }>),
+    prisma.adminWorkerCodeVersion
+      .findFirst({
+        orderBy: { capturedAt: "desc" },
+        select: { versionLabel: true, sha: true, changedSummary: true },
+      })
+      .catch(() => null),
+    prisma.adminWorkerEscalation.count({ where: { resolvedAt: null } }).catch(() => 0),
+    prisma.humanReviewQueue
+      .count({ where: { status: "EXPIRED", proposedAction: { in: ROLLBACK_REVIEW_ACTIONS } } })
+      .catch(() => 0),
+  ]);
 
   const heartbeatAgeSeconds = state?.lastHeartbeatAt
     ? Math.round((now - new Date(state.lastHeartbeatAt).getTime()) / 1000)
@@ -129,6 +152,7 @@ export async function buildOperationalSummary(prisma: PrismaClient): Promise<Ope
     buildReadyBacklog,
     codeVersion,
     openEscalations,
+    unpublishedAwaitingDecision,
     nextBestAction: deriveNextBestAction({
       paused,
       working,
@@ -137,6 +161,7 @@ export async function buildOperationalSummary(prisma: PrismaClient): Promise<Ope
       openEscalations,
       erroredLaneCount,
       currentAction: lastDecision?.missionStage ?? null,
+      unpublishedAwaitingDecision,
     }),
   };
 }
@@ -154,10 +179,16 @@ export function deriveNextBestAction(input: {
   openEscalations: number;
   erroredLaneCount: number;
   currentAction: string | null;
+  unpublishedAwaitingDecision?: number;
 }): string {
   if (input.paused) return "Worker is paused — resume it to continue autonomous work.";
   if (input.openEscalations > 0) {
     return `Address ${input.openEscalations} open escalation(s) — a condition needs attention before it blocks progress.`;
+  }
+  // Content a person still has to restore or delete outranks pipeline work: it
+  // is already vetted content missing from the public site.
+  if ((input.unpublishedAwaitingDecision ?? 0) > 0) {
+    return `Decide restore-vs-delete for ${input.unpublishedAwaitingDecision} unpublished item(s) whose review expired — they stay hidden until a person decides.`;
   }
   if (input.erroredLaneCount > 0) {
     return `${input.erroredLaneCount} lane(s) are in error-backoff — inspect the failing lane; it auto-retries after cooldown.`;

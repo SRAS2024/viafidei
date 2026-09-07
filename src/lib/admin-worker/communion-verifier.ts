@@ -76,13 +76,51 @@ const NEGATIVE_PATTERNS: Array<{ re: RegExp; label: string }> = [
     re: /\bnot in (full )?communion with (rome|the (roman )?(holy see|pope|see))/i,
     label: "states it is not in communion with Rome",
   },
-  { re: /\b(wo)?m[ae]n (are )?(ordain|priest)/i, label: "women's ordination" },
+  // Women's ordination. The `wom` prefix is REQUIRED: the old optional
+  // `(wo)?` group matched "men ordained" / "four men priests" — ordinary
+  // Catholic ordination news — and rejected real parishes.
+  { re: /\bwom[ae]n(?:'s)? (?:are |being |were )?(?:ordain|priest)/i, label: "women's ordination" },
+  { re: /\bordination of women\b|\bwomen priests?\b/i, label: "women's ordination" },
   { re: /\bfemale (priest|clergy|ordination)\b/i, label: "female ordination" },
   { re: /\beastern orthodox\b/i, label: "Eastern Orthodox" },
-  { re: /\b(greek|russian|antiochian|serbian|coptic) orthodox\b/i, label: "Orthodox church" },
-  { re: /\banglican\b/i, label: "Anglican" },
-  { re: /\bepiscopal church\b/i, label: "Episcopal Church" },
+  {
+    re: /\b(greek|russian|antiochian|serbian|coptic|romanian|bulgarian|ukrainian|macedonian|georgian|ethiopian|syriac|armenian) orthodox\b/i,
+    label: "Orthodox church",
+  },
+  // Anglican / Episcopal IDENTITY, not the bare word: parishes of the
+  // Personal Ordinariates (in full communion with Rome) describe their
+  // "Anglican patrimony" / "Anglican Use", and ecumenical pages mention
+  // Anglican neighbours. Only self-identification as part of the Anglican
+  // Communion disqualifies (and the Ordinariate override below still wins).
+  {
+    re: /\banglican (communion|church|parish|diocese|province|cathedral|community|congregation)\b|\bchurch of england\b|\bchurch of ireland\b/i,
+    label: "Anglican",
+  },
+  { re: /\bepiscopal (church|diocese)\b/i, label: "Episcopal Church" },
 ];
+
+/**
+ * Negatives that are softened by an explicit Catholic self-identification.
+ * A Roman Catholic parish page legitimately says "ecumenical prayer with the
+ * Greek Orthodox Church" or "shares its building with the Episcopal Church";
+ * those mentions only disqualify when the page does NOT identify itself as
+ * Roman Catholic / in communion with Rome. Old Catholic, PNCC, SSPX,
+ * sedevacantist and women's-ordination signals are never softened.
+ */
+const SOFT_NEGATIVE_LABELS = new Set([
+  "Eastern Orthodox",
+  "Orthodox church",
+  "Anglican",
+  "Episcopal Church",
+]);
+
+/** Explicit Catholic self-identification strong enough to soften a soft negative. */
+const SELF_IDENTIFIED_CATHOLIC_RE =
+  /\broman catholic\b|\bin (full )?communion with (rome|the (roman )?(holy see|pope|catholic church|apostolic see)|the bishop of rome)/i;
+
+/** The Personal Ordinariates (Anglican patrimony, full communion with Rome). */
+const ORDINARIATE_RE =
+  /\b(personal )?ordinariate of (the chair of (st\.?|saint) peter|our lady of walsingham|our lady of the southern cross)\b|\bpersonal ordinariate\b|\banglican (use|patrimony)\b/i;
 
 /**
  * The 24 sui iuris Churches of the Catholic communion (the Latin Church + 23
@@ -175,6 +213,14 @@ export function assessCommunionFromText(rawText: string): CommunionVerdict {
   const positive: string[] = [];
 
   for (const { re, label } of NEGATIVE_PATTERNS) if (re.test(text)) negative.push(label);
+  // Ordinariate parishes are in full communion with Rome by definition; their
+  // Anglican-heritage wording must not read as an Anglican identity.
+  const ordinariate = ORDINARIATE_RE.test(text);
+  const selfCatholic = SELF_IDENTIFIED_CATHOLIC_RE.test(text);
+  const softened = negative.filter(
+    (label) => SOFT_NEGATIVE_LABELS.has(label) && (ordinariate || selfCatholic),
+  );
+  const hardNegative = negative.filter((label) => !softened.includes(label));
 
   let positiveWeight = 0;
   for (const { re, label, weight } of POSITIVE_PATTERNS) {
@@ -187,17 +233,21 @@ export function assessCommunionFromText(rawText: string): CommunionVerdict {
   // `review` is retained in the signal shape for backward compatibility; the
   // canonically-irregular bodies that once landed here (SSPX) are now
   // disqualifiers, so this is always empty.
-  const signals: CommunionSignals = { positive, negative, review: [] };
+  if (ordinariate) {
+    positive.push("Personal Ordinariate (Anglican patrimony, in communion with Rome)");
+    positiveWeight += 3;
+  }
+  const signals: CommunionSignals = { positive, negative: hardNegative, review: [] };
 
   // 1. Any disqualifying signal → not in communion. Never published. Checked
   //    FIRST so an Old-Catholic / Orthodox / Anglican "diocese" or "Catholic"
   //    can never be mistaken for a positive.
-  if (negative.length > 0) {
+  if (hardNegative.length > 0) {
     return {
       status: "not-in-communion",
-      confidence: Math.min(1, 0.7 + 0.1 * negative.length),
+      confidence: Math.min(1, 0.7 + 0.1 * hardNegative.length),
       signals,
-      reason: `Disqualifying signal(s): ${negative.join("; ")}.`,
+      reason: `Disqualifying signal(s): ${hardNegative.join("; ")}.`,
     };
   }
 

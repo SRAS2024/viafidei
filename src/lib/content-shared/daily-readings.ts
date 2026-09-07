@@ -7,7 +7,12 @@
  * the worker — these helpers never invent it.
  */
 
-import { resolveLiturgicalDay, usccbReadingsUrl } from "./liturgical-calendar";
+import {
+  resolveLiturgicalDay,
+  usccbReadingsUrl,
+  type LiturgicalCalendarOptions,
+  type SanctoralOverlay,
+} from "./liturgical-calendar";
 
 export type ReadingKind =
   | "FIRST_READING"
@@ -29,19 +34,35 @@ export interface ReadingSection {
 export interface ReadingFraming {
   /** ISO civil date (YYYY-MM-DD). */
   date: string;
-  /** The exact liturgical celebration, e.g. "The Most Holy Trinity",
-   *  "Tuesday of the 23rd Week in Ordinary Time" (General Roman Calendar). */
+  /** The calendar the framing was computed for ("roman-us" by default —
+   *  the readings source is the USCCB — or "roman-general"). */
+  calendar: string;
+  /** The exact liturgical celebration observed, e.g. "The Most Holy Trinity",
+   *  "Saint Agnes, Virgin and Martyr", "Tuesday of the 23rd Week in Ordinary Time". */
   celebration: string;
-  /** Stable Proper-of-Time key the lectionary is indexed on. */
+  /** The key the readings are looked up by: the sanctoral key when the
+   *  Proper of Saints supplies the readings, otherwise the Proper-of-Time key. */
   lectionaryKey: string;
-  /** "SOLEMNITY" | "FEAST" | "SUNDAY" | "WEEKDAY". */
+  /** The underlying Proper-of-Time key (the weekday readings a memorial
+   *  without proper readings, or with only a proper Gospel, falls back to). */
+  temporalKey: string;
+  /** Label of the underlying Proper-of-Time day. */
+  temporalCelebration: string;
+  /** "SOLEMNITY" | "FEAST" | "MEMORIAL" | "COMMEMORATION" | "SUNDAY" | "WEEKDAY". */
   rank: string;
+  season: string;
   seasonLabel: string;
+  /** Week within the season (0 for stand-alone days and the Christmas season). */
+  weekOfSeason: number;
   sundayCycle: string;
   weekdayCycle: string;
   color: string;
   isJubileeYear: boolean;
   isSunday: boolean;
+  /** A weekday holy day of obligation (US rules by default). */
+  isHolyDayOfObligation: boolean;
+  /** The sanctoral celebration observed today (solemnity/feast/memorial), if any. */
+  sanctoral: SanctoralOverlay | null;
   sourceUrl: string;
   sourceName: string;
   sections: ReadingSection[];
@@ -80,24 +101,36 @@ export function buildReadingSkeleton(
   return sections;
 }
 
-/** Deterministic liturgical framing + skeleton for a date (no network). */
-export function buildReadingFraming(date: Date): ReadingFraming {
-  const day = resolveLiturgicalDay(date);
+/**
+ * Deterministic liturgical framing + skeleton for a date (no network).
+ * Defaults to the US calendar (the readings source is the USCCB); pass
+ * `{ calendar: "roman-general" }` for the General Roman Calendar.
+ */
+export function buildReadingFraming(date: Date, opts?: LiturgicalCalendarOptions): ReadingFraming {
+  const day = resolveLiturgicalDay(date, opts);
   return {
     date: isoDate(date),
+    calendar: day.calendar,
     celebration: day.celebration,
     lectionaryKey: day.lectionaryKey,
+    temporalKey: day.temporalKey,
+    temporalCelebration: day.temporalCelebration,
     rank: day.rank,
+    season: day.season,
     seasonLabel: day.seasonLabel,
+    weekOfSeason: day.weekOfSeason,
     sundayCycle: day.sundayCycle,
     weekdayCycle: day.weekdayCycle,
     color: day.color,
     isJubileeYear: day.isJubileeYear,
     isSunday: isSunday(date),
+    isHolyDayOfObligation: day.isHolyDayOfObligation,
+    sanctoral: day.sanctoral ?? null,
     sourceUrl: usccbReadingsUrl(date),
     sourceName: "USCCB",
     sections: buildReadingSkeleton(date, {
-      secondReading: day.rank === "SOLEMNITY" || isSunday(date),
+      // Solemnities (and All Souls) carry a Second Reading even on weekdays.
+      secondReading: day.rank === "SOLEMNITY" || day.rank === "COMMEMORATION" || isSunday(date),
     }),
   };
 }

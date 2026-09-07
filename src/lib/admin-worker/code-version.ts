@@ -14,17 +14,30 @@
  *     is available (e.g. a container with no `.git`), because the shape of the
  *     code itself changed.
  *
- * On each worker boot (and once per pass, cheaply) we compare {sha, corpusHash}
+ * On each worker boot (and then at most hourly) we compare {sha, corpusHash}
  * to the most recent `AdminWorkerCodeVersion` row. On a change we insert a new
  * row with a human diff summary vs the previous build, update
  * `AdminWorkerState.workerVersion` (replacing the static default), and log the
  * upgrade. Everything here is fail-open: a version-memory error must never
  * affect a worker pass.
+ *
+ * Cost control (the worker runs on the operator's Mac, from the checkout the
+ * operator develops in):
+ *   - the corpus fingerprint walks and parses every source file, so it is
+ *     cached per process and only recomputed when the git HEAD or the
+ *     package.json / schema.prisma mtimes change — never once per pass;
+ *   - `recordCodeVersionIfChanged` does its database compare at most hourly
+ *     (the first call in a process, i.e. boot, always runs);
+ *   - rapid commits coalesce: a change landing within COALESCE_MS of the last
+ *     recorded row updates that row in place instead of adding a new one, so
+ *     a burst of commits counts as ONE upgrade for the escalation grace window
+ *     rather than restarting it (and re-superseding open escalations) every
+ *     time.
  */
 
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 import type { PrismaClient } from "@prisma/client";
@@ -106,13 +119,48 @@ export function resolveBuildVersion(root = resolveBrainRoot() ?? process.cwd()):
   return { sha: sha ?? null, label };
 }
 
+/** Cheap identity of the checkout: HEAD plus the mtimes of the two files every build touches. */
+function fingerprintCacheKey(root: string, sha: string | null): string {
+  const mtime = (rel: string): string => {
+    try {
+      return String(statSync(path.join(root, rel)).mtimeMs);
+    } catch {
+      return "-";
+    }
+  };
+  return [sha ?? "-", mtime("package.json"), mtime(path.join("prisma", "schema.prisma"))].join("|");
+}
+
+let _fingerprintCache: { key: string; fp: CorpusFingerprint } | null = null;
+
+/** For tests: forget the per-process fingerprint cache. */
+export function resetCorpusFingerprintCache(): void {
+  _fingerprintCache = null;
+}
+
 /**
  * Deterministic fingerprint of the code SHAPE. Sorted before hashing so the
  * value is stable across runs on the same tree (filesystem walk order is not
  * guaranteed). Fail-open: on any error returns an empty fingerprint that will
  * simply not match, so a transient read error never fabricates a "changed".
+ *
+ * Cached per process on (git HEAD, package.json mtime, schema mtime): walking
+ * and parsing every source file once per pass on a ~1s idle cadence was pure
+ * waste, and an uncommitted edit is not a build the worker needs to record.
+ * An empty (failed) fingerprint is never cached.
  */
-export function corpusFingerprint(): CorpusFingerprint {
+export function corpusFingerprint(
+  opts: { root?: string; sha?: string | null } = {},
+): CorpusFingerprint {
+  const root = opts.root ?? resolveBrainRoot() ?? process.cwd();
+  const key = fingerprintCacheKey(root, opts.sha ?? null);
+  if (_fingerprintCache && _fingerprintCache.key === key) return _fingerprintCache.fp;
+  const fp = computeCorpusFingerprint();
+  if (fp.hash) _fingerprintCache = { key, fp };
+  return fp;
+}
+
+function computeCorpusFingerprint(): CorpusFingerprint {
   try {
     const corpus = buildSelfModelCorpus();
     const fileParts = corpus.files
@@ -178,21 +226,49 @@ export interface CodeVersionResult {
   label: string;
   sha: string | null;
   summary?: string;
+  /** True when the change was folded into the previous row (rapid commit burst). */
+  coalesced?: boolean;
+  /** True when the hourly throttle skipped the compare. */
+  throttled?: boolean;
+}
+
+/** Minimum spacing between database compares (boot always runs). */
+const CHECK_INTERVAL_MS = 60 * 60 * 1000;
+/** A change landing this soon after the last recorded row is the same upgrade. */
+const COALESCE_MS = 60 * 60 * 1000;
+
+let _lastCheckAt = 0;
+let _lastResult: CodeVersionResult | null = null;
+
+/** For tests: forget the hourly throttle so the next call compares again. */
+export function resetCodeVersionThrottle(): void {
+  _lastCheckAt = 0;
+  _lastResult = null;
 }
 
 /**
  * Compare the running build to the last recorded one; on a change, record a new
- * `AdminWorkerCodeVersion` row, update the worker version on the state
- * singleton, and log the upgrade. Idempotent (a no-op when nothing changed) and
- * fail-open. Safe to call at startup and once per pass.
+ * `AdminWorkerCodeVersion` row (or fold it into the previous row when it landed
+ * within COALESCE_MS of it), update the worker version on the state singleton,
+ * and log the upgrade. Idempotent (a no-op when nothing changed), throttled to
+ * one compare per hour per process (`force` bypasses), and fail-open. Safe to
+ * call at startup and every pass.
  */
-export async function recordCodeVersionIfChanged(prisma: PrismaClient): Promise<CodeVersionResult> {
+export async function recordCodeVersionIfChanged(
+  prisma: PrismaClient,
+  opts: { force?: boolean } = {},
+): Promise<CodeVersionResult> {
+  if (!opts.force && _lastResult && Date.now() - _lastCheckAt < CHECK_INTERVAL_MS) {
+    return { ..._lastResult, changed: false, throttled: true };
+  }
   try {
     const version = resolveBuildVersion();
-    const fp = corpusFingerprint();
+    const fp = corpusFingerprint({ sha: version.sha });
     // An empty fingerprint means the corpus couldn't be read — don't record a
-    // spurious version off of it.
+    // spurious version off of it (and don't start the throttle on it either).
     if (!fp.hash) return { changed: false, label: version.label, sha: version.sha };
+    _lastCheckAt = Date.now();
+    _lastResult = { changed: false, label: version.label, sha: version.sha };
 
     const latest = await prisma.adminWorkerCodeVersion
       .findFirst({ orderBy: { capturedAt: "desc" } })
@@ -205,18 +281,28 @@ export async function recordCodeVersionIfChanged(prisma: PrismaClient): Promise<
     }
 
     const summary = summarizeChange(version, fp, latest);
-    await prisma.adminWorkerCodeVersion.create({
-      data: {
-        sha: version.sha,
-        versionLabel: version.label,
-        corpusHash: fp.hash,
-        fileCount: fp.fileCount,
-        totalLines: fp.totalLines,
-        routeCount: fp.routeCount,
-        prismaModelCount: fp.prismaModelCount,
-        changedSummary: summary,
-      },
-    });
+    const data = {
+      sha: version.sha,
+      versionLabel: version.label,
+      corpusHash: fp.hash,
+      fileCount: fp.fileCount,
+      totalLines: fp.totalLines,
+      routeCount: fp.routeCount,
+      prismaModelCount: fp.prismaModelCount,
+      changedSummary: summary,
+    };
+    // Coalesce a burst of commits into the row it started with: capturedAt
+    // stays at the burst's start, so escalation's post-upgrade grace is one
+    // window per burst, not one per commit.
+    const coalesce = !!latest && Date.now() - new Date(latest.capturedAt).getTime() < COALESCE_MS;
+    if (coalesce) {
+      await prisma.adminWorkerCodeVersion.update({
+        where: { id: latest.id },
+        data: { ...data, changedSummary: `${summary} (coalesced with a change <1h earlier)` },
+      });
+    } else {
+      await prisma.adminWorkerCodeVersion.create({ data });
+    }
 
     // Keep the operational state's version string current (it was a static
     // default before this module existed).
@@ -228,7 +314,7 @@ export async function recordCodeVersionIfChanged(prisma: PrismaClient): Promise<
       category: "WORKER_PASS",
       severity: "INFO",
       eventName: "code_version_changed",
-      message: `Admin Worker code/version change detected: ${summary}`,
+      message: `Admin Worker code/version change detected: ${summary}${coalesce ? " (coalesced)" : ""}`,
       safeMetadata: {
         label: version.label,
         sha: version.sha,
@@ -236,10 +322,12 @@ export async function recordCodeVersionIfChanged(prisma: PrismaClient): Promise<
         fileCount: fp.fileCount,
         routeCount: fp.routeCount,
         prismaModelCount: fp.prismaModelCount,
+        coalesced: coalesce,
       },
     }).catch(() => undefined);
 
-    return { changed: true, label: version.label, sha: version.sha, summary };
+    _lastResult = { changed: false, label: version.label, sha: version.sha };
+    return { changed: true, label: version.label, sha: version.sha, summary, coalesced: coalesce };
   } catch {
     return { changed: false, label: "admin-worker/0.1", sha: null };
   }

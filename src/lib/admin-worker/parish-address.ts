@@ -8,8 +8,9 @@
  * punctuation-stripped, with the common street-type / directional words folded
  * to a canonical short form so "123 Main Street, St. Louis" and "123 Main St,
  * Saint Louis" collapse to the same key. The key is stored on the published
- * parish's payload (`addressKey`) so a fast lookup can reject a would-be
- * duplicate before it is ever published.
+ * parish's payload (`addressKey`) AND in the indexed `PublishedContent.addressKey`
+ * column (written at publish time and by the hygiene sweep), so the duplicate
+ * lookup is an index probe rather than a JSON scan of every parish row.
  */
 
 import type { PrismaClient } from "@prisma/client";
@@ -81,12 +82,15 @@ export async function findPublishedParishByAddressKey(
   opts: { excludeSlug?: string } = {},
 ): Promise<{ id: string; slug: string; title: string } | null> {
   if (!addressKey) return null;
+  // The indexed column, not the JSON path: at 100k+ parishes a JSON-path
+  // filter is a sequential scan per candidate (the old lane issued hundreds
+  // per run), while this is one index probe.
   const row = await prisma.publishedContent
     .findFirst({
       where: {
         contentType: "PARISH" as never,
         isPublished: true,
-        payload: { path: ["addressKey"], equals: addressKey },
+        addressKey,
         ...(opts.excludeSlug ? { slug: { not: opts.excludeSlug } } : {}),
       },
       select: { id: true, slug: true, title: true },

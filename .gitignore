@@ -49,3 +49,6 @@ __pycache__/
 *.sqlite3
 .pytest_cache/
 .mypy_cache/
+
+# Claude desktop-app dev-server launcher (local only)
+.claude/launch.json

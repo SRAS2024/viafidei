@@ -248,8 +248,12 @@ export function PrayerExtractor(input: ExtractorInput): ExtractorOutput<PrayerFi
 export interface SaintFields {
   saintName: string;
   saintType: string;
+  /** "MM-DD" — the SAINT schema shape (also what /saints/today reads). */
   feastDay: string;
   feastMonth: number;
+  /** Day of the month, under the schema's name … */
+  feastDayOfMonth: number;
+  /** … and under the legacy name the verifier / packaging tables still list. */
   feastDayNumber: number;
   background: string;
   patronage?: string;
@@ -316,8 +320,14 @@ export function SaintExtractor(input: ExtractorInput): ExtractorOutput<SaintFiel
     const monthIdx = MONTHS.indexOf(feastMatch[1].toLowerCase());
     const day = parseInt(feastMatch[2], 10);
     if (monthIdx >= 0 && day >= 1 && day <= 31) {
-      fields.feastDay = `${feastMatch[1]} ${day}`;
-      fields.feastMonth = monthIdx + 1;
+      const month = monthIdx + 1;
+      // Emit the SAINT schema's shape directly ("MM-DD" + feastMonth +
+      // feastDayOfMonth). The old "August 23" text + `feastDayNumber` could
+      // never satisfy validatePayload("SAINT") or the feast-day derived
+      // columns, so no web-extracted saint could count toward the goal.
+      fields.feastDay = `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      fields.feastMonth = month;
+      fields.feastDayOfMonth = day;
       fields.feastDayNumber = day;
       evidence.push(
         provenanceFor(
@@ -402,6 +412,87 @@ export function SaintExtractor(input: ExtractorInput): ExtractorOutput<SaintFiel
     warnings: [],
     fatalReasons: fatal,
   };
+}
+
+const SAINT_TYPE_ENUM = new Set([
+  "martyr",
+  "doctor_of_the_church",
+  "virgin",
+  "confessor",
+  "religious",
+  "lay",
+  "bishop",
+  "pope",
+  "apostle",
+  "evangelist",
+  "founder",
+  "missionary",
+  "other",
+]);
+
+/**
+ * Canonization status a source's own honorific states ("Blessed X" → beatified,
+ * "Venerable X" → venerable, "Servant of God X" → servant_of_god, "Saint X" /
+ * "St. X" → canonized). The status MUST be sourced, and the page title is the
+ * source's statement; a bare name yields undefined (never guessed).
+ */
+export function canonizationStatusFromHonorific(
+  name: string | undefined,
+): "canonized" | "beatified" | "venerable" | "servant_of_god" | undefined {
+  const n = (name ?? "").trim();
+  if (/^servant of god\b/i.test(n)) return "servant_of_god";
+  if (/^(venerable|ven\.)\s/i.test(n)) return "venerable";
+  if (/^(blessed|bl\.)\s/i.test(n)) return "beatified";
+  if (/^(saint|st\.?)\s/i.test(n)) return "canonized";
+  return undefined;
+}
+
+/**
+ * Shape a web-extracted saint into the SAINT content schema's payload
+ * (`canonicalName` / `biography` / "MM-DD" feast / enum `saintType` /
+ * `canonizationStatus` / ≥2 citations). Pure and deterministic: every value is
+ * the extractor's own field or a caller-supplied citation; nothing is invented.
+ * The caller validates the result with `validatePayload("SAINT", …)`.
+ */
+export function saintSchemaPayloadFromFields(
+  fields: Partial<SaintFields>,
+  extra: {
+    /** Additional citation URLs (validation sources); sourceUrl is always first. */
+    citations?: string[];
+    canonizationStatus?: "canonized" | "beatified" | "venerable" | "servant_of_god";
+  } = {},
+): Record<string, unknown> {
+  const name = (fields.saintName ?? "").trim();
+  const bare = name.replace(/^(saint|st\.?|blessed|bl\.?|venerable|ven\.?|servant of god)\s+/i, "");
+  const slugBase = bare
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const citations = [...new Set([fields.sourceUrl, ...(extra.citations ?? [])].filter(Boolean))];
+  const payload: Record<string, unknown> = {
+    slug: `saint-${slugBase}`,
+    canonicalName: name,
+    feastDay: fields.feastDay,
+    feastMonth: fields.feastMonth,
+    feastDayOfMonth: fields.feastDayOfMonth,
+    patronages: (fields.patronage ?? "")
+      .split(/[;,]| and /)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 1 && s.length <= 80),
+    biography: fields.background,
+    saintType: SAINT_TYPE_ENUM.has(fields.saintType ?? "") ? fields.saintType : "other",
+    relatedPrayers: [],
+    relatedDevotions: [],
+    citations,
+  };
+  const status = extra.canonizationStatus ?? canonizationStatusFromHonorific(name);
+  if (status) payload.canonizationStatus = status;
+  if (fields.birthDate) payload.birthDate = fields.birthDate;
+  if (fields.deathDate) payload.deathDate = fields.deathDate;
+  if (fields.canonizationYear) payload.canonizationDate = fields.canonizationYear;
+  return payload;
 }
 
 // ─── MarianApparitionExtractor ─────────────────────────────────────────────

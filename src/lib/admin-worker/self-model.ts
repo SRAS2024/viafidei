@@ -13,6 +13,12 @@
  * The result is persisted (a durable self-model snapshot log row) and the
  * ranked upgrades become developer requests, so the worker can say what it is,
  * what is weak, and what it needs next.
+ *
+ * This pass runs in its own ops lane (maint-self-model), outside the
+ * `intelligence` lane, so all of its brain calls are made under
+ * `withBrainMutex` and strictly one after another: the resident brain answers
+ * one request at a time and the bridge does not queue, so anything else would
+ * just wait in the Python loop with its timeout already ticking.
  */
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
@@ -39,6 +45,7 @@ import {
 import { BRAIN_OPS, type DeveloperRequest } from "./intelligence/contracts";
 import { BrainCallContext, recordBrainCall, recordDeveloperRequests } from "./intelligence/store";
 import { inspectSchema } from "./awareness";
+import { withBrainMutex } from "./brain-mutex";
 import { writeAdminWorkerLog } from "./logs";
 
 /** Mission stages the Admin Worker dispatcher walks (the artifact chain). */
@@ -274,45 +281,71 @@ export async function runSelfModelPass(
     const corpus = buildSelfModelCorpus();
     if (corpus.files.length === 0) return { ran: false, requests: 0 };
 
-    // Ingest the corpus first (normalise + integrity-check), then build the
-    // self-model the rest of the pass reasons over.
-    const ingestEnv = await ingestCodebase(corpus);
-    await recordBrainCall(prisma, "ingest_codebase", ingestEnv, ctx);
+    // Every brain call of this pass happens inside ONE mutex hold, one call at
+    // a time. The six analyses used to fire via Promise.all; against a brain
+    // that serves one request at a time that only meant five of them waited in
+    // the Python loop with their timeouts already running.
+    const brain = await withBrainMutex(async () => {
+      // Ingest the corpus first (normalise + integrity-check), then build the
+      // self-model the rest of the pass reasons over.
+      const ingestEnv = await ingestCodebase(corpus);
+      await recordBrainCall(prisma, "ingest_codebase", ingestEnv, ctx);
 
-    const modelEnv = await buildSelfModel(corpus);
-    await recordBrainCall(prisma, "build_self_model", modelEnv, ctx);
-    if (!modelEnv || !modelEnv.ok || !modelEnv.result) return { ran: false, requests: 0 };
+      const modelEnv = await buildSelfModel(corpus);
+      await recordBrainCall(prisma, "build_self_model", modelEnv, ctx);
+      if (!modelEnv || !modelEnv.ok || !modelEnv.result) return null;
 
-    const [weakEnv, untestedEnv, orphanEnv, dupEnv, coverageEnv, callEnv] = await Promise.all([
-      findWeakModules(corpus.files),
-      findUntestedModules(corpus.files),
-      findOrphanedCode(corpus.files),
-      findDuplicateLogic(corpus.files),
-      buildTestCoverageGraph(corpus.files),
-      buildCallGraph(corpus.files),
-    ]);
-    await Promise.all([
-      recordBrainCall(prisma, "find_weak_modules", weakEnv, ctx),
-      recordBrainCall(prisma, "find_untested_modules", untestedEnv, ctx),
-      recordBrainCall(prisma, "find_orphaned_code", orphanEnv, ctx),
-      recordBrainCall(prisma, "find_duplicate_logic", dupEnv, ctx),
-      recordBrainCall(prisma, "build_test_coverage_graph", coverageEnv, ctx),
-      recordBrainCall(prisma, "build_call_graph", callEnv, ctx),
-    ]);
+      const weakEnv = await findWeakModules(corpus.files);
+      await recordBrainCall(prisma, "find_weak_modules", weakEnv, ctx);
+      const untestedEnv = await findUntestedModules(corpus.files);
+      await recordBrainCall(prisma, "find_untested_modules", untestedEnv, ctx);
+      const orphanEnv = await findOrphanedCode(corpus.files);
+      await recordBrainCall(prisma, "find_orphaned_code", orphanEnv, ctx);
+      const dupEnv = await findDuplicateLogic(corpus.files);
+      await recordBrainCall(prisma, "find_duplicate_logic", dupEnv, ctx);
+      const coverageEnv = await buildTestCoverageGraph(corpus.files);
+      await recordBrainCall(prisma, "build_test_coverage_graph", coverageEnv, ctx);
+      const callEnv = await buildCallGraph(corpus.files);
+      await recordBrainCall(prisma, "build_call_graph", callEnv, ctx);
 
-    const coverageRatio =
-      coverageEnv?.result?.coverage_ratio ?? modelEnv.result.test_coverage_ratio;
-    const upgradesEnv = await rankSelfUpgrades({
-      weak_modules: weakEnv?.result?.weak_modules ?? [],
-      untested_modules: untestedEnv?.result?.untested_modules ?? [],
-      orphan_candidates: orphanEnv?.result?.orphan_candidates ?? [],
-      duplicate_pairs: dupEnv?.result?.duplicate_pairs ?? [],
-      coverage_ratio: coverageRatio,
+      const coverageRatio =
+        coverageEnv?.result?.coverage_ratio ?? modelEnv.result.test_coverage_ratio;
+      const upgradesEnv = await rankSelfUpgrades({
+        weak_modules: weakEnv?.result?.weak_modules ?? [],
+        untested_modules: untestedEnv?.result?.untested_modules ?? [],
+        orphan_candidates: orphanEnv?.result?.orphan_candidates ?? [],
+        duplicate_pairs: dupEnv?.result?.duplicate_pairs ?? [],
+        coverage_ratio: coverageRatio,
+      });
+      await recordBrainCall(prisma, "rank_self_upgrades", upgradesEnv, ctx);
+
+      const archEnv = await explainOwnArchitecture(modelEnv.result);
+      await recordBrainCall(prisma, "explain_own_architecture", archEnv, ctx);
+
+      return {
+        model: modelEnv.result,
+        weakEnv,
+        untestedEnv,
+        orphanEnv,
+        dupEnv,
+        coverageEnv,
+        callEnv,
+        coverageRatio,
+        upgradesEnv,
+        archEnv,
+      };
     });
-    await recordBrainCall(prisma, "rank_self_upgrades", upgradesEnv, ctx);
-
-    const archEnv = await explainOwnArchitecture(modelEnv.result);
-    await recordBrainCall(prisma, "explain_own_architecture", archEnv, ctx);
+    if (!brain) return { ran: false, requests: 0 };
+    const {
+      weakEnv,
+      untestedEnv,
+      orphanEnv,
+      dupEnv,
+      callEnv,
+      coverageRatio,
+      upgradesEnv,
+      archEnv,
+    } = brain;
 
     // Ranked self-upgrades → developer requests (the unified upgrade-request
     // engine; code changes stay human-reviewed). The full 20-field structure is
@@ -344,7 +377,7 @@ export async function runSelfModelPass(
     // Durable self-model snapshot — the dedicated AdminWorkerSelfModelSnapshot
     // table is the source of truth (Postgres owns SelfModel snapshots); the
     // audit log keeps only a timeline marker.
-    const m = modelEnv.result;
+    const m = brain.model;
     const importCycles = (callEnv?.result as { cycle_count?: number } | null)?.cycle_count ?? 0;
     await prisma.adminWorkerSelfModelSnapshot
       .create({

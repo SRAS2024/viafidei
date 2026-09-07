@@ -23,11 +23,32 @@
 import type { ChecklistContentType, SourceAuthorityLevel } from "@prisma/client";
 
 import type { CuratedEntry } from "@/lib/checklist/knowledge";
-import { bindingValue, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
+import { bindingValue, qidOf, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { fetchSummaryForArticleUrl } from "./wikipedia";
 import { fetchArticleInfobox } from "./wikipedia-infobox";
 import { fetchDocumentExcerpt } from "./document-excerpt";
-import { feastDayInText, mapCanonizationStatus, parseFeastValue } from "./corroboration";
+import {
+  feastDayInTextLocalized,
+  monthName,
+  parseFeastValue,
+  type ParsedFeast,
+} from "./corroboration";
+import {
+  CATHOLIC_RELIGION_QIDS,
+  CATHOLIC_STATUS_QIDS,
+  GENERIC_SAINT_QID,
+  SAINT_FACTS_PATTERNS,
+  SAINT_FACTS_SELECT,
+  composeStructuredBiography,
+  deriveSaintType,
+  hasCatholicReligion,
+  hasNonCatholicReligion,
+  parseSaintFacts,
+  preferredAltArticle,
+  resolveCanonizationStatus,
+  saintDisplayTitle,
+  type CanonizationStatus,
+} from "./saint-facts";
 
 /** Reserved for future context (locale, calendar) passed into a mapper. */
 export type IngestContext = Record<string, never>;
@@ -47,12 +68,28 @@ export interface StructuredIngestor {
   /** Map one row → a curated-style entry, or null when it can't yield one. */
   map(row: SparqlBinding, ctx: IngestContext): Promise<CuratedEntry | null>;
   /**
+   * CHEAP identity of a row — the slug/name the entry WOULD publish under and
+   * the entity's QID — computed from the SPARQL row alone, with no network.
+   * The orchestrator uses it to skip already-live rows BEFORE any Wikipedia
+   * fetch, so a re-sweep of thousands of published rows costs one SPARQL call
+   * per page and zero Wikipedia traffic. Optional; ingestors without it are
+   * checked after mapping as before.
+   */
+  identify?(row: SparqlBinding): RowIdentity | null;
+  /**
    * Authoritative source URLs the worker should ADD to its own discovery queue
    * from this row (e.g. an entity's official website) — the self-expansion of
    * the knowledge base: the worker learns new places to pull content from as it
    * ingests. Optional; returns [] when the row carries none.
    */
   discoveredSources?(row: SparqlBinding): string[];
+}
+
+/** What `identify` returns: any subset, all cheap. */
+export interface RowIdentity {
+  qid?: string;
+  slug?: string;
+  name?: string;
 }
 
 /** ASCII slug from a label (matches the curated knowledge slug convention). */
@@ -128,6 +165,16 @@ LIMIT ${limit} OFFSET ${offset}`,
     const website = bindingValue(row, "website");
     return website ? [website] : [];
   },
+  identify(row) {
+    const label = bindingValue(row, "popeLabel");
+    if (!label || /^Q\d+$/.test(label)) return null;
+    const title = /\bpope\b/i.test(label) ? label : `Pope ${label}`;
+    return {
+      qid: qidOf(bindingValue(row, "pope")) ?? undefined,
+      slug: `pope-${slugify(label)}`,
+      name: title,
+    };
+  },
   async map(row) {
     const label = bindingValue(row, "popeLabel");
     const entity = bindingValue(row, "pope");
@@ -185,59 +232,163 @@ LIMIT ${limit} OFFSET ${offset}`,
   },
 };
 
-type SaintType =
-  | "martyr"
-  | "doctor_of_the_church"
-  | "virgin"
-  | "confessor"
-  | "religious"
-  | "lay"
-  | "bishop"
-  | "pope"
-  | "apostle"
-  | "evangelist"
-  | "founder"
-  | "missionary"
-  | "other";
+/** Slug convention for structured saints (shared with `identify`). */
+function saintSlugFor(label: string): string | null {
+  const base = slugify(label);
+  if (!base) return null;
+  return base.startsWith("saint-") ? base : `saint-${base}`;
+}
+
+/** Human feast text ("August 23") for the composed biography. */
+function feastText(feast: ParsedFeast): string {
+  return `${monthName(feast.feastMonth)} ${feast.feastDayOfMonth}`;
+}
 
 /**
- * Classify a saint's type from the source text deterministically. Reads only
- * the Wikipedia abstract — never invents — and falls back to the always-valid
- * "other" when no marker is present. Ordered most-specific first.
+ * The distinct feast days a saint's P841 statements name. Wikidata records
+ * several for ~300 saints (General Roman Calendar date + a pre-1969 or
+ * regional date), so the ingest must never SAMPLE one at random.
  */
-export function classifySaintType(text: string): SaintType {
-  const t = text.toLowerCase();
-  if (/\bmartyr/.test(t)) return "martyr";
-  if (/doctor of the church/.test(t)) return "doctor_of_the_church";
-  if (/\bapostle\b/.test(t)) return "apostle";
-  if (/\bevangelist\b/.test(t)) return "evangelist";
-  if (/\bpope\b/.test(t)) return "pope";
-  if (/\b(arch)?bishop\b/.test(t)) return "bishop";
-  if (/\b(founder|foundress|co-founder)\b|\bfounded the\b/.test(t)) return "founder";
-  if (/\bmissionar/.test(t)) return "missionary";
-  if (/\bvirgin\b/.test(t)) return "virgin";
-  if (/\b(priest|monk|nun|friar|abbot|abbess|religious order|consecrated)\b/.test(t)) {
-    return "religious";
+export function parseFeastCandidates(raw: string[]): ParsedFeast[] {
+  const out: ParsedFeast[] = [];
+  for (const value of raw) {
+    const parsed = /^[+-]?\d{4}-\d{2}-\d{2}T/.test(value)
+      ? parseFeastValue({ literal: value })
+      : parseFeastValue({ label: value });
+    if (parsed && !out.some((f) => f.feastDay === parsed.feastDay)) out.push(parsed);
   }
-  return "other";
+  return out;
 }
+
+/** Infobox feast parameter, across the language editions we corroborate in. */
+function infoboxFeastValue(infobox: Record<string, string>): string {
+  for (const key of [
+    "feast_day",
+    "feast",
+    "feastday",
+    "ricorrenza", // itwiki {{Santo}}
+    "festividad", // eswiki {{Ficha de santo}}
+    "fête", // frwiki {{Infobox Saint}}
+    "fete",
+    "gedenktag", // dewiki
+    "wspomnienie", // plwiki {{Święty infobox}}
+  ]) {
+    const v = infobox[key];
+    if (v && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+/**
+ * Choose the ONE feast day to publish and corroborate it against the article
+ * (prose OR infobox), in the article's own language.
+ *
+ * Single Wikidata value: it must be stated in the abstract or the infobox.
+ * Several values: only the day the infobox lists FIRST is eligible (the
+ * infobox leads with the current calendar date and lists historical dates
+ * after it), and it must be one of Wikidata's values — otherwise ambiguous →
+ * skip. Prose alone cannot disambiguate a multi-feast saint.
+ */
+export function chooseCorroboratedFeast(input: {
+  candidates: ParsedFeast[];
+  abstract: string;
+  infobox: Record<string, string>;
+  lang: string;
+}): ParsedFeast | null {
+  const { candidates, abstract, infobox, lang } = input;
+  if (candidates.length === 0) return null;
+  const infoboxFeast = infoboxFeastValue(infobox);
+  if (candidates.length === 1) {
+    const f = candidates[0];
+    if (feastDayInTextLocalized(f.feastMonth, f.feastDayOfMonth, abstract, lang)) return f;
+    if (!infoboxFeast) return null;
+    const parsedInfobox =
+      lang === "en" ? parseFeastValue({ label: infoboxFeast })?.feastDay : undefined;
+    return parsedInfobox === f.feastDay ||
+      feastDayInTextLocalized(f.feastMonth, f.feastDayOfMonth, infoboxFeast, lang)
+      ? f
+      : null;
+  }
+  if (!infoboxFeast) return null;
+  // The FIRST date named in the infobox value decides; find which candidate
+  // is stated earliest in that string.
+  let best: { feast: ParsedFeast; at: number } | null = null;
+  for (const f of candidates) {
+    const at = firstFeastMention(f, infoboxFeast, lang);
+    if (at >= 0 && (best === null || at < best.at)) best = { feast: f, at };
+  }
+  return best?.feast ?? null;
+}
+
+/** Index of the first mention of a feast in `text` (−1 when absent). */
+function firstFeastMention(f: ParsedFeast, text: string, lang: string): number {
+  // Walk forward through the text so the position reflects where the date is
+  // first stated, not merely whether it appears.
+  const t = text.toLowerCase();
+  for (let i = 0; i < t.length; i += 1) {
+    const window = t.slice(i, i + 24);
+    if (
+      /^\d/.test(window) || /^[a-zà-ž]/.test(window)
+        ? feastDayInTextLocalized(f.feastMonth, f.feastDayOfMonth, window, lang)
+        : false
+    ) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Canonization status for a saint with NO P411 at all (the "Catholic religion
+ * + feast day" widening branch): the article's own infobox must state a
+ * canonization or beatification date. No date → no status → not published.
+ */
+function statusFromInfobox(infobox: Record<string, string>): CanonizationStatus | null {
+  const dated = (key: string) => /\d{3,4}/.test(infobox[key] ?? "");
+  if (dated("canonized_date") || dated("canonised_date") || dated("canonizzazione")) {
+    return "canonized";
+  }
+  if (dated("beatified_date") || dated("beatificazione") || dated("beatificación")) {
+    return "beatified";
+  }
+  return null;
+}
+
+/** SPARQL `VALUES` list for a set of QIDs. */
+function values(qids: readonly string[]): string {
+  return qids.map((q) => `wd:${q}`).join(" ");
+}
+
+const CATHOLIC_SPECIFIC_STATUS_QIDS = [
+  ...CATHOLIC_STATUS_QIDS.canonized,
+  ...CATHOLIC_STATUS_QIDS.beatified,
+  ...CATHOLIC_STATUS_QIDS.venerable,
+  ...CATHOLIC_STATUS_QIDS.servant_of_god,
+];
 
 const saintIngestor: StructuredIngestor = {
   contentType: "SAINT",
   id: "wikidata-saints",
   authorityLevel: "TRUSTED_PUBLISHER",
-  // One row per saint (GROUP BY) carrying canonization status, feast day, the
-  // English Wikipedia article (for the biography + a second citation), and the
-  // optional official website (self-expansion).
+  // One row per saint (GROUP BY) carrying EVERY status / feast / religion /
+  // role statement (never a random SAMPLE), the English Wikipedia article and
+  // the it/es/fr/de/pl articles, and the optional official website.
+  //
+  // Three enumeration branches, each indexed (no label scans):
+  //   1. a Catholic-specific P411 status item;
+  //   2. the generic "saint" item WITH a Catholic religion (P140) — the generic
+  //      item alone is also given to Orthodox / Anglican / Coptic / folk saints;
+  //   3. a Catholic religion + feast day and NO P411 at all (status is then
+  //      taken from the article's infobox canonization/beatification date).
   sparql: (limit, offset) =>
-    `SELECT ?s (SAMPLE(?sLabel) AS ?label) (SAMPLE(?feast) AS ?feastVal) (SAMPLE(?feastName0) AS ?feastName) (SAMPLE(?statusLabel) AS ?status) (SAMPLE(?article) AS ?art) (SAMPLE(?website) AS ?site) WHERE {
-  ?s wdt:P411 ?statusItem .
-  ?statusItem rdfs:label ?statusLabel . FILTER(LANG(?statusLabel) = "en")
-  ?s wdt:P841 ?feast .
-  OPTIONAL { ?feast rdfs:label ?feastName0 . FILTER(LANG(?feastName0) = "en") }
-  ?s rdfs:label ?sLabel . FILTER(LANG(?sLabel) = "en")
-  OPTIONAL { ?article schema:about ?s ; schema:isPartOf <https://en.wikipedia.org/> . }
-  OPTIONAL { ?s wdt:P856 ?website . }
+    `SELECT ${SAINT_FACTS_SELECT} WHERE {
+  ?s wdt:P841 ?anyFeast .
+  { ?s wdt:P411 ?catholicStatus . VALUES ?catholicStatus { ${values(CATHOLIC_SPECIFIC_STATUS_QIDS)} } }
+  UNION
+  { ?s wdt:P411 wd:${GENERIC_SAINT_QID} . ?s wdt:P140 ?catholicRel . VALUES ?catholicRel { ${values(CATHOLIC_RELIGION_QIDS)} } }
+  UNION
+  { ?s wdt:P140 ?catholicRel . VALUES ?catholicRel { ${values(CATHOLIC_RELIGION_QIDS)} } FILTER NOT EXISTS { ?s wdt:P411 [] } }
+  ${SAINT_FACTS_PATTERNS}
 }
 GROUP BY ?s
 ORDER BY ?s
@@ -246,51 +397,91 @@ LIMIT ${limit} OFFSET ${offset}`,
     const site = bindingValue(row, "site");
     return site ? [site] : [];
   },
-  async map(row) {
-    const entity = bindingValue(row, "s");
+  identify(row) {
     const label = bindingValue(row, "label");
-    const statusLabel = bindingValue(row, "status");
-    if (!entity || !label || !statusLabel) return null;
+    if (!label || /^Q\d+$/.test(label)) return null;
+    return {
+      qid: qidOf(bindingValue(row, "s")) ?? undefined,
+      slug: saintSlugFor(label) ?? undefined,
+      name: label,
+    };
+  },
+  async map(row) {
+    const facts = parseSaintFacts(row);
+    if (!facts) return null;
 
-    const canonizationStatus = mapCanonizationStatus(statusLabel);
+    // Accuracy guard 1 — status by QID. A generic/Orthodox-only record cannot
+    // prove Catholic veneration; skip it (never map it to `canonized`).
+    const resolved = resolveCanonizationStatus(facts);
+    let canonizationStatus = resolved?.status ?? null;
+    const needsInfoboxStatus = !canonizationStatus && facts.statuses.length === 0;
+    if (!canonizationStatus && !needsInfoboxStatus) return null;
+    // Negative guard: an Orthodox / Anglican / Coptic religion with no Catholic
+    // religion is disqualifying unless a Catholic-specific status overrides it.
+    if (
+      resolved?.basis !== "catholic-status" &&
+      hasNonCatholicReligion(facts) &&
+      !hasCatholicReligion(facts)
+    ) {
+      return null;
+    }
+    if (needsInfoboxStatus && !hasCatholicReligion(facts)) return null;
+
+    const candidates = parseFeastCandidates(facts.feasts);
+    if (candidates.length === 0) return null;
+
+    // The article supplies the independent corroboration of the feast day and
+    // the second citation. English first; otherwise the preferred non-English
+    // edition, whose prose is used for corroboration ONLY.
+    const enArticle = facts.enArticle;
+    const alt = enArticle ? null : preferredAltArticle(facts.altArticles);
+    const articleUrl = enArticle ?? alt?.url ?? null;
+    const lang = enArticle ? "en" : (alt?.lang ?? null);
+    if (!articleUrl || !lang) return null;
+    const summary = await fetchSummaryForArticleUrl(articleUrl);
+    if (!summary) return null;
+    if (lang === "en" && summary.extract.length < 100) return null;
+
+    // Read the infobox up front: it corroborates the feast, disambiguates a
+    // multi-feast saint, supplies the status for branch 3, and enriches the
+    // record. Fail-open ({}): a missing infobox just means less corroboration.
+    const infobox: Record<string, string> = await fetchArticleInfobox(articleUrl).catch(() => ({}));
+
+    if (needsInfoboxStatus) canonizationStatus = statusFromInfobox(infobox);
     if (!canonizationStatus) return null;
 
-    const feast = parseFeastValue({
-      literal: bindingValue(row, "feastVal"),
-      label: bindingValue(row, "feastName"),
+    // Accuracy guard 2 — the feast day MUST also be stated by the article
+    // (prose or infobox), and a multi-feast saint only publishes the day the
+    // infobox lists first. Anything ambiguous is skipped, never guessed.
+    const feast = chooseCorroboratedFeast({
+      candidates,
+      abstract: summary.extract,
+      infobox,
+      lang,
     });
     if (!feast) return null;
 
-    // A Wikipedia article is required: it supplies the ≥100-char biography, the
-    // independent corroboration text for the feast day, and the second citation.
-    const article = bindingValue(row, "art");
-    if (!article) return null;
-    const summary = await fetchSummaryForArticleUrl(article);
-    if (!summary || summary.extract.length < 100) return null;
+    const slug = saintSlugFor(facts.label);
+    if (!slug) return null;
 
-    // Accuracy guardrail: the sensitive feast day MUST also be stated in the
-    // article itself — in the prose OR in its infobox (where it usually lives;
-    // the abstract often omits it). Either way it is an independent statement
-    // of the fact: no corroboration → not published.
-    let corroborated = feastDayInText(feast.feastMonth, feast.feastDayOfMonth, summary.extract);
-    let infobox: Record<string, string> = {};
-    if (!corroborated) {
-      infobox = await fetchArticleInfobox(article).catch(() => ({}));
-      const infoboxFeast = infobox.feast_day ?? infobox.feast ?? "";
-      corroborated =
-        Boolean(infoboxFeast) &&
-        (parseFeastValue({ label: infoboxFeast })?.feastDay === feast.feastDay ||
-          feastDayInText(feast.feastMonth, feast.feastDayOfMonth, infoboxFeast));
+    // The published biography is ALWAYS English: the enwiki abstract verbatim,
+    // or — for a saint with only a non-English article — a short factual
+    // biography composed from the entity's own cited statements.
+    let biography: string;
+    let provenance: Record<string, unknown> | undefined;
+    if (lang === "en") {
+      biography = summary.extract;
     } else {
-      // Corroborated by prose; still read the infobox for the optional
-      // enrichment fields below (fail-open).
-      infobox = await fetchArticleInfobox(article).catch(() => ({}));
+      const composed = composeStructuredBiography({
+        facts,
+        status: canonizationStatus,
+        feastText: feastText(feast),
+        articleLang: lang,
+      });
+      if (!composed || composed.length < 100) return null;
+      biography = composed;
+      provenance = { biography: "structured-facts", articleLanguage: lang };
     }
-    if (!corroborated) return null;
-
-    const base = slugify(label);
-    if (!base) return null;
-    const slug = base.startsWith("saint-") ? base : `saint-${base}`;
 
     // Optional enrichment, straight from the article's infobox (cited via the
     // article itself): patronage list, birth/death, canonization details.
@@ -303,21 +494,31 @@ LIMIT ${limit} OFFSET ${offset}`,
       const t = (s ?? "").trim();
       return t && /\d{3,4}/.test(t) && t.length <= 60 ? t : undefined;
     };
-    const birthDate = yearish(infobox.birth_date);
-    const deathDate = yearish(infobox.death_date);
+    const birthDate =
+      yearish(infobox.birth_date) ??
+      (facts.birthYear != null ? String(facts.birthYear) : undefined);
+    const deathDate =
+      yearish(infobox.death_date) ??
+      (facts.deathYear != null ? String(facts.deathYear) : undefined);
     const canonizationDate = yearish(infobox.canonized_date);
     const canonizedBy = (infobox.canonized_by ?? "").trim() || undefined;
 
-    const citations = [wikidataEntityUrl(entity), summary.url];
+    const citations = [wikidataEntityUrl(facts.entityUri), summary.url];
     const payload: Record<string, unknown> = {
       slug,
-      canonicalName: label,
+      // Bare name for dedup; the honorific display title is what the page shows.
+      canonicalName: facts.label,
+      title: saintDisplayTitle(facts.label, canonizationStatus),
+      wikidataQid: facts.qid,
       feastDay: feast.feastDay,
       feastMonth: feast.feastMonth,
       feastDayOfMonth: feast.feastDayOfMonth,
       patronages,
-      biography: summary.extract,
-      saintType: classifySaintType(summary.extract),
+      biography,
+      saintType: deriveSaintType(facts, {
+        abstract: lang === "en" ? summary.extract : undefined,
+        infoboxTitles: infobox.titles,
+      }),
       canonizationStatus,
       relatedPrayers: [],
       relatedDevotions: [],
@@ -327,6 +528,7 @@ LIMIT ${limit} OFFSET ${offset}`,
     if (deathDate) payload.deathDate = deathDate;
     if (canonizationDate) payload.canonizationDate = canonizationDate;
     if (canonizedBy && canonizedBy.length <= 80) payload.canonizedBy = canonizedBy;
+    if (provenance) payload.provenance = provenance;
 
     return {
       contentType: "SAINT",

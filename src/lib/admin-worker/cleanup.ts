@@ -1,7 +1,10 @@
 /**
  * Cleanup custodian. Runs during MAINTENANCE passes: prunes stale
- * candidate URLs, closes expired human-review rows, and writes log
- * entries for any cleanup action taken.
+ * candidate URLs, closes expired human-review rows, trims the growth-snapshot
+ * ledger, and writes log entries for any cleanup action taken.
+ *
+ * It never touches PublishedContent, and it never expires a review that is
+ * the only open signal for content the worker itself unpublished.
  */
 
 import type { PrismaClient } from "@prisma/client";
@@ -15,6 +18,68 @@ export interface CleanupOutcome {
   staleCandidatesRemoved: number;
   expiredReviewsClosed: number;
   junkHostRowsPurged: number;
+  /** AdminWorkerGrowthSnapshot rows trimmed beyond the per-type retention. */
+  growthSnapshotsTrimmed: number;
+}
+
+/**
+ * Review rows filed by the post-publish rollback after it UNPUBLISHED a row
+ * (post-publish-rollback.ts). Until a person decides restore-vs-delete, the
+ * content stays hidden and the PENDING review is the only open signal that it
+ * exists — so these must never be aged out into EXPIRED (which quietly turned
+ * "awaiting a decision" into "unpublished forever, nobody looking").
+ */
+export const ROLLBACK_REVIEW_ACTIONS: readonly string[] = [
+  "restore_or_delete_unpublished_content",
+  "investigate_post_publish_failure",
+];
+
+/** Growth snapshots kept per content type (roughly a month of hourly runs' worth of change). */
+const GROWTH_SNAPSHOTS_KEPT_PER_TYPE = 30;
+
+/**
+ * Keep only the newest N AdminWorkerGrowthSnapshot rows per content type. The
+ * orchestrator writes one row per goal every run and nothing pruned them, so
+ * the governor's REPORTING fallback grew the table without bound. Fail-open;
+ * tolerates a client/mock without groupBy.
+ */
+async function trimGrowthSnapshots(prisma: PrismaClient): Promise<number> {
+  try {
+    const model = (
+      prisma as unknown as {
+        adminWorkerGrowthSnapshot?: { groupBy?: unknown; findMany?: unknown; deleteMany?: unknown };
+      }
+    ).adminWorkerGrowthSnapshot;
+    if (
+      typeof model?.groupBy !== "function" ||
+      typeof model?.findMany !== "function" ||
+      typeof model?.deleteMany !== "function"
+    ) {
+      return 0;
+    }
+    const groups = await prisma.adminWorkerGrowthSnapshot.groupBy({
+      by: ["contentType"],
+      _count: { _all: true },
+    });
+    let trimmed = 0;
+    for (const g of groups) {
+      if (g._count._all <= GROWTH_SNAPSHOTS_KEPT_PER_TYPE) continue;
+      const stale = await prisma.adminWorkerGrowthSnapshot.findMany({
+        where: { contentType: g.contentType },
+        orderBy: { createdAt: "desc" },
+        skip: GROWTH_SNAPSHOTS_KEPT_PER_TYPE,
+        select: { id: true },
+      });
+      if (stale.length === 0) continue;
+      const res = await prisma.adminWorkerGrowthSnapshot.deleteMany({
+        where: { id: { in: stale.map((r) => r.id) } },
+      });
+      trimmed += res.count;
+    }
+    return trimmed;
+  } catch {
+    return 0;
+  }
 }
 
 /**
@@ -70,22 +135,29 @@ export async function runCleanupPass(prisma: PrismaClient): Promise<CleanupOutco
 
   const reviewCutoff = new Date(Date.now() - REVIEW_EXPIRY_MS);
   const expiredReviews = await prisma.humanReviewQueue.updateMany({
-    where: { status: "PENDING", createdAt: { lt: reviewCutoff } },
+    where: {
+      status: "PENDING",
+      createdAt: { lt: reviewCutoff },
+      // Rollback/unpublish reviews wait for a human decision indefinitely.
+      proposedAction: { notIn: [...ROLLBACK_REVIEW_ACTIONS] },
+    },
     data: { status: "EXPIRED", reviewedAt: new Date() },
   });
 
   const junkHostRowsPurged = await purgeNonContentHostRows(prisma);
+  const growthSnapshotsTrimmed = await trimGrowthSnapshots(prisma);
 
   await writeAdminWorkerLog(prisma, {
     category: "CLEANUP",
     severity: junkHostRowsPurged > 0 ? "WARN" : "INFO",
     eventName: "cleanup_completed",
-    message: `Cleanup pass: removed ${staleCandidates.count} stale rejected candidates, expired ${expiredReviews.count} review items, purged ${junkHostRowsPurged} non-content-host candidate(s).`,
+    message: `Cleanup pass: removed ${staleCandidates.count} stale rejected candidates, expired ${expiredReviews.count} review items, purged ${junkHostRowsPurged} non-content-host candidate(s), trimmed ${growthSnapshotsTrimmed} growth snapshot(s).`,
   });
 
   return {
     staleCandidatesRemoved: staleCandidates.count,
     expiredReviewsClosed: expiredReviews.count,
     junkHostRowsPurged,
+    growthSnapshotsTrimmed,
   };
 }

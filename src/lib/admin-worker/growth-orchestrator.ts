@@ -14,7 +14,15 @@
  *   - reached goal                        → move to maintenance mode
  *
  * Every run writes a durable AdminWorkerGrowthSnapshot so the admin
- * UI can show "what the worker learned recently" without recomputing.
+ * UI can show "what the worker learned recently" without recomputing —
+ * at most once per SNAPSHOT_MIN_INTERVAL_MS per run, whoever the caller is
+ * (the hourly reporting pass or the governor's REPORTING fallback), and the
+ * cleanup pass trims the ledger to the newest rows per type.
+ *
+ * Staleness ("no growth in 24h / 7d") is measured against WORKER-ACTIVE time,
+ * not wall-clock time: the execution host is the operator's computer and OFF
+ * is a designed state, so a week with the lid closed is not a stalled
+ * pipeline and must not file a DISCOVERY_FAILED plan for every type.
  */
 
 import type { ChecklistContentType, Prisma, PrismaClient } from "@prisma/client";
@@ -25,6 +33,10 @@ import { writeAdminWorkerLog } from "./logs";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
+/** Minimum spacing between snapshot writes — the governor can invoke REPORTING every pass. */
+const SNAPSHOT_MIN_INTERVAL_MS = 15 * 60 * 1000;
+/** A heartbeat older than this means the worker is not running right now. */
+const WORKER_LIVE_MS = 10 * 60 * 1000;
 
 export type GrowthStatus =
   | "AT_GOAL"
@@ -33,7 +45,9 @@ export type GrowthStatus =
   | "STUCK_7D"
   | "REJECT_HEAVY"
   | "PARTIAL_HEAVY"
-  | "NEW";
+  | "NEW"
+  /** Below goal, but the worker has not been running since the last growth — not a pipeline stall. */
+  | "WORKER_IDLE";
 
 export interface GrowthAssessment {
   contentType: ChecklistContentType;
@@ -46,6 +60,8 @@ export interface GrowthAssessment {
   growth7d: number;
   growth30d: number;
   hoursSinceLastGrowth: number | null;
+  /** Hours the worker was actually running since the last growth (≤ hoursSinceLastGrowth). */
+  activeHoursSinceLastGrowth: number | null;
   qaPassRate30d: number;
   publishRate30d: number;
   pipelineHealth: number;
@@ -57,6 +73,84 @@ export interface GrowthOrchestrationOutcome {
   assessments: GrowthAssessment[];
   repairPlansFiled: number;
   movedToMaintenance: number;
+  /** False when the run reused the recent snapshots instead of writing new rows. */
+  snapshotsWritten: boolean;
+}
+
+/** True when the newest snapshot is younger than the minimum interval. Fail-open → write. */
+async function snapshotsRecentlyWritten(prisma: PrismaClient, now: number): Promise<boolean> {
+  try {
+    const model = (prisma as unknown as { adminWorkerGrowthSnapshot?: { findFirst?: unknown } })
+      .adminWorkerGrowthSnapshot;
+    if (typeof model?.findFirst !== "function") return false;
+    const latest = await prisma.adminWorkerGrowthSnapshot.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+    return !!latest && now - latest.createdAt.getTime() < SNAPSHOT_MIN_INTERVAL_MS;
+  } catch {
+    return false;
+  }
+}
+
+interface WorkerActivity {
+  /** Last heartbeat, or null when unknown. */
+  lastHeartbeatAt: Date | null;
+  /** Whether the worker is running right now (fresh heartbeat). Null = unknown. */
+  running: boolean | null;
+}
+
+/** Fail-open read of the worker's liveness; a harness without the state model yields "unknown". */
+async function readWorkerActivity(prisma: PrismaClient, now: number): Promise<WorkerActivity> {
+  try {
+    const model = (prisma as unknown as { adminWorkerState?: { findUnique?: unknown } })
+      .adminWorkerState;
+    if (typeof model?.findUnique !== "function") return { lastHeartbeatAt: null, running: null };
+    const state = await prisma.adminWorkerState.findUnique({
+      where: { id: "singleton" },
+      select: { lastHeartbeatAt: true },
+    });
+    const last = state?.lastHeartbeatAt ?? null;
+    return {
+      lastHeartbeatAt: last,
+      running: last ? now - last.getTime() <= WORKER_LIVE_MS : false,
+    };
+  } catch {
+    return { lastHeartbeatAt: null, running: null };
+  }
+}
+
+/**
+ * Hours of worker-active time since `lastGrowthAt`: an upper bound taken from
+ * the first pass that started after the growth (a worker that was OFF for a
+ * week and switched on an hour ago has one active hour, not 169). Null when
+ * the pass ledger cannot answer, in which case callers fall back to wall-clock
+ * time — the pre-existing, more alarming behaviour.
+ */
+async function activeHoursSince(
+  prisma: PrismaClient,
+  lastGrowthAt: Date,
+  activity: WorkerActivity,
+  now: number,
+): Promise<number | null> {
+  // No heartbeat since the growth → the worker has not run since it.
+  if (activity.lastHeartbeatAt && activity.lastHeartbeatAt.getTime() <= lastGrowthAt.getTime()) {
+    return 0;
+  }
+  try {
+    const model = (prisma as unknown as { adminWorkerPass?: { findFirst?: unknown } })
+      .adminWorkerPass;
+    if (typeof model?.findFirst !== "function") return null;
+    const firstPass = await prisma.adminWorkerPass.findFirst({
+      where: { startedAt: { gte: lastGrowthAt } },
+      orderBy: { startedAt: "asc" },
+      select: { startedAt: true },
+    });
+    if (!firstPass) return activity.running === true ? null : 0;
+    return Math.max(0, Math.round((now - firstPass.startedAt.getTime()) / HOUR_MS));
+  } catch {
+    return null;
+  }
 }
 
 export async function runGrowthOrchestrator(
@@ -70,6 +164,10 @@ export async function runGrowthOrchestrator(
   const assessments: GrowthAssessment[] = [];
   let repairPlansFiled = 0;
   let movedToMaintenance = 0;
+  const [writeSnapshots, activity] = await Promise.all([
+    snapshotsRecentlyWritten(prisma, now).then((recent) => !recent),
+    readWorkerActivity(prisma, now),
+  ]);
 
   for (const goal of goals) {
     const contentType = goal.contentType as ChecklistContentType;
@@ -108,6 +206,7 @@ export async function runGrowthOrchestrator(
 
     const lastAt = lastPublish?.publishedAt ?? null;
     const hoursSince = lastAt ? Math.round((now - lastAt.getTime()) / HOUR_MS) : null;
+    const activeHours = lastAt ? await activeHoursSince(prisma, lastAt, activity, now) : null;
 
     // QA + publish rate signals — best-effort, default 0 when missing.
     const qaResults = await prisma.adminWorkerStrictQAResult
@@ -143,6 +242,8 @@ export async function runGrowthOrchestrator(
       growth24h: recent24,
       growth7d: recent7,
       hoursSinceLastGrowth: hoursSince,
+      activeHoursSinceLastGrowth: activeHours,
+      workerRunning: activity.running,
       qaPassRate30d,
       publishRate30d,
     });
@@ -159,6 +260,7 @@ export async function runGrowthOrchestrator(
       growth7d: recent7,
       growth30d: recent30,
       hoursSinceLastGrowth: hoursSince,
+      activeHoursSinceLastGrowth: activeHours,
       qaPassRate30d: round(qaPassRate30d),
       publishRate30d: round(publishRate30d),
       pipelineHealth: round(pipelineHealth),
@@ -166,28 +268,32 @@ export async function runGrowthOrchestrator(
       recommendation,
     });
 
-    // Persist a snapshot — used by the admin UI panel.
-    await prisma.adminWorkerGrowthSnapshot
-      .create({
-        data: {
-          contentType,
-          publishedCount: goal.currentValidCount,
-          validCount: goal.currentValidCount,
-          minimumTarget: goal.minimumTarget,
-          desiredTarget: goal.desiredTarget,
-          gap: goal.gapCount,
-          growth24h: recent24,
-          growth7d: recent7,
-          growth30d: recent30,
-          hoursSinceLastGrowth: hoursSince ?? null,
-          qaPassRate30d,
-          publishRate30d,
-          pipelineHealth,
-          status,
-          recommendation,
-        },
-      })
-      .catch(() => undefined);
+    // Persist a snapshot — used by the admin UI panel. Skipped when the newest
+    // snapshot is younger than SNAPSHOT_MIN_INTERVAL_MS so a caller invoking
+    // this every pass cannot grow the ledger without bound.
+    if (writeSnapshots) {
+      await prisma.adminWorkerGrowthSnapshot
+        .create({
+          data: {
+            contentType,
+            publishedCount: goal.currentValidCount,
+            validCount: goal.currentValidCount,
+            minimumTarget: goal.minimumTarget,
+            desiredTarget: goal.desiredTarget,
+            gap: goal.gapCount,
+            growth24h: recent24,
+            growth7d: recent7,
+            growth30d: recent30,
+            hoursSinceLastGrowth: hoursSince ?? null,
+            qaPassRate30d,
+            publishRate30d,
+            pipelineHealth,
+            status,
+            recommendation,
+          },
+        })
+        .catch(() => undefined);
+    }
 
     // Trigger side-effects per status. A DISCOVERY_FAILED plan re-runs WEB
     // discovery, so it is only meaningful for web-growable types — filing one
@@ -207,6 +313,9 @@ export async function runGrowthOrchestrator(
       repairPlansFiled += 1;
     }
 
+    // refreshContentGoals (content-goals.ts reconcileStatus) preserves
+    // MAINTENANCE while the count stays at/above target, so this write is now
+    // a one-time transition rather than a flip-flop with the per-pass refresh.
     if (status === "AT_GOAL" && goal.status !== "MAINTENANCE") {
       await prisma.contentGoal
         .update({
@@ -223,7 +332,7 @@ export async function runGrowthOrchestrator(
     category: "WORKER_PASS",
     severity: "INFO",
     eventName: "growth_orchestrator",
-    message: `Growth orchestrator assessed ${assessments.length} content type(s); ${repairPlansFiled} repair plan(s) filed; ${movedToMaintenance} moved to maintenance.`,
+    message: `Growth orchestrator assessed ${assessments.length} content type(s); ${repairPlansFiled} repair plan(s) filed; ${movedToMaintenance} moved to maintenance${writeSnapshots ? "" : "; snapshots reused (written <15 min ago)"}.`,
     safeMetadata: {
       counts: assessments.map((a) => ({
         contentType: a.contentType,
@@ -234,22 +343,31 @@ export async function runGrowthOrchestrator(
     } as unknown as Prisma.InputJsonValue,
   });
 
-  return { assessments, repairPlansFiled, movedToMaintenance };
+  return { assessments, repairPlansFiled, movedToMaintenance, snapshotsWritten: writeSnapshots };
 }
 
-function classify(opts: {
+export function classify(opts: {
   goal: { gapCount: number; status: string };
   gap: number;
   growth24h: number;
   growth7d: number;
   hoursSinceLastGrowth: number | null;
+  /** Null = unknown → fall back to wall-clock hours. */
+  activeHoursSinceLastGrowth?: number | null;
+  /** Null = unknown. */
+  workerRunning?: boolean | null;
   qaPassRate30d: number;
   publishRate30d: number;
 }): GrowthStatus {
   if (opts.gap <= 0) return "AT_GOAL";
   if (opts.hoursSinceLastGrowth == null) return "NEW";
-  if (opts.hoursSinceLastGrowth >= 7 * 24) return "STUCK_7D";
-  if (opts.hoursSinceLastGrowth >= 24) return "SLOW_24H";
+  // Stale-growth thresholds count only the hours the worker was running.
+  const staleHours = opts.activeHoursSinceLastGrowth ?? opts.hoursSinceLastGrowth;
+  if (opts.hoursSinceLastGrowth >= 24 && opts.workerRunning === false && staleHours < 24) {
+    return "WORKER_IDLE";
+  }
+  if (staleHours >= 7 * 24) return "STUCK_7D";
+  if (staleHours >= 24) return "SLOW_24H";
   if (opts.qaPassRate30d > 0 && opts.qaPassRate30d < 0.3) return "REJECT_HEAVY";
   if (opts.publishRate30d > 0 && opts.publishRate30d < 0.2) return "PARTIAL_HEAVY";
   return "GROWING_OK";
@@ -271,6 +389,8 @@ function recommendFor(status: GrowthStatus, contentType: string): string {
       return `${contentType}: many partial packages — search for enrichment + validation sources.`;
     case "NEW":
       return `${contentType}: nothing published yet — kick off discovery + fetch + build.`;
+    case "WORKER_IDLE":
+      return `${contentType}: below goal, but the Admin Worker has not been running since the last growth — switch it on; this is not a pipeline stall.`;
   }
 }
 

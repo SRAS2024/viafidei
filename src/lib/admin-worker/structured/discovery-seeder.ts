@@ -19,15 +19,21 @@
  * and Wikipedia only as a last resort, citing every source for cross-reference.
  *
  * It is DISCOVERY ONLY — it never publishes. Every candidate still passes the
- * full extraction + verification + QA gauntlet before anything goes live, so a
- * broad, label-based query is safe here (the gates do the precision). Keyless,
- * bounded, self-throttled, network-gated, and idempotent (candidate URLs dedup
- * on insert).
+ * full extraction + verification + QA gauntlet before anything goes live.
+ * Keyless, bounded, self-throttled, network-gated, and idempotent (candidate
+ * URLs dedup on insert).
+ *
+ * The queries are P31-INDEXED. The earlier label-CONTAINS scan ("every
+ * instance-of type whose English label contains 'novena'") walked every
+ * class label in Wikidata, timed out at 60 s+ (HTTP 504), and — because the
+ * seeder shares one client identity with the ingest lane — exhausted the
+ * per-client WDQS budget so the SAINT ingest got 429s right after it.
  */
 
 import type { ChecklistContentType, PrismaClient } from "@prisma/client";
 
-import { runSparql, bindingValue } from "./wikidata";
+import { bindingValue, runSparql } from "./wikidata";
+import { persistSourceCooldown, readSourceCooldownMs } from "./source-cooldown";
 
 const THROTTLE_MS = 30 * 60 * 1000; // every ~30 min is plenty for seeding
 const THROTTLE_KEY = "discovery-seeder-lastrun";
@@ -38,18 +44,21 @@ interface SeedQuery {
   contentType: ChecklistContentType;
   /**
    * Returns entities of the type with their official website (P856),
-   * described-at URL (P973), and English Wikipedia article. The instance-of
-   * filter is intentionally label-based + broad: discovery may over-reach
-   * because the downstream classifier + QA decide what actually publishes.
+   * described-at URL (P973), and English Wikipedia article. Discovery may
+   * over-reach because the downstream classifier + QA decide what actually
+   * publishes — but the enumeration itself must hit an index.
    */
   sparql(limit: number, offset: number): string;
 }
 
-function seedSparql(typeLabelFilter: string): (limit: number, offset: number) => string {
+/**
+ * Seed query over `?x wdt:P31 ?type` for an explicit list of class items
+ * (optionally with subclasses via P279*).
+ */
+function seedSparql(typePattern: string): (limit: number, offset: number) => string {
   return (limit, offset) =>
     `SELECT ?x (SAMPLE(?website) AS ?site) (SAMPLE(?described) AS ?desc) (SAMPLE(?article) AS ?art) WHERE {
-  ?x wdt:P31 ?type .
-  ?type rdfs:label ?tl . FILTER(LANG(?tl) = "en") FILTER(${typeLabelFilter})
+  ${typePattern}
   OPTIONAL { ?x wdt:P856 ?website . }
   OPTIONAL { ?x wdt:P973 ?described . }
   OPTIONAL { ?article schema:about ?x ; schema:isPartOf <https://en.wikipedia.org/> . }
@@ -63,27 +72,42 @@ const SEED_QUERIES: SeedQuery[] = [
   {
     id: "seed-apparitions",
     contentType: "APPARITION",
-    sparql: seedSparql(`CONTAINS(LCASE(?tl), "apparition")`),
+    // Marian apparition (Q507850) and its subclasses.
+    sparql: seedSparql(`?x wdt:P31/wdt:P279* wd:Q507850 .`),
   },
   {
     id: "seed-novenas",
     contentType: "NOVENA",
-    sparql: seedSparql(`CONTAINS(LCASE(?tl), "novena")`),
+    // novena (Q1122496).
+    sparql: seedSparql(`?x wdt:P31 wd:Q1122496 .`),
   },
   {
     id: "seed-prayers",
     contentType: "PRAYER",
+    // Catholic prayer (Q5053303) · Christian prayer (Q3627146) · litany (Q240709).
     sparql: seedSparql(
-      `CONTAINS(LCASE(?tl), "catholic prayer") || CONTAINS(LCASE(?tl), "christian prayer") || CONTAINS(LCASE(?tl), "litany")`,
+      `VALUES ?type { wd:Q5053303 wd:Q3627146 wd:Q240709 }
+  ?x wdt:P31 ?type .`,
     ),
   },
 ];
+
+/** The registered seed ids (for tests / diagnostics). */
+export const DISCOVERY_SEED_IDS = SEED_QUERIES.map((s) => s.id);
+
+/** The SPARQL a seed would issue (for tests / diagnostics). */
+export function discoverySeedSparql(id: string, limit = 15, offset = 0): string | null {
+  const seed = SEED_QUERIES.find((s) => s.id === id);
+  return seed ? seed.sparql(limit, offset) : null;
+}
 
 export interface DiscoverySeedResult {
   enabled: boolean;
   entities: number;
   enqueued: number;
   bySeed: Record<string, number>;
+  /** Set when a seed's SPARQL failed (its cursor was left unchanged). */
+  sourceFailure: string | null;
   detail: string;
 }
 
@@ -161,6 +185,7 @@ export async function runDiscoverySeeder(
     entities: 0,
     enqueued: 0,
     bySeed: {},
+    sourceFailure: null,
     detail: "",
   };
   if (!out.enabled) {
@@ -171,20 +196,35 @@ export async function runDiscoverySeeder(
     out.detail = "throttled";
     return out;
   }
+  // Share the ingest lane's cool-down: if the query service is throttling this
+  // client, seeding can wait — it must not be the thing that starves the
+  // SAINT ingest of its query budget.
+  const coolingMs = await readSourceCooldownMs(prisma);
+  if (coolingMs > 0) {
+    out.detail = `structured source cooling for ${Math.ceil(coolingMs / 1000)}s; seeding skipped.`;
+    return out;
+  }
 
   const batch = opts.batch ?? 15;
   const { discoverCandidate } = await import("../web-navigator");
 
   for (const seed of SEED_QUERIES) {
     const offset = await readCursor(prisma, seed.id);
-    let rows: Awaited<ReturnType<typeof runSparql>> = [];
+    let rows: Awaited<ReturnType<typeof runSparql>> = null;
     try {
       rows = await runSparql(seed.sparql(batch, offset));
     } catch {
-      rows = [];
+      rows = null;
+    }
+    out.bySeed[seed.id] = 0;
+    if (rows === null) {
+      // Failure ≠ end of corpus: keep this seed's cursor, persist the
+      // cool-down, and stop issuing further queries this pass.
+      out.sourceFailure = seed.id;
+      await persistSourceCooldown(prisma);
+      break;
     }
     out.entities += rows.length;
-    out.bySeed[seed.id] = 0;
 
     for (const row of rows) {
       // Official website + described-at URL are authoritative; the Wikipedia
@@ -221,6 +261,8 @@ export async function runDiscoverySeeder(
     await writeCursor(prisma, seed.id, nextOffset);
   }
 
-  out.detail = `seeded ${out.enqueued} candidate URL(s) from ${out.entities} entit(y/ies) across ${SEED_QUERIES.length} type(s).`;
+  out.detail = `seeded ${out.enqueued} candidate URL(s) from ${out.entities} entit(y/ies) across ${SEED_QUERIES.length} type(s)${
+    out.sourceFailure ? ` (source failed at ${out.sourceFailure}; cursor held)` : ""
+  }.`;
   return out;
 }

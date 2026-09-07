@@ -14,9 +14,66 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { workerExecutionAllowed } from "./execution-context";
-import { readExecutionStatus } from "./execution-host";
+import { readExecutionStatus, type ExecutionStatus } from "./execution-host";
 
 export type HealthStatus = "pass" | "warn" | "fail" | "unknown";
+
+/**
+ * Shared per-run context. The execution status (master switch + lease) is read
+ * ONCE per diagnostics run and handed to every rating that judges liveness by
+ * age, so none of them can call the worker "stalled" while it is intentionally
+ * OFF — or "failed" when the database could not even be read.
+ */
+export interface DiagnosticsContext {
+  /** Null when the status could not be read at all (treated as unknown). */
+  execution: ExecutionStatus | null;
+}
+
+const INACTIVE_SUMMARY =
+  "Admin Worker intentionally inactive — the master switch is OFF, so no worker runs locally and none runs in production.";
+const UNKNOWN_SUMMARY = "Admin Worker state unknown — the database could not be read.";
+
+/** The switch is provably OFF (not merely unreadable). */
+function workerIntentionallyOff(ctx: DiagnosticsContext | undefined): boolean {
+  return ctx?.execution?.known === true && ctx.execution.state === "OFF";
+}
+
+/** The switch/lease rows could not be read — OFF vs running is unknowable. */
+function executionUnknown(ctx: DiagnosticsContext | undefined): boolean {
+  return ctx?.execution != null && ctx.execution.known === false;
+}
+
+/**
+ * Apply execution awareness to an age/progress rating:
+ *   - worker OFF by design → pass, with the measured facts kept in the summary
+ *     (the age is true; it just is not a fault), no repair advice;
+ *   - execution state unknown → never worse than warn, because a red rating
+ *     with "fix the stalled pipeline" advice is wrong when the only fact is
+ *     that the database was unreachable.
+ */
+function withExecutionAwareness(
+  rating: HealthRating,
+  ctx: DiagnosticsContext | undefined,
+): HealthRating {
+  if (workerIntentionallyOff(ctx)) {
+    return {
+      ...rating,
+      status: "pass",
+      score: 1,
+      summary: `${INACTIVE_SUMMARY} ${rating.summary}`,
+      recommendedRepair: undefined,
+    };
+  }
+  if (executionUnknown(ctx) && rating.status === "fail") {
+    return {
+      ...rating,
+      status: "warn",
+      score: 0.5,
+      summary: `${UNKNOWN_SUMMARY} ${rating.summary}`,
+    };
+  }
+  return rating;
+}
 
 export interface HealthRating {
   key: string;
@@ -66,7 +123,22 @@ const RATING_REPAIR_KINDS: Record<string, string[]> = {
 };
 
 /** Each rating returns a HealthRating shape so the UI is uniform. */
-type RatingFn = (prisma: PrismaClient) => Promise<HealthRating>;
+type RatingFn = (prisma: PrismaClient, ctx: DiagnosticsContext) => Promise<HealthRating>;
+
+/** Window for "is this failing NOW" ratings — lifetime counts pinned them red forever. */
+const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+/** Minimum recent samples before a failure ratio may FAIL a rating. */
+const MIN_SAMPLES_FOR_FAIL = 3;
+
+/**
+ * Rate a recent-window failure ratio: pass with no failures, warn on any,
+ * fail only when at least half of ≥ MIN_SAMPLES_FOR_FAIL recent samples failed.
+ */
+function ratioStatus(recentTotal: number, recentFailed: number): HealthStatus {
+  if (recentFailed === 0) return "pass";
+  if (recentTotal >= MIN_SAMPLES_FOR_FAIL && recentFailed / recentTotal >= 0.5) return "fail";
+  return "warn";
+}
 
 async function ratingOverall(prisma: PrismaClient): Promise<HealthRating> {
   const state = await prisma.adminWorkerState
@@ -115,16 +187,19 @@ async function ratingOverall(prisma: PrismaClient): Promise<HealthRating> {
  *   ON + live local lease + beat  → "Admin Worker active locally" (pass)
  *   ON + no lease / no heartbeat  → genuine local worker failure (fail)
  */
-async function ratingHeartbeat(prisma: PrismaClient): Promise<HealthRating> {
-  const [state, execution] = await Promise.all([
-    prisma.adminWorkerState.findUnique({ where: { id: "singleton" } }).catch(() => null),
-    readExecutionStatus(prisma).catch(() => null),
-  ]);
+async function ratingHeartbeat(
+  prisma: PrismaClient,
+  ctx?: DiagnosticsContext,
+): Promise<HealthRating> {
+  const state = await prisma.adminWorkerState
+    .findUnique({ where: { id: "singleton" } })
+    .catch(() => null);
+  const execution = ctx?.execution ?? null;
   const last = state?.lastHeartbeatAt ?? null;
   const now = new Date();
   const ageMs = last ? now.getTime() - last.getTime() : Infinity;
 
-  if (execution && execution.state === "OFF") {
+  if (execution && execution.known && execution.state === "OFF") {
     return {
       key: "admin_worker_heartbeat",
       label: "Heartbeat",
@@ -133,9 +208,24 @@ async function ratingHeartbeat(prisma: PrismaClient): Promise<HealthRating> {
       lastCheckedAt: now,
       dataSource: "AdminWorkerState.lastHeartbeatAt + AdminWorkerMemory(worker.execution.*)",
       latestSuccess: last,
-      summary:
-        "Admin Worker intentionally inactive — the master switch is OFF, so no worker runs " +
-        "locally and none runs in production.",
+      summary: INACTIVE_SUMMARY,
+    };
+  }
+  // Unreadable switch/lease: we cannot tell OFF from running, so do not
+  // report a worker failure off a database failure.
+  if (execution && !execution.known) {
+    return {
+      key: "admin_worker_heartbeat",
+      label: "Heartbeat",
+      status: "warn",
+      score: 0.5,
+      lastCheckedAt: now,
+      dataSource: "AdminWorkerState.lastHeartbeatAt + AdminWorkerMemory(worker.execution.*)",
+      latestSuccess: last,
+      summary: `${UNKNOWN_SUMMARY}${execution.error ? ` (${execution.error})` : ""}${
+        last ? ` Last heartbeat ${Math.round(ageMs / 1000)}s ago.` : ""
+      }`,
+      recommendedRepair: "Check database connectivity from the diagnostics host.",
     };
   }
 
@@ -172,34 +262,44 @@ async function ratingHeartbeat(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingQueue(prisma: PrismaClient): Promise<HealthRating> {
-  const [pending, failed, lastSuccess, lastFailure] = await Promise.all([
-    prisma.workerBuildJob.count({ where: { status: "pending" } }),
-    prisma.workerBuildJob.count({ where: { status: "failed" } }),
-    prisma.workerBuildJob.findFirst({
-      where: { status: "succeeded" },
-      orderBy: { finishedAt: "desc" },
-      select: { finishedAt: true, errorMessage: true },
-    }),
-    prisma.workerBuildJob.findFirst({
-      where: { status: "failed" },
-      orderBy: { finishedAt: "desc" },
-      select: { finishedAt: true, errorMessage: true },
-    }),
-  ]);
-  const status: HealthStatus =
-    failed > pending && failed > 5 ? "fail" : failed > 0 ? "warn" : "pass";
+  // Health is whether the queue is failing NOW: failed vs succeeded jobs in
+  // the last 7 days. The lifetime failed count is history and only reported.
+  const since = new Date(Date.now() - RECENT_WINDOW_MS);
+  const [pending, failed, failedRecent, succeededRecent, lastSuccess, lastFailure] =
+    await Promise.all([
+      prisma.workerBuildJob.count({ where: { status: "pending" } }),
+      prisma.workerBuildJob.count({ where: { status: "failed" } }),
+      prisma.workerBuildJob
+        .count({ where: { status: "failed", createdAt: { gte: since } } })
+        .catch(() => 0),
+      prisma.workerBuildJob
+        .count({ where: { status: "succeeded", createdAt: { gte: since } } })
+        .catch(() => 0),
+      prisma.workerBuildJob.findFirst({
+        where: { status: "succeeded" },
+        orderBy: { finishedAt: "desc" },
+        select: { finishedAt: true, errorMessage: true },
+      }),
+      prisma.workerBuildJob.findFirst({
+        where: { status: "failed" },
+        orderBy: { finishedAt: "desc" },
+        select: { finishedAt: true, errorMessage: true },
+      }),
+    ]);
+  const status: HealthStatus = ratioStatus(failedRecent + succeededRecent, failedRecent);
   return {
     key: "admin_worker_queue",
     label: "Queue processing",
     status,
     score: status === "pass" ? 1 : status === "warn" ? 0.6 : 0.2,
     lastCheckedAt: new Date(),
-    dataSource: "WorkerBuildJob",
-    summary: `${pending} pending, ${failed} failed.`,
+    dataSource: "WorkerBuildJob (last 7d)",
+    summary: `${pending} pending; last 7d: ${succeededRecent} succeeded, ${failedRecent} failed (${failed} failed lifetime).`,
     latestSuccess: lastSuccess?.finishedAt ?? null,
     latestFailure: lastFailure?.finishedAt ?? null,
     currentBlocker: lastFailure?.errorMessage ?? undefined,
-    recommendedRepair: failed > 0 ? "Inspect failed jobs at /admin/checklist/failed." : undefined,
+    recommendedRepair:
+      failedRecent > 0 ? "Inspect failed jobs at /admin/checklist/failed." : undefined,
   };
 }
 
@@ -302,17 +402,32 @@ async function ratingPublishing(prisma: PrismaClient): Promise<HealthRating> {
 }
 
 async function ratingPostPublish(prisma: PrismaClient): Promise<HealthRating> {
-  const total = await prisma.postPublishVerification.count();
-  const failed = await prisma.postPublishVerification.count({ where: { result: "FAIL" } });
-  const status: HealthStatus = total === 0 ? "warn" : failed > 0 ? "fail" : "pass";
+  // Windowed to 7 days and rated on the recent FAIL ratio: a single 502 during
+  // a deploy months ago used to pin this red for the life of the deployment.
+  const since = new Date(Date.now() - RECENT_WINDOW_MS);
+  const [total, recentTotal, recentFailed] = await Promise.all([
+    prisma.postPublishVerification.count(),
+    prisma.postPublishVerification.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.postPublishVerification
+      .count({ where: { result: "FAIL", createdAt: { gte: since } } })
+      .catch(() => 0),
+  ]);
+  const status: HealthStatus = total === 0 ? "warn" : ratioStatus(recentTotal, recentFailed);
   return {
     key: "admin_worker_post_publish",
     label: "Post-publish verification",
     status,
     score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0.2,
     lastCheckedAt: new Date(),
-    dataSource: "PostPublishVerification",
-    summary: `${total} verified, ${failed} failed.`,
+    dataSource: "PostPublishVerification (last 7d)",
+    summary:
+      total === 0
+        ? "No post-publish verifications recorded yet."
+        : `${recentTotal} verified in last 7d, ${recentFailed} failed (${total} lifetime).`,
+    recommendedRepair:
+      status === "fail"
+        ? "Most recent post-publish probes are failing — check the public site is reachable from the worker before trusting any rollback."
+        : undefined,
   };
 }
 
@@ -400,7 +515,10 @@ async function ratingHomepage(prisma: PrismaClient): Promise<HealthRating> {
   };
 }
 
-async function ratingContentGoals(prisma: PrismaClient): Promise<HealthRating> {
+async function ratingContentGoals(
+  prisma: PrismaClient,
+  ctx?: DiagnosticsContext,
+): Promise<HealthRating> {
   const goals = await prisma.contentGoal.findMany();
   if (goals.length === 0) {
     return {
@@ -438,27 +556,33 @@ async function ratingContentGoals(prisma: PrismaClient): Promise<HealthRating> {
     .catch(() => 0);
   const progressing = recentPublishes > 0;
   const status: HealthStatus = totalGap === 0 || progressing ? "pass" : "fail";
-  return {
-    key: "admin_worker_content_goals",
-    label: "Content goals",
-    status,
-    // Score reflects health (progress), not completion, so a healthy marathon
-    // doesn't drag the aggregate down; the true completion % stays in the summary.
-    score: status === "pass" ? 1 : pct,
-    lastCheckedAt: new Date(),
-    dataSource: "ContentGoal.desiredTarget",
-    summary:
-      totalGap === 0
-        ? `All content goals met: ${totalCurrent} / ${totalTarget}.`
-        : `${totalCurrent} / ${totalTarget} target (${Math.round(pct * 100)}%); ${totalGap} still to build; +${recentPublishes} published in last 7d${
-            progressing ? " (progressing)" : " (STALLED)"
-          }${behind.length ? ` — largest gaps: ${behind.join(", ")}` : ""}.`,
-    recommendedRepair: progressing
-      ? undefined
-      : totalGap > 0
-        ? "No content published in the last 7 days despite an open gap — the growth pipeline is stalled. Advance the below-target types (prioritize + fetch existing candidates, extract, build, publish)."
-        : undefined,
-  };
+  // "STALLED" is only a diagnosis while the worker is meant to be running —
+  // withExecutionAwareness turns it into a plain fact when the switch is OFF.
+  const stalledLabel = workerIntentionallyOff(ctx) ? " (no publishes: worker OFF)" : " (STALLED)";
+  return withExecutionAwareness(
+    {
+      key: "admin_worker_content_goals",
+      label: "Content goals",
+      status,
+      // Score reflects health (progress), not completion, so a healthy marathon
+      // doesn't drag the aggregate down; the true completion % stays in the summary.
+      score: status === "pass" ? 1 : pct,
+      lastCheckedAt: new Date(),
+      dataSource: "ContentGoal.desiredTarget",
+      summary:
+        totalGap === 0
+          ? `All content goals met: ${totalCurrent} / ${totalTarget}.`
+          : `${totalCurrent} / ${totalTarget} target (${Math.round(pct * 100)}%); ${totalGap} still to build; +${recentPublishes} published in last 7d${
+              progressing ? " (progressing)" : stalledLabel
+            }${behind.length ? ` — largest gaps: ${behind.join(", ")}` : ""}.`,
+      recommendedRepair: progressing
+        ? undefined
+        : totalGap > 0
+          ? "No content published in the last 7 days despite an open gap — the growth pipeline is stalled. Advance the below-target types (prioritize + fetch existing candidates, extract, build, publish)."
+          : undefined,
+    },
+    ctx,
+  );
 }
 
 async function ratingCleanupCustodian(prisma: PrismaClient): Promise<HealthRating> {
@@ -931,59 +1055,80 @@ async function ratingChecklistBridge(prisma: PrismaClient): Promise<HealthRating
   };
 }
 
+/** Recent (7d) FAIL count + total for one PostPublishVerification check column. */
+async function recentCheckFailures(
+  prisma: PrismaClient,
+  column: "publicPageCheck" | "searchCheck" | "sitemapCheck" | "cacheCheck",
+): Promise<{ total: number; fails: number }> {
+  const since = new Date(Date.now() - RECENT_WINDOW_MS);
+  const [total, fails] = await Promise.all([
+    prisma.postPublishVerification.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
+    prisma.postPublishVerification
+      .count({ where: { [column]: "FAIL", createdAt: { gte: since } } })
+      .catch(() => 0),
+  ]);
+  return { total, fails };
+}
+
 async function ratingPublicRender(prisma: PrismaClient): Promise<HealthRating> {
-  const fails = await prisma.postPublishVerification.count({ where: { publicPageCheck: "FAIL" } });
+  // Same lifetime-count trap as ratingPostPublish: one historical FAIL row kept
+  // the gate red forever. Rate the last 7 days' ratio instead.
+  const { total, fails } = await recentCheckFailures(prisma, "publicPageCheck");
+  const status = ratioStatus(total, fails);
   return {
     key: "admin_worker_public_render",
     label: "Public render gate",
-    status: fails === 0 ? "pass" : "fail",
-    score: fails === 0 ? 1 : 0.2,
+    status,
+    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0.2,
     lastCheckedAt: new Date(),
-    dataSource: "PostPublishVerification",
-    summary: `${fails} public render failures.`,
+    dataSource: "PostPublishVerification (last 7d)",
+    summary: `${fails} of ${total} public render check(s) failed in the last 7d.`,
   };
 }
 
 async function ratingSearchVisibility(prisma: PrismaClient): Promise<HealthRating> {
-  const fails = await prisma.postPublishVerification.count({ where: { searchCheck: "FAIL" } });
+  const { total, fails } = await recentCheckFailures(prisma, "searchCheck");
   return {
     key: "admin_worker_search",
     label: "Search visibility",
     status: fails === 0 ? "pass" : "warn",
     score: fails === 0 ? 1 : 0.5,
     lastCheckedAt: new Date(),
-    dataSource: "PostPublishVerification",
-    summary: `${fails} search visibility failures.`,
+    dataSource: "PostPublishVerification (last 7d)",
+    summary: `${fails} of ${total} search visibility check(s) failed in the last 7d.`,
   };
 }
 
 async function ratingSitemapVisibility(prisma: PrismaClient): Promise<HealthRating> {
-  const fails = await prisma.postPublishVerification.count({ where: { sitemapCheck: "FAIL" } });
+  const { total, fails } = await recentCheckFailures(prisma, "sitemapCheck");
   return {
     key: "admin_worker_sitemap",
     label: "Sitemap visibility",
     status: fails === 0 ? "pass" : "warn",
     score: fails === 0 ? 1 : 0.5,
     lastCheckedAt: new Date(),
-    dataSource: "PostPublishVerification",
-    summary: `${fails} sitemap visibility failures.`,
+    dataSource: "PostPublishVerification (last 7d)",
+    summary: `${fails} of ${total} sitemap visibility check(s) failed in the last 7d.`,
   };
 }
 
 async function ratingCacheFreshness(prisma: PrismaClient): Promise<HealthRating> {
-  const fails = await prisma.postPublishVerification.count({ where: { cacheCheck: "FAIL" } });
+  const { total, fails } = await recentCheckFailures(prisma, "cacheCheck");
   return {
     key: "admin_worker_cache",
     label: "Cache freshness",
     status: fails === 0 ? "pass" : "warn",
     score: fails === 0 ? 1 : 0.5,
     lastCheckedAt: new Date(),
-    dataSource: "PostPublishVerification",
-    summary: `${fails} cache freshness failures.`,
+    dataSource: "PostPublishVerification (last 7d)",
+    summary: `${fails} of ${total} cache freshness check(s) failed in the last 7d.`,
   };
 }
 
-async function ratingLastPassTime(prisma: PrismaClient): Promise<HealthRating> {
+async function ratingLastPassTime(
+  prisma: PrismaClient,
+  ctx?: DiagnosticsContext,
+): Promise<HealthRating> {
   const recent = await prisma.adminWorkerPass.findFirst({
     orderBy: { startedAt: "desc" },
     select: { startedAt: true, status: true },
@@ -991,21 +1136,27 @@ async function ratingLastPassTime(prisma: PrismaClient): Promise<HealthRating> {
   const now = new Date();
   const ageMs = recent ? now.getTime() - recent.startedAt.getTime() : Infinity;
   const status: HealthStatus = ageMs < 10 * 60_000 ? "pass" : ageMs < 60 * 60_000 ? "warn" : "fail";
-  return {
-    key: "admin_worker_last_pass",
-    label: "Last Admin Worker pass",
-    status,
-    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
-    lastCheckedAt: now,
-    dataSource: "AdminWorkerPass.startedAt",
-    latestSuccess: recent?.startedAt ?? null,
-    summary: recent
-      ? `Last pass ${Math.round(ageMs / 1000)}s ago (status: ${recent.status}).`
-      : "No pass recorded yet.",
-  };
+  return withExecutionAwareness(
+    {
+      key: "admin_worker_last_pass",
+      label: "Last Admin Worker pass",
+      status,
+      score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+      lastCheckedAt: now,
+      dataSource: "AdminWorkerPass.startedAt",
+      latestSuccess: recent?.startedAt ?? null,
+      summary: recent
+        ? `Last pass ${Math.round(ageMs / 1000)}s ago (status: ${recent.status}).`
+        : "No pass recorded yet.",
+    },
+    ctx,
+  );
 }
 
-async function ratingLastTaskTime(prisma: PrismaClient): Promise<HealthRating> {
+async function ratingLastTaskTime(
+  prisma: PrismaClient,
+  ctx?: DiagnosticsContext,
+): Promise<HealthRating> {
   // The worker's most recent unit of planned work is its latest brain decision
   // (one per pass), not the legacy AdminWorkerTask queue — take whichever is more
   // recent so this reflects the live per-pass cadence instead of a defunct table.
@@ -1034,53 +1185,62 @@ async function ratingLastTaskTime(prisma: PrismaClient): Promise<HealthRating> {
   const ageMs = recent ? now.getTime() - recent.createdAt.getTime() : Infinity;
   const status: HealthStatus =
     ageMs < 60 * 60_000 ? "pass" : ageMs < 24 * 60 * 60_000 ? "warn" : "fail";
-  return {
-    key: "admin_worker_last_task",
-    label: "Last Admin Worker task",
-    status,
-    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
-    lastCheckedAt: now,
-    dataSource: "AdminWorkerDecision + AdminWorkerTask",
-    latestSuccess: recent?.createdAt ?? null,
-    summary: recent
-      ? `Last planned action ${Math.round(ageMs / 60_000)}min ago (${recent.kind}).`
-      : "No tasks recorded yet.",
-  };
+  return withExecutionAwareness(
+    {
+      key: "admin_worker_last_task",
+      label: "Last Admin Worker task",
+      status,
+      score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+      lastCheckedAt: now,
+      dataSource: "AdminWorkerDecision + AdminWorkerTask",
+      latestSuccess: recent?.createdAt ?? null,
+      summary: recent
+        ? `Last planned action ${Math.round(ageMs / 60_000)}min ago (${recent.kind}).`
+        : "No tasks recorded yet.",
+    },
+    ctx,
+  );
 }
 
 // ── Spec §18 subsystem ratings ─────────────────────────────────────
 
-async function ratingBrain(prisma: PrismaClient): Promise<HealthRating> {
+async function ratingBrain(prisma: PrismaClient, ctx?: DiagnosticsContext): Promise<HealthRating> {
   const now = new Date();
   const decision = await prisma.adminWorkerDecision
     .findFirst({ where: { decisionType: "brain_pass" }, orderBy: { createdAt: "desc" } })
     .catch(() => null);
   if (!decision) {
-    return {
-      key: "admin_worker_brain",
-      label: "Admin Worker decision engine",
-      status: "fail",
-      score: 0,
-      lastCheckedAt: now,
-      dataSource: "AdminWorkerDecision.decisionType=brain_pass",
-      summary: "No Admin Worker decisions recorded yet.",
-      recommendedRepair: "Run a worker pass — the Admin Worker writes a decision on every cycle.",
-    };
+    return withExecutionAwareness(
+      {
+        key: "admin_worker_brain",
+        label: "Admin Worker decision engine",
+        status: "fail",
+        score: 0,
+        lastCheckedAt: now,
+        dataSource: "AdminWorkerDecision.decisionType=brain_pass",
+        summary: "No Admin Worker decisions recorded yet.",
+        recommendedRepair: "Run a worker pass — the Admin Worker writes a decision on every cycle.",
+      },
+      ctx,
+    );
   }
   const ageMs = now.getTime() - decision.createdAt.getTime();
   const status: HealthStatus = ageMs < 10 * 60_000 ? "pass" : ageMs < 60 * 60_000 ? "warn" : "fail";
-  return {
-    key: "admin_worker_brain",
-    label: "Admin Worker decision engine",
-    status,
-    score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
-    lastCheckedAt: now,
-    dataSource: "AdminWorkerDecision.createdAt",
-    latestSuccess: decision.createdAt,
-    summary: `Last Admin Worker decision ${Math.round(ageMs / 60_000)}min ago: ${decision.chosenAction}.`,
-    recommendedRepair:
-      status === "pass" ? undefined : "Run a worker pass to refresh the Admin Worker decision.",
-  };
+  return withExecutionAwareness(
+    {
+      key: "admin_worker_brain",
+      label: "Admin Worker decision engine",
+      status,
+      score: status === "pass" ? 1 : status === "warn" ? 0.5 : 0,
+      lastCheckedAt: now,
+      dataSource: "AdminWorkerDecision.createdAt",
+      latestSuccess: decision.createdAt,
+      summary: `Last Admin Worker decision ${Math.round(ageMs / 60_000)}min ago: ${decision.chosenAction}.`,
+      recommendedRepair:
+        status === "pass" ? undefined : "Run a worker pass to refresh the Admin Worker decision.",
+    },
+    ctx,
+  );
 }
 
 async function ratingMissionPlanner(prisma: PrismaClient): Promise<HealthRating> {
@@ -1329,29 +1489,52 @@ async function ratingRollback(prisma: PrismaClient): Promise<HealthRating> {
   // diagnostics). Recent rollbacks mean content failed verification and was
   // pulled back — surfaced as a warn so operators notice, never a hard fail
   // (rollback is the safety mechanism working).
+  //
+  // The one thing that IS a fault: a rollback review that EXPIRED before anyone
+  // decided restore-vs-delete. The content stays unpublished with no other open
+  // signal (ratingHumanReview counts PENDING only), so it is surfaced here as a
+  // warn until a person acts. Cleanup no longer expires these, but rows aged
+  // out before that fix still exist.
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const [total, recent, pendingReview] = await Promise.all([
+  const [total, recent, pendingReview, expiredRollbackReviews] = await Promise.all([
     prisma.adminWorkerRollbackLedger.count().catch(() => 0),
     prisma.adminWorkerRollbackLedger.count({ where: { createdAt: { gte: since } } }).catch(() => 0),
     prisma.adminWorkerRollbackLedger
       .count({ where: { humanReviewCreated: true, createdAt: { gte: since } } })
       .catch(() => 0),
+    prisma.humanReviewQueue
+      .count({
+        where: {
+          status: "EXPIRED",
+          proposedAction: {
+            in: ["restore_or_delete_unpublished_content", "investigate_post_publish_failure"],
+          },
+        },
+      })
+      .catch(() => 0),
   ]);
+  const needsAttention = pendingReview > 0 || expiredRollbackReviews > 0;
+  const summaryParts = [
+    recent === 0
+      ? `${total} rollback record(s); none in the last 7d.`
+      : `${recent} rollback(s) in the last 7d${pendingReview > 0 ? `, ${pendingReview} awaiting human review` : ""}.`,
+  ];
+  if (expiredRollbackReviews > 0) {
+    summaryParts.push(
+      `${expiredRollbackReviews} unpublished item(s) whose restore-vs-delete review EXPIRED with no decision — still hidden from the public site.`,
+    );
+  }
   return {
     key: "admin_worker_rollback",
     label: "Rollback ledger",
-    status: recent === 0 ? "pass" : pendingReview > 0 ? "warn" : "pass",
-    score: recent === 0 ? 1 : pendingReview > 0 ? 0.6 : 0.85,
+    status: needsAttention ? "warn" : "pass",
+    score: needsAttention ? 0.6 : recent === 0 ? 1 : 0.85,
     lastCheckedAt: new Date(),
-    dataSource: "AdminWorkerRollbackLedger",
-    summary:
-      recent === 0
-        ? `${total} rollback record(s); none in the last 7d.`
-        : `${recent} rollback(s) in the last 7d${pendingReview > 0 ? `, ${pendingReview} awaiting human review` : ""}.`,
-    recommendedRepair:
-      pendingReview > 0
-        ? "Review the human-review rollbacks in the rollback ledger and decide restore vs delete."
-        : undefined,
+    dataSource: "AdminWorkerRollbackLedger + HumanReviewQueue(EXPIRED rollback reviews)",
+    summary: summaryParts.join(" "),
+    recommendedRepair: needsAttention
+      ? "Review the rollback human-review items (including EXPIRED ones) and decide restore vs delete — unpublished content is never re-published automatically."
+      : undefined,
   };
 }
 
@@ -1855,9 +2038,13 @@ const RATINGS: ReadonlyArray<RatingFn> = [
 ];
 
 export async function runAdminWorkerDiagnostics(prisma: PrismaClient): Promise<HealthRating[]> {
+  // One execution-status read for the whole run (see DiagnosticsContext).
+  const ctx: DiagnosticsContext = {
+    execution: await readExecutionStatus(prisma).catch(() => null),
+  };
   const results: HealthRating[] = await Promise.all(
     RATINGS.map((r) =>
-      r(prisma).catch(
+      r(prisma, ctx).catch(
         (err): HealthRating => ({
           key: "admin_worker_rating_error",
           label: "Rating error",

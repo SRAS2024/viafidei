@@ -126,7 +126,11 @@ export function formatHistoryDate(e: {
 }
 
 /** Chronological key: circa dates sort before dated events of the same year. */
-export function historySortKey(e: { date?: string; year: number; precision: DatePrecision }): string {
+export function historySortKey(e: {
+  date?: string;
+  year: number;
+  precision: DatePrecision;
+}): string {
   const y = String(e.year).padStart(4, "0");
   if (e.precision === "day" && e.date) return `${y}-${e.date.slice(5)}`;
   return `${y}-${e.precision === "circa" ? "00-00" : "00-01"}`;

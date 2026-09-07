@@ -30,6 +30,7 @@ import { CURATED_BUILT_CONTENT_TYPES, STRUCTURED_BUILT_CONTENT_TYPES } from "./c
 
 export type GrowthBlockerStage =
   | "NONE"
+  | "WORKER_OFF"
   | "WORKER_NOT_RUNNING"
   | "WORKER_PAUSED"
   | "BRAIN_DEGRADED"
@@ -136,9 +137,11 @@ export async function diagnoseWhyNoGrowth(
     // deliberate state — not a production fault. "No growth because the
     // operator switched the worker off" is an ANSWER, not a blocker to repair,
     // and it must not read as "restart the worker container".
+    // `known: false` means the switch could not be read (database error) —
+    // that is not OFF, so the walk falls back to the heartbeat evidence.
     const { readMasterSwitch } = await import("./execution-host");
     const master = await readMasterSwitch(prisma).catch(() => null);
-    const intentionallyOff = master ? !master.on : false;
+    const intentionallyOff = master ? master.known && !master.on : false;
 
     checks.push({
       stage: "WORKER_NOT_RUNNING",
@@ -153,6 +156,30 @@ export async function diagnoseWhyNoGrowth(
           ? `Last heartbeat ${Math.round((heartbeatAgeMs ?? 0) / 1000)}s ago.`
           : "No heartbeat has ever been recorded.",
     });
+    // OFF is the answer, not a symptom to walk past: with the worker switched
+    // off the funnel underneath legitimately shows no fetches, no builds and no
+    // publishes, and naming one of those (FETCH_NOT_RUNNING, "check the
+    // heartbeat") contradicted the OFF check two lines above it. Every later
+    // step is guarded on `blocker === "NONE"`, so the walk records this stage
+    // and stops promoting. A live heartbeat with the switch off (e.g. `npm run
+    // worker:local`) is still a running worker and is walked normally.
+    if (intentionallyOff && !workerLive) {
+      checks.push({
+        stage: "WORKER_OFF",
+        label: "Admin Worker switched on",
+        ok: false,
+        count: 0,
+        detail:
+          "The master switch is OFF — the operator has the Admin Worker intentionally inactive.",
+      });
+      blocker = "WORKER_OFF";
+      blockerExplanation =
+        "Admin Worker intentionally inactive — the master switch is OFF, so no publishing path (curated, structured, or fetched) is expected to run. Switch it on to resume growth.";
+      exactTable = "AdminWorkerMemory(worker.execution.switch)";
+      nextRepair =
+        "Open the Via Fidei application on the operator's computer and switch the Admin Worker ON. Nothing is broken; production never takes this work over.";
+    }
+
     if (!workerLive && !intentionallyOff) {
       blocker = "WORKER_NOT_RUNNING";
       blockerExplanation =
@@ -441,19 +468,36 @@ export async function diagnoseWhyNoGrowth(
     nextRepair = "Run the CHECKLIST_CREATION / CITATION_CREATION mission stages.";
   }
 
-  // 12. Verification evidence.
+  // 12. Verification evidence. Cross-source verification only runs for
+  //     SENSITIVE artifacts — BUILD_READY rows carrying validationNeeds (feast
+  //     days, apparition approvals, …); PRAYER/LITURGICAL/PARISH publish without
+  //     it by design (mirrors diagnostics.ts ratingVerifier). So "0 evidence
+  //     rows" is only a blocker while sensitive artifacts are actually WAITING;
+  //     on a fresh database with only non-sensitive builds it used to name this
+  //     as THE blocker with a repair that could do nothing, hiding the real one.
+  const awaitingSensitive =
+    blocker === "NONE" && artifactCount > 0
+      ? await prisma.adminWorkerPackageArtifact
+          .count({ where: { status: "BUILD_READY", validationNeeds: { isEmpty: false } } })
+          .catch(() => 0)
+      : 0;
   const verifiedCount =
-    blocker === "NONE" ? await prisma.adminWorkerCrossSourceVerification.count().catch(() => 0) : 0;
+    blocker === "NONE" && awaitingSensitive > 0
+      ? await prisma.adminWorkerCrossSourceVerification.count().catch(() => 0)
+      : 0;
   checks.push({
     stage: "VALIDATION_EVIDENCE_MISSING",
     label: "Verification evidence",
-    ok: artifactCount === 0 || verifiedCount > 0,
+    ok: awaitingSensitive === 0 || verifiedCount > 0,
     count: verifiedCount,
-    detail: `${verifiedCount} cross-source verification row(s).`,
+    detail:
+      awaitingSensitive === 0
+        ? "No sensitive artifacts awaiting cross-source verification (nothing to verify)."
+        : `${awaitingSensitive} sensitive artifact(s) awaiting verification; ${verifiedCount} cross-source verification row(s).`,
   });
-  if (blocker === "NONE" && artifactCount > 0 && verifiedCount === 0) {
+  if (blocker === "NONE" && awaitingSensitive > 0 && verifiedCount === 0) {
     blocker = "VALIDATION_EVIDENCE_MISSING";
-    blockerExplanation = "Package artifacts exist but no cross-source verification has happened.";
+    blockerExplanation = `${awaitingSensitive} sensitive artifact(s) are waiting on cross-source verification but no evidence row has ever been recorded.`;
     exactTable = "AdminWorkerCrossSourceVerification";
     nextRepair = "Run the CROSS_SOURCE_VERIFICATION mission stage.";
   }

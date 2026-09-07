@@ -71,6 +71,29 @@ describe("buildSelfAssessment", () => {
     expect(a.productive).toBe(false);
   });
 
+  it("does NOT flag EXTRACTING_WITHOUT_PUBLISHING while PublishedContent is growing", async () => {
+    // The drain + ingest lanes publish most content and never write a
+    // PUBLIC_PUBLISH stage outcome, so `publishesInWindow` is 0 while hundreds
+    // publish. The PublishedContent delta is the real measure — no warning,
+    // and no admin email, while it moves.
+    h.getAdminWorkerState.mockResolvedValue({
+      paused: false,
+      currentMode: "CONSTANT_FILL",
+      currentTask: "build PRAYER",
+      currentBlocker: null,
+    });
+    h.sampleWorld.mockResolvedValue(world());
+    const prisma = makePrisma({
+      published: 300,
+      stageCounts: [{ stage: "EXTRACTION", resultType: "success", _count: { _all: 30 } }],
+    });
+    const a = await buildSelfAssessment(prisma);
+    expect(a.publishesInWindow).toBe(0);
+    expect(a.publishedDelta).toBe(300);
+    expect(a.warnings.map((w) => w.kind)).not.toContain("EXTRACTING_WITHOUT_PUBLISHING");
+    expect(a.productive).toBe(true);
+  });
+
   it("raises no warnings when the worker is paused", async () => {
     h.getAdminWorkerState.mockResolvedValue({
       paused: true,

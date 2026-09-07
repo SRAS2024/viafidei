@@ -16,8 +16,29 @@ function prismaWith(opts: {
   paused?: boolean;
   pausedReason?: string | null;
   finalBrain?: string | null;
+  /** Master switch row; undefined → the memory model is absent (switch unreadable). */
+  masterSwitchOn?: boolean;
 }): PrismaClient {
   return {
+    ...(opts.masterSwitchOn === undefined
+      ? {}
+      : {
+          adminWorkerMemory: {
+            findUnique: async ({
+              where,
+            }: {
+              where: { memoryType_memoryKey: { memoryKey: string } };
+            }) =>
+              where.memoryType_memoryKey.memoryKey === "worker.execution.switch"
+                ? { memoryValue: { on: opts.masterSwitchOn }, updatedAt: new Date() }
+                : null,
+          },
+        }),
+    // Downstream funnel models: 600 prioritized candidates and nothing fetched,
+    // so a walk that wrongly continues past an OFF worker lands on
+    // FETCH_NOT_RUNNING.
+    candidateSourceUrl: { count: async () => 600 },
+    adminWorkerFetchResult: { count: async () => 0 },
     contentGoal: {
       findFirst: async () => ({ contentType: "SAINT", gapCount: 100 }),
       count: async () => 15,
@@ -35,7 +56,7 @@ function prismaWith(opts: {
     },
     // Lets the "active" scenario walk past the gates and land on the next
     // downstream blocker instead of throwing on an unmocked model.
-    authoritySource: { count: async () => 0 },
+    authoritySource: { count: async () => 5 },
     adminWorkerDecision: { findFirst: async () => null },
   } as unknown as PrismaClient;
 }
@@ -80,5 +101,39 @@ describe("why-no-growth worker gates", () => {
       ["WORKER_NOT_RUNNING", "WORKER_PAUSED", "BRAIN_DEGRADED"].includes(c.stage),
     );
     expect(gates.every((c) => c.ok)).toBe(true);
+  });
+});
+
+/**
+ * OFF is an answer, not a symptom: with the master switch off the funnel
+ * underneath legitimately shows no fetches, and the walk used to name
+ * FETCH_NOT_RUNNING ("check the worker heartbeat") two lines under the OFF
+ * check.
+ */
+describe("why-no-growth: intentionally OFF worker", () => {
+  it("reports WORKER_OFF and stops the funnel walk when the switch is OFF and no heartbeat", async () => {
+    const r = await diagnoseWhyNoGrowth(
+      prismaWith({ lastHeartbeatAt: minsAgo(2 * 24 * 60), masterSwitchOn: false }),
+    );
+    expect(r.blocker).toBe("WORKER_OFF");
+    expect(r.blockerExplanation).toMatch(/intentionally inactive/);
+    expect(r.exactTable).toBe("AdminWorkerMemory(worker.execution.switch)");
+    expect(r.nextAutomaticRepair).toMatch(/switch the Admin Worker ON/);
+    // The downstream stages are recorded but never promoted to the blocker.
+    expect(r.checks.find((c) => c.stage === "WORKER_OFF")?.ok).toBe(false);
+    expect(r.checks.some((c) => c.stage === "FETCH_NOT_RUNNING")).toBe(true);
+  });
+
+  it("walks the funnel normally when the switch is OFF but a live heartbeat exists (npm run worker:local)", async () => {
+    const r = await diagnoseWhyNoGrowth(
+      prismaWith({ lastHeartbeatAt: minsAgo(1), masterSwitchOn: false, finalBrain: "python" }),
+    );
+    expect(r.blocker).not.toBe("WORKER_OFF");
+    expect(r.blocker).not.toBe("WORKER_NOT_RUNNING");
+  });
+
+  it("does not treat an unreadable switch as OFF (falls back to the heartbeat evidence)", async () => {
+    const r = await diagnoseWhyNoGrowth(prismaWith({ lastHeartbeatAt: minsAgo(20) }));
+    expect(r.blocker).toBe("WORKER_NOT_RUNNING");
   });
 });

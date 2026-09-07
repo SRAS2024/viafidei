@@ -5,11 +5,18 @@
  * filesystem); the Python brain analyses the summary and returns findings +
  * developer requests, which TypeScript persists. Recommendations only —
  * schema/UI/code changes always require human review. Throttled + fail-open.
+ *
+ * These passes run in their own ops lanes (maint-schema / maint-ui), i.e.
+ * OUTSIDE the `intelligence` lane that owns most brain traffic, so their brain
+ * calls go through `withBrainMutex`: the resident brain serves one request at
+ * a time and the bridge does not queue, so an unserialised call would sit in
+ * the Python loop with its timeout already running.
  */
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 
+import { withBrainMutex } from "./brain-mutex";
 import { analyzeSchema, analyzeUi, isBrainEnabled, resolveBrainRoot } from "./intelligence";
 import type { SchemaModelSummary } from "./intelligence";
 import { BrainCallContext, recordBrainCall, recordDeveloperRequests } from "./intelligence/store";
@@ -136,7 +143,7 @@ export async function runSchemaAwareness(
   try {
     const models = inspectSchema();
     if (models.length === 0) return { ran: false, requests: 0 };
-    const env = await analyzeSchema(models);
+    const env = await withBrainMutex(() => analyzeSchema(models));
     await recordBrainCall(prisma, "analyze_schema", env, ctx);
     if (!env || !env.ok || !env.result) return { ran: false, requests: 0 };
     const { created, bumped } = await recordDeveloperRequests(
@@ -170,7 +177,7 @@ export async function runUiAwareness(
       .findMany({ select: { contentType: true } })
       .catch(() => [] as Array<{ contentType: string }>);
     const contentTypes = goals.map((g) => g.contentType);
-    const env = await analyzeUi({ ...ui, content_types: contentTypes });
+    const env = await withBrainMutex(() => analyzeUi({ ...ui, content_types: contentTypes }));
     await recordBrainCall(prisma, "analyze_ui", env, ctx);
     if (!env || !env.ok || !env.result) return { ran: false, requests: 0 };
     const { created, bumped } = await recordDeveloperRequests(
