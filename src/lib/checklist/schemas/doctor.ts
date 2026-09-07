@@ -9,6 +9,11 @@ export const doctorSchema: ContentSchema = {
     // The honorific epithet, e.g. "Doctor of Grace", "Angelic Doctor".
     doctorTitle: z.string().optional(),
     feastDay: z.string().optional(),
+    feastMonth: z.number().int().min(1).max(12).optional(),
+    feastDayOfMonth: z.number().int().min(1).max(31).optional(),
+    ecclesialRole: z.enum(["pope", "bishop", "priest", "deacon", "religious", "lay"]).optional(),
+    saintSlug: z.string().optional(),
+    declaredDoctorYear: z.number().int().optional(),
     background: z.string().optional(),
     summary: z.string().optional(),
     citations: z.array(z.string().url()).min(1),

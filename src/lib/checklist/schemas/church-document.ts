@@ -19,6 +19,8 @@ export const churchDocumentSchema: ContentSchema = {
       "instruction",
       "vatican_document",
       "uscb_pastoral_letter",
+      "papal_bull",
+      "code_of_canon_law",
     ]),
     issuingAuthority: z.string().min(1),
     issuedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

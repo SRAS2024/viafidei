@@ -8,6 +8,9 @@ export const apparitionSchema: ContentSchema = {
     title: z.string().min(1),
     location: z.string().min(1),
     country: z.string().min(2),
+    // The 1978 vocabulary (kept for historical decisions) plus the six
+    // categories of the May 2024 DDF Norms for discerning alleged supernatural
+    // phenomena. `decisionAuthority` / `decisionYear` say who ruled and when.
     approvedStatus: z.enum([
       "approved",
       "constat_de_supernaturalitate",
@@ -16,7 +19,17 @@ export const apparitionSchema: ContentSchema = {
       "under_investigation",
       "not_yet_judged",
       "private_revelation",
+      "nihil_obstat",
+      "prae_oculis_habeatur",
+      "curatur",
+      "sub_mandato",
+      "prohibetur_et_obstruatur",
+      "declaratio_de_non_supernaturalitate",
     ]),
+    decisionAuthority: z.string().optional(),
+    decisionYear: z.number().int().optional(),
+    // Who appeared: Marian by default; the Sacred Heart, Divine Mercy, St Michael…
+    subject: z.enum(["marian", "christ", "saint", "angel"]).optional(),
     yearOfApparition: z.number().int().optional(),
     feastDay: z
       .string()

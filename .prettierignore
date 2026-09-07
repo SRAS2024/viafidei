@@ -8,3 +8,6 @@ public
 prisma/migrations
 *.lock
 package-lock.json
+
+# Vendored public-domain Scripture store (compact one-line JSON per book)
+src/lib/content-shared/bible/dra/*.json

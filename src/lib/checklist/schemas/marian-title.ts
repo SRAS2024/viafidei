@@ -16,6 +16,8 @@ export const marianTitleSchema: ContentSchema = {
     associatedApparitionSlug: z.string().optional(),
     associatedPrayers: z.array(z.string()).default([]),
     iconographyNotes: z.string().optional(),
+    aliases: z.array(z.string()).default([]),
+    dogmaDefinedYear: z.number().int().optional(),
     theologicalSignificance: z.string().min(20),
     citations: z.array(z.string().url()).min(2),
   }),

@@ -8,6 +8,14 @@ export const riteSchema: ContentSchema = {
     title: z.string().min(1),
     // The canonical rite key (roman, byzantine, …) this entry describes.
     riteKey: z.string().optional(),
+    // Liturgical family and what the entry describes: a rite family, one of
+    // the Churches sui iuris, or a Latin use (Ambrosian, Dominican…).
+    family: z
+      .enum(["latin", "byzantine", "alexandrian", "west_syriac", "east_syriac", "armenian"])
+      .optional(),
+    entryKind: z.enum(["liturgical_rite", "church_sui_iuris", "latin_use"]).optional(),
+    region: z.string().optional(),
+    faithfulEstimate: z.string().optional(),
     // The History section shown within the rite's card.
     history: z.string().optional(),
     background: z.string().optional(),

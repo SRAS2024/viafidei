@@ -17,9 +17,17 @@ export const novenaSchema: ContentSchema = {
     summary: z.string().min(20),
     background: z.string().optional(),
     intentionTheme: z.string().min(1),
-    days: z.array(novenaDaySchema).length(9),
+    // Nine days is the norm, but the Church's own novenas are not all nine
+    // literal days: the St Andrew Christmas Novena runs Nov 30 – Dec 24 and
+    // the 54-day Rosary novena is six novenas in a row. `structure` says which.
+    days: z.array(novenaDaySchema).min(9),
+    durationDays: z.number().int().positive().optional(),
+    structure: z
+      .enum(["nine_days", "nine_weeks", "daily_until_feast", "fifty_four_days"])
+      .optional(),
     associatedSaintSlug: z.string().optional(),
     associatedDevotionSlug: z.string().optional(),
+    associatedMarianTitleSlug: z.string().optional(),
     typicalStartDate: z.string().optional(),
     relatedFeastSlug: z.string().optional(),
     citations: z.array(z.string().url()).min(2),
