@@ -29,6 +29,7 @@ import {
 import { BrainCallContext, recordBrainCall, recordDeveloperRequests } from "./intelligence/store";
 import { CURATED_BUILT_CONTENT_TYPES, STRUCTURED_BUILT_CONTENT_TYPES } from "./content-types";
 import { writeAdminWorkerLog } from "./logs";
+import { sampleWorkerEvent } from "./self-maintenance";
 
 interface MissionRow {
   content_type?: string;
@@ -162,22 +163,26 @@ export async function runMissionControlPass(
         .catch(() => undefined);
     }
 
-    await writeAdminWorkerLog(prisma, {
-      passId: ctx.passId ?? undefined,
-      category: "REPORT",
-      severity: blockers.length > 0 ? "WARN" : "INFO",
-      eventName: "mission_control",
-      message:
-        `Mission control: ${missions.length} missions; next = ${nextContentType ?? "n/a"}` +
-        `${blockers.length ? ` (blocked: ${blockers[0]})` : ""}.`,
-      contentType: nextContentType,
-      safeMetadata: {
-        missions: missions.slice(0, 20),
-        next_content_type: nextContentType ?? null,
-        next_action: nextAction ?? null,
-        blockers,
-      },
-    }).catch(() => undefined);
+    // One INFO row per pass is 200k+ rows over a month of hot looping. The
+    // WARN case (a real blocker) is the audit trail and is never sampled.
+    if (blockers.length > 0 || sampleWorkerEvent("mission_control").write) {
+      await writeAdminWorkerLog(prisma, {
+        passId: ctx.passId ?? undefined,
+        category: "REPORT",
+        severity: blockers.length > 0 ? "WARN" : "INFO",
+        eventName: "mission_control",
+        message:
+          `Mission control: ${missions.length} missions; next = ${nextContentType ?? "n/a"}` +
+          `${blockers.length ? ` (blocked: ${blockers[0]})` : ""}.`,
+        contentType: nextContentType,
+        safeMetadata: {
+          missions: missions.slice(0, 20),
+          next_content_type: nextContentType ?? null,
+          next_action: nextAction ?? null,
+          blockers,
+        },
+      }).catch(() => undefined);
+    }
 
     return { ran: true, nextContentType, nextAction };
   } catch {
@@ -315,22 +320,28 @@ export async function runStucknessPass(
       })
       .catch(() => undefined);
 
-    await writeAdminWorkerLog(prisma, {
-      passId: ctx.passId ?? undefined,
-      category: "REPORT",
-      severity: "WARN",
-      eventName: "worker_stuck",
-      message: `Stuckness detected: ${signals[0] ?? "loop"}. Unblock: ${strategy}.${
-        cap.missing.length > 0 ? ` ${cap.summary}` : ""
-      }${drained > 0 ? ` Auto-resolved ${drained} review item(s).` : ""}`,
-      safeMetadata: {
-        signals,
-        strategy,
-        published_delta: publishedDelta,
-        review_items_drained: drained,
-        capability_gaps: cap.missing.map((g) => g.capability),
-      },
-    }).catch(() => undefined);
+    // Deliberately sampled even though it is a WARN: this exact event fired
+    // 207,830 times in production without anything acting on it. Recording the
+    // same stuck condition once per cool-down keeps the signal and drops the
+    // flood; self-maintenance is what now acts on it.
+    if (sampleWorkerEvent("worker_stuck").write) {
+      await writeAdminWorkerLog(prisma, {
+        passId: ctx.passId ?? undefined,
+        category: "REPORT",
+        severity: "WARN",
+        eventName: "worker_stuck",
+        message: `Stuckness detected: ${signals[0] ?? "loop"}. Unblock: ${strategy}.${
+          cap.missing.length > 0 ? ` ${cap.summary}` : ""
+        }${drained > 0 ? ` Auto-resolved ${drained} review item(s).` : ""}`,
+        safeMetadata: {
+          signals,
+          strategy,
+          published_delta: publishedDelta,
+          review_items_drained: drained,
+          capability_gaps: cap.missing.map((g) => g.capability),
+        },
+      }).catch(() => undefined);
+    }
 
     return { ran: true, stuck: true };
   } catch {

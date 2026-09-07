@@ -277,16 +277,45 @@ export const OPS_LANES: LaneDef[] = [
       // fail-open per table, so calling it every pass costs nothing. It only
       // ever removes re-derived bookkeeping — never content, decisions,
       // passes, or WARN/ERROR logs.
-      const { pruneLedgerRows } = await import("./cleanup");
+      const { pruneLedgerRows, totalLedgerRowsPruned } = await import("./cleanup");
       const ledger = await pruneLedgerRows(prisma).catch(() => null);
-      const pruned = ledger
-        ? ledger.logRows + ledger.actionScores + ledger.brainCalls + ledger.stageOutcomes
-        : 0;
+      const pruned = ledger ? totalLedgerRowsPruned(ledger) : 0;
       return {
         advanced: r.titlesRepaired + r.subtitlesRefreshed,
         detail:
           `hygiene: ${r.titlesRepaired} title(s) repaired, ${r.subtitlesRefreshed} subtitle(s) refreshed` +
           (ledger?.ran ? `, ${pruned} ledger row(s) pruned` : ""),
+      };
+    },
+  },
+  {
+    // SELF-MAINTENANCE (self-maintenance.ts). The worker's own doctor: it
+    // senses ledger pressure / futility / wedged lanes / log spam / orphans,
+    // names the condition, repairs it least-destructively, and verifies the
+    // repair actually moved the signal.
+    //
+    // RESOURCE GUARANTEE: this is an OPS lane, so it runs ONLY inside a worker
+    // pass — which runs only while the loop runs, which runs only while the
+    // master switch is ON (loop.ts checkLoopAuthority). Switch OFF and this
+    // costs the Mac nothing. There is deliberately no timer, no cron and no
+    // background interval anywhere in the capability.
+    //
+    // The sweep self-throttles to ~15 min (ADMIN_WORKER_SELF_MAINT_INTERVAL_MS)
+    // against a durable AdminWorkerMemory marker, so calling it every pass is
+    // free; the watchdog is generous because a first trim over a bloated ledger
+    // legitimately runs for minutes.
+    name: "maint-self-heal",
+    capacity: 1,
+    activeOnly: false,
+    watchdogMs: 6 * 60 * 1000,
+    async run({ prisma, passId }) {
+      const { runSelfMaintenance } = await import("./self-maintenance");
+      const r = await runSelfMaintenance(prisma, { passId });
+      if (!r.ran) return { detail: `self-maintenance ${r.skippedReason ?? "skipped"}` };
+      const acted = r.repairs.filter((x) => x.attempted && x.succeeded).length;
+      return {
+        advanced: acted,
+        detail: `self-maintenance: ${r.conditions.length} condition(s), ${r.actionsTaken} action(s), ${acted} effective, ${r.escalations} escalated`,
       };
     },
   },

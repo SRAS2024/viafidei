@@ -25,6 +25,7 @@ import type { PrismaClient } from "@prisma/client";
 import { assertWorkerExecutionAllowed } from "./execution-context";
 import { readExecutionStatus, renewExecutionLease } from "./execution-host";
 import { writeAdminWorkerLog } from "./logs";
+import { sampleWorkerEvent } from "./self-maintenance";
 import {
   getAdminWorkerState,
   recordFailure,
@@ -87,6 +88,29 @@ export function leaseRenewedByHost(): boolean {
   return process.env.VIAFIDEI_LEASE_RENEWED_BY_HOST === "1";
 }
 
+/**
+ * The FLOOR under the adaptive backoff for a pass that produced nothing.
+ *
+ * A pass that did no work still costs ~140 database round trips of bookkeeping,
+ * so the less a pass can possibly achieve, the longer the loop waits before the
+ * next one: an ordinary idle pass waits the configured start value, a
+ * brain-degraded pass at least 30s (no content lane can run), and a PAUSED pass
+ * at least 60s — it can do nothing at all until an operator resumes it. An
+ * explicit 0 (tests / manual runs) disables the floor along with the backoff.
+ *
+ * Exported because it is the rule that stops the loop_paused hot loop, and a
+ * rule worth pinning in a test rather than inferring from timing.
+ */
+export function backoffFloorMs(
+  kind: "idle" | "degraded" | "paused",
+  startMs: number,
+  maxMs: number,
+): number {
+  if (startMs <= 0) return 0;
+  const want = kind === "paused" ? 60_000 : kind === "degraded" ? 30_000 : startMs;
+  return Math.min(maxMs, Math.max(startMs, want));
+}
+
 // The pass currently in flight in this process (null between passes). Lets the
 // SIGTERM handler close the row honestly ("stopped by operator") instead of
 // orphaning it as RUNNING until the next boot's reaper.
@@ -94,6 +118,28 @@ let _currentPassId: string | null = null;
 
 export function getCurrentPassId(): string | null {
   return _currentPassId;
+}
+
+/**
+ * PAUSED-LOOP BOOKKEEPING (the loop_paused bug).
+ *
+ * Measured in production on 2026-08-29: eight `loop_paused` INFO rows inside
+ * eight seconds, 649,793 rows all-time — the third-noisiest event in the whole
+ * ledger. A paused loop was writing one row per tick AND ticking every second.
+ *
+ * A pause is a STATE, not an event: log the transition IN, the transition OUT,
+ * and a heartbeat at most once a minute in between. The paused pass also returns
+ * `paused: true` so the loop applies the adaptive backoff (with its own floor)
+ * instead of hot-looping.
+ */
+export const PAUSED_HEARTBEAT_MS = 60_000;
+let _pausedSince: number | null = null;
+let _lastPausedHeartbeatAt = 0;
+
+/** Test hook: forget the paused-transition state. */
+export function resetPauseTracking(): void {
+  _pausedSince = null;
+  _lastPausedHeartbeatAt = 0;
 }
 
 /**
@@ -145,8 +191,12 @@ export async function runAdminWorkerLoop(
   // While the Python brain is degraded no content lane can run, so idling
   // faster than this just multiplies the (throttled) degraded-mode log rows.
   // An explicit 0 (tests / manual runs) disables the floor along with the rest.
-  const degradedFloorMs =
-    idleBackoffStartMs > 0 ? Math.min(idleBackoffMaxMs, Math.max(idleBackoffStartMs, 30_000)) : 0;
+  const degradedFloorMs = backoffFloorMs("degraded", idleBackoffStartMs, idleBackoffMaxMs);
+  // A PAUSED loop does no work at all, so it gets the highest floor of the
+  // three. Production wrote 649,793 `loop_paused` rows because a paused pass
+  // neither backed off nor stopped logging; the pause path now returns
+  // `idle: true, paused: true` and lands here.
+  const pausedFloorMs = backoffFloorMs("paused", idleBackoffStartMs, idleBackoffMaxMs);
   let idleBackoffMs = idleBackoffStartMs;
 
   // Enable outbound egress through a proxy when the deployment provides one
@@ -226,7 +276,11 @@ export async function runAdminWorkerLoop(
 
         if (oneShot) break;
         if (passOutcome.idle) {
-          const floor = passOutcome.degraded ? degradedFloorMs : idleBackoffStartMs;
+          const floor = passOutcome.paused
+            ? pausedFloorMs
+            : passOutcome.degraded
+              ? degradedFloorMs
+              : idleBackoffStartMs;
           await sleep(Math.max(floor, idleBackoffMs));
           idleBackoffMs = Math.min(idleBackoffMaxMs, Math.max(floor, idleBackoffMs) * 2);
         } else {
@@ -303,6 +357,8 @@ interface PassOutcome {
   idle: boolean;
   /** True when the Python final brain was unavailable this pass. */
   degraded: boolean;
+  /** True when the pass returned early because the worker is paused. */
+  paused: boolean;
 }
 
 // Dispatch watchdog. executeMissionStage had no timeout at all: a discovery
@@ -338,13 +394,38 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   // Pause guard. Security defense still runs (see security-defender.ts)
   // but it has its own entry point — the main loop returns early.
   if (state.paused) {
+    const nowMs = Date.now();
+    const entering = _pausedSince === null;
+    if (entering) _pausedSince = nowMs;
+    const heartbeatDue = !entering && nowMs - _lastPausedHeartbeatAt >= PAUSED_HEARTBEAT_MS;
+    if (entering || heartbeatDue) {
+      _lastPausedHeartbeatAt = nowMs;
+      const pausedForMin = Math.round((nowMs - (_pausedSince ?? nowMs)) / 60_000);
+      await writeAdminWorkerLog(prisma, {
+        category: "OVERVIEW",
+        severity: "INFO",
+        eventName: entering ? "loop_paused" : "loop_paused_heartbeat",
+        message: entering
+          ? `Admin Worker is paused (${state.pausedReason ?? "no reason given"}). Skipping non-security work until it resumes.`
+          : `Admin Worker still paused (${state.pausedReason ?? "no reason given"}) after ${pausedForMin} min.`,
+        safeMetadata: { pausedReason: state.pausedReason ?? null, pausedForMinutes: pausedForMin },
+      }).catch(() => undefined);
+    }
+    return { built: 0, published: 0, failed: 0, idle: true, degraded: false, paused: true };
+  }
+  if (_pausedSince !== null) {
+    // Transition OUT of paused — the other half of the pair, so the ledger shows
+    // a pause as one interval instead of thousands of identical rows.
+    const pausedForMin = Math.round((Date.now() - _pausedSince) / 60_000);
+    _pausedSince = null;
+    _lastPausedHeartbeatAt = 0;
     await writeAdminWorkerLog(prisma, {
       category: "OVERVIEW",
       severity: "INFO",
-      eventName: "loop_paused",
-      message: `Admin Worker is paused (${state.pausedReason ?? "no reason given"}). Skipping non-security work.`,
-    });
-    return { built: 0, published: 0, failed: 0, idle: true, degraded: false };
+      eventName: "loop_resumed",
+      message: `Admin Worker resumed after ${pausedForMin} min paused.`,
+      safeMetadata: { pausedForMinutes: pausedForMin },
+    }).catch(() => undefined);
   }
 
   // Content goals: seed ONLY when the table is empty (one cheap count instead
@@ -453,27 +534,43 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     const topRejected = brain.rankedAlternatives
       .filter((a) => a !== brain.chosenAction)
       .slice(0, 3);
-    await writeAdminWorkerLog(prisma, {
-      passId: pass.id,
-      category: "WORKER_PASS",
-      severity: "INFO",
-      eventName: "brain_decided",
-      message: `Admin Worker chose ${brain.missionStage} (${brain.chosenMode}/${brain.chosenPriority}): ${brain.reason}`,
-      contentType: brain.contentType ?? undefined,
-      safeMetadata: {
-        missionStage: brain.missionStage,
-        chosenScore: brain.chosenAction.finalScore,
-        finalBrain: brain.finalBrain,
-        degraded: brain.finalBrain === "degraded",
-        explanation: brain.brainExplanation,
-        brainFailure: brain.brainFailure,
-        topRejected: topRejected.map((a) => ({
-          missionStage: a.missionStage,
-          score: a.finalScore,
-          rejection: a.rejectionReason,
-        })),
-      },
-    });
+    // brain_decided is written once PER PASS and was the single noisiest event
+    // in production (988,366 rows). It is pure INFO bookkeeping, so it goes
+    // through the self-maintenance sampler: full detail up to the hourly budget,
+    // then one "being sampled" notice per cool-down instead of the flood.
+    const brainSample = sampleWorkerEvent("brain_decided");
+    if (brainSample.suppressionStarted) {
+      await writeAdminWorkerLog(prisma, {
+        passId: pass.id,
+        category: "WORKER_PASS",
+        severity: "WARN",
+        eventName: "log_event_sampled",
+        message: `brain_decided exceeded its hourly log budget; sampling it until the loop calms down.`,
+        safeMetadata: { eventName: "brain_decided" },
+      }).catch(() => undefined);
+    }
+    if (brainSample.write)
+      await writeAdminWorkerLog(prisma, {
+        passId: pass.id,
+        category: "WORKER_PASS",
+        severity: "INFO",
+        eventName: "brain_decided",
+        message: `Admin Worker chose ${brain.missionStage} (${brain.chosenMode}/${brain.chosenPriority}): ${brain.reason}`,
+        contentType: brain.contentType ?? undefined,
+        safeMetadata: {
+          missionStage: brain.missionStage,
+          chosenScore: brain.chosenAction.finalScore,
+          finalBrain: brain.finalBrain,
+          degraded: brain.finalBrain === "degraded",
+          explanation: brain.brainExplanation,
+          brainFailure: brain.brainFailure,
+          topRejected: topRejected.map((a) => ({
+            missionStage: a.missionStage,
+            score: a.finalScore,
+            rejection: a.rejectionReason,
+          })),
+        },
+      });
 
     // Pipeline governor (spec: "force productive forward movement; never fixate").
     // After the brain picks a stage and before dispatch, the governor reads the
@@ -575,22 +672,32 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // Best-effort: a blip writing this audit log must not send an
     // already-successful (possibly content-producing) dispatch into the catch
     // and get it mislabelled FAILED. The dispatch outcome is what matters here.
-    await writeAdminWorkerLog(prisma, {
-      passId: pass.id,
-      category: "WORKER_PASS",
-      severity: dispatch.kind === "failed" ? "ERROR" : "INFO",
-      eventName: "stage_dispatched",
-      message: `Stage ${dispatch.stage}: ${dispatch.summary}`,
-      contentType: brain.contentType ?? undefined,
-      safeMetadata: {
-        kind: dispatch.kind,
-        built: dispatch.built,
-        published: dispatch.published,
-        failed: dispatch.failed,
-        rejected: dispatch.rejected,
-        repairsPlanned: dispatch.repairsPlanned,
-      },
-    }).catch(() => undefined);
+    //
+    // stage_dispatched was the second-noisiest event in production (988,314
+    // rows), so the INFO case is sampled exactly like brain_decided. A FAILED
+    // dispatch is an ERROR row and is NEVER sampled — the sampler exists to
+    // thin bookkeeping, never the audit trail.
+    const dispatchFailed = dispatch.kind === "failed";
+    const stageSample = dispatchFailed
+      ? { write: true, suppressed: 0, suppressionStarted: false }
+      : sampleWorkerEvent("stage_dispatched");
+    if (stageSample.write)
+      await writeAdminWorkerLog(prisma, {
+        passId: pass.id,
+        category: "WORKER_PASS",
+        severity: dispatchFailed ? "ERROR" : "INFO",
+        eventName: "stage_dispatched",
+        message: `Stage ${dispatch.stage}: ${dispatch.summary}`,
+        contentType: brain.contentType ?? undefined,
+        safeMetadata: {
+          kind: dispatch.kind,
+          built: dispatch.built,
+          published: dispatch.published,
+          failed: dispatch.failed,
+          rejected: dispatch.rejected,
+          repairsPlanned: dispatch.repairsPlanned,
+        },
+      }).catch(() => undefined);
 
     await completePass(prisma, {
       passId: pass.id,
@@ -682,7 +789,14 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     await pruneUnknownLaneStates(prisma, ALL_LANE_NAMES).catch(() => 0);
   }
 
-  return { built, published: publishedCount, failed: failedCount, idle, degraded: !activeMode };
+  return {
+    built,
+    published: publishedCount,
+    failed: failedCount,
+    idle,
+    degraded: !activeMode,
+    paused: false,
+  };
 }
 
 function sleep(ms: number): Promise<void> {

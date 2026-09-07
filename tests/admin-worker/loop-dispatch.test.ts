@@ -128,7 +128,12 @@ function makePrisma(opts: { pendingJobs?: number; failedJobs?: number; gap?: num
   } as unknown as Parameters<typeof runOnePass>[0];
 }
 
-describe("runOnePass — mode dispatch", () => {
+// runOnePass pulls in the brain, the governor and every lane module, so the
+// first test in this file pays a large one-off transform cost. On an idle
+// machine that is well under a second; with the full suite saturating every
+// core it can exceed the 5 s default, which is a scheduling artifact rather
+// than a real regression. The generous timeout applies to the whole file.
+describe("runOnePass — mode dispatch", { timeout: 30_000 }, () => {
   it("runs the homepage mutator when HOMEPAGE priority wins", async () => {
     vi.mocked(redesignHomepage).mockClear();
     const prisma = makePrisma({});

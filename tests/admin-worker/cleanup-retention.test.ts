@@ -7,9 +7,15 @@
  *     type (the orchestrator wrote 15 rows per run with no retention);
  *   - a client/mock without the snapshot model degrades to "trimmed 0";
  *   - the append-only bookkeeping ledgers are pruned on a hard retention
- *     (INFO logs / action scores / brain calls 14d, stage outcomes 30d), in
- *     bounded batches, at most once an hour, and NEVER touching WARN/ERROR
- *     logs, decisions, passes or any content table.
+ *     (INFO logs / action scores / brain calls / decisions / passes 14d, stage
+ *     outcomes and terminal repair plans 30d), in bounded batches, at most once
+ *     an hour, and NEVER touching WARN/ERROR logs or any content table;
+ *   - the three tables the first version MISSED are covered: on 2026-09-07 the
+ *     production database was 21 GB, of which AdminWorkerDecision was 5.7 GB,
+ *     AdminWorkerPass 440 MB and AdminWorkerRepairPlan 27 MB — against 12 MB of
+ *     PublishedContent;
+ *   - children are deleted BEFORE AdminWorkerPass, whose five inbound foreign
+ *     keys are ON DELETE SET NULL (same rationale as the operator script).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -19,11 +25,15 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ACTION_SCORE_RETENTION_MS,
   BRAIN_CALL_RETENTION_MS,
+  DECISION_RETENTION_MS,
   LOG_INFO_RETENTION_MS,
+  PASS_RETENTION_MS,
   pruneLedgerRows,
+  REPAIR_PLAN_RETENTION_MS,
   ROLLBACK_REVIEW_ACTIONS,
   runCleanupPass,
   STAGE_OUTCOME_RETENTION_MS,
+  totalLedgerRowsPruned,
 } from "@/lib/admin-worker/cleanup";
 
 function makePrisma(opts: { snapshotCounts?: Record<string, number> } = {}) {
@@ -128,7 +138,7 @@ function makeRawPrisma(rowsPerCall: number[] = []) {
 const HOUR = 60 * 60 * 1000;
 
 describe("pruneLedgerRows", () => {
-  it("prunes exactly the four bookkeeping ledgers, and only INFO logs", async () => {
+  it("prunes every bookkeeping ledger, children before the parent pass", async () => {
     const { prisma, calls } = makeRawPrisma();
     const out = await pruneLedgerRows(prisma as never, { force: true });
     expect(out.ran).toBe(true);
@@ -138,12 +148,33 @@ describe("pruneLedgerRows", () => {
       "AdminWorkerActionScore",
       "AdminWorkerBrainCall",
       "AdminWorkerStageOutcome",
+      "AdminWorkerRepairPlan",
+      "AdminWorkerDecision",
+      // LAST: five inbound FKs are ON DELETE SET NULL, so trimming the parent
+      // first would rewrite millions of child rows for nothing.
+      "AdminWorkerPass",
     ]);
     // WARN/ERROR are the audit trail escalation reads back — never deleted.
     expect(calls[0].sql).toContain(`"severity" = 'INFO'`);
+    // A live pass and a live repair plan are never deleted out from under work
+    // in flight.
+    const passSql = calls.find((c) => c.sql.includes('FROM "AdminWorkerPass"'))!.sql;
+    expect(passSql).toContain(`"status" <> 'RUNNING'`);
+    const planSql = calls.find((c) => c.sql.includes('FROM "AdminWorkerRepairPlan"'))!.sql;
+    expect(planSql).toContain("'SUCCEEDED', 'FAILED', 'ABANDONED'");
     for (const call of calls) {
       expect(call.sql).toContain('WHERE "id" IN (SELECT "id"');
       expect(call.sql).toContain("LIMIT");
+    }
+  });
+
+  it("never builds a statement against a content table", async () => {
+    const { prisma, calls } = makeRawPrisma();
+    await pruneLedgerRows(prisma as never, { force: true });
+    for (const call of calls) {
+      expect(call.sql).toMatch(/DELETE FROM "AdminWorker\w+"/);
+      expect(call.sql).not.toContain("PublishedContent");
+      expect(call.sql).not.toContain("ChecklistItem");
     }
   });
 
@@ -156,8 +187,13 @@ describe("pruneLedgerRows", () => {
     expect(cutoffs[1]).toBe(now - ACTION_SCORE_RETENTION_MS);
     expect(cutoffs[2]).toBe(now - BRAIN_CALL_RETENTION_MS);
     expect(cutoffs[3]).toBe(now - STAGE_OUTCOME_RETENTION_MS);
+    expect(cutoffs[4]).toBe(now - REPAIR_PLAN_RETENTION_MS);
+    expect(cutoffs[5]).toBe(now - DECISION_RETENTION_MS);
+    expect(cutoffs[6]).toBe(now - PASS_RETENTION_MS);
     expect(LOG_INFO_RETENTION_MS).toBe(14 * 24 * HOUR);
     expect(STAGE_OUTCOME_RETENTION_MS).toBe(30 * 24 * HOUR);
+    expect(DECISION_RETENTION_MS).toBe(14 * 24 * HOUR);
+    expect(PASS_RETENTION_MS).toBe(14 * 24 * HOUR);
   });
 
   it("keeps batching while a batch comes back full, and stops when it is short", async () => {
@@ -165,8 +201,9 @@ describe("pruneLedgerRows", () => {
     const { prisma, calls } = makeRawPrisma([5000, 5000, 17]);
     const out = await pruneLedgerRows(prisma as never, { force: true });
     expect(out.logRows).toBe(10_017);
-    // 3 calls for the log table + 1 each for the other three.
-    expect(calls).toHaveLength(6);
+    // 3 calls for the log table + 1 each for the other six.
+    expect(calls).toHaveLength(9);
+    expect(totalLedgerRowsPruned(out)).toBe(10_017);
   });
 
   it("is throttled to once per hour unless forced", async () => {

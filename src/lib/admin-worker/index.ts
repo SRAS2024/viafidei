@@ -130,7 +130,19 @@ export {
 export {
   buildOperationalSummary,
   deriveNextBestAction,
+  // Self-maintenance REPORTING surface. Persisted-only reader (two indexed
+  // queries, never re-senses), so report-generator.ts can render the same
+  // numbers the admin page shows without a deep import.
+  readSelfMaintenanceSummary,
+  selfMaintenanceHeadline,
   type OperationalSummary,
+  type SelfMaintenanceSummary,
+  type SelfMaintenanceCondition,
+  type SelfMaintenanceRepair,
+  type SelfMaintenanceEscalation,
+  type SelfMaintenanceBackoff,
+  type SelfMaintenanceSignal,
+  type SelfMaintenanceSize,
 } from "./operational-summary";
 
 // Per-method strategy memory (adaptive-worker Phase C/D) — observability +
@@ -542,7 +554,48 @@ export { generateAdminWorkerDeveloperAuditPdf, generateMonthlyAdminWorkerReportP
 
 export { checkWorkerHealth, type WorkerHealthSnapshot } from "./health";
 
-export { runCleanupPass, type CleanupOutcome } from "./cleanup";
+export {
+  runCleanupPass,
+  pruneLedgerRows,
+  totalLedgerRowsPruned,
+  type CleanupOutcome,
+  type LedgerPruneOutcome,
+} from "./cleanup";
+
+// Worker SELF-MAINTENANCE: the sense → diagnose → repair → verify sweep that
+// keeps the worker's own telemetry, lanes, cursors and unpublished content
+// healthy. Runs from the `maint-self-heal` OPS lane, so only while the master
+// switch is ON. See src/lib/admin-worker/self-maintenance.ts.
+export {
+  runSelfMaintenance,
+  senseSelfHealth,
+  diagnoseConditions,
+  sampleWorkerEvent,
+  suppressWorkerEvent,
+  resetEventSampler,
+  eventSamplerSnapshot,
+  selfMaintenanceEnabled,
+  selfMaintenanceIntervalMs,
+  eventBudgetPerHour,
+  eventCooldownMs,
+  resetSelfMaintenanceThrottle,
+  REPAIR_ENV_SWITCH,
+  TELEMETRY_TABLES,
+  PER_TICK_EVENTS,
+  VERIFY_FAILURE_LIMIT,
+  CONDITION_BACKOFF_MS,
+  type Signal,
+  type SignalSeverity,
+  type Condition,
+  type ConditionName,
+  type RepairName,
+  type RepairAction,
+  type VerifyResult,
+  type SenseReading,
+  type SampleDecision,
+  type SelfMaintenanceOptions,
+  type SelfMaintenanceResult,
+} from "./self-maintenance";
 
 export {
   evaluatePublishGate,

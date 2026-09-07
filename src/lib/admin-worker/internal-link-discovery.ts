@@ -16,6 +16,7 @@ import type { CandidateSourceDiscoveryMethod, PrismaClient } from "@prisma/clien
 import { isApprovedAuthorityHost, isFetchableHost } from "@/lib/checklist";
 import { discoverCandidate, isJunkUrl } from "./web-navigator";
 import { writeAdminWorkerLog } from "./logs";
+import { sampleWorkerEvent } from "./self-maintenance";
 
 const FETCH_TIMEOUT_MS = 8_000;
 const USER_AGENT = "ViaFideiAdminWorker/1.0 (+internal-link-discovery)";
@@ -155,15 +156,18 @@ export async function discoverFromInternalLinks(
     else rejected += 1;
   }
 
-  await writeAdminWorkerLog(prisma, {
-    category: "SOURCE_DISCOVERY",
-    severity: "INFO",
-    eventName: "internal_link_discovery",
-    message: `Internal-link discovery from ${seedUrl}: ${inserted} inserted, ${rejected} rejected (of ${links.length} extracted).`,
-    sourceHost: seedHost,
-    sourceUrl: seedUrl,
-    safeMetadata: { extracted: links.length, inserted, rejected },
-  });
+  // One INFO row per pass (173,679 rows in production). Sampled.
+  if (sampleWorkerEvent("internal_link_discovery").write) {
+    await writeAdminWorkerLog(prisma, {
+      category: "SOURCE_DISCOVERY",
+      severity: "INFO",
+      eventName: "internal_link_discovery",
+      message: `Internal-link discovery from ${seedUrl}: ${inserted} inserted, ${rejected} rejected (of ${links.length} extracted).`,
+      sourceHost: seedHost,
+      sourceUrl: seedUrl,
+      safeMetadata: { extracted: links.length, inserted, rejected },
+    });
+  }
 
   return { seedUrl, fetched: true, inserted, rejected };
 }

@@ -87,6 +87,20 @@ describe("worker lane set", () => {
     }
   });
 
+  it("has the self-maintenance lane, and it is an OPS lane by design", () => {
+    // The resource guarantee the owner asked for: ops lanes run only inside a
+    // pass, passes run only inside the loop, and the loop runs only while the
+    // master switch is ON (loop.ts checkLoopAuthority). Making this a CONTENT
+    // lane would also gate it on the Python brain — the worker must be able to
+    // repair itself precisely when the brain is down.
+    const lane = OPS_LANES.find((l) => l.name === "maint-self-heal");
+    expect(lane).toBeDefined();
+    expect(CONTENT_LANES.some((l) => l.name === "maint-self-heal")).toBe(false);
+    expect(lane!.capacity).toBe(1);
+    expect(lane!.activeOnly).toBeFalsy();
+    expect(lane!.watchdogMs).toBe(6 * 60 * 1000);
+  });
+
   it("has the deterministic custodial lanes that keep published content honest", () => {
     // Both are deterministic (no brain judgement) and UNPUBLISH rather than
     // delete, so the catalog stays honest even while the brain is degraded.
@@ -127,7 +141,13 @@ describe("worker lane set", () => {
 });
 
 describe("brain-mutex is part of the public admin-worker surface", () => {
-  it("is re-exported from the package index", async () => {
+  // Importing the package index pulls the whole ~150-module worker tree (395
+  // exports). That costs ~0.5 s on an idle machine, but the transform runs
+  // inside whichever worker picks this file up, and with the full suite
+  // saturating every core it can exceed the 5 s default. The import cost is a
+  // test-environment artifact, not a runtime one — the web server deliberately
+  // avoids this barrel (see the comment in src/app/admin/diagnostics/page.tsx).
+  it("is re-exported from the package index", { timeout: 30_000 }, async () => {
     const index = await import("@/lib/admin-worker");
     expect(typeof index.withBrainMutex).toBe("function");
     expect(typeof index.brainMutexState).toBe("function");

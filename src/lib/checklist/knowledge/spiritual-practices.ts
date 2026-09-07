@@ -1,5 +1,7 @@
 import type { CuratedEntry } from "./index";
 
+import { spiritualPracticeGroupOne } from "./spiritual-practices/group-1";
+
 const VATICAN = "https://www.vatican.va/";
 const USCCB = "https://www.usccb.org/";
 
@@ -42,7 +44,7 @@ function practice(
   };
 }
 
-export const spiritualPracticeKnowledge: CuratedEntry[] = [
+const LEGACY: CuratedEntry[] = [
   practice(
     "ignatian-examen",
     "Ignatian Examen",
@@ -128,3 +130,11 @@ export const spiritualPracticeKnowledge: CuratedEntry[] = [
     "Roman",
   ),
 ];
+
+/**
+ * The spiritual practice registry: the hand-written entries above plus every per-group
+ * file under `./spiritual-practices/`. The group files are imported by their full explicit
+ * path so the bare `./spiritual-practices` specifier keeps resolving to THIS file (see the
+ * module-resolution note in `./guides.ts`).
+ */
+export const spiritualPracticeKnowledge: CuratedEntry[] = [...LEGACY, ...spiritualPracticeGroupOne];

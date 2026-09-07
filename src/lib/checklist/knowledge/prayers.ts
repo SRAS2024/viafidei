@@ -1,4 +1,13 @@
 import type { CuratedEntry } from "./index";
+
+import { prayerBatch1 } from "./prayers/batch-1";
+import { prayerBatch2 } from "./prayers/batch-2";
+import { prayerBatch3 } from "./prayers/batch-3";
+import { prayerBatch4 } from "./prayers/batch-4";
+import { prayerBatch5 } from "./prayers/batch-5";
+import { prayerBatch6 } from "./prayers/batch-6";
+import { prayerBatch7 } from "./prayers/batch-7";
+import { prayerBatch8 } from "./prayers/batch-8";
 import { PRAYER_TRANSLATIONS } from "./prayer-translations";
 
 const VATICAN_CCC_PRAYERS = "https://www.vatican.va/archive/ENG0015/__P9.HTM";
@@ -749,7 +758,7 @@ const RAW_PRAYERS: CuratedEntry[] = [
  * Prayers without a curated translation are left as-is (a content-custody check
  * flags them for a curator).
  */
-export const prayerKnowledge: CuratedEntry[] = RAW_PRAYERS.map((entry) => {
+const LEGACY: CuratedEntry[] = RAW_PRAYERS.map((entry) => {
   const t = PRAYER_TRANSLATIONS[entry.slug];
   if (!t) return entry;
   return {
@@ -761,3 +770,22 @@ export const prayerKnowledge: CuratedEntry[] = RAW_PRAYERS.map((entry) => {
     },
   };
 });
+
+/**
+ * The PRAYER registry: the canonical prayers above plus every authored batch
+ * under `./prayers/`. The batches are imported by their full explicit path
+ * (`./prayers/batch-1`, …) so the bare `./prayers` specifier keeps resolving
+ * to THIS file and never to the `prayers/` directory — see the
+ * module-resolution note in `./guides.ts`.
+ */
+export const prayerKnowledge: CuratedEntry[] = [
+  ...LEGACY,
+  ...prayerBatch1,
+  ...prayerBatch2,
+  ...prayerBatch3,
+  ...prayerBatch4,
+  ...prayerBatch5,
+  ...prayerBatch6,
+  ...prayerBatch7,
+  ...prayerBatch8,
+];

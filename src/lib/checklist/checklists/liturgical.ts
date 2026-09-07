@@ -4,13 +4,6 @@ import { curatedChecklist } from "./from-curated";
 /** Liturgical entries intentionally not curated yet (the authoring backlog). */
 export const liturgicalExtras: ChecklistSeed[] = [
   {
-    canonicalName: "The Rite of Marriage",
-    canonicalSlug: "rite-of-marriage",
-    priority: 25,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "marriage_rite" },
-  },
-  {
     canonicalName: "The Rite of Funerals",
     canonicalSlug: "rite-of-funerals",
     priority: 25,

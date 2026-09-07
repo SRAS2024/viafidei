@@ -15,6 +15,9 @@ import type { PrismaClient } from "@prisma/client";
 
 import { workerExecutionAllowed } from "./execution-context";
 import { readExecutionStatus, type ExecutionStatus } from "./execution-host";
+// Reader only — it re-senses nothing and pulls in no worker machinery, so it
+// is safe on the request path this module serves.
+import { readSelfMaintenanceSummary, type SelfMaintenanceSummary } from "./operational-summary";
 
 export type HealthStatus = "pass" | "warn" | "fail" | "unknown";
 
@@ -27,6 +30,12 @@ export type HealthStatus = "pass" | "warn" | "fail" | "unknown";
 export interface DiagnosticsContext {
   /** Null when the status could not be read at all (treated as unknown). */
   execution: ExecutionStatus | null;
+  /**
+   * The self-maintenance sweep's persisted snapshot, read ONCE per run and
+   * shared by the ratings that judge it — two ratings, one pair of queries.
+   * Optional so a rating can still be called directly in a test.
+   */
+  selfMaintenance?: SelfMaintenanceSummary | null;
 }
 
 const INACTIVE_SUMMARY =
@@ -1983,6 +1992,181 @@ async function ratingCodeVersion(prisma: PrismaClient): Promise<HealthRating> {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* self-maintenance                                                    */
+/* ------------------------------------------------------------------ */
+
+/** ~15-minute sweep cadence; six hours of silence means it stopped sweeping. */
+const SELF_MAINT_STALE_MS = 6 * 60 * 60 * 1000;
+
+async function selfMaintenanceOf(
+  prisma: PrismaClient,
+  ctx: DiagnosticsContext | undefined,
+): Promise<SelfMaintenanceSummary | null> {
+  if (ctx && ctx.selfMaintenance !== undefined) return ctx.selfMaintenance;
+  return readSelfMaintenanceSummary(prisma).catch(() => null);
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
+  if (bytes >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)} MB`;
+  return `${Math.round(bytes / 1024)} KB`;
+}
+
+/**
+ * Does the worker maintain ITSELF? The measured failure this rating exists for:
+ * for three months the loop ran, wrote ~7 M telemetry rows, published nothing,
+ * and no check anywhere said so. A healthy sweep reads as a calm "pass" — the
+ * absence of repairs is the good outcome, not an empty state.
+ */
+async function ratingSelfMaintenance(
+  prisma: PrismaClient,
+  ctx: DiagnosticsContext,
+): Promise<HealthRating> {
+  const now = new Date();
+  const s = await selfMaintenanceOf(prisma, ctx);
+  const base = {
+    key: "admin_worker_self_maintenance",
+    label: "Self-maintenance",
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerMemory(self-maintenance:*) + AdminWorkerLog(self_maintenance_*)",
+    // The sweep IS the automatic repair for these conditions, so it is never
+    // "manual" — it is in progress whenever it has something open.
+    automaticRepairStatus: "available" as const,
+  };
+
+  if (!s || !s.everRan) {
+    return {
+      ...base,
+      status: "unknown",
+      score: 0,
+      summary:
+        "Self-maintenance has not swept yet — it sweeps every ~15 minutes from the maint-self-heal lane while the worker is on.",
+    };
+  }
+
+  const ageMs = (s.lastSweepAgeSeconds ?? 0) * 1000;
+  const parts = [s.headline];
+  if (s.repairsApplied24h > 0) {
+    parts.push(`${s.repairsApplied24h} repair action(s) in the last 24 h.`);
+  }
+  if (s.contentRestored24h > 0) {
+    parts.push(`${s.contentRestored24h} content row(s) restored.`);
+  }
+  const summary = parts.join(" ");
+
+  if (s.backedOff.length > 0 || s.escalations.length > 0) {
+    const stuck = s.backedOff[0];
+    return {
+      ...base,
+      status: "fail",
+      score: 0,
+      latestFailure: stuck?.until ?? s.escalations[0]?.at ?? null,
+      automaticRepairStatus: "in_progress",
+      currentBlocker: stuck
+        ? `${stuck.condition} did not improve after ${stuck.failures} repair(s)`
+        : `${s.escalations.length} self-maintenance escalation(s)`,
+      summary,
+      recommendedRepair:
+        "The worker repaired this repeatedly and the signal never moved — read the self_maintenance_action rows and fix the underlying cause; it retries after its back-off.",
+    };
+  }
+
+  if (s.conditions.length > 0) {
+    const critical = s.conditions.some((c) => c.severity === "critical");
+    return {
+      ...base,
+      status: critical ? "fail" : "warn",
+      score: critical ? 0.25 : 0.5,
+      automaticRepairStatus: "in_progress",
+      summary,
+      recommendedRepair: `The sweep applies ${s.conditions[0]?.remedy ?? "its remedy"} on its next run — confirm the condition clears.`,
+    };
+  }
+
+  if (ageMs > SELF_MAINT_STALE_MS) {
+    return withExecutionAwareness(
+      {
+        ...base,
+        status: "warn",
+        score: 0.5,
+        latestSuccess: s.lastSweepAt,
+        summary: `${summary} No sweep for ${Math.round(ageMs / 3_600_000)}h — the maint-self-heal lane has not run.`,
+        recommendedRepair:
+          "Check the worker loop is running and ADMIN_WORKER_SELF_MAINT is not set to 0.",
+      },
+      ctx,
+    );
+  }
+
+  return {
+    ...base,
+    status: "pass",
+    score: 1,
+    latestSuccess: s.lastSweepAt,
+    summary,
+  };
+}
+
+/**
+ * The worker's own storage footprint, from the sweep's persisted measurement.
+ * Never measures anything here: pg_database_size on an admin page request is a
+ * cost the sweep already paid.
+ */
+async function ratingSelfMaintenanceLedger(
+  prisma: PrismaClient,
+  ctx: DiagnosticsContext,
+): Promise<HealthRating> {
+  const now = new Date();
+  const s = await selfMaintenanceOf(prisma, ctx);
+  const size = s?.size ?? null;
+  const base = {
+    key: "admin_worker_ledger_size",
+    label: "Worker ledger size",
+    lastCheckedAt: now,
+    dataSource: "AdminWorkerMemory(self-maintenance:last-result)",
+    automaticRepairStatus: "available" as const,
+  };
+
+  if (!size) {
+    return {
+      ...base,
+      status: "unknown",
+      score: 0,
+      summary:
+        "Ledger size not measured yet — the self-maintenance sweep records it on its first run.",
+    };
+  }
+
+  const dbOver =
+    size.databaseThresholdBytes > 0 && size.databaseBytes >= size.databaseThresholdBytes;
+  const rowsOver = size.rowThreshold > 0 && size.largestTableRows >= size.rowThreshold;
+  const summary =
+    `Database ${formatBytes(size.databaseBytes)}` +
+    (size.databaseThresholdBytes > 0
+      ? ` (trim threshold ${formatBytes(size.databaseThresholdBytes)})`
+      : "") +
+    (size.largestTable
+      ? `; largest telemetry table ${size.largestTable} at ${size.largestTableRows.toLocaleString("en-US")} rows` +
+        (size.rowThreshold > 0 ? ` (threshold ${size.rowThreshold.toLocaleString("en-US")})` : "")
+      : "") +
+    ".";
+
+  if (dbOver || rowsOver) {
+    return {
+      ...base,
+      status: dbOver && rowsOver ? "fail" : "warn",
+      score: dbOver && rowsOver ? 0 : 0.5,
+      automaticRepairStatus: "in_progress",
+      summary,
+      recommendedRepair:
+        "The sweep trims the telemetry tables on its retention window; reclaiming already-lost space needs an operator VACUUM FULL.",
+    };
+  }
+
+  return { ...base, status: "pass", score: 1, latestSuccess: size.measuredAt, summary };
+}
+
 const RATINGS: ReadonlyArray<RatingFn> = [
   ratingOverall,
   ratingBrain,
@@ -2035,13 +2219,18 @@ const RATINGS: ReadonlyArray<RatingFn> = [
   ratingContentProtection,
   ratingEscalations,
   ratingCodeVersion,
+  ratingSelfMaintenance,
+  ratingSelfMaintenanceLedger,
 ];
 
 export async function runAdminWorkerDiagnostics(prisma: PrismaClient): Promise<HealthRating[]> {
   // One execution-status read for the whole run (see DiagnosticsContext).
-  const ctx: DiagnosticsContext = {
-    execution: await readExecutionStatus(prisma).catch(() => null),
-  };
+  const [execution, selfMaintenance] = await Promise.all([
+    readExecutionStatus(prisma).catch(() => null),
+    // One persisted-snapshot read shared by the self-maintenance ratings.
+    readSelfMaintenanceSummary(prisma).catch(() => null),
+  ]);
+  const ctx: DiagnosticsContext = { execution, selfMaintenance };
   const results: HealthRating[] = await Promise.all(
     RATINGS.map((r) =>
       r(prisma, ctx).catch(
@@ -2077,6 +2266,10 @@ export async function runAdminWorkerDiagnostics(prisma: PrismaClient): Promise<H
   const openKinds = new Set(openPlans.filter((p) => p._count._all > 0).map((p) => p.kind));
 
   for (const rating of results) {
+    // A rating that already knows its own repair status keeps it: the
+    // self-maintenance ratings are repaired by the sweep itself, which files no
+    // AdminWorkerRepairPlan, so the plan-kind map cannot speak for them.
+    if (rating.automaticRepairStatus) continue;
     const kinds = RATING_REPAIR_KINDS[rating.key];
     if (!kinds) {
       rating.automaticRepairStatus = "manual";

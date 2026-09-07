@@ -31,6 +31,7 @@ import {
 } from "./intelligence/service";
 import { recordBrainCall, recordDeveloperRequests } from "./intelligence/store";
 import { writeAdminWorkerLog } from "./logs";
+import { sampleWorkerEvent } from "./self-maintenance";
 
 /**
  * Supplementary brain analyses run once per pass (best-effort, non-blocking):
@@ -553,22 +554,27 @@ export async function runPostPassIntelligence(
     const stats = await gatherIqStats(prisma);
     const iq = await computeIqMetrics(prisma, stats, { passId: opts.passId });
 
-    await writeAdminWorkerLog(prisma, {
-      passId: opts.passId,
-      category: "WORKER_PASS",
-      severity: "INFO",
-      eventName: "intelligence_pass",
-      message: inspection.available
-        ? `Brain self-inspection: ${inspection.persisted.created} new + ${inspection.persisted.bumped} bumped developer request(s); IQ index ${iq.metrics?.iq_index ?? "n/a"}.`
-        : "Intelligence brain offline this pass; used deterministic fallbacks.",
-      safeMetadata: {
-        available: inspection.available,
-        developerRequestsCreated: inspection.persisted.created,
-        developerRequestsBumped: inspection.persisted.bumped,
-        repeatedPatterns: inspection.report?.summary?.repeated_patterns ?? 0,
-        iqIndex: iq.metrics?.iq_index ?? null,
-      },
-    }).catch(() => undefined);
+    // One INFO row per pass (303,017 rows in production). Sampled;
+    // src/lib/diagnostics/developer-audit.ts reads the most recent rows, which
+    // still works — the sampler only thins the stream during a hot loop.
+    if (sampleWorkerEvent("intelligence_pass").write) {
+      await writeAdminWorkerLog(prisma, {
+        passId: opts.passId,
+        category: "WORKER_PASS",
+        severity: "INFO",
+        eventName: "intelligence_pass",
+        message: inspection.available
+          ? `Brain self-inspection: ${inspection.persisted.created} new + ${inspection.persisted.bumped} bumped developer request(s); IQ index ${iq.metrics?.iq_index ?? "n/a"}.`
+          : "Intelligence brain offline this pass; used deterministic fallbacks.",
+        safeMetadata: {
+          available: inspection.available,
+          developerRequestsCreated: inspection.persisted.created,
+          developerRequestsBumped: inspection.persisted.bumped,
+          repeatedPatterns: inspection.report?.summary?.repeated_patterns ?? 0,
+          iqIndex: iq.metrics?.iq_index ?? null,
+        },
+      }).catch(() => undefined);
+    }
 
     return {
       ran: inspection.available,

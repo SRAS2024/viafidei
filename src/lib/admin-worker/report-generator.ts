@@ -21,6 +21,7 @@ import { listRecentPasses } from "./passes";
 import { runAdminWorkerDiagnostics, summarizeRatings } from "./diagnostics";
 import { collectIntelligenceLabData, type IntelligenceLabData } from "./intelligence-lab-store";
 import { collectSkillCapabilityData, type SkillCapabilityData } from "./skills";
+import { readSelfMaintenanceSummary, type SelfMaintenanceSummary } from "./operational-summary";
 
 const SECRET_KEYS = [
   "password",
@@ -257,6 +258,12 @@ export interface DeveloperAuditData {
     occurrences: number;
     source: string | null;
   }>;
+  /** The worker's own maintenance state, read from what the sweep already
+   *  persisted (two indexed queries — never re-sensed, and never able to
+   *  trigger a repair from a report). Rendered as the "Self-maintenance"
+   *  section. Optional so a partial fixture still typechecks; null when the
+   *  read failed. */
+  selfMaintenance?: SelfMaintenanceSummary | null;
   /** Intelligence Laboratory summary (spec: "The Developer Audit report should
    *  include a major Intelligence Laboratory section"): top root causes, active
    *  hypotheses, proof packets + failed proofs, logic-rule failures, strategy
@@ -560,6 +567,11 @@ export async function collectDeveloperAuditData(
     workerRequestsRaw = [];
   }
 
+  // Self-maintenance: the SAME persisted-only reader the admin diagnostics page
+  // uses, so the PDF and the page can never disagree. Two indexed reads; it
+  // never re-senses and never runs a repair — a report must not repair.
+  const selfMaintenance = await readSelfMaintenanceSummary(prisma).catch(() => null);
+
   // Python brain diagnostics (defensive — partial mocks yield zeros).
   const pythonBrainDiagnostics = await (async () => {
     const empty = {
@@ -729,6 +741,7 @@ export async function collectDeveloperAuditData(
     codeVersions,
     openEscalations,
     workerRequests: workerRequestsRaw,
+    selfMaintenance,
     diagnosticsResults,
     diagnosticsSummary: summarizeRatings(diagnosticsResults),
     recentPasses,
@@ -918,6 +931,7 @@ export const DEVELOPER_AUDIT_SECTIONS = [
   "Table of Contents",
   "Executive Summary",
   "Diagnostics Results",
+  "Self-maintenance",
   "Admin Worker Brain Decisions",
   "Python Brain Diagnostics",
   "Rejected Alternatives",

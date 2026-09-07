@@ -1,5 +1,8 @@
 import type { CuratedEntry } from "./index";
 
+import { liturgicalGroupOne } from "./liturgical/group-1";
+import { liturgicalGroupTwo } from "./liturgical/group-2";
+
 const VATICAN = "https://www.vatican.va/";
 const USCCB = "https://www.usccb.org/";
 
@@ -47,7 +50,7 @@ function feast(
   };
 }
 
-export const liturgicalKnowledge: CuratedEntry[] = [
+const LEGACY: CuratedEntry[] = [
   feast(
     "solemnity-christmas",
     "Solemnity of the Nativity of the Lord (Christmas)",
@@ -348,4 +351,16 @@ export const liturgicalKnowledge: CuratedEntry[] = [
     false,
     "n/a",
   ),
+];
+
+/**
+ * The liturgical registry: the hand-written entries above plus every per-group
+ * file under `./liturgical/`. The group files are imported by their full explicit
+ * path so the bare `./liturgical` specifier keeps resolving to THIS file (see the
+ * module-resolution note in `./guides.ts`).
+ */
+export const liturgicalKnowledge: CuratedEntry[] = [
+  ...LEGACY,
+  ...liturgicalGroupOne,
+  ...liturgicalGroupTwo,
 ];

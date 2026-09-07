@@ -185,3 +185,67 @@ describe("buildSelfAssessment", () => {
     expect(a.warnings).toHaveLength(0);
   });
 });
+
+/**
+ * The worker's own account of itself must include its MAINTENANCE state — the
+ * owner asked for the self-maintenance work to be reported like any other work.
+ * It is read from the sweep's persisted rows, never re-sensed, and it is
+ * deliberately not a WorkerWarning (governance's KIND_ACTION is exhaustive over
+ * WarningKind; maintenance state belongs in the report, not in the decision
+ * that pauses the loop).
+ */
+describe("buildSelfAssessment — self-maintenance state", () => {
+  function stateAndWorld() {
+    h.getAdminWorkerState.mockResolvedValue({
+      paused: false,
+      currentMode: "CONSTANT_FILL",
+      currentTask: "build PRAYER",
+      currentBlocker: null,
+    });
+    h.sampleWorld.mockResolvedValue(world());
+  }
+
+  it("carries the sweep's persisted snapshot", async () => {
+    stateAndWorld();
+    const now = Date.now();
+    const prisma = {
+      ...(makePrisma({ published: 3, stageCounts: [] }) as unknown as Record<string, unknown>),
+      adminWorkerMemory: {
+        findMany: vi.fn(async () => [
+          {
+            memoryKey: "self-maintenance:last-run",
+            memoryValue: { at: now - 60_000 },
+            lastUsedAt: new Date(now),
+          },
+        ]),
+      },
+      adminWorkerLog: { findMany: vi.fn(async () => []) },
+    } as never;
+
+    const a = await buildSelfAssessment(prisma);
+    expect(a.selfMaintenance?.everRan).toBe(true);
+    expect(a.selfMaintenance?.healthy).toBe(true);
+    expect(a.selfMaintenance?.conditions).toEqual([]);
+    // Maintenance state never manufactures a productivity warning.
+    expect(a.warnings).toEqual([]);
+  });
+
+  it("degrades to null rather than failing the assessment", async () => {
+    stateAndWorld();
+    const prisma = {
+      ...(makePrisma({ published: 3, stageCounts: [] }) as unknown as Record<string, unknown>),
+      adminWorkerMemory: {
+        findMany: vi.fn(async () => {
+          throw new Error("relation does not exist");
+        }),
+      },
+      adminWorkerLog: { findMany: vi.fn(async () => []) },
+    } as never;
+
+    const a = await buildSelfAssessment(prisma);
+    // Reader is fail-open, so the assessment still completes with a summary
+    // that simply reports "not swept".
+    expect(a.selfMaintenance?.everRan).toBe(false);
+    expect(a.productive).toBe(true);
+  });
+});

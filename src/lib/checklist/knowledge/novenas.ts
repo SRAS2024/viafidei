@@ -1,5 +1,8 @@
 import type { CuratedEntry } from "./index";
 
+import { novenaGroupOne } from "./novenas/group-1";
+import { novenaGroupTwo } from "./novenas/group-2";
+
 const VATICAN = "https://www.vatican.va/";
 const USCCB = "https://www.usccb.org/";
 
@@ -14,7 +17,7 @@ function nineDays(
   }));
 }
 
-export const novenaKnowledge: CuratedEntry[] = [
+const LEGACY: CuratedEntry[] = [
   {
     contentType: "NOVENA",
     slug: "divine-mercy-novena",
@@ -108,24 +111,6 @@ export const novenaKnowledge: CuratedEntry[] = [
   },
   {
     contentType: "NOVENA",
-    slug: "novena-holy-spirit",
-    authorityLevel: "VATICAN",
-    citations: [VATICAN, USCCB],
-    payload: {
-      slug: "novena-holy-spirit",
-      title: "Novena to the Holy Spirit",
-      summary:
-        "The original novena of the Church — prayed from the day after the Ascension through the Vigil of Pentecost, modeled on the nine days the apostles and Mary spent in the upper room praying for the descent of the Holy Spirit.",
-      background:
-        "This is the first novena, modeled on Acts 1:14: 'All these with one accord devoted themselves to prayer, together with the women and Mary the mother of Jesus.' Pope Leo XIII commanded its annual celebration in Divinum Illud Munus (1897).",
-      intentionTheme: "the seven gifts of the Holy Spirit",
-      days: nineDays("the outpouring of the seven gifts of the Holy Spirit"),
-      relatedFeastSlug: "solemnity-pentecost",
-      citations: [VATICAN, USCCB],
-    },
-  },
-  {
-    contentType: "NOVENA",
     slug: "novena-sacred-heart-of-jesus",
     authorityLevel: "VATICAN",
     citations: [VATICAN, USCCB],
@@ -139,116 +124,6 @@ export const novenaKnowledge: CuratedEntry[] = [
       intentionTheme: "trust in the Sacred Heart of Jesus",
       days: nineDays("trust and consecration to the Sacred Heart of Jesus"),
       relatedFeastSlug: "solemnity-sacred-heart",
-      citations: [VATICAN, USCCB],
-    },
-  },
-  {
-    contentType: "NOVENA",
-    slug: "novena-our-lady-of-guadalupe",
-    authorityLevel: "VATICAN",
-    citations: [VATICAN, USCCB],
-    payload: {
-      slug: "novena-our-lady-of-guadalupe",
-      title: "Novena to Our Lady of Guadalupe",
-      summary:
-        "A novena to the Patroness of the Americas, traditionally prayed from December 4 through December 12 in preparation for her feast.",
-      background:
-        "Honors the apparitions of the Blessed Virgin Mary to St. Juan Diego at Tepeyac in December 1531, and the miraculous image of Our Lady of Guadalupe preserved in the Basilica in Mexico City.",
-      intentionTheme: "the intercession of Our Lady of Guadalupe",
-      days: nineDays("Our Lady of Guadalupe's intercession and motherly care"),
-      associatedMarianTitleSlug: "our-lady-of-guadalupe",
-      citations: [VATICAN, USCCB],
-    },
-  },
-  {
-    contentType: "NOVENA",
-    slug: "novena-saint-joseph",
-    authorityLevel: "VATICAN",
-    citations: [VATICAN, USCCB],
-    payload: {
-      slug: "novena-saint-joseph",
-      title: "Novena to Saint Joseph",
-      summary:
-        "A nine-day novena to the foster father of Jesus and patron of the universal Church, prayed in preparation for his feast (March 19) or in any time of family or vocational need.",
-      background:
-        "Pope Pius IX declared St. Joseph patron of the universal Church in 1870. Pope Francis added his name to all the Eucharistic Prayers of the Roman Missal in 2013 and proclaimed the Year of St. Joseph in 2020-2021.",
-      intentionTheme: "the protection and intercession of St. Joseph",
-      days: nineDays("the intercession of St. Joseph for families, workers, and a happy death"),
-      associatedSaintSlug: "saint-joseph",
-      citations: [VATICAN, USCCB],
-    },
-  },
-  {
-    contentType: "NOVENA",
-    slug: "novena-saint-anthony",
-    authorityLevel: "VATICAN",
-    citations: [VATICAN, USCCB],
-    payload: {
-      slug: "novena-saint-anthony",
-      title: "Novena to Saint Anthony of Padua",
-      summary:
-        "A nine-day novena to Saint Anthony of Padua, the wonder-worker and Doctor of the Church, invoked for lost things, the poor, and pressing needs. Often prayed on nine consecutive Tuesdays.",
-      background:
-        "Saint Anthony (1195-1231), a Franciscan and renowned preacher, was canonized within a year of his death and declared a Doctor of the Church in 1946. The 'Tuesday devotion' to him dates from the seventeenth century.",
-      intentionTheme: "the intercession of St. Anthony for those in need",
-      days: nineDays(
-        "the intercession of St. Anthony of Padua for the poor, the lost, and those in urgent need",
-      ),
-      associatedSaintSlug: "saint-anthony-of-padua",
-      citations: [VATICAN, USCCB],
-    },
-  },
-  {
-    contentType: "NOVENA",
-    slug: "novena-saint-jude",
-    authorityLevel: "VATICAN",
-    citations: [VATICAN, USCCB],
-    payload: {
-      slug: "novena-saint-jude",
-      title: "Novena to Saint Jude Thaddeus",
-      summary:
-        "A nine-day novena to Saint Jude, the Apostle invoked as the patron of desperate and hopeless causes, asking his powerful intercession in the most difficult situations.",
-      background:
-        "Saint Jude Thaddeus, one of the Twelve Apostles, has been venerated since antiquity; devotion to him as the patron of hopeless causes spread widely in the twentieth century.",
-      intentionTheme: "the intercession of St. Jude in difficult and hopeless causes",
-      days: nineDays(
-        "the intercession of St. Jude the Apostle in desperate and seemingly hopeless situations",
-      ),
-      associatedSaintSlug: "saint-jude-thaddeus",
-      citations: [VATICAN, USCCB],
-    },
-  },
-  {
-    contentType: "NOVENA",
-    slug: "novena-immaculate-conception",
-    authorityLevel: "VATICAN",
-    citations: [VATICAN, USCCB],
-    payload: {
-      slug: "novena-immaculate-conception",
-      title: "Novena of the Immaculate Conception",
-      summary:
-        "A nine-day novena honoring the Blessed Virgin Mary, conceived without sin, prayed in preparation for the Solemnity of the Immaculate Conception (December 8).",
-      background:
-        "Pope Pius IX solemnly defined the dogma of the Immaculate Conception in 1854 in the bull Ineffabilis Deus. At Lourdes in 1858, Our Lady confirmed the title: 'I am the Immaculate Conception.'",
-      intentionTheme: "the intercession of Mary Immaculate",
-      days: nineDays("the intercession of the Immaculate Virgin Mary, conceived without sin"),
-      citations: [VATICAN, USCCB],
-    },
-  },
-  {
-    contentType: "NOVENA",
-    slug: "novena-our-lady-of-perpetual-help",
-    authorityLevel: "VATICAN",
-    citations: [VATICAN, USCCB],
-    payload: {
-      slug: "novena-our-lady-of-perpetual-help",
-      title: "Novena to Our Lady of Perpetual Help",
-      summary:
-        "A nine-day novena to the Blessed Virgin Mary under her title of Perpetual Help, entrusting every need to her unfailing maternal intercession.",
-      background:
-        "The ancient icon of Our Lady of Perpetual Help was entrusted by Pope Pius IX to the Redemptorists in 1866 with the charge to 'make her known throughout the world.' The perpetual-help novena became one of the most widespread Marian devotions.",
-      intentionTheme: "the perpetual help of the Blessed Virgin Mary",
-      days: nineDays("the unfailing maternal help of Our Lady of Perpetual Help in every need"),
       citations: [VATICAN, USCCB],
     },
   },
@@ -273,3 +148,11 @@ export const novenaKnowledge: CuratedEntry[] = [
     },
   },
 ];
+
+/**
+ * The novena registry: the hand-written entries above plus every per-group
+ * file under `./novenas/`. The group files are imported by their full explicit
+ * path so the bare `./novenas` specifier keeps resolving to THIS file (see the
+ * module-resolution note in `./guides.ts`).
+ */
+export const novenaKnowledge: CuratedEntry[] = [...LEGACY, ...novenaGroupOne, ...novenaGroupTwo];

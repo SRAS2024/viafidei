@@ -1,5 +1,7 @@
 import type { CuratedEntry } from "./index";
 
+import { riteGroupOne } from "./rites/group-1";
+
 const VATICAN = "https://www.vatican.va/";
 const NEWADVENT = "https://www.newadvent.org/cathen/";
 
@@ -34,7 +36,7 @@ function rite(
  * canonical list in content-shared/rites.ts. Ground-truth content the worker
  * can publish without a live fetch.
  */
-export const riteKnowledge: CuratedEntry[] = [
+const LEGACY: CuratedEntry[] = [
   rite(
     "rite-roman",
     "roman",
@@ -134,3 +136,11 @@ export const riteKnowledge: CuratedEntry[] = [
     "The Mozarabic Rite is a Latin (Western) liturgical use still celebrated in a chapel of the Cathedral of Toledo and in a few other places in Spain, with its own ancient texts and chant.",
   ),
 ];
+
+/**
+ * The rite registry: the hand-written entries above plus every per-group
+ * file under `./rites/`. The group files are imported by their full explicit
+ * path so the bare `./rites` specifier keeps resolving to THIS file (see the
+ * module-resolution note in `./guides.ts`).
+ */
+export const riteKnowledge: CuratedEntry[] = [...LEGACY, ...riteGroupOne];

@@ -48,7 +48,11 @@ describe("prayer translations", () => {
 describe("guide applicable prayers", () => {
   it("the Rosary guide lists its prayers in prayed-order", () => {
     const rosary = guideKnowledge.find((g) => g.slug === "how-to-pray-the-rosary")!;
+    // The curated Rosary guide (knowledge/guides/rosary-chaplets.ts) now opens
+    // the list with the Sign of the Cross, which is where the Rosary actually
+    // begins; the old expectation predates the sign-of-the-cross prayer entry.
     expect(rosary.payload.relatedPrayers).toEqual([
+      "sign-of-the-cross",
       "apostles-creed",
       "our-father",
       "hail-mary",

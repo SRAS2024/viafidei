@@ -17,6 +17,7 @@ import {
   seedFromCurated,
   uncuratedExtras,
 } from "@/lib/checklist/checklists";
+import { QUICK_LINKS } from "@/app/_sections/HomeQuickLinks";
 
 const TYPES = Object.keys(MASTER_CHECKLISTS) as ChecklistContentType[];
 
@@ -77,6 +78,38 @@ describe("master checklists derived from the curated registry", () => {
     });
     expect(list.filter((s) => s.canonicalSlug === "our-father")).toHaveLength(1);
     expect(list.find((s) => s.canonicalSlug === "our-father")!.canonicalName).toBe("Our Father");
+  });
+
+  it("seeds each slug exactly once per type (no duplicate ChecklistItem rows)", () => {
+    for (const type of TYPES) {
+      const seen = new Set<string>();
+      for (const seed of MASTER_CHECKLISTS[type]) {
+        expect(seen.has(seed.canonicalSlug), `${type}/${seed.canonicalSlug} seeded twice`).toBe(
+          false,
+        );
+        seen.add(seed.canonicalSlug);
+      }
+      // Every curated entry of the type, and nothing else but the allow-list.
+      const curated = curatedSlugs(type);
+      const allowList = new Set(CHECKLIST_EXTRAS[type].map((e) => e.canonicalSlug));
+      expect(seen.size).toBe(curated.size + allowList.size);
+    }
+  });
+
+  /**
+   * The home page links straight into /guides/<slug>. A quick link that names a
+   * slug the GUIDE registry does not carry renders a 404 on the busiest page of
+   * the site, so it is pinned here rather than left to a manual click-through.
+   */
+  it("resolves every /guides home-page quick link to a curated GUIDE", () => {
+    const guides = curatedSlugs("GUIDE");
+    const guideLinks = QUICK_LINKS.filter((l) => l.href.startsWith("/guides/"));
+    expect(guideLinks.length).toBeGreaterThan(0);
+    for (const link of guideLinks) {
+      const slug = link.href.slice("/guides/".length);
+      expect(guides.has(slug), `${link.href} has no curated GUIDE`).toBe(true);
+    }
+    expect(guides.has("ocia-rcia-overview")).toBe(true);
   });
 
   it("never reuses a slug across content types (canonicalSlug is globally unique)", () => {

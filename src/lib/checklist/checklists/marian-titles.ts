@@ -4,13 +4,6 @@ import { curatedChecklist } from "./from-curated";
 /** Marian titles intentionally not curated yet (the authoring backlog). */
 export const marianTitlesExtras: ChecklistSeed[] = [
   {
-    canonicalName: "Mother of the Church",
-    canonicalSlug: "mother-of-the-church",
-    aliases: ["Mater Ecclesiae"],
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-  },
-  {
     canonicalName: "Co-Redemptrix",
     canonicalSlug: "co-redemptrix",
     priority: 80,
@@ -36,6 +29,8 @@ export const marianTitlesChecklist: ChecklistSeed[] = curatedChecklist("MARIAN_T
       summary: "Defined dogma by Pope Pius XII in 1950 (Munificentissimus Deus).",
     },
     "our-lady-star-of-the-sea": { aliases: ["Stella Maris", "Star of the Sea"] },
+    // Curated now (marian-titles/group-1.ts); its backlog alias moved here.
+    "mother-of-the-church": { aliases: ["Mater Ecclesiae"] },
     "our-lady-help-of-christians": { aliases: ["Help of Christians", "Auxilium Christianorum"] },
   },
   extras: marianTitlesExtras,

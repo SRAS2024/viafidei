@@ -19,6 +19,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { sampleWorld } from "./brain";
+import { readSelfMaintenanceSummary, type SelfMaintenanceSummary } from "./operational-summary";
 import { getAdminWorkerState } from "./state";
 import { summarizeStageReliability } from "./stage-outcomes";
 
@@ -71,6 +72,19 @@ export interface SelfAssessment {
   /** True when the worker is making meaningful forward progress. */
   productive: boolean;
   warnings: WorkerWarning[];
+  /**
+   * The worker's account of the maintenance it performs on ITSELF — last sweep,
+   * conditions raised, repairs applied, anything it gave up on.
+   *
+   * Deliberately OPTIONAL and deliberately NOT a `WorkerWarning`. Optional
+   * because `SelfAssessment` is constructed by callers outside this module and
+   * a new required field would break them. Not a warning because the warning
+   * kinds drive governance's pause/escalate vocabulary (`KIND_ACTION` is an
+   * exhaustive `Record<WarningKind, …>`): maintenance state belongs in the
+   * worker's report, not in the decision that pauses the loop. Null when it
+   * could not be read.
+   */
+  selfMaintenance?: SelfMaintenanceSummary | null;
 }
 
 function envNum(name: string, fallback: number): number {
@@ -94,10 +108,12 @@ export async function buildSelfAssessment(
   const generatedAt = new Date();
 
   try {
-    const [state, world, reliability] = await Promise.all([
+    const [state, world, reliability, selfMaintenance] = await Promise.all([
       getAdminWorkerState(prisma),
       sampleWorld(prisma).catch(() => null),
       summarizeStageReliability(prisma, { sinceHours: windowHours }).catch(() => []),
+      // Persisted snapshot only — the sweep does the sensing, this just reads it.
+      readSelfMaintenanceSummary(prisma).catch(() => null),
     ]);
 
     const [publishedDelta, stageCounts, qualityRows] = await Promise.all([
@@ -310,6 +326,7 @@ export async function buildSelfAssessment(
       retryPatterns,
       productive,
       warnings,
+      selfMaintenance,
     };
   } catch {
     return {
@@ -332,6 +349,7 @@ export async function buildSelfAssessment(
       retryPatterns: [],
       productive: true,
       warnings: [],
+      selfMaintenance: null,
     };
   }
 }

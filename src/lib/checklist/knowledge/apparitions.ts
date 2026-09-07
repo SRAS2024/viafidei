@@ -1,5 +1,7 @@
 import type { CuratedEntry } from "./index";
 
+import { apparitionGroupOne } from "./apparitions/group-1";
+
 const VATICAN = "https://www.vatican.va/";
 const USCCB = "https://www.usccb.org/";
 
@@ -37,7 +39,7 @@ function apparition(
   };
 }
 
-export const apparitionKnowledge: CuratedEntry[] = [
+const LEGACY: CuratedEntry[] = [
   apparition(
     "apparition-our-lady-of-guadalupe",
     "Apparition of Our Lady of Guadalupe",
@@ -196,3 +198,11 @@ export const apparitionKnowledge: CuratedEntry[] = [
     ],
   ),
 ];
+
+/**
+ * The apparition registry: the hand-written entries above plus every per-group
+ * file under `./apparitions/`. The group files are imported by their full explicit
+ * path so the bare `./apparitions` specifier keeps resolving to THIS file (see the
+ * module-resolution note in `./guides.ts`).
+ */
+export const apparitionKnowledge: CuratedEntry[] = [...LEGACY, ...apparitionGroupOne];

@@ -10,8 +10,10 @@ import { runAllDiagnostics } from "@/lib/diagnostics";
 // and resident memory — for a page that only needs four cheap Postgres reads.
 import { runAdminWorkerDiagnostics, summarizeRatings } from "@/lib/admin-worker/diagnostics";
 import { readExecutionStatus } from "@/lib/admin-worker/execution-host";
+import { readSelfMaintenanceSummary } from "@/lib/admin-worker/operational-summary";
 import { listRecentPasses } from "@/lib/admin-worker/passes";
 import { getAdminWorkerState } from "@/lib/admin-worker/state";
+import { SelfMaintenanceSection } from "@/app/admin/_sections/SelfMaintenanceSection";
 import { prisma } from "@/lib/db/client";
 
 export const dynamic = "force-dynamic";
@@ -20,13 +22,16 @@ export default async function DiagnosticsPage() {
   const admin = await requireAdmin();
   if (!admin) redirect("/admin/login");
 
-  const [results, adminWorkerRatings, state, recentPasses, execution] = await Promise.all([
-    runAllDiagnostics(),
-    runAdminWorkerDiagnostics(prisma),
-    getAdminWorkerState(prisma),
-    listRecentPasses(prisma, { limit: 15 }),
-    readExecutionStatus(prisma),
-  ]);
+  const [results, adminWorkerRatings, state, recentPasses, execution, selfMaintenance] =
+    await Promise.all([
+      runAllDiagnostics(),
+      runAdminWorkerDiagnostics(prisma),
+      getAdminWorkerState(prisma),
+      listRecentPasses(prisma, { limit: 15 }),
+      readExecutionStatus(prisma),
+      // Two indexed reads of what the sweep already persisted — never a re-sense.
+      readSelfMaintenanceSummary(prisma),
+    ]);
   const counts = { pass: 0, warn: 0, fail: 0 };
   for (const r of results) counts[r.status]++;
   const awSummary = summarizeRatings(adminWorkerRatings);
@@ -106,8 +111,9 @@ export default async function DiagnosticsPage() {
       <section>
         <h2 className="font-display text-2xl text-ink">Admin Worker health</h2>
         <p className="mb-2 text-xs italic text-ink-soft">
-          30 ratings covering every Admin Worker subsystem. Each rating links to the underlying data
-          source.
+          {/* Counted, not hard-coded: the list grows (self-maintenance added two). */}
+          {adminWorkerRatings.length} ratings covering every Admin Worker subsystem. Each rating
+          links to the underlying data source.
         </p>
         <div className="space-y-2">
           {adminWorkerRatings.map((r) => (
@@ -125,6 +131,8 @@ export default async function DiagnosticsPage() {
           ))}
         </div>
       </section>
+
+      <SelfMaintenanceSection summary={selfMaintenance} />
 
       <section>
         <h2 className="font-display text-2xl text-ink">Admin Worker pass breakdown</h2>

@@ -33,8 +33,14 @@ export interface CleanupOutcome {
  * ranked alternative, brain-call records, stage outcomes) and nothing ever
  * removed them (audit LIVE-2e), so the tables the diagnostics / governor /
  * readiness readers scan grew without bound. Retention is short and only for
- * ledgers that are re-derived every pass: WARN/ERROR logs, decisions, passes,
- * published content and every content table are untouched.
+ * ledgers that are re-derived every pass. WARN/ERROR logs, published content
+ * and every content table are untouched.
+ *
+ * The first version of this prune covered only four tables and MISSED the two
+ * largest in production: on 2026-09-07 the live database was 21 GB, of which
+ * AdminWorkerDecision was 5.7 GB and AdminWorkerLog 3.3 GB against 12 MB of
+ * actual PublishedContent. Decisions, passes and terminal repair plans are now
+ * trimmed too — children before AdminWorkerPass, which is the parent.
  */
 const LEDGER_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 const LEDGER_PRUNE_BATCH = 5000;
@@ -45,6 +51,17 @@ export const LOG_INFO_RETENTION_MS = 14 * DAY_MS;
 export const ACTION_SCORE_RETENTION_MS = 14 * DAY_MS;
 export const BRAIN_CALL_RETENTION_MS = 14 * DAY_MS;
 export const STAGE_OUTCOME_RETENTION_MS = 30 * DAY_MS;
+/**
+ * The three tables this prune originally MISSED, and which turned out to be the
+ * bulk of the 21 GB production database measured on 2026-09-07:
+ * AdminWorkerDecision 993,364 rows / 5.7 GB, AdminWorkerPass 993,406 rows /
+ * 440 MB, AdminWorkerRepairPlan 49,534 rows / 27 MB. They are per-pass
+ * bookkeeping, re-derived every pass, and nothing reads them beyond a short
+ * window (the audit view, the governor's fixation check, escalation).
+ */
+export const DECISION_RETENTION_MS = 14 * DAY_MS;
+export const PASS_RETENTION_MS = 14 * DAY_MS;
+export const REPAIR_PLAN_RETENTION_MS = 30 * DAY_MS;
 
 let _lastLedgerPruneAt = 0;
 
@@ -55,6 +72,24 @@ export interface LedgerPruneOutcome {
   actionScores: number;
   brainCalls: number;
   stageOutcomes: number;
+  /** Terminal repair plans (PENDING/RUNNING plans are never trimmed). */
+  repairPlans: number;
+  decisions: number;
+  /** Terminal passes only — a RUNNING row still belongs to a live process. */
+  passes: number;
+}
+
+/** Sum of every table in a prune outcome — the number the report renders. */
+export function totalLedgerRowsPruned(out: LedgerPruneOutcome): number {
+  return (
+    out.logRows +
+    out.actionScores +
+    out.brainCalls +
+    out.stageOutcomes +
+    out.repairPlans +
+    out.decisions +
+    out.passes
+  );
 }
 
 /** Delete in id-subselect batches until a batch comes back short (or the cap). */
@@ -74,7 +109,7 @@ async function deleteInBatches(run: () => Promise<number>): Promise<number> {
 }
 
 /**
- * Hourly (per process) retention prune of the four append-only ledgers.
+ * Hourly (per process) retention prune of the seven append-only ledgers.
  * Batched `DELETE … WHERE id IN (SELECT id … LIMIT 5000)` keeps each statement
  * short-lived against the remote database; fail-open per table; a no-op on a
  * client/mock without `$executeRaw`. `force` bypasses the throttle (tests,
@@ -91,6 +126,9 @@ export async function pruneLedgerRows(
     actionScores: 0,
     brainCalls: 0,
     stageOutcomes: 0,
+    repairPlans: 0,
+    decisions: 0,
+    passes: 0,
   };
   if (!opts.force && now - _lastLedgerPruneAt < LEDGER_PRUNE_INTERVAL_MS) return out;
   if (typeof (prisma as { $executeRaw?: unknown }).$executeRaw !== "function") return out;
@@ -101,6 +139,9 @@ export async function pruneLedgerRows(
   const scoreCutoff = new Date(now - ACTION_SCORE_RETENTION_MS);
   const brainCutoff = new Date(now - BRAIN_CALL_RETENTION_MS);
   const stageCutoff = new Date(now - STAGE_OUTCOME_RETENTION_MS);
+  const planCutoff = new Date(now - REPAIR_PLAN_RETENTION_MS);
+  const decisionCutoff = new Date(now - DECISION_RETENTION_MS);
+  const passCutoff = new Date(now - PASS_RETENTION_MS);
   const batch = LEDGER_PRUNE_BATCH;
 
   // Only INFO rows: WARN/ERROR are the audit trail escalation reads back.
@@ -119,6 +160,26 @@ export async function pruneLedgerRows(
   out.stageOutcomes = await deleteInBatches(
     () =>
       prisma.$executeRaw`DELETE FROM "AdminWorkerStageOutcome" WHERE "id" IN (SELECT "id" FROM "AdminWorkerStageOutcome" WHERE "createdAt" < ${stageCutoff} LIMIT ${batch})`,
+  );
+  // Only TERMINAL plans: a PENDING/RUNNING plan is live repair work.
+  out.repairPlans = await deleteInBatches(
+    () =>
+      prisma.$executeRaw`DELETE FROM "AdminWorkerRepairPlan" WHERE "id" IN (SELECT "id" FROM "AdminWorkerRepairPlan" WHERE "status" IN ('SUCCEEDED', 'FAILED', 'ABANDONED') AND "createdAt" < ${planCutoff} LIMIT ${batch})`,
+  );
+  // ORDER MATTERS (same rationale as scripts/maintenance/prune-worker-ledger.ts):
+  // AdminWorkerPass has five inbound foreign keys declared ON DELETE SET NULL,
+  // so every child left behind when a parent pass is deleted is REWRITTEN. Trim
+  // the children first and the parent last, or Postgres spends the whole prune
+  // nulling columns on rows that are about to be deleted anyway.
+  out.decisions = await deleteInBatches(
+    () =>
+      prisma.$executeRaw`DELETE FROM "AdminWorkerDecision" WHERE "id" IN (SELECT "id" FROM "AdminWorkerDecision" WHERE "createdAt" < ${decisionCutoff} LIMIT ${batch})`,
+  );
+  // Never a RUNNING pass: that row belongs to a live process (or to the stale
+  // reaper), and deleting it would erase an in-flight pass mid-life.
+  out.passes = await deleteInBatches(
+    () =>
+      prisma.$executeRaw`DELETE FROM "AdminWorkerPass" WHERE "id" IN (SELECT "id" FROM "AdminWorkerPass" WHERE "status" <> 'RUNNING' AND "startedAt" < ${passCutoff} LIMIT ${batch})`,
   );
   return out;
 }
@@ -248,8 +309,7 @@ export async function runCleanupPass(prisma: PrismaClient): Promise<CleanupOutco
   const junkHostRowsPurged = await purgeNonContentHostRows(prisma);
   const growthSnapshotsTrimmed = await trimGrowthSnapshots(prisma);
   const ledger = await pruneLedgerRows(prisma);
-  const ledgerRowsPruned =
-    ledger.logRows + ledger.actionScores + ledger.brainCalls + ledger.stageOutcomes;
+  const ledgerRowsPruned = totalLedgerRowsPruned(ledger);
 
   await writeAdminWorkerLog(prisma, {
     category: "CLEANUP",

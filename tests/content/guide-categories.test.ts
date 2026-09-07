@@ -37,7 +37,15 @@ describe("GUIDE_KIND_LABELS", () => {
 });
 
 describe("GUIDE_FILTERS over the curated guides", () => {
-  it("places every curated guide under exactly one chip besides All", () => {
+  // Was "exactly one chip": true only of the original nine guides, none of
+  // which carried both a `category` and a `sacramentKey`. In the 100-guide
+  // catalogue a guide legitimately carries both — the Nine First Fridays is a
+  // Eucharistic guide AND a devotion, an OCIA guide leads to Baptism — and the
+  // chips are FILTERS on /guides (one selected at a time via
+  // applyPayloadFilter), not exclusive folders, so an overlap is correct.
+  // What must still hold: no guide is unreachable, and "General" stays the
+  // residual bucket that never overlaps a named chip.
+  it("places every curated guide under at least one chip besides All", () => {
     const guides = ALL_CURATED_ENTRIES.filter((e) => e.contentType === "GUIDE");
     expect(guides.length).toBeGreaterThan(0);
     for (const g of guides) {
@@ -45,7 +53,13 @@ describe("GUIDE_FILTERS over the curated guides", () => {
       expect(
         chips.map((c) => c.key),
         g.slug,
-      ).toHaveLength(1);
+      ).not.toHaveLength(0);
+      if (chips.some((c) => c.key === "general")) {
+        expect(
+          chips.map((c) => c.key),
+          g.slug,
+        ).toEqual(["general"]);
+      }
     }
   });
 

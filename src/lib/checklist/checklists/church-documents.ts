@@ -1,22 +1,12 @@
 import type { ChecklistSeed } from "./index";
 import { curatedChecklist } from "./from-curated";
 
-/** Church documents intentionally not curated yet (the authoring backlog). */
+/**
+ * Church documents intentionally not curated yet (the authoring backlog).
+ * Lumen Fidei and Amoris Laetitia were removed: both are curated now
+ * (knowledge/church-documents/group-*.ts).
+ */
 export const churchDocumentsExtras: ChecklistSeed[] = [
-  {
-    canonicalName: "Lumen Fidei",
-    canonicalSlug: "lumen-fidei",
-    priority: 20,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "encyclical" },
-  },
-  {
-    canonicalName: "Amoris Laetitia",
-    canonicalSlug: "amoris-laetitia",
-    priority: 25,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "apostolic_exhortation" },
-  },
   {
     canonicalName: "Pastores Dabo Vobis",
     canonicalSlug: "pastores-dabo-vobis",

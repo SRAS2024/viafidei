@@ -1,5 +1,8 @@
 import type { CuratedEntry } from "./index";
 
+import { devotionGroupOne } from "./devotions/group-1";
+import { devotionGroupTwo } from "./devotions/group-2";
+
 const VATICAN = "https://www.vatican.va/";
 const USCCB = "https://www.usccb.org/";
 
@@ -31,7 +34,7 @@ function devotion(
   };
 }
 
-export const devotionKnowledge: CuratedEntry[] = [
+const LEGACY: CuratedEntry[] = [
   devotion(
     "holy-rosary",
     "The Holy Rosary",
@@ -236,4 +239,16 @@ export const devotionKnowledge: CuratedEntry[] = [
     "marian",
     ["hail-mary"],
   ),
+];
+
+/**
+ * The devotion registry: the hand-written entries above plus every per-group
+ * file under `./devotions/`. The group files are imported by their full explicit
+ * path so the bare `./devotions` specifier keeps resolving to THIS file (see the
+ * module-resolution note in `./guides.ts`).
+ */
+export const devotionKnowledge: CuratedEntry[] = [
+  ...LEGACY,
+  ...devotionGroupOne,
+  ...devotionGroupTwo,
 ];

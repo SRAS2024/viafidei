@@ -1,5 +1,7 @@
 import type { CuratedEntry } from "./index";
 
+import { marianTitleGroupOne } from "./marian-titles/group-1";
+
 const VATICAN = "https://www.vatican.va/";
 const USCCB = "https://www.usccb.org/";
 
@@ -29,7 +31,7 @@ function title(
   };
 }
 
-export const marianTitleKnowledge: CuratedEntry[] = [
+const LEGACY: CuratedEntry[] = [
   title(
     "mother-of-god",
     "Mother of God (Theotokos)",
@@ -296,3 +298,11 @@ export const marianTitleKnowledge: CuratedEntry[] = [
     "10-07",
   ),
 ];
+
+/**
+ * The Marian title registry: the hand-written entries above plus every per-group
+ * file under `./marian-titles/`. The group files are imported by their full explicit
+ * path so the bare `./marian-titles` specifier keeps resolving to THIS file (see the
+ * module-resolution note in `./guides.ts`).
+ */
+export const marianTitleKnowledge: CuratedEntry[] = [...LEGACY, ...marianTitleGroupOne];

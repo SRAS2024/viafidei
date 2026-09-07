@@ -16,6 +16,7 @@ import { CURATED_BUILT_CONTENT_TYPES, STRUCTURED_BUILT_CONTENT_TYPES } from "./c
 import { isBrainEnabled, plan, prioritize } from "./intelligence";
 import { recordBrainCall } from "./intelligence/store";
 import { writeAdminWorkerLog } from "./logs";
+import { sampleWorkerEvent } from "./self-maintenance";
 
 const clamp01 = (x: number): number => Math.max(0, Math.min(1, x));
 
@@ -109,22 +110,26 @@ export async function adviseNextWork(
     await recordBrainCall(prisma, "plan", planEnv, { passId: opts.passId ?? null });
     const nextBestAction = planEnv?.ok ? (planEnv.result?.next_best_action?.action ?? null) : null;
 
-    await writeAdminWorkerLog(prisma, {
-      passId: opts.passId,
-      category: "WORKER_PASS",
-      severity: "INFO",
-      eventName: "intelligence_advisory",
-      message: `Brain prioritises ${top?.label ?? "n/a"} next (score ${
-        top?.score?.toFixed?.(2) ?? "n/a"
-      }); next-best-action: ${nextBestAction ?? "n/a"}.`,
-      contentType: top?.label ?? undefined,
-      safeMetadata: {
-        topContentType: top?.label ?? null,
-        topScore: top?.score ?? null,
-        nextBestAction,
-        candidates: candidates.length,
-      },
-    }).catch(() => undefined);
+    // One INFO row per pass (303,094 rows in production). Sampled; readers of
+    // this event all take the most recent N rows, so they still work.
+    if (sampleWorkerEvent("intelligence_advisory").write) {
+      await writeAdminWorkerLog(prisma, {
+        passId: opts.passId,
+        category: "WORKER_PASS",
+        severity: "INFO",
+        eventName: "intelligence_advisory",
+        message: `Brain prioritises ${top?.label ?? "n/a"} next (score ${
+          top?.score?.toFixed?.(2) ?? "n/a"
+        }); next-best-action: ${nextBestAction ?? "n/a"}.`,
+        contentType: top?.label ?? undefined,
+        safeMetadata: {
+          topContentType: top?.label ?? null,
+          topScore: top?.score ?? null,
+          nextBestAction,
+          candidates: candidates.length,
+        },
+      }).catch(() => undefined);
+    }
 
     return {
       available: !!pri?.ok,

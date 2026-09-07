@@ -2,67 +2,16 @@ import type { ChecklistSeed } from "./index";
 import { curatedChecklist } from "./from-curated";
 
 /**
- * Guides intentionally not curated yet — the authoring backlog. GUIDE is a
- * curated-built type (no web extraction), so these rows are placeholders that
- * become buildable only when a curated entry with the same slug is written;
- * each is then dropped from this list automatically.
+ * Guides intentionally not curated yet — the authoring backlog.
+ *
+ * Empty: every slug that used to be listed here (the OCIA/RCIA overview, the
+ * Lent and Advent preparation guides, the four sacrament-preparation guides,
+ * the religious-vocation guide and the Liturgy of the Hours guide) has since
+ * been written into a `knowledge/guides/*` file, so `curatedChecklist` would
+ * have dropped every one of them as "now curated". The home page quick link
+ * /guides/ocia-rcia-overview resolves to the curated GUIDE of that slug.
  */
-export const guidesExtras: ChecklistSeed[] = [
-  {
-    canonicalName: "Discerning a Religious Vocation",
-    canonicalSlug: "discerning-religious-vocation",
-    priority: 30,
-    authorityLevelHint: "USCCB",
-  },
-  {
-    canonicalName: "Lent Preparation Guide",
-    canonicalSlug: "lent-preparation-guide",
-    priority: 20,
-    authorityLevelHint: "USCCB",
-  },
-  {
-    canonicalName: "Advent Preparation Guide",
-    canonicalSlug: "advent-preparation-guide",
-    priority: 20,
-    authorityLevelHint: "USCCB",
-  },
-  {
-    canonicalName: "OCIA / RCIA Overview",
-    canonicalSlug: "ocia-rcia-overview",
-    priority: 30,
-    authorityLevelHint: "USCCB",
-  },
-  {
-    canonicalName: "Preparing for Baptism (Infant)",
-    canonicalSlug: "preparing-for-baptism-infant",
-    priority: 35,
-    authorityLevelHint: "USCCB",
-  },
-  {
-    canonicalName: "Preparing for Marriage",
-    canonicalSlug: "preparing-for-marriage",
-    priority: 35,
-    authorityLevelHint: "USCCB",
-  },
-  {
-    canonicalName: "Preparing for First Communion",
-    canonicalSlug: "preparing-for-first-communion",
-    priority: 35,
-    authorityLevelHint: "USCCB",
-  },
-  {
-    canonicalName: "Preparing for Confirmation",
-    canonicalSlug: "preparing-for-confirmation",
-    priority: 35,
-    authorityLevelHint: "USCCB",
-  },
-  {
-    canonicalName: "How to Pray the Liturgy of the Hours",
-    canonicalSlug: "how-to-pray-the-liturgy-of-the-hours",
-    priority: 30,
-    authorityLevelHint: "LITURGICAL_BOOK",
-  },
-];
+export const guidesExtras: ChecklistSeed[] = [];
 
 /** Every curated guide (knowledge/guides.ts) plus the backlog above. */
 export const guidesChecklist: ChecklistSeed[] = curatedChecklist("GUIDE", {

@@ -9,6 +9,14 @@
  * Prayers without an authentic curated translation here are intentionally left
  * untranslated: a content-custody check flags them so a curator can add the
  * exact text, rather than the worker fabricating a sacred text.
+ *
+ * KNOWN, DELIBERATE PARTIALS (audit PR-07): for salve-regina, regina-caeli and
+ * eternal-rest the Latin is the complete antiphon or prayer proper while the
+ * English body also carries the versicle/response and the collect that follow
+ * it in the office. That is how printed books set them, and the Latin present
+ * is correct as far as it goes, so it stays. A Latin that dropped stanzas from
+ * the MIDDLE of its own hymn was a different matter — see veni-creator-spiritus
+ * below.
  */
 
 export interface PrayerTranslation {
@@ -75,10 +83,15 @@ export const PRAYER_TRANSLATIONS: Record<string, PrayerTranslation> = {
     latin:
       "V. Angelus Domini nuntiavit Mariae.\nR. Et concepit de Spiritu Sancto.\nAve Maria…\nV. Ecce ancilla Domini.\nR. Fiat mihi secundum verbum tuum.\nAve Maria…\nV. Et Verbum caro factum est.\nR. Et habitavit in nobis.\nAve Maria…\nV. Ora pro nobis, sancta Dei Genetrix.\nR. Ut digni efficiamur promissionibus Christi.\nOremus. Gratiam tuam, quaesumus, Domine,\nmentibus nostris infunde;\nut qui, Angelo nuntiante,\nChristi Filii tui incarnationem cognovimus,\nper passionem eius et crucem,\nad resurrectionis gloriam perducamur.\nPer eundem Christum Dominum nostrum.\nAmen.",
   },
-  "veni-creator-spiritus": {
-    latin:
-      "Veni, Creator Spiritus,\nmentes tuorum visita,\nimple superna gratia,\nquae tu creasti pectora.\nQui diceris Paraclitus,\naltissimi donum Dei,\nfons vivus, ignis, caritas,\net spiritalis unctio.\nAccende lumen sensibus,\ninfunde amorem cordibus,\ninfirma nostri corporis\nvirtute firmans perpeti.\nDeo Patri sit gloria,\net Filio, qui a mortuis\nsurrexit, ac Paraclito,\nin saeculorum saecula.\nAmen.",
-  },
+  // veni-creator-spiritus intentionally has NO Latin (audit PR-07). The text
+  // that used to sit here carried four stanzas — Veni Creator, Qui diceris,
+  // Accende lumen and the doxology — while the English body carries the hymn's
+  // full seven, so the toggle showed a Latin that silently dropped Tu
+  // septiformis munere, Hostem repellas longius and Per te sciamus. A
+  // mutilated sacred text is worse than none, and no approved page carrying the
+  // complete Latin could be opened when this was audited, so it was removed
+  // rather than reconstructed from memory. Restore it verbatim from the Roman
+  // Breviary / an approved page and this entry can come back.
   "act-of-contrition": {
     latin:
       "Deus meus, ex toto corde paenitet me omnium meorum peccatorum,\neaque detestor, quia peccando,\nnon solum poenas a te iuste statutas promeritus sum,\nsed praesertim quia offendi te,\nsummum bonum, ac dignum qui super omnia diligaris.\nIdeo firmiter propono,\nadiuvante gratia tua,\nde cetero me non peccaturum peccandique occasiones proximas fugiturum.\nAmen.",

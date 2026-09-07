@@ -333,9 +333,29 @@ describe("generateContentSubtitle over the curated registry", () => {
     );
   });
 
-  it("labels every curated apparition as Church-approved (approvedStatus, not approvalStatus)", () => {
-    for (const s of byType.get("APPARITION") ?? []) {
-      expect(s).toMatch(/^Church-approved Marian apparition · .+, \d{3,4}$/);
+  // Was "labels every curated apparition as Church-approved": that held only
+  // while the catalogue was the original twelve, every one of them approved.
+  // The 39-apparition catalogue also carries nihil obstat (Medjugorje),
+  // private-revelation and not-yet-judged cases, so the subtitle must state
+  // each apparition's ACTUAL standing — reading `approvedStatus`, never
+  // `approvalStatus` (the old misspelling that silently produced no label).
+  it("labels every curated apparition with its real approvedStatus and place, year", () => {
+    const PREFIX: Record<string, string> = {
+      approved: "Church-approved Marian apparition",
+      nihil_obstat: "Marian apparition granted nihil obstat",
+      private_revelation: "Private revelation",
+      not_yet_judged: "Marian apparition under Church review",
+    };
+    const apparitions = ALL_CURATED_ENTRIES.filter((e) => e.contentType === "APPARITION");
+    expect(apparitions.length).toBeGreaterThan(12);
+    for (const a of apparitions) {
+      const subtitle = generateContentSubtitle({ contentType: "APPARITION", fields: a.payload });
+      const prefix = PREFIX[String(a.payload.approvedStatus)];
+      expect(prefix, `${a.slug}: unknown approvedStatus`).toBeTruthy();
+      // The trailing year is optional and may be 1-4 digits: Our Lady of the
+      // Pillar is dated AD 40, and Our Lady of the Snows carries a place but
+      // no datable year (the 4th-century Roman legend fixes neither).
+      expect(subtitle, a.slug).toMatch(new RegExp(`^${prefix} \u00b7 .+?(, \\d{1,4})?$`));
     }
   });
 

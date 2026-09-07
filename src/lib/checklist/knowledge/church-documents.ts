@@ -1,5 +1,8 @@
 import type { CuratedEntry } from "./index";
 
+import { churchDocumentGroupOne } from "./church-documents/group-1";
+import { churchDocumentGroupTwo } from "./church-documents/group-2";
+
 const VATICAN = "https://www.vatican.va/";
 
 function doc(
@@ -44,7 +47,7 @@ function doc(
   };
 }
 
-export const churchDocumentKnowledge: CuratedEntry[] = [
+const LEGACY: CuratedEntry[] = [
   doc(
     "catechism-of-the-catholic-church",
     "Catechism of the Catholic Church",
@@ -618,4 +621,16 @@ export const churchDocumentKnowledge: CuratedEntry[] = [
     ["Fraternity", "Social friendship", "Solidarity", "Peace and dialogue"],
     "https://www.vatican.va/content/francesco/en/encyclicals.index.html",
   ),
+];
+
+/**
+ * The Church document registry: the hand-written entries above plus every per-group
+ * file under `./church-documents/`. The group files are imported by their full explicit
+ * path so the bare `./church-documents` specifier keeps resolving to THIS file (see the
+ * module-resolution note in `./guides.ts`).
+ */
+export const churchDocumentKnowledge: CuratedEntry[] = [
+  ...LEGACY,
+  ...churchDocumentGroupOne,
+  ...churchDocumentGroupTwo,
 ];

@@ -23,6 +23,7 @@ import type {
 
 import { AUTHORITY_SOURCES, isFetchableHost } from "@/lib/checklist";
 import { writeAdminWorkerLog } from "./logs";
+import { sampleWorkerEvent } from "./self-maintenance";
 import { discoverCandidate, isJunkUrl, type DiscoverCandidateInput } from "./web-navigator";
 
 const FETCH_TIMEOUT_MS = 8_000;
@@ -187,14 +188,17 @@ export async function discoverFromHost(
     }
   }
 
-  await writeAdminWorkerLog(prisma, {
-    category: "SOURCE_DISCOVERY",
-    severity: "INFO",
-    eventName: "sitemap_discovery",
-    message: `Sitemap discovery on ${host}: fetched=${fetched}, inserted=${inserted}, rejected=${rejected}`,
-    sourceHost: host,
-    safeMetadata: { fetched, inserted, rejected },
-  });
+  // One INFO row per host per pass (217,621 rows in production). Sampled.
+  if (sampleWorkerEvent("sitemap_discovery").write) {
+    await writeAdminWorkerLog(prisma, {
+      category: "SOURCE_DISCOVERY",
+      severity: "INFO",
+      eventName: "sitemap_discovery",
+      message: `Sitemap discovery on ${host}: fetched=${fetched}, inserted=${inserted}, rejected=${rejected}`,
+      sourceHost: host,
+      safeMetadata: { fetched, inserted, rejected },
+    });
+  }
 
   return { host, fetched, inserted, rejected };
 }

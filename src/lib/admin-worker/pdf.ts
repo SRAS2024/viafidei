@@ -184,6 +184,73 @@ export async function generateAdminWorkerDeveloperAuditPdf(
       }
     }
 
+    // ─── Self-maintenance ─────────────────────────────────────────────
+    // Rendered from data.selfMaintenance, which collectDeveloperAuditData
+    // filled from readSelfMaintenanceSummary — the SAME persisted-only reader
+    // /admin/diagnostics uses, so the PDF and the page cannot disagree. A
+    // healthy system must READ as healthy: no empty tables, no repair advice.
+    if (sectionsToInclude.has("Self-maintenance")) {
+      builder.section("Self-maintenance");
+      const sm = data.selfMaintenance ?? null;
+      if (!sm) {
+        builder.paragraph("Self-maintenance state is unavailable for this period.");
+      } else {
+        builder.paragraph(sm.headline);
+        if (sm.everRan && sm.size) {
+          const gb = (n: number) => `${(n / 1024 ** 3).toFixed(2)} GB`;
+          builder.paragraph(
+            `Database ${gb(sm.size.databaseBytes)} (threshold ${gb(sm.size.databaseThresholdBytes)}); ` +
+              `largest telemetry table ${sm.size.largestTable ?? "n/a"} at ` +
+              `${sm.size.largestTableRows.toLocaleString("en-US")} rows ` +
+              `(threshold ${sm.size.rowThreshold.toLocaleString("en-US")}).`,
+          );
+        }
+        if (sm.everRan && sm.healthy) {
+          builder.paragraph("No repairs were needed in the last 24 hours.");
+        } else if (sm.everRan) {
+          for (const c of sm.conditions) {
+            builder.statusLine(
+              c.name,
+              c.severity === "critical" ? "fail" : "warn",
+              `${c.detail || "raised"} → remedy: ${c.remedy}`,
+            );
+          }
+          if (sm.repairs.length > 0) {
+            builder.paragraph(`${sm.repairsApplied24h} repair(s) applied in the last 24 hours.`);
+            builder.table(
+              [
+                { header: "Condition", weight: 120 },
+                { header: "Repair", weight: 110 },
+                { header: "Tried", weight: 40, align: "right" },
+                { header: "OK", weight: 35, align: "right" },
+                { header: "Moved", weight: 130 },
+                { header: "Verified", weight: 50 },
+              ],
+              sm.repairs.slice(0, 30).map((r) => [
+                r.condition,
+                r.repair,
+                String(r.attempts),
+                String(r.succeeded),
+                Object.entries(r.counts)
+                  .map(([k, v]) => `${k}=${v}`)
+                  .join(", ") || "—",
+                r.verified ? "yes" : "no",
+              ]),
+            );
+          }
+          for (const b of sm.backedOff) {
+            builder.note(
+              `Gave up on ${b.condition} after ${b.failures} ineffective repair(s) — ` +
+                `backed off until ${fmtTime(b.until)}. Needs a person.`,
+            );
+          }
+          for (const e of sm.escalations.slice(0, 10)) {
+            builder.note(`Escalated ${e.condition} at ${fmtTime(e.at)}: ${e.detail}`);
+          }
+        }
+      }
+    }
+
     // ─── Section 2: Worker Logs ────────────────────────────────────────
     if (sectionsToInclude.has("Worker Logs")) {
       builder.section("Worker Logs");

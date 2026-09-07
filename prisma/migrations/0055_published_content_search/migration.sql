@@ -16,15 +16,31 @@
 -- a database that has neither still serves search.
 --
 -- Idempotent: every statement is IF NOT EXISTS / OR REPLACE / DROP-then-CREATE,
--- and the backfill only touches rows whose vector is still null.
+-- and the backfill only touches rows whose vector is still null. Certified
+-- re-runnable for scripts/migrate-deploy.sh's P3009 self-heal:
+-- @idempotent-recoverable
 
 -- 1. pg_trgm (optional).
+--
+-- WHEN OTHERS, deliberately. This is the single statement in the file that a
+-- production role may simply not be allowed to run, and scripts/start.sh exits
+-- non-zero on a failed migration — i.e. an unhandled error here takes the site
+-- down. Naming individual SQLSTATEs is a guess about how a given managed
+-- Postgres refuses: Railway/RDS raise insufficient_privilege (42501), a build
+-- without the contrib package raises undefined_file (58P01), providers that
+-- gate extensions with an event trigger raise raise_exception (P0001) with
+-- their own message, and two containers deploying at once can race to
+-- unique_violation (23505) on pg_extension_name_index despite IF NOT EXISTS.
+-- The extension is OPTIONAL — src/lib/data/published.ts probes pg_extension at
+-- runtime and drops the trigram terms when it is absent — so NO failure mode of
+-- this statement is worth failing a deploy over.
 DO $$
 BEGIN
   EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_trgm';
 EXCEPTION
-  WHEN insufficient_privilege OR undefined_file OR feature_not_supported OR duplicate_object THEN
-    RAISE NOTICE 'pg_trgm not available; trigram search fallback stays disabled';
+  WHEN OTHERS THEN
+    RAISE NOTICE 'pg_trgm not available (%: %); trigram search fallback stays disabled',
+      SQLSTATE, SQLERRM;
 END $$;
 
 -- 2. The stored vector.
@@ -88,10 +104,17 @@ WHERE "searchVector" IS NULL;
 CREATE INDEX IF NOT EXISTS "PublishedContent_search_gin"
   ON "PublishedContent" USING GIN ("searchVector") WHERE "isPublished";
 
+-- Same reasoning as step 1: the trigram index is a pure optimisation, so a role
+-- that can see pg_trgm but cannot use its operator class (or an index build that
+-- fails for any other reason) must degrade, not fail the deploy.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
     EXECUTE 'CREATE INDEX IF NOT EXISTS "PublishedContent_title_trgm" '
          || 'ON "PublishedContent" USING GIN (title gin_trgm_ops) WHERE "isPublished"';
   END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'trigram index not created (%: %); search falls back to the tsvector index',
+      SQLSTATE, SQLERRM;
 END $$;

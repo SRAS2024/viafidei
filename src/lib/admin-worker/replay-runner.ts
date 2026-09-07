@@ -20,6 +20,7 @@ import type { PrismaClient } from "@prisma/client";
 import { detectDecisionDrift, isBrainEnabled, replayDecision } from "./intelligence";
 import { BrainCallContext, recordBrainCall } from "./intelligence/store";
 import { writeAdminWorkerLog } from "./logs";
+import { sampleWorkerEvent } from "./self-maintenance";
 
 /**
  * Deterministic idempotency key for a worker action. The same (pass, stage,
@@ -172,16 +173,20 @@ export async function replayRecentPasses(
     const drift = !!(driftEnv?.result as { drift?: boolean } | null)?.drift;
     const reproductionRate = replayed > 0 ? reproduced / replayed : 0;
 
-    await writeAdminWorkerLog(prisma, {
-      passId: ctx.passId ?? undefined,
-      category: "REPORT",
-      severity: reproductionRate < 0.8 ? "WARN" : "INFO",
-      eventName: "replay_simulation",
-      message: `Replayed ${replayed} pass(es) in simulation: ${reproduced} reproduced (${Math.round(
-        reproductionRate * 100,
-      )}%)${drift ? "; decision drift detected" : ""}.`,
-      safeMetadata: { replayed, reproduced, reproductionRate, drift },
-    }).catch(() => undefined);
+    // One row per pass (208,533 rows in production). The WARN case (a poor
+    // reproduction rate) is the signal and is never sampled.
+    if (reproductionRate < 0.8 || sampleWorkerEvent("replay_simulation").write) {
+      await writeAdminWorkerLog(prisma, {
+        passId: ctx.passId ?? undefined,
+        category: "REPORT",
+        severity: reproductionRate < 0.8 ? "WARN" : "INFO",
+        eventName: "replay_simulation",
+        message: `Replayed ${replayed} pass(es) in simulation: ${reproduced} reproduced (${Math.round(
+          reproductionRate * 100,
+        )}%)${drift ? "; decision drift detected" : ""}.`,
+        safeMetadata: { replayed, reproduced, reproductionRate, drift },
+      }).catch(() => undefined);
+    }
 
     return { ran: true, replayed, reproduced, reproductionRate, drift };
   } catch {
