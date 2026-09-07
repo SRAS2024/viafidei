@@ -1,9 +1,19 @@
-import { FilterChips, PageHero, PublishedList } from "@/components/ui";
-import { compareSaintsChronologically, saintEyebrow } from "@/lib/content-shared/saints";
-import { SAINT_FILTERS } from "@/lib/content-shared/saint-categories";
-import { applyPayloadFilter, resolvePayloadFilter } from "@/lib/content-shared/payload-filter";
+import {
+  FilterChips,
+  LIST_PAGE_SIZE,
+  PageHero,
+  Pagination,
+  PublishedList,
+  parsePageParam,
+} from "@/components/ui";
+import {
+  SAINT_FILTERS,
+  SAINT_FILTER_SUBTYPES,
+  saintSubtypeLabel,
+} from "@/lib/content-shared/saint-categories";
+import { resolvePayloadFilter } from "@/lib/content-shared/payload-filter";
 import { getTranslator } from "@/lib/i18n/server";
-import { listPublished } from "@/lib/data/published";
+import { countPublishedBySubtype, listPublishedPage } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Saints" };
@@ -11,20 +21,31 @@ export const metadata = { title: "Saints" };
 export default async function SaintsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{ filter?: string; page?: string }>;
 }) {
   const { t } = await getTranslator();
-  const { filter } = await searchParams;
+  const { filter, page: pageParam } = await searchParams;
   const selected = resolvePayloadFilter(SAINT_FILTERS, filter);
-  const all = await listPublished("SAINT");
-  const items = applyPayloadFilter(SAINT_FILTERS, all, selected.key);
+  const subtypes = selected.key === "all" ? null : (SAINT_FILTER_SUBTYPES[selected.key] ?? null);
 
-  // Only offer a category chip when at least one saint falls under it.
-  const present = new Set<string>();
-  for (const f of SAINT_FILTERS) {
-    if (f.key === "all") continue;
-    if (all.some((s) => f.matches(s.payload))) present.add(f.key);
-  }
+  // One indexed page of saints, ordered chronologically in SQL by the stored
+  // `sortYear` column. The catalogue is heading for 10,000 rows, so the page
+  // must never load the whole type: `listPublishedPage` projects away the
+  // payload and takes exactly the 30 rows this page shows.
+  const [result, counts] = await Promise.all([
+    listPublishedPage("SAINT", {
+      page: parsePageParam(pageParam),
+      pageSize: LIST_PAGE_SIZE,
+      subtype: subtypes,
+      order: "chronological",
+    }),
+    countPublishedBySubtype("SAINT").catch(() => ({}) as Record<string, number>),
+  ]);
+
+  // Only offer a category chip when at least one saint falls under it — an
+  // indexed groupBy now, not a scan of every published saint.
+  const hasContent = (key: string): boolean =>
+    (SAINT_FILTER_SUBTYPES[key] ?? []).some((value) => (counts[value] ?? 0) > 0);
 
   return (
     <div>
@@ -37,24 +58,32 @@ export default async function SaintsPage({
         ariaLabel="Filter saints by category"
         activeKey={selected.key}
         className="mt-8 mb-6"
-        items={SAINT_FILTERS.filter((f) => f.key === "all" || present.has(f.key)).map((f) => ({
+        items={SAINT_FILTERS.filter((f) => f.key === "all" || hasContent(f.key)).map((f) => ({
           key: f.key,
           label: f.label,
           href: f.key === "all" ? "/saints" : `/saints?filter=${f.key}`,
         }))}
       />
-      {items.length === 0 ? (
+      {result.items.length === 0 ? (
         <div className="vf-card rounded-sm p-10 text-center font-serif text-ink-faint">
           No saints in this category yet.
         </div>
       ) : (
-        /* Earliest saints first (Apostles → modern), each tagged with its strict title. */
-        <PublishedList
-          items={items}
-          baseHref="/saints"
-          sortItems={compareSaintsChronologically}
-          eyebrowFor={(item) => saintEyebrow(item.payload)}
-        />
+        <>
+          {/* Earliest saints first (Apostles → modern), each tagged with the
+              one title label the spec permits for its type. */}
+          <PublishedList
+            items={result.items}
+            baseHref="/saints"
+            eyebrowFor={(item) => saintSubtypeLabel("subtype" in item ? item.subtype : null)}
+          />
+          <Pagination
+            basePath="/saints"
+            page={result.page}
+            totalPages={result.pageCount}
+            searchParams={{ filter: selected.key === "all" ? undefined : selected.key }}
+          />
+        </>
       )}
     </div>
   );

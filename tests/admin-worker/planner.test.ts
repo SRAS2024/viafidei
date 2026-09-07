@@ -13,7 +13,13 @@ vi.mock("@/lib/checklist", () => ({
 }));
 
 function makePrisma(opts: {
-  gaps: Array<{ contentType: string; gapCount: number; priority: number }>;
+  gaps: Array<{
+    contentType: string;
+    gapCount: number;
+    priority: number;
+    canonicalMax?: number | null;
+    currentValidCount?: number;
+  }>;
   pendingByType?: Record<string, number>;
   approvedItems?: Array<{ id: string; contentType: string; canonicalName: string }>;
   publishedCounts?: Array<{ contentType: string; _count: number }>;
@@ -27,7 +33,8 @@ function makePrisma(opts: {
           id: g.contentType,
           minimumTarget: 10,
           desiredTarget: 20,
-          currentValidCount: 10 - g.gapCount,
+          canonicalMax: g.canonicalMax ?? null,
+          currentValidCount: g.currentValidCount ?? 10 - g.gapCount,
           status: "IN_PROGRESS",
           lastUpdatedAt: new Date(),
           createdAt: new Date(),
@@ -95,6 +102,46 @@ describe("planAndEnqueue", () => {
     });
     const out = await planAndEnqueue(prisma);
     expect(out.enqueued).toBe(0);
+  });
+
+  it("never enqueues for a closed type that already holds its full canon", async () => {
+    // Stale row: gapCount was written before the operator-raised desiredTarget
+    // was clamped to canonicalMax, so the DB filter still hands SACRAMENT back.
+    // Enqueuing here is how an eighth sacrament gets built (audit KB-15).
+    const prisma = makePrisma({
+      gaps: [
+        {
+          contentType: "SACRAMENT",
+          gapCount: 5,
+          priority: 5,
+          canonicalMax: 7,
+          currentValidCount: 7,
+        },
+      ],
+      approvedItems: [{ id: "s1", contentType: "SACRAMENT", canonicalName: "Penance" }],
+    });
+    const out = await planAndEnqueue(prisma);
+    expect(out.enqueued).toBe(0);
+    expect(out.contentType).toBeNull();
+    expect(out.reason).toMatch(/All content goals met/);
+  });
+
+  it("still enqueues for a closed type that is genuinely short of its canon", async () => {
+    const prisma = makePrisma({
+      gaps: [
+        {
+          contentType: "SACRAMENT",
+          gapCount: 5,
+          priority: 5,
+          canonicalMax: 7,
+          currentValidCount: 2,
+        },
+      ],
+      approvedItems: [{ id: "s1", contentType: "SACRAMENT", canonicalName: "Anointing" }],
+    });
+    const out = await planAndEnqueue(prisma);
+    expect(out.contentType).toBe("SACRAMENT");
+    expect(out.enqueued).toBe(1);
   });
 
   it("logs a discovery gap when no SOURCE_VERIFIED items are available", async () => {

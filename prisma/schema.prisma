@@ -973,6 +973,11 @@ model PublishedContent {
   region          String?
   sourceRef       String?
   addressKey      String?
+  // Weighted full-text document (title > subtitle > payload prose), maintained
+  // by a Postgres trigger (migration 0055) and read only through $queryRaw —
+  // Prisma has no tsvector type, so it is declared Unsupported and excluded
+  // from every generated select.
+  searchVector    Unsupported("tsvector")?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 

@@ -1,6 +1,11 @@
 import Link from "next/link";
 import type { Translator } from "@/lib/i18n/translator";
 
+/**
+ * A card on the homepage's featured rail. `category` is the HUMAN LABEL
+ * ("Marian", "Acts"), never the stored category value — the eyebrow is
+ * rendered verbatim.
+ */
 export type FeaturedPrayer = { id: string; title: string; category: string; slug: string };
 
 const FALLBACK_PRAYERS: FeaturedPrayer[] = [

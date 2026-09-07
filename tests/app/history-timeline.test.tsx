@@ -4,9 +4,13 @@
  * sets, caches under the content-type tags the worker revalidates on
  * publish, and hands the page a merged timeline with no bodies in it.
  */
+import fs from "node:fs";
+import path from "node:path";
+
 import { describe, expect, it, vi } from "vitest";
 
-const findMany = vi.fn();
+// vi.mock is hoisted above the imports, so the spy has to be hoisted with it.
+const { findMany } = vi.hoisted(() => ({ findMany: vi.fn() }));
 vi.mock("@/lib/db/client", () => ({ prisma: { publishedContent: { findMany } } }));
 
 import {
@@ -98,5 +102,17 @@ describe("history timeline loader", () => {
     expect(HISTORY_TIMELINE_CACHE_TAGS).toContain("content-type:CHURCH_DOCUMENT");
     expect(HISTORY_TIMELINE_CACHE_TAGS).toContain("content-type:SAINT");
     expect(HISTORY_TIMELINE_CACHE_TAGS).toContain("tab:history");
+  });
+
+  it("has the page read the cached timeline, not the full published rows", () => {
+    // /history used to call listPublished("CHURCH_DOCUMENT"), which loads every
+    // payload (bodyExcerpt included) on every request and hands it to a client
+    // component. Guard the source so that regression is caught here.
+    const page = fs.readFileSync(path.join(process.cwd(), "src/app/history/page.tsx"), "utf8");
+    expect(page).toContain("loadHistoryTimeline");
+    expect(page).not.toContain("listPublished");
+    // Count and opening label are derived from the merged list, server-side.
+    expect(page).toContain("events.length");
+    expect(page).toContain("dateLabel");
   });
 });

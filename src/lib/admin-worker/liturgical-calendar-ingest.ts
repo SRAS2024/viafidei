@@ -29,6 +29,11 @@ import { runPublishOrchestrator } from "./publish-orchestrator";
 import { writeAdminWorkerLog } from "./logs";
 import { monthName } from "./structured/corroboration";
 
+// The API publishes no versioned path: /api/v3, /api/v4 and /api/v9 all answer
+// 404 (probed 2026-09-07); `dev` is the only channel this deployment serves.
+// Override with LITURGICAL_CALENDAR_API_URL if that ever changes. Because the
+// channel can change shape without notice, a run that fetches nothing AFTER a
+// previously successful run is logged at WARN rather than passing silently.
 const DEFAULT_API_URL = "https://litcal.johnromanodorazio.com/api/dev/calendar/nation/US";
 const USCCB_CALENDAR_URL = "https://www.usccb.org/prayer-worship/liturgical-year";
 const TIMEOUT_MS = 25_000;
@@ -81,6 +86,89 @@ function gradeToKind(grade: number): CelebrationKind | null {
   if (grade === 2) return "optional_memorial";
   return null; // commemorations / weekdays are not standalone records
 }
+
+/**
+ * Celebrations the calendar API lists that are NOT standalone records.
+ *
+ * The API returns every Mass of the year at grade ≥ 5, which is not the same
+ * thing as "a celebration worth its own page": every Sunday of every season,
+ * a separate "… Vigil Mass" row for each of them, the weekdays of Holy Week and
+ * of the Easter Octave, and the Chrism Mass. Publishing those would fill the
+ * LITURGICAL content type with 139 rows a year — "23rd Sunday of Ordinary Time
+ * Vigil Mass" typed as a feast — and hit the content goal with junk. The
+ * Sundays and seasonal weekdays belong to the liturgical-calendar page and the
+ * readings page, which compute them; the season records cover the seasons.
+ */
+const NOT_STANDALONE_KEY = [
+  /_vigil$/i, // "…Vigil Mass" — the same celebration, the evening before
+  /^(Advent|Lent|Easter|OrdSunday)\d+$/, // the Sundays of a season
+  /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun)(HolyWeek|OctaveEaster)$/, // weekdays of Holy Week / the Octave
+  /^HolyThursChrism$/, // the Chrism Mass, not a distinct celebration
+];
+
+/** The same test on the printed name, for an event with no event_key. */
+const NOT_STANDALONE_NAME = [
+  /\bvigil mass\b/i,
+  /\bsunday of (ordinary time|advent|lent|easter)\b/i,
+  /^(monday|tuesday|wednesday|thursday|friday|saturday) of (holy week|the octave)/i,
+  /^chrism mass$/i,
+];
+
+/**
+ * True when the event is a celebration in its own right (and so a candidate
+ * LITURGICAL record). Exported for testing.
+ */
+export function isStandaloneCelebration(event: { event_key?: string; name?: string }): boolean {
+  const key = (event.event_key ?? "").trim();
+  if (key && NOT_STANDALONE_KEY.some((re) => re.test(key))) return false;
+  const name = (event.name ?? "").trim();
+  if (name && NOT_STANDALONE_NAME.some((re) => re.test(name))) return false;
+  return true;
+}
+
+/**
+ * Celebrations the curated knowledge base already covers, by the API's
+ * `event_key`. The curated page is the better one (it is written, not composed
+ * from calendar fields), and the litcal slug would not dedupe against it —
+ * "Christmas" never matches "Solemnity of the Nativity of the Lord (Christmas)".
+ * When the mapped page is live the ingest skips the celebration; when it is NOT
+ * live (the curated wave has not published it yet) the calendar record is still
+ * published, so coverage never goes backwards.
+ */
+const CURATED_SLUG_BY_EVENT_KEY: Record<string, string> = {
+  Christmas: "solemnity-christmas",
+  Easter: "solemnity-easter",
+  Pentecost: "solemnity-pentecost",
+  Trinity: "solemnity-most-holy-trinity",
+  CorpusChristi: "solemnity-corpus-christi",
+  SacredHeart: "solemnity-sacred-heart",
+  ImmaculateConception: "solemnity-immaculate-conception",
+  Assumption: "solemnity-assumption",
+  AllSaints: "solemnity-all-saints",
+  ChristKing: "solemnity-christ-the-king",
+  Annunciation: "solemnity-annunciation",
+  MaryMotherOfGod: "solemnity-mary-mother-of-god",
+  Epiphany: "solemnity-epiphany",
+  Ascension: "solemnity-ascension",
+  NativityJohnBaptist: "solemnity-nativity-of-john-the-baptist",
+  StsPeterPaulAp: "solemnity-saints-peter-and-paul",
+  BaptismLord: "feast-baptism-of-the-lord",
+  HolyFamily: "feast-holy-family",
+  Presentation: "feast-presentation-of-the-lord",
+  Transfiguration: "feast-transfiguration",
+  ExaltationCross: "feast-exaltation-of-the-holy-cross",
+  OurLadySorrows: "memorial-our-lady-of-sorrows",
+};
+
+/** The curated season pages, by the API's `liturgical_season`. */
+const CURATED_SLUG_BY_SEASON: Record<string, string> = {
+  ADVENT: "season-advent",
+  CHRISTMAS: "season-christmas",
+  LENT: "season-lent",
+  EASTER_TRIDUUM: "season-triduum",
+  EASTER: "season-easter",
+  ORDINARY_TIME: "season-ordinary-time",
+};
 
 const KIND_LABEL: Record<CelebrationKind, string> = {
   solemnity: "solemnity",
@@ -162,6 +250,8 @@ export interface LiturgicalEntry {
   authorityLevel: "TRUSTED_PUBLISHER";
   citations: string[];
   payload: Record<string, unknown>;
+  /** The curated page that covers this celebration, when one exists. */
+  curatedSlug?: string;
 }
 
 /**
@@ -183,6 +273,9 @@ export function mapLiturgicalEvent(
   if (typeof event.grade !== "number") return null;
   const kind = gradeToKind(event.grade);
   if (!kind) return null;
+  // A Sunday of the season, a vigil Mass or a weekday of Holy Week is not a
+  // standalone record, whatever its grade.
+  if (!isStandaloneCelebration(event)) return null;
   if (event.grade < 5) {
     if (!opts.hasSaintPage) return null;
     if (opts.hasSaintPage(name)) return null;
@@ -228,12 +321,15 @@ export function mapLiturgicalEvent(
   if (season) payload.season = season;
   if (fixed) payload.feastDate = md!.mmdd;
 
+  const curatedSlug = CURATED_SLUG_BY_EVENT_KEY[(event.event_key ?? "").trim()];
+
   return {
     contentType: "LITURGICAL",
     slug,
     authorityLevel: "TRUSTED_PUBLISHER",
     citations: [calendarApiUrl(), USCCB_CALENDAR_URL],
     payload,
+    ...(curatedSlug ? { curatedSlug } : {}),
   };
 }
 
@@ -317,6 +413,7 @@ export function mapLiturgicalSeasons(events: LitCalEvent[], year: number): Litur
       slug,
       authorityLevel: "TRUSTED_PUBLISHER",
       citations: [calendarApiUrl(), USCCB_CALENDAR_URL],
+      ...(CURATED_SLUG_BY_SEASON[key] ? { curatedSlug: CURATED_SLUG_BY_SEASON[key] } : {}),
       payload: {
         slug,
         title,
@@ -340,7 +437,10 @@ export interface LiturgicalIngestResult {
   fetched: number;
   published: number;
   alreadyPublished: number;
+  /** Candidate records that did not publish (schema or gate). */
   skipped: number;
+  /** Events that are not standalone celebrations (Sundays, vigils, weekdays). */
+  notCelebrations: number;
   detail: string;
 }
 
@@ -348,13 +448,15 @@ const THROTTLE_WHERE = {
   memoryType_memoryKey: { memoryType: "GENERIC" as const, memoryKey: THROTTLE_KEY },
 };
 
-/** True when the lane ran within THROTTLE_MS. Read-only. */
-async function throttled(prisma: PrismaClient): Promise<boolean> {
+/**
+ * When the lane last fetched the calendar SUCCESSFULLY (the throttle is only
+ * stamped after a successful fetch), or 0 if it never has. Read-only.
+ */
+async function lastSuccessAt(prisma: PrismaClient): Promise<number> {
   const row = await prisma.adminWorkerMemory
     .findUnique({ where: THROTTLE_WHERE, select: { lastUsedAt: true } })
     .catch(() => null);
-  const last = row?.lastUsedAt ? new Date(row.lastUsedAt).getTime() : 0;
-  return Date.now() - last < THROTTLE_MS;
+  return row?.lastUsedAt ? new Date(row.lastUsedAt).getTime() : 0;
 }
 
 /**
@@ -447,13 +549,15 @@ export async function runLiturgicalCalendarIngest(
     published: 0,
     alreadyPublished: 0,
     skipped: 0,
+    notCelebrations: 0,
     detail: "",
   };
   if (!out.enabled) {
     out.detail = "Liturgical calendar ingest disabled (skip-network or opt-out).";
     return out;
   }
-  if (!opts.force && (await throttled(prisma))) {
+  const lastSuccess = await lastSuccessAt(prisma);
+  if (!opts.force && Date.now() - lastSuccess < THROTTLE_MS) {
     out.detail = "throttled";
     return out;
   }
@@ -465,6 +569,17 @@ export async function runLiturgicalCalendarIngest(
   out.fetched = eventsA.length;
   if (eventsA.length === 0) {
     out.detail = "calendar API returned nothing";
+    // An endpoint that USED to work and now returns nothing is a broken feed
+    // (the channel is unversioned and can change shape), not a quiet no-op.
+    if (lastSuccess > 0) {
+      await writeAdminWorkerLog(prisma, {
+        category: "CONTENT_BUILD",
+        severity: "WARN",
+        eventName: "liturgical_calendar_endpoint_empty",
+        message: `The liturgical calendar API (${calendarApiUrl()}) returned no events, though it last succeeded on ${new Date(lastSuccess).toISOString()}. The endpoint may have changed.`,
+        contentType: "LITURGICAL",
+      }).catch(() => undefined);
+    }
     return out;
   }
   await stampThrottle(prisma);
@@ -507,6 +622,13 @@ export async function runLiturgicalCalendarIngest(
     const titleKey = String(entry.payload.title ?? "")
       .trim()
       .toLowerCase();
+    // A live curated page for the same celebration counts as already published:
+    // its slug and title differ from the calendar API's, so neither of the two
+    // checks below would catch it and the site would show both.
+    if (entry.curatedSlug && liveSlugs.has(entry.curatedSlug)) {
+      out.alreadyPublished += 1;
+      return;
+    }
     if (liveSlugs.has(entry.slug) || (titleKey && liveTitles.has(titleKey))) {
       out.alreadyPublished += 1;
       return;
@@ -524,13 +646,17 @@ export async function runLiturgicalCalendarIngest(
     if (out.published >= limit) break;
     const entry = mapLiturgicalEvent(event, isFixed, { hasSaintPage });
     if (!entry) {
-      out.skipped += 1;
+      // Sundays, vigil Masses, weekdays of a season and saints with their own
+      // page are not candidates at all — counting them as "skipped" hid the
+      // records that really did fail to publish.
+      if (!isStandaloneCelebration(event)) out.notCelebrations += 1;
+      else out.skipped += 1;
       continue;
     }
     await tryPublish(entry);
   }
 
-  out.detail = `${out.fetched} event(s): published ${out.published}, ${out.alreadyPublished} already live, ${out.skipped} skipped.`;
+  out.detail = `${out.fetched} event(s): published ${out.published}, ${out.alreadyPublished} already live, ${out.skipped} skipped, ${out.notCelebrations} not standalone celebrations.`;
   if (out.published > 0) {
     await writeAdminWorkerLog(prisma, {
       category: "CONTENT_BUILD",

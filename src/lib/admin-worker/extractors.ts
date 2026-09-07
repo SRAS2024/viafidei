@@ -1714,7 +1714,12 @@ export function DoctorExtractor(input: ExtractorInput): ExtractorOutput<DoctorFi
     evidence.push(provenanceFor("background", bio, input));
   }
 
-  const required = ["doctorName"];
+  // WX-09(c): a bare name is not a Doctor of the Church record. A page that
+  // cannot supply a feast day and a paragraph of biography is not the source
+  // for this entry, and publishing it produces a near-empty page under a real
+  // saint's name. Missing fields do not delete anything — they just hold the
+  // artifact back from the publish gate.
+  const required = ["doctorName", "feastDay", "background"];
   const missing = required.filter((f) => !(f in fields));
   const confidence = (required.length - missing.length) / required.length;
   return {
@@ -1776,7 +1781,10 @@ export function RiteExtractor(input: ExtractorInput): ExtractorOutput<RiteFields
     evidence.push(provenanceFor("background", bio, input));
   }
 
-  const required = ["riteName"];
+  // WX-09(c): a rite needs more than its name — require a description of the
+  // tradition (a "History" section, or failing that a substantive paragraph).
+  const description = "history" in fields ? "history" : "background";
+  const required = ["riteName", description];
   const missing = required.filter((f) => !(f in fields));
   const confidence = (required.length - missing.length) / required.length;
   return {

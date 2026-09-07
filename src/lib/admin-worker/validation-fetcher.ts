@@ -71,6 +71,13 @@ export interface FetchAndCompareInput {
   contentType: string;
   field: string;
   expectedValue: string;
+  /**
+   * Every printable form of the same fact ("10-04", "October 4", "4 October").
+   * WX-03: a probe page states a fact the way a person reads it, not the way
+   * the schema stores it, so one fetch is compared against all of them. The
+   * primary `expectedValue` is always tried first; this is purely additive.
+   */
+  expectedValueVariants?: string[];
   slugHint?: string;
   primarySourceHost?: string;
   excludeAuthorities?: SourceAuthorityLevel[];
@@ -146,6 +153,9 @@ async function fetchOneAndCompare(
     // false MISMATCH.
     const normalisedExpected = normaliseForCompare(input.expectedValue);
     const normalisedBody = normaliseForCompare(fetched.body);
+    const comparable = [input.expectedValue, ...(input.expectedValueVariants ?? [])]
+      .map((v) => ({ raw: v, normalised: normaliseForCompare(v) }))
+      .filter((v) => v.normalised.length > 0);
     if (!normalisedExpected) {
       return {
         host: target.host,
@@ -158,16 +168,37 @@ async function fetchOneAndCompare(
         reason: "expected value was empty",
       };
     }
-    if (normalisedBody.includes(normalisedExpected)) {
+    const hit = comparable.find((v) => normalisedBody.includes(v.normalised));
+    if (hit) {
       return {
         host: target.host,
         url,
         authority: target.authority,
         matchStatus: "MATCH",
         expected: input.expectedValue,
-        found: input.expectedValue,
+        found: hit.raw,
         confidence: 0.9,
-        reason: `Expected value found in ${target.host} body.`,
+        reason: `Expected value found in ${target.host} body${
+          hit.raw === input.expectedValue ? "" : ` (as "${hit.raw}")`
+        }.`,
+      };
+    }
+    // A generic index or homepage that simply does not carry this entity is
+    // ABSENCE OF EVIDENCE, not the authority disagreeing. Reporting MISMATCH
+    // from "/" told the verifier that the Holy See contradicts the fact, which
+    // is a claim no homepage makes. Only an entity-specific page (one whose
+    // path names this item) can disagree.
+    const entitySpecific = slug.length > 0 && path.includes(slug);
+    if (!entitySpecific) {
+      return {
+        host: target.host,
+        url,
+        authority: target.authority,
+        matchStatus: "MISSING_EVIDENCE",
+        expected: input.expectedValue,
+        found: null,
+        confidence: 0,
+        reason: `${target.host}${path} is an index page, not a page about this item — it neither confirms nor denies the value.`,
       };
     }
     // The page loaded but the expected value isn't present — this is

@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import { churchHistoryKnowledge } from "@/lib/checklist/knowledge/church-history";
 import type { PublishedItem } from "@/lib/data/published";
-import { toHistoryEvents } from "@/app/history/historyEvents";
+import { toHistoryTimeline } from "@/app/history/historyEvents";
 
 describe("curated ecumenical councils", () => {
   it("covers all 21 ecumenical councils as CHURCH_DOCUMENT council_documents", () => {
@@ -36,7 +36,7 @@ describe("curated ecumenical councils", () => {
     expect(year("second-vatican-council")).toBe(1962);
   });
 
-  it("maps onto the history timeline spanning antiquity to the modern era, newest-first", () => {
+  it("maps onto the history timeline spanning antiquity to the modern era, oldest-first", () => {
     const items = churchHistoryKnowledge.map(
       (e) =>
         ({
@@ -45,14 +45,20 @@ describe("curated ecumenical councils", () => {
           payload: e.payload,
         }) as unknown as PublishedItem,
     );
-    const events = toHistoryEvents(items);
-    expect(events).toHaveLength(21);
-    // Sorted newest-first.
-    for (let i = 1; i < events.length; i++) {
-      expect(events[i - 1].sortYear).toBeGreaterThanOrEqual(events[i].sortYear);
+    // Updated for the HIST-01/HIST-03 timeline rewrite: each curated council now
+    // ENRICHES its static timeline event (href + canonicalUrl) instead of adding
+    // a second row for the same council, and the merged list reads oldest-first.
+    const { events } = toHistoryTimeline(items);
+    for (const council of churchHistoryKnowledge) {
+      // At least one — a council that spans years has more than one static
+      // event linking to the same curated document (Vatican II opens in 1962
+      // and closes in 1965), and each of those is enriched, not duplicated.
+      const matches = events.filter((e) => e.href === `/liturgy-history/${council.slug}`);
+      expect(matches.length, council.slug).toBeGreaterThanOrEqual(1);
     }
-    const years = events.map((e) => e.sortYear);
-    expect(Math.min(...years)).toBe(325);
-    expect(Math.max(...years)).toBe(1962);
+    for (let i = 1; i < events.length; i++) {
+      expect(events[i - 1]!.sortKey <= events[i]!.sortKey, `${events[i - 1]!.slug}`).toBe(true);
+    }
+    expect(events[0]?.slug).toBe("pentecost");
   });
 });

@@ -93,7 +93,9 @@ describe("e2e — Saint chain", () => {
       title: "Saint Francis of Assisi",
       bodyText: body,
     });
-    expect(ext.fields.feastDay).toBe("October 4");
+    // Updated: the extractor emits the SCHEMA shape "MM-DD"; the printable
+    // "October 4" is derived downstream (expectedValueVariants).
+    expect(ext.fields.feastDay).toBe("10-04");
     const verify = verifyCrossSource({
       contentType: "SAINT",
       fields: { saintName: ext.fields.saintName, feastDay: ext.fields.feastDay },

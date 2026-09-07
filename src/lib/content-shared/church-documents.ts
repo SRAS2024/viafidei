@@ -22,6 +22,8 @@ export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   instruction: "Instruction",
   vatican_document: "Vatican Document",
   uscb_pastoral_letter: "USCCB Pastoral Letter",
+  papal_bull: "Papal Bull",
+  code_of_canon_law: "Code of Canon Law",
 };
 
 export function documentTypeLabel(documentType: unknown): string {
@@ -62,12 +64,16 @@ export const DOCUMENT_CATEGORIES: DocumentCategory[] = [
     label: "Catechism",
     matches: (p) => inTypes(p, ["catechism_section"]) || titleMatches(p, /catechism/i),
   },
-  { key: "canon-law", label: "Canon Law", matches: (p) => titleMatches(p, /canon law/i) },
+  {
+    key: "canon-law",
+    label: "Canon Law",
+    matches: (p) => inTypes(p, ["code_of_canon_law"]) || titleMatches(p, /canon law/i),
+  },
   {
     key: "dogma",
     label: "Dogmas",
     matches: (p) =>
-      inTypes(p, ["dogmatic_definition", "dogma", "dogmatic_constitution"]) ||
+      inTypes(p, ["dogmatic_definition", "dogma", "dogmatic_constitution", "papal_bull"]) ||
       titleMatches(p, /\bdogma(tic)?\b/i),
   },
   {

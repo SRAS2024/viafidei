@@ -163,15 +163,21 @@ describe("HistoryTimelineClient", () => {
   it("steps five years with the arrow keys and one year with Shift", () => {
     renderTimeline();
     const slider = screen.getByRole("slider");
+    // The slider and the "jump to year" box mirror one value, so assert on
+    // the labelled input rather than an ambiguous display-value lookup.
+    const yearBox = screen.getByLabelText("Or jump to year");
     fireEvent.change(slider, { target: { value: "1000" } });
     fireEvent.keyDown(slider, { key: "ArrowRight" });
-    expect(screen.getByDisplayValue("1005")).toBeInTheDocument();
+    expect(yearBox).toHaveValue(1005);
     fireEvent.keyDown(slider, { key: "ArrowLeft", shiftKey: true });
-    expect(screen.getByDisplayValue("1004")).toBeInTheDocument();
+    expect(yearBox).toHaveValue(1004);
     // Never past the ends.
     fireEvent.change(slider, { target: { value: "2025" } });
     fireEvent.keyDown(slider, { key: "ArrowUp" });
-    expect(screen.getByDisplayValue("2026")).toBeInTheDocument();
+    expect(yearBox).toHaveValue(2026);
+    fireEvent.change(slider, { target: { value: "31" } });
+    fireEvent.keyDown(slider, { key: "ArrowDown" });
+    expect(yearBox).toHaveValue(30);
   });
 
   it("jumps to an era from the era buttons", () => {
@@ -180,7 +186,7 @@ describe("HistoryTimelineClient", () => {
     expect(within(group).getAllByRole("button")).toHaveLength(HISTORY_ERAS.length);
     fireEvent.click(within(group).getByRole("button", { name: /Fathers & First Councils/ }));
     // The era's last year is selected, so everything through 589 shows.
-    expect(screen.getByDisplayValue("589")).toBeInTheDocument();
+    expect(screen.getByLabelText("Or jump to year")).toHaveValue(589);
     expect(titles()).toEqual(["Pentecost", "First Council of Nicaea"]);
     expect(within(group).getByRole("button", { name: /Fathers & First Councils/ })).toHaveAttribute(
       "aria-current",

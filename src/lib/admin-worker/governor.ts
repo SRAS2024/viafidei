@@ -253,7 +253,7 @@ export function computeGovernorVerdict(args: {
   if (!forcedStage) {
     // Nothing downstream is making progress: run a terminal diagnostic for the
     // main slot (the keyless ground-truth ingest still runs this active pass).
-    forcedStage = terminalStage(chosenStage, world);
+    forcedStage = terminalStage(chosenStage, world, chosen);
   }
 
   let exhaustedEntityId: string | null = null;
@@ -279,11 +279,21 @@ export function computeGovernorVerdict(args: {
 }
 
 /** Terminal fallback that never loops into a publishing stage. */
-function terminalStage(chosenStage: BrainMissionStage, world: WorldState): BrainMissionStage {
+function terminalStage(
+  chosenStage: BrainMissionStage,
+  world: WorldState,
+  chosen: Map<string, number>,
+): BrainMissionStage {
   if ((world.pendingRepairPlans > 0 || world.failedBuildJobs > 0) && chosenStage !== "REPAIR") {
     return "REPAIR";
   }
-  if (chosenStage !== "REPORTING") return "REPORTING";
+  // REPORTING only pays off once per window: its growth snapshots and ratings
+  // describe the same state until something changes. A fixation cycle recurs
+  // every window, so forcing REPORTING each time re-ran the whole diagnostic
+  // bundle for nothing. If REPORTING already ran in this window, fall through
+  // to MAINTENANCE (cleanup, memory + reputation decay), which does different
+  // work each time (DG-5).
+  if (chosenStage !== "REPORTING" && (chosen.get("REPORTING") ?? 0) === 0) return "REPORTING";
   return "MAINTENANCE";
 }
 

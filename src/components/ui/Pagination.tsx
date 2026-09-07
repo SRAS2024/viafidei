@@ -1,5 +1,45 @@
 import Link from "next/link";
 
+/**
+ * How many cards a public list page shows per page. One number for the whole
+ * site so `?page=2` means the same thing everywhere and the SQL `skip/take`
+ * matches what the links promise.
+ */
+export const LIST_PAGE_SIZE = 30;
+
+/** `?page=` → a 1-based page number. Anything unparseable is page 1. */
+export function parsePageParam(value: string | undefined): number {
+  const n = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+export interface SlicedPage<T> {
+  items: T[];
+  /** Clamped into `[1, pageCount]` so `?page=999` shows the last page. */
+  page: number;
+  pageCount: number;
+  total: number;
+}
+
+/**
+ * Server-side slice for the content types small enough to still be read whole
+ * (the projection `listPublishedPage` returns carries no payload, and these
+ * cards show payload prose — a guide's summary, a rite's history). Slicing
+ * here still means only one page of cards is rendered and serialised into the
+ * RSC payload, and the page links stay real URLs.
+ */
+export function pageSlice<T>(
+  items: readonly T[],
+  page: number,
+  pageSize: number = LIST_PAGE_SIZE,
+): SlicedPage<T> {
+  const total = items.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const current = Math.min(Math.max(1, page), pageCount);
+  const start = (current - 1) * pageSize;
+  return { items: items.slice(start, start + pageSize), page: current, pageCount, total };
+}
+
 type PaginationProps = {
   basePath: string;
   page: number;

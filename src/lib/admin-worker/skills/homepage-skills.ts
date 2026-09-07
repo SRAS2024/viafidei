@@ -93,11 +93,27 @@ export const homepageSkills: CertifiedSkill[] = [
     category: "HOMEPAGE",
     allowedInSafeDegradedMode: true,
     run: async (ctx) => {
-      const today = new Date().toISOString().slice(0, 10);
+      // The column is `DateTime @db.Date`: look it up by the compound unique
+      // with a Date at UTC midnight, the way every other caller does. A query
+      // error must be reported as an error, not as "no readings for today".
+      const now = new Date();
+      const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const iso = date.toISOString().slice(0, 10);
       const row = await ctx.prisma.dailyReading
-        .findFirst({ where: { date: today }, select: { id: true } })
-        .catch(() => null);
-      return { ok: row != null, detail: row ? "today present" : `no readings for ${today}` };
+        .findUnique({
+          where: { date_calendar_locale: { date, calendar: "roman-ordinary", locale: "en" } },
+          select: { id: true, status: true },
+        })
+        .catch((err: unknown) => ({
+          error: err instanceof Error ? err.message : String(err),
+        }));
+      if (row && "error" in row) {
+        return { ok: false, detail: `daily readings lookup failed: ${row.error}` };
+      }
+      return {
+        ok: row != null,
+        detail: row ? `today present (${row.status})` : `no readings row for ${iso}`,
+      };
     },
   }),
   makeOpSkill({

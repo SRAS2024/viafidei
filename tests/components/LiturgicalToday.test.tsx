@@ -24,7 +24,10 @@ describe("LiturgicalToday (homepage Today's Scripture Readings)", () => {
     // The primary CTA now points at the internal readings page (the external
     // source is shown modestly at the bottom of that page).
     const link = screen.getByRole("link", { name: /Read today's Mass readings/ });
-    expect(link).toHaveAttribute("href", "/liturgy/readings");
+    // Updated: the link now deep-links to the resolved liturgical day
+    // (/liturgy/readings?date=YYYY-MM-DD) so the page opens on the same day the
+    // card is describing, rather than re-resolving "today" on arrival.
+    expect(link.getAttribute("href")).toMatch(/^\/liturgy\/readings(\?date=\d{4}-\d{2}-\d{2})?$/);
   });
 
   it("flags a Jubilee year", () => {

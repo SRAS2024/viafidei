@@ -355,6 +355,16 @@ function disambiguatedSlug(slug: string, qid: string): string {
   return `${slug}-${qid.toLowerCase()}`;
 }
 
+/**
+ * Re-slug an entry, keeping `payload.slug` in step. The payload's own slug is
+ * what the schema validates and what the published page links itself by, so a
+ * disambiguated entry that changed only `entry.slug` shipped a payload still
+ * pointing at the OTHER entity's page.
+ */
+function withSlug(entry: CuratedEntry, slug: string): CuratedEntry {
+  return { ...entry, slug, payload: { ...entry.payload, slug } };
+}
+
 /** Publish one structured entry through the real gate. Mirrors curated seed. */
 async function publishStructuredEntry(
   prisma: PrismaClient,
@@ -620,7 +630,7 @@ export async function runStructuredIngest(
     if (seenSlugs.has(entry.slug) || (name && seenNames.has(name))) {
       const owner = seenNames.get(name);
       if (!qid || !owner || owner === qid) continue;
-      entry = { ...entry, slug: disambiguatedSlug(entry.slug, qid) };
+      entry = withSlug(entry, disambiguatedSlug(entry.slug, qid));
     }
     seenSlugs.add(entry.slug);
     if (name && !seenNames.has(name)) seenNames.set(name, qid);
@@ -637,7 +647,7 @@ export async function runStructuredIngest(
       continue;
     }
     if (match === "collision" && qid) {
-      entry = { ...entry, slug: disambiguatedSlug(entry.slug, qid) };
+      entry = withSlug(entry, disambiguatedSlug(entry.slug, qid));
       if (live.bySlug.has(entry.slug)) {
         out.alreadyPublished += 1;
         continue;

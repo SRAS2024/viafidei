@@ -295,13 +295,13 @@ export async function runStructuredSaintRepair(
     // ── Re-derive status / type / title / feast; apply through protection ──
     const resolved = resolveCanonizationStatus(facts);
     const proposed: Record<string, unknown> = { ...payload };
-    const status =
-      resolved?.status ??
-      (typeof payload.canonizationStatus === "string"
-        ? (payload.canonizationStatus as Parameters<typeof saintDisplayTitle>[1])
-        : null);
+    // The structured record must PROVE the Catholic status before the sweep
+    // rewrites anything. Falling back to the stored status would let a row the
+    // old label mapping got wrong (generic "saint", no Catholic religion) keep
+    // that status AND gain a freshly derived type/title built on it — doubt
+    // laundered into a correction. No proof either way → leave the row alone.
+    const status = resolved?.status ?? null;
     if (!status) {
-      // No proof of a Catholic status — but no proof against either. Leave it.
       out.unresolved += 1;
       continue;
     }

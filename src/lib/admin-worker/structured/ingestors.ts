@@ -714,6 +714,16 @@ LIMIT ${limit} OFFSET ${offset}`,
     const site = bindingValue(row, "site");
     return site ? [site] : [];
   },
+  identify(row) {
+    const label = bindingValue(row, "label");
+    if (!label || /^Q\d+$/.test(label)) return null;
+    const base = slugify(label);
+    return {
+      qid: qidOf(bindingValue(row, "d")) ?? undefined,
+      slug: base ? `doctor-${base}` : undefined,
+      name: label,
+    };
+  },
   async map(row) {
     const entity = bindingValue(row, "d");
     const label = bindingValue(row, "label");
@@ -780,6 +790,16 @@ LIMIT ${limit} OFFSET ${offset}`,
   discoveredSources(row) {
     const site = bindingValue(row, "site");
     return site ? [site] : [];
+  },
+  identify(row) {
+    const label = bindingValue(row, "label");
+    if (!label || /^Q\d+$/.test(label)) return null;
+    const core = riteCoreSlug(label);
+    return {
+      qid: qidOf(bindingValue(row, "r")) ?? undefined,
+      slug: core ? `rite-${core}` : undefined,
+      name: label,
+    };
   },
   async map(row) {
     const entity = bindingValue(row, "r");
@@ -979,6 +999,15 @@ GROUP BY ?d
 ORDER BY ?d
 LIMIT ${limit} OFFSET ${offset}`,
   discoveredSources: sourcedEntitySources,
+  identify(row) {
+    const label = bindingValue(row, "label");
+    if (!label || /^Q\d+$/.test(label)) return null;
+    return {
+      qid: qidOf(bindingValue(row, "d")) ?? undefined,
+      slug: slugify(label) || undefined,
+      name: label,
+    };
+  },
   async map(row) {
     const entity = bindingValue(row, "d");
     const label = bindingValue(row, "label");
@@ -1046,6 +1075,15 @@ GROUP BY ?m
 ORDER BY ?m
 LIMIT ${limit} OFFSET ${offset}`,
   discoveredSources: sourcedEntitySources,
+  identify(row) {
+    const label = bindingValue(row, "label");
+    if (!label || /^Q\d+$/.test(label)) return null;
+    return {
+      qid: qidOf(bindingValue(row, "m")) ?? undefined,
+      slug: slugify(label) || undefined,
+      name: label,
+    };
+  },
   async map(row) {
     const entity = bindingValue(row, "m");
     const label = bindingValue(row, "label");
@@ -1198,6 +1236,15 @@ GROUP BY ?p
 ORDER BY ?p
 LIMIT ${limit} OFFSET ${offset}`,
   discoveredSources: sourcedEntitySources,
+  identify(row) {
+    const label = bindingValue(row, "label");
+    if (!label || /^Q\d+$/.test(label)) return null;
+    return {
+      qid: qidOf(bindingValue(row, "p")) ?? undefined,
+      slug: slugify(label) || undefined,
+      name: label,
+    };
+  },
   async map(row) {
     const entity = bindingValue(row, "p");
     const label = bindingValue(row, "label");

@@ -142,3 +142,27 @@ export const GUIDE_FILTERS: readonly PayloadFilter[] = [
       !titleMatches(p, /\b(rosary|chaplet)\b/i),
   },
 ];
+
+/**
+ * The stored `kind` values behind each chip.
+ *
+ * `PublishedContent.subtype` carries a guide's `kind`, so /guides can ask
+ * `countPublishedBySubtype("GUIDE")` which chips have content instead of
+ * scanning the catalogue. `general` is the residual bucket: a guide whose kind
+ * is `general` may still belong to another chip through its `category` or
+ * `sacramentKey`, which only `GUIDE_FILTERS[].matches` can decide — so the
+ * chip-presence check falls back to the payload for those.
+ */
+export const GUIDE_FILTER_SUBTYPES: Readonly<Record<string, readonly string[]>> = {
+  "rosary-chaplets": ["rosary", "chaplet"],
+  confession: ["confession"],
+  eucharist: ["adoration"],
+  liturgy: ["mass", "liturgy_of_the_hours"],
+  sacraments: ["sacramental_preparation"],
+  devotions: ["consecration", "devotion", "sacramental"],
+  seasons: ["lent_preparation", "advent_preparation", "season"],
+  "becoming-catholic": ["rcia", "ocia"],
+  discernment: ["discernment", "vocation"],
+  family: ["family", "marriage", "funeral"],
+  general: ["general", "pilgrimage", "scripture"],
+};

@@ -15,6 +15,7 @@ export const PRAYER_CATEGORIES: readonly PrayerCategory[] = [
   { value: "angelic", label: "Angelic" },
   { value: "eucharistic", label: "Eucharistic" },
   { value: "trinitarian", label: "Trinitarian" },
+  { value: "act", label: "Acts" },
   { value: "penitential", label: "Penitential" },
   { value: "litany", label: "Litany" },
   { value: "liturgical", label: "Liturgical" },
@@ -28,8 +29,40 @@ export const PRAYER_CATEGORIES: readonly PrayerCategory[] = [
 
 const CANONICAL = new Set(PRAYER_CATEGORIES.map((c) => c.value));
 
+/**
+ * Descriptive categories the curated knowledge files store which are not
+ * themselves filter chips. Mapping them here — rather than letting them fall
+ * through to keyword derivation — is what stops "theological-virtue" and
+ * "dominical" from reaching the homepage rail as raw labels, and keeps the
+ * Acts of Faith, Hope and Love out of the Penitential chip.
+ */
+const CATEGORY_ALIASES: Record<string, string> = {
+  "theological-virtue": "act",
+  "theological-virtues": "act",
+  dominical: "general",
+  doxology: "trinitarian",
+  creed: "liturgical",
+  canticle: "liturgical",
+  hymn: "liturgical",
+  pentecost: "liturgical",
+  "marian-intercession": "marian",
+  "marian-seasonal": "marian",
+  "marian-antiphon": "marian",
+  morning: "devotional",
+  evening: "devotional",
+  meal: "devotional",
+  peace: "devotional",
+};
+
+/**
+ * Human label for a category value. Accepts the descriptive aliases the
+ * curated files store as well as the canonical values, so no caller can print
+ * a raw stored string.
+ */
 export function prayerCategoryLabel(value: string): string {
-  return PRAYER_CATEGORIES.find((c) => c.value === value)?.label ?? "General";
+  const key = (value ?? "").toLowerCase().trim();
+  const canonical = CANONICAL.has(key) ? key : (CATEGORY_ALIASES[key] ?? key);
+  return PRAYER_CATEGORIES.find((c) => c.value === canonical)?.label ?? "General";
 }
 
 export function categorizePrayer(input: {
@@ -51,9 +84,11 @@ export function categorizePrayer(input: {
     return "litany";
   }
 
-  // Otherwise, prefer an already-canonical stored category.
+  // Otherwise, prefer an already-canonical stored category, then a known
+  // descriptive alias, before falling back to keyword derivation.
   const stored = (input.category ?? "").toLowerCase().trim();
   if (CANONICAL.has(stored)) return stored;
+  if (stored && CATEGORY_ALIASES[stored]) return CATEGORY_ALIASES[stored];
 
   const hay = `${input.title ?? ""} ${input.body ?? ""}`.toLowerCase();
   const has = (...words: string[]) => words.some((w) => hay.includes(w));
@@ -110,11 +145,14 @@ export function categorizePrayer(input: {
   if (pt === "novena" || has("novena")) {
     return "novena";
   }
-  if (
-    pt === "act" ||
-    has("act of contrition", "penance", "have mercy", "contrition", "confiteor", "forgive us")
-  ) {
+  // Penitence is decided by penitential words, not by the "act" prayerType:
+  // the Acts of Faith, Hope and Love are acts too, and they are not sorrow for
+  // sin. Contrition is checked first so the Act of Contrition still lands here.
+  if (has("act of contrition", "penance", "have mercy", "contrition", "confiteor", "forgive us")) {
     return "penitential";
+  }
+  if (pt === "act" || /^(an?\s+)?act of\b/.test((input.title ?? "").toLowerCase())) {
+    return "act";
   }
   if (
     pt === "intercession" ||

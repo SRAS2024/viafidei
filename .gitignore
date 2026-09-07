@@ -52,3 +52,6 @@ __pycache__/
 
 # Claude desktop-app dev-server launcher (local only)
 .claude/launch.json
+
+# Lectionary build inputs (third-party sources; only the generated tables are committed)
+data/lectionary/sources/

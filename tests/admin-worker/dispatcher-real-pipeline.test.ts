@@ -203,6 +203,12 @@ function makePrisma(opts: {
       update: vi.fn(async () => ({})),
     },
     adminWorkerSourceRead: {
+      // The publish stage resolves the artifact's source read for its host
+      // (authority level) and URL (the prayer schema's required citation).
+      findUnique: vi.fn(async () => ({
+        sourceHost: "vatican.va",
+        sourceUrl: "https://vatican.va/prayers/our-father",
+      })),
       findFirst: vi.fn(async () =>
         opts.read
           ? {
@@ -446,7 +452,16 @@ describe("PUBLIC_PUBLISH calls runPublishOrchestrator on BUILD_READY artifacts",
         contentType: "PRAYER",
         normalizedTitle: "Our Father",
         normalizedSlug: "our-father",
-        extractedFields: { prayerTitle: "Our Father" },
+        // A COMPLETE prayer: the publish path now builds the PRAYER schema
+        // payload (body/slug/category/citations) from these fields and refuses
+        // to publish one the schema rejects, so a bare title is no longer a
+        // publishable prayer.
+        extractedFields: {
+          prayerTitle: "Our Father",
+          prayerType: "general",
+          prayerText:
+            "Our Father, who art in heaven, hallowed be thy name; thy kingdom come, thy will be done on earth as it is in heaven. Amen.",
+        },
         fieldProvenance: [
           { fieldName: "prayerTitle", sourceUrl: "x", sourceHost: "x", confidence: 0.9 },
         ],
@@ -456,6 +471,7 @@ describe("PUBLIC_PUBLISH calls runPublishOrchestrator on BUILD_READY artifacts",
         confidenceScore: 0.95,
         packageChecksum: "ck-1",
         status: "BUILD_READY",
+        sourceReadId: "sr1",
         checklistItemId: "ci-1",
       },
     );

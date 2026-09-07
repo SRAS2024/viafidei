@@ -7,6 +7,9 @@
  */
 import { describe, expect, it } from "vitest";
 
+import fs from "node:fs";
+import path from "node:path";
+
 import {
   buildTimeline,
   documentDatePrecision,
@@ -15,7 +18,11 @@ import {
   toHistoryTimeline,
 } from "@/app/history/historyEvents";
 import { CHURCH_HISTORY_EVENTS } from "@/lib/content-shared/church-history-events";
-import { relatedLinkLabel } from "@/lib/content-shared/church-history/timeline";
+import {
+  DOCUMENT_ROUTE_BASE,
+  RELATED_ROUTE_BASE,
+  relatedLinkLabel,
+} from "@/lib/content-shared/church-history/timeline";
 import type { PublishedItem } from "@/lib/data/published";
 
 function doc(slug: string, title: string, payload: Record<string, unknown>): PublishedItem {
@@ -170,6 +177,31 @@ describe("buildTimeline", () => {
   it("labels related chips from their slugs", () => {
     expect(relatedLinkLabel("pope-saint-paul-vi")).toBe("Pope Saint Paul VI");
     expect(relatedLinkLabel("our-lady-of-fatima")).toBe("Our Lady Of Fatima");
+  });
+
+  it("only ever links to routes that exist under src/app", () => {
+    // A "Related" chip is a real navigation, so every base the merge can emit
+    // must have a [slug] route on disk — otherwise the reader gets a 404.
+    const bases = [DOCUMENT_ROUTE_BASE, ...Object.values(RELATED_ROUTE_BASE)];
+    for (const base of bases) {
+      const route = path.join(process.cwd(), "src/app", base.replace(/^\//, ""), "[slug]/page.tsx");
+      expect(fs.existsSync(route), route).toBe(true);
+    }
+    // And no event emits a link outside those bases (external "Official text"
+    // links excepted, which are absolute URLs on the document's own host).
+    const timeline = buildTimeline([]);
+    for (const event of timeline.events) {
+      for (const link of event.links) {
+        if (link.external) {
+          expect(link.href, `${event.slug}`).toMatch(/^https:\/\//);
+          continue;
+        }
+        expect(
+          bases.some((b) => link.href.startsWith(`${b}/`)),
+          `${event.slug} → ${link.href}`,
+        ).toBe(true);
+      }
+    }
   });
 });
 

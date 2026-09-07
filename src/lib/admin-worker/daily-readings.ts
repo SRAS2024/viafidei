@@ -5,13 +5,19 @@
  * The worker keeps one DailyReading row per (date, calendar, locale):
  *   - It always stores the deterministic liturgical framing (season,
  *     cycles, colour) + the authoritative source URL.
- *   - When a trusted source/parser supplies the readings text with high
- *     confidence, the row is PUBLISHED with verified bodies.
- *   - When the readings cannot be confidently determined (no parser, low
- *     confidence, calendar ambiguity), the row stays in REVIEW, a
- *     human-review task is filed, and a developer request asks for a
- *     trusted readings source/parser. The worker NEVER fabricates the text
- *     and never publishes uncertain readings.
+ *   - It stores the day's readings as resolved from the committed Lectionary
+ *     tables: the citations always, and the Douay-Rheims text for every
+ *     citation that aligns with certainty. A day with any verified text is
+ *     PUBLISHED; a day that resolves to citations only stays REVIEW.
+ *   - It NEVER fabricates text, and it never writes an empty skeleton over
+ *     readings it could resolve.
+ *
+ * There is deliberately no confidence RATIO gate. The old `confidence >= 0.7`
+ * rule rejected every three-section weekday (First/Psalm/Gospel with a psalm
+ * the store could not align scores 0.667), so the worker could only ever
+ * publish Sundays and solemnities. The table is trusted by construction — the
+ * citations are the Lectionary's and the text is public domain — so the test
+ * is simply "did any reading resolve?".
  *
  * Date-sensitivity: a PUBLISHED row is considered fresh for ~20h, so a
  * daily run re-verifies and prevents stale / wrong-date readings.
@@ -21,7 +27,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 
 import {
   buildReadingFraming,
-  buildReadingSkeleton,
+  hasAnyBody,
   isoDate,
   type ReadingSection,
 } from "@/lib/content-shared/daily-readings";
@@ -46,6 +52,15 @@ interface FetchedReadings {
   sourceUrl?: string;
   sourceName?: string;
   confidence: number;
+  lectionaryNumber?: string | null;
+}
+
+/**
+ * A day is publishable when ANY of its readings resolved to verified text.
+ * (See the header: a ratio gate silently excluded every weekday.)
+ */
+function isPublishable(fetched: FetchedReadings | null): fetched is FetchedReadings {
+  return !!fetched && hasAnyBody(fetched.sections);
 }
 
 function utcMidnight(date: Date): Date {
@@ -68,6 +83,7 @@ export async function fetchReadingsForDate(
     sections: acquired.sections,
     sourceName: acquired.source === "lectionary-table" ? undefined : acquired.source,
     confidence: acquired.confidence,
+    lectionaryNumber: acquired.lectionaryNumber ?? null,
   };
 }
 
@@ -185,7 +201,10 @@ export async function refreshDailyReadings(
     };
 
     const fetched = await fetchReadingsForDate(date, { calendar, locale });
-    if (fetched && fetched.confidence >= 0.7) {
+    // Captured before the narrowing below: whatever the tables resolved is
+    // stored even when the day carries no verified text (citations at least).
+    const resolvedSections: ReadingSection[] = fetched?.sections ?? framing.sections;
+    if (isPublishable(fetched)) {
       const data = {
         ...baseData,
         sections: fetched.sections as unknown as Prisma.InputJsonValue,
@@ -205,7 +224,9 @@ export async function refreshDailyReadings(
         category: "CONTENT_BUILD",
         severity: "INFO",
         eventName: "daily_readings_published",
-        message: `Published verified daily readings for ${iso} (confidence ${fetched.confidence.toFixed(2)}).`,
+        message: `Published verified daily readings for ${iso}${
+          fetched.lectionaryNumber ? ` (Lectionary ${fetched.lectionaryNumber})` : ""
+        } — ${(fetched.confidence * 100).toFixed(0)}% of its readings carry verified text.`,
       }).catch(() => undefined);
       return {
         date: iso,
@@ -225,7 +246,10 @@ export async function refreshDailyReadings(
     if (!existing || existing.status !== "PUBLISHED") {
       const data = {
         ...baseData,
-        sections: buildReadingSkeleton(date) as unknown as Prisma.InputJsonValue,
+        // The same sections the backfill writes, so the two paths never fight
+        // over the row. Only a day the tables do not cover falls back to the
+        // framing's skeleton.
+        sections: resolvedSections as unknown as Prisma.InputJsonValue,
         sourceConfidence: 0,
         status: "REVIEW",
       };
@@ -285,6 +309,10 @@ export interface BackfillResult {
   unchanged: number;
   published: number;
   review: number;
+  /** Rows the database refused (a write that threw). */
+  failed: number;
+  /** The first write error, so a mis-pointed database is visible, not silent. */
+  firstError: string | null;
 }
 
 interface StoredRowShape {
@@ -334,7 +362,14 @@ function readingRowDiffers(existing: StoredRowShape, desired: DesiredRow): boole
  *     or a stale/incorrect row is corrected (the worker "reviews + adjusts"),
  *   - leaves unchanged rows untouched (idempotent — most scans write nothing).
  * It never downgrades a PUBLISHED day to REVIEW, so coverage can only improve.
- * Covered days store verified text; the rest store framing + the official link.
+ *
+ * Every day in the window stores the readings the tables resolve — the
+ * citations always, the Douay-Rheims text wherever it aligns. A bare skeleton
+ * (null citations) is only ever written for a day the tables do not cover.
+ *
+ * Database failures are COUNTED, not swallowed: a run where nothing succeeded
+ * and something failed throws, so a mis-pointed or unreachable database can no
+ * longer be reported to the Command Center as "readings refreshed".
  */
 export async function backfillDailyReadings(
   prisma: PrismaClient,
@@ -342,12 +377,12 @@ export async function backfillDailyReadings(
 ): Promise<BackfillResult> {
   const calendar = "roman-ordinary";
   const locale = "en";
-  // Default to the FULL liturgical year in BOTH directions: a year back so the
-  // days already elapsed this liturgical year are filled too (not just the
-  // future), plus a year forward. There is exactly one row per
-  // (date, calendar, locale) — a reading that recurs on a later day is never
-  // stored twice. Callers may still pass explicit `from` / `days`.
-  const days = Math.max(1, opts.days ?? 770);
+  // A THREE-YEAR window: a year back (so the days already elapsed this
+  // liturgical year are filled too) plus two years forward, which covers the
+  // whole Sunday cycle A/B/C and both weekday cycles. There is exactly one row
+  // per (date, calendar, locale) — a reading that recurs on a later day is
+  // never stored twice. Callers may still pass explicit `from` / `days`.
+  const days = Math.max(1, opts.days ?? 1096);
   const defaultFrom = new Date(utcMidnight(new Date()).getTime() - 365 * 86_400_000);
   const start = utcMidnight(opts.from ?? defaultFrom);
   const end = new Date(start.getTime() + (days - 1) * 86_400_000);
@@ -367,14 +402,23 @@ export async function backfillDailyReadings(
     unchanged: 0,
     published: 0,
     review: 0,
+    failed: 0,
+    firstError: null,
+  };
+  const noteFailure = (err: unknown): void => {
+    result.failed++;
+    if (!result.firstError) result.firstError = err instanceof Error ? err.message : String(err);
   };
 
   for (let i = 0; i < days; i++) {
     const date = new Date(start.getTime() + i * 86_400_000);
     const framing = buildReadingFraming(date);
     const fetched = await fetchReadingsForDate(date, { calendar, locale });
-    const hasText = !!fetched && fetched.confidence >= 0.7;
-    const sections = hasText && fetched ? fetched.sections : framing.sections;
+    const hasText = isPublishable(fetched);
+    // Store the resolved sections whenever the tables cover the day, published
+    // or not: a REVIEW row then still carries the day's citations instead of an
+    // empty skeleton.
+    const sections = fetched?.sections ?? framing.sections;
     const desired: DesiredRow = {
       seasonLabel: framing.seasonLabel,
       sundayCycle: framing.sundayCycle,
@@ -382,7 +426,7 @@ export async function backfillDailyReadings(
       color: framing.color,
       sourceUrl: framing.sourceUrl,
       sourceName: framing.sourceName,
-      sourceConfidence: hasText && fetched ? fetched.confidence : 0,
+      sourceConfidence: hasText ? fetched.confidence : 0,
       status: hasText ? "PUBLISHED" : "REVIEW",
       sections,
     };
@@ -413,25 +457,37 @@ export async function backfillDailyReadings(
       await prisma.dailyReading
         .create({ data: { date, ...payload } })
         .then(() => result.created++)
-        .catch(() => undefined);
+        .catch(noteFailure);
     } else if (readingRowDiffers(existing, desired)) {
       await prisma.dailyReading
         .update({ where: { date_calendar_locale: { date, calendar, locale } }, data: payload })
         .then(() => result.updated++)
-        .catch(() => undefined);
+        .catch(noteFailure);
     } else {
       result.unchanged++;
     }
   }
 
+  const wrote = result.created + result.updated + result.unchanged;
   await writeAdminWorkerLog(prisma, {
     passId: opts.passId,
     category: "CONTENT_BUILD",
-    severity: "INFO",
+    severity: result.failed > 0 ? "WARN" : "INFO",
     eventName: "daily_readings_backfill",
-    message: `Daily-readings scan of ${result.scanned} day(s): ${result.created} created, ${result.updated} adjusted, ${result.published} with verified text, ${result.review} on the official link.`,
+    message:
+      `Daily-readings scan of ${result.scanned} day(s): ${result.created} created, ${result.updated} adjusted, ` +
+      `${result.published} with verified text, ${result.review} citation-only` +
+      (result.failed > 0 ? `, ${result.failed} FAILED (${result.firstError}).` : "."),
     safeMetadata: { ...result },
   }).catch(() => undefined);
+
+  // Nothing landed and something failed → the database, not the lectionary, is
+  // the problem. Throw so the lane reports an error instead of "refreshed".
+  if (wrote === 0 && result.failed > 0) {
+    throw new Error(
+      `Daily-readings backfill wrote nothing: ${result.failed} of ${result.scanned} day(s) failed. First error: ${result.firstError}`,
+    );
+  }
 
   return result;
 }

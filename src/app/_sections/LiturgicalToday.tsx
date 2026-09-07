@@ -29,6 +29,11 @@ export function LiturgicalToday() {
     setDay(liturgicalDay(localCivilDate()));
   }, []);
 
+  // Carry the VISITOR's civil date to the readings page: the server renders in
+  // UTC, so an evening visitor in the Americas would otherwise be sent to
+  // tomorrow's Mass.
+  const readingsHref = day ? `/liturgy/readings?date=${day.date}` : "/liturgy/readings";
+
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-12 text-center sm:px-6">
       <p className="vf-eyebrow text-ink-faint">Today</p>
@@ -44,7 +49,7 @@ export function LiturgicalToday() {
               {day.isJubileeYear ? " · Jubilee Year" : ""}
             </p>
             <p className="mt-1 font-serif text-xs text-ink-faint">Liturgical colour: {day.color}</p>
-            <Link href="/liturgy/readings" className="vf-btn vf-btn-primary mt-6 inline-block">
+            <Link href={readingsHref} className="vf-btn vf-btn-primary mt-6 inline-block">
               Read today&apos;s Mass readings →
             </Link>
             <p className="mt-4">

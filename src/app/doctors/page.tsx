@@ -1,13 +1,28 @@
 import Link from "next/link";
 
-import { PageHero, PaginatedGrid } from "@/components/ui";
+import {
+  LIST_PAGE_SIZE,
+  PageHero,
+  PaginatedGrid,
+  Pagination,
+  pageSlice,
+  parsePageParam,
+} from "@/components/ui";
 import { listPublished } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Doctors of the Church" };
 
-export default async function DoctorsPage() {
+export default async function DoctorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page: pageParam } = await searchParams;
+  // A closed list (37 Doctors), and each card shows the Doctor's epithet from
+  // the payload, so the type is read whole and paged here.
   const doctors = await listPublished("DOCTOR");
+  const page = pageSlice(doctors, parsePageParam(pageParam), LIST_PAGE_SIZE);
 
   return (
     <div>
@@ -23,22 +38,25 @@ export default async function DoctorsPage() {
           the checklist-first worker.
         </div>
       ) : (
-        <PaginatedGrid
-          items={doctors.map((d) => {
-            const payload = d.payload as Record<string, unknown>;
-            const epithet = typeof payload.doctorTitle === "string" ? payload.doctorTitle : "";
-            return (
-              <Link
-                key={d.id}
-                href={`/doctors/${d.slug}`}
-                className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30"
-              >
-                {epithet ? <p className="vf-eyebrow">{epithet}</p> : null}
-                <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{d.title}</h2>
-              </Link>
-            );
-          })}
-        />
+        <>
+          <PaginatedGrid
+            items={page.items.map((d) => {
+              const payload = d.payload as Record<string, unknown>;
+              const epithet = typeof payload.doctorTitle === "string" ? payload.doctorTitle : "";
+              return (
+                <Link
+                  key={d.id}
+                  href={`/doctors/${d.slug}`}
+                  className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30"
+                >
+                  {epithet ? <p className="vf-eyebrow">{epithet}</p> : null}
+                  <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{d.title}</h2>
+                </Link>
+              );
+            })}
+          />
+          <Pagination basePath="/doctors" page={page.page} totalPages={page.pageCount} />
+        </>
       )}
     </div>
   );

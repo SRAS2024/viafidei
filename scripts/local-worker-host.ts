@@ -85,7 +85,11 @@ import {
   summarizeDatabaseError,
   type DatabaseProbe,
 } from "../src/lib/admin-worker/local-config";
-import { describeWorkerExitKind, interpretWorkerExit } from "../src/lib/admin-worker/worker-exit";
+import {
+  describeWorkerExitKind,
+  interpretWorkerExit,
+  LEASE_HELD_ELSEWHERE_MESSAGE,
+} from "../src/lib/admin-worker/worker-exit";
 import { localHostLabel, sampleLocalResources } from "../src/lib/admin-worker/local-resources";
 import { loadCommandCenterSnapshot } from "../src/lib/admin-worker/command-center";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
@@ -1412,6 +1416,15 @@ async function main(): Promise<void> {
           "execution lease is held by another runtime — stopping the local worker to avoid double execution",
         );
         await stopWorkerChild("execution lease lost");
+        // stopWorkerChild leaves runState "off" and no reason — which reads as
+        // an ordinary operator stop. It is not: another computer is executing.
+        // Say so on the same surfaces the exit-5 path uses (worker-exit.ts), so
+        // the app never shows a silent "off" for a lease hand-off.
+        host.runState = "failed";
+        host.failureReason = `The local worker stopped: ${LEASE_HELD_ELSEWHERE_MESSAGE}`;
+        host.leaseHeldElsewhere = true;
+        invalidateExecutionCache();
+        broadcast("status", statusPayload());
         return;
       }
       // The heartbeat is otherwise written once per pass; a long pass would

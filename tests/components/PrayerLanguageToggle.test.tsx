@@ -9,6 +9,12 @@ import type { PrayerVariant } from "@/lib/content-shared/prayer-language";
 
 const EN: PrayerVariant = { code: "en", label: "English", text: "Hail Mary...", preserve: false };
 const LA: PrayerVariant = { code: "la", label: "Latin", text: "Ave Maria...", preserve: true };
+const ES: PrayerVariant = {
+  code: "es",
+  label: "Spanish",
+  text: "Dios te salve...",
+  preserve: false,
+};
 
 afterEach(() => cleanup());
 beforeEach(() => window.sessionStorage.clear());
@@ -70,5 +76,32 @@ describe("PrayerLanguageToggle", () => {
     expect(screen.getByText("Hail Mary...")).toBeInTheDocument();
     expect(latinBtn).toHaveAttribute("aria-pressed", "false");
     expect(window.sessionStorage.getItem("vf_prayer_lang")).toBe("vernacular");
+  });
+
+  // PR-13: the schema and buildPrayerVariants have always accepted vernacular
+  // translations (es/it/fr/…), but only Latin/Greek got chips, so a Spanish
+  // translation could be published and never read.
+  it("offers a chip for a vernacular translation, not only Latin/Greek", () => {
+    render(<PrayerLanguageToggle variants={[EN, LA, ES]} />);
+    expect(screen.getByRole("button", { name: "Latin" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Spanish" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Spanish" }));
+    expect(screen.getByText("Dios te salve...")).toBeInTheDocument();
+    expect(screen.queryByText("Hail Mary...")).not.toBeInTheDocument();
+    // A translation is NOT liturgical text, so it stays translatable.
+    expect(screen.getByText("Dios te salve...")).not.toHaveAttribute("translate", "no");
+  });
+
+  it("shows no chip at all for a Latin-only prayer (a chip that toggles nothing)", () => {
+    render(<PrayerLanguageToggle variants={[LA]} />);
+    expect(screen.getByText("Ave Maria...")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /prayer language/i })).not.toBeInTheDocument();
+  });
+
+  it("restores a persisted vernacular translation on mount", () => {
+    window.sessionStorage.setItem("vf_prayer_lang", "es");
+    render(<PrayerLanguageToggle variants={[EN, LA, ES]} />);
+    expect(screen.getByText("Dios te salve...")).toBeInTheDocument();
   });
 });

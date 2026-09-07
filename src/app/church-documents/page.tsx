@@ -1,7 +1,14 @@
 import Link from "next/link";
 
-import { FilterChips, PageHero } from "@/components/ui";
-import { PaginatedGrid } from "@/components/ui/PaginatedGrid";
+import {
+  FilterChips,
+  LIST_PAGE_SIZE,
+  PageHero,
+  PaginatedGrid,
+  Pagination,
+  pageSlice,
+  parsePageParam,
+} from "@/components/ui";
 import {
   DOCUMENT_CATEGORIES,
   documentCategory,
@@ -17,7 +24,7 @@ export const metadata = {
     "Encyclicals, council documents, the Catechism, Canon Law, and other magisterial texts, with links to the official source.",
 };
 
-type Props = { searchParams: Promise<{ filter?: string }> };
+type Props = { searchParams: Promise<{ filter?: string; page?: string }> };
 
 function hostLabel(url: string): string {
   try {
@@ -28,10 +35,13 @@ function hostLabel(url: string): string {
 }
 
 export default async function ChurchDocumentsPage({ searchParams }: Props) {
-  const { filter } = await searchParams;
+  const { filter, page: pageParam } = await searchParams;
   const selected = documentCategory(filter);
+  // Each card shows the document's summary and its official-source link, both
+  // in the payload, so the magisterial corpus is read whole and paged here.
   const all = await listPublished("CHURCH_DOCUMENT");
   const documents = filterDocuments(all, selected.key);
+  const page = pageSlice(documents, parsePageParam(pageParam), LIST_PAGE_SIZE);
 
   // Only offer a category chip when at least one document falls under it.
   const present = new Set<string>();
@@ -40,7 +50,7 @@ export default async function ChurchDocumentsPage({ searchParams }: Props) {
     if (all.some((d) => cat.matches(d.payload))) present.add(cat.key);
   }
 
-  const cards = documents.map((doc) => {
+  const cards = page.items.map((doc) => {
     const url = typeof doc.payload.canonicalUrl === "string" ? doc.payload.canonicalUrl : undefined;
     const summary = typeof doc.payload.summary === "string" ? doc.payload.summary : "";
     return (
@@ -94,7 +104,15 @@ export default async function ChurchDocumentsPage({ searchParams }: Props) {
           No documents in this category yet.
         </div>
       ) : (
-        <PaginatedGrid items={cards} />
+        <>
+          <PaginatedGrid items={cards} />
+          <Pagination
+            basePath="/church-documents"
+            page={page.page}
+            totalPages={page.pageCount}
+            searchParams={{ filter: selected.key === "all" ? undefined : selected.key }}
+          />
+        </>
       )}
     </div>
   );

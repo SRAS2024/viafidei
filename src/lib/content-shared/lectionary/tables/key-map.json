@@ -1,0 +1,6202 @@
+{
+  "advent-1-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "179",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "175",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "180",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "1",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "2",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "3",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "178",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "176",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "177",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1217": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "193",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1218": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "194",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1219": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "195",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1220": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "196",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1221": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "197",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1222": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "198",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1223": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "199",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-1224": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "200",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-2-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "185",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-2-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "181",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-2-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "186",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-2-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "4",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "5",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "6",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-2-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "184",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-2-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "182",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-2-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "183",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-3-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "191",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    }
+  ],
+  "advent-3-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "187",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-3-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "7",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "8",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "9",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-3-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "190",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-3-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "188",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-3-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "189",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "advent-4-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "10",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "11",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "12",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "after-ashes-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "221",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "after-ashes-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "222",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "after-ashes-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "220",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "after-epiphany-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "216",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "after-epiphany-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "212",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "after-epiphany-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "217",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "after-epiphany-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "215",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "after-epiphany-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "213",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "after-epiphany-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "214",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "all-saints": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "667",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "all-souls": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "668",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "annunciation": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "545",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "archangels": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "647",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ascension": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "58",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ash-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "219",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "assumption": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "622",
+          "variant": "day"
+        },
+        {
+          "number": "621",
+          "variant": "vigil"
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "baptism-of-the-lord": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "21",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "chair-of-st-peter": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "535",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "christ-the-king": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "160",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "161",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "162",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "christmas-0102": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "205",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "christmas-0103": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "206",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "christmas-0104": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "207",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "christmas-0105": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "208",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "christmas-0106": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "209",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "christmas-0107": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "210",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "christmas-1229": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "202",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "christmas-1230": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "203",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "christmas-1231": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "204",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "christmas-2-sunday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "19",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    }
+  ],
+  "conversion-of-st-paul": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "519",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "corpus-christi": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "167",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "168",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "169",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-2-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "271",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-2-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "267",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-2-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "272",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-2-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "43",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "44",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "45",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-2-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "270",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-2-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "268",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-2-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "269",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-3-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "277",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-3-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "273",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-3-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "278",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-3-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "46",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "47",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "48",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-3-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "276",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-3-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "274",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-3-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "275",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-4-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "283",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-4-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "279",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-4-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "284",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-4-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "49",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "50",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "51",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-4-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "282",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-4-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "280",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-4-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "281",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-5-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "289",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-5-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "285",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-5-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "290",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-5-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "52",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "53",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "54",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-5-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "288",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-5-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "286",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-5-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "287",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-6-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "295",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-6-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "291",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-6-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "296",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-6-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "55",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "56",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "57",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-6-thursday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "58",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "294",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "294",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-6-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "292",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-6-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "293",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-7-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "301",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-7-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "297",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-7-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "302",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-7-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "59",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "60",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "61",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    }
+  ],
+  "easter-7-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "300",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-7-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "298",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-7-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "299",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-octave-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "265",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-octave-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "261",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-octave-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "266",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-octave-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "264",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-octave-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "262",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-octave-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "263",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-sunday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "42",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "easter-vigil": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "41",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "epiphany": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "20",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "exaltation-of-the-cross": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "638",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "good-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "40",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "guardian-angels": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "650",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    }
+  ],
+  "holy-family": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "17",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "holy-innocents": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "698",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "holy-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "39",
+          "variant": null
+        },
+        {
+          "number": "260",
+          "variant": "chrism"
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "holy-week-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "257",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "holy-week-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "258",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "holy-week-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "259",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "immaculate-conception": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "689",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "immaculate-heart": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "573",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    }
+  ],
+  "lateran-basilica": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "671",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-1-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "228",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-1-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "224",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-1-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "229",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-1-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "22",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "23",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "24",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-1-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "227",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-1-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "225",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-1-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "226",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-2-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "234",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-2-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "230",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-2-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "235",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-2-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "25",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "26",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "27",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-2-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "233",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-2-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "231",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-2-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "232",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-3-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "241",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-3-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "237",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-3-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "242",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-3-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "28",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "29",
+          "variant": null
+        },
+        {
+          "number": "28",
+          "variant": "year-a"
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "30",
+          "variant": null
+        },
+        {
+          "number": "28",
+          "variant": "year-a"
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-3-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "240",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-3-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "238",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-3-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "239",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-4-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "248",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-4-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "244",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-4-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "249",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-4-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "31",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "31",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "33",
+          "variant": null
+        },
+        {
+          "number": "31",
+          "variant": "year-a"
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-4-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "247",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-4-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "245",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-4-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "246",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-5-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "255",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-5-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "251",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-5-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "256",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-5-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "34",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "35",
+          "variant": null
+        },
+        {
+          "number": "34",
+          "variant": "year-a"
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "36",
+          "variant": null
+        },
+        {
+          "number": "34",
+          "variant": "year-a"
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-5-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "254",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-5-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "252",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "lent-5-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "253",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "mary-mother-of-god": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "18",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "mary-mother-of-the-church": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "572",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "nativity": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "16",
+          "variant": "day"
+        },
+        {
+          "number": "15",
+          "variant": "dawn"
+        },
+        {
+          "number": "14",
+          "variant": "night"
+        },
+        {
+          "number": "13",
+          "variant": "vigil"
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "nativity-of-john-the-baptist": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "587",
+          "variant": "day"
+        },
+        {
+          "number": "586",
+          "variant": "vigil"
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "nativity-of-mary": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "636",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-1-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "309",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-1-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "305",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-1-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "310",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-1-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "308",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-1-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "306",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-1-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "307",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-10-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "363",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-10-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "359",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-10-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "364",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-10-sunday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "89",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-10-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "362",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-10-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "360",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-10-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "361",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-11-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "369",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-11-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "365",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-11-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "370",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-11-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "91",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "92",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-11-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "368",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-11-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "366",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-11-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "367",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-12-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "375",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-12-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "371",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-12-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "376",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-12-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "94",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "95",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "96",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-12-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "374",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-12-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "372",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-12-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "373",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-13-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "381",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-13-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "377",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-13-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "382",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-13-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "97",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "98",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-13-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "380",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-13-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "378",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-13-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "379",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-14-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "387",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-14-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "383",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-14-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "388",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-14-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "100",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "101",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "102",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-14-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "386",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-14-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "384",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-14-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "385",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-15-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "393",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-15-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "389",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-15-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "394",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-15-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "103",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "104",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "105",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-15-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "392",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-15-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "390",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-15-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "391",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-16-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "399",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-16-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "395",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-16-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "400",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-16-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "106",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "107",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "108",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-16-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "398",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-16-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "396",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-16-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "397",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-17-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "405",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-17-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "401",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-17-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "406",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-17-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "109",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "110",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "111",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-17-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "404",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-17-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "402",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-17-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "403",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-18-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "411",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-18-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "407",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-18-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "412",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-18-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "112",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "113",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "114",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-18-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "410",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-18-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "408",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-18-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "409",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-19-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "417",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-19-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "413",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-19-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "418",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-19-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "115",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "116",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "117",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-19-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "416",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-19-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "414",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-19-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "415",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-2-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "315",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-2-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "311",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-2-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "316",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-2-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "64",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "65",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "66",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-2-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "314",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-2-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "312",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-2-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "313",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-20-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "423",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-20-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "419",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-20-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "424",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-20-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "118",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "119",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "120",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-20-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "422",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-20-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "420",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-20-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "421",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-21-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "429",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-21-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "425",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-21-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "430",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-21-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "121",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "122",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "123",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-21-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "428",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-21-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "426",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-21-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "427",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-22-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "435",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-22-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "431",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-22-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "436",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-22-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "124",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "125",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "126",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-22-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "434",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-22-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "432",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-22-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "433",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-23-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "441",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-23-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "437",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-23-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "442",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-23-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "127",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "128",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "129",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-23-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "440",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-23-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "438",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-23-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "439",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-24-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "447",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-24-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "443",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-24-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "448",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-24-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "130",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "131",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "132",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-24-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "446",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-24-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "444",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-24-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "445",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-25-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "453",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-25-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "449",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-25-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "454",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-25-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "133",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "134",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "135",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-25-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "452",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-25-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "450",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-25-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "451",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-26-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "459",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-26-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "455",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-26-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "460",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-26-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "136",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "137",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "138",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-26-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "458",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-26-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "456",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-26-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "457",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-27-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "465",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-27-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "461",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-27-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "466",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-27-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "139",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "140",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "141",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-27-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "464",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-27-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "462",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-27-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "463",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-28-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "471",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-28-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "467",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-28-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "472",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-28-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "142",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "143",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "144",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-28-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "470",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-28-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "468",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-28-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "469",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-29-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "477",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-29-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "473",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-29-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "478",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-29-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "145",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "146",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "147",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-29-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "476",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-29-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "474",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-29-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "475",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-3-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "321",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-3-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "317",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-3-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "322",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-3-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "67",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "68",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "69",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-3-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "320",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-3-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "318",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-3-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "319",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-30-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "483",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-30-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "479",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-30-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "484",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-30-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "148",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "149",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "150",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-30-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "482",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-30-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "480",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-30-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "481",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-31-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "489",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-31-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "485",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-31-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "490",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-31-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "151",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "152",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "153",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-31-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "488",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-31-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "486",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-31-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "487",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-32-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "495",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-32-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "491",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-32-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "496",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-32-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "154",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "155",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-32-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "494",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-32-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "492",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-32-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "493",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-33-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "501",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-33-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "497",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-33-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "502",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-33-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "157",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "158",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "159",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-33-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "500",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-33-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "498",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-33-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "499",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-34-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "507",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-34-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "503",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-34-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "508",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-34-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "506",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-34-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "504",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-34-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "505",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-4-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "327",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-4-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "323",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-4-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "328",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-4-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "70",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "71",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "72",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-4-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "326",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-4-tuesday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "317",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "324",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "324",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-4-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "325",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-5-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "333",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-5-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "329",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-5-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "334",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-5-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "73",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "74",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "75",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-5-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "332",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-5-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "330",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-5-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "331",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-6-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "339",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-6-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "335",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-6-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "340",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-6-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "76",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "77",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "78",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-6-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "338",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-6-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "336",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-6-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "337",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-7-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "345",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-7-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "341",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-7-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "346",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-7-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "79",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "81",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-7-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "344",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-7-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "342",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-7-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "343",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-8-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "351",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-8-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "347",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-8-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "352",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-8-sunday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "84",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-8-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "350",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-8-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "348",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-8-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "349",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-9-friday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "357",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-9-monday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "353",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-9-saturday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "358",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-9-sunday": [
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "87",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    }
+  ],
+  "ordinary-9-thursday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "356",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-9-tuesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "354",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "ordinary-9-wednesday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "355",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "our-lady-of-guadalupe": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "690A",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "690A",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "690",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "our-lady-of-sorrows": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "639",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    }
+  ],
+  "palm-sunday": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "37",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "passion-of-john-the-baptist": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "634",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    }
+  ],
+  "pentecost": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "63",
+          "variant": "day"
+        },
+        {
+          "number": "62",
+          "variant": "vigil"
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "63",
+          "variant": "day"
+        },
+        {
+          "number": "62",
+          "variant": "vigil"
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "63",
+          "variant": "day"
+        },
+        {
+          "number": "62",
+          "variant": "extended-vigil"
+        },
+        {
+          "number": "62",
+          "variant": "vigil"
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "presentation": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "524",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "sacred-heart": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "170",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "171",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "172",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-andrew": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "684",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-barnabas": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "580",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-bartholomew": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "629",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-james": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "605",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-john-apostle": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "697",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-joseph": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "543",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-lawrence": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "618",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-luke": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "661",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-mark": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "555",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-mary-magdalene": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "603",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-matthew": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "643",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-matthias": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "564",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-stephen": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "696",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "st-thomas-apostle": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "593",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "sts-martha-mary-and-lazarus": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "607",
+          "variant": null
+        }
+      ],
+      "source": "labels"
+    }
+  ],
+  "sts-peter-and-paul": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "591",
+          "variant": "day"
+        },
+        {
+          "number": "590",
+          "variant": "vigil"
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "sts-philip-and-james": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "561",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "sts-simon-and-jude": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "666",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "sts-timothy-and-titus": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "520",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "transfiguration": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "614",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "trinity-sunday": [
+    {
+      "cycle": "A",
+      "masses": [
+        {
+          "number": "164",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "B",
+      "masses": [
+        {
+          "number": "165",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    },
+    {
+      "cycle": "C",
+      "masses": [
+        {
+          "number": "166",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ],
+  "visitation": [
+    {
+      "cycle": null,
+      "masses": [
+        {
+          "number": "572",
+          "variant": null
+        }
+      ],
+      "source": "dates"
+    }
+  ]
+}

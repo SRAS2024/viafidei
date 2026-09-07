@@ -17,6 +17,7 @@ import type { PrismaClient } from "@prisma/client";
 
 import { validatePayload } from "@/lib/checklist";
 import {
+  isStandaloneCelebration,
   mapLiturgicalEvent,
   mapLiturgicalSeasons,
   normaliseSaintName,
@@ -152,6 +153,122 @@ describe("mapLiturgicalEvent", () => {
     expect(hasSaintPage("Saints Cornelius, Pope, and Cyprian, Bishop, Martyrs")).toBe(false);
     expect(normaliseSaintName("Saint Rose of Lima, Virgin")).toBe("rose of lima");
     expect(normaliseSaintName("St. Thérèse of Lisieux")).toBe("therese of lisieux");
+  });
+});
+
+/**
+ * Verbatim rows from the live API (nation/US, year 2026): the calendar returns
+ * 139 events at grade >= 5, and all but ~28 of them are Sundays of a season,
+ * their vigil Masses, or weekdays of Holy Week / the Easter Octave.
+ */
+const SAMPLE_2026 = [
+  { event_key: "Advent1_vigil", name: "First Sunday of Advent Vigil Mass", grade: 7 },
+  { event_key: "Advent1", name: "First Sunday of Advent", grade: 7 },
+  { event_key: "Christmas_vigil", name: "Christmas Vigil Mass", grade: 7 },
+  { event_key: "Christmas", name: "Christmas", grade: 7 },
+  { event_key: "OrdSunday23", name: "23rd Sunday of Ordinary Time", grade: 5 },
+  { event_key: "OrdSunday23_vigil", name: "23rd Sunday of Ordinary Time Vigil Mass", grade: 5 },
+  { event_key: "MonOctaveEaster", name: "Monday of the Octave of Easter", grade: 7 },
+  { event_key: "WedHolyWeek", name: "Wednesday of Holy Week", grade: 7 },
+  { event_key: "HolyThursChrism", name: "Chrism Mass", grade: 7 },
+  { event_key: "Easter2", name: "Second Sunday of Easter or Divine Mercy Sunday", grade: 7 },
+  { event_key: "AshWednesday", name: "Ash Wednesday", grade: 7 },
+  { event_key: "AllSouls", name: "The Commemoration of all the Faithful Departed", grade: 6 },
+  { event_key: "DedicationLateran", name: "The Dedication of the Lateran Basilica", grade: 5 },
+  { event_key: "StJoseph", name: "Saint Joseph Husband of the Blessed Virgin Mary", grade: 6 },
+].map((e) => ({
+  ...e,
+  date: "2026-01-01T00:00:00+00:00",
+  grade_lcl: "Solemnity",
+  liturgical_season: "ORDINARY_TIME",
+  liturgical_season_lcl: "Ordinary Time",
+}));
+
+describe("isStandaloneCelebration (the calendar API lists every Mass, not every celebration)", () => {
+  it("rejects vigil Masses, Sundays of a season, and weekdays of Holy Week / the Octave", () => {
+    const rejected = SAMPLE_2026.filter((e) => !isStandaloneCelebration(e)).map((e) => e.event_key);
+    expect(rejected).toEqual([
+      "Advent1_vigil",
+      "Advent1",
+      "Christmas_vigil",
+      "OrdSunday23",
+      "OrdSunday23_vigil",
+      "MonOctaveEaster",
+      "WedHolyWeek",
+      "HolyThursChrism",
+      "Easter2",
+    ]);
+  });
+
+  it("keeps the named celebrations", () => {
+    const kept = SAMPLE_2026.filter(isStandaloneCelebration).map((e) => e.event_key);
+    expect(kept).toEqual([
+      "Christmas",
+      "AshWednesday",
+      "AllSouls",
+      "DedicationLateran",
+      "StJoseph",
+    ]);
+  });
+
+  it("falls back to the printed name when the event has no event_key", () => {
+    expect(isStandaloneCelebration({ name: "23rd Sunday of Ordinary Time Vigil Mass" })).toBe(
+      false,
+    );
+    expect(isStandaloneCelebration({ name: "Third Sunday of Lent" })).toBe(false);
+    expect(isStandaloneCelebration({ name: "The Assumption of the Blessed Virgin Mary" })).toBe(
+      true,
+    );
+    expect(isStandaloneCelebration({ name: "Palm Sunday" })).toBe(true);
+  });
+
+  it("mapLiturgicalEvent refuses them however high their grade", () => {
+    for (const event of SAMPLE_2026.filter((e) => !isStandaloneCelebration(e))) {
+      expect(mapLiturgicalEvent(event, isFixed), event.event_key).toBeNull();
+    }
+    expect(
+      mapLiturgicalEvent(SAMPLE_2026.find((e) => e.event_key === "AllSouls")!, isFixed),
+    ).not.toBeNull();
+  });
+});
+
+describe("curated-page dedupe", () => {
+  it("names the curated page a celebration already has", () => {
+    expect(mapLiturgicalEvent(ASSUMPTION, isFixed)!.curatedSlug).toBe("solemnity-assumption");
+    expect(mapLiturgicalEvent(EASTER, isFixed)!.curatedSlug).toBe("solemnity-easter");
+    // A celebration with no curated page publishes under its own slug.
+    const allSouls = mapLiturgicalEvent(
+      SAMPLE_2026.find((e) => e.event_key === "AllSouls")!,
+      isFixed,
+    )!;
+    expect(allSouls.curatedSlug).toBeUndefined();
+  });
+
+  it("does not publish a second record beside the live curated page", async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ litcal: [ASSUMPTION, EASTER] }),
+    })) as unknown as typeof global.fetch;
+    const prisma = makePrisma();
+    // The curated wave has published the Assumption under ITS slug and title —
+    // neither of which the calendar API's slug/title would ever match.
+    (prisma.publishedContent as { findMany: unknown }).findMany = vi.fn(
+      async ({ where }: { where?: { contentType?: string } }) =>
+        where?.contentType === "LITURGICAL"
+          ? [
+              {
+                slug: "solemnity-assumption",
+                title: "Solemnity of the Assumption of the Blessed Virgin Mary",
+              },
+            ]
+          : [],
+    );
+
+    const out = await runLiturgicalCalendarIngest(prisma, { force: true });
+    expect(out.alreadyPublished).toBe(1);
+    const slugs = mockedPublish.mock.calls.map((c) => c[1].slug);
+    expect(slugs).not.toContain("liturgical-the-assumption-of-the-blessed-virgin-mary");
+    expect(slugs).toContain("liturgical-easter-sunday-of-the-resurrection-of-the-lord");
   });
 });
 

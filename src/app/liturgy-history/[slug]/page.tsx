@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { PublishedDetail } from "@/components/ui";
+import {
+  OfficialSourceLink,
+  PublishedDetail,
+  RelatedContentLinks,
+  resolveRelatedLinks,
+} from "@/components/ui";
 import {
   getPublishedBySlug,
   getAnyPublishedBySlug,
@@ -23,6 +28,8 @@ export default async function LiturgyHistoryDetailPage({ params }: Props) {
   const { slug } = await params;
   const liturgy = await getPublishedBySlug("LITURGICAL", slug);
   if (liturgy) {
+    // associatedSaintSlugs is a slug list — resolved to titled saint links.
+    const saints = await resolveRelatedLinks("SAINT", liturgy.payload.associatedSaintSlugs);
     return (
       <PublishedDetail
         item={liturgy}
@@ -33,25 +40,36 @@ export default async function LiturgyHistoryDetailPage({ params }: Props) {
           "season",
           "feastDate",
           "movableFeast",
-          "associatedSaintSlugs",
           "associatedReadings",
         ]}
+        footer={
+          saints.length > 0 ? (
+            <div className="w-full">
+              <RelatedContentLinks title="Saints of this day" links={saints} />
+            </div>
+          ) : null
+        }
       />
     );
   }
   const document = await getPublishedBySlug("CHURCH_DOCUMENT", slug);
   if (document) {
+    // The canonical URL is the document ON vatican.va — a link, not a line of
+    // text under a "Canonical Url" heading.
+    const canonicalUrl =
+      typeof document.payload.canonicalUrl === "string" ? document.payload.canonicalUrl : null;
     return (
       <PublishedDetail
         item={document}
         primaryFields={["bodyExcerpt", "keyThemes"]}
-        secondaryFields={[
-          "documentType",
-          "issuingAuthority",
-          "issuedDate",
-          "canonicalUrl",
-          "relatedDocuments",
-        ]}
+        secondaryFields={["documentType", "issuingAuthority", "issuedDate", "relatedDocuments"]}
+        footer={
+          canonicalUrl ? (
+            <div className="w-full">
+              <OfficialSourceLink url={canonicalUrl} label="Read the full document" />
+            </div>
+          ) : null
+        }
       />
     );
   }

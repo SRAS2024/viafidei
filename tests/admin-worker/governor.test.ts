@@ -175,6 +175,21 @@ describe("computeGovernorVerdict", () => {
     expect(v.reason).toMatch(/stall/i);
   });
 
+  it("prefers MAINTENANCE over re-running REPORTING already run in the window (DG-5)", () => {
+    // The fixation cycle recurs every window, and the forced REPORTING bundle
+    // (diagnostics + a growth snapshot per goal) describes the same state each
+    // time. Once REPORTING has run in this window, the terminal fallback drops
+    // to MAINTENANCE, which does different work on every pass.
+    const v = computeGovernorVerdict({
+      world: world({ contentGoalGap: 40 }), // all queues empty
+      chosenStage: "EXTRACTION",
+      rows: [...rows("EXTRACTION", 3, "needs_repair"), ...rows("REPORTING", 1, "success")],
+      ...BASE,
+    });
+    expect(v.intervene).toBe(true);
+    expect(v.forcedStage).toBe("MAINTENANCE");
+  });
+
   it("prefers REPAIR as the terminal when repair work is pending", () => {
     const v = computeGovernorVerdict({
       world: world({ contentGoalGap: 5, pendingRepairPlans: 2 }),

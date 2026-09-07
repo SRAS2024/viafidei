@@ -1,15 +1,30 @@
 import Link from "next/link";
 
-import { PageHero, PublishedList } from "@/components/ui";
+import {
+  LIST_PAGE_SIZE,
+  PageHero,
+  Pagination,
+  PublishedList,
+  pageSlice,
+  parsePageParam,
+} from "@/components/ui";
 import { getTranslator } from "@/lib/i18n/server";
 import { listPublished } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Devotions" };
 
-export default async function DevotionsPage() {
+export default async function DevotionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
   const { t } = await getTranslator();
+  const { page: pageParam } = await searchParams;
+  // Devotion cards show the devotion's summary from the payload, so the type
+  // is read whole and paged here rather than through the projection.
   const items = await listPublished("DEVOTION");
+  const page = pageSlice(items, parsePageParam(pageParam), LIST_PAGE_SIZE);
   return (
     <div>
       <PageHero
@@ -23,7 +38,9 @@ export default async function DevotionsPage() {
           Browse novenas →
         </Link>
       </p>
-      <PublishedList items={items} baseHref="/devotions" eyebrowField="devotionType" />
+      {/* The eyebrow is the humanised devotion type — never the stored value. */}
+      <PublishedList items={page.items} baseHref="/devotions" eyebrowField="devotionType" />
+      <Pagination basePath="/devotions" page={page.page} totalPages={page.pageCount} />
     </div>
   );
 }

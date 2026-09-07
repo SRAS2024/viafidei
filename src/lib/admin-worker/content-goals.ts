@@ -174,7 +174,12 @@ export async function refreshContentGoals(prisma: PrismaClient): Promise<Content
   for (const goal of goals) {
     const current = countMap.get(goal.contentType) ?? 0;
     const target = effectiveTarget(goal.desiredTarget, goal.canonicalMax ?? null);
-    const gap = Math.max(0, target - current);
+    const gap = isCanonicallyComplete({
+      canonicalMax: goal.canonicalMax ?? null,
+      currentValidCount: current,
+    })
+      ? 0
+      : Math.max(0, target - current);
     if (gap > 0) unmet += 1;
     const status = reconcileStatus(
       goal.status,
@@ -204,6 +209,26 @@ export async function refreshContentGoals(prisma: PrismaClient): Promise<Content
 export function effectiveTarget(desiredTarget: number, canonicalMax: number | null): number {
   if (canonicalMax != null && canonicalMax > 0) return Math.min(desiredTarget, canonicalMax);
   return desiredTarget;
+}
+
+/**
+ * True when a CLOSED type already holds its full canon — the faith fixed the
+ * number and the worker has it (SACRAMENT at 7). Such a type is MET forever:
+ * it must never be planned for, never be the mission target, and never count
+ * as unmet, whatever the stored `gapCount` says. The stored gap can be stale
+ * (an operator raised `desiredTarget` above the maximum, or the row was last
+ * written before `effectiveTarget` existed), so every planning selector checks
+ * the counts directly rather than trusting the column. It is deliberately NOT
+ * a reason to hide or delete anything: an over-full type (8 published
+ * sacraments) is a publish-gate bug to escalate, not content to remove.
+ */
+export function isCanonicallyComplete(goal: {
+  canonicalMax?: number | null;
+  currentValidCount?: number | null;
+}): boolean {
+  const max = goal.canonicalMax ?? null;
+  if (max == null || max <= 0) return false;
+  return (goal.currentValidCount ?? 0) >= max;
 }
 
 /**
@@ -279,7 +304,11 @@ export async function nextPriorityContentType(
   const goals = allGoals.filter(
     (g) =>
       !CURATED_BUILT_CONTENT_TYPES.has(g.contentType) &&
-      !STRUCTURED_BUILT_CONTENT_TYPES.has(g.contentType),
+      !STRUCTURED_BUILT_CONTENT_TYPES.has(g.contentType) &&
+      // A closed type already at its canonical maximum is met for good: the
+      // stored gapCount can still be stale (an operator-raised target), and
+      // targeting SACRAMENT again is how an eighth sacrament gets discovered.
+      !isCanonicallyComplete(g),
   );
   if (goals.length === 0) return null;
 

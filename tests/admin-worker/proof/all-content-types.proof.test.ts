@@ -68,7 +68,8 @@ const SCENARIOS: Scenario[] = [
     }),
     assertFields: (f) => {
       expect(String(f.saintName)).toMatch(/Francis/);
-      expect(f.feastDay).toBe("October 4");
+      // Updated: feastDay is now stored in the schema shape "MM-DD".
+      expect(f.feastDay).toBe("10-04");
       expect(f.feastMonth).toBe(10);
       expect(f.feastDayNumber).toBe(4);
       expect(String(f.patronage)).toMatch(/animals/);

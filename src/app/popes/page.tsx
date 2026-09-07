@@ -1,6 +1,13 @@
 import Link from "next/link";
 
-import { PageHero, PaginatedGrid } from "@/components/ui";
+import {
+  LIST_PAGE_SIZE,
+  PageHero,
+  PaginatedGrid,
+  Pagination,
+  pageSlice,
+  parsePageParam,
+} from "@/components/ui";
 import { listPublished } from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +25,15 @@ function reignLabel(payload: Record<string, unknown>): string {
   return `${start}–${end || "Present"}`;
 }
 
-export default async function PopesPage() {
+export default async function PopesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page: pageParam } = await searchParams;
+  // A pope card shows the reign years, which live in the payload, so the list
+  // (bounded by the ~266 Roman Pontiffs) is read whole and paged here: only
+  // one page of cards is rendered and serialised into the response.
   const popes = await listPublished("POPE");
   // Chronological order, earliest pontificate first.
   const ordered = [...popes].sort(
@@ -26,6 +41,7 @@ export default async function PopesPage() {
       startYear(a.payload as Record<string, unknown>) -
       startYear(b.payload as Record<string, unknown>),
   );
+  const page = pageSlice(ordered, parsePageParam(pageParam), LIST_PAGE_SIZE);
 
   return (
     <div>
@@ -41,21 +57,24 @@ export default async function PopesPage() {
           through the checklist-first worker.
         </div>
       ) : (
-        <PaginatedGrid
-          items={ordered.map((p) => {
-            const reign = reignLabel(p.payload as Record<string, unknown>);
-            return (
-              <Link
-                key={p.id}
-                href={`/popes/${p.slug}`}
-                className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30"
-              >
-                {reign ? <p className="vf-eyebrow">{reign}</p> : null}
-                <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{p.title}</h2>
-              </Link>
-            );
-          })}
-        />
+        <>
+          <PaginatedGrid
+            items={page.items.map((p) => {
+              const reign = reignLabel(p.payload as Record<string, unknown>);
+              return (
+                <Link
+                  key={p.id}
+                  href={`/popes/${p.slug}`}
+                  className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30"
+                >
+                  {reign ? <p className="vf-eyebrow">{reign}</p> : null}
+                  <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{p.title}</h2>
+                </Link>
+              );
+            })}
+          />
+          <Pagination basePath="/popes" page={page.page} totalPages={page.pageCount} />
+        </>
       )}
     </div>
   );

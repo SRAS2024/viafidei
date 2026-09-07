@@ -18,8 +18,10 @@ export default async function HistoryPage() {
   // the client.
   const timeline = await loadHistoryTimeline();
   const { events, eras, minYear, maxYear } = timeline;
-  const firstYear = events[0]?.year;
-  const subtitle = `${events.length} events from ${firstYear ? `c. ${firstYear}` : "the early Church"} to today — councils, saints and martyrs, schisms and reform, and the Magisterium. Scroll the timeline from Pentecost forward.`;
+  // The opening label comes from the first event itself ("c. 33"), so the
+  // subtitle never asserts a precision the dataset does not claim.
+  const firstLabel = events[0]?.dateLabel;
+  const subtitle = `${events.length} events from ${firstLabel ?? "the early Church"} to today — councils, saints and martyrs, schisms and reform, and the Magisterium. Scroll the timeline from Pentecost forward.`;
   return (
     <div>
       <PageHero eyebrow={t("nav.history")} title="Church History" subtitle={subtitle} />

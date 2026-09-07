@@ -54,3 +54,40 @@ export function toDisclosureItems(value: unknown): DisclosureItem[] | null {
   }
   return items;
 }
+
+/** One step of a how-to guide: a number, a title and the instruction itself. */
+export interface GuideStep {
+  /** 1-based position; falls back to array order when the payload omits it. */
+  order: number;
+  title: string;
+  body: string;
+}
+
+/**
+ * Reads a guide's `steps` array into ordered, numbered steps.
+ *
+ * `toDisclosureItems` deliberately drops `order` (a novena day has no number
+ * of its own), which is why guide steps used to render as unnumbered collapsed
+ * rows. Guides need the number, so they get their own reader: it keeps `order`
+ * when the payload carries one, sorts by it, and returns null for anything
+ * that is not a list of title+body objects so the caller can fall back.
+ */
+export function toGuideSteps(value: unknown): GuideStep[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const steps: GuideStep[] = [];
+  for (const [index, el] of value.entries()) {
+    if (typeof el !== "object" || el === null || Array.isArray(el)) return null;
+    const o = el as Record<string, unknown>;
+    const title = typeof o.title === "string" ? o.title.trim() : "";
+    const body = stringFrom(o.body ?? o.text ?? o.content);
+    if (!title || !body) return null;
+    const rawOrder = typeof o.order === "number" && Number.isFinite(o.order) ? o.order : null;
+    steps.push({ order: rawOrder ?? index + 1, title, body });
+  }
+  // A payload with duplicate or missing orders must still read 1, 2, 3 — sort
+  // by the stored order, then renumber from the sorted position.
+  return steps
+    .slice()
+    .sort((a, b) => a.order - b.order)
+    .map((s, i) => ({ ...s, order: i + 1 }));
+}

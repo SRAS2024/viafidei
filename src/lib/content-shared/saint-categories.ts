@@ -29,3 +29,42 @@ export const SAINT_FILTERS: readonly PayloadFilter[] = [
   { key: "virgins", label: "Virgins", matches: (p) => fieldIn(p, "saintType", ["virgin"]) },
   { key: "laity", label: "Laity", matches: (p) => fieldIn(p, "saintType", ["lay"]) },
 ];
+
+/**
+ * The stored `saintType` values behind each chip.
+ *
+ * `PublishedContent.subtype` carries `saintType` (see derived-columns.ts), so
+ * the /saints page filters and counts in SQL against these values instead of
+ * loading every saint and running `matches()` in JS. Keep this in step with
+ * `SAINT_FILTERS` above — the test asserts every non-"all" filter has an entry.
+ */
+export const SAINT_FILTER_SUBTYPES: Readonly<Record<string, readonly string[]>> = {
+  martyrs: ["martyr"],
+  apostles: ["apostle", "evangelist"],
+  popes: ["pope"],
+  bishops: ["bishop"],
+  religious: ["religious", "founder", "missionary"],
+  virgins: ["virgin"],
+  laity: ["lay"],
+};
+
+/**
+ * The eyebrow for a saint card built from the indexed `subtype` alone.
+ *
+ * Mirrors `saintTitleLabel`'s discipline (spec — "Saint Titles"): only the
+ * Apostles, the Evangelists and the Doctors of the Church carry a label.
+ * Martyr, Virgin, Bishop and the rest deliberately show none rather than
+ * printing the stored enum, and "other"/"confessor" never surface at all.
+ */
+export function saintSubtypeLabel(subtype: string | null | undefined): string | undefined {
+  switch (subtype) {
+    case "apostle":
+      return "Apostle and Disciple of Jesus";
+    case "evangelist":
+      return "Evangelist";
+    case "doctor_of_the_church":
+      return "Doctor of the Church";
+    default:
+      return undefined;
+  }
+}

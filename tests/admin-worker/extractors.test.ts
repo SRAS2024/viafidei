@@ -78,7 +78,9 @@ describe("SaintExtractor", () => {
         "Saint Francis of Assisi was born in 1181 in Italy. He died in 1226. His feast day is October 4. He is the patron of animals and the environment.",
     });
     expect(out.fields.saintName).toMatch(/Francis/i);
-    expect(out.fields.feastDay).toBe("October 4");
+    // Updated: the extractor now emits the SCHEMA shape ("10-04"), with the
+    // printable form ("October 4") derived downstream by expectedValueVariants.
+    expect(out.fields.feastDay).toBe("10-04");
     expect(out.fields.feastMonth).toBe(10);
     expect(out.fields.feastDayNumber).toBe(4);
     expect(out.fields.patronage).toMatch(/animals/);

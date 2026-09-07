@@ -1,9 +1,15 @@
 import Link from "next/link";
 
 import { getTranslator } from "@/lib/i18n/server";
-import { PageHero } from "@/components/ui/PageHero";
-import { PaginatedGrid } from "@/components/ui/PaginatedGrid";
-import { FilterChips } from "@/components/ui";
+import {
+  FilterChips,
+  LIST_PAGE_SIZE,
+  PageHero,
+  PaginatedGrid,
+  Pagination,
+  pageSlice,
+  parsePageParam,
+} from "@/components/ui";
 import { listPublished } from "@/lib/data/published";
 import {
   PRAYER_CATEGORIES,
@@ -14,11 +20,14 @@ import {
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Prayers" };
 
-type Props = { searchParams: Promise<{ filter?: string }> };
+type Props = { searchParams: Promise<{ filter?: string; page?: string }> };
 
 export default async function PrayersPage({ searchParams }: Props) {
   const { t } = await getTranslator();
-  const { filter } = await searchParams;
+  const { filter, page: pageParam } = await searchParams;
+  // A prayer card shows the opening lines of the prayer itself, which the
+  // payload-free projection does not carry, so the library is read whole and
+  // paged here. Only the current page of cards is rendered and serialised.
   const prayers = await listPublished("PRAYER");
 
   // Categorise each prayer (Marian / Angelic / Liturgical / …) so the filter
@@ -44,6 +53,7 @@ export default async function PrayersPage({ searchParams }: Props) {
     })),
   ];
   const visible = selected ? annotated.filter((a) => a.category === selected) : annotated;
+  const page = pageSlice(visible, parsePageParam(pageParam), LIST_PAGE_SIZE);
 
   return (
     <div>
@@ -69,25 +79,33 @@ export default async function PrayersPage({ searchParams }: Props) {
           checklist-first worker.
         </div>
       ) : (
-        <PaginatedGrid
-          items={visible.map(({ prayer: p, category }) => {
-            const body =
-              (p.payload.body as string | undefined) ??
-              (p.payload.prayerText as string | undefined) ??
-              "";
-            return (
-              <Link key={p.id} href={`/prayers/${p.slug}`} className="block h-full">
-                <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">
-                  <p className="vf-eyebrow">{prayerCategoryLabel(category)}</p>
-                  <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{p.title}</h2>
-                  <p className="mt-4 line-clamp-5 font-serif leading-relaxed text-ink-soft">
-                    {body}
-                  </p>
-                </article>
-              </Link>
-            );
-          })}
-        />
+        <>
+          <PaginatedGrid
+            items={page.items.map(({ prayer: p, category }) => {
+              const body =
+                (p.payload.body as string | undefined) ??
+                (p.payload.prayerText as string | undefined) ??
+                "";
+              return (
+                <Link key={p.id} href={`/prayers/${p.slug}`} className="block h-full">
+                  <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">
+                    <p className="vf-eyebrow">{prayerCategoryLabel(category)}</p>
+                    <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{p.title}</h2>
+                    <p className="mt-4 line-clamp-5 font-serif leading-relaxed text-ink-soft">
+                      {body}
+                    </p>
+                  </article>
+                </Link>
+              );
+            })}
+          />
+          <Pagination
+            basePath="/prayers"
+            page={page.page}
+            totalPages={page.pageCount}
+            searchParams={{ filter: selected ?? undefined }}
+          />
+        </>
       )}
     </div>
   );

@@ -105,7 +105,11 @@ describe("resolveCanonizationStatus (by QID, never by label)", () => {
   it("recognises a Catholic religion by label when the QID is not enumerated", () => {
     expect(
       resolveCanonizationStatus(
-        facts({ statuses: [GENERIC_SAINT], religions: ["Q999"], religionLabels: ["Catholic Church in Peru"] }),
+        facts({
+          statuses: [GENERIC_SAINT],
+          religions: ["Q999"],
+          religionLabels: ["Catholic Church in Peru"],
+        }),
       )?.status,
     ).toBe("canonized");
   });
@@ -144,7 +148,8 @@ describe("deriveSaintType (structured first, prose only for martyr / doctor)", (
     const patrick = facts({ positions: ["Q29182"], deathYear: 461 });
     expect(
       deriveSaintType(patrick, {
-        abstract: 'Saint Patrick was a Christian missionary and bishop known as the "Apostle of Ireland".',
+        abstract:
+          'Saint Patrick was a Christian missionary and bishop known as the "Apostle of Ireland".',
       }),
     ).toBe("bishop");
     // Even the apostle POSITION needs an apostolic-age death year.
@@ -180,9 +185,11 @@ describe("deriveSaintType (structured first, prose only for martyr / doctor)", (
       deriveSaintType(facts(), { abstract: "Agnes of Rome was a virgin martyr. Later text." }),
     ).toBe("martyr");
     expect(deriveSaintType(facts({ awards: ["Q192499"] }))).toBe("doctor_of_the_church");
-    expect(deriveSaintType(facts({ positions: ["Q19546"] }), { abstract: "He was a Doctor of the Church." })).toBe(
-      "doctor_of_the_church",
-    );
+    expect(
+      deriveSaintType(facts({ positions: ["Q19546"] }), {
+        abstract: "He was a Doctor of the Church.",
+      }),
+    ).toBe("doctor_of_the_church");
   });
 
   it("falls back to the always-valid 'other'", () => {

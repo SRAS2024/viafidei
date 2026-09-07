@@ -593,6 +593,52 @@ export async function runPublishOrchestrator(
       select: { id: true, isPublished: true },
     })
     .catch(() => null);
+
+  // 4b. Canonical-maximum gate (audit KB-15). A CLOSED content type has a hard
+  //     maximum fixed by the faith (SACRAMENT = 7). Nothing enforced it at
+  //     publish, so a web page classified SACRAMENT could be published under a
+  //     new slug as an eighth one (production showed 8). Only blocks a NEW row:
+  //     `existing` (a re-publish of a row that is already one of the seven) is
+  //     untouched, and nothing is ever unpublished or deleted here.
+  if (!existing) {
+    // Fail-open at every step: a client without this delegate (or a database
+    // blip) must never block a legitimate publish.
+    const goal = await Promise.resolve()
+      .then(() =>
+        prisma.contentGoal?.findUnique({
+          where: { contentType: input.contentType as never },
+          select: { canonicalMax: true },
+        }),
+      )
+      .catch(() => null);
+    const canonicalMax = goal?.canonicalMax ?? null;
+    if (canonicalMax != null && canonicalMax > 0) {
+      const live = await Promise.resolve()
+        .then(() =>
+          prisma.publishedContent?.count({
+            where: { contentType: input.contentType as never, isPublished: true },
+          }),
+        )
+        .catch(() => null);
+      // Fail-open on a count error (null): never block a legitimate publish on a
+      // database blip. Only a READ number at/above the maximum refuses.
+      if (typeof live === "number" && live >= canonicalMax) {
+        const reason = `${input.contentType} is a closed content type with a canonical maximum of ${canonicalMax}; ${live} are already published, so "${input.title}" would be number ${live + 1}. Refusing to publish — this needs an operator, not another row.`;
+        // An attempt to publish an eighth sacrament is an upstream classifier
+        // bug, not routine traffic — surface it for a person.
+        await writeAdminWorkerLog(prisma, {
+          category: "PUBLISHING",
+          severity: "WARN",
+          eventName: "canonical_max_blocked",
+          message: reason,
+          contentType: input.contentType,
+          safeMetadata: { slug: input.slug, canonicalMax, live },
+        }).catch(() => undefined);
+        return { kind: "blocked", blockedBy: "canonical_max", reason };
+      }
+    }
+  }
+
   const publishedSubtitle = generateContentSubtitle({
     contentType: input.contentType,
     contentSubtype: (input.payload as Record<string, unknown> | null)?.contentSubtype as

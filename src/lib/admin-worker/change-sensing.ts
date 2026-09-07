@@ -209,7 +209,11 @@ export async function senseUrl(
     // is a 304 recorded as a fetch result rather than a new source-read row.
     prisma.adminWorkerFetchResult
       .findFirst({
-        where: { sourceUrl: url, succeeded: true },
+        // WX-05(b): only candidate fetches count as "we checked this page".
+        // The validation fetcher writes successful rows for vatican.va and
+        // usccb.org on every verification cycle with no candidateUrlId, which
+        // made those candidates look permanently fresh and never re-read.
+        where: { sourceUrl: url, succeeded: true, candidateUrlId: { not: null } },
         orderBy: { createdAt: "desc" },
         select: { createdAt: true },
       })

@@ -86,7 +86,9 @@ function saintRow(id: string, qid: string | null, payload: Record<string, unknow
       feastDayOfMonth: 1,
       saintType: "other",
       canonizationStatus: "canonized",
-      citations: qid ? [`https://www.wikidata.org/wiki/${qid}`, `https://en.wikipedia.org/wiki/${id}`] : [],
+      citations: qid
+        ? [`https://www.wikidata.org/wiki/${qid}`, `https://en.wikipedia.org/wiki/${id}`]
+        : [],
       ...payload,
     },
     sourceRef: qid ? `https://www.wikidata.org/wiki/${qid}` : null,
@@ -107,9 +109,7 @@ function makePrisma(rows: Row[], cursor: Record<string, unknown> | null = null) 
     },
     publishedContent: {
       findMany: vi.fn(async (args: { where: { id?: { gt: string } }; take: number }) =>
-        rows
-          .filter((r) => !args.where.id || r.id > args.where.id.gt)
-          .slice(0, args.take),
+        rows.filter((r) => !args.where.id || r.id > args.where.id.gt).slice(0, args.take),
       ),
       update,
     },
@@ -119,12 +119,18 @@ function makePrisma(rows: Row[], cursor: Record<string, unknown> | null = null) 
 
 describe("publishedSaintQid", () => {
   it("reads the QID from sourceRef, then the payload, then the citations; null for curated", () => {
-    expect(publishedSaintQid({ sourceRef: "https://www.wikidata.org/wiki/Q7", payload: {} })).toBe("Q7");
+    expect(publishedSaintQid({ sourceRef: "https://www.wikidata.org/wiki/Q7", payload: {} })).toBe(
+      "Q7",
+    );
     expect(publishedSaintQid({ sourceRef: null, payload: { wikidataQid: "Q8" } })).toBe("Q8");
     expect(
-      publishedSaintQid({ payload: { citations: ["https://x.example", "https://www.wikidata.org/wiki/Q9"] } }),
+      publishedSaintQid({
+        payload: { citations: ["https://x.example", "https://www.wikidata.org/wiki/Q9"] },
+      }),
     ).toBe("Q9");
-    expect(publishedSaintQid({ sourceRef: null, payload: { citations: ["https://x.example"] } })).toBeNull();
+    expect(
+      publishedSaintQid({ sourceRef: null, payload: { citations: ["https://x.example"] } }),
+    ).toBeNull();
   });
 });
 
@@ -142,16 +148,37 @@ describe("runStructuredSaintRepair", () => {
         biography: 'Saint Patrick was a bishop known as the "Apostle of Ireland".',
       }),
       // Correct already → no-op.
-      saintRow("d-rose", "Q300", { canonicalName: "Rose of Lima", title: "Saint Rose of Lima", saintType: "religious" }),
+      saintRow("d-rose", "Q300", {
+        canonicalName: "Rose of Lima",
+        title: "Saint Rose of Lima",
+        saintType: "religious",
+      }),
       // Generic status, no religion → doubt → untouched.
       saintRow("e-doubt", "Q400", { canonicalName: "Someone" }),
       // Not answered by Wikidata at all → unresolved.
       saintRow("f-gone", "Q500", { canonicalName: "Gone" }),
     ];
     mockedSparql.mockResolvedValue([
-      binding({ s: `${WD}Q100`, label: "Nicodemus the Hagiorite", statuses: `${WD}Q43115`, religions: `${WD}Q3333484`, religionLabels: "Eastern Orthodoxy" }),
-      binding({ s: `${WD}Q200`, label: "Patrick", statuses: `${WD}Q3464126`, positions: `${WD}Q29182`, died: "0461-03-17T00:00:00Z" }),
-      binding({ s: `${WD}Q300`, label: "Rose of Lima", statuses: `${WD}Q3464126`, occupations: `${WD}Q191808` }),
+      binding({
+        s: `${WD}Q100`,
+        label: "Nicodemus the Hagiorite",
+        statuses: `${WD}Q43115`,
+        religions: `${WD}Q3333484`,
+        religionLabels: "Eastern Orthodoxy",
+      }),
+      binding({
+        s: `${WD}Q200`,
+        label: "Patrick",
+        statuses: `${WD}Q3464126`,
+        positions: `${WD}Q29182`,
+        died: "0461-03-17T00:00:00Z",
+      }),
+      binding({
+        s: `${WD}Q300`,
+        label: "Rose of Lima",
+        statuses: `${WD}Q3464126`,
+        occupations: `${WD}Q191808`,
+      }),
       binding({ s: `${WD}Q400`, label: "Someone", statuses: `${WD}Q43115` }),
     ]);
     mockedUpdate.mockImplementation((async (_p: unknown, input: { contentId: string }) =>
@@ -173,7 +200,9 @@ describe("runStructuredSaintRepair", () => {
     });
     // One batched query, by QID.
     expect(mockedSparql).toHaveBeenCalledTimes(1);
-    expect(mockedSparql.mock.calls[0][0]).toContain("VALUES ?s { wd:Q100 wd:Q200 wd:Q300 wd:Q400 wd:Q500 }");
+    expect(mockedSparql.mock.calls[0][0]).toContain(
+      "VALUES ?s { wd:Q100 wd:Q200 wd:Q300 wd:Q400 wd:Q500 }",
+    );
 
     // Unpublish: flag only (never delete), plus a WARN log and a review row.
     expect(update).toHaveBeenCalledTimes(1);
@@ -182,8 +211,13 @@ describe("runStructuredSaintRepair", () => {
       data: { isPublished: false },
     });
     expect(mockedReview).toHaveBeenCalledTimes(1);
-    expect(mockedReview.mock.calls[0][1]).toMatchObject({ alwaysQueue: true, contentType: "SAINT" });
-    expect(mockedLog.mock.calls.some((c) => c[1].eventName === "structured_saint_unpublished")).toBe(true);
+    expect(mockedReview.mock.calls[0][1]).toMatchObject({
+      alwaysQueue: true,
+      contentType: "SAINT",
+    });
+    expect(
+      mockedLog.mock.calls.some((c) => c[1].eventName === "structured_saint_unpublished"),
+    ).toBe(true);
 
     // Patrick corrected: bishop (P39), honorific title, QID recorded.
     const patrick = mockedUpdate.mock.calls.find((c) => c[1].contentId === "c-patrick")![1];
@@ -196,10 +230,15 @@ describe("runStructuredSaintRepair", () => {
     expect(patrick.proposedTitle).toBe("Saint Patrick");
     expect(patrick.allowReplace).toBe(true);
     // Doubt (Q400) and the curated row were never sent to the gate.
-    expect(mockedUpdate.mock.calls.map((c) => c[1].contentId).sort()).toEqual(["c-patrick", "d-rose"]);
+    expect(mockedUpdate.mock.calls.map((c) => c[1].contentId).sort()).toEqual([
+      "c-patrick",
+      "d-rose",
+    ]);
 
     // Sweep complete → cursor wrapped and counted.
-    const cursorArg = upsert.mock.calls[0][0] as { create: { memoryValue: { lastId: string | null; sweeps: number } } };
+    const cursorArg = upsert.mock.calls[0][0] as {
+      create: { memoryValue: { lastId: string | null; sweeps: number } };
+    };
     expect(cursorArg.create.memoryValue).toMatchObject({ lastId: null, sweeps: 1 });
   });
 
@@ -215,7 +254,13 @@ describe("runStructuredSaintRepair", () => {
       }),
     ];
     mockedSparql.mockResolvedValue([
-      binding({ s: `${WD}Q9438`, label: "Thomas Aquinas", statuses: `${WD}Q3464126`, awards: `${WD}Q192499`, feasts: "7 March||28 January" }),
+      binding({
+        s: `${WD}Q9438`,
+        label: "Thomas Aquinas",
+        statuses: `${WD}Q3464126`,
+        awards: `${WD}Q192499`,
+        feasts: "7 March||28 January",
+      }),
     ]);
     mockedInfobox.mockResolvedValue({ feast_day: "28 January; 7 March (pre-1969 calendar)" });
     const { prisma } = makePrisma(rows);
@@ -232,7 +277,10 @@ describe("runStructuredSaintRepair", () => {
 
   it("holds the cursor and changes nothing when the structured source fails", async () => {
     mockedSparql.mockResolvedValue(null);
-    const { prisma, update, upsert } = makePrisma([saintRow("a", "Q1", {})], { lastId: "0", sweeps: 2 });
+    const { prisma, update, upsert } = makePrisma([saintRow("a", "Q1", {})], {
+      lastId: "0",
+      sweeps: 2,
+    });
 
     const out = await runStructuredSaintRepair(prisma);
 
@@ -241,16 +289,22 @@ describe("runStructuredSaintRepair", () => {
     expect(update).not.toHaveBeenCalled();
     expect(mockedUpdate).not.toHaveBeenCalled();
     // Only the cool-down may be persisted — never the cursor.
-    for (const call of upsert.mock.calls as Array<[{ where: { memoryType_memoryKey: { memoryKey: string } } }]>) {
+    for (const call of upsert.mock.calls as Array<
+      [{ where: { memoryType_memoryKey: { memoryKey: string } } }]
+    >) {
       expect(call[0].where.memoryType_memoryKey.memoryKey).not.toBe(SAINT_REPAIR_CURSOR_KEY);
     }
   });
 
   it("walks the corpus across passes with a bounded batch", async () => {
-    const rows = Array.from({ length: 6 }, (_, i) => saintRow(`r${i}`, `Q${i}`, { canonicalName: `S${i}` }));
+    const rows = Array.from({ length: 6 }, (_, i) =>
+      saintRow(`r${i}`, `Q${i}`, { canonicalName: `S${i}` }),
+    );
     mockedSparql.mockImplementation(async (q: string) => {
       const qids = [...q.matchAll(/wd:(Q\d+)/g)].map((m) => m[1]);
-      return qids.map((qid) => binding({ s: `${WD}${qid}`, label: `S${qid.slice(1)}`, statuses: `${WD}Q3464126` }));
+      return qids.map((qid) =>
+        binding({ s: `${WD}${qid}`, label: `S${qid.slice(1)}`, statuses: `${WD}Q3464126` }),
+      );
     });
     const { prisma, upsert } = makePrisma(rows);
 
@@ -258,10 +312,15 @@ describe("runStructuredSaintRepair", () => {
 
     expect(first.examined).toBe(2);
     expect(first.completed).toBe(false);
-    const cursorArg = upsert.mock.calls[0][0] as { create: { memoryValue: { lastId: string | null } } };
+    const cursorArg = upsert.mock.calls[0][0] as {
+      create: { memoryValue: { lastId: string | null } };
+    };
     expect(cursorArg.create.memoryValue.lastId).toBe("r1");
 
-    const second = await runStructuredSaintRepair(makePrisma(rows, { lastId: "r1", sweeps: 0 }).prisma, { limit: 2 });
+    const second = await runStructuredSaintRepair(
+      makePrisma(rows, { lastId: "r1", sweeps: 0 }).prisma,
+      { limit: 2 },
+    );
     expect(second.examined).toBe(2);
     expect(mockedSparql.mock.calls[1][0]).toContain("wd:Q2 wd:Q3");
   });

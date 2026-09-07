@@ -790,13 +790,26 @@ async function executePlan(
       const artifact = await prisma.adminWorkerPackageArtifact
         .findUnique({
           where: { id: plan.failedEntity },
-          select: { id: true, status: true },
+          select: { id: true, status: true, gateDiagnosis: true },
         })
         .catch(() => null);
       if (!artifact) {
         return {
           ok: true,
           reason: "target artifact no longer exists — nothing to re-verify; repair closed",
+        };
+      }
+      // WX-03: the verification stage parks an artifact that has spent its
+      // bounded rounds (MAX_VERIFICATION_ROUNDS) at NEEDS_REVIEW. An open plan
+      // filed before it was parked must not bounce it back into the cycle —
+      // it needs a person, not another lap.
+      if (
+        artifact.status === "NEEDS_REVIEW" &&
+        artifact.gateDiagnosis === "VALIDATION_EVIDENCE_EXHAUSTED"
+      ) {
+        return {
+          ok: true,
+          reason: "artifact parked for review after exhausting its verification rounds — not reset",
         };
       }
       await prisma.adminWorkerCrossSourceVerification

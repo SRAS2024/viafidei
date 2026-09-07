@@ -37,7 +37,12 @@ describe("CHURCH_HISTORY_EVENTS dataset", () => {
     expect(CHURCH_HISTORY_EVENTS).toHaveLength(
       EVENTS_1.length + EVENTS_2.length + EVENTS_3.length + EVENTS_4.length,
     );
-    expect(CHURCH_HISTORY_EVENTS.length).toBeGreaterThanOrEqual(180);
+    // The curated spine is four reviewed parts of 58. Pinning the totals is a
+    // tripwire: a part that fails to load, or is truncated by a bad merge,
+    // silently shrinks the timeline instead of failing. Raise these numbers
+    // deliberately when events are added.
+    for (const part of [EVENTS_1, EVENTS_2, EVENTS_3, EVENTS_4]) expect(part).toHaveLength(58);
+    expect(CHURCH_HISTORY_EVENTS).toHaveLength(232);
     for (let i = 1; i < CHURCH_HISTORY_EVENTS.length; i++) {
       expect(compareHistoryEvents(CHURCH_HISTORY_EVENTS[i - 1]!, CHURCH_HISTORY_EVENTS[i]!)).toBe(
         -1,

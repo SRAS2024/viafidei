@@ -3,8 +3,16 @@
  * Renders title, summary, body fields, structured fields, and citations.
  */
 
-import type { PublishedItem } from "@/lib/data/published";
+import { contentTypeLabel, type PublishedItem } from "@/lib/data/published";
+import { documentDatePrecision } from "@/lib/content-shared/church-history/timeline";
+import { formatHistoryDate } from "@/lib/content-shared/church-history/types";
 import { toDisclosureItems } from "@/lib/content-shared/structured-content";
+import {
+  fieldLabel,
+  isChipList,
+  presentValue,
+  type PresentedValue,
+} from "@/lib/content-shared/field-presenters";
 
 import { Disclosure } from "./Disclosure";
 import { PrayerLinkedText } from "./PrayerLinkedText";
@@ -36,57 +44,67 @@ export interface PublishedDetailProps {
    * (e.g. a parish's "Go to site" button). Omitted everywhere else.
    */
   footer?: React.ReactNode;
+  /**
+   * Overrides the eyebrow above the title. Defaults to the human content-type
+   * label ("Our Lady", "Church Document") — never the raw enum. Pages with a
+   * more specific word for the item (a saint's "Martyr", a guide's "Rosary")
+   * pass it here.
+   */
+  eyebrow?: string;
 }
 
-function renderValue(value: unknown): React.ReactNode {
-  if (value == null) return null;
-  if (typeof value === "string") {
-    if (value.includes("\n")) {
-      return <p className="whitespace-pre-line">{value}</p>;
-    }
-    return <p>{value}</p>;
+/**
+ * Renders a value the presenter layer has already humanised. Every label and
+ * every leaf string comes from `presentValue`, so nothing here can print a
+ * camelCase key, a raw enum, or "[object Object]" — a value that cannot be
+ * presented arrives as `null` and the caller drops the section entirely.
+ */
+function renderPresented(value: PresentedValue, depth = 0): React.ReactNode {
+  if (value.kind === "text") {
+    return value.multiline ? (
+      <p className="whitespace-pre-line">{value.text}</p>
+    ) : (
+      <p>{value.text}</p>
+    );
   }
-  if (Array.isArray(value)) {
-    if (value.length === 0) return null;
-    if (typeof value[0] === "string") {
+  if (value.kind === "list") {
+    // Short single-line entries (patronages, "what you need") read better as
+    // chips than as a bulleted column.
+    if (isChipList(value)) {
       return (
-        <ul className="ml-6 list-disc">
-          {value.map((v, i) => (
-            <li key={i}>{String(v)}</li>
+        <ul className="flex flex-wrap gap-2">
+          {value.items.map((item, i) => (
+            <li
+              key={i}
+              className="rounded-full border border-ink/15 px-3 py-1 font-serif text-sm text-ink-soft"
+            >
+              {item.kind === "text" ? item.text : null}
+            </li>
           ))}
         </ul>
       );
     }
+    const ListTag = value.ordered ? "ol" : "ul";
     return (
-      <ul className="ml-6 list-decimal">
-        {value.map((v, i) => (
+      <ListTag className={`ml-6 ${value.ordered ? "list-decimal" : "list-disc"}`}>
+        {value.items.map((item, i) => (
           <li key={i} className="mt-2">
-            {typeof v === "object" && v
-              ? Object.entries(v).map(([k, vv]) => (
-                  <div key={k}>
-                    <span className="font-medium">{k}: </span>
-                    <span>{String(vv)}</span>
-                  </div>
-                ))
-              : String(v)}
+            {renderPresented(item, depth + 1)}
           </li>
         ))}
-      </ul>
+      </ListTag>
     );
   }
-  if (typeof value === "object") {
-    return (
-      <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1">
-        {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="font-medium text-ink-soft">{k}</dt>
-            <dd>{String(v)}</dd>
-          </div>
-        ))}
-      </dl>
-    );
-  }
-  return <p>{String(value)}</p>;
+  return (
+    <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1">
+      {value.pairs.map((pair) => (
+        <div key={pair.label} className="contents">
+          <dt className="font-medium text-ink-soft">{pair.label}</dt>
+          <dd>{renderPresented(pair.value, depth + 1)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
 // Never rendered, even when a page lists them explicitly in primary/secondary
@@ -96,7 +114,22 @@ function renderValue(value: unknown): React.ReactNode {
 // is the hard guard behind isMetaField: isMetaField only filters the catch-all
 // "remaining" section, so an internal key a page named directly (the
 // "Sacrament Key: reconciliation" leak) still needs blocking here.
-const HIDDEN_FIELDS = new Set(["slug", "title", "citations", "sacramentKey", "riteKey"]);
+const HIDDEN_FIELDS = new Set([
+  "slug",
+  "title",
+  "citations",
+  "sacramentKey",
+  "riteKey",
+  // Cross-content reference lists. They hold slugs, and a slug is never
+  // content: printing them produced "apostles-creed, our-father" under a
+  // "Related Prayers" heading. Pages that want them resolve the real titles
+  // from the data layer and render them as links (see RelatedContentLinks).
+  "relatedPrayers",
+  "relatedDevotions",
+  "relatedPractices",
+  "relatedSaints",
+  "relatedGuides",
+]);
 
 // Structural / worker-metadata keys that must never auto-render in the
 // catch-all "remaining" section (they would surface as stray headings like
@@ -166,6 +199,21 @@ function isMetaField(key: string): boolean {
   return META_FIELDS.has(key) || /(?:Key|Slug|Slugs|Url|Title|Name|Type)$/.test(key);
 }
 
+/**
+ * HIST-02: a curated council was seeded with a "-01-01" placeholder day, so the
+ * raw ISO string asserted a precision the source never claimed ("0325-01-01").
+ * Show the year for those, the full date for a genuine 1-January encyclical.
+ * Fails open: anything unparseable returns null and renders as before.
+ */
+function formatIssuedDate(value: unknown, documentType: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const placed = documentDatePrecision({
+    issuedDate: value,
+    documentType: typeof documentType === "string" ? documentType : undefined,
+  });
+  return placed ? formatHistoryDate(placed) : null;
+}
+
 export function PublishedDetail({
   item,
   primaryFields,
@@ -174,13 +222,28 @@ export function PublishedDetail({
   linkedPrayers,
   fieldRenderers,
   footer,
+  eyebrow,
 }: PublishedDetailProps) {
   const payload = item.payload;
   const summary = payload.summary as string | undefined;
+  // The eyebrow is a word, not an enum: "MARIAN_TITLE" used to print here.
+  // `subtype` refines it (a PRAYER whose prayerType is "litany" reads "Litany").
+  const eyebrowLabel =
+    eyebrow ??
+    contentTypeLabel(
+      item.contentType,
+      typeof payload.prayerType === "string" ? payload.prayerType : null,
+    );
 
   const keysShown = new Set<string>();
   const renderField = (key: string) => {
     if (HIDDEN_FIELDS.has(key)) return null;
+    // Slug and URL fields are references, never prose: printed directly they
+    // produce "associated-saint-slugs: st-gregory" or a naked https:// line.
+    // Unlike the Key/Title/Name/Type suffixes this guard is unconditional —
+    // a page that wants the target renders it as a resolved link or a source
+    // button instead (RelatedContentLinks / OfficialSourceLink).
+    if (/(?:Slug|Slugs|Url)$/.test(key)) return null;
     if (keysShown.has(key)) return null;
     keysShown.add(key);
     const value = payload[key];
@@ -194,21 +257,33 @@ export function PublishedDetail({
       if (rendered == null) return null;
       return (
         <section key={key} className="mt-6">
-          <h2 className="font-display text-xl capitalize text-ink">
-            {key.replace(/([A-Z])/g, " $1").trim()}
-          </h2>
+          <h2 className="font-display text-xl text-ink">{fieldLabel(key)}</h2>
           <div className="mt-2 font-serif leading-relaxed text-ink">{rendered}</div>
         </section>
       );
     }
+    if (key === "issuedDate") {
+      const formatted = formatIssuedDate(value, payload.documentType);
+      if (formatted) {
+        return (
+          <section key={key} className="mt-6">
+            <h2 className="font-display text-xl text-ink">{fieldLabel(key)}</h2>
+            <div className="mt-2 font-serif leading-relaxed text-ink">{formatted}</div>
+          </section>
+        );
+      }
+    }
     // Novena days / guide prayers / rosary mysteries → expandable dropdowns
     // (title + chevron → full text), so guides stay concise.
     const disclosures = toDisclosureItems(value);
+    // Everything else goes through the presenter layer; a value it cannot
+    // present honestly returns null and the whole section is dropped rather
+    // than printing "[object Object]" or a bare flag.
+    const presented = disclosures ? null : presentValue(key, value);
+    if (!disclosures && !presented) return null;
     return (
       <section key={key} className="mt-6">
-        <h2 className="font-display text-xl capitalize text-ink">
-          {key.replace(/([A-Z])/g, " $1").trim()}
-        </h2>
+        <h2 className="font-display text-xl text-ink">{fieldLabel(key)}</h2>
         {disclosures ? (
           <div className="mt-3 flex flex-col gap-3">
             {disclosures.map((d, i) => (
@@ -222,7 +297,9 @@ export function PublishedDetail({
             ))}
           </div>
         ) : (
-          <div className="mt-2 font-serif leading-relaxed text-ink">{renderValue(value)}</div>
+          <div className="mt-2 font-serif leading-relaxed text-ink">
+            {renderPresented(presented as PresentedValue)}
+          </div>
         )}
       </section>
     );
@@ -240,7 +317,7 @@ export function PublishedDetail({
       <header className="mb-8">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="vf-eyebrow">{item.contentType}</p>
+            <p className="vf-eyebrow">{eyebrowLabel}</p>
             <h1 className="mt-2 font-display text-4xl text-ink">{item.title}</h1>
             {item.subtitle ? (
               <p className="mt-1 font-serif text-base italic text-ink-soft">{item.subtitle}</p>

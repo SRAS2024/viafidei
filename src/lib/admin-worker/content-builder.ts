@@ -154,7 +154,13 @@ export function buildContentPackage<T extends Record<string, unknown>>(
   const optional = OPTIONAL_FIELDS[input.contentType] ?? [];
   const validation = VALIDATION_NEEDS[input.contentType] ?? [];
 
-  const normalizedTitle = normalize(input.title ?? extractTitle(fields));
+  const derivedTitle = input.title ?? extractTitle(fields);
+  if (!derivedTitle || normalize(derivedTitle).length === 0) {
+    throw new Error(
+      `buildContentPackage: no derivable title for ${input.contentType} — refusing to build an "Untitled" package (every untitled row of a type would share one slug).`,
+    );
+  }
+  const normalizedTitle = normalize(derivedTitle);
   const normalizedSlug = slugify(normalizedTitle);
 
   // Confidence per field (from provenance), capped to [0,1].
@@ -225,7 +231,13 @@ function normalize(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
-function extractTitle(fields: Record<string, unknown>): string {
+/**
+ * WX-14 (defense in depth): returns null rather than "Untitled" when no field
+ * names the thing. Every untitled document of a type used to collapse onto the
+ * same slug, so the first one swallowed all the rest as duplicates. Callers
+ * must supply a title (the dispatcher derives one from the page) or refuse.
+ */
+function extractTitle(fields: Record<string, unknown>): string | null {
   for (const key of [
     "prayerTitle",
     "saintName",
@@ -235,6 +247,12 @@ function extractTitle(fields: Record<string, unknown>): string {
     "consecrationTitle",
     "sacramentTitle",
     "marianTitleName",
+    // WX-14: POPE / DOCTOR / RITE name their entity with their own key. They
+    // were absent from this list, so every pope, doctor and rite extracted from
+    // the web fell through to "Untitled" and collapsed onto one slug.
+    "popeName",
+    "doctorName",
+    "riteName",
     "title",
     "liturgyTitle",
     "parishName",
@@ -242,7 +260,7 @@ function extractTitle(fields: Record<string, unknown>): string {
     const v = fields[key];
     if (typeof v === "string" && v.length > 0) return v;
   }
-  return "Untitled";
+  return null;
 }
 
 function slugify(title: string): string {

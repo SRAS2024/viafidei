@@ -259,7 +259,10 @@ export async function runAdminWorkerLoop(
  * definitive answer (switch OFF, or the lease now belongs to someone else) —
  * never for a transient database error.
  */
-async function checkLoopAuthority(
+// Exported for tests: the two authority paths (host-supervised child vs a bare
+// CLI worker that renews its own lease) are the difference between a stop and a
+// silent hand-off, and they are unreachable from outside a full loop run.
+export async function checkLoopAuthority(
   prisma: PrismaClient,
   workerId: string,
 ): Promise<{ ok: boolean; reason: string; stopReason?: LoopStopReason }> {

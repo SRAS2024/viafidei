@@ -19,13 +19,26 @@ describe("Google Search Console verification file", () => {
 });
 
 describe("sitemap is served from a single source", () => {
-  it("there is no static public/sitemap.xml — src/app/sitemap.ts is authoritative", () => {
+  const APP_DIR = path.resolve(__dirname, "..", "..", "src", "app");
+
+  it("there is no static public/sitemap.xml — the app route is authoritative", () => {
     const staticSitemap = path.join(PUBLIC_DIR, "sitemap.xml");
     expect(fs.existsSync(staticSitemap)).toBe(false);
   });
 
-  it("src/app/sitemap.ts is the single source of truth", () => {
-    const dynamicSitemap = path.resolve(__dirname, "..", "..", "src", "app", "sitemap.ts");
-    expect(fs.existsSync(dynamicSitemap)).toBe(true);
+  it("/sitemap.xml is served by the sitemap-index route", () => {
+    expect(fs.existsSync(path.join(APP_DIR, "sitemap.xml", "route.ts"))).toBe(true);
+  });
+
+  it("the chunked sitemaps exist alongside it", () => {
+    expect(fs.existsSync(path.join(APP_DIR, "sitemaps", "[type]", "[chunk]", "route.ts"))).toBe(
+      true,
+    );
+  });
+
+  it("the old single-file src/app/sitemap.ts is gone — two routes cannot own /sitemap.xml", () => {
+    // Next.js would refuse to build with both a `sitemap.ts` metadata file and
+    // a `sitemap.xml/route.ts` handler; the index route replaced it.
+    expect(fs.existsSync(path.join(APP_DIR, "sitemap.ts"))).toBe(false);
   });
 });

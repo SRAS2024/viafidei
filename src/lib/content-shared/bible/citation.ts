@@ -72,7 +72,7 @@ const SINGLE_CHAPTER: ReadonlySet<BookCode> = new Set<BookCode>([
 ]);
 const CHAPTER_RE = new RegExp(`^(\\d+|[A-F])(?:\\s*${DASH}\\s*(\\d+))?(?:\\s*:\\s*(.+))?$`);
 const ITEM_RE = new RegExp(
-  `^(\\d+)([a-e]*)(?:\\s*${DASH}\\s*(?:(\\d+)\\s*:\\s*)?(\\d+)([a-e]*))?$`,
+  `^(\\d+)([a-h]*)(?:\\s*${DASH}\\s*(?:(\\d+)\\s*:\\s*)?(\\d+)([a-h]*))?$`,
 );
 
 function parseChapterToken(token: string, book: BookCode): number | EstherAddition | null {

@@ -61,7 +61,11 @@ export interface LectionaryEntry {
 /** A Mass formulary a key maps to: the lectionary number and its variant. */
 export interface KeyMapMass {
   number: string;
-  /** null = the principal Mass of the day (the first entry is always the principal one). */
+  /**
+   * The Mass formulary this number belongs to, or null when the day has a single
+   * formulary. The FIRST entry is always the principal Mass — on Christmas it is
+   * the Mass during the Day, whose variant is "day", not null.
+   */
   variant: string | null;
 }
 
@@ -83,3 +87,18 @@ export type LectionaryKeyMap = Record<string, KeyMapEntry[]>;
 
 /** by-number.json: lectionary number → entry. */
 export type LectionaryByNumber = Record<string, LectionaryEntry>;
+
+/** One row of a per-kind index (sundays.json, weekdays.json, sanctoral.json). */
+export interface LectionaryIndexEntry {
+  number: string;
+  label: string;
+  cycle: SundayCycle | null;
+  variant: string | null;
+}
+
+/**
+ * Secondary index into by-number.json. Sundays and weekdays are keyed by the
+ * slug of their day label ("3rd-week-of-lent-mon"); the sanctoral is keyed by
+ * its calendar date ("MM-DD"), which is how the Proper of Saints is addressed.
+ */
+export type LectionaryIndex = Record<string, LectionaryIndexEntry[]>;

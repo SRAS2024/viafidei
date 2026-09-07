@@ -18,7 +18,7 @@
  *     citations / canonical category) and no page language.
  */
 
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { validatePayload } from "@/lib/checklist/schemas";
 import { categorizePrayer } from "@/lib/content-shared/prayer-categories";
@@ -255,7 +255,10 @@ export function detectReadLanguage(url: string, text: string | null | undefined)
   } catch {
     // not a URL — fall through to the text vote
   }
-  const sample = ` ${(text ?? "").slice(0, 3000).toLowerCase().replace(/[^\p{L}\s]/gu, " ")} `;
+  const sample = ` ${(text ?? "")
+    .slice(0, 3000)
+    .toLowerCase()
+    .replace(/[^\p{L}\s]/gu, " ")} `;
   if (!sample.trim()) return "en";
   const scores: Record<string, number> = {};
   for (const [lang, words] of Object.entries(STOPWORDS)) {
@@ -518,6 +521,8 @@ export function buildPrayerPublishPayload(input: {
   title: string;
   slug: string;
   host?: string | null;
+  /** The page the prayer was read from — the citation the schema requires. */
+  sourceUrl?: string | null;
 }): PrayerPayloadResult {
   const f = input.fields;
   const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
@@ -526,9 +531,13 @@ export function buildPrayerPublishPayload(input: {
   const rawType = (str(f.prayerType) ?? "general").toLowerCase();
   const prayerType = PRAYER_TYPE_MAP[rawType] ?? "general";
   const language = (str(f.language) ?? "en").toLowerCase();
-  const sourceUrl = str(f.sourceUrl);
-  const citations = [...new Set([...(Array.isArray(f.citations) ? f.citations : []), sourceUrl])]
-    .filter((c): c is string => typeof c === "string" && /^https?:\/\//i.test(c));
+  // The extractor's display fields never carry the URL, so the read's own
+  // source URL is the citation of record — without it the schema (min 1
+  // citation) would refuse every web prayer.
+  const sourceUrl = str(f.sourceUrl) ?? str(input.sourceUrl);
+  const citations = [
+    ...new Set([...(Array.isArray(f.citations) ? f.citations : []), sourceUrl]),
+  ].filter((c): c is string => typeof c === "string" && /^https?:\/\//i.test(c));
   const category = categorizePrayer({
     title,
     prayerType,
@@ -553,3 +562,178 @@ export function buildPrayerPublishPayload(input: {
   if (!validated.ok) return { ok: false, errors: validated.errors };
   return { ok: true, payload: { ...candidate, ...validated.data }, language };
 }
+
+// ── Title fallbacks from extracted fields ──────────────────────────────
+
+/** The order content-builder itself uses to name a package from its fields. */
+const FIELD_TITLE_KEYS = [
+  "prayerTitle",
+  "saintName",
+  "apparitionTitle",
+  "novenaTitle",
+  "devotionTitle",
+  "consecrationTitle",
+  "sacramentTitle",
+  "marianTitleName",
+  "title",
+  "liturgyTitle",
+  "doctorName",
+  "riteName",
+  "popeName",
+  "parishName",
+] as const;
+
+/**
+ * A title the extractor itself produced (`prayerTitle`, `saintName`, …).
+ * Used when the page has no usable `<title>`, before falling back to the
+ * body heading / URL path.
+ */
+export function extractorFieldTitle(fields: Record<string, unknown>): string | null {
+  for (const key of FIELD_TITLE_KEYS) {
+    const v = fields[key];
+    if (typeof v === "string" && v.trim().length >= 3) return v.trim();
+  }
+  return null;
+}
+
+// ── Strict-QA formatting dimension ─────────────────────────────────────
+
+/** Markup / template leakage that must never reach a public page. */
+const MARKUP_LEAK = /<\/?[a-z][a-z0-9]*(\s[^<>]*)?>|&(nbsp|amp|quot|#\d+);|\{\{|\}\}|\[\[/i;
+/** Navigation / boilerplate the reader let through. */
+const BOILERPLATE = /(cookie policy|subscribe to our newsletter|share on facebook|advertisement)/i;
+
+/**
+ * Deterministic formatting score for strict QA.
+ *
+ * The extractors never set `formatting.score`, so this dimension used to be a
+ * flat 0.8 for EVERY artifact — which, with the other capped dimensions, put
+ * the maximum reachable finalScore at ~0.79 + 0.15·confidence and made the
+ * 0.95 doctrinal threshold mathematically unreachable (WX-02). Score what can
+ * actually be checked instead: a clean body is 1.0, and each real defect
+ * (markup leak, boilerplate, a body that is a single truncated fragment)
+ * deducts. Never returns 0 — a zero dimension is a hard strict-QA FAIL and
+ * formatting alone must not reject content that is otherwise complete and
+ * corroborated.
+ */
+export function formattingQualityScore(
+  fields: Record<string, unknown>,
+  formattingMetadata: Record<string, unknown>,
+): number {
+  if (typeof formattingMetadata.score === "number") {
+    return Math.max(0, Math.min(1, formattingMetadata.score));
+  }
+  const text = Object.values(fields)
+    .filter((v): v is string => typeof v === "string")
+    .join("\n")
+    .slice(0, 20_000);
+  if (!text.trim()) return 0.6;
+  let score = 1;
+  if (MARKUP_LEAK.test(text)) score -= 0.35;
+  if (BOILERPLATE.test(text)) score -= 0.2;
+  // A body that ends mid-sentence is the signature of a truncated extraction.
+  if (/\b(read more|continue reading|\.\.\.)\s*$/i.test(text.trim())) score -= 0.2;
+  return Math.max(0.4, Math.min(1, score));
+}
+
+// ── Durable EXTRACTION cursor ──────────────────────────────────────────
+
+/**
+ * AdminWorkerMemory key holding the extraction scan cursor. EXTRACTION used
+ * to read only the 200 OLDEST classified reads and pick the first without an
+ * artifact — so once those 200 all had artifacts the stage idled forever and
+ * read #201 onward was never extracted (WX-01). The cursor makes every pass
+ * resume where the last one stopped, and wrap to the oldest read when it runs
+ * off the end, so the scan can never park on a prefix.
+ */
+export const EXTRACTION_CURSOR_KEY = "web-extraction:read-cursor";
+
+export interface ExtractionCursor {
+  /** createdAt of the last read this scan examined. */
+  at: Date;
+  /** Its id — the tiebreaker, so reads sharing a timestamp are never skipped. */
+  id: string;
+}
+
+/**
+ * "Strictly after the cursor" in (createdAt, id) order. Returns `{}` for a
+ * null cursor so the scan starts at the oldest read.
+ */
+export function extractionCursorWhere(cursor: ExtractionCursor | null): Record<string, unknown> {
+  if (!cursor) return {};
+  return {
+    OR: [
+      { createdAt: { gt: cursor.at } },
+      { AND: [{ createdAt: cursor.at }, { id: { gt: cursor.id } }] },
+    ],
+  };
+}
+
+/**
+ * Only the AdminWorkerMemory model is touched, and every call is wrapped in
+ * try/catch, so a client (or test fake) without that model is a no-op rather
+ * than a throw.
+ */
+type MemoryCapablePrisma = Pick<PrismaClient, "adminWorkerMemory">;
+
+/** Read the persisted extraction cursor. Fail-open: null restarts the scan. */
+export async function loadExtractionCursor(
+  prisma: MemoryCapablePrisma,
+): Promise<ExtractionCursor | null> {
+  try {
+    const row = await prisma.adminWorkerMemory.findUnique({
+      where: {
+        memoryType_memoryKey: {
+          memoryType: "GENERIC" as const,
+          memoryKey: EXTRACTION_CURSOR_KEY,
+        },
+      },
+      select: { memoryValue: true },
+    });
+    const value = row?.memoryValue as { at?: string; id?: string } | undefined;
+    if (!value?.at || !value.id) return null;
+    const at = new Date(value.at);
+    if (Number.isNaN(at.getTime())) return null;
+    return { at, id: value.id };
+  } catch {
+    return null;
+  }
+}
+
+/** Persist the extraction cursor (best-effort — a lost write only re-scans). */
+export async function saveExtractionCursor(
+  prisma: MemoryCapablePrisma,
+  cursor: ExtractionCursor | null,
+): Promise<void> {
+  try {
+    const where = {
+      memoryType_memoryKey: {
+        memoryType: "GENERIC" as const,
+        memoryKey: EXTRACTION_CURSOR_KEY,
+      },
+    };
+    const memoryValue = cursor ? { at: cursor.at.toISOString(), id: cursor.id } : {};
+    await prisma.adminWorkerMemory.upsert({
+      where,
+      update: { memoryValue, lastUsedAt: new Date() },
+      create: {
+        memoryType: "GENERIC",
+        memoryKey: EXTRACTION_CURSOR_KEY,
+        memoryValue,
+        lastUsedAt: new Date(),
+      },
+    });
+  } catch {
+    // Best-effort: without the cursor the next pass simply rescans from the
+    // oldest read, which is the old behaviour, not a wedge.
+  }
+}
+
+/**
+ * Verification rounds an artifact may spend gathering cross-source evidence
+ * before it is parked for review. Without a bound, a SAINT artifact whose
+ * facts no probe URL carries cycles BUILD_READY → verify → NEEDS_REPAIR →
+ * (repair resets) → BUILD_READY forever, re-fetching the same 404s every time
+ * (WX-03).
+ */
+export const MAX_VERIFICATION_ROUNDS = 3;

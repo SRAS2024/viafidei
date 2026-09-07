@@ -117,7 +117,8 @@ describe("CHURCH_DOCUMENT ingestor mapping", () => {
         types: "papal bull",
         author: "Pope Pius IX",
         pubDate: "1854-12-08T00:00:00Z",
-        canon: "https://www.vatican.va/content/pius-ix/en/documents/apostolic-constitution-ineffabilis-deus-8-december-1854.html",
+        canon:
+          "https://www.vatican.va/content/pius-ix/en/documents/apostolic-constitution-ineffabilis-deus-8-december-1854.html",
         themes: "Immaculate Conception",
         art: "https://en.wikipedia.org/wiki/Ineffabilis_Deus",
       }),

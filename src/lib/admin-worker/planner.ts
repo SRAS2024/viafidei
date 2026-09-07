@@ -24,7 +24,7 @@
 import type { ChecklistApprovalStatus, ChecklistContentType, PrismaClient } from "@prisma/client";
 
 import { enqueueBuild } from "@/lib/checklist";
-import { refreshContentGoals } from "./content-goals";
+import { isCanonicallyComplete, refreshContentGoals } from "./content-goals";
 import { writeAdminWorkerLog } from "./logs";
 import { createTask } from "./tasks";
 
@@ -53,10 +53,17 @@ export async function planAndEnqueue(
 ): Promise<PlanOutcome> {
   await refreshContentGoals(prisma);
 
-  const gaps = await prisma.contentGoal.findMany({
-    where: { gapCount: { gt: 0 } },
-    orderBy: [{ gapCount: "desc" }, { priority: "asc" }],
-  });
+  const gaps = (
+    await prisma.contentGoal.findMany({
+      where: { gapCount: { gt: 0 } },
+      orderBy: [{ gapCount: "desc" }, { priority: "asc" }],
+    })
+  )
+    // A CLOSED type that already holds its full canon (SACRAMENT at 7) is met
+    // for good — never enqueue a build that would produce an eighth one. The
+    // stored gapCount can be stale (an operator-raised desiredTarget above the
+    // maximum), so the counts, not the column, decide.
+    .filter((g) => !isCanonicallyComplete(g));
 
   if (gaps.length === 0) {
     return { contentType: null, gap: 0, enqueued: 0, reason: "All content goals met." };

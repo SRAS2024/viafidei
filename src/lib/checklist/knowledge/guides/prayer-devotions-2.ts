@@ -305,7 +305,12 @@ export const prayerAndDevotionGuidesTwo: CuratedEntry[] = [
         body: "Set aside one place in the home for prayer — a shelf, a small table, the corner of a room — with a crucifix, an image of Our Lady, a Bible, and if you like a candle and the holy water font. This is the home's 'little oratory,' the place where the Rosary is prayed, where the Advent wreath and the crib stand in their seasons, where the family gathers for grace on feast days and for the guardian angel prayer at bedtime. Keep it simple, keep it clean, and above all use it: a home is blessed once by the priest, but it is sanctified daily by the people who pray in it. The guide 'How to Begin and End the Day with Prayer' gives a simple rule to pray there.",
       },
     ],
-    relatedPrayers: ["our-father", "prayer-to-saint-michael", "sub-tuum-praesidium", "guardian-angel-prayer"],
+    relatedPrayers: [
+      "our-father",
+      "prayer-to-saint-michael",
+      "sub-tuum-praesidium",
+      "guardian-angel-prayer",
+    ],
     relatedDevotions: ["enthronement-of-the-sacred-heart"],
   }),
 

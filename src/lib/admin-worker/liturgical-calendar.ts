@@ -3,15 +3,17 @@
  * current season plus a small "seasonal relevance" score.
  *
  * Thin adapter over the shared engine (src/lib/content-shared/
- * liturgical-calendar.ts) — Easter, Advent and the season boundaries are
- * computed there, once, for the whole platform; this module only maps the
- * shared season names onto the worker's upper-case vocabulary and derives
- * the scoring flags. Deterministic, no external dependencies.
+ * liturgical-calendar.ts): the celebration observed on a date, its season and
+ * Easter itself are all computed THERE, once, for the whole platform. This
+ * module only maps the shared season names onto the worker's upper-case
+ * vocabulary and turns the resolved day into scoring flags — it must never
+ * re-derive a date the engine already knows. Deterministic, no external
+ * dependencies.
  */
 
 import {
   easterSunday,
-  liturgicalSeasonFor,
+  resolveLiturgicalDay,
   type LiturgicalSeason as SharedSeason,
 } from "@/lib/content-shared/liturgical-calendar";
 
@@ -64,15 +66,21 @@ export interface LiturgicalContext {
 
 export function computeLiturgicalContext(date = new Date()): LiturgicalContext {
   const day = startOfDay(date);
-  const easter = gregorianEaster(day.getUTCFullYear());
+  // Ask the SHARED engine which celebration the day actually is, rather than
+  // testing month/day here. A second implementation of "is today Christmas?"
+  // is a second thing to keep right (and the old one was blind to transfers —
+  // the Annunciation moves out of Holy Week, the Assumption can be transferred).
+  const resolved = resolveLiturgicalDay(day);
+  const keys = new Set([resolved.lectionaryKey, resolved.temporalKey, resolved.sanctoral?.key]);
+  const observes = (key: string): boolean => keys.has(key);
   return {
-    season: SEASON_MAP[liturgicalSeasonFor(day)],
-    isSunday: day.getUTCDay() === 0,
-    isChristmas: day.getUTCMonth() === 11 && day.getUTCDate() === 25,
-    isEaster: day.getTime() === easter.getTime(),
-    isAnnunciation: day.getUTCMonth() === 2 && day.getUTCDate() === 25,
-    isImmaculateConception: day.getUTCMonth() === 11 && day.getUTCDate() === 8,
-    isAssumption: day.getUTCMonth() === 7 && day.getUTCDate() === 15,
+    season: SEASON_MAP[resolved.season],
+    isSunday: resolved.isSunday,
+    isChristmas: observes("nativity"),
+    isEaster: observes("easter-sunday"),
+    isAnnunciation: observes("annunciation"),
+    isImmaculateConception: observes("immaculate-conception"),
+    isAssumption: observes("assumption"),
     inMarianMonth: day.getUTCMonth() === 4 || day.getUTCMonth() === 9, // May / October
     date: day,
   };

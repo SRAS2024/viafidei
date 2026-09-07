@@ -1,0 +1,2618 @@
+{
+  "1st-week-of-advent-fri": [
+    {
+      "cycle": null,
+      "label": "1st Week of Advent – Fri",
+      "number": "179",
+      "variant": null
+    }
+  ],
+  "1st-week-of-advent-mon": [
+    {
+      "cycle": null,
+      "label": "1st Week of Advent – Mon",
+      "number": "175",
+      "variant": null
+    }
+  ],
+  "1st-week-of-advent-sat": [
+    {
+      "cycle": null,
+      "label": "1st Week of Advent – Sat",
+      "number": "180",
+      "variant": null
+    }
+  ],
+  "1st-week-of-advent-thurs": [
+    {
+      "cycle": null,
+      "label": "1st Week of Advent – Thurs",
+      "number": "178",
+      "variant": null
+    }
+  ],
+  "1st-week-of-advent-tues": [
+    {
+      "cycle": null,
+      "label": "1st Week of Advent – Tues",
+      "number": "176",
+      "variant": null
+    }
+  ],
+  "1st-week-of-advent-wed": [
+    {
+      "cycle": null,
+      "label": "1st Week of Advent – Wed",
+      "number": "177",
+      "variant": null
+    }
+  ],
+  "1st-week-of-lent-fri": [
+    {
+      "cycle": null,
+      "label": "1st Week of Lent – Fri",
+      "number": "228",
+      "variant": null
+    }
+  ],
+  "1st-week-of-lent-mon": [
+    {
+      "cycle": null,
+      "label": "1st Week of Lent – Mon",
+      "number": "224",
+      "variant": null
+    }
+  ],
+  "1st-week-of-lent-sat": [
+    {
+      "cycle": null,
+      "label": "1st Week of Lent – Sat",
+      "number": "229",
+      "variant": null
+    }
+  ],
+  "1st-week-of-lent-thurs": [
+    {
+      "cycle": null,
+      "label": "1st Week of Lent – Thurs",
+      "number": "227",
+      "variant": null
+    }
+  ],
+  "1st-week-of-lent-tues": [
+    {
+      "cycle": null,
+      "label": "1st Week of Lent – Tues",
+      "number": "225",
+      "variant": null
+    }
+  ],
+  "1st-week-of-lent-wed": [
+    {
+      "cycle": null,
+      "label": "1st Week of Lent – Wed",
+      "number": "226",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-advent-fri": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Advent – Fri",
+      "number": "185",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-advent-mon": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Advent – Mon",
+      "number": "181",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-advent-sat": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Advent – Sat",
+      "number": "186",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-advent-thurs": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Advent – Thurs",
+      "number": "184",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-advent-tues": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Advent – Tues",
+      "number": "182",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-advent-wed": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Advent – Wed",
+      "number": "183",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-easter-fri": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Easter - Fri",
+      "number": "271",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-easter-mon": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Easter - Mon",
+      "number": "267",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-easter-sat-2025-sts-philip-james": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Easter - Sat [2025: Sts. Philip & James]",
+      "number": "272",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-easter-thurs": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Easter - Thurs",
+      "number": "270",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-easter-tues": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Easter - Tues",
+      "number": "268",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-easter-wed": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Easter - Wed",
+      "number": "269",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-lent-fri": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Lent – Fri",
+      "number": "234",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-lent-mon": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Lent – Mon",
+      "number": "230",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-lent-sat": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Lent – Sat",
+      "number": "235",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-lent-thurs": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Lent – Thurs",
+      "number": "233",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-lent-tues": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Lent – Tues",
+      "number": "231",
+      "variant": null
+    }
+  ],
+  "2nd-week-of-lent-wed": [
+    {
+      "cycle": null,
+      "label": "2nd Week of Lent – Wed",
+      "number": "232",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-advent-fri": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Advent – Fri",
+      "number": "191",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-advent-mon": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Advent – Mon",
+      "number": "187",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-advent-thurs": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Advent – Thurs",
+      "number": "190",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-advent-tues": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Advent – Tues",
+      "number": "188",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-advent-wed": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Advent – Wed",
+      "number": "189",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-easter-fri": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Easter - Fri",
+      "number": "277",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-easter-mon": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Easter - Mon",
+      "number": "273",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-easter-sat": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Easter - Sat",
+      "number": "278",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-easter-thurs": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Easter - Thurs",
+      "number": "276",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-easter-tues": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Easter - Tues",
+      "number": "274",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-easter-wed": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Easter - Wed",
+      "number": "275",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-lent-fri": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Lent – Fri",
+      "number": "241",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-lent-mon": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Lent – Mon",
+      "number": "237",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-lent-optional-mass": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Lent – optional Mass",
+      "number": "236",
+      "variant": "optional"
+    }
+  ],
+  "3rd-week-of-lent-sat": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Lent – Sat",
+      "number": "242",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-lent-thurs": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Lent – Thurs",
+      "number": "240",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-lent-tues": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Lent – Tues",
+      "number": "238",
+      "variant": null
+    }
+  ],
+  "3rd-week-of-lent-wed": [
+    {
+      "cycle": null,
+      "label": "3rd Week of Lent – Wed",
+      "number": "239",
+      "variant": null
+    }
+  ],
+  "4th-week-of-easter-fri": [
+    {
+      "cycle": null,
+      "label": "4th Week of Easter - Fri",
+      "number": "283",
+      "variant": null
+    }
+  ],
+  "4th-week-of-easter-mon": [
+    {
+      "cycle": null,
+      "label": "4th Week of Easter - Mon",
+      "number": "279",
+      "variant": null
+    }
+  ],
+  "4th-week-of-easter-sat": [
+    {
+      "cycle": null,
+      "label": "4th Week of Easter - Sat",
+      "number": "284",
+      "variant": null
+    }
+  ],
+  "4th-week-of-easter-thurs": [
+    {
+      "cycle": null,
+      "label": "4th Week of Easter - Thurs",
+      "number": "282",
+      "variant": null
+    }
+  ],
+  "4th-week-of-easter-tues": [
+    {
+      "cycle": null,
+      "label": "4th Week of Easter - Tues",
+      "number": "280",
+      "variant": null
+    }
+  ],
+  "4th-week-of-easter-wed-2025-st-matthias": [
+    {
+      "cycle": null,
+      "label": "4th Week of Easter - Wed [2025: St. Matthias]",
+      "number": "281",
+      "variant": null
+    }
+  ],
+  "4th-week-of-lent-fri": [
+    {
+      "cycle": null,
+      "label": "4th Week of Lent – Fri",
+      "number": "248",
+      "variant": null
+    }
+  ],
+  "4th-week-of-lent-mon": [
+    {
+      "cycle": null,
+      "label": "4th Week of Lent – Mon",
+      "number": "244",
+      "variant": null
+    }
+  ],
+  "4th-week-of-lent-optional-mass": [
+    {
+      "cycle": null,
+      "label": "4th Week of Lent – optional Mass",
+      "number": "243",
+      "variant": "optional"
+    }
+  ],
+  "4th-week-of-lent-sat": [
+    {
+      "cycle": null,
+      "label": "4th Week of Lent – Sat",
+      "number": "249",
+      "variant": null
+    }
+  ],
+  "4th-week-of-lent-thurs-2026-st-joseph": [
+    {
+      "cycle": null,
+      "label": "4th Week of Lent – Thurs [ 2026 : St. Joseph]",
+      "number": "247",
+      "variant": null
+    }
+  ],
+  "4th-week-of-lent-tues": [
+    {
+      "cycle": null,
+      "label": "4th Week of Lent – Tues",
+      "number": "245",
+      "variant": null
+    }
+  ],
+  "4th-week-of-lent-wed": [
+    {
+      "cycle": null,
+      "label": "4th Week of Lent – Wed",
+      "number": "246",
+      "variant": null
+    }
+  ],
+  "5th-week-of-easter-fri": [
+    {
+      "cycle": null,
+      "label": "5th Week of Easter - Fri",
+      "number": "289",
+      "variant": null
+    }
+  ],
+  "5th-week-of-easter-mon": [
+    {
+      "cycle": null,
+      "label": "5th Week of Easter - Mon",
+      "number": "285",
+      "variant": null
+    }
+  ],
+  "5th-week-of-easter-sat": [
+    {
+      "cycle": null,
+      "label": "5th Week of Easter - Sat",
+      "number": "290",
+      "variant": null
+    }
+  ],
+  "5th-week-of-easter-thurs": [
+    {
+      "cycle": null,
+      "label": "5th Week of Easter - Thurs",
+      "number": "288",
+      "variant": null
+    }
+  ],
+  "5th-week-of-easter-tues": [
+    {
+      "cycle": null,
+      "label": "5th Week of Easter - Tues",
+      "number": "286",
+      "variant": null
+    }
+  ],
+  "5th-week-of-easter-wed": [
+    {
+      "cycle": null,
+      "label": "5th Week of Easter - Wed",
+      "number": "287",
+      "variant": null
+    }
+  ],
+  "5th-week-of-lent-fri": [
+    {
+      "cycle": null,
+      "label": "5th Week of Lent – Fri",
+      "number": "255",
+      "variant": null
+    }
+  ],
+  "5th-week-of-lent-mon": [
+    {
+      "cycle": null,
+      "label": "5th Week of Lent – Mon",
+      "number": "251",
+      "variant": null
+    }
+  ],
+  "5th-week-of-lent-optional-mass": [
+    {
+      "cycle": null,
+      "label": "5th Week of Lent – optional Mass",
+      "number": "250",
+      "variant": "optional"
+    }
+  ],
+  "5th-week-of-lent-sat": [
+    {
+      "cycle": null,
+      "label": "5th Week of Lent – Sat",
+      "number": "256",
+      "variant": null
+    }
+  ],
+  "5th-week-of-lent-thurs": [
+    {
+      "cycle": null,
+      "label": "5th Week of Lent – Thurs",
+      "number": "254",
+      "variant": null
+    }
+  ],
+  "5th-week-of-lent-tues": [
+    {
+      "cycle": null,
+      "label": "5th Week of Lent – Tues",
+      "number": "252",
+      "variant": null
+    }
+  ],
+  "5th-week-of-lent-wed-2026-annunciation": [
+    {
+      "cycle": null,
+      "label": "5th Week of Lent – Wed [ 2026 : Annunciation]",
+      "number": "253",
+      "variant": null
+    }
+  ],
+  "6th-week-of-easter-fri": [
+    {
+      "cycle": null,
+      "label": "6th Week of Easter - Fri",
+      "number": "295",
+      "variant": null
+    }
+  ],
+  "6th-week-of-easter-mon": [
+    {
+      "cycle": null,
+      "label": "6th Week of Easter - Mon",
+      "number": "291",
+      "variant": null
+    }
+  ],
+  "6th-week-of-easter-sat-2025-visitation-of-bvm": [
+    {
+      "cycle": null,
+      "label": "6th Week of Easter - Sat [2025: Visitation of BVM]",
+      "number": "296",
+      "variant": null
+    }
+  ],
+  "6th-week-of-easter-thurs-or-ascension-of-the-lord": [
+    {
+      "cycle": null,
+      "label": "6th Week of Easter - Thurs [ or Ascension of the Lord ]",
+      "number": "294",
+      "variant": null
+    }
+  ],
+  "6th-week-of-easter-tues": [
+    {
+      "cycle": null,
+      "label": "6th Week of Easter - Tues",
+      "number": "292",
+      "variant": null
+    }
+  ],
+  "6th-week-of-easter-wed": [
+    {
+      "cycle": null,
+      "label": "6th Week of Easter - Wed",
+      "number": "293",
+      "variant": null
+    }
+  ],
+  "7th-week-of-easter-fri": [
+    {
+      "cycle": null,
+      "label": "7th Week of Easter - Fri",
+      "number": "301",
+      "variant": null
+    }
+  ],
+  "7th-week-of-easter-mon": [
+    {
+      "cycle": null,
+      "label": "7th Week of Easter - Mon",
+      "number": "297",
+      "variant": null
+    }
+  ],
+  "7th-week-of-easter-sat-morning": [
+    {
+      "cycle": null,
+      "label": "7th Week of Easter - Sat morning",
+      "number": "302",
+      "variant": null
+    }
+  ],
+  "7th-week-of-easter-thurs": [
+    {
+      "cycle": null,
+      "label": "7th Week of Easter - Thurs",
+      "number": "300",
+      "variant": null
+    }
+  ],
+  "7th-week-of-easter-tues": [
+    {
+      "cycle": null,
+      "label": "7th Week of Easter - Tues",
+      "number": "298",
+      "variant": null
+    }
+  ],
+  "7th-week-of-easter-wed": [
+    {
+      "cycle": null,
+      "label": "7th Week of Easter - Wed",
+      "number": "299",
+      "variant": null
+    }
+  ],
+  "ash-wednesday": [
+    {
+      "cycle": null,
+      "label": "Ash Wednesday",
+      "number": "219",
+      "variant": null
+    }
+  ],
+  "dec-29-5th-day-in-the-octave-of-christmas": [
+    {
+      "cycle": null,
+      "label": "Dec. 29 – 5th Day in the Octave of Christmas",
+      "number": "202",
+      "variant": null
+    }
+  ],
+  "dec-30-6th-day-in-the-octave-of-christmas": [
+    {
+      "cycle": null,
+      "label": "Dec. 30 – 6th Day in the Octave of Christmas",
+      "number": "203",
+      "variant": null
+    }
+  ],
+  "dec-31-7th-day-in-the-octave-of-christmas-opt-mem-st-sylvester-700": [
+    {
+      "cycle": null,
+      "label": "Dec. 31 – 7th Day in the Octave of Christmas (Opt. Mem.: St. Sylvester , #700)",
+      "number": "204",
+      "variant": null
+    }
+  ],
+  "december-17-thursday-in-2026": [
+    {
+      "cycle": null,
+      "label": "December 17 (Thursday in 2026)",
+      "number": "193",
+      "variant": null
+    }
+  ],
+  "december-18-fri-in-2026": [
+    {
+      "cycle": null,
+      "label": "December 18 (Fri in 2026)",
+      "number": "194",
+      "variant": null
+    }
+  ],
+  "december-19-sat-in-2026": [
+    {
+      "cycle": null,
+      "label": "December 19 (Sat in 2026)",
+      "number": "195",
+      "variant": null
+    }
+  ],
+  "december-20-sun-in-2026": [
+    {
+      "cycle": null,
+      "label": "December 20 (Sun in 2026)",
+      "number": "196",
+      "variant": null
+    }
+  ],
+  "december-21-mon-in-2026": [
+    {
+      "cycle": null,
+      "label": "December 21 (Mon in 2026)",
+      "number": "197",
+      "variant": null
+    }
+  ],
+  "december-22-tues-in-2026": [
+    {
+      "cycle": null,
+      "label": "December 22 (Tues in 2026)",
+      "number": "198",
+      "variant": null
+    }
+  ],
+  "december-23-wed-in-2026": [
+    {
+      "cycle": null,
+      "label": "December 23 (Wed in 2026)",
+      "number": "199",
+      "variant": null
+    }
+  ],
+  "december-24-thurs-in-2026": [
+    {
+      "cycle": null,
+      "label": "December 24 (Thurs in 2026)",
+      "number": "200",
+      "variant": null
+    }
+  ],
+  "friday-after-ash-wed": [
+    {
+      "cycle": null,
+      "label": "Friday after Ash Wed.",
+      "number": "221",
+      "variant": null
+    }
+  ],
+  "friday-after-epiphany-jan-8-2027-or-sometimes-jan-11": [
+    {
+      "cycle": null,
+      "label": "Friday after Epiphany ( Jan. 8, 2027 ), or sometimes Jan. 11",
+      "number": "216",
+      "variant": null
+    }
+  ],
+  "holy-week-chrism-mass": [
+    {
+      "cycle": null,
+      "label": "Holy Week – Chrism Mass",
+      "number": "260",
+      "variant": "chrism"
+    }
+  ],
+  "holy-week-mon": [
+    {
+      "cycle": null,
+      "label": "Holy Week – Mon",
+      "number": "257",
+      "variant": null
+    }
+  ],
+  "holy-week-tues": [
+    {
+      "cycle": null,
+      "label": "Holy Week – Tues",
+      "number": "258",
+      "variant": null
+    }
+  ],
+  "holy-week-wed": [
+    {
+      "cycle": null,
+      "label": "Holy Week – Wed",
+      "number": "259",
+      "variant": null
+    }
+  ],
+  "jan-2-memorial-of-st-basil-the-great-gregory-nazianzen-510": [
+    {
+      "cycle": null,
+      "label": "Jan. 2 (Memorial of St. Basil the Great & Gregory Nazianzen, #510)",
+      "number": "205",
+      "variant": null
+    }
+  ],
+  "jan-3-opt-memorial-holy-name-of-jesus-510-1-not-in-2027": [
+    {
+      "cycle": null,
+      "label": "[Jan. 3] (Opt. Memorial: Holy Name of Jesus, #510.1 - not in 2027 )",
+      "number": "206",
+      "variant": null
+    }
+  ],
+  "jan-4-memorial-of-st-elizabeth-ann-seton-510a": [
+    {
+      "cycle": null,
+      "label": "Jan. 4 (Memorial of St. Elizabeth Ann Seton, #510A)",
+      "number": "207",
+      "variant": null
+    }
+  ],
+  "jan-5-memorial-of-st-john-neumann-510b": [
+    {
+      "cycle": null,
+      "label": "Jan. 5 (Memorial of St. John Neumann, #510B)",
+      "number": "208",
+      "variant": null
+    }
+  ],
+  "jan-6-only-if-epiphany-is-celebrated-jan-7-or-8-not-in-2027": [
+    {
+      "cycle": null,
+      "label": "[Jan. 6] ( only if Epiphany is celebrated Jan. 7 or 8 ; not in 2027 )",
+      "number": "209",
+      "variant": null
+    }
+  ],
+  "jan-7-only-if-epiphany-is-celebrated-jan-8-not-in-2027": [
+    {
+      "cycle": null,
+      "label": "[Jan. 7] (only if Epiphany is celebrated Jan. 8 ; not in 2027 )",
+      "number": "210",
+      "variant": null
+    }
+  ],
+  "monday-after-epiphany-jan-4-2027-or-sometimes-jan-7": [
+    {
+      "cycle": null,
+      "label": "Monday after Epiphany ( Jan. 4, 2027 ), or sometimes Jan. 7",
+      "number": "212",
+      "variant": null
+    }
+  ],
+  "octave-of-easter-friday": [
+    {
+      "cycle": null,
+      "label": "Octave of Easter – Friday",
+      "number": "265",
+      "variant": null
+    }
+  ],
+  "octave-of-easter-monday": [
+    {
+      "cycle": null,
+      "label": "Octave of Easter – Monday",
+      "number": "261",
+      "variant": null
+    }
+  ],
+  "octave-of-easter-saturday": [
+    {
+      "cycle": null,
+      "label": "Octave of Easter – Saturday",
+      "number": "266",
+      "variant": null
+    }
+  ],
+  "octave-of-easter-thursday": [
+    {
+      "cycle": null,
+      "label": "Octave of Easter – Thursday",
+      "number": "264",
+      "variant": null
+    }
+  ],
+  "octave-of-easter-tuesday": [
+    {
+      "cycle": null,
+      "label": "Octave of Easter – Tuesday",
+      "number": "262",
+      "variant": null
+    }
+  ],
+  "octave-of-easter-wednesday": [
+    {
+      "cycle": null,
+      "label": "Octave of Easter – Wednesday",
+      "number": "263",
+      "variant": null
+    }
+  ],
+  "saturday-after-ash-wed": [
+    {
+      "cycle": null,
+      "label": "Saturday after Ash Wed.",
+      "number": "222",
+      "variant": null
+    }
+  ],
+  "saturday-after-epiphany-jan-9-2027-or-sometimes-jan-12": [
+    {
+      "cycle": null,
+      "label": "Saturday after Epiphany ( Jan. 9, 2027 ), or sometimes Jan. 12",
+      "number": "217",
+      "variant": null
+    }
+  ],
+  "thursday-after-ash-wed": [
+    {
+      "cycle": null,
+      "label": "Thursday after Ash Wed.",
+      "number": "220",
+      "variant": null
+    }
+  ],
+  "thursday-after-epiphany-jan-7-2027-or-sometimes-jan-10": [
+    {
+      "cycle": null,
+      "label": "Thursday after Epiphany ( Jan. 7, 2027 ), or sometimes Jan. 10",
+      "number": "215",
+      "variant": null
+    }
+  ],
+  "tuesday-after-epiphany-jan-5-2027-or-sometimes-jan-8": [
+    {
+      "cycle": null,
+      "label": "Tuesday after Epiphany ( Jan. 5, 2027 ), or sometimes Jan. 8",
+      "number": "213",
+      "variant": null
+    }
+  ],
+  "wednesday-after-epiphany-jan-6-2027-or-sometimes-jan-9": [
+    {
+      "cycle": null,
+      "label": "Wednesday after Epiphany ( Jan. 6, 2027 ), or sometimes Jan. 9",
+      "number": "214",
+      "variant": null
+    }
+  ],
+  "week-1-fri": [
+    {
+      "cycle": null,
+      "label": "Week 1 - Fri",
+      "number": "309",
+      "variant": null
+    }
+  ],
+  "week-1-mon": [
+    {
+      "cycle": null,
+      "label": "Week 1 - Mon",
+      "number": "305",
+      "variant": null
+    }
+  ],
+  "week-1-sat": [
+    {
+      "cycle": null,
+      "label": "Week 1 - Sat",
+      "number": "310",
+      "variant": null
+    }
+  ],
+  "week-1-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 1 - Thurs",
+      "number": "308",
+      "variant": null
+    }
+  ],
+  "week-1-tues": [
+    {
+      "cycle": null,
+      "label": "Week 1 - Tues",
+      "number": "306",
+      "variant": null
+    }
+  ],
+  "week-1-wed": [
+    {
+      "cycle": null,
+      "label": "Week 1 - Wed",
+      "number": "307",
+      "variant": null
+    }
+  ],
+  "week-10-fri": [
+    {
+      "cycle": null,
+      "label": "Week 10 - Fri",
+      "number": "363",
+      "variant": null
+    }
+  ],
+  "week-10-mon": [
+    {
+      "cycle": null,
+      "label": "Week 10 - Mon",
+      "number": "359",
+      "variant": null
+    }
+  ],
+  "week-10-sat": [
+    {
+      "cycle": null,
+      "label": "Week 10 - Sat",
+      "number": "364",
+      "variant": null
+    }
+  ],
+  "week-10-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 10 - Thurs",
+      "number": "362",
+      "variant": null
+    }
+  ],
+  "week-10-tues": [
+    {
+      "cycle": null,
+      "label": "Week 10 - Tues",
+      "number": "360",
+      "variant": null
+    }
+  ],
+  "week-10-wed": [
+    {
+      "cycle": null,
+      "label": "Week 10 - Wed",
+      "number": "361",
+      "variant": null
+    }
+  ],
+  "week-11-fri": [
+    {
+      "cycle": null,
+      "label": "Week 11 - Fri",
+      "number": "369",
+      "variant": null
+    }
+  ],
+  "week-11-mon": [
+    {
+      "cycle": null,
+      "label": "Week 11 - Mon",
+      "number": "365",
+      "variant": null
+    }
+  ],
+  "week-11-sat": [
+    {
+      "cycle": null,
+      "label": "Week 11 - Sat",
+      "number": "370",
+      "variant": null
+    }
+  ],
+  "week-11-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 11 - Thurs",
+      "number": "368",
+      "variant": null
+    }
+  ],
+  "week-11-tues": [
+    {
+      "cycle": null,
+      "label": "Week 11 - Tues",
+      "number": "366",
+      "variant": null
+    }
+  ],
+  "week-11-wed": [
+    {
+      "cycle": null,
+      "label": "Week 11 - Wed",
+      "number": "367",
+      "variant": null
+    }
+  ],
+  "week-12-fri": [
+    {
+      "cycle": null,
+      "label": "Week 12 - Fri",
+      "number": "375",
+      "variant": null
+    }
+  ],
+  "week-12-mon": [
+    {
+      "cycle": null,
+      "label": "Week 12 - Mon",
+      "number": "371",
+      "variant": null
+    }
+  ],
+  "week-12-sat": [
+    {
+      "cycle": null,
+      "label": "Week 12 - Sat",
+      "number": "376",
+      "variant": null
+    }
+  ],
+  "week-12-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 12 - Thurs",
+      "number": "374",
+      "variant": null
+    }
+  ],
+  "week-12-tues": [
+    {
+      "cycle": null,
+      "label": "Week 12 - Tues",
+      "number": "372",
+      "variant": null
+    }
+  ],
+  "week-12-wed": [
+    {
+      "cycle": null,
+      "label": "Week 12 - Wed",
+      "number": "373",
+      "variant": null
+    }
+  ],
+  "week-13-fri": [
+    {
+      "cycle": null,
+      "label": "Week 13 - Fri",
+      "number": "381",
+      "variant": null
+    }
+  ],
+  "week-13-mon": [
+    {
+      "cycle": null,
+      "label": "Week 13 - Mon",
+      "number": "377",
+      "variant": null
+    }
+  ],
+  "week-13-sat": [
+    {
+      "cycle": null,
+      "label": "Week 13 - Sat",
+      "number": "382",
+      "variant": null
+    }
+  ],
+  "week-13-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 13 - Thurs",
+      "number": "380",
+      "variant": null
+    }
+  ],
+  "week-13-tues": [
+    {
+      "cycle": null,
+      "label": "Week 13 - Tues",
+      "number": "378",
+      "variant": null
+    }
+  ],
+  "week-13-wed": [
+    {
+      "cycle": null,
+      "label": "Week 13 - Wed",
+      "number": "379",
+      "variant": null
+    }
+  ],
+  "week-14-fri": [
+    {
+      "cycle": null,
+      "label": "Week 14 - Fri",
+      "number": "387",
+      "variant": null
+    }
+  ],
+  "week-14-mon": [
+    {
+      "cycle": null,
+      "label": "Week 14 - Mon",
+      "number": "383",
+      "variant": null
+    }
+  ],
+  "week-14-sat": [
+    {
+      "cycle": null,
+      "label": "Week 14 - Sat",
+      "number": "388",
+      "variant": null
+    }
+  ],
+  "week-14-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 14 - Thurs",
+      "number": "386",
+      "variant": null
+    }
+  ],
+  "week-14-tues": [
+    {
+      "cycle": null,
+      "label": "Week 14 - Tues",
+      "number": "384",
+      "variant": null
+    }
+  ],
+  "week-14-wed": [
+    {
+      "cycle": null,
+      "label": "Week 14 - Wed",
+      "number": "385",
+      "variant": null
+    }
+  ],
+  "week-15-fri": [
+    {
+      "cycle": null,
+      "label": "Week 15 - Fri",
+      "number": "393",
+      "variant": null
+    }
+  ],
+  "week-15-mon": [
+    {
+      "cycle": null,
+      "label": "Week 15 - Mon",
+      "number": "389",
+      "variant": null
+    }
+  ],
+  "week-15-sat": [
+    {
+      "cycle": null,
+      "label": "Week 15 - Sat",
+      "number": "394",
+      "variant": null
+    }
+  ],
+  "week-15-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 15 - Thurs",
+      "number": "392",
+      "variant": null
+    }
+  ],
+  "week-15-tues": [
+    {
+      "cycle": null,
+      "label": "Week 15 - Tues",
+      "number": "390",
+      "variant": null
+    }
+  ],
+  "week-15-wed": [
+    {
+      "cycle": null,
+      "label": "Week 15 - Wed",
+      "number": "391",
+      "variant": null
+    }
+  ],
+  "week-16-fri": [
+    {
+      "cycle": null,
+      "label": "Week 16 - Fri",
+      "number": "399",
+      "variant": null
+    }
+  ],
+  "week-16-mon": [
+    {
+      "cycle": null,
+      "label": "Week 16 - Mon",
+      "number": "395",
+      "variant": null
+    }
+  ],
+  "week-16-sat": [
+    {
+      "cycle": null,
+      "label": "Week 16 - Sat",
+      "number": "400",
+      "variant": null
+    }
+  ],
+  "week-16-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 16 - Thurs",
+      "number": "398",
+      "variant": null
+    }
+  ],
+  "week-16-tues": [
+    {
+      "cycle": null,
+      "label": "Week 16 - Tues",
+      "number": "396",
+      "variant": null
+    }
+  ],
+  "week-16-wed": [
+    {
+      "cycle": null,
+      "label": "Week 16 - Wed",
+      "number": "397",
+      "variant": null
+    }
+  ],
+  "week-17-fri": [
+    {
+      "cycle": null,
+      "label": "Week 17 - Fri",
+      "number": "405",
+      "variant": null
+    }
+  ],
+  "week-17-mon": [
+    {
+      "cycle": null,
+      "label": "Week 17 - Mon",
+      "number": "401",
+      "variant": null
+    }
+  ],
+  "week-17-sat": [
+    {
+      "cycle": null,
+      "label": "Week 17 - Sat",
+      "number": "406",
+      "variant": null
+    }
+  ],
+  "week-17-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 17 - Thurs",
+      "number": "404",
+      "variant": null
+    }
+  ],
+  "week-17-tues": [
+    {
+      "cycle": null,
+      "label": "Week 17 - Tues",
+      "number": "402",
+      "variant": null
+    }
+  ],
+  "week-17-wed": [
+    {
+      "cycle": null,
+      "label": "Week 17 - Wed",
+      "number": "403",
+      "variant": null
+    }
+  ],
+  "week-18-fri": [
+    {
+      "cycle": null,
+      "label": "Week 18 - Fri",
+      "number": "411",
+      "variant": null
+    }
+  ],
+  "week-18-mon": [
+    {
+      "cycle": null,
+      "label": "Week 18 - Mon",
+      "number": "407",
+      "variant": null
+    }
+  ],
+  "week-18-sat": [
+    {
+      "cycle": null,
+      "label": "Week 18 - Sat",
+      "number": "412",
+      "variant": null
+    }
+  ],
+  "week-18-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 18 - Thurs",
+      "number": "410",
+      "variant": null
+    }
+  ],
+  "week-18-tues": [
+    {
+      "cycle": null,
+      "label": "Week 18 - Tues",
+      "number": "408",
+      "variant": null
+    }
+  ],
+  "week-18-wed": [
+    {
+      "cycle": null,
+      "label": "Week 18 - Wed",
+      "number": "409",
+      "variant": null
+    }
+  ],
+  "week-19-fri": [
+    {
+      "cycle": null,
+      "label": "Week 19 - Fri",
+      "number": "417",
+      "variant": null
+    }
+  ],
+  "week-19-mon": [
+    {
+      "cycle": null,
+      "label": "Week 19 - Mon",
+      "number": "413",
+      "variant": null
+    }
+  ],
+  "week-19-sat": [
+    {
+      "cycle": null,
+      "label": "Week 19 - Sat",
+      "number": "418",
+      "variant": null
+    }
+  ],
+  "week-19-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 19 - Thurs",
+      "number": "416",
+      "variant": null
+    }
+  ],
+  "week-19-tues": [
+    {
+      "cycle": null,
+      "label": "Week 19 - Tues",
+      "number": "414",
+      "variant": null
+    }
+  ],
+  "week-19-wed": [
+    {
+      "cycle": null,
+      "label": "Week 19 - Wed",
+      "number": "415",
+      "variant": null
+    }
+  ],
+  "week-2-fri": [
+    {
+      "cycle": null,
+      "label": "Week 2 - Fri",
+      "number": "315",
+      "variant": null
+    }
+  ],
+  "week-2-mon": [
+    {
+      "cycle": null,
+      "label": "Week 2 - Mon",
+      "number": "311",
+      "variant": null
+    }
+  ],
+  "week-2-sat": [
+    {
+      "cycle": null,
+      "label": "Week 2 - Sat",
+      "number": "316",
+      "variant": null
+    }
+  ],
+  "week-2-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 2 - Thurs",
+      "number": "314",
+      "variant": null
+    }
+  ],
+  "week-2-tues": [
+    {
+      "cycle": null,
+      "label": "Week 2 - Tues",
+      "number": "312",
+      "variant": null
+    }
+  ],
+  "week-2-wed": [
+    {
+      "cycle": null,
+      "label": "Week 2 - Wed",
+      "number": "313",
+      "variant": null
+    }
+  ],
+  "week-20-fri": [
+    {
+      "cycle": null,
+      "label": "Week 20 - Fri",
+      "number": "423",
+      "variant": null
+    }
+  ],
+  "week-20-mon": [
+    {
+      "cycle": null,
+      "label": "Week 20 - Mon",
+      "number": "419",
+      "variant": null
+    }
+  ],
+  "week-20-sat": [
+    {
+      "cycle": null,
+      "label": "Week 20 - Sat",
+      "number": "424",
+      "variant": null
+    }
+  ],
+  "week-20-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 20 - Thurs",
+      "number": "422",
+      "variant": null
+    }
+  ],
+  "week-20-tues": [
+    {
+      "cycle": null,
+      "label": "Week 20 - Tues",
+      "number": "420",
+      "variant": null
+    }
+  ],
+  "week-20-wed": [
+    {
+      "cycle": null,
+      "label": "Week 20 - Wed",
+      "number": "421",
+      "variant": null
+    }
+  ],
+  "week-21-fri": [
+    {
+      "cycle": null,
+      "label": "Week 21 - Fri",
+      "number": "429",
+      "variant": null
+    }
+  ],
+  "week-21-mon": [
+    {
+      "cycle": null,
+      "label": "Week 21 - Mon",
+      "number": "425",
+      "variant": null
+    }
+  ],
+  "week-21-sat": [
+    {
+      "cycle": null,
+      "label": "Week 21 - Sat",
+      "number": "430",
+      "variant": null
+    }
+  ],
+  "week-21-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 21 - Thurs",
+      "number": "428",
+      "variant": null
+    }
+  ],
+  "week-21-tues": [
+    {
+      "cycle": null,
+      "label": "Week 21 - Tues",
+      "number": "426",
+      "variant": null
+    }
+  ],
+  "week-21-wed": [
+    {
+      "cycle": null,
+      "label": "Week 21 - Wed",
+      "number": "427",
+      "variant": null
+    }
+  ],
+  "week-22-fri": [
+    {
+      "cycle": null,
+      "label": "Week 22 - Fri",
+      "number": "435",
+      "variant": null
+    }
+  ],
+  "week-22-mon": [
+    {
+      "cycle": null,
+      "label": "Week 22 - Mon",
+      "number": "431",
+      "variant": null
+    }
+  ],
+  "week-22-sat": [
+    {
+      "cycle": null,
+      "label": "Week 22 - Sat",
+      "number": "436",
+      "variant": null
+    }
+  ],
+  "week-22-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 22 - Thurs",
+      "number": "434",
+      "variant": null
+    }
+  ],
+  "week-22-tues": [
+    {
+      "cycle": null,
+      "label": "Week 22 - Tues",
+      "number": "432",
+      "variant": null
+    }
+  ],
+  "week-22-wed": [
+    {
+      "cycle": null,
+      "label": "Week 22 - Wed",
+      "number": "433",
+      "variant": null
+    }
+  ],
+  "week-23-fri": [
+    {
+      "cycle": null,
+      "label": "Week 23 - Fri",
+      "number": "441",
+      "variant": null
+    }
+  ],
+  "week-23-mon": [
+    {
+      "cycle": null,
+      "label": "Week 23 - Mon",
+      "number": "437",
+      "variant": null
+    }
+  ],
+  "week-23-sat": [
+    {
+      "cycle": null,
+      "label": "Week 23 - Sat",
+      "number": "442",
+      "variant": null
+    }
+  ],
+  "week-23-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 23 - Thurs",
+      "number": "440",
+      "variant": null
+    }
+  ],
+  "week-23-tues": [
+    {
+      "cycle": null,
+      "label": "Week 23 - Tues",
+      "number": "438",
+      "variant": null
+    }
+  ],
+  "week-23-wed": [
+    {
+      "cycle": null,
+      "label": "Week 23 - Wed",
+      "number": "439",
+      "variant": null
+    }
+  ],
+  "week-24-fri": [
+    {
+      "cycle": null,
+      "label": "Week 24 - Fri",
+      "number": "447",
+      "variant": null
+    }
+  ],
+  "week-24-mon": [
+    {
+      "cycle": null,
+      "label": "Week 24 - Mon",
+      "number": "443",
+      "variant": null
+    }
+  ],
+  "week-24-sat": [
+    {
+      "cycle": null,
+      "label": "Week 24 - Sat",
+      "number": "448",
+      "variant": null
+    }
+  ],
+  "week-24-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 24 - Thurs",
+      "number": "446",
+      "variant": null
+    }
+  ],
+  "week-24-tues": [
+    {
+      "cycle": null,
+      "label": "Week 24 - Tues",
+      "number": "444",
+      "variant": null
+    }
+  ],
+  "week-24-wed": [
+    {
+      "cycle": null,
+      "label": "Week 24 - Wed",
+      "number": "445",
+      "variant": null
+    }
+  ],
+  "week-25-fri": [
+    {
+      "cycle": null,
+      "label": "Week 25 - Fri",
+      "number": "453",
+      "variant": null
+    }
+  ],
+  "week-25-mon": [
+    {
+      "cycle": null,
+      "label": "Week 25 - Mon",
+      "number": "449",
+      "variant": null
+    }
+  ],
+  "week-25-sat": [
+    {
+      "cycle": null,
+      "label": "Week 25 - Sat",
+      "number": "454",
+      "variant": null
+    }
+  ],
+  "week-25-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 25 - Thurs",
+      "number": "452",
+      "variant": null
+    }
+  ],
+  "week-25-tues": [
+    {
+      "cycle": null,
+      "label": "Week 25 - Tues",
+      "number": "450",
+      "variant": null
+    }
+  ],
+  "week-25-wed": [
+    {
+      "cycle": null,
+      "label": "Week 25 - Wed",
+      "number": "451",
+      "variant": null
+    }
+  ],
+  "week-26-fri": [
+    {
+      "cycle": null,
+      "label": "Week 26 - Fri",
+      "number": "459",
+      "variant": null
+    }
+  ],
+  "week-26-mon": [
+    {
+      "cycle": null,
+      "label": "Week 26 - Mon",
+      "number": "455",
+      "variant": null
+    }
+  ],
+  "week-26-sat": [
+    {
+      "cycle": null,
+      "label": "Week 26 - Sat",
+      "number": "460",
+      "variant": null
+    }
+  ],
+  "week-26-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 26 - Thurs",
+      "number": "458",
+      "variant": null
+    }
+  ],
+  "week-26-tues": [
+    {
+      "cycle": null,
+      "label": "Week 26 - Tues",
+      "number": "456",
+      "variant": null
+    }
+  ],
+  "week-26-wed": [
+    {
+      "cycle": null,
+      "label": "Week 26 - Wed",
+      "number": "457",
+      "variant": null
+    }
+  ],
+  "week-27-fri": [
+    {
+      "cycle": null,
+      "label": "Week 27 - Fri",
+      "number": "465",
+      "variant": null
+    }
+  ],
+  "week-27-mon": [
+    {
+      "cycle": null,
+      "label": "Week 27 - Mon",
+      "number": "461",
+      "variant": null
+    }
+  ],
+  "week-27-sat": [
+    {
+      "cycle": null,
+      "label": "Week 27 - Sat",
+      "number": "466",
+      "variant": null
+    }
+  ],
+  "week-27-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 27 - Thurs",
+      "number": "464",
+      "variant": null
+    }
+  ],
+  "week-27-tues": [
+    {
+      "cycle": null,
+      "label": "Week 27 - Tues",
+      "number": "462",
+      "variant": null
+    }
+  ],
+  "week-27-wed": [
+    {
+      "cycle": null,
+      "label": "Week 27 - Wed",
+      "number": "463",
+      "variant": null
+    }
+  ],
+  "week-28-fri": [
+    {
+      "cycle": null,
+      "label": "Week 28 - Fri",
+      "number": "471",
+      "variant": null
+    }
+  ],
+  "week-28-mon": [
+    {
+      "cycle": null,
+      "label": "Week 28 - Mon",
+      "number": "467",
+      "variant": null
+    }
+  ],
+  "week-28-sat": [
+    {
+      "cycle": null,
+      "label": "Week 28 - Sat",
+      "number": "472",
+      "variant": null
+    }
+  ],
+  "week-28-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 28 - Thurs",
+      "number": "470",
+      "variant": null
+    }
+  ],
+  "week-28-tues": [
+    {
+      "cycle": null,
+      "label": "Week 28 - Tues",
+      "number": "468",
+      "variant": null
+    }
+  ],
+  "week-28-wed": [
+    {
+      "cycle": null,
+      "label": "Week 28 - Wed",
+      "number": "469",
+      "variant": null
+    }
+  ],
+  "week-29-fri": [
+    {
+      "cycle": null,
+      "label": "Week 29 - Fri",
+      "number": "477",
+      "variant": null
+    }
+  ],
+  "week-29-mon": [
+    {
+      "cycle": null,
+      "label": "Week 29 - Mon",
+      "number": "473",
+      "variant": null
+    }
+  ],
+  "week-29-sat": [
+    {
+      "cycle": null,
+      "label": "Week 29 - Sat",
+      "number": "478",
+      "variant": null
+    }
+  ],
+  "week-29-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 29 - Thurs",
+      "number": "476",
+      "variant": null
+    }
+  ],
+  "week-29-tues": [
+    {
+      "cycle": null,
+      "label": "Week 29 - Tues",
+      "number": "474",
+      "variant": null
+    }
+  ],
+  "week-29-wed": [
+    {
+      "cycle": null,
+      "label": "Week 29 - Wed",
+      "number": "475",
+      "variant": null
+    }
+  ],
+  "week-3-fri": [
+    {
+      "cycle": null,
+      "label": "Week 3 - Fri",
+      "number": "321",
+      "variant": null
+    }
+  ],
+  "week-3-mon": [
+    {
+      "cycle": null,
+      "label": "Week 3 - Mon",
+      "number": "317",
+      "variant": null
+    }
+  ],
+  "week-3-sat": [
+    {
+      "cycle": null,
+      "label": "Week 3 - Sat",
+      "number": "322",
+      "variant": null
+    }
+  ],
+  "week-3-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 3 - Thurs",
+      "number": "320",
+      "variant": null
+    }
+  ],
+  "week-3-tues": [
+    {
+      "cycle": null,
+      "label": "Week 3 - Tues",
+      "number": "318",
+      "variant": null
+    }
+  ],
+  "week-3-wed": [
+    {
+      "cycle": null,
+      "label": "Week 3 - Wed",
+      "number": "319",
+      "variant": null
+    }
+  ],
+  "week-30-fri": [
+    {
+      "cycle": null,
+      "label": "Week 30 - Fri",
+      "number": "483",
+      "variant": null
+    }
+  ],
+  "week-30-mon": [
+    {
+      "cycle": null,
+      "label": "Week 30 - Mon",
+      "number": "479",
+      "variant": null
+    }
+  ],
+  "week-30-sat": [
+    {
+      "cycle": null,
+      "label": "Week 30 - Sat",
+      "number": "484",
+      "variant": null
+    }
+  ],
+  "week-30-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 30 - Thurs",
+      "number": "482",
+      "variant": null
+    }
+  ],
+  "week-30-tues": [
+    {
+      "cycle": null,
+      "label": "Week 30 - Tues",
+      "number": "480",
+      "variant": null
+    }
+  ],
+  "week-30-wed": [
+    {
+      "cycle": null,
+      "label": "Week 30 - Wed",
+      "number": "481",
+      "variant": null
+    }
+  ],
+  "week-31-fri": [
+    {
+      "cycle": null,
+      "label": "Week 31 - Fri",
+      "number": "489",
+      "variant": null
+    }
+  ],
+  "week-31-mon": [
+    {
+      "cycle": null,
+      "label": "Week 31 - Mon",
+      "number": "485",
+      "variant": null
+    }
+  ],
+  "week-31-sat": [
+    {
+      "cycle": null,
+      "label": "Week 31 - Sat",
+      "number": "490",
+      "variant": null
+    }
+  ],
+  "week-31-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 31 - Thurs",
+      "number": "488",
+      "variant": null
+    }
+  ],
+  "week-31-tues": [
+    {
+      "cycle": null,
+      "label": "Week 31 - Tues",
+      "number": "486",
+      "variant": null
+    }
+  ],
+  "week-31-wed": [
+    {
+      "cycle": null,
+      "label": "Week 31 - Wed",
+      "number": "487",
+      "variant": null
+    }
+  ],
+  "week-32-fri": [
+    {
+      "cycle": null,
+      "label": "Week 32 - Fri",
+      "number": "495",
+      "variant": null
+    }
+  ],
+  "week-32-mon": [
+    {
+      "cycle": null,
+      "label": "Week 32 - Mon",
+      "number": "491",
+      "variant": null
+    }
+  ],
+  "week-32-sat": [
+    {
+      "cycle": null,
+      "label": "Week 32 - Sat",
+      "number": "496",
+      "variant": null
+    }
+  ],
+  "week-32-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 32 - Thurs",
+      "number": "494",
+      "variant": null
+    }
+  ],
+  "week-32-tues": [
+    {
+      "cycle": null,
+      "label": "Week 32 - Tues",
+      "number": "492",
+      "variant": null
+    }
+  ],
+  "week-32-wed": [
+    {
+      "cycle": null,
+      "label": "Week 32 - Wed",
+      "number": "493",
+      "variant": null
+    }
+  ],
+  "week-33-fri": [
+    {
+      "cycle": null,
+      "label": "Week 33 - Fri",
+      "number": "501",
+      "variant": null
+    }
+  ],
+  "week-33-mon": [
+    {
+      "cycle": null,
+      "label": "Week 33 - Mon",
+      "number": "497",
+      "variant": null
+    }
+  ],
+  "week-33-sat": [
+    {
+      "cycle": null,
+      "label": "Week 33 - Sat",
+      "number": "502",
+      "variant": null
+    }
+  ],
+  "week-33-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 33 - Thurs",
+      "number": "500",
+      "variant": null
+    }
+  ],
+  "week-33-tues": [
+    {
+      "cycle": null,
+      "label": "Week 33 - Tues",
+      "number": "498",
+      "variant": null
+    }
+  ],
+  "week-33-wed": [
+    {
+      "cycle": null,
+      "label": "Week 33 - Wed",
+      "number": "499",
+      "variant": null
+    }
+  ],
+  "week-34-fri": [
+    {
+      "cycle": null,
+      "label": "Week 34 - Fri",
+      "number": "507",
+      "variant": null
+    }
+  ],
+  "week-34-mon": [
+    {
+      "cycle": null,
+      "label": "Week 34 - Mon",
+      "number": "503",
+      "variant": null
+    }
+  ],
+  "week-34-sat": [
+    {
+      "cycle": null,
+      "label": "Week 34 - Sat",
+      "number": "508",
+      "variant": null
+    }
+  ],
+  "week-34-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 34 - Thurs",
+      "number": "506",
+      "variant": null
+    }
+  ],
+  "week-34-tues": [
+    {
+      "cycle": null,
+      "label": "Week 34 - Tues",
+      "number": "504",
+      "variant": null
+    }
+  ],
+  "week-34-wed": [
+    {
+      "cycle": null,
+      "label": "Week 34 - Wed",
+      "number": "505",
+      "variant": null
+    }
+  ],
+  "week-4-fri": [
+    {
+      "cycle": null,
+      "label": "Week 4 - Fri",
+      "number": "327",
+      "variant": null
+    }
+  ],
+  "week-4-mon": [
+    {
+      "cycle": null,
+      "label": "Week 4 - Mon",
+      "number": "323",
+      "variant": null
+    }
+  ],
+  "week-4-sat": [
+    {
+      "cycle": null,
+      "label": "Week 4 - Sat",
+      "number": "328",
+      "variant": null
+    }
+  ],
+  "week-4-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 4 - Thurs",
+      "number": "326",
+      "variant": null
+    }
+  ],
+  "week-4-tues": [
+    {
+      "cycle": null,
+      "label": "Week 4 - Tues",
+      "number": "324",
+      "variant": null
+    }
+  ],
+  "week-4-wed": [
+    {
+      "cycle": null,
+      "label": "Week 4 - Wed",
+      "number": "325",
+      "variant": null
+    }
+  ],
+  "week-5-fri": [
+    {
+      "cycle": null,
+      "label": "Week 5 - Fri",
+      "number": "333",
+      "variant": null
+    }
+  ],
+  "week-5-mon": [
+    {
+      "cycle": null,
+      "label": "Week 5 - Mon",
+      "number": "329",
+      "variant": null
+    }
+  ],
+  "week-5-sat": [
+    {
+      "cycle": null,
+      "label": "Week 5 - Sat",
+      "number": "334",
+      "variant": null
+    }
+  ],
+  "week-5-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 5 - Thurs",
+      "number": "332",
+      "variant": null
+    }
+  ],
+  "week-5-tues": [
+    {
+      "cycle": null,
+      "label": "Week 5 - Tues",
+      "number": "330",
+      "variant": null
+    }
+  ],
+  "week-5-wed": [
+    {
+      "cycle": null,
+      "label": "Week 5 - Wed",
+      "number": "331",
+      "variant": null
+    }
+  ],
+  "week-6-fri": [
+    {
+      "cycle": null,
+      "label": "Week 6 - Fri",
+      "number": "339",
+      "variant": null
+    }
+  ],
+  "week-6-mon": [
+    {
+      "cycle": null,
+      "label": "Week 6 - Mon",
+      "number": "335",
+      "variant": null
+    }
+  ],
+  "week-6-sat": [
+    {
+      "cycle": null,
+      "label": "Week 6 - Sat",
+      "number": "340",
+      "variant": null
+    }
+  ],
+  "week-6-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 6 - Thurs",
+      "number": "338",
+      "variant": null
+    }
+  ],
+  "week-6-tues": [
+    {
+      "cycle": null,
+      "label": "Week 6 - Tues",
+      "number": "336",
+      "variant": null
+    }
+  ],
+  "week-6-wed": [
+    {
+      "cycle": null,
+      "label": "Week 6 - Wed",
+      "number": "337",
+      "variant": null
+    }
+  ],
+  "week-7-fri": [
+    {
+      "cycle": null,
+      "label": "Week 7 - Fri",
+      "number": "345",
+      "variant": null
+    }
+  ],
+  "week-7-mon": [
+    {
+      "cycle": null,
+      "label": "Week 7 - Mon",
+      "number": "341",
+      "variant": null
+    }
+  ],
+  "week-7-sat": [
+    {
+      "cycle": null,
+      "label": "Week 7 - Sat",
+      "number": "346",
+      "variant": null
+    }
+  ],
+  "week-7-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 7 - Thurs",
+      "number": "344",
+      "variant": null
+    }
+  ],
+  "week-7-tues": [
+    {
+      "cycle": null,
+      "label": "Week 7 - Tues",
+      "number": "342",
+      "variant": null
+    }
+  ],
+  "week-7-wed": [
+    {
+      "cycle": null,
+      "label": "Week 7 - Wed",
+      "number": "343",
+      "variant": null
+    }
+  ],
+  "week-8-fri": [
+    {
+      "cycle": null,
+      "label": "Week 8 - Fri",
+      "number": "351",
+      "variant": null
+    }
+  ],
+  "week-8-mon": [
+    {
+      "cycle": null,
+      "label": "Week 8 - Mon",
+      "number": "347",
+      "variant": null
+    }
+  ],
+  "week-8-sat": [
+    {
+      "cycle": null,
+      "label": "Week 8 - Sat",
+      "number": "352",
+      "variant": null
+    }
+  ],
+  "week-8-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 8 - Thurs",
+      "number": "350",
+      "variant": null
+    }
+  ],
+  "week-8-tues": [
+    {
+      "cycle": null,
+      "label": "Week 8 - Tues",
+      "number": "348",
+      "variant": null
+    }
+  ],
+  "week-8-wed": [
+    {
+      "cycle": null,
+      "label": "Week 8 - Wed",
+      "number": "349",
+      "variant": null
+    }
+  ],
+  "week-9-fri": [
+    {
+      "cycle": null,
+      "label": "Week 9 - Fri",
+      "number": "357",
+      "variant": null
+    }
+  ],
+  "week-9-mon": [
+    {
+      "cycle": null,
+      "label": "Week 9 - Mon",
+      "number": "353",
+      "variant": null
+    }
+  ],
+  "week-9-sat": [
+    {
+      "cycle": null,
+      "label": "Week 9 - Sat",
+      "number": "358",
+      "variant": null
+    }
+  ],
+  "week-9-thurs": [
+    {
+      "cycle": null,
+      "label": "Week 9 - Thurs",
+      "number": "356",
+      "variant": null
+    }
+  ],
+  "week-9-tues": [
+    {
+      "cycle": null,
+      "label": "Week 9 - Tues",
+      "number": "354",
+      "variant": null
+    }
+  ],
+  "week-9-wed": [
+    {
+      "cycle": null,
+      "label": "Week 9 - Wed",
+      "number": "355",
+      "variant": null
+    }
+  ]
+}

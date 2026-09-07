@@ -136,7 +136,7 @@ describe("runStructuredIngest — source failure holds the cursor", () => {
     expect(state.offset).toBe(3800); // NOT 0
     expect(state.zeroStreak).toBe(2); // a failure is not an empty page
     expect(state.failures).toBe(2);
-    expect(state.exhaustedUntil).toBeUndefined();
+    expect(state.exhaustedUntil ?? null).toBeNull(); // no rest scheduled: a failure is not "end of corpus"
     expect(logCreate).toHaveBeenCalledTimes(1); // one WARN, actionable
   });
 
@@ -148,7 +148,11 @@ describe("runStructuredIngest — source failure holds the cursor", () => {
     const { prisma, upsert } = makePrisma({
       live: [
         { slug: "pope-linus", title: "Pope Linus", sourceRef: "https://www.wikidata.org/wiki/Q1" },
-        { slug: "pope-cletus", title: "Pope Cletus", sourceRef: "https://www.wikidata.org/wiki/Q2" },
+        {
+          slug: "pope-cletus",
+          title: "Pope Cletus",
+          sourceRef: "https://www.wikidata.org/wiki/Q2",
+        },
       ],
     });
 
@@ -163,7 +167,11 @@ describe("runStructuredIngest — source failure holds the cursor", () => {
 
 describe("runStructuredIngest — already-live rows cost no Wikipedia traffic", () => {
   it("recognises live rows from the SPARQL row (QID / slug / name) BEFORE mapping", async () => {
-    mockedSparql.mockResolvedValue([pope("Q1", "Linus"), pope("Q2", "Cletus"), pope("Q3", "Clement I")]);
+    mockedSparql.mockResolvedValue([
+      pope("Q1", "Linus"),
+      pope("Q2", "Cletus"),
+      pope("Q3", "Clement I"),
+    ]);
     const { prisma } = makePrisma({
       live: [
         { slug: "pope-linus", title: "Pope Linus", sourceRef: "https://www.wikidata.org/wiki/Q1" },
@@ -214,7 +222,9 @@ describe("runStructuredIngest — already-live rows cost no Wikipedia traffic", 
     const liveRow = pope("Q1", "Linus");
     mockedSparql.mockResolvedValue([liveRow]);
     const { prisma, upsert } = makePrisma({
-      live: [{ slug: "pope-linus", title: "Pope Linus", sourceRef: "https://www.wikidata.org/wiki/Q1" }],
+      live: [
+        { slug: "pope-linus", title: "Pope Linus", sourceRef: "https://www.wikidata.org/wiki/Q1" },
+      ],
     });
 
     const out = await runStructuredIngest(prisma, { contentType: "POPE", batch: 1 });
@@ -230,7 +240,9 @@ describe("runStructuredIngest — empty-pass streak", () => {
   it("does NOT grow on a page that is merely already live", async () => {
     mockedSparql.mockResolvedValue([pope("Q1", "Linus")]);
     const { prisma, upsert } = makePrisma({
-      live: [{ slug: "pope-linus", title: "Pope Linus", sourceRef: "https://www.wikidata.org/wiki/Q1" }],
+      live: [
+        { slug: "pope-linus", title: "Pope Linus", sourceRef: "https://www.wikidata.org/wiki/Q1" },
+      ],
       cursor: { offset: 0, zeroStreak: 3 },
     });
 
@@ -262,7 +274,9 @@ describe("runStructuredIngest — small corpus rests instead of re-sweeping ever
   it("wraps to 0 with a rest period at the end of the corpus", async () => {
     mockedSparql.mockResolvedValue([pope("Q1", "Linus")]); // 1 row < batch 50
     const { prisma, upsert } = makePrisma({
-      live: [{ slug: "pope-linus", title: "Pope Linus", sourceRef: "https://www.wikidata.org/wiki/Q1" }],
+      live: [
+        { slug: "pope-linus", title: "Pope Linus", sourceRef: "https://www.wikidata.org/wiki/Q1" },
+      ],
       cursor: { offset: 100, zeroStreak: 0 },
     });
     const before = Date.now();
@@ -293,7 +307,9 @@ describe("runStructuredIngest — label collisions between DIFFERENT entities", 
   it("publishes a distinct entity sharing a live label under a QID-disambiguated slug", async () => {
     mockedSparql.mockResolvedValue([pope("Q2", "Felix")]);
     const { prisma } = makePrisma({
-      live: [{ slug: "pope-felix", title: "Pope Felix", sourceRef: "https://www.wikidata.org/wiki/Q1" }],
+      live: [
+        { slug: "pope-felix", title: "Pope Felix", sourceRef: "https://www.wikidata.org/wiki/Q1" },
+      ],
     });
 
     const out = await runStructuredIngest(prisma, { contentType: "POPE", batch: 5 });
@@ -308,7 +324,13 @@ describe("runStructuredIngest — label collisions between DIFFERENT entities", 
   it("still treats the SAME entity (by QID) as live even under a different slug", async () => {
     mockedSparql.mockResolvedValue([pope("Q1", "Felix")]);
     const { prisma } = makePrisma({
-      live: [{ slug: "pope-felix-i", title: "Pope Felix I", sourceRef: "https://www.wikidata.org/wiki/Q1" }],
+      live: [
+        {
+          slug: "pope-felix-i",
+          title: "Pope Felix I",
+          sourceRef: "https://www.wikidata.org/wiki/Q1",
+        },
+      ],
     });
 
     const out = await runStructuredIngest(prisma, { contentType: "POPE", batch: 5 });
@@ -325,8 +347,14 @@ describe("runStructuredIngest — label collisions between DIFFERENT entities", 
     const out = await runStructuredIngest(prisma, { contentType: "POPE", batch: 5 });
 
     expect(out.published).toBe(2);
-    const slugs = mockedPublish.mock.calls.map((c) => (c[1] as { slug: string }).slug).sort();
-    expect(slugs).toEqual(["pope-felix", "pope-felix-q2"]);
+    const args = mockedPublish.mock.calls.map(
+      (c) => c[1] as { slug: string; payload: { slug: string } },
+    );
+    expect(args.map((a) => a.slug).sort()).toEqual(["pope-felix", "pope-felix-q2"]);
+    // The payload's own slug is what the schema validates and what the page
+    // links itself by — it must move with the disambiguated slug, not keep
+    // pointing at the other entity's page.
+    expect(args.map((a) => a.payload.slug).sort()).toEqual(["pope-felix", "pope-felix-q2"]);
   });
 
   it("does not hand a queued checklist item for a DIFFERENT person this entity's payload", async () => {

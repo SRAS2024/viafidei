@@ -270,9 +270,23 @@ export const OPS_LANES: LaneDef[] = [
     async run({ prisma, passId }) {
       const { runContentHygiene } = await import("./content-hygiene");
       const r = await runContentHygiene(prisma, { passId });
+      // Bookkeeping-ledger retention rides along here rather than in the
+      // CLEANUP mission stage: that stage only runs when the brain picks it,
+      // which can be days apart, while the ledgers grow by ~35 rows EVERY pass
+      // (audit LIVE-2e). The prune throttles itself to once an hour and is
+      // fail-open per table, so calling it every pass costs nothing. It only
+      // ever removes re-derived bookkeeping — never content, decisions,
+      // passes, or WARN/ERROR logs.
+      const { pruneLedgerRows } = await import("./cleanup");
+      const ledger = await pruneLedgerRows(prisma).catch(() => null);
+      const pruned = ledger
+        ? ledger.logRows + ledger.actionScores + ledger.brainCalls + ledger.stageOutcomes
+        : 0;
       return {
         advanced: r.titlesRepaired + r.subtitlesRefreshed,
-        detail: `hygiene: ${r.titlesRepaired} title(s) repaired, ${r.subtitlesRefreshed} subtitle(s) refreshed`,
+        detail:
+          `hygiene: ${r.titlesRepaired} title(s) repaired, ${r.subtitlesRefreshed} subtitle(s) refreshed` +
+          (ledger?.ran ? `, ${pruned} ledger row(s) pruned` : ""),
       };
     },
   },

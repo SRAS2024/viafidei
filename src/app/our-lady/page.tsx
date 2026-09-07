@@ -1,6 +1,14 @@
 import Link from "next/link";
 
-import { PageHero, PublishedList } from "@/components/ui";
+import {
+  LIST_PAGE_SIZE,
+  PageHero,
+  Pagination,
+  PublishedList,
+  entryPayload,
+  pageSlice,
+  parsePageParam,
+} from "@/components/ui";
 import { apparitionEyebrow } from "@/lib/content-shared/apparitions";
 import { OUR_LADY_FILTERS, resolveOurLadyFilter } from "@/lib/content-shared/our-lady";
 import { listPublished } from "@/lib/data/published";
@@ -11,15 +19,22 @@ export const metadata = { title: "Our Lady" };
 export default async function OurLadyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{ filter?: string; page?: string; apage?: string }>;
 }) {
-  const { filter } = await searchParams;
+  const { filter, page: pageParam, apage: apageParam } = await searchParams;
   const view = resolveOurLadyFilter(filter);
 
+  // Both cards show the payload summary, and both types are small closed sets
+  // (the Marian titles and the Church-approved apparitions), so each is read
+  // whole and paged here. The two sections page independently — `?page=` walks
+  // the titles, `?apage=` the apparitions — because the "All" view shows both.
   const [titles, apparitions] = await Promise.all([
     view.showTitles ? listPublished("MARIAN_TITLE") : Promise.resolve([]),
     view.showApparitions ? listPublished("APPARITION") : Promise.resolve([]),
   ]);
+  const titlePage = pageSlice(titles, parsePageParam(pageParam), LIST_PAGE_SIZE);
+  const apparitionPage = pageSlice(apparitions, parsePageParam(apageParam), LIST_PAGE_SIZE);
+  const filterParam = view.active === "titles" ? undefined : view.active;
 
   return (
     <div>
@@ -62,7 +77,15 @@ export default async function OurLadyPage({
               approved and sourced.
             </p>
           ) : (
-            <PublishedList items={titles} baseHref="/our-lady" />
+            <>
+              <PublishedList items={titlePage.items} baseHref="/our-lady" />
+              <Pagination
+                basePath="/our-lady"
+                page={titlePage.page}
+                totalPages={titlePage.pageCount}
+                searchParams={{ filter: filterParam, apage: apageParam }}
+              />
+            </>
           )}
         </section>
       )}
@@ -78,11 +101,20 @@ export default async function OurLadyPage({
               their Church approval status.
             </p>
           ) : (
-            <PublishedList
-              items={apparitions}
-              baseHref="/our-lady"
-              eyebrowFor={(item) => apparitionEyebrow(item.payload)}
-            />
+            <>
+              <PublishedList
+                items={apparitionPage.items}
+                baseHref="/our-lady"
+                eyebrowFor={(item) => apparitionEyebrow(entryPayload(item))}
+              />
+              <Pagination
+                basePath="/our-lady"
+                pageParam="apage"
+                page={apparitionPage.page}
+                totalPages={apparitionPage.pageCount}
+                searchParams={{ filter: filterParam, page: pageParam }}
+              />
+            </>
           )}
         </section>
       )}

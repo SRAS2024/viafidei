@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { liturgicalDay } from "@/lib/content-shared/liturgical-calendar";
+import { resolveLiturgicalDay } from "@/lib/content-shared/liturgical-calendar";
 
 /**
  * Interactive liturgical calendar.
@@ -25,6 +25,12 @@ function todayIso(): string {
 function toCivilDate(isoDate: string): Date {
   const [y, m, d] = isoDate.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d));
+}
+
+/** "SOLEMNITY" → "Solemnity", "OPTIONAL_MEMORIAL" → "Optional memorial". */
+function rankLabel(rank: string): string {
+  const words = rank.toLowerCase().replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 const SWATCH: Record<string, string> = {
@@ -58,7 +64,10 @@ export function LiturgicalCalendarBrowser({
   }
 
   const date = toCivilDate(iso);
-  const day = liturgicalDay(date);
+  // The full resolver (not `liturgicalDay`): the browser names the celebration
+  // actually observed that day and its rank, which is what the readings are
+  // keyed on.
+  const day = resolveLiturgicalDay(date);
   const isRoman = rite === "roman";
   const riteLabel = rites.find((r) => r.value === rite)?.label ?? rite;
 
@@ -107,7 +116,14 @@ export function LiturgicalCalendarBrowser({
         ) : null}
       </div>
 
+      <p className="mt-3 font-display text-lg text-ink">{day.celebration}</p>
+
       <dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 font-serif text-sm text-ink-soft">
+        <dt className="font-medium text-ink">Rank</dt>
+        <dd>
+          {rankLabel(day.rank)}
+          {day.isHolyDayOfObligation ? " · Holy day of obligation" : ""}
+        </dd>
         <dt className="font-medium text-ink">Liturgical colour</dt>
         <dd>{day.color}</dd>
         <dt className="font-medium text-ink">Sunday cycle</dt>
@@ -116,9 +132,9 @@ export function LiturgicalCalendarBrowser({
         <dd>Year {day.weekdayCycle}</dd>
       </dl>
 
-      {/* Route to the INTERNAL daily-readings page for the selected day (the
-          worker keeps it current); that page links out to the official source
-          modestly at the bottom. */}
+      {/* Route to the INTERNAL daily-readings page for the selected day, which
+          computes that day's readings from the Lectionary tables and links out
+          to the official source modestly at the bottom. */}
       <Link
         href={`/liturgy/readings?date=${iso}`}
         className="vf-btn vf-btn-primary mt-6 inline-block"

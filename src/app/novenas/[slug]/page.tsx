@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { SaveContentButton } from "@/components/profile";
-import { PublishedDetail, GuidePrayers, type GuidePrayerData } from "@/components/ui";
+import {
+  GuidePrayers,
+  PublishedDetail,
+  RelatedContentLinks,
+  resolveRelatedLinks,
+  type GuidePrayerData,
+} from "@/components/ui";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
 import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
 
@@ -35,6 +41,8 @@ export default async function NovenaDetailPage({ params }: Props) {
     )
     .filter((p): p is GuidePrayerData => p != null && p.variants.length > 0);
 
+  const saints = await resolveRelatedLinks("SAINT", item.payload.relatedSaints);
+
   return (
     <>
       <PublishedDetail
@@ -43,6 +51,13 @@ export default async function NovenaDetailPage({ params }: Props) {
         secondaryFields={["duration", "intentions", "intentionTheme", "typicalStartDate"]}
         action={<SaveContentButton contentType="NOVENA" slug={slug} />}
         linkedPrayers={prayers}
+        footer={
+          saints.length > 0 ? (
+            <div className="w-full">
+              <RelatedContentLinks title="Related saints" links={saints} />
+            </div>
+          ) : null
+        }
       />
       <GuidePrayers prayers={prayers} />
     </>

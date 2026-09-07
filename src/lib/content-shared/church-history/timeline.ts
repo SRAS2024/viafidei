@@ -136,9 +136,14 @@ export interface BuildTimelineOptions {
   currentYear?: number;
 }
 
-/** Public routes for related content (all verified to exist under src/app). */
+/**
+ * Public routes for related content. Every base here must have a real
+ * `[slug]` route under src/app — a chip pointing at a route that does not
+ * exist is a 404 in the reader's face, so the dataset test walks the app
+ * directory and asserts each one resolves.
+ */
 export const DOCUMENT_ROUTE_BASE = "/liturgy-history";
-const RELATED_ROUTE_BASE: Record<RelatedLinkType, string> = {
+export const RELATED_ROUTE_BASE: Record<RelatedLinkType, string> = {
   popes: "/popes",
   saints: "/saints",
   doctors: "/doctors",
