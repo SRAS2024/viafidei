@@ -9,8 +9,9 @@
  * and is deliberately excluded (see below):
  *
  *   1. DRAIN  — first finish everything already built and waiting to publish
- *               (the funnel), taking on NO new discovery, so nothing in-flight
- *               is abandoned.
+ *               (the funnel), taking on NO new WEB discovery, so nothing
+ *               in-flight is abandoned. Bounded by a funnel-size threshold and
+ *               an age cap so a stuck artifact can never pin the phase.
  *   2. SURGE  — once the funnel is clear, point ALL discovery + pipeline
  *               resources at the campaign goal until its gap is closed.
  *   3. NORMAL — when no goal has a campaign-sized gap, run the normal task queue
@@ -49,7 +50,8 @@ export interface CampaignState {
   majorType: string | null;
   /** Remaining gap for the campaign goal. */
   majorGap: number;
-  /** Built artifacts still waiting to publish (the funnel drained in phase 1). */
+  /** RECENT built artifacts still waiting to publish (the funnel drained in
+   * phase 1) — see the age cap in evaluateMajorGoalCampaign. */
   builtFunnel: number;
 }
 
@@ -87,14 +89,29 @@ export async function evaluateMajorGoalCampaign(prisma: PrismaClient): Promise<C
 
     // The funnel = work already built and waiting to publish. Drain THAT before
     // surging (so in-flight work is never abandoned); raw discovered candidates
-    // are "new work", not funnel. Built artifacts flow to publish quickly, so
-    // this never deadlocks the campaign.
+    // are "new work", not funnel. Two bounds keep DRAIN from deadlocking the
+    // campaign (a single artifact stuck at VERIFICATION_INCOMPLETE, or bouncing
+    // BUILD_READY→NEEDS_REPAIR→BUILD_READY, used to pin DRAIN for days and pause
+    // discovery every pass):
+    //   - a THRESHOLD: a handful of built artifacts is not a backlog — the
+    //     drain lane publishes them alongside discovery; and
+    //   - an AGE CAP: only artifacts built within the last N hours count, so
+    //     anything the drain has not cleared in that time stops holding the
+    //     campaign back (it stays in the funnel and keeps being retried).
+    const drainMinFunnel = envInt("ADMIN_WORKER_CAMPAIGN_DRAIN_MIN_FUNNEL", 25);
+    const drainMaxHours = envInt("ADMIN_WORKER_CAMPAIGN_DRAIN_MAX_HOURS", 2);
+    const freshSince = new Date(Date.now() - drainMaxHours * 60 * 60 * 1000);
     const builtFunnel = await prisma.adminWorkerPackageArtifact
-      .count({ where: { status: { in: ["BUILD_READY", "VERIFICATION_READY", "QA_PASSED"] } } })
+      .count({
+        where: {
+          status: { in: ["BUILD_READY", "VERIFICATION_READY", "QA_PASSED"] },
+          createdAt: { gte: freshSince },
+        },
+      })
       .catch(() => 0);
 
     return {
-      phase: builtFunnel > 0 ? "DRAIN" : "SURGE",
+      phase: builtFunnel >= drainMinFunnel ? "DRAIN" : "SURGE",
       majorType: target.contentType,
       majorGap: target.gapCount,
       builtFunnel,

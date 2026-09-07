@@ -32,6 +32,12 @@ export interface FileHumanReviewInput {
   neededAction?: string;
   repairSuggestion?: string;
   nextAutomatedAction?: string;
+  /**
+   * Create the queue row even in full-autonomy mode. Reserved for decisions the
+   * worker cannot undo on its own — an automated unpublish of live content —
+   * so an operator always has a row to restore from.
+   */
+  alwaysQueue?: boolean;
 }
 
 export async function fileHumanReview(
@@ -45,7 +51,7 @@ export async function fileHumanReview(
   // moves on and revisits autonomously when better evidence / a capability is
   // available. Opt back into human-gated review with
   // ADMIN_WORKER_REQUIRE_HUMAN_REVIEW=1.
-  if (!requireHumanReview()) {
+  if (!requireHumanReview() && !input.alwaysQueue) {
     await writeAdminWorkerLog(prisma, {
       taskId: input.taskId ?? null,
       category: "PUBLISHING",
@@ -516,4 +522,167 @@ export async function runReviewAutoResolve(
 
 export async function countPendingReview(prisma: PrismaClient): Promise<number> {
   return prisma.humanReviewQueue.count({ where: { status: "PENDING" } });
+}
+
+// ---------------------------------------------------------------------------
+// Autonomous handling of "review" publish outcomes.
+//
+// In full-autonomy mode nothing waits on a person, so a publish outcome of
+// "review" used to be a dead end: the artifact was parked NEEDS_REVIEW with a
+// reason string and never looked at again. Most of those reasons are NOT
+// genuine ambiguity — the brain was offline, a best-effort specialist objected,
+// the score landed just under the threshold — and clear on a later attempt.
+// The table below says which reasons are safe to retry and how; the retry
+// budget (kept in AdminWorkerMemory, no schema change) bounds the loop so an
+// item that keeps landing in review stops after a few backed-off attempts and
+// stays parked for a person. Reasons that encode a real doctrinal doubt
+// (communion risk, a verifier conflict) are deliberately NOT retried: routing
+// them through a fail-open path when the brain happens to be down would defeat
+// the screen. Catholic accuracy beats throughput.
+// ---------------------------------------------------------------------------
+
+export type ReviewRoute =
+  /** Re-run the publish attempt later (the reason is transient / advisory). */
+  | "retry"
+  /** File a re-extraction repair (the reason is a score just under the bar). */
+  | "repair"
+  /** Leave parked for a person. */
+  | "terminal";
+
+export interface RecoverableReviewRule {
+  /** Substring of the orchestrator's review reason (case-insensitive). */
+  match: string;
+  route: Exclude<ReviewRoute, "terminal">;
+  /** Recovery is limited to artifacts whose provenance is non-empty. */
+  requireProvenance?: boolean;
+  /** Human-readable why. */
+  why: string;
+}
+
+export const RECOVERABLE_REVIEW_RULES: readonly RecoverableReviewRule[] = [
+  {
+    match: "objections: citation",
+    route: "retry",
+    requireProvenance: true,
+    why: "citation specialist false positive for provenanced content",
+  },
+  {
+    match: "specialist panel routed to review",
+    route: "retry",
+    why: "the specialist panel is advisory and varies with brain availability",
+  },
+  {
+    match: "proof-based publishing",
+    route: "retry",
+    why: "proof packets depend on the brain being online and on evidence that later publishes supply",
+  },
+  {
+    match: "finalScore ",
+    route: "repair",
+    why: "score in the review band — a re-extraction can lift it over the threshold",
+  },
+  {
+    match: "confidence ",
+    route: "repair",
+    why: "confidence in the review band — a re-extraction can lift it over the threshold",
+  },
+];
+
+/** How many autonomous attempts a single artifact gets before it stays parked. */
+export const REVIEW_RETRY_BUDGET = 3;
+/** First backoff; doubles per attempt (10 → 20 → 40 minutes). */
+export const REVIEW_RETRY_BASE_MS = 10 * 60 * 1000;
+
+export function classifyReviewReason(reason: string | null | undefined): {
+  route: ReviewRoute;
+  rule: RecoverableReviewRule | null;
+} {
+  const r = (reason ?? "").toLowerCase();
+  if (!r) return { route: "terminal", rule: null };
+  for (const rule of RECOVERABLE_REVIEW_RULES) {
+    if (r.includes(rule.match.toLowerCase())) return { route: rule.route, rule };
+  }
+  return { route: "terminal", rule: null };
+}
+
+/** Exponential backoff for the n-th attempt (1-based). */
+export function reviewRetryDelayMs(attempt: number): number {
+  return REVIEW_RETRY_BASE_MS * 2 ** Math.max(0, attempt - 1);
+}
+
+export interface RetryBudgetState {
+  attempts: number;
+  nextRetryAt: Date | null;
+  lastReason: string | null;
+}
+
+function retryKey(scope: string, id: string): string {
+  return `retry-budget:${scope}:${id}`;
+}
+
+/** Read the retry state for (scope, id). Fail-open: unknown → zero attempts. */
+export async function readRetryBudget(
+  prisma: PrismaClient,
+  scope: string,
+  id: string,
+): Promise<RetryBudgetState> {
+  const row = await prisma.adminWorkerMemory
+    .findUnique({
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: retryKey(scope, id) } },
+      select: { memoryValue: true },
+    })
+    .catch(() => null);
+  const v = (row?.memoryValue ?? {}) as {
+    attempts?: number;
+    nextRetryAt?: string;
+    lastReason?: string;
+  };
+  const next = typeof v.nextRetryAt === "string" ? new Date(v.nextRetryAt) : null;
+  return {
+    attempts: typeof v.attempts === "number" && Number.isFinite(v.attempts) ? v.attempts : 0,
+    nextRetryAt: next && !Number.isNaN(next.getTime()) ? next : null,
+    lastReason: typeof v.lastReason === "string" ? v.lastReason : null,
+  };
+}
+
+/**
+ * Consume one attempt for (scope, id). Returns whether the attempt is within
+ * budget and when the next one may run. A DB error never blocks the attempt —
+ * the worst case is one extra retry, never a lost item.
+ */
+export async function consumeRetryBudget(
+  prisma: PrismaClient,
+  scope: string,
+  id: string,
+  opts: { reason?: string; budget?: number } = {},
+): Promise<{ allowed: boolean; attempts: number; nextRetryAt: Date }> {
+  const budget = opts.budget ?? REVIEW_RETRY_BUDGET;
+  const prev = await readRetryBudget(prisma, scope, id);
+  const attempts = prev.attempts + 1;
+  const nextRetryAt = new Date(Date.now() + reviewRetryDelayMs(attempts));
+  const memoryValue = {
+    attempts,
+    nextRetryAt: nextRetryAt.toISOString(),
+    lastReason: (opts.reason ?? "").slice(0, 300) || null,
+  };
+  const key = retryKey(scope, id);
+  await prisma.adminWorkerMemory
+    .upsert({
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: key } },
+      update: { memoryValue, lastUsedAt: new Date() },
+      create: { memoryType: "GENERIC", memoryKey: key, memoryValue, lastUsedAt: new Date() },
+    })
+    .catch(() => undefined);
+  return { allowed: attempts <= budget, attempts, nextRetryAt };
+}
+
+/** Forget the retry state (the item published or was terminally decided). */
+export async function clearRetryBudget(
+  prisma: PrismaClient,
+  scope: string,
+  id: string,
+): Promise<void> {
+  await prisma.adminWorkerMemory
+    .deleteMany({ where: { memoryType: "GENERIC", memoryKey: retryKey(scope, id) } })
+    .catch(() => undefined);
 }

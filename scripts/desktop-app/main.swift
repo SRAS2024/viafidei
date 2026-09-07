@@ -34,6 +34,20 @@ struct LocalHostHandshake {
     let token: String
     let runtimeId: String
     let hostLabel: String
+    /// The host's own pid (tsx runs it as a grandchild, so the launcher pid is not enough).
+    let pid: Int
+}
+
+/// One structured line the launcher script prints before the host starts:
+/// where configuration came from, or exactly why it could not.
+struct LauncherNotice {
+    let level: String        // "info" | "warn" | "error"
+    let message: String
+    let source: String
+    let route: String
+    let environment: String
+    let service: String
+    let databaseHost: String
 }
 
 final class LocalWorkerRuntime {
@@ -41,8 +55,13 @@ final class LocalWorkerRuntime {
     private var stdinPipe: Pipe?
     private(set) var handshake: LocalHostHandshake?
     private var buffer = Data()
+    /// Process group of the supervised worker child (worker + brain + browser),
+    /// as reported by /api/status. Kept so quitting can kill it even if the
+    /// host itself is stuck on a database call.
+    var workerProcessGroup: pid_t = 0
 
     var onHandshake: ((LocalHostHandshake) -> Void)?
+    var onLauncherNotice: ((LauncherNotice) -> Void)?
     var onLog: ((String) -> Void)?
     var onExit: ((Int32) -> Void)?
 
@@ -193,25 +212,59 @@ final class LocalWorkerRuntime {
                 port: port,
                 token: token,
                 runtimeId: info["runtimeId"] as? String ?? "local",
-                hostLabel: info["hostLabel"] as? String ?? "this Mac")
+                hostLabel: info["hostLabel"] as? String ?? "this Mac",
+                pid: info["pid"] as? Int ?? 0)
             handshake = shake
             onHandshake?(shake)
+            return
+        }
+        // The launcher's own report (configuration source, or the exact
+        // Railway/.env problem). It arrives BEFORE the handshake, which is
+        // precisely when the operator would otherwise see nothing but a spinner.
+        if line.contains("viafideiLauncher"),
+           let data = line.data(using: .utf8),
+           let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let info = root["viafideiLauncher"] as? [String: Any] {
+            let notice = LauncherNotice(
+                level: info["level"] as? String ?? "info",
+                message: info["message"] as? String ?? "",
+                source: info["source"] as? String ?? "",
+                route: info["route"] as? String ?? "",
+                environment: info["environment"] as? String ?? "",
+                service: info["service"] as? String ?? "",
+                databaseHost: info["databaseHost"] as? String ?? "")
+            onLauncherNotice?(notice)
             return
         }
         onLog?(line)
     }
 
     /// Stop the local runtime. Closing stdin is the graceful signal the host
-    /// listens for; SIGTERM follows for anything that ignores it.
+    /// listens for; SIGTERM follows for anything that ignores it. After the
+    /// deadline the WHOLE process group is killed — `proc` is /bin/bash which
+    /// exec'd into `railway` or `tsx`, and tsx spawns node — plus the worker's
+    /// own group, so no Chromium, Python brain or lease-holding host can
+    /// outlive the app because a database call was slow.
     func stop() {
         guard let proc = process else { return }
+        let pid = proc.processIdentifier
+        let group = getpgid(pid)
+        let hostPid = pid_t(handshake?.pid ?? 0)
         stdinPipe?.fileHandleForWriting.closeFile()
         proc.terminate()
         let deadline = Date().addingTimeInterval(10)
         while proc.isRunning && Date() < deadline {
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.1))
         }
-        if proc.isRunning { kill(proc.processIdentifier, SIGKILL) }
+        if proc.isRunning {
+            // Foundation spawns the launcher in OUR process group unless the
+            // launcher moved itself; never SIGKILL our own group.
+            if group > 0 && group != getpgid(getpid()) { kill(-group, SIGKILL) }
+            kill(pid, SIGKILL)
+            if hostPid > 0 { kill(hostPid, SIGKILL) }
+        }
+        if workerProcessGroup > 0 { kill(-workerProcessGroup, SIGKILL) }
+        workerProcessGroup = 0
         process = nil
         handshake = nil
     }

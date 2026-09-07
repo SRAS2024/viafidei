@@ -53,7 +53,7 @@ export const liturgicalKnowledge: CuratedEntry[] = [
     "Solemnity of the Nativity of the Lord (Christmas)",
     "solemnity",
     "The principal feast of the Incarnation, celebrating the birth of Jesus Christ.",
-    "Christmas (December 25) is the second-greatest solemnity of the liturgical year after Easter. It opens the Christmas Octave and the Christmas Season, which continues until the Baptism of the Lord. Three Masses are traditionally celebrated: at the Vigil, at Midnight (Mass during the Night), at Dawn, and during the Day.",
+    "Christmas (December 25) is the second-greatest solemnity of the liturgical year after Easter. It opens the Christmas Octave and the Christmas Season, which continues until the Baptism of the Lord. Four Masses are provided: the Vigil Mass, the Mass during the Night, the Mass at Dawn, and the Mass during the Day.",
     "12-25",
     false,
     "christmas",
@@ -156,7 +156,7 @@ export const liturgicalKnowledge: CuratedEntry[] = [
     "Celebrated on March 25 (nine months before Christmas). When it falls in Holy Week or the Easter Octave, it is transferred. A Marian solemnity that is fundamentally Christological — the celebration of the Incarnation.",
     "03-25",
     false,
-    "ordinary_time",
+    "lent",
   ),
   feast(
     "season-advent",

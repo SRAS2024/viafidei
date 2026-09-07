@@ -2065,6 +2065,7 @@ export async function runPersistAndPublish(
     }
 
     // Update the artifact based on the outcome.
+    let reviewRouted: ReviewRouting = "terminal";
     if (result.kind === "published") {
       await prisma.adminWorkerPackageArtifact
         .update({
@@ -2072,6 +2073,8 @@ export async function runPersistAndPublish(
           data: { status: "PUBLISHED", publishedContentId: result.publishedContentId },
         })
         .catch(() => undefined);
+      const { clearRetryBudget } = await import("./human-review");
+      await clearRetryBudget(prisma, "review", artifact.id);
     } else if (result.kind === "blocked") {
       await prisma.adminWorkerPackageArtifact
         .update({
@@ -2093,12 +2096,21 @@ export async function runPersistAndPublish(
       // Spec §6: ambiguous → rare human review. Park the artifact in
       // NEEDS_REVIEW so it leaves the QA_PASSED publish queue (otherwise
       // the brain would re-select PUBLIC_PUBLISH on it every pass).
-      await prisma.adminWorkerPackageArtifact
-        .update({
-          where: { id: artifact.id },
-          data: { status: "NEEDS_REVIEW", rejectionReason: result.reason },
-        })
-        .catch(() => undefined);
+      //
+      // In autonomous mode a parked item is never looked at again, so a
+      // "review" for a transient reason (brain offline, advisory panel, a
+      // score just under the bar) was a permanent dead end. Route those on:
+      // score-band reasons file a re-extraction repair (like the "repair"
+      // branch); advisory/transient reasons stay NEEDS_REVIEW but carry a
+      // backed-off retry the build-ready drain honours. Both are bounded by
+      // the per-artifact retry budget; once spent, the item stays parked.
+      reviewRouted = await routeReviewOutcome(prisma, {
+        artifactId: artifact.id,
+        contentType: publishableType,
+        slug: artifact.normalizedSlug,
+        reason: result.reason,
+        finalScore: qualitySignal,
+      });
     } else if (result.kind === "duplicate") {
       // Already public under this (contentType, slug) — mark the artifact
       // PUBLISHED and link the existing row so it leaves the queue.
@@ -2110,6 +2122,7 @@ export async function runPersistAndPublish(
         .catch(() => undefined);
     }
 
+    const reviewIsRepair = result.kind === "review" && reviewRouted === "repair";
     return {
       stage: "PUBLIC_PUBLISH",
       kind:
@@ -2119,17 +2132,20 @@ export async function runPersistAndPublish(
             ? "rejected"
             : result.kind === "duplicate"
               ? "idle"
-              : result.kind === "repair"
+              : result.kind === "repair" || reviewIsRepair
                 ? "repair-planned"
                 : "rejected",
-      summary: `Publish orchestrator: ${result.kind} (${result.reason}).`,
+      summary: `Publish orchestrator: ${result.kind} (${result.reason})${
+        result.kind === "review" && reviewRouted !== "terminal" ? ` → autonomous ${reviewRouted}` : ""
+      }.`,
       built: result.kind === "published" ? 1 : 0,
       published: result.kind === "published" ? 1 : 0,
-      rejected: result.kind === "blocked" || result.kind === "review" ? 1 : 0,
-      repairsPlanned: result.kind === "repair" ? 1 : 0,
+      rejected: result.kind === "blocked" || (result.kind === "review" && !reviewIsRepair) ? 1 : 0,
+      repairsPlanned: result.kind === "repair" || reviewIsRepair ? 1 : 0,
       metadata: {
         artifactId: artifact.id,
         kind: result.kind,
+        reviewRouted: result.kind === "review" ? reviewRouted : undefined,
       },
     };
   }
@@ -2153,24 +2169,129 @@ export async function runPersistAndPublish(
   );
 }
 
+type ReviewRouting = "repair" | "retry" | "terminal";
+
+/**
+ * Autonomous routing for a publish outcome of "review" (finding: review
+ * outcomes were terminal). Returns how the artifact was routed:
+ *   - "repair": QUALITY_SCORE_FAILED plan filed + NEEDS_REPAIR (re-extraction)
+ *   - "retry":  NEEDS_REVIEW with a backed-off retry the drain will honour
+ *   - "terminal": NEEDS_REVIEW, left for a person (human-review mode, a
+ *                 non-recoverable reason, or the retry budget is spent)
+ */
+async function routeReviewOutcome(
+  prisma: PrismaClient,
+  input: {
+    artifactId: string;
+    contentType: string;
+    slug: string;
+    reason: string;
+    finalScore: number;
+  },
+): Promise<ReviewRouting> {
+  const park = async (rejectionReason: string) => {
+    await prisma.adminWorkerPackageArtifact
+      .update({
+        where: { id: input.artifactId },
+        data: { status: "NEEDS_REVIEW", rejectionReason },
+      })
+      .catch(() => undefined);
+  };
+
+  const { requireHumanReview } = await import("./policy");
+  if (requireHumanReview()) {
+    await park(input.reason);
+    return "terminal";
+  }
+
+  const { classifyReviewReason, consumeRetryBudget } = await import("./human-review");
+  const { CONFIDENCE_THRESHOLDS } = await import("./decisions");
+  const { route } = classifyReviewReason(input.reason);
+  // A score under the human-review floor is a reject, not a review; never
+  // spend repair effort on it.
+  if (route === "terminal" || input.finalScore < CONFIDENCE_THRESHOLDS.humanReview) {
+    await park(input.reason);
+    return "terminal";
+  }
+
+  const budget = await consumeRetryBudget(prisma, "review", input.artifactId, {
+    reason: input.reason,
+  });
+  if (!budget.allowed) {
+    await park(`${input.reason} [retry budget spent after ${budget.attempts - 1} autonomous attempts]`);
+    return "terminal";
+  }
+
+  if (route === "repair") {
+    const { filePlan } = await import("./repair-plans");
+    await filePlan(prisma, {
+      kind: "QUALITY_SCORE_FAILED",
+      failedEntity: input.artifactId,
+      repairAction: `Re-extract ${input.contentType}/${input.slug}; publish gate returned review (${input.reason}).`,
+      metadata: {
+        contentType: input.contentType,
+        slug: input.slug,
+        reason: input.reason,
+        attempt: budget.attempts,
+        origin: "review-band",
+      },
+    }).catch(() => undefined);
+    await prisma.adminWorkerPackageArtifact
+      .update({
+        where: { id: input.artifactId },
+        data: { status: "NEEDS_REPAIR", rejectionReason: input.reason },
+      })
+      .catch(() => undefined);
+    return "repair";
+  }
+
+  // "retry": the drain re-queues it as QA_PASSED once nextRetryAt passes.
+  await park(input.reason);
+  return "retry";
+}
+
 async function runPostPublishVerify(
   prisma: PrismaClient,
   passId: string,
 ): Promise<DispatchOutcome> {
   const { verifyPublished } = await import("./post-publish-probe");
-  // Find one published item missing a verification row.
-  const verifiedIds = await prisma.postPublishVerification.findMany({
-    select: { contentId: true },
-    distinct: ["contentId"],
-  });
-  const verifiedSet = new Set(verifiedIds.map((r) => r.contentId));
+  const { FAIL_CONFIRMATION_GAP_MS } = await import("./post-publish");
+  // The latest verification per item decides eligibility:
+  //   - none          → verify
+  //   - FAIL (first strike) older than the confirmation gap → re-probe, so the
+  //                     two-strike rule can confirm or clear it
+  //   - WARN older than a day → re-probe (it was "unverified", not verified)
+  //   - anything else → already verified
+  // Prisma's `distinct` honours `orderBy`, so this yields the newest row per
+  // contentId.
+  const latestRows = await prisma.postPublishVerification
+    .findMany({
+      distinct: ["contentId"],
+      orderBy: { createdAt: "desc" },
+      select: { contentId: true, result: true, createdAt: true },
+    })
+    .catch(() => [] as Array<{ contentId: string; result: string; createdAt: Date }>);
+  const latestByContent = new Map(latestRows.map((r) => [r.contentId, r]));
+  const now = Date.now();
+  const WARN_REPROBE_MS = 24 * 60 * 60 * 1000;
+  const eligible = (id: string): boolean => {
+    const v = latestByContent.get(id);
+    if (!v) return true;
+    const age = now - new Date(v.createdAt).getTime();
+    if (v.result === "FAIL") return age >= FAIL_CONFIRMATION_GAP_MS;
+    if (v.result === "WARN") return age >= WARN_REPROBE_MS;
+    return false;
+  };
   const candidates = await prisma.publishedContent.findMany({
     where: { isPublished: true },
     orderBy: { publishedAt: "desc" },
     take: 50,
     select: { id: true, contentType: true, slug: true, title: true },
   });
-  const target = candidates.find((c) => !verifiedSet.has(c.id));
+  // Unconfirmed first strikes go first: they are the rows whose fate is open.
+  const target =
+    candidates.find((c) => latestByContent.get(c.id)?.result === "FAIL" && eligible(c.id)) ??
+    candidates.find((c) => eligible(c.id));
   if (!target) {
     return idle("POST_PUBLISH_VERIFY", "All published content already verified.");
   }
@@ -2178,6 +2299,9 @@ async function runPostPublishVerify(
   // probe. `ADMIN_WORKER_SKIP_NETWORK=1` is honoured for tests so the
   // unit suite doesn't hit the network.
   const skipNetwork = process.env.ADMIN_WORKER_SKIP_NETWORK === "1";
+  // A THROWN verification (DB blip while recording, unexpected error) is not
+  // evidence about the page: it maps to WARN and never reaches the rollback
+  // tree. Only a FAIL the probe itself confirmed (two strikes) does.
   const verification = await verifyPublished(prisma, {
     contentType: target.contentType,
     contentId: target.id,
@@ -2185,28 +2309,40 @@ async function runPostPublishVerify(
     expectedTitle: target.title,
     skipNetwork,
   }).catch(
-    () =>
+    (e) =>
       ({
         verificationId: "",
-        result: "FAIL" as const,
+        result: "WARN" as const,
+        observed: "WARN" as const,
+        failureConfirmed: false,
         checks: {} as never,
         publicUrl: "",
-      }) as Awaited<ReturnType<typeof verifyPublished>>,
+        thrown: e instanceof Error ? e.message : String(e),
+      }) as Awaited<ReturnType<typeof verifyPublished>> & { thrown?: string },
   );
+  const thrown = (verification as { thrown?: string }).thrown;
   await writeAdminWorkerLog(prisma, {
     passId,
     category: "POST_PUBLISH",
     severity: verification.result === "PASS" ? "INFO" : "WARN",
     eventName: "post_publish_verified",
-    message: `Verified ${target.contentType}/${target.slug}: ${verification.result}.`,
+    message: `Verified ${target.contentType}/${target.slug}: ${verification.result}${
+      thrown ? ` (verification threw: ${thrown})` : ""
+    }.`,
     contentType: target.contentType,
     relatedEntityId: target.id,
-    safeMetadata: { result: verification.result },
+    safeMetadata: {
+      result: verification.result,
+      observed: verification.observed,
+      failureConfirmed: verification.failureConfirmed,
+      thrown: thrown ?? null,
+    },
   });
 
   // Feed source reputation — post-publish success is the strongest
   // signal (spec §16). We pull the source host from the most recent
-  // build job for this checklist item, best-effort.
+  // build job for this checklist item, best-effort. Only a confirmed FAIL
+  // counts against the host: WARN means "unverified", not "broken".
   const buildJob = await prisma.workerBuildJob
     .findFirst({
       where: { checklistItemId: target.id },
@@ -2226,7 +2362,7 @@ async function runPostPublishVerify(
       sourceHost,
       contentType: target.contentType,
       stage: "post_publish",
-      ok: verification.result === "PASS",
+      ok: verification.result !== "FAIL",
     }).catch(() => undefined);
   }
 
@@ -2234,7 +2370,8 @@ async function runPostPublishVerify(
   // tree (repair → re-verify → unpublish → DELETED / HUMAN_REVIEW)
   // rather than just logging the failure. The reverify callback
   // re-runs verifyPublished so REPAIRED is only declared when the
-  // public surface is actually fixed.
+  // public surface is actually fixed. This is the ONE place that
+  // rolls back — verifyPublished itself never unpublishes.
   if (verification.result === "FAIL") {
     const checks = verification.checks as unknown as Record<string, unknown> | undefined;
     // Pick the first failed check as the canonical failedCheck for
@@ -2246,7 +2383,9 @@ async function runPostPublishVerify(
       contentId: target.id,
       slug: target.slug,
       failedCheck,
-      reason: `verifyPublished returned FAIL on ${failedCheck}.`,
+      reason: `verifyPublished returned FAIL on ${failedCheck} (confirmed by two probes ≥ ${Math.round(
+        FAIL_CONFIRMATION_GAP_MS / 60_000,
+      )} min apart).`,
       reverify: async () => {
         const re = await verifyPublished(prisma, {
           contentType: target.contentType,
@@ -2260,11 +2399,19 @@ async function runPostPublishVerify(
     }).catch(() => undefined);
   }
 
+  // PASS = verified; WARN = unverified (transport / origin / secondary
+  // surface) — neither is a rejection of the content. Only a confirmed
+  // FAIL is.
+  const displayed =
+    verification.result === "PASS" ||
+    (verification.checks as { publicPageCheck?: string } | undefined)?.publicPageCheck === "PASS";
   return {
     stage: "POST_PUBLISH_VERIFY",
-    kind: verification.result === "PASS" ? "advanced" : "rejected",
-    summary: `Verified ${target.contentType}/${target.slug}: ${verification.result}.`,
-    rejected: verification.result === "PASS" ? 0 : 1,
+    kind: verification.result === "FAIL" ? "rejected" : displayed ? "advanced" : "idle",
+    summary: `Verified ${target.contentType}/${target.slug}: ${verification.result}${
+      verification.result === "WARN" ? " (unverified — will re-probe)" : ""
+    }.`,
+    rejected: verification.result === "FAIL" ? 1 : 0,
   };
 }
 

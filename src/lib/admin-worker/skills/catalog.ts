@@ -7,7 +7,63 @@
  * developer request rather than pretending it can build it.
  */
 
+import { GUIDE_KINDS } from "@/lib/checklist/schemas/guide";
+
 import { type ExtractableContentType } from "../content-types";
+
+/** The liturgical schema's `kind` enum — the LITURGICAL subtypes. */
+export const LITURGICAL_KINDS = [
+  "feast",
+  "solemnity",
+  "memorial",
+  "optional_memorial",
+  "liturgical_season",
+  "liturgical_year",
+  "mass_structure",
+  "marriage_rite",
+  "funeral_rite",
+  "ordination_rite",
+  "council_event",
+  "symbolism",
+  "glossary_term",
+] as const;
+
+/** The devotion `devotionType` values the subtitle generator understands. */
+export const DEVOTION_TYPES = [
+  "marian",
+  "eucharistic",
+  "christological",
+  "passion",
+  "reparation",
+  "angelic",
+  "liturgical",
+  "general",
+] as const;
+
+/** The spiritual-practice schema's `practiceKind` enum. */
+export const PRACTICE_KINDS = [
+  "contemplative_prayer",
+  "lectio_divina",
+  "examen",
+  "fasting",
+  "almsgiving",
+  "pilgrimage",
+  "stations_of_the_cross",
+  "spiritual_direction",
+  "discernment",
+  "vocation",
+  "mortification",
+  "vocal_prayer",
+  "liturgy_of_the_hours",
+  "spiritual_reading",
+  "penance",
+  "eucharistic",
+  "work",
+  "mercy",
+  "silence",
+  "family",
+  "other",
+] as const;
 
 export interface ContentTypeSpec {
   /** Canonical content type (the spec's list, incl. derived/document types). */
@@ -57,7 +113,7 @@ export const CONTENT_TYPE_CATALOG: readonly ContentTypeSpec[] = [
     subtypes: ["consecration_day", "full_consecration"],
     sensitive: false,
   },
-  { type: "DEVOTION", extractable: "DEVOTION", subtypes: [], sensitive: true },
+  { type: "DEVOTION", extractable: "DEVOTION", subtypes: DEVOTION_TYPES, sensitive: true },
   { type: "SAINT", extractable: "SAINT", subtypes: ["saint_biography"], sensitive: false },
   { type: "POPE", extractable: "POPE", subtypes: ["pope_biography"], sensitive: false },
   { type: "DOCTOR", extractable: "DOCTOR", subtypes: ["doctor_profile"], sensitive: false },
@@ -72,8 +128,21 @@ export const CONTENT_TYPE_CATALOG: readonly ContentTypeSpec[] = [
     ],
     sensitive: true,
   },
-  { type: "MARIAN_TITLE", extractable: "MARIAN_TITLE", subtypes: [], sensitive: true },
-  { type: "SACRAMENT", extractable: "SACRAMENT", subtypes: [], sensitive: true },
+  {
+    type: "MARIAN_TITLE",
+    extractable: "MARIAN_TITLE",
+    // The four defined dogmas, titles tied to an approved apparition, and the
+    // titles of devotion (Litany of Loreto invocations, regional patronages…).
+    subtypes: ["marian_dogma", "apparition_title", "devotional_title"],
+    sensitive: true,
+  },
+  {
+    type: "SACRAMENT",
+    extractable: "SACRAMENT",
+    // The Catechism's own grouping (CCC 1212, 1421, 1534).
+    subtypes: ["sacrament_of_initiation", "sacrament_of_healing", "sacrament_of_service"],
+    sensitive: true,
+  },
   {
     type: "CHURCH_DOCUMENT",
     extractable: "CHURCH_DOCUMENT",
@@ -85,6 +154,14 @@ export const CONTENT_TYPE_CATALOG: readonly ContentTypeSpec[] = [
       "council_constitution",
       "council_decree",
       "council_declaration",
+      "council_document",
+      "apostolic_letter",
+      "papal_bull",
+      "decree",
+      "declaration",
+      "instruction",
+      "catechism_paragraph",
+      "code_of_canon_law",
     ],
     sensitive: true,
   },
@@ -113,6 +190,14 @@ export const CONTENT_TYPE_CATALOG: readonly ContentTypeSpec[] = [
     sensitive: true,
   },
   {
+    // The LITURGICAL enum type itself (feasts, seasons, the Order of Mass,
+    // rites, glossary) — its subtypes are the liturgical schema's `kind` enum.
+    type: "LITURGICAL",
+    extractable: "LITURGICAL",
+    subtypes: LITURGICAL_KINDS,
+    sensitive: true,
+  },
+  {
     type: "LITURGICAL_READING",
     extractable: "LITURGICAL",
     subtypes: ["daily_mass_reading", "sunday_mass_reading"],
@@ -131,7 +216,13 @@ export const CONTENT_TYPE_CATALOG: readonly ContentTypeSpec[] = [
     sensitive: true,
   },
   { type: "HOLY_DAY", extractable: "LITURGICAL", subtypes: [], sensitive: true },
-  { type: "RITE", extractable: "RITE", subtypes: [], sensitive: true },
+  {
+    type: "RITE",
+    extractable: "RITE",
+    // A rite family (Roman, Byzantine…), a Church sui iuris, or a Latin use.
+    subtypes: ["liturgical_rite", "church_sui_iuris", "latin_use"],
+    sensitive: true,
+  },
   { type: "PARISH", extractable: "PARISH", subtypes: ["parish_profile"], sensitive: false },
   { type: "DIOCESE", extractable: null, subtypes: ["diocese_profile"], sensitive: false },
   {
@@ -147,8 +238,13 @@ export const CONTENT_TYPE_CATALOG: readonly ContentTypeSpec[] = [
     sensitive: true,
   },
   { type: "CREED", extractable: null, subtypes: [], sensitive: true },
-  { type: "GUIDE", extractable: "GUIDE", subtypes: [], sensitive: false },
-  { type: "SPIRITUAL_PRACTICE", extractable: "SPIRITUAL_PRACTICE", subtypes: [], sensitive: false },
+  { type: "GUIDE", extractable: "GUIDE", subtypes: GUIDE_KINDS, sensitive: false },
+  {
+    type: "SPIRITUAL_PRACTICE",
+    extractable: "SPIRITUAL_PRACTICE",
+    subtypes: PRACTICE_KINDS,
+    sensitive: false,
+  },
   { type: "HOMEPAGE_BLOCK", extractable: null, subtypes: [], sensitive: false },
 ] as const;
 

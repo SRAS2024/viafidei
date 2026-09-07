@@ -80,7 +80,13 @@ const GOVERNED_CONTENT_STAGES: ReadonlySet<BrainMissionStage> = new Set<BrainMis
  * unfetched and nothing published. Real progress = fetch → read → … → publish.
  */
 const FORWARD_PROGRESS_STAGES: ReadonlySet<BrainMissionStage> = new Set<BrainMissionStage>(
-  [...GOVERNED_CONTENT_STAGES].filter((s) => s !== "DISCOVERY" && s !== "CANDIDATE_PRIORITIZATION"),
+  [...GOVERNED_CONTENT_STAGES].filter(
+    // POST_PUBLISH_VERIFY re-checks content that is ALREADY public: a verify
+    // "success" every pass (one live-page check from a ~3,400-item backlog)
+    // does not move a single item toward NEW published content, so counting
+    // it masked a growth stall exactly like discovery did.
+    (s) => s !== "DISCOVERY" && s !== "CANDIDATE_PRIORITIZATION" && s !== "POST_PUBLISH_VERIFY",
+  ),
 );
 
 /** Downstream stages in publish-first priority, each paired with the WorldState
@@ -91,12 +97,18 @@ const DOWNSTREAM_LADDER: ReadonlyArray<[BrainMissionStage, keyof WorldState]> = 
   ["PUBLIC_PUBLISH", "artifactsAwaitingPublish"],
   ["STRICT_QA", "artifactsAwaitingQA"],
   ["CROSS_SOURCE_VERIFICATION", "artifactsAwaitingVerification"],
-  ["POST_PUBLISH_VERIFY", "publishedButUnverified"],
   ["CHECKLIST_CREATION", "artifactsAwaitingChecklist"],
   ["CLASSIFICATION", "unclassifiedReads"],
   ["EXTRACTION", "readsAwaitingExtraction"],
   ["SOURCE_FETCH", "candidateUrlsAvailable"],
   ["CANDIDATE_PRIORITIZATION", "candidatesNeedingPrioritization"],
+  // LAST, not fourth: its queue is every published-but-never-verified row
+  // (thousands, drained one per pass and "productive" whenever the page is
+  // reachable), so sitting above SOURCE_FETCH meant the governor forced it on
+  // every intervention and the fetch ladder was never reached while hundreds of
+  // candidates sat unfetched — the 3403 plateau. It is only a fallback once
+  // nothing else downstream has work.
+  ["POST_PUBLISH_VERIFY", "publishedButUnverified"],
 ];
 
 const DEFAULT_WINDOW_MIN = 15;

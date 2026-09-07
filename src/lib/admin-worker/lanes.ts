@@ -14,10 +14,11 @@
  *     artifacts; discovery owns candidates), so they don't fight over rows.
  *   - `PublishedContent @@unique([contentType, slug])` makes double-publishing
  *     impossible at the DB level even under a race — idempotency by constraint.
- *   - Artifact LEASES (`claimArtifact`) give explicit task ownership: a lane
- *     claims an artifact via an atomic conditional update before mutating it, so
- *     two lanes (or two worker processes) never double-work the same item; a
- *     crashed lane's lease expires and is reclaimed.
+ *   - Artifact LEASES (`claimArtifact`) are available for explicit task
+ *     ownership — an atomic conditional update before mutating an artifact so
+ *     two lanes never double-work the same item; a crashed lane's lease expires
+ *     and is reclaimed. (The drain/QA handlers do not use them yet; today the
+ *     watchdog-aware error cooldown below is what keeps two drains apart.)
  *   - A global CONCURRENCY CAP (semaphore) bounds resource usage.
  *   - Every lane is ISOLATED (its own try/catch) — a failing lane never kills
  *     the others (self-repair) — and enters a BACKOFF cooldown after an error.
@@ -46,7 +47,7 @@ export interface LaneRunContext {
   active: boolean;
   /** True when every content goal's gap is closed (all targets met). */
   contentGoalsMet?: boolean;
-  /** Major-goal campaign phase: DRAIN skips discovery lanes; SURGE/NORMAL run them. */
+  /** Major-goal campaign phase: DRAIN skips WEB discovery lanes; SURGE/NORMAL run them. */
   campaignPhase?: "DRAIN" | "SURGE" | "NORMAL";
 }
 
@@ -66,12 +67,19 @@ export interface LaneDef {
    */
   growth?: boolean;
   /**
-   * A DISCOVERY lane — it takes on NEW work by surfacing fresh candidates. During
-   * a major-goal campaign's DRAIN phase the worker finishes its in-flight funnel
-   * and takes on no new discovery, so discovery lanes are skipped until the
-   * campaign SURGEs (or returns to NORMAL).
+   * A DISCOVERY lane — it takes on NEW work by surfacing fresh candidates.
    */
   discovery?: boolean;
+  /**
+   * A WEB-pipeline lane — its output feeds the artifact funnel the major-goal
+   * campaign drains. During the campaign's DRAIN phase the worker finishes its
+   * in-flight funnel and takes on no new WEB discovery, so lanes flagged
+   * `discovery && web` are skipped until the campaign SURGEs (or NORMAL). The
+   * OSM parish and structured (Wikidata) lanes are discovery but NOT web: they
+   * publish straight to PublishedContent and have nothing to do with that
+   * funnel, so pausing them during DRAIN (as before) only froze PARISH growth.
+   */
+  web?: boolean;
   /** Cooldown after an error before this lane retries (ms). */
   cooldownMs?: number;
   /**
@@ -302,9 +310,10 @@ export async function runWorkerLanes(
       return false;
     }
     const st = stateByLane.get(lane.name);
-    // Major-goal campaign DRAIN: finish the in-flight funnel and take on NO new
-    // work, so discovery lanes are paused until the campaign SURGEs (or NORMAL).
-    if (lane.discovery && ctx.campaignPhase === "DRAIN") {
+    // Major-goal campaign DRAIN: finish the in-flight WEB funnel and take on NO
+    // new web discovery until the campaign SURGEs (or NORMAL). Non-web discovery
+    // (OSM parishes, Wikidata) keeps running — see LaneDef.web.
+    if (lane.discovery && lane.web && ctx.campaignPhase === "DRAIN") {
       out.skipped.push(lane.name);
       return false;
     }
@@ -318,7 +327,14 @@ export async function runWorkerLanes(
         return false;
       }
     }
-    const cooldown = lane.cooldownMs ?? DEFAULT_COOLDOWN_MS;
+    let cooldown = lane.cooldownMs ?? DEFAULT_COOLDOWN_MS;
+    // A watchdog-expired run is still executing in the background (promises
+    // can't be cancelled). Its cooldown must be at least the lane's own
+    // watchdog so the next run cannot start while the previous one may still be
+    // working the same items (two drains picking the same QA_PASSED artifact).
+    if (st?.lastError && /lane watchdog/.test(st.lastError)) {
+      cooldown = Math.max(cooldown, lane.watchdogMs ?? watchdogMs);
+    }
     if (
       st?.lastError &&
       st.lastFinishedAt &&

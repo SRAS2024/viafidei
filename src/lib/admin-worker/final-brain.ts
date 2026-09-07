@@ -65,6 +65,18 @@ function toCandidate(a: BrainAction): FinalActionCandidate {
   };
 }
 
+// Degraded-mode events repeat on EVERY pass while the brain is down; a weekend
+// of that inserted tens of thousands of identical WARN rows that buried the
+// one row explaining the cause. Log the first occurrence, then one row per
+// window carrying the number of suppressed repeats (keyed on event + message).
+const DEGRADED_LOG_WINDOW_MS = 15 * 60 * 1000;
+const _throttle = new Map<string, { count: number; lastLoggedAt: number }>();
+
+/** Test hook: forget the throttle state. */
+export function __resetBrainEventThrottleForTest(): void {
+  _throttle.clear();
+}
+
 async function logBrainEvent(
   prisma: PrismaClient,
   passId: string | undefined,
@@ -72,13 +84,22 @@ async function logBrainEvent(
   message: string,
   metadata: Record<string, unknown> = {},
 ): Promise<void> {
+  const key = `${eventName}|${message}`;
+  const now = Date.now();
+  const seen = _throttle.get(key);
+  if (seen) {
+    seen.count += 1;
+    if (now - seen.lastLoggedAt < DEGRADED_LOG_WINDOW_MS) return;
+  }
+  const repeats = seen ? seen.count - 1 : 0;
+  _throttle.set(key, { count: 1, lastLoggedAt: now });
   await writeAdminWorkerLog(prisma, {
     passId: passId ?? null,
     category: "WORKER_PASS",
     severity: "WARN",
     eventName,
-    message,
-    safeMetadata: { ...metadata, finalBrain: "python" },
+    message: repeats > 0 ? `${message} (repeated ${repeats}× since the last report)` : message,
+    safeMetadata: { ...metadata, finalBrain: "python", suppressedRepeats: repeats },
   }).catch(() => undefined);
 }
 

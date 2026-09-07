@@ -35,6 +35,7 @@ import { publicRouteFor } from "./public-routes";
 import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
 import { derivedColumnsFor } from "@/lib/content-shared/derived-columns";
 import { evaluatePublishGate } from "./publisher";
+import { evaluatePublishSafety, type SafetyBlockReason } from "./publish-safety";
 import { recordReasoningEdge } from "./reasoning-graph";
 import type { QualityInputs } from "./quality";
 import type { VerifierOutcome } from "./verifier";
@@ -75,6 +76,13 @@ export interface PublishOrchestratorInput {
    * pipeline always runs the brain screens.
    */
   skipBrainScreens?: boolean;
+  /**
+   * When the checklist item is ALREADY published under a different slug,
+   * rename that live row to this slug (through the content-protection gate,
+   * so the change is snapshotted and reversible) instead of reporting a
+   * duplicate. Default false: the caller gets `duplicate` with the live slug.
+   */
+  allowUpdate?: boolean;
 }
 
 export type OrchestratorResult =
@@ -122,25 +130,101 @@ export async function runPublishOrchestrator(
     }
   }
 
+  // 0a. Publish-safety pattern blockers (spec §15). Deterministic checks on
+  // the title / body / source URL that catch the obvious-wrong content schema
+  // validation lets through: a placeholder "prayer", an article ABOUT a
+  // prayer, a hospital filed as a saint, a livestream or donation page as the
+  // source. Hard reasons block outright; the rest go to repair (re-extraction)
+  // when there is an artifact to repair, bounded by the retry budget.
+  const payloadRecord =
+    input.payload && typeof input.payload === "object" && !Array.isArray(input.payload)
+      ? (input.payload as Record<string, unknown>)
+      : null;
+  const citations = collectCitations(payloadRecord);
+  const sourceUrl = payloadSourceUrl(payloadRecord);
+  const safety = evaluatePublishSafety({
+    contentType: input.contentType,
+    title: input.title,
+    slug: input.slug,
+    sourceUrl,
+    bodyText: payloadBodyText(payloadRecord),
+    hasSourceEvidence: input.hasSourceEvidence || citations.length > 0 || Boolean(sourceUrl),
+  });
+  if (safety.blocked) {
+    const hard = safety.reasons.filter((r) => HARD_SAFETY_REASONS.has(r));
+    const reason = `publish safety: ${safety.reasons.join(", ")} — ${safety.details.join("; ")}`;
+    await logBlocked(prisma, input, reason);
+    if (hard.length > 0 || !input.strictQAArtifactId) {
+      return { kind: "blocked", blockedBy: "safety", reason };
+    }
+    const { consumeRetryBudget } = await import("./human-review");
+    const budget = await consumeRetryBudget(prisma, "safety-repair", input.strictQAArtifactId, {
+      reason,
+    });
+    if (!budget.allowed) {
+      return { kind: "blocked", blockedBy: "safety", reason: `${reason} [repair budget spent]` };
+    }
+    const { filePlan } = await import("./repair-plans");
+    await filePlan(prisma, {
+      kind: "EXTRACT_FAILED",
+      failedEntity: input.strictQAArtifactId,
+      repairAction: `Re-extract ${input.contentType}/${input.slug}; publish safety flagged ${safety.reasons.join(", ")}.`,
+      metadata: {
+        artifactId: input.strictQAArtifactId,
+        contentType: input.contentType,
+        slug: input.slug,
+        safetyReasons: safety.reasons,
+        attempt: budget.attempts,
+      },
+    }).catch(() => undefined);
+    return { kind: "repair", reason };
+  }
+
   // 0b. Proof-based publishing for sensitive Catholic content (spec). When the
   // brain is online, doctrinally / liturgically / authority-sensitive types
   // must pass a proof packet AND the logic-rule invariants, or they route to
   // review (or block on an unresolved conflict). Offline, the verifier + QA
   // gates below still protect sensitive content.
+  //
+  // The proof is only as good as the evidence handed over: the brain's proof
+  // conditions are ≥2 sources, authority ≥ USCCB, ≥1 citation, no unresolved
+  // conflict and ≥1 agreement, and its doctrinal invariant needs
+  // trustedSourceCount ≥ 2. Sending an empty evidence object (and the slug as
+  // the claim) made the gate unsatisfiable by construction — every proof-gated
+  // publish was parked in review. Build the real evidence from the package.
   if (isBrainEnabled() && !input.skipBrainScreens) {
     const { evaluateSensitivePublish, isProofRequired } = await import("./proof-publishing");
     if (isProofRequired(input.contentType)) {
       const decision = await evaluateSensitivePublish(prisma, {
         contentType: input.contentType,
         contentId: input.contentId,
-        claim: { contentType: input.contentType, text: input.slug },
-        state: { contentType: input.contentType },
+        claim: { contentType: input.contentType, text: input.title, slug: input.slug },
+        evidence: buildProofEvidence(input, citations),
+        state: buildInvariantState(input, citations, sourceUrl, payloadRecord),
       });
       if (decision.action === "block") {
         return { kind: "blocked", blockedBy: "proof", reason: decision.reasons.join("; ") };
       }
       if (!decision.allow) {
-        return { kind: "review", reason: `proof-based publishing: ${decision.reasons.join("; ")}` };
+        const reason = `proof-based publishing: ${decision.reasons.join("; ")}`;
+        // The cross-source verifier is the deterministic, evidence-backed
+        // check for sensitive content; when it has signed off, an incomplete
+        // proof packet (typically "below Vatican authority") is advisory —
+        // log it and let the quality gate below decide, rather than parking
+        // verified content for a proof the brain cannot complete.
+        if (input.verifier?.publishAllowed === true) {
+          await writeAdminWorkerLog(prisma, {
+            category: "PUBLISHING",
+            severity: "INFO",
+            eventName: "proof_review_advisory",
+            message: `Proof packet advisory for ${input.contentType}/${input.slug} (verifier signed off; continuing to the quality gate): ${reason}`,
+            contentType: input.contentType,
+            safeMetadata: { reasons: decision.reasons },
+          }).catch(() => undefined);
+        } else {
+          await logBlocked(prisma, input, reason);
+          return { kind: "review", reason };
+        }
       }
     }
   }
@@ -500,6 +584,23 @@ export async function runPublishOrchestrator(
       select: { id: true, isPublished: true },
     })
     .catch(() => null);
+  const publishedSubtitle = generateContentSubtitle({
+    contentType: input.contentType,
+    contentSubtype: (input.payload as Record<string, unknown> | null)?.contentSubtype as
+      | string
+      | null,
+    title: input.title,
+    fields: (input.payload as Record<string, unknown> | null) ?? {},
+  });
+  const republishData = {
+    isPublished: true,
+    publishedAt: new Date(),
+    payload,
+    title: input.title,
+    subtitle: publishedSubtitle,
+    contentChecksum,
+    ...derived,
+  };
   if (existing) {
     // Idempotent re-publish: if the row is already published, return
     // duplicate; otherwise update isPublished=true and return.
@@ -511,25 +612,7 @@ export async function runPublishOrchestrator(
       };
     }
     const repub = await prisma.publishedContent
-      .update({
-        where: { id: existing.id },
-        data: {
-          isPublished: true,
-          publishedAt: new Date(),
-          payload,
-          title: input.title,
-          subtitle: generateContentSubtitle({
-            contentType: input.contentType,
-            contentSubtype: (input.payload as Record<string, unknown> | null)?.contentSubtype as
-              | string
-              | null,
-            title: input.title,
-            fields: (input.payload as Record<string, unknown> | null) ?? {},
-          }),
-          contentChecksum,
-          ...derived,
-        },
-      })
+      .update({ where: { id: existing.id }, data: republishData })
       .catch(() => null);
     if (!repub) {
       return {
@@ -550,16 +633,109 @@ export async function runPublishOrchestrator(
     };
   }
 
+  // 4b. The checklist item may already own a PublishedContent row under a
+  // DIFFERENT slug (PublishedContent.checklistItemId is unique): e.g. the web
+  // pipeline published it under the slug derived from the extracted title
+  // while the curated registry uses the canonical slug. Creating a second row
+  // would violate the unique index on every pass, forever ("publish_persist_
+  // failed" each time). Resolve it here instead.
+  const byItem = await safeQuery(() =>
+    prisma.publishedContent.findUnique({
+      where: { checklistItemId: input.contentId },
+      select: { id: true, slug: true, isPublished: true, contentType: true },
+    }),
+  );
+  if (byItem && byItem.slug !== input.slug) {
+    const liveKey = `${String(byItem.contentType)}/${byItem.slug}`;
+    if (byItem.isPublished) {
+      if (!input.allowUpdate || String(byItem.contentType) !== input.contentType) {
+        await writeAdminWorkerLog(prisma, {
+          category: "PUBLISHING",
+          severity: "WARN",
+          eventName: "publish_slug_mismatch",
+          message: `Checklist item ${input.contentId} is already published as ${liveKey}; requested slug ${input.contentType}/${input.slug} not created (slug mismatch — pass allowUpdate to rename).`,
+          contentType: input.contentType,
+          relatedEntityId: byItem.id,
+          safeMetadata: { liveSlug: byItem.slug, requestedSlug: input.slug },
+        }).catch(() => undefined);
+        return {
+          kind: "duplicate",
+          existingId: byItem.id,
+          reason: `checklist item already published as ${liveKey} (slug mismatch with ${input.slug})`,
+        };
+      }
+      // Rename through the protection gate (snapshot + version bump), then
+      // move the slug. The old URL stops resolving, so this is only done when
+      // the caller explicitly asked for it.
+      const { applyProtectedContentUpdate } = await import("./content-protection");
+      const upd = await applyProtectedContentUpdate(prisma, {
+        contentId: byItem.id,
+        proposedPayload: (payload as Record<string, unknown>) ?? {},
+        proposedTitle: input.title,
+        proposedSubtitle: publishedSubtitle,
+        reason: `slug rename ${byItem.slug} → ${input.slug} (allowUpdate)`,
+        allowReplace: true,
+        qualityScore: input.finalScore,
+        evidenceCount: Math.max(citations.length, input.hasSourceEvidence ? 1 : 0),
+      });
+      if (upd.blocked) {
+        return { kind: "blocked", blockedBy: "protection", reason: upd.reason };
+      }
+      const renamed = await prisma.publishedContent
+        .update({ where: { id: byItem.id }, data: { slug: input.slug } })
+        .catch(() => null);
+      if (!renamed) {
+        return {
+          kind: "blocked",
+          blockedBy: "persist",
+          reason: `failed to rename ${liveKey} to slug ${input.slug}`,
+        };
+      }
+      await writeAdminWorkerLog(prisma, {
+        category: "PUBLISHING",
+        severity: "INFO",
+        eventName: "publish_slug_renamed",
+        message: `Renamed ${liveKey} → ${input.contentType}/${input.slug} (protected update: ${upd.reason}).`,
+        contentType: input.contentType,
+        relatedEntityId: byItem.id,
+      }).catch(() => undefined);
+      if (!input.skipPostPublishSideEffects) {
+        await postPublishSideEffects(prisma, input, byItem.id, route);
+      }
+      return {
+        kind: "published",
+        publishedContentId: byItem.id,
+        slug: input.slug,
+        route,
+        reason: `renamed existing row from ${byItem.slug}`,
+      };
+    }
+    // Unpublished row under the old slug: republish it under the requested
+    // slug — no live URL is affected and the (contentType, slug) pair is free.
+    const repub = await prisma.publishedContent
+      .update({ where: { id: byItem.id }, data: { ...republishData, slug: input.slug } })
+      .catch(() => null);
+    if (!repub) {
+      return {
+        kind: "blocked",
+        blockedBy: "persist",
+        reason: `failed to republish ${liveKey} under slug ${input.slug}`,
+      };
+    }
+    if (!input.skipPostPublishSideEffects) {
+      await postPublishSideEffects(prisma, input, repub.id, route);
+    }
+    return {
+      kind: "published",
+      publishedContentId: repub.id,
+      slug: input.slug,
+      route,
+      reason: `republished existing row (slug ${byItem.slug} → ${input.slug})`,
+    };
+  }
+
   // 5. Persist a new PublishedContent row. The descriptive subtitle is generated
   // and stored at publish time (rendered under the title on the public page).
-  const publishedSubtitle = generateContentSubtitle({
-    contentType: input.contentType,
-    contentSubtype: (input.payload as Record<string, unknown> | null)?.contentSubtype as
-      | string
-      | null,
-    title: input.title,
-    fields: (input.payload as Record<string, unknown> | null) ?? {},
-  });
   const created = await prisma.publishedContent
     .create({
       data: {
@@ -729,6 +905,116 @@ async function logBlocked(
 }
 
 /**
+ * Safety reasons that can never be repaired by re-extracting the same page:
+ * the content itself is not what it claims to be. Everything else is routed
+ * to repair (a different extraction may fix it) while an artifact exists.
+ */
+const HARD_SAFETY_REASONS: ReadonlySet<SafetyBlockReason> = new Set<SafetyBlockReason>([
+  "incomplete_prayer",
+  "no_source_evidence",
+  "livestream",
+  "event_page",
+  "store_page",
+  "donation_page",
+]);
+
+/** Run a query that may not exist on a partial client; a throw is `null`. */
+async function safeQuery<T>(fn: () => Promise<T>): Promise<T | null> {
+  try {
+    return await fn();
+  } catch {
+    return null;
+  }
+}
+
+/** Citation / source URLs carried by the payload (strings or `{ url }`). */
+export function collectCitations(payload: Record<string, unknown> | null): string[] {
+  if (!payload) return [];
+  const out = new Set<string>();
+  for (const key of ["citations", "sources", "sourceUrls"]) {
+    const v = payload[key];
+    if (!Array.isArray(v)) continue;
+    for (const item of v) {
+      if (typeof item === "string" && item.trim()) out.add(item.trim());
+      else if (item && typeof item === "object") {
+        const u = (item as { url?: unknown; href?: unknown }).url ??
+          (item as { href?: unknown }).href;
+        if (typeof u === "string" && u.trim()) out.add(u.trim());
+      }
+    }
+  }
+  const single = payloadSourceUrl(payload);
+  if (single) out.add(single);
+  return [...out];
+}
+
+function payloadSourceUrl(payload: Record<string, unknown> | null): string | undefined {
+  const u = payload?.sourceUrl;
+  return typeof u === "string" && u.trim() ? u.trim() : undefined;
+}
+
+function payloadBodyText(payload: Record<string, unknown> | null): string | undefined {
+  for (const key of ["prayerText", "body", "text", "description", "summary"]) {
+    const v = payload?.[key];
+    if (typeof v === "string" && v.trim()) return v;
+  }
+  return undefined;
+}
+
+/**
+ * Evidence for the brain's proof packet, built from what the package actually
+ * carries. Agreements come from the cross-source verifier (one per stored
+ * verification row, or one for a plain sign-off); a verifier conflict is the
+ * one unresolved contradiction the proof must see.
+ */
+export function buildProofEvidence(
+  input: Pick<PublishOrchestratorInput, "authorityLevel" | "verifier">,
+  citations: string[],
+): NonNullable<import("./proof-publishing").SensitivePublishInput["evidence"]> {
+  const rows = input.verifier?.verificationRowIds?.length ?? 0;
+  const agreements = input.verifier
+    ? Math.max(rows, input.verifier.publishAllowed ? 1 : 0)
+    : 0;
+  return {
+    sources: citations,
+    authorities: [input.authorityLevel],
+    citations,
+    agreements,
+    conflicts: input.verifier?.hasConflict ? ["cross-source verifier reported a conflict"] : [],
+  };
+}
+
+/** Field state for the brain's logic-rule invariants. */
+export function buildInvariantState(
+  input: Pick<
+    PublishOrchestratorInput,
+    "contentType" | "title" | "slug" | "authorityLevel" | "isDoctrinallySensitive"
+  >,
+  citations: string[],
+  sourceUrl: string | undefined,
+  payload: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const documentType =
+    (typeof payload?.documentType === "string" && payload.documentType) ||
+    (typeof payload?.kind === "string" && payload.kind) ||
+    (typeof payload?.contentSubtype === "string" && payload.contentSubtype) ||
+    undefined;
+  return {
+    contentType: input.contentType,
+    sensitive: input.isDoctrinallySensitive,
+    title: input.title,
+    authority: input.authorityLevel,
+    trustedSourceCount: citations.length,
+    sourceCount: citations.length,
+    citation: citations[0],
+    sourceUrl: sourceUrl ?? citations[0],
+    route: publicRouteFor(input.contentType, input.slug).slugPath,
+    publicContentType: input.contentType,
+    ...(documentType ? { documentType } : {}),
+  };
+}
+
+/**
  * Spec §6: source-authority factor used to bias sourceAuthorityScore
  * by where the content was sourced. VATICAN is the unconditional
  * baseline (1.0); conference / magisterium sources are slightly
@@ -789,11 +1075,14 @@ export async function explainPublishStatus(
       select: { isPublished: true, publishedAt: true },
     })
     .catch(() => null);
+  // Every orchestrator log line names the item as `<TYPE>/<slug>`; without
+  // that filter the panel showed the newest decision for the whole TYPE.
   const decision = await prisma.adminWorkerLog
     .findFirst({
       where: {
         category: "PUBLISHING",
         contentType: opts.contentType,
+        message: { contains: `${opts.contentType}/${opts.slug}` },
       },
       orderBy: { createdAt: "desc" },
       select: { message: true },

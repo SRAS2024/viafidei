@@ -35,6 +35,8 @@ export type CacheRevalidationEntry = {
   slug?: string;
   at: Date;
   ok: boolean;
+  /** True when there was no tag cache in this process (worker / tests). */
+  skipped?: boolean;
   errorMessage?: string;
 };
 
@@ -56,10 +58,36 @@ export function clearCacheRevalidationLog(): void {
   revalidationLog.length = 0;
 }
 
+/**
+ * True when this process is the Next.js server (the only place a tag cache
+ * exists). The Admin Worker is a standalone Node process (scripts/run-worker.ts)
+ * and vitest is neither; both have no cache to flush.
+ */
+export function insideNextRuntime(): boolean {
+  return typeof process.env.NEXT_RUNTIME === "string" && process.env.NEXT_RUNTIME.length > 0;
+}
+
+/** Message recorded when there is no tag cache in this process. */
+export const NO_TAG_CACHE_MESSAGE =
+  "no tag cache outside the Next runtime — public pages are force-dynamic, nothing to revalidate";
+
 async function revalidateTagsSafe(tags: ReadonlyArray<string>): Promise<{
   ok: boolean;
+  /** True when there was no cache to revalidate (not a failure). */
+  skipped?: boolean;
   errorMessage?: string;
 }> {
+  // Outside the Next server there is no tag cache at all: the public pages are
+  // `force-dynamic` (they query Postgres per request), so a freshly published
+  // row is live on the next request with nothing to flush. Calling
+  // `revalidateTag` here throws ("static generation store missing") and used to
+  // report ok:false — which made every worker-side verification WARN, fed
+  // "failed" post-publish outcomes into source reputation, and marched
+  // PUBLIC_DISPLAY_FAILED repairs to ABANDONED although the page was fine.
+  // Treat it as a successful no-op and say why.
+  if (!insideNextRuntime()) {
+    return { ok: true, skipped: true, errorMessage: NO_TAG_CACHE_MESSAGE };
+  }
   try {
     // Next.js `revalidateTag` is available at runtime in app router.
     // We resolve it dynamically so the module remains testable in a
@@ -98,7 +126,7 @@ export async function revalidateForRow(opts: {
   reason: RevalidationReason;
   contentType: ContentTypeTagKey | string;
   slug: string;
-}): Promise<{ ok: boolean; tags: ReadonlyArray<string> }> {
+}): Promise<{ ok: boolean; skipped?: boolean; tags: ReadonlyArray<string> }> {
   const tags = tagsForRow(opts.contentType, opts.slug);
   const result = await revalidateTagsSafe(tags);
   const entry: CacheRevalidationEntry = {
@@ -108,6 +136,7 @@ export async function revalidateForRow(opts: {
     slug: opts.slug,
     at: new Date(),
     ok: result.ok,
+    skipped: result.skipped,
     errorMessage: result.errorMessage,
   };
   pushLog(entry);
@@ -119,42 +148,46 @@ export async function revalidateForRow(opts: {
       error: result.errorMessage,
     });
   }
-  return { ok: result.ok, tags };
+  return { ok: result.ok, skipped: result.skipped, tags };
 }
 
 /** Revalidate the sitemap + search index without touching content tags. */
 export async function revalidateSitemap(
   reason: RevalidationReason = "sitemap_refresh",
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; skipped?: boolean }> {
   const result = await revalidateTagsSafe([SITEMAP_TAG, SEARCH_INDEX_TAG]);
   pushLog({
     reason,
     tags: [SITEMAP_TAG, SEARCH_INDEX_TAG],
     at: new Date(),
     ok: result.ok,
+    skipped: result.skipped,
     errorMessage: result.errorMessage,
   });
-  return { ok: result.ok };
+  return { ok: result.ok, skipped: result.skipped };
 }
 
 /** Revalidate every tag inside a tab (used after strict cleanup). */
-export async function revalidateTab(tab: TabKey | string): Promise<{ ok: boolean }> {
+export async function revalidateTab(
+  tab: TabKey | string,
+): Promise<{ ok: boolean; skipped?: boolean }> {
   const result = await revalidateTagsSafe([tabTag(tab), SITEMAP_TAG, SEARCH_INDEX_TAG]);
   pushLog({
     reason: "strict_cleanup",
     tags: [tabTag(tab), SITEMAP_TAG, SEARCH_INDEX_TAG],
     at: new Date(),
     ok: result.ok,
+    skipped: result.skipped,
     errorMessage: result.errorMessage,
   });
-  return { ok: result.ok };
+  return { ok: result.ok, skipped: result.skipped };
 }
 
 /** Revalidate everything for a content type (used by threshold refresh). */
 export async function revalidateContentType(
   contentType: ContentTypeTagKey | string,
   reason: RevalidationReason = "threshold_refresh",
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; skipped?: boolean }> {
   const tab = CONTENT_TYPE_TO_TAB[contentType as ContentTypeTagKey];
   const tags = [contentTypeTag(contentType)];
   if (tab) tags.push(tabTag(tab));
@@ -166,9 +199,10 @@ export async function revalidateContentType(
     contentType: String(contentType),
     at: new Date(),
     ok: result.ok,
+    skipped: result.skipped,
     errorMessage: result.errorMessage,
   });
-  return { ok: result.ok };
+  return { ok: result.ok, skipped: result.skipped };
 }
 
 /**

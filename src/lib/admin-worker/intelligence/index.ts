@@ -60,10 +60,11 @@ export {
   resetBrainStatus,
   resolveBrainRoot,
   ensureBrainStarted,
+  resolvedPythonExe,
   shutdownBrain,
   __getBrainProcForTest,
 } from "./client";
-export type { CallOpts } from "./client";
+export type { CallOpts, BrainStartup } from "./client";
 export * from "./store";
 
 // ── Semantic memory / vectors ─────────────────────────────────────────

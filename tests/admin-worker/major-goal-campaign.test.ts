@@ -53,11 +53,13 @@ describe("evaluateMajorGoalCampaign", () => {
     expect(s.majorGap).toBe(7_203);
   });
 
-  it("DRAINs first while built artifacts still wait to publish", async () => {
-    const s = await evaluateMajorGoalCampaign(fakePrisma(big, 5));
+  it("DRAINs first while a real backlog of recently built artifacts waits to publish", async () => {
+    // >= the DRAIN threshold (25 by default) — a handful of artifacts is not a
+    // backlog and must not pause discovery (see worker-core-campaign.test).
+    const s = await evaluateMajorGoalCampaign(fakePrisma(big, 40));
     expect(s.phase).toBe("DRAIN");
     expect(s.majorType).toBe("SAINT");
-    expect(s.builtFunnel).toBe(5);
+    expect(s.builtFunnel).toBe(40);
   });
 
   it("moves to the next-biggest WEB-growable goal once the first is met (generic)", async () => {

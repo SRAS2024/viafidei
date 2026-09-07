@@ -58,6 +58,14 @@ export const DEFAULT_GOAL_SEEDS: readonly ContentGoalSeed[] = [
   { contentType: "RITE", targetGoal: 24, canonicalMax: null, priority: 140 },
 ] as const;
 
+/**
+ * Seed the goal rows. Creates any MISSING content type; for rows that already
+ * exist only `canonicalMax` (a fact of the faith) and `priority` are refreshed
+ * — `desiredTarget` / `minimumTarget` are the operator's to edit and are never
+ * overwritten (the old upsert snapped an admin-lowered target back to the seed
+ * on every productive pass). Idempotent, so callers may run it at boot and
+ * after a seed import; the loop only calls it when the table is empty.
+ */
 export async function seedContentGoals(prisma: PrismaClient): Promise<number> {
   let seeded = 0;
   for (const seed of DEFAULT_GOAL_SEEDS) {
@@ -66,8 +74,6 @@ export async function seedContentGoals(prisma: PrismaClient): Promise<number> {
     await prisma.contentGoal.upsert({
       where: { contentType: seed.contentType },
       update: {
-        minimumTarget: 0,
-        desiredTarget: seed.targetGoal,
         canonicalMax: seed.canonicalMax,
         priority: seed.priority,
       },
@@ -120,9 +126,37 @@ export function deriveStatus(
  * deprioritises it to a maintenance pace but never hard-stops — new verified
  * content still flows through the pipeline).
  */
-export async function refreshContentGoals(prisma: PrismaClient): Promise<void> {
+export interface ContentGoalRefresh {
+  /** Goal rows inspected. */
+  total: number;
+  /** Rows whose count / gap / status actually changed and were written. */
+  changed: number;
+  /** Rows still below target after the refresh. */
+  unmet: number;
+}
+
+/**
+ * The status to store: the derived one, except that MAINTENANCE (set by the
+ * growth orchestrator once a goal is AT_GOAL) is preserved as long as the count
+ * is still at/above target — otherwise the two writers flip-flopped the row
+ * every pass (orchestrator → MAINTENANCE, next refresh → TARGET_REACHED).
+ */
+export function reconcileStatus(
+  existing: ContentGoalStatus | string,
+  derived: ContentGoalStatus,
+): ContentGoalStatus {
+  if (
+    existing === "MAINTENANCE" &&
+    (derived === "TARGET_REACHED" || derived === "CANONICAL_COMPLETE")
+  ) {
+    return "MAINTENANCE";
+  }
+  return derived;
+}
+
+export async function refreshContentGoals(prisma: PrismaClient): Promise<ContentGoalRefresh> {
   const goals = await prisma.contentGoal.findMany();
-  if (goals.length === 0) return;
+  if (goals.length === 0) return { total: 0, changed: 0, unmet: 0 };
   const counts = await prisma.publishedContent.groupBy({
     by: ["contentType"],
     where: { isPublished: true },
@@ -130,21 +164,34 @@ export async function refreshContentGoals(prisma: PrismaClient): Promise<void> {
   });
   const countMap = new Map(counts.map((c) => [c.contentType as string, c._count as number]));
 
+  // Only rows whose values changed are written, and all of them in ONE
+  // transaction: the previous 15 sequential updates on EVERY pass (three times
+  // per pass, via the loop, sampleWorld and the governor) were the single
+  // biggest bookkeeping cost against the remote database.
+  const now = new Date();
+  const updates: Array<ReturnType<typeof prisma.contentGoal.update>> = [];
+  let unmet = 0;
   for (const goal of goals) {
     const current = countMap.get(goal.contentType) ?? 0;
     const target = goal.desiredTarget;
     const gap = Math.max(0, target - current);
-    const status = deriveStatus(current, target, goal.canonicalMax ?? null);
-    await prisma.contentGoal.update({
-      where: { id: goal.id },
-      data: {
-        currentValidCount: current,
-        gapCount: gap,
-        status,
-        lastUpdatedAt: new Date(),
-      },
-    });
+    if (gap > 0) unmet += 1;
+    const status = reconcileStatus(
+      goal.status,
+      deriveStatus(current, target, goal.canonicalMax ?? null),
+    );
+    if (goal.currentValidCount === current && goal.gapCount === gap && goal.status === status) {
+      continue;
+    }
+    updates.push(
+      prisma.contentGoal.update({
+        where: { id: goal.id },
+        data: { currentValidCount: current, gapCount: gap, status, lastUpdatedAt: now },
+      }),
+    );
   }
+  if (updates.length > 0) await prisma.$transaction(updates);
+  return { total: goals.length, changed: updates.length, unmet };
 }
 
 /**

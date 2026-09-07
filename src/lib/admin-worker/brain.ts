@@ -276,8 +276,13 @@ export interface WorldState {
  * field is a count or a small scalar; the brain doesn't load full
  * rows so a pass stays cheap even when the queues are large.
  */
-export async function sampleWorld(prisma: PrismaClient): Promise<WorldState> {
-  await refreshContentGoals(prisma).catch(() => undefined);
+export async function sampleWorld(
+  prisma: PrismaClient,
+  opts: { skipGoalRefresh?: boolean } = {},
+): Promise<WorldState> {
+  // The loop refreshes the goals once at the top of every pass and passes
+  // `skipGoalRefresh`; direct callers (planners, tests) still get a fresh view.
+  if (!opts.skipGoalRefresh) await refreshContentGoals(prisma).catch(() => undefined);
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const [
     state,
@@ -835,10 +840,16 @@ function buildExplanation(chosen: BrainAction, rejected: BrainAction[], world: W
  */
 export async function runBrain(
   prisma: PrismaClient,
-  opts: { passId?: string; finalSelect?: FinalActionSelector } = {},
+  opts: {
+    passId?: string;
+    finalSelect?: FinalActionSelector;
+    /** A world the caller already sampled this pass (the loop shares one
+     * sample between the brain and the governor instead of sampling twice). */
+    world?: WorldState;
+  } = {},
 ): Promise<BrainDecision> {
   const [world, feedback] = await Promise.all([
-    sampleWorld(prisma),
+    opts.world ?? sampleWorld(prisma),
     sampleExecutionFeedback(prisma).catch(
       () => ({ recentFailedStages: {}, recentlyAdvanced: new Set<string>() }) as ExecutionFeedback,
     ),

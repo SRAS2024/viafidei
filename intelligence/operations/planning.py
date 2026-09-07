@@ -215,12 +215,28 @@ def select_action(payload: Dict[str, Any]) -> Dict[str, Any]:
     reputation_used: List[str] = []
     outcomes_used: List[str] = []
 
+    # Score scale. TypeScript's ``finalScore`` is on a 0-100 scale (urgency
+    # alone is 24-100), while every adjustment below is a unit-scale nudge
+    # (+-0.03 .. 0.5). Clamping ``base + adjustments`` straight to [0, 1] pinned
+    # every real candidate at exactly 1.0, so fatigue / reliability /
+    # reputation could never reorder anything and confidence was always 1.0 —
+    # the final brain silently rubber-stamped TS's top candidate. Normalise by
+    # the best raw score so the top candidate is 1.0 and the adjustments carry
+    # real weight, then report ``final_score`` back on the caller's scale so
+    # the audit trail stays comparable with what TS sent. Unit-scale inputs
+    # (tests, self-tests) pass through unchanged.
+    raw_scores = [
+        float(c.get("finalScore", 0.0)) for c in candidates if isinstance(c, dict)
+    ]
+    top_raw = max(raw_scores, default=0.0)
+    scale = top_raw if top_raw > 1.0 else 1.0
+
     scored: List[Dict[str, Any]] = []
     for c in candidates:
         if not isinstance(c, dict):
             continue
         stage = str(c.get("missionStage") or c.get("actionType") or "UNKNOWN")
-        base = float(c.get("finalScore", 0.0))
+        base = float(c.get("finalScore", 0.0)) / scale
         safe = bool(c.get("safe", True))
 
         # Action fatigue (recency-weighted).
@@ -269,8 +285,18 @@ def select_action(payload: Dict[str, Any]) -> Dict[str, Any]:
             profile_adj -= 0.03
             memories_used.append(f"profile_caution:{ct}")
 
-        final = clamp(base + reli_adj + src_adj + ct_adj + profile_adj - fatigue)
-        scored.append({**c, "_stage": stage, "_safe": safe, "_final": round(final, 4)})
+        final_unit = clamp(base + reli_adj + src_adj + ct_adj + profile_adj - fatigue)
+        scored.append(
+            {
+                **c,
+                "_stage": stage,
+                "_safe": safe,
+                # ``_final`` is on the caller's scale (for ranking + reporting);
+                # ``_unit`` is the normalised score behind the confidence.
+                "_final": round(final_unit * scale, 4),
+                "_unit": round(final_unit, 4),
+            }
+        )
 
     # Rank: safe first, then final score. Selected = best safe candidate.
     ranked = sorted(scored, key=lambda x: (1 if x["_safe"] else 0, x["_final"]), reverse=True)
@@ -340,7 +366,7 @@ def select_action(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     return envelope(
         result=result,
-        confidence=clamp(selected["_final"]),
+        confidence=clamp(selected["_unit"]),
         reasoning=result["reasoning"],
         evidence=result["evidence_used"],
         risk_level=RISK_LOW,

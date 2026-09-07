@@ -69,7 +69,40 @@ export async function recordVerification(
 }
 
 /**
- * Rollback decision. After a FAIL verification:
+ * Minimum spacing between two FAIL observations before a failure counts as
+ * confirmed. A single probe is not evidence: a Railway redeploy answers 502 for
+ * a couple of minutes, an edge rate-limit answers 429, and a mis-pointed origin
+ * answers 404 for everything. Ten minutes is longer than any of those windows
+ * and always spans separate worker passes, so a confirmed FAIL means the public
+ * page was independently missing twice.
+ */
+export const FAIL_CONFIRMATION_GAP_MS = 10 * 60 * 1000;
+
+/**
+ * The most recent verification for this item when it is an as-yet-unconfirmed
+ * FAIL — i.e. the first strike. Returns null when the latest row is anything
+ * else (PASS / WARN reset the strike count) or when the lookup is impossible.
+ * Fail-open: a DB error here must never manufacture a confirmation.
+ */
+export async function findPriorFailure(
+  prisma: PrismaClient,
+  opts: { contentType: string; contentId: string },
+): Promise<{ id: string; createdAt: Date } | null> {
+  const latest = await prisma.postPublishVerification
+    .findFirst({
+      where: { contentType: opts.contentType, contentId: opts.contentId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, result: true, createdAt: true },
+    })
+    .catch(() => null);
+  if (!latest || latest.result !== "FAIL") return null;
+  return { id: latest.id, createdAt: latest.createdAt };
+}
+
+/**
+ * Rollback decision. After a CONFIRMED FAIL verification (see
+ * `findPriorFailure` — the dispatcher's decision tree owns the actual
+ * unpublish):
  *   - If the failure mode is clear (page didn't load, 404, schema
  *     mismatch): unpublish + delete the published row.
  *   - If the failure mode is ambiguous (search miss, cache miss):

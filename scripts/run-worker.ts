@@ -62,6 +62,8 @@ if (ORIGIN_ARG !== "local" && FORCE_REMOTE_INDEX >= 0) {
 }
 
 import { runAdminWorkerLoop, runMonthlyReportJobIfDue } from "../src/lib/admin-worker";
+import { seedContentGoals } from "../src/lib/admin-worker/content-goals";
+import { abandonCurrentPass } from "../src/lib/admin-worker/loop";
 import {
   acquireExecutionLease,
   holdsExecutionLease,
@@ -70,7 +72,11 @@ import {
   setMasterSwitch,
 } from "../src/lib/admin-worker/execution-host";
 import { localHostLabel } from "../src/lib/admin-worker/local-resources";
-import { ensureBrainStarted, shutdownBrain } from "../src/lib/admin-worker/intelligence";
+import {
+  ensureBrainStarted,
+  resolvedPythonExe,
+  shutdownBrain,
+} from "../src/lib/admin-worker/intelligence";
 import { reapStaleRunningPasses } from "../src/lib/admin-worker/passes";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
 import {
@@ -189,7 +195,19 @@ async function main() {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[admin-worker:${args.workerId}] received ${signal}; exiting...`);
-    setTimeout(() => process.exit(0), 1_000).unref();
+    // SIGTERM is the host's NORMAL stop (every switch-OFF). Exiting after a
+    // fixed 1s skipped the `finally` below, so every operator stop left the
+    // in-flight pass RUNNING, the lease row in place and the brain to the
+    // process-group kill. Do the cleanup here, bounded to 3s so a dead database
+    // can never hold the stop hostage, then exit 0.
+    const cleanup = (async () => {
+      await abandonCurrentPass(prisma, "stopped by operator").catch(() => false);
+      shutdownBrain();
+      await releaseExecutionLease(prisma, args.workerId).catch(() => undefined);
+      await prisma.$disconnect().catch(() => undefined);
+    })();
+    const deadline = new Promise<void>((resolve) => setTimeout(resolve, 3_000).unref());
+    void Promise.race([cleanup, deadline]).then(() => process.exit(0));
   };
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
@@ -248,26 +266,57 @@ async function main() {
       console.log(`[admin-worker:${args.workerId}] reaped ${reaped} stale RUNNING pass(es)`);
     }
 
+    // Seed the content-goal rows once per boot (creates missing types only —
+    // it never overwrites an operator-edited target). The loop no longer does
+    // this every pass; it only re-seeds if the table is empty.
+    await seedContentGoals(prisma).catch((err) => {
+      console.error(`[admin-worker:${args.workerId}] content-goal seed failed:`, err);
+    });
+
     // Bring the permanent intelligence brain online up front so it is
     // available for the first decision — it stays resident for the life of
-    // the worker rather than being spawned per call.
-    const brainUp = ensureBrainStarted();
+    // the worker rather than being spawned per call. VERIFIED: the brain must
+    // answer a real request; a spawn that "succeeds" and then dies at import
+    // (wrong Python version) used to be reported as "online".
+    const brain = await ensureBrainStarted();
     console.log(
-      `[admin-worker:${args.workerId}] intelligence brain: ${brainUp ? "online" : "disabled/unavailable (deterministic fallbacks)"}`,
+      `[admin-worker:${args.workerId}] intelligence brain: ${
+        brain.online
+          ? `online (${brain.python}, protocol v${brain.protocolVersion ?? "?"})`
+          : `UNAVAILABLE (${brain.python}): ${brain.reason ?? "unknown"} — safe degraded mode, content lanes will not run`
+      }`,
     );
     // Record the intelligence-layer boot state to the audit trail so the admin
     // UI / diagnostics can distinguish "brain never started this process" from
     // "brain made no recent decision" — the two look identical from decisions
-    // alone. Fail-open.
+    // alone. A failed probe is an ERROR + critical alert naming the interpreter:
+    // a degraded brain silently skips every content lane, so it must be loud.
     await writeAdminWorkerLog(prisma, {
       category: "OVERVIEW",
-      severity: brainUp ? "INFO" : "WARN",
+      severity: brain.online ? "INFO" : "ERROR",
       eventName: "brain_startup",
-      message: brainUp
-        ? "Admin Worker intelligence layer started (Python brain online)."
-        : "Admin Worker intelligence layer unavailable at startup — running deterministic fallbacks.",
-      safeMetadata: { available: brainUp },
+      message: brain.online
+        ? `Admin Worker intelligence layer started (Python brain online via ${brain.python}).`
+        : `Admin Worker intelligence layer UNAVAILABLE at startup (${brain.python}): ${brain.reason ?? "unknown"}. Running in safe degraded mode — content ingest/discovery lanes are skipped until the brain is fixed.`,
+      safeMetadata: {
+        available: brain.online,
+        python: brain.python,
+        protocolVersion: brain.protocolVersion,
+        reason: brain.reason,
+      },
     }).catch(() => undefined);
+    if (!brain.online && brain.reason !== "brain disabled in this runtime") {
+      try {
+        const { sendCriticalFailureAlert } = await import("../src/lib/email/admin-send");
+        await sendCriticalFailureAlert({
+          kind: "Admin Worker Python brain unavailable at startup",
+          message: `${brain.reason ?? "unknown"} (interpreter: ${brain.python}). The worker is running in safe degraded mode and will not grow content until this is fixed — set INTELLIGENCE_PYTHON to a Python >= 3.10.`,
+          context: { workerId: args.workerId, python: resolvedPythonExe() },
+        });
+      } catch {
+        /* fail-open */
+      }
+    }
 
     // System/code-update version memory: record the running build at startup so
     // an upgrade-at-deploy is captured immediately (before the first pass) and
@@ -340,7 +389,7 @@ async function main() {
     // backoff if its machinery ever throws, so the worker self-heals in-process
     // rather than exiting the container (whose restart policy may back off).
     const maxPasses = args.maxJobs ?? Infinity;
-    await runLoopSupervised({
+    const supervised = await runLoopSupervised({
       workerId: args.workerId,
       oneShot: args.oneShot,
       maxPasses,
@@ -361,6 +410,18 @@ async function main() {
           message: `Admin Worker loop threw and was restarted in-process: ${detail.slice(0, 480)}`,
         }).then(() => undefined),
     });
+    // Distinct exit codes so the host / a wrapper can tell an operator's OFF
+    // (0: clean, intended) from a lease take-over (5: another runtime now owns
+    // execution) without parsing logs.
+    if (supervised.stopReason === "switch_off") {
+      console.log(`[admin-worker:${args.workerId}] master switch is OFF — exiting cleanly.`);
+      process.exitCode = 0;
+    } else if (supervised.stopReason === "lease_lost") {
+      console.error(
+        `[admin-worker:${args.workerId}] execution lease lost to another runtime — exiting.`,
+      );
+      process.exitCode = 5;
+    }
   } finally {
     shutdownBrain();
     // Release the lease so the next local launch can claim it immediately

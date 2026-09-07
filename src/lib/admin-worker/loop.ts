@@ -43,15 +43,67 @@ export interface LoopOptions {
   oneShot?: boolean;
   /** Maximum passes when looping forever. Default Infinity. */
   maxPasses?: number;
-  /** Backoff between passes when nothing is queued (ms). */
+  /** Initial backoff between passes when nothing is queued (ms); doubles per
+   * consecutive idle pass up to `idleBackoffMaxMs`. Default
+   * ADMIN_WORKER_IDLE_BACKOFF_MS or 15s. */
   idleBackoffMs?: number;
+  /** Ceiling for the adaptive idle backoff (ms). Default
+   * ADMIN_WORKER_IDLE_BACKOFF_MAX_MS or 120s. */
+  idleBackoffMaxMs?: number;
+  /** Background heartbeat/lease-renew cadence (ms). Default 20s. */
+  heartbeatIntervalMs?: number;
 }
+
+export type LoopStopReason = "switch_off" | "lease_lost";
 
 export interface LoopResult {
   passes: number;
   built: number;
   published: number;
   failed: number;
+  /**
+   * Set when the loop stopped on a DEFINITIVE authority answer (master switch
+   * OFF, or the lease now belongs to another runtime). The supervisor treats
+   * this as an intended stop — not a crash to restart — so the process can
+   * release its lease, shut the brain down and exit.
+   */
+  stopReason?: LoopStopReason;
+}
+
+function envInt(name: string, fallback: number): number {
+  const n = Number((process.env[name] ?? "").trim());
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+// The pass currently in flight in this process (null between passes). Lets the
+// SIGTERM handler close the row honestly ("stopped by operator") instead of
+// orphaning it as RUNNING until the next boot's reaper.
+let _currentPassId: string | null = null;
+
+export function getCurrentPassId(): string | null {
+  return _currentPassId;
+}
+
+/**
+ * Close the in-flight pass (if any) as FAILED with the given reason. Used by
+ * the process shutdown path; fail-open and idempotent.
+ */
+export async function abandonCurrentPass(prisma: PrismaClient, reason: string): Promise<boolean> {
+  const passId = _currentPassId;
+  if (!passId) return false;
+  _currentPassId = null;
+  try {
+    await completePass(prisma, {
+      passId,
+      status: "FAILED",
+      tasksFailed: 1,
+      errorMessage: reason,
+      summary: `pass abandoned: ${reason.slice(0, 200)}`,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -69,7 +121,19 @@ export async function runAdminWorkerLoop(
   const workerId = opts.workerId ?? `admin-worker-${process.pid}-${Date.now()}`;
   const oneShot = opts.oneShot ?? true;
   const maxPasses = opts.maxPasses ?? Infinity;
-  const idleBackoffMs = opts.idleBackoffMs ?? 1000;
+  // Adaptive idle backoff. Every lane is throttled at >= 5 min anyway, so
+  // re-running a pass 1s after an idle one only burned ~140 DB round trips of
+  // bookkeeping per pass against the remote database. Start at 15s and double
+  // per consecutive idle pass (to 120s); any real progress resets it.
+  const idleBackoffStartMs = opts.idleBackoffMs ?? envInt("ADMIN_WORKER_IDLE_BACKOFF_MS", 15_000);
+  const idleBackoffMaxMs = Math.max(
+    idleBackoffStartMs,
+    opts.idleBackoffMaxMs ?? envInt("ADMIN_WORKER_IDLE_BACKOFF_MAX_MS", 120_000),
+  );
+  // While the Python brain is degraded no content lane can run, so idling
+  // faster than this just multiplies the (throttled) degraded-mode log rows.
+  const degradedFloorMs = Math.min(idleBackoffMaxMs, Math.max(idleBackoffStartMs, 30_000));
+  let idleBackoffMs = idleBackoffStartMs;
 
   // Enable outbound egress through a proxy when the deployment provides one
   // (HTTPS_PROXY/HTTP_PROXY/ALL_PROXY). Idempotent + fail-open + a no-op when no
@@ -96,51 +160,84 @@ export async function runAdminWorkerLoop(
   let built = 0;
   let published = 0;
   let failed = 0;
+  let stopReason: LoopStopReason | undefined;
 
-  while (passes < maxPasses) {
-    // Sole-executor check (spec §25) + OFF-means-OFF check (spec §4). Both are
-    // durable facts in Postgres, so a switch-off or a lease take-over stops the
-    // loop on its next cycle no matter which runtime flipped it. Fail-open on a
-    // transient DB blip: a read failure must not silently stop a healthy worker.
-    if (!oneShot && opts.workerId) {
-      const authority = await checkLoopAuthority(prisma, opts.workerId);
-      if (!authority.ok) {
-        await writeAdminWorkerLog(prisma, {
-          category: "OVERVIEW",
-          severity: "INFO",
-          eventName: "loop_execution_authority_lost",
-          message: `Admin Worker loop stopping: ${authority.reason}`,
-        }).catch(() => undefined);
-        break;
+  // Background heartbeat. The pass itself writes one heartbeat at its start,
+  // but a pass legitimately runs 5-15 minutes (network-heavy lanes, a slow
+  // dispatch), so every liveness consumer (diagnostics 5 min, command center
+  // 10 min) rendered a healthy worker as dead — and in CLI mode the 90s lease
+  // could be taken over mid-pass. Renew both on a timer independent of pass
+  // progress; unref'd so it never keeps the process alive, cleared on exit.
+  const heartbeatMs = opts.heartbeatIntervalMs ?? 20_000;
+  let heartbeatTick: Promise<void> = Promise.resolve();
+  const heartbeat =
+    oneShot || heartbeatMs <= 0
+      ? null
+      : setInterval(() => {
+          heartbeatTick = (async () => {
+            await writeHeartbeat(prisma).catch(() => undefined);
+            if (opts.workerId)
+              await renewExecutionLease(prisma, opts.workerId).catch(() => undefined);
+          })();
+        }, heartbeatMs);
+  heartbeat?.unref();
+
+  try {
+    while (passes < maxPasses) {
+      // Sole-executor check (spec §25) + OFF-means-OFF check (spec §4). Both are
+      // durable facts in Postgres, so a switch-off or a lease take-over stops the
+      // loop on its next cycle no matter which runtime flipped it. Fail-open on a
+      // transient DB blip: a read failure must not silently stop a healthy worker.
+      if (!oneShot && opts.workerId) {
+        const authority = await checkLoopAuthority(prisma, opts.workerId);
+        if (!authority.ok) {
+          stopReason = authority.stopReason;
+          await writeAdminWorkerLog(prisma, {
+            category: "OVERVIEW",
+            severity: "INFO",
+            eventName: "loop_execution_authority_lost",
+            message: `Admin Worker loop stopping: ${authority.reason}`,
+            safeMetadata: { stopReason },
+          }).catch(() => undefined);
+          break;
+        }
       }
-    }
 
-    passes += 1;
-    try {
-      const passOutcome = await runOnePass(prisma, workerId);
-      built += passOutcome.built;
-      published += passOutcome.published;
-      failed += passOutcome.failed;
+      passes += 1;
+      try {
+        const passOutcome = await runOnePass(prisma, workerId);
+        built += passOutcome.built;
+        published += passOutcome.published;
+        failed += passOutcome.failed;
 
-      if (oneShot) break;
-      if (passOutcome.idle) {
+        if (oneShot) break;
+        if (passOutcome.idle) {
+          const floor = passOutcome.degraded ? degradedFloorMs : idleBackoffStartMs;
+          await sleep(Math.max(floor, idleBackoffMs));
+          idleBackoffMs = Math.min(idleBackoffMaxMs, Math.max(floor, idleBackoffMs) * 2);
+        } else {
+          idleBackoffMs = idleBackoffStartMs;
+        }
+      } catch (err) {
+        // A single pass throwing must NEVER kill the loop — that is exactly how
+        // the process died in the field, orphaning a RUNNING pass and going
+        // silent for 16h. runOnePass owns closing its own pass row (try/finally
+        // above); here we just isolate the loop: count the failure, back off so a
+        // hard-failing pass doesn't hot-loop the CPU/DB, and continue. In one-shot
+        // (test) mode we surface the outcome and stop rather than spinning.
+        failed += 1;
+        console.error(`[admin-worker:${workerId}] pass ${passes} threw; continuing:`, err);
+        if (oneShot) break;
         await sleep(idleBackoffMs);
+        idleBackoffMs = Math.min(idleBackoffMaxMs, Math.max(1, idleBackoffMs) * 2);
       }
-    } catch (err) {
-      // A single pass throwing must NEVER kill the loop — that is exactly how
-      // the process died in the field, orphaning a RUNNING pass and going
-      // silent for 16h. runOnePass owns closing its own pass row (try/finally
-      // above); here we just isolate the loop: count the failure, back off so a
-      // hard-failing pass doesn't hot-loop the CPU/DB, and continue. In one-shot
-      // (test) mode we surface the outcome and stop rather than spinning.
-      failed += 1;
-      console.error(`[admin-worker:${workerId}] pass ${passes} threw; continuing:`, err);
-      if (oneShot) break;
-      await sleep(idleBackoffMs);
     }
+  } finally {
+    if (heartbeat) clearInterval(heartbeat);
+    await heartbeatTick.catch(() => undefined);
   }
 
-  return { passes, built, published, failed };
+  return { passes, built, published, failed, ...(stopReason ? { stopReason } : {}) };
 }
 
 /**
@@ -151,20 +248,25 @@ export async function runAdminWorkerLoop(
 async function checkLoopAuthority(
   prisma: PrismaClient,
   workerId: string,
-): Promise<{ ok: boolean; reason: string }> {
+): Promise<{ ok: boolean; reason: string; stopReason?: LoopStopReason }> {
   try {
     const status = await readExecutionStatus(prisma);
     // An unreadable database is not a decision: keep working and try again on
     // the next pass (the lease TTL is generous enough to ride out a blip).
     if (!status.known) return { ok: true, reason: "" };
     if (!status.switch.on) {
-      return { ok: false, reason: "the master switch is OFF (no cloud failover — spec §5)." };
+      return {
+        ok: false,
+        reason: "the master switch is OFF (no cloud failover — spec §5).",
+        stopReason: "switch_off",
+      };
     }
     const renewed = await renewExecutionLease(prisma, workerId);
     if (renewed === "lost") {
       return {
         ok: false,
         reason: `the execution lease is held by ${status.lease?.runtimeId ?? "another runtime"}.`,
+        stopReason: "lease_lost",
       };
     }
     return { ok: true, reason: "" };
@@ -178,6 +280,29 @@ interface PassOutcome {
   published: number;
   failed: number;
   idle: boolean;
+  /** True when the Python final brain was unavailable this pass. */
+  degraded: boolean;
+}
+
+// Dispatch watchdog. executeMissionStage had no timeout at all: a discovery
+// dispatch walks up to 20 hosts sequentially, each with 15s × 3 attempts plus an
+// archive rescue, so one bad batch of hosts could hold the pass for far longer
+// than every liveness cutoff. Bound it like the lanes are; on expiry the stage
+// is recorded as failed so the governor/brain see it (the underlying promise
+// may still finish in the background — its own network calls are bounded).
+const DISPATCH_WATCHDOG_MS = 10 * 60 * 1000;
+
+function withDispatchWatchdog<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const watchdog = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`dispatch watchdog: stage exceeded ${ms}ms`)), ms);
+  });
+  return Promise.race([
+    p.finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    watchdog,
+  ]);
 }
 
 /**
@@ -198,15 +323,16 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       eventName: "loop_paused",
       message: `Admin Worker is paused (${state.pausedReason ?? "no reason given"}). Skipping non-security work.`,
     });
-    return { built: 0, published: 0, failed: 0, idle: true };
+    return { built: 0, published: 0, failed: 0, idle: true, degraded: false };
   }
 
-  // Seed content goals on first contact, then refresh from live counts.
-  // seedContentGoals is idempotent (it skips content types that already
-  // have a goal row), so calling it every pass is cheap and guarantees
-  // the brain always sees real gaps to close — without it the worker
-  // would idle forever thinking "all goals met" (spec §49-50, §66).
-  await seedContentGoals(prisma).catch(() => 0);
+  // Content goals: seed ONLY when the table is empty (one cheap count instead
+  // of 15 upserts per pass — the worker boot seeds them normally), then refresh
+  // from live counts ONCE for the whole pass (the brain's world sample and the
+  // governor reuse this refresh below). Without goal rows the worker would idle
+  // forever thinking "all goals met" (spec §49-50, §66).
+  const goalRows = await prisma.contentGoal.count().catch(() => -1);
+  if (goalRows === 0) await seedContentGoals(prisma).catch(() => 0);
   await refreshContentGoals(prisma);
 
   // First priority is meeting content goals. Once EVERY goal's gap is closed,
@@ -246,6 +372,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
   // (see runBrain + pythonFinalSelector below). The decision (including
   // ranked alternatives) lands in AdminWorkerDecision for the audit view.
   const pass = await startPass(prisma, { passType: "AUTONOMOUS" });
+  _currentPassId = pass.id;
 
   // Pass-critical accumulators. Declared before the try so the post-pass
   // supplementary section and the return can read them regardless of outcome.
@@ -285,11 +412,15 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // the Python choice; if the brain is unavailable/invalid the worker
     // enters safe degraded mode (PYTHON_BRAIN_UNAVAILABLE) — never a legacy
     // TS final brain.
-    const { runBrain } = await import("./brain");
+    const { runBrain, sampleWorld } = await import("./brain");
     const { pythonFinalSelector } = await import("./final-brain");
+    // ONE world sample per pass, shared by the brain and the governor (each
+    // used to sample independently — ~30 queries and a goal refresh apiece).
+    const world = await sampleWorld(prisma, { skipGoalRefresh: true });
     const brain = await runBrain(prisma, {
       passId: pass.id,
       finalSelect: pythonFinalSelector(prisma),
+      world,
     });
     activeMode = brain.finalBrain === "python";
 
@@ -336,7 +467,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // default-on.
     const { evaluateGovernor, governorEnabled } = await import("./governor");
     if (governorEnabled()) {
-      const verdict = await evaluateGovernor({ prisma, decision: brain }).catch(() => null);
+      const verdict = await evaluateGovernor({ prisma, decision: brain, world }).catch(() => null);
       if (verdict?.intervene && verdict.forcedStage) {
         await writeAdminWorkerLog(prisma, {
           passId: pass.id,
@@ -357,12 +488,39 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       }
     }
 
-    dispatch = await executeMissionStage({
-      prisma,
-      workerId,
-      passId: pass.id,
-      decision: brain,
-    });
+    const dispatchStartedAt = Date.now();
+    const dispatchTimeoutMs = envInt("ADMIN_WORKER_DISPATCH_TIMEOUT_MS", DISPATCH_WATCHDOG_MS);
+    try {
+      dispatch = await withDispatchWatchdog(
+        executeMissionStage({ prisma, workerId, passId: pass.id, decision: brain }),
+        dispatchTimeoutMs,
+      );
+    } catch (err) {
+      if (!(err instanceof Error && /dispatch watchdog/.test(err.message))) throw err;
+      // Record the expiry as a real failed stage outcome so the brain's
+      // reliability feedback and the governor's fixation check both see it.
+      const { recordStageOutcome } = await import("./stage-outcomes");
+      await recordStageOutcome(prisma, {
+        passId: pass.id,
+        stage: brain.missionStage,
+        action: brain.chosenAction?.actionType ?? brain.missionStage,
+        contentType: brain.contentType ?? null,
+        result: "failed",
+        resultType: "failure",
+        failureReason: err.message,
+        durationMs: Date.now() - dispatchStartedAt,
+        confidenceBefore: brain.confidenceScore ?? null,
+        actualOutcome: err.message,
+        repairCreated: false,
+        nextAction: brain.chosenAction?.fallbackAction ?? "re_plan",
+      });
+      dispatch = {
+        stage: brain.missionStage,
+        kind: "failed",
+        summary: `${err.message} (the stage may still finish in the background)`,
+        failed: 1,
+      };
+    }
 
     built += dispatch.built ?? 0;
     publishedCount += dispatch.published ?? 0;
@@ -474,6 +632,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
         summary: "pass failed: unexpected error path",
       }).catch(() => undefined);
     }
+    if (_currentPassId === pass.id) _currentPassId = null;
   }
 
   // Ops lanes (adaptive-worker Phase B). The BUILD_READY drain, daily-readings,
@@ -502,7 +661,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     await pruneUnknownLaneStates(prisma, ALL_LANE_NAMES).catch(() => 0);
   }
 
-  return { built, published: publishedCount, failed: failedCount, idle };
+  return { built, published: publishedCount, failed: failedCount, idle, degraded: !activeMode };
 }
 
 function sleep(ms: number): Promise<void> {

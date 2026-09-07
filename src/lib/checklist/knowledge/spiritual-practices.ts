@@ -104,14 +104,6 @@ export const spiritualPracticeKnowledge: CuratedEntry[] = [
     "Ignatian",
   ),
   practice(
-    "the-holy-hour",
-    "The Holy Hour",
-    "contemplative_prayer",
-    "The practice of spending an hour in prayer before the Blessed Sacrament, keeping watch with the Lord as he asked of his disciples in the garden of Gethsemane: 'Could you not watch one hour with me?'",
-    "Come before the Blessed Sacrament — reserved in the tabernacle or exposed in the monstrance — and adore the Lord truly present in body, blood, soul, and divinity. Begin with an act of faith and adoration; then converse with the Lord, read Scripture (lectio divina), pray the Rosary or the Liturgy of the Hours, intercede for the world, and rest in loving silence. Where the Sacrament is exposed, genuflect on both knees; if Benediction is given, adore as the Tantum Ergo is sung. The devotion is fittingly made on Thursdays in memory of Holy Thursday.",
-    "Roman",
-  ),
-  practice(
     "the-jesus-prayer",
     "The Jesus Prayer",
     "contemplative_prayer",
@@ -126,14 +118,6 @@ export const spiritualPracticeKnowledge: CuratedEntry[] = [
     "Interior prayer in which the mind and heart seek God through reflection, especially on the mysteries of Christ, leading to acts of love and resolutions.",
     "Set aside a fixed time daily. Place yourself in God's presence and ask for his help. Take a scene from the Gospel or a truth of the faith, consider it slowly, and let it move the heart to affections — adoration, sorrow, thanksgiving, love — and to a practical resolution. Conclude with thanksgiving and a chosen 'spiritual bouquet' to carry through the day. St. Teresa of Ávila and St. Francis de Sales are sure guides in this prayer.",
     "Carmelite / Salesian",
-  ),
-  practice(
-    "praying-the-stations-of-the-cross",
-    "Praying the Stations of the Cross",
-    "stations_of_the_cross",
-    "A devotion that accompanies Jesus along the Way of the Cross through fourteen stations, from his condemnation to his burial, meditating on his redemptive Passion.",
-    "Move from station to station (in a church or with a booklet), pausing at each to pray, 'We adore you, O Christ, and we bless you, because by your holy Cross you have redeemed the world,' and to meditate briefly on that moment of the Passion. The devotion is especially fitting on the Fridays of Lent and on Good Friday. Many conclude with a fifteenth station, the Resurrection, and prayer for the intentions of the Holy Father.",
-    "Franciscan",
   ),
   practice(
     "christian-mortification",

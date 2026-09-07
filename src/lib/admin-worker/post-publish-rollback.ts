@@ -18,6 +18,13 @@
  * Every rollback writes a structured log row so the admin can see
  * exactly which check failed, what repair was attempted, what the
  * rollback action was, and whether human review was filed.
+ *
+ * This module is the ONLY place that unpublishes after verification.
+ * The caller must hold a CONFIRMED failure (two FAIL probes on separate
+ * passes — see post-publish-probe.ts); and EVERY automated unpublish,
+ * severe or ambiguous, files a HumanReviewQueue row even in autonomous
+ * mode, because an unpublish is the one decision the worker cannot
+ * restore on its own — an operator needs a row to restore from.
  */
 
 import type { PrismaClient } from "@prisma/client";
@@ -110,30 +117,47 @@ export async function decideAndExecuteRollback(
     // the row outright; the deletion path goes through the logged
     // deletion system (DELETION_REASONS in deletion.ts) which the
     // operator review. We mark the artifact for deletion and route
-    // to the logged delete pipeline.
+    // to the logged delete pipeline. The review row is still filed:
+    // the page was unpublished by a machine and only a person can say
+    // whether the confirmed 404 was the content or the deployment.
+    await fileHumanReview(prisma, {
+      contentType: input.contentType,
+      contentTitle: input.slug,
+      proposedAction: "restore_or_delete_unpublished_content",
+      reason: `Post-publish ${input.failedCheck} FAIL confirmed twice: ${input.reason}. Row unpublished (isPublished=false) and flagged for logged deletion.`,
+      confidence: 0.6,
+      blockingGate: `post_publish:${input.failedCheck}`,
+      neededAction: "Confirm the public route is really gone; restore the row if the site was mid-deploy.",
+      nextAutomatedAction: "none — unpublished content is never re-published automatically",
+      alwaysQueue: true,
+    }).catch(() => undefined);
     await logRollback(prisma, {
       ...input,
       kind: "DELETED",
       repairAttempted: repairAttempted.what,
       rollbackAction: "marked for logged deletion",
-      humanReviewFiled: false,
+      humanReviewFiled: true,
     });
     return {
       kind: "DELETED",
       repairAttempted: repairAttempted.what,
       rollbackAction: "marked for logged deletion",
-      humanReviewFiled: false,
+      humanReviewFiled: true,
       reason: "Severe + clear failure; flagged for logged delete after unpublish.",
     };
   }
 
-  // Step 4: ambiguous — rare human review.
+  // Step 4: ambiguous — rare human review (always queued: the row was just
+  // unpublished by automation).
   await fileHumanReview(prisma, {
     contentType: input.contentType,
     contentTitle: input.slug,
     proposedAction: "investigate_post_publish_failure",
     reason: `Post-publish ${input.failedCheck} FAIL: ${input.reason}`,
     confidence: 0.5,
+    blockingGate: `post_publish:${input.failedCheck}`,
+    neededAction: "Inspect the public page; restore the row if the failure was environmental.",
+    alwaysQueue: true,
   }).catch(() => undefined);
 
   await logRollback(prisma, {

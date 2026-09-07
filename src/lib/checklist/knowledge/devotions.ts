@@ -47,7 +47,7 @@ export const devotionKnowledge: CuratedEntry[] = [
     "A devotion to the Divine Mercy of Jesus, revealed to St. Faustina Kowalska. Prayed on rosary beads.",
     "The Lord Jesus dictated the chaplet to St. Faustina in Vilnius in 1935. Pope John Paul II canonized St. Faustina in 2000 and established Divine Mercy Sunday for the universal Church.",
     "Begin with the Sign of the Cross, the Our Father, the Hail Mary, and the Apostles' Creed. On the Our Father beads pray: 'Eternal Father, I offer You the Body and Blood, Soul and Divinity of Your Dearly Beloved Son, Our Lord Jesus Christ, in atonement for our sins and those of the whole world.' On the Hail Mary beads pray: 'For the sake of His sorrowful Passion, have mercy on us and on the whole world.' Conclude by praying three times: 'Holy God, Holy Mighty One, Holy Immortal One, have mercy on us and on the whole world.'",
-    "marian",
+    "christological",
     ["our-father", "hail-mary", "apostles-creed"],
   ),
   devotion(

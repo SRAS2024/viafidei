@@ -81,7 +81,9 @@ export interface SupervisedLoopOptions {
   workerId: string;
   oneShot: boolean;
   maxPasses: number;
-  /** Run one full loop (bounded or continuous). Injected so tests need no DB. */
+  /** Run one full loop (bounded or continuous). Injected so tests need no DB.
+   * A result carrying `stopReason` (switch OFF / lease lost) is an INTENDED
+   * stop — the supervisor returns instead of restarting. */
   runLoop: () => Promise<unknown>;
   /** Stop signal (SIGINT/SIGTERM latch). */
   isShuttingDown: () => boolean;
@@ -106,7 +108,21 @@ export interface SupervisedLoopOptions {
  * bounded exponential backoff whenever the loop machinery throws or returns
  * unexpectedly, until a shutdown is signalled.
  */
-export async function runLoopSupervised(opts: SupervisedLoopOptions): Promise<void> {
+export interface SupervisedLoopResult {
+  /** Why the loop stopped on purpose (`null` for a shutdown signal / bounded run). */
+  stopReason: string | null;
+}
+
+/** Extract an intended-stop reason from a loop result, if it carries one. */
+export function loopStopReason(result: unknown): string | null {
+  if (!result || typeof result !== "object") return null;
+  const reason = (result as { stopReason?: unknown }).stopReason;
+  return typeof reason === "string" && reason.length > 0 ? reason : null;
+}
+
+export async function runLoopSupervised(
+  opts: SupervisedLoopOptions,
+): Promise<SupervisedLoopResult> {
   // Logging is owned by the composition root (run-worker.ts, in scripts/);
   // default to no-ops so this module stays free of direct console use.
   const log = opts.log ?? (() => undefined);
@@ -118,13 +134,26 @@ export async function runLoopSupervised(opts: SupervisedLoopOptions): Promise<vo
   if (opts.oneShot || Number.isFinite(opts.maxPasses)) {
     const result = await opts.runLoop();
     log(`[admin-worker:${opts.workerId}] result: ${safeStringify(result)}`);
-    return;
+    return { stopReason: loopStopReason(result) };
   }
 
   let restarts = 0;
   while (!opts.isShuttingDown() && restarts <= maxRestarts) {
     try {
-      await opts.runLoop();
+      const result = await opts.runLoop();
+      // "Switch OFF" / "lease lost" are DEFINITIVE answers from Postgres, not
+      // crashes. Restarting here (as before) kept the process — and its resident
+      // Python brain — alive forever, re-checking the switch and writing an
+      // audit row every <=60s: OFF did not mean OFF. Return so the caller can
+      // release the lease, stop the brain and exit; the host only relaunches
+      // when the switch is ON again.
+      const stopReason = loopStopReason(result);
+      if (stopReason) {
+        log(
+          `[admin-worker:${opts.workerId}] loop stopped on purpose (${stopReason}); not restarting.`,
+        );
+        return { stopReason };
+      }
       // A continuous loop returning at all is unexpected (it should run until
       // signalled); treat it as something to recover from, not a clean stop.
       if (opts.isShuttingDown()) break;
@@ -140,6 +169,7 @@ export async function runLoopSupervised(opts: SupervisedLoopOptions): Promise<vo
     // CPU/DB, capped so recovery stays timely.
     await sleepImpl(Math.min(backoffCapMs, 2_000 * restarts));
   }
+  return { stopReason: null };
 }
 
 function safeStringify(v: unknown): string {

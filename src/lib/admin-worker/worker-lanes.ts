@@ -18,8 +18,11 @@
  *     constraint), so concurrent lanes never fight over the same rows.
  *   - `PublishedContent @@unique([contentType, slug])` makes double-publishing
  *     impossible at the DB level even under a race.
- *   - ALL Python-brain-calling work stays in the SINGLE `intelligence` lane, so
- *     the one resident brain subprocess never gets concurrent calls. (The main
+ *   - The bulk of the Python-brain-calling work lives in the `intelligence`
+ *     lane. The awareness (maint-schema / maint-ui) and self-model lanes also
+ *     make a few brain calls; the bridge multiplexes them over the one resident
+ *     process, which answers strictly one request at a time, so those calls
+ *     queue behind each other rather than run concurrently. (The main
  *     decision/dispatch brain call happens in the loop BEFORE the lanes run.)
  *   - Each lane is isolated + enters an error-backoff cooldown on failure
  *     (runWorkerLanes), so a failing lane never kills the others and retries on
@@ -164,6 +167,9 @@ export const CONTENT_LANES: LaneDef[] = [
     activeOnly: true,
     growth: true,
     discovery: true,
+    // The ONLY lane the campaign DRAIN pauses: it feeds the web artifact funnel
+    // being drained. OSM/structured discovery above are not web (see LaneDef).
+    web: true,
     async run({ prisma, passId }) {
       const { runAlwaysOnDiscovery } = await import("./always-on-discovery");
       await runAlwaysOnDiscovery(prisma, { passId });
@@ -335,7 +341,19 @@ export const OPS_LANES: LaneDef[] = [
     async run({ prisma, passId }) {
       const { runEscalationCheckIfDue } = await import("./escalation");
       await runEscalationCheckIfDue(prisma, { passId });
-      return { detail: "escalation checked" };
+      // Opportunistic stale-pass reap (one updateMany). Boot-only reaping left
+      // a RUNNING row visible for hours whenever a pass was orphaned mid-life
+      // (DB blip during completePass) — ops lanes run after this pass closed,
+      // and only one process holds the lease, so any RUNNING row older than
+      // the cutoff belongs to nobody.
+      const { reapStaleRunningPasses } = await import("./passes");
+      const reaped = await reapStaleRunningPasses(prisma, {
+        staleMs: 15 * 60 * 1000,
+        summary: "reaped stale RUNNING pass during the escalation sweep",
+      });
+      return {
+        detail: `escalation checked${reaped > 0 ? `, ${reaped} stale pass(es) reaped` : ""}`,
+      };
     },
   },
   {

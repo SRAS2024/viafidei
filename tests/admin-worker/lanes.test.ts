@@ -244,12 +244,20 @@ describe("runWorkerLanes", () => {
     expect(prisma.laneStates.get("hang")?.lastError).toMatch(/watchdog/);
   });
 
-  it("pauses discovery lanes during a major-goal campaign DRAIN, runs them otherwise", async () => {
+  it("pauses WEB discovery lanes during a major-goal campaign DRAIN, runs them otherwise", async () => {
     const prisma = fakePrisma();
     let discovered = 0;
     let drained = 0;
     const lanes: LaneDef[] = [
-      { name: "discover", capacity: 1, discovery: true, run: async () => void discovered++ },
+      // Only web discovery feeds the funnel DRAIN finishes; non-web discovery
+      // (OSM/structured) keeps running — see worker-core-lanes.test.
+      {
+        name: "discover",
+        capacity: 1,
+        discovery: true,
+        web: true,
+        run: async () => void discovered++,
+      },
       { name: "drain", capacity: 1, run: async () => void drained++ },
     ];
 

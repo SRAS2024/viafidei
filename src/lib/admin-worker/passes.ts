@@ -89,7 +89,7 @@ export async function listRecentPasses(
  * developer audit flagged. It also poisons liveness heuristics that treat a
  * RUNNING row as "a pass is in flight".
  *
- * Called once at worker startup (and cheap enough to call opportunistically):
+ * Called at worker startup and from the escalation ops lane every pass:
  * any pass still RUNNING past `staleMs` (default 10 min, matching the UI's
  * worker-live cutoff) cannot belong to this fresh process, so it is marked
  * FAILED with a clear reason. Fail-open — a reaper error must never block boot.
@@ -98,7 +98,7 @@ export async function listRecentPasses(
  */
 export async function reapStaleRunningPasses(
   prisma: PrismaClient,
-  opts: { staleMs?: number } = {},
+  opts: { staleMs?: number; summary?: string } = {},
 ): Promise<number> {
   const staleMs = opts.staleMs ?? 10 * 60 * 1000;
   const cutoff = new Date(Date.now() - staleMs);
@@ -110,7 +110,7 @@ export async function reapStaleRunningPasses(
         status: "FAILED",
         completedAt: now,
         errorMessage: "reaped: pass left RUNNING (worker likely crashed or was killed mid-pass)",
-        summary: "reaped stale RUNNING pass at worker startup",
+        summary: opts.summary ?? "reaped stale RUNNING pass at worker startup",
       },
     });
     return result.count;

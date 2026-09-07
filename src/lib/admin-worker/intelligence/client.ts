@@ -17,7 +17,7 @@
  * outage degrades safely rather than crashing the worker.
  */
 
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+import { type ChildProcessWithoutNullStreams, spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -70,6 +70,11 @@ const MAX_RESTARTS_PER_MIN = 5;
 
 const _cache = new Map<string, { env: BrainEnvelope; expires: number }>();
 
+// Consecutive per-call timeouts on the resident process (see noteTimeout).
+let _consecutiveTimeouts = 0;
+// One-shot guard for the INTELLIGENCE_TIMEOUT_MS warning (see defaultTimeoutMs).
+let _timeoutEnvWarned = false;
+
 function brainLog(level: "warn" | "info", msg: string): void {
   if (level === "info" && process.env.INTELLIGENCE_DEBUG !== "1") return;
   // eslint-disable-next-line no-console
@@ -106,8 +111,79 @@ export function resolveBrainRoot(): string | null {
   return null;
 }
 
+/**
+ * Interpreter candidates, in order. The package needs Python >= 3.10
+ * (`@dataclass(slots=True)`, `match`), but on a stock Mac `python3` is Apple's
+ * 3.9 — which crashes at import, so every spawn died in ~30ms, the restart
+ * throttle latched "down", and the worker sat in permanent safe-degraded mode
+ * with every content lane skipped ("worker ON, nothing grows"). The only thing
+ * that made it work was the gitignored `.env` naming python3.11 explicitly.
+ * Resolve the interpreter here instead so a fresh checkout / a launcher that
+ * does not set INTELLIGENCE_PYTHON still finds a usable Python.
+ */
+const PYTHON_CANDIDATES: readonly string[] = [
+  "/opt/homebrew/opt/python@3.11/bin/python3.11",
+  "/opt/homebrew/opt/python@3.12/bin/python3.12",
+  "/opt/homebrew/bin/python3",
+  "python3.12",
+  "python3.11",
+  "python3",
+];
+const PYTHON_VERSION_CHECK = "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)";
+
+let _resolvedPython: string | null = null;
+// The env value the cache was computed for; a test that swaps
+// INTELLIGENCE_PYTHON between cases must not be served a stale answer.
+let _resolvedPythonFor: string | undefined;
+
+/** Does this interpreter exist and run Python >= 3.10? Synchronous on purpose:
+ * it runs once per process (cached) and `ensureProc` is synchronous. */
+function pythonUsable(exe: string): boolean {
+  try {
+    const r = spawnSync(exe, ["-c", PYTHON_VERSION_CHECK], { stdio: "ignore", timeout: 5000 });
+    return r.status === 0;
+  } catch {
+    return false;
+  }
+}
+
 function pythonExe(): string {
-  return process.env.INTELLIGENCE_PYTHON ?? "python3";
+  const explicit = (process.env.INTELLIGENCE_PYTHON ?? "").trim();
+  if (_resolvedPython && _resolvedPythonFor === explicit) return _resolvedPython;
+  _resolvedPythonFor = explicit;
+  // An explicit setting is the operator's decision and is used verbatim — the
+  // boot probe (ensureBrainStarted) reports loudly if it turns out to be
+  // broken, rather than silently substituting a different interpreter.
+  if (explicit) {
+    _resolvedPython = explicit;
+    return explicit;
+  }
+  const found = PYTHON_CANDIDATES.find(pythonUsable);
+  if (!found) {
+    // Nothing usable: fall back to `python3` so the failure surfaces as a
+    // concrete spawn/import error naming the interpreter, not as a silent skip.
+    brainLog("warn", "no Python >= 3.10 found among the known candidates; using python3");
+  }
+  _resolvedPython = found ?? "python3";
+  return _resolvedPython;
+}
+
+/** The interpreter the bridge is using (for boot logs + diagnostics). */
+export function resolvedPythonExe(): string {
+  return pythonExe();
+}
+
+// Tail of the most recent child's stderr. A Python that dies at import (wrong
+// interpreter version, missing module) says exactly why on stderr, but that
+// text was previously dropped unless INTELLIGENCE_DEBUG=1 — the audit trail
+// only ever showed "exited (code=1)". Keep the last ~1KB so it can be attached
+// to the down reason + startup report.
+let _lastStderr = "";
+const STDERR_TAIL_CHARS = 1024;
+
+function stderrTail(): string {
+  const t = _lastStderr.trim().replace(/\s+/g, " ");
+  return t ? ` — stderr: ${t.slice(-300)}` : "";
 }
 
 function markDown(reason: string): void {
@@ -155,6 +231,11 @@ export function resetBrainStatus(): void {
   _downAt = 0;
   _restarts = 0;
   _restartWindowStart = 0;
+  _consecutiveTimeouts = 0;
+  _lastStderr = "";
+  _resolvedPython = null;
+  _resolvedPythonFor = undefined;
+  _timeoutEnvWarned = false;
   _cache.clear();
 }
 
@@ -190,7 +271,7 @@ function ensureProc(): ChildProcessWithoutNullStreams | null {
     _restarts = 0;
   }
   if (_restarts >= MAX_RESTARTS_PER_MIN) {
-    markDown(`too many brain restarts (${_restarts}/min)`);
+    markDown(`too many brain restarts (${_restarts}/min) using ${pythonExe()}${stderrTail()}`);
     return null;
   }
 
@@ -230,11 +311,23 @@ function ensureProc(): ChildProcessWithoutNullStreams | null {
         }
       }
     });
-    child.stderr.on("data", (d) => brainLog("info", `stderr: ${String(d).slice(0, 200)}`));
+    _lastStderr = "";
+    child.stderr.on("data", (d) => {
+      const text = String(d);
+      brainLog("info", `stderr: ${text.slice(0, 200)}`);
+      if (_proc === child || _proc === null) {
+        _lastStderr = (_lastStderr + text).slice(-STDERR_TAIL_CHARS);
+      }
+    });
 
     const handleGone = (code: number | null, signal: string | null) => {
       if (_proc !== child) return; // a previous process exiting — ignore
       _proc = null;
+      // A non-zero exit is a real failure (import error, crash): say why,
+      // regardless of INTELLIGENCE_DEBUG, so the cause is never invisible.
+      if (code !== null && code !== 0) {
+        brainLog("warn", `brain process exited (code=${code} signal=${signal})${stderrTail()}`);
+      }
       if (_pending.size > 0) {
         brainLog(
           "warn",
@@ -245,7 +338,7 @@ function ensureProc(): ChildProcessWithoutNullStreams | null {
     };
     child.on("exit", handleGone);
     child.on("error", (e) => {
-      markDown(`spawn error: ${e.message}`);
+      markDown(`spawn error: ${e.message} (${pythonExe()})`);
       handleGone(null, null);
     });
     // Swallow pipe errors on ALL THREE stdio streams. A Node stream that emits
@@ -271,10 +364,50 @@ function ensureProc(): ChildProcessWithoutNullStreams | null {
   }
 }
 
-/** Warm the brain up front (called by the worker on boot). */
-export function ensureBrainStarted(): boolean {
-  if (!isBrainEnabled()) return false;
-  return ensureProc() != null;
+export interface BrainStartup {
+  /** True only when the brain answered a real request with a valid envelope. */
+  online: boolean;
+  /** The interpreter the bridge resolved (for the audit log). */
+  python: string;
+  /** Why it is not online (null when online). */
+  reason: string | null;
+  protocolVersion: number | null;
+}
+
+/**
+ * Warm the brain up front (called by the worker on boot) and VERIFY it. The
+ * old version returned true the instant `spawn()` succeeded — before an
+ * ENOENT or an import-time TypeError could arrive — so the audit log said
+ * "Python brain online" while the child was already dead. Now the process is
+ * started and a cheap real op must round-trip within `timeoutMs`; anything
+ * else reports offline with the concrete reason (interpreter, stderr tail).
+ */
+export async function ensureBrainStarted(timeoutMs = 5000): Promise<BrainStartup> {
+  const python = pythonExe();
+  if (!isBrainEnabled()) {
+    return {
+      online: false,
+      python,
+      reason: "brain disabled in this runtime",
+      protocolVersion: null,
+    };
+  }
+  if (!ensureProc()) {
+    return {
+      online: false,
+      python,
+      reason: _downReason ?? "brain process could not be started",
+      protocolVersion: null,
+    };
+  }
+  const env = await callBrain("iq_metrics", { stats: {} }, { timeoutMs, force: true });
+  if (env && env.ok) {
+    return { online: true, python, reason: null, protocolVersion: env.protocolVersion ?? null };
+  }
+  const reason =
+    _downReason ??
+    `${env ? `probe op returned error: ${env.error ?? "unknown"}` : `no envelope from probe within ${timeoutMs}ms`}${stderrTail()}`;
+  return { online: false, python, reason, protocolVersion: env?.protocolVersion ?? null };
 }
 
 function cacheGet(key: string): BrainEnvelope | null {
@@ -322,12 +455,13 @@ export async function callBrain<T = unknown>(
   if (!proc) return null;
 
   const id = randomUUID();
-  const timeoutMs = opts.timeoutMs ?? Number(process.env.INTELLIGENCE_TIMEOUT_MS ?? 8000);
+  const timeoutMs = opts.timeoutMs ?? defaultTimeoutMs();
 
   const raw = await new Promise<unknown | null>((resolve) => {
     const timer = setTimeout(() => {
       _pending.delete(id);
       brainLog("warn", `callBrain(${op}) timed out after ${timeoutMs}ms`);
+      noteTimeout(proc, op, timeoutMs);
       resolve(null);
     }, timeoutMs);
     _pending.set(id, { settle: resolve, timer });
@@ -359,8 +493,58 @@ export async function callBrain<T = unknown>(
 
   _status = "up";
   _downReason = null;
+  _consecutiveTimeouts = 0;
   if (opts.cacheKey) cacheSet(opts.cacheKey, env, opts.cacheTtlMs ?? 60_000);
   return env as BrainEnvelope<T>;
+}
+
+const DEFAULT_TIMEOUT_MS = 8000;
+
+/**
+ * INTELLIGENCE_TIMEOUT_MS, parsed defensively: `Number("")` is 0 and
+ * `Number("abc")` is NaN, either of which made EVERY call fail instantly (a
+ * blank variable left in a hosting dashboard was enough to pin the worker in
+ * degraded mode). Anything not a finite number >= 1000 falls back to the
+ * default, with one warning.
+ */
+function defaultTimeoutMs(): number {
+  const raw = (process.env.INTELLIGENCE_TIMEOUT_MS ?? "").trim();
+  if (!raw) return DEFAULT_TIMEOUT_MS;
+  const n = Number(raw);
+  if (Number.isFinite(n) && n >= 1000) return n;
+  if (!_timeoutEnvWarned) {
+    _timeoutEnvWarned = true;
+    brainLog(
+      "warn",
+      `ignoring INTELLIGENCE_TIMEOUT_MS=${JSON.stringify(raw)} (need a number >= 1000); using ${DEFAULT_TIMEOUT_MS}`,
+    );
+  }
+  return DEFAULT_TIMEOUT_MS;
+}
+
+// A brain that is ALIVE but not answering used to stay hung for the life of
+// the worker: a timeout only resolved null, never touched the process, so
+// every later call timed out too (verified: 4 timeouts, same pid). Recycle
+// the child after consecutive timeouts so the next call gets a fresh process;
+// a hang-LOOP then trips the existing restart throttle → down → cooldown.
+const TIMEOUTS_BEFORE_RECYCLE = 2;
+
+function noteTimeout(proc: ChildProcessWithoutNullStreams, op: string, timeoutMs: number): void {
+  if (_proc !== proc) return; // already replaced — nothing to recycle
+  _consecutiveTimeouts += 1;
+  if (_consecutiveTimeouts < TIMEOUTS_BEFORE_RECYCLE) return;
+  _consecutiveTimeouts = 0;
+  brainLog(
+    "warn",
+    `brain unresponsive: ${op} exceeded ${timeoutMs}ms twice in a row; recycling the process`,
+  );
+  _proc = null; // detach first so this child's late 'exit' is ignored
+  failAllPending();
+  try {
+    proc.kill("SIGKILL");
+  } catch {
+    /* already gone */
+  }
 }
 
 /**
@@ -411,7 +595,7 @@ export async function probeBrain(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (/ENOENT/.test(msg)) markDown(`python executable not found (${pythonExe()})`);
-    brainLog("warn", `probeBrain failed: ${msg}`);
+    brainLog("warn", `probeBrain failed (${pythonExe()}): ${msg.slice(0, 300)}`);
     return null;
   }
 }

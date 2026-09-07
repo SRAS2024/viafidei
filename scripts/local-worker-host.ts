@@ -76,11 +76,20 @@ import {
   renewExecutionLease,
   setMasterSwitch,
   LEASE_RENEW_INTERVAL_MS,
+  type ExecutionStatus,
 } from "../src/lib/admin-worker/execution-host";
+import {
+  classifyWorkerExit,
+  computeLocalConfig,
+  leaseRenewDelayMs,
+  resolvePublicBaseUrl,
+  type DatabaseProbe,
+} from "../src/lib/admin-worker/local-config";
 import { localHostLabel, sampleLocalResources } from "../src/lib/admin-worker/local-resources";
 import { loadCommandCenterSnapshot } from "../src/lib/admin-worker/command-center";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
 import { MAX_FILE_BYTES } from "../src/lib/admin-worker/file-extractors";
+import { writeHeartbeat } from "../src/lib/admin-worker/state";
 import { appConfig } from "../src/lib/config";
 import { prisma } from "../src/lib/db/client";
 
@@ -101,6 +110,14 @@ type RunState = "off" | "starting" | "running" | "stopping" | "crashed" | "faile
 
 /** Give up after this many consecutive crashes rather than looping forever. */
 const MAX_CONSECUTIVE_RESTARTS = 5;
+/** SIGTERM grace for the worker tree before the whole group is SIGKILLed. */
+const CHILD_KILL_GRACE_MS = 5_000;
+/** Longest any database call may hold up a shutdown or an OFF request. */
+const SHUTDOWN_DB_BUDGET_MS = 3_000;
+/** How long a cached execution status (switch + lease) is served for. */
+const EXECUTION_CACHE_MS = 5_000;
+/** With the worker OFF the command-center snapshot is refreshed at most this often. */
+const SNAPSHOT_OFF_INTERVAL_MS = 300_000;
 
 interface HostState {
   runState: RunState;
@@ -115,6 +132,12 @@ interface HostState {
   itemsProcessed: number;
   itemsPublished: number;
   errors: number;
+  /**
+   * The operator switched OFF while the database was unreachable: the local
+   * tree is already stopped, and the durable OFF (switch row + lease release)
+   * still has to be written. Retried from the lease tick until it lands.
+   */
+  pendingDurableOff: boolean;
 }
 
 const host: HostState = {
@@ -129,12 +152,53 @@ const host: HostState = {
   itemsProcessed: 0,
   itemsPublished: 0,
   errors: 0,
+  pendingDurableOff: false,
 };
 
 const logRing: Array<{ at: string; stream: "worker" | "host"; line: string }> = [];
 let snapshotInFlight = false;
 let lastSnapshot: unknown = null;
+let lastSnapshotAt = 0;
 const sseClients = new Set<ServerResponse>();
+
+/**
+ * Cached durable execution status (master switch + lease). With the worker
+ * OFF the app, the dashboard and the SSE stream all want this, and each read
+ * is two round-trips to production over the public proxy. One read every
+ * EXECUTION_CACHE_MS, shared by everyone, is plenty for a monitoring screen.
+ */
+let executionCache: {
+  value: ExecutionStatus | null;
+  at: number;
+  inFlight: Promise<ExecutionStatus> | null;
+} = {
+  value: null,
+  at: 0,
+  inFlight: null,
+};
+
+async function readExecutionStatusCached(maxAgeMs = EXECUTION_CACHE_MS): Promise<ExecutionStatus> {
+  const fresh = executionCache.value && Date.now() - executionCache.at < maxAgeMs;
+  if (fresh && executionCache.value) return executionCache.value;
+  if (executionCache.inFlight) return executionCache.inFlight;
+  const pending = readExecutionStatus(prisma)
+    .then((value) => {
+      executionCache = { value, at: Date.now(), inFlight: null };
+      return value;
+    })
+    .catch((err: unknown) => {
+      executionCache.inFlight = null;
+      if (executionCache.value) return executionCache.value;
+      throw err;
+    });
+  executionCache.inFlight = pending;
+  return pending;
+}
+
+/** Forget the cached status after a write so the next read reflects it. */
+function invalidateExecutionCache(): void {
+  executionCache = { value: null, at: 0, inFlight: null };
+}
 
 function pushLog(stream: "worker" | "host", line: string): void {
   const entry = { at: new Date().toISOString(), stream, line: line.slice(0, 2000) };
@@ -188,7 +252,15 @@ function startWorkerChild(): void {
     cwd: REPO_ROOT,
     detached: true,
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env },
+    env: {
+      ...process.env,
+      // The launcher pins this supervisor's pool at 3; the worker does the
+      // real work and gets the full pool (lanes concurrency 8 + pass + heartbeat).
+      PRISMA_CONNECTION_LIMIT: process.env.VIAFIDEI_WORKER_CONNECTION_LIMIT ?? "10",
+      // The host renews the lease (with jitter) and writes the heartbeat on
+      // its tick; the child only needs to CHECK the lease, not rewrite it.
+      VIAFIDEI_LEASE_RENEWED_BY_HOST: "1",
+    },
   });
 
   host.child = child;
@@ -216,6 +288,7 @@ function startWorkerChild(): void {
     host.child = null;
     host.lastExit = { code, signal, at: Date.now() };
     const wasStopping = host.runState === "stopping";
+    const exitKind = classifyWorkerExit(code, signal, wasStopping);
     host.runState = wasStopping ? "off" : "crashed";
     pushLog(
       "host",
@@ -227,6 +300,26 @@ function startWorkerChild(): void {
     // work back to Railway (spec §5: no automatic cloud failover).
     if (!wasStopping) {
       void (async () => {
+        if (exitKind === "db_unreachable") {
+          // run-worker.ts exit 4: it could not read the switch. That is an
+          // outage, not a crash — do not burn the restart budget; wait for the
+          // database and resume (the switch is durable, so ON survives).
+          const cfg = configPayload();
+          host.runState = "crashed";
+          host.failureReason =
+            `The worker could not reach the database at ${cfg.databaseHost ?? "?"} and exited — ` +
+            `it will be restarted automatically when the database answers again.`;
+          pushLog("host", host.failureReason);
+          broadcast("status", statusPayload());
+          void probeDatabase().catch(() => undefined);
+          setTimeout(
+            () => {
+              if (!shuttingDown && !host.child) void resumeIfSwitchOn();
+            },
+            30_000 + Math.round(Math.random() * 30_000),
+          ).unref();
+          return;
+        }
         const master = await readMasterSwitch(prisma).catch(
           () => ({ on: false, known: false }) as const,
         );
@@ -324,10 +417,12 @@ async function stopWorkerChild(reason: string): Promise<void> {
 
   killGroup("SIGTERM");
   await new Promise<void>((resolve) => {
+    // 5 s, not longer: the app's own quit deadline is 10 s and the DB release
+    // that follows has its own budget — the tree must be gone well inside that.
     const timer = setTimeout(() => {
       killGroup("SIGKILL");
       resolve();
-    }, 8_000);
+    }, CHILD_KILL_GRACE_MS);
     child.once("exit", () => {
       clearTimeout(timer);
       resolve();
@@ -335,6 +430,62 @@ async function stopWorkerChild(reason: string): Promise<void> {
   });
   host.child = null;
   host.runState = "off";
+}
+
+/**
+ * Bound a best-effort database write so an unreachable proxy can never hold
+ * up an OFF request or a shutdown. Resolves false on timeout or error.
+ */
+async function withDbBudget(label: string, work: () => Promise<unknown>): Promise<boolean> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      work(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(new Error(`${label} did not finish within ${SHUTDOWN_DB_BUDGET_MS / 1000}s`)),
+          SHUTDOWN_DB_BUDGET_MS,
+        );
+      }),
+    ]);
+    return true;
+  } catch (err) {
+    pushLog("host", `${label} failed: ${err instanceof Error ? err.message : String(err)}`);
+    return false;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
+ * Write the durable OFF (switch row, lease release, audit log). Called right
+ * after the local tree is stopped and, when that failed, again from the lease
+ * tick until the database accepts it.
+ */
+async function writeDurableOff(actor: string): Promise<boolean> {
+  const wroteSwitch = await withDbBudget("recording the switch OFF", () =>
+    setMasterSwitch(prisma, { on: false, actor, from: "swift-app" }),
+  );
+  const released = await withDbBudget("releasing the execution lease", () =>
+    releaseExecutionLease(prisma, RUNTIME_ID),
+  );
+  invalidateExecutionCache();
+  if (!wroteSwitch || !released) {
+    host.pendingDurableOff = true;
+    return false;
+  }
+  host.pendingDurableOff = false;
+  await writeAdminWorkerLog(prisma, {
+    category: "OVERVIEW",
+    severity: "INFO",
+    eventName: "local_worker_deactivated",
+    message:
+      "Admin Worker switched OFF. The local runtime, Python brain and browser rendering were stopped. " +
+      "No cloud worker takes over.",
+    safeMetadata: { runtimeId: RUNTIME_ID },
+  }).catch(() => undefined);
+  return true;
 }
 
 /**
@@ -443,20 +594,6 @@ function sampleWorkerProcessTree(): void {
   );
 }
 
-/** Host[:port]/database of the configured connection string — never the credentials. */
-function describeDatabaseHost(raw: string): string | null {
-  try {
-    const url = new URL(raw);
-    return `${url.hostname}${url.port ? `:${url.port}` : ""}${url.pathname}`;
-  } catch {
-    return raw ? "unparseable" : null;
-  }
-}
-
-function isLocalDatabaseHost(databaseHost: string | null): boolean {
-  return databaseHost != null && /^(localhost|127\.0\.0\.1|\[::1\])/.test(databaseHost);
-}
-
 /**
  * Result of the last database preflight. The worker must never be started
  * against a database that cannot be reached: it would crash-loop five times,
@@ -464,14 +601,14 @@ function isLocalDatabaseHost(databaseHost: string | null): boolean {
  * problem is one line of configuration. Probed at boot, before every switch-ON,
  * and on demand from the console.
  */
-let dbProbe: { reachable: boolean; latencyMs: number | null; error: string | null; at: string } = {
+let dbProbe: DatabaseProbe = {
   reachable: false,
   latencyMs: null,
   error: "not checked yet",
   at: new Date(0).toISOString(),
 };
 
-async function probeDatabase(timeoutMs = 15_000): Promise<typeof dbProbe> {
+async function probeDatabase(timeoutMs = 15_000): Promise<DatabaseProbe> {
   const started = Date.now();
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -512,78 +649,49 @@ async function probeDatabase(timeoutMs = 15_000): Promise<typeof dbProbe> {
 }
 
 /**
- * Where published pages are verified. A worker connected to the production
- * database is working on the production site, so when nothing sets
- * PUBLIC_BASE_URL the canonical public origin is the only sensible default —
- * `publicOrigin()` would otherwise fall back to http://localhost:3000 outside
- * NODE_ENV=production and every post-publish probe would check a site that is
- * not there. Applied to this process (operator work runs in-process) and
- * inherited by the worker child.
+ * Where published pages are verified: explicit PUBLIC_BASE_URL, else the
+ * Railway public domain the launcher derived, else — for a remote database in
+ * the production environment only — the canonical origin. Applied to this
+ * process (operator work runs in-process) and inherited by the worker child.
+ * The decision itself lives in local-config.ts so it is testable.
  */
 function ensurePublicBaseUrl(): void {
   if (process.env.PUBLIC_BASE_URL) return;
-  const databaseHost = describeDatabaseHost(process.env.DATABASE_URL ?? "");
-  if (databaseHost && !isLocalDatabaseHost(databaseHost)) {
-    process.env.PUBLIC_BASE_URL = appConfig.canonicalUrl;
-  }
+  const resolved = resolvePublicBaseUrl({
+    publicBaseUrl: process.env.PUBLIC_BASE_URL,
+    databaseUrl: process.env.DATABASE_URL,
+    railwayEnvironmentName: process.env.RAILWAY_ENVIRONMENT_NAME,
+    canonicalUrl: appConfig.canonicalUrl,
+  });
+  if (resolved) process.env.PUBLIC_BASE_URL = resolved;
 }
 
 /**
  * Non-sensitive description of the effective configuration: which source it
  * came from, which database host it points at (host and database name only —
- * never the credentials), whether that database answered, and where published
- * pages will be verified. Surfaced in the app so a misconfiguration is visible
- * rather than silently wrong — in particular the trap where a laptop .env
- * points at a LOCAL Postgres and the worker "publishes" into it while every
- * dashboard reports success.
+ * never the credentials), whether that database answered, where published
+ * pages will be verified, and the one structured reason (if any) the worker
+ * may not start. Surfaced in the app so a misconfiguration is visible rather
+ * than silently wrong.
  */
 function configPayload() {
-  const raw = process.env.DATABASE_URL ?? "";
-  const databaseHost = describeDatabaseHost(raw);
-  const publicBaseUrl = process.env.PUBLIC_BASE_URL ?? null;
-  const localDatabase = isLocalDatabaseHost(databaseHost);
-  const remoteDatabase = databaseHost != null && !localDatabase;
-  const route = process.env.VIAFIDEI_DB_ROUTE ?? "unknown";
-  const internalHost = /\.railway\.internal/.test(raw);
-
-  const warnings: string[] = [];
-  if (!databaseHost) {
-    warnings.push(
-      "No database configured. Link this checkout to Railway (railway login && railway link) " +
-        "so the worker inherits production configuration, or provide a local .env.",
-    );
-  } else if (internalHost) {
-    warnings.push(
-      `DATABASE_URL points at Railway's private network (${databaseHost}), which this computer cannot reach. ` +
-        "Link the Railway project (railway link) so the launcher can resolve the Postgres service's " +
-        "DATABASE_PUBLIC_URL, then switch the Admin Worker off and on again.",
-    );
-  } else if (localDatabase) {
-    warnings.push(
-      `The worker is pointed at a LOCAL database (${databaseHost}) from the repository .env — ` +
-        "production (etviafidei.com) is NOT being updated. Run `railway login` and `railway link` " +
-        "in the repository, then relaunch the app.",
-    );
-  } else if (!dbProbe.reachable && dbProbe.error) {
-    warnings.push(`The database at ${databaseHost} is not answering: ${dbProbe.error}`);
-  }
-  if (remoteDatabase && !publicBaseUrl) {
-    warnings.push(
-      "Connected to a remote database but PUBLIC_BASE_URL is unset — published pages would be " +
-        "verified against http://localhost:3000 instead of the live site.",
-    );
-  }
-
-  return {
+  return computeLocalConfig({
+    databaseUrl: process.env.DATABASE_URL,
+    publicBaseUrl: process.env.PUBLIC_BASE_URL,
     source: CONFIG_AT_BOOT.source,
+    route: process.env.VIAFIDEI_DB_ROUTE ?? "unknown",
     databaseUrlFromEnvironment: CONFIG_AT_BOOT.databaseUrlFromEnvironment,
-    databaseHost,
-    remoteDatabase,
-    route,
-    database: dbProbe,
-    publicBaseUrl,
-    warnings,
-  };
+    probe: dbProbe,
+    railwayEnvironmentName: process.env.RAILWAY_ENVIRONMENT_NAME,
+    launcherMessage: process.env.VIAFIDEI_LAUNCHER_MESSAGE,
+  });
+}
+
+/** The worker child's pid and process group, so the app can verify nothing is left after quit. */
+function childProcessInfo(): { pid: number; pgid: number } | null {
+  const pid = host.child?.pid;
+  // Spawned `detached`, so the child leads its own process group: pgid === pid.
+  return pid != null ? { pid, pgid: pid } : null;
 }
 
 function statusPayload() {
@@ -594,6 +702,8 @@ function statusPayload() {
     failureReason: host.failureReason,
     executionHost: "LOCAL_MACBOOK" as const,
     hostLabel: localHostLabel(),
+    hostPid: process.pid,
+    child: childProcessInfo(),
     startedAt: host.startedAt ? new Date(host.startedAt).toISOString() : null,
     uptimeMs: host.startedAt ? Date.now() - host.startedAt : 0,
     restarts: host.restarts,
@@ -601,6 +711,11 @@ function statusPayload() {
     lastError: host.lastError,
     activeJobs: Array.from(host.activeJobs),
     config: configPayload(),
+    // Durable switch + lease as last read (≤5 s old); null before the first
+    // read. Carried in every SSE frame so the dashboard need not poll for it.
+    execution: executionCache.value,
+    executionAt: executionCache.at ? new Date(executionCache.at).toISOString() : null,
+    pendingDurableOff: host.pendingDurableOff,
     counters: {
       itemsProcessed: host.itemsProcessed,
       itemsPublished: host.itemsPublished,
@@ -774,28 +889,45 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   try {
     switch (`${req.method} ${route}`) {
       case "GET /api/status": {
-        const execution = await readExecutionStatus(prisma);
+        const execution = await readExecutionStatusCached();
         json(res, 200, { ...statusPayload(), execution });
         return;
       }
 
       case "GET /api/snapshot": {
-        // The console polls this. Two guards keep an open window from becoming a
-        // workload of its own: never refresh goals (a write) unless asked, and
-        // never run two snapshots at once — a slow remote database would
-        // otherwise stack them up every 20 seconds.
+        // The console polls this. Three guards keep an open window from
+        // becoming a workload of its own: never refresh goals (a write) unless
+        // asked; never run two snapshots at once — a slow remote database
+        // would otherwise stack them up; and with the worker OFF serve the
+        // last snapshot for up to five minutes (~30 queries per refresh
+        // against production, for a screen that reads "OFF") unless the
+        // operator presses Refresh (?refresh=1).
+        const forced = url.searchParams.get("refresh") === "1";
         if (snapshotInFlight) {
           json(res, 200, { ...(lastSnapshot ?? {}), reusedInFlight: true });
+          return;
+        }
+        const idle = host.runState === "off" && executionCache.value?.state === "OFF";
+        if (
+          !forced &&
+          idle &&
+          lastSnapshot &&
+          Date.now() - lastSnapshotAt < SNAPSHOT_OFF_INTERVAL_MS
+        ) {
+          json(res, 200, {
+            ...(lastSnapshot as object),
+            cached: true,
+            snapshotAgeMs: Date.now() - lastSnapshotAt,
+          });
           return;
         }
         snapshotInFlight = true;
         try {
           const snapshot = await withJob("command-center-snapshot", () =>
-            loadCommandCenterSnapshot(prisma, {
-              refreshGoals: url.searchParams.get("refresh") === "1",
-            }),
+            loadCommandCenterSnapshot(prisma, { refreshGoals: forced }),
           );
           lastSnapshot = snapshot;
+          lastSnapshotAt = Date.now();
           json(res, 200, snapshot);
         } finally {
           snapshotInFlight = false;
@@ -822,20 +954,22 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           // Preflight: never start a worker against a database that does not
           // answer (or a local one masquerading as production). The refusal is
           // the whole message — the switch stays OFF and the reason is shown.
+          // `blockingReason` is structured (local-config.ts), never a regex
+          // over warning prose, so a reworded warning cannot disarm the gate.
           const probe = await probeDatabase();
           const cfg = configPayload();
-          const blocking = cfg.warnings.find((w) =>
-            /private network|LOCAL database|No database|not answering/.test(w),
-          );
-          if (!probe.reachable || blocking) {
+          if (cfg.blockingReason || !probe.reachable) {
             json(res, 503, {
               error: "database_unavailable",
+              blockingReason: cfg.blockingReason ?? "unreachable",
               detail:
-                blocking ??
+                cfg.warnings.find((w) => !cfg.launcherMessage || w !== cfg.launcherMessage) ??
+                cfg.launcherMessage ??
                 `The database at ${cfg.databaseHost ?? "?"} is not answering: ${probe.error ?? "unreachable"}. The Admin Worker was not started.`,
             });
             return;
           }
+          host.pendingDurableOff = false;
           // Claim the lease FIRST. The master switch is shared state: if another
           // computer is already executing, writing the switch here (and then
           // rolling it back to OFF) would stop that machine's worker mid-pass.
@@ -865,6 +999,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
             actor: body.actor ?? "operator",
             from: "swift-app",
           });
+          invalidateExecutionCache();
           host.restarts = 0;
           host.failureReason = null;
           startWorkerChild();
@@ -876,30 +1011,38 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
             safeMetadata: { runtimeId: RUNTIME_ID, origin: "LOCAL_MACBOOK" },
           }).catch(() => undefined);
         } else {
-          await setMasterSwitch(prisma, {
-            on: false,
-            actor: body.actor ?? "operator",
-            from: "swift-app",
-          });
+          // Stop the LOCAL workload first — it is purely local and cannot fail
+          // on the network. Only then record OFF durably, best-effort: an
+          // unreachable proxy must never leave Chromium, Python and the
+          // fetchers running because a row could not be written. The durable
+          // write is retried from the lease tick until it lands.
           await stopWorkerChild("master switch OFF");
           // The host itself keeps a resident Python brain while it runs
           // operator work (ingestion, manual passes, makeovers). OFF means OFF:
           // shut that down too, so no intelligence process survives the switch.
           await shutdownLocalBrain();
-          await releaseExecutionLease(prisma, RUNTIME_ID);
-          await writeAdminWorkerLog(prisma, {
-            category: "OVERVIEW",
-            severity: "INFO",
-            eventName: "local_worker_deactivated",
-            message:
-              "Admin Worker switched OFF. The local runtime, Python brain and browser rendering were stopped. " +
-              "No cloud worker takes over.",
-            safeMetadata: { runtimeId: RUNTIME_ID },
-          }).catch(() => undefined);
+          host.failureReason = null;
+          const durable = await writeDurableOff(body.actor ?? "operator");
+          if (!durable) {
+            pushLog(
+              "host",
+              "stopped locally; could not record OFF in the database — it will be retried until it lands",
+            );
+            const execution = await readExecutionStatusCached().catch(() => null);
+            broadcast("status", statusPayload());
+            json(res, 200, {
+              ...statusPayload(),
+              execution,
+              durableSwitchWrite: false,
+              detail:
+                "Stopped locally. The database could not be reached to record OFF — the local worker is stopped and the switch will be recorded as OFF automatically when the database answers again.",
+            });
+            return;
+          }
         }
-        const execution = await readExecutionStatus(prisma);
+        const execution = await readExecutionStatusCached(0);
         broadcast("status", statusPayload());
-        json(res, 200, { ...statusPayload(), execution });
+        json(res, 200, { ...statusPayload(), execution, durableSwitchWrite: true });
         return;
       }
 
@@ -1109,7 +1252,7 @@ async function main(): Promise<void> {
     const cfg = configPayload();
     pushLog(
       "host",
-      `configuration source: ${cfg.source} (${cfg.route}); database ${cfg.databaseHost ?? "NOT CONFIGURED"} ` +
+      `configuration source: ${cfg.source}; db via ${cfg.route}; database ${cfg.databaseHost ?? "NOT CONFIGURED"} ` +
         `${cfg.database.reachable ? `reachable in ${cfg.database.latencyMs}ms` : `UNREACHABLE (${cfg.database.error ?? "?"})`}` +
         `${cfg.publicBaseUrl ? `; verifying against ${cfg.publicBaseUrl}` : ""}`,
     );
@@ -1122,13 +1265,11 @@ async function main(): Promise<void> {
   // production — the switch is durable, so it stays ON and the console shows why.
   const master = await readMasterSwitch(prisma).catch(() => ({ on: false, known: false }) as const);
   const bootConfig = configPayload();
-  const bootBlocked = bootConfig.warnings.find((w) =>
-    /private network|LOCAL database|No database|not answering/.test(w),
-  );
-  if (master.on && (bootBlocked || !bootConfig.database.reachable)) {
+  if (master.on && (bootConfig.blockingReason || !bootConfig.database.reachable)) {
     host.runState = "failed";
     host.failureReason =
-      bootBlocked ??
+      bootConfig.warnings.find((w) => w !== bootConfig.launcherMessage) ??
+      bootConfig.launcherMessage ??
       `The database at ${bootConfig.databaseHost ?? "?"} is not answering — the Admin Worker was not started.`;
     pushLog("host", `cannot resume: ${host.failureReason}`);
   } else if (master.on) {
@@ -1152,8 +1293,29 @@ async function main(): Promise<void> {
   }
 
   // Keep the lease warm while this host owns execution, and push live status.
-  const leaseTimer = setInterval(() => {
-    void (async () => {
+  // Self-rescheduling with ±20% jitter (local-config.ts) rather than a fixed
+  // interval, so renewals never line up on one congested instant of the
+  // proxy link and a retry after a blip is spread out.
+  let leaseTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleLeaseTick = () => {
+    if (shuttingDown) return;
+    leaseTimer = setTimeout(() => {
+      void leaseTick().finally(scheduleLeaseTick);
+    }, leaseRenewDelayMs(LEASE_RENEW_INTERVAL_MS));
+    leaseTimer.unref();
+  };
+  const leaseTick = async () => {
+    {
+      // A switch-OFF that could not be recorded durably (LH: OFF stops the
+      // tree first, then writes). Keep trying until the database takes it.
+      if (host.pendingDurableOff && host.runState === "off") {
+        if (await writeDurableOff("operator")) {
+          pushLog("host", "recorded the pending switch OFF in the database");
+          broadcast("status", statusPayload());
+        }
+        return;
+      }
+
       // Renew ONLY while the worker is actually running: renewing while it is
       // crashed/failed would keep every surface reporting "active locally" for a
       // machine that is doing nothing.
@@ -1199,12 +1361,25 @@ async function main(): Promise<void> {
           "execution lease is held by another runtime — stopping the local worker to avoid double execution",
         );
         await stopWorkerChild("execution lease lost");
+        return;
       }
-    })();
-  }, LEASE_RENEW_INTERVAL_MS);
-  leaseTimer.unref();
+      // The heartbeat is otherwise written once per pass; a long pass would
+      // show HEARTBEAT_STALE (>5 min) for a perfectly healthy worker. One cheap
+      // update per tick from the process that owns the child keeps it honest.
+      await writeHeartbeat(prisma).catch(() => undefined);
+    }
+  };
+  scheduleLeaseTick();
 
-  const statusTimer = setInterval(() => broadcast("status", statusPayload()), 2_000);
+  // Live status every 2 s for the dashboard. The durable execution status is
+  // refreshed at most every EXECUTION_CACHE_MS, and only when someone is
+  // listening — an OFF worker with no console open costs the database nothing.
+  const statusTimer = setInterval(() => {
+    if (sseClients.size > 0 && Date.now() - executionCache.at >= EXECUTION_CACHE_MS) {
+      void readExecutionStatusCached().catch(() => undefined);
+    }
+    broadcast("status", statusPayload());
+  }, 2_000);
   statusTimer.unref();
 
   // Sample what the worker tree is really consuming, and keep the browser
@@ -1220,11 +1395,18 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     pushLog("host", `received ${signal} — shutting the local Admin Worker down`);
+    if (leaseTimer) clearTimeout(leaseTimer);
     void (async () => {
+      // Local first (bounded by CHILD_KILL_GRACE_MS), then the database with
+      // a hard budget: the app SIGKILLs the whole group 10 s after asking, so
+      // an unreachable proxy must never keep this process (and its lease)
+      // alive past that.
       await stopWorkerChild(`host received ${signal}`);
       await shutdownLocalBrain();
-      await releaseExecutionLease(prisma, RUNTIME_ID).catch(() => undefined);
-      await prisma.$disconnect().catch(() => undefined);
+      await withDbBudget("releasing the execution lease", () =>
+        releaseExecutionLease(prisma, RUNTIME_ID),
+      );
+      await withDbBudget("disconnecting from the database", () => prisma.$disconnect());
       server.close();
       process.exit(0);
     })();
