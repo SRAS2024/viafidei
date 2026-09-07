@@ -35,8 +35,27 @@ import path from "node:path";
 
 import { PrismaClient } from "@prisma/client";
 
-/** Exhaustive allow-list: admin-worker telemetry only, in safe deletion order. */
+/**
+ * Exhaustive allow-list: admin-worker telemetry only, in safe deletion order.
+ *
+ * Children first. AdminWorkerPass has five inbound foreign keys that are
+ * ON DELETE SET NULL, so trimming it before its children would rewrite
+ * millions of child rows for nothing.
+ *
+ * The `keep` figures are deliberately generous: these tables feed the
+ * worker's own learning (action scores, brain calls, calibration), so we keep
+ * a large recent window and discard only the long tail. Measured on the
+ * owner's production database 2026-09-07, the tail was the whole problem —
+ * AdminWorkerActionScore alone held 16,909,035 rows in 5.7 GB, and
+ * pg_stat_user_tables reported 4,932 because autovacuum had never run.
+ */
 const TABLES = [
+  { table: "AdminWorkerActionScore", tsCol: "createdAt", keep: 200_000 },
+  { table: "AdminWorkerBrainCall", tsCol: "createdAt", keep: 100_000 },
+  { table: "AdminWorkerReasoningGraph", tsCol: "createdAt", keep: 100_000 },
+  { table: "AdminWorkerCalibrationHistory", tsCol: "createdAt", keep: 100_000 },
+  { table: "AdminWorkerStucknessRecord", tsCol: "createdAt", keep: 50_000 },
+  { table: "AdminWorkerStageOutcome", tsCol: "createdAt", keep: 50_000 },
   { table: "AdminWorkerLog", tsCol: "createdAt", keep: 20_000 },
   { table: "AdminWorkerDecision", tsCol: "createdAt", keep: 5_000 },
   { table: "AdminWorkerRepairPlan", tsCol: "createdAt", keep: 2_000 },
@@ -129,8 +148,29 @@ async function main(): Promise<void> {
   }
 
   if (confirm && vacuum) {
-    console.log("reclaiming disk (VACUUM FULL — brief exclusive lock per table)");
-    for (const { table } of TABLES) {
+    // Deleting rows does NOT return disk to the operating system — it only
+    // marks tuples dead. The worker's own retention sweep has been deleting
+    // for months without ever vacuuming, which is why AdminWorkerActionScore
+    // held 5.7 GB for 4,932 live rows. So vacuum every admin-worker telemetry
+    // relation with real bloat, not just the four we trimmed above.
+    const bloated = await prisma.$queryRawUnsafe<Array<{ relname: string; bytes: bigint }>>(
+      `SELECT c.relname, pg_relation_size(c.oid) AS bytes
+         FROM pg_class c
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relkind = 'r'
+          AND c.relname LIKE 'AdminWorker%'
+          AND pg_relation_size(c.oid) > 50 * 1024 * 1024
+        ORDER BY pg_relation_size(c.oid) DESC`,
+    );
+    const targets = [
+      ...TABLES.map((t) => t.table),
+      ...bloated.map((b) => b.relname).filter((r) => !TABLES.some((t) => t.table === r)),
+    ];
+    console.log(
+      `reclaiming disk on ${targets.length} relations (VACUUM FULL takes a brief exclusive lock)`,
+    );
+    for (const table of targets) {
       const started = Date.now();
       await prisma.$executeRawUnsafe(`VACUUM (FULL, ANALYZE) ${ident(table)}`);
       console.log(`  ${table}: ${Math.round((Date.now() - started) / 1000)}s`);
