@@ -83,6 +83,7 @@ import {
   computeLocalConfig,
   leaseRenewDelayMs,
   resolvePublicBaseUrl,
+  summarizeDatabaseError,
   type DatabaseProbe,
 } from "../src/lib/admin-worker/local-config";
 import { localHostLabel, sampleLocalResources } from "../src/lib/admin-worker/local-resources";
@@ -628,18 +629,11 @@ async function probeDatabase(timeoutMs = 15_000): Promise<DatabaseProbe> {
       at: new Date().toISOString(),
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
     dbProbe = {
       reachable: false,
       latencyMs: null,
-      // Prisma's connection errors quote the host but never the password; keep
-      // the first line only so the console shows the cause, not a stack.
-      error:
-        message
-          .split("\n")
-          .find((l) => l.trim())
-          ?.trim()
-          .slice(0, 300) ?? "unreachable",
+      // The cause line only (never a stack, never credentials) — see local-config.
+      error: summarizeDatabaseError(err),
       at: new Date().toISOString(),
     };
   } finally {

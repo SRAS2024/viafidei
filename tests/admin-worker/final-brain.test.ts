@@ -35,7 +35,10 @@ import {
   type BrainMissionStage,
 } from "@/lib/admin-worker/brain";
 import { BrainFinalDecisionSchema } from "@/lib/admin-worker/intelligence/contracts";
-import { pythonFinalSelector } from "@/lib/admin-worker/final-brain";
+import {
+  __resetBrainEventThrottleForTest,
+  pythonFinalSelector,
+} from "@/lib/admin-worker/final-brain";
 
 function action(stage: BrainMissionStage, over: Partial<BrainAction> = {}): BrainAction {
   return {
@@ -119,6 +122,9 @@ function pythonResult(missionStage: string, over: Record<string, unknown> = {}) 
 }
 
 afterEach(() => {
+  // Degraded-mode events are throttled per process (one row per 15 min for an
+  // identical event); each case here expects its own row.
+  __resetBrainEventThrottleForTest();
   brainState.enabled = true;
   brainState.select = null;
   vi.clearAllMocks();

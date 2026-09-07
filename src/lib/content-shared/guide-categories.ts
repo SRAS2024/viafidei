@@ -96,15 +96,18 @@ export const GUIDE_FILTERS: readonly PayloadFilter[] = [
   {
     key: "sacraments",
     label: "Sacraments",
+    // Any other sacrament: Confession and the Eucharist have their own chips.
     matches: (p) =>
-      typeof p.sacramentKey === "string" || fieldIn(p, "kind", ["sacramental_preparation"]),
+      (typeof p.sacramentKey === "string" &&
+        !fieldIn(p, "sacramentKey", ["reconciliation", "eucharist"]) &&
+        !fieldIn(p, "kind", ["confession", "adoration"])) ||
+      fieldIn(p, "kind", ["sacramental_preparation"]),
   },
   {
     key: "devotions",
     label: "Consecrations & Devotions",
     matches: (p) =>
-      fieldIn(p, "kind", ["consecration", "devotion", "sacramental"]) ||
-      category(p, ["devotion"]),
+      fieldIn(p, "kind", ["consecration", "devotion", "sacramental"]) || category(p, ["devotion"]),
   },
   {
     key: "seasons",

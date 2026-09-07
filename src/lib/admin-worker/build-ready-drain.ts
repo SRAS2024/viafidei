@@ -211,57 +211,67 @@ export interface DrainResult {
   reviewed: number;
   rejectedDuplicate: number;
   /**
-   * NEEDS_REVIEW artifacts the (now-fixed) specialist citation gate wrongly
-   * parked, recovered to QA_PASSED this drain so the fixed publish path retries
-   * them.
+   * NEEDS_REVIEW artifacts with a retryable review reason (citation false
+   * positive, proof gate offline, advisory panel objection) recovered to
+   * QA_PASSED this drain, within their retry budget, so the publish path
+   * retries them.
    */
   recovered: number;
 }
 
 /**
- * Recover artifacts the specialist citation gate wrongly parked at NEEDS_REVIEW.
+ * Recover NEEDS_REVIEW artifacts whose review reason is autonomously
+ * retryable (RECOVERABLE_REVIEW_RULES in human-review.ts).
  *
- * Before the publish-orchestrator citation-count fix, a fully-provenanced
- * artifact whose payload carried no `citations`/`sources` ARRAY was scored as
- * 0-citation; the citation specialist objected, the panel returned
- * "block-or-review", and the publish step parked the item at NEEDS_REVIEW —
- * where NOTHING recovers it. That stranded a backlog of QA-passed, cited content
- * that never published (the "built/QA-passed but none published" plateau).
+ * Originally this recovered one exact case: the specialist citation gate
+ * parked fully-provenanced, QA-passed content as "0-citation" (a false
+ * positive), and NOTHING ever looked at a NEEDS_REVIEW artifact again — the
+ * "built/QA-passed but none published" plateau. The same dead end applied to
+ * every other transient review reason (proof gate with the brain offline, an
+ * advisory specialist objection), so the recovery is now table-driven, with a
+ * per-artifact retry budget + backoff (consumed by the dispatcher each time the
+ * item is parked) so an item that keeps landing in review stops after a few
+ * attempts and stays parked for a person.
  *
- * These items are safe to re-publish: each already holds a PASSED strict-QA row
- * (the mandatory 7-dimension gate) AND carries field provenance, so the citation
- * objection was a false positive. Reset them to QA_PASSED so the drive phase
- * re-publishes them THIS pass. Scoped tightly by the exact rejectionReason so
- * genuine QA review-band holds (a different NEEDS_REVIEW reason) are untouched.
- * Fail-open.
+ * Only items that genuinely passed strict QA (the mandatory gate) are ever
+ * re-queued; a rule may additionally require field provenance. Reset to
+ * QA_PASSED so the drive phase re-publishes them THIS pass. Fail-open.
  */
-async function recoverCitationMisroutedReviews(
-  prisma: PrismaClient,
-  limit: number,
-): Promise<number> {
+async function recoverRetryableReviews(prisma: PrismaClient, limit: number): Promise<number> {
+  const { RECOVERABLE_REVIEW_RULES, classifyReviewReason, readRetryBudget, REVIEW_RETRY_BUDGET } =
+    await import("./human-review");
+  const retryRules = RECOVERABLE_REVIEW_RULES.filter((r) => r.route === "retry");
   const candidates = await prisma.adminWorkerPackageArtifact
     .findMany({
       where: {
         status: "NEEDS_REVIEW",
-        // The exact reason string logged by publish-orchestrator's specialist
-        // route: `specialist panel routed to review (objections: citation…)`.
-        rejectionReason: { contains: "objections: citation" },
+        OR: retryRules.map((r) => ({ rejectionReason: { contains: r.match } })),
       },
       take: limit,
-      select: { id: true, fieldProvenance: true },
+      select: { id: true, fieldProvenance: true, rejectionReason: true },
     })
-    .catch(() => [] as Array<{ id: string; fieldProvenance: unknown }>);
+    .catch(
+      () => [] as Array<{ id: string; fieldProvenance: unknown; rejectionReason?: string | null }>,
+    );
 
   let recovered = 0;
+  const now = Date.now();
   for (const a of candidates) {
+    const { route, rule } = classifyReviewReason(a.rejectionReason);
+    if (route !== "retry" || !rule) continue;
     const hasProvenance = Array.isArray(a.fieldProvenance) && a.fieldProvenance.length > 0;
-    if (!hasProvenance) continue;
+    if (rule.requireProvenance && !hasProvenance) continue;
     // Only recover items that genuinely passed strict QA — never resurrect
     // something that failed a real quality dimension.
     const qa = await prisma.adminWorkerStrictQAResult
       .findUnique({ where: { packageArtifactId: a.id }, select: { status: true } })
       .catch(() => null);
     if (qa?.status !== "PASSED") continue;
+    // Honour the budget + backoff the dispatcher recorded when it parked the
+    // item; an item with no record was parked before this existed → one try.
+    const budget = await readRetryBudget(prisma, "review", a.id);
+    if (budget.attempts > REVIEW_RETRY_BUDGET) continue;
+    if (budget.nextRetryAt && budget.nextRetryAt.getTime() > now) continue;
     await prisma.adminWorkerPackageArtifact
       .update({ where: { id: a.id }, data: { status: "QA_PASSED", rejectionReason: null } })
       .catch(() => undefined);
@@ -307,10 +317,11 @@ export async function runBuildReadyDrain(
   const confidenceFloor = Number(process.env.ADMIN_WORKER_DRAIN_CONF_FLOOR ?? "0.4") || 0.4;
 
   try {
-    // Recover any content the (now-fixed) citation specialist wrongly parked at
-    // NEEDS_REVIEW BEFORE snapshotting the stuck set, so the recovered
-    // QA_PASSED items are drained + published in this same pass.
-    out.recovered = await recoverCitationMisroutedReviews(prisma, limit);
+    // Recover retryable NEEDS_REVIEW items (citation false positives, proof
+    // gate with the brain offline, advisory panel objections) BEFORE
+    // snapshotting the stuck set, so the recovered QA_PASSED items are drained
+    // + published in this same pass.
+    out.recovered = await recoverRetryableReviews(prisma, limit);
 
     const stuck = await prisma.adminWorkerPackageArtifact.findMany({
       where: { status: { in: ["BUILD_READY", "VERIFICATION_READY", "QA_PASSED"] } },

@@ -15,6 +15,7 @@ import {
   leaseRenewDelayMs,
   parseLauncherLine,
   resolvePublicBaseUrl,
+  summarizeDatabaseError,
   type DatabaseProbe,
 } from "@/lib/admin-worker/local-config";
 
@@ -239,5 +240,21 @@ describe("parseLauncherLine", () => {
     expect(parseLauncherLine('{"viafideiLauncher":{"level":"bogus","message":"x"}}')?.level).toBe(
       "info",
     );
+  });
+});
+
+describe("summarizeDatabaseError", () => {
+  it("skips Prisma's invocation header and points at the cause", () => {
+    const prismaError = new Error(
+      '\nInvalid `prisma.$queryRaw()` invocation:\n\n\nerror: Error validating datasource `db`: You must provide a nonempty URL. The environment variable `DATABASE_URL` resolved to an empty string.\n  -->  schema.prisma:8\n   | \n 7 |   provider = "postgresql"\n',
+    );
+    expect(summarizeDatabaseError(prismaError)).toMatch(
+      /^Error validating datasource.*empty string\.$/,
+    );
+    expect(summarizeDatabaseError(new Error("Can't reach database server at `host:5432`"))).toBe(
+      "Can't reach database server at `host:5432`",
+    );
+    expect(summarizeDatabaseError("plain string")).toBe("plain string");
+    expect(summarizeDatabaseError(new Error(""))).toBe("database error");
   });
 });

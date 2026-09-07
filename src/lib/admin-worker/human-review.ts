@@ -626,12 +626,15 @@ export async function readRetryBudget(
   scope: string,
   id: string,
 ): Promise<RetryBudgetState> {
-  const row = await prisma.adminWorkerMemory
-    .findUnique({
+  let row: { memoryValue: unknown } | null = null;
+  try {
+    row = await prisma.adminWorkerMemory.findUnique({
       where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: retryKey(scope, id) } },
       select: { memoryValue: true },
-    })
-    .catch(() => null);
+    });
+  } catch {
+    row = null;
+  }
   const v = (row?.memoryValue ?? {}) as {
     attempts?: number;
     nextRetryAt?: string;
@@ -666,13 +669,15 @@ export async function consumeRetryBudget(
     lastReason: (opts.reason ?? "").slice(0, 300) || null,
   };
   const key = retryKey(scope, id);
-  await prisma.adminWorkerMemory
-    .upsert({
+  try {
+    await prisma.adminWorkerMemory.upsert({
       where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: key } },
       update: { memoryValue, lastUsedAt: new Date() },
       create: { memoryType: "GENERIC", memoryKey: key, memoryValue, lastUsedAt: new Date() },
-    })
-    .catch(() => undefined);
+    });
+  } catch {
+    // Budget bookkeeping is best-effort; the attempt itself proceeds.
+  }
   return { allowed: attempts <= budget, attempts, nextRetryAt };
 }
 
@@ -682,7 +687,11 @@ export async function clearRetryBudget(
   scope: string,
   id: string,
 ): Promise<void> {
-  await prisma.adminWorkerMemory
-    .deleteMany({ where: { memoryType: "GENERIC", memoryKey: retryKey(scope, id) } })
-    .catch(() => undefined);
+  try {
+    await prisma.adminWorkerMemory.deleteMany({
+      where: { memoryType: "GENERIC", memoryKey: retryKey(scope, id) },
+    });
+  } catch {
+    // best-effort
+  }
 }

@@ -20,6 +20,14 @@ export interface SimpleVerifyResult {
   ok: boolean;
   reason: string;
   detail?: Record<string, unknown>;
+  /**
+   * The surface could not be INSPECTED (generator not enumerable, live
+   * sitemap / public route unreachable). Still `ok: false` — production never
+   * passes on faith — but it is not evidence the item is missing, so no
+   * repair plan is filed for it: a "refresh" cannot fix a transport failure
+   * and only marched plans to ABANDONED. The next verification pass retries.
+   */
+  inconclusive?: boolean;
 }
 
 /**
@@ -244,6 +252,7 @@ export async function verifySitemap(
       if (opts.probeLive) {
         return {
           ok: false,
+          inconclusive: true,
           reason:
             "Generated sitemap output is not inspectable in production — cannot verify inclusion.",
           detail: { expected, inspected: false },
@@ -271,6 +280,7 @@ export async function verifySitemap(
     if (!live) {
       return {
         ok: false,
+        inconclusive: true,
         reason: "Live /sitemap.xml could not be probed in production — cannot verify inclusion.",
         detail: { expected, liveProbed: false },
       };
@@ -340,6 +350,7 @@ export async function verifyCacheFreshness(
     if (!base || !path) {
       return {
         ok: false,
+        inconclusive: true,
         reason:
           "Public route URL could not be built in production — cannot verify cache freshness.",
         detail: { expectedChecksum },
@@ -353,6 +364,7 @@ export async function verifyCacheFreshness(
     if (!fresh.reachable) {
       return {
         ok: false,
+        inconclusive: true,
         reason: `Public route not reachable in production — cannot prove fresh content for ${opts.contentType}:${opts.slug}.`,
         detail: { probed: true, reachable: false },
       };
@@ -418,14 +430,20 @@ export async function runIndependentVerifiers(
       search: search.reason,
       sitemap: sitemap.reason,
       cache: cache.reason,
+      sitemapInconclusive: sitemap.inconclusive === true,
+      cacheInconclusive: cache.inconclusive === true,
       searchQueryResults: search.queryResults,
     },
   }).catch(() => undefined);
 
   // Spec §7 + §9: failures auto-file repair plans so the repair
   // orchestrator can actually execute the refresh (not just log the
-  // failure).
-  if (!search.ok || !sitemap.ok || !cache.ok) {
+  // failure). An INCONCLUSIVE result (the surface could not be inspected)
+  // files nothing: a refresh cannot repair a transport failure, and the
+  // next verification pass re-checks.
+  const sitemapMissing = !sitemap.ok && !sitemap.inconclusive;
+  const cacheStale = !cache.ok && !cache.inconclusive;
+  if (!search.ok || sitemapMissing || cacheStale) {
     const { filePlan } = await import("./repair-plans");
     const failedEntity = `${opts.contentType}:${opts.slug}`;
     const filings: Array<Promise<unknown>> = [];
@@ -439,7 +457,7 @@ export async function runIndependentVerifiers(
         }).catch(() => undefined),
       );
     }
-    if (!sitemap.ok) {
+    if (sitemapMissing) {
       filings.push(
         filePlan(prisma, {
           kind: "SITEMAP_VISIBILITY_FAILED",
@@ -449,7 +467,7 @@ export async function runIndependentVerifiers(
         }).catch(() => undefined),
       );
     }
-    if (!cache.ok) {
+    if (cacheStale) {
       filings.push(
         filePlan(prisma, {
           kind: "CACHE_FAILED",

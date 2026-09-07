@@ -282,7 +282,9 @@ describe("full chain end-to-end (spec §24)", () => {
       contentId: "checklist-1",
       title: "Our Father",
       slug: "our-father-2",
-      payload: { prayerText: "Our Father. Amen." },
+      payload: {
+        prayerText: "Glory be to the Father, and to the Son, and to the Holy Spirit. Amen.",
+      },
       authorityLevel: "VATICAN",
       finalScore: 0.92,
       qaPassed: true,

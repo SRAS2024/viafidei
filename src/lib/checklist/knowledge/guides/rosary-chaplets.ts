@@ -81,7 +81,7 @@ function guide(g: GuideInput): CuratedEntry {
 
 /** Shared step text: how a decade is prayed. */
 const DECADE_HOW =
-  "Pray the Our Father on the large bead, then ten Hail Marys on the small beads while holding the mystery in mind, then the Glory Be and the Fatima Prayer: \"O my Jesus, forgive us our sins, save us from the fires of hell, lead all souls to heaven, especially those most in need of Thy mercy.\"";
+  'Pray the Our Father on the large bead, then ten Hail Marys on the small beads while holding the mystery in mind, then the Glory Be and the Fatima Prayer: "O my Jesus, forgive us our sins, save us from the fires of hell, lead all souls to heaven, especially those most in need of Thy mercy."';
 
 const ROSARY_OPENING_STEP: Step = {
   order: 1,
@@ -147,7 +147,7 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 3,
         title: "Announce the first mystery and pray the Our Father",
-        body: "Choose today's set of mysteries (Joyful, Sorrowful, Glorious or Luminous) and announce the first one aloud or in your heart, for example: \"The first Joyful Mystery: the Annunciation.\" You may read a short Scripture passage. Then pray the Our Father on the large bead.",
+        body: 'Choose today\'s set of mysteries (Joyful, Sorrowful, Glorious or Luminous) and announce the first one aloud or in your heart, for example: "The first Joyful Mystery: the Annunciation." You may read a short Scripture passage. Then pray the Our Father on the large bead.',
       },
       {
         order: 4,
@@ -157,7 +157,7 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 5,
         title: "Close the decade with the Glory Be and the Fatima Prayer",
-        body: "After the tenth Hail Mary pray the Glory Be. Many then add the prayer Our Lady asked for at Fatima, commonly called the Fatima Prayer: \"O my Jesus, forgive us our sins, save us from the fires of hell, lead all souls to heaven, especially those most in need of Thy mercy.\"",
+        body: 'After the tenth Hail Mary pray the Glory Be. Many then add the prayer Our Lady asked for at Fatima, commonly called the Fatima Prayer: "O my Jesus, forgive us our sins, save us from the fires of hell, lead all souls to heaven, especially those most in need of Thy mercy."',
       },
       {
         order: 6,
@@ -291,7 +291,6 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
     ],
     relatedPrayers: ROSARY_PRAYERS,
     relatedDevotions: ["holy-rosary", "stations-of-the-cross"],
-    relatedPractices: ["praying-the-stations-of-the-cross"],
     relatedSaints: ["saint-mary-magdalene", "saint-john-paul-ii"],
   }),
 
@@ -461,7 +460,7 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 6,
         title: "Close the decade with the Glory Be and the Fatima Prayer",
-        body: "After the tenth Hail Mary pray the Glory Be, and, if you wish, the Fatima Prayer: \"O my Jesus, forgive us our sins, save us from the fires of hell, lead all souls to heaven, especially those most in need of Thy mercy.\" A short concluding prayer proper to the mystery may follow, as the apostolic letter suggests.",
+        body: 'After the tenth Hail Mary pray the Glory Be, and, if you wish, the Fatima Prayer: "O my Jesus, forgive us our sins, save us from the fires of hell, lead all souls to heaven, especially those most in need of Thy mercy." A short concluding prayer proper to the mystery may follow, as the apostolic letter suggests.',
       },
       {
         order: 7,
@@ -532,12 +531,12 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 4,
         title: "Let children announce the mysteries",
-        body: "Before each decade a child announces the mystery, for example: \"The first Joyful Mystery: the Annunciation.\" A parent may add one sentence about the scene, or read two or three verses from the Gospel. Keep it to a sentence or two; children lose the thread in long meditations.",
+        body: 'Before each decade a child announces the mystery, for example: "The first Joyful Mystery: the Annunciation." A parent may add one sentence about the scene, or read two or three verses from the Gospel. Keep it to a sentence or two; children lose the thread in long meditations.',
       },
       {
         order: 5,
         title: "The leader prays the first half, the family answers",
-        body: "For the Our Father the leader prays as far as \"Thy will be done, on earth as it is in heaven\" and all answer \"Give us this day our daily bread...\" For each Hail Mary the leader prays \"Hail Mary, full of grace... blessed is the fruit of thy womb, Jesus,\" and all answer \"Holy Mary, Mother of God, pray for us sinners, now and at the hour of our death. Amen.\" Close each decade with the Glory Be and the Fatima Prayer.",
+        body: 'For the Our Father the leader prays as far as "Thy will be done, on earth as it is in heaven" and all answer "Give us this day our daily bread..." For each Hail Mary the leader prays "Hail Mary, full of grace... blessed is the fruit of thy womb, Jesus," and all answer "Holy Mary, Mother of God, pray for us sinners, now and at the hour of our death. Amen." Close each decade with the Glory Be and the Fatima Prayer.',
       },
       {
         order: 6,
@@ -598,22 +597,22 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 1,
         title: "Prepare the intentions and today's mysteries",
-        body: "Before you begin, decide the set of mysteries (Joyful on Monday and Saturday, Sorrowful on Tuesday and Friday, Glorious on Wednesday and Sunday, Luminous on Thursday) and write one sentence for each. Gather the intentions and announce them at the start: \"We offer this Rosary for...\" Keep the list short and say it once.",
+        body: 'Before you begin, decide the set of mysteries (Joyful on Monday and Saturday, Sorrowful on Tuesday and Friday, Glorious on Wednesday and Sunday, Luminous on Thursday) and write one sentence for each. Gather the intentions and announce them at the start: "We offer this Rosary for..." Keep the list short and say it once.',
       },
       {
         order: 2,
         title: "Open with the Sign of the Cross and the Apostles' Creed",
-        body: "Begin clearly: \"In the name of the Father, and of the Son, and of the Holy Spirit.\" Then lead the Apostles' Creed with everyone praying it together. On the opening beads lead the Our Father, three Hail Marys and the Glory Be in the leader-and-response pattern described in the next step.",
+        body: 'Begin clearly: "In the name of the Father, and of the Son, and of the Holy Spirit." Then lead the Apostles\' Creed with everyone praying it together. On the opening beads lead the Our Father, three Hail Marys and the Glory Be in the leader-and-response pattern described in the next step.',
       },
       {
         order: 3,
         title: "Learn the leader-and-response split",
-        body: "The leader prays the first half of each prayer and the people answer with the second. Our Father: leader to \"on earth as it is in heaven,\" people from \"Give us this day our daily bread.\" Hail Mary: leader to \"blessed is the fruit of thy womb, Jesus,\" people from \"Holy Mary, Mother of God.\" Glory Be: leader \"Glory be to the Father, and to the Son, and to the Holy Spirit,\" people \"as it was in the beginning, is now, and ever shall be, world without end. Amen.\"",
+        body: 'The leader prays the first half of each prayer and the people answer with the second. Our Father: leader to "on earth as it is in heaven," people from "Give us this day our daily bread." Hail Mary: leader to "blessed is the fruit of thy womb, Jesus," people from "Holy Mary, Mother of God." Glory Be: leader "Glory be to the Father, and to the Son, and to the Holy Spirit," people "as it was in the beginning, is now, and ever shall be, world without end. Amen."',
       },
       {
         order: 4,
         title: "Announce each mystery with a short meditation",
-        body: "Before each decade say the mystery and your one sentence: \"The third Sorrowful Mystery, the Crowning with Thorns. Let us ask for courage to bear ridicule for the sake of Christ.\" Pause. Then begin the Our Father. If a reader is available, a short Scripture passage may be proclaimed instead of the sentence.",
+        body: 'Before each decade say the mystery and your one sentence: "The third Sorrowful Mystery, the Crowning with Thorns. Let us ask for courage to bear ridicule for the sake of Christ." Pause. Then begin the Our Father. If a reader is available, a short Scripture passage may be proclaimed instead of the sentence.',
       },
       {
         order: 5,
@@ -623,7 +622,7 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 6,
         title: "Close each decade with the Glory Be and the Fatima Prayer",
-        body: "After the tenth Hail Mary lead the Glory Be. Then, if it is the custom of the group, the Fatima Prayer, said by all together: \"O my Jesus, forgive us our sins, save us from the fires of hell, lead all souls to heaven, especially those most in need of Thy mercy.\" Announce the next mystery without delay.",
+        body: 'After the tenth Hail Mary lead the Glory Be. Then, if it is the custom of the group, the Fatima Prayer, said by all together: "O my Jesus, forgive us our sins, save us from the fires of hell, lead all souls to heaven, especially those most in need of Thy mercy." Announce the next mystery without delay.',
       },
       {
         order: 7,
@@ -681,7 +680,7 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 1,
         title: "Make the Sign of the Cross and, if you wish, the opening prayers",
-        body: "Make the Sign of the Cross. You may pray the optional opening from the Diary: \"You expired, Jesus, but the source of life gushed forth for souls, and the ocean of mercy opened up for the whole world. O Fount of Life, unfathomable Divine Mercy, envelop the whole world and empty Yourself out upon us.\" Then three times: \"O Blood and Water, which gushed forth from the Heart of Jesus as a fount of mercy for us, I trust in You!\"",
+        body: 'Make the Sign of the Cross. You may pray the optional opening from the Diary: "You expired, Jesus, but the source of life gushed forth for souls, and the ocean of mercy opened up for the whole world. O Fount of Life, unfathomable Divine Mercy, envelop the whole world and empty Yourself out upon us." Then three times: "O Blood and Water, which gushed forth from the Heart of Jesus as a fount of mercy for us, I trust in You!"',
       },
       {
         order: 2,
@@ -691,12 +690,12 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 3,
         title: "On the large bead pray the Eternal Father",
-        body: "On the large bead before each decade pray: \"Eternal Father, I offer You the Body and Blood, Soul and Divinity of Your dearly beloved Son, Our Lord Jesus Christ, in atonement for our sins and those of the whole world.\"",
+        body: 'On the large bead before each decade pray: "Eternal Father, I offer You the Body and Blood, Soul and Divinity of Your dearly beloved Son, Our Lord Jesus Christ, in atonement for our sins and those of the whole world."',
       },
       {
         order: 4,
         title: "On the ten small beads pray For the sake of His sorrowful Passion",
-        body: "On each of the ten small beads pray: \"For the sake of His sorrowful Passion, have mercy on us and on the whole world.\" Keep the Passion before your eyes as you repeat it, in the same way the Rosary keeps a mystery before the mind.",
+        body: 'On each of the ten small beads pray: "For the sake of His sorrowful Passion, have mercy on us and on the whole world." Keep the Passion before your eyes as you repeat it, in the same way the Rosary keeps a mystery before the mind.',
       },
       {
         order: 5,
@@ -706,12 +705,12 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 6,
         title: "Pray the Holy God three times",
-        body: "After the fifth decade pray three times: \"Holy God, Holy Mighty One, Holy Immortal One, have mercy on us and on the whole world.\" This is the ancient Trisagion of the Eastern liturgies, which the Diary places at the close of the chaplet.",
+        body: 'After the fifth decade pray three times: "Holy God, Holy Mighty One, Holy Immortal One, have mercy on us and on the whole world." This is the ancient Trisagion of the Eastern liturgies, which the Diary places at the close of the chaplet.',
       },
       {
         order: 7,
         title: "Pray the closing prayer and make the Sign of the Cross",
-        body: "Conclude with the closing prayer: \"Eternal God, in whom mercy is endless and the treasury of compassion inexhaustible, look kindly upon us and increase Your mercy in us, that in difficult moments we might not despair nor become despondent, but with great confidence submit ourselves to Your holy will, which is Love and Mercy itself. Amen.\" Make the Sign of the Cross. Many add, three times, \"Jesus, I trust in You.\"",
+        body: 'Conclude with the closing prayer: "Eternal God, in whom mercy is endless and the treasury of compassion inexhaustible, look kindly upon us and increase Your mercy in us, that in difficult moments we might not despair nor become despondent, but with great confidence submit ourselves to Your holy will, which is Love and Mercy itself. Amen." Make the Sign of the Cross. Many add, three times, "Jesus, I trust in You."',
       },
     ],
     relatedPrayers: [
@@ -756,37 +755,37 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 2,
         title: "Learn the pattern of each salutation",
-        body: "The chaplet has nine salutations, one for each choir of angels. For each: say the salutation on the large bead, then pray one Our Father on the same bead and three Hail Marys on the three small beads that follow. Every salutation begins \"By the intercession of Saint Michael and the celestial choir of...\" and ends \"Amen.\"",
+        body: 'The chaplet has nine salutations, one for each choir of angels. For each: say the salutation on the large bead, then pray one Our Father on the same bead and three Hail Marys on the three small beads that follow. Every salutation begins "By the intercession of Saint Michael and the celestial choir of..." and ends "Amen."',
       },
       {
         order: 3,
         title: "The first three choirs: Seraphim, Cherubim, Thrones",
-        body: "First: \"By the intercession of Saint Michael and the celestial choir of Seraphim, may the Lord make us worthy to burn with the fire of perfect charity. Amen.\" Our Father, three Hail Marys. Second: \"...and the celestial choir of Cherubim, may the Lord grant us the grace to leave the ways of sin and run in the paths of Christian perfection. Amen.\" Our Father, three Hail Marys. Third: \"...and the celestial choir of Thrones, may the Lord infuse into our hearts a true and sincere spirit of humility. Amen.\" Our Father, three Hail Marys.",
+        body: 'First: "By the intercession of Saint Michael and the celestial choir of Seraphim, may the Lord make us worthy to burn with the fire of perfect charity. Amen." Our Father, three Hail Marys. Second: "...and the celestial choir of Cherubim, may the Lord grant us the grace to leave the ways of sin and run in the paths of Christian perfection. Amen." Our Father, three Hail Marys. Third: "...and the celestial choir of Thrones, may the Lord infuse into our hearts a true and sincere spirit of humility. Amen." Our Father, three Hail Marys.',
       },
       {
         order: 4,
         title: "The middle three choirs: Dominations, Powers, Virtues",
-        body: "Fourth: \"By the intercession of Saint Michael and the celestial choir of Dominations, may the Lord give us grace to govern our senses and overcome any unruly passions. Amen.\" Our Father, three Hail Marys. Fifth: \"...and the celestial choir of Powers, may the Lord protect our souls against the snares and temptations of the devil. Amen.\" Our Father, three Hail Marys. Sixth: \"...and the celestial choir of Virtues, may the Lord preserve us from evil and keep us from falling into temptation. Amen.\" Our Father, three Hail Marys.",
+        body: 'Fourth: "By the intercession of Saint Michael and the celestial choir of Dominations, may the Lord give us grace to govern our senses and overcome any unruly passions. Amen." Our Father, three Hail Marys. Fifth: "...and the celestial choir of Powers, may the Lord protect our souls against the snares and temptations of the devil. Amen." Our Father, three Hail Marys. Sixth: "...and the celestial choir of Virtues, may the Lord preserve us from evil and keep us from falling into temptation. Amen." Our Father, three Hail Marys.',
       },
       {
         order: 5,
         title: "The last three choirs: Principalities, Archangels, Angels",
-        body: "Seventh: \"By the intercession of Saint Michael and the celestial choir of Principalities, may God fill our souls with a true spirit of obedience. Amen.\" Our Father, three Hail Marys. Eighth: \"...and the celestial choir of Archangels, may the Lord give us perseverance in faith and in all good works, in order that we may attain the glory of heaven. Amen.\" Our Father, three Hail Marys. Ninth: \"...and the celestial choir of Angels, may the Lord grant us to be guarded by them in this mortal life and conducted hereafter to eternal glory. Amen.\" Our Father, three Hail Marys.",
+        body: 'Seventh: "By the intercession of Saint Michael and the celestial choir of Principalities, may God fill our souls with a true spirit of obedience. Amen." Our Father, three Hail Marys. Eighth: "...and the celestial choir of Archangels, may the Lord give us perseverance in faith and in all good works, in order that we may attain the glory of heaven. Amen." Our Father, three Hail Marys. Ninth: "...and the celestial choir of Angels, may the Lord grant us to be guarded by them in this mortal life and conducted hereafter to eternal glory. Amen." Our Father, three Hail Marys.',
       },
       {
         order: 6,
         title: "Pray four Our Fathers on the final beads",
-        body: "On the four remaining beads pray one Our Father each in honour of Saint Michael, Saint Gabriel, Saint Raphael and your Guardian Angel. You may add the Guardian Angel Prayer (\"Angel of God, my guardian dear\") after the fourth.",
+        body: 'On the four remaining beads pray one Our Father each in honour of Saint Michael, Saint Gabriel, Saint Raphael and your Guardian Angel. You may add the Guardian Angel Prayer ("Angel of God, my guardian dear") after the fourth.',
       },
       {
         order: 7,
         title: "Pray the closing prayer to Saint Michael",
-        body: "\"O glorious Prince Saint Michael, chief and commander of the heavenly hosts, guardian of souls, vanquisher of rebel spirits, servant in the house of the Divine King and our admirable guide, you who shine with excellence and superhuman virtue: deliver us from all evil, who turn to you with confidence, and enable us by your gracious protection to serve God more and more faithfully every day. V. Pray for us, O glorious Saint Michael, Prince of the Church of Jesus Christ. R. That we may be made worthy of his promises.\"",
+        body: '"O glorious Prince Saint Michael, chief and commander of the heavenly hosts, guardian of souls, vanquisher of rebel spirits, servant in the house of the Divine King and our admirable guide, you who shine with excellence and superhuman virtue: deliver us from all evil, who turn to you with confidence, and enable us by your gracious protection to serve God more and more faithfully every day. V. Pray for us, O glorious Saint Michael, Prince of the Church of Jesus Christ. R. That we may be made worthy of his promises."',
       },
       {
         order: 8,
         title: "Conclude",
-        body: "\"Almighty and everlasting God, who by a wonder of your goodness and mercy, for the salvation of all, have appointed the most glorious Archangel Saint Michael Prince of your Church: make us worthy, we beseech you, to be delivered from all our enemies, that none of them may harass us at the hour of death, but that we may be led by him into your presence. Through Jesus Christ our Lord. Amen.\" Make the Sign of the Cross.",
+        body: '"Almighty and everlasting God, who by a wonder of your goodness and mercy, for the salvation of all, have appointed the most glorious Archangel Saint Michael Prince of your Church: make us worthy, we beseech you, to be delivered from all our enemies, that none of them may harass us at the hour of death, but that we may be led by him into your presence. Through Jesus Christ our Lord. Amen." Make the Sign of the Cross.',
       },
     ],
     relatedPrayers: [
@@ -832,7 +831,7 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 2,
         title: "The First Sorrow: the Prophecy of Simeon",
-        body: "Scripture: Luke 2:34-35. Simeon tells Mary, \"and you yourself a sword will pierce.\" Reflect for a moment on the sorrow she carried in silence from that day. Then pray one Our Father and seven Hail Marys.",
+        body: 'Scripture: Luke 2:34-35. Simeon tells Mary, "and you yourself a sword will pierce." Reflect for a moment on the sorrow she carried in silence from that day. Then pray one Our Father and seven Hail Marys.',
       },
       {
         order: 3,
@@ -842,7 +841,7 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 4,
         title: "The Third Sorrow: the Loss of the Child Jesus in the Temple",
-        body: "Scripture: Luke 2:41-50. For three days Mary and Joseph search for the twelve-year-old Jesus: \"Son, why have you done this to us?\" Consider her anguish and her pondering of his answer. Pray one Our Father and seven Hail Marys.",
+        body: 'Scripture: Luke 2:41-50. For three days Mary and Joseph search for the twelve-year-old Jesus: "Son, why have you done this to us?" Consider her anguish and her pondering of his answer. Pray one Our Father and seven Hail Marys.',
       },
       {
         order: 5,
@@ -852,7 +851,7 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 6,
         title: "The Fifth Sorrow: Mary stands at the foot of the Cross",
-        body: "Scripture: John 19:25-27. \"Standing by the cross of Jesus was his mother.\" Jesus gives her to the beloved disciple, and to the Church, as Mother. Consider her standing through the three hours. Pray one Our Father and seven Hail Marys.",
+        body: 'Scripture: John 19:25-27. "Standing by the cross of Jesus was his mother." Jesus gives her to the beloved disciple, and to the Church, as Mother. Consider her standing through the three hours. Pray one Our Father and seven Hail Marys.',
       },
       {
         order: 7,
@@ -947,7 +946,7 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 8,
         title: "The Seventh Mystery: the Piercing of his Side",
-        body: "Scripture: John 19:34. After his death a soldier pierces his side with a lance, \"and immediately blood and water flowed out.\" Pray three Our Fathers (bringing the total to thirty-three) and the Glory Be. V. We beseech you, therefore, help your servants. R. Whom you have redeemed by your Precious Blood.",
+        body: 'Scripture: John 19:34. After his death a soldier pierces his side with a lance, "and immediately blood and water flowed out." Pray three Our Fathers (bringing the total to thirty-three) and the Glory Be. V. We beseech you, therefore, help your servants. R. Whom you have redeemed by your Precious Blood.',
       },
       {
         order: 9,
@@ -985,17 +984,17 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 1,
         title: "Make the Sign of the Cross and announce the first joy",
-        body: "Make the Sign of the Cross. The Crown has no introductory prayers; go directly to the first decade. Announce the joy: \"The first joy of Our Lady: the Annunciation.\"",
+        body: 'Make the Sign of the Cross. The Crown has no introductory prayers; go directly to the first decade. Announce the joy: "The first joy of Our Lady: the Annunciation."',
       },
       {
         order: 2,
         title: "The First Joy: the Annunciation",
-        body: "Scripture: Luke 1:26-38. The angel greets Mary, \"Rejoice, full of grace,\" and she consents to become the Mother of God. Pray one Our Father, ten Hail Marys and the Glory Be.",
+        body: 'Scripture: Luke 1:26-38. The angel greets Mary, "Rejoice, full of grace," and she consents to become the Mother of God. Pray one Our Father, ten Hail Marys and the Glory Be.',
       },
       {
         order: 3,
         title: "The Second Joy: the Visitation",
-        body: "Scripture: Luke 1:39-56. Elizabeth cries out, \"Blessed are you among women,\" and Mary sings the Magnificat: \"My spirit rejoices in God my Saviour.\" Pray one Our Father, ten Hail Marys and the Glory Be.",
+        body: 'Scripture: Luke 1:39-56. Elizabeth cries out, "Blessed are you among women," and Mary sings the Magnificat: "My spirit rejoices in God my Saviour." Pray one Our Father, ten Hail Marys and the Glory Be.',
       },
       {
         order: 4,
@@ -1069,42 +1068,42 @@ export const rosaryAndChapletGuides: CuratedEntry[] = [
       {
         order: 2,
         title: "Learn how the beads are counted",
-        body: "The thirty-three small beads recall the thirty-three years of the earthly life of Jesus. The first thirty are divided into five groups of six for the five senses through which Christ suffered in his Passion: touch, hearing, sight, smell and taste. The last three honour the wounds of his Holy Face. On every small bead pray: \"Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face.\" On every large bead pray the Glory Be.",
+        body: 'The thirty-three small beads recall the thirty-three years of the earthly life of Jesus. The first thirty are divided into five groups of six for the five senses through which Christ suffered in his Passion: touch, hearing, sight, smell and taste. The last three honour the wounds of his Holy Face. On every small bead pray: "Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face." On every large bead pray the Glory Be.',
       },
       {
         order: 3,
         title: "The first group: the sense of touch",
-        body: "Announce: \"In honour of the sense of touch of Jesus, wounded in his Passion.\" Recall the blows of the soldiers, the scourges and the nails. On each of the six small beads pray: \"Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face.\" On the large bead pray the Glory Be.",
+        body: 'Announce: "In honour of the sense of touch of Jesus, wounded in his Passion." Recall the blows of the soldiers, the scourges and the nails. On each of the six small beads pray: "Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face." On the large bead pray the Glory Be.',
       },
       {
         order: 4,
         title: "The second group: the sense of hearing",
-        body: "Announce: \"In honour of the sense of hearing of Jesus.\" Recall the insults, the false accusations and the cry \"Crucify him.\" On each of the six small beads pray: \"Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face.\" On the large bead pray the Glory Be.",
+        body: 'Announce: "In honour of the sense of hearing of Jesus." Recall the insults, the false accusations and the cry "Crucify him." On each of the six small beads pray: "Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face." On the large bead pray the Glory Be.',
       },
       {
         order: 5,
         title: "The third group: the sense of sight",
-        body: "Announce: \"In honour of the sense of sight of Jesus.\" Recall the tears, the blood running into his eyes from the crown of thorns, and the sight of his Mother at the cross. On each of the six small beads pray: \"Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face.\" On the large bead pray the Glory Be.",
+        body: 'Announce: "In honour of the sense of sight of Jesus." Recall the tears, the blood running into his eyes from the crown of thorns, and the sight of his Mother at the cross. On each of the six small beads pray: "Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face." On the large bead pray the Glory Be.',
       },
       {
         order: 6,
         title: "The fourth group: the sense of smell",
-        body: "Announce: \"In honour of the sense of smell of Jesus.\" Recall the filth of the guardroom and of Calvary. On each of the six small beads pray: \"Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face.\" On the large bead pray the Glory Be.",
+        body: 'Announce: "In honour of the sense of smell of Jesus." Recall the filth of the guardroom and of Calvary. On each of the six small beads pray: "Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face." On the large bead pray the Glory Be.',
       },
       {
         order: 7,
         title: "The fifth group: the sense of taste",
-        body: "Announce: \"In honour of the sense of taste of Jesus.\" Recall the gall and vinegar offered to him on the cross. On each of the six small beads pray: \"Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face.\" On the large bead pray the Glory Be.",
+        body: 'Announce: "In honour of the sense of taste of Jesus." Recall the gall and vinegar offered to him on the cross. On each of the six small beads pray: "Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face." On the large bead pray the Glory Be.',
       },
       {
         order: 8,
         title: "The last three beads: the wounds of the Holy Face",
-        body: "On the three remaining small beads pray three times, in honour of the wounds of the Holy Face: \"Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face.\" On the final large bead pray the Glory Be.",
+        body: 'On the three remaining small beads pray three times, in honour of the wounds of the Holy Face: "Arise, O Lord, and let your enemies be scattered, and let those who hate you flee before your face." On the final large bead pray the Glory Be.',
       },
       {
         order: 9,
         title: "Close on the medal",
-        body: "On the medal pray: \"O God, our protector, look upon us, and cast your eyes upon the face of your Christ\" (Psalm 84:9). Then, in reparation: \"O Lord, show us your face, and we shall be saved.\" Make the Sign of the Cross.",
+        body: 'On the medal pray: "O God, our protector, look upon us, and cast your eyes upon the face of your Christ" (Psalm 84:9). Then, in reparation: "O Lord, show us your face, and we shall be saved." Make the Sign of the Cross.',
       },
     ],
     relatedPrayers: ["sign-of-the-cross", "glory-be", "anima-christi"],

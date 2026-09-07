@@ -304,7 +304,16 @@ describe("runBuildReadyDrain — recovers citation-misrouted reviews", () => {
         findMany: async ({ where }: { where?: Record<string, unknown> } = {}) => {
           // Recovery query: status === "NEEDS_REVIEW" + citation reason.
           if (where?.status === "NEEDS_REVIEW") {
-            return status === "NEEDS_REVIEW" ? [{ id: "misrouted-1", fieldProvenance }] : [];
+            return status === "NEEDS_REVIEW"
+              ? [
+                  {
+                    id: "misrouted-1",
+                    fieldProvenance,
+                    rejectionReason:
+                      "specialist panel routed to review (objections: citation, completeness)",
+                  },
+                ]
+              : [];
           }
           // Stuck query: status { in: [...] }.
           const inList = (where?.status as { in?: string[] } | undefined)?.in;

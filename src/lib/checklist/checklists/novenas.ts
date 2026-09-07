@@ -1,60 +1,11 @@
 import type { ChecklistSeed } from "./index";
+import { curatedChecklist } from "./from-curated";
 
-export const novenasChecklist: ChecklistSeed[] = [
-  {
-    canonicalName: "Divine Mercy Novena",
-    canonicalSlug: "divine-mercy-novena",
-    priority: 10,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Novena to the Sacred Heart of Jesus",
-    canonicalSlug: "novena-sacred-heart-of-jesus",
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Novena to the Holy Spirit",
-    canonicalSlug: "novena-holy-spirit",
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Novena to Our Lady of Guadalupe",
-    canonicalSlug: "novena-our-lady-of-guadalupe",
-    priority: 20,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Novena to Our Lady of Perpetual Help",
-    canonicalSlug: "novena-our-lady-of-perpetual-help",
-    priority: 25,
-    authorityLevelHint: "RELIGIOUS_ORDER",
-  },
-  {
-    canonicalName: "Novena to St. Joseph",
-    canonicalSlug: "novena-saint-joseph",
-    priority: 20,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Novena to St. Therese of Lisieux",
-    canonicalSlug: "novena-saint-therese-of-lisieux",
-    priority: 25,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Novena to St. Anthony of Padua",
-    canonicalSlug: "novena-saint-anthony-of-padua",
-    priority: 25,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Novena to St. Jude",
-    canonicalSlug: "novena-saint-jude",
-    priority: 25,
-    authorityLevelHint: "RELIGIOUS_ORDER",
-  },
+/**
+ * Novenas intentionally not curated yet (the authoring backlog — each needs
+ * its verbatim, public-domain day texts before it can be curated).
+ */
+export const novenasExtras: ChecklistSeed[] = [
   {
     canonicalName: "Novena to the Infant Jesus of Prague",
     canonicalSlug: "novena-infant-jesus-of-prague",
@@ -75,3 +26,13 @@ export const novenasChecklist: ChecklistSeed[] = [
     authorityLevelHint: "TRUSTED_PUBLISHER",
   },
 ];
+
+/** Every curated novena (knowledge/novenas.ts) plus the extras above. */
+export const novenasChecklist: ChecklistSeed[] = curatedChecklist("NOVENA", {
+  metadataFields: ["associatedSaintSlug", "relatedFeastSlug"],
+  overrides: {
+    "novena-saint-therese": { aliases: ["Novena to St. Therese of Lisieux"] },
+    "novena-saint-anthony": { aliases: ["Novena to St. Anthony of Padua"] },
+  },
+  extras: novenasExtras,
+});

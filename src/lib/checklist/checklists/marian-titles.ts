@@ -1,101 +1,14 @@
 import type { ChecklistSeed } from "./index";
+import { curatedChecklist } from "./from-curated";
 
-export const marianTitlesChecklist: ChecklistSeed[] = [
-  {
-    canonicalName: "Mother of God",
-    canonicalSlug: "mother-of-god",
-    aliases: ["Theotokos"],
-    priority: 5,
-    authorityLevelHint: "VATICAN",
-    summary: "Defined dogma at the Council of Ephesus (431).",
-  },
-  {
-    canonicalName: "Immaculate Conception",
-    canonicalSlug: "immaculate-conception",
-    priority: 5,
-    authorityLevelHint: "VATICAN",
-    summary: "Defined dogma by Pope Pius IX in 1854 (Ineffabilis Deus).",
-  },
-  {
-    canonicalName: "Perpetual Virginity",
-    canonicalSlug: "perpetual-virginity",
-    priority: 10,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Assumption of Mary",
-    canonicalSlug: "assumption-of-mary",
-    priority: 5,
-    authorityLevelHint: "VATICAN",
-    summary: "Defined dogma by Pope Pius XII in 1950 (Munificentissimus Deus).",
-  },
-  {
-    canonicalName: "Queen of Heaven",
-    canonicalSlug: "queen-of-heaven",
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-  },
+/** Marian titles intentionally not curated yet (the authoring backlog). */
+export const marianTitlesExtras: ChecklistSeed[] = [
   {
     canonicalName: "Mother of the Church",
     canonicalSlug: "mother-of-the-church",
+    aliases: ["Mater Ecclesiae"],
     priority: 15,
     authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Our Lady of Sorrows",
-    canonicalSlug: "our-lady-of-sorrows",
-    priority: 20,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Our Lady of the Rosary",
-    canonicalSlug: "our-lady-of-the-rosary",
-    priority: 20,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Our Lady of Mount Carmel",
-    canonicalSlug: "our-lady-of-mount-carmel",
-    priority: 20,
-    authorityLevelHint: "RELIGIOUS_ORDER",
-  },
-  {
-    canonicalName: "Our Lady of Guadalupe",
-    canonicalSlug: "our-lady-of-guadalupe",
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Our Lady of Lourdes",
-    canonicalSlug: "our-lady-of-lourdes",
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Our Lady of Fatima",
-    canonicalSlug: "our-lady-of-fatima",
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Stella Maris",
-    canonicalSlug: "stella-maris",
-    aliases: ["Star of the Sea"],
-    priority: 25,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Help of Christians",
-    canonicalSlug: "help-of-christians",
-    aliases: ["Auxilium Christianorum"],
-    priority: 25,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Our Lady of Perpetual Help",
-    canonicalSlug: "our-lady-of-perpetual-help",
-    priority: 25,
-    authorityLevelHint: "RELIGIOUS_ORDER",
   },
   {
     canonicalName: "Co-Redemptrix",
@@ -107,3 +20,23 @@ export const marianTitlesChecklist: ChecklistSeed[] = [
       "Not a defined dogma; theological status disputed. Strict editorial review required.",
   },
 ];
+
+/** Every curated Marian title (knowledge/marian-titles.ts) plus the extras above. */
+export const marianTitlesChecklist: ChecklistSeed[] = curatedChecklist("MARIAN_TITLE", {
+  metadataFields: ["feastDay", "region"],
+  overrides: {
+    "mother-of-god": {
+      aliases: ["Theotokos"],
+      summary: "Defined dogma at the Council of Ephesus (431).",
+    },
+    "immaculate-conception": {
+      summary: "Defined dogma by Pope Pius IX in 1854 (Ineffabilis Deus).",
+    },
+    "assumption-of-mary": {
+      summary: "Defined dogma by Pope Pius XII in 1950 (Munificentissimus Deus).",
+    },
+    "our-lady-star-of-the-sea": { aliases: ["Stella Maris", "Star of the Sea"] },
+    "our-lady-help-of-christians": { aliases: ["Help of Christians", "Auxilium Christianorum"] },
+  },
+  extras: marianTitlesExtras,
+});

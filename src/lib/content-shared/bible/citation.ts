@@ -5,14 +5,16 @@
  *
  *   citation    := prefix? alternative (" or " alternative)*
  *   prefix      := "See " | "cf. " | "Cf. "                 (stripped)
- *   alternative := group (";" group)*
+ *   alternative := reference (" and " reference)*           (a second BOOK joined by "and")
+ *   reference   := group (";" group)*
  *   group       := [book] chapter [":" items]                (book inherited when absent)
  *               |  [book] chapter "—" chapter                (whole chapters)
- *   items       := item ("," item)*  |  item " and " item
+ *               |  book items                                (single-chapter books: "Phlm 9-10, 12-17")
+ *   items       := item (("," | "+" | " and ") item)*        ("+" is the catholic-resources.org join)
  *   item        := V[letters]                                (e.g. "16bc" → whole verse, partial)
  *               |  V[letters] "-" W[letters]                 (e.g. "3b-7")
  *               |  V[letters] dash CH2 ":" W[letters]        (chapter-crossing, e.g. "13—53:12")
- *   dash        := "—" | "–" | "-"                           (hyphen allowed when the right side has a colon)
+ *   dash        := "—" | "–" | "-" | "‐" | "‑"               (hyphen allowed when the right side has a colon)
  *
  * A chapter-crossing range "CH:V—CH2:W" yields CH:V-(end), any whole chapters
  * in between, and CH2:1-W. After it, further items in the same group refer
@@ -52,8 +54,22 @@ export interface ParsedCitation {
 }
 
 const PREFIX_RE = /^(?:see|cf\.?)\s+/i;
-const DASH = "[-–—]";
-const BOOK_RE = /^(?:([1-3]|I{1,3})\s+)?([A-Za-z][A-Za-z.]*(?:\s+[A-Za-z][A-Za-z.]*)*)\s+(?=\d|[A-F]:)/;
+const DASH = "[-‐‑–—]";
+const BOOK_START =
+  "(?:[1-3]\\s+|I{1,3}\\s+)?[A-Za-z][A-Za-z.]*(?:\\s+[A-Za-z][A-Za-z.]*)*\\s+(?=\\d|[A-F]:)";
+const BOOK_RE = new RegExp(
+  `^(?:([1-3]|I{1,3})\\s+)?([A-Za-z][A-Za-z.]*(?:\\s+[A-Za-z][A-Za-z.]*)*)\\s+(?=\\d|[A-F]:)`,
+);
+/** " and " followed by something that starts like a book reference ("and 2 Cor 5:20—6:2"). */
+const AND_BOOK_RE = new RegExp(`\\s+and\\s+(?=${BOOK_START})`);
+/** Books of a single chapter, cited without a chapter number ("Jude 17, 20b-25"). */
+const SINGLE_CHAPTER: ReadonlySet<BookCode> = new Set<BookCode>([
+  "OBA",
+  "PHM",
+  "2JN",
+  "3JN",
+  "JUD",
+]);
 const CHAPTER_RE = new RegExp(`^(\\d+|[A-F])(?:\\s*${DASH}\\s*(\\d+))?(?:\\s*:\\s*(.+))?$`);
 const ITEM_RE = new RegExp(
   `^(\\d+)([a-e]*)(?:\\s*${DASH}\\s*(?:(\\d+)\\s*:\\s*)?(\\d+)([a-e]*))?$`,
@@ -87,6 +103,7 @@ function parseGroup(
     text = text.slice(bookMatch[0].length).trim();
   }
   if (!current) return null;
+  if (SINGLE_CHAPTER.has(current) && !text.includes(":")) text = `1:${text}`;
 
   const chapterMatch = text.match(CHAPTER_RE);
   if (!chapterMatch) return null;
@@ -99,7 +116,8 @@ function parseGroup(
     const last = Number(chapterMatch[2]);
     if (!(last > chapter)) return null;
     const segments: CitationSegment[] = [];
-    for (let c = chapter; c <= last; c++) segments.push({ book: current, chapter: c, verses: "all" });
+    for (let c = chapter; c <= last; c++)
+      segments.push({ book: current, chapter: c, verses: "all" });
     return { book: current, segments };
   }
 
@@ -119,7 +137,7 @@ function parseGroup(
   };
 
   const items = chapterMatch[3]
-    .split(/\s*,\s*|\s+and\s+/)
+    .split(/\s*[,+]\s*|\s+and\s+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
   if (items.length === 0) return null;
@@ -160,18 +178,24 @@ function parseGroup(
 export function parseCitation(citation: string): ParsedCitation | null {
   if (typeof citation !== "string") return null;
   const raw = citation;
-  const text = citation.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim().replace(PREFIX_RE, "");
+  const text = citation
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(PREFIX_RE, "");
   if (text.length === 0) return null;
 
   const alternatives: CitationAlternative[] = [];
   let book: BookCode | null = null;
   for (const altText of text.split(/\s+or\s+/)) {
     const segments: CitationSegment[] = [];
-    for (const groupText of altText.split(";")) {
-      const group = parseGroup(groupText, book);
-      if (!group) return null;
-      book = group.book;
-      segments.push(...group.segments);
+    for (const referenceText of altText.split(AND_BOOK_RE)) {
+      for (const groupText of referenceText.split(";")) {
+        const group = parseGroup(groupText, book);
+        if (!group) return null;
+        book = group.book;
+        segments.push(...group.segments);
+      }
     }
     if (segments.length === 0) return null;
     alternatives.push({ segments });

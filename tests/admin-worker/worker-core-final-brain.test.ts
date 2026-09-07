@@ -49,7 +49,8 @@ describe("degraded-mode log throttle", () => {
     const second = (create.mock.calls[1] as unknown[])[0] as {
       data: { message: string; safeMetadata: { suppressedRepeats: number } };
     };
-    expect(second.data.message).toMatch(/repeated 2×/);
+    // 4th occurrence = the 3rd repeat since the first row; 2 rows were swallowed.
+    expect(second.data.message).toMatch(/repeated 3×/);
     expect(second.data.safeMetadata.suppressedRepeats).toBe(2);
   });
 });

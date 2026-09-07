@@ -203,7 +203,10 @@ async function probePublicPage(
       return { result: "FAIL", error: `HTTP ${res.status}` };
     }
     if (klass === "unverified") {
-      return { result: "WARN", error: `HTTP ${res.status} (unverified — not evidence about the page)` };
+      return {
+        result: "WARN",
+        error: `HTTP ${res.status} (unverified — not evidence about the page)`,
+      };
     }
     const body = await res.text();
     if (!bodyContainsTitle(body, expectedTitle)) {
@@ -247,7 +250,10 @@ async function probeSitemap(origin: string, slugPath: string): Promise<ProbeOutc
     }
     return { result: "WARN", error: "route not listed in /sitemap.xml yet" };
   } catch (err) {
-    return { result: "WARN", error: `sitemap unreachable: ${err instanceof Error ? err.message : String(err)}` };
+    return {
+      result: "WARN",
+      error: `sitemap unreachable: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 }
 
@@ -264,7 +270,10 @@ async function probeSearch(origin: string, title: string, slug: string): Promise
     if (hits.some((h) => h?.slug === slug)) return { result: "PASS" };
     return { result: "WARN", error: "public search did not suggest the item for its title" };
   } catch (err) {
-    return { result: "WARN", error: `search unreachable: ${err instanceof Error ? err.message : String(err)}` };
+    return {
+      result: "WARN",
+      error: `search unreachable: ${err instanceof Error ? err.message : String(err)}`,
+    };
   }
 }
 
@@ -349,7 +358,12 @@ export async function verifyPublished(
     search = { result: "WARN", error: "origin not configured" };
   } else {
     const origin = publicOrigin();
-    probe = await probePublicPage(publicUrl, input.expectedTitle, input.slug, input.expectedBodyMarker);
+    probe = await probePublicPage(
+      publicUrl,
+      input.expectedTitle,
+      input.slug,
+      input.expectedBodyMarker,
+    );
     [sitemap, search] = await Promise.all([
       probeSitemap(origin, route.slugPath),
       probeSearch(origin, input.expectedTitle, input.slug),

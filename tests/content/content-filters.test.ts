@@ -68,20 +68,48 @@ describe("Saint categories", () => {
 });
 
 describe("Guide categories", () => {
-  it("surfaces chaplets (the Divine Mercy Chaplet) under Chaplets", () => {
-    expect(keyFor(GUIDE_FILTERS, item({ kind: "chaplet" }))).toBe("chaplets");
+  it("surfaces the Rosary and chaplets (the Divine Mercy Chaplet) under Rosary & Chaplets", () => {
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "chaplet" }))).toBe("rosary-chaplets");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "rosary" }))).toBe("rosary-chaplets");
     expect(
       keyFor(GUIDE_FILTERS, item({ kind: "general", title: "Divine Mercy Chaplet guide" })),
-    ).toBe("chaplets");
+    ).toBe("rosary-chaplets");
   });
-  it("routes other kinds correctly", () => {
-    expect(keyFor(GUIDE_FILTERS, item({ kind: "rosary" }))).toBe("rosary");
-    expect(keyFor(GUIDE_FILTERS, item({ kind: "confession" }))).toBe("sacramental");
-    expect(keyFor(GUIDE_FILTERS, item({ kind: "consecration" }))).toBe("sacramental");
+  it("derives chips from kind + sacramentKey + category", () => {
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "confession" }))).toBe("confession");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "general", sacramentKey: "reconciliation" }))).toBe(
+      "confession",
+    );
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "adoration" }))).toBe("eucharist");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "general", sacramentKey: "eucharist" }))).toBe(
+      "eucharist",
+    );
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "general", category: "liturgy" }))).toBe("liturgy");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "mass" }))).toBe("liturgy");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "general", sacramentKey: "baptism" }))).toBe(
+      "sacraments",
+    );
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "consecration" }))).toBe("devotions");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "general", category: "devotion" }))).toBe(
+      "devotions",
+    );
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "advent_preparation" }))).toBe("seasons");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "lent_preparation" }))).toBe("seasons");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "general", category: "season" }))).toBe("seasons");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "rcia" }))).toBe("becoming-catholic");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "ocia" }))).toBe("becoming-catholic");
     expect(keyFor(GUIDE_FILTERS, item({ kind: "discernment" }))).toBe("discernment");
-    expect(keyFor(GUIDE_FILTERS, item({ kind: "advent_preparation" }))).toBe("seasonal");
-    expect(keyFor(GUIDE_FILTERS, item({ kind: "rcia" }))).toBe("rcia");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "vocation" }))).toBe("discernment");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "general", category: "family" }))).toBe("family");
+    expect(keyFor(GUIDE_FILTERS, item({ kind: "funeral" }))).toBe("family");
     expect(keyFor(GUIDE_FILTERS, item({ kind: "general" }))).toBe("general");
+  });
+  it("puts every guide of the curated catalogue under exactly one chip besides All", () => {
+    const kinds = ["rosary", "chaplet", "confession", "adoration", "consecration", "general"];
+    for (const kind of kinds) {
+      const matches = GUIDE_FILTERS.filter((f) => f.key !== "all" && f.matches({ kind }));
+      expect(matches.length, kind).toBe(1);
+    }
   });
 });
 

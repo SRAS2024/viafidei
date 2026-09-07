@@ -5,27 +5,26 @@
  * Keyed on the `lectionaryKey` produced by `resolveLiturgicalDay` (General
  * Roman Calendar), so a finite table serves every year automatically. Each
  * entry lists the day's readings in proclamation order with their citations;
- * the Scripture text is the public-domain Douay-Rheims (Challoner), vendored
- * per-citation in `dra-passages.json`.
+ * the Scripture text is the public-domain Douay-Rheims (Challoner), resolved
+ * per citation from the vendored store by `resolveDouayPassage`
+ * (./bible/dra.ts), which maps the lectionary's modern chapter:verse
+ * numbering onto the Vulgate numbering with a verified alignment table.
  *
  * Accuracy posture (agreed with the site owner): citations are encoded
  * best-effort and every reading page shows the official source link for
  * verification. Any day NOT in this table resolves to null and the caller
  * falls back to the official link — a reading is never fabricated or shown
- * half-wrong. The table is designed to grow: add a lectionaryKey entry (and
- * vendor its passages) and that day is covered for all years at once.
- *
- * NOTE on Psalms: the lectionary cites the Responsorial Psalm in modern
- * (Masoretic) numbering, but the Douay-Rheims uses the Vulgate/Septuagint
- * numbering (lectionary "Ps 98" = DRA "Ps 97"), with intra-psalm verse
- * offsets too. To avoid showing a subtly wrong psalm, seed psalms carry the
- * citation only (text from the source link) until an authoritative,
- * lectionary-aligned psalm source is wired in. `vulgatePsalmNumber` is
- * provided for that future work.
+ * half-wrong. Likewise a citation the resolver cannot align with certainty
+ * (see the alignment policy in ./bible/README.md) carries its citation only
+ * (`body: null`), never a shifted passage. The table is designed to grow: add
+ * a lectionaryKey entry and that day is covered for all years at once.
  */
 
+import { vulgatePsalmNumber } from "./bible/alignment";
+import { resolveDouayPassage } from "./bible/dra";
 import type { ReadingKind, ReadingSection } from "./daily-readings";
-import draPassages from "./dra-passages.json";
+
+export { vulgatePsalmNumber };
 
 interface ReadingSpec {
   kind: ReadingKind;
@@ -33,31 +32,11 @@ interface ReadingSpec {
   citation: string;
 }
 
-const PASSAGES = draPassages as Record<string, { translation: string; text: string }>;
-
-/**
- * Map a modern (Masoretic) psalm number to its Douay-Rheims (Vulgate) number.
- * The two numbering systems diverge because the Vulgate merges Pss 9–10 and
- * 114–115 and splits 116 and 147. Intra-psalm verse numbers still differ, so
- * this is necessary but not sufficient for exact verse selections — hence the
- * seed shows psalms by citation only.
- */
-export function vulgatePsalmNumber(masoretic: number): number {
-  if (masoretic <= 8) return masoretic;
-  if (masoretic === 9 || masoretic === 10) return 9; // Masoretic 9–10 = Vulgate 9
-  if (masoretic <= 113) return masoretic - 1; // 11–113 → 10–112
-  if (masoretic === 114 || masoretic === 115) return 113; // merged
-  if (masoretic === 116) return 114; // split (114–115); first part
-  if (masoretic <= 146) return masoretic - 1; // 117–146 → 116–145
-  if (masoretic === 147) return 146; // split (146–147); first part
-  return masoretic; // 148–150 align
-}
-
 /**
  * The lectionary table, keyed by `lectionaryKey`. Seeded with principal
- * solemnities whose readings are stable across the Sunday cycle; the text for
- * the First/Second/Gospel is vendored (Douay-Rheims), the Psalm carries its
- * citation (see the Psalm note above). Expand by adding entries + passages.
+ * solemnities whose readings are stable across the Sunday cycle. Every
+ * section's text (including the Responsorial Psalm, in Vulgate numbering) is
+ * resolved from the Douay-Rheims store at call time. Expand by adding entries.
  */
 const LECTIONARY: Record<string, ReadingSpec[]> = {
   nativity: [
@@ -136,8 +115,9 @@ export interface ResolvedReadings {
 
 /**
  * Resolve the readings for a liturgical day. Returns the ordered sections
- * (citation always set; body set when the Douay-Rheims text is vendored), or
- * null when the day isn't in the table yet (caller falls back to the link).
+ * (citation always set; body set when the Douay-Rheims text resolves with a
+ * verified alignment), or null when the day isn't in the table yet (caller
+ * falls back to the link).
  *
  * Cycle-aware: Sundays/solemnities whose readings vary by year are keyed
  * `${lectionaryKey}|${cycle}` (e.g. "ordinary-2-sunday|C"); a cycle-independent
@@ -155,7 +135,7 @@ export function resolveReadings(
     kind: s.kind,
     label: s.label,
     citation: s.citation,
-    body: PASSAGES[s.citation]?.text ?? null,
+    body: resolveDouayPassage(s.citation).text,
   }));
   const withText = sections.filter((s) => typeof s.body === "string" && s.body.length > 0).length;
   return { sections, confidence: withText / sections.length };

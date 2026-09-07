@@ -132,7 +132,9 @@ export async function runAdminWorkerLoop(
   );
   // While the Python brain is degraded no content lane can run, so idling
   // faster than this just multiplies the (throttled) degraded-mode log rows.
-  const degradedFloorMs = Math.min(idleBackoffMaxMs, Math.max(idleBackoffStartMs, 30_000));
+  // An explicit 0 (tests / manual runs) disables the floor along with the rest.
+  const degradedFloorMs =
+    idleBackoffStartMs > 0 ? Math.min(idleBackoffMaxMs, Math.max(idleBackoffStartMs, 30_000)) : 0;
   let idleBackoffMs = idleBackoffStartMs;
 
   // Enable outbound egress through a proxy when the deployment provides one

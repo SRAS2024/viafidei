@@ -20,8 +20,12 @@ describe("rite content type", () => {
   });
 
   it("seeds one record per recognized Catholic rite", () => {
-    expect(ritesChecklist).toHaveLength(CATHOLIC_RITES.length);
+    // Derived from the curated rites: every canonical rite key plus the Latin
+    // uses (Ambrosian, Mozarabic) that are curated as well.
+    expect(ritesChecklist.length).toBeGreaterThanOrEqual(CATHOLIC_RITES.length);
     expect(ritesChecklist.every((r) => typeof r.metadata?.riteKey === "string")).toBe(true);
+    const keys = new Set(ritesChecklist.map((r) => r.metadata?.riteKey));
+    for (const rite of CATHOLIC_RITES) expect(keys.has(rite), rite).toBe(true);
   });
 
   it("extracts the rite name and a history section", () => {

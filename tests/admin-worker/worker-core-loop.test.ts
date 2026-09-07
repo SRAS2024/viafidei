@@ -94,11 +94,24 @@ function makePrisma(opts: { paused?: boolean; stateDelayMs?: number; goalRows?: 
     },
     postPublishVerification: { findMany: vi.fn(async () => []) },
     contentGoal: {
-      findMany: vi.fn(async () => []),
+      // One goal row so the refresh actually runs (an empty table returns early).
+      findMany: vi.fn(async () => [
+        {
+          id: "g1",
+          contentType: "PRAYER",
+          desiredTarget: 100,
+          canonicalMax: null,
+          currentValidCount: 0,
+          gapCount: 100,
+          status: "IN_PROGRESS",
+          priority: 10,
+        },
+      ]),
       update: vi.fn(async () => ({})),
       upsert: goalUpsert,
       count: vi.fn(async () => opts.goalRows ?? 15),
     },
+    $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[])),
     adminWorkerPass: {
       create: vi.fn(async () => ({ id: "p1", startedAt: new Date() })),
       update: passUpdate,

@@ -446,16 +446,26 @@
           (s.hostLabel || "local") + " · " + (s.runState || "off");
 
         const notices = [];
-        if (s.runState === "failed" && s.failureReason) notices.push("⚠ " + s.failureReason);
+        if ((s.runState === "failed" || s.runState === "crashed") && s.failureReason)
+          notices.push("⚠ " + s.failureReason);
         else if (s.runState === "crashed")
           notices.push(
             "⚠ The local worker exited unexpectedly and is being restarted here — execution did not move to the cloud.",
+          );
+        if (s.pendingDurableOff)
+          notices.push(
+            "⚠ Stopped locally — the database could not be reached to record OFF; it is retried until it lands.",
           );
         // Configuration provenance: a worker pointed at the wrong database (a
         // laptop .env → localhost) or at Railway's private network must be the
         // first thing on screen, not something to discover from empty growth.
         const cfg = s.config || {};
+        lastConfig = cfg;
         for (const w of cfg.warnings || []) notices.push("⚠ " + w);
+        // Snapshot cadence follows the worker: 20 s while it runs, 5 min while
+        // OFF (a snapshot is ~30 production queries over the public proxy).
+        const running = s.runState === "running" || s.runState === "starting";
+        setSnapshotCadence(running ? 20000 : 300000);
         if (
           s.browser &&
           s.browser.available === false &&
@@ -757,8 +767,14 @@
       }
 
       function renderSnapshot(s) {
+        // The database host sits next to the timestamp so local-database
+        // numbers can never be mistaken for production's.
         document.getElementById("generatedAt").textContent =
-          "snapshot " + new Date(s.generatedAt).toLocaleTimeString();
+          "snapshot " +
+          new Date(s.generatedAt).toLocaleTimeString() +
+          (s.cached ? " (cached)" : "") +
+          " · db " +
+          (lastConfig.databaseHost || "not configured");
         const grid = document.getElementById("grid");
         const cards = [];
 
@@ -1385,9 +1401,19 @@
         pre.scrollTop = pre.scrollHeight;
       }
 
-      async function loadSnapshot() {
+      let lastConfig = {};
+      let snapshotIntervalMs = 20000;
+      let snapshotTimer = null;
+      function setSnapshotCadence(ms) {
+        if (ms === snapshotIntervalMs && snapshotTimer) return;
+        snapshotIntervalMs = ms;
+        clearInterval(snapshotTimer);
+        snapshotTimer = setInterval(loadSnapshot, snapshotIntervalMs);
+      }
+
+      async function loadSnapshot(forceRefresh) {
         try {
-          const res = await api("/api/snapshot");
+          const res = await api("/api/snapshot" + (forceRefresh === true ? "?refresh=1" : ""));
           if (!res.ok) throw new Error("status " + res.status);
           renderSnapshot(await res.json());
         } catch (err) {
@@ -1406,11 +1432,25 @@
 
       document.getElementById("refresh").addEventListener("click", () => {
         loadStatus();
-        loadSnapshot();
+        loadSnapshot(true);
       });
 
+      // Status arrives on the SSE stream every 2 s (with the durable
+      // switch/lease state the host caches); polling /api/status is only a
+      // fallback while the stream is down, and slow, so an open console with
+      // the worker OFF costs the database almost nothing.
+      let statusFallback = null;
       const events = new EventSource("/api/events?token=" + TOKEN);
-      events.addEventListener("status", (e) => renderStatus(JSON.parse(e.data)));
+      events.addEventListener("status", (e) => {
+        renderStatus(JSON.parse(e.data));
+        if (statusFallback) {
+          clearInterval(statusFallback);
+          statusFallback = null;
+        }
+      });
+      events.addEventListener("error", () => {
+        if (!statusFallback) statusFallback = setInterval(loadStatus, 15000);
+      });
       events.addEventListener("log", (e) => {
         liveLines.push(JSON.parse(e.data));
         paintLiveLog();
@@ -1426,8 +1466,7 @@
           paintLiveLog();
         })
         .catch(() => {});
-      setInterval(loadStatus, 4000);
-      setInterval(loadSnapshot, 20000);
+      setSnapshotCadence(20000);
     </script>
   </body>
 </html>

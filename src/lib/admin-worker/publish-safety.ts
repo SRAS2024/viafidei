@@ -82,11 +82,23 @@ function endsWithInstitutionSuffix(title: string): boolean {
   return false;
 }
 
-function looksIncomplete(text: string | undefined): boolean {
+/**
+ * A prayer body is "incomplete" when it is missing, a placeholder, or a
+ * fragment. Short is not the same as incomplete — the Church's aspirations
+ * ("Jesus, I trust in You.") are a few words — so a short text only counts as
+ * a fragment when it has fewer than four words or trails off without any
+ * sentence punctuation.
+ */
+export function looksIncomplete(text: string | undefined): boolean {
   if (!text) return true;
   const trimmed = text.trim();
-  if (trimmed.length < 40) return true;
-  if (/^\s*(prayer\s+text|tbd|todo|coming soon|placeholder)\s*\.?$/i.test(trimmed)) return true;
+  if (!trimmed) return true;
+  if (/^\s*(prayer\s+text|tbd|todo|coming soon|placeholder|lorem ipsum.*)\s*\.?$/i.test(trimmed)) {
+    return true;
+  }
+  const words = trimmed.split(/\s+/).filter(Boolean).length;
+  if (words < 4) return true;
+  if (trimmed.length < 40 && !/[.!?…]["')\]]?$/.test(trimmed)) return true;
   return false;
 }
 

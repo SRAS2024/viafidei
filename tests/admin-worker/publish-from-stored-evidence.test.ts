@@ -104,7 +104,9 @@ describe("publish derives ContentQualityScore from strict-QA dimensions (spec §
       contentId: "ci-1",
       title: "Our Father",
       slug: "our-father",
-      payload: { prayerText: "Amen." } as never,
+      payload: {
+        prayerText: "Our Father, who art in heaven, hallowed be Thy name. Amen.",
+      } as never,
       authorityLevel: "VATICAN",
       finalScore: 0.92,
       qaPassed: true,

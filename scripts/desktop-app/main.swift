@@ -307,6 +307,9 @@ final class ControlClient {
             var detail: String?
             if let data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 detail = json["detail"] as? String ?? json["error"] as? String
+                // A 200 with the durable write pending carries `detail`; a plain
+                // success has none — keep it that way so the caller can tell.
+                if code == 200, json["durableSwitchWrite"] as? Bool != false { detail = nil }
             }
             DispatchQueue.main.async {
                 completion(code == 200 && error == nil, detail ?? error?.localizedDescription)
@@ -426,9 +429,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     var handshakeWatchdog: Timer?
     var dashboardURL: URL?
     var pendingSwitchOn = false
-    /// The last refusal / failure worth keeping on screen. The 3-second status
-    /// poll would otherwise overwrite the only explanation the operator gets.
+    /// The last refusal / failure worth keeping on screen. The status poll
+    /// would otherwise overwrite the only explanation the operator gets.
     var stickyError: String?
+    /// Blocking configuration problems are shown as a modal alert ONCE per
+    /// launch (keyed by reason), then stay in the config label.
+    var alertedBlockingReasons = Set<String>()
+    /// Current status-poll cadence: 3 s while the worker runs, 15 s while it is
+    /// OFF — the poll costs two production round-trips over the public proxy.
+    var pollInterval: TimeInterval = 3
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildWindow()
@@ -438,7 +447,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
-        statusTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+        schedulePolling(every: 3)
+    }
+
+    private func schedulePolling(every interval: TimeInterval) {
+        if statusTimer != nil && pollInterval == interval { return }
+        pollInterval = interval
+        statusTimer?.invalidate()
+        statusTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.pollStatus()
         }
     }
@@ -464,22 +480,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         bar.addSubview(pill)
 
         statusLabel = NSTextField(labelWithString: "Admin Worker OFF")
-        statusLabel.frame = NSRect(x: 102, y: 34, width: 700, height: 16)
+        statusLabel.frame = NSRect(x: 102, y: 42, width: 700, height: 16)
         statusLabel.font = NSFont.systemFont(ofSize: 12, weight: .medium)
         statusLabel.textColor = NSColor(calibratedWhite: 0.95, alpha: 1)
         bar.addSubview(statusLabel)
 
         resourceLabel = NSTextField(labelWithString: "local runtime not started")
-        resourceLabel.frame = NSRect(x: 102, y: 16, width: 700, height: 14)
+        resourceLabel.frame = NSRect(x: 102, y: 28, width: 700, height: 13)
         resourceLabel.font = NSFont.monospacedSystemFont(ofSize: 10, weight: .regular)
         resourceLabel.textColor = NSColor(calibratedWhite: 0.62, alpha: 1)
         bar.addSubview(resourceLabel)
 
-        configLabel = NSTextField(labelWithString: "config: resolving…")
-        configLabel.frame = NSRect(x: 102, y: -4, width: 700, height: 13)
+        // Two lines, fully inside the bar (it used to sit at y -4, partly
+        // clipped, one truncated line): a wrong database must be readable.
+        configLabel = NSTextField(wrappingLabelWithString: "config: resolving…")
+        configLabel.frame = NSRect(x: 102, y: 2, width: 780, height: 25)
+        configLabel.autoresizingMask = [.width]
         configLabel.font = NSFont.monospacedSystemFont(ofSize: 9.5, weight: .regular)
         configLabel.textColor = NSColor(calibratedWhite: 0.62, alpha: 1)
+        configLabel.maximumNumberOfLines = 2
         configLabel.lineBreakMode = .byTruncatingTail
+        configLabel.isSelectable = true
         bar.addSubview(configLabel)
 
         segmented = NSSegmentedControl(labels: ["Admin Worker", "Standard Site", "Admin Site"],
@@ -580,10 +601,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
                 ?? "Local runtime stopped (exit \(code)). The website is unaffected."
             self.resourceLabel.stringValue = "no local worker · no cloud fallback"
         }
+        runtime.onLauncherNotice = { [weak self] notice in
+            guard let self else { return }
+            var parts = ["config: " + (notice.source.isEmpty ? "resolving" : notice.source)]
+            if !notice.environment.isEmpty { parts.append("env " + notice.environment) }
+            if !notice.service.isEmpty { parts.append("service " + notice.service) }
+            if !notice.databaseHost.isEmpty { parts.append("db " + notice.databaseHost) }
+            if !notice.route.isEmpty { parts.append("via " + notice.route) }
+            self.configLabel.stringValue = parts.joined(separator: " · ")
+            if notice.level == "error" {
+                // The launcher could not configure the runtime (Railway not
+                // linked, a loopback .env refused, …). Say so now, in the UI,
+                // rather than letting the operator diagnose a Node problem.
+                self.stickyError = notice.message
+                self.statusLabel.stringValue = notice.message
+                self.configLabel.stringValue = "⚠ " + notice.message
+                self.configLabel.textColor = NSColor(calibratedRed: 0.88, green: 0.6, blue: 0.24, alpha: 1)
+                self.alertBlocking(reason: "launcher", body: notice.message)
+            } else if notice.level == "warn" {
+                self.configLabel.stringValue = "⚠ " + notice.message
+                self.configLabel.textColor = NSColor(calibratedRed: 0.88, green: 0.6, blue: 0.24, alpha: 1)
+            }
+            FileHandle.standardError.write(Data(("[launcher] " + notice.message + "\n").utf8))
+        }
         runtime.onLog = { line in
             // Host/worker output is shown live inside the command center; keep a
             // copy on the app's stderr for `Console.app`-style debugging.
             FileHandle.standardError.write(Data((line + "\n").utf8))
+        }
+    }
+
+    /// Modal alert for a blocking configuration problem, once per reason per
+    /// launch, and bring the Admin Worker tab forward so the notice strip that
+    /// repeats it is visible.
+    private func alertBlocking(reason: String, body: String) {
+        guard !alertedBlockingReasons.contains(reason) else { return }
+        alertedBlockingReasons.insert(reason)
+        segmented.selectedSegment = 0
+        showAdminWorker()
+        DispatchQueue.main.async { [weak self] in
+            self?.notify("The Admin Worker cannot run with this configuration", body)
         }
     }
 
@@ -645,9 +702,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             if ok {
                 self.stickyError = nil
                 self.pill.isOn = on
-                self.statusLabel.stringValue = on
-                    ? "Admin Worker ON — executing on this computer"
-                    : "Admin Worker OFF — no local workload, no cloud fallback"
+                if !on, let detail {
+                    // Stopped locally, but the database could not record OFF
+                    // yet; the host retries until it lands.
+                    self.stickyError = detail
+                    self.statusLabel.stringValue = detail
+                } else {
+                    self.statusLabel.stringValue = on
+                        ? "Admin Worker ON — executing on this computer"
+                        : "Admin Worker OFF — no local workload, no cloud fallback"
+                }
             } else {
                 self.pill.isOn = !on
                 self.stickyError = "Switch refused: \(detail ?? "unknown error")"
@@ -728,9 +792,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
 
             let failureReason = json["failureReason"] as? String
             if let failureReason { self.stickyError = failureReason }
+            if json["pendingDurableOff"] as? Bool == true {
+                self.stickyError = "Stopped locally — waiting for the database to record OFF."
+            } else if runState == "off", self.stickyError?.hasPrefix("Stopped locally") == true {
+                self.stickyError = nil
+            }
             let label = execution?["label"] as? String ?? "Admin Worker status unknown"
             self.statusLabel.stringValue = self.stickyError ?? label
             if runState == "failed" || runState == "crashed" { self.pill.isOn = false }
+
+            // The worker tree's process group, for a last-resort kill on quit.
+            if let child = json["child"] as? [String: Any], let pgid = child["pgid"] as? Int {
+                self.runtime.workerProcessGroup = pid_t(pgid)
+            } else {
+                self.runtime.workerProcessGroup = 0
+            }
+            // Poll slowly while OFF: this is monitoring, not work, and every
+            // poll is a production round-trip over the public proxy.
+            self.schedulePolling(every: runState == "running" || runState == "starting" ? 3 : 15)
 
             let resources = json["resources"] as? [String: Any] ?? [:]
             let worker = json["worker"] as? [String: Any]
@@ -757,14 +836,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
                 let source = config["source"] as? String ?? "unknown"
                 let db = config["databaseHost"] as? String ?? "not configured"
                 let warnings = (config["warnings"] as? [String]) ?? []
-                self.configLabel.stringValue =
-                    "config: \(source) · db \(db)"
-                    + ((config["publicBaseUrl"] as? String).map { " · verifying \($0)" } ?? "")
-                if let first = warnings.first {
-                    self.configLabel.stringValue = "⚠ " + first
-                    self.configLabel.textColor = NSColor(calibratedRed: 0.88, green: 0.6, blue: 0.24, alpha: 1)
-                } else {
+                let route = config["route"] as? String ?? ""
+                let environment = config["railwayEnvironment"] as? String
+                var summary = "config: \(source) · db \(db)"
+                if !route.isEmpty && route != "unknown" { summary += " · via \(route)" }
+                if let environment { summary += " · env \(environment)" }
+                if let verifying = config["publicBaseUrl"] as? String { summary += " · verifying \(verifying)" }
+                if warnings.isEmpty {
+                    self.configLabel.stringValue = summary
                     self.configLabel.textColor = NSColor(calibratedWhite: 0.62, alpha: 1)
+                } else {
+                    // All of them, not just the first: "LOCAL database" and
+                    // "PUBLIC_BASE_URL unset" are both worth reading.
+                    self.configLabel.stringValue = "⚠ " + warnings.joined(separator: " · ")
+                    self.configLabel.textColor = NSColor(calibratedRed: 0.88, green: 0.6, blue: 0.24, alpha: 1)
+                }
+                // The launcher's own error alert already covers a host that
+                // started with no database; do not alert twice for one problem.
+                if let blocking = config["blockingReason"] as? String, !blocking.isEmpty,
+                   !self.alertedBlockingReasons.contains("launcher") {
+                    self.alertBlocking(reason: blocking, body: warnings.joined(separator: "\n\n"))
                 }
             }
             let render = (browser["available"] as? Bool ?? false)

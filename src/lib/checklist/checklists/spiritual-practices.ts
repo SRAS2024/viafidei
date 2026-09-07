@@ -1,72 +1,12 @@
 import type { ChecklistSeed } from "./index";
+import { curatedChecklist } from "./from-curated";
 
-export const spiritualPracticesChecklist: ChecklistSeed[] = [
-  {
-    canonicalName: "Ignatian Examen",
-    canonicalSlug: "ignatian-examen",
-    priority: 10,
-    authorityLevelHint: "RELIGIOUS_ORDER",
-  },
-  {
-    canonicalName: "Lectio Divina",
-    canonicalSlug: "lectio-divina",
-    priority: 10,
-    authorityLevelHint: "RELIGIOUS_ORDER",
-  },
-  {
-    canonicalName: "Contemplative Prayer",
-    canonicalSlug: "contemplative-prayer",
-    priority: 15,
-    authorityLevelHint: "CATECHISM",
-  },
-  {
-    canonicalName: "Meditation (Mental Prayer)",
-    canonicalSlug: "mental-prayer",
-    priority: 15,
-    authorityLevelHint: "CATECHISM",
-  },
-  {
-    canonicalName: "Fasting",
-    canonicalSlug: "fasting",
-    priority: 20,
-    authorityLevelHint: "CATECHISM",
-  },
-  {
-    canonicalName: "Almsgiving",
-    canonicalSlug: "almsgiving",
-    priority: 20,
-    authorityLevelHint: "CATECHISM",
-  },
-  {
-    canonicalName: "Pilgrimage",
-    canonicalSlug: "pilgrimage",
-    priority: 25,
-    authorityLevelHint: "USCCB",
-  },
-  {
-    canonicalName: "Stations of the Cross (Practice)",
-    canonicalSlug: "stations-of-the-cross-practice",
-    priority: 20,
-    authorityLevelHint: "VATICAN",
-  },
-  {
-    canonicalName: "Spiritual Direction",
-    canonicalSlug: "spiritual-direction",
-    priority: 25,
-    authorityLevelHint: "USCCB",
-  },
-  {
-    canonicalName: "Discernment of Spirits",
-    canonicalSlug: "discernment-of-spirits",
-    priority: 30,
-    authorityLevelHint: "RELIGIOUS_ORDER",
-  },
-  {
-    canonicalName: "Mortification",
-    canonicalSlug: "mortification",
-    priority: 35,
-    authorityLevelHint: "CATECHISM",
-  },
+/**
+ * Spiritual practices intentionally not curated yet (the authoring backlog).
+ * The Stations and the Holy Hour are NOT listed: their canonical home is the
+ * DEVOTION type (stations-of-the-cross, holy-hour) and their how-to is a GUIDE.
+ */
+export const spiritualPracticesExtras: ChecklistSeed[] = [
   {
     canonicalName: "Vocational Discernment",
     canonicalSlug: "vocational-discernment",
@@ -74,3 +14,13 @@ export const spiritualPracticesChecklist: ChecklistSeed[] = [
     authorityLevelHint: "USCCB",
   },
 ];
+
+/** Every curated practice (knowledge/spiritual-practices.ts) plus the extras above. */
+export const spiritualPracticesChecklist: ChecklistSeed[] = curatedChecklist("SPIRITUAL_PRACTICE", {
+  metadataFields: ["practiceKind", "tradition"],
+  overrides: {
+    "mental-prayer": { aliases: ["Meditation"] },
+    "christian-mortification": { aliases: ["Mortification"] },
+  },
+  extras: spiritualPracticesExtras,
+});

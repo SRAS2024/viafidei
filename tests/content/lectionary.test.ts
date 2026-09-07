@@ -1,8 +1,9 @@
 /**
  * Lectionary resolver — proves the worker assembles each covered day's
- * readings deterministically, in proclamation order, with vendored
- * Douay-Rheims text, and falls back (null) for days not yet encoded so the
- * caller shows the official link instead of a fabricated reading.
+ * readings deterministically, in proclamation order, with Douay-Rheims text
+ * resolved from the vendored store (bible/dra.ts), and falls back (null) for
+ * days not yet encoded so the caller shows the official link instead of a
+ * fabricated reading.
  */
 
 import { describe, expect, it } from "vitest";
@@ -33,15 +34,19 @@ describe("resolveReadings", () => {
     expect(gospel.body).toMatch(/Magdalen/);
   });
 
-  it("carries the Psalm by citation (text deferred to avoid Vulgate-numbering error)", () => {
+  it("resolves the Psalm through the Vulgate-numbering aligner (Ps 98 = DRA Ps 97)", () => {
     const psalm = resolveReadings("nativity")!.sections.find((s) => s.kind === "PSALM")!;
     expect(psalm.citation).toBe("Psalm 98:1-6");
-    expect(psalm.body).toBeNull();
+    expect(psalm.body).toMatch(/Sing ye to the Lord/);
+    expect(psalm.body).toMatch(/all the ends of the earth have seen the salvation of our God/i);
   });
 
   it("reports confidence as the share of readings with verified text", () => {
-    // 3 of 4 sections (First/Second/Gospel) carry text; the Psalm does not.
-    expect(resolveReadings("pentecost")!.confidence).toBeCloseTo(0.75, 5);
+    // All four sections (First/Psalm/Second/Gospel) now carry verified text.
+    expect(resolveReadings("pentecost")!.confidence).toBe(1);
+    for (const key of coveredLectionaryKeys()) {
+      expect(resolveReadings(key)!.confidence, key).toBe(1);
+    }
   });
 
   it("returns null for a day not yet in the table (caller falls back to the link)", () => {

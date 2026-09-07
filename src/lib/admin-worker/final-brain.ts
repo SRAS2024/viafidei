@@ -91,7 +91,10 @@ async function logBrainEvent(
     seen.count += 1;
     if (now - seen.lastLoggedAt < DEGRADED_LOG_WINDOW_MS) return;
   }
+  // Occurrences since the last written row (this one included) vs the rows
+  // that were actually swallowed.
   const repeats = seen ? seen.count - 1 : 0;
+  const suppressed = Math.max(0, repeats - 1);
   _throttle.set(key, { count: 1, lastLoggedAt: now });
   await writeAdminWorkerLog(prisma, {
     passId: passId ?? null,
@@ -99,7 +102,7 @@ async function logBrainEvent(
     severity: "WARN",
     eventName,
     message: repeats > 0 ? `${message} (repeated ${repeats}× since the last report)` : message,
-    safeMetadata: { ...metadata, finalBrain: "python", suppressedRepeats: repeats },
+    safeMetadata: { ...metadata, finalBrain: "python", suppressedRepeats: suppressed },
   }).catch(() => undefined);
 }
 

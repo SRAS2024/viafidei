@@ -263,7 +263,7 @@ describe("runLoopSupervised", () => {
         sleepImpl: async () => undefined,
         errorLog: () => undefined,
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ stopReason: null });
     expect(calls).toBe(2);
   });
 

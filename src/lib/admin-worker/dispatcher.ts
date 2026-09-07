@@ -2136,7 +2136,9 @@ export async function runPersistAndPublish(
                 ? "repair-planned"
                 : "rejected",
       summary: `Publish orchestrator: ${result.kind} (${result.reason})${
-        result.kind === "review" && reviewRouted !== "terminal" ? ` → autonomous ${reviewRouted}` : ""
+        result.kind === "review" && reviewRouted !== "terminal"
+          ? ` → autonomous ${reviewRouted}`
+          : ""
       }.`,
       built: result.kind === "published" ? 1 : 0,
       published: result.kind === "published" ? 1 : 0,
@@ -2218,7 +2220,9 @@ async function routeReviewOutcome(
     reason: input.reason,
   });
   if (!budget.allowed) {
-    await park(`${input.reason} [retry budget spent after ${budget.attempts - 1} autonomous attempts]`);
+    await park(
+      `${input.reason} [retry budget spent after ${budget.attempts - 1} autonomous attempts]`,
+    );
     return "terminal";
   }
 

@@ -72,9 +72,9 @@ describe("buildCoverageModel", () => {
   });
 
   it("never invents missing targets for types with no declared subtypes", () => {
-    // SACRAMENT has no subtypes in the catalog.
-    const model = buildCoverageModel([{ contentType: "SACRAMENT", subtype: null, count: 7 }]);
-    expect(model.prioritizedMissing.some((t) => t.contentType === "SACRAMENT")).toBe(false);
+    // CREED has no subtypes in the catalog.
+    const model = buildCoverageModel([{ contentType: "CREED", subtype: null, count: 3 }]);
+    expect(model.prioritizedMissing.some((t) => t.contentType === "CREED")).toBe(false);
   });
 });
 

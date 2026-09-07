@@ -20,10 +20,7 @@
  *     a decree, or an under-review apparition as approved.
  */
 
-import {
-  MARIAN_DOGMA_YEARS,
-  deriveRiteEntryKind,
-} from "@/lib/content-shared/content-subtitle";
+import { MARIAN_DOGMA_YEARS, deriveRiteEntryKind } from "@/lib/content-shared/content-subtitle";
 import { CONTENT_TYPE_CATALOG } from "./skills/catalog";
 
 /** Catalog subtypes for a content-type name (the 15 enum types align by name). */

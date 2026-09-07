@@ -142,16 +142,23 @@ describe("publish gate — specialist panel wiring", () => {
     expect(panelState.lastInput?.citationCount).toBeGreaterThanOrEqual(1);
   });
 
-  it("still counts genuinely-uncited content as 0 citations", async () => {
-    // No citations array, no payload source, no field provenance → the panel
-    // legitimately sees 0 and can still object. (Safety intent preserved.)
+  it("blocks genuinely-uncited content at the deterministic safety gate before the panel", async () => {
+    // No citations array, no payload source, no field provenance → the
+    // publish-safety blocker (`no_source_evidence`) refuses it up front, so the
+    // panel is never consulted for uncited content. (Safety intent preserved —
+    // and no brain round-trip is spent on something that cannot publish.)
     panelState.decision = "proceed";
     panelState.lastInput = null;
-    await runPublishOrchestrator(makePrisma(), {
+    const result = await runPublishOrchestrator(makePrisma(), {
       ...INPUT,
       payload: { prayerText: "Some text with no provenance at all." },
       hasSourceEvidence: false,
     });
-    expect(panelState.lastInput?.citationCount).toBe(0);
+    expect(result.kind).toBe("blocked");
+    if (result.kind === "blocked") {
+      expect(result.blockedBy).toBe("safety");
+      expect(result.reason).toContain("no_source_evidence");
+    }
+    expect(panelState.lastInput).toBeNull();
   });
 });

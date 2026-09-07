@@ -1,30 +1,15 @@
 import type { ChecklistSeed } from "./index";
-import { CATHOLIC_RITES } from "@/lib/content-shared/rites";
+import { curatedChecklist } from "./from-curated";
 
-const RITE_NAMES: Record<string, string> = {
-  roman: "Roman (Latin) Rite",
-  byzantine: "Byzantine Rite",
-  maronite: "Maronite Rite",
-  chaldean: "Chaldean Rite",
-  coptic: "Coptic Rite",
-  syroMalabar: "Syro-Malabar Rite",
-  syroMalankara: "Syro-Malankara Rite",
-  armenian: "Armenian Rite",
-  ethiopic: "Ethiopic (Ge'ez) Rite",
-  melkite: "Melkite Greek Rite",
-  ukrainian: "Ukrainian Greek Catholic Rite",
-  ruthenian: "Ruthenian Rite",
-};
+/** Rites intentionally not curated yet — none: every seeded rite is curated. */
+export const ritesExtras: ChecklistSeed[] = [];
 
 /**
- * Seed the recognized Catholic rites (the canonical list in
- * content-shared/rites.ts). Each becomes a rite record with a History
- * section the Admin Worker fills from approved sources.
+ * Every curated rite (knowledge/rites.ts): the twelve canonical rite keys of
+ * content-shared/rites.ts plus the Latin uses (Ambrosian, Mozarabic). Each
+ * carries `metadata.riteKey`.
  */
-export const ritesChecklist: ChecklistSeed[] = CATHOLIC_RITES.map((rite, i) => ({
-  canonicalName: RITE_NAMES[rite] ?? rite,
-  canonicalSlug: `rite-${rite.replace(/([A-Z])/g, "-$1").toLowerCase()}`,
-  priority: 10 + i,
-  authorityLevelHint: "VATICAN",
-  metadata: { riteKey: rite },
-}));
+export const ritesChecklist: ChecklistSeed[] = curatedChecklist("RITE", {
+  metadataFields: ["riteKey", "family", "entryKind"],
+  extras: ritesExtras,
+});

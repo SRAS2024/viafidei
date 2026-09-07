@@ -9,7 +9,9 @@
  * Modern names are canonical. The Douay-Rheims calls 1–2 Samuel "1–2 Kings"
  * and 1–2 Kings "3–4 Kings"; "1 Kings"/"2 Kings" therefore ALWAYS mean the
  * modern books here, and only the unambiguous "3 Kings"/"4 Kings" are
- * accepted as Douay aliases.
+ * accepted as Douay aliases. Lookups are case-insensitive and tolerate a
+ * trailing period ("Gn.", "1 Cor.", "Phil."), Roman/word ordinals ("I Cor",
+ * "First Kings") and a missing space ("1Cor").
  */
 
 export type BookCode =
@@ -227,9 +229,10 @@ const LOOKUP: Map<string, BookInfo> = (() => {
     }
     map.set(k, info);
   };
+  // USFM codes are deliberately NOT aliases: "Jud" is a common abbreviation
+  // for Judith/Judges, and a citation must never silently resolve to Jude.
   for (const info of BOOKS) {
     add(info.name, info);
-    add(info.code, info);
     if (info.douayName !== "1 Kings" && info.douayName !== "2 Kings") add(info.douayName, info);
     for (const a of info.abbreviations) add(a, info);
   }

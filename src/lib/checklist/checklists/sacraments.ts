@@ -1,56 +1,20 @@
 import type { ChecklistSeed } from "./index";
+import { curatedChecklist } from "./from-curated";
 
-export const sacramentsChecklist: ChecklistSeed[] = [
-  {
-    canonicalName: "Baptism",
-    canonicalSlug: "baptism",
-    priority: 5,
-    authorityLevelHint: "CATECHISM",
-    metadata: { sacramentKey: "baptism" },
+/** There are exactly seven sacraments — nothing is ever added here. */
+export const sacramentsExtras: ChecklistSeed[] = [];
+
+/** The seven curated sacraments (knowledge/sacraments.ts); `metadata.sacramentKey` is the key. */
+export const sacramentsChecklist: ChecklistSeed[] = curatedChecklist("SACRAMENT", {
+  metadataFields: ["sacramentKey"],
+  overrides: {
+    eucharist: { aliases: ["Holy Communion", "Mass"], priority: 5 },
+    reconciliation: { aliases: ["Confession", "Penance"], priority: 5 },
+    matrimony: { aliases: ["Marriage"], priority: 5 },
+    baptism: { priority: 5 },
+    confirmation: { priority: 5 },
+    "anointing-of-the-sick": { priority: 5 },
+    "holy-orders": { priority: 5 },
   },
-  {
-    canonicalName: "Confirmation",
-    canonicalSlug: "confirmation",
-    priority: 5,
-    authorityLevelHint: "CATECHISM",
-    metadata: { sacramentKey: "confirmation" },
-  },
-  {
-    canonicalName: "Eucharist",
-    canonicalSlug: "eucharist",
-    aliases: ["Holy Communion", "Mass"],
-    priority: 5,
-    authorityLevelHint: "CATECHISM",
-    metadata: { sacramentKey: "eucharist" },
-  },
-  {
-    canonicalName: "Reconciliation",
-    canonicalSlug: "reconciliation",
-    aliases: ["Confession", "Penance"],
-    priority: 5,
-    authorityLevelHint: "CATECHISM",
-    metadata: { sacramentKey: "reconciliation" },
-  },
-  {
-    canonicalName: "Anointing of the Sick",
-    canonicalSlug: "anointing-of-the-sick",
-    priority: 5,
-    authorityLevelHint: "CATECHISM",
-    metadata: { sacramentKey: "anointing_of_the_sick" },
-  },
-  {
-    canonicalName: "Holy Orders",
-    canonicalSlug: "holy-orders",
-    priority: 5,
-    authorityLevelHint: "CATECHISM",
-    metadata: { sacramentKey: "holy_orders" },
-  },
-  {
-    canonicalName: "Matrimony",
-    canonicalSlug: "matrimony",
-    aliases: ["Marriage"],
-    priority: 5,
-    authorityLevelHint: "CATECHISM",
-    metadata: { sacramentKey: "matrimony" },
-  },
-];
+  extras: sacramentsExtras,
+});

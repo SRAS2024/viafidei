@@ -756,12 +756,21 @@ async function executePlan(
         skipNetwork: process.env.ADMIN_WORKER_SKIP_NETWORK === "1",
       }).catch(
         (e) =>
-          ({ result: "FAIL", error: (e as Error).message }) as { result: string; error?: string },
+          ({ result: "THREW", error: (e as Error).message }) as { result: string; error?: string },
       );
-      const ok = result.result === "PASS";
+      // PASS = displayed and verified. WARN = displayed as far as we can tell
+      // (the page probe did not FAIL; only a secondary surface — sitemap /
+      // search / transport — could not be confirmed, and outside the Next
+      // runtime the cache check is a no-op by design). Treating WARN as a
+      // failed repair marched every plan to ABANDONED because PASS was
+      // unreachable from the worker. Only a FAIL (page gone, confirmed) or a
+      // thrown probe (retry later) is not a successful repair.
+      const ok = result.result === "PASS" || result.result === "WARN";
       return {
         ok,
-        reason: `post-publish probe → ${result.result}${"error" in result && result.error ? `: ${result.error}` : ""}`,
+        reason: `post-publish probe → ${result.result}${
+          result.result === "WARN" ? " (displayed; secondary checks unverified)" : ""
+        }${"error" in result && result.error ? `: ${result.error}` : ""}`,
       };
     }
     case "VALIDATION_FAILED":

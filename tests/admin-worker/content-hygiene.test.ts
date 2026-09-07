@@ -192,9 +192,15 @@ describe("runContentHygiene", () => {
 
     // The guide's subtitle was stale; the prayer's already matched → untouched.
     expect(res.subtitlesRefreshed).toBe(1);
-    expect(rows.find((r) => r.id === "a2")!.subtitle).toBe(
-      generateContentSubtitle({ contentType: "GUIDE", contentSubtype: null }),
+    const guide = rows.find((r) => r.id === "a2")!;
+    expect(guide.subtitle).toBe(
+      generateContentSubtitle({
+        contentType: "GUIDE",
+        contentSubtype: null,
+        fields: guide.payload,
+      }),
     );
+    expect(guide.subtitle).toBe("How to pray the Rosary");
   });
 
   it("is idempotent — a second sweep changes nothing", async () => {

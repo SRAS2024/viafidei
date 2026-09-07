@@ -409,9 +409,8 @@ function documentSubtitle(f: Fields, subtype: string | null): string {
   }
   if (docType === "council_document") {
     // A document OF a council ("Second Vatican Council") vs the council itself.
-    const councilMatch = /((?:first|second|third|fourth|fifth)?\s*[A-Za-z' ]*council[A-Za-z' ]*)/i.exec(
-      authority,
-    );
+    const councilMatch =
+      /((?:first|second|third|fourth|fifth)?\s*[A-Za-z' ]*council[A-Za-z' ]*)/i.exec(authority);
     const council = councilMatch ? councilMatch[1].trim() : "";
     if (council && !/^catholic church$/i.test(authority)) {
       return `Document of the ${council}${year ? ` (${year})` : ""}`;

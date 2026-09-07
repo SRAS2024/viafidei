@@ -127,7 +127,8 @@ export async function decideAndExecuteRollback(
       reason: `Post-publish ${input.failedCheck} FAIL confirmed twice: ${input.reason}. Row unpublished (isPublished=false) and flagged for logged deletion.`,
       confidence: 0.6,
       blockingGate: `post_publish:${input.failedCheck}`,
-      neededAction: "Confirm the public route is really gone; restore the row if the site was mid-deploy.",
+      neededAction:
+        "Confirm the public route is really gone; restore the row if the site was mid-deploy.",
       nextAutomatedAction: "none — unpublished content is never re-published automatically",
       alwaysQueue: true,
     }).catch(() => undefined);

@@ -1,132 +1,8 @@
 import type { ChecklistSeed } from "./index";
+import { curatedChecklist } from "./from-curated";
 
-export const liturgicalChecklist: ChecklistSeed[] = [
-  {
-    canonicalName: "Solemnity of the Nativity of the Lord (Christmas)",
-    canonicalSlug: "solemnity-christmas",
-    priority: 5,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { feastDate: "12-25", kind: "solemnity" },
-  },
-  {
-    canonicalName: "Solemnity of the Resurrection (Easter)",
-    canonicalSlug: "solemnity-easter",
-    priority: 5,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "solemnity", movableFeast: true },
-  },
-  {
-    canonicalName: "Solemnity of the Most Holy Trinity",
-    canonicalSlug: "solemnity-most-holy-trinity",
-    priority: 10,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "solemnity", movableFeast: true },
-  },
-  {
-    canonicalName: "Solemnity of Corpus Christi",
-    canonicalSlug: "solemnity-corpus-christi",
-    priority: 10,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "solemnity", movableFeast: true },
-  },
-  {
-    canonicalName: "Solemnity of the Sacred Heart of Jesus",
-    canonicalSlug: "solemnity-sacred-heart",
-    priority: 10,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "solemnity", movableFeast: true },
-  },
-  {
-    canonicalName: "Solemnity of the Immaculate Conception",
-    canonicalSlug: "solemnity-immaculate-conception",
-    priority: 10,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "solemnity", feastDate: "12-08" },
-  },
-  {
-    canonicalName: "Solemnity of the Assumption of Mary",
-    canonicalSlug: "solemnity-assumption",
-    priority: 10,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "solemnity", feastDate: "08-15" },
-  },
-  {
-    canonicalName: "Solemnity of All Saints",
-    canonicalSlug: "solemnity-all-saints",
-    priority: 10,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "solemnity", feastDate: "11-01" },
-  },
-  {
-    canonicalName: "Solemnity of Christ the King",
-    canonicalSlug: "solemnity-christ-the-king",
-    priority: 10,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "solemnity", movableFeast: true },
-  },
-  {
-    canonicalName: "Solemnity of the Annunciation of the Lord",
-    canonicalSlug: "solemnity-annunciation",
-    priority: 10,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "solemnity", feastDate: "03-25" },
-  },
-  {
-    canonicalName: "Solemnity of Pentecost",
-    canonicalSlug: "solemnity-pentecost",
-    priority: 5,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "solemnity", movableFeast: true },
-  },
-  {
-    canonicalName: "Liturgical Season: Advent",
-    canonicalSlug: "season-advent",
-    priority: 15,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "liturgical_season" },
-  },
-  {
-    canonicalName: "Liturgical Season: Christmas",
-    canonicalSlug: "season-christmas",
-    priority: 15,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "liturgical_season" },
-  },
-  {
-    canonicalName: "Liturgical Season: Lent",
-    canonicalSlug: "season-lent",
-    priority: 15,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "liturgical_season" },
-  },
-  {
-    canonicalName: "Liturgical Season: Triduum",
-    canonicalSlug: "season-triduum",
-    priority: 15,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "liturgical_season" },
-  },
-  {
-    canonicalName: "Liturgical Season: Easter",
-    canonicalSlug: "season-easter",
-    priority: 15,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "liturgical_season" },
-  },
-  {
-    canonicalName: "Liturgical Season: Ordinary Time",
-    canonicalSlug: "season-ordinary-time",
-    priority: 15,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "liturgical_season" },
-  },
-  {
-    canonicalName: "Structure of the Roman Rite Mass",
-    canonicalSlug: "structure-roman-rite-mass",
-    priority: 20,
-    authorityLevelHint: "LITURGICAL_BOOK",
-    metadata: { kind: "mass_structure" },
-  },
+/** Liturgical entries intentionally not curated yet (the authoring backlog). */
+export const liturgicalExtras: ChecklistSeed[] = [
   {
     canonicalName: "The Rite of Marriage",
     canonicalSlug: "rite-of-marriage",
@@ -149,3 +25,9 @@ export const liturgicalChecklist: ChecklistSeed[] = [
     metadata: { kind: "ordination_rite" },
   },
 ];
+
+/** Every curated liturgical entry (knowledge/liturgical.ts) plus the extras above. */
+export const liturgicalChecklist: ChecklistSeed[] = curatedChecklist("LITURGICAL", {
+  metadataFields: ["kind", "feastDate", "movableFeast", "season"],
+  extras: liturgicalExtras,
+});

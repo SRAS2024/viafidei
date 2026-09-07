@@ -1,109 +1,14 @@
 import type { ChecklistSeed } from "./index";
+import { curatedChecklist } from "./from-curated";
 
-export const churchDocumentsChecklist: ChecklistSeed[] = [
-  {
-    canonicalName: "Catechism of the Catholic Church",
-    canonicalSlug: "catechism-of-the-catholic-church",
-    priority: 5,
-    authorityLevelHint: "CATECHISM",
-  },
-  {
-    canonicalName: "Lumen Gentium",
-    canonicalSlug: "lumen-gentium",
-    priority: 10,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "council_document" },
-  },
-  {
-    canonicalName: "Dei Verbum",
-    canonicalSlug: "dei-verbum",
-    priority: 10,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "council_document" },
-  },
-  {
-    canonicalName: "Sacrosanctum Concilium",
-    canonicalSlug: "sacrosanctum-concilium",
-    priority: 10,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "council_document" },
-  },
-  {
-    canonicalName: "Gaudium et Spes",
-    canonicalSlug: "gaudium-et-spes",
-    priority: 10,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "council_document" },
-  },
-  {
-    canonicalName: "Rerum Novarum",
-    canonicalSlug: "rerum-novarum",
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "encyclical" },
-  },
-  {
-    canonicalName: "Humanae Vitae",
-    canonicalSlug: "humanae-vitae",
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "encyclical" },
-  },
-  {
-    canonicalName: "Veritatis Splendor",
-    canonicalSlug: "veritatis-splendor",
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "encyclical" },
-  },
-  {
-    canonicalName: "Evangelium Vitae",
-    canonicalSlug: "evangelium-vitae",
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "encyclical" },
-  },
-  {
-    canonicalName: "Fides et Ratio",
-    canonicalSlug: "fides-et-ratio",
-    priority: 15,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "encyclical" },
-  },
-  {
-    canonicalName: "Deus Caritas Est",
-    canonicalSlug: "deus-caritas-est",
-    priority: 20,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "encyclical" },
-  },
-  {
-    canonicalName: "Spe Salvi",
-    canonicalSlug: "spe-salvi",
-    priority: 20,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "encyclical" },
-  },
+/** Church documents intentionally not curated yet (the authoring backlog). */
+export const churchDocumentsExtras: ChecklistSeed[] = [
   {
     canonicalName: "Lumen Fidei",
     canonicalSlug: "lumen-fidei",
     priority: 20,
     authorityLevelHint: "VATICAN",
     metadata: { documentType: "encyclical" },
-  },
-  {
-    canonicalName: "Laudato Si'",
-    canonicalSlug: "laudato-si",
-    priority: 20,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "encyclical" },
-  },
-  {
-    canonicalName: "Evangelii Gaudium",
-    canonicalSlug: "evangelii-gaudium",
-    priority: 20,
-    authorityLevelHint: "VATICAN",
-    metadata: { documentType: "apostolic_exhortation" },
   },
   {
     canonicalName: "Amoris Laetitia",
@@ -134,3 +39,15 @@ export const churchDocumentsChecklist: ChecklistSeed[] = [
     metadata: { documentType: "apostolic_constitution" },
   },
 ];
+
+/**
+ * Every curated Church document (knowledge/church-documents.ts) and council
+ * (knowledge/church-history.ts) plus the backlog above.
+ */
+export const churchDocumentsChecklist: ChecklistSeed[] = curatedChecklist("CHURCH_DOCUMENT", {
+  metadataFields: ["documentType", "issuingAuthority", "issuedDate"],
+  overrides: {
+    "catechism-of-the-catholic-church": { priority: 5, authorityLevelHint: "CATECHISM" },
+  },
+  extras: churchDocumentsExtras,
+});

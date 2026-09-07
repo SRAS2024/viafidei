@@ -142,14 +142,23 @@ export async function runPublishOrchestrator(
       : null;
   const citations = collectCitations(payloadRecord);
   const sourceUrl = payloadSourceUrl(payloadRecord);
-  const safety = evaluatePublishSafety({
+  const bodyText = payloadBodyText(payloadRecord);
+  const safetyRaw = evaluatePublishSafety({
     contentType: input.contentType,
     title: input.title,
     slug: input.slug,
     sourceUrl,
-    bodyText: payloadBodyText(payloadRecord),
+    bodyText,
     hasSourceEvidence: input.hasSourceEvidence || citations.length > 0 || Boolean(sourceUrl),
   });
+  // Whether a body exists at all is the strict schema's / strict-QA's call
+  // (they own completeness); the safety gate's job is the placeholder /
+  // fragment PATTERN, which needs a body to inspect.
+  const safetyReasons =
+    bodyText === undefined
+      ? safetyRaw.reasons.filter((r) => r !== "incomplete_prayer")
+      : safetyRaw.reasons;
+  const safety = { ...safetyRaw, reasons: safetyReasons, blocked: safetyReasons.length > 0 };
   if (safety.blocked) {
     const hard = safety.reasons.filter((r) => HARD_SAFETY_REASONS.has(r));
     const reason = `publish safety: ${safety.reasons.join(", ")} — ${safety.details.join("; ")}`;
@@ -937,8 +946,8 @@ export function collectCitations(payload: Record<string, unknown> | null): strin
     for (const item of v) {
       if (typeof item === "string" && item.trim()) out.add(item.trim());
       else if (item && typeof item === "object") {
-        const u = (item as { url?: unknown; href?: unknown }).url ??
-          (item as { href?: unknown }).href;
+        const u =
+          (item as { url?: unknown; href?: unknown }).url ?? (item as { href?: unknown }).href;
         if (typeof u === "string" && u.trim()) out.add(u.trim());
       }
     }
@@ -972,9 +981,7 @@ export function buildProofEvidence(
   citations: string[],
 ): NonNullable<import("./proof-publishing").SensitivePublishInput["evidence"]> {
   const rows = input.verifier?.verificationRowIds?.length ?? 0;
-  const agreements = input.verifier
-    ? Math.max(rows, input.verifier.publishAllowed ? 1 : 0)
-    : 0;
+  const agreements = input.verifier ? Math.max(rows, input.verifier.publishAllowed ? 1 : 0) : 0;
   return {
     sources: citations,
     authorities: [input.authorityLevel],

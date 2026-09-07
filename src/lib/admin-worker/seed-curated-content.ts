@@ -335,7 +335,10 @@ export async function seedCuratedContent(
         contentId: item.id,
         title,
         slug: entry.slug,
-        payload: entry.payload as never,
+        // The PARSED payload, not the raw entry: zod defaults (language "en",
+        // movableFeast false, relatedPrayers []) and unknown-key stripping only
+        // exist on `validation.data`.
+        payload: validation.data as never,
         authorityLevel: entry.authorityLevel,
         finalScore: 0.95,
         qaPassed: true,

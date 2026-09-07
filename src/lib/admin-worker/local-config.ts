@@ -212,6 +212,22 @@ export function leaseRenewDelayMs(baseMs: number, random: () => number = Math.ra
   return Math.round(baseMs - spread + random() * spread * 2);
 }
 
+/**
+ * One useful line out of a Prisma/network error. Prisma's first line is the
+ * bare "Invalid `prisma.$queryRaw()` invocation:" — the cause ("Can't reach
+ * database server at …", "You must provide a nonempty URL …") comes later.
+ * Never includes credentials: Prisma quotes hosts, not passwords.
+ */
+export function summarizeDatabaseError(err: unknown, max = 300): string {
+  const message = err instanceof Error ? err.message : String(err);
+  const lines = message
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !/^-->/.test(l) && !/^\d+\s*\|/.test(l));
+  const cause = lines.find((l) => !/^Invalid `prisma\./.test(l) && !/^Validation Error/.test(l));
+  return (cause ?? lines[0] ?? "database error").replace(/^error:\s*/i, "").slice(0, max);
+}
+
 export type WorkerExitKind = "stopped" | "db_unreachable" | "refused" | "crashed";
 
 /**

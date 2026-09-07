@@ -88,13 +88,16 @@ export async function findPriorFailure(
   prisma: PrismaClient,
   opts: { contentType: string; contentId: string },
 ): Promise<{ id: string; createdAt: Date } | null> {
-  const latest = await prisma.postPublishVerification
-    .findFirst({
+  let latest: { id: string; result: PostPublishVerificationResult; createdAt: Date } | null;
+  try {
+    latest = await prisma.postPublishVerification.findFirst({
       where: { contentType: opts.contentType, contentId: opts.contentId },
       orderBy: { createdAt: "desc" },
       select: { id: true, result: true, createdAt: true },
-    })
-    .catch(() => null);
+    });
+  } catch {
+    latest = null;
+  }
   if (!latest || latest.result !== "FAIL") return null;
   return { id: latest.id, createdAt: latest.createdAt };
 }

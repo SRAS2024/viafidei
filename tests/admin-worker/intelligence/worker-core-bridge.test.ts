@@ -207,10 +207,19 @@ describe("real select_action on TypeScript-scale scores", () => {
     });
     expect(env).not.toBeNull();
     expect(env!.ok).toBe(true);
-    const result = env!.result as { selected_action: string; final_score: number };
+    const result = env!.result as {
+      selected_action: string;
+      final_score: number;
+      rejected_alternatives: Array<{ final_score: number }>;
+    };
     expect(result.selected_action).toBe("PUBLIC_PUBLISH");
-    // Reported on the TS scale, not pinned at 1.0.
+    // Reported on the TS scale, not pinned at 1.0 — and the alternatives are
+    // no longer a three-way tie.
     expect(result.final_score).toBeGreaterThan(1.5);
-    expect(env!.confidence).toBeLessThan(1);
+    const scores = new Set([
+      result.final_score,
+      ...result.rejected_alternatives.map((a) => a.final_score),
+    ]);
+    expect(scores.size).toBe(3);
   });
 });
