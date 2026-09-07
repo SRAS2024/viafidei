@@ -323,7 +323,10 @@ async function main() {
     // is available as escalation/diagnostics context. Fail-open.
     try {
       const { recordCodeVersionIfChanged } = await import("../src/lib/admin-worker/code-version");
-      const v = await recordCodeVersionIfChanged(prisma);
+      // `force` bypasses the hourly in-process throttle: this IS a new process,
+      // so the compare must run now — an upgrade that restarted the worker is
+      // recorded before the first pass, not an hour later.
+      const v = await recordCodeVersionIfChanged(prisma, { force: true });
       if (v.changed) {
         console.log(`[admin-worker:${args.workerId}] code version: ${v.label} — ${v.summary}`);
       }

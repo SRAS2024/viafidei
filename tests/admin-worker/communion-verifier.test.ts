@@ -44,6 +44,51 @@ describe("communion verifier", () => {
     expect(assessCommunionFromText("An Anglican parish.").status).toBe("not-in-communion");
   });
 
+  it("does not read ordinary ordination news ('men ordained') as women's ordination", () => {
+    const v = assessCommunionFromText(
+      "Bishop Byrne ordained four men priests for the Diocese of Springfield this June; " +
+        "the men ordained will serve as parochial vicars.",
+    );
+    expect(v.status).toBe("in-communion");
+    expect(v.signals.negative).toEqual([]);
+    // The real thing is still caught, in its usual phrasings.
+    for (const text of [
+      "Women are ordained here as priests and deacons.",
+      "We support the ordination of women.",
+      "Our women priests celebrate the Eucharist.",
+    ]) {
+      expect(assessCommunionFromText(text).status, text).toBe("not-in-communion");
+    }
+  });
+
+  it("confirms Personal Ordinariate parishes despite their Anglican patrimony wording", () => {
+    const v = assessCommunionFromText(
+      "Our Lady of the Atonement is a parish of the Personal Ordinariate of the Chair of " +
+        "St. Peter, celebrating the liturgy of the Anglican Use in full communion with Rome; " +
+        "many of us were formerly members of an Anglican parish.",
+    );
+    expect(v.status).toBe("in-communion");
+    expect(v.signals.negative).toEqual([]);
+    expect(v.signals.positive.join(" ")).toMatch(/Ordinariate/);
+  });
+
+  it("softens an ecumenical mention of an Orthodox or Anglican neighbour on a self-identified Roman Catholic site", () => {
+    const v = assessCommunionFromText(
+      "St. Mary Roman Catholic Church joins the Greek Orthodox church across the street " +
+        "for the annual ecumenical prayer service.",
+    );
+    expect(v.status).toBe("in-communion");
+    // Without the Roman Catholic self-identification the mention stands.
+    expect(assessCommunionFromText("We join the Greek Orthodox church for prayer.").status).toBe(
+      "not-in-communion",
+    );
+    // Hard negatives are never softened by a Catholic-sounding claim.
+    expect(
+      assessCommunionFromText("A Roman Catholic parish of the Polish National Catholic Church.")
+        .status,
+    ).toBe("not-in-communion");
+  });
+
   it("confirms a Roman Catholic parish with a diocese and USCCB", () => {
     const v = assessCommunionFromText(
       "Saint Patrick Roman Catholic Church, a parish of the Diocese of Springfield. " +

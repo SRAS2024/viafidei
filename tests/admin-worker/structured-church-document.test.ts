@@ -66,8 +66,15 @@ describe("mapDocumentType", () => {
     expect(mapDocumentType("motu proprio")).toBe("motu_proprio");
     expect(mapDocumentType("papal decree")).toBe("decree");
   });
+  it("maps papal bulls (the SPARQL enumerates Q189867) instead of dropping them", () => {
+    expect(mapDocumentType("papal bull||written work")).toBe("papal_bull");
+    expect(mapDocumentType("bull")).toBe("papal_bull");
+    // A bull that is also typed "decree" is still a bull (more specific).
+    expect(mapDocumentType("decree||papal bull")).toBe("papal_bull");
+    expect(mapDocumentType("bulletin")).toBeNull();
+  });
   it("returns null for an unmapped type", () => {
-    expect(mapDocumentType("papal bull")).toBeNull();
+    expect(mapDocumentType("papal rescript")).toBeNull();
     expect(mapDocumentType("")).toBeNull();
   });
 });
@@ -92,7 +99,40 @@ describe("CHURCH_DOCUMENT ingestor mapping", () => {
 
   it("SKIPS an unmapped document type", async () => {
     mockedSummary.mockResolvedValue({ extract: EXTRACT, url: FULL.art });
-    expect(await docMap(row({ ...FULL, types: "papal bull" }))).toBeNull();
+    expect(await docMap(row({ ...FULL, types: "papal rescript" }))).toBeNull();
+  });
+
+  it("maps a papal bull to a SCHEMA-VALID papal_bull record", async () => {
+    mockedSummary.mockResolvedValue({
+      extract:
+        "Ineffabilis Deus is an apostolic constitution by Pope Pius IX, issued 8 December 1854, " +
+        "which defined the dogma of the Immaculate Conception of the Blessed Virgin Mary.",
+      url: "https://en.wikipedia.org/wiki/Ineffabilis_Deus",
+    });
+    const entry = await docMap(
+      row({
+        ...FULL,
+        doc: "http://www.wikidata.org/entity/Q1400785",
+        label: "Ineffabilis Deus",
+        types: "papal bull",
+        author: "Pope Pius IX",
+        pubDate: "1854-12-08T00:00:00Z",
+        canon: "https://www.vatican.va/content/pius-ix/en/documents/apostolic-constitution-ineffabilis-deus-8-december-1854.html",
+        themes: "Immaculate Conception",
+        art: "https://en.wikipedia.org/wiki/Ineffabilis_Deus",
+      }),
+    );
+    expect(entry).not.toBeNull();
+    expect(entry!.payload.documentType).toBe("papal_bull");
+    expect(validatePayload("CHURCH_DOCUMENT", entry!.payload).ok).toBe(true);
+  });
+
+  it("identifies a row (QID / slug / name) from the SPARQL row alone, with no fetch", () => {
+    const id = ingestorFor("CHURCH_DOCUMENT")!.identify!(row(FULL));
+    expect(id).toEqual({ qid: "Q623270", slug: "rerum-novarum", name: "Rerum novarum" });
+    expect(mockedSummary).not.toHaveBeenCalled();
+    expect(mockedExcerpt).not.toHaveBeenCalled();
+    expect(ingestorFor("CHURCH_DOCUMENT")!.identify!(row({ ...FULL, label: "Q1" }))).toBeNull();
   });
 
   it("SKIPS a malformed issued date", async () => {

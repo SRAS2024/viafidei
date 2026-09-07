@@ -1,0 +1,301 @@
+import type { CuratedEntry } from "../index";
+
+const EWTN = "https://www.ewtn.com/catholicism/devotions/";
+const CATHOLIC_ONLINE = "https://www.catholic.org/prayers/prayer.php?p=";
+const COMPENDIUM =
+  "https://www.vatican.va/archive/compendium_ccc/documents/archive_2005_compendium-ccc_en.html";
+
+/**
+ * Batch 2 of the curated prayer catalogue: foundational, creeds, acts and daily
+ * prayers. Every body is the received public-domain English text copied
+ * character for character from the cited page; line breaks follow the page.
+ */
+export const prayerBatch2: CuratedEntry[] = [
+  {
+    contentType: "PRAYER",
+    slug: "sign-of-the-cross",
+    authorityLevel: "VATICAN",
+    citations: [COMPENDIUM, `${CATHOLIC_ONLINE}282`],
+    payload: {
+      slug: "sign-of-the-cross",
+      title: "Sign of the Cross",
+      body: "In the name of the Father\nand of the Son\nand of the Holy Spirit. Amen.",
+      officialPrayer: "In the name of the Father and of the Son and of the Holy Spirit. Amen.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      latin: "In nomine Patris, et Filii, et Spiritus Sancti. Amen.",
+      summary:
+        "The prayer and gesture with which Catholics begin and end prayer, professing faith in the Holy Trinity and recalling Baptism in the name of the Father, the Son and the Holy Spirit. The English and Latin texts are those printed in the Compendium of the Catechism of the Catholic Church.",
+      occasions: ["daily", "mass", "morning", "evening"],
+      relatedSaints: [],
+      citations: [COMPENDIUM, `${CATHOLIC_ONLINE}282`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "come-holy-spirit",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${CATHOLIC_ONLINE}3267`],
+    payload: {
+      slug: "come-holy-spirit",
+      title: "Come, Holy Ghost (Come, Holy Spirit)",
+      body: "Come, Holy Ghost,\nfill the hearts of Thy faithful\nand kindle in them the fire of Thy love.\nV. Send forth Thy Spirit and they shall be created;\nR. And Thou shalt renew the face of the earth.\nLet us pray.\nO God, who didst teach the hearts of Thy faithful people\nby sending them the light of Thy Holy Spirit,\ngrant us by the same Spirit\nto have a right judgment in all things,\nand evermore to rejoice in His holy comfort.\nThrough Christ our Lord.\nAmen.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "The traditional invocation of the Holy Spirit with its versicle, response and collect, drawn from the liturgy of Pentecost and prayed before meetings, study and any work that needs the Spirit's light. This is the older 'Holy Ghost' wording; a modern-language form is also in common use.",
+      occasions: ["pentecost", "confirmation", "before-study", "before-work", "daily"],
+      relatedSaints: [],
+      citations: [`${CATHOLIC_ONLINE}3267`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "athanasian-creed",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://www.newadvent.org/cathen/02033b.htm"],
+    payload: {
+      slug: "athanasian-creed",
+      title: "Athanasian Creed (Quicumque)",
+      body: "Whosoever will be saved, before all things it is necessary that he hold the Catholic Faith. Which Faith except everyone do keep whole and undefiled, without doubt he shall perish everlastingly. And the Catholic Faith is this, that we worship one God in Trinity and Trinity in Unity. Neither confounding the Persons, nor dividing the Substance. For there is one Person of the Father, another of the Son, and another of the Holy Ghost. But the Godhead of the Father, of the Son and of the Holy Ghost is all One, the Glory Equal, the Majesty Co-Eternal. Such as the Father is, such is the Son, and such is the Holy Ghost. The Father Uncreate, the Son Uncreate, and the Holy Ghost Uncreate. The Father Incomprehensible, the Son Incomprehensible, and the Holy Ghost Incomprehensible. The Father Eternal, the Son Eternal, and the Holy Ghost Eternal and yet they are not Three Eternals but One Eternal. As also there are not Three Uncreated, nor Three Incomprehensibles, but One Uncreated, and One Incomprehensible. So likewise the Father is Almighty, the Son Almighty, and the Holy Ghost Almighty. And yet they are not Three Almighties but One Almighty.\n\nSo the Father is God, the Son is God, and the Holy Ghost is God. And yet they are not Three Gods, but One God. So likewise the Father is Lord, the Son Lord, and the Holy Ghost Lord. And yet not Three Lords but One Lord. For, like as we are compelled by the Christian verity to acknowledge every Person by Himself to be God and Lord, so are we forbidden by the Catholic Religion to say, there be Three Gods or Three Lords. The Father is made of none, neither created, nor begotten. The Son is of the Father alone; not made, nor created, but begotten. The Holy Ghost is of the Father, and of the Son neither made, nor created, nor begotten, but proceeding.\n\nSo there is One Father, not Three Fathers; one Son, not Three Sons; One Holy Ghost, not Three Holy Ghosts. And in this Trinity none is afore or after Other, None is greater or less than Another, but the whole Three Persons are Co-eternal together, and Co-equal. So that in all things, as is aforesaid, the Unity in Trinity, and the Trinity in Unity, is to be worshipped. He therefore that will be saved, must thus think of the Trinity.\n\nFurthermore, it is necessary to everlasting Salvation, that he also believe rightly the Incarnation of our Lord Jesus Christ. For the right Faith is, that we believe and confess, that our Lord Jesus Christ, the Son of God, is God and Man.\n\nGod, of the substance of the Father, begotten before the worlds; and Man, of the substance of His mother, born into the world. Perfect God and Perfect Man, of a reasonable Soul and human Flesh subsisting. Equal to the Father as touching His Godhead, and inferior to the Father as touching His Manhood. Who, although He be God and Man, yet He is not two, but One Christ. One, not by conversion of the Godhead into Flesh, but by taking of the Manhood into God. One altogether, not by confusion of substance, but by Unity of Person. For as the reasonable soul and flesh is one Man, so God and Man is one Christ. Who suffered for our salvation, descended into Hell, rose again the third day from the dead. He ascended into Heaven, He sitteth on the right hand of the Father, God Almighty, from whence he shall come to judge the quick and the dead. At whose coming all men shall rise again with their bodies, and shall give account for their own works. And they that have done good shall go into life everlasting, and they that have done evil into everlasting fire. This is the Catholic Faith, which except a man believe faithfully and firmly, he cannot be saved.",
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "A Western profession of faith in the Trinity and the Incarnation, known from its opening word as the 'Quicumque'. Traditionally associated with Saint Athanasius, it is now generally dated to the fifth century; it was long recited at Prime on Sundays. This is the Marquess of Bute's English translation.",
+      occasions: ["trinity-sunday"],
+      relatedSaints: ["saint-athanasius"],
+      citations: ["https://www.newadvent.org/cathen/02033b.htm"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-contrition-traditional",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${EWTN}act-of-contrition-14576`, `${EWTN}act-of-contrition-338`],
+    payload: {
+      slug: "act-of-contrition-traditional",
+      title: "Act of Contrition (Traditional Form)",
+      body: "O my God,\nI am heartily sorry for having offended Thee,\nand I detest all my sins,\nbecause I dread the loss of heaven, and the pains of hell;\nbut most of all because they offend Thee, my God,\nWho are all good and deserving of all my love.\nI firmly resolve, with the help of Thy grace,\nto confess my sins, to do penance,\nand to amend my life.\nAmen.",
+      prayerType: "act",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The traditional English Act of Contrition in the form that names the motives of sorrow: the loss of heaven, the pains of hell, and above all the offence given to God. Prayed in the Sacrament of Penance and in night prayers.",
+      occasions: ["confession", "evening", "examination-of-conscience"],
+      relatedSaints: [],
+      citations: [`${EWTN}act-of-contrition-14576`, `${EWTN}act-of-contrition-338`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "morning-prayer-of-saint-therese",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${EWTN}morning-prayer-written-by-st-therese-838`],
+    payload: {
+      slug: "morning-prayer-of-saint-therese",
+      title: "Morning Prayer of Saint Thérèse of Lisieux",
+      body: "O my God! I offer Thee all my actions of this day for the intentions and for the glory of the Sacred Heart of Jesus. I desire to sanctify every beat of my heart, my every thought, my simplest works, by uniting them to Its infinite merits; and I wish to make reparation for my sins by casting them into the furnace of Its Merciful Love.\n\nO my God! I ask of Thee for myself and for those whom I hold dear, the grace to fulfill perfectly Thy Holy Will, to accept for love of Thee the joys and sorrows of this passing life, so that we may one day be united together in heaven for all Eternity.\n\nAmen.",
+      prayerType: "morning",
+      category: "saintly",
+      language: "en",
+      summary:
+        "A morning offering written by Saint Thérèse of the Child Jesus, uniting the day's actions to the merits of the Sacred Heart and asking the grace to fulfil God's will. Catholic Online prints a slightly different wording; the EWTN text is given here.",
+      occasions: ["morning"],
+      relatedSaints: ["saint-therese-of-lisieux"],
+      citations: [`${EWTN}morning-prayer-written-by-st-therese-838`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-on-rising",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${CATHOLIC_ONLINE}2082`],
+    payload: {
+      slug: "prayer-on-rising",
+      title: "Prayer on Rising",
+      body: "I adore Thee, O my God,\nand I love Thee with all my heart.\nI give Thee thanks that Thou hast created me,\nmade me a Christian,\nand preserved me this night.\nI offer Thee the actions of this day;\ngrant that all of them may be according to Thy holy Will,\nand for Thy greater glory.\nSave me from sin and from all evil.\nLet Thy grace be always with me.\nAmen.",
+      prayerType: "morning",
+      category: "general",
+      language: "en",
+      summary:
+        "A short traditional morning prayer from the catechisms, adoring God, thanking him for creation, Baptism and the night's rest, and offering the day's actions.",
+      occasions: ["morning"],
+      relatedSaints: [],
+      citations: [`${CATHOLIC_ONLINE}2082`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "suscipe-of-saint-ignatius",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${CATHOLIC_ONLINE}55`],
+    payload: {
+      slug: "suscipe-of-saint-ignatius",
+      title: "Suscipe (Take, Lord, Receive)",
+      body: "Take, O Lord, and receive my entire liberty, my memory, my understanding and my whole will. All that I am and all that I possess You have given me: I surrender it all to You to be disposed of according to Your will. Give me only Your love and Your grace; with these I will be rich enough, and will desire nothing more.",
+      prayerType: "act",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The prayer of self-offering from the Contemplation to Attain Love that closes the Spiritual Exercises of Saint Ignatius of Loyola, surrendering liberty, memory, understanding and will to God.",
+      occasions: ["offering", "retreat", "daily"],
+      relatedSaints: ["saint-ignatius-of-loyola"],
+      citations: [`${CATHOLIC_ONLINE}55`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-abandonment",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${EWTN}prayer-of-abandonment-361`],
+    payload: {
+      slug: "prayer-of-abandonment",
+      title: "Prayer of Abandonment",
+      body: "Father,\nI abandon myself into your hands;\ndo with me what you will.\nWhatever you may do, I thank you:\nI am ready for all, I accept all.\nLet only your will be done in me,\nand in all your creatures -\nI wish no more than this, O Lord.\nInto your hands I commend my soul:\nI offer it to you with all the love of my heart,\nfor I love you, Lord, and so need to give myself,\nto surrender myself into your hands without reserve,\nand with boundless confidence,\nfor you are my Father.",
+      prayerType: "act",
+      category: "general",
+      language: "en",
+      summary:
+        "The prayer of abandonment to the Father composed by Saint Charles de Foucauld (1858-1916), the hermit of the Sahara, as a meditation on Christ's words from the Cross, 'Father, into thy hands I commend my spirit.'",
+      occasions: ["trust", "suffering", "evening"],
+      relatedSaints: [],
+      citations: [`${EWTN}prayer-of-abandonment-361`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "lorica-of-saint-patrick",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://www.newadvent.org/cathen/11554a.htm"],
+    payload: {
+      slug: "lorica-of-saint-patrick",
+      title: "Breastplate of Saint Patrick (Lorica)",
+      body: "I bind to myself today\nThe strong virtue of the Invocation of the Trinity:\nI believe the Trinity in the Unity\nThe Creator of the Universe.\n\nI bind to myself today\nThe virtue of the Incarnation of Christ with His Baptism,\nThe virtue of His crucifixion with His burial,\nThe virtue of His Resurrection with His Ascension,\nThe virtue of His coming on the Judgement Day.\n\nI bind to myself today\nThe virtue of the love of seraphim,\nIn the obedience of angels,\nIn the hope of resurrection unto reward,\nIn prayers of Patriarchs,\nIn predictions of Prophets,\nIn preaching of Apostles,\nIn faith of Confessors,\nIn purity of holy Virgins,\nIn deeds of righteous men.\n\nI bind to myself today\nThe power of Heaven,\nThe light of the sun,\nThe brightness of the moon,\nThe splendour of fire,\nThe flashing of lightning,\nThe swiftness of wind,\nThe depth of sea,\nThe stability of earth,\nThe compactness of rocks.\n\nI bind to myself today\nGod's Power to guide me,\nGod's Might to uphold me,\nGod's Wisdom to teach me,\nGod's Eye to watch over me,\nGod's Ear to hear me,\nGod's Word to give me speech,\nGod's Hand to guide me,\nGod's Way to lie before me,\nGod's Shield to shelter me,\nGod's Host to secure me,\nAgainst the snares of demons,\nAgainst the seductions of vices,\nAgainst the lusts of nature,\nAgainst everyone who meditates injury to me,\nWhether far or near,\nWhether few or with many.\n\nI invoke today all these virtues\nAgainst every hostile merciless power\nWhich may assail my body and my soul,\nAgainst the incantations of false prophets,\nAgainst the black laws of heathenism,\nAgainst the false laws of heresy,\nAgainst the deceits of idolatry,\nAgainst the spells of women, and smiths, and druids,\nAgainst every knowledge that binds the soul of man.\n\nChrist, protect me today\nAgainst every poison, against burning,\nAgainst drowning, against death-wound,\nThat I may receive abundant reward.\n\nChrist with me, Christ before me,\nChrist behind me, Christ within me,\nChrist beneath me, Christ above me,\nChrist at my right, Christ at my left,\nChrist in the fort,\nChrist in the chariot seat,\nChrist in the poop [deck],\nChrist in the heart of everyone who thinks of me,\nChrist in the mouth of everyone who speaks to me,\nChrist in every eye that sees me,\nChrist in every ear that hears me.\n\nI bind to myself today\nThe strong virtue of an invocation of the Trinity,\nI believe the Trinity in the Unity\nThe Creator of the Universe.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The ancient Irish 'Faeth Fiada' or Lorica, a prayer of protection traditionally attributed to Saint Patrick and said to have been composed before his confrontation with the druids at Tara. This is the literal translation from the Old Irish printed in the Catholic Encyclopedia.",
+      occasions: ["march-17", "protection", "morning"],
+      relatedSaints: ["saint-patrick"],
+      citations: ["https://www.newadvent.org/cathen/11554a.htm"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-saint-augustine",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: ["https://www.newadvent.org/fathers/110110.htm"],
+    payload: {
+      slug: "prayer-of-saint-augustine",
+      title: "Prayer of Saint Augustine (Too Late Did I Love You)",
+      body: "Too late did I love You, O Fairness, so ancient, and yet so new! Too late did I love You! For behold, You were within, and I without, and there did I seek You; I, unlovely, rushed heedlessly among the things of beauty You made. You were with me, but I was not with You. Those things kept me far from You, which, unless they were in You, were not. You called, and cried aloud, and forced open my deafness. You gleamed and shine, and chase away my blindness. You exhaled odours, and I drew in my breath and do pant after You. I tasted, and do hunger and thirst. You touched me, and I burned for Your peace.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "Saint Augustine's celebrated confession of the God who was within him while he searched outside, from Book X, chapter 27 of the Confessions. This is J. G. Pilkington's nineteenth-century translation.",
+      occasions: ["daily", "august-28", "conversion"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: ["https://www.newadvent.org/fathers/110110.htm"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-saint-bonaventure",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${EWTN}prayer-of-saint-bonaventure-363`],
+    payload: {
+      slug: "prayer-of-saint-bonaventure",
+      title: "Prayer of Saint Bonaventure (Transfige dulcissime)",
+      body: "Pierce, O most sweet Lord Jesus, my inmost soul with the most joyous and healthful wound of Thy love, and with true, calm and most holy apostolic charity, that my soul may ever languish and melt with entire love and longing for Thee, may yearn for Thee and for thy courts, may long to be dissolved and to be with Thee.\n\nGrant that my soul may hunger after Thee, the Bread of Angels, the refreshment of holy souls, our daily and super substantial bread, having all sweetness and savor and every delightful taste.\n\nMay my heart ever hunger after and feed upon Thee, Whom the angels desire to look upon, and may my inmost soul be filled with the sweetness of Thy savor; may it ever thirst for Thee, the fountain of life, the fountain of wisdom and knowledge, the fountain of eternal light, the torrent of pleasure, the fullness of the house of God;\n\nmay it ever compass Thee, seek Thee, find Thee, run to Thee, come up to Thee, meditate on Thee, speak of Thee, and do all for the praise and glory of Thy name, with humility and discretion, with love and delight, with ease and affection, with perseverance to the end; and be Thou alone ever my hope, my entire confidence, my riches, my delight, my pleasure, my joy, my rest and tranquility, my peace, my sweetness, my food, my refreshment, my refuge, my help, my wisdom, my portion, my possession, my treasure; in Whom may my mind and my heart be ever fixed and firm and rooted immovably. Amen.",
+      prayerType: "general",
+      category: "eucharistic",
+      language: "en",
+      summary:
+        "A prayer of thanksgiving after Holy Communion attributed to Saint Bonaventure and printed among the thanksgiving prayers of the Roman Missal, asking that the soul be pierced with love and hunger for Christ, the Bread of Angels.",
+      occasions: ["after-communion", "thanksgiving"],
+      relatedSaints: ["saint-bonaventure"],
+      citations: [`${EWTN}prayer-of-saint-bonaventure-363`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "nada-te-turbe",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${EWTN}prayer-of-saint-teresa-of-avila-364`],
+    payload: {
+      slug: "nada-te-turbe",
+      title: "Let Nothing Disturb You (Saint Teresa of Ávila's Bookmark)",
+      body: "Let nothing disturb you,\nLet nothing frighten you,\nAll things are passing away:\nGod never changes.\nPatience obtains all things\nWhoever has God lacks nothing;\nGod alone suffices.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The short Spanish verse 'Nada te turbe' found written in Saint Teresa of Ávila's breviary after her death, in a familiar English rendering.",
+      occasions: ["anxiety", "trust", "october-15"],
+      relatedSaints: ["saint-teresa-of-avila"],
+      citations: [`${EWTN}prayer-of-saint-teresa-of-avila-364`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-saint-ephrem",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${EWTN}prayer-of-st-ephrem-396`],
+    payload: {
+      slug: "prayer-of-saint-ephrem",
+      title: "Lenten Prayer of Saint Ephrem",
+      body: "{Making a prostration}\nO LORD, Master of my life, grant that I may not be infected with the spirit of slothfulness and inquisitiveness, with the spirit of ambition and vain talking.\n\n{Making a prostration}\nGrant instead to me, your servant, the spirit of purity and of humility, the spirit of patience and neighborly love.\n\n{Making a third prostration}\nO Lord and King, grant me the grace of being aware of my sins and of not thinking evil of those of my brethren.\nFor you are blessed, now and ever, and forever.\nAmen.",
+      prayerType: "general",
+      category: "penitential",
+      language: "en",
+      summary:
+        "The prayer of Saint Ephrem the Syrian prayed with prostrations throughout Great Lent in the Byzantine tradition, at the Presanctified Liturgy and the Lenten hours. The rubrics in braces are printed with the text.",
+      occasions: ["lent"],
+      relatedSaints: [],
+      citations: [`${EWTN}prayer-of-st-ephrem-396`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "prayer-of-saint-thomas-aquinas-before-study",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${CATHOLIC_ONLINE}196`],
+    payload: {
+      slug: "prayer-of-saint-thomas-aquinas-before-study",
+      title: "Prayer Before Study (Creator ineffabilis)",
+      body: "Incomprehensible Creator, the true Fountain of light and only Author of all knowledge: deign, we beseech Thee, to enlighten our understanding, and to remove from us all darkness of sin and ignorance. Thou, who makest eloquent the tongues of those who lack utterance, direct our tongues, and pour on our lips the grace of thy blessing. Give us a diligent and obedient spirit, quickness of apprehension, capacity of retaining, and the powerful assistance of Thy holy grace; that what we hear or learn we may apply to Thy honor and the eternal salvation of our own souls. Amen.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The prayer for light in study traditionally attributed to Saint Thomas Aquinas, asking the Creator, the fountain of light, to enlighten the understanding and direct the tongue, in the older English translation found in the manuals.",
+      occasions: ["study", "before-work"],
+      relatedSaints: ["saint-thomas-aquinas"],
+      citations: [`${CATHOLIC_ONLINE}196`],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "act-of-love-of-saint-john-vianney",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [`${EWTN}st-john-vianneys-prayer-to-love-god-379`],
+    payload: {
+      slug: "act-of-love-of-saint-john-vianney",
+      title: "I Love You, O My God (Saint John Vianney)",
+      body: "I love You, O my God, and my only desire is to love You until the last breath of my life. I love You, O my infinitely lovable God, and I would rather die loving You, than live without loving You. I love You, Lord and the only grace I ask is to love You eternally... . My God, if my tongue cannot say in every moment that I love You, I want my heart to repeat it to You as often as I draw breath.",
+      prayerType: "act",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The act of love of Saint John Vianney, the Curé of Ars, expressing the desire to love God until the last breath of life.",
+      occasions: ["daily", "august-04"],
+      relatedSaints: ["saint-john-vianney"],
+      citations: [`${EWTN}st-john-vianneys-prayer-to-love-god-379`],
+    },
+  },
+];

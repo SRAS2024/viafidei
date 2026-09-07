@@ -1,30 +1,30 @@
 import { PageHero } from "@/components/ui";
 import { getTranslator } from "@/lib/i18n/server";
-import { listPublished } from "@/lib/data/published";
+import { loadHistoryTimeline } from "@/lib/data/history-timeline";
 
 import { HistoryTimelineClient } from "./HistoryTimelineClient";
-import { historyYearBounds, toHistoryEvents } from "./historyEvents";
 
 export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Church History",
-  description: "A timeline of the Catholic Church through her councils and magisterial documents.",
+  description:
+    "A timeline of the Catholic Church from Pentecost to today — councils, saints and martyrs, schisms and reform, the Magisterium, and Our Lady.",
 };
 
 export default async function HistoryPage() {
   const { t } = await getTranslator();
-  const documents = await listPublished("CHURCH_DOCUMENT");
-  const events = toHistoryEvents(documents);
-  const { minYear, maxYear } = historyYearBounds(events);
+  // Server-rendered from the cached, body-free timeline (static dataset
+  // merged with published documents) — nothing but the list props reaches
+  // the client.
+  const timeline = await loadHistoryTimeline();
+  const { events, eras, minYear, maxYear } = timeline;
+  const firstYear = events[0]?.year;
+  const subtitle = `${events.length} events from ${firstYear ? `c. ${firstYear}` : "the early Church"} to today — councils, saints and martyrs, schisms and reform, and the Magisterium. Scroll the timeline from Pentecost forward.`;
   return (
     <div>
-      <PageHero
-        eyebrow={t("nav.history")}
-        title="Church History"
-        subtitle="The Church's story told through her councils and magisterial documents — scroll the timeline from the early Church to today."
-      />
+      <PageHero eyebrow={t("nav.history")} title="Church History" subtitle={subtitle} />
       <div className="mx-auto max-w-3xl px-4 pb-12">
-        <HistoryTimelineClient events={events} minYear={minYear} maxYear={maxYear} />
+        <HistoryTimelineClient events={events} eras={eras} minYear={minYear} maxYear={maxYear} />
       </div>
     </div>
   );

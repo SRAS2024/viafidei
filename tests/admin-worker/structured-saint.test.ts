@@ -47,11 +47,20 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/**
+ * A row as the SAINT SPARQL now projects it (`SAINT_FACTS_SELECT`): the P411
+ * statuses come as a `||`-joined list of Wikidata ITEM URIs (the ingest maps
+ * status by QID, never by label — the generic "saint" label used to publish
+ * Orthodox / Anglican / folk saints as Catholic `canonized`), and the feasts
+ * as a `||`-joined list of calendar-date labels (every P841 value, never a
+ * random SAMPLE). Q3464126 = "Catholic saint".
+ */
+const WD = "http://www.wikidata.org/entity/";
 const FULL = {
-  s: "http://www.wikidata.org/entity/Q170145",
+  s: `${WD}Q170145`,
   label: "Rose of Lima",
-  status: "saint",
-  feastName: "23 August",
+  statuses: `${WD}Q3464126`,
+  feasts: "23 August",
   art: "https://en.wikipedia.org/wiki/Rose_of_Lima",
 };
 
@@ -66,6 +75,10 @@ describe("SAINT ingestor mapping", () => {
     expect(entry!.slug).toBe("saint-rose-of-lima");
     expect(entry!.payload.feastDay).toBe("08-23");
     expect(entry!.payload.canonizationStatus).toBe("canonized");
+    // Bare label stays in canonicalName (dedup key); the page shows the honorific.
+    expect(entry!.payload.canonicalName).toBe("Rose of Lima");
+    expect(entry!.payload.title).toBe("Saint Rose of Lima");
+    expect(entry!.payload.wikidataQid).toBe("Q170145");
     expect(entry!.citations).toHaveLength(2);
     expect(validatePayload("SAINT", entry!.payload).ok).toBe(true);
   });
@@ -80,9 +93,48 @@ describe("SAINT ingestor mapping", () => {
   });
 
   it("SKIPS an unknown canonization status without fetching anything", async () => {
-    const entry = await saintMap(row({ ...FULL, status: "pope" }));
+    // Q19546 (pope) is not a canonization status item.
+    const entry = await saintMap(row({ ...FULL, statuses: `${WD}Q19546` }));
     expect(entry).toBeNull();
     expect(mockedSummary).not.toHaveBeenCalled();
+  });
+
+  it("SKIPS a generic 'saint' whose religion is Orthodox (never Catholic `canonized`)", async () => {
+    // Q43115 = generic "saint"; Q3333484 = Eastern Orthodoxy. Nicodemus the
+    // Hagiorite-style row: a feast in the infobox would corroborate, but the
+    // structured record cannot prove Catholic veneration.
+    mockedSummary.mockResolvedValue({ extract: BIO, url: FULL.art });
+    const entry = await saintMap(
+      row({ ...FULL, statuses: `${WD}Q43115`, religions: `${WD}Q3333484` }),
+    );
+    expect(entry).toBeNull();
+    expect(mockedSummary).not.toHaveBeenCalled();
+  });
+
+  it("publishes a generic 'saint' as canonized ONLY with a Catholic religion (P140)", async () => {
+    mockedSummary.mockResolvedValue({ extract: BIO, url: FULL.art });
+    const entry = await saintMap(
+      row({ ...FULL, statuses: `${WD}Q43115`, religions: `${WD}Q9592` }),
+    );
+    expect(entry).not.toBeNull();
+    expect(entry!.payload.canonizationStatus).toBe("canonized");
+  });
+
+  it("resolves a multi-status saint to the HIGHEST rank, never an arbitrary pick", async () => {
+    // "blessed" (Q2369287) kept alongside "Catholic saint" after canonization.
+    mockedSummary.mockResolvedValue({ extract: BIO, url: FULL.art });
+    const entry = await saintMap(row({ ...FULL, statuses: `${WD}Q2369287||${WD}Q3464126` }));
+    expect(entry!.payload.canonizationStatus).toBe("canonized");
+    expect(entry!.payload.title).toBe("Saint Rose of Lima");
+  });
+
+  it("titles a Blessed as 'Blessed …' and keeps an existing honorific", async () => {
+    mockedSummary.mockResolvedValue({ extract: BIO, url: FULL.art });
+    const blessed = await saintMap(row({ ...FULL, statuses: `${WD}Q2369287` }));
+    expect(blessed!.payload.title).toBe("Blessed Rose of Lima");
+    const already = await saintMap(row({ ...FULL, label: "Saint Rose of Lima" }));
+    expect(already!.payload.title).toBe("Saint Rose of Lima");
+    expect(already!.slug).toBe("saint-rose-of-lima");
   });
 
   it("SKIPS when there is no Wikipedia article", async () => {
@@ -118,6 +170,24 @@ describe("SAINT ingestor — infobox corroboration + enrichment", () => {
     mockedInfobox.mockResolvedValue({ feast_day: "30 August" });
 
     expect(await saintMap(row(FULL))).toBeNull();
+  });
+
+  it("multi-feast saint: publishes ONLY the day the infobox lists first, else skips", async () => {
+    // Thomas Aquinas-style: General Roman Calendar date + pre-1969 date on
+    // Wikidata. Prose naming the historical date must not decide.
+    const TWO = { ...FULL, feasts: "7 March||28 January" };
+    mockedSummary.mockResolvedValue({
+      extract: PROSE_NO_FEAST + " Before 1969 the feast was kept on 7 March.",
+      url: FULL.art,
+    });
+    mockedInfobox.mockResolvedValue({ feast_day: "28 January; 7 March (pre-1969 calendar)" });
+    const entry = await saintMap(row(TWO));
+    expect(entry).not.toBeNull();
+    expect(entry!.payload.feastDay).toBe("01-28");
+
+    // No infobox to disambiguate → ambiguous → skip (never guess).
+    mockedInfobox.mockResolvedValue({});
+    expect(await saintMap(row(TWO))).toBeNull();
   });
 
   it("enriches the record with cited infobox fields (patronage, dates, canonized by)", async () => {

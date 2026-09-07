@@ -29,6 +29,7 @@ import { fetchArticleInfobox } from "./wikipedia-infobox";
 import { fetchDocumentExcerpt } from "./document-excerpt";
 import {
   feastDayInTextLocalized,
+  feastMentionIndexLocalized,
   monthName,
   parseFeastValue,
   type ParsedFeast,
@@ -322,20 +323,11 @@ export function chooseCorroboratedFeast(input: {
 
 /** Index of the first mention of a feast in `text` (−1 when absent). */
 function firstFeastMention(f: ParsedFeast, text: string, lang: string): number {
-  // Walk forward through the text so the position reflects where the date is
-  // first stated, not merely whether it appears.
-  const t = text.toLowerCase();
-  for (let i = 0; i < t.length; i += 1) {
-    const window = t.slice(i, i + 24);
-    if (
-      /^\d/.test(window) || /^[a-zà-ž]/.test(window)
-        ? feastDayInTextLocalized(f.feastMonth, f.feastDayOfMonth, window, lang)
-        : false
-    ) {
-      return i;
-    }
-  }
-  return -1;
+  // The exact match position decides which of several corroborated dates the
+  // infobox lists FIRST. (A sliding-window "does it appear" test reported the
+  // same position for every date in "28 January; 7 March", so Wikidata's
+  // arbitrary value order chose the published feast.)
+  return feastMentionIndexLocalized(f.feastMonth, f.feastDayOfMonth, text, lang);
 }
 
 /**
@@ -547,7 +539,8 @@ type DocumentType =
   | "motu_proprio"
   | "apostolic_letter"
   | "decree"
-  | "declaration";
+  | "declaration"
+  | "papal_bull";
 
 /**
  * Map Wikidata instance-of type labels to the schema's documentType enum.
@@ -561,6 +554,10 @@ export function mapDocumentType(typeLabels: string): DocumentType | null {
   if (t.includes("apostolic constitution")) return "apostolic_constitution";
   if (t.includes("motu proprio")) return "motu_proprio";
   if (t.includes("apostolic letter")) return "apostolic_letter";
+  // The SPARQL enumerates papal bulls (Q189867) too; without this branch the
+  // great dogmatic bulls (Unam Sanctam, Ineffabilis Deus, …) took batch slots
+  // and were dropped on every pass. `\bbull\b` never matches "bulletin".
+  if (/\bpapal bull\b|\bbull\b/.test(t)) return "papal_bull";
   if (t.includes("decree")) return "decree";
   if (t.includes("declaration")) return "declaration";
   return null;
@@ -601,6 +598,17 @@ LIMIT ${limit} OFFSET ${offset}`,
     // high-value extraction source to add to the worker's own discovery queue.
     const canon = bindingValue(row, "canon");
     return canon ? [canon] : [];
+  },
+  // Slug + name straight from the row, so an already-live document (most of
+  // this small corpus) costs no Wikipedia summary and no vatican.va excerpt.
+  identify(row) {
+    const label = bindingValue(row, "label");
+    if (!label || /^Q\d+$/.test(label)) return null;
+    return {
+      qid: qidOf(bindingValue(row, "doc")) ?? undefined,
+      slug: slugify(label) || undefined,
+      name: label,
+    };
   },
   async map(row) {
     const entity = bindingValue(row, "doc");
@@ -1232,86 +1240,20 @@ LIMIT ${limit} OFFSET ${offset}`,
   },
 };
 
-const councilIngestor: StructuredIngestor = {
-  contentType: "CHURCH_DOCUMENT",
-  id: "wikidata-councils",
-  authorityLevel: "TRUSTED_PUBLISHER",
-  // The ecumenical councils of the Catholic Church — Nicaea through Vatican II —
-  // as `council_document` records, so the Church-history timeline fills with the
-  // great councils, not just modern encyclicals. The council's inception year
-  // (P571) is the historically certain fact and the timeline sorts on it; when
-  // the source only records year precision the day is a sortable placeholder
-  // (YYYY-01-01), never a fabricated exact date. The narrative is the verbatim,
-  // cited Wikipedia abstract. A separate ingestor (not the document one) so its
-  // own cursor walks the council corpus; the LRU tiebreak in `pickIngestor` lets
-  // both CHURCH_DOCUMENT ingestors run.
-  sparql: (limit, offset) =>
-    `SELECT ?c (SAMPLE(?cLabel) AS ?label) (SAMPLE(?tv) AS ?inception) (SAMPLE(?prec) AS ?precision) (SAMPLE(?article) AS ?art) (SAMPLE(?canonical) AS ?canon) WHERE {
-  # Ecumenical councils: "ecumenical council" (Q51645) and its subclasses, via
-  # the P31/P279* index. The old label-CONTAINS scan over every instance-of type
-  # timed out at 60s+ and published 0 councils.
-  ?c wdt:P31/wdt:P279* wd:Q51645 .
-  ?c rdfs:label ?cLabel . FILTER(LANG(?cLabel) = "en")
-  ?c p:P571 ?incSt . ?incSt psv:P571 ?incNode . ?incNode wikibase:timeValue ?tv ; wikibase:timePrecision ?prec .
-  ?article schema:about ?c ; schema:isPartOf <https://en.wikipedia.org/> .
-  OPTIONAL { ?c wdt:P953 ?canonical . }
-}
-GROUP BY ?c
-ORDER BY ?c
-LIMIT ${limit} OFFSET ${offset}`,
-  async map(row) {
-    const entity = bindingValue(row, "c");
-    const label = bindingValue(row, "label");
-    if (!entity || !label || /^Q\d+$/.test(label)) return null;
-
-    const inception = bindingValue(row, "inception");
-    if (!inception) return null;
-    const precision = Number(bindingValue(row, "precision") ?? "0");
-    const m = inception.match(/^[+-]?(\d{1,4})-(\d{2})-(\d{2})T/);
-    if (!m) return null;
-    const year = m[1].padStart(4, "0");
-    // Day precision (≥11) keeps the real opening date; coarser precision keeps
-    // only the certain year and uses a sortable Jan-1 placeholder.
-    const issuedDate = precision >= 11 ? `${year}-${m[2]}-${m[3]}` : `${year}-01-01`;
-
-    const article = bindingValue(row, "art");
-    if (!article) return null;
-    const summary = await fetchSummaryForArticleUrl(article);
-    if (!summary || summary.extract.length < 100) return null;
-
-    const slug = slugify(label);
-    if (!slug) return null;
-
-    const canonicalUrl = validUrl(bindingValue(row, "canon")) ?? summary.url;
-    const citations = [...new Set([wikidataEntityUrl(entity), summary.url, canonicalUrl])];
-    const payload: Record<string, unknown> = {
-      slug,
-      title: label,
-      documentType: "council_document",
-      issuingAuthority: "Catholic Church",
-      issuedDate,
-      summary: summary.extract,
-      keyThemes: ["Ecumenical council"],
-      canonicalUrl,
-      relatedDocuments: [],
-      citations,
-    };
-    return {
-      contentType: "CHURCH_DOCUMENT",
-      slug,
-      authorityLevel: "TRUSTED_PUBLISHER",
-      citations,
-      payload,
-    };
-  },
-};
-
-/** All registered structured ingestors. Extend this to cover more types. */
+/**
+ * All registered structured ingestors. Extend this to cover more types.
+ *
+ * There is deliberately NO council ingestor: the twenty-one ecumenical
+ * councils are all curated (`knowledge/church-history.ts`), and on Wikidata
+ * only Vatican I carries the inception (P571) the query required — so it could
+ * never publish anything, yet took a Query-Service round-trip every time the
+ * LRU tiebreak picked it. Loosening the query would only have produced
+ * duplicates under Wikidata's differing labels ("First Council of Ephesus").
+ */
 export const STRUCTURED_INGESTORS: StructuredIngestor[] = [
   popeIngestor,
   saintIngestor,
   churchDocumentIngestor,
-  councilIngestor,
   doctorIngestor,
   riteIngestor,
   devotionIngestor,

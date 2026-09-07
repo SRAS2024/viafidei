@@ -79,13 +79,13 @@ import {
   type ExecutionStatus,
 } from "../src/lib/admin-worker/execution-host";
 import {
-  classifyWorkerExit,
   computeLocalConfig,
   leaseRenewDelayMs,
   resolvePublicBaseUrl,
   summarizeDatabaseError,
   type DatabaseProbe,
 } from "../src/lib/admin-worker/local-config";
+import { describeWorkerExitKind, interpretWorkerExit } from "../src/lib/admin-worker/worker-exit";
 import { localHostLabel, sampleLocalResources } from "../src/lib/admin-worker/local-resources";
 import { loadCommandCenterSnapshot } from "../src/lib/admin-worker/command-center";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
@@ -129,6 +129,12 @@ interface HostState {
   lastError: string | null;
   /** Set when the host has stopped trying to keep the worker alive. */
   failureReason: string | null;
+  /**
+   * The worker is not running here because ANOTHER runtime holds the
+   * execution lease (exit 3 at boot with the switch ON, or exit 5 mid-run).
+   * Surfaced to the app/dashboard so "failed" is never mistaken for a crash.
+   */
+  leaseHeldElsewhere: boolean;
   activeJobs: Set<string>;
   itemsProcessed: number;
   itemsPublished: number;
@@ -149,6 +155,7 @@ const host: HostState = {
   lastExit: null,
   lastError: null,
   failureReason: null,
+  leaseHeldElsewhere: false,
   activeJobs: new Set(),
   itemsProcessed: 0,
   itemsPublished: 0,
@@ -289,38 +296,74 @@ function startWorkerChild(): void {
     host.child = null;
     host.lastExit = { code, signal, at: Date.now() };
     const wasStopping = host.runState === "stopping";
-    const exitKind = classifyWorkerExit(code, signal, wasStopping);
-    host.runState = wasStopping ? "off" : "crashed";
+    // Decide synchronously from the exit code (worker-exit.ts) so the state can
+    // never lag behind a restart that begins meanwhile. Exit 3 (refused) is
+    // provisionally "lease held elsewhere"; the durable switch, read below,
+    // downgrades it to a plain operator OFF when that is what it was.
+    const plan = interpretWorkerExit({
+      code,
+      signal,
+      wasStopping,
+      switchOn: null,
+      databaseHost: configPayload().databaseHost,
+    });
+    host.runState = plan.runState;
+    host.failureReason = plan.failureReason;
+    host.leaseHeldElsewhere = plan.leaseHeldElsewhere;
     pushLog(
       "host",
-      `worker process exited (code=${code ?? "null"}, signal=${signal ?? "none"})${wasStopping ? "" : " unexpectedly"}`,
+      `worker process exited (code=${code ?? "null"}, signal=${signal ?? "none"})` +
+        `${plan.kind === "crashed" ? " unexpectedly" : ` — ${describeWorkerExitKind(plan.kind)}`}`,
     );
+    if (plan.failureReason) pushLog("host", plan.failureReason);
+    // The other holder is now the truth every surface should show.
+    if (plan.leaseHeldElsewhere) invalidateExecutionCache();
     broadcast("status", statusPayload());
+    if (wasStopping || shuttingDown) return;
 
-    // Restart locally when the master switch is still ON — but never hand the
-    // work back to Railway (spec §5: no automatic cloud failover).
-    if (!wasStopping) {
-      void (async () => {
-        if (exitKind === "db_unreachable") {
-          // run-worker.ts exit 4: it could not read the switch. That is an
-          // outage, not a crash — do not burn the restart budget; wait for the
-          // database and resume (the switch is durable, so ON survives).
-          const cfg = configPayload();
-          host.runState = "crashed";
-          host.failureReason =
-            `The worker could not reach the database at ${cfg.databaseHost ?? "?"} and exited — ` +
-            `it will be restarted automatically when the database answers again.`;
-          pushLog("host", host.failureReason);
-          broadcast("status", statusPayload());
-          void probeDatabase().catch(() => undefined);
-          setTimeout(
-            () => {
-              if (!shuttingDown && !host.child) void resumeIfSwitchOn();
-            },
-            30_000 + Math.round(Math.random() * 30_000),
-          ).unref();
-          return;
+    void (async () => {
+      if (plan.kind === "refused") {
+        // Only the durable switch tells an operator OFF (nothing to report)
+        // from a live lease on another computer (surface it, never restart).
+        const master = await readMasterSwitch(prisma).catch(
+          () => ({ on: false, known: false }) as const,
+        );
+        if (host.child || shuttingDown) return; // a newer child's state wins
+        const refined = interpretWorkerExit({
+          code,
+          signal,
+          wasStopping: false,
+          switchOn: master.known ? master.on : null,
+        });
+        host.runState = refined.runState;
+        host.failureReason = refined.failureReason;
+        host.leaseHeldElsewhere = refined.leaseHeldElsewhere;
+        if (refined.runState === "off") {
+          pushLog(
+            "host",
+            "the master switch is OFF — the worker declined to start (operator stop)",
+          );
         }
+        broadcast("status", statusPayload());
+        return;
+      }
+      if (!plan.restart) return;
+      if (plan.kind === "db_unreachable") {
+        // run-worker.ts exit 4: it could not read the switch. That is an
+        // outage, not a crash — do not burn the restart budget; wait for the
+        // database and resume (the switch is durable, so ON survives).
+        void probeDatabase().catch(() => undefined);
+        setTimeout(
+          () => {
+            if (!shuttingDown && !host.child) void resumeIfSwitchOn();
+          },
+          30_000 + Math.round(Math.random() * 30_000),
+        ).unref();
+        return;
+      }
+      // A genuine crash: restart locally when the master switch is still ON —
+      // but never hand the work back to Railway (spec §5: no cloud failover).
+      {
         const master = await readMasterSwitch(prisma).catch(
           () => ({ on: false, known: false }) as const,
         );
@@ -379,8 +422,8 @@ function startWorkerChild(): void {
         setTimeout(() => {
           if (!shuttingDown) startWorkerChild();
         }, backoffMs).unref();
-      })();
-    }
+      }
+    })();
   });
 
   child.on("error", (err) => {
@@ -504,6 +547,7 @@ async function resumeIfSwitchOn(): Promise<void> {
   }
   if (master.on && !host.child) {
     host.failureReason = null;
+    host.leaseHeldElsewhere = false;
     pushLog("host", "database reachable again and the switch is ON — restarting the worker");
     startWorkerChild();
   } else if (!master.on) {
@@ -694,6 +738,7 @@ function statusPayload() {
     runtimeId: RUNTIME_ID,
     runState: host.runState,
     failureReason: host.failureReason,
+    leaseHeldElsewhere: host.leaseHeldElsewhere,
     executionHost: "LOCAL_MACBOOK" as const,
     hostLabel: localHostLabel(),
     hostPid: process.pid,
@@ -996,6 +1041,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
           invalidateExecutionCache();
           host.restarts = 0;
           host.failureReason = null;
+          host.leaseHeldElsewhere = false;
           startWorkerChild();
           await writeAdminWorkerLog(prisma, {
             category: "OVERVIEW",
@@ -1251,6 +1297,17 @@ async function main(): Promise<void> {
         `${cfg.publicBaseUrl ? `; verifying against ${cfg.publicBaseUrl}` : ""}`,
     );
     for (const warning of cfg.warnings) pushLog("host", `WARNING: ${warning}`);
+    // Same rule the post-publish probe applies before touching a row: a
+    // localhost origin against a remote database means no live verification
+    // can run. Say so at boot, next to the origin line, instead of letting it
+    // surface pass by pass as "verification deferred".
+    try {
+      const { probeOriginMismatch } = await import("../src/lib/admin-worker/post-publish-probe");
+      const mismatch = probeOriginMismatch();
+      if (mismatch) pushLog("host", `WARNING: post-publish verification is disabled — ${mismatch}`);
+    } catch {
+      /* diagnostics only */
+    }
   }
 
   // Resume a previously-ON switch: if the operator left the worker ON and the

@@ -84,6 +84,8 @@ const RUN_BUDGET_MS = osmEnvInt("ADMIN_WORKER_OSM_RUN_BUDGET_MS", 6 * 60 * 1000)
 // sweep does not retry it (and its DB lookups) on every visit to its tile.
 const SKIP_DAYS = osmEnvInt("ADMIN_WORKER_OSM_SKIP_DAYS", 7);
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** Consecutive runs that may die inside one tile without progress before it is parked. */
+const MAX_NO_PROGRESS_ATTEMPTS = 3;
 const THROTTLE_KEY = "osm-parish-lastrun";
 const SKIP_PREFIX = "osm-skip:";
 /** Same-name proximity window (~200 m) for the geo dedup. */
@@ -400,12 +402,16 @@ async function enrichExistingRow(
   return Boolean(res?.applied);
 }
 
-// ── Per-slug skip memory (gate failures are not retried every sweep) ─────────
+// ── Skip memory (gate failures are not retried every sweep) ─────────────────
+//
+// Keyed by slug (what the website-verification lane knows) AND by sourceRef
+// (`osm:node/123`, stable across slug suffixes and reverse-lookup cities) so a
+// remembered candidate is recognised BEFORE any reverse lookup is spent on it.
 
-async function readSkip(prisma: PrismaClient, slug: string): Promise<boolean> {
+async function readSkip(prisma: PrismaClient, key: string): Promise<boolean> {
   const row = await prisma.adminWorkerMemory
     .findUnique({
-      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: SKIP_PREFIX + slug } },
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: SKIP_PREFIX + key } },
       select: { memoryValue: true },
     })
     .catch(() => null);
@@ -413,19 +419,28 @@ async function readSkip(prisma: PrismaClient, slug: string): Promise<boolean> {
   return typeof until === "number" && until > Date.now();
 }
 
+/**
+ * Remember that `key` (a slug or a sourceRef) failed the gate: discovery will
+ * not retry it until `retryAfterMs` has elapsed. Also used by the website
+ * verification lane (one year for a parish proved not in communion).
+ */
 export async function writeOsmSkip(
   prisma: PrismaClient,
-  slug: string,
+  key: string,
   reason: string,
   retryAfterMs: number = SKIP_DAYS * DAY_MS,
 ): Promise<void> {
-  const key = SKIP_PREFIX + slug;
   const value = { retryAfter: Date.now() + retryAfterMs, reason: reason.slice(0, 240) };
   await prisma.adminWorkerMemory
     .upsert({
-      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: key } },
+      where: { memoryType_memoryKey: { memoryType: "GENERIC", memoryKey: SKIP_PREFIX + key } },
       update: { memoryValue: value, lastUsedAt: new Date() },
-      create: { memoryType: "GENERIC", memoryKey: key, memoryValue: value, lastUsedAt: new Date() },
+      create: {
+        memoryType: "GENERIC",
+        memoryKey: SKIP_PREFIX + key,
+        memoryValue: value,
+        lastUsedAt: new Date(),
+      },
     })
     .catch(() => undefined);
 }
@@ -586,6 +601,10 @@ export async function processOsmCandidate(
     return "duplicate";
   }
 
+  // A remembered gate failure is skipped here, BEFORE the reverse lookup, so
+  // a rejected candidate never spends Nominatim budget on every re-sweep.
+  if (await readSkip(prisma, candidate.placeId)) return "skipped";
+
   // City fallback for coordinate-only candidates: one bounded reverse lookup
   // (address.city|town|village|municipality only). Runs AFTER the dedup so a
   // known parish never spends a lookup.
@@ -627,6 +646,7 @@ export async function processOsmCandidate(
   if (res.kind === "published") return "published";
   if (res.kind === "duplicate") return "duplicate";
   await writeOsmSkip(prisma, slug, `${res.kind}: ${res.reason}`);
+  await writeOsmSkip(prisma, candidate.placeId, `${res.kind}: ${res.reason}`);
   if (
     await fileReview(
       prisma,
@@ -711,15 +731,43 @@ function elementRef(el: OverpassElement): string {
 async function sweepTile(
   prisma: PrismaClient,
   tile: OsmTile,
-  state: OsmTileState,
+  initialState: OsmTileState,
   base: OsmParishResult,
   ctx: RunContext & { maxPublish: number; deadline: number },
 ): Promise<"done" | "stopped" | "failed" | "budget"> {
+  let state = initialState;
   const now = Date.now();
+  // Claim the tile durably BEFORE the (up to 90 s) query: a run killed by the
+  // watchdog or a crash then resumes it first next time instead of losing it
+  // until the next lap. A tile that keeps killing runs without ever making
+  // progress (`resumeAfter` still null) is parked FAILED with a backoff so
+  // one pathological tile cannot wedge the sweep.
+  // (`failures` is shared with the Overpass-failure backoff below and is
+  // only reset by a completed sweep, so a mirror that keeps failing on this
+  // tile still backs off exponentially across claims.)
+  const diedWithoutProgress = state.status === "IN_PROGRESS" && state.resumeAfter == null;
+  const failures = diedWithoutProgress ? state.failures + 1 : state.failures;
+  if (diedWithoutProgress && failures > MAX_NO_PROGRESS_ATTEMPTS) {
+    await writeTileState(prisma, tile, {
+      ...state,
+      status: "FAILED",
+      failures,
+      lastError: "run died repeatedly before making progress",
+      nextDueAt: now + Math.min(6 * 60 * 60 * 1000 * 2 ** (failures - 1), 7 * DAY_MS),
+    });
+    await clearTileActive(prisma, tile.id);
+    return "failed";
+  }
+  state = { ...state, status: "IN_PROGRESS", failures };
+  await writeTileState(prisma, tile, state);
+  await markTileActive(prisma, tile.id);
+
   const res = await runOverpassQuery(prisma, buildTileQuery(tile.bbox, OUT_CAP));
   base.queriesRun += res.attempts;
   if (!res.ok) {
     if (res.budgetExhausted) {
+      // Nothing was attempted: the tile stays claimed (IN_PROGRESS + active)
+      // and is the first thing tomorrow's run picks up.
       base.budgetExhausted = true;
       return "budget";
     }

@@ -20,6 +20,107 @@ export interface CleanupOutcome {
   junkHostRowsPurged: number;
   /** AdminWorkerGrowthSnapshot rows trimmed beyond the per-type retention. */
   growthSnapshotsTrimmed: number;
+  /** Bookkeeping-ledger rows deleted by the hourly retention prune. */
+  ledgerRowsPruned: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* ledger retention                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Every pass appends ~35 bookkeeping rows (INFO logs, one ActionScore per
+ * ranked alternative, brain-call records, stage outcomes) and nothing ever
+ * removed them (audit LIVE-2e), so the tables the diagnostics / governor /
+ * readiness readers scan grew without bound. Retention is short and only for
+ * ledgers that are re-derived every pass: WARN/ERROR logs, decisions, passes,
+ * published content and every content table are untouched.
+ */
+const LEDGER_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
+const LEDGER_PRUNE_BATCH = 5000;
+/** Bounds one prune to ~100k rows per table so a first run never holds a pass. */
+const LEDGER_PRUNE_MAX_BATCHES = 20;
+const DAY_MS = 24 * 60 * 60 * 1000;
+export const LOG_INFO_RETENTION_MS = 14 * DAY_MS;
+export const ACTION_SCORE_RETENTION_MS = 14 * DAY_MS;
+export const BRAIN_CALL_RETENTION_MS = 14 * DAY_MS;
+export const STAGE_OUTCOME_RETENTION_MS = 30 * DAY_MS;
+
+let _lastLedgerPruneAt = 0;
+
+export interface LedgerPruneOutcome {
+  /** False when throttled (ran within the last hour) or the client has no raw SQL. */
+  ran: boolean;
+  logRows: number;
+  actionScores: number;
+  brainCalls: number;
+  stageOutcomes: number;
+}
+
+/** Delete in id-subselect batches until a batch comes back short (or the cap). */
+async function deleteInBatches(run: () => Promise<number>): Promise<number> {
+  let total = 0;
+  for (let i = 0; i < LEDGER_PRUNE_MAX_BATCHES; i += 1) {
+    let n: number;
+    try {
+      n = await run();
+    } catch {
+      break; // fail-open: the next hourly prune resumes where this one stopped
+    }
+    total += n;
+    if (n < LEDGER_PRUNE_BATCH) break;
+  }
+  return total;
+}
+
+/**
+ * Hourly (per process) retention prune of the four append-only ledgers.
+ * Batched `DELETE … WHERE id IN (SELECT id … LIMIT 5000)` keeps each statement
+ * short-lived against the remote database; fail-open per table; a no-op on a
+ * client/mock without `$executeRaw`. `force` bypasses the throttle (tests,
+ * operator maintenance).
+ */
+export async function pruneLedgerRows(
+  prisma: PrismaClient,
+  opts: { now?: number; force?: boolean } = {},
+): Promise<LedgerPruneOutcome> {
+  const now = opts.now ?? Date.now();
+  const out: LedgerPruneOutcome = {
+    ran: false,
+    logRows: 0,
+    actionScores: 0,
+    brainCalls: 0,
+    stageOutcomes: 0,
+  };
+  if (!opts.force && now - _lastLedgerPruneAt < LEDGER_PRUNE_INTERVAL_MS) return out;
+  if (typeof (prisma as { $executeRaw?: unknown }).$executeRaw !== "function") return out;
+  _lastLedgerPruneAt = now;
+  out.ran = true;
+
+  const logCutoff = new Date(now - LOG_INFO_RETENTION_MS);
+  const scoreCutoff = new Date(now - ACTION_SCORE_RETENTION_MS);
+  const brainCutoff = new Date(now - BRAIN_CALL_RETENTION_MS);
+  const stageCutoff = new Date(now - STAGE_OUTCOME_RETENTION_MS);
+  const batch = LEDGER_PRUNE_BATCH;
+
+  // Only INFO rows: WARN/ERROR are the audit trail escalation reads back.
+  out.logRows = await deleteInBatches(
+    () =>
+      prisma.$executeRaw`DELETE FROM "AdminWorkerLog" WHERE "id" IN (SELECT "id" FROM "AdminWorkerLog" WHERE "severity" = 'INFO' AND "createdAt" < ${logCutoff} LIMIT ${batch})`,
+  );
+  out.actionScores = await deleteInBatches(
+    () =>
+      prisma.$executeRaw`DELETE FROM "AdminWorkerActionScore" WHERE "id" IN (SELECT "id" FROM "AdminWorkerActionScore" WHERE "createdAt" < ${scoreCutoff} LIMIT ${batch})`,
+  );
+  out.brainCalls = await deleteInBatches(
+    () =>
+      prisma.$executeRaw`DELETE FROM "AdminWorkerBrainCall" WHERE "id" IN (SELECT "id" FROM "AdminWorkerBrainCall" WHERE "createdAt" < ${brainCutoff} LIMIT ${batch})`,
+  );
+  out.stageOutcomes = await deleteInBatches(
+    () =>
+      prisma.$executeRaw`DELETE FROM "AdminWorkerStageOutcome" WHERE "id" IN (SELECT "id" FROM "AdminWorkerStageOutcome" WHERE "createdAt" < ${stageCutoff} LIMIT ${batch})`,
+  );
+  return out;
 }
 
 /**
@@ -146,12 +247,16 @@ export async function runCleanupPass(prisma: PrismaClient): Promise<CleanupOutco
 
   const junkHostRowsPurged = await purgeNonContentHostRows(prisma);
   const growthSnapshotsTrimmed = await trimGrowthSnapshots(prisma);
+  const ledger = await pruneLedgerRows(prisma);
+  const ledgerRowsPruned =
+    ledger.logRows + ledger.actionScores + ledger.brainCalls + ledger.stageOutcomes;
 
   await writeAdminWorkerLog(prisma, {
     category: "CLEANUP",
     severity: junkHostRowsPurged > 0 ? "WARN" : "INFO",
     eventName: "cleanup_completed",
-    message: `Cleanup pass: removed ${staleCandidates.count} stale rejected candidates, expired ${expiredReviews.count} review items, purged ${junkHostRowsPurged} non-content-host candidate(s), trimmed ${growthSnapshotsTrimmed} growth snapshot(s).`,
+    message: `Cleanup pass: removed ${staleCandidates.count} stale rejected candidates, expired ${expiredReviews.count} review items, purged ${junkHostRowsPurged} non-content-host candidate(s), trimmed ${growthSnapshotsTrimmed} growth snapshot(s)${ledger.ran ? `, pruned ${ledgerRowsPruned} ledger row(s)` : ""}.`,
+    safeMetadata: ledger.ran ? { ledger: { ...ledger } } : undefined,
   });
 
   return {
@@ -159,5 +264,6 @@ export async function runCleanupPass(prisma: PrismaClient): Promise<CleanupOutco
     expiredReviewsClosed: expiredReviews.count,
     junkHostRowsPurged,
     growthSnapshotsTrimmed,
+    ledgerRowsPruned,
   };
 }

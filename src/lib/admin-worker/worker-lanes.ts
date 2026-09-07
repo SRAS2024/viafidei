@@ -19,11 +19,15 @@
  *   - `PublishedContent @@unique([contentType, slug])` makes double-publishing
  *     impossible at the DB level even under a race.
  *   - The bulk of the Python-brain-calling work lives in the `intelligence`
- *     lane. The awareness (maint-schema / maint-ui) and self-model lanes also
- *     make a few brain calls; the bridge multiplexes them over the one resident
- *     process, which answers strictly one request at a time, so those calls
- *     queue behind each other rather than run concurrently. (The main
- *     decision/dispatch brain call happens in the loop BEFORE the lanes run.)
+ *     lane. The awareness (maint-schema / maint-ui), self-model and custody
+ *     lanes also make a few brain calls. The bridge does NOT queue those: the
+ *     resident brain answers one request at a time and every caller's timeout
+ *     starts the moment it writes to the process, so a second concurrent call
+ *     would burn its timeout waiting behind the first. Those lanes therefore
+ *     serialise their brain work through `withBrainMutex` (brain-mutex.ts) so
+ *     at most one of them holds the process, and each timeout starts only when
+ *     the call is actually being answered. (The main decision/dispatch brain
+ *     call happens in the loop BEFORE the lanes run.)
  *   - Each lane is isolated + enters an error-backoff cooldown on failure
  *     (runWorkerLanes), so a failing lane never kills the others and retries on
  *     its own cadence — per-lane self-repair.
@@ -63,6 +67,11 @@ export const CONTENT_LANES: LaneDef[] = [
     capacity: 4,
     activeOnly: true,
     growth: true,
+    // A run walks a Wikidata page AND fetches one Wikipedia extract per
+    // candidate (15s × up to 3 attempts each); a slow source pushed it past the
+    // default 120s watchdog mid-batch, into error-backoff, and the SAINT goal
+    // stalled (audit SI-10). Budget it like the other network-heavy lanes.
+    watchdogMs: 6 * 60 * 1000,
     async run({ prisma, passId }) {
       const { runStructuredIngest } = await import("./structured/ingest");
       const published = (await runStructuredIngest(prisma, { passId })).published;
@@ -297,6 +306,48 @@ export const OPS_LANES: LaneDef[] = [
     async run({ prisma, passId }) {
       const { runParishRefreshLane } = await import("./parish-refresh");
       return runParishRefreshLane(prisma, { passId });
+    },
+  },
+  {
+    // Structured (Wikidata) saints re-checked against their source: a row whose
+    // canonisation status / type / title / feast drifted is repaired (versioned)
+    // and one the source no longer supports as a Catholic saint is UNPUBLISHED
+    // — never deleted. Bounded (25 rows, one batched query per pass),
+    // cursor-driven and honouring the shared source cool-down. Deterministic
+    // (no brain judgement), so it keeps the catalog honest even when the brain
+    // is degraded.
+    name: "repair-structured-saints",
+    capacity: 1,
+    activeOnly: false,
+    watchdogMs: 6 * 60 * 1000,
+    async run({ prisma, passId }) {
+      const { runStructuredSaintRepair } = await import("./structured/saint-repair");
+      const r = await runStructuredSaintRepair(prisma, { limit: 25, passId });
+      return {
+        advanced: r.repaired + r.unpublished,
+        detail: r.sourceFailure
+          ? `saint repair idle (${r.sourceFailure})`
+          : `saint repair: ${r.examined} examined, ${r.repaired} repaired, ${r.unpublished} unpublished` +
+            (r.completed ? " (corpus wrapped)" : ""),
+      };
+    },
+  },
+  {
+    // Live communion check of published parish websites, 30 sites per pass
+    // under a 5-minute budget (the module's own deadline) so it always ends
+    // inside this watchdog; a site that proves not in communion is unpublished
+    // for review, never deleted. Self-cursoring and idle under
+    // ADMIN_WORKER_SKIP_NETWORK.
+    name: "verify-parish-websites",
+    capacity: 1,
+    watchdogMs: 6 * 60 * 1000,
+    async run({ prisma, passId }) {
+      const { runParishWebsiteVerification } = await import("./parish-website-verification");
+      const r = await runParishWebsiteVerification(prisma, { limit: 30, passId });
+      return {
+        advanced: r.checked,
+        detail: r.detail || `parish websites: ${r.checked} checked, ${r.unpublished} unpublished`,
+      };
     },
   },
   {

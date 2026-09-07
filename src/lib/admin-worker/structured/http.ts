@@ -104,7 +104,7 @@ export async function fetchJsonDetailed<T = unknown>(
       signal: controller.signal,
     });
     if (!res.ok) {
-      // Test doubles often stub only `ok`/`status`; tolerate a missing headers bag.
+      // Test doubles often fake only `ok`/`status`; tolerate a missing headers bag.
       const header = typeof res.headers?.get === "function" ? res.headers.get("retry-after") : null;
       return {
         ok: false,

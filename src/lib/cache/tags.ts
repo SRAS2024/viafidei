@@ -16,6 +16,8 @@
  * source of truth for every tag the codebase emits.
  */
 
+import type { ChecklistContentType } from "@prisma/client";
+
 export type ContentTypeTagKey =
   | "Prayer"
   | "Saint"
@@ -72,6 +74,46 @@ export const CONTENT_TYPE_TO_TAB: Record<ContentTypeTagKey, TabKey> = {
   Rite: "rites",
 };
 
+/**
+ * The same mapping keyed by the `ChecklistContentType` enum that every
+ * PublishedContent row actually carries. The publish path passes those enum
+ * values ("SAINT") into tagsForRow(), which used to look them up in the
+ * legacy-keyed table above ("Saint"), miss, and fall back to `tab:prayers` —
+ * so every published saint, parish, and guide revalidated the wrong tab.
+ */
+export const CHECKLIST_TYPE_TO_TAB: Record<ChecklistContentType, TabKey> = {
+  PRAYER: "prayers",
+  SAINT: "saints",
+  APPARITION: "apparitions",
+  MARIAN_TITLE: "apparitions",
+  POPE: "popes",
+  DOCTOR: "doctors",
+  PARISH: "parishes",
+  DEVOTION: "devotions",
+  NOVENA: "novenas",
+  GUIDE: "guides",
+  SACRAMENT: "sacraments",
+  LITURGICAL: "liturgy",
+  CHURCH_DOCUMENT: "history",
+  RITE: "rites",
+  SPIRITUAL_PRACTICE: "spiritualLife",
+};
+
+/**
+ * Resolve the public tab for either naming scheme — a legacy tag key
+ * ("Saint") or a ChecklistContentType ("SAINT"). Returns null for an unknown
+ * value so callers can choose their own fallback.
+ */
+export function tabForContentType(contentType: string): TabKey | null {
+  if (contentType in CONTENT_TYPE_TO_TAB) {
+    return CONTENT_TYPE_TO_TAB[contentType as ContentTypeTagKey];
+  }
+  if (contentType in CHECKLIST_TYPE_TO_TAB) {
+    return CHECKLIST_TYPE_TO_TAB[contentType as ChecklistContentType];
+  }
+  return null;
+}
+
 export const contentTypeTag = (contentType: ContentTypeTagKey | string): string =>
   `content-type:${contentType}`;
 
@@ -88,7 +130,7 @@ export const SEARCH_INDEX_TAG = "search-index";
  * single `revalidateTag()` cascade after persistence / deletion.
  */
 export function tagsForRow(contentType: ContentTypeTagKey | string, slug: string): string[] {
-  const tab = CONTENT_TYPE_TO_TAB[contentType as ContentTypeTagKey] ?? "prayers";
+  const tab = tabForContentType(String(contentType)) ?? "prayers";
   return [
     contentTypeTag(contentType),
     contentSlugTag(contentType, slug),

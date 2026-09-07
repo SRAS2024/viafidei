@@ -11,6 +11,7 @@
  * acceptance criteria is satisfied.
  */
 
+import { categorizePrayer } from "@/lib/content-shared/prayer-categories";
 import type { ExtractableContentType } from "./content-types";
 import { makeProvenance, type FieldProvenance } from "./provenance";
 import type { StructuredFacts } from "./structured-data-extractors";
@@ -153,6 +154,243 @@ export interface PrayerFields {
   sourceHost: string;
 }
 
+/**
+ * prayerType cue table. Every emitted value is a member of the PRAYER schema
+ * enum (schemas/prayer.ts) — the old extractor emitted "thanksgiving" /
+ * "petition" which the schema rejects, and left prayerType MISSING for any page
+ * that did not literally say "morning prayer", so almost no web prayer could
+ * reach CHECKLIST_READY. Ordered most-specific first: a "Litany of Our Lady"
+ * is a litany before it is Marian, a "Rosary Novena" is a novena.
+ */
+const PRAYER_TYPE_CUES: ReadonlyArray<{ type: string; cue: RegExp }> = [
+  { type: "litany", cue: /\blitan(?:y|ies|iae)\b/i },
+  { type: "novena", cue: /\bnovena\b/i },
+  { type: "chaplet", cue: /\bchaplet\b/i },
+  { type: "rosary", cue: /\brosary\b/i },
+  { type: "consecration", cue: /\bconsecrat/i },
+  {
+    type: "act",
+    cue: /\bact of (?:contrition|faith|hope|love|charity|spiritual communion|resignation|humility|thanksgiving|adoration|reparation|abandonment)\b/i,
+  },
+  { type: "psalm", cue: /\bpsalm\b/i },
+  { type: "canticle", cue: /\b(?:canticle|magnificat|benedictus|nunc dimittis)\b/i },
+  {
+    type: "hymn",
+    cue: /\b(?:hymn|tantum ergo|pange lingua|o salutaris|veni creator|veni sancte spiritus|adoro te|ave maris stella|stabat mater|te deum|dies irae|anima christi)\b/i,
+  },
+  {
+    type: "marian",
+    cue: /\b(?:hail,? mary|ave maria|memorare|our lady|blessed virgin|virgin mary|angelus|regina c(?:a|o)eli|salve regina|hail,? holy queen|mother of god|immaculate (?:heart|conception)|f[aá]tima|lourdes|guadalupe|sub tuum|marian)\b/i,
+  },
+  {
+    type: "meal",
+    cue: /\b(?:grace (?:before|after|at) meals?|before meals?|after meals?|meal ?time|bless us,? o lord)\b/i,
+  },
+  {
+    type: "morning",
+    cue: /\b(?:morning (?:prayer|offering)|lauds|at the start of the day|upon (?:rising|waking))\b/i,
+  },
+  {
+    type: "evening",
+    cue: /\b(?:evening prayer|night prayer|compline|vespers|before (?:sleep|bed|retiring)|bedtime)\b/i,
+  },
+  {
+    type: "intercession",
+    cue: /\b(?:intercess|petition|prayers? of the faithful|prayers? for (?:the |a |an )?[a-z])/i,
+  },
+];
+
+/** Litany call-and-response lines ("pray for us", "have mercy on us", …). */
+const LITANY_RESPONSE_RE =
+  /\b(?:pray for us|have mercy(?: on us)?|deliver us|graciously hear us|hear us|spare us|save us|we beseech thee|ora pro nobis|miserere nobis|libera nos)\b/gi;
+const LITANY_MIN_RESPONSES = 8;
+
+/** Prose that talks ABOUT a prayer (intro / history) rather than being one. */
+const PROSE_CUE_RE =
+  /\b(?:this prayer|the prayer (?:is|was|has|can|may|should)|was (?:composed|written|attributed|popularized|popularised|approved|added|introduced)|is attributed|originat|dates? (?:from|back)|century|history of|traditionally (?:said|prayed|recited|attributed)|according to|is (?:one of the|a (?:traditional|popular|short|beautiful|powerful|catholic|classic|simple))|indulgence|pope [a-z]+ (?:i|v|x)*[a-z]* (?:approved|granted|wrote)|first appeared|is prayed|is recited|is often)\b/i;
+/** Second-person address / petition language that marks prayer text. */
+const PRAYER_VOICE_RE =
+  /\b(?:thee|thou|thy|thine|we (?:pray|beseech|ask|adore|praise|thank)|grant (?:us|that|me)|have mercy|pray for us|hear us|amen|hail|o (?:god|lord|mary|jesus|blessed|most|sacred|holy|glorious)|i (?:believe|confess|adore|love you)|forgive us|bless us|come,? holy)\b/i;
+/** Page chrome that survived the reader (nav / share / footer fragments). */
+const CHROME_RE =
+  /\b(?:home|menu|search|share|print|email|sign up|subscribe|newsletter|cookie|copyright|all rights reserved|read more|related|previous|next|donate|log ?in|privacy policy|terms of use|skip to)\b|©/i;
+
+interface PrayerTextUnit {
+  text: string;
+  /** Separator to use when joining this unit to the previous one. */
+  sep: string;
+}
+
+const AMEN_END_RE = /\bamen[.!]?\s*$/i;
+const AMEN_ANY_RE = /\bamen[.!]/gi;
+
+function wordCount(text: string): number {
+  return text.split(/\s+/).filter(Boolean).length;
+}
+
+function countLitanyResponses(text: string): number {
+  return (text.match(LITANY_RESPONSE_RE) ?? []).length;
+}
+
+function isProseUnit(text: string): boolean {
+  if (PROSE_CUE_RE.test(text)) return true;
+  // A long paragraph with no prayer voice at all is narration, not prayer.
+  return wordCount(text) > 40 && !PRAYER_VOICE_RE.test(text);
+}
+
+function isChromeUnit(text: string): boolean {
+  const words = wordCount(text);
+  if (words === 0) return true;
+  if (words < 12 && CHROME_RE.test(text) && !PRAYER_VOICE_RE.test(text)) return true;
+  return false;
+}
+
+/**
+ * Turn the input into ordered text units: structured blocks when the reader
+ * supplied them (PRAYER / PARAGRAPH / LIST_ITEM only — HEADING blocks are page
+ * structure, never prayer text), otherwise bodyText paragraphs. A single
+ * unbroken blob (no newlines) is split into sentences so an intro sentence can
+ * be dropped without dropping the prayer that follows it.
+ */
+function prayerTextUnits(input: ExtractorInput): PrayerTextUnit[] {
+  const blocks = (input.blocks ?? []).filter(
+    (b) =>
+      !b.isRejected &&
+      (b.blockType === "PRAYER" || b.blockType === "PARAGRAPH" || b.blockType === "LIST_ITEM"),
+  );
+  if (blocks.length > 0) {
+    return [...blocks]
+      .sort((a, b) => a.blockOrder - b.blockOrder)
+      .map((b) => ({ text: b.text.trim(), sep: "\n\n" }))
+      .filter((u) => u.text.length > 0);
+  }
+  const raw = (input.bodyText ?? "").trim();
+  if (!raw) return [];
+  const paragraphs = raw
+    .split(/\n\s*\n|\n/)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  if (paragraphs.length > 1) return paragraphs.map((text) => ({ text, sep: "\n\n" }));
+  return raw
+    .split(/(?<=[.!?])\s+(?=[A-Z"“(])/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((text) => ({ text, sep: " " }));
+}
+
+/**
+ * Select the run of units that IS the prayer: everything from the first unit
+ * after the intro / chrome up to the last unit ending in "Amen" (or, for a
+ * litany, the last call-and-response line). Never a heading, never the page
+ * intro, never anything after the closing Amen.
+ */
+function selectPrayerRun(
+  units: PrayerTextUnit[],
+  title: string | null | undefined,
+  litany: boolean,
+): { text: string; endsWithAmen: boolean } | null {
+  if (units.length === 0) return null;
+  const normalisedTitle = (title ?? "").trim().toLowerCase();
+  const isEnd = (u: PrayerTextUnit) =>
+    AMEN_END_RE.test(u.text) || (litany && countLitanyResponses(u.text) > 0);
+
+  let end = -1;
+  for (let i = units.length - 1; i >= 0; i--) {
+    if (isEnd(units[i])) {
+      end = i;
+      break;
+    }
+  }
+  const work = units.map((u) => ({ ...u }));
+  if (end < 0) {
+    // No unit ENDS with Amen — maybe one contains it mid-unit ("… Amen. Share
+    // this prayer"). Cut that unit at its last Amen and end there.
+    for (let i = work.length - 1; i >= 0; i--) {
+      const matches = [...work[i].text.matchAll(AMEN_ANY_RE)];
+      if (matches.length > 0) {
+        const last = matches[matches.length - 1];
+        work[i].text = work[i].text.slice(0, (last.index ?? 0) + last[0].length).trim();
+        end = i;
+        break;
+      }
+    }
+  }
+  if (end < 0) return null;
+
+  // Walk back from the end, stopping at the first intro / chrome unit.
+  let start = end;
+  for (let i = end - 1; i >= 0; i--) {
+    const u = work[i];
+    if (isProseUnit(u.text) || isChromeUnit(u.text)) break;
+    start = i;
+  }
+  // Drop a leading repeat of the title (the reader keeps <h1> text out of
+  // paragraphs, but many pages echo the title as the first line).
+  while (start < end && work[start].text.trim().toLowerCase() === normalisedTitle) start += 1;
+  // A single Amen-unit that is prose ("… was approved in 1900. Amen.") is not
+  // a prayer either — the end unit itself must read as prayer.
+  if (start === end && isProseUnit(work[end].text) && !litany) return null;
+
+  let text = "";
+  for (let i = start; i <= end; i++) {
+    text = i === start ? work[i].text : `${text}${work[i].sep}${work[i].text}`;
+  }
+  text = text.trim();
+  if (text.length > PRAYER_TEXT_MAX_CHARS) {
+    // Keep the tail — it is the part that ends with Amen.
+    const cut = text.length - PRAYER_TEXT_MAX_CHARS;
+    const nl = text.indexOf("\n", cut);
+    text = text.slice(nl >= 0 ? nl + 1 : cut).trim();
+  }
+  if (text.length < PRAYER_TEXT_MIN_CHARS) return null;
+  return { text, endsWithAmen: AMEN_END_RE.test(text) };
+}
+
+const PRAYER_TEXT_MIN_CHARS = 40;
+const PRAYER_TEXT_MAX_CHARS = 12_000;
+
+/**
+ * Detect the prayer type from title, URL, litany structure, and (last) the
+ * opening of the prayer text. Always returns a schema-enum value; "general"
+ * when nothing more specific applies.
+ */
+export function detectPrayerType(input: {
+  title?: string | null;
+  url?: string;
+  prayerText?: string | null;
+  bodyText?: string | null;
+}): { type: string; cue: string } {
+  const urlWords = (() => {
+    try {
+      return decodeURIComponent(new URL(input.url ?? "").pathname).replace(/[-_/.+]+/g, " ");
+    } catch {
+      return "";
+    }
+  })();
+  const titleAndUrl = `${input.title ?? ""} ${urlWords}`;
+  for (const c of PRAYER_TYPE_CUES) {
+    const m = titleAndUrl.match(c.cue);
+    if (m) return { type: c.type, cue: m[0] };
+  }
+  const structural = `${input.prayerText ?? ""}\n${input.bodyText ?? ""}`;
+  if (countLitanyResponses(structural) >= LITANY_MIN_RESPONSES) {
+    return { type: "litany", cue: "call-and-response structure" };
+  }
+  // Title-less pages: the opening of the prayer itself still tells us what it
+  // is ("O my God, I am heartily sorry" → act of contrition).
+  const opening = (input.prayerText ?? "").slice(0, 400);
+  const openingCues: Array<{ type: string; cue: RegExp }> = [
+    { type: "act", cue: /\bi am (?:heartily )?sorry\b|\bo my god,? i (?:believe|hope|love)\b/i },
+    { type: "consecration", cue: /\bi consecrate\b/i },
+    { type: "meal", cue: /\bbless us,? o lord,? and these,? thy gifts\b/i },
+  ];
+  for (const c of openingCues) {
+    const m = opening.match(c.cue);
+    if (m) return { type: c.type, cue: m[0] };
+  }
+  return { type: "general", cue: "default" };
+}
+
 export function PrayerExtractor(input: ExtractorInput): ExtractorOutput<PrayerFields> {
   const body = blockAwareBody(input, ["PRAYER", "PARAGRAPH", "HEADING"]);
   if (!body) return blank(input, "No body text supplied.");
@@ -181,53 +419,63 @@ export function PrayerExtractor(input: ExtractorInput): ExtractorOutput<PrayerFi
     );
   }
 
-  // Heuristic: the prayer text is the block that contains "Amen" plus
-  // common Catholic invocations.
-  const prayerMatch = kept.match(/([\s\S]{40,2000}?amen[.!])/i);
-  if (prayerMatch) {
-    const text = prayerMatch[1].trim();
-    fields.prayerText = text;
+  // Litanies end in a versicle/response, not "Amen" — decide that first so the
+  // run selector knows a response line may close the prayer.
+  const units = prayerTextUnits(input);
+  const litanyByTitle = /\blitan(?:y|ies|iae)\b/i.test(`${input.title ?? ""} ${input.url}`);
+  const litanyByStructure =
+    countLitanyResponses(units.map((u) => u.text).join("\n")) >= LITANY_MIN_RESPONSES;
+  const litany = litanyByTitle || litanyByStructure;
+
+  const run = selectPrayerRun(units, input.title, litany);
+  if (run) {
+    fields.prayerText = run.text;
     evidence.push(
       makeProvenance({
         fieldName: "prayerText",
         sourceUrl: input.url,
         sourceHost: input.host,
-        snippet: text.slice(0, 240),
+        snippet: run.text.slice(0, 240),
         method: "BODY_REGEX",
-        confidence: 0.75,
+        confidence: litany && !run.endsWithAmen ? 0.7 : 0.75,
         checksum: input.checksum,
       }),
     );
   } else {
-    fatal.push("No prayer block found (must end with 'Amen').");
-  }
-
-  // Prayer type: try to detect common categories.
-  const prayerType = (() => {
-    const t = `${input.title ?? ""} ${kept}`.toLowerCase();
-    if (t.includes("morning prayer")) return "morning";
-    if (t.includes("evening prayer") || t.includes("night prayer")) return "evening";
-    if (t.includes("intercessory")) return "intercessory";
-    if (t.includes("thanksgiving")) return "thanksgiving";
-    if (t.includes("petition")) return "petition";
-    return null;
-  })();
-  if (prayerType) {
-    fields.prayerType = prayerType;
-    evidence.push(
-      makeProvenance({
-        fieldName: "prayerType",
-        sourceUrl: input.url,
-        sourceHost: input.host,
-        snippet: prayerType,
-        method: "BODY_REGEX",
-        confidence: 0.7,
-        checksum: input.checksum,
-      }),
+    fatal.push(
+      litany
+        ? "No litany block found (needs call-and-response lines or a closing 'Amen')."
+        : "No prayer block found (must end with 'Amen').",
     );
   }
 
-  fields.category = "PRAYER";
+  const detected = detectPrayerType({
+    title: input.title,
+    url: input.url,
+    prayerText: fields.prayerText,
+    bodyText: kept,
+  });
+  fields.prayerType = detected.type;
+  evidence.push(
+    makeProvenance({
+      fieldName: "prayerType",
+      sourceUrl: input.url,
+      sourceHost: input.host,
+      snippet: detected.cue,
+      method: "BODY_REGEX",
+      confidence: detected.cue === "default" ? 0.6 : 0.7,
+      checksum: input.checksum,
+    }),
+  );
+
+  // Canonical /prayers filter category, derived the same way the public site
+  // derives it — so the stored category is already one the filter understands.
+  fields.category = categorizePrayer({
+    title: fields.prayerTitle,
+    prayerType: fields.prayerType,
+    body: fields.prayerText,
+  });
+
   const missing = required.filter((f) => !(f in fields));
   const confidence =
     required.length === 0 ? 0 : (required.length - missing.length) / required.length;
@@ -238,7 +486,11 @@ export function PrayerExtractor(input: ExtractorInput): ExtractorOutput<PrayerFi
     confidenceScore: confidence,
     sourceEvidence: evidence,
     rejectedSections: rejected,
-    formatting: { hasAmen: /amen[.!]/i.test(kept) },
+    formatting: {
+      hasAmen: /amen[.!]/i.test(kept),
+      isLitany: litany,
+      prayerTypeCue: detected.cue,
+    },
     warnings: rejected.length > 0 ? [`Stripped ${rejected.length} junk section(s).`] : [],
     fatalReasons: fatal,
   };
@@ -255,6 +507,8 @@ export interface SaintFields {
   feastDayOfMonth: number;
   /** … and under the legacy name the verifier / packaging tables still list. */
   feastDayNumber: number;
+  /** Human-readable "October 4" for renderers / verification probes. */
+  feastDayLabel: string;
   background: string;
   patronage?: string;
   /** Where the saint is from (birthplace / origin). */
@@ -283,6 +537,8 @@ const MONTHS = [
   "november",
   "december",
 ];
+/** Capitalised month names, indexed like MONTHS. */
+const MONTH_LABELS = MONTHS.map((m) => m[0].toUpperCase() + m.slice(1));
 
 export function SaintExtractor(input: ExtractorInput): ExtractorOutput<SaintFields> {
   // Saints: biography paragraphs + feast/patronage headings.
@@ -329,6 +585,9 @@ export function SaintExtractor(input: ExtractorInput): ExtractorOutput<SaintFiel
       fields.feastMonth = month;
       fields.feastDayOfMonth = day;
       fields.feastDayNumber = day;
+      // Keep the prose form too: a renderer that wants "October 4" and the
+      // validation fetcher (which matches dates as dates) both read it.
+      fields.feastDayLabel = `${MONTH_LABELS[monthIdx]} ${day}`;
       evidence.push(
         provenanceFor(
           "feastDay",

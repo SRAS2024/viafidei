@@ -98,18 +98,40 @@ function make(month: number, day: number): ParsedFeast {
   return { feastDay: `${pad(month)}-${pad(day)}`, feastMonth: month, feastDayOfMonth: day };
 }
 
+/** Index of the earliest match of any of `patterns` in `text` (−1: none). */
+function earliestMatch(patterns: RegExp[], text: string): number {
+  let best = -1;
+  for (const rx of patterns) {
+    const m = rx.exec(text);
+    if (m && (best === -1 || m.index < best)) best = m.index;
+  }
+  return best;
+}
+
+/**
+ * Where the (month, day) feast is first stated, in words, in `text` (−1 when
+ * absent). Matches "August 23", "23 August", and ordinal variants ("August
+ * 23rd"). The POSITION matters for a multi-feast saint: the infobox lists the
+ * current calendar date first and historical dates after it, so the ingest
+ * must know which of several corroborated dates comes first — a "does it
+ * appear anywhere" test cannot tell them apart.
+ */
+export function feastMentionIndex(month: number, day: number, text: string): number {
+  const name = monthName(month).toLowerCase();
+  if (!name || !text) return -1;
+  const t = text.toLowerCase();
+  const d = String(day);
+  const after = new RegExp(`\\b${name}\\s+${d}(?:st|nd|rd|th)?\\b`);
+  const before = new RegExp(`\\b${d}(?:st|nd|rd|th)?\\s+${name}\\b`);
+  return earliestMatch([after, before], t);
+}
+
 /**
  * Corroboration: is the (month, day) feast stated, in words, in `text`?
  * Matches "August 23", "23 August", and ordinal variants ("August 23rd").
  */
 export function feastDayInText(month: number, day: number, text: string): boolean {
-  const name = monthName(month).toLowerCase();
-  if (!name || !text) return false;
-  const t = text.toLowerCase();
-  const d = String(day);
-  const after = new RegExp(`\\b${name}\\s+${d}(?:st|nd|rd|th)?\\b`);
-  const before = new RegExp(`\\b${d}(?:st|nd|rd|th)?\\s+${name}\\b`);
-  return after.test(t) || before.test(t);
+  return feastMentionIndex(month, day, text) >= 0;
 }
 
 /**
@@ -206,22 +228,36 @@ export function feastDayInTextLocalized(
   text: string,
   lang: string,
 ): boolean {
-  if (lang === "en") return feastDayInText(month, day, text);
+  return feastMentionIndexLocalized(month, day, text, lang) >= 0;
+}
+
+/**
+ * Localized counterpart of `feastMentionIndex`: where the feast is first
+ * stated in `text` written in `lang` (−1 when absent or the language is not
+ * supported). "en" delegates to the English matcher.
+ */
+export function feastMentionIndexLocalized(
+  month: number,
+  day: number,
+  text: string,
+  lang: string,
+): number {
+  if (lang === "en") return feastMentionIndex(month, day, text);
   const months = LOCALIZED_MONTHS[lang]?.[month - 1];
-  if (!months || !text) return false;
+  if (!months || !text) return -1;
   const t = text.toLowerCase();
   const d = String(day);
-  return months.some((name) => {
+  const patterns: RegExp[] = [];
+  for (const name of months) {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     // "14 luglio", "14 de julio", "14. Juli", "1er juillet", "14 lipca".
-    const dayFirst = new RegExp(
-      `(?<!\\d)${d}(?:\\.|er|º|°)?(?:\\s+de)?\\s+${escaped}(?![a-zà-ž])`,
-      "u",
+    patterns.push(
+      new RegExp(`(?<!\\d)${d}(?:\\.|er|º|°)?(?:\\s+de)?\\s+${escaped}(?![a-zà-ž])`, "u"),
     );
     // "Juli 14" is unusual in these languages but harmless to accept.
-    const monthFirst = new RegExp(`(?<![a-zà-ž])${escaped}\\s+${d}(?!\\d)`, "u");
-    return dayFirst.test(t) || monthFirst.test(t);
-  });
+    patterns.push(new RegExp(`(?<![a-zà-ž])${escaped}\\s+${d}(?!\\d)`, "u"));
+  }
+  return earliestMatch(patterns, t);
 }
 
 /**

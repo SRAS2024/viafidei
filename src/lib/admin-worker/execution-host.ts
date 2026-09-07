@@ -31,6 +31,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import type { WorkerExecutionOrigin } from "./execution-context";
+import { summarizeDatabaseError } from "./local-config";
 
 const MEMORY_TYPE = "GENERIC" as const;
 const SWITCH_KEY = "worker.execution.switch";
@@ -126,16 +127,16 @@ async function readRow(prisma: PrismaClient, key: string): Promise<RawRow | null
   });
 }
 
-/** True for a Prisma/network failure (as opposed to a normal null row). */
+/**
+ * One line naming the REAL cause of a database failure. Prisma's message
+ * starts with "Invalid `prisma.adminWorkerMemory.findUnique()` invocation" and
+ * a source excerpt; the cause ("Can't reach database server at …") is several
+ * lines down. The first-line summary this used to return is what the app and
+ * diagnostics showed as MasterSwitch.error / ExecutionStatus.error, so an
+ * outage read as a query bug.
+ */
 function describeDbError(err: unknown): string {
-  const message = err instanceof Error ? err.message : String(err);
-  return (
-    message
-      .split("\n")
-      .find((l) => l.trim())
-      ?.trim()
-      .slice(0, 240) ?? "database error"
-  );
+  return summarizeDatabaseError(err, 240);
 }
 
 async function writeRow(prisma: PrismaClient, key: string, value: object): Promise<void> {

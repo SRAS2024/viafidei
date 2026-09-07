@@ -334,7 +334,8 @@ export const EVENTS_4: ChurchHistoryEvent[] = [
     significance: "The only ex cathedra definition since 1870.",
     citation:
       "https://www.vatican.va/content/pius-xii/en/apost_constitutions/documents/hf_p-xii_apc_19501101_munificentissimus-deus.html",
-    links: { documentSlug: "munificentissimus-deus" },
+    // No documentSlug: the document is ingested (not curated), and the merge
+    // enriches this event by its own slug whenever it is published.
   },
   {
     slug: "holy-week-reform-1955",

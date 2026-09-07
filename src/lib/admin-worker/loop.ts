@@ -75,6 +75,18 @@ function envInt(name: string, fallback: number): number {
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
+/**
+ * Under the local host (scripts/local-worker-host.ts) the HOST owns the lease:
+ * it renews with jitter on its own tick and stops this child when the lease is
+ * lost, so the child rewriting the same row every pass and every 20s only
+ * doubled the round trips against the remote database (audit LH-11). The host
+ * sets this flag in the child's environment; a bare `npm run worker:local`
+ * has no host and keeps renewing itself.
+ */
+export function leaseRenewedByHost(): boolean {
+  return process.env.VIAFIDEI_LEASE_RENEWED_BY_HOST === "1";
+}
+
 // The pass currently in flight in this process (null between passes). Lets the
 // SIGTERM handler close the row honestly ("stopped by operator") instead of
 // orphaning it as RUNNING until the next boot's reaper.
@@ -178,7 +190,7 @@ export async function runAdminWorkerLoop(
       : setInterval(() => {
           heartbeatTick = (async () => {
             await writeHeartbeat(prisma).catch(() => undefined);
-            if (opts.workerId)
+            if (opts.workerId && !leaseRenewedByHost())
               await renewExecutionLease(prisma, opts.workerId).catch(() => undefined);
           })();
         }, heartbeatMs);
@@ -263,6 +275,10 @@ async function checkLoopAuthority(
         stopReason: "switch_off",
       };
     }
+    // Host-supervised child: the lease row is the host's to renew, and the
+    // host already stops this process when another runtime takes it. The read
+    // above still catches OFF; the per-pass renew write is skipped entirely.
+    if (leaseRenewedByHost()) return { ok: true, reason: "" };
     const renewed = await renewExecutionLease(prisma, workerId);
     if (renewed === "lost") {
       return {

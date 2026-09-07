@@ -112,6 +112,9 @@ export {
   type LanesResult,
 } from "./lanes";
 export { CONTENT_LANES, OPS_LANES } from "./worker-lanes";
+// Serialises the brain work that runs outside the `intelligence` lane
+// (awareness, self-model, custody) — the bridge itself does not queue.
+export { withBrainMutex, brainMutexState } from "./brain-mutex";
 
 // Outbound egress through a proxy (restricted/proxied deployments) + reachability.
 export {

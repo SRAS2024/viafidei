@@ -173,7 +173,7 @@ export async function refreshContentGoals(prisma: PrismaClient): Promise<Content
   let unmet = 0;
   for (const goal of goals) {
     const current = countMap.get(goal.contentType) ?? 0;
-    const target = goal.desiredTarget;
+    const target = effectiveTarget(goal.desiredTarget, goal.canonicalMax ?? null);
     const gap = Math.max(0, target - current);
     if (gap > 0) unmet += 1;
     const status = reconcileStatus(
@@ -190,8 +190,39 @@ export async function refreshContentGoals(prisma: PrismaClient): Promise<Content
       }),
     );
   }
-  if (updates.length > 0) await prisma.$transaction(updates);
+  if (updates.length > 0) await runBatched(prisma, updates);
   return { total: goals.length, changed: updates.length, unmet };
+}
+
+/**
+ * The count the worker actually plans toward. A closed type's hard maximum
+ * (SACRAMENT = 7) wins over the editable target: an operator-raised target
+ * above canonicalMax must never reopen a gap for a type the faith has fixed,
+ * and a type sitting at its maximum counts as met — the planner never asks
+ * for an eighth sacrament.
+ */
+export function effectiveTarget(desiredTarget: number, canonicalMax: number | null): number {
+  if (canonicalMax != null && canonicalMax > 0) return Math.min(desiredTarget, canonicalMax);
+  return desiredTarget;
+}
+
+/**
+ * Run the row updates in ONE interactive-free `$transaction` when the client
+ * offers one, else sequentially. The Prisma client always has `$transaction`,
+ * but the thin per-model fakes the planner / mission-planner tests (and any
+ * hand-rolled client wrapper) drive the refresh with do not, and a refresh
+ * that throws there hides every planner regression behind a TypeError.
+ */
+async function runBatched(
+  prisma: PrismaClient,
+  updates: Array<ReturnType<typeof prisma.contentGoal.update>>,
+): Promise<void> {
+  const tx = (prisma as { $transaction?: unknown }).$transaction;
+  if (typeof tx === "function") {
+    await prisma.$transaction(updates);
+    return;
+  }
+  for (const update of updates) await update;
 }
 
 /**

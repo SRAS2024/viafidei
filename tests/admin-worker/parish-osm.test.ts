@@ -754,6 +754,120 @@ describe("runOsmParishDiscovery", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("claims the tile durably (IN_PROGRESS + active) BEFORE the Overpass query so a killed run resumes it", async () => {
+    const { prisma, store } = makePrisma();
+    let seenDuringQuery: { status?: string } | undefined;
+    let activeDuringQuery: { ids?: string[] } | undefined;
+    global.fetch = vi.fn(async () => {
+      seenDuringQuery = store.get("osm-tile:m:rome")?.memoryValue as { status?: string };
+      activeDuringQuery = store.get("osm-tile-active")?.memoryValue as { ids?: string[] };
+      return {
+        ok: true,
+        headers: { get: () => "application/json" },
+        json: async () => ({ elements: [] }),
+      };
+    }) as unknown as typeof global.fetch;
+
+    await runOsmParishDiscovery(prisma, { brainActive: true, force: true, maxQueries: 1 });
+
+    expect(seenDuringQuery?.status).toBe("IN_PROGRESS");
+    expect(activeDuringQuery?.ids).toEqual(["m:rome"]);
+    // A completed sweep releases the claim.
+    expect((store.get("osm-tile:m:rome")?.memoryValue as { status: string }).status).toBe("SWEPT");
+    expect((store.get("osm-tile-active")?.memoryValue as { ids: string[] }).ids).toEqual([]);
+  });
+
+  it("parks a tile FAILED after repeated runs died inside it without progress", async () => {
+    global.fetch = stubOverpass([]);
+    const { prisma, store } = makePrisma();
+    // Simulate a run that died mid-query three times: IN_PROGRESS, no
+    // resumeAfter, failures already at the limit.
+    store.set("osm-tile:m:rome", {
+      memoryValue: {
+        status: "IN_PROGRESS",
+        elementCount: 0,
+        accepted: 0,
+        published: 0,
+        lastSweptAt: null,
+        nextDueAt: null,
+        resumeAfter: null,
+        failures: 3,
+        lastError: null,
+        bbox: [41.79, 12.34, 42.0, 12.65],
+        country: "Rome",
+        deg: 0.31,
+      },
+      lastUsedAt: new Date(),
+    });
+    store.set("osm-tile-active", { memoryValue: { ids: ["m:rome"] }, lastUsedAt: new Date() });
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(out.queriesRun).toBe(0); // parked without spending a query
+    const tile = store.get("osm-tile:m:rome")?.memoryValue as {
+      status: string;
+      failures: number;
+      nextDueAt: number;
+      lastError: string;
+    };
+    expect(tile.status).toBe("FAILED");
+    expect(tile.failures).toBe(4);
+    expect(tile.nextDueAt).toBeGreaterThan(Date.now());
+    expect(tile.lastError).toMatch(/died repeatedly/);
+    expect((store.get("osm-tile-active")?.memoryValue as { ids: string[] }).ids).toEqual([]);
+  });
+
+  it("recognises a remembered gate failure by sourceRef BEFORE spending a reverse lookup", async () => {
+    const { "addr:city": _c, "addr:street": _s, "addr:housenumber": _h, ...bare } = FULL_TAGS;
+    void _c;
+    void _s;
+    void _h;
+    const calls: string[] = [];
+    global.fetch = vi.fn(async (url: string) => {
+      calls.push(String(url));
+      if (String(url).includes("nominatim")) {
+        return { ok: true, json: async () => ({ address: { town: "Brookline" } }) };
+      }
+      return {
+        ok: true,
+        headers: { get: () => "application/json" },
+        json: async () => ({
+          elements: [{ type: "node", id: 21, lat: 42.33, lon: -71.12, tags: bare }],
+        }),
+      };
+    }) as unknown as typeof global.fetch;
+    const { prisma, store } = makePrisma();
+    store.set("osm-skip:osm:node/21", {
+      memoryValue: { retryAfter: Date.now() + 60_000, reason: "blocked" },
+      lastUsedAt: new Date(),
+    });
+
+    const out = await runOsmParishDiscovery(prisma, {
+      brainActive: true,
+      force: true,
+      maxQueries: 1,
+    });
+
+    expect(out.skipped).toBe(1);
+    expect(mockedPublish).not.toHaveBeenCalled();
+    expect(calls.some((u) => u.includes("nominatim"))).toBe(false);
+  });
+
+  it("records a gate failure under the sourceRef as well as the slug", async () => {
+    mockedPublish.mockResolvedValue({ kind: "blocked", blockedBy: "safety", reason: "x" } as never);
+    global.fetch = stubOverpass([
+      { type: "node", id: 10, lat: 42.34, lon: -71.07, tags: FULL_TAGS },
+    ]);
+    const { prisma, store } = makePrisma();
+    await runOsmParishDiscovery(prisma, { brainActive: true, force: true, maxQueries: 1 });
+    expect(store.has("osm-skip:cathedral-of-the-holy-cross-boston")).toBe(true);
+    expect(store.has("osm-skip:osm:node/10")).toBe(true);
+  });
+
   it("is a no-op when disabled (skip-network)", async () => {
     process.env.ADMIN_WORKER_SKIP_NETWORK = "1";
     const { prisma } = makePrisma();

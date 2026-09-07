@@ -23,10 +23,11 @@ import {
   contentTypeTag,
   tabTag,
   tagsForRow,
-  CONTENT_TYPE_TO_TAB,
+  tabForContentType,
   type ContentTypeTagKey,
   type TabKey,
 } from "./tags";
+import { memoClear } from "./memo";
 
 export type CacheRevalidationEntry = {
   reason: string;
@@ -71,12 +72,75 @@ export function insideNextRuntime(): boolean {
 export const NO_TAG_CACHE_MESSAGE =
   "no tag cache outside the Next runtime — public pages are force-dynamic, nothing to revalidate";
 
+/**
+ * Where the public web server lives, for the worker's remote memo flush. Same
+ * resolution as the worker's post-publish probe (PUBLIC_BASE_URL first) so the
+ * flush hits the process that actually serves visitors.
+ */
+function publicSiteOrigin(): string | null {
+  const candidate = process.env.PUBLIC_BASE_URL ?? process.env.NEXT_PUBLIC_BASE_URL;
+  if (typeof candidate === "string" && candidate.length > 0) return candidate.replace(/\/$/, "");
+  if (process.env.NODE_ENV === "production") return "https://etviafidei.com";
+  return null;
+}
+
+/**
+ * Bearer the web server's `/api/internal/revalidate` accepts: the explicit
+ * INTERNAL_API_SECRET, else the SESSION_SECRET-derived cron token (the worker
+ * runs with the same Railway variables as the web service).
+ */
+async function internalRevalidateToken(): Promise<string | null> {
+  const explicit = process.env.INTERNAL_API_SECRET?.trim();
+  if (explicit) return explicit;
+  const { deriveCronSecret } = await import("../security/cron-auth");
+  return deriveCronSecret();
+}
+
+/**
+ * Ask the web server to drop its in-process memo (src/lib/cache/memo.ts) so a
+ * just-published row shows up on list pages, today's saints, and the sitemap
+ * before their TTLs expire. Best effort and offline-safe: a missing origin or
+ * token, ADMIN_WORKER_SKIP_NETWORK=1, a timeout, or a non-2xx response are all
+ * reported but never fail the caller — the memo TTLs bound staleness anyway.
+ */
+export async function flushRemoteMemo(
+  tags: ReadonlyArray<string>,
+  fetchImpl: typeof fetch = fetch,
+): Promise<{ attempted: boolean; ok: boolean; detail: string }> {
+  if (process.env.ADMIN_WORKER_SKIP_NETWORK === "1") {
+    return { attempted: false, ok: false, detail: "network disabled" };
+  }
+  const origin = publicSiteOrigin();
+  if (!origin) return { attempted: false, ok: false, detail: "no public origin configured" };
+  const token = await internalRevalidateToken().catch(() => null);
+  if (!token) return { attempted: false, ok: false, detail: "no internal token available" };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetchImpl(`${origin}/api/internal/revalidate`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ tags, reason: "worker_publish" }),
+      signal: controller.signal,
+    });
+    return { attempted: true, ok: res.ok, detail: `HTTP ${res.status}` };
+  } catch (e) {
+    return { attempted: true, ok: false, detail: e instanceof Error ? e.message : String(e) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function revalidateTagsSafe(tags: ReadonlyArray<string>): Promise<{
   ok: boolean;
   /** True when there was no cache to revalidate (not a failure). */
   skipped?: boolean;
   errorMessage?: string;
 }> {
+  // The in-process memo exists in every process (web, worker, tests); drop it
+  // first so whichever process published sees fresh lists immediately.
+  memoClear();
+
   // Outside the Next server there is no tag cache at all: the public pages are
   // `force-dynamic` (they query Postgres per request), so a freshly published
   // row is live on the next request with nothing to flush. Calling
@@ -84,9 +148,14 @@ async function revalidateTagsSafe(tags: ReadonlyArray<string>): Promise<{
   // report ok:false — which made every worker-side verification WARN, fed
   // "failed" post-publish outcomes into source reputation, and marched
   // PUBLIC_DISPLAY_FAILED repairs to ABANDONED although the page was fine.
-  // Treat it as a successful no-op and say why.
+  // Treat it as a successful no-op and say why — after asking the web server
+  // (a different process, usually a different machine) to drop ITS memo.
   if (!insideNextRuntime()) {
-    return { ok: true, skipped: true, errorMessage: NO_TAG_CACHE_MESSAGE };
+    const remote = await flushRemoteMemo(tags);
+    const note = remote.attempted
+      ? `; remote memo flush ${remote.ok ? "ok" : "failed"} (${remote.detail})`
+      : `; remote memo flush not attempted (${remote.detail})`;
+    return { ok: true, skipped: true, errorMessage: `${NO_TAG_CACHE_MESSAGE}${note}` };
   }
   try {
     // Next.js `revalidateTag` is available at runtime in app router.
@@ -188,7 +257,7 @@ export async function revalidateContentType(
   contentType: ContentTypeTagKey | string,
   reason: RevalidationReason = "threshold_refresh",
 ): Promise<{ ok: boolean; skipped?: boolean }> {
-  const tab = CONTENT_TYPE_TO_TAB[contentType as ContentTypeTagKey];
+  const tab = tabForContentType(String(contentType));
   const tags = [contentTypeTag(contentType)];
   if (tab) tags.push(tabTag(tab));
   tags.push(SITEMAP_TAG, SEARCH_INDEX_TAG);

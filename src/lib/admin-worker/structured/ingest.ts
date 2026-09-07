@@ -32,7 +32,7 @@ import type { PrismaClient } from "@prisma/client";
 import { validatePayload } from "@/lib/checklist";
 import type { CuratedEntry } from "@/lib/checklist/knowledge";
 import { isDoctrinallySensitive } from "../content-type-profiles";
-import { refreshContentGoals, seedContentGoals } from "../content-goals";
+import { refreshContentGoals } from "../content-goals";
 import { runPublishOrchestrator } from "../publish-orchestrator";
 import { writeAdminWorkerLog } from "../logs";
 import { lastSparqlFailure, runSparql, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
@@ -228,10 +228,20 @@ function entryDisplayName(entry: CuratedEntry): string {
   return title || canonical || entry.slug;
 }
 
-/** The Wikidata QID an entry records for itself, if any. */
+/**
+ * The Wikidata QID an entry records for itself, if any: the payload's own
+ * `wikidataQid` (SAINT), else the wikidata.org citation every ingestor puts
+ * first — so label collisions are told apart for every content type, not only
+ * the ones whose schema carries a QID field.
+ */
 function entryQid(entry: CuratedEntry): string | undefined {
   const q = entry.payload.wikidataQid;
-  return typeof q === "string" && /^Q\d+$/.test(q) ? q : undefined;
+  if (typeof q === "string" && /^Q\d+$/.test(q)) return q;
+  for (const c of entry.citations) {
+    const m = c.match(/wikidata\.org\/wiki\/(Q\d+)$/);
+    if (m) return m[1];
+  }
+  return undefined;
 }
 
 /**
@@ -242,8 +252,8 @@ function entryQid(entry: CuratedEntry): string | undefined {
  * data-exhausted corpus) has its score divided by `1 + consecutiveEmptyPasses`,
  * so after a few empty passes a high-gap-but-dead ingestor falls below the ones
  * that ARE producing and the worker rotates to them instead of spinning. A
- * least-recently-used tiebreak then spreads work across equally-scored ingestors
- * (e.g. documents + councils, both CHURCH_DOCUMENT). The dampening decays as
+ * least-recently-used tiebreak then spreads work across equally-scored
+ * ingestors. The dampening decays as
  * soon as an ingestor produces again (its streak resets to 0). An ingestor
  * resting after a full sweep (`exhaustedUntil` in the future) is not picked.
  */
@@ -676,8 +686,9 @@ export async function runStructuredIngest(
     failed: out.skipped + out.failed,
   });
 
+  // Goal rows are seeded at boot (and re-seeded by the loop when the table is
+  // empty); a productive pass only needs the live counts refreshed.
   if (out.published > 0) {
-    await seedContentGoals(prisma).catch(() => undefined);
     await refreshContentGoals(prisma).catch(() => undefined);
   }
 

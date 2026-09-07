@@ -77,8 +77,13 @@ export async function runReadiness(prisma: PrismaClient): Promise<ReadinessRepor
     : Infinity;
   // Local execution is the supported architecture (spec §24): an absent
   // heartbeat while the master switch is OFF is intentional, not a failure.
+  // Only a switch that was READ as OFF excuses a missing heartbeat. An
+  // unreadable switch (readExecutionStatus reports `known: false` and a
+  // default `state: "OFF"`) says nothing about the operator's intent, so the
+  // heartbeat age alone decides — otherwise a database blip (or a client
+  // without the memory table) rendered a dead worker as "intentionally off".
   const execution = await readExecutionStatus(prisma).catch(() => null);
-  const workerOff = execution?.state === "OFF";
+  const workerOff = execution?.known === true && execution.state === "OFF";
   checks.push({
     key: "heartbeat",
     label: "Admin Worker heartbeat",

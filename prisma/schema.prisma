@@ -1335,6 +1335,7 @@ model AdminWorkerLog {
   @@index([taskId])
   @@index([category, createdAt])
   @@index([severity, createdAt])
+  @@index([eventName, createdAt])
   @@index([createdAt])
   @@index([contentType])
   @@index([sourceHost])
