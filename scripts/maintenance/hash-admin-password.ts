@@ -15,14 +15,47 @@
  *
  * Usage:
  *   npx tsx scripts/maintenance/hash-admin-password.ts
+ *   npx tsx scripts/maintenance/hash-admin-password.ts --generate
  *   printf '%s' "$PW" | npx tsx scripts/maintenance/hash-admin-password.ts --stdin
  *
- * You keep typing the SAME password at the admin login. Only the stored
- * representation changes.
+ *   --generate   invent a new strong password instead of prompting for one.
+ *                The new password is written to the output file too, because
+ *                you cannot sign in with a hash — you need the plaintext once,
+ *                to put in your password manager.
+ *   --out PATH   where to write the result (default: the Desktop). The file is
+ *                created 0600 and the script tells you to delete it.
+ *
+ * Terminal output is easy to miss or lose to scrollback, so the result is
+ * ALWAYS written to a file as well.
+ *
+ * You keep typing the SAME password at the admin login unless you passed
+ * --generate. Only the stored representation changes.
  */
+import { randomInt } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import path from "node:path";
 import { createInterface } from "node:readline";
 
 import { hashPassword, isPasswordHash, verifyPassword } from "../../src/lib/auth/password";
+
+/**
+ * A 24-character password from an unambiguous alphabet — no O/0, l/1/I — so it
+ * survives being read aloud or retyped from a screen. randomInt is CSPRNG-backed
+ * and rejection-samples internally, so there is no modulo bias.
+ */
+function generatePassword(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_";
+  let out = "";
+  for (let i = 0; i < 24; i += 1) out += alphabet[randomInt(alphabet.length)];
+  return out;
+}
+
+function outputPath(): string {
+  const i = process.argv.indexOf("--out");
+  if (i !== -1 && process.argv[i + 1]) return path.resolve(process.argv[i + 1]!);
+  return path.join(homedir(), "Desktop", "viafidei-admin-password.txt");
+}
 
 /** Read a line without echoing it, so the password never appears on screen. */
 function readSecret(prompt: string): Promise<string> {
@@ -50,7 +83,10 @@ function readSecret(prompt: string): Promise<string> {
 }
 
 async function main(): Promise<void> {
-  const password = await readSecret("Administrator password (input hidden): ");
+  const generated = process.argv.includes("--generate");
+  const password = generated
+    ? generatePassword()
+    : await readSecret("Administrator password (input hidden): ");
 
   if (password.length === 0) throw new Error("no password supplied");
   if (isPasswordHash(password)) {
@@ -71,9 +107,50 @@ async function main(): Promise<void> {
     throw new Error("internal error: generated hash did not verify; nothing was printed");
   }
 
+  const target = outputPath();
+  const lines = [
+    "Via Fidei — administrator credential",
+    "====================================",
+    "",
+    "Set this ONE variable on the Railway WEB service (viafidei).",
+    "There is no new variable: ADMIN_PASSWORD already exists, and only its",
+    "stored form changes. Do NOT set it on the Postgres service.",
+    "",
+    "Variable name:",
+    "",
+    "ADMIN_PASSWORD",
+    "",
+    "Variable value (copy the whole line, including the leading $):",
+    "",
+    hash,
+    "",
+  ];
+  if (generated) {
+    lines.push(
+      "This password was newly generated. Save it in your password manager NOW —",
+      "it is the only copy, it cannot be recovered from the hash above, and you",
+      "sign in with THIS, not with the hash:",
+      "",
+      password,
+      "",
+    );
+  } else {
+    lines.push(
+      "Keep signing in with the same password you typed. Only the stored form changed.",
+      "",
+    );
+  }
+  lines.push(
+    "When you have pasted the value into Railway, DELETE THIS FILE.",
+    `    rm ${JSON.stringify(target)}`,
+    "",
+  );
+  // 0600: readable only by this user. A Desktop file is convenient, not safe.
+  writeFileSync(target, lines.join("\n"), { encoding: "utf8", mode: 0o600 });
+
   process.stdout.write(`\nADMIN_PASSWORD=${hash}\n\n`);
-  process.stdout.write("Set that as ADMIN_PASSWORD on the WEB service. Keep signing in with the\n");
-  process.stdout.write("same password you just typed — only the stored form changed.\n");
+  process.stdout.write(`Written to: ${target}\n`);
+  process.stdout.write("Paste the value into Railway, then delete that file.\n");
 }
 
 main().catch((err) => {
