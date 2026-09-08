@@ -1,11 +1,14 @@
 import { type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth";
-import { jsonError, jsonOk } from "@/lib/http";
+import { jsonOk } from "@/lib/http";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { listAuditLogs } from "@/lib/data/audit-log";
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  // The centralized gate is the one admin authorization path. On a GET its
+  // CSRF stage is a no-op (safe method), so this read still gets exactly what
+  // it needs: banned-device enforcement plus a completed-2FA admin session.
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
 
   const url = new URL(req.url);
   const result = await listAuditLogs({

@@ -1,11 +1,13 @@
 import { type NextRequest } from "next/server";
-import { requireAdmin } from "@/lib/auth/admin";
 import { jsonError, jsonOk } from "@/lib/http";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { listAdminUsers } from "@/lib/data/admin-users";
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  // Read-only, but still through the central gate: CSRF is a no-op on a safe
+  // method while banned-device and admin-session enforcement still apply.
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
 
   const url = new URL(req.url);
   const search = url.searchParams.get("q") ?? undefined;

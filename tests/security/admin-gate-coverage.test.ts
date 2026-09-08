@@ -32,24 +32,12 @@ import {
  * Admin API routes that still guard themselves with `requireAdmin()` instead
  * of the central gate. Every one of them authenticates; what they miss is
  * CSRF + banned-device enforcement. Shrink this list, never grow it.
+ *
+ * It is now EMPTY: the last 13 entries (three read-only routes and the ten
+ * checklist mutations) were converted to `gateAdminApiCall`. Keep it empty —
+ * an entry here is a live gap, not a style choice.
  */
-const KNOWN_UNGATED_ROUTES: ReadonlySet<string> = new Set([
-  // Read-only: missing banned-device enforcement only.
-  "src/app/api/admin/audit/route.ts",
-  "src/app/api/admin/diagnostics/route.ts",
-  "src/app/api/admin/users/route.ts",
-  // Mutating: missing CSRF + banned-device enforcement.
-  "src/app/api/admin/checklist/[id]/add-citation/route.ts",
-  "src/app/api/admin/checklist/[id]/approve/route.ts",
-  "src/app/api/admin/checklist/[id]/rebuild/route.ts",
-  "src/app/api/admin/checklist/[id]/reject/route.ts",
-  "src/app/api/admin/checklist/[id]/unpublish/route.ts",
-  "src/app/api/admin/checklist/[id]/verify-sources/route.ts",
-  "src/app/api/admin/checklist/bulk/reject-all/route.ts",
-  "src/app/api/admin/checklist/bulk/verify-all/route.ts",
-  "src/app/api/admin/checklist/janitor/[id]/route.ts",
-  "src/app/api/admin/checklist/seed/route.ts",
-]);
+const KNOWN_UNGATED_ROUTES: ReadonlySet<string> = new Set<string>([]);
 
 function fixtureRepo(files: Record<string, string>): string {
   const root = mkdtempSync(join(tmpdir(), "vf-gate-scan-"));
@@ -93,6 +81,56 @@ describe("the gate-coverage scanner actually works", () => {
     const [report] = scanAdminRouteGateCoverage({ rootDir: root });
     expect(report!.gated).toBe(false);
   });
+
+  // The scanner used to answer per FILE: `gateAdminApiCall` appearing anywhere
+  // marked the whole route gated. Four real routes (media, media/[id], email,
+  // email/admin-test) paired a gated POST/DELETE with a bare requireAdmin()
+  // GET and were all reported as covered, so an empty debt list proved nothing
+  // about those reads. Judging each handler on its own body is what makes the
+  // empty list below mean something.
+  it("does not let a gated mutation vouch for an unguarded read in the same file", () => {
+    const root = fixtureRepo({
+      "src/app/api/admin/mixed/route.ts": [
+        'import { gateAdminApiCall } from "@/lib/security/admin-gate";',
+        'import { requireAdmin } from "@/lib/auth";',
+        "export async function GET() {",
+        "  const admin = await requireAdmin();",
+        "  return admin ? null : null;",
+        "}",
+        "export async function POST(req) {",
+        "  const gate = await gateAdminApiCall(req);",
+        "  if (!gate.ok) return gate.response;",
+        "  return null;",
+        "}",
+      ].join("\n"),
+    });
+    const [report] = scanAdminRouteGateCoverage({ rootDir: root });
+    expect(report!.handlerGuards.GET).toBe("require-admin");
+    expect(report!.handlerGuards.POST).toBe("gate");
+    expect(report!.ungatedHandlers).toEqual(["GET"]);
+    expect(report!.gated).toBe(false);
+  });
+
+  it("counts a file gated only when every exported handler reaches the gate", () => {
+    const root = fixtureRepo({
+      "src/app/api/admin/both/route.ts": [
+        'import { gateAdminApiCall } from "@/lib/security/admin-gate";',
+        "export async function GET(req) {",
+        "  const gate = await gateAdminApiCall(req);",
+        "  if (!gate.ok) return gate.response;",
+        "  return null;",
+        "}",
+        "export async function DELETE(req) {",
+        "  const gate = await gateAdminApiCall(req);",
+        "  if (!gate.ok) return gate.response;",
+        "  return null;",
+        "}",
+      ].join("\n"),
+    });
+    const [report] = scanAdminRouteGateCoverage({ rootDir: root });
+    expect(report!.ungatedHandlers).toEqual([]);
+    expect(report!.gated).toBe(true);
+  });
 });
 
 describe("no admin API route bypasses the central gate outside the pinned set", () => {
@@ -101,6 +139,13 @@ describe("no admin API route bypasses the central gate outside the pinned set", 
   it("finds the real admin routes (sanity)", () => {
     expect(reports.length).toBeGreaterThan(10);
     expect(reports.some((r) => r.gated)).toBe(true);
+  });
+
+  it("the tracked-gate-debt list is empty and stays empty", () => {
+    // Every admin route now goes through gateAdminApiCall. This assertion is
+    // the ratchet: re-adding an entry above to make a new bypass pass has to
+    // break this test first.
+    expect([...KNOWN_UNGATED_ROUTES]).toEqual([]);
   });
 
   it("every un-gated route is either exempt or already-tracked gate debt", () => {

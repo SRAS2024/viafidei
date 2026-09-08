@@ -106,14 +106,25 @@ function makeRequest(body: unknown): NextRequest {
 }
 
 describe("GET /api/admin/email/admin-test", () => {
+  // This GET now goes through gateAdminApiCall like every other admin
+  // handler, so it takes a NextRequest. A gated mutation in the same file no
+  // longer vouches for it: the read enforces banned devices and a
+  // completed-2FA session in its own right.
+  function getRequest() {
+    return new NextRequest("http://localhost/api/admin/email/admin-test", {
+      method: "GET",
+      headers: { "x-forwarded-host": "localhost", "x-forwarded-proto": "http" },
+    });
+  }
+
   it("returns 401 when not admin", async () => {
     requireAdminMock.mockResolvedValueOnce(null);
-    const res = await GET();
+    const res = await GET(getRequest());
     expect(res.status).toBe(401);
   });
 
   it("reports configuration status when admin", async () => {
-    const res = await GET();
+    const res = await GET(getRequest());
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.configured).toBe(true);

@@ -1,12 +1,7 @@
 import { type NextRequest } from "next/server";
 import { z } from "zod";
 import { appConfig } from "@/lib/config";
-import {
-  findUserByEmail,
-  issueEmailVerificationToken,
-  issuePasswordResetToken,
-  requireAdmin,
-} from "@/lib/auth";
+import { findUserByEmail, issueEmailVerificationToken, issuePasswordResetToken } from "@/lib/auth";
 import { readResendApiKey, sendTransactionalEmail } from "@/lib/email/resend";
 import {
   buildEmailVerificationLink,
@@ -41,12 +36,16 @@ import { gateAdminApiCall } from "@/lib/security/admin-gate";
  * The diagnostic and the actual sender MUST agree; otherwise this UI
  * lies to the operator.
  *
- * Locked behind requireAdmin so the API key length / sender domain are
+ * Locked behind the central admin gate so the API key length / sender domain are
  * never exposed publicly. The key itself is never returned in full.
  */
-export async function GET() {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+export async function GET(req: NextRequest) {
+  // Gated like every other admin handler. A GET skips the CSRF stage on its
+  // own (evaluateCsrf passes safe methods), but it must still enforce
+  // banned devices and a completed-2FA session — which requireAdmin() alone
+  // does not do.
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
 
   const apiKey = readResendApiKey();
   return jsonOk({

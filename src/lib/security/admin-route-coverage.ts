@@ -40,9 +40,27 @@ export type AdminRouteGateReport = {
   handlers: string[];
   /** The subset of `handlers` that mutate (POST/PUT/PATCH/DELETE). */
   mutations: string[];
+  /**
+   * The strongest guard found anywhere in the file. Kept for reporting, but
+   * do NOT use it to decide whether a route is safe — see `handlerGuards`.
+   */
   guard: AdminRouteGuardKind;
-  /** True when the route passes through `gateAdminApiCall`. */
+  /**
+   * The guard protecting each exported handler, detected inside that
+   * handler's own body.
+   *
+   * This exists because a file-level answer lies. Four admin routes pair a
+   * gated mutation with a bare `requireAdmin()` read — `media`, `media/[id]`,
+   * `email` and `email/admin-test` all had a gated POST/DELETE and an
+   * unguarded GET. A scanner that returned "gate" as soon as the string
+   * appeared anywhere in the file reported every one of them as covered, so
+   * an empty allow-list proved nothing about the GETs.
+   */
+  handlerGuards: Record<string, AdminRouteGuardKind>;
+  /** True only when EVERY exported handler passes through `gateAdminApiCall`. */
   gated: boolean;
+  /** Handlers that do not reach the gate. Empty when `gated` is true. */
+  ungatedHandlers: string[];
 };
 
 /**
@@ -100,6 +118,36 @@ function detectGuard(code: string): AdminRouteGuardKind {
 }
 
 /**
+ * Slice the file into per-handler bodies so each export can be judged on its
+ * own code rather than on whatever the file happens to mention.
+ *
+ * A handler's body runs from its `export function NAME` to the next exported
+ * handler (or end of file). Module-level code above the first handler is
+ * prepended to every body, because a route that builds its guard once at the
+ * top and awaits it inside each handler is still guarded — the goal is to
+ * avoid false ALARMS while refusing to grant false ASSURANCE.
+ */
+function sliceHandlerBodies(code: string): Record<string, string> {
+  const starts: Array<{ name: string; index: number }> = [];
+  for (const name of HTTP_HANDLERS) {
+    const re = new RegExp(
+      `export\\s+(?:async\\s+)?function\\s+${name}\\b|export\\s+(?:const|\\{[^}]*\\b)${name}\\b`,
+    );
+    const m = re.exec(code);
+    if (m) starts.push({ name, index: m.index });
+  }
+  starts.sort((a, b) => a.index - b.index);
+  const preamble = starts.length > 0 ? code.slice(0, starts[0]!.index) : "";
+  const bodies: Record<string, string> = {};
+  for (let i = 0; i < starts.length; i += 1) {
+    const from = starts[i]!.index;
+    const to = i + 1 < starts.length ? starts[i + 1]!.index : code.length;
+    bodies[starts[i]!.name] = preamble + code.slice(from, to);
+  }
+  return bodies;
+}
+
+/**
  * Scan every `route.ts` under the admin API tree and report how each one is
  * guarded. `rootDir` defaults to the process working directory (the repo
  * root when run from vitest).
@@ -115,12 +163,20 @@ export function scanAdminRouteGateCoverage(
       const code = codeOnly(fs.readFileSync(file, "utf8"));
       const handlers = detectHandlers(code);
       const guard = detectGuard(code);
+      const bodies = sliceHandlerBodies(code);
+      const handlerGuards: Record<string, AdminRouteGuardKind> = {};
+      for (const h of handlers) handlerGuards[h] = detectGuard(bodies[h] ?? code);
+      const ungatedHandlers = handlers.filter((h) => handlerGuards[h] !== "gate");
       return {
         route: path.relative(root, file).split(path.sep).join("/"),
         handlers,
         mutations: handlers.filter((h) => MUTATION_HANDLERS.has(h)),
         guard,
-        gated: guard === "gate",
+        handlerGuards,
+        // Every handler must reach the gate. One gated POST does not make an
+        // unguarded GET in the same file safe.
+        gated: handlers.length > 0 && ungatedHandlers.length === 0,
+        ungatedHandlers,
       };
     });
 }

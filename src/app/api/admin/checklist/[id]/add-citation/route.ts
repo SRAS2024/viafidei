@@ -1,14 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-import { requireAdmin } from "@/lib/auth/admin";
 import { prisma } from "@/lib/db/client";
+import { gateAdminApiCall } from "@/lib/security/admin-gate";
 import { addCitation } from "@/lib/checklist";
 
-export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
-  const admin = await requireAdmin();
-  if (!admin) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const gate = await gateAdminApiCall(request);
+  if (!gate.ok) return gate.response;
+
   const { id } = await context.params;
   const body = (await request.json().catch(() => ({}))) as {
     sourceUrl?: string;

@@ -1,6 +1,5 @@
 import { type NextRequest } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIpOrNull, getUserAgent } from "@/lib/security/request";
@@ -32,8 +31,12 @@ const createSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const admin = await requireAdmin();
-  if (!admin) return jsonError("unauthorized");
+  // Gated like every other admin handler. A GET skips the CSRF stage on its
+  // own (evaluateCsrf passes safe methods), but it must still enforce
+  // banned devices and a completed-2FA session — which requireAdmin() alone
+  // does not do.
+  const gate = await gateAdminApiCall(req);
+  if (!gate.ok) return gate.response;
   const url = new URL(req.url);
   const take = Math.min(Number(url.searchParams.get("take")) || 60, 200);
   const items = await listRecentMedia(take);
