@@ -6,6 +6,15 @@
  * fetch / form submit, so a cross-site form post lands with an
  * Origin header that does not match the app's public origin.
  *
+ * The origin we compare *against* is deliberately NOT read from the
+ * request. In production it is the constant canonical set derived from
+ * src/lib/config.ts (see getTrustedOrigins in ./request); outside
+ * production it is the origin the request actually arrived on, plus
+ * loopback. Deriving the expected origin from X-Forwarded-Host — as an
+ * earlier revision did — means an attacker who can inject that header
+ * anywhere in the proxy chain also chooses the value their own forged
+ * Origin is checked against, which reduces this whole module to a no-op.
+ *
  * This module exposes `assertSameOrigin(req)` which returns a 403
  * Response when the request looks cross-origin, and `null` when
  * it is safe to proceed. Routes call it as the first thing after
@@ -22,16 +31,9 @@
  */
 
 import { type NextRequest } from "next/server";
+import { getTrustedOrigins, isTrustedRequestOrigin } from "./request";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
-
-function getPublicOrigin(req: NextRequest): string {
-  const forwardedHost = req.headers.get("x-forwarded-host");
-  const forwardedProto = (req.headers.get("x-forwarded-proto") ?? "").split(",")[0]!.trim();
-  const host = forwardedHost ?? req.headers.get("host") ?? "";
-  const proto = forwardedProto || (process.env.NODE_ENV === "production" ? "https" : "http");
-  return `${proto}://${host}`;
-}
 
 export type CsrfDecision =
   | { ok: true }
@@ -43,10 +45,15 @@ export type CsrfDecision =
  */
 export function evaluateCsrf(req: NextRequest): CsrfDecision {
   if (SAFE_METHODS.has(req.method)) return { ok: true };
-  const expected = getPublicOrigin(req);
+  // The trusted set comes from application configuration in production and
+  // from the request only outside it — see getTrustedOrigins. Deriving it
+  // from X-Forwarded-Host here would let an attacker who can influence that
+  // header pick the origin their own forged request is compared against.
+  const trusted = getTrustedOrigins(req);
+  const expected = trusted.join(", ");
   const origin = req.headers.get("origin");
   if (origin) {
-    return origin === expected
+    return isTrustedRequestOrigin(origin, trusted)
       ? { ok: true }
       : { ok: false, reason: "cross_origin", expected, got: origin };
   }
@@ -55,7 +62,7 @@ export function evaluateCsrf(req: NextRequest): CsrfDecision {
   if (referer) {
     try {
       const refOrigin = new URL(referer).origin;
-      return refOrigin === expected
+      return isTrustedRequestOrigin(refOrigin, trusted)
         ? { ok: true }
         : { ok: false, reason: "cross_origin", expected, got: refOrigin };
     } catch {

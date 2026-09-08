@@ -9,10 +9,20 @@
  *      attempt + bans the device when fingerprint + confidence are
  *      strong enough.
  *
- * Admin routes import this once instead of `requireAdmin` so the
- * defender hook is automatic and consistent. Read-only GETs do not
- * trigger the defender — anonymous GETs to admin routes are
- * redirected by middleware, not treated as breaches.
+ * NOT A SECOND AUTHENTICATION SYSTEM. `gateAdminApiCall` in
+ * `src/lib/security/admin-gate.ts` is the authoritative admin gate (CSRF +
+ * banned device + completed-2FA session) and already fires this same
+ * defender hook. This wrapper exists only for callers that need the bare
+ * principal — it adds reporting, never authority, and it delegates the whole
+ * authorization decision to `requireAdmin()`. New admin API routes should
+ * call `gateAdminApiCall` instead.
+ *
+ * The defender is the Admin Worker's *reporting* path, so it is
+ * fire-and-forget and wrapped: the worker must never become a dependency of
+ * basic admin authentication. A defender that is down, slow or throwing
+ * cannot change the decision below, and cannot fail the request either.
+ * Read-only GETs do not trigger the defender — anonymous GETs to admin
+ * routes are redirected by middleware, not treated as breaches.
  */
 
 import type { NextRequest } from "next/server";
@@ -36,6 +46,9 @@ const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
  * Authenticate the current request as admin. On unauthorized
  * mutation, fire the defender. Returns the admin user on success,
  * `null` on failure (same shape as `requireAdmin`).
+ *
+ * `requireAdmin()` fails closed on its own — an unreadable cookie or an
+ * unreachable admin-session store returns null, never a principal.
  */
 export async function requireAdminWithDefender(req: NextRequest): Promise<AdminPrincipal | null> {
   const admin = await requireAdmin();
@@ -43,16 +56,25 @@ export async function requireAdminWithDefender(req: NextRequest): Promise<AdminP
 
   // Unauthorized — defender only fires for mutations.
   if (MUTATION_METHODS.has(req.method.toUpperCase())) {
-    const ip = getClientIp(req);
-    const userAgent = getUserAgent(req);
-    const deviceCredential = req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value ?? null;
-    void defendUnauthorizedMutation({
-      prisma,
-      route: req.nextUrl.pathname,
-      ipHash: ipFingerprint(ip),
-      userAgentHash: userAgentFingerprint(userAgent),
-      deviceFingerprintHash: deviceCredentialFingerprint(deviceCredential),
-    });
+    // A synchronous throw from the defender (an unavailable client, a module
+    // that failed to load) would otherwise propagate out of this guard and
+    // turn a clean 401 into a 500. Report-only paths never do that.
+    try {
+      const ip = getClientIp(req);
+      const userAgent = getUserAgent(req);
+      const deviceCredential = req.cookies.get(DEVICE_CREDENTIAL_COOKIE)?.value ?? null;
+      void Promise.resolve(
+        defendUnauthorizedMutation({
+          prisma,
+          route: req.nextUrl.pathname,
+          ipHash: ipFingerprint(ip),
+          userAgentHash: userAgentFingerprint(userAgent),
+          deviceFingerprintHash: deviceCredentialFingerprint(deviceCredential),
+        }),
+      ).catch(() => undefined);
+    } catch {
+      // ignore — defender hook is fire-and-forget
+    }
   }
   return null;
 }

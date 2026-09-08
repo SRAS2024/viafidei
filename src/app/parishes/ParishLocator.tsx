@@ -1,32 +1,55 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
-import { MapsAddressLink } from "@/components/ui/MapsAddressLink";
-import { formatMiles } from "@/lib/content-shared/geo";
-import { humanizeKey } from "@/lib/content-shared/field-presenters";
+import { ParishCard } from "@/components/ui/ParishCard";
+import {
+  deviceMeasurementSystem,
+  formatDistanceAway,
+  formatRadius,
+  parishDistanceMiles,
+  type MeasurementSystem,
+} from "@/lib/content-shared/distance";
 import type { ParishListItem } from "@/lib/data/published";
 
-/** Human label for a stored designation; never the raw value. */
-const DESIGNATION_LABEL: Readonly<Record<string, string>> = {
-  parish: "Parish",
-  shrine: "Shrine",
-  cathedral: "Cathedral",
-  basilica: "Basilica",
-  "major-basilica": "Major Basilica",
-  "minor-basilica": "Minor Basilica",
-};
+/** What the button asks for first; the API widens from here on its own. */
+const REQUESTED_RADIUS_MILES = 50;
 
-function designationLabel(designation: string): string {
-  return DESIGNATION_LABEL[designation] ?? humanizeKey(designation || "parish");
-}
+type Located = {
+  kind: "located";
+  items: ParishListItem[];
+  /** The visitor's own fix, kept only to label distances in this render. */
+  origin: { latitude: number; longitude: number };
+  /** Imperial or metric, decided once from the DEVICE's locale. */
+  units: MeasurementSystem;
+  requestedRadiusMiles: number;
+  /** The radius that actually answered; null when the search was unlimited. */
+  radiusMiles: number | null;
+  widened: boolean;
+};
 
 type LocateState =
   | { kind: "idle" }
   | { kind: "locating" }
-  | { kind: "located"; items: ParishListItem[] }
+  | Located
   | { kind: "error"; message: string };
+
+/**
+ * What the visitor is told after a located search. Sparse coverage must never
+ * present as a blank list: either the requested radius answered, or we say
+ * plainly that it did not and that these are the nearest parishes instead.
+ */
+function locatedMessage(s: Located): string {
+  if (s.items.length === 0) {
+    return "We don't have any parishes in the directory yet. Check back soon.";
+  }
+  const asked = formatRadius(s.requestedRadiusMiles, s.units) ?? `${s.requestedRadiusMiles} miles`;
+  if (!s.widened) return `The parishes nearest you, within ${asked}.`;
+  const lead = `No parishes within ${asked} yet.`;
+  if (s.radiusMiles === null) return `${lead} Here are the nearest ones we have.`;
+  const widened = formatRadius(s.radiusMiles, s.units) ?? `${s.radiusMiles} miles`;
+  return `${lead} Here are the nearest ones, within ${widened}.`;
+}
 
 /**
  * The parish directory page, with an optional "parishes near me" view.
@@ -36,33 +59,53 @@ type LocateState =
  * browser, which at the directory's 200,000-record goal is tens of megabytes
  * of client props per visitor. When the visitor grants location access the
  * fifty nearest parishes are fetched from `/api/parishes/near`, which does the
- * bounding-box + haversine work in SQL. The coordinate is sent to this site's
- * own API and nowhere else, and is not stored.
+ * bounding-box + haversine work in SQL and widens the radius by itself when
+ * nothing is close. The coordinate is sent to this site's own API and nowhere
+ * else, is never written down, and is held in this component's state only for
+ * as long as the "near me" view is on screen.
  */
 export function ParishLocator({ parishes, total }: { parishes: ParishListItem[]; total?: number }) {
   const [state, setState] = useState<LocateState>({ kind: "idle" });
 
-  const nearby = state.kind === "located";
-  const shown = nearby ? state.items : parishes;
+  const located = state.kind === "located" ? state : null;
+  const shown = located ? located.items : parishes;
 
   const locate = () => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setState({ kind: "error", message: "Location isn't available on this device." });
       return;
     }
+    // Read once, here rather than at render: the component is server-rendered
+    // too, and there is no navigator on the server to hydrate against.
+    const units = deviceMeasurementSystem(navigator);
     setState({ kind: "locating" });
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         void (async () => {
+          const origin = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
           try {
             const res = await fetch(
-              `/api/parishes/near?lat=${encodeURIComponent(pos.coords.latitude)}&lng=${encodeURIComponent(
-                pos.coords.longitude,
-              )}&radiusMiles=50`,
+              `/api/parishes/near?lat=${encodeURIComponent(origin.latitude)}&lng=${encodeURIComponent(
+                origin.longitude,
+              )}&radiusMiles=${REQUESTED_RADIUS_MILES}`,
             );
             if (!res.ok) throw new Error("near lookup failed");
-            const data = (await res.json()) as { items?: ParishListItem[] };
-            setState({ kind: "located", items: data.items ?? [] });
+            const data = (await res.json()) as {
+              items?: ParishListItem[];
+              requestedRadiusMiles?: number;
+              radiusMiles?: number | null;
+              widened?: boolean;
+            };
+            setState({
+              kind: "located",
+              items: data.items ?? [],
+              origin,
+              units,
+              requestedRadiusMiles: data.requestedRadiusMiles ?? REQUESTED_RADIUS_MILES,
+              radiusMiles:
+                data.radiusMiles === undefined ? REQUESTED_RADIUS_MILES : data.radiusMiles,
+              widened: data.widened === true,
+            });
           } catch {
             // Fail open: the visitor keeps the directory they already have.
             setState({
@@ -79,7 +122,10 @@ export function ParishLocator({ parishes, total }: { parishes: ParishListItem[];
             : "We couldn't get your location. You can still browse the full directory below.";
         setState({ kind: "error", message });
       },
-      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+      // A real device needs longer than ten seconds for a cold high-accuracy
+      // fix, and a half-minute-old fix is still accurate enough to label a
+      // distance — but a stale one would mislabel every card after a drive.
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 30_000 },
     );
   };
 
@@ -95,11 +141,9 @@ export function ParishLocator({ parishes, total }: { parishes: ParishListItem[];
           <LocationIcon />
           {state.kind === "locating" ? "Finding parishes near you…" : "Use my location"}
         </button>
-        {nearby ? (
+        {located ? (
           <p className="text-xs text-ink-soft">
-            {shown.length === 0
-              ? "No parishes in our directory within 50 miles of you yet."
-              : "The parishes nearest you, within 50 miles."}{" "}
+            {locatedMessage(located)}{" "}
             <button
               type="button"
               onClick={() => setState({ kind: "idle" })}
@@ -114,7 +158,7 @@ export function ParishLocator({ parishes, total }: { parishes: ParishListItem[];
             {state.message}
           </p>
         ) : null}
-        {!nearby && typeof total === "number" && total > parishes.length ? (
+        {!located && typeof total === "number" && total > parishes.length ? (
           <p className="text-xs text-ink-faint">
             {total.toLocaleString()} parishes in the directory.
           </p>
@@ -122,36 +166,46 @@ export function ParishLocator({ parishes, total }: { parishes: ParishListItem[];
       </div>
 
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {shown.map((p) => (
-          <li key={p.id}>
-            <Link
-              href={`/parishes/${p.slug}`}
-              className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30"
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <p className="vf-eyebrow">{designationLabel(p.designation)}</p>
-                {typeof p.distanceMiles === "number" ? (
-                  <span className="shrink-0 rounded-sm bg-liturgical-gold/15 px-2 py-0.5 text-[11px] font-medium text-ink">
-                    {formatMiles(p.distanceMiles)}
-                  </span>
-                ) : null}
-              </div>
-              <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{p.title}</h2>
-              {p.location ? (
-                <MapsAddressLink
-                  variant="inline"
-                  address={p.location}
-                  latitude={p.latitude ?? undefined}
-                  longitude={p.longitude ?? undefined}
-                  className="mt-3 inline-flex items-start gap-1.5 font-serif leading-relaxed text-liturgical-blue underline-offset-2 hover:underline"
-                />
-              ) : null}
-            </Link>
-          </li>
-        ))}
+        {shown.map((p) => {
+          // Only ever shown once the visitor has located themselves — the plain
+          // directory has no origin to measure from and no distance to claim.
+          const away = located ? distanceAway(located, p) : null;
+          return (
+            <li key={p.id}>
+              <ParishCard
+                name={p.title}
+                href={`/parishes/${p.slug}`}
+                address={p.address}
+                city={p.city}
+                state={p.state}
+                country={p.country}
+                latitude={p.latitude}
+                longitude={p.longitude}
+                website={p.website}
+                distanceSlot={
+                  away ? <span className="font-serif text-sm text-ink-soft">{away}</span> : null
+                }
+              />
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
+}
+
+/**
+ * "0.1 miles away" / "150 metres away", recomputed by haversine from the
+ * visitor's own fix. The API's SQL distance is the fallback for a row whose
+ * stored coordinate did not come back with the projection.
+ */
+function distanceAway(state: Located, p: ParishListItem): string | null {
+  const miles =
+    parishDistanceMiles(state.origin, {
+      latitude: p.latitude ?? undefined,
+      longitude: p.longitude ?? undefined,
+    }) ?? p.distanceMiles;
+  return formatDistanceAway(miles, state.units);
 }
 
 function LocationIcon() {

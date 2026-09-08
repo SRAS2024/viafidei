@@ -31,6 +31,20 @@
  *      fixated stage. The keyless ground-truth ingest (curated + structured)
  *      already runs every active pass, so content keeps growing meanwhile.
  *
+ * THE ESCAPE HATCH (the LOOPING escalation). Forcing a different stage keeps the
+ * PASS productive but leaves the BLOCKED ITEM where it was, so a stage whose
+ * source is exhausted (SOURCE_FETCH failing 62× on one content type with zero
+ * successes) fixates again as soon as the window rolls. The governor therefore
+ * also judges fixation PER CONTENT TYPE — a stage that advances SAINT but never
+ * GUIDE is fixated for GUIDE — and, for the acquisition stages, performs a
+ * `reroute_source` corrective: it reads the fetch ledger for the approved host
+ * whose recent fetches ALL failed and boosts the best unfetched candidate of the
+ * same content type on a DIFFERENT approved host, so the next acquisition pass
+ * reads something new. No external key is involved. Every intervention records
+ * its corrective (`reroute_source` / `drain_backlog` / `advance_stage` /
+ * `diagnostic`) and what it achieved, so the escalation can be answered — and,
+ * once the rerouted source advances, resolve itself.
+ *
  * SAFETY. The governor only changes WHICH deterministic stage handler runs — it
  * never bypasses a gate. Forced PUBLIC_PUBLISH still publishes only QA_PASSED
  * artifacts through `evaluatePublishGate`; forced STRICT_QA still runs the full
@@ -111,9 +125,42 @@ const DOWNSTREAM_LADDER: ReadonlyArray<[BrainMissionStage, keyof WorldState]> = 
   ["POST_PUBLISH_VERIFY", "publishedButUnverified"],
 ];
 
+/**
+ * Stages whose fixation means "the SOURCE this item came from cannot carry it
+ * any further" — a fetch that keeps failing, a read that yields nothing, an
+ * extraction/checklist step whose provenance is incomplete. Forcing a different
+ * stage keeps the PASS productive but leaves the blocked item exactly where it
+ * was, so for these the escape is a different approved SOURCE: the governor
+ * reroutes (boosting the best unfetched candidate of the same content type on a
+ * different approved host) so the next acquisition pass reads something new.
+ * This is the "worker finds its own way out" path the LOOPING escalation asks
+ * for — no external API key is involved.
+ */
+const SOURCE_BLOCKED_STAGES: ReadonlySet<BrainMissionStage> = new Set<BrainMissionStage>([
+  "SOURCE_FETCH",
+  "SOURCE_READ",
+  "EXTRACTION",
+  "CHECKLIST_CREATION",
+  "CITATION_CREATION",
+]);
+
+/** Ladder stages at or past the build gate: forcing one DRAINS work that is
+ * already built rather than pulling new work into the funnel. Used only to
+ * label the corrective honestly in the audit trail. */
+const BACKLOG_DRAIN_STAGES: ReadonlySet<BrainMissionStage> = new Set<BrainMissionStage>([
+  "PUBLIC_PUBLISH",
+  "STRICT_QA",
+  "CROSS_SOURCE_VERIFICATION",
+]);
+
 const DEFAULT_WINDOW_MIN = 15;
 const DEFAULT_MIN_SAMPLES = 3;
 const DEFAULT_MAX_ENTITY_RETRIES = 3;
+/** Fetch attempts on one host, all failed, before it counts as "the blocked
+ * source" the reroute should route away from. */
+const HOST_FAILURE_STREAK = 2;
+/** How far back the reroute looks for the host that is blocking a content type. */
+const HOST_FAILURE_WINDOW_MS = 60 * 60_000;
 
 /** Minimal ledger row the verdict needs (a subset of AdminWorkerStageOutcome). */
 export interface GovernorOutcomeRow {
@@ -121,7 +168,26 @@ export interface GovernorOutcomeRow {
   resultType: string;
   result: string;
   entityId: string | null;
+  /** Optional: lets fixation be judged per CONTENT TYPE, not only per stage —
+   * a stage that advances SAINT but never GUIDE is fixated for GUIDE. */
+  contentType?: string | null;
 }
+
+/**
+ * What the governor DID to break the fixation, recorded so the audit trail (and
+ * the operator reading a LOOPING escalation) can see the worker's own way out:
+ *
+ *  - `reroute_source`  the blocked item's source is exhausted → an alternate
+ *                      approved source of the same content type was boosted.
+ *  - `drain_backlog`   already-built work was waiting → a publish-side stage ran.
+ *  - `advance_stage`   the funnel had queued work → the next productive stage ran.
+ *  - `diagnostic`      nothing productive had work → a terminal stage ran.
+ */
+export type GovernorCorrective =
+  | "reroute_source"
+  | "drain_backlog"
+  | "advance_stage"
+  | "diagnostic";
 
 export interface GovernorVerdict {
   /** True when the governor is overriding the brain's stage choice this pass. */
@@ -135,6 +201,13 @@ export interface GovernorVerdict {
   /** An entity (e.g. a poison source read) processed past the retry limit,
    * across any stage in the window — surfaced for the audit trail. */
   exhaustedEntityId: string | null;
+  /** The corrective the governor took out of the fixation (null when idle). */
+  corrective: GovernorCorrective | null;
+  /** The content type the fixation is scoped to — what a reroute reroutes. */
+  blockedContentType: string | null;
+  /** Filled by `evaluateGovernor` once the corrective has actually been
+   * carried out (e.g. "rerouted SAINT from vatican.va to newadvent.org"). */
+  correctiveDetail: string | null;
   reason: string;
 }
 
@@ -144,6 +217,9 @@ const NO_INTERVENTION: GovernorVerdict = {
   forcedStage: null,
   forcedContentType: null,
   exhaustedEntityId: null,
+  corrective: null,
+  blockedContentType: null,
+  correctiveDetail: null,
   reason: "",
 };
 
@@ -172,12 +248,16 @@ function isProductive(row: GovernorOutcomeRow): boolean {
 export function computeGovernorVerdict(args: {
   world: WorldState;
   chosenStage: BrainMissionStage;
+  /** The content type the brain picked, when it named one. Enables the
+   * per-content-type fixation check (a stage stuck only for SAINT). */
+  chosenContentType?: string | null;
   rows: GovernorOutcomeRow[];
   windowMinutes: number;
   minSamples: number;
   maxEntityRetries: number;
 }): GovernorVerdict {
   const { world, chosenStage, rows, windowMinutes, minSamples, maxEntityRetries } = args;
+  const chosenContentType = args.chosenContentType ?? null;
 
   // Never intervene while paused — the loop's pause guard already returns early,
   // but this keeps the verdict correct for any direct caller.
@@ -185,13 +265,27 @@ export function computeGovernorVerdict(args: {
 
   const chosen = new Map<string, number>();
   const productive = new Map<string, number>();
+  // Same two counts, keyed by stage AND content type. A stage that advances one
+  // content type but has NEVER advanced another looks healthy stage-wide while
+  // the second type loops forever — which is exactly the shape of the open
+  // LOOPING escalation (SOURCE_FETCH, SAINT, 62 non-advancing runs).
+  const chosenByType = new Map<string, number>();
+  const productiveByType = new Map<string, number>();
   const entityNonAdvance = new Map<string, number>();
   let windowContentProductive = 0;
 
+  const typeKey = (stage: string, contentType: string | null | undefined): string =>
+    `${stage} ${contentType ?? ""}`;
+
   for (const row of rows) {
     chosen.set(row.stage, (chosen.get(row.stage) ?? 0) + 1);
+    const tk = typeKey(row.stage, row.contentType);
+    chosenByType.set(tk, (chosenByType.get(tk) ?? 0) + 1);
     const prod = isProductive(row);
-    if (prod) productive.set(row.stage, (productive.get(row.stage) ?? 0) + 1);
+    if (prod) {
+      productive.set(row.stage, (productive.get(row.stage) ?? 0) + 1);
+      productiveByType.set(tk, (productiveByType.get(tk) ?? 0) + 1);
+    }
     // Only DOWNSTREAM advancement counts toward "content is moving". Discovery /
     // prioritization successes are excluded (see FORWARD_PROGRESS_STAGES) so a
     // discovery-only spin is correctly seen as a growth stall.
@@ -210,7 +304,16 @@ export function computeGovernorVerdict(args: {
     (chosen.get(stage) ?? 0) >= minSamples &&
     (productive.get(stage) ?? 0) === 0;
 
-  const fixatedChosen = isFixated(chosenStage);
+  // Per-content-type fixation: N+ runs of this stage FOR THIS CONTENT TYPE with
+  // zero successes. Only meaningful when the brain named a content type; the
+  // stage-wide check above already covers the rest.
+  const fixatedForType =
+    chosenContentType != null &&
+    GOVERNED_CONTENT_STAGES.has(chosenStage) &&
+    (chosenByType.get(typeKey(chosenStage, chosenContentType)) ?? 0) >= minSamples &&
+    (productiveByType.get(typeKey(chosenStage, chosenContentType)) ?? 0) === 0;
+
+  const fixatedChosen = isFixated(chosenStage) || fixatedForType;
   // Real growth via ANY path. The structured / OSM / curated ingest LANES
   // publish straight to PublishedContent WITHOUT emitting mission-stage
   // outcomes, so their output never appears in `windowContentProductive` —
@@ -250,6 +353,19 @@ export function computeGovernorVerdict(args: {
     }
   }
 
+  // Which escape this is, for the audit trail. A fixated ACQUISITION stage is
+  // blocked on its source, so rerouting to an alternate approved source is the
+  // corrective that actually unblocks the item — the forced stage below still
+  // keeps THIS pass productive, but it is not what clears the fixation.
+  const corrective: GovernorCorrective =
+    fixatedChosen && SOURCE_BLOCKED_STAGES.has(chosenStage)
+      ? "reroute_source"
+      : forcedStage && BACKLOG_DRAIN_STAGES.has(forcedStage)
+        ? "drain_backlog"
+        : forcedStage
+          ? "advance_stage"
+          : "diagnostic";
+
   if (!forcedStage) {
     // Nothing downstream is making progress: run a terminal diagnostic for the
     // main slot (the keyless ground-truth ingest still runs this active pass).
@@ -265,7 +381,11 @@ export function computeGovernorVerdict(args: {
   }
 
   const reason = fixatedChosen
-    ? `${chosenStage} chosen ${chosen.get(chosenStage) ?? 0}× with no forward progress in ${windowMinutes}m`
+    ? `${chosenStage}${fixatedForType ? ` (${chosenContentType})` : ""} chosen ${
+        fixatedForType
+          ? (chosenByType.get(typeKey(chosenStage, chosenContentType)) ?? 0)
+          : (chosen.get(chosenStage) ?? 0)
+      }× with no forward progress in ${windowMinutes}m`
     : `growth stalled: gap ${world.contentGoalGap}, 0 content advanced in ${windowMinutes}m`;
 
   return {
@@ -274,6 +394,11 @@ export function computeGovernorVerdict(args: {
     forcedStage,
     forcedContentType: world.contentGoalContentType,
     exhaustedEntityId,
+    corrective,
+    // Reroute the type the stage is actually stuck on; fall back to the live
+    // largest gap when the brain named none.
+    blockedContentType: chosenContentType ?? world.contentGoalContentType,
+    correctiveDetail: null,
     reason,
   };
 }
@@ -307,6 +432,82 @@ export interface GovernorInput {
   maxEntityRetries?: number;
   /** Test injection — bypasses the database read. */
   recentOutcomes?: GovernorOutcomeRow[];
+  /** Set false to compute the verdict without performing the corrective
+   * (the corrective writes: it boosts a candidate row). Default true. */
+  applyCorrective?: boolean;
+}
+
+/**
+ * The approved host that is currently BLOCKING a content type: the host whose
+ * recent fetches all failed. Read from the fetch ledger rather than guessed, so
+ * the reroute moves away from the source that is actually stuck.
+ *
+ * Fail-open: any error (or a caller whose Prisma client lacks the model) yields
+ * null, and the reroute then simply picks the least-tried alternate host.
+ */
+async function blockingHostForContentType(
+  prisma: PrismaClient,
+  nowMs: number,
+): Promise<string | null> {
+  try {
+    const since = new Date(nowMs - HOST_FAILURE_WINDOW_MS);
+    const rows = await prisma.adminWorkerFetchResult.findMany({
+      where: { createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      take: 200,
+      select: { sourceHost: true, succeeded: true },
+    });
+    const failures = new Map<string, number>();
+    const successes = new Set<string>();
+    for (const r of rows as Array<{ sourceHost: string; succeeded: boolean }>) {
+      if (r.succeeded) successes.add(r.sourceHost);
+      else failures.set(r.sourceHost, (failures.get(r.sourceHost) ?? 0) + 1);
+    }
+    let worst: string | null = null;
+    let worstCount = 0;
+    for (const [host, n] of failures) {
+      // Only a host with NO success in the window counts as blocking — a host
+      // that still works sometimes must not be routed away from.
+      if (successes.has(host) || n < HOST_FAILURE_STREAK) continue;
+      if (n > worstCount) {
+        worst = host;
+        worstCount = n;
+      }
+    }
+    return worst;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Carry out the corrective and return a human-readable record of it. Only
+ * `reroute_source` has a side effect; the other correctives ARE the forced
+ * stage, which the caller runs. Fail-open — a failed reroute never blocks the
+ * pass, it just says so in the audit trail.
+ */
+async function performCorrective(
+  prisma: PrismaClient,
+  verdict: GovernorVerdict,
+): Promise<string | null> {
+  if (verdict.corrective !== "reroute_source") {
+    return verdict.forcedStage ? `forced ${verdict.forcedStage}` : null;
+  }
+  const contentType = verdict.blockedContentType;
+  if (!contentType) return "no content type to reroute — forced stage only";
+  try {
+    const failedHost = await blockingHostForContentType(prisma, Date.now());
+    const { rerouteToAlternateSource } = await import("./repair");
+    const out = await rerouteToAlternateSource(prisma, {
+      contentType,
+      // "" matches no host, so with no identified blocker the reroute simply
+      // picks the least-tried candidate of this type — still a change of source.
+      failedHost: failedHost ?? "",
+    });
+    return out.reason;
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
 }
 
 /**
@@ -341,20 +542,35 @@ export async function evaluateGovernor(input: GovernorInput): Promise<GovernorVe
           where: { createdAt: { gte: since } },
           orderBy: { createdAt: "desc" },
           take: 500,
-          select: { stage: true, resultType: true, result: true, entityId: true },
+          select: {
+            stage: true,
+            resultType: true,
+            result: true,
+            entityId: true,
+            contentType: true,
+          },
         })
         .catch(() => [] as GovernorOutcomeRow[]);
       rows = raw as GovernorOutcomeRow[];
     }
 
-    return computeGovernorVerdict({
+    const verdict = computeGovernorVerdict({
       world,
       chosenStage: input.decision.missionStage,
+      chosenContentType: input.decision.contentType ?? null,
       rows,
       windowMinutes,
       minSamples,
       maxEntityRetries,
     });
+
+    // Carry out the escape and record it. The verdict alone only changes WHICH
+    // stage runs this pass; a stage fixated on an exhausted source needs the
+    // reroute to actually be performed, or the next pass finds the same block.
+    if (verdict.intervene && (input.applyCorrective ?? true)) {
+      return { ...verdict, correctiveDetail: await performCorrective(input.prisma, verdict) };
+    }
+    return verdict;
   } catch {
     return NO_INTERVENTION;
   }

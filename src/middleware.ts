@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { REQUEST_ID_HEADER, ensureRequestId } from "@/lib/observability";
 import { SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { appConfig } from "@/lib/config";
 
 /**
  * Server-issued device-credential cookie. Long opaque random string,
@@ -70,26 +71,134 @@ function stripUpstreamPort(host: string, proto: string): string {
   return host.slice(0, portIdx);
 }
 
+/**
+ * Hosts this deployment serves in production, taken from the hard-coded
+ * canonical / app URLs in src/lib/config.ts. Mirrors CANONICAL_ORIGINS in
+ * @/lib/security/request; kept as its own copy so the middleware bundle
+ * stays edge-runtime clean (config.ts is a dependency-free literal).
+ *
+ * WHY: without this, a forged X-Forwarded-Host decides where the /admin
+ * login redirect points, which is an open redirect — the victim lands on
+ * the attacker's copy of the login page with the URL bar showing a
+ * redirect that started on the real site.
+ */
+const CANONICAL_HOSTNAMES: ReadonlySet<string> = (() => {
+  const names = new Set<string>();
+  for (const raw of [appConfig.canonicalUrl, appConfig.appUrl]) {
+    try {
+      const url = new URL(raw);
+      names.add(url.hostname.toLowerCase());
+      if (!url.hostname.startsWith("www.")) names.add(`www.${url.hostname.toLowerCase()}`);
+    } catch {
+      // Hard-coded literals; unreachable in practice.
+    }
+  }
+  return names;
+})();
+
+const PRIMARY_CANONICAL_ORIGIN = (() => {
+  try {
+    return new URL(appConfig.canonicalUrl).origin;
+  } catch {
+    return "https://etviafidei.com";
+  }
+})();
+
+function isCanonicalHost(host: string): boolean {
+  const hostname = host.startsWith("[")
+    ? host.slice(0, host.indexOf("]") + 1).toLowerCase()
+    : (host.split(":")[0] ?? "").toLowerCase();
+  return CANONICAL_HOSTNAMES.has(hostname);
+}
+
 function publicOriginForMiddleware(req: NextRequest): string {
+  const inProduction = process.env.NODE_ENV === "production";
   const forwardedHost = req.headers.get("x-forwarded-host");
   const forwardedProto = (req.headers.get("x-forwarded-proto") ?? "").split(",")[0].trim();
+  let sawUntrustedHost = false;
   if (forwardedHost && !isLocalBindHost(forwardedHost)) {
     const proto = forwardedProto || "https";
-    return `${proto}://${stripUpstreamPort(forwardedHost, proto)}`;
+    if (!inProduction || isCanonicalHost(forwardedHost)) {
+      return `${proto}://${stripUpstreamPort(forwardedHost, proto)}`;
+    }
+    sawUntrustedHost = true;
   }
   const hostHeader = req.headers.get("host");
   if (hostHeader && !isLocalBindHost(hostHeader)) {
-    const proto = forwardedProto || (process.env.NODE_ENV === "production" ? "https" : "http");
-    return `${proto}://${stripUpstreamPort(hostHeader, proto)}`;
+    const proto = forwardedProto || (inProduction ? "https" : "http");
+    if (!inProduction || isCanonicalHost(hostHeader)) {
+      return `${proto}://${stripUpstreamPort(hostHeader, proto)}`;
+    }
+    sawUntrustedHost = true;
   }
+  if (inProduction && sawUntrustedHost) return PRIMARY_CANONICAL_ORIGIN;
   return req.nextUrl.origin;
+}
+
+/**
+ * Per-request CSP nonce. 16 bytes of CSPRNG output, base64-encoded —
+ * `crypto.getRandomValues` and `btoa` are both available in the edge
+ * runtime, so no node:crypto import sneaks into the middleware bundle.
+ *
+ * The character set matters: Next only picks the nonce out of the CSP
+ * header when it matches /^'nonce-([A-Za-z0-9+/_-]+={0,2})'$/, which
+ * standard base64 satisfies.
+ */
+function generateCspNonce(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+/**
+ * Build the Content-Security-Policy for one request.
+ *
+ * script-src carries a per-request nonce instead of 'unsafe-inline'.
+ * Next.js reads that nonce back out of the *request* CSP header (see
+ * getScriptNonceFromHeader in next/dist/server/app-render) and stamps it
+ * onto every framework script it emits — the bootstrap script and the
+ * `self.__next_f.push(...)` flight-data scripts — so the app keeps
+ * hydrating while an injected inline script does not execute.
+ *
+ * 'unsafe-eval' is added OUTSIDE production only: the webpack dev build
+ * evaluates modules with eval(), and the production bundle never does.
+ */
+function buildCsp(nonce: string): string {
+  const scriptSrc = ["'self'", `'nonce-${nonce}'`];
+  if (process.env.NODE_ENV !== "production") scriptSrc.push("'unsafe-eval'");
+  return [
+    "default-src 'self'",
+    `script-src ${scriptSrc.join(" ")}`,
+    // Tailwind emits a stylesheet, but Next still inlines critical CSS and
+    // next/font injects a <style> block, so style-src keeps 'unsafe-inline'.
+    // Inline *styles* cannot execute script, so this is a far weaker
+    // concession than the script-src one that was just removed.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: https://res.cloudinary.com https://images.unsplash.com",
+    "connect-src 'self'",
+    // The app embeds no plugins, applets, or <object>/<embed> content, so
+    // deny them outright — this is the classic SVG/Flash-style XSS vector.
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join("; ");
 }
 
 export function middleware(req: NextRequest) {
   const requestId = ensureRequestId(req.headers.get(REQUEST_ID_HEADER));
+  const nonce = generateCspNonce();
+  const csp = buildCsp(nonce);
 
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set(REQUEST_ID_HEADER, requestId);
+  // Next reads the nonce off the REQUEST header during app render; the
+  // identical policy goes on the response below so the browser enforces
+  // exactly what the renderer signed its scripts with.
+  requestHeaders.set("Content-Security-Policy", csp);
 
   // Coarse, defense-in-depth gate for the admin surface. The session cookie
   // is httpOnly and encrypted, so we can only verify *presence* here — the
@@ -114,18 +223,6 @@ export function middleware(req: NextRequest) {
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set(REQUEST_ID_HEADER, requestId);
   ensureDeviceCredentialCookie(req, res);
-
-  const csp = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:",
-    "img-src 'self' data: https://res.cloudinary.com https://images.unsplash.com",
-    "connect-src 'self'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ].join("; ");
 
   res.headers.set("Content-Security-Policy", csp);
   res.headers.set("X-Frame-Options", "DENY");

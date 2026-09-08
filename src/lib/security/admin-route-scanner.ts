@@ -21,6 +21,11 @@
  * is rate-limited but isn't "scanning" — we don't want to alert
  * on it. Only when MANY different admin URLs are probed does it
  * count as a scan signal.
+ *
+ * This module is the RUNTIME scanner. Its build-time counterpart —
+ * `admin-route-coverage.ts` — reads the admin route files from disk and
+ * reports which endpoints bypass the centralized gate. It is deliberately a
+ * separate module so `node:fs` never enters this request-path bundle.
  */
 
 import { ipFingerprint, deviceCredentialFingerprint } from "./hash";

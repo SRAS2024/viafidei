@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { appConfig } from "@/lib/config";
 
 const ANONYMOUS_IP = "0.0.0.0";
 
@@ -71,6 +72,111 @@ function stripUpstreamPort(host: string, proto: string): string {
 }
 
 /**
+ * The origins this deployment answers to in production, derived ONLY from
+ * the hard-coded canonical / app URLs in src/lib/config.ts.
+ *
+ * WHY this is not derived from request headers: `X-Forwarded-Host` is
+ * attacker-supplied on any proxy chain that appends rather than replaces
+ * it, and `Host` is attacker-supplied whenever the edge routes by SNI
+ * alone. Letting either header name the origin means the app validates a
+ * request against an origin the attacker chose — which turns the CSRF
+ * check into a no-op and turns the /admin login redirect into an open
+ * redirect. In production the trusted set is therefore a constant.
+ *
+ * The `www.` sibling of the canonical apex is included because both names
+ * resolve to the same deployment and either can be the one the browser
+ * actually used.
+ */
+const CANONICAL_ORIGINS: readonly string[] = (() => {
+  const origins = new Set<string>();
+  for (const raw of [appConfig.canonicalUrl, appConfig.appUrl]) {
+    try {
+      const url = new URL(raw);
+      origins.add(url.origin);
+      if (!url.hostname.startsWith("www.")) {
+        origins.add(`${url.protocol}//www.${url.host}`);
+      }
+    } catch {
+      // appConfig holds hard-coded literals, so this is unreachable in
+      // practice; swallowing keeps a typo from crashing every request.
+    }
+  }
+  return [...origins];
+})();
+
+const CANONICAL_HOSTNAMES: ReadonlySet<string> = new Set(
+  CANONICAL_ORIGINS.map((origin) => new URL(origin).hostname.toLowerCase()),
+);
+
+/** The one origin production falls back to when no header can be trusted. */
+export const PRIMARY_CANONICAL_ORIGIN = CANONICAL_ORIGINS[0] ?? "https://etviafidei.com";
+
+function hostnameOf(host: string): string {
+  // Bracketed IPv6 (`[::1]:8080`) keeps its brackets; everything else is
+  // split on the port separator.
+  if (host.startsWith("[")) {
+    const end = host.indexOf("]");
+    return end === -1 ? host.toLowerCase() : host.slice(0, end + 1).toLowerCase();
+  }
+  return (host.split(":")[0] ?? "").toLowerCase();
+}
+
+/** True when a Host / X-Forwarded-Host value names a known production host. */
+export function isCanonicalHost(host: string): boolean {
+  return CANONICAL_HOSTNAMES.has(hostnameOf(host));
+}
+
+function isLoopbackHostname(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname === "[::1]"
+  );
+}
+
+/**
+ * The origins a state-changing request may legitimately come from.
+ *
+ * Production: the constant canonical set — never anything a header said.
+ * Development / test: the origin the request actually arrived on, so a
+ * LAN address, a tunnel hostname, or a non-default port keeps working;
+ * loopback is additionally accepted by `isTrustedRequestOrigin`.
+ */
+export function getTrustedOrigins(req: NextRequest): string[] {
+  if (process.env.NODE_ENV === "production") return [...CANONICAL_ORIGINS];
+  const origins = new Set<string>();
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const forwardedProto = (req.headers.get("x-forwarded-proto") ?? "").split(",")[0]!.trim();
+  const proto = forwardedProto || "http";
+  const host = forwardedHost ?? req.headers.get("host");
+  if (host) origins.add(`${proto}://${host}`);
+  try {
+    origins.add(new URL(req.url).origin);
+  } catch {
+    // A synthetic request with an unparseable URL: the header-derived
+    // origin above is still usable.
+  }
+  return [...origins];
+}
+
+/**
+ * Whether `origin` (an absolute origin string) is one the app trusts for
+ * this request. Outside production any loopback origin is also accepted so
+ * `next dev`, Playwright, and unit tests can post to themselves on whatever
+ * port they happened to bind.
+ */
+export function isTrustedRequestOrigin(origin: string, trusted: readonly string[]): boolean {
+  if (trusted.includes(origin)) return true;
+  if (process.env.NODE_ENV === "production") return false;
+  try {
+    return isLoopbackHostname(new URL(origin).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Produce the public-facing origin for the request — the one the user
  * actually typed in their browser. Prefers the proxy-supplied
  * `X-Forwarded-Host` / `X-Forwarded-Proto` headers (Railway, Vercel, and
@@ -80,11 +186,23 @@ function stripUpstreamPort(host: string, proto: string): string {
  * internal listening address back to the client.
  */
 export function getPublicOrigin(req: NextRequest): string {
+  const inProduction = process.env.NODE_ENV === "production";
   const forwardedHost = req.headers.get("x-forwarded-host");
   const forwardedProto = (req.headers.get("x-forwarded-proto") ?? "").split(",")[0].trim();
+  // Tracks whether a real (non-local-bind) host was offered but rejected as
+  // untrusted, so we can answer with the canonical origin instead of
+  // echoing the request URL back — see the fallback at the bottom.
+  let sawUntrustedHost = false;
   if (forwardedHost && !isLocalBindHost(forwardedHost)) {
     const proto = forwardedProto || "https";
-    return `${proto}://${stripUpstreamPort(forwardedHost, proto)}`;
+    // In production the forwarded host only names the origin when it names
+    // a host this deployment actually serves. Otherwise a spoofed
+    // X-Forwarded-Host would turn every redirect built from this helper
+    // into an open redirect to a domain the attacker chose.
+    if (!inProduction || isCanonicalHost(forwardedHost)) {
+      return `${proto}://${stripUpstreamPort(forwardedHost, proto)}`;
+    }
+    sawUntrustedHost = true;
   }
   const hostHeader = req.headers.get("host");
   if (hostHeader && !isLocalBindHost(hostHeader)) {
@@ -92,12 +210,15 @@ export function getPublicOrigin(req: NextRequest): string {
     // load balancer terminates TLS), in dev fall back to whatever the
     // incoming URL already used.
     const proto =
-      forwardedProto ||
-      (process.env.NODE_ENV === "production"
-        ? "https"
-        : new URL(req.url).protocol.replace(":", ""));
-    return `${proto}://${stripUpstreamPort(hostHeader, proto)}`;
+      forwardedProto || (inProduction ? "https" : new URL(req.url).protocol.replace(":", ""));
+    if (!inProduction || isCanonicalHost(hostHeader)) {
+      return `${proto}://${stripUpstreamPort(hostHeader, proto)}`;
+    }
+    sawUntrustedHost = true;
   }
+  // Production saw a host it does not serve: answer with the canonical
+  // origin rather than the attacker-supplied one.
+  if (inProduction && sawUntrustedHost) return PRIMARY_CANONICAL_ORIGIN;
   // Last-resort fallback: req.url itself. May be a local-bind URL but at
   // least won't crash the redirect; the validation above is what
   // prevents that case from being reached when a proxy is present.

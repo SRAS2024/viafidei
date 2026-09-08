@@ -95,6 +95,46 @@ function envNum(name: string, fallback: number): number {
 const WORKER_LIVE_MS = 10 * 60 * 1000;
 
 /**
+ * The corrective the governor most recently took for `stage`, as recorded on
+ * its `governor_forced_stage` log line (src/lib/admin-worker/loop.ts writes
+ * `corrective` / `correctiveDetail` / `blockedContentType` into safeMetadata).
+ *
+ * Purely informational — it decorates the LOOPING warning so the escalation
+ * says what the worker already did. Returns null on any error, an absent row,
+ * or metadata that is not the expected shape.
+ */
+async function latestGovernorCorrective(
+  prisma: PrismaClient,
+  stage: string,
+  since: Date,
+): Promise<string | null> {
+  try {
+    const rows = await prisma.adminWorkerLog.findMany({
+      where: { eventName: "governor_forced_stage", createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      select: { safeMetadata: true },
+      // The governor forces a stage at most once per pass, so a small window
+      // of recent rows is enough to find the newest one for this stage.
+      take: 25,
+    });
+    for (const row of rows) {
+      const meta = row.safeMetadata;
+      if (!meta || typeof meta !== "object" || Array.isArray(meta)) continue;
+      const record = meta as Record<string, unknown>;
+      if (record.from !== stage) continue;
+      const corrective = record.corrective;
+      if (typeof corrective !== "string" || corrective.length === 0) return null;
+      const blocked =
+        typeof record.blockedContentType === "string" ? record.blockedContentType : null;
+      return blocked ? `${corrective}:${blocked}` : corrective;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Build the self-assessment from live signals. Pure composition over existing
  * ledgers plus a handful of targeted counts. Fail-open: on any error returns a
  * minimal, non-alarming assessment (no warnings) so nothing downstream breaks.
@@ -196,6 +236,12 @@ export async function buildSelfAssessment(
       );
       if (loopStage) {
         const badRuns = loopStage.failures + loopStage.needsRepair;
+        // "It is looping" is only half the story an operator needs; the other
+        // half is what the worker already did about it. The governor records
+        // its escape hatch on the governor_forced_stage log line, so read the
+        // most recent one for THIS stage and carry the corrective into the
+        // signals. Fail-open: no row (or an unreadable one) simply omits it.
+        const corrective = await latestGovernorCorrective(prisma, loopStage.stage, since);
         warnings.push({
           kind: "LOOPING",
           severity: badRuns >= 20 ? "ERROR" : "WARN",
@@ -205,6 +251,7 @@ export async function buildSelfAssessment(
             `failures=${loopStage.failures}`,
             `needsRepair=${loopStage.needsRepair}`,
             `successes=${loopStage.successes}`,
+            ...(corrective ? [`governorCorrective=${corrective}`] : []),
           ],
           contentType,
         });

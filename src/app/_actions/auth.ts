@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
+import { revokeCurrentAdminSession } from "@/lib/auth/admin-session";
 import { writeAudit } from "@/lib/audit";
 import { LOCALE_COOKIE_NAME } from "@/lib/i18n/cookie";
 import { RITE_COOKIE_NAME } from "@/lib/i18n/rite-cookie";
@@ -50,6 +51,9 @@ async function clearUserPreferenceCookies(): Promise<void> {
  */
 export async function logoutAction() {
   const session = await getSession();
+  // No-op for an ordinary user (no admin session id on the cookie); for an
+  // administrator it kills the server-side row before the cookie goes.
+  await revokeCurrentAdminSession("logout");
   session.destroy();
   await clearUserPreferenceCookies();
   revalidatePath("/", "layout");
@@ -64,6 +68,8 @@ export async function logoutAction() {
 export async function adminLogoutAction() {
   const session = await getSession();
   const username = session.userEmail;
+  // Before destroy(): the helper reads adminSessionId off the current session.
+  await revokeCurrentAdminSession("logout");
   session.destroy();
   if (username) {
     await writeAudit({

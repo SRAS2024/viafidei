@@ -24,6 +24,13 @@ vi.mock("@/lib/email", () => ({
   sendPasswordResetEmail: (...args: unknown[]) => sendPasswordResetEmailMock(...args),
 }));
 
+// The route confirms (read-only) that the token table exists before doing any
+// recovery work. Stub it healthy; tests/security/no-ddl-in-auth.test.ts covers
+// the probe itself.
+vi.mock("@/lib/security/auth-storage", () => ({
+  checkAuthTokenStorage: vi.fn().mockResolvedValue({ ok: true }),
+}));
+
 import { POST } from "@/app/api/auth/forgot-password/route";
 import type { NextRequest } from "next/server";
 
@@ -62,21 +69,22 @@ describe("POST /api/auth/forgot-password", () => {
     expect(findUserByEmailMock).not.toHaveBeenCalled();
   });
 
-  it("returns 404 not_found for emails with no matching account (no token issued)", async () => {
-    // Product decision: surface "no account" explicitly so the user knows
-    // they need to register instead. The per-IP rate limit upstream is the
-    // mitigation for email enumeration, not response-body opacity.
+  it("returns the same opaque 200 for an unknown address, and issues no token", async () => {
+    // Enumeration-safe: an unauthenticated caller must not be able to learn
+    // that "ghost@example.com" has no account here. See
+    // tests/security/forgot-password-enumeration.test.ts for the full
+    // equivalence contract.
     findUserByEmailMock.mockResolvedValue(null);
     const res = await POST(buildRequest({ email: "ghost@example.com" }));
-    expect(res.status).toBe(404);
-    const body = (await res.json()) as { ok: boolean; error: string };
-    expect(body.ok).toBe(false);
-    expect(body.error).toBe("not_found");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toEqual({ ok: true, sent: true });
+    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(issuePasswordResetTokenMock).not.toHaveBeenCalled();
     expect(sendPasswordResetEmailMock).not.toHaveBeenCalled();
   });
 
-  it("issues a token, sends a reset email, and returns the typed email back to the caller", async () => {
+  it("issues a token and sends the reset email, without echoing the address back", async () => {
     const user = {
       id: "u1",
       email: "user@example.com",
@@ -93,15 +101,14 @@ describe("POST /api/auth/forgot-password", () => {
 
     const res = await POST(buildRequest({ email: "user@example.com" }));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as {
-      ok: boolean;
-      sent: boolean;
-      email: string;
-    };
-    expect(body).toEqual({ ok: true, sent: true, email: "user@example.com" });
+    const body = (await res.json()) as Record<string, unknown>;
+    // Same body an unknown address gets, and it names no account.
+    expect(body).toEqual({ ok: true, sent: true });
 
-    expect(issuePasswordResetTokenMock).toHaveBeenCalledWith("u1");
-    expect(sendPasswordResetEmailMock).toHaveBeenCalledTimes(1);
+    // The delivery work runs off the response path so the two branches cost
+    // the same wall-clock time; wait for it before asserting on it.
+    await vi.waitFor(() => expect(issuePasswordResetTokenMock).toHaveBeenCalledWith("u1"));
+    await vi.waitFor(() => expect(sendPasswordResetEmailMock).toHaveBeenCalledTimes(1));
     const arg = sendPasswordResetEmailMock.mock.calls[0][0] as {
       user: { id: string; email: string };
       token: string;
@@ -111,10 +118,12 @@ describe("POST /api/auth/forgot-password", () => {
     expect(arg.token).toBe("raw-token-123");
   });
 
-  it("returns server_error/delivery_failed when Resend rejects the send", async () => {
-    // Resend rejected the send (e.g. unverified sender domain, restricted
-    // API key). The user MUST see this — silently returning "sent: true"
-    // leaves them watching an empty inbox forever.
+  it("keeps a Resend rejection out of the public response", async () => {
+    // The provider's error text used to be handed to the caller. It named
+    // the sender domain and the key's restrictions — deployment detail an
+    // unauthenticated caller has no business reading — and it only appeared
+    // for addresses that HAVE an account, which was itself the oracle. It
+    // now lives in the operator log only.
     findUserByEmailMock.mockResolvedValue({
       id: "u1",
       email: "user@example.com",
@@ -134,23 +143,18 @@ describe("POST /api/auth/forgot-password", () => {
     });
 
     const res = await POST(buildRequest({ email: "user@example.com" }));
-    expect(res.status).toBe(500);
-    const body = (await res.json()) as {
-      ok: boolean;
-      error: string;
-      message: string;
-      details?: { reason: string };
-    };
-    expect(body.ok).toBe(false);
-    expect(body.error).toBe("server_error");
-    expect(body.message).toBe("delivery_failed");
-    expect(body.details?.reason).toBe("delivery_failed");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toEqual({ ok: true, sent: true });
+    const serialized = JSON.stringify(body);
+    expect(serialized).not.toContain("validation_error");
+    expect(serialized).not.toContain("Domain not verified");
   });
 
-  it("returns server_error/email_not_configured when RESEND_API_KEY is missing", async () => {
-    // The send was a no-op because Resend isn't configured. The form
-    // surfaces this as "we couldn't send the reset email; contact
-    // support" — much more useful than a misleading "sent" message.
+  it("keeps 'the provider is not configured' out of the public response", async () => {
+    // The send was a no-op because Resend isn't configured. That is an
+    // operational fact about the deployment; it goes to the log, not to an
+    // anonymous caller who would otherwise learn it only for real accounts.
     findUserByEmailMock.mockResolvedValue({
       id: "u1",
       email: "user@example.com",
@@ -169,10 +173,9 @@ describe("POST /api/auth/forgot-password", () => {
     });
 
     const res = await POST(buildRequest({ email: "user@example.com" }));
-    expect(res.status).toBe(500);
-    const body = (await res.json()) as { ok: boolean; error: string; message: string };
-    expect(body.ok).toBe(false);
-    expect(body.error).toBe("server_error");
-    expect(body.message).toBe("email_not_configured");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toEqual({ ok: true, sent: true });
+    expect(JSON.stringify(body)).not.toMatch(/not_configured|email_not_configured/);
   });
 });

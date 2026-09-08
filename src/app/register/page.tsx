@@ -7,10 +7,10 @@ export const metadata = { title: "Create account" };
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const { t } = await getTranslator();
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
 
   const errorMessage =
     error === "mismatch"
@@ -56,6 +56,7 @@ export default async function RegisterPage({
             privacyLink: t("auth.privacyNotice.linkText"),
             privacyAfter: t("auth.privacyNotice.after"),
           }}
+          next={next}
         />
         {errorMessage ? (
           <p role="alert" className="mt-4 text-center text-sm" style={{ color: "#8b1a1a" }}>

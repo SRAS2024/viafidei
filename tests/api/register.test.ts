@@ -185,6 +185,26 @@ describe("POST /api/auth/register", () => {
     expect(res.headers.get("location")).toContain("error=rate_limited");
   });
 
+  // An account-gated control (Favorite on a parish) sends the visitor to
+  // /register?next=…; the form posts that back so registering returns them to
+  // where they were instead of dropping them on /profile.
+  it("honours a same-site `next` field and lands the visitor back where they started", async () => {
+    const res = await POST(buildRequest({ ...validBody, next: "/parishes/st-marys" }));
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toContain("/parishes/st-marys");
+  });
+
+  it("refuses an off-site `next` and falls back to /profile", async () => {
+    for (const hostile of ["//evil.com", "https://evil.com", "/\\evil.com", "evil.com"]) {
+      const res = await POST(buildRequest({ ...validBody, next: hostile }));
+      const location = res.headers.get("location") ?? "";
+      // new URL("//evil.com", origin) resolves to a THIRD-PARTY origin, so a
+      // bare "starts with /" check is not enough.
+      expect(location).toContain("/profile");
+      expect(location).not.toContain("evil.com");
+    }
+  });
+
   it("creates the user, sends a single welcome email carrying the verify token, and redirects to /profile", async () => {
     const res = await POST(buildRequest(validBody));
     expect(res.status).toBe(303);

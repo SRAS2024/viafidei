@@ -487,6 +487,10 @@ export interface ParishListItem {
   designation: string;
   /** "123 Main St, Austin, TX" — whatever parts the record has. */
   location: string;
+  /** Street address on its own — the card prints the place parts separately. */
+  address: string | null;
+  /** Parish website, when the record has one. */
+  website: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
@@ -509,6 +513,7 @@ type ParishRow = {
   city: string | null;
   state: string | null;
   country: string | null;
+  website: string | null;
   distance_miles?: number | null;
 };
 
@@ -530,6 +535,8 @@ function toParishItem(row: ParishRow): ParishListItem {
     }),
     designation,
     location,
+    address: row.address ?? null,
+    website: row.website ?? null,
     city: row.city,
     state: row.state,
     country: row.country,
@@ -546,7 +553,8 @@ const PARISH_COLUMNS = Prisma.sql`
   payload->>'address' AS "address",
   payload->>'city'    AS "city",
   payload->>'state'   AS "state",
-  payload->>'country' AS "country"
+  payload->>'country' AS "country",
+  payload->>'website' AS "website"
 `;
 
 /**
@@ -613,35 +621,52 @@ const EARTH_RADIUS_MILES = 3958.7613;
  * the elimination; haversine then orders only what survives. Without the box
  * this would compute a trigonometric distance for every parish on earth on
  * every "use my location" tap.
+ *
+ * `radiusMiles: null` asks for the nearest records at ANY distance. That is
+ * the locator's last resort: the OSM sweep has only reached parts of the world
+ * so far, so a visitor in a region the directory has not covered yet would
+ * otherwise get a blank list, which reads as "there are no Catholic parishes
+ * near you" — false, and the opposite of useful. Without a radius there is no
+ * box to prefilter with, so this variant is only worth running once the
+ * bounded attempts have come back empty.
  */
 export async function listParishesNear(opts: {
   latitude: number;
   longitude: number;
-  radiusMiles?: number;
+  /** null = no limit; the nearest records wherever they are. */
+  radiusMiles?: number | null;
   take?: number;
 }): Promise<ParishListItem[]> {
   const { latitude, longitude } = opts;
   if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) return [];
   if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return [];
-  const radiusMiles = Math.min(Math.max(Number(opts.radiusMiles ?? 50) || 50, 1), 500);
+  const radiusMiles =
+    opts.radiusMiles === null
+      ? null
+      : Math.min(Math.max(Number(opts.radiusMiles ?? 50) || 50, 1), 500);
   const take = Math.min(Math.max(Math.trunc(Number(opts.take ?? 50)) || 50, 1), 50);
-
-  const dLat = radiusMiles / MILES_PER_DEGREE_LAT;
-  // Longitude degrees shrink toward the poles; the cosine is floored so the box
-  // stays finite at high latitude rather than dividing by ~0.
-  const cos = Math.max(Math.cos((latitude * Math.PI) / 180), 0.01);
-  const dLng = radiusMiles / (MILES_PER_DEGREE_LAT * cos);
 
   const filters: Prisma.Sql[] = [
     Prisma.sql`"contentType" = 'PARISH'::"ChecklistContentType"`,
     Prisma.sql`"isPublished"`,
-    Prisma.sql`"latitude" BETWEEN ${latitude - dLat} AND ${latitude + dLat}`,
   ];
-  // Near a pole (or with a huge radius) the box spans every meridian, and near
-  // the antimeridian it would wrap; in both cases drop the longitude bound and
-  // let the distance ordering do the work.
-  if (dLng < 180 && longitude - dLng >= -180 && longitude + dLng <= 180) {
-    filters.push(Prisma.sql`"longitude" BETWEEN ${longitude - dLng} AND ${longitude + dLng}`);
+  if (radiusMiles === null) {
+    // No box to eliminate with, so exclude the un-geocoded rows explicitly —
+    // their NULL distance would otherwise occupy the tail of the ORDER BY.
+    filters.push(Prisma.sql`"latitude" IS NOT NULL AND "longitude" IS NOT NULL`);
+  } else {
+    const dLat = radiusMiles / MILES_PER_DEGREE_LAT;
+    // Longitude degrees shrink toward the poles; the cosine is floored so the
+    // box stays finite at high latitude rather than dividing by ~0.
+    const cos = Math.max(Math.cos((latitude * Math.PI) / 180), 0.01);
+    const dLng = radiusMiles / (MILES_PER_DEGREE_LAT * cos);
+    filters.push(Prisma.sql`"latitude" BETWEEN ${latitude - dLat} AND ${latitude + dLat}`);
+    // Near a pole (or with a huge radius) the box spans every meridian, and
+    // near the antimeridian it would wrap; in both cases drop the longitude
+    // bound and let the distance ordering do the work.
+    if (dLng < 180 && longitude - dLng >= -180 && longitude + dLng <= 180) {
+      filters.push(Prisma.sql`"longitude" BETWEEN ${longitude - dLng} AND ${longitude + dLng}`);
+    }
   }
   const where = Prisma.join(filters, " AND ");
 
@@ -659,7 +684,11 @@ export async function listParishesNear(opts: {
                ORDER BY "distance_miles" ASC
                LIMIT ${take}`,
   );
-  return rows.filter((r) => (r.distance_miles ?? 0) <= radiusMiles).map(toParishItem);
+  // The bounding box is a square, so its corners exceed the radius; the
+  // haversine result is the authority. An unlimited search keeps everything.
+  return rows
+    .filter((r) => radiusMiles === null || (r.distance_miles ?? 0) <= radiusMiles)
+    .map(toParishItem);
 }
 
 /* -------------------------------------------------------------------------

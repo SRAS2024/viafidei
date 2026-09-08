@@ -1,5 +1,7 @@
 import { type NextRequest } from "next/server";
-import { adminLoginSchema, verifyAdminCredentials, getSession } from "@/lib/auth";
+import { adminLoginSchema, verifyAdminCredentials } from "@/lib/auth";
+import { beginAdminSession } from "@/lib/auth/admin-session";
+import { issueAdminTwoFactorChallenge } from "@/lib/auth/admin-2fa";
 import { writeAudit } from "@/lib/audit";
 import { hasKnownAdminDevice } from "@/lib/audit/admin-action-log";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
@@ -9,10 +11,7 @@ import {
   recordAdminPasswordFailure,
   resetAdminPasswordFailureCounter,
 } from "@/lib/security/admin-failure-counter";
-import {
-  recordAdminLoginFailure,
-  recordAdminLoginSuccess,
-} from "@/lib/security/admin-login-events";
+import { recordAdminLoginFailure } from "@/lib/security/admin-login-events";
 import { describeDevice } from "@/lib/security/device-info";
 import {
   deviceCredentialFingerprint,
@@ -32,6 +31,26 @@ const LOGIN_ROUTE = "/api/admin/login";
 export const runtime = "nodejs";
 
 const LOGIN_INVALID = "/admin/login?error=invalid";
+// Stage one ends here: /admin/login re-renders as the six-digit code form
+// because a PENDING admin session now exists.
+const LOGIN_CODE_STAGE = "/admin/login?stage=code";
+const LOGIN_CODE_UNDELIVERED = "/admin/login?stage=code&notice=undelivered";
+
+/**
+ * Stage ONE of the two-stage interactive admin sign-in (security spec item 1).
+ *
+ * A correct username and password no longer produce an administrator. They
+ * produce a PENDING `AdminSession` — which carries no authority at all — plus
+ * a six-digit code mailed to the configured admin address. Stage two lives at
+ * /api/auth/admin-2fa/verify; it is the only place that promotes the session,
+ * assigns the ADMIN role, records `admin_login_success` and finally redirects
+ * the administrator to /admin?welcome=1.
+ *
+ * Applies to the HUMAN administrator only. Ordinary user accounts sign in at
+ * /api/auth/login and never see a code, and the Admin Worker and every other
+ * automated process authenticate through their own machine paths and never
+ * reach this route.
+ */
 
 export async function POST(req: NextRequest) {
   // formData() throws on an unexpected Content-Type. Treat that the same as
@@ -74,7 +93,7 @@ export async function POST(req: NextRequest) {
     return redirectTo(req, LOGIN_INVALID);
   }
 
-  const ok = verifyAdminCredentials(parsed.data.username, parsed.data.password);
+  const ok = await verifyAdminCredentials(parsed.data.username, parsed.data.password);
   if (!ok) {
     await writeAudit({
       action: "admin.login.failed",
@@ -184,14 +203,26 @@ export async function POST(req: NextRequest) {
     deviceCredential,
   });
 
-  const session = await getSession();
-  session.role = "ADMIN";
-  session.userEmail = parsed.data.username;
-  session.adminSignedInAt = Date.now();
-  await session.save();
+  // The password is now the only thing that has been proved. Create the
+  // PENDING server-side session: it deliberately does NOT set role=ADMIN, so
+  // requireAdmin() / gateAdminApiCall() refuse it until the second factor
+  // lands. A store failure refuses the sign-in rather than falling back to a
+  // cookie-only admin session.
+  const started = await beginAdminSession({
+    username: parsed.data.username,
+    ipAddress: ip,
+    userAgent,
+    deviceCredential,
+  });
+  if (!started.ok) {
+    return redirectTo(req, LOGIN_INVALID);
+  }
 
+  // Stage one is an audit fact, not a sign-in. `admin.login.success` is
+  // written by the second-factor route, so the audit trail cannot show a
+  // completed sign-in for an attempt that stopped at the password.
   await writeAudit({
-    action: "admin.login.success",
+    action: "admin.login.password_verified",
     entityType: "Session",
     entityId: "admin",
     actorUsername: parsed.data.username,
@@ -199,17 +230,21 @@ export async function POST(req: NextRequest) {
     userAgent,
   });
 
-  // A successful sign-in records a SecurityEvent (admin_login_success)
-  // and an AdminActionLog row, and sends the Admin Log In email. It
-  // never sends a Suspicious Activity email — a valid login is
-  // expected activity. The helper is best-effort and never throws.
-  await recordAdminLoginSuccess({
+  const challenge = await issueAdminTwoFactorChallenge({
+    adminSessionId: started.adminSessionId,
     username: parsed.data.username,
     ipAddress: ip,
     userAgent,
     deviceCredential,
-    route: LOGIN_ROUTE,
   });
+  if (!challenge.ok) {
+    // No code could be issued. The pending session stays powerless, so the
+    // worst case is that the administrator has to start over — never that
+    // they get in without a second factor.
+    return redirectTo(req, LOGIN_INVALID);
+  }
 
-  return redirectTo(req, "/admin?welcome=1");
+  // Delivery is reported to the operator so a mail-configuration problem is
+  // visible; the code itself is never surfaced anywhere but the email.
+  return redirectTo(req, challenge.delivery === "sent" ? LOGIN_CODE_STAGE : LOGIN_CODE_UNDELIVERED);
 }

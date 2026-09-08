@@ -5,8 +5,17 @@ import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { jsonError, jsonOk, readJsonBody } from "@/lib/http";
 import { saveItem, unsaveItem, type SavedKind } from "@/lib/data/saved";
 
-const saveSchema = z.object({ id: z.string().min(1).max(64) });
-const unsaveSchema = z.object({ id: z.string().min(1).max(64) });
+// `id` is a PublishedContent slug, and parish slugs are long: the worker's
+// slugify caps them at 80 chars, and 29 of the 1,030 local parishes already
+// exceed 64 ("katedra-polowa-wojska-polskiego-…-warszaw"). A 64-char cap made
+// those parishes un-favouritable — POST returned 400 "invalid", so the button
+// showed a raw error instead of saving. The cap is only a cheap bound on
+// request size; the real gate is entityExists(), which requires the slug to
+// name a currently-published row.
+const SLUG_MAX_LENGTH = 200;
+
+const saveSchema = z.object({ id: z.string().min(1).max(SLUG_MAX_LENGTH) });
+const unsaveSchema = z.object({ id: z.string().min(1).max(SLUG_MAX_LENGTH) });
 
 export function makeSavedHandlers(kind: SavedKind, list: (userId: string) => Promise<unknown>) {
   async function GET() {

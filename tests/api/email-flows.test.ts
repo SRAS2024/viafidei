@@ -2,11 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextRequest } from "next/server";
 
 // End-to-end behavior tests for the account email pipeline. Each test
-// here pins a piece of contract that the task description spells out
-// explicitly: missing token tables emit operator logs, Resend delivery
-// failures surface to the caller (never silently treated as success),
-// missing RESEND_API_KEY produces a clear operator log, and the resend
-// verification UI gates correctly behind unverified accounts.
+// here pins a piece of contract: missing token tables emit operator logs,
+// Resend delivery failures are recorded (never silently treated as
+// success), missing RESEND_API_KEY produces a clear operator log, and the
+// resend verification UI gates correctly behind unverified accounts.
+//
+// Password recovery is the one flow whose FAILURES stay off the wire: its
+// public response is identical for every address so the endpoint cannot be
+// used to enumerate accounts, which means the operator log is the only
+// place a delivery problem shows up. Those log assertions are below.
 
 const rateLimitMock = vi.fn();
 const findUserByEmailMock = vi.fn();
@@ -57,6 +61,13 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+// Read-only "do the token tables exist" probe the recovery flow runs before
+// doing any work. Healthy by default here; the probe has its own tests in
+// tests/security/no-ddl-in-auth.test.ts.
+vi.mock("@/lib/security/auth-storage", () => ({
+  checkAuthTokenStorage: vi.fn().mockResolvedValue({ ok: true }),
+}));
+
 beforeEach(() => {
   rateLimitMock.mockReset();
   findUserByEmailMock.mockReset();
@@ -87,15 +98,30 @@ function jsonReq(url: string, body: unknown, method = "POST"): NextRequest {
 const VALID_RESET_TOKEN = "r".repeat(40);
 const VALID_VERIFY_TOKEN = "v".repeat(40);
 
-describe("forgot-password — Resend delivery failures are surfaced (never silently treated as success)", () => {
-  it("returns server_error/delivery_failed when Resend rejects the send", async () => {
-    findUserByEmailMock.mockResolvedValue({
-      id: "u1",
-      email: "user@example.com",
-      firstName: "Pio",
-      lastName: "P",
-      language: "en",
-    });
+/**
+ * Read every structured log line a console.error/console.info spy captured.
+ * The logger writes one JSON object per call as the first argument.
+ */
+function loggedLine(spy: ReturnType<typeof vi.spyOn>, msg: string): string | undefined {
+  return spy.mock.calls.map((c) => String(c[0] ?? "")).find((s) => s.includes(`"msg":"${msg}"`));
+}
+
+const RESET_USER = {
+  id: "u1",
+  email: "user@example.com",
+  firstName: "Pio",
+  lastName: "P",
+  language: "en",
+};
+
+async function postForgotPassword() {
+  const { POST } = await import("@/app/api/auth/forgot-password/route");
+  return POST(jsonReq("http://x/api/auth/forgot-password", { email: RESET_USER.email }));
+}
+
+describe("forgot-password — Resend delivery failures are recorded for the operator, not returned", () => {
+  it("logs email_undelivered with Resend's structured cause when the send is rejected", async () => {
+    findUserByEmailMock.mockResolvedValue(RESET_USER);
     issuePasswordResetTokenMock.mockResolvedValue({
       token: "tok",
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
@@ -106,24 +132,27 @@ describe("forgot-password — Resend delivery failures are surfaced (never silen
       errorName: "validation_error",
       errorMessage: "Domain not verified",
     });
-    const { POST } = await import("@/app/api/auth/forgot-password/route");
-    const res = await POST(
-      jsonReq("http://x/api/auth/forgot-password", { email: "user@example.com" }),
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await postForgotPassword();
+
+    // Public response says nothing about the failure.
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, sent: true });
+
+    await vi.waitFor(() =>
+      expect(loggedLine(errSpy, "auth.password_reset.email_undelivered")).toBeTruthy(),
     );
-    expect(res.status).toBe(500);
-    const body = (await res.json()) as { ok: boolean; error: string; message: string };
-    expect(body.ok).toBe(false);
-    expect(body.message).toBe("delivery_failed");
+    const log = loggedLine(errSpy, "auth.password_reset.email_undelivered")!;
+    expect(log).toContain('"reason":"delivery_failed"');
+    expect(log).toContain('"errorName":"validation_error"');
+    expect(log).toContain('"errorMessage":"Domain not verified"');
+    // The raw token must never reach a log line.
+    expect(log).not.toContain('"tok"');
+    errSpy.mockRestore();
   });
 
-  it("returns server_error/email_not_configured when RESEND_API_KEY is missing (skipped delivery)", async () => {
-    findUserByEmailMock.mockResolvedValue({
-      id: "u1",
-      email: "user@example.com",
-      firstName: "Pio",
-      lastName: "P",
-      language: "en",
-    });
+  it("logs email_skipped when RESEND_API_KEY is missing (skipped delivery)", async () => {
+    findUserByEmailMock.mockResolvedValue(RESET_USER);
     issuePasswordResetTokenMock.mockResolvedValue({
       token: "tok",
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
@@ -133,75 +162,61 @@ describe("forgot-password — Resend delivery failures are surfaced (never silen
       delivery: "skipped",
       reason: "not_configured",
     });
-    const { POST } = await import("@/app/api/auth/forgot-password/route");
-    const res = await POST(
-      jsonReq("http://x/api/auth/forgot-password", { email: "user@example.com" }),
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await postForgotPassword();
+    expect(res.status).toBe(200);
+    await vi.waitFor(() =>
+      expect(loggedLine(errSpy, "auth.password_reset.email_skipped")).toBeTruthy(),
     );
-    expect(res.status).toBe(500);
-    const body = (await res.json()) as { ok: boolean; error: string; message: string };
-    expect(body.message).toBe("email_not_configured");
+    expect(loggedLine(errSpy, "auth.password_reset.email_skipped")).toContain(
+      '"reason":"not_configured"',
+    );
+    errSpy.mockRestore();
   });
 
-  it("never returns sent:true when delivery failed — sent:true requires Resend to have accepted the message", async () => {
-    findUserByEmailMock.mockResolvedValue({
-      id: "u1",
-      email: "user@example.com",
-      firstName: "Pio",
-      lastName: "P",
-      language: "en",
-    });
+  it("never lets a delivery failure change the public response", async () => {
+    // `sent: true` is deliberately unconditional — it backs the wording
+    // "if an account exists ... instructions have been sent". Varying it on
+    // the delivery outcome would leak both the failure AND the account's
+    // existence, since only real accounts ever attempt a send.
+    findUserByEmailMock.mockResolvedValue(RESET_USER);
     issuePasswordResetTokenMock.mockResolvedValue({
       token: "tok",
       expiresAt: new Date(Date.now() + 15 * 60 * 1000),
     });
     sendPasswordResetEmailMock.mockResolvedValue({ ok: false, reason: "delivery_failed" });
-    const { POST } = await import("@/app/api/auth/forgot-password/route");
-    const res = await POST(
-      jsonReq("http://x/api/auth/forgot-password", { email: "user@example.com" }),
-    );
-    const body = (await res.json()) as { sent?: boolean; ok: boolean };
-    expect(body.sent).toBeUndefined();
-    expect(body.ok).toBe(false);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await postForgotPassword();
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ ok: true, sent: true });
+    errSpy.mockRestore();
   });
 });
 
 describe("forgot-password — missing database token tables produce clear operator logs", () => {
-  it("logs database_table_missing AND returns token_creation_failed when PasswordResetToken is missing", async () => {
-    // Prior to this contract, a missing PasswordResetToken table produced
-    // a generic `delivery_failed` response — indistinguishable in the
-    // network tab from a Resend rejection. The route now returns
-    // `token_creation_failed` so the admin can see at a glance that this
-    // is a database problem, while the operator log line names the
-    // missing table exactly.
-    findUserByEmailMock.mockResolvedValue({
-      id: "u1",
-      email: "user@example.com",
-      firstName: "Pio",
-      lastName: "P",
-      language: "en",
-    });
+  it("logs database_table_missing while telling the caller nothing about the database", async () => {
+    // The response used to carry `token_creation_failed` +
+    // `database_table_missing`, which told an anonymous caller which table
+    // this deployment is missing. The diagnosis now lives only in the log
+    // line the operator reads (and on /admin/email).
+    findUserByEmailMock.mockResolvedValue(RESET_USER);
     issuePasswordResetTokenMock.mockRejectedValue(
       new Error('relation "PasswordResetToken" does not exist'),
     );
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { POST } = await import("@/app/api/auth/forgot-password/route");
-    const res = await POST(
-      jsonReq("http://x/api/auth/forgot-password", { email: "user@example.com" }),
+    const res = await postForgotPassword();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toEqual({ ok: true, sent: true });
+    expect(JSON.stringify(body)).not.toMatch(/PasswordResetToken|relation|database/i);
+
+    await vi.waitFor(() =>
+      expect(loggedLine(errSpy, "auth.password_reset.flow_failed")).toBeTruthy(),
     );
-    expect(res.status).toBe(500);
-    const body = (await res.json()) as {
-      message: string;
-      details?: { reason?: string };
-    };
-    expect(body.message).toBe("token_creation_failed");
-    expect(body.details?.reason).toBe("database_table_missing");
-    const log = errSpy.mock.calls
-      .map((c) => String(c[0] ?? ""))
-      .find((s) => s.includes('"msg":"auth.password_reset.flow_failed"'));
-    expect(log).toBeTruthy();
-    if (log) {
-      expect(log).toContain('"kind":"database_table_missing"');
-    }
+    const log = loggedLine(errSpy, "auth.password_reset.flow_failed")!;
+    expect(log).toContain('"kind":"database_table_missing"');
+    expect(log).toContain("PasswordResetToken");
     errSpy.mockRestore();
   });
 });

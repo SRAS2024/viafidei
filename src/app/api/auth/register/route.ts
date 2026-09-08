@@ -7,7 +7,7 @@ import {
   getSession,
   issueEmailVerificationToken,
 } from "@/lib/auth";
-import { ensureAccountEmailTables } from "@/lib/startup/ensure-email-tables";
+import { checkAuthTokenStorage } from "@/lib/security/auth-storage";
 import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { getClientIp, redirectTo } from "@/lib/security/request";
 import { sendWelcomeEmail } from "@/lib/email";
@@ -41,6 +41,19 @@ async function resolveLocaleFromRequest(
 
 function redirectWithError(req: NextRequest, code: string) {
   return redirectTo(req, `/register?error=${code}`);
+}
+
+const DEFAULT_NEXT = "/profile";
+
+// Same-site paths only: a bare "/" prefix is not enough, because
+// new URL("//evil.com", origin) resolves to https://evil.com. Mirrors
+// safeNext() in src/app/api/auth/login/route.ts.
+function safeNext(raw: FormDataEntryValue | null): string {
+  const value = typeof raw === "string" ? raw : null;
+  if (!value) return DEFAULT_NEXT;
+  if (!value.startsWith("/")) return DEFAULT_NEXT;
+  if (value.startsWith("//") || value.startsWith("/\\")) return DEFAULT_NEXT;
+  return value;
 }
 
 /**
@@ -84,6 +97,7 @@ async function readRegisterPayload(req: NextRequest): Promise<
         password: FormDataEntryValue | null;
         passwordConfirm: FormDataEntryValue | null;
         language: FormDataEntryValue | null;
+        next: FormDataEntryValue | null;
       };
     }
   | { ok: false }
@@ -104,6 +118,7 @@ async function readRegisterPayload(req: NextRequest): Promise<
         password: form.get("password"),
         passwordConfirm: form.get("passwordConfirm"),
         language: form.get("language"),
+        next: form.get("next"),
       },
     };
   } catch {
@@ -114,31 +129,30 @@ async function readRegisterPayload(req: NextRequest): Promise<
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get(REQUEST_ID_HEADER) ?? undefined;
   try {
-    // Pre-warm the account email schema before anything else. Idempotent
-    // and cheap on a healthy database; on a database that's missing
-    // User.emailVerifiedAt or the token tables this creates them so the
-    // welcome-email step below can succeed without leaving the user with
-    // no verification link. Errors here are logged but never block
-    // registration — the catch in the welcome block will surface the
-    // missing piece via structured logs.
-    try {
-      const ensure = await ensureAccountEmailTables();
-      if (!ensure.ok) {
-        logger.error("auth.register.ensure_email_tables_failed", {
-          requestId,
-          message: ensure.message,
-        });
-      } else if (ensure.created.length > 0) {
-        logger.warn("auth.register.email_tables_auto_created", {
-          requestId,
-          created: ensure.created,
-        });
-      }
-    } catch (e) {
-      logger.error("auth.register.ensure_email_tables_threw", {
+    // Confirm — read-only — that the account email schema is present. This
+    // used to CREATE the tables mid-request; DDL on an unauthenticated POST
+    // is not resilience, it is a schema-mutation primitive reachable by
+    // anyone who can hit /api/auth/register. Creation now belongs to
+    // `prisma migrate deploy` + scripts/validate-db.js, which run before
+    // the server accepts its first request (see @/lib/security/auth-storage).
+    //
+    // Production fails closed: an account whose verification token can never
+    // be written is a broken account, and the operator needs the deploy to
+    // look broken rather than quietly produce unverifiable users. Outside
+    // production the probe is advisory so a half-migrated dev database
+    // doesn't block local sign-up.
+    const storage = await checkAuthTokenStorage();
+    if (!storage.ok) {
+      logger.error("auth.register.storage_unavailable", {
         requestId,
-        message: e instanceof Error ? e.message : "unknown_error",
+        reason: storage.reason,
+        ...(storage.reason === "missing_tables"
+          ? { missing: storage.missing }
+          : { detail: storage.detail }),
       });
+      if (process.env.NODE_ENV === "production") {
+        return redirectWithError(req, "server");
+      }
     }
 
     const payload = await readRegisterPayload(req);
@@ -146,6 +160,9 @@ export async function POST(req: NextRequest) {
       logger.warn("auth.register.bad_body", { requestId });
       return redirectWithError(req, "invalid");
     }
+    // Where to land after registering — set when an account-gated control
+    // (e.g. Favorite on a parish) sent the visitor to /register.
+    const next = safeNext(payload.data.next);
     const parsed = registerSchema.safeParse({
       firstName: payload.data.firstName,
       lastName: payload.data.lastName,
@@ -300,14 +317,21 @@ export async function POST(req: NextRequest) {
       });
       // Account exists but session couldn't be established — send the user
       // to the login page rather than blowing up the request.
-      return redirectTo(req, "/login?registered=1");
+      // /login forwards `next` into LoginForm, which posts it back to the
+      // login route, so the visitor still lands where they started.
+      return redirectTo(
+        req,
+        next === DEFAULT_NEXT
+          ? "/login?registered=1"
+          : `/login?registered=1&next=${encodeURIComponent(next)}`,
+      );
     }
 
     // Persist the chosen locale to the cookie so the next page load uses it.
     const cookieStore = await cookies();
     cookieStore.set(LOCALE_COOKIE_NAME, language, LOCALE_COOKIE_OPTIONS);
 
-    return redirectTo(req, "/profile");
+    return redirectTo(req, next);
   } catch (error) {
     logApiError({
       method: "POST",

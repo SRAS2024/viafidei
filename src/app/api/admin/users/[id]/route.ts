@@ -62,7 +62,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   // Re-verify the admin password before wiping data. `requireAdmin`
   // alone only proves the session cookie is valid; this proves the
   // human is currently at the keyboard.
-  const passwordOk = verifyAdminCredentials(admin.username, parsed.data.password);
+  const passwordOk = await verifyAdminCredentials(admin.username, parsed.data.password);
   if (!passwordOk) {
     logger.warn("admin.user_account.delete_password_invalid", {
       actor: admin.username,

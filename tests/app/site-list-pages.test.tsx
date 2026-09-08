@@ -230,8 +230,14 @@ describe("/parishes", () => {
     expect(hrefs()).toContain("/parishes?class=basilica&q=mary&page=2");
     // Chips reflect the indexed counts: no cathedrals published → no chip.
     expect(screen.queryByRole("link", { name: /Cathedrals/ })).not.toBeInTheDocument();
-    // The card shows a human designation, not the stored value.
-    expect(screen.getByText("Minor Basilica")).toBeInTheDocument();
+    // The owner removed the designation from the parish card: the directory
+    // card and the parish page are now the same ParishCard, which shows the
+    // name, the place, the address and the website and nothing else. The raw
+    // stored value was never shown and still is not.
+    expect(screen.getByRole("heading", { name: "St. Mary" })).toBeInTheDocument();
+    expect(screen.queryByText("minor-basilica")).not.toBeInTheDocument();
+    // No location: the visitor has not located themselves, so no distance.
+    expect(screen.queryByText(/away$/)).not.toBeInTheDocument();
   });
 
   it("says so plainly when a search matches nothing", async () => {

@@ -942,8 +942,8 @@ model WorkerBuildJob {
 /// build logs or partial payloads. Includes a publishing gate
 /// (`isPublished`) and a relation back to the source checklist item.
 model PublishedContent {
-  id              String               @id @default(cuid())
-  checklistItemId String               @unique
+  id              String                   @id @default(cuid())
+  checklistItemId String                   @unique
   contentType     ChecklistContentType
   slug            String
   title           String
@@ -952,14 +952,14 @@ model PublishedContent {
   subtitle        String?
   payload         Json
   authorityLevel  SourceAuthorityLevel
-  isPublished     Boolean              @default(false)
+  isPublished     Boolean                  @default(false)
   publishedAt     DateTime?
   unpublishedAt   DateTime?
   // Freshness marker written at publish time. Cache verification fetches
   // the public route and confirms this checksum is being served, failing
   // (and repairing) when stale content is still cached.
   contentChecksum String?
-  version         Int                  @default(1)
+  version         Int                      @default(1)
   // Query columns derived from the payload at publish time (see
   // src/lib/content-shared/derived-columns.ts) so the site's hot filters run
   // as indexed scans: saints by feast day, chronological order, filter chips by
@@ -978,8 +978,8 @@ model PublishedContent {
   // Prisma has no tsvector type, so it is declared Unsupported and excluded
   // from every generated select.
   searchVector    Unsupported("tsvector")?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
 
   @@unique([contentType, slug])
   @@index([contentType, isPublished])
@@ -1506,16 +1506,16 @@ model ContentGoal {
 /// is uncertain, the worker cannot determine content type, or sources
 /// conflict in ways the cross-source verifier cannot reconcile.
 model HumanReviewQueue {
-  id                 String            @id @default(cuid())
-  taskId             String?
-  contentType        String?
-  contentTitle       String?
-  proposedAction     String
-  reason             String
-  confidence         Float             @default(0)
-  sourceEvidence     Json?
-  currentVersion     Json?
-  proposedVersion    Json?
+  id                  String            @id @default(cuid())
+  taskId              String?
+  contentType         String?
+  contentTitle        String?
+  proposedAction      String
+  reason              String
+  confidence          Float             @default(0)
+  sourceEvidence      Json?
+  currentVersion      Json?
+  proposedVersion     Json?
   /// Review-queue intelligence: every item explains itself so it never sits
   /// unexplained. `blockingGate` = the pipeline gate that stopped it;
   /// `neededAction` = what must happen to clear it; `repairSuggestion` = the
@@ -1525,11 +1525,11 @@ model HumanReviewQueue {
   neededAction        String?
   repairSuggestion    String?
   nextAutomatedAction String?
-  status             HumanReviewStatus @default(PENDING)
-  createdAt          DateTime          @default(now())
-  reviewedAt         DateTime?
-  reviewedByUsername String?
-  reviewerNotes      String?
+  status              HumanReviewStatus @default(PENDING)
+  createdAt           DateTime          @default(now())
+  reviewedAt          DateTime?
+  reviewedByUsername  String?
+  reviewerNotes       String?
 
   task AdminWorkerTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
@@ -1994,7 +1994,7 @@ model AdminWorkerGrowthSnapshot {
 /// stable artifact to act on. Replaces the previous "extraction was
 /// only logged, not stored" gap.
 model AdminWorkerPackageArtifact {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   sourceReadId       String?
   candidateUrlId     String?
   contentType        String
@@ -2002,17 +2002,17 @@ model AdminWorkerPackageArtifact {
   normalizedSlug     String
   extractedFields    Json
   fieldProvenance    Json?
-  missingFields      String[] @default([])
-  validationNeeds    String[] @default([])
+  missingFields      String[]  @default([])
+  validationNeeds    String[]  @default([])
   formattingMetadata Json?
-  confidenceScore    Float    @default(0)
+  confidenceScore    Float     @default(0)
   packageChecksum    String
-  status             String   @default("EXTRACTED")
+  status             String    @default("EXTRACTED")
   /// "EXTRACTED" → "CHECKLIST_READY" → "BUILD_READY" → "VERIFICATION_READY" →
   ///   "QA_PASSED" → "PUBLISHED", or "NEEDS_REPAIR" / "NEEDS_REVIEW" /
   ///   "REJECTED" with reason on `rejectionReason`.
   rejectionReason    String?
-  repairSuggestions  String[] @default([])
+  repairSuggestions  String[]  @default([])
   checklistItemId    String?
   publishedContentId String?
   /// BUILD_READY-drain triage (build-ready-drain.ts): the exact gate blocking
@@ -2028,8 +2028,8 @@ model AdminWorkerPackageArtifact {
   /// crashed lane's items are reclaimable.
   leasedBy           String?
   leaseExpiresAt     DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@unique([contentType, normalizedSlug, packageChecksum])
   @@index([contentType, status])
@@ -2462,20 +2462,20 @@ model AdminWorkerTestGapRecord {
 /// the practical "operational self-awareness" surface: which lane, what item,
 /// which gate, what strategy, is it working, what next.
 model AdminWorkerLaneState {
-  id              String   @id @default(cuid())
-  lane            String   @unique
-  status          String   @default("idle")
+  id              String    @id @default(cuid())
+  lane            String    @unique
+  status          String    @default("idle")
   currentItem     String?
   currentStrategy String?
   currentGate     String?
-  capacity        Int      @default(1)
-  concurrentTasks Int      @default(0)
+  capacity        Int       @default(1)
+  concurrentTasks Int       @default(0)
   lastOutcome     String?
   lastError       String?
   lastDurationMs  Int?
   lastStartedAt   DateTime?
   lastFinishedAt  DateTime?
-  updatedAt       DateTime @updatedAt
+  updatedAt       DateTime  @updatedAt
 
   @@index([status])
 }
@@ -2487,19 +2487,19 @@ model AdminWorkerLaneState {
 /// "which method worked and why". contentType uses the sentinel "*" for a
 /// content-type-agnostic aggregate (kept non-null so the unique key is stable).
 model AdminWorkerStrategyStat {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   dimension   String
   method      String
-  contentType String   @default("*")
-  attempts    Int      @default(0)
-  successes   Int      @default(0)
-  failures    Int      @default(0)
+  contentType String    @default("*")
+  attempts    Int       @default(0)
+  successes   Int       @default(0)
+  failures    Int       @default(0)
   /// EWMA of the success signal (0..1) — recency-weighted success rate.
-  ewma        Float    @default(0.5)
+  ewma        Float     @default(0.5)
   lastOutcome String?
   lastReason  String?
   lastUsedAt  DateTime?
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime  @updatedAt
 
   @@unique([dimension, method, contentType])
   @@index([dimension, contentType])
@@ -2568,25 +2568,25 @@ model AdminWorkerStucknessRecord {
 /// NO_VALUE / GENERIC); `emailDelivery` records sent|skipped|failed so a
 /// delivery that was only skipped (no ADMIN_EMAIL configured) can be retried.
 model AdminWorkerEscalation {
-  id            String                 @id @default(cuid())
-  fingerprint   String                 @unique
-  kind          String
-  severity      AdminWorkerLogSeverity @default(WARN)
-  contentType   String?
-  detail        String
-  signals       String[]               @default([])
-  versionSha    String?
-  emailSentAt   DateTime?
-  emailDelivery String?
-  occurrences   Int                    @default(1)
-  resolvedAt    DateTime?
+  id             String                 @id @default(cuid())
+  fingerprint    String                 @unique
+  kind           String
+  severity       AdminWorkerLogSeverity @default(WARN)
+  contentType    String?
+  detail         String
+  signals        String[]               @default([])
+  versionSha     String?
+  emailSentAt    DateTime?
+  emailDelivery  String?
+  occurrences    Int                    @default(1)
+  resolvedAt     DateTime?
   /// Why this escalation was closed: "condition_cleared" (the warning is gone
   /// from the live assessment) or "superseded_by_upgrade" (a new build shipped,
   /// which may have fixed it — a genuinely-persistent issue re-escalates afresh
   /// under the new build SHA). Null while open.
   resolvedReason String?
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
 
   @@index([resolvedAt])
   @@index([kind])
@@ -3099,4 +3099,80 @@ model AdminWorkerSkillCapability {
   @@index([coverageStatus])
   @@index([category])
   @@index([contentType])
+}
+
+/// Server-side record of an interactive administrator sign-in
+/// (migration 0060_admin_session_store).
+///
+/// The encrypted cookie only carries an opaque session id; authority comes
+/// from this row. `id` is an HMAC of that opaque id, so a dump of this table
+/// cannot be replayed as a session.
+///
+/// The store in src/lib/auth/admin-session.ts reads and writes this table
+/// through parameterised raw SQL, not the Prisma client. The model exists so
+/// the schema tells the truth about the database: without it a future
+/// `prisma migrate dev` would see an unknown table and generate a DROP, and
+/// scripts/validate-db.js could not pin the table it now needs at boot.
+model AdminSession {
+  id String @id
+
+  adminUsername String
+  /// PENDING (password verified, second factor outstanding) | AUTHENTICATED
+  stage         String @default("PENDING")
+
+  authenticatedAt     DateTime
+  twoFactorVerifiedAt DateTime?
+  lastActivityAt      DateTime
+  absoluteExpiresAt   DateTime
+  idleExpiresAt       DateTime
+  revokedAt           DateTime?
+  revokedReason       String?
+  /// Set on the AUTHENTICATED row minted when a PENDING session is promoted.
+  rotatedFromId       String?
+
+  ipHash               String?
+  userAgentHash        String?
+  deviceCredentialHash String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@index([absoluteExpiresAt])
+  @@index([revokedAt])
+  @@index([adminUsername, stage])
+}
+
+/// Pending second-factor challenge for an interactive admin sign-in
+/// (migration 0061_admin_two_factor_challenge).
+///
+/// `codeHash` is a keyed HMAC of the six-digit code, never the code: the
+/// 10^6 space makes an unkeyed digest trivially reversible from a dump.
+/// Written through raw SQL for the same reason as AdminSession above.
+model AdminTwoFactorChallenge {
+  id String @id
+
+  /// HMAC of the PENDING AdminSession id this challenge belongs to.
+  adminSessionHash String
+  adminUsername    String
+  /// Keyed HMAC of the code. NEVER the code.
+  codeHash         String
+
+  attempts     Int       @default(0)
+  maxAttempts  Int       @default(5)
+  issuedAt     DateTime  @default(now())
+  expiresAt    DateTime
+  /// Set the moment a correct code is accepted: a challenge is single use.
+  consumedAt   DateTime?
+  /// Set when a replacement is issued (resend) or the attempt is abandoned.
+  supersededAt DateTime?
+
+  ipHash               String?
+  userAgentHash        String?
+  deviceCredentialHash String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  @@index([adminSessionHash])
+  @@index([expiresAt])
 }

@@ -29,7 +29,12 @@ const LOGIN_INVALID = "/login?error=invalid";
 const DEFAULT_NEXT = "/profile";
 
 function safeNext(raw: string | null): string {
-  return raw && raw.startsWith("/") ? raw : DEFAULT_NEXT;
+  if (!raw || !raw.startsWith("/")) return DEFAULT_NEXT;
+  // Protocol-relative ("//evil.com") and backslash ("/\\evil.com") forms still
+  // start with "/" but resolve to a THIRD-PARTY origin through
+  // new URL(path, origin) inside redirectTo(). Same-site paths only.
+  if (raw.startsWith("//") || raw.startsWith("/\\")) return DEFAULT_NEXT;
+  return raw;
 }
 
 async function readLoginForm(req: NextRequest): Promise<FormData | null> {

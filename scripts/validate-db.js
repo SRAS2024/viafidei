@@ -77,6 +77,12 @@ const REQUIRED_TABLES = [
   "HomePageBlock",
   "AdminAuditLog",
   "RateLimitBucket",
+  // Interactive admin sign-in (0060/0061). requireAdmin() resolves an
+  // AdminSession row on every admin request and the second factor is a row in
+  // AdminTwoFactorChallenge, so a missing table here locks the administrator
+  // out of a running site rather than failing the deploy — pin them.
+  "AdminSession",
+  "AdminTwoFactorChallenge",
   "ContentTypePause",
   // Checklist-first content store (replaces the dropped legacy tables)
   "PublishedContent",

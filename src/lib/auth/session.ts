@@ -8,12 +8,37 @@ const DEV_FALLBACK_SECRET = "via-fidei-dev-secret-change-me-please-32b";
 
 export type UserRole = "USER" | "ADMIN";
 
+/**
+ * How far through the two-stage admin sign-in this cookie is.
+ *
+ *   PENDING       — the admin password was accepted; the second factor is
+ *                   still outstanding. Carries NO authority: requireAdmin(),
+ *                   evaluateAdminTrust() and gateAdminApiCall() all deny it.
+ *   AUTHENTICATED — password AND second factor both completed.
+ *
+ * The cookie is only ever a mirror. The authoritative record is the
+ * `AdminSession` row addressed by `adminSessionId` (see
+ * `src/lib/auth/admin-session.ts`) — it is what expires, what revokes, and
+ * what a stolen cookie cannot forge.
+ *
+ * Applies to a human administrator at the interactive admin interface only.
+ * Ordinary user accounts and every automated process (the Admin Worker
+ * included) never carry these fields.
+ */
+export type AdminAuthStage = "PENDING" | "AUTHENTICATED";
+
 export type SessionData = {
   userId?: string;
   userEmail?: string;
   userName?: string;
   role?: UserRole;
   adminSignedInAt?: number;
+  /**
+   * Opaque id of the server-side admin session. Only ever stored inside this
+   * encrypted cookie — the database holds an HMAC of it, never the raw value.
+   */
+  adminSessionId?: string;
+  adminAuthStage?: AdminAuthStage;
   locale?: string;
 };
 

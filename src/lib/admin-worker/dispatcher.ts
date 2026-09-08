@@ -599,6 +599,55 @@ async function runCandidatePrioritization(
   };
 }
 
+/** Fetch attempts on one host, all failed, before SOURCE_FETCH routes around it. */
+const HOST_FETCH_FAILURE_STREAK = 3;
+/** How far back the host-failure streak is measured. */
+const HOST_FETCH_FAILURE_WINDOW_MS = 60 * 60_000;
+
+/**
+ * Approved hosts whose EVERY recent fetch failed.
+ *
+ * WHY: SOURCE_FETCH looped 62× with zero successes because the highest-priority
+ * candidates all sat on one host that was refusing every request — the queue was
+ * ordered by score, and score knows nothing about a host that is down right now.
+ * Every pass re-picked that host, filed another repair plan, and the stage never
+ * advanced, which is precisely the LOOPING escalation. Routing around a host
+ * that has failed `HOST_FETCH_FAILURE_STREAK`+ times with no success in the last
+ * hour lets the stage reach a DIFFERENT approved source and actually advance —
+ * the worker's own way out, with no external key involved.
+ *
+ * A host is cleared the moment one fetch succeeds, and the whole check is
+ * fail-open: any error yields an empty set and the old ordering stands.
+ *
+ * Exported for the regression test.
+ */
+export async function blockedFetchHosts(
+  prisma: PrismaClient,
+  nowMs: number = Date.now(),
+): Promise<Set<string>> {
+  const blocked = new Set<string>();
+  try {
+    const rows = (await prisma.adminWorkerFetchResult.findMany({
+      where: { createdAt: { gte: new Date(nowMs - HOST_FETCH_FAILURE_WINDOW_MS) } },
+      orderBy: { createdAt: "desc" },
+      take: 300,
+      select: { sourceHost: true, succeeded: true },
+    })) as Array<{ sourceHost: string; succeeded: boolean }>;
+    const failures = new Map<string, number>();
+    const worked = new Set<string>();
+    for (const r of rows) {
+      if (r.succeeded) worked.add(r.sourceHost);
+      else failures.set(r.sourceHost, (failures.get(r.sourceHost) ?? 0) + 1);
+    }
+    for (const [host, n] of failures) {
+      if (!worked.has(host) && n >= HOST_FETCH_FAILURE_STREAK) blocked.add(host);
+    }
+  } catch {
+    // fail-open — a missing/erroring ledger must never stop the fetch stage
+  }
+  return blocked;
+}
+
 async function runSourceFetchRead(
   prisma: PrismaClient,
   passId: string,
@@ -611,13 +660,37 @@ async function runSourceFetchRead(
   // re-selected on EVERY pass while every candidate behind it starves: a row
   // that was just attempted (or was satisfied from cache) has to wait out its
   // backoff before it can be chosen again (WX-05 / WX-06).
-  const candidate = await prisma.candidateSourceUrl.findFirst({
-    where: {
-      status: { in: ["DISCOVERED", "PRIORITIZED"] },
-      ...candidateFetchEligibility(new Date()),
-    },
-    orderBy: [{ fetchPriority: "desc" }, { predictedUsefulness: "desc" }, { createdAt: "asc" }],
-  });
+  const pickCandidate = (excludeHosts: string[]) =>
+    prisma.candidateSourceUrl.findFirst({
+      where: {
+        status: { in: ["DISCOVERED", "PRIORITIZED"] },
+        ...candidateFetchEligibility(new Date()),
+        ...(excludeHosts.length > 0 ? { sourceHost: { notIn: excludeHosts } } : {}),
+      },
+      orderBy: [{ fetchPriority: "desc" }, { predictedUsefulness: "desc" }, { createdAt: "asc" }],
+    });
+
+  // Reroute around hosts that are failing every fetch right now (see
+  // blockedFetchHosts). Only when routing around them leaves nothing at all do
+  // we fall back to the unfiltered queue — starving the stage would be a worse
+  // failure than one more attempt on a bad host.
+  const blockedHosts = await blockedFetchHosts(prisma);
+  let candidate = blockedHosts.size > 0 ? await pickCandidate([...blockedHosts]) : null;
+  const rerouted = candidate !== null;
+  if (!candidate) candidate = await pickCandidate([]);
+  if (candidate && (rerouted || blockedHosts.size > 0)) {
+    await writeAdminWorkerLog(prisma, {
+      passId,
+      category: "SOURCE_READING",
+      severity: rerouted ? "INFO" : "WARN",
+      eventName: rerouted ? "fetch_host_rerouted" : "fetch_all_hosts_blocked",
+      message: rerouted
+        ? `Routing around ${blockedHosts.size} failing host(s) — fetching ${candidate.sourceHost} instead.`
+        : `Every eligible candidate is on a failing host (${[...blockedHosts].join(", ")}); retrying ${candidate.sourceHost} anyway.`,
+      sourceHost: candidate.sourceHost,
+      safeMetadata: { blockedHosts: [...blockedHosts], rerouted },
+    }).catch(() => undefined);
+  }
   if (!candidate) {
     await writeAdminWorkerLog(prisma, {
       passId,
@@ -1407,6 +1480,61 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
   };
 }
 
+/**
+ * Reroute the content types of artifacts that CHECKLIST_CREATION could not use.
+ * Exported for the regression test; see the call site for why it exists.
+ */
+export async function rerouteInsufficientArtifacts(
+  prisma: PrismaClient,
+  passId: string,
+  artifactIds: string[],
+): Promise<number> {
+  const artifacts = (await prisma.adminWorkerPackageArtifact
+    .findMany({
+      where: { id: { in: artifactIds } },
+      select: { id: true, contentType: true, candidateUrlId: true },
+    })
+    .catch(() => [])) as Array<{ id: string; contentType: string; candidateUrlId: string | null }>;
+  const { rerouteToAlternateSource } = await import("./repair");
+  const seen = new Set<string>();
+  let rerouted = 0;
+  for (const artifact of artifacts) {
+    if (seen.has(artifact.contentType)) continue;
+    seen.add(artifact.contentType);
+    // The host that produced the unusable package — so the reroute moves to a
+    // genuinely different source rather than the same one again.
+    const origin = artifact.candidateUrlId
+      ? await prisma.candidateSourceUrl
+          .findUnique({
+            where: { id: artifact.candidateUrlId },
+            select: { sourceHost: true },
+          })
+          .catch(() => null)
+      : null;
+    const out = await rerouteToAlternateSource(prisma, {
+      contentType: artifact.contentType,
+      failedHost: origin?.sourceHost ?? "",
+    }).catch(() => null);
+    if (out?.succeeded) rerouted += 1;
+    await writeAdminWorkerLog(prisma, {
+      passId,
+      category: "REPAIR",
+      severity: "INFO",
+      eventName: "checklist_insufficient_reroute",
+      contentType: artifact.contentType,
+      message: `Checklist creation could not use artifact ${artifact.id} (no provenance) — ${
+        out?.reason ?? "reroute unavailable"
+      }.`,
+      safeMetadata: {
+        artifactId: artifact.id,
+        failedHost: origin?.sourceHost ?? null,
+        reroutedTo: out?.reroutedTo ?? null,
+      },
+    }).catch(() => undefined);
+  }
+  return rerouted;
+}
+
 async function runChecklistOrCitation(
   prisma: PrismaClient,
   passId: string,
@@ -1422,6 +1550,21 @@ async function runChecklistOrCitation(
   ).length;
   const failed = results.filter((r) => r.status === "failed").length;
   const citationsCreated = results.reduce((acc, r) => acc + r.citationsCreated, 0);
+
+  // ESCAPE HATCH (the LOOPING escalation). An artifact skipped as
+  // "insufficient" has no field provenance at all — the SOURCE it came from
+  // never carried what a citation needs. Re-running this stage can only skip it
+  // again, every pass, forever at zero successes. So when NOTHING advanced and
+  // the blocker is insufficiency, reroute that content type to a different
+  // approved source: the next extraction can then build a complete package
+  // instead of this stage spinning on one that can never complete. Fail-open,
+  // and it does not change the outcome kind — a skip is still honestly a skip.
+  const insufficientIds = results
+    .filter((r) => r.status === "skipped_insufficient")
+    .map((r) => r.artifactId);
+  if (advanced === 0 && insufficientIds.length > 0) {
+    await rerouteInsufficientArtifacts(prisma, passId, insufficientIds).catch(() => undefined);
+  }
 
   await writeAdminWorkerLog(prisma, {
     passId,

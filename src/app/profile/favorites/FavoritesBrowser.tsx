@@ -87,7 +87,10 @@ export function FavoritesBrowser({ items: initial }: { items: FavoriteItem[] }) 
       {visible.length === 0 ? (
         <p className="py-16 text-center font-serif text-ink-faint">
           {items.length === 0
-            ? "You haven't favorited anything yet. Tap Favorite on any prayer, saint, devotion, or apparition to save it here."
+            ? // Every type with a Favorite control is named here, parishes and
+              // novenas included — leaving them out reads as "parishes can't be
+              // favorited", which is exactly the confusion this list must not create.
+              "You haven't favorited anything yet. Tap Favorite on any prayer, saint, devotion, apparition, novena, or parish to save it here."
             : "No favorites in this category."}
         </p>
       ) : (

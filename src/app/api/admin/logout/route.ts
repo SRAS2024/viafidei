@@ -1,5 +1,6 @@
 import { type NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
+import { revokeCurrentAdminSession } from "@/lib/auth/admin-session";
 import { writeAudit } from "@/lib/audit";
 import { ADMIN_ACTION, writeAdminActionLog } from "@/lib/audit/admin-action-log";
 import { getClientIpOrNull, getUserAgent, redirectTo } from "@/lib/security/request";
@@ -34,6 +35,10 @@ export async function POST(req: NextRequest) {
       userAgent: getUserAgent(req),
     });
   }
+  // Revoke the server-side AdminSession row FIRST — deleting only the cookie
+  // leaves any earlier copy of it valid until the row expires on its own.
+  // Order matters: a failed cookie write must not leave a live session.
+  await revokeCurrentAdminSession("logout");
   session.destroy();
   return redirectTo(req, "/admin/login");
 }

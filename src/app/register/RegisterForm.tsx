@@ -31,7 +31,7 @@ type ValidationKind = "weak" | "mismatch";
 
 const ERROR_COLOR = "#8b1a1a";
 
-export function RegisterForm({ labels }: { labels: RegisterFormLabels }) {
+export function RegisterForm({ labels, next }: { labels: RegisterFormLabels; next?: string }) {
   const [showPassword, setShowPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -67,6 +67,9 @@ export function RegisterForm({ labels }: { labels: RegisterFormLabels }) {
       className="flex flex-col gap-5"
       onSubmit={handleSubmit}
     >
+      {/* Where to land after registering — set when an account-gated control
+          (e.g. Favorite on a parish) sent the visitor here. */}
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="firstName" className="vf-label">

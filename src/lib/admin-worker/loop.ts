@@ -71,9 +71,37 @@ export interface LoopResult {
   stopReason?: LoopStopReason;
 }
 
-function envInt(name: string, fallback: number): number {
-  const n = Number((process.env[name] ?? "").trim());
-  return Number.isFinite(n) && n >= 0 ? n : fallback;
+/**
+ * Read a numeric setting from the environment.
+ *
+ * WHY THE EMPTY-STRING GUARD: `Number("")` is 0, NOT NaN, so the previous
+ * `Number.isFinite(n) && n >= 0` test accepted an UNSET variable and returned 0
+ * instead of the fallback. None of the three variables read here is set
+ * anywhere in this project, so every caller silently got 0. In production that
+ * fired the dispatch watchdog at 0 ms — 46 stage outcomes in 12 hours recorded
+ * `dispatch watchdog: stage exceeded 0ms`, i.e. every dispatched stage was
+ * killed the instant it started. Worse, the watchdog cannot cancel the
+ * promise, so each stage was DOUBLE-COUNTED in the outcome ledger: one instant
+ * `failure` row plus the real row when it finished in the background — which is
+ * what pushed SOURCE_FETCH over the LOOPING escalation threshold. It also left
+ * the idle backoff at 0 ms, so an idle loop never rested and kept writing
+ * bookkeeping rows.
+ *
+ * Absent / empty / blank / unparseable / negative all mean "use the fallback".
+ * An explicit 0 is honoured ONLY where the caller opts in: 0 is a meaningful
+ * "never wait" for the idle backoff (tests and manual runs disable it that way
+ * — see `backoffFloorMs`), but a 0 ms watchdog is never wanted.
+ *
+ * Exported for a direct unit test: this helper is what took the worker down, so
+ * it is pinned by name rather than inferred through a caller.
+ */
+export function envInt(name: string, fallback: number, opts: { allowZero?: boolean } = {}): number {
+  const raw = (process.env[name] ?? "").trim();
+  if (raw === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  if (n === 0 && !opts.allowZero) return fallback;
+  return n;
 }
 
 /**
@@ -183,10 +211,14 @@ export async function runAdminWorkerLoop(
   // re-running a pass 1s after an idle one only burned ~140 DB round trips of
   // bookkeeping per pass against the remote database. Start at 15s and double
   // per consecutive idle pass (to 120s); any real progress resets it.
-  const idleBackoffStartMs = opts.idleBackoffMs ?? envInt("ADMIN_WORKER_IDLE_BACKOFF_MS", 15_000);
+  // allowZero: an explicit `0` here is a deliberate "never wait" (tests, manual
+  // runs) and also switches off the backoff floors — see `backoffFloorMs`.
+  const idleBackoffStartMs =
+    opts.idleBackoffMs ?? envInt("ADMIN_WORKER_IDLE_BACKOFF_MS", 15_000, { allowZero: true });
   const idleBackoffMaxMs = Math.max(
     idleBackoffStartMs,
-    opts.idleBackoffMaxMs ?? envInt("ADMIN_WORKER_IDLE_BACKOFF_MAX_MS", 120_000),
+    opts.idleBackoffMaxMs ??
+      envInt("ADMIN_WORKER_IDLE_BACKOFF_MAX_MS", 120_000, { allowZero: true }),
   );
   // While the Python brain is degraded no content lane can run, so idling
   // faster than this just multiplies the (throttled) degraded-mode log rows.
@@ -367,7 +399,17 @@ interface PassOutcome {
 // than every liveness cutoff. Bound it like the lanes are; on expiry the stage
 // is recorded as failed so the governor/brain see it (the underlying promise
 // may still finish in the background — its own network calls are bounded).
-const DISPATCH_WATCHDOG_MS = 10 * 60 * 1000;
+export const DISPATCH_WATCHDOG_MS = 10 * 60 * 1000;
+
+/**
+ * The watchdog budget for one dispatch. NO `allowZero`: a 0 ms watchdog kills
+ * every stage before it can do anything, so an unset/blank/garbage/0 value must
+ * always fall back to the 10-minute default. Exported so the regression test
+ * can assert the default directly instead of racing a real timer.
+ */
+export function dispatchTimeoutMs(): number {
+  return envInt("ADMIN_WORKER_DISPATCH_TIMEOUT_MS", DISPATCH_WATCHDOG_MS);
+}
 
 function withDispatchWatchdog<T>(p: Promise<T>, ms: number): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -593,13 +635,21 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
           category: "WORKER_PASS",
           severity: "WARN",
           eventName: "governor_forced_stage",
-          message: `Governor: ${brain.missionStage} → ${verdict.forcedStage} (${verdict.reason}).`,
+          // The corrective is in the message, not only the metadata: a LOOPING
+          // escalation is read as prose, and "what did the worker do about it"
+          // has to be answerable from the log line itself.
+          message: `Governor: ${brain.missionStage} → ${verdict.forcedStage} (${verdict.reason}); corrective=${verdict.corrective ?? "none"}${
+            verdict.correctiveDetail ? ` — ${verdict.correctiveDetail}` : ""
+          }.`,
           contentType: verdict.forcedContentType ?? brain.contentType ?? undefined,
           safeMetadata: {
             from: brain.missionStage,
             to: verdict.forcedStage,
             reason: verdict.reason,
             exhaustedEntityId: verdict.exhaustedEntityId,
+            corrective: verdict.corrective,
+            correctiveDetail: verdict.correctiveDetail,
+            blockedContentType: verdict.blockedContentType,
           },
         }).catch(() => undefined);
         brain.missionStage = verdict.forcedStage;
@@ -608,11 +658,11 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     }
 
     const dispatchStartedAt = Date.now();
-    const dispatchTimeoutMs = envInt("ADMIN_WORKER_DISPATCH_TIMEOUT_MS", DISPATCH_WATCHDOG_MS);
+    const timeoutMs = dispatchTimeoutMs();
     try {
       dispatch = await withDispatchWatchdog(
         executeMissionStage({ prisma, workerId, passId: pass.id, decision: brain }),
-        dispatchTimeoutMs,
+        timeoutMs,
       );
     } catch (err) {
       if (!(err instanceof Error && /dispatch watchdog/.test(err.message))) throw err;

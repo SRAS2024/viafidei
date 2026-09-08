@@ -40,12 +40,30 @@ function makePrisma(opts: {
   published: number;
   stageCounts: Array<{ stage: string; resultType: string; _count: { _all: number } }>;
   quality?: Array<{ passed: boolean }>;
+  /** governor_forced_stage log rows, newest first. */
+  governorLogs?: Array<{ safeMetadata: unknown }>;
 }) {
   return {
     publishedContent: { count: vi.fn(async () => opts.published) },
     adminWorkerStageOutcome: { groupBy: vi.fn(async () => opts.stageCounts) },
     contentQualityScore: { findMany: vi.fn(async () => opts.quality ?? []) },
+    adminWorkerLog: { findMany: vi.fn(async () => opts.governorLogs ?? []) },
   } as never;
+}
+
+/** A stage that is failing repeatedly with zero successes — the LOOPING shape. */
+function loopingStage(stage = "SOURCE_FETCH") {
+  return [
+    {
+      stage,
+      total: 10,
+      successes: 0,
+      failures: 8,
+      needsRepair: 0,
+      successRate: 0,
+      avgDurationMs: 5,
+    },
+  ];
 }
 
 describe("buildSelfAssessment", () => {
@@ -161,6 +179,57 @@ describe("buildSelfAssessment", () => {
     const prisma = makePrisma({ published: 0, stageCounts: [] });
     const a = await buildSelfAssessment(prisma);
     expect(a.warnings.map((w) => w.kind)).toContain("LOOPING");
+  });
+
+  // The governor now records the escape hatch it took on its
+  // governor_forced_stage log line. A LOOPING warning carries that corrective
+  // so the escalation says what the worker already did about the loop, not
+  // only that it is looping.
+  it("carries the governor's most recent corrective into the LOOPING signals", async () => {
+    h.getAdminWorkerState.mockResolvedValue({
+      paused: false,
+      currentMode: "CONSTANT_FILL",
+      currentTask: null,
+      currentBlocker: null,
+    });
+    h.sampleWorld.mockResolvedValue(world());
+    h.summarizeStageReliability.mockResolvedValueOnce(loopingStage());
+    const prisma = makePrisma({
+      published: 0,
+      stageCounts: [],
+      governorLogs: [
+        // Newest first; the first row for a DIFFERENT stage must be skipped.
+        { safeMetadata: { from: "EXTRACTION", corrective: "drain_backlog" } },
+        {
+          safeMetadata: {
+            from: "SOURCE_FETCH",
+            corrective: "reroute_source",
+            blockedContentType: "SAINT",
+          },
+        },
+      ],
+    });
+
+    const a = await buildSelfAssessment(prisma);
+    const looping = a.warnings.find((w) => w.kind === "LOOPING");
+    expect(looping?.signals).toContain("governorCorrective=reroute_source:SAINT");
+  });
+
+  it("omits the corrective when the governor has not intervened for that stage", async () => {
+    h.getAdminWorkerState.mockResolvedValue({
+      paused: false,
+      currentMode: "CONSTANT_FILL",
+      currentTask: null,
+      currentBlocker: null,
+    });
+    h.sampleWorld.mockResolvedValue(world());
+    h.summarizeStageReliability.mockResolvedValueOnce(loopingStage());
+    const prisma = makePrisma({ published: 0, stageCounts: [], governorLogs: [] });
+
+    const a = await buildSelfAssessment(prisma);
+    const looping = a.warnings.find((w) => w.kind === "LOOPING");
+    expect(looping).toBeDefined();
+    expect(looping?.signals.some((s) => s.startsWith("governorCorrective="))).toBe(false);
   });
 
   it("reports productive when content published in the window", async () => {
