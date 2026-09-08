@@ -112,6 +112,36 @@ echo "  loopback ok   : $(/usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecur
 echo "  local runtime : $(strings "$BIN" | grep -c viafideiLocalHost) marker(s)"
 codesign -v --verify "$DEST" >/dev/null 2>&1 && echo "  signature     : valid" || echo "  signature     : UNVERIFIED"
 
+# 4a. Sweep conflict copies created DURING this run.
+#
+# The Desktop on this Mac syncs to iCloud Drive. Deleting a bundle and
+# recreating it seconds later reads to iCloud as a conflict, and it restores
+# the version it had under a numbered name — "Via Fidei 2.app" beside the real
+# one. Both carry the same CFBundleIdentifier, so macOS may launch either, and
+# the operator ends up running an old build while this script reports success.
+# (The same mechanism produces the "cache-life.d 2.ts" files that appear in
+# .next/types and break `tsc`.)
+#
+# The pre-build removal above cannot catch these: they appear AFTER it, as a
+# consequence of it. So sweep again now, matching only the numbered-copy
+# shapes, and never the bundle we just installed.
+for dir in "${SEARCH_DIRS[@]}"; do
+  [ -d "$dir" ] || continue
+  for candidate in "$dir"/*.app; do
+    [ -d "$candidate" ] || continue
+    [ "$candidate" = "$DEST" ] && continue
+    case "$(basename "$candidate")" in
+      "Via Fidei "[0-9]*.app | "ViaFidei "[0-9]*.app | *"Via Fidei"*" copy"*.app)
+        if rm -rf "$candidate" 2>/dev/null && [ ! -d "$candidate" ]; then
+          echo "  removed copy  : $candidate (iCloud conflict duplicate)"
+        else
+          echo "  COULD NOT REMOVE duplicate: $candidate — drag it to the Trash"
+        fi
+        ;;
+    esac
+  done
+done
+
 count=0
 seen=""
 for dir in "${SEARCH_DIRS[@]}"; do
