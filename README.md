@@ -650,8 +650,9 @@ lease).
 - **Manual passes and the homepage makeover run locally.** A button in the app
   starts a local operation; it never calls a server endpoint that would do the
   work on Railway.
-- **File ingestion.** Drag a file onto the window (or use ⌘I) and the local
-  worker reads it — see [Operator file ingestion](#operator-file-ingestion).
+- **File ingestion.** Drag a file anywhere onto the window, use ⌘I, or click
+  "choose a file" in the command center, and the local worker reads it — see
+  [Operator file ingestion](#operator-file-ingestion).
 - The original **Standard Site / Admin Site** tabs onto `https://etviafidei.com`,
   unchanged.
 
@@ -2134,6 +2135,257 @@ instead enumerates them from Wikidata and feeds their **authoritative source
 URLs** to the live extraction + cross-source-verification pipeline, so they grow
 from approved sources rather than from an encyclopedia.
 
+### Every rejection reports a reason
+
+The structured ingest used to throw away most of what it fetched and record
+nothing about why. Production, 2026-09-07:
+
+```
+wikidata-spiritual-practices  fetched 68,   1 already live,  66 SKIPPED
+wikidata-saints               fetched 100, 34 already live,  40 SKIPPED
+wikidata-marian-titles        fetched 6,    0 already live,   3 SKIPPED
+wikidata-rites                fetched 2,    0 already live,   1 SKIPPED
+```
+
+Ninety-seven percent of one ingestor's page vanished, and nothing in the log
+line, the log payload or the worker's own self-diagnosis could tell a **correct**
+rejection ("this is a Buddhist practice, not a Catholic one") from a **bug**
+("the infobox parser regressed and every feast day now fails to corroborate").
+`ingestors.ts` alone held **65 `return null` statements**, and the pass log was
+gated on `published > 0` — so a page that published nothing wrote no line at
+all. The one case that most needed explaining was the one case that was silent.
+
+**The contract is a type, not a convention.** A mapper no longer answers
+`Promise<CuratedEntry | null>`; it answers
+`MapResult = CuratedEntry | MapRejection`, and a `MapRejection` can only be built
+by `reject(code, detail?)` with a code from the closed `REJECTION_CODES` set
+([`structured/reject.ts`](src/lib/admin-worker/structured/reject.ts)). That
+choice — a typed **result**, rather than a `reject()` recorder handed in on the
+context — is what makes the guarantee a compile-time one: `return null` inside a
+mapper is now a type error, so a silent discard cannot be written, not merely
+detected afterwards. The closed union does the same job for the code itself: a
+typo'd code fails `tsc` instead of quietly opening a histogram bucket nobody
+counts. The `code` is the aggregatable half; `detail` is free text for a human,
+trimmed and capped at 200 characters, and is **never** counted. Attribution does
+no I/O and cannot throw — recording _why_ a row was dropped must never be able to
+change _whether_ it was dropped.
+
+**The 30 codes**, grouped by where the decision is made rather than by severity
+(a correct rejection and a bug can share a code — telling them apart is the
+diagnostic script's job, below):
+
+| Group                      | Codes                                                                                                                                                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Row shape** (5)          | `no_english_label`, `missing_required_field`, `slug_unresolvable`, `invalid_url`, `antipope_excluded`                                                                                                              |
+| **Narrative sourcing** (5) | `no_wikipedia_article`, `wikipedia_fetch_failed`, `description_too_short`, `no_source_url`, `narrative_too_short`                                                                                                  |
+| **Catholicity / kind** (3) | `not_catholic_context`, `unrecognized_type`, `owned_by_other_ingestor`                                                                                                                                             |
+| **Church documents** (3)   | `date_unparseable`, `no_key_themes`, `no_canonical_url`                                                                                                                                                            |
+| **Saints** (9)             | `saint_facts_unparseable`, `not_catholic_status`, `non_catholic_religion`, `no_catholic_religion`, `no_canonization_date`, `feast_unparseable`, `feast_uncorroborated`, `feast_ambiguous`, `biography_unavailable` |
+| **Orchestration** (5)      | `map_threw`, `duplicate_in_page`, `schema_invalid`, `publish_rejected`, `publish_threw`                                                                                                                            |
+
+The orchestration codes are recorded by `ingest.ts`, not by a mapper, and they
+close two holes the counters never showed: a mapper that **throws** is now
+`map_threw` rather than a vanished row, and a same-page duplicate — dropped by
+the dedup, incrementing no counter at all — is now `duplicate_in_page`.
+
+**Reading the log line.** `structured_knowledge_ingest` is written whenever the
+pass published something **or dropped something**, which is the change that
+matters; the old `published > 0` condition is what made the 66-row case
+invisible. The message ends with the top five reasons, highest first, ties broken
+alphabetically so two passes with the same counts render identically. Wrapped
+here for width, this is the line the spiritual-practice page diagnosed further
+down would write:
+
+```
+Structured-knowledge ingest (wikidata-spiritual-practices): published 0 new
+SPIRITUAL_PRACTICE record(s) from Wikidata + Wikipedia (fetched 25, 0 already
+live, 25 skipped, 0 live page(s) skipped). Dropped 25: no_source_url 15,
+not_catholic_context 8, unrecognized_type 2.
+```
+
+`safeMetadata` carries the same information in machine form: `rejected` (the
+total), `skipReasons` (the **whole** histogram, not just the top five),
+`topSkipReasons`, and `skipSamples` — up to ten `code: detail` strings, so one
+log row can show _which_ entities a reason fired on without carrying a page of
+scraped text.
+
+The severity stays **INFO** even on a page that published nothing and dropped
+everything, which is deliberate and is worth knowing before someone "fixes" it:
+`writeAdminWorkerLog` routes only INFO through the per-`eventName` hourly budget
+in `event-sampler.ts`, so a WARN here would be **unsampled**, and `cleanup.ts`
+retains non-INFO for 90 days instead of 14. A barren corpus is barren on _every_
+pass, indefinitely — an unsampled row per pass, carrying a histogram plus ten
+samples and kept six times longer, is exactly the shape the sampler was written
+to stop. The drop information is in the message and the payload at either
+severity; raising a stuck lane is the diagnostics path's job, not this row's.
+
+**The ratchet.** `structured/reject-coverage.ts` re-reads the directory from disk
+and fails CI if any mapper — or any `MapResult`-returning helper — can reach a
+bare `return null`, or if any `reject(…)` / `note(…)` / `tallyRejection(…)` /
+`code:` literal names a code outside the closed set. The compiler already
+forbids both today; the scanner catches the two things the compiler cannot see
+coming: a future `map()` written back to `CuratedEntry | null` (where
+`return null` type-checks again — the exact regression that produced the
+production symptom), and a `code` parameter widened to `string`. It is
+deliberately syntactic and blanks comments and string bodies — offsets and
+newlines preserved — before any pattern is applied, so prose about `return null`
+in a doc comment is never mistaken for code; template literals get real handling
+because a naive scanner desynchronises on the pope summary's nested `${…}` and
+silently drops a whole file from the scan, and a guard that quietly stops
+covering a file is worse than no guard.
+
+`tests/admin-worker/structured-reject-coverage.test.ts` drives it, modelled on
+`tests/security/admin-gate-coverage.test.ts`: it first proves the scanner
+**detects** planted violations in a throwaway fixture repo — a bare return in a
+mapper, a bare return in a helper, a one-letter-off code — so the clean
+assertions against the real tree cannot pass vacuously. Measured on this tree on
+**2026-09-08**: 15 files scanned, 9 reporting regions (8 mappers — one per
+registered ingestor — plus one `MapResult` helper), **0** bare returns, **0**
+unknown codes, and **30 of 30** declared codes actually in use. That last
+assertion matters as much as the others: a declared-but-never-used code is a
+bucket that can never be counted, which means either the rule it named was
+deleted or a call site forgot it. The suite also hands **every** registered
+ingestor a row it cannot possibly map and asserts the answer is an attributed
+rejection with an in-set code.
+
+```bash
+npx vitest run tests/admin-worker/structured-reject-coverage.test.ts
+#   → 24 passed (1 file)
+```
+
+### Diagnosing a page: `diagnose-structured-ingest.ts`
+
+The histogram says `feast_uncorroborated 6`. The next question is always _which
+six_, and the answer decides whether to leave the ingestor alone or go fix it.
+[`scripts/maintenance/diagnose-structured-ingest.ts`](scripts/maintenance/diagnose-structured-ingest.ts)
+replays exactly one page — the same SPARQL query, the same mappers, the same
+guards — and prints the histogram with example entities per reason.
+
+```bash
+# What can be diagnosed (exits 0; with no target at all it prints this and exits 1)
+npx tsx scripts/maintenance/diagnose-structured-ingest.ts --list
+
+# By content type …
+npx tsx scripts/maintenance/diagnose-structured-ingest.ts SPIRITUAL_PRACTICE
+
+# … or by ingestor id, deeper into the corpus, with more examples
+npx tsx scripts/maintenance/diagnose-structured-ingest.ts wikidata-saints \
+    --batch 40 --offset 200 --examples 5
+
+# Machine-readable (the full diagnosis plus the by-code grouping)
+npx tsx scripts/maintenance/diagnose-structured-ingest.ts SAINT --json
+```
+
+| Flag              | Default | Effect                                                             |
+| ----------------- | ------- | ------------------------------------------------------------------ |
+| _(positional)_    | —       | A content type (`SAINT`) **or** an ingestor id (`wikidata-saints`) |
+| `--list`          | —       | List every ingestor id and its content type, and stop              |
+| `--batch N`       | `25`    | Rows to request (clamped to the ingestor's own `maxPageSize`)      |
+| `--offset N`      | `0`     | Cursor offset to read at — `0` is the start of the corpus          |
+| `--examples N`    | `3`     | Example entities printed per reason code                           |
+| `--concurrency N` | `2`     | Concurrent mapper runs                                             |
+| `--spacing MS`    | `400`   | Pause between mapper batches                                       |
+| `--json`          | —       | Emit the diagnosis as JSON instead of the report                   |
+
+**It cannot write to a database, and that is structural rather than promised.**
+The page fetch was split out of `ingest.ts` into
+[`structured/source-page.ts`](src/lib/admin-worker/structured/source-page.ts)
+precisely so this script does not have to import the ingest lane: `ingest.ts`
+pulls in the publish orchestrator, the checklist validator and the worker log,
+so a diagnostic that imported it would drag a Prisma-touching module graph into
+a tool whose whole promise is that it cannot write. There is no Prisma client
+anywhere in this script's import graph, it never advances a cursor and never
+touches `AdminWorkerMemory` — so it is safe to run on the operator's Mac while
+the production worker is publishing. It is also deliberately gentler on the
+sources than the ingest lane (concurrency **2**, not the lane's 8, with a pause
+between batches), because a human running a diagnostic has no business spending
+the worker's Wikidata and Wikipedia rate budget. `ADMIN_WORKER_SKIP_NETWORK=1`
+makes it say so and exit rather than reporting a page of `wikipedia_fetch_failed`,
+and a SPARQL failure is reported as a source failure with a non-zero exit rather
+than as an empty corpus.
+
+### What the measurement actually showed
+
+This is the part worth carrying forward: **most of those skips were correct.**
+Both runs below are real output from this tree on **2026-09-08**.
+
+The spiritual-practice corpus is the alarming one — 100 % of the first page
+dropped — and it is not a bug:
+
+```
+wikidata-spiritual-practices  (SPIRITUAL_PRACTICE)
+  enumerated 25, hydrated 25 row(s)
+  mapped OK  0
+  dropped    25 (100% of the page)
+
+  REASON HISTOGRAM
+      15   60%  no_source_url
+       8   32%  not_catholic_context
+       2    8%  unrecognized_type
+
+    not_catholic_context (8)
+      - sound bath [Q101007375]
+      - deity yoga [Q10940474]
+      - shijie [Q11042475]
+      - sauma [Q111660986]
+    no_source_url (15)
+      - plain speech [Q102111981]
+          no P856 / P973 / en.wikipedia article on the entity
+```
+
+Wikidata's "spiritual practice" class is a **world-religions** class, and the
+first page is a fair sample of it: deity yoga is Vajrayana Buddhist, _shijie_ is
+Taoist, a sound bath is New Age, and the corpus goes on through Islamic, Sikh
+and Falun Gong practice. Refusing to publish any of them as a **Catholic**
+spiritual practice is the guard working, not failing. The larger bucket is
+duller still:
+sixty percent of the page has no P856, no P973 and no English Wikipedia article,
+so there is nothing citable to publish **from** — a corpus-definition problem,
+permanent by nature, not a transient failure. That is precisely why the pass log
+stays INFO: this lane is sterile on every pass, forever.
+
+The saints corpus behaves differently — half the page publishes — and its
+rejections are individually defensible:
+
+```
+wikidata-saints  (SAINT)
+  enumerated 30, hydrated 30 row(s)
+  mapped OK  15
+  dropped    15 (50% of the page)
+
+  REASON HISTOGRAM
+       6   20%  feast_uncorroborated
+       3   10%  biography_unavailable
+       2    7%  description_too_short
+       2    7%  no_wikipedia_article
+       1    3%  feast_ambiguous
+       1    3%  no_canonization_date
+
+    feast_uncorroborated (6)
+      - Liberius [Q102105]
+          Liberius: P841 08-27 vs enwiki
+    biography_unavailable (3)
+      - Florencia Caerols Martínez [Q10282823]  (plwiki only)
+```
+
+`Liberius [Q102105]` is the worked example. Wikidata asserts a feast of
+27 August for him; the English article does not state one, so the
+infobox-first corroboration rule refuses the date and the row is dropped.
+That is the right answer — Liberius is the one fourth-century pope **not**
+venerated as a saint, absent from the Roman Martyrology, and the reason no
+article corroborates a feast is that there is no feast. `biography_unavailable`
+is the same shape of honesty: a Spanish martyr whose only article is on the
+Polish Wikipedia yields no English biography worth publishing, and the ingest
+declines rather than inventing one.
+
+**So: a high rejection rate is not by itself a bug.** The histogram tells you
+_which_ question to ask, and the script tells you _whom_ it fired on; the
+judgement is still a human's. What has changed is that the judgement is now
+possible at all. A ratio that _should_ raise an eyebrow is a sudden shift in the
+**shape** of a lane's histogram — `feast_uncorroborated` jumping from six on a
+page to thirty, say — because that is what a regressed parser looks like, and it
+is exactly what the old silent skip made invisible.
+
 ### Pipeline rules the content path encodes
 
 Each of the following is a rule the pipeline now enforces because its absence
@@ -2376,6 +2628,10 @@ SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
 | **`parish-osm-overpass.ts`**             | Overpass transport: mirror failover, request pacing, daily budget                                         |
 | **`parish-website-verification.ts`**     | Bounded communion re-check of published parish websites                                                   |
 | **`structured/saint-repair.ts`**         | Cursor-based re-derivation of published Wikidata saints (versioned, never deletes)                        |
+| **`structured/reject.ts`**               | The mapper contract: `MapResult`, the closed 30-code rejection set, the reason histogram                  |
+| `structured/reject-coverage.ts`          | Source scanner behind the "a null must report" ratchet test                                               |
+| `structured/source-page.ts`              | One page of source rows — shared by the ingest and the read-only diagnostic                               |
+| **`structured/diagnose.ts`**             | Read-only replay of one page: histogram + example entities, no publish path, no Prisma                    |
 | `security-defender.ts`                   | Defender + automatic ban + email                                                                          |
 | `security-detectors.ts`                  | 10 deterministic detector functions                                                                       |
 | **`request-defender.ts`**                | 7 helpers (failed login, brute force, mutation, …)                                                        |
@@ -3092,7 +3348,8 @@ correctly in Recent Passes with their real type and are liveness-safe:
   (with an editable full-screen preview)
 - **Download Developer Audit** — last 24 h / 7 d / 30 d PDF, generated on this
   Mac (the server-side `/api/admin/developer-audit` route is gone)
-- **Give the worker a file** — drag-and-drop or ⌘I; see
+- **Give the worker a file** — drag-and-drop anywhere on the window, ⌘I, or the
+  command center's own file picker; see
   [Operator file ingestion](#operator-file-ingestion)
 
 Every one of these obeys the master switch: with the Admin Worker OFF the local
@@ -3880,6 +4137,53 @@ Size, entry-count and compression-ratio ceilings guard against decompression
 bombs and memory exhaustion, and a malformed document degrades to a reported
 failure rather than an exception.
 
+### How a file actually reaches the worker (and the WKWebView lesson)
+
+There are two routes in, and they are handled by two different layers, which is
+why they failed in two different ways.
+
+**⌘I and the app's own drop target are AppKit.** The menu item opens an
+`NSOpenPanel` directly, and the window's content view is a `DropView` registered
+for `.fileURL`, so anything landing on the chrome around the web view is read
+from the dragging pasteboard and handed to `ingest(urls:)`. Both paths refuse
+politely when the worker is OFF rather than queueing work nothing will do.
+
+**Everything inside the dashboard is WebKit**, and that is where both bugs
+lived. The command center (`scripts/desktop-app/dashboard.html`) is a page
+rendered by a `WKWebView`, and a `WKWebView` **cannot present macOS UI on its
+own**.
+
+- The dashboard's "choose a file" button drives a hidden `<input type="file">`.
+  The app implemented `WKNavigationDelegate` but never `WKUIDelegate`, and never
+  set `webView.uiDelegate` at all — so WebKit had nowhere to send the request and
+  **discarded it**. No panel, no error, no log line, no exception: clicking the
+  button did precisely nothing. The fix is `runOpenPanelWith`, which builds an
+  `NSOpenPanel` mirroring what the page asked for (`allowsMultipleSelection`,
+  `allowsDirectories` — a single-file input stays single-select) and sheets it
+  onto the app's own window so it can never appear behind the app. The same
+  missing delegate was swallowing `alert()` and `confirm()`, which is how a page
+  error can vanish instead of reaching the operator, so
+  `runJavaScriptAlertPanelWithMessage` and `runJavaScriptConfirmPanelWithMessage`
+  went in alongside it.
+- **Drag-and-drop was bound only to the small dashed drop zone.** A file dropped
+  a few pixels outside `#drop` was not claimed by the page, and WebKit's default
+  for an unclaimed file drop is to **navigate to the file** — the command center
+  would disappear and be replaced by the contents of whatever was dropped. Both
+  the `dragover` and the `drop` listeners are now bound to the **whole
+  document**: preventing the default everywhere keeps the page, and a file
+  dropped anywhere on the window is handed to the worker. The dashed zone is now
+  only a hint about where to aim, not the thing that works.
+
+**The lesson, stated plainly, because it will happen again:** a `WKWebView`
+silently ignores anything that needs a UI delegate, and a silently ignored
+request is indistinguishable from a dead button. There is no console warning to
+find, no rejected promise, no failed network call — the page does everything
+right and nothing happens. When something inside the web view does nothing at
+all, check whether it needs `uiDelegate` **before** looking for a bug in the
+page. The same reasoning covers the drop: anything the page does not explicitly
+claim, WebKit handles itself, and its defaults were written for a browser, not
+for an application shell.
+
 ---
 
 ## Eyes, ears, legs — how the worker acquires information
@@ -4507,6 +4811,75 @@ The Admin Worker treats Catholic accuracy as a hard constraint:
 The accuracy guards are deterministic and enforced in code — they
 have no off-switch.
 
+### A worked example: the Catholic boundary in `statusFromInfobox`
+
+The clearest illustration of what "Catholic accuracy is a hard constraint"
+costs in practice is the saint ingest's sainthood guard,
+`statusFromInfobox` in
+[`structured/ingestors.ts`](src/lib/admin-worker/structured/ingestors.ts). It
+runs on the branch of the corpus where Wikidata states **no** P411 canonization
+item at all, so the article's own infobox has to supply both facts that matter:
+**who** venerates this person, and at **which stage**. An adversarial pass over
+it found two real ways a non-Catholic saint could have been published as a Roman
+one, and both are now closed.
+
+**A borrowed word is not communion with Rome.** The guard asked whether
+`venerated_in` matched `/\bcatholic\b/`. It does — for the **Polish National
+Catholic Church**, the **Anglican Catholic Church**, the **Liberal Catholic
+Church** and the Irvingian **Catholic Apostolic Church**, none of which is in
+communion with Rome. Each would have published its own saints as Roman
+canonizations on the strength of a shared adjective. Those names (with Old,
+Independent, American, Traditionalist and Palmarian Catholic) are now **struck
+out of the field before the question is asked** — and, subtly but necessarily,
+striking one **counts as naming another communion**. Without that second half,
+"Old Catholic Church" reduces to " Church" and reads as no venerating body at
+all, which is the same failure wearing a different hat.
+
+**But the boundary has to stay open where the Church is.** Naming another
+communion disqualifies a row only when **no** Catholic body is named alongside
+it. That is what lets the **Coptic Catholic** and **Syro-Malabar Catholic**
+churches — Eastern Catholic, in full communion — publish, even though they trip
+the "other communion" patterns, and it is the same clause that keeps a
+pre-schism saint venerated by both Rome and the East.
+
+**The floor applies to both rules, and is checked first.** A stated
+canonization or beatification **date** is the strongest evidence the guard
+accepts, and on its own it asks nothing at all about who canonised whom — it
+only looks for four digits in a field. So a `venerated_in` naming another
+communion and no Catholic one now disqualifies the row **outright, date or no
+date**, before either rule runs. The honorific fallback exists because a formal
+canonization process only dates from the twelfth century, so a pre-congregation
+saint can never carry a date; it is deliberately **narrower** on Catholicity than
+the date rule it complements, demanding that the article name the Catholic
+Church as the venerating body on top of the Catholic P140 the caller has already
+required.
+
+**An office is not a title.** The stage was read from `titles` / `title` as well
+as `honorific_prefix`, and an office routinely carries a place name. Measured
+against the real corpus, `titles = Bishop of St Albans`, `title = Abbot of
+St Gall` and `titles = Bishop of Saint-Denis` each matched
+`/\bsaint\b|\bst\.?\b/` and published the person as **canonized**.
+A diocese named after a saint says nothing whatever about its bishop's cause. The
+stage is now read **only** from `honorific_prefix` — the parameter whose entire
+purpose is the honorific — and most-restrictive-first, so a "Blessed" is never
+promoted to `canonized`, and an article that states no stage at all yields
+nothing. Skip on doubt.
+
+Tightening a guard costs recall, and the diagnostic script above is how that
+cost is checked rather than assumed: the saints page measured on 2026-09-08 still
+maps half its rows, and the rows it drops drop for reasons that name themselves.
+
+Every clause above is pinned by name in
+`tests/admin-worker/structured-saint.test.ts` — each separated communion
+rejected under both rules, a saint venerated by Rome and the East still
+accepted, Coptic Catholic and Syro-Malabar still accepted, and `Bishop of
+St Albans` no longer promoting anyone:
+
+```bash
+npx vitest run tests/admin-worker/structured-saint.test.ts
+#   → 26 passed (1 file)
+```
+
 ---
 
 ## Testing
@@ -4517,13 +4890,23 @@ what is printed here — not what they are expected to be.
 
 ```bash
 npm run typecheck            # tsc --noEmit                      → 0 errors
-npm test                     # unit + component + worker         → 4558 passed, 1 skipped
-                             #                                     (493 files passed, 1 skipped; ~12 s)
+npm test                     # unit + component + worker         → 4640 passed, 1 skipped
+                             #                                     (495 files passed, 1 skipped; ~12 s)
 npm run lint                 # eslint                            → no warnings or errors
 npm run format:check         # prettier --check .                → all matched files use Prettier style
 npm run build                # prisma generate && next build     → succeeds
-npm audit                    #                                   → found 0 vulnerabilities
+npm audit --omit=dev         # what actually ships               → found 0 vulnerabilities
+npm audit                    # including devDependencies         → 3 moderate (see below)
 ```
+
+The three moderate advisories are **entirely in the test tooling**: one
+`@vitest/mocker` path-traversal advisory, reported three times because `vitest`
+and `@vitest/coverage-v8` each depend on it. Nothing in that tree is imported by
+the site, the worker or the brain, which is why `npm audit --omit=dev` — the
+thing that describes what is actually deployed — is clean. It is recorded here
+rather than quietly rounded to zero: `npm audit` printing `found 0
+vulnerabilities` is no longer a true statement about this tree, and a README that
+says it is teaches the next person to ignore the command.
 
 Two suites need a database or a browser, so they are run separately:
 
@@ -4687,6 +5070,13 @@ The unit + component suite covers:
   the per-repair env switches, that the `maint-self-heal` lane is an OPS lane and
   not a content lane, and that no repair path can delete published content
   (`tests/admin-worker/self-maintenance.test.ts`).
+- **Structured ingest** — the Wikidata/Wikipedia lane and the guarantee that it
+  can never discard a row silently: the reason histogram's counting, stable
+  top-N rendering and bounded detail; every registered ingestor answering an
+  in-set code for a row it cannot map; and the source scanner behind the
+  ratchet, proved against planted violations before it is trusted against the
+  real tree (`tests/admin-worker/structured-reject-coverage.test.ts`). 241 of
+  these tests live across the 21 files matching `tests/admin-worker/structured`.
 - **Liturgy** — the calendar engine against golden output (transfers, holy days
   of obligation, both calendars), the committed lectionary tables against their
   sources (`--check` rebuild determinism), the Douay-Rheims alignment table, and
@@ -4720,7 +5110,7 @@ The unit + component suite covers:
 - **App-wide** — API, auth, security, components, data, email, observability,
   i18n, cache test suites.
 
-Total: **4,558 passing tests across 493 test files** (plus 1 skipped test in 1
+Total: **4,640 passing tests across 495 test files** (plus 1 skipped test in 1
 skipped file), on top of **24** integration tests, **24** end-to-end tests and
 **230** Python brain tests.
 
