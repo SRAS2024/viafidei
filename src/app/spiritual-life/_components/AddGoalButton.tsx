@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { LoginRequiredPopup } from "@/components/ui";
+// Import the leaf components directly, NOT through "@/components/ui".
+// The barrel also re-exports PublishedDetail / PublishedList /
+// RelatedContentLinks, which import values from "@/lib/data/published";
+// that module uses Prisma.sql for search, so a client component pulling
+// the barrel drags the Prisma client into the browser bundle and every
+// page dies at hydration with "sqltag is unable to run in this browser
+// environment". Caught by the e2e smoke suite.
+import { LoginRequiredPopup } from "@/components/ui/LoginRequiredPopup";
 
 type Props = {
   isAuthed: boolean;

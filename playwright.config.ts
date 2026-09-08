@@ -29,12 +29,21 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `npm run start -- -p ${PORT}`,
+    // `next start` cannot serve an `output: "standalone"` build — it warns and
+    // then serves empty HTML, which is why every smoke test used to fail
+    // looking for a <header>. scripts/start-standalone.sh runs the same
+    // standalone server the container runs, so e2e exercises production's
+    // server rather than a different one. PORT is read by that server.
+    command: "npm run start:standalone",
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: {
       NODE_ENV: "production",
+      // The standalone server takes its port from the environment — there is
+      // no `-p` flag to pass it — so BASE_URL and the server must agree here.
+      PORT: String(PORT),
+      HOSTNAME: "127.0.0.1",
       SESSION_SECRET:
         process.env.SESSION_SECRET ?? "e2e-only-session-secret-must-be-32-chars-minimum",
       DATABASE_URL:

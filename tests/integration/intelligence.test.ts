@@ -244,43 +244,54 @@ describe("intelligence service (TS -> Python -> Postgres)", () => {
 });
 
 describe("daily readings (worker refresh)", () => {
-  it("routes to review and never fabricates text when no parser is configured", async () => {
-    // This exercises the human-gated path explicitly: by default the worker is
-    // fully autonomous and would NOT queue a person (it shows the framing +
-    // official source link instead). Opt into human review for this assertion.
-    const prevReview = process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW;
-    process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = "1";
-    try {
-      const { refreshDailyReadings, getStoredReading } =
-        await import("@/lib/admin-worker/daily-readings");
-      const date = new Date(Date.UTC(2026, 5, 7)); // a Sunday
+  it("publishes real Douay-Rheims text from the lectionary tables and never fabricates", async () => {
+    // This test used to assert the opposite — REVIEW with every body null —
+    // because there was no scripture source at all, so the only honest thing
+    // the worker could do was file the citation and ask a person. The
+    // committed lectionary tables plus the public-domain Douay-Rheims store
+    // changed that premise: the readings now RESOLVE, so parking them in
+    // REVIEW would leave a skeleton row shadowing a page that can render the
+    // real text (finding WORK-1/PAGE-1).
+    //
+    // The guarantee the old test protected still holds and is asserted below:
+    // a section is only ever given a body that came from the resolver. A
+    // section the Lectionary prints without a biblical reference (many Gospel
+    // Acclamations) keeps a null body rather than an invented one.
+    const { refreshDailyReadings, getStoredReading } =
+      await import("@/lib/admin-worker/daily-readings");
+    const date = new Date(Date.UTC(2026, 5, 7)); // a Sunday
 
-      const res = await refreshDailyReadings(prisma, { date });
-      expect(res.status).toBe("review");
-      expect(res.reviewQueued).toBe(true);
+    const res = await refreshDailyReadings(prisma, { date });
+    expect(res.status).toBe("published");
+    expect(res.reviewQueued).toBe(false);
 
-      const row = await getStoredReading(prisma, date);
-      expect(row?.status).toBe("REVIEW");
-      const sections = (row?.sections as Array<{ kind: string; body: string | null }>) ?? [];
-      expect(sections.length).toBeGreaterThanOrEqual(5); // Sunday includes a 2nd reading
-      expect(sections.every((s) => s.body === null)).toBe(true); // never fabricated
+    const row = await getStoredReading(prisma, date);
+    expect(row?.status).toBe("PUBLISHED");
+    const sections =
+      (row?.sections as Array<{ kind: string; citation: string | null; body: string | null }>) ??
+      [];
+    expect(sections.length).toBeGreaterThanOrEqual(5); // Sunday includes a 2nd reading
 
-      // A human-review task and a developer request were filed.
-      const task = await prisma.humanReviewQueue.findFirst({ where: { contentType: "READING" } });
-      expect(task).not.toBeNull();
-      const dr = await prisma.adminWorkerDeveloperRequest.findFirst({
-        where: { source: "daily_readings" },
-      });
-      expect(dr).not.toBeNull();
+    // The proclaimed scripture carries real text.
+    const gospel = sections.find((s) => s.kind === "GOSPEL");
+    expect(gospel?.body).toBeTruthy();
 
-      // Re-running does not duplicate the review task.
-      await refreshDailyReadings(prisma, { date });
-      const taskCount = await prisma.humanReviewQueue.count({ where: { contentType: "READING" } });
-      expect(taskCount).toBe(1);
-    } finally {
-      if (prevReview === undefined) delete process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW;
-      else process.env.ADMIN_WORKER_REQUIRE_HUMAN_REVIEW = prevReview;
+    // Nothing is invented. The persisted ReadingSection deliberately keeps only
+    // kind/label/citation/body, so what is provable HERE is that no body ever
+    // appears without the citation it was resolved from — a fabricated body
+    // would have nothing to cite. That the text itself matches the
+    // Douay-Rheims store is asserted where the resolver lives
+    // (tests/content/lectionary-day.test.ts and the bible store's own tests).
+    for (const s of sections) {
+      if (s.body === null) continue;
+      expect(s.citation).toBeTruthy();
+      expect(s.body.trim().length).toBeGreaterThan(0);
     }
+
+    // Re-running is idempotent: no duplicate review task is filed.
+    await refreshDailyReadings(prisma, { date });
+    const taskCount = await prisma.humanReviewQueue.count({ where: { contentType: "READING" } });
+    expect(taskCount).toBe(0);
   });
 });
 
@@ -423,6 +434,12 @@ describe("schema/UI awareness + content custody", () => {
 describe("mission control + stuckness (wired into the loop)", () => {
   it("builds the mission tree from content goals and recommends the next action", async () => {
     if (!brainOnline) return;
+    // Start from an empty goal table. Earlier cases in this file (and the
+    // worker's own boot seeding) populate all fifteen content goals, and the
+    // assertion below is about which of THESE two is picked — with a seeded
+    // table the least-complete goal is legitimately some other type, and the
+    // test failed on RITE rather than on anything being wrong.
+    await prisma.contentGoal.deleteMany({});
     await prisma.contentGoal.createMany({
       data: [
         { contentType: "PRAYER", desiredTarget: 1000, currentValidCount: 5, priority: 90 },

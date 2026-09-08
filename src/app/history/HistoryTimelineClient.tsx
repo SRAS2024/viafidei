@@ -1,7 +1,15 @@
 "use client";
 
 import { useDeferredValue, useMemo, useState } from "react";
-import { ExpandableTimelineEvent, FilterChips } from "@/components/ui";
+// Import the leaf components directly, NOT through "@/components/ui".
+// The barrel also re-exports PublishedDetail / PublishedList /
+// RelatedContentLinks, which import values from "@/lib/data/published";
+// that module uses Prisma.sql for search, so a client component pulling
+// the barrel drags the Prisma client into the browser bundle and every
+// page dies at hydration with "sqltag is unable to run in this browser
+// environment". Caught by the e2e smoke suite.
+import { ExpandableTimelineEvent } from "@/components/ui/ExpandableTimelineEvent";
+import { FilterChips } from "@/components/ui/FilterChips";
 import type { HistoryEra } from "@/lib/content-shared/church-history/types";
 import type { HistoryEraSummary, HistoryEvent } from "@/lib/content-shared/church-history/timeline";
 

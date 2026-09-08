@@ -51,7 +51,8 @@
     "admin-worker:proof:autonomy": "tsx scripts/admin-worker-autonomy-proof.ts",
     "admin-worker:proof:dry-run": "tsx scripts/admin-worker-live-dry-run.ts",
     "admin-worker:no-placeholders": "vitest run tests/admin-worker/no-placeholder-phrases.test.ts tests/admin-worker/dispatcher-no-placeholder-stages.test.ts",
-    "verify:all": "npm run db:validate && prisma validate && prisma generate && npm run brain:selftest && npm run brain:test && npm run brain:proof && npm run typecheck && npm run lint && npm run format:check && npm run admin-worker:no-placeholders && npm run test && npm run admin-worker:proof:content && npm run admin-worker:proof:all-content-types && npm run admin-worker:proof:security && npm run admin-worker:proof:reports && npm run admin-worker:proof:brain && npm run admin-worker:proof:skills && npm run admin-worker:proof:dry-run"
+    "verify:all": "npm run db:validate && prisma validate && prisma generate && npm run brain:selftest && npm run brain:test && npm run brain:proof && npm run typecheck && npm run lint && npm run format:check && npm run admin-worker:no-placeholders && npm run test && npm run admin-worker:proof:content && npm run admin-worker:proof:all-content-types && npm run admin-worker:proof:security && npm run admin-worker:proof:reports && npm run admin-worker:proof:brain && npm run admin-worker:proof:skills && npm run admin-worker:proof:dry-run",
+    "start:standalone": "sh scripts/start-standalone.sh"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -61,7 +62,7 @@
     "framer-motion": "^11.11.17",
     "iron-session": "^8.0.4",
     "negotiator": "^1.0.0",
-    "next": "15.5.18",
+    "next": "15.5.25",
     "pdfkit": "^0.18.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
