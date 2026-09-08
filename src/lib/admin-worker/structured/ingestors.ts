@@ -38,8 +38,6 @@ import {
   CATHOLIC_RELIGION_QIDS,
   CATHOLIC_STATUS_QIDS,
   GENERIC_SAINT_QID,
-  SAINT_FACTS_PATTERNS,
-  SAINT_FACTS_SELECT,
   composeStructuredBiography,
   deriveSaintType,
   hasCatholicReligion,
@@ -48,6 +46,7 @@ import {
   preferredAltArticle,
   resolveCanonizationStatus,
   saintDisplayTitle,
+  saintFactsSparqlForQids,
   type CanonizationStatus,
 } from "./saint-facts";
 
@@ -64,8 +63,39 @@ export interface StructuredIngestor {
   /**
    * SPARQL SELECT enumerating entities. MUST be deterministically ordered so
    * the `LIMIT`/`OFFSET` cursor walks the whole corpus across passes.
+   *
+   * When `hydrate` is also present this query is the CHEAP first phase: it only
+   * has to identify the entities on the page (and be ordered), because the
+   * per-entity facts arrive from the hydration query instead.
    */
   sparql(limit: number, offset: number): string;
+  /**
+   * OPTIONAL second phase. Given the rows `sparql()` returned for one page,
+   * produce a query that fetches the FULL per-entity facts for exactly those
+   * entities (bound with `VALUES ?s { wd:Q… }`), or null when the page carries
+   * no usable entity.
+   *
+   * Why two phases: a single query that both enumerates a corpus and computes
+   * per-row aggregates (`OPTIONAL` + `GROUP_CONCAT`) forces the Query Service
+   * to materialise and sort EVERY entity's aggregates before `ORDER BY` /
+   * `OFFSET` can be honoured. Past a few thousand entities that exceeds WDQS's
+   * own 60s execution cap and the query can never succeed at any offset. Split
+   * in two, the expensive aggregate work runs over a bounded handful of
+   * entities (a `VALUES` block), and the ordered enumeration stays a cheap
+   * index walk. The row shape the mapper consumes is unchanged — the hydration
+   * query projects exactly the columns the single query used to project.
+   */
+  hydrate?(enumerated: SparqlBinding[]): string | null;
+  /**
+   * Largest page this ingestor can process in one go, when that is SMALLER than
+   * the orchestrator's configured batch. A two-phase ingestor MUST set it to
+   * whatever its `hydrate()` can bind, because the cursor advances by the
+   * ENUMERATED page size: enumerate 250 entities into a hydration that can only
+   * bind 200 and the other 50 are stepped over and never published — a silent
+   * loss that looks exactly like success. Clamping the batch keeps enumeration
+   * and hydration the same width, so the walk stays exhaustive.
+   */
+  maxPageSize?: number;
   /** Map one row → a curated-style entry, or null when it can't yield one. */
   map(row: SparqlBinding, ctx: IngestContext): Promise<CuratedEntry | null>;
   /**
@@ -358,33 +388,83 @@ const CATHOLIC_SPECIFIC_STATUS_QIDS = [
   ...CATHOLIC_STATUS_QIDS.servant_of_god,
 ];
 
-const saintIngestor: StructuredIngestor = {
-  contentType: "SAINT",
-  id: "wikidata-saints",
-  authorityLevel: "TRUSTED_PUBLISHER",
-  // One row per saint (GROUP BY) carrying EVERY status / feast / religion /
-  // role statement (never a random SAMPLE), the English Wikipedia article and
-  // the it/es/fr/de/pl articles, and the optional official website.
-  //
-  // Three enumeration branches, each indexed (no label scans):
-  //   1. a Catholic-specific P411 status item;
-  //   2. the generic "saint" item WITH a Catholic religion (P140) — the generic
-  //      item alone is also given to Orthodox / Anglican / Coptic / folk saints;
-  //   3. a Catholic religion + feast day and NO P411 at all (status is then
-  //      taken from the article's infobox canonization/beatification date).
-  sparql: (limit, offset) =>
-    `SELECT ${SAINT_FACTS_SELECT} WHERE {
-  ?s wdt:P841 ?anyFeast .
+/**
+ * The three enumeration branches that DEFINE the Catholic-saint corpus. This is
+ * a doctrinal boundary, not a performance knob — every branch (and the feast +
+ * English-label requirement above/below it) must appear verbatim in whatever
+ * query enumerates the corpus:
+ *   1. a Catholic-specific P411 status item;
+ *   2. the generic "saint" item (Q43115) WITH a Catholic religion (P140) — the
+ *      generic item alone is also given to Orthodox / Anglican / Coptic / folk
+ *      saints, so it never qualifies on its own;
+ *   3. a Catholic religion + feast day and NO P411 at all (status is then taken
+ *      from the article's infobox canonization/beatification date).
+ * Each branch is index-driven (no label scans).
+ */
+export const SAINT_ENUMERATION_BRANCHES = `?s wdt:P841 ?anyFeast .
   { ?s wdt:P411 ?catholicStatus . VALUES ?catholicStatus { ${values(CATHOLIC_SPECIFIC_STATUS_QIDS)} } }
   UNION
   { ?s wdt:P411 wd:${GENERIC_SAINT_QID} . ?s wdt:P140 ?catholicRel . VALUES ?catholicRel { ${values(CATHOLIC_RELIGION_QIDS)} } }
   UNION
   { ?s wdt:P140 ?catholicRel . VALUES ?catholicRel { ${values(CATHOLIC_RELIGION_QIDS)} } FILTER NOT EXISTS { ?s wdt:P411 [] } }
-  ${SAINT_FACTS_PATTERNS}
+  ?s rdfs:label ?sEnumLabel . FILTER(LANG(?sEnumLabel) = "en")`;
+
+/** Longest `VALUES ?s { … }` block a hydration query will bind in one request. */
+export const SAINT_HYDRATE_MAX_ENTITIES = 200;
+
+/**
+ * Hydration query for an explicit set of saint entities. Same projection and
+ * same patterns the corpus query always used — only the entity set is
+ * different: bounded by `VALUES` instead of the whole graph, so the aggregate
+ * work is proportional to the page, not the corpus.
+ */
+export function saintHydrationSparql(entityUris: string[]): string | null {
+  const bound = entityUris
+    .map((u) => qidOf(u))
+    .filter((q): q is string => Boolean(q))
+    .filter((q, i, a) => a.indexOf(q) === i)
+    .slice(0, SAINT_HYDRATE_MAX_ENTITIES);
+  if (bound.length === 0) return null;
+  return saintFactsSparqlForQids(bound);
 }
-GROUP BY ?s
+
+const saintIngestor: StructuredIngestor = {
+  contentType: "SAINT",
+  id: "wikidata-saints",
+  authorityLevel: "TRUSTED_PUBLISHER",
+  // ── Step one: ENUMERATE ────────────────────────────────────────────────────
+  // Entity ids only, over the three branches, deterministically ordered so the
+  // LIMIT/OFFSET cursor walks the whole corpus without skipping or repeating a
+  // saint. DISTINCT because branches 1 and 2 overlap (a saint can carry both a
+  // Catholic-specific status and the generic "saint" item) and because P841
+  // multiplies rows for a saint with several feasts — the old query's GROUP BY
+  // did the same job.
+  //
+  // The English-label requirement lives in the ENUMERATION (not only in the
+  // hydration patterns) so both phases agree on exactly which entities are in
+  // the corpus: otherwise a label-less entity would occupy an offset slot,
+  // hydrate to nothing, and make a full page look short — which the cursor
+  // reads as "end of corpus".
+  sparql: (limit, offset) =>
+    `SELECT DISTINCT ?s WHERE {
+  ${SAINT_ENUMERATION_BRANCHES}
+}
 ORDER BY ?s
 LIMIT ${limit} OFFSET ${offset}`,
+  // ── Step two: HYDRATE ──────────────────────────────────────────────────────
+  // One row per saint (GROUP BY) carrying EVERY status / feast / religion /
+  // role statement (never a random SAMPLE), the English Wikipedia article and
+  // the it/es/fr/de/pl articles, and the optional official website — the exact
+  // row shape `parseSaintFacts` has always consumed.
+  hydrate: (enumerated) =>
+    saintHydrationSparql(
+      enumerated.map((row) => bindingValue(row, "s")).filter((v): v is string => Boolean(v)),
+    ),
+  // The hydration query binds at most SAINT_HYDRATE_MAX_ENTITIES; the cursor
+  // advances by the ENUMERATED size, so a wider batch would step over the
+  // entities hydration dropped. Measured live: 200 bound entities is one 6.3 KB
+  // GET answered in 3.4s, so this is a real ceiling, not a guess.
+  maxPageSize: SAINT_HYDRATE_MAX_ENTITIES,
   discoveredSources(row) {
     const site = bindingValue(row, "site");
     return site ? [site] : [];

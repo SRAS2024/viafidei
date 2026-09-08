@@ -300,6 +300,222 @@ export interface EscalationCheckResult {
   reason?: string;
 }
 
+/** Everything `deliverEscalation` needs that the periodic check computes. */
+interface EscalationDeliveryContext {
+  passId?: string;
+  versionSha: string | null;
+  /** Assessment window, used for the PDF period + the email's timeframe line. */
+  windowHours: number;
+  version: Awaited<ReturnType<typeof getVersionContext>> | null;
+  guidance: { needs: string; action: string };
+}
+
+/**
+ * Record + deliver one escalation: fingerprint dedup, the 24h per-(kind,
+ * contentType) re-email cooldown, the PDF, the email, and the audit log.
+ *
+ * Extracted from `runEscalationCheckIfDue` so a caller that has ALREADY decided
+ * an issue warrants paging — one the windowed self-assessment cannot see, such
+ * as a structured source that has failed N consecutive times — reaches the
+ * human through exactly the same governed, deduplicated, cooled-down path
+ * rather than a second ad-hoc one. Fail-open throughout.
+ */
+async function deliverEscalation(
+  prisma: PrismaClient,
+  payload: EscalationPayload,
+  ctx: EscalationDeliveryContext,
+  out: EscalationCheckResult,
+): Promise<EscalationCheckResult> {
+  const fingerprint = computeEscalationFingerprint({
+    kind: payload.kind,
+    contentType: payload.contentType,
+    versionSha: ctx.versionSha,
+  });
+
+  // Dedup: find an existing UNRESOLVED row for this fingerprint.
+  const existing = await prisma.adminWorkerEscalation
+    .findUnique({ where: { fingerprint } })
+    .catch(() => null);
+
+  if (existing && !existing.resolvedAt && existing.emailSentAt) {
+    // Already escalated + emailed and still open — bump occurrences, no email.
+    await prisma.adminWorkerEscalation
+      .update({
+        where: { fingerprint },
+        data: { occurrences: { increment: 1 }, detail: payload.detail },
+      })
+      .catch(() => undefined);
+    out.deduped = true;
+    await writeAdminWorkerLog(prisma, {
+      passId: ctx.passId,
+      category: "REPORT",
+      severity: "INFO",
+      eventName: "escalation_deduped",
+      message: `Escalation ${payload.kind} already open + emailed — occurrence recorded, no duplicate email.`,
+      contentType: payload.contentType ?? undefined,
+      safeMetadata: { fingerprint, kind: payload.kind },
+    }).catch(() => undefined);
+    return out;
+  }
+
+  // New issue, OR an open row whose earlier send was only "skipped" (no
+  // ADMIN_EMAIL): (re)attempt the email. Upsert the row first (occurrences
+  // resets to 1 for a genuinely new fingerprint; a reopened one keeps count).
+  const occurrences = existing && !existing.resolvedAt ? existing.occurrences + 1 : 1;
+
+  // Re-email cooldown: the same kind + content type was emailed within the
+  // last 24h (possibly under a different SHA / fingerprint, or on a row that
+  // has since been resolved and flapped back). Keep the row open and count
+  // the occurrence, but do not send — the operator already has this page.
+  const lastEmailedAt = await lastEmailFor(prisma, payload.kind, payload.contentType);
+  if (lastEmailedAt && Date.now() - lastEmailedAt.getTime() < REEMAIL_COOLDOWN_MS) {
+    out.cooldown = true;
+    await prisma.adminWorkerEscalation
+      .upsert({
+        where: { fingerprint },
+        update: {
+          kind: payload.kind,
+          severity: payload.severity,
+          contentType: payload.contentType,
+          detail: payload.detail,
+          signals: payload.signals,
+          versionSha: ctx.versionSha,
+          occurrences,
+          emailDelivery: "cooldown",
+          resolvedAt: null,
+        },
+        create: {
+          fingerprint,
+          kind: payload.kind,
+          severity: payload.severity,
+          contentType: payload.contentType,
+          detail: payload.detail,
+          signals: payload.signals,
+          versionSha: ctx.versionSha,
+          occurrences,
+          emailDelivery: "cooldown",
+          emailSentAt: null,
+        },
+      })
+      .catch(() => undefined);
+    await writeAdminWorkerLog(prisma, {
+      passId: ctx.passId,
+      category: "REPORT",
+      severity: "INFO",
+      eventName: "escalation_cooldown",
+      message: `Escalation ${payload.kind} recorded without email — the same issue was emailed ${Math.round(
+        (Date.now() - lastEmailedAt.getTime()) / 60000,
+      )}m ago (24h per-issue cooldown).`,
+      contentType: payload.contentType ?? undefined,
+      safeMetadata: {
+        fingerprint,
+        kind: payload.kind,
+        lastEmailedAt: lastEmailedAt.toISOString(),
+      },
+    }).catch(() => undefined);
+    return out;
+  }
+
+  const period = periodForWindow(ctx.windowHours);
+  const guidance = ctx.guidance;
+  const versionNote = ctx.version?.upgradedRecently
+    ? (ctx.version.recentUpgradeSummary ?? "recent code upgrade")
+    : null;
+
+  let emailDelivery: "sent" | "skipped" | "failed" = "failed";
+  try {
+    const { pdf } = await generateAdminWorkerEscalationPdf(prisma, period, {
+      kind: payload.kind,
+      severity: payload.severity,
+      detail: payload.detail,
+      signals: payload.signals,
+      contentType: payload.contentType,
+      occurrences,
+      whatNeeded: guidance.needs,
+      actionRequired: guidance.action,
+    });
+    const send = await sendAdminWorkerEscalation({
+      kind: payload.kind,
+      severity: payload.severity,
+      whatHappened: payload.detail,
+      whatDetected: payload.signals,
+      whatNeeded: guidance.needs,
+      actionRequired: guidance.action,
+      contentType: payload.contentType,
+      timeframe: `${ctx.windowHours}h`,
+      occurrences,
+      versionLabel: ctx.version?.current?.label ?? null,
+      versionNote,
+      pdfBase64: pdf.toString("base64"),
+    });
+    emailDelivery = send.ok && send.delivery === "sent" ? "sent" : send.ok ? "skipped" : "failed";
+    out.emailed = emailDelivery === "sent";
+  } catch {
+    emailDelivery = "failed";
+  }
+
+  // Record/refresh the escalation memory. `emailSentAt` is only set when the
+  // email actually went out, so a "skipped" delivery (no ADMIN_EMAIL) will be
+  // retried next check rather than being treated as already-notified.
+  await prisma.adminWorkerEscalation
+    .upsert({
+      where: { fingerprint },
+      update: {
+        kind: payload.kind,
+        severity: payload.severity,
+        contentType: payload.contentType,
+        detail: payload.detail,
+        signals: payload.signals,
+        versionSha: ctx.versionSha,
+        occurrences,
+        emailDelivery,
+        resolvedAt: null,
+        // Mirror the create branch: set emailSentAt to now ONLY on a real
+        // send, and clear it to null otherwise. This update branch is reached
+        // only for a genuinely new send attempt (new fingerprint, a reopened
+        // previously-resolved row, or an open row whose earlier send was
+        // skipped) — never for the dedup-skip path — so a stale emailSentAt
+        // from a PRIOR episode must be cleared, otherwise a skipped/failed
+        // re-send would be wrongly treated as already-notified and never
+        // retried.
+        emailSentAt: emailDelivery === "sent" ? new Date() : null,
+      },
+      create: {
+        fingerprint,
+        kind: payload.kind,
+        severity: payload.severity,
+        contentType: payload.contentType,
+        detail: payload.detail,
+        signals: payload.signals,
+        versionSha: ctx.versionSha,
+        occurrences,
+        emailDelivery,
+        emailSentAt: emailDelivery === "sent" ? new Date() : null,
+      },
+    })
+    .catch(() => undefined);
+
+  await writeAdminWorkerLog(prisma, {
+    passId: ctx.passId,
+    category: "REPORT",
+    severity: payload.severity === "ERROR" ? "ERROR" : "WARN",
+    eventName: `escalation_${emailDelivery}`,
+    message: `Admin Worker escalation ${payload.kind} (${payload.severity}) — email ${emailDelivery}. ${payload.detail}`,
+    contentType: payload.contentType ?? undefined,
+    safeMetadata: {
+      fingerprint,
+      kind: payload.kind,
+      severity: payload.severity,
+      occurrences,
+      emailDelivery,
+      signals: payload.signals,
+      versionLabel: ctx.version?.current?.label ?? null,
+    },
+  }).catch(() => undefined);
+
+  return out;
+}
+
 /**
  * Run one escalation check. Throttled (~15 min) unless `force`. When governance
  * decides to escalate, deduplicates + (on a genuinely new/open-unsent issue)
@@ -415,194 +631,113 @@ export async function runEscalationCheckIfDue(
       await writeMemoryMap(prisma, DEFERRAL_KEY, rest);
     }
 
-    const fingerprint = computeEscalationFingerprint({
-      kind: payload.kind,
-      contentType: payload.contentType,
-      versionSha,
-    });
-
-    // Dedup: find an existing UNRESOLVED row for this fingerprint.
-    const existing = await prisma.adminWorkerEscalation
-      .findUnique({ where: { fingerprint } })
-      .catch(() => null);
-
-    if (existing && !existing.resolvedAt && existing.emailSentAt) {
-      // Already escalated + emailed and still open — bump occurrences, no email.
-      await prisma.adminWorkerEscalation
-        .update({
-          where: { fingerprint },
-          data: { occurrences: { increment: 1 }, detail: payload.detail },
-        })
-        .catch(() => undefined);
-      out.deduped = true;
-      await writeAdminWorkerLog(prisma, {
+    return await deliverEscalation(
+      prisma,
+      payload,
+      {
         passId: opts.passId,
-        category: "REPORT",
-        severity: "INFO",
-        eventName: "escalation_deduped",
-        message: `Escalation ${payload.kind} already open + emailed — occurrence recorded, no duplicate email.`,
-        contentType: payload.contentType ?? undefined,
-        safeMetadata: { fingerprint, kind: payload.kind },
-      }).catch(() => undefined);
-      return out;
-    }
-
-    // New issue, OR an open row whose earlier send was only "skipped" (no
-    // ADMIN_EMAIL): (re)attempt the email. Upsert the row first (occurrences
-    // resets to 1 for a genuinely new fingerprint; a reopened one keeps count).
-    const occurrences = existing && !existing.resolvedAt ? existing.occurrences + 1 : 1;
-
-    // Re-email cooldown: the same kind + content type was emailed within the
-    // last 24h (possibly under a different SHA / fingerprint, or on a row that
-    // has since been resolved and flapped back). Keep the row open and count
-    // the occurrence, but do not send — the operator already has this page.
-    const lastEmailedAt = await lastEmailFor(prisma, payload.kind, payload.contentType);
-    if (lastEmailedAt && Date.now() - lastEmailedAt.getTime() < REEMAIL_COOLDOWN_MS) {
-      out.cooldown = true;
-      await prisma.adminWorkerEscalation
-        .upsert({
-          where: { fingerprint },
-          update: {
-            kind: payload.kind,
-            severity: payload.severity,
-            contentType: payload.contentType,
-            detail: payload.detail,
-            signals: payload.signals,
-            versionSha,
-            occurrences,
-            emailDelivery: "cooldown",
-            resolvedAt: null,
-          },
-          create: {
-            fingerprint,
-            kind: payload.kind,
-            severity: payload.severity,
-            contentType: payload.contentType,
-            detail: payload.detail,
-            signals: payload.signals,
-            versionSha,
-            occurrences,
-            emailDelivery: "cooldown",
-            emailSentAt: null,
-          },
-        })
-        .catch(() => undefined);
-      await writeAdminWorkerLog(prisma, {
-        passId: opts.passId,
-        category: "REPORT",
-        severity: "INFO",
-        eventName: "escalation_cooldown",
-        message: `Escalation ${payload.kind} recorded without email — the same issue was emailed ${Math.round(
-          (Date.now() - lastEmailedAt.getTime()) / 60000,
-        )}m ago (24h per-issue cooldown).`,
-        contentType: payload.contentType ?? undefined,
-        safeMetadata: {
-          fingerprint,
-          kind: payload.kind,
-          lastEmailedAt: lastEmailedAt.toISOString(),
-        },
-      }).catch(() => undefined);
-      return out;
-    }
-
-    const period = periodForWindow(self.windowHours);
-    const guidance = guidanceFor(payload.kind);
-    const versionNote = version?.upgradedRecently
-      ? (version.recentUpgradeSummary ?? "recent code upgrade")
-      : null;
-
-    let emailDelivery: "sent" | "skipped" | "failed" = "failed";
-    try {
-      const { pdf } = await generateAdminWorkerEscalationPdf(prisma, period, {
-        kind: payload.kind,
-        severity: payload.severity,
-        detail: payload.detail,
-        signals: payload.signals,
-        contentType: payload.contentType,
-        occurrences,
-        whatNeeded: guidance.needs,
-        actionRequired: guidance.action,
-      });
-      const send = await sendAdminWorkerEscalation({
-        kind: payload.kind,
-        severity: payload.severity,
-        whatHappened: payload.detail,
-        whatDetected: payload.signals,
-        whatNeeded: guidance.needs,
-        actionRequired: guidance.action,
-        contentType: payload.contentType,
-        timeframe: `${self.windowHours}h`,
-        occurrences,
-        versionLabel: version?.current?.label ?? null,
-        versionNote,
-        pdfBase64: pdf.toString("base64"),
-      });
-      emailDelivery = send.ok && send.delivery === "sent" ? "sent" : send.ok ? "skipped" : "failed";
-      out.emailed = emailDelivery === "sent";
-    } catch {
-      emailDelivery = "failed";
-    }
-
-    // Record/refresh the escalation memory. `emailSentAt` is only set when the
-    // email actually went out, so a "skipped" delivery (no ADMIN_EMAIL) will be
-    // retried next check rather than being treated as already-notified.
-    await prisma.adminWorkerEscalation
-      .upsert({
-        where: { fingerprint },
-        update: {
-          kind: payload.kind,
-          severity: payload.severity,
-          contentType: payload.contentType,
-          detail: payload.detail,
-          signals: payload.signals,
-          versionSha,
-          occurrences,
-          emailDelivery,
-          resolvedAt: null,
-          // Mirror the create branch: set emailSentAt to now ONLY on a real
-          // send, and clear it to null otherwise. This update branch is reached
-          // only for a genuinely new send attempt (new fingerprint, a reopened
-          // previously-resolved row, or an open row whose earlier send was
-          // skipped) — never for the dedup-skip path — so a stale emailSentAt
-          // from a PRIOR episode must be cleared, otherwise a skipped/failed
-          // re-send would be wrongly treated as already-notified and never
-          // retried.
-          emailSentAt: emailDelivery === "sent" ? new Date() : null,
-        },
-        create: {
-          fingerprint,
-          kind: payload.kind,
-          severity: payload.severity,
-          contentType: payload.contentType,
-          detail: payload.detail,
-          signals: payload.signals,
-          versionSha,
-          occurrences,
-          emailDelivery,
-          emailSentAt: emailDelivery === "sent" ? new Date() : null,
-        },
-      })
-      .catch(() => undefined);
-
-    await writeAdminWorkerLog(prisma, {
-      passId: opts.passId,
-      category: "REPORT",
-      severity: payload.severity === "ERROR" ? "ERROR" : "WARN",
-      eventName: `escalation_${emailDelivery}`,
-      message: `Admin Worker escalation ${payload.kind} (${payload.severity}) — email ${emailDelivery}. ${payload.detail}`,
-      contentType: payload.contentType ?? undefined,
-      safeMetadata: {
-        fingerprint,
-        kind: payload.kind,
-        severity: payload.severity,
-        occurrences,
-        emailDelivery,
-        signals: payload.signals,
-        versionLabel: version?.current?.label ?? null,
+        versionSha,
+        windowHours: self.windowHours,
+        version,
+        guidance: guidanceFor(payload.kind),
       },
-    }).catch(() => undefined);
-
+      out,
+    );
+  } catch {
     return out;
+  }
+}
+
+/** What the structured-ingest lane knows about an unusable source. */
+export interface StructuredSourceUnusableInput {
+  /** The ingestor that cannot be used (e.g. "wikidata-saints"). */
+  ingestorId: string;
+  /** The content type it is the producer for (e.g. "SAINT"). */
+  contentType: string;
+  /** Consecutive failures with ZERO successful pages in between. */
+  consecutiveFailures: number;
+  /** The last failure as the SPARQL client classified it ("timeout (HTTP 504)"). */
+  lastFailureKind: string | null;
+  /** Cursor offset the failing pages were held at. */
+  offset: number;
+  /** Epoch ms until which the source is now backed off (null = not backed off). */
+  retryAfter: number | null;
+  passId?: string;
+}
+
+/**
+ * Page the operator once when a structured ingestor has been declared UNUSABLE.
+ *
+ * This is the gap that let the biggest content goal stop growing in silence:
+ * the SAINT ingestor failed 311 consecutive times and produced only a repeating
+ * WARN, because every escalation signal is computed from windowed pipeline
+ * counters that a source which never returns a row simply never moves. A
+ * consecutive-failure count IS the signal, and this is where it is spoken.
+ *
+ * Routed through `deliverEscalation`, so it inherits the same fingerprint dedup,
+ * the same 24h per-(kind, contentType) re-email cooldown and the same audit
+ * logging as every other escalation — it can never become a mail loop. The
+ * caller escalates once per unusable episode; this is the second guard, not the
+ * first. Fail-open: returns the (unmodified) result on any error.
+ */
+export async function escalateStructuredSourceUnusable(
+  prisma: PrismaClient,
+  input: StructuredSourceUnusableInput,
+): Promise<EscalationCheckResult> {
+  const out: EscalationCheckResult = {
+    ran: false,
+    escalated: false,
+    emailed: false,
+    deduped: false,
+    resolved: 0,
+    deferredForUpgrade: false,
+    cooldown: false,
+  };
+  try {
+    // Same execution boundary as the periodic check: escalation + email is
+    // Admin Worker work on the local runtime, never a production server load.
+    if (!workerExecutionAllowed()) return out;
+    const version = await getVersionContext(prisma).catch(() => null);
+    const retryText = input.retryAfter
+      ? ` It is now backed off until ${new Date(input.retryAfter).toISOString()} instead of being retried every pass; the other ingestors are unaffected.`
+      : "";
+    const payload: EscalationPayload = {
+      // The structured ingestor IS the source of last resort for this content
+      // type, so a dead one is exactly a repeated type failure.
+      kind: "REPEATED_TYPE_FAILURE",
+      severity: "ERROR",
+      contentType: input.contentType,
+      detail: `Structured ingestor ${input.ingestorId} — the only producer for ${input.contentType} — has failed ${input.consecutiveFailures} consecutive times with no successful page (last failure: ${input.lastFailureKind ?? "unknown"}), so ${input.contentType} has published nothing from it.${retryText}`,
+      signals: [
+        `ingestor=${input.ingestorId}`,
+        `contentType=${input.contentType}`,
+        `consecutiveFailures=${input.consecutiveFailures}`,
+        `lastFailureKind=${input.lastFailureKind ?? "unknown"}`,
+        `cursorOffset=${input.offset}`,
+        input.retryAfter
+          ? `backedOffUntil=${new Date(input.retryAfter).toISOString()}`
+          : "backedOffUntil=none",
+      ],
+    };
+    out.escalated = true;
+    out.ran = true;
+    out.kind = payload.kind;
+    out.reason = "structured source unusable";
+    return await deliverEscalation(
+      prisma,
+      payload,
+      {
+        passId: input.passId,
+        versionSha: version?.current?.sha ?? null,
+        windowHours: 24,
+        version,
+        guidance: {
+          needs: `${input.ingestorId} to return rows again. A source that fails EVERY time — as opposed to intermittently — is usually the query itself: the Wikidata Query Service enforces a 60s execution cap, and a query that enumerates a whole corpus while computing per-row aggregates (OPTIONAL + GROUP_CONCAT) and then sorts it before LIMIT/OFFSET cannot finish at any offset. The alternative causes are network egress to query.wikidata.org being blocked, or this client being throttled.`,
+          action: `Run the ingestor's own generated query (STRUCTURED_INGESTORS.find(i => i.id === "${input.ingestorId}").sparql(40, 0)) directly against https://query.wikidata.org/sparql and read the status code. A 504 "upstream request timeout" after ~60s means the query shape is the problem — split it into a cheap ordered ENUMERATION of entity ids plus a HYDRATION query bound with VALUES ?s { … } (as wikidata-saints does) so the aggregate work is bounded by the page. A 200 means the source is reachable and the failure was environmental.`,
+        },
+      },
+      out,
+    );
   } catch {
     return out;
   }

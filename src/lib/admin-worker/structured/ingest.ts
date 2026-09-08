@@ -72,6 +72,28 @@ export const MAX_SKIP_PAGES_PER_PASS = 10;
 /** Rest between two full sweeps of the same corpus (max one wrap per interval). */
 export const RESWEEP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
+/**
+ * Consecutive source failures (with ZERO successful pages in between) after
+ * which an ingestor is declared UNUSABLE: escalated to the human admin once,
+ * and backed off to a long retry interval instead of being retried on the
+ * normal every-few-minutes cadence. Env-tunable
+ * (`ADMIN_WORKER_STRUCTURED_MAX_FAILURES`).
+ *
+ * Why this exists: the SAINT ingestor failed 311 consecutive times against a
+ * query the Query Service could never execute (its own 60s cap), producing
+ * nothing but a repeating WARN every 2-3 minutes. The largest content goal
+ * silently stopped growing for hours with no page and no back-off. A failure
+ * counter that only counts is not a signal; this makes it drive something.
+ */
+export const MAX_CONSECUTIVE_SOURCE_FAILURES = envInt("ADMIN_WORKER_STRUCTURED_MAX_FAILURES", 12);
+/**
+ * How long an ingestor declared unusable is left alone before it is retried.
+ * Long enough that a permanently-broken source costs one attempt per interval
+ * instead of one every couple of minutes, short enough that a transient outage
+ * (or a shipped fix) recovers on its own without operator action.
+ */
+export const UNUSABLE_SOURCE_RETRY_MS = 6 * 60 * 60 * 1000;
+
 const CURSOR_PREFIX = "structured-cursor:";
 
 /** Map concurrency for the per-row Wikipedia fetches. */
@@ -95,7 +117,70 @@ export interface StructuredIngestResult {
   sourceCooling: boolean;
   /** Set when the SPARQL source failed (cursor left unchanged). */
   sourceFailure: string | null;
+  /**
+   * True when THIS pass declared the ingestor unusable — N consecutive failures
+   * with no successful page — and backed it off to the long retry interval.
+   */
+  sourceUnusable: boolean;
   errors: string[];
+}
+
+/** One page of source rows: what to map, and how many entities the page held. */
+interface SourcePage {
+  /** Rows in the shape `map()` / `identify()` consume, or null on failure. */
+  rows: SparqlBinding[] | null;
+  /**
+   * Entities the ENUMERATION returned for this page. This — not `rows.length` —
+   * is what the cursor advances by and what "a short page means end of corpus"
+   * is judged on: in the two-phase form the hydration query can legitimately
+   * return fewer rows than were enumerated (an entity edited between the two
+   * calls), and treating that as the end of the corpus would wrap the cursor to
+   * 0 and re-sweep thousands of already-live rows.
+   */
+  size: number;
+}
+
+/**
+ * Fetch one page from an ingestor's source.
+ *
+ * Single-phase ingestors run their one query. A two-phase ingestor (`hydrate`
+ * present) runs the cheap ordered enumeration first and then hydrates exactly
+ * the entities that page enumerated, so the expensive OPTIONAL + aggregate work
+ * is bounded by the page instead of the corpus. Either phase failing is a
+ * SOURCE failure (`rows: null`) — never an empty corpus.
+ */
+async function fetchSourcePage(
+  ingestor: StructuredIngestor,
+  batch: number,
+  offset: number,
+): Promise<SourcePage> {
+  let enumerated: SparqlBinding[] | null;
+  try {
+    enumerated = await runSparql(ingestor.sparql(batch, offset));
+  } catch {
+    enumerated = null;
+  }
+  if (enumerated === null) return { rows: null, size: 0 };
+  if (!ingestor.hydrate) return { rows: enumerated, size: enumerated.length };
+  const size = enumerated.length;
+  if (size === 0) return { rows: [], size: 0 };
+  let query: string | null = null;
+  try {
+    query = ingestor.hydrate(enumerated);
+  } catch {
+    query = null;
+  }
+  // No hydratable entity on the page (every row unusable): not a failure — an
+  // empty page the cursor may step past.
+  if (!query) return { rows: [], size };
+  let rows: SparqlBinding[] | null;
+  try {
+    rows = await runSparql(query);
+  } catch {
+    rows = null;
+  }
+  if (rows === null) return { rows: null, size: 0 };
+  return { rows, size };
 }
 
 /**
@@ -145,8 +230,14 @@ interface CursorState {
   lastFullSweepAt: number | null;
   /** Epoch ms until which the corpus is considered fully swept (rest period). */
   exhaustedUntil: number | null;
-  /** Consecutive source failures (throttle/timeout) — diagnostics only. */
+  /** Consecutive source failures (throttle/timeout) with no successful page. */
   failures: number;
+  /**
+   * Epoch ms of the escalation raised when this ingestor was declared unusable
+   * (`failures` reached MAX_CONSECUTIVE_SOURCE_FAILURES). Non-null suppresses a
+   * second page for the same episode; cleared as soon as a page succeeds.
+   */
+  escalatedAt: number | null;
 }
 
 function cursorKey(id: string): string {
@@ -163,6 +254,7 @@ function parseCursor(value: unknown): CursorState {
     lastFullSweepAt: num(v.lastFullSweepAt),
     exhaustedUntil: num(v.exhaustedUntil),
     failures: Math.max(0, num(v.failures) ?? 0),
+    escalatedAt: num(v.escalatedAt),
   };
 }
 
@@ -198,6 +290,7 @@ async function writeCursor(
     lastFullSweepAt: next.lastFullSweepAt,
     exhaustedUntil: next.exhaustedUntil,
     failures: next.failures,
+    escalatedAt: next.escalatedAt,
   };
   await prisma.adminWorkerMemory
     .upsert({
@@ -486,6 +579,7 @@ export async function runStructuredIngest(
     exhausted: true,
     sourceCooling: false,
     sourceFailure: null,
+    sourceUnusable: false,
     errors: [],
   };
 
@@ -505,7 +599,18 @@ export async function runStructuredIngest(
   out.ingestorId = ingestor.id;
   out.contentType = ingestor.contentType;
 
-  const batch = opts.batch ?? DEFAULT_STRUCTURED_BATCH;
+  // Never ask for a page wider than the ingestor can actually process. The
+  // cursor advances by the ENUMERATED page size, so a two-phase ingestor whose
+  // hydration binds fewer entities than were enumerated would step over the
+  // remainder and lose them silently — reachable today by raising
+  // ADMIN_WORKER_STRUCTURED_BATCH above the saint hydration ceiling.
+  const batch = Math.max(
+    1,
+    Math.min(
+      opts.batch ?? DEFAULT_STRUCTURED_BATCH,
+      ingestor.maxPageSize ?? Number.MAX_SAFE_INTEGER,
+    ),
+  );
   const limit = opts.limit ?? DEFAULT_STRUCTURED_LIMIT;
   const state = await readCursor(prisma, ingestor.id);
   const now = Date.now();
@@ -520,15 +625,14 @@ export async function runStructuredIngest(
   let offset = state.offset;
   let pageStart = offset;
   let rows: SparqlBinding[] | null = null;
+  let pageSize = 0;
   let candidates: SparqlBinding[] = [];
   for (let page = 0; page < MAX_SKIP_PAGES_PER_PASS; page += 1) {
     pageStart = offset;
-    try {
-      rows = await runSparql(ingestor.sparql(batch, offset));
-    } catch {
-      rows = null;
-    }
+    const fetched = await fetchSourcePage(ingestor, batch, offset);
+    rows = fetched.rows;
     if (rows === null) break;
+    pageSize = fetched.size;
     out.fetched += rows.length;
     const toMap: SparqlBinding[] = [];
     for (const row of rows) {
@@ -542,8 +646,8 @@ export async function runStructuredIngest(
         toMap.push(row);
       }
     }
-    offset += rows.length;
-    if (toMap.length > 0 || rows.length < batch) {
+    offset += pageSize;
+    if (toMap.length > 0 || pageSize < batch) {
       candidates = toMap;
       break;
     }
@@ -558,34 +662,71 @@ export async function runStructuredIngest(
       : "unknown";
     out.exhausted = false;
     const cooldownUntil = await persistSourceCooldown(prisma);
-    await writeCursor(
-      prisma,
-      ingestor.id,
-      { ...state, offset: pageStart, failures: state.failures + 1 },
-      { published: 0, failed: 0 },
-    );
-    if (structuredNetworkEnabled() && failure?.kind !== "disabled") {
+    const failures = state.failures + 1;
+    // A DISABLED source is the operator's own switch (ADMIN_WORKER_SKIP_NETWORK
+    // / offline tests), not a broken ingestor — never escalate or back it off.
+    const networkReal = structuredNetworkEnabled() && failure?.kind !== "disabled";
+    // Bounded retries: past the threshold this source is not merely slow, it is
+    // UNUSABLE — stop retrying it every couple of minutes, page the operator
+    // once, and let the other ingestors have the loop.
+    const unusable = networkReal && failures >= MAX_CONSECUTIVE_SOURCE_FAILURES;
+    out.sourceUnusable = unusable && state.escalatedAt == null;
+    const next: CursorState = {
+      ...state,
+      offset: pageStart,
+      failures,
+      // `exhaustedUntil` is the existing "leave this ingestor alone until"
+      // signal honoured both here and by `pickIngestor`, so the back-off costs
+      // no new state and cannot stall the other ingestors or the worker loop.
+      exhaustedUntil: unusable ? Date.now() + UNUSABLE_SOURCE_RETRY_MS : state.exhaustedUntil,
+      escalatedAt: unusable ? (state.escalatedAt ?? Date.now()) : state.escalatedAt,
+    };
+    await writeCursor(prisma, ingestor.id, next, { published: 0, failed: 0 });
+    if (networkReal) {
       await writeAdminWorkerLog(prisma, {
         passId: opts.passId,
         category: "CONTENT_BUILD",
-        severity: "WARN",
+        severity: unusable ? "ERROR" : "WARN",
         eventName: "structured_knowledge_ingest",
-        message: `Structured-knowledge ingest (${ingestor.id}): the structured source FAILED (${out.sourceFailure}); cursor held at offset ${pageStart}${cooldownUntil ? `, source cooling until ${new Date(cooldownUntil).toISOString()}` : ""}. If this persists, the deployment's network egress does not allow query.wikidata.org / en.wikipedia.org, or the Query Service is throttling this client. Fix in the environment (not code): allow outbound HTTPS to those hosts, OR set HTTPS_PROXY (+ NODE_EXTRA_CA_CERTS if the proxy uses a private CA), OR add a reachable mirror in WIKIDATA_SPARQL_ENDPOINTS.`,
+        message: `Structured-knowledge ingest (${ingestor.id}): the structured source FAILED (${out.sourceFailure}) ${failures} consecutive time(s) with no successful page; cursor held at offset ${pageStart}${cooldownUntil ? `, source cooling until ${new Date(cooldownUntil).toISOString()}` : ""}.${unusable ? ` Declared UNUSABLE — backing ${ingestor.id} off until ${new Date(next.exhaustedUntil ?? 0).toISOString()} instead of retrying every pass; the other ingestors continue normally.` : ""} If this persists, either the query itself cannot be executed by the Query Service within its 60s cap, or the deployment's network egress does not allow query.wikidata.org / en.wikipedia.org, or the Query Service is throttling this client.`,
         safeMetadata: {
           ingestorId: ingestor.id,
           contentType: ingestor.contentType,
           fetched: out.fetched,
           published: 0,
           sourceFailure: out.sourceFailure,
+          consecutiveFailures: failures,
+          unusable,
+          retryAfter: unusable ? next.exhaustedUntil : null,
           cooldownUntil,
           offset: pageStart,
         },
       }).catch(() => undefined);
     }
+    // Escalate ONCE per unusable episode (fail-open: a failing escalation must
+    // never take the ingest lane down with it).
+    if (out.sourceUnusable) {
+      try {
+        const { escalateStructuredSourceUnusable } = await import("../escalation");
+        await escalateStructuredSourceUnusable(prisma, {
+          ingestorId: ingestor.id,
+          contentType: ingestor.contentType,
+          consecutiveFailures: failures,
+          lastFailureKind: out.sourceFailure,
+          offset: pageStart,
+          retryAfter: next.exhaustedUntil,
+          passId: opts.passId,
+        });
+      } catch {
+        // best-effort — the WARN/ERROR log above still records the condition
+      }
+    }
     return out;
   }
 
-  const endOfCorpus = rows.length < batch;
+  // Judged on the ENUMERATED page size, not on how many rows hydrated: a page
+  // that enumerated a full batch is never the end of the corpus.
+  const endOfCorpus = pageSize < batch;
 
   // ── Map the candidates (bounded concurrency) ─────────────────────────────
   // Each map() does one or two Wikipedia REST fetches (summary + infobox);
@@ -675,8 +816,10 @@ export async function runStructuredIngest(
   const barren = out.fetched > 0 && out.alreadyPublished === 0 && out.published === 0;
   const zeroStreak = out.published > 0 ? 0 : barren ? state.zeroStreak + 1 : state.zeroStreak;
   let next: CursorState;
+  // A page came back: the source is usable again — clear the consecutive-failure
+  // count AND the "already escalated" stamp, so a future outage pages afresh.
   if (leftovers) {
-    next = { ...state, offset: pageStart, zeroStreak, failures: 0 };
+    next = { ...state, offset: pageStart, zeroStreak, failures: 0, escalatedAt: null };
   } else if (endOfCorpus) {
     // Wrap to 0 for the next sweep, but rest first: at most one re-sweep per
     // RESWEEP_INTERVAL, so a finished corpus is not re-walked every pass.
@@ -686,9 +829,10 @@ export async function runStructuredIngest(
       lastFullSweepAt: now,
       exhaustedUntil: now + RESWEEP_INTERVAL_MS,
       failures: 0,
+      escalatedAt: null,
     };
   } else {
-    next = { ...state, offset, zeroStreak, failures: 0 };
+    next = { ...state, offset, zeroStreak, failures: 0, escalatedAt: null };
   }
   out.exhausted = out.published === 0 && endOfCorpus;
   await writeCursor(prisma, ingestor.id, next, {

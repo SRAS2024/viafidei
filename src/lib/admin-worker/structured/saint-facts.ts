@@ -166,8 +166,23 @@ export const SAINT_FACTS_SELECT = `?s (SAMPLE(?sLabel) AS ?label) (SAMPLE(?sDesc
  * WHERE patterns for the saint facts (all OPTIONAL except the English label).
  * Feast values are projected as their English calendar-date label when the
  * value is an item ("23 August") and as the raw literal otherwise.
+ *
+ * COST NOTE — why `bishopSee` / `founded` are `EXISTS` and not OPTIONAL joins.
+ * Every OPTIONAL here joins on the same `?s`, so one saint's intermediate
+ * result is the CROSS PRODUCT of its statement counts. For John Paul II
+ * (Q989: 7 positions × 15 occupations × 29 awards × 11 founded organisations ×
+ * 7 episcopal sees × 3 religions × 5 alt articles) that is millions of rows for
+ * a single entity, and the Query Service hit its 60s cap and returned HTTP 504
+ * even when he was the ONLY entity bound — measured. Both of these facts are
+ * read as booleans (`SaintFacts.bishopSee` / `.founded`), never as lists, so
+ * asking `EXISTS` instead of joining removes two whole factors from that
+ * product and leaves the answer identical. Measured on the same page:
+ * 504 after 65s → HTTP 200 in 3.1s for Q989 alone, 8.9s for the 59-entity page
+ * containing him. Do NOT turn either back into an OPTIONAL join.
  */
 export const SAINT_FACTS_PATTERNS = `?s rdfs:label ?sLabel . FILTER(LANG(?sLabel) = "en")
+  BIND(EXISTS { ?s wdt:P39 ?seeItem . ?seeItem wdt:P279* wd:Q29182 } AS ?bishopSee)
+  BIND(EXISTS { ?foundedOrg wdt:P112 ?s } AS ?founded)
   OPTIONAL { ?s schema:description ?sDesc . FILTER(LANG(?sDesc) = "en") }
   OPTIONAL { ?s wdt:P841 ?feast . OPTIONAL { ?feast rdfs:label ?feastName0 . FILTER(LANG(?feastName0) = "en") } BIND(COALESCE(?feastName0, STR(?feast)) AS ?feastKey) }
   OPTIONAL { ?s wdt:P411 ?statusItem . }
@@ -175,13 +190,28 @@ export const SAINT_FACTS_PATTERNS = `?s rdfs:label ?sLabel . FILTER(LANG(?sLabel
   OPTIONAL { ?s wdt:P39 ?position . }
   OPTIONAL { ?s wdt:P106 ?occupation . }
   OPTIONAL { ?s wdt:P166 ?award . }
-  OPTIONAL { ?s wdt:P39 ?bishopSee . ?bishopSee wdt:P279* wd:Q29182 . }
-  OPTIONAL { ?founded wdt:P112 ?s . }
   OPTIONAL { ?s wdt:P569 ?born . }
   OPTIONAL { ?s wdt:P570 ?died . }
   OPTIONAL { ?article schema:about ?s ; schema:isPartOf <https://en.wikipedia.org/> . }
   OPTIONAL { ?altArticle schema:about ?s ; schema:isPartOf ?altWiki . VALUES ?altWiki { <https://it.wikipedia.org/> <https://es.wikipedia.org/> <https://fr.wikipedia.org/> <https://de.wikipedia.org/> <https://pl.wikipedia.org/> } }
   OPTIONAL { ?s wdt:P856 ?website . }`;
+
+/**
+ * One SPARQL query for the full facts of an EXPLICIT set of entities.
+ *
+ * This is the hydration half of the two-phase saint ingest: the entity set is
+ * bounded by `VALUES`, so the aggregate work is proportional to the page rather
+ * than to the whole corpus. The projection and patterns are the ones above, so
+ * the row shape `parseSaintFacts` consumes is exactly the one it always was.
+ */
+export function saintFactsSparqlForQids(qids: string[]): string {
+  return `SELECT ${SAINT_FACTS_SELECT} WHERE {
+  VALUES ?s { ${qids.map((q) => `wd:${q}`).join(" ")} }
+  ${SAINT_FACTS_PATTERNS}
+}
+GROUP BY ?s
+ORDER BY ?s`;
+}
 
 /** Preference order for a non-English article when there is no enwiki one. */
 export const ALT_ARTICLE_LANGS = ["it", "es", "fr", "de", "pl"] as const;
@@ -208,6 +238,18 @@ export interface SaintFacts {
   enArticle: string | null;
   altArticles: string[];
   website: string | null;
+}
+
+/**
+ * Truthiness of a binding that may be an `EXISTS` boolean literal ("true" /
+ * "false") or — from an older projection that joined the value — a bound entity
+ * URI. Both forms must read the same way: unbound and the literal "false" are
+ * false, anything else is true. (`Boolean("false")` is `true` in JS, which is
+ * exactly the trap this closes.)
+ */
+function truthy(value: string | undefined): boolean {
+  if (!value) return false;
+  return value.toLowerCase() !== "false" && value !== "0";
 }
 
 function yearOf(literal: string | undefined): number | null {
@@ -241,8 +283,8 @@ export function parseSaintFacts(row: SparqlBinding): SaintFacts | null {
     positions: qids("positions"),
     occupations: qids("occupations"),
     awards: qids("awards"),
-    bishopSee: Boolean(bindingValue(row, "bishopSee")),
-    founded: Boolean(bindingValue(row, "founded")),
+    bishopSee: truthy(bindingValue(row, "bishopSee")),
+    founded: truthy(bindingValue(row, "founded")),
     birthYear: yearOf(bindingValue(row, "born")),
     deathYear: yearOf(bindingValue(row, "died")),
     enArticle: bindingValue(row, "art") ?? null,
