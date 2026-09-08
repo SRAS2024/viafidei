@@ -17,8 +17,9 @@ import type { CuratedEntry } from "../index";
  * built out of texts still under copyright — day four is Diary 950 of St
  * Faustina Kowalska, and days one, two, five and nine are modern compositions,
  * the last of them the bishops' own act of consecration — so it cannot be
- * vendored in full. The placeholder entry for that slug still stands in
- * ../novenas.ts and needs a public-domain received form before it is replaced.
+ * vendored in full. The entry for that slug lives in ../novenas.ts and now
+ * carries the traditional public-domain novena prayer to the Sacred Heart
+ * instead, repeated on each of the nine days.
  *
  * Where a novena's received form repeats one prayer on
  * each of the nine days (St Joseph, the Immaculate Conception, Our Lady of

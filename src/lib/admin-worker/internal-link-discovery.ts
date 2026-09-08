@@ -162,6 +162,7 @@ export async function discoverFromInternalLinks(
       category: "SOURCE_DISCOVERY",
       severity: "INFO",
       eventName: "internal_link_discovery",
+      presampled: true,
       message: `Internal-link discovery from ${seedUrl}: ${inserted} inserted, ${rejected} rejected (of ${links.length} extracted).`,
       sourceHost: seedHost,
       sourceUrl: seedUrl,

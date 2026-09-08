@@ -47,6 +47,18 @@ function withCapabilities(vector: boolean, trigram = vector) {
   });
 }
 
+/** Every parameter value the data layer interpolated into a raw query. */
+function rawValues(): unknown[] {
+  return queryRaw.mock.calls.flatMap((c) => (c[0] as { values?: unknown[] })?.values ?? []);
+}
+
+/** The SQL text of every raw query the data layer issued. */
+function rawSql(): string {
+  return queryRaw.mock.calls
+    .map((c) => ((c[0] as { strings?: string[] })?.strings ?? []).join(" "))
+    .join("\n");
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   memoClear();
@@ -213,6 +225,72 @@ describe("suggestPublished", () => {
     expect(suggestions.filter((s) => s.group === "saints")).toHaveLength(2);
     // The small group still survives the cap.
     expect(suggestions.some((s) => s.group === "prayers")).toBe(true);
+  });
+});
+
+describe("the ranking expression the indexed path builds", () => {
+  it("sends Postgres a real word-boundary escape, not the letter y", async () => {
+    // `\y` is not a JavaScript escape: in a plain template literal it collapses
+    // to a bare `y`, so this shipped as the pattern `ymaryy` and the +2 boost
+    // never fired for any row. Verified against Postgres: `title ~* 'ymaryy'`
+    // is false for "Hail Mary" while `title ~* '\ymary\y'` is true, which is
+    // exactly why "Marie-Catherine Troiani" outranked "Hail Mary" for "mary".
+    withCapabilities(true);
+    await searchPublishedPage("mary");
+    const values = rawValues().map(String);
+    expect(values).toContain(String.raw`\ymary\y`);
+    expect(values).not.toContain("ymaryy");
+  });
+
+  it("drops the word-boundary term entirely when the query has no words", async () => {
+    withCapabilities(true);
+    await searchPublishedPage("!!!");
+    expect(
+      rawValues()
+        .map(String)
+        .some((v) => v.includes("\\y")),
+    ).toBe(false);
+  });
+});
+
+describe("searchCapabilities probes the whole mechanism", () => {
+  it("requires the trigger as well as the column", async () => {
+    // "column exists, trigger does not" leaves every searchVector NULL, so `@@`
+    // matches nothing and search goes silently and totally dark while still
+    // reporting indexed=true. Probing only the column could not see that.
+    withCapabilities(true);
+    await searchPublishedPage("mary");
+    const sql = rawSql();
+    expect(sql).toContain("pg_trigger");
+    expect(sql).toContain("PublishedContent_searchVector_tgr");
+    expect(sql).toContain("tgisinternal");
+    // …and the column probe is scoped to the public schema.
+    expect(sql).toContain("table_schema = 'public'");
+  });
+});
+
+describe("suggestPublished does not double-query on a genuine no-match", () => {
+  it("runs the unindexed fallback ONLY when the indexed query failed", async () => {
+    // `rows.length === 0` cannot tell "the query threw" from "nothing matched",
+    // so every no-match keystroke in the header autocomplete used to pay for
+    // the indexed LATERAL query AND a 200-row `contains` scan of the table.
+    withCapabilities(true);
+    findMany.mockResolvedValue([]);
+    const none = await suggestPublished("zzzz", 2);
+    expect(none).toEqual([]);
+    expect(findMany).not.toHaveBeenCalled();
+
+    // …and a query that actually throws still falls back.
+    queryRaw.mockImplementation((sql: { strings?: string[] }) => {
+      const text = (sql.strings ?? []).join(" ");
+      if (text.includes("information_schema.columns")) {
+        return Promise.resolve([{ vector: true, trigram: true }]);
+      }
+      return Promise.reject(new Error("relation does not exist"));
+    });
+    memoClear();
+    await suggestPublished("zzzz", 2);
+    expect(findMany).toHaveBeenCalled();
   });
 });
 

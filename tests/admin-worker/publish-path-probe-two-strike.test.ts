@@ -402,24 +402,143 @@ function verifyDecision(): BrainDecision {
 function makeDispatchPrisma(opts: {
   latest?: Array<{ contentId: string; result: string; createdAt: Date }>;
   rows?: Array<{ id: string; contentType: string; slug: string; title: string }>;
+  warnCounts?: Array<{ contentId: string; _count: { _all: number } }>;
+  /** Rows the whole-catalog sweep window returns, by cursor offset. */
+  sweepPages?: Record<
+    number,
+    Array<{ id: string; contentType: string; slug: string; title: string }>
+  >;
+  total?: number;
+  cursorOffset?: number;
 }) {
-  return {
+  const memoryWrites: Array<Record<string, unknown>> = [];
+  const findManyArgs: Array<Record<string, unknown>> = [];
+  const prisma = {
+    __memoryWrites: memoryWrites,
+    __findManyArgs: findManyArgs,
     postPublishVerification: {
       findMany: vi.fn(async () => opts.latest ?? []),
+      groupBy: vi.fn(async () => opts.warnCounts ?? []),
     },
     publishedContent: {
-      findMany: vi.fn(
-        async () =>
+      count: vi.fn(async () => opts.total ?? 1),
+      findMany: vi.fn(async (arg: Record<string, unknown>) => {
+        findManyArgs.push(arg);
+        if (typeof arg?.skip === "number") return opts.sweepPages?.[arg.skip] ?? [];
+        return (
           opts.rows ?? [
             { id: "p1", contentType: "PRAYER", slug: "our-father", title: "Our Father" },
-          ],
+          ]
+        );
+      }),
+    },
+    adminWorkerMemory: {
+      findUnique: vi.fn(async () =>
+        opts.cursorOffset == null ? null : { memoryValue: { offset: opts.cursorOffset } },
       ),
+      upsert: vi.fn(async (arg: Record<string, unknown>) => {
+        memoryWrites.push(arg);
+        return {};
+      }),
     },
     workerBuildJob: {
       findFirst: vi.fn(async () => ({ resultPayload: { sourceHost: "vatican.va" } })),
     },
-  } as unknown as Parameters<typeof executeMissionStage>[0]["prisma"];
+  };
+  return prisma as unknown as Parameters<typeof executeMissionStage>[0]["prisma"] & {
+    __memoryWrites: Array<Record<string, unknown>>;
+    __findManyArgs: Array<Record<string, unknown>>;
+  };
 }
+
+describe("POST_PUBLISH_VERIFY reaches the whole catalog and stops spinning on WARN", () => {
+  it("also walks a whole-catalog sweep window, not only the newest 50 by publishedAt", async () => {
+    // "the newest 50 by publishedAt" can never reach the other ~3,400 published
+    // rows: whatever is in that window is re-probed forever and the rest is
+    // never verified at all.
+    const { verifyPublished: mocked } = await import("@/lib/admin-worker/post-publish-probe");
+    vi.mocked(mocked).mockResolvedValue({
+      verificationId: "v9",
+      result: "PASS",
+      observed: "PASS",
+      failureConfirmed: false,
+      publicUrl: "x",
+      checks: { publicPageCheck: "PASS" } as never,
+    });
+    const prisma = makeDispatchPrisma({
+      // Everything in the recency window is already verified and not eligible.
+      latest: [{ contentId: "p1", result: "PASS", createdAt: new Date() }],
+      total: 3_457,
+      cursorOffset: 100,
+      sweepPages: {
+        100: [{ id: "old-1", contentType: "SAINT", slug: "st-old", title: "St Old" }],
+      },
+    });
+    await executeMissionStage({
+      prisma,
+      workerId: "w1",
+      passId: "pass-1",
+      decision: verifyDecision(),
+    });
+    // It probed a row from the sweep window, not from the recency window.
+    expect(vi.mocked(mocked).mock.calls[0][1]).toMatchObject({ contentId: "old-1" });
+    // …and the cursor advanced, so the next dispatch covers the next page.
+    const write = prisma.__memoryWrites[0] as { update: { memoryValue: { offset: number } } };
+    expect(write.update.memoryValue.offset).toBe(150);
+  });
+
+  it("wraps the sweep cursor at the end of the catalog", async () => {
+    const { verifyPublished: mocked } = await import("@/lib/admin-worker/post-publish-probe");
+    vi.mocked(mocked).mockResolvedValue({
+      verificationId: "v9",
+      result: "PASS",
+      observed: "PASS",
+      failureConfirmed: false,
+      publicUrl: "x",
+      checks: { publicPageCheck: "PASS" } as never,
+    });
+    const prisma = makeDispatchPrisma({ total: 120, cursorOffset: 100, sweepPages: { 100: [] } });
+    await executeMissionStage({
+      prisma,
+      workerId: "w1",
+      passId: "pass-1",
+      decision: verifyDecision(),
+    });
+    const write = prisma.__memoryWrites[0] as { update: { memoryValue: { offset: number } } };
+    expect(write.update.memoryValue.offset).toBe(0);
+  });
+
+  it("backs off re-probing a row that keeps coming back WARN", async () => {
+    // post-publish-probe.ts degrades a missing/mismatched origin to WARN on
+    // EVERY check, so without a backoff the stage cycled the same rows forever
+    // — one PostPublishVerification row and one WARN log row per dispatch.
+    const { verifyPublished: mocked } = await import("@/lib/admin-worker/post-publish-probe");
+    vi.mocked(mocked).mockResolvedValue({
+      verificationId: "v9",
+      result: "WARN",
+      observed: "WARN",
+      failureConfirmed: false,
+      publicUrl: "x",
+      checks: { publicPageCheck: "WARN" } as never,
+    });
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const out = await executeMissionStage({
+      prisma: makeDispatchPrisma({
+        latest: [{ contentId: "p1", result: "WARN", createdAt: twoDaysAgo }],
+        // Six previous WARNs: the re-probe window is now six days, not one.
+        warnCounts: [{ contentId: "p1", _count: { _all: 6 } }],
+        total: 1,
+        sweepPages: { 0: [] },
+      }),
+      workerId: "w1",
+      passId: "pass-1",
+      decision: verifyDecision(),
+    });
+    expect(out.kind).toBe("idle");
+    expect(out.summary).toMatch(/already verified/);
+    expect(vi.mocked(mocked)).not.toHaveBeenCalled();
+  });
+});
 
 describe("dispatcher POST_PUBLISH_VERIFY", () => {
   it("maps a THROWN verification to WARN, never rolls back, and does not penalise the source", async () => {

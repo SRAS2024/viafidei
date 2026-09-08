@@ -555,6 +555,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
         category: "WORKER_PASS",
         severity: "INFO",
         eventName: "brain_decided",
+        presampled: true,
         message: `Admin Worker chose ${brain.missionStage} (${brain.chosenMode}/${brain.chosenPriority}): ${brain.reason}`,
         contentType: brain.contentType ?? undefined,
         safeMetadata: {
@@ -687,6 +688,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
         category: "WORKER_PASS",
         severity: dispatchFailed ? "ERROR" : "INFO",
         eventName: "stage_dispatched",
+        presampled: true,
         message: `Stage ${dispatch.stage}: ${dispatch.summary}`,
         contentType: brain.contentType ?? undefined,
         safeMetadata: {

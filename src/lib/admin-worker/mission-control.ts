@@ -171,6 +171,7 @@ export async function runMissionControlPass(
         category: "REPORT",
         severity: blockers.length > 0 ? "WARN" : "INFO",
         eventName: "mission_control",
+        presampled: true,
         message:
           `Mission control: ${missions.length} missions; next = ${nextContentType ?? "n/a"}` +
           `${blockers.length ? ` (blocked: ${blockers[0]})` : ""}.`,
@@ -308,23 +309,29 @@ export async function runStucknessPass(
       "stuckness",
     ).catch(() => undefined);
 
-    // Durable stuckness record (Postgres owns stuckness records).
-    await prisma.adminWorkerStucknessRecord
-      .create({
-        data: {
-          passId: ctx.passId ?? null,
-          signals,
-          strategy,
-          publishedDelta,
-        },
-      })
-      .catch(() => undefined);
+    // Deliberately sampled even though the log row is a WARN: this exact event
+    // fired 207,830 times in production without anything acting on it, and
+    // AdminWorkerStucknessRecord held exactly 207,830 rows / 63 MB — one per
+    // detection. Recording the same stuck condition once per cool-down keeps
+    // the signal and drops the flood; self-maintenance is what now acts on it.
+    //
+    // ONE decision gates BOTH writes. Gating only the log row (as this did) is
+    // what let the durable record grow unsampled into a table nothing pruned.
+    const stuckSample = sampleWorkerEvent("worker_stuck");
 
-    // Deliberately sampled even though it is a WARN: this exact event fired
-    // 207,830 times in production without anything acting on it. Recording the
-    // same stuck condition once per cool-down keeps the signal and drops the
-    // flood; self-maintenance is what now acts on it.
-    if (sampleWorkerEvent("worker_stuck").write) {
+    if (stuckSample.write) {
+      // Durable stuckness record (Postgres owns stuckness records).
+      await prisma.adminWorkerStucknessRecord
+        .create({
+          data: {
+            passId: ctx.passId ?? null,
+            signals,
+            strategy,
+            publishedDelta,
+          },
+        })
+        .catch(() => undefined);
+
       await writeAdminWorkerLog(prisma, {
         passId: ctx.passId ?? undefined,
         category: "REPORT",

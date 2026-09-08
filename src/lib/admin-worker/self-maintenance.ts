@@ -44,15 +44,35 @@
 import type { PrismaClient } from "@prisma/client";
 
 import {
+  LEDGER_PRUNE_BATCH,
+  LEDGER_PRUNE_MAX_BATCHES,
+  LEDGER_PRUNE_MAX_BATCHES_BACKLOG,
   pruneLedgerRows,
   totalLedgerRowsPruned,
   ROLLBACK_REVIEW_ACTIONS,
   type LedgerPruneOutcome,
 } from "./cleanup";
 import { snapshotPublishedContent } from "./content-protection";
+import { eventBudgetPerHour, eventCooldownMs, suppressWorkerEvent } from "./event-sampler";
 import { fileHumanReview } from "./human-review";
 import { writeAdminWorkerLog } from "./logs";
 import { evaluatePublishSafety } from "./publish-safety";
+
+/**
+ * The event sampler moved to ./event-sampler so `writeAdminWorkerLog` can
+ * enforce the budget on EVERY INFO write without an import cycle. Re-exported
+ * here because this is the module the rest of the worker (and the package
+ * index) imports it from.
+ */
+export {
+  eventBudgetPerHour,
+  eventCooldownMs,
+  eventSamplerSnapshot,
+  resetEventSampler,
+  sampleWorkerEvent,
+  suppressWorkerEvent,
+  type SampleDecision,
+} from "./event-sampler";
 
 /* ------------------------------------------------------------------ */
 /* public types                                                        */
@@ -74,6 +94,7 @@ export interface Signal {
 
 export type ConditionName =
   | "LEDGER_BLOAT"
+  | "LEDGER_DEAD_SPACE"
   | "LOG_EVENT_SPAM"
   | "PUBLISH_FUTILITY"
   | "LANE_WEDGED"
@@ -209,9 +230,36 @@ export const CONDITION_BACKOFF_MS = 6 * HOUR;
 /** Row counts above which a telemetry table is worth trimming / alarming. */
 export const LEDGER_ROWS_WARN = 250_000;
 export const LEDGER_ROWS_CRITICAL = 1_000_000;
+/**
+ * SIZE thresholds per relation, from pg_total_relation_size.
+ *
+ * NEVER trust the row estimate alone. In production `pg_class.reltuples` said
+ * 4,932 for AdminWorkerActionScore while the table held 16,909,035 rows in
+ * 5.7 GB, because autovacuum had never run on it — and a never-analyzed table
+ * on PG14+ reports -1, which floors to 0. The bytes come back in the SAME
+ * pg_class query and are maintained by the storage layer, not by ANALYZE, so
+ * they are the trustworthy half. A table over the byte threshold raises its
+ * own signal AND is what triggers paying for an exact count.
+ */
+export const LEDGER_BYTES_WARN = 256 * 1024 ** 2;
+export const LEDGER_BYTES_CRITICAL = 1024 ** 3;
 /** pg_database_size ceiling before the database itself is called critical. */
 export const DATABASE_BYTES_WARN = 2 * 1024 ** 3;
 export const DATABASE_BYTES_CRITICAL = 8 * 1024 ** 3;
+/**
+ * Dead-tuple ratio past which a plain VACUUM can no longer help and only an
+ * operator's VACUUM FULL returns the disk. Only meaningful on a relation that
+ * is already large, so the signal is gated on LEDGER_BYTES_WARN too.
+ *
+ * The counts come from pg_stat_all_tables, which the post-mortem showed can be
+ * wrong by orders of magnitude when autovacuum has never run — so the ratio is
+ * additionally gated on an ABSOLUTE dead-tuple floor. A stale sample of a few
+ * hundred tuples must not be able to report "90% dead" on a 5 GB table and
+ * page an operator over nothing.
+ */
+export const DEAD_RATIO_WARN = 0.4;
+export const DEAD_RATIO_CRITICAL = 0.6;
+export const DEAD_TUPLES_FLOOR = 100_000;
 /** Passes in 24 h with ZERO publishes before the loop is called futile. */
 export const FUTILITY_PASS_THRESHOLD = 200;
 /** worker_stuck / watchdog events in one hour before the lanes are suspect. */
@@ -220,14 +268,6 @@ export const STUCK_EVENTS_THRESHOLD = 20;
 export const LANE_WEDGE_MS = 30 * MINUTE;
 /** Identical lane outcomes across this many sweeps with no progress = wedged. */
 export const LANE_IDENTICAL_OUTCOME_LIMIT = 3;
-/** A single eventName may write this many rows per hour before it is sampled. */
-export function eventBudgetPerHour(): number {
-  return envInt("ADMIN_WORKER_EVENT_BUDGET_PER_HOUR", 120);
-}
-/** How long a sampled event stays suppressed once it blows its budget. */
-export function eventCooldownMs(): number {
-  return envInt("ADMIN_WORKER_EVENT_COOLDOWN_MS", 10 * MINUTE);
-}
 /** A structured cursor that has swept this many times finding nothing has wrapped. */
 export const CURSOR_ZERO_STREAK_LIMIT = 3;
 /** An artifact parked in a non-terminal state longer than this is stuck. */
@@ -237,12 +277,24 @@ export const ARTIFACT_PARKED_MS = 7 * DAY;
  * The telemetry tables SENSE measures. Same allow-list, same order and same
  * rationale as scripts/maintenance/prune-worker-ledger.ts: children first,
  * AdminWorkerPass (the parent, five inbound ON DELETE SET NULL keys) last.
+ *
+ * It must match what cleanup.ts's `pruneLedgerRows` actually deletes, or SENSE
+ * measures a table the repair cannot move (and, worse, cannot see the one it
+ * can). AdminWorkerBrainCall, AdminWorkerReasoningGraph,
+ * AdminWorkerCalibrationHistory, AdminWorkerStucknessRecord and
+ * PostPublishVerification were all pruned-but-unmeasured or
+ * unmeasured-and-unpruned; between them they were most of the 21 GB.
  */
 export const TELEMETRY_TABLES: ReadonlyArray<{ table: string; model: string }> = [
   { table: "AdminWorkerLog", model: "adminWorkerLog" },
   { table: "AdminWorkerActionScore", model: "adminWorkerActionScore" },
+  { table: "AdminWorkerBrainCall", model: "adminWorkerBrainCall" },
   { table: "AdminWorkerStageOutcome", model: "adminWorkerStageOutcome" },
   { table: "AdminWorkerRepairPlan", model: "adminWorkerRepairPlan" },
+  { table: "AdminWorkerReasoningGraph", model: "adminWorkerReasoningGraph" },
+  { table: "AdminWorkerCalibrationHistory", model: "adminWorkerCalibrationHistory" },
+  { table: "AdminWorkerStucknessRecord", model: "adminWorkerStucknessRecord" },
+  { table: "PostPublishVerification", model: "postPublishVerification" },
   { table: "AdminWorkerDecision", model: "adminWorkerDecision" },
   { table: "AdminWorkerPass", model: "adminWorkerPass" },
 ];
@@ -257,118 +309,6 @@ export const PER_TICK_EVENTS: readonly string[] = [
   "mission_control",
   "replay_simulation",
 ];
-
-/* ------------------------------------------------------------------ */
-/* event sampler — the helper the logging path adopts                  */
-/* ------------------------------------------------------------------ */
-
-interface SamplerState {
-  windowStartedAt: number;
-  written: number;
-  /** Dropped since the last row that was actually written. */
-  suppressed: number;
-  suppressedUntil: number;
-}
-
-const _sampler = new Map<string, SamplerState>();
-
-export interface SampleDecision {
-  /** Write the row? */
-  write: boolean;
-  /** How many identical events were dropped since the last written row. */
-  suppressed: number;
-  /** True on the FIRST drop of a cool-down: log the suppression once, here. */
-  suppressionStarted: boolean;
-}
-
-/**
- * Per-eventName budget for INFO telemetry. A caller asks before writing; once
- * an eventName exceeds its hourly budget the sampler drops it for a cool-down
- * window and reports the drop ONCE (`suppressionStarted`), which is the whole
- * point: the ledger records "this event is being sampled", not the event, until
- * the loop calms down.
- *
- * In-process and allocation-free per call — it must be cheaper than the write
- * it is replacing. WARN/ERROR rows must never be routed through it.
- */
-export function sampleWorkerEvent(
-  eventName: string,
-  opts: { now?: number; budgetPerHour?: number; cooldownMs?: number } = {},
-): SampleDecision {
-  const now = opts.now ?? Date.now();
-  const budget = opts.budgetPerHour ?? eventBudgetPerHour();
-  const cooldown = opts.cooldownMs ?? eventCooldownMs();
-  let s = _sampler.get(eventName);
-  if (!s) {
-    s = { windowStartedAt: now, written: 0, suppressed: 0, suppressedUntil: 0 };
-    _sampler.set(eventName, s);
-  }
-  if (now < s.suppressedUntil) {
-    s.suppressed += 1;
-    return { write: false, suppressed: s.suppressed, suppressionStarted: false };
-  }
-  if (s.suppressedUntil > 0 || now - s.windowStartedAt >= HOUR) {
-    // Roll the budget window — either the hour is up, or a cool-down has just
-    // expired and the event has earned a fresh allowance. `suppressed`
-    // deliberately survives the roll so the next row that IS written can say
-    // how many it stands for.
-    s.suppressedUntil = 0;
-    s.windowStartedAt = now;
-    s.written = 0;
-  }
-  if (s.written >= budget) {
-    s.suppressedUntil = now + cooldown;
-    s.suppressed += 1;
-    return { write: false, suppressed: s.suppressed, suppressionStarted: true };
-  }
-  s.written += 1;
-  const suppressed = s.suppressed;
-  s.suppressed = 0;
-  return { write: true, suppressed, suppressionStarted: false };
-}
-
-/**
- * Force an eventName into the sampler's cool-down. This is how the
- * LOG_EVENT_SPAM repair acts on an event it has never seen in code: SENSE names
- * the offender from the ledger, this silences it for a window.
- */
-export function suppressWorkerEvent(
-  eventName: string,
-  opts: { now?: number; cooldownMs?: number } = {},
-): { suppressedUntil: number } {
-  const now = opts.now ?? Date.now();
-  const until = now + (opts.cooldownMs ?? eventCooldownMs());
-  const s = _sampler.get(eventName);
-  if (s) s.suppressedUntil = Math.max(s.suppressedUntil, until);
-  else
-    _sampler.set(eventName, {
-      windowStartedAt: now,
-      written: 0,
-      suppressed: 0,
-      suppressedUntil: until,
-    });
-  return { suppressedUntil: until };
-}
-
-/** Test/diagnostic hook: forget every sampler window. */
-export function resetEventSampler(): void {
-  _sampler.clear();
-}
-
-/** What the sampler currently holds — surfaced in the maintenance log rows. */
-export function eventSamplerSnapshot(): Array<{
-  eventName: string;
-  written: number;
-  suppressed: number;
-  suppressedUntil: number;
-}> {
-  return [..._sampler.entries()].map(([eventName, s]) => ({
-    eventName,
-    written: s.written,
-    suppressed: s.suppressed,
-    suppressedUntil: s.suppressedUntil,
-  }));
-}
 
 /* ------------------------------------------------------------------ */
 /* small prisma helpers (every one fail-open + mock-tolerant)          */
@@ -494,12 +434,21 @@ interface RelationStat {
   relname: string;
   estRows: number;
   bytes: number;
+  liveTuples: number;
+  deadTuples: number;
 }
 
 /**
- * Row-count + size ESTIMATES for every AdminWorker* relation in ONE query off
- * pg_class — no table scan, no per-table round trip. An exact count is only
- * paid for when an estimate crosses the warn threshold (below).
+ * Row-count + size ESTIMATES for every worker telemetry relation in ONE query
+ * off pg_class — no table scan, no per-table round trip. An exact count is only
+ * paid for when the SIZE (or, where it is trustworthy, the row estimate)
+ * crosses the warn threshold.
+ *
+ * `reltuples` is deliberately NOT the primary measure: it is maintained by
+ * VACUUM/ANALYZE, autovacuum reported "never" on the tables that mattered, and
+ * a never-analyzed table on PG14+ reports -1. The byte figure from
+ * pg_total_relation_size is maintained by the storage layer and was correct
+ * even when the row estimate was wrong by 3,400x.
  */
 async function readRelationStats(prisma: PrismaClient): Promise<RelationStat[]> {
   const raw = (prisma as unknown as { $queryRaw?: unknown }).$queryRaw;
@@ -508,20 +457,35 @@ async function readRelationStats(prisma: PrismaClient): Promise<RelationStat[]> 
     const rows = await prisma.$queryRaw<Array<Record<string, unknown>>>`
       SELECT c.relname AS relname,
              c.reltuples::bigint AS est_rows,
-             pg_total_relation_size(c.oid)::bigint AS bytes
+             pg_total_relation_size(c.oid)::bigint AS bytes,
+             coalesce(s.n_live_tup, 0)::bigint AS live_tup,
+             coalesce(s.n_dead_tup, 0)::bigint AS dead_tup
         FROM pg_class c
         JOIN pg_namespace n ON n.oid = c.relnamespace
+        LEFT JOIN pg_stat_all_tables s ON s.relid = c.oid
        WHERE n.nspname = 'public'
          AND c.relkind = 'r'
-         AND c.relname LIKE 'AdminWorker%'`;
+         AND (c.relname LIKE 'AdminWorker%' OR c.relname = 'PostPublishVerification')`;
     return (rows ?? []).map((r) => ({
       relname: String(r.relname ?? ""),
       estRows: Math.max(0, num(r.est_rows)),
       bytes: Math.max(0, num(r.bytes)),
+      liveTuples: Math.max(0, num(r.live_tup)),
+      deadTuples: Math.max(0, num(r.dead_tup)),
     }));
   } catch {
     return [];
   }
+}
+
+/**
+ * The fraction of a relation's tuples that are dead. A plain VACUUM makes that
+ * space reusable; past DEAD_RATIO_CRITICAL only a VACUUM FULL (an operator
+ * action — it takes ACCESS EXCLUSIVE) actually returns the disk.
+ */
+function deadRatio(stat: RelationStat): number {
+  const total = stat.liveTuples + stat.deadTuples;
+  return total > 0 ? stat.deadTuples / total : 0;
 }
 
 async function readDatabaseBytes(prisma: PrismaClient): Promise<number> {
@@ -534,6 +498,67 @@ async function readDatabaseBytes(prisma: PrismaClient): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+/**
+ * Is this lane WEDGED — and what marker should the next sweep compare against?
+ *
+ * Pure, so SENSE and VERIFY can use the SAME predicate. They used to disagree:
+ * SENSE called a lane wedged after N identical `lastOutcome` strings, VERIFY
+ * re-sensed only "status === running past the watchdog", so a repair that
+ * changed nothing always verified as "improved" and the false diagnosis
+ * repeated forever.
+ *
+ * Why the outcome string alone is NOT evidence of a wedge: most lanes return a
+ * CONSTANT detail by design — "readings refreshed", "schema awareness ran",
+ * "UI awareness ran", "review auto-resolve ran", "intelligence ran", and
+ * `ingest-curated` returns "curated ingest +0" whenever it publishes nothing.
+ * Three sweeps of a perfectly healthy idle worker were enough to declare those
+ * lanes wedged. A wedge needs evidence of NO FORWARD MOVEMENT:
+ *
+ *   (a) the lane is still "running" long after its watchdog should have fired
+ *       — it never finished; or
+ *   (b) the lane is stuck on the SAME `currentItem` across N sweeps and is not
+ *       idle — it keeps picking up the identical piece of work and never
+ *       finishing it.
+ *
+ * A lane that finishes and goes idle is never wedged, whatever it reports.
+ */
+export function laneWedgeState(
+  row: Record<string, unknown>,
+  memory: Record<string, unknown>,
+  now: number,
+): { wedged: boolean; marker: string; repeats: number } {
+  const status = String(row.status ?? "");
+  const startedAt = row.lastStartedAt ? new Date(row.lastStartedAt as string).getTime() : 0;
+  const neverFinished = status === "running" && startedAt > 0 && now - startedAt > LANE_WEDGE_MS;
+
+  const currentItem = row.currentItem == null ? "" : String(row.currentItem);
+  // The marker is the item under work, not the outcome text: an unchanged
+  // marker means the lane is chewing the same thing again, which a constant
+  // "readings refreshed" does not.
+  const marker = status === "idle" || currentItem === "" ? "" : `${status}:${currentItem}`;
+  const repeats =
+    marker !== "" && memory.lastOutcome === marker ? Math.max(0, num(memory.repeats)) + 1 : 1;
+  const stuckOnItem = marker !== "" && repeats >= LANE_IDENTICAL_OUTCOME_LIMIT;
+
+  return { wedged: neverFinished || stuckOnItem, marker, repeats };
+}
+
+/**
+ * A structured-ingest cursor that has walked past the end of its corpus:
+ * sweeping from a non-zero offset and finding nothing, N times running.
+ *
+ * A cursor the INGEST MODULE has already parked is NOT stale. structured/
+ * ingest.ts owns the end-of-corpus case itself: on `endOfCorpus` it wraps the
+ * offset to 0 and sets `exhaustedUntil = now + RESWEEP_INTERVAL_MS` so the
+ * ingestor rests. Rewinding one of those from outside would throw away real
+ * page progress and re-walk entities that were just processed.
+ */
+function isStaleCursor(state: Record<string, unknown>, now: number): boolean {
+  const exhaustedUntil = num(state.exhaustedUntil);
+  if (exhaustedUntil > now) return false;
+  return num(state.offset) > 0 && num(state.zeroStreak) >= CURSOR_ZERO_STREAK_LIMIT;
 }
 
 /** Everything SENSE gathered, kept so DIAGNOSE and the repairs can reuse it. */
@@ -563,28 +588,64 @@ export async function senseSelfHealth(
   // ── ledger pressure ────────────────────────────────────────────────
   const stats = await readRelationStats(prisma);
   const byName = new Map(stats.map((s) => [s.relname, s]));
+  let worstDead: { table: string; ratio: number; bytes: number } | null = null;
   for (const { table, model } of TELEMETRY_TABLES) {
     const stat = byName.get(table);
+    const bytes = stat?.bytes ?? 0;
     let rows = stat?.estRows ?? 0;
     let exact = false;
-    if (rows >= LEDGER_ROWS_WARN) {
-      // The estimate crossed the line — now it is worth an exact count.
+    // The EXACT count is triggered off the byte estimate as well as the row
+    // estimate: reltuples said 4,932 for a 5.7 GB table, so a row-only trigger
+    // never fired for the very table that mattered most.
+    if (rows >= LEDGER_ROWS_WARN || bytes >= LEDGER_BYTES_WARN) {
       const counted = await call<number>(prisma, model, "count", undefined, -1);
       if (counted >= 0) {
         rows = counted;
         exact = true;
       }
     }
-    signals.push(
-      signal(
-        `ledger_rows:${table}`,
-        rows,
-        LEDGER_ROWS_WARN,
-        LEDGER_ROWS_CRITICAL,
-        `${table}: ${rows} rows (${exact ? "exact" : "estimated"}), ${Math.round((stat?.bytes ?? 0) / 1024 / 1024)} MB`,
-      ),
+    const rowSignal = signal(
+      `ledger_rows:${table}`,
+      rows,
+      LEDGER_ROWS_WARN,
+      LEDGER_ROWS_CRITICAL,
+      `${table}: ${rows} rows (${exact ? "exact" : "estimated"}), ${Math.round(bytes / 1024 / 1024)} MB`,
     );
+    // Severity is the worse of "too many rows" and "too many bytes" — a table
+    // can be enormous on disk while its row estimate is stale nonsense.
+    const bySize = signal(
+      `ledger_bytes:${table}`,
+      bytes,
+      LEDGER_BYTES_WARN,
+      LEDGER_BYTES_CRITICAL,
+      "",
+    );
+    if (
+      bySize.severity === "critical" ||
+      (bySize.severity === "warn" && rowSignal.severity === "ok")
+    ) {
+      rowSignal.severity = bySize.severity;
+    }
+    signals.push(rowSignal);
+    if (stat && bytes >= LEDGER_BYTES_WARN && stat.deadTuples >= DEAD_TUPLES_FLOOR) {
+      const ratio = deadRatio(stat);
+      if (!worstDead || ratio > worstDead.ratio) worstDead = { table, ratio, bytes };
+    }
   }
+  // Dead space. A DELETE never returns disk; a plain VACUUM makes it reusable
+  // (cleanup.ts issues one after a large trim) and past the critical ratio only
+  // an operator's VACUUM FULL rewrites the files. Measured, not assumed.
+  signals.push(
+    signal(
+      "dead_tuple_ratio",
+      worstDead ? Number(worstDead.ratio.toFixed(3)) : 0,
+      DEAD_RATIO_WARN,
+      DEAD_RATIO_CRITICAL,
+      worstDead
+        ? `${worstDead.table} is ${Math.round(worstDead.ratio * 100)}% dead tuples at ${Math.round(worstDead.bytes / 1024 / 1024)} MB`
+        : "no large relation with significant dead space",
+    ),
+  );
   const dbBytes = await readDatabaseBytes(prisma);
   signals.push(
     signal(
@@ -705,18 +766,10 @@ export async function senseSelfHealth(
   for (const row of laneRows) {
     const lane = String(row.lane ?? "");
     if (!lane) continue;
-    const status = String(row.status ?? "");
-    const startedAt = row.lastStartedAt ? new Date(row.lastStartedAt as string).getTime() : 0;
-    // (a) a lane still "running" long after it started never finished.
-    const neverFinished = status === "running" && startedAt > 0 && now - startedAt > LANE_WEDGE_MS;
-    // (b) the same outcome N sweeps running with nothing published/advanced —
-    //     the "ran, changed nothing, will run again" shape of a wedge.
-    const outcome = String(row.lastOutcome ?? "");
     const mem = await readMemory(prisma, laneKey(lane));
-    const repeats = mem.lastOutcome === outcome ? Math.max(0, num(mem.repeats)) + 1 : 1;
-    await writeMemory(prisma, laneKey(lane), { lastOutcome: outcome, repeats });
-    const identicalStreak = outcome !== "" && repeats >= LANE_IDENTICAL_OUTCOME_LIMIT;
-    if (neverFinished || identicalStreak) wedgedLanes.push(lane);
+    const { wedged, marker, repeats } = laneWedgeState(row, mem, now);
+    await writeMemory(prisma, laneKey(lane), { lastOutcome: marker, repeats });
+    if (wedged) wedgedLanes.push(lane);
   }
   signals.push(
     signal(
@@ -745,11 +798,7 @@ export async function senseSelfHealth(
     const v = row.memoryValue;
     if (!key || !v || typeof v !== "object" || Array.isArray(v)) continue;
     const state = v as Record<string, unknown>;
-    // offset past the corpus end shows up as: we keep reading and keep getting
-    // nothing back, sweep after sweep, from a non-zero offset.
-    if (num(state.offset) > 0 && num(state.zeroStreak) >= CURSOR_ZERO_STREAK_LIMIT) {
-      staleCursorKeys.push(key);
-    }
+    if (isStaleCursor(state, now)) staleCursorKeys.push(key);
   }
   signals.push(
     signal(
@@ -821,9 +870,9 @@ export function diagnoseConditions(reading: SenseReading): Condition[] {
   const get = (key: string) => reading.signals.find((s) => s.key === key);
   const out: Condition[] = [];
 
-  const bloated = reading.signals.filter(
-    (s) => s.key.startsWith("ledger_rows:") && s.severity !== "ok",
-  );
+  const bloated = reading.signals
+    .filter((s) => s.key.startsWith("ledger_rows:") && s.severity !== "ok")
+    .sort((a, b) => b.value - a.value);
   const dbSignal = get("database_bytes");
   if (bloated.length > 0 || (dbSignal && dbSignal.severity !== "ok")) {
     const evidence = [...bloated, ...(dbSignal && dbSignal.severity !== "ok" ? [dbSignal] : [])];
@@ -831,9 +880,35 @@ export function diagnoseConditions(reading: SenseReading): Condition[] {
       name: "LEDGER_BLOAT",
       severity: evidence.some((s) => s.severity === "critical") ? "critical" : "warn",
       remedy: "trim_telemetry",
-      signalKey: "database_bytes",
+      // VERIFY against what the trim can actually MOVE: the row count of the
+      // largest offending table. It used to verify against `database_bytes`,
+      // comparing a row count (`evidence[0].value`) to pg_database_size — units
+      // that can never converge — and, worse, a DELETE does not shrink
+      // pg_database_size at all (the measured production lesson). So a working
+      // trim was judged ineffective three sweeps running, escalated, and
+      // disabled itself for six hours exactly when the ledger was worst.
+      // `database_bytes` keeps its own condition below, with the remedy that
+      // can actually move it: an operator VACUUM FULL.
+      signalKey: bloated[0]?.key ?? "database_bytes",
       evidence,
       detail: `telemetry over retention: ${evidence.map((s) => s.detail).join("; ")}`,
+    });
+  }
+
+  // Dead space is a DIFFERENT problem from row count with a DIFFERENT remedy.
+  // Trimming rows cannot fix it, and a plain VACUUM (cleanup.ts issues one
+  // after a large trim) only makes the space reusable. Past the threshold the
+  // only thing that returns the disk is an operator-run VACUUM FULL, so this
+  // escalates by name instead of pretending a repair exists.
+  const dead = get("dead_tuple_ratio");
+  if (dead && dead.severity !== "ok") {
+    out.push({
+      name: "LEDGER_DEAD_SPACE",
+      severity: bySeverity(dead.severity),
+      remedy: "escalate",
+      signalKey: "dead_tuple_ratio",
+      evidence: [dead, ...(dbSignal ? [dbSignal] : [])],
+      detail: `${dead.detail} — a plain VACUUM keeps the space reusable, but reclaiming it needs an operator: npx tsx scripts/maintenance/prune-worker-ledger.ts --railway --confirm --vacuum`,
     });
   }
 
@@ -942,10 +1017,30 @@ interface RepairContext {
   passId?: string;
 }
 
+/**
+ * How many batches this trim is allowed, given the backlog SENSE just measured.
+ *
+ * The default cap is 20 × 5,000 = 100,000 rows per table per call. Against the
+ * measured production backlog (AdminWorkerActionScore at 16,909,035 rows) that
+ * is 169 productive calls for ONE table — it nibbles forever. When the sensed
+ * backlog is far larger than one call's capacity, raise the cap (bounded) so
+ * the prune actually drains it across a handful of passes.
+ */
+export function trimBatchesForBacklog(signals: Signal[]): number {
+  const worst = signals
+    .filter((s) => s.key.startsWith("ledger_rows:"))
+    .reduce((max, s) => Math.max(max, s.value), 0);
+  const defaultCapacity = LEDGER_PRUNE_BATCH * LEDGER_PRUNE_MAX_BATCHES;
+  if (worst <= defaultCapacity * 2) return LEDGER_PRUNE_MAX_BATCHES;
+  const needed = Math.ceil(worst / LEDGER_PRUNE_BATCH);
+  return Math.min(LEDGER_PRUNE_MAX_BATCHES_BACKLOG, Math.max(LEDGER_PRUNE_MAX_BATCHES, needed));
+}
+
 async function repairTrimTelemetry(ctx: RepairContext): Promise<Omit<RepairAction, "condition">> {
   let ledger: LedgerPruneOutcome | null = null;
+  const maxBatches = trimBatchesForBacklog(ctx.reading.signals);
   try {
-    ledger = await pruneLedgerRows(ctx.prisma, { now: ctx.now, force: true });
+    ledger = await pruneLedgerRows(ctx.prisma, { now: ctx.now, force: true, maxBatches });
   } catch {
     ledger = null;
   }
@@ -965,15 +1060,24 @@ async function repairTrimTelemetry(ctx: RepairContext): Promise<Omit<RepairActio
     succeeded: total > 0,
     counts: {
       rowsPruned: total,
+      maxBatches,
       logRows: ledger.logRows,
+      auditLogRows: ledger.auditLogRows,
       actionScores: ledger.actionScores,
       brainCalls: ledger.brainCalls,
       stageOutcomes: ledger.stageOutcomes,
       repairPlans: ledger.repairPlans,
+      reasoningGraph: ledger.reasoningGraph,
+      calibrationHistory: ledger.calibrationHistory,
+      stucknessRecords: ledger.stucknessRecords,
+      postPublishVerifications: ledger.postPublishVerifications,
       decisions: ledger.decisions,
       passes: ledger.passes,
+      vacuumed: ledger.vacuumed.length,
     },
-    detail: `pruned ${total} telemetry row(s) on the rolling retention window`,
+    detail: `pruned ${total} telemetry row(s) on the rolling retention window${
+      ledger.vacuumed.length ? `; vacuumed ${ledger.vacuumed.join(", ")}` : ""
+    }`,
   };
 }
 
@@ -1002,7 +1106,15 @@ function repairSampleNoisyEvents(
  * Least-destructive lane repair: mark the wedged lane idle so the next pass may
  * re-run it, and release artifact leases whose TTL has already expired. It never
  * kills work in flight — an expired lease by definition belongs to nobody.
+ *
+ * It must NOT write `lastError`. `runWorkerLanes` (lanes.ts) skips any lane
+ * where `lastError` is set and `lastFinishedAt` is within the lane's cooldown —
+ * so stamping an error here, without touching `lastFinishedAt`, SUPPRESSED the
+ * lane for the next ~5 minutes after every sweep. The reset is recorded in
+ * `lastOutcome`, which no scheduler decision reads.
  */
+export const LANE_RESET_OUTCOME = "reset by self-maintenance (lane wedged)";
+
 async function repairWedgedLanes(ctx: RepairContext): Promise<Omit<RepairAction, "condition">> {
   let lanesReset = 0;
   for (const lane of ctx.reading.wedgedLanes) {
@@ -1015,7 +1127,8 @@ async function repairWedgedLanes(ctx: RepairContext): Promise<Omit<RepairAction,
         data: {
           status: "idle",
           currentItem: null,
-          lastError: "reset by self-maintenance (lane wedged)",
+          lastError: null,
+          lastOutcome: LANE_RESET_OUTCOME,
         },
       },
       null,
@@ -1046,17 +1159,24 @@ async function repairWedgedLanes(ctx: RepairContext): Promise<Omit<RepairAction,
 
 /**
  * A cursor that has swept from a non-zero offset and found nothing N times has
- * walked past the end of its corpus. Resetting it to 0 (and clearing the streak)
- * is safe: the ingestors are idempotent and dedupe against live content.
+ * walked past the end of its corpus. Resetting the offset to 0 is safe: the
+ * ingestors are idempotent and dedupe against live content.
+ *
+ * `zeroStreak` is deliberately PRESERVED. structured/ingest.ts's `pickIngestor`
+ * scores candidates as `gap / (1 + zeroStreak)`, so the streak is the dampener
+ * that stops a barren ingestor from monopolising the lane; zeroing it from
+ * outside the module removed exactly that protection. It is also unnecessary
+ * for this repair: `isStaleCursor` requires `offset > 0`, so rewinding the
+ * offset alone clears the condition.
  */
 async function repairStaleCursors(ctx: RepairContext): Promise<Omit<RepairAction, "condition">> {
   let reset = 0;
   for (const key of ctx.reading.staleCursorKeys.slice(0, ctx.limit)) {
     const current = await readMemory(ctx.prisma, key);
+    if (num(current.exhaustedUntil) > ctx.now) continue; // ingest.ts already parked it
     await writeMemory(ctx.prisma, key, {
       ...current,
       offset: 0,
-      zeroStreak: 0,
       lastFullSweepAt: ctx.now,
     });
     reset += 1;
@@ -1322,24 +1442,41 @@ async function reSense(
   if (signalKey.startsWith("event_rate:") || signalKey === "paused_log_rate") {
     const eventName =
       signalKey === "paused_log_rate" ? "loop_paused" : signalKey.slice("event_rate:".length);
-    // The sampler is in-process and takes effect immediately: a suppressed event
-    // is verified by the sampler saying so, not by waiting an hour for the
-    // ledger rate to fall.
-    const s = eventSamplerSnapshot().find((e) => e.eventName === eventName);
-    return s && s.suppressedUntil > now ? 0 : 1;
+    // Ask the LEDGER, not the sampler. Asking the sampler whether the sampler
+    // is suppressing the event it was just told to suppress is unconditionally
+    // "yes", so an ineffective suppression was recorded as effective forever.
+    // Counting the rows actually written over a recent window, normalised to
+    // the same per-hour units as the signal, is a fact rather than an echo.
+    const windowMs = Math.min(HOUR, Math.max(MINUTE, selfMaintenanceIntervalMs()));
+    const written = await call<number>(
+      prisma,
+      "adminWorkerLog",
+      "count",
+      { where: { eventName, severity: "INFO", createdAt: { gte: new Date(now - windowMs) } } },
+      0,
+    );
+    return Math.round((written * HOUR) / windowMs);
   }
   if (signalKey === "wedged_lanes") {
+    // The SAME predicate SENSE used. It used to re-sense a narrower definition
+    // (only "running past the watchdog"), so a repair that changed nothing
+    // still verified as improved and the false diagnosis repeated forever.
+    // Read-only: unlike SENSE this never writes the streak memory back.
     const rows = await call<Array<Record<string, unknown>>>(
       prisma,
       "adminWorkerLaneState",
       "findMany",
-      { where: { status: "running" } },
+      {},
       [],
     );
-    return rows.filter((r) => {
-      const started = r.lastStartedAt ? new Date(r.lastStartedAt as string).getTime() : 0;
-      return started > 0 && now - started > LANE_WEDGE_MS;
-    }).length;
+    let wedged = 0;
+    for (const row of rows) {
+      const lane = String(row.lane ?? "");
+      if (!lane) continue;
+      const mem = await readMemory(prisma, laneKey(lane));
+      if (laneWedgeState(row, mem, now).wedged) wedged += 1;
+    }
+    return wedged;
   }
   if (signalKey === "stale_cursors") {
     const rows = await call<Array<Record<string, unknown>>>(
@@ -1355,8 +1492,7 @@ async function reSense(
     return rows.filter((r) => {
       const v = r.memoryValue;
       if (!v || typeof v !== "object" || Array.isArray(v)) return false;
-      const state = v as Record<string, unknown>;
-      return num(state.offset) > 0 && num(state.zeroStreak) >= CURSOR_ZERO_STREAK_LIMIT;
+      return isStaleCursor(v as Record<string, unknown>, now);
     }).length;
   }
   if (signalKey === "parked_artifacts") {
@@ -1375,13 +1511,25 @@ async function reSense(
     );
   }
   if (signalKey === "orphaned_unpublished") {
+    // The SAME population SENSE counted. It used to count every unpublished
+    // row for any reason (gate rejections, parish communion take-downs) — a
+    // superset, so `before` and `after` were not comparable and a restore that
+    // worked usually read as ineffective, escalated, and backed off for 6 h.
     return call<number>(
       prisma,
-      "publishedContent",
+      "adminWorkerRollbackLedger",
       "count",
-      { where: { isPublished: false, unpublishedAt: { not: null } } },
+      { where: { restorable: true, rollbackResult: { in: ["UNPUBLISHED", "HUMAN_REVIEW"] } } },
       0,
     );
+  }
+  if (signalKey === "dead_tuple_ratio") {
+    // Only an operator VACUUM FULL moves this; re-reading it is still honest.
+    const stats = await readRelationStats(prisma);
+    const worst = stats
+      .filter((st) => st.bytes >= LEDGER_BYTES_WARN && st.deadTuples >= DEAD_TUPLES_FLOOR)
+      .reduce((max, st) => Math.max(max, deadRatio(st)), 0);
+    return Number(worst.toFixed(3));
   }
   // publish_futility can only be answered by the next 24 h of work.
   return null;
@@ -1489,7 +1637,14 @@ export async function runSelfMaintenance(
       continue;
     }
 
-    const before = condition.evidence[0]?.value ?? 0;
+    // `before` MUST be the signal VERIFY will re-read, not merely the first
+    // piece of evidence. For LEDGER_BLOAT those were different things in
+    // different units — evidence[0] was a ROW COUNT and the re-read was
+    // pg_database_size in BYTES — so `after < before` could never hold and a
+    // working trim disabled itself for six hours.
+    const verifySignal =
+      condition.evidence.find((s) => s.key === condition.signalKey) ?? condition.evidence[0];
+    const before = verifySignal?.value ?? 0;
     let result: Omit<RepairAction, "condition">;
     try {
       switch (condition.remedy) {
@@ -1531,10 +1686,17 @@ export async function runSelfMaintenance(
 
     // ── VERIFY ────────────────────────────────────────────────────────
     const after = await reSense(prisma, condition.signalKey, now).catch(() => null);
-    // "Improved" means the signal it acted on actually moved down. When the
-    // signal can't be re-read (publish futility needs another 24 h), fall back
-    // to whether the repair itself reported success.
-    const improved = after == null ? action.succeeded : after < before || after === 0;
+    // A trim is verified by what it MOVED, not only by the count afterwards.
+    // Deleting rows is real progress against a multi-million-row backlog even
+    // though the table is still over the threshold this sweep — judging it on
+    // "is the signal below the line yet" is what made a productive prune look
+    // ineffective and switch itself off.
+    const movedRows = condition.remedy === "trim_telemetry" && num(action.counts.rowsPruned) > 0;
+    // "Improved" otherwise means the signal it acted on actually moved down.
+    // When the signal can't be re-read (publish futility needs another 24 h),
+    // fall back to whether the repair itself reported success.
+    const improved =
+      movedRows || (after == null ? action.succeeded : after < before || after === 0);
     const consecutiveFailures = improved ? 0 : memory.failures + 1;
     const shouldEscalate =
       !improved && consecutiveFailures >= VERIFY_FAILURE_LIMIT && condition.remedy !== "escalate";
@@ -1549,6 +1711,12 @@ export async function runSelfMaintenance(
         );
         if (esc.succeeded) escalations += 1;
       }
+    } else if (condition.remedy === "escalate" && action.succeeded) {
+      // A condition whose ONLY remedy is "tell a human" has now told them.
+      // Without this it re-files a HumanReviewQueue row every 15 minutes for
+      // as long as the condition holds — the same "log it again" reflex this
+      // module exists to stop. Back it off for the standard window instead.
+      backoffUntil = now + CONDITION_BACKOFF_MS;
     }
     await writeMemory(prisma, conditionKey(condition.name), {
       failures: consecutiveFailures,

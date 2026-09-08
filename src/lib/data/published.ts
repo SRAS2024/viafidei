@@ -69,11 +69,18 @@ function deserialize(
  * callers move to the paged helper instead.
  */
 export async function listPublished(contentType: ChecklistContentType): Promise<PublishedItem[]> {
-  const rows = await prisma.publishedContent.findMany({
-    where: { contentType, isPublished: true },
-    orderBy: { title: "asc" },
+  // Memoised, because thirteen `force-dynamic` list pages call this on EVERY
+  // request and none of them was cached: /prayers loaded every published
+  // prayer's full body and translations per visitor just to build filter chips
+  // and slice one page. The 60 s list TTL is the same tier the sitemap and
+  // suggestion paths already use, and the publish path flushes the memo.
+  return memo(`published:list:${contentType}`, MEMO_TTL.list, async () => {
+    const rows = await prisma.publishedContent.findMany({
+      where: { contentType, isPublished: true },
+      orderBy: { title: "asc" },
+    });
+    return rows.map((row) => deserialize(row)!).filter(Boolean);
   });
-  return rows.map((row) => deserialize(row)!).filter(Boolean);
 }
 
 export async function getPublishedBySlug(
@@ -780,10 +787,23 @@ type SearchCapabilities = { vector: boolean; trigram: boolean };
 async function searchCapabilities(): Promise<SearchCapabilities> {
   return memo("search-capabilities", MEMO_TTL.sitemap, async () => {
     try {
+      // The probe must assert the WHOLE mechanism, not just the column. In the
+      // state "column exists, trigger does not" every row's searchVector is
+      // NULL, `@@` matches nothing, and search goes silently and totally dark
+      // while still reporting indexed=true — worse than no column at all. That
+      // state is reachable from a schema-only dump restore or a manual DROP
+      // TRIGGER, and migration 0055 now creates the function/trigger inside a
+      // guarded block that degrades rather than failing the deploy.
       const rows = await prisma.$queryRaw<Array<{ vector: boolean; trigram: boolean }>>(
         Prisma.sql`SELECT
-          EXISTS (SELECT 1 FROM information_schema.columns
-                  WHERE table_name = 'PublishedContent' AND column_name = 'searchVector') AS "vector",
+          (EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_schema = 'public'
+                     AND table_name = 'PublishedContent'
+                     AND column_name = 'searchVector')
+           AND EXISTS (SELECT 1 FROM pg_trigger
+                       WHERE tgrelid = to_regclass('public."PublishedContent"')
+                         AND tgname = 'PublishedContent_searchVector_tgr'
+                         AND NOT tgisinternal)) AS "vector",
           EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') AS "trigram"`,
       );
       return { vector: Boolean(rows[0]?.vector), trigram: Boolean(rows[0]?.trigram) };
@@ -876,7 +896,11 @@ function searchSql(
     .replace(/\s+/g, " ")
     .trim();
   const wordBoundary = wordSafe
-    ? Prisma.sql`+ CASE WHEN "title" ~* ${`\y${wordSafe}\y`} THEN 2 ELSE 0 END`
+    ? // String.raw, because `\y` is not a JavaScript escape: in a plain template
+      // literal it collapses to a bare `y`, so this shipped as the pattern
+      // `ymaryy` and the +2 boost never fired for any row, ever. Postgres needs
+      // the backslashes to see its own word-boundary escape.
+      Prisma.sql`+ CASE WHEN "title" ~* ${String.raw`\y${wordSafe}\y`} THEN 2 ELSE 0 END`
     : Prisma.empty;
   const rank = Prisma.sql`(
     ts_rank_cd("searchVector", ${tsquery})
@@ -1052,6 +1076,12 @@ export async function suggestPublished(query: string, perGroup = 3): Promise<Sea
   const caps = await searchCapabilities();
 
   let rows: SearchRow[] = [];
+  // Tracked explicitly rather than inferred from `rows.length === 0`, which
+  // cannot tell "the indexed query threw" from "this query genuinely matches
+  // nothing". Every no-match keystroke in the header autocomplete — the great
+  // majority of them, mid-word — used to pay for the indexed LATERAL query AND
+  // an unindexed 200-row `contains` scan of the whole published table.
+  let indexed = false;
   if (caps.vector) {
     try {
       const { rank, where } = searchSql(q, caps, { prefixLastTerm: true });
@@ -1067,11 +1097,13 @@ export async function suggestPublished(query: string, perGroup = 3): Promise<Sea
           ) s
           ORDER BY s."rank" DESC, s."title" ASC`,
       );
+      indexed = true;
     } catch {
       rows = [];
+      indexed = false;
     }
   }
-  if (rows.length === 0) {
+  if (!indexed) {
     // Fallback: the original predicate, but capped per group in JS so small
     // groups still surface.
     const fallback = await searchFallback(q, 200, 0);

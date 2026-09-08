@@ -21,10 +21,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CONDITION_BACKOFF_MS,
+  DEAD_RATIO_CRITICAL,
+  LEDGER_BYTES_WARN,
   LEDGER_ROWS_WARN,
   REPAIR_ENV_SWITCH,
   VERIFY_FAILURE_LIMIT,
   diagnoseConditions,
+  laneWedgeState,
+  trimBatchesForBacklog,
   eventSamplerSnapshot,
   resetEventSampler,
   resetSelfMaintenanceThrottle,
@@ -39,7 +43,7 @@ const HOUR = 60 * 60 * 1000;
 const NOW = Date.UTC(2026, 8, 7, 12, 0, 0);
 
 interface FakeOpts {
-  relations?: Array<{ relname: string; est: number; bytes: number }>;
+  relations?: Array<{ relname: string; est: number; bytes: number; live?: number; dead?: number }>;
   dbBytes?: number;
   /** Exact counts returned by a bare `model.count()` (the estimate follow-up). */
   exactCounts?: Record<string, number>;
@@ -56,6 +60,8 @@ interface FakeOpts {
   parkedRows?: Array<{ id: string }>;
   /** Rows each $executeRaw batch reports deleting (pruneLedgerRows). */
   prunedPerCall?: number[];
+  /** Rows every batch reports deleting, for a prune that never runs dry. */
+  prunedAlways?: number;
 }
 
 function makePrisma(opts: FakeOpts = {}) {
@@ -86,13 +92,16 @@ function makePrisma(opts: FakeOpts = {}) {
         relname: r.relname,
         est_rows: r.est,
         bytes: r.bytes,
+        live_tup: r.live ?? r.est,
+        dead_tup: r.dead ?? 0,
       }));
     }),
     $executeRaw: vi.fn(async () => {
-      const n = opts.prunedPerCall?.[pruneCall] ?? 0;
+      const n = opts.prunedPerCall?.[pruneCall] ?? opts.prunedAlways ?? 0;
       pruneCall += 1;
       return n;
     }),
+    $executeRawUnsafe: vi.fn(async () => 0),
 
     adminWorkerLog: {
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
@@ -482,7 +491,7 @@ describe("REPAIR: lane wedge + stale cursor", () => {
     expect(prisma.adminWorkerLaneState.updateMany).toHaveBeenCalled();
   });
 
-  it("rewinds a cursor that walked past the end of its corpus", async () => {
+  it("rewinds a cursor that walked past the end of its corpus, keeping its dampener", async () => {
     const prisma = makePrisma({
       ...healthyOpts(),
       cursors: [
@@ -492,10 +501,32 @@ describe("REPAIR: lane wedge + stale cursor", () => {
     const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
     const repair = r.repairs.find((x) => x.repair === "reset_cursor");
     expect(repair?.counts.cursorsReset).toBe(1);
+    // `zeroStreak` is structured/ingest.ts's own productivity dampener —
+    // `pickIngestor` scores `gap / (1 + zeroStreak)`, so zeroing it from
+    // outside lets a barren ingestor monopolise the lane again. Rewinding the
+    // offset alone already clears the condition.
     expect(prisma.__memory.get("structured-cursor:saints")).toMatchObject({
       offset: 0,
-      zeroStreak: 0,
+      zeroStreak: 7,
     });
+  });
+
+  it("leaves a cursor the ingest module has already parked completely alone", async () => {
+    // structured/ingest.ts wraps to offset 0 AND sets exhaustedUntil on
+    // endOfCorpus so the ingestor rests. Rewinding one of those from outside
+    // throws away real page progress.
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      cursors: [
+        {
+          memoryKey: "structured-cursor:popes",
+          memoryValue: { offset: 9000, zeroStreak: 7, exhaustedUntil: NOW + HOUR },
+        },
+      ],
+    });
+    const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
+    expect(r.conditions.map((c) => c.name)).not.toContain("CURSOR_OUT_OF_RANGE");
+    expect(prisma.__memory.get("structured-cursor:popes")).toMatchObject({ offset: 9000 });
   });
 });
 
@@ -637,6 +668,252 @@ describe("VERIFY", () => {
     expect(shared.__logs.length).toBe(before);
     // The backoff is bounded, not permanent.
     expect(CONDITION_BACKOFF_MS).toBeGreaterThan(0);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+
+describe("VERIFY measures what the repair actually moves", () => {
+  /**
+   * The production shape: an enormous ledger and a prune that IS deleting.
+   * LEDGER_BLOAT used to verify `evidence[0].value` (a ROW COUNT) against a
+   * re-read of `database_bytes` (BYTES) — units that can never converge — and
+   * a DELETE does not shrink pg_database_size anyway. So a working trim was
+   * judged ineffective three sweeps running, escalated, and switched itself
+   * off for six hours exactly when the ledger was worst.
+   */
+  const PRODUCTIVE: FakeOpts = { ...BLOATED, prunedPerCall: [], prunedAlways: 5000 };
+
+  it("verifies LEDGER_BLOAT against a row-count signal, not pg_database_size", async () => {
+    const prisma = makePrisma(PRODUCTIVE);
+    const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
+    const bloat = r.conditions.find((c) => c.name === "LEDGER_BLOAT");
+    expect(bloat?.signalKey).toMatch(/^ledger_rows:/);
+    expect(bloat?.signalKey).not.toBe("database_bytes");
+  });
+
+  it("records a PRODUCTIVE prune as improved, so it never backs itself off", async () => {
+    const shared = makePrisma(PRODUCTIVE);
+    let last = await runSelfMaintenance(shared, { now: NOW, force: true });
+    for (let i = 1; i <= VERIFY_FAILURE_LIMIT; i += 1) {
+      resetSelfMaintenanceThrottle();
+      last = await runSelfMaintenance(shared, { now: NOW + i * HOUR, force: true });
+    }
+    const v = last.verifications.find((x) => x.condition === "LEDGER_BLOAT");
+    expect(v?.improved).toBe(true);
+    expect(v?.consecutiveFailures).toBe(0);
+    expect(v?.escalated).toBe(false);
+    expect(v?.backoffUntil).toBeNull();
+    const trim = last.repairs.find((x) => x.repair === "trim_telemetry");
+    expect(trim?.attempted).toBe(true);
+    expect(Number(trim?.counts.rowsPruned)).toBeGreaterThan(0);
+  });
+
+  it("raises its own per-table cap when the backlog dwarfs one call's capacity", () => {
+    // 20 x 5,000 = 100,000 rows per call; the measured backlog was 16,909,035.
+    const small = trimBatchesForBacklog([
+      { key: "ledger_rows:AdminWorkerLog", value: 1000, threshold: 0, severity: "ok", detail: "" },
+    ]);
+    const huge = trimBatchesForBacklog([
+      {
+        key: "ledger_rows:AdminWorkerActionScore",
+        value: 16_909_035,
+        threshold: 0,
+        severity: "critical",
+        detail: "",
+      },
+    ]);
+    expect(huge).toBeGreaterThan(small);
+    // Bounded: it raises its cap, it does not remove it.
+    expect(huge).toBeLessThanOrEqual(200);
+  });
+
+  it("escalates dead space by name instead of pretending a trim can fix it", async () => {
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      relations: [
+        {
+          relname: "AdminWorkerActionScore",
+          est: 4_932,
+          bytes: 5_774 * 1024 * 1024,
+          live: 4_932,
+          dead: 16_000_000,
+        },
+      ],
+    });
+    const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
+    const dead = r.signals.find((x) => x.key === "dead_tuple_ratio");
+    expect(dead?.value).toBeGreaterThan(DEAD_RATIO_CRITICAL);
+    const condition = r.conditions.find((c) => c.name === "LEDGER_DEAD_SPACE");
+    expect(condition?.remedy).toBe("escalate");
+    // The remedy names the operator command that actually returns the disk.
+    expect(condition?.detail).toContain("prune-worker-ledger.ts");
+    // …and having told a human, it backs off instead of re-filing every sweep.
+    const v = r.verifications.find((x) => x.condition === "LEDGER_DEAD_SPACE");
+    expect(v?.backoffUntil).not.toBeNull();
+  });
+
+  it("does not page an operator over a stale handful of dead tuples", async () => {
+    // pg_stat_all_tables can be wrong by orders of magnitude when autovacuum
+    // has never run, so a big table with a tiny stale sample must not report
+    // "100% dead".
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      relations: [
+        {
+          relname: "AdminWorkerLog",
+          est: 10,
+          bytes: 5_000 * 1024 * 1024,
+          live: 0,
+          dead: 200,
+        },
+      ],
+    });
+    const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
+    expect(r.signals.find((x) => x.key === "dead_tuple_ratio")?.value).toBe(0);
+    expect(r.conditions.map((c) => c.name)).not.toContain("LEDGER_DEAD_SPACE");
+  });
+
+  it("sizes a table by BYTES too, because reltuples is stale exactly when it matters", async () => {
+    // pg_stat/reltuples said 4,932 for a table holding 16,909,035 rows.
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      relations: [{ relname: "AdminWorkerActionScore", est: 0, bytes: LEDGER_BYTES_WARN + 1 }],
+    });
+    const reading = await senseSelfHealth(prisma, { now: NOW });
+    const sig = reading.signals.find((x) => x.key === "ledger_rows:AdminWorkerActionScore");
+    expect(sig?.severity).not.toBe("ok");
+    // And crossing the byte line is what pays for the exact count — the row
+    // estimate here is 0, so a row-only trigger would never have fired.
+    expect(prisma.adminWorkerActionScore.count).toHaveBeenCalled();
+  });
+
+  it("verifies ORPHANED_UNPUBLISHED_CONTENT against the population it sensed", async () => {
+    // SENSE counts the rollback ledger; VERIFY used to count every unpublished
+    // row for any reason — a superset, so a working restore read as ineffective.
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      rollbacks: [{ contentId: "c1", restorable: true, rollbackResult: "UNPUBLISHED" }],
+      content: {
+        c1: {
+          id: "c1",
+          contentType: "PRAYER",
+          slug: "act-of-contrition",
+          title: "Act of Contrition",
+          subtitle: null,
+          version: 3,
+          payload: { sources: ["https://vatican.va/x"], body: "O my God, I am heartily sorry." },
+          isPublished: false,
+          contentChecksum: "abc",
+        },
+      },
+    });
+    await runSelfMaintenance(prisma, { now: NOW, force: true });
+    const counted = vi.mocked(prisma.adminWorkerRollbackLedger.count);
+    // Once in SENSE, once in VERIFY — the same predicate both times.
+    expect(counted.mock.calls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("verifies a sampled event from the LEDGER, not from the sampler it just set", async () => {
+    // Asking the sampler whether it is suppressing what it was just told to
+    // suppress is unconditionally "yes": an ineffective repair reported
+    // success forever and never escalated.
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      eventRates: [{ eventName: "worker_lanes", perHour: 9_000 }],
+      stuckEvents: 0,
+    });
+    await runSelfMaintenance(prisma, { now: NOW, force: true });
+    const countCalls = vi
+      .mocked(prisma.adminWorkerLog.count)
+      .mock.calls.map((c) => c[0])
+      .filter(Boolean) as Array<{ where?: Record<string, unknown> }>;
+    expect(countCalls.some((c) => c.where?.eventName === "worker_lanes")).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+
+describe("a lane is not wedged just because it says the same thing every time", () => {
+  /**
+   * Most lanes return a CONSTANT detail by design — "readings refreshed",
+   * "schema awareness ran", "curated ingest +0". Treating three identical
+   * outcome strings as a wedge declared healthy lanes wedged on every sweep,
+   * and the repair then stamped `lastError`, which lanes.ts uses as its
+   * error-cooldown trigger — suppressing publishing lanes for ~5 minutes after
+   * each sweep.
+   */
+  const constantOutcome = {
+    lane: "readings",
+    status: "idle",
+    currentItem: null,
+    lastStartedAt: new Date(NOW - 60_000).toISOString(),
+    lastOutcome: "readings refreshed",
+  };
+
+  it("never calls an idle lane with a constant outcome wedged, however many sweeps", async () => {
+    const prisma = makePrisma({ ...healthyOpts(), lanes: [constantOutcome] });
+    for (let i = 0; i < 5; i += 1) {
+      resetSelfMaintenanceThrottle();
+      const r = await runSelfMaintenance(prisma, { now: NOW + i * HOUR, force: true });
+      expect(r.conditions.map((c) => c.name)).not.toContain("LANE_WEDGED");
+    }
+    expect(prisma.adminWorkerLaneState.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does call a lane stuck on the SAME item across sweeps wedged", () => {
+    const row = { lane: "drain", status: "running", currentItem: "artifact-7" };
+    let memory: Record<string, unknown> = {};
+    let state = laneWedgeState(row, memory, NOW);
+    for (let i = 1; i < 3; i += 1) {
+      memory = { lastOutcome: state.marker, repeats: state.repeats };
+      state = laneWedgeState(row, memory, NOW + i * 60_000);
+    }
+    expect(state.wedged).toBe(true);
+  });
+
+  it("resets a wedged lane without writing lastError — that field gates the scheduler", async () => {
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      lanes: [
+        {
+          lane: "drain",
+          status: "running",
+          currentItem: "artifact-7",
+          lastStartedAt: new Date(NOW - 2 * HOUR).toISOString(),
+          lastOutcome: "…",
+        },
+      ],
+    });
+    await runSelfMaintenance(prisma, { now: NOW, force: true });
+    const call = vi.mocked(prisma.adminWorkerLaneState.updateMany).mock.calls[0]?.[0] as {
+      data: Record<string, unknown>;
+    };
+    expect(call.data.status).toBe("idle");
+    // lanes.ts skips any lane whose lastError is set and whose lastFinishedAt
+    // is inside the cooldown — writing an error here suppressed the lane.
+    expect(call.data.lastError).toBeNull();
+  });
+
+  it("re-senses wedged lanes with the SAME predicate SENSE used", async () => {
+    const prisma = makePrisma({
+      ...healthyOpts(),
+      lanes: [
+        {
+          lane: "drain",
+          status: "running",
+          currentItem: "artifact-7",
+          lastStartedAt: new Date(NOW - 2 * HOUR).toISOString(),
+          lastOutcome: "…",
+        },
+      ],
+    });
+    const r = await runSelfMaintenance(prisma, { now: NOW, force: true });
+    const v = r.verifications.find((x) => x.condition === "LANE_WEDGED");
+    // The fake reports the lane as still running, so an honest re-sense still
+    // sees it — it must NOT report a phantom "improved".
+    expect(v?.after).toBe(1);
+    expect(v?.improved).toBe(false);
   });
 });
 

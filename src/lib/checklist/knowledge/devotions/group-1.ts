@@ -247,10 +247,13 @@ const BLACK_SCAPULAR_CITATIONS = [
   INDULGENTIARUM_DOCTRINA,
 ];
 
+const PADRI_MARIANI_BLUE_SCAPULAR = "https://padrimariani.org/en/the-blue-scapular/";
+
 const BLUE_SCAPULAR_CITATIONS = [
   CC_KINDS_OF_SCAPULARS,
   CC_SCAPULAR_DICTIONARY,
   EWTN_SCAPULAR_DEVOTION,
+  PADRI_MARIANI_BLUE_SCAPULAR,
   INDULGENTIARUM_DOCTRINA,
 ];
 
@@ -671,7 +674,7 @@ export const devotionGroupOne: CuratedEntry[] = [
       summary:
         "A small light-blue scapular bearing the Immaculate Conception on one side and the name of Mary on the other, worn in honour of Our Lady conceived without sin.",
       background:
-        "The devotion comes from the Theatine tradition and from Venerable Ursula Benincasa, who in 1581 received a vision of the scapular's design and asked that the graces she had been shown be extended to the faithful who would wear a small light-blue scapular bearing on one side the image of the Immaculate Conception and on the other the name 'Mary.' In 1671 Pope Clement X granted permission to bless the scapular and to invest people with it. It is one of the five best-known small scapulars, a private devotion rather than a liturgical act, and nothing is promised here that the cited sources do not report.",
+        "The devotion comes from the Theatine tradition and from Venerable Ursula Benincasa, who in 1617, at Naples on the Feast of the Presentation of the Lord, received a vision of the Blessed Virgin clothed in a white garment beneath an azure mantle, and asked that the graces she had been shown be extended to the faithful who would wear a small light-blue scapular bearing on one side the image of the Immaculate Conception and on the other the name 'Mary.' Benincasa (1547-1618) had founded the Oblates of the Immaculate Conception in 1583, and her institutes were placed under the direction of the Theatine Fathers. At the Theatines' request Pope Clement X granted permission to bless the scapular and to invest people with it, and attached indulgences to it, by an apostolic breve of 30 January 1671. It is one of the five best-known small scapulars, a private devotion rather than a liturgical act, and nothing is promised here that the cited sources do not report.",
       devotionType: "marian",
       subtype: "scapular",
       practiceInstructions:

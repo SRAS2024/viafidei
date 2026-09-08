@@ -320,6 +320,7 @@ export const apparitionGroupOne: CuratedEntry[] = [
     citations: [
       "https://www.miraclehunter.com/marian_apparitions/approved_apparitions/filippsdorf/index.html",
       "https://www.omnesmag.com/en/news/filipov-the-czech-sanctuary-uniting-faith-and-reconciliation/",
+      "https://cs.wikipedia.org/wiki/Bazilika_Panny_Marie_Pomocnice_k%C5%99es%C5%A5an%C5%AF",
     ],
     payload: {
       slug: "apparition-our-lady-help-of-christians-filippsdorf",
@@ -334,13 +335,14 @@ export const apparitionGroupOne: CuratedEntry[] = [
       summary:
         "In the early morning of 13 January 1866 Magdalena Kade, a poor seamstress of Filippsdorf in northern Bohemia who had been given the last rites, saw the Blessed Virgin Mary at her bedside and was instantly and completely cured of a long and mortal illness. A diocesan commission examined the healing and recognised it as miraculous, and the basilica of Our Lady, Help of Christians, was raised over the room where it happened.",
       background:
-        "The church built on the site was given the rank of minor basilica in 1885, and Filipov became known as the Lourdes of Bohemia; pilgrims still keep the anniversary with a Mass in the small hours of 13 January. In the twentieth century, after the expulsions that followed the Second World War, the shrine took on a further character as a place of reconciliation between Czechs and Germans. Only a single sentence of the apparition is handed down — that the sick woman was healed — and nothing further should be added to it.",
+        "The neo-Romanesque pilgrimage church built over the room was raised between 1873 and 1886; the shrine was entrusted to the Redemptorists in 1885, and it was Pope Pius XI who gave the church the rank of minor basilica in 1926. Filipov became known as the Lourdes of Bohemia; pilgrims still keep the anniversary with a Mass in the small hours of 13 January. In the twentieth century, after the expulsions that followed the Second World War, the shrine took on a further character as a place of reconciliation between Czechs and Germans. Only a single sentence of the apparition is handed down — that the sick woman was healed — and nothing further should be added to it.",
       visionaries: ["Magdalena Kade"],
       messageHighlights: [],
       associatedMarianTitleSlug: "our-lady-help-of-christians",
       citations: [
         "https://www.miraclehunter.com/marian_apparitions/approved_apparitions/filippsdorf/index.html",
         "https://www.omnesmag.com/en/news/filipov-the-czech-sanctuary-uniting-faith-and-reconciliation/",
+        "https://cs.wikipedia.org/wiki/Bazilika_Panny_Marie_Pomocnice_k%C5%99es%C5%A5an%C5%AF",
       ],
     },
   },
@@ -363,7 +365,7 @@ export const apparitionGroupOne: CuratedEntry[] = [
       subject: "marian",
       yearOfApparition: 1608,
       summary:
-        "In 1608, in a country where the Catholic parish of Šiluva had been suppressed for two generations, shepherd children saw a young woman standing on a rock in the fields, holding a child and weeping. Asked why she wept, she is remembered to have answered that once her Son was worshipped in that place, and now it is ploughed and sown. The Catholic church of Šiluva was restored, and the Holy See confirmed the veneration; Pope Pius VI granted a canonical coronation to the image in 1786.",
+        "In 1608, in a country where the Catholic parish of Šiluva had been suppressed for two generations, shepherd children saw a young woman standing on a rock in the fields, holding a child and weeping. Asked why she wept, she is remembered to have answered that once her Son was worshipped in that place, and now it is ploughed and sown. The Catholic church of Šiluva was restored, and the Holy See confirmed the veneration: Pope Pius VI confirmed the authenticity of the apparition by decree of 17 August 1775, and granted the image a canonical coronation on 8 September 1786.",
       background:
         "Šiluva is one of the earliest apparitions in Europe to receive papal confirmation, and the events were witnessed by Calvinists as well as Catholics in a district that had passed to the Reformation. The Basilica of the Nativity of the Blessed Virgin Mary and the Chapel of the Apparition mark the site; Šiluva remained a rallying point of Lithuanian Catholic identity through the Soviet period, and Pope John Paul II prayed there in 1993. The great pilgrimage is kept in early September around the feast of Mary's Nativity.",
       visionaries: ["shepherd children of Šiluva"],

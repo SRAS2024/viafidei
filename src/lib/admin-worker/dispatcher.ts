@@ -2538,6 +2538,95 @@ async function routeReviewOutcome(
   return "retry";
 }
 
+/**
+ * Call `delegate[method](arg)`, tolerating a client (or a test mock) that does
+ * not have it. Every post-publish read is best-effort: verification coverage
+ * must never be able to fail a dispatch.
+ */
+async function callOptional<T>(
+  delegate: Record<string, unknown> | undefined,
+  method: string,
+  arg: unknown,
+  fallback: T,
+): Promise<T> {
+  const fn = delegate?.[method];
+  if (typeof fn !== "function") return fallback;
+  try {
+    return ((await (fn as (a?: unknown) => Promise<T>).call(delegate, arg)) ?? fallback) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+/** Where the whole-catalog verification sweep has got to. */
+const POST_PUBLISH_SWEEP_CURSOR_KEY = "post-publish-verify:sweep-offset";
+const POST_PUBLISH_SWEEP_PAGE = 50;
+
+/**
+ * The next page of the whole-catalog verification sweep, advancing (and
+ * wrapping) a durable offset. Fail-open: a memory-store error returns the
+ * first page, which is still better than never looking past the newest rows.
+ */
+async function nextPostPublishSweepWindow(
+  prisma: PrismaClient,
+): Promise<Array<{ id: string; contentType: string; slug: string; title: string }>> {
+  const where = {
+    memoryType_memoryKey: {
+      memoryType: "GENERIC" as const,
+      memoryKey: POST_PUBLISH_SWEEP_CURSOR_KEY,
+    },
+  };
+  const memory = prisma.adminWorkerMemory as unknown as Record<string, unknown> | undefined;
+  const content = prisma.publishedContent as unknown as Record<string, unknown> | undefined;
+  let offset = 0;
+  const row = await callOptional<{ memoryValue?: unknown } | null>(
+    memory,
+    "findUnique",
+    { where, select: { memoryValue: true } },
+    null,
+  );
+  const v = row?.memoryValue;
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    const n = Number((v as Record<string, unknown>).offset);
+    if (Number.isFinite(n) && n > 0) offset = Math.trunc(n);
+  }
+  const total = await callOptional<number>(content, "count", { where: { isPublished: true } }, 0);
+  if (total === 0) return [];
+  if (offset >= total) offset = 0;
+  const page = await callOptional<
+    Array<{ id: string; contentType: string; slug: string; title: string }>
+  >(
+    content,
+    "findMany",
+    {
+      where: { isPublished: true },
+      orderBy: { publishedAt: "asc" },
+      skip: offset,
+      take: POST_PUBLISH_SWEEP_PAGE,
+      select: { id: true, contentType: true, slug: true, title: true },
+    },
+    [],
+  );
+  const nextOffset =
+    offset + POST_PUBLISH_SWEEP_PAGE >= total ? 0 : offset + POST_PUBLISH_SWEEP_PAGE;
+  await callOptional(
+    memory,
+    "upsert",
+    {
+      where,
+      update: { memoryValue: { offset: nextOffset }, lastUsedAt: new Date() },
+      create: {
+        memoryType: "GENERIC",
+        memoryKey: POST_PUBLISH_SWEEP_CURSOR_KEY,
+        memoryValue: { offset: nextOffset },
+        lastUsedAt: new Date(),
+      },
+    },
+    null,
+  );
+  return page;
+}
+
 async function runPostPublishVerify(
   prisma: PrismaClient,
   passId: string,
@@ -2560,22 +2649,52 @@ async function runPostPublishVerify(
     })
     .catch(() => [] as Array<{ contentId: string; result: string; createdAt: Date }>);
   const latestByContent = new Map(latestRows.map((r) => [r.contentId, r]));
+  // How many times each row has come back WARN. A WARN is "unverified", not
+  // "broken" — and post-publish-probe.ts degrades a missing or mismatched
+  // origin to WARN on EVERY check, so an origin misconfiguration made all 50
+  // rows in the window permanently eligible and the stage cycled them forever
+  // at one per dispatch. Backing the re-probe off per strike turns that into a
+  // handful of probes instead of an endless loop.
+  const warnCounts = new Map<string, number>();
+  const warnGroups = await callOptional<Array<{ contentId: string; _count: { _all: number } }>>(
+    prisma.postPublishVerification as unknown as Record<string, unknown>,
+    "groupBy",
+    { by: ["contentId"], where: { result: "WARN" }, _count: { _all: true } },
+    [],
+  );
+  for (const g of warnGroups) warnCounts.set(g.contentId, g._count._all);
+
   const now = Date.now();
   const WARN_REPROBE_MS = 24 * 60 * 60 * 1000;
+  /** Cap the backoff so a row is still re-checked about weekly, not never. */
+  const WARN_REPROBE_MAX_MULTIPLIER = 7;
   const eligible = (id: string): boolean => {
     const v = latestByContent.get(id);
     if (!v) return true;
     const age = now - new Date(v.createdAt).getTime();
     if (v.result === "FAIL") return age >= FAIL_CONFIRMATION_GAP_MS;
-    if (v.result === "WARN") return age >= WARN_REPROBE_MS;
+    if (v.result === "WARN") {
+      const strikes = Math.max(1, warnCounts.get(id) ?? 1);
+      return age >= WARN_REPROBE_MS * Math.min(strikes, WARN_REPROBE_MAX_MULTIPLIER);
+    }
     return false;
   };
-  const candidates = await prisma.publishedContent.findMany({
+
+  // TWO windows, because "the newest 50 by publishedAt" can never reach the
+  // rest of the catalog: whatever is in that window is re-probed forever while
+  // the other ~3,400 published rows are never verified at all. The second
+  // window walks the whole catalog on a durable cursor, so coverage is
+  // eventual rather than never.
+  const recent = await prisma.publishedContent.findMany({
     where: { isPublished: true },
     orderBy: { publishedAt: "desc" },
     take: 50,
     select: { id: true, contentType: true, slug: true, title: true },
   });
+  const sweep = await nextPostPublishSweepWindow(prisma);
+  const candidates = [...recent, ...sweep].filter(
+    (row, i, all) => all.findIndex((r) => r.id === row.id) === i,
+  );
   // Unconfirmed first strikes go first: they are the rows whose fate is open.
   const target =
     candidates.find((c) => latestByContent.get(c.id)?.result === "FAIL" && eligible(c.id)) ??

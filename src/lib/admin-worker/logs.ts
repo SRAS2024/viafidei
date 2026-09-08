@@ -15,6 +15,7 @@ import type {
   PrismaClient,
 } from "@prisma/client";
 
+import { sampleWorkerEvent } from "./event-sampler";
 import { workerExecutionOrigin } from "./execution-context";
 
 export interface AdminWorkerLogInput {
@@ -29,6 +30,12 @@ export interface AdminWorkerLogInput {
   sourceUrl?: string | null;
   relatedEntityId?: string | null;
   safeMetadata?: Prisma.InputJsonValue | null;
+  /**
+   * The caller already asked `sampleWorkerEvent` for this row (it needed the
+   * `suppressed` count for the message). Set so the budget is not charged
+   * twice for one written row.
+   */
+  presampled?: boolean;
 }
 
 /**
@@ -51,15 +58,48 @@ function withExecutionOrigin(
   ) as Prisma.InputJsonValue;
 }
 
+/**
+ * Write one AdminWorkerLog row — subject, for INFO rows, to the per-eventName
+ * hourly budget in event-sampler.ts.
+ *
+ * The budget is enforced HERE rather than at the call sites because that is the
+ * only place that covers every writer. Nine call sites opted in; the rest did
+ * not, and `worker_lanes` (twice a pass) plus `build_ready_drain` (once a pass)
+ * were writing ~720 INFO rows an hour against a budget of 120 — the same shape
+ * as the events that produced ~1 M rows each in production. It is also what
+ * makes the LOG_EVENT_SPAM repair real: `suppressWorkerEvent` used to mutate a
+ * map that almost nobody read.
+ *
+ * Over-budget INFO rows are DROPPED, and the first drop of each cool-down
+ * writes one WARN `log_event_sampled` row in its place so the ledger still
+ * records that the event is being sampled. WARN/ERROR never sample.
+ */
 export async function writeAdminWorkerLog(
   prisma: PrismaClient,
   input: AdminWorkerLogInput,
 ): Promise<void> {
+  const severity = input.severity ?? "INFO";
+  if (severity === "INFO" && !input.presampled) {
+    const decision = sampleWorkerEvent(input.eventName);
+    if (!decision.write) {
+      if (decision.suppressionStarted) {
+        await writeAdminWorkerLog(prisma, {
+          passId: input.passId ?? null,
+          category: input.category,
+          severity: "WARN",
+          eventName: "log_event_sampled",
+          message: `"${input.eventName}" exceeded its hourly INFO log budget and is being sampled; further rows are dropped until the cool-down expires.`,
+          safeMetadata: { sampledEvent: input.eventName },
+        }).catch(() => undefined);
+      }
+      return;
+    }
+  }
   await prisma.adminWorkerLog.create({
     data: {
       passId: input.passId ?? null,
       taskId: input.taskId ?? null,
-      severity: input.severity ?? "INFO",
+      severity,
       category: input.category ?? "OVERVIEW",
       eventName: input.eventName,
       message: input.message,

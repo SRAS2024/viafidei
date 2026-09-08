@@ -181,6 +181,7 @@ export async function replayRecentPasses(
         category: "REPORT",
         severity: reproductionRate < 0.8 ? "WARN" : "INFO",
         eventName: "replay_simulation",
+        presampled: true,
         message: `Replayed ${replayed} pass(es) in simulation: ${reproduced} reproduced (${Math.round(
           reproductionRate * 100,
         )}%)${drift ? "; decision drift detected" : ""}.`,

@@ -194,6 +194,7 @@ export async function discoverFromHost(
       category: "SOURCE_DISCOVERY",
       severity: "INFO",
       eventName: "sitemap_discovery",
+      presampled: true,
       message: `Sitemap discovery on ${host}: fetched=${fetched}, inserted=${inserted}, rejected=${rejected}`,
       sourceHost: host,
       safeMetadata: { fetched, inserted, rejected },

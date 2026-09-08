@@ -814,7 +814,7 @@ export const EVENTS_3: ChurchHistoryEvent[] = [
     context: "Pius IX defines that Mary was conceived without original sin.",
     significance: "The first ex cathedra definition of the modern era.",
     citation:
-      "https://www.vatican.va/content/pius-ix/en/documents/apostolic-constitution-ineffabilis-deus-8-december-1854.html",
+      "https://www.vatican.va/content/pius-ix/it/documents/18541208-costituzione-apostolica-ineffabilis-deus.html",
     links: { popes: ["pope-pius-ix"] },
   },
   {

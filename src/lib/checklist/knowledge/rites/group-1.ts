@@ -5,7 +5,7 @@ const ORIENTALIUM_ECCLESIARUM =
 const SACROSANCTUM_CONCILIUM =
   "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19631204_sacrosanctum-concilium_en.html";
 const ORIENTALE_LUMEN =
-  "https://www.vatican.va/content/john-paul-ii/en/apost_letters/documents/hf_jp-ii_apl_19950502_orientale-lumen.html";
+  "https://www.vatican.va/content/john-paul-ii/en/apost_letters/1995/documents/hf_jp-ii_apl_19950502_orientale-lumen.html";
 const EASTERN_CHURCHES = "https://www.vatican.va/roman_curia/congregations/orientchurch/index.htm";
 const DIVINE_WORSHIP = "https://www.vatican.va/roman_curia/congregations/ccdds/index.htm";
 const ANGLICANORUM_COETIBUS =
@@ -248,7 +248,7 @@ export const riteGroupOne: CuratedEntry[] = [
     history:
       "Byzantine-rite Catholics in Macedonia trace their communion with Rome to unions among the Slavic Christians of the region in the nineteenth century. Their communities were long attached to the eparchy of Križevci; in 2001 the Holy See erected an apostolic exarchate for them, and in 2018 Pope Francis raised it to the Eparchy of the Blessed Virgin Mary Assumed in Strumica–Skopje, making them a Church sui iuris of their own.",
     background:
-      "The Church is governed by its eparchial bishop and celebrates the Divine Liturgy in the Byzantine tradition in Macedonian and Church Slavonic. Its best-known daughter is Saint Teresa of Calcutta, born in Skopje, whose family worshipped among the Catholics of the region.",
+      "The Church is governed by its eparchial bishop and celebrates the Divine Liturgy in the Byzantine tradition in Macedonian and Church Slavonic. Skopje, where the eparchial see is, is also the birthplace of Saint Teresa of Calcutta, though her family belonged to the city's Latin-rite Albanian Catholic community and she was baptised in the Latin parish of the Sacred Heart, not among the Byzantine-rite faithful of this Church.",
     summary:
       "A small Byzantine-rite Church sui iuris in North Macedonia, given its own eparchy of Strumica–Skopje in 2018.",
     citations: [ORIENTALIUM_ECCLESIARUM, EASTERN_CHURCHES],

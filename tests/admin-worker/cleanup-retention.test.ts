@@ -10,6 +10,14 @@
  *     (INFO logs / action scores / brain calls / decisions / passes 14d, stage
  *     outcomes and terminal repair plans 30d), in bounded batches, at most once
  *     an hour, and NEVER touching WARN/ERROR logs or any content table;
+ *   - the tables the post-mortem named are covered, including the three only
+ *     the OPERATOR script trimmed (AdminWorkerReasoningGraph 1,976,739 rows,
+ *     AdminWorkerCalibrationHistory 1,548,893, AdminWorkerStucknessRecord
+ *     207,830) and PostPublishVerification;
+ *   - WARN/ERROR log rows have a long but FINITE window, not none at all;
+ *   - a prune that emptied a relation by a full batch follows with a plain
+ *     VACUUM, because deleting rows alone never returned any disk in
+ *     production, and never a VACUUM FULL (an operator action);
  *   - the three tables the first version MISSED are covered: on 2026-09-07 the
  *     production database was 21 GB, of which AdminWorkerDecision was 5.7 GB,
  *     AdminWorkerPass 440 MB and AdminWorkerRepairPlan 27 MB — against 12 MB of
@@ -25,15 +33,23 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ACTION_SCORE_RETENTION_MS,
   BRAIN_CALL_RETENTION_MS,
+  CALIBRATION_RETENTION_MS,
   DECISION_RETENTION_MS,
+  LEDGER_PRUNE_MAX_BATCHES,
+  LOG_AUDIT_RETENTION_MS,
   LOG_INFO_RETENTION_MS,
   PASS_RETENTION_MS,
+  POST_PUBLISH_VERIFICATION_RETENTION_MS,
   pruneLedgerRows,
+  REASONING_GRAPH_RETENTION_MS,
   REPAIR_PLAN_RETENTION_MS,
   ROLLBACK_REVIEW_ACTIONS,
   runCleanupPass,
   STAGE_OUTCOME_RETENTION_MS,
+  STUCKNESS_RETENTION_MS,
   totalLedgerRowsPruned,
+  VACUUMABLE_TABLES,
+  vacuumLedgerTables,
 } from "@/lib/admin-worker/cleanup";
 
 function makePrisma(opts: { snapshotCounts?: Record<string, number> } = {}) {
@@ -123,6 +139,7 @@ describe("runCleanupPass", () => {
  */
 function makeRawPrisma(rowsPerCall: number[] = []) {
   const calls: Array<{ sql: string; values: unknown[] }> = [];
+  const unsafe: string[] = [];
   let i = 0;
   const prisma = {
     $executeRaw: vi.fn(async (strings: TemplateStringsArray, ...values: unknown[]) => {
@@ -131,8 +148,12 @@ function makeRawPrisma(rowsPerCall: number[] = []) {
       i += 1;
       return n;
     }),
+    $executeRawUnsafe: vi.fn(async (sql: string) => {
+      unsafe.push(sql);
+      return 0;
+    }),
   };
-  return { prisma, calls };
+  return { prisma, calls, unsafe };
 }
 
 const HOUR = 60 * 60 * 1000;
@@ -144,18 +165,29 @@ describe("pruneLedgerRows", () => {
     expect(out.ran).toBe(true);
     const tables = calls.map((c) => c.sql.match(/DELETE FROM "(\w+)"/)?.[1]);
     expect(tables).toEqual([
-      "AdminWorkerLog",
+      "AdminWorkerLog", // INFO, short window
+      "AdminWorkerLog", // WARN/ERROR, long window
       "AdminWorkerActionScore",
       "AdminWorkerBrainCall",
       "AdminWorkerStageOutcome",
       "AdminWorkerRepairPlan",
+      // The three the post-mortem named that only the OPERATOR script covered —
+      // 1,976,739 + 1,548,893 + 207,830 rows in production — plus the
+      // verification ledger the post-publish stage appends to every dispatch.
+      "AdminWorkerReasoningGraph",
+      "AdminWorkerCalibrationHistory",
+      "AdminWorkerStucknessRecord",
+      "PostPublishVerification",
       "AdminWorkerDecision",
       // LAST: five inbound FKs are ON DELETE SET NULL, so trimming the parent
       // first would rewrite millions of child rows for nothing.
       "AdminWorkerPass",
     ]);
-    // WARN/ERROR are the audit trail escalation reads back — never deleted.
+    // The audit trail escalation reads back is trimmed on a LONG window, never
+    // the short INFO one — but "never" was itself an unbounded growth channel.
     expect(calls[0].sql).toContain(`"severity" = 'INFO'`);
+    expect(calls[1].sql).toContain(`"severity" <> 'INFO'`);
+    expect(LOG_AUDIT_RETENTION_MS).toBeGreaterThan(LOG_INFO_RETENTION_MS);
     // A live pass and a live repair plan are never deleted out from under work
     // in flight.
     const passSql = calls.find((c) => c.sql.includes('FROM "AdminWorkerPass"'))!.sql;
@@ -172,7 +204,9 @@ describe("pruneLedgerRows", () => {
     const { prisma, calls } = makeRawPrisma();
     await pruneLedgerRows(prisma as never, { force: true });
     for (const call of calls) {
-      expect(call.sql).toMatch(/DELETE FROM "AdminWorker\w+"/);
+      const table = call.sql.match(/DELETE FROM "(\w+)"/)?.[1] ?? "";
+      // Every relation touched is worker telemetry on the declared allow-list.
+      expect(VACUUMABLE_TABLES).toContain(table);
       expect(call.sql).not.toContain("PublishedContent");
       expect(call.sql).not.toContain("ChecklistItem");
     }
@@ -184,12 +218,17 @@ describe("pruneLedgerRows", () => {
     await pruneLedgerRows(prisma as never, { force: true, now });
     const cutoffs = calls.map((c) => (c.values[0] as Date).getTime());
     expect(cutoffs[0]).toBe(now - LOG_INFO_RETENTION_MS);
-    expect(cutoffs[1]).toBe(now - ACTION_SCORE_RETENTION_MS);
-    expect(cutoffs[2]).toBe(now - BRAIN_CALL_RETENTION_MS);
-    expect(cutoffs[3]).toBe(now - STAGE_OUTCOME_RETENTION_MS);
-    expect(cutoffs[4]).toBe(now - REPAIR_PLAN_RETENTION_MS);
-    expect(cutoffs[5]).toBe(now - DECISION_RETENTION_MS);
-    expect(cutoffs[6]).toBe(now - PASS_RETENTION_MS);
+    expect(cutoffs[1]).toBe(now - LOG_AUDIT_RETENTION_MS);
+    expect(cutoffs[2]).toBe(now - ACTION_SCORE_RETENTION_MS);
+    expect(cutoffs[3]).toBe(now - BRAIN_CALL_RETENTION_MS);
+    expect(cutoffs[4]).toBe(now - STAGE_OUTCOME_RETENTION_MS);
+    expect(cutoffs[5]).toBe(now - REPAIR_PLAN_RETENTION_MS);
+    expect(cutoffs[6]).toBe(now - REASONING_GRAPH_RETENTION_MS);
+    expect(cutoffs[7]).toBe(now - CALIBRATION_RETENTION_MS);
+    expect(cutoffs[8]).toBe(now - STUCKNESS_RETENTION_MS);
+    expect(cutoffs[9]).toBe(now - POST_PUBLISH_VERIFICATION_RETENTION_MS);
+    expect(cutoffs[10]).toBe(now - DECISION_RETENTION_MS);
+    expect(cutoffs[11]).toBe(now - PASS_RETENTION_MS);
     expect(LOG_INFO_RETENTION_MS).toBe(14 * 24 * HOUR);
     expect(STAGE_OUTCOME_RETENTION_MS).toBe(30 * 24 * HOUR);
     expect(DECISION_RETENTION_MS).toBe(14 * 24 * HOUR);
@@ -201,8 +240,8 @@ describe("pruneLedgerRows", () => {
     const { prisma, calls } = makeRawPrisma([5000, 5000, 17]);
     const out = await pruneLedgerRows(prisma as never, { force: true });
     expect(out.logRows).toBe(10_017);
-    // 3 calls for the log table + 1 each for the other six.
-    expect(calls).toHaveLength(9);
+    // 3 calls for the INFO log batch + 1 each for the other eleven statements.
+    expect(calls).toHaveLength(14);
     expect(totalLedgerRowsPruned(out)).toBe(10_017);
   });
 
@@ -219,6 +258,50 @@ describe("pruneLedgerRows", () => {
     expect((await pruneLedgerRows(later.prisma as never, { now: now + 61 * 60_000 })).ran).toBe(
       true,
     );
+  });
+
+  it("VACUUMs the relations it emptied by a full batch — a DELETE alone returns no disk", async () => {
+    // THE MEASURED LESSON: deleting 7,096,270 production rows left the database
+    // still reporting 12 GB, because a DELETE only marks tuples dead. Months of
+    // successful prunes with no VACUUM is how a 21 GB ledger happened.
+    const { prisma, unsafe } = makeRawPrisma([5000, 17]);
+    const out = await pruneLedgerRows(prisma as never, { force: true });
+    expect(out.vacuumed).toEqual(["AdminWorkerLog"]);
+    expect(unsafe).toEqual(['VACUUM (ANALYZE) "AdminWorkerLog"']);
+    // Never VACUUM FULL: that takes ACCESS EXCLUSIVE and is an operator action.
+    for (const sql of unsafe) expect(sql).not.toContain("FULL");
+  });
+
+  it("does not VACUUM a relation whose prune deleted next to nothing", async () => {
+    const { prisma, unsafe } = makeRawPrisma([17]);
+    const out = await pruneLedgerRows(prisma as never, { force: true });
+    expect(out.vacuumed).toEqual([]);
+    expect(unsafe).toEqual([]);
+  });
+
+  it("VACUUM refuses any relation outside the allow-list", async () => {
+    const { prisma, unsafe } = makeRawPrisma();
+    const done = await vacuumLedgerTables(prisma as never, [
+      "PublishedContent",
+      'AdminWorkerLog"; DROP TABLE "PublishedContent',
+      "AdminWorkerLog",
+    ]);
+    expect(done).toEqual(["AdminWorkerLog"]);
+    expect(unsafe).toEqual(['VACUUM (ANALYZE) "AdminWorkerLog"']);
+  });
+
+  it("honours a raised per-table cap so a multi-million-row backlog can drain", async () => {
+    // The default 20 x 5,000 = 100,000 rows per table needs 169 productive
+    // calls against the measured 16.9 M-row AdminWorkerActionScore backlog.
+    const full = Array.from({ length: 60 }, () => 5000);
+    const capped = makeRawPrisma(full);
+    await pruneLedgerRows(capped.prisma as never, { force: true });
+    const infoLogCalls = (c: { sql: string }) => c.sql.includes(`"severity" = 'INFO'`);
+    expect(capped.calls.filter(infoLogCalls)).toHaveLength(LEDGER_PRUNE_MAX_BATCHES);
+
+    const raised = makeRawPrisma(full);
+    await pruneLedgerRows(raised.prisma as never, { force: true, maxBatches: 50 });
+    expect(raised.calls.filter(infoLogCalls)).toHaveLength(50);
   });
 
   it("fails open on a table that errors, and on a client with no raw SQL", async () => {

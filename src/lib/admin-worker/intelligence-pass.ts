@@ -563,6 +563,7 @@ export async function runPostPassIntelligence(
         category: "WORKER_PASS",
         severity: "INFO",
         eventName: "intelligence_pass",
+        presampled: true,
         message: inspection.available
           ? `Brain self-inspection: ${inspection.persisted.created} new + ${inspection.persisted.bumped} bumped developer request(s); IQ index ${iq.metrics?.iq_index ?? "n/a"}.`
           : "Intelligence brain offline this pass; used deterministic fallbacks.",

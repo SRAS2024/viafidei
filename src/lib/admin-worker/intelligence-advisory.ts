@@ -118,6 +118,7 @@ export async function adviseNextWork(
         category: "WORKER_PASS",
         severity: "INFO",
         eventName: "intelligence_advisory",
+        presampled: true,
         message: `Brain prioritises ${top?.label ?? "n/a"} next (score ${
           top?.score?.toFixed?.(2) ?? "n/a"
         }); next-best-action: ${nextBestAction ?? "n/a"}.`,

@@ -11,25 +11,35 @@ site with an authenticated admin console. Content is sourced only from
 approved Catholic publishers and verified at multiple stages before it
 reaches the public. The site is run by the **Admin Worker** — a fully
 coded, deterministic, autonomous administrator that operates **without
-any AI APIs**. With a fresh database the Admin Worker fills the site
-by itself: it ranks the next safest action, discovers Catholic sources
-across eight discovery methods (including open keyword web-search), fetches
-and reads pages into structured source blocks, classifies content with
-confusion detection,
-builds complete package artifacts, fetches validation pages from
-higher-authority hosts to verify sensitive facts, runs strict QA as a
-durable artifact-level stage, scores quality across ten dimensions,
-publishes through a single Publish Orchestrator path, independently
-verifies search + sitemap + cache, repairs failed stages with real
-handlers (not just logging), rolls back via an explicit decision tree
-(repair → unpublish → log-deletion → human review), defends the admin
-surface (without harassing the valid admin), and emails a monthly
-operations report.
+any AI APIs**.
 
-The Admin Worker is driven by a **permanent Python intelligence brain**
-([`intelligence/`](intelligence/)) — a deterministic, pure-stdlib core (no
-AI APIs, no network) that TypeScript holds open as an always-on service and
-consults on every meaningful decision: **final action selection**, planning +
+**Four pieces, and where each one runs.** The **Next.js app** is deployed on
+**Railway** and serves every public page, authentication, sessions and the
+lightweight APIs. **Postgres** (also on Railway) is the single source of truth —
+published content, the worker's long-term memory, the knowledge graph and the
+audit ledger. A permanent **Python "brain"** ([`intelligence/`](intelligence/))
+does the reasoning: pure-stdlib, deterministic, no AI APIs and no network, held
+open as a resident process and consulted on every meaningful decision. And the
+**Admin Worker** — the body that actually fetches, extracts, verifies and
+publishes — runs **on the operator's Mac**, not on the server, launched by a
+native application whose toolbar carries the one master switch that turns the
+whole system on and off. Railway never runs the loop. See
+[Admin Worker execution host](#admin-worker-execution-host--the-operators-mac).
+
+With a fresh database the Admin Worker fills the site by itself: it ranks the
+next safest action, discovers Catholic sources across eight discovery methods
+(including open keyword web-search), fetches and reads pages into structured
+source blocks, classifies content with confusion detection, builds complete
+package artifacts, fetches validation pages from higher-authority hosts to
+verify sensitive facts, runs strict QA as a durable artifact-level stage, scores
+quality across ten dimensions, publishes through a single Publish Orchestrator
+path, independently verifies search + sitemap + cache, repairs failed stages
+with real handlers (not just logging), rolls back via an explicit decision tree
+(repair → unpublish → log-deletion → human review), defends the admin surface
+(without harassing the valid admin), **maintains itself** (see
+[Self-maintenance](#self-maintenance)), and emails a monthly operations report.
+
+The Python brain is consulted for **final action selection**, planning +
 **mission control**, semantic memory + hybrid retrieval, duplicate detection,
 source intelligence with a **Catholic authority graph** + **communion-risk**
 screening, **claim-level verification**, quality + **specialist-panel** review,
@@ -50,10 +60,10 @@ See [Intelligence brain (Python)](#intelligence-brain-python).
 ## Architecture
 
 **Where things run.** Railway is the public home and the durable store; the
-operator's MacBook is the Admin Worker's body and brain host; Postgres is the
+operator's Mac is the Admin Worker's body and brain host; Postgres is the
 worker's long-term memory and the application's source of truth; the native
 Via Fidei application is the worker's command center and power switch. See
-[Admin Worker execution host](#admin-worker-execution-host--the-operators-macbook).
+[Admin Worker execution host](#admin-worker-execution-host--the-operators-mac).
 
 The **Admin Worker artifact pipeline** is the only path from a source
 page to a public page (see [Single content path](#single-content-path)).
@@ -261,6 +271,12 @@ npm run brain:selftest
 npm run brain:test
 ```
 
+That is the **local development** recipe, against a local Postgres. It is not how
+the worker runs against production: for that the operator links the checkout to
+Railway and launches the native app, which resolves the production database and
+refuses to start against a local one — see
+[Admin Worker execution host](#admin-worker-execution-host--the-operators-mac).
+
 The intelligence brain needs `python3` (**3.10+**, stdlib only — no pip
 installs; the project targets 3.11). Set `INTELLIGENCE_PYTHON` when the
 default `python3` on PATH is older than 3.10 (e.g. macOS ships 3.9). When no
@@ -296,8 +312,8 @@ Optional environment variables:
 | `INTELLIGENCE_TIMEOUT_MS`                               | Per brain-call timeout (default `8000`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `GOOGLE_PLACES_API_KEY`                                 | Enables Google Maps parish discovery (Places API). Unset → the `discover_parishes_via_maps` skill is a no-op                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `PARISH_DISCOVERY_LOCATIONS`                            | Optional `;`-separated localities to search for parishes (e.g. `Boston, MA; Rome, Italy`). Unset → seeds derive from the cities already in the catalog                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `ADMIN_WORKER_OSM_PARISHES`                             | Keyless OpenStreetMap (Overpass) parish discovery — on by default; the fallback used when `GOOGLE_PLACES_API_KEY` is unset. Set `0`/`false`/`off` to disable. Same communion + schema + publish gates as the Maps flow. Sweeps a rotating set of Catholic-dense metro **bounding boxes** (fast spatial-index queries, ~3s) rather than slow `area["name"=…]` lookups, advancing a saved cursor each pass so coverage spreads worldwide                                                                                                                                                                                                                                   |
-| `OVERPASS_ENDPOINTS`                                    | **Extra Overpass endpoint(s)** for OSM parish discovery (comma-separated), tried alongside the built-in public mirrors. The public Overpass instances are individually unreliable (504s, 30s+ latency, lagging area indexes), so the worker **races all mirrors in parallel** and takes the first non-empty result; prepend your own (a self-hosted or paid Overpass) here to make parish growth deterministic. Unset ⇒ the built-in mirror pool (`overpass-api.de`, `maps.mail.ru`, `overpass.kumi.systems`, `overpass.private.coffee`)                                                                                                                                 |
+| `ADMIN_WORKER_OSM_PARISHES`                             | Keyless OpenStreetMap (Overpass) parish discovery — on by default; the path used when `GOOGLE_PLACES_API_KEY` is unset. Set `0`/`false`/`off` to disable. A persistent **tile-grid sweep** of the Catholic world, with the full set of politeness and budget knobs documented under [Finds parishes keyless via OpenStreetMap](#what-it-does)                                                                                                                                                                                                                                                                                                                            |
+| `OVERPASS_ENDPOINTS`                                    | **Extra Overpass endpoint(s)** for OSM parish discovery (comma-separated), tried **before** the built-in public mirrors (`overpass-api.de`, `overpass.kumi.systems`, `overpass.private.coffee`). The public instances are individually unreliable, so prepending your own (a self-hosted or paid Overpass) is what makes parish growth deterministic                                                                                                                                                                                                                                                                                                                     |
 | `ADMIN_WORKER_ALWAYS_ON_DISCOVERY`                      | Always-on web scanning — on by default. Runs the full discovery orchestrator (all 8 methods, incl. open-web keyword search + cross-host crawl) on **every** pass (throttled), not only when the brain picks the DISCOVERY stage, so the worker is constantly finding new sources and the fetch/extract pipeline never starves for candidates. Set `0`/`false`/`off` to disable                                                                                                                                                                                                                                                                                           |
 | `ADMIN_WORKER_DISCOVERY_SWEEP_MS`                       | Throttle interval (ms) for the always-on discovery sweep (default `300000` = 5 min)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `ADMIN_WORKER_LITURGICAL_API`                           | Keyless Liturgical Calendar ingest (the open Liturgical Calendar API → General Roman Calendar feasts of the Lord + solemnities) — on by default; set `0`/`false`/`off` to disable                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -311,12 +327,18 @@ Optional environment variables:
 | `NODE_EXTRA_CA_CERTS`                                   | Path to a CA bundle to trust — required only when the outbound proxy re-terminates TLS with a private CA (so the worker trusts the proxy's certificate). Set alongside `HTTPS_PROXY` in such deployments                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `ADMIN_WORKER_STRUCTURED_LIMIT`                         | Max NEW records the structured (Wikidata) ingest publishes per pass (default `15`). Raise to close a large gap faster (e.g. the 10k SAINT target) when the source is reachable; the per-row Wikipedia fetches run concurrently, so a bigger limit does not linearly slow the pass                                                                                                                                                                                                                                                                                                                                                                                        |
 | `ADMIN_WORKER_STRUCTURED_BATCH`                         | Rows the structured ingest fetches from the source per pass before mapping/dedup (default `50`). A wider batch considers more candidates each pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `ADMIN_WORKER_OSM_MAX_QUERIES`                          | Localities (metro bounding boxes) the OSM parish lane queries per run (default `2`). The saved cursor advances so successive runs sweep new metros                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `ADMIN_WORKER_OSM_MAX_PUBLISH`                          | Max NEW parishes published per OSM run (default `8`). Raise to grow the 200k-parish directory faster where Overpass fair-use allows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `ADMIN_WORKER_OSM_OUT_CAP`                              | Max parish elements returned per Overpass bbox query (default `500`). A dense metro/region has hundreds of parishes; a higher cap drains each locality in fewer sweeps                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `ADMIN_WORKER_OSM_THROTTLE_MS`                          | Minimum interval between OSM parish runs (default `600000` = 10 min, respecting Overpass fair-use). Lower it only with a self-hosted/paid Overpass (see `OVERPASS_ENDPOINTS`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `ADMIN_WORKER_OSM_MAX_QUERIES`                          | Tiles the OSM parish lane queries per run (default `1`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `ADMIN_WORKER_OSM_MAX_PUBLISH`                          | Max NEW parishes published per OSM run (default `250`), checked before any per-candidate work                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `ADMIN_WORKER_OSM_OUT_CAP`                              | Max parish elements returned per tile query (default `500`). Hitting the cap marks the tile DENSE, and it is quartered rather than truncated                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `ADMIN_WORKER_OSM_THROTTLE_MS`                          | Minimum interval between OSM parish runs (default `180000` = 3 min). See also `ADMIN_WORKER_OSM_RUN_BUDGET_MS`, `ADMIN_WORKER_OSM_DAILY_BUDGET`, `ADMIN_WORKER_OSM_MIN_SPACING_MS`, `ADMIN_WORKER_OSM_RESWEEP_DAYS`                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `ADMIN_WORKER_PARISH_SPRINT_SIZE`                       | Parishes grown per **sprint** before the worker stands down to grow the OTHER content types (default `10000`). PARISH is the largest goal (200k) and grows on its own OSM lane; the sprint scheduler ([`parish-sprint.ts`](src/lib/admin-worker/parish-sprint.ts)) keeps it from starving the rest — grow a sprint, cool down, come back — while still driving hard toward 200k                                                                                                                                                                                                                                                                                          |
-| `ADMIN_WORKER_PARISH_SPRINT_COOLDOWN_MS`                | Cooldown after a completed parish sprint, during which the worker focuses the other content types (default `604800000` = ~1 week). Overridden automatically: if EVERY other goal is met, parishes run continuously; if PARISH is met, the lane idles                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `ADMIN_WORKER_PARISH_SPRINT_COOLDOWN_MS`                | Cooldown after a completed parish sprint, during which the worker focuses the other content types (default `86400000` = 24 h). Overridden automatically: if EVERY other goal is met, parishes run continuously; if PARISH is met, the lane idles                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `ADMIN_WORKER_PARISH_VERIFY_LIMIT` / `…_BUDGET_MS`      | Parish websites re-checked for communion per run (default `30`) and the wall-clock budget for that run, kept under the lane watchdog                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `ADMIN_WORKER_SELF_MAINT`                               | The [self-maintenance](#self-maintenance) sweep — on by default; `0` disables the whole capability. Per-repair switches: `ADMIN_WORKER_SELF_MAINT_TRIM`, `…_SAMPLE`, `…_LANE`, `…_CURSOR`, `…_ARTIFACT`, `…_RESTORE`, `…_ESCALATE`. Cadence: `ADMIN_WORKER_SELF_MAINT_INTERVAL_MS` (default `900000` = 15 min)                                                                                                                                                                                                                                                                                                                                                           |
+| `ADMIN_WORKER_EVENT_BUDGET_PER_HOUR`                    | Rows one `eventName` may write per hour before it is sampled (default `120`); `ADMIN_WORKER_EVENT_COOLDOWN_MS` is how long it stays suppressed (default `600000` = 10 min). WARN/ERROR rows are never sampled                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `ADMIN_WORKER_LANE_CONCURRENCY` / `…_LANE_TIMEOUT_MS`   | Global lane concurrency cap (default `8`, keep at or below `PRISMA_CONNECTION_LIMIT`) and the default per-lane watchdog (default `120000`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `INTERNAL_API_SECRET`                                   | Bearer token for `POST /api/internal/revalidate` (the worker's cross-process cache flush). Unset ⇒ the `SESSION_SECRET`-derived token is used; with neither configured the route refuses everything                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `SITE_MEMO_DISABLED`                                    | `1` bypasses the public site's in-process memo cache (debugging)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `WIKIDATA_SPARQL_ENDPOINTS`                             | **Fallback SPARQL endpoint(s)** for structured ingest (comma-separated). The canonical Query Service `query.wikidata.org` aggressively rate-limits / blocks datacenter IPs, so on a cloud host it is often unreachable even when `en.wikipedia.org`/`www.wikidata.org` are fine — starving structured bulk ingest. `runSparql` tries `query.wikidata.org` first, then each endpoint here, and the first REACHABLE one wins. Point this at a reachable Query Service mirror or a self-hosted/proxied endpoint to keep structured growth flowing without the canonical host. Unset ⇒ canonical only. (Alternatively set `HTTPS_PROXY` so the canonical host is reachable.) |
 | _(no AI extraction/translation env vars)_               | The Admin Worker uses **no external AI API** — no OpenAI/LLM extraction, no AI/machine translation. Extraction is deterministic (typed extractors + structured-data blocks); when a source leaves required fields missing the worker **reroutes to another approved source**, it never invents fields. Latin/Greek is filled only from the internal, keyless, network-free `prayer-translator` corpus (authentic received text); prayers it can't resolve are left as-is. There is intentionally nothing to configure here                                                                                                                                               |
 | `ADMIN_WORKER_REQUIRE_HUMAN_REVIEW`                     | **Off by default — the worker is fully independent and never parks work for a human.** Every situation that would otherwise need review gets the worker's own terminal decision: publish when the evidence clears the bar, otherwise SKIP (never publish unverified, never delete on uncertainty) and revisit autonomously. The human-review UI still exists (a human _may_ act), but the worker never depends on it, so the queue never blocks growth. Set `1`/`true`/`on` to restore human-gated review (uncertain items are queued for a person)                                                                                                                      |
@@ -331,21 +353,51 @@ Optional environment variables:
 
 Every content type has a growth **target** ([`content-goals.ts`](src/lib/admin-worker/content-goals.ts)); the worker attacks the goal with the **largest gap first** and keeps recognised, verified content flowing past a target rather than treating it as a ceiling. The dominant goal is **PARISH (200,000)**, followed (by design intent) by the **liturgical calendar's daily readings** and **SAINT**.
 
+The repository also ships a hand-verified **curated knowledge base** that seeds
+every one of those goals offline. `npx tsx scripts/curated-counts.ts` prints the
+live picture (measured 2026-09-07):
+
+| Type                 | Curated in repo |  Target | Grown by                                      |
+| -------------------- | --------------: | ------: | --------------------------------------------- |
+| `SAINT`              |             190 |  10,000 | curated + structured Wikidata ingest          |
+| `PRAYER`             |             241 |   1,000 | curated + web pipeline                        |
+| `POPE`               |              94 |     267 | curated + structured Wikidata ingest          |
+| `CHURCH_DOCUMENT`    |             137 |     200 | curated + structured (documents + councils)   |
+| `GUIDE`              |             103 |     100 | curated only (never web-extracted)            |
+| `NOVENA`             |              31 |     100 | curated + discovery-seeded approved sources   |
+| `LITURGICAL`         |              98 |     100 | curated + the keyless liturgical-calendar API |
+| `DEVOTION`           |              82 |     100 | curated + structured Wikidata ingest          |
+| `APPARITION`         |              39 |      50 | curated + discovery-seeded approved sources   |
+| `SPIRITUAL_PRACTICE` |              52 |      50 | curated + structured Wikidata ingest          |
+| `MARIAN_TITLE`       |              59 |      50 | curated + structured Wikidata ingest          |
+| `DOCTOR`             |              37 |      37 | curated (the complete set)                    |
+| `RITE`               |              35 |      24 | curated (the recognized rites + sui iuris)    |
+| `SACRAMENT`          |               7 |       7 | curated — the one **closed** type             |
+| `PARISH`             |              27 | 200,000 | the keyless OpenStreetMap tile sweep          |
+
+**1,232 curated entries**, and six goals (`GUIDE`, `SPIRITUAL_PRACTICE`,
+`MARIAN_TITLE`, `DOCTOR`, `RITE`, `SACRAMENT`) are already met by curated
+content alone, with no network at all. Only `SACRAMENT` carries a true
+`canonicalMax`; every other type is open and keeps growing past its target at a
+slower maintenance pace.
+
 Because PARISH is so much larger than the rest, it grows on its own keyless OpenStreetMap lane under a **sprint scheduler** ([`parish-sprint.ts`](src/lib/admin-worker/parish-sprint.ts)) so it never starves the other types:
 
 - grow a **sprint** of parishes (`ADMIN_WORKER_PARISH_SPRINT_SIZE`, default 10,000),
-- then **stand down for a cooldown** (`ADMIN_WORKER_PARISH_SPRINT_COOLDOWN_MS`, default ~1 week) during which the worker drives the other content types (the web-extraction campaign surges on the next-largest **web-growable** gap — saints, church documents, …),
+- then **stand down for a cooldown** (`ADMIN_WORKER_PARISH_SPRINT_COOLDOWN_MS`, default 24 h — long enough to let the other types advance, short enough that a 200k goal is reachable) during which the worker drives the other content types (the web-extraction campaign surges on the next-largest **web-growable** gap — saints, church documents, …),
 - then return for the next parish sprint, and so on toward 200k.
 
 Two automatic overrides keep it sensible: if **every other goal is already met** the parish lane runs continuously (nothing else to do); if the **PARISH goal itself is met** the lane idles. The structured-knowledge campaign ([`major-goal-campaign.ts`](src/lib/admin-worker/major-goal-campaign.ts)) independently DRAIN→SURGEs the largest web-growable gap, so the non-parish types are always being worked during a parish cooldown.
 
-## Admin Worker execution host — the operator's MacBook
+---
+
+## Admin Worker execution host — the operator's Mac
 
 The Admin Worker is **not** a cloud workload. Its active execution host is the
-operator's MacBook, through the native **"Via Fidei.app"**:
+operator's Mac, through the native **"Via Fidei.app"**:
 
 ```
-   Railway (web service)        Postgres (Railway)          MacBook (Via Fidei.app)
+   Railway (web service)        Postgres (Railway)          Mac (Via Fidei.app)
    public site, auth,      ◄──► durable source of truth ◄──► THE ADMIN WORKER
    sessions, user data,         content, worker memory,      TypeScript body +
    lightweight APIs,            knowledge graph, logs,       Python brain +
@@ -360,54 +412,32 @@ operator's MacBook, through the native **"Via Fidei.app"**:
   banned devices, the request defender). It does **not** run the autonomous
   loop, the Python brain, Chromium, discovery, verification, homepage analysis,
   worker reports or worker email.
-- **The MacBook runs the worker.** Discovery, crawling, rendering, parsing,
+- **The Mac runs the worker.** Discovery, crawling, rendering, parsing,
   reasoning, extraction, verification, classification, comparison, formatting,
   security analysis, document processing and report generation all consume this
   machine's CPU, memory, disk and internet connection.
 - **Postgres stays the long-term memory.** Shutting the Mac down does not erase
   what the worker learned; switching it back on resumes from the durable state.
 
-### The master switch
-
-The app's toolbar carries one green **ON / OFF pill**. It is the master
-activation control for the entire Admin Worker.
-
-| State   | What exists                                                                                                                                                                                                                                                  |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **OFF** | No worker loop, no Python brain, no Chromium, no discovery, no security scans, no diagnostics passes, no reports, no worker email — **on this Mac or anywhere else**. Railway does not take over.                                                            |
-| **ON**  | The app launches `scripts/local-worker-host.ts`, which claims the single execution lease, starts `scripts/run-worker.ts --origin local`, and brings the brain, acquisition tools and browser rendering online — resuming from the state already in Postgres. |
-
-There is **no automatic cloud failover** (spec §5). If the Mac sleeps, quits or
-loses its connection, the worker is simply unavailable: the site, accounts,
-logins and published content are unaffected. If the local runtime crashes while
-the switch is ON, the app restarts it locally and says so.
-
-### What the app contains
-
-- The complete **Admin Worker command center** — worker status, mode, priority,
-  heartbeat, content goals and coverage, pipeline state, current task, recent
-  passes and decisions, brain reasoning and ranked alternatives, source
-  reputation and coverage, knowledge and memory, logs, rules, skills, repair
-  plans, review queue, package artifacts, quality scores, strict QA, rollbacks,
-  security activity, homepage drafts, diagnostics, intelligence status, current
-  source activity, publishing activity, content growth, and live local resource
-  usage (`scripts/desktop-app/dashboard.html`, served by the local runtime).
-- **Manual passes and the homepage makeover run locally.** A button in the app
-  starts a local operation; it never calls a server endpoint that would do the
-  work on Railway.
-- **File ingestion.** Drag a file onto the window (or use ⌘I) and the local
-  worker reads it — see [Operator file ingestion](#operator-file-ingestion).
-- The original **Standard Site / Admin Site** tabs onto `https://etviafidei.com`,
-  unchanged.
-
-### Wiring
+### One-time setup
 
 ```bash
 npm install                          # the app launches the worker from this repo
 npx playwright install chromium      # headless rendering for JavaScript-only sources
+
+railway login                        # authenticate the Railway CLI once
+railway link                         # choose environment "production", service "viafidei"
+
 bash scripts/desktop-app/install.sh  # install/update the app, leaving exactly one copy
 open "$HOME/Desktop/Via Fidei.app"
 ```
+
+`railway login` + `railway link` are what make the worker write to **production**
+rather than to whatever a local `.env` happens to name. This is not a nicety: for
+thirty days the worker published nothing to production because the desktop
+launcher fell back to the repository `.env` and wrote to a **local** Postgres,
+while every dashboard reported an active, healthy worker. The launcher now
+refuses that outcome outright (see [The database preflight](#the-database-preflight)).
 
 `install.sh` is the whole install step: it quits a running instance, removes
 every other `Via Fidei*.app` copy it can find (Desktop, Downloads,
@@ -422,27 +452,197 @@ under System Settings → Privacy & Security → App Management — and because 
 grant only applies to a newly launched process, quit and reopen the terminal
 after enabling it. The script says exactly this if it is blocked.
 
-The Chromium step is what the cloud image used to do at build time. It is
-optional — everything else works without it — but until it is done, sources that
-render their text client-side fall back to their static shell. The command
-center says so explicitly (`Browser rendering: unavailable`) rather than
-reporting the capability as present, and the worker files a developer request
-for the gap instead of silently abandoning those sources.
+The Chromium step is optional — everything else works without it — but until it
+is done, sources that render their text client-side fall back to their static
+shell. The command center says so explicitly (`Browser rendering: unavailable`)
+rather than reporting the capability as present, and the worker files a
+developer request for the gap instead of silently abandoning those sources.
 
 The app builds a **universal binary** (arm64 + x86_64), so the bundle runs on
 Apple Silicon and Intel Macs, and it finds Node through Homebrew, the official
 installer, nvm, volta, fnm, asdf or `n`. It looks for the repository in the path
 baked in at build time, then `~/Desktop`, `~/Documents`, `~/Developer`,
 `~/Projects`, `~/src`, `~/code`, `~/repos` and `~` — and if it still cannot find
-one it opens a folder picker rather than sitting there.
+one it opens a folder picker rather than sitting there. The repository path can
+be changed from the app's **Admin Worker → Choose Repository Folder…** menu.
 
 The app talks to the local runtime over **127.0.0.1 only**, on an ephemeral
 port, with a token generated per launch and handed to the app on stdout.
-Nothing is exposed to the internet, no credential is stored in the app or the
-WebView, and **no new environment variable is introduced** — the local runtime
-reads this repository's existing configuration exactly as the cloud worker did.
-The repository path is baked into the bundle at build time and can be changed
-from the app's **Admin Worker → Choose Repository Folder…** menu.
+Nothing is exposed to the internet and no credential is stored in the app or the
+WebView.
+
+### How the launcher resolves the database
+
+[`scripts/desktop-app/launch-worker-host.sh`](scripts/desktop-app/launch-worker-host.sh)
+starts the host under `railway run`, so the linked service's variables are
+injected into the process for its lifetime and **nothing is written to disk**.
+Railway stays the single source of truth; there is no second copy of production
+secrets on the laptop.
+
+One thing `railway run` cannot do on its own. Inside Railway every service
+reaches Postgres over the **private network**: the web service's `DATABASE_URL`
+names `postgres.railway.internal`, a hostname that resolves nowhere else. A
+worker on a laptop that simply inherited it would connect to nothing. Railway's
+Postgres service also publishes `DATABASE_PUBLIC_URL` — a `*.proxy.rlwy.net` TCP
+proxy — for exactly this case. So before the host starts,
+[`scripts/desktop-app/railway-public-db-url.mjs`](scripts/desktop-app/railway-public-db-url.mjs)
+resolves, and prints as one JSON line:
+
+- the linked **environment** (from `railway status --json` plus the CLI's own
+  `~/.railway/config.json` link file, which is the only offline way to learn
+  which environment `railway link` chose);
+- the **web service** — the one whose variables carry `SESSION_SECRET` /
+  `ADMIN_USERNAME`;
+- the **Postgres service** — the one exposing `DATABASE_PUBLIC_URL`;
+
+all scoped to that one environment, so a staging Postgres can never be paired
+with production credentials. It then **dry-runs** `railway run --service <web>
+--environment <env> -- /usr/bin/true`, so a broken link is reported as JSON
+_before_ the launcher exec's and loses the ability to report anything. Every CLI
+call is bounded to 15 s. The public URL is kept only in the launcher's process
+environment; it is never printed or written.
+
+Inside the injected environment the launcher swaps a `*.railway.internal`
+`DATABASE_URL` for the public proxy URL and records which route it took
+(`railway-public-proxy`, `railway-service-variable`,
+`railway-internal-unreachable`, `blocked-local`, `none`) — surfaced in the app's
+configuration label.
+
+Precedence, and it is verified behaviour rather than an assumption:
+`@prisma/client` loads the repository `.env` itself, but it does **not**
+overwrite a variable already present in the environment — and an **empty** value
+counts as present. So injected Railway values win, a local `.env` is only the
+fallback, and exporting `DATABASE_URL=""` is how the launcher forbids the `.env`
+fallback outright.
+
+### The database preflight
+
+The launcher and the host both refuse to run the worker against the wrong
+database ([`local-config.ts`](src/lib/admin-worker/local-config.ts) →
+`computeLocalConfig`, which returns one structured `blockingReason`, never a
+regex over warning prose):
+
+| `blockingReason` | When                                                                      |
+| ---------------- | ------------------------------------------------------------------------- |
+| `local_db`       | `DATABASE_URL` names `localhost` / `127.x` / `[::1]`                      |
+| `internal_host`  | `DATABASE_URL` names `*.railway.internal` — unreachable from this machine |
+| `no_db`          | no connection string at all (including one the launcher blanked)          |
+| `unreachable`    | a remote host that is not answering                                       |
+
+When the Railway link is missing and the repository `.env` points at a loopback
+Postgres, the launcher blanks `DATABASE_URL`, starts the host anyway (the app
+needs a control surface to display the error rather than a dead window) and says
+so: _"Refusing the LOCAL database … production would not be updated."_
+
+**The escape hatch is `VIAFIDEI_ALLOW_LOCAL_DB=1`**, and it exists only for
+deliberate local testing. With it set, a loopback `DATABASE_URL` from the
+environment or the repository `.env` is allowed through.
+
+### Exit codes
+
+`scripts/run-worker.ts` exits with a distinct code per outcome, so the
+supervising host (and any wrapper) can tell them apart without parsing logs
+([`classifyWorkerExit`](src/lib/admin-worker/local-config.ts)):
+
+| Code | Meaning                                                     | What the host does                                                |
+| ---- | ----------------------------------------------------------- | ----------------------------------------------------------------- |
+| `0`  | Clean stop — the master switch went OFF                     | Nothing; this is the intended stop                                |
+| `3`  | Refused at boot: switch OFF, or the lease is held elsewhere | Surfaces the reason; never restarts into a lease it cannot hold   |
+| `4`  | The database could not be reached to read the master switch | Waits for the database instead of burning the restart budget      |
+| `5`  | The execution lease was lost to another runtime mid-run     | Stops — the other runtime now owns execution                      |
+| `1`  | Fatal, unexpected                                           | Restarts with backoff, up to 5 consecutive restarts, then reports |
+
+### Environment knobs on this path
+
+Every one of these has a working default; none has to be set for a normal
+install.
+
+| Variable                           | Default                                                                        | Purpose                                                                                                                                                                                       |
+| ---------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VIAFIDEI_ALLOW_LOCAL_DB`          | unset (`0`)                                                                    | `1` permits a loopback `DATABASE_URL`. Deliberate local testing only — production is not updated                                                                                              |
+| `VIAFIDEI_RAILWAY_SERVICE`         | auto-detected                                                                  | Names the Railway **web** service instead of probing for the one carrying `SESSION_SECRET` / `ADMIN_USERNAME`                                                                                 |
+| `VIAFIDEI_RAILWAY_ENVIRONMENT`     | the linked environment                                                         | Overrides the environment the resolver scopes to                                                                                                                                              |
+| `VIAFIDEI_HOST_CONNECTION_LIMIT`   | `3`                                                                            | Prisma pool for the **host** process (it only reads status, renews the lease and runs operator jobs)                                                                                          |
+| `VIAFIDEI_WORKER_CONNECTION_LIMIT` | `10`                                                                           | Prisma pool the host gives the **worker child**, which does the real work                                                                                                                     |
+| `PRISMA_CONNECTION_LIMIT`          | `10` (the launcher sets `3` for the host)                                      | `connection_limit` appended to the datasource URL. Keep it at or above `ADMIN_WORKER_LANE_CONCURRENCY` (default 8) or concurrent lanes starve the pool (`P2037`)                              |
+| `PRISMA_POOL_TIMEOUT`              | `20` (seconds)                                                                 | How long a query waits for a free pooled connection                                                                                                                                           |
+| `PRISMA_CONNECT_TIMEOUT`           | `15` (seconds)                                                                 | Connect timeout, applied to **non-local** hosts only, so an unreachable Railway proxy fails in seconds instead of hanging a pass. Those hosts also get `sslmode=require`                      |
+| `INTELLIGENCE_PYTHON`              | the launcher prefers `/opt/homebrew/opt/python@3.11/bin/python3.11` if present | The interpreter for the Python brain. An explicit value is used **verbatim** and the boot probe reports loudly if it is broken. Unset, the bridge probes a candidate list for ≥ 3.10          |
+| `VIAFIDEI_LEASE_RENEWED_BY_HOST`   | set to `1` by the host                                                         | Tells the worker **child** that the host owns lease renewal, so the child stops rewriting the same row every pass and every 20 s. A bare `npm run worker:local` has no host and renews itself |
+
+### The master switch
+
+The app's toolbar carries one green **ON / OFF pill**. It is the master
+activation control for the entire Admin Worker, and it is stored in Postgres —
+as an `AdminWorkerMemory` row under `worker.execution.switch`, so it needs no
+schema change and every runtime reads the same fact
+([`execution-host.ts`](src/lib/admin-worker/execution-host.ts)).
+
+| State   | What exists                                                                                                                                                                                                                                                  |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **OFF** | No worker loop, no Python brain, no Chromium, no discovery, no security scans, no diagnostics passes, no self-maintenance sweep, no reports, no worker email — **on this Mac or anywhere else**. Railway does not take over.                                 |
+| **ON**  | The app launches `scripts/local-worker-host.ts`, which claims the single execution lease, starts `scripts/run-worker.ts --origin local`, and brings the brain, acquisition tools and browser rendering online — resuming from the state already in Postgres. |
+
+**OFF consumes nothing, and that is structural rather than a promise.** Every
+periodic capability the worker has — including the self-maintenance sweep — runs
+as a lane _inside a pass_; a pass runs only inside the loop; the loop runs only
+while the switch is ON (`checkLoopAuthority`). There is deliberately no timer, no
+cron and no background interval anywhere in the worker. Switch OFF and the only
+thing left on the Mac is the app window.
+
+Reading the switch is fail-safe in the honest direction: `readMasterSwitch`
+returns `known: false` when the database cannot be read, and callers that stop
+work on OFF must treat that as "keep doing what you were doing" and surface the
+error, rather than reading an outage as an operator's OFF.
+
+### The execution lease
+
+Alongside the switch, `worker.execution.lease` records **which runtime currently
+holds the sole right to execute worker computation** — its runtime id, origin,
+host label, pid and renewal time.
+
+- One executor, ever. A lease is claimed at boot, renewed every ~20 s
+  (`LEASE_RENEW_INTERVAL_MS`, with ±20 % jitter so two runtimes over a shared
+  proxy do not line up their round trips) and released on shutdown. A second
+  runtime cannot claim a live lease, so the Mac and a cloud worker can never both
+  drain the same queue — and `PublishedContent @@unique([contentType, slug])`
+  makes double-publishing impossible at the database level even under a race.
+- A lease older than `LEASE_TTL_MS` (90 s) is treated as abandoned — the Mac
+  slept, quit or crashed — and may be claimed by the next runtime.
+- **There is no automatic cloud failover.** A lost local lease simply expires;
+  nothing takes over. The site, accounts, logins and published content are
+  unaffected; the worker is just unavailable. If the local runtime crashes while
+  the switch is ON, the app restarts it locally and says so.
+- Liveness means "the LOCAL runtime is alive": a fresh heartbeat only counts
+  while a live local execution lease exists. Diagnostics distinguishes **Admin
+  Worker intentionally inactive** (switch OFF — reported as healthy, not a
+  production failure), **active locally**, **switched on but disconnected** (a
+  genuine local failure), and **paused**.
+
+Every entry point is gated twice — by the process-level rule in
+`execution-context.ts` (the Next.js server runtime can never run worker
+computation, spawn the Python brain or launch Chromium) and by the durable rule
+in `execution-host.ts` (the switch must be ON and this runtime must hold the
+lease).
+
+### What the app contains
+
+- The complete **Admin Worker command center** — worker status, mode, priority,
+  heartbeat, content goals and coverage, pipeline state, current task, recent
+  passes and decisions, brain reasoning and ranked alternatives, source
+  reputation and coverage, knowledge and memory, logs, rules, skills, repair
+  plans, review queue, package artifacts, quality scores, strict QA, rollbacks,
+  security activity, homepage drafts, diagnostics, intelligence status, current
+  source activity, publishing activity, content growth, self-maintenance, and
+  live local resource usage (`scripts/desktop-app/dashboard.html`, served by the
+  local runtime).
+- **Manual passes and the homepage makeover run locally.** A button in the app
+  starts a local operation; it never calls a server endpoint that would do the
+  work on Railway.
+- **File ingestion.** Drag a file onto the window (or use ⌘I) and the local
+  worker reads it — see [Operator file ingestion](#operator-file-ingestion).
+- The original **Standard Site / Admin Site** tabs onto `https://etviafidei.com`,
+  unchanged.
 
 The same runtime can be driven from a terminal when useful:
 
@@ -481,13 +681,131 @@ silently doing nothing.
 
 ---
 
+## Self-maintenance
+
+The worker's own doctor: [`self-maintenance.ts`](src/lib/admin-worker/self-maintenance.ts),
+running from the **`maint-self-heal`** ops lane.
+
+**Why it exists — measured, not hypothetical.** On 2026-09-07 the production
+database was **21 GB**, of which `PublishedContent` was **12 MB**. The rest was
+the worker's own telemetry: 33.4 million rows across the ledger tables
+(`AdminWorkerActionScore` alone held 16,909,035 rows in 5.7 GB;
+`AdminWorkerBrainCall` 6,016,374; `AdminWorkerReasoningGraph` 1,976,739;
+`AdminWorkerCalibrationHistory` 1,548,893). In the same window the worker
+published **nothing**. `worker_stuck` fired **207,830** times — and
+`AdminWorkerStucknessRecord` held exactly 207,830 rows, one per detection, with
+nothing ever acting on any of them. `loop_paused` was written **once per second**
+while the loop was paused.
+
+Every one of those was a signal the worker could have read about **itself**. It
+had no organ that did. This module is that organ, and it runs a four-step cycle.
+
+**SENSE.** Cheap aggregate queries → typed `Signal`s. Sizes come from
+`pg_class` / `pg_total_relation_size` and `pg_database_size`; an exact row count
+is only paid for once a size crosses a threshold. **`n_live_tup` is never
+trusted**: production reported 4,932 rows for a table holding 16.9 million,
+because autovacuum had never run on it and a never-analyzed table reports `-1`.
+The bytes come back in the same query and are maintained by the storage layer,
+not by `ANALYZE`, so they are the trustworthy half.
+
+**DIAGNOSE.** Signals become named `Condition`s, each carrying its evidence and
+exactly **one** remedy:
+
+| Condition                      | What it means                                                                      | Remedy                                          |
+| ------------------------------ | ---------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `LEDGER_BLOAT`                 | A telemetry table (or the database) is over its row/byte threshold                 | `trim_telemetry`                                |
+| `LEDGER_DEAD_SPACE`            | Dead-tuple ratio past 0.4 / 0.6 on an already-large relation                       | `escalate` — only an operator can reclaim disk  |
+| `PAUSED_LOOP_HOT_LOOP`         | A paused loop is logging every tick instead of backing off                         | `sample_noisy_event`                            |
+| `LOG_EVENT_SPAM`               | One event name is over its hourly budget                                           | `sample_noisy_event`                            |
+| `LANE_WEDGED`                  | A lane still "running" after 30 min, or `worker_stuck` / watchdog events piling up | `reset_wedged_lane`                             |
+| `CURSOR_OUT_OF_RANGE`          | A structured-ingest cursor has swept repeatedly finding nothing (it wrapped)       | `reset_cursor`                                  |
+| `ARTIFACT_PARKED`              | An artifact stuck in a non-terminal state for over 7 days                          | `requeue_artifact`                              |
+| `ORPHANED_UNPUBLISHED_CONTENT` | Content a gate unpublished, which now passes that gate again                       | `restore_unpublished_content`                   |
+| `PUBLISH_FUTILITY`             | 200+ passes in 24 h with **zero** publishes                                        | `escalate` — nothing here can _make_ it publish |
+
+**REPAIR.** Bounded, reversible, least-destructive-first, and individually
+disable-able. Every action actually taken writes **exactly one** `AdminWorkerLog`
+row (`self_maintenance_action`) — never one per tick, which is the very bug the
+module exists to stop — and a sweep that finds nothing writes nothing at all.
+
+**It can never delete published content.** The telemetry tables are an
+allow-list; nothing builds a statement from a table name it did not declare.
+Re-publishing a row that a gate unpublished, and which now passes that gate
+again, is the **only** content-mutating action in the file: it snapshots the
+current state to `PublishedContentVersion` first (so the restore is itself
+reversible), skips anything a human still owns in the review queue, and logs its
+reason (`self_maintenance_content_restored`).
+
+**VERIFY.** The signal that was acted on is re-read. A repair that does not move
+its signal is recorded as ineffective; **three** consecutive ineffective attempts
+escalate the condition and back it off for **six hours** rather than retrying
+forever — the `worker_stuck` × 207,830 failure mode, encoded as a rule. A trim is
+judged on the rows it _moved_, not on whether the table is under the threshold
+yet, so a productive prune against a multi-million-row backlog is never mistaken
+for a failure.
+
+**What it escalates rather than fixes.** A `DELETE` does not return disk to the
+operating system — it only marks tuples dead. A plain `VACUUM` (which the trim
+issues after a large delete) makes the space reusable and stops the growth, but
+past the dead-ratio threshold the only thing that returns the disk is an
+operator-run `VACUUM FULL`. So `LEDGER_DEAD_SPACE` escalates **by name**, through
+`fileHumanReview` with `alwaysQueue` (so it survives full-autonomy mode), and
+points at the operator script below instead of pretending a repair exists.
+
+Everything is fail-open: a failing probe or repair degrades to "did nothing" and
+the next sweep retries. It can never stop a pass. The sweep self-throttles to
+~15 minutes against a durable `AdminWorkerMemory` marker, so the lane calling it
+every pass is free.
+
+**Where it surfaces.** Every action lands in the audit ledger
+(`self_maintenance_action`, `self_maintenance_content_restored`) and on the
+browser admin's **`/admin/diagnostics`** page, which carries a dedicated
+**Self-maintenance** panel and health rating: the last sweep's headline, open
+conditions, repairs applied in the last 24 h, content rows restored, database
+size against the trim threshold, the largest telemetry table, and any condition
+currently backed off after repeated ineffective repairs.
+
+### The operator escape hatch
+
+```bash
+# Dry run — prints what WOULD be deleted, changes nothing
+npx tsx scripts/maintenance/prune-worker-ledger.ts --railway
+
+# The real thing, including reclaiming the disk
+npx tsx scripts/maintenance/prune-worker-ledger.ts --railway --confirm --vacuum
+```
+
+| Flag        | Effect                                                                                                                                                                                                            |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--railway` | Resolves the linked Railway project's **public** Postgres URL through the same helper the desktop launcher uses, so no credential is ever pasted on a command line. Without it, `DATABASE_URL` selects the target |
+| `--confirm` | Actually delete. **The default is a dry run**                                                                                                                                                                     |
+| `--vacuum`  | After deleting, `VACUUM (FULL, ANALYZE)` every admin-worker telemetry relation with real bloat — because deleting rows alone returns no disk                                                                      |
+
+Its safety rules are enforced in the script, not by convention: `TABLES` is an
+exhaustive allow-list of admin-worker telemetry (so no content table can be
+touched even by a typo), children are trimmed before `AdminWorkerPass` (whose
+five inbound keys are `ON DELETE SET NULL`), deletes are batched by `ctid` so
+each statement takes a short lock, and `PublishedContent` is counted before and
+after — the script **throws** if that count moves.
+
+**What actually happened in production, 2026-09-07.** This script was run against
+the live database. It deleted the telemetry backlog — 33.4 million rows across
+the six tables that were 99 % of the bloat — and vacuumed. The database went from
+**21 GB to 493 MB**. `PublishedContent` was verified **unchanged**: 3,415
+published rows of 3,457 total, every content type at exactly its previous count.
+That is the whole reason both this script and the self-maintenance lane exist —
+so that the next person understands the ledger, not the content, was the problem,
+and so that the worker now notices before an operator has to.
+
+---
+
 ## Admin UI
 
 There are now **two** admin surfaces, and the split is deliberate:
 
 - the **native Via Fidei application** holds the Admin Worker command center —
   everything that makes the worker _do_ something (see
-  [Admin Worker execution host](#admin-worker-execution-host--the-operators-macbook));
+  [Admin Worker execution host](#admin-worker-execution-host--the-operators-mac));
 - the **browser `/admin`** holds the surfaces the operator wants reachable from
   any machine, and exposes **no way to start Admin Worker work**.
 
@@ -500,45 +818,28 @@ one comes back.
 
 **Browser admin (`/admin`):**
 
-| Card                   | Route                           | Purpose                                                                                                   |
-| ---------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| User Accounts          | `/admin/users`                  | User management                                                                                           |
-| System diagnostics     | `/admin/diagnostics`            | Subsystem ratings + a **read-only** Admin Worker execution panel (local / off / disconnected)             |
-| Logs                   | `/admin/logs`                   | Account, admin and worker logs                                                                            |
-| Admin Worker logs      | `/admin/logs/worker`            | Read-only worker log, filterable by severity / step / pass, showing which runtime executed each operation |
-| Checklist surfaces     | `/admin/checklist/**`           | Read-only views of what the worker produced, plus source curation (row marking, no worker compute)        |
-| Homepage mirror editor | `/admin/homepage`               | Hand-edited homepage blocks                                                                               |
-| Search index / Media   | `/admin/search`, `/admin/media` | Site surfaces edited by hand                                                                              |
-| Banned devices         | `/admin/banned-devices`         | Request-time security enforcement records                                                                 |
+| Card                   | Route                           | Purpose                                                                                                                          |
+| ---------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| User Accounts          | `/admin/users`                  | User management                                                                                                                  |
+| System diagnostics     | `/admin/diagnostics`            | Subsystem ratings, the **Self-maintenance** panel, and a **read-only** Admin Worker execution panel (local / off / disconnected) |
+| Logs                   | `/admin/logs`                   | Account, admin and worker logs                                                                                                   |
+| Admin Worker logs      | `/admin/logs/worker`            | Read-only worker log, filterable by severity / step / pass, showing which runtime executed each operation                        |
+| Checklist surfaces     | `/admin/checklist/**`           | Read-only views of what the worker produced, plus source curation (row marking, no worker compute)                               |
+| Homepage mirror editor | `/admin/homepage`               | Hand-edited homepage blocks                                                                                                      |
+| Search index / Media   | `/admin/search`, `/admin/media` | Site surfaces edited by hand                                                                                                     |
+| Banned devices         | `/admin/banned-devices`         | Request-time security enforcement records                                                                                        |
 
 Admin authentication and sign-out are unchanged.
 
 The public **daily readings** page lives at `/liturgy/readings?date=…` (the
-homepage + liturgical calendar link to it), and the worker owns it end to end.
-A deterministic **liturgical-calendar engine**
-(`content-shared/liturgical-calendar.ts`, mirrored in the Python brain)
-computes the exact day of the **General Roman Calendar** for any date in any
-year — season, Sunday cycle (A/B/C), weekday cycle (I/II), colour, moveable
-feasts, and the principal fixed-date solemnities (a Proper-of-Saints overlay) —
-and a **lectionary** (`content-shared/lectionary.ts`) maps each day to its Mass
-readings, with the Scripture text from the public-domain **Douay-Rheims**. The
-worker **stores readings ahead of time**: `backfillDailyReadings` fills a
-rolling ~year-ahead window into `DailyReading`, re-verifies it on every scan,
-**self-corrects any drift, and never downgrades a verified day** — so once the
-window is filled the worker only keeps it current and cycles it forward. The
-page also resolves any day **on-demand**, so the whole calendar is viewable
-immediately. Coverage grows through a pluggable **readings-source framework**
-(`readings-source.ts`): the offline table first, then any authoritative dataset
-configured via `LECTIONARY_DATA_URL`, which the worker fetches, validates,
-ingests, and manages itself — no code change. Days without verified readings
-show the liturgical framing + a link to the official source; a reading is never
-fabricated. Today the table covers the principal solemnities and feasts; the
-rest fills automatically as a dataset is configured or the table is expanded.
+homepage + liturgical calendar link to it), and the worker owns it end to end —
+the calendar engine, the committed lectionary tables, the Douay-Rheims store and
+the rolling backfill are all described under [Liturgy](#liturgy).
 
-The Command Center's **Daily readings** card tracks this coverage live
+The Command Center's **Daily readings** card tracks coverage live
 (`dailyReadingsCoverage`): how many days are framed, how many carry verified
-text vs are on the official link, today's status, the covered date range, and
-the verified-text coverage of the next 30 / 90 days. There is **no target
+text vs citations only, today's status, the covered date range, and the
+verified-text coverage of the next 30 / 90 days. There is **no target
 count** — the goal is simply to cover the whole liturgical calendar — so the
 card reports the span the worker has reached rather than a quota.
 
@@ -594,7 +895,7 @@ email-not-configured banner points to the real **Diagnostics** page.
 The **Admin Worker** is the autonomous website-administrator system,
 fully coded and operating **without any AI APIs**. Code lives under
 `src/lib/admin-worker/`. The operator surface is the **command center in the
-native Via Fidei application** on the operator's MacBook, which is also where
+native Via Fidei application** on the operator's Mac, which is also where
 the worker executes; the browser keeps `/admin/diagnostics` (per-subsystem
 ratings + a read-only execution panel). It is the **only** system that creates
 public content
@@ -962,37 +1263,99 @@ falling back to a TypeScript final brain. Concretely:
   API — so the worker treats those as HTML/PDF sources (now incl. JS-rendered
   pages via the headless fetcher) and lifts their structured data directly.
 
-- **Finds parishes keyless via OpenStreetMap — versatility without an API key.**
-  When no `GOOGLE_PLACES_API_KEY` is configured, parish discovery falls back to
-  the free, public **OpenStreetMap Overpass API**
-  ([`parish-osm.ts`](src/lib/admin-worker/parish-osm.ts)): it queries churches
+- **Finds parishes keyless via OpenStreetMap — a persistent tile sweep of the
+  Catholic world.** When no `GOOGLE_PLACES_API_KEY` is configured, parish
+  discovery runs on the free, public **Overpass API**
+  ([`parish-osm.ts`](src/lib/admin-worker/parish-osm.ts)), asking for churches
   tagged `amenity=place_of_worship` + `religion=christian` +
-  `denomination=roman_catholic` and feeds the candidates through the
-  **same** gates as the Maps flow — communion verification against the parish
-  website (a site that proves not-in-communion is rejected; an entry with no
-  website, or one whose website can't be read, is trusted on the explicit
-  `roman_catholic` tag, which already excludes Old Catholic / sedevacantist /
-  Orthodox), the strict parish schema, and the real publish orchestrator.
-  Queries use **bounding boxes** over a rotating set of Catholic-dense metros
-  (a saved cursor advances each pass so coverage sweeps worldwide) — a bbox hits
-  Overpass's spatial index and returns dozens of parishes in ~3 s, where the old
-  `area["name"=…]` lookup took 30–55 s, was frequently rate-limited, and often
-  returned nothing (a lagging/ambiguous area index) — the reason the directory
-  had stopped growing. Because the public Overpass instances are individually
-  flaky, the search **races all configured mirrors in parallel** and takes the
-  first non-empty result (add your own with `OVERPASS_ENDPOINTS`). It is
-  self-throttled for Overpass fair-use and on by default
-  (`ADMIN_WORKER_OSM_PARISHES=0` opts out). Two independent parish sources —
-  keyed Maps and keyless OSM — so the worker always has a way to grow the
-  directory.
+  `denomination=roman_catholic|catholic` and publishing the named ones through
+  the strict parish schema and the real publish orchestrator.
+
+  The geography is a **tile grid**, not a rotation of hand-picked metros
+  ([`parish-osm-tiles.ts`](src/lib/admin-worker/parish-osm-tiles.ts)). A curated
+  table of country/region bounding boxes is cut into integer-degree tiles — 1°
+  where parishes are dense and OSM is well tagged, 2° where they are sparse —
+  and each tile's state (status, element count, last swept, next due) lives in
+  one `AdminWorkerMemory` row keyed `osm-tile:<id>`, so there is no new table and
+  no migration. A tile whose query comes back **at the element cap is DENSE**:
+  it is quartered (quadtree) and its children are queued ahead of the catalogue,
+  so no element is ever silently truncated — the failure mode of the old
+  35-bounding-box rotation, which re-scanned the same first 500 results forever.
+  Swept tiles come due again quarterly, empty tiles wait longer, failed tiles
+  retry with a growing backoff. Selection is a cursor plus a LIFO queue of split
+  children: a bounded number of small memory reads per run, never a scan of every
+  tile.
+
+  Nothing is invented: a candidate needs its OSM name plus **either** a locality
+  tag **or** coordinates; a missing city may be filled from `is_in` or one
+  bounded Nominatim reverse lookup, otherwise the record publishes on its
+  coordinates with an empty city. Dedup runs cheapest-first — `sourceRef`,
+  `addressKey`, same-name-within-200 m, then slug (a collision gets a stable
+  suffix, never a silent skip) — and a re-swept parish **enriches its own row in
+  place**.
+
+  **Politeness and budget** ([`parish-osm-overpass.ts`](src/lib/admin-worker/parish-osm-overpass.ts)):
+  one query at a time, at least 5 s apart, at most 2 mirrors tried per query, a
+  90 s server-side timeout, a real User-Agent, and a **daily budget** counted in
+  HTTP attempts. Endpoints are `overpass-api.de`, `overpass.kumi.systems` and
+  `overpass.private.coffee`, with `OVERPASS_ENDPOINTS` prepending your own
+  (a self-hosted or paid instance) to make parish growth deterministic.
+
+  | Variable                                | Default  | Purpose                                                                    |
+  | --------------------------------------- | -------- | -------------------------------------------------------------------------- |
+  | `ADMIN_WORKER_OSM_PARISHES`             | on       | `0`/`false`/`off` disables the lane entirely                               |
+  | `ADMIN_WORKER_OSM_MAX_QUERIES`          | `1`      | Tiles queried per run                                                      |
+  | `ADMIN_WORKER_OSM_MAX_PUBLISH`          | `250`    | New parishes published per run (checked **before** any per-candidate work) |
+  | `ADMIN_WORKER_OSM_OUT_CAP`              | `500`    | Elements returned per tile query — hitting it marks the tile DENSE         |
+  | `ADMIN_WORKER_OSM_THROTTLE_MS`          | `180000` | Minimum interval between runs (3 min)                                      |
+  | `ADMIN_WORKER_OSM_RUN_BUDGET_MS`        | `360000` | Wall-clock deadline per run, under the lane watchdog                       |
+  | `ADMIN_WORKER_OSM_DAILY_BUDGET`         | `600`    | Overpass HTTP attempts per day                                             |
+  | `ADMIN_WORKER_OSM_REVERSE_DAILY_BUDGET` | `1000`   | Nominatim reverse lookups per day                                          |
+  | `ADMIN_WORKER_OSM_MIN_SPACING_MS`       | `5000`   | Minimum gap between consecutive Overpass requests                          |
+  | `ADMIN_WORKER_OSM_RESWEEP_DAYS`         | `90`     | How long before a swept tile comes due again                               |
+  | `ADMIN_WORKER_OSM_EMPTY_RESWEEP_DAYS`   | `180`    | Same, for a tile that yielded nothing                                      |
+  | `OVERPASS_ENDPOINTS`                    | unset    | Comma-separated endpoints tried **before** the public mirrors              |
+
+- **The discovery lane never fetches a parish website — a separate lane does.**
+  Splitting the two is what lets discovery publish hundreds per run inside its
+  watchdog instead of stalling on 10-second site fetches. The **parish website
+  verification lane** ([`parish-website-verification.ts`](src/lib/admin-worker/parish-website-verification.ts))
+  works through the published catalog at **30 sites per run, one at a time, 10 s
+  each**, under a wall-clock budget below its own watchdog, persisting the cursor
+  after **every** site so a killed run never repeats work
+  (`ADMIN_WORKER_PARISH_VERIFY_LIMIT`, `ADMIN_WORKER_PARISH_VERIFY_BUDGET_MS`).
+  Each parish's verdict and `nextDueAt` live in
+  `payload._meta.websiteVerification` — meta, so a re-check never counts as a
+  content change. The verdicts:
+  - **not in communion** (Old Catholic / Union of Utrecht, Polish National
+    Catholic, sedevacantist, the SSPX, independent "Catholic" bodies, women's
+    ordination, Orthodox / Anglican identity) → the row is **unpublished, never
+    deleted**, a human-review row explains why, and discovery is told not to
+    republish it for a year (`osm-skip`);
+  - **in communion** → kept, and any phone / Mass times / confession times the
+    site shows are folded in (enrich-only, through the content-protection gate);
+    re-checked in 180 days;
+  - **unknown** (site unreadable, no signal) → **kept** on the strength of the
+    explicit OSM `roman_catholic` tag, which already excludes Old Catholic /
+    sedevacantist / Orthodox; re-checked in 90 days.
+
+  The verifier ([`communion-verifier.ts`](src/lib/admin-worker/communion-verifier.ts))
+  does **not** require an explicit "in communion with Rome" statement — a parish
+  site rarely says that. It confirms communion the way a real parish identifies
+  itself: the name of the **(arch)diocese or (arch)eparchy** it belongs to, or of
+  **any of the 24 sui iuris Churches** of the Catholic communion (Roman/Latin,
+  Maronite, Melkite, Ukrainian and other Byzantine/Greek Catholic, Chaldean,
+  Syro-Malabar, Syro-Malankara, Coptic, Armenian, Syriac, Ethiopian/Eritrean, …),
+  or "Roman Catholic", USCCB / Holy See. Disqualifying signals are checked first
+  and always win. A bare "Catholic" alone is never enough — Old Catholics call
+  themselves Catholic too — and stays unknown.
 
 - **A parish publishes on just its name + address — it never gets stuck on
   missing detail.** Name + address (+ city) is the minimum publishable record;
-  **phone, Mass times, and confession times are best-effort extras** — pulled
-  from OSM tags and scraped from the parish website in the same single fetch that
-  runs the communion check ([`inspectParishWebsite`](src/lib/admin-worker/communion-verifier.ts)),
-  and simply omitted when not found. Nothing about a missing phone or schedule
-  ever blocks a publish or routes a parish to review.
+  **phone, Mass times, and confession times are best-effort extras**, filled from
+  OSM tags at discovery and from the website by the verification lane, and simply
+  omitted when not found. Nothing about a missing phone or schedule ever blocks a
+  publish or routes a parish to review.
 
 - **Duplicates are judged by address, not name.** Two parishes at the same
   address are the same place however their names are spelled ("St. Mary" vs
@@ -1001,13 +1364,13 @@ falling back to a TypeScript final brain. Concretely:
   lower-cased, de-accented, street-type/directional words folded to a canonical
   form). A candidate whose `addressKey` matches an already-published parish is
   **not published again**. A continuous, keyless maintenance sweep
-  ([`parish-refresh.ts`](src/lib/admin-worker/parish-refresh.ts)) walks the whole
-  published catalog, back-stamping `addressKey` on every row and unpublishing any
-  duplicate — so _previously_ published parishes are de-duplicated too, not just
-  new discoveries.
+  ([`parish-refresh.ts`](src/lib/admin-worker/parish-refresh.ts), the
+  `refresh-parishes` lane) walks the whole published catalog, back-stamping
+  `addressKey` on every row and unpublishing any duplicate — so _previously_
+  published parishes are de-duplicated too, not just new discoveries.
 
 - **End-of-month parish refresh — with an email report, and never a time sink.**
-  During the **last 7 days of each month** the worker re-reads every published
+  During the **last 7 days of each month** the same lane re-reads every published
   parish's website and refreshes its **Mass times, confession times, and phone**
   when they've changed, cursoring through the catalog a batch per pass so it
   covers all parishes across the window (`runParishMonthlyRefresh`). The **moment
@@ -1019,8 +1382,7 @@ falling back to a TypeScript final brain. Concretely:
   nothing changed, no email is sent. If the sweep can't make progress (repeated
   hard errors, or the month ends before it finishes) it **escalates to the
   developer**. Batch sizes are tunable via `ADMIN_WORKER_PARISH_REFRESH_BATCH`
-  and `ADMIN_WORKER_PARISH_DEDUP_BATCH`; both sweeps run in the `refresh-parishes`
-  ops lane and are fail-open.
+  and `ADMIN_WORKER_PARISH_DEDUP_BATCH`; both sweeps are fail-open.
 
 - **The parish card is built for a visitor standing outside.** Every parish /
   shrine / cathedral / basilica detail page shows the **address as a tappable
@@ -1536,53 +1898,166 @@ guarantee is **structural**: `tests/admin-worker/production-mandates.test.ts`
 and the readiness checks prove `runPublishOrchestrator()` is the only
 publish writer and that every recent public row traces to an artifact.
 
-### Curated knowledge as the offline first-pass source
+### Curated knowledge — the offline first-pass source
 
 The repo ships a large, hand-verified curated knowledge base
 (`src/lib/checklist/knowledge/`, `ALL_CURATED_ENTRIES`) of ground-truth,
-schema-valid Catholic content with authority citations — **~507 entries
-spanning every content type**: the Church's fixed texts and canonical lists.
-Representative depth: 167 saints, 57 popes, the complete sets of the 37 Doctors
-of the Church and the 7 sacraments, 42 prayers (with Latin/Greek where an
-authentic form exists), 34 Marian titles, 30 liturgical feasts & seasons, 27
-basilicas & shrines, 25 church documents (encyclicals, conciliar texts, the
-Catechism), 23 devotions, plus litanies, novenas, approved apparitions, how-to
-guides, spiritual practices, and the recognized rites. Every entry validates
-against its per-type content schema (`tests/checklist/knowledge.test.ts`) and
-publishes through the real orchestrator. The curated set is the worker's
-**first-pass content source** (canonical content can be published without a live
-fetch), while live discovery + cross-source verification — **plus the runtime
-growth engines below (open-internet + keyword web-search discovery, Google Maps
-parish discovery, and web-PDF reading)** — grows everything far beyond it (the
-saint target alone is 10,000).
+schema-valid Catholic content with authority citations — **1,232 entries across
+every content type**: the Church's fixed texts and canonical lists. Depth per
+type is in the [content-goals table](#content-goals--the-largest-gap-first-scheduler)
+above; six goals are met by curated content alone, with no network at all.
 
-- The worker publishes it through the **real** pipeline, not a back door:
-  `runCuratedIngest()` (`src/lib/admin-worker/curated-ingest.ts`) runs each
-  loop pass as a bounded, idempotent, fail-open step that publishes the next
-  batch of not-yet-live curated entries through `runPublishOrchestrator()`
-  (full safety + ten-dimension quality gate + verifier evidence + persist),
-  then refreshes the content goals. So `npm run worker` grows content across
-  every type even where outbound HTTP is unavailable.
-- The curated entries carry citations and a verifier sign-off, so the
-  orchestrator's brain-backed _advisory_ screens (communion-risk, semantic
-  dedupe) are skipped for them (`skipBrainScreens`) while every deterministic
-  gate still runs — the brain remains the final action selector for the
-  worker's autonomous discovery/fetch missions.
-- `npm run seed:content` runs the same publish path once from the CLI
-  (`scripts/seed-curated-content.ts`) for a fresh local DB or any offline
-  environment.
-- **Curated/structured-built types are not web-extracted.** `GUIDE` and
-  `MARIAN_TITLE` grow from the curated knowledge base (and, for Marian titles,
-  the keyless structured Wikidata ingestor) — not from live discovery. Arbitrary
-  discovered "how-to" / devotional pages classified into these near-catch-all
-  types rarely yield a complete, publishable record, so web-extracting them
-  produced `needs_repair` on every pass and the EXTRACTION stage looped with zero
-  successes (a real self-monitoring escalation). They keep a real extractor (the
-  capability + the "every type is buildable" guarantee hold — see
-  `tests/admin-worker/content-types.test.ts`), but `CURATED_BUILT_CONTENT_TYPES`
-  excludes them from `WEB_EXTRACTION_CONTENT_TYPES`, which is the set BOTH the
-  extraction dispatcher and the brain's extraction-backlog count use — so the
-  worker never loops on them.
+**Layout.** Each content type has a **file** that exports the aggregated array,
+and — for the types that outgrew a single reviewable file — a **directory of
+group files** beside it that the aggregator imports:
+
+```
+src/lib/checklist/knowledge/
+  index.ts                  ALL_CURATED_ENTRIES + findCuratedEntry
+  prayers.ts                aggregates →  prayers/batch-1.ts … batch-8.ts
+  guides.ts                 aggregates →  guides/rosary-chaplets.ts, sacraments-1.ts,
+                                          confession-adoration.ts, seasons-ocia.ts, …
+  church-documents.ts       aggregates →  church-documents/group-1.ts, group-2.ts
+  devotions.ts              aggregates →  devotions/group-1.ts, group-2.ts
+  liturgical.ts             aggregates →  liturgical/group-1.ts, group-2.ts
+  novenas.ts                aggregates →  novenas/group-1.ts, group-2.ts
+  apparitions.ts            aggregates →  apparitions/group-1.ts
+  marian-titles.ts          aggregates →  marian-titles/group-1.ts
+  rites.ts                  aggregates →  rites/group-1.ts
+  spiritual-practices.ts    aggregates →  spiritual-practices/group-1.ts
+  saints.ts  popes.ts  doctors.ts  sacraments.ts  litanies.ts
+  parishes.ts  church-history.ts  prayer-translations.ts
+```
+
+The split is purely so each file stays reviewable; a group file exports the same
+`CuratedEntry[]` shape as the aggregate. Every entry validates against its
+per-type content schema (`tests/checklist/knowledge.test.ts`), and one group file
+can be checked on its own before it joins the registry:
+
+```bash
+npx tsx scripts/validate-curated-file.ts src/lib/checklist/knowledge/prayers/batch-7.ts
+npx tsx scripts/validate-curated-file.ts src/lib/checklist/knowledge/*/*.ts   # all 645 group entries
+```
+
+It checks payload-schema validity, slug uniqueness inside the file and against
+`payload.slug`, that citations are real page URLs rather than bare origins, that
+referenced prayer / saint / devotion slugs actually exist (in the registry or in
+the other files passed on the same command line, so a batch can be checked
+together before it is aggregated), and that no novena day text is
+template-generated. It lists **every** problem, never just the first.
+
+**How curated content is published.** Through the real pipeline, not a back
+door: `runCuratedIngest()` ([`curated-ingest.ts`](src/lib/admin-worker/curated-ingest.ts),
+the `ingest-curated` lane) runs each pass as a bounded, idempotent, fail-open
+step that publishes the next batch (default 25) of not-yet-live curated entries
+through `runPublishOrchestrator()` — full safety gate, ten-dimension quality
+gate, verifier evidence, persist — then refreshes the content goals. Curated
+entries carry citations and a verifier sign-off, so the orchestrator's
+brain-backed _advisory_ screens (communion-risk, semantic dedupe) are skipped for
+them (`skipBrainScreens`) while every deterministic gate still runs.
+`npm run seed:content` runs the same publish path once from the CLI
+(`scripts/seed-curated-content.ts`) for a fresh local DB or any offline
+environment.
+
+**How a curated EDIT reaches production — fingerprint-gated re-publish.** The
+seed skips every slug that is already published, so for a long time a corrected
+prayer text or a rewritten guide shipped to production and the public page kept
+showing the old words forever. `syncCuratedUpdates()`
+([`seed-curated-content.ts`](src/lib/admin-worker/seed-curated-content.ts)) closes
+that gap, and it is **not** new-slug-only:
+
+1. A **stable sha256 fingerprint** is computed over the whole corpus —
+   `(contentType, slug, payload)` with payload keys sorted — so it changes
+   exactly when the shipped knowledge changes and not otherwise.
+2. That fingerprint is compared with the one recorded in `AdminWorkerMemory`
+   after the last **complete** sync. Equal ⇒ the sync returns immediately
+   without touching a row. This is what makes running it every pass free.
+3. Different ⇒ the live rows for each type are read in one query per type, and
+   each entry's proposed payload is merged in memory. Fields the **publish path**
+   stamped after the entry left the knowledge base (`contentSubtype`, `latin`,
+   `greek`, `translations`, …) are preserved rather than treated as content the
+   curated entry "removed".
+4. A genuinely changed row goes through `applyProtectedContentUpdate` — the
+   current row is snapshotted to `PublishedContentVersion`, the version is
+   bumped, and the change is applied. A destructive replace is **explicitly
+   allowed here**, because curated text carries the highest authority the worker
+   has (quality 0.95, evidence = its own citations) — and it is reversible
+   because of the snapshot.
+5. The work is **bounded per call** (25 by default) and the fingerprint is only
+   remembered once **nothing** is left to update, so a large rewrite keeps
+   draining across passes until every live row matches.
+
+**Curated-built types are not web-extracted.** `GUIDE` and `MARIAN_TITLE` grow
+from the curated base (and, for Marian titles, the keyless structured Wikidata
+ingestor) — not from live discovery. Arbitrary discovered "how-to" / devotional
+pages classified into these near-catch-all types rarely yield a complete,
+publishable record, so web-extracting them produced `needs_repair` on every pass
+and the EXTRACTION stage looped with zero successes. They keep a real extractor
+(the "every type is buildable" guarantee holds — see
+`tests/admin-worker/content-types.test.ts`), but `CURATED_BUILT_CONTENT_TYPES`
+excludes them from `WEB_EXTRACTION_CONTENT_TYPES`, which is the set BOTH the
+extraction dispatcher and the brain's extraction-backlog count use — so the
+worker never loops on them.
+
+### Structured Wikidata knowledge, and the lane that repairs it
+
+The biggest deterministic lever is not "read messy HTML" but "ingest structured
+knowledge". The structured-knowledge engine
+([`structured/`](src/lib/admin-worker/structured)) queries **Wikidata** (free,
+CC0, citable) by QID, pulls **Wikipedia** lead abstracts and parsed infoboxes for
+narrative and cited fields, maps each entity to a schema-valid record, and
+publishes the not-yet-live ones through the same real gate as everything else —
+no API key, no model, no hallucination surface. It is **self-advancing** (a
+per-ingestor cursor in `AdminWorkerMemory` walks the corpus across passes and
+wraps to re-sweep), **self-improving** (the same row accumulates a
+success/failure signal), and **self-expanding** (each ingested entity's official
+website joins the discovery queue). The registry covers `POPE`, `SAINT`,
+`CHURCH_DOCUMENT` (documents **and** the 21 ecumenical councils), `DOCTOR`,
+`RITE`, `DEVOTION`, `MARIAN_TITLE` and `SPIRITUAL_PRACTICE`.
+
+**Saints are the largest structured corpus, so they get a repair lane of their
+own.** `repair-structured-saints` ([`structured/saint-repair.ts`](src/lib/admin-worker/structured/saint-repair.ts))
+is a bounded, idempotent, cursor-based sweep over the **already-published**
+saints that came from Wikidata (identified by their `wikidata.org/wiki/Q…`
+citation or `sourceRef`). It re-derives from the structured record, by QID and
+through the rules the ingestor uses today, the three things the early ingest got
+wrong:
+
+- **canonization status** — mapped by label, so Orthodox / Anglican / Coptic /
+  folk "saints" had been published as Catholic `canonized`, and the Orthodox
+  honorific "The Venerable" as the Catholic `venerable`;
+- **saint type** — scanned from prose, so St Patrick came out an "apostle" and
+  St John Vianney a "virgin";
+- **display title** — the bare Wikidata label, so structured saints sat next to
+  the curated "Saint Joseph" with no honorific at all;
+
+plus a re-check of a multi-feast saint's published day against the
+infobox-first corroboration rule (the old `SAMPLE()` pick was frozen forever).
+
+Corrections go through `applyProtectedContentUpdate` — versioned, reversible,
+evidence-gated. A row is **unpublished only when the structured record PROVES
+the veneration is not Catholic** (`isProvenNonCatholic`), never on doubt, and
+every unpublish leaves both an `AdminWorkerLog` row and a `HumanReviewQueue` row
+so an operator can restore it with one click. **Nothing is deleted.** The lane is
+bounded (25 rows and one batched query per pass), cursor-driven, honours the
+shared source cool-down, and is deliberately **not** `activeOnly` — it is pure
+deterministic re-derivation with no brain judgement, so it keeps the catalog
+honest even while the brain is degraded.
+
+The types whose required content is **verbatim or doctrinally sensitive** — an
+apparition's official approval status, a novena's nine-day prayer text, a
+prayer's verbatim body — are **not** abstract-ingested. The structured
+**discovery seeder** ([`discovery-seeder.ts`](src/lib/admin-worker/structured/discovery-seeder.ts))
+instead enumerates them from Wikidata and feeds their **authoritative source
+URLs** to the live extraction + cross-source-verification pipeline, so they grow
+from approved sources rather than from an encyclopedia.
+
+### Pipeline rules the content path encodes
+
+Each of the following is a rule the pipeline now enforces because its absence
+caused a measured, named stall. They are listed with the failure they prevent so
+none of them is quietly removed as "unnecessary complexity".
+
 - **Structured-feed-built types are not web-extracted either.** `PARISH` grows
   from **OpenStreetMap** via `parish-osm.ts` (the `discover-parish-osm` lane
   publishes clean, deduplicated records), not from arbitrary parish web pages.
@@ -1738,19 +2213,21 @@ SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
   (parishes included; they grow on the OSM lane), but "next action" style
   outputs only ever name goals the web pipeline can actually advance.
 
-- **OSM parishes publish even when their website can't be read.** A candidate
-  carries OpenStreetMap's curated `denomination=roman_catholic` tag; the runner
-  still tries the parish website for a communion verdict, but an _unreadable_
-  site (blocked egress, site down, non-HTML) returns `unknown` — which is **not**
-  evidence against communion. Treating `unknown` as "route to review" made an
-  unreadable site _more_ restrictive than no site at all, stranding nearly every
-  OSM parish in review whenever arbitrary parish-website egress was unavailable
-  (why parishes weren't publishing). `runOsmParishDiscovery` now falls back to
-  the OSM denomination tag on `unknown`, exactly as it already does for parishes
-  with no website; only a verdict that _proves_ not-in-communion rejects. The
-  bulk `overpass-api.de` source is also probed by the outbound-reachability
-  diagnostic (best-effort, non-critical) so an egress block on the parish feed is
-  visible rather than silent.
+- **OSM parishes publish on the tag; the website is checked later, separately.**
+  A candidate carries OpenStreetMap's curated `denomination=roman_catholic` tag,
+  which already excludes Old Catholic / sedevacantist / Orthodox bodies, so
+  discovery publishes on it and never fetches the site. Making discovery wait for
+  a website verdict was what stranded nearly every OSM parish: an _unreadable_
+  site (blocked egress, site down, non-HTML) returns `unknown`, which is **not**
+  evidence against communion, yet treating `unknown` as "route to review" made an
+  unreadable site _more_ restrictive than no site at all — and the 10-second
+  fetches meant a run could barely finish a handful of parishes inside its
+  watchdog. The communion check now lives in its own bounded
+  [`verify-parish-websites`](#internal-worker-lanes--concurrency-controls) lane,
+  where only a verdict that _proves_ not-in-communion unpublishes a row (never
+  deletes it). The bulk `overpass-api.de` source is also probed by the
+  outbound-reachability diagnostic (best-effort, non-critical) so an egress block
+  on the parish feed is visible rather than silent.
 
 ### Internal modules
 
@@ -1770,7 +2247,7 @@ SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
 | `priorities.ts`                          | Priority ladder + selector                                                                                |
 | `decisions.ts`                           | Decision log + confidence thresholds                                                                      |
 | `planner.ts`                             | Build-job enqueuer (within mission)                                                                       |
-| **`discovery-orchestrator.ts`**          | 7 discovery methods + per-type strategies + cadence                                                       |
+| **`discovery-orchestrator.ts`**          | 8 discovery methods + per-type strategies + cadence                                                       |
 | `web-navigator.ts`                       | Candidate URL store + junk classifier                                                                     |
 | `sitemap-discovery.ts`                   | Sitemap discovery + robots.txt                                                                            |
 | `rss-discovery.ts`                       | RSS / Atom feed discovery                                                                                 |
@@ -1809,7 +2286,14 @@ SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
 | **`homepage-publish-orchestrator.ts`**   | 10-axis inspect + snapshot + verify + rollback                                                            |
 | `liturgical-calendar.ts`                 | Meeus-based liturgical calendar engine (homepage seasonal scorer)                                         |
 | `daily-readings.ts`                      | Daily Mass readings: resolve + store + autonomous backfill/self-correct                                   |
-| **`readings-source.ts`**                 | Pluggable readings sources (offline table + `LECTIONARY_DATA_URL` dataset)                                |
+| **`readings-source.ts`**                 | Readings-source registry — one adapter: the committed lectionary tables                                   |
+| **`self-maintenance.ts`**                | Sense → diagnose → repair → verify on the worker's own health (the `maint-self-heal` lane)                |
+| **`event-sampler.ts`**                   | Per-event hourly log budget, enforced inside `writeAdminWorkerLog`                                        |
+| **`brain-mutex.ts`**                     | Serialises brain callers — the resident brain answers one request at a time                               |
+| **`parish-osm-tiles.ts`**                | The persistent 1°/2° tile grid + quadtree split for OSM parish discovery                                  |
+| **`parish-osm-overpass.ts`**             | Overpass transport: mirror failover, request pacing, daily budget                                         |
+| **`parish-website-verification.ts`**     | Bounded communion re-check of published parish websites                                                   |
+| **`structured/saint-repair.ts`**         | Cursor-based re-derivation of published Wikidata saints (versioned, never deletes)                        |
 | `security-defender.ts`                   | Defender + automatic ban + email                                                                          |
 | `security-detectors.ts`                  | 10 deterministic detector functions                                                                       |
 | **`request-defender.ts`**                | 7 helpers (failed login, brute force, mutation, …)                                                        |
@@ -2013,43 +2497,52 @@ service): every independent workstream is its own lane, so the worker fires a lo
 of tasks at once instead of blocking on each other (`lanes.ts` + `worker-lanes.ts`).
 Each lane is individually tracked, so you can see exactly what every one is doing.
 
-- **Content lanes** (`activeOnly` — they publish, so they run only when the
-  Python final brain is active), one lane per workstream so they all run at once:
-  **ingest-curated**, **ingest-structured**, **ingest-liturgical** (each publishes
-  a disjoint content set); **enrich-translations**, **enrich-reviews**,
-  **enrich-pope-cleanup**; **discover-structured**, **discover-parish-osm**,
-  **discover-web** (the three discovery methods, keeping the candidate funnel full
-  from every angle simultaneously).
-- **Ops lanes** (every pass, regardless of mode): **drain** (the BUILD_READY drain
-  above), **readings**, the four maintenance lanes **maint-schema** / **maint-ui** /
-  **maint-self-model** / **maint-custody**, **reporting**, **intelligence**
-  (post-pass analysis + lab + skill matrix + code-version — the single
-  brain-calling lane), **escalation**, and the measure-only **innovation** lane.
+**Content lanes** run only while the Python final brain is active (`activeOnly` —
+they publish). **Ops lanes** run every pass regardless of brain mode. Both run
+only inside a pass, which runs only while the master switch is ON.
 
-That is ~20 lanes (was two coarse groups of three + seven), so the previously
-serial sub-workstreams inside "ingestion"/"enrichment"/"discovery"/"maintenance"
-now run concurrently. The worker keeps mining continuously (the loop runs forever
-with idle backoff, `oneShot=false`) until every content goal's gap is closed.
+| Lane                       | Kind    | Watchdog | What it does                                                                                                                                                         |
+| -------------------------- | ------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ingest-curated`           | content | 120 s    | Publishes the next batch of curated entries + the fingerprint-gated re-publish of edited ones                                                                        |
+| `ingest-structured`        | content | 6 min    | Wikidata/Wikipedia structured ingest for the type furthest from its goal                                                                                             |
+| `ingest-liturgical`        | content | 120 s    | Keyless liturgical-calendar ingest (feasts of the Lord + solemnities)                                                                                                |
+| `enrich-translations`      | content | 120 s    | Authentic Latin/Greek backfill from the internal corpus                                                                                                              |
+| `enrich-reviews`           | content | 120 s    | Review-queue auto-resolve                                                                                                                                            |
+| `enrich-pope-cleanup`      | content | 120 s    | Pope-record cleanup                                                                                                                                                  |
+| `discover-structured`      | content | 6 min    | Structured discovery seeding                                                                                                                                         |
+| `discover-parish-osm`      | content | 8 min    | The OSM tile sweep. A content lane, but deliberately **not** `activeOnly`: it is deterministic and brain-free, so it grows parishes even while the brain is degraded |
+| `discover-web`             | content | 120 s    | The 8-method web discovery orchestrator                                                                                                                              |
+| `drain`                    | ops     | 10 min   | The BUILD_READY drain (a legitimately long-running lane, hence the higher watchdog)                                                                                  |
+| `readings`                 | ops     | 120 s    | Daily-readings refresh + the rolling backfill                                                                                                                        |
+| `maint-schema`             | ops     | 120 s    | Schema-awareness (brain, under the mutex)                                                                                                                            |
+| `maint-ui`                 | ops     | 120 s    | UI-awareness (brain, under the mutex)                                                                                                                                |
+| `maint-self-model`         | ops     | 120 s    | The whole-app self-model pass (brain, under the mutex)                                                                                                               |
+| `maint-custody`            | ops     | 120 s    | Content custody / missing-information scan (brain, under the mutex)                                                                                                  |
+| `maint-hygiene`            | ops     | 120 s    | Display repairs on live rows (slug-shaped titles, stale subtitles) **and the hourly ledger prune**                                                                   |
+| `maint-self-heal`          | ops     | 6 min    | [Self-maintenance](#self-maintenance) — sense → diagnose → repair → verify                                                                                           |
+| `reporting`                | ops     | 120 s    | Reporting pass + the month-end report gate                                                                                                                           |
+| `refresh-parishes`         | ops     | 120 s    | Continuous address-dedup + the last-7-days-of-month parish refresh                                                                                                   |
+| `repair-structured-saints` | ops     | 6 min    | Re-derives published Wikidata saints against their source — deterministic, so it runs regardless of brain mode                                                       |
+| `verify-parish-websites`   | ops     | 6 min    | 30 parish sites per run, communion verdict + `nextDueAt`                                                                                                             |
+| `intelligence`             | ops     | 120 s    | Post-pass analysis + lab + skill matrix + code-version — **the single brain-calling lane**                                                                           |
+| `escalation`               | ops     | 120 s    | Self-assessment → governance → escalation                                                                                                                            |
+| `innovation`               | ops     | 120 s    | The measure-only innovation lab                                                                                                                                      |
 
-**Priority: content goals first, then management + security.** Meeting the content
-goals is the worker's first job — while any goal has an open gap the growth lanes
-(`ingest-*`, `discover-*`, tagged `growth: true`) run at full pace every active
-pass. Once **every** content goal is met (`contentGoalsMet` — no `ContentGoal`
-row has `gapCount > 0`), those growth lanes drop to a slow maintenance sweep
-(`ADMIN_WORKER_GROWTH_SWEEP_MS`, default 30 min) that still catches newly-added
-feasts/saints without building past target at full pace, and the worker's active
-work becomes the management + security lanes (drain, readings, the maintenance
-lanes, reporting, intelligence, escalation) — while the decision brain itself
-idles to `MAINTENANCE`. Security response is always-on independent of the loop
-(request-path middleware + the `escalation` lane). Non-growth lanes are never
-throttled, so quality/upkeep (review auto-resolve, translations, daily-readings
-refresh, custody) continues regardless.
+**Priority: content goals first, then management + security.** While any goal has
+an open gap the growth lanes (`ingest-*`, `discover-*`, tagged `growth: true`)
+run at full pace every active pass. Once **every** content goal is met
+(`contentGoalsMet` — no `ContentGoal` row has `gapCount > 0`), those growth lanes
+drop to a slow maintenance sweep (`ADMIN_WORKER_GROWTH_SWEEP_MS`, default 30 min)
+that still catches newly-added feasts and saints without building past target at
+full pace, and the worker's active work becomes the management + security lanes —
+while the decision brain itself idles to `MAINTENANCE`. Security response is
+always-on independent of the loop (request-path middleware + the `escalation`
+lane). Non-growth lanes are never throttled.
 
 **Major-goal campaigns (`major-goal-campaign.ts`).** When a single goal has a gap
 big enough to be "getting in the way of sustainable progress" — the unmet,
 web-growable goal with the largest absolute gap, ≥ `ADMIN_WORKER_CAMPAIGN_MIN_GAP`
-(default 1000: the remaining saints today, then the next-biggest like church
-history / prayers) — the worker runs it as a **campaign** instead of letting it
+(default 1000) — the worker runs it as a **campaign** instead of letting it
 trickle:
 
 1. **DRAIN** — first finish everything already built and waiting to publish (the
@@ -2064,8 +2557,8 @@ trickle:
 
 It is generic (any **web-growable** type, picked by gap size), read-only +
 fail-open (any error ⇒ NORMAL), and the active phase + goal are logged
-(`major_goal_campaign`). Curated-built (GUIDE, MARIAN_TITLE) **and
-structured-feed-built (PARISH)** types are never campaign targets — a web surge
+(`major_goal_campaign`). Curated-built (`GUIDE`, `MARIAN_TITLE`) **and
+structured-feed-built (`PARISH`)** types are never campaign targets — a web surge
 can't close a gap that only their own ingest lane fills. `PARISH` matters most
 here: its ~200k gap dwarfs every other goal, so leaving it eligible pinned the
 campaign on `PARISH` forever — the surge commandeered the entire web pipeline for
@@ -2090,29 +2583,157 @@ Concurrency is made **safe by construction, not by luck**:
   worker processes) never double-work the same item. A crashed lane's lease
   **expires and is reclaimed** (`reapArtifactLeases`).
 - A global **concurrency cap** (`ADMIN_WORKER_LANE_CONCURRENCY`, default 8) bounds
-  resource use — extra lanes queue and run as slots free. It is kept at/below the
-  Prisma connection pool (`PRISMA_CONNECTION_LIMIT`, default 10) so many
+  resource use — extra lanes queue and run as slots free. It is kept at or below
+  the Prisma connection pool (`PRISMA_CONNECTION_LIMIT`, default 10) so many
   concurrent lanes never starve the pool (`P2037`); raise **both together** on a
-  bigger machine to run even more at once.
+  bigger machine.
 - Stale lane rows from an earlier lane layout are pruned each pass
   (`pruneUnknownLaneStates`), so the live board only ever shows lanes that are
   actually running.
 - Every lane is **isolated** (its own try/catch): a failing lane never kills the
-  others (self-repair), and it enters a **backoff cooldown** before retrying, so a
+  others, and it enters a **backoff cooldown** (5 min) before retrying, so a
   hard-failing lane can't hot-loop.
 - Every lane is raced against a **watchdog** (`ADMIN_WORKER_LANE_TIMEOUT_MS`,
-  default 120 s): a lane whose `run()` never settles is timed out + recorded as
-  errored, and the others proceed — a hung lane can never wedge the pass or
-  orphan a RUNNING row. A lane that legitimately runs long (the `drain` over a
-  large backlog) sets a higher per-lane watchdog so real progress is never cut.
-- **Brain-calling work lives in one lane** so it never issues concurrent calls to
-  the single Python brain subprocess.
+  default 120 s, with the higher per-lane values in the table above): a lane whose
+  `run()` never settles is timed out, recorded as errored, and the others proceed
+  — a hung lane can never wedge the pass or orphan a `RUNNING` row.
+- **Brain-calling work lives in one lane.** See
+  [The Python brain bridge does not queue](#the-python-brain-bridge-does-not-queue).
 
 Each lane records its live state to `AdminWorkerLaneState` — status, current
 item/gate/strategy, capacity, concurrent tasks, last outcome/error/duration —
 which is the practical **operational-self-awareness** surface the "Internal worker
 lanes" diagnostics rating + the pipeline page show: which lanes ran, which are in
 error-backoff, and what each last did.
+
+### The Python brain bridge does not queue
+
+Worth stating plainly, because the obvious assumption is wrong and the
+consequences were expensive.
+
+The resident brain answers **strictly one request at a time**, and the bridge
+([`intelligence/client.ts`](src/lib/admin-worker/intelligence/client.ts)) **does
+not queue**: every caller writes straight to the child process's stdin and starts
+its own timeout **the moment it writes**. Responses are multiplexed back by id
+over newline-delimited JSON, so concurrent callers are not an error — but they
+are not concurrent work either. Two lanes calling the brain at once do not run in
+parallel: the second one waits inside the Python loop while its 8 s timeout is
+already ticking, and a lane the watchdog has given up on keeps queueing calls
+into the next pass.
+
+So callers **serialize through a mutex**
+([`brain-mutex.ts`](src/lib/admin-worker/brain-mutex.ts)): at most one of them
+talks to the brain at a time, and each one's timeout starts only once it actually
+holds the process. It is deliberately tiny — a promise chain, no re-entrancy, no
+priorities; a holder that throws still releases (the chain settles in `finally`),
+and every brain call carries its own timeout, so a holder can never hang the
+queue indefinitely. `brainMutexState()` exposes live occupancy for diagnostics.
+
+Two structural rules keep this honest: **all** post-pass brain work lives in the
+single `intelligence` lane, and the lanes that must call the brain from outside it
+(`maint-schema`, `maint-ui`, `maint-self-model`, `maint-custody`) take the mutex
+around their brain work.
+
+When the brain is unavailable the bridge returns `null` rather than throwing —
+resilience, not optionality: it is always consulted, it simply never blocks a
+pass. A crash / timeout / protocol mismatch marks it down, but it **re-probes and
+self-heals** after a cooldown (`INTELLIGENCE_DOWN_RETRY_MS`, default 60 s) so a
+transient outage can't pin the worker degraded for the process lifetime. All
+three stdio streams carry an `'error'` swallow, so a dying pipe can't take the
+worker with it.
+
+### Ledger retention
+
+The worker's own bookkeeping is what destroyed the production database once (see
+[Self-maintenance](#self-maintenance)), so retention is now explicit, layered,
+and it runs where it will actually run.
+
+**Where.** `pruneLedgerRows` ([`cleanup.ts`](src/lib/admin-worker/cleanup.ts)) is
+called from the **`maint-hygiene` lane every pass**, not from the CLEANUP mission
+stage. The stage only runs when the brain picks it, which can be days apart,
+while the ledgers grow by ~35 rows on **every** pass. The prune throttles itself
+to once an hour per process and is fail-open per table, so calling it every pass
+costs nothing.
+
+**What, and for how long:**
+
+| Table                           | Kept    |
+| ------------------------------- | ------- |
+| `AdminWorkerLog` (INFO)         | 14 days |
+| `AdminWorkerLog` (WARN / ERROR) | 90 days |
+| `AdminWorkerActionScore`        | 14 days |
+| `AdminWorkerBrainCall`          | 14 days |
+| `AdminWorkerReasoningGraph`     | 14 days |
+| `AdminWorkerDecision`           | 14 days |
+| `AdminWorkerPass`               | 14 days |
+| `AdminWorkerStageOutcome`       | 30 days |
+| `AdminWorkerCalibrationHistory` | 30 days |
+| `AdminWorkerStucknessRecord`    | 30 days |
+| `PostPublishVerification`       | 30 days |
+| `AdminWorkerRepairPlan`         | 30 days |
+
+Deletes are batched (`DELETE … WHERE id IN (SELECT id … LIMIT 5000)`) so each
+statement takes a short lock. Content, and WARN/ERROR audit rows inside their
+window, are never touched. `AdminWorkerReasoningGraph`,
+`AdminWorkerCalibrationHistory`, `AdminWorkerStucknessRecord` and
+`PostPublishVerification` were added to this list _because_ the post-mortem found
+them unpruned; between them and `AdminWorkerActionScore` / `AdminWorkerBrainCall`
+they were 99 % of the 21 GB.
+
+**And a per-event budget.** `writeAdminWorkerLog` consults the
+[event sampler](src/lib/admin-worker/event-sampler.ts) on **every INFO write**:
+one `eventName` may write `ADMIN_WORKER_EVENT_BUDGET_PER_HOUR` rows per hour
+(default 120) before it is suppressed for `ADMIN_WORKER_EVENT_COOLDOWN_MS`
+(default 10 min), and the next row it does write says how many were dropped.
+Enforcing the budget **inside the writer** is what makes the `LOG_EVENT_SPAM`
+repair real for every event name, including ones added later — the earlier design
+mutated a map only nine call sites ever consulted, so suppressing anything else
+changed nothing at all. **WARN and ERROR rows are never sampled**: they are the
+audit trail.
+
+### Stuck protections
+
+Five independent mechanisms, each catching a different way the worker can stop
+making progress:
+
+1. **The pass can never be left `RUNNING`.** Everything after `startPass` runs
+   inside `try/catch/finally`; the `finally` closes the row as `FAILED` if any
+   earlier step throws. `reapStaleRunningPasses` closes anything a crashed
+   process left behind, at the next boot.
+2. **Per-lane watchdogs.** Every lane is raced against its timeout (table above);
+   an expired lane is recorded as errored and enters cooldown while the others
+   proceed. A hung lane can never wedge a pass.
+3. **The pipeline governor** ([`governor.ts`](src/lib/admin-worker/governor.ts))
+   reads the exact per-stage outcome ledger just before dispatch and, when the
+   chosen content stage has been picked repeatedly with **zero** forward
+   progress, forces the highest-priority productive downstream stage instead.
+   Discovery does not count as forward progress — surfacing candidate URLs is
+   top-of-funnel prep, not movement toward the public site. It only changes
+   _which_ already-gated handler runs.
+4. **Adaptive idle backoff with a floor** ([`loop.ts`](src/lib/admin-worker/loop.ts)).
+   A pass that does no work still costs ~140 database round trips, so the less a
+   pass can achieve the longer the loop waits: an ordinary idle pass waits the
+   configured start value (`ADMIN_WORKER_IDLE_BACKOFF_MS`, default 15 s, doubling
+   to `ADMIN_WORKER_IDLE_BACKOFF_MAX_MS`, default 120 s), a **brain-degraded**
+   pass at least 30 s, a **paused** pass at least 60 s. And a pause is treated as
+   a **state, not an event**: the transition in, the transition out, and a
+   heartbeat at most once a minute in between. Production wrote 649,793
+   `loop_paused` rows because a paused pass logged once per tick and ticked once
+   per second; `backoffFloorMs` is the exported rule that stops it, pinned by a
+   test rather than inferred from timing.
+5. **Stuckness detection that is acted on.** The brain's `detect_stuckness` runs
+   each pass; when it fires, `runStucknessPass` takes real corrective action
+   (aggressive review-queue auto-resolve, capability diagnosis, a high-priority
+   developer request naming the precise remediation) before asking for help. Both
+   the `worker_stuck` log row **and** the durable `AdminWorkerStucknessRecord` are
+   now gated by **one** sampling decision — gating only the log row is exactly
+   what let the durable table grow to 207,830 unpruned rows — and
+   [self-maintenance](#self-maintenance) is what escalates when the condition
+   persists.
+
+Above all of that sits the self-monitoring → governance → escalation layer
+described below, which decides how to respond to the worker's **overall** state
+and pages the admin at most once per open issue.
 
 ### Adaptive strategy memory + innovation lab
 
@@ -2358,7 +2979,7 @@ without it the fingerprint alone still detects code-shape changes.
 ### Operator actions
 
 The Command Center — in the native application, executing on the operator's
-MacBook — exposes one-click actions for every named pass. Each button starts a
+Mac — exposes one-click actions for every named pass. Each button starts a
 **local** operation; none of them calls a server endpoint that would do the work
 on Railway. Each is **also run autonomously** by the loop on its own cadence —
 the buttons only let the operator drive one on demand. The six single-stage
@@ -2415,7 +3036,7 @@ ladder — the brain re-scores every cycle.
 npm run worker:host                        # the local host + command center (what the app launches)
 npm run worker:local                       # the worker loop on this machine
 
-tsx scripts/run-worker.ts --origin local   # claim the local (MacBook) runtime
+tsx scripts/run-worker.ts --origin local   # claim the local (Mac) runtime
 tsx scripts/run-worker.ts --one-shot       # one pass then exit
 tsx scripts/run-worker.ts --max-jobs N     # exit after N passes
 tsx scripts/run-worker.ts --worker-id X    # stable worker id / lease holder
@@ -2423,7 +3044,7 @@ tsx scripts/run-worker.ts --switch-on      # also flip the master switch on (CLI
 ```
 
 Run without `--origin local` and the process **refuses to execute**: the Admin
-Worker's execution host is the operator's MacBook, and there is no automatic
+Worker's execution host is the operator's Mac, and there is no automatic
 cloud failover. Restoring cloud execution is deliberate and manual:
 `npm run worker -- --force-remote-execution "reason"`.
 
@@ -2627,8 +3248,8 @@ Each phase is forward-only and verified before the next: `npm run brain:selftest
 with the TypeScript `BRAIN_OPS` list kept in sync with the Python registry.
 
 **Resilience / chaos tests** prove the brain degrades safely rather than
-crashing: `intelligence/tests/test_chaos.py` feeds every op empty /
-type-confused / nested-garbage payloads (all 125 survive), isolates a crashing
+crashing: `intelligence/tests/test_chaos.py` feeds every op in the
+registry (233 of them) empty / type-confused / nested-garbage payloads, isolates a crashing
 op to an error envelope, and recovers the stdio loop from malformed lines;
 `tests/admin-worker/intelligence/resilience.test.ts` drives a configurable fake
 brain through protocol mismatch, malformed output, timeout, and the restart
@@ -2707,12 +3328,13 @@ auto-recovery, and concurrent id-multiplexing.
   (`ADMIN_WORKER_AUTONOMY`). Policy stays in TypeScript.
 - **Daily readings** (`daily-readings.ts`, `readings-source.ts`,
   `content-shared/lectionary.ts`): the worker computes the exact liturgical day,
-  resolves its readings (Douay-Rheims), and autonomously fills a rolling
-  ~year-ahead window into `DailyReading` — re-verifying + self-correcting each
-  scan, never downgrading a verified day. Coverage is extensible at runtime via
-  `LECTIONARY_DATA_URL`. The brain owns the calendar/lectionary knowledge
+  resolves its readings from the committed lectionary tables against the
+  Douay-Rheims store, and autonomously fills a rolling three-year window into
+  `DailyReading` — re-verifying + self-correcting each scan, never downgrading a
+  verified day. The brain owns its own copy of the calendar/lectionary knowledge
   (`liturgical_day`, `lectionary_readings`); the worker consults it each refresh
-  and records it, plus freshness classification + review-on-uncertainty.
+  and records it, plus freshness classification + review-on-uncertainty. See
+  [Liturgy](#liturgy).
 
 All of the supplementary wirings above are best-effort and non-blocking —
 they never block a pass. The **final action selection** is separate: the
@@ -2864,13 +3486,21 @@ renders even before the lab has recorded anything.
 
 ### Commands
 
+The brain needs Python >= 3.10 (`@dataclass(slots=True)`, `match`), and on a
+stock Mac bare `python3` is Apple's 3.9, which fails at import. Every command
+below goes through `scripts/brain-python.sh`, which picks the first usable
+interpreter — honouring `INTELLIGENCE_PYTHON` when it is set, exactly as the
+worker's own resolver does. Call the script directly for anything ad hoc
+rather than typing `python3`.
+
 ```bash
-python3 -m intelligence --selftest   # run every op against a sample payload
-python3 -m intelligence --list-ops   # list ops + protocol version
-npm run brain:test                   # python unit tests (stdlib unittest)
-npm run brain:selftest               # same as --selftest
+npm run brain:test                   # python unit tests (stdlib unittest) → 230 tests
+npm run brain:selftest               # every op against a sample payload → 233/233 ops
 npm run brain:proof                  # unified-intelligence proof (spec proof points 3-13)
 npm run admin-worker:proof:brain     # proof points 1-2 (Python is the final brain; no legacy path)
+
+sh scripts/brain-python.sh -m intelligence --list-ops    # ops + protocol version
+sh scripts/brain-python.sh -m intelligence --selftest    # same as brain:selftest
 ```
 
 **Proof suite.** `intelligence/tests/test_unified_proof.py` +
@@ -2931,7 +3561,7 @@ deterministic liturgical translation engine builds + publishes any missing
 prayer translation, routing only genuine gaps to review), **learning** (memory +
 source reputation + confidence calibration + capability scores), **self-model +
 code awareness**, the **Intelligence Laboratory** pass, and a **capability-matrix
-refresh**. Live discovery (seven methods) grows content beyond the curated base.
+refresh**. Live discovery (eight methods) grows content beyond the curated base.
 
 This covers **every content type the site offers**. Each public category maps to
 a publishable `ChecklistContentType`, and all of them have an extractor, a
@@ -3207,6 +3837,174 @@ publishing pipeline, one knowledge graph, one QA system and one brain.
 
 ---
 
+## Liturgy
+
+Everything the site says about the Church's year is computed in this repository
+from committed data. There is **no remote readings dataset**, and there never
+was: an earlier `LECTIONARY_DATA_URL` adapter was a phantom — no public dataset
+used this repo's key scheme, no URL was ever configured, and nothing in the tree
+produced such a file, so coverage could not actually grow by configuration. It
+has been removed. Coverage grows by rebuilding the tables.
+
+### The calendar engine
+
+[`content-shared/liturgical-calendar.ts`](src/lib/content-shared/liturgical-calendar.ts)
+(mirrored in the Python brain as `lectionary.py`) computes the exact liturgical
+day for **any** date in any year — no lookup table, no network:
+
+- **Two calendars.** `roman-general` (the General Roman Calendar) and
+  **`roman-us`**, the calendar of the Dioceses of the United States, which is the
+  **default** because the site's readings follow the USCCB Lectionary. The US
+  calendar moves Epiphany and Ascension to Sunday (Ascension can be kept on
+  Thursday with an option), places Corpus Christi accordingly, and adds the
+  proper US feasts and memorials.
+- **Season, cycles, colour, rank.** Season, Sunday cycle A/B/C, weekday cycle
+  I/II, liturgical colour, and the celebration's rank.
+- **Precedence, transfer and omission** under the UNLY rules, memoised per
+  (year, calendar). An impeded **solemnity transfers** to the first free day;
+  anything of lower rank is simply **omitted** that year. Nothing is invented and
+  nothing silently overwrites a higher-ranking day.
+- **Holy days of obligation**, per calendar. The US set is modelled exactly:
+  Immaculate Conception, Christmas and Ascension always oblige; Mary Mother of
+  God, the Assumption and All Saints **lose the obligation when they fall on a
+  Saturday or a Monday**.
+
+`npx tsx scripts/lectionary/check-calendar.ts` and the golden-export script
+under `scripts/lectionary/` pin the engine's output.
+
+### The Scripture store — Douay-Rheims, and its provenance
+
+[`content-shared/bible/`](src/lib/content-shared/bible/) is a server/worker-only
+public-domain Scripture store. The text is the **Douay-Rheims Bible, Challoner
+revision, 1899 American Edition**, as distributed by
+[ebible.org](https://ebible.org/find/details.php?id=engDRA) (`engDRA`, USFM/USX),
+public domain, converted to JSON — 73 books, one file per Paratext/USFM code.
+Verse and chapter numbers are the **Douay/Vulgate** ones exactly as published
+(Vulgate psalm numbering, 1–4 Kings, Esther's Greek additions, Daniel 13–14):
+nothing was renumbered in the data.
+
+The lectionary cites the **modern** (NAB / Hebrew-based) numbering, so all
+mapping happens at resolve time, through a **verified alignment table**
+(`alignment.ts`) that records the evidence read for every rule, guarded by
+per-chapter modern verse counts (`modern-verses.ts`). `resolveDouayPassage`
+returns one of three alignments — `exact`, `remapped` (with a note, e.g.
+"Psalm 98 of the lectionary is Psalm 97 in the Douay-Rheims"), or
+**`unverified`, which returns no text at all**. A wrong or shifted passage is
+never returned; a citation the resolver cannot align with certainty is shown as a
+citation only. Where the Lectionary reads part of a verse ("16bc") the whole
+Douay verse is shown and that is surfaced as `partialVerses`, never passed off as
+an exact pericope.
+
+### The committed lectionary tables — and their credits
+
+[`content-shared/lectionary/tables/`](src/lib/content-shared/lectionary/tables/)
+holds the generated tables: **723 lectionary numbers, 3,260 sections, 428 engine
+keys** (171 Sunday, 327 weekday, 224 sanctoral, 1 common). They carry
+**citations and labels only — never Scripture text**; the text layer resolves
+those citations against the Douay-Rheims store.
+
+They are built **offline** by
+[`scripts/lectionary/build-tables.ts`](scripts/lectionary/build-tables.ts) from
+three sources, and the script is idempotent — re-running it on the same sources
+rewrites byte-identical JSON, so `npm run lectionary:check` can assert in CI that
+the committed tables still match. **Edit the script or its sources, never the
+JSON.**
+
+The three sources, and the credits they are published with
+(`LECTIONARY_ATTRIBUTION`, rendered on the readings page):
+
+- **catholic-resources.org** — the lectionary index (Sundays, weekdays, the
+  sanctoral), which is what supplies the days a dated source never shows.
+  Its licence asks for this line, and the page carries it verbatim:
+
+  > **Material provided by Rev. Felix Just, S.J., at http://catholic-resources.org**
+
+- **[westhong/catholic-daily-readings](https://github.com/westhong/catholic-daily-readings)**
+  (**MIT**) — a USCCB-derived JSON map of civil date → the Masses published for
+  that date, each with its Lectionary number and section citations. It is
+  **dated, not keyed**, which is precisely what makes it the join partner that
+  turns the calendar engine's `lectionaryKey` into a Lectionary number.
+- **USCCB Liturgical Calendars** for the Dioceses of the USA (2026–2028), plus
+  the Lectionary for Mass for Use in the Dioceses of the United States of America
+  — credited as **United States Conference of Catholic Bishops**,
+  <https://bible.usccb.org/daily-bible-reading>.
+
+The build joins them across 2023–2028 and emits five files: `by-number.json`
+(the formularies), `key-map.json` (engine key → Lectionary number, per Sunday
+cycle, principal Mass first with the day's alternative "or" Masses beside it),
+and the `sundays` / `weekdays` / `sanctoral` indexes.
+
+`lookupLectionary()` is fail-open by contract: an unknown key or a formulary that
+is not in the table returns **null**, and callers fall back to the celebration
+heading alone rather than inventing readings or borrowing a neighbouring day's.
+
+### Coverage
+
+```bash
+npx tsx scripts/lectionary/check-coverage.ts
+```
+
+resolves every `(key, cycle)` combination the calendar engine emits from 2020 to
+2100 against the tables. Measured 2026-09-07:
+
+```
+tables: 723 lectionary numbers, 3260 sections, 428 keys
+engine 2020-2100: 2556 (key, cycle) combinations
+resolved: 2556 (100.00%)
+  FIRST_READING    2556  100.0% of days
+  PSALM            2556  100.0% of days
+  SECOND_READING    452   17.7% of days
+  ACCLAMATION      2312   90.5% of days
+  GOSPEL           2556  100.0% of days
+```
+
+100 % of the keys the calendar emits resolve. (Second readings are 17.7 % because
+only Sundays and solemnities have one; that is the Lectionary, not a gap.) The
+two table keys the 2020–2100 calendar never emits — `christmas-2-sunday`,
+`easter-7-sunday` — are the days the US calendar transfers, and are reported so
+the difference is visible rather than silent. `--strict` (`npm run
+lectionary:coverage`) fails on any unresolved key.
+
+### The readings page and the backfill
+
+`/liturgy/readings?date=…` shows the exact celebration, the readings in
+proclamation order with the Douay-Rheims text wherever it aligns, the Lectionary
+number, the alternatives the Lectionary offers as a choice rather than silently
+dropping one, and the attribution above. It is the **internal** page the
+Liturgical Calendar's "Official Mass readings for this day" button links to, not
+an external site, and it keeps a modest "Source: …" link so a reader can always
+reach the official text.
+
+The worker keeps it current from the `readings` lane:
+
+- `maybeRefreshDailyReadings` re-verifies **today** (a `PUBLISHED` row is fresh
+  for ~20 h, so a daily run catches stale or wrong-date readings);
+- `backfillDailyReadings` fills a **three-year window** — one year back, so the
+  days already elapsed this liturgical year are filled too, plus two years
+  forward, which covers the whole Sunday cycle A/B/C and both weekday cycles
+  (1,096 days, throttled to every 6 h). There is exactly **one row per (date,
+  calendar, locale)**, so a reading that recurs on a later day is never stored
+  twice.
+
+Each scan creates missing rows, **updates** rows that have drifted from the
+engine's current output (a day upgrades REVIEW → PUBLISHED the moment its
+lectionary entry lands), and leaves unchanged rows untouched — so most scans
+write nothing. It **never downgrades a PUBLISHED day**, so coverage can only
+improve. A day with any verified text is PUBLISHED; a day that resolves to
+citations only stays REVIEW; a day the tables do not cover stores the
+deterministic framing and the official source link. Text is never fabricated.
+
+Database failures are **counted, not swallowed**: a run where nothing succeeded
+and something failed throws, so a mis-pointed or unreachable database can no
+longer be reported to the Command Center as "readings refreshed".
+
+The readings-source registry ([`readings-source.ts`](src/lib/admin-worker/readings-source.ts))
+holds exactly one adapter — `lectionary-table`, priority 100 — and is kept only
+so a genuinely external source could be registered later, and so tests can inject
+one. Registering is the only way in.
+
+---
+
 ## Public site
 
 Every public page renders directly from `PublishedContent`:
@@ -3228,10 +4026,11 @@ Every public page renders directly from `PublishedContent`:
 /liturgical-calendar  → computed General Roman Calendar (per selected rite)
 /liturgy/readings     → internal daily Mass readings (DailyReading; ?date=…)
 /rites                → PublishedContent where contentType=RITE
-/history              → CHURCH_DOCUMENT as a chronological timeline
+/history              → the static event spine merged with published CHURCH_DOCUMENTs
 /church-documents     → PublishedContent where contentType=CHURCH_DOCUMENT
 /liturgy-history      → LITURGICAL + CHURCH_DOCUMENT slugs (same /[slug] route)
-/search?q=...         → full-text search across PublishedContent
+/search?q=...         → ranked full-text search across PublishedContent
+/sitemap.xml          → the sitemap INDEX; chunks at /sitemaps/[type]/[chunk].xml
 /api/prayers?take=N   → public list endpoint (clamped at 200)
 ```
 
@@ -3240,6 +4039,130 @@ Guides · Liturgy · History**, with dropdowns (desktop) and inline expanders
 (mobile) for the grouped tabs (Saints → Our Lady / Doctors / Popes;
 Sacraments → Parishes / Spiritual Life; Liturgy → Liturgical Calendar /
 Rites; History → Church Documents).
+
+### Server pagination
+
+List pages paginate **in Postgres**, not in the browser
+([`data/published.ts`](src/lib/data/published.ts)): `DEFAULT_PAGE_SIZE` is 30,
+`MAX_PAGE_SIZE` 100, and both the page number and the page size are clamped
+before they reach a query, so a hand-edited `?page=` or `?pageSize=` can never
+ask for the whole table. Every list returns `{ items, total, page, pageSize,
+pageCount }` — the true total from a counted query, not the length of the page —
+and the row projection excludes `payload`, so a list page never ships a
+detail-sized document per row. This is what makes a 200,000-row parish directory
+a normal page rather than an outage.
+
+### Search
+
+Search used to be an unindexed `ILIKE '%q%'` over title and slug with no ranking:
+"st john" missed "Saint John", "mary" returned fifty rows in heap order, and
+every keystroke of the header autocomplete was a sequential scan.
+
+**Migration `0055`** gives `PublishedContent` a weighted **`tsvector`** —
+title (both `simple`, so proper names stay searchable verbatim, and `english`,
+for stemming) weighted A, subtitle B, and a truncated slice of the payload prose
+C so one enormous document cannot dominate the index — maintained by a `BEFORE
+INSERT OR UPDATE` trigger, with a partial **GIN** index on the published rows.
+Where the extension is available it also creates a **`pg_trgm` trigram index on
+title**, which is what lets a typo ("Aquinis") still find Aquinas.
+
+Both are **optional, and the application probes for them at runtime**
+(hourly, memoised). The probe asserts the **whole mechanism**, not just the
+column: in the state "column exists, trigger does not" every `searchVector` is
+NULL, `@@` matches nothing, and search would go silently dark while still
+reporting itself indexed. Without the vector, search falls back to the original
+predicate — a slow search box beats an empty one.
+
+The migration is written to degrade rather than fail a deploy, because
+`scripts/start.sh` exits non-zero on a failed migration and that takes the site
+down. `CREATE EXTENSION pg_trgm` is wrapped in a `DO` block that swallows
+**any** error (a managed Postgres refuses this in at least four different
+SQLSTATEs); the function/trigger/backfill block and each index are likewise
+guarded against `insufficient_privilege` — since PostgreSQL 15 the public schema
+no longer grants `CREATE` to `PUBLIC`, so "this role has owned these tables for a
+year" does not imply "this role can create a function". Every statement is
+`IF NOT EXISTS` / `OR REPLACE` / drop-then-create, and the file takes a
+`lock_timeout` of 5 s so a migration that merely _waits_ on the Admin Worker's
+own write transaction cannot take the live site's reads down with it. **Deploy
+with the master switch OFF.**
+
+Ranking combines full-text relevance (`ts_rank_cd`) with the signals a visitor
+expects: an exact title match wins outright (+3), a title that starts with what
+was typed beats one that merely mentions it (+1), a whole-word title match adds
++2, and trigram similarity is added only where `pg_trgm` exists. The header
+dropdown prefix-expands the last term so it answers while you type; the results
+page deliberately does not, because the expansion floats obscure near-spellings
+above the thing that was asked for. Results carry the true total, a page, and a
+grouping by content type with a real human type label.
+
+### The memo cache, cache tags, and the internal revalidate endpoint
+
+Every public page is `force-dynamic` (the root layout reads `headers()`), so
+Next's own data cache never engages. In front of the cheap, shared aggregates
+sits an in-process, **single-flight** TTL memo
+([`cache/memo.ts`](src/lib/cache/memo.ts)): concurrent callers share the
+in-flight promise, so a cold key under load produces **one** query. Three tiers —
+`list` 60 s, `daily` 600 s (today's saints, featured prayers), `sitemap` 3600 s.
+It is fail-open by construction: a failing loader is never stored, and a stale
+value is served in preference to surfacing an error. `SITE_MEMO_DISABLED=1`
+bypasses it.
+
+Alongside it, [`cache/tags.ts`](src/lib/cache/tags.ts) is the single source of
+truth for the tag names producers and consumers share —
+`content-type:<Type>`, `content-slug:<Type>:<slug>`, `tab:<TabKey>`, `sitemap`,
+`search-index` — and `cache/revalidate.ts` wraps `revalidateTag()` so call sites
+don't have to know which tags to touch, recording every call into a rolling
+`cacheRevalidationLog` that the admin "cache health" diagnostic reads.
+
+**The worker runs in a different process — usually on a different machine — so
+its `revalidateTag()` could never reach the web server.** After a publish it
+POSTs to **`/api/internal/revalidate`** instead
+([route](src/app/api/internal/revalidate/route.ts)), which drops the web
+server's memo (by tag prefix, or everything for an unrecognised tag) so a newly
+published row appears on list pages, the "today" block and the sitemap before
+their TTLs expire. Auth is a bearer `INTERNAL_API_SECRET` when set, otherwise the
+`SESSION_SECRET`-derived token the rest of the internal surface uses, compared in
+constant time; with neither configured **the route refuses everything** — it is
+disabled by default, never open by default. Nothing there reads or writes
+content: the worst a valid token can do is make the next few page views re-query
+Postgres.
+
+### Sitemaps
+
+`/sitemap.xml` is a **sitemap index**, not a single file: it points at one
+chunked sitemap per content type at `/sitemaps/<type>/<n>.xml`, at most
+`SITEMAP_CHUNK_SIZE` (40,000) URLs each, which is what keeps the site indexable
+past the protocol's 50,000-URL-per-file limit as the parish directory grows. The
+URL is unchanged — robots.txt has always named `/sitemap.xml` — so nothing
+already registered with Search Console has to be re-submitted. Chunks project
+only slug + `updatedAt`, are memoised for an hour, and an unknown type or an
+out-of-range chunk returns a valid **empty `<urlset>`** rather than a 404, since a
+crawler that guessed a URL should not see an error.
+
+### The history timeline
+
+`/history` is the one page that is not purely database-driven. Its spine is a
+**static, hand-curated dataset of 232 events**
+([`content-shared/church-history/`](src/lib/content-shared/church-history/),
+split across four files purely to stay reviewable and merged in chronological
+order by `church-history-events.ts`). Every event carries exactly **one**
+citation, and a dataset test enforces that it is an `https` page on an
+allow-listed host — so a typo or an unvetted source can never ship as a "Source"
+link.
+
+The timeline merges that spine with the published `CHURCH_DOCUMENT` rows
+([`church-history/timeline.ts`](src/lib/content-shared/church-history/timeline.ts)):
+a published document whose slug matches a static event's `links.documentSlug`
+**enriches** that event (it gains the document page and the official text URL)
+instead of appearing twice; every other published document becomes its own
+document/council event placed by its issue date. Curated councils were published
+with a `-01-01` placeholder day, so a council document dated `-01-01` is rendered
+at **year precision** rather than as a fabricated 1 January. Related links to
+popes, saints, doctors and apparitions are kept only when the referenced slug is
+actually published. This is why the timeline reads 325 → 1965 even on a database
+with no church documents in it at all.
+
+### Reading experience
 
 **Liturgical languages (Latin / Greek).** Every prayer, **litany**, and guide
 carries its vernacular text plus authentic, verbatim **Latin** and **Greek**
@@ -3373,12 +4296,11 @@ history); the reset/all key is excluded from the count via `resetKey`.
 **Daily readings.** The Liturgical Calendar's "Official Mass readings for this
 day" button links to the **internal** `/liturgy/readings?date=…` page, not an
 external site. The page shows the exact celebration, the readings in
-proclamation order (public-domain Douay-Rheims for covered days), and a modest
-source link at the bottom. The worker keeps it current with
-`maybeRefreshDailyReadings` (today) **and** `maybeBackfillDailyReadings` (a
-rolling ~year-ahead window, re-verified + self-corrected each scan); any day not
-yet covered resolves on-demand to the framing + the official source link, never
-fabricated text.
+proclamation order (public-domain Douay-Rheims wherever the citation aligns with
+certainty), the required lectionary credits, and a modest source link at the
+bottom. The worker keeps it current with `maybeRefreshDailyReadings` (today) and
+`backfillDailyReadings` (a rolling three-year window, re-verified +
+self-corrected each scan). See [Liturgy](#liturgy).
 
 There is no other code path from the database to the public site.
 
@@ -3408,23 +4330,75 @@ have no off-switch.
 
 ## Testing
 
-```bash
-npm run typecheck   # tsc --noEmit
-npm run lint        # eslint
-npm run format:check
-npm test            # vitest run (unit + component + worker + admin-worker)
-npm run test:e2e    # playwright
-npm run verify      # typecheck + lint + format:check + test
-npm run verify:full # verify + integration + e2e + build
-```
-
-The Python intelligence brain has its own deterministic test suites
-(stdlib only — no pip installs):
+The five commands that gate every change, in the order they are usually run.
+Each one below was executed against this tree on 2026-09-07 and the results are
+what is printed here.
 
 ```bash
-npm run brain:test       # python3 -m unittest (core, every op, the stdio protocol)
-npm run brain:selftest   # every op produces a valid envelope
+npm run typecheck            # tsc --noEmit                      → 0 errors
+npx vitest run               # unit + component + worker         → 4036 passed, 1 skipped
+                             #                                     (459 files, ~12 s)
+npm run lint                 # eslint                            → no warnings or errors
+npm run format:check         # prettier --check .                → all files match
+npm run build                # prisma generate && next build     → succeeds
 ```
+
+`npm test` is the same as `npx vitest run`; `npm run verify` chains typecheck →
+lint → format:check → test, and `npm run verify:full` adds the integration
+suite, Playwright and the build.
+
+Two data checks that are worth running on their own, because they are fast and
+they fail loudly on exactly the mistakes that are easy to make:
+
+```bash
+# Every (key, cycle) the calendar engine emits, 2020-2100, resolved against the
+# committed lectionary tables. Add --strict (npm run lectionary:coverage) to
+# fail the run on any unresolved key.
+npx tsx scripts/lectionary/check-coverage.ts
+#   → tables: 723 lectionary numbers, 3260 sections, 428 keys
+#     engine 2020-2100: 2556 (key, cycle) combinations
+#     resolved: 2556 (100.00%)
+
+# Every curated knowledge group file: payload schema, slug uniqueness, real page
+# citations, cross-referenced slugs, no template-generated novena text.
+npx tsx scripts/validate-curated-file.ts src/lib/checklist/knowledge/*/*.ts
+#   → OK — 645 entries valid
+
+# One file at a time while writing it (this is the normal use):
+npx tsx scripts/validate-curated-file.ts src/lib/checklist/knowledge/prayers/batch-7.ts
+
+# The curated corpus against the live goals.
+npx tsx scripts/curated-counts.ts
+#   → total curated entries: 1232
+```
+
+### The Python brain
+
+The brain is pure-stdlib and needs **Python ≥ 3.10** (`@dataclass(slots=…)`).
+On a stock Mac bare `python3` is Apple's **3.9**, which fails at import, so the
+npm scripts go through `scripts/brain-python.sh`. That picks the first usable
+interpreter from the same candidate list the worker uses
+(`PYTHON_CANDIDATES` in `src/lib/admin-worker/intelligence/client.ts`) and
+honours `INTELLIGENCE_PYTHON` when it is set. Keep the two lists in sync.
+
+```bash
+npm run brain:test           # → Ran 230 tests … OK
+npm run brain:selftest       # → SELFTEST OK: 233/233 ops produced valid
+                             #   envelopes (protocol v1)
+npm run brain:proof          # the unified-intelligence proof (spec proof points 3-13)
+
+# Anything ad hoc goes through the resolver too, never bare python3:
+sh scripts/brain-python.sh -m intelligence --list-ops
+sh scripts/brain-python.sh -m unittest discover -s intelligence/tests -t .
+```
+
+`intelligence/tests/test_chaos.py` feeds every op empty / type-confused /
+nested-garbage payloads, isolates a crashing op to an error envelope, and
+recovers the stdio loop from malformed lines;
+`tests/admin-worker/intelligence/resilience.test.ts` drives a configurable fake
+brain through protocol mismatch, malformed output, timeout and the restart
+circuit breaker, and proves real-brain op-error round-trips, process death +
+auto-recovery, and concurrent id-multiplexing.
 
 The TS↔Python bridge and the full TS→Python→Postgres loop are covered by
 `tests/admin-worker/intelligence/bridge.test.ts` (unit; brain spawns are
@@ -3440,10 +4414,12 @@ npm run admin-worker:proof                    # full gate: prisma validate + typ
                                               #   + unit/integration/full-pipeline tests
                                               #   + no-placeholder tests
                                               #   + offline brain dry run + content-growth proof
-npm run admin-worker:proof:content            # one content item through all 16 pipeline stages
+npm run admin-worker:proof:content            # one content item through every pipeline stage
 npm run admin-worker:proof:all-content-types  # one full pipeline proof per content type (real extractor)
 npm run admin-worker:proof:security           # 5 defender flows (login email, threshold, ban, mutation, reuse)
 npm run admin-worker:proof:reports            # Developer Audit generates + required sections + secret redaction
+npm run admin-worker:proof:brain              # Python is the final brain; no legacy path
+npm run admin-worker:proof:skills             # the certified skill runtime end to end
 npm run admin-worker:proof:live               # back-half proof against a REAL DB: extract → publish a prayer
 npm run admin-worker:proof:autonomy           # FULL autonomous loop vs REAL DB + REAL HTTP (local mirror)
 npm run admin-worker:proof:dry-run            # full chain → publish DECISION, explained, nothing published
@@ -3461,17 +4437,16 @@ URLs, and runs the **real worker loop** — the brain ranks actions each
 pass and the dispatcher really fetches over HTTP, reads the page into
 structured blocks, classifies, extracts the package artifact, creates
 checklist + citations, runs strict QA, scores quality, and publishes
-through the orchestrator. It confirms the worker autonomously publishes PRAYER + DEVOTION and — via
-a real fetch-and-compare against an INDEPENDENT validation mirror — the
-doctrinally-sensitive SAINT (name + patronage + birthplace + lived dates
-
-- feast day + background), with the feast day cross-source verified before
-  publishing. It uses the `ADMIN_WORKER_DEV_SOURCE_HOSTS` +
-  `ADMIN_WORKER_DEV_VALIDATION_HOSTS` hooks (non-production only) to allow
-  the local mirrors; every QA / quality / content-contract / cross-source
-  gate still applies. Sensitive content with no reachable validation source
-  correctly holds in NEEDS_REPAIR (a `VALIDATION_EVIDENCE_MISSING` plan is
-  filed) rather than publishing unverified.
+through the orchestrator. It confirms the worker autonomously publishes PRAYER +
+DEVOTION and — via a real fetch-and-compare against an INDEPENDENT validation
+mirror — the doctrinally-sensitive SAINT (name + patronage + birthplace + lived
+dates + feast day + background), with the feast day cross-source verified before
+publishing. It uses the `ADMIN_WORKER_DEV_SOURCE_HOSTS` +
+`ADMIN_WORKER_DEV_VALIDATION_HOSTS` hooks (non-production only) to allow
+the local mirrors; every QA / quality / content-contract / cross-source
+gate still applies. Sensitive content with no reachable validation source
+correctly holds in NEEDS_REPAIR (a `VALIDATION_EVIDENCE_MISSING` plan is
+filed) rather than publishing unverified.
 
 The proof tests live in `tests/admin-worker/proof/` and drive the real
 extractors / strict-QA / quality scorer / publish orchestrator (so they
@@ -3486,49 +4461,52 @@ The unit + component suite covers:
 - **Admin Worker engine** — ranked-action brain + execution feedback,
   22-stage dispatcher (real pipeline + skip-network variant), mission
   planner, classifier + `classifyDetailed`, 11 extractors, content
-  builder + per-content-type chain proof (99 tests across 11 content
-  types × 9 stages), confusion detector, structured source reader,
-  fetcher (host allow-list, login/binary rejection, checksum),
-  candidate scorer, discovery orchestrator (all 7 methods), validation
-  source resolver + validation fetcher, verifier (sensitive-field
-  whitelist), strict-QA artifact + gate, 10-dim quality scoring,
-  publish orchestrator, independent search/sitemap/cache verifiers,
-  post-publish rollback decision tree, repair orchestrator (real
-  per-kind handlers), memory decay (30-day half-life), per-stage
-  source-reputation hooks, growth orchestrator, source coverage,
-  homepage publish orchestrator (snapshot + verify + rollback),
-  pipeline resume by checksum, why-no-growth chain walk, developer
-  audit data + sections, packaging, publish safety, post-publish
-  probe, homepage designer + mutator, liturgical calendar.
-- **Security** — defender + 10 detectors + auto-ban + emails, request-
-  path defender, admin-route guard (defender fires on POST/PUT/PATCH/
-  DELETE only — never on GET), brute-force ban tests, "valid admin is
-  not harassed" tests.
-- **End-to-end chain proof** — full per-content-type tests proving
-  Discovery → Score → Fetch → Read → Structured Blocks → Classify →
-  Extract → Artifact → Checklist + Citation → Verification → Strict
-  QA → Quality → Publish Orchestrator → Post-publish → Search →
-  Sitemap → Cache.
-- **Acceptance criteria** — tests proving validation sources are
-  actually fetched and compared, `runPublishOrchestrator()` is the
-  normal publish path, post-publish verification performs live
-  checks, Developer Audit includes all required sections.
+  builder + per-content-type chain proof, confusion detector, structured source
+  reader, fetcher (host allow-list, login/binary rejection, checksum),
+  candidate scorer, discovery orchestrator, validation source resolver +
+  validation fetcher, verifier (sensitive-field whitelist), strict-QA artifact +
+  gate, 10-dim quality scoring, publish orchestrator, independent
+  search/sitemap/cache verifiers, post-publish rollback decision tree, repair
+  orchestrator (real per-kind handlers), memory decay (30-day half-life),
+  per-stage source-reputation hooks, growth orchestrator, source coverage,
+  homepage publish orchestrator (snapshot + verify + rollback), pipeline resume
+  by checksum, why-no-growth chain walk, developer audit data + sections,
+  packaging, publish safety, post-publish probe, homepage designer + mutator.
+- **Execution host** — the launcher's configuration precedence, the Railway
+  resolver's JSON contract, the loopback-database refusal and its
+  `VIAFIDEI_ALLOW_LOCAL_DB` escape hatch, worker exit-code classification, and
+  the lease-renewal split between host and child
+  (`tests/admin-worker/local-launcher*.test.ts`,
+  `loop-lease-authority.test.ts`).
+- **Self-maintenance** — sense/diagnose/repair/verify, the verify-backoff rule,
+  the per-repair env switches, that the `maint-self-heal` lane is an OPS lane and
+  not a content lane, and that no repair path can delete published content
+  (`tests/admin-worker/self-maintenance.test.ts`).
+- **Liturgy** — the calendar engine against golden output (transfers, holy days
+  of obligation, both calendars), the committed lectionary tables against their
+  sources (`--check` rebuild determinism), the Douay-Rheims alignment table, and
+  the readings-source registry.
+- **Site** — pagination clamps, the search capability probe and both query
+  paths, the memo's single-flight + stale-on-error behaviour, cache tags, the
+  sitemap index + chunking, and the history dataset's citation rules.
+- **Security** — defender + 10 detectors + auto-ban + emails, request-path
+  defender, admin-route guard (defender fires on POST/PUT/PATCH/DELETE only —
+  never on GET), brute-force ban tests, "valid admin is not harassed" tests.
 - **Single-content-path guards** — `runPublishOrchestrator()` is the only
   publish writer and every recent public row traces to an artifact
   (`production-mandates.test.ts`, readiness checks); no dispatcher handler
   only logs without doing work (`dispatcher-no-placeholder-stages.test.ts`);
-  every stage returns the full §3.4 result shape
-  (`dispatcher-outcome-shape.test.ts`); source reputation updates after all
-  ten stages (`source-reputation-stage-coverage.test.ts`); content funnel +
-  bottleneck (`content-growth-monitor.test.ts`).
+  every stage returns the full result shape (`dispatcher-outcome-shape.test.ts`);
+  source reputation updates after all ten stages; content funnel + bottleneck.
 - **Checklist foundation** — slug canonicalization, the authority source
   registry, the build-intent queue (`enqueueBuild`), bulk source curation
-  (verify / reject), the curated knowledge base, content-schema
-  compliance, the janitor, and the master checklists.
-- **App-wide** — API, auth, security, components, data, email,
-  observability, i18n, cache test suites.
+  (verify / reject), the curated knowledge base, content-schema compliance, the
+  janitor, and the master checklists.
+- **App-wide** — API, auth, security, components, data, email, observability,
+  i18n, cache test suites.
 
-Total: **2195 passing tests across 273 test files**.
+Total: **4,036 passing tests across 459 test files** (plus 1 skipped), on top of
+the 230 Python brain tests.
 
 ---
 
@@ -3575,28 +4553,65 @@ device known so subsequent navigation reads as expected activity.
 
 ---
 
+## Deploy path
+
+`railway.json` → `Dockerfile` → [`scripts/start.sh`](scripts/start.sh), and each
+step of that chain is load-bearing:
+
+1. **Wait for the database** (up to 60 s).
+2. **`prisma migrate deploy`**, via
+   [`scripts/migrate-deploy.sh`](scripts/migrate-deploy.sh) — which **exits
+   non-zero on failure**, taking the container down rather than serving a site
+   whose schema is behind its code. That is why migrations `0055`/`0056` guard
+   every statement a managed Postgres role might be refused (see below): an
+   unguarded `CREATE EXTENSION` or `CREATE FUNCTION` failing here takes the site
+   down on the next restart.
+3. **`scripts/validate-db.js`** — a startup sanity check on the schema the app
+   actually needs. It deliberately does **not** require the optional search
+   column or index to exist.
+4. **`exec`** the Next standalone server.
+
+The Admin Worker is not part of this path: it is deployed to the operator's Mac
+by `bash scripts/desktop-app/install.sh`, and the retained Railway worker service
+runs [a parked `sleep` loop](#the-retained-railway-worker-service).
+
+---
+
 ## Migration history
 
-| Migration                                          | What it added                                                                                                                                                  |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `0001` – `0022`                                    | Original schema (auth, content, ingestion, …)                                                                                                                  |
-| `0023_checklist_first_architecture`                | Checklist-first models (ChecklistItem, …)                                                                                                                      |
-| `0024_admin_worker`                                | Admin Worker engine tables (15 + enums)                                                                                                                        |
-| `0025_drop_legacy_system`                          | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent                                                                                      |
-| `0026_admin_worker_brain`                          | Brain tables: SourceRead, PipelineStage, RepairPlan                                                                                                            |
-| `0027_admin_worker_brain_ranking`                  | Brain ranked alternatives + AdminWorkerFetchResult / SourceBlock / CrossSourceVerification                                                                     |
-| `0028_admin_worker_pipeline_and_orchestrators`     | Pipeline durability + candidate scoring fields + SourceCoverage + GrowthSnapshot                                                                               |
-| `0029_admin_worker_package_artifact`               | AdminWorkerPackageArtifact (built package as a first-class artifact)                                                                                           |
-| `0030_admin_worker_strict_qa`                      | AdminWorkerStrictQAResult (durable strict-QA per artifact)                                                                                                     |
-| `0031_admin_worker_repair_kinds_strict_qa_quality` | Added STRICT_QA_FAILED + QUALITY_SCORE_FAILED repair kinds                                                                                                     |
-| `0032_admin_worker_source_coverage_active_counts`  | SourceCoverage: active / recently-successful / recently-failed source counts                                                                                   |
-| `0033` – `0037`                                    | Action-score + reasoning-graph tables; parish / pope / doctor / rite content types                                                                             |
-| `0038_intelligence_memory_graph`                   | Intelligence brain store: Embedding (vectors), GraphNode/GraphEdge, DeveloperRequest, BrainCall                                                                |
-| `0039_daily_readings`                              | DailyReading (daily liturgical readings as internal content)                                                                                                   |
-| `0040_stage_outcomes_rollback_quality_v2`          | AdminWorkerStageOutcome + AdminWorkerRollbackLedger; full ContentQualityScore model; action `fallbackAction`; PublishedContent `contentChecksum`               |
-| `0041_drop_legacy_qa_buildlog_version_relation`    | Dropped the legacy WorkerBuildLog / ChecklistQAReport / ChecklistVersion / ChecklistRelation tables (superseded by AdminWorkerStrictQAResult + AdminWorkerLog) |
-| `0042` – `0047`                                    | Content-goal target model; unified intelligence tables; Intelligence Laboratory; certified skill runtime; PublishedContent subtitle                            |
-| `0048_admin_worker_escalation_and_code_version`    | AdminWorkerEscalation (dedup escalation memory) + AdminWorkerCodeVersion (system/code-update version memory)                                                   |
+| Migration                                          | What it added                                                                                                                                                                                                                       |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0001` – `0022`                                    | Original schema (auth, content, ingestion, …)                                                                                                                                                                                       |
+| `0023_checklist_first_architecture`                | Checklist-first models (ChecklistItem, …)                                                                                                                                                                                           |
+| `0024_admin_worker`                                | Admin Worker engine tables (15 + enums)                                                                                                                                                                                             |
+| `0025_drop_legacy_system`                          | Dropped 30+ legacy tables, consolidated UserSaved\* into UserSavedContent                                                                                                                                                           |
+| `0026_admin_worker_brain`                          | Brain tables: SourceRead, PipelineStage, RepairPlan                                                                                                                                                                                 |
+| `0027_admin_worker_brain_ranking`                  | Brain ranked alternatives + AdminWorkerFetchResult / SourceBlock / CrossSourceVerification                                                                                                                                          |
+| `0028_admin_worker_pipeline_and_orchestrators`     | Pipeline durability + candidate scoring fields + SourceCoverage + GrowthSnapshot                                                                                                                                                    |
+| `0029_admin_worker_package_artifact`               | AdminWorkerPackageArtifact (built package as a first-class artifact)                                                                                                                                                                |
+| `0030_admin_worker_strict_qa`                      | AdminWorkerStrictQAResult (durable strict-QA per artifact)                                                                                                                                                                          |
+| `0031_admin_worker_repair_kinds_strict_qa_quality` | Added STRICT_QA_FAILED + QUALITY_SCORE_FAILED repair kinds                                                                                                                                                                          |
+| `0032_admin_worker_source_coverage_active_counts`  | SourceCoverage: active / recently-successful / recently-failed source counts                                                                                                                                                        |
+| `0033` – `0037`                                    | Action-score + reasoning-graph tables; parish / pope / doctor / rite content types                                                                                                                                                  |
+| `0038_intelligence_memory_graph`                   | Intelligence brain store: Embedding (vectors), GraphNode/GraphEdge, DeveloperRequest, BrainCall                                                                                                                                     |
+| `0039_daily_readings`                              | DailyReading (daily liturgical readings as internal content)                                                                                                                                                                        |
+| `0040_stage_outcomes_rollback_quality_v2`          | AdminWorkerStageOutcome + AdminWorkerRollbackLedger; full ContentQualityScore model; action `fallbackAction`; PublishedContent `contentChecksum`                                                                                    |
+| `0041_drop_legacy_qa_buildlog_version_relation`    | Dropped the legacy WorkerBuildLog / ChecklistQAReport / ChecklistVersion / ChecklistRelation tables (superseded by AdminWorkerStrictQAResult + AdminWorkerLog)                                                                      |
+| `0042` – `0047`                                    | Content-goal target model; unified intelligence tables; Intelligence Laboratory; certified skill runtime; PublishedContent subtitle                                                                                                 |
+| `0048_admin_worker_escalation_and_code_version`    | AdminWorkerEscalation (dedup escalation memory) + AdminWorkerCodeVersion (system/code-update version memory)                                                                                                                        |
+| `0049` – `0050`                                    | Adaptive worker lanes: `AdminWorkerLaneState` + the artifact-lease columns                                                                                                                                                          |
+| `0051_published_content_version`                   | `PublishedContentVersion` — the snapshot every protected content update writes before it changes a live row                                                                                                                         |
+| `0052_admin_worker_strategy_stat`                  | `AdminWorkerStrategyStat` — per-(dimension, method, content type) outcome memory                                                                                                                                                    |
+| `0053_escalation_resolved_reason`                  | `resolvedReason` on AdminWorkerEscalation (condition cleared vs superseded by upgrade)                                                                                                                                              |
+| `0054_published_content_query_columns`             | Indexed query columns on PublishedContent (feastMonth, feastDayOfMonth, sortYear, subtype, latitude, longitude, region, sourceRef, addressKey)                                                                                      |
+| `0055_published_content_search`                    | Search: the weighted `searchVector` tsvector + trigger + partial GIN index, and an **optional** pg_trgm trigram index. Every privileged statement is guarded so a role that cannot create it degrades instead of failing the deploy |
+| `0056_admin_worker_log_event_index`                | `AdminWorkerLog (eventName, createdAt)` — the index the retention prune and the per-event readers walk                                                                                                                              |
+
+Migrations `0055` and `0056` both take a `lock_timeout` of 5 s, because
+`prisma migrate deploy` runs each file in one transaction and a queued
+`ACCESS EXCLUSIVE` request blocks every reader behind it. **Deploy with the
+Admin Worker master switch OFF**, and confirm the worker process has exited, so
+the migration is not waiting on the worker's own write transaction.
 
 The legacy scraper-first ingestion + legacy public-content models
 (`Prayer`, `Saint`, `MarianApparition`, `Parish`, `Devotion`,
