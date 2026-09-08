@@ -63,7 +63,7 @@
     "iron-session": "^8.0.4",
     "negotiator": "^1.0.0",
     "next": "15.5.25",
-    "pdfkit": "^0.18.0",
+    "pdfkit": "^0.20.2",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "undici": "^6.27.0",
