@@ -218,7 +218,18 @@ saved-content table keyed on `(userId, contentType, slug)`),
 `SecurityEvent`, `BannedDevice`, `DiagnosticSnapshot`,
 `AdminAuditLog`, `AdminActionLog`, `AdminNotificationState`,
 `RateLimitBucket`, `ErrorLog`, `PasswordResetToken`,
-`EmailVerificationToken`. (The heartbeat-unification transition is complete:
+`EmailVerificationToken`, and the two tables behind the interactive admin
+sign-in — `AdminSession` and `AdminTwoFactorChallenge` (see
+[Two-factor admin sign-in](#two-factor-admin-sign-in) and
+[Admin sessions](#admin-sessions)). Those two are read and written through
+**parameterised raw SQL** rather than the Prisma client, because a generated
+client may not know about a table its migration only just created. The models
+are still declared, so the schema tells the truth about the database — without
+them a later `prisma migrate dev` would see an unknown table and generate a
+`DROP` — and so `scripts/validate-db.js` can pin them at boot: a missing table
+here locks the administrator out of a **running** site rather than failing a
+deploy. (The
+heartbeat-unification transition is complete:
 worker liveness is read solely from `AdminWorkerState.lastHeartbeatAt`; the
 legacy `WorkerHeartbeat` dual-write and its diagnostics rating were removed.)
 
@@ -765,6 +776,73 @@ conditions, repairs applied in the last 24 h, content rows restored, database
 size against the trim threshold, the largest telemetry table, and any condition
 currently backed off after repeated ineffective repairs.
 
+### A worked example: the 0 ms watchdog
+
+Worth recording in full, because it is one bug standing for a whole class of
+them — a default that silently never applies.
+
+`envInt` in [`loop.ts`](src/lib/admin-worker/loop.ts) reads a numeric setting
+from the environment. Its guard was:
+
+```ts
+const n = Number((process.env[name] ?? "").trim());
+return Number.isFinite(n) && n >= 0 ? n : fallback;
+```
+
+`Number("")` is **0, not NaN**. So an **unset** variable produced `0`, `0`
+satisfied `n >= 0`, and the fallback was never reached. None of the three
+variables this helper reads is set anywhere in this project, so in production
+every one of them was 0.
+
+The consequences were not subtle:
+
+- The **dispatch watchdog** was **0 ms**, so every dispatched stage was killed
+  the instant it started. Production recorded **46 stage failures** in 12 hours
+  reading `dispatch watchdog: stage exceeded 0ms`. Worse, a watchdog cannot
+  cancel the promise it raced, so each stage was **double-counted** in the
+  outcome ledger — one instant `failure` row plus the real row when the work
+  finished in the background. That is what pushed `SOURCE_FETCH` past the
+  threshold and produced the **`LOOPING` escalation the operator received**.
+- The **idle backoff** was 0 ms too, so an idle loop never rested and kept
+  writing bookkeeping rows — a prime suspect for the ledger growth documented
+  above.
+
+The sibling helpers were already safe, by two different routes, and the
+distinction is the actual lesson. Around ten of them guard with `n > 0`, which
+rejects the empty string's `0` as a side effect. Six others — in `fetcher.ts`,
+`parish-osm-overpass.ts`, `always-on-discovery.ts`, `parish-geocode.ts` (twice)
+and `intelligence/client.ts` — use `>= 0` **deliberately**, because an explicit
+`0` is a meaningful value there (no lookups, no pacing delay); each one is
+correct only because it tests the raw string _before_ converting, and two carry
+a comment saying exactly why (`Number("") is 0, not NaN`). So `>= 0` was never
+the bug on its own. The bug was `>= 0` **without that guard**, which existed in
+one place: the loop's copy. The fix makes absent, empty, blank,
+unparseable and negative all mean "use the fallback", and honours an explicit
+`0` **only where the caller opts in** (`allowZero`) — `0` is a meaningful "never
+wait" for the idle backoff in tests and manual runs, but a 0 ms watchdog is never
+wanted, so `dispatchTimeoutMs()` does not pass the flag and always falls back to
+the 10-minute default. `envInt` and `dispatchTimeoutMs` are both **exported and
+pinned by name** in `tests/admin-worker/envint-fallback.test.ts` rather than
+inferred through a caller or raced against a real timer, because this helper is
+what took the worker down.
+
+The escalation it produced is also now answerable rather than merely repeated.
+Forcing a different stage keeps the **pass** productive but leaves the **blocked
+item** exactly where it was, so a stage whose source is exhausted fixates again
+as soon as the governor's window rolls. The governor
+([`governor.ts`](src/lib/admin-worker/governor.ts)) therefore judges fixation
+**per content type** — a stage that advances `SAINT` but never `GUIDE` is
+fixated for `GUIDE`, which is the scope the escalation actually had — and, for an
+acquisition stage, takes a **`reroute_source`** corrective: it reads the fetch
+ledger for the approved host whose recent fetches all failed and boosts the best
+unfetched candidate of the same content type on a **different** approved host, so
+the next acquisition pass reads something new. No external key is involved. Every
+intervention records which corrective it took (`reroute_source` /
+`drain_backlog` / `advance_stage` / `diagnostic`) and what it achieved, and the
+self-assessment reads that back so the `LOOPING` warning says what the worker
+already did about it — after which the escalation resolves itself once the
+alternate source advances.
+
 ### The operator escape hatch
 
 ```bash
@@ -829,7 +907,11 @@ one comes back.
 | Search index / Media   | `/admin/search`, `/admin/media` | Site surfaces edited by hand                                                                                                     |
 | Banned devices         | `/admin/banned-devices`         | Request-time security enforcement records                                                                                        |
 
-Admin authentication and sign-out are unchanged.
+Signing in to either surface is now a **two-stage** flow — password, then a
+six-digit code emailed to the configured admin address — and signing out revokes
+server-side state rather than only clearing a cookie. Both are described under
+[Security](#security). Ordinary user accounts and the Admin Worker are
+unaffected by all of it.
 
 The public **daily readings** page lives at `/liturgy/readings?date=…` (the
 homepage + liturgical calendar link to it), and the worker owns it end to end —
@@ -1384,14 +1466,12 @@ falling back to a TypeScript final brain. Concretely:
   developer**. Batch sizes are tunable via `ADMIN_WORKER_PARISH_REFRESH_BATCH`
   and `ADMIN_WORKER_PARISH_DEDUP_BATCH`; both sweeps are fail-open.
 
-- **The parish card is built for a visitor standing outside.** Every parish /
-  shrine / cathedral / basilica detail page shows the **address as a tappable
-  link** (`MapsAddressLink`) that opens turn-by-turn directions in **Apple Maps
-  on iPhone/iPad** and **Google Maps** everywhere else (using the record's exact
-  coordinates when present so the pin lands on the right building), the **phone as
-  a `tel:` link**, the **Mass and confession times**, and — when the parish has a
-  website — a **"Go to site" button at the bottom-left of the card** linking to
-  it.
+- **What the worker collects and what the site shows are two different
+  questions.** The lane above still gathers designation, phone, Mass times,
+  confession times and the rest, and they are still written to the payload and
+  still published. The public card no longer displays them — see
+  [The parish card, and "parishes near me"](#the-parish-card-and-parishes-near-me).
+  Nothing in this pipeline changed when the card did.
 
 - **Rescues dead and walled pages from the Internet Archive — keyless.** The
   live pipeline's most common stalls are pages that 404 after a site
@@ -1640,8 +1720,10 @@ falling back to a TypeScript final brain. Concretely:
   `defendUnauthorizedMutation` on every unauthorised
   POST/PUT/PATCH/DELETE to a protected admin route — GET is not
   rate-limited as a mutation, so admins redirected once to login are
-  not banned, and (3) the `requireAdminWithDefender` helper for routes
-  that don't use the gate. Confirmed brute force results in an
+  not banned, and (3) the `requireAdminWithDefender` wrapper, which
+  adds the same reporting to a caller that needs the bare principal.
+  Every admin API route now goes through the gate, so (3) guards no
+  route today; it adds reporting, never authority. Confirmed brute force results in an
   automatic device ban (`BannedDevice` row + Admin Worker Banned
   Device email). A valid authenticated admin login is never treated
   as suspicious — the admin gets a calm **Admin Log In** email with
@@ -2297,7 +2379,7 @@ SOURCE_FETCH→EXTRACTION` → `worker_stuck: SOURCE_FETCH 10/10 passes`). It is
 | `security-defender.ts`                   | Defender + automatic ban + email                                                                          |
 | `security-detectors.ts`                  | 10 deterministic detector functions                                                                       |
 | **`request-defender.ts`**                | 7 helpers (failed login, brute force, mutation, …)                                                        |
-| **`admin-route-guard.ts`**               | `requireAdminWithDefender` for non-gate routes                                                            |
+| **`admin-route-guard.ts`**               | `requireAdminWithDefender` — defender reporting around a bare `requireAdmin()`; never a second gate       |
 | `pipeline-stages.ts`                     | Pipeline-stage chain + `resumeOrAdvance` checksum skip                                                    |
 | `repair.ts`                              | In-pass repair handlers                                                                                   |
 | **`repair-orchestrator.ts`**             | Real per-kind repair execution (not just logging)                                                         |
@@ -2709,7 +2791,10 @@ making progress:
    progress, forces the highest-priority productive downstream stage instead.
    Discovery does not count as forward progress — surfacing candidate URLs is
    top-of-funnel prep, not movement toward the public site. It only changes
-   _which_ already-gated handler runs.
+   _which_ already-gated handler runs. It also judges fixation **per content
+   type** and can force a **corrective path out of** a fixated acquisition stage
+   rather than only routing around it — see
+   [A worked example: the 0 ms watchdog](#a-worked-example-the-0-ms-watchdog).
 4. **Adaptive idle backoff with a floor** ([`loop.ts`](src/lib/admin-worker/loop.ts)).
    A pass that does no work still costs ~140 database round trips, so the less a
    pass can achieve the longer the loop waits: an ordinary idle pass waits the
@@ -2720,7 +2805,9 @@ making progress:
    heartbeat at most once a minute in between. Production wrote 649,793
    `loop_paused` rows because a paused pass logged once per tick and ticked once
    per second; `backoffFloorMs` is the exported rule that stops it, pinned by a
-   test rather than inferred from timing.
+   test rather than inferred from timing. Those defaults are only defaults if an
+   unset variable actually reaches them, which for a while it did not — see
+   [A worked example: the 0 ms watchdog](#a-worked-example-the-0-ms-watchdog).
 5. **Stuckness detection that is acted on.** The brain's `detect_stuckness` runs
    each pass; when it fires, `runStucknessPass` takes real corrective action
    (aggressive review-queue auto-resolve, capability diagnosis, a high-priority
@@ -4095,6 +4182,100 @@ page deliberately does not, because the expansion floats obscure near-spellings
 above the thing that was asked for. Results carry the true total, a page, and a
 grouping by content type with a real human type label.
 
+### The parish card, and "parishes near me"
+
+There is exactly **one** parish presentation
+([`ui/ParishCard.tsx`](src/components/ui/ParishCard.tsx)), rendered by both the
+directory list (`variant="list"`, an `h2` that links to the parish) and the
+parish's own page (`variant="detail"`, an `h1`, because there the parish _is_ the
+page). A parish shows, in this order and nothing else:
+
+- the **name**, in title type;
+- an optional **distance line** directly under the name;
+- one line labelled **Diocese**, whose value is the record's city, state and
+  country joined with `", "` ("Denver, Colorado, United States");
+- the **postal address**, with a **Get directions** button beside it —
+  `MapsAddressLink` in its block variant, which opens Apple Maps on iPhone/iPad
+  and Google Maps everywhere else, using the record's exact coordinates when it
+  has them so the pin lands on the right building;
+- the **website**, when the record has one, as a domain rather than a raw URL
+  (a stored `stmarys.org` with no scheme still becomes a working `https` link).
+
+Designation, phone, Mass times, confession times, background and summary are
+**still in the schema and still in the published payload** — they simply stopped
+being displayed. The detail page no longer goes through `PublishedDetail`, which
+prints every remaining payload key, for exactly that reason.
+
+The consequence worth naming: this is a **rendering** change, so all ~9,700
+published parishes (9,731 at the time) changed presentation the moment the
+component did — **no migration, no backfill, no worker pass** over a single row.
+That is the payoff of keeping the card a pure function of the payload
+([`content-shared/parish.ts`](src/lib/content-shared/parish.ts) holds the three
+helpers it needs, and none of them reads or reshapes stored data).
+
+Honest caveat: only about a **third** of published parishes currently carry a
+city, and the OSM sweep is where the rest will come from. When city, state and
+country are **all** absent, the whole labelled line is omitted rather than
+printed empty — a "Diocese" eyebrow with nothing after it reads as a broken row.
+
+**"Use my location", and why it widens.** The directory page ships one page of
+thirty projected rows and does no distance work at all until it is asked to.
+Pressing **Use my location** asks the browser for a fix (`enableHighAccuracy`, a 15 s timeout, and
+a `maximumAge` of 30 s — long enough for a cold fix, short enough that a stale
+one cannot mislabel every card after a drive) and calls
+[`/api/parishes/near`](src/app/api/parishes/near/route.ts), which does the
+bounding-box + haversine work in SQL and returns at most fifty rows.
+
+That endpoint **widens its own radius** rather than returning a blank list. It
+walks a ladder — the requested radius (50 miles from the page), then 150, then
+500, then unbounded "nearest records wherever they are" — and stops at the first
+rung that answers, reporting `requestedRadiusMiles`, the `radiusMiles` that
+actually answered, and `widened`. The page says so in words: _"No parishes within
+50 miles yet. Here are the nearest ones, within 150 miles."_ This exists because
+the previous behaviour was an unexplained empty list everywhere the OSM tile
+sweep had not yet reached, which reads as "there are no Catholic parishes near
+you" rather than "we have not swept your region yet". The coordinate goes to this
+site's own API and nowhere else, is never written down, and lives in component
+state only while the near-me view is on screen.
+
+**Distance, and where its units come from**
+([`content-shared/distance.ts`](src/lib/content-shared/distance.ts)). A distance
+line appears **only after the visitor uses "Use my location"** — the plain
+directory has no origin to measure from and therefore no distance to claim, and
+the detail page never shows one. The number is recomputed by haversine from the
+visitor's own fix (the SQL distance is only the fallback for a row whose stored
+coordinate did not come back with the projection), so the label cannot drift from
+the coordinate the device just handed over.
+
+The units come from the **device's** region — `navigator.languages`, falling back
+to `navigator.language`, resolved through `Intl.Locale` (using
+`measurementSystem` where the runtime implements the proposal, and a region
+allow-list of `US`, `LR`, `MM`, `GB` otherwise) — **not** from where the
+coordinates fall. A US-configured phone in Rome still reads miles; a German phone
+in Denver still reads kilometres. Deriving the unit from the visitor's position
+would switch a traveller's units mid-trip, which is exactly the thing people find
+disorienting. With no usable locale at all the fallback is imperial, because the
+API, the ladder and the stored distances are all already in miles.
+
+The thresholds, as implemented:
+
+| System   | Below the threshold                       | Above it                                        |
+| -------- | ----------------------------------------- | ----------------------------------------------- |
+| Imperial | under **0.1 miles** → whole **feet**      | **miles**, one decimal ("3.2 miles away")       |
+| Metric   | under **1,000 metres** → whole **metres** | **kilometres**, one decimal ("12.4 kilometres") |
+
+The metric switch sits higher than the imperial one deliberately: "150 metres
+away" beats "0.2 kilometres away" for a parish you can see from where you are
+standing, and a kilometre is where mapping apps change unit too. At three digits
+the decimal is dropped (it reads like a machine, not a distance). A parish on the
+doorstep reads as at least "1 foot", never "0 feet"; a negative or non-finite
+value renders nothing at all. Search **radii** are formatted by a separate
+function, because "50 miles" is a round number we chose and "50.0 miles" would
+read like a measurement of something.
+
+Share and Save sit in the card's action slot on the detail page — they are
+controls, not parish information, so they do not count against the list above.
+
 ### The memo cache, cache tags, and the internal revalidate endpoint
 
 Every public page is `force-dynamic` (the root layout reads `headers()`), so
@@ -4330,18 +4511,42 @@ have no off-switch.
 
 ## Testing
 
-The five commands that gate every change, in the order they are usually run.
-Each one below was executed against this tree on 2026-09-07 and the results are
-what is printed here.
+The commands that gate every change, in the order they are usually run. Every
+one below was executed against this tree on **2026-09-08** and the results are
+what is printed here — not what they are expected to be.
 
 ```bash
 npm run typecheck            # tsc --noEmit                      → 0 errors
-npx vitest run               # unit + component + worker         → 4036 passed, 1 skipped
-                             #                                     (459 files, ~12 s)
+npm test                     # unit + component + worker         → 4558 passed, 1 skipped
+                             #                                     (493 files passed, 1 skipped; ~12 s)
 npm run lint                 # eslint                            → no warnings or errors
-npm run format:check         # prettier --check .                → all files match
+npm run format:check         # prettier --check .                → all matched files use Prettier style
 npm run build                # prisma generate && next build     → succeeds
+npm audit                    #                                   → found 0 vulnerabilities
 ```
+
+Two suites need a database or a browser, so they are run separately:
+
+```bash
+# Integration. TEST_DATABASE_URL must name a database whose name contains
+# "test"; scripts/test-db.sh refuses anything else (and any non-localhost host
+# without TEST_DB_ALLOW_REMOTE=1).
+TEST_DATABASE_URL=postgresql://…/viafidei_test npm run test:integration
+#   → 24 passed (4 files)
+
+# End to end. Playwright starts the standalone production server itself
+# (scripts/start-standalone.sh) — `next start` cannot serve an
+# output:"standalone" build. Browsers are not installed by default:
+# npx playwright install --with-deps
+E2E_DATABASE_URL=postgresql://…/viafidei_e2e_test npm run test:e2e
+#   → 24 passed, 6 skipped (chromium + mobile-chromium)
+```
+
+The six skipped e2e tests are the visual-regression snapshots, which are opt-in
+behind `RUN_VISUAL_TESTS=1` until baselines are committed. The e2e suite is also
+what proves the per-request CSP nonce did not break hydration: it loads every
+primary route against the same production server the container runs and asserts
+the header renders and survives navigation.
 
 `npm test` is the same as `npx vitest run`; `npm run verify` chains typecheck →
 lint → format:check → test, and `npm run verify:full` adds the integration
@@ -4491,7 +4696,17 @@ The unit + component suite covers:
   sitemap index + chunking, and the history dataset's citation rules.
 - **Security** — defender + 10 detectors + auto-ban + emails, request-path
   defender, admin-route guard (defender fires on POST/PUT/PATCH/DELETE only —
-  never on GET), brute-force ban tests, "valid admin is not harassed" tests.
+  never on GET), brute-force ban tests, "valid admin is not harassed" tests. Plus
+  the two-stage admin sign-in end to end, the two-factor challenge lifecycle
+  (expiry, single use, attempt ceiling, supersession, rate limits), the admin
+  session store (pending refused, rotation, idle/absolute expiry, revocation,
+  logout), the gate-coverage scanner (including a planted ungated fixture route,
+  so it cannot pass vacuously), the admin-session prune **placement**, and the
+  worker/user exemptions from two-factor.
+- **Parish presentation** — the card's exact field set and its omissions, the
+  Diocese line and its all-absent case, the distance formatter's thresholds and
+  device-locale unit rule, the near-me route's validation and widening ladder,
+  and the SQL near-query itself.
 - **Single-content-path guards** — `runPublishOrchestrator()` is the only
   publish writer and every recent public row traces to an artifact
   (`production-mandates.test.ts`, readiness checks); no dispatcher handler
@@ -4505,8 +4720,9 @@ The unit + component suite covers:
 - **App-wide** — API, auth, security, components, data, email, observability,
   i18n, cache test suites.
 
-Total: **4,036 passing tests across 459 test files** (plus 1 skipped), on top of
-the 230 Python brain tests.
+Total: **4,558 passing tests across 493 test files** (plus 1 skipped test in 1
+skipped file), on top of **24** integration tests, **24** end-to-end tests and
+**230** Python brain tests.
 
 ---
 
@@ -4522,12 +4738,12 @@ Four-tier security model:
    renders.
 3. **Admin gate (request-path defender)** —
    `src/lib/security/admin-gate.ts` is the unified entry point for
-   admin API routes. On unauthorized POST/PUT/PATCH/DELETE, the gate
-   fires `defendUnauthorizedMutation` so an `AdminWorkerSecurityAction`
-   row is recorded alongside the `SecurityEvent`. GET is never
-   defender-flagged, so admins redirected once to login are not
-   banned. Routes that don't use the gate can call
-   `requireAdminWithDefender` for the same protection.
+   admin API routes; **every** admin handler now goes through it (see
+   [The central admin gate](#the-central-admin-gate)). On unauthorized
+   POST/PUT/PATCH/DELETE, the gate fires `defendUnauthorizedMutation` so an
+   `AdminWorkerSecurityAction` row is recorded alongside the
+   `SecurityEvent`. GET is never defender-flagged, so admins redirected
+   once to login are not banned.
 4. **Admin Worker security defender** — `security-defender.ts`
    consumes `SecurityEvent` rows. On a confirmed Breach
    (classification=Breach + confidence ≥ 0.9 + known device
@@ -4550,6 +4766,320 @@ Admin login flow:
 A valid authenticated admin browsing the admin console never triggers
 a suspicious-activity email — `recordAdminLoginSuccess` marks the
 device known so subsequent navigation reads as expected activity.
+
+### Two-factor admin sign-in
+
+A human administrator now signs in through two stages:
+
+**password → PENDING → six-digit code emailed to the configured admin address →
+authenticated.**
+
+A correct username and password no longer produce an administrator. They produce
+a **PENDING** `AdminSession` row, which carries no authority at all, plus a
+challenge row ([`auth/admin-2fa.ts`](src/lib/auth/admin-2fa.ts)). Which stage
+`/admin/login` renders is decided by the **server** — the presence of a pending
+session — never by the query string, so nobody reaches the code form, or skips
+it, by editing a URL. The only function in the codebase that grants the ADMIN
+role is `completeAdminTwoFactor`, and it refuses unless a challenge was verified
+first.
+
+The code, as implemented:
+
+| Property      | Value                                                                                                        |
+| ------------- | ------------------------------------------------------------------------------------------------------------ |
+| Length        | exactly **six digits**, from `crypto.randomInt` (uniform, no modulo bias; `Math.random()` appears nowhere)   |
+| Lifetime      | **5 minutes**                                                                                                |
+| Reuse         | **single use** — a correct code is consumed by a conditional `UPDATE`, so a racing duplicate cannot also win |
+| Wrong guesses | **5 attempts** per challenge, then the challenge is superseded and the pending session torn down             |
+| Supersession  | issuing a replacement invalidates the previous code in the same call — there is only ever **one live code**  |
+| Rate limits   | issue **5 / 15 min**, verify **15 / 15 min**, each enforced across four buckets at once                      |
+
+The rate-limit buckets are the pending challenge, the IP, the device credential
+and the admin username, and **every** bucket must allow the call, so an attacker
+can neither spread guesses across devices nor rotate IPs to stay under a limit.
+The buckets hold only derived values and land in the same durable limiter table
+everything else uses.
+
+**The code is never logged, never returned to the client, and never stored in
+plaintext.** It appears in exactly one place: the body of the email to the
+configured admin mailbox. What the database holds is an **HMAC-SHA256** under the
+purpose-separated `admin-2fa` subkey, with the challenge id mixed into the
+message as a per-row salt so two challenges that happen to draw the same code do
+not produce the same stored value. A plain digest would not do: the six-digit
+space is 10⁶ and a `SHA-256` of every value is computable in under a second, so
+a database dump would be reversible. The HMAC is not, because reversing it also
+needs `SESSION_SECRET`.
+
+Every refusal is the same refusal. Wrong code, expired challenge, already-used
+challenge, superseded challenge and exhausted attempts all render "That code is
+not valid" — the internal reason exists only to pick which security event to
+record. The eligibility check and the attempt increment are **one** statement
+whose `WHERE` clause is the authorization, so two concurrent submissions cannot
+both read `attempts` before either writes it, and the comparison is
+constant-time over the keyed representation.
+
+Three exclusions, stated plainly because they are the constraints that shaped
+the design:
+
+1. **Ordinary user accounts are unaffected and are never prompted.** They sign in
+   at `/api/auth/login` and never touch this module.
+2. **The Admin Worker and every automated process are completely independent of
+   this and never need a code.** They authenticate by their own machine paths
+   (`security/cron-auth.ts`). A worker that had to read an inbox would not be
+   autonomous, and production would stop.
+   `tests/security/admin-2fa-worker-exempt.test.ts` pins that structurally —
+   nothing in the worker, cron or user surface can even reach the challenge
+   module — and behaviourally, by showing machine authentication still authorizes
+   with no challenge in existence.
+3. **No new environment variable was introduced for any of it.** The HMAC key is
+   derived from the existing `SESSION_SECRET` through the key registry below, and
+   the destination is the already-configured `ADMIN_EMAIL`, read through the
+   existing email module. No address is ever accepted from the request.
+
+If email is unconfigured or delivery fails, the challenge still exists and still
+has to be answered: failing open would mean "email down ⇒ no second factor",
+which is the exact bypass the feature exists to prevent. The operator sees the
+delivery problem on the login page instead.
+
+### Admin sessions
+
+An admin session is **not** trusted merely because a cookie says `ADMIN`. That
+was a bearer token with no server-side lifecycle: it could not express "password
+verified, second factor outstanding", it survived sign-out on any copy, and it
+could be neither expired for idleness nor revoked. Every admin authorization
+decision now resolves against a row in `AdminSession`
+([`auth/admin-session.ts`](src/lib/auth/admin-session.ts)), which carries:
+
+- its **own identity** — an opaque 32-byte session id that lives only inside the
+  encrypted cookie. What is persisted is an **HMAC** of that id under the
+  session-purpose subkey, so a dump of the table cannot be replayed as a session;
+- **both authentication timestamps** — when the password was accepted, and when
+  the second factor was verified;
+- **last activity**, with a sliding **idle expiry** of 30 minutes (written at
+  most once a minute, so a page render is not a row update);
+- an **absolute expiry** of 8 hours that activity cannot extend;
+- **revocation** state — who, why, when.
+
+`resolveAdminSession` is valid only for a row that is `AUTHENTICATED`, carries a
+2FA timestamp, is unrevoked and sits inside **both** windows. A **PENDING**
+(password-verified, pre-2FA) session cannot pass `requireAdmin()`: it resolves to
+`pending_two_factor`, which is a deny, and so `requireAdmin()`,
+`evaluateAdminTrust()` and `gateAdminApiCall()` all refuse it exactly like an
+anonymous caller. So does an `AUTHENTICATED` row with no 2FA timestamp — both
+halves must agree. Everything fails closed: an unreachable store, an unparsable
+row and a missing row all deny. That means a database outage locks the human
+administrator out; it does not affect ordinary users, and the Admin Worker does
+not call this at all.
+
+Promotion after the second factor **rotates** the session id, atomically in one
+CTE — the id that existed while the session was only password-verified must never
+be the id that carries full admin authority, so a fixated or leaked pending id is
+worthless afterwards. Rotating `ADMIN_USERNAME` revokes sessions minted for the
+previous identity on their next request.
+
+**Logout revokes server-side state.** `/api/admin/logout` revokes the
+`AdminSession` row **first** and then destroys the cookie. The order is
+load-bearing: clearing the cookie alone leaves the row live, so any copy of the
+cookie taken before sign-out would still authorize.
+
+Dead rows are kept for **7 days** after they die — "was this session still alive
+when the breach happened?" is a question an incident review has to be able to
+answer — and are then pruned by an operator command:
+
+```bash
+# Dry run — counts what WOULD be deleted, changes nothing
+npx tsx scripts/maintenance/prune-admin-sessions.ts
+
+# The real thing
+npx tsx scripts/maintenance/prune-admin-sessions.ts --confirm
+npx tsx scripts/maintenance/prune-admin-sessions.ts --confirm --batch 1000
+```
+
+**Why that lives outside the worker tree.** The obvious home for a recurring
+sweep is the Admin Worker's cleanup lane, and it is exactly the wrong place:
+`tests/security/fail-closed.test.ts` pins that **no** module under
+`src/lib/admin-worker/**` imports `lib/auth/admin-session`. That structural
+isolation is what keeps the Admin Worker out of interactive admin authentication
+entirely, and wiring the sweep into a lane would create the import — trading a
+real security property for a cron slot. So the sweep is an operator command
+outside the worker tree, and `tests/security/admin-session-prune-placement.test.ts`
+checks the placement as well as the behaviour, so the isolation cannot be quietly
+reintroduced through the new file. (The alternative considered — an opportunistic
+sweep at the admin-auth entry point — was rejected because it puts a `DELETE` on
+the hot authorization path and makes cleanup timing depend on admin traffic.)
+There is no second implementation of the delete: the script drives the same
+bounded, batched, never-throwing `pruneExpiredAdminSessions` the store exports,
+touches no table but `AdminSession`, deletes nothing without `--confirm`, and
+stops at a 200-batch ceiling.
+
+### The central admin gate
+
+Every admin API handler passes through **`gateAdminApiCall(req)`**
+([`security/admin-gate.ts`](src/lib/security/admin-gate.ts)) as the first thing
+it does. The contract is four checks in one place:
+
+1. **CSRF**, on mutations only — safe methods pass through. A failure is a
+   Security Breach event and an unconditional refusal, with no second evaluation
+   that could disagree and let the mutation through.
+2. **Banned device** — blocked before any admin work runs. Unlike the public
+   `assertNotBanned`, a store failure here is **not** read as "not banned": if
+   the ban table cannot be read we cannot prove the device is clear, so the
+   request is refused with 503 and the outage is reported.
+3. **Admin session trust** — a completed-2FA session, unrevoked and inside both
+   windows, per the section above. A PENDING session is refused here exactly like
+   an anonymous caller.
+4. On denial, the request is counted toward **admin-route scan detection**, and
+   an unauthorized mutation additionally fires the worker's request-path defender
+   — fire-and-forget, deliberately not part of the authorization decision, so the
+   worker can never become a dependency of basic admin authentication.
+
+Only `/api/admin/login` and `/api/admin/logout` are exempt, and both by
+definition: login is where a principal is created, so it cannot require one, and
+logout must stay reachable by a session that is already half-broken (expired,
+revoked, pending 2FA) or such a session would be stranded.
+
+Coverage is enforced statically by
+[`security/admin-route-coverage.ts`](src/lib/security/admin-route-coverage.ts),
+which reads the route files from disk (it is imported by tests, never by
+anything on the request path, so `node:fs` never reaches a bundled route) and
+reports, per route, which guard protects each exported handler. The current tree
+reports **zero ungated handlers across all 25 admin routes**.
+
+The lesson is worth recording, because it is the kind of scanner bug that
+manufactures false confidence: the scanner used to answer **per file**. A single
+mention of `gateAdminApiCall` anywhere in a route marked the whole file gated —
+so four routes that paired a gated mutation with a bare `requireAdmin()` read
+(`media`, `media/[id]`, `email`, `email/admin-test`) were all reported as covered
+while their `GET`s skipped banned-device enforcement entirely — a bare
+`requireAdmin()` checks the session and nothing else. An empty debt list proved
+nothing about them. The scanner now slices each file into
+handler bodies and judges **each handler on its own body**; a route counts as
+gated only when **every** exported handler reaches the gate. Module-level code
+above the first handler is prepended to each body, so a route that builds its
+guard once at the top and awaits it in each handler is still correctly read as
+guarded — the goal is to avoid false alarms while refusing to grant false
+assurance. Those four `GET`s were then converted, and the tests were falsified
+before being trusted: patching one route to discard the gate result turns four
+tests red, and planting an ungated fixture route makes the scanner fail.
+
+### Cryptographic domain separation
+
+The deployment has exactly **one** piece of root secret material
+(`SESSION_SECRET`) and several independent uses for it. Reusing the same bytes
+for encryption, HMAC fingerprinting and code verification means a weakness in one
+use — or an oracle in one protocol — leaks into all the others. So
+[`security/keys.ts`](src/lib/security/keys.ts) derives **purpose-separated
+subkeys via HKDF-SHA256** from that same root secret, each under its own fixed
+context label:
+
+| Purpose                | HKDF `info` label                        | Declared for                                   | Reached today by                           |
+| ---------------------- | ---------------------------------------- | ---------------------------------------------- | ------------------------------------------ |
+| `session`              | `viafidei/v1/session-security`           | Session-scoped secrets                         | The stored HMAC of an admin session id     |
+| `at-rest`              | `viafidei/v1/at-rest-encryption`         | AES-256-GCM encryption of database columns     | `crypto.ts`, for `v2` payloads             |
+| `security-fingerprint` | `viafidei/v1/security-event-fingerprint` | HMAC fingerprints on security-event/audit rows | `hash.ts`, for every non-legacy kind       |
+| `admin-2fa`            | `viafidei/v1/admin-2fa-code`             | HMAC over the six-digit admin codes            | `admin-2fa.ts` (via `getTwoFactorHmacKey`) |
+| `internal-auth`        | `viafidei/v1/internal-auth-signature`    | Internal / machine-to-machine signatures       | Declared; no caller yet                    |
+
+The salt is a fixed non-secret constant (RFC 5869 §3.1 — the entropy comes from
+the root secret and the separation from the `info` label) so derivation is
+reproducible across processes and deploys. Callers name a **purpose**; they never
+touch the root secret and never invent their own derivation, and asking for an
+unknown purpose throws rather than deriving a key from `undefined`. Labels are
+part of the on-disk contract: editing one silently rotates that key and
+invalidates everything derived under it, so a new use gets a new label rather
+than an edited one.
+
+The iron-session cookie itself is still sealed with the raw `SESSION_SECRET`, not
+a subkey — [`auth/session.ts`](src/lib/auth/session.ts) cannot import from
+`keys.ts` without dragging `node:crypto` into the edge-runtime middleware bundle,
+so the two hold the dev-fallback constant in deliberate lockstep instead.
+
+**Already-encrypted production records remain decryptable.** At-rest payloads are
+versioned: `v1` (key = `SHA-256(SESSION_SECRET)`, no AAD) is what every release
+before domain separation wrote, so **production rows are v1**. `decryptAtRest`
+still reads them through the retained `deriveKey()`; nothing writes `v1` any
+more, and `v2` uses the derived subkey plus its version string as AAD so a `v2`
+payload cannot be replayed as another version. The same compatibility rule
+applies to fingerprints: `ip`, `device` and `ua` are **lookup keys** on live rows
+(`BannedDevice.deviceCredentialHash` is unique, and the live ban check is a
+`findUnique` on it), so re-keying them would silently un-ban every banned device.
+Those three keep the original root-secret HMAC; every newer kind uses the derived
+`security-fingerprint` subkey.
+
+### CSP and CSRF
+
+`src/middleware.ts` no longer allows **`script-src 'unsafe-inline'`**. Each
+request gets a fresh **nonce** (16 CSPRNG bytes, base64, generated with
+`crypto.getRandomValues` and `btoa` so no `node:crypto` import sneaks into the
+edge bundle), the policy goes on both the request and the response headers, and
+Next reads the nonce back off the request header and stamps it onto every
+framework script it emits — the bootstrap script and the `self.__next_f.push(…)`
+flight-data scripts — so the app keeps hydrating while an injected inline script
+does not execute. **`object-src` is `'none'`**: the app embeds no plugins,
+applets or `<object>`/`<embed>` content, and that is the classic
+SVG/Flash-style XSS vector. `'unsafe-eval'` is added **outside production only**,
+because the webpack dev build evaluates modules with `eval()` and the production
+bundle never does. `style-src` keeps `'unsafe-inline'` — Next inlines critical
+CSS and `next/font` injects a `<style>` block — which is a far weaker concession,
+since an inline style cannot execute script.
+
+The **e2e suite is what proves the nonce work did not break hydration**: it runs
+the same standalone production server the container runs, loads every primary
+route, and asserts the header renders and survives navigation. A nonce the
+renderer and the browser disagree about does not throw — the scripts simply do
+not run, and the page arrives looking correct and doing nothing. That is
+invisible to a type check, a unit test and a component test alike; only something
+that loads the real page in a real browser catches it, which is why the e2e run
+is a gate on this work rather than a nicety.
+
+**CSRF no longer lets a forwarded host header decide the origin a request is
+validated against.** `evaluateCsrf` compares the browser-attached `Origin` (or,
+absent it, the `Referer`) against `getTrustedOrigins`, which in production is the
+constant canonical set derived from `src/lib/config.ts` and **never** anything a
+header said; outside production it is the origin the request actually arrived on
+plus loopback, so `next dev`, Playwright and unit tests still work on whatever
+port they bound. An earlier revision derived the expected origin from
+`X-Forwarded-Host`, which means an attacker able to inject that header anywhere
+in the proxy chain also chooses the value their own forged `Origin` is compared
+against — reducing the whole module to a no-op. The same rule now governs
+redirects: `getPublicOrigin` (and the middleware's own inlined copy) accepts a
+forwarded host in production only when it names a host this deployment actually
+serves, and answers with the canonical origin otherwise, so a spoofed header
+cannot turn the `/admin` login redirect into an open redirect.
+
+### Password recovery
+
+`POST /api/auth/forgot-password` returns the **same public response whether or
+not an account exists** — the same 200 and the same `{ sent: true }` body for
+every well-formed request, which the client renders as "If an account exists for
+this email address, password reset instructions have been sent." An earlier
+revision returned `404 not_found` for unknown addresses and leaked the mail
+provider's error text for known ones, which let anyone confirm membership one
+address at a time and read deployment internals while doing it. The only two
+distinguishable status codes left are properties of the **request**, not of the
+account: 400 for a malformed email, 429 for the per-IP rate limit.
+
+Sameness of the body is not enough on its own. The recovery work — a token write
+plus a network round-trip to the mail provider — only happens when the address
+matches an account, so awaiting it would make that path hundreds of milliseconds
+slower and re-create the same enumeration as a timing oracle. The work is
+therefore detached (handed to `after()` so the request context stays alive), and
+both cases cost one indexed lookup on the response path. A lookup **failure** is
+also swallowed into the same response, so the endpoint cannot be used to probe
+the database's health either.
+
+**Internal diagnostics are unchanged**: storage-unavailable, token issued,
+delivery rejected, delivery skipped and flow-failed each still log their real
+outcome with the fields `/admin/email` renders — never the raw token, never the
+API key, never the email body, and never the probed address itself, so an
+unauthenticated caller cannot fill the operator's log with addresses they are
+testing. **Every existing token protection is untouched**: 32 random bytes,
+SHA-256 hashed at rest, 15-minute expiry, single use, sibling tokens invalidated
+on consume, and every session torn down after the password rotates. The one
+behavioural change beyond the response is that the route now **fails closed**
+rather than repairing schema mid-request — an auth route must not run DDL, so a
+genuinely missing token table is an operator-log event and a startup-validator
+failure, not something an unauthenticated request quietly fixes.
 
 ---
 
@@ -4606,6 +5136,15 @@ runs [a parked `sleep` loop](#the-retained-railway-worker-service).
 | `0054_published_content_query_columns`             | Indexed query columns on PublishedContent (feastMonth, feastDayOfMonth, sortYear, subtype, latitude, longitude, region, sourceRef, addressKey)                                                                                      |
 | `0055_published_content_search`                    | Search: the weighted `searchVector` tsvector + trigger + partial GIN index, and an **optional** pg_trgm trigram index. Every privileged statement is guarded so a role that cannot create it degrades instead of failing the deploy |
 | `0056_admin_worker_log_event_index`                | `AdminWorkerLog (eventName, createdAt)` — the index the retention prune and the per-event readers walk                                                                                                                              |
+| `0060_admin_session_store`                         | `AdminSession` — the server-side admin session lifecycle (stage, both authentication timestamps, last activity, idle + absolute expiry, revocation). Keyed on an **HMAC** of the session id, never the id itself                    |
+| `0061_admin_two_factor_challenge`                  | `AdminTwoFactorChallenge` — the pending second factor. Stores a keyed HMAC of the six-digit code (never the code), and an HMAC of the pending session id                                                                            |
+
+`0057`–`0059` do not exist: concurrent security work in this tree claimed those
+numbers and did not ship. The gap is intentional and harmless — Prisma applies
+migrations in directory-name order and records them by name. Both new files only
+`CREATE` new tables and their indexes, so no statement can queue behind readers
+of a live table; each sets a `lock_timeout` anyway so a pathological catalog lock
+fails fast rather than stalling `scripts/start.sh`.
 
 Migrations `0055` and `0056` both take a `lock_timeout` of 5 s, because
 `prisma migrate deploy` runs each file in one transaction and a queued
