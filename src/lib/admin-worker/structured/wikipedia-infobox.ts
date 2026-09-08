@@ -66,41 +66,15 @@ export function extractInfoboxBlocks(wikitext: string): string[] {
   return blocks;
 }
 
-/** Clean one infobox value: refs, links, templates, markup → plain text. */
-export function cleanInfoboxValue(raw: string): string {
-  let v = raw;
-  // Drop references and HTML comments entirely.
-  v = v.replace(/<ref[^>]*\/>/gi, "");
-  v = v.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, "");
-  v = v.replace(/<!--[\s\S]*?-->/g, "");
-  // Date templates → ISO-ish "YYYY-MM-DD" from their numeric arguments.
-  v = v.replace(
-    /\{\{\s*(?:birth|death)[ _]date[^}]*?(\d{3,4})\s*\|\s*(\d{1,2})\s*\|\s*(\d{1,2})[^}]*\}\}/gi,
-    (_m, y: string, mo: string, d: string) => `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`,
-  );
-  // Wrapper templates that just hold text: keep the last positional argument.
-  v = v.replace(/\{\{\s*(?:nowrap|small|circa|c\.)\s*\|([^{}|]*)\}\}/gi, "$1");
-  // Any remaining templates: drop (innermost-out, a few passes).
-  for (let i = 0; i < 4 && /\{\{/.test(v); i += 1) {
-    v = v.replace(/\{\{[^{}]*\}\}/g, " ");
-  }
-  // Links: [[target|label]] → label, [[target]] → target.
-  v = v.replace(/\[\[(?:[^\]|]*\|)?([^\]|]*)\]\]/g, "$1");
-  // External links: [url label] → label.
-  v = v.replace(/\[https?:\/\/\S+\s+([^\]]+)\]/g, "$1");
-  v = v.replace(/\[https?:\/\/\S+\]/g, " ");
-  // Bold/italic markup, leftover braces/brackets, HTML tags, list bullets.
-  v = v.replace(/'{2,}/g, "");
-  v = v.replace(/<[^>]+>/g, " ");
-  v = v.replace(/[{}[\]]/g, " ");
-  v = v.replace(/^\s*\*+\s*/gm, "");
-  return v.replace(/\s+/g, " ").trim();
-}
-
-/** Parse ONE infobox block into a key → cleaned-value map. */
-function parseInfoboxBlock(block: string): Record<string, string> {
-  // Strip the outer {{ … }} and split on TOP-LEVEL pipes only.
-  const inner = block.slice(2, -2);
+/**
+ * Split wikitext on TOP-LEVEL pipes, respecting `{{…}}` and `[[…]]` nesting.
+ *
+ * Shared by the infobox parameter splitter and the wrapper-template unwrapper,
+ * because both have the same trap: `[[Eastern Orthodoxy|Orthodox Churches]]`
+ * carries a pipe that is NOT an argument separator, and splitting on it turns
+ * one feast date into two fragments.
+ */
+export function splitTopLevelPipes(inner: string): string[] {
   const parts: string[] = [];
   let depthTpl = 0;
   let depthLink = 0;
@@ -131,6 +105,136 @@ function parseInfoboxBlock(block: string): Record<string, string> {
     }
   }
   parts.push(cur);
+  return parts;
+}
+
+/**
+ * Templates that merely WRAP a value: the value IS their positional arguments,
+ * so they must be unwrapped rather than deleted.
+ *
+ * MEASURED BUG this closes (live, 2026-09-08). `{{Infobox saint}}` and
+ * `{{Infobox Christian leader}}` write a multi-date feast as
+ * `| feast_day = {{unbulleted list|20 December (…)|26 August (…)}}` and a
+ * canonization date as `{{start date|1997|10|19}}`. The cleaner deleted every
+ * template it did not recognise, so those values cleaned to the empty string
+ * and — because `parseInfoboxBlock` only records non-empty values — the
+ * parameter vanished from the parsed map entirely. Pope Zephyrinus (Q101306)
+ * states BOTH his feast days in exactly that list template, and the saint
+ * ingest's corroboration gate saw an infobox with no feast at all and reported
+ * `feast_uncorroborated`. The same erasure silently emptied `patronage`
+ * (usually `{{plainlist}}` / `{{hlist}}`) and the canonization dates that
+ * branch 3 of the saint corpus takes its status from.
+ *
+ * Deliberately an ALLOWLIST: an unrecognised template is still dropped, because
+ * a template we cannot read is not evidence of anything.
+ */
+const UNWRAP_TEMPLATES: ReadonlySet<string> = new Set([
+  // List wrappers.
+  "unbulleted list",
+  "ubl",
+  "ublist",
+  "plainlist",
+  "plain list",
+  "flatlist",
+  "flat list",
+  "hlist",
+  "bulleted list",
+  "collapsible list",
+  "indented plainlist",
+  // Pure presentation wrappers.
+  "nowrap",
+  "nobr",
+  "small",
+  "big",
+  "nobold",
+  "noitalic",
+  // NOT `{{lang|la|…}}`: its first positional argument is a language code, so
+  // unwrapping it would inject "la; " into the value. Dropping it is cleaner.
+  // Approximate-date wrappers whose argument is the date text itself.
+  "circa",
+  "c.",
+  "ca",
+  "start date",
+  "end date",
+  "start-date",
+  "end-date",
+]);
+
+/** Line-leading `*` / `#` bullets inside a list argument → "; " separators. */
+function debullet(arg: string): string {
+  return arg
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[*#]+\s*/, "").trim())
+    .filter(Boolean)
+    .join("; ");
+}
+
+/**
+ * Resolve templates innermost-first: unwrap the ones on the allowlist to their
+ * positional arguments (joined with "; "), drop everything else. Bounded passes
+ * so deeply nested markup can never spin.
+ */
+function resolveTemplates(text: string): string {
+  let v = text;
+  for (let pass = 0; pass < 6 && /\{\{/.test(v); pass += 1) {
+    let changed = false;
+    // `[^{}]*` can only match an INNERMOST template, so each pass peels one
+    // level and the allowlist is applied to a fully-resolved argument list.
+    v = v.replace(/\{\{([^{}]*)\}\}/g, (_whole, inner: string) => {
+      changed = true;
+      const parts = splitTopLevelPipes(inner);
+      const name = (parts[0] ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_]+/g, " ");
+      if (!UNWRAP_TEMPLATES.has(name)) return " ";
+      const args = parts
+        .slice(1)
+        // Drop named parameters (`class=…`, `title=…`): chrome, not content.
+        .filter((p) => !/^\s*[A-Za-z][A-Za-z0-9 _-]*=/.test(p))
+        .map(debullet)
+        .filter(Boolean);
+      return args.length ? ` ${args.join("; ")} ` : " ";
+    });
+    if (!changed) break;
+  }
+  return v;
+}
+
+/** Clean one infobox value: refs, links, templates, markup → plain text. */
+export function cleanInfoboxValue(raw: string): string {
+  let v = raw;
+  // Drop references and HTML comments entirely.
+  v = v.replace(/<ref[^>]*\/>/gi, "");
+  v = v.replace(/<ref[^>]*>[\s\S]*?<\/ref>/gi, "");
+  v = v.replace(/<!--[\s\S]*?-->/g, "");
+  // Date templates → ISO-ish "YYYY-MM-DD" from their numeric arguments.
+  // `start`/`end` are here as well as on the unwrap list so a full
+  // `{{start date|1997|10|19}}` reads as a date rather than "1997; 10; 19";
+  // the unwrap list still catches the year-only `{{start date|1997}}`.
+  v = v.replace(
+    /\{\{\s*(?:birth|death|start|end)[ _]date[^}]*?(\d{3,4})\s*\|\s*(\d{1,2})\s*\|\s*(\d{1,2})[^}]*\}\}/gi,
+    (_m, y: string, mo: string, d: string) => `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`,
+  );
+  // Wrapper templates hold the value; anything unrecognised is dropped.
+  v = resolveTemplates(v);
+  // Links: [[target|label]] → label, [[target]] → target.
+  v = v.replace(/\[\[(?:[^\]|]*\|)?([^\]|]*)\]\]/g, "$1");
+  // External links: [url label] → label.
+  v = v.replace(/\[https?:\/\/\S+\s+([^\]]+)\]/g, "$1");
+  v = v.replace(/\[https?:\/\/\S+\]/g, " ");
+  // Bold/italic markup, leftover braces/brackets, HTML tags, list bullets.
+  v = v.replace(/'{2,}/g, "");
+  v = v.replace(/<[^>]+>/g, " ");
+  v = v.replace(/[{}[\]]/g, " ");
+  v = v.replace(/^\s*\*+\s*/gm, "");
+  return v.replace(/\s+/g, " ").trim();
+}
+
+/** Parse ONE infobox block into a key → cleaned-value map. */
+function parseInfoboxBlock(block: string): Record<string, string> {
+  // Strip the outer {{ … }} and split on TOP-LEVEL pipes only.
+  const parts = splitTopLevelPipes(block.slice(2, -2));
 
   const out: Record<string, string> = {};
   // parts[0] is the template name ("Infobox saint"); the rest are params.

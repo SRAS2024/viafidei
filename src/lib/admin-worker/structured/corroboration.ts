@@ -261,6 +261,35 @@ export function feastMentionIndexLocalized(
 }
 
 /**
+ * The FIRST calendar day named anywhere in `text`, in `lang` (null when none).
+ *
+ * WHY THIS EXISTS. An `{{Infobox saint}}` feast parameter leads with the date
+ * the calendar keeps TODAY and lists suppressed / other-rite dates after it:
+ * Pope Zephyrinus (Q101306) reads "20 December (Maronite, Orthodox, Latin
+ * Church); 26 August (Latin Church pre-1969)", while Wikidata's single P841
+ * value is 26 August. "Does Wikidata's day appear in the infobox?" answers yes
+ * for BOTH dates, so on its own it would publish the pre-1969 date as the
+ * saint's feast. Reading which day the infobox names first is what lets the
+ * caller tell "the infobox confirms this" from "the infobox confirms a
+ * different day and mentions this one as history".
+ *
+ * Uses the same matchers as the corroboration checks, so a day this reports and
+ * a day `feastDayInTextLocalized` accepts can never disagree.
+ */
+export function firstFeastInText(text: string, lang: string): ParsedFeast | null {
+  if (!text) return null;
+  let best: { feast: ParsedFeast; at: number } | null = null;
+  for (let month = 1; month <= 12; month += 1) {
+    for (let day = 1; day <= 31; day += 1) {
+      const at = feastMentionIndexLocalized(month, day, text, lang);
+      if (at < 0) continue;
+      if (best === null || at < best.at) best = { feast: make(month, day), at };
+    }
+  }
+  return best?.feast ?? null;
+}
+
+/**
  * Map a Wikidata `canonization status` (P411) LABEL to the schema enum.
  *
  * Retained for callers that only have a label; the SAINT ingest itself no

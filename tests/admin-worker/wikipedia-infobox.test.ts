@@ -81,3 +81,86 @@ describe("parseInfobox", () => {
     expect(parseInfobox("no box here")).toEqual({});
   });
 });
+
+/**
+ * WRAPPER TEMPLATES — the regression this suite exists to prevent.
+ *
+ * Measured live on 2026-09-08: `{{Infobox Christian leader}}` on Pope
+ * Zephyrinus (Q101306) writes his feast days as
+ * `feast_day = {{unbulleted list|20 December (…)|26 August (…)}}`. The cleaner
+ * deleted every template it did not recognise, so the value cleaned to "" and
+ * — because only non-empty values are recorded — the `feast_day` key vanished
+ * from the parsed map altogether. The saint ingest then reported
+ * `feast_uncorroborated` against an article that states the feast twice. The
+ * same erasure emptied `{{plainlist}}` patronages and `{{start date}}`
+ * canonization dates (the only status source for a saint with no P411).
+ */
+const ZEPHYRINUS_FEAST =
+  "{{unbulleted list|20 December ([[Maronite Church]], [[Eastern Orthodoxy|Orthodox Churches]], " +
+  "[[Latin Church]])|26 August ([[General Roman Calendar of 1960|Latin Church pre-1969]])}}";
+
+describe("cleanInfoboxValue — wrapper templates", () => {
+  it("unwraps a list template into its dates, in document order", () => {
+    expect(cleanInfoboxValue(ZEPHYRINUS_FEAST)).toBe(
+      "20 December (Maronite Church, Orthodox Churches, Latin Church); " +
+        "26 August (Latin Church pre-1969)",
+    );
+  });
+
+  it("keeps a piped link inside a list argument whole", () => {
+    // The separator pipe of [[Eastern Orthodoxy|Orthodox Churches]] must not
+    // be read as an argument separator, or one date becomes two fragments.
+    expect(cleanInfoboxValue(ZEPHYRINUS_FEAST)).not.toContain("Eastern Orthodoxy");
+    expect(cleanInfoboxValue("{{ubl|[[A (x)|A]] and [[B]]}}")).toBe("A and B");
+  });
+
+  it("unwraps every list flavour and turns bullets into separators", () => {
+    expect(cleanInfoboxValue("{{hlist|Rome|Milan}}")).toBe("Rome; Milan");
+    expect(cleanInfoboxValue("{{plainlist|\n* Farmers\n* Bakers\n* [[Poland]]\n}}")).toBe(
+      "Farmers; Bakers; Poland",
+    );
+    expect(cleanInfoboxValue("{{bulleted list|Sailors|Travellers}}")).toBe("Sailors; Travellers");
+  });
+
+  it("drops named parameters, which are chrome rather than content", () => {
+    expect(cleanInfoboxValue("{{ubl|class=nowrap|1 January|2 February}}")).toBe(
+      "1 January; 2 February",
+    );
+  });
+
+  it("reads start/end date templates as dates, at day or year precision", () => {
+    expect(cleanInfoboxValue("{{start date|1997|10|19}}")).toBe("1997-10-19");
+    expect(cleanInfoboxValue("{{start date|1997}}")).toBe("1997");
+  });
+
+  it("STILL drops a template it does not recognise, rather than guessing", () => {
+    // The allowlist is the whole point: an unread template is not evidence.
+    expect(cleanInfoboxValue("{{convert|12|mi|km}}")).toBe("");
+    expect(cleanInfoboxValue("{{citation needed|date=May 2024}}")).toBe("");
+  });
+
+  it("resolves nested wrappers innermost-first", () => {
+    expect(cleanInfoboxValue("{{ubl|{{nowrap|23 August}}|{{small|20 December}}}}")).toBe(
+      "23 August; 20 December",
+    );
+  });
+});
+
+describe("parseInfobox — a wrapped value is a PRESENT value", () => {
+  it("records feast_day / patronage / canonized_date that live in templates", () => {
+    const box = parseInfobox(`{{Infobox Christian leader
+| name = Zephyrinus
+| feast_day = ${ZEPHYRINUS_FEAST}
+| patronage = {{plainlist|
+* Farmers
+* Bakers
+}}
+| canonized_date = {{start date|1997|10|19}}
+}}`);
+    // Before the fix each of these three keys was absent from the map.
+    expect(box.feast_day).toContain("20 December");
+    expect(box.feast_day).toContain("26 August");
+    expect(box.patronage).toBe("Farmers; Bakers");
+    expect(box.canonized_date).toBe("1997-10-19");
+  });
+});

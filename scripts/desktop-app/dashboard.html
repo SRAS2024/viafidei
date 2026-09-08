@@ -697,19 +697,30 @@
         if (fileInput.files?.[0]) ingest(fileInput.files[0]);
         fileInput.value = "";
       });
+      // Drag-and-drop is bound to the WHOLE DOCUMENT, not just the drop zone.
+      // This runs inside a WKWebView, and anything the page does not claim,
+      // WebKit handles itself by NAVIGATING to the dropped file — the dashboard
+      // would vanish and be replaced by the file's contents. Listening only on
+      // #drop meant a drop a few pixels outside it did that instead of
+      // ingesting, which reads as "drag and drop does not work". Preventing the
+      // default everywhere keeps the page, and any file dropped anywhere on the
+      // window is handed to the worker.
       ["dragenter", "dragover"].forEach((e) =>
-        drop.addEventListener(e, (ev) => {
+        document.addEventListener(e, (ev) => {
+          if (!ev.dataTransfer?.types?.includes("Files")) return;
           ev.preventDefault();
           drop.classList.add("hot");
         }),
       );
-      ["dragleave", "drop"].forEach((e) =>
-        drop.addEventListener(e, (ev) => {
+      ["dragleave", "dragend"].forEach((e) =>
+        document.addEventListener(e, (ev) => {
           ev.preventDefault();
-          drop.classList.remove("hot");
+          if (!ev.relatedTarget) drop.classList.remove("hot");
         }),
       );
-      drop.addEventListener("drop", (ev) => {
+      document.addEventListener("drop", (ev) => {
+        ev.preventDefault();
+        drop.classList.remove("hot");
         const f = ev.dataTransfer?.files?.[0];
         if (f) ingest(f);
       });

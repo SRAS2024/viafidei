@@ -21,7 +21,9 @@ import {
   classifyDevotionType,
   classifyPracticeKind,
   ingestorFor,
+  isCatholicPracticeContext,
 } from "@/lib/admin-worker/structured/ingestors";
+import { rejectionOf } from "@/lib/admin-worker/structured/reject";
 import { fetchSummaryForArticleUrl } from "@/lib/admin-worker/structured/wikipedia";
 import { fetchDocumentExcerpt } from "@/lib/admin-worker/structured/document-excerpt";
 import type { SparqlBinding } from "@/lib/admin-worker/structured/wikidata";
@@ -135,7 +137,7 @@ describe("DEVOTION ingestor — multi-source, official first", () => {
         art: "https://en.wikipedia.org/wiki/X",
       }),
     );
-    expect(entry).toBeNull();
+    expect(rejectionOf(entry)?.code).toBe("narrative_too_short");
   });
 });
 
@@ -208,6 +210,104 @@ describe("SPIRITUAL_PRACTICE ingestor", () => {
         art: "https://en.wikipedia.org/wiki/Transcendental_Meditation",
       }),
     );
-    expect(entry).toBeNull();
+    // Worth pinning precisely: this fixture is NOT stopped by the Catholicity
+    // screen (its text carries no other-religion marker), it is stopped by the
+    // practice-kind classifier. Before reason codes both read as "skipped".
+    expect(rejectionOf(entry)?.code).toBe("unrecognized_type");
+  });
+});
+
+/**
+ * The Catholicity screen, pinned against text MEASURED live on 2026-09-08 —
+ * the first page of the "spiritual practice" corpus (Q2270606) and the flagship
+ * Catholic practices deeper in it. Paraphrases would have hidden the trap this
+ * suite exists for: the practices this site most needs are precisely the ones
+ * whose articles NAME the separated communions, because those communions
+ * borrowed them.
+ */
+describe("isCatholicPracticeContext — measured Wikipedia abstracts", () => {
+  const ABSTRACTS: Record<string, string> = {
+    exclusivePsalmody:
+      "Exclusive psalmody is the practice of singing only the biblical Psalms in congregational " +
+      "singing as worship. Today it is practised by several Protestant, especially Reformed " +
+      "denominations. Hymns besides the Psalms have been composed by Christians since the " +
+      "earliest days of the church, but psalms were preferred by the early church. During the " +
+      "Protestant Reformation, Martin Luther and many other reformers used hymns as well as " +
+      "psalms, but John Calvin preferred the Psalms. Several denominations, notably the " +
+      "Reformed Presbyterians, continue the practice of exclusive psalmody.",
+    stations:
+      "The Stations of the Cross or the Way of the Cross are any series of fourteen images " +
+      "depicting Jesus Christ on the day of his crucifixion and accompanying prayers. The " +
+      "objective of the stations is to help the faithful to make a spiritual pilgrimage through " +
+      "contemplation of the Passion of Christ. It has become one of the most popular devotions " +
+      "and the stations can be found in many Western Christian churches, including those in the " +
+      "Catholic, Lutheran, Anglican and Methodist traditions.",
+    adoration:
+      "Eucharistic adoration is a devotional practice primarily in Western Catholicism and " +
+      "Western Rite Orthodoxy, but also to a lesser extent in certain Lutheran and Anglican " +
+      "traditions, in which the Blessed Sacrament is adored by the faithful.",
+    lectio:
+      "In Western Christianity, Lectio Divina is a traditional monastic practice of scriptural " +
+      "reading, meditation and prayer intended to promote communion with God and to increase " +
+      "the knowledge of God's word.",
+    novena:
+      "A novena is an ancient tradition of devotional praying in Christianity, consisting of " +
+      "private or public prayers repeated for nine successive days or weeks.",
+    pardon:
+      "A pardon is a typically Breton form of pilgrimage and one of the most traditional " +
+      "demonstrations of popular Catholicism in Brittany. Of very ancient origin, it is " +
+      "comparable to the pattern days of pre-famine Ireland.",
+    fastingInIslam:
+      "Fasting in Islam, known as sawm, is the practice of abstaining from food and drink, " +
+      "observed by Muslims during the month of Ramadan.",
+  };
+
+  it("REJECTS a Reformed practice whose text never says Catholic", () => {
+    // Q2078967. Before this guard it passed on "church" / "Christians" alone,
+    // and only `classifyPracticeKind` having no branch kept it unpublished.
+    expect(isCatholicPracticeContext(ABSTRACTS.exclusivePsalmody)).toBe(false);
+  });
+
+  it("KEEPS the Catholic practices that name the other communions themselves", () => {
+    // A bare Anglican/Lutheran blacklist would throw both of these away.
+    expect(isCatholicPracticeContext(ABSTRACTS.stations)).toBe(true);
+    expect(isCatholicPracticeContext(ABSTRACTS.adoration)).toBe(true);
+  });
+
+  it("KEEPS Catholic practices whose text never says the word Catholic", () => {
+    // So the Catholic marker can never become an unconditional requirement.
+    expect(isCatholicPracticeContext(ABSTRACTS.lectio)).toBe(true);
+    expect(isCatholicPracticeContext(ABSTRACTS.novena)).toBe(true);
+  });
+
+  it("KEEPS a regional Catholic devotion the source calls Catholic", () => {
+    // Q1024974: the Breton pardon. Measured, its article calls it "popular
+    // Catholicism in Brittany" — it is a Catholic pilgrimage, not folk religion.
+    expect(isCatholicPracticeContext(ABSTRACTS.pardon)).toBe(true);
+  });
+
+  it("still REJECTS another religion outright", () => {
+    expect(isCatholicPracticeContext(ABSTRACTS.fastingInIslam)).toBe(false);
+  });
+});
+
+describe("isCatholicPracticeContext — 'Catholicos' is not a Catholic marker", () => {
+  it("does not let an Armenian/Assyrian primate's title unlock the separated-communion veto", () => {
+    // The veto is waived when the text carries an explicitly Catholic marker,
+    // because the flagship Catholic practices name the other communions
+    // themselves. `\bcatholic` also matched "Catholicos" — the title of the
+    // Armenian Apostolic and Assyrian primates — which handed that waiver to
+    // exactly the texts it exists to stop.
+    const armenian =
+      "Blessing of water is a Christian church ceremony. In the Armenian Apostolic tradition " +
+      "the Catholicos presides. The rite is also found in Anglican worship and Protestant hymnody.";
+    expect(isCatholicPracticeContext(armenian)).toBe(false);
+    // "Catholicism" / "Catholicity" must still read as Catholic.
+    expect(
+      isCatholicPracticeContext(
+        "A pardon is a Breton pilgrimage and a demonstration of popular Catholicism, also " +
+          "observed in some Anglican parishes.",
+      ),
+    ).toBe(true);
   });
 });

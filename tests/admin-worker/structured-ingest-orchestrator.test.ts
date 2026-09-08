@@ -15,15 +15,18 @@ vi.mock("@/lib/admin-worker/structured/wikidata", async (importOriginal) => {
 vi.mock("@/lib/admin-worker/publish-orchestrator", () => ({
   runPublishOrchestrator: vi.fn(async () => ({ kind: "published" })),
 }));
+vi.mock("@/lib/admin-worker/logs", () => ({ writeAdminWorkerLog: vi.fn(async () => undefined) }));
 
 import type { PrismaClient } from "@prisma/client";
 
 import { runStructuredIngest } from "@/lib/admin-worker/structured/ingest";
 import { runSparql, type SparqlBinding } from "@/lib/admin-worker/structured/wikidata";
 import { runPublishOrchestrator } from "@/lib/admin-worker/publish-orchestrator";
+import { writeAdminWorkerLog } from "@/lib/admin-worker/logs";
 
 const mockedSparql = vi.mocked(runSparql);
 const mockedPublish = vi.mocked(runPublishOrchestrator);
+const mockedLog = vi.mocked(writeAdminWorkerLog);
 
 const SKIP = "ADMIN_WORKER_SKIP_NETWORK";
 let savedSkip: string | undefined;
@@ -34,6 +37,8 @@ beforeEach(() => {
   mockedSparql.mockReset();
   mockedPublish.mockReset();
   mockedPublish.mockResolvedValue({ kind: "published" } as never);
+  mockedLog.mockReset();
+  mockedLog.mockResolvedValue(undefined);
 });
 afterEach(() => {
   if (savedSkip === undefined) delete process.env[SKIP];
@@ -101,6 +106,9 @@ describe("runStructuredIngest", () => {
     expect(out.published).toBe(2); // John Paul II + Benedict XVI
     expect(out.alreadyPublished).toBe(1); // Francis
     expect(out.skipped).toBe(1); // bad-label row
+    // …and the skip is no longer anonymous.
+    expect(out.skipReasons).toEqual({ no_english_label: 1 });
+    expect(out.skipSamples).toEqual(["no_english_label: Q1"]);
     expect(mockedPublish).toHaveBeenCalledTimes(2);
   });
 
@@ -123,6 +131,55 @@ describe("runStructuredIngest", () => {
     expect(upsert).toHaveBeenCalledTimes(1);
     const arg = upsert.mock.calls[0][0] as { create: { memoryValue: { offset: number } } };
     expect(arg.create.memoryValue.offset).toBe(4); // offset 0 + 4 fetched
+  });
+
+  it("puts the reason histogram in the log line and the log payload", async () => {
+    mockedSparql.mockResolvedValue(ROWS);
+    const { prisma } = makePrisma({ live: ["pope-francis"] });
+
+    await runStructuredIngest(prisma, { contentType: "POPE" });
+
+    const call = mockedLog.mock.calls.find(
+      ([, input]) => input.eventName === "structured_knowledge_ingest",
+    );
+    expect(call).toBeDefined();
+    const input = call![1];
+    // Reading ONE line answers "why did the missing rows vanish".
+    expect(input.message).toContain("Dropped 1: no_english_label 1.");
+    const meta = input.safeMetadata as Record<string, unknown>;
+    expect(meta.rejected).toBe(1);
+    expect(meta.skipReasons).toEqual({ no_english_label: 1 });
+    expect(meta.topSkipReasons).toEqual([{ code: "no_english_label", count: 1 }]);
+    expect(meta.skipSamples).toEqual(["no_english_label: Q1"]);
+  });
+
+  it("still logs a page that published nothing and dropped everything", async () => {
+    // The 2026-09-07 production shape: rows fetched, nothing live, nothing
+    // published — which used to write NO log line at all, because the log was
+    // gated on `published > 0`.
+    mockedSparql.mockResolvedValue([
+      row({ pope: "http://www.wikidata.org/entity/Q1", popeLabel: "Q1", startYear: "100" }),
+      row({ pope: "http://www.wikidata.org/entity/Q2", popeLabel: "Q2", startYear: "200" }),
+    ]);
+    const { prisma } = makePrisma();
+
+    const out = await runStructuredIngest(prisma, { contentType: "POPE" });
+
+    expect(out.published).toBe(0);
+    expect(out.skipped).toBe(2);
+    expect(out.skipReasons).toEqual({ no_english_label: 2 });
+    const call = mockedLog.mock.calls.find(
+      ([, input]) => input.eventName === "structured_knowledge_ingest",
+    );
+    expect(call).toBeDefined();
+    expect(call![1].message).toContain("Dropped 2: no_english_label 2.");
+    // Deliberately INFO, not WARN. WARN bypasses the per-eventName hourly
+    // budget (event-sampler.ts: "WARN/ERROR rows must never be routed through
+    // it") and is retained 90 days instead of 14 (cleanup.ts) — and a barren
+    // corpus is sterile on EVERY pass, so a WARN here would write an unsampled,
+    // long-lived row per pass forever. The drop reasons are in the message and
+    // payload either way, which is the whole point of the change.
+    expect(call![1].severity ?? "INFO").toBe("INFO");
   });
 
   it("is a clean no-op when the source returns nothing", async () => {

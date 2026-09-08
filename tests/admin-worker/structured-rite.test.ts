@@ -14,6 +14,7 @@ vi.mock("@/lib/admin-worker/structured/wikipedia", () => ({
 
 import { validatePayload } from "@/lib/checklist";
 import { ingestorFor, riteCoreSlug } from "@/lib/admin-worker/structured/ingestors";
+import { rejectionOf } from "@/lib/admin-worker/structured/reject";
 import { fetchSummaryForArticleUrl } from "@/lib/admin-worker/structured/wikipedia";
 import type { SparqlBinding } from "@/lib/admin-worker/structured/wikidata";
 
@@ -73,7 +74,7 @@ describe("RITE ingestor", () => {
     const entry = await riteMap(
       row({ r: "http://www.wikidata.org/entity/Q1", label: "Some Rite" }),
     );
-    expect(entry).toBeNull();
+    expect(rejectionOf(entry)?.code).toBe("no_wikipedia_article");
     expect(mockedSummary).not.toHaveBeenCalled();
   });
 
@@ -89,6 +90,6 @@ describe("RITE ingestor", () => {
         art: "https://en.wikipedia.org/wiki/X",
       }),
     );
-    expect(entry).toBeNull();
+    expect(rejectionOf(entry)?.code).toBe("description_too_short");
   });
 });

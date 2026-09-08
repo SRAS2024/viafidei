@@ -35,8 +35,20 @@ import { isDoctrinallySensitive } from "../content-type-profiles";
 import { refreshContentGoals } from "../content-goals";
 import { runPublishOrchestrator } from "../publish-orchestrator";
 import { writeAdminWorkerLog } from "../logs";
-import { lastSparqlFailure, runSparql, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
+import { lastSparqlFailure, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { structuredNetworkEnabled } from "./http";
+import { fetchSourcePage } from "./source-page";
+import {
+  formatRejections,
+  isRejection,
+  reject,
+  tallyRejection,
+  topRejections,
+  totalRejections,
+  type MapResult,
+  type RejectionCode,
+  type RejectionHistogram,
+} from "./reject";
 import { persistSourceCooldown, readSourceCooldownMs } from "./source-cooldown";
 import {
   STRUCTURED_INGESTORS,
@@ -99,6 +111,11 @@ const CURSOR_PREFIX = "structured-cursor:";
 /** Map concurrency for the per-row Wikipedia fetches. */
 const MAP_CONCURRENCY = 8;
 
+/** Example `code: detail` strings kept per pass for the log payload. */
+const MAX_SKIP_SAMPLES = 10;
+/** Reason codes named in the human-readable log message. */
+const LOGGED_SKIP_REASONS = 5;
+
 export interface StructuredIngestResult {
   ingestorId: string | null;
   contentType: string | null;
@@ -107,6 +124,23 @@ export interface StructuredIngestResult {
   alreadyPublished: number;
   skipped: number;
   failed: number;
+  /**
+   * WHY rows were dropped this pass, by machine-readable reason code.
+   *
+   * This is the field the whole "a null must report" change exists for. It
+   * accounts for every candidate that was mapped and did NOT publish:
+   * `skipped` (mapper rejections + publish refusals), `failed` (throws), and
+   * same-page duplicates — which are dropped by the dedup and were previously
+   * invisible in every counter. Already-live rows are NOT here: they have
+   * their own counter and are a success, not a discard.
+   */
+  skipReasons: RejectionHistogram;
+  /**
+   * A few `code: detail` examples, bounded, so one log payload can show WHICH
+   * entities a reason fired on without carrying a page of text. Never
+   * aggregated — the code in `skipReasons` is what gets counted.
+   */
+  skipSamples: string[];
   /** Authoritative source URLs added to the discovery queue this pass. */
   discoveredSources: number;
   /** Pages of entirely-live rows skipped without any Wikipedia traffic. */
@@ -123,64 +157,6 @@ export interface StructuredIngestResult {
    */
   sourceUnusable: boolean;
   errors: string[];
-}
-
-/** One page of source rows: what to map, and how many entities the page held. */
-interface SourcePage {
-  /** Rows in the shape `map()` / `identify()` consume, or null on failure. */
-  rows: SparqlBinding[] | null;
-  /**
-   * Entities the ENUMERATION returned for this page. This — not `rows.length` —
-   * is what the cursor advances by and what "a short page means end of corpus"
-   * is judged on: in the two-phase form the hydration query can legitimately
-   * return fewer rows than were enumerated (an entity edited between the two
-   * calls), and treating that as the end of the corpus would wrap the cursor to
-   * 0 and re-sweep thousands of already-live rows.
-   */
-  size: number;
-}
-
-/**
- * Fetch one page from an ingestor's source.
- *
- * Single-phase ingestors run their one query. A two-phase ingestor (`hydrate`
- * present) runs the cheap ordered enumeration first and then hydrates exactly
- * the entities that page enumerated, so the expensive OPTIONAL + aggregate work
- * is bounded by the page instead of the corpus. Either phase failing is a
- * SOURCE failure (`rows: null`) — never an empty corpus.
- */
-async function fetchSourcePage(
-  ingestor: StructuredIngestor,
-  batch: number,
-  offset: number,
-): Promise<SourcePage> {
-  let enumerated: SparqlBinding[] | null;
-  try {
-    enumerated = await runSparql(ingestor.sparql(batch, offset));
-  } catch {
-    enumerated = null;
-  }
-  if (enumerated === null) return { rows: null, size: 0 };
-  if (!ingestor.hydrate) return { rows: enumerated, size: enumerated.length };
-  const size = enumerated.length;
-  if (size === 0) return { rows: [], size: 0 };
-  let query: string | null = null;
-  try {
-    query = ingestor.hydrate(enumerated);
-  } catch {
-    query = null;
-  }
-  // No hydratable entity on the page (every row unusable): not a failure — an
-  // empty page the cursor may step past.
-  if (!query) return { rows: [], size };
-  let rows: SparqlBinding[] | null;
-  try {
-    rows = await runSparql(query);
-  } catch {
-    rows = null;
-  }
-  if (rows === null) return { rows: null, size: 0 };
-  return { rows, size };
 }
 
 /**
@@ -462,9 +438,9 @@ function withSlug(entry: CuratedEntry, slug: string): CuratedEntry {
 async function publishStructuredEntry(
   prisma: PrismaClient,
   entry: CuratedEntry,
-): Promise<{ ok: boolean; reason?: string }> {
+): Promise<{ ok: boolean; code?: RejectionCode; reason?: string }> {
   const validation = validatePayload(entry.contentType, entry.payload);
-  if (!validation.ok) return { ok: false, reason: "invalid payload" };
+  if (!validation.ok) return { ok: false, code: "schema_invalid", reason: "invalid payload" };
 
   // Prefer the payload's own display name. SAINT records carry the name in
   // `canonicalName` (not `title`), so without this fallback every structured
@@ -542,7 +518,7 @@ async function publishStructuredEntry(
   });
 
   if (result.kind === "published") return { ok: true };
-  return { ok: false, reason: `${result.kind} (${result.reason})` };
+  return { ok: false, code: "publish_rejected", reason: `${result.kind} (${result.reason})` };
 }
 
 /** Cheap identity of a row, when the ingestor offers one. */
@@ -574,6 +550,8 @@ export async function runStructuredIngest(
     alreadyPublished: 0,
     skipped: 0,
     failed: 0,
+    skipReasons: {},
+    skipSamples: [],
     discoveredSources: 0,
     pagesSkipped: 0,
     exhausted: true,
@@ -732,18 +710,35 @@ export async function runStructuredIngest(
   // Each map() does one or two Wikipedia REST fetches (summary + infobox);
   // running them concurrently turns a ~40-50s page into a few seconds.
   // Downstream dedup + publish stay strictly sequential (below).
-  const mapped: Array<CuratedEntry | null> = new Array(candidates.length).fill(null);
+  // A mapper answers `MapResult` — an entry, or an ATTRIBUTED rejection. A
+  // thrown mapper is itself a reason (`map_threw`), so even the fail-open path
+  // is counted instead of vanishing.
+  const mapped: MapResult[] = new Array<MapResult>(candidates.length).fill(reject("map_threw"));
   for (let start = 0; start < candidates.length; start += MAP_CONCURRENCY) {
     const slice = candidates.slice(start, start + MAP_CONCURRENCY);
     const results = await Promise.all(
       slice.map((row) =>
-        ingestor.map(row, {} as Record<string, never>).catch(() => null as CuratedEntry | null),
+        ingestor
+          .map(row, {} as Record<string, never>)
+          .catch((err) => reject("map_threw", err instanceof Error ? err.message : String(err))),
       ),
     );
     results.forEach((e, i) => {
       mapped[start + i] = e;
     });
   }
+
+  /**
+   * Record one discard. Never throws and never touches the network: attributing
+   * a reason must not be able to change whether a row was dropped. The CODE is
+   * aggregated; the detail is kept only for the first few examples.
+   */
+  const note = (code: RejectionCode, detail?: string): void => {
+    tallyRejection(out.skipReasons, code);
+    if (detail && out.skipSamples.length < MAX_SKIP_SAMPLES) {
+      out.skipSamples.push(`${code}: ${detail}`.slice(0, 240));
+    }
+  };
 
   // ── Dedup + publish ───────────────────────────────────────────────────────
   const seenSlugs = new Set<string>();
@@ -758,11 +753,13 @@ export async function runStructuredIngest(
       break;
     }
     const row = candidates[idx];
-    let entry = mapped[idx];
-    if (!entry) {
+    const result = mapped[idx];
+    if (isRejection(result)) {
       out.skipped += 1;
+      note(result.code, result.detail);
       continue;
     }
+    let entry: CuratedEntry = result;
     const qid = entryQid(entry);
     const name = normalizeName(entryDisplayName(entry));
 
@@ -770,7 +767,12 @@ export async function runStructuredIngest(
     // the same name → disambiguate rather than drop it.
     if (seenSlugs.has(entry.slug) || (name && seenNames.has(name))) {
       const owner = seenNames.get(name);
-      if (!qid || !owner || owner === qid) continue;
+      if (!qid || !owner || owner === qid) {
+        // Dropped by the same-page dedup. It increments no counter (it never
+        // did), but it IS a discard, so it still has to report a reason.
+        note("duplicate_in_page", entry.slug);
+        continue;
+      }
       entry = withSlug(entry, disambiguatedSlug(entry.slug, qid));
     }
     seenSlugs.add(entry.slug);
@@ -802,13 +804,14 @@ export async function runStructuredIngest(
         if (qid) live.refs.add(wikidataEntityUrl(qid));
       } else {
         out.skipped += 1;
+        note(r.code ?? "publish_rejected", `${entry.slug}: ${r.reason ?? ""}`);
         if (r.reason) out.errors.push(`${entry.contentType}/${entry.slug}: ${r.reason}`);
       }
     } catch (err) {
       out.failed += 1;
-      out.errors.push(
-        `${entry.contentType}/${entry.slug}: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      const message = err instanceof Error ? err.message : String(err);
+      note("publish_threw", `${entry.slug}: ${message}`);
+      out.errors.push(`${entry.contentType}/${entry.slug}: ${message}`);
     }
   }
 
@@ -846,16 +849,41 @@ export async function runStructuredIngest(
     await refreshContentGoals(prisma).catch(() => undefined);
   }
 
-  // Steady-state success log. (The source-failure case is logged above; the
-  // benign "fetched > 0 but all already live" case stays unlogged to avoid
-  // per-pass noise.)
-  if (out.published > 0) {
+  // Steady-state log. (The source-failure case is logged above; the benign
+  // "fetched > 0 but all already live" case stays unlogged to avoid per-pass
+  // noise.)
+  //
+  // A page that DISCARDED rows is now logged even when it published nothing —
+  // that is the case this whole change exists for. Production spent hours
+  // dropping 97% of the spiritual-practice corpus and wrote not one line about
+  // it, because the old condition was `published > 0`. The reason histogram
+  // rides in both the message and the payload, so one line answers "why did 66
+  // of 68 vanish" without a database query.
+  const rejected = totalRejections(out.skipReasons);
+  const reasons = formatRejections(out.skipReasons, LOGGED_SKIP_REASONS);
+  if (out.published > 0 || rejected > 0) {
+    // Severity stays INFO even for a page that published NOTHING and dropped
+    // everything, tempting as a WARN is there. Two properties of this ledger
+    // make that escalation the wrong lever:
+    //   · `writeAdminWorkerLog` routes only INFO through the per-eventName
+    //     hourly budget, and `event-sampler.ts` states outright that WARN/ERROR
+    //     rows must never go through it — so a WARN here is UNSAMPLED;
+    //   · `cleanup.ts` prunes INFO at LOG_INFO_RETENTION_MS (14 days) and
+    //     everything else at LOG_AUDIT_RETENTION_MS (90 days).
+    // A barren corpus is sterile on EVERY pass, by definition and indefinitely
+    // (the spiritual-practice enumeration has no source URL for half its rows —
+    // a corpus-definition problem, not a transient one). An unsampled row per
+    // pass, carrying a reason histogram plus up to ten samples and retained six
+    // times longer, is the precise shape the sampler was written to stop after
+    // ~1M-row events. The drop information — the point of this change — is in
+    // the message and the payload at either severity; a stuck lane is the
+    // diagnostics path's job to raise, not this row's.
     await writeAdminWorkerLog(prisma, {
       passId: opts.passId,
       category: "CONTENT_BUILD",
       severity: "INFO",
       eventName: "structured_knowledge_ingest",
-      message: `Structured-knowledge ingest (${ingestor.id}): published ${out.published} new ${ingestor.contentType} record(s) from Wikidata + Wikipedia (fetched ${out.fetched}, ${out.alreadyPublished} already live, ${out.skipped} skipped, ${out.pagesSkipped} live page(s) skipped).`,
+      message: `Structured-knowledge ingest (${ingestor.id}): published ${out.published} new ${ingestor.contentType} record(s) from Wikidata + Wikipedia (fetched ${out.fetched}, ${out.alreadyPublished} already live, ${out.skipped} skipped, ${out.pagesSkipped} live page(s) skipped).${reasons ? ` Dropped ${rejected}: ${reasons}.` : ""}`,
       safeMetadata: {
         ingestorId: ingestor.id,
         contentType: ingestor.contentType,
@@ -864,6 +892,10 @@ export async function runStructuredIngest(
         alreadyPublished: out.alreadyPublished,
         skipped: out.skipped,
         failed: out.failed,
+        rejected,
+        skipReasons: out.skipReasons,
+        topSkipReasons: topRejections(out.skipReasons, LOGGED_SKIP_REASONS),
+        skipSamples: out.skipSamples,
         discoveredSources: out.discoveredSources,
         pagesSkipped: out.pagesSkipped,
         nextOffset: next.offset,

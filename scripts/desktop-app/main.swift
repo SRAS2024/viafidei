@@ -413,7 +413,7 @@ final class PillSwitch: NSControl {
 
 // MARK: - Application
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
     var window: NSWindow!
     var webView: WKWebView!
     var segmented: NSSegmentedControl!
@@ -529,6 +529,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
                             configuration: config)
         webView.autoresizingMask = [.width, .height]
         webView.navigationDelegate = self
+        // Without a uiDelegate, a WKWebView silently ignores <input type="file">:
+        // clicking "choose a file" in the dashboard opened nothing and reported
+        // nothing, because WebKit has no way to present an open panel on its own.
+        webView.uiDelegate = self
         webView.allowsBackForwardNavigationGestures = true
 
         let container = DropView(frame: rect)
@@ -922,6 +926,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!,
                  withError error: Error) {
         progress.stopAnimation(nil)
+    }
+
+    // MARK: WKUIDelegate
+
+    /// Present the file picker for an in-page `<input type="file">`.
+    ///
+    /// WebKit cannot open an NSOpenPanel itself, so without this the dashboard's
+    /// "choose a file" button did nothing at all — no panel, no error, no log.
+    /// The panel mirrors what the page asked for rather than assuming: a single
+    /// file input stays single-select.
+    func webView(_ webView: WKWebView,
+                 runOpenPanelWith parameters: WKOpenPanelParameters,
+                 initiatedByFrame frame: WKFrameInfo,
+                 completionHandler: @escaping ([URL]?) -> Void) {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.canChooseDirectories = parameters.allowsDirectories
+        panel.canChooseFiles = true
+        panel.title = "Give a file to the Admin Worker"
+        // Sheet it onto our own window so it cannot appear behind the app.
+        if let window = self.window {
+            panel.beginSheetModal(for: window) { response in
+                completionHandler(response == .OK ? panel.urls : nil)
+            }
+        } else {
+            panel.begin { response in
+                completionHandler(response == .OK ? panel.urls : nil)
+            }
+        }
+    }
+
+    /// JavaScript alert(). Also silently ignored without a uiDelegate, which is
+    /// how a page error can vanish instead of reaching the operator.
+    func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping () -> Void) {
+        notify("Via Fidei", message)
+        completionHandler()
+    }
+
+    /// JavaScript confirm(). Defaults to cancel when there is no window to sheet on.
+    func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String,
+                 initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = "Via Fidei"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        if let window = self.window {
+            alert.beginSheetModal(for: window) { completionHandler($0 == .alertFirstButtonReturn) }
+        } else {
+            completionHandler(alert.runModal() == .alertFirstButtonReturn)
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }

@@ -15,6 +15,7 @@ vi.mock("@/lib/admin-worker/logs", () => ({
 import type { PrismaClient } from "@prisma/client";
 
 import { ingestorFor } from "@/lib/admin-worker/structured/ingestors";
+import { rejectionOf } from "@/lib/admin-worker/structured/reject";
 import { pruneAntipopeRecords, pruneDuplicatePopeRecords } from "@/lib/admin-worker/pope-cleanup";
 import type { SparqlBinding } from "@/lib/admin-worker/structured/wikidata";
 
@@ -54,7 +55,8 @@ describe("POPE ingestor — antipope exclusion", () => {
         startYear: "1410",
       }),
     );
-    expect(entry).toBeNull();
+    // Not merely dropped — dropped WITH a reason the pass histogram can count.
+    expect(rejectionOf(entry)?.code).toBe("antipope_excluded");
   });
 });
 

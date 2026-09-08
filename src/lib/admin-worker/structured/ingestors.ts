@@ -22,14 +22,15 @@
 
 import type { ChecklistContentType, SourceAuthorityLevel } from "@prisma/client";
 
-import type { CuratedEntry } from "@/lib/checklist/knowledge";
 import { bindingValue, qidOf, wikidataEntityUrl, type SparqlBinding } from "./wikidata";
 import { fetchSummaryForArticleUrl } from "./wikipedia";
 import { fetchArticleInfobox } from "./wikipedia-infobox";
 import { fetchDocumentExcerpt } from "./document-excerpt";
+import { isRejection, reject, type MapRejection, type MapResult } from "./reject";
 import {
   feastDayInTextLocalized,
   feastMentionIndexLocalized,
+  firstFeastInText,
   monthName,
   parseFeastValue,
   type ParsedFeast,
@@ -96,8 +97,17 @@ export interface StructuredIngestor {
    * and hydration the same width, so the walk stays exhaustive.
    */
   maxPageSize?: number;
-  /** Map one row → a curated-style entry, or null when it can't yield one. */
-  map(row: SparqlBinding, ctx: IngestContext): Promise<CuratedEntry | null>;
+  /**
+   * Map one row → a curated-style entry, or an ATTRIBUTED rejection when it
+   * can't yield one.
+   *
+   * The result type is `MapResult`, never `CuratedEntry | null`: a bare
+   * `return null` here is a compile error, so a mapper physically cannot
+   * discard a row without saying why. Every "no" goes through
+   * `reject(code, detail?)` with a code from the closed `REJECTION_CODES`
+   * set, and the orchestrator counts those codes into the pass histogram.
+   */
+  map(row: SparqlBinding, ctx: IngestContext): Promise<MapResult>;
   /**
    * CHEAP identity of a row — the slug/name the entry WOULD publish under and
    * the entity's QID — computed from the SPARQL row alone, with no network.
@@ -212,11 +222,13 @@ LIMIT ${limit} OFFSET ${offset}`,
     const startYear = bindingValue(row, "startYear");
     // No usable label (the label service echoes the QID when none exists),
     // entity, or reign-start year → can't build a valid POPE record.
-    if (!label || !entity || !startYear) return null;
-    if (/^Q\d+$/.test(label)) return null;
+    if (!label) return reject("missing_required_field", "popeLabel");
+    if (!entity) return reject("missing_required_field", "pope");
+    if (!startYear) return reject("missing_required_field", "startYear");
+    if (/^Q\d+$/.test(label)) return reject("no_english_label", label);
     // Wikidata tags ANTIPOPES with the papal position too — exclude them so the
     // count reflects the real line of Roman Pontiffs, not disputed claimants.
-    if (/\bantipope\b/i.test(label)) return null;
+    if (/\bantipope\b/i.test(label)) return reject("antipope_excluded", label);
 
     // "Pope " only when the label doesn't already carry a papal title (and never
     // double-prefixes "Pope Saint …"); antipopes are already excluded above.
@@ -238,7 +250,7 @@ LIMIT ${limit} OFFSET ${offset}`,
     }
 
     const slug = `pope-${slugify(label)}`;
-    if (!slug || slug === "pope-") return null;
+    if (!slug || slug === "pope-") return reject("slug_unresolvable", label);
 
     const payload: Record<string, unknown> = {
       slug,
@@ -320,27 +332,65 @@ function infoboxFeastValue(infobox: Record<string, string>): string {
  * after it), and it must be one of Wikidata's values — otherwise ambiguous →
  * skip. Prose alone cannot disambiguate a multi-feast saint.
  */
-export function chooseCorroboratedFeast(input: {
+export type FeastChoice =
+  | { feast: ParsedFeast; code: null }
+  | {
+      feast: null;
+      /** Why no feast could be published — one of the closed rejection codes. */
+      code: "feast_unparseable" | "feast_uncorroborated" | "feast_ambiguous";
+    };
+
+/**
+ * The reporting form of `chooseCorroboratedFeast`: the SAME decisions, but the
+ * "no" arm carries WHICH of the three ways it failed. "Uncorroborated" (the
+ * article never states Wikidata's one date — possibly a parser regression) and
+ * "ambiguous" (several dates, nothing to order them by — a genuine data limit)
+ * used to be the same silent null, and the operator could not tell a broken
+ * infobox reader from a saint with two calendars.
+ */
+export function chooseCorroboratedFeastDetailed(input: {
   candidates: ParsedFeast[];
   abstract: string;
   infobox: Record<string, string>;
   lang: string;
-}): ParsedFeast | null {
+}): FeastChoice {
   const { candidates, abstract, infobox, lang } = input;
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return { feast: null, code: "feast_unparseable" };
   const infoboxFeast = infoboxFeastValue(infobox);
   if (candidates.length === 1) {
     const f = candidates[0];
-    if (feastDayInTextLocalized(f.feastMonth, f.feastDayOfMonth, abstract, lang)) return f;
-    if (!infoboxFeast) return null;
+    if (feastDayInTextLocalized(f.feastMonth, f.feastDayOfMonth, abstract, lang)) {
+      return { feast: f, code: null };
+    }
+    if (!infoboxFeast) return { feast: null, code: "feast_uncorroborated" };
     const parsedInfobox =
       lang === "en" ? parseFeastValue({ label: infoboxFeast })?.feastDay : undefined;
-    return parsedInfobox === f.feastDay ||
-      feastDayInTextLocalized(f.feastMonth, f.feastDayOfMonth, infoboxFeast, lang)
-      ? f
-      : null;
+    const stated =
+      parsedInfobox === f.feastDay ||
+      feastDayInTextLocalized(f.feastMonth, f.feastDayOfMonth, infoboxFeast, lang);
+    if (!stated) return { feast: null, code: "feast_uncorroborated" };
+    // The infobox LEADS with the date the calendar keeps today and lists
+    // suppressed / other-rite dates after it. So a Wikidata value the infobox
+    // mentions only AFTER some other day is not corroborated as *the* feast —
+    // it is a historical date, and which one the calendar uses is exactly what
+    // we cannot decide.
+    //
+    // This is not a hypothetical. Measured live on 2026-09-08, Pope St Leo II
+    // (Q103328) PUBLISHED with feastDay 07-03: Wikidata's single P841 value is
+    // 3 July, his article's infobox reads "28 June (3 July, pre-1970
+    // calendar)", and "does 3 July appear anywhere in the parameter" said yes.
+    // The General Roman Calendar keeps him on 28 June, so the ingest was
+    // shipping a suppressed date as the feast day of a saint — the exact
+    // failure the whole corroboration layer exists to prevent, and one the
+    // multi-value branch below already guarded against. Pope Zephyrinus
+    // (Q101306) is the same shape: P841 26 August against an infobox reading
+    // "20 December (…); 26 August (Latin Church pre-1969)". Skipping is the
+    // accurate answer; publishing a suppressed date is not.
+    const first = firstFeastInText(infoboxFeast, lang);
+    if (first && first.feastDay !== f.feastDay) return { feast: null, code: "feast_ambiguous" };
+    return { feast: f, code: null };
   }
-  if (!infoboxFeast) return null;
+  if (!infoboxFeast) return { feast: null, code: "feast_ambiguous" };
   // The FIRST date named in the infobox value decides; find which candidate
   // is stated earliest in that string.
   let best: { feast: ParsedFeast; at: number } | null = null;
@@ -348,7 +398,21 @@ export function chooseCorroboratedFeast(input: {
     const at = firstFeastMention(f, infoboxFeast, lang);
     if (at >= 0 && (best === null || at < best.at)) best = { feast: f, at };
   }
-  return best?.feast ?? null;
+  return best ? { feast: best.feast, code: null } : { feast: null, code: "feast_ambiguous" };
+}
+
+/**
+ * Feast-or-null form, kept for the saint-repair path (which reports its own
+ * outcomes) and for callers that only need the answer. Delegates, so the two
+ * can never drift apart.
+ */
+export function chooseCorroboratedFeast(input: {
+  candidates: ParsedFeast[];
+  abstract: string;
+  infobox: Record<string, string>;
+  lang: string;
+}): ParsedFeast | null {
+  return chooseCorroboratedFeastDetailed(input).feast;
 }
 
 /** Index of the first mention of a feast in `text` (−1 when absent). */
@@ -362,10 +426,59 @@ function firstFeastMention(f: ParsedFeast, text: string, lang: string): number {
 
 /**
  * Canonization status for a saint with NO P411 at all (the "Catholic religion
- * + feast day" widening branch): the article's own infobox must state a
- * canonization or beatification date. No date → no status → not published.
+ * + feast day" branch): the article's own infobox must state it.
+ *
+ * A canonization or beatification DATE is the strongest form and is tried
+ * first. But a formal canonization process only exists from the twelfth
+ * century, so a date can NEVER be stated for a pre-congregation saint —
+ * measured live, that rule alone rejects Bl. Egino of Augsburg (Q102290), a
+ * Camaldolese abbot whose article carries `venerated_in = Catholic Church`,
+ * `honorific_prefix = Saint` and `feast_day = 15 July`, because his
+ * `beatified_date` parameter is (correctly) empty. So the fallback asks the
+ * article for the two facts that actually matter and that Wikipedia states
+ * explicitly: WHO venerates this person, and at WHICH stage.
+ *
+ * That fallback is narrower on Catholicity than the date rule it complements,
+ * not wider: it demands the article name the CATHOLIC CHURCH as the venerating
+ * body on top of the Catholic P140 the caller has already required, whereas the
+ * date rule only asks whether a field holds four digits. The honorific is read
+ * most-restrictive-first so a "Blessed" is never promoted to `canonized`, and
+ * an article that states no stage at all still yields null — skip on doubt.
+ *
+ * TWO FLOORS APPLY TO BOTH RULES, and they are checked first:
+ *   · a `venerated_in` naming ANOTHER communion and no Catholic one
+ *     disqualifies the row outright, date or no date;
+ *   · the communions whose name merely CONTAINS "Catholic" (Old Catholic,
+ *     Polish National Catholic, Anglican Catholic, Liberal Catholic, Catholic
+ *     Apostolic) are struck out before that question is asked.
  */
 function statusFromInfobox(infobox: Record<string, string>): CanonizationStatus | null {
+  const stated = infobox.venerated_in ?? "";
+  // Strike out the communions whose NAME contains "Catholic" but which are NOT
+  // in communion with Rome, so `venerated_in` cannot read as "the Catholic
+  // Church venerates this person" on the strength of a borrowed word. "Old
+  // Catholic" alone was not enough: `Polish National Catholic Church`,
+  // `Anglican Catholic Church`, `Liberal Catholic Church` and the Irvingian
+  // `Catholic Apostolic Church` all satisfy a bare /\bcatholic\b/, and each
+  // would have published its own saint as a Roman one. Striking the name also
+  // has to COUNT as naming another communion — otherwise "Old Catholic Church"
+  // reduces to " Church" and reads as no venerating body at all.
+  const venerated = stated.replace(
+    /\b(?:old|polish national|anglican|liberal|independent|american|traditionalist|palmarian|apostolic)\s+catholic\b|\bcatholic\s+apostolic\b/gi,
+    " ",
+  );
+  const otherCommunion =
+    venerated !== stated ||
+    /orthodox|anglican|episcopal|coptic|lutheran|protestant|presbyterian|methodist|armenian apostolic|assyrian|church of (?:england|sweden|norway|denmark|ireland|scotland)/i.test(
+      venerated,
+    );
+  // An Eastern Catholic church ("Coptic Catholic Church", "Syro-Malabar
+  // Catholic Church") trips the list above and is saved by this: naming another
+  // communion only disqualifies the row when NO Catholic body is named too,
+  // which is also what keeps a pre-schism saint venerated by Rome and the East.
+  const catholicVenerator = /\bcatholic\b/i.test(venerated);
+  if (otherCommunion && !catholicVenerator) return null;
+
   const dated = (key: string) => /\d{3,4}/.test(infobox[key] ?? "");
   if (dated("canonized_date") || dated("canonised_date") || dated("canonizzazione")) {
     return "canonized";
@@ -373,6 +486,19 @@ function statusFromInfobox(infobox: Record<string, string>): CanonizationStatus 
   if (dated("beatified_date") || dated("beatificazione") || dated("beatificación")) {
     return "beatified";
   }
+  if (!catholicVenerator) return null;
+  // The STAGE is read ONLY from `honorific_prefix` — the parameter whose whole
+  // purpose is the honorific ("Saint", "Blessed", "Venerable", "Servant of
+  // God"). `titles` / `title` hold OFFICES, and an office routinely carries a
+  // place name: measured against this rule, `titles = Bishop of St Albans`,
+  // `title = Abbot of St Gall` and `titles = Bishop of Saint-Denis` each
+  // matched /\bsaint\b|\bst\.?\b/ and published the person as `canonized`.
+  // A diocese named after a saint says nothing about its bishop's cause.
+  const honorific = (infobox.honorific_prefix ?? "").toLowerCase();
+  if (/\bservant of god\b/.test(honorific)) return "servant_of_god";
+  if (/\bvenerable\b/.test(honorific)) return "venerable";
+  if (/\bblessed\b/.test(honorific)) return "beatified";
+  if (/\bsaint\b|\bst\.?\b/.test(honorific)) return "canonized";
   return null;
 }
 
@@ -480,14 +606,16 @@ LIMIT ${limit} OFFSET ${offset}`,
   },
   async map(row) {
     const facts = parseSaintFacts(row);
-    if (!facts) return null;
+    if (!facts) return reject("saint_facts_unparseable", bindingValue(row, "s") ?? "no entity");
 
     // Accuracy guard 1 — status by QID. A generic/Orthodox-only record cannot
     // prove Catholic veneration; skip it (never map it to `canonized`).
     const resolved = resolveCanonizationStatus(facts);
     let canonizationStatus = resolved?.status ?? null;
     const needsInfoboxStatus = !canonizationStatus && facts.statuses.length === 0;
-    if (!canonizationStatus && !needsInfoboxStatus) return null;
+    if (!canonizationStatus && !needsInfoboxStatus) {
+      return reject("not_catholic_status", `${facts.label}: P411 ${facts.statuses.join(" ")}`);
+    }
     // Negative guard: an Orthodox / Anglican / Coptic religion with no Catholic
     // religion is disqualifying unless a Catholic-specific status overrides it.
     if (
@@ -495,12 +623,16 @@ LIMIT ${limit} OFFSET ${offset}`,
       hasNonCatholicReligion(facts) &&
       !hasCatholicReligion(facts)
     ) {
-      return null;
+      return reject("non_catholic_religion", `${facts.label}: P140 ${facts.religions.join(" ")}`);
     }
-    if (needsInfoboxStatus && !hasCatholicReligion(facts)) return null;
+    if (needsInfoboxStatus && !hasCatholicReligion(facts)) {
+      return reject("no_catholic_religion", facts.label);
+    }
 
     const candidates = parseFeastCandidates(facts.feasts);
-    if (candidates.length === 0) return null;
+    if (candidates.length === 0) {
+      return reject("feast_unparseable", `${facts.label}: P841 ${facts.feasts.join(" ")}`);
+    }
 
     // The article supplies the independent corroboration of the feast day and
     // the second citation. English first; otherwise the preferred non-English
@@ -509,10 +641,12 @@ LIMIT ${limit} OFFSET ${offset}`,
     const alt = enArticle ? null : preferredAltArticle(facts.altArticles);
     const articleUrl = enArticle ?? alt?.url ?? null;
     const lang = enArticle ? "en" : (alt?.lang ?? null);
-    if (!articleUrl || !lang) return null;
+    if (!articleUrl || !lang) return reject("no_wikipedia_article", facts.label);
     const summary = await fetchSummaryForArticleUrl(articleUrl);
-    if (!summary) return null;
-    if (lang === "en" && summary.extract.length < 100) return null;
+    if (!summary) return reject("wikipedia_fetch_failed", articleUrl);
+    if (lang === "en" && summary.extract.length < 100) {
+      return reject("description_too_short", `${articleUrl} (${summary.extract.length} chars)`);
+    }
 
     // Read the infobox up front: it corroborates the feast, disambiguates a
     // multi-feast saint, supplies the status for branch 3, and enriches the
@@ -520,21 +654,27 @@ LIMIT ${limit} OFFSET ${offset}`,
     const infobox: Record<string, string> = await fetchArticleInfobox(articleUrl).catch(() => ({}));
 
     if (needsInfoboxStatus) canonizationStatus = statusFromInfobox(infobox);
-    if (!canonizationStatus) return null;
+    if (!canonizationStatus) return reject("no_canonization_date", articleUrl);
 
     // Accuracy guard 2 — the feast day MUST also be stated by the article
     // (prose or infobox), and a multi-feast saint only publishes the day the
     // infobox lists first. Anything ambiguous is skipped, never guessed.
-    const feast = chooseCorroboratedFeast({
+    const chosen = chooseCorroboratedFeastDetailed({
       candidates,
       abstract: summary.extract,
       infobox,
       lang,
     });
-    if (!feast) return null;
+    if (!chosen.feast) {
+      return reject(
+        chosen.code,
+        `${facts.label}: P841 ${candidates.map((c) => c.feastDay).join(" ")} vs ${lang}wiki`,
+      );
+    }
+    const feast = chosen.feast;
 
     const slug = saintSlugFor(facts.label);
-    if (!slug) return null;
+    if (!slug) return reject("slug_unresolvable", facts.label);
 
     // The published biography is ALWAYS English: the enwiki abstract verbatim,
     // or — for a saint with only a non-English article — a short factual
@@ -550,7 +690,9 @@ LIMIT ${limit} OFFSET ${offset}`,
         feastText: feastText(feast),
         articleLang: lang,
       });
-      if (!composed || composed.length < 100) return null;
+      if (!composed || composed.length < 100) {
+        return reject("biography_unavailable", `${facts.label} (${lang}wiki only)`);
+      }
       biography = composed;
       provenance = { biography: "structured-facts", articleLanguage: lang };
     }
@@ -699,13 +841,18 @@ LIMIT ${limit} OFFSET ${offset}`,
     const canon = bindingValue(row, "canon");
     const themesRaw = bindingValue(row, "themes");
     const article = bindingValue(row, "art");
-    if (!entity || !label || !types || !author || !pubDate || !themesRaw) return null;
+    if (!entity) return reject("missing_required_field", "doc");
+    if (!label) return reject("missing_required_field", "label");
+    if (!types) return reject("missing_required_field", "types");
+    if (!author) return reject("missing_required_field", "author");
+    if (!pubDate) return reject("missing_required_field", "pubDate");
+    if (!themesRaw) return reject("missing_required_field", "themes");
 
     const documentType = mapDocumentType(types);
-    if (!documentType) return null;
+    if (!documentType) return reject("unrecognized_type", types);
 
     const dateMatch = pubDate.match(/^\+?(\d{4}-\d{2}-\d{2})T/);
-    if (!dateMatch) return null;
+    if (!dateMatch) return reject("date_unparseable", pubDate);
     const issuedDate = dateMatch[1];
 
     const keyThemes = [
@@ -716,23 +863,26 @@ LIMIT ${limit} OFFSET ${offset}`,
           .filter(Boolean),
       ),
     ].slice(0, 8);
-    if (keyThemes.length === 0) return null;
+    if (keyThemes.length === 0) return reject("no_key_themes", label);
 
     // canonicalUrl is required + must be a valid URL.
-    if (!canon) return null;
+    if (!canon) return reject("no_canonical_url", label);
     let canonicalUrl: string;
     try {
       canonicalUrl = new URL(canon).toString();
     } catch {
-      return null;
+      return reject("invalid_url", canon);
     }
 
-    if (!article) return null;
+    if (!article) return reject("no_wikipedia_article", label);
     const summary = await fetchSummaryForArticleUrl(article);
-    if (!summary || summary.extract.length < 100) return null;
+    if (!summary) return reject("wikipedia_fetch_failed", article);
+    if (summary.extract.length < 100) {
+      return reject("description_too_short", `${article} (${summary.extract.length} chars)`);
+    }
 
     const slug = slugify(label);
-    if (!slug) return null;
+    if (!slug) return reject("slug_unresolvable", label);
 
     const citations = [wikidataEntityUrl(entity), canonicalUrl];
     if (!citations.includes(summary.url)) citations.push(summary.url);
@@ -807,8 +957,9 @@ LIMIT ${limit} OFFSET ${offset}`,
   async map(row) {
     const entity = bindingValue(row, "d");
     const label = bindingValue(row, "label");
-    if (!entity || !label) return null;
-    if (/^Q\d+$/.test(label)) return null;
+    if (!entity) return reject("missing_required_field", "d");
+    if (!label) return reject("missing_required_field", "label");
+    if (/^Q\d+$/.test(label)) return reject("no_english_label", label);
 
     const title = /\b(saint|st\.?|pope|blessed)\b/i.test(label) ? label : `Saint ${label}`;
     const citations = [wikidataEntityUrl(entity)];
@@ -825,7 +976,7 @@ LIMIT ${limit} OFFSET ${offset}`,
     }
 
     const slug = `doctor-${slugify(label)}`;
-    if (slug === "doctor-") return null;
+    if (slug === "doctor-") return reject("slug_unresolvable", label);
 
     const payload: Record<string, unknown> = { slug, title, citations };
     if (summary) {
@@ -884,23 +1035,29 @@ LIMIT ${limit} OFFSET ${offset}`,
   async map(row) {
     const entity = bindingValue(row, "r");
     const label = bindingValue(row, "label");
-    if (!entity || !label) return null;
-    if (/^Q\d+$/.test(label)) return null;
+    if (!entity) return reject("missing_required_field", "r");
+    if (!label) return reject("missing_required_field", "label");
+    if (/^Q\d+$/.test(label)) return reject("no_english_label", label);
 
     // The cited descriptive narrative comes verbatim from Wikipedia; a rite with
     // only a name and no sourced description isn't publishable quality.
     const article = bindingValue(row, "art");
-    if (!article) return null;
+    if (!article) return reject("no_wikipedia_article", label);
     const summary = await fetchSummaryForArticleUrl(article);
-    if (!summary || summary.extract.length < 80) return null;
+    if (!summary) return reject("wikipedia_fetch_failed", article);
+    if (summary.extract.length < 80) {
+      return reject("description_too_short", `${article} (${summary.extract.length} chars)`);
+    }
 
     // Accuracy guard: the generic "liturgical rite" class (Q3937326) also
     // contains non-Catholic rites (Orthodox / Anglican / Lutheran); only
     // publish ones that read as Catholic / in communion with Rome.
-    if (!isCatholicRiteContext(`${label} ${summary.extract}`)) return null;
+    if (!isCatholicRiteContext(`${label} ${summary.extract}`)) {
+      return reject("not_catholic_context", label);
+    }
 
     const core = riteCoreSlug(label);
-    if (!core) return null;
+    if (!core) return reject("slug_unresolvable", label);
     const slug = `rite-${core}`;
 
     const citations = [wikidataEntityUrl(entity), summary.url];
@@ -970,12 +1127,19 @@ export function leadText(text: string, maxChars: number): string {
  * accuracy order: official website → described-at URL → Wikipedia (last). Reads
  * the authoritative pages verbatim via the document extractor; the Wikipedia
  * abstract is the final fallback but is always cited (when present) for
- * cross-reference. Returns null when no source yields enough prose.
+ * cross-reference.
+ *
+ * Returns an ATTRIBUTED rejection rather than null when no source yields
+ * enough prose, and distinguishes the two failures the descriptive ingestors
+ * kept confusing: an entity with NO source URL at all (`no_source_url` — a
+ * Wikidata coverage gap the ingest can do nothing about) versus sources that
+ * were read but were too thin (`narrative_too_short` — which, if it dominates,
+ * usually means the extractor or the threshold is the problem).
  */
 async function resolveSourcedNarrative(
   row: SparqlBinding,
   opts: { minChars?: number } = {},
-): Promise<SourcedNarrative | null> {
+): Promise<SourcedNarrative | MapRejection> {
   const minChars = opts.minChars ?? 120;
   const site = validUrl(bindingValue(row, "site"));
   const desc = validUrl(bindingValue(row, "desc"));
@@ -1009,7 +1173,12 @@ async function resolveSourcedNarrative(
     }
   }
 
-  if (!text || !sourceUrl) return null;
+  if (!text || !sourceUrl) {
+    const tried = [site, desc, wikiUrl ?? art].filter(Boolean);
+    return tried.length === 0
+      ? reject("no_source_url", "no P856 / P973 / en.wikipedia article on the entity")
+      : reject("narrative_too_short", `< ${minChars} chars from ${tried.join(" ")}`);
+  }
 
   const citations: string[] = [];
   for (const u of [site, desc, wikiUrl].filter((u): u is string => Boolean(u))) {
@@ -1091,20 +1260,24 @@ LIMIT ${limit} OFFSET ${offset}`,
   async map(row) {
     const entity = bindingValue(row, "d");
     const label = bindingValue(row, "label");
-    if (!entity || !label || /^Q\d+$/.test(label)) return null;
+    if (!entity) return reject("missing_required_field", "d");
+    if (!label) return reject("missing_required_field", "label");
+    if (/^Q\d+$/.test(label)) return reject("no_english_label", label);
 
     // De-overlap with the MARIAN_TITLE ingestor: both draw from the
     // Marian-devotion class (Q1898047). A Marian-title-named entity ("Our Lady
     // …", a Marian "Litany …") is owned by the MARIAN_TITLE ingestor, so skip
     // it here — otherwise the same entity would publish as BOTH a DEVOTION and
     // a MARIAN_TITLE under the same slug.
-    if (MARIAN_TITLE_LABEL_RE.test(label)) return null;
+    if (MARIAN_TITLE_LABEL_RE.test(label)) {
+      return reject("owned_by_other_ingestor", `MARIAN_TITLE owns "${label}"`);
+    }
 
     const narrative = await resolveSourcedNarrative(row);
-    if (!narrative) return null;
+    if (isRejection(narrative)) return narrative;
 
     const slug = slugify(label);
-    if (!slug) return null;
+    if (!slug) return reject("slug_unresolvable", label);
 
     const types = bindingValue(row, "types") ?? "";
     const citations = [...new Set([wikidataEntityUrl(entity), ...narrative.citations])];
@@ -1167,13 +1340,15 @@ LIMIT ${limit} OFFSET ${offset}`,
   async map(row) {
     const entity = bindingValue(row, "m");
     const label = bindingValue(row, "label");
-    if (!entity || !label || /^Q\d+$/.test(label)) return null;
+    if (!entity) return reject("missing_required_field", "m");
+    if (!label) return reject("missing_required_field", "label");
+    if (/^Q\d+$/.test(label)) return reject("no_english_label", label);
 
     const narrative = await resolveSourcedNarrative(row);
-    if (!narrative) return null;
+    if (isRejection(narrative)) return narrative;
 
     const slug = slugify(label);
-    if (!slug) return null;
+    if (!slug) return reject("slug_unresolvable", label);
 
     const citations = [...new Set([wikidataEntityUrl(entity), ...narrative.citations])];
     const payload: Record<string, unknown> = {
@@ -1217,9 +1392,11 @@ type PracticeKind =
  */
 /**
  * True only when the text reads as a Catholic/Christian practice. The generic
- * Wikidata "spiritual practice" class (Q2270606) also contains Islamic (dhikr),
- * Mandaean (ṣauma), Breton-folk (pardon), Hindu, Buddhist, and New-Age
- * practices, and `classifyPracticeKind` matches on the practice *kind*
+ * Wikidata "spiritual practice" class (Q2270606) also contains Islamic (ṣalāt,
+ * ṣawm), Mandaean (ṣauma), Taoist (shijie), Buddhist (Vassa, deity yoga,
+ * Ngöndro), Sikh (kesh) and New-Age (sound bath, reality shifting) practices —
+ * every one of those was measured live on the first page of the corpus — and
+ * `classifyPracticeKind` matches on the practice *kind*
  * (fasting / prayer / pilgrimage) which those share — so without this guard a
  * non-Catholic practice would publish as a Catholic one. Requires a positive
  * Christian signal AND the absence of another religion's signal (skip-on-doubt,
@@ -1265,6 +1442,37 @@ export function isCatholicPracticeContext(text: string): boolean {
       t,
     );
   if (otherReligion) return false;
+  // Separated Western/Eastern communions. The positive Christian signal below
+  // is satisfied by any "church" / "scripture" / "worship" wording, so on its
+  // own it reads a Reformed practice as Catholic: measured live, "exclusive
+  // psalmody" (Q2078967 — "practised by several Protestant, especially
+  // Reformed denominations") passed this guard and was stopped only by
+  // `classifyPracticeKind` having no branch for it. One classifier branch away
+  // from publishing a Calvinist practice as a Catholic devotion.
+  //
+  // It disqualifies only in the ABSENCE of an explicitly Catholic marker, and
+  // that qualification is not a softening — it is what the measured text
+  // requires. The flagship Catholic practices name the other communions
+  // themselves: the Stations of the Cross "can be found in ... the Catholic,
+  // Lutheran, Anglican and Methodist traditions", and Eucharistic adoration is
+  // "primarily in Western Catholicism ... but also ... certain Lutheran and
+  // Anglican traditions". Both carry "Catholic" and both must publish, so a
+  // bare blacklist would throw away the best content this ingestor has. Nor
+  // can the Catholic marker be required unconditionally: lectio divina ("In
+  // Western Christianity …") and the novena ("in Christianity …") never say
+  // the word.
+  const separatedCommunion =
+    /anglican|episcopal(ian)?\b|protestant|reformed (church|tradition|denomination|worship)|calvinis|presbyterian|lutheran|methodist|anabaptist|nonconformist|puritan|quaker|pentecostal|mormon|latter-day saint|jehovah's witness|old catholic|eastern orthodox|oriental orthodox|coptic orthodox|russian orthodox|greek orthodox/.test(
+      t,
+    );
+  // `(?!os)` so "Catholicos" — the title of the Armenian Apostolic and Assyrian
+  // primates — is not read as a Catholic marker that exempts the text from the
+  // separated-communion veto. "Catholicism" / "Catholicity" still match.
+  const catholicMarker =
+    /\bcatholic(?!os)|holy see|\bvatican|magisterium|roman rite|latin church|\bpope\b|papal|\bmagisterial/.test(
+      t,
+    );
+  if (separatedCommunion && !catholicMarker) return false;
   const christian =
     /catholic|christian|christ\b|\bchurch\b|\bgospel|\bliturg|sacrament|\bmonast|benedictine|ignatian|carmelite|franciscan|dominican|jesuit|\bmass\b|rosary|eucharist|scripture|\bbible|apostol|\bsaint|holy see|\bvatican|desert father/.test(
       t,
@@ -1328,21 +1536,25 @@ LIMIT ${limit} OFFSET ${offset}`,
   async map(row) {
     const entity = bindingValue(row, "p");
     const label = bindingValue(row, "label");
-    if (!entity || !label || /^Q\d+$/.test(label)) return null;
+    if (!entity) return reject("missing_required_field", "p");
+    if (!label) return reject("missing_required_field", "label");
+    if (/^Q\d+$/.test(label)) return reject("no_english_label", label);
 
     // summary + instructions both require ≥50 chars, so demand a fuller source.
     const narrative = await resolveSourcedNarrative(row, { minChars: 140 });
-    if (!narrative) return null;
+    if (isRejection(narrative)) return narrative;
 
     // Accuracy guard: the generic "spiritual practice" class contains other
     // religions' practices; only publish ones that read as Catholic/Christian.
-    if (!isCatholicPracticeContext(`${label} ${narrative.text}`)) return null;
+    if (!isCatholicPracticeContext(`${label} ${narrative.text}`)) {
+      return reject("not_catholic_context", label);
+    }
 
     const practiceKind = classifyPracticeKind(`${label} ${narrative.text}`);
-    if (!practiceKind) return null;
+    if (!practiceKind) return reject("unrecognized_type", `practiceKind for "${label}"`);
 
     const slug = slugify(label);
-    if (!slug) return null;
+    if (!slug) return reject("slug_unresolvable", label);
 
     const lead = leadText(narrative.text, 300);
     const summary = lead.length >= 50 ? lead : narrative.text;

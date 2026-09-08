@@ -17,6 +17,7 @@ vi.mock("@/lib/admin-worker/structured/document-excerpt", () => ({
 
 import { validatePayload } from "@/lib/checklist";
 import { ingestorFor, mapDocumentType } from "@/lib/admin-worker/structured/ingestors";
+import { rejectionOf } from "@/lib/admin-worker/structured/reject";
 import { fetchSummaryForArticleUrl } from "@/lib/admin-worker/structured/wikipedia";
 import { fetchDocumentExcerpt } from "@/lib/admin-worker/structured/document-excerpt";
 import type { SparqlBinding } from "@/lib/admin-worker/structured/wikidata";
@@ -99,7 +100,9 @@ describe("CHURCH_DOCUMENT ingestor mapping", () => {
 
   it("SKIPS an unmapped document type", async () => {
     mockedSummary.mockResolvedValue({ extract: EXTRACT, url: FULL.art });
-    expect(await docMap(row({ ...FULL, types: "papal rescript" }))).toBeNull();
+    expect(rejectionOf(await docMap(row({ ...FULL, types: "papal rescript" })))?.code).toBe(
+      "unrecognized_type",
+    );
   });
 
   it("maps a papal bull to a SCHEMA-VALID papal_bull record", async () => {
@@ -138,24 +141,28 @@ describe("CHURCH_DOCUMENT ingestor mapping", () => {
 
   it("SKIPS a malformed issued date", async () => {
     mockedSummary.mockResolvedValue({ extract: EXTRACT, url: FULL.art });
-    expect(await docMap(row({ ...FULL, pubDate: "1891" }))).toBeNull();
+    expect(rejectionOf(await docMap(row({ ...FULL, pubDate: "1891" })))?.code).toBe(
+      "date_unparseable",
+    );
   });
 
   it("SKIPS when the canonical URL or themes are missing", async () => {
     mockedSummary.mockResolvedValue({ extract: EXTRACT, url: FULL.art });
     const { canon: _c, ...noCanon } = FULL;
     void _c;
-    expect(await docMap(row(noCanon))).toBeNull();
+    expect(rejectionOf(await docMap(row(noCanon)))?.code).toBe("no_canonical_url");
     const { themes: _t, ...noThemes } = FULL;
     void _t;
-    expect(await docMap(row(noThemes))).toBeNull();
+    expect(rejectionOf(await docMap(row(noThemes)))?.code).toBe("missing_required_field");
   });
 
   it("SKIPS when the summary is missing or too short", async () => {
     mockedSummary.mockResolvedValue(null);
-    expect(await docMap(row(FULL))).toBeNull();
+    expect(rejectionOf(await docMap(row(FULL)))?.code).toBe("wikipedia_fetch_failed");
     mockedSummary.mockResolvedValue({ extract: "short", url: FULL.art });
-    expect(await docMap(row(FULL))).toBeNull();
+    // A fetched-but-thin abstract is a DIFFERENT failure from a failed fetch;
+    // collapsing them is what hid the real cause in production.
+    expect(rejectionOf(await docMap(row(FULL)))?.code).toBe("description_too_short");
   });
 
   it("attaches a verbatim bodyExcerpt from the canonical document when available", async () => {

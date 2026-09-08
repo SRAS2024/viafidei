@@ -17,6 +17,7 @@ import {
   type SparqlBinding,
 } from "@/lib/admin-worker/structured/wikidata";
 import { ingestorFor, slugify } from "@/lib/admin-worker/structured/ingestors";
+import { rejectionOf } from "@/lib/admin-worker/structured/reject";
 import type { SparqlBinding as Row } from "@/lib/admin-worker/structured/wikidata";
 
 /** Invoke the registered POPE ingestor's mapper directly. */
@@ -136,13 +137,16 @@ describe("POPE ingestor mapping", () => {
     const entry = await popeIngestorMap(
       row({ pope: "http://www.wikidata.org/entity/Q1", popeLabel: "Q1", startYear: "100" }),
     );
-    expect(entry).toBeNull();
+    expect(rejectionOf(entry)?.code).toBe("no_english_label");
   });
 
   it("returns null when the reign-start year is missing", async () => {
     const entry = await popeIngestorMap(
       row({ pope: "http://www.wikidata.org/entity/Q2", popeLabel: "Linus" }),
     );
-    expect(entry).toBeNull();
+    const rejection = rejectionOf(entry);
+    expect(rejection?.code).toBe("missing_required_field");
+    // The free-text detail names the binding — for a human, never aggregated.
+    expect(rejection?.detail).toBe("startYear");
   });
 });
