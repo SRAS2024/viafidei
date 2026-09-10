@@ -17,3 +17,10 @@ intelligence/data/*.json
 
 # USCCB daily-readings title fixture (one date per line)
 tests/content/fixtures/*.json
+
+# Xcode-owned asset catalogs (iPhone app) — Xcode rewrites these in its own
+# style whenever the project is opened, so formatting them here only churns.
+ios/**/*.xcassets
+ios/build
+ios/build-sim
+ios/build-signed

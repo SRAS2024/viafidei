@@ -1,0 +1,10 @@
+# Command-line build output (xcodebuild -derivedDataPath)
+build/
+build-sim/
+build-signed/
+DerivedData/
+
+# Xcode local state — never shared
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint

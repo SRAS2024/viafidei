@@ -78,6 +78,16 @@ import {
   LEASE_RENEW_INTERVAL_MS,
   type ExecutionStatus,
 } from "../src/lib/admin-worker/execution-host";
+import { clearHostPresence, writeHostPresence } from "../src/lib/admin-worker/host-presence";
+import {
+  isSwitchPollActionable,
+  planSwitchPoll,
+  SWITCH_POLL_CACHE_MS,
+  SWITCH_POLL_INTERVAL_MS,
+  SWITCH_POLL_START_COOLDOWN_MS,
+  type HostRunState,
+  type SwitchPollDecision,
+} from "../src/lib/admin-worker/switch-poll";
 import {
   computeLocalConfig,
   leaseRenewDelayMs,
@@ -111,7 +121,8 @@ const LOG_RING_SIZE = 800;
 /* supervisor state                                                     */
 /* ------------------------------------------------------------------ */
 
-type RunState = "off" | "starting" | "running" | "stopping" | "crashed" | "failed";
+/** The supervisor's state machine; the union lives with the poll rules. */
+type RunState = HostRunState;
 
 /** Give up after this many consecutive crashes rather than looping forever. */
 const MAX_CONSECUTIVE_RESTARTS = 5;
@@ -149,6 +160,35 @@ interface HostState {
    * still has to be written. Retried from the lease tick until it lands.
    */
   pendingDurableOff: boolean;
+  /**
+   * How many existing paths are between "the child exited" and "it has been
+   * restarted, or we gave up" — a crash backoff, a deferred resume after a
+   * database outage, the exit decision itself. While this is above zero the
+   * switch poll stands aside instead of racing those paths (LH: one lifecycle,
+   * never two).
+   */
+  pendingStarts: number;
+  /**
+   * Epoch ms until which the switch poll may not try to start the worker,
+   * set after a refusal (lease held elsewhere, database not startable
+   * against). Keeps a permanent refusal from producing a claim attempt and a
+   * log line every few seconds.
+   */
+  startBlockedUntil: number | null;
+  /** The last refusal the poll logged, so the same one is never logged twice. */
+  lastStartRefusal: string | null;
+  /**
+   * The durable switch as the previous reconcile tick read it (null before the
+   * first successful read). Only used to recognise a deliberate OFF→ON edge.
+   */
+  lastObservedSwitchOn: boolean | null;
+  /**
+   * `MasterSwitch.changedAt` as the previous reconcile tick read it. Lets the
+   * poll recognise an operator re-arm that happened entirely between two ticks
+   * — OFF then ON inside seven seconds reads as an unchanged value, but the
+   * row's timestamp moves.
+   */
+  lastObservedSwitchChangedAt: string | null;
 }
 
 const host: HostState = {
@@ -165,6 +205,11 @@ const host: HostState = {
   itemsPublished: 0,
   errors: 0,
   pendingDurableOff: false,
+  pendingStarts: 0,
+  startBlockedUntil: null,
+  lastStartRefusal: null,
+  lastObservedSwitchOn: null,
+  lastObservedSwitchChangedAt: null,
 };
 
 const logRing: Array<{ at: string; stream: "worker" | "host"; line: string }> = [];
@@ -239,6 +284,22 @@ function tsxBinary(): { cmd: string; prefix: string[] } {
   const local = path.join(REPO_ROOT, "node_modules", ".bin", "tsx");
   if (existsSync(local)) return { cmd: local, prefix: [] };
   return { cmd: "npx", prefix: ["--yes", "tsx"] };
+}
+
+/**
+ * Defer a (re)start — a crash backoff, or waiting out a database outage — and
+ * account for it while it is pending. `host.pendingStarts` is what tells the
+ * switch poll that a lifecycle transition is already in flight, so the poll
+ * never starts a worker that an existing path is about to start (and never
+ * short-circuits the crash backoff that protects against restart loops).
+ */
+function scheduleDeferredStart(delayMs: number, run: () => void | Promise<void>): void {
+  host.pendingStarts += 1;
+  setTimeout(() => {
+    host.pendingStarts = Math.max(0, host.pendingStarts - 1);
+    if (shuttingDown) return;
+    void run();
+  }, delayMs).unref();
 }
 
 function startWorkerChild(): void {
@@ -325,6 +386,10 @@ function startWorkerChild(): void {
     broadcast("status", statusPayload());
     if (wasStopping || shuttingDown) return;
 
+    // Claim the lifecycle for the duration of the exit decision (and of any
+    // restart it schedules) so the switch poll leaves it alone. Incremented
+    // synchronously, before the first await, or the poll could slip in.
+    host.pendingStarts += 1;
     void (async () => {
       if (plan.kind === "refused") {
         // Only the durable switch tells an operator OFF (nothing to report)
@@ -357,12 +422,9 @@ function startWorkerChild(): void {
         // outage, not a crash — do not burn the restart budget; wait for the
         // database and resume (the switch is durable, so ON survives).
         void probeDatabase().catch(() => undefined);
-        setTimeout(
-          () => {
-            if (!shuttingDown && !host.child) void resumeIfSwitchOn();
-          },
-          30_000 + Math.round(Math.random() * 30_000),
-        ).unref();
+        scheduleDeferredStart(30_000 + Math.round(Math.random() * 30_000), () => {
+          if (!host.child) void resumeIfSwitchOn();
+        });
         return;
       }
       // A genuine crash: restart locally when the master switch is still ON —
@@ -380,9 +442,9 @@ function startWorkerChild(): void {
             "The worker stopped and the database cannot be reached right now — it will be restarted when the database answers again.";
           pushLog("host", host.failureReason);
           broadcast("status", statusPayload());
-          setTimeout(() => {
-            if (!shuttingDown && !host.child) void resumeIfSwitchOn();
-          }, 30_000).unref();
+          scheduleDeferredStart(30_000, () => {
+            if (!host.child) void resumeIfSwitchOn();
+          });
           return;
         }
         if (!master.on) return;
@@ -423,11 +485,14 @@ function startWorkerChild(): void {
           message: `Local Admin Worker runtime exited (code=${code ?? "null"}, signal=${signal ?? "none"}) and is being restarted on the operator MacBook. Execution was NOT moved to the cloud.`,
           safeMetadata: { restarts: host.restarts, runtimeId: RUNTIME_ID },
         }).catch(() => undefined);
-        setTimeout(() => {
-          if (!shuttingDown) startWorkerChild();
-        }, backoffMs).unref();
+        scheduleDeferredStart(backoffMs, () => startWorkerChild());
       }
-    })();
+    })().finally(() => {
+      // Whatever the decision was, this path is no longer holding the
+      // lifecycle: either a start is scheduled (accounted for separately) or
+      // nothing more will happen here.
+      host.pendingStarts = Math.max(0, host.pendingStarts - 1);
+    });
   });
 
   child.on("error", (err) => {
@@ -542,22 +607,241 @@ async function writeDurableOff(actor: string): Promise<boolean> {
  * crash-handler's deferred retry so an outage never ends in "gave up".
  */
 async function resumeIfSwitchOn(): Promise<void> {
-  const master = await readMasterSwitch(prisma).catch(() => ({ on: false, known: false }) as const);
-  if (!master.known) {
-    setTimeout(() => {
-      if (!shuttingDown && !host.child) void resumeIfSwitchOn();
-    }, 30_000).unref();
-    return;
+  // Hold the lifecycle while this decides, so the switch poll does not start
+  // the same worker from the other side of the await.
+  host.pendingStarts += 1;
+  try {
+    const master = await readMasterSwitch(prisma).catch(
+      () => ({ on: false, known: false }) as const,
+    );
+    if (!master.known) {
+      scheduleDeferredStart(30_000, () => {
+        if (!host.child) void resumeIfSwitchOn();
+      });
+      return;
+    }
+    if (master.on && !host.child) {
+      host.failureReason = null;
+      host.leaseHeldElsewhere = false;
+      pushLog("host", "database reachable again and the switch is ON — restarting the worker");
+      startWorkerChild();
+    } else if (!master.on) {
+      host.runState = "off";
+      host.failureReason = null;
+      broadcast("status", statusPayload());
+    }
+  } finally {
+    host.pendingStarts = Math.max(0, host.pendingStarts - 1);
   }
-  if (master.on && !host.child) {
+}
+
+/* ------------------------------------------------------------------ */
+/* switch reconciliation — the durable switch is authoritative          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The master switch is a row in Postgres, and this Mac is not the only thing
+ * that can write it: the operator's iPhone flips that row directly, and the
+ * phone runs nothing itself — it depends entirely on this loop noticing.
+ * Before this existed the row was read at startup and on child-exit paths
+ * only, so a remote ON changed nothing until the app was relaunched.
+ *
+ * Every SWITCH_POLL_INTERVAL_MS the host reads the switch and makes reality
+ * match it, REUSING the same start and stop paths every other trigger uses
+ * (lease claim → startWorkerChild; stopWorkerChild → brain → lease release).
+ * There is no second lifecycle: `planSwitchPoll` refuses to act whenever an
+ * existing path already owns the transition.
+ */
+
+/** Remember why a start was refused, and stop trying for a while. */
+function refuseSwitchPollStart(message: string): void {
+  host.startBlockedUntil = Date.now() + SWITCH_POLL_START_COOLDOWN_MS;
+  // Log the FIRST occurrence of each distinct refusal only: a lease held by
+  // another computer for an hour must not write 500 lines.
+  if (host.lastStartRefusal !== message) {
+    host.lastStartRefusal = message;
+    pushLog("host", `switch is ON but the worker was not started here: ${message}`);
+  }
+}
+
+/**
+ * Start the worker because the durable switch says ON. Deliberately the same
+ * sequence as POST /api/switch {on:true}, minus the switch write itself — the
+ * row is already ON and rewriting it would erase who set it.
+ */
+async function startFromSwitchPoll(decisionValue: SwitchPollDecision): Promise<void> {
+  host.pendingStarts += 1;
+  try {
+    if (host.child || shuttingDown) return;
+    // Never start against a database that is unreachable or plainly not the
+    // production one (local-config's structured blockingReason, not prose).
+    const probe = await probeDatabase();
+    const cfg = configPayload();
+    if (cfg.blockingReason || !probe.reachable) {
+      refuseSwitchPollStart(
+        cfg.warnings.find((w) => w !== cfg.launcherMessage) ??
+          `the database at ${cfg.databaseHost ?? "?"} is not answering (${probe.error ?? "unreachable"})`,
+      );
+      return;
+    }
+    if (host.child || shuttingDown) return;
+    // Claim sole execution authority first, exactly as the app does. The phone
+    // can only write the switch; the lease is this runtime's to take.
+    const claim = await acquireExecutionLease(prisma, {
+      runtimeId: RUNTIME_ID,
+      origin: "LOCAL_MACBOOK",
+      host: {
+        label: localHostLabel(),
+        platform: process.platform,
+        arch: process.arch,
+        cpuCount: cpus().length,
+        launchedBy: "switch-poll",
+      },
+    });
+    if (!claim.acquired) {
+      host.leaseHeldElsewhere = true;
+      refuseSwitchPollStart(claim.refusedBecause ?? "another runtime holds the execution lease");
+      return;
+    }
+    if (host.child || shuttingDown) return;
+    host.startBlockedUntil = null;
+    host.lastStartRefusal = null;
     host.failureReason = null;
     host.leaseHeldElsewhere = false;
-    pushLog("host", "database reachable again and the switch is ON — restarting the worker");
+    // Only a deliberate OFF→ON forgives a crash streak, so a worker that dies
+    // on every launch cannot be relaunched five times a minute by a switch
+    // that is merely still ON.
+    if (decisionValue.clearFailure) host.restarts = 0;
+    pushLog(
+      "host",
+      decisionValue.reason === "switch_turned_on"
+        ? "the master switch was turned ON (from another surface) — starting the local Admin Worker"
+        : "the master switch is ON and no worker is running here — starting the local Admin Worker",
+    );
     startWorkerChild();
-  } else if (!master.on) {
-    host.runState = "off";
-    host.failureReason = null;
+    invalidateExecutionCache();
     broadcast("status", statusPayload());
+    await writeAdminWorkerLog(prisma, {
+      category: "OVERVIEW",
+      severity: "INFO",
+      eventName: "local_worker_activated",
+      message:
+        `Admin Worker started on ${localHostLabel()} because the durable master switch is ON ` +
+        `(set from another surface). Active execution host: local MacBook runtime ${RUNTIME_ID}.`,
+      safeMetadata: { runtimeId: RUNTIME_ID, origin: "LOCAL_MACBOOK", trigger: "switch-poll" },
+    }).catch(() => undefined);
+  } finally {
+    host.pendingStarts = Math.max(0, host.pendingStarts - 1);
+  }
+}
+
+/**
+ * Stop the worker because the durable switch says OFF. OFF is authoritative
+ * wherever it was flipped (spec §4) — the phone, another computer, or a
+ * script. Same sequence the app's own OFF uses, minus the switch write: it is
+ * already OFF, and rewriting it would erase who turned it off.
+ */
+async function stopFromSwitchPoll(): Promise<void> {
+  pushLog("host", "master switch is OFF — stopping the local Admin Worker");
+  await stopWorkerChild("master switch turned OFF");
+  // OFF means OFF: the resident Python brain this process holds goes too.
+  await shutdownLocalBrain();
+  await releaseExecutionLease(prisma, RUNTIME_ID).catch(() => undefined);
+  host.failureReason = null;
+  host.leaseHeldElsewhere = false;
+  invalidateExecutionCache();
+  broadcast("status", statusPayload());
+  await writeAdminWorkerLog(prisma, {
+    category: "OVERVIEW",
+    severity: "INFO",
+    eventName: "local_worker_deactivated",
+    message:
+      "Admin Worker stopped on the operator MacBook because the durable master switch was turned OFF " +
+      "from another surface. The local runtime, Python brain and browser rendering were stopped.",
+    safeMetadata: { runtimeId: RUNTIME_ID, trigger: "switch-poll" },
+  }).catch(() => undefined);
+}
+
+/**
+ * Liveness, written every tick whether the worker is on or off.
+ *
+ *   - AdminWorkerState.lastHeartbeatAt — the WORKER is alive. Written only
+ *     while a child is actually running (spec §18). It moved here from the
+ *     20 s lease tick because this tick runs more often and already knows
+ *     whether the child exists, which keeps a long pass from reading as
+ *     HEARTBEAT_STALE.
+ *   - AdminWorkerMemory(worker.execution.host) — the MAC HOST is alive.
+ *     Written unconditionally, because "the app is running with the worker
+ *     off" and "the Mac is asleep" are indistinguishable otherwise, and only
+ *     the first can honour a remote switch-ON. Display only.
+ */
+async function refreshLivenessSignals(switchOn: boolean | null): Promise<void> {
+  if (host.child != null && host.runState === "running") {
+    await writeHeartbeat(prisma).catch(() => undefined);
+  }
+  await writeHostPresence(prisma, {
+    runtimeId: RUNTIME_ID,
+    hostLabel: localHostLabel(),
+    pid: process.pid,
+    origin: "LOCAL_MACBOOK",
+    runState: host.runState,
+    workerRunning: host.child != null,
+    workerStartedAt: host.startedAt ? new Date(host.startedAt).toISOString() : null,
+    switchOn,
+    failureReason: host.failureReason,
+    leaseHeldElsewhere: host.leaseHeldElsewhere,
+    intervalMs: SWITCH_POLL_INTERVAL_MS,
+  }).catch(() => undefined);
+}
+
+/** True while a tick is still working, so ticks can never overlap. */
+let reconcileInFlight = false;
+
+/**
+ * One reconcile tick: read the durable switch, make reality match it, refresh
+ * the liveness signals. Idempotent — when the world is already correct it
+ * does nothing and logs nothing, which is the normal case several times a
+ * minute.
+ */
+async function reconcileSwitchTick(): Promise<void> {
+  if (shuttingDown || reconcileInFlight) return;
+  reconcileInFlight = true;
+  try {
+    // Shares the cached read with the dashboard: a status read from the last
+    // SWITCH_POLL_CACHE_MS is reused instead of a second round-trip.
+    const status = await readExecutionStatusCached(SWITCH_POLL_CACHE_MS).catch(() => null);
+    // known:false is "the database did not answer", NOT "the switch is OFF".
+    // Reading a blip as OFF would stop a healthy worker mid-pass.
+    const switchKnown = status?.switch.known === true;
+    const switchOn = switchKnown && status !== null ? status.switch.on : false;
+
+    const plan = planSwitchPoll({
+      now: Date.now(),
+      shuttingDown,
+      switchKnown,
+      switchOn,
+      previousSwitchOn: host.lastObservedSwitchOn,
+      switchChangedAt: switchKnown && status !== null ? status.switch.changedAt : null,
+      previousSwitchChangedAt: host.lastObservedSwitchChangedAt,
+      childRunning: host.child != null,
+      runState: host.runState,
+      pendingStarts: host.pendingStarts,
+      pendingDurableOff: host.pendingDurableOff,
+      startBlockedUntil: host.startBlockedUntil,
+    });
+    if (switchKnown) {
+      host.lastObservedSwitchOn = switchOn;
+      host.lastObservedSwitchChangedAt = status?.switch.changedAt ?? null;
+    }
+
+    if (isSwitchPollActionable(plan)) {
+      if (plan.action === "start") await startFromSwitchPoll(plan);
+      else await stopFromSwitchPoll();
+    }
+
+    await refreshLivenessSignals(switchKnown ? switchOn : null);
+  } finally {
+    reconcileInFlight = false;
   }
 }
 
@@ -1319,6 +1603,13 @@ async function main(): Promise<void> {
   // Never resume against a database that is unreachable or plainly not
   // production — the switch is durable, so it stays ON and the console shows why.
   const master = await readMasterSwitch(prisma).catch(() => ({ on: false, known: false }) as const);
+  // Seed the reconcile poll's edge detection with what the switch said at
+  // boot, so the first OFF→ON flip after launch is recognised as the operator
+  // deliberately re-arming rather than as an unknown-to-ON transition.
+  if (master.known) {
+    host.lastObservedSwitchOn = master.on;
+    host.lastObservedSwitchChangedAt = "changedAt" in master ? master.changedAt : null;
+  }
   const bootConfig = configPayload();
   if (master.on && (bootConfig.blockingReason || !bootConfig.database.reachable)) {
     host.runState = "failed";
@@ -1376,32 +1667,10 @@ async function main(): Promise<void> {
       // machine that is doing nothing.
       if (host.runState !== "running") return;
 
-      // OFF is authoritative wherever it was flipped (spec §4). The pill in THIS
-      // app stops the worker directly, but the switch is a durable fact in
-      // Postgres and can be turned off from somewhere else entirely — the app on
-      // another computer, `npm run worker:local`, or an operator resetting state.
-      // Without this check the host keeps its worker child alive until the
-      // child's loop happens to notice between passes, which can be minutes of
-      // crawling, rendering and publishing after the operator said stop.
-      // Fail-open on a read error, for the same reason lease renewal does below.
-      try {
-        const master = await readMasterSwitch(prisma);
-        if (!master.known) {
-          pushLog("host", "could not read the master switch (database unreachable) — continuing");
-          return;
-        }
-        if (!master.on) {
-          pushLog("host", "master switch is OFF — stopping the local Admin Worker");
-          await stopWorkerChild("master switch turned OFF");
-          await shutdownLocalBrain();
-          await releaseExecutionLease(prisma, RUNTIME_ID).catch(() => undefined);
-          broadcast("status", statusPayload());
-          return;
-        }
-      } catch {
-        pushLog("host", "could not read the master switch (database unreachable) — continuing");
-      }
-
+      // The master switch is NOT read here: reconcileSwitchTick owns that, at a
+      // faster cadence and for both directions (a switch flipped ON elsewhere
+      // has to start the worker too, not only stop it). Two ticks reading the
+      // same row on different beats would be two lifecycles.
       const renewed = await renewExecutionLease(prisma, RUNTIME_ID).catch(() => "unknown" as const);
       if (renewed === "unknown") {
         // A transient Postgres error is NOT proof that someone took the lease.
@@ -1427,13 +1696,31 @@ async function main(): Promise<void> {
         broadcast("status", statusPayload());
         return;
       }
-      // The heartbeat is otherwise written once per pass; a long pass would
-      // show HEARTBEAT_STALE (>5 min) for a perfectly healthy worker. One cheap
-      // update per tick from the process that owns the child keeps it honest.
-      await writeHeartbeat(prisma).catch(() => undefined);
+      // The worker heartbeat is written by reconcileSwitchTick (every
+      // SWITCH_POLL_INTERVAL_MS, whenever a child is actually running), so a
+      // long pass never reads as HEARTBEAT_STALE and there is exactly one
+      // writer of that signal on this Mac.
     }
   };
   scheduleLeaseTick();
+
+  // Reconcile the durable master switch with reality, in BOTH directions, on
+  // its own beat. This is what makes the switch authoritative no matter who
+  // set it — the app here, another computer, or the operator's iPhone, which
+  // writes the row and runs nothing itself. Self-rescheduling with the same
+  // ±20% jitter as the lease tick so the two never convoy, and unref'd so it
+  // can never hold the process open.
+  let reconcileTimer: ReturnType<typeof setTimeout> | null = null;
+  const scheduleReconcileTick = () => {
+    if (shuttingDown) return;
+    reconcileTimer = setTimeout(() => {
+      void reconcileSwitchTick().finally(scheduleReconcileTick);
+    }, leaseRenewDelayMs(SWITCH_POLL_INTERVAL_MS));
+    reconcileTimer.unref();
+  };
+  // The first tick also records this runtime's presence, so a phone watching
+  // from anywhere sees the Mac come up rather than waiting out one interval.
+  void reconcileSwitchTick().finally(scheduleReconcileTick);
 
   // Live status every 2 s for the dashboard. The durable execution status is
   // refreshed at most every EXECUTION_CACHE_MS, and only when someone is
@@ -1460,6 +1747,7 @@ async function main(): Promise<void> {
     shuttingDown = true;
     pushLog("host", `received ${signal} — shutting the local Admin Worker down`);
     if (leaseTimer) clearTimeout(leaseTimer);
+    if (reconcileTimer) clearTimeout(reconcileTimer);
     void (async () => {
       // Local first (bounded by CHILD_KILL_GRACE_MS), then the database with
       // a hard budget: the app SIGKILLs the whole group 10 s after asking, so
@@ -1467,8 +1755,14 @@ async function main(): Promise<void> {
       // alive past that.
       await stopWorkerChild(`host received ${signal}`);
       await shutdownLocalBrain();
+      // Both "this Mac is here" facts go in one budget: the lease (execution
+      // authority) and the presence row (the phone's liveness signal), so a
+      // clean quit shows as "not running" immediately instead of ageing out.
       await withDbBudget("releasing the execution lease", () =>
-        releaseExecutionLease(prisma, RUNTIME_ID),
+        Promise.all([
+          releaseExecutionLease(prisma, RUNTIME_ID),
+          clearHostPresence(prisma, RUNTIME_ID),
+        ]),
       );
       await withDbBudget("disconnecting from the database", () => prisma.$disconnect());
       server.close();
