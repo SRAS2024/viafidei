@@ -1136,29 +1136,75 @@ is the property that actually matters.
 
 ### Signing
 
-**The supported configuration is the paid Apple Developer Program.** With a
-membership, `-allowProvisioningUpdates` issues a development provisioning
-profile valid for **one year**, and the app simply stays on the phone: no
-weekly ritual, nothing to remember. Substitute the membership's team
-identifier for `<TEAM_ID>` in the signed-build command above (the value is also
-stored as `DEVELOPMENT_TEAM` in the project, and the command-line assignment
-overrides it), then install with `devicectl` as shown. Confirm what was
-actually signed with:
+**The app is signed under the paid Apple Developer Program**, on team
+`9PS2WKDYU3` ("SAMUEL RYAN-ANDREW SIMONDS"). The profile currently embedded in
+the installed build is portal-issued, `TimeToLive` **365**, expiring
+**2027-09-10**. The app stays on the phone for a year; there is no weekly
+ritual.
+
+**The trap that makes an active membership look inactive.** An Individual
+enrollment **upgrades the existing personal team in place** — the team
+identifier does _not_ change. `9PS2WKDYU3` was the free personal team before
+enrollment and is the paid team after it. So the `DEVELOPMENT_TEAM` already
+stored in the project needed no edit at all, and hunting for a "new" paid team
+identifier is a dead end.
+
+What _does_ change is the kind of profile Apple will issue for that team — and
+Xcode will not go and find out on its own. A free personal team is provisioned
+**locally**: Xcode generates a `LocalProvision` profile with a seven-day
+`TimeToLive` without contacting Apple. Once such a profile is sitting in
+`~/Library/Developer/Xcode/UserData/Provisioning Profiles` and is still valid,
+**every subsequent build reuses it**, including builds run with
+`-allowProvisioningUpdates`. There is no portal round trip, so the membership
+is never noticed. Quitting Xcode does not help; neither does deleting Xcode's
+cached team list. The build keeps succeeding, and keeps producing a seven-day
+app.
+
+The fix is to remove the stale profile so the build has nothing to reuse:
+
+```bash
+# 1. Delete the locally-generated profile for this bundle id.
+D=~/Library/Developer/Xcode/UserData/Provisioning\ Profiles
+for f in "$D"/*.mobileprovision; do
+  n=$(security cms -D -i "$f" | plutil -extract Name raw -)
+  case "$n" in *commandcentre*) rm "$f";; esac
+done
+
+# 2. Rebuild. With no profile to reuse, Xcode asks the portal, and the
+#    membership is finally visible.
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcodebuild -project ios/ViaFideiCommandCentre.xcodeproj \
+             -scheme ViaFideiCommandCentre \
+             -destination 'generic/platform=iOS' \
+             -allowProvisioningUpdates build
+```
+
+Verify that what you got is genuinely portal-issued rather than another local
+profile — `TimeToLive` and the absence of `LocalProvision` are the tell, and
+they are more reliable than the team name:
+
+```bash
+P=$(ls ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision | head -1)
+security cms -D -i "$P" | plutil -extract TimeToLive raw -      # → 365   (7 = still free)
+security cms -D -i "$P" | plutil -extract TeamName raw -        # → SAMUEL RYAN-ANDREW SIMONDS
+security cms -D -i "$P" | plutil -extract LocalProvision raw -  # → absent (True = still free)
+```
+
+A free personal team still signs the app perfectly well; its profile is simply
+valid for seven days, after which iOS refuses to launch the app — it stays on
+the Home screen and will not open — until it is rebuilt and reinstalled. That
+is a property of free signing, not of this app.
+
+Confirm the signature on the built bundle:
 
 ```bash
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
-  codesign -dvvv build-signed/Build/Products/Release-iphoneos/ViaFideiCommandCentre.app
-#   → Authority=Apple Development: …
-#     TeamIdentifier=<TEAM_ID>
+  codesign -dv --verbose=2 build-signed/Build/Products/Release-iphoneos/ViaFideiCommandCentre.app
+#   → Authority=Apple Development: samuelrasimonds@gmail.com (3PSTX7KY36)
+#     Authority=Apple Worldwide Developer Relations Certification Authority
+#     Authority=Apple Root CA
+#     TeamIdentifier=9PS2WKDYU3
 ```
-
-One note so nobody is baffled without the paid account: a **free personal team**
-signs perfectly well, but the profile it issues is valid for **seven days**
-(the profiles this Mac used while the app was first brought up are exactly
-that, `LocalProvision` with a seven-day expiry). After it lapses iOS refuses to
-launch the app — it is still on the Home screen, it just will not open — and it
-has to be rebuilt and reinstalled with the same two commands. That is a
-property of free signing, not of this app.
 
 ### What the phone deliberately cannot do
 
@@ -1168,6 +1214,32 @@ property of free signing, not of this app.
   observes and toggles; approving is done on the Admin Site tab.
 - **No push notifications.** Nothing here wakes the phone. It polls while you
   are looking at it and stops the moment you are not.
+
+### How the phone-to-Mac contract is proven
+
+The phone shows nothing of its own: every field it renders is decoded from the
+three worker routes. A field renamed on the server and not in the Swift decoder
+produces exactly the symptom seen on 2026-09-10 — _"could not connect to the
+command centre"_, with an otherwise healthy Mac — so the contract is tested
+from both ends rather than by eye.
+
+- [`tests/integration/worker-remote-console-live.test.ts`](tests/integration/worker-remote-console-live.test.ts)
+  drives the **real** `status`, `snapshot` and `switch` handlers against a real
+  Postgres with a real completed-2FA admin session, and pins the exact key sets
+  of every response object. It proves both worlds: with a fresh
+  `worker.execution.host` row (`alive: true`, a `runtimeId`, a `hostLabel`) and
+  with **no presence row at all** — the second being the operator's actual case,
+  where the response is still `200` with every top-level key present, so an
+  absent Mac is stated as a fact about the _Mac_ (`"Not running"`) and never
+  leaks into the switch as `"Unknown"`. It also pins the gate: no session →
+  `401`, a password-only (2FA-pending) session → `401`.
+- [`tests/api/worker-ios-contract.test.ts`](tests/api/worker-ios-contract.test.ts)
+  parses the `CodingKeys` and property declarations **out of the Swift sources**
+  in `ios/ViaFideiCommandCentre/Core` and checks them against the live payload,
+  so the two cannot drift silently. Negative controls keep the check from
+  passing vacuously: mutating the real payload — renaming a field, dropping a
+  required one, changing a type — must fail the assertion, and each mutation is
+  asserted to be caught.
 
 ---
 
@@ -3773,6 +3845,69 @@ genuine problems, not stale assertions or "no work to do" states:
   through `filePlan` (not a raw create), so the coalesce + cooldown apply to
   skill-driven repairs too instead of minting a fresh cycle every pass.
 
+### When a rejection is not a failure — the classifier-rejection loop
+
+**Measured, not hypothetical.** On 2026-09-10 a `SOURCE_FETCH` **LOOPING**
+escalation fired for `SAINT`: 19 failures, 1 `needsRepair`, 0 successes in six
+hours. Nothing was stuck. Every one of those "failures" was a fetch that
+**succeeded**, of a `gcatholic.org` diocese page that the classifier scored
+between **0.05 and 0.25** against the 0.55 threshold and correctly refused.
+Via Fidei has no `DIOCESE` content type. The network worked, the fetcher
+worked, the reader worked, and the classifier worked. The worker was being
+handed URLs it could never use — a **discovery-quality** problem wearing the
+costume of a pipeline stall.
+
+Three causes compounded:
+
+1. **The wrong index was being crawled.** `discoverFromDirectories()` took no
+   arguments and walked _every_ configured `DIRECTORY_PAGES` entry on every
+   call. `gcatholic.org/dioceses/` is such an entry, declared with
+   `expectedContentType: PARISH` — but only `SAINT` reaches `DIRECTORY`
+   discovery, so **saint passes were crawling the worldwide diocese index**.
+   Directory pages are now selected by content type
+   (`selectDirectoryPages(contentType)`).
+
+2. **Self-amplification.** Internal-link discovery seeded itself from
+   `where: { detectedContentType: { not: null } }` — but a rejected page's
+   `detectedContentType` is the literal string **`"UNUSABLE"`**, which is not
+   null. Every rejection therefore qualified as a seed, and a diocese page
+   links to its sibling dioceses, so **each rejection surfaced up to 100 more
+   URLs** that would be rejected in their turn. Seeds now exclude the
+   unclassifiable result types (`notIn: ["UNUSABLE", "WRONG"]`).
+
+3. **Rejections counted toward LOOPING**, so the detector meant to say "the
+   worker is stuck and needs a human" fired on a condition no human action
+   would fix.
+
+**The fixes keep the volume visible rather than hiding it** — a suppression the
+operator cannot see is a blocklist:
+
+- **`retireClassifierRejection`** makes a **second** rejection terminal, kept
+  deliberately distinct from a transient fetch retry: one refusal may be a bad
+  render, two is the page.
+- **`unclassifiablePrefixes` / `isSuppressedUrlShape`** suppress URL _shapes_
+  the worker has proven it cannot classify, through the **existing** source
+  reputation machinery rather than a new blocklist. A prefix **clears itself**
+  the moment one page under it classifies, or when its rejections age out of
+  the evidence window. Activation is logged as a `WARN` naming the prefix, the
+  rejection count and an example URL.
+- **`retireSuppressedCandidates`** drains the backlog already queued under a
+  newly-suppressed shape, so the fix applies to work in flight.
+- **`UNUSABLE_INPUT_RESULT_TYPE`** gives unusable input its own bucket in the
+  stage-outcome ledger. The row is still written — **same stage, same result,
+  same summary** — so the volume stays a first-class, queryable number; only
+  the coarse bucket differs, so LOOPING stops treating it as evidence of a
+  stall. A genuine fetch failure still counts, exactly as before.
+
+**What was deliberately _not_ done.** The 0.55 classifier threshold is
+unchanged, and `gcatholic.org` remains an approved host. Lowering the threshold
+would publish content Via Fidei does not model, and de-listing the host would
+lose the parish pages it serves well. The pages in question are simply not
+content this project has a type for.
+
+Covered by 16 tests in
+[`tests/admin-worker/classifier-rejection-loop.test.ts`](tests/admin-worker/classifier-rejection-loop.test.ts).
+
 ### Code / version memory
 
 The platform remembers its OWN code (`code-version.ts` + the
@@ -5368,8 +5503,8 @@ what is printed here — not what they are expected to be.
 
 ```bash
 npm run typecheck            # tsc --noEmit                      → 0 errors
-npm test                     # unit + component + worker         → 4756 passed, 1 skipped
-                             #                                     (500 files passed, 1 skipped; ~12 s)
+npm test                     # unit + component + worker         → 4782 passed, 1 skipped
+                             #                                     (502 files passed, 1 skipped; ~13 s)
 npm run lint                 # eslint                            → no warnings or errors
 npm run format:check         # prettier --check .                → all matched files use Prettier style
 npm run build                # prisma generate && next build     → succeeds
@@ -5393,7 +5528,7 @@ Two suites need a database or a browser, so they are run separately:
 # "test"; scripts/test-db.sh refuses anything else (and any non-localhost host
 # without TEST_DB_ALLOW_REMOTE=1).
 TEST_DATABASE_URL=postgresql://…/viafidei_test npm run test:integration
-#   → 24 passed (4 files)
+#   → 33 passed (5 files)
 
 # End to end. Playwright starts the standalone production server itself
 # (scripts/start-standalone.sh) — `next start` cannot serve an
