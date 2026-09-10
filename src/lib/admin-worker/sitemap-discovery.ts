@@ -24,6 +24,7 @@ import type {
 import { AUTHORITY_SOURCES, isFetchableHost } from "@/lib/checklist";
 import { writeAdminWorkerLog } from "./logs";
 import { sampleWorkerEvent } from "./self-maintenance";
+import { isSuppressedUrlShape, suppressedUrlPrefixes } from "./source-reputation";
 import { discoverCandidate, isJunkUrl, type DiscoverCandidateInput } from "./web-navigator";
 
 const FETCH_TIMEOUT_MS = 8_000;
@@ -117,7 +118,19 @@ export interface SitemapDiscoveryOutcome {
   fetched: number;
   inserted: number;
   rejected: number;
+  /** Locs skipped because their URL shape is a suppressed unclassifiable one. */
+  suppressed?: number;
   reason?: string;
+}
+
+export interface SitemapDiscoveryOptions {
+  /**
+   * Pre-computed suppressed URL shapes (see `unclassifiablePrefixes`). A big
+   * sitemap on a host with one unusable directory section — gcatholic.org's
+   * /dioceses/diocese/* is the live example — would otherwise re-seed the whole
+   * section every pass, however many times the classifier has refused it.
+   */
+  suppressedPrefixes?: ReadonlySet<string>;
 }
 
 /**
@@ -127,6 +140,7 @@ export interface SitemapDiscoveryOutcome {
 export async function discoverFromHost(
   prisma: PrismaClient,
   host: string,
+  opts: SitemapDiscoveryOptions = {},
 ): Promise<SitemapDiscoveryOutcome> {
   // Open-internet mode (default) lets the worker read a sitemap on any fetchable
   // host; when open mode is off this is exactly the registry allow-list.
@@ -138,9 +152,13 @@ export async function discoverFromHost(
   const sitemapUrls =
     robots.sitemapUrls.length > 0 ? robots.sitemapUrls : [`https://${host}/sitemap.xml`];
 
+  const suppressedPrefixes =
+    opts.suppressedPrefixes ?? (await suppressedUrlPrefixes(prisma).catch(() => new Set<string>()));
+
   let fetched = 0;
   let inserted = 0;
   let rejected = 0;
+  let suppressed = 0;
 
   for (const sitemapUrl of sitemapUrls.slice(0, 3)) {
     const body = await fetchWithTimeout(sitemapUrl);
@@ -175,6 +193,10 @@ export async function discoverFromHost(
         rejected += 1;
         continue;
       }
+      if (isSuppressedUrlShape(loc, suppressedPrefixes)) {
+        suppressed += 1;
+        continue;
+      }
       const input: DiscoverCandidateInput = {
         url: loc,
         sourceHost: parsedHost,
@@ -188,20 +210,32 @@ export async function discoverFromHost(
     }
   }
 
-  // One INFO row per host per pass (217,621 rows in production). Sampled.
-  if (sampleWorkerEvent("sitemap_discovery").write) {
+  // One INFO row per host per pass (217,621 rows in production). Sampled — but
+  // a pass that actually suppressed a URL shape is always written, so the
+  // suppression is observable rather than silent.
+  if (suppressed > 0 || sampleWorkerEvent("sitemap_discovery").write) {
     await writeAdminWorkerLog(prisma, {
       category: "SOURCE_DISCOVERY",
-      severity: "INFO",
+      severity: suppressed > 0 ? "WARN" : "INFO",
       eventName: "sitemap_discovery",
       presampled: true,
-      message: `Sitemap discovery on ${host}: fetched=${fetched}, inserted=${inserted}, rejected=${rejected}`,
+      message:
+        `Sitemap discovery on ${host}: fetched=${fetched}, inserted=${inserted}, rejected=${rejected}` +
+        (suppressed > 0
+          ? `, suppressed=${suppressed} (unclassifiable URL shapes: ${[...suppressedPrefixes].join(", ")})`
+          : ""),
       sourceHost: host,
-      safeMetadata: { fetched, inserted, rejected },
+      safeMetadata: {
+        fetched,
+        inserted,
+        rejected,
+        suppressed,
+        suppressedPrefixes: [...suppressedPrefixes],
+      },
     });
   }
 
-  return { host, fetched, inserted, rejected };
+  return { host, fetched, inserted, rejected, suppressed };
 }
 
 /**
@@ -213,8 +247,11 @@ export async function discoverFromAllAuthorities(
   prisma: PrismaClient,
 ): Promise<SitemapDiscoveryOutcome[]> {
   const outcomes: SitemapDiscoveryOutcome[] = [];
+  // Compute the suppressed URL shapes once for the whole sweep rather than
+  // once per host — it is the same answer for every host in the pass.
+  const suppressedPrefixes = await suppressedUrlPrefixes(prisma).catch(() => new Set<string>());
   for (const source of AUTHORITY_SOURCES) {
-    const outcome = await discoverFromHost(prisma, source.host);
+    const outcome = await discoverFromHost(prisma, source.host, { suppressedPrefixes });
     outcomes.push(outcome);
   }
   return outcomes;

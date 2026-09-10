@@ -189,7 +189,19 @@ export {
   decayedReputationRates,
   REPUTATION_POSITIVE_HALF_LIFE_DAYS,
   REPUTATION_NEGATIVE_HALF_LIFE_DAYS,
+  UNCLASSIFIABLE_REJECTION_PATTERN,
+  UNCLASSIFIABLE_READ_TYPES,
+  UNCLASSIFIABLE_PREFIX_MIN_SIBLINGS,
+  UNCLASSIFIABLE_PREFIX_WINDOW_MS,
+  MAX_CLASSIFIER_REJECTIONS,
+  urlShapePrefix,
+  isSuppressedUrlShape,
+  unclassifiablePrefixes,
+  suppressedUrlPrefixes,
+  clearSuppressedPrefixCache,
+  SUPPRESSED_PREFIX_CACHE_MS,
   type SourceOutcomeUpdate,
+  type UnclassifiablePrefix,
 } from "./source-reputation";
 
 export {
@@ -502,6 +514,7 @@ export {
 export {
   DIRECTORY_PAGES,
   discoverFromDirectories,
+  selectDirectoryPages,
   type DirectoryPage,
   type DirectoryDiscoveryOutcome,
 } from "./directory-discovery";

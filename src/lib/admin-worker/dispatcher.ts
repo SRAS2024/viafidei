@@ -76,6 +76,14 @@ export interface DispatchOutcome {
   failed?: number;
   /** Items the dispatch rejected with a reason. */
   rejected?: number;
+  /**
+   * The dispatch ran end-to-end and rejected an input that CANNOT be used by
+   * any content type — a discovery-quality problem, not a pipeline stall. Such
+   * a dispatch is recorded under `UNUSABLE_INPUT_RESULT_TYPE` instead of
+   * "failure" so it does not page the operator via LOOPING. See the doc comment
+   * on `UNUSABLE_INPUT_RESULT_TYPE` for how that distinction stays honest.
+   */
+  unusableInput?: boolean;
   /** Repair plans the dispatch filed during the run. */
   repairsPlanned?: number;
   /** Free-form metadata kept on the log row for diagnostics. */
@@ -228,8 +236,15 @@ export async function executeMissionStage(input: DispatchInput): Promise<Dispatc
     }
     // Exact stage-outcome ledger: one precise row per dispatch so the
     // brain scores from real outcomes, not approximations.
+    const stageOutcome = toStageOutcome(outcome, decision, Date.now() - startedAt);
     await recordStageOutcome(prisma, {
-      ...toStageOutcome(outcome, decision, Date.now() - startedAt),
+      ...stageOutcome,
+      // A page the pipeline handled perfectly and the classifier refused for
+      // matching no content type is unusable INPUT, not a stage failure. The
+      // row is still written (same stage, same `result`, same summary) — only
+      // the coarse bucket differs, so the ledger keeps the volume visible while
+      // the LOOPING detector stops treating it as evidence of a stall.
+      resultType: outcome.unusableInput ? UNUSABLE_INPUT_RESULT_TYPE : stageOutcome.resultType,
       passId,
     });
     return outcome;
@@ -648,6 +663,208 @@ export async function blockedFetchHosts(
   return blocked;
 }
 
+/**
+ * The result-type bucket for a page the pipeline handled perfectly and the
+ * CLASSIFIER refused because no Via Fidei content type could match it.
+ *
+ * WHY THIS IS NOT "failure". The LOOPING warning exists to say "the worker is
+ * stuck and needs a human". It fires on (failures + needsRepair) ≥ N with zero
+ * successes on one stage. In production on 2026-09-10 it fired on SOURCE_FETCH
+ * 21× in 6h — and every single one of those "failures" was a fetch that
+ * SUCCEEDED, of a gcatholic.org diocese page the classifier scored at 0.05-0.25
+ * against the 0.55 threshold. Via Fidei has no DIOCESE content type. Nothing was
+ * stuck: the network worked, the fetcher worked, the reader worked, the
+ * classifier worked and correctly said no. Being handed unusable URLs is a
+ * DISCOVERY-QUALITY problem, and paging a human for it trains them to ignore
+ * the page that matters.
+ *
+ * HOW THE DISTINCTION STAYS HONEST — this bucket is only reachable when:
+ *   1. the network fetch SUCCEEDED and `readSource` ran to completion, so every
+ *      transport/parse failure (timeouts, 5xx, 429, login walls, a throwing
+ *      reader) still lands in "failure" and still trips LOOPING;
+ *   2. the verdict is the structural one — UNUSABLE / WRONG, "no type scored
+ *      above the threshold" — not any other rejection;
+ *   3. the URL's shape is NOT already suppressed. If discovery was already told
+ *      to stop surfacing this shape and the worker is fetching it anyway, the
+ *      suppression is not holding and the worker really IS going in circles —
+ *      that is a genuine stall and it is recorded as "failure" so LOOPING fires.
+ * The volume is never hidden: it is a first-class row in the stage-outcome
+ * ledger under its own result type, it is logged as a WARN naming the URL
+ * shape, and it drives the prefix suppression, whose activation is logged too.
+ */
+export const UNUSABLE_INPUT_RESULT_TYPE = "unusable_input";
+
+interface ClassifierRetirement {
+  /** The candidate will never be fetched again. */
+  terminal: boolean;
+  /** The classifier said no content type can match this page at all. */
+  unusableShape: boolean;
+  /** Counts as unusable INPUT rather than a pipeline failure (see above). */
+  unusableInput: boolean;
+  prefix: string | null;
+  prefixAlreadySuppressed: boolean;
+  rejections: number;
+}
+
+/**
+ * Retire a candidate the classifier rejected.
+ *
+ * The fetch bookkeeping above marks a successful fetch FETCHED — which is true,
+ * it WAS fetched — but the freshness sweep re-opens FETCHED rows to DISCOVERED
+ * when their re-read interval elapses (change-sensing `runFreshnessSweep`), so
+ * a page that can never classify came back around forever. Marking it REJECTED
+ * takes it out of that cycle: the sweep only re-opens FETCHED/BUILT, and
+ * `discoverCandidate` never resets an existing row's status on rediscovery.
+ *
+ * Deliberately NOT on the first rejection: one bad read (a partial render, a
+ * body the block parser mangled) deserves a second look after the freshness
+ * interval. Two rejections of the same URL is a verdict. A URL whose shape is
+ * already suppressed is retired immediately — the shape has already been proven
+ * unusable by its siblings.
+ *
+ * This is the classifier path only. Transient FETCH failures (timeout, 5xx,
+ * 429) are classified by `classifyFetchFailure` and keep retrying exactly as
+ * they do today; nothing here touches them.
+ */
+async function retireClassifierRejection(
+  prisma: PrismaClient,
+  passId: string,
+  candidate: {
+    id: string;
+    discoveredUrl: string;
+    sourceHost: string;
+    rejectionPattern: string | null;
+  },
+  readOutcome: { classifierContentType: string; rejectionReason: string | null },
+  suppressedPrefixes: ReadonlySet<string>,
+): Promise<ClassifierRetirement> {
+  const {
+    MAX_CLASSIFIER_REJECTIONS,
+    UNCLASSIFIABLE_READ_TYPES,
+    UNCLASSIFIABLE_REJECTION_PATTERN,
+    isSuppressedUrlShape,
+    urlShapePrefix,
+  } = await import("./source-reputation");
+
+  const unusableShape = UNCLASSIFIABLE_READ_TYPES.includes(readOutcome.classifierContentType);
+  const prefix = urlShapePrefix(candidate.discoveredUrl);
+  // The candidate was picked with these prefixes EXCLUDED, and the queued
+  // backlog under them is retired on sight, so reaching here with a suppressed
+  // shape means the suppression is not holding — a genuine loop, see below.
+  const prefixAlreadySuppressed = isSuppressedUrlShape(candidate.discoveredUrl, suppressedPrefixes);
+  // `fetchAttempts` was incremented to this value by the fetch bookkeeping just
+  // above, and this line is only reached on a successful fetch, so it is the
+  // count of times this URL has been fetched and handed to the classifier.
+  // The COUNT of classifier rejections for this URL, not of fetch attempts: the
+  // marker below is written on the first one, so finding it already there means
+  // this is at least the second. Deliberately not `fetchAttempts`, which also
+  // counts transient network failures — a page that timed out twice and then
+  // classified badly once has been judged once, not three times.
+  const rejectedBefore = candidate.rejectionPattern === UNCLASSIFIABLE_REJECTION_PATTERN;
+  const rejections = rejectedBefore ? MAX_CLASSIFIER_REJECTIONS : 1;
+  const terminal = prefixAlreadySuppressed || rejections >= MAX_CLASSIFIER_REJECTIONS;
+
+  await prisma.candidateSourceUrl
+    .update({
+      where: { id: candidate.id },
+      data: {
+        status: terminal ? "REJECTED" : "FETCHED",
+        rejectionReason: `classifier: ${readOutcome.rejectionReason ?? "rejected"}`,
+        // The evidence `unclassifiablePrefixes` learns the URL SHAPE from.
+        ...(unusableShape ? { rejectionPattern: UNCLASSIFIABLE_REJECTION_PATTERN } : {}),
+      },
+    })
+    .catch(() => undefined);
+
+  await writeAdminWorkerLog(prisma, {
+    passId,
+    category: "SOURCE_READING",
+    severity: "WARN",
+    eventName: unusableShape ? "classifier_unusable_input" : "classifier_rejected_candidate",
+    message: unusableShape
+      ? `${candidate.discoveredUrl} matched no Via Fidei content type (${readOutcome.rejectionReason ?? "no reason"}). ${
+          terminal
+            ? "Candidate retired — it will not be fetched again"
+            : `Candidate kept for one more look (${rejections}/${MAX_CLASSIFIER_REJECTIONS})`
+        }${prefix ? `; URL shape ${prefix}` : ""}${prefixAlreadySuppressed ? " (shape already suppressed — counted as a real stall)" : ""}.`
+      : `${candidate.discoveredUrl} was rejected by the classifier (${readOutcome.rejectionReason ?? "no reason"}).`,
+    sourceHost: candidate.sourceHost,
+    sourceUrl: candidate.discoveredUrl,
+    safeMetadata: {
+      candidateId: candidate.id,
+      classifierContentType: readOutcome.classifierContentType,
+      urlShapePrefix: prefix,
+      prefixAlreadySuppressed,
+      classifierRejections: rejections,
+      terminal,
+    },
+  }).catch(() => undefined);
+
+  return {
+    terminal,
+    unusableShape,
+    unusableInput: unusableShape && !prefixAlreadySuppressed,
+    prefix,
+    prefixAlreadySuppressed,
+    rejections,
+  };
+}
+
+/**
+ * Retire every QUEUED candidate that sits under a suppressed URL shape.
+ *
+ * Suppressing the shape at discovery stops NEW siblings arriving; it does
+ * nothing about the ones already in the queue, and in production that backlog
+ * is the loop: `https://gcatholic.org/dioceses/` links to thousands of
+ * `/dioceses/diocese/*` pages and the crawler had been inserting them 100 at a
+ * time for days. Draining them in one statement — rather than one wasted fetch
+ * per pass for the next several thousand passes — is what actually clears the
+ * SOURCE_FETCH condition.
+ *
+ * Only DISCOVERED / PRIORITIZED rows are touched (nothing mid-flight, nothing
+ * already published), the reason is written to the row, and the sweep is
+ * reversible in exactly the way the suppression is: it is driven by
+ * `unclassifiablePrefixes`, so a shape that stops being suppressed is simply
+ * discovered again. Fail-open.
+ */
+async function retireSuppressedCandidates(
+  prisma: PrismaClient,
+  passId: string,
+  suppressedPrefixes: ReadonlySet<string>,
+): Promise<number> {
+  let retired = 0;
+  if (typeof prisma.candidateSourceUrl?.updateMany !== "function") return 0;
+  for (const prefix of suppressedPrefixes) {
+    // `contains` is the SQL prefilter; pinning the host as well keeps a prefix
+    // from ever matching a lookalike path on some other host.
+    const result = await prisma.candidateSourceUrl
+      .updateMany({
+        where: {
+          status: { in: ["DISCOVERED", "PRIORITIZED"] },
+          sourceHost: { equals: prefix.split("/")[0], mode: "insensitive" },
+          discoveredUrl: { contains: prefix, mode: "insensitive" },
+        },
+        data: {
+          status: "REJECTED",
+          rejectionReason: `URL shape ${prefix} matches no Via Fidei content type (classifier-rejected siblings, discovery suppressed).`,
+        },
+      })
+      .catch(() => null);
+    const count = result?.count ?? 0;
+    if (count === 0) continue;
+    retired += count;
+    await writeAdminWorkerLog(prisma, {
+      passId,
+      category: "SOURCE_READING",
+      severity: "WARN",
+      eventName: "fetch_queue_shape_retired",
+      message: `Retired ${count} queued candidate(s) under the unclassifiable URL shape ${prefix} — they can never classify, so fetching them only burns passes.`,
+      safeMetadata: { prefix, retired: count },
+    }).catch(() => undefined);
+  }
+  return retired;
+}
+
 async function runSourceFetchRead(
   prisma: PrismaClient,
   passId: string,
@@ -660,11 +877,34 @@ async function runSourceFetchRead(
   // re-selected on EVERY pass while every candidate behind it starves: a row
   // that was just attempted (or was satisfied from cache) has to wait out its
   // backoff before it can be chosen again (WX-05 / WX-06).
+  // URL shapes this worker has proven no content type can match (see
+  // `unclassifiablePrefixes`). Two things happen with them here: the queued
+  // backlog under them is retired in one sweep — otherwise the thousands of
+  // /dioceses/diocese/* candidates already in the queue would keep being
+  // fetched one per pass long after discovery stopped adding more — and the
+  // picker excludes them so nothing under a suppressed shape is chosen while
+  // the sweep catches up.
+  const { suppressedUrlPrefixes: loadSuppressedPrefixes } = await import("./source-reputation");
+  const suppressedPrefixes = await loadSuppressedPrefixes(prisma).catch(() => new Set<string>());
+  if (suppressedPrefixes.size > 0) {
+    await retireSuppressedCandidates(prisma, passId, suppressedPrefixes);
+  }
+  const notSuppressed =
+    suppressedPrefixes.size > 0
+      ? {
+          NOT: [...suppressedPrefixes].map((prefix) => ({
+            sourceHost: { equals: prefix.split("/")[0], mode: "insensitive" as const },
+            discoveredUrl: { contains: prefix, mode: "insensitive" as const },
+          })),
+        }
+      : {};
+
   const pickCandidate = (excludeHosts: string[]) =>
     prisma.candidateSourceUrl.findFirst({
       where: {
         status: { in: ["DISCOVERED", "PRIORITIZED"] },
         ...candidateFetchEligibility(new Date()),
+        ...notSuppressed,
         ...(excludeHosts.length > 0 ? { sourceHost: { notIn: excludeHosts } } : {}),
       },
       orderBy: [{ fetchPriority: "desc" }, { predictedUsefulness: "desc" }, { createdAt: "asc" }],
@@ -935,11 +1175,21 @@ async function runSourceFetchRead(
     observedJsOnly: readOutcome.rejected && readOutcome.acceptedBlocks === 0,
   }).catch(() => undefined);
 
+  // A classifier rejection is a verdict about the PAGE, not a pipeline
+  // failure — see `retireClassifierRejection`. It retires the candidate so the
+  // same URL is not fetched again next pass, records the URL-shape evidence the
+  // prefix suppression learns from, and decides whether this counts towards
+  // LOOPING.
+  const retirement = readOutcome.rejected
+    ? await retireClassifierRejection(prisma, passId, candidate, readOutcome, suppressedPrefixes)
+    : null;
+
   return {
     stage: "SOURCE_FETCH",
     kind: readOutcome.rejected ? "rejected" : "advanced",
+    unusableInput: retirement?.unusableInput ?? false,
     summary: readOutcome.rejected
-      ? `Fetched + read ${candidate.discoveredUrl}: rejected (${readOutcome.rejectionReason}).`
+      ? `Fetched + read ${candidate.discoveredUrl}: rejected (${readOutcome.rejectionReason})${retirement?.terminal ? " — retired, it will not be fetched again" : ""}.`
       : `Fetched + read ${candidate.discoveredUrl}: ${readOutcome.classifierContentType} (conf ${readOutcome.classifierConfidence.toFixed(2)}).`,
     metadata: {
       candidateId: candidate.id,
@@ -948,6 +1198,17 @@ async function runSourceFetchRead(
       classifierContentType: readOutcome.classifierContentType,
       classifierConfidence: readOutcome.classifierConfidence,
       pipelineStageId: readOutcome.pipelineStageId,
+      ...(retirement
+        ? {
+            classifierRejection: {
+              terminal: retirement.terminal,
+              unusableShape: retirement.unusableShape,
+              urlShapePrefix: retirement.prefix,
+              prefixAlreadySuppressed: retirement.prefixAlreadySuppressed,
+              classifierRejections: retirement.rejections,
+            },
+          }
+        : {}),
     },
     rejected: readOutcome.rejected ? 1 : 0,
   };

@@ -50,7 +50,7 @@ export default defineConfig({
         process.env.E2E_DATABASE_URL ??
         process.env.TEST_DATABASE_URL ??
         process.env.DATABASE_URL ??
-        "postgresql://postgres:postgres@localhost:5432/viafidei_e2e",
+        "postgresql://postgres:postgres@localhost:5432/viafidei_e2e_test",
     },
   },
 });

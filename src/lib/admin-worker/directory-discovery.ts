@@ -12,8 +12,10 @@
 
 import type { ChecklistContentType, PrismaClient } from "@prisma/client";
 
+import { CURATED_BUILT_CONTENT_TYPES, STRUCTURED_BUILT_CONTENT_TYPES } from "./content-types";
 import { discoverFromInternalLinks } from "./internal-link-discovery";
 import { writeAdminWorkerLog } from "./logs";
+import { suppressedUrlPrefixes } from "./source-reputation";
 
 export interface DirectoryPage {
   url: string;
@@ -142,16 +144,91 @@ export interface DirectoryDiscoveryOutcome {
   fetched: number;
   inserted: number;
   rejected: number;
+  /** Directory pages skipped, with the reason (for the audit log). */
+  skipped: Array<{ url: string; reason: string }>;
+}
+
+export interface DirectoryDiscoveryOptions {
+  /** The content type this discovery pass is targeting, when it has one. */
+  contentType?: string | null;
+  /** Pre-computed suppressed URL shapes (see `unclassifiablePrefixes`). */
+  suppressedPrefixes?: ReadonlySet<string>;
+}
+
+/**
+ * Types whose content is NOT built from arbitrary web pages — they grow on
+ * their own curated / structured-feed ingest lanes. A directory page for one of
+ * them can only ever seed URLs the web pipeline cannot publish.
+ */
+const NON_WEB_BUILT: ReadonlySet<string> = new Set([
+  ...CURATED_BUILT_CONTENT_TYPES,
+  ...STRUCTURED_BUILT_CONTENT_TYPES,
+]);
+
+/**
+ * Which directory pages a pass should crawl.
+ *
+ * WHY THIS FILTER EXISTS. `discoverFromDirectories` used to crawl EVERY entry
+ * on every call, whatever the pass was targeting. The orchestrator only reaches
+ * DIRECTORY discovery for SAINT (PARISH bails out earlier — it is
+ * structured-feed-built), so a pass hunting SAINTS was also crawling
+ * `https://gcatholic.org/dioceses/`, `catholic-hierarchy.org` and
+ * `masstimes.org`. That index links to thousands of /dioceses/diocese/* pages;
+ * the crawler inserted them 100 at a time, the fetcher fetched them, and the
+ * classifier rejected every one — Via Fidei has no DIOCESE content type. That
+ * is the entry point of the LOOPING escalation of 2026-09-10, and no amount of
+ * downstream retry-limiting fixes it: the URLs should never have been queued.
+ *
+ * So: a directory whose `expectedContentType` is not web-built is never
+ * crawled by this web lane, and when the pass has a target type the matching
+ * directories are preferred. Untyped directories always run, and if the filter
+ * would leave nothing at all the full list runs — starving discovery would be a
+ * worse failure than one wasted crawl.
+ */
+export function selectDirectoryPages(contentType?: string | null): {
+  pages: DirectoryPage[];
+  skipped: Array<{ url: string; reason: string }>;
+} {
+  const skipped: Array<{ url: string; reason: string }> = [];
+  const webBuilt: DirectoryPage[] = [];
+  for (const dir of DIRECTORY_PAGES) {
+    if (dir.expectedContentType && NON_WEB_BUILT.has(dir.expectedContentType)) {
+      skipped.push({
+        url: dir.url,
+        reason: `${dir.expectedContentType} is not web-built (grown by its own ingest lane)`,
+      });
+      continue;
+    }
+    webBuilt.push(dir);
+  }
+  if (!contentType) return { pages: webBuilt, skipped };
+  const targeted = webBuilt.filter(
+    (d) => !d.expectedContentType || d.expectedContentType === contentType,
+  );
+  if (targeted.length === 0) return { pages: webBuilt, skipped };
+  for (const dir of webBuilt) {
+    if (!targeted.includes(dir)) {
+      skipped.push({
+        url: dir.url,
+        reason: `targeting ${contentType}, not ${dir.expectedContentType}`,
+      });
+    }
+  }
+  return { pages: targeted, skipped };
 }
 
 export async function discoverFromDirectories(
   prisma: PrismaClient,
+  opts: DirectoryDiscoveryOptions = {},
 ): Promise<DirectoryDiscoveryOutcome> {
+  const { pages, skipped } = selectDirectoryPages(opts.contentType ?? null);
+  const suppressedPrefixes =
+    opts.suppressedPrefixes ?? (await suppressedUrlPrefixes(prisma).catch(() => new Set<string>()));
   let fetched = 0;
   let inserted = 0;
   let rejected = 0;
-  for (const dir of DIRECTORY_PAGES) {
-    const outcome = await discoverFromInternalLinks(prisma, dir.url);
+  for (const dir of pages) {
+    const outcome = await discoverFromInternalLinks(prisma, dir.url, { suppressedPrefixes });
     if (outcome.fetched) fetched += 1;
     inserted += outcome.inserted;
     rejected += outcome.rejected;
@@ -160,8 +237,16 @@ export async function discoverFromDirectories(
     category: "SOURCE_DISCOVERY",
     severity: "INFO",
     eventName: "directory_discovery",
-    message: `Directory discovery pass: ${fetched}/${DIRECTORY_PAGES.length} directories fetched, ${inserted} inserted, ${rejected} rejected.`,
-    safeMetadata: { directories: DIRECTORY_PAGES.length, fetched, inserted, rejected },
+    message: `Directory discovery pass: ${fetched}/${pages.length} directories fetched, ${inserted} inserted, ${rejected} rejected, ${skipped.length} directory page(s) skipped.`,
+    contentType: opts.contentType ?? undefined,
+    safeMetadata: {
+      directories: pages.length,
+      fetched,
+      inserted,
+      rejected,
+      skipped,
+      suppressedPrefixes: [...suppressedPrefixes],
+    },
   });
-  return { directories: DIRECTORY_PAGES.length, fetched, inserted, rejected };
+  return { directories: pages.length, fetched, inserted, rejected, skipped };
 }

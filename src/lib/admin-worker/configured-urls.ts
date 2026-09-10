@@ -18,6 +18,7 @@ import type {
 import { isFetchableHost } from "@/lib/checklist";
 import { discoverCandidate, isJunkUrl } from "./web-navigator";
 import { writeAdminWorkerLog } from "./logs";
+import { isSuppressedUrlShape, suppressedUrlPrefixes } from "./source-reputation";
 
 export interface ConfiguredUrlEntry {
   url: string;
@@ -270,14 +271,32 @@ export interface ConfiguredUrlsOutcome {
   total: number;
   inserted: number;
   rejected: number;
+  /** Entries skipped because their URL shape is a suppressed unclassifiable one. */
+  suppressed?: number;
+}
+
+export interface ConfiguredUrlsOptions {
+  /** Pre-computed suppressed URL shapes (see `unclassifiablePrefixes`). */
+  suppressedPrefixes?: ReadonlySet<string>;
 }
 
 export async function discoverFromConfiguredUrls(
   prisma: PrismaClient,
+  opts: ConfiguredUrlsOptions = {},
 ): Promise<ConfiguredUrlsOutcome> {
   const entries = listConfiguredUrls();
+  // Configured URLs are operator-curated index pages, and `urlShapePrefix`
+  // never suppresses a bare host or a single-segment path, so in practice the
+  // catalogue is untouched by this. It is applied anyway so no discovery lane
+  // can quietly re-seed a shape the classifier has already refused N times —
+  // and the skip is logged by name, never silent, because overriding an
+  // operator's explicit entry has to be visible.
+  const suppressedPrefixes =
+    opts.suppressedPrefixes ?? (await suppressedUrlPrefixes(prisma).catch(() => new Set<string>()));
   let inserted = 0;
   let rejected = 0;
+  let suppressed = 0;
+  const suppressedUrls: string[] = [];
   for (const entry of entries) {
     let host = "";
     try {
@@ -298,6 +317,11 @@ export async function discoverFromConfiguredUrls(
       rejected += 1;
       continue;
     }
+    if (isSuppressedUrlShape(entry.url, suppressedPrefixes)) {
+      suppressed += 1;
+      suppressedUrls.push(entry.url);
+      continue;
+    }
     const row = await discoverCandidate(prisma, {
       url: entry.url,
       sourceHost: host,
@@ -312,10 +336,14 @@ export async function discoverFromConfiguredUrls(
   }
   await writeAdminWorkerLog(prisma, {
     category: "SOURCE_DISCOVERY",
-    severity: "INFO",
+    severity: suppressed > 0 ? "WARN" : "INFO",
     eventName: "configured_urls_discovery",
-    message: `Configured URL pass: ${inserted} inserted, ${rejected} rejected (of ${entries.length}).`,
-    safeMetadata: { total: entries.length, inserted, rejected },
+    message:
+      `Configured URL pass: ${inserted} inserted, ${rejected} rejected (of ${entries.length}).` +
+      (suppressed > 0
+        ? ` ${suppressed} operator-configured URL(s) skipped as unclassifiable URL shapes: ${suppressedUrls.join(", ")}.`
+        : ""),
+    safeMetadata: { total: entries.length, inserted, rejected, suppressed, suppressedUrls },
   });
-  return { total: entries.length, inserted, rejected };
+  return { total: entries.length, inserted, rejected, suppressed };
 }

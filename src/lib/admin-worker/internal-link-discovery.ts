@@ -17,6 +17,7 @@ import { isApprovedAuthorityHost, isFetchableHost } from "@/lib/checklist";
 import { discoverCandidate, isJunkUrl } from "./web-navigator";
 import { writeAdminWorkerLog } from "./logs";
 import { sampleWorkerEvent } from "./self-maintenance";
+import { isSuppressedUrlShape, suppressedUrlPrefixes } from "./source-reputation";
 
 const FETCH_TIMEOUT_MS = 8_000;
 const USER_AGENT = "ViaFideiAdminWorker/1.0 (+internal-link-discovery)";
@@ -86,12 +87,24 @@ export interface InternalLinkOutcome {
   fetched: boolean;
   inserted: number;
   rejected: number;
+  /** Links skipped because their URL shape is a suppressed unclassifiable one. */
+  suppressed?: number;
   reason?: string;
+}
+
+export interface InternalLinkOptions {
+  /**
+   * Pre-computed suppressed URL shapes (see `unclassifiablePrefixes`). The
+   * orchestrator computes the set once per pass and passes it to every seed;
+   * omit it and this loads its own.
+   */
+  suppressedPrefixes?: ReadonlySet<string>;
 }
 
 export async function discoverFromInternalLinks(
   prisma: PrismaClient,
   seedUrl: string,
+  opts: InternalLinkOptions = {},
 ): Promise<InternalLinkOutcome> {
   let seedHost = "";
   try {
@@ -118,8 +131,16 @@ export async function discoverFromInternalLinks(
   }
 
   const links = extractInternalLinks(html, seedUrl);
+  // URL shapes proven unclassifiable (see `unclassifiablePrefixes`). This is
+  // the fan-out that produced the loop: gcatholic.org/dioceses/ links to
+  // thousands of /dioceses/diocese/* pages, each rejected by the classifier
+  // seeds this crawl again, and every rejection was recorded as a SOURCE_FETCH
+  // failure. Once the shape has proven itself unusable, stop surfacing it.
+  const suppressedPrefixes =
+    opts.suppressedPrefixes ?? (await suppressedUrlPrefixes(prisma).catch(() => new Set<string>()));
   let inserted = 0;
   let rejected = 0;
+  let suppressed = 0;
   for (const link of links) {
     let host = "";
     try {
@@ -146,6 +167,10 @@ export async function discoverFromInternalLinks(
       rejected += 1;
       continue;
     }
+    if (isSuppressedUrlShape(link, suppressedPrefixes)) {
+      suppressed += 1;
+      continue;
+    }
     const row = await discoverCandidate(prisma, {
       url: link,
       sourceHost: host,
@@ -156,19 +181,31 @@ export async function discoverFromInternalLinks(
     else rejected += 1;
   }
 
-  // One INFO row per pass (173,679 rows in production). Sampled.
-  if (sampleWorkerEvent("internal_link_discovery").write) {
+  // One INFO row per pass (173,679 rows in production). Sampled — but a pass
+  // that actually suppressed a URL shape is always written, so the suppression
+  // is observable rather than silent.
+  if (suppressed > 0 || sampleWorkerEvent("internal_link_discovery").write) {
     await writeAdminWorkerLog(prisma, {
       category: "SOURCE_DISCOVERY",
-      severity: "INFO",
+      severity: suppressed > 0 ? "WARN" : "INFO",
       eventName: "internal_link_discovery",
       presampled: true,
-      message: `Internal-link discovery from ${seedUrl}: ${inserted} inserted, ${rejected} rejected (of ${links.length} extracted).`,
+      message:
+        `Internal-link discovery from ${seedUrl}: ${inserted} inserted, ${rejected} rejected (of ${links.length} extracted)` +
+        (suppressed > 0
+          ? `; ${suppressed} skipped as unclassifiable URL shapes (${[...suppressedPrefixes].join(", ")}).`
+          : "."),
       sourceHost: seedHost,
       sourceUrl: seedUrl,
-      safeMetadata: { extracted: links.length, inserted, rejected },
+      safeMetadata: {
+        extracted: links.length,
+        inserted,
+        rejected,
+        suppressed,
+        suppressedPrefixes: [...suppressedPrefixes],
+      },
     });
   }
 
-  return { seedUrl, fetched: true, inserted, rejected };
+  return { seedUrl, fetched: true, inserted, rejected, suppressed };
 }

@@ -313,3 +313,247 @@ export async function decaySourceReputation(
   }
   return { decayed, demoted, retestable };
 }
+
+// ── Unclassifiable URL SHAPES (the gcatholic /dioceses/diocese/* loop) ───────
+//
+// A source can be perfectly healthy at the HTTP level and still hand the worker
+// pages that no Via Fidei content type can ever match. Production, 2026-09-10:
+// SOURCE_FETCH failed/needed-repair 21× in 6h with 0 successes, and every one of
+// those "failures" was a SUCCESSFUL fetch of a gcatholic.org DIOCESE page —
+// /dioceses/diocese/dall0, /dave0, /desm0, /detr0, /dubu0, /croo0 — that the
+// classifier then scored at 0.05-0.25 against the 0.55 threshold. Via Fidei has
+// no DIOCESE content type, so those pages are structurally unpublishable: no
+// amount of retrying, rerouting or re-reading can change the verdict.
+//
+// The host-level reputation row above cannot express this: gcatholic.org is a
+// legitimate approved authority whose parish/church pages are useful, and
+// pausing the whole host to stop one directory section would throw away real
+// content. The unit that is unusable is the URL SHAPE — host + parent path —
+// so that is the unit this learns on.
+//
+// Deliberately DERIVED state, exactly like `blockedFetchHosts` in the
+// dispatcher: it is computed from CandidateSourceUrl rows the pipeline already
+// writes (`rejectionPattern`), so there is no new table, no new migration and
+// nothing to garbage-collect. That also makes it reversible three separate
+// ways — see `unclassifiablePrefixes`.
+
+/**
+ * Marker written to `CandidateSourceUrl.rejectionPattern` when a page was
+ * fetched and read successfully but the classifier could match NO content type.
+ * This is the evidence `unclassifiablePrefixes` learns from, and it is what
+ * distinguishes "this page can never be published" from a transient fetch
+ * failure (which must keep retrying — see `classifyFetchFailure`).
+ */
+export const UNCLASSIFIABLE_REJECTION_PATTERN = "classifier:no-matching-content-type";
+
+/** Classifier verdicts that mean "no content type can match this page". */
+export const UNCLASSIFIABLE_READ_TYPES: readonly string[] = ["UNUSABLE", "WRONG"];
+
+/**
+ * Classifier rejections of one URL before it stops being re-queued. Two, not
+ * one: a page can legitimately fail to classify once (a partial render, a body
+ * the reader parsed badly) and deserve a single second look after its freshness
+ * interval. Two rejections of the same URL is a verdict, not an accident.
+ */
+export const MAX_CLASSIFIER_REJECTIONS = 2;
+
+/** Sibling URLs under one prefix that must be classifier-rejected before discovery stops the prefix. */
+export const UNCLASSIFIABLE_PREFIX_MIN_SIBLINGS = 5;
+
+/**
+ * How far back sibling evidence is measured — and therefore how long a
+ * suppression can last without fresh evidence. A suppressed prefix whose
+ * rejections all age out of this window is discovered again and re-tested,
+ * which is the same "re-prove it" philosophy as the reputation decay above.
+ */
+export const UNCLASSIFIABLE_PREFIX_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+
+/**
+ * The URL SHAPE a page belongs to: host + parent path, lowercased.
+ *
+ *   https://gcatholic.org/dioceses/diocese/dall0 → gcatholic.org/dioceses/diocese
+ *
+ * Returns null when the URL has fewer than two path segments, so the prefix is
+ * ALWAYS a real subdirectory and this can never degenerate into a host-wide
+ * blocklist: `https://gcatholic.org/dioceses/` and `https://gcatholic.org/` both
+ * yield null and are never suppressed.
+ */
+export function urlShapePrefix(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  const segments = parsed.pathname.split("/").filter(Boolean);
+  if (segments.length < 2) return null;
+  return `${parsed.host}/${segments.slice(0, -1).join("/")}`.toLowerCase();
+}
+
+/** `host/path` for prefix comparison — no scheme, no query, no fragment. */
+function hostPath(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return `${parsed.host}${parsed.pathname}`.replace(/\/+$/, "").toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when `url` sits under one of the suppressed prefixes — the prefix itself
+ * or anything below it. Cheap by design: the suppressed set is tiny (a handful
+ * of prefixes at most) and this runs per discovered link.
+ */
+export function isSuppressedUrlShape(url: string, prefixes: ReadonlySet<string>): boolean {
+  if (prefixes.size === 0) return false;
+  const path = hostPath(url);
+  if (!path) return false;
+  for (const prefix of prefixes) {
+    if (path === prefix || path.startsWith(`${prefix}/`)) return true;
+  }
+  return false;
+}
+
+export interface UnclassifiablePrefix {
+  /** host + parent path, e.g. `gcatholic.org/dioceses/diocese`. */
+  prefix: string;
+  host: string;
+  /** Distinct candidate URLs under the prefix the classifier could not type. */
+  rejectedUrls: number;
+  /** Up to three real URLs, so the log line and the operator view are concrete. */
+  examples: string[];
+}
+
+/**
+ * URL shapes discovery should stop surfacing: at least
+ * `minSiblings` DIFFERENT URLs under the same host+parent-path were fetched
+ * successfully and then rejected by the classifier for matching no content
+ * type, and NOTHING under that shape classified successfully in the same
+ * window.
+ *
+ * Three independent ways out, so this is a deprioritisation and not a permanent
+ * blocklist:
+ *   1. one page under the shape that DOES classify clears it immediately;
+ *   2. the evidence ages out of `UNCLASSIFIABLE_PREFIX_WINDOW_MS` and the shape
+ *      is discovered and re-tested from scratch;
+ *   3. it is derived, so clearing `rejectionPattern` on those candidate rows
+ *      (an operator action, no migration) clears the suppression.
+ *
+ * Fail-open: any error returns an empty list, i.e. discovery behaves exactly as
+ * it did before. Suppressing nothing is always the safe direction.
+ */
+export async function unclassifiablePrefixes(
+  prisma: PrismaClient,
+  opts: { nowMs?: number; minSiblings?: number; windowMs?: number } = {},
+): Promise<UnclassifiablePrefix[]> {
+  const nowMs = opts.nowMs ?? Date.now();
+  const minSiblings = opts.minSiblings ?? UNCLASSIFIABLE_PREFIX_MIN_SIBLINGS;
+  const since = new Date(nowMs - (opts.windowMs ?? UNCLASSIFIABLE_PREFIX_WINDOW_MS));
+  try {
+    const rejected = (await prisma.candidateSourceUrl.findMany({
+      where: {
+        rejectionPattern: UNCLASSIFIABLE_REJECTION_PATTERN,
+        updatedAt: { gte: since },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 2000,
+      select: { discoveredUrl: true, sourceHost: true },
+    })) as Array<{ discoveredUrl: string; sourceHost: string }>;
+
+    const byPrefix = new Map<string, UnclassifiablePrefix>();
+    const seenUrls = new Set<string>();
+    for (const row of rejected) {
+      if (seenUrls.has(row.discoveredUrl)) continue;
+      seenUrls.add(row.discoveredUrl);
+      const prefix = urlShapePrefix(row.discoveredUrl);
+      if (!prefix) continue;
+      const entry = byPrefix.get(prefix) ?? {
+        prefix,
+        host: row.sourceHost,
+        rejectedUrls: 0,
+        examples: [],
+      };
+      entry.rejectedUrls += 1;
+      if (entry.examples.length < 3) entry.examples.push(row.discoveredUrl);
+      byPrefix.set(prefix, entry);
+    }
+
+    const overThreshold = [...byPrefix.values()].filter((e) => e.rejectedUrls >= minSiblings);
+    if (overThreshold.length === 0) return [];
+
+    // Way out #1: one page under the shape that the classifier DID type proves
+    // the shape is usable, so the whole prefix comes back. Scoped to the hosts
+    // actually implicated so this stays a small query.
+    const hosts = [...new Set(overThreshold.map((e) => e.host))];
+    const proven = (await prisma.adminWorkerSourceRead
+      .findMany({
+        where: {
+          sourceHost: { in: hosts },
+          createdAt: { gte: since },
+          detectedContentType: { notIn: [...UNCLASSIFIABLE_READ_TYPES], not: null },
+        },
+        select: { sourceUrl: true },
+        take: 2000,
+      })
+      .catch(() => [] as Array<{ sourceUrl: string }>)) as Array<{ sourceUrl: string }>;
+    const provenPaths: string[] = [];
+    for (const row of proven) {
+      const path = hostPath(row.sourceUrl);
+      if (path) provenPaths.push(path);
+    }
+
+    return overThreshold
+      .filter((e) => !provenPaths.some((p) => p === e.prefix || p.startsWith(`${e.prefix}/`)))
+      .sort((a, b) => b.rejectedUrls - a.rejectedUrls);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * How long `suppressedUrlPrefixes` reuses its last answer within one process.
+ *
+ * `unclassifiablePrefixes` filters on `rejectionPattern`, which is not indexed,
+ * so on a CandidateSourceUrl table with hundreds of thousands of rows it is a
+ * scan. Every discovery pass and every SOURCE_FETCH pass wants the answer, and
+ * the answer changes on the order of hours (a shape needs several sibling
+ * rejections to appear, and a single success to disappear), so caching it for a
+ * few minutes costs nothing in accuracy: the worst case is that a shape stays
+ * suppressed, or stays live, for one extra cache window.
+ */
+export const SUPPRESSED_PREFIX_CACHE_MS = 10 * 60 * 1000;
+
+let suppressedPrefixCache: { at: number; prefixes: Set<string> } | null = null;
+
+/** Drop the memoized suppression set (tests, and any forced re-read). */
+export function clearSuppressedPrefixCache(): void {
+  suppressedPrefixCache = null;
+}
+
+/**
+ * `unclassifiablePrefixes` as the set the discovery modules filter against,
+ * memoized for `SUPPRESSED_PREFIX_CACHE_MS`. Pass explicit `opts` to bypass the
+ * cache and compute a fresh answer.
+ */
+export async function suppressedUrlPrefixes(
+  prisma: PrismaClient,
+  opts: { nowMs?: number; minSiblings?: number; windowMs?: number } = {},
+): Promise<Set<string>> {
+  const explicit =
+    opts.nowMs !== undefined || opts.minSiblings !== undefined || opts.windowMs !== undefined;
+  const now = Date.now();
+  if (
+    !explicit &&
+    suppressedPrefixCache &&
+    now - suppressedPrefixCache.at < SUPPRESSED_PREFIX_CACHE_MS
+  ) {
+    return suppressedPrefixCache.prefixes;
+  }
+  const rows = await unclassifiablePrefixes(prisma, opts);
+  const prefixes = new Set(rows.map((r) => r.prefix));
+  if (!explicit) suppressedPrefixCache = { at: now, prefixes };
+  return prefixes;
+}

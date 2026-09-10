@@ -29,6 +29,11 @@ import { discoverFromConfiguredUrls } from "./configured-urls";
 import { discoverFromDirectories } from "./directory-discovery";
 import { writeAdminWorkerLog } from "./logs";
 import { discoverFromHost } from "./sitemap-discovery";
+import {
+  UNCLASSIFIABLE_READ_TYPES,
+  isSuppressedUrlShape,
+  unclassifiablePrefixes,
+} from "./source-reputation";
 
 /**
  * Per-content-type discovery strategy. The `hints` field is a list
@@ -204,6 +209,40 @@ export async function runDiscoveryOrchestrator(
   const strategy = contentType ? CONTENT_TYPE_STRATEGIES[contentType] : null;
   if (strategy) strategies.push(strategy.description);
 
+  // URL SHAPES this worker has proven it cannot classify (see
+  // `unclassifiablePrefixes`). Computed ONCE per pass and handed to every
+  // discoverer, so a shape like gcatholic.org/dioceses/diocese — 21 siblings
+  // fetched and refused in six hours because Via Fidei has no DIOCESE content
+  // type — stops being re-surfaced by every lane at once. Always logged when
+  // non-empty: a suppression the operator cannot see is a blocklist.
+  const suppressions = await unclassifiablePrefixes(prisma).catch(() => []);
+  const suppressedPrefixes = new Set(suppressions.map((p) => p.prefix));
+  if (suppressions.length > 0) {
+    strategies.push(
+      `suppressing ${suppressions.length} unclassifiable URL shape(s): ${suppressions.map((p) => p.prefix).join(", ")}`,
+    );
+    await writeAdminWorkerLog(prisma, {
+      passId: opts.passId ?? null,
+      category: "SOURCE_DISCOVERY",
+      severity: "WARN",
+      eventName: "discovery_prefix_suppressed",
+      message:
+        `Discovery is skipping ${suppressions.length} URL shape(s) that no content type can match: ` +
+        suppressions
+          .map((p) => `${p.prefix} (${p.rejectedUrls} rejected, e.g. ${p.examples[0] ?? "-"})`)
+          .join("; ") +
+        ". Each clears itself as soon as one page under it classifies, or when its rejections age out of the evidence window.",
+      safeMetadata: {
+        suppressions: suppressions.map((p) => ({
+          prefix: p.prefix,
+          host: p.host,
+          rejectedUrls: p.rejectedUrls,
+          examples: p.examples,
+        })),
+      },
+    }).catch(() => undefined);
+  }
+
   // Rank approved hosts by reputation. Hosts that are PAUSED or have
   // a low fetch success rate get skipped this pass — they go on a
   // slow re-test schedule (handled by the source-reputation module).
@@ -254,7 +293,9 @@ export async function runDiscoveryOrchestrator(
         continue;
       }
       try {
-        const outcome = await discoverFromHost(prisma, host.sourceHost);
+        const outcome = await discoverFromHost(prisma, host.sourceHost, {
+          suppressedPrefixes,
+        });
         tally("SITEMAP", outcome.inserted);
         // Spec §19: source reputation updates after the discovery stage
         // — a host that surfaces candidates is more productive.
@@ -275,7 +316,7 @@ export async function runDiscoveryOrchestrator(
   // are explicit operator-curated entries.
   if (!strategy || strategy.preferDiscoverers.includes("CONFIGURED")) {
     try {
-      const outcome = await discoverFromConfiguredUrls(prisma);
+      const outcome = await discoverFromConfiguredUrls(prisma, { suppressedPrefixes });
       tally("CONFIGURED", outcome.inserted);
     } catch (e) {
       errors.push(`configured: ${(e as Error).message}`);
@@ -285,7 +326,10 @@ export async function runDiscoveryOrchestrator(
   // Directory discovery for content types whose strategy asks for it.
   if (strategy?.preferDiscoverers.includes("DIRECTORY")) {
     try {
-      const outcome = await discoverFromDirectories(prisma);
+      const outcome = await discoverFromDirectories(prisma, {
+        contentType,
+        suppressedPrefixes,
+      });
       tally("DIRECTORY", outcome.inserted);
     } catch (e) {
       errors.push(`directory: ${(e as Error).message}`);
@@ -318,9 +362,17 @@ export async function runDiscoveryOrchestrator(
       const { discoverFromInternalLinks } = await import("./internal-link-discovery");
       const { isApprovedAuthorityHost } =
         await import("@/lib/checklist/sources/authority-registry");
+      // Seed only from reads the classifier could actually TYPE. A read whose
+      // detected type is UNUSABLE / WRONG is still non-null, so it used to
+      // qualify as a seed — which is what made the loop self-amplifying: a
+      // rejected gcatholic.org/dioceses/diocese/dall0 page became a crawl seed,
+      // and a diocese page links to its sibling dioceses, so each rejection
+      // surfaced up to 100 more URLs that would be rejected in their turn.
       const rawSeeds = await prisma.adminWorkerSourceRead
         .findMany({
-          where: { detectedContentType: { not: null } },
+          where: {
+            detectedContentType: { notIn: [...UNCLASSIFIABLE_READ_TYPES], not: null },
+          },
           orderBy: { createdAt: "desc" },
           take: 20,
           select: { sourceUrl: true, sourceHost: true },
@@ -331,9 +383,14 @@ export async function runDiscoveryOrchestrator(
       // free-hosting site whose links were followed once) re-armed the crawler
       // and it spidered the whole site — the gabiula.pl.tl runaway. Restricting
       // the seed to authorities stops that at the source.
-      const seeds = rawSeeds.filter((s) => isApprovedAuthorityHost(s.sourceHost)).slice(0, 5);
+      const seeds = rawSeeds
+        .filter((s) => isApprovedAuthorityHost(s.sourceHost))
+        .filter((s) => !isSuppressedUrlShape(s.sourceUrl, suppressedPrefixes))
+        .slice(0, 5);
       for (const seed of seeds) {
-        const r = await discoverFromInternalLinks(prisma, seed.sourceUrl).catch(() => null);
+        const r = await discoverFromInternalLinks(prisma, seed.sourceUrl, {
+          suppressedPrefixes,
+        }).catch(() => null);
         if (r?.fetched) tally("INTERNAL_LINK", r.inserted);
       }
     } catch (e) {
@@ -432,6 +489,7 @@ export async function runDiscoveryOrchestrator(
       rejectedByScorer: rescored.rejected,
       prioritized: rescored.prioritized,
       hostsSkipped: hostsSkipped.map((h) => h.host),
+      suppressedPrefixes: [...suppressedPrefixes],
       errors,
     },
   });
