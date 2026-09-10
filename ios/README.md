@@ -285,13 +285,30 @@ ios/
     Assets.xcassets AccentColor, AppIcon
 ```
 
+## The app icon
+
+`Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png` is generated from the
+site's own artwork by `tools/make-app-icon.swift`, not hand-exported:
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  swift tools/make-app-icon.swift ../public/icon-512.png \
+  ViaFideiCommandCentre/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+```
+
+Two traps it exists to avoid. iOS **silently** rejects an app icon that carries
+an alpha channel — the build succeeds and the home screen shows a blank tile,
+which is exactly how this app first shipped — and `public/icon-512.png` is
+transparent, so the generator flattens it onto `#fbf8f1`, the site's own
+`background_color` from `public/site.webmanifest`, rather than an arbitrary
+white square. It also upscales 512 to the required 1024 and insets the mark 6%
+so iOS's rounded mask does not clip it.
+
 ## Not included
 
 - **Actions.** The desktop console can also trigger a pass, approve a review
   item and act on a homepage draft over its loopback API. Those endpoints are
   not exposed to the phone by the server, so this app observes and toggles;
   approving is done on the Admin Site tab.
-- **An app icon image.** `AppIcon` is an empty 1024 slot; the home-screen icon
-  is the default until artwork is dropped in.
 - **Push notifications.** Nothing here wakes the phone; it polls only while
   you are looking at it.

@@ -25,6 +25,10 @@ publishes — runs **on the operator's Mac**, not on the server, launched by a
 native application whose toolbar carries the one master switch that turns the
 whole system on and off. Railway never runs the loop. See
 [Admin Worker execution host](#admin-worker-execution-host--the-operators-mac).
+There is also a native **iPhone companion** ([`ios/`](ios/)) carrying the same
+three views, but it is a remote control rather than a fifth piece: it writes
+one durable row and the Mac does the work — see
+[The iPhone companion](#the-iphone-companion--a-remote-control-that-never-runs-the-worker).
 
 With a fresh database the Admin Worker fills the site by itself: it ranks the
 next safest action, discovers Catholic sources across eight discovery methods
@@ -606,6 +610,13 @@ returns `known: false` when the database cannot be read, and callers that stop
 work on OFF must treat that as "keep doing what you were doing" and surface the
 error, rather than reading an outage as an operator's OFF.
 
+Because the switch is a row rather than a message to a process, the toolbar
+pill is not the only thing that can write it. The operator's iPhone writes the
+same row over HTTPS, and `npm run worker:local -- --switch-on` writes it from a
+terminal. What makes such a write take effect on this Mac is
+[the durable switch poll](#the-durable-switch-poll) — without it a row set from
+anywhere else would sit there doing nothing.
+
 ### The execution lease
 
 Alongside the switch, `worker.execution.lease` records **which runtime currently
@@ -635,6 +646,127 @@ Every entry point is gated twice — by the process-level rule in
 computation, spawn the Python brain or launch Chromium) and by the durable rule
 in `execution-host.ts` (the switch must be ON and this runtime must hold the
 lease).
+
+### The durable switch poll
+
+A durable switch only works as a remote control if this Mac notices when
+something else writes the row. Until
+[`switch-poll.ts`](src/lib/admin-worker/switch-poll.ts) landed it did not:
+[`scripts/local-worker-host.ts`](scripts/local-worker-host.ts) read
+`worker.execution.switch` exactly twice — once at startup, and again on the
+child-exit paths — so a row set ON from anywhere else did **nothing at all**
+until the application was relaunched. That is the worst shape such a gap can
+take, because nothing looked broken: the write succeeded, every surface
+reported the switch ON, and no worker ran.
+
+`reconcileSwitchTick` in the host closes it. Every **7 s**
+(`SWITCH_POLL_INTERVAL_MS`) the host reads the durable switch and makes this
+machine match it, in **both** directions — a switch flipped ON elsewhere has to
+_start_ the worker here, not only stop it. Each tick is scheduled with the same
+**±20 % jitter** the lease renewal uses (`leaseRenewDelayMs`), so the 7 s
+reconcile, the 20 s lease renewal and the 2 s dashboard tick never convoy onto
+one congested instant of the Railway proxy link, and the timer is `unref`'d so
+it can never hold the process open. A status read from the last **2 s**
+(`SWITCH_POLL_CACHE_MS`) is reused rather than re-fetched, so a tick landing
+just after the dashboard's own refresh costs nothing. Worst-case actuation
+latency is therefore 7 s + 2 s ≈ **9 s**, and that number is shipped to clients
+as `actuation.expectedLatencyMs` instead of being hard-coded in each of them.
+
+The decision itself is a pure function — `planSwitchPoll(input)` returns
+exactly one of `start`, `stop` or `none`, with the reason — so the rules below
+are pinned by `tests/admin-worker/local-switch-poll.test.ts` (37 tests) with no
+database, no process tree and no clock.
+
+- **An unreadable switch is UNKNOWN, never OFF.** `known: false` means the
+  database did not answer. Reading that as OFF would stop a healthy worker
+  mid-pass over one bad round trip, so the tick does nothing at all
+  (`switch_unknown`) — the same fail-open rule lease renewal follows.
+- **It reuses the existing start and stop paths.** ON runs the sequence the
+  app's own switch runs: probe the database, refuse if `blockingReason` says
+  this is not a database the worker may write to, claim the execution lease,
+  then `startWorkerChild()`. OFF runs `stopWorkerChild()`, shuts down the
+  resident Python brain and releases the lease. There is no second lifecycle.
+  The one thing both paths omit is the switch write itself — the row already
+  holds the value, and rewriting it would erase who set it and from where.
+- **It is idempotent, and silent when the world already matches.** Switch ON
+  with a child running is `already_running`; switch OFF with nothing running is
+  `already_stopped`. Neither changes anything and neither logs a line, which is
+  the normal case several times a minute.
+- **It stands aside rather than competing.** While an existing path already
+  intends to (re)start the child — a crash backoff, a deferred resume after a
+  database outage — `pendingStarts` is non-zero and the poll declines
+  (`start_pending`); a child mid-start or mid-stop is `transitioning`; an
+  operator OFF still waiting to be recorded durably is `pending_durable_off`
+  and belongs to the lease tick. A tick still working blocks the next one
+  outright (`reconcileInFlight`). The poll therefore cannot double-start a
+  worker, which is the failure this design is most exposed to.
+- **A runtime that gave up needs a deliberate re-arm.** Five crashes in a row,
+  a spawn error, or a lease taken by another computer leave the runtime in the
+  `failed` state, and a switch that is _merely still ON_ does not restart it
+  (`failed_needs_operator`) — otherwise a worker that dies on every launch
+  would be relaunched every seven seconds. It takes an OFF→ON edge, which is
+  exactly what the give-up message asks the operator for and which can happen
+  at most once per operator action. Because the poll **samples** the row rather
+  than observing events, that edge is recognised two ways: the value crossing
+  from `false` to `true`, or `MasterSwitch.changedAt` moving since the previous
+  read. The second one matters because a thumb can tap OFF and then ON well
+  inside one 7 s interval — two writes, one observation — and nothing writes
+  that row on a timer, so a moved timestamp is reliable evidence that somebody
+  deliberately set it. Only on that edge does the tick reset the crash-restart
+  counter (`clearFailure`), exactly as the app's own switch endpoint does — a
+  start that happens merely because the switch is still ON inherits the streak
+  it already had.
+- **A refused start goes on cooldown.** When the lease is held elsewhere, or
+  the database is not one this host may work against, starts are suppressed for
+  60 s (`SWITCH_POLL_START_COOLDOWN_MS`) and only the _first_ occurrence of each
+  distinct refusal is logged — a lease held by another computer for an hour
+  must not write five hundred lines. A deliberate re-arm always gets a fresh
+  attempt regardless of the cooldown.
+
+Both directions are recorded in the durable log with the reason
+(`local_worker_activated` / `local_worker_deactivated`, tagged
+`trigger: "switch-poll"`), so a worker that started because a phone wrote the
+row says so in the same place every other lifecycle event is written.
+
+### The host presence row
+
+The reconcile tick is also the one thing that runs whether the worker is on or
+off, which makes it the right place to answer a question no other signal
+answers: **is the Mac runtime itself alive?**
+
+[`host-presence.ts`](src/lib/admin-worker/host-presence.ts) writes one more
+`AdminWorkerMemory` row in the same `worker.execution.*` namespace the switch
+and the lease already use — `worker.execution.host` (`HOST_PRESENCE_KEY`) — so
+there is no new table. It carries the runtime id (the same one the lease uses),
+a short machine label, the supervisor pid and run state, whether a worker child
+exists and when it started, the switch as this runtime last read it, any
+failure reason (truncated to 400 characters, so no stack trace or connection
+string can reach a screen), and whether the lease is held elsewhere.
+
+Two liveness facts stay deliberately separate, and conflating them is the whole
+reason the row exists:
+
+| Question                   | Signal                                     | Written                                       |
+| -------------------------- | ------------------------------------------ | --------------------------------------------- |
+| Is the **worker** alive?   | `AdminWorkerState.lastHeartbeatAt`         | only while a worker child is actually running |
+| Is the **Mac host** alive? | `AdminWorkerMemory(worker.execution.host)` | every reconcile tick, worker on **or** off    |
+
+Without the second, "the application is running with the worker switched off"
+and "the Mac is asleep" are indistinguishable from off the machine — and only
+the first of those can honour a remote switch-ON.
+
+Freshness is a contract, not a guess. The row carries its own `intervalMs`
+(7 s) and `staleAfterMs` (`HOST_PRESENCE_STALE_MS`, **30 s** — three missed
+ticks plus slack), so a reader need not hard-code the cadence: `readHostPresence`
+reports `alive` only when the row's age is inside its own stale window. A clean
+shutdown deletes the row (and only the runtime that owns it may delete it), so
+a quit shows as "not running" immediately instead of waiting out the window. A
+database error comes back as `known: false` — unknown, never "the Mac is off".
+
+**The presence row is display only.** Nothing gates on it. In particular the
+iPhone toggle is not disabled when presence is stale: the switch is a durable
+row precisely so it can be written while the Mac is away and honoured when it
+wakes.
 
 ### What the app contains
 
@@ -690,6 +822,352 @@ guarantees the two runtimes can never both drain the same queue.
 `npm run worker` without that flag exits **non-zero** rather than pretending to
 work, so a cron entry or deploy hook wrapped around it fails visibly instead of
 silently doing nothing.
+
+---
+
+## The iPhone companion — a remote control that never runs the worker
+
+[`ios/`](ios/) is a native SwiftUI application for the operator's iPhone. It
+carries the same three views the Mac application carries — the **Admin Worker**
+command centre, the **Standard Site** and the **Admin Site** — redesigned for a
+phone rather than shrunk onto one. It exists for one job: to observe the worker
+and to switch it on and off from wherever the operator happens to be, without
+the Mac in front of him.
+
+### The guarantee: turning it on from the phone runs the worker on the Mac
+
+Switching the worker ON from the iPhone starts it **on the Mac**, using the
+Mac's CPU, memory, disk and internet connection. The phone spends nothing on
+the work beyond one HTTPS request.
+
+That is structural rather than a promise, and the structure is the one
+described above:
+
+- the master switch is a **durable row** in Postgres
+  (`AdminWorkerMemory` → `worker.execution.switch`);
+- the phone's one mutation writes **that row and nothing else** — the route
+  does not claim the execution lease, does not spawn anything, and does not
+  touch the worker;
+- the **Mac** claims the lease and spawns the worker child, on its own
+  [durable switch poll](#the-durable-switch-poll).
+
+```
+iPhone                          Railway (Next.js + Postgres)            the Mac
+------                          ----------------------------            -------
+POST /api/admin/worker/switch ─► setMasterSwitch()
+     { on: true }                writes ONE durable row
+                                 worker.execution.switch
+                                                          ◄──── reconcile poll,
+                                                                every 7 s:
+                                                                reads the row,
+                                                                claims the lease,
+                                                                spawns the worker
+GET  /api/admin/worker/status ─► reads the durable rows    ◄──── writes host
+GET  /api/admin/worker/snapshot                                  presence +
+                                                                 heartbeat
+```
+
+The phone has no database driver, no worker entry point, no ingest and no way
+to start a process, and `tests/ios/iphone-app-structure.test.ts` (20 tests)
+pins that so a later change cannot quietly turn the companion into something
+that could execute a pass. Verified here against this tree:
+
+- **No dependencies to link.** `ViaFideiCommandCentre.xcodeproj` contains zero
+  `XCRemoteSwiftPackageReference`, `XCLocalSwiftPackageReference` and
+  `XCSwiftPackageProductDependency` entries, and its `PBXFrameworksBuildPhase`
+  has an **empty** `files` list. There is nothing to link that could open a
+  database connection.
+- **The shipped binary links only Apple system code.** `otool -L` on
+  `build/Build/Products/Release-iphoneos/ViaFideiCommandCentre.app/ViaFideiCommandCentre`
+  lists Foundation, Combine, Network, Security, SwiftUI, UIKit and WebKit from
+  `/System/Library/Frameworks`, plus `libobjc`, `libSystem` and the Swift
+  runtime dylibs from `/usr/lib`. Nothing else, and the bundle has no
+  `Frameworks/` directory at all.
+- **One POST in the whole application.** `httpMethod = "POST"` appears exactly
+  once in the Swift sources — the private `post(_:)` request builder in
+  `Core/APIClient.swift`, shared by sign-in, the 2FA verify and resend,
+  sign-out and the switch write. The only one of those that changes worker
+  state is `setSwitch(on:)`, and all it sends is `{ on, client, reason }`.
+- **A closed list of destinations.** Every `URL(string:)` literal in the app is
+  under `https://etviafidei.com`, and the sources contain no `Process(`,
+  `NSTask`, `posix_spawn`, `dlopen`, `NSAppleScript`, `DATABASE_URL` or
+  Postgres connection string.
+
+The bundle identifier is `com.viafidei.commandcentre`, deliberately **not** the
+macOS app's `com.viafidei.devapp`: separate identities, so neither app's state
+can disturb the other's.
+
+### The three views
+
+The Mac app switches views with an `NSSegmentedControl`. The phone uses a
+`TabView` (`App/RootView.swift`), which is a real design decision rather than a
+translation: each tab keeps its own state alive, so both web tabs stay loaded
+and signed in and the command centre keeps its scroll position and its folded
+sections, where a picker inside one screen would tear the web view down and
+rebuild it on every switch; a picker pinned under a large navigation title
+would also permanently eat the most valuable strip of a tall, data-dense
+screen; and the tab bar sits in the thumb's reach.
+
+1. **Worker** — the command centre. The switch and its attribution ("Set by
+   _operator_ from _iphone-app_"), the Mac's presence and run state, execution
+   and lease liveness, the worker heartbeat, then mode / priority / goal / task
+   / blocker, published content and the QA and publish rates, per-lane counts
+   against their targets, recent passes and brain decisions, and — folded below
+   — growth, pipeline and artifacts, funnel and coverage, brain reasoning and
+   ranked alternatives, quality and review, security / repair / skills, sources
+   / memory / knowledge, recently published, and the worker log.
+2. **Live Site** (the Mac app's _Standard Site_) — `https://etviafidei.com` in
+   a `WKWebView`.
+3. **Admin Site** — `https://etviafidei.com/admin` in a `WKWebView`.
+
+`SessionStore` mirrors the two session cookies (`vf_session` and the device
+credential `vf_dev_id`) **both ways** between the `HTTPCookieStorage` that
+`URLSession` uses and the `WKWebsiteDataStore` the web views use, and observes
+the web cookie store, so a session rotated inside a web view reaches the API
+immediately and the Admin Site tab is already signed in. Session material is
+kept in the **Keychain** with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`
+(so it is not in an iCloud backup); the password lives in memory for the length
+of one request and is then cleared. Nothing goes to `UserDefaults`, and the app
+contains no logging statements at all.
+
+### The switch shows confirmed durable state, not an optimistic flip
+
+`WorkerStore.displayedOn` is read straight out of the last server payload —
+`status.master.isOn`, nothing else. **Tapping the toggle does not move it; the
+server's answer does.** A toggle that flips locally and then silently diverges
+from the Mac is exactly the failure this is built to make impossible.
+
+1. Tap. The control becomes inert and shows "Saving…" underneath. The toggle
+   has not moved.
+2. `POST /api/admin/worker/switch` writes the durable row — and nothing else.
+3. The response carries the **confirmed** durable value plus a freshly forced
+   status. If it does not match what was asked for, or could not be read back,
+   or the write failed (503 `switch_write_failed`), the card says so in plain
+   words and the toggle stays where the server says it is.
+4. Confirmed: the toggle moves, and the card reads "Saved — waiting for the
+   Mac" while execution catches up, bounded by the server's own
+   `actuation.pendingWindowMs` (15 s). Past that window it reads "Saved, but
+   the Mac has not picked it up" — a true statement about the Mac, not a false
+   one about the write, and it settles silently if the Mac later obeys.
+5. If the switch is moved at the Mac while the phone is waiting, the durable
+   row wins and the phone stops waiting.
+
+An unreadable switch renders as **"Unknown"**, never as OFF.
+
+### Polling, and only while you are looking
+
+- Status every **4 s** while the Worker tab is frontmost, **8 s** on the other
+  two tabs or on cellular / Low Data Mode, **2 s** while a switch change is
+  settling — and never faster than the server's own `nextPollAfterMs`.
+- Snapshot on the server's `cache.nextPollAfterMs` (30 s while executing, 5 min
+  idle).
+- **Immediately** on returning to the foreground, so a change made at the Mac
+  is on screen within a second of looking.
+- **Nothing in the background.** `scenePhase` leaving `.active` cancels the
+  poll task outright. While the phone is offline no request is attempted at
+  all; the loop only wakes every 3 s to notice that connectivity came back.
+- Pull to refresh forces `?refresh=1`, the one phone-triggered path that runs
+  the ~30 production queries on demand, which is why the server rate-limits it
+  to six per five minutes and the refusal is surfaced rather than swallowed.
+
+### Connectivity: the only reason the toggle is ever disabled
+
+`Core/NetworkMonitor.swift` wraps a single `NWPathMonitor`. When **this iPhone**
+has no usable path to the network, the toggle is dimmed (35 % opacity,
+saturation removed) and genuinely non-interactive, and **"No internet" appears
+directly below the switch**. It re-enables the moment connectivity returns.
+
+The toggle is **never** disabled because of anything about the Mac — not a
+stale host-presence row, not `degraded: true`, not a crashed worker, not an
+unreadable database. The switch is a durable row precisely so it can be written
+while the Mac is asleep and honoured when it wakes; greying it out because the
+Mac is unreachable would remove the one capability the row exists to provide.
+
+One non-obvious detail keeps that working. `WorkerStore` holds `NetworkMonitor`
+as a plain reference, so flipping `isOnline` publishes nothing on the store and
+a view observing only the store can miss the change entirely — the switch would
+stay bright and apparently tappable with the phone offline until some unrelated
+state happened to move. `SwitchCard` therefore observes the monitor itself
+(`@ObservedObject var network: NetworkMonitor = .shared`). It is load-bearing
+even though the view "does not use the network for anything", and
+`tests/ios/iphone-app-structure.test.ts` pins both the subscription and the
+position of the "No internet" label below the toggle.
+
+**The macOS application deliberately does not have this greying.** Its
+`PillSwitch` refuses a click only while a change is in flight (`isBusy`); there
+is no connectivity check in it and none was added. The operator asked for the
+dimming on the phone — the device that actually loses signal in a pocket — and
+the macOS dashboard was deliberately left as it was.
+
+### The control route is gated exactly like every other admin mutation
+
+`POST /api/admin/worker/switch` can start a real workload against production,
+which makes it a high-value target, so it gets **no** special treatment: it
+calls [`gateAdminApiCall`](#the-central-admin-gate) as the first thing it does,
+like every other admin mutation. There is deliberately no second authentication
+path for the phone, no API key, and no new environment variable.
+
+A native client satisfies the browser-shaped rules by presenting what a browser
+presents:
+
+- **CSRF.** `evaluateCsrf` passes safe methods through, so the two GETs need no
+  header. For the POST the app sets `Origin: https://etviafidei.com` verbatim,
+  plus `Referer: https://etviafidei.com/admin` as the documented fallback. In
+  production `getTrustedOrigins` returns the canonical constants from
+  `src/lib/config.ts` and never anything derived from a request header, so the
+  header the app sends can only match or fail — it cannot widen the trusted
+  set. A POST carrying neither is refused **403** before authentication is
+  consulted, and the refusal is reported as a Security Breach.
+- **Banned device.** The app carries `vf_dev_id` like a browser, so the ban
+  check applies unchanged — and fails closed with 503 if the ban store cannot
+  be read.
+- **The session.** The app drives the real two-stage admin sign-in
+  (`POST /api/admin/login`, then `POST /api/auth/admin-2fa/verify`, both
+  form-encoded, with the 303 deliberately not followed because its `Location`
+  is the answer). A password-only PENDING session is refused exactly like an
+  anonymous caller: half a sign-in does not reach the switch.
+
+Beyond the gate the route is per-operator rate limited (12 switch writes a
+minute), requires `on` to be **strictly boolean** — accepting `"true"` or `1`
+would let a client typo start a production workload — and records every
+accepted change twice with the actor: an `AdminActionLog` row (distinct action
+types per direction, so the collapsing window cannot swallow the OFF that
+follows an ON) and an `AdminAuditLog` row carrying the before/after value. A
+failed write is recorded too, and answered **503 `switch_write_failed`** rather
+than a cheerful 200 — claiming success would leave the phone showing a state
+the Mac will never reconcile to. `tests/security/worker-remote-control-gate.test.ts`
+(24 tests) pins all of it, including that the three route files reach the
+central gate in every exported handler.
+
+The two reads are gated the same way and are cheap by construction: `/status`
+is three small durable reads cached 2 s per server instance, and `/snapshot`
+single-flights, caches (30 s executing, 5 min idle), never writes content goals,
+and trims the payload before it crosses a cellular link.
+
+### Building and installing the iPhone app
+
+Nobody has to open Xcode. The project is a checked-in `.xcodeproj` using an
+**objectVersion 77 file-system-synchronized root group**, so the project file
+lists no individual sources: everything under `ios/ViaFideiCommandCentre/` is
+compiled and adding a `.swift` file needs no project edit.
+
+`xcode-select -p` on this Mac points at `/Library/Developer/CommandLineTools`,
+which ships no `xcodebuild` at all — running it there answers _"tool
+'xcodebuild' requires Xcode, but active developer directory
+'/Library/Developer/CommandLineTools' is a command line tools instance"_ and
+stops. So **every** command below is prefixed with `DEVELOPER_DIR` to point the
+toolchain at the full Xcode (26.6) instead. The prefix is required, not
+decorative, and nothing here changes the selected developer directory.
+
+```bash
+cd "/Users/ryansimonds/Developer/Via Fidei/ios"
+
+# Compile for the device SDK without signing — the fast "does it still build?"
+# check after touching anything under ios/.
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcodebuild -project ViaFideiCommandCentre.xcodeproj \
+  -scheme ViaFideiCommandCentre -configuration Release \
+  -sdk iphoneos -destination 'generic/platform=iOS' \
+  -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+#   → ** BUILD SUCCEEDED **
+#     build/Build/Products/Release-iphoneos/ViaFideiCommandCentre.app
+```
+
+To put it on the phone, build signed and install with `devicectl`. The device
+identifier comes from `devicectl list devices`; a phone that is plugged in (or
+paired over the network) shows as `connected`:
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcrun devicectl list devices
+#   → RSimonds   C5F31905-3CB8-541C-A359-9AF9AEBEEF6F   connected   iPhone 17
+
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcodebuild -project ViaFideiCommandCentre.xcodeproj \
+  -scheme ViaFideiCommandCentre -configuration Release \
+  -sdk iphoneos -destination 'generic/platform=iOS' \
+  -derivedDataPath build-signed \
+  -allowProvisioningUpdates DEVELOPMENT_TEAM=<TEAM_ID> build
+
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcrun devicectl device install app \
+  --device C5F31905-3CB8-541C-A359-9AF9AEBEEF6F \
+  build-signed/Build/Products/Release-iphoneos/ViaFideiCommandCentre.app
+#   → App installed:  bundleID: com.viafidei.commandcentre
+```
+
+`-allowProvisioningUpdates` is what lets `xcodebuild` create or renew the
+provisioning profile itself instead of requiring one that is already installed
+— it is the flag that keeps the whole flow on the command line. Deployment target is iOS 17.0,
+iPhone only. Build output lives under `ios/build`, `ios/build-sim` and
+`ios/build-signed`, all of which are ignored by both git and Prettier.
+
+#### The app icon, and why there is a generator for it
+
+[`ios/tools/make-app-icon.swift`](ios/tools/make-app-icon.swift) exists because
+the app first reached the phone showing a **blank tile**. Two causes, both
+silent:
+
+- the asset catalog declared a 1024 slot with **no image in it**, so there was
+  nothing to draw; and
+- iOS rejects an app icon that has an **alpha channel** — it does not warn, it
+  simply does not use the icon. The site's own `public/icon-512.png` is 512×512
+  _with_ alpha, so it had to be upscaled **and** flattened.
+
+The generator does exactly that, and nothing else: it draws the source onto an
+opaque 1024×1024 bitmap created with `CGImageAlphaInfo.noneSkipLast` (so the
+PNG carries no alpha channel at all), fills the ground with `#fbf8f1` — the
+site's own `background_color` from `public/site.webmanifest`, so the tile
+matches the product instead of sitting on an arbitrary white square — and insets
+the artwork by 6 %, because iOS rounds the corners and artwork run to the very
+edge gets clipped by the mask.
+
+```bash
+cd "/Users/ryansimonds/Developer/Via Fidei"
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  swift ios/tools/make-app-icon.swift public/icon-512.png \
+  ios/ViaFideiCommandCentre/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png
+#   → wrote …/AppIcon-1024.png (1024x1024, no alpha)
+```
+
+The committed `AppIcon-1024.png` is byte-for-byte this command's output, so
+re-running it is a no-op; `sips -g hasAlpha` on the result reports `no`, which
+is the property that actually matters.
+
+### Signing
+
+**The supported configuration is the paid Apple Developer Program.** With a
+membership, `-allowProvisioningUpdates` issues a development provisioning
+profile valid for **one year**, and the app simply stays on the phone: no
+weekly ritual, nothing to remember. Substitute the membership's team
+identifier for `<TEAM_ID>` in the signed-build command above (the value is also
+stored as `DEVELOPMENT_TEAM` in the project, and the command-line assignment
+overrides it), then install with `devicectl` as shown. Confirm what was
+actually signed with:
+
+```bash
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  codesign -dvvv build-signed/Build/Products/Release-iphoneos/ViaFideiCommandCentre.app
+#   → Authority=Apple Development: …
+#     TeamIdentifier=<TEAM_ID>
+```
+
+One note so nobody is baffled without the paid account: a **free personal team**
+signs perfectly well, but the profile it issues is valid for **seven days**
+(the profiles this Mac used while the app was first brought up are exactly
+that, `LocalProvision` with a seven-day expiry). After it lapses iOS refuses to
+launch the app — it is still on the Home screen, it just will not open — and it
+has to be rebuilt and reinstalled with the same two commands. That is a
+property of free signing, not of this app.
+
+### What the phone deliberately cannot do
+
+- **No worker actions.** The desktop console can also trigger a pass, approve a
+  review item and act on a homepage draft over its loopback API. Those
+  endpoints are not exposed to the phone by the server at all, so this app
+  observes and toggles; approving is done on the Admin Site tab.
+- **No push notifications.** Nothing here wakes the phone. It polls while you
+  are looking at it and stops the moment you are not.
 
 ---
 
@@ -4885,13 +5363,13 @@ npx vitest run tests/admin-worker/structured-saint.test.ts
 ## Testing
 
 The commands that gate every change, in the order they are usually run. Every
-one below was executed against this tree on **2026-09-08** and the results are
+one below was executed against this tree on **2026-09-09** and the results are
 what is printed here — not what they are expected to be.
 
 ```bash
 npm run typecheck            # tsc --noEmit                      → 0 errors
-npm test                     # unit + component + worker         → 4640 passed, 1 skipped
-                             #                                     (495 files passed, 1 skipped; ~12 s)
+npm test                     # unit + component + worker         → 4756 passed, 1 skipped
+                             #                                     (500 files passed, 1 skipped; ~12 s)
 npm run lint                 # eslint                            → no warnings or errors
 npm run format:check         # prettier --check .                → all matched files use Prettier style
 npm run build                # prisma generate && next build     → succeeds
@@ -4930,6 +5408,32 @@ behind `RUN_VISUAL_TESTS=1` until baselines are committed. The e2e suite is also
 what proves the per-request CSP nonce did not break hydration: it loads every
 primary route against the same production server the container runs and asserts
 the header renders and survives navigation.
+
+The iPhone companion is a separate Xcode target, so none of the commands above
+touch it — but it builds from the command line, without anyone opening
+Xcode.app, and that is the check to run after changing anything under `ios/`.
+`xcode-select` on this Mac points at the Command Line Tools, which ship no
+`xcodebuild` at all, so the `DEVELOPER_DIR` prefix is required rather than
+optional:
+
+```bash
+cd ios
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcodebuild -project ViaFideiCommandCentre.xcodeproj \
+  -scheme ViaFideiCommandCentre -configuration Release \
+  -sdk iphoneos -destination 'generic/platform=iOS' \
+  -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+#   → ** BUILD SUCCEEDED **
+```
+
+What the app must never become is pinned by `npm test` rather than by the
+build: `tests/ios/iphone-app-structure.test.ts` (20 tests) reads the Xcode
+project and the Swift sources and fails if the target gains a package
+dependency or a linked framework, imports anything that is not an Apple system
+framework, gains a way to spawn a process or reach a database, talks to a host
+other than `etviafidei.com`, stops rendering the durable switch value, or dims
+the toggle for any reason other than the phone being offline. See
+[The iPhone companion](#the-iphone-companion--a-remote-control-that-never-runs-the-worker).
 
 `npm test` is the same as `npx vitest run`; `npm run verify` chains typecheck →
 lint → format:check → test, and `npm run verify:full` adds the integration
