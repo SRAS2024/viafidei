@@ -5509,17 +5509,26 @@ npm run lint                 # eslint                            → no warnings
 npm run format:check         # prettier --check .                → all matched files use Prettier style
 npm run build                # prisma generate && next build     → succeeds
 npm audit --omit=dev         # what actually ships               → found 0 vulnerabilities
-npm audit                    # including devDependencies         → 3 moderate (see below)
+npm audit                    # including devDependencies         → found 0 vulnerabilities
 ```
 
-The three moderate advisories are **entirely in the test tooling**: one
-`@vitest/mocker` path-traversal advisory, reported three times because `vitest`
-and `@vitest/coverage-v8` each depend on it. Nothing in that tree is imported by
-the site, the worker or the brain, which is why `npm audit --omit=dev` — the
-thing that describes what is actually deployed — is clean. It is recorded here
-rather than quietly rounded to zero: `npm audit` printing `found 0
-vulnerabilities` is no longer a true statement about this tree, and a README that
-says it is teaches the next person to ignore the command.
+Both audit lines are clean. They were not always: until 2026-09-10 the tree
+carried three moderate advisories — one `@vitest/mocker` path-traversal issue
+(GHSA-82fw-gwwq-j7x9, fixed in **4.1.11**), counted three times because
+`vitest` and `@vitest/coverage-v8` both depend on it. The bump was blocked for
+a while by an **npm 10.9.8 bug**, not by the upgrade itself: `npm install`,
+`npm update` and `npm audit fix` all died with `Cannot read properties of null
+(reading 'edgesOut')` in arborist's `#loadPeerSet` while resolving
+`node_modules/vitest`. Running the install under **npm 11**
+(`npx npm@11 install --save-dev vitest@4.1.11 @vitest/coverage-v8@4.1.11`)
+resolves the tree correctly and leaves `lockfileVersion: 3` intact, so CI's
+npm 10 still reads it — `npm ci` never runs the resolver that crashes, it just
+installs the lockfile.
+
+One caveat if you repeat this: npm 11 does not run lifecycle scripts by
+default, so check anything that needs one. Here `prisma generate` and the
+`esbuild` binaries were already in place and `argon2` ships a `darwin-arm64`
+prebuild, so nothing needed rebuilding — but verify rather than assume.
 
 Two suites need a database or a browser, so they are run separately:
 
