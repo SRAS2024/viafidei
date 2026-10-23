@@ -5499,13 +5499,13 @@ npx vitest run tests/admin-worker/structured-saint.test.ts
 ## Testing
 
 The commands that gate every change, in the order they are usually run. Every
-one below was executed against this tree on **2026-09-09** and the results are
+one below was executed against this tree on **2026-10-23** and the results are
 what is printed here — not what they are expected to be.
 
 ```bash
 npm run typecheck            # tsc --noEmit                      → 0 errors
-npm test                     # unit + component + worker         → 4782 passed, 1 skipped
-                             #                                     (502 files passed, 1 skipped; ~13 s)
+npm test                     # unit + component + worker         → 4785 passed, 1 skipped
+                             #                                     (502 files passed, 1 skipped; ~17 s)
 npm run lint                 # eslint                            → no warnings or errors
 npm run format:check         # prettier --check .                → all matched files use Prettier style
 npm run build                # prisma generate && next build     → succeeds
@@ -5513,7 +5513,17 @@ npm audit --omit=dev         # what actually ships               → found 0 vul
 npm audit                    # including devDependencies         → found 0 vulnerabilities
 ```
 
-Both audit lines are clean. They were not always: until 2026-09-10 the tree
+Both audit lines are clean. On 2026-10-23 they briefly were not: npm audit
+reported 12 findings (critical `next` image-optimizer RCE, `sharp`/librsvg,
+`zod`, `vite`, `brace-expansion`, `source-map-js`, `vitest`,
+`postcss-selector-parser`). They were cleared by `next` 15.5.28, in-range
+lockfile bumps, **zod 4** (the zod advisory GHSA-mrhx-c7xc-m3w5 has no 3.x fix)
+and one `overrides` entry pinning `postcss-selector-parser` to `^7.1.7` under
+Tailwind 3 (npm's suggested fix was Tailwind 4; the override produces
+byte-identical CSS from `npx tailwindcss -i src/app/globals.css`). The npm 10
+resolver bug below still applies, so those installs were done with npm 11.
+
+Before that, until 2026-09-10 the tree
 carried three moderate advisories — one `@vitest/mocker` path-traversal issue
 (GHSA-82fw-gwwq-j7x9, fixed in **4.1.11**), counted three times because
 `vitest` and `@vitest/coverage-v8` both depend on it. The bump was blocked for

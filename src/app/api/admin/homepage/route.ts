@@ -11,7 +11,7 @@ const blockSchema = z.object({
   blockKey: z.string(),
   blockType: z.string(),
   sortOrder: z.number().int(),
-  configJson: z.record(z.unknown()),
+  configJson: z.record(z.string(), z.unknown()),
 });
 
 const payloadSchema = z.object({

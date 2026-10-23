@@ -115,3 +115,47 @@ describe("active manipulation events fire Security Breach immediately", () => {
     });
   }
 });
+
+describe("oversized and malformed bodies are refused before validation", () => {
+  async function callRaw(rawBody: string): Promise<Response> {
+    const { POST } = await import("@/app/api/internal/security-event/route");
+    const base = new Request("http://localhost/api/internal/security-event", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.42" },
+      body: rawBody,
+    });
+    const req = Object.assign(base, {
+      cookies: { get: () => undefined },
+    }) as unknown as NextRequest;
+    return POST(req);
+  }
+
+  it("a body over the 64 KiB cap gets 413 and is never parsed or reported", async () => {
+    // A `detail` record with ~20k non-string entries: the shape that makes
+    // zod accumulate one issue per entry (GHSA-mrhx-c7xc-m3w5).
+    const detail = Object.fromEntries(Array.from({ length: 20_000 }, (_, i) => [`k${i}`, i]));
+    const raw = JSON.stringify({ kind: "client_dom_tamper", summary: "s", detail });
+    expect(raw.length).toBeGreaterThan(64 * 1024);
+    const res = await callRaw(raw);
+    expect(res.status).toBe(413);
+    expect(((await res.json()) as { error: string }).error).toBe("too_large");
+    expect(rateLimitMock).not.toHaveBeenCalled();
+    expect(reportSecurityBreachMock).not.toHaveBeenCalled();
+    expect(reportSuspiciousActivityMock).not.toHaveBeenCalled();
+  });
+
+  it("malformed JSON is still a 400 invalid_body", async () => {
+    const res = await callRaw("{not json");
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("invalid_body");
+  });
+
+  it("a detail record with non-string values is a 400 invalid_payload", async () => {
+    const res = await callRaw(
+      JSON.stringify({ kind: "client_dom_tamper", summary: "s", detail: { a: 1, b: 2 } }),
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe("invalid_payload");
+    expect(reportSecurityBreachMock).not.toHaveBeenCalled();
+  });
+});

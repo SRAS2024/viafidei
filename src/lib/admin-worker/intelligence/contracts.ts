@@ -313,7 +313,10 @@ export interface BrainEnvelope<T = unknown> {
 export const BrainEnvelopeSchema = z
   .object({
     ok: z.boolean(),
-    result: z.unknown().nullable(),
+    // `.optional()` keeps the zod 3 behaviour: an envelope with no `result`
+    // key parses (as null). zod 4 no longer treats `z.unknown()` as an
+    // implicitly optional key.
+    result: z.unknown().nullable().optional(),
     confidence: z.number(),
     reasoning: z.string(),
     evidence: z.array(z.string()),

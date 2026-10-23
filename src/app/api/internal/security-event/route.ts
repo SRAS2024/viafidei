@@ -4,6 +4,7 @@ import { rateLimit, RATE_POLICIES } from "@/lib/security/rate-limit";
 import { reportSecurityBreach, reportSuspiciousActivity } from "@/lib/security/security-events";
 import { recordTamperEvent } from "@/lib/security/tamper-counter";
 import { getClientIp, getUserAgent } from "@/lib/security/request";
+import { readJsonBody } from "@/lib/http/request-body";
 import { DEVICE_CREDENTIAL_COOKIE } from "@/middleware";
 
 export const runtime = "nodejs";
@@ -60,14 +61,19 @@ const ALWAYS_BREACH_KINDS = new Set([
 ]);
 
 export async function POST(req: NextRequest) {
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: "invalid_body" }, { status: 400 });
+  // Unauthenticated endpoint: cap the body (64 KiB default) before JSON
+  // parsing and schema validation, so an oversized payload — e.g. a `detail`
+  // record with hundreds of thousands of entries — cannot make the parser or
+  // zod allocate without bound (GHSA-mrhx-c7xc-m3w5 class). Real reports
+  // from SecurityTamperDetector are well under 2 KiB.
+  const body = await readJsonBody(req);
+  if (!body.ok) {
+    return body.reason === "too_large"
+      ? NextResponse.json({ ok: false, error: "too_large" }, { status: 413 })
+      : NextResponse.json({ ok: false, error: "invalid_body" }, { status: 400 });
   }
 
-  const parsed = PayloadSchema.safeParse(body);
+  const parsed = PayloadSchema.safeParse(body.data);
   if (!parsed.success) {
     return NextResponse.json({ ok: false, error: "invalid_payload" }, { status: 400 });
   }
