@@ -243,7 +243,8 @@ See `prisma/schema.prisma` for the full definitions.
 
 ## Running locally
 
-**Prerequisites:** Node.js 20–22 (the `engines` field pins `>=20 <23`),
+**Prerequisites:** Node.js 22, 22.23.4 or newer (the `engines` field pins
+`>=22.23.4 <23`; 22.23.4 is the October 2026 security release),
 PostgreSQL 14+ (16 recommended), and — for the intelligence brain —
 Python **3.10+** (the brain uses `@dataclass(slots=…)`, which is 3.10+; the
 project targets 3.11). On macOS the system `python3` is 3.9, so install a

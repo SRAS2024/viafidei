@@ -11,11 +11,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Single source of truth for the Node major used across every job —
+  # Single source of truth for the Node version used across every job —
   # keeps the install steps in sync without scattering version numbers.
-  # Node 22 is the active LTS as of late 2024; Node 20 entered EOL in
-  # April 2026 so all jobs run on the supported line.
-  NODE_VERSION: "22"
+  # Pinned to the exact patch the Docker images run (Dockerfile,
+  # Dockerfile.worker): 22.23.4 is the 2026-10-21 security release, and
+  # Node 20 is EOL with no fix. Bump this together with those FROM lines and
+  # package.json "engines".
+  NODE_VERSION: "22.23.4"
 
 jobs:
   verify:

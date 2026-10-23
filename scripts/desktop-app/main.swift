@@ -598,7 +598,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             if code == 127 {
                 // /usr/bin/env could not find node on the PATH we built.
                 self.stickyError =
-                    "Node.js was not found on this computer. Install Node 20–22, run `npm install` in the Via Fidei repository, then try again."
+                    "Node.js was not found on this computer. Install Node 22 (22.23.4 or newer), run `npm install` in the Via Fidei repository, then try again."
             }
             self.statusLabel.stringValue =
                 self.stickyError
