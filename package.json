@@ -61,7 +61,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^11.11.17",
     "iron-session": "^8.0.4",
-    "negotiator": "^1.0.0",
+    "negotiator": "^1.1.0",
     "next": "15.5.28",
     "pdfkit": "^0.18.0",
     "react": "18.3.1",
