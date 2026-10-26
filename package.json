@@ -57,7 +57,7 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "@types/pdfkit": "^0.17.6",
-    "argon2": "^0.41.1",
+    "argon2": "^0.45.1",
     "clsx": "^2.1.1",
     "framer-motion": "^11.11.17",
     "iron-session": "^8.0.4",
