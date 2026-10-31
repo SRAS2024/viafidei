@@ -56,6 +56,12 @@ export interface PublishedListProps {
    * ("A saint of the Catholic Church"), which is noise on 30 cards at once.
    */
   showSubtitle?: boolean;
+  /**
+   * Short facts shown directly beneath the title, one per line and in the order
+   * given — a saint's patronage, then feast day. The caller supplies the text,
+   * so this works for projected rows that carry no payload.
+   */
+  detailLinesFor?: (item: PublishedListEntry) => ReadonlyArray<string> | undefined;
 }
 
 export function PublishedList({
@@ -67,6 +73,7 @@ export function PublishedList({
   sortItems,
   eyebrowFor,
   showSubtitle = false,
+  detailLinesFor,
 }: PublishedListProps) {
   if (items.length === 0) {
     return (
@@ -101,11 +108,24 @@ export function PublishedList({
       : showSubtitle
         ? item.subtitle
         : "";
+    const details = (detailLinesFor?.(item) ?? []).filter((line) => line.trim());
     return (
       <Link key={item.id} href={`${baseHref}/${item.slug}`} className="block h-full">
         <article className="vf-card flex h-full flex-col rounded-sm p-6 transition hover:-translate-y-0.5 hover:border-ink/30 sm:p-7">
           {eyebrow && <p className="vf-eyebrow">{eyebrow}</p>}
           <h2 className="mt-3 break-words font-display text-xl sm:text-2xl">{item.title}</h2>
+          {details.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {details.map((line, i) => (
+                <p
+                  key={i}
+                  className="line-clamp-3 break-words font-serif text-sm leading-snug text-ink-soft"
+                >
+                  {line}
+                </p>
+              ))}
+            </div>
+          )}
           {summary && (
             <p className="mt-4 line-clamp-5 font-serif leading-relaxed text-ink-soft">{summary}</p>
           )}

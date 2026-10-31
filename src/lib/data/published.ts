@@ -13,7 +13,11 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db/client";
 import { generateContentSubtitle } from "@/lib/content-shared/content-subtitle";
-import { compareSaintsChronologically } from "@/lib/content-shared/saints";
+import {
+  compareSaintsChronologically,
+  formatFeastDay,
+  type SaintCardDetails,
+} from "@/lib/content-shared/saints";
 import { categorizePrayer, prayerCategoryLabel } from "@/lib/content-shared/prayer-categories";
 import { publicRouteFor } from "@/lib/admin-worker/public-routes";
 import { MEMO_TTL, memo } from "@/lib/cache/memo";
@@ -433,6 +437,67 @@ export async function countPublishedBySubtype(
     }
     return out;
   });
+}
+
+interface SaintCardRow {
+  id: string;
+  patronages: unknown;
+  patronage: string | null;
+  feastDay: string | null;
+  feastMonth: number | null;
+  feastDayOfMonth: number | null;
+}
+
+/**
+ * Patronage + feast for the saints on one catalogue page, keyed by id. The page
+ * itself comes from `listPublishedPage`, which projects the payload away (the
+ * type is heading for 10,000 rows), so a card's two detail lines come from this
+ * second, primary-key-bounded query that pulls only those JSON fields — the
+ * same projection the parish directory uses — instead of thirty full payloads.
+ */
+export async function listSaintCardDetails(
+  ids: readonly string[],
+): Promise<Map<string, SaintCardDetails>> {
+  const out = new Map<string, SaintCardDetails>();
+  if (ids.length === 0) return out;
+  const rows = await prisma.$queryRaw<SaintCardRow[]>(
+    Prisma.sql`SELECT "id",
+                      payload->'patronages' AS "patronages",
+                      payload->>'patronage' AS "patronage",
+                      payload->>'feastDay'  AS "feastDay",
+                      "feastMonth", "feastDayOfMonth"
+                 FROM "PublishedContent"
+                WHERE "id" = ANY(${[...ids]})
+                  AND "contentType" = 'SAINT'::"ChecklistContentType"`,
+  );
+  for (const row of rows) {
+    out.set(row.id, { patronages: saintPatronages(row), feast: saintFeast(row) });
+  }
+  return out;
+}
+
+function saintPatronages(row: SaintCardRow): string[] {
+  const list = Array.isArray(row.patronages)
+    ? row.patronages
+        .filter((p): p is string => typeof p === "string")
+        .map((p) => p.trim())
+        .filter(Boolean)
+    : [];
+  if (list.length > 0) return list;
+  // Legacy payloads carried a single `patronage` string.
+  const legacy = row.patronage?.trim();
+  return legacy ? [legacy] : [];
+}
+
+function saintFeast(row: SaintCardRow): string | null {
+  const { feastMonth: month, feastDayOfMonth: day } = row;
+  if (month != null && day != null) {
+    const mmdd = `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    return formatFeastDay(mmdd) ?? null;
+  }
+  // A row whose indexed columns were never backfilled, or a movable feast kept
+  // as prose ("The Tuesday after Pentecost"), which passes through as written.
+  return formatFeastDay(row.feastDay) ?? null;
 }
 
 /**

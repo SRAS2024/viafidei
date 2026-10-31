@@ -12,8 +12,13 @@ import {
   saintSubtypeLabel,
 } from "@/lib/content-shared/saint-categories";
 import { resolvePayloadFilter } from "@/lib/content-shared/payload-filter";
+import { saintCardDetailLines, type SaintCardDetails } from "@/lib/content-shared/saints";
 import { getTranslator } from "@/lib/i18n/server";
-import { countPublishedBySubtype, listPublishedPage } from "@/lib/data/published";
+import {
+  countPublishedBySubtype,
+  listPublishedPage,
+  listSaintCardDetails,
+} from "@/lib/data/published";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Saints" };
@@ -41,6 +46,13 @@ export default async function SaintsPage({
     }),
     countPublishedBySubtype("SAINT").catch(() => ({}) as Record<string, number>),
   ]);
+
+  // Each card shows the saint's patronage, then feast day, beneath the name.
+  // The page rows carry no payload, so those two facts come from one bounded
+  // projection over just these ids. Fail-open: a card without them still links.
+  const details = await listSaintCardDetails(result.items.map((item) => item.id)).catch(
+    () => new Map<string, SaintCardDetails>(),
+  );
 
   // Only offer a category chip when at least one saint falls under it — an
   // indexed groupBy now, not a scan of every published saint.
@@ -76,6 +88,7 @@ export default async function SaintsPage({
             items={result.items}
             baseHref="/saints"
             eyebrowFor={(item) => saintSubtypeLabel("subtype" in item ? item.subtype : null)}
+            detailLinesFor={(item) => saintCardDetailLines(details.get(item.id), t)}
           />
           <Pagination
             basePath="/saints"
