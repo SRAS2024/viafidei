@@ -221,8 +221,15 @@ export interface StructuredIngestResult {
    * pass finishes the page.
    */
   pageHeld: boolean;
+  /** Why the page was held: the pass budget ran out, or source reads kept failing. */
+  pageHeldReason: "budget" | "source_failures" | null;
   /** Set when the ingestor is leased to another process (see lease.ts); nothing ran. */
   leasedTo: string | null;
+  /**
+   * Set when the cursor is resting after a full sweep (epoch ms the rest ends);
+   * nothing ran. A booster reads it as "already swept".
+   */
+  restingUntil: number | null;
   /** True when the pass was skipped because the source is cooling down. */
   sourceCooling: boolean;
   /** Set when the SPARQL source failed (cursor left unchanged). */
@@ -386,6 +393,62 @@ async function writeCursor(
       },
     })
     .catch(() => undefined);
+}
+
+/** Where a structured cursor stands — an operator booster's progress line. */
+export interface StructuredCursorPosition {
+  offset: number;
+  exhaustedUntil: number | null;
+  lastFullSweepAt: number | null;
+  lastPageSize: number | null;
+}
+
+/** Read a structured cursor (a fresh one reads as offset 0). */
+export async function readStructuredCursor(
+  prisma: PrismaClient,
+  cursorId: string,
+): Promise<StructuredCursorPosition> {
+  const s = await readCursor(prisma, cursorId);
+  return {
+    offset: s.offset,
+    exhaustedUntil: s.exhaustedUntil,
+    lastFullSweepAt: s.lastFullSweepAt,
+    lastPageSize: s.lastPageSize,
+  };
+}
+
+/**
+ * Point a BOOSTER cursor (`<ingestor>@<holder>`, see `StructuredIngestOptions.
+ * cursorId`) back at the start of its corpus and end its rest, so the next
+ * pass sweeps again: an operator's `--restart`. With `keepOffset` only the rest
+ * ends (`--wake`, after the source was declared unusable mid-sweep). The
+ * worker's own cursors are the ingest's alone to move, so any other id is
+ * refused.
+ */
+export async function rewindStructuredCursor(
+  prisma: PrismaClient,
+  cursorId: string,
+  opts: { keepOffset?: boolean } = {},
+): Promise<void> {
+  if (!cursorId.includes("@")) {
+    throw new Error(`refusing to move the worker's own cursor "${cursorId}"`);
+  }
+  const state = await readCursor(prisma, cursorId);
+  await writeCursor(
+    prisma,
+    cursorId,
+    opts.keepOffset
+      ? { ...state, exhaustedUntil: null, failures: 0, escalatedAt: null }
+      : {
+          ...state,
+          offset: 0,
+          exhaustedUntil: null,
+          failures: 0,
+          escalatedAt: null,
+          lastPageSize: null,
+        },
+    { published: 0, failed: 0 },
+  );
 }
 
 /**
@@ -758,7 +821,9 @@ export async function runStructuredIngest(
     endOfCorpus: false,
     nextOffset: null,
     pageHeld: false,
+    pageHeldReason: null,
     leasedTo: null,
+    restingUntil: null,
     sourceCooling: false,
     sourceFailure: null,
     sourceUnusable: false,
@@ -803,6 +868,7 @@ export async function runStructuredIngest(
   const now = Date.now();
   if (state.exhaustedUntil != null && state.exhaustedUntil > now) {
     // Fully swept recently — rest rather than re-walk thousands of live rows.
+    out.restingUntil = state.exhaustedUntil;
     return out;
   }
 
@@ -983,12 +1049,14 @@ export async function runStructuredIngest(
     if (Date.now() - passStartedAt >= budgetMs) {
       leftovers = true;
       out.pageHeld = true;
+      out.pageHeldReason = "budget";
       out.errors.push(`pass budget of ${Math.round(budgetMs / 1000)}s spent; page held`);
       break;
     }
     if (fetchFailureStreak >= WIKIPEDIA_FAILURE_STREAK_LIMIT) {
       leftovers = true;
       out.pageHeld = true;
+      out.pageHeldReason = "source_failures";
       out.errors.push(`${fetchFailureStreak} source reads failed in a row; page held`);
       break;
     }

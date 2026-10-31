@@ -29,6 +29,8 @@ vi.mock("@/lib/admin-worker/logs", () => ({ writeAdminWorkerLog: vi.fn(async () 
 import type { PrismaClient } from "@prisma/client";
 
 import {
+  readStructuredCursor,
+  rewindStructuredCursor,
   runStructuredIngest,
   structuredBatchFor,
   WIKIPEDIA_FAILURE_STREAK_LIMIT,
@@ -234,6 +236,7 @@ describe("a page that cannot be finished is held, not skipped", () => {
     const out = await runStructuredIngest(prisma, { contentType: "POPE", batch: 3, budgetMs: 0 });
 
     expect(out.pageHeld).toBe(true);
+    expect(out.pageHeldReason).toBe("budget");
     expect(out.skipped).toBe(0); // nothing mapped
     const cursor = memory.get("structured-cursor:wikidata-popes")!;
     expect(cursor.offset).toBe(30);
@@ -258,6 +261,7 @@ describe("a page that cannot be finished is held, not skipped", () => {
 
     expect(spy).toHaveBeenCalledTimes(WIKIPEDIA_FAILURE_STREAK_LIMIT);
     expect(out.pageHeld).toBe(true);
+    expect(out.pageHeldReason).toBe("source_failures");
     const cursor = memory.get("structured-cursor:wikidata-popes")!;
     expect(cursor.offset).toBe(40);
     expect(cursor.zeroStreak).toBe(0);
@@ -341,5 +345,53 @@ describe("leases and booster cursors", () => {
 
     expect(out.leasedTo).toBeNull();
     expect(mockedSparql).toHaveBeenCalled();
+  });
+});
+
+describe("booster cursor helpers", () => {
+  it("says when a cursor is resting, without reading a page", async () => {
+    const until = Date.now() + 60_000;
+    const { prisma } = makePrisma(
+      new Map([["structured-cursor:wikidata-popes@booster", { offset: 0, exhaustedUntil: until }]]),
+    );
+
+    const out = await runStructuredIngest(prisma, {
+      contentType: "POPE",
+      batch: 3,
+      cursorId: "wikidata-popes@booster",
+    });
+
+    expect(out.restingUntil).toBe(until);
+    expect(mockedSparql).not.toHaveBeenCalled();
+  });
+
+  it("rewinds a booster cursor, or only wakes it, and never moves the worker's", async () => {
+    const until = Date.now() + 60_000;
+    const { prisma, memory } = makePrisma(
+      new Map([
+        [
+          "structured-cursor:wikidata-popes@booster",
+          { offset: 600, exhaustedUntil: until, failures: 12, lastPageSize: 3 },
+        ],
+        ["structured-cursor:wikidata-popes", { offset: 90 }],
+      ]),
+    );
+
+    await rewindStructuredCursor(prisma, "wikidata-popes@booster", { keepOffset: true });
+    expect(await readStructuredCursor(prisma, "wikidata-popes@booster")).toMatchObject({
+      offset: 600,
+      exhaustedUntil: null,
+    });
+    expect(memory.get("structured-cursor:wikidata-popes@booster")!.failures).toBe(0);
+
+    await rewindStructuredCursor(prisma, "wikidata-popes@booster");
+    expect(await readStructuredCursor(prisma, "wikidata-popes@booster")).toMatchObject({
+      offset: 0,
+      exhaustedUntil: null,
+      lastPageSize: null,
+    });
+
+    await expect(rewindStructuredCursor(prisma, "wikidata-popes")).rejects.toThrow(/own cursor/);
+    expect(memory.get("structured-cursor:wikidata-popes")!.offset).toBe(90);
   });
 });
