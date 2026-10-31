@@ -253,6 +253,13 @@ describe("structured sweep", () => {
 
   it("says why a resting cursor will not sweep", async () => {
     const until = Date.now() + 3_600_000;
+    // A finished sweep wraps its cursor to 0 before resting.
+    vi.mocked(readStructuredCursor).mockResolvedValueOnce({
+      offset: 0,
+      exhaustedUntil: until,
+      lastFullSweepAt: Date.now(),
+      lastPageSize: 37,
+    });
     mockedIngest.mockResolvedValueOnce(pass({ restingUntil: until, fetched: 0 }));
     const swept = await runStructuredSweep(makePrisma().prisma, {
       contentType: "SAINT",
@@ -270,6 +277,32 @@ describe("structured sweep", () => {
     });
     expect(unusable.stop).toBe("resting");
     expect(unusable.detail).toMatch(/unusable.*--wake/);
+  });
+
+  it("advises --wake, not --restart, for a cursor parked mid-corpus", async () => {
+    vi.mocked(readStructuredCursor).mockResolvedValueOnce({
+      offset: 1800,
+      exhaustedUntil: Date.now() + 3_600_000,
+      lastFullSweepAt: null,
+      lastPageSize: 200,
+    });
+    mockedIngest.mockResolvedValueOnce(pass({ restingUntil: Date.now() + 3_600_000, fetched: 0 }));
+    const out = await runStructuredSweep(makePrisma().prisma, {
+      contentType: "SAINT",
+      ...fakeClock(),
+    });
+    expect(out.detail).toMatch(/unusable.*offset 1800.*--wake/);
+  });
+
+  it("releases the lease and logs the failure when a pass throws", async () => {
+    mockedIngest.mockRejectedValueOnce(new Error("connection reset"));
+    await expect(
+      runStructuredSweep(makePrisma().prisma, { contentType: "SAINT", ...fakeClock() }),
+    ).rejects.toThrow("connection reset");
+    expect(mockedRelease).toHaveBeenCalledTimes(1);
+    const end = mockedLog.mock.calls.at(-1)![1];
+    expect(end.safeMetadata).toMatchObject({ phase: "end", stop: "failed" });
+    expect(end.message).toMatch(/connection reset/);
   });
 
   it("warns once when the running worker ignores the lease", async () => {

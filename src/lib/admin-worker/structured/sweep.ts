@@ -79,7 +79,8 @@ export type SweepStop =
   | "leased_elsewhere"
   | "source_unavailable"
   | "wikipedia_unavailable"
-  | "unknown_content_type";
+  | "unknown_content_type"
+  | "failed";
 
 export interface StructuredSweepResult {
   ingestorId: string | null;
@@ -266,9 +267,12 @@ export async function runStructuredSweep(
         break;
       }
       if (r.restingUntil != null) {
+        // A finished sweep wraps the cursor to 0; one resting anywhere else was
+        // parked by the ingest after the Query Service kept failing.
+        const unusable = lastFailure != null || (out.endOffset ?? 0) > 0;
         out.stop = "resting";
-        out.detail = lastFailure
-          ? `the source was declared unusable (${lastFailure}); resting until ${new Date(r.restingUntil).toISOString()}, rerun with --wake to resume now`
+        out.detail = unusable
+          ? `the source was declared unusable (${lastFailure ?? "earlier run"}) at offset ${out.endOffset}; resting until ${new Date(r.restingUntil).toISOString()}, rerun with --wake to resume now`
           : `the corpus was swept; resting until ${new Date(r.restingUntil).toISOString()}, rerun with --restart to sweep again`;
         break;
       }
@@ -345,6 +349,10 @@ export async function runStructuredSweep(
         wikipediaHolds = 0;
       }
     }
+  } catch (err) {
+    out.stop = "failed";
+    out.detail = `the sweep failed: ${err instanceof Error ? err.message : String(err)}; rerun to resume`;
+    throw err;
   } finally {
     await releaseIngestorLease(prisma, ingestor.id, holder);
     out.elapsedMs = now() - startedAt;
