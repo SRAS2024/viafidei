@@ -2,6 +2,7 @@ import type { CuratedEntry } from "./index";
 
 import { devotionGroupOne } from "./devotions/group-1";
 import { devotionGroupTwo } from "./devotions/group-2";
+import { devotionGroupThree } from "./devotions/group-3";
 
 const VATICAN = "https://www.vatican.va/";
 const USCCB = "https://www.usccb.org/";
@@ -251,4 +252,5 @@ export const devotionKnowledge: CuratedEntry[] = [
   ...LEGACY,
   ...devotionGroupOne,
   ...devotionGroupTwo,
+  ...devotionGroupThree,
 ];
