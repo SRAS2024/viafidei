@@ -73,7 +73,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     context:
       "As the Ottomans conquer Bosnia, the friar Anđeo Zvizdović wins from Sultan Mehmed II a sworn charter, the Ahdname of Milodraž, promising the Franciscans freedom, protection and a safe return to their friaries, to halt the flight of Catholics from the land.",
     significance:
-      "Later sultans reaffirmed it, though local officials often ignored it, and it is widely credited with allowing Catholicism to survive in Bosnia and Herzegovina under Ottoman rule.",
+      "Every later sultan reaffirmed it, though local authorities often suspected the friars of aiding the Habsburgs, and it is often credited with letting Catholicism survive in Bosnia and Herzegovina under Ottoman rule.",
     citation: `${W}Ahdname_of_Milodraž`,
   },
   {
@@ -117,7 +117,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     tags: ["mission"],
     location: "Ambon, Ternate and Morotai, Moluccas",
     context:
-      "Twelve years after the Portuguese reached the Spice Islands, Francis Xavier spends 1546 and 1547 on Ambon, Ternate and Morotai, baptising several thousand islanders and laying the foundations of a lasting mission.",
+      "Following the Portuguese spice trade east, Francis Xavier spends 1546 and 1547 on Ambon, Ternate and Morotai, baptising several thousand islanders and laying the foundations of a lasting mission.",
     significance:
       "Catholicism took root in eastern Indonesia, but after the Portuguese were driven from Ternate in 1574 many northern Moluccan Catholics were killed or became Muslims, and the Dutch later forced Ambon's Catholics into Protestantism.",
     citation: `${W}Catholic_Church_in_Indonesia`,
@@ -156,7 +156,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
   },
   {
     slug: "andrade-reaches-tibet",
-    title: "António de Andrade opens the first mission in Tibet",
+    title: "António de Andrade crosses the Himalayas into Tibet",
     year: 1624,
     precision: "year",
     era: "reformation-trent",
@@ -215,7 +215,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     context:
       "After eleven-year-old Jeanne Courtel reports apparitions of the Virgin from mid-August 1652, Bishop Denis de La Barde of Saint-Brieuc questions her and the witnesses under oath at Querrien, gives a favourable opinion and orders a chapel built.",
     significance:
-      "In 1656 he founded four perpetual chaplaincies for the pilgrims to Our Lady of All Help, though the shrine's founding documents never mention the apparitions and no Church authority has formally recognised them.",
+      "In 1656 he ordered four perpetual chaplaincies for the pilgrims to Our Lady of All Help, though the shrine's founding documents never mention the apparitions and no Church authority has formally recognised them.",
     citation: `${W}Querrien_Marian_apparitions`,
   },
   {
@@ -241,9 +241,9 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     precision: "day",
     era: "early-modern",
     kind: "council",
-    location: "Mërqi, near Lezhë, Albania",
+    location: "Mërqia, near Lezhë, Albania",
     context:
-      "Under the Albanian-born Pope Clement XI, some two hundred Catholic dignitaries meet for two days at Mërqi near Lezhë, led by the apostolic visitor Archbishop Vincentius Zmajević of Bar, to strengthen the Church and halt conversions to Islam.",
+      "Under Pope Clement XI, himself of Albanian descent, some two hundred Catholic dignitaries meet for two days at Mërqia near Lezhë, led by the apostolic visitor Archbishop Vincentius Zmajević of Bar, to strengthen the Church and halt conversions to Islam.",
     significance:
       "Its opening address and decrees were given in Albanian, and the acts that Propaganda Fide printed in Albanian and Latin in 1706 are a key witness to the northern Albanian language of the time.",
     citation: `${W}Arbëni_Council`,
@@ -292,7 +292,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     tags: ["schism"],
     location: "France and Belgium",
     context:
-      "French and Belgian Catholics who reject the Concordat between Pius VII and Napoleon, above all its reconciliation of priests compromised under the Revolution, break away into scattered 'little church' communities that Rome regards as schismatic.",
+      "French and Belgian Catholics who reject the Concordat between Pius VII and Napoleon, objecting to its reintegration of priests secularised during the Revolution, break away into scattered 'little church' communities that Rome regards as schismatic.",
     significance:
       "Once perhaps 100,000 strong, the groups shrank as their priests died: the last enfarinés of Aveyron submitted in 1911, while the Petite Église of Poitou still had thousands of adherents in the 1950s and was approached by John Paul II in 1996.",
     citation: `${W}Petite_Église`,
@@ -355,7 +355,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     context:
       "At Nîmes, the diocese's vicar general Emmanuel d'Alzon forms the Augustinians of the Assumption around his College of the Assumption, to combat unbelief in Europe and schism in the East through schools, the press, pilgrimages and missions.",
     significance:
-      "Approved by Rome in 1864, they began the mass pilgrimages that grew into the national pilgrimage to Lourdes and founded the daily La Croix, whose antisemitic campaigning in the Dreyfus years preceded their suppression in France in 1900.",
+      "Approved by Rome in 1864, they began the mass pilgrimages that grew into the national pilgrimage to Lourdes and founded the daily La Croix, which spread antisemitic polemic during the Dreyfus affair; in 1900 the congregation was suppressed in France, charged with amassing funds for a royalist plot.",
     citation: `${W}Assumptionists`,
   },
   {
@@ -386,7 +386,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     context:
       "Seeking freedom from the Greek-dominated Patriarchate of Constantinople, a Bulgarian movement led by Dragan Tsankov turns to Rome, and Pius IX consecrates the archimandrite Joseph Sokolsky archbishop for the Bulgarians of the Byzantine rite.",
     significance:
-      "Almost at once Sokolsky was carried off on a Russian ship and held in Kiev for the rest of his life; the union first drew some 60,000 adherents, but most returned to Orthodoxy after the Sultan created the Bulgarian Exarchate in 1870.",
+      "Within weeks Sokolsky was spirited away aboard a Russian ship and kept in Kiev until his death; the union first drew some 60,000 adherents, but most returned to Orthodoxy after the Sultan created the Bulgarian Exarchate in 1870.",
     citation: `${W}Bulgarian_Greek_Catholic_Church`,
     links: { popes: ["pope-pius-ix"] },
   },
@@ -418,7 +418,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     context:
       "Daniel Comboni founds at Verona a society of missionary priests and brothers for Central Africa, first called the Sons of the Sacred Heart of Jesus.",
     significance:
-      "Approved as a diocesan congregation in 1871, it was nearly cut off when the Mahdist war closed its Sudan mission after Comboni's death, but as the 'Verona Fathers' it recovered and now numbers some 1,500 members.",
+      "Approved as a diocesan congregation in 1871, it saw its Sudan mission halted by the Mahdist war after Comboni's death in 1881 and resumed after the Mahdists' defeat; the 'Verona Fathers' counted nearly 1,600 members in 2020.",
     citation: `${W}Comboni_Missionaries_of_the_Heart_of_Jesus`,
   },
   {
@@ -545,7 +545,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     context:
       "In a small chapel at Schoenstatt near Koblenz, Father Joseph Kentenich, spiritual director at a Pallottine school, and a group of young seminarians seal a 'covenant of love' with the Virgin Mary.",
     significance:
-      "The Marian renewal movement that grew from it was branded a threat by the Nazis, who held Kentenich in Dachau from 1941 to 1945; it is now present in more than a hundred countries.",
+      "The Marian renewal movement that grew from it was branded a threat by the Nazis, who arrested Kentenich in 1941 and held him in Dachau until 1945; it is now present in more than a hundred countries.",
     citation: `${W}Schoenstatt_Apostolic_Movement`,
   },
   {
@@ -576,9 +576,9 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     tags: ["marian"],
     location: "Manaoag, Pangasinan, Philippines",
     context:
-      "By a decree of Pius XI, the papal envoy Archbishop Guglielmo Piani crowns the sixteenth-century ivory image of Our Lady of the Most Holy Rosary of Manaoag, kept by the Dominicans in Pangasinan.",
+      "By a decree of Pius XI, the papal envoy Archbishop Guglielmo Piani crowns the ivory image of Our Lady of the Most Holy Rosary of Manaoag, kept by the Dominicans in Pangasinan.",
     significance:
-      "Venerated as 'Apo Baket' since an apparition reported around 1610, the image was later given spiritual affinity with St Mary Major by Benedict XVI, and Pope Francis made its shrine a minor basilica in 2014.",
+      "Called 'Apo Baket' by its devotees and linked to an apparition reported in 1610, the image was later given spiritual affinity with St Mary Major by Benedict XVI, and Pope Francis made its shrine a minor basilica in 2014.",
     citation: `${W}Our_Lady_of_Manaoag`,
     links: { popes: ["pope-pius-xi"] },
   },
@@ -870,7 +870,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     tags: ["monastic"],
     location: "Rome",
     context:
-      "After a Synod of Bishops on the consecrated life, to which he had invited many religious men and women, John Paul II issues an exhortation on the vocation of those who follow Christ in chastity, poverty and obedience.",
+      "After a Synod of Bishops on the consecrated life, in which many consecrated men and women took part alongside the bishops, John Paul II issues an exhortation on the vocation of those who follow Christ in chastity, poverty and obedience.",
     significance:
       "Taking the Transfiguration as its icon, it presents the consecrated life as a gift to the whole Church and calls religious to fidelity, communion and mission on the threshold of the new millennium.",
     citation: `${V}john-paul-ii/en/apost_exhortations/documents/hf_jp-ii_exh_25031996_vita-consecrata.html`,
@@ -886,7 +886,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
     kind: "saint",
     location: "Oba, near Onitsha, Nigeria",
     context:
-      "At Oba in Nigeria, John Paul II beatifies Cyprian Michael Iwene Tansi, an Igbo priest of the Onitsha archdiocese who became a Trappist monk at Mount St Bernard Abbey in England and died there in 1964.",
+      "At Oba in Nigeria, John Paul II beatifies Cyprian Michael Iwene Tansi, an Igbo priest of the Onitsha archdiocese who became a Trappist monk at Mount St Bernard Abbey in England and died in Leicester in 1964.",
     significance:
       "He was the first West African to be beatified, and Cardinal Francis Arinze, whom he had taught, named him as an inspiration.",
     citation: `${W}Cyprian_Michael_Iwene_Tansi`,
@@ -1152,7 +1152,7 @@ export const EVENTS_13: ChurchHistoryEvent[] = [
   },
   {
     slug: "coptic-martyrs-of-libya-enter-the-roman-martyrology",
-    title: "The 21 Coptic martyrs of Libya enter the Roman Martyrology",
+    title: "Francis announces the 21 Coptic martyrs of Libya will join the Roman Martyrology",
     year: 2023,
     date: "2023-05-11",
     precision: "day",
