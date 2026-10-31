@@ -21,12 +21,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 
 import type { PublishedListItem } from "@/lib/data/published";
+import { createTranslator } from "@/lib/i18n/translator";
 
 const listPublishedPage = vi.fn();
 const listParishPage = vi.fn();
 const countPublishedBySubtype = vi.fn();
 const listPublished = vi.fn();
 const listFeaturedPrayers = vi.fn();
+const listSaintCardDetails = vi.fn();
 
 vi.mock("@/lib/data/published", () => ({
   listPublishedPage: (...args: unknown[]) => listPublishedPage(...args),
@@ -34,10 +36,16 @@ vi.mock("@/lib/data/published", () => ({
   countPublishedBySubtype: (...args: unknown[]) => countPublishedBySubtype(...args),
   listPublished: (...args: unknown[]) => listPublished(...args),
   listFeaturedPrayers: (...args: unknown[]) => listFeaturedPrayers(...args),
+  listSaintCardDetails: (...args: unknown[]) => listSaintCardDetails(...args),
 }));
 
+// Raw keys by default; a test that asserts real copy swaps in the English translator.
+const translate = vi.fn<(key: string, replacements?: Record<string, string | number>) => string>();
 vi.mock("@/lib/i18n/server", () => ({
-  getTranslator: async () => ({ t: (key: string) => key }),
+  getTranslator: async () => ({
+    t: (key: string, replacements?: Record<string, string | number>) =>
+      translate(key, replacements),
+  }),
 }));
 
 import SaintsPage from "@/app/saints/page";
@@ -75,8 +83,12 @@ beforeEach(() => {
   countPublishedBySubtype.mockReset();
   listPublished.mockReset();
   listFeaturedPrayers.mockReset();
+  listSaintCardDetails.mockReset();
+  translate.mockReset();
+  translate.mockImplementation((key) => key);
   countPublishedBySubtype.mockResolvedValue({});
   listPublished.mockResolvedValue([]);
+  listSaintCardDetails.mockResolvedValue(new Map());
 });
 afterEach(() => cleanup());
 
@@ -132,6 +144,48 @@ describe("/saints", () => {
       subtype: ["religious", "founder", "missionary"],
       order: "chronological",
     });
+  });
+
+  it("shows each saint's name, then patronage, then feast day on its card", async () => {
+    translate.mockImplementation(createTranslator("en"));
+    listPublishedPage.mockResolvedValue(
+      page([
+        projected({ id: "peter", title: "St. Peter", subtype: "apostle" }),
+        projected({ id: "agnes", title: "St. Agnes" }),
+      ]),
+    );
+    listSaintCardDetails.mockResolvedValue(
+      new Map([
+        ["peter", { patronages: ["the papacy", "fishermen", "Rome"], feast: "June 29" }],
+        ["agnes", { patronages: [], feast: "January 21" }],
+      ]),
+    );
+
+    render(await SaintsPage({ searchParams: Promise.resolve({}) }));
+
+    // One bounded projection, over exactly this page's ids.
+    expect(listSaintCardDetails).toHaveBeenCalledWith(["peter", "agnes"]);
+    const linesOf = (name: string) => {
+      const card = screen.getByRole("heading", { level: 2, name }).closest("article")!;
+      const text = [...card.querySelectorAll("h2, p")].map((el) => el.textContent);
+      return text.slice(text.indexOf(name));
+    };
+    expect(linesOf("St. Peter")).toEqual([
+      "St. Peter",
+      "Patron of the papacy, fishermen, Rome",
+      "Feast day: June 29",
+    ]);
+    // No patronage recorded → the feast line follows the name directly.
+    expect(linesOf("St. Agnes")).toEqual(["St. Agnes", "Feast day: January 21"]);
+  });
+
+  it("still renders every card when the detail projection fails", async () => {
+    listPublishedPage.mockResolvedValue(page([projected({ id: "peter", title: "St. Peter" })]));
+    listSaintCardDetails.mockRejectedValue(new Error("database unavailable"));
+
+    render(await SaintsPage({ searchParams: Promise.resolve({}) }));
+
+    expect(screen.getByRole("heading", { level: 2, name: "St. Peter" })).toBeInTheDocument();
   });
 });
 

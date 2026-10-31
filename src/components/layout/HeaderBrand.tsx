@@ -9,7 +9,11 @@ type Props = {
 export function HeaderBrand({ brandName, locale, centered = false }: Props) {
   // The sketched crucifix logo sits to the LEFT of the wordmark in both layouts.
   // The SAME artwork is used in light and dark themes — its colours are never
-  // changed; only the page background and lettering shift between themes.
+  // changed; only the page background and lettering shift between themes. That
+  // holds only because every white in the drawing (the perizoma, the INRI board)
+  // is OPAQUE in the PNG: a transparent white shows the page through it, which
+  // turned the loincloth and the sign black in dark mode
+  // (pinned by tests/components/crucifix-logo.test.ts).
   const w = centered ? 56 : 40;
   const h = Math.round((w * 491) / 360); // preserve the artwork's aspect ratio
   const imgClass =

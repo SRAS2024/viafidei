@@ -9,6 +9,8 @@
  * saint's name; everything else (Martyr, Virgin, Bishop, …) shows no label.
  */
 
+import type { Translator } from "@/lib/i18n/translator";
+
 /**
  * Canonical order of the foundational figures, by slug. The Admin Worker can
  * override per-saint with an explicit `orderRank`; this is the built-in
@@ -190,4 +192,30 @@ export function saintEyebrow(payload: Record<string, unknown>): string | undefin
   const feast = formatFeastDay(payload.feastDay);
   const parts = [label, feast ? `Feast ${feast}` : undefined].filter(Boolean) as string[];
   return parts.length ? parts.join(" · ") : undefined;
+}
+
+/** What a saint's catalogue card shows beneath the name. */
+export interface SaintCardDetails {
+  /** Patronages in stored order, phrased to follow "Patron of" (may be empty). */
+  patronages: string[];
+  /** "June 29", or the stored prose of a movable feast; null when none is recorded. */
+  feast: string | null;
+}
+
+/**
+ * The lines a saint's catalogue card shows beneath the name, in order: the
+ * patronage ("Patron of the papacy, fishermen, Rome"), then the feast day
+ * ("Feast day: June 29"). A line is left out when that fact is not recorded.
+ */
+export function saintCardDetailLines(
+  details: SaintCardDetails | undefined,
+  t: Translator,
+): string[] {
+  if (!details) return [];
+  const lines: string[] = [];
+  if (details.patronages.length > 0) {
+    lines.push(t("saints.card.patronOf", { patronages: details.patronages.join(", ") }));
+  }
+  if (details.feast) lines.push(`${t("saints.feastDay")}: ${details.feast}`);
+  return lines;
 }

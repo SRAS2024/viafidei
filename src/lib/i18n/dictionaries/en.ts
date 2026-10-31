@@ -129,6 +129,7 @@ const saints: Dict = {
     "Canonized saints, approved Marian apparitions, feast days, and patronage references.",
   "saints.feastDay": "Feast day",
   "saints.patronages": "Patronages",
+  "saints.card.patronOf": "Patron of {patronages}",
   "saints.officialPrayer": "Official prayer",
   "saints.today.eyebrow": "Today",
   "saints.today.title": "Today's Feast Day Saints",
