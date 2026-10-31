@@ -15,6 +15,19 @@ import type { CuratedEntry } from "../index";
  *     printed page, the printed page is followed (the invocation of St.
  *     Erasmus reads "pray Jesus for me").
  *
+ *   - The Raccolta, or Collection of Indulgenced Prayers and Good Works
+ *     (London: Burns & Oates; New York: Benziger Bros., 1910), no. 199: the
+ *     five novenas for the principal feasts of Our Lady (the Immaculate
+ *     Conception, her Nativity, the Annunciation, the Purification and the
+ *     Assumption), transcribed from the page images of the archive.org scan
+ *     and checked against its OCR. Where the book refers back to a prayer
+ *     printed earlier in the same section (the Come, O Holy Ghost, the
+ *     closing prayers for the Pope and the Church, the versicles and collect
+ *     of the first day), that prayer is written out in full; page
+ *     cross-references are dropped, and the Litany of Loreto, printed in
+ *     another chapter, is left to the book's own rubric. Three printer's
+ *     slips, "ot" for "of", are corrected.
+ *
  * Every `prayerText` is copied from the first cited source and nothing in it is
  * paraphrased, shortened, composed or merged across versions. Where a novena's
  * received form says the same prayers on each of the nine days, the prayers are
@@ -48,6 +61,16 @@ const CE_BARBARA = "https://www.newadvent.org/cathen/02284d.htm";
 const MARTYROLOGY_2_JUNE = "https://roman-martyrology.brandt.id.au/martyrs/06-02.html";
 const MARTYROLOGY_8_AUGUST = "https://roman-martyrology.brandt.id.au/martyrs/08-08.html";
 const MARTYROLOGY_8_MAY = "https://roman-martyrology.brandt.id.au/martyrs/05-08.html";
+const RACCOLTA_1910_NOVENAS =
+  "https://archive.org/details/theraccoltaorcol00unknuoft/page/n195/mode/1up";
+const CE_RACCOLTA = "https://www.newadvent.org/cathen/12620a.htm";
+const CE_IMMACULATE_CONCEPTION = "https://www.newadvent.org/cathen/07674d.htm";
+const CE_NATIVITY_OF_MARY = "https://www.newadvent.org/cathen/10712b.htm";
+const CE_ANNUNCIATION = "https://www.newadvent.org/cathen/01542a.htm";
+const CE_CANDLEMAS = "https://www.newadvent.org/cathen/03245b.htm";
+const CE_ASSUMPTION = "https://www.newadvent.org/cathen/02006b.htm";
+const MUNIFICENTISSIMUS_DEUS =
+  "https://www.vatican.va/content/pius-xii/en/apost_constitutions/documents/hf_p-xii_apc_19501101_munificentissimus-deus.html";
 
 /** Hammer's preparatory prayer, said first in each of the fourteen novenas to the Holy Helpers. */
 const HOLY_HELPER_PREPARATORY =
@@ -235,6 +258,193 @@ const HOLY_HELPERS_DAY_9 = [
   "O God, whose mercies are infinite and whose goodness is without limit, I beseech Thee through the merits and intercession of the Holy Helpers, grant me the grace of perseverance in Thy love and service to the end. Thou, who dost dispense so many favors through the Holy Helpers, despise not my prayer, but graciously hear and grant it. Amen.",
   HOLY_HELPERS_LITANY_AND_PRAYERS,
   "O faithful servants of God and powerful protectors of man, Holy Helpers! Since Our Lord appointed you the heavenly advocates for our needs on earth, I confidently turn to you for help in my distress. Countless numbers praise you for aiding them with counsel in doubt, with consolation in anxiety, with health in illness, with safety in danger, with delivery from prison, and with help and assistance in all tribulations. Therefore I, too, have recourse to you, and implore you not to refuse me your aid.\n\nGive thanks to God for me for all the graces He granted me during this novena. I ascribe them to your great merits and powerful intercession. I thank you all together, and each one in particular, for your interest in my favor before the throne of God. I commend myself to your continued protection, that I may one day be united with you in heaven, there to thank the Giver of all good things and to praise Him for all eternity. Amen.",
+].join("\n\n");
+
+/** The Come, O Holy Ghost with which each of the Raccolta's five Marian novenas opens. */
+const RACCOLTA_COME_HOLY_GHOST =
+  "Come, O Holy Ghost, fill the hearts of thy faithful and kindle in them the fire of thy love.\nV. Send forth thy Spirit and they shall be created;\nR. And Thou shalt renew the face of the earth.\nLet us pray.\nO God, who hast taught the hearts of the faithful by the light of the Holy Spirit; grant us by the same Spirit to relish what is right, and evermore to rejoice in his consolation. Through Christ our Lord.\nR. Amen.";
+
+/** The prayers for the Pope and for the Church with which each of those novenas closes. */
+const RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH = [
+  "O God, the Shepherd and Ruler of all the faithful, graciously look down upon thy servant N., whom Thou hast chosen to be the Pastor of thy Church; and grant him, we beseech Thee, both by word and example, so to direct those over whom Thou hast placed him, that together with the flock entrusted to his care, he may attain eternal life.",
+  "O God, our refuge and strength, who art the author of all holiness, listen to the pious prayers of thy Church, and grant that what we ask in faith we may effectually obtain, through Christ our Lord.\nR. Amen.",
+].join("\n\n");
+
+const RACCOLTA_IMMACULATE_CONCEPTION_DAY_1 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "Virgin most pure, conceived without sin, all fair and stainless in thy Conception; glorious Mary, full of grace, Mother of my God, Queen of Angels and of men,—I humbly venerate thee as Mother of my Saviour, who, though He was God, taught me by his own veneration, reverence, and obedience to thee, the honour and homage that are due to thee. Vouchsafe, I pray thee, to accept this Novena which I dedicate to thee. Thou art the safe refuge of the penitent sinner; it is very fitting, then, that I should have recourse to thee. Thou art the Mother of Compassion; then wilt thou surely be moved with pity for my many miseries. Thou art my best hope after Jesus; thou canst not but accept the loving confidence that I have in thee. Make me worthy to be called thy son, that so I may dare to cry unto thee: Show thyself a mother.\nAve Maria nine times, and Gloria Patri once.",
+  "Behold me at thy sacred feet, O Immaculate Virgin. I rejoice with thee, because from all eternity thou wast elected to be the Mother of the Eternal Word, and wast preserved stainless from the taint of original sin. I praise and bless the Most Holy Trinity, who poured out upon thy soul in thy Conception the treasure of that privilege. I humbly pray thee to obtain for me grace effectually to overcome the sad effects produced in my soul by original sin; make me wholly victorious over them, that I may never cease to love my God.",
+  "Then say or sing the Litany of the Blessed Virgin, or else,\nV. All fair art thou, O Mary.\nR. All fair art thou, O Mary.\nV. The original stain is not in thee.\nR. The original stain is not in thee.\nV. Thou art the glory of Jerusalem.\nR. Thou art the joy of Israel.\nV. Thou art the honour of our people.\nR. Thou art the advocate of sinners.\nV. O Mary.\nR. O Mary.\nV. Virgin most prudent.\nR. Mother most clement.\nV. Pray for us.\nR. Intercede for us with our Lord Jesus Christ.",
+  "After the Litany or Hymn as above, say,\nV. In thy conception, O Virgin, thou wast immaculate.\nR. Pray for us to the Father, whose Son was born of thee.\nLet us pray.\nO God, who through the Immaculate Conception of a Virgin didst prepare a worthy dwelling-place for thy Son, we beseech Thee, who by the death of that Son, foreseen by Thee, didst preserve her from all stain of sin, to grant that by her intercession we also may be purified, and so may come to Thee. Through Christ our Lord. Amen.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_IMMACULATE_CONCEPTION_DAY_2 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "Virgin most pure, conceived without sin, all fair and stainless in thy Conception; glorious Mary, full of grace, Mother of my God, Queen of Angels and of men,—I humbly venerate thee as Mother of my Saviour, who, though He was God, taught me by his own veneration, reverence, and obedience to thee, the honour and homage that are due to thee. Vouchsafe, I pray thee, to accept this Novena which I dedicate to thee. Thou art the safe refuge of the penitent sinner; it is very fitting, then, that I should have recourse to thee. Thou art the Mother of Compassion; then wilt thou surely be moved with pity for my many miseries. Thou art my best hope after Jesus; thou canst not but accept the loving confidence that I have in thee. Make me worthy to be called thy son, that so I may dare to cry unto thee: Show thyself a mother.\nAve Maria nine times, and Gloria Patri once.",
+  "Mary, unsullied lily of purity, I rejoice with thee, because from the first moment of thy Conception thou wast filled with grace, and hadst given unto thee the perfect use of reason. I thank and adore the ever blessed Trinity, who gave thee those high gifts. Behold me at thy feet overwhelmed with shame to see myself so poor in grace. O Thou who wast filled full of heavenly grace, grant me a portion of that same grace, and make me a partaker in the treasures of thy Immaculate Conception.",
+  "Then say or sing the Litany of the Blessed Virgin, or else,\nV. All fair art thou, O Mary.\nR. All fair art thou, O Mary.\nV. The original stain is not in thee.\nR. The original stain is not in thee.\nV. Thou art the glory of Jerusalem.\nR. Thou art the joy of Israel.\nV. Thou art the honour of our people.\nR. Thou art the advocate of sinners.\nV. O Mary.\nR. O Mary.\nV. Virgin most prudent.\nR. Mother most clement.\nV. Pray for us.\nR. Intercede for us with our Lord Jesus Christ.",
+  "After the Litany or Hymn as above, say,\nV. In thy conception, O Virgin, thou wast immaculate.\nR. Pray for us to the Father, whose Son was born of thee.\nLet us pray.\nO God, who through the Immaculate Conception of a Virgin didst prepare a worthy dwelling-place for thy Son, we beseech Thee, who by the death of that Son, foreseen by Thee, didst preserve her from all stain of sin, to grant that by her intercession we also may be purified, and so may come to Thee. Through Christ our Lord. Amen.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_IMMACULATE_CONCEPTION_DAY_3 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "Virgin most pure, conceived without sin, all fair and stainless in thy Conception; glorious Mary, full of grace, Mother of my God, Queen of Angels and of men,—I humbly venerate thee as Mother of my Saviour, who, though He was God, taught me by his own veneration, reverence, and obedience to thee, the honour and homage that are due to thee. Vouchsafe, I pray thee, to accept this Novena which I dedicate to thee. Thou art the safe refuge of the penitent sinner; it is very fitting, then, that I should have recourse to thee. Thou art the Mother of Compassion; then wilt thou surely be moved with pity for my many miseries. Thou art my best hope after Jesus; thou canst not but accept the loving confidence that I have in thee. Make me worthy to be called thy son, that so I may dare to cry unto thee: Show thyself a mother.\nAve Maria nine times, and Gloria Patri once.",
+  "Mary, mystic rose of purity, I rejoice with thee at the glorious triumph thou didst gain over the serpent by thy Immaculate Conception, in that thou wast conceived without original sin. I thank and praise with my whole heart the ever blessed Trinity, who granted thee that glorious privilege; and I pray thee to obtain for me courage to overcome every snare of the great enemy, and never to stain my soul with mortal sin. Be thou always mine aid, and enable me with thy protection to obtain the victory over all the enemies of man's eternal welfare.",
+  "Then say or sing the Litany of the Blessed Virgin, or else,\nV. All fair art thou, O Mary.\nR. All fair art thou, O Mary.\nV. The original stain is not in thee.\nR. The original stain is not in thee.\nV. Thou art the glory of Jerusalem.\nR. Thou art the joy of Israel.\nV. Thou art the honour of our people.\nR. Thou art the advocate of sinners.\nV. O Mary.\nR. O Mary.\nV. Virgin most prudent.\nR. Mother most clement.\nV. Pray for us.\nR. Intercede for us with our Lord Jesus Christ.",
+  "After the Litany or Hymn as above, say,\nV. In thy conception, O Virgin, thou wast immaculate.\nR. Pray for us to the Father, whose Son was born of thee.\nLet us pray.\nO God, who through the Immaculate Conception of a Virgin didst prepare a worthy dwelling-place for thy Son, we beseech Thee, who by the death of that Son, foreseen by Thee, didst preserve her from all stain of sin, to grant that by her intercession we also may be purified, and so may come to Thee. Through Christ our Lord. Amen.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_IMMACULATE_CONCEPTION_DAY_4 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "Virgin most pure, conceived without sin, all fair and stainless in thy Conception; glorious Mary, full of grace, Mother of my God, Queen of Angels and of men,—I humbly venerate thee as Mother of my Saviour, who, though He was God, taught me by his own veneration, reverence, and obedience to thee, the honour and homage that are due to thee. Vouchsafe, I pray thee, to accept this Novena which I dedicate to thee. Thou art the safe refuge of the penitent sinner; it is very fitting, then, that I should have recourse to thee. Thou art the Mother of Compassion; then wilt thou surely be moved with pity for my many miseries. Thou art my best hope after Jesus; thou canst not but accept the loving confidence that I have in thee. Make me worthy to be called thy son, that so I may dare to cry unto thee: Show thyself a mother.\nAve Maria nine times, and Gloria Patri once.",
+  "Mary Immaculate Virgin, mirror of holy purity, I rejoice exceedingly to see how from thy Immaculate Conception there were infused into thy soul the most sublime and perfect virtues with all the gifts of the most Holy Spirit. I thank and praise the ever blessed Trinity who bestowed upon thee these high privileges, and I beseech thee, gracious Mother, obtain for me grace to practise every Christian virtue, and so to become worthy to receive the gifts and graces of the Holy Ghost.",
+  "Then say or sing the Litany of the Blessed Virgin, or else,\nV. All fair art thou, O Mary.\nR. All fair art thou, O Mary.\nV. The original stain is not in thee.\nR. The original stain is not in thee.\nV. Thou art the glory of Jerusalem.\nR. Thou art the joy of Israel.\nV. Thou art the honour of our people.\nR. Thou art the advocate of sinners.\nV. O Mary.\nR. O Mary.\nV. Virgin most prudent.\nR. Mother most clement.\nV. Pray for us.\nR. Intercede for us with our Lord Jesus Christ.",
+  "After the Litany or Hymn as above, say,\nV. In thy conception, O Virgin, thou wast immaculate.\nR. Pray for us to the Father, whose Son was born of thee.\nLet us pray.\nO God, who through the Immaculate Conception of a Virgin didst prepare a worthy dwelling-place for thy Son, we beseech Thee, who by the death of that Son, foreseen by Thee, didst preserve her from all stain of sin, to grant that by her intercession we also may be purified, and so may come to Thee. Through Christ our Lord. Amen.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_IMMACULATE_CONCEPTION_DAY_5 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "Virgin most pure, conceived without sin, all fair and stainless in thy Conception; glorious Mary, full of grace, Mother of my God, Queen of Angels and of men,—I humbly venerate thee as Mother of my Saviour, who, though He was God, taught me by his own veneration, reverence, and obedience to thee, the honour and homage that are due to thee. Vouchsafe, I pray thee, to accept this Novena which I dedicate to thee. Thou art the safe refuge of the penitent sinner; it is very fitting, then, that I should have recourse to thee. Thou art the Mother of Compassion; then wilt thou surely be moved with pity for my many miseries. Thou art my best hope after Jesus; thou canst not but accept the loving confidence that I have in thee. Make me worthy to be called thy son, that so I may dare to cry unto thee: Show thyself a mother.\nAve Maria nine times, and Gloria Patri once.",
+  "Mary, bright moon of purity, I congratulate thee in that the mystery of thy Immaculate Conception was the beginning of salvation to the human race, and was the joy of the whole world. I thank and bless the ever blessed Trinity who did so magnify and glorify thy person. I entreat thee to obtain for me grace so to profit by the death and passion of thy dear Son, that his Precious Blood may not have been shed upon the Cross for me in vain, but that after a holy life I may be saved.",
+  "Then say or sing the Litany of the Blessed Virgin, or else,\nV. All fair art thou, O Mary.\nR. All fair art thou, O Mary.\nV. The original stain is not in thee.\nR. The original stain is not in thee.\nV. Thou art the glory of Jerusalem.\nR. Thou art the joy of Israel.\nV. Thou art the honour of our people.\nR. Thou art the advocate of sinners.\nV. O Mary.\nR. O Mary.\nV. Virgin most prudent.\nR. Mother most clement.\nV. Pray for us.\nR. Intercede for us with our Lord Jesus Christ.",
+  "After the Litany or Hymn as above, say,\nV. In thy conception, O Virgin, thou wast immaculate.\nR. Pray for us to the Father, whose Son was born of thee.\nLet us pray.\nO God, who through the Immaculate Conception of a Virgin didst prepare a worthy dwelling-place for thy Son, we beseech Thee, who by the death of that Son, foreseen by Thee, didst preserve her from all stain of sin, to grant that by her intercession we also may be purified, and so may come to Thee. Through Christ our Lord. Amen.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_IMMACULATE_CONCEPTION_DAY_6 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "Virgin most pure, conceived without sin, all fair and stainless in thy Conception; glorious Mary, full of grace, Mother of my God, Queen of Angels and of men,—I humbly venerate thee as Mother of my Saviour, who, though He was God, taught me by his own veneration, reverence, and obedience to thee, the honour and homage that are due to thee. Vouchsafe, I pray thee, to accept this Novena which I dedicate to thee. Thou art the safe refuge of the penitent sinner; it is very fitting, then, that I should have recourse to thee. Thou art the Mother of Compassion; then wilt thou surely be moved with pity for my many miseries. Thou art my best hope after Jesus; thou canst not but accept the loving confidence that I have in thee. Make me worthy to be called thy son, that so I may dare to cry unto thee: Show thyself a mother.\nAve Maria nine times, and Gloria Patri once.",
+  "Mary Immaculate, brilliant star of purity, I rejoice with thee, because thy Immaculate Conception brought exceeding joy to all the angels of Paradise. I thank and bless the ever blessed Trinity, who enriched thee with this privilege. Enable me also one day to take part in this heavenly joy, praising and blessing thee in the company of angels, world without end. Amen.",
+  "Then say or sing the Litany of the Blessed Virgin, or else,\nV. All fair art thou, O Mary.\nR. All fair art thou, O Mary.\nV. The original stain is not in thee.\nR. The original stain is not in thee.\nV. Thou art the glory of Jerusalem.\nR. Thou art the joy of Israel.\nV. Thou art the honour of our people.\nR. Thou art the advocate of sinners.\nV. O Mary.\nR. O Mary.\nV. Virgin most prudent.\nR. Mother most clement.\nV. Pray for us.\nR. Intercede for us with our Lord Jesus Christ.",
+  "After the Litany or Hymn as above, say,\nV. In thy conception, O Virgin, thou wast immaculate.\nR. Pray for us to the Father, whose Son was born of thee.\nLet us pray.\nO God, who through the Immaculate Conception of a Virgin didst prepare a worthy dwelling-place for thy Son, we beseech Thee, who by the death of that Son, foreseen by Thee, didst preserve her from all stain of sin, to grant that by her intercession we also may be purified, and so may come to Thee. Through Christ our Lord. Amen.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_IMMACULATE_CONCEPTION_DAY_7 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "Virgin most pure, conceived without sin, all fair and stainless in thy Conception; glorious Mary, full of grace, Mother of my God, Queen of Angels and of men,—I humbly venerate thee as Mother of my Saviour, who, though He was God, taught me by his own veneration, reverence, and obedience to thee, the honour and homage that are due to thee. Vouchsafe, I pray thee, to accept this Novena which I dedicate to thee. Thou art the safe refuge of the penitent sinner; it is very fitting, then, that I should have recourse to thee. Thou art the Mother of Compassion; then wilt thou surely be moved with pity for my many miseries. Thou art my best hope after Jesus; thou canst not but accept the loving confidence that I have in thee. Make me worthy to be called thy son, that so I may dare to cry unto thee: Show thyself a mother.\nAve Maria nine times, and Gloria Patri once.",
+  "Mary Immaculate, rising morn of purity, I rejoice with thee, and I am filled with admiration at beholding thee confirmed in grace and rendered sinless from the first moment of thy Conception. I thank and praise the ever blessed Trinity, who elected thee alone from all mankind for this special privilege. Holiest Virgin, obtain for me so entire and lasting a hatred of sin, the worst of all evils, that I may rather die than ever again commit a mortal sin.",
+  "Then say or sing the Litany of the Blessed Virgin, or else,\nV. All fair art thou, O Mary.\nR. All fair art thou, O Mary.\nV. The original stain is not in thee.\nR. The original stain is not in thee.\nV. Thou art the glory of Jerusalem.\nR. Thou art the joy of Israel.\nV. Thou art the honour of our people.\nR. Thou art the advocate of sinners.\nV. O Mary.\nR. O Mary.\nV. Virgin most prudent.\nR. Mother most clement.\nV. Pray for us.\nR. Intercede for us with our Lord Jesus Christ.",
+  "After the Litany or Hymn as above, say,\nV. In thy conception, O Virgin, thou wast immaculate.\nR. Pray for us to the Father, whose Son was born of thee.\nLet us pray.\nO God, who through the Immaculate Conception of a Virgin didst prepare a worthy dwelling-place for thy Son, we beseech Thee, who by the death of that Son, foreseen by Thee, didst preserve her from all stain of sin, to grant that by her intercession we also may be purified, and so may come to Thee. Through Christ our Lord. Amen.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_IMMACULATE_CONCEPTION_DAY_8 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "Virgin most pure, conceived without sin, all fair and stainless in thy Conception; glorious Mary, full of grace, Mother of my God, Queen of Angels and of men,—I humbly venerate thee as Mother of my Saviour, who, though He was God, taught me by his own veneration, reverence, and obedience to thee, the honour and homage that are due to thee. Vouchsafe, I pray thee, to accept this Novena which I dedicate to thee. Thou art the safe refuge of the penitent sinner; it is very fitting, then, that I should have recourse to thee. Thou art the Mother of Compassion; then wilt thou surely be moved with pity for my many miseries. Thou art my best hope after Jesus; thou canst not but accept the loving confidence that I have in thee. Make me worthy to be called thy son, that so I may dare to cry unto thee: Show thyself a mother.\nAve Maria nine times, and Gloria Patri once.",
+  "Mary, Virgin, sun without stain, I congratulate thee and I rejoice with thee, because God gave thee in thy Conception a greater and more abundant grace than He gave to all his angels and his saints together, even when their merits were most exalted. I thank and admire the immense beneficence of the ever blessed Trinity, who hath dispensed to thee alone this privilege. Oh, enable me too to correspond with the grace of God, and never more to receive it in vain; change my heart, and help me to begin in earnest a new life.",
+  "Then say or sing the Litany of the Blessed Virgin, or else,\nV. All fair art thou, O Mary.\nR. All fair art thou, O Mary.\nV. The original stain is not in thee.\nR. The original stain is not in thee.\nV. Thou art the glory of Jerusalem.\nR. Thou art the joy of Israel.\nV. Thou art the honour of our people.\nR. Thou art the advocate of sinners.\nV. O Mary.\nR. O Mary.\nV. Virgin most prudent.\nR. Mother most clement.\nV. Pray for us.\nR. Intercede for us with our Lord Jesus Christ.",
+  "After the Litany or Hymn as above, say,\nV. In thy conception, O Virgin, thou wast immaculate.\nR. Pray for us to the Father, whose Son was born of thee.\nLet us pray.\nO God, who through the Immaculate Conception of a Virgin didst prepare a worthy dwelling-place for thy Son, we beseech Thee, who by the death of that Son, foreseen by Thee, didst preserve her from all stain of sin, to grant that by her intercession we also may be purified, and so may come to Thee. Through Christ our Lord. Amen.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_IMMACULATE_CONCEPTION_DAY_9 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "Virgin most pure, conceived without sin, all fair and stainless in thy Conception; glorious Mary, full of grace, Mother of my God, Queen of Angels and of men,—I humbly venerate thee as Mother of my Saviour, who, though He was God, taught me by his own veneration, reverence, and obedience to thee, the honour and homage that are due to thee. Vouchsafe, I pray thee, to accept this Novena which I dedicate to thee. Thou art the safe refuge of the penitent sinner; it is very fitting, then, that I should have recourse to thee. Thou art the Mother of Compassion; then wilt thou surely be moved with pity for my many miseries. Thou art my best hope after Jesus; thou canst not but accept the loving confidence that I have in thee. Make me worthy to be called thy son, that so I may dare to cry unto thee: Show thyself a mother.\nAve Maria nine times, and Gloria Patri once.",
+  "Immaculate Mary, living light of holiness, model of purity, Virgin and Mother, as soon as thou wast conceived, thou didst profoundly adore thy God, giving him thanks, because by means of thee the ancient curse was blotted out, and blessing was again come upon the sinful sons of Adam. Let this blessing kindle in my heart love towards God; and do thou inflame my heart still more and more, that I may ever love Him constantly on earth, and afterwards eternally enjoy Him in heaven, there to thank and praise Him more and more fervently for all the wondrous privileges conferred on thee, and to rejoice with thee for thy high crown of glory.",
+  "Then say or sing the Litany of the Blessed Virgin, or else,\nV. All fair art thou, O Mary.\nR. All fair art thou, O Mary.\nV. The original stain is not in thee.\nR. The original stain is not in thee.\nV. Thou art the glory of Jerusalem.\nR. Thou art the joy of Israel.\nV. Thou art the honour of our people.\nR. Thou art the advocate of sinners.\nV. O Mary.\nR. O Mary.\nV. Virgin most prudent.\nR. Mother most clement.\nV. Pray for us.\nR. Intercede for us with our Lord Jesus Christ.",
+  "After the Litany or Hymn as above, say,\nV. In thy conception, O Virgin, thou wast immaculate.\nR. Pray for us to the Father, whose Son was born of thee.\nLet us pray.\nO God, who through the Immaculate Conception of a Virgin didst prepare a worthy dwelling-place for thy Son, we beseech Thee, who by the death of that Son, foreseen by Thee, didst preserve her from all stain of sin, to grant that by her intercession we also may be purified, and so may come to Thee. Through Christ our Lord. Amen.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+/** The Raccolta novena for Our Lady's Nativity, said the same on each of the nine days. */
+const RACCOLTA_NATIVITY_NOVENA_PRAYER = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "Most holy Mary, elect and predestined from all eternity by the most Holy Trinity to be Mother of the only-begotten Son of the Eternal Father, foretold by the Prophets, expected by the Patriarchs, desired by all nations, Sanctuary and living temple of the Holy Ghost, sun without stain, conceived free from original sin, Mistress of Heaven and of Earth, Queen of Angels: humbly prostrate at thy feet we give thee our homage, rejoicing that the year has brought round again the memory of thy most happy Nativity; and we pray thee with all our hearts to vouchsafe in thy goodness now to come down again and be reborn spiritually in our souls, that, led captive by thy loveliness and sweetness, they may ever live united to thy most sweet and loving heart.\n\nSo now whilst we salute thee nine times, we will direct our thoughts to the nine months which thou didst pass enclosed in thy mother's womb; and we will devoutly say:\n\nWe hail thee, O Mary, who tracing thy descent from the royal house of David, didst come forth to the light of Heaven with high honour from the womb of holy Anna, thy most happy mother. Ave Maria.\n\nWe hail thee, heavenly babe, white dove of purity; who in spite of the serpent wast conceived free from original sin. Ave Maria.\n\nWe hail thee, bright morn; who, forerunner of the heavenly Sun of Justice, didst bring the first light to earth. Ave Maria.\n\nWe hail thee, Elect; who, like the untarnished Sun, didst burst forth in the dark night of sin. Ave Maria.\n\nWe hail thee, beauteous Moon; who didst shed light upon a world wrapped in the thickest darkness of paganism. Ave Maria.\n\nWe hail thee, dread warrior-child; who, in thyself a host, didst put to flight all hell. Ave Maria.\n\nWe hail thee, fair soul of Mary; who from eternity wast possessed by God. Ave Maria.\n\nWe hail thee, dear child, and we humbly venerate thy most holy infant body, the sacred swaddling clothes wherewith they bound thee, the sacred crib wherein they laid thee, and we bless the hour and the day when thou wast born. Ave Maria.\n\nWe hail thee, much beloved infant, adorned with every virtue immeasurably above all saints, and therefore worthy Mother of the Saviour of the world; who, having been made fruitful by the Holy Spirit, didst bring forth the Word Incarnate. Ave Maria.\n\nLet us pray.\nO most lovely infant, who by thy holy birth hast comforted the world, made glad the Heavens, struck terror into hell, brought help to the fallen, consolation to the sad, salvation to the weak, joy to all men living; we entreat thee, with the most fervent love and gratitude, to be spiritually reborn in our souls by means of thy most holy love; renew our spirit in thy service, rekindle in our hearts the fire of charity, bid all virtues blossom there, that so we may find more and more favour in thy gracious eyes. Mary! be thou our Mary, and may we feel the saving power of thy sweetest name; may it ever be our comfort to call on that name in all our troubles; may it be our hope in dangers, our shield in temptation, and our last utterance in death. Sit nobis nomen Mariæ mel in ore, melos in aure, et jubilus in corde. Amen. Let the name of Mary be honey in the mouth, melody in the ear, joy in the heart. Amen.",
+  "Here follows the Litany. Then say:\nV. The Nativity, O Virgin Mother of God.\nR. Hath brought joy to the whole world.\nLet us pray.\nGrant to us thy servants, we beseech Thee, O Lord, the gift of heavenly grace; that to all those for whom the delivery of the Blessed Virgin was the beginning of salvation, this her votive festival may give increase of peace.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+/** The Raccolta novena for the Annunciation, said the same on each of the nine days. */
+const RACCOLTA_ANNUNCIATION_NOVENA_PRAYER = [
+  RACCOLTA_COME_HOLY_GHOST,
+  'I venerate and I admire thee, most holy Virgin Mary, as the humblest of all the creatures of God on the very day of thy Annunciation, when God Himself exalted thee to the most sublime dignity of his own Mother. O mighty Virgin, enable me, wretched sinner that I am, to know the depths of my own nothingness, and at once with all my heart to humble myself before all men. Ave Maria.\n\nMary, most holy Virgin, when thou wast saluted by Gabriel the Archangel, and the message from God was conveyed to thee, and thou wast exalted by God above all the Choirs of the Angels, then thou didst humbly say, "Behold the handmaid of the Lord." Oh, obtain for me true humility and angelic purity, enabling me so to live on earth that I may ever be worthy of the blessing of God. Ave Maria.\n\nO Virgin ever blessed, I rejoice with thee because solely by thy humble Fiat thou didst draw from the bosom of the Eternal Father the divine Word into thy own pure bosom. Draw then ever my heart to God; and with God draw grace into my heart, that I may ever bless thy Fiat, and cry with devotion, "O mighty Fiat! O efficacious Fiat! O Fiat to be venerated above all Fiats" (St Thomas of Villanova). Ave Maria.\n\nO Virgin Mary, on the day of thy Annunciation thou wast found by Gabriel the Archangel quick and ready to do God\'s will, when it pleased the most Holy Trinity to await thy consent in order to redeem the world. Enable me in every good and bad fortune to turn to God with resignation and say: Be it done unto me according to thy word. Ave Maria.\n\nMost holy Mary, I well understand that thy obedience made the union between thy God and thee more intimate than shall ever again be possible for any other creature: ("No creature could be in closer union with God." B. Albertus Magnus). I am confounded to see how sin has separated me from God. Help me then, kind Mother, truly to do penance for my sins, that thy own loving Jesus may yet once more live in me and I in Him. Ave Maria.\n\nMost holy Mary, thou wast troubled by reason of thy modesty, when Gabriel the Archangel stood before thee in thy house; but I, when I come before thee, am troubled because of my great pride; wherefore do thou in thy incomparable humility, "which brought forth God for men, reopened Paradise, and set the captive souls free from hell beneath" (S. Aug. Sermo de Sanct.), draw me, I pray thee, out of the deep pit of my sins, and enable me to save my soul. Ave Maria.\n\nMost holy Virgin, though I have an unhallowed tongue, I have the boldness to salute thee all hours of the day: "Hail, hail Mary, full of grace." I pray thee from my heart to replenish my soul with a little of that grace wherewith the Holy Spirit, when He overshadowed thee, filled thee to the full. Ave Maria.\n\nMost holy Mary, "The Lord is with thee"; I know by faith that the great God who has been ever with thee from thy Conception, is, by his Incarnation in thy purest womb, made still more closely one with thee; make it thy care, I pray thee, that I may ever be one in heart and soul with that same dear Lord Jesus, by means of his sanctifying grace. Ave Maria.\n\nMost holy Mary, "Blessed art thou amongst women"; pour out upon my heart and soul thy heavenly blessing, as thou thyself wast ever blessed of God among all women; for I have this sure hope, that if, my dear Mother, thou wilt bless me while I live, then when I die I shall be blessed of God in the everlasting glory of Heaven. Ave Maria.',
+  "Then say the Litany, and then:\nV. The angel of the Lord declared unto Mary.\nR. And she conceived of the Holy Ghost.\nLet us pray.\nO God, who by the message of an angel didst will that the divine Word should take flesh of the Blessed Virgin Mary; grant unto us thy suppliants that we, who believe her to be truly the Mother of God, may be helped by her intercession with Thee.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+/** The Raccolta novena for the Purification, said the same on each of the nine days. */
+const RACCOLTA_PURIFICATION_NOVENA_PRAYER = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "Most holy Virgin, bright mirror of all virtues, the forty days after thy delivery were no sooner passed than thou, though the purest of all virgins, didst will to be presented in the Temple to be purified; oh, help us then to keep our hearts unstained by sin, that so we too may be made worthy one day to be presented to our God in Heaven. Ave Maria.\n\nVirgin most obedient, at thy presentation in the Temple, thou didst willingly offer the sacrifice customary among women; enable us so to follow thy example, that we may make ourselves a living sacrifice to God by practising every virtue. Ave Maria.\n\nVirgin most pure, thou didst despise the reproach of men, observing the precepts of the Law; ask for us grace always to keep our hearts pure, whatever the world may think of us. Ave Maria.\n\nVirgin most holy, by offering thy Son, the Divine Word, to his Eternal Father, thou didst make Heaven glad; present our poor hearts to God, that by his grace they may be kept free from mortal sin. Ave Maria.\n\nVirgin most humble, in consigning Jesus into the arms of the holy old man Simeon, thou didst fill his spirit full of heavenly joy; consign our hearts to God, that He may fill them full of his Holy Spirit. Ave Maria.\n\nVirgin most diligent, in ransoming thy Son Jesus according to the Law, thou didst co-operate in the salvation of the world; ransom our poor hearts from the slavery of sin, that they may be ever pure in the sight of God. Ave Maria.\n\nVirgin most clement, on hearing the prophecy of Simeon foretelling thy woes, thou didst at once resign thyself to the good pleasure of thy God; make us always resigned to the dispositions of his Providence, and enable us to bear all troubles with patience. Ave Maria.\n\nVirgin most compassionate, when thou didst fill the soul of Anna the prophetess with light, by means of thy Divine Son, thou didst make her magnify the mercies of God by recognizing Jesus as the Redeemer of the world; enrich our spirits too with heavenly grace, that we may joyfully reap in full measure the fruits of our Lord's Redemption. Ave Maria.\n\nVirgin most resigned, although thou didst feel thine own soul transfixed with sorrow, foreseeing all the bitter Passion of thy Son, yet knowing the grief of Joseph thy spouse for all thy sufferings, thou didst console him with holy words; pierce through and through our souls with true sorrow for our sins, that we may one day come to rejoice with thee in everlasting bliss, partakers of thy glory. Ave Maria.",
+  "Then say the Litany, and then:\nV. Simeon received answer from the Holy Spirit.\nR. That he should not see death till he had seen the Christ of the Lord.\nLet us pray.\nAlmighty, everlasting God, we humbly pray thy Majesty that, as thine only begotten Son was presented in the Temple in the substance of our flesh, so Thou wouldst enable us to present ourselves before thee with clean hearts.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_ASSUMPTION_DAY_1 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "O Queen of all the virgin choir,\nEnthroned above the starry sky;\nWho with pure milk from thy own breast\nThy own Creator didst supply.\n\nWhat man hath lost in hapless Eve,\nThy sacred womb to man restores;\nThou to the sorrowing here beneath\nHast opened heaven's eternal doors.\n\nHail, O refulgent Hall of Light!\nHail, Gate sublime of Heaven's high King!\nThrough Thee redeemed to endless life,\nThy praise let all the nations sing.\n\nO Jesu, born of Virgin bright\nImmortal glory be to Thee;\nPraise to the Father infinite,\nAnd Holy Ghost eternally. Amen.",
+  "Let us meditate how glorious Mary was at the moment of her death, because in life she was so well prepared to die; first by reason of her ardent longing to see her God and to be again united to her Son; and next, by the unapproachable merit of her consummate perfection. Then, reflecting how different we are from Mary in our practice of preparation for our death, let us say:\n\nMost holy Virgin, who in order to prepare thyself for a holy death, didst live in continual desire of the beatific vision; oh, take from us all vain desires for the frail things of earth. Ave Maria thrice.\n\nMost holy Virgin, who in order to prepare thyself for a holy death didst in life ever sigh to be united to thy Son Jesus; obtain for us fidelity to Jesus even unto death. Ave Maria thrice.\n\nMost holy Virgin, who, in preparation for a holy death, didst attain an unapproachable height of merit and of virtue; intercede for us that we may know that virtue and the grace of God alone will lead us to salvation. Ave Maria thrice.\n\nLet us now give praise to Mary, so prudent in preparing for death; and whilst we exalt her glory, we will unite with the nine Choirs of Angels, who, on her Assumption into Heaven, escorted her, praising her with the first Choir:",
+  "Then say the Litany, and then:\nV. The Holy Mother of God is exalted.\nR. Into the heavenly kingdom above the Angel Choirs.\nLet us pray.\nWe beseech Thee, O Lord, to pardon the shortcomings of thy servants; that we who by our own works are not able to please Thee, may be saved by the intercession of the Mother of thy Son, our Lord Jesus Christ.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_ASSUMPTION_DAY_2 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "O Queen of all the virgin choir,\nEnthroned above the starry sky;\nWho with pure milk from thy own breast\nThy own Creator didst supply.\n\nWhat man hath lost in hapless Eve,\nThy sacred womb to man restores;\nThou to the sorrowing here beneath\nHast opened heaven's eternal doors.\n\nHail, O refulgent Hall of Light!\nHail, Gate sublime of Heaven's high King!\nThrough Thee redeemed to endless life,\nThy praise let all the nations sing.\n\nO Jesu, born of Virgin bright\nImmortal glory be to Thee;\nPraise to the Father infinite,\nAnd Holy Ghost eternally. Amen.",
+  "Let us meditate how glorious Mary was at her death, in that, according to the teaching of holy writers, she was comforted not only by the apostles and saints, but also by her dear Son Jesus; and whilst we contemplate the unspeakable joy which filled her soul at this grace granted to her alone, let us entreat her for ourselves:\n\nGlorious Virgin, who for thy consolation didst merit to die in the blessed company of apostles and saints: obtain for us, that when we breathe forth our souls we may feel thy presence and that of our holy patrons, assisting us. Ave Maria thrice.\n\nGlorious Virgin, who at the moment of thy death wast comforted by the sight of thy dear Son Jesus: oh, pray for us, that at that awful moment we too may be comforted by receiving Jesus in the most holy Viaticum. Ave Maria thrice.\n\nGlorious Virgin, who didst surrender thy spirit into the arms of Jesus: assist us, that we also, in life and in death, may surrender our souls into the arms of Jesus, and that we may always desire that his most holy will be done. Ave Maria thrice.\n\nCome then, let us magnify the glory of Mary, assisted at her death by her Son Jesus and his apostles, and join in jubilee at her triumph, with the second Choir of the heavenly host:",
+  "Then say the Litany, and then:\nV. The Holy Mother of God is exalted.\nR. Into the heavenly kingdom above the Angel Choirs.\nLet us pray.\nWe beseech Thee, O Lord, to pardon the shortcomings of thy servants; that we who by our own works are not able to please Thee, may be saved by the intercession of the Mother of thy Son, our Lord Jesus Christ.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_ASSUMPTION_DAY_3 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "O Queen of all the virgin choir,\nEnthroned above the starry sky;\nWho with pure milk from thy own breast\nThy own Creator didst supply.\n\nWhat man hath lost in hapless Eve,\nThy sacred womb to man restores;\nThou to the sorrowing here beneath\nHast opened heaven's eternal doors.\n\nHail, O refulgent Hall of Light!\nHail, Gate sublime of Heaven's high King!\nThrough Thee redeemed to endless life,\nThy praise let all the nations sing.\n\nO Jesu, born of Virgin bright\nImmortal glory be to Thee;\nPraise to the Father infinite,\nAnd Holy Ghost eternally. Amen.",
+  "Let us meditate how glorious the holy Mary was in her death, because she died in a very ecstasy of the love of God; and desiring that we too may be strengthened by that holy fire of love, let us ask for her help.\n\nMary, most happy Virgin, who didst die of the vehemence of the love of God; make it thy care that in our hearts, as God wills, there be lit up this living fire of his love. Ave Maria thrice.\n\nMary, most happy Virgin, who dying of divine love didst teach us what our love of God ought to do; pray for us, that we may never abandon our God in life or death. Ave Maria thrice.\n\nMary, most happy Virgin, who in leaving this mortal life, by virtue of an ecstasy of love didst make known the fire which ever burnt in thy heart, obtain for us at least a spark of that same fire, to give us true sorrow for our sins. Ave Maria thrice.\n\nLet us with the third Choir of Angels now exalt the ineffable glory of Mary inflamed with the love of her God:",
+  "Then say the Litany, and then:\nV. The Holy Mother of God is exalted.\nR. Into the heavenly kingdom above the Angel Choirs.\nLet us pray.\nWe beseech Thee, O Lord, to pardon the shortcomings of thy servants; that we who by our own works are not able to please Thee, may be saved by the intercession of the Mother of thy Son, our Lord Jesus Christ.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_ASSUMPTION_DAY_4 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "O Queen of all the virgin choir,\nEnthroned above the starry sky;\nWho with pure milk from thy own breast\nThy own Creator didst supply.\n\nWhat man hath lost in hapless Eve,\nThy sacred womb to man restores;\nThou to the sorrowing here beneath\nHast opened heaven's eternal doors.\n\nHail, O refulgent Hall of Light!\nHail, Gate sublime of Heaven's high King!\nThrough Thee redeemed to endless life,\nThy praise let all the nations sing.\n\nO Jesu, born of Virgin bright\nImmortal glory be to Thee;\nPraise to the Father infinite,\nAnd Holy Ghost eternally. Amen.",
+  "Let us meditate how glorious Mary was in her dead body, because it was adorned with marvellous splendour and majesty, and spread around an odour of sanctity, which was the very fragrance of Paradise, and because innumerable miracles were wrought at the sight of it. Then, thinking on our own misery, let us pray:\n\nO Lady, most pure, who by reason of thy virginal purity didst merit the glory of being so bright and so majestic in thy body after death; obtain for us the strength to detach ourselves from every foul spirit of impurity. Ave Maria thrice.\n\nO Lady most pure, who by reason of thy rare virtue didst from thy dead body spread around the sweetness of Paradise; make it thy care that we may edify our neighbour by our life, and never more by our bad example become a stumbling-block to others. Ave Maria thrice.\n\nO Lady most pure, at the sight of whose holy body numberless bodily infirmities were cured; intercede for us, that by thy prayers all our spiritual ills may be healed. Ave Maria thrice.\n\nCome, let us rejoice in the glory given to the dead body of Mary, magnifying her with the fourth Choir of Angels:",
+  "Then say the Litany, and then:\nV. The Holy Mother of God is exalted.\nR. Into the heavenly kingdom above the Angel Choirs.\nLet us pray.\nWe beseech Thee, O Lord, to pardon the shortcomings of thy servants; that we who by our own works are not able to please Thee, may be saved by the intercession of the Mother of thy Son, our Lord Jesus Christ.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_ASSUMPTION_DAY_5 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "O Queen of all the virgin choir,\nEnthroned above the starry sky;\nWho with pure milk from thy own breast\nThy own Creator didst supply.\n\nWhat man hath lost in hapless Eve,\nThy sacred womb to man restores;\nThou to the sorrowing here beneath\nHast opened heaven's eternal doors.\n\nHail, O refulgent Hall of Light!\nHail, Gate sublime of Heaven's high King!\nThrough Thee redeemed to endless life,\nThy praise let all the nations sing.\n\nO Jesu, born of Virgin bright\nImmortal glory be to Thee;\nPraise to the Father infinite,\nAnd Holy Ghost eternally. Amen.",
+  "Let us meditate how glorious Mary was after death, since by the power of the Highest her body, raised again to life, forthwith acquired the four gifts of brightness, agility, subtlety and impassibility; and filled with consolation at the excellence of her glory, let us invoke her:\n\nO Lady exalted, who wast so gloriously raised to life again by thy God; help us so to live on earth, that we also may rise again like unto thee in the last judgment day. Ave Maria thrice.\n\nO Lady exalted, to whose risen body were given the gifts of brightness and subtlety, by reason of the bright example and humility of thy life on earth; pray for us, that all contemptuous affectation may be taken from us; that so our souls, being freed from all self-love, may be adorned with humility. Ave Maria thrice.\n\nO Lady exalted, whose risen body was glorified by the gifts of agility and impassibility, by reason of thy spiritual zeal and patience while on earth; obtain for us courage valiantly to mortify our bodies, and patiently to curb all our disordinate inclinations. Ave Maria thrice.\n\nThen let us render due praise to Mary, and magnify the glory which adorned her risen body; while, with the fifth Choir, we exalt her:",
+  "Then say the Litany, and then:\nV. The Holy Mother of God is exalted.\nR. Into the heavenly kingdom above the Angel Choirs.\nLet us pray.\nWe beseech Thee, O Lord, to pardon the shortcomings of thy servants; that we who by our own works are not able to please Thee, may be saved by the intercession of the Mother of thy Son, our Lord Jesus Christ.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_ASSUMPTION_DAY_6 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "O Queen of all the virgin choir,\nEnthroned above the starry sky;\nWho with pure milk from thy own breast\nThy own Creator didst supply.\n\nWhat man hath lost in hapless Eve,\nThy sacred womb to man restores;\nThou to the sorrowing here beneath\nHast opened heaven's eternal doors.\n\nHail, O refulgent Hall of Light!\nHail, Gate sublime of Heaven's high King!\nThrough Thee redeemed to endless life,\nThy praise let all the nations sing.\n\nO Jesu, born of Virgin bright\nImmortal glory be to Thee;\nPraise to the Father infinite,\nAnd Holy Ghost eternally. Amen.",
+  "Let us meditate how gloriously Mary was taken up to Heaven, being escorted thither by many legions of the heavenly host and of blessed souls drawn by her merits out of Purgatory; and rejoicing in that majestic triumph, let us with all humility offer to her our supplications:\n\nGreat Queen, who wast assumed so royally into the Kingdom of eternal peace; obtain for us that all sordid, earthly thoughts be taken away from us, and our hearts be fixed upon the contemplation of the unchangeable happiness of Heaven. Ave Maria thrice.\n\nGreat Queen, who wast assumed to Heaven amidst a company of the Angelic Hierarchy; obtain for us strength to overcome the wiles of all our enemies, and that we may lend a docile ear to the counsels of that good angel who continually assists and governs us. Ave Maria thrice.\n\nGreat Queen, who wast assumed to Heaven most gloriously, in the company of souls drawn by thy merits out of Purgatory; free us from the slavery of sin, and make us worthy to praise thee for all eternity. Ave Maria thrice.\n\nLet us not cease to applaud the royal triumph of Mary; and uniting our homage with the sixth Choir of angels, let us honour the singular glory of her Assumption into Heaven:",
+  "Then say the Litany, and then:\nV. The Holy Mother of God is exalted.\nR. Into the heavenly kingdom above the Angel Choirs.\nLet us pray.\nWe beseech Thee, O Lord, to pardon the shortcomings of thy servants; that we who by our own works are not able to please Thee, may be saved by the intercession of the Mother of thy Son, our Lord Jesus Christ.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_ASSUMPTION_DAY_7 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "O Queen of all the virgin choir,\nEnthroned above the starry sky;\nWho with pure milk from thy own breast\nThy own Creator didst supply.\n\nWhat man hath lost in hapless Eve,\nThy sacred womb to man restores;\nThou to the sorrowing here beneath\nHast opened heaven's eternal doors.\n\nHail, O refulgent Hall of Light!\nHail, Gate sublime of Heaven's high King!\nThrough Thee redeemed to endless life,\nThy praise let all the nations sing.\n\nO Jesu, born of Virgin bright\nImmortal glory be to Thee;\nPraise to the Father infinite,\nAnd Holy Ghost eternally. Amen.",
+  "Let us meditate how glorious Mary is in Heaven, because she is enthroned there as Queen of the universe, and is ever receiving homage and veneration from countless hosts of angels and of saints; and assisting at her royal throne, let us implore her aid:\n\nSovereign Queen of the universe, who for thy incomparable merit art raised to such high glory in the heavens; in thy pity look upon our miseries, and rule us with the gentle sway of thy protection. Ave Maria thrice.\n\nSovereign Queen of the universe, who art ever receiving worship and homage from all the heavenly host; accept, we pray thee, these our invocations, offered with such reverence as befits thy dignity and greatness. Ave Maria thrice.\n\nSovereign Queen of the universe, by that glory which thou hast by reason of thy high place in Heaven; vouchsafe to take us into the number of thy servants, and obtain for us grace that with quick and ready will we may faithfully keep the precepts of God our Lord. Ave Maria thrice.\n\nLet us take part in the joy of the angels praising Mary, and rejoice with the seventh Choir, because we know that she is raised to the dignity of Queen of the universe.",
+  "Then say the Litany, and then:\nV. The Holy Mother of God is exalted.\nR. Into the heavenly kingdom above the Angel Choirs.\nLet us pray.\nWe beseech Thee, O Lord, to pardon the shortcomings of thy servants; that we who by our own works are not able to please Thee, may be saved by the intercession of the Mother of thy Son, our Lord Jesus Christ.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_ASSUMPTION_DAY_8 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "O Queen of all the virgin choir,\nEnthroned above the starry sky;\nWho with pure milk from thy own breast\nThy own Creator didst supply.\n\nWhat man hath lost in hapless Eve,\nThy sacred womb to man restores;\nThou to the sorrowing here beneath\nHast opened heaven's eternal doors.\n\nHail, O refulgent Hall of Light!\nHail, Gate sublime of Heaven's high King!\nThrough Thee redeemed to endless life,\nThy praise let all the nations sing.\n\nO Jesu, born of Virgin bright\nImmortal glory be to Thee;\nPraise to the Father infinite,\nAnd Holy Ghost eternally. Amen.",
+  "Let us meditate how glorious Mary is in Heaven by reason of the royal crown wherewith her divine Son has crowned her, and for the full knowledge which she now has of the deep mysteries of God, past, present and to come; and full of veneration for the incomparable honour bestowed upon our Queen, let us have recourse to her and say:\n\nQueen unrivalled, who in Heaven above dost enjoy the high glory of being crowned by thy divine Son with a royal diadem; help us to share thy matchless virtues, and ask for us that, purified in heart, we may be made worthy to be crowned with thee in Paradise. Ave Maria thrice.\n\nQueen unrivalled, in the full knowledge granted thee of all things on earth; for thy own glory's sake obtain pardon for our past evil deeds, that we may never offend again by froward tongue or wanton thought. Ave Maria thrice.\n\nQueen unrivalled, whose desire it is to see men pure and clean of heart, that so they may be made worthy of thy God; obtain for us forgiveness of our sins, and help us, that all our looks, words and deeds may please his heavenly Majesty. Ave Maria thrice.\n\nLet us then purify our hearts, in order that we may be worthy to give praise to Mary; and to the glory she possesses in that bright crown which decks her royal brow, let us add humble tokens of our love, rejoicing in union with the eighth Choir:",
+  "Then say the Litany, and then:\nV. The Holy Mother of God is exalted.\nR. Into the heavenly kingdom above the Angel Choirs.\nLet us pray.\nWe beseech Thee, O Lord, to pardon the shortcomings of thy servants; that we who by our own works are not able to please Thee, may be saved by the intercession of the Mother of thy Son, our Lord Jesus Christ.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
+].join("\n\n");
+
+const RACCOLTA_ASSUMPTION_DAY_9 = [
+  RACCOLTA_COME_HOLY_GHOST,
+  "O Queen of all the virgin choir,\nEnthroned above the starry sky;\nWho with pure milk from thy own breast\nThy own Creator didst supply.\n\nWhat man hath lost in hapless Eve,\nThy sacred womb to man restores;\nThou to the sorrowing here beneath\nHast opened heaven's eternal doors.\n\nHail, O refulgent Hall of Light!\nHail, Gate sublime of Heaven's high King!\nThrough Thee redeemed to endless life,\nThy praise let all the nations sing.\n\nO Jesu, born of Virgin bright\nImmortal glory be to Thee;\nPraise to the Father infinite,\nAnd Holy Ghost eternally. Amen.",
+  "Let us meditate how glorious Mary is in Heaven by reason of her patronage of man, and for the power she has to aid him with great watchfulness in all his necessities; wherefore with lively confidence in the patronage of the very Mother of our God, let us implore her aid.\n\nMary, our most powerful patroness, whose glory it is in Heaven to be the advocate of man; oh! take us from the hands of the enemy and place us in the arms of our God and Creator. Ave Maria thrice.\n\nMary, our most powerful patroness, who being in Heaven the advocate of men wouldst that all men should be saved; make it thy care that none of us succumb at the thought of our past relapses into sin. Ave Maria thrice.\n\nMary, our most powerful patroness, who to fulfil thy office dost love to be continually invoked by men; obtain for us such true devotion that we may ever call upon thee in life, and above all at the awful moment of our death. Ave Maria thrice.\n\nNow with all our hearts let us celebrate the glories of Mary; and consoled at having Mary for our advocate in Heaven, let us join in praising her with the ninth Choir of angels:",
+  "Then say the Litany, and then:\nV. The Holy Mother of God is exalted.\nR. Into the heavenly kingdom above the Angel Choirs.\nLet us pray.\nWe beseech Thee, O Lord, to pardon the shortcomings of thy servants; that we who by our own works are not able to please Thee, may be saved by the intercession of the Mother of thy Son, our Lord Jesus Christ.",
+  RACCOLTA_PRAYERS_FOR_POPE_AND_CHURCH,
 ].join("\n\n");
 
 /**
@@ -1430,6 +1640,428 @@ export const novenaGroupThree: CuratedEntry[] = [
       structure: "nine_days",
       typicalStartDate: "Any time of need",
       citations: [HAMMER_GUTENBERG, HAMMER_SCAN_FULL],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-immaculate-conception-raccolta",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [RACCOLTA_1910_NOVENAS, CE_IMMACULATE_CONCEPTION, CE_RACCOLTA],
+    payload: {
+      slug: "novena-immaculate-conception-raccolta",
+      title: "Raccolta Novena for the Immaculate Conception",
+      summary:
+        "The Raccolta's novena for the Immaculate Conception, kept from 29 November to 7 December. Each day opens with the Come, O Holy Ghost and a preparatory prayer and nine Hail Marys, then says a prayer proper to the day that rejoices with Mary under a new image of her purity — lily, rose, mirror, moon, star, morning and sun — and closes with the Tota pulchra or the Litany and the collect of the feast.",
+      background:
+        "The Raccolta, first compiled at Rome in 1807 by Telesforo Galli for the Congregation of Indulgences, gathered the prayers and pious exercises to which the popes had attached indulgences; its five novenas for the principal feasts of Our Lady were indulgenced by Pius VII in rescripts of 1808 and 1809. The English is that of the authorised translation printed by Burns & Oates in 1910. This novena is distinct from the shorter traditional novena to the Immaculate Conception in this catalogue: its nine prayers each rejoice with Mary in a different aspect of the privilege defined by Pius IX in 1854, while the preparatory prayer, the Tota pulchra versicles and the collect of the feast are said throughout, as the book directs: the same order is kept every day, the prayer for the day alone being changed. Where the book refers back to prayers printed elsewhere — the Come, O Holy Ghost and its collect, and the closing prayers for the Pope and for the Church — they are written out in full; the Litany of Loreto, printed in another part of the book, is indicated by the book's own rubric.",
+      intentionTheme: "purity of heart and victory over sin through Mary Immaculate",
+      days: [
+        {
+          day: 1,
+          title: "Chosen from All Eternity",
+          meditation:
+            "The first prayer rejoices that Mary was elected from all eternity to be the Mother of the Word and preserved from the taint of original sin, and asks victory over the wounds that original sin has left in us.",
+          prayerText: RACCOLTA_IMMACULATE_CONCEPTION_DAY_1,
+          intentionPrompt:
+            "Which effect of original sin do I struggle with most — pride, weakness of will, or a darkened mind?",
+        },
+        {
+          day: 2,
+          title: "Unsullied Lily: Full of Grace",
+          meditation:
+            "Mary was filled with grace from the first moment of her existence. The prayer does not envy her; it asks for a portion of the same grace and a share in the treasures of her Conception.",
+          prayerText: RACCOLTA_IMMACULATE_CONCEPTION_DAY_2,
+          intentionPrompt: "Do I live as someone poor in grace who needs to ask for more?",
+        },
+        {
+          day: 3,
+          title: "Mystic Rose: Victory over the Serpent",
+          meditation:
+            "The third prayer recalls the promise of Genesis that the woman would crush the serpent's head, and asks courage against every snare of the enemy and the grace never to sin mortally.",
+          prayerText: RACCOLTA_IMMACULATE_CONCEPTION_DAY_3,
+          intentionPrompt: "What snare do I keep walking into?",
+        },
+        {
+          day: 4,
+          title: "Mirror of Holy Purity: The Virtues and Gifts",
+          meditation:
+            "With her Conception came every virtue and the gifts of the Holy Spirit. The petition is practical: the grace to practise every Christian virtue, and so to be ready for the Spirit's gifts.",
+          prayerText: RACCOLTA_IMMACULATE_CONCEPTION_DAY_4,
+          intentionPrompt: "Which virtue have I stopped even trying to practise?",
+        },
+        {
+          day: 5,
+          title: "Bright Moon: The Beginning of Salvation",
+          meditation:
+            "Her Conception was the dawn of redemption and the joy of the world. The day's prayer asks that the Precious Blood may not have been shed for us in vain.",
+          prayerText: RACCOLTA_IMMACULATE_CONCEPTION_DAY_5,
+          intentionPrompt: "Am I letting Christ's sacrifice bear fruit in my life, or wasting it?",
+        },
+        {
+          day: 6,
+          title: "Brilliant Star: The Joy of the Angels",
+          meditation:
+            "The angels rejoiced at her Conception. The novena asks to share their joy one day, praising her in their company for ever.",
+          prayerText: RACCOLTA_IMMACULATE_CONCEPTION_DAY_6,
+          intentionPrompt: "Do I think of heaven as joy, or only as reward?",
+        },
+        {
+          day: 7,
+          title: "Rising Morn: Confirmed in Grace",
+          meditation:
+            "Mary was confirmed in grace and never sinned. The prayer asks for a hatred of sin so entire and lasting that one would rather die than commit a mortal sin.",
+          prayerText: RACCOLTA_IMMACULATE_CONCEPTION_DAY_7,
+          intentionPrompt: "Do I hate sin, or only its consequences?",
+        },
+        {
+          day: 8,
+          title: "Sun without Stain: Grace beyond All the Saints",
+          meditation:
+            "God gave her more grace than all the angels and saints together. The eighth prayer asks the grace not to receive God's grace in vain, and to begin in earnest a new life.",
+          prayerText: RACCOLTA_IMMACULATE_CONCEPTION_DAY_8,
+          intentionPrompt: "What grace have I been given that I am still receiving in vain?",
+        },
+        {
+          day: 9,
+          title: "Living Light: The Ancient Curse Blotted Out",
+          meditation:
+            "Her first act, the last prayer says, was to adore her God and give Him thanks, because through her the ancient curse was lifted. The novena ends asking for a love of God that lasts on earth and for ever.",
+          prayerText: RACCOLTA_IMMACULATE_CONCEPTION_DAY_9,
+          intentionPrompt: "What will I give thanks for on the feast tomorrow?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedMarianTitleSlug: "immaculate-conception",
+      typicalStartDate: "29 November, ending on 7 December, the eve of the solemnity",
+      relatedFeastSlug: "solemnity-immaculate-conception",
+      citations: [RACCOLTA_1910_NOVENAS, CE_IMMACULATE_CONCEPTION, CE_RACCOLTA],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-nativity-of-our-lady",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [RACCOLTA_1910_NOVENAS, CE_NATIVITY_OF_MARY, CE_RACCOLTA],
+    payload: {
+      slug: "novena-nativity-of-our-lady",
+      title: "Novena for the Nativity of Our Lady (Raccolta)",
+      summary:
+        "The Raccolta's novena for the birthday of the Blessed Virgin, kept from 30 August to 7 September. Each day she is greeted nine times, one Hail Mary for each month she was carried in her mother's womb, and asked to be spiritually reborn in the soul; the same received prayers are said on all nine days.",
+      background:
+        "The feast of the Nativity of the Blessed Virgin Mary on 8 September is first attested in the sixth century, in a hymn of St. Romanus the Melodist; the Catholic Encyclopedia of 1913 thinks it arose in Syria or Palestine and was adopted at Rome from the East in the seventh century, Pope Sergius I prescribing a litany and procession for it. The Raccolta, first compiled at Rome in 1807 by Telesforo Galli for the Congregation of Indulgences, gathered the prayers and pious exercises to which the popes had attached indulgences; its five novenas for the principal feasts of Our Lady were indulgenced by Pius VII in rescripts of 1808 and 1809. The English is that of the authorised translation printed by Burns & Oates in 1910. The novena opens with a prayer greeting Mary as foretold by the prophets and desired by all nations, follows with nine salutations each closed by a Hail Mary, and ends with a prayer to the holy infant that her name be honey in the mouth, melody in the ear and joy in the heart — words the book gives first in Latin. The day-by-day subjects below follow the nine salutations; the prayers themselves are said in full every day. Where the book refers back to prayers printed elsewhere — the Come, O Holy Ghost and its collect, and the closing prayers for the Pope and for the Church — they are written out in full; the Litany of Loreto, printed in another part of the book, is indicated by the book's own rubric.",
+      intentionTheme:
+        "that Mary be spiritually reborn in our souls, and that her name be our comfort in life and in death",
+      days: repeatedPrayerDays(RACCOLTA_NATIVITY_NOVENA_PRAYER, [
+        {
+          title: "Of the House of David",
+          meditation:
+            "The first salutation recalls Mary's descent from the royal house of David and her birth to holy Anna. God keeps His promises through families and generations.",
+          intentionPrompt: "What has God handed on to me through my own family?",
+        },
+        {
+          title: "White Dove of Purity",
+          meditation:
+            "The second greets the heavenly babe conceived free from original sin. Her birth is celebrated because her life was holy from its first moment.",
+          intentionPrompt: "What would it mean for my life to be holy from now on?",
+        },
+        {
+          title: "The Bright Morning before the Sun",
+          meditation:
+            "Mary is hailed as the morning that comes before the Sun of Justice. Her birth is the first light of the day of redemption.",
+          intentionPrompt: "Where in my life is the light just beginning?",
+        },
+        {
+          title: "The Elect, Shining in the Night",
+          meditation:
+            "The fourth salutation calls her the Elect who burst forth in the dark night of sin. God's choice of her is a promise that grace is stronger than the world's darkness.",
+          intentionPrompt: "What darkness do I most need grace to break into?",
+        },
+        {
+          title: "Beauteous Moon over a Darkened World",
+          meditation:
+            "She shed light on a world wrapped in the darkness of paganism. The moon gives no light of its own; Mary's light is all from her Son.",
+          intentionPrompt: "Do I reflect Christ, or try to shine by my own light?",
+        },
+        {
+          title: "Terrible as an Army",
+          meditation:
+            "The warrior-child, a host in herself, put all hell to flight — an image the Church took from the Song of Songs. Devotion to Mary is not sentimental; it is protection in spiritual combat.",
+          intentionPrompt: "In what battle do I need to call on Mary's help?",
+        },
+        {
+          title: "Possessed by God from Eternity",
+          meditation:
+            "The seventh salutation hails the fair soul of Mary, possessed by God from eternity, in words the liturgy borrowed from the Wisdom of Proverbs. Every person was first a thought in the mind of God.",
+          intentionPrompt: "Do I believe that God wanted me before I existed?",
+        },
+        {
+          title: "The Hour She Was Born",
+          meditation:
+            "The eighth salutation venerates her infant body, the swaddling clothes and the crib, and blesses the hour of her birth. The Incarnation made infancy itself holy.",
+          intentionPrompt: "Whose birth — a child's, a godchild's — can I thank God for today?",
+        },
+        {
+          title: "Mother of the Word Incarnate",
+          meditation:
+            "The last salutation hails the beloved infant who would become Mother of the Saviour of the world by the power of the Holy Spirit. The birthday of the Mother points to the birth of the Son.",
+          intentionPrompt: "How will I keep Our Lady's birthday tomorrow?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      typicalStartDate: "30 August, ending on 7 September, the eve of the feast",
+      relatedFeastSlug: "feast-nativity-of-the-blessed-virgin-mary",
+      citations: [RACCOLTA_1910_NOVENAS, CE_NATIVITY_OF_MARY, CE_RACCOLTA],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-annunciation",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [RACCOLTA_1910_NOVENAS, CE_ANNUNCIATION, CE_RACCOLTA],
+    payload: {
+      slug: "novena-annunciation",
+      title: "Novena for the Annunciation (Raccolta)",
+      summary:
+        "The Raccolta's novena for the Annunciation, kept from 16 to 24 March: nine salutations of the Blessed Virgin, each followed by a Hail Mary, meditating on her humility, her purity, her obedience and the Fiat by which the Word took flesh, said the same on each of the nine days.",
+      background:
+        "The feast of 25 March, in old calendars called the feast of the Incarnation and the beginning of the Redemption, probably arose about the time of the Council of Ephesus and appears in the Latin Church in the Gelasian Sacramentary; in the Latin Church it is kept as a feast of Mary, in the East as a feast of Christ. The Raccolta, first compiled at Rome in 1807 by Telesforo Galli for the Congregation of Indulgences, gathered the prayers and pious exercises to which the popes had attached indulgences; its five novenas for the principal feasts of Our Lady were indulgenced by Pius VII in rescripts of 1808 and 1809. The English is that of the authorised translation printed by Burns & Oates in 1910. The nine salutations walk through the angel's message and Mary's answer, quoting St. Thomas of Villanova on her Fiat, St. Albert the Great on her union with God and St. Augustine on her humility, and taking up in turn the words Hail, full of grace, The Lord is with thee and Blessed art thou amongst women. The day-by-day subjects follow the salutations; the prayers are said in full every day. Where the book refers back to prayers printed elsewhere — the Come, O Holy Ghost and its collect, and the closing prayers for the Pope and for the Church — they are written out in full; the Litany of Loreto, printed in another part of the book, is indicated by the book's own rubric.",
+      intentionTheme:
+        "humility, purity and ready obedience to God's will, after the example of Mary at the Annunciation",
+      days: repeatedPrayerDays(RACCOLTA_ANNUNCIATION_NOVENA_PRAYER, [
+        {
+          title: "The Humblest of All Creatures",
+          meditation:
+            "On the day God exalted her to be His Mother, Mary was the humblest of His creatures. The first salutation asks to know the depth of one's own nothingness.",
+          intentionPrompt: "Where does my pride hide behind good works?",
+        },
+        {
+          title: "Behold the Handmaid of the Lord",
+          meditation:
+            "Exalted above the choirs of angels, she called herself a handmaid. The second salutation asks for true humility and angelic purity.",
+          intentionPrompt: "Whose servant am I, really?",
+        },
+        {
+          title: "The Humble Fiat",
+          meditation:
+            "By her Fiat the Word came down into her womb. St. Thomas of Villanova's cry — O mighty Fiat! — is taken up as a prayer that our hearts be drawn to God.",
+          intentionPrompt: "What is God asking me to say yes to?",
+        },
+        {
+          title: "Be It Done unto Me",
+          meditation:
+            "The Trinity waited on her consent. The fourth salutation asks to say the same words in every good and bad fortune.",
+          intentionPrompt: "Can I say be it done unto me about something I did not choose?",
+        },
+        {
+          title: "No Creature Closer to God",
+          meditation:
+            "Her obedience made her union with God more intimate than any other creature's. Sin works the opposite way; the prayer asks for true penance so that Jesus may live in us again.",
+          intentionPrompt: "What sin is keeping me at a distance from God?",
+        },
+        {
+          title: "Troubled by Modesty, Troubled by Pride",
+          meditation:
+            "Mary was troubled by the angel's praise because she was modest; we are troubled before her because we are proud. St. Augustine's words on her humility close the petition.",
+          intentionPrompt: "When was I last troubled by praise instead of hungry for it?",
+        },
+        {
+          title: "Hail, Full of Grace",
+          meditation:
+            "We greet her at all hours with the angel's words. The seventh salutation asks for a little of the grace with which the Holy Spirit filled her when He overshadowed her.",
+          intentionPrompt: "Do I pray the Hail Mary attentively, or only quickly?",
+        },
+        {
+          title: "The Lord Is with Thee",
+          meditation:
+            "God was with her from her Conception, and still more closely by the Incarnation. The prayer asks to be one in heart and soul with Jesus by sanctifying grace.",
+          intentionPrompt: "Is the Lord with me today, in grace?",
+        },
+        {
+          title: "Blessed Art Thou amongst Women",
+          meditation:
+            "The last salutation asks her blessing on heart and soul, in the sure hope that those she blesses in life will be blessed of God in death.",
+          intentionPrompt: "What blessing do I most need from Our Lady?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      typicalStartDate: "16 March, ending on 24 March, the eve of the solemnity",
+      relatedFeastSlug: "solemnity-annunciation",
+      citations: [RACCOLTA_1910_NOVENAS, CE_ANNUNCIATION, CE_RACCOLTA],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-purification-of-our-lady",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [RACCOLTA_1910_NOVENAS, CE_CANDLEMAS, CE_RACCOLTA],
+    payload: {
+      slug: "novena-purification-of-our-lady",
+      title: "Novena for the Purification of Our Lady (Raccolta)",
+      summary:
+        "The Raccolta's novena for Candlemas, the feast of the Purification of the Blessed Virgin and the Presentation of the Lord on 2 February, kept from 24 January to 1 February: nine invocations of Mary as Virgin most obedient, pure, holy, humble, diligent, clement, compassionate and resigned, each with a Hail Mary, said the same on each day.",
+      background:
+        "Forty days after Christ's birth Mary fulfilled the law of purification and redeemed her first-born in the Temple, where Simeon and Anna recognised Him (Luke 2:22-38). The feast, called the Purification of the Blessed Virgin, the Presentation of Christ in the Temple, and in Greek the Hypapante or Meeting, is attested at Jerusalem in the fourth century by the pilgrim Egeria; it is kept on 2 February and known as Candlemas from its blessing of candles. The Raccolta, first compiled at Rome in 1807 by Telesforo Galli for the Congregation of Indulgences, gathered the prayers and pious exercises to which the popes had attached indulgences; its five novenas for the principal feasts of Our Lady were indulgenced by Pius VII in rescripts of 1808 and 1809. The English is that of the authorised translation printed by Burns & Oates in 1910. Each of the nine invocations recalls one part of the Gospel scene and turns it into a petition. The day-by-day subjects follow the invocations; the prayers are said in full every day. Where the book refers back to prayers printed elsewhere — the Come, O Holy Ghost and its collect, and the closing prayers for the Pope and for the Church — they are written out in full; the Litany of Loreto, printed in another part of the book, is indicated by the book's own rubric.",
+      intentionTheme:
+        "purity of heart and the offering of ourselves to God, with Mary in the Temple",
+      days: repeatedPrayerDays(RACCOLTA_PURIFICATION_NOVENA_PRAYER, [
+        {
+          title: "Presented in the Temple",
+          meditation:
+            "The purest of virgins submitted to a law of purification that did not bind her. The first invocation asks that our hearts be kept unstained so that we too may be presented to God in heaven.",
+          intentionPrompt: "What law of God do I keep only when it suits me?",
+        },
+        {
+          title: "Virgin Most Obedient",
+          meditation:
+            "Mary offered the sacrifice of the poor, two turtle-doves. The prayer asks that we make ourselves a living sacrifice by practising every virtue.",
+          intentionPrompt: "What could I offer to God this week that costs me something?",
+        },
+        {
+          title: "Virgin Most Pure",
+          meditation:
+            "She kept the precepts of the law without regard to the reproach of men. Purity of heart is kept whatever the world may think.",
+          intentionPrompt: "Whose opinion makes me compromise?",
+        },
+        {
+          title: "Virgin Most Holy",
+          meditation:
+            "By offering her Son to the Father she made heaven glad. Ask her today to present your heart to God and keep it free from mortal sin.",
+          intentionPrompt: "Have I offered myself to God today?",
+        },
+        {
+          title: "Virgin Most Humble",
+          meditation:
+            "She placed Jesus in the arms of old Simeon, who could then depart in peace. Pray today for the elderly, and for those waiting to die.",
+          intentionPrompt: "Which older person could I visit or call this week?",
+        },
+        {
+          title: "Virgin Most Diligent",
+          meditation:
+            "She ransomed her first-born according to the law, co-operating in the salvation of the world. The prayer asks that our hearts be ransomed from the slavery of sin.",
+          intentionPrompt: "What habit of sin still holds me captive?",
+        },
+        {
+          title: "Virgin Most Clement",
+          meditation:
+            "When Simeon foretold the sword that would pierce her soul, she resigned herself at once to God's good pleasure. The prayer asks patience in all troubles.",
+          intentionPrompt: "What sorrow have I been refusing to accept?",
+        },
+        {
+          title: "Virgin Most Compassionate",
+          meditation:
+            "Anna the prophetess recognised the Redeemer and spoke of Him to all who were waiting. Pray for the gift of recognising Christ and making Him known.",
+          intentionPrompt: "To whom could I speak about Christ?",
+        },
+        {
+          title: "Virgin Most Resigned",
+          meditation:
+            "Foreseeing the Passion, Mary still consoled Joseph with holy words. The last invocation asks for true sorrow for sin and a share in her glory.",
+          intentionPrompt: "Whom can I console this week, even while I am troubled myself?",
+        },
+      ]),
+      durationDays: 9,
+      structure: "nine_days",
+      typicalStartDate: "24 January, ending on 1 February, the eve of the feast",
+      relatedFeastSlug: "feast-presentation-of-the-lord",
+      citations: [RACCOLTA_1910_NOVENAS, CE_CANDLEMAS, CE_RACCOLTA],
+    },
+  },
+  {
+    contentType: "NOVENA",
+    slug: "novena-assumption",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [RACCOLTA_1910_NOVENAS, CE_ASSUMPTION, MUNIFICENTISSIMUS_DEUS],
+    payload: {
+      slug: "novena-assumption",
+      title: "Novena for the Assumption (Raccolta)",
+      summary:
+        "The Raccolta's novena for the Assumption, kept from 6 to 14 August. Each day considers a different glory of the Blessed Virgin in her death and after it — her preparation for death, her passing in the company of her Son and the Apostles, her death of love, her body, its resurrection, her Assumption, her queenship, her crown and her patronage of mankind — with three petitions, each followed by three Hail Marys, offered in union with one of the nine choirs of angels.",
+      background:
+        "The feast of 15 August, called in old liturgical books the Dormition or Falling Asleep of Mary, has a double object: her happy departure from this life and the assumption of her body into heaven. Pius XII defined as a dogma of faith on 1 November 1950, in the apostolic constitution Munificentissimus Deus, that the Immaculate Mother of God, having completed the course of her earthly life, was assumed body and soul into heavenly glory. The Raccolta, first compiled at Rome in 1807 by Telesforo Galli for the Congregation of Indulgences, gathered the prayers and pious exercises to which the popes had attached indulgences; its five novenas for the principal feasts of Our Lady were indulgenced by Pius VII in rescripts of 1808 and 1809. The English is that of the authorised translation printed by Burns & Oates in 1910. Each day opens with the Come, O Holy Ghost and the hymn O Gloriosa Virginum, sets before the soul one glory of Mary in a short consideration printed as part of the prayer, and closes with the Litany, the versicle Exaltata est and the collect. The considerations of her death draw on the traditions of the holy writers, as the book says; the Church has not defined the manner of her passing. Where the book refers back to prayers printed elsewhere — the Come, O Holy Ghost and its collect, and the closing prayers for the Pope and for the Church — they are written out in full; the Litany of Loreto, printed in another part of the book, is indicated by the book's own rubric.",
+      intentionTheme: "a holy death and a share in the glory of Mary assumed into heaven",
+      days: [
+        {
+          day: 1,
+          title: "Well Prepared to Die",
+          meditation:
+            "The novena begins with Mary's death because her whole life had been a preparation for it. The comparison with our own preparation is meant to sting a little.",
+          prayerText: RACCOLTA_ASSUMPTION_DAY_1,
+          intentionPrompt: "If I died this year, what would I wish I had prepared?",
+        },
+        {
+          day: 2,
+          title: "Assisted by Her Son and the Apostles",
+          meditation:
+            "Tradition pictures her death surrounded by the Apostles and comforted by her Son. The petitions ask for the same at our own death, and above all for Viaticum.",
+          prayerText: RACCOLTA_ASSUMPTION_DAY_2,
+          intentionPrompt: "Have I asked to receive the Last Sacraments when my time comes?",
+        },
+        {
+          day: 3,
+          title: "Dying of Love",
+          meditation:
+            "The third day considers the old teaching that Mary died of love rather than of illness. The petitions ask for a spark of the same fire, enough to give true sorrow for sin.",
+          prayerText: RACCOLTA_ASSUMPTION_DAY_3,
+          intentionPrompt: "What would it look like for love of God to shape how I die?",
+        },
+        {
+          day: 4,
+          title: "Her Body after Death",
+          meditation:
+            "Her virginal body, the consideration says, remained bright and fragrant and was a source of healing. The petitions turn to purity and to the example our bodies give others.",
+          prayerText: RACCOLTA_ASSUMPTION_DAY_4,
+          intentionPrompt: "Is my bodily life an example or a stumbling-block to others?",
+        },
+        {
+          day: 5,
+          title: "The Resurrection of Her Body",
+          meditation:
+            "Her risen body received the gifts the theologians attribute to glorified bodies — brightness, agility, subtlety and impassibility. The petitions ask for the virtues that prepare our own resurrection.",
+          prayerText: RACCOLTA_ASSUMPTION_DAY_5,
+          intentionPrompt: "Do I believe in the resurrection of my own body?",
+        },
+        {
+          day: 6,
+          title: "Assumed into Heaven",
+          meditation:
+            "The sixth day contemplates the Assumption itself, with the angelic hosts and the souls her merits had helped. The petitions ask that our hearts be fixed on the happiness of heaven.",
+          prayerText: RACCOLTA_ASSUMPTION_DAY_6,
+          intentionPrompt: "How often do I think about heaven?",
+        },
+        {
+          day: 7,
+          title: "Queen of the Universe",
+          meditation:
+            "Mary reigns as Queen and receives the homage of angels and saints. The petitions ask her to rule us with the gentle sway of her protection.",
+          prayerText: RACCOLTA_ASSUMPTION_DAY_7,
+          intentionPrompt: "Have I placed myself under Mary's protection?",
+        },
+        {
+          day: 8,
+          title: "The Crown upon Her Brow",
+          meditation:
+            "Crowned by her Son, she knows the deep mysteries of God. The petitions ask pardon for sins of the tongue and the eyes, so that we too may be crowned.",
+          prayerText: RACCOLTA_ASSUMPTION_DAY_8,
+          intentionPrompt: "Which of my words and looks would not please God?",
+        },
+        {
+          day: 9,
+          title: "Patroness of Mankind",
+          meditation:
+            "The novena ends with Mary's patronage: she is the advocate of men and desires that all be saved. The last petition asks that we call on her always, and above all at the moment of death.",
+          prayerText: RACCOLTA_ASSUMPTION_DAY_9,
+          intentionPrompt: "What relapse into sin do I need to stop despairing over?",
+        },
+      ],
+      durationDays: 9,
+      structure: "nine_days",
+      associatedMarianTitleSlug: "assumption-of-mary",
+      typicalStartDate: "6 August, ending on 14 August, the eve of the solemnity",
+      relatedFeastSlug: "solemnity-assumption",
+      citations: [RACCOLTA_1910_NOVENAS, CE_ASSUMPTION, MUNIFICENTISSIMUS_DEUS],
     },
   },
 ];
