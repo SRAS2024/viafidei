@@ -47,14 +47,27 @@ import type { CuratedEntry } from "../index";
  * Pusey's Confessions in its first edition (Library of the Fathers, Oxford,
  * 1838), not from later reprints, whose wording differs in places.
  *
- * The occasional prayers come from A Manual of Prayers for the Use of the
- * Catholic Laity (New York, 1889), the prayer book prepared by order of the
- * Third Plenary Council of Baltimore. Most are the Roman Missal's collects for
- * particular needs in the Manual's English; its red initials and small
- * capitals ("O GOD", "GRANT") are given in ordinary case, and its rubrics
- * ("N." for a name, "this famine (or pestilence)") are kept as printed. The
- * Manual's old prayers for heretics, Jews and pagans were deliberately left
- * out.
+ * The occasional prayers, the prayers for the dead, the devotions for
+ * Confession and the prayers for the sick come from A Manual of Prayers for
+ * the Use of the Catholic Laity (New York, 1889), the prayer book prepared by
+ * order of the Third Plenary Council of Baltimore. Most of the occasional
+ * prayers are the Roman Missal's collects for particular needs in the
+ * Manual's English; its red initials and small capitals ("O GOD", "GRANT")
+ * are given in ordinary case, and its rubrics ("N." for a name, "this famine
+ * (or pestilence)") are kept as printed. The Manual's old prayers for
+ * heretics, Jews and pagans were deliberately left out.
+ *
+ * Saint Anselm's prayers are the first and last chapters of the Proslogium in
+ * Sidney Norton Deane's translation (Chicago: Open Court, 1903); the
+ * transcription's "all the blessing I enjoy" is given as printed, "all the
+ * blessings I enjoy", a reading confirmed in two scans of the 1903 book. Saint
+ * Ignatius's oblation is from Elder Mullan's translation of the Spiritual
+ * Exercises (New York, 1914), and Saint Augustine's closing prayer of On the
+ * Trinity is A. W. Haddan's translation in the Nicene and Post-Nicene Fathers
+ * (vol. 3, 1887). All three come from the transcriptions of the Christian
+ * Classics Ethereal Library, collated with scans of the printed books; the
+ * quotation marks that enclose the oblation in the Exercises are dropped, and
+ * the transcriptions' double hyphen is given as a dash.
  */
 export const prayerBatch12: CuratedEntry[] = [
   {
@@ -2688,6 +2701,106 @@ export const prayerBatch12: CuratedEntry[] = [
       occasions: ["thanksgiving", "healing", "sickness"],
       relatedSaints: [],
       citations: ["https://archive.org/details/manualofprayersf00wood/page/n477/mode/1up"],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "anselm-proslogium-teach-my-heart-to-seek-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://ccel.org/ccel/anselm/basic_works/basic_works.iii.ii.html",
+      "https://archive.org/details/stanselmeproslog00anseuoft",
+    ],
+    payload: {
+      slug: "anselm-proslogium-teach-my-heart-to-seek-thee",
+      title: "Teach My Heart Where and How to Seek Thee (Saint Anselm, Proslogium I)",
+      body: "Up now, slight man! flee, for a little while, thy occupations; hide thyself, for a time, from thy disturbing thoughts. Cast aside, now, thy burdensome cares, and put away thy toilsome business. Yield room for some little time to God; and rest for a little time in him. Enter the inner chamber of thy mind; shut out all thoughts save that of God, and such as can aid thee in seeking him; close thy door and seek him. Speak now, my whole heart! speak now to God, saying, I seek thy face; thy face, Lord, will I seek (Psalms xxvii. 8). And come thou now, O Lord my God, teach my heart where and how it may seek thee, where and how it may find thee.\n\nLord, if thou art not here, where shall I seek thee, being absent? But if thou art everywhere, why do I not see thee present? Truly thou dwellest in unapproachable light. But where is unapproachable light, or how shall I come to it? Or who shall lead me to that light and into it, that I may see thee in it? Again, by what marks, under what form, shall I seek thee? I have never seen thee, O Lord, my God; I do not know thy form. What, O most high Lord, shall this man do, an exile far from thee? What shall thy servant do, anxious in his love of thee, and cast out afar from thy face? He pants to see thee, and thy face is too far from him. He longs to come to thee, and thy dwelling-place is inaccessible. He is eager to find thee, and knows not thy place. He desires to seek thee, and does not know thy face. Lord, thou art my God, and thou art my Lord, and never have I seen thee. It is thou that hast made me, and hast made me anew, and hast bestowed upon me all the blessings I enjoy; and not yet do I know thee. Finally, I was created to see thee, and not yet have I done that for which I was made.\n\nO wretched lot of man, when he hath lost that for which he was made! O hard and terrible fate! Alas, what has he lost, and what has he found? What has departed, and what remains? He has lost the blessedness for which he was made, and has found the misery for which he was not made. That has departed without which nothing is happy, and that remains which, in itself, is only miserable. Man once did eat the bread of angels, for which he hungers now; he eateth now the bread of sorrows, of which he knew not then. Alas! for the mourning of all mankind, for the universal lamentation of the sons of Hades! He choked with satiety, we sigh with hunger. He abounded, we beg. He possessed in happiness, and miserably forsook his possession; we suffer want in unhappiness, and feel a miserable longing, and alas! we remain empty.\n\nWhy did he not keep for us, when he could so easily, that whose lack we should feel so heavily? Why did he shut us away from the light, and cover us over with darkness? With what purpose did he rob us of life, and inflict death upon us? Wretches that we are, whence have we been driven out; whither are we driven on? Whence hurled? Whither consigned to ruin? From a native country into exile, from the vision of God into our present blindness, from the joy of immortality into the bitterness and horror of death. Miserable exchange of how great a good, for how great an evil! Heavy loss, heavy grief, heavy all our fate!\n\nBut alas! wretched that I am, one of the sons of Eve, far removed from God! What have I undertaken? What have I accomplished? Whither was I striving? How far have I come? To what did I aspire? Amid what thoughts am I sighing? I sought blessings, and lo! confusion. I strove toward God, and I stumbled on myself. I sought calm in privacy, and I found tribulation and grief, in my inmost thoughts. I wished to smile in the joy of my mind, and I am compelled to frown by the sorrow of my heart. Gladness was hoped for, and lo! a source of frequent sighs!\n\nAnd thou too, O Lord, how long? How long, O Lord, dost thou forget us; how long dost thou turn thy face from us? When wilt thou look upon us, and hear us? When wilt thou enlighten our eyes, and show us thy face? When wilt thou restore thyself to us? Look upon us, Lord; hear us, enlighten us, reveal thyself to us. Restore thyself to us, that it may be well with us,—thyself, without whom it is so ill with us. Pity our toilings and strivings toward thee since we can do nothing without thee. Thou dost invite us; do thou help us. I beseech thee, O Lord, that I may not lose hope in sighs, but may breathe anew in hope. Lord, my heart is made bitter by its desolation; sweeten thou it, I beseech thee, with thy consolation. Lord, in hunger I began to seek thee; I beseech thee that I may not cease to hunger for thee. In hunger I have come to thee; let me not go unfed. I have come in poverty to the Rich, in misery to the Compassionate; let me not return empty and despised. And if, before I eat, I sigh, grant, even after sighs, that which I may eat. Lord, I am bowed down and can only look downward; raise me up that I may look upward. My iniquities have gone over my head; they overwhelm me; and, like a heavy load, they weigh me down. Free me from them; unburden me, that the pit of iniquities may not close over me.\n\nBe it mine to look up to thy light, even from afar, even from the depths. Teach me to seek thee, and reveal thyself to me, when I seek thee, for I cannot seek thee, except thou teach me, nor find thee, except thou reveal thyself. Let me seek thee in longing, let me long for thee in seeking; let me find thee in love, and love thee in finding. Lord, I acknowledge and I thank thee that thou hast created me in this thine image, in order that I may be mindful of thee, may conceive of thee, and love thee; but that image has been so consumed and wasted away by vices, and obscured by the smoke of wrong-doing, that it cannot achieve that for which it was made, except thou renew it, and create it anew. I do not endeavor, O Lord, to penetrate thy sublimity, for in no wise do I compare my understanding with that; but I long to understand in some degree thy truth, which my heart believes and loves. For I do not seek to understand that I may believe, but I believe in order to understand. For this also I believe,—that unless I believed, I should not understand.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The opening chapter of Saint Anselm's Proslogium (1077-1078), a prayer that first bids the mind withdraw from its cares into the inner chamber, then laments the exile of fallen man and begs God to teach the heart where and how to seek him. It ends with Anselm's famous principle, \"I believe in order to understand.\" Sidney Norton Deane's translation (1903); the scripture references in parentheses are the translator's.",
+      occasions: ["meditation", "april-21", "retreat"],
+      relatedSaints: ["saint-anselm"],
+      citations: [
+        "https://ccel.org/ccel/anselm/basic_works/basic_works.iii.ii.html",
+        "https://archive.org/details/stanselmeproslog00anseuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "anselm-proslogium-i-pray-o-god-to-know-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://ccel.org/ccel/anselm/basic_works/basic_works.iii.xxvii.html",
+      "https://archive.org/details/stanselmeproslog00anseuoft",
+    ],
+    payload: {
+      slug: "anselm-proslogium-i-pray-o-god-to-know-thee",
+      title: "I Pray, O God, to Know Thee (Saint Anselm, Proslogium XXVI)",
+      body: "My God and my Lord, my hope and the joy of my heart, speak unto my soul and tell me whether this is the joy of which thou tellest us through thy Son: Ask and ye shall receive, that your joy may be full (John xvi. 24). For I have found a joy that is full, and more than full. For when heart, and mind, and soul, and all the man, are full of that joy, joy beyond measure will still remain. Hence, not all of that joy shall enter into those who rejoice; but they who rejoice shall wholly enter into that joy.\n\nShow me, O Lord, show thy servant in his heart whether this is the joy into which thy servants shall enter, who shall enter into the joy of their Lord. But that joy, surely, with which thy chosen ones shall rejoice, eye hath not seen nor ear heard, neither has it entered into the heart of man (Isaiah lxiv. 4; I Corinthians ii. 9). Not yet, then, have I told or conceived, O Lord, how greatly those blessed ones of thine shall rejoice. Doubtless they shall rejoice according as they shall love; and they shall love according as they shall know. How far they will know thee, Lord, then! and how much they will love thee! Truly, eye hath not seen, nor ear heard, neither has it entered into the heart of man in this life, how far they shall know thee, and how much they shall love thee in that life.\n\nI pray, O God, to know thee, to love thee, that I may rejoice in thee. And if I cannot attain to full joy in this life may I at least advance from day to day, until that joy shall come to the full. Let the knowledge of thee advance in me here, and there be made full. Let the love of thee increase, and there let it be full, that here my joy may be great in hope, and there full in truth. Lord, through thy Son thou dost command, nay, thou dost counsel us to ask; and thou dost promise that we shall receive, that our joy may be full. I ask, O Lord, as thou dost counsel through our wonderful Counsellor. I will receive what thou dost promise by virtue of thy truth, that my joy may be full. Faithful God, I ask. I will receive, that my joy may be full. Meanwhile, let my mind meditate upon it; let my tongue speak of it. Let my heart love it; let my mouth talk of it. Let my soul hunger for it; let my flesh thirst for it; let my whole being desire it, until I enter into thy joy, O Lord, who art the Three and the One God, blessed for ever and ever. Amen.",
+      prayerType: "general",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The closing chapter of Saint Anselm's Proslogium, a prayer on the joy promised to the blessed: they will rejoice as they love and love as they know, and so Anselm asks to know and love God more each day until he enters fully into the joy of the Lord. Sidney Norton Deane's translation (1903); the scripture references in parentheses are the translator's.",
+      occasions: ["meditation", "april-21", "all-saints"],
+      relatedSaints: ["saint-anselm"],
+      citations: [
+        "https://ccel.org/ccel/anselm/basic_works/basic_works.iii.xxvii.html",
+        "https://archive.org/details/stanselmeproslog00anseuoft",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "ignatius-eternal-lord-of-all-things",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://ccel.org/ccel/i/ignatius/exercises/cache/exercises.txt",
+      "https://archive.org/details/spiritualexercis00ignauoft/page/n80/mode/1up",
+    ],
+    payload: {
+      slug: "ignatius-eternal-lord-of-all-things",
+      title: "Eternal Lord of All Things (Oblation of Saint Ignatius of Loyola)",
+      body: "Eternal Lord of all things, I make my oblation with Thy favor and help, in presence of Thy infinite Goodness and in presence of Thy glorious Mother and of all the Saints of the heavenly Court; that I want and desire, and it is my deliberate determination, if only it be Thy greater service and praise, to imitate Thee in bearing all injuries and all abuse and all poverty of spirit, and actual poverty, too, if Thy most Holy Majesty wants to choose and receive me to such life and state.",
+      prayerType: "act",
+      category: "saintly",
+      language: "en",
+      summary:
+        "The offering that closes Saint Ignatius's contemplation of the Call of the King in the Spiritual Exercises, made by those who would signalise themselves in Christ's service: before the Blessed Virgin and all the saints they ask to imitate him in bearing injuries, abuse and poverty, if he wills to choose them for such a life. Elder Mullan's translation from the autograph (New York, 1914).",
+      occasions: ["offering", "retreat", "vocations", "july-31"],
+      relatedSaints: ["saint-ignatius-of-loyola"],
+      citations: [
+        "https://ccel.org/ccel/i/ignatius/exercises/cache/exercises.txt",
+        "https://archive.org/details/spiritualexercis00ignauoft/page/n80/mode/1up",
+      ],
+    },
+  },
+  {
+    contentType: "PRAYER",
+    slug: "augustine-o-lord-our-god-we-believe-in-thee",
+    authorityLevel: "TRUSTED_PUBLISHER",
+    citations: [
+      "https://ccel.org/ccel/s/schaff/npnf103/cache/npnf103.txt",
+      "https://archive.org/details/selectlibraryofn03auguuoft",
+    ],
+    payload: {
+      slug: "augustine-o-lord-our-god-we-believe-in-thee",
+      title: "O Lord Our God, We Believe in Thee (Saint Augustine, On the Trinity XV.28)",
+      body: 'O Lord our God, we believe in Thee, the Father and the Son and the Holy Spirit. For the Truth would not say, Go, baptize all nations in the name of the Father and of the Son and of the Holy Spirit, unless Thou wast a Trinity. Nor wouldest thou, O Lord God, bid us to be baptized in the name of Him who is not the Lord God. Nor would the divine voice have said, Hear, O Israel, the Lord thy God is one God, unless Thou wert so a Trinity as to be one Lord God. And if Thou, O God, wert Thyself the Father, and wert Thyself the Son, Thy Word Jesus Christ, and the Holy Spirit your gift, we should not read in the book of truth, "God sent His Son;" nor wouldest Thou, O Only-begotten, say of the Holy Spirit, "Whom the Father will send in my name;" and, "Whom I will send to you from the Father." Directing my purpose by this rule of faith, so far as I have been able, so far as Thou hast made me to be able, I have sought Thee, and have desired to see with my understanding what I believed; and I have argued and labored much. O Lord my God, my one hope, hearken to me, lest through weariness I be unwilling to seek Thee, "but that I may always ardently seek Thy face." Do Thou give strength to seek, who hast made me find Thee, and hast given the hope of finding Thee more and more. My strength and my infirmity are in Thy sight: preserve the one, and heal the other. My knowledge and my ignorance are in Thy sight; where Thou hast opened to me, receive me as I enter; where Thou hast closed, open to me as I knock. May I remember Thee, understand Thee, love Thee. Increase these things in me, until Thou renewest me wholly. I know it is written, "In the multitude of speech, thou shalt not escape sin." But O that I might speak only in preaching Thy word, and in praising Thee! Not only should I so flee from sin, but I should earn good desert, however much I so spake. For a man blessed of Thee would not enjoin a sin upon his own true son in the faith, to whom he wrote, "Preach the word: be instant in season, out of season." Are we to say that he has not spoken much, who was not silent about Thy word, O Lord, not only in season, but out of season? But therefore it was not much, because it was only what was necessary. Set me free, O God, from that multitude of speech which I suffer inwardly in my soul, wretched as it is in Thy sight, and flying for refuge to Thy mercy; for I am not silent in thoughts, even when silent in words. And if, indeed, I thought of nothing save what pleased Thee, certainly I would not ask Thee to set me free from such multitude of speech. But many are my thoughts, such as Thou knowest, "thoughts of man, since they are vain." Grant to me not to consent to them; and if ever they delight me, nevertheless to condemn them, and not to dwell in them, as though I slumbered. Nor let them so prevail in me, as that anything in my acts should proceed from them; but at least let my opinions, let my conscience, be safe from them, under Thy protection. When the wise man spake of Thee in his book, which is now called by the special name of Ecclesiasticus, "We speak," he said, "much, and yet come short; and in sum of words, He is all." When, therefore, we shall have come to Thee, these very many things that we speak, and yet come short, will cease; and Thou, as One, wilt remain "all in all." And we shall say one thing without end, in praising Thee in One, ourselves also made one in Thee. O Lord the one God, God the Trinity, whatever I have said in these books that is of Thine, may they acknowledge who are Thine; if anything of my own, may it be pardoned both by Thee and by those who are Thine. Amen.',
+      prayerType: "general",
+      category: "trinitarian",
+      language: "en",
+      summary:
+        "The prayer with which Saint Augustine ends his fifteen books On the Trinity: a profession of faith in Father, Son and Holy Spirit grounded in the baptismal command, a plea for strength to keep seeking God's face, and a request that whatever he has written of God's own be acknowledged and whatever of his own be pardoned. A. W. Haddan's translation in the Nicene and Post-Nicene Fathers (vol. 3, 1887).",
+      occasions: ["trinity-sunday", "study", "august-28"],
+      relatedSaints: ["saint-augustine-of-hippo"],
+      citations: [
+        "https://ccel.org/ccel/s/schaff/npnf103/cache/npnf103.txt",
+        "https://archive.org/details/selectlibraryofn03auguuoft",
+      ],
     },
   },
 ];
