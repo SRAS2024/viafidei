@@ -99,6 +99,7 @@ import {
   describeWorkerExitKind,
   interpretWorkerExit,
   LEASE_HELD_ELSEWHERE_MESSAGE,
+  refineRefusedExit,
 } from "../src/lib/admin-worker/worker-exit";
 import { localHostLabel, sampleLocalResources } from "../src/lib/admin-worker/local-resources";
 import { loadCommandCenterSnapshot } from "../src/lib/admin-worker/command-center";
@@ -402,15 +403,15 @@ function startWorkerChild(): void {
       if (plan.kind === "refused") {
         // Only the durable switch tells an operator OFF (nothing to report)
         // from a live lease on another computer (surface it, never restart).
+        // An unreadable switch is neither: wait for the database and retry.
         const master = await readMasterSwitch(prisma).catch(
           () => ({ on: false, known: false }) as const,
         );
         if (host.child || shuttingDown) return; // a newer child's state wins
-        const refined = interpretWorkerExit({
-          code,
-          signal,
-          wasStopping: false,
-          switchOn: master.known ? master.on : null,
+        const refined = refineRefusedExit({
+          switchKnown: master.known,
+          switchOn: master.on,
+          databaseHost: configPayload().databaseHost,
         });
         host.runState = refined.runState;
         host.failureReason = refined.failureReason;
@@ -420,6 +421,12 @@ function startWorkerChild(): void {
             "host",
             "the master switch is OFF — the worker declined to start (operator stop)",
           );
+        }
+        if (refined.kind === "db_unreachable" && refined.failureReason) {
+          pushLog("host", refined.failureReason);
+          scheduleDeferredStart(30_000 + Math.round(Math.random() * 30_000), () => {
+            if (!host.child) void resumeIfSwitchOn();
+          });
         }
         broadcast("status", statusPayload());
         return;
@@ -707,7 +714,9 @@ async function startFromSwitchPoll(decisionValue: SwitchPollDecision): Promise<v
       },
     });
     if (!claim.acquired) {
-      host.leaseHeldElsewhere = true;
+      // A database error says nothing about another computer; it is retried
+      // after the same cooldown and never shown as "lease held elsewhere".
+      host.leaseHeldElsewhere = claim.refusal !== "db_unreachable";
       refuseSwitchPollStart(claim.refusedBecause ?? "another runtime holds the execution lease");
       return;
     }
@@ -1319,6 +1328,14 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
               launchedBy: "swift-app",
             },
           });
+          if (!claim.acquired && claim.refusal === "db_unreachable") {
+            json(res, 503, {
+              error: "database_unavailable",
+              blockingReason: "unreachable",
+              detail: `${claim.refusedBecause ?? "The database could not be reached."} The Admin Worker was not started.`,
+            });
+            return;
+          }
           if (!claim.acquired) {
             // Leave the switch exactly as it was — the other computer keeps working.
             json(res, 409, {

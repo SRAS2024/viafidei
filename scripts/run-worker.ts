@@ -80,7 +80,11 @@ import {
 import { reapStaleRunningPasses } from "../src/lib/admin-worker/passes";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
 import { guardStdio, isClosedPipe, silenceStdio } from "../src/lib/admin-worker/supervised-host";
-import { WORKER_EXIT_SUPERVISOR_LOST } from "../src/lib/admin-worker/worker-exit";
+import {
+  refusalExitCode,
+  WORKER_EXIT_SUPERVISOR_LOST,
+  type WorkerRefusal,
+} from "../src/lib/admin-worker/worker-exit";
 import {
   installProcessSafetyNet,
   runLoopSupervised,
@@ -123,17 +127,20 @@ function parseArgs(argv: string[]): {
 
 /**
  * Durable-state gate (spec §4, §5, §25): the master switch must be ON, and this
- * runtime must hold the single execution lease. Returns false when the process
- * should exit instead of running.
+ * runtime must hold the single execution lease. Returns the structured reason
+ * when the process should exit instead of running; the exit code comes from
+ * that reason (worker-exit.ts), never from the wording of a message.
  */
-async function claimExecutionAuthority(args: ReturnType<typeof parseArgs>): Promise<boolean> {
+async function claimExecutionAuthority(
+  args: ReturnType<typeof parseArgs>,
+): Promise<{ ok: true } | { ok: false; refusal: WorkerRefusal }> {
   if (!args.local && !args.forceRemote) {
     console.error(
       "[admin-worker] refusing to run: the Admin Worker executes on the operator's MacBook.\n" +
         "               Start it from the Via Fidei application (or run `npm run worker:local`).\n" +
         "               Cloud execution requires the deliberate --force-remote-execution flag.",
     );
-    return false;
+    return { ok: false, refusal: "not_local" };
   }
 
   const master = await readMasterSwitch(prisma);
@@ -141,8 +148,7 @@ async function claimExecutionAuthority(args: ReturnType<typeof parseArgs>): Prom
     console.error(
       `[admin-worker] refusing to run: the database could not be reached (${master.error ?? "error"}).`,
     );
-    process.exitCode = 4;
-    return false;
+    return { ok: false, refusal: "db_unreachable" };
   }
   if (!master.on) {
     if (args.switchOn) {
@@ -153,11 +159,11 @@ async function claimExecutionAuthority(args: ReturnType<typeof parseArgs>): Prom
         "[admin-worker] refusing to run: the Admin Worker master switch is OFF.\n" +
           "               Turn it on in the Via Fidei application, or pass --switch-on.",
       );
-      return false;
+      return { ok: false, refusal: "switch_off" };
     }
   }
 
-  if (await holdsExecutionLease(prisma, args.workerId)) return true;
+  if (await holdsExecutionLease(prisma, args.workerId)) return { ok: true };
 
   const claim = await acquireExecutionLease(prisma, {
     runtimeId: args.workerId,
@@ -172,9 +178,13 @@ async function claimExecutionAuthority(args: ReturnType<typeof parseArgs>): Prom
   });
   if (!claim.acquired) {
     console.error(`[admin-worker] refusing to run: ${claim.refusedBecause}`);
-    return false;
+    // A database error is an outage, not an answer about who executes.
+    return {
+      ok: false,
+      refusal: claim.refusal === "db_unreachable" ? "db_unreachable" : "lease_held_elsewhere",
+    };
   }
-  return true;
+  return { ok: true };
 }
 
 async function main() {
@@ -238,14 +248,15 @@ async function main() {
     });
   }
 
-  if (!(await claimExecutionAuthority(args))) {
+  const authority = await claimExecutionAuthority(args);
+  if (!authority.ok) {
     await prisma.$disconnect().catch(() => undefined);
     // Exit NON-ZERO. Refusing to run is a failure from the caller's point of
     // view: a cron entry, deploy hook or script wrapping `npm run worker` must
     // be able to notice that no work happened instead of reading success.
-    // Exit 4 (set above) means "database unreachable" — a different problem
-    // from "switch OFF / lease held" (3), and the host treats it differently.
-    if (process.exitCode !== 4) process.exitCode = 3;
+    // Exit 4 means "database unreachable" — an outage the host waits out and
+    // retries — and 3 is an answer (switch OFF / lease held elsewhere).
+    process.exitCode = refusalExitCode(authority.refusal);
     return;
   }
 

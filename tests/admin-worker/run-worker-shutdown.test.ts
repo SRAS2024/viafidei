@@ -52,7 +52,10 @@ describe("run-worker shutdown", () => {
 });
 
 describe("run-worker without its supervisor", () => {
-  const beforeClaim = src.slice(0, src.indexOf("if (!(await claimExecutionAuthority(args)))"));
+  const beforeClaim = src.slice(
+    0,
+    src.indexOf("const authority = await claimExecutionAuthority(args);"),
+  );
 
   it("guards stdio before the first log line, and exits with the supervisor-lost code", () => {
     // A closed log pipe is routed to shutdown, never to the console (the write
@@ -87,9 +90,20 @@ describe("run-worker boot", () => {
   it("keeps the distinct exit codes the host's exit plan reads", () => {
     // 4 = database unreachable (an outage, restartable), 3 = refused at boot,
     // 0 = clean stop, 5 = the lease was taken mid-run. See worker-exit.ts.
-    expect(src).toContain("process.exitCode = 4;");
-    expect(src).toContain("if (process.exitCode !== 4) process.exitCode = 3;");
+    // The refusal code comes from a typed reason, not from message wording.
+    expect(src).toContain("process.exitCode = refusalExitCode(authority.refusal);");
     expect(src).toContain("process.exitCode = 0;");
     expect(src).toContain("process.exitCode = 5;");
+  });
+
+  it("reports a database error while claiming the lease as an outage, not a lease elsewhere", () => {
+    const claim = src.slice(
+      src.indexOf("async function claimExecutionAuthority"),
+      src.indexOf("async function main()"),
+    );
+    // Both outage paths: the switch read and the lease claim.
+    expect(claim).toContain('return { ok: false, refusal: "db_unreachable" };');
+    expect(claim).toContain('claim.refusal === "db_unreachable" ? "db_unreachable"');
+    expect(claim).toContain('return { ok: false, refusal: "switch_off" };');
   });
 });
