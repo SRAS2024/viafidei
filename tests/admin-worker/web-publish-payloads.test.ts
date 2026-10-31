@@ -16,6 +16,7 @@ import { validatePayload } from "@/lib/checklist/schemas";
 import { RosaryExtractor, canonizationStatusFromHonorific } from "@/lib/admin-worker/extractors";
 import {
   buildWebPublishPayload,
+  fieldsNeverExtracted,
   hasWebSchemaMapping,
   webPublishType,
 } from "@/lib/admin-worker/web-publish-payloads";
@@ -177,6 +178,96 @@ describe("APPARITION", () => {
     const errors = out.errors.join(" ");
     expect(errors).toMatch(/country/);
     expect(errors).toMatch(/approvedStatus/);
+  });
+});
+
+/** The schema paths a refusal names, without array indexes ("days.0.meditation" → "days.meditation"). */
+function refusedPaths(errors: string[]): string[] {
+  return [
+    ...new Set(
+      errors.map((e) =>
+        e
+          .slice(0, e.indexOf(":"))
+          .split(".")
+          .filter((seg) => !/^\d+$/.test(seg))
+          .join("."),
+      ),
+    ),
+  ].sort();
+}
+
+// fieldsNeverExtracted decides that a refusal is the TYPE's and that no other
+// source of it is worth fetching, so it must name exactly what the mapping can
+// never fill: given every field its extractor emits, a page of the type is
+// refused for those fields and nothing else.
+describe("fieldsNeverExtracted names exactly the fields no page of the type can supply", () => {
+  const days: Record<string, { title: string; prayer: string }> = {};
+  for (let i = 1; i <= 9; i++) {
+    days[`day${i}`] = {
+      title: `Day ${i}`,
+      prayer: `Day ${i}: O glorious Saint Jude, faithful servant and friend of Jesus, pray for us.`,
+    };
+  }
+  const LONG =
+    "This page states the matter at length, in the words of its own source, so that every length rule the schema sets is met.";
+  const complete: Record<string, Record<string, unknown>> = {
+    NOVENA: {
+      novenaTitle: "Novena to St. Jude",
+      background: LONG,
+      purpose: "For the hopeless and the despairing, through Saint Jude.",
+      duration: "9 days",
+      dropdownMetadata: { label: "Novena" },
+      intentions: "For those in desperate need.",
+      days,
+    },
+    CHURCH_DOCUMENT: {
+      historyType: "encyclicals",
+      title: "Rerum Novarum",
+      dateOrEra: "May 15, 1891",
+      summary: LONG,
+      body: LONG,
+    },
+    SACRAMENT: {
+      sacramentBadge: "BAPTISM",
+      sacramentTitle: "Baptism",
+      sacramentKey: "BAPTISM",
+      description: LONG,
+      preparation: LONG,
+      participation: LONG,
+    },
+    ROSARY: {
+      title: "The Holy Rosary",
+      background: LONG,
+      howToPray: LONG,
+      openingPrayers: LONG,
+      closingPrayers: LONG,
+      mysterySets: [{ name: "Joyful", mysteries: ["The Annunciation"] }],
+    },
+    CONSECRATION: {
+      consecrationTitle: "Total Consecration to Jesus through Mary",
+      background: LONG,
+      duration: "33 days",
+      dailyStructure: LONG,
+      finalConsecrationPrayer: LONG,
+    },
+  };
+
+  it.each(Object.keys(complete))("%s", (type) => {
+    expect(fieldsNeverExtracted(type).length).toBeGreaterThan(0);
+    const out = buildWebPublishPayload(type, base(complete[type]));
+    expect(out.ok).toBe(false);
+    if (out.ok) return;
+    expect(out.code).toBe("SCHEMA_FIELDS_MISSING");
+    expect(refusedPaths(out.errors)).toEqual([...fieldsNeverExtracted(type)].sort());
+  });
+
+  it("names nothing for a type its extractor can complete", () => {
+    for (const type of ["PRAYER", "SAINT", "APPARITION", "DEVOTION", "LITURGICAL"]) {
+      expect(fieldsNeverExtracted(type)).toEqual([]);
+    }
+    for (const type of ["SPIRITUAL_PRACTICE", "POPE", "DOCTOR", "RITE"]) {
+      expect(fieldsNeverExtracted(type)).toEqual([]);
+    }
   });
 });
 

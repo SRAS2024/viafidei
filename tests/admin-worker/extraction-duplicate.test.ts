@@ -292,7 +292,7 @@ describe("EXTRACTION duplicate handling (pre-publish wedge fix)", () => {
     const data = (create.mock.calls[0] as unknown as [{ data: Record<string, unknown> }])[0].data;
     expect(data.status).toBe("EXTRACTED");
     expect(String(data.rejectionReason)).toMatch(
-      /^SCHEMA_FIELDS_MISSING: CHURCH_DOCUMENT schema refuses this page's fields: .*issuingAuthority/,
+      /^SCHEMA_FIELDS_MISSING: CHURCH_DOCUMENT schema refuses this page's fields \(the CHURCH_DOCUMENT extractor never reads issuingAuthority, keyThemes\): .*issuingAuthority/,
     );
     expect(vi.mocked(filePlan)).toHaveBeenCalledWith(
       expect.anything(),

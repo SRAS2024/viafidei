@@ -530,6 +530,29 @@ const MAPPERS: Readonly<Record<string, Mapper>> = {
   },
 };
 
+/**
+ * Schema fields a type's mapping above never fills, because its extractor
+ * never reads them from a page (the mapper leaves them missing rather than
+ * guess). A refusal naming one of these is a gap of the TYPE, not of the page:
+ * every source of the type is refused alike until the extractor learns to read
+ * the field, so another source of it is no remedy. Paths are written as the
+ * schema reports them, without array indexes ("days.meditation").
+ */
+const NEVER_EXTRACTED: Readonly<Record<string, readonly string[]>> = {
+  NOVENA: ["days.meditation"],
+  CHURCH_DOCUMENT: ["issuingAuthority", "keyThemes"],
+  SACRAMENT: [
+    "theologicalOverview",
+    "institution",
+    "matterAndForm",
+    "minister",
+    "recipient",
+    "effects",
+  ],
+  ROSARY: ["summary", "instructions"],
+  CONSECRATION: ["summary", "instructions"],
+};
+
 /** The catalog type an artifact of this extractor type publishes as. */
 export function webPublishType(artifactType: string): string {
   return PUBLISH_TYPE[artifactType] ?? artifactType;
@@ -538,6 +561,11 @@ export function webPublishType(artifactType: string): string {
 /** True when the registry maps this artifact type. */
 export function hasWebSchemaMapping(artifactType: string): boolean {
   return artifactType === "PRAYER" || artifactType in MAPPERS;
+}
+
+/** The required schema fields this type's web mapping never fills (none for most types). */
+export function fieldsNeverExtracted(artifactType: string): readonly string[] {
+  return NEVER_EXTRACTED[artifactType] ?? [];
 }
 
 /** Errors that only concern the citations array (the count, or a URL in it). */

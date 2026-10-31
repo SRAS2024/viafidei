@@ -226,6 +226,24 @@ export async function rerouteToAlternateSource(
   input: { contentType: string; failedHost: string; missingFields?: string[] },
 ): Promise<RepairOutcome & { reroutedTo: string | null }> {
   try {
+    // A type whose extractor never reads a field its schema requires (a
+    // novena's per-day meditation, a Church document's issuing authority) is
+    // refused from EVERY source alike, so another source of it is no remedy.
+    // Boosting one put a page that could only be refused at the head of the
+    // global fetch queue (+1000 on a 0–1 priority scale), and its refusal
+    // boosted the next: a self-perpetuating fetch → refuse → boost chain that
+    // starved every other type. Reroute only where another page can differ.
+    const { fieldsNeverExtracted } = await import("./web-publish-payloads");
+    const neverExtracted = fieldsNeverExtracted(input.contentType);
+    if (neverExtracted.length > 0) {
+      return {
+        kind: "extraction_rerouted",
+        attempted: true,
+        succeeded: false,
+        reason: `not rerouted: the ${input.contentType} extractor never reads ${neverExtracted.join(", ")}, so no other ${input.contentType} source can yield a publishable package`,
+        reroutedTo: null,
+      };
+    }
     // Best unfetched candidate of the same type on a DIFFERENT host, least-tried
     // first (so we genuinely rotate rather than re-hammer one alternate).
     const alt = await prisma.candidateSourceUrl.findFirst({

@@ -1492,7 +1492,8 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
   // strict QA only to be refused at publish. It stays EXTRACTED with the
   // schema's reason and takes the EXTRACT_FAILED path below. A citation
   // shortfall is not a gap here: verification is what adds the second witness.
-  const { buildWebPublishPayload, webPublishType } = await import("./web-publish-payloads");
+  const { buildWebPublishPayload, fieldsNeverExtracted, webPublishType } =
+    await import("./web-publish-payloads");
   const preview =
     pkg.rejectionReasons.length === 0 && pkg.missingFields.length === 0
       ? buildWebPublishPayload(detected, {
@@ -1513,11 +1514,17 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
       : pkg.missingFields.length === 0 && schemaGaps.length === 0
         ? "CHECKLIST_READY"
         : "EXTRACTED";
+  // Say when the gap is the TYPE's (its extractor never reads a required
+  // field), so nobody reads the refusal as this page's fault: no other source
+  // of the type can close it, and none is rerouted to.
+  const neverExtracted = fieldsNeverExtracted(detected);
   const schemaGapReason =
     schemaGaps.length > 0
-      ? `SCHEMA_FIELDS_MISSING: ${webPublishType(detected)} schema refuses this page's fields: ${schemaGaps
-          .slice(0, 3)
-          .join("; ")}`.slice(0, 480)
+      ? `SCHEMA_FIELDS_MISSING: ${webPublishType(detected)} schema refuses this page's fields${
+          neverExtracted.length > 0
+            ? ` (the ${detected} extractor never reads ${neverExtracted.join(", ")})`
+            : ""
+        }: ${schemaGaps.slice(0, 3).join("; ")}`.slice(0, 480)
       : null;
 
   // Artifacts are unique on (contentType, normalizedSlug, packageChecksum) —
@@ -1745,7 +1752,8 @@ async function runExtraction(prisma: PrismaClient, passId: string): Promise<Disp
     // Complete by the extractor's own list, but not a valid schema payload:
     // the artifact-keyed EXTRACT_FAILED path (origin schema_payload) re-extracts
     // it once and closes it with this reason if the fields still do not map;
-    // discovery moves on to another source of the type.
+    // discovery moves on to another source of the type — unless the gap is
+    // the type's own (fieldsNeverExtracted), which the reroute declines.
     const { filePlan } = await import("./repair-plans");
     await filePlan(prisma, {
       kind: "EXTRACT_FAILED",
