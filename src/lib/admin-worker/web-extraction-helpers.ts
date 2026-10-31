@@ -399,6 +399,20 @@ export interface ValidationNeedsVerdict {
 }
 
 /**
+ * How one field stands on its evidence rows' match results: confirmed when
+ * some source MATCHed (or PASSed) it and none contradicted it. A MISSING row —
+ * a source that never stated the field — neither confirms nor contradicts.
+ */
+export function judgeFieldEvidence(
+  results: readonly string[],
+): "missing" | "conflicted" | "unconfirmed" | "confirmed" {
+  if (results.length === 0) return "missing";
+  if (results.includes("MISMATCH")) return "conflicted";
+  if (!results.some((r) => r === "MATCH" || r === "PASS")) return "unconfirmed";
+  return "confirmed";
+}
+
+/**
  * Judge an artifact's validation needs against its stored
  * AdminWorkerCrossSourceVerification rows. This is the ONE predicate the
  * verification stage (promote to VERIFICATION_READY), the BUILD_READY drain
@@ -427,11 +441,7 @@ export function evaluateValidationNeeds(
   };
   for (const need of new Set(needs)) {
     const field = derivedParentField(contentType, need) ?? need;
-    const results = byField.get(field) ?? [];
-    if (results.length === 0) verdict.missing.push(need);
-    else if (results.includes("MISMATCH")) verdict.conflicted.push(need);
-    else if (!results.some((r) => r === "MATCH" || r === "PASS")) verdict.unconfirmed.push(need);
-    else verdict.confirmed.push(need);
+    verdict[judgeFieldEvidence(byField.get(field) ?? [])].push(need);
   }
   verdict.allConfirmed =
     verdict.missing.length === 0 &&

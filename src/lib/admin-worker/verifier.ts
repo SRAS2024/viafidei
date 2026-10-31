@@ -18,7 +18,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { verifyCrossSource, type VerifyInput, type VerifyOutcome } from "./cross-source-verifier";
-import { evaluateValidationNeeds } from "./web-extraction-helpers";
+import { evaluateValidationNeeds, judgeFieldEvidence } from "./web-extraction-helpers";
 
 /**
  * Sensitive fields per content type that MUST verify before
@@ -97,13 +97,6 @@ export async function runVerifier(
             : "REJECT"
           : "MISSING_EVIDENCE";
 
-    // Sensitive fields that don't MATCH block publishing.
-    if (sensitive.includes(row.fieldVerified) && row.matchStatus !== "MATCH") {
-      if (!blockingSensitiveFields.includes(row.fieldVerified)) {
-        blockingSensitiveFields.push(row.fieldVerified);
-      }
-    }
-
     const created = await prisma.adminWorkerCrossSourceVerification
       .create({
         data: {
@@ -127,13 +120,32 @@ export async function runVerifier(
     if (created) rowIds.push(created.id);
   }
 
+  const rows = pure.evidence.map((row) => ({
+    fieldName: row.fieldVerified,
+    matchResult: row.matchStatus,
+  }));
+
+  // A compared sensitive field blocks unless some source confirmed it and no
+  // source contradicted it: the rule (judgeFieldEvidence) the publish gate
+  // applies to these same rows once they are stored. Every non-MATCH row used
+  // to block, including a MISSING row from a source that simply never stated
+  // the field — so an apparition whose approval one page confirmed and whose
+  // date another page confirmed could not be promoted, though the publish gate
+  // would have accepted exactly those rows. A MISMATCH still blocks, and so
+  // does a field no source confirmed.
+  for (const field of sensitive) {
+    const results = rows.filter((r) => r.fieldName === field).map((r) => r.matchResult);
+    const verdict = judgeFieldEvidence(results);
+    // No rows: not among the facts compared this run (a derived field such as
+    // SAINT feastMonth is judged by its parent). The validation needs below
+    // decide which facts must have been compared.
+    if (verdict === "missing" || verdict === "confirmed") continue;
+    if (!blockingSensitiveFields.includes(field)) blockingSensitiveFields.push(field);
+  }
+
   // A validation need with no confirming row blocks too (a derived need is
   // judged by its parent's rows — it is never compared on its own).
-  const needs = evaluateValidationNeeds(
-    input.contentType,
-    input.validationNeeds ?? [],
-    pure.evidence.map((row) => ({ fieldName: row.fieldVerified, matchResult: row.matchStatus })),
-  );
+  const needs = evaluateValidationNeeds(input.contentType, input.validationNeeds ?? [], rows);
   for (const need of [...needs.missing, ...needs.unconfirmed, ...needs.conflicted]) {
     if (!blockingSensitiveFields.includes(need)) blockingSensitiveFields.push(need);
   }

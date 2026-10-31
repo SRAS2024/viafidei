@@ -34,14 +34,17 @@ vi.mock("@/lib/admin-worker/source-reputation-hooks", () => ({
 
 /** What each validation probe reports, per field, for the dispatcher test. */
 const probeResults: Record<string, "MATCH" | "MISSING_EVIDENCE"> = {};
+/** The host each field's probe reaches (www.vatican.va unless set). */
+const probeHosts: Record<string, string> = {};
 vi.mock("@/lib/admin-worker/validation-fetcher", () => ({
   fetchAndCompareValidation: vi.fn(
     async (_prisma: unknown, input: { field: string; expectedValue: string }) => {
       const status = probeResults[input.field] ?? "MISSING_EVIDENCE";
+      const host = probeHosts[input.field] ?? "www.vatican.va";
       return [
         {
-          host: "www.vatican.va",
-          url: `https://www.vatican.va/content/${input.field}.html`,
+          host,
+          url: `https://${host}/content/${input.field}.html`,
           authority: "VATICAN",
           matchStatus: status,
           expected: input.expectedValue,
@@ -151,6 +154,77 @@ describe("runVerifier blocks an unconfirmed validation need", () => {
     expect(out.publishAllowed).toBe(true);
   });
 
+  // Promotion and publish judge the same rows by one rule. A sensitive field
+  // used to block on ANY non-MATCH row, including the MISSING row of a host
+  // that simply never stated it, while the publish gate (evaluateValidationNeeds)
+  // accepted a field one source confirmed and none contradicted.
+  const LOURDES = {
+    apparitionTitle: "Our Lady of Lourdes",
+    approvalStatus: "approved",
+    apparitionDate: "February 11, 1858",
+  };
+  const APPARITION_FACTS = ["apparitionTitle", "approvalStatus", "apparitionDate"];
+  const APPARITION_NEEDS = ["approvalStatus", "apparitionDate"];
+
+  it("two hosts confirming different facts clear the sensitive fields", async () => {
+    const { client, created } = prisma();
+    const out = await runVerifier(client, {
+      contentType: "APPARITION",
+      contentId: "art-app",
+      fields: LOURDES,
+      validationSources: [
+        {
+          host: "www.vatican.va",
+          fields: { apparitionTitle: LOURDES.apparitionTitle, approvalStatus: "approved" },
+        },
+        { host: "www.usccb.org", fields: { apparitionDate: LOURDES.apparitionDate } },
+      ],
+      requiredFacts: APPARITION_FACTS,
+      validationNeeds: APPARITION_NEEDS,
+    });
+    expect(out.blockingSensitiveFields).toEqual([]);
+    // Each host's silence on the other's fact is still on record as MISSING.
+    expect(created.filter((r) => r.matchResult === "MISSING")).toHaveLength(3);
+    // The publish gate's predicate agrees about the very same rows.
+    const rows = created.map((r) => ({
+      fieldName: String(r.fieldName),
+      matchResult: String(r.matchResult),
+    }));
+    expect(evaluateValidationNeeds("APPARITION", APPARITION_NEEDS, rows).allConfirmed).toBe(true);
+  });
+
+  it("a host contradicting a confirmed sensitive fact still blocks it", async () => {
+    const { client } = prisma();
+    const out = await runVerifier(client, {
+      contentType: "APPARITION",
+      contentId: "art-app",
+      fields: LOURDES,
+      validationSources: [
+        { host: "www.vatican.va", fields: { ...LOURDES } },
+        { host: "www.usccb.org", fields: { apparitionDate: "July 16, 1858" } },
+      ],
+      requiredFacts: APPARITION_FACTS,
+      validationNeeds: APPARITION_NEEDS,
+    });
+    expect(out.blockingSensitiveFields).toEqual(["apparitionDate"]);
+    expect(out.publishAllowed).toBe(false);
+  });
+
+  it("a sensitive fact no host confirmed still blocks", async () => {
+    const { client } = prisma();
+    const out = await runVerifier(client, {
+      contentType: "APPARITION",
+      contentId: "art-app",
+      fields: LOURDES,
+      validationSources: [
+        { host: "www.vatican.va", fields: { apparitionTitle: LOURDES.apparitionTitle } },
+      ],
+      requiredFacts: APPARITION_FACTS,
+      validationNeeds: APPARITION_NEEDS,
+    });
+    expect(out.blockingSensitiveFields).toEqual(["approvalStatus", "apparitionDate"]);
+  });
+
   it("SENSITIVE_FIELDS names the fields the extractors actually emit", () => {
     expect(SENSITIVE_FIELDS.CHURCH_DOCUMENT).toContain("dateOrEra");
     expect(SENSITIVE_FIELDS.APPARITION).toEqual(
@@ -258,6 +332,51 @@ describe("CROSS_SOURCE_VERIFICATION promotes only when every need is confirmed",
   beforeEach(() => {
     vi.mocked(filePlan).mockClear();
     for (const k of Object.keys(probeResults)) delete probeResults[k];
+    for (const k of Object.keys(probeHosts)) delete probeHosts[k];
+  });
+
+  const LOURDES_ARTIFACT = {
+    ...DOC,
+    id: "art-app",
+    contentType: "APPARITION",
+    normalizedTitle: "Our Lady of Lourdes",
+    normalizedSlug: "our-lady-of-lourdes",
+    extractedFields: {
+      apparitionTitle: "Our Lady of Lourdes",
+      approvalStatus: "approved",
+      apparitionDate: "February 11, 1858",
+    },
+    validationNeeds: ["approvalStatus", "apparitionDate"],
+  };
+
+  // The live R3 case: the Holy See's page confirms the apparition and its
+  // approval, the bishops' page confirms the date. Every need is confirmed
+  // and nothing contradicts, so it is promoted — it used to burn its three
+  // verification rounds and park at NEEDS_REVIEW on the hosts' MISSING rows.
+  it("needs confirmed by different hosts promote to VERIFICATION_READY", async () => {
+    probeResults.apparitionTitle = "MATCH";
+    probeResults.approvalStatus = "MATCH";
+    probeResults.apparitionDate = "MATCH";
+    probeHosts.apparitionDate = "www.usccb.org";
+    const { prisma, rows, update } = makePrisma(LOURDES_ARTIFACT);
+    await runCrossSourceVerification(prisma, "p1");
+    // Each host's silence on the other's facts is recorded …
+    expect(rows.filter((r) => r.matchResult === "MISSING")).toHaveLength(3);
+    // … and does not count against them.
+    const data = (update.mock.calls[0] as unknown as [{ data: Record<string, unknown> }])[0].data;
+    expect(data.status).toBe("VERIFICATION_READY");
+    expect(vi.mocked(filePlan)).not.toHaveBeenCalled();
+  });
+
+  it("a date no host confirmed still blocks the promotion", async () => {
+    probeResults.apparitionTitle = "MATCH";
+    probeResults.approvalStatus = "MATCH";
+    probeHosts.apparitionDate = "www.usccb.org";
+    const { prisma, update } = makePrisma(LOURDES_ARTIFACT);
+    await runCrossSourceVerification(prisma, "p1");
+    const data = (update.mock.calls[0] as unknown as [{ data: Record<string, unknown> }])[0].data;
+    expect(data.status).toBe("NEEDS_REPAIR");
+    expect(String(data.rejectionReason)).toContain("apparitionDate");
   });
 
   it("a title MATCH with an unconfirmed date parks NEEDS_REPAIR (was VERIFICATION_READY)", async () => {
@@ -303,17 +422,8 @@ describe("CROSS_SOURCE_VERIFICATION promotes only when every need is confirmed",
     const artifact =
       type === "APPARITION"
         ? {
-            ...DOC,
-            id: "art-app",
-            contentType: "APPARITION",
-            normalizedTitle: "Our Lady of Lourdes",
-            normalizedSlug: "our-lady-of-lourdes",
-            extractedFields: {
-              apparitionTitle: "Our Lady of Lourdes",
-              approvalStatus: "approved",
-              apparitionDate: date,
-            },
-            validationNeeds: ["approvalStatus", "apparitionDate"],
+            ...LOURDES_ARTIFACT,
+            extractedFields: { ...LOURDES_ARTIFACT.extractedFields, apparitionDate: date },
           }
         : { ...DOC, extractedFields: { ...DOC.extractedFields, dateOrEra: date } };
     const { prisma, rows, update } = makePrisma(artifact);
