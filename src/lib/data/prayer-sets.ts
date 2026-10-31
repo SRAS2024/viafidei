@@ -5,13 +5,65 @@
  * (`listPublishedBySlugs`); the building-block set is the same query on every page.
  */
 
-import { buildPrayerVariants, type PrayerWithVariants } from "@/lib/content-shared/prayer-language";
+import { litanyKnowledge } from "@/lib/checklist/knowledge/litanies";
+import { prayerKnowledge } from "@/lib/checklist/knowledge/prayers";
+import {
+  buildPrayerVariants,
+  type PrayerVariant,
+  type PrayerWithVariants,
+} from "@/lib/content-shared/prayer-language";
 import {
   BUILDING_BLOCK_PRAYERS,
   prayersMentionedIn,
   type MentionOptions,
 } from "@/lib/content-shared/prayer-mentions";
 import { listPublishedBySlugs } from "@/lib/data/published";
+
+/** Whitespace folded, so a re-wrapped copy of a text still compares equal. */
+function foldText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
+}
+
+let receivedTexts: Map<string, Map<string, string>> | null = null;
+
+/**
+ * The received Latin / Greek the curated prayer registries hold for `slug`,
+ * by language code. Built once, on first use; server-side only.
+ */
+function curatedLiturgicalTexts(slug: string): Map<string, string> | undefined {
+  if (!receivedTexts) {
+    receivedTexts = new Map();
+    for (const entry of [...prayerKnowledge, ...litanyKnowledge]) {
+      const texts = new Map<string, string>();
+      for (const v of buildPrayerVariants(entry.payload)) {
+        if (v.preserve) texts.set(v.code, foldText(v.text));
+      }
+      if (texts.size > 0) receivedTexts.set(entry.slug, texts);
+    }
+  }
+  return receivedTexts.get(slug);
+}
+
+/**
+ * A published prayer's language variants, with the `unofficial` flag of its
+ * machine-translation marker withdrawn wherever the stored text IS the curated
+ * received text. The curated seed writes that text over a machine fill but
+ * keeps the marker, and the translation backfill cannot clear a marker on its
+ * own (the protection gate sees no content change), so the Litany of Saint
+ * Joseph carries the Holy See's official Latin under a stale
+ * `machineTranslated: ["latin", "greek"]`. Only its Greek is a machine fill.
+ */
+export function publishedPrayerVariants(
+  slug: string,
+  payload: Record<string, unknown>,
+): PrayerVariant[] {
+  const received = curatedLiturgicalTexts(slug);
+  return buildPrayerVariants(payload).map((variant) =>
+    variant.unofficial && received?.get(variant.code) === foldText(variant.text)
+      ? { code: variant.code, label: variant.label, text: variant.text, preserve: variant.preserve }
+      : variant,
+  );
+}
 
 /** A payload's slug list (`relatedPrayers`, `associatedPrayers`), or []. */
 function slugList(value: unknown): string[] {
@@ -30,7 +82,11 @@ export async function loadPrayerSet(slugs: unknown): Promise<PrayerWithVariants[
   if (list.length === 0) return [];
   const items = await listPublishedBySlugs("PRAYER", list).catch(() => []);
   return items
-    .map((p) => ({ slug: p.slug, title: p.title, variants: buildPrayerVariants(p.payload) }))
+    .map((p) => ({
+      slug: p.slug,
+      title: p.title,
+      variants: publishedPrayerVariants(p.slug, p.payload),
+    }))
     .filter((p) => p.variants.length > 0);
 }
 

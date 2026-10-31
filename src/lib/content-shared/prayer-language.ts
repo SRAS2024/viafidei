@@ -16,7 +16,10 @@
  * (the owner wants the toggle on every prayer that has another language), but
  * flagged `unofficial` so every surface says so under the text. The flag goes
  * the moment the backfill replaces the fill with authentic text and drops the
- * language from the marker.
+ * language from the marker. The pages build their variants through
+ * `publishedPrayerVariants` (data/prayer-sets), which also withdraws it where
+ * the stored text already IS the curated received text under a marker that
+ * outlived the fill.
  */
 export interface PrayerVariant {
   /** Normalised language code, e.g. "en", "la", "el". */

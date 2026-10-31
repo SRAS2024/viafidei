@@ -3,9 +3,9 @@ import { notFound } from "next/navigation";
 
 import { SaveContentButton } from "@/components/profile";
 import { PrayerLanguageToggle, ShareButton } from "@/components/ui";
-import { buildPrayerVariants, resolvePrayerLanguage } from "@/lib/content-shared/prayer-language";
+import { resolvePrayerLanguage } from "@/lib/content-shared/prayer-language";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
-import { loadNamedPrayers } from "@/lib/data/prayer-sets";
+import { loadNamedPrayers, publishedPrayerVariants } from "@/lib/data/prayer-sets";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +37,7 @@ export default async function PrayerDetailPage({ params }: Props) {
   // use `prayerText`. Accept either so the prayer text always renders.
   const body =
     (payload.body as string | undefined) ?? (payload.prayerText as string | undefined) ?? "";
-  const variants = buildPrayerVariants(payload);
+  const variants = publishedPrayerVariants(slug, payload);
   const summary = payload.summary as string | undefined;
   // The Rosary and chaplet prayers (and a litany ending "Our Father, Hail Mary,
   // Glory Be") name other prayers: each name opens that prayer in place, with

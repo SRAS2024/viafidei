@@ -14,7 +14,13 @@ vi.mock("@/lib/data/published", () => ({
     lookupFails ? Promise.reject(new Error("db down")) : listPublishedBySlugs(...args),
 }));
 
-import { loadNamedPrayers, loadPrayerSet, loadPrayersForText } from "@/lib/data/prayer-sets";
+import { prayerKnowledge } from "@/lib/checklist/knowledge/prayers";
+import {
+  loadNamedPrayers,
+  loadPrayerSet,
+  loadPrayersForText,
+  publishedPrayerVariants,
+} from "@/lib/data/prayer-sets";
 
 function prayer(slug: string, title: string, payload: Record<string, unknown>): PublishedItem {
   return { id: slug, contentType: "PRAYER", slug, title, subtitle: "", payload } as PublishedItem;
@@ -148,5 +154,56 @@ describe("loadPrayersForText", () => {
       ordered: false,
     });
     expect(await loadPrayersForText([], [])).toEqual({ prayers: [], ordered: false });
+  });
+});
+
+describe("publishedPrayerVariants", () => {
+  // The live Litany of Saint Joseph: the curated seed wrote the Holy See's
+  // official Latin over the June 2026 machine fill but kept the marker, so the
+  // row says both its languages are machine-made. Only the Greek is.
+  const curated = prayerKnowledge.find((p) => p.slug === "litany-of-saint-joseph")!;
+  const officialLatin = curated.payload.latin as string;
+
+  it("never calls the curated received text unofficial, whatever a stale marker says", () => {
+    const variants = publishedPrayerVariants("litany-of-saint-joseph", {
+      body: curated.payload.body,
+      latin: officialLatin,
+      greek: "Κύριε, ἐλέησον.",
+      machineTranslated: ["latin", "greek"],
+    });
+    expect(variants.map((v) => [v.code, v.unofficial ?? false])).toEqual([
+      ["en", false],
+      ["la", false],
+      ["el", true],
+    ]);
+  });
+
+  it("keeps a marked text unofficial when it is not the curated one", () => {
+    const variants = publishedPrayerVariants("litany-of-saint-joseph", {
+      body: "Lord, have mercy on us.",
+      latin: "Domine, miserere nobis (machine).",
+      machineTranslated: ["latin"],
+    });
+    expect(variants[1]).toMatchObject({ code: "la", unofficial: true });
+    // A prayer the registries do not hold keeps its marker as stored.
+    expect(
+      publishedPrayerVariants("not-curated", {
+        body: "x",
+        latin: officialLatin,
+        machineTranslated: ["latin"],
+      })[1],
+    ).toMatchObject({ unofficial: true });
+  });
+
+  it("is what every prayer list builds its variants with", async () => {
+    listPublishedBySlugs.mockResolvedValue([
+      prayer("litany-of-saint-joseph", "Litany of Saint Joseph", {
+        body: curated.payload.body,
+        latin: officialLatin,
+        machineTranslated: ["latin"],
+      }),
+    ]);
+    const [litany] = await loadPrayerSet(["litany-of-saint-joseph"]);
+    expect(litany!.variants[1]).not.toHaveProperty("unofficial");
   });
 });

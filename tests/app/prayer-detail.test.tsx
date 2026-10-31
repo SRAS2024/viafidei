@@ -41,6 +41,7 @@ vi.mock("@/lib/data/published", async (importOriginal) => {
 });
 
 import PrayerDetailPage from "@/app/prayers/[slug]/page";
+import { prayerKnowledge } from "@/lib/checklist/knowledge/prayers";
 
 const OUR_FATHER_BODY = "Our Father, who art in heaven,\nhallowed be thy name;\nthy kingdom come.";
 /** Exactly what the payloads store: the same prayer, flattened to one line. */
@@ -197,6 +198,38 @@ describe("prayer detail page", () => {
     expect(screen.queryByText(note)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Greek" }));
     expect(screen.getByText("Πάτερ ἡμῶν ὁ ἐν τοῖς οὐρανοῖς.")).toBeInTheDocument();
+    expect(screen.getByText(note)).toBeInTheDocument();
+  });
+
+  it("never calls the curated Latin unofficial under a marker that outlived the fill", async () => {
+    // The live Litany of Saint Joseph: the curated seed wrote the Holy See's
+    // Latin over the June 2026 machine fill and kept the marker, which still
+    // names both languages. Only the Greek is a machine fill.
+    const curated = prayerKnowledge.find((p) => p.slug === "litany-of-saint-joseph")!;
+    published.clear();
+    published.set("PRAYER:litany-of-saint-joseph", {
+      id: "p3",
+      contentType: "PRAYER",
+      slug: "litany-of-saint-joseph",
+      title: "Litany of Saint Joseph",
+      subtitle: "",
+      authorityLevel: "VATICAN",
+      version: 1,
+      payload: {
+        body: curated.payload.body,
+        latin: curated.payload.latin,
+        greek: "Κύριε, ελέησον.",
+        machineTranslated: ["latin", "greek"],
+      },
+    } as unknown as PublishedItem);
+    const { container } = render(
+      await PrayerDetailPage({ params: Promise.resolve({ slug: "litany-of-saint-joseph" }) }),
+    );
+    const note = /Unofficial translation/;
+    fireEvent.click(screen.getByRole("button", { name: "Latin" }));
+    expect(container.textContent).toContain("Sancte Ioseph, ora pro nobis.");
+    expect(screen.queryByText(note)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Greek" }));
     expect(screen.getByText(note)).toBeInTheDocument();
   });
 });
