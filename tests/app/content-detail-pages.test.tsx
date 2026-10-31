@@ -227,6 +227,24 @@ describe("the other content types keep their content and drop the filler", () =>
     expectAbsent("who reigned as Roman Pontiff", "Papacy began", "pope_biography");
   });
 
+  it("pope: no 'Born' line when the birth name is the papal name itself", async () => {
+    put(
+      "POPE",
+      "pope-saint-gregory-the-great",
+      "Pope Saint Gregory the Great",
+      {
+        background: "Gregory I reformed the liturgy and sent Augustine to England.",
+        papacyStart: "590",
+        papacyEnd: "604",
+        birthName: "Gregory",
+      },
+      "Pope from 590 to 604",
+    );
+    const { container } = render(await PopeDetailPage(params("pope-saint-gregory-the-great")));
+    expect(screen.getByText(/reformed the liturgy/)).toBeInTheDocument();
+    expect(container.querySelector("header")).not.toHaveTextContent("Born");
+  });
+
   it("doctor: the subtitle and the life — no feast month or ecclesial role rows", async () => {
     put(
       "DOCTOR",
