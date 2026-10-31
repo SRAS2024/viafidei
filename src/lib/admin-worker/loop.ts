@@ -701,9 +701,11 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
     // always-on discovery workstreams now run as PARALLEL lanes inside this same
     // process instead of one-after-another — each fail-open and touching a
     // disjoint domain, so they're safe to run concurrently (double-publishing is
-    // impossible via the PublishedContent unique constraint). All publish
-    // content, so the whole group is gated on active/python mode (safe-degraded
-    // contract). Their published totals count toward this pass.
+    // impossible via the PublishedContent unique constraint). Brain gating is
+    // per lane (`activeOnly`, see worker-lanes.ts): the deterministic ingests
+    // and enrichments keep running in safe-degraded mode, only the web-funnel
+    // discovery lanes wait for the Python brain. Their published totals count
+    // toward this pass.
     {
       const { runWorkerLanes } = await import("./lanes");
       const { CONTENT_LANES } = await import("./worker-lanes");

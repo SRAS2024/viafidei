@@ -40,9 +40,20 @@
 import type { LaneDef } from "./lanes";
 
 /**
- * CONTENT lanes — publish or grow public content, so they only run when the
- * Python final brain is active (safe-degraded contract). One lane per
- * workstream, all touching disjoint domains → safe to run concurrently.
+ * CONTENT lanes — publish or grow public content. One lane per workstream, all
+ * touching disjoint domains → safe to run concurrently.
+ *
+ * Brain gating (safe-degraded contract) is per lane, by what the lane actually
+ * needs. A lane that never consults the brain AND whose output passes only
+ * deterministic gates keeps running while the Python brain is degraded: the
+ * curated, structured and liturgical ingests (they publish with
+ * `skipBrainScreens`, so the orchestrator runs the same gates in both modes),
+ * the translation backfill, review auto-resolve and pope cleanup (deterministic
+ * maintenance; nothing new is published), and OSM parishes. Only the discovery
+ * lanes that feed the WEB funnel stay `activeOnly`: their candidates can only
+ * advance through brain-chosen stages and brain-screened publishes, so running
+ * them while degraded would spend network and query budget on a queue nothing
+ * consumes.
  */
 export const CONTENT_LANES: LaneDef[] = [
   // ── Ingestion: curated, structured, and liturgical ingest each publish a
@@ -50,7 +61,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "ingest-curated",
     capacity: 4,
-    activeOnly: true,
     growth: true,
     async run({ prisma, passId }) {
       const { runCuratedIngest } = await import("./curated-ingest");
@@ -65,7 +75,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "ingest-structured",
     capacity: 4,
-    activeOnly: true,
     growth: true,
     // A run walks a Wikidata page AND fetches one Wikipedia extract per
     // candidate (15s × up to 3 attempts each); a slow source pushed it past the
@@ -81,7 +90,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "ingest-liturgical",
     capacity: 1,
-    activeOnly: true,
     async run({ prisma }) {
       const { runLiturgicalCalendarIngest } = await import("./liturgical-calendar-ingest");
       const published = (await runLiturgicalCalendarIngest(prisma)).published;
@@ -94,7 +102,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "enrich-translations",
     capacity: 2,
-    activeOnly: true,
     async run({ prisma }) {
       const { runPrayerTranslationBackfill } = await import("./prayer-translation-backfill");
       await runPrayerTranslationBackfill(prisma);
@@ -104,7 +111,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "enrich-reviews",
     capacity: 2,
-    activeOnly: true,
     async run({ prisma }) {
       const { runReviewAutoResolve } = await import("./human-review");
       await runReviewAutoResolve(prisma);
@@ -114,7 +120,6 @@ export const CONTENT_LANES: LaneDef[] = [
   {
     name: "enrich-pope-cleanup",
     capacity: 1,
-    activeOnly: true,
     async run({ prisma }) {
       const { pruneAntipopeRecords, pruneDuplicatePopeRecords } = await import("./pope-cleanup");
       await pruneAntipopeRecords(prisma);
