@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   compareSaintsChronologically,
   formatFeastDay,
+  saintBiographyForDisplay,
   parseYear,
   saintCardDetails,
   saintDetailEyebrow,
@@ -176,6 +177,29 @@ describe("saintEyebrow", () => {
     expect(saintEyebrow({ saintType: "apostle" })).toBe("Apostle and Disciple of Jesus");
     expect(saintEyebrow({ feastDay: "12-25" })).toBe("Feast December 25");
     expect(saintEyebrow({})).toBeUndefined();
+  });
+});
+
+describe("saintBiographyForDisplay", () => {
+  // The live shape of the 462 biographies the structured ingest composed from
+  // Wikidata facts for saints with no English article.
+  const composed =
+    "Peter Jeong San-pil (1750–1799) was a Korean martyr, catholic blessed. The Catholic Church " +
+    "venerates Peter Jeong San-pil as a Blessed (beatified); the feast day is May 31.";
+
+  it("leaves off the closing pointer to Wikipedia and Wikidata, and nothing else", () => {
+    for (const lang of ["Polish", "Italian", "French", "Spanish", "German", "pt"]) {
+      const stored = `${composed} A fuller biography is recorded in the ${lang}-language Wikipedia article and on Wikidata.`;
+      expect(saintBiographyForDisplay(stored)).toBe(composed);
+    }
+  });
+
+  it("keeps every other biography exactly as stored, a mention of Wikipedia included", () => {
+    const quoted =
+      "Hildegard of Bingen was a German Benedictine abbess.\n\nShe founded Rupertsberg.";
+    expect(saintBiographyForDisplay(quoted)).toBe(quoted);
+    const prose = "Her life is told on Wikipedia and on Wikidata. She died in 1179.";
+    expect(saintBiographyForDisplay(prose)).toBe(prose);
   });
 });
 

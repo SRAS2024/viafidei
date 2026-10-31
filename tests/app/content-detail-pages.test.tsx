@@ -175,6 +175,23 @@ describe("/saints/[slug]", () => {
     expect(named.container.querySelector(".vf-eyebrow")).toBeNull();
   });
 
+  it("shows a composed biography without its closing pointer to Wikipedia and Wikidata", async () => {
+    const life =
+      "Peter Jeong San-pil (1750–1799) was a Korean martyr, catholic blessed. The Catholic " +
+      "Church venerates Peter Jeong San-pil as a Blessed (beatified); the feast day is May 31.";
+    put("SAINT", "saint-peter-jeong-san-pil", "Blessed Peter Jeong San-pil", {
+      canonizationStatus: "beatified",
+      feastDay: "05-31",
+      birthDate: "1750",
+      deathDate: "1799",
+      biography: `${life} A fuller biography is recorded in the Polish-language Wikipedia article and on Wikidata.`,
+      provenance: { biography: "structured-facts" },
+    });
+    render(await SaintDetailPage(params("saint-peter-jeong-san-pil")));
+    expect(screen.getByText(life)).toBeInTheDocument();
+    expectAbsent("fuller biography", "Wikipedia", "Wikidata");
+  });
+
   it("keeps a real title over the name", async () => {
     put("SAINT", "saint-teresa", "Saint Teresa of Ávila", {
       saintType: "doctor_of_the_church",

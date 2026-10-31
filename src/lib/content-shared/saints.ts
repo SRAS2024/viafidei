@@ -392,6 +392,22 @@ export function saintLifeDates(payload: Record<string, unknown>): string | null 
   return null;
 }
 
+/**
+ * The closing sentence the structured ingest wrote under every biography it
+ * composed from Wikidata facts for a saint with no English article: "A fuller
+ * biography is recorded in the Polish-language Wikipedia article and on
+ * Wikidata." (462 published saints). It points the reader to sources, and a
+ * reader's page shows none (the owner's rule), so the saint page leaves it off.
+ * Only that exact closing sentence goes; the stored text keeps it.
+ */
+const COMPOSED_SOURCE_POINTER =
+  /\s*A fuller biography is recorded in the \S+-language Wikipedia article and on Wikidata\.\s*$/;
+
+/** A saint's biography as its page shows it: the stored text, minus a source pointer. */
+export function saintBiographyForDisplay(biography: string): string {
+  return biography.replace(COMPOSED_SOURCE_POINTER, "");
+}
+
 /** "Saint", "Blessed", "Venerable" or "Servant of God", from `canonizationStatus`. */
 const STATUS_LABELS: Record<string, string> = {
   canonized: "Saint",
