@@ -7,6 +7,10 @@ export const PARISH_DESIGNATIONS = [
   "cathedral",
   "major-basilica",
   "minor-basilica",
+  // A chapel or an oratory is a Catholic place of worship that is not itself
+  // a parish church; naming it as such keeps the directory accurate.
+  "chapel",
+  "oratory",
 ] as const;
 
 export const parishSchema: ContentSchema = {
@@ -24,6 +28,8 @@ export const parishSchema: ContentSchema = {
       address: z.string().optional(),
       city: z.string().optional(),
       state: z.string().optional(),
+      /** Postal code exactly as the source prints it (never derived). */
+      postalCode: z.string().max(16).optional(),
       country: z.string().optional(),
       /** ISO-3166 alpha-2 (the source tag), kept apart from the display name. */
       countryCode: z.string().length(2).optional(),
@@ -78,6 +84,7 @@ export const parishSchema: ContentSchema = {
       "background",
       "summary",
       "state",
+      "postalCode",
       "country",
       "countryCode",
       "website",

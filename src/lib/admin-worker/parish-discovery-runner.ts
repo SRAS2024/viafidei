@@ -62,7 +62,9 @@ export type ParishDesignation =
   | "shrine"
   | "cathedral"
   | "major-basilica"
-  | "minor-basilica";
+  | "minor-basilica"
+  | "chapel"
+  | "oratory";
 
 /** The four papal (major) basilicas — the only churches that are ever
  * "major-basilica"; every other basilica is minor. */

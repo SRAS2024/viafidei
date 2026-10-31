@@ -571,6 +571,8 @@ const DESIGNATION_LABELS: Record<string, string> = {
   cathedral: "Cathedral",
   "major-basilica": "Major basilica",
   "minor-basilica": "Minor basilica",
+  chapel: "Chapel",
+  oratory: "Oratory",
 };
 
 function parishSubtitle(f: Fields): string {

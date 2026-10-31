@@ -20,13 +20,15 @@ describe("parish content type", () => {
     );
   });
 
-  it("only allows the five canonical designations", () => {
+  it("only allows the canonical designations", () => {
     expect([...PARISH_DESIGNATIONS]).toEqual([
       "parish",
       "shrine",
       "cathedral",
       "major-basilica",
       "minor-basilica",
+      "chapel",
+      "oratory",
     ]);
   });
 
