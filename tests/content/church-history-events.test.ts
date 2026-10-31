@@ -55,11 +55,11 @@ async function loadParts(): Promise<Array<{ file: string; events: ChurchHistoryE
 describe("CHURCH_HISTORY_EVENTS dataset", () => {
   it("aggregates every part, sorted chronologically", async () => {
     // A tripwire without a pinned count, so curators can add events and parts
-    // freely: every events-N.ts part on disk must be non-empty and merged into
-    // the aggregate whole, and the aggregate must hold nothing else. A part
-    // that fails to load, is never registered, or loses events in a bad merge
-    // fails here instead of silently shrinking the timeline. The original
-    // reviewed spine had 232 events, so the timeline never drops below that.
+    // freely: every events-N.ts part on disk must be non-empty and merged
+    // whole into the aggregate, and the aggregate must hold nothing else — so
+    // a part that fails to load or is never registered fails here instead of
+    // silently shrinking the timeline. The original reviewed spine had 232
+    // events, and the timeline may never fall below that.
     const parts = await loadParts();
     expect(parts.length).toBeGreaterThanOrEqual(5);
     const aggregated = new Set(CHURCH_HISTORY_EVENTS);
