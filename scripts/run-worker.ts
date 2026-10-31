@@ -90,6 +90,11 @@ import {
   runLoopSupervised,
   watchSupervisingHost,
 } from "../src/lib/admin-worker/worker-supervisor";
+import {
+  formatProgressLine,
+  reportProgress,
+  setProgressSink,
+} from "../src/lib/admin-worker/worker-progress";
 import { prisma } from "../src/lib/db/client";
 
 function parseArgs(argv: string[]): {
@@ -232,6 +237,12 @@ async function main() {
   guardStdio(supervisorLost);
   const hostPid = Number(process.env.VIAFIDEI_HOST_PID ?? "");
   if (Number.isInteger(hostPid) && hostPid > 1) {
+    // Under a host: report progress at pass and lane boundaries on stdout, so
+    // the host can restart this worker if a pass hangs (worker-progress.ts).
+    setProgressSink((progress) => {
+      process.stdout.write(`${formatProgressLine(progress)}\n`);
+    });
+    reportProgress("boot");
     watchSupervisingHost({
       hostPid,
       isAlive: (pid) => {
@@ -447,6 +458,7 @@ async function main() {
     // Supervised: in continuous mode the loop is re-entered after a bounded
     // backoff if its machinery ever throws, so the worker self-heals in-process
     // rather than exiting the container (whose restart policy may back off).
+    reportProgress("loop_start");
     const maxPasses = args.maxJobs ?? Infinity;
     const supervised = await runLoopSupervised({
       workerId: args.workerId,

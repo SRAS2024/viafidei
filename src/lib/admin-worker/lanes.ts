@@ -33,6 +33,7 @@
 import type { PrismaClient } from "@prisma/client";
 
 import { writeAdminWorkerLog } from "./logs";
+import { reportProgress } from "./worker-progress";
 
 export interface LaneOutcome {
   published?: number;
@@ -395,6 +396,10 @@ export async function runWorkerLanes(
         lastDurationMs: Date.now() - started.getTime(),
         lastFinishedAt: new Date(),
       });
+    } finally {
+      // A lane that settled — done, errored or cut off by its watchdog — is
+      // progress: the loop is moving (worker-progress.ts).
+      reportProgress("lane_done", lane.name);
     }
   });
 

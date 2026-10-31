@@ -37,6 +37,7 @@ import {
 import { completePass, startPass } from "./passes";
 import { refreshContentGoals, seedContentGoals } from "./content-goals";
 import { executeMissionStage, type DispatchOutcome } from "./dispatcher";
+import { reportProgress } from "./worker-progress";
 
 export interface LoopOptions {
   workerId?: string;
@@ -430,6 +431,9 @@ function withDispatchWatchdog<T>(p: Promise<T>, ms: number): Promise<T> {
  */
 export async function runOnePass(prisma: PrismaClient, workerId: string): Promise<PassOutcome> {
   assertWorkerExecutionAllowed("run an Admin Worker pass");
+  // Progress beacons (worker-progress.ts): the host restarts a worker that
+  // crosses none of these boundaries for its progress timeout.
+  reportProgress("pass_start");
   await writeHeartbeat(prisma);
   const state = await getAdminWorkerState(prisma);
 
@@ -691,6 +695,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       };
     }
 
+    reportProgress("dispatch_done", dispatch.stage);
     built += dispatch.built ?? 0;
     publishedCount += dispatch.published ?? 0;
     failedCount += dispatch.failed ?? 0;
@@ -763,6 +768,7 @@ export async function runOnePass(prisma: PrismaClient, workerId: string): Promis
       summary: `${brain.missionStage}: ${dispatch.summary}`,
     });
     completed = true;
+    reportProgress("pass_complete");
     await recordSuccess(prisma, { summary: dispatch.summary });
   } catch (err) {
     failedCount += 1;

@@ -108,6 +108,12 @@ import {
   restartDegraded,
   restartDelayMs,
 } from "../src/lib/admin-worker/restart-backoff";
+import {
+  parseProgressLine,
+  progressTimeoutMs,
+  workerStalledForMs,
+  type WorkerProgress,
+} from "../src/lib/admin-worker/worker-progress";
 import { localHostLabel, sampleLocalResources } from "../src/lib/admin-worker/local-resources";
 import { loadCommandCenterSnapshot } from "../src/lib/admin-worker/command-center";
 import { writeAdminWorkerLog } from "../src/lib/admin-worker/logs";
@@ -163,6 +169,11 @@ interface HostState {
   degraded: boolean;
   /** When the last degraded WARN row was written, for the hourly cap. */
   degradedLoggedAt: number;
+  /** The worker's last progress beacon (or its spawn), for the hung-pass watchdog. */
+  lastProgressAt: number | null;
+  lastProgressPhase: string | null;
+  /** When the worker last reported a completed pass. */
+  lastPassCompletedAt: number | null;
   lastExit: { code: number | null; signal: string | null; at: number } | null;
   lastError: string | null;
   /** Why the worker is not running normally here (null when it is, or after a plain stop). */
@@ -222,6 +233,9 @@ const host: HostState = {
   nextRestartAt: null,
   degraded: false,
   degradedLoggedAt: 0,
+  lastProgressAt: null,
+  lastProgressPhase: null,
+  lastPassCompletedAt: null,
   lastExit: null,
   lastError: null,
   failureReason: null,
@@ -316,6 +330,29 @@ function tsxBinary(): { cmd: string; prefix: string[] } {
 let restartTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
+ * The durable switch for a restart decision, bounded: a database that does not
+ * answer within the budget reads as unknown (wait and look again), never as
+ * OFF — and never as a hang that holds the lifecycle forever, which is what a
+ * read over a half-open connection would otherwise do.
+ */
+async function readSwitchForRestart(budgetMs = 20_000): Promise<{ on: boolean; known: boolean }> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const unknown = { on: false, known: false };
+  try {
+    return await Promise.race([
+      readMasterSwitch(prisma),
+      new Promise<typeof unknown>((resolve) => {
+        timer = setTimeout(() => resolve(unknown), budgetMs);
+      }),
+    ]);
+  } catch {
+    return unknown;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/**
  * Arm a deferred (re)start and account for it while it is pending.
  * `host.pendingStarts` is what tells the switch poll that a lifecycle
  * transition is already in flight, so the poll never starts a worker that an
@@ -361,7 +398,7 @@ async function restartAfterCrash(exit: {
   signal: string | null;
 }): Promise<void> {
   // Never hand the work back to Railway (spec §5: no cloud failover).
-  const master = await readMasterSwitch(prisma).catch(() => ({ on: false, known: false }) as const);
+  const master = await readSwitchForRestart();
   if (shuttingDown || host.child) return;
   if (!master.known) {
     // The database is unreachable: that is an outage, not a crash streak. Wait
@@ -523,18 +560,41 @@ function startWorkerChild(): void {
     }).catch(() => undefined);
   }, RESTART_BACKOFF.healthyUptimeMs).unref();
 
-  const onLine = (chunk: Buffer) => {
-    for (const line of chunk.toString("utf8").split("\n")) {
-      const trimmed = line.trimEnd();
-      if (!trimmed) continue;
-      pushLog("worker", trimmed);
-      if (/published/i.test(trimmed)) host.itemsPublished += 1;
-      if (/\bpass \d+|dispatch|stage/i.test(trimmed)) host.itemsProcessed += 1;
-      if (/error|failed|fatal/i.test(trimmed)) host.errors += 1;
+  host.lastProgressAt = host.startedAt;
+  host.lastProgressPhase = "spawned";
+  const onLine = (line: string) => {
+    const trimmed = line.trimEnd();
+    if (!trimmed) return;
+    // A progress beacon is liveness, not log: it feeds the hung-pass watchdog
+    // and stays out of the log ring.
+    const progress = parseProgressLine(trimmed);
+    if (progress) {
+      if (host.child === child) noteWorkerProgress(progress);
+      return;
     }
+    pushLog("worker", trimmed);
+    if (/published/i.test(trimmed)) host.itemsPublished += 1;
+    if (/\bpass \d+|dispatch|stage/i.test(trimmed)) host.itemsProcessed += 1;
+    if (/error|failed|fatal/i.test(trimmed)) host.errors += 1;
   };
-  child.stdout?.on("data", onLine);
-  child.stderr?.on("data", onLine);
+  for (const stream of [child.stdout, child.stderr]) {
+    // Chunks do not respect line boundaries; carry a partial line over so a
+    // beacon (or a log line) split across two chunks is still read whole.
+    let partial = "";
+    stream?.on("data", (chunk: Buffer) => {
+      const lines = (partial + chunk.toString("utf8")).split("\n");
+      partial = lines.pop() ?? "";
+      if (partial.length > 64 * 1024) {
+        lines.push(partial);
+        partial = "";
+      }
+      for (const line of lines) onLine(line);
+    });
+    stream?.on("end", () => {
+      if (partial) onLine(partial);
+      partial = "";
+    });
+  }
 
   child.on("exit", (code, signal) => {
     host.child = null;
@@ -572,9 +632,7 @@ function startWorkerChild(): void {
         // Only the durable switch tells an operator OFF (nothing to report)
         // from a live lease on another computer (surface it, never restart).
         // An unreadable switch is neither: wait for the database and retry.
-        const master = await readMasterSwitch(prisma).catch(
-          () => ({ on: false, known: false }) as const,
-        );
+        const master = await readSwitchForRestart();
         if (host.child || shuttingDown) return; // a newer child's state wins
         const refined = refineRefusedExit({
           switchKnown: master.known,
@@ -670,6 +728,69 @@ async function stopWorkerChild(reason: string): Promise<void> {
   host.runState = "off";
 }
 
+/* ------------------------------------------------------------------ */
+/* hung-pass watchdog                                                    */
+/* ------------------------------------------------------------------ */
+
+/** No progress beacon for this long means the worker is hung (worker-progress.ts). */
+const PROGRESS_TIMEOUT_MS = progressTimeoutMs();
+/** True while a hung worker is being stopped and rescheduled, so it happens once. */
+let hungRestartInFlight = false;
+
+function noteWorkerProgress(progress: WorkerProgress): void {
+  host.lastProgressAt = Date.now();
+  host.lastProgressPhase = progress.detail
+    ? `${progress.phase}:${progress.detail}`
+    : progress.phase;
+  if (progress.phase === "pass_complete") host.lastPassCompletedAt = host.lastProgressAt;
+}
+
+/**
+ * Liveness was timer-based — the heartbeat is written whenever a child exists —
+ * so a pass stuck on a query or a promise that never settles read as healthy
+ * forever. Checked locally on its own timer (it must work with the database
+ * hung): no beacon for PROGRESS_TIMEOUT_MS stops the worker's process group,
+ * and the crash-restart path brings up a fresh one, under the same switch
+ * check and backoff as a crash. One WARN row per event, never per check.
+ */
+function checkWorkerProgress(): void {
+  if (shuttingDown || hungRestartInFlight) return;
+  const stalledMs = workerStalledForMs({
+    now: Date.now(),
+    running: host.child != null && host.runState === "running",
+    lastProgressAt: host.lastProgressAt,
+    timeoutMs: PROGRESS_TIMEOUT_MS,
+  });
+  if (stalledMs === null) return;
+  hungRestartInFlight = true;
+  const lastPhase = host.lastProgressPhase ?? "none";
+  const detail =
+    `no progress from the worker for ${formatDelay(stalledMs)} ` +
+    `(last: ${lastPhase}; timeout ${formatDelay(PROGRESS_TIMEOUT_MS)})`;
+  pushLog("host", `${detail} — stopping it so it can be restarted`);
+  // Never let the audit write (the database may be what is hung) hold up the restart.
+  void writeAdminWorkerLog(prisma, {
+    category: "ERROR",
+    severity: "WARN",
+    eventName: "worker_hung_restart",
+    message: `Local Admin Worker restarted: ${detail}.`,
+    safeMetadata: {
+      stalledMs,
+      timeoutMs: PROGRESS_TIMEOUT_MS,
+      lastPhase,
+      runtimeId: RUNTIME_ID,
+    },
+  }).catch(() => undefined);
+  holdLifecycle(async () => {
+    try {
+      await stopWorkerChild("no progress — hung-pass watchdog");
+      await restartAfterCrash({ code: null, signal: "SIGTERM" });
+    } finally {
+      hungRestartInFlight = false;
+    }
+  });
+}
+
 /**
  * Bound a best-effort database write so an unreachable proxy can never hold
  * up an OFF request or a shutdown. Resolves false on timeout or error.
@@ -737,9 +858,7 @@ async function resumeIfSwitchOn(): Promise<void> {
   // the same worker from the other side of the await.
   host.pendingStarts += 1;
   try {
-    const master = await readMasterSwitch(prisma).catch(
-      () => ({ on: false, known: false }) as const,
-    );
+    const master = await readSwitchForRestart();
     if (shuttingDown || host.child) return;
     if (!master.known) {
       scheduleRestart(30_000);
@@ -1194,6 +1313,15 @@ function statusPayload() {
       consecutive: host.restarts,
       nextAttemptAt: host.nextRestartAt ? new Date(host.nextRestartAt).toISOString() : null,
       backoffMaxMs: RESTART_BACKOFF.maxMs,
+    },
+    // Progress, not just existence: the hung-pass watchdog's view.
+    progress: {
+      lastAt: host.lastProgressAt ? new Date(host.lastProgressAt).toISOString() : null,
+      lastPhase: host.lastProgressPhase,
+      lastPassCompletedAt: host.lastPassCompletedAt
+        ? new Date(host.lastPassCompletedAt).toISOString()
+        : null,
+      timeoutMs: PROGRESS_TIMEOUT_MS,
     },
     lastExit: host.lastExit,
     lastError: host.lastError,
@@ -2046,6 +2174,11 @@ async function main(): Promise<void> {
   }, 3_000);
   sampleTimer.unref();
   void refreshBrowserStatus();
+
+  // The hung-pass watchdog: purely local (timestamps and signals), so it still
+  // works when the database is what the worker is stuck on.
+  const progressTimer = setInterval(checkWorkerProgress, 30_000);
+  progressTimer.unref();
 }
 
 main().catch((err) => {
