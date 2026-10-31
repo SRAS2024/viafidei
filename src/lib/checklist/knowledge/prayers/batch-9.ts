@@ -64,15 +64,17 @@ interface RaccoltaInput {
  * catalogue (the Suscipe, the Anima Christi, the Adoro te and the like) are
  * left out rather than repeated in the Raccolta's wording.
  *
- * Four prayers come instead from the first edition of the same translation
+ * Six prayers come instead from the first edition of the same translation
  * (London: Burns and Lambert, 1857; the Google Books scan on archive.org,
  * cited by leaf), which is likewise in the public domain: the confessor's
- * prayer Da mihi, Domine, and the priest's intention before Mass and prayer
- * Obsecro te after it, which the 1910 edition prints in Latin only (nos. 471,
- * 466, 467) but the 1857 edition gives with St John's English beside the
- * Latin; and the ejaculation "O Sacrament most holy", whose rhymed English the
- * 1910 edition replaced with a closer rendering. Those four bodies are copied
- * from the 1857 pages in the same way.
+ * prayer Da mihi, Domine, the priest's intention before Mass and prayer
+ * Obsecro te after it, and the Sacrosanctae said after the Office, which the
+ * 1910 edition prints in Latin only (nos. 471, 466, 467, 423) but the 1857
+ * edition gives with St John's English beside the Latin; the ejaculation "O
+ * Sacrament most holy", whose rhymed English the 1910 edition replaced with a
+ * closer rendering; and the offering of the Precious Blood for troubled times
+ * (1857 no. 155), which the 1910 edition no longer prints. Those bodies are
+ * copied from the 1857 pages in the same way.
  *
  * Only the typography is not reproduced: the small capitals in which the book
  * sets the divine names (GOD, LORD, JESUS, CHRIST, FATHER, SON, HOLY GHOST;
@@ -1001,6 +1003,20 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "eucharistic",
     occasions: ["adoration", "before-communion", "confession"],
     summary: `A prayer of repentance and hope to Christ in the Blessed Sacrament, promising to receive Him as often as possible and to praise Him without human respect, and asking Him to draw all to daily Communion. Raccolta no. 113, indulgenced by Pius X in 1906. ${ST_JOHN}`,
+  }),
+  raccolta({
+    slug: "prayers-during-a-procession-of-the-blessed-sacrament",
+    title: "Prayers during a Procession of the Blessed Sacrament (Let us every moment praise)",
+    pages: [90],
+    body: [
+      "Pater, Ave, Gloria. Then say ten times:",
+      "V. Let us every moment praise the most holy Sacrament.\nR. May our God, present in the Sacrament, be now and ever praised.",
+      "Repeat Pater, Ave, etc., as often as needed.",
+    ],
+    prayerType: "general",
+    category: "eucharistic",
+    occasions: ["corpus-christi", "procession", "adoration"],
+    summary: `A short devotion for processions of the Blessed Sacrament: an Our Father, Hail Mary and Glory Be, then ten times the versicle "Let us every moment praise the most holy Sacrament" with its response, the whole repeated as often as needed. Raccolta no. 114, indulgenced by Pius X in 1906. ${ST_JOHN}`,
   }),
   raccolta({
     slug: "prayer-at-the-beginning-of-mass-with-our-lady-of-sorrows",
@@ -2332,5 +2348,40 @@ export const prayerBatch9: CuratedEntry[] = [
     category: "eucharistic",
     occasions: ["adoration", "benediction", "corpus-christi"],
     summary: `The rhymed English, as the 1857 first edition of the Raccolta gives it (no. 57), of the Eucharistic ejaculation that Pius VI indulgenced in 1776 and Pius VII extended to its use at Exposition, at Benediction and at the Elevation. The 1910 edition renders the same ejaculation more literally as "Blessed and praised every moment be the most holy and divine Sacrament", the refrain of its Acts of Adoration and Reparation. ${ST_JOHN_1857}`,
+  }),
+  raccolta({
+    slug: "sacrosanctae-prayer-after-the-divine-office",
+    title: "Prayer after the Divine Office (Sacrosanctae et individuae Trinitati)",
+    edition: 1857,
+    pages: [331],
+    body: [
+      "To the most holy and undivided Trinity, to the Humanity of our Lord Jesus Christ, to the fruitful virginity of the most blessed and glorious Mary ever Virgin, and to the whole company of saints, be for ever praise, honour, power, and glory from every creature; and to us be remission of all our sins, world without end. Amen.",
+      "V. Blessed is the womb of Mary the Virgin, which bore the Son of the Eternal Father.\nR. And blessed are the breasts which gave suck to Christ the Lord.",
+      "Pater noster. Ave Maria.",
+    ],
+    latin: [
+      "Sacrosanctæ et Individuæ Trinitati, Crucifixi Domini nostri Jesu Christi humanitati, beatissimæ et gloriosissimæ semperque Virginis Mariæ fœcundæ integritati, et omnium Sanctorum universitati sit sempiterna laus, honor, virtus, et gloria ab omni creatura; nobisque remissio omnium peccatorum, per infinita sæcula sæculorum. Amen.",
+      "V. Beata viscera Mariæ Virginis, quæ portaverunt æterni Patris Filium.\nR. Et beata ubera quæ lactaverunt Christum Dominum.",
+      "Pater noster. Ave Maria.",
+    ],
+    prayerType: "general",
+    category: "trinitarian",
+    occasions: ["office", "compline", "vespers"],
+    relatedSaints: ["saint-bonaventure"],
+    summary: `The prayer Sacrosanctae, which the Raccolta gives as St Bonaventure's, said kneeling after the Divine Office or the Little Office of Our Lady with an Our Father and a Hail Mary: praise from every creature to the Trinity, to the humanity of Christ, to the fruitful virginity of Mary and to all the saints, and a petition for the forgiveness of sins. Leo X attached to it the remission of faults committed through human frailty in saying the Office. The 1910 edition prints it in Latin only (no. 423); this English is St John's, from the 1857 first edition (no. 142), and passes over the Latin's "crucified" before "Lord". ${ST_JOHN_1857}`,
+  }),
+  raccolta({
+    slug: "offering-of-the-precious-blood-in-troubled-times",
+    title:
+      "Offering of the Precious Blood in Troubled Times (Eternal Father, in union with all the heavenly host)",
+    edition: 1857,
+    pages: [350, 351],
+    body: [
+      "Eternal Father, in union with all the heavenly host, and with the Hearts of Jesus and of Mary, I would fain have offered to Thee from all eternity, and I here offer Thee for all eternity, the most Precious Blood of Jesus Christ, His infinite merits, and the merits of His Church, in discharge of my debt of sin, of the sin of the whole world, for the deliverance of the holy souls in purgatory, and in thanksgiving for that Thou hast granted to us, and to all who are at present in this world, and wilt grant to all who ever shall be, such gifts, graces, and mercies as redound to Thine own greater glory and the greater sanctification of souls in these present tribulations: and this although we have justly merited Thy divine chastisement. Moreover we give Thee thanks for that Thou hast formed of the whole world one Fold and one Shepherd, whereby all we who on earth live in the faith, hope, and charity of our Lord Jesus Christ shall meet together in heaven, to sing Thy divine mercies for ever and ever. Amen.",
+    ],
+    prayerType: "general",
+    category: "devotional",
+    occasions: ["times-of-trouble", "precious-blood", "all-souls"],
+    summary: `The "devout intention and offering" that the 1857 first edition of the Raccolta prints with its prayers for troubled times (no. 155): an offering to the Eternal Father, in union with the heavenly host and the Hearts of Jesus and Mary, of the Precious Blood and merits of Christ and the merits of his Church, for the sins of the world and the holy souls, with thanks for God's mercies and for the one Fold under one Shepherd. Pius IX indulgenced the prayers, or this offering made on its own, by autograph rescript in 1848, especially for times of trouble; the offering is not in the 1910 edition. ${ST_JOHN_1857}`,
   }),
 ];
