@@ -15,6 +15,8 @@ import { guideEyebrow } from "@/lib/content-shared/guide-categories";
 import { formatDurationMinutes } from "@/lib/content-shared/field-presenters";
 import { toGuideSteps } from "@/lib/content-shared/structured-content";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { displayItem } from "@/lib/translation/display";
+import { localizeItem } from "@/lib/translation/localize";
 import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
 
 export const dynamic = "force-dynamic";
@@ -46,18 +48,25 @@ function stringList(payload: Record<string, unknown>, key: string): string[] {
  */
 export default async function GuideDetailPage({ params }: Props) {
   const { slug } = await params;
-  const guide = await getPublishedBySlug("GUIDE", slug);
+  const guide = await localizeItem(await getPublishedBySlug("GUIDE", slug));
   if (!guide) notFound();
 
   const payload = guide.payload;
+  // What the reader sees, in their language (src/lib/translation); slugs and
+  // links keep reading the stored payload.
+  const shownGuide = displayItem(guide);
+  const shown = shownGuide.payload;
 
   // The guide's applicable prayers, in the order they are prayed — fetched so
   // they can be shown at the bottom as dropdowns with a universal language
   // (English / Latin / Greek) toggle, and so prayer names inside the steps
   // become inline-expandable.
   const relatedSlugs = stringList(payload, "relatedPrayers");
-  const fetched = await Promise.all(relatedSlugs.map((s) => getPublishedBySlug("PRAYER", s)));
+  const fetched = await Promise.all(
+    relatedSlugs.map(async (s) => localizeItem(await getPublishedBySlug("PRAYER", s))),
+  );
   const prayers: GuidePrayerData[] = fetched
+    .map((p) => (p ? displayItem(p) : null))
     .map((p) =>
       p ? { slug: p.slug, title: p.title, variants: buildPrayerVariants(p.payload) } : null,
     )
@@ -69,12 +78,12 @@ export default async function GuideDetailPage({ params }: Props) {
     resolveRelatedLinks("SAINT", payload.relatedSaints),
   ]);
 
-  const steps = toGuideSteps(payload.steps) ?? [];
-  const summary = stringField(payload, "summary");
-  const intro = stringField(payload, "intro");
-  const whenToPray = stringField(payload, "whenToPray");
-  const whatYouNeed = stringList(payload, "whatYouNeed");
-  const tips = stringList(payload, "tips");
+  const steps = toGuideSteps(shown.steps) ?? [];
+  const summary = stringField(shown, "summary");
+  const intro = stringField(shown, "intro");
+  const whenToPray = stringField(shown, "whenToPray");
+  const whatYouNeed = stringList(shown, "whatYouNeed");
+  const tips = stringList(shown, "tips");
   const durationMinutes =
     typeof payload.durationMinutes === "number" ? payload.durationMinutes : null;
   // "6 steps · About 20 minutes" — the duration is a chip in the header, never
@@ -91,13 +100,15 @@ export default async function GuideDetailPage({ params }: Props) {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="vf-eyebrow">{guideEyebrow(payload)}</p>
-              <h1 className="mt-2 font-display text-4xl text-ink">{guide.title}</h1>
-              {guide.subtitle ? (
-                <p className="mt-1 font-serif text-base italic text-ink-soft">{guide.subtitle}</p>
+              <h1 className="mt-2 font-display text-4xl text-ink">{shownGuide.title}</h1>
+              {shownGuide.subtitle ? (
+                <p className="mt-1 font-serif text-base italic text-ink-soft">
+                  {shownGuide.subtitle}
+                </p>
               ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-2 pt-1">
-              <ShareButton title={guide.title} text={summary ?? guide.title} />
+              <ShareButton title={shownGuide.title} text={summary ?? shownGuide.title} />
             </div>
           </div>
           {summary ? (

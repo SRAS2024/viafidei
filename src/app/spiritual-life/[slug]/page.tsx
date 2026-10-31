@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { PublishedDetail, RelatedContentLinks, resolveRelatedLinks } from "@/components/ui";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { localizeItem } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SpiritualLifeDetailPage({ params }: Props) {
   const { slug } = await params;
-  const practice = await getPublishedBySlug("SPIRITUAL_PRACTICE", slug);
+  const practice = await localizeItem(await getPublishedBySlug("SPIRITUAL_PRACTICE", slug));
   if (practice) {
     // Slug lists resolved to titled links; PublishedDetail refuses to print them raw.
     const [prayers, saints] = await Promise.all([
@@ -39,7 +40,7 @@ export default async function SpiritualLifeDetailPage({ params }: Props) {
     );
   }
   // Guides moved to their own /guides tab — preserve any old links.
-  const guide = await getPublishedBySlug("GUIDE", slug);
+  const guide = await localizeItem(await getPublishedBySlug("GUIDE", slug));
   if (guide) redirect(`/guides/${slug}`);
   notFound();
 }

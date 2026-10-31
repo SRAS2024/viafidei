@@ -10,6 +10,7 @@ import {
   type GuidePrayerData,
 } from "@/components/ui";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { localizeItem } from "@/lib/translation/localize";
 import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ const NOVENA_COMMON_PRAYERS = ["our-father", "hail-mary", "glory-be"];
 
 export default async function NovenaDetailPage({ params }: Props) {
   const { slug } = await params;
-  const item = await getPublishedBySlug("NOVENA", slug);
+  const item = await localizeItem(await getPublishedBySlug("NOVENA", slug));
   if (!item) notFound();
 
   const related = Array.isArray(item.payload.relatedPrayers)

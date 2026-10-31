@@ -13,6 +13,7 @@ import {
   getAnyPublishedBySlug,
   buildPublishedMetadata,
 } from "@/lib/data/published";
+import { localizeItem } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SpiritualGuidanceDetailPage({ params }: Props) {
   const { slug } = await params;
-  const marian = await getPublishedBySlug("MARIAN_TITLE", slug);
+  const marian = await localizeItem(await getPublishedBySlug("MARIAN_TITLE", slug));
   if (marian) {
     // The payload's cross-references are slugs; resolved here into titled
     // links so the page never prints "our-lady-of-lourdes" as text.
@@ -54,7 +55,7 @@ export default async function SpiritualGuidanceDetailPage({ params }: Props) {
       />
     );
   }
-  const apparition = await getPublishedBySlug("APPARITION", slug);
+  const apparition = await localizeItem(await getPublishedBySlug("APPARITION", slug));
   if (apparition) {
     const titles = await resolveRelatedLinks(
       "MARIAN_TITLE",

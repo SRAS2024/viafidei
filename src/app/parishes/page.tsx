@@ -1,5 +1,6 @@
 import { FilterChips, LIST_PAGE_SIZE, PageHero, Pagination, parsePageParam } from "@/components/ui";
 import { countPublishedBySubtype, listParishPage } from "@/lib/data/published";
+import { localizeParishes } from "@/lib/translation/localize";
 import { PARISH_FILTERS, resolveParishFilter } from "@/lib/content-shared/parish";
 
 import { ParishLocator } from "./ParishLocator";
@@ -100,7 +101,7 @@ export default async function ParishesPage({
         </div>
       ) : (
         <>
-          <ParishLocator parishes={result.items} total={result.total} />
+          <ParishLocator parishes={await localizeParishes(result.items)} total={result.total} />
           <Pagination
             basePath="/parishes"
             page={result.page}

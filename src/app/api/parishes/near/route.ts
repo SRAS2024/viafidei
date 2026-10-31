@@ -1,6 +1,7 @@
 import { type NextRequest } from "next/server";
 
 import { listParishesNear } from "@/lib/data/published";
+import { localizeParishes } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +86,8 @@ export async function GET(req: NextRequest) {
       const items = await listParishesNear({ latitude, longitude, radiusMiles, take: TAKE });
       if (items.length > 0) {
         return body({
-          items,
+          // Names in another script are translated for this reader (rule b).
+          items: await localizeParishes(items),
           total: items.length,
           requestedRadiusMiles,
           radiusMiles,

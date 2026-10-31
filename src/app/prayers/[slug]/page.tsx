@@ -11,6 +11,8 @@ import {
 import { buildPrayerVariants } from "@/lib/content-shared/prayer-language";
 import { categorizePrayer, prayerCategoryLabel } from "@/lib/content-shared/prayer-categories";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { displayItem } from "@/lib/translation/display";
+import { localizeItem } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -54,26 +56,33 @@ function hostOf(url: string): string {
 
 export default async function PrayerDetailPage({ params }: Props) {
   const { slug } = await params;
-  const prayer = await getPublishedBySlug("PRAYER", slug);
+  const prayer = await localizeItem(await getPublishedBySlug("PRAYER", slug));
   if (!prayer) notFound();
 
   const payload = prayer.payload;
+  // What the reader sees, in their language (src/lib/translation); the logic
+  // below (category, official-text comparison) keeps reading the stored text.
+  const shown = displayItem(prayer);
   // Knowledge-base prayers store the text in `body`; worker-extracted prayers
   // use `prayerText`. Accept either so the prayer text always renders.
   const body =
     (payload.body as string | undefined) ?? (payload.prayerText as string | undefined) ?? "";
-  const variants = buildPrayerVariants(payload);
-  const summary = payload.summary as string | undefined;
+  const variants = buildPrayerVariants(shown.payload);
+  const summary = shown.payload.summary as string | undefined;
 
   // The official text is shown ONLY when it is genuinely a different text from
   // the one already on the page — otherwise the reader saw the same prayer in
   // a grey box and then again below it.
   const officialRaw = typeof payload.officialPrayer === "string" ? payload.officialPrayer : "";
   const officialPrayer =
-    officialRaw.trim() && !variants.some((v) => sameText(v.text, officialRaw)) ? officialRaw : null;
+    officialRaw.trim() && !buildPrayerVariants(payload).some((v) => sameText(v.text, officialRaw))
+      ? officialRaw
+      : null;
 
-  const occasions = Array.isArray(payload.occasions)
-    ? payload.occasions.filter((o): o is string => typeof o === "string" && o.trim().length > 0)
+  const occasions = Array.isArray(shown.payload.occasions)
+    ? shown.payload.occasions.filter(
+        (o): o is string => typeof o === "string" && o.trim().length > 0,
+      )
     : [];
   const relatedSaints = await resolveRelatedLinks("SAINT", payload.relatedSaints);
   const citations = httpCitations(payload.citations);
@@ -95,13 +104,13 @@ export default async function PrayerDetailPage({ params }: Props) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="vf-eyebrow">{categoryLabel}</p>
-            <h1 className="mt-2 font-display text-4xl text-ink">{prayer.title}</h1>
-            {prayer.subtitle ? (
-              <p className="mt-1 font-serif text-base italic text-ink-soft">{prayer.subtitle}</p>
+            <h1 className="mt-2 font-display text-4xl text-ink">{shown.title}</h1>
+            {shown.subtitle ? (
+              <p className="mt-1 font-serif text-base italic text-ink-soft">{shown.subtitle}</p>
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-1">
-            <ShareButton title={prayer.title} text={summary ?? prayer.title} />
+            <ShareButton title={shown.title} text={summary ?? shown.title} />
             <SaveContentButton contentType="PRAYER" slug={slug} />
           </div>
         </div>

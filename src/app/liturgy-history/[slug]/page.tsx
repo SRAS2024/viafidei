@@ -12,6 +12,7 @@ import {
   getAnyPublishedBySlug,
   buildPublishedMetadata,
 } from "@/lib/data/published";
+import { localizeItem } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function LiturgyHistoryDetailPage({ params }: Props) {
   const { slug } = await params;
-  const liturgy = await getPublishedBySlug("LITURGICAL", slug);
+  const liturgy = await localizeItem(await getPublishedBySlug("LITURGICAL", slug));
   if (liturgy) {
     // associatedSaintSlugs is a slug list — resolved to titled saint links.
     const saints = await resolveRelatedLinks("SAINT", liturgy.payload.associatedSaintSlugs);
@@ -52,7 +53,7 @@ export default async function LiturgyHistoryDetailPage({ params }: Props) {
       />
     );
   }
-  const document = await getPublishedBySlug("CHURCH_DOCUMENT", slug);
+  const document = await localizeItem(await getPublishedBySlug("CHURCH_DOCUMENT", slug));
   if (document) {
     // The canonical URL is the document ON vatican.va — a link, not a line of
     // text under a "Canonical Url" heading.

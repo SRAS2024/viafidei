@@ -7,6 +7,7 @@ import {
   parsePageParam,
 } from "@/components/ui";
 import { listPublished } from "@/lib/data/published";
+import { localizeItems } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Novenas" };
@@ -28,7 +29,11 @@ export default async function NovenasPage({
         title="Novenas"
         subtitle="Nine-day novenas — each day opens in its own dropdown with the full prayer."
       />
-      <PublishedList items={page.items} baseHref="/novenas" eyebrowField="intentionTheme" />
+      <PublishedList
+        items={await localizeItems(page.items, { depth: "card" })}
+        baseHref="/novenas"
+        eyebrowField="intentionTheme"
+      />
       <Pagination basePath="/novenas" page={page.page} totalPages={page.pageCount} />
     </div>
   );

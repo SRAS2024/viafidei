@@ -15,6 +15,7 @@ import {
 } from "@/lib/content-shared/guide-categories";
 import { applyPayloadFilter, resolvePayloadFilter } from "@/lib/content-shared/payload-filter";
 import { countPublishedBySubtype, listPublished } from "@/lib/data/published";
+import { localizeItems } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Guides" };
@@ -70,7 +71,7 @@ export default async function GuidesPage({
           {/* The eyebrow is the human label for the guide's kind — never the
               stored enum (`lent_preparation`, `rcia`, `general`). */}
           <PublishedList
-            items={page.items}
+            items={await localizeItems(page.items, { depth: "card" })}
             baseHref="/guides"
             eyebrowFor={(item) => guideEyebrow(entryPayload(item))}
           />

@@ -5,6 +5,7 @@ import { SaveContentButton } from "@/components/profile";
 import { ShareButton } from "@/components/ui";
 import { ParishCard } from "@/components/ui/ParishCard";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { localizeParishes } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -38,24 +39,29 @@ export default async function ParishDetailPage({ params }: Props) {
   if (!item) notFound();
 
   const payload = item.payload as Record<string, unknown>;
+  // The name and country as this reader should see them (rule b: a name in
+  // another script is translated, with the original beside it).
+  const [shown] = await localizeParishes([
+    { title: item.title, country: text(payload, "country"), payload },
+  ]);
   const latitude = typeof payload.latitude === "number" ? payload.latitude : null;
   const longitude = typeof payload.longitude === "number" ? payload.longitude : null;
 
   return (
     <ParishCard
       variant="detail"
-      name={item.title}
+      name={shown!.title}
       address={text(payload, "address")}
       city={text(payload, "city")}
       state={text(payload, "state")}
-      country={text(payload, "country")}
+      country={shown!.country}
       latitude={latitude}
       longitude={longitude}
       website={text(payload, "website")}
       // Controls, not parish information: saving and sharing stay available.
       action={
         <>
-          <ShareButton title={item.title} />
+          <ShareButton title={shown!.title} />
           <SaveContentButton contentType="PARISH" slug={slug} />
         </>
       }

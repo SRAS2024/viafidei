@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PublishedDetail, RelatedContentLinks, resolveRelatedLinks } from "@/components/ui";
 import { SaveContentButton } from "@/components/profile";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { localizeItem } from "@/lib/translation/localize";
 import { saintEyebrow } from "@/lib/content-shared/saints";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SaintDetailPage({ params }: Props) {
   const { slug } = await params;
-  const item = await getPublishedBySlug("SAINT", slug);
+  const item = await localizeItem(await getPublishedBySlug("SAINT", slug));
   if (!item) notFound();
   // Cross-references are slug lists; resolved here so the page shows titles.
   const [prayers, devotions] = await Promise.all([

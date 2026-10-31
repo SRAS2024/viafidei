@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PublishedDetail, RelatedContentLinks, resolveRelatedLinks } from "@/components/ui";
 import { SaveContentButton } from "@/components/profile";
 import { getPublishedBySlug, buildPublishedMetadata } from "@/lib/data/published";
+import { localizeItem } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function DevotionDetailPage({ params }: Props) {
   const { slug } = await params;
-  const item = await getPublishedBySlug("DEVOTION", slug);
+  const item = await localizeItem(await getPublishedBySlug("DEVOTION", slug));
   if (!item) notFound();
   // relatedPrayers / relatedSaints are slug lists. Resolving them here is what
   // lets PublishedDetail refuse to print them: the reader gets titled links,

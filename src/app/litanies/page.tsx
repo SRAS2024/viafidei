@@ -7,6 +7,7 @@ import {
 } from "@/components/ui";
 import { getTranslator } from "@/lib/i18n/server";
 import { listPublishedPage } from "@/lib/data/published";
+import { localizeItems } from "@/lib/translation/localize";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Litanies" };
@@ -43,7 +44,11 @@ export default async function LitaniesPage({
         </div>
       ) : (
         <>
-          <PublishedList items={result.items} baseHref="/prayers" eyebrowFor={() => "Litany"} />
+          <PublishedList
+            items={await localizeItems(result.items, { depth: "card" })}
+            baseHref="/prayers"
+            eyebrowFor={() => "Litany"}
+          />
           <Pagination basePath="/litanies" page={result.page} totalPages={result.pageCount} />
         </>
       )}

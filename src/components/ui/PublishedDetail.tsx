@@ -4,6 +4,7 @@
  */
 
 import { contentTypeLabel, type PublishedItem } from "@/lib/data/published";
+import { displayItem } from "@/lib/translation/display";
 import { documentDatePrecision } from "@/lib/content-shared/church-history/timeline";
 import { formatHistoryDate } from "@/lib/content-shared/church-history/types";
 import { toDisclosureItems } from "@/lib/content-shared/structured-content";
@@ -224,7 +225,10 @@ export function PublishedDetail({
   footer,
   eyebrow,
 }: PublishedDetailProps) {
-  const payload = item.payload;
+  // The reader's language when the item carries a translation overlay
+  // (src/lib/translation); the item itself otherwise.
+  const shown = displayItem(item);
+  const payload = shown.payload;
   const summary = payload.summary as string | undefined;
   // The eyebrow is a word, not an enum: "MARIAN_TITLE" used to print here.
   // `subtype` refines it (a PRAYER whose prayerType is "litany" reads "Litany").
@@ -318,13 +322,13 @@ export function PublishedDetail({
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="vf-eyebrow">{eyebrowLabel}</p>
-            <h1 className="mt-2 font-display text-4xl text-ink">{item.title}</h1>
-            {item.subtitle ? (
-              <p className="mt-1 font-serif text-base italic text-ink-soft">{item.subtitle}</p>
+            <h1 className="mt-2 font-display text-4xl text-ink">{shown.title}</h1>
+            {shown.subtitle ? (
+              <p className="mt-1 font-serif text-base italic text-ink-soft">{shown.subtitle}</p>
             ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-1">
-            <ShareButton title={item.title} text={summary ?? item.title} />
+            <ShareButton title={shown.title} text={summary ?? shown.title} />
             {action}
           </div>
         </div>
