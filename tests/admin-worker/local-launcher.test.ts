@@ -106,6 +106,7 @@ case "$cmd" in
     export RAILWAY_SERVICE_NAME="$svc"
     export RAILWAY_PUBLIC_DOMAIN="viafidei.up.railway.app"
     export PRISMA_CONNECTION_LIMIT="10"
+    export PRISMA_STATEMENT_TIMEOUT="30"
     exec "$@" ;;
   *) echo "stub: unknown command $cmd" >&2; exit 1 ;;
 esac
@@ -193,6 +194,10 @@ async function launch(opts: {
     "DATABASE_URL",
     "PUBLIC_BASE_URL",
     "PRISMA_CONNECTION_LIMIT",
+    "PRISMA_STATEMENT_TIMEOUT",
+    "PRISMA_SOCKET_TIMEOUT",
+    "VIAFIDEI_DB_STATEMENT_TIMEOUT",
+    "VIAFIDEI_DB_SOCKET_TIMEOUT",
     "VIAFIDEI_ALLOW_LOCAL_DB",
     "VIAFIDEI_RAILWAY_SERVICE",
     "VIAFIDEI_RAILWAY_ENVIRONMENT",
@@ -278,6 +283,9 @@ describe("launch-worker-host.sh — Railway branch", () => {
     expect(r.hostEnv.RAILWAY_ENVIRONMENT_NAME).toBe("production");
     // The supervisor keeps a small pool even though the service variable says 10.
     expect(r.hostEnv.PRISMA_CONNECTION_LIMIT).toBe("3");
+    // ...and its own query timeouts, whatever the web service's variables say.
+    expect(r.hostEnv.PRISMA_STATEMENT_TIMEOUT).toBe("120");
+    expect(r.hostEnv.PRISMA_SOCKET_TIMEOUT).toBe("150");
     // `railway run` was given the service AND environment, after a dry run.
     const runs = r.calls.filter((c) => c.startsWith("run "));
     expect(runs).toHaveLength(2);
@@ -435,5 +443,22 @@ describe("launch-worker-host.sh — process defaults", () => {
     });
     expect(r.hostEnv.INTELLIGENCE_PYTHON).toBe("/custom/python");
     expect(r.hostEnv.PRISMA_CONNECTION_LIMIT).toBe("5");
+  });
+
+  it("gives the host's pool query timeouts by default, tunable and switchable off", async () => {
+    const defaults = await launch({ env: { STUB_LOGGED_IN: "0" }, linkFile: false });
+    expect(defaults.hostEnv.PRISMA_STATEMENT_TIMEOUT).toBe("120");
+    expect(defaults.hostEnv.PRISMA_SOCKET_TIMEOUT).toBe("150");
+
+    const tuned = await launch({
+      env: {
+        STUB_LOGGED_IN: "0",
+        VIAFIDEI_DB_STATEMENT_TIMEOUT: "0",
+        VIAFIDEI_DB_SOCKET_TIMEOUT: "600",
+      },
+      linkFile: false,
+    });
+    expect(tuned.hostEnv.PRISMA_STATEMENT_TIMEOUT).toBe("0");
+    expect(tuned.hostEnv.PRISMA_SOCKET_TIMEOUT).toBe("600");
   });
 });

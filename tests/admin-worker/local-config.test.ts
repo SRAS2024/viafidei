@@ -5,6 +5,9 @@
  * lease-renewal jitter, worker exit classification and the launcher notice
  * line the Swift app parses.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -16,6 +19,9 @@ import {
   parseLauncherLine,
   resolvePublicBaseUrl,
   summarizeDatabaseError,
+  workerQueryTimeoutEnv,
+  WORKER_SOCKET_TIMEOUT_S,
+  WORKER_STATEMENT_TIMEOUT_S,
   type DatabaseProbe,
 } from "@/lib/admin-worker/local-config";
 
@@ -256,5 +262,46 @@ describe("summarizeDatabaseError", () => {
     );
     expect(summarizeDatabaseError("plain string")).toBe("plain string");
     expect(summarizeDatabaseError(new Error(""))).toBe("database error");
+  });
+});
+
+describe("workerQueryTimeoutEnv (the worker child's query timeouts)", () => {
+  it("defaults to a 120 s statement timeout under a 150 s socket timeout", () => {
+    expect(workerQueryTimeoutEnv({})).toEqual({
+      PRISMA_STATEMENT_TIMEOUT: "120",
+      PRISMA_SOCKET_TIMEOUT: "150",
+    });
+    // Postgres cancels first (a clean error); the socket timeout is only for
+    // a connection that can no longer deliver an answer at all.
+    expect(WORKER_SOCKET_TIMEOUT_S).toBeGreaterThan(WORKER_STATEMENT_TIMEOUT_S);
+  });
+
+  it("is tunable, switchable off with 0, and defaults on blank or junk", () => {
+    expect(
+      workerQueryTimeoutEnv({
+        VIAFIDEI_DB_STATEMENT_TIMEOUT: "300",
+        VIAFIDEI_DB_SOCKET_TIMEOUT: "0",
+      }),
+    ).toEqual({ PRISMA_STATEMENT_TIMEOUT: "300", PRISMA_SOCKET_TIMEOUT: "0" });
+    expect(
+      workerQueryTimeoutEnv({
+        VIAFIDEI_DB_STATEMENT_TIMEOUT: " ",
+        VIAFIDEI_DB_SOCKET_TIMEOUT: "x",
+      }),
+    ).toEqual({ PRISMA_STATEMENT_TIMEOUT: "120", PRISMA_SOCKET_TIMEOUT: "150" });
+  });
+
+  it("the host hands them to the worker child, and the long statements run without them", () => {
+    const host = readFileSync(join(process.cwd(), "scripts/local-worker-host.ts"), "utf8");
+    expect(host).toContain("...workerQueryTimeoutEnv(),");
+    const cleanup = readFileSync(join(process.cwd(), "src/lib/admin-worker/cleanup.ts"), "utf8");
+    expect(cleanup).toContain(
+      "withoutQueryTimeouts(prisma, (db) => vacuumLedgerTables(db, toVacuum))",
+    );
+    const monthly = readFileSync(
+      join(process.cwd(), "src/lib/admin-worker/monthly-report-job.ts"),
+      "utf8",
+    );
+    expect(monthly).toMatch(/withoutQueryTimeouts\(prisma, async \(db\) => \(\{/);
   });
 });

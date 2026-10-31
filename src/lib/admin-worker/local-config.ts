@@ -213,6 +213,46 @@ export function leaseRenewDelayMs(baseMs: number, random: () => number = Math.ra
 }
 
 /**
+ * Query timeouts for the local worker runtime, in seconds (db/client.ts turns
+ * them into `statement_timeout` and `socket_timeout`). Without them a query
+ * stuck behind a lock, or on a connection that went half-open when the Mac
+ * slept, held its pooled connection — and the pass around it — forever.
+ *
+ * 120 s is far above anything a pass needs: its reads are bounded findMany /
+ * count / upsert calls of milliseconds to seconds, and the two statements that
+ * can legitimately run for minutes (a VACUUM of a large ledger table, the
+ * monthly report's month of log rows) run without the timeouts. The socket
+ * timeout sits above it, so a slow statement is cancelled by Postgres (a clean
+ * error) and the socket timeout only fires when no answer can arrive at all.
+ */
+export const WORKER_STATEMENT_TIMEOUT_S = 120;
+export const WORKER_SOCKET_TIMEOUT_S = 150;
+
+/**
+ * The PRISMA_* variables the host hands its worker child, from
+ * VIAFIDEI_DB_STATEMENT_TIMEOUT / VIAFIDEI_DB_SOCKET_TIMEOUT (seconds). Unset,
+ * blank or not a number means the default; "0" turns that timeout off.
+ */
+export function workerQueryTimeoutEnv(env: NodeJS.ProcessEnv = process.env): {
+  PRISMA_STATEMENT_TIMEOUT: string;
+  PRISMA_SOCKET_TIMEOUT: string;
+} {
+  const seconds = (raw: string | undefined, fallback: number): string => {
+    const text = (raw ?? "").trim();
+    const n = text === "" ? NaN : Number(text);
+    if (!Number.isFinite(n) || n < 0) return String(fallback);
+    return String(Math.ceil(n));
+  };
+  return {
+    PRISMA_STATEMENT_TIMEOUT: seconds(
+      env.VIAFIDEI_DB_STATEMENT_TIMEOUT,
+      WORKER_STATEMENT_TIMEOUT_S,
+    ),
+    PRISMA_SOCKET_TIMEOUT: seconds(env.VIAFIDEI_DB_SOCKET_TIMEOUT, WORKER_SOCKET_TIMEOUT_S),
+  };
+}
+
+/**
  * One useful line out of a Prisma/network error. Prisma's first line is the
  * bare "Invalid `prisma.$queryRaw()` invocation:" — the cause ("Can't reach
  * database server at …", "You must provide a nonempty URL …") comes later.

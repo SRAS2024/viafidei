@@ -93,6 +93,7 @@ import {
   leaseRenewDelayMs,
   resolvePublicBaseUrl,
   summarizeDatabaseError,
+  workerQueryTimeoutEnv,
   type DatabaseProbe,
 } from "../src/lib/admin-worker/local-config";
 import {
@@ -521,6 +522,9 @@ function startWorkerChild(): void {
         // The launcher pins this supervisor's pool at 3; the worker does the
         // real work and gets the full pool (lanes concurrency 8 + pass + heartbeat).
         PRISMA_CONNECTION_LIMIT: process.env.VIAFIDEI_WORKER_CONNECTION_LIMIT ?? "10",
+        // Statement + socket timeouts (local-config.ts): no query of the
+        // worker's may hold a pooled connection, or its pass, forever.
+        ...workerQueryTimeoutEnv(),
         // The host renews the lease (with jitter) and writes the heartbeat on
         // its tick; the child only needs to CHECK the lease, not rewrite it.
         VIAFIDEI_LEASE_RENEWED_BY_HOST: "1",

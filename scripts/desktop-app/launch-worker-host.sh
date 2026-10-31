@@ -73,6 +73,14 @@ fi
 HOST_CONNECTION_LIMIT="${VIAFIDEI_HOST_CONNECTION_LIMIT:-3}"
 export PRISMA_CONNECTION_LIMIT="${PRISMA_CONNECTION_LIMIT:-$HOST_CONNECTION_LIMIT}"
 
+# Query timeouts for the host's own pool, in seconds (src/lib/db/client.ts):
+# Postgres cancels a statement after PRISMA_STATEMENT_TIMEOUT, and the client
+# gives up on a half-open connection after PRISMA_SOCKET_TIMEOUT. The worker
+# child gets the same values from the host (local-config.ts). 0 turns one off.
+# Re-applied inside the `railway run` wrapper for the same reason as the pool.
+export PRISMA_STATEMENT_TIMEOUT="${VIAFIDEI_DB_STATEMENT_TIMEOUT:-120}"
+export PRISMA_SOCKET_TIMEOUT="${VIAFIDEI_DB_SOCKET_TIMEOUT:-150}"
+
 # The Python intelligence brain needs a 3.11 interpreter with its packages.
 # Prefer the Homebrew 3.11 when it exists and nothing was configured; otherwise
 # leave the variable unset so the client's own resolver decides.
@@ -278,8 +286,11 @@ EOF
     if [ -z "${PUBLIC_BASE_URL:-}" ] && [ -n "${RAILWAY_PUBLIC_DOMAIN:-}" ]; then
       export PUBLIC_BASE_URL="https://$RAILWAY_PUBLIC_DOMAIN"
     fi
-    # Injected service variables must not enlarge the supervisor pool.
+    # Injected service variables must not enlarge the supervisor pool, nor
+    # replace its query timeouts with whatever the web service uses.
     export PRISMA_CONNECTION_LIMIT="${VIAFIDEI_HOST_CONNECTION_LIMIT:-3}"
+    export PRISMA_STATEMENT_TIMEOUT="${VIAFIDEI_DB_STATEMENT_TIMEOUT:-120}"
+    export PRISMA_SOCKET_TIMEOUT="${VIAFIDEI_DB_SOCKET_TIMEOUT:-150}"
 
     printf "{\"viafideiLauncher\":{\"level\":\"info\",\"message\":\"%s\",\"source\":\"railway\",\"route\":\"%s\",\"environment\":\"%s\",\"service\":\"%s\",\"databaseHost\":\"%s\"}}\n" \
       "$(json_escape "configuration from Railway (${RAILWAY_ENVIRONMENT_NAME:-$VIAFIDEI_RAILWAY_ENV} / $VIAFIDEI_RAILWAY_WEB_SERVICE); db via $VIAFIDEI_DB_ROUTE")" \
